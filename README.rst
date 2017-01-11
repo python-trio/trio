@@ -9,6 +9,7 @@ until we have real programs, b/c we'd rather not get into a fight over
 who has the fastest echo server in the west.
 
 minimal (TOOWTDI), layered design
+-> as a way to minimize the tension between stability and experimentation
 (e.g., there is only one *built-in* synchronization primitive, the
 ParkingLot; we provide the standard set of primitives like locks,
 queues, etc. built on top of it, but you can pretty easily write your
