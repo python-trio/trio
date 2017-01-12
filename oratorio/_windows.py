@@ -28,3 +28,10 @@
 # https://msdn.microsoft.com/en-us/library/windows/desktop/ms740087(v=vs.85).aspx
 # says that after you cancel a socket operation, the only valid operation is
 # to immediately close that socket. this isn't mentioned anywhere else though...
+
+
+
+# We *always* need to check for cancellation before issuing an IOCP call
+# so: let's have the lowest-level API be one where you do some standard prep
+# -- associate object w/ IOCP and fetch OVERLAPPED? -- and that checks for
+# cancellation.
