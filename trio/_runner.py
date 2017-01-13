@@ -1,35 +1,22 @@
 import inspect
 import threading
-import itertools
 import enum
 from collections import deque
 from time import monotonic
 
 from sortedcontainers import sorteddict
 
-from ._signal import sigmask
+import oratorio
+import oratorio.hazmat
+from ._exceptions import (
+    InternalError, Cancelled, TaskCancelled, TimeoutCancelled,
+    TaskCrashedError)
 from ._result import Result, Error, Value
-
-class WouldBlock(Exception):
-    pass
-
-class Cancelled(Exception):
-    partial_result = None
-    interrupt = None  # XX
-
-@attr.s
-class SendallPartialResult:
-    bytes_sent = attr.ib()
-
-class TaskCancelled(Cancelled):
-    pass
-
-class TimeoutCancelled(Cancelled):
-    pass
-
+import ._io
+from ._api import GLOBAL_RUN_CONTEXT, publish, publish_runner_method
 
 class SystemClock:
-    def now(self):
+    def current_time(self):
         return monotonic()
 
     def deadline_to_sleep_time(self, deadline):
@@ -117,28 +104,6 @@ async with mask_cancellations as mask1:
 # a different rule could be: daemon tasks can only spawn daemon tasks, never
 # regular tasks.
 
-# Result etc. are public; join returns one of them. This distinguishes between
-# errors in join/join_nowait (e.g. WouldBlock) versus errors inside the task.
-
-# crashes are wrapped in a TaskCrashedError with __cause__
-# any exceptions inside actual runner are converted into InternalError (bug!)
-
-# final result is... a Result? or do we unwrap it?
-
-# spawn being synchronous -> you can write
-#    task = await spawn(...)
-#    task.join()
-# and that's guaranteed not to crash, because join is listening
-
-# maybe *all* synchronous traps are actually method calls on a thread-local
-# global, except for spawn() (because it calls an async function)?
-#
-# and we can have a call_soon_threadsafe as the low-level primitive, maybe
-# have a call_from_thread that blocks (!) the thread as the preferred option.
-# NB to handle async acquisition of threading locks we need to be able to
-# issue multiple calls on the same thread. (curio abide() handles exactly
-# these two cases: sync call and sync context manager). So maybe a
-# WorkerThread primitive is best?
 
 # I started out with a DAEMON type as well, and the rules that:
 #
@@ -158,6 +123,7 @@ async with mask_cancellations as mask1:
 # - If a SYSTEM task crashes we exit immediately with InternalError.
 TaskType = enum.Enum("TaskType", "SYSTEM REGULAR")
 
+@publish(oratorio)
 @attr.s(slots=True)
 class Task:
     _type = attr.ib()
@@ -190,11 +156,28 @@ class Task:
         else:
             return self._task_result
 
+# ughh maybe we should just go back to the original masking solution. no
+# handler-based solution is going to handle well the case where some runaway
+# task is refusing to yield.
+def catch_SIGINT(_, _):
+    def raise_KeyboardInterrupt():
+        raise KeyboardInterrupt
+    call_soon_threadsafe(raise_KeyboardInterrupt)
+    signal.signal(signal.SIGINT, signal.default_int_handler)
+if signal.getsignal(signal.SIGINT) is
+signal
 
-_GLOBAL_RUN_CONTEXT = threading.local()
-
-class InternalError(Exception):
-    pass
+async def signal_handler_task(fn, args):
+    try:
+        if threading.current_thread() == threading.main_thread():
+            with catch_signals([signal.SIGINT]) as sigint_queue:
+                await spawn(fn, *args)
+                await sigint_queue.get()
+                raise KeyboardInterrupt
+        else:
+            await spawn(fn, *args)
+    except Cancelled:
+        pass
 
 # Container for the stuff that needs to be accessible for what would be
 # synchronous traps in curio.
@@ -216,9 +199,12 @@ class _Runner:
     _final_result = attr.ib(default=None)
     _crashing = attr.ib(default=False)
 
+    _call_soon_queue = attr.ib(default=attr.Factory(deque))
+
     def close(self):
         self._profiler.close()
         self._iomanager.close()
+        self._waker.close()
 
     def _crash(self, exc):
         # XX ergonomics: maybe KeyboardInterrupt should be preserved instead
@@ -245,6 +231,8 @@ class _Runner:
 
         if task is initial_task:
             self._final_result = Result.combine(self._final_result, result)
+            # Avoid pinning the Task object in memory:
+            self._initial_task = None
         elif type(result) is Error and not task.result_queues:
             if task._type is TaskType.REGULAR:
                 self._crash(result.error)
@@ -260,14 +248,36 @@ class _Runner:
             except BaseException as exc:
                 self._crash(exc)
 
-    # These are the underlying implementions for the corresponding
-    # user-exposed primitives:
-    def now(self):
-        return self._clock.now()
+    async def _call_soon_task(self):
+        while True:
+            await self._waker.until_woken()
+            while True:
+                # deque methods are documented to be thread-safe
+                fn, args = self._call_soon_queue.popleft()
+                try:
+                    fn(*args)
+                except BaseException as exc:
+                    self._crash(exc)
+                # XX do a sleep(0)
 
-    def profiler(self):
+    def _call_soon_threadsafe(self, fn, *args):
+        # deque methods are documented to be thread-safe
+        self._call_soon_queue.append((fn, args))
+        self._waker.wakeup_threadsafe()
+
+    @publish_runner_method(oratorio.hazmat)
+    def current_call_soon_threadsafe_func(self):
+        return self._call_soon_threadsafe
+
+    @publish_runner_method(oratorio)
+    def current_time(self):
+        return self._clock.current_time()
+
+    @publish_runner_method(oratorio)
+    def current_profiler(self):
         return self._profiler
 
+    @publish_runner_method(oratorio.hazmat)
     def reschedule(self, task, next_send=Value(None)):
         assert task._next_send is None
         task.state = "RUNNABLE"
@@ -275,9 +285,9 @@ class _Runner:
         task._interrupt = None
         self._runq.append(task)
 
-    def spawn(self, fn, args, *, type, result_queues=[]):
+    def _spawn(self, fn, args, *, type=TaskType.REGULAR, result_queues=[]):
         if not inspect.iscoroutinefunction(fn):
-            raise TypeError("spawn expected an async function")
+            raise TypeError("expected an async function")
         coro = fn(*args)
         task = Task(_type=type, coro=coro, result_queues=result_queues)
         self._tasks.add(task)
@@ -286,6 +296,11 @@ class _Runner:
         self.reschedule(task, Value(None))
         return task
 
+    @publish_runner_method(oratorio)
+    def spawn(self, fn, args, *, result_queues=[]):
+        return self._spawn(fn, args, result_queues=result_queues)
+
+@publish(oratorio)
 def run(fn, *args, *, clock=None, profiler=None):
     if clock is None:
         clock = SystemClock()
@@ -293,44 +308,40 @@ def run(fn, *args, *, clock=None, profiler=None):
         profiler = NullProfiler()
 
     # XX iomanager
-    # maybe XX threadsafe_waker
+    # XX threadsafe_waker
 
     runner = _Runner(_clock=clock, _profiler=profiler)
 
     # It wouldn't be *hard* to support nested calls to run(), but I can't
-    # think of a single good reason for it, so let's play it safe...
-    if hasattr(_GLOBAL_RUN_CONTEXT, "runner"):
+    # think of a single good reason for it, so let's be conservative for now:
+    if hasattr(GLOBAL_RUN_CONTEXT, "runner"):
         raise RuntimeError("Attempted to call run() from inside a run()")
-    _GLOBAL_RUN_CONTEXT.runner = runner
+    GLOBAL_RUN_CONTEXT.runner = runner
 
     try:
-        with closing(runner), \
-             sigmask(signal.SIG_BLOCK, signal.SIGINT) as original_sigmask:
+        with closing(runner):
             # The main reason this is split off into its own function is just
             # to get rid of this extra indentation.
-            result = _run(fn, args, runner, original_sigmask)
+            _run(runner, fn, args)
     except BaseException as exc:
-        raise InternalError from exc
+        raise InternalError(
+            "internal error in oratorio - please file a bug!") from exc
     finally:
-        _GLOBAL_RUN_CONTEXT.__dict__.clear()
+        GLOBAL_RUN_CONTEXT.__dict__.clear()
 
-    return result.unwrap()
+    return runner._final_result.unwrap()
 
 def _clamp(low, value, high):
     return min(max(low, value), high)
 
-def _run(fn, args, runner, original_sigmask):
+def _run(runner, fn, args):
     # Hide this giant function from pytest tracebacks
     __tracebackhide__ = True
 
-    initial_task = runner.spawn(fn, args, type=TaskType.REGULAR)
-    final_result = None
-    crash_unwinding = False
-
-    # XX two system tasks:
-    # - watch for cross-thread/signal wakeups
-    # - watch for SIGINT and raise KeyboardInterrupt (iff running on main
-    #   thread)
+    runner._spawn(runner._call_soon_threadsafe, type=TaskType.SYSTEM)
+    # This task takes responsibility for spawning the initial task, after it's
+    # set up the initial signal-handling stuff:
+    runner._spawn(runner._signal_handler_task, fn, args, type=TaskType.SYSTEM)
 
     while runner._tasks:
         if runner._runq:
@@ -341,16 +352,13 @@ def _run(fn, args, runner, original_sigmask):
             # 24 hours is arbitrary, but "long enough" that the spurious
             # wakeups it introduces shouldn't matter, and it avoids any
             # possible issue with integer overflow in the underlying system
-            # calls.
+            # calls (protects against people setting timeouts of 10**20 or
+            # whatever).
             timeout = _clamp(0, timeout, 24 * 60 * 60)
         else:
             timeout = -1
 
-        try:
-            with sigmask(signal.SIG_SETMASK, original_mask):
-                runner._iomanager.poll(timeout)
-        except KeyboardInterrupt as exc:
-            runner._crash(exc)
+        runner._iomanager.poll(timeout)
 
         # Process all runnable tasks, but wait for the next iteration
         # before processing tasks that become runnable now. This avoids
@@ -358,16 +366,12 @@ def _run(fn, args, runner, original_sigmask):
         # unbounded delay between successive checks for I/O.
         for _ in range(len(self._runq)):
             task = self._runq.popleft()
-            _GLOBAL_RUN_CONTEXT.task = task
+            GLOBAL_RUN_CONTEXT.task = task
             profiler.before_task_step(task)
             next_send = task._next_send
             task._next_send = None
             try:
-                with sigmask(signal.SIG_SETMASK, original_mask):
-                    msg = next_send.send(task.coro)
-                    # XX if the signal mask *changed* we want to preserve
-                    # that... should capture a new value for original_mask
-                    # here, or something like that.
+                msg = next_send.send(task.coro)
             except StopIteration as stop_iteration:
                 runner._task_finished(task, Value(stop_iteration.value))
             except BaseException as task_exc:
@@ -382,4 +386,8 @@ def _run(fn, args, runner, original_sigmask):
             # I/O commands... so just do that I guess.
             #
             # run the trap
-            del _GLOBAL_RUN_CONTEXT.task
+            del GLOBAL_RUN_CONTEXT.task
+
+@publish(oratorio)
+def current_task():
+    return GLOBAL_RUN_CONTEXT.task

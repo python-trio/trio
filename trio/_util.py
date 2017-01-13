@@ -1,13 +1,12 @@
-from functools import wraps
-
 class DispatchTable:
     def __init__(self):
         self._table = {}
 
     def implements(self, key):
-        def wrap(fn):
+        def capture(fn):
             self._table[key] = fn
             return fn
+        return capture
 
     def call(self, key, *args, **kwargs):
         return self._table[key](*args, **kwargs)

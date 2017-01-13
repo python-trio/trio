@@ -1,4 +1,7 @@
 # WorkerThread for pushing
+# (in particular need to be able to issue multiple commands on the same
+# thread, for two cases: (a) thread pool, (b) re-using the same backing thread
+# for multiple calls, like threading.Lock acquire/release.)
 
 # call_soon_threadsafe()
 # exceptions here panic the taskrunner

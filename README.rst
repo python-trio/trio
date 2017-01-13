@@ -57,3 +57,24 @@ admittedly this is a conceptual distinction rather than a strict
 technical one, e.g. we could set up a "spawn server" and then send
 spawn requests to it using synchronous calls to put_nowait, but we
 conjecture that it's a useful conceptual distinction.
+
+
+
+next:
+- fix sigint handling
+- implement cancellation
+- our queue:
+  - size should be mandatory argument, or Queue.UNBOUNDED
+  - get_all for supervisors (since they can't apply backpressure)
+- backpressure for thread calls
+  thread Queue with limited size, they put the thing into that and
+  then notify
+  listener when awoken, checks the queue size and then does get_nowait
+  to process exactly that many before sleeping again
+  - if we're going in on the blocking like this then maybe we *should*
+    make the blocking one be the only way... and we could even allow
+    it to call async code then, maybe, blocking for the result.
+- s/lowlevel/hazmat/
+- get rid of publish() for most uses
+- document the low-level API
+- make reschedule a method on task, and make tasks know their runner?

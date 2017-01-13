@@ -1,21 +1,7 @@
 import signal
 from contextlib import contextmanager
 
-# For now, this just has a little convenience thing to let us mask out SIGINT
-# while inside the task runner guts
-
-if hasattr(signal, "pthread_sigmask"):
-    @contextmanager
-    def sigmask(self, how, mask):
-        original = signal.pthread_sigmask(how, mask)
-        try:
-            yield original
-        finally:
-            signal.pthread_sigmask(signal.SIG_SETMASK, original)
-else:
-    @contextmanager
-    def sigmask(self, how, mask):
-        yield []
+from . import Queue
 
 # When we add signal handling for real:
 # - on Windows signals kind of don't exist?
@@ -38,3 +24,23 @@ else:
 # tentatively: stick with the annoying old signal-handler based way of doing
 # things and only allow it on the main thread. once we have
 # call_soon_threadsafe that does most of the work.
+
+@contextmanager
+def signal_handler(signals, handler):
+    original_handlers = {}
+    for signum in signals:
+        original_handlers[signum] = signal.signal(signum, handler)
+    try:
+        yield
+    finally:
+        for signum, original_handler in original_handlers.items():
+            signal.signal(signum, original_handler)
+
+@contextmanager
+def catch_signals(signals):
+    call_soon_threadsafe = current_call_soon_threadsafe_func()
+    queue = Queue()
+    def handler(signum, _):
+        call_soon_threadsafe(queue.put_nowait, signum)
+    with signal_handler(signals, handler):
+        yield queue
