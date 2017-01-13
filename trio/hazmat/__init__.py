@@ -1,10 +1,18 @@
+import threading as _threading
 from functools import update_wrapper as _update_wrapper
 import types as _types
-from . import _GLOBAL_RUN_CONTEXT
-import ._runner
-import ._io
+
+# Needs to be defined early so it can be imported:
+def _public(fn):
+    fn._public = True
+    return fn
 
 __all__ = []
+
+from ._runner import *
+__all__ += _runner.__all__
+
+from ._runner import _GLOBAL_RUN_CONTEXT
 
 _TEMPLATE = """\
 def exported(*args, **kwargs):
@@ -36,7 +44,7 @@ def _export_public(cls, path_to_instance):
             __all__.append(methname)
 
 _export_public(_runner.Runner, "runner")
-_export_public(_io.TheIOManager, "runner.io_manager")
+_export_public(_runner.TheIOManager, "runner.io_manager")
 
 def current_task():
     return _GLOBAL_RUN_CONTEXT.task

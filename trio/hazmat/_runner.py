@@ -1,19 +1,33 @@
 import inspect
 import enum
 from collections import deque
+import threading
+import queue as stdlib_queue
 from time import monotonic
+import os
 
 from sortedcontainers import sorteddict
 
-from ._exceptions import (
+from .._lib._exceptions import (
     InternalError, Cancelled, TaskCancelled, TimeoutCancelled,
     TaskCrashedError)
-import ._io
-from ._result import Result, Error, Value
-from ._util import public
-from . import _GLOBAL_RUN_CONTEXT
+from .._lib._result import Result, Error, Value
+from . import _public
 
 __all__ = ["Task", "run"]
+
+_GLOBAL_RUN_CONTEXT = _threading.local()
+
+if os.name == "nt":
+    from ._io_windows import IOCPIOManager as TheRunManager
+else:
+    try:
+        from ._io_unix import EpollIOManager as TheRunManager
+    except ImportError:
+        try:
+            from ._io_unix import KqueueIOManager as TheRunManager
+        except ImportError:
+            raise NotImplementedError("unsupported platform")
 
 class SystemClock:
     def current_time(self):
@@ -86,25 +100,6 @@ async with mask_cancellations as mask1:
 # new ones can still be added.
 
 
-# shutdown:
-# - a general rule: when you're cancelled it's still legal to spawn children,
-# but they need to finish in finite time (imagine they start cancelled)
-# - if there's a crash, we cancel all regular tasks (and more tasks might be
-# spawned in the future, but they are handled by the rule above)
-# - whenever we transition to no regular tasks, we cancel all daemonic tasks
-# - when the last daemonic task exits, we exit
-
-# ^^ this is not good enough, because daemon tasks can spawn regular tasks,
-# so a crash could cancel all regular tasks, then a new regular task could
-# arrive spawned by one of the daemon tasks.
-# the rule could be that when we crash, we cancel *all* regular+daemon
-# tasks... but I don't like that, because it means that in one this one
-# rare case, we create an unusual situation where daemon tasks can be missing,
-# which never happens otherwise.
-# a different rule could be: daemon tasks can only spawn daemon tasks, never
-# regular tasks.
-
-
 # I started out with a DAEMON type as well, and the rules that:
 #
 # - When all tasks of type X-or-higher have exited, then we cancel all tasks
@@ -121,6 +116,12 @@ async with mask_cancellations as mask1:
 # - When all REGULAR tasks have exited, we cancel all SYSTEM tasks.
 # - If a REGULAR task crashes, we cancel all REGULAR tasks (once).
 # - If a SYSTEM task crashes we exit immediately with InternalError.
+#
+# Also, the call_soon task can spawn REGULAR tasks, but it checks for crashing
+# and immediately cancels them (so they'll get an error at their first
+# cancellation point and can figure out what to do from there; for
+# await_in_main_thread this should be fine, the exception will propagate back
+# to the original thread).
 TaskType = enum.Enum("TaskType", "SYSTEM REGULAR")
 
 @attr.s(slots=True)
@@ -144,8 +145,9 @@ class Task:
 
     def join(self):
         if self._task_result is None:
+            # XX maybe write this differently
             q = Queue()
-            self._result_queues.add(q)
+            self.result_queues.add(q)
             await q.get()
         return self._task_result
 
@@ -162,7 +164,6 @@ class _Runner:
     clock = attr.ib()
     profiler = attr.ib()
     io_manager = attr.ib()
-    waker = attr.ib()
 
     runq = attr.ib(default=attr.Factory(deque))
     tasks = attr.ib(default=attr.Factory(set))
@@ -178,7 +179,6 @@ class _Runner:
     def close(self):
         self.profiler.close()
         self.io_manager.close()
-        self.waker.close()
 
     def crash(self, message, exc):
         # XX ergonomics: maybe KeyboardInterrupt should be preserved instead
@@ -222,17 +222,17 @@ class _Runner:
             except BaseException as exc:
                 self.crash("error notifying task watcher of task exit", exc)
 
-    # Methods marked with @public get converted into functions exported by
+    # Methods marked with @_public get converted into functions exported by
     # trio.hazmat:
-    @public
+    @_public
     def current_time(self):
         return self.clock.current_time()
 
-    @public
+    @_public
     def current_profiler(self):
         return self.profiler
 
-    @public
+    @_public
     def reschedule(self, task, next_send=Value(None)):
         assert task._next_send is None
         task.state = "RUNNABLE"
@@ -251,7 +251,7 @@ class _Runner:
         self.reschedule(task, Value(None))
         return task
 
-    @public
+    @_public
     async def spawn(self, fn, *args, *, result_queues=[]):
         return self.spawn_impl(fn, args, result_queues=result_queues)
 
@@ -268,9 +268,9 @@ class _Runner:
             if self.call_soon_done:
                 raise RuntimeError("run() has exited")
             self.call_soon_queue.put_nowait((fn, args, spawn))
-        self._waker.wakeup_threadsafe()
+        self.io_manager.wakeup_threadsafe()
 
-    @public
+    @_public
     def current_call_soon_thread_and_signal_safe(self):
         return self._call_soon
 
@@ -296,7 +296,7 @@ class _Runner:
                     for _ in range(self.call_soon_queue.qsize()):
                         call_next_or_raise_Empty()
                 except stdlib_queue.Empty:
-                    await self._waker.until_woken()
+                    await self.io_manager.until_woken()
                 else:
                     await XX sched_yield
         except Cancelled:
@@ -325,10 +325,8 @@ def run(fn, *args, *, clock=None, profiler=None):
             clock = SystemClock()
         if profiler is None:
             profiler = NullProfiler()
-        io_manager = _io.TheIOManager()
-        waker = _io.TheWaker()
-        runner = _Runner(
-            clock=clock, profiler=profiler, io_manager=io_manager, waker=waker)
+        io_manager = TheIOManager()
+        runner = _Runner(clock=clock, profiler=profiler, io_manager=io_manager)
         _GLOBAL_RUN_CONTEXT.runner = runner
 
         with closing(runner):
@@ -353,13 +351,10 @@ def _run(runner, fn, args):
         elif runner.deadlines:
             deadline = runner.deadlines.keys()[0]
             timeout = runner.clock.deadline_to_sleep_time(deadline))
-            # Clamp timeout be fall between 0 and 24 hours.
-            #
-            # 24 hours is arbitrary, but "long enough" that the spurious
-            # wakeups it introduces shouldn't matter, and it avoids any
-            # possible issue with integer overflow in the underlying system
-            # calls (protects against people setting timeouts of 10**20 or
-            # whatever).
+            # Clamp timeout be fall between 0 and 24 hours. 24 hours is
+            # arbitrary, but it avoids issues like people setting timeouts of
+            # 10**20 and then getting integer overflows in the underlying
+            # system calls.
             timeout = min(max(0, timeout), 24 * 60 * 60)
         else:
             timeout = -1

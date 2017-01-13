@@ -2,10 +2,9 @@ import os
 import select
 import attr
 
-import trio
 import trio.hazmat
-from ._result import Value
-from ._api import publish_iomanager_method
+from . import _public
+from .._lib._result import Value
 
 class WakeupPipe:
     def __init__(self):
@@ -72,6 +71,12 @@ if hasattr(select, "epoll"):
                 else:
                     del self._registered[fd]
 
+        def wakeup_threadsafe(self):
+            self._wakeup.wakeup_threadsafe()
+
+        async def until_woken(self):
+            await self._wakeup.until_woken()
+
         def _update(self, fd, already_registered):
             # XX not sure if EPOLLEXCLUSIVE is actually safe... I think
             # probably we should use it here unconditionally, but:
@@ -92,7 +97,7 @@ if hasattr(select, "epoll"):
 
         # Public (hazmat) API:
 
-        @public
+        @_public
         @types.coroutine
         def epoll_wait(self, fd, flags, status):
             # Returns the flags the epoll gave us
@@ -117,10 +122,10 @@ if hasattr(select, "epoll"):
                 reschedule(..., cancellation)
             return yield (epoll_wait_cancel, status)
 
-        @public
+        @_public
         async def until_readable(self, fd, status="READ_WAIT"):
             await self.epoll_wait(fd, select.EPOLLIN | _EPOLL_ALWAYS, status)
 
-        @public
+        @_public
         async def until_writable(self, fd, status="WRITE_WAIT"):
             await self.epoll_wait(fd, select.EPOLLOUT | _EPOLL_ALWAYS, status)

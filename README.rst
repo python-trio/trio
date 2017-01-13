@@ -68,6 +68,7 @@ next:
 - our queue:
   - size should be mandatory argument, or Queue.UNBOUNDED
   - get_all for supervisors (since they can't apply backpressure)
+    - well, or can use the get_nowait trick
 - backpressure for thread calls
   thread Queue with limited size, they put the thing into that and
   then notify
@@ -76,11 +77,10 @@ next:
   - if we're going in on the blocking like this then maybe we *should*
     make the blocking one be the only way... and we could even allow
     it to call async code then, maybe, blocking for the result.
-- s/lowlevel/hazmat/
-- get rid of publish() for most uses
 - document the low-level API
 - make reschedule a method on task, and make tasks know their runner?
-
+  - meh. motivation was for out-of-context reschedule, but that
+    actually doesn't exist!
 
 
 names:
