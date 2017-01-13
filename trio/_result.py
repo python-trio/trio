@@ -1,10 +1,8 @@
 import abc
 import attr
 
-import oratorio
-from ._api import publish
+__all__ = ["Result", "Value", "Error"]
 
-@publish(oratorio)
 @attr.s(slots=True)
 class Result(metaclass=abc.ABCMeta):
     @abc.abstractmethod
@@ -19,6 +17,13 @@ class Result(metaclass=abc.ABCMeta):
     def capture(fn, *args):
         try:
             return Value(fn(*args))
+        except BaseException as exc:
+            return Error(exc)
+
+    @staticmethod
+    async def acapture(fn, *args):
+        try:
+            return Value(await fn(*args))
         except BaseException as exc:
             return Error(exc)
 
@@ -64,7 +69,6 @@ class Result(metaclass=abc.ABCMeta):
                 root.__context__ = old_result.error
                 return new_result
 
-@publish(oratorio)
 @attr.s(slots=True)
 class Value(Result):
     value = attr.ib()
@@ -75,7 +79,6 @@ class Value(Result):
     def send(self, it):
         return it.send(self.value)
 
-@publish(oratorio)
 @attr.s(slots=True)
 class Error(Result):
     error = attr.ib()

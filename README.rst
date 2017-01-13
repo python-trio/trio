@@ -1,5 +1,7 @@
 I/O for humans
 
+write apps that sing in three-part harmony
+
 emphasis on usability: goal is to help you write programs that are
 safe, correct, low latency, high throughput
 (in that order)
@@ -78,3 +80,14 @@ next:
 - get rid of publish() for most uses
 - document the low-level API
 - make reschedule a method on task, and make tasks know their runner?
+
+
+
+names:
+- lion
+- viol
+  https://github.com/feihong/viol - looks dead?
+- patio
+- trio
+  http://infolab.stanford.edu/trio/ -- dead for a ~decade
+  http://inamidst.com/sw/trio/ -- dead for a ~decade

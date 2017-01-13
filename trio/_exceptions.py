@@ -24,5 +24,5 @@ class TimeoutCancelled(Cancelled):
     pass
 
 @attr.s(slots=True)
-class SendallPartialResult:
+class PartialResult:
     bytes_sent = attr.ib()

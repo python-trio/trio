@@ -1,19 +1,19 @@
 import inspect
-import threading
 import enum
 from collections import deque
 from time import monotonic
 
 from sortedcontainers import sorteddict
 
-import oratorio
-import oratorio.hazmat
 from ._exceptions import (
     InternalError, Cancelled, TaskCancelled, TimeoutCancelled,
     TaskCrashedError)
-from ._result import Result, Error, Value
 import ._io
-from ._api import GLOBAL_RUN_CONTEXT, publish, publish_runner_method
+from ._result import Result, Error, Value
+from ._util import public
+from . import _GLOBAL_RUN_CONTEXT
+
+__all__ = ["Task", "run"]
 
 class SystemClock:
     def current_time(self):
@@ -123,7 +123,6 @@ async with mask_cancellations as mask1:
 # - If a SYSTEM task crashes we exit immediately with InternalError.
 TaskType = enum.Enum("TaskType", "SYSTEM REGULAR")
 
-@publish(oratorio)
 @attr.s(slots=True)
 class Task:
     _type = attr.ib()
@@ -156,86 +155,61 @@ class Task:
         else:
             return self._task_result
 
-# ughh maybe we should just go back to the original masking solution. no
-# handler-based solution is going to handle well the case where some runaway
-# task is refusing to yield.
-def catch_SIGINT(_, _):
-    def raise_KeyboardInterrupt():
-        raise KeyboardInterrupt
-    call_soon_threadsafe(raise_KeyboardInterrupt)
-    signal.signal(signal.SIGINT, signal.default_int_handler)
-if signal.getsignal(signal.SIGINT) is
-signal
-
-async def signal_handler_task(fn, args):
-    try:
-        if threading.current_thread() == threading.main_thread():
-            with catch_signals([signal.SIGINT]) as sigint_queue:
-                await spawn(fn, *args)
-                await sigint_queue.get()
-                raise KeyboardInterrupt
-        else:
-            await spawn(fn, *args)
-    except Cancelled:
-        pass
-
 # Container for the stuff that needs to be accessible for what would be
 # synchronous traps in curio.
 @attr.s(slots=True)
 class _Runner:
-    _clock = attr.ib()
-    _profiler = attr.ib()
-    _iomanager = attr.ib()
-    _waker = attr.ib()
+    clock = attr.ib()
+    profiler = attr.ib()
+    io_manager = attr.ib()
+    waker = attr.ib()
 
-    _runq = attr.ib(default=attr.Factory(deque))
-    _tasks = attr.ib(default=attr.Factory(set))
-    _regular_task_count = attr.ib(default=0)
+    runq = attr.ib(default=attr.Factory(deque))
+    tasks = attr.ib(default=attr.Factory(set))
+    regular_task_count = attr.ib(default=0)
 
     # {(deadline, id(task)): task with non-null deadline}
-    _deadlines = attr.ib(default=attr.Factory(sorteddict))
+    deadlines = attr.ib(default=attr.Factory(sorteddict))
 
-    _initial_task = attr.ib(default=None)
-    _final_result = attr.ib(default=None)
-    _crashing = attr.ib(default=False)
-
-    _call_soon_queue = attr.ib(default=attr.Factory(deque))
+    initial_task = attr.ib(default=None)
+    final_result = attr.ib(default=None)
+    crashing = attr.ib(default=False)
 
     def close(self):
-        self._profiler.close()
-        self._iomanager.close()
-        self._waker.close()
+        self.profiler.close()
+        self.io_manager.close()
+        self.waker.close()
 
-    def _crash(self, exc):
+    def crash(self, message, exc):
         # XX ergonomics: maybe KeyboardInterrupt should be preserved instead
         # of being wrapped?
-        wrapper = TaskCrashedError()
+        wrapper = TaskCrashedError(message)
         wrapper.__cause__ = exc
-        self._final_result = Result.combine(self._final_result, Error(wrapper))
-        if not self._crashing:
-            self._crashing = True
-            for task in self._tasks:
+        self.final_result = Result.combine(self.final_result, Error(wrapper))
+        if not self.crashing:
+            self.crashing = True
+            for task in self.tasks:
                 if task._type is TaskType.REGULAR:
                     task.cancel_nowait()
 
-    def _task_finished(self, task, result):
-        self._tasks.remove(task)
+    def task_finished(self, task, result):
+        self.tasks.remove(task)
 
         if task._type is TaskType.REGULAR:
-            self._regular_task_count -= 1
-            if not self._regular_task_count:
+            self.regular_task_count -= 1
+            if not self.regular_task_count:
                 # The last REGULAR task just exited, so we're done; cancel
                 # everything.
-                for other_task in self._tasks:
+                for other_task in self.tasks:
                     other_task.cancel_nowait()
 
         if task is initial_task:
-            self._final_result = Result.combine(self._final_result, result)
+            self.final_result = Result.combine(self.final_result, result)
             # Avoid pinning the Task object in memory:
-            self._initial_task = None
+            self.initial_task = None
         elif type(result) is Error and not task.result_queues:
             if task._type is TaskType.REGULAR:
-                self._crash(result.error)
+                self.crash("unwatched task raised exception", result.error)
             else:
                 # Propagate system task crashes out, to eventually raise an
                 # InternalError.
@@ -246,139 +220,171 @@ class _Runner:
             try:
                 result_queue.put_nowait(task)
             except BaseException as exc:
-                self._crash(exc)
+                self.crash("error notifying task watcher of task exit", exc)
 
-    async def _call_soon_task(self):
-        while True:
-            await self._waker.until_woken()
-            while True:
-                # deque methods are documented to be thread-safe
-                fn, args = self._call_soon_queue.popleft()
-                try:
-                    fn(*args)
-                except BaseException as exc:
-                    self._crash(exc)
-                # XX do a sleep(0)
-
-    def _call_soon_threadsafe(self, fn, *args):
-        # deque methods are documented to be thread-safe
-        self._call_soon_queue.append((fn, args))
-        self._waker.wakeup_threadsafe()
-
-    @publish_runner_method(oratorio.hazmat)
-    def current_call_soon_threadsafe_func(self):
-        return self._call_soon_threadsafe
-
-    @publish_runner_method(oratorio)
+    # Methods marked with @public get converted into functions exported by
+    # trio.hazmat:
+    @public
     def current_time(self):
-        return self._clock.current_time()
+        return self.clock.current_time()
 
-    @publish_runner_method(oratorio)
+    @public
     def current_profiler(self):
-        return self._profiler
+        return self.profiler
 
-    @publish_runner_method(oratorio.hazmat)
+    @public
     def reschedule(self, task, next_send=Value(None)):
         assert task._next_send is None
         task.state = "RUNNABLE"
         task._next_send = next_send
         task._interrupt = None
-        self._runq.append(task)
+        self.runq.append(task)
 
-    def _spawn(self, fn, args, *, type=TaskType.REGULAR, result_queues=[]):
+    def spawn_impl(self, fn, args, *, type=TaskType.REGULAR, result_queues=[]):
         if not inspect.iscoroutinefunction(fn):
-            raise TypeError("expected an async function")
+            raise TypeError("spawn expected an async function")
         coro = fn(*args)
         task = Task(_type=type, coro=coro, result_queues=result_queues)
-        self._tasks.add(task)
+        self.tasks.add(task)
         if type is TaskType.REGULAR:
-            self._regular_task_count += 1
+            self.regular_task_count += 1
         self.reschedule(task, Value(None))
         return task
 
-    @publish_runner_method(oratorio)
-    def spawn(self, fn, args, *, result_queues=[]):
-        return self._spawn(fn, args, result_queues=result_queues)
+    @public
+    async def spawn(self, fn, *args, *, result_queues=[]):
+        return self.spawn_impl(fn, args, result_queues=result_queues)
 
-@publish(oratorio)
+    ################################################################
+    # Outside Context Problems:
+
+    call_soon_queue = attr.ib(default=attr.Factory(stdlib_queue.Queue))
+    call_soon_done = attr.ib(default=False)
+    # Must be a recursive lock, because it's acquired from signal handlers:
+    call_soon_lock = attr.ib(default=attr.Factory(threading.RLock))
+
+    def _call_soon(self, fn, *args, *, spawn=False):
+        with self.call_soon_lock:
+            if self.call_soon_done:
+                raise RuntimeError("run() has exited")
+            self.call_soon_queue.put_nowait((fn, args, spawn))
+        self._waker.wakeup_threadsafe()
+
+    @public
+    def current_call_soon_thread_and_signal_safe(self):
+        return self._call_soon
+
+    async def call_soon_task(self):
+        def call_next_or_raise_Empty():
+            fn, args, spawn = self.call_soon_queue.get_nowait()
+            if spawn:
+                task = self.spawn_impl(fn, args)
+                if self.crashing:
+                    task.cancel_nowait()
+            else:
+                try:
+                    fn(*args)
+                except BaseException as exc:
+                    self.crash(
+                        "error in call_soon_thread_and_signal_safe callback",
+                        exce)
+
+        try:
+            while True:
+                try:
+                    # Do a bounded amount of work between yields:
+                    for _ in range(self.call_soon_queue.qsize()):
+                        call_next_or_raise_Empty()
+                except stdlib_queue.Empty:
+                    await self._waker.until_woken()
+                else:
+                    await XX sched_yield
+        except Cancelled:
+            with self._shutdown_lock:
+                self._done = True
+            # No more jobs will be submitted, so just clear out any residual
+            # ones:
+            while True:
+                try:
+                    call_next_or_raise_Empty()
+                except stdlib_queue.Empty:
+                    break
+
 def run(fn, *args, *, clock=None, profiler=None):
-    if clock is None:
-        clock = SystemClock()
-    if profiler is None:
-        profiler = NullProfiler()
-
-    # XX iomanager
-    # XX threadsafe_waker
-
-    runner = _Runner(_clock=clock, _profiler=profiler)
-
+    # Do error-checking up front, before we enter the InternalError try/catch
+    if not inspect.iscoroutinefunction(fn):
+        raise TypeError("run expected an async function")
     # It wouldn't be *hard* to support nested calls to run(), but I can't
-    # think of a single good reason for it, so let's be conservative for now:
-    if hasattr(GLOBAL_RUN_CONTEXT, "runner"):
+    # think of a single good reason for it, so let's be conservative for
+    # now:
+    if hasattr(_GLOBAL_RUN_CONTEXT, "runner"):
         raise RuntimeError("Attempted to call run() from inside a run()")
-    GLOBAL_RUN_CONTEXT.runner = runner
 
     try:
+        if clock is None:
+            clock = SystemClock()
+        if profiler is None:
+            profiler = NullProfiler()
+        io_manager = _io.TheIOManager()
+        waker = _io.TheWaker()
+        runner = _Runner(
+            clock=clock, profiler=profiler, io_manager=io_manager, waker=waker)
+        _GLOBAL_RUN_CONTEXT.runner = runner
+
         with closing(runner):
             # The main reason this is split off into its own function is just
             # to get rid of this extra indentation.
             _run(runner, fn, args)
     except BaseException as exc:
         raise InternalError(
-            "internal error in oratorio - please file a bug!") from exc
+            "internal error in trio - please file a bug!") from exc
     finally:
-        GLOBAL_RUN_CONTEXT.__dict__.clear()
+        _GLOBAL_RUN_CONTEXT.__dict__.clear()
 
     return runner._final_result.unwrap()
 
-def _clamp(low, value, high):
-    return min(max(low, value), high)
-
 def _run(runner, fn, args):
-    # Hide this giant function from pytest tracebacks
-    __tracebackhide__ = True
+    runner._spawn_impl(runner._call_soon_task, (), type=TaskType.SYSTEM)
+    runner._spawn_impl(fn, args)
 
-    runner._spawn(runner._call_soon_threadsafe, type=TaskType.SYSTEM)
-    # This task takes responsibility for spawning the initial task, after it's
-    # set up the initial signal-handling stuff:
-    runner._spawn(runner._signal_handler_task, fn, args, type=TaskType.SYSTEM)
-
-    while runner._tasks:
-        if runner._runq:
+    while runner.tasks:
+        if runner.runq:
             timeout = 0
-        elif runner._deadlines:
-            deadline = runner._deadlines.keys()[0]
-            timeout = runner._clock.deadline_to_sleep_time(deadline))
+        elif runner.deadlines:
+            deadline = runner.deadlines.keys()[0]
+            timeout = runner.clock.deadline_to_sleep_time(deadline))
+            # Clamp timeout be fall between 0 and 24 hours.
+            #
             # 24 hours is arbitrary, but "long enough" that the spurious
             # wakeups it introduces shouldn't matter, and it avoids any
             # possible issue with integer overflow in the underlying system
             # calls (protects against people setting timeouts of 10**20 or
             # whatever).
-            timeout = _clamp(0, timeout, 24 * 60 * 60)
+            timeout = min(max(0, timeout), 24 * 60 * 60)
         else:
             timeout = -1
 
-        runner._iomanager.poll(timeout)
+        runner.io_manager.handle_io(timeout)
 
         # Process all runnable tasks, but wait for the next iteration
         # before processing tasks that become runnable now. This avoids
         # various starvation issues by ensuring that there's never an
         # unbounded delay between successive checks for I/O.
-        for _ in range(len(self._runq)):
-            task = self._runq.popleft()
-            GLOBAL_RUN_CONTEXT.task = task
-            profiler.before_task_step(task)
+        for _ in range(len(runner.runq)):
+            task = runner.runq.popleft()
+            _GLOBAL_RUN_CONTEXT.task = task
+            runner.profiler.before_task_step(task)
             next_send = task._next_send
             task._next_send = None
             try:
                 msg = next_send.send(task.coro)
             except StopIteration as stop_iteration:
-                runner._task_finished(task, Value(stop_iteration.value))
+                runner.task_finished(task, Value(stop_iteration.value))
             except BaseException as task_exc:
-                runner._task_finished(task, Error(task_exc))
+                runner.task_finished(task, Error(task_exc))
 
             # blocking trap
-            profiler.after_task_step(task)
+            runner.profiler.after_task_step(task)
             # XX
             task.interrupt_func, task.state = msg
             # check for cancellation
@@ -386,8 +392,4 @@ def _run(runner, fn, args):
             # I/O commands... so just do that I guess.
             #
             # run the trap
-            del GLOBAL_RUN_CONTEXT.task
-
-@publish(oratorio)
-def current_task():
-    return GLOBAL_RUN_CONTEXT.task
+            del _GLOBAL_RUN_CONTEXT.task

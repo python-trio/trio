@@ -1,3 +1,7 @@
+def public(fn):
+    fn._public = True
+    return fn
+
 class DispatchTable:
     def __init__(self):
         self._table = {}

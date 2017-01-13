@@ -26,7 +26,7 @@ from . import Queue
 # call_soon_threadsafe that does most of the work.
 
 @contextmanager
-def signal_handler(signals, handler):
+def _signal_handler(signals, handler):
     original_handlers = {}
     for signum in signals:
         original_handlers[signum] = signal.signal(signum, handler)
@@ -36,11 +36,21 @@ def signal_handler(signals, handler):
         for signum, original_handler in original_handlers.items():
             signal.signal(signum, original_handler)
 
+# XX this doesn't work at all currently
+# need to revive call_soon_threadsafe I guess (very very hazmat!) with the
+# same bounded-work rule, and then convert run_in_main_thread to run off of
+# that.
+# or.... signals can generate tons of redundant work if a bunch arrive at
+# once. Maybe just make signal handling be
+#   add signal to some set
+#   wakeup
+# and have the wakeup task process both?
+# ...but how do we get it to the right queue then :-/
 @contextmanager
 def catch_signals(signals):
     call_soon_threadsafe = current_call_soon_threadsafe_func()
     queue = Queue()
     def handler(signum, _):
         call_soon_threadsafe(queue.put_nowait, signum)
-    with signal_handler(signals, handler):
+    with _signal_handler(signals, handler):
         yield queue

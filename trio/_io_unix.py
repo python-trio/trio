@@ -44,16 +44,18 @@ if hasattr(select, "epoll"):
         task = attr.ib()
         flags = attr.ib()
 
+    @attr.s(slots=True)
     class EpollIOManager:
-        def __init__(self):
-            self._epoll = select.epoll()
-            self._registered = {}
+        _epoll = attr.ib(default=attr.Factory(select.epoll))
+        _registered = attr.ib(default=attr.Factory(dict))
+        _wakeup = attr.ib(default=attr.Factory(WakeupPipe))
 
         def close(self):
             self._epoll.close()
+            self._wakeup.close()
 
         # Called internally by the task runner:
-        def poll(self, timeout):
+        def handle_io(self, timeout):
             # max_events must be > 0
             max_events = max(1, len(self._registered))
             events = self._epoll.poll(timeout, max_events)
@@ -61,7 +63,7 @@ if hasattr(select, "epoll"):
                 residual = set()
                 for watcher in self._registered[fd]:
                     if watcher.flags & flags:
-                        watcher.task.reschedule(Value(flags))
+                        trio.hazmat.reschedule(watcher.task, Value(flags))
                     else:
                         residual.add(watcher)
                 if residual:
@@ -90,7 +92,7 @@ if hasattr(select, "epoll"):
 
         # Public (hazmat) API:
 
-        @publish_iomanager_method(trio.hazmat)
+        @public
         @types.coroutine
         def epoll_wait(self, fd, flags, status):
             # Returns the flags the epoll gave us
@@ -115,10 +117,10 @@ if hasattr(select, "epoll"):
                 reschedule(..., cancellation)
             return yield (epoll_wait_cancel, status)
 
-        @publish_iomanager_method(trio.hazmat)
+        @public
         async def until_readable(self, fd, status="READ_WAIT"):
             await self.epoll_wait(fd, select.EPOLLIN | _EPOLL_ALWAYS, status)
 
-        @publish_iomanager_method(trio.hazmat)
+        @public
         async def until_writable(self, fd, status="WRITE_WAIT"):
             await self.epoll_wait(fd, select.EPOLLOUT | _EPOLL_ALWAYS, status)
