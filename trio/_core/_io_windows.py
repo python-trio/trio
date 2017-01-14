@@ -1,3 +1,11 @@
+import attr
+
+from . import _public, _hazmat
+from ._traps import yield_briefly_no_cancel, yield_indefinitely
+
+# pywin32 appears to be pretty useless -- missing lots of basic stuff like
+# CancelIOEx, GetQueuedCompletionStatusEx, UDP support.
+
 # writeable on windows:
 # http://stackoverflow.com/a/28848834
 # maybe this is usable? (Windows 8+ only though :-()
@@ -7,6 +15,7 @@
 # - to be usable with IOCP, you have to pass a special flag when *creating*
 # socket or file objects, and this can affect the semantics of other
 # operations on them.
+#   - Python's socket.socket() constructor *does* pass this flag
 #   - there's ReOpenFile, but it may not work in all cases:
 #     https://msdn.microsoft.com/en-us/library/aa365497%28VS.85%29.aspx
 #     https://stackoverflow.com/questions/2475713/is-it-possible-to-change-handle-that-has-been-opened-for-synchronous-i-o-to-be-o
@@ -14,7 +23,8 @@
 #       https://blogs.msdn.microsoft.com/oldnewthing/20140711-00/?p=523
 #       https://msdn.microsoft.com/en-us/library/windows/desktop/ms741565(v=vs.85).aspx
 #   - stdin/stdout are a bit of a problem in this regard (e.g. IPython) -
-#     console handle does not have the special flag set :-(
+#     console handle does not have the special flag set :-(. There is simply
+#     no way to do overlapped I/O on console handles, you have to use threads.
 #   - it is at least possible to detect this, b/c when you try to associate
 #     the handle with the IOCP then it will fail. can fall back on threads or
 #     whatever at that point.
@@ -35,3 +45,47 @@
 # so: let's have the lowest-level API be one where you do some standard prep
 # -- associate object w/ IOCP and fetch OVERLAPPED? -- and that checks for
 # cancellation.
+
+# Some sort of convenience thing, like a context manager maybe?, to handle the
+# idiomatic pattern of
+#
+# raise_if_cancelled()
+# bind the handle to the IOCP if necessary
+# DoWhateverEx()
+# if it executed synchronously:
+#     # maybe this is only *necessary* if it errored out?
+#     await yield_briefly_no_cancel()
+#     return result
+# else:
+#     info = await iocp_complete(handle, overlapped_object)
+#     return result
+#
+# (since CancelIoEx is always the same, and takes handle + lpoverlapped)
+
+# also maybe we should provide low-level wrappers like WSASend here, exposing
+# the flags etc.?
+
+@attr.s(slots=True)
+class WindowsIOManager:
+    iocp = attr.ib()
+
+    def close(self):
+        XX
+
+    def wakeup_threadsafe(self):
+        XX PostQueuedCompletionStatus
+
+    async def until_woken(self):
+        XX
+
+    def handle_io(self, timeout):
+        XX
+
+    @_public
+    @_hazmat
+    async def
+
+    @_public
+    @_hazmat
+    def register_with_iocp(self, handle):
+        XX CreateIoCompletionPort

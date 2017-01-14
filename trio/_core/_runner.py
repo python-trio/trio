@@ -5,30 +5,40 @@ import threading
 import queue as stdlib_queue
 from time import monotonic
 import os
+from contextlib import contextmanager
 
 from sortedcontainers import sorteddict
 
+import .._core
 from ._exceptions import (
     InternalError, Cancelled, TaskCancelled, TimeoutCancelled,
     TaskCrashedError)
 from ._result import Result, Error, Value
-from . import _public
+from ._traps import (
+    yield_briefly, yield_briefly_no_cancel, Interrupt, yield_indefinitely)
+from . import _public, _hazmat
 
-# Re-exported as trio.hazmat.* and trio.*
-__all__ = ["Task", "run"]
+# At the bottom of this file there's also some "clever" code that generates
+# wrapper functions for runner and io manager methods, and adds them to
+# __all__. These are all re-exported as part of the 'trio' or 'trio.hazmat'
+# namespaces.
+__all__ = ["Task", "run",
+           "current_task", "current_deadline", "cancellation_point"]
 
-_GLOBAL_RUN_CONTEXT = _threading.local()
+GLOBAL_RUN_CONTEXT = threading.local()
+
 
 if os.name == "nt":
-    from ._io_windows import IOCPIOManager as TheRunManager
+    from ._io_windows import WindowsIOManager as TheIOManager
 else:
     try:
-        from ._io_unix import EpollIOManager as TheRunManager
+        from ._io_unix import EpollIOManager as TheIOManager
     except ImportError:
         try:
-            from ._io_unix import KqueueIOManager as TheRunManager
+            from ._io_unix import KqueueIOManager as TheIOManager
         except ImportError:
             raise NotImplementedError("unsupported platform")
+
 
 class SystemClock:
     def current_time(self):
@@ -36,6 +46,7 @@ class SystemClock:
 
     def deadline_to_sleep_time(self, deadline):
         return deadline - monotonic()
+
 
 class NullProfiler:
     def before_task_step(self, task):
@@ -46,60 +57,6 @@ class NullProfiler:
 
     def close(self):
         pass
-
-@attr.s(slots=True)
-class Timeout:
-    task = @attr.ib()
-    deadline = @attr.ib()
-
-# cancel stack is:
-# - the root Task.cancel_nowait token
-# - timeout_after tokens
-#
-# operations:
-async with cancel_after(...) as timed_out:
-    ...
-if timed_out:
-    ...
-
-await current_deadline()
-
-async with mask_cancellations as mask:
-    ...
-    async with unmask_cancellations(mask):
-        ...
-
-    if mask.cancelled...?
-
-# what should we do with code like:
-async with mask_cancellations as mask:
-    async with timeout_after(...):
-        async with unmask_cancellations(mask):
-            ...
-# how about:
-async with mask_cancellations as mask1:
-    async with timeout_after(...):
-        async with mask_cancellations as mask2:
-            async with unmask_cancellations(mask1):
-                ...
-# maybe the rule is that unmask must always be nested *directly* inside the
-# matching mask, with no intervening mask or tokens?
-# and in that same scope maybe we can allow explicit polling? is explicit
-# polling even any use?
-#
-# Looking carefully at _supervise_loop, it looks like if we can make cancel
-# and join sync-colored, then we can actually make the *only* 'await' call the
-# one that we want to be interruptible.
-#
-# maybe 'async with assert_no_blocking', 'async with assert_blocking'?
-#
-# I still like the cancellation stack and the idea that once cancellation N
-# has fired we disable cancellations N+1 and higher.
-
-
-# when a cancellation fires we disable all items higher on the stack -- but
-# new ones can still be added.
-
 
 # I started out with a DAEMON type as well, and the rules that:
 #
@@ -129,28 +86,82 @@ TaskType = enum.Enum("TaskType", "SYSTEM REGULAR")
 class Task:
     _type = attr.ib()
     coro = attr.ib()
-    result_queues = attr.ib(convert=set, repr=False)
+    _runner = attr.ib()
+    _notify_queues = attr.ib(convert=set, repr=False)
+
     # This is for debugging tools only to give a hint as to what code is
-    # doing:
-    state = attr.ib(default=None)
+    # doing. XX replace by introspection to find the outermost stack frame
+    # with a __trio_wchan__ = True local.
+    status = attr.ib(default=None)
     _task_result = attr.ib(default=None, repr=False)
     # tasks start out unscheduled, and unscheduled tasks have None here
     _next_send = attr.ib(default=None, repr=False)
     _interrupt_func = attr.ib(default=None, repr=False)
-    _cancel_stack = attr.ib(default=attr.Factory(list), repr=False)
+
+    def add_notify_queue(self, queue):
+        if queue in self._notify_queues:
+            raise ValueError("can't add same notify queue twice")
+        if self._task_result is not None:
+            queue.put_nowait(self)
+        else:
+            self._notify_queues.add(queue)
+
+    def remove_notify_queue(self, queue):
+        if queue not in self._notify_queues:
+            raise ValueError("queue not found")
+        self._notify_queues.remove(queue)
+
+    ################################################################
+    # Cancellation
+
+    _cancel_stack = attr.ib(default=attr.Factory(CancelStack), repr=False)
+
+    def _next_deadline(self):
+        return self._cancel_stack.next_deadline()
+
+    @contextmanager
+    def _might_adjust_deadline(self):
+        old_deadline = self._next_deadline()
+        try:
+            yield
+        finally:
+            new_deadline = self._next_deadline()
+            if old_deadline != new_deadline:
+                if old_deadline != float("inf"):
+                    del self._runner.deadlines[old_deadline, id(self)]
+                if new_deadline != float("inf"):
+                    self._runner.deadlines[new_deadline, id(self)] = self
+
+    def _push_deadline(self, deadline):
+        with self._might_adjust_deadline():
+            return self._cancel_stack.push_deadline(self, deadline)
+
+    def _pop_deadline(self, cancel_status):
+        with self._might_adjust_deadline():
+            self._cancel_stack.pop_deadline(cancel_status)
+
+    def _fire_timeouts_at(self, now, exc):
+        with self._might_adjust_deadline():
+            self._cancel_stack.fire_timeouts(self, now, exc)
+
+    def _interrupt_with_any_pending_cancel(self):
+        with self._might_adjust_deadline():
+            self._cancel_stack.interrupt_with_any_pending_cancel(self)
+
+    def _raise_any_pending_cancel(self):
+        with self._might_adjust_deadline():
+            self._cancel_stack.raise_any_pending_cancel()
 
     def cancel_nowait(self, exc=None):
         if exc is None:
             exc = TaskCancelled()
-        self.cancel_interrupt.fire(exc)
+        # Trick: we use a timeout with deadline=inf to represent task
+        # cancellation, so tell the deadline manager that the clock says inf.
+        self._fire_timeouts_at(float("inf"), exc)
 
-    def join(self):
-        if self._task_result is None:
-            # XX maybe write this differently
-            q = Queue()
-            self.result_queues.add(q)
-            await q.get()
-        return self._task_result
+    async def cancel(self, exc=None):
+        self.cancel_nowait(exc=exc)
+        return await self.join()
 
     def join_nowait(self):
         if self._task_result is None:
@@ -158,10 +169,21 @@ class Task:
         else:
             return self._task_result
 
+    async def join(self):
+        if self._task_result is None:
+            q = _core.Queue()
+            self.add_notify_queue(q)
+            try:
+                await q.get()
+            finally:
+                self.remove_notify_queue(q)
+        assert self._task_result is not None
+        return self._task_result
+
 # Container for the stuff that needs to be accessible for what would be
 # synchronous traps in curio.
 @attr.s(slots=True)
-class _Runner:
+class Runner:
     clock = attr.ib()
     profiler = attr.ib()
     io_manager = attr.ib()
@@ -170,7 +192,7 @@ class _Runner:
     tasks = attr.ib(default=attr.Factory(set))
     regular_task_count = attr.ib(default=0)
 
-    # {(deadline, id(task)): task with non-null deadline}
+    # {(deadline, id(task)): task}
     deadlines = attr.ib(default=attr.Factory(sorteddict))
 
     initial_task = attr.ib(default=None)
@@ -208,7 +230,7 @@ class _Runner:
             self.final_result = Result.combine(self.final_result, result)
             # Avoid pinning the Task object in memory:
             self.initial_task = None
-        elif type(result) is Error and not task.result_queues:
+        elif type(result) is Error and not task._notify_queues:
             if task._type is TaskType.REGULAR:
                 self.crash("unwatched task raised exception", result.error)
             else:
@@ -217,7 +239,7 @@ class _Runner:
                 assert task._type is TaskType.SYSTEM
                 result.unwrap()
 
-        for result_queue in task.result_queues:
+        for result_queue in task._notify_queues:
             try:
                 result_queue.put_nowait(task)
             except BaseException as exc:
@@ -234,18 +256,21 @@ class _Runner:
         return self.profiler
 
     @_public
+    @_hazmat
     def reschedule(self, task, next_send=Value(None)):
+        assert task._runner is self
         assert task._next_send is None
         task.state = "RUNNABLE"
         task._next_send = next_send
         task._interrupt = None
         self.runq.append(task)
 
-    def spawn_impl(self, fn, args, *, type=TaskType.REGULAR, result_queues=[]):
+    def spawn_impl(self, fn, args, *, type=TaskType.REGULAR, notify_queues=[]):
         if not inspect.iscoroutinefunction(fn):
             raise TypeError("spawn expected an async function")
         coro = fn(*args)
-        task = Task(_type=type, coro=coro, result_queues=result_queues)
+        task = Task(
+            type=type, coro=coro, runner=self, notify_queues=notify_queues)
         self.tasks.add(task)
         if type is TaskType.REGULAR:
             self.regular_task_count += 1
@@ -253,8 +278,8 @@ class _Runner:
         return task
 
     @_public
-    async def spawn(self, fn, *args, *, result_queues=[]):
-        return self.spawn_impl(fn, args, result_queues=result_queues)
+    async def spawn(self, fn, *args, *, notify_queues=[]):
+        return self.spawn_impl(fn, args, notify_queues=notify_queues)
 
     ################################################################
     # Outside Context Problems:
@@ -272,6 +297,7 @@ class _Runner:
         self.io_manager.wakeup_threadsafe()
 
     @_public
+    @_hazmat
     def current_call_soon_thread_and_signal_safe(self):
         return self._call_soon
 
@@ -299,7 +325,7 @@ class _Runner:
                 except stdlib_queue.Empty:
                     await self.io_manager.until_woken()
                 else:
-                    await XX sched_yield
+                    await yield_briefly()
         except Cancelled:
             with self._shutdown_lock:
                 self._done = True
@@ -318,7 +344,7 @@ def run(fn, *args, *, clock=None, profiler=None):
     # It wouldn't be *hard* to support nested calls to run(), but I can't
     # think of a single good reason for it, so let's be conservative for
     # now:
-    if hasattr(_GLOBAL_RUN_CONTEXT, "runner"):
+    if hasattr(GLOBAL_RUN_CONTEXT, "runner"):
         raise RuntimeError("Attempted to call run() from inside a run()")
 
     try:
@@ -327,40 +353,46 @@ def run(fn, *args, *, clock=None, profiler=None):
         if profiler is None:
             profiler = NullProfiler()
         io_manager = TheIOManager()
-        runner = _Runner(clock=clock, profiler=profiler, io_manager=io_manager)
-        _GLOBAL_RUN_CONTEXT.runner = runner
+        runner = Runner(clock=clock, profiler=profiler, io_manager=io_manager)
+        GLOBAL_RUN_CONTEXT.runner = runner
 
         with closing(runner):
             # The main reason this is split off into its own function is just
             # to get rid of this extra indentation.
-            _run(runner, fn, args)
+            run_impl(runner, fn, args)
     except BaseException as exc:
         raise InternalError(
             "internal error in trio - please file a bug!") from exc
     finally:
-        _GLOBAL_RUN_CONTEXT.__dict__.clear()
+        GLOBAL_RUN_CONTEXT.__dict__.clear()
 
     return runner._final_result.unwrap()
 
-def _run(runner, fn, args):
+def run_impl(runner, fn, args):
     runner._spawn_impl(runner._call_soon_task, (), type=TaskType.SYSTEM)
     runner._spawn_impl(fn, args)
 
     while runner.tasks:
         if runner.runq:
             timeout = 0
-        elif runner.deadlines:
+        else:
             deadline = runner.deadlines.keys()[0]
             timeout = runner.clock.deadline_to_sleep_time(deadline))
             # Clamp timeout be fall between 0 and 24 hours. 24 hours is
             # arbitrary, but it avoids issues like people setting timeouts of
             # 10**20 and then getting integer overflows in the underlying
-            # system calls.
+            # system calls, + issues around inf timeouts.
             timeout = min(max(0, timeout), 24 * 60 * 60)
-        else:
-            timeout = -1
 
         runner.io_manager.handle_io(timeout)
+
+        now = runner.clock.current_time()
+        while runner.deadlines:
+            (deadline, _), task = runner.deadlines.peekitem(0)
+            if deadline <= now:
+                task._fire_timeouts_at(now, TimeoutCancelled())
+            else:
+                break
 
         # Process all runnable tasks, but wait for the next iteration
         # before processing tasks that become runnable now. This avoids
@@ -368,7 +400,7 @@ def _run(runner, fn, args):
         # unbounded delay between successive checks for I/O.
         for _ in range(len(runner.runq)):
             task = runner.runq.popleft()
-            _GLOBAL_RUN_CONTEXT.task = task
+            GLOBAL_RUN_CONTEXT.task = task
             runner.profiler.before_task_step(task)
             next_send = task._next_send
             task._next_send = None
@@ -381,11 +413,62 @@ def _run(runner, fn, args):
 
             # blocking trap
             runner.profiler.after_task_step(task)
-            # XX
-            task.interrupt_func, task.state = msg
-            # check for cancellation
-            # on windows, have to check for cancellation before issuing the
-            # I/O commands... so just do that I guess.
-            #
-            # run the trap
-            del _GLOBAL_RUN_CONTEXT.task
+            yield_fn, *args = msg
+            if yield_fn is yield_briefly:
+                task.interrupt_func = lambda: Interrupt.SUCCEEDED
+                task.status = "BRIEF_YIELD"
+                task._interrupt_with_any_pending_cancel()
+                if task._next_send is None:
+                    runner.reschedule(task)
+            elif yield_fn is yield_briefly_no_cancel:
+                task.status = "BRIEF_YIELD"
+                runner.reschedule(task)
+            else:
+                assert yield_fn is yield_indefinitely
+                task.interrupt_func, task.status = args
+                task._interrupt_with_any_pending_cancel()
+            del GLOBAL_RUN_CONTEXT.task
+
+def current_task():
+    return GLOBAL_RUN_CONTEXT.task
+
+def current_deadline():
+    return GLOBAL_RUN_CONTEXT.task._next_deadline()
+
+@_hazmat
+def cancellation_point():
+    current_task()._raise_any_pending_cancel()
+
+_WRAPPER_TEMPLATE = """\
+def wrapper(*args, **kwargs):
+    try:
+        meth = GLOBAL_RUN_CONTEXT.{}.{}
+    except AttributeError:
+        raise RuntimeError("must be called from async context")
+    return meth(*args, **kwargs)
+"""
+
+def _generate_method_wrappers(cls, path_to_instance):
+    for methname, fn in cls.__dict__.items():
+        if callable(fn) and getattr(fn, "_public", False):
+            # Create a wrapper function that looks up this method in the
+            # current thread-local context version of this object, and calls
+            # it. exec() is a bit ugly but the resulting code is faster and
+            # simpler than doing some loop over getattr.
+            ns = {}
+            exec(_WRAPPER_TEMPLATE.format(path_to_instance, methname), ns)
+            wrapper = ns["wrapper"]
+            # 'fn' is the *unbound* version of the method, but our exported
+            # function has the same API as the *bound* version of the
+            # method. So create a dummy bound method object:
+            from types import MethodType
+            bound_fn = MethodType(fn, object())
+            # Then set exported function's metadata to match it:
+            from functools import update_wrapper
+            update_wrapper(wrapper, bound_fn)
+            # And finally export it:
+            globals()[methname] = wrapper
+            __all__.append(methname)
+
+_generate_method_wrappers(Runner, "runner")
+_generate_method_wrappers(TheIOManager, "runner.io_manager")

@@ -1,3 +1,4 @@
 include LICENSE LICENSE.MIT LICENSE.APACHE2 README.rst
+include CODE_OF_CONDUCT.md
 recursive-include docs *
 prune docs/build

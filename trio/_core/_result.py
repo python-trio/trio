@@ -1,7 +1,6 @@
 import abc
 import attr
 
-# Re-exported as trio.hazmat.* and trio.*
 __all__ = ["Result", "Value", "Error"]
 
 @attr.s(slots=True)
@@ -11,7 +10,11 @@ class Result(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def send(self, it):
+    def send(self, gen):
+        pass
+
+    @abc.abstractmethod
+    async def asend(self, agen):
         pass
 
     @staticmethod
@@ -74,18 +77,30 @@ class Result(metaclass=abc.ABCMeta):
 class Value(Result):
     value = attr.ib()
 
+    def __repr__(self):
+        return "Value({!r})".format(self.value)
+
     def unwrap(self):
         return self.value
 
-    def send(self, it):
-        return it.send(self.value)
+    def send(self, gen):
+        return gen.send(self.value)
+
+    async def asend(self, agen):
+        return await agen.asend(self.value)
 
 @attr.s(slots=True)
 class Error(Result):
     error = attr.ib()
+
+    def __repr__(self):
+        return "Error({!r})".format(self.error)
 
     def unwrap(self):
         raise self.error
 
     def send(self, it):
         return it.throw(self.error)
+
+    async def asend(self, agen):
+        return await agen.athrow(self.error)

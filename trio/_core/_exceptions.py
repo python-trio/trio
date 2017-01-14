@@ -16,7 +16,7 @@ class WouldBlock(Exception):
 
 class Cancelled(Exception):
     partial_result = None
-    interrupt = None  # XX
+    _stack_entry = None
 
 class TaskCancelled(Cancelled):
     pass
@@ -26,4 +26,5 @@ class TimeoutCancelled(Cancelled):
 
 @attr.s(slots=True)
 class PartialResult:
+    # XX
     bytes_sent = attr.ib()

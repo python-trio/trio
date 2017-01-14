@@ -60,28 +60,20 @@ admittedly this is a conceptual distinction rather than a strict
 technical one, e.g. we could set up a "spawn server" and then send
 spawn requests to it using synchronous calls to put_nowait, but we
 conjecture that it's a useful conceptual distinction.
-
+and in fact threads can do this!
 
 
 next:
-- not happy with _lib, but the rest is coming together
-  core + hazmat, or just core, ...?
 - redo/simplify EpollIOManager
-- add yield helpers to _runner
 - fix sigint handling
-- implement cancellation
 - our queue:
   - size should be mandatory argument, or Queue.UNBOUNDED
   - get_all for supervisors (since they can't apply backpressure)
-    - well, or can use the get_nowait trick
-- backpressure for thread calls
-  thread Queue with limited size, they put the thing into that and
-  then notify
-  listener when awoken, checks the queue size and then does get_nowait
-  to process exactly that many before sleeping again
-  - if we're going in on the blocking like this then maybe we *should*
-    make the blocking one be the only way... and we could even allow
-    it to call async code then, maybe, blocking for the result.
+    - well, or can use the get_nowait trick. but get_all is maybe a
+      nice convenience? esp. if it await's, so you can just loop on
+      await get_all and have nice batching?
+- implement signal handling on top of new call_soon
+- implement {run,await}_in_main_thread on top of new call_soon
 - document the low-level API
 - make reschedule a method on task, and make tasks know their runner?
   - meh. motivation was for out-of-context reschedule, but that
