@@ -1,6 +1,7 @@
 import abc
 import attr
 
+# Re-exported as trio.hazmat.* and trio.*
 __all__ = ["Result", "Value", "Error"]
 
 @attr.s(slots=True)

@@ -1,5 +1,6 @@
 import attr
 
+# Re-exported as trio.hazmat.* and trio.*
 __all__ = ["InternalError", "WouldBlock",
            "Cancelled", "TaskCancelled", "TimeoutCancelled",
            "SendallPartialResult"]

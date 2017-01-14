@@ -63,6 +63,10 @@ conjecture that it's a useful conceptual distinction.
 
 
 next:
+- not happy with _lib, but the rest is coming together
+  core + hazmat, or just core, ...?
+- redo/simplify EpollIOManager
+- add yield helpers to _runner
 - fix sigint handling
 - implement cancellation
 - our queue:

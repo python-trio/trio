@@ -8,12 +8,13 @@ import os
 
 from sortedcontainers import sorteddict
 
-from .._lib._exceptions import (
+from ._exceptions import (
     InternalError, Cancelled, TaskCancelled, TimeoutCancelled,
     TaskCrashedError)
-from .._lib._result import Result, Error, Value
+from ._result import Result, Error, Value
 from . import _public
 
+# Re-exported as trio.hazmat.* and trio.*
 __all__ = ["Task", "run"]
 
 _GLOBAL_RUN_CONTEXT = _threading.local()
