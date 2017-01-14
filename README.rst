@@ -1,4 +1,5 @@
-I/O for humans
+Trio – async I/O for humans
+===========================
 
 write apps that sing in three-part harmony
 
@@ -86,12 +87,14 @@ next:
   - meh. motivation was for out-of-context reschedule, but that
     actually doesn't exist!
 
-
-names:
-- lion
-- viol
-  https://github.com/feihong/viol - looks dead?
-- patio
 - trio
   http://infolab.stanford.edu/trio/ -- dead for a ~decade
   http://inamidst.com/sw/trio/ -- dead for a ~decade
+
+
+Code of conduct
+---------------
+
+Contributors are requested to follow our `code of conduct
+<https://github.com/njsmith/trio/blob/master/CODE_OF_CONDUCT.md>`__ in
+all project spaces.

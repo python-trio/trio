@@ -1,0 +1,3 @@
+include LICENSE LICENSE.MIT LICENSE.APACHE2 README.rst
+recursive-include docs *
+prune docs/build
