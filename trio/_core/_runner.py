@@ -1,3 +1,4 @@
+import abc
 import inspect
 import enum
 from collections import deque
@@ -11,18 +12,23 @@ from sortedcontainers import sorteddict
 
 import .._core
 from ._exceptions import (
-    InternalError, Cancelled, TaskCancelled, TimeoutCancelled,
-    TaskCrashedError)
+    TaskCrashedError, InternalError, RunnerFinishedError,
+    Cancelled, TaskCancelled, TimeoutCancelled,
+)
 from ._result import Result, Error, Value
 from ._traps import (
-    yield_briefly, yield_briefly_no_cancel, Interrupt, yield_indefinitely)
+    yield_briefly, yield_briefly_no_cancel, Interrupt, yield_indefinitely,
+)
+from ._keyboard_interrupt import (
+    LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE, keyboard_interrupt_manager,
+)
 from . import _public, _hazmat
 
 # At the bottom of this file there's also some "clever" code that generates
 # wrapper functions for runner and io manager methods, and adds them to
 # __all__. These are all re-exported as part of the 'trio' or 'trio.hazmat'
 # namespaces.
-__all__ = ["Task", "run",
+__all__ = ["Clock", "Profiler", "Task", "run",
            "current_task", "current_deadline", "cancellation_point"]
 
 GLOBAL_RUN_CONTEXT = threading.local()
@@ -40,7 +46,16 @@ else:
             raise NotImplementedError("unsupported platform")
 
 
-class SystemClock:
+class Clock(abc.ABC):
+    @abc.abstractmethod
+    def current_time(self):
+        pass
+
+    @abc.abstractmethod
+    def deadline_to_sleep_time(self, deadline):
+        pass
+
+class SystemClock(Clock):
     def current_time(self):
         return monotonic()
 
@@ -48,15 +63,18 @@ class SystemClock:
         return deadline - monotonic()
 
 
-class NullProfiler:
+class Profiler(abc.ABC):
+    @abc.abstractmethod
     def before_task_step(self, task):
         pass
 
+    @abc.abstractmethod
     def after_task_step(self, task):
         pass
 
     def close(self):
         pass
+
 
 # I started out with a DAEMON type as well, and the rules that:
 #
@@ -180,12 +198,16 @@ class Task:
         assert self._task_result is not None
         return self._task_result
 
+def _call_user_fn(fn, *args):
+    locals()[LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE] = True
+    return fn(*args)
+
 # Container for the stuff that needs to be accessible for what would be
 # synchronous traps in curio.
 @attr.s(slots=True)
 class Runner:
     clock = attr.ib()
-    profiler = attr.ib()
+    profilers = attr.ib()
     io_manager = attr.ib()
 
     runq = attr.ib(default=attr.Factory(deque))
@@ -200,7 +222,8 @@ class Runner:
     crashing = attr.ib(default=False)
 
     def close(self):
-        self.profiler.close()
+        for profiler in profilers:
+            profiler.close()
         self.io_manager.close()
 
     def crash(self, message, exc):
@@ -252,8 +275,8 @@ class Runner:
         return self.clock.current_time()
 
     @_public
-    def current_profiler(self):
-        return self.profiler
+    def current_profilers(self):
+        return self.profilers
 
     @_public
     @_hazmat
@@ -274,6 +297,7 @@ class Runner:
         self.tasks.add(task)
         if type is TaskType.REGULAR:
             self.regular_task_count += 1
+            coro.co_frame.f_locals[LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE] = True
         self.reschedule(task, Value(None))
         return task
 
@@ -292,7 +316,7 @@ class Runner:
     def _call_soon(self, fn, *args, *, spawn=False):
         with self.call_soon_lock:
             if self.call_soon_done:
-                raise RuntimeError("run() has exited")
+                raise RunFinishedError("run() has exited")
             self.call_soon_queue.put_nowait((fn, args, spawn))
         self.io_manager.wakeup_threadsafe()
 
@@ -310,11 +334,11 @@ class Runner:
                     task.cancel_nowait()
             else:
                 try:
-                    fn(*args)
+                    _call_user_fn(fn, *args)
                 except BaseException as exc:
                     self.crash(
                         "error in call_soon_thread_and_signal_safe callback",
-                        exce)
+                        exc)
 
         try:
             while True:
@@ -337,7 +361,7 @@ class Runner:
                 except stdlib_queue.Empty:
                     break
 
-def run(fn, *args, *, clock=None, profiler=None):
+def run(fn, *args, *, clock=None, profilers=[]):
     # Do error-checking up front, before we enter the InternalError try/catch
     if not inspect.iscoroutinefunction(fn):
         raise TypeError("run expected an async function")
@@ -347,28 +371,34 @@ def run(fn, *args, *, clock=None, profiler=None):
     if hasattr(GLOBAL_RUN_CONTEXT, "runner"):
         raise RuntimeError("Attempted to call run() from inside a run()")
 
-    try:
-        if clock is None:
-            clock = SystemClock()
-        if profiler is None:
-            profiler = NullProfiler()
-        io_manager = TheIOManager()
-        runner = Runner(clock=clock, profiler=profiler, io_manager=io_manager)
-        GLOBAL_RUN_CONTEXT.runner = runner
+    if clock is None:
+        clock = SystemClock()
+    profilers = list(profilers)
+    io_manager = TheIOManager()
+    runner = Runner(clock=clock, profilers=profilers, io_manager=io_manager)
+    GLOBAL_RUN_CONTEXT.runner = runner
+    locals()[LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE] = False
 
-        with closing(runner):
-            # The main reason this is split off into its own function is just
-            # to get rid of this extra indentation.
-            run_impl(runner, fn, args)
-    except BaseException as exc:
-        raise InternalError(
-            "internal error in trio - please file a bug!") from exc
-    finally:
-        GLOBAL_RUN_CONTEXT.__dict__.clear()
+    # This is outside the try/except to avoid a window where KeyboardInterrupt
+    # would be allowed and converted into an InternalError:
+    with keyboard_interrupt_manager() as keyboard_interrupt_status:
+        try:
+            with closing(runner):
+                # The main reason this is split off into its own function
+                # is just to get rid of this extra indentation.
+                run_impl(runner, fn, args, keyboard_interrupt_status)
+        except BaseException as exc:
+            raise InternalError(
+                "internal error in trio - please file a bug!") from exc
+        finally:
+            GLOBAL_RUN_CONTEXT.__dict__.clear()
 
-    return runner._final_result.unwrap()
+    result = runner._final_result
+    if keyboard_interrupt_status.pending:
+        result = Result.combine(result, Error(KeyboardInterrupt()))
+    return result.unwrap()
 
-def run_impl(runner, fn, args):
+def run_impl(runner, fn, args, keyboard_interrupt_status):
     runner._spawn_impl(runner._call_soon_task, (), type=TaskType.SYSTEM)
     runner._spawn_impl(fn, args)
 
@@ -401,18 +431,33 @@ def run_impl(runner, fn, args):
         for _ in range(len(runner.runq)):
             task = runner.runq.popleft()
             GLOBAL_RUN_CONTEXT.task = task
-            runner.profiler.before_task_step(task)
+            for profiler in runner.profilers:
+                profiler.before_task_step(task)
+
             next_send = task._next_send
             task._next_send = None
+            # If a control-C arrived while we were in the runner code, then
+            # pretend it happened just after we resumed the next user
+            # coroutine.
+            if (keyboard_interrupt_status.pending
+                  and task._type is TaskType.REGULAR):
+                keyboard_interrupt_status.pending = False
+                next_send = Error(KeyboardInterrupt())
             try:
                 msg = next_send.send(task.coro)
             except StopIteration as stop_iteration:
                 runner.task_finished(task, Value(stop_iteration.value))
             except BaseException as task_exc:
-                runner.task_finished(task, Error(task_exc))
+                # Subtlety: the exception could be a KeyboardInterrupt that
+                # happened just before/after we called the coroutine.
+                if inspect.getcoroutinestate(task.coro) is inspect.CORO_CLOSED:
+                    runner.task_finished(task, Error(task_exc))
+                else:
 
-            # blocking trap
-            runner.profiler.after_task_step(task)
+
+            for profiler in runner.profilers:
+                profiler.after_task_step(task)
+
             yield_fn, *args = msg
             if yield_fn is yield_briefly:
                 task.interrupt_func = lambda: Interrupt.SUCCEEDED

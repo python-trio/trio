@@ -64,20 +64,10 @@ and in fact threads can do this!
 
 
 next:
-- redo/simplify EpollIOManager
 - fix sigint handling
-- our queue:
-  - size should be mandatory argument, or Queue.UNBOUNDED
-  - get_all for supervisors (since they can't apply backpressure)
-    - well, or can use the get_nowait trick. but get_all is maybe a
-      nice convenience? esp. if it await's, so you can just loop on
-      await get_all and have nice batching?
 - implement signal handling on top of new call_soon
 - implement {run,await}_in_main_thread on top of new call_soon
 - document the low-level API
-- make reschedule a method on task, and make tasks know their runner?
-  - meh. motivation was for out-of-context reschedule, but that
-    actually doesn't exist!
 
 - trio
   http://infolab.stanford.edu/trio/ -- dead for a ~decade

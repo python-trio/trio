@@ -1,14 +1,20 @@
 import attr
 
 # Re-exported as trio.hazmat.* and trio.*
-__all__ = ["InternalError", "WouldBlock",
-           "Cancelled", "TaskCancelled", "TimeoutCancelled",
-           "SendallPartialResult"]
+__all__ = [
+    "TaskCrashedError", "InternalError", "RunFinishedError",
+    "WouldBlock",
+    "Cancelled", "TaskCancelled", "TimeoutCancelled", "PartialResult",
+]
 
 class TaskCrashedError(Exception):
     pass
 
 class InternalError(Exception):
+    pass
+
+# Raised by call_soon if you try to queue work to a runner that isn't running
+class RunFinishedError(RuntimeError):
     pass
 
 class WouldBlock(Exception):
