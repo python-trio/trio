@@ -6,10 +6,10 @@ import threading
 import queue as stdlib_queue
 from time import monotonic
 import os
-from contextlib import contextmanager
+from contextlib import contextmanager, closing
 
 import attr
-from sortedcontainers import sorteddict
+from sortedcontainers import SortedDict
 
 from .. import _core
 from ._exceptions import (
@@ -102,11 +102,11 @@ class Profiler(abc.ABC):
 # to the original thread).
 TaskType = enum.Enum("TaskType", "SYSTEM REGULAR")
 
-@attr.s(slots=True)
+@attr.s(slots=True, cmp=False, hash=False)
 class Task:
     _type = attr.ib()
     coro = attr.ib()
-    _runner = attr.ib()
+    _runner = attr.ib(repr=False)
     _notify_queues = attr.ib(convert=set, repr=False)
     _task_result = attr.ib(default=None, repr=False)
     # tasks start out unscheduled, and unscheduled tasks have None here
@@ -171,7 +171,7 @@ class Task:
         if exc is None:
             exc = TaskCancelled()
         with self._might_adjust_deadline():
-            self._cancel_stack.fire_task_cancel(exc)
+            self._cancel_stack.fire_task_cancel(self, exc)
 
     async def cancel(self, exc=None):
         self.cancel_nowait(exc=exc)
@@ -211,14 +211,14 @@ class Runner:
     regular_task_count = attr.ib(default=0)
 
     # {(deadline, id(task)): task}
-    deadlines = attr.ib(default=attr.Factory(sorteddict))
+    deadlines = attr.ib(default=attr.Factory(SortedDict))
 
     initial_task = attr.ib(default=None)
     final_result = attr.ib(default=None)
     crashing = attr.ib(default=False)
 
     def close(self):
-        for profiler in profilers:
+        for profiler in self.profilers:
             profiler.close()
         self.io_manager.close()
 
@@ -245,7 +245,7 @@ class Runner:
                 for other_task in self.tasks:
                     other_task.cancel_nowait()
 
-        if task is initial_task:
+        if task is self.initial_task:
             self.final_result = Result.combine(self.final_result, result)
             # Avoid pinning the Task object in memory:
             self.initial_task = None
@@ -279,7 +279,6 @@ class Runner:
     def reschedule(self, task, next_send=Value(None)):
         assert task._runner is self
         assert task._next_send is None
-        task.state = "RUNNABLE"
         task._next_send = next_send
         task._cancel_func = None
         self.runq.append(task)
@@ -293,7 +292,7 @@ class Runner:
         self.tasks.add(task)
         if type is TaskType.REGULAR:
             self.regular_task_count += 1
-            coro.co_frame.f_locals[LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE] = True
+            coro.cr_frame.f_locals[LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE] = True
         self.reschedule(task, Value(None))
         return task
 
@@ -347,8 +346,8 @@ class Runner:
                 else:
                     await yield_briefly()
         except Cancelled:
-            with self._shutdown_lock:
-                self._done = True
+            with self.call_soon_lock:
+                self.call_soon_done = True
             # No more jobs will be submitted, so just clear out any residual
             # ones:
             while True:
@@ -389,14 +388,14 @@ def run(fn, *args, clock=None, profilers=[]):
         finally:
             GLOBAL_RUN_CONTEXT.__dict__.clear()
 
-    result = runner._final_result
+    result = runner.final_result
     if keyboard_interrupt_status.pending:
         result = Result.combine(result, Error(KeyboardInterrupt()))
     return result.unwrap()
 
 def run_impl(runner, fn, args):
-    runner._spawn_impl(runner._call_soon_task, (), type=TaskType.SYSTEM)
-    runner._spawn_impl(fn, args)
+    runner.spawn_impl(runner.call_soon_task, (), type=TaskType.SYSTEM)
+    runner.initial_task = runner.spawn_impl(fn, args)
 
     while runner.tasks:
         if runner.runq:
@@ -438,25 +437,23 @@ def run_impl(runner, fn, args):
                 runner.task_finished(task, Value(stop_iteration.value))
             except BaseException as task_exc:
                 runner.task_finished(task, Error(task_exc))
+            else:
+                yield_fn, *args = msg
+                if yield_fn is yield_briefly:
+                    task._cancel_func = lambda: Cancel.SUCCEEDED
+                    task._deliver_any_pending_cancel_to_blocked_task()
+                    if task._next_send is None:
+                        runner.reschedule(task)
+                elif yield_fn is yield_briefly_no_cancel:
+                    runner.reschedule(task)
+                else:
+                    assert yield_fn is yield_indefinitely
+                    task._cancel_func, = args
+                    task._deliver_any_pending_cancel_to_blocked_task()
+                del GLOBAL_RUN_CONTEXT.task
 
             for profiler in runner.profilers:
                 profiler.after_task_step(task)
-
-            yield_fn, *args = msg
-            if yield_fn is yield_briefly:
-                task.cancel_func = lambda: Cancel.SUCCEEDED
-                task.status = "BRIEF_YIELD"
-                task._deliver_any_pending_cancel_to_blocked_task()
-                if task._next_send is None:
-                    runner.reschedule(task)
-            elif yield_fn is yield_briefly_no_cancel:
-                task.status = "BRIEF_YIELD"
-                runner.reschedule(task)
-            else:
-                assert yield_fn is yield_indefinitely
-                task.cancel_func, = args
-                task._deliver_any_pending_cancel_to_blocked_task()
-            del GLOBAL_RUN_CONTEXT.task
 
 def current_task():
     return GLOBAL_RUN_CONTEXT.task
@@ -484,7 +481,7 @@ def _generate_method_wrappers(cls, path_to_instance):
             # current thread-local context version of this object, and calls
             # it. exec() is a bit ugly but the resulting code is faster and
             # simpler than doing some loop over getattr.
-            ns = {}
+            ns = {"GLOBAL_RUN_CONTEXT": GLOBAL_RUN_CONTEXT}
             exec(_WRAPPER_TEMPLATE.format(path_to_instance, methname), ns)
             wrapper = ns["wrapper"]
             # 'fn' is the *unbound* version of the method, but our exported

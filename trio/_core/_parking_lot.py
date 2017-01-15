@@ -1,6 +1,6 @@
 from itertools import count
 import attr
-from sortedcontainers import sorteddict
+from sortedcontainers import SortedDict
 
 from .. import _core
 from ._traps import Cancel, yield_indefinitely
@@ -15,7 +15,7 @@ class _AllType:
 
 @attr.s(slots=True)
 class ParkingLot:
-    _parked = attr.ib(default=attr.Factory(sorteddict))
+    _parked = attr.ib(default=attr.Factory(SortedDict))
 
     ALL = _AllType()
 

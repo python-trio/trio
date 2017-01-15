@@ -68,14 +68,14 @@ class CancelStack:
         default=attr.Factory(
             lambda: [CancelStackEntry(deadline=None)]))
 
-    def _next_deadline(self):
-        return min((e.deadline for e in self._cancel_stack[1:]
+    def next_deadline(self):
+        return min((e.deadline for e in self.entries[1:]
                     if e.state is CancelState.IDLE),
                    default=float("inf"))
 
     def _pending(self):
         for i in range(len(self.entries)):
-            if self.entries[i].state is CancelStatus.PENDING:
+            if self.entries[i].state is CancelState.PENDING:
                 return i
         return None
 
@@ -115,7 +115,7 @@ class CancelStack:
             raise TypeError("cancel_func must return Cancel enum")
         if success is Cancel.SUCCEEDED:
             exc = self._get_exception_and_mark_done(i)
-            _core.reschedule(task, Error(exc))
+            _core.reschedule(task, _core.Error(exc))
 
     def _fire_entry(self, task, i, exc):
         assert self.entries[i].state is CancelState.IDLE
@@ -129,12 +129,12 @@ class CancelStack:
                 continue
             if (stack_entry.state is CancelState.IDLE
                   and stack_entry.deadline <= now):
-                self._fire_entry(i)
+                self._fire_entry(task, i, exc)
                 break
 
-    def fire_task_cancel(self, task):
+    def fire_task_cancel(self, task, exc):
         if self.entries[0].state is CancelState.IDLE:
-            self._fire_entry(0)
+            self._fire_entry(task, 0, exc)
 
     def deliver_any_pending_cancel_to_blocked_task(self, task):
         pending = self._pending()
