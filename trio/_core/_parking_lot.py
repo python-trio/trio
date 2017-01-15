@@ -19,7 +19,7 @@ class ParkingLot:
 
     ALL = _AllType()
 
-    async def park(self, status, *, cancel_func=lambda: Cancel.SUCCEEDED):
+    async def park(self, *, cancel_func=lambda: Cancel.SUCCEEDED):
         idx = next(_counter)
         self._parked[idx] = _core.current_task()
         def cancel():
@@ -27,7 +27,7 @@ class ParkingLot:
             if r is Cancel.SUCCEEDED:
                 del self._parked[idx]
             return r
-        return await yield_indefinitely(status, cancel)
+        return await yield_indefinitely(cancel)
 
     def unpark(self, *, count=ParkingLot.ALL, result=_core.Value(None)):
         if count is ParkingLot.ALL:

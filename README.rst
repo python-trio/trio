@@ -64,9 +64,14 @@ and in fact threads can do this!
 
 
 next:
-- rename Interrupt to Cancel
 - does it work?
 - IOCP
+- debugging features:
+  - traceback from task
+  - get all tasks (for 'top' etc.)
+  - find the outermost frame of a blocked task that has a
+    __trio_wchan__ annotation, and report it as the wchan (like
+    curio's 'status' field)
 - implement signal handling on top of new call_soon
 - implement {run,await}_in_main_thread on top of new call_soon
 - document the low-level API

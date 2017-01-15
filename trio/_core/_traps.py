@@ -32,5 +32,5 @@ Cancel = enum.Enum("Cancel", "SUCCEEDED FAILED")
 # in which case no magic happens and you still have to make sure that
 # reschedule will be called eventually.
 @types.coroutine
-def yield_indefinitely(status, cancel_func):
-    return yield (yield_indefinitely, status, cancel_func)
+def yield_indefinitely(cancel_func):
+    return yield (yield_indefinitely, cancel_func)

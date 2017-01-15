@@ -105,7 +105,7 @@ if hasattr(select, "epoll"):
 
         # Public (hazmat) API:
 
-        async def _epoll_wait(self, fd, status, attr_name):
+        async def _epoll_wait(self, fd, attr_name):
             # KeyboardInterrupt here could corrupt self._registered
             locals()[LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE] = False
 
@@ -124,17 +124,17 @@ if hasattr(select, "epoll"):
                 setattr(self._registered[fd], attr_name, None)
                 self._update_registrations(fd, True)
                 return Cancel.SUCCEEDED
-            await yield_indefinitely(status, cancel)
+            await yield_indefinitely(cancel)
 
         @_public
         @_hazmat
-        async def until_readable(self, fd, status="READ_WAIT"):
-            await self._epoll_wait(fd, status, "read_task")
+        async def until_readable(self, fd):
+            await self._epoll_wait(fd, "read_task")
 
         @_public
         @_hazmat
-        async def until_writable(self, fd, status="WRITE_WAIT"):
-            await self._epoll_wait(fd, status, "write_task")
+        async def until_writable(self, fd):
+            await self._epoll_wait(fd, "write_task")
 
 ################################################################
 
@@ -220,7 +220,7 @@ if hasattr(select, "kqueue"):
                 if r is Cancel.SUCCEEDED:
                     del self._registered[key]
                 return r
-            return await yield_indefinitely("KEVENT_WAIT", cancel)
+            return await yield_indefinitely(cancel)
 
         async def _until_common(self, fd, filter):
             # KeyboardInterrupt here could corrupt self._registered

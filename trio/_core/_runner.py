@@ -106,11 +106,6 @@ class Task:
     coro = attr.ib()
     _runner = attr.ib()
     _notify_queues = attr.ib(convert=set, repr=False)
-
-    # This is for debugging tools only to give a hint as to what code is
-    # doing. XX replace by introspection to find the outermost stack frame
-    # with a __trio_wchan__ = True local.
-    status = attr.ib(default=None)
     _task_result = attr.ib(default=None, repr=False)
     # tasks start out unscheduled, and unscheduled tasks have None here
     _next_send = attr.ib(default=None, repr=False)
@@ -462,7 +457,7 @@ def run_impl(runner, fn, args):
                 runner.reschedule(task)
             else:
                 assert yield_fn is yield_indefinitely
-                task.cancel_func, task.status = args
+                task.cancel_func, = args
                 task._deliver_any_pending_cancel_to_blocked_task()
             del GLOBAL_RUN_CONTEXT.task
 
