@@ -2,7 +2,7 @@ from itertools import count
 import attr
 from sortedcontainers import sorteddict
 
-import .._core
+from .. import _core
 from ._traps import Interrupt, yield_indefinitely
 
 __all__ = ["ParkingLot"]
@@ -19,17 +19,14 @@ class ParkingLot:
 
     ALL = _AllType()
 
-    # XX maybe this should accept a cancel callback?
-    async def park(self, status, *, allow_cancel=True):
+    async def park(self, status, *, interrupt_func=lambda: Interrupt.SUCCEEDED):
         idx = next(_counter)
         self._parked[idx] = _core.current_task()
-        if allow_cancel:
-            def interrupt():
+        def interrupt():
+            r = interrupt_func()
+            if r is Interrupt.SUCCEEDED:
                 del self._parked[idx]
-                return Interrupt.SUCCEEDED
-        else:
-            def interrupt():
-                return Interrupt.FAILED
+            return r
         return await yield_indefinitely(status, interrupt)
 
     def unpark(self, *, count=ParkingLot.ALL, result=_core.Value(None)):

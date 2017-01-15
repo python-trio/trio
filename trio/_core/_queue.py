@@ -1,6 +1,6 @@
 from collections import deque
 
-import .._core
+from .. import _core
 
 __all__ = ["Queue"]
 

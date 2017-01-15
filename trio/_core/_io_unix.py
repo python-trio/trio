@@ -3,7 +3,7 @@ import select
 from contextlib import contextmanager
 import attr
 
-import .._core
+from .. import _core
 from . import _public, _hazmat
 from ._traps import Interrupt, yield_indefinitely
 

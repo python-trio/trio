@@ -2,7 +2,7 @@
 
 import enum
 
-__all__ = ["yield_briefly", "yield_briefly_no_cancel"]
+__all__ = ["yield_briefly", "yield_briefly_no_cancel", "Interrupt"]
 
 @_hazmat
 @types.coroutine
@@ -15,6 +15,7 @@ def yield_briefly_no_cancel():
     return yield (yield_briefly_no_cancel,)
 
 # Return values for interrupt functions
+@_hazmat
 Interrupt = enum.Enum("Interrupt", "SUCCEEDED FAILED")
 
 # This one is so tricky to use that we don't even make it a hazmat function;

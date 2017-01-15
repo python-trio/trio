@@ -10,7 +10,7 @@ from contextlib import contextmanager
 
 from sortedcontainers import sorteddict
 
-import .._core
+from .. import _core
 from ._exceptions import (
     TaskCrashedError, InternalError, RunnerFinishedError,
     Cancelled, TaskCancelled, TimeoutCancelled,
@@ -173,9 +173,8 @@ class Task:
     def cancel_nowait(self, exc=None):
         if exc is None:
             exc = TaskCancelled()
-        # Trick: we use a timeout with deadline=inf to represent task
-        # cancellation, so tell the deadline manager that the clock says inf.
-        self._fire_timeouts_at(float("inf"), exc)
+        with self._might_adjust_deadline():
+            self._cancel_stack.fire_task_cancel(exc)
 
     async def cancel(self, exc=None):
         self.cancel_nowait(exc=exc)
@@ -386,7 +385,7 @@ def run(fn, *args, *, clock=None, profilers=[]):
             with closing(runner):
                 # The main reason this is split off into its own function
                 # is just to get rid of this extra indentation.
-                run_impl(runner, fn, args, keyboard_interrupt_status)
+                run_impl(runner, fn, args)
         except BaseException as exc:
             raise InternalError(
                 "internal error in trio - please file a bug!") from exc
@@ -436,13 +435,6 @@ def run_impl(runner, fn, args, keyboard_interrupt_status):
 
             next_send = task._next_send
             task._next_send = None
-            # If a control-C arrived while we were in the runner code, then
-            # pretend it happened just after we resumed the next user
-            # coroutine.
-            if (keyboard_interrupt_status.pending
-                  and task._type is TaskType.REGULAR):
-                keyboard_interrupt_status.pending = False
-                next_send = Error(KeyboardInterrupt())
             try:
                 msg = next_send.send(task.coro)
             except StopIteration as stop_iteration:

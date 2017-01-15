@@ -64,7 +64,9 @@ and in fact threads can do this!
 
 
 next:
-- fix sigint handling
+- rename Interrupt to Cancel
+- does it work?
+- IOCP
 - implement signal handling on top of new call_soon
 - implement {run,await}_in_main_thread on top of new call_soon
 - document the low-level API

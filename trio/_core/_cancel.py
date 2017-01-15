@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 import attr
 
-import .._core
+from .. import _core
 from ._traps import Interrupt
 
 __all__ = ["cancel_at"]
@@ -14,7 +14,7 @@ CancelState = enum.Enum("CancelState", "IDLE PENDING DONE")
 
 @attr.s(slots=True)
 class CancelStackEntry:
-    deadline = attr.ib(validator=attr.validators.instance_of(float))
+    deadline = attr.ib()
     state = attr.ib(default=CancelState.IDLE)
     pending_exc = attr.ib(default=None)
     raised = attr.ib(default=False)
@@ -65,10 +65,10 @@ class CancelStack:
     # called for...
     entries = attr.ib(
         default=attr.Factory(
-            lambda: [CancelStackEntry(deadline=float("inf"))]))
+            lambda: [CancelStackEntry(deadline=None)]))
 
     def _next_deadline(self):
-        return min(e.deadline for e in self._cancel_stack
+        return min(e.deadline for e in self._cancel_stack[1:]
                    if e.state is CancelState.IDLE,
                    default=float("inf"))
 
@@ -79,6 +79,7 @@ class CancelStack:
         return None
 
     def push_deadline(self, task, deadline):
+        deadline = float(deadline)
         stack_entry = CancelStackEntry(deadline=deadline)
         if self._pending() is not None:
             stack_entry.state = CancelState.DONE
@@ -113,14 +114,24 @@ class CancelStack:
             exc = self._deliver_exception(i)
             _core.reschedule(task, Error(exc))
 
+    def _fire_entry(self, task, i, exc):
+        assert self.entries[i].state is CancelState.IDLE
+        self.entries[i].state = CancelState.PENDING
+        self.entries[i].pending_exc = exc
+        self._attempt_interrupt(task, i)
+
     def fire_timeout_at(self, task, now, exc):
         for i, stack_entry in enumerate(self.entries):
+            if i == 0:
+                continue
             if (stack_entry.state is CancelState.IDLE
                   and stack_entry.deadline <= now):
-                stack_entry.state = CancelState.IDLE
-                stack_entry.pending_exc = exc
-                self._attempt_interrupt(task, i)
+                self._fire_entry(i)
                 break
+
+    def fire_task_cancel(self, task):
+        if self.entries[0].state is CancelState.IDLE:
+            self._fire_entry(0)
 
     def interrupt_with_any_pending_cancel(self, task):
         pending = self._pending()
