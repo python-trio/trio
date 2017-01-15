@@ -6,6 +6,7 @@ import attr
 from .. import _core
 from . import _public, _hazmat
 from ._traps import Cancel, yield_indefinitely
+from ._keyboard_interrupt import LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE
 
 class WakeupPipe:
     def __init__(self):
@@ -105,6 +106,9 @@ if hasattr(select, "epoll"):
         # Public (hazmat) API:
 
         async def _epoll_wait(self, fd, status, attr_name):
+            # KeyboardInterrupt here could corrupt self._registered
+            locals()[LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE] = False
+
             if not isinstance(fd, int):
                 fd = fd.fileno()
             currently_registered = (fd in self._registered)
@@ -158,7 +162,7 @@ if hasattr(select, "kqueue"):
             max_events = max(1, len(self._registered))
             events = self._kqueue.control([], max_events, timeout)
             for event in events:
-                key = event.ident, event.filter
+                key = (event.ident, event.filter)
                 receiver = self._registered[key]
                 if event.flags & select.KQ_EV_ONESHOT:
                     del self._registered[key]
@@ -167,61 +171,77 @@ if hasattr(select, "kqueue"):
                 else:
                     receiver.put_nowait(event)
 
+        # kevent registration is complicated -- e.g. aio submission can
+        # implicitly perform a EV_ADD, and EVFILT_PROC with NOTE_TRACK will
+        # automatically register filters for child processes. So our lowlevel
+        # API is *very* low-level: we expose the kqueue itself for adding
+        # events or sticking into AIO submission structs, and split waiting
+        # off into separate methods. It's your responsibility to make sure
+        # that handle_io never receives an event without a corresponding
+        # registration! This may be challenging if you want to be careful
+        # about e.g. KeyboardInterrupt. Possibly this API could be improved to
+        # be more ergonomic...
+
+        @_public
+        @_hazmat
+        def current_kqueue(self):
+            return self._kqueue
+
         @_public
         @_hazmat
         @contextmanager
-        def kevent_monitor(self, event):
-            key = (event.ident, event.filter)
+        def kevent_monitor(self, ident, filter):
+            # KeyboardInterrupt here could corrupt self._registered
+            locals()[LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE] = False
+
+            key = (ident, filter)
             if key in self._registered:
                 raise ValueError(
                     "attempt to register multiple listeners for same "
                     "ident/filter pair")
-            if event.flags & select.KQ_EV_ONESHOT:
-                raise ValueError("for ONESHOT kevents use until_kevent_oneshot")
             q = _core.Queue(_core.Queue.UNLIMITED)
             self._registered[key] = q
-            event.flags |= select.KQ_EV_ADD
-            self._kqueue.control([event], 0)
             try:
                 yield q
             finally:
                 del self._registered[key]
-                event.flags &= ~select.KQ_EV_ADD
-                event.flags |= select.KQ_EV_DELETE
-                self._kqueue.control([event], 0)
 
         @_public
         @_hazmat
-        async def until_kevent_oneshot(self, event):
-            key = (event.ident, event.filter)
+        async def until_kevent(self, ident, filter, cancel_func):
+            key = (ident, filter)
             if key in self._registered:
                 raise ValueError(
                     "attempt to register multiple listeners for same "
                     "ident/filter pair")
-            event.flags |= select.KQ_EV_ONESHOT
             self._registered[key] = current_task()
-            event.flags |= select.KQ_EV_ADD
-            self._kqueue.control([event], 0)
             def cancel():
-                del self._registered[key]
-                event.flags &= ~select.KQ_EV_ADD
-                event.flags |= select.KQ_EV_DELETE
-                self._kqueue.control([event], 0)
-                return Cancel.SUCCEEDED
+                r = cancel_func()
+                if r is Cancel.SUCCEEDED:
+                    del self._registered[key]
+                return r
             return await yield_indefinitely("KEVENT_WAIT", cancel)
 
-        @_public
-        @_hazmat
-        async def until_readable(self, fd, status="READ_WAIT"):
+        async def _until_common(self, fd, filter):
+            # KeyboardInterrupt here could corrupt self._registered
+            locals()[LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE] = False
             if not isinstance(fd, int):
                 fd = fd.fileno()
-            event = select.kevent(fd, select.KQ_FILTER_READ)
-            await self.until_kevent_oneshot(event)
+            flags = select.KQ_EV_ADD | select.KQ_EV_ONESHOT
+            event = select.kevent(fd, filter, flags)
+            self._kqueue.control([event], 0)
+            def cancel():
+                event = select.kevent(fd, filter, select.KQ_EV_DELETE)
+                self._kqueue.control([event], 0)
+                return Cancel.SUCCEEDED
+            await self.until_kevent(fd, filter, cancel)
 
         @_public
         @_hazmat
-        async def until_writable(self, fd, status="WRITE_WAIT"):
-            if not isinstance(fd, int):
-                fd = fd.fileno()
-            event = select.kevent(fd, select.KQ_FILTER_WRITE)
-            await self.until_kevent_oneshot(event)
+        async def until_readable(self, fd):
+            await self._until_common(fd, select.KQ_FILTER_READ)
+
+        @_public
+        @_hazmat
+        async def until_writable(self, fd):
+            await self._until_common(fd, select.KQ_FILTER_WRITE)
