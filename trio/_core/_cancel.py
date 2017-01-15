@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+import enum
 import attr
 
 from .. import _core
@@ -47,7 +48,7 @@ def cancel_at(deadline):
     try:
         yield status
     except Cancelled as exc:
-        if exc._stack_entry is status._stack_entry
+        if exc._stack_entry is status._stack_entry:
             pass
         else:
             raise
@@ -68,8 +69,8 @@ class CancelStack:
             lambda: [CancelStackEntry(deadline=None)]))
 
     def _next_deadline(self):
-        return min(e.deadline for e in self._cancel_stack[1:]
-                   if e.state is CancelState.IDLE,
+        return min((e.deadline for e in self._cancel_stack[1:]
+                    if e.state is CancelState.IDLE),
                    default=float("inf"))
 
     def _pending(self):

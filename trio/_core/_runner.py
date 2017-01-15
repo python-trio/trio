@@ -8,11 +8,12 @@ from time import monotonic
 import os
 from contextlib import contextmanager
 
+import attr
 from sortedcontainers import sorteddict
 
 from .. import _core
 from ._exceptions import (
-    TaskCrashedError, InternalError, RunnerFinishedError,
+    TaskCrashedError, InternalError, RunFinishedError,
     Cancelled, TaskCancelled, TimeoutCancelled,
 )
 from ._result import Result, Error, Value
@@ -22,6 +23,7 @@ from ._traps import (
 from ._keyboard_interrupt import (
     LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE, keyboard_interrupt_manager,
 )
+from ._cancel import CancelStack
 from . import _public, _hazmat
 
 # At the bottom of this file there's also some "clever" code that generates
@@ -296,7 +298,7 @@ class Runner:
         return task
 
     @_public
-    async def spawn(self, fn, *args, *, notify_queues=[]):
+    async def spawn(self, fn, *args, notify_queues=[]):
         return self.spawn_impl(fn, args, notify_queues=notify_queues)
 
     ################################################################
@@ -307,7 +309,7 @@ class Runner:
     # Must be a recursive lock, because it's acquired from signal handlers:
     call_soon_lock = attr.ib(default=attr.Factory(threading.RLock))
 
-    def _call_soon(self, fn, *args, *, spawn=False):
+    def _call_soon(self, fn, *args, spawn=False):
         with self.call_soon_lock:
             if self.call_soon_done:
                 raise RunFinishedError("run() has exited")
@@ -355,7 +357,7 @@ class Runner:
                 except stdlib_queue.Empty:
                     break
 
-def run(fn, *args, *, clock=None, profilers=[]):
+def run(fn, *args, clock=None, profilers=[]):
     # Do error-checking up front, before we enter the InternalError try/catch
     if not inspect.iscoroutinefunction(fn):
         raise TypeError("run expected an async function")
@@ -401,7 +403,7 @@ def run_impl(runner, fn, args):
             timeout = 0
         else:
             deadline = runner.deadlines.keys()[0]
-            timeout = runner.clock.deadline_to_sleep_time(deadline))
+            timeout = runner.clock.deadline_to_sleep_time(deadline)
             # Clamp timeout be fall between 0 and 24 hours. 24 hours is
             # arbitrary, but it avoids issues like people setting timeouts of
             # 10**20 and then getting integer overflows in the underlying
@@ -435,12 +437,7 @@ def run_impl(runner, fn, args):
             except StopIteration as stop_iteration:
                 runner.task_finished(task, Value(stop_iteration.value))
             except BaseException as task_exc:
-                # Subtlety: the exception could be a KeyboardInterrupt that
-                # happened just before/after we called the coroutine.
-                if inspect.getcoroutinestate(task.coro) is inspect.CORO_CLOSED:
-                    runner.task_finished(task, Error(task_exc))
-                else:
-
+                runner.task_finished(task, Error(task_exc))
 
             for profiler in runner.profilers:
                 profiler.after_task_step(task)

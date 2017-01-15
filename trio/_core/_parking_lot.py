@@ -29,7 +29,7 @@ class ParkingLot:
             return r
         return await yield_indefinitely(cancel)
 
-    def unpark(self, *, count=ParkingLot.ALL, result=_core.Value(None)):
+    def unpark(self, *, count=ALL, result=_core.Value(None)):
         if count is ParkingLot.ALL:
             count = len(self._parked)
         for _ in range(min(count, len(self._parked))):

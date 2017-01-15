@@ -16,11 +16,11 @@
 
 __all__ = []
 
-import .hazmat
+from . import hazmat
 
-import ._core
+from . import _core
 for _symbol in _core.__all__:
-    _value = getattr(_core, symbol)
+    _value = getattr(_core, _symbol)
     if getattr(_value, "_hazmat", False):
         setattr(hazmat, _symbol, _value)
         hazmat.__all__.append(_symbol)

@@ -46,9 +46,9 @@ class Queue:
     async def put(self, obj):
         # Tricky: if there's room, we must do an artificial wait... but after
         # that there might not be room anymore.
-        if not self.full()
+        if not self.full():
             await _core.yield_briefly()
-        while self.full()
+        while self.full():
             await self._put_lot.park("QUEUE_PUT")
         self.put_nowait(obj)
 

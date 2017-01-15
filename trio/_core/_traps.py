@@ -1,22 +1,27 @@
 # These are the only 3 functions that ever yield back to the task runner.
 
+import types
 import enum
+
+from . import _hazmat
 
 __all__ = ["yield_briefly", "yield_briefly_no_cancel", "Cancel"]
 
 @_hazmat
 @types.coroutine
 def yield_briefly():
-    return yield (yield_briefly,)
+    return (yield (yield_briefly,))
 
 @_hazmat
 @types.coroutine
 def yield_briefly_no_cancel():
-    return yield (yield_briefly_no_cancel,)
+    return (yield (yield_briefly_no_cancel,))
 
 # Return values for cancel functions
 @_hazmat
-Cancel = enum.Enum("Cancel", "SUCCEEDED FAILED")
+class Cancel(enum.Enum):
+    SUCCEEDED = 1
+    FAILED = 2
 
 # This one is so tricky to use that we don't even make it a hazmat function;
 # we only use it internally within this module. ParkingLot provides a much
@@ -33,4 +38,4 @@ Cancel = enum.Enum("Cancel", "SUCCEEDED FAILED")
 # reschedule will be called eventually.
 @types.coroutine
 def yield_indefinitely(cancel_func):
-    return yield (yield_indefinitely, cancel_func)
+    return (yield (yield_indefinitely, cancel_func))
