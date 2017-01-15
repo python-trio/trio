@@ -2,7 +2,7 @@ from contextlib import contextmanager
 import attr
 
 from .. import _core
-from ._traps import Interrupt
+from ._traps import Cancel
 
 __all__ = ["cancel_at"]
 
@@ -90,7 +90,7 @@ class CancelStack:
         assert self.entries[-1] is cancel_status._stack_entry
         self.entries.pop()
 
-    def _deliver_exception(self, pending):
+    def _get_exception_and_mark_done(self, pending):
         # the given stack entry must be PENDING
         # marks it as delivered, marks all following as DONE, and returns the
         # exception
@@ -106,19 +106,21 @@ class CancelStack:
             self.entries[i].state = CancelState.DONE
         return exc
 
-    def _attempt_interrupt(self, task, i):
-        success = task._interrupt_func()
-        if type(success) is not Interrupt:
-            raise TypeError("interrupt callback must return Interrupt enum")
-        if success is Interrupt.SUCCEEDED:
-            exc = self._deliver_exception(i)
+    def _attempt_deliver_cancel_to_blocked_task(self, task, i):
+        if task._cancel_func is None:
+            return
+        success = task._cancel_func()
+        if type(success) is not Cancel:
+            raise TypeError("cancel_func must return Cancel enum")
+        if success is Cancel.SUCCEEDED:
+            exc = self._get_exception_and_mark_done(i)
             _core.reschedule(task, Error(exc))
 
     def _fire_entry(self, task, i, exc):
         assert self.entries[i].state is CancelState.IDLE
         self.entries[i].state = CancelState.PENDING
         self.entries[i].pending_exc = exc
-        self._attempt_interrupt(task, i)
+        self._attempt_deliver_cancel_to_blocked_task(task, i)
 
     def fire_timeout_at(self, task, now, exc):
         for i, stack_entry in enumerate(self.entries):
@@ -133,12 +135,12 @@ class CancelStack:
         if self.entries[0].state is CancelState.IDLE:
             self._fire_entry(0)
 
-    def interrupt_with_any_pending_cancel(self, task):
+    def deliver_any_pending_cancel_to_blocked_task(self, task):
         pending = self._pending()
         if pending is not None:
-            self._attempt_interrupt(task, pending)
+            self._attempt_deliver_cancel_to_blocked_task(task, pending)
 
     def raise_any_pending_cancel(self):
         pending = self._pending()
         if pending is not None:
-            raise self._deliver_exception(pending)
+            raise self._get_exception_and_mark_done(pending)

@@ -3,7 +3,7 @@ import attr
 from sortedcontainers import sorteddict
 
 from .. import _core
-from ._traps import Interrupt, yield_indefinitely
+from ._traps import Cancel, yield_indefinitely
 
 __all__ = ["ParkingLot"]
 
@@ -19,15 +19,15 @@ class ParkingLot:
 
     ALL = _AllType()
 
-    async def park(self, status, *, interrupt_func=lambda: Interrupt.SUCCEEDED):
+    async def park(self, status, *, cancel_func=lambda: Cancel.SUCCEEDED):
         idx = next(_counter)
         self._parked[idx] = _core.current_task()
-        def interrupt():
-            r = interrupt_func()
-            if r is Interrupt.SUCCEEDED:
+        def cancel():
+            r = cancel_func()
+            if r is Cancel.SUCCEEDED:
                 del self._parked[idx]
             return r
-        return await yield_indefinitely(status, interrupt)
+        return await yield_indefinitely(status, cancel)
 
     def unpark(self, *, count=ParkingLot.ALL, result=_core.Value(None)):
         if count is ParkingLot.ALL:

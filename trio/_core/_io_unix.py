@@ -5,7 +5,7 @@ import attr
 
 from .. import _core
 from . import _public, _hazmat
-from ._traps import Interrupt, yield_indefinitely
+from ._traps import Cancel, yield_indefinitely
 
 class WakeupPipe:
     def __init__(self):
@@ -116,11 +116,11 @@ if hasattr(select, "epoll"):
                     "another task is already reading / writing this fd")
             setattr(waiters, attr_name, _core.current_task())
             self._update_registrations(fd, currently_registered)
-            def interrupt():
+            def cancel():
                 setattr(self._registered[fd], attr_name, None)
                 self._update_registrations(fd, True)
-                return Interrupt.SUCCEEDED
-            await yield_indefinitely(status, interrupt)
+                return Cancel.SUCCEEDED
+            await yield_indefinitely(status, cancel)
 
         @_public
         @_hazmat
@@ -202,13 +202,13 @@ if hasattr(select, "kqueue"):
             self._registered[key] = current_task()
             event.flags |= select.KQ_EV_ADD
             self._kqueue.control([event], 0)
-            def interrupt():
+            def cancel():
                 del self._registered[key]
                 event.flags &= ~select.KQ_EV_ADD
                 event.flags |= select.KQ_EV_DELETE
                 self._kqueue.control([event], 0)
-                return Interrupt.SUCCEEDED
-            return await yield_indefinitely("KEVENT_WAIT", interrupt)
+                return Cancel.SUCCEEDED
+            return await yield_indefinitely("KEVENT_WAIT", cancel)
 
         @_public
         @_hazmat

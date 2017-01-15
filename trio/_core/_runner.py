@@ -17,7 +17,7 @@ from ._exceptions import (
 )
 from ._result import Result, Error, Value
 from ._traps import (
-    yield_briefly, yield_briefly_no_cancel, Interrupt, yield_indefinitely,
+    yield_briefly, yield_briefly_no_cancel, Cancel, yield_indefinitely,
 )
 from ._keyboard_interrupt import (
     LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE, keyboard_interrupt_manager,
@@ -114,7 +114,7 @@ class Task:
     _task_result = attr.ib(default=None, repr=False)
     # tasks start out unscheduled, and unscheduled tasks have None here
     _next_send = attr.ib(default=None, repr=False)
-    _interrupt_func = attr.ib(default=None, repr=False)
+    _cancel_func = attr.ib(default=None, repr=False)
 
     def add_notify_queue(self, queue):
         if queue in self._notify_queues:
@@ -162,9 +162,9 @@ class Task:
         with self._might_adjust_deadline():
             self._cancel_stack.fire_timeouts(self, now, exc)
 
-    def _interrupt_with_any_pending_cancel(self):
+    def _deliver_any_pending_cancel_to_blocked_task(self):
         with self._might_adjust_deadline():
-            self._cancel_stack.interrupt_with_any_pending_cancel(self)
+            self._cancel_stack.deliver_any_pending_cancel_to_blocked_task(self)
 
     def _raise_any_pending_cancel(self):
         with self._might_adjust_deadline():
@@ -284,7 +284,7 @@ class Runner:
         assert task._next_send is None
         task.state = "RUNNABLE"
         task._next_send = next_send
-        task._interrupt = None
+        task._cancel_func = None
         self.runq.append(task)
 
     def spawn_impl(self, fn, args, *, type=TaskType.REGULAR, notify_queues=[]):
@@ -397,7 +397,7 @@ def run(fn, *args, *, clock=None, profilers=[]):
         result = Result.combine(result, Error(KeyboardInterrupt()))
     return result.unwrap()
 
-def run_impl(runner, fn, args, keyboard_interrupt_status):
+def run_impl(runner, fn, args):
     runner._spawn_impl(runner._call_soon_task, (), type=TaskType.SYSTEM)
     runner._spawn_impl(fn, args)
 
@@ -452,9 +452,9 @@ def run_impl(runner, fn, args, keyboard_interrupt_status):
 
             yield_fn, *args = msg
             if yield_fn is yield_briefly:
-                task.interrupt_func = lambda: Interrupt.SUCCEEDED
+                task.cancel_func = lambda: Cancel.SUCCEEDED
                 task.status = "BRIEF_YIELD"
-                task._interrupt_with_any_pending_cancel()
+                task._deliver_any_pending_cancel_to_blocked_task()
                 if task._next_send is None:
                     runner.reschedule(task)
             elif yield_fn is yield_briefly_no_cancel:
@@ -462,8 +462,8 @@ def run_impl(runner, fn, args, keyboard_interrupt_status):
                 runner.reschedule(task)
             else:
                 assert yield_fn is yield_indefinitely
-                task.interrupt_func, task.status = args
-                task._interrupt_with_any_pending_cancel()
+                task.cancel_func, task.status = args
+                task._deliver_any_pending_cancel_to_blocked_task()
             del GLOBAL_RUN_CONTEXT.task
 
 def current_task():
