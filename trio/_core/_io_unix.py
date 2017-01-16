@@ -18,7 +18,7 @@ class WakeupPipe:
         os.write(self._write_fd, b"\x00")
 
     async def until_woken(self):
-        await trio.hazmat.until_readable(self._read_fd)
+        await _core.until_readable(self._read_fd)
         # Drain the pipe:
         while os.read(self._read_fd, 2 ** 16):
             pass

@@ -13,8 +13,8 @@ from sortedcontainers import SortedDict
 
 from .. import _core
 from ._exceptions import (
-    TaskCrashedError, InternalError, RunFinishedError,
-    Cancelled, TaskCancelled, TimeoutCancelled,
+    UnhandledExceptionError, TrioInternalError, RunFinishedError,
+    Cancelled, TaskCancelled, TimeoutCancelled, WouldBlock
 )
 from ._result import Result, Error, Value
 from ._traps import (
@@ -44,7 +44,7 @@ else:
     except ImportError:
         try:
             from ._io_unix import KqueueIOManager as TheIOManager
-        except ImportError:
+        except ImportError:  # pragma: no cover
             raise NotImplementedError("unsupported platform")
 
 
@@ -74,7 +74,8 @@ class Profiler(abc.ABC):
     def after_task_step(self, task):
         pass
 
-    def close(self):
+    @abc.abstractmethod
+    def close(self):  # pragma: no cover
         pass
 
 
@@ -93,7 +94,7 @@ class Profiler(abc.ABC):
 #
 # - When all REGULAR tasks have exited, we cancel all SYSTEM tasks.
 # - If a REGULAR task crashes, we cancel all REGULAR tasks (once).
-# - If a SYSTEM task crashes we exit immediately with InternalError.
+# - If a SYSTEM task crashes we exit immediately with TrioInternalError.
 #
 # Also, the call_soon task can spawn REGULAR tasks, but it checks for crashing
 # and immediately cancels them (so they'll get an error at their first
@@ -121,10 +122,8 @@ class Task:
         else:
             self._notify_queues.add(queue)
 
-    def remove_notify_queue(self, queue):
-        if queue not in self._notify_queues:
-            raise ValueError("queue not found")
-        self._notify_queues.remove(queue)
+    def discard_notify_queue(self, queue):
+        self._notify_queues.discard(queue)
 
     ################################################################
     # Cancellation
@@ -190,7 +189,7 @@ class Task:
             try:
                 await q.get()
             finally:
-                self.remove_notify_queue(q)
+                self.discard_notify_queue(q)
         assert self._task_result is not None
         return self._task_result
 
@@ -215,8 +214,7 @@ class Runner:
     deadlines = attr.ib(default=attr.Factory(SortedDict))
 
     initial_task = attr.ib(default=None)
-    final_result = attr.ib(default=None)
-    crashing = attr.ib(default=False)
+    unhandled_exception_result = attr.ib(default=None)
 
     def close(self):
         for profiler in self.profilers:
@@ -226,14 +224,15 @@ class Runner:
     def crash(self, message, exc):
         # XX ergonomics: maybe KeyboardInterrupt should be preserved instead
         # of being wrapped?
-        wrapper = TaskCrashedError(message)
+        wrapper = UnhandledExceptionError(message)
         wrapper.__cause__ = exc
-        self.final_result = Result.combine(self.final_result, Error(wrapper))
-        if not self.crashing:
-            self.crashing = True
+        if self.unhandled_exception_result is None:
+            # This is the first unhandled exception, so cancel everything
             for task in self.tasks:
                 if task._type is TaskType.REGULAR:
                     task.cancel_nowait()
+        self.unhandled_exception_result = Result.combine(
+            self.unhandled_exception_result, Error(wrapper))
 
     def task_finished(self, task, result):
         task._task_result = result
@@ -247,24 +246,25 @@ class Runner:
                 for other_task in self.tasks:
                     other_task.cancel_nowait()
 
-        if task is self.initial_task:
-            self.final_result = Result.combine(self.final_result, result)
-            # Avoid pinning the Task object in memory:
-            self.initial_task = None
-        elif type(result) is Error and not task._notify_queues:
+        notified = False
+        while task._notify_queues:
+            notify_queue = task._notify_queues.pop()
+            try:
+                notify_queue.put_nowait(task)
+            except BaseException as exc:
+                self.crash("error notifying task watcher of task exit", exc)
+            else:
+                notified = True
+
+        if (type(result) is Error and not notified
+              and task is not self.initial_task):
             if task._type is TaskType.REGULAR:
                 self.crash("unwatched task raised exception", result.error)
             else:
                 # Propagate system task crashes out, to eventually raise an
-                # InternalError.
+                # TrioInternalError.
                 assert task._type is TaskType.SYSTEM
                 result.unwrap()
-
-        for result_queue in task._notify_queues:
-            try:
-                result_queue.put_nowait(task)
-            except BaseException as exc:
-                self.crash("error notifying task watcher of task exit", exc)
 
     # Methods marked with @_public get converted into functions exported by
     # trio.hazmat:
@@ -327,7 +327,7 @@ class Runner:
             fn, args, spawn = self.call_soon_queue.get_nowait()
             if spawn:
                 task = self.spawn_impl(fn, args)
-                if self.crashing:
+                if self.unhandled_exception_result is not None:
                     task.cancel_nowait()
             else:
                 try:
@@ -340,8 +340,12 @@ class Runner:
         try:
             while True:
                 try:
-                    # Do a bounded amount of work between yields:
-                    for _ in range(self.call_soon_queue.qsize()):
+                    # Do a bounded amount of work between yields.
+                    # We always want to try processing at least one, though;
+                    # otherwise we could just loop around do nothing at
+                    # all. If the queue is really empty, we'll get an
+                    # exception and go to sleep until woken.
+                    for _ in range(max(1, self.call_soon_queue.qsize())):
                         call_next_or_raise_Empty()
                 except stdlib_queue.Empty:
                     await self.io_manager.until_woken()
@@ -359,7 +363,8 @@ class Runner:
                     break
 
 def run(fn, *args, clock=None, profilers=[]):
-    # Do error-checking up front, before we enter the InternalError try/catch
+    # Do error-checking up front, before we enter the TrioInternalError
+    # try/catch
     #
     # It wouldn't be *hard* to support nested calls to run(), but I can't
     # think of a single good reason for it, so let's be conservative for
@@ -376,7 +381,7 @@ def run(fn, *args, clock=None, profilers=[]):
     locals()[LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE] = False
 
     # This is outside the try/except to avoid a window where KeyboardInterrupt
-    # would be allowed and converted into an InternalError:
+    # would be allowed and converted into an TrioInternalError:
     with keyboard_interrupt_manager() as keyboard_interrupt_status:
         try:
             with closing(runner):
@@ -384,7 +389,7 @@ def run(fn, *args, clock=None, profilers=[]):
                 # is just to get rid of this extra indentation.
                 result = run_impl(runner, fn, args)
         except BaseException as exc:
-            raise InternalError(
+            raise TrioInternalError(
                 "internal error in trio - please file a bug!") from exc
         finally:
             GLOBAL_RUN_CONTEXT.__dict__.clear()
@@ -438,12 +443,19 @@ def run_impl(runner, fn, args):
 
             next_send = task._next_send
             task._next_send = None
+            final_result = None
             try:
                 msg = next_send.send(task.coro)
             except StopIteration as stop_iteration:
-                runner.task_finished(task, Value(stop_iteration.value))
+                final_result = Value(stop_iteration.value)
             except BaseException as task_exc:
-                runner.task_finished(task, Error(task_exc))
+                final_result = Error(task_exc)
+
+            if final_result is not None:
+                # We can't call this directly inside the except: blocks above,
+                # because then the exceptions end up attaching themselves to
+                # other exceptions as __context__ in unwanted ways.
+                runner.task_finished(task, final_result)
             else:
                 yield_fn, *args = msg
                 if yield_fn is yield_briefly:
@@ -462,7 +474,13 @@ def run_impl(runner, fn, args):
             for profiler in runner.profilers:
                 profiler.after_task_step(task)
 
-    return runner.final_result
+    if runner.unhandled_exception_result is not None:
+        # If the initial task raised an exception then we let it chain into
+        # the final result, but the unhandled exception part wins
+        return Result.combine(runner.initial_task._task_result,
+                              runner.unhandled_exception_result)
+    else:
+        return runner.initial_task._task_result
 
 def current_task():
     return GLOBAL_RUN_CONTEXT.task

@@ -1,4 +1,5 @@
 import abc
+import contextlib
 
 import attr
 
@@ -52,6 +53,10 @@ class Resource(metaclass=abc.ABCMeta):
 
     def __exit__(self, *args):
         self.close()
+
+# XX added in 3.6
+if hasattr(contextlib, "AbstractContextManager"):
+    contextlib.AbstractContextManager.register(Resource)
 
 @attr.s(slots=True)
 class SendStream(Resource):

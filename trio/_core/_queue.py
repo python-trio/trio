@@ -1,6 +1,8 @@
 from collections import deque
+from async_generator import async_generator, yield_
 
 from .. import _core
+from ._util import aiter_compat
 
 __all__ = ["Queue"]
 
@@ -54,7 +56,7 @@ class Queue:
 
     def get_nowait(self):
         if not self._data:
-            raise WouldBlock
+            raise _core.WouldBlock
         self._put_lot.unpark(count=1)
         return self._data.popleft()
 
@@ -66,7 +68,8 @@ class Queue:
             await self._get_lot.park()
         return self.get_nowait()
 
-    # Useful for e.g. task supervisors, where backpressure is impossible
+    # Useful for e.g. task supervisors, where backpressure is impossible.
+    # Basically applying backpressure to the entire program.
     async def get_all(self):
         # See comment on put()
         if self._data:
@@ -88,3 +91,15 @@ class Queue:
             await _core.yield_briefly()
         else:
             await self._join_lot.park()
+
+    @aiter_compat
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        return await self.get()
+
+    @async_generator
+    async def batched(self):
+        while True:
+            await yield_(await self.get_all())

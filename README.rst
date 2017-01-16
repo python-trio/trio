@@ -68,6 +68,13 @@ nothing to see here
 
    next:
    - does it work?
+   - async generator hooks
+   - not 100% sure whether it makes sense to allow add_notify_queue
+     after a task has exited? at that point it's too late to prevent a
+     crash so... I guess maybe it's ok on the logic that the
+     crash-prevention rule is you have to hvae at least one viewer
+     before the task exits but you could have more later or not
+     whatever.
    - not sure about exceptions thrown by run()... in particular, we don't
      wrap the main task's exceptions, because they might be normal. But
      if they're normal, and TaskCrashedErrors aren't normal, then we
@@ -76,6 +83,27 @@ nothing to see here
      first then there's no masking. If the main task crashed second, it
      was after being cancelled. (Though maybe it never saw the
      cancellation.)
+
+     I think I prefer:
+     - no special treatment for KeyboardInterrupt, supervisors are
+       supposed to propagate it or whatever if that's what makes sense
+     - we accumulate RunCrashedErrors separately from the initial task
+       result, and combine them at the end, with RunCrashedError
+       winning
+
+     so complete set of things that can happen:
+     - TrioInternalError: bug in trio; should never happen
+     - KeyboardInterrupt: if you hit control-C *right* at the
+       beginning or end of the run()
+     - RunCrashedError: your code raised an exception that had
+       no-where to propagate to or be handled, so for safety we bailed
+       out
+     - anything else: whatever your main function did
+
+     (maybe we should have a way to propagate InternalError? like it
+     should be impossible to get a CallSoonError from
+     run_in_main_thread, so if you do...?)
+
    - pytest plugin
    - task local storage
      - {run,await}_in_{worker,main}_thread should keep it! no concurrent
@@ -100,6 +128,14 @@ nothing to see here
      http://infolab.stanford.edu/trio/ -- dead for a ~decade
      http://inamidst.com/sw/trio/ -- dead for a ~decade
 
+
+   3.6 advantages:
+   - no __aiter__ mess
+   - async generators
+   - no need to check for AbstractContextManager
+   - f strings
+   disadvantages:
+   - not in debian at all yet; 3.6-final not in any ubuntu until 17.04
 
 Code of conduct
 ---------------

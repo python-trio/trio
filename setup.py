@@ -14,6 +14,7 @@ setup(name="trio",
       install_requires=[
           "attrs",
           "sortedcontainers",
+          "async_generator",
       ],
       classifiers=[
         "Development Status :: 2 - Pre-Alpha",
