@@ -49,8 +49,8 @@ class CancelStack:
         stack_entry = CancelStackEntry(deadline=deadline)
         if self._pending() is not None:
             stack_entry.state = CancelState.DONE
-        self.entries.append(entry)
-        return CancelStatus(stack_entry=entry, task=task)
+        self.entries.append(stack_entry)
+        return CancelStatus(stack_entry=stack_entry, task=task)
 
     def pop_deadline(self, cancel_status):
         assert self.entries[-1] is cancel_status._stack_entry
@@ -88,7 +88,7 @@ class CancelStack:
         self.entries[i].pending_exc = exc
         self._attempt_deliver_cancel_to_blocked_task(task, i)
 
-    def fire_timeout_at(self, task, now, exc):
+    def fire_expired_timeouts(self, task, now, exc):
         for i, stack_entry in enumerate(self.entries):
             if i == 0:
                 continue
@@ -138,10 +138,10 @@ def cancel_at(deadline):
     status = task._push_deadline(deadline)
     try:
         yield status
-    except Cancelled as exc:
+    except _core.Cancelled as exc:
         if exc._stack_entry is status._stack_entry:
             pass
         else:
             raise
     finally:
-        task._pop_deadline(entry)
+        task._pop_deadline(status)

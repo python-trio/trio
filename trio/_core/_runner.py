@@ -154,9 +154,9 @@ class Task:
         with self._might_adjust_deadline():
             self._cancel_stack.pop_deadline(cancel_status)
 
-    def _fire_timeouts_at(self, now, exc):
+    def _fire_expired_timeouts(self, now, exc):
         with self._might_adjust_deadline():
-            self._cancel_stack.fire_timeouts(self, now, exc)
+            self._cancel_stack.fire_expired_timeouts(self, now, exc)
 
     def _deliver_any_pending_cancel_to_blocked_task(self):
         with self._might_adjust_deadline():
@@ -415,7 +415,7 @@ def run_impl(runner, fn, args):
         if runner.runq:
             timeout = 0
         elif runner.deadlines:
-            deadline = runner.deadlines.keys()[0]
+            deadline, _ = runner.deadlines.keys()[0]
             timeout = runner.clock.deadline_to_sleep_time(deadline)
         else:
             timeout = _MAX_TIMEOUT
@@ -427,7 +427,7 @@ def run_impl(runner, fn, args):
         while runner.deadlines:
             (deadline, _), task = runner.deadlines.peekitem(0)
             if deadline <= now:
-                task._fire_timeouts_at(now, TimeoutCancelled())
+                task._fire_expired_timeouts(now, TimeoutCancelled())
             else:
                 break
 

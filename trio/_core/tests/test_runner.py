@@ -335,20 +335,20 @@ def test_is_subsequence():
     assert not is_subsequence([1, 3, 5], range(5))
     assert not is_subsequence([3, 1], range(5))
 
+@attr.s
+class Recorder(_core.Profiler):
+    record = attr.ib(default=attr.Factory(list))
+
+    def before_task_step(self, task):
+        self.record.append(("before", task))
+
+    def after_task_step(self, task):
+        self.record.append(("after", task))
+
+    def close(self):
+        self.record.append(("close",))
+
 def test_profilers():
-    @attr.s
-    class Recorder(_core.Profiler):
-        record = attr.ib(default=attr.Factory(list))
-
-        def before_task_step(self, task):
-            self.record.append(("before", task))
-
-        def after_task_step(self, task):
-            self.record.append(("after", task))
-
-        def close(self):
-            self.record.append(("close",))
-
     r1 = Recorder()
     r2 = Recorder()
     r3 = Recorder()
@@ -364,7 +364,9 @@ def test_profilers():
             await _core.yield_briefly()
         return _core.current_task()
     main_task = _core.run(main, profilers=[r1, r2])
+    # It sleeps 3 times, so it runs 4 times
     expected = [("before", main_task), ("after", main_task),
+                ("before", main_task), ("after", main_task),
                 ("before", main_task), ("after", main_task),
                 ("before", main_task), ("after", main_task),
                 ("close",)]
@@ -374,8 +376,36 @@ def test_profilers():
     # in the record:
     assert is_subsequence(expected, r1.record)
 
-    # since we had no
+    # since we didn't use call_soon, the system task should have only
+    # scheduled twice (once at the beginning to set up, and once at the end
+    # when cancelled). this caught a subtle bug in the first version of the
+    # code where it was running on every cycle...:
     assert len(r1.record) == len(expected) + 4
+
+
+def test_profilers_interleave():
+    tasks = {}
+
+    async def two_step1():
+        await _core.yield_briefly()
+    async def two_step2():
+        await _core.yield_briefly()
+
+    async def main():
+        tasks["main"] = _core.current_task()
+        tasks["t1"] = await _core.spawn(two_step1)
+        tasks["t2"] = await _core.spawn(two_step2)
+
+    r = Recorder()
+    _core.run(main, profilers=[r])
+
+    expected = [("before", tasks["main"]), ("after", tasks["main"]),
+                ("before", tasks["t1"]), ("after", tasks["t1"]),
+                ("before", tasks["t2"]), ("after", tasks["t2"]),
+                ("before", tasks["t1"]), ("after", tasks["t1"]),
+                ("before", tasks["t2"]), ("after", tasks["t2"]),
+                ("close",)]
+    assert is_subsequence(expected, r.record)
 
 
 # cancellation:
