@@ -16,6 +16,10 @@ class _AllType:
     def __repr__(self):
         return "ParkingLot.ALL"
 
+# XX KeyboardInterrupt safety?
+# definitely need a decorator...
+# @keyboard_interrupt(enabled=True)
+
 @_hazmat
 @attr.s(slots=True)
 class ParkingLot:

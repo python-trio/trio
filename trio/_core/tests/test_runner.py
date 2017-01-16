@@ -1,3 +1,4 @@
+import time
 import pytest
 import attr
 
@@ -211,6 +212,31 @@ def test_two_crashes():
     ])
 
 
+async def test_reschedule():
+    async def child1():
+        print("child1 start")
+        x = await _core.yield_indefinitely(lambda: _core.Abort.SUCCEEDED)
+        print("child1 woke")
+        assert x == 0
+        print("child1 rescheduling t2")
+        _core.reschedule(t2, _core.Error(ValueError()))
+        print("child1 exit")
+
+    async def child2():
+        print("child2 start")
+        _core.reschedule(t1, _core.Value(0))
+        print("child2 sleep")
+        with pytest.raises(ValueError):
+            await _core.yield_indefinitely(lambda: _core.Abort.SUCCEEDED)
+        print("child2 successful exit")
+
+    t1 = await _core.spawn(child1)
+    # let t1 run and fall asleep
+    await _core.yield_briefly()
+    t2 = await _core.spawn(child2)
+    (await t2.join()).unwrap()
+
+
 async def test_notify_queues():
     async def child():
         return 1
@@ -303,14 +329,11 @@ def test_broken_notify_queue():
 
 async def test_current_time():
     t1 = _core.current_time()
-    import time
     # Windows clock is pretty low-resolution -- appveyor tests fail unless we
     # sleep for a bit here.
     time.sleep(time.get_clock_info("monotonic").resolution)
-    t_in_between = time.monotonic()
-    time.sleep(time.get_clock_info("monotonic").resolution)
     t2 = _core.current_time()
-    assert t1 < t_in_between < t2
+    assert t1 < t2
 
 async def test_current_time_with_mock_clock(mock_clock):
     start = mock_clock.current_time()
@@ -412,20 +435,158 @@ def test_profilers_interleave():
     assert is_subsequence(expected, r.record)
 
 
-# cancellation:
-# cancel (not just cancel_nowait)
-# cancel twice -> should error out I think
-# timeouts:
-# - cancel_after
-#   - the status stuff
-#   - nesting
-# - ugh so many edge cases
+def test_cancel_points():
+    async def main1():
+        _core.cancellation_point_no_yield()
+        _core.current_task().cancel_nowait()
+        with pytest.raises(_core.TaskCancelled):
+            _core.cancellation_point_no_yield()
+    _core.run(main1)
 
-# yield_briefly_no_cancel
-# synthetic test of yield_indefinitely + reschedule
-# cancellation_point_no_yield
-# - current_deadline
+    async def main2():
+        _core.current_task().cancel_nowait()
+        with pytest.raises(_core.TaskCancelled):
+            await _core.yield_briefly()
+    _core.run(main2)
 
+    async def main3():
+        _core.current_task().cancel_nowait()
+        with pytest.raises(_core.TaskCancelled):
+            await _core.yield_indefinitely(lambda: _core.Abort.SUCCEEDED)
+    _core.run(main3)
+
+    async def main4():
+        _core.current_task().cancel_nowait()
+        await _core.yield_briefly_no_cancel()
+        await _core.yield_briefly_no_cancel()
+        with pytest.raises(_core.TaskCancelled):
+            await _core.yield_briefly()
+    _core.run(main4)
+
+async def test_cancel_edge_cases():
+    async def child():
+        await _core.yield_briefly()
+
+    t1 = await _core.spawn(child)
+    t1.cancel_nowait()
+    # Can't cancel a task that was already cancelled
+    with pytest.raises(RuntimeError) as excinfo:
+        t1.cancel_nowait()
+    assert "already canceled" in str(excinfo.value)
+    result = await t1.join()
+    assert type(result.error) is _core.TaskCancelled
+
+    t2 = await _core.spawn(child)
+    await t2.join()
+    # Can't cancel a task that has already exited
+    with pytest.raises(RuntimeError) as excinfo:
+        t2.cancel_nowait()
+    assert "already exited" in str(excinfo.value)
+
+
+async def test_basic_timeout(mock_clock):
+    start = _core.current_time()
+    with _core.cancel_at(start + 1) as timeout:
+        assert timeout.deadline == _core.current_deadline() == start + 1
+        timeout.deadline += 0.5
+        assert timeout.deadline == _core.current_deadline() == start + 1.5
+    assert not timeout.raised
+    await mock_clock.advance(2)
+    await _core.yield_briefly()
+    assert not timeout.raised
+
+    start = _core.current_time()
+    with _core.cancel_at(start + 1) as timeout:
+        await mock_clock.advance(2)
+        # Not reached -- previous line raised an exception
+        assert False  # pragma: no cover
+    # But then cancel_at swallowed the exception... but we can still see it
+    # here:
+    assert timeout.raised
+
+    # Nested timeouts: if two fire at once, the outer one wins
+    start = _core.current_time()
+    with _core.cancel_at(start + 10) as t1:
+        with _core.cancel_at(start + 5) as t2:
+            with _core.cancel_at(start + 1) as t3:
+                await mock_clock.advance(7)
+    assert not t3.raised
+    assert t2.raised
+    assert not t1.raised
+
+    # But you can use a timeout while handling a timeout exception:
+    start = _core.current_time()
+    with _core.cancel_at(start + 1) as t1:
+        try:
+            await mock_clock.advance(2)
+        except _core.TimeoutCancelled:
+            with _core.cancel_at(start + 3) as t2:
+                await mock_clock.advance(2)
+    assert t1.raised
+    assert t2.raised
+
+    # if second timeout is registered while one is *pending* (expired but not
+    # yet delivered), then the second timeout will never fire
+    start = _core.current_time()
+    with _core.cancel_at(start + 1) as t1:
+        mock_clock.advance_nowait(2)
+        # ticking over the event loop makes it notice the timeout
+        # expiration... but b/c we use the weird no_cancel thing, it can't be
+        # delivered yet, so it becomes pending.
+        await _core.yield_briefly_no_cancel()
+        with _core.cancel_at(start + 3) as t2:
+            try:
+                await _core.yield_briefly()
+            except _core.TimeoutCancelled:
+                # this is the outer timeout:
+                assert t1.raised
+                # the inner timeout hasn't even reached its expiration time
+                assert _core.current_time() < t2.deadline
+                # but now if we do pass the deadline, it still won't fire
+                await mock_clock.advance(2)
+                assert t2.deadline < _core.current_time()
+    assert not t2.raised
+
+    # if a timeout is pending, but then gets popped off the stack, then it
+    # isn't delivered
+    start = _core.current_time()
+    with _core.cancel_at(start + 1) as t1:
+        mock_clock.advance_nowait(2)
+        await _core.yield_briefly_no_cancel()
+    await _core.yield_briefly()
+    assert not t1.raised
+
+
+async def test_timekeeping():
+    # probably a good idea to use a real clock for *one* test anyway...
+    TARGET = 0.25
+    # give it a few tries in case of random CI server flakiness
+    for _ in range(4):
+        real_start = time.monotonic()
+        with _core.cancel_at(_core.current_time() + TARGET):
+            await _core.yield_indefinitely(lambda: _core.Abort.SUCCEEDED)
+        real_duration = time.monotonic() - real_start
+        accuracy = real_duration / TARGET
+        print(accuracy)
+        if 0.95 < accuracy < 1.05:
+            break
+    else:  # pragma: no cover
+        assert False
+
+
+#async def test_failed_abort():
+
+
+# test of Abort.FAILED
+# and also one where the abort callback returns None
+
+# intentionally make a system task crash
+
+# make sure to set up one where all tasks are asleep to exercise the timeout =
+# _MAX_TIMEOUT line
+
+# robustness against broken clocks and profilers? (right now bugs there ->
+# TrioInternalError)
 
 # this needs basic basic IOCP stuff and MacOS testing:
 # call soon
@@ -437,7 +598,8 @@ def test_profilers_interleave():
 # - thread pumping lots of callbacks in doesn't starve out everyone else
 #   - put in 100 callbacks (from main thread, why not), and check that they're
 #     at least somewhat interleaved with a looping thread
-#
+#   - probably worth pumping in a bunch from a thread too just to check thread
+#     safety (with time.sleep(0) in there too I guess)
 
 
 # other files:

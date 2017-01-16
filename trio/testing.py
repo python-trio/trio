@@ -45,10 +45,14 @@ class MockClock(_core.Clock):
         else:
             return 999999999
 
-    async def advance(self, offset):
+    # probably only useful for testing trio itself:
+    def advance_nowait(self, offset):
         if offset < 0:
             raise ValueError("time can't go backwards")
         self._mock_time += offset
+
+    async def advance(self, offset):
+        self.advance_nowait(offset)
         # Sleep until the next time we process timeouts...
         await sleep_until(self._mock_time)
         # ...and then one tick more, to let other tasks respond to those

@@ -6,6 +6,7 @@ import threading
 import queue as stdlib_queue
 from time import monotonic
 import os
+import random
 from contextlib import contextmanager, closing
 
 import attr
@@ -57,12 +58,19 @@ class Clock(abc.ABC):
     def deadline_to_sleep_time(self, deadline):
         pass
 
+_r = random.Random()
+@attr.s(slots=True)
 class SystemClock(Clock):
+    # Add a large random offset to our clock to ensure that if people
+    # accidentally call time.monotonic() directly or start comparing clocks
+    # between different tasks, then they'll notice the bug quickly:
+    offset = attr.ib(default=attr.Factory(lambda: _r.uniform(10000, 200000)))
+
     def current_time(self):
-        return monotonic()
+        return self.offset + monotonic()
 
     def deadline_to_sleep_time(self, deadline):
-        return deadline - monotonic()
+        return deadline - self.current_time()
 
 
 class Profiler(abc.ABC):
@@ -167,14 +175,20 @@ class Task:
             self._cancel_stack.raise_any_pending_cancel()
 
     def cancel_nowait(self, exc=None):
+        # XX Not sure if this pickiness is useful, but easier to start
+        # strict and maybe relax it later...
+        if self._task_result is not None:
+            raise RuntimeError("can't cancel a task that has already exited")
         if exc is None:
             exc = TaskCancelled()
         with self._might_adjust_deadline():
             self._cancel_stack.fire_task_cancel(self, exc)
 
-    async def cancel(self, exc=None):
-        self.cancel_nowait(exc=exc)
-        return await self.join()
+    # XX should this even exist? maybe cancel_nowait() should be called
+    # cancel()? Leaving it commented out for now until we decide.
+    # async def cancel(self, exc=None):
+    #     self.cancel_nowait(exc=exc)
+    #     return await self.join()
 
     def join_nowait(self):
         if self._task_result is None:
@@ -192,10 +206,6 @@ class Task:
                 self.discard_notify_queue(q)
         assert self._task_result is not None
         return self._task_result
-
-def _call_user_fn(fn, *args):
-    locals()[LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE] = True
-    return fn(*args)
 
 # Container for the stuff that needs to be accessible for what would be
 # synchronous traps in curio.
@@ -326,12 +336,19 @@ class Runner:
         def call_next_or_raise_Empty():
             fn, args, spawn = self.call_soon_queue.get_nowait()
             if spawn:
+                # XX make this run with KeyboardInterrupt *disabled*
+                # and leave it up to the code using it to enable it if wanted
+                # maybe call_with/out_ki(...)
+                # and acall_with/out_ki(...)?
                 task = self.spawn_impl(fn, args)
                 if self.unhandled_exception_result is not None:
                     task.cancel_nowait()
             else:
                 try:
-                    _call_user_fn(fn, *args)
+                    # We don't renable KeyboardInterrupt here, because
+                    # run_in_main_thread wants to wait until it actually
+                    # reaches user code before enabling them.
+                    fn(*args)
                 except BaseException as exc:
                     self.crash(
                         "error in call_soon_thread_and_signal_safe callback",

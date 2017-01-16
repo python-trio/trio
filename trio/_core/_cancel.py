@@ -100,6 +100,10 @@ class CancelStack:
     def fire_task_cancel(self, task, exc):
         if self.entries[0].state is CancelState.IDLE:
             self._fire_entry(task, 0, exc)
+        else:
+            # XX Not sure if this pickiness is useful, but easier to start
+            # strict and maybe relax it later...
+            raise RuntimeError("task was already canceled")
 
     def deliver_any_pending_cancel_to_blocked_task(self, task):
         pending = self._pending()
@@ -128,7 +132,7 @@ class CancelStatus:
         return self._stack_entry.deadline
 
     @deadline.setter
-    def _set_deadline(self, new_deadline):
+    def deadline(self, new_deadline):
         with self._task._might_adjust_deadline():
             self._stack_entry.deadline = new_deadline
 
