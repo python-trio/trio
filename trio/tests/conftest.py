@@ -58,6 +58,15 @@ if _pytest.compat.is_generator(_probe):
     import _pytest.python
     _pytest.python.is_generator = fixed_is_generator
     print(_pytest.python.is_generator)
+else:
+    print("""
+
+    pytest has been fixed!  yay!
+
+    please bump up the requirements number and remove the ugly hack in
+    conftest.py
+
+    """)
 
 # FIXME: split off into a package (or just make part of trio's public
 # interface?), with config file to enable? and I guess a mark option too; I
