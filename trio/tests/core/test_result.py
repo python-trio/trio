@@ -1,6 +1,6 @@
 import pytest
 
-from .._result import *
+from .._core._result import *
 
 def test_Result():
     v = Value(1)
