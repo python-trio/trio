@@ -320,7 +320,7 @@ class Runner:
     # Must be a recursive lock, because it's acquired from signal handlers:
     call_soon_lock = attr.ib(default=attr.Factory(threading.RLock))
 
-    def _call_soon(self, fn, *args, spawn=False):
+    def call_soon_thread_and_signal_safe(self, fn, *args, spawn=False):
         with self.call_soon_lock:
             if self.call_soon_done:
                 raise RunFinishedError("run() has exited")
@@ -330,7 +330,7 @@ class Runner:
     @_public
     @_hazmat
     def current_call_soon_thread_and_signal_safe(self):
-        return self._call_soon
+        return self.call_soon_thread_and_signal_safe
 
     async def call_soon_task(self):
         def call_next_or_raise_Empty():
@@ -397,23 +397,36 @@ def run(fn, *args, clock=None, profilers=[]):
     GLOBAL_RUN_CONTEXT.runner = runner
     locals()[LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE] = False
 
+    def ki_cb(status):
+        def raise_KeyboardInterrupt():
+            status.pending = False
+            raise KeyboardInterrupt
+        try:
+            runner.call_soon_thread_and_signal_safe(raise_KeyboardInterrupt)
+        except RunFinishedError:
+            pass
+
     # This is outside the try/except to avoid a window where KeyboardInterrupt
     # would be allowed and converted into an TrioInternalError:
-    with keyboard_interrupt_manager() as keyboard_interrupt_status:
-        try:
-            with closing(runner):
-                # The main reason this is split off into its own function
-                # is just to get rid of this extra indentation.
-                result = run_impl(runner, fn, args)
-        except BaseException as exc:
-            raise TrioInternalError(
-                "internal error in trio - please file a bug!") from exc
-        finally:
-            GLOBAL_RUN_CONTEXT.__dict__.clear()
-
-    if keyboard_interrupt_status.pending:
-        result = Result.combine(result, Error(KeyboardInterrupt()))
-    return result.unwrap()
+    try:
+        with keyboard_interrupt_manager(ki_cb) as ki_status:
+            try:
+                with closing(runner):
+                    # The main reason this is split off into its own function
+                    # is just to get rid of this extra indentation.
+                    result = run_impl(runner, fn, args)
+            except BaseException as exc:
+                raise TrioInternalError(
+                    "internal error in trio - please file a bug!") from exc
+            finally:
+                GLOBAL_RUN_CONTEXT.__dict__.clear()
+            return result.unwrap()
+    finally:
+        # To guarantee that we never swallow a KeyboardInterrupt, we have to
+        # check for pending ones once more after leaving the context manager:
+        if ki_status.pending:
+            # Implicitly chains with any exception from result.unwrap():
+            raise KeyboardInterrupt
 
 # 24 hours is arbitrary, but it avoids issues like people setting timeouts of
 # 10**20 and then getting integer overflows in the underlying system calls.

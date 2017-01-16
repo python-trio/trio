@@ -4,8 +4,6 @@ import signal
 
 import attr
 
-from .. import _core
-
 # In ordinary single-threaded Python code, when you hit control-C, it raises
 # an exception and automatically does all the regular unwinding stuff.
 #
@@ -79,33 +77,26 @@ def _keyboard_interrupt_safe(frame):
         frame = frame.f_back
     return False
 
-@attr.s
+@attr.s(slots=True)
 class KeyboardInterruptStatus:
     pending = attr.ib(default=False)
 
 @contextmanager
-def keyboard_interrupt_manager():
+def keyboard_interrupt_manager(notify_cb):
     status = KeyboardInterruptStatus()
     if (threading.current_thread() != threading.main_thread()
           or signal.getsignal(signal.SIGINT) != signal.default_int_handler):
         yield status
         return
-    call_soon = _core.current_call_soon_thread_and_signal_safe()
-
-    def raise_KeyboardInterrupt():
-        status.pending = False
-        raise KeyboardInterrupt
 
     def handler(signum, frame):
         assert signum == signal.SIGINT
         if _allow_keyboard_interrupt(frame):
-            raise_KeyboardInterrupt()
+            status.pending = False
+            raise KeyboardInterrupt
         else:
             status.pending = True
-            try:
-                call_soon(raise_KeyboardInterrupt)
-            except _core.RunFinishedError:
-                pass
+            notify_cb(status)
 
     signal.signal(signal.SIGINT, handler)
     try:
@@ -113,4 +104,3 @@ def keyboard_interrupt_manager():
     finally:
         if signal.getsignal(signal.SIGINT) is handler:
             signal.signal(signal.SIGINT, signal.default_int_handler)
-

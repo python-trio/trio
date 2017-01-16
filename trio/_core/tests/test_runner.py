@@ -486,7 +486,7 @@ async def test_cancel_edge_cases():
 
 async def test_basic_timeout(mock_clock):
     start = _core.current_time()
-    with _core.cancel_at(start + 1) as timeout:
+    with _core.move_on_at(start + 1) as timeout:
         assert timeout.deadline == _core.current_deadline() == start + 1
         timeout.deadline += 0.5
         assert timeout.deadline == _core.current_deadline() == start + 1.5
@@ -496,19 +496,19 @@ async def test_basic_timeout(mock_clock):
     assert not timeout.raised
 
     start = _core.current_time()
-    with _core.cancel_at(start + 1) as timeout:
+    with _core.move_on_at(start + 1) as timeout:
         await mock_clock.advance(2)
         # Not reached -- previous line raised an exception
         assert False  # pragma: no cover
-    # But then cancel_at swallowed the exception... but we can still see it
+    # But then move_on_at swallowed the exception... but we can still see it
     # here:
     assert timeout.raised
 
     # Nested timeouts: if two fire at once, the outer one wins
     start = _core.current_time()
-    with _core.cancel_at(start + 10) as t1:
-        with _core.cancel_at(start + 5) as t2:
-            with _core.cancel_at(start + 1) as t3:
+    with _core.move_on_at(start + 10) as t1:
+        with _core.move_on_at(start + 5) as t2:
+            with _core.move_on_at(start + 1) as t3:
                 await mock_clock.advance(7)
     assert not t3.raised
     assert t2.raised
@@ -516,11 +516,11 @@ async def test_basic_timeout(mock_clock):
 
     # But you can use a timeout while handling a timeout exception:
     start = _core.current_time()
-    with _core.cancel_at(start + 1) as t1:
+    with _core.move_on_at(start + 1) as t1:
         try:
             await mock_clock.advance(2)
         except _core.TimeoutCancelled:
-            with _core.cancel_at(start + 3) as t2:
+            with _core.move_on_at(start + 3) as t2:
                 await mock_clock.advance(2)
     assert t1.raised
     assert t2.raised
@@ -528,13 +528,13 @@ async def test_basic_timeout(mock_clock):
     # if second timeout is registered while one is *pending* (expired but not
     # yet delivered), then the second timeout will never fire
     start = _core.current_time()
-    with _core.cancel_at(start + 1) as t1:
+    with _core.move_on_at(start + 1) as t1:
         mock_clock.advance_nowait(2)
         # ticking over the event loop makes it notice the timeout
         # expiration... but b/c we use the weird no_cancel thing, it can't be
         # delivered yet, so it becomes pending.
         await _core.yield_briefly_no_cancel()
-        with _core.cancel_at(start + 3) as t2:
+        with _core.move_on_at(start + 3) as t2:
             try:
                 await _core.yield_briefly()
             except _core.TimeoutCancelled:
@@ -550,7 +550,7 @@ async def test_basic_timeout(mock_clock):
     # if a timeout is pending, but then gets popped off the stack, then it
     # isn't delivered
     start = _core.current_time()
-    with _core.cancel_at(start + 1) as t1:
+    with _core.move_on_at(start + 1) as t1:
         mock_clock.advance_nowait(2)
         await _core.yield_briefly_no_cancel()
     await _core.yield_briefly()
@@ -563,22 +563,47 @@ async def test_timekeeping():
     # give it a few tries in case of random CI server flakiness
     for _ in range(4):
         real_start = time.monotonic()
-        with _core.cancel_at(_core.current_time() + TARGET):
+        with _core.move_on_at(_core.current_time() + TARGET):
             await _core.yield_indefinitely(lambda: _core.Abort.SUCCEEDED)
         real_duration = time.monotonic() - real_start
         accuracy = real_duration / TARGET
         print(accuracy)
-        if 0.95 < accuracy < 1.05:
+        # Actual time elapsed should always be >= target time
+        if 1.0 <= accuracy < 1.05:
             break
     else:  # pragma: no cover
         assert False
 
 
-#async def test_failed_abort():
+async def test_failed_abort():
+    record = []
+    async def stubborn_sleeper():
+        record.append("sleep")
+        x = await _core.yield_indefinitely(lambda: _core.Abort.FAILED)
+        assert x == 1
+        record.append("woke")
+        try:
+            _core.cancellation_point_no_yield()
+        except _core.Cancelled:
+            record.append("cancelled")
+
+    task = await _core.spawn(stubborn_sleeper)
+    task.cancel_nowait()
+    while not record:
+        await _core.yield_briefly()
+    _core.reschedule(task, _core.Value(1))
+    await task.join()
+    assert record == ["sleep", "woke", "cancelled"]
 
 
-# test of Abort.FAILED
-# and also one where the abort callback returns None
+def test_broken_abort():
+    async def main():
+        _core.current_task().cancel_nowait()
+        # None is not a legal return value here
+        await _core.yield_indefinitely(lambda: None)
+    with pytest.raises(_core.TrioInternalError):
+        _core.run(main)
+
 
 # intentionally make a system task crash
 

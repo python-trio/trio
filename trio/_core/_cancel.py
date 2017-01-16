@@ -5,7 +5,7 @@ import attr
 from .. import _core
 from ._traps import Abort
 
-__all__ = ["cancel_at"]
+__all__ = ["move_on_at"]
 
 CancelState = enum.Enum("CancelState", "IDLE PENDING DONE")
 # IDLE -> hasn't fired, might in the future
@@ -115,7 +115,7 @@ class CancelStack:
         if pending is not None:
             raise self._get_exception_and_mark_done(pending)
 
-# This is the opaque object we return from cancel_at(), that lets the user
+# This is the opaque object we return from move_on_at(), that lets the user
 # check the status and adjust the deadline. It's actually created by
 # push_deadline.
 @attr.s(slots=True)
@@ -137,7 +137,7 @@ class CancelStatus:
             self._stack_entry.deadline = new_deadline
 
 @contextmanager
-def cancel_at(deadline):
+def move_on_at(deadline):
     task = _core.current_task()
     status = task._push_deadline(deadline)
     try:

@@ -114,6 +114,11 @@ nothing to see here
      easier to get weird cases like pending cancel that gets popped,
      anyway)
    - IOCP
+   - possible improved robustness ("quality of implementation") ideas:
+     - if an abort callback fails, discard that task but clean up the
+       others (instead of discarding all)
+     - if a profiler raises an exception, discard that profiler but
+       continue
    - debugging features:
      - traceback from task
      - get all tasks (for 'top' etc.)
