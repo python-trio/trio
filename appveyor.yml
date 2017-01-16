@@ -1,0 +1,26 @@
+skip_tags: true
+clone_depth: 1
+
+os: Visual Studio 2015
+
+environment:
+  matrix:
+    - PYTHON: "C:\\Python35"
+    - PYTHON: "C:\\Python35-x64"
+    - PYTHON: "C:\\Python36"
+    - PYTHON: "C:\\Python36-x64"
+
+build_script:
+  - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;;%PATH%"
+  - "python --version"
+  - "python -c \"import struct; print(struct.calcsize('P') * 8)\""
+  - "pip install ."
+  - "pip install -Ur test-requirements.txt"
+  - "pip install codecov"
+
+test_script:
+  - "mkdir empty"
+  - "cd empty"
+  - "python -c \"import os, trio; print(os.path.dirname(trio.__file__))\""
+  - "pytest -ra --pyargs trio --cov=trio --cov-config=../.coveragerc"
+  - "codecov"

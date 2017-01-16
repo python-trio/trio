@@ -1,0 +1,8 @@
+[run]
+branch=True
+source=trio
+omit=
+  setup.py
+
+[report]
+precision = 1
