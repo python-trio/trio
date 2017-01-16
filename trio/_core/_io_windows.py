@@ -1,7 +1,7 @@
 import attr
 
 from . import _public, _hazmat
-from ._traps import yield_briefly_no_cancel, yield_indefinitely
+from ._traps import yield_briefly_no_cancel, Abort, yield_indefinitely
 
 # pywin32 appears to be pretty useless -- missing lots of basic stuff like
 # CancelIOEx, GetQueuedCompletionStatusEx, UDP support.
@@ -67,25 +67,30 @@ from ._traps import yield_briefly_no_cancel, yield_indefinitely
 
 @attr.s(slots=True)
 class WindowsIOManager:
-    iocp = attr.ib()
+    #iocp = attr.ib()
 
     def close(self):
-        XX
+        # XX
+        pass
 
     def wakeup_threadsafe(self):
-        XX PostQueuedCompletionStatus
+        # XX PostQueuedCompletionStatus
+        pass
 
     async def until_woken(self):
-        XX
+        # XX
+        # something tricky here b/c PostQueuedCompletionStatus arrives at the
+        # IOCP regardless of whether we're listening or not. (This is
+        # different from the pipe trick, where the pipe accumulates the
+        # notifications until we select on it.)
+        await yield_indefinitely(lambda: Abort.SUCCEEDED)
 
     def handle_io(self, timeout):
-        XX
-
-    @_public
-    @_hazmat
-    async def
+        # XX
+        pass
 
     @_public
     @_hazmat
     def register_with_iocp(self, handle):
-        XX CreateIoCompletionPort
+        # XX CreateIoCompletionPort
+        pass
