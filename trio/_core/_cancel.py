@@ -20,41 +20,6 @@ class CancelStackEntry:
     pending_exc = attr.ib(default=None)
     raised = attr.ib(default=False)
 
-# This is the opaque object we return from cancel_at(), that lets the user
-# check the status and adjust the deadline. It's actually created by
-# push_deadline.
-@attr.s(slots=True)
-class CancelStatus:
-    _stack_entry = attr.ib()
-    _task = attr.ib()
-
-    @property
-    def raised(self):
-        return self._stack_entry.raised
-
-    @property
-    def deadline(self):
-        return self._stack_entry.deadline
-
-    @deadline.setter
-    def _set_deadline(self, new_deadline):
-        with self._task._might_adjust_deadline():
-            self._stack_entry.deadline = new_deadline
-
-@contextmanager
-def cancel_at(deadline):
-    task = _core.current_task()
-    status = task._push_deadline(deadline)
-    try:
-        yield status
-    except Cancelled as exc:
-        if exc._stack_entry is status._stack_entry:
-            pass
-        else:
-            raise
-    finally:
-        task._pop_deadline(entry)
-
 # The cancel stack always has a single entry at the bottom with
 # deadline=None representing the cancel() method, and then zero or more
 # entries on top of that.
@@ -145,3 +110,38 @@ class CancelStack:
         pending = self._pending()
         if pending is not None:
             raise self._get_exception_and_mark_done(pending)
+
+# This is the opaque object we return from cancel_at(), that lets the user
+# check the status and adjust the deadline. It's actually created by
+# push_deadline.
+@attr.s(slots=True)
+class CancelStatus:
+    _stack_entry = attr.ib()
+    _task = attr.ib()
+
+    @property
+    def raised(self):
+        return self._stack_entry.raised
+
+    @property
+    def deadline(self):
+        return self._stack_entry.deadline
+
+    @deadline.setter
+    def _set_deadline(self, new_deadline):
+        with self._task._might_adjust_deadline():
+            self._stack_entry.deadline = new_deadline
+
+@contextmanager
+def cancel_at(deadline):
+    task = _core.current_task()
+    status = task._push_deadline(deadline)
+    try:
+        yield status
+    except Cancelled as exc:
+        if exc._stack_entry is status._stack_entry:
+            pass
+        else:
+            raise
+    finally:
+        task._pop_deadline(entry)

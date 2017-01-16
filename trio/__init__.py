@@ -2,8 +2,8 @@
 #
 # trio/_core/... is the self-contained core library. It does various
 # shenanigans to export a consistent "core API", but parts of the core API are
-# too low-level to be recommended for regular use. These are marked by a
-# _hazmat=True attribute.
+# too low-level to be recommended for regular use. These are marked by having
+# a _hazmat=True attribute.
 #
 # trio/*.py define a set of more usable tools on top of this. They import from
 # trio._core and from each other.
@@ -31,3 +31,6 @@ del _symbol, _value
 
 from ._stream import *
 __all__ += _stream.__all__
+
+from ._timeout import *
+__all__ += _timeout.__all__

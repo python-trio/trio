@@ -1,6 +1,6 @@
 import pytest
 
-from .._core._result import *
+from ..._core._result import *
 
 def test_Result():
     v = Value(1)
@@ -14,6 +14,11 @@ def test_Result():
     with pytest.raises(RuntimeError):
         e.unwrap()
     assert not hasattr(e, "__dict__")
+
+    with pytest.raises(TypeError):
+        Error("hello")
+    with pytest.raises(TypeError):
+        Error(RuntimeError)
 
     def expect_1():
         assert (yield) == 1
@@ -45,11 +50,11 @@ def test_Result_capture():
     assert type(e.error) is ValueError
     assert e.error.args == ("two",)
 
-def test_result_with_exc():
+def test_Result_combine():
     r = None
-    r = result_with_exc(r, RuntimeError())
+    r = Result.combine(r, Error(RuntimeError()))
     assert type(r) is Error
     assert type(r.error) is RuntimeError
-    r = result_with_exc(r, ValueError())
+    r = Result.combine(r, Error(ValueError()))
     assert type(r.error) is ValueError
     assert type(r.error.__context__) is RuntimeError

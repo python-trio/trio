@@ -185,7 +185,7 @@ class Task:
 
     async def join(self):
         if self._task_result is None:
-            q = _core.Queue()
+            q = _core.Queue(1)
             self.add_notify_queue(q)
             try:
                 await q.get()
@@ -211,6 +211,7 @@ class Runner:
     regular_task_count = attr.ib(default=0)
 
     # {(deadline, id(task)): task}
+    # only contains tasks with non-infinite deadlines
     deadlines = attr.ib(default=attr.Factory(SortedDict))
 
     initial_task = attr.ib(default=None)
@@ -235,6 +236,7 @@ class Runner:
                     task.cancel_nowait()
 
     def task_finished(self, task, result):
+        task._task_result = result
         self.tasks.remove(task)
 
         if task._type is TaskType.REGULAR:
@@ -284,9 +286,9 @@ class Runner:
         self.runq.append(task)
 
     def spawn_impl(self, fn, args, *, type=TaskType.REGULAR, notify_queues=[]):
-        if not inspect.iscoroutinefunction(fn):
-            raise TypeError("spawn expected an async function")
         coro = fn(*args)
+        if not inspect.iscoroutine(coro):
+            raise TypeError("spawn expected an async function")
         task = Task(
             type=type, coro=coro, runner=self, notify_queues=notify_queues)
         self.tasks.add(task)
@@ -358,8 +360,7 @@ class Runner:
 
 def run(fn, *args, clock=None, profilers=[]):
     # Do error-checking up front, before we enter the InternalError try/catch
-    if not inspect.iscoroutinefunction(fn):
-        raise TypeError("run expected an async function")
+    #
     # It wouldn't be *hard* to support nested calls to run(), but I can't
     # think of a single good reason for it, so let's be conservative for
     # now:
@@ -381,33 +382,39 @@ def run(fn, *args, clock=None, profilers=[]):
             with closing(runner):
                 # The main reason this is split off into its own function
                 # is just to get rid of this extra indentation.
-                run_impl(runner, fn, args)
+                result = run_impl(runner, fn, args)
         except BaseException as exc:
             raise InternalError(
                 "internal error in trio - please file a bug!") from exc
         finally:
             GLOBAL_RUN_CONTEXT.__dict__.clear()
 
-    result = runner.final_result
     if keyboard_interrupt_status.pending:
         result = Result.combine(result, Error(KeyboardInterrupt()))
     return result.unwrap()
 
+# 24 hours is arbitrary, but it avoids issues like people setting timeouts of
+# 10**20 and then getting integer overflows in the underlying system calls.
+_MAX_TIMEOUT = 24 * 60 * 60
+
 def run_impl(runner, fn, args):
     runner.spawn_impl(runner.call_soon_task, (), type=TaskType.SYSTEM)
-    runner.initial_task = runner.spawn_impl(fn, args)
+    try:
+        runner.initial_task = runner.spawn_impl(fn, args)
+    except BaseException as exc:
+        async def initial_spawn_failed(e):
+            raise e
+        runner.initial_task = runner.spawn_impl(initial_spawn_failed, (exc,))
 
     while runner.tasks:
         if runner.runq:
             timeout = 0
-        else:
+        elif runner.deadlines:
             deadline = runner.deadlines.keys()[0]
             timeout = runner.clock.deadline_to_sleep_time(deadline)
-            # Clamp timeout be fall between 0 and 24 hours. 24 hours is
-            # arbitrary, but it avoids issues like people setting timeouts of
-            # 10**20 and then getting integer overflows in the underlying
-            # system calls, + issues around inf timeouts.
-            timeout = min(max(0, timeout), 24 * 60 * 60)
+        else:
+            timeout = _MAX_TIMEOUT
+        timeout = min(max(0, timeout), _MAX_TIMEOUT)
 
         runner.io_manager.handle_io(timeout)
 
@@ -455,6 +462,8 @@ def run_impl(runner, fn, args):
             for profiler in runner.profilers:
                 profiler.after_task_step(task)
 
+    return runner.final_result
+
 def current_task():
     return GLOBAL_RUN_CONTEXT.task
 
@@ -482,7 +491,8 @@ def _generate_method_wrappers(cls, path_to_instance):
             # current thread-local context version of this object, and calls
             # it. exec() is a bit ugly but the resulting code is faster and
             # simpler than doing some loop over getattr.
-            ns = {"GLOBAL_RUN_CONTEXT": GLOBAL_RUN_CONTEXT}
+            ns = {"GLOBAL_RUN_CONTEXT": GLOBAL_RUN_CONTEXT,
+                  "LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE": LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE}
             exec(_WRAPPER_TEMPLATE.format(path_to_instance, methname), ns)
             wrapper = ns["wrapper"]
             # 'fn' is the *unbound* version of the method, but our exported

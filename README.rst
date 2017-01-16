@@ -65,19 +65,23 @@ and in fact threads can do this!
 
 next:
 - does it work?
+- not sure about exceptions thrown by run()... in particular, we don't
+  wrap the main task's exceptions, because they might be normal. But
+  if they're normal, and TaskCrashedErrors aren't normal, then we
+  shouldn't allow main task exceptions to mask TaskCrashedErrors!
+  But currently we do. At least... sort of. If the main task crashed
+  first then there's no masking. If the main task crashed second, it
+  was after being cancelled. (Though maybe it never saw the
+  cancellation.)
 - pytest plugin
 - task local storage
-  - {run,await}_in_{worker,main}_thread should keep it!
+  - {run,await}_in_{worker,main}_thread should keep it! no concurrent
+    access problem!
   - run_in_worker_process... hmm. pickleability is a problem.
     - trio.Local(pickle=True)?
 - ability to process timeouts on demand for testing? (might make it
   easier to get weird cases like pending cancel that gets popped,
   anyway)
-- get rid of EPOLLONESHOT, it does not do what I thought (just disarms
-  the fd while keeping it registered, and can't be used with
-  EPOLLEXCLUSIVE -- seems like more trouble than its worth)
-  - Also I think maybe you aren't allowed to use CTL_MOD with
-    EPOLLEXCLUSIVE *at all* -- https://lkml.org/lkml/2016/2/4/541
 - IOCP
 - debugging features:
   - traceback from task

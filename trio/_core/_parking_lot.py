@@ -1,9 +1,11 @@
+# This doesn't really belong in _core, except it's used by Queue, which is
+# used by KqueueIOManager...
+
 from itertools import count
 import attr
 from sortedcontainers import SortedDict
 
 from .. import _core
-from ._traps import Abort, yield_indefinitely
 from . import _hazmat
 
 __all__ = ["ParkingLot"]
@@ -21,15 +23,15 @@ class ParkingLot:
 
     ALL = _AllType()
 
-    async def park(self, *, abort_func=lambda: Abort.SUCCEEDED):
+    async def park(self, *, abort_func=lambda: _core.Abort.SUCCEEDED):
         idx = next(_counter)
         self._parked[idx] = _core.current_task()
         def abort():
             r = abort_func()
-            if r is Abort.SUCCEEDED:
+            if r is _core.Abort.SUCCEEDED:
                 del self._parked[idx]
             return r
-        return await yield_indefinitely(abort)
+        return await _core.yield_indefinitely(abort)
 
     def unpark(self, *, count=ALL, result=_core.Value(None)):
         if count is ParkingLot.ALL:

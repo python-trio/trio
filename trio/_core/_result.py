@@ -91,7 +91,7 @@ class Value(Result):
 
 @attr.s(slots=True)
 class Error(Result):
-    error = attr.ib()
+    error = attr.ib(validator=attr.validators.instance_of(BaseException))
 
     def __repr__(self):
         return "Error({!r})".format(self.error)

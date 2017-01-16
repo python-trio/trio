@@ -49,7 +49,7 @@ class Queue:
         if not self.full():
             await _core.yield_briefly()
         while self.full():
-            await self._put_lot.park("QUEUE_PUT")
+            await self._put_lot.park()
         self.put_nowait(obj)
 
     def get_nowait(self):
@@ -63,7 +63,7 @@ class Queue:
         if self._data:
             await _core.yield_briefly()
         while not self._data:
-            await self._get_lot.park("QUEUE_GET")
+            await self._get_lot.park()
         return self.get_nowait()
 
     # Useful for e.g. task supervisors, where backpressure is impossible
@@ -72,7 +72,7 @@ class Queue:
         if self._data:
             await _core.yield_briefly()
         while not self._data:
-            await self._get_lot.park("QUEUE_GET")
+            await self._get_lot.park()
         data = list(self._data)
         self._data.clear()
         self._put_lot.unpark(count=self.capacity)
@@ -87,4 +87,4 @@ class Queue:
         if self._unprocessed == 0:
             await _core.yield_briefly()
         else:
-            await self._join_lot.park("QUEUE_JOIN")
+            await self._join_lot.park()
