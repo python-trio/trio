@@ -67,11 +67,12 @@ next:
 - does it work?
 - pytest plugin
 - task local storage
+  - {run,await}_in_{worker,main}_thread should keep it!
+  - run_in_worker_process... hmm. pickleability is a problem.
+    - trio.Local(pickle=True)?
 - ability to process timeouts on demand for testing? (might make it
   easier to get weird cases like pending cancel that gets popped,
   anyway)
-- keyboard interrupt protection for methods
-  - and can we use function attributes instead?
 - get rid of EPOLLONESHOT, it does not do what I thought (just disarms
   the fd while keeping it registered, and can't be used with
   EPOLLEXCLUSIVE -- seems like more trouble than its worth)

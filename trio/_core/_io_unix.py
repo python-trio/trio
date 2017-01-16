@@ -44,7 +44,6 @@ if hasattr(select, "epoll"):
                 flags |= select.EPOLLOUT
             if not flags:
                 return None
-            # We always use EPOLLONESHOT
             # XX not sure if EPOLLEXCLUSIVE is actually safe... I think
             # probably we should use it here unconditionally, but:
             # https://stackoverflow.com/questions/41582560/how-does-epolls-epollexclusive-mode-interact-with-level-triggering
@@ -54,6 +53,7 @@ if hasattr(select, "epoll"):
             # together, you ONESHOT doesn't delete the registration but just
             # "disables" it so you re-enable with CTL rather than ADD (or
             # something?)...
+            # https://lkml.org/lkml/2016/2/4/541
             return flags
 
     @attr.s(slots=True)
