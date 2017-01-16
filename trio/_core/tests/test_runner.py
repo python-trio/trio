@@ -304,7 +304,11 @@ def test_broken_notify_queue():
 async def test_current_time():
     t1 = _core.current_time()
     import time
+    # Windows clock is pretty low-resolution -- appveyor tests fail unless we
+    # sleep for a bit here.
+    time.sleep(time.get_clock_info("monotonic").resolution)
     t_in_between = time.monotonic()
+    time.sleep(time.get_clock_info("monotonic").resolution)
     t2 = _core.current_time()
     assert t1 < t_in_between < t2
 
