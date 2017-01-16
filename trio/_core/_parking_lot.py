@@ -4,6 +4,7 @@ from sortedcontainers import SortedDict
 
 from .. import _core
 from ._traps import Cancel, yield_indefinitely
+from . import _hazmat
 
 __all__ = ["ParkingLot"]
 
@@ -13,6 +14,7 @@ class _AllType:
     def __repr__(self):
         return "ParkingLot.ALL"
 
+@_hazmat
 @attr.s(slots=True)
 class ParkingLot:
     _parked = attr.ib(default=attr.Factory(SortedDict))

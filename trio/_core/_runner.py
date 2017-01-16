@@ -31,7 +31,7 @@ from . import _public, _hazmat
 # __all__. These are all re-exported as part of the 'trio' or 'trio.hazmat'
 # namespaces.
 __all__ = ["Clock", "Profiler", "Task", "run",
-           "current_task", "current_deadline", "cancellation_point"]
+           "current_task", "current_deadline", "cancellation_point_no_yield"]
 
 GLOBAL_RUN_CONTEXT = threading.local()
 
@@ -462,11 +462,12 @@ def current_deadline():
     return GLOBAL_RUN_CONTEXT.task._next_deadline()
 
 @_hazmat
-def cancellation_point():
+def cancellation_point_no_yield():
     current_task()._raise_any_pending_cancel()
 
-_WRAPPER_TEMPLATE = """\
+_WRAPPER_TEMPLATE = """
 def wrapper(*args, **kwargs):
+    locals()[LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE] = False
     try:
         meth = GLOBAL_RUN_CONTEXT.{}.{}
     except AttributeError:

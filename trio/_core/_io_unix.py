@@ -48,7 +48,12 @@ if hasattr(select, "epoll"):
             # XX not sure if EPOLLEXCLUSIVE is actually safe... I think
             # probably we should use it here unconditionally, but:
             # https://stackoverflow.com/questions/41582560/how-does-epolls-epollexclusive-mode-interact-with-level-triggering
-            flags |= select.EPOLLONESHOT  # | select.EPOLLEXCLUSIVE
+            #flags |= select.EPOLLEXCLUSIVE
+            # We used to use ONESHOT here also, but it turns out that it's
+            # confusing/complicated: you can't use ONESHOT+EPOLLEXCLUSIVE
+            # together, you ONESHOT doesn't delete the registration but just
+            # "disables" it so you re-enable with CTL rather than ADD (or
+            # something?)...
             return flags
 
     @attr.s(slots=True)
@@ -84,11 +89,7 @@ if hasattr(select, "epoll"):
                 if flags & ~select.EPOLLOUT and waiters.read_task is not None:
                     _core.reschedule(waiters.read_task)
                     waiters.read_task = None
-                new_flags = waiters.flags()
-                if new_flags is None:
-                    del self._registered[fd]
-                else:
-                    self._epoll.register(fd, new_flags)
+                self._update_registrations(fd, True)
 
         def _update_registrations(self, fd, currently_registered):
             waiters = self._registered[fd]
@@ -191,9 +192,6 @@ if hasattr(select, "kqueue"):
         @_hazmat
         @contextmanager
         def kevent_monitor(self, ident, filter):
-            # KeyboardInterrupt here could corrupt self._registered
-            locals()[LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE] = False
-
             key = (ident, filter)
             if key in self._registered:
                 raise ValueError(
@@ -223,8 +221,6 @@ if hasattr(select, "kqueue"):
             return await yield_indefinitely(cancel)
 
         async def _until_common(self, fd, filter):
-            # KeyboardInterrupt here could corrupt self._registered
-            locals()[LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE] = False
             if not isinstance(fd, int):
                 fd = fd.fileno()
             flags = select.KQ_EV_ADD | select.KQ_EV_ONESHOT

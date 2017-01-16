@@ -65,6 +65,18 @@ and in fact threads can do this!
 
 next:
 - does it work?
+- pytest plugin
+- task local storage
+- ability to process timeouts on demand for testing? (might make it
+  easier to get weird cases like pending cancel that gets popped,
+  anyway)
+- keyboard interrupt protection for methods
+  - and can we use function attributes instead?
+- get rid of EPOLLONESHOT, it does not do what I thought (just disarms
+  the fd while keeping it registered, and can't be used with
+  EPOLLEXCLUSIVE -- seems like more trouble than its worth)
+  - Also I think maybe you aren't allowed to use CTL_MOD with
+    EPOLLEXCLUSIVE *at all* -- https://lkml.org/lkml/2016/2/4/541
 - IOCP
 - debugging features:
   - traceback from task

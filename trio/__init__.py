@@ -28,3 +28,6 @@ for _symbol in _core.__all__:
         globals()[_symbol] = _value
         __all__.append(_symbol)
 del _symbol, _value
+
+from ._stream import *
+__all__ += _stream.__all__

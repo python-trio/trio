@@ -1,5 +1,9 @@
 import abc
 
+import attr
+
+__all__ = ["Resource", "SendStream", "RecvStream", "Stream"]
+
 # XX On windows closesocket actually *can* block
 #   https://msdn.microsoft.com/en-us/library/ms737582(v=VS.85).aspx
 # specifically, if the linger options are set so that it waits for all sent
@@ -32,6 +36,7 @@ import abc
 # having a single method that does different things depending on whether
 # you've fiddled with setsockopt.
 
+@attr.s(slots=True)
 class Resource(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def close(self):
@@ -48,6 +53,7 @@ class Resource(metaclass=abc.ABCMeta):
     def __exit__(self, *args):
         self.close()
 
+@attr.s(slots=True)
 class SendStream(Resource):
     @abc.abstractmethod
     async def sendall(self, data):
@@ -70,10 +76,39 @@ class SendStream(Resource):
     def send_eof(self):
         pass
 
+@attr.s(slots=True)
 class RecvStream(Resource):
     @abc.abstractmethod
     async def recv(self, max_bytes):
         pass
 
+@attr.s(slots=True)
 class Stream(SendStream, RecvStream):
-    pass
+    @staticmethod
+    def staple(cls, send_stream, recv_stream):
+        return StapledStream(send_stream=send_stream, recv_stream=recv_stream)
+
+@attr.s(slots=True)
+class StapledStream(Stream):
+    send_stream = attr.ib()
+    recv_stream = attr.ib()
+
+    async def sendall(self, data):
+        return await self.send_stream.sendall(data)
+
+    async def until_maybe_writable(self):
+        return await self.send_stream.until_maybe_writable()
+
+    @property
+    def can_send_eof(self):
+        return self.send_stream.can_send_eof
+
+    def send_eof(self):
+        return self.send_stream.send_eof()
+
+    async def recv(self, max_bytes):
+        return self.recv_stream.recv(max_bytes)
+
+    def close(self):
+        self.send_stream.close()
+        self.recv_stream.close()
