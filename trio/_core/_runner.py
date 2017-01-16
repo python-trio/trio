@@ -18,7 +18,7 @@ from ._exceptions import (
 )
 from ._result import Result, Error, Value
 from ._traps import (
-    yield_briefly, yield_briefly_no_cancel, Cancel, yield_indefinitely,
+    yield_briefly, yield_briefly_no_cancel, Abort, yield_indefinitely,
 )
 from ._keyboard_interrupt import (
     LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE, keyboard_interrupt_manager,
@@ -111,7 +111,7 @@ class Task:
     _task_result = attr.ib(default=None, repr=False)
     # tasks start out unscheduled, and unscheduled tasks have None here
     _next_send = attr.ib(default=None, repr=False)
-    _cancel_func = attr.ib(default=None, repr=False)
+    _abort_func = attr.ib(default=None, repr=False)
 
     def add_notify_queue(self, queue):
         if queue in self._notify_queues:
@@ -280,7 +280,7 @@ class Runner:
         assert task._runner is self
         assert task._next_send is None
         task._next_send = next_send
-        task._cancel_func = None
+        task._abort_func = None
         self.runq.append(task)
 
     def spawn_impl(self, fn, args, *, type=TaskType.REGULAR, notify_queues=[]):
@@ -440,7 +440,7 @@ def run_impl(runner, fn, args):
             else:
                 yield_fn, *args = msg
                 if yield_fn is yield_briefly:
-                    task._cancel_func = lambda: Cancel.SUCCEEDED
+                    task._abort_func = lambda: Abort.SUCCEEDED
                     task._deliver_any_pending_cancel_to_blocked_task()
                     if task._next_send is None:
                         runner.reschedule(task)
@@ -448,7 +448,7 @@ def run_impl(runner, fn, args):
                     runner.reschedule(task)
                 else:
                     assert yield_fn is yield_indefinitely
-                    task._cancel_func, = args
+                    task._abort_func, = args
                     task._deliver_any_pending_cancel_to_blocked_task()
                 del GLOBAL_RUN_CONTEXT.task
 

@@ -3,7 +3,7 @@ import attr
 from sortedcontainers import SortedDict
 
 from .. import _core
-from ._traps import Cancel, yield_indefinitely
+from ._traps import Abort, yield_indefinitely
 from . import _hazmat
 
 __all__ = ["ParkingLot"]
@@ -21,15 +21,15 @@ class ParkingLot:
 
     ALL = _AllType()
 
-    async def park(self, *, cancel_func=lambda: Cancel.SUCCEEDED):
+    async def park(self, *, abort_func=lambda: Abort.SUCCEEDED):
         idx = next(_counter)
         self._parked[idx] = _core.current_task()
-        def cancel():
-            r = cancel_func()
-            if r is Cancel.SUCCEEDED:
+        def abort():
+            r = abort_func()
+            if r is Abort.SUCCEEDED:
                 del self._parked[idx]
             return r
-        return await yield_indefinitely(cancel)
+        return await yield_indefinitely(abort)
 
     def unpark(self, *, count=ALL, result=_core.Value(None)):
         if count is ParkingLot.ALL:

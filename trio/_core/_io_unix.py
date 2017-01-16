@@ -5,7 +5,7 @@ import attr
 
 from .. import _core
 from . import _public, _hazmat
-from ._traps import Cancel, yield_indefinitely
+from ._traps import Abort, yield_indefinitely
 from ._keyboard_interrupt import LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE
 
 class WakeupPipe:
@@ -121,11 +121,11 @@ if hasattr(select, "epoll"):
                     "another task is already reading / writing this fd")
             setattr(waiters, attr_name, _core.current_task())
             self._update_registrations(fd, currently_registered)
-            def cancel():
+            def abort():
                 setattr(self._registered[fd], attr_name, None)
                 self._update_registrations(fd, True)
-                return Cancel.SUCCEEDED
-            await yield_indefinitely(cancel)
+                return Abort.SUCCEEDED
+            await yield_indefinitely(abort)
 
         @_public
         @_hazmat
@@ -206,19 +206,19 @@ if hasattr(select, "kqueue"):
 
         @_public
         @_hazmat
-        async def until_kevent(self, ident, filter, cancel_func):
+        async def until_kevent(self, ident, filter, abort_func):
             key = (ident, filter)
             if key in self._registered:
                 raise ValueError(
                     "attempt to register multiple listeners for same "
                     "ident/filter pair")
             self._registered[key] = current_task()
-            def cancel():
-                r = cancel_func()
-                if r is Cancel.SUCCEEDED:
+            def abort():
+                r = abort_func()
+                if r is Abort.SUCCEEDED:
                     del self._registered[key]
                 return r
-            return await yield_indefinitely(cancel)
+            return await yield_indefinitely(abort)
 
         async def _until_common(self, fd, filter):
             if not isinstance(fd, int):
@@ -226,11 +226,11 @@ if hasattr(select, "kqueue"):
             flags = select.KQ_EV_ADD | select.KQ_EV_ONESHOT
             event = select.kevent(fd, filter, flags)
             self._kqueue.control([event], 0)
-            def cancel():
+            def abort():
                 event = select.kevent(fd, filter, select.KQ_EV_DELETE)
                 self._kqueue.control([event], 0)
-                return Cancel.SUCCEEDED
-            await self.until_kevent(fd, filter, cancel)
+                return Abort.SUCCEEDED
+            await self.until_kevent(fd, filter, abort)
 
         @_public
         @_hazmat

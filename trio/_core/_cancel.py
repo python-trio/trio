@@ -3,7 +3,7 @@ import enum
 import attr
 
 from .. import _core
-from ._traps import Cancel
+from ._traps import Abort
 
 __all__ = ["cancel_at"]
 
@@ -56,7 +56,7 @@ def cancel_at(deadline):
         task._pop_deadline(entry)
 
 # The cancel stack always has a single entry at the bottom with
-# deadline=inf representing the cancel() method, and then zero or more
+# deadline=None representing the cancel() method, and then zero or more
 # entries on top of that.
 @attr.s(slots=True)
 class CancelStack:
@@ -108,12 +108,12 @@ class CancelStack:
         return exc
 
     def _attempt_deliver_cancel_to_blocked_task(self, task, i):
-        if task._cancel_func is None:
+        if task._abort_func is None:
             return
-        success = task._cancel_func()
-        if type(success) is not Cancel:
-            raise TypeError("cancel_func must return Cancel enum")
-        if success is Cancel.SUCCEEDED:
+        success = task._abort_func()
+        if type(success) is not Abort:
+            raise TypeError("abort_func must return Abort enum")
+        if success is Abort.SUCCEEDED:
             exc = self._get_exception_and_mark_done(i)
             _core.reschedule(task, _core.Error(exc))
 
