@@ -3,18 +3,18 @@ import attr
 
 __all__ = ["Result", "Value", "Error"]
 
-@attr.s(slots=True)
+@attr.s(slots=True, frozen=True)
 class Result(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def unwrap(self):
+    def unwrap(self):  # pragma: no cover
         pass
 
     @abc.abstractmethod
-    def send(self, gen):
+    def send(self, gen):  # pragma: no cover
         pass
 
     @abc.abstractmethod
-    async def asend(self, agen):
+    async def asend(self, agen):  # pragma: no cover
         pass
 
     @staticmethod
@@ -33,15 +33,18 @@ class Result(metaclass=abc.ABCMeta):
 
     @staticmethod
     def combine(old_result, new_result):
-        if old_result is None:
-            return new_result
-        if type(old_result) not in (Value, Error):
+        if type(old_result) not in (type(None), Value, Error):
             raise TypeError(
                 "old_result must be None or Value or Error, not {!r}"
                 .format(type(old_result)))
-        if type(new_result) not in (Value, Error):
-            raise TypeError("new_result must be Value or Error, not {!r}"
-                            .format(type(new_result)))
+        if type(new_result) not in (type(None), Value, Error):
+            raise TypeError(
+                "new_result must be None or Value or Error, not {!r}"
+                .format(type(new_result)))
+        if old_result is None:
+            return new_result
+        if new_result is None:
+            return old_result
         if type(old_result) is Value:
             if type(new_result) is Value:
                 # combine(Value, Value) -> illegal
@@ -73,7 +76,7 @@ class Result(metaclass=abc.ABCMeta):
                 root.__context__ = old_result.error
                 return new_result
 
-@attr.s(slots=True)
+@attr.s(slots=True, frozen=True, repr=False)
 class Value(Result):
     value = attr.ib()
 
@@ -89,7 +92,7 @@ class Value(Result):
     async def asend(self, agen):
         return await agen.asend(self.value)
 
-@attr.s(slots=True)
+@attr.s(slots=True, frozen=True, repr=False)
 class Error(Result):
     error = attr.ib(validator=attr.validators.instance_of(BaseException))
 

@@ -2,19 +2,31 @@
 
 import types
 import enum
+from functools import wraps
 
 from . import _hazmat
 
 __all__ = ["yield_briefly", "yield_briefly_no_cancel",
            "Abort", "yield_indefinitely"]
 
+# Decorator to turn a generator into a well-behaved async function:
+def asyncfunction(fn):
+    # Set the coroutine flag
+    fn = types.coroutine(fn)
+    # Then wrap it in an 'async def', to enable the "coroutine was not
+    # awaited" warning
+    @wraps(fn)
+    async def wrapper(*args, **kwargs):
+        return await fn(*args, **kwargs)
+    return wrapper
+
 @_hazmat
-@types.coroutine
+@asyncfunction
 def yield_briefly():
     return (yield (yield_briefly,))
 
 @_hazmat
-@types.coroutine
+@asyncfunction
 def yield_briefly_no_cancel():
     return (yield (yield_briefly_no_cancel,))
 
@@ -37,6 +49,6 @@ class Abort(enum.Enum):
 # in which case no magic happens and you still have to make sure that
 # reschedule will be called eventually.
 @_hazmat
-@types.coroutine
+@asyncfunction
 def yield_indefinitely(abort_func):
     return (yield (yield_indefinitely, abort_func))

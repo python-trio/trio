@@ -51,11 +51,11 @@ else:
 
 class Clock(abc.ABC):
     @abc.abstractmethod
-    def current_time(self):
+    def current_time(self):  # pragma: no cover
         pass
 
     @abc.abstractmethod
-    def deadline_to_sleep_time(self, deadline):
+    def deadline_to_sleep_time(self, deadline):  # pragma: no cover
         pass
 
 _r = random.Random()
@@ -75,11 +75,11 @@ class SystemClock(Clock):
 
 class Profiler(abc.ABC):
     @abc.abstractmethod
-    def before_task_step(self, task):
+    def before_task_step(self, task):  # pragma: no cover
         pass
 
     @abc.abstractmethod
-    def after_task_step(self, task):
+    def after_task_step(self, task):  # pragma: no cover
         pass
 
     @abc.abstractmethod
@@ -207,8 +207,7 @@ class Task:
         assert self._task_result is not None
         return self._task_result
 
-# Container for the stuff that needs to be accessible for what would be
-# synchronous traps in curio.
+
 @attr.s(slots=True)
 class Runner:
     clock = attr.ib()
@@ -266,15 +265,13 @@ class Runner:
             else:
                 notified = True
 
-        if (type(result) is Error and not notified
-              and task is not self.initial_task):
-            if task._type is TaskType.REGULAR:
-                self.crash("unwatched task raised exception", result.error)
-            else:
-                # Propagate system task crashes out, to eventually raise an
-                # TrioInternalError.
-                assert task._type is TaskType.SYSTEM
+        if type(result) is Error:
+            if task._type is TaskType.SYSTEM:
+                # System tasks should *never* crash. If they do, propagate it
+                # out to eventually raise an TrioInternalError.
                 result.unwrap()
+            elif not notified and task is not self.initial_task:
+                self.crash("unwatched task raised exception", result.error)
 
     # Methods marked with @_public get converted into functions exported by
     # trio.hazmat:
@@ -359,9 +356,10 @@ class Runner:
                 try:
                     # Do a bounded amount of work between yields.
                     # We always want to try processing at least one, though;
-                    # otherwise we could just loop around do nothing at
+                    # otherwise we could just loop around doing nothing at
                     # all. If the queue is really empty, we'll get an
-                    # exception and go to sleep until woken.
+                    # exception and go to sleep until woken. (NB: qsize() is
+                    # only a hint; you can't trust it.)
                     for _ in range(max(1, self.call_soon_queue.qsize())):
                         call_next_or_raise_Empty()
                 except stdlib_queue.Empty:
@@ -499,18 +497,15 @@ def run_impl(runner, fn, args):
                     assert yield_fn is yield_indefinitely
                     task._abort_func, = args
                     task._deliver_any_pending_cancel_to_blocked_task()
-                del GLOBAL_RUN_CONTEXT.task
 
             for profiler in runner.profilers:
                 profiler.after_task_step(task)
+            del GLOBAL_RUN_CONTEXT.task
 
-    if runner.unhandled_exception_result is not None:
-        # If the initial task raised an exception then we let it chain into
-        # the final result, but the unhandled exception part wins
-        return Result.combine(runner.initial_task._task_result,
-                              runner.unhandled_exception_result)
-    else:
-        return runner.initial_task._task_result
+    # If the initial task raised an exception then we let it chain into
+    # the final result, but the unhandled exception part wins
+    return Result.combine(runner.initial_task._task_result,
+                          runner.unhandled_exception_result)
 
 def current_task():
     return GLOBAL_RUN_CONTEXT.task

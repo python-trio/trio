@@ -74,7 +74,7 @@ def test_initial_task_error():
 
 def test_run_nesting():
     async def inception():
-        async def main():
+        async def main():  # pragma: no cover
             pass
         return _core.run(main)
     with pytest.raises(RuntimeError) as excinfo:
@@ -367,9 +367,11 @@ class Recorder(_core.Profiler):
     record = attr.ib(default=attr.Factory(list))
 
     def before_task_step(self, task):
+        assert task is _core.current_task()
         self.record.append(("before", task))
 
     def after_task_step(self, task):
+        assert task is _core.current_task()
         self.record.append(("after", task))
 
     def close(self):
@@ -482,6 +484,27 @@ async def test_cancel_edge_cases():
     with pytest.raises(RuntimeError) as excinfo:
         t2.cancel_nowait()
     assert "already exited" in str(excinfo.value)
+
+
+async def test_cancel_custom_exc():
+    class MyCancelled(_core.Cancelled):
+        pass
+
+    async def child():
+        with pytest.raises(MyCancelled):
+            await _core.yield_indefinitely(lambda: _core.Abort.SUCCEEDED)
+        return "ok"
+
+    task = await _core.spawn(child)
+    with pytest.raises(TypeError):
+        # exception type rather than exception instance
+        task.cancel_nowait(MyCancelled)
+    with pytest.raises(TypeError):
+        # other exception types not allowed
+        task.cancel_nowait(ValueError())
+    task.cancel_nowait(MyCancelled())
+    result = await task.join()
+    assert result.unwrap() == "ok"
 
 
 async def test_basic_timeout(mock_clock):
@@ -605,13 +628,24 @@ def test_broken_abort():
         _core.run(main)
 
 
-# intentionally make a system task crash
+# intentionally make a system task crash (simulates a bug in call_soon_task or
+# similar)
+def test_system_task_crash():
+    async def main():
+        # this cheats a bit to set things up -- oh well, if we ever change the
+        # internal APIs we can just change the test too.
+        runner = _core._runner.GLOBAL_RUN_CONTEXT.runner
+        async def crasher():
+            raise KeyError
+        task = runner.spawn_impl(
+            crasher, (), type=_core._runner.TaskType.SYSTEM)
+        # Even though we're listening for an error, that's not enough to save
+        # us:
+        await task.join()
 
-# make sure to set up one where all tasks are asleep to exercise the timeout =
-# _MAX_TIMEOUT line
+    with pytest.raises(_core.TrioInternalError):
+        _core.run(main)
 
-# robustness against broken clocks and profilers? (right now bugs there ->
-# TrioInternalError)
 
 # this needs basic basic IOCP stuff and MacOS testing:
 # call soon
@@ -626,6 +660,9 @@ def test_broken_abort():
 #   - probably worth pumping in a bunch from a thread too just to check thread
 #     safety (with time.sleep(0) in there too I guess)
 
+
+# make sure to set up one where all tasks are blocked on I/O to exercise the
+# timeout = _MAX_TIMEOUT line
 
 # other files:
 # keyboard interrupt: this will be fun...

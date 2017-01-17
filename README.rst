@@ -113,12 +113,14 @@ nothing to see here
    - ability to process timeouts on demand for testing? (might make it
      easier to get weird cases like pending cancel that gets popped,
      anyway)
+   - profiler is a bad name for what it is... tracer? monitor?
    - IOCP
    - possible improved robustness ("quality of implementation") ideas:
      - if an abort callback fails, discard that task but clean up the
        others (instead of discarding all)
      - if a profiler raises an exception, discard that profiler but
        continue
+     - if a clock raises an error... not much we can do about that.
    - debugging features:
      - traceback from task
      - get all tasks (for 'top' etc.)

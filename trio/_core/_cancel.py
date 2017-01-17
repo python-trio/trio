@@ -84,6 +84,10 @@ class CancelStack:
 
     def _fire_entry(self, task, i, exc):
         assert self.entries[i].state is CancelState.IDLE
+        if not isinstance(exc, _core.Cancelled):
+            raise TypeError(
+                "cancel exception must be an instance of Cancelled, not {!r}"
+                .format(type(exc).__name__))
         self.entries[i].state = CancelState.PENDING
         self.entries[i].pending_exc = exc
         self._attempt_deliver_cancel_to_blocked_task(task, i)
