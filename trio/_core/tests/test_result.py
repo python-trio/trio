@@ -1,3 +1,4 @@
+import sys
 import pytest
 from async_generator import async_generator, yield_
 
@@ -105,6 +106,8 @@ async def test_Result_asend():
             await yield_(2)
         await yield_(3)
     my_agen = my_agen_func().__aiter__()
+    if sys.version_info < (3, 5, 2):
+        my_agen = await my_agen
     assert (await my_agen.asend(None)) == 1
     assert (await Value("value").asend(my_agen)) == 2
     assert (await Error(KeyError()).asend(my_agen)) == 3
