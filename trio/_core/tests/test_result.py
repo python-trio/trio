@@ -3,6 +3,7 @@ import pytest
 from async_generator import async_generator, yield_
 
 from ... import _core
+from .test_util import check_exc_chain
 from ..._core._result import *
 
 def test_Result():
@@ -115,6 +116,7 @@ async def test_Result_asend():
         await my_agen.asend(None)
 
 def test_Result_combine():
+    # Trivial cases
     assert Result.combine(None, None) is None
     assert Result.combine(None, Value(1)) == Value(1)
     assert Result.combine(Value(1), None) == Value(1)
@@ -127,11 +129,74 @@ def test_Result_combine():
     with pytest.raises(TypeError):
         Result.combine(Value("hello"), "hello")
 
-    r = None
-    r = Result.combine(r, Error(RuntimeError()))
-    assert type(r) is Error
-    assert type(r.error) is RuntimeError
-    r = Result.combine(r, Error(ValueError()))
-    assert type(r.error) is ValueError
-    assert type(r.error.__context__) is RuntimeError
+    # Value cases
+    e = Error(RuntimeError())
+    v = Value(1)
+    with pytest.raises(ValueError):
+        Result.combine(v, v)
+    assert Result.combine(v, e) is e
+    assert Result.combine(e, v) is e
 
+    # Error+Error cases: check simple chaining
+    e1 = Error(RuntimeError())
+    e2 = Result.combine(e1, Error(ValueError()))
+    check_exc_chain(e2.error, [ValueError, "context", RuntimeError])
+    assert e2.error.__context__ is e1.error
+
+def test_Result_combine_graft():
+    # Grafting chains together
+    def value_cause_runtime():
+        try:
+            try:
+                raise RuntimeError
+            except RuntimeError as exc:
+                raise ValueError from exc
+        except Exception as exc:
+            return Error(exc)
+    check_exc_chain(value_cause_runtime().error, [
+        ValueError, "cause", RuntimeError])
+
+    def name_context_key():
+        try:
+            try:
+                raise KeyError
+            except KeyError as exc:
+                raise NameError
+        except Exception as exc:
+            return Error(exc)
+    check_exc_chain(name_context_key().error, [
+        NameError, "context", KeyError])
+
+    def syntax_from_None():
+        try:
+            try:
+                raise AssertionError
+            except AssertionError as exc:
+                raise SyntaxError from None
+        except Exception as exc:
+            return Error(exc)
+    # the AssertionError is still there as __context__
+    check_exc_chain(syntax_from_None().error, [
+        SyntaxError, "context", AssertionError])
+    assert syntax_from_None().error.__cause__ is None
+    assert syntax_from_None().error.__suppress_context__
+
+    c1 = Result.combine(value_cause_runtime(), name_context_key())
+    check_exc_chain(c1.error, [
+        NameError, "context", KeyError,
+        "context", ValueError, "cause", RuntimeError])
+
+    c2 = Result.combine(name_context_key(), value_cause_runtime())
+    check_exc_chain(c2.error, [
+        ValueError, "cause", RuntimeError,
+        "context", NameError, "context", KeyError])
+
+    c3 = Result.combine(syntax_from_None(), value_cause_runtime())
+    check_exc_chain(c3.error, [
+        ValueError, "cause", RuntimeError,
+        "context", SyntaxError, "context", AssertionError])
+
+    c4 = Result.combine(value_cause_runtime(), syntax_from_None())
+    check_exc_chain(c4.error, [
+        SyntaxError,
+        "context", ValueError, "cause", RuntimeError])
