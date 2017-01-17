@@ -5,7 +5,6 @@ import attr
 
 from .. import _core
 from . import _public, _hazmat
-from ._traps import Abort, yield_indefinitely
 from ._keyboard_interrupt import LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE
 
 class WakeupPipe:
@@ -124,8 +123,8 @@ if hasattr(select, "epoll"):
             def abort():
                 setattr(self._registered[fd], attr_name, None)
                 self._update_registrations(fd, True)
-                return Abort.SUCCEEDED
-            await yield_indefinitely(abort)
+                return _core.Abort.SUCCEEDED
+            await _core.yield_indefinitely(abort)
 
         @_public
         @_hazmat
@@ -212,13 +211,13 @@ if hasattr(select, "kqueue"):
                 raise ValueError(
                     "attempt to register multiple listeners for same "
                     "ident/filter pair")
-            self._registered[key] = current_task()
+            self._registered[key] = _core.current_task()
             def abort():
                 r = abort_func()
-                if r is Abort.SUCCEEDED:
+                if r is _core.Abort.SUCCEEDED:
                     del self._registered[key]
                 return r
-            return await yield_indefinitely(abort)
+            return await _core.yield_indefinitely(abort)
 
         async def _until_common(self, fd, filter):
             if not isinstance(fd, int):
@@ -229,7 +228,7 @@ if hasattr(select, "kqueue"):
             def abort():
                 event = select.kevent(fd, filter, select.KQ_EV_DELETE)
                 self._kqueue.control([event], 0)
-                return Abort.SUCCEEDED
+                return _core.Abort.SUCCEEDED
             await self.until_kevent(fd, filter, abort)
 
         @_public
