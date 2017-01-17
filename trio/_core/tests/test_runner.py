@@ -1,3 +1,4 @@
+import sys
 import time
 import pytest
 import attr
@@ -646,6 +647,50 @@ def test_system_task_crash():
     with pytest.raises(_core.TrioInternalError):
         _core.run(main)
 
+
+async def test_exc_info():
+    record = []
+
+    async def child1():
+        with pytest.raises(ValueError) as excinfo:
+            try:
+                record.append("child1 raise")
+                raise ValueError("child1")
+            except ValueError:
+                record.append("child1 sleep")
+                while "child2 wake" not in record:
+                    await _core.yield_briefly()
+                record.append("child1 re-raise")
+                raise
+        assert excinfo.value.__context__ is None
+        record.append("child1 success")
+
+    async def child2():
+        with pytest.raises(KeyError) as excinfo:
+            while not record:
+                await _core.yield_briefly()
+            record.append("child2 wake")
+            assert sys.exc_info() == (None, None, None)
+            try:
+                raise KeyError("child2")
+            except KeyError:
+                record.append("child2 sleep again")
+                while "child1 re-raise" not in record:
+                    await _core.yield_briefly()
+                record.append("child2 re-raise")
+                raise
+        assert excinfo.value.__context__ is None
+        record.append("child2 success")
+
+    t1 = await _core.spawn(child1)
+    t2 = await _core.spawn(child2)
+    await t1.join()
+    await t2.join()
+
+    assert record == ["child1 raise", "child1 sleep",
+                      "child2 wake", "child2 sleep again",
+                      "child1 re-raise", "child1 success",
+                       "child2 re-raise", "child2 success"]
 
 # this needs basic basic IOCP stuff and MacOS testing:
 # call soon
