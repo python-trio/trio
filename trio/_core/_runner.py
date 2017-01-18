@@ -439,17 +439,8 @@ def run_impl(runner, fn, args):
             raise e
         runner.initial_task = runner.spawn_impl(initial_spawn_failed, (exc,))
 
-    # We delay rescheduling these until after we've processed timeouts, to
-    # make sure that they can be cancelled by the timeouts.
-    yielded_briefly = set()
-    def yield_briefly_aborter(task):
-        def abort():
-            yielded_briefly.remove(task)
-            return Abort.SUCCEEDED
-        return abort
-
     while runner.tasks:
-        if runner.runq or yielded_briefly:
+        if runner.runq:
             timeout = 0
         elif runner.deadlines:
             deadline, _ = runner.deadlines.keys()[0]
@@ -467,9 +458,6 @@ def run_impl(runner, fn, args):
                 task._fire_expired_timeouts(now, TimeoutCancelled())
             else:
                 break
-
-        while yielded_briefly:
-            runner.reschedule(yielded_briefly.pop())
 
         # Process all runnable tasks, but wait for the next iteration
         # before processing tasks that become runnable now. This avoids
@@ -498,11 +486,7 @@ def run_impl(runner, fn, args):
                 runner.task_finished(task, final_result)
             else:
                 yield_fn, *args = msg
-                if yield_fn is yield_briefly:
-                    task._abort_func = yield_briefly_aborter(task)
-                    yielded_briefly.add(task)
-                    task._deliver_any_pending_cancel_to_blocked_task()
-                elif yield_fn is yield_briefly_no_cancel:
+                if yield_fn is yield_briefly_no_cancel:
                     runner.reschedule(task)
                 else:
                     assert yield_fn is yield_indefinitely
