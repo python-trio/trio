@@ -6,7 +6,7 @@ __all__ = ["Event"]
 
 @attr.s(slots=True, repr=False, cmp=False, hash=False)
 class Event:
-    _lot = attr.ib(default=attr.Factor(_core.ParkingLot), init=False)
+    _lot = attr.ib(default=attr.Factory(_core.ParkingLot), init=False)
     _flag = attr.ib(default=False, init=False)
 
     def is_set(self):
