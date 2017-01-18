@@ -19,12 +19,12 @@ from ._exceptions import (
 )
 from ._result import Result, Error, Value
 from ._traps import (
-    yield_briefly, yield_briefly_no_cancel, Abort, yield_indefinitely,
+    yield_briefly_no_cancel, Abort, yield_indefinitely,
 )
 from ._keyboard_interrupt import (
     LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE, keyboard_interrupt_manager,
 )
-from ._cancel import CancelStack
+from ._cancel import CancelStack, yield_briefly
 from . import _public, _hazmat
 
 # At the bottom of this file there's also some "clever" code that generates
@@ -439,8 +439,17 @@ def run_impl(runner, fn, args):
             raise e
         runner.initial_task = runner.spawn_impl(initial_spawn_failed, (exc,))
 
+    # We delay rescheduling these until after we've processed timeouts, to
+    # make sure that they can be cancelled by the timeouts.
+    yielded_briefly = set()
+    def yield_briefly_aborter(task):
+        def abort():
+            yielded_briefly.remove(task)
+            return Abort.SUCCEEDED
+        return abort
+
     while runner.tasks:
-        if runner.runq:
+        if runner.runq or yielded_briefly:
             timeout = 0
         elif runner.deadlines:
             deadline, _ = runner.deadlines.keys()[0]
@@ -458,6 +467,9 @@ def run_impl(runner, fn, args):
                 task._fire_expired_timeouts(now, TimeoutCancelled())
             else:
                 break
+
+        while yielded_briefly:
+            runner.reschedule(yielded_briefly.pop())
 
         # Process all runnable tasks, but wait for the next iteration
         # before processing tasks that become runnable now. This avoids
@@ -487,10 +499,9 @@ def run_impl(runner, fn, args):
             else:
                 yield_fn, *args = msg
                 if yield_fn is yield_briefly:
-                    task._abort_func = lambda: Abort.SUCCEEDED
+                    task._abort_func = yield_briefly_aborter(task)
+                    yielded_briefly.add(task)
                     task._deliver_any_pending_cancel_to_blocked_task()
-                    if task._next_send is None:
-                        runner.reschedule(task)
                 elif yield_fn is yield_briefly_no_cancel:
                     runner.reschedule(task)
                 else:

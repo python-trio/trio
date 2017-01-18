@@ -15,6 +15,7 @@ setup(name="trio",
           "attrs",
           "sortedcontainers",
           "async_generator",
+          "cffi; os_name == 'nt'",  # "cffi is required on windows"
       ],
       classifiers=[
         "Development Status :: 2 - Pre-Alpha",

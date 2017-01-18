@@ -1,10 +1,13 @@
 import attr
 
-from . import _public, _hazmat
-from ._traps import yield_briefly_no_cancel, Abort, yield_indefinitely
+from . import _public, _hazmat, _core
 
 # pywin32 appears to be pretty useless -- missing lots of basic stuff like
 # CancelIOEx, GetQueuedCompletionStatusEx, UDP support.
+
+import cffi
+
+
 
 # writeable on windows:
 # http://stackoverflow.com/a/28848834
@@ -83,7 +86,7 @@ class WindowsIOManager:
         # IOCP regardless of whether we're listening or not. (This is
         # different from the pipe trick, where the pipe accumulates the
         # notifications until we select on it.)
-        await yield_indefinitely(lambda: Abort.SUCCEEDED)
+        await _core.yield_indefinitely(lambda: Abort.SUCCEEDED)
 
     def handle_io(self, timeout):
         # XX

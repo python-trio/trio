@@ -4,8 +4,12 @@ import pytest
 import attr
 
 from .test_util import check_exc_chain
+from ...testing import busy_wait_for, quiesce
 
 from ... import _core
+
+async def sleep_forever():
+    return await _core.yield_indefinitely(lambda: _core.Abort.SUCCEEDED)
 
 def test_basic():
     async def trivial(x):
@@ -178,7 +182,7 @@ def test_two_crashes():
 async def test_reschedule():
     async def child1():
         print("child1 start")
-        x = await _core.yield_indefinitely(lambda: _core.Abort.SUCCEEDED)
+        x = await sleep_forever()
         print("child1 woke")
         assert x == 0
         print("child1 rescheduling t2")
@@ -190,7 +194,7 @@ async def test_reschedule():
         _core.reschedule(t1, _core.Value(0))
         print("child2 sleep")
         with pytest.raises(ValueError):
-            await _core.yield_indefinitely(lambda: _core.Abort.SUCCEEDED)
+            await sleep_forever()
         print("child2 successful exit")
 
     t1 = await _core.spawn(child1)
@@ -302,7 +306,7 @@ async def test_current_time_with_mock_clock(mock_clock):
     start = mock_clock.current_time()
     assert mock_clock.current_time() == _core.current_time()
     assert mock_clock.current_time() == _core.current_time()
-    await mock_clock.advance(3.14)
+    mock_clock.advance(3.14)
     assert start + 3.14 == mock_clock.current_time() == _core.current_time()
 
 
@@ -417,7 +421,7 @@ def test_cancel_points():
     async def main3():
         _core.current_task().cancel_nowait()
         with pytest.raises(_core.TaskCancelled):
-            await _core.yield_indefinitely(lambda: _core.Abort.SUCCEEDED)
+            await sleep_forever()
     _core.run(main3)
 
     async def main4():
@@ -455,7 +459,7 @@ async def test_cancel_custom_exc():
 
     async def child():
         with pytest.raises(MyCancelled):
-            await _core.yield_indefinitely(lambda: _core.Abort.SUCCEEDED)
+            await sleep_forever()
         return "ok"
 
     task = await _core.spawn(child)
@@ -477,15 +481,16 @@ async def test_basic_timeout(mock_clock):
         timeout.deadline += 0.5
         assert timeout.deadline == _core.current_deadline() == start + 1.5
     assert not timeout.raised
-    await mock_clock.advance(2)
+    mock_clock.advance(2)
+    await _core.yield_briefly()
+    await _core.yield_briefly()
     await _core.yield_briefly()
     assert not timeout.raised
 
     start = _core.current_time()
     with _core.move_on_at(start + 1) as timeout:
-        await mock_clock.advance(2)
-        # Not reached -- previous line raised an exception
-        assert False  # pragma: no cover
+        mock_clock.advance(2)
+        await sleep_forever()
     # But then move_on_at swallowed the exception... but we can still see it
     # here:
     assert timeout.raised
@@ -495,7 +500,8 @@ async def test_basic_timeout(mock_clock):
     with _core.move_on_at(start + 10) as t1:
         with _core.move_on_at(start + 5) as t2:
             with _core.move_on_at(start + 1) as t3:
-                await mock_clock.advance(7)
+                mock_clock.advance(7)
+                await sleep_forever()
     assert not t3.raised
     assert t2.raised
     assert not t1.raised
@@ -504,10 +510,12 @@ async def test_basic_timeout(mock_clock):
     start = _core.current_time()
     with _core.move_on_at(start + 1) as t1:
         try:
-            await mock_clock.advance(2)
+            mock_clock.advance(2)
+            await sleep_forever()
         except _core.TimeoutCancelled:
             with _core.move_on_at(start + 3) as t2:
-                await mock_clock.advance(2)
+                mock_clock.advance(2)
+                await sleep_forever()
     assert t1.raised
     assert t2.raised
 
@@ -515,7 +523,7 @@ async def test_basic_timeout(mock_clock):
     # yet delivered), then the second timeout will never fire
     start = _core.current_time()
     with _core.move_on_at(start + 1) as t1:
-        mock_clock.advance_nowait(2)
+        mock_clock.advance(2)
         # ticking over the event loop makes it notice the timeout
         # expiration... but b/c we use the weird no_cancel thing, it can't be
         # delivered yet, so it becomes pending.
@@ -529,7 +537,10 @@ async def test_basic_timeout(mock_clock):
                 # the inner timeout hasn't even reached its expiration time
                 assert _core.current_time() < t2.deadline
                 # but now if we do pass the deadline, it still won't fire
-                await mock_clock.advance(2)
+                mock_clock.advance(2)
+                await _core.yield_briefly()
+                await _core.yield_briefly()
+                await _core.yield_briefly()
                 assert t2.deadline < _core.current_time()
     assert not t2.raised
 
@@ -537,7 +548,7 @@ async def test_basic_timeout(mock_clock):
     # isn't delivered
     start = _core.current_time()
     with _core.move_on_at(start + 1) as t1:
-        mock_clock.advance_nowait(2)
+        mock_clock.advance(2)
         await _core.yield_briefly_no_cancel()
     await _core.yield_briefly()
     assert not t1.raised
@@ -550,7 +561,7 @@ async def test_timekeeping():
     for _ in range(4):
         real_start = time.monotonic()
         with _core.move_on_at(_core.current_time() + TARGET):
-            await _core.yield_indefinitely(lambda: _core.Abort.SUCCEEDED)
+            await sleep_forever()
         real_duration = time.monotonic() - real_start
         accuracy = real_duration / TARGET
         print(accuracy)
@@ -575,8 +586,7 @@ async def test_failed_abort():
 
     task = await _core.spawn(stubborn_sleeper)
     task.cancel_nowait()
-    while not record:
-        await _core.yield_briefly()
+    await busy_wait_for(lambda: record)
     _core.reschedule(task, _core.Value(1))
     await task.join()
     assert record == ["sleep", "woke", "cancelled"]
@@ -610,6 +620,23 @@ def test_system_task_crash():
         _core.run(main)
 
 
+# This used to fail because yield_briefly was a yield followed by an immediate
+# reschedule. So we had:
+# 1) this task yields
+# 2) this task is rescheduled
+# ...
+# 3) next iteration of event loop starts, runs timeouts
+# 4) this task has timed out
+# 5) ...but it's on the run queue, so the timeout is queued to be delivered
+#    the next time that it's blocked.
+async def test_yield_briefly_checks_for_timeout(mock_clock):
+    with _core.move_on_at(_core.current_time() + 5):
+        await _core.yield_briefly()
+        with pytest.raises(_core.Cancelled):
+            mock_clock.advance(10)
+            await _core.yield_briefly()
+
+
 async def test_exc_info():
     record = []
 
@@ -620,8 +647,7 @@ async def test_exc_info():
                 raise ValueError("child1")
             except ValueError:
                 record.append("child1 sleep")
-                while "child2 wake" not in record:
-                    await _core.yield_briefly()
+                await busy_wait_for(lambda: "child2 wake" in record)
                 record.append("child1 re-raise")
                 raise
         assert excinfo.value.__context__ is None
@@ -629,16 +655,14 @@ async def test_exc_info():
 
     async def child2():
         with pytest.raises(KeyError) as excinfo:
-            while not record:
-                await _core.yield_briefly()
+            await busy_wait_for(lambda: record)
             record.append("child2 wake")
             assert sys.exc_info() == (None, None, None)
             try:
                 raise KeyError("child2")
             except KeyError:
                 record.append("child2 sleep again")
-                while "child1 re-raise" not in record:
-                    await _core.yield_briefly()
+                await busy_wait_for(lambda: "child1 re-raise" in record)
                 record.append("child2 re-raise")
                 raise
         assert excinfo.value.__context__ is None

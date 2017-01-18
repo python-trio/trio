@@ -1,8 +1,71 @@
+import threading
 from functools import wraps, partial
 import inspect
 import attr
 
-from . import _core, sleep_until
+from . import _core
+
+__all__ = ["busy_wait_for", "quiesce", "trio_test", "MockClock"]
+
+async def busy_wait_for(predicate):
+    while not predicate():
+        await _core.yield_briefly()
+
+_quiesce_local = threading.local()
+
+@attr.s(slots=True)
+class _QuiesceChecker:
+    repetitions = attr.ib(default=0)
+    lot = attr.ib(default=attr.Factory(_core.ParkingLot))
+    looper_task = attr.ib(default=None)
+
+    async def _looper(self):
+        try:
+            while True:
+                await _core.yield_briefly()
+        except _core.Cancelled:
+            pass
+
+    async def spawn(self):
+        self.looper_task = await _core.spawn(self._looper)
+        _core.current_profilers().append(self)
+
+    def stop(self):
+        self.lot.unpark()
+        self.looper_task.cancel_nowait()
+        del _quiesce_local.checker
+        _core.current_profilers().remove(self)
+
+    def before_task_step(self, task):
+        print(task)
+        if task is self.looper_task:
+            self.repetitions += 1
+            if self.repetitions == 3:
+                self.stop()
+        else:
+            self.repetitions = 0
+
+    def after_task_step(self, task):
+        pass
+
+    def close(self):
+        assert False
+
+async def quiesce():
+    if not hasattr(_quiesce_local, "checker"):
+        _quiesce_local.checker = _QuiesceChecker()
+        await _quiesce_local.checker.spawn()  # doesn't yield
+    try:
+        await _quiesce_local.checker.lot.park()
+    except:
+        try:
+            checker = _quiesce_local.checker
+        except AttributeError:
+            pass
+        else:
+            if checker.lot.parked_count() == 0:
+                checker.stop()
+        raise
 
 # Use:
 #
@@ -45,25 +108,20 @@ class MockClock(_core.Clock):
         else:
             return 999999999
 
-    # probably only useful for testing trio itself:
-    def advance_nowait(self, offset):
+    def advance(self, offset):
         if offset < 0:
             raise ValueError("time can't go backwards")
         self._mock_time += offset
 
-    async def advance(self, offset):
-        self.advance_nowait(offset)
-        # Sleep until the next time we process timeouts...
-        await sleep_until(self._mock_time)
-        # ...and then one tick more, to let other tasks respond to those
-        # timeouts. (Tasks with the same wakeup time are scheduled in
-        # non-deterministic order, so otherwise we might be scheduled again
-        # before some other tasks that were also waiting for this time.)
-        await _core.yield_briefly()
-        # XX not entirely sure if this is the best interface... maybe pump
-        # should guarantee processing inbetween advances, while this should be
-        # lower-level and leave yield management to the user?
+    # async def pump(self, offsets):
+    #     for offset in offsets:
+    #         self.advance(offset)
+    #         await _core.yield_briefly()
+    #         await _core.yield_briefly()
 
-    async def pump(self, offsets):
-        for offset in offsets:
-            await self.advance(offset)
+
+# XX Sequencer like in volley/jongleur
+# refinements:
+# - ability to schedule clock advancements
+# - tick over the event loop between steps, so timeouts have a chance to fire?
+#   - a random number of times? until quiescent?

@@ -27,6 +27,9 @@ class ParkingLot:
 
     ALL = _AllType()
 
+    def parked_count(self):
+        return len(self._parked)
+
     async def park(self, *, abort_func=lambda: _core.Abort.SUCCEEDED):
         idx = next(_counter)
         self._parked[idx] = _core.current_task()

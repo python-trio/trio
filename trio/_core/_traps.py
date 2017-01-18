@@ -1,4 +1,4 @@
-# These are the only 3 functions that ever yield back to the task runner.
+# These are the only 2 functions that ever yield back to the task runner.
 
 import types
 import enum
@@ -6,8 +6,7 @@ from functools import wraps
 
 from . import _hazmat
 
-__all__ = ["yield_briefly", "yield_briefly_no_cancel",
-           "Abort", "yield_indefinitely"]
+__all__ = ["yield_briefly_no_cancel", "Abort", "yield_indefinitely"]
 
 # Decorator to turn a generator into a well-behaved async function:
 def asyncfunction(fn):
@@ -19,11 +18,6 @@ def asyncfunction(fn):
     async def wrapper(*args, **kwargs):
         return await fn(*args, **kwargs)
     return wrapper
-
-@_hazmat
-@asyncfunction
-def yield_briefly():
-    return (yield (yield_briefly,))
 
 @_hazmat
 @asyncfunction

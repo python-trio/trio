@@ -1,4 +1,9 @@
+# This file is somewhat misnamed -- it has tests for ../_util.py, but also has
+# utilities for testing.
+
 import pytest
+
+from ... import _core
 
 def check_exc_chain(exc, chain, complete=True):
     while chain:

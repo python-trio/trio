@@ -91,7 +91,7 @@ def keyboard_interrupt_manager(notify_cb):
 
     def handler(signum, frame):
         assert signum == signal.SIGINT
-        if _allow_keyboard_interrupt(frame):
+        if _keyboard_interrupt_safe(frame):
             status.pending = False
             raise KeyboardInterrupt
         else:

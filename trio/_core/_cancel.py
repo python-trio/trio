@@ -3,9 +3,9 @@ import enum
 import attr
 
 from .. import _core
-from ._traps import Abort
+from . import _hazmat
 
-__all__ = ["move_on_at"]
+__all__ = ["move_on_at", "yield_briefly"]
 
 CancelState = enum.Enum("CancelState", "IDLE PENDING DONE")
 # IDLE -> hasn't fired, might in the future
@@ -76,9 +76,9 @@ class CancelStack:
         if task._abort_func is None:
             return
         success = task._abort_func()
-        if type(success) is not Abort:
+        if type(success) is not _core.Abort:
             raise TypeError("abort_func must return Abort enum")
-        if success is Abort.SUCCEEDED:
+        if success is _core.Abort.SUCCEEDED:
             exc = self._get_exception_and_mark_done(i)
             _core.reschedule(task, _core.Error(exc))
 
@@ -153,3 +153,8 @@ def move_on_at(deadline):
             raise
     finally:
         task._pop_deadline(status)
+
+@_hazmat
+async def yield_briefly():
+    with move_on_at(float("-inf")):
+        await _core.yield_indefinitely(lambda: _core.Abort.SUCCEEDED)

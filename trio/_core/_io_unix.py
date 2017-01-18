@@ -14,12 +14,18 @@ class WakeupPipe:
         os.set_blocking(self._write_fd, False)
 
     def wakeup_threadsafe(self):
-        os.write(self._write_fd, b"\x00")
+        try:
+            os.write(self._write_fd, b"\x00")
+        except BlockingIOError:
+            pass
 
     async def until_woken(self):
         await _core.until_readable(self._read_fd)
         # Drain the pipe:
-        while os.read(self._read_fd, 2 ** 16):
+        try:
+            while os.read(self._read_fd, 2 ** 16):
+                pass
+        except BlockingIOError:
             pass
 
     def close(self):
