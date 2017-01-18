@@ -217,6 +217,7 @@ class Runner:
     runq = attr.ib(default=attr.Factory(deque))
     tasks = attr.ib(default=attr.Factory(set))
     regular_task_count = attr.ib(default=0)
+    r = attr.ib(default=attr.Factory(random.Random))
 
     # {(deadline, id(task)): task}
     # only contains tasks with non-infinite deadlines
@@ -459,12 +460,24 @@ def run_impl(runner, fn, args):
             else:
                 break
 
-        # Process all runnable tasks, but wait for the next iteration
-        # before processing tasks that become runnable now. This avoids
-        # various starvation issues by ensuring that there's never an
-        # unbounded delay between successive checks for I/O.
-        for _ in range(len(runner.runq)):
-            task = runner.runq.popleft()
+        # Process all runnable tasks, but only the ones that are already
+        # runnable now. Anything that becomes runnable during this cycle needs
+        # to wait until the next pass. This avoids various starvation issues
+        # by ensuring that there's never an unbounded delay between successive
+        # checks for I/O.
+        #
+        # Also, we randomize the order of each batch to avoid assumptions
+        # about scheduling order sneaking in. In the long run, I suspect we'll
+        # either (a) use strict FIFO ordering and document that for
+        # predictability/determinism, or (b) implement a more sophisticated
+        # scheduler (e.g. some variant of fair queueing), for better behavior
+        # under load. For now, this is the worst of both worlds - but it keeps
+        # our options open.
+        batch = list(runner.runq)
+        runner.runq.clear()
+        runner.r.shuffle(batch)
+        while batch:
+            task = batch.pop()
             GLOBAL_RUN_CONTEXT.task = task
             for profiler in runner.profilers:
                 profiler.before_task_step(task)
