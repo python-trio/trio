@@ -21,7 +21,7 @@ class _AllType:
 # @keyboard_interrupt(enabled=True)
 
 @_hazmat
-@attr.s(slots=True)
+@attr.s(slots=True, cmp=False, hash=False)
 class ParkingLot:
     _parked = attr.ib(default=attr.Factory(SortedDict))
 

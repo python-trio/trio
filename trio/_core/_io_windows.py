@@ -68,7 +68,7 @@ import cffi
 # also maybe we should provide low-level wrappers like WSASend here, exposing
 # the flags etc.?
 
-@attr.s(slots=True)
+@attr.s(slots=True, cmp=False, hash=False)
 class WindowsIOManager:
     #iocp = attr.ib()
 

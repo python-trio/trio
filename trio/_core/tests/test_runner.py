@@ -329,7 +329,7 @@ def test_is_subsequence():
     assert not is_subsequence([1, 3, 5], range(5))
     assert not is_subsequence([3, 1], range(5))
 
-@attr.s
+@attr.s(slots=True, cmp=False, hash=False)
 class Recorder(_core.Profiler):
     record = attr.ib(default=attr.Factory(list))
 

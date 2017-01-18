@@ -77,7 +77,7 @@ def _keyboard_interrupt_safe(frame):
         frame = frame.f_back
     return False
 
-@attr.s(slots=True)
+@attr.s(slots=True, cmp=False, hash=False)
 class KeyboardInterruptStatus:
     pending = attr.ib(default=False)
 

@@ -59,7 +59,7 @@ class Clock(abc.ABC):
         pass
 
 _r = random.Random()
-@attr.s(slots=True)
+@attr.s(slots=True, frozen=True)
 class SystemClock(Clock):
     # Add a large random offset to our clock to ensure that if people
     # accidentally call time.monotonic() directly or start comparing clocks
@@ -208,7 +208,7 @@ class Task:
         return self._task_result
 
 
-@attr.s(slots=True)
+@attr.s(slots=True, cmp=False, hash=False)
 class Runner:
     clock = attr.ib()
     profilers = attr.ib()

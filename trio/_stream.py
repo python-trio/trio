@@ -37,8 +37,9 @@ __all__ = ["Resource", "SendStream", "RecvStream", "Stream"]
 # having a single method that does different things depending on whether
 # you've fiddled with setsockopt.
 
-@attr.s(slots=True)
 class Resource(metaclass=abc.ABCMeta):
+    __slots__ = ()
+
     @abc.abstractmethod
     def close(self):
         # XX docstring should warn that this is a harsh shutdown, so e.g. TLS
@@ -58,8 +59,9 @@ class Resource(metaclass=abc.ABCMeta):
 if hasattr(contextlib, "AbstractContextManager"):
     contextlib.AbstractContextManager.register(Resource)
 
-@attr.s(slots=True)
 class SendStream(Resource):
+    __slots__ = ()
+
     @abc.abstractmethod
     async def sendall(self, data):
         pass
@@ -83,17 +85,21 @@ class SendStream(Resource):
 
 @attr.s(slots=True)
 class RecvStream(Resource):
+    __slots__ = ()
+
     @abc.abstractmethod
     async def recv(self, max_bytes):
         pass
 
 @attr.s(slots=True)
 class Stream(SendStream, RecvStream):
+    __slots__ = ()
+
     @staticmethod
     def staple(cls, send_stream, recv_stream):
         return StapledStream(send_stream=send_stream, recv_stream=recv_stream)
 
-@attr.s(slots=True)
+@attr.s(slots=True, cmp=False, hash=False)
 class StapledStream(Stream):
     send_stream = attr.ib()
     recv_stream = attr.ib()

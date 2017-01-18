@@ -13,7 +13,7 @@ async def busy_wait_for(predicate):
 
 _quiesce_local = threading.local()
 
-@attr.s(slots=True)
+@attr.s(slots=True, cmp=False, hash=False)
 class _QuiesceChecker:
     repetitions = attr.ib(default=0)
     lot = attr.ib(default=attr.Factory(_core.ParkingLot))
@@ -92,7 +92,7 @@ def trio_test(fn):
 # Prior art:
 #   https://twistedmatrix.com/documents/current/api/twisted.internet.task.Clock.html
 #   https://github.com/ztellman/manifold/issues/57
-@attr.s(slots=True)
+@attr.s(slots=True, cmp=False, hash=False)
 class MockClock(_core.Clock):
     _mock_time = attr.ib(convert=float, default=0.0)
 

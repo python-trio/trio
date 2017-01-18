@@ -36,7 +36,7 @@ class WakeupPipe:
 
 if hasattr(select, "epoll"):
 
-    @attr.s(slots=True)
+    @attr.s(slots=True, cmp=False, hash=False)
     class EpollWaiters:
         read_task = attr.ib(default=None)
         write_task = attr.ib(default=None)
@@ -61,7 +61,7 @@ if hasattr(select, "epoll"):
             # https://lkml.org/lkml/2016/2/4/541
             return flags
 
-    @attr.s(slots=True)
+    @attr.s(slots=True, cmp=False, hash=False)
     class EpollIOManager:
         _epoll = attr.ib(default=attr.Factory(select.epoll))
         # {fd: EpollWaiters}
@@ -146,7 +146,7 @@ if hasattr(select, "epoll"):
 
 if hasattr(select, "kqueue"):
 
-    @attr.s(slots=True)
+    @attr.s(slots=True, cmp=False, hash=False)
     class KqueueIOManager:
         _kqueue = attr.ib(default=attr.Factory(select.kqueue))
         # {(ident, filter): Task or Queue}

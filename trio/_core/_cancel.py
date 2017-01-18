@@ -13,7 +13,7 @@ CancelState = enum.Enum("CancelState", "IDLE PENDING DONE")
 # DONE -> either this entry has been delivered, or some lower entry on th
 #         stack has become pending
 
-@attr.s(slots=True)
+@attr.s(slots=True, cmp=False, hash=False)
 class CancelStackEntry:
     deadline = attr.ib()
     state = attr.ib(default=CancelState.IDLE)
@@ -23,7 +23,7 @@ class CancelStackEntry:
 # The cancel stack always has a single entry at the bottom with
 # deadline=None representing the cancel() method, and then zero or more
 # entries on top of that.
-@attr.s(slots=True)
+@attr.s(slots=True, cmp=False, hash=False)
 class CancelStack:
     # We assume that there will only be a small number of items on the cancel
     # stack, like 2-4, so simple linear searches make sense. If this turns out
@@ -122,7 +122,7 @@ class CancelStack:
 # This is the opaque object we return from move_on_at(), that lets the user
 # check the status and adjust the deadline. It's actually created by
 # push_deadline.
-@attr.s(slots=True)
+@attr.s(slots=True, cmp=False, hash=False)
 class CancelStatus:
     _stack_entry = attr.ib()
     _task = attr.ib()
