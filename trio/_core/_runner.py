@@ -472,7 +472,10 @@ def run_impl(runner, fn, args):
         # predictability/determinism, or (b) implement a more sophisticated
         # scheduler (e.g. some variant of fair queueing), for better behavior
         # under load. For now, this is the worst of both worlds - but it keeps
-        # our options open.
+        # our options open. (If we do decide to go all in on deterministic
+        # scheduling, then there are other things that will probably need to
+        # change too, like the deadlines tie-breaker and the non-deterministic
+        # ordering of task._notify_queues.)
         batch = list(runner.runq)
         runner.runq.clear()
         runner.r.shuffle(batch)

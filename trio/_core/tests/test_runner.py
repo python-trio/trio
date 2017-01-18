@@ -3,7 +3,7 @@ import time
 import pytest
 import attr
 
-from .test_util import check_exc_chain
+from .test_util import check_sequence_matches, check_exc_chain
 from ...testing import busy_wait_for, quiesce
 
 from ... import _core
@@ -88,11 +88,10 @@ async def test_basic_interleave():
     await t1.join()
     await t2.join()
 
-    # This test will break if we ever switch away from pure FIFO scheduling,
-    # but for now this should be 100% reliable:
-    assert record == [("a", 0), ("b", 0),
-                      ("a", 1), ("b", 1),
-                      ("a", 2), ("b", 2)]
+    check_sequence_matches(record, [
+        {("a", 0), ("b", 0)},
+        {("a", 1), ("b", 1)},
+        {("a", 2), ("b", 2)}])
 
 
 def test_task_crash():
@@ -229,6 +228,8 @@ async def test_notify_queues():
 
     # q1 and q3 should be there now, check that they indeed get notified
     await _core.yield_briefly()
+    await _core.yield_briefly()
+    await _core.yield_briefly()
     assert task.join_nowait().unwrap() == 1
     assert q1.get_nowait() is task
     with pytest.raises(_core.WouldBlock):
@@ -318,17 +319,6 @@ async def test_current_task():
     assert child_task == (await child_task.join()).unwrap()
 
 
-def is_subsequence(sub, sup):
-    it = iter(sup)
-    # trick: 'obj in it' consumes items from 'it' until it finds 'obj'
-    # https://stackoverflow.com/questions/24017363/how-to-test-if-one-string-is-a-subsequence-of-another
-    return all(obj in it for obj in sub)
-
-def test_is_subsequence():
-    assert is_subsequence([1, 3], range(5))
-    assert not is_subsequence([1, 3, 5], range(5))
-    assert not is_subsequence([3, 1], range(5))
-
 @attr.s(slots=True, cmp=False, hash=False)
 class Recorder(_core.Profiler):
     record = attr.ib(default=attr.Factory(list))
@@ -339,10 +329,19 @@ class Recorder(_core.Profiler):
 
     def after_task_step(self, task):
         assert task is _core.current_task()
+        if self.record:
+            assert self.record[-1] == ("before", task)
         self.record.append(("after", task))
 
     def close(self):
         self.record.append(("close",))
+
+    def filter_tasks(self, tasks):
+        for item in self.record:
+            if item[0] in ("before", "after") and item[1] in tasks:
+                yield item
+            if item[0] == "close":
+                yield item
 
 def test_profilers():
     r1 = Recorder()
@@ -368,9 +367,9 @@ def test_profilers():
                 ("close",)]
     assert len(r1.record) > len(r2.record) > len(r3.record)
     assert r1.record == r2.record + r3.record
-    # Need subsequence check b/c there's also the system task bumping around
-    # in the record:
-    assert is_subsequence(expected, r1.record)
+    # Need to filter b/c there's also the system task bumping around in the
+    # record:
+    assert list(r1.filter_tasks([main_task])) == expected
 
     # since we didn't use call_soon, the system task should have only
     # scheduled twice (once at the beginning to set up, and once at the end
@@ -396,12 +395,12 @@ def test_profilers_interleave():
     _core.run(main, profilers=[r])
 
     expected = [("before", tasks["main"]), ("after", tasks["main"]),
-                ("before", tasks["t1"]), ("after", tasks["t1"]),
-                ("before", tasks["t2"]), ("after", tasks["t2"]),
-                ("before", tasks["t1"]), ("after", tasks["t1"]),
-                ("before", tasks["t2"]), ("after", tasks["t2"]),
+                {("before", tasks["t1"]), ("after", tasks["t1"]),
+                 ("before", tasks["t2"]), ("after", tasks["t2"])},
+                {("before", tasks["t1"]), ("after", tasks["t1"]),
+                 ("before", tasks["t2"]), ("after", tasks["t2"])},
                 ("close",)]
-    assert is_subsequence(expected, r.record)
+    check_sequence_matches(list(r.filter_tasks(tasks.values())), expected)
 
 
 def test_cancel_points():
