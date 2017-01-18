@@ -16,6 +16,8 @@
 
 __all__ = []
 
+from ._version import __version__
+
 from . import hazmat
 
 from . import _core
@@ -29,8 +31,11 @@ for _symbol in _core.__all__:
         __all__.append(_symbol)
 del _symbol, _value
 
-from ._stream import *
-__all__ += _stream.__all__
-
 from ._timeout import *
 __all__ += _timeout.__all__
+
+from ._sync import *
+__all__ += _sync.__all__
+
+from ._stream import *
+__all__ += _stream.__all__

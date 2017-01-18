@@ -91,33 +91,56 @@ nothing to see here
 
      to wait for a task that "can't fail"... but if it does then this
      silently discards the exception :-( :-(
+
+     maybe:
+     - join_nowait() -> .result, so there's no WouldBlock to confuse
+       things, instead check .result is None before trying to unwrap
+       it? (or don't)
+     - join() -> wait(), which doesn't return anything and doesn't
+       count as catching errors
+     - explicit monitoring API is the only thing that counts as
+       catching errors
+
+   - should we split Queue and UnboundedQueue, latter has longer /
+     more inconvenient name and only provides get_all and put_nowait,
+     no put or get?
+
    - async generator hooks
+
    - pytest plugin
+
    - task local storage
      - {run,await}_in_{worker,main}_thread should keep it! no concurrent
        access problem!
      - run_in_worker_process... hmm. pickleability is a problem.
        - trio.Local(pickle=True)?
+
    - profiler is a bad name for what it is... tracer? monitor? --
      instruments
      - other things to instrument:
        - reschedule
        - start of batch, length of runq, length of time in io handler
+
    - IOCP
+
    - possible improved robustness ("quality of implementation") ideas:
      - if an abort callback fails, discard that task but clean up the
        others (instead of discarding all)
      - if a profiler raises an exception, discard that profiler but
        continue
      - if a clock raises an error... not much we can do about that.
+
    - debugging features:
      - traceback from task
      - get all tasks (for 'top' etc.)
      - find the outermost frame of a blocked task that has a
        __trio_wchan__ annotation, and report it as the wchan (like
        curio's 'status' field)
+
    - implement signal handling on top of new call_soon
+
    - implement {run,await}_in_main_thread on top of new call_soon
+
    - document the low-level API
 
    - trio
