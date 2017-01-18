@@ -115,11 +115,9 @@ nothing to see here
      - run_in_worker_process... hmm. pickleability is a problem.
        - trio.Local(pickle=True)?
 
-   - profiler is a bad name for what it is... tracer? monitor? --
-     instruments
-     - other things to instrument:
-       - reschedule
-       - start of batch, length of runq, length of time in io handler
+   - there is some bug that is triggering "warning: call_soon_task was
+     never awaited" warnings occasionally in the test suite (though it
+     still passes). what the heck.
 
    - IOCP
 

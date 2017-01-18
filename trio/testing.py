@@ -14,7 +14,7 @@ async def busy_wait_for(predicate):
 _quiesce_local = threading.local()
 
 @attr.s(slots=True, cmp=False, hash=False)
-class _QuiesceChecker:
+class _QuiesceChecker(_core.Instrument):
     repetitions = attr.ib(default=0)
     lot = attr.ib(default=attr.Factory(_core.ParkingLot))
     looper_task = attr.ib(default=None)
@@ -28,13 +28,13 @@ class _QuiesceChecker:
 
     async def spawn(self):
         self.looper_task = await _core.spawn(self._looper)
-        _core.current_profilers().append(self)
+        _core.current_instruments().append(self)
 
     def stop(self):
         self.lot.unpark()
         self.looper_task.cancel_nowait()
         del _quiesce_local.checker
-        _core.current_profilers().remove(self)
+        _core.current_instruments().remove(self)
 
     def before_task_step(self, task):
         print(task)

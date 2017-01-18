@@ -31,7 +31,7 @@ from . import _public, _hazmat
 # wrapper functions for runner and io manager methods, and adds them to
 # __all__. These are all re-exported as part of the 'trio' or 'trio.hazmat'
 # namespaces.
-__all__ = ["Clock", "Profiler", "Task", "run",
+__all__ = ["Clock", "Instrument", "Task", "run",
            "current_task", "current_deadline", "cancellation_point_no_yield"]
 
 GLOBAL_RUN_CONTEXT = threading.local()
@@ -73,17 +73,19 @@ class SystemClock(Clock):
         return deadline - self.current_time()
 
 
-class Profiler(abc.ABC):
-    @abc.abstractmethod
-    def before_task_step(self, task):  # pragma: no cover
+# XX run some tasks with this, to get the coverage and just test for spelling
+# mistakes
+class Instrument(abc.ABC):
+    def task_scheduled(self, task):
         pass
 
-    @abc.abstractmethod
-    def after_task_step(self, task):  # pragma: no cover
+    def before_task_step(self, task):
         pass
 
-    @abc.abstractmethod
-    def close(self):  # pragma: no cover
+    def after_task_step(self, task):
+        pass
+
+    def close(self):
         pass
 
 
@@ -211,7 +213,7 @@ class Task:
 @attr.s(slots=True, cmp=False, hash=False)
 class Runner:
     clock = attr.ib()
-    profilers = attr.ib()
+    instruments = attr.ib()
     io_manager = attr.ib()
 
     runq = attr.ib(default=attr.Factory(deque))
@@ -227,9 +229,20 @@ class Runner:
     unhandled_exception_result = attr.ib(default=None)
 
     def close(self):
-        for profiler in self.profilers:
-            profiler.close()
         self.io_manager.close()
+        self.instrument("close")
+
+    def instrument(self, method, *args):
+        bad = []
+        for i, instrument in enumerate(self.instruments):
+            try:
+                getattr(instrument, method)(*args)
+            except BaseException as exc:
+                self.crash("error in instrument {!r}.{}"
+                           .format(instrument, method),
+                           exc)
+        while bad:
+            del self.instruments[bad.pop()]
 
     def crash(self, message, exc):
         # XX ergonomics: maybe KeyboardInterrupt should be preserved instead
@@ -281,8 +294,8 @@ class Runner:
         return self.clock.current_time()
 
     @_public
-    def current_profilers(self):
-        return self.profilers
+    def current_instruments(self):
+        return self.instruments
 
     @_public
     @_hazmat
@@ -292,6 +305,7 @@ class Runner:
         task._next_send = next_send
         task._abort_func = None
         self.runq.append(task)
+        self.instrument("task_scheduled", task)
 
     def spawn_impl(self, fn, args, *, type=TaskType.REGULAR, notify_queues=[]):
         coro = fn(*args)
@@ -378,7 +392,7 @@ class Runner:
                 except stdlib_queue.Empty:
                     break
 
-def run(fn, *args, clock=None, profilers=[]):
+def run(fn, *args, clock=None, instruments=[]):
     # Do error-checking up front, before we enter the TrioInternalError
     # try/catch
     #
@@ -390,9 +404,9 @@ def run(fn, *args, clock=None, profilers=[]):
 
     if clock is None:
         clock = SystemClock()
-    profilers = list(profilers)
+    instruments = list(instruments)
     io_manager = TheIOManager()
-    runner = Runner(clock=clock, profilers=profilers, io_manager=io_manager)
+    runner = Runner(clock=clock, instruments=instruments, io_manager=io_manager)
     GLOBAL_RUN_CONTEXT.runner = runner
     locals()[LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE] = False
 
@@ -482,8 +496,7 @@ def run_impl(runner, fn, args):
         while batch:
             task = batch.pop()
             GLOBAL_RUN_CONTEXT.task = task
-            for profiler in runner.profilers:
-                profiler.before_task_step(task)
+            runner.instrument("before_task_step", task)
 
             next_send = task._next_send
             task._next_send = None
@@ -509,8 +522,7 @@ def run_impl(runner, fn, args):
                     task._abort_func, = args
                     task._deliver_any_pending_cancel_to_blocked_task()
 
-            for profiler in runner.profilers:
-                profiler.after_task_step(task)
+            runner.instrument("after_task_step", task)
             del GLOBAL_RUN_CONTEXT.task
 
     # If the initial task raised an exception then we let it chain into

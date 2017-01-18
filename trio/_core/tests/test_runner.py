@@ -320,8 +320,11 @@ async def test_current_task():
 
 
 @attr.s(slots=True, cmp=False, hash=False)
-class Recorder(_core.Profiler):
+class Recorder(_core.Instrument):
     record = attr.ib(default=attr.Factory(list))
+
+    def task_scheduled(self, task):
+        self.record.append(("schedule", task))
 
     def before_task_step(self, task):
         assert task is _core.current_task()
@@ -329,8 +332,6 @@ class Recorder(_core.Profiler):
 
     def after_task_step(self, task):
         assert task is _core.current_task()
-        if self.record:
-            assert self.record[-1] == ("before", task)
         self.record.append(("after", task))
 
     def close(self):
@@ -338,12 +339,12 @@ class Recorder(_core.Profiler):
 
     def filter_tasks(self, tasks):
         for item in self.record:
-            if item[0] in ("before", "after") and item[1] in tasks:
+            if item[0] in ("schedule", "before", "after") and item[1] in tasks:
                 yield item
             if item[0] == "close":
                 yield item
 
-def test_profilers():
+def test_instruments():
     r1 = Recorder()
     r2 = Recorder()
     r3 = Recorder()
@@ -351,34 +352,34 @@ def test_profilers():
     async def main():
         for _ in range(2):
             await _core.yield_briefly()
-        cp = _core.current_profilers()
+        cp = _core.current_instruments()
         assert cp == [r1, r2]
         # replace r2 with r3, to test that we can manipulate them as we go
         cp[1] = r3
         for _ in range(1):
             await _core.yield_briefly()
         return _core.current_task()
-    main_task = _core.run(main, profilers=[r1, r2])
+    task = _core.run(main, instruments=[r1, r2])
     # It sleeps 3 times, so it runs 4 times
-    expected = [("before", main_task), ("after", main_task),
-                ("before", main_task), ("after", main_task),
-                ("before", main_task), ("after", main_task),
-                ("before", main_task), ("after", main_task),
+    expected = [("schedule", task), ("before", task), ("after", task),
+                ("schedule", task), ("before", task), ("after", task),
+                ("schedule", task), ("before", task), ("after", task),
+                ("schedule", task), ("before", task), ("after", task),
                 ("close",)]
     assert len(r1.record) > len(r2.record) > len(r3.record)
     assert r1.record == r2.record + r3.record
     # Need to filter b/c there's also the system task bumping around in the
     # record:
-    assert list(r1.filter_tasks([main_task])) == expected
+    assert list(r1.filter_tasks([task])) == expected
 
     # since we didn't use call_soon, the system task should have only
     # scheduled twice (once at the beginning to set up, and once at the end
     # when cancelled). this caught a subtle bug in the first version of the
     # code where it was running on every cycle...:
-    assert len(r1.record) == len(expected) + 4
+    assert len(r1.record) == len(expected) + 6
 
 
-def test_profilers_interleave():
+def test_instruments_interleave():
     tasks = {}
 
     async def two_step1():
@@ -392,14 +393,25 @@ def test_profilers_interleave():
         tasks["t2"] = await _core.spawn(two_step2)
 
     r = Recorder()
-    _core.run(main, profilers=[r])
+    _core.run(main, instruments=[r])
 
-    expected = [("before", tasks["main"]), ("after", tasks["main"]),
-                {("before", tasks["t1"]), ("after", tasks["t1"]),
-                 ("before", tasks["t2"]), ("after", tasks["t2"])},
-                {("before", tasks["t1"]), ("after", tasks["t1"]),
-                 ("before", tasks["t2"]), ("after", tasks["t2"])},
-                ("close",)]
+    expected = [
+        ("schedule", tasks["main"]),
+        ("before", tasks["main"]),
+        ("schedule", tasks["t1"]),
+        ("schedule", tasks["t2"]),
+        ("after", tasks["main"]),
+        {("before", tasks["t1"]),
+         ("after", tasks["t1"]),
+         ("before", tasks["t2"]),
+         ("after", tasks["t2"])},
+        {("schedule", tasks["t1"]),
+         ("before", tasks["t1"]),
+         ("after", tasks["t1"]),
+         ("schedule", tasks["t2"]),
+         ("before", tasks["t2"]),
+         ("after", tasks["t2"])},
+        ("close",)]
     check_sequence_matches(list(r.filter_tasks(tasks.values())), expected)
 
 
