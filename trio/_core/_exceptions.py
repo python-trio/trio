@@ -31,7 +31,6 @@ class WouldBlock(Exception):
 # This is very much like the other exceptions that inherit directly from
 # BaseException (= SystemExit, KeyboardInterrupt, GeneratorExit)
 class Cancelled(BaseException):
-    partial_result = None
     _stack_entry = None
 
 class TaskCancelled(Cancelled):
