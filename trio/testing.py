@@ -37,7 +37,6 @@ class _QuiesceChecker(_core.Instrument):
         _core.current_instruments().remove(self)
 
     def before_task_step(self, task):
-        print(task)
         if task is self.looper_task:
             self.repetitions += 1
             if self.repetitions == 3:
@@ -125,3 +124,17 @@ class MockClock(_core.Clock):
 # - ability to schedule clock advancements
 # - tick over the event loop between steps, so timeouts have a chance to fire?
 #   - a random number of times? until quiescent?
+#
+# another idea: have a fixed number of parallel tasks set at init, and then
+# they all go in lockstep
+
+async def task1():
+    await seq(0, 1, 2)
+    # in step 2
+    await seq(3)
+    # in step 3
+
+async def task2():
+    await seq(0)
+    # in step 0
+    await seq(1, 2)

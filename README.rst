@@ -105,6 +105,13 @@ nothing to see here
      more inconvenient name and only provides get_all and put_nowait,
      no put or get?
 
+   - not returning KeyboardInterrupt from run() is pretty annoying
+     when running pytest
+
+     of course, the naive thing of passing through keyboardinterrupt
+     doesn't even work that well, since we'll end up with a bunch of
+     Cancelled crashes
+
    - async generator hooks
 
    - pytest plugin

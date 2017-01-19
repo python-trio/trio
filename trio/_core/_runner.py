@@ -210,7 +210,7 @@ class Task:
         return self._task_result
 
 
-@attr.s(slots=True, cmp=False, hash=False)
+@attr.s(cmp=False, hash=False)
 class Runner:
     clock = attr.ib()
     instruments = attr.ib()
@@ -241,6 +241,7 @@ class Runner:
                 self.crash("error in instrument {!r}.{}"
                            .format(instrument, method),
                            exc)
+                bad.append(i)
         while bad:
             del self.instruments[bad.pop()]
 
@@ -336,8 +337,13 @@ class Runner:
         with self.call_soon_lock:
             if self.call_soon_done:
                 raise RunFinishedError("run() has exited")
+            # We have to hold the lock all the way through here, because
+            # otherwise the main thread might exit *while* we're doing these
+            # calls, and then our queue item might not be processed, or the
+            # wakeup call might trigger an OSError b/c the IO manager has
+            # already been shut down.
             self.call_soon_queue.put_nowait((fn, args, spawn))
-        self.io_manager.wakeup_threadsafe()
+            self.io_manager.wakeup_threadsafe()
 
     @_public
     @_hazmat
@@ -391,6 +397,9 @@ class Runner:
                     call_next_or_raise_Empty()
                 except stdlib_queue.Empty:
                     break
+        # XX trying to track down this weird warning about call_soon_task not
+        # being awaited...
+        self._call_soon_task_finished = True
 
 def run(fn, *args, clock=None, instruments=[]):
     # Do error-checking up front, before we enter the TrioInternalError
@@ -433,6 +442,7 @@ def run(fn, *args, clock=None, instruments=[]):
                     "internal error in trio - please file a bug!") from exc
             finally:
                 GLOBAL_RUN_CONTEXT.__dict__.clear()
+            assert runner._call_soon_task_finished
             return result.unwrap()
     finally:
         # To guarantee that we never swallow a KeyboardInterrupt, we have to

@@ -30,7 +30,7 @@ async def test_parking_lot_basic():
     for i in range(3):
         await _core.spawn(waiter, i, lot)
         await busy_wait_for(lambda: len(record) == 1 + i)
-    busy_wait_for(lambda: len(record) == 3)
+    await busy_wait_for(lambda: len(record) == 3)
     for i in range(3):
         lot.unpark(count=1, result=_core.Value(12))
         await busy_wait_for(lambda: len(record) == 4 + i)

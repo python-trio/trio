@@ -1,3 +1,5 @@
+import sys
+import fcntl
 import os
 import select
 from contextlib import contextmanager
@@ -7,9 +9,20 @@ from .. import _core
 from . import _public, _hazmat
 from ._keyboard_interrupt import LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE
 
+def shrink_pipe(fd):
+    # Try to set the pipe size as small as possible -- no point in having
+    # a giant kernel buffer when the only two states we care about are
+    # "contains 0 bytes" and "contains >= 1 byte". (It actually ends up being
+    # 1 page = 4096 bytes.) This also makes buffer overflow a more common
+    # condition, so we're more likely to notice if we break it.
+    if sys.platform == "linux":
+        F_SETPIPE_SZ = 1031
+        fcntl.fcntl(fd, F_SETPIPE_SZ, 1)
+
 class WakeupPipe:
     def __init__(self):
         self._read_fd, self._write_fd = os.pipe()
+        shrink_pipe(self._read_fd)
         os.set_blocking(self._read_fd, False)
         os.set_blocking(self._write_fd, False)
 
@@ -23,8 +36,8 @@ class WakeupPipe:
         await _core.until_readable(self._read_fd)
         # Drain the pipe:
         try:
-            while os.read(self._read_fd, 2 ** 16):
-                pass
+            while True:
+                os.read(self._read_fd, 2 ** 16)
         except BlockingIOError:
             pass
 
@@ -165,6 +178,8 @@ if hasattr(select, "kqueue"):
 
         def handle_io(self, timeout):
             # max_events must be > 0 or kqueue gets cranky
+            # XX len(self._registered) is not actually an upper bound on the
+            # number of events!
             max_events = max(1, len(self._registered))
             events = self._kqueue.control([], max_events, timeout)
             for event in events:

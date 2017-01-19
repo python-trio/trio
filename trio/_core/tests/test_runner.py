@@ -1,3 +1,4 @@
+import threading
 import sys
 import time
 import pytest
@@ -392,8 +393,11 @@ def test_instruments_interleave():
         tasks["t1"] = await _core.spawn(two_step1)
         tasks["t2"] = await _core.spawn(two_step2)
 
+    # pass in a base class Instrument just to check that its null methods are
+    # spelled right
+    base = _core.Instrument()
     r = Recorder()
-    _core.run(main, instruments=[r])
+    _core.run(main, instruments=[base, r])
 
     expected = [
         ("schedule", tasks["main"]),
@@ -577,7 +581,7 @@ async def test_timekeeping():
         accuracy = real_duration / TARGET
         print(accuracy)
         # Actual time elapsed should always be >= target time
-        if 1.0 <= accuracy < 1.05:
+        if 1.0 <= accuracy < 1.2:
             break
     else:  # pragma: no cover
         assert False
@@ -605,6 +609,15 @@ async def test_failed_abort():
 
 def test_broken_abort():
     async def main():
+        # These yields are here to work around an annoying warning -- we're
+        # going to crash the main loop, and if we (by chance) do this before
+        # the call_soon_task runs for the first time, then Python gives us a
+        # spurious warning about it not being awaited. (I mean, the warning is
+        # correct, but here we're testing our ability to kinda-sorta recover
+        # after things have gone totally pear-shaped, so it's not relevant.)
+        # By letting the call_soon_task run first, we avoid the warning.
+        await _core.yield_briefly()
+        await _core.yield_briefly()
         _core.current_task().cancel_nowait()
         # None is not a legal return value here
         await _core.yield_indefinitely(lambda: None)
@@ -687,28 +700,160 @@ async def test_exc_info():
     assert record == ["child1 raise", "child1 sleep",
                       "child2 wake", "child2 sleep again",
                       "child1 re-raise", "child1 success",
-                       "child2 re-raise", "child2 success"]
+                      "child2 re-raise", "child2 success"]
 
-# this needs basic basic IOCP stuff and MacOS testing:
-# call soon
-# - without spawn
-# - with spawn
-# - after run has exited
-# - after a task has crashed
-# - callback crashes
-# - thread pumping lots of callbacks in doesn't starve out everyone else
-#   - put in 100 callbacks (from main thread, why not), and check that they're
-#     at least somewhat interleaved with a looping thread
-#   - probably worth pumping in a bunch from a thread too just to check thread
-#     safety (with time.sleep(0) in there too I guess)
 
+async def test_call_soon_basic():
+    record = []
+    def cb(x):
+        record.append(("cb", x))
+    call_soon = _core.current_call_soon_thread_and_signal_safe()
+    call_soon(cb, 1)
+    assert not record
+    await busy_wait_for(lambda: len(record) == 1)
+    assert record == [("cb", 1)]
+
+    async def async_cb(x):
+        await _core.yield_briefly()
+        record.append(("async-cb", x))
+    record = []
+    call_soon(async_cb, 2, spawn=True)
+    await busy_wait_for(lambda: len(record) == 1)
+    assert record == [("async-cb", 2)]
+
+def test_call_soon_too_late():
+    call_soon = None
+    async def main():
+        nonlocal call_soon
+        call_soon = _core.current_call_soon_thread_and_signal_safe()
+    _core.run(main)
+    assert call_soon is not None
+    with pytest.raises(_core.RunFinishedError):
+        call_soon(lambda: None)
+
+def test_call_soon_after_crash():
+    record = []
+
+    async def crasher():
+        record.append("crashed")
+        raise ValueError
+
+    async def asynccb():
+        record.append("async-cb")
+        try:
+            await _core.yield_briefly()
+        except _core.Cancelled:
+            record.append("async-cb cancelled")
+
+    async def main():
+        call_soon = _core.current_call_soon_thread_and_signal_safe()
+        await _core.spawn(crasher)
+        try:
+            await busy_wait_for(lambda: False)
+        except _core.Cancelled:
+            pass
+        # After a crash but before exit, sync callback processed normally
+        call_soon(lambda: record.append("sync-cb"))
+        await busy_wait_for(lambda: "sync-cb" in record)
+        # And async callbacks are run, but come "pre-cancelled"
+        call_soon(asynccb, spawn=True)
+        await busy_wait_for(lambda: "async-cb cancelled" in record)
+
+    with pytest.raises(_core.UnhandledExceptionError):
+        _core.run(main)
+
+    assert record == ["crashed", "sync-cb", "async-cb", "async-cb cancelled"]
+
+def test_call_soon_crashes():
+    record = []
+
+    async def main():
+        call_soon = _core.current_call_soon_thread_and_signal_safe()
+        call_soon(lambda: dict()["nope"])
+        try:
+            await busy_wait_for(lambda: False)
+        except _core.Cancelled:
+            record.append("cancelled!")
+
+    with pytest.raises(_core.UnhandledExceptionError) as excinfo:
+        _core.run(main)
+
+    assert type(excinfo.value.__cause__) is KeyError
+    assert record == ["cancelled!"]
+
+def test_call_soon_starvation_resistance():
+    # Even if we push callbacks in from callbacks, so that the callback queue
+    # never empties out, then we still can't starve out other tasks from
+    # running.
+    call_soon = None
+    record = []
+
+    def naughty_cb(i):
+        nonlocal call_soon
+        try:
+            call_soon(naughty_cb, i + 1)
+        except _core.RunFinishedError:
+            record.append(("run finished", i))
+
+    async def main():
+        nonlocal call_soon
+        call_soon = _core.current_call_soon_thread_and_signal_safe()
+        call_soon(naughty_cb, 0)
+        record.append("starting")
+        for _ in range(20):
+            await _core.yield_briefly()
+
+    _core.run(main)
+    assert len(record) == 2
+    assert record[0] == "starting"
+    assert record[1][0] == "run finished"
+    assert record[1][1] >= 20
+
+def test_call_soon_threaded_stress_test():
+    cb_counter = 0
+    def cb():
+        nonlocal cb_counter
+        cb_counter += 1
+
+    def stress_thread(call_soon):
+        try:
+            while True:
+                call_soon(cb)
+        except _core.RunFinishedError:
+            pass
+
+    async def main():
+        call_soon = _core.current_call_soon_thread_and_signal_safe()
+        thread = threading.Thread(target=stress_thread, args=(call_soon,))
+        thread.start()
+        for _ in range(3):
+            start_value = cb_counter
+            await busy_wait_for(lambda: cb_counter > start_value)
+
+    _core.run(main)
+    print(cb_counter)
+
+async def test_call_soon_massive_queue():
+    # There are edge cases in the Unix wakeup pipe code when the pipe buffer
+    # overflows, so let's try to make that happen. On Linux the default pipe
+    # buffer size is 64 KiB, though we reduce it to 4096.
+    COUNT = 66000
+    call_soon = _core.current_call_soon_thread_and_signal_safe()
+    counter = [0]
+    def cb():
+        counter[0] += 1
+    for _ in range(COUNT):
+        call_soon(cb)
+    await busy_wait_for(lambda: counter[0] == COUNT)
+
+
+# XX crash in instrument
 
 # make sure to set up one where all tasks are blocked on I/O to exercise the
 # timeout = _MAX_TIMEOUT line
 
 # other files:
 # keyboard interrupt: this will be fun...
-# parking lot
 # queue
 # unix IO
 # windows IO
