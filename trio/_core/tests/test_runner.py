@@ -836,7 +836,8 @@ def test_call_soon_threaded_stress_test():
 async def test_call_soon_massive_queue():
     # There are edge cases in the Unix wakeup pipe code when the pipe buffer
     # overflows, so let's try to make that happen. On Linux the default pipe
-    # buffer size is 64 KiB, though we reduce it to 4096.
+    # buffer size is 64 KiB (though we reduce it to 4096). This also serves as
+    # a good stress test of the Windows code.
     COUNT = 66000
     call_soon = _core.current_call_soon_thread_and_signal_safe()
     counter = [0]
