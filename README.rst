@@ -67,22 +67,11 @@ nothing to see here
 
 
    next:
-   - really need a good convention for naming functions that return
-     when some condition is true. 'await readable()' sounds okay but
-     is totally ambiguous about whether it's waiting for readable to
-     be true or returning a boolean telling whether readable is true,
-     and the latter has more weight of precedent behind it.
-     I tried 'await until_readable' but it hasn't grown on me as much
-     as I was hoping -- the 'await' disappears, and it usually looks
-     more like 'await sock.until_readable()' which reads horribly
-     anyway.
+   - cancel_nowait should be idempotent... except for that awkward exc
+     argument :-/
+     also should probably just be called cancel
 
-        await sock.wait_readable()
-        await sock.require_readable()
-        await sock.demand_readable()
-        await sock.guarantee_readable()
-
-     vow? insist? also these all sound like assertions :-(
+   - should tasks be context managers?
 
    - join returning result is actually pretty bad because it
      encourages
@@ -91,6 +80,12 @@ nothing to see here
 
      to wait for a task that "can't fail"... but if it does then this
      silently discards the exception :-( :-(
+
+     and we really can't make join() just raise the raw exception,
+     because that can trivially get mixed up with cancellation
+     exceptions
+
+     curio's approach is an option, but kinda awkward :-/
 
      maybe:
      - join_nowait() -> .result, so there's no WouldBlock to confuse
@@ -112,6 +107,16 @@ nothing to see here
      doesn't even work that well, since we'll end up with a bunch of
      Cancelled crashes
 
+     maybe we should get more serious about KeyboardInterrupt. make a
+     version that's a subclass of Cancelled, and if we detect a KI
+     then raise it immediately in the current tasks and also inject it
+     into *all* tasks as a cancellation.
+
+     how to aggregate at the top-level, though? if everything exited
+     with keyboardinterrupt or success, then cool, reasonable to make
+     our final exception a keyboardinterrupt instead of an
+     UnhandledExceptionError. if some raised new errors...?
+
    - async generator hooks
 
    - pytest plugin
@@ -121,12 +126,6 @@ nothing to see here
        access problem!
      - run_in_worker_process... hmm. pickleability is a problem.
        - trio.Local(pickle=True)?
-
-   - there is some bug that is triggering "warning: call_soon_task was
-     never awaited" warnings occasionally in the test suite (though it
-     still passes). what the heck.
-
-   - IOCP
 
    - possible improved robustness ("quality of implementation") ideas:
      - if an abort callback fails, discard that task but clean up the

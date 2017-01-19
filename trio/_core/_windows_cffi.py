@@ -69,6 +69,11 @@ BOOL WINAPI GetQueuedCompletionStatusEx(
   _In_  BOOL               fAlertable
 );
 
+BOOL WINAPI CancelIoEx(
+  _In_     HANDLE       hFile,
+  _In_opt_ LPOVERLAPPED lpOverlapped
+);
+
 int WSAGetLastError(void);
 """)
 
@@ -84,16 +89,18 @@ ws2_32 = ffi.dlopen("ws2_32.dll")
 
 INVALID_HANDLE_VALUE = ffi.cast("HANDLE", -1)
 
-def raise_GetLastError(filename=None, filename2=None):
-    winerror, msg = ffi.getwinerror()
+
+def raise_winerror(winerror=None, *, filename=None, filename2=None):
+    if winerror is None:
+        winerror, msg = ffi.getwinerror()
+    else:
+        _, msg = ffi.getwinerror(winerror)
     # See:
     # https://docs.python.org/3/library/exceptions.html#exceptions.WindowsError
     raise OSError(0, msg, filename, winerror, filename2)
 
 def raise_WSAGetLastError():
-    winerror = ws2_32.WSAGetLastError()
-    _, msg = ffi.getwinerror(winerror)
-    raise OSError(0, msg, None, winerror, None)
+    raise_winerror(ws2_32.WSAGetLastError())
 
 
 class Error(enum.IntEnum):

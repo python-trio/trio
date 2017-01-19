@@ -32,8 +32,8 @@ class WakeupPipe:
         except BlockingIOError:
             pass
 
-    async def until_woken(self):
-        await _core.until_readable(self._read_fd)
+    async def wait_woken(self):
+        await _core.wait_readable(self._read_fd)
         # Drain the pipe:
         try:
             while True:
@@ -84,8 +84,8 @@ if hasattr(select, "epoll"):
         _wakeup = attr.ib(default=attr.Factory(WakeupPipe))
         def wakeup_threadsafe(self):
             self._wakeup.wakeup_threadsafe()
-        async def until_woken(self):
-            await self._wakeup.until_woken()
+        async def wait_woken(self):
+            await self._wakeup.wait_woken()
 
         def close(self):
             self._epoll.close()
@@ -147,12 +147,12 @@ if hasattr(select, "epoll"):
 
         @_public
         @_hazmat
-        async def until_readable(self, fd):
+        async def wait_readable(self, fd):
             await self._epoll_wait(fd, "read_task")
 
         @_public
         @_hazmat
-        async def until_writable(self, fd):
+        async def wait_writable(self, fd):
             await self._epoll_wait(fd, "write_task")
 
 ################################################################
@@ -169,8 +169,8 @@ if hasattr(select, "kqueue"):
         _wakeup = attr.ib(default=attr.Factory(WakeupPipe))
         def wakeup_threadsafe(self):
             self._wakeup.wakeup_threadsafe()
-        async def until_woken(self):
-            await self._wakeup.until_woken()
+        async def wait_woken(self):
+            await self._wakeup.wait_woken()
 
         def close(self):
             self._kqueue.close()
@@ -229,7 +229,7 @@ if hasattr(select, "kqueue"):
 
         @_public
         @_hazmat
-        async def until_kevent(self, ident, filter, abort_func):
+        async def wait_kevent(self, ident, filter, abort_func):
             key = (ident, filter)
             if key in self._registered:
                 raise ValueError(
@@ -243,7 +243,7 @@ if hasattr(select, "kqueue"):
                 return r
             return await _core.yield_indefinitely(abort)
 
-        async def _until_common(self, fd, filter):
+        async def _wait_common(self, fd, filter):
             if not isinstance(fd, int):
                 fd = fd.fileno()
             flags = select.KQ_EV_ADD | select.KQ_EV_ONESHOT
@@ -253,14 +253,14 @@ if hasattr(select, "kqueue"):
                 event = select.kevent(fd, filter, select.KQ_EV_DELETE)
                 self._kqueue.control([event], 0)
                 return _core.Abort.SUCCEEDED
-            await self.until_kevent(fd, filter, abort)
+            await self.wait_kevent(fd, filter, abort)
 
         @_public
         @_hazmat
-        async def until_readable(self, fd):
-            await self._until_common(fd, select.KQ_FILTER_READ)
+        async def wait_readable(self, fd):
+            await self._wait_common(fd, select.KQ_FILTER_READ)
 
         @_public
         @_hazmat
-        async def until_writable(self, fd):
-            await self._until_common(fd, select.KQ_FILTER_WRITE)
+        async def wait_writable(self, fd):
+            await self._wait_common(fd, select.KQ_FILTER_WRITE)

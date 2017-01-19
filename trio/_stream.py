@@ -71,7 +71,7 @@ class SendStream(Resource):
     # to account for, returning before it's actually writable is NBD, it just
     # makes them slightly less efficient.
     @abc.abstractmethod
-    async def until_maybe_writable(self):
+    async def wait_maybe_writable(self):
         pass
 
     @property
@@ -107,8 +107,8 @@ class StapledStream(Stream):
     async def sendall(self, data):
         return await self.send_stream.sendall(data)
 
-    async def until_maybe_writable(self):
-        return await self.send_stream.until_maybe_writable()
+    async def wait_maybe_writable(self):
+        return await self.send_stream.wait_maybe_writable()
 
     @property
     def can_send_eof(self):

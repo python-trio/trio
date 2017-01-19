@@ -1,5 +1,8 @@
 import math
 from itertools import count
+from contextlib import contextmanager
+
+import attr
 
 from .. import _core
 from . import _public, _hazmat
@@ -9,22 +12,23 @@ from . import _public, _hazmat
 
 from ._windows_cffi import (
     ffi, kernel32, ws2_32, INVALID_HANDLE_VALUE,
-    raise_GetLastError, raise_WSAGetLastError, Error,
+    raise_winerror, raise_WSAGetLastError, Error,
 )
 
-__all__ = ["WindowsIOManager"]
+__all__ = ["LPOVERLAPPED"]
 
 def _check(success):
     if not success:
-        raise_GetLastError()
+        raise_winerror()
     return success
 
 # How things fit together:
-# - each event (OVERLAPPED_ENTRY) contains:
-#   - the "completion key"
+# - each notification event (OVERLAPPED_ENTRY) contains:
+#   - the "completion key" (an integer)
 #   - pointer to OVERLAPPED
 #   - dwNumberOfBytesTransferred
-# - also, for regular I/O, the OVERLAPPED structure gets updated with:
+# - and in addition, for regular I/O, the OVERLAPPED structure gets filled in
+#   with:
 #   - result code (named "Internal")
 #   - number of bytes transferred (named "InternalHigh"); redundant with
 #     dwNumberOfBytesTransferred *if* this is a regular I/O event.
@@ -53,14 +57,18 @@ def _check(success):
 # - thread-safe wakeup uses completion key 1
 # - other completion keys are available for user use
 
+@attr.s(frozen=True)
+class CompletionKeyEventInfo:
+    lpOverlapped = attr.ib()
+    dwNumberOfBytesTransferred = attr.ib()
+
 class WindowsIOManager:
     def __init__(self):
         # https://msdn.microsoft.com/en-us/library/windows/desktop/aa363862(v=vs.85).aspx
         self._iocp = _check(kernel32.CreateIoCompletionPort(
             INVALID_HANDLE_VALUE, ffi.NULL, 0, 0))
-        if not self._iocp:  # pragma: no cover
-            raise_GetLastError()
-        self._registered = {}
+        self._overlapped_waiters = {}
+        self._completion_key_queues = {}
 
         self._completion_key_counter = count(1)
 
@@ -82,11 +90,11 @@ class WindowsIOManager:
         # https://msdn.microsoft.com/en-us/library/windows/desktop/aa365458(v=vs.85).aspx
         _check(kernel32.PostQueuedCompletionStatus(
             # dwNumberOfBytesTransferred is ignored; we set it to 12345
-            # just in case of confusion about where an event, this is more
-            # unique than 0 and might help debugging.
+            # to make it more obvious where this event comes from in case we
+            # ever have some confusing debugging to do.
             self._iocp, 12345, self._wakeup_completion_key, ffi.NULL))
 
-    async def until_woken(self):
+    async def wait_woken(self):
         if self._wakeup_flag:
             self._wakeup_flag = False
             return
@@ -102,9 +110,10 @@ class WindowsIOManager:
         # thing could happen.
         #
         # +100 is a wild guess to cover for incoming wakeup_threadsafe
-        # events. In general this could probably be optimized much more
-        # (re-use the event buffer, coalesce wakeup_threadsafe events, etc.).
-        max_events = len(self._registered) + 100
+        # events. In general this function could probably be optimized much
+        # more (re-use the event buffer, coalesce wakeup_threadsafe events,
+        # etc.).
+        max_events = len(self._overlapped_waiters) + 100
         batches = []
         timeout_ms = math.ceil(timeout * 1000)
         while True:
@@ -117,19 +126,22 @@ class WindowsIOManager:
             except OSError as exc:
                 if exc.winerror == Error.STATUS_TIMEOUT:
                     break
-                else:
+                else:  # pragma: no cover
                     raise
             batches.append((batch, received))
             if received[0] == max_events:
                 max_events *= 2
                 timeout_ms = 0
+            else:
+                break
 
         for batch, received in batches:
             for i in range(received[0]):
                 entry = batch[i]
                 if entry.lpCompletionKey == 0:
                     # Regular I/O event, dispatch on lpOverlapped
-                    XX
+                    waiter = self._overlapped_waiters.pop(entry.lpOverlapped)
+                    _core.reschedule(waiter)
                 elif entry.lpCompletionKey == self._wakeup_completion_key:
                     if self._wakeup_waiters:
                         while self._wakeup_waiters:
@@ -138,13 +150,77 @@ class WindowsIOManager:
                         self._wakeup_flag = True
                 else:
                     # dispatch on lpCompletionKey
-                    XX
+                    queue = self._completion_key_queues[entry.lpCompletionKey]
+                    info = CompletionKeyEventInfo(
+                        lpOverlapped=
+                            int(ffi.cast("uintptr_t", entry.lpOverlapped)),
+                        dwNumberOfBytesTransferred=
+                            entry.dwNumberOfBytesTransferred)
+                    queue.put_nowait(info)
+
+
+    @_public
+    @_hazmat
+    def current_iocp(self):
+        return int(ffi.cast("uintptr_t", self._iocp))
 
     @_public
     @_hazmat
     def register_with_iocp(self, handle):
-        # XX CreateIoCompletionPort
-        pass
+        handle = _handle(obj)
+        # https://msdn.microsoft.com/en-us/library/windows/desktop/aa363862(v=vs.85).aspx
+        _check(kernel32.CreateIoCompletionPort(handle, self._iocp, 0, 0))
+
+    @_public
+    @_hazmat
+    async def wait_overlapped(self, handle, lpOverlapped):
+        handle = _handle(obj)
+        assert lpOverlapped not in self._overlapped_waiters
+        task = _core.current_task()
+        self._overlapped_waiters[lpOverlapped] = task
+        def abort():
+            # https://msdn.microsoft.com/en-us/library/windows/desktop/aa363792(v=vs.85).aspx
+            # the _check here is probably wrong -- I guess we should just
+            # ignore errors? but at least it will let us learn what errors are
+            # possible -- the docs are pretty unclear.
+            _check(kernel32.CancelIoEx(handle, lpOverlapped))
+            return _core.Abort.FAILED
+        await _core.yield_indefinitely(abort)
+        if lpOverlapped.Internal != 0:
+            raise_winerror(lpOverlapped.Internal)
+
+    @_public
+    @_hazmat
+    @contextmanager
+    def completion_key_monitor(self):
+        key = next(self._completion_key_counter)
+        queue = _core.Queue(_core.Queue.UNLIMITED)
+        self._completion_key_queues[key] = queue
+        try:
+            yield (key, queue)
+        finally:
+            del self._completion_key_queues[key]
+
+
+def _handle(obj):
+    # For now, represent handles as either cffi HANDLEs or as ints.  If you
+    # try to pass in a file descriptor instead, it's not going to work
+    # out. (For that msvcrt.get_osfhandle does the trick, but I don't know if
+    # we'll actually need that for anything...) For sockets this doesn't
+    # matter, Python never allocates an fd. So let's wait until we actually
+    # encounter the problem before worrying about it.
+    if type(obj) is int:
+        return ffi.cast("HANDLE", obj)
+    else:
+        return obj
+
+def LPOVERLAPPED():
+    return ffi.new("LPOVERLAPPED")
+
+
+# to actually call an overlapped function:
+# - LPOVERLAPPED to allocate the object
+# -
 
 # writeable on windows:
 # http://stackoverflow.com/a/28848834

@@ -384,7 +384,7 @@ class Runner:
                     for _ in range(max(1, self.call_soon_queue.qsize())):
                         call_next_or_raise_Empty()
                 except stdlib_queue.Empty:
-                    await self.io_manager.until_woken()
+                    await self.io_manager.wait_woken()
                 else:
                     await yield_briefly()
         except Cancelled:
