@@ -17,7 +17,7 @@ if [ "$TRAVIS_OS_NAME" = "osx" ]; then
     source testenv/bin/activate
 fi
 
-pip install -U pip
+pip install -U pip setuptools wheel
 pip install -Ur test-requirements.txt
 
 python setup.py sdist --formats=zip
