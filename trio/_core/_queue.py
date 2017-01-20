@@ -1,5 +1,6 @@
 from collections import deque
 from async_generator import async_generator, yield_
+import attr
 
 from .. import _core
 from ._util import aiter_compat
@@ -9,6 +10,12 @@ __all__ = ["Queue"]
 class _UnlimitedType:
     def __repr__(self):
         return "Queue.UNLIMITED"
+
+@attr.s(frozen=True)
+class _QueueStats:
+    waiting_put = attr.ib()
+    waiting_get = attr.ib()
+    waiting_join = attr.ib()
 
 class Queue:
     UNLIMITED = _UnlimitedType()
@@ -24,6 +31,12 @@ class Queue:
     def __repr__(self):
         return ("<Queue({}) holding {} items>"
                 .format(self.capacity, len(self._data)))
+
+    def statistics(self):
+        return _QueueStats(
+            waiting_put=self._put_lot.statistics().waiting,
+            waiting_get=self._get_lot.statistics().waiting,
+            waiting_join=self._join_lot.statistics().waiting)
 
     def full(self):
         if self.capacity is Queue.UNLIMITED:

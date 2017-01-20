@@ -3,7 +3,6 @@ import inspect
 import enum
 from collections import deque
 import threading
-import queue as stdlib_queue
 from time import monotonic
 import os
 import random
@@ -328,9 +327,17 @@ class Runner:
     ################################################################
     # Outside Context Problems:
 
-    call_soon_queue = attr.ib(default=attr.Factory(stdlib_queue.Queue))
+    # This used to use a queue.Queue. but that was broken, because Queues are
+    # implemented in Python, and not reentrant -- so it was thread-safe, but
+    # not signal-safe. deque is implemented in C, so each operation is atomic
+    # WRT threads (and this is guaranteed in the docs), AND each operation is
+    # atomic WRT signal delivery (signal handlers can run on either side, but
+    # not *during* a deque operation).
+    call_soon_queue = attr.ib(default=attr.Factory(deque))
     call_soon_done = attr.ib(default=False)
-    # Must be a recursive lock, because it's acquired from signal handlers:
+    # Must be a reentrant lock, because it's acquired from signal
+    # handlers. RLock is signal-safe as of cpython 3.2:
+    #     https://bugs.python.org/issue13697#msg237140
     call_soon_lock = attr.ib(default=attr.Factory(threading.RLock))
 
     def call_soon_thread_and_signal_safe(self, fn, *args, spawn=False):
@@ -342,7 +349,7 @@ class Runner:
             # calls, and then our queue item might not be processed, or the
             # wakeup call might trigger an OSError b/c the IO manager has
             # already been shut down.
-            self.call_soon_queue.put_nowait((fn, args, spawn))
+            self.call_soon_queue.append((fn, args, spawn))
             self.io_manager.wakeup_threadsafe()
 
     @_public
@@ -351,40 +358,45 @@ class Runner:
         return self.call_soon_thread_and_signal_safe
 
     async def call_soon_task(self):
-        def call_next_or_raise_Empty():
-            fn, args, spawn = self.call_soon_queue.get_nowait()
+        # Returns True if it managed to do some work, and false if the queue
+        # was empty.
+        def maybe_call_next():
+            try:
+                fn, args, spawn = self.call_soon_queue.popleft()
+            except IndexError:
+                return False  # queue empty
             if spawn:
                 # XX make this run with KeyboardInterrupt *disabled*
                 # and leave it up to the code using it to enable it if wanted
                 # maybe call_with/out_ki(...)
                 # and acall_with/out_ki(...)?
                 task = self.spawn_impl(fn, args)
+                # If we're in the middle of crashing, then immediately cancel:
                 if self.unhandled_exception_result is not None:
                     task.cancel_nowait()
             else:
                 try:
                     # We don't renable KeyboardInterrupt here, because
-                    # run_in_main_thread wants to wait until it actually
+                    # run_in_trio_thread wants to wait until it actually
                     # reaches user code before enabling them.
                     fn(*args)
                 except BaseException as exc:
                     self.crash(
                         "error in call_soon_thread_and_signal_safe callback",
                         exc)
+            return True
 
         try:
             while True:
-                try:
-                    # Do a bounded amount of work between yields.
-                    # We always want to try processing at least one, though;
-                    # otherwise we could just loop around doing nothing at
-                    # all. If the queue is really empty, we'll get an
-                    # exception and go to sleep until woken. (NB: qsize() is
-                    # only a hint; you can't trust it.)
-                    for _ in range(max(1, self.call_soon_queue.qsize())):
-                        call_next_or_raise_Empty()
-                except stdlib_queue.Empty:
-                    await self.io_manager.wait_woken()
+                # Do a bounded amount of work between yields.
+                # We always want to try processing at least one, though;
+                # otherwise we could just loop around doing nothing at
+                # all. If the queue is really empty, we'll get an
+                # exception and go to sleep until woken.
+                for _ in range(max(1, len(self.call_soon_queue))):
+                    if not maybe_call_next():
+                        await self.io_manager.wait_woken()
+                        break
                 else:
                     await yield_briefly()
         except Cancelled:
@@ -392,14 +404,26 @@ class Runner:
                 self.call_soon_done = True
             # No more jobs will be submitted, so just clear out any residual
             # ones:
-            while True:
-                try:
-                    call_next_or_raise_Empty()
-                except stdlib_queue.Empty:
-                    break
-        # XX trying to track down this weird warning about call_soon_task not
-        # being awaited...
-        self._call_soon_task_finished = True
+            while maybe_call_next():
+                pass
+
+    ################################################################
+    # Quiescing
+    #
+    # XX maybe rewrite this using an instrument to detect the quiesce, to get
+    # it out of the core?
+    waiting_for_quiesce = attr.ib(default=attr.Factory(set))
+
+    @_public
+    @_hazmat
+    async def quiesce(self):
+        task = current_task()
+        self.waiting_for_quiesce.add(task)
+        def abort():
+            self.waiting_for_quiesce.remove(task)
+            return Abort.SUCCEEDED
+        await yield_indefinitely(abort)
+
 
 def run(fn, *args, clock=None, instruments=[]):
     # Do error-checking up front, before we enter the TrioInternalError
@@ -442,7 +466,6 @@ def run(fn, *args, clock=None, instruments=[]):
                     "internal error in trio - please file a bug!") from exc
             finally:
                 GLOBAL_RUN_CONTEXT.__dict__.clear()
-            assert runner._call_soon_task_finished
             return result.unwrap()
     finally:
         # To guarantee that we never swallow a KeyboardInterrupt, we have to
@@ -465,7 +488,7 @@ def run_impl(runner, fn, args):
         runner.initial_task = runner.spawn_impl(initial_spawn_failed, (exc,))
 
     while runner.tasks:
-        if runner.runq:
+        if runner.runq or runner.waiting_for_quiesce:
             timeout = 0
         elif runner.deadlines:
             deadline, _ = runner.deadlines.keys()[0]
@@ -483,6 +506,10 @@ def run_impl(runner, fn, args):
                 task._fire_expired_timeouts(now, TimeoutCancelled())
             else:
                 break
+
+        if not runner.runq:
+            while runner.waiting_for_quiesce:
+                runner.reschedule(runner.waiting_for_quiesce.pop())
 
         # Process all runnable tasks, but only the ones that are already
         # runnable now. Anything that becomes runnable during this cycle needs

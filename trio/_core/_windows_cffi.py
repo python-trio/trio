@@ -19,6 +19,16 @@ typedef unsigned long ULONG;
 typedef ULONG *PULONG;
 
 typedef uintptr_t ULONG_PTR;
+typedef uintptr_t UINT_PTR;
+
+typedef UINT_PTR SOCKET;
+
+typedef struct _GUID {
+    unsigned long  Data1;
+    unsigned short Data2;
+    unsigned short Data3;
+    unsigned char  Data4[ 8 ];
+} GUID;
 
 typedef struct _OVERLAPPED {
     ULONG_PTR Internal;
@@ -33,6 +43,9 @@ typedef struct _OVERLAPPED {
 
     HANDLE  hEvent;
 } OVERLAPPED, *LPOVERLAPPED;
+
+typedef OVERLAPPED WSAOVERLAPPED;
+typedef LPOVERLAPPED LPWSAOVERLAPPED;
 
 typedef struct _OVERLAPPED_ENTRY {
     ULONG_PTR lpCompletionKey;
@@ -75,6 +88,31 @@ BOOL WINAPI CancelIoEx(
 );
 
 int WSAGetLastError(void);
+
+int WSAIoctl(
+  _In_  SOCKET                             s,
+  _In_  DWORD                              dwIoControlCode,
+  _In_  LPVOID                             lpvInBuffer,
+  _In_  DWORD                              cbInBuffer,
+  _Out_ LPVOID                             lpvOutBuffer,
+  _In_  DWORD                              cbOutBuffer,
+  _Out_ LPDWORD                            lpcbBytesReturned,
+  _In_  LPWSAOVERLAPPED                    lpOverlapped,
+  // _In_  LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine
+  _In_  void* lpCompletionRoutine
+);
+
+typedef BOOL (*AcceptEx)(
+  _In_  SOCKET       sListenSocket,
+  _In_  SOCKET       sAcceptSocket,
+  _In_  PVOID        lpOutputBuffer,
+  _In_  DWORD        dwReceiveDataLength,
+  _In_  DWORD        dwLocalAddressLength,
+  _In_  DWORD        dwRemoteAddressLength,
+  _Out_ LPDWORD      lpdwBytesReceived,
+  _In_  LPOVERLAPPED lpOverlapped
+);
+
 """)
 
 # doing GetLastError() + getting message: ffi.getwinerror()
@@ -105,3 +143,32 @@ def raise_WSAGetLastError():
 
 class Error(enum.IntEnum):
     STATUS_TIMEOUT = 0x102
+    ERROR_IO_PENDING = 997
+    ERROR_OPERATION_ABORTED = 995
+
+
+#define IOC_WS2                       0x08000000
+IOC_WS2 = 0x08000000
+#define IOC_IN          0x80000000      /* copy in parameters */
+IOC_IN = 0x80000000
+#define IOC_OUT         0x40000000      /* copy out parameters */
+IOC_OUT = 0x40000000
+#define IOC_INOUT       (IOC_IN|IOC_OUT)
+IOC_INOUT = IOC_IN | IOC_OUT
+#define _WSAIORW(x,y)                 (IOC_INOUT|(x)|(y))
+def _WSAIORW(x, y):
+    return IOC_INOUT | x | y
+#define SIO_GET_EXTENSION_FUNCTION_POINTER  _WSAIORW(IOC_WS2,6)
+SIO_GET_EXTENSION_FUNCTION_POINTER = _WSAIORW(IOC_WS2, 6)
+
+# Oh this is horrible. Original:
+#
+# #define WSAID_ACCEPTEX \
+#        {0xb5367df1,0xcbac,0x11cf,{0x95,0xca,0x00,0x80,0x5f,0x48,0xa1,0x92}}
+#
+# cffi:
+WSAID_ACCEPTEX = ffi.new("GUID*")
+WSAID_ACCEPTEX.Data1 = 0xb5367df1
+WSAID_ACCEPTEX.Data2 = 0xcbac
+WSAID_ACCEPTEX.Data3 = 0x11cf
+WSAID_ACCEPTEX.Data4 = bytes([0x95,0xca,0x00,0x80,0x5f,0x48,0xa1,0x92])

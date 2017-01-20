@@ -37,5 +37,7 @@ __all__ += _timeout.__all__
 from ._sync import *
 __all__ += _sync.__all__
 
+from ._thread import *
+
 from ._stream import *
 __all__ += _stream.__all__

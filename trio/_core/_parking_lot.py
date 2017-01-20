@@ -20,6 +20,10 @@ class _AllType:
 # definitely need a decorator...
 # @keyboard_interrupt(enabled=True)
 
+@attr.s(frozen=True)
+class _ParkingLotStatistics:
+    waiting = attr.ib()
+
 @_hazmat
 @attr.s(slots=True, cmp=False, hash=False)
 class ParkingLot:
@@ -27,8 +31,8 @@ class ParkingLot:
 
     ALL = _AllType()
 
-    def parked_count(self):
-        return len(self._parked)
+    def statistics(self):
+        return _ParkingLotStatistics(waiting=len(self._parked))
 
     async def park(self, *, abort_func=lambda: _core.Abort.SUCCEEDED):
         idx = next(_counter)

@@ -1,6 +1,7 @@
 import math
 from itertools import count
 from contextlib import contextmanager
+import socket as stdlib_socket
 
 import attr
 
@@ -13,6 +14,7 @@ from . import _public, _hazmat
 from ._windows_cffi import (
     ffi, kernel32, ws2_32, INVALID_HANDLE_VALUE,
     raise_winerror, raise_WSAGetLastError, Error,
+    SIO_GET_EXTENSION_FUNCTION_POINTER, WSAID_ACCEPTEX,
 )
 
 __all__ = ["LPOVERLAPPED"]
@@ -56,6 +58,41 @@ def _check(success):
 #   based on lpOverlapped
 # - thread-safe wakeup uses completion key 1
 # - other completion keys are available for user use
+
+def _handle(obj):
+    # For now, represent handles as either cffi HANDLEs or as ints.  If you
+    # try to pass in a file descriptor instead, it's not going to work
+    # out. (For that msvcrt.get_osfhandle does the trick, but I don't know if
+    # we'll actually need that for anything...) For sockets this doesn't
+    # matter, Python never allocates an fd. So let's wait until we actually
+    # encounter the problem before worrying about it.
+    if type(obj) is int:
+        return ffi.cast("HANDLE", obj)
+    else:
+        return obj
+
+def LPOVERLAPPED():
+    return ffi.new("LPOVERLAPPED")
+
+# Fetch the magic pointers at startup
+pointers = {}
+_sock = stdlib_socket.socket()
+for name, guid, ctype in [
+        ("AcceptEx", WSAID_ACCEPTEX, "AcceptEx*"),
+]:
+    funcptr = ffi.new(ctype)
+    lpcbBytesReturned = ffi.new("LPDWORD")
+    # https://msdn.microsoft.com/en-us/library/ms741621%28VS.85%29.aspx
+    failed = ws2_32.WSAIoctl(
+        _sock.fileno(), SIO_GET_EXTENSION_FUNCTION_POINTER,
+        WSAID_ACCEPTEX, ffi.sizeof("GUID"),
+        funcptr, ffi.sizeof(funcptr),
+        lpcbBytesReturned, ffi.NULL, ffi.NULL)
+    if failed:
+        raise_WSAGetLastError()
+    assert lpcbBytesReturned[0] == ffi.sizeof(funcptr)
+    pointers[name] = funcptr[0]
+_sock.close()
 
 @attr.s(frozen=True)
 class CompletionKeyEventInfo:
@@ -187,6 +224,8 @@ class WindowsIOManager:
             return _core.Abort.FAILED
         await _core.yield_indefinitely(abort)
         if lpOverlapped.Internal != 0:
+            if lpOverlapped.Internal == Error.ERROR_OPERATION_ABORTED:
+                cancellation_point_no_yield()
             raise_winerror(lpOverlapped.Internal)
 
     @_public
@@ -201,22 +240,30 @@ class WindowsIOManager:
         finally:
             del self._completion_key_queues[key]
 
-
-def _handle(obj):
-    # For now, represent handles as either cffi HANDLEs or as ints.  If you
-    # try to pass in a file descriptor instead, it's not going to work
-    # out. (For that msvcrt.get_osfhandle does the trick, but I don't know if
-    # we'll actually need that for anything...) For sockets this doesn't
-    # matter, Python never allocates an fd. So let's wait until we actually
-    # encounter the problem before worrying about it.
-    if type(obj) is int:
-        return ffi.cast("HANDLE", obj)
-    else:
-        return obj
-
-def LPOVERLAPPED():
-    return ffi.new("LPOVERLAPPED")
-
+@_hazmat
+async def AcceptEx(
+        sListenSocket, sAcceptSocket, lpOutputBuffer, dwReceiveDataLength,
+        dwLocalAddressLength, dwRemoteAddressLength,
+        ):
+    _core.cancellation_point_no_yield()
+    self.register_with_iocp(sListenSocket)
+    # need to pin this so on PyPy we can be sure the gc won't move the buffer
+    # while we're waiting for the overlapped I/O to complete.
+    c_lpOutputBuffer = ffi.from_buffer(lpOutputBuffer)
+    lpdwBytesReceived = ffi.new("LPDWORD")
+    lpOverlapped = LPOVERLAPPED()
+    try:
+        # https://msdn.microsoft.com/en-us/library/ms737524(v=vs.85).aspx
+        _check(pointers["AcceptEx"](
+            sListenSocket, sAcceptSocket, c_lpOutputBuffer,
+            dwReceiveDataLength, dwLocalAddressLength,
+            dwRemoteAddressLength, lpdwBytesReceived, lpOverlapped))
+    except OSError as exc:
+        if exc.winerror == Error.ERROR_IO_PENDING:
+            pass
+        raise
+    await self.wait_overlapped(sListenSocket, lpOverlapped)
+    return lpdwBytesReceived[0]
 
 # to actually call an overlapped function:
 # - LPOVERLAPPED to allocate the object

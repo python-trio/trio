@@ -45,11 +45,14 @@ nothing to see here
 
    def caller(thunk, *args_for_thunk, *, **kwargs_for_caller)
 
-
    "notify"-style operations are sync-colored
 
    potentially-blocking operations always check for cancellation first,
    and always invoke the scheduler
+
+   whenever possible, have a statistics() method that returns an
+   immutable object with attributes that provide some useful stats --
+   e.g. for a lock, number of waiters
 
 
    spawn is special: it's the only async-colored primitive that executes
@@ -70,6 +73,14 @@ nothing to see here
    - cancel_nowait should be idempotent... except for that awkward exc
      argument :-/
      also should probably just be called cancel
+     alternatively, maybe we should allow it to be delivered multiple
+     times? control-C can be hit multiple times... (I guess if one is
+     pending and another arrives, the second overwrites the first?)
+
+     also there's a problem right now where if we crash while some
+     tasks are already unwinding from a (root) cancellation, then we
+     try to cancel everyone and this errors out b/c they're already
+     cancelled.
 
    - should tasks be context managers?
 
@@ -117,6 +128,99 @@ nothing to see here
      our final exception a keyboardinterrupt instead of an
      UnhandledExceptionError. if some raised new errors...?
 
+   - Note: I've seen KI raised purportedly inside call_soon_task, what's
+     up with that?
+
+   - testing KI manager, probably reworking some
+
+   - thread helpers
+
+     - thread pool: does two things
+       1) put a limit on parallelism (semantics)
+       2) re-use threads (optimization)
+
+       getaddrinfo probably should have a bound on its parallelism?
+       and it should be tunable? maybe a global bound on items that
+       have a bound at all?
+
+       for processes: obvs should be a bound and it should default to
+       numcpus, easy
+       for threads: I guess really there are two cases. case 1:
+       threads which have an unbounded execution time and where that
+       time might depend on other things inside the system that might
+       also be calling run_in_worker_thread. Examples:
+          - using a threading.Lock
+          - waitpid() on a process
+       these are also extremely low resource use, basically one
+       blocking syscall.
+       case 2: I/O bound threads that interact with the outside world,
+       and will (probably) complete in reasonable, bounded time,
+       regardless of what we do. Examples:
+          - getaddrinfo
+          - requests.get()
+
+       run_in_worker_thread, run_in_waiter_thread?
+       threading.Lock cases are ones where we also need to hold on to
+       the thread for a while. run_in_worker_thread,
+       get_or_spawn_worker_thread?
+       curio has the name block_in_thread, which sounds nice (though
+       it means something very different for them -- I'd have called
+       it something like idempotent_in_thread...)
+       wait_in_thread?
+
+       you might want to say "reserve N threads for getaddrinfo,
+       bursting up to M"?
+
+       can't use concurrent.executors because:
+          - it doesn't provide any fine-grained control over bounds
+          - cancellation behavior is not so helpful (esp for
+            ProcessPoolExecutor)
+
+       sigh, I think I might have argued myself into having global
+       thread&process pools instead of making them objects. So where
+       do I put them? RunLocal? move them into core?
+
+       https://twistedmatrix.com/documents/current/core/howto/threading.html
+       twisted just doesn't have a way to allocate a new thread for an
+       indefinitely blocking call. hmm.
+
+       run_eventually_in_worker_thread
+
+       run_in_worker_thread_queued
+       run_in_worker_thread_now
+
+       run_in_worker_thread
+       run_in_sync_thread
+
+       not really sure how important abide() or similar really is TBH.
+
+       the blocking versions could potentially run with a tiny stack size
+          ugh, the underlying APIs allow setting stack size on a
+          per-thread basis, but Python only supports a single global.
+
+   - sockets (need threads for getaddrinfo)
+
+     - twisted is a nice reference for getaddrinfo -- e.g. they use some
+       non-blocking numeric-only flags to handle some ipv6 corner
+       cases.
+
+     - ipv4 vs ipv6, ugh. create_connection should ideally support
+       happy eyeballs, I guess?
+       https://tools.ietf.org/html/rfc6555
+       https://github.com/python/asyncio/issues/86
+       https://twistedmatrix.com/documents/current/api/twisted.internet.endpoints.HostnameEndpoint.html
+       https://github.com/crossdistro/netresolve
+
+       https://www.akkadia.org/drepper/userapi-ipv6.html
+
+   - should socket.bind be sync or async?
+
+   - current_statistics() for runner stats
+     number of tasks, number runnable, length of call_soon queue,
+     whether crashed, ... and also calls iomanager.statistics()
+
+   - kqueue power interface needs another pass + tests
+
    - async generator hooks
 
    - pytest plugin
@@ -136,10 +240,13 @@ nothing to see here
 
    - debugging features:
      - traceback from task
-     - get all tasks (for 'top' etc.)
+     - get all tasks (for 'top' etc.) -- compare to thread iteration APIs
      - find the outermost frame of a blocked task that has a
        __trio_wchan__ annotation, and report it as the wchan (like
        curio's 'status' field)
+       maybe wchan should be callable for details, so like
+       run_in_worker_thread can show what's being run. or could just
+       show the arguments I guess.
 
    - implement signal handling on top of new call_soon
 

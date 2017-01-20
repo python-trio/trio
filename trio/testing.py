@@ -11,60 +11,62 @@ async def busy_wait_for(predicate):
     while not predicate():
         await _core.yield_briefly()
 
-_quiesce_local = threading.local()
+# _quiesce_local = threading.local()
 
-@attr.s(slots=True, cmp=False, hash=False)
-class _QuiesceChecker(_core.Instrument):
-    repetitions = attr.ib(default=0)
-    lot = attr.ib(default=attr.Factory(_core.ParkingLot))
-    looper_task = attr.ib(default=None)
+# @attr.s(slots=True, cmp=False, hash=False)
+# class _QuiesceChecker(_core.Instrument):
+#     repetitions = attr.ib(default=0)
+#     lot = attr.ib(default=attr.Factory(_core.ParkingLot))
+#     looper_task = attr.ib(default=None)
 
-    async def _looper(self):
-        try:
-            while True:
-                await _core.yield_briefly()
-        except _core.Cancelled:
-            pass
+#     async def _looper(self):
+#         try:
+#             while True:
+#                 await _core.yield_briefly()
+#         except _core.Cancelled:
+#             pass
 
-    async def spawn(self):
-        self.looper_task = await _core.spawn(self._looper)
-        _core.current_instruments().append(self)
+#     async def spawn(self):
+#         self.looper_task = await _core.spawn(self._looper)
+#         _core.current_instruments().append(self)
 
-    def stop(self):
-        self.lot.unpark()
-        self.looper_task.cancel_nowait()
-        del _quiesce_local.checker
-        _core.current_instruments().remove(self)
+#     def stop(self):
+#         self.lot.unpark()
+#         self.looper_task.cancel_nowait()
+#         del _quiesce_local.checker
+#         _core.current_instruments().remove(self)
 
-    def before_task_step(self, task):
-        if task is self.looper_task:
-            self.repetitions += 1
-            if self.repetitions == 3:
-                self.stop()
-        else:
-            self.repetitions = 0
+#     def before_task_step(self, task):
+#         if task is self.looper_task:
+#             self.repetitions += 1
+#             if self.repetitions == 3:
+#                 self.stop()
+#         else:
+#             self.repetitions = 0
 
-    def after_task_step(self, task):
-        pass
+#     def after_task_step(self, task):
+#         pass
 
-    def close(self):
-        assert False
+#     def close(self):
+#         assert False
 
-async def quiesce():
-    if not hasattr(_quiesce_local, "checker"):
-        _quiesce_local.checker = _QuiesceChecker()
-        await _quiesce_local.checker.spawn()  # doesn't yield
-    try:
-        await _quiesce_local.checker.lot.park()
-    except:
-        try:
-            checker = _quiesce_local.checker
-        except AttributeError:
-            pass
-        else:
-            if checker.lot.parked_count() == 0:
-                checker.stop()
-        raise
+# async def quiesce():
+#     if not hasattr(_quiesce_local, "checker"):
+#         _quiesce_local.checker = _QuiesceChecker()
+#         await _quiesce_local.checker.spawn()  # doesn't yield
+#     try:
+#         await _quiesce_local.checker.lot.park()
+#     except:
+#         try:
+#             checker = _quiesce_local.checker
+#         except AttributeError:
+#             pass
+#         else:
+#             if checker.lot.parked_count() == 0:
+#                 checker.stop()
+#         raise
+
+from ._core import quiesce
 
 # Use:
 #

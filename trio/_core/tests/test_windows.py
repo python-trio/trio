@@ -1,13 +1,14 @@
 import os
 import pytest
 
-from ... import _core
-from .._windows_cffi import ffi, kernel32
-
+on_windows = (os.name == "nt")
 # Mark all the tests in this file as being windows-only
-pytestmark = pytest.mark.skipif(os.name != "nt", reason="windows only")
+pytestmark = pytest.mark.skipif(not on_windows, reason="windows only")
 
-@pytest.mark.foo
+from ... import _core
+if on_windows:
+    from .._windows_cffi import ffi, kernel32
+
 async def test_completion_key_listen():
     async def post(key):
         iocp = ffi.cast("HANDLE", _core.current_iocp())
