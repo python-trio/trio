@@ -49,6 +49,12 @@ class WakeupPipe:
 
 if hasattr(select, "epoll"):
 
+    @attr.s(frozen=True)
+    class _EpollStatistics:
+        tasks_waiting_read = attr.ib()
+        tasks_waiting_write = attr.ib()
+        backend = attr.ib(default="epoll")
+
     @attr.s(slots=True, cmp=False, hash=False)
     class EpollWaiters:
         read_task = attr.ib(default=None)
@@ -79,6 +85,19 @@ if hasattr(select, "epoll"):
         _epoll = attr.ib(default=attr.Factory(select.epoll))
         # {fd: EpollWaiters}
         _registered = attr.ib(default=attr.Factory(dict))
+
+        def statistics(self):
+            tasks_waiting_read = 0
+            tasks_waiting_write = 0
+            for waiter in self._registered.values():
+                if waiter.read_task is not None:
+                    tasks_waiting_read += 1
+                if waiter.write_task is not None:
+                    tasks_waiting_write += 1
+            return _EpollStatistics(
+                tasks_waiting_read=tasks_waiting_read,
+                tasks_waiting_write=tasks_waiting_write,
+            )
 
         # Delegate wakeup functionality to WakeupPipe
         _wakeup = attr.ib(default=attr.Factory(WakeupPipe))
@@ -159,11 +178,30 @@ if hasattr(select, "epoll"):
 
 if hasattr(select, "kqueue"):
 
+    @attr.s(frozen=True)
+    class _KqueueStatistics:
+        tasks_waiting = attr.ib()
+        monitors = attr.ib()
+        backend = attr.ib(default="kqueue")
+
     @attr.s(slots=True, cmp=False, hash=False)
     class KqueueIOManager:
         _kqueue = attr.ib(default=attr.Factory(select.kqueue))
         # {(ident, filter): Task or Queue}
         _registered = attr.ib(default=attr.Factory(dict))
+
+        def statistics(self):
+            tasks_waiting = 0
+            monitors = 0
+            for receiver in self._registered.values():
+                if type(receiver) is _core.Task:
+                    tasks_waiting += 1
+                else:
+                    monitors += 1
+            return _EpollStatistics(
+                tasks_waiting=tasks_waiting,
+                monitors=monitors,
+            )
 
         # Delegate wakeup functionality to WakeupPipe
         _wakeup = attr.ib(default=attr.Factory(WakeupPipe))

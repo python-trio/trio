@@ -107,6 +107,8 @@ nothing to see here
      - explicit monitoring API is the only thing that counts as
        catching errors
 
+   - test threading
+
    - should we split Queue and UnboundedQueue, latter has longer /
      more inconvenient name and only provides get_all and put_nowait,
      no put or get?

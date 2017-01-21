@@ -95,6 +95,12 @@ for name, guid, ctype in [
 _sock.close()
 
 @attr.s(frozen=True)
+class _WindowsStatistics:
+    tasks_waiting_overlapped = attr.ib()
+    completion_key_monitors = attr.ib()
+    backend = attr.ib(default="windows")
+
+@attr.s(frozen=True)
 class CompletionKeyEventInfo:
     lpOverlapped = attr.ib()
     dwNumberOfBytesTransferred = attr.ib()
@@ -112,6 +118,12 @@ class WindowsIOManager:
         self._wakeup_flag = False
         self._wakeup_waiters = set()
         self._wakeup_completion_key = next(self._completion_key_counter)
+
+    def statistics(self):
+        return _WindowsStatistics(
+            tasks_waiting_overlapped=len(self._overlapped_waiters),
+            completion_key_monitors=len(self._completion_key_queues),
+        )
 
     def close(self):
         if self._iocp is not None:

@@ -209,6 +209,15 @@ class Task:
         return self._task_result
 
 
+@attr.s(frozen=True)
+class _RunStatistics:
+    tasks_living = attr.ib()
+    tasks_runnable = attr.ib()
+    unhandled_exception = attr.ib()
+    seconds_to_next_deadline = attr.ib()
+    io_statistics = attr.ib()
+    call_soon_queue_size = attr.ib()
+
 @attr.s(cmp=False, hash=False)
 class Runner:
     clock = attr.ib()
@@ -226,6 +235,22 @@ class Runner:
 
     initial_task = attr.ib(default=None)
     unhandled_exception_result = attr.ib(default=None)
+
+    @_public
+    def current_statistics(self):
+        if self.deadlines:
+            next_deadline, _ = self.deadlines.keys()[0]
+            seconds_to_next_deadline = next_deadline - self.current_time()
+        else:
+            seconds_to_next_deadline = float("inf")
+        return _RunStatistics(
+            tasks_living=len(self.tasks),
+            tasks_runnable=len(self.runq),
+            unhandled_exception=(self.unhandled_exception_result is not None),
+            seconds_to_next_deadline=seconds_to_next_deadline,
+            io_statistics=self.io_manager.statistics(),
+            call_soon_queue_size=len(self.call_soon_queue),
+        )
 
     def close(self):
         self.io_manager.close()
@@ -410,17 +435,15 @@ class Runner:
     ################################################################
     # Quiescing
     #
-    # XX maybe rewrite this using an instrument to detect the quiesce, to get
-    # it out of the core?
-    waiting_for_quiesce = attr.ib(default=attr.Factory(set))
+    waiting_for_idle = attr.ib(default=attr.Factory(set))
 
     @_public
     @_hazmat
-    async def quiesce(self):
+    async def wait_run_loop_idle(self):
         task = current_task()
-        self.waiting_for_quiesce.add(task)
+        self.waiting_for_idle.add(task)
         def abort():
-            self.waiting_for_quiesce.remove(task)
+            self.waiting_for_idle.remove(task)
             return Abort.SUCCEEDED
         await yield_indefinitely(abort)
 
@@ -488,7 +511,7 @@ def run_impl(runner, fn, args):
         runner.initial_task = runner.spawn_impl(initial_spawn_failed, (exc,))
 
     while runner.tasks:
-        if runner.runq or runner.waiting_for_quiesce:
+        if runner.runq or runner.waiting_for_idle:
             timeout = 0
         elif runner.deadlines:
             deadline, _ = runner.deadlines.keys()[0]
@@ -508,8 +531,8 @@ def run_impl(runner, fn, args):
                 break
 
         if not runner.runq:
-            while runner.waiting_for_quiesce:
-                runner.reschedule(runner.waiting_for_quiesce.pop())
+            while runner.waiting_for_idle:
+                runner.reschedule(runner.waiting_for_idle.pop())
 
         # Process all runnable tasks, but only the ones that are already
         # runnable now. Anything that becomes runnable during this cycle needs

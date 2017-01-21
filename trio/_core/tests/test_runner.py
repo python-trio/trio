@@ -5,7 +5,7 @@ import pytest
 import attr
 
 from .test_util import check_sequence_matches, check_exc_chain
-from ...testing import busy_wait_for, quiesce
+from ...testing import busy_wait_for, wait_run_loop_idle
 
 from ... import _core
 
@@ -319,6 +319,39 @@ async def test_current_task():
     child_task = await _core.spawn(child)
     assert child_task == (await child_task.join()).unwrap()
 
+
+async def test_current_statistics():
+    # Just so there's some interesting stats:
+    async def child():
+        try:
+            await sleep_forever()
+        except _core.Cancelled:
+            pass
+    stats = _core.current_statistics()
+    print(stats)
+    # 1 system task + us
+    assert stats.tasks_living == 2
+    assert stats.call_soon_queue_size == 0
+    assert stats.unhandled_exception is False
+
+    task = await _core.spawn(child)
+    await wait_run_loop_idle()
+    _core.current_call_soon_thread_and_signal_safe()(lambda: None)
+    stats = _core.current_statistics()
+    print(stats)
+    # 1 system task + us + child
+    assert stats.tasks_living == 3
+    # the exact value here might shift if we change how we do accounting
+    # (currently it only counts tasks that we already know will be runnable on
+    # the next pass), but still useful to at least test the difference between
+    # now and after we wake up the child:
+    assert stats.tasks_runnable == 0
+    assert stats.call_soon_queue_size == 1
+
+    task.cancel_nowait()
+    stats = _core.current_statistics()
+    print(stats)
+    assert stats.tasks_runnable == 1
 
 @attr.s(slots=True, cmp=False, hash=False)
 class Recorder(_core.Instrument):
