@@ -44,3 +44,4 @@ from ._streams import *
 __all__ += _streams.__all__
 
 from ._signals import *
+__all__ += _signals.__all__
