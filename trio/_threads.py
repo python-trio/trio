@@ -17,7 +17,7 @@ def _trio_thread_sync(q, fn, args):
 async def _trio_thread_async(q, fn, args):
     q.put_nowait(await _core.Result.acapture(fn, *args))
 
-def _current_do_in_trio_thread(*, name, trio_thread_fn, spawn):
+def _current_do_in_trio_thread(name, trio_thread_fn, *, spawn):
     call_soon = _core.current_call_soon_thread_and_signal_safe()
     trio_thread = threading.current_thread()
     def do_in_trio_thread(fn, *args):
@@ -25,7 +25,7 @@ def _current_do_in_trio_thread(*, name, trio_thread_fn, spawn):
             raise RuntimeError("must be called from a thread")
         q = stdlib_queue.Queue()
         call_soon(trio_thread_fn, q, fn, args, spawn=spawn)
-        return q.get()
+        return q.get().unwrap()
     do_in_trio_thread.__name__ = name
     return do_in_trio_thread
 
@@ -144,12 +144,12 @@ async def run_in_worker_thread(fn, *args, cancellable=False):
     def thread_fn():
         result = _core.Result.capture(fn, *args)
         try:
-            call_soon(main_thread_cb, result)
+            call_soon(main_thread_fn, result)
         except _core.RunFinishedError:
             # The entire run finished, so our particular task is certainly
             # long gone -- it must have cancelled.
             pass
-    name = "trio-worker={}".format(next(_worker_thread_counter))
+    name = "trio-worker-{}".format(next(_worker_thread_counter))
     # daemonic because it might get left behind if we cancel
     thread = threading.Thread(target=thread_fn, name=name, daemon=True)
     thread.start()
@@ -159,4 +159,4 @@ async def run_in_worker_thread(fn, *args, cancellable=False):
             return _core.Abort.SUCCEEDED
         else:
             return _core.Abort.FAILED
-    await _core.yield_indefinitely(abort)
+    return await _core.yield_indefinitely(abort)

@@ -39,7 +39,6 @@ def kill_self(signum):
     else:
         os.kill(os.getpid(), signum)
 
-@pytest.mark.foo
 async def test_catch_signals():
     print = lambda *args: None
     orig = signal.getsignal(signal.SIGILL)
