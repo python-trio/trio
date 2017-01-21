@@ -198,7 +198,7 @@ if hasattr(select, "kqueue"):
                     tasks_waiting += 1
                 else:
                     monitors += 1
-            return _EpollStatistics(
+            return _KqueueStatistics(
                 tasks_waiting=tasks_waiting,
                 monitors=monitors,
             )
