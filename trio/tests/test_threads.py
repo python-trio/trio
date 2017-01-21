@@ -5,10 +5,10 @@ import time
 import pytest
 
 from .. import _core
-from ..testing import busy_wait_for
+from ..testing import busy_wait_for, wait_run_loop_idle
 from .._threads import *
 
-async def test_run_in_trio_thread():
+async def test_do_in_trio_thread():
     trio_thread = threading.current_thread()
 
     async def check_case(do_in_trio_thread, fn, expected):
@@ -56,7 +56,19 @@ async def test_run_in_trio_thread():
     await check_case(await_in_trio_thread, f, ("error", KeyError))
 
 
-@pytest.mark.foo
+async def test_do_in_trio_thread_from_trio_thread():
+    run_in_trio_thread = current_run_in_trio_thread()
+    await_in_trio_thread = current_await_in_trio_thread()
+
+    with pytest.raises(RuntimeError):
+        run_in_trio_thread(lambda: None)
+
+    async def foo():
+        pass
+    with pytest.raises(RuntimeError):
+        await_in_trio_thread(foo)
+
+
 async def test_run_in_worker_thread():
     trio_thread = threading.current_thread()
 
@@ -72,3 +84,67 @@ async def test_run_in_worker_thread():
         await run_in_worker_thread(g)
     print(excinfo.value.args)
     assert excinfo.value.args[0] != trio_thread
+
+
+async def test_run_in_worker_thread_cancellation():
+    register = [None]
+    def f(q):
+        # Make the thread block for a controlled amount of time
+        register[0] = "blocking"
+        q.get()
+        register[0] = "finished"
+
+    async def child(q, cancellable):
+        return await run_in_worker_thread(f, q, cancellable=cancellable)
+
+    q = stdlib_queue.Queue()
+    task1 = await _core.spawn(child, q, True)
+    # Give it a chance to get started...
+    await wait_run_loop_idle()
+    # ...and then cancel it.
+    task1.cancel_nowait()
+    # The task finishes.
+    result = await task1.join()
+    assert isinstance(result.error, _core.Cancelled)
+    assert register[0] != "finished"
+    # But the thread is still there. Put it out of its misery:
+    q.put(None)
+    while register[0] != "finished":
+        time.sleep(0.01)
+
+    # This one can't be cancelled
+    register[0] = None
+    task2 = await _core.spawn(child, q, False)
+    await wait_run_loop_idle()
+    task2.cancel_nowait()
+    for _ in range(10):
+        await _core.yield_briefly()
+    with pytest.raises(_core.WouldBlock):
+        task2.join_nowait()
+    q.put(None)
+    (await task2.join()).unwrap()
+
+    # But if we cancel *before* it enters, the entry is itself a cancellation
+    # point
+    task3 = await _core.spawn(child, q, False)
+    task3.cancel_nowait()
+    result = await task3.join()
+    assert isinstance(result.error, _core.Cancelled)
+
+
+# Really the test here is just that we don't get a traceback on the console
+# due to trying to send a result back after the run loop has exited.
+def test_run_in_worker_thread_abandoned():
+    q = stdlib_queue.Queue()
+
+    def thread():
+        q.get()
+
+    async def main():
+        _core.current_task().cancel_nowait()
+        await run_in_worker_thread(thread, cancellable=True)
+
+    with pytest.raises(_core.Cancelled):
+        _core.run(main)
+
+    q.put(None)

@@ -9,7 +9,7 @@ from .. import _core
 from . import _public, _hazmat
 from ._keyboard_interrupt import LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE
 
-def shrink_pipe(fd):
+def maybe_shrink_pipe(fd):
     # Try to set the pipe size as small as possible -- no point in having
     # a giant kernel buffer when the only two states we care about are
     # "contains 0 bytes" and "contains >= 1 byte". (It actually ends up being
@@ -22,7 +22,7 @@ def shrink_pipe(fd):
 class WakeupPipe:
     def __init__(self):
         self._read_fd, self._write_fd = os.pipe()
-        shrink_pipe(self._read_fd)
+        maybe_shrink_pipe(self._read_fd)
         os.set_blocking(self._read_fd, False)
         os.set_blocking(self._write_fd, False)
 
