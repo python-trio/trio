@@ -216,13 +216,19 @@ if hasattr(select, "kqueue"):
 
         def handle_io(self, timeout):
             # max_events must be > 0 or kqueue gets cranky
-            max_events = max(1, len(self._registered))
+            # and we generally want this to be strictly larger than the actual
+            # number of events we get, so that we can tell that we've gotten
+            # all the events in just 1 call.
+            max_events = len(self._registered) + 1
             events = []
             while True:
                 batch = self._kqueue.control([], max_events, timeout)
                 events += batch
                 if len(batch) < max_events:
                     break
+                else:
+                    timeout = 0
+                    # and loop back to the start
             for event in events:
                 key = (event.ident, event.filter)
                 receiver = self._registered[key]
