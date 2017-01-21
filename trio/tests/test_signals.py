@@ -60,10 +60,10 @@ def test_catch_signals_wrong_thread():
     async def naughty():
         try:
             with catch_signals([signal.SIGINT]) as _:
-                pass
+                pass  # pragma: no cover
         except Exception as exc:
             threadqueue.put(exc)
-        else:
+        else:  # pragma: no cover
             threadqueue.put(None)
     thread = threading.Thread(target=_core.run, args=(naughty,))
     thread.start()

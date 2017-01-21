@@ -29,7 +29,7 @@ class TooSlowError(Exception):
 @contextmanager
 def fail_at(deadline):
     try:
-        with move_on_at(deadline) as timeout:
+        with _core.move_on_at(deadline) as timeout:
             yield timeout
     finally:
         if timeout.raised:
