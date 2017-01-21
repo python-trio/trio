@@ -3,7 +3,6 @@ import queue as stdlib_queue
 from itertools import count
 
 from . import _core
-from ._stream import Resource
 
 __all__ = [
     "current_run_in_trio_thread", "current_await_in_trio_thread",

@@ -44,6 +44,9 @@ class Resource(metaclass=abc.ABCMeta):
     def close(self):
         # XX docstring should warn that this is a harsh shutdown, so e.g. TLS
         # will be truncated, which you might or might not want.
+        # XX HTTP/2 streams probably need an async close too huh. Maybe async
+        # is better? or maybe the abstract interface should have aclose, and
+        # sockets should support both?
         pass
 
     async def __aenter__(self):

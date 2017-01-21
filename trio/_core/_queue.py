@@ -91,7 +91,8 @@ class Queue:
             await self._get_lot.park()
         data = list(self._data)
         self._data.clear()
-        self._put_lot.unpark(count=self.capacity)
+        if self.capacity is not Queue.UNLIMITED:
+            self._put_lot.unpark(count=self.capacity)
         return data
 
     def task_done(self):

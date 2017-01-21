@@ -31,13 +31,16 @@ for _symbol in _core.__all__:
         __all__.append(_symbol)
 del _symbol, _value
 
-from ._timeout import *
-__all__ += _timeout.__all__
+from ._timeouts import *
+__all__ += _timeouts.__all__
 
 from ._sync import *
 __all__ += _sync.__all__
 
-from ._thread import *
+from ._threads import *
+__all__ += _threads.__all__
 
-from ._stream import *
-__all__ += _stream.__all__
+from ._streams import *
+__all__ += _streams.__all__
+
+from ._signals import *

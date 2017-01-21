@@ -3,7 +3,8 @@ import socket as _stdlib_socket
 import sys as _sys
 
 from . import _core
-from ._thread import run_in_worker_thread as _run_in_worker_thread
+from ._threads import run_in_worker_thread as _run_in_worker_thread
+from ._streams import Stream as _Stream
 
 __all__ = []
 
@@ -94,7 +95,8 @@ for _name in [
         return await _run_in_worker_thread(
             _partial(fn, *args, **kwargs), cancellable=True)
 
-class SocketType:
+
+class SocketType(_Stream):
     def __init__(self, sock):
         self._sock = sock
         self._sock.setblocking(False)
