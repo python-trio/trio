@@ -454,10 +454,10 @@ def test_instruments_interleave():
 
 def test_cancel_points():
     async def main1():
-        _core.cancellation_point_no_yield()
+        await _core.yield_if_cancelled()
         _core.current_task().cancel_nowait()
         with pytest.raises(_core.TaskCancelled):
-            _core.cancellation_point_no_yield()
+            await _core.yield_if_cancelled()
     _core.run(main1)
 
     async def main2():
@@ -628,7 +628,7 @@ async def test_failed_abort():
         assert x == 1
         record.append("woke")
         try:
-            _core.cancellation_point_no_yield()
+            await _core.yield_if_cancelled()
         except _core.Cancelled:
             record.append("cancelled")
 

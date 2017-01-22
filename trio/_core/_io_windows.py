@@ -2,6 +2,8 @@ import math
 from itertools import count
 from contextlib import contextmanager
 import socket as stdlib_socket
+from select import select
+import threading
 
 import attr
 
@@ -17,12 +19,7 @@ from ._windows_cffi import (
     SIO_GET_EXTENSION_FUNCTION_POINTER, WSAID_ACCEPTEX,
 )
 
-__all__ = ["LPOVERLAPPED"]
-
-def _check(success):
-    if not success:
-        raise_winerror()
-    return success
+__all__ = ["AcceptEx", "ConnectEx", ]
 
 # How things fit together:
 # - each notification event (OVERLAPPED_ENTRY) contains:
@@ -59,6 +56,16 @@ def _check(success):
 # - thread-safe wakeup uses completion key 1
 # - other completion keys are available for user use
 
+def _check(success):
+    if not success:
+        raise_winerror()
+    return success
+
+def _WSAcheck(success):
+    if not success:
+        raise_WSAGetLastError()
+    return success
+
 def _handle(obj):
     # For now, represent handles as either cffi HANDLEs or as ints.  If you
     # try to pass in a file descriptor instead, it's not going to work
@@ -71,39 +78,100 @@ def _handle(obj):
     else:
         return obj
 
-def LPOVERLAPPED():
-    return ffi.new("LPOVERLAPPED")
-
-# Fetch the magic pointers at startup
-pointers = {}
-_sock = stdlib_socket.socket()
-for name, guid, ctype in [
-        ("AcceptEx", WSAID_ACCEPTEX, "AcceptEx*"),
-]:
-    funcptr = ffi.new(ctype)
-    lpcbBytesReturned = ffi.new("LPDWORD")
-    # https://msdn.microsoft.com/en-us/library/ms741621%28VS.85%29.aspx
-    failed = ws2_32.WSAIoctl(
-        _sock.fileno(), SIO_GET_EXTENSION_FUNCTION_POINTER,
-        WSAID_ACCEPTEX, ffi.sizeof("GUID"),
-        funcptr, ffi.sizeof(funcptr),
-        lpcbBytesReturned, ffi.NULL, ffi.NULL)
-    if failed:
-        raise_WSAGetLastError()
-    assert lpcbBytesReturned[0] == ffi.sizeof(funcptr)
-    pointers[name] = funcptr[0]
-_sock.close()
-
 @attr.s(frozen=True)
 class _WindowsStatistics:
     tasks_waiting_overlapped = attr.ib()
     completion_key_monitors = attr.ib()
+    tasks_waiting_socket_readable = attr.ib()
+    tasks_waiting_socket_writable = attr.ib()
     backend = attr.ib(default="windows")
 
 @attr.s(frozen=True)
 class CompletionKeyEventInfo:
     lpOverlapped = attr.ib()
     dwNumberOfBytesTransferred = attr.ib()
+
+class _SelectThread:
+    def __init__(self, call_soon):
+        self.call_soon = call_soon
+        self.waiters = {"read": {}, "write": {}}
+        self.wakeup_main, self.wakeup_thread = socket.socketpair()
+        self.wakeup_main.setblocking(False)
+        self.wakeup_thread.setblocking(False)
+        self.readable_waiters[self.wakeup_thread] = None
+        self.thread_done = False
+        self.thread = threading.Thread(target=self._thread)
+        self.thread.start()
+
+    def statistics(self):
+        return dict(
+            tasks_waiting_socket_readable=len(self.waiters["read"]) - 1,
+            tasks_waiting_socket_writable=len(self.waiters["write"]),
+        )
+
+    def _wakeup(self):
+        try:
+            self.wakeup_main.send(b"\x00")
+        except BlockingIOError:
+            pass
+
+    def close(self):
+        if self.thread is not None:
+            self.thread_done = True
+            self._wakeup()
+            self.thread.join()
+            self.thread = None
+        self.wakeup_main.close()
+        self.wakeup_thread.close()
+
+    # XX could/should switch to calling select() directly, or WSAPoll, to
+    # remove the 512 socket limit. (select() is actually about as efficient as
+    # WSAPoll if you know how the fdset is structured.)
+    def _select_thread(self):
+        while True:
+            # We select for exceptional conditions on the readable set because
+            # on Windows, non-blocking connect shows up as "exceptional"
+            # rather than "readable" if the connect fails.
+            #
+            # select() holds the GIL while reading the input sets, so this is
+            # safe.
+            got = select(self.waiters["read"],
+                         self.waiters["write"],
+                         self.waiters["read"])
+            readable1, writable, readable2 = got
+            for sock in set(readable1 + readable2):
+                if sock != self.wakeup_thread:
+                    self.call_soon(self._wake, "read", sock)
+            for sock in writable:
+                self.call_soon(self._wake, "write", sock)
+            # Drain
+            while True:
+                try:
+                    self.wakeup_thread.recv(4096)
+                except BlockingIOError:
+                    pass
+            if self.thread_done:
+                return
+
+    def _wake(self, which, sock):
+        try:
+            task = self.waiters[which].pop(sock)
+        except KeyError as exc:
+            # Must have gotten cancelled while the select was running
+            assert exc.args == (sock,)
+            return
+        _core.reschedule(task)
+
+    async def wait(self, which, sock):
+        if sock in self.waiters[which]:
+            raise RuntimeError(
+                "another task is already waiting to {} this socket"
+                .format(which))
+        self.waiters[which][sock] = _core.current_task()
+        def abort():
+            del self.waiters[which][sock]
+            return _core.Abort.SUCCEEDED
+        await _core.yield_indefinitely(abort)
 
 class WindowsIOManager:
     def __init__(self):
@@ -115,6 +183,10 @@ class WindowsIOManager:
 
         self._completion_key_counter = count(1)
 
+        # Defer creating it until the first call to handle_io, at which point
+        # the call_soon_thread_and_signal_safe machinery is available.
+        self._select_thread = None
+
         self._wakeup_flag = False
         self._wakeup_waiters = set()
         self._wakeup_completion_key = next(self._completion_key_counter)
@@ -123,6 +195,8 @@ class WindowsIOManager:
         return _WindowsStatistics(
             tasks_waiting_overlapped=len(self._overlapped_waiters),
             completion_key_monitors=len(self._completion_key_queues),
+            tasks_waiting_socket_readable=len(self._sock_readable_waiters),
+            tasks_waiting_socket_writable=len(self._sock_writable_waiters),
         )
 
     def close(self):
@@ -155,6 +229,9 @@ class WindowsIOManager:
         await _core.yield_indefinitely(abort)
 
     def handle_io(self, timeout):
+        if self._select_thread is None:
+            call_soon = _core.current_call_soon_thread_and_signal_safe()
+            self._select_thread = _SelectThread(call_soon)
         # We want to pull out *all* the events, every time. Otherwise weird
         # thing could happen.
         #
@@ -207,7 +284,6 @@ class WindowsIOManager:
                             entry.dwNumberOfBytesTransferred)
                     queue.put_nowait(info)
 
-
     @_public
     @_hazmat
     def current_iocp(self):
@@ -224,6 +300,8 @@ class WindowsIOManager:
     @_hazmat
     async def wait_overlapped(self, handle, lpOverlapped):
         handle = _handle(obj)
+        if isinstance(lpOverlapped, int):
+            lpOverlapped = ffi.cast("LPOVERLAPPED", lpOverlapped)
         assert lpOverlapped not in self._overlapped_waiters
         task = _core.current_task()
         self._overlapped_waiters[lpOverlapped] = task
@@ -237,7 +315,7 @@ class WindowsIOManager:
         await _core.yield_indefinitely(abort)
         if lpOverlapped.Internal != 0:
             if lpOverlapped.Internal == Error.ERROR_OPERATION_ABORTED:
-                cancellation_point_no_yield()
+                await yield_if_cancelled()
             raise_winerror(lpOverlapped.Internal)
 
     @_public
@@ -252,34 +330,172 @@ class WindowsIOManager:
         finally:
             del self._completion_key_queues[key]
 
+    @_public
+    @_hazmat
+    async def wait_socket_readable(self, sock):
+        await self._select_thread.wait("read", sock)
+
+    @_public
+    @_hazmat
+    async def wait_socket_writable(self, sock):
+        await self._select_thread.wait("write", sock)
+
+    @_public
+    @_hazmat
+    async def perform_overlapped(self, handle, submit_fn):
+        # submit_fn(lpOverlapped) submits some I/O
+        # it may raise an OSError with ERROR_IO_PENDING
+        await _core.yield_if_cancelled()
+        self.register_with_iocp(handle)
+        lpOverlapped = ffi.new("LPOVERLAPPED")
+        try:
+            submit_fn(lpOverlapped)
+        except OSError as exc:
+            if exc.winerror != Error.ERROR_IO_PENDING:
+                await _core.yield_briefly_no_cancel()
+                raise
+        await self.wait_overlapped(handle, lpOverlapped)
+        return lpOverlapped
+
+################################################################
+# Wrappers
+################################################################
+
+# XX maybe split the rest of this out into its own module? It doesn't actually
+# use any non-public APIs...
+
+# Fetch the magic winsocket pointers at startup
+pointers = {}
+_sock = stdlib_socket.socket()
+for name, guid, ctype in [
+        ("AcceptEx", WSAID_ACCEPTEX, "AcceptEx*"),
+]:
+    funcptr = ffi.new(ctype)
+    lpcbBytesReturned = ffi.new("LPDWORD")
+    # https://msdn.microsoft.com/en-us/library/ms741621%28VS.85%29.aspx
+    failed = ws2_32.WSAIoctl(
+        _sock.fileno(), SIO_GET_EXTENSION_FUNCTION_POINTER,
+        WSAID_ACCEPTEX, ffi.sizeof("GUID"),
+        funcptr, ffi.sizeof(funcptr),
+        lpcbBytesReturned, ffi.NULL, ffi.NULL)
+    if failed:
+        raise_WSAGetLastError()
+    assert lpcbBytesReturned[0] == ffi.sizeof(funcptr)
+    pointers[name] = funcptr[0]
+_sock.close()
+
+# takes a pre-resolved Python-style AF_INET or AF_INET6 address
+# returns sockaddr_in{,6}*
+def _address_to_sockaddr(family, address):
+    if family == stdlib_socket.AF_INET:
+        assert len(address) == 2
+        host, port = address
+        sockaddr = ffi.new("struct sockaddr_in*")
+        sockaddr.sin_family = family
+        sockaddr.sin_port = port
+        sockaddr.sin_addr = stdlib_socket.inet_pton(family, host)
+        return sockaddr
+    elif family == stdlib_socket.AF_INET6:
+        assert len(address) >= 2
+        while len(address) < 4:
+            address += (0,)
+        host, port, flowinfo, scopeid = address
+        sockaddr = ffi.new("struct sockaddr_in6*")
+        sockaddr.sin6_family = family
+        sockaddr.sin6_port = port
+        sockaddr.sin6_addr = stdlib_socket.inet_pton(family, host)
+        sockaddr.sin6_flowinfo = flowinfo
+        sockaddr.sin6_scope_id = scopeid
+        return sockaddr
+    else:
+        raise ValueError("Only AF_INET and AF_INET6 are supported")
+
+def _sockaddr_to_address(sockaddr, sockaddr_len):
+    family = ffi.cast("struct sockaddr_in*", sockaddr).sin_family
+    if family == stdlib_socket.AF_INET:
+        assert sockaddr_len >= ffi.sizeof("struct sockaddr_in")
+        sockaddr_in = ffi.cast("struct sockaddr_in*", sockaddr)
+        host = stdlib_socket.socket.inet_ntop(
+            family, bytes(sockaddr_in.sin_addr))
+        post = sockaddr_in.sin_port
+        return (host, port)
+    elif sockaddr_in.sin_family == stdlib_socket.AF_INET6:
+        assert sockaddr_len >= ffi.sizeof("struct sockaddr_in6")
+        sockaddr_in6 = ffi.cast("struct sockaddr_in6*", sockaddr)
+        host = stdlib_socket.socket.inet_ntop(
+            family, bytes(sockaddr_in6.sin6_addr))
+        port = sockaddr_in6.sin6_port
+        flowinfo = sockaddr_in6.sin6_flowinfo
+        scopeid = sockaddr_in6.sin6_scope_id
+        return (host, port, flowinfo, scopeid)
+    else:
+        raise ValueError("Unrecognized address family {}".format(family))
+
 @_hazmat
 async def AcceptEx(
         sListenSocket, sAcceptSocket, lpOutputBuffer, dwReceiveDataLength,
         dwLocalAddressLength, dwRemoteAddressLength,
         ):
-    _core.cancellation_point_no_yield()
-    self.register_with_iocp(sListenSocket)
-    # need to pin this so on PyPy we can be sure the gc won't move the buffer
-    # while we're waiting for the overlapped I/O to complete.
+    # need to pin this so on PyPy we can be sure the gc won't move the
+    # buffer while we're waiting for the overlapped I/O to complete.
     c_lpOutputBuffer = ffi.from_buffer(lpOutputBuffer)
     lpdwBytesReceived = ffi.new("LPDWORD")
-    lpOverlapped = LPOVERLAPPED()
-    try:
+    def submit_fn(lpOverlapped):
         # https://msdn.microsoft.com/en-us/library/ms737524(v=vs.85).aspx
-        _check(pointers["AcceptEx"](
+        _WSAcheck(pointers["AcceptEx"](
             sListenSocket, sAcceptSocket, c_lpOutputBuffer,
             dwReceiveDataLength, dwLocalAddressLength,
             dwRemoteAddressLength, lpdwBytesReceived, lpOverlapped))
-    except OSError as exc:
-        if exc.winerror == Error.ERROR_IO_PENDING:
-            pass
-        raise
-    await self.wait_overlapped(sListenSocket, lpOverlapped)
+    await _core.perform_overlapped(sListenSocket, submit_fn)
     return lpdwBytesReceived[0]
 
-# to actually call an overlapped function:
-# - LPOVERLAPPED to allocate the object
-# -
+@_hazmat
+# s is a SOCKET integer
+# family is AF_INET or AF_INET6
+# address is a Python-style address e.g. ("127.0.0.1", 80). Must be
+# pre-resolved.
+# lpSendBuffer is a bytes-like of data to send when connecting.
+#
+async def ConnectEx(s, family, address, lpSendBuffer=b""):
+    c_lpSendBuffer = ffi.from_buffer(lpSendBuffer)
+    lpdwBytesSent = ffi.new("LPDWORD")
+    sockaddr = _address_to_sockaddr(family, address)
+    def submit_fn(lpOverlapped):
+        # https://msdn.microsoft.com/en-us/library/ms737606(v=vs.85).aspx
+        _WSAcheck(ws2_32.ConnectEx(
+            s, sockaddr, ffi.sizeof(sockaddr[0]),
+            lpSendBuffer, len(lpSendBuffer),
+            lpdwBytesSent, lpOverlapped))
+    await _core.perform_overlapped(s, submit_fn)
+    return lpdwBytesSent[0]
+
+@_hazmat
+async def WSARecvFrom(s, bufs, lens, flags):
+    # returns: (number of bytes received, flags, address)
+    lpBuffers = ffi.new("WSABUF[]", len(bufs))
+    for i in range(len(bufs)):
+        lpBuffers[i].len = lens[i]
+        lpBuffers[i].buf = ffi.from_buffer(bufs[i])
+    lpNumberOfBytesRecvd = ffi.new("LPDWORD")
+    lpFlags = ffi.new("LPDWORD")
+    lpFlags[0] = flags
+    lpFrom = ffi.new("struct sockaddr_in6*")
+    lpFromlen = ffi.new("LPINT")
+    lpFromlen[0] = ffi.sizeof(lpFrom[0])
+    def submit_fn(lpOverlapped):
+        # https://msdn.microsoft.com/en-us/library/ms741686(v=vs.85).aspx
+        # "If no error occurs ... WSARecvFrom returns zero"
+        # omgwtfbbqasdfjijfio
+        _WSAcheck(not ws2_32.WSARecvFrom(
+            s, lpBuffers, len(bufs),
+            # "Use NULL for this parameter if the lpOverlapped parameter is
+            # not NULL to avoid potentially erroneous results."
+            ffi.NULL,
+            lpFlags, lpFrom, lpFromlen, ffi.NULL))
+    lpOverlapped = await _core.perform_overlapped(s, submit_fn)
+    address = _sockaddr_to_address(lpFrom, lpFromlen[0])
+    # InternalHigh is number-of-bytes-received
+    return (lpOverlapped.InternalHigh, lpFlags[0], address)
 
 # writeable on windows:
 # http://stackoverflow.com/a/28848834
@@ -313,29 +529,3 @@ async def AcceptEx(
 # https://msdn.microsoft.com/en-us/library/windows/desktop/ms740087(v=vs.85).aspx
 # says that after you cancel a socket operation, the only valid operation is
 # to immediately close that socket. this isn't mentioned anywhere else though...
-
-
-
-# We *always* need to check for cancellation before issuing an IOCP call
-# so: let's have the lowest-level API be one where you do some standard prep
-# -- associate object w/ IOCP and fetch OVERLAPPED? -- and that checks for
-# cancellation.
-
-# Some sort of convenience thing, like a context manager maybe?, to handle the
-# idiomatic pattern of
-#
-# raise_if_cancelled()
-# bind the handle to the IOCP if necessary
-# DoWhateverEx()
-# if it executed synchronously:
-#     # maybe this is only *necessary* if it errored out?
-#     await yield_briefly_no_cancel()
-#     return result
-# else:
-#     info = await iocp_complete(handle, overlapped_object)
-#     return result
-#
-# (since CancelIoEx is always the same, and takes handle + lpoverlapped)
-
-# also maybe we should provide low-level wrappers like WSASend here, exposing
-# the flags etc.?

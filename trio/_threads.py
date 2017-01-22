@@ -135,7 +135,7 @@ def current_await_in_trio_thread():
 _worker_thread_counter = count()
 
 async def run_in_worker_thread(fn, *args, cancellable=False):
-    _core.cancellation_point_no_yield()
+    await _core.yield_if_cancelled()
     call_soon = _core.current_call_soon_thread_and_signal_safe()
     task_register = [_core.current_task()]
     def main_thread_fn(result):

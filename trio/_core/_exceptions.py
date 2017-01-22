@@ -39,7 +39,7 @@ class TaskCancelled(Cancelled):
 class TimeoutCancelled(Cancelled):
     pass
 
-@attr.s(slots=True)
+@attr.s(slots=True, frozen=True)
 class PartialResult:
     # XX
     bytes_sent = attr.ib()

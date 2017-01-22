@@ -31,7 +31,7 @@ from . import _public, _hazmat
 # __all__. These are all re-exported as part of the 'trio' or 'trio.hazmat'
 # namespaces.
 __all__ = ["Clock", "Instrument", "Task", "run",
-           "current_task", "current_deadline", "cancellation_point_no_yield"]
+           "current_task", "current_deadline", "yield_if_cancelled"]
 
 GLOBAL_RUN_CONTEXT = threading.local()
 
@@ -171,9 +171,8 @@ class Task:
         with self._might_adjust_deadline():
             self._cancel_stack.deliver_any_pending_cancel_to_blocked_task(self)
 
-    def _raise_any_pending_cancel(self):
-        with self._might_adjust_deadline():
-            self._cancel_stack.raise_any_pending_cancel()
+    def _has_pending_cancel(self):
+        return self._cancel_stack.has_pending_cancel()
 
     def cancel_nowait(self, exc=None):
         # XX Not sure if this pickiness is useful, but easier to start
@@ -597,8 +596,10 @@ def current_deadline():
     return GLOBAL_RUN_CONTEXT.task._next_deadline()
 
 @_hazmat
-def cancellation_point_no_yield():
-    current_task()._raise_any_pending_cancel()
+async def yield_if_cancelled():
+    if current_task()._has_pending_cancel():
+        await _core.yield_briefly()
+        assert False  # pragma: no cover
 
 _WRAPPER_TEMPLATE = """
 def wrapper(*args, **kwargs):

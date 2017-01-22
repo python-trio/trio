@@ -114,10 +114,8 @@ class CancelStack:
         if pending is not None:
             self._attempt_deliver_cancel_to_blocked_task(task, pending)
 
-    def raise_any_pending_cancel(self):
-        pending = self._pending()
-        if pending is not None:
-            raise self._get_exception_and_mark_done(pending)
+    def has_pending_cancel(self):
+        return (self._pending() is not None)
 
 # This is the opaque object we return from move_on_at(), that lets the user
 # check the status and adjust the deadline. It's actually created by

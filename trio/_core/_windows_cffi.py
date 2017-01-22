@@ -2,12 +2,7 @@ import cffi
 import re
 import enum
 
-# cribbed from pywincffi
-# programmatically strips out those annotations MSDN likes, like _In_
-REGEX_SAL_ANNOTATION = re.compile(
-    r"\b(_In_|_Inout_|_Out_|_Outptr_|_Reserved_)(opt_)?\b")
-
-LIB = REGEX_SAL_ANNOTATION.sub(" ", """
+LIB = """
 // https://msdn.microsoft.com/en-us/library/windows/desktop/aa383751(v=vs.85).aspx
 typedef int BOOL;
 typedef unsigned char BYTE;
@@ -16,6 +11,7 @@ typedef void* PVOID;
 typedef PVOID HANDLE;
 typedef unsigned long DWORD;
 typedef unsigned long ULONG;
+typedef unsigned long u_long;
 typedef ULONG *PULONG;
 
 typedef uintptr_t ULONG_PTR;
@@ -113,7 +109,75 @@ typedef BOOL (*AcceptEx)(
   _In_  LPOVERLAPPED lpOverlapped
 );
 
-""")
+struct sockaddr_in {
+        short   sin_family;
+        // u_short sin_port;
+        uint16_t sin_port;
+        //struct  in_addr sin_addr;
+        uint8_t  sin_addr[4];
+        char    sin_zero[8];
+};
+
+typedef struct sockaddr_in6 {
+    //ADDRESS_FAMILY sin6_family; // AF_INET6.
+    short sin6_family;
+    //USHORT sin6_port;           // Transport level port number.
+    uint16_t sin6_port;
+    //ULONG  sin6_flowinfo;       // IPv6 flow information.
+    uint32_t sin6_flowinfo;
+    //IN6_ADDR sin6_addr;         // IPv6 address.
+    uint8_t sin6_addr[16];
+    //union {
+    //    ULONG sin6_scope_id;     // Set of interfaces for a scope.
+    //    SCOPE_ID sin6_scope_struct;
+    //};
+    uint32_t sin6_scope_id;
+};
+
+typedef BOOL PASCAL (*ConnectEx)(
+  _In_     SOCKET                s,
+  //_In_     const struct sockaddr *name,
+  _In_     void *                name,
+  _In_     int                   namelen,
+  _In_opt_ PVOID                 lpSendBuffer,
+  _In_     DWORD                 dwSendDataLength,
+  _Out_    LPDWORD               lpdwBytesSent,
+  _In_     LPOVERLAPPED          lpOverlapped
+);
+
+typedef struct __WSABUF {
+  u_long   len;
+  char FAR *buf;
+} WSABUF, *LPWSABUF;
+
+int WSARecvFrom(
+  _In_    SOCKET                             s,
+  _Inout_ LPWSABUF                           lpBuffers,
+  _In_    DWORD                              dwBufferCount,
+  _Out_   LPDWORD                            lpNumberOfBytesRecvd,
+  _Inout_ LPDWORD                            lpFlags,
+  //_Out_   struct sockaddr                    *lpFrom,
+  _Out_   void*                              lpFrom,
+  _Inout_ LPINT                              lpFromlen,
+  _In_    LPWSAOVERLAPPED                    lpOverlapped,
+  //_In_    LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine
+  _In_    void*                              lpCompletionRoutine
+);
+
+"""
+
+# cribbed from pywincffi
+# programmatically strips out those annotations MSDN likes, like _In_
+REGEX_SAL_ANNOTATION = re.compile(
+    r"\b(_In_|_Inout_|_Out_|_Outptr_|_Reserved_)(opt_)?\b")
+LIB = REGEX_SAL_ANNOTATION.sub(" ", LIB)
+
+# Other fixups:
+# - get rid of FAR, cffi doesn't like it
+LIB = re.sub(r"\bFAR\b", " ", LIB)
+# - PASCAL is apparently an alias for __stdcall (on modern compilers - modern
+#   being _MSC_VER >= 800)
+LIB = re.sub(r"\bPASCAL\b", "__stdcall", LIB)
 
 # doing GetLastError() + getting message: ffi.getwinerror()
 # doing WSAGetLastError + getting message: call WSAGetLastError then pass to
