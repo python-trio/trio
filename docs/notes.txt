@@ -1,0 +1,20 @@
+it's possible from extension/configuration modules to get sphinx to
+know about new roles and even new autodoc types.
+
+See curio docs, which cribbed from the python docs and have a link to
+them
+
+and also:
+
+https://github.com/aio-libs/sphinxcontrib-asyncio/pull/1/files
+
+which added autodoc hooks to sphinxcontrib-asyncio
+
+
+it looks like there's a table of cross-reference roles in
+sphinx/domains/python.py (look for PyXRefRole), which inherits from
+sphinx.roles.XRefRole, which has some notes on how to subclass and
+change rendering (see 'result_nodes' method)
+
+so..... it might even be possible to give async functions/methods their
+own color :-)
