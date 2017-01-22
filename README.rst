@@ -134,134 +134,6 @@ nothing to see here
      - explicit monitoring API is the only thing that counts as
        catching errors
 
-   - should sock.bind() be sync or async? It is weird because in
-     99.999% of usual uses, you pass in "" or at worst "localhost",
-     and the name is resolved instantly without hitting the
-     network. But if you *do* pass in something else, then it will do
-     a full blocking DNS query etc. (And I guess this even could
-     succeed, if someone has an A/AAAA record pointing to one of the
-     local interfaces.)
-
-     And isn't really any way to detect ahead of time if this is going
-     to happen -- we can't tell a priori whether "localhost6" say is
-     in the local hosts file, and there's no way to tell the resolver
-     "please don't use the network". (You can tell it "please reject
-     names", but people might reasonably get grumpy if they can't say
-     "localhost". or maybe this is a teaching opportunity?)
-
-     leaning towards requiring people to pass in numeric only (or
-     wildcard), and telling them to call getaddrinfo themselves if
-     that's what they want.
-
-   - IOCP + UDP on Windows is pretty badly broken: for UDP Windows
-     waits to signal the operation complete until the packet is
-     actually transmitted, as opposed to when it gets copied into the
-     kernel buffer:
-       https://bugs.chromium.org/p/chromium/issues/detail?id=442392
-       https://groups.google.com/a/chromium.org/forum/#!topic/net-dev/VTPH1D8M6Ds
-     the solution chrome came up with was to switch to using
-     select+nonblocking I/O for UDP sockets.
-     (apparently they also use this for tcp receive?)
-     OMG: https://bugs.chromium.org/p/chromium/issues/detail?id=30144#
-     https://bugs.chromium.org/p/chromium/issues/detail?id=86515#
-     IOCP recv will just sit on buffers before handing them back if it
-     thinks your buffer was too big
-
-     So maybe we do need to come up with a way to run select in a
-     thread in Windows... it's annoying but would also give us
-     wait_maybe_writable?
-
-     alternatively I guess the correct way to write IOCP+UDP code is
-     to implement our own send buffer, where we spam out packets
-     without waiting for the previous one to complete, until we have a
-     certain number (how many?) outstanding
-     (Maybe this is why the WSASendMsg docs actually say that you can
-     get WSAEWOULDBLOCK if "there are too many outstanding overlapped
-     I/O requests"? It would be convenient if WSAEWOULDBLOCK was
-     signalled when the UDP send buffer was full, but who knows if
-     that's true.)
-
-     or do non-blocking send until we get WSAEWOULDBLOCK, and then
-     issue an overlapped send? this is still suboptimal though b/c
-     we'll get a little pipeline stall after each overlapped call.
-
-     it looks like:
-     - there isn't any actual limit on the number of sockets you can
-       pass to select() or WSAPoll() (though python's select.select
-       wrapper tops out at 512).
-     - alternatively, there's also WSAEventSelect, which is a bit
-       tricky because it's event-triggered (sorta -- read the MSDN
-       page carefully for details), but I guess we've ended up
-       in a place where we never block on wait_{read,writ}able unless
-       we've just failed to recv/send, so that's fine.
-
-       this is useful if we end up implementing a proper event-waiting
-       system for other reasons. WaitForMultipleObjects is much less
-       scalable than WSAPoll though (64 events vs
-       limited-by-O(n)-behavior)
-
-     the challenge of running WSAWaitForMultipleEvents + WSAPoll +
-     IOCP at the same time is that you need a way to wake up the main
-     thread when one of the child threads detects something, and you
-     need a way to wake up the child threads when you want to
-     add/remove something from their set.
-
-     IOCP is easy, you can post to it whenever from where-ever
-
-     WSAPoll with a negative timeout ("wait forever") is alertable, so
-     you can do QueueUserAPC to wake it up on demand.
-
-     WSAWaitForMultipleEvents is also alertable (optionally)
-
-     (I guess WaitForMultipleObjectsEx and WSAWaitForMultipleEvents are
-     like... the same function?)
-
-     so one design would be:
-       - keep IOCP in the main thread
-       - dedicate two completion keys to poll and event data
-       - spawn two threads to sit in those
-       - when we want to add an object to the watched sets, drop it on
-         a queue and post an APC to the relevant thread
-         - or maybe batch up the APC so as to only do it when
-           handle_io is called, no point in doing it before that
-       - whenever they wake up, they immediately:
-         - post back any events to the IOCP, payload is a few
-           integers, no problem
-         - read out the queue, update their watchlists
-         - go back to sleep
-
-     there are some funny race condition issues if, like, the IOCP
-     wait returns immediately but the WSAPoll wait hasn't quite gotten
-     started yet, how do we know whether to wait...? maybe they do a
-     timeout zero, report back that they've done so, and then go to
-     sleep for real?
-
-     maybe (ignoring WaitForMultipleObjectsEx for the moment):
-
-       - do a timeout 0 WSAPoll
-       - pass the WSAPoll structures over to the thread
-       - do a timeout X IOCP
-
-     or maybe it's better the other way around -- ask the thread to do
-     its thing, go to sleep, and then after waking up do a manual
-     WSAPoll to make sure we've got an up-to-date snapshot?
-
-     not entirely clear that it's worth messing with
-     WaitForMultipleObjectsEx as opposed to just dedicating a thread
-     per object waited on.
-
-     huh, select's socket sets are actually pretty easy to work with,
-     maybe easier than WSAPoll (esp. if we are in the regime where
-     we're recreating the objects every time)
-
-       typedef struct fd_set {
-        u_int fd_count;               /* how many are SET? */
-        SOCKET  fd_array[FD_SETSIZE];   /* an array of SOCKETs */
-       } fd_set;
-
-     select() isn't alertable, though, so would need to use the
-     socketpair trick.
-
    - should probably throttle getaddrinfo threads
 
    - also according to the docs on Windows, with overlapped I/o you can
@@ -269,8 +141,6 @@ nothing to see here
      requests"). No-one on the internet seems to have any idea when
      this actually occurs or why. Twisted has a FIXME b/c they don't
      handle it, just propagate the error out.
-
-   - should we have "batched accept"?
 
    - should we split Queue and UnboundedQueue, latter has longer /
      more inconvenient name and only provides get_all and put_nowait,
@@ -325,7 +195,8 @@ nothing to see here
      - run_in_worker_process... hmm. pickleability is a problem.
        - trio.Local(pickle=True)?
 
-   - do we need a socket.accept_nowait?
+   - do we need "batched accept" / socket.accept_nowait?
+     (I suspect the same question applies for sendto/recvfrom)
 
      https://bugs.python.org/issue27906 suggests that we do
      and it's trivial to implement b/c it doesn't require any IOCP
@@ -364,6 +235,10 @@ nothing to see here
      clear here (the whole idea of batching accept is make it *not*
      have this property, so if this is how we're designing all our
      components then it doesn't work...).
+
+     I guess one piece of "other work" that scales with the number of
+     passes through the loop is just, loop overhead. One would hope
+     this is not too high, but it is not nothing.
 
    - possible improved robustness ("quality of implementation") ideas:
      - if an abort callback fails, discard that task but clean up the

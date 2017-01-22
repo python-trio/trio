@@ -45,3 +45,7 @@ __all__ += _streams.__all__
 
 from ._signals import *
 __all__ += _signals.__all__
+
+# Imported by default
+from . import socket
+# Not imported by default: testing

@@ -1,4 +1,4 @@
-from functool import wraps as _wraps, partial as _partial
+from functools import wraps as _wraps, partial as _partial
 import socket as _stdlib_socket
 import sys as _sys
 
@@ -26,10 +26,11 @@ for _name in [
         "inet_pton", "inet_ntop", "sethostname", "if_nameindex",
         "if_nametoindex", "if_indextoname",
         ]:
-    _reexport(_name)
+    if hasattr(_stdlib_socket, _name):
+        _reexport(_name)
 
 def from_stdlib_socket(sock):
-    if type(sock) is not stdlib_socket.socket:
+    if type(sock) is not _stdlib_socket.socket:
         # For example, ssl.SSLSocket subclasses socket.socket, but we
         # certainly don't want to blindly wrap one of those.
         raise TypeError(
@@ -38,24 +39,25 @@ def from_stdlib_socket(sock):
     return SocketType(sock)
 __all__.append("from_stdlib_socket")
 
-@_wraps(_stdlib_socket.fromfd)
+@_wraps(_stdlib_socket.fromfd, assigned=(), updated=())
 def fromfd(*args, **kwargs):
     return from_stdlib_socket(_stdlib_socket.fromfd(*args, **kwargs))
 __all__.append("fromfd")
 
-@_wraps(_stdlib_socket.fromshare)
-def fromshare(*args, **kwargs):
-    return from_stdlib_socket(_stdlib_socket.fromshare(*args, **kwargs))
-__all__.append("fromshare")
+if hasattr(_stdlib_socket, "fromshare"):
+    @_wraps(_stdlib_socket.fromshare, assigned=(), updated=())
+    def fromshare(*args, **kwargs):
+        return from_stdlib_socket(_stdlib_socket.fromshare(*args, **kwargs))
+    __all__.append("fromshare")
 
-@_wraps(_stdlib_socket.socketpair)
+@_wraps(_stdlib_socket.socketpair, assigned=(), updated=())
 def socketpair(*args, **kwargs):
     return tuple(
         from_stdlib_socket(s)
         for s in _stdlib_socket.socketpair(*args, **kwargs))
 __all__.append("socketpair")
 
-@_wraps(_stdlib_socket.socket)
+@_wraps(_stdlib_socket.socket, assigned=(), updated=())
 def socket(*args, **kwargs):
     return from_stdlib_socket(_stdlib_socket.socket(*args, **kwargs))
 __all__.append("socket")
@@ -79,7 +81,7 @@ async def _getaddrinfo_impl(host, port, family=0, type=0, proto=0, flags=0,
             await _core.yield_briefly()
         return info
 
-@_wraps(_stdlib_socket.getaddrinfo)
+@_wraps(_stdlib_socket.getaddrinfo, assigned=(), updated=())
 async def getaddrinfo(*args, **kwargs):
     return await _getaddrinfo_impl(*args, **kwargs, must_yield=False)
 
@@ -90,11 +92,17 @@ for _name in [
         # obsolete gethostbyname etc. intentionally omitted
 ]:
     _fn = getattr(_stdlib_socket, _name)
-    @_wraps(fn)
+    @_wraps(_fn, assigned=("__name__", "__doc__"))
     async def _wrapper(*args, **kwargs):
         return await _run_in_worker_thread(
             _partial(fn, *args, **kwargs), cancellable=True)
 
+if hasattr(_core, "wait_socket_readable"):
+    _wait_readable = _core.wait_socket_readable
+    _wait_writable = _core.wait_socket_writable
+else:
+    _wait_readable = _core.wait_readable
+    _wait_writable = _core.wait_writable
 
 class SocketType(_Stream):
     def __init__(self, sock):
@@ -119,17 +127,28 @@ class SocketType(_Stream):
     # Simple + portable methods and attributes
     ################################################################
 
-    for _name in [
-            "__enter__", "__exit__", "close", "detach", "get_inheritable",
-            "set_inheritable", "fileno", "getpeername", "getsockname",
-            "getsockopt", "setsockopt", "listen", "shutdown",
-            ]:
-        _meth = getattr(_stdlib_socket.SocketType, _name)
-        @_wraps(_meth)
-        def _wrapped(self, *args, **kwargs):
-            return getattr(self._sock, _meth)(*args, **kwargs)
-        locals()[_meth] = wrapped
-    del _name, _meth, _wrapped
+    # for _name in [
+    #         ]:
+    #     _meth = getattr(_stdlib_socket.socket, _name)
+    #     @_wraps(_meth, assigned=("__name__", "__doc__"), updated=())
+    #     def _wrapped(self, *args, **kwargs):
+    #         return getattr(self._sock, _meth)(*args, **kwargs)
+    #     locals()[_meth] = _wrapped
+    # del _name, _meth, _wrapped
+
+    _forward = {
+        "__enter__", "__exit__", "close", "detach", "get_inheritable",
+        "set_inheritable", "fileno", "getpeername", "getsockname",
+        "getsockopt", "setsockopt", "listen", "shutdown",
+    }
+    def __getattr__(self, name):
+        if name in self._forward:
+            return getattr(self._sock, name)
+        raise AttributeError(name)
+
+    # Need an explicit method to make the Stream abc happy:
+    def close(self):
+        self._sock.close()
 
     @property
     def family(self):
@@ -152,6 +171,12 @@ class SocketType(_Stream):
     def bind(self, address):
         self._check_address(address, require_resolved=True)
         return self._sock.bind(address)
+
+    def can_send_eof(self):
+        return True
+
+    def send_eof(self):
+        self.shutdown(SHUT_WR)
 
     ################################################################
     # Address handling
@@ -232,354 +257,226 @@ class SocketType(_Stream):
     async def resolve_remote_address(self, address):
         return await self._resolve_address(address, 0)
 
-    if hasattr(_core, "wait_writable"):
-        async def wait_maybe_writable(self):
-            await _core.wait_writable(self._sock.fileno())
-    else:
-        async def wait_maybe_writable(self):
-            return
+    async def wait_maybe_writable(self):
+        await _wait_writable(self._sock)
 
-    _windows = hasattr(_core, "wait_overlapped")
-
-    if not _windows:
-        # Some helpers for Unix-style sockets:
-        async def _nonblocking_helper(self, wait_fn, fn, *args, **kwargs):
-            # We have to reconcile two conflicting goals:
-            # - We want to make it look like we always blocked in doing these
-            #   operations. The obvious way is to always do an IO wait before
-            #   calling the function.
-            # - But, we also want to provide the correct semantics, and part
-            #   of that means giving correct errors. So, for example, if you
-            #   haven't called .listen(), then .accept() raises an error
-            #   immediately. But in this same circumstance, then on MacOS, the
-            #   socket does not register as readable. So if we block waiting
-            #   for read *before* we call accept, then we'll be waiting
-            #   forever instead of properly raising an error. (On Linux,
-            #   interestingly, AFAICT a socket that can't possible read/write
-            #   *does* count as readable/writable for select() purposes. But
-            #   not on MacOS.)
-            #
-            # So, we have to call the function once, with the appropriate
-            # cancellation/yielding sandwich if it succeeds, and if it gives
-            # BlockingIOError *then* we fall back to IO wait.
-            #
-            # XX think if this can be combined with the similar logic for IOCP
-            # submission...
-            await _core.yield_if_cancelled()
+    async def _nonblocking_helper(self, fn, args, kwargs, wait_fn):
+        # We have to reconcile two conflicting goals:
+        # - We want to make it look like we always blocked in doing these
+        #   operations. The obvious way is to always do an IO wait before
+        #   calling the function.
+        # - But, we also want to provide the correct semantics, and part
+        #   of that means giving correct errors. So, for example, if you
+        #   haven't called .listen(), then .accept() raises an error
+        #   immediately. But in this same circumstance, then on MacOS, the
+        #   socket does not register as readable. So if we block waiting
+        #   for read *before* we call accept, then we'll be waiting
+        #   forever instead of properly raising an error. (On Linux,
+        #   interestingly, AFAICT a socket that can't possible read/write
+        #   *does* count as readable/writable for select() purposes. But
+        #   not on MacOS.)
+        #
+        # So, we have to call the function once, with the appropriate
+        # cancellation/yielding sandwich if it succeeds, and if it gives
+        # BlockingIOError *then* we fall back to IO wait.
+        #
+        # XX think if this can be combined with the similar logic for IOCP
+        # submission...
+        await _core.yield_if_cancelled()
+        try:
+            return fn(self._sock, *args, **kwargs)
+        except BlockingIOError:
+            pass
+        finally:
+            await _core.yield_briefly_no_cancel()
+        # First attempt raised BlockingIOError:
+        while True:
+            await wait_fn(self._sock)
             try:
-                return fn(*args, **kwargs)
+                return fn(self._sock, *args, **kwargs)
             except BlockingIOError:
                 pass
-            finally:
-                await _core.yield_briefly_no_cancel()
-            # First attempt raised BlockingIOError:
-            while True:
-                await wait_fn(self._sock)
-                try:
-                    return fn(*args, **kwargs)
-                except BlockingIOError:
-                    pass
 
-        def _make_simple_wrapper(fn, wait_fn):
-            @_wraps(fn)
-            async def wrapper(self, *args, **kwargs):
-                return await self._nonblocking_helper(
-                    wait_fn, fn, *args, **kwargs)
-            return wrapper
+    def _make_simple_wrapper(fn, wait_fn):
+        @_wraps(fn, assigned=("__name__", "__doc__"), updated=())
+        async def wrapper(self, *args, **kwargs):
+            return await self._nonblocking_helper(fn, args, kwargs, wait_fn)
+        return wrapper
 
     ################################################################
     # accept
     ################################################################
 
-    if _windows:
-        # Windows
-        async def accept(self):
-            new_sock = socket(self.family, self.type, self.proto)
-            # Hack: we need to allocate a buffer that's at least
-            #   2 * (sizeof(sockaddr_$PROTO) + 16)
-            # I think there's a proper way to figure out
-            # sizeof(sockaddr_$PROTO) using getsockopt(SOL_SOCKET,
-            # SO_PROTOCOL_INFO), but this is a huge pain. But I bet there
-            # aren't any protocols that need >128 bytes for an address.
-            ASSUMED_SOCKADDR_SIZE = 128
-            buf = bytearray(2 * (ASSUMED_SOCKADDR_SIZE + 16))
-            await _core.AcceptEx(
-                self.fileno(), new_sock.fileno(), buf, 0,
-                ASSUMED_SOCKADDR_SIZE + 16, ASSUMED_SOCKADDR_SIZE + 16)
-            # Magic thing we have to call to finish making the socket ready:
-            SO_UPDATE_ACCEPT_CONTEXT = 0x700B
-            new_socket.setsockopt(
-                SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT, self.fileno())
-            # What MS wants us to do now is to use GetAcceptExSockaddrs to
-            # parse out the local and remote sockaddr from the buffer, and
-            # then convert those into something useful somehow. But this
-            # sounds like a lot of work, so we just call getpeername()
-            # instead:
-            return (new_sock, new_sock.getpeername())
-    else:
-        accept = _make_simple_wrapper(
-            _stdlib_socket.socket.accept, _core.wait_readable)
-
-    accept.__doc__ = _stdlib_socket.socket.accept
+    accept = _make_simple_wrapper(
+        _stdlib_socket.socket.accept, _wait_readable)
 
     ################################################################
     # connect
     ################################################################
 
-    if _windows:
-        async def connect(self, address):
-            self._check_address(address, require_resolved=True)
-            # Socket must be bound before calling ConnectEx. So check if it's
-            # bound, and if not, then bind to an arbitrary port:
-            try:
-                # We expect this to return WSAEINVAL b/c the socket probably
-                # isn't bound.
-                self._sock.getsockname()
-            except OSError as exc:
-                if exc.winerror != errno.WSAEINVAL:
-                    raise
-                self.bind(("", 0))
-            await _core.ConnectEx(self.fileno(), self.family, address)
-            # Magic thing we have to call:
-            SO_UPDATE_CONNECT_CONTEXT = 0x7010
-            self._sock.setsockopt(SOL_CONTEXT, SO_UPDATE_CONNECT_CONTEXT, 0)
-    else:
-        async def connect(self, address):
-            self._check_address(address, require_resolved=True)
-            # nonblocking connect is weird -- you call it to start things
-            # off, then the socket becomes writable as a completion
-            # notification. This means it isn't really cancellable...
-            await _core.yield_if_cancelled()
-            try:
-                # For some reason, PEP 475 left InterruptedError as a
-                # possible error for non-blocking connect
-                # (specifically). But as far as I know, EINTR always means
-                # you need to redo the call (with the extremely special
-                # exception of close() on Linux, but that's unrelated, and
-                # POSIX is cranky at them about it). If the kernel wanted
-                # to signal that the connect really was in progress then
-                # it'd have used EINPROGRESS. So we retry:
-                while True:
-                    try:
-                        return self._sock.connect(address)
-                    except InterruptedError:
-                        pass
-            except BlockingIOError:
-                pass
-            finally:
-                # Either it raised a (real) error, or completed
-                # instantly. Yield and let it exit.
-                await _core.yield_briefly_no_cancel()
-            # It raised BlockingIOError, meaning that it's started the
-            # connection attempt. We wait for it to complete:
-            try:
-                await _core.wait_writable(self._sock)
-            except _core.Cancelled:
-                # We can't really cancel a connect, and the socket is in an
-                # indeterminate state. Better to close it so we don't get
-                # confused.
-                self._sock.close()
-                raise
-            # Okay, the connect finished, but it might have failed:
-            err = self._sock.getsockopt(SOL_SOCKET, SO_ERROR)
-            if err != 0:
-                raise OSError(err, "Error in connect: " + os.strerror(err))
+    async def connect(self, address):
+        """Connect the socket to a remote address.
 
-    connect.__doc__ = """Connect the socket to a remote address.
+        Unlike the stdlib ``connect``, this method requires a pre-resolved
+        address. See :meth:`resolve_remote_address`.
 
-    Unlike the stdlib ``connect``, this method requires a pre-resolved
-    address. See :meth:`resolve_remote_address`.
-    """
+        """
+        self._check_address(address, require_resolved=True)
+        # nonblocking connect is weird -- you call it to start things
+        # off, then the socket becomes writable as a completion
+        # notification. This means it isn't really cancellable...
+        await _core.yield_if_cancelled()
+        try:
+            # For some reason, PEP 475 left InterruptedError as a
+            # possible error for non-blocking connect
+            # (specifically). But as far as I know, EINTR always means
+            # you need to redo the call (with the extremely special
+            # exception of close() on Linux, but that's unrelated, and
+            # POSIX is cranky at them about it). If the kernel wanted
+            # to signal that the connect really was in progress then
+            # it'd have used EINPROGRESS. So we retry:
+            while True:
+                try:
+                    return self._sock.connect(address)
+                except InterruptedError:
+                    pass
+        except BlockingIOError:
+            pass
+        finally:
+            # Either it raised a (real) error, or completed
+            # instantly. Yield and let it exit.
+            await _core.yield_briefly_no_cancel()
+        # It raised BlockingIOError, meaning that it's started the
+        # connection attempt. We wait for it to complete:
+        try:
+            await _wait_writable(self._sock)
+        except _core.Cancelled:
+            # We can't really cancel a connect, and the socket is in an
+            # indeterminate state. Better to close it so we don't get
+            # confused.
+            self._sock.close()
+            raise
+        # Okay, the connect finished, but it might have failed:
+        err = self._sock.getsockopt(SOL_SOCKET, SO_ERROR)
+        if err != 0:
+            raise OSError(err, "Error in connect: " + os.strerror(err))
 
     ################################################################
     # recv
     ################################################################
 
-    if _windows:
-        async def recv(self, nbytes, flags=0):
-            buf, _ = await self.recvfrom(nbytes, flags)
-            return buf
-    else:
-        recv = _make_simple_wrapper(
-            _stdlib_socket.socket.recv, _core.wait_readable)
-
-    recv.__doc__ = _stdlib_socket.socket.recv.__doc__
+    recv = _make_simple_wrapper(
+        _stdlib_socket.socket.recv, _wait_readable)
 
     ################################################################
     # recv_into
     ################################################################
 
-    if _windows:
-        async def recv_into(self, buf, nbytes=0, flags=0):
-            got, _ = await self.recvfrom_into(buf, nbytes, flags)
-            return got
-    else:
-        recv_into = _make_simple_wrapper(
-            _stdlib_socket.socket.recv_into, _core.wait_readable)
-
-    recv_into.__doc__ = _stdlib_socket.socket.recv_into.__doc__
+    recv_into = _make_simple_wrapper(
+        _stdlib_socket.socket.recv_into, _wait_readable)
 
     ################################################################
     # recvfrom
     ################################################################
 
-    if _windows:
-        async def recvfrom(self, nbytes, flags=0):
-            buf = bytearray(nbytes)
-            got, address = await self.recvfrom_into(buf, nbytes, flags)
-            return bytes(buf[:got]), address
-    else:
-        recvfrom = _make_simple_wrapper(
-            _stdlib_socket.socket.recvfrom, _core.wait_readable)
-
-    recvfrom.__doc__ = _stdlib_socket.socket.recvfrom.__doc__
+    recvfrom = _make_simple_wrapper(
+        _stdlib_socket.socket.recvfrom, _wait_readable)
 
     ################################################################
     # recvfrom_into
     ################################################################
 
-    if _windows:
-        # This can't delegate to recvmsg_into, because WSARecvMsg does not
-        # support SOCK_STREAM sockets.
-        async def recvfrom_into(self, buf, nbytes=0, flags=0):
-            if nbytes == 0:
-                nbytes = len(buf)
-            got, _, address = await _core.WSARecvFrom(
-                self.fileno(), [buf], [lens], flags)
-            return got, address
-    else:
-        recvfrom_into = _make_simple_wrapper(
-            _stdlib_socket.socket.recvfrom_into, _core.wait_readable)
-
-    recvfrom_into.__doc__ = _stdlib_socket.socket.recvfrom_into.__doc__
+    recvfrom_into = _make_simple_wrapper(
+        _stdlib_socket.socket.recvfrom_into, _wait_readable)
 
     ################################################################
     # recvmsg
     ################################################################
 
-    if _windows:
-        async def recvmsg(nbytes, anc_nbytes=0, flags=0):
-            buf = bytearray(nbytes)
-            got, *rest = await self.recvmsg_into([buf], nbytes, flags)
-            return bytes(buf[:got]), *rest
-    else:
+    if hasattr(_stdlib_socket.socket, "recvmsg"):
         recvmsg = _make_simple_wrapper(
-            _stdlib_socket.socket.recvmsg, _core.wait_readable)
-
-    recvmsg.__doc__ = _stdlib_socket.socket.recvmsg.__doc__
+            _stdlib_socket.socket.recvmsg, _wait_readable)
 
     ################################################################
     # recvmsg_into
     ################################################################
 
-    if _windows:
-        async def recvmsg_into(bufs, anc_nbytes=0, flags=0):
-            XX
-    else:
+    if hasattr(_stdlib_socket.socket, "recvmsg_into"):
         recvmsg_into = _make_simple_wrapper(
-            _stdlib_socket.socket.recvmsg_into, _core.wait_readable)
-
-    recvmsg_into.__doc__ = _stdlib_socket.socket.recvmsg_into.__doc__
+            _stdlib_socket.socket.recvmsg_into, _wait_readable)
 
     ################################################################
     # send
     ################################################################
 
-    if _windows:
-        async def send(self, buf, flags=0):
-            return await self.sendto(buf, flags, None)
-    else:
-        send = _make_simple_wrapper(
-            _stdlib_socket.socket.send, _core.wait_writable)
-
-    send.__doc__ = _stdlib_socket.socket.send.__doc__
+    send = _make_simple_wrapper(
+        _stdlib_socket.socket.send, _wait_writable)
 
     ################################################################
     # sendto
     ################################################################
 
-    if _windows:
-        @wraps(_stdlib_socket.socket.sendto)
-        async def sendto(self, *args):
-            # Can't be implemented in terms of sendmsg, because WSASendMsg
-            # "can only be used with datagrams and raw sockets"
-            XX
-    else:
-        @wraps(_stdlib_socket.socket.sendto)
-        async def sendto(*args):
-            # args is: data[, flags], address)
-            # and kwargs are not accepted
-            self._check_address(args[-1], require_resolved=True)
-            return await self._nonblocking_helper(
-                _core.wait_writable, _stdlib_socket.socket.sendto, *args)
-
-    sendto.__doc__ = _stdlib_socket.socket.sendto.__doc__
+    @_wraps(_stdlib_socket.socket.sendto, assigned=(), updated=())
+    async def sendto(*args):
+        # args is: data[, flags], address)
+        # and kwargs are not accepted
+        self._check_address(args[-1], require_resolved=True)
+        return await self._nonblocking_helper(
+            _stdlib_socket.socket.sendto, args, {}, _wait_writable)
 
     ################################################################
     # sendmsg
     ################################################################
 
-    if _windows:
-        async def sendmsg(self):
-            XX
-    else:
-        @wraps(_stdlib_socket.socket.sendmsg)
+    if hasattr(_stdlib_socket.socket, "sendmsg"):
+        @_wraps(_stdlib_socket.socket.sendmsg, assigned=(), updated=())
         async def sendmsg(*args):
             # args is: buffers[, ancdata[, flags[, address]]]
             # and kwargs are not accepted
             if len(args) == 4 and args[-1] is not None:
                 self._check_address(args[-1], require_resolved=True)
             return await self._nonblocking_helper(
-                _core.wait_writable, _stdlib_socket.socket.sendmsg, *args)
+                _stdlib_socket.socket.sendmsg, args, {}, _wait_writable)
 
-    sendmsg.__doc__ = """See :meth:`socket.socket.sendmsg.
+        sendmsg.__doc__ = """See :meth:`socket.socket.sendmsg`.
 
-    Unlike the stdlib ``sendmsg``, this method requires that if an address is
-    given, it must be pre-resolved. See :meth:`resolve_remote_address`.
-    """
+        Unlike the stdlib ``sendmsg``, this method requires that if an address
+        is given, it must be pre-resolved. See :meth:`resolve_remote_address`.
+        """
 
     ################################################################
     # sendall
     ################################################################
 
-    if _windows:
-        async def sendall(self, data, flags=0):
-            # When using IOCP, send and sendall are the same
-            return await self.send(self, data, flags)
-    else:
-        async def sendall(self, data, flags=0):
-            with memoryview(data) as data:
-                total_sent = 0
-                try:
-                    while data:
-                        sent = await self.send(data, flags)
-                        total_sent += sent
-                        data = data[sent:]
-                except BaseException as exc:
-                    pr = _core.PartialResult(bytes_sent=total_sent)
-                    exc.partial_result = pr
-                    raise
-    sendall.__doc__ = """Send all the data to the socket.
+    async def sendall(self, data, flags=0):
+        """Send all the data to the socket.
 
-    Accepts the same flags as :meth:`send`.
+        Accepts the same flags as :meth:`send`.
 
-    If an error occurs or the operation is cancelled, then the resulting
-    exception will have a ``.partial_result`` attribute with a ``.bytes_sent``
-    attribute containing the number of bytes sent.
-    """
+        If an error occurs or the operation is cancelled, then the resulting
+        exception will have a ``.partial_result`` attribute with a
+        ``.bytes_sent`` attribute containing the number of bytes sent.
+
+        """
+        with memoryview(data) as data:
+            total_sent = 0
+            try:
+                while data:
+                    sent = await self.send(data, flags)
+                    total_sent += sent
+                    data = data[sent:]
+            except BaseException as exc:
+                pr = _core.PartialResult(bytes_sent=total_sent)
+                exc.partial_result = pr
+                raise
 
     ################################################################
     # sendfile
     ################################################################
 
-    if _windows:
-        async def sendfile(self, file, offset=0, count=None):
-            XX
-    else:
-        async def sendfile(self, file, offset=0, count=None):
-            XX
-
-    sendfile.__doc__ = "Not implemented yet."
+    async def sendfile(self, file, offset=0, count=None):
+        "Not implemented yet"
+        XX
 
     # Intentionally omitted:
     #   makefile
