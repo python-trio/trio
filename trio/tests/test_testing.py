@@ -1,3 +1,5 @@
+import pytest
+
 from .. import sleep
 from .. import _core
 from ..testing import *
@@ -50,3 +52,19 @@ async def test_wait_run_loop_idle_with_timeouts(mock_clock):
     mock_clock.advance(10)
     await wait_run_loop_idle()
     assert record == ["tt start", "tt finished"]
+
+
+async def test_assert_yields():
+    with assert_yields():
+        await _core.yield_briefly()
+
+    with pytest.raises(AssertionError):
+        with assert_yields():
+            1 + 1
+
+    with assert_no_yields():
+        1 + 1
+
+    with pytest.raises(AssertionError):
+        with assert_no_yields():
+            await _core.yield_briefly()

@@ -1,11 +1,13 @@
 import threading
 from functools import wraps, partial
+from contextlib import contextmanager
 import inspect
 import attr
 
 from . import _core
 
-__all__ = ["busy_wait_for", "wait_run_loop_idle", "trio_test", "MockClock"]
+__all__ = ["busy_wait_for", "wait_run_loop_idle", "trio_test", "MockClock",
+           "assert_yields", "assert_no_yields"]
 
 async def busy_wait_for(predicate):
     while not predicate():
@@ -65,6 +67,31 @@ class MockClock(_core.Clock):
     #         await _core.yield_briefly()
     #         await _core.yield_briefly()
 
+
+@attr.s(cmp=False, hash=False)
+class _RecordYield(_core.Instrument):
+    yielded = attr.ib(default=False)
+
+    def after_task_step(self, task):
+        self.yielded = True
+
+@contextmanager
+def _assert_yields_or_not(expected):
+    __tracebackhide__ = True
+    instrument = _RecordYield()
+    _core.current_instruments().append(instrument)
+    try:
+        yield
+    finally:
+        assert instrument.yielded == expected
+
+def assert_yields():
+    __tracebackhide__ = True
+    return _assert_yields_or_not(True)
+
+def assert_no_yields():
+    __tracebackhide__ = True
+    return _assert_yields_or_not(False)
 
 # XX Sequencer like in volley/jongleur
 # refinements:
