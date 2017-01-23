@@ -92,17 +92,6 @@ nothing to see here
 
 
    next:
-   - cancel should be idempotent... except for that awkward exc
-     argument :-/
-     alternatively, maybe we should allow it to be delivered multiple
-     times? control-C can be hit multiple times... (I guess if one is
-     pending and another arrives, the second overwrites the first?)
-
-     also there's a problem right now where if we crash while some
-     tasks are already unwinding from a (root) cancellation, then we
-     try to cancel everyone and this errors out b/c they're already
-     cancelled.
-
    - should tasks be context managers?
 
    - join returning result is actually pretty bad because it
@@ -133,10 +122,6 @@ nothing to see here
      requests"). No-one on the internet seems to have any idea when
      this actually occurs or why. Twisted has a FIXME b/c they don't
      handle it, just propagate the error out.
-
-   - should we split Queue and UnboundedQueue, latter has longer /
-     more inconvenient name and only provides get_all and put_nowait,
-     no put or get?
 
    - not returning KeyboardInterrupt from run() is pretty annoying
      when running pytest
