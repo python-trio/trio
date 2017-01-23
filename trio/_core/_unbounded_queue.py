@@ -2,6 +2,7 @@ from collections import deque
 import attr
 
 from .. import _core
+from . import _hazmat
 from ._util import aiter_compat
 
 __all__ = ["UnboundedQueue"]
@@ -11,6 +12,7 @@ class _UnboundedQueueStats:
     qsize = attr.ib()
     tasks_waiting_get_all = attr.ib()
 
+@_hazmat
 class UnboundedQueue:
     def __init__(self):
         self._lot = _core.ParkingLot()
