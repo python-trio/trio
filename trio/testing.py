@@ -93,6 +93,7 @@ def assert_no_yields():
     __tracebackhide__ = True
     return _assert_yields_or_not(False)
 
+
 # XX Sequencer like in volley/jongleur
 # refinements:
 # - ability to schedule clock advancements

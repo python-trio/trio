@@ -155,6 +155,36 @@ nothing to see here
      our final exception a keyboardinterrupt instead of an
      UnhandledExceptionError. if some raised new errors...?
 
+
+     so:
+     - when control-C is hit, raise inside the currently executing
+       code (if not protected)
+     - and also raise inside all regular tasks
+       - possibly: raise at the next schedule point *even if* not
+         otherwise cancellable then *if* they aren't protected against
+         control-C. This might cause us to lose the result of the
+         operation that got blown away (which is why cancellation
+         can't normally happen here), but that's what control-C is
+         like in general, so...
+       - for protected code we need to go through the cancellation
+         machinery
+         - so it helps if the cancellation machinery allows us to send
+           in an exception repeatedly!
+
+     when tasks exit with a cancellation, it should be like there's a
+     with move_on_after: wrapped around the whole thing, that swallows
+     the exception if its the one we injected. the general rule with
+     cancellations is to let them propagate. BUT for this it will help
+     if there's a supervisor who notices and freaks out about
+     "regular" death too...? well, and we need to be able to
+     distinguish between unexpected exceptions, return None, and
+     cancelled, probably?
+
+     in general, there is *no* guarantee in trio that just because
+     you've been cancelled once, you won't be cancelled
+     again... because e.g. an outer timeout can fire while you're
+     unwinding from an inner timeout.
+
    - Note: I've seen KI raised purportedly inside call_soon_task, what's
      up with that?
 

@@ -485,13 +485,11 @@ async def test_cancel_edge_cases():
         await _core.yield_briefly()
 
     t1 = await _core.spawn(child)
-    t1.cancel()
-    # Can't cancel a task that was already cancelled
-    with pytest.raises(RuntimeError) as excinfo:
-        t1.cancel()
-    assert "already canceled" in str(excinfo.value)
+    # Two cancels in row -- second one overwrites the first
+    t1.cancel(exc=_core.TaskCancelled)
+    t1.cancel(exc=_core.TimeoutCancelled)
     result = await t1.join()
-    assert type(result.error) is _core.TaskCancelled
+    assert type(result.error) is _core.TimeoutCancelled
 
     t2 = await _core.spawn(child)
     await t2.join()
@@ -499,6 +497,20 @@ async def test_cancel_edge_cases():
     with pytest.raises(RuntimeError) as excinfo:
         t2.cancel()
     assert "already exited" in str(excinfo.value)
+
+    record = []
+    async def double_cancel():
+        try:
+            await _core.yield_briefly()
+        except _core.Cancelled:
+            record.append("once")
+            try:
+                await _core.yield_briefly()
+            except _core.Cancelled:
+                record.append("twice")
+    t3 = await _core.spawn(double_cancel)
+    t3.cancel()
+
 
 
 async def test_cancel_custom_exc():
@@ -512,12 +524,16 @@ async def test_cancel_custom_exc():
 
     task = await _core.spawn(child)
     with pytest.raises(TypeError):
-        # exception type rather than exception instance
-        task.cancel(MyCancelled)
-    with pytest.raises(TypeError):
         # other exception types not allowed
         task.cancel(ValueError())
     task.cancel(MyCancelled())
+    result = await task.join()
+    assert result.unwrap() == "ok"
+
+    # If an exception class is passed in, it's automatically instantiated
+    # (like raise does)
+    task = await _core.spawn(child)
+    task.cancel(MyCancelled)
     result = await task.join()
     assert result.unwrap() == "ok"
 

@@ -63,7 +63,12 @@ class CancelStack:
         stack_entry = self.entries[pending]
         assert stack_entry.state is CancelState.PENDING
         stack_entry.raised = True
-        stack_entry.state = CancelState.DONE
+        # Special case: the root entry can be fired repeatedly, so if it
+        # resets back to IDLE
+        if pending == 0:
+            stack_entry.state = CancelState.IDLE
+        else:
+            stack_entry.state = CancelState.DONE
         exc = stack_entry.pending_exc
         exc._stack_entry = stack_entry
         # Avoid reference loop
@@ -83,7 +88,9 @@ class CancelStack:
             _core.reschedule(task, _core.Error(exc))
 
     def _fire_entry(self, task, i, exc):
-        assert self.entries[i].state is CancelState.IDLE
+        assert i == 0 or self.entries[i].state is CancelState.IDLE
+        if isinstance(exc, type):
+            exc = exc()
         if not isinstance(exc, _core.Cancelled):
             raise TypeError(
                 "cancel exception must be an instance of Cancelled, not {!r}"
@@ -102,12 +109,9 @@ class CancelStack:
                 break
 
     def fire_task_cancel(self, task, exc):
-        if self.entries[0].state is CancelState.IDLE:
-            self._fire_entry(task, 0, exc)
-        else:
-            # XX Not sure if this pickiness is useful, but easier to start
-            # strict and maybe relax it later...
-            raise RuntimeError("task was already canceled")
+        stack_entry = self.entries[0]
+        assert stack_entry.state in (CancelState.IDLE, CancelState.PENDING)
+        self._fire_entry(task, 0, exc)
 
     def deliver_any_pending_cancel_to_blocked_task(self, task):
         pending = self._pending()

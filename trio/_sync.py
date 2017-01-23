@@ -5,7 +5,7 @@ from async_generator import async_generator, yield_
 from . import _core
 from ._util import acontextmanager
 
-__all__ = ["Event"]
+__all__ = ["Event", "BoundedSemaphore"]
 
 @attr.s(slots=True, repr=False, cmp=False, hash=False)
 class Event:

@@ -167,7 +167,7 @@ class Task:
         if self._task_result is not None:
             raise RuntimeError("can't cancel a task that has already exited")
         if exc is None:
-            exc = TaskCancelled()
+            exc = TaskCancelled
         with self._might_adjust_deadline():
             self._cancel_stack.fire_task_cancel(self, exc)
 

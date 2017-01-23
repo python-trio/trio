@@ -34,9 +34,9 @@ class Queue:
 
     def statistics(self):
         return _QueueStats(
-            waiting_put=self._put_lot.statistics().waiting,
-            waiting_get=self._get_lot.statistics().waiting,
-            waiting_join=self._join_lot.statistics().waiting)
+            waiting_put=self._put_lot.statistics().tasks_waiting,
+            tasks_waiting_get=self._get_lot.statistics().tasks_waiting,
+            tasks_waiting_join=self._join_lot.statistics().tasks_waiting)
 
     def full(self):
         if self.capacity is Queue.UNLIMITED:

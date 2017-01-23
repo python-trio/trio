@@ -4,7 +4,8 @@ import attr
 __all__ = [
     "UnhandledExceptionError", "TrioInternalError", "RunFinishedError",
     "WouldBlock",
-    "Cancelled", "TaskCancelled", "TimeoutCancelled", "PartialResult",
+    "Cancelled", "TaskCancelled", "TimeoutCancelled",
+    "KeyboardInterruptCancelled", "PartialResult",
 ]
 
 class UnhandledExceptionError(Exception):
@@ -37,6 +38,9 @@ class TaskCancelled(Cancelled):
     pass
 
 class TimeoutCancelled(Cancelled):
+    pass
+
+class KeyboardInterruptCancelled(KeyboardInterrupt, Cancelled):
     pass
 
 @attr.s(slots=True, frozen=True)

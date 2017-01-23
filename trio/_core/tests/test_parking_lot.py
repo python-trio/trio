@@ -13,14 +13,14 @@ async def test_parking_lot_basic():
         record.append("wake {} = {}".format(i, val))
 
     lot = ParkingLot()
-    assert lot.statistics().waiting == 0
+    assert lot.statistics().tasks_waiting == 0
     for i in range(3):
         await _core.spawn(waiter, i, lot)
     await busy_wait_for(lambda: len(record) == 3)
-    assert lot.statistics().waiting == 3
+    assert lot.statistics().tasks_waiting == 3
     # default is to wake all
     lot.unpark(result=_core.Value(17))
-    assert lot.statistics().waiting == 0
+    assert lot.statistics().tasks_waiting == 0
     await busy_wait_for(lambda: len(record) == 6)
 
     check_sequence_matches(record, [
@@ -112,7 +112,7 @@ async def test_parking_lot_custom_cancel():
     await _core.yield_briefly()
     await _core.yield_briefly()
     assert len(record) == 5
-    assert lot.statistics().waiting == 1
+    assert lot.statistics().tasks_waiting == 1
     lot.unpark()
     await busy_wait_for(lambda: len(record) == 6)
 

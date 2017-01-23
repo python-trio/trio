@@ -22,7 +22,7 @@ class _AllType:
 
 @attr.s(frozen=True)
 class _ParkingLotStatistics:
-    waiting = attr.ib()
+    tasks_waiting = attr.ib()
 
 @_hazmat
 @attr.s(slots=True, cmp=False, hash=False)
@@ -32,7 +32,7 @@ class ParkingLot:
     ALL = _AllType()
 
     def statistics(self):
-        return _ParkingLotStatistics(waiting=len(self._parked))
+        return _ParkingLotStatistics(tasks_waiting=len(self._parked))
 
     async def park(self, *, abort_func=lambda: _core.Abort.SUCCEEDED):
         idx = next(_counter)
