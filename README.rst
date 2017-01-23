@@ -6,11 +6,45 @@ nothing to see here
 
    Trio is an `async/await-native
    <https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/>`__
-   I/O library for Python 3.5+ (including PyPy3), with full support
-   for Linux, MacOS, and Windows.
+   I/O library for Python 3.5+ (including nightly builds of PyPy3),
+   with full support for Linux, MacOS, and Windows.
 
-   how to make it easy and fun to write safe, correct, and performant
-   asynchronous code in Python.
+   how to make it *easy and fun* to write *safe, correct, and
+   performant* asynchronous code in Python.  Async programming has a
+   reputation for melting people's brains. We're trying to fix that.
+
+   current state experimental and unstable but goal is to
+
+   Trio represents one possible vision of the future of asynchronous
+   I/O in Python, but it's not the only such vision. If you're
+   interested in trio, then you should check out `asyncio
+   <https://docs.python.org/3/library/asyncio.html>`__ and `curio
+   <https://github.com/dabeaz/curio>`__ too.
+
+   So... where to next?
+
+   *Does it work on my machine?* Trio and its dependencies are all
+   pure Python, except that on Windows it needs cffi. So if you have
+   some kind of Python 3.5+ on any popular-ish platform, then it
+   should work. Linux, MacOS, and Windows are all fully supported,
+   *BSD probably works too though isn't tested, and the last time I
+   checked a PyPy3 nightly build it worked fine.
+
+   *I want to know more!* Check out the `documentation
+   <https://trio.readthedocs.io>`.
+
+   *I want to try it!* Awesome! ``pip install trio`` and check out
+   `our examples XX`
+
+   *I want to help!* You're the best! Check out our  <github issues>
+   discussion, tests, docs, use it and let us know how it goes
+
+   *I want to make sure my company's lawyers won't get angry at me!*
+   No worries, trio is permissively licensed under your choice of MIT
+   or Apache 2. See `LICENSE
+   <https://github.com/njsmith/trio/blob/master/LICENSE>`__ for
+   details.
+
 
    emphasis on usability: goal is to help you write programs that are
    safe, correct, low latency, high throughput
@@ -176,14 +210,7 @@ nothing to see here
      again... because e.g. an outer timeout can fire while you're
      unwinding from an inner timeout.
 
-   - Note: I've seen KI raised purportedly inside call_soon_task, what's
-     up with that?
-
    - kqueue power interface needs another pass + tests
-
-   - async generator hooks
-
-   - pytest plugin
 
    - possible improved robustness ("quality of implementation") ideas:
      - if an abort callback fails, discard that task but clean up the
