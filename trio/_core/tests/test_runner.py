@@ -501,16 +501,19 @@ async def test_cancel_edge_cases():
     record = []
     async def double_cancel():
         try:
-            await _core.yield_briefly()
+            await sleep_forever()
         except _core.Cancelled:
             record.append("once")
             try:
-                await _core.yield_briefly()
+                await sleep_forever()
             except _core.Cancelled:
                 record.append("twice")
     t3 = await _core.spawn(double_cancel)
     t3.cancel()
-
+    await wait_run_loop_idle()
+    t3.cancel()
+    (await t3.join()).unwrap()
+    assert record == ["once", "twice"]
 
 
 async def test_cancel_custom_exc():

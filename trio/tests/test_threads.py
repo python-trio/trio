@@ -61,9 +61,9 @@ async def test_do_in_trio_thread_from_trio_thread():
     await_in_trio_thread = current_await_in_trio_thread()
 
     with pytest.raises(RuntimeError):
-        run_in_trio_thread(lambda: None)
+        run_in_trio_thread(lambda: None)  # pragma: no branch
 
-    async def foo():
+    async def foo():  # pragma: no cover
         pass
     with pytest.raises(RuntimeError):
         await_in_trio_thread(foo)
@@ -132,19 +132,33 @@ async def test_run_in_worker_thread_cancellation():
     assert isinstance(result.error, _core.Cancelled)
 
 
-# Really the test here is just that we don't get a traceback on the console
-# due to trying to send a result back after the run loop has exited.
-def test_run_in_worker_thread_abandoned():
-    q = stdlib_queue.Queue()
+def test_run_in_worker_thread_abandoned(capfd):
+    q1 = stdlib_queue.Queue()
+    q2 = stdlib_queue.Queue()
 
-    def thread():
-        q.get()
+    def thread_fn():
+        q1.get()
+        q2.put(threading.current_thread())
 
     async def main():
-        _core.current_task().cancel()
-        await run_in_worker_thread(thread, cancellable=True)
+        async def child():
+            await run_in_worker_thread(thread_fn, cancellable=True)
+        t = await _core.spawn(child)
+        await wait_run_loop_idle()
+        t.cancel()
+        (await t.join()).unwrap()
 
     with pytest.raises(_core.Cancelled):
         _core.run(main)
 
-    q.put(None)
+    q1.put(None)
+    # This makes sure:
+    # - the thread actually ran
+    # - that thread has finished before we check for its output
+    thread = q2.get()
+    while thread.is_alive():
+        time.sleep(0.01)  # pragma: no cover
+
+    # Make sure we don't have a "Exception in thread ..." dump to the console:
+    out, err = capfd.readouterr()
+    assert not out and not err

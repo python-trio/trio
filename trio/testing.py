@@ -2,17 +2,23 @@ import threading
 from functools import wraps, partial
 from contextlib import contextmanager
 import inspect
-import attr
+from collections import defaultdict
 
+import attr
+from async_generator import async_generator, yield_
+
+from ._util import acontextmanager
 from . import _core
+from . import Event
 
 __all__ = ["busy_wait_for", "wait_run_loop_idle", "trio_test", "MockClock",
-           "assert_yields", "assert_no_yields"]
+           "assert_yields", "assert_no_yields", "Sequencer"]
 
 async def busy_wait_for(predicate):
     while not predicate():
         await _core.yield_briefly()
 
+# re-export
 from ._core import wait_run_loop_idle
 
 # Use:
@@ -94,22 +100,35 @@ def assert_no_yields():
     return _assert_yields_or_not(False)
 
 
-# XX Sequencer like in volley/jongleur
-# refinements:
-# - ability to schedule clock advancements
-# - tick over the event loop between steps, so timeouts have a chance to fire?
-#   - a random number of times? until quiescent?
-#
-# another idea: have a fixed number of parallel tasks set at init, and then
-# they all go in lockstep
+@attr.s(slots=True, cmp=False, hash=False)
+class Sequencer:
+    _sequence_points = attr.ib(
+        default=attr.Factory(lambda: defaultdict(Event)))
+    _claimed = attr.ib(default=attr.Factory(set))
+    _broken = attr.ib(default=False)
 
-async def task1():
-    await seq(0, 1, 2)
-    # in step 2
-    await seq(3)
-    # in step 3
-
-async def task2():
-    await seq(0)
-    # in step 0
-    await seq(1, 2)
+    @acontextmanager
+    @async_generator
+    async def __call__(self, position):
+        if position in self._claimed:
+            raise RuntimeError(
+                "Attempted to re-use sequence point {}".format(position))
+        if self._broken:
+            raise RuntimeError("sequence broken!")
+        self._claimed.add(position)
+        if position != 0:
+            try:
+                await self._sequence_points[position].wait()
+            except _core.Cancelled:
+                self._broken = True
+                for event in self._sequence_points.values():
+                    event.set()
+                raise RuntimeError(
+                    "Sequencer wait cancelled -- sequence broken")
+            else:
+                if self._broken:
+                    raise RuntimeError("sequence broken!")
+        try:
+            await yield_()
+        finally:
+            self._sequence_points[position + 1].set()
