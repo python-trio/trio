@@ -31,6 +31,9 @@ def kill_self(signum):
         # Have to import cffi inside the 'if os.name' block because we don't
         # depend on cffi on non-Windows platforms. (It would be easy to switch
         # this to ctypes though if we ever remove the cffi dependency.)
+        #
+        # Some more information:
+        #   https://bugs.python.org/issue26350
         import cffi
         ffi = cffi.FFI()
         ffi.cdef("int raise(int);")

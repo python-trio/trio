@@ -52,14 +52,9 @@ nothing to see here
    Needs written:
    - socket module:
      - sendfile
-     - windows:
-       - recvmsg_into
-       - sendto
-       - sendmsg
    - some sort of supervision story (+ probably want to change task API
      in the process)
    - docs
-   - task-local storage
    - subprocesses
    - worker process pool
    - SSL
@@ -134,8 +129,6 @@ nothing to see here
      - explicit monitoring API is the only thing that counts as
        catching errors
 
-   - should probably throttle getaddrinfo threads
-
    - also according to the docs on Windows, with overlapped I/o you can
      still get WSAEWOULDBLOCK ("too many outstanding overlapped
      requests"). No-one on the internet seems to have any idea when
@@ -166,94 +159,16 @@ nothing to see here
    - Note: I've seen KI raised purportedly inside call_soon_task, what's
      up with that?
 
-   - testing KI manager, probably reworking some
-
-   - sockets (need threads for getaddrinfo)
-
-     - twisted is a nice reference for getaddrinfo -- e.g. they use some
-       non-blocking numeric-only flags to handle some ipv6 corner
-       cases.
-
-     - ipv4 vs ipv6, ugh. create_connection should ideally support
-       happy eyeballs, I guess?
-       https://tools.ietf.org/html/rfc6555
-       https://github.com/python/asyncio/issues/86
-       https://twistedmatrix.com/documents/current/api/twisted.internet.endpoints.HostnameEndpoint.html
-       https://github.com/crossdistro/netresolve
-
-       https://www.akkadia.org/drepper/userapi-ipv6.html
-
    - kqueue power interface needs another pass + tests
 
    - async generator hooks
 
    - pytest plugin
 
-   - task local storage
-     - {run,await}_in_{worker,main}_thread should keep it! no concurrent
-       access problem!
-     - run_in_worker_process... hmm. pickleability is a problem.
-       - trio.Local(pickle=True)?
-
-   - do we need "batched accept" / socket.accept_nowait?
-     (I suspect the same question applies for sendto/recvfrom)
-
-     https://bugs.python.org/issue27906 suggests that we do
-     and it's trivial to implement b/c it doesn't require any IOCP
-     nonsense, just:
-
-     try:
-         return self._sock.accept()
-     except BlockingIOError:
-         raise _core.WouldBlock from None
-
-     But...
-
-     I am... not currently able to understand how/why this can
-     help. Consider a simple model where after accepting each
-     connection, we do a fixed bolus of CPU-bound work taking T
-     seconds and then immediately send the response, so each
-     connection is handled in a single loop step. If we accept only 1
-     connection per loop step, then each loop step takes 1*T seconds
-     and we handle 1 connection/T seconds on average. If we accept 100
-     connections per loop step, then each loop step takes 100*T
-     seconds and we handle 1 connection/T seconds on average.
-
-     Did the folks in the bug report above really just need an
-     increased backlog parameter to absorb bursts? Batching accept()
-     certainly increases the effective listen queue depth (basically
-     making it unlimited), but "make your queues unbounded" is not a
-     generically helpful strategy.
-
-     The above analysis is simplified in that (a) it ignores other
-     work going on in the system and (b) it assumes each connection
-     triggers a fixed amount of synchronous work to do. If it's wrong
-     it's probably because one of these factors matters somehow. The
-     "other work" part obviously could matter, *if* the other work is
-     throttlable at the event loop level, in the sense that if loop
-     steps take longer then they actually do less work. Which is not
-     clear here (the whole idea of batching accept is make it *not*
-     have this property, so if this is how we're designing all our
-     components then it doesn't work...).
-
-     I guess one piece of "other work" that scales with the number of
-     passes through the loop is just, loop overhead. One would hope
-     this is not too high, but it is not nothing.
-
    - possible improved robustness ("quality of implementation") ideas:
      - if an abort callback fails, discard that task but clean up the
        others (instead of discarding all)
      - if a clock raises an error... not much we can do about that.
-
-   - debugging features:
-     - traceback from task
-     - get all tasks (for 'top' etc.) -- compare to thread iteration APIs
-     - find the outermost frame of a blocked task that has a
-       __trio_wchan__ annotation, and report it as the wchan (like
-       curio's 'status' field)
-       maybe wchan should be callable for details, so like
-       run_in_worker_thread can show what's being run. or could just
-       show the arguments I guess.
 
    - trio
      http://infolab.stanford.edu/trio/ -- dead for a ~decade
