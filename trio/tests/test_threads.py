@@ -102,7 +102,7 @@ async def test_run_in_worker_thread_cancellation():
     # Give it a chance to get started...
     await wait_run_loop_idle()
     # ...and then cancel it.
-    task1.cancel_nowait()
+    task1.cancel()
     # The task finishes.
     result = await task1.join()
     assert isinstance(result.error, _core.Cancelled)
@@ -116,7 +116,7 @@ async def test_run_in_worker_thread_cancellation():
     register[0] = None
     task2 = await _core.spawn(child, q, False)
     await wait_run_loop_idle()
-    task2.cancel_nowait()
+    task2.cancel()
     for _ in range(10):
         await _core.yield_briefly()
     with pytest.raises(_core.WouldBlock):
@@ -127,7 +127,7 @@ async def test_run_in_worker_thread_cancellation():
     # But if we cancel *before* it enters, the entry is itself a cancellation
     # point
     task3 = await _core.spawn(child, q, False)
-    task3.cancel_nowait()
+    task3.cancel()
     result = await task3.join()
     assert isinstance(result.error, _core.Cancelled)
 
@@ -141,7 +141,7 @@ def test_run_in_worker_thread_abandoned():
         q.get()
 
     async def main():
-        _core.current_task().cancel_nowait()
+        _core.current_task().cancel()
         await run_in_worker_thread(thread, cancellable=True)
 
     with pytest.raises(_core.Cancelled):

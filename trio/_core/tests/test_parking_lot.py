@@ -69,7 +69,7 @@ async def test_parking_lot_cancel():
     w3 = await _core.spawn(waiter, 3, lot)
     await busy_wait_for(lambda: len(record) == 3)
 
-    w2.cancel_nowait()
+    w2.cancel()
     await busy_wait_for(lambda: len(record) == 4)
     lot.unpark(count=ParkingLot.ALL)
     await busy_wait_for(lambda: len(record) == 6)
@@ -104,9 +104,9 @@ async def test_parking_lot_custom_cancel():
     w2 = await _core.spawn(waiter, 2, lot, _core.Abort.FAILED)
     await busy_wait_for(lambda: len(record) == 2)
 
-    w1.cancel_nowait()
+    w1.cancel()
     await busy_wait_for(lambda: len(record) == 4)
-    w2.cancel_nowait()
+    w2.cancel()
     await busy_wait_for(lambda: len(record) == 5)
     await _core.yield_briefly()
     await _core.yield_briefly()

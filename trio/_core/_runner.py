@@ -62,7 +62,7 @@ _r = random.Random()
 class SystemClock(Clock):
     # Add a large random offset to our clock to ensure that if people
     # accidentally call time.monotonic() directly or start comparing clocks
-    # between different tasks, then they'll notice the bug quickly:
+    # between different runs, then they'll notice the bug quickly:
     offset = attr.ib(default=attr.Factory(lambda: _r.uniform(10000, 200000)))
 
     def current_time(self):
@@ -72,8 +72,6 @@ class SystemClock(Clock):
         return deadline - self.current_time()
 
 
-# XX run some tasks with this, to get the coverage and just test for spelling
-# mistakes
 class Instrument(abc.ABC):
     def task_scheduled(self, task):
         pass
@@ -88,18 +86,7 @@ class Instrument(abc.ABC):
         pass
 
 
-# I started out with a DAEMON type as well, and the rules that:
-#
-# - When all tasks of type X-or-higher have exited, then we cancel all tasks
-#   of type (X-1)
-# - Tasks of type X can only spawn tasks of type Y where X > Y
-# - After a crash we cancel all tasks of type REGULAR (or maybe it should be:
-#   after a crash of type X, we cancel all tasks of type X-or-greater?)
-#
-# ...but this was all getting rather complicated, and I'm not even sure that
-# daemon tasks are a good idea. (If you have a robust supervisor system, then
-# they seem superfluous?) So I dropped daemon tasks for now; we can add them
-# back later if they're really compelling. Now the rules are:
+# The rules:
 #
 # - When all REGULAR tasks have exited, we cancel all SYSTEM tasks.
 # - If a REGULAR task crashes, we cancel all REGULAR tasks (once).
@@ -174,7 +161,7 @@ class Task:
     def _has_pending_cancel(self):
         return self._cancel_stack.has_pending_cancel()
 
-    def cancel_nowait(self, exc=None):
+    def cancel(self, exc=None):
         # XX Not sure if this pickiness is useful, but easier to start
         # strict and maybe relax it later...
         if self._task_result is not None:
@@ -183,12 +170,6 @@ class Task:
             exc = TaskCancelled()
         with self._might_adjust_deadline():
             self._cancel_stack.fire_task_cancel(self, exc)
-
-    # XX should this even exist? maybe cancel_nowait() should be called
-    # cancel()? Leaving it commented out for now until we decide.
-    # async def cancel(self, exc=None):
-    #     self.cancel_nowait(exc=exc)
-    #     return await self.join()
 
     def join_nowait(self):
         if self._task_result is None:
@@ -277,7 +258,7 @@ class Runner:
             # This is the first unhandled exception, so cancel everything
             for task in self.tasks:
                 if task._type is TaskType.REGULAR:
-                    task.cancel_nowait()
+                    task.cancel()
         self.unhandled_exception_result = Result.combine(
             self.unhandled_exception_result, Error(wrapper))
 
@@ -291,7 +272,7 @@ class Runner:
                 # The last REGULAR task just exited, so we're done; cancel
                 # everything.
                 for other_task in self.tasks:
-                    other_task.cancel_nowait()
+                    other_task.cancel()
 
         notified = False
         while task._notify_queues:
@@ -397,7 +378,7 @@ class Runner:
                 task = self.spawn_impl(fn, args)
                 # If we're in the middle of crashing, then immediately cancel:
                 if self.unhandled_exception_result is not None:
-                    task.cancel_nowait()
+                    task.cancel()
             else:
                 try:
                     # We don't renable KeyboardInterrupt here, because

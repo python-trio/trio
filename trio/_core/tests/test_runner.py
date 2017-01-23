@@ -348,7 +348,7 @@ async def test_current_statistics():
     assert stats.tasks_runnable == 0
     assert stats.call_soon_queue_size == 1
 
-    task.cancel_nowait()
+    task.cancel()
     stats = _core.current_statistics()
     print(stats)
     assert stats.tasks_runnable == 1
@@ -455,25 +455,25 @@ def test_instruments_interleave():
 def test_cancel_points():
     async def main1():
         await _core.yield_if_cancelled()
-        _core.current_task().cancel_nowait()
+        _core.current_task().cancel()
         with pytest.raises(_core.TaskCancelled):
             await _core.yield_if_cancelled()
     _core.run(main1)
 
     async def main2():
-        _core.current_task().cancel_nowait()
+        _core.current_task().cancel()
         with pytest.raises(_core.TaskCancelled):
             await _core.yield_briefly()
     _core.run(main2)
 
     async def main3():
-        _core.current_task().cancel_nowait()
+        _core.current_task().cancel()
         with pytest.raises(_core.TaskCancelled):
             await sleep_forever()
     _core.run(main3)
 
     async def main4():
-        _core.current_task().cancel_nowait()
+        _core.current_task().cancel()
         await _core.yield_briefly_no_cancel()
         await _core.yield_briefly_no_cancel()
         with pytest.raises(_core.TaskCancelled):
@@ -485,10 +485,10 @@ async def test_cancel_edge_cases():
         await _core.yield_briefly()
 
     t1 = await _core.spawn(child)
-    t1.cancel_nowait()
+    t1.cancel()
     # Can't cancel a task that was already cancelled
     with pytest.raises(RuntimeError) as excinfo:
-        t1.cancel_nowait()
+        t1.cancel()
     assert "already canceled" in str(excinfo.value)
     result = await t1.join()
     assert type(result.error) is _core.TaskCancelled
@@ -497,7 +497,7 @@ async def test_cancel_edge_cases():
     await t2.join()
     # Can't cancel a task that has already exited
     with pytest.raises(RuntimeError) as excinfo:
-        t2.cancel_nowait()
+        t2.cancel()
     assert "already exited" in str(excinfo.value)
 
 
@@ -513,11 +513,11 @@ async def test_cancel_custom_exc():
     task = await _core.spawn(child)
     with pytest.raises(TypeError):
         # exception type rather than exception instance
-        task.cancel_nowait(MyCancelled)
+        task.cancel(MyCancelled)
     with pytest.raises(TypeError):
         # other exception types not allowed
-        task.cancel_nowait(ValueError())
-    task.cancel_nowait(MyCancelled())
+        task.cancel(ValueError())
+    task.cancel(MyCancelled())
     result = await task.join()
     assert result.unwrap() == "ok"
 
@@ -633,7 +633,7 @@ async def test_failed_abort():
             record.append("cancelled")
 
     task = await _core.spawn(stubborn_sleeper)
-    task.cancel_nowait()
+    task.cancel()
     await busy_wait_for(lambda: record)
     _core.reschedule(task, _core.Value(1))
     await task.join()
@@ -651,7 +651,7 @@ def test_broken_abort():
         # By letting the call_soon_task run first, we avoid the warning.
         await _core.yield_briefly()
         await _core.yield_briefly()
-        _core.current_task().cancel_nowait()
+        _core.current_task().cancel()
         # None is not a legal return value here
         await _core.yield_indefinitely(lambda: None)
     with pytest.raises(_core.TrioInternalError):

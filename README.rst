@@ -92,9 +92,8 @@ nothing to see here
 
 
    next:
-   - cancel_nowait should be idempotent... except for that awkward exc
+   - cancel should be idempotent... except for that awkward exc
      argument :-/
-     also should probably just be called cancel
      alternatively, maybe we should allow it to be delivered multiple
      times? control-C can be hit multiple times... (I guess if one is
      pending and another arrives, the second overwrites the first?)
