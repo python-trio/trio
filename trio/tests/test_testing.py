@@ -39,6 +39,15 @@ async def test_wait_run_loop_idle():
     (await t2.join()).unwrap()
     (await t3.join()).unwrap()
 
+    # check cancellation
+    async def cancelled_while_waiting():
+        _core.current_task().cancel()
+        try:
+            await wait_run_loop_idle()
+        except _core.Cancelled:
+            return "ok"
+    t4 = await _core.spawn(cancelled_while_waiting)
+    assert (await t4.join()).unwrap() == "ok"
 
 async def test_wait_run_loop_idle_with_timeouts(mock_clock):
     record = []

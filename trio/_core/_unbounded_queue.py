@@ -32,6 +32,7 @@ class UnboundedQueue:
     def empty(self):
         return not self._data
 
+    @_core.enable_ki_protection
     def put_nowait(self, obj):
         self._data.append(obj)
         self._lot.unpark(count=1)

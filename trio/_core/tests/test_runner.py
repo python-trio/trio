@@ -319,7 +319,7 @@ async def test_current_task():
     assert child_task == (await child_task.join()).unwrap()
 
 
-async def test_current_statistics():
+async def test_current_statistics(mock_clock):
     # Just so there's some interesting stats:
     async def child():
         try:
@@ -351,6 +351,12 @@ async def test_current_statistics():
     stats = _core.current_statistics()
     print(stats)
     assert stats.tasks_runnable == 1
+
+    with _core.move_on_at(_core.current_time() + 5):
+        stats = _core.current_statistics()
+        print(stats)
+        assert stats.seconds_to_next_deadline == 5
+
 
 @attr.s(slots=True, cmp=False, hash=False)
 class Recorder(_core.Instrument):

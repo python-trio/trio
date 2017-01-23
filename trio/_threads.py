@@ -9,12 +9,12 @@ __all__ = [
     "run_in_worker_thread",
 ]
 
-# XXXX keyboard interrupt management
-
 def _trio_thread_sync(q, fn, args):
+    fn = _core.disable_ki_protection(fn)
     q.put_nowait(_core.Result.capture(fn, *args))
 
 async def _trio_thread_async(q, fn, args):
+    fn = _core.disable_ki_protection(fn)
     q.put_nowait(await _core.Result.acapture(fn, *args))
 
 def _current_do_in_trio_thread(name, trio_thread_fn, *, spawn):
@@ -134,24 +134,25 @@ def current_await_in_trio_thread():
 
 _worker_thread_counter = count()
 
+@_core.enable_ki_protection
 async def run_in_worker_thread(fn, *args, cancellable=False):
     await _core.yield_if_cancelled()
     call_soon = _core.current_call_soon_thread_and_signal_safe()
     task_register = [_core.current_task()]
-    def main_thread_fn(result):
+    def trio_thread_fn(result):
         if task_register[0] is not None:
             _core.reschedule(task_register[0], result)
-    def thread_fn():
+    def worker_thread_fn():
         result = _core.Result.capture(fn, *args)
         try:
-            call_soon(main_thread_fn, result)
+            call_soon(trio_thread_fn, result)
         except _core.RunFinishedError:
             # The entire run finished, so our particular task is certainly
             # long gone -- it must have cancelled.
             pass
     name = "trio-worker-{}".format(next(_worker_thread_counter))
     # daemonic because it might get left behind if we cancel
-    thread = threading.Thread(target=thread_fn, name=name, daemon=True)
+    thread = threading.Thread(target=worker_thread_fn, name=name, daemon=True)
     thread.start()
     def abort():
         if cancellable:

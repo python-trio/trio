@@ -25,6 +25,9 @@ __all__ += _result.__all__
 from ._traps import *
 __all__ += _traps.__all__
 
+from ._ki import *
+__all__ += _ki.__all__
+
 from ._cancel import *
 __all__ += _cancel.__all__
 

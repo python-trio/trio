@@ -1,6 +1,8 @@
 import threading
 import queue as stdlib_queue
 import time
+import os
+import signal
 
 import pytest
 
@@ -32,11 +34,13 @@ async def test_do_in_trio_thread():
     run_in_trio_thread = current_run_in_trio_thread()
 
     def f(record):
+        assert not _core.ki_protected()
         record.append(("f", threading.current_thread()))
         return 2
     await check_case(run_in_trio_thread, f, ("got", 2))
 
     def f(record):
+        assert not _core.ki_protected()
         record.append(("f", threading.current_thread()))
         raise ValueError
     await check_case(run_in_trio_thread, f, ("error", ValueError))
@@ -44,12 +48,14 @@ async def test_do_in_trio_thread():
     await_in_trio_thread = current_await_in_trio_thread()
 
     async def f(record):
+        assert not _core.ki_protected()
         await _core.yield_briefly()
         record.append(("f", threading.current_thread()))
         return 3
     await check_case(await_in_trio_thread, f, ("got", 3))
 
     async def f(record):
+        assert not _core.ki_protected()
         await _core.yield_briefly()
         record.append(("f", threading.current_thread()))
         raise KeyError
@@ -67,6 +73,45 @@ async def test_do_in_trio_thread_from_trio_thread():
         pass
     with pytest.raises(RuntimeError):
         await_in_trio_thread(foo)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="need unix signals")
+def test_run_in_trio_thread_ki():
+    # if we get a control-C during a run_in_trio_thread, then it propagates
+    # back to the caller (slick!)
+    record = set()
+    async def check_run_in_trio_thread():
+        run_in_trio_thread = current_run_in_trio_thread()
+        await_in_trio_thread = current_await_in_trio_thread()
+        def trio_thread_fn():
+            os.kill(os.getpid(), signal.SIGINT)
+        async def trio_thread_afn():
+            trio_thread_fn()
+        def external_thread_fn():
+            try:
+                run_in_trio_thread(trio_thread_fn)
+            except KeyboardInterrupt:
+                record.add("ok1")
+            try:
+                await_in_trio_thread(trio_thread_afn)
+            except KeyboardInterrupt:
+                record.add("ok2")
+        thread = threading.Thread(target=external_thread_fn)
+        thread.start()
+        # We expect to get cancelled twice due to those KeyboardInterrupts
+        i = 3
+        while len(record) != 4:
+            try:
+                await _core.yield_briefly()
+            except _core.Cancelled:
+                record.add("ok{}".format(i))
+                i += 1
+        thread.join()
+        # just to check there aren't any more pending cancellations:
+        await _core.yield_briefly()
+    with pytest.raises(_core.KeyboardInterruptCancelled):
+        _core.run(check_run_in_trio_thread)
+    assert record == {"ok1", "ok2", "ok3", "ok4"}
 
 
 async def test_run_in_worker_thread():
@@ -162,3 +207,5 @@ def test_run_in_worker_thread_abandoned(capfd):
     # Make sure we don't have a "Exception in thread ..." dump to the console:
     out, err = capfd.readouterr()
     assert not out and not err
+
+

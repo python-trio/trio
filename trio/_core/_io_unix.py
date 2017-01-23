@@ -7,7 +7,6 @@ import attr
 
 from .. import _core
 from . import _public, _hazmat
-from ._keyboard_interrupt import LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE
 
 def maybe_shrink_pipe(fd):
     # Try to set the pipe size as small as possible -- no point in having
@@ -144,9 +143,6 @@ if hasattr(select, "epoll"):
         # Public (hazmat) API:
 
         async def _epoll_wait(self, fd, attr_name):
-            # KeyboardInterrupt here could corrupt self._registered
-            locals()[LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE] = False
-
             if not isinstance(fd, int):
                 fd = fd.fileno()
             currently_registered = (fd in self._registered)

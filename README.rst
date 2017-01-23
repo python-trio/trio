@@ -4,7 +4,13 @@ nothing to see here
    Trio – async I/O for humans
    ===========================
 
-   write apps that sing in three-part harmony
+   Trio is an `async/await-native
+   <https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/>`__
+   I/O library for Python 3.5+ (including PyPy3), with full support
+   for Linux, MacOS, and Windows.
+
+   how to make it easy and fun to write safe, correct, and performant
+   asynchronous code in Python.
 
    emphasis on usability: goal is to help you write programs that are
    safe, correct, low latency, high throughput

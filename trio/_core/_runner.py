@@ -7,6 +7,7 @@ from time import monotonic
 import os
 import random
 from contextlib import contextmanager, closing
+import sys
 
 import attr
 from sortedcontainers import SortedDict
@@ -14,14 +15,15 @@ from sortedcontainers import SortedDict
 from .. import _core
 from ._exceptions import (
     UnhandledExceptionError, TrioInternalError, RunFinishedError,
-    Cancelled, TaskCancelled, TimeoutCancelled, WouldBlock
+    Cancelled, TaskCancelled, TimeoutCancelled, KeyboardInterruptCancelled,
+    WouldBlock
 )
 from ._result import Result, Error, Value
 from ._traps import (
     yield_briefly_no_cancel, Abort, yield_indefinitely,
 )
-from ._keyboard_interrupt import (
-    LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE, keyboard_interrupt_manager,
+from ._ki import (
+    LOCALS_KEY_KI_PROTECTION_ENABLED, ki_protected, ki_manager,
 )
 from ._cancel import CancelStack, yield_briefly
 from . import _public, _hazmat
@@ -249,9 +251,17 @@ class Runner:
         while bad:
             del self.instruments[bad.pop()]
 
+    def handle_ki(self, victim_task):
+        # victim_task is the one that already got hit with the
+        # KeyboardInterrupt; might be None
+        for task in self.tasks:
+            if task is not victim_task and task._type is TaskType.REGULAR:
+                task.cancel(KeyboardInterruptCancelled)
+        err = Error(KeyboardInterruptCancelled())
+        self.unhandled_exception_result = Result.combine(
+            self.unhandled_exception_result, err)
+
     def crash(self, message, exc):
-        # XX ergonomics: maybe KeyboardInterrupt should be preserved instead
-        # of being wrapped?
         wrapper = UnhandledExceptionError(message)
         wrapper.__cause__ = exc
         if self.unhandled_exception_result is None:
@@ -312,7 +322,8 @@ class Runner:
         self.runq.append(task)
         self.instrument("task_scheduled", task)
 
-    def spawn_impl(self, fn, args, *, type=TaskType.REGULAR, notify_queues=[]):
+    def spawn_impl(self, fn, args, *, type=TaskType.REGULAR, notify_queues=[],
+                   ki_protection_enabled=False):
         coro = fn(*args)
         if not inspect.iscoroutine(coro):
             raise TypeError("spawn expected an async function")
@@ -321,7 +332,7 @@ class Runner:
         self.tasks.add(task)
         if type is TaskType.REGULAR:
             self.regular_task_count += 1
-            coro.cr_frame.f_locals[LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE] = True
+        coro.cr_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = ki_protection_enabled
         self.reschedule(task, Value(None))
         return task
 
@@ -363,6 +374,8 @@ class Runner:
         return self.call_soon_thread_and_signal_safe
 
     async def call_soon_task(self):
+        assert ki_protected()
+
         # Returns True if it managed to do some work, and false if the queue
         # was empty.
         def maybe_call_next():
@@ -371,12 +384,10 @@ class Runner:
             except IndexError:
                 return False  # queue empty
             if spawn:
-                # XX make this run with KeyboardInterrupt *disabled*
-                # and leave it up to the code using it to enable it if wanted
-                # maybe call_with/out_ki(...)
-                # and acall_with/out_ki(...)?
-                task = self.spawn_impl(fn, args)
-                # If we're in the middle of crashing, then immediately cancel:
+                # We run this with KI protection_enabled,
+                task = self.spawn_impl(fn, args, ki_protection_enabled=True)
+                # If we're in the middle of crashing, then immediately cancel
+                # it:
                 if self.unhandled_exception_result is not None:
                     task.cancel()
             else:
@@ -444,21 +455,26 @@ def run(fn, *args, clock=None, instruments=[]):
     io_manager = TheIOManager()
     runner = Runner(clock=clock, instruments=instruments, io_manager=io_manager)
     GLOBAL_RUN_CONTEXT.runner = runner
-    locals()[LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE] = False
+    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    ki_pending = False
 
-    def ki_cb(status):
-        def raise_KeyboardInterrupt():
-            status.pending = False
-            raise KeyboardInterrupt
+    def ki_cb(protection_enabled):
+        nonlocal ki_pending
+        # The task that already got hit with control-C doesn't need another
+        # cancellation
+        if protection_enabled:
+            task = None
+        else:
+            task = getattr(GLOBAL_RUN_CONTEXT, "task", None)
         try:
-            runner.call_soon_thread_and_signal_safe(raise_KeyboardInterrupt)
+            runner.call_soon_thread_and_signal_safe(runner.handle_ki, task)
         except RunFinishedError:
-            pass
+            ki_pending = True
 
     # This is outside the try/except to avoid a window where KeyboardInterrupt
     # would be allowed and converted into an TrioInternalError:
     try:
-        with keyboard_interrupt_manager(ki_cb) as ki_status:
+        with ki_manager(ki_cb) as ki_status:
             try:
                 with closing(runner):
                     # The main reason this is split off into its own function
@@ -473,7 +489,7 @@ def run(fn, *args, clock=None, instruments=[]):
     finally:
         # To guarantee that we never swallow a KeyboardInterrupt, we have to
         # check for pending ones once more after leaving the context manager:
-        if ki_status.pending:
+        if ki_pending:
             # Implicitly chains with any exception from result.unwrap():
             raise KeyboardInterrupt
 
@@ -482,7 +498,8 @@ def run(fn, *args, clock=None, instruments=[]):
 _MAX_TIMEOUT = 24 * 60 * 60
 
 def run_impl(runner, fn, args):
-    runner.spawn_impl(runner.call_soon_task, (), type=TaskType.SYSTEM)
+    runner.spawn_impl(runner.call_soon_task, (), type=TaskType.SYSTEM,
+                      ki_protection_enabled=True)
     try:
         runner.initial_task = runner.spawn_impl(fn, args)
     except BaseException as exc:
@@ -584,7 +601,7 @@ async def yield_if_cancelled():
 
 _WRAPPER_TEMPLATE = """
 def wrapper(*args, **kwargs):
-    locals()[LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE] = False
+    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         meth = GLOBAL_RUN_CONTEXT.{}.{}
     except AttributeError:
@@ -600,7 +617,8 @@ def _generate_method_wrappers(cls, path_to_instance):
             # it. exec() is a bit ugly but the resulting code is faster and
             # simpler than doing some loop over getattr.
             ns = {"GLOBAL_RUN_CONTEXT": GLOBAL_RUN_CONTEXT,
-                  "LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE": LOCALS_KEY_KEYBOARD_INTERRUPT_SAFE}
+                  "LOCALS_KEY_KI_PROTECTION_ENABLED":
+                      LOCALS_KEY_KI_PROTECTION_ENABLED}
             exec(_WRAPPER_TEMPLATE.format(path_to_instance, methname), ns)
             wrapper = ns["wrapper"]
             # 'fn' is the *unbound* version of the method, but our exported

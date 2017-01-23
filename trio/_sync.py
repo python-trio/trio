@@ -19,6 +19,7 @@ class Event:
     def is_set(self):
         return self._flag
 
+    @_core.enable_ki_protection
     def set(self):
         self._flag = True
         self._lot.unpark()
@@ -49,12 +50,14 @@ class BoundedSemaphore:
     def statistics(self):
         return self._lot.statistics()
 
+    @_core.enable_ki_protection
     def acquire_nowait(self):
         if self._value >= 0:
             self._value -= 1
         else:
             raise _core.WouldBlock
 
+    @_core.enable_ki_protection
     async def acquire(self):
         if self._value >= 0:
             await _core.yield_briefly()
@@ -62,15 +65,18 @@ class BoundedSemaphore:
             await self._lot.park()
         self.acquire_nowait()
 
+    @_core.enable_ki_protection
     def release(self):
         if self._value == self._max_value:
             raise ValueError("BoundedSemaphore released too many times")
         self._value += 1
         self._lot.unpark(count=1)
 
+    @_core.enable_ki_protection
     async def __aenter__(self):
         await self.acquire()
 
+    @_core.enable_ki_protection
     async def __aexit__(self, type, value, traceback):
         self.release()
 
@@ -115,6 +121,7 @@ class Queue:
     def empty(self):
         return not self._data
 
+    @_core.enable_ki_protection
     def put_nowait(self, obj):
         if self.full():
             raise _core.WouldBlock
@@ -123,6 +130,7 @@ class Queue:
             self._unprocessed += 1
             self._get_lot.unpark(count=1)
 
+    @_core.enable_ki_protection
     async def put(self, obj):
         # Tricky: if there's room, we must do an artificial wait... but after
         # that there might not be room anymore.
@@ -132,12 +140,14 @@ class Queue:
             await self._put_lot.park()
         self.put_nowait(obj)
 
+    @_core.enable_ki_protection
     def get_nowait(self):
         if not self._data:
             raise _core.WouldBlock
         self._put_lot.unpark(count=1)
         return self._data.popleft()
 
+    @_core.enable_ki_protection
     async def get(self):
         # See comment on put()
         if self._data:
@@ -146,6 +156,7 @@ class Queue:
             await self._get_lot.park()
         return self.get_nowait()
 
+    @_core.enable_ki_protection
     def task_done(self):
         self._unprocessed -= 1
         if self._unprocessed == 0:

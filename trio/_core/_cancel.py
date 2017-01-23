@@ -143,6 +143,7 @@ class CancelStatus:
             self._stack_entry.deadline = new_deadline
 
 @contextmanager
+@_core.enable_ki_protection
 def move_on_at(deadline):
     task = _core.current_task()
     status = task._push_deadline(deadline)
