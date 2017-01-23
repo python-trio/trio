@@ -10,8 +10,7 @@ import attr
 from . import _hazmat
 from ._exceptions import KeyboardInterruptCancelled
 
-__all__ = ["enable_ki_protection", "disable_ki_protection",
-           "ki_protected"]
+__all__ = ["enable_ki_protection", "disable_ki_protection", "ki_protected"]
 
 # In ordinary single-threaded Python code, when you hit control-C, it raises
 # an exception and automatically does all the regular unwinding stuff.
@@ -92,6 +91,8 @@ def ki_protection_enabled(frame):
 
 @_hazmat
 def ki_protected():
+    """Returns True if the current stack frame has KeyboardInterrupt
+    protection enabled, and False otherwise."""
     return ki_protection_enabled(sys._getframe())
 
 def _ki_protection_decorator(enabled):
@@ -116,7 +117,7 @@ _hazmat(enable_ki_protection)
 
 disable_ki_protection = _ki_protection_decorator(False)
 disable_ki_protection.__name__ = "disable_ki_protection"
-_hazmat(enable_ki_protection)
+_hazmat(disable_ki_protection)
 
 @contextmanager
 def ki_manager(notify_cb):

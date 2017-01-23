@@ -107,6 +107,9 @@ class CancelStack:
                   and stack_entry.deadline <= now):
                 self._fire_entry(task, i, exc)
                 break
+        else:
+            # this function is only called when a timeout has expired
+            assert False  # pragma: no cover
 
     def fire_task_cancel(self, task, exc):
         stack_entry = self.entries[0]

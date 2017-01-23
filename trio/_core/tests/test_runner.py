@@ -638,7 +638,7 @@ async def test_timekeeping():
         accuracy = real_duration / TARGET
         print(accuracy)
         # Actual time elapsed should always be >= target time
-        if 1.0 <= accuracy < 1.2:
+        if 1.0 <= accuracy < 1.2:  # pragma: no branch
             break
     else:  # pragma: no cover
         assert False
@@ -786,7 +786,7 @@ def test_call_soon_too_late():
     _core.run(main)
     assert call_soon is not None
     with pytest.raises(_core.RunFinishedError):
-        call_soon(lambda: None)
+        call_soon(lambda: None)  # pragma: no branch
 
 def test_call_soon_after_crash():
     record = []
@@ -806,7 +806,7 @@ def test_call_soon_after_crash():
         call_soon = _core.current_call_soon_thread_and_signal_safe()
         await _core.spawn(crasher)
         try:
-            await busy_wait_for(lambda: False)
+            await busy_wait_for(lambda: False)  # pragma: no branch
         except _core.Cancelled:
             pass
         # After a crash but before exit, sync callback processed normally
