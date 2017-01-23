@@ -164,14 +164,13 @@ class _SelectThread:
             # We select for exceptional conditions on the readable set because
             # on Windows, non-blocking connect shows up as "exceptional"
             # rather than "readable" if the connect fails.
-            #
+            if self.thread_done:
+                return
             # select() holds the GIL while reading the input sets, so this is
             # safe.
-            print("Loop")
             got = select(self.waiters["read"],
                          self.waiters["write"],
                          self.waiters["read"])
-            print("woke")
             readable1, writable, readable2 = got
             for sock in set(readable1 + readable2):
                 if sock != self.wakeup_thread:
@@ -179,15 +178,11 @@ class _SelectThread:
             for sock in writable:
                 self.call_soon(self._wake, "write", sock)
             # Drain
-            print("Draining")
             while True:
                 try:
                     self.wakeup_thread.recv(4096)
                 except BlockingIOError:
                     break
-            if self.thread_done:
-                print("quitting")
-                return
 
     def _wake(self, which, sock):
         try:
