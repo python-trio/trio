@@ -49,7 +49,7 @@ async def test_catch_signals():
     with catch_signals([signal.SIGILL]) as queue:
         print("in with")
         with pytest.raises(_core.WouldBlock):
-            queue.get_nowait()
+            assert queue.get_all_nowait()
         print("killing")
         kill_self(signal.SIGILL)
         print("killed")

@@ -208,10 +208,10 @@ async def test_notify_queues():
     async def child():
         return 1
 
-    q1 = _core.Queue(1)
-    q2 = _core.Queue(1)
-    q3 = _core.Queue(1)
-    q4 = _core.Queue(1)
+    q1 = _core.UnboundedQueue()
+    q2 = _core.UnboundedQueue()
+    q3 = _core.UnboundedQueue()
+    q4 = _core.UnboundedQueue()
     task = await _core.spawn(child, notify_queues=[q1, q2])
     task.add_notify_queue(q3)
 
@@ -232,20 +232,19 @@ async def test_notify_queues():
     await _core.yield_briefly()
     await _core.yield_briefly()
     assert task.join_nowait().unwrap() == 1
-    assert q1.get_nowait() is task
+    assert q1.get_all_nowait() == [task]
     with pytest.raises(_core.WouldBlock):
-        q2.get_nowait()
-    assert q3.get_nowait() is task
+        q2.get_all_nowait()
+    assert q3.get_all_nowait() == [task]
     with pytest.raises(_core.WouldBlock):
-        q4.get_nowait()
+        q4.get_all_nowait()
 
     # can re-add the queue now
     for _ in range(2):
         assert q1.empty()
         task.add_notify_queue(q1)
         # and it immediately receives the result:
-        assert q1.get_nowait() is task
-        assert q1.empty()
+        assert q1.get_all_nowait() == [task]
         # and since it was used, it's already gone from the set, so we can
         # loop around and do it again
 

@@ -179,10 +179,10 @@ class Task:
 
     async def join(self):
         if self._task_result is None:
-            q = _core.Queue(1)
+            q = _core.UnboundedQueue()
             self.add_notify_queue(q)
             try:
-                await q.get()
+                await q.get_all()
             finally:
                 self.discard_notify_queue(q)
         assert self._task_result is not None

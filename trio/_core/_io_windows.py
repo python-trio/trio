@@ -363,7 +363,7 @@ class WindowsIOManager:
     @contextmanager
     def completion_key_monitor(self):
         key = next(self._completion_key_counter)
-        queue = _core.Queue(_core.Queue.UNLIMITED)
+        queue = _core.UnboundedQueue()
         self._completion_key_queues[key] = queue
         try:
             yield (key, queue)

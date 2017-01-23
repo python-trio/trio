@@ -187,7 +187,7 @@ if hasattr(select, "kqueue"):
     @attr.s(slots=True, cmp=False, hash=False)
     class KqueueIOManager:
         _kqueue = attr.ib(default=attr.Factory(select.kqueue))
-        # {(ident, filter): Task or Queue}
+        # {(ident, filter): Task or UnboundedQueue}
         _registered = attr.ib(default=attr.Factory(dict))
 
         def statistics(self):
@@ -264,7 +264,7 @@ if hasattr(select, "kqueue"):
                 raise ValueError(
                     "attempt to register multiple listeners for same "
                     "ident/filter pair")
-            q = _core.Queue(_core.Queue.UNLIMITED)
+            q = _core.UnboundedQueue()
             self._registered[key] = q
             try:
                 yield q

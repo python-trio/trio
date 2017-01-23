@@ -34,5 +34,5 @@ __all__ += _runner.__all__
 from ._parking_lot import *
 __all__ += _parking_lot.__all__
 
-from ._queue import *
-__all__ += _queue.__all__
+from ._unbounded_queue import *
+__all__ += _unbounded_queue.__all__

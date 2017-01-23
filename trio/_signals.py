@@ -73,7 +73,7 @@ def catch_signals(signals):
             "Sorry, catch_signals is only possible when running in the "
             "Python interpreter's main thread")
     call_soon = _core.current_call_soon_thread_and_signal_safe()
-    queue = _core.Queue(_core.Queue.UNLIMITED)
+    queue = _core.UnboundedQueue()
     def handler(signum, _):
         call_soon(queue.put_nowait, signum)
     with _signal_handler(signals, handler):
