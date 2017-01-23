@@ -23,11 +23,12 @@ async def test_completion_key_listen():
             task = await _core.spawn(post, key)
             i = 0
             print("loop")
-            async for info in queue:
-                print("got one", info)
-                assert info.lpOverlapped == 0
-                assert info.dwNumberOfBytesTransferred == i
-                i += 1
+            async for batch in queue:
+                print("got some", batch)
+                for info in batch:
+                    assert info.lpOverlapped == 0
+                    assert info.dwNumberOfBytesTransferred == i
+                    i += 1
                 if i == 10:
                     break
             print("end loop")
