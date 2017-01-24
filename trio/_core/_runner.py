@@ -494,6 +494,8 @@ def run_impl(runner, fn, args):
         async def initial_spawn_failed(e):
             raise e
         runner.initial_task = runner.spawn_impl(initial_spawn_failed, (exc,))
+    if runner.unhandled_exception_result is not None:
+        runner.initial_task.cancel()
 
     while runner.tasks:
         if runner.runq or runner.waiting_for_idle:

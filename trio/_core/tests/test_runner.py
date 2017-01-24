@@ -461,7 +461,8 @@ def test_null_instrument():
 
     _core.run(main, instruments=[NullInstrument()])
 
-@pytest.mark.skip("broken fix me!")
+# This test also tests having a crash before the initial task is even spawned,
+# which needed some extra code to handle.
 def test_instruments_crash():
     record = []
 
