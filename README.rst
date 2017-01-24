@@ -171,34 +171,6 @@ nothing to see here
        concurrent IO: start a bunch of request.get() calls, gather the
          results as they come in
 
-   - IOManager refactoring:
-
-     now that everyone has wait_socket_readable, could factor out the
-     threadsafe wakeup code to use it?
-
-     and maybe the whole windows loop will be easier if we make select
-     run in the main loop and IOCP run in a subsidiary thread? (And
-     waitformultipleeventex similarly I guess if we ever get around to
-     it.) the nice thing is that queueing events to IOCP doesn't
-     require waking the thread! it can just loop on pulling a single
-     event off, delivering it, repeat.
-
-     generic(ish) object that does threadsafe wakeup with
-     wait(_socket)?_readable. (maybe use a pipe or even eventfd for
-     efficiency on systems that can, if feeling ambitious.) runner
-     uses one of them.
-
-     windows iocp thread uses another to alert the main thread.
-     ...eh. does this make sense? could do call_soon if willing to
-     wait for the scheduling.
-
-     but really just need to shove events onto a deque, and some way
-     to wake up the select loop and do nothing else.
-
-     call select
-     drain internal wakeup socket
-     drain IOCP queue
-
    - rename Runner -> RunState, _runner.py -> _run.py
 
    - factor call_soon off into its own object
