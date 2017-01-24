@@ -54,4 +54,21 @@
 # you can wake up a WaitForMultipleObjectsEx on-demand by using QueueUserAPC
 # to send a no-op APC to its thread.
 # this is also a way to cancel a WaitForSingleObjectEx, actually. So it
-# actually is possible to cancel the equivalent of a
+# actually is possible to cancel the equivalent of a waitpid on Windows.
+
+
+# Potentially useful observation: you *can* use a socket as the
+# stdin/stdout/stderr for a child, iff you create that socket *without*
+# WSA_FLAG_OVERLAPPED:
+#   http://stackoverflow.com/a/5725609
+# Here's ncm's Windows implementation of socketpair, which has a flag to
+# control whether one of the sockets has WSA_FLAG_OVERLAPPED set:
+#   https://github.com/ncm/selectable-socketpair/blob/master/socketpair.c
+# (it also uses listen(1) so it's robust against someone intercepting things,
+# unlike the version in socket.py... not sure anyone really cares, but
+# hey. OTOH it only supports AF_INET, while socket.py supports AF_INET6,
+# fancy.)
+# (or it would be trivial to (re)implement in python, using either
+# socket.socketpair or ncm's version as a model, given a cffi function to
+# create the non-overlapped socket in the first place then just pass it into
+# the socket.socket constructor (avoiding the dup() that fromfd does).)

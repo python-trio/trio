@@ -233,7 +233,6 @@ class Runner:
             try:
                 method(*args)
             except BaseException as exc:
-                print("CRASH")
                 self.crash("error in instrument {!r}.{}"
                            .format(instrument, method_name),
                            exc)

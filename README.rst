@@ -199,6 +199,10 @@ nothing to see here
      drain internal wakeup socket
      drain IOCP queue
 
+   - rename Runner -> RunState, _runner.py -> _run.py
+
+   - factor call_soon off into its own object
+
    - unifying the task cancel and timeout cancel systems
 
      would it be easier if we wrap tasks in a little async function

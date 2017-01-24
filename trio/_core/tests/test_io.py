@@ -19,14 +19,16 @@ async def test_wait_socket():
     with a, b:
 
         # Only sockets are allowed
-        with pytest.raises(TypeError):
-            await _core.wait_socket_writable(a.fileno())
-
-        class AllegedSocket(stdlib_socket.socket):
-            pass
-        with AllegedSocket() as alleged_socket:
+        for sock_fn in [
+                _core.wait_socket_readable, _core.wait_socket_writable]:
             with pytest.raises(TypeError):
-                await _core.wait_socket_writable(alleged_socket)
+                await sock_fn(a.fileno())
+
+            class AllegedSocket(stdlib_socket.socket):
+                pass
+            with AllegedSocket() as alleged_socket:
+                with pytest.raises(TypeError):
+                    await sock_fn(alleged_socket)
 
         # They start out writable()
         await _core.wait_socket_writable(a)
