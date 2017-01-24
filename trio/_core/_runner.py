@@ -7,6 +7,7 @@ from time import monotonic
 import os
 import random
 from contextlib import contextmanager, closing
+import select
 import sys
 
 import attr
@@ -41,14 +42,12 @@ GLOBAL_RUN_CONTEXT = threading.local()
 
 if os.name == "nt":
     from ._io_windows import WindowsIOManager as TheIOManager
-else:
-    try:
-        from ._io_unix import EpollIOManager as TheIOManager
-    except ImportError:
-        try:
-            from ._io_unix import KqueueIOManager as TheIOManager
-        except ImportError:  # pragma: no cover
-            raise NotImplementedError("unsupported platform")
+elif hasattr(select, "epoll"):
+    from ._io_epoll import EpollIOManager as TheIOManager
+elif hasattr(select, "kqueue"):
+    from ._io_kqueue import KqueueIOManager as TheIOManager
+else:  # pragma: no cover
+    raise NotImplementedError("unsupported platform")
 
 
 class Clock(abc.ABC):
