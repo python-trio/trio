@@ -1,8 +1,8 @@
 nothing to see here
 
 ..
-   Trio – async I/O for humans
-   ===========================
+   Trio – async I/O for humans and snake people
+   ============================================
 
    Trio is an `async/await-native
    <https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/>`__
