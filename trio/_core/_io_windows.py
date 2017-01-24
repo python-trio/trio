@@ -161,23 +161,28 @@ class _SelectThread:
     # WSAPoll if you know how the fdset is structured.)
     def _thread_loop(self):
         while True:
+            #print("looping")
+            if self.thread_done:
+                return
+            #print("not done")
+            # select() holds the GIL while reading the input sets, so this is
+            # safe.
+            wait_read = self.waiters["read"]
+            wait_write = self.waiters["write"]
+            #print("waiting", wait_read, wait_write)
             # We select for exceptional conditions on the readable set because
             # on Windows, non-blocking connect shows up as "exceptional"
             # rather than "readable" if the connect fails.
-            if self.thread_done:
-                return
-            # select() holds the GIL while reading the input sets, so this is
-            # safe.
-            got = select(self.waiters["read"],
-                         self.waiters["write"],
-                         self.waiters["read"])
+            got = select(wait_read, wait_write, wait_read)
+            #print("woke up!", got)
             readable1, writable, readable2 = got
             for sock in set(readable1 + readable2):
                 if sock != self.wakeup_thread:
-                    self.call_soon(self._wake, "read", sock)
+                    self._wake("read", sock)
             for sock in writable:
-                self.call_soon(self._wake, "write", sock)
+                self._wake("write", sock)
             # Drain
+            #print("draining")
             while True:
                 try:
                     self.wakeup_thread.recv(4096)
@@ -191,14 +196,17 @@ class _SelectThread:
             # Must have gotten cancelled while the select was running
             assert exc.args == (sock,)
             return
-        _core.reschedule(task)
+        self.call_soon(_core.reschedule, task)
 
     async def wait(self, which, sock):
+        if type(sock) is not stdlib_socket.socket:
+            raise TypeError("need a stdlib socket")
         if sock in self.waiters[which]:
             raise RuntimeError(
                 "another task is already waiting to {} this socket"
                 .format(which))
         self.waiters[which][sock] = _core.current_task()
+        self._wakeup()
         def abort():
             del self.waiters[which][sock]
             return _core.Abort.SUCCEEDED

@@ -39,3 +39,17 @@ __all__ += _parking_lot.__all__
 
 from ._unbounded_queue import *
 __all__ += _unbounded_queue.__all__
+
+
+if hasattr(_runner, "wait_readable"):
+    import socket as _stdlib_socket
+
+    async def wait_socket_readable(sock):
+        if type(sock) != _stdlib_socket.socket:
+            raise TypeError("need a socket")
+        await wait_readable(sock)
+
+    async def wait_socket_writable(sock):
+        if type(sock) != _stdlib_socket.socket:
+            raise TypeError("need a socket")
+        await wait_writable(sock)

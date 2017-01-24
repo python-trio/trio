@@ -97,13 +97,6 @@ for _name in [
         return await _run_in_worker_thread(
             _partial(fn, *args, **kwargs), cancellable=True)
 
-if hasattr(_core, "wait_socket_readable"):
-    _wait_readable = _core.wait_socket_readable
-    _wait_writable = _core.wait_socket_writable
-else:
-    _wait_readable = _core.wait_readable
-    _wait_writable = _core.wait_writable
-
 class SocketType(_Stream):
     def __init__(self, sock):
         self._sock = sock
@@ -258,7 +251,7 @@ class SocketType(_Stream):
         return await self._resolve_address(address, 0)
 
     async def wait_maybe_writable(self):
-        await _wait_writable(self._sock)
+        await _core.wait_socket_writable(self._sock)
 
     async def _nonblocking_helper(self, fn, args, kwargs, wait_fn):
         # We have to reconcile two conflicting goals:
@@ -308,7 +301,7 @@ class SocketType(_Stream):
     ################################################################
 
     accept = _make_simple_wrapper(
-        _stdlib_socket.socket.accept, _wait_readable)
+        _stdlib_socket.socket.accept, _core.wait_socket_readable)
 
     ################################################################
     # connect
@@ -349,7 +342,7 @@ class SocketType(_Stream):
         # It raised BlockingIOError, meaning that it's started the
         # connection attempt. We wait for it to complete:
         try:
-            await _wait_writable(self._sock)
+            await _core.wait_socket_writable(self._sock)
         except _core.Cancelled:
             # We can't really cancel a connect, and the socket is in an
             # indeterminate state. Better to close it so we don't get
@@ -366,28 +359,28 @@ class SocketType(_Stream):
     ################################################################
 
     recv = _make_simple_wrapper(
-        _stdlib_socket.socket.recv, _wait_readable)
+        _stdlib_socket.socket.recv, _core.wait_socket_readable)
 
     ################################################################
     # recv_into
     ################################################################
 
     recv_into = _make_simple_wrapper(
-        _stdlib_socket.socket.recv_into, _wait_readable)
+        _stdlib_socket.socket.recv_into, _core.wait_socket_readable)
 
     ################################################################
     # recvfrom
     ################################################################
 
     recvfrom = _make_simple_wrapper(
-        _stdlib_socket.socket.recvfrom, _wait_readable)
+        _stdlib_socket.socket.recvfrom, _core.wait_socket_readable)
 
     ################################################################
     # recvfrom_into
     ################################################################
 
     recvfrom_into = _make_simple_wrapper(
-        _stdlib_socket.socket.recvfrom_into, _wait_readable)
+        _stdlib_socket.socket.recvfrom_into, _core.wait_socket_readable)
 
     ################################################################
     # recvmsg
@@ -395,7 +388,7 @@ class SocketType(_Stream):
 
     if hasattr(_stdlib_socket.socket, "recvmsg"):
         recvmsg = _make_simple_wrapper(
-            _stdlib_socket.socket.recvmsg, _wait_readable)
+            _stdlib_socket.socket.recvmsg, _core.wait_socket_readable)
 
     ################################################################
     # recvmsg_into
@@ -403,14 +396,14 @@ class SocketType(_Stream):
 
     if hasattr(_stdlib_socket.socket, "recvmsg_into"):
         recvmsg_into = _make_simple_wrapper(
-            _stdlib_socket.socket.recvmsg_into, _wait_readable)
+            _stdlib_socket.socket.recvmsg_into, _core.wait_socket_readable)
 
     ################################################################
     # send
     ################################################################
 
     send = _make_simple_wrapper(
-        _stdlib_socket.socket.send, _wait_writable)
+        _stdlib_socket.socket.send, _core.wait_socket_writable)
 
     ################################################################
     # sendto
@@ -422,7 +415,8 @@ class SocketType(_Stream):
         # and kwargs are not accepted
         self._check_address(args[-1], require_resolved=True)
         return await self._nonblocking_helper(
-            _stdlib_socket.socket.sendto, args, {}, _wait_writable)
+            _stdlib_socket.socket.sendto, args, {},
+            _core.wait_socket_writable)
 
     ################################################################
     # sendmsg
@@ -436,7 +430,8 @@ class SocketType(_Stream):
             if len(args) == 4 and args[-1] is not None:
                 self._check_address(args[-1], require_resolved=True)
             return await self._nonblocking_helper(
-                _stdlib_socket.socket.sendmsg, args, {}, _wait_writable)
+                _stdlib_socket.socket.sendmsg, args, {},
+                _core.wait_socket_writable)
 
         sendmsg.__doc__ = """See :meth:`socket.socket.sendmsg`.
 

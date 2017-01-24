@@ -134,6 +134,88 @@ nothing to see here
    next:
    - should tasks be context managers?
 
+   - I use .join() when I want .wait(). So split these up.
+
+     async with supervisor() as s:
+         await start_foo(s.spawn, ...)
+         await start_bar(s.spawn, ...)
+         async for task in s:
+             ...
+
+     - if we leave the block, it cancels all remaining tasks, waits
+       for them to finish, and re-raises any exceptions. So this takes
+       care of parent-can't-die-before-child, and also guarantees they
+       all get reaped.
+
+     but the thing coming out of the for loop is still the task
+     object, easy to not check it for errors.
+
+     *how do we make sure errors go somewhere?*
+
+     Task.unwrap(); if this isn't called then re-raise at the end?
+
+     send ChildExitCancelled to nominated supervisor when the child
+     exits, unless they've set up a queue to receive it instead and
+     trust that if they did that then they'll handle it properly?
+
+     ParentExitCancelled
+
+     use cases:
+
+       jongleur: supervise a large collection of tasks that come and
+         go, propagate any exceptions, support drain and killall
+
+       two-way proxy: spawn two children, wait for them both to
+         finish, propagate errors both directions
+
+       concurrent IO: start a bunch of request.get() calls, gather the
+         results as they come in
+
+   - IOManager refactoring:
+
+     now that everyone has wait_socket_readable, could factor out the
+     threadsafe wakeup code to use it?
+
+     and maybe the whole windows loop will be easier if we make select
+     run in the main loop and IOCP run in a subsidiary thread? (And
+     waitformultipleeventex similarly I guess if we ever get around to
+     it.) the nice thing is that queueing events to IOCP doesn't
+     require waking the thread! it can just loop on pulling a single
+     event off, delivering it, repeat.
+
+     generic(ish) object that does threadsafe wakeup with
+     wait(_socket)?_readable. (maybe use a pipe or even eventfd for
+     efficiency on systems that can, if feeling ambitious.) runner
+     uses one of them.
+
+     windows iocp thread uses another to alert the main thread.
+     ...eh. does this make sense? could do call_soon if willing to
+     wait for the scheduling.
+
+     but really just need to shove events onto a deque, and some way
+     to wake up the select loop and do nothing else.
+
+     call select
+     drain internal wakeup socket
+     drain IOCP queue
+
+   - unifying the task cancel and timeout cancel systems
+
+     would it be easier if we wrap tasks in a little async function
+     that sets up the magic local (or not), and also puts a
+     move_on_at(inf) wrapper around them?
+
+     maybe expose the deadline as a Task.deadline property
+
+     and make it possible to fire an arbitrary cancellation exception
+     to cancel a chunk of work, via the CancelStatus object?
+
+   - tasks from new lineages (the initial task, the call_soon task)
+     treated in uniform way? if we crash before starting the initial
+     task (ouch but can happen with instruments) then should cancel it
+     immediately I guess. Or is it better to special case this and not
+     even start?
+
    - join returning result is actually pretty bad because it
      encourages
 
