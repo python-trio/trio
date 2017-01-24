@@ -8,42 +8,6 @@ import attr
 from .. import _core
 from . import _public, _hazmat
 
-def maybe_shrink_pipe(fd):
-    # Try to set the pipe size as small as possible -- no point in having
-    # a giant kernel buffer when the only two states we care about are
-    # "contains 0 bytes" and "contains >= 1 byte". (It actually ends up being
-    # 1 page = 4096 bytes.) This also makes buffer overflow a more common
-    # condition, so we're more likely to notice if we break it.
-    if sys.platform == "linux":
-        F_SETPIPE_SZ = 1031
-        fcntl.fcntl(fd, F_SETPIPE_SZ, 1)
-
-class WakeupPipe:
-    def __init__(self):
-        self._read_fd, self._write_fd = os.pipe()
-        maybe_shrink_pipe(self._read_fd)
-        os.set_blocking(self._read_fd, False)
-        os.set_blocking(self._write_fd, False)
-
-    def wakeup_threadsafe(self):
-        try:
-            os.write(self._write_fd, b"\x00")
-        except BlockingIOError:
-            pass
-
-    async def wait_woken(self):
-        await _core.wait_readable(self._read_fd)
-        # Drain the pipe:
-        try:
-            while True:
-                os.read(self._read_fd, 2 ** 16)
-        except BlockingIOError:
-            pass
-
-    def close(self):
-        os.close(self._read_fd)
-        os.close(self._write_fd)
-
 ################################################################
 
 if hasattr(select, "epoll"):
@@ -98,16 +62,8 @@ if hasattr(select, "epoll"):
                 tasks_waiting_write=tasks_waiting_write,
             )
 
-        # Delegate wakeup functionality to WakeupPipe
-        _wakeup = attr.ib(default=attr.Factory(WakeupPipe))
-        def wakeup_threadsafe(self):
-            self._wakeup.wakeup_threadsafe()
-        async def wait_woken(self):
-            await self._wakeup.wait_woken()
-
         def close(self):
             self._epoll.close()
-            self._wakeup.close()
 
         # Called internally by the task runner:
         def handle_io(self, timeout):
@@ -199,16 +155,8 @@ if hasattr(select, "kqueue"):
                 monitors=monitors,
             )
 
-        # Delegate wakeup functionality to WakeupPipe
-        _wakeup = attr.ib(default=attr.Factory(WakeupPipe))
-        def wakeup_threadsafe(self):
-            self._wakeup.wakeup_threadsafe()
-        async def wait_woken(self):
-            await self._wakeup.wait_woken()
-
         def close(self):
             self._kqueue.close()
-            self._wakeup.close()
 
         def handle_io(self, timeout):
             # max_events must be > 0 or kqueue gets cranky

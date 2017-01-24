@@ -36,9 +36,13 @@ async def test_wait_socket():
         # But readable() blocks until data arrives
         record = []
         async def block_on_read():
-            await _core.wait_socket_readable(a)
-            record.append("readable")
-            return a.recv(10)
+            try:
+                await _core.wait_socket_readable(a)
+            except _core.Cancelled:
+                record.append("cancelled")
+            else:
+                record.append("readable")
+                return a.recv(10)
         t = await _core.spawn(block_on_read)
         await wait_run_loop_idle()
         assert record == []
@@ -54,8 +58,12 @@ async def test_wait_socket():
         # Now writable will block
         record = []
         async def block_on_write():
-            await _core.wait_socket_writable(a)
-            record.append("writable")
+            try:
+                await _core.wait_socket_writable(a)
+            except _core.Cancelled:
+                record.append("cancelled")
+            else:
+                record.append("writable")
         t = await _core.spawn(block_on_write)
         await wait_run_loop_idle()
         assert record == []
@@ -65,3 +73,23 @@ async def test_wait_socket():
         except BlockingIOError:
             pass
         (await t.join()).unwrap()
+
+        # check cancellation
+        record = []
+        t = await _core.spawn(block_on_read)
+        await wait_run_loop_idle()
+        t.cancel()
+        (await t.join()).unwrap()
+        assert record == ["cancelled"]
+
+        try:
+            while True:
+                a.send(b"x" * 65535)
+        except BlockingIOError:
+            pass
+        record = []
+        t = await _core.spawn(block_on_write)
+        await wait_run_loop_idle()
+        t.cancel()
+        (await t.join()).unwrap()
+        assert record == ["cancelled"]

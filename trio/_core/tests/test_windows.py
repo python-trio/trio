@@ -37,3 +37,7 @@ async def test_completion_key_listen():
             # have to make sure that post() is finished before exiting this
             # block and relinquishing the completion key
             (await task.join()).unwrap()
+
+
+# XX test setting the iomanager._iocp to something weird to make sure that the
+# IOCP thread can send exceptions back to the main thread

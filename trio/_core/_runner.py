@@ -26,6 +26,7 @@ from ._ki import (
     LOCALS_KEY_KI_PROTECTION_ENABLED, ki_protected, ki_manager,
 )
 from ._cancel import CancelStack, yield_briefly
+from ._wakeup_socketpair import WakeupSocketpair
 from . import _public, _hazmat
 
 # At the bottom of this file there's also some "clever" code that generates
@@ -336,11 +337,19 @@ class Runner:
     # WRT threads (and this is guaranteed in the docs), AND each operation is
     # atomic WRT signal delivery (signal handlers can run on either side, but
     # not *during* a deque operation).
+    call_soon_wakeup = attr.ib(default=attr.Factory(WakeupSocketpair))
     call_soon_queue = attr.ib(default=attr.Factory(deque))
     call_soon_done = attr.ib(default=False)
     # Must be a reentrant lock, because it's acquired from signal
     # handlers. RLock is signal-safe as of cpython 3.2:
     #     https://bugs.python.org/issue13697#msg237140
+    # NB that this does mean that the lock is effectively *disabled* when we
+    # enter from signal context. The way we use the lock this is OK though,
+    # because when call_soon_thread_and_signal_safe is called from a signal
+    # it's atomic WRT the main thread -- it just might happen at some
+    # inconvenient place. But if you look at the one place where the main
+    # thread holds the lock, it's just to make 1 assignment, so that's atomic
+    # WRT a signal anyway.
     call_soon_lock = attr.ib(default=attr.Factory(threading.RLock))
 
     def call_soon_thread_and_signal_safe(self, fn, *args, spawn=False):
@@ -353,7 +362,7 @@ class Runner:
             # wakeup call might trigger an OSError b/c the IO manager has
             # already been shut down.
             self.call_soon_queue.append((fn, args, spawn))
-            self.io_manager.wakeup_threadsafe()
+            self.call_soon_wakeup.wakeup_thread_and_signal_safe()
 
     @_public
     @_hazmat
@@ -394,15 +403,18 @@ class Runner:
                 # Do a bounded amount of work between yields.
                 # We always want to try processing at least one, though;
                 # otherwise we could just loop around doing nothing at
-                # all. If the queue is really empty, we'll get an
-                # exception and go to sleep until woken.
+                # all. If the queue is really empty, maybe_call_next will
+                # return False and we'll sleep.
                 for _ in range(max(1, len(self.call_soon_queue))):
                     if not maybe_call_next():
-                        await self.io_manager.wait_woken()
+                        await self.call_soon_wakeup.wait_woken()
                         break
                 else:
                     await yield_briefly()
         except Cancelled:
+            # Keep the work done with this lock held as minimal as possible,
+            # because it doesn't protect us against concurrent signal delivery
+            # (see the comment above).
             with self.call_soon_lock:
                 self.call_soon_done = True
             # No more jobs will be submitted, so just clear out any residual
