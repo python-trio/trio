@@ -474,7 +474,7 @@ def test_instruments_crash():
         def close(self):
             # Shouldn't be called -- tests that the instrument disabling logic
             # works right.
-            record.append("closed")
+            record.append("closed")  # pragma: no cover
 
     async def main():
         try:
