@@ -359,7 +359,7 @@ async def test_current_statistics(mock_clock):
 
 
 @attr.s(slots=True, cmp=False, hash=False)
-class Recorder(_core.Instrument):
+class TaskRecorder:
     record = attr.ib(default=attr.Factory(list))
 
     def task_scheduled(self, task):
@@ -384,9 +384,9 @@ class Recorder(_core.Instrument):
                 yield item
 
 def test_instruments():
-    r1 = Recorder()
-    r2 = Recorder()
-    r3 = Recorder()
+    r1 = TaskRecorder()
+    r2 = TaskRecorder()
+    r3 = TaskRecorder()
 
     async def main():
         for _ in range(2):
@@ -400,11 +400,8 @@ def test_instruments():
         return _core.current_task()
     task = _core.run(main, instruments=[r1, r2])
     # It sleeps 3 times, so it runs 4 times
-    expected = [("schedule", task), ("before", task), ("after", task),
-                ("schedule", task), ("before", task), ("after", task),
-                ("schedule", task), ("before", task), ("after", task),
-                ("schedule", task), ("before", task), ("after", task),
-                ("close",)]
+    expected = (4 * [("schedule", task), ("before", task), ("after", task)]
+                + [("close",)])
     assert len(r1.record) > len(r2.record) > len(r3.record)
     assert r1.record == r2.record + r3.record
     # Need to filter b/c there's also the system task bumping around in the
@@ -431,11 +428,8 @@ def test_instruments_interleave():
         tasks["t1"] = await _core.spawn(two_step1)
         tasks["t2"] = await _core.spawn(two_step2)
 
-    # pass in a base class Instrument just to check that its null methods are
-    # spelled right
-    base = _core.Instrument()
-    r = Recorder()
-    _core.run(main, instruments=[base, r])
+    r = TaskRecorder()
+    _core.run(main, instruments=[r])
 
     expected = [
         ("schedule", tasks["main"]),
@@ -455,6 +449,42 @@ def test_instruments_interleave():
          ("after", tasks["t2"])},
         ("close",)]
     check_sequence_matches(list(r.filter_tasks(tasks.values())), expected)
+
+
+def test_null_instrument():
+    # undefined instrument methods are skipped
+    class NullInstrument:
+        pass
+
+    async def main():
+        await _core.yield_briefly()
+
+    _core.run(main, instruments=[NullInstrument()])
+
+def test_instruments_crash():
+    record = []
+
+    class BrokenInstrument:
+        def task_scheduled(self, task):
+            record.append("scheduled")
+            raise ValueError("oops")
+
+        def close(self):
+            # Shouldn't be called -- tests that the instrument disabling logic
+            # works right.
+            record.append("closed")
+
+    async def main():
+        try:
+            while True:
+                await _core.yield_briefly()
+        except _core.Cancelled:
+            record.append("cancelled")
+
+    with pytest.raises(_core.UnhandledExceptionError) as excinfo:
+        _core.run(main, instruments=[BrokenInstrument()])
+    assert excinfo.value.__cause__.args == ("oops",)
+    assert record == ["scheduled", "cancelled"]
 
 
 def test_cancel_points():
@@ -905,13 +935,9 @@ async def test_call_soon_massive_queue():
     await busy_wait_for(lambda: counter[0] == COUNT)
 
 
-# XX crash in instrument
-
 # make sure to set up one where all tasks are blocked on I/O to exercise the
 # timeout = _MAX_TIMEOUT line
 
 # other files:
-# keyboard interrupt: this will be fun...
-# queue
 # unix IO
 # windows IO

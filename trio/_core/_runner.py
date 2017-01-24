@@ -32,7 +32,7 @@ from . import _public, _hazmat
 # wrapper functions for runner and io manager methods, and adds them to
 # __all__. These are all re-exported as part of the 'trio' or 'trio.hazmat'
 # namespaces.
-__all__ = ["Clock", "Instrument", "Task", "run",
+__all__ = ["Clock", "Task", "run",
            "current_task", "current_deadline", "yield_if_cancelled"]
 
 GLOBAL_RUN_CONTEXT = threading.local()
@@ -72,20 +72,6 @@ class SystemClock(Clock):
 
     def deadline_to_sleep_time(self, deadline):
         return deadline - self.current_time()
-
-
-class Instrument(abc.ABC):
-    def task_scheduled(self, task):
-        pass
-
-    def before_task_step(self, task):
-        pass
-
-    def after_task_step(self, task):
-        pass
-
-    def close(self):
-        pass
 
 
 # The rules:
@@ -238,18 +224,20 @@ class Runner:
         self.io_manager.close()
         self.instrument("close")
 
-    def instrument(self, method, *args):
-        bad = []
-        for i, instrument in enumerate(self.instruments):
+    def instrument(self, method_name, *args):
+        for instrument in list(self.instruments):
             try:
-                getattr(instrument, method)(*args)
+                method = getattr(instrument, method_name)
+            except AttributeError:
+                continue
+            try:
+                method(*args)
             except BaseException as exc:
+                print("CRASH")
                 self.crash("error in instrument {!r}.{}"
-                           .format(instrument, method),
+                           .format(instrument, method_name),
                            exc)
-                bad.append(i)
-        while bad:
-            del self.instruments[bad.pop()]
+                self.instruments.remove(instrument)
 
     def handle_ki(self, victim_task):
         # victim_task is the one that already got hit with the
@@ -517,7 +505,9 @@ def run_impl(runner, fn, args):
             timeout = _MAX_TIMEOUT
         timeout = min(max(0, timeout), _MAX_TIMEOUT)
 
+        runner.instrument("before_io_wait", timeout)
         runner.io_manager.handle_io(timeout)
+        runner.instrument("after_io_wait", timeout)
 
         now = runner.clock.current_time()
         while runner.deadlines:

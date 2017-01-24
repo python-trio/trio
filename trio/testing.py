@@ -75,7 +75,7 @@ class MockClock(_core.Clock):
 
 
 @attr.s(cmp=False, hash=False)
-class _RecordYield(_core.Instrument):
+class _RecordYieldInstrument:
     yielded = attr.ib(default=False)
 
     def after_task_step(self, task):
@@ -84,7 +84,7 @@ class _RecordYield(_core.Instrument):
 @contextmanager
 def _assert_yields_or_not(expected):
     __tracebackhide__ = True
-    instrument = _RecordYield()
+    instrument = _RecordYieldInstrument()
     _core.current_instruments().append(instrument)
     try:
         yield
