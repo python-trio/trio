@@ -29,7 +29,7 @@ def check_exc_chain(exc, chain, complete=True):
         assert type(exc) is chain.pop(0)
         if chain:
             exc = getattr(exc, "__{}__".format(chain.pop(0)))
-    if complete:
+    if complete:  # pragma: no branch
         assert exc.__cause__ is None
         assert exc.__context__ is None
 

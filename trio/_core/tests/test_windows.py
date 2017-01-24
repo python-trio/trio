@@ -14,6 +14,8 @@ async def test_completion_key_listen():
         iocp = ffi.cast("HANDLE", _core.current_iocp())
         for i in range(10):
             print("post", i)
+            if i % 3 == 0:
+                await _core.yield_briefly()
             success = kernel32.PostQueuedCompletionStatus(
                 iocp, i, key, ffi.NULL)
             assert success
@@ -23,7 +25,7 @@ async def test_completion_key_listen():
             task = await _core.spawn(post, key)
             i = 0
             print("loop")
-            async for batch in queue:
+            async for batch in queue:  # pragma: no branch
                 print("got some", batch)
                 for info in batch:
                     assert info.lpOverlapped == 0
