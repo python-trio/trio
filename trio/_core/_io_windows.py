@@ -16,6 +16,8 @@ from ._windows_cffi import (
     ffi, kernel32, INVALID_HANDLE_VALUE, raise_winerror, Error,
 )
 
+# XX update this to match the new reality:
+#
 # How things fit together:
 # - each notification event (OVERLAPPED_ENTRY) contains:
 #   - the "completion key" (an integer)
@@ -97,6 +99,38 @@ from ._windows_cffi import (
 # If we do switch to WSAPoll, we might consider using QueueUserAPC to take
 # that thread, similar to what one would do for WaitForMultipleObjectsEx.
 
+# Interesting note: on Windows you can *check* writability by attempting to
+# do a 0-byte send -- this returns EWOULDBLOCK if the socket is not writable.
+# Is this also true for IOCP sends? If so then it's possible to check
+# writability via IOCP... (at least for SOCK_STREAM, where I *believe* but
+# should check that IOCP notifications are based on the socket buffer).
+# Unfortunately this doesn't seem to work for readability: sock.recv(0) return
+# b"" even if there's nothing to read. Could double-check against the
+# low-level API in case Python is doing something.
+
+# handles:
+# - for now we'll just use 1 thread per handle, should file a QoI bug to
+#   multiplex multiple handles onto the same thread
+# - cancel via QueueUserAPC
+# - I'm a little nervous about the callback to QueueUserAPC... cffi's
+#   ABI-level callbacks require executable memory and who knows how happy the
+#   re-enter-Python code will be about being executed in APC context. (I guess
+#   APC context here is always "on a thread running Python code but that has
+#   dropped the GIL", so maybe there's no issue?)
+#   - on 32-bit windows, Sleep makes a great QueueUserAPC callback...
+#   - WakeByAddressAll and WakeByAddresSingle have the right signature
+#     everywhere!
+#     - there are also a bunch that take a *-sized arg and return BOOL,
+#       e.g. CloseHandle, SetEvent, etc.
+#   - or free() from the CRT (free(NULL) is a no-op says the spec)
+#   - but do they have the right calling convention? QueueUserAPC wants an
+#       APCProc which is VOID CALLBACK f(ULONG_PTR)
+#       CALLBACK = __stdcall
+#     ugh, and free is not annotated, so probably __cdecl
+#     but most of the rest are WINAPI which is __stdcall
+#     ...but, on x86-64 calling convention distinctions are erased! so we can
+#     do Sleep on x86-32 and free on x86-64...
+
 def _check(success):
     if not success:
         raise_winerror()
@@ -172,7 +206,10 @@ class WindowsIOManager:
     def handle_io(self, timeout):
         # Step 0: the first time through, initialize the IOCP thread
         if self._iocp_thread is None:
-            self._iocp_thread = threading.Thread(target=self._iocp_thread_fn)
+            # The rare non-daemonic thread -- close() should always be called,
+            # even on error paths, and we want to join it there.
+            self._iocp_thread = threading.Thread(
+                target=self._iocp_thread_fn, name="trio-IOCP")
             self._iocp_thread.start()
 
         # Step 1: select for sockets, with the given timeout.
