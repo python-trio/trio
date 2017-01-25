@@ -720,11 +720,11 @@ def test_system_task_crash():
     async def main():
         # this cheats a bit to set things up -- oh well, if we ever change the
         # internal APIs we can just change the test too.
-        runner = _core._runner.GLOBAL_RUN_CONTEXT.runner
+        runner = _core._run.GLOBAL_RUN_CONTEXT.runner
         async def crasher():
             raise KeyError
         task = runner.spawn_impl(
-            crasher, (), type=_core._runner.TaskType.SYSTEM)
+            crasher, (), type=_core._run.TaskType.SYSTEM)
         # Even though we're listening for an error, that's not enough to save
         # us:
         await task.join()

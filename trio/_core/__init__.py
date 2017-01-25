@@ -2,7 +2,7 @@
 def _public(fn):
     # Used to mark methods on _Runner and on IOManager implementations that
     # should be wrapped as global context-sensitive functions (see the bottom
-    # of _runner.py for the wrapper implementation).
+    # of _run.py for the wrapper implementation).
     fn._public = True
     return fn
 
@@ -31,8 +31,8 @@ __all__ += _ki.__all__
 from ._cancel import *
 __all__ += _cancel.__all__
 
-from ._runner import *
-__all__ += _runner.__all__
+from ._run import *
+__all__ += _run.__all__
 
 from ._parking_lot import *
 __all__ += _parking_lot.__all__
@@ -41,7 +41,7 @@ from ._unbounded_queue import *
 __all__ += _unbounded_queue.__all__
 
 
-if hasattr(_runner, "wait_readable"):
+if hasattr(_run, "wait_readable"):
     import socket as _stdlib_socket
 
     async def wait_socket_readable(sock):
