@@ -23,23 +23,24 @@ nothing to see here
 
    So... where to next?
 
-   *Does it work on my machine?* Trio and its dependencies are all
-   pure Python, except that on Windows it needs cffi. So if you have
-   some kind of Python 3.5+ on any popular-ish platform, then it
-   should work. Linux, MacOS, and Windows are all fully supported,
-   *BSD probably works too though isn't tested, and the last time I
-   checked a PyPy3 nightly build it worked fine.
+   *Does it work on my machine?* We fully support Linux, MacOS, and
+   Windows, running Python 3.5+ (including PyPy 3.5 nightly builds).
+   Trio and its dependencies are all pure Python, except that on
+   Windows it needs cffi. *BSD might work too though isn't tested.
 
    *I want to know more!* Check out the `documentation
    <https://trio.readthedocs.io>`.
 
    *I want to try it!* Awesome! ``pip install trio`` and check out
-   `our examples XX`
+   `our examples XX`. And if you use it for anything more than toy
+   experiments, then you should <XX subscribe to this issue>.
 
    *I want to help!* You're the best! Check out our  <github issues>
-   discussion, tests, docs, use it and let us know how it goes
+   discussion, tests, docs, use it and let us know how it goes XX
 
-   *I want to make sure my company's lawyers won't get angry at me!*
+   *I just love thinking about !* You might enjoy our <XX reading list>
+
+   *Are my company's lawyers going to get angry at me?*
    No worries, trio is permissively licensed under your choice of MIT
    or Apache 2. See `LICENSE
    <https://github.com/njsmith/trio/blob/master/LICENSE>`__ for
@@ -132,7 +133,13 @@ nothing to see here
 
 
    next:
-   - should tasks be context managers?
+   - if one cancel steps on another, we should chain them
+
+     we still have the lurking issue that chaining does *hide* the
+     underlying exception
+     it's fine for sequential code where the second exception actually
+     does arise from the path handling the first, but not so clear
+     when aggregating from multiple parallel contexts...
 
    - I use .join() when I want .wait(). So split these up.
 
@@ -157,8 +164,16 @@ nothing to see here
      send ChildExitCancelled to nominated supervisor when the child
      exits, unless they've set up a queue to receive it instead and
      trust that if they did that then they'll handle it properly?
-
      ParentExitCancelled
+     it would help if there were better ways to aggregate errors...
+
+     cancellation by itself is an inadequate way to propagate
+     exceptions because if a task exits while the cancellation is
+     pending then the cancellation just goes away
+
+     a downside to the current blow-up-the-world fallback is that if
+     you *do* want a guarantee that the world won't blow up it's hard
+     to implement that.
 
      use cases:
 
@@ -171,9 +186,224 @@ nothing to see here
        concurrent IO: start a bunch of request.get() calls, gather the
          results as they come in
 
-   - rename Runner -> RunState, _runner.py -> _run.py
+     strawman:
 
-   - factor call_soon off into its own object
+       - parents cannot die before children. if they try, then
+         children get cancelled and the parent waits on them.
+       - by default:
+         - if a child dies with an exception, raise an exception in the
+           parent
+         - if a child exits normally, that's fine, don't hassle the parent
+       - if parent opts in to notifications:
+         - they just get told about child exit (regardless of state)
+
+            with child_monitor() as m:
+               async for task in m:
+                   ...
+
+            any task that doesn't get pulled out counts as unreaped?
+            (should be batched, probably just use an UnboundedQueue,
+            and when the monitor __exit__'s pull out anything
+            remaining in the queue. and nice, the child_monitor pun
+            works with the other *_monitor context managers)
+            ...maybe the queue stops iteration when there are no more
+            children? need some extension to UnboundedQueue for that.
+            (what's up with task_done() and all that anyway -- can't
+            we close() and then join()?)
+        - when spawning, can specify a parent; default is current task
+
+     in this setup, this code is actually correct...
+
+       tasks = [await _core.spawn(fn) for fn in fns]
+       for task in tasks:
+           await task.wait()
+
+     if one of them crashes, then the current task.wait() will get
+     cancelled
+
+     hmm, but this is not a normal cancel -- it should propagate!
+     (and as noted above, if not delivered that should be noted)
+     maybe distinguish between cancel and inject exceptions?
+     AsyncError vs Cancelled?
+
+     maybe tasks are the wrong scope for this though. Maybe it should
+     be a, well... "scope" first-class concept, so
+
+       with move_on_after(10):
+           await spawn(...)
+
+     automatically waits on the child *when exiting the
+     move_on_after*?
+
+     ...should cancelling the scope automatically cancel the tasks
+     inside it? when the timeout fires should the child tasks get
+     timeout exceptions?
+       (if so then scope.raised becomes ambiguous)
+
+       current_scope()
+       spawn is a method on scope
+       every task introduces an implicit scope
+       scope.effective_deadline()
+
+     scope tree
+       only operations that create scopes are task spawn and context
+       managers
+       and these are also the only operations that associate a scope
+       to a task
+       the scope created by spawning a new task can have any arbitrary
+       open scope as its parent, but context manager scopes can only
+       be parented by the current top of the current task's scope
+       stack
+
+       so this means that the task tree is a strict coarsening of the
+       scope tree
+
+     a scope has:
+     - deadline
+     - exactly 1 parent scope (if self is living, parent must be living)
+     - 0 or more child task scopes (all living)
+     - 0 or 1 child within-task scopes (all living)
+
+     state: live, dead, raised
+       I guess "can recover and retry" is dead + raised + parent live?
+
+     ...do we cancel the children if we reach the end of the scope, or
+     just wait on them? maybe have to cancel...
+
+     operations:
+     - cancel
+     - adjust timeout
+     - spawn new task
+     - push new within-task scope
+     - get effective timeout
+
+     control-C is similar to cancelling the root scope? (except it
+     propagates out of run())
+       I guess we do kind of want cancels to propagate sometimes --
+       if an await_in_trio_thread gets cancelled we should tell the
+       caller. and if the main task gets cancelled we should tell the
+       caller.
+
+       maybe the intuition is that it propagates out of the task, and
+       gets swallowed by the context manager? ...well, this doesn't
+       make much sense, because the distinction here is between cancel
+       directed at the task scope versus cancel in one of the higher
+       scopes, and the distinction above is about if there's someone
+       outside the trio system telling them what happened.
+
+       I guess it's the job of the code receiving the task completion
+       notification to decide whether it thinks a cancelled exception
+       is worth passing on.
+
+     I'm not 100% clear on how to handle multiple cancels, or parent
+     cancellation...
+
+     "injected error":
+       - control-C, fine
+       - when a child task crashes and the parent is not monitoring
+         this is like a cancellation in terms of its delivery
+         semantics, except...
+
+         - if there is, say, a cancellation + two crashed tasks
+           pending, what do we do?
+
+         for merging task crashes, I guess something like a
+         ChildrenCrashedError that has *both* a list of all the
+         exceptions + a __context__ chain linking them together so
+         they all get printed? (or would it be __cause__ for the first
+         and then __context__ after?)
+         and an original_context for what the context would have been
+         if not for this mess? hmm. I guess there isn't one, actually
+         -- from a quick check, when you throw an exception into a
+         sleeping coroutine, it *doesn't* get annotated with the
+         coroutines exc_info context. I can't see any way to get the
+         coroutine's exc_info either.
+
+         for cancellation + crash, I guess we can apply the
+         cancellation, and then the crash will stick around to appear
+         during the scope cleanup?
+
+     who parents call_soon(spawn=True) tasks? a few plausible
+     options... dedicated system init task; the task specified when
+     calling current_call_soon_thread_and_signal_safe; ...
+       (might want to split into current_{call,spawn}_soon_... if
+       gaining arguments that are only relevant to spawn=True version)
+
+   - service registry? add a daemonic-ish task, maybe with a way to
+     request a reference to it?
+
+     maybe for waitpid support?
+
+   - does yield_if_cancelled need to check the deadline before
+     deciding whether to yield? could we get in a situation where a
+     deadline never fires b/c we aren't yielding to the IO loop?
+     though... actually this is a more general problem, because even
+     in a pure model where we always await wait_socket_readable()
+     before attempting the call (for example), then the readability
+     success + rescheduling will happen before the timeout check!
+     but then at least b/c we did yield the timeout will be marked as
+     pending and delivered the next time -- the problem with
+     yield_if_cancelled is that it may not yield. though... it is then
+     paired with a yield_briefly_no_cancel, which I think is
+     enough to arm the cancel, even if not deliver it? So maybe it's
+     OK after all.
+
+   - Maybe ParkingLot should return a ticket when unparking a task,
+     that lets it repark and resume its place in line.
+
+     ticket = None
+     while not self._data:
+         (ticket, value) = await self._lot.park(ticket=ticket)
+
+     ...or maybe we should modify our uses of ParkingLot so that the
+     waking task can't have its resource stolen out from under it?
+     (strategy 1: hand off the lock directly to the woken task instead
+     of releasing it and letting the waking task re-acquire
+     it. strategy 2: get, get_nowait, acquire, etc., first check for
+     whether there are tasks parked and if so they automatically
+     park instead of stealing the resource.)
+
+     maybe ParkingLot should have some sort of flag/counter, where
+     parking consumes this, and you always park? so mutex unlock ->
+     let one task through the gate. (maybe now, maybe later.) put 3
+     items into queue -> let three tasks through the gate. I guess
+     states are gate open, gate closed, N-tickets-available? this
+     still doesn't handle all cases, like a queue with both get and
+     get_all, where (a) if you have get, get, get_all, get in the
+     wakequeue, and 4 items arrive, how do you know to wake just 3?,
+     (b) even if you do wake just just 3, what happens if the get_all
+     task runs first?
+
+     I guess tasks could declare how many tickets they needed on
+     entry. (get_all consumes: 1-infinity.) But that still
+     doesn't solve the scheduling nondeterminism issue. Of course
+     ParkingLot gets to be arbitrarily tightly integrated with the
+     scheduler. Or we could tell tasks how many tickets they got?
+
+   - XX add test for UnboundedQueue schedules properly (only wakes 1
+     task if 2 puts)
+
+   - if we eventually get a model where we're comfortable about
+     crashes propagating everywhere in a nice way, then we might want
+     to switch to a model where control-C just injects KI immediately
+     if possible, and otherwise at the next switch to an unprotected
+     task, and leave it at that.
+
+     this would need to be the type of injected exception that
+     propagates out of the task, though. (though if we're just
+     brutally injecting it as the result of a yield, instead of going
+     through the cancellation machinery, then I guess that wouldn't
+     come up anyway!)
+
+     problem: what to do if all tasks are blocked and loop is just
+     sitting in the IOManager? need to pick one to abort, I guess...?
+     it would suck if the one we picked to abort was uncancellable
+     though. (maybe run_in_worker_thread should use
+     yield_indefinitely_no_cancel, or at least a well-known lambda:
+     FAILED callback so we can recognize unabortable tasks and pick a
+     different one?)
+
+   - factor call_soon machinery off into its own object
 
    - unifying the task cancel and timeout cancel systems
 
@@ -181,10 +411,18 @@ nothing to see here
      that sets up the magic local (or not), and also puts a
      move_on_at(inf) wrapper around them?
 
+     [showstopper: if we literally use move_on_at, it becomes
+     impossible to cancel a task until after it's executed for a step
+     and the move_on_at has had a chance to run and pass out the
+     cancel handle]
+
      maybe expose the deadline as a Task.deadline property
 
      and make it possible to fire an arbitrary cancellation exception
      to cancel a chunk of work, via the CancelStatus object?
+
+     this could also be used to *guarantee* that a task can't exit
+     without waiting on its children
 
    - tasks from new lineages (the initial task, the call_soon task)
      treated in uniform way? if we crash before starting the initial
@@ -215,7 +453,7 @@ nothing to see here
      - explicit monitoring API is the only thing that counts as
        catching errors
 
-   - also according to the docs on Windows, with overlapped I/o you can
+   - according to the docs on Windows, with overlapped I/o you can
      still get WSAEWOULDBLOCK ("too many outstanding overlapped
      requests"). No-one on the internet seems to have any idea when
      this actually occurs or why. Twisted has a FIXME b/c they don't
