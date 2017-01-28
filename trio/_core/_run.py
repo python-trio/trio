@@ -92,89 +92,49 @@ class Task:
     _type = attr.ib()
     coro = attr.ib()
     _runner = attr.ib(repr=False)
-    _notify_queues = attr.ib(convert=set, repr=False)
-    _task_result = attr.ib(default=None, repr=False)
+    _monitors = attr.ib(convert=set, repr=False)
+    result = attr.ib(default=None, repr=False)
     # tasks start out unscheduled, and unscheduled tasks have None here
     _next_send = attr.ib(default=None, repr=False)
     _abort_func = attr.ib(default=None, repr=False)
+    _task_scope = attr.ib(default=None, repr=False)
+    _pending_excs = attr.ib(default=attr.Factory(list), repr=False)
 
-    def add_notify_queue(self, queue):
-        if queue in self._notify_queues:
+    def add_monitor(self, queue):
+        if queue in self._monitors:
             raise ValueError("can't add same notify queue twice")
-        if self._task_result is not None:
+        if self.result is not None:
             queue.put_nowait(self)
         else:
-            self._notify_queues.add(queue)
+            self._monitors.add(queue)
 
-    def discard_notify_queue(self, queue):
-        self._notify_queues.discard(queue)
-
-    ################################################################
-    # Cancellation
-
-    _cancel_stack = attr.ib(default=attr.Factory(CancelStack), repr=False)
-
-    def _next_deadline(self):
-        return self._cancel_stack.next_deadline()
-
-    @contextmanager
-    def _might_adjust_deadline(self):
-        old_deadline = self._next_deadline()
-        try:
-            yield
-        finally:
-            new_deadline = self._next_deadline()
-            if old_deadline != new_deadline:
-                if old_deadline != float("inf"):
-                    del self._runner.deadlines[old_deadline, id(self)]
-                if new_deadline != float("inf"):
-                    self._runner.deadlines[new_deadline, id(self)] = self
-
-    def _push_deadline(self, deadline):
-        with self._might_adjust_deadline():
-            return self._cancel_stack.push_deadline(self, deadline)
-
-    def _pop_deadline(self, cancel_status):
-        with self._might_adjust_deadline():
-            self._cancel_stack.pop_deadline(cancel_status)
-
-    def _fire_expired_timeouts(self, now, exc):
-        with self._might_adjust_deadline():
-            self._cancel_stack.fire_expired_timeouts(self, now, exc)
-
-    def _deliver_any_pending_cancel_to_blocked_task(self):
-        with self._might_adjust_deadline():
-            self._cancel_stack.deliver_any_pending_cancel_to_blocked_task(self)
-
-    def _has_pending_cancel(self):
-        return self._cancel_stack.has_pending_cancel()
+    def discard_monitor(self, queue):
+        self._monitors.discard(queue)
 
     def cancel(self, exc=None):
-        # XX Not sure if this pickiness is useful, but easier to start
-        # strict and maybe relax it later...
-        if self._task_result is not None:
-            raise RuntimeError("can't cancel a task that has already exited")
-        if exc is None:
-            exc = TaskCancelled
-        with self._might_adjust_deadline():
-            self._cancel_stack.fire_task_cancel(self, exc)
+        self._task_scope.cancel(exc)
 
-    def join_nowait(self):
-        if self._task_result is None:
-            raise WouldBlock
-        else:
-            return self._task_result
+    async def wait(self):
+        q = _core.UnboundedQueue()
+        self.add_monitor(q)
+        try:
+            await q.get_all()
+        finally:
+            self.discard_monitor(q)
 
-    async def join(self):
-        if self._task_result is None:
-            q = _core.UnboundedQueue()
-            self.add_notify_queue(q)
-            try:
-                await q.get_all()
-            finally:
-                self.discard_notify_queue(q)
-        assert self._task_result is not None
-        return self._task_result
+    def _inject_exception(self, exc):
+        self._pending_excs.append(exc)
+        self._attempt_to_deliver_any_injected_exceptions()
+
+    def _attempt_to_deliver_any_injected_exceptions(self):
+        if self._abort_func is not None:
+            success = self._abort_func()
+            if type(success) is not _core.Abort:
+                raise TypeError("abort function must return Abort enum")
+            if success is Abort.SUCCEEDED:
+                # XX MultiError
+                reschedule(self, Error(self._pending_excs))
+                self._pending_exc = None
 
 
 @attr.s(frozen=True)
@@ -588,7 +548,7 @@ def run_impl(runner, fn, args):
                 else:
                     assert yield_fn is yield_indefinitely
                     task._abort_func, = args
-                    task._deliver_any_pending_cancel_to_blocked_task()
+                    task._attempt_to_deliver_any_injected_exceptions()
 
             runner.instrument("after_task_step", task)
             del GLOBAL_RUN_CONTEXT.task
@@ -606,8 +566,8 @@ def current_deadline():
 
 @_hazmat
 async def yield_if_cancelled():
-    if current_task()._has_pending_cancel():
-        await _core.yield_briefly()
+    if current_task()._pending_exc is not None:
+        await yield_briefly()
         assert False  # pragma: no cover
 
 _WRAPPER_TEMPLATE = """
