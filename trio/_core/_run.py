@@ -340,8 +340,7 @@ class Runner:
     call_soon_queue = attr.ib(default=attr.Factory(deque))
     call_soon_done = attr.ib(default=False)
     # Must be a reentrant lock, because it's acquired from signal
-    # handlers. RLock is signal-safe as of cpython 3.2:
-    #     https://bugs.python.org/issue13697#msg237140
+    # handlers. RLock is signal-safe as of cpython 3.2.
     # NB that this does mean that the lock is effectively *disabled* when we
     # enter from signal context. The way we use the lock this is OK though,
     # because when call_soon_thread_and_signal_safe is called from a signal
@@ -370,6 +369,14 @@ class Runner:
 
     async def call_soon_task(self):
         assert ki_protected()
+        # RLock has two implementations: a signal-safe version in _thread, and
+        # and signal-UNsafe version in threading. We need the signal safe
+        # version. Python 3.2 and later should always use this anyway, but,
+        # since the symptoms if this goes wrong are just "weird rare
+        # deadlocks", then let's make a little check.
+        # See:
+        #     https://bugs.python.org/issue13697#msg237140
+        assert self.call_soon_lock.__class__.__module__ == "_thread"
 
         # Returns True if it managed to do some work, and false if the queue
         # was empty.
@@ -379,7 +386,9 @@ class Runner:
             except IndexError:
                 return False  # queue empty
             if spawn:
-                # We run this with KI protection_enabled,
+                # We run this with KI protection enabled, because
+                # run_in_trio_thread wants to wait until it actually reaches
+                # user code before enabling KI.
                 task = self.spawn_impl(fn, args, ki_protection_enabled=True)
                 # If we're in the middle of crashing, then immediately cancel
                 # it:
@@ -387,9 +396,7 @@ class Runner:
                     task.cancel()
             else:
                 try:
-                    # We don't renable KeyboardInterrupt here, because
-                    # run_in_trio_thread wants to wait until it actually
-                    # reaches user code before enabling them.
+                    # KI protection enabled here; see above for rationale.
                     fn(*args)
                 except BaseException as exc:
                     self.crash(
@@ -420,6 +427,7 @@ class Runner:
             # ones:
             while maybe_call_next():
                 pass
+            raise
 
     ################################################################
     # Quiescing
@@ -458,8 +466,9 @@ def run(fn, *args, clock=None, instruments=[]):
 
     def ki_cb(protection_enabled):
         nonlocal ki_pending
-        # The task that already got hit with control-C doesn't need another
-        # cancellation
+        # The task that's going to get hit by the exception raised directly by
+        # the signal handler doesn't need to also get hit through the
+        # cancellation mechanism.
         if protection_enabled:
             task = None
         else:
