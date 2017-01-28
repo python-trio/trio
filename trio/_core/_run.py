@@ -420,7 +420,15 @@ class Runner:
         except Cancelled:
             # Keep the work done with this lock held as minimal as possible,
             # because it doesn't protect us against concurrent signal delivery
-            # (see the comment above).
+            # (see the comment above). Notice that this could would still be
+            # correct if written like:
+            #   self.call_soon_done = True
+            #   with self.call_soon_lock:
+            #       pass
+            # because all we want is to force call_soon_thread_and_signal_safe
+            # to either be completely before or completely after the write to
+            # call_soon_done. That's why we don't need the lock to protect
+            # against signal handlers.
             with self.call_soon_lock:
                 self.call_soon_done = True
             # No more jobs will be submitted, so just clear out any residual

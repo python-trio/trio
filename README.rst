@@ -334,6 +334,66 @@ nothing to see here
 
      maybe for waitpid support?
 
+     eh... for waitpid it's probably better to just spawn a thread
+     without any supervisor at all, it eventually does call_soon,
+     that's all.
+
+   - Task.add_monitor should just refuse to accept anything except a
+     actual UnboundedQueue, so we don't have to think about how to
+     deal with errors from weird user code.
+
+   - Should regular queues default to capacity=1? Should they even
+     *support* capacity >1?
+
+   - I looked at h2 and yeah, we definitely need to make stream have
+     aclose() instead of close(). Sigh.
+     ...If aclose is a cancellation point, does it need special
+     cancellation semantics, like the mess around POSIX close? I'm
+     leaning towards, for sockets it's implemented as
+
+     async def aclose(self):
+         self.close()
+         await yield_briefly()
+
+     ...but what about for other objects where closing really does
+     require some work? __aexit__ in general has a problem here.
+
+     in, like, an HTTP/2 server, you can't just defer cancellation
+     while doing await sendall(channel_close_frame), because you've
+     just made your timeouts ineffective and put yourself at the mercy
+     of the remote server. So maybe the rule is you need a with on the
+     socket *and* an async with on the stream, where the with on the
+     socket does the rude cleanup (if necessary).
+
+     Or maybe stream needs a force_close() method. Or just a mandatory
+     rule that when implementing aclose() you need some strategy for
+     handling cancellation?
+
+   - make sure to @ki_protection_enabled all our __(a)exit__
+     implementations. Including @acontextmanager! it's not enough to
+     protect the wrapped function. (Or is it? Or maybe we need to do
+     both? I'm not sure what the call-stack looks like for a
+     re-entered generator... and ki_protection for async generators is
+     a bit of a mess, ugh. maybe ki_protection needs to use inspect to
+     check for generator/asyncgenerator and in that case do the local
+     injection thing. or maybe yield from.)
+
+     I think there is an unclosable loop-hole here though b/c we can't
+     enable @ki_protection atomically with the entry to
+     __(a)exit__. If a KI arrives just before entering __(a)exit__,
+     that's OK. And if it arrives after we've entered and the
+     callstack is properly marked, that's also OK. But... since the
+     mark is on the frame, not the code, we can't apply the mark
+     instantly when entering, we need to wait for a few bytecode to be
+     executed first. This is where having a bytecode flag or similar
+     would be useful. (Or making it possible to attach attributes to
+     code objects. I guess I could violently subclass CodeType, then
+     swap in my new version... ugh.)
+
+     I'm actually not 100% certain that this is even possible at the
+     bytecode level, since exiting a with block seems to expand into 3
+     separate bytecodes?
+
    - does yield_if_cancelled need to check the deadline before
      deciding whether to yield? could we get in a situation where a
      deadline never fires b/c we aren't yielding to the IO loop?
@@ -380,6 +440,31 @@ nothing to see here
      ParkingLot gets to be arbitrarily tightly integrated with the
      scheduler. Or we could tell tasks how many tickets they got?
 
+     (Maybe the name for this is a Turnstile.)
+
+   - XX rule for user code, to document: never catch a Cancelled
+     exception! let it propagate!
+
+     of course it's necessarily the case that cancellation exceptions
+     can be wiped out by regular errors, just something like an
+     __exit__/finally block with a typo in it will do it.  and
+     KeyboardInterrupt has the same problem but people seem to
+     survive...
+
+     some way to recover after handling an error that might have
+     stomped on a cancellation?
+
+     if current_cancelled():
+         ...
+
+     # or, re-raises the correctly annotated Cancelled if any:
+     reraise_any_pending_cancel()
+
+     is it an error to exit a triggered cancellation scope without an
+     exception set? should it reraise? that seems pretty magical...
+
+   - convenience methods for catching/rethrowing parts of MultiErrors?
+
    - XX add test for UnboundedQueue schedules properly (only wakes 1
      task if 2 puts)
 
@@ -404,6 +489,61 @@ nothing to see here
      different one?)
 
    - factor call_soon machinery off into its own object
+
+   - start_* convention -- if you want to run it synchronously, do
+     async with make_nursery() as nursery:
+         task = await start_foo(nursery)
+     return task.result.unwrap()
+     we might even want to wrap this idiom up in a convenience function
+
+     for our server helper, it's a start_ function
+     maybe it takes listener_nursery, connection_nursery arguments, to let you
+     set up the graceful shutdown thing? though draining is still a problem.
+
+   - XX tasks have a private reference to containing nursery, nursery
+     has a private reference to containing task (I guess, privacy here
+     doesn't matter too much), and tasks have a public @property
+     pointing to parent task, to prevent nursery references leaking
+     out where they weren't passed.
+
+     ...if nursery is the only way to spawn, and nursery creation
+     requires await, so you can only spawn if passed async OR passed a
+     reference to a nursery, then... does spawn actually need to be
+     async? esp. since the ability to *create* a nursery doesn't
+     actually let you violate causality! only being passed a reference
+     to someone else's nursery lets you do that.
+
+   - nurseries inside async generators are... odd. they *do* allow you
+     to violate causality in the sense that the generator could be
+     doing stuff while appearing to be yielded. I guess it still works
+     out so long as the generator does eventually complete? if you
+     leak this generator though then ugh what a mess. worst case we
+     leak tasks -- the root task has exited, but there are still
+     incomplete tasks floating around. not sure what we should do in
+     that case. besides whine mightily.
+
+   - algorithm for WFQ ParkingLot:
+
+     if there are multiple tasks that are eligible to run immediately, then we
+     want to wake the one that's been waiting longest (FIFO rule)
+     otherwise, we want to wake the task that will be eligible to run first
+     for each waiter, we know its entry time and its vtime
+     we keep two data structures: one sorted by vtime, and one by entry
+     time. Any given task is listed on *one* of these, not both! the vtime
+     collection holds tasks that are not eligible to run yet (vtime in the
+     future); the FIFO collection holds tasks that are eligible to run
+     immediately (vtime in the past).
+     to wake 1 task:
+     - get the current vtime on the vclock
+     - look at the set of tasks sorted by vtime, and for all the ones
+       whose vtime is older than the current vtime, move them to the
+       FIFO queue
+     - pop from the FIFO queue
+     - unless it's empty, in which case pop from the vtime queue
+     this is something like amortized O(N log N) to queue/dequeue N tasks.
+
+     HWFQ is... a much worse mess though, b/c a task could be eligible
+     to run now but become ineligible before being scheduled :-(
 
    - unifying the task cancel and timeout cancel systems
 
