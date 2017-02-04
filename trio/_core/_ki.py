@@ -8,7 +8,6 @@ import inspect
 import attr
 
 from . import _hazmat
-from ._exceptions import KeyboardInterruptCancelled
 
 __all__ = ["enable_ki_protection", "disable_ki_protection", "ki_protected"]
 
@@ -131,7 +130,7 @@ def ki_manager(notify_cb):
         protection_enabled = ki_protection_enabled(frame)
         notify_cb(protection_enabled)
         if not protection_enabled:
-            raise KeyboardInterruptCancelled
+            raise KeyboardInterrupt
 
     signal.signal(signal.SIGINT, handler)
     try:

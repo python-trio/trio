@@ -32,6 +32,9 @@ class UnboundedQueue:
     def empty(self):
         return not self._data
 
+    def __bool__(self):
+        return not self.empty()
+
     @_core.enable_ki_protection
     def put_nowait(self, obj):
         if not self._data:

@@ -53,8 +53,10 @@ def test_run_nesting():
 async def test_basic_spawn_join():
     async def child(x):
         return 2 * x
-    task = await _core.spawn(child, 10)
-    assert (await task.join()).unwrap() == 20
+    async with _core.open_nursery() as nursery:
+        task = nursery.spawn(child, 10)
+        await task.wait()
+        assert task.result.unwrap() == 20
 
 
 async def test_join_crash():

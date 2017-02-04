@@ -2,19 +2,9 @@ import attr
 
 # Re-exported as trio.hazmat.* and trio.*
 __all__ = [
-    "UnhandledExceptionError", "TrioInternalError", "RunFinishedError",
-    "WouldBlock",
-    "Cancelled", "TaskCancelled", "TimeoutCancelled",
-    "KeyboardInterruptCancelled", "PartialResult",
+    "TrioInternalError", "RunFinishedError", "WouldBlock", "MultiError",
+    "Cancelled", "PartialResult",
 ]
-
-class UnhandledExceptionError(Exception):
-    """Raised by run() if your code raises an exception in a context where
-    there's nowhere else to propagate it to.
-
-    In particular, if a child Task exits with an exception, then it triggers
-    one of these.
-    """
 
 class TrioInternalError(Exception):
     """Raised by run() if we hit encounter a bug in trio.
@@ -29,18 +19,26 @@ class RunFinishedError(RuntimeError):
 class WouldBlock(Exception):
     pass
 
+class MultiError(BaseException):
+    def __new__(cls, exceptions):
+        if len(exceptions) == 1:
+            return exceptions[0]
+        else:
+            self = super().__new__()
+            self.exceptions = exceptions
+            return self
+
+    def __str__(self):
+        def format_child(exc):
+            return "{}: {}".format(exc.__class__.__name__, exc)
+        return ", ".join(format_child(exc) for exc in self.exceptions)
+
+    def __repr__(self):
+        return "<MultiError: {}>".format(self)
+
 # This is very much like the other exceptions that inherit directly from
 # BaseException (= SystemExit, KeyboardInterrupt, GeneratorExit)
 class Cancelled(BaseException):
-    _stack_entry = None
-
-class TaskCancelled(Cancelled):
-    pass
-
-class TimeoutCancelled(Cancelled):
-    pass
-
-class KeyboardInterruptCancelled(KeyboardInterrupt, Cancelled):
     pass
 
 @attr.s(slots=True, frozen=True)

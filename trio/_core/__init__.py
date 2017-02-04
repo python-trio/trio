@@ -28,9 +28,6 @@ __all__ += _traps.__all__
 from ._ki import *
 __all__ += _ki.__all__
 
-from ._cancel import *
-__all__ += _cancel.__all__
-
 from ._run import *
 __all__ += _run.__all__
 

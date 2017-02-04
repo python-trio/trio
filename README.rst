@@ -468,11 +468,13 @@ nothing to see here
    - XX add test for UnboundedQueue schedules properly (only wakes 1
      task if 2 puts)
 
+     and also for __bool__
+
    - if we eventually get a model where we're comfortable about
      crashes propagating everywhere in a nice way, then we might want
-     to switch to a model where control-C just injects KI immediately
-     if possible, and otherwise at the next switch to an unprotected
-     task, and leave it at that.
+     to switch to a model where control-C just injects
+     KeyboardInterrupt immediately if possible, and otherwise at the
+     next switch to an unprotected task, and leave it at that.
 
      this would need to be the type of injected exception that
      propagates out of the task, though. (though if we're just
@@ -488,7 +490,165 @@ nothing to see here
      FAILED callback so we can recognize unabortable tasks and pick a
      different one?)
 
+     ...also, we can't really just inject KI ignoring cancel state; we
+     can do it in any task that's not KI-protected, but... in practice
+     we usually flip on KI-protection just before sleeping!
+
+     maybe better: inject if can
+     otherwise, have init cancel main, and then raise (or if main
+     raises, then attach KI to the end of main's context chain)
+     or I guess simplest to set a flag saying KI was hit, and then
+     cancel main directly, and then on the way out init can check for
+     the flag
+
+     ...really by far the easiest way to make this work would be to
+     inject a KI into main via the cancellation machinery, or else if
+     it exits first (no .raised!) then raise it ourselves
+
+     all this really depends on there being a way to inject multiple
+     cancels and see which ones were delivered though!
+
+     ...should it be possible for KI to break out of a task that's
+     already been cancelled but is now stuck in a loop like
+
+        while True:
+            await yield_briefly()
+
+     ? would going back to the idea of injecting KI everywhere be an
+     improvement?
+
    - factor call_soon machinery off into its own object
+
+   - super fancy MockClock: add rate and autojump_threshold properties
+
+     rate = 0 is current; rate = <whatever> to go at arbitrary fixed
+     speed
+
+     autojump_threshold = *real* seconds where if we're idle that
+     long, then we advance the clock to the next timeout
+
+     to implement:
+
+     add a threshold argument to wait_run_loop_idle
+
+     implementation is basically: if there are no tasks to run, set
+     the actual IO timeout as
+       min(computed IO timeout, smallest wait_idle threshold)
+     and if this is different than computed IO timeout, *and* there
+     are no tasks to run after the IO manager returns, then wake all
+     wait_idle tasks with the given threshold. (Or maybe just wake
+     one? Or maybe you're just not even allowed to have multiple tasks
+     in wait_run_loop_idle?)
+
+     and when the clock's autojump_threshold is set to non-infinity,
+     then it spawns a system task to sit on wait_run_loop_idle, and
+     then somehow figure out the next deadline and jump there...
+
+   - the example of why fairness is crucial:
+
+     await mutex.acquire()
+     while True:
+         ...
+         mutex.release()
+         # currently, this always succeeds (!!):
+         mutex.acquire_nowait()
+
+     (right now it... kinda works if you do a blocking acquire,
+     because it does reschedule before acquiring, so there's a 50%
+     chance that the other task will run first and win the race. But
+     50% is not so great either.)
+
+   - unboundedqueue is not okay! either:
+
+     - need an api where we explicitly mark tasks as handled
+
+     or
+
+     - need unboundedqueue to only return 1 at a time, without
+       yielding
+
+     ...or maybe both.
+
+     former is fairly unwieldy, but advantages are: explicitness, and
+     easier to make sure we can't even lose 1 task due to an error in
+     the supervisor code
+
+   - Libuv check UDP sockets readable via iocp by issuing a 0 byte
+     recv with MSG_PEEK (Even though msdn says you can't combine
+     MSG_PEEK and overlapped mode!)  There is some complication
+     because apparently this can return errors from sendto, but
+     otherwise I guess it works for them. And they do something
+     similar for TCP, but without the MSG_PEEK.
+
+     (The reason they do this is also interesting -- if there are too
+     many simultaneous recv calls outstanding then it uses too much
+     buffer space, so they switch to waiting for readable before
+     issuing the real recv.)
+
+     Anyway I suspect but have not verified that this means you can
+     use iocp to notify on:
+     TCP readable, TCP writable, UDP readable
+     ... But not UDP writable.
+     (Then there's also raw sockets and stuff, no idea what happens
+     there, though I guess it's probably like UDP)
+     Oh wait! For UDP writable, MSG_PARTIAL might work!
+
+     for reading, this is apparently a well-known piece of folklore,
+     the "zero byte read". It's related to a weird thing about IOCP
+     where the receive buffers get pinned into memory, so official
+     microsoft docs recommend it as a trick to avoid exhausting server
+     memory when you have a ton of mostly-idle connections:
+
+     https://www.microsoft.com/mspress/books/sampchap/5726a.aspx#124
+     https://stackoverflow.com/questions/4988168/wsarecv-and-wsabuf-questions
+     http://microsoft.public.win32.programmer.networks.narkive.com/l68NhvSm/wsarecv-iocp-when-exactly-is-the-notification-sent
+
+   - add await_in_trio_thread back
+
+   - Wsarcv also has a flag saying "please return data promptly, don't
+     try to fill the buffer"; maybe that fixes the issue chrome ran
+     into?
+
+   - On UDP send libuv seems to dispatch sends immediately without any
+     backpressure
+
+   - Libuv uniformly *disables* v6only
+
+   - Libuv UDP has some complicated handling of
+     SetFileCompletionNotificationModes (they want to handle
+     synchronous completions synchronously, but apparently there are
+     bugs)
+
+   - Linux sendall should temporarily disable notsent_lowat
+
+   - Wondering if I should rename run->await_, and
+     call_soon->run_soon. Maybe sync_await or something?
+
+     or maybe await_in...->run_in..., and run_in...->call_in...?
+
+   - Currently libuv uses neither SO_REUSEADDR, SO_EXCLUSIVEADDR,
+     because they want to allow rebinding of TIME_WAIT sockets. But
+     then there's https://github.com/joyent/libuv/issues/150
+
+   - Libuv on Windows actually issues multiple AcceptEx calls
+     simultaneously (optionally)
+
+   - There is some mess around cancellation and LSPs... If a "non-IFS
+     LSP" is installed then libuv uses wsaioctl to get the base handle
+     before trying to cancel things
+     http://www.komodia.com/KomodiaLSPTypes.pdf
+     http://www.lenholgate.com/blog/2017/01/setfilecompletionnotificationmodes-can-cause-iocp-to-fail-if-a-non-ifs-lsp-is-installed.html
+
+   - maybe system task is a new concept to replace the old one, where
+     system tasks are parented by init, and if they crash then we
+     cancel everything and raise
+
+     ...in fact this is more or less the default behavior, except that
+     we want to mark some errors as being internalerrors.
+
+     ...and we want Cancelled exceptions to be propagated from
+     call_soon tasks and main, but not from call_soon itself or the
+     mock clock task...
 
    - start_* convention -- if you want to run it synchronously, do
      async with make_nursery() as nursery:
