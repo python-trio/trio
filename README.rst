@@ -369,6 +369,22 @@ nothing to see here
      rule that when implementing aclose() you need some strategy for
      handling cancellation?
 
+   - XX add a nursery fixture for pytest
+
+     this is a bit complicated because it requires some tight
+     integration with trio_test...
+
+   - add an instrument hook for task created, task died, (task reaped?)
+
+   - add nursery statistics? add a task statistics method that also
+     gives nursery statistics? "unreaped tasks" is probably a useful
+     metric... maybe we should just count that at the runner
+     level. right now the runner knows the set of all tasks, but not
+     zombies.
+
+   - XX is there a better way to handle instrument errors than we
+     currently do (print to stderr and carry on)?
+
    - make sure to @ki_protection_enabled all our __(a)exit__
      implementations. Including @acontextmanager! it's not enough to
      protect the wrapped function. (Or is it? Or maybe we need to do

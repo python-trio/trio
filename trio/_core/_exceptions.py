@@ -24,7 +24,7 @@ class MultiError(BaseException):
         if len(exceptions) == 1:
             return exceptions[0]
         else:
-            self = super().__new__()
+            self = BaseException.__new__(cls)
             self.exceptions = exceptions
             return self
 

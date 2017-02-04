@@ -87,7 +87,6 @@ async def open_nursery():
         if exc is not None:
             exceptions.append(exc)
         await nursery._clean_up(exceptions)
-        assert not nursery.children and not nursery.zombies
 
 class Nursery:
     def __init__(self, parent):
@@ -124,8 +123,13 @@ class Nursery:
 
     async def _clean_up(self, exceptions):
         cancelled = False
-        # Careful - the logic in this loop is deceptively tricky.
+        # Careful - the logic in this loop is deceptively subtle, because of
+        # all the different possible states that we have to handle. (Entering
+        # with/out an error, with/out unreaped zombies, with/out children
+        # living, with/out an error that occurs after we enter, ...)
+        print("cleaning up", exceptions)
         while self._children or self._zombies:
+            print("looping", self._children, self._zombies)
             # First, reap any zombies. They may or may not still be in the
             # monitor queue, and they may or may not trigger cancellation of
             # remaining tasks, so we have to check first before blocking on
@@ -139,7 +143,9 @@ class Nursery:
                 self.reap(task)
 
             if exceptions and not cancelled:
+                print("cancelling all")
                 for task in self._children:
+                    print("cancelling", task)
                     task.cancel()
                 cancelled = True
 
@@ -248,16 +254,19 @@ async def yield_briefly():
         await _core.yield_indefinitely(lambda: _core.Abort.SUCCEEDED)
 
 
-@attr.s(slots=True, cmp=False, hash=False)
+@attr.s(slots=True, cmp=False, hash=False, repr=False)
 class Task:
     _nursery = attr.ib()
     coro = attr.ib()
-    _runner = attr.ib(repr=False)
-    _monitors = attr.ib(default=attr.Factory(set), repr=False)
-    result = attr.ib(default=None, repr=False)
+    _runner = attr.ib()
+    _monitors = attr.ib(default=attr.Factory(set))
+    result = attr.ib(default=None)
     # tasks start out unscheduled, and unscheduled tasks have None here
-    _next_send = attr.ib(default=None, repr=False)
-    _abort_func = attr.ib(default=None, repr=False)
+    _next_send = attr.ib(default=None)
+    _abort_func = attr.ib(default=None)
+
+    def __repr__(self):
+        return "<Task with coro={!r}>".format(self.coro)
 
     # For debugging and visualization:
     @property
@@ -313,8 +322,9 @@ class Task:
         if type(success) is not _core.Abort:
             raise TypeError("abort function must return Abort enum")
         if success is Abort.SUCCEEDED:
-            for i in range(pending, len(self._cancel_stack)):
-                self._cancel_stack[i]._state = CancelState.DELIVERED
+            for scope in self._cancel_stack[pending:]:
+                with scope._might_change_effective_deadline():
+                    scope._state = CancelState.DELIVERED
             self._runner.reschedule(self, Error(Cancelled()))
 
     def _has_pending_cancel(self):
@@ -392,11 +402,13 @@ class Runner:
                 continue
             try:
                 method(*args)
-            except BaseException as exc:
-                self.crash("error in instrument {!r}.{}"
-                           .format(instrument, method_name),
-                           exc)
+            except:
                 self.instruments.remove(instrument)
+                sys.stderr.write(
+                    "Exception raised when calling {!r} on instrument {!r}\n"
+                    .format(method_name, instrument))
+                sys.excepthook(*sys.exc_info())
+                sys.stderr.write("Instrument has been disabled.\n")
 
     def handle_ki(self, victim_task):
         # victim_task is the one that already got hit with the
@@ -406,19 +418,9 @@ class Runner:
         self.unhandled_exception_result = Result.combine(
             self.unhandled_exception_result, err)
 
-    def crash(self, message, exc):
-        wrapper = UnhandledExceptionError(message)
-        wrapper.__cause__ = exc
-        if self.unhandled_exception_result is None:
-            # This is the first unhandled exception, so cancel everything
-            for task in self.tasks:
-                if task._type is TaskType.REGULAR:
-                    task.cancel()
-        self.unhandled_exception_result = Result.combine(
-            self.unhandled_exception_result, Error(wrapper))
-
     def task_finished(self, task, result):
         task.result = result
+        task.deadline = inf
         self.tasks.remove(task)
 
         if task._nursery is None:
@@ -466,17 +468,17 @@ class Runner:
         return task
 
     def spawn_system_task(self, fn, args):
-        async def exc_translator(fn, args):
+        async def system_task_wrapper(fn, args):
             try:
                 await fn(*args)
             except Cancelled:
                 pass
-            except (KeyboardInterrupt, GeneratorExit):
+            except (KeyboardInterrupt, GeneratorExit, TrioInternalError):
                 raise
             except BaseException as exc:
                 raise TrioInternalError from exc
         return self.spawn_impl(
-            exc_translator, (fn, args), self.system_nursery,
+            system_task_wrapper, (fn, args), self.system_nursery,
             ki_protection_enabled=True)
 
     async def init(self, fn, args):
