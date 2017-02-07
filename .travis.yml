@@ -1,7 +1,7 @@
 language: python
 python:
   - 3.5.0
-  - 3.5.2
+  - 3.5.3
   - 3.6
 sudo: false
 
@@ -12,7 +12,7 @@ matrix:
       env: USE_PYPY_NIGHTLY=1
     - os: osx
       language: generic
-      env: MACPYTHON=3.5.2
+      env: MACPYTHON=3.5.3
     - os: osx
       language: generic
       env: MACPYTHON=3.6.0
