@@ -19,7 +19,7 @@ fi
 
 if [ "$USE_PYPY_NIGHTLY" = "1" ]; then
     curl -o pypy.tar.bz2 http://buildbot.pypy.org/nightly/py3.5/pypy-c-jit-latest-linux64.tar.bz2
-    tar xvaf pypy.tar.bz2
+    tar xaf pypy.tar.bz2
     # something like "pypy-c-jit-89963-748aa3022295-linux64"
     PYPY_DIR=$(echo pypy-c-jit-*)
     PYTHON_EXE=$PYPY_DIR/bin/pypy3
