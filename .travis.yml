@@ -7,12 +7,17 @@ sudo: false
 
 matrix:
   include:
+    - os: linux
+      language: generic
+      env: USE_PYPY_NIGHTLY=1
     - os: osx
       language: generic
       env: MACPYTHON=3.5.2
     - os: osx
       language: generic
       env: MACPYTHON=3.6.0
+  allow_failures:
+    - env: USE_PYPY_NIGHTLY=1
 
 script:
   - ./.travis.sh
