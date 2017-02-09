@@ -369,6 +369,113 @@ nothing to see here
      rule that when implementing aclose() you need some strategy for
      handling cancellation?
 
+     or maybe we need some ugly way to force h2 channels to be sync
+     closeable. we just set a flag, someone else's job to force it
+     out?
+
+     it's a problem in general for any kind of async cleanup: how do
+     you set a timeout on the cancellation handling?
+
+   - need to do a pass over TrioInternalError -- currently they can
+     get double-wrapped in some cases
+
+   - the MultiError handling in move_on_after is not so great --
+     ideally we should at least preserve traceback? but *not* chain two
+     giant almost-identical multi-errors?
+
+   - so... properly handling cancellation nesting is a problem.
+
+     I guess the rule is:
+
+     - if we cancel a scope and there is a live scope inside it that
+       has been cancelled but is still unwinding, then we merge these
+       together (i.e. retroactively decide that it was actually the
+       outer scope that got cancelled in the first place). so
+       Cancelled passes through from the inside to the outside.
+
+     - if we have an uncancelled scope that gets cancelled and there
+       is a cancelled scope *outside* it, then we do *not* want to
+       merge these scopes. the exception should get absorbed at the
+       boundary between these.
+
+     there's still also the lost exception problem... one possibility
+     is that whenever we pass through a scope manager, we add a
+     Cancelled exception (if needed). so if we exit normally but the
+     surrounding scope is PENDING/DELIVERED, then we raise a new
+     Cancelled. And if we exit with a non-Cancelled exception, we
+     expand it into a MultiError with the Cancelled added in? (and
+     similarly for a MultiError that doesn't include Cancelled)
+
+     one potential problem is that this would make it impossible to
+     return actual values from a cancelled scope. (E.g. "get what you
+     can before the deadline and return that" becomes difficult -- I
+     guess you could put the payload into an exception but ugh.)
+
+     I think the key question here is whether code can identify the
+     scope of the cancellation. If you want to say "oh it's just this
+     little timeout here, I know how to handle that", then you need to
+     be able to determine that. and anything like "returning partial
+     results" or "raising a different error" really is "handling" the
+     cancellation in a sense.
+
+     observations about cancellation:
+
+       - at first it seems like it's nice to protect code from having
+         to worry about double-cancellation, because it means that
+         cleanup code (run on the cancellation return path) doesn't
+         have to worry about being cancelled. But this doesn't really
+         work, because:
+
+         - 90% of this code is the same as the code run on the
+           non-cancellation return path, which means you can get a
+           cancellation in the middle of it anyway.
+
+         - KI can arrive at cancellation points even if KI protection
+           is enabled and the surrounding code is already
+           cancelled. (Unless we do something really complicated with
+           checking the local cancellation context?)
+
+         - cancellation points during unwinding imply that we're doing
+           something blocking during unwinding, which is extremely
+           problematic, because in many cases unwinding implies that
+           our external timeout has been removed, so blocking is
+           *risky* -- if the remote side doesn't response, we have no
+           timeout! we could try to re-impose a timeout... but how do
+           we know what to set it to? (general rule is that timeout
+           policy is imposed at the edge of the system -- I guess we
+           could have some contextual information attached to cancel
+           state that says "here's how long to try to clean up"? but
+           this sounds pretty messy)
+
+         - protecting code from double-cancellation requires that the
+           code can't be allowed to know how much was cancelled (at
+           least until it exits the cancelled region), because if a
+           larger scope is cancelled while we're unwinding, and we
+           can't deliver a new exception, then about our only option
+           is ot silently expand the scope of the cancelled region. (I
+           guess the other option is to defer the cancellation until
+           we exit the already-cancelled region, but this is also
+           pretty complex.) But this creates problems for code that
+           wants to do more sophisticated things, like respond to
+           cancellation by successfully returning partial results.
+
+         so the general conclusions are:
+
+         - unwinding code (__aexit__, stream.close, etc.) needs to be
+           as synchronous as possible!
+
+         - there's not much point in bending over backwards to protect
+           code from double-cancellation -- it creates more problems
+           than it solves
+
+   - Python 3.7 wishlist items:
+
+     - __iterclose__
+     - better support for KI management (in particular for __(a)exit__
+       blocks, with their currently unfixable race condition)
+     - better ergonomics for MultiErrors (catching, printing,
+       rethrowing...)
+
    - XX add a nursery fixture for pytest
 
      this is a bit complicated because it requires some tight
@@ -458,6 +565,26 @@ nothing to see here
 
      (Maybe the name for this is a Turnstile.)
 
+     implementing a fair condition variable is also an interesting
+     question -- you need to somehow move the tasks from waiting on
+     the CV to waiting on the lock, preserving order and keeping
+     cancellation working?
+     https://amanieu.github.io/parking_lot/parking_lot_core/fn.unpark_requeue.html
+
+     rwlocks too...
+     https://amanieu.github.io/parking_lot/parking_lot/struct.RwLock.html
+
+     ? https://amanieu.github.io/parking_lot/parking_lot_core/fn.unpark_filter.html
+
+     a cute thing about classic parking lots (WTF, parking_lot.rs) is
+     that it's a single global structure, to make individual
+     synchronization objects cheaper; this is a win b/c most objects
+     are uncontended most of the time, esp. when num_threads >>
+     num_locks. Not totally clear how the trade-offs work for us.
+
+     for reference:
+     https://webkit.org/blog/6161/locking-in-webkit/
+
    - XX rule for user code, to document: never catch a Cancelled
      exception! let it propagate!
 
@@ -479,7 +606,32 @@ nothing to see here
      is it an error to exit a triggered cancellation scope without an
      exception set? should it reraise? that seems pretty magical...
 
+   - todo:
+     - [x] cancellation triggers the outermost Cancelled
+     - [x] ...that is not inside a protected scope
+
+     [rationale for protection being on scopes: (a) has to be in same
+     scope, (b) if you're disabling outside cancellation, then you'd
+     better do something to make sure your blocking calls finish!]
+
+     - [x] task-global-scope *does* absorb Cancelled
+     - [x] scopes in general set a flag when they catch
+     - [x] __exit__ del's _exc to avoid pinning stack
+     - [x] and main doesn't propagate Cancelled, I think we can deal
+
+     for KI:
+     - [x] single global flag
+     - [x] used to push KI into main task
+     - [x] and also checked outside
+
    - convenience methods for catching/rethrowing parts of MultiErrors?
+
+   - notes for unix socket server:
+
+     https://github.com/python/asyncio/issues/425
+     Twisted uses a lockfile:
+     https://github.com/twisted/twisted/blob/trunk/src/twisted/internet/unix.py#L290
+     https://github.com/tornadoweb/tornado/blob/master/tornado/netutil.py#L215
 
    - XX add test for UnboundedQueue schedules properly (only wakes 1
      task if 2 puts)
@@ -609,6 +761,16 @@ nothing to see here
      there, though I guess it's probably like UDP)
      Oh wait! For UDP writable, MSG_PARTIAL might work!
 
+     ...UDP send still has the problem that IOCP doesn't go through
+     the socket buffer though, doh. it looks like some systems handle
+     EWOULDBLOCK on UDP sends by just discarding the packet. the main
+     thing we want to avoid is ending up with an arbitrarily long
+     buffer in the kernel -- discarding packets *or* blocking the
+     sending task are both fine. possibly we could handle IOCP UDP by
+     just keeping a count of how many bytes are queued and put a limit
+     on it? we could even intercept setsockopt SO_SNDBUF to control
+     our user-space buffer size...
+
      for reading, this is apparently a well-known piece of folklore,
      the "zero byte read". It's related to a weird thing about IOCP
      where the receive buffers get pinned into memory, so official
@@ -618,6 +780,13 @@ nothing to see here
      https://www.microsoft.com/mspress/books/sampchap/5726a.aspx#124
      https://stackoverflow.com/questions/4988168/wsarecv-and-wsabuf-questions
      http://microsoft.public.win32.programmer.networks.narkive.com/l68NhvSm/wsarecv-iocp-when-exactly-is-the-notification-sent
+
+     There is also this remarkable piece of undocumented sorcery:
+     https://github.com/piscisaureus/epoll_windows/blob/master/src/epoll.c#L754
+     https://groups.google.com/forum/#!topic/libuv/S4U_JjbxW9M
+     http://mista.nu/blog/?p=655
+     https://www.osronline.com/showthread.cfm?link=134510
+     https://gist.github.com/daurnimator/63d2970aedc952f0beb3
 
    - add await_in_trio_thread back
 
@@ -746,29 +915,6 @@ nothing to see here
      immediately I guess. Or is it better to special case this and not
      even start?
 
-   - join returning result is actually pretty bad because it
-     encourages
-
-        await task.join()
-
-     to wait for a task that "can't fail"... but if it does then this
-     silently discards the exception :-( :-(
-
-     and we really can't make join() just raise the raw exception,
-     because that can trivially get mixed up with cancellation
-     exceptions
-
-     curio's approach is an option, but kinda awkward :-/
-
-     maybe:
-     - join_nowait() -> .result, so there's no WouldBlock to confuse
-       things, instead check .result is None before trying to unwrap
-       it? (or don't)
-     - join() -> wait(), which doesn't return anything and doesn't
-       count as catching errors
-     - explicit monitoring API is the only thing that counts as
-       catching errors
-
    - according to the docs on Windows, with overlapped I/o you can
      still get WSAEWOULDBLOCK ("too many outstanding overlapped
      requests"). No-one on the internet seems to have any idea when
@@ -821,6 +967,25 @@ nothing to see here
      you've been cancelled once, you won't be cancelled
      again... because e.g. an outer timeout can fire while you're
      unwinding from an inner timeout.
+
+     (or maybe there is now? but there definitely isn't a guarantee
+     that KI can't appear any moment? though ugh it is literally
+     impossible to guarantee correct cleanup in the presence of KI,
+     because it can happen when you're in the middle of a finally: or
+     __exit__ -- __exit__ we can at least partially protect,
+     but... maybe it would be better for the first KI to always be
+     routed to cancellation, and then escalate if there are more KIs
+     received? This is also a mess for rules like "always close your
+     (async) generators".
+
+       but this still means we can't have a *100%* ban on repeated
+       cancellations, I guess? even though this would be convenient to
+       not have to worry about cancellations during an except
+       Cancelled: block? ...obviously you still need to worry about
+       them during finally: blocks. Ugh. Just in general, blocking
+       during cleanup is almost non-viable. how do you impose a
+       timeout. what if you're in the middle of *normal* exit and get
+       cancelled.)
 
    - kqueue power interface needs another pass + tests
 

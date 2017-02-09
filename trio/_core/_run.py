@@ -27,6 +27,7 @@ from ._traps import (
 )
 from ._ki import (
     LOCALS_KEY_KI_PROTECTION_ENABLED, ki_protected, ki_manager,
+    enable_ki_protection
 )
 from ._wakeup_socketpair import WakeupSocketpair
 from . import _public, _hazmat
@@ -35,8 +36,9 @@ from . import _public, _hazmat
 # wrapper functions for runner and io manager methods, and adds them to
 # __all__. These are all re-exported as part of the 'trio' or 'trio.hazmat'
 # namespaces.
-__all__ = ["Clock", "Task", "run", "open_nursery", "move_on_at",
-           "yield_briefly", "current_task", "yield_if_cancelled"]
+__all__ = ["Clock", "Task", "run", "open_nursery", "open_cancel_scope",
+           "move_on_at", "yield_briefly", "current_task",
+           "yield_if_cancelled"]
 
 GLOBAL_RUN_CONTEXT = threading.local()
 
@@ -122,42 +124,39 @@ class Nursery:
         return task.result.unwrap()
 
     async def _clean_up(self, exceptions):
-        cancelled = False
+        cancelled_children = False
         # Careful - the logic in this loop is deceptively subtle, because of
         # all the different possible states that we have to handle. (Entering
         # with/out an error, with/out unreaped zombies, with/out children
         # living, with/out an error that occurs after we enter, ...)
-        print("cleaning up", exceptions)
-        while self._children or self._zombies:
-            print("looping", self._children, self._zombies)
-            # First, reap any zombies. They may or may not still be in the
-            # monitor queue, and they may or may not trigger cancellation of
-            # remaining tasks, so we have to check first before blocking on
-            # the monitor queue.
-            for task in list(self._zombies):
-                if type(task.result) is Error:
-                    exc = task.result.error
-                    # Cancelled doesn't propagate across task boundaries.
-                    if not isinstance(exc, Cancelled):
+        with open_cancel_scope() as scope:
+            while self._children or self._zombies:
+                # First, reap any zombies. They may or may not still be in the
+                # monitor queue, and they may or may not trigger cancellation
+                # of remaining tasks, so we have to check first before
+                # blocking on the monitor queue.
+                for task in list(self._zombies):
+                    if type(task.result) is Error:
+                        exceptions.append(task.result.error)
+                    self.reap(task)
+
+                if exceptions and not cancelled_children:
+                    for task in self._children:
+                        task.cancel()
+                    cancelled_children = True
+
+                if self.children:
+                    try:
+                        # We ignore the return value here, and will pick up
+                        # the actual tasks from the zombies set after looping
+                        # around.
+                        await self.monitor.get_all()
+                    except Cancelled as exc:
                         exceptions.append(exc)
-                self.reap(task)
-
-            if exceptions and not cancelled:
-                print("cancelling all")
-                for task in self._children:
-                    print("cancelling", task)
-                    task.cancel()
-                cancelled = True
-
-            if self.children:
-                try:
-                    # We ignore the return value here, and will pick up the
-                    # actual tasks from the zombies set after looping around.
-                    await self.monitor.get_all()
-                except Cancelled as exc:
-                    exceptions.append(exc)
-                except BaseException as exc:
-                    raise TrioInternalError from exc
+                        # After we catch Cancelled once, mute it
+                        scope.shield = True
+                    except BaseException as exc:
+                        raise TrioInternalError from exc
 
         self._closed = True
         if exceptions:
@@ -167,25 +166,23 @@ class Nursery:
         assert not self.children and not self.zombies
 
 
-CancelState = enum.Enum("CancelState", "IDLE PENDING DELIVERED")
-# IDLE -> hasn't fired, might in the future
-# PENDING -> fired, but no exception has been delivered yet
-# DELIVERED -> a Cancelled exception has been delivered inside this scope
-
 @attr.s(slots=True, cmp=False, hash=False)
 class CancelScope:
     _task = attr.ib()
     _deadline = attr.ib(default=inf)
-    _state = attr.ib(default=CancelState.IDLE)
-    raised = attr.ib(default=False)
+    _exc = attr.ib(default=None)
+    cancel_called = attr.ib(default=False)
+    cancel_caught = attr.ib(default=False)
+    shield = attr.ib(default=False)
 
     def _effective_deadline(self):
-        if self._state is CancelState.IDLE:
-            return self._deadline
-        else:
+        if self.cancel_called:
             return inf
+        else:
+            return self._deadline
 
     @contextmanager
+    @enable_ki_protection
     def _might_change_effective_deadline(self):
         old = self._effective_deadline()
         try:
@@ -198,6 +195,11 @@ class CancelScope:
                 if new != inf:
                     self._task._runner.deadlines[new, id(self)] = self
 
+    def __del__(self):
+        # Scopes should always be cleaned up before being unrefed
+        key = self._effective_deadline(), id(self)
+        assert key not in self._task._runner.deadlines
+
     @property
     def deadline(self):
         return self._deadline
@@ -207,46 +209,57 @@ class CancelScope:
         with self._might_change_effective_deadline():
             self._deadline = float(new_deadline)
 
+    @enable_ki_protection
     def cancel(self):
-        with self._might_change_effective_deadline():
-            if self._state is not CancelState.IDLE:
-                return
-            self._state = CancelState.PENDING
+        if self._exc is None:
+            with self._might_change_effective_deadline():
+                self.cancel_called = True
+                self._exc = Cancelled()
             self._task._attempt_delivery_of_any_pending_cancel()
 
-    @property
-    def raised(self):
-        return self._state is CancelState.DELIVERED
+    def _filter_exception(self, exc):
+        if isinstance(exc, Cancelled):
+            if exc is self._exc:
+                self.cancel_caught = True
+                return None
+            else:
+                return exc
+        elif isinstance(exc, MultiError):
+            new_exceptions = []
+            for sub_exc in exc.exceptions:
+                if sub_exc is self._exc:
+                    self.cancel_caught = True
+                else:
+                    new_exceptions.append(sub_exc)
+            if len(new_exceptions) == 0:
+                return None
+            elif len(new_exceptions) == 1:
+                return new_exceptions[0]
+            else:
+                exc.exceptions = new_exceptions
+                return exc
+        else:
+            return exc
 
 @contextmanager
-@_core.enable_ki_protection
-def move_on_at(deadline):
+@enable_ki_protection
+def open_cancel_scope():
     task = _core.current_task()
     scope = task._enter_cancel_scope()
-    scope.deadline = deadline
     try:
         yield scope
     except (Cancelled, MultiError) as exc:
-        assert task._cancel_stack[-1] is scope
-        if (len(task._cancel_stack) < 2
-              or scope._state is not CancelState.DELIVERED
-              or task._cancel_stack[-2]._state is CancelState.DELIVERED):
-            # We aren't the last DELIVERED scope, so we pass all exceptions
-            raise
-        else:
-            # We want to absorb Cancelled exceptions
-            if isinstance(exc, MultiError):
-                new_exceptions = [
-                    e for e in exc.exceptions if not isinstance(e, Cancelled)]
-                if new_exceptions:
-                    if new_exceptions == exc.exceptions:
-                        raise
-                    else:
-                        raise _core.MultiError(new_exceptions)
-            else:
-                assert isinstance(exc, Cancelled)
+        new_exc = scope._filter_exception(exc)
+        if new_exc is not None:
+            raise new_exc
     finally:
         task._exit_cancel_scope(scope)
+
+@contextmanager
+def move_on_at(deadline):
+    with _core.open_cancel_scope() as scope:
+        scope.deadline = deadline
+        yield scope
 
 @_hazmat
 async def yield_briefly():
@@ -259,7 +272,6 @@ class Task:
     _nursery = attr.ib()
     coro = attr.ib()
     _runner = attr.ib()
-    _monitors = attr.ib(default=attr.Factory(set))
     result = attr.ib(default=None)
     # tasks start out unscheduled, and unscheduled tasks have None here
     _next_send = attr.ib(default=None)
@@ -272,6 +284,11 @@ class Task:
     @property
     def parent_task(self):
         return self._nursery._parent
+
+    ################################################################
+    # Monitoring task exit
+
+    _monitors = attr.ib(default=attr.Factory(set))
 
     def add_monitor(self, queue):
         # Rationale: (a) don't particularly want to create a
@@ -292,6 +309,14 @@ class Task:
     def discard_monitor(self, queue):
         self._monitors.discard(queue)
 
+    async def wait(self):
+        q = _core.UnboundedQueue()
+        self.add_monitor(q)
+        try:
+            await q.get_all()
+        finally:
+            self.discard_monitor(q)
+
     ################################################################
     # Cancellation
 
@@ -304,31 +329,42 @@ class Task:
 
     def _exit_cancel_scope(self, scope):
         assert self._cancel_stack[-1] is scope
-        self._cancel_stack.pop()
+        # Unpin any stack references:
+        scope._exc = None
+        # Remove this scope from the global deadline list:
+        scope.deadline = inf
+        # If this is the root scope, we do the usual cleanup, but leave the
+        # scope in place, so that its attributes remain accessible.
+        if len(self._cancel_stack) > 1:
+            self._cancel_stack.pop()
 
-    def _pending_cancel(self):
-        for i, scope in enumerate(self._cancel_stack):
-            if scope._state is CancelState.PENDING:
-                return i
-        return None
+    def _pending_cancel_exception(self):
+        if self._runner.ki_pending and self._runner.main_task is self:
+            return KeyboardInterrupt()
+        # Return the outermost exception that is is not outside a shield.
+        exc = None
+        for scope in self._cancel_stack:
+            # Check shield before _exc, because shield should not block
+            # processing of *this* scope's exception
+            if scope.shield:
+                exc = None
+            if exc is None and scope._exc is not None:
+                exc = scope._exc
+        return exc
 
     def _attempt_delivery_of_any_pending_cancel(self):
         if self._abort_func is None:
             return
-        pending = self._pending_cancel()
-        if pending is None:
+        exception = self._pending_cancel_exception()
+        if exception is None:
             return
         success = self._abort_func()
         if type(success) is not _core.Abort:
-            raise TypeError("abort function must return Abort enum")
+            raise TrioInternalError("abort function must return Abort enum")
         if success is Abort.SUCCEEDED:
-            for scope in self._cancel_stack[pending:]:
-                with scope._might_change_effective_deadline():
-                    scope._state = CancelState.DELIVERED
-            self._runner.reschedule(self, Error(Cancelled()))
-
-    def _has_pending_cancel(self):
-        return self._pending_cancel() is not None
+            if type(exception) is KeyboardInterrupt:
+                self._runner.ki_pending = False
+            self._runner.reschedule(self, Error(exception))
 
     def cancel(self):
         self._cancel_stack[0].cancel()
@@ -341,13 +377,13 @@ class Task:
     def deadline(self, new_deadline):
         self._cancel_stack[0].deadline = new_deadline
 
-    async def wait(self):
-        q = _core.UnboundedQueue()
-        self.add_monitor(q)
-        try:
-            await q.get_all()
-        finally:
-            self.discard_monitor(q)
+    @property
+    def cancel_called(self):
+        return self._cancel_stack[0].cancel_called
+
+    @property
+    def cancel_caught(self):
+        return self._cancel_stack[0].cancel_caught
 
 
 @attr.s(frozen=True)
@@ -373,7 +409,10 @@ class Runner:
     deadlines = attr.ib(default=attr.Factory(SortedDict))
 
     init_task = attr.ib(default=None)
+    main_task = attr.ib(default=None)
     system_nursery = attr.ib(default=None)
+
+    ki_pending = attr.ib(default=False)
 
     @_public
     def current_statistics(self):
@@ -410,27 +449,9 @@ class Runner:
                 sys.excepthook(*sys.exc_info())
                 sys.stderr.write("Instrument has been disabled.\n")
 
-    def handle_ki(self, victim_task):
-        # victim_task is the one that already got hit with the
-        # KeyboardInterrupt; might be None
-        XX
-        err = Error(KeyboardInterrupt())
-        self.unhandled_exception_result = Result.combine(
-            self.unhandled_exception_result, err)
-
-    def task_finished(self, task, result):
-        task.result = result
-        task.deadline = inf
-        self.tasks.remove(task)
-
-        if task._nursery is None:
-            # the init task should be the last task to exit
-            assert not self.tasks
-        else:
-            task._nursery._child_finished(task)
-        for monitor in task._monitors:
-            monitor.put_nowait(task)
-        task._monitors.clear()
+    def main_task_ki(self):
+        if self.main_task is not None and self.main_task.result is None:
+            self.main_task._attempt_delivery_of_any_pending_cancel()
 
     # Methods marked with @_public get converted into functions exported by
     # trio.hazmat:
@@ -467,6 +488,26 @@ class Runner:
         self.reschedule(task, Value(None))
         return task
 
+    def task_finished(self, task, result):
+        if type(result) is Error:
+            exc = task._cancel_stack[0]._filter_exception(result.error)
+            if exc is None:
+                result = Value(None)
+            else:
+                result = Error(exc)
+        task.result = result
+        task._exit_cancel_scope(task._cancel_stack[0])
+        self.tasks.remove(task)
+
+        if task._nursery is None:
+            # the init task should be the last task to exit
+            assert not self.tasks
+        else:
+            task._nursery._child_finished(task)
+        for monitor in task._monitors:
+            monitor.put_nowait(task)
+        task._monitors.clear()
+
     def spawn_system_task(self, fn, args):
         async def system_task_wrapper(fn, args):
             try:
@@ -485,10 +526,10 @@ class Runner:
         async with open_nursery() as system_nursery:
             self.system_nursery = system_nursery
             self.spawn_system_task(self.call_soon_task, ())
-            main_task = system_nursery.spawn(fn, *args)
+            self.main_task = system_nursery.spawn(fn, *args)
             async for task_batch in system_nursery.monitor:
                 for task in task_batch:
-                    if task is main_task:
+                    if task is self.main_task:
                         for other_task in system_nursery.children:
                             other_task.cancel()
                         return system_nursery.reap_and_unwrap(task)
@@ -626,26 +667,18 @@ def run(fn, *args, clock=None, instruments=[]):
     runner = Runner(clock=clock, instruments=instruments, io_manager=io_manager)
     GLOBAL_RUN_CONTEXT.runner = runner
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
-    ki_pending = False
 
-    def ki_cb(protection_enabled):
-        nonlocal ki_pending
-        # The task that's going to get hit by the exception raised directly by
-        # the signal handler doesn't need to also get hit through the
-        # cancellation mechanism.
-        if protection_enabled:
-            task = None
-        else:
-            task = getattr(GLOBAL_RUN_CONTEXT, "task", None)
+    def deliver_ki():
+        runner.ki_pending = True
         try:
-            runner.call_soon_thread_and_signal_safe(runner.handle_ki, task)
+            runner.call_soon_thread_and_signal_safe(runner.main_task_ki)
         except RunFinishedError:
-            ki_pending = True
+            pass
 
     # This is outside the try/except to avoid a window where KeyboardInterrupt
     # would be allowed and converted into an TrioInternalError:
     try:
-        with ki_manager(ki_cb) as ki_status:
+        with ki_manager(deliver_ki) as ki_status:
             try:
                 with closing(runner):
                     # The main reason this is split off into its own function
@@ -660,7 +693,7 @@ def run(fn, *args, clock=None, instruments=[]):
     finally:
         # To guarantee that we never swallow a KeyboardInterrupt, we have to
         # check for pending ones once more after leaving the context manager:
-        if ki_pending:
+        if runner.ki_pending:
             # Implicitly chains with any exception from result.unwrap():
             raise KeyboardInterrupt
 
@@ -771,7 +804,7 @@ def current_task():
 
 @_hazmat
 async def yield_if_cancelled():
-    if current_task()._has_pending_cancel():
+    if current_task()._pending_cancel_exception() is not None:
         await _core.yield_briefly()
         assert False  # pragma: no cover
 

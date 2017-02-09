@@ -5,7 +5,7 @@ import pytest
 import attr
 
 from .test_util import check_sequence_matches, check_exc_chain
-from ...testing import busy_wait_for, wait_run_loop_idle
+from ...testing import busy_wait_for, wait_run_loop_idle, Sequencer
 
 from ... import _core
 
@@ -460,7 +460,6 @@ def test_cancel_points():
     _core.run(main4)
 
 
-@pytest.mark.foo
 async def test_cancel_edge_cases():
     async def child():
         await _core.yield_briefly()
@@ -468,139 +467,99 @@ async def test_cancel_edge_cases():
     async with _core.open_nursery() as nursery:
         t1 = nursery.spawn(child)
         # Two cancels in row -- idempotent
-        t1.cancel(exc=_core.Cancelled)
-        t1.cancel(exc=_core.TimeoutCancelled)
+        t1.cancel()
+        t1.cancel()
         await t1.wait()
-        assert isinstance(t1.result.error, _core.Cancelled)
+        assert t1.result.unwrap() is None
+        assert t1.cancel_called
+        assert t1.cancel_caught
 
         t2 = nursery.spawn(child)
         await t2.wait()
-        # Can't cancel a task that has already exited
-        with pytest.raises(RuntimeError) as excinfo:
-            t2.cancel()
-        assert "already exited" in str(excinfo.value)
+        t2.result.unwrap()
+        # If a task has already exited, then cancelling it is a no-op
+        t2.cancel()
 
-        record = []
-        async def double_cancel():
-            try:
+        async def check_level_triggered():
+            _core.current_task().cancel()
+            with pytest.raises(_core.Cancelled):
                 await sleep_forever()
-            except _core.Cancelled:
-                record.append("once")
-                try:
-                    await sleep_forever()
-                except _core.Cancelled:
-                    record.append("twice")
-        t3 = await _core.spawn(double_cancel)
-        t3.cancel()
-        await wait_run_loop_idle()
-        t3.cancel()
-        (await t3.join()).unwrap()
-        assert record == ["once", "twice"]
+            with pytest.raises(_core.Cancelled):
+                await sleep_forever()
+        t4 = nursery.spawn(check_level_triggered)
+        await t4.wait()
+        t4.result.unwrap()
 
 
-async def test_cancel_custom_exc():
-    class MyCancelled(_core.Cancelled):
-        pass
-
-    async def child():
-        with pytest.raises(MyCancelled):
-            await sleep_forever()
-        return "ok"
-
-    task = await _core.spawn(child)
-    with pytest.raises(TypeError):
-        # other exception types not allowed
-        task.cancel(ValueError())
-    task.cancel(MyCancelled())
-    result = await task.join()
-    assert result.unwrap() == "ok"
-
-    # If an exception class is passed in, it's automatically instantiated
-    # (like raise does)
-    task = await _core.spawn(child)
-    task.cancel(MyCancelled)
-    result = await task.join()
-    assert result.unwrap() == "ok"
-
-
+@pytest.mark.foo
 async def test_basic_timeout(mock_clock):
     start = _core.current_time()
-    with _core.move_on_at(start + 1) as timeout:
-        assert timeout.deadline == _core.current_deadline() == start + 1
-        timeout.deadline += 0.5
-        assert timeout.deadline == _core.current_deadline() == start + 1.5
-    assert not timeout.raised
+    with _core.move_on_at(start + 1) as scope:
+        assert scope.deadline == start + 1
+        scope.deadline += 0.5
+        assert scope.deadline == start + 1.5
+    assert not scope.cancel_called
     mock_clock.advance(2)
     await _core.yield_briefly()
     await _core.yield_briefly()
     await _core.yield_briefly()
-    assert not timeout.raised
+    assert not scope.cancel_called
 
     start = _core.current_time()
-    with _core.move_on_at(start + 1) as timeout:
+    with _core.move_on_at(start + 1) as scope:
         mock_clock.advance(2)
         await sleep_forever()
     # But then move_on_at swallowed the exception... but we can still see it
     # here:
-    assert timeout.raised
+    assert scope.cancel_called
+    assert scope.cancel_caught
 
-    # Nested timeouts: if two fire at once, the outer one wins
+    # changing deadline
     start = _core.current_time()
-    with _core.move_on_at(start + 10) as t1:
-        with _core.move_on_at(start + 5) as t2:
-            with _core.move_on_at(start + 1) as t3:
-                mock_clock.advance(7)
+    with _core.move_on_at(start + 10) as scope:
+        await _core.yield_briefly()
+        mock_clock.advance(5)
+        await _core.yield_briefly()
+        scope.deadline = start + 1
+        with pytest.raises(_core.Cancelled):
+            await _core.yield_briefly()
+
+async def test_cancel_scope_nesting():
+    # Nested scopes: if two triggering at once, the outer one wins
+    with _core.open_cancel_scope() as scope1:
+        with _core.open_cancel_scope() as scope2:
+            with _core.open_cancel_scope() as scope3:
+                scope3.cancel()
+                scope2.cancel()
                 await sleep_forever()
-    assert not t3.raised
-    assert t2.raised
-    assert not t1.raised
+    assert scope3.cancel_called
+    assert not scope3.cancel_caught
+    assert scope2.cancel_called
+    assert scope2.cancel_caught
+    assert not scope1.cancel_called
+    assert not scope1.cancel_caught
 
-    # But you can use a timeout while handling a timeout exception:
-    start = _core.current_time()
-    with _core.move_on_at(start + 1) as t1:
-        try:
-            mock_clock.advance(2)
-            await sleep_forever()
-        except _core.TimeoutCancelled:
-            with _core.move_on_at(start + 3) as t2:
-                mock_clock.advance(2)
-                await sleep_forever()
-    assert t1.raised
-    assert t2.raised
+    # shielding
+    with _core.open_cancel_scope() as scope1:
+        with _core.open_cancel_scope() as scope2:
+            scope1.cancel()
+            with pytest.raises(_core.Cancelled):
+                await _core.yield_briefly()
+            with pytest.raises(_core.Cancelled):
+                await _core.yield_briefly()
+            scope2.shield = True
+            await _core.yield_briefly()
+            scope2.cancel()
+            with pytest.raises(_core.Cancelled):
+                await _core.yield_briefly()
 
-    # if second timeout is registered while one is *pending* (expired but not
-    # yet delivered), then the second timeout will never fire
-    start = _core.current_time()
-    with _core.move_on_at(start + 1) as t1:
-        mock_clock.advance(2)
-        # ticking over the event loop makes it notice the timeout
-        # expiration... but b/c we use the weird no_cancel thing, it can't be
-        # delivered yet, so it becomes pending.
-        await _core.yield_briefly_no_cancel()
-        with _core.move_on_at(start + 3) as t2:
-            try:
-                await _core.yield_briefly()
-            except _core.TimeoutCancelled:
-                # this is the outer timeout:
-                assert t1.raised
-                # the inner timeout hasn't even reached its expiration time
-                assert _core.current_time() < t2.deadline
-                # but now if we do pass the deadline, it still won't fire
-                mock_clock.advance(2)
-                await _core.yield_briefly()
-                await _core.yield_briefly()
-                await _core.yield_briefly()
-                assert t2.deadline < _core.current_time()
-    assert not t2.raised
-
-    # if a timeout is pending, but then gets popped off the stack, then it
+    # if a scope is pending, but then gets popped off the stack, then it
     # isn't delivered
-    start = _core.current_time()
-    with _core.move_on_at(start + 1) as t1:
-        mock_clock.advance(2)
+    with _core.open_cancel_scope() as scope:
+        scope.cancel()
         await _core.yield_briefly_no_cancel()
     await _core.yield_briefly()
-    assert not t1.raised
+    assert not scope.cancel_caught
 
 
 async def test_timekeeping():
