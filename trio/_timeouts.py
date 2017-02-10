@@ -3,9 +3,15 @@ from contextlib import contextmanager
 from . import _core
 
 __all__ = [
-    "move_on_after", "sleep_until", "sleep",
+    "move_on_at", "move_on_after", "sleep_until", "sleep",
     "fail_at", "fail_after", "TooSlowError",
 ]
+
+@contextmanager
+def move_on_at(deadline):
+    with _core.open_cancel_scope() as scope:
+        scope.deadline = deadline
+        yield scope
 
 def move_on_after(seconds):
     if seconds < 0:

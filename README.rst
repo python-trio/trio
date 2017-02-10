@@ -117,14 +117,14 @@ nothing to see here
    immutable object with attributes that provide some useful stats --
    e.g. for a lock, number of waiters
 
-
-   spawn is special: it's the only async-colored primitive that executes
-   synchronously. (it's unconditionally synchronous.)
-   all other async-colored primitives are unconditionally cancellation
+   all async-colored primitives are unconditionally cancellation
    points and unconditionally invoke the scheduler.
    for non-primitives,
    => async means: at least sometimes invokes concurrency, suspension,
    cancellation
+
+   only way to spawn is by having a nursery to spawn into
+
    admittedly this is a conceptual distinction rather than a strict
    technical one, e.g. we could set up a "spawn server" and then send
    spawn requests to it using synchronous calls to put_nowait, but we
@@ -133,6 +133,66 @@ nothing to see here
 
 
    next:
+   - NEW IDEA:
+
+       - cancellation stack is inherited when spawning
+
+         with open_nursery() as nursery:
+             with move_on_after(...):
+                 nursery.spawn(...)
+
+         ...okay, but what about spawning into someone else's nursery?
+
+         tasks in a nursery *must* have that nursery's stack imposed
+         on them, because when a nursery gets cancelled we need to
+         clean up all its children!
+
+         (and open_nursery implicitly creates a cancellation scope,
+         b/c it needs to cancel everything when the
+
+         but what if you want to manage cancellation for a single
+         task?
+         - do you really want this, as opposed to managing tasks as a
+           group?
+         - you can always do the wrapper-function trick?
+         - maybe it should be possible to pass a scope in, or get a
+           scope out, of spawn()?
+
+       - tasks themselves aren't cancellable at all! (but nurseries
+         are)
+         - remove redundancy between task and cancel API
+         - main() can't be cancelled so no need to worry about how to
+           signal it to user!
+
+     we definitely can't re-use a single Cancelled exception for all
+     the raises then -- it'd weave in and out of different tasks!
+     so need a different way to match exceptions to scopes
+
+     to get the right cancellation exception: reschedule with a
+     special "cancelled" sentinel that means "just before running it
+     figure out the applicable cancellation exception"
+
+     (this way we can keep scopes as being the objects that have
+     timeouts, which is nice when the same scope is in 1000 tasks'
+     cancel stacks and we change its timeout...)
+
+     problem: what if, between when we abort and when we resume, a
+     shield intervenes? so I guess we save the cancel that triggered
+     the resume and then use that as a fallback if there is no
+     appropriate cancel when we resume.
+     ...the other option would be to only attempt the abort when we're
+     ready to run. the downside of *this* is that if we have an abort
+     that will take some time to finish (IOCP), then the actual resume
+     might be delayed for one scheduling round. ...and then we still
+     have the problem that the cancel might have disappeared by the
+     time the abort finishes! but at least if we stash the
+     cancellation exception there, then it'll be at the end of a round
+     of timeout processings.
+
+     ...maybe it's better all around if cancel() takes effect
+     immediately, but that when processing timeouts we process the
+     whole list and only then signal tasks.
+
    - if one cancel steps on another, we should chain them
 
      we still have the lurking issue that chaining does *hide* the
@@ -140,194 +200,6 @@ nothing to see here
      it's fine for sequential code where the second exception actually
      does arise from the path handling the first, but not so clear
      when aggregating from multiple parallel contexts...
-
-   - I use .join() when I want .wait(). So split these up.
-
-     async with supervisor() as s:
-         await start_foo(s.spawn, ...)
-         await start_bar(s.spawn, ...)
-         async for task in s:
-             ...
-
-     - if we leave the block, it cancels all remaining tasks, waits
-       for them to finish, and re-raises any exceptions. So this takes
-       care of parent-can't-die-before-child, and also guarantees they
-       all get reaped.
-
-     but the thing coming out of the for loop is still the task
-     object, easy to not check it for errors.
-
-     *how do we make sure errors go somewhere?*
-
-     Task.unwrap(); if this isn't called then re-raise at the end?
-
-     send ChildExitCancelled to nominated supervisor when the child
-     exits, unless they've set up a queue to receive it instead and
-     trust that if they did that then they'll handle it properly?
-     ParentExitCancelled
-     it would help if there were better ways to aggregate errors...
-
-     cancellation by itself is an inadequate way to propagate
-     exceptions because if a task exits while the cancellation is
-     pending then the cancellation just goes away
-
-     a downside to the current blow-up-the-world fallback is that if
-     you *do* want a guarantee that the world won't blow up it's hard
-     to implement that.
-
-     use cases:
-
-       jongleur: supervise a large collection of tasks that come and
-         go, propagate any exceptions, support drain and killall
-
-       two-way proxy: spawn two children, wait for them both to
-         finish, propagate errors both directions
-
-       concurrent IO: start a bunch of request.get() calls, gather the
-         results as they come in
-
-     strawman:
-
-       - parents cannot die before children. if they try, then
-         children get cancelled and the parent waits on them.
-       - by default:
-         - if a child dies with an exception, raise an exception in the
-           parent
-         - if a child exits normally, that's fine, don't hassle the parent
-       - if parent opts in to notifications:
-         - they just get told about child exit (regardless of state)
-
-            with child_monitor() as m:
-               async for task in m:
-                   ...
-
-            any task that doesn't get pulled out counts as unreaped?
-            (should be batched, probably just use an UnboundedQueue,
-            and when the monitor __exit__'s pull out anything
-            remaining in the queue. and nice, the child_monitor pun
-            works with the other *_monitor context managers)
-            ...maybe the queue stops iteration when there are no more
-            children? need some extension to UnboundedQueue for that.
-            (what's up with task_done() and all that anyway -- can't
-            we close() and then join()?)
-        - when spawning, can specify a parent; default is current task
-
-     in this setup, this code is actually correct...
-
-       tasks = [await _core.spawn(fn) for fn in fns]
-       for task in tasks:
-           await task.wait()
-
-     if one of them crashes, then the current task.wait() will get
-     cancelled
-
-     hmm, but this is not a normal cancel -- it should propagate!
-     (and as noted above, if not delivered that should be noted)
-     maybe distinguish between cancel and inject exceptions?
-     AsyncError vs Cancelled?
-
-     maybe tasks are the wrong scope for this though. Maybe it should
-     be a, well... "scope" first-class concept, so
-
-       with move_on_after(10):
-           await spawn(...)
-
-     automatically waits on the child *when exiting the
-     move_on_after*?
-
-     ...should cancelling the scope automatically cancel the tasks
-     inside it? when the timeout fires should the child tasks get
-     timeout exceptions?
-       (if so then scope.raised becomes ambiguous)
-
-       current_scope()
-       spawn is a method on scope
-       every task introduces an implicit scope
-       scope.effective_deadline()
-
-     scope tree
-       only operations that create scopes are task spawn and context
-       managers
-       and these are also the only operations that associate a scope
-       to a task
-       the scope created by spawning a new task can have any arbitrary
-       open scope as its parent, but context manager scopes can only
-       be parented by the current top of the current task's scope
-       stack
-
-       so this means that the task tree is a strict coarsening of the
-       scope tree
-
-     a scope has:
-     - deadline
-     - exactly 1 parent scope (if self is living, parent must be living)
-     - 0 or more child task scopes (all living)
-     - 0 or 1 child within-task scopes (all living)
-
-     state: live, dead, raised
-       I guess "can recover and retry" is dead + raised + parent live?
-
-     ...do we cancel the children if we reach the end of the scope, or
-     just wait on them? maybe have to cancel...
-
-     operations:
-     - cancel
-     - adjust timeout
-     - spawn new task
-     - push new within-task scope
-     - get effective timeout
-
-     control-C is similar to cancelling the root scope? (except it
-     propagates out of run())
-       I guess we do kind of want cancels to propagate sometimes --
-       if an await_in_trio_thread gets cancelled we should tell the
-       caller. and if the main task gets cancelled we should tell the
-       caller.
-
-       maybe the intuition is that it propagates out of the task, and
-       gets swallowed by the context manager? ...well, this doesn't
-       make much sense, because the distinction here is between cancel
-       directed at the task scope versus cancel in one of the higher
-       scopes, and the distinction above is about if there's someone
-       outside the trio system telling them what happened.
-
-       I guess it's the job of the code receiving the task completion
-       notification to decide whether it thinks a cancelled exception
-       is worth passing on.
-
-     I'm not 100% clear on how to handle multiple cancels, or parent
-     cancellation...
-
-     "injected error":
-       - control-C, fine
-       - when a child task crashes and the parent is not monitoring
-         this is like a cancellation in terms of its delivery
-         semantics, except...
-
-         - if there is, say, a cancellation + two crashed tasks
-           pending, what do we do?
-
-         for merging task crashes, I guess something like a
-         ChildrenCrashedError that has *both* a list of all the
-         exceptions + a __context__ chain linking them together so
-         they all get printed? (or would it be __cause__ for the first
-         and then __context__ after?)
-         and an original_context for what the context would have been
-         if not for this mess? hmm. I guess there isn't one, actually
-         -- from a quick check, when you throw an exception into a
-         sleeping coroutine, it *doesn't* get annotated with the
-         coroutines exc_info context. I can't see any way to get the
-         coroutine's exc_info either.
-
-         for cancellation + crash, I guess we can apply the
-         cancellation, and then the crash will stick around to appear
-         during the scope cleanup?
-
-     who parents call_soon(spawn=True) tasks? a few plausible
-     options... dedicated system init task; the task specified when
-     calling current_call_soon_thread_and_signal_safe; ...
-       (might want to split into current_{call,spawn}_soon_... if
-       gaining arguments that are only relevant to spawn=True version)
 
    - service registry? add a daemonic-ish task, maybe with a way to
      request a reference to it?
@@ -471,10 +343,20 @@ nothing to see here
    - Python 3.7 wishlist items:
 
      - __iterclose__
-     - better support for KI management (in particular for __(a)exit__
-       blocks, with their currently unfixable race condition)
      - better ergonomics for MultiErrors (catching, printing,
        rethrowing...)
+     - context chaining for .throw() and .athrow()
+     - better support for KI management (in particular for __(a)exit__
+       blocks, with their currently unfixable race condition)
+       need to understand this better...
+
+       Interesting comment in ceval.c:
+
+            if (_Py_OPCODE(*next_instr) == SETUP_FINALLY) {
+                /* Make the last opcode before
+                   a try: finally: block uninterruptible. */
+                goto fast_next_opcode;
+            }
 
    - XX add a nursery fixture for pytest
 

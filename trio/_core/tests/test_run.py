@@ -1,6 +1,8 @@
 import threading
 import sys
 import time
+from math import inf
+
 import pytest
 import attr
 
@@ -299,10 +301,14 @@ async def test_current_statistics(mock_clock):
         print(stats)
         assert stats.tasks_runnable == 1
 
-    with _core.move_on_at(_core.current_time() + 5):
+    with _core.open_cancel_scope() as scope:
+        scope.deadline = _core.current_time() + 5
         stats = _core.current_statistics()
         print(stats)
         assert stats.seconds_to_next_deadline == 5
+    stats = _core.current_statistics()
+    print(stats)
+    assert stats.seconds_to_next_deadline == inf
 
 
 @attr.s(slots=True, cmp=False, hash=False)
@@ -494,10 +500,10 @@ async def test_cancel_edge_cases():
 @pytest.mark.foo
 async def test_basic_timeout(mock_clock):
     start = _core.current_time()
-    with _core.move_on_at(start + 1) as scope:
+    with _core.open_cancel_scope() as scope:
+        assert scope.deadline == inf
+        scope.deadline = start + 1
         assert scope.deadline == start + 1
-        scope.deadline += 0.5
-        assert scope.deadline == start + 1.5
     assert not scope.cancel_called
     mock_clock.advance(2)
     await _core.yield_briefly()
@@ -506,21 +512,26 @@ async def test_basic_timeout(mock_clock):
     assert not scope.cancel_called
 
     start = _core.current_time()
-    with _core.move_on_at(start + 1) as scope:
+    with _core.open_cancel_scope() as scope:
+        scope.deadline = start + 1
         mock_clock.advance(2)
         await sleep_forever()
-    # But then move_on_at swallowed the exception... but we can still see it
+    # But then the scope swallowed the exception... but we can still see it
     # here:
     assert scope.cancel_called
     assert scope.cancel_caught
 
     # changing deadline
     start = _core.current_time()
-    with _core.move_on_at(start + 10) as scope:
+    with _core.open_cancel_scope() as scope:
+        await _core.yield_briefly()
+        scope.deadline = start + 10
         await _core.yield_briefly()
         mock_clock.advance(5)
         await _core.yield_briefly()
         scope.deadline = start + 1
+        with pytest.raises(_core.Cancelled):
+            await _core.yield_briefly()
         with pytest.raises(_core.Cancelled):
             await _core.yield_briefly()
 
@@ -568,7 +579,8 @@ async def test_timekeeping():
     # give it a few tries in case of random CI server flakiness
     for _ in range(4):
         real_start = time.monotonic()
-        with _core.move_on_at(_core.current_time() + TARGET):
+        with _core.open_cancel_scope() as scope:
+            scope.deadline = _core.current_time() + TARGET
             await sleep_forever()
         real_duration = time.monotonic() - real_start
         accuracy = real_duration / TARGET
@@ -647,7 +659,8 @@ def test_system_task_crash():
 # 5) ...but it's on the run queue, so the timeout is queued to be delivered
 #    the next time that it's blocked.
 async def test_yield_briefly_checks_for_timeout(mock_clock):
-    with _core.move_on_at(_core.current_time() + 5):
+    with _core.open_cancel_scope() as scope:
+        scope.deadline = _core.current_time() + 5
         await _core.yield_briefly()
         with pytest.raises(_core.Cancelled):
             mock_clock.advance(10)

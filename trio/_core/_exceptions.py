@@ -39,7 +39,7 @@ class MultiError(BaseException):
 # This is very much like the other exceptions that inherit directly from
 # BaseException (= SystemExit, KeyboardInterrupt, GeneratorExit)
 class Cancelled(BaseException):
-    pass
+    _scope = None
 
 @attr.s(slots=True, frozen=True)
 class PartialResult:
