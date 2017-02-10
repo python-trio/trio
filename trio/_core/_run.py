@@ -169,10 +169,12 @@ class CancelScope:
 
 @contextmanager
 @enable_ki_protection
-def open_cancel_scope():
+def open_cancel_scope(*, deadline=inf, shield=False):
     task = _core.current_task()
     scope = CancelScope()
     scope._add_task(task)
+    scope.deadline = deadline
+    scope.shield = shield
     try:
         yield scope
     except (Cancelled, MultiError) as exc:

@@ -7,11 +7,8 @@ __all__ = [
     "fail_at", "fail_after", "TooSlowError",
 ]
 
-@contextmanager
 def move_on_at(deadline):
-    with _core.open_cancel_scope() as scope:
-        scope.deadline = deadline
-        yield scope
+    return _core.open_cancel_scope(deadline=deadline)
 
 def move_on_after(seconds):
     if seconds < 0:
