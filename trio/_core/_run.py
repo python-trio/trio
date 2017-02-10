@@ -128,8 +128,10 @@ class CancelScope:
 
     @enable_ki_protection
     def cancel(self):
+        print("trying to cancel")
         for task in self._cancel_no_notify():
             task._attempt_delivery_of_any_pending_cancel()
+        print("cancelled")
 
     def _add_task(self, task):
         self._tasks.add(task)
@@ -493,13 +495,17 @@ class Runner:
     # System tasks and init
     ################
 
-    def spawn_system_task(self, fn, args):
+    @_public
+    @_hazmat
+    def spawn_system_task(self, fn, *args):
         async def system_task_wrapper(fn, args):
             try:
                 await fn(*args)
-            except Cancelled:
-                pass
-            except (KeyboardInterrupt, GeneratorExit, TrioInternalError):
+            # XX: this is not really correct in the presence of MultiError
+            # (basically we should do this filtering on each error inside the
+            # MultiError)
+            except (Cancelled, KeyboardInterrupt, GeneratorExit,
+                    TrioInternalError):
                 raise
             except BaseException as exc:
                 raise TrioInternalError from exc
@@ -510,7 +516,7 @@ class Runner:
     async def init(self, fn, args):
         async with open_nursery() as system_nursery:
             self.system_nursery = system_nursery
-            self.spawn_system_task(self.call_soon_task, ())
+            self.spawn_system_task(self.call_soon_task)
             self.main_task = system_nursery.spawn(fn, *args)
             async for task_batch in system_nursery.monitor:
                 for task in task_batch:

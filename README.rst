@@ -6,8 +6,11 @@ nothing to see here
 
    Trio is an `async/await-native
    <https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/>`__
-   I/O library for Python 3.5+ (including nightly builds of PyPy3),
-   with full support for Linux, MacOS, and Windows.
+   I/O library for Python 3.5+ (either CPython or PyPy) with full
+   support for Linux, MacOS, and Windows. (*BSD and illumos might work
+   too, but we haven't checked.)
+
+   [link to Guido's email]
 
    how to make it *easy and fun* to write *safe, correct, and
    performant* asynchronous code in Python.  Async programming has a
@@ -23,11 +26,6 @@ nothing to see here
 
    So... where to next?
 
-   *Does it work on my machine?* We fully support Linux, MacOS, and
-   Windows, running Python 3.5+ (including PyPy 3.5 nightly builds).
-   Trio and its dependencies are all pure Python, except that on
-   Windows it needs cffi. *BSD might work too though isn't tested.
-
    *I want to know more!* Check out the `documentation
    <https://trio.readthedocs.io>`.
 
@@ -38,9 +36,10 @@ nothing to see here
    *I want to help!* You're the best! Check out our  <github issues>
    discussion, tests, docs, use it and let us know how it goes XX
 
-   *I just love thinking about !* You might enjoy our <XX reading list>
+   *I'm just fascinated by IO library design!* You might enjoy our <XX
+   reading list> and XX architecture documentation
 
-   *Are my company's lawyers going to get angry at me?*
+   *I want to make sure my company's lawyers won't get angry at me!*
    No worries, trio is permissively licensed under your choice of MIT
    or Apache 2. See `LICENSE
    <https://github.com/njsmith/trio/blob/master/LICENSE>`__ for
@@ -133,73 +132,38 @@ nothing to see here
 
 
    next:
-   - NEW IDEA:
+   - some bugs once the existing tests are passing:
+     - unshielding doesn't immediately deliver abort
+     - bad handling of slow aborts, see email
+     - need to re-use exception objects in level triggered cancels
+     - real tests for shielding
+     - tests for cancel being raised everywhere once triggered once
+     - test the "precancelled" magic of the new
+       inherited+level-triggered cancellation -- spawning a task into
+       a cancelled nursery
 
-       - cancellation stack is inherited when spawning
+   - catch errors in call_soon and use spawn_system_task to propagate
+     them out without killing the call_soon task
+     - test that a call soon after a call soon crash is still processed
 
-         with open_nursery() as nursery:
-             with move_on_after(...):
-                 nursery.spawn(...)
+   - dump Result.combine?
 
-         ...okay, but what about spawning into someone else's nursery?
+   - handling of MultiError in system_task_wrapper is wrong
 
-         tasks in a nursery *must* have that nursery's stack imposed
-         on them, because when a nursery gets cancelled we need to
-         clean up all its children!
+   - should UnboundedQueue have logic to smooth out bursts to reduce
+     latency spikes? e.g. if 1000 tasks die at time t and no tasks
+     die at time t+1, t+2, t+3, then it would be better to reap, say,
+     100 tasks each cycle.
 
-         (and open_nursery implicitly creates a cancellation scope,
-         b/c it needs to cancel everything when the
+     I'm not sure what the right control law for this is though.
 
-         but what if you want to manage cancellation for a single
-         task?
-         - do you really want this, as opposed to managing tasks as a
-           group?
-         - you can always do the wrapper-function trick?
-         - maybe it should be possible to pass a scope in, or get a
-           scope out, of spawn()?
+   - [x] expose (hazmat) spawn_system_task
+     [ ] then reimplement await_in_trio_thread... or whatever we want to
+         call it
 
-       - tasks themselves aren't cancellable at all! (but nurseries
-         are)
-         - remove redundancy between task and cancel API
-         - main() can't be cancelled so no need to worry about how to
-           signal it to user!
-
-     we definitely can't re-use a single Cancelled exception for all
-     the raises then -- it'd weave in and out of different tasks!
-     so need a different way to match exceptions to scopes
-
-     to get the right cancellation exception: reschedule with a
-     special "cancelled" sentinel that means "just before running it
-     figure out the applicable cancellation exception"
-
-     (this way we can keep scopes as being the objects that have
-     timeouts, which is nice when the same scope is in 1000 tasks'
-     cancel stacks and we change its timeout...)
-
-     problem: what if, between when we abort and when we resume, a
-     shield intervenes? so I guess we save the cancel that triggered
-     the resume and then use that as a fallback if there is no
-     appropriate cancel when we resume.
-     ...the other option would be to only attempt the abort when we're
-     ready to run. the downside of *this* is that if we have an abort
-     that will take some time to finish (IOCP), then the actual resume
-     might be delayed for one scheduling round. ...and then we still
-     have the problem that the cancel might have disappeared by the
-     time the abort finishes! but at least if we stash the
-     cancellation exception there, then it'll be at the end of a round
-     of timeout processings.
-
-     ...maybe it's better all around if cancel() takes effect
-     immediately, but that when processing timeouts we process the
-     whole list and only then signal tasks.
-
-   - if one cancel steps on another, we should chain them
-
-     we still have the lurking issue that chaining does *hide* the
-     underlying exception
-     it's fine for sequential code where the second exception actually
-     does arise from the path handling the first, but not so clear
-     when aggregating from multiple parallel contexts...
+   - use an OrderedDict for call_soon(idempotent=True)
+     however this is only possible on 3.6+! otherwise OrderedDict is
+     not thread/signal-safe!
 
    - service registry? add a daemonic-ish task, maybe with a way to
      request a reference to it?
