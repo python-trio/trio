@@ -305,8 +305,7 @@ async def test_current_statistics(mock_clock):
     await _core.yield_briefly()
     await _core.yield_briefly()
 
-    with _core.open_cancel_scope() as scope:
-        scope.deadline = _core.current_time() + 5
+    with _core.open_cancel_scope(deadline=_core.current_time() + 5) as scope:
         stats = _core.current_statistics()
         print(stats)
         assert stats.seconds_to_next_deadline == 5
@@ -521,8 +520,7 @@ async def test_basic_timeout(mock_clock):
     assert not scope.cancel_called
 
     start = _core.current_time()
-    with _core.open_cancel_scope() as scope:
-        scope.deadline = start + 1
+    with _core.open_cancel_scope(deadline=start + 1) as scope:
         mock_clock.advance(2)
         await sleep_forever()
     # But then the scope swallowed the exception... but we can still see it
@@ -668,8 +666,7 @@ def test_system_task_crash():
 # 5) ...but it's on the run queue, so the timeout is queued to be delivered
 #    the next time that it's blocked.
 async def test_yield_briefly_checks_for_timeout(mock_clock):
-    with _core.open_cancel_scope() as scope:
-        scope.deadline = _core.current_time() + 5
+    with _core.open_cancel_scope(deadline=_core.current_time() + 5) as scope:
         await _core.yield_briefly()
         with pytest.raises(_core.Cancelled):
             mock_clock.advance(10)
