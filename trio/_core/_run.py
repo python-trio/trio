@@ -842,7 +842,9 @@ async def yield_briefly():
 
 @_hazmat
 async def yield_if_cancelled():
-    if current_task()._pending_cancel_exception() is not None:
+    task = current_task()
+    if (task._pending_cancel_scope() is not None
+          or (task is task._runner.main_task and task._runner.ki_pending)):
         await _core.yield_briefly()
         assert False  # pragma: no cover
 

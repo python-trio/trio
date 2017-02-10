@@ -296,10 +296,14 @@ async def test_current_statistics(mock_clock):
         assert stats.tasks_runnable == 0
         assert stats.call_soon_queue_size == 1
 
-        task.cancel()
+        nursery.cancel_scope.cancel()
         stats = _core.current_statistics()
         print(stats)
         assert stats.tasks_runnable == 1
+
+    # Give the child a chance to die and the call_soon a chance to clear
+    await _core.yield_briefly()
+    await _core.yield_briefly()
 
     with _core.open_cancel_scope() as scope:
         scope.deadline = _core.current_time() + 5
@@ -342,7 +346,7 @@ def test_instruments():
     r3 = TaskRecorder()
 
     async def main():
-        for _ in range(3):
+        for _ in range(4):
             await _core.yield_briefly()
         cp = _core.current_instruments()
         assert cp == [r1, r2]
@@ -352,8 +356,8 @@ def test_instruments():
             await _core.yield_briefly()
         return _core.current_task()
     task = _core.run(main, instruments=[r1, r2])
-    # It sleeps 4 times, so it runs 5 times
-    expected = (5 * [("schedule", task), ("before", task), ("after", task)]
+    # It sleeps 5 times, so it runs 6 times
+    expected = (6 * [("schedule", task), ("before", task), ("after", task)]
                 + [("close",)])
     assert len(r1.record) > len(r2.record) > len(r3.record)
     assert r1.record == r2.record + r3.record
@@ -439,33 +443,39 @@ def test_instruments_crash(capfd):
 
 def test_cancel_points():
     async def main1():
-        await _core.yield_if_cancelled()
-        _core.current_task().cancel()
-        with pytest.raises(_core.Cancelled):
+        with _core.open_cancel_scope() as scope:
             await _core.yield_if_cancelled()
+            scope.cancel()
+            with pytest.raises(_core.Cancelled):
+                await _core.yield_if_cancelled()
     _core.run(main1)
 
     async def main2():
-        _core.current_task().cancel()
-        with pytest.raises(_core.Cancelled):
+        with _core.open_cancel_scope() as scope:
             await _core.yield_briefly()
+            scope.cancel()
+            with pytest.raises(_core.Cancelled):
+                await _core.yield_briefly()
     _core.run(main2)
 
     async def main3():
-        _core.current_task().cancel()
-        with pytest.raises(_core.Cancelled):
-            await sleep_forever()
+        with _core.open_cancel_scope() as scope:
+            scope.cancel()
+            with pytest.raises(_core.Cancelled):
+                await sleep_forever()
     _core.run(main3)
 
     async def main4():
-        _core.current_task().cancel()
-        await _core.yield_briefly_no_cancel()
-        await _core.yield_briefly_no_cancel()
-        with pytest.raises(_core.Cancelled):
-            await _core.yield_briefly()
+        with _core.open_cancel_scope() as scope:
+            scope.cancel()
+            await _core.yield_briefly_no_cancel()
+            await _core.yield_briefly_no_cancel()
+            with pytest.raises(_core.Cancelled):
+                await _core.yield_briefly()
     _core.run(main4)
 
 
+@pytest.mark.foo
 async def test_cancel_edge_cases():
     async def child():
         await _core.yield_briefly()
@@ -497,7 +507,6 @@ async def test_cancel_edge_cases():
         t4.result.unwrap()
 
 
-@pytest.mark.foo
 async def test_basic_timeout(mock_clock):
     start = _core.current_time()
     with _core.open_cancel_scope() as scope:
