@@ -22,5 +22,5 @@ test_script:
   - "mkdir empty"
   - "cd empty"
   - "python -c \"import os, trio; print(os.path.dirname(trio.__file__))\""
-  - "python ../ci/run-in-new-console.py \"python -m pytest -ra --pyargs trio -v -s --cov=trio --cov-config=../.coveragerc\""
+  - "python ../ci/run-in-new-console.py \"python -u -m pytest -ra --pyargs trio -v -s --cov=trio --cov-config=../.coveragerc\""
   - "codecov"
