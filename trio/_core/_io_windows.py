@@ -165,8 +165,10 @@ class CompletionKeyEventInfo:
 class WindowsIOManager:
     def __init__(self):
         # https://msdn.microsoft.com/en-us/library/windows/desktop/aa363862(v=vs.85).aspx
+        self._closed = True
         self._iocp = _check(kernel32.CreateIoCompletionPort(
             INVALID_HANDLE_VALUE, ffi.NULL, 0, 0))
+        self._closed = False
         self._iocp_queue = deque()
         self._iocp_thread = None
         self._overlapped_waiters = {}
@@ -190,13 +192,12 @@ class WindowsIOManager:
         )
 
     def close(self):
-        if self._iocp is not None:
+        if not self._closed:
+            self._closed = True
             _check(kernel32.CloseHandle(self._iocp))
-            self._iocp = None
-        if self._iocp_thread is not None:
-            self._iocp_thread.join()
-            self._iocp_thread = None
-        self._main_thread_waker.close()
+            if self._iocp_thread is not None:
+                self._iocp_thread.join()
+            self._main_thread_waker.close()
 
     def __del__(self):
         # Need to make sure we clean up self._iocp (raw handle) and the IOCP
