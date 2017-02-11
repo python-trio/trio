@@ -56,6 +56,14 @@ else:
     def ki_self():
         os.kill(os.getpid(), signal.SIGINT)
 
+def test_ki_self():
+    try:
+        ki_self()
+    except KeyboardInterrupt:
+        pass
+    else:
+        assert False
+
 async def test_ki_enabled():
     # Regular tasks aren't KI-protected
     assert not _core.ki_protected()

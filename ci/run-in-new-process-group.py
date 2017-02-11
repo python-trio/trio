@@ -1,12 +1,10 @@
+# Note: 'cmd' here should be like 'python ...' or python -m pytest ...' etc.
+# *Not* 'py ...' or 'pytest ...'
+# See https://stackoverflow.com/questions/42180468/on-windows-what-is-the-python-launcher-py-doing-that-lets-control-c-cross-bet
+
 import sys
 import subprocess
 import signal
-
-# Even though we run the child in a new process group, I was somehow getting
-# KeyboardInterrupts raised *here*. This makes absolutely no sense to me. I
-# couldn't reproduce it when running a minimal program that just raises
-# CTRL_C_EVENT.
-signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 (cmd,) = sys.argv[1:]
 result = subprocess.run(cmd, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
