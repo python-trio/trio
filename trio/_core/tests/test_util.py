@@ -5,6 +5,7 @@ import pytest
 
 from ... import _core
 
+# See the test below for examples of 'template'
 def check_sequence_matches(seq, template):
     i = 0
     for pattern in template:

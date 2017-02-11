@@ -6,7 +6,7 @@ from math import inf
 import pytest
 import attr
 
-from .test_util import check_sequence_matches, check_exc_chain
+from .test_util import check_sequence_matches
 from ...testing import busy_wait_for, wait_run_loop_idle, Sequencer
 
 from ... import _core
