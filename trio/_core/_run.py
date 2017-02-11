@@ -85,9 +85,12 @@ class CancelScope:
     _tasks = attr.ib(default=attr.Factory(set))
     _effective_deadline = attr.ib(default=inf)
     _deadline = attr.ib(default=inf)
+    _shield = attr.ib(default=False)
+    # We want to re-use the same exception object within a given task, to get
+    # complete tracebacks. This maps {task: exception} for active tasks.
+    _excs = attr.ib(default=attr.Factory(dict))
     cancel_called = attr.ib(default=False)
     cancel_caught = attr.ib(default=False)
-    shield = attr.ib(default=False)
 
     @contextmanager
     @enable_ki_protection
@@ -117,6 +120,19 @@ class CancelScope:
         with self._might_change_effective_deadline():
             self._deadline = float(new_deadline)
 
+    @property
+    def shield(self):
+        return self._shield
+
+    @shield.setter
+    def shield(self, new_value):
+        if not isinstance(new_value, bool):
+            raise TypeError("shield must be a bool")
+        self._shield = new_value
+        if not self._shield:
+            for task in self._tasks:
+                task._attempt_delivery_of_any_pending_cancel()
+
     def _cancel_no_notify(self):
         # returns the affected tasks
         if not self.cancel_called:
@@ -128,10 +144,8 @@ class CancelScope:
 
     @enable_ki_protection
     def cancel(self):
-        print("trying to cancel")
         for task in self._cancel_no_notify():
             task._attempt_delivery_of_any_pending_cancel()
-        print("cancelled")
 
     def _add_task(self, task):
         self._tasks.add(task)
@@ -140,13 +154,17 @@ class CancelScope:
     def _remove_task(self, task):
         with self._might_change_effective_deadline():
             self._tasks.remove(task)
+        if task in self._excs:
+            del self._excs[task]
         assert task._cancel_stack[-1] is self
         task._cancel_stack.pop()
 
-    def _make_exc(self):
-        exc = Cancelled()
-        exc._scope = self
-        return exc
+    def _make_exc(self, task):
+        if task not in self._excs:
+            exc = Cancelled()
+            exc._scope = self
+            self._excs[task] = exc
+        return self._excs[task]
 
     def _filter_exception(self, exc):
         if isinstance(exc, Cancelled) and exc._scope is self:
@@ -374,9 +392,7 @@ class Task:
         if pending_scope is None:
             return
         if self._attempt_abort():
-            # XX FIXME: re-use the same exception within a single task if
-            # raising multiple times
-            self._runner.reschedule(self, Error(pending_scope._make_exc()))
+            self._runner.reschedule(self, Error(pending_scope._make_exc(self)))
 
     def _attempt_delivery_of_pending_ki(self):
         assert self._runner.ki_pending

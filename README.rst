@@ -31,7 +31,8 @@ nothing to see here
 
    *I want to try it!* Awesome! ``pip install trio`` and check out
    `our examples XX`. And if you use it for anything more than toy
-   experiments, then you should <XX subscribe to this issue>.
+   experiments, then you should `read and subscribe to this issue
+   <https://github.com/njsmith/trio/issues/1>`__.
 
    *I want to help!* You're the best! Check out our  <github issues>
    discussion, tests, docs, use it and let us know how it goes XX
@@ -133,22 +134,16 @@ nothing to see here
 
    next:
    - some bugs once the existing tests are passing:
-     - unshielding doesn't immediately deliver abort
-     - bad handling of slow aborts, see email
-     - need to re-use exception objects in level triggered cancels
-     - real tests for shielding
-     - tests for cancel being raised everywhere once triggered once
-     - test the "precancelled" magic of the new
-       inherited+level-triggered cancellation -- spawning a task into
-       a cancelled nursery
-
-   - catch errors in call_soon and use spawn_system_task to propagate
-     them out without killing the call_soon task
+     - catch errors in call_soon and use spawn_system_task to propagate
+       them out without killing the call_soon task
      - test that a call soon after a call soon crash is still processed
+     - bad handling of slow aborts, see email
+
+   - should system_task_wrapper by async?
 
    - dump Result.combine?
 
-   - handling of MultiError in system_task_wrapper is wrong
+   - system_task_wrapper doesn't properly handle MultiError
 
    - should UnboundedQueue have logic to smooth out bursts to reduce
      latency spikes? e.g. if 1000 tasks die at time t and no tasks

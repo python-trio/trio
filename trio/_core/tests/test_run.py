@@ -486,11 +486,170 @@ async def test_cancel_edge_cases():
     with _core.open_cancel_scope() as scope:
         # Check level-triggering
         scope.cancel()
-        with pytest.raises(_core.Cancelled):
+        with pytest.raises(_core.Cancelled) as excinfo1:
             await sleep_forever()
-        with pytest.raises(_core.Cancelled):
+        with pytest.raises(_core.Cancelled) as excinfo2:
             await sleep_forever()
+        # Same exception both times, to ensure complete tracebacks:
+        assert excinfo1.value is excinfo2.value
 
+
+@pytest.mark.foo
+async def test_cancel_scope_multierror_filtering():
+    async def child():
+        await sleep_forever()
+    async def crasher():
+        raise KeyError
+
+    try:
+        with _core.open_cancel_scope() as outer:
+            try:
+                async with _core.open_nursery() as nursery:
+                    # Two children that get cancelled by the nursery scope
+                    t1 = nursery.spawn(child)
+                    t2 = nursery.spawn(child)
+                    nursery.cancel_scope.cancel()
+                    with _core.open_cancel_scope(shield=True):
+                        # Make sure they receive the inner cancellation
+                        # exception before we cancel the outer scope
+                        await t1.wait()
+                        await t2.wait()
+                    # One child that gets cancelled by the outer scope
+                    t3 = nursery.spawn(child)
+                    outer.cancel()
+                    # And one that raises a different error
+                    t4 = nursery.spawn(crasher)
+            except _core.MultiError as multi_exc:
+                # This is outside the nursery scope but inside the outer
+                # scope, so the nursery should have absorbed t1 and t2's
+                # exceptions but t3 and t4 should remain, + a bonus cancelled
+                # error because *this* task is inside the cancelled outer
+                # scope.
+                assert len(multi_exc.exceptions) == 3
+                summary = {}
+                for exc in multi_exc.exceptions:
+                    summary.setdefault(type(exc), 0)
+                    summary[type(exc)] += 1
+                assert summary == {_core.Cancelled: 2, KeyError: 1}
+                raise
+    except BaseException as exc:
+        # This is ouside the outer scope, so t3's Cancelled exception should
+        # also have been absorbed, leaving just a regular KeyError from
+        # crasher()
+        assert type(exc) is KeyError
+    else:
+        assert False
+
+
+async def test_precancelled_task():
+    # a task that gets spawned into an already-cancelled nursery should begin
+    # execution (https://github.com/njsmith/trio/issues/41), but get a
+    # cancelled error at its first blocking call.
+    record = []
+    async def blocker():
+        record.append("started")
+        await sleep_forever()
+    async with _core.open_nursery() as nursery:
+        nursery.cancel_scope.cancel()
+        nursery.spawn(blocker)
+    assert record == ["started"]
+
+
+async def test_cancel_shielding():
+    with _core.open_cancel_scope() as outer:
+        with _core.open_cancel_scope() as inner:
+            await _core.yield_briefly()
+            outer.cancel()
+            with pytest.raises(_core.Cancelled):
+                await _core.yield_briefly()
+
+            assert inner.shield is False
+            with pytest.raises(TypeError):
+                inner.shield = "hello"
+            assert inner.shield is False
+
+            inner.shield = True
+            assert inner.shield is True
+            # shield protects us from 'outer'
+            await _core.yield_briefly()
+
+            with _core.open_cancel_scope() as innerest:
+                innerest.cancel()
+                # but it doesn't protect us from scope inside inner
+                with pytest.raises(_core.Cancelled):
+                    await _core.yield_briefly()
+            await _core.yield_briefly()
+
+            inner.shield = False
+            # can disable shield again
+            with pytest.raises(_core.Cancelled):
+                await _core.yield_briefly()
+
+            # re-enable shield
+            inner.shield = True
+            await _core.yield_briefly()
+            # shield doesn't protect us from inner itself
+            inner.cancel()
+            # This should now raise, but be absorbed by the inner scope
+            await _core.yield_briefly()
+        assert inner.cancel_caught
+
+
+# make sure that cancellation propagates immediately to all children
+async def test_cancel_inheritance():
+    record = set()
+    async def leaf(ident):
+        try:
+            await sleep_forever()
+        except _core.Cancelled:
+            record.add(ident)
+    async def worker(ident):
+        async with _core.open_nursery() as nursery:
+            t1 = nursery.spawn(leaf, ident + "-l1")
+            t2 = nursery.spawn(leaf, ident + "-l2")
+            with _core.open_cancel_scope(shield=True):
+                await t1.wait()
+                await t2.wait()
+    async with _core.open_nursery() as nursery:
+        w1 = nursery.spawn(worker, "w1")
+        w2 = nursery.spawn(worker, "w2")
+        nursery.cancel_scope.cancel()
+        with _core.open_cancel_scope(shield=True):
+            await w1.wait()
+            await w2.wait()
+            assert record == {"w1-l1", "w1-l2", "w2-l1", "w2-l2"}
+
+
+async def test_cancel_shield_abort():
+    with _core.open_cancel_scope() as outer:
+        async with _core.open_nursery() as nursery:
+            outer.cancel()
+            nursery.cancel_scope.shield = True
+            # The outer scope is cancelled, but this task is protected by the
+            # shield, so it manages to get to sleep
+            record = []
+            async def sleeper():
+                record.append("sleeping")
+                try:
+                    await sleep_forever()
+                except _core.Cancelled:
+                    record.append("cancelled")
+            task = nursery.spawn(sleeper)
+            await busy_wait_for(lambda: record)
+            assert record == ["sleeping"]
+            # just to make sure that the sleeper really is sleeping
+            await _core.yield_briefly()
+            await _core.yield_briefly()
+            await _core.yield_briefly()
+            # now when we unshield, it should abort the sleep.
+            nursery.cancel_scope.shield = False
+            # wait for the task to finish before entering the nursery
+            # __aexit__, because __aexit__ could make it spuriously look like
+            # this worked by cancelling the nursery scope. (When originally
+            # written, without these last few lines, the test spuriously
+            # passed, even though shield assignment was buggy.)
+            with _core.open_cancel_scope(shield=True):
+                await task.wait()
 
 async def test_basic_timeout(mock_clock):
     start = _core.current_time()
@@ -753,7 +912,6 @@ def test_call_soon_after_crash():
 
     assert record == ["sync-cb"]
 
-@pytest.mark.foo
 def test_call_soon_crashes():
     record = []
 
