@@ -19,7 +19,11 @@ def ki_self():
     # possible that Python won't notice the event and run the signal handler
     # until later. A short sleep avoids this.
     if os.name == "nt":
-        os.kill(os.getpid(), signal.CTRL_C_EVENT)
+        os.kill(0, signal.CTRL_C_EVENT)
+        # sleep(1) is probably overkill and is a large contributor to our
+        # total test suite time on Windows, but 0.1 didn't work on
+        # Appveyor. We could potentially make it larger when we detect we're
+        # on Appveyor, and smaller otherwise?
         time.sleep(1)
     else:
         os.kill(os.getpid(), signal.SIGINT)
@@ -90,8 +94,7 @@ def test_ki_protection_works():
             # If we didn't raise (b/c protected), then we *should* get
             # cancelled at the next opportunity
             try:
-                while True:
-                    await _core.yield_briefly()
+                await _core.yield_indefinitely(lambda _: _core.Abort.SUCCEEDED)
             except _core.Cancelled:
                 record.add((name + " cancel ok"))
 
