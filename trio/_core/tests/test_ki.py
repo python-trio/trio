@@ -34,7 +34,7 @@ if os.name == "nt":
             # is totally different -- that just calls TerminateProcess. So
             # this raises a CTRL_C_EVENT in the current process
             # group. Hopefully that's just us...
-            os.kill(os.getpid(), signal.CTRL_C_EVENT)
+            os.kill(0, signal.CTRL_C_EVENT)
             ev.wait()
         finally:
             kernel32.SetConsoleCtrlHandler(cb, 0)
