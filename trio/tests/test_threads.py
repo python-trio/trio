@@ -86,8 +86,14 @@ def test_run_in_trio_thread_ki():
         run_in_trio_thread = current_run_in_trio_thread()
         await_in_trio_thread = current_await_in_trio_thread()
         def trio_thread_fn():
+            print("in trio thread")
             assert not _core.ki_protected()
-            ki_self()
+            print("ki_self")
+            try:
+                ki_self()
+            finally:
+                import sys
+                print("finally", sys.exc_info())
         async def trio_thread_afn():
             trio_thread_fn()
         def external_thread_fn():
@@ -95,15 +101,20 @@ def test_run_in_trio_thread_ki():
                 print("running")
                 run_in_trio_thread(trio_thread_fn)
             except KeyboardInterrupt:
+                print("ok1")
                 record.add("ok1")
             try:
                 await_in_trio_thread(trio_thread_afn)
             except KeyboardInterrupt:
+                print("ok2")
                 record.add("ok2")
         thread = threading.Thread(target=external_thread_fn)
         thread.start()
+        print("waiting")
         await busy_wait_for(lambda: len(record) == 2)
+        print("waited, joining")
         thread.join()
+        print("done")
     _core.run(check_run_in_trio_thread)
     assert record == {"ok1", "ok2"}
 
