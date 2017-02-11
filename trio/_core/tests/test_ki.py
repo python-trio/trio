@@ -20,7 +20,7 @@ def ki_self():
     # until later. A short sleep avoids this.
     if os.name == "nt":
         os.kill(os.getpid(), signal.CTRL_C_EVENT)
-        time.sleep(0.1)
+        time.sleep(1)
     else:
         os.kill(os.getpid(), signal.SIGINT)
 
