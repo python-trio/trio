@@ -10,28 +10,30 @@
 #
 # Note that there are various docs out there, including the MSDN
 # GenerateConsoleCtrlEvent docs, which claim that the secret to this is to
-# create a new process group with CREATE_NEW_PROCESS_GROUP. This is a lie. In
-# fact, a process created with CREATE_NEW_PROCESS_GROUP can't receive
-# CTRL_C_EVENT:
+# create a new process group with CREATE_NEW_PROCESS_GROUP. AFAICT, this
+# should work in theory! And it would be much simpler! There is one wrinkle,
+# which is that CREATE_NEW_PROCESS_GROUP also inexplicably resets the "should
+# we ignore CTRL_C_EVENT" flag, so you have to undo that using
+# SetConsoleCtrlHandler(NULL, 0). But once you've done that, it should work!
+# And it works in little test cases, like:
 #
-#    https://msdn.microsoft.com/en-us/library/windows/desktop/ms684863(v=vs.85).aspx
+#   https://github.com/njsmith/appveyor-ctrl-c-test
 #
-# Or... maybe we just need to re-enable CTRL_C_EVENT with
+# But... if I try to use it to run the trio test suite, then somehow the
+# parent process still gets hit with CTRL_C_EVENT! It's totally inexplicable!
+# See:
 #
-#    SetConsoleCtrlHandler(NULL, FALSE)
-#
-# ?
-#
-# This is a terrific hassle, but I'm not sure what else we can do...
-
-TEST_CMD = "pytest -ra --pyargs trio -v --cov=trio --cov-config=../.coveragerc"
+#   https://github.com/njsmith/trio/commit/4d95c42ca937c9336836f7ec29b846e9d655c50f
+#   https://ci.appveyor.com/project/njsmith/trio/build/1.0.58/job/cjgqa84ftvrnaste
 
 import sys
 import subprocess
 import msvcrt
 
+(cmd,) = sys.argv[1:]
+
 process = subprocess.Popen(
-    TEST_CMD,
+    cmd,
     # This puts the test program into a new console. CTRL_C_EVENT is global to
     # a console, so this is necessary to isolate it from the test running
     # apparatus.
