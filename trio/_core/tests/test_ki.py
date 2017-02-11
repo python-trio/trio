@@ -3,6 +3,7 @@ import sys
 import os
 import signal
 import threading
+import time
 
 from ... import _core
 from ...testing import wait_run_loop_idle
@@ -10,9 +11,18 @@ from ...testing import wait_run_loop_idle
 def ki_self():
     # os.kill has a special case where if you pass it CTRL_C_EVENT on
     # Windows then it calls GenerateConsoleCtrlEvent. Passing SIGINT is
-    # totally different, of course (that just calls TerminateProcess).
-    sigint = getattr(signal, "CTRL_C_EVENT", signal.SIGINT)
-    os.kill(os.getpid(), sigint)
+    # totally different -- that just calls TerminateProcess. Obviously :-)
+    #
+    # Also, on Unix, kill invokes the C handler synchronously, and then
+    # os.kill immediately runs the Python handler. On Windows,
+    # GenerateConsoleCtrlEvent spawns a thread to run the C handler, so it's
+    # possible that Python won't notice the event and run the signal handler
+    # until later. A short sleep avoids this.
+    if os.name == "nt":
+        os.kill(os.getpid(), signal.CTRL_C_EVENT)
+        time.sleep(0.1)
+    else:
+        os.kill(os.getpid(), signal.SIGINT)
 
 async def test_ki_enabled():
     # Regular tasks aren't KI-protected
