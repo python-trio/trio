@@ -22,5 +22,5 @@ test_script:
   - "mkdir empty"
   - "cd empty"
   - "python -c \"import os, trio; print(os.path.dirname(trio.__file__))\""
-  - "python .appveyor-run-tests.py"
+  - "python ../.appveyor-run-tests.py"
   - "codecov"
