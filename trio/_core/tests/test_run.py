@@ -318,6 +318,9 @@ async def test_current_statistics(mock_clock):
 class TaskRecorder:
     record = attr.ib(default=attr.Factory(list))
 
+    def before_run(self):
+        self.record.append(("before_run",))
+
     def task_scheduled(self, task):
         self.record.append(("schedule", task))
 
@@ -329,14 +332,14 @@ class TaskRecorder:
         assert task is _core.current_task()
         self.record.append(("after", task))
 
-    def close(self):
-        self.record.append(("close",))
+    def after_run(self):
+        self.record.append(("after_run",))
 
     def filter_tasks(self, tasks):
         for item in self.record:
             if item[0] in ("schedule", "before", "after") and item[1] in tasks:
                 yield item
-            if item[0] == "close":
+            if item[0] in ("before_run", "after_run"):
                 yield item
 
 def test_instruments():
@@ -356,8 +359,10 @@ def test_instruments():
         return _core.current_task()
     task = _core.run(main, instruments=[r1, r2])
     # It sleeps 5 times, so it runs 6 times
-    expected = (6 * [("schedule", task), ("before", task), ("after", task)]
-                + [("close",)])
+    expected = (
+        [("before_run",)]
+        + 6 * [("schedule", task), ("before", task), ("after", task)]
+        + [("after_run",)])
     assert len(r1.record) > len(r2.record) > len(r3.record)
     assert r1.record == r2.record + r3.record
     # Need to filter b/c there's also the system task bumping around in the
@@ -381,6 +386,7 @@ def test_instruments_interleave():
     _core.run(main, instruments=[r])
 
     expected = [
+        ("before_run",),
         ("schedule", tasks["t1"]),
         ("schedule", tasks["t2"]),
         {("before", tasks["t1"]),
@@ -393,7 +399,7 @@ def test_instruments_interleave():
          ("schedule", tasks["t2"]),
          ("before", tasks["t2"]),
          ("after", tasks["t2"])},
-        ("close",)]
+        ("after_run",)]
     print(list(r.filter_tasks(tasks.values())))
     check_sequence_matches(list(r.filter_tasks(tasks.values())), expected)
 
@@ -407,6 +413,19 @@ def test_null_instrument():
         await _core.yield_briefly()
 
     _core.run(main, instruments=[NullInstrument()])
+
+
+def test_instrument_before_after_run():
+    record = []
+    class BeforeAfterRun:
+        def before_run(self):
+            record.append("before_run")
+        def after_run(self):
+            record.append("after_run")
+    async def main():
+        pass
+    _core.run(main, instruments=[BeforeAfterRun()])
+    assert record == ["before_run", "after_run"]
 
 # This test also tests having a crash before the initial task is even spawned,
 # which is very difficult to handle.
@@ -433,7 +452,7 @@ def test_instruments_crash(capfd):
     # the TaskRecorder kept going throughout, even though the BrokenInstrument
     # was disabled
     assert ("after", main_task) in r.record
-    assert ("close",) in r.record
+    assert ("after_run",) in r.record
     # And we got a traceback on stderr
     out, err = capfd.readouterr()
     assert "ValueError: oops" in err

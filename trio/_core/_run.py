@@ -295,6 +295,8 @@ class Nursery:
                         exceptions.append(exc)
                         # After we catch Cancelled once, mute it
                         scope.shield = True
+                    except KeyboardInterrupt as exc:
+                        exceptions.append(exc)
                     except BaseException as exc:
                         raise TrioInternalError from exc
 
@@ -443,7 +445,7 @@ class Runner:
 
     def close(self):
         self.io_manager.close()
-        self.instrument("close")
+        self.instrument("after_run")
 
     # Methods marked with @_public get converted into functions exported by
     # trio.hazmat:
@@ -769,6 +771,7 @@ def run(fn, *args, clock=None, instruments=[]):
 _MAX_TIMEOUT = 24 * 60 * 60
 
 def run_impl(runner, fn, args):
+    runner.instrument("before_run")
     runner.init_task = runner.spawn_impl(
         runner.init, (fn, args), None, ki_protection_enabled=True)
 

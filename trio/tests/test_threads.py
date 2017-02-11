@@ -75,7 +75,6 @@ async def test_do_in_trio_thread_from_trio_thread():
         await_in_trio_thread(foo)
 
 
-@pytest.mark.skipif(os.name == "nt", reason="need unix signals")
 def test_run_in_trio_thread_ki():
     # if we get a control-C during a run_in_trio_thread, then it propagates
     # back to the caller (slick!)
@@ -84,7 +83,8 @@ def test_run_in_trio_thread_ki():
         run_in_trio_thread = current_run_in_trio_thread()
         await_in_trio_thread = current_await_in_trio_thread()
         def trio_thread_fn():
-            os.kill(os.getpid(), signal.SIGINT)
+            sigint = getattr(signal, "CTRL_C_EVENT", signal.SIGINT)
+            os.kill(os.getpid(), sigint)
         async def trio_thread_afn():
             trio_thread_fn()
         def external_thread_fn():
