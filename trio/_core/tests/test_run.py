@@ -808,6 +808,12 @@ def test_broken_abort():
     with pytest.raises(_core.TrioInternalError):
         _core.run(main)
 
+    # Because this crashes, various __del__ methods print complaints on
+    # stderr. Make sure that they get run now, so the output is attached to
+    # this test.
+    import gc
+    gc.collect()
+
 
 async def test_spawn_system_task():
     record = []
@@ -832,6 +838,11 @@ def test_system_task_crash():
     with pytest.raises(_core.TrioInternalError):
         _core.run(main)
 
+    # Because this crashes, various __del__ methods print complaints on
+    # stderr. Make sure that they get run now, so the output is attached to
+    # this test.
+    import gc
+    gc.collect()
 
 # This used to fail because yield_briefly was a yield followed by an immediate
 # reschedule. So we had:
