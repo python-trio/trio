@@ -8,6 +8,20 @@
 #
 # and the it sits waiting for input.
 #
+# Note that there are various docs out there, including the MSDN
+# GenerateConsoleCtrlEvent docs, which claim that the secret to this is to
+# create a new process group with CREATE_NEW_PROCESS_GROUP. This is a lie. In
+# fact, a process created with CREATE_NEW_PROCESS_GROUP can't receive
+# CTRL_C_EVENT:
+#
+#    https://msdn.microsoft.com/en-us/library/windows/desktop/ms684863(v=vs.85).aspx
+#
+# Or... maybe we just need to re-enable CTRL_C_EVENT with
+#
+#    SetConsoleCtrlHandler(NULL, FALSE)
+#
+# ?
+#
 # This is a terrific hassle, but I'm not sure what else we can do...
 
 TEST_CMD = "pytest -ra --pyargs trio -v --cov=trio --cov-config=../.coveragerc"

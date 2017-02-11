@@ -76,6 +76,10 @@ BOOL WINAPI CancelIoEx(
   _In_opt_ LPOVERLAPPED lpOverlapped
 );
 
+BOOL WINAPI SetConsoleCtrlHandler(
+  _In_opt_ void*            HandlerRoutine,
+  _In_     BOOL             Add
+);
 """
 
 # cribbed from pywincffi

@@ -8,24 +8,52 @@ import time
 from ... import _core
 from ...testing import wait_run_loop_idle
 
-def ki_self():
-    # os.kill has a special case where if you pass it CTRL_C_EVENT on
-    # Windows then it calls GenerateConsoleCtrlEvent. Passing SIGINT is
-    # totally different -- that just calls TerminateProcess. Obviously :-)
-    #
-    # Also, on Unix, kill invokes the C handler synchronously, and then
-    # os.kill immediately runs the Python handler. On Windows,
-    # GenerateConsoleCtrlEvent spawns a thread to run the C handler, so it's
-    # possible that Python won't notice the event and run the signal handler
-    # until later. A short sleep avoids this.
-    if os.name == "nt":
-        os.kill(0, signal.CTRL_C_EVENT)
-        # sleep(1) is probably overkill and is a large contributor to our
-        # total test suite time on Windows, but 0.1 didn't work on
-        # Appveyor. We could potentially make it larger when we detect we're
-        # on Appveyor, and smaller otherwise?
-        time.sleep(1)
-    else:
+if os.name == "nt":
+    from .._windows_cffi import ffi, kernel32
+    # Make sure that we're not ignoring CTRL_C_EVENT. (This is important b/c
+    # on appveyor we run the testsuite with CREATE_NEW_PROCESS_GROUP, which
+    # sets the CTRL_C_EVENT ignore flag to TRUE in children as a side-effect.)
+    kernel32.SetConsoleCtrlHandler(ffi.NULL, 0)
+
+    def ki_self():
+        # On Windows, GenerateConsoleCtrlEvent spawns a thread to run the C
+        # handler. We want the event to happen right *here*, so we manually
+        # rendezvous with the handler before continuing. (Windows allows
+        # multiple handlers for the same event, so this isn't too hard.)
+        ev = threading.Event()
+        @ffi.callback("BOOL WINAPI(DWORD)")
+        def cb(dwCtrlType):
+            print("ConsoleCtrlHandler callback!", dwCtrlType)
+            ev.set()
+            # 0 = FALSE = keep running handlers after this
+            return 0
+        try:
+            kernel32.SetConsoleCtrlHandler(cb, 1)
+            # os.kill has a special case where if you pass it CTRL_C_EVENT on
+            # Windows then it calls GenerateConsoleCtrlEvent. Passing SIGINT
+            # is totally different -- that just calls TerminateProcess. So
+            # this raises a CTRL_C_EVENT in the current process
+            # group. Hopefully that's just us...
+            os.kill(os.getpid(), signal.CTRL_C_EVENT)
+            ev.wait()
+        finally:
+            kernel32.SetConsoleCtrlHandler(cb, 0)
+        # Even this isn't quite enough because it only guarantees that the
+        # first handler has run; it doesn't guarantee that the later ones
+        # (like CPython's!) have, or that CPython has noticed and run the
+        # Python-level handler. So we also do a short sleep.
+        #
+        # It this turns out to be unreliable, another approach would be to
+        # rendezvous by registering our own Python-level signal handler that
+        # calls the previously registered one and then signals the event. I'm
+        # a little hesitant to mess with the Python-level signal handler here
+        # since it's what we're trying to test, but it'd probably be okay...
+        time.sleep(0.1)
+else:
+    # On Unix, kill invokes the C handler synchronously, and then os.kill
+    # immediately checks for this and runs the Python handler before
+    # returning. So... that's easy.
+    def ki_self():
         os.kill(os.getpid(), signal.SIGINT)
 
 async def test_ki_enabled():

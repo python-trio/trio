@@ -20,4 +20,4 @@ matrix:
     - env: USE_PYPY_NIGHTLY=1
 
 script:
-  - ./.travis.sh
+  - ci/.travis.sh
