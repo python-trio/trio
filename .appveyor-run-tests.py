@@ -10,12 +10,14 @@
 #
 # This is a terrific hassle, but I'm not sure what else we can do...
 
+TEST_CMD = "pytest -ra --pyargs trio -v --cov=trio --cov-config=../.coveragerc"
+
 import sys
 import subprocess
 import msvcrt
 
 process = subprocess.Popen(
-    "pytest -ra --pyargs trio -v -s --cov=trio", # --cov-config=../.coveragerc",
+    TEST_CMD,
     # This puts the test program into a new console. CTRL_C_EVENT is global to
     # a console, so this is necessary to isolate it from the test running
     # apparatus.
