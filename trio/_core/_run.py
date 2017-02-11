@@ -604,11 +604,15 @@ class Runner:
             except IndexError:
                 return False  # queue empty
             # We run this with KI protection enabled; it's the callbacks
-            # job to disable it if it wants it disabled.
-            #
-            # We do *not* catch exceptions -- unhandled exceptions here will
-            # break everything.
-            fn(*args)
+            # job to disable it if it wants it disabled. Exceptions are
+            # treated like system task exceptions (i.e., converted into
+            # TrioInternalError and cause everything to shut down).
+            try:
+                fn(*args)
+            except BaseException as exc:
+                async def kill_everything(exc):
+                    raise exc
+                self.spawn_system_task(kill_everything, exc)
             return True
 
         try:

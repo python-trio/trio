@@ -134,9 +134,6 @@ nothing to see here
 
    next:
    - some bugs once the existing tests are passing:
-     - catch errors in call_soon and use spawn_system_task to propagate
-       them out without killing the call_soon task
-     - test that a call soon after a call soon crash is still processed
      - bad handling of slow aborts, see email
 
    - should system_task_wrapper by async?

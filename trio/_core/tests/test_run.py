@@ -494,7 +494,6 @@ async def test_cancel_edge_cases():
         assert excinfo1.value is excinfo2.value
 
 
-@pytest.mark.foo
 async def test_cancel_scope_multierror_filtering():
     async def child():
         await sleep_forever()
@@ -913,21 +912,33 @@ def test_call_soon_after_crash():
     assert record == ["sync-cb"]
 
 def test_call_soon_crashes():
-    record = []
+    record = set()
 
     async def main():
         call_soon = _core.current_call_soon_thread_and_signal_safe()
         call_soon(lambda: dict()["nope"])
+        # check that a crashing call_soon callback doesn't stop further calls
+        # to call_soon
+        call_soon(lambda: record.add("2nd call_soon ran"))
         try:
             await sleep_forever()
         except _core.Cancelled:
-            record.append("cancelled!")
+            record.add("cancelled!")
 
     with pytest.raises(_core.TrioInternalError) as excinfo:
         _core.run(main)
 
     assert type(excinfo.value.__cause__) is KeyError
-    assert record == ["cancelled!"]
+    assert record == {"2nd call_soon ran", "cancelled!"}
+
+async def test_call_soon_FIFO():
+    N = 100
+    record = []
+    call_soon = _core.current_call_soon_thread_and_signal_safe()
+    for i in range(N):
+        call_soon(lambda j: record.append(j), i)
+    await busy_wait_for(lambda: len(record) == N)
+    assert record == list(range(N))
 
 def test_call_soon_starvation_resistance():
     # Even if we push callbacks in from callbacks, so that the callback queue
