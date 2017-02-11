@@ -21,8 +21,8 @@ async def test_completion_key_listen():
             assert success
 
     with _core.completion_key_monitor() as (key, queue):
-        try:
-            task = await _core.spawn(post, key)
+        async with _core.open_nursery() as nursery:
+            task = nursery.spawn(post, key)
             i = 0
             print("loop")
             async for batch in queue:  # pragma: no branch
@@ -34,11 +34,6 @@ async def test_completion_key_listen():
                 if i == 10:
                     break
             print("end loop")
-        finally:
-            print("joining")
-            # have to make sure that post() is finished before exiting this
-            # block and relinquishing the completion key
-            (await task.join()).unwrap()
 
 
 # XX test setting the iomanager._iocp to something weird to make sure that the
