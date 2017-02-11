@@ -133,9 +133,6 @@ nothing to see here
 
 
    next:
-   - some bugs once the existing tests are passing:
-     - bad handling of slow aborts, see email
-
    - should system_task_wrapper by async?
 
    - dump Result.combine?
@@ -156,19 +153,6 @@ nothing to see here
    - use an OrderedDict for call_soon(idempotent=True)
      however this is only possible on 3.6+! otherwise OrderedDict is
      not thread/signal-safe!
-
-   - service registry? add a daemonic-ish task, maybe with a way to
-     request a reference to it?
-
-     maybe for waitpid support?
-
-     eh... for waitpid it's probably better to just spawn a thread
-     without any supervisor at all, it eventually does call_soon,
-     that's all.
-
-   - Task.add_monitor should just refuse to accept anything except a
-     actual UnboundedQueue, so we don't have to think about how to
-     deal with errors from weird user code.
 
    - Should regular queues default to capacity=1? Should they even
      *support* capacity >1?
@@ -210,91 +194,6 @@ nothing to see here
    - the MultiError handling in move_on_after is not so great --
      ideally we should at least preserve traceback? but *not* chain two
      giant almost-identical multi-errors?
-
-   - so... properly handling cancellation nesting is a problem.
-
-     I guess the rule is:
-
-     - if we cancel a scope and there is a live scope inside it that
-       has been cancelled but is still unwinding, then we merge these
-       together (i.e. retroactively decide that it was actually the
-       outer scope that got cancelled in the first place). so
-       Cancelled passes through from the inside to the outside.
-
-     - if we have an uncancelled scope that gets cancelled and there
-       is a cancelled scope *outside* it, then we do *not* want to
-       merge these scopes. the exception should get absorbed at the
-       boundary between these.
-
-     there's still also the lost exception problem... one possibility
-     is that whenever we pass through a scope manager, we add a
-     Cancelled exception (if needed). so if we exit normally but the
-     surrounding scope is PENDING/DELIVERED, then we raise a new
-     Cancelled. And if we exit with a non-Cancelled exception, we
-     expand it into a MultiError with the Cancelled added in? (and
-     similarly for a MultiError that doesn't include Cancelled)
-
-     one potential problem is that this would make it impossible to
-     return actual values from a cancelled scope. (E.g. "get what you
-     can before the deadline and return that" becomes difficult -- I
-     guess you could put the payload into an exception but ugh.)
-
-     I think the key question here is whether code can identify the
-     scope of the cancellation. If you want to say "oh it's just this
-     little timeout here, I know how to handle that", then you need to
-     be able to determine that. and anything like "returning partial
-     results" or "raising a different error" really is "handling" the
-     cancellation in a sense.
-
-     observations about cancellation:
-
-       - at first it seems like it's nice to protect code from having
-         to worry about double-cancellation, because it means that
-         cleanup code (run on the cancellation return path) doesn't
-         have to worry about being cancelled. But this doesn't really
-         work, because:
-
-         - 90% of this code is the same as the code run on the
-           non-cancellation return path, which means you can get a
-           cancellation in the middle of it anyway.
-
-         - KI can arrive at cancellation points even if KI protection
-           is enabled and the surrounding code is already
-           cancelled. (Unless we do something really complicated with
-           checking the local cancellation context?)
-
-         - cancellation points during unwinding imply that we're doing
-           something blocking during unwinding, which is extremely
-           problematic, because in many cases unwinding implies that
-           our external timeout has been removed, so blocking is
-           *risky* -- if the remote side doesn't response, we have no
-           timeout! we could try to re-impose a timeout... but how do
-           we know what to set it to? (general rule is that timeout
-           policy is imposed at the edge of the system -- I guess we
-           could have some contextual information attached to cancel
-           state that says "here's how long to try to clean up"? but
-           this sounds pretty messy)
-
-         - protecting code from double-cancellation requires that the
-           code can't be allowed to know how much was cancelled (at
-           least until it exits the cancelled region), because if a
-           larger scope is cancelled while we're unwinding, and we
-           can't deliver a new exception, then about our only option
-           is ot silently expand the scope of the cancelled region. (I
-           guess the other option is to defer the cancellation until
-           we exit the already-cancelled region, but this is also
-           pretty complex.) But this creates problems for code that
-           wants to do more sophisticated things, like respond to
-           cancellation by successfully returning partial results.
-
-         so the general conclusions are:
-
-         - unwinding code (__aexit__, stream.close, etc.) needs to be
-           as synchronous as possible!
-
-         - there's not much point in bending over backwards to protect
-           code from double-cancellation -- it creates more problems
-           than it solves
 
    - Python 3.7 wishlist items:
 
@@ -423,45 +322,6 @@ nothing to see here
      for reference:
      https://webkit.org/blog/6161/locking-in-webkit/
 
-   - XX rule for user code, to document: never catch a Cancelled
-     exception! let it propagate!
-
-     of course it's necessarily the case that cancellation exceptions
-     can be wiped out by regular errors, just something like an
-     __exit__/finally block with a typo in it will do it.  and
-     KeyboardInterrupt has the same problem but people seem to
-     survive...
-
-     some way to recover after handling an error that might have
-     stomped on a cancellation?
-
-     if current_cancelled():
-         ...
-
-     # or, re-raises the correctly annotated Cancelled if any:
-     reraise_any_pending_cancel()
-
-     is it an error to exit a triggered cancellation scope without an
-     exception set? should it reraise? that seems pretty magical...
-
-   - todo:
-     - [x] cancellation triggers the outermost Cancelled
-     - [x] ...that is not inside a protected scope
-
-     [rationale for protection being on scopes: (a) has to be in same
-     scope, (b) if you're disabling outside cancellation, then you'd
-     better do something to make sure your blocking calls finish!]
-
-     - [x] task-global-scope *does* absorb Cancelled
-     - [x] scopes in general set a flag when they catch
-     - [x] __exit__ del's _exc to avoid pinning stack
-     - [x] and main doesn't propagate Cancelled, I think we can deal
-
-     for KI:
-     - [x] single global flag
-     - [x] used to push KI into main task
-     - [x] and also checked outside
-
    - convenience methods for catching/rethrowing parts of MultiErrors?
 
    - notes for unix socket server:
@@ -475,53 +335,6 @@ nothing to see here
      task if 2 puts)
 
      and also for __bool__
-
-   - if we eventually get a model where we're comfortable about
-     crashes propagating everywhere in a nice way, then we might want
-     to switch to a model where control-C just injects
-     KeyboardInterrupt immediately if possible, and otherwise at the
-     next switch to an unprotected task, and leave it at that.
-
-     this would need to be the type of injected exception that
-     propagates out of the task, though. (though if we're just
-     brutally injecting it as the result of a yield, instead of going
-     through the cancellation machinery, then I guess that wouldn't
-     come up anyway!)
-
-     problem: what to do if all tasks are blocked and loop is just
-     sitting in the IOManager? need to pick one to abort, I guess...?
-     it would suck if the one we picked to abort was uncancellable
-     though. (maybe run_in_worker_thread should use
-     yield_indefinitely_no_cancel, or at least a well-known lambda:
-     FAILED callback so we can recognize unabortable tasks and pick a
-     different one?)
-
-     ...also, we can't really just inject KI ignoring cancel state; we
-     can do it in any task that's not KI-protected, but... in practice
-     we usually flip on KI-protection just before sleeping!
-
-     maybe better: inject if can
-     otherwise, have init cancel main, and then raise (or if main
-     raises, then attach KI to the end of main's context chain)
-     or I guess simplest to set a flag saying KI was hit, and then
-     cancel main directly, and then on the way out init can check for
-     the flag
-
-     ...really by far the easiest way to make this work would be to
-     inject a KI into main via the cancellation machinery, or else if
-     it exits first (no .raised!) then raise it ourselves
-
-     all this really depends on there being a way to inject multiple
-     cancels and see which ones were delivered though!
-
-     ...should it be possible for KI to break out of a task that's
-     already been cancelled but is now stuck in a loop like
-
-        while True:
-            await yield_briefly()
-
-     ? would going back to the idea of injecting KI everywhere be an
-     improvement?
 
    - factor call_soon machinery off into its own object
 
@@ -563,21 +376,6 @@ nothing to see here
      because it does reschedule before acquiring, so there's a 50%
      chance that the other task will run first and win the race. But
      50% is not so great either.)
-
-   - unboundedqueue is not okay! either:
-
-     - need an api where we explicitly mark tasks as handled
-
-     or
-
-     - need unboundedqueue to only return 1 at a time, without
-       yielding
-
-     ...or maybe both.
-
-     former is fairly unwieldy, but advantages are: explicitness, and
-     easier to make sure we can't even lose 1 task due to an error in
-     the supervisor code
 
    - Libuv check UDP sockets readable via iocp by issuing a 0 byte
      recv with MSG_PEEK (Even though msdn says you can't combine
@@ -683,19 +481,6 @@ nothing to see here
      maybe it takes listener_nursery, connection_nursery arguments, to let you
      set up the graceful shutdown thing? though draining is still a problem.
 
-   - XX tasks have a private reference to containing nursery, nursery
-     has a private reference to containing task (I guess, privacy here
-     doesn't matter too much), and tasks have a public @property
-     pointing to parent task, to prevent nursery references leaking
-     out where they weren't passed.
-
-     ...if nursery is the only way to spawn, and nursery creation
-     requires await, so you can only spawn if passed async OR passed a
-     reference to a nursery, then... does spawn actually need to be
-     async? esp. since the ability to *create* a nursery doesn't
-     actually let you violate causality! only being passed a reference
-     to someone else's nursery lets you do that.
-
    - nurseries inside async generators are... odd. they *do* allow you
      to violate causality in the sense that the generator could be
      doing stuff while appearing to be yielded. I guess it still works
@@ -728,102 +513,11 @@ nothing to see here
      HWFQ is... a much worse mess though, b/c a task could be eligible
      to run now but become ineligible before being scheduled :-(
 
-   - unifying the task cancel and timeout cancel systems
-
-     would it be easier if we wrap tasks in a little async function
-     that sets up the magic local (or not), and also puts a
-     move_on_at(inf) wrapper around them?
-
-     [showstopper: if we literally use move_on_at, it becomes
-     impossible to cancel a task until after it's executed for a step
-     and the move_on_at has had a chance to run and pass out the
-     cancel handle]
-
-     maybe expose the deadline as a Task.deadline property
-
-     and make it possible to fire an arbitrary cancellation exception
-     to cancel a chunk of work, via the CancelStatus object?
-
-     this could also be used to *guarantee* that a task can't exit
-     without waiting on its children
-
-   - tasks from new lineages (the initial task, the call_soon task)
-     treated in uniform way? if we crash before starting the initial
-     task (ouch but can happen with instruments) then should cancel it
-     immediately I guess. Or is it better to special case this and not
-     even start?
-
    - according to the docs on Windows, with overlapped I/o you can
      still get WSAEWOULDBLOCK ("too many outstanding overlapped
      requests"). No-one on the internet seems to have any idea when
      this actually occurs or why. Twisted has a FIXME b/c they don't
      handle it, just propagate the error out.
-
-   - not returning KeyboardInterrupt from run() is pretty annoying
-     when running pytest
-
-     of course, the naive thing of passing through keyboardinterrupt
-     doesn't even work that well, since we'll end up with a bunch of
-     Cancelled crashes
-
-     maybe we should get more serious about KeyboardInterrupt. make a
-     version that's a subclass of Cancelled, and if we detect a KI
-     then raise it immediately in the current tasks and also inject it
-     into *all* tasks as a cancellation.
-
-     how to aggregate at the top-level, though? if everything exited
-     with keyboardinterrupt or success, then cool, reasonable to make
-     our final exception a keyboardinterrupt instead of an
-     UnhandledExceptionError. if some raised new errors...?
-
-
-     so:
-     - when control-C is hit, raise inside the currently executing
-       code (if not protected)
-     - and also raise inside all regular tasks
-       - possibly: raise at the next schedule point *even if* not
-         otherwise cancellable then *if* they aren't protected against
-         control-C. This might cause us to lose the result of the
-         operation that got blown away (which is why cancellation
-         can't normally happen here), but that's what control-C is
-         like in general, so...
-       - for protected code we need to go through the cancellation
-         machinery
-         - so it helps if the cancellation machinery allows us to send
-           in an exception repeatedly!
-
-     when tasks exit with a cancellation, it should be like there's a
-     with move_on_after: wrapped around the whole thing, that swallows
-     the exception if its the one we injected. the general rule with
-     cancellations is to let them propagate. BUT for this it will help
-     if there's a supervisor who notices and freaks out about
-     "regular" death too...? well, and we need to be able to
-     distinguish between unexpected exceptions, return None, and
-     cancelled, probably?
-
-     in general, there is *no* guarantee in trio that just because
-     you've been cancelled once, you won't be cancelled
-     again... because e.g. an outer timeout can fire while you're
-     unwinding from an inner timeout.
-
-     (or maybe there is now? but there definitely isn't a guarantee
-     that KI can't appear any moment? though ugh it is literally
-     impossible to guarantee correct cleanup in the presence of KI,
-     because it can happen when you're in the middle of a finally: or
-     __exit__ -- __exit__ we can at least partially protect,
-     but... maybe it would be better for the first KI to always be
-     routed to cancellation, and then escalate if there are more KIs
-     received? This is also a mess for rules like "always close your
-     (async) generators".
-
-       but this still means we can't have a *100%* ban on repeated
-       cancellations, I guess? even though this would be convenient to
-       not have to worry about cancellations during an except
-       Cancelled: block? ...obviously you still need to worry about
-       them during finally: blocks. Ugh. Just in general, blocking
-       during cleanup is almost non-viable. how do you impose a
-       timeout. what if you're in the middle of *normal* exit and get
-       cancelled.)
 
    - kqueue power interface needs another pass + tests
 
@@ -844,6 +538,7 @@ nothing to see here
    - f strings
    disadvantages:
    - not in debian at all yet; 3.6-final not in any ubuntu until 17.04
+   - pypy (but pypy has f-strings at least)
 
 Code of conduct
 ---------------
