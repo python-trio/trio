@@ -65,7 +65,6 @@ def test_ki_enabled_out_of_context():
     assert not _core.ki_protected()
 
 
-@pytest.mark.foo
 def test_ki_protection_works():
     async def sleeper(name, record):
         try:

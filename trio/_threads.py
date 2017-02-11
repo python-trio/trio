@@ -5,23 +5,40 @@ from itertools import count
 from . import _core
 
 __all__ = [
-    "current_run_in_trio_thread", "run_in_worker_thread",
+    "current_await_in_trio_thread", "current_run_in_trio_thread",
+    "run_in_worker_thread",
 ]
+
+def _await_in_trio_thread_cb(q, afn, args):
+    async def await_in_trio_thread_task():
+        nonlocal afn
+        afn = _core.disable_ki_protection(afn)
+        q.put_nowait(await _core.Result.acapture(afn, *args))
+    _core.spawn_system_task(await_in_trio_thread_task)
 
 def _run_in_trio_thread_cb(q, fn, args):
     fn = _core.disable_ki_protection(fn)
     q.put_nowait(_core.Result.capture(fn, *args))
 
-def current_run_in_trio_thread():
+def _current_do_in_trio_thread(name, cb):
     call_soon = _core.current_call_soon_thread_and_signal_safe()
     trio_thread = threading.current_thread()
-    def run_in_trio_thread(fn, *args):
+    def do_in_trio_thread(fn, *args):
         if threading.current_thread() == trio_thread:
             raise RuntimeError("must be called from a thread")
         q = stdlib_queue.Queue()
-        call_soon(_run_in_trio_thread_cb, q, fn, args)
+        call_soon(cb, q, fn, args)
         return q.get().unwrap()
-    return run_in_trio_thread
+    do_in_trio_thread.__name__ = name
+    return do_in_trio_thread
+
+def current_run_in_trio_thread():
+    return _current_do_in_trio_thread(
+        "run_in_trio_thread", _run_in_trio_thread_cb)
+
+def current_await_in_trio_thread():
+    return _current_do_in_trio_thread(
+        "await_in_trio_thread", _await_in_trio_thread_cb)
 
 ################################################################
 
