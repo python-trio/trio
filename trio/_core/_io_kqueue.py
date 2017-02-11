@@ -112,7 +112,7 @@ class KqueueIOManager:
         flags = select.KQ_EV_ADD | select.KQ_EV_ONESHOT
         event = select.kevent(fd, filter, flags)
         self._kqueue.control([event], 0)
-        def abort():
+        def abort(_):
             event = select.kevent(fd, filter, select.KQ_EV_DELETE)
             self._kqueue.control([event], 0)
             return _core.Abort.SUCCEEDED
