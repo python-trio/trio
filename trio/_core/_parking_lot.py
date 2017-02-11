@@ -34,7 +34,7 @@ class ParkingLot:
     async def park(self):
         idx = next(_counter)
         self._parked[idx] = _core.current_task()
-        def abort():
+        def abort(_):
             del self._parked[idx]
             return _core.Abort.SUCCEEDED
         return await _core.yield_indefinitely(abort)

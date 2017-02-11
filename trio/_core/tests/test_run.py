@@ -12,7 +12,7 @@ from ...testing import busy_wait_for, wait_run_loop_idle, Sequencer
 from ... import _core
 
 async def sleep_forever():
-    return await _core.yield_indefinitely(lambda: _core.Abort.SUCCEEDED)
+    return await _core.yield_indefinitely(lambda _: _core.Abort.SUCCEEDED)
 
 def test_basic():
     async def trivial(x):
@@ -751,7 +751,7 @@ async def test_failed_abort():
         with _core.open_cancel_scope() as scope:
             stubborn_scope[0] = scope
             record.append("sleep")
-            x = await _core.yield_indefinitely(lambda: _core.Abort.FAILED)
+            x = await _core.yield_indefinitely(lambda _: _core.Abort.FAILED)
             assert x == 1
             record.append("woke")
             try:
@@ -785,7 +785,7 @@ def test_broken_abort():
         with _core.open_cancel_scope() as scope:
             scope.cancel()
             # None is not a legal return value here
-            await _core.yield_indefinitely(lambda: None)
+            await _core.yield_indefinitely(lambda _: None)
     with pytest.raises(_core.TrioInternalError):
         _core.run(main)
 
@@ -886,6 +886,7 @@ async def test_call_soon_basic():
     await busy_wait_for(lambda: len(record) == 1)
     assert record == [("cb", 1)]
 
+
 def test_call_soon_too_late():
     call_soon = None
     async def main():
@@ -896,7 +897,8 @@ def test_call_soon_too_late():
     with pytest.raises(_core.RunFinishedError):
         call_soon(lambda: None)  # pragma: no branch
 
-def test_call_soon_after_crash():
+
+def test_call_soon_after_main_crash():
     record = []
 
     async def main():
@@ -910,6 +912,7 @@ def test_call_soon_after_crash():
         _core.run(main)
 
     assert record == ["sync-cb"]
+
 
 def test_call_soon_crashes():
     record = set()
@@ -931,6 +934,7 @@ def test_call_soon_crashes():
     assert type(excinfo.value.__cause__) is KeyError
     assert record == {"2nd call_soon ran", "cancelled!"}
 
+
 async def test_call_soon_FIFO():
     N = 100
     record = []
@@ -939,6 +943,7 @@ async def test_call_soon_FIFO():
         call_soon(lambda j: record.append(j), i)
     await busy_wait_for(lambda: len(record) == N)
     assert record == list(range(N))
+
 
 def test_call_soon_starvation_resistance():
     # Even if we push callbacks in from callbacks, so that the callback queue
@@ -968,6 +973,7 @@ def test_call_soon_starvation_resistance():
     assert record[1][0] == "run finished"
     assert record[1][1] >= 20
 
+
 def test_call_soon_threaded_stress_test():
     cb_counter = 0
     def cb():
@@ -992,6 +998,7 @@ def test_call_soon_threaded_stress_test():
     _core.run(main)
     print(cb_counter)
 
+
 async def test_call_soon_massive_queue():
     # There are edge cases in the Unix wakeup pipe code when the pipe buffer
     # overflows, so let's try to make that happen. On Linux the default pipe
@@ -1006,6 +1013,56 @@ async def test_call_soon_massive_queue():
         call_soon(cb)
     await busy_wait_for(lambda: counter[0] == COUNT)
 
+
+async def test_slow_abort_basic():
+    with _core.open_cancel_scope() as scope:
+        scope.cancel()
+        with pytest.raises(_core.Cancelled):
+            task = _core.current_task()
+            call_soon = _core.current_call_soon_thread_and_signal_safe()
+            def slow_abort(exc):
+                call_soon(_core.reschedule, task, _core.Error(exc))
+                return _core.Abort.FAILED
+            await _core.yield_indefinitely(slow_abort)
+
+
+async def test_slow_abort_edge_cases():
+    record = []
+
+    async def slow_abort():
+        task = _core.current_task()
+        call_soon = _core.current_call_soon_thread_and_signal_safe()
+        def slow_abort(exc):
+            record.append("abort-called")
+            call_soon(_core.reschedule, task, _core.Error(exc))
+            return _core.Abort.FAILED
+        with pytest.raises(_core.Cancelled):
+            record.append("sleeping")
+            await _core.yield_indefinitely(slow_abort)
+        record.append("cancelled")
+        # blocking again, this time it's okay, because we're shielded
+        await _core.yield_briefly()
+        record.append("done")
+
+    with _core.open_cancel_scope() as outer1:
+        with _core.open_cancel_scope() as outer2:
+            async with _core.open_nursery() as nursery:
+                # So we have a task blocked on an operation that can't be
+                # aborted immediately
+                nursery.spawn(slow_abort)
+                await busy_wait_for(lambda: record == ["sleeping"])
+                # And then we cancel it, so the abort callback gets run
+                outer1.cancel()
+                assert record == ["sleeping", "abort-called"]
+                # In fact that happens twice! (This used to cause the abort
+                # callback to be run twice)
+                outer2.cancel()
+                assert record == ["sleeping", "abort-called"]
+                # But then before the abort finishes, the task gets shielded!
+                nursery.cancel_scope.shield = True
+                # Now we wait for the task to finish...
+            # The cancellation was delivered, even though it was shielded
+            assert record == ["sleeping", "abort-called", "cancelled", "done"]
 
 # make sure to set up one where all tasks are blocked on I/O to exercise the
 # timeout = _MAX_TIMEOUT line

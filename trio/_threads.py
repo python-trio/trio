@@ -140,7 +140,7 @@ async def run_in_worker_thread(fn, *args, cancellable=False):
     # daemonic because it might get left behind if we cancel
     thread = threading.Thread(target=worker_thread_fn, name=name, daemon=True)
     thread.start()
-    def abort():
+    def abort(_):
         if cancellable:
             task_register[0] = None
             return _core.Abort.SUCCEEDED

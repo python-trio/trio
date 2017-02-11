@@ -102,7 +102,7 @@ class EpollIOManager:
                 "another task is already reading / writing this fd")
         setattr(waiters, attr_name, _core.current_task())
         self._update_registrations(fd, currently_registered)
-        def abort():
+        def abort(_):
             setattr(self._registered[fd], attr_name, None)
             self._update_registrations(fd, True)
             return _core.Abort.SUCCEEDED

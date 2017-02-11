@@ -379,10 +379,16 @@ class Task:
                 pending_scope = scope
         return pending_scope
 
-    def _attempt_abort(self):
-        success = self._abort_func()
+    def _attempt_abort(self, exc):
+        # Either the abort succeeds, in which case we will reschedule the
+        # task, or else it fails, in which case it will worry about
+        # rescheduling itself (hopefully raising the given exception, but not
+        # necessarily).
+        success = self._abort_func(exc)
         if type(success) is not _core.Abort:
             raise TrioInternalError("abort function must return Abort enum")
+        # We only attempt to abort once per block, succeed or fail
+        self._abort_func = None
         return (success is Abort.SUCCEEDED)
 
     def _attempt_delivery_of_any_pending_cancel(self):
@@ -391,15 +397,17 @@ class Task:
         pending_scope = self._pending_cancel_scope()
         if pending_scope is None:
             return
-        if self._attempt_abort():
-            self._runner.reschedule(self, Error(pending_scope._make_exc(self)))
+        exc = pending_scope._make_exc(self)
+        if self._attempt_abort(exc):
+            self._runner.reschedule(self, Error(exc))
 
     def _attempt_delivery_of_pending_ki(self):
         assert self._runner.ki_pending
         if self._abort_func is None:
             return
-        if self._attempt_abort():
-            self._runner.reschedule(self, Error(KeyboardInterrupt()))
+        exc = KeyboardInterrupt()
+        if self._attempt_abort(exc):
+            self._runner.reschedule(self, Error(exc))
             self._runner.ki_pending = False
 
 ################################################################
@@ -681,7 +689,7 @@ class Runner:
     async def wait_run_loop_idle(self):
         task = current_task()
         self.waiting_for_idle.add(task)
-        def abort():
+        def abort(_):
             self.waiting_for_idle.remove(task)
             return Abort.SUCCEEDED
         await yield_indefinitely(abort)
@@ -864,7 +872,7 @@ def current_task():
 async def yield_briefly():
     with open_cancel_scope() as scope:
         scope.deadline = -inf
-        await _core.yield_indefinitely(lambda: _core.Abort.SUCCEEDED)
+        await _core.yield_indefinitely(lambda _: _core.Abort.SUCCEEDED)
 
 @_hazmat
 async def yield_if_cancelled():

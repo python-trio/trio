@@ -17,7 +17,7 @@ def move_on_after(seconds):
 
 async def sleep_until(deadline):
     with move_on_at(deadline):
-        await _core.yield_indefinitely(lambda: _core.Abort.SUCCEEDED)
+        await _core.yield_indefinitely(lambda _: _core.Abort.SUCCEEDED)
 
 async def sleep(seconds):
     if seconds < 0:
