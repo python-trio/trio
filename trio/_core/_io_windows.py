@@ -13,7 +13,7 @@ from . import _public, _hazmat
 from ._wakeup_socketpair import WakeupSocketpair
 
 from ._windows_cffi import (
-    ffi, kernel32, INVALID_HANDLE_VALUE, raise_winerror, Error,
+    ffi, kernel32, INVALID_HANDLE_VALUE, raise_winerror, ErrorCodes,
 )
 
 # XX update this to match the new reality:
@@ -295,7 +295,7 @@ class WindowsIOManager:
                 _check(kernel32.GetQueuedCompletionStatusEx(
                     self._iocp, batch, max_events, received, 0xffffffff, 0))
             except OSError as exc:
-                if exc.winerror == Error.ERROR_ABANDONED_WAIT_0:
+                if exc.winerror == ErrorCodes.ERROR_ABANDONED_WAIT_0:
                     # The IOCP handle was closed; time to shut down.
                     return
                 else:
@@ -339,7 +339,7 @@ class WindowsIOManager:
             return _core.Abort.FAILED
         await _core.yield_indefinitely(abort)
         if lpOverlapped.Internal != 0:
-            if lpOverlapped.Internal == Error.ERROR_OPERATION_ABORTED:
+            if lpOverlapped.Internal == ErrorCodes.ERROR_OPERATION_ABORTED:
                 assert raise_cancel is not None
                 raise_cancel()
             else:

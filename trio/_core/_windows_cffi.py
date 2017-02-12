@@ -113,7 +113,7 @@ def raise_winerror(winerror=None, *, filename=None, filename2=None):
     raise OSError(0, msg, filename, winerror, filename2)
 
 
-class Error(enum.IntEnum):
+class ErrorCodes(enum.IntEnum):
     STATUS_TIMEOUT = 0x102
     ERROR_IO_PENDING = 997
     ERROR_OPERATION_ABORTED = 995
