@@ -133,8 +133,6 @@ nothing to see here
 
 
    next:
-   - should system_task_wrapper by async?
-
    - dump Result.combine?
 
    - system_task_wrapper doesn't properly handle MultiError
@@ -145,10 +143,6 @@ nothing to see here
      100 tasks each cycle.
 
      I'm not sure what the right control law for this is though.
-
-   - [x] expose (hazmat) spawn_system_task
-     [ ] then reimplement await_in_trio_thread... or whatever we want to
-         call it
 
    - use an OrderedDict for call_soon(idempotent=True)
      however this is only possible on 3.6+! otherwise OrderedDict is
@@ -191,9 +185,9 @@ nothing to see here
    - need to do a pass over TrioInternalError -- currently they can
      get double-wrapped in some cases
 
-   - the MultiError handling in move_on_after is not so great --
-     ideally we should at least preserve traceback? but *not* chain two
-     giant almost-identical multi-errors?
+   - the MultiError handling when exiting cancel scopes is not so
+     great -- ideally we should at least preserve traceback? but *not*
+     chain two giant almost-identical multi-errors?
 
    - Python 3.7 wishlist items:
 
