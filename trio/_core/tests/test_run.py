@@ -250,7 +250,7 @@ async def test_bad_monitor_object():
         task.add_monitor("hello")
 
     class BadQueue:
-        def put_nowait(self, obj):
+        def put_nowait(self, obj):  # pragma: no cover
             raise KeyError
     bad_queue = BadQueue()
     with pytest.raises(TypeError):
@@ -571,7 +571,7 @@ async def test_cancel_scope_multierror_filtering():
         # crasher()
         assert type(exc) is KeyError
     else:
-        assert False
+        assert False  # pragma: no cover
 
 
 async def test_precancelled_task():

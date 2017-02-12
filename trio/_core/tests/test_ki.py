@@ -99,12 +99,8 @@ else:
         os.kill(os.getpid(), signal.SIGINT)
 
 def test_ki_self():
-    try:
+    with pytest.raises(KeyboardInterrupt):
         ki_self()
-    except KeyboardInterrupt:
-        pass
-    else:
-        assert False
 
 async def test_ki_enabled():
     # Regular tasks aren't KI-protected
@@ -232,7 +228,6 @@ def test_ki_protection_works():
 
     # yield_if_cancelled notices pending KI
     print("check 5")
-
     @_core.enable_ki_protection
     async def main():
         assert _core.ki_protected()
@@ -240,6 +235,20 @@ def test_ki_protection_works():
         with pytest.raises(KeyboardInterrupt):
             await _core.yield_if_cancelled()
     _core.run(main)
+
+    # KI arrives while main task is not abortable, b/c already scheduled
+    print("check 6")
+    @_core.enable_ki_protection
+    async def main():
+        assert _core.ki_protected()
+        ki_self()
+        await _core.yield_briefly_no_cancel()
+        await _core.yield_briefly_no_cancel()
+        await _core.yield_briefly_no_cancel()
+        with pytest.raises(KeyboardInterrupt):
+            await _core.yield_briefly()
+    _core.run(main)
+
 
 def test_ki_is_good_neighbor():
     # in the unlikely event someone overwrites our signal handler, we leave
