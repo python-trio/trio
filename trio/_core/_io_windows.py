@@ -224,7 +224,7 @@ class WindowsIOManager:
 
         def socket_check(what, sock):
             try:
-                select([sock], [sock], [sock])
+                select([sock], [sock], [sock], 0)
             except OSError as exc:
                 socket_ready(what, sock, result=_core.Error(exc))
 
