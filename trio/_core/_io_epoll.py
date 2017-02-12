@@ -79,9 +79,9 @@ class EpollIOManager:
         waiters = self._registered[fd]
         flags = waiters.flags()
         if flags is None:
+            assert currently_registered
             del self._registered[fd]
-            if currently_registered:
-                self._epoll.unregister(fd)
+            self._epoll.unregister(fd)
         else:
             if currently_registered:
                 self._epoll.modify(fd, flags)
