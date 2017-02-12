@@ -14,7 +14,8 @@ async def test_socketpair_simple():
         return "ok"
 
     a, b = tsocket.socketpair()
-    task1 = await _core.spawn(child, a)
-    task2 = await _core.spawn(child, b)
-    assert (await task1.join()).unwrap() == "ok"
-    assert (await task2.join()).unwrap() == "ok"
+    async with _core.open_nursery() as nursery:
+        task1 = nursery.spawn(child, a)
+        task2 = nursery.spawn(child, b)
+    assert task1.result.unwrap() == "ok"
+    assert task2.result.unwrap() == "ok"

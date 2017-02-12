@@ -23,11 +23,12 @@ async def test_Event():
         await e.wait()
         record.append("woken")
 
-    t1 = await _core.spawn(child)
-    t2 = await _core.spawn(child)
-    await wait_run_loop_idle()
-    assert record == ["sleeping", "sleeping"]
-    assert e.statistics().tasks_waiting == 2
-    e.set()
-    await wait_run_loop_idle()
-    assert record == ["sleeping", "sleeping", "woken", "woken"]
+    async with _core.open_nursery() as nursery:
+        t1 = nursery.spawn(child)
+        t2 = nursery.spawn(child)
+        await wait_run_loop_idle()
+        assert record == ["sleeping", "sleeping"]
+        assert e.statistics().tasks_waiting == 2
+        e.set()
+        await wait_run_loop_idle()
+        assert record == ["sleeping", "sleeping", "woken", "woken"]

@@ -86,7 +86,6 @@ class SendStream(Resource):
     def send_eof(self):
         pass
 
-@attr.s(slots=True)
 class RecvStream(Resource):
     __slots__ = ()
 
@@ -94,7 +93,6 @@ class RecvStream(Resource):
     async def recv(self, max_bytes):
         pass
 
-@attr.s(slots=True)
 class Stream(SendStream, RecvStream):
     __slots__ = ()
 

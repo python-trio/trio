@@ -10,6 +10,8 @@ from .. import _core
 from ..testing import busy_wait_for, wait_run_loop_idle
 from .._threads import *
 
+from .._core.tests.test_ki import ki_self
+
 async def test_do_in_trio_thread():
     trio_thread = threading.current_thread()
 
@@ -21,6 +23,7 @@ async def test_do_in_trio_thread():
                 x = do_in_trio_thread(fn, record)
                 record.append(("got", x))
             except BaseException as exc:
+                print(exc)
                 record.append(("error", type(exc)))
         child_thread = threading.Thread(target=threadfn, daemon=True)
         child_thread.start()
@@ -75,7 +78,6 @@ async def test_do_in_trio_thread_from_trio_thread():
         await_in_trio_thread(foo)
 
 
-@pytest.mark.skipif(os.name == "nt", reason="need unix signals")
 def test_run_in_trio_thread_ki():
     # if we get a control-C during a run_in_trio_thread, then it propagates
     # back to the caller (slick!)
@@ -84,34 +86,62 @@ def test_run_in_trio_thread_ki():
         run_in_trio_thread = current_run_in_trio_thread()
         await_in_trio_thread = current_await_in_trio_thread()
         def trio_thread_fn():
-            os.kill(os.getpid(), signal.SIGINT)
+            print("in trio thread")
+            assert not _core.ki_protected()
+            print("ki_self")
+            try:
+                ki_self()
+            finally:
+                import sys
+                print("finally", sys.exc_info())
         async def trio_thread_afn():
             trio_thread_fn()
         def external_thread_fn():
             try:
+                print("running")
                 run_in_trio_thread(trio_thread_fn)
             except KeyboardInterrupt:
+                print("ok1")
                 record.add("ok1")
             try:
                 await_in_trio_thread(trio_thread_afn)
             except KeyboardInterrupt:
+                print("ok2")
                 record.add("ok2")
         thread = threading.Thread(target=external_thread_fn)
         thread.start()
-        # We expect to get cancelled twice due to those KeyboardInterrupts
-        i = 3
-        while len(record) != 4:
-            try:
-                await _core.yield_briefly()
-            except _core.Cancelled:
-                record.add("ok{}".format(i))
-                i += 1
+        print("waiting")
+        await busy_wait_for(lambda: len(record) == 2)
+        print("waited, joining")
         thread.join()
-        # just to check there aren't any more pending cancellations:
-        await _core.yield_briefly()
-    with pytest.raises(_core.KeyboardInterruptCancelled):
-        _core.run(check_run_in_trio_thread)
-    assert record == {"ok1", "ok2", "ok3", "ok4"}
+        print("done")
+    _core.run(check_run_in_trio_thread)
+    assert record == {"ok1", "ok2"}
+
+
+def test_await_in_trio_thread_while_main_exits():
+    record = []
+
+    async def trio_fn():
+        record.append("sleeping")
+        await _core.yield_indefinitely(lambda _: _core.Abort.SUCCEEDED)
+
+    def thread_fn(await_in_trio_thread):
+        try:
+            await_in_trio_thread(trio_fn)
+        except _core.Cancelled:
+            record.append("cancelled")
+
+    async def main():
+        aitt = current_await_in_trio_thread()
+        thread = threading.Thread(target=thread_fn, args=(aitt,))
+        thread.start()
+        await busy_wait_for(lambda: record == ["sleeping"])
+        return thread
+
+    thread = _core.run(main)
+    thread.join()
+    assert record == ["sleeping", "cancelled"]
 
 
 async def test_run_in_worker_thread():
@@ -143,40 +173,46 @@ async def test_run_in_worker_thread_cancellation():
         return await run_in_worker_thread(f, q, cancellable=cancellable)
 
     q = stdlib_queue.Queue()
-    task1 = await _core.spawn(child, q, True)
-    # Give it a chance to get started...
-    await wait_run_loop_idle()
-    # ...and then cancel it.
-    task1.cancel()
-    # The task finishes.
-    result = await task1.join()
-    assert isinstance(result.error, _core.Cancelled)
+    async with _core.open_nursery() as nursery:
+        task1 = nursery.spawn(child, q, True)
+        # Give it a chance to get started. (This is important because
+        # run_in_worker_thread does a yield_if_cancelled before blocking on
+        # the thread, and we don't want to trigger this.)
+        await wait_run_loop_idle()
+        # Then cancel it.
+        nursery.cancel_scope.cancel()
+    # The task exited, but the thread didn't:
     assert register[0] != "finished"
-    # But the thread is still there. Put it out of its misery:
+    # Put the thread out of its misery:
     q.put(None)
     while register[0] != "finished":
         time.sleep(0.01)
 
     # This one can't be cancelled
     register[0] = None
-    task2 = await _core.spawn(child, q, False)
-    await wait_run_loop_idle()
-    task2.cancel()
-    for _ in range(10):
-        await _core.yield_briefly()
-    with pytest.raises(_core.WouldBlock):
-        task2.join_nowait()
-    q.put(None)
-    (await task2.join()).unwrap()
+    async with _core.open_nursery() as nursery:
+        task2 = nursery.spawn(child, q, False)
+        await wait_run_loop_idle()
+        nursery.cancel_scope.cancel()
+        with _core.open_cancel_scope(shield=True):
+            for _ in range(10):
+                await _core.yield_briefly()
+        # It's still running
+        assert task2.result is None
+        q.put(None)
+        # Now it exits
 
     # But if we cancel *before* it enters, the entry is itself a cancellation
     # point
-    task3 = await _core.spawn(child, q, False)
-    task3.cancel()
-    result = await task3.join()
-    assert isinstance(result.error, _core.Cancelled)
+    with _core.open_cancel_scope() as scope:
+        scope.cancel()
+        await child(q, False)
+    assert scope.cancel_caught
 
 
+# Make sure that if trio.run exits, and then the thread finishes, then that's
+# handled gracefully. (Requires that the thread result machinery be prepared
+# for call_soon to raise RunFinishedError.)
 def test_run_in_worker_thread_abandoned(capfd):
     q1 = stdlib_queue.Queue()
     q2 = stdlib_queue.Queue()
@@ -188,13 +224,11 @@ def test_run_in_worker_thread_abandoned(capfd):
     async def main():
         async def child():
             await run_in_worker_thread(thread_fn, cancellable=True)
-        t = await _core.spawn(child)
-        await wait_run_loop_idle()
-        t.cancel()
-        (await t.join()).unwrap()
-
-    with pytest.raises(_core.Cancelled):
-        _core.run(main)
+        async with _core.open_nursery() as nursery:
+            t = nursery.spawn(child)
+            await wait_run_loop_idle()
+            nursery.cancel_scope.cancel()
+    _core.run(main)
 
     q1.put(None)
     # This makes sure:

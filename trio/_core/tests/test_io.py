@@ -43,11 +43,12 @@ async def test_wait_socket():
             else:
                 record.append("readable")
                 return a.recv(10)
-        t = await _core.spawn(block_on_read)
-        await wait_run_loop_idle()
-        assert record == []
-        b.send(b"x")
-        assert (await t.join()).unwrap() == b"x"
+        async with _core.open_nursery() as nursery:
+            t = nursery.spawn(block_on_read)
+            await wait_run_loop_idle()
+            assert record == []
+            b.send(b"x")
+        assert t.result.unwrap() == b"x"
 
         try:
             while True:
@@ -64,22 +65,22 @@ async def test_wait_socket():
                 record.append("cancelled")
             else:
                 record.append("writable")
-        t = await _core.spawn(block_on_write)
-        await wait_run_loop_idle()
-        assert record == []
-        try:
-            while True:
-                b.recv(65536)
-        except BlockingIOError:
-            pass
-        (await t.join()).unwrap()
+        async with _core.open_nursery() as nursery:
+            t = nursery.spawn(block_on_write)
+            await wait_run_loop_idle()
+            assert record == []
+            try:
+                while True:
+                    b.recv(65536)
+            except BlockingIOError:
+                pass
 
         # check cancellation
         record = []
-        t = await _core.spawn(block_on_read)
-        await wait_run_loop_idle()
-        t.cancel()
-        (await t.join()).unwrap()
+        async with _core.open_nursery() as nursery:
+            t = nursery.spawn(block_on_read)
+            await wait_run_loop_idle()
+            nursery.cancel_scope.cancel()
         assert record == ["cancelled"]
 
         try:
@@ -88,8 +89,8 @@ async def test_wait_socket():
         except BlockingIOError:
             pass
         record = []
-        t = await _core.spawn(block_on_write)
-        await wait_run_loop_idle()
-        t.cancel()
-        (await t.join()).unwrap()
+        async with _core.open_nursery() as nursery:
+            t = nursery.spawn(block_on_write)
+            await wait_run_loop_idle()
+            nursery.cancel_scope.cancel()
         assert record == ["cancelled"]

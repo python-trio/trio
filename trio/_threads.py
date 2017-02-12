@@ -5,37 +5,40 @@ from itertools import count
 from . import _core
 
 __all__ = [
-    "current_run_in_trio_thread", "current_await_in_trio_thread",
+    "current_await_in_trio_thread", "current_run_in_trio_thread",
     "run_in_worker_thread",
 ]
 
-def _trio_thread_sync(q, fn, args):
+def _await_in_trio_thread_cb(q, afn, args):
+    async def await_in_trio_thread_task():
+        nonlocal afn
+        afn = _core.disable_ki_protection(afn)
+        q.put_nowait(await _core.Result.acapture(afn, *args))
+    _core.spawn_system_task(await_in_trio_thread_task)
+
+def _run_in_trio_thread_cb(q, fn, args):
     fn = _core.disable_ki_protection(fn)
     q.put_nowait(_core.Result.capture(fn, *args))
 
-async def _trio_thread_async(q, fn, args):
-    fn = _core.disable_ki_protection(fn)
-    q.put_nowait(await _core.Result.acapture(fn, *args))
-
-def _current_do_in_trio_thread(name, trio_thread_fn, *, spawn):
+def _current_do_in_trio_thread(name, cb):
     call_soon = _core.current_call_soon_thread_and_signal_safe()
     trio_thread = threading.current_thread()
     def do_in_trio_thread(fn, *args):
         if threading.current_thread() == trio_thread:
             raise RuntimeError("must be called from a thread")
         q = stdlib_queue.Queue()
-        call_soon(trio_thread_fn, q, fn, args, spawn=spawn)
+        call_soon(cb, q, fn, args)
         return q.get().unwrap()
     do_in_trio_thread.__name__ = name
     return do_in_trio_thread
 
 def current_run_in_trio_thread():
     return _current_do_in_trio_thread(
-        "run_in_trio_thread", _trio_thread_sync, spawn=False)
+        "run_in_trio_thread", _run_in_trio_thread_cb)
 
 def current_await_in_trio_thread():
     return _current_do_in_trio_thread(
-        "await_in_trio_thread", _trio_thread_async, spawn=True)
+        "await_in_trio_thread", _await_in_trio_thread_cb)
 
 ################################################################
 
@@ -154,7 +157,7 @@ async def run_in_worker_thread(fn, *args, cancellable=False):
     # daemonic because it might get left behind if we cancel
     thread = threading.Thread(target=worker_thread_fn, name=name, daemon=True)
     thread.start()
-    def abort():
+    def abort(_):
         if cancellable:
             task_register[0] = None
             return _core.Abort.SUCCEEDED

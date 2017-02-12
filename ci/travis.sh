@@ -17,6 +17,18 @@ if [ "$TRAVIS_OS_NAME" = "osx" ]; then
     source testenv/bin/activate
 fi
 
+if [ "$USE_PYPY_NIGHTLY" = "1" ]; then
+    curl -o pypy.tar.bz2 http://buildbot.pypy.org/nightly/py3.5/pypy-c-jit-latest-linux64.tar.bz2
+    tar xaf pypy.tar.bz2
+    # something like "pypy-c-jit-89963-748aa3022295-linux64"
+    PYPY_DIR=$(echo pypy-c-jit-*)
+    PYTHON_EXE=$PYPY_DIR/bin/pypy3
+    $PYTHON_EXE -m ensurepip
+    $PYTHON_EXE -m pip install virtualenv
+    $PYTHON_EXE -m virtualenv testenv
+    source testenv/bin/activate
+fi
+
 pip install -U pip setuptools wheel
 pip install -Ur test-requirements.txt
 

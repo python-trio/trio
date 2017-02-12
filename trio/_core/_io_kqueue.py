@@ -99,8 +99,8 @@ class KqueueIOManager:
                 "attempt to register multiple listeners for same "
                 "ident/filter pair")
         self._registered[key] = _core.current_task()
-        def abort():
-            r = abort_func()
+        def abort(raise_cancel):
+            r = abort_func(raise_cancel)
             if r is _core.Abort.SUCCEEDED:
                 del self._registered[key]
             return r
@@ -112,7 +112,7 @@ class KqueueIOManager:
         flags = select.KQ_EV_ADD | select.KQ_EV_ONESHOT
         event = select.kevent(fd, filter, flags)
         self._kqueue.control([event], 0)
-        def abort():
+        def abort(_):
             event = select.kevent(fd, filter, select.KQ_EV_DELETE)
             self._kqueue.control([event], 0)
             return _core.Abort.SUCCEEDED

@@ -42,17 +42,16 @@ async def test_UnboundedQueue_blocking():
 
     for consumer in (get_all_consumer, aiter_consumer):
         record.clear()
-        task = await _core.spawn(consumer)
-        await _core.wait_run_loop_idle()
-        stats = q.statistics()
-        assert stats.qsize == 0
-        assert stats.tasks_waiting_get_all == 1
-        q.put_nowait(10)
-        q.put_nowait(11)
-        await _core.wait_run_loop_idle()
-        q.put_nowait(12)
-        await _core.wait_run_loop_idle()
-        assert record == [[10, 11], [12]]
-        task.cancel()
-        with pytest.raises(_core.Cancelled):
-            (await task.join()).unwrap()
+        async with _core.open_nursery() as nursery:
+            task = nursery.spawn(consumer)
+            await _core.wait_run_loop_idle()
+            stats = q.statistics()
+            assert stats.qsize == 0
+            assert stats.tasks_waiting_get_all == 1
+            q.put_nowait(10)
+            q.put_nowait(11)
+            await _core.wait_run_loop_idle()
+            q.put_nowait(12)
+            await _core.wait_run_loop_idle()
+            assert record == [[10, 11], [12]]
+            nursery.cancel_scope.cancel()

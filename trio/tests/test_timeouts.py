@@ -27,7 +27,8 @@ async def test_sleep():
         await sleep(-1)
 
     await sleep(0)
-    with _core.move_on_at(_core.current_time()):
+    # This also serves as a test of the trivial move_on_at
+    with move_on_at(_core.current_time()):
         with pytest.raises(_core.Cancelled):
             await sleep(0)
 

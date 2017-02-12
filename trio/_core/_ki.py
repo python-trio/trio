@@ -8,7 +8,6 @@ import inspect
 import attr
 
 from . import _hazmat
-from ._exceptions import KeyboardInterruptCancelled
 
 __all__ = ["enable_ki_protection", "disable_ki_protection", "ki_protected"]
 
@@ -120,7 +119,7 @@ disable_ki_protection.__name__ = "disable_ki_protection"
 _hazmat(disable_ki_protection)
 
 @contextmanager
-def ki_manager(notify_cb):
+def ki_manager(deliver_cb):
     if (threading.current_thread() != threading.main_thread()
           or signal.getsignal(signal.SIGINT) != signal.default_int_handler):
         yield
@@ -129,9 +128,10 @@ def ki_manager(notify_cb):
     def handler(signum, frame):
         assert signum == signal.SIGINT
         protection_enabled = ki_protection_enabled(frame)
-        notify_cb(protection_enabled)
-        if not protection_enabled:
-            raise KeyboardInterruptCancelled
+        if protection_enabled:
+            deliver_cb()
+        else:
+            raise KeyboardInterrupt
 
     signal.signal(signal.SIGINT, handler)
     try:

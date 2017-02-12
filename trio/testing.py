@@ -3,6 +3,7 @@ from functools import wraps, partial
 from contextlib import contextmanager
 import inspect
 from collections import defaultdict
+import time
 
 import attr
 from async_generator import async_generator, yield_
@@ -17,6 +18,9 @@ __all__ = ["busy_wait_for", "wait_run_loop_idle", "trio_test", "MockClock",
 async def busy_wait_for(predicate):
     while not predicate():
         await _core.yield_briefly()
+        # Sometimes we're waiting for things in other threads, so best to
+        # yield the CPU as well.
+        time.sleep(0)
 
 # re-export
 from ._core import wait_run_loop_idle
