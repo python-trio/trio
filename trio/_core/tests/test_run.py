@@ -1065,8 +1065,9 @@ async def test_slow_abort_basic():
         with pytest.raises(_core.Cancelled):
             task = _core.current_task()
             call_soon = _core.current_call_soon_thread_and_signal_safe()
-            def slow_abort(exc):
-                call_soon(_core.reschedule, task, _core.Error(exc))
+            def slow_abort(raise_cancel):
+                result = _core.Result.capture(raise_cancel)
+                call_soon(_core.reschedule, task, result)
                 return _core.Abort.FAILED
             await _core.yield_indefinitely(slow_abort)
 
@@ -1074,12 +1075,13 @@ async def test_slow_abort_basic():
 async def test_slow_abort_edge_cases():
     record = []
 
-    async def slow_abort():
+    async def slow_aborter():
         task = _core.current_task()
         call_soon = _core.current_call_soon_thread_and_signal_safe()
-        def slow_abort(exc):
+        def slow_abort(raise_cancel):
             record.append("abort-called")
-            call_soon(_core.reschedule, task, _core.Error(exc))
+            result = _core.Result.capture(raise_cancel)
+            call_soon(_core.reschedule, task, result)
             return _core.Abort.FAILED
         with pytest.raises(_core.Cancelled):
             record.append("sleeping")
@@ -1094,7 +1096,7 @@ async def test_slow_abort_edge_cases():
             async with _core.open_nursery() as nursery:
                 # So we have a task blocked on an operation that can't be
                 # aborted immediately
-                nursery.spawn(slow_abort)
+                nursery.spawn(slow_aborter)
                 await busy_wait_for(lambda: record == ["sleeping"])
                 # And then we cancel it, so the abort callback gets run
                 outer1.cancel()

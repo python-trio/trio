@@ -382,17 +382,19 @@ class Task:
                 pending_scope = scope
         return pending_scope
 
-    def _attempt_abort(self, exc):
+    def _attempt_abort(self, raise_cancel):
         # Either the abort succeeds, in which case we will reschedule the
         # task, or else it fails, in which case it will worry about
-        # rescheduling itself (hopefully raising the given exception, but not
-        # necessarily).
-        success = self._abort_func(exc)
+        # rescheduling itself (hopefully eventually calling reraise to raise
+        # the given exception, but not necessarily).
+        success = self._abort_func(raise_cancel)
         if type(success) is not _core.Abort:
             raise TrioInternalError("abort function must return Abort enum")
-        # We only attempt to abort once per block, succeed or fail
+        # We only attempt to abort once per blocking call, regardless of
+        # whether we succeeded or failed.
         self._abort_func = None
-        return (success is Abort.SUCCEEDED)
+        if success is Abort.SUCCEEDED:
+            self._runner.reschedule(self, Result.capture(raise_cancel))
 
     def _attempt_delivery_of_any_pending_cancel(self):
         if self._abort_func is None:
@@ -401,17 +403,18 @@ class Task:
         if pending_scope is None:
             return
         exc = pending_scope._make_exc(self)
-        if self._attempt_abort(exc):
-            self._runner.reschedule(self, Error(exc))
+        def raise_cancel():
+            raise exc
+        self._attempt_abort(raise_cancel)
 
     def _attempt_delivery_of_pending_ki(self):
         assert self._runner.ki_pending
         if self._abort_func is None:
             return
-        exc = KeyboardInterrupt()
-        if self._attempt_abort(exc):
-            self._runner.reschedule(self, Error(exc))
+        def raise_cancel():
             self._runner.ki_pending = False
+            raise KeyboardInterrupt
+        self._attempt_abort(raise_cancel)
 
 ################################################################
 # The central Runner object

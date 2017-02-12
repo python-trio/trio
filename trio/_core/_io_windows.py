@@ -327,21 +327,23 @@ class WindowsIOManager:
                 "another task is already waiting on that lpOverlapped")
         task = _core.current_task()
         self._overlapped_waiters[lpOverlapped] = task
-        abort_exc = None
-        def abort(exc):
+        raise_cancel = None
+        def abort(raise_cancel_):
             # https://msdn.microsoft.com/en-us/library/windows/desktop/aa363792(v=vs.85).aspx
             # the _check here is probably wrong -- I guess we should just
             # ignore errors? but at least it will let us learn what errors are
             # possible -- the docs are pretty unclear.
-            nonlocal abort_exc
-            abort_exc = exc
+            nonlocal raise_cancel
+            raise_cancel = raise_cancel_
             _check(kernel32.CancelIoEx(handle, lpOverlapped))
             return _core.Abort.FAILED
         await _core.yield_indefinitely(abort)
         if lpOverlapped.Internal != 0:
             if lpOverlapped.Internal == Error.ERROR_OPERATION_ABORTED:
-                raise abort_exc
-            raise_winerror(lpOverlapped.Internal)
+                assert raise_cancel is not None
+                raise_cancel()
+            else:
+                raise_winerror(lpOverlapped.Internal)
 
     @_public
     @_hazmat

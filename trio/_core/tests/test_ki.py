@@ -249,6 +249,32 @@ def test_ki_protection_works():
             await _core.yield_briefly()
     _core.run(main)
 
+    # Ki arrives while main task is not abortable, b/c refuses to be aborted
+    @_core.enable_ki_protection
+    async def main():
+        assert _core.ki_protected()
+        ki_self()
+        task = _core.current_task()
+        def abort(_):
+            _core.reschedule(task, _core.Value(1))
+            return _core.Abort.FAILED
+        assert await _core.yield_indefinitely(abort) == 1
+        with pytest.raises(KeyboardInterrupt):
+            await _core.yield_briefly()
+
+    # Ki delivered via slow abort
+    @_core.enable_ki_protection
+    async def main():
+        assert _core.ki_protected()
+        ki_self()
+        task = _core.current_task()
+        def abort(raise_cancel):
+            result = _core.Result.capture(raise_cancel)
+            _core.reschedule(task, result)
+            return _core.Abort.FAILED
+        with pytest.raises(KeyboardInterrupt):
+            assert await _core.yield_indefinitely(abort)
+        await _core.yield_briefly()
 
 def test_ki_is_good_neighbor():
     # in the unlikely event someone overwrites our signal handler, we leave
