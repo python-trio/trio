@@ -49,9 +49,9 @@ if hasattr(_core, "wait_writable"):
 # Note that if you use both decorators on the same test, it will run all
 # N**2 *combinations*
 read_socket_test = pytest.mark.parametrize(
-    "wait_readable", wait_readable_options)
+    "wait_readable", wait_readable_options, ids=lambda fn: fn.__name__)
 write_socket_test = pytest.mark.parametrize(
-    "wait_writable", wait_writable_options)
+    "wait_writable", wait_writable_options, ids=lambda fn: fn.__name__)
 
 
 async def test_wait_socket_type_checking(socketpair):
