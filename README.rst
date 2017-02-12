@@ -220,9 +220,6 @@ nothing to see here
      level. right now the runner knows the set of all tasks, but not
      zombies.
 
-   - XX is there a better way to handle instrument errors than we
-     currently do (print to stderr and carry on)?
-
    - make sure to @ki_protection_enabled all our __(a)exit__
      implementations. Including @acontextmanager! it's not enough to
      protect the wrapped function. (Or is it? Or maybe we need to do
@@ -328,34 +325,7 @@ nothing to see here
    - XX add test for UnboundedQueue schedules properly (only wakes 1
      task if 2 puts)
 
-     and also for __bool__
-
    - factor call_soon machinery off into its own object
-
-   - super fancy MockClock: add rate and autojump_threshold properties
-
-     rate = 0 is current; rate = <whatever> to go at arbitrary fixed
-     speed
-
-     autojump_threshold = *real* seconds where if we're idle that
-     long, then we advance the clock to the next timeout
-
-     to implement:
-
-     add a threshold argument to wait_run_loop_idle
-
-     implementation is basically: if there are no tasks to run, set
-     the actual IO timeout as
-       min(computed IO timeout, smallest wait_idle threshold)
-     and if this is different than computed IO timeout, *and* there
-     are no tasks to run after the IO manager returns, then wake all
-     wait_idle tasks with the given threshold. (Or maybe just wake
-     one? Or maybe you're just not even allowed to have multiple tasks
-     in wait_run_loop_idle?)
-
-     and when the clock's autojump_threshold is set to non-infinity,
-     then it spawns a system task to sit on wait_run_loop_idle, and
-     then somehow figure out the next deadline and jump there...
 
    - the example of why fairness is crucial:
 
@@ -418,8 +388,6 @@ nothing to see here
      https://www.osronline.com/showthread.cfm?link=134510
      https://gist.github.com/daurnimator/63d2970aedc952f0beb3
 
-   - add await_in_trio_thread back
-
    - Wsarcv also has a flag saying "please return data promptly, don't
      try to fill the buffer"; maybe that fixes the issue chrome ran
      into?
@@ -454,17 +422,6 @@ nothing to see here
      http://www.komodia.com/KomodiaLSPTypes.pdf
      http://www.lenholgate.com/blog/2017/01/setfilecompletionnotificationmodes-can-cause-iocp-to-fail-if-a-non-ifs-lsp-is-installed.html
 
-   - maybe system task is a new concept to replace the old one, where
-     system tasks are parented by init, and if they crash then we
-     cancel everything and raise
-
-     ...in fact this is more or less the default behavior, except that
-     we want to mark some errors as being internalerrors.
-
-     ...and we want Cancelled exceptions to be propagated from
-     call_soon tasks and main, but not from call_soon itself or the
-     mock clock task...
-
    - start_* convention -- if you want to run it synchronously, do
      async with make_nursery() as nursery:
          task = await start_foo(nursery)
@@ -474,15 +431,6 @@ nothing to see here
      for our server helper, it's a start_ function
      maybe it takes listener_nursery, connection_nursery arguments, to let you
      set up the graceful shutdown thing? though draining is still a problem.
-
-   - nurseries inside async generators are... odd. they *do* allow you
-     to violate causality in the sense that the generator could be
-     doing stuff while appearing to be yielded. I guess it still works
-     out so long as the generator does eventually complete? if you
-     leak this generator though then ugh what a mess. worst case we
-     leak tasks -- the root task has exited, but there are still
-     incomplete tasks floating around. not sure what we should do in
-     that case. besides whine mightily.
 
    - algorithm for WFQ ParkingLot:
 
