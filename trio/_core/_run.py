@@ -256,9 +256,10 @@ class Nursery:
         return GLOBAL_RUN_CONTEXT.runner.spawn_impl(fn, args, self)
 
     def reap(self, task):
-        if task.result is None:
-            raise ValueError("can't reap a task until after it exits")
-        self._zombies.remove(task)
+        try:
+            self._zombies.remove(task)
+        except KeyError:
+            raise ValueError("{} is not a zombie in this nursery".format(task))
 
     def reap_and_unwrap(self, task):
         self.reap(task)
@@ -297,7 +298,7 @@ class Nursery:
                         scope.shield = True
                     except KeyboardInterrupt as exc:
                         exceptions.append(exc)
-                    except BaseException as exc:
+                    except BaseException as exc:  # pragma: no cover
                         raise TrioInternalError from exc
 
         self._closed = True

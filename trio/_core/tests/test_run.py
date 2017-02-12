@@ -80,6 +80,21 @@ async def test_child_crash_basic():
         assert e is exc
 
 
+async def test_reap_bad_task():
+    async def child():
+        pass
+    async with _core.open_nursery() as nursery:
+        t = nursery.spawn(child)
+        with pytest.raises(ValueError):
+            nursery.reap(None)
+        with pytest.raises(ValueError):
+            nursery.reap(t)
+        await t.wait()
+        nursery.reap(t)
+        with pytest.raises(ValueError):
+            nursery.reap(t)
+
+
 async def test_basic_interleave():
     async def looper(whoami, record):
         for i in range(3):
@@ -1093,6 +1108,39 @@ async def test_slow_abort_edge_cases():
                 # Now we wait for the task to finish...
             # The cancellation was delivered, even though it was shielded
             assert record == ["sleeping", "abort-called", "cancelled", "done"]
+
+
+async def test_parent_task():
+    async def child2():
+        pass
+
+    async def child1():
+        async with _core.open_nursery() as nursery:
+            return nursery.spawn(child2)
+
+    async with _core.open_nursery() as nursery:
+        t1 = nursery.spawn(child1)
+        await t1.wait()
+        t2 = t1.result.unwrap()
+
+        assert t1.parent_task is _core.current_task()
+        assert t2.parent_task is t1
+
+
+async def test_nursery_closure():
+    async def child1(nursery):
+        # We can add new tasks to the nursery even after entering __aexit__,
+        # so long as there are still tasks running
+        nursery.spawn(child2)
+    async def child2():
+        pass
+
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(child1, nursery)
+
+    # But once we've left __aexit__, the nursery is closed
+    with pytest.raises(RuntimeError):
+        nursery.spawn(child2)
 
 # make sure to set up one where all tasks are blocked on I/O to exercise the
 # timeout = _MAX_TIMEOUT line

@@ -119,6 +119,31 @@ def test_run_in_trio_thread_ki():
     assert record == {"ok1", "ok2"}
 
 
+def test_await_in_trio_thread_while_main_exits():
+    record = []
+
+    async def trio_fn():
+        record.append("sleeping")
+        await _core.yield_indefinitely(lambda _: _core.Abort.SUCCEEDED)
+
+    def thread_fn(await_in_trio_thread):
+        try:
+            await_in_trio_thread(trio_fn)
+        except _core.Cancelled:
+            record.append("cancelled")
+
+    async def main():
+        aitt = current_await_in_trio_thread()
+        thread = threading.Thread(target=thread_fn, args=(aitt,))
+        thread.start()
+        await busy_wait_for(lambda: record == ["sleeping"])
+        return thread
+
+    thread = _core.run(main)
+    thread.join()
+    assert record == ["sleeping", "cancelled"]
+
+
 async def test_run_in_worker_thread():
     trio_thread = threading.current_thread()
 
