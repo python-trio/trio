@@ -678,9 +678,13 @@ class Runner:
     def _deliver_ki_cb(self):
         if not self.ki_pending:
             return
-        if self.main_task is None:
-            return
+        # Can't happen because main_task and call_soon_task are created at the
+        # same time -- so even if KI arrives before main_task is created, we
+        # won't get here until afterwards.
+        assert self.main_task is not None
         if self.main_task.result is not None:
+            # We're already in the process of exiting -- leave ki_pending set
+            # and we'll check it again on our way out of run().
             return
         self.main_task._attempt_delivery_of_pending_ki()
 

@@ -201,10 +201,10 @@ def test_ki_protection_works():
     # kill at last moment still raises (call_soon until it raises an error,
     # then kill)
     print("check 3")
-    record = set()
     async def check_kill_during_shutdown():
         call_soon = _core.current_call_soon_thread_and_signal_safe()
         def kill_during_shutdown():
+            assert _core.ki_protected()
             try:
                 call_soon(kill_during_shutdown)
             except _core.RunFinishedError:
@@ -216,7 +216,7 @@ def test_ki_protection_works():
     with pytest.raises(KeyboardInterrupt):
         _core.run(check_kill_during_shutdown)
 
-    # control-C arrives very early, before main is even spawned
+    # KI arrives very early, before main is even spawned
     print("check 4")
     class InstrumentOfDeath:
         def before_run(self):
@@ -249,7 +249,8 @@ def test_ki_protection_works():
             await _core.yield_briefly()
     _core.run(main)
 
-    # Ki arrives while main task is not abortable, b/c refuses to be aborted
+    # KI arrives while main task is not abortable, b/c refuses to be aborted
+    print("check 7")
     @_core.enable_ki_protection
     async def main():
         assert _core.ki_protected()
@@ -261,8 +262,10 @@ def test_ki_protection_works():
         assert await _core.yield_indefinitely(abort) == 1
         with pytest.raises(KeyboardInterrupt):
             await _core.yield_briefly()
+    _core.run(main)
 
-    # Ki delivered via slow abort
+    # KI delivered via slow abort
+    print("check 8")
     @_core.enable_ki_protection
     async def main():
         assert _core.ki_protected()
@@ -275,6 +278,19 @@ def test_ki_protection_works():
         with pytest.raises(KeyboardInterrupt):
             assert await _core.yield_indefinitely(abort)
         await _core.yield_briefly()
+    _core.run(main)
+
+    # KI arrives just before main task exits, so the call_soon machinery is
+    # still functioning and will accept the callback to deliver the KI, but by
+    # the time the callback is actually run, main has exited and can't be
+    # aborted.
+    print("check 9")
+    @_core.enable_ki_protection
+    async def main():
+        ki_self()
+    with pytest.raises(KeyboardInterrupt):
+        _core.run(main)
+
 
 def test_ki_is_good_neighbor():
     # in the unlikely event someone overwrites our signal handler, we leave
