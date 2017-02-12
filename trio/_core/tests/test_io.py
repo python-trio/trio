@@ -180,6 +180,8 @@ async def test_socket_simultaneous_read_write(
 @write_socket_test
 async def test_socket_actual_streaming(
         socketpair, wait_readable, wait_writable):
+    a, b = socketpair
+
     N = 10000000  # 10 megabytes
     MAX_CHUNK = 65536
 
@@ -208,7 +210,6 @@ async def test_socket_actual_streaming(
             received += this_chunk_size
         return received
 
-    a, b = stdlib_socket.socketpair()
     async with _core.open_nursery() as nursery:
         send_a = nursery.spawn(sender, a, 0)
         send_b = nursery.spawn(sender, b, 1)
