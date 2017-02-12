@@ -16,9 +16,14 @@ from ._windows_cffi import (
     ffi, kernel32, INVALID_HANDLE_VALUE, raise_winerror, ErrorCodes,
 )
 
-# XX update this to match the new reality:
+# There's a lot to be said about the overall design of a Windows event
+# loop. See
 #
-# How things fit together:
+#    https://github.com/njsmith/trio/issues/52
+#
+# for discussion. This now just has some lower-level notes:
+#
+# How IOCP fits together:
 # - each notification event (OVERLAPPED_ENTRY) contains:
 #   - the "completion key" (an integer)
 #   - pointer to OVERLAPPED
@@ -52,61 +57,6 @@ from ._windows_cffi import (
 #   based on lpOverlapped
 # - thread-safe wakeup uses completion key 1
 # - other completion keys are available for user use
-#
-# We also have a dedicated thread for calling select.select(). Why would we do
-# this, when everyone knows that IOCP is wonderful and awesome and way better
-# than Unix-style nonblocking I/O?
-#
-# Well:
-#
-# 1) UDP sockets are pretty much entirely broken on IOCP, because for some
-# reason they decided that the completion notification should fire when the
-# packet hit the network, *not* when it entered the send buffer. So if you do
-# send/wait/send/wait/... then you will have only 1 packet in flight at a time
-# and it will suck. Chrome ran into this and switched back to nonblocking I/O:
-#   https://bugs.chromium.org/p/chromium/issues/detail?id=442392
-#   https://groups.google.com/a/chromium.org/forum/#!topic/net-dev/VTPH1D8M6Ds
-# It would be possible to instead try to (somehow) estimate a good amount of
-# send buffering and then try to keep that many packets in flight by hand
-# (i.e., the await sendto() for packet N would return when packet N-k was
-# notified as complete, for some value of k).
-#
-# 2) Even for TCP, IOCP recv is kind of messed up. Apparently if you pass in a
-# big buffer, then this triggers some kind of Nagle-ish heuristic where it
-# decides you maybe don't want your data promptly, and it will sit on partial
-# reads for a while waiting for more data to arrive? Of course no-one knows
-# how it actually works; the Chrome folks just know that it screwed up all
-# their latency targets and again they stopped using it:
-#    https://bugs.chromium.org/p/chromium/issues/detail?id=30144#
-#    https://bugs.chromium.org/p/chromium/issues/detail?id=86515#
-#
-# IOCP for send is fine, I guess? And for TransmitFile it's the only way to
-# go. And if you want to juggle 10,000 UDP sockets then maybe you need IOCP?
-# But it takes a tremendous amount of code to wrap the Windows socket
-# functions with IOCP friendly versions, and the benefits are very minor.
-#
-# The one limitation that we do need to watch out for is that select.select()
-# is limited to only 512 sockets. This is pretty easy to fix, though -- we
-# just need to use our own wrapper for select (or maybe WSAPoll). Eventually
-# there will be some scaling issue due to the O(n) cost of these things, but
-# on my laptop, select.select() with 3*512 descriptors (and nothing ready)
-# takes <200 microseconds, so I doubt this will be a huge issue. And,
-# well... not many people use Windows to run big performance servers.
-#
-# (The fact that wait_socket_{read,writ}able currently go via call_soon is
-# probably a much bigger scaling issue.)
-#
-# If we do switch to WSAPoll, we might consider using QueueUserAPC to take
-# that thread, similar to what one would do for WaitForMultipleObjectsEx.
-
-# Interesting note: on Windows you can *check* writability by attempting to
-# do a 0-byte send -- this returns EWOULDBLOCK if the socket is not writable.
-# Is this also true for IOCP sends? If so then it's possible to check
-# writability via IOCP... (at least for SOCK_STREAM, where I *believe* but
-# should check that IOCP notifications are based on the socket buffer).
-# Unfortunately this doesn't seem to work for readability: sock.recv(0) return
-# b"" even if there's nothing to read. Could double-check against the
-# low-level API in case Python is doing something.
 
 # handles:
 # - for now we'll just use 1 thread per handle, should file a QoI bug to

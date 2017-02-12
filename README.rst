@@ -133,21 +133,6 @@ nothing to see here
 
 
    next:
-   - dump Result.combine?
-
-   - system_task_wrapper doesn't properly handle MultiError
-
-   - should UnboundedQueue have logic to smooth out bursts to reduce
-     latency spikes? e.g. if 1000 tasks die at time t and no tasks
-     die at time t+1, t+2, t+3, then it would be better to reap, say,
-     100 tasks each cycle.
-
-     I'm not sure what the right control law for this is though.
-
-   - use an OrderedDict for call_soon(idempotent=True)
-     however this is only possible on 3.6+! otherwise OrderedDict is
-     not thread/signal-safe!
-
    - Should regular queues default to capacity=1? Should they even
      *support* capacity >1?
 
@@ -340,57 +325,6 @@ nothing to see here
      because it does reschedule before acquiring, so there's a 50%
      chance that the other task will run first and win the race. But
      50% is not so great either.)
-
-   - Libuv check UDP sockets readable via iocp by issuing a 0 byte
-     recv with MSG_PEEK (Even though msdn says you can't combine
-     MSG_PEEK and overlapped mode!)  There is some complication
-     because apparently this can return errors from sendto, but
-     otherwise I guess it works for them. And they do something
-     similar for TCP, but without the MSG_PEEK.
-
-     (The reason they do this is also interesting -- if there are too
-     many simultaneous recv calls outstanding then it uses too much
-     buffer space, so they switch to waiting for readable before
-     issuing the real recv.)
-
-     Anyway I suspect but have not verified that this means you can
-     use iocp to notify on:
-     TCP readable, TCP writable, UDP readable
-     ... But not UDP writable.
-     (Then there's also raw sockets and stuff, no idea what happens
-     there, though I guess it's probably like UDP)
-     Oh wait! For UDP writable, MSG_PARTIAL might work!
-
-     ...UDP send still has the problem that IOCP doesn't go through
-     the socket buffer though, doh. it looks like some systems handle
-     EWOULDBLOCK on UDP sends by just discarding the packet. the main
-     thing we want to avoid is ending up with an arbitrarily long
-     buffer in the kernel -- discarding packets *or* blocking the
-     sending task are both fine. possibly we could handle IOCP UDP by
-     just keeping a count of how many bytes are queued and put a limit
-     on it? we could even intercept setsockopt SO_SNDBUF to control
-     our user-space buffer size...
-
-     for reading, this is apparently a well-known piece of folklore,
-     the "zero byte read". It's related to a weird thing about IOCP
-     where the receive buffers get pinned into memory, so official
-     microsoft docs recommend it as a trick to avoid exhausting server
-     memory when you have a ton of mostly-idle connections:
-
-     https://www.microsoft.com/mspress/books/sampchap/5726a.aspx#124
-     https://stackoverflow.com/questions/4988168/wsarecv-and-wsabuf-questions
-     http://microsoft.public.win32.programmer.networks.narkive.com/l68NhvSm/wsarecv-iocp-when-exactly-is-the-notification-sent
-
-     There is also this remarkable piece of undocumented sorcery:
-     https://github.com/piscisaureus/epoll_windows/blob/master/src/epoll.c#L754
-     https://groups.google.com/forum/#!topic/libuv/S4U_JjbxW9M
-     http://mista.nu/blog/?p=655
-     https://www.osronline.com/showthread.cfm?link=134510
-     https://gist.github.com/daurnimator/63d2970aedc952f0beb3
-
-   - Wsarcv also has a flag saying "please return data promptly, don't
-     try to fill the buffer"; maybe that fixes the issue chrome ran
-     into?
 
    - On UDP send libuv seems to dispatch sends immediately without any
      backpressure
