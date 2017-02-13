@@ -51,14 +51,14 @@ class AsyncResource(metaclass=abc.ABCMeta):
         # sockets should support both?
         pass
 
-    def graceful_close(self):
+    async def graceful_close(self):
         self.forceful_close()
         await _core.yield_briefly()
 
-    def __aenter__(self):
+    async def __aenter__(self):
         return self
 
-    def __aexit__(self, *args):
+    async def __aexit__(self, *args):
         await self.graceful_close()
 
 # XX added in 3.6
