@@ -3,6 +3,8 @@ import contextlib
 
 import attr
 
+from . import _core
+
 __all__ = ["Resource", "SendStream", "RecvStream", "Stream"]
 
 # XX On windows closesocket actually *can* block
@@ -37,11 +39,11 @@ __all__ = ["Resource", "SendStream", "RecvStream", "Stream"]
 # having a single method that does different things depending on whether
 # you've fiddled with setsockopt.
 
-class Resource(metaclass=abc.ABCMeta):
+class AsyncResource(metaclass=abc.ABCMeta):
     __slots__ = ()
 
     @abc.abstractmethod
-    def close(self):
+    def forceful_close(self):
         # XX docstring should warn that this is a harsh shutdown, so e.g. TLS
         # will be truncated, which you might or might not want.
         # XX HTTP/2 streams probably need an async close too huh. Maybe async
@@ -49,20 +51,21 @@ class Resource(metaclass=abc.ABCMeta):
         # sockets should support both?
         pass
 
-    async def __aenter__(self):
-        raise TypeError("use regular 'with', not 'async with'")
+    def graceful_close(self):
+        self.forceful_close()
+        await _core.yield_briefly()
 
-    def __enter__(self):
+    def __aenter__(self):
         return self
 
-    def __exit__(self, *args):
-        self.close()
+    def __aexit__(self, *args):
+        await self.graceful_close()
 
 # XX added in 3.6
 if hasattr(contextlib, "AbstractContextManager"):
     contextlib.AbstractContextManager.register(Resource)
 
-class SendStream(Resource):
+class SendStream(AsyncResource):
     __slots__ = ()
 
     @abc.abstractmethod
@@ -86,7 +89,7 @@ class SendStream(Resource):
     def send_eof(self):
         pass
 
-class RecvStream(Resource):
+class RecvStream(AsyncResource):
     __slots__ = ()
 
     @abc.abstractmethod
@@ -121,6 +124,14 @@ class StapledStream(Stream):
     async def recv(self, max_bytes):
         return self.recv_stream.recv(max_bytes)
 
-    def close(self):
-        self.send_stream.close()
-        self.recv_stream.close()
+    def forceful_close(self):
+        try:
+            self.send_stream.forceful_close()
+        finally:
+            self.recv_stream.forceful_close()
+
+    async def graceful_close(self):
+        try:
+            await self.send_stream.graceful_close()
+        finally:
+            await self.recv_stream.graceful_close()
