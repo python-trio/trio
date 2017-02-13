@@ -1,4 +1,4 @@
 # https://conda.io/docs/using/envs.html#create-environment-file-by-hand
 name: rtd-conda-env
 dependencies:
-- python >= 3.5
+- python=3.5
