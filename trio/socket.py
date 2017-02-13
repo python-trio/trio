@@ -132,16 +132,19 @@ class SocketType(_Stream):
     _forward = {
         "__enter__", "__exit__", "close", "detach", "get_inheritable",
         "set_inheritable", "fileno", "getpeername", "getsockname",
-        "getsockopt", "setsockopt", "listen", "shutdown",
+        "getsockopt", "setsockopt", "listen", "shutdown", "close",
     }
     def __getattr__(self, name):
         if name in self._forward:
             return getattr(self._sock, name)
         raise AttributeError(name)
 
-    # Need an explicit method to make the Stream abc happy:
-    def close(self):
+    def forceful_close(self):
         self._sock.close()
+
+    async def graceful_close(self):
+        self.forceful_close()
+        await _core.yield_briefly()
 
     @property
     def family(self):

@@ -5,7 +5,7 @@ import attr
 
 from . import _core
 
-__all__ = ["Resource", "SendStream", "RecvStream", "Stream"]
+__all__ = ["AsyncResource", "SendStream", "RecvStream", "Stream"]
 
 # XX On windows closesocket actually *can* block
 #   https://msdn.microsoft.com/en-us/library/ms737582(v=VS.85).aspx
