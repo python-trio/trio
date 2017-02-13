@@ -63,7 +63,7 @@ class AsyncResource(metaclass=abc.ABCMeta):
 
 # XX added in 3.6
 if hasattr(contextlib, "AbstractContextManager"):
-    contextlib.AbstractContextManager.register(Resource)
+    contextlib.AbstractContextManager.register(AsyncResource)
 
 class SendStream(AsyncResource):
     __slots__ = ()
