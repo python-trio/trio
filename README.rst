@@ -1,44 +1,82 @@
 nothing to see here
 
+.. image:: https://readthedocs.org/projects/trio/badge/?version=latest
+   :target: http://trio.readthedocs.io/en/latest/?badge=latest
+   :alt: Documentation Status
+
+.. image:: https://travis-ci.org/njsmith/trio.svg?branch=master
+   :target: https://travis-ci.org/njsmith/trio
+   :alt: Automated test status (Linux and MacOS)
+
+.. image:: https://ci.appveyor.com/api/projects/status/af4eyed8o8tc3t0r/branch/master?svg=true
+   :target: https://ci.appveyor.com/project/njsmith/trio/history
+   :alt: Automated test status (Windows)
+
+.. image:: https://codecov.io/gh/njsmith/trio/branch/master/graph/badge.svg
+   :target: https://codecov.io/gh/njsmith/trio
+   :alt: Test coverage
+
 ..
    Trio – async I/O for humans and snake people
    ============================================
 
-   Trio is an `async/await-native
+   Trio is an experimental attempt to produce a portable,
+   production-quality, `permissively licensed
+   <https://github.com/njsmith/trio/blob/master/LICENSE>`__,
+   async/await-native I/O library for Python, with an emphasis on
+   safety and usability.
+
+   Traditionally, async programming is quite challenging, with many
+   subtle edge cases that are easy to get wrong. The addition of
+   `asyncio <https://docs.python.org/3/library/asyncio.html>`__ to the
+   standard library was a great step forward, but asyncio suffers from
+   backwards-compatibility constraints that (ironically) make it
+   difficult for it to take full advantage of the new language
+   features that it motivated. The result can be `confusing
+   <http://lucumr.pocoo.org/2016/10/30/i-dont-understand-asyncio/>`__,
+   and there's a `widespread sense
+   <https://mail.python.org/pipermail/async-sig/2016-November/000175.html>`__
+   that we can do better.
+
+   The ideas behind trio come most directly from `analyzing the
+   pitfalls of traditional async programming models like asyncio
    <https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/>`__
-   I/O library for Python 3.5+ (either CPython or PyPy) with full
-   support for Linux, MacOS, and Windows. (*BSD and illumos might work
-   too, but we haven't checked.)
+   and discussion with Dave Beazley and others around `curio
+   <https://github.com/dabeaz/curio>`__; other influences include `C#,
+   Erlang, and others
+   <https://github.com/njsmith/trio/wiki/Reading-list>`__. But you
+   don't need to know any of that to use trio: the goal is to distill
+   these ideas into a library that makes it *easy and fun* to write
+   asynchronous code that's *safe, correct, and performant*.
 
-   [link to Guido's email]
-
-   how to make it *easy and fun* to write *safe, correct, and
-   performant* asynchronous code in Python.  Async programming has a
-   reputation for melting people's brains. We're trying to fix that.
-
-   current state experimental and unstable but goal is to
-
-   Trio represents one possible vision of the future of asynchronous
-   I/O in Python, but it's not the only such vision. If you're
-   interested in trio, then you should check out `asyncio
-   <https://docs.python.org/3/library/asyncio.html>`__ and `curio
-   <https://github.com/dabeaz/curio>`__ too.
+   Our (possibly overambitious!) goal is for trio to be to asyncio as
+   `requests is to urllib2
+   <https://gist.github.com/kennethreitz/973705>`__, or Python is
+   to C. Of course, whether we can live up to that is an open
+   question! Trio represents one possible vision of the future of
+   asynchronous I/O in Python, but it's not the only such vision. If
+   you're interested in trio, then you should certainly check out
+   `asyncio <https://docs.python.org/3/library/asyncio.html>`__ and
+   `curio <https://github.com/dabeaz/curio>`__ too.
 
    So... where to next?
 
    *I want to know more!* Check out the `documentation
-   <https://trio.readthedocs.io>`.
+   <https://trio.readthedocs.io>`__.
 
-   *I want to try it!* Awesome! ``pip install trio`` and check out
-   `our examples XX`. And if you use it for anything more than toy
-   experiments, then you should `read and subscribe to this issue
-   <https://github.com/njsmith/trio/issues/1>`__.
+   *I want to dive in and try it!* Awesome! ``pip install trio`` and
+   check out `our examples XX`. And if you use it for anything more
+   than toy experiments, then you should `read and subscribe to this
+   issue <https://github.com/njsmith/trio/issues/1>`__.
+
+   *But wait, will it work on my system?* Probably! As long as you
+   have CPython 3.5+ or a PyPy 3.5 prerelease, and are using Linux,
+   MacOS, or Windows, then trio should absolutely work. (*BSD and
+   illumos likely work too, but we don't have testing infrastructure
+   for them.)
 
    *I want to help!* You're the best! Check out our  <github issues>
    discussion, tests, docs, use it and let us know how it goes XX
-
-   *I'm just fascinated by IO library design!* You might enjoy our <XX
-   reading list> and XX architecture documentation
 
    *I want to make sure my company's lawyers won't get angry at me!*
    No worries, trio is permissively licensed under your choice of MIT
@@ -169,10 +207,6 @@ nothing to see here
 
    - need to do a pass over TrioInternalError -- currently they can
      get double-wrapped in some cases
-
-   - the MultiError handling when exiting cancel scopes is not so
-     great -- ideally we should at least preserve traceback? but *not*
-     chain two giant almost-identical multi-errors?
 
    - Python 3.7 wishlist items:
 
@@ -364,7 +398,10 @@ nothing to see here
 
      for our server helper, it's a start_ function
      maybe it takes listener_nursery, connection_nursery arguments, to let you
-     set up the graceful shutdown thing? though draining is still a problem.
+     set up the graceful shutdown thing? though draining is still a
+     problem. I guess just a matter of setting a deadline?
+
+   - should we provide a start_nursery?
 
    - algorithm for WFQ ParkingLot:
 
