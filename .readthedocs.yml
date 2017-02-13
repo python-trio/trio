@@ -1,0 +1,12 @@
+# https://docs.readthedocs.io/en/latest/yaml-config.html
+formats:
+  - htmlzip
+  - epub
+
+# The latest Python provided by RTD is CPython 3.4, which is pretty
+# useless for us. So use conda.
+conda:
+  file: ci/rtd-conda-env.yml
+
+python:
+  pip_install: True
