@@ -21,30 +21,3 @@ def mock_clock():
 def pytest_pyfunc_call(pyfuncitem):
     if inspect.iscoroutinefunction(pyfuncitem.obj):
         pyfuncitem.obj = trio_test(pyfuncitem.obj)
-
-# XX monkeypatched workaround for
-#   https://github.com/pytest-dev/pytest/issues/2129
-# hopefully becomes unnecessary soon...
-import _pytest.compat
-async def _probe():
-    # need an await in the body to trigger the bug.
-    await something
-if _pytest.compat.is_generator(_probe):
-    def fixed_is_generator(func):
-        # pytest master seems to think they need a "and not
-        # iscoroutinefunction" here, but I'm not sure why.
-        return (inspect.isgeneratorfunction(func)
-                and not inspect.iscoroutinefunction(func))
-    _pytest.compat.is_generator = fixed_is_generator
-    import _pytest.python
-    _pytest.python.is_generator = fixed_is_generator
-else:
-    print("""
-
-    pytest has been fixed!  yay!
-
-    please bump up the requirements number and remove the ugly hack in
-    conftest.py
-
-    """)
-
