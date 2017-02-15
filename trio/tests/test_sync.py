@@ -210,6 +210,89 @@ async def test_generic_lock_fairness(lock_factory):
         assert record[3*i : 3*(i + 1)] == initial_order
 
 
+async def test_Condition():
+    with pytest.raises(TypeError):
+        Condition(Semaphore(1))
+    l = Lock()
+    c = Condition(l)
+    assert not l.locked()
+    assert not c.locked()
+    await c.acquire()
+    assert l.locked()
+    assert c.locked()
+
+    c = Condition()
+    assert not c.locked()
+    c.acquire_nowait()
+    assert c.locked()
+    with pytest.raises(RuntimeError):
+        c.acquire_nowait()
+    c.release()
+
+    with pytest.raises(RuntimeError):
+        # Can't wait without holding the lock
+        await c.wait()
+    with pytest.raises(RuntimeError):
+        # Can't notify without holding the lock
+        c.notify()
+    with pytest.raises(RuntimeError):
+        # Can't notify without holding the lock
+        c.notify_all()
+
+    async def waiter():
+        async with c:
+            await c.wait()
+
+    async with _core.open_nursery() as nursery:
+        w = []
+        for _ in range(3):
+            w.append(nursery.spawn(waiter))
+            await wait_run_loop_idle()
+        async with c:
+            c.notify()
+        assert c.locked()
+        await wait_run_loop_idle()
+        assert w[0].result is not None
+        assert w[1].result is w[2].result is None
+        async with c:
+            c.notify_all()
+        await wait_run_loop_idle()
+        assert w[1].result is not None
+        assert w[2].result is not None
+
+    async with _core.open_nursery() as nursery:
+        w = []
+        for _ in range(3):
+            w.append(nursery.spawn(waiter))
+            await wait_run_loop_idle()
+        async with c:
+            c.notify(2)
+            statistics = c.statistics()
+            print(statistics)
+            assert statistics.tasks_waiting == 1
+            assert statistics.lock_statistics.tasks_waiting == 2
+        # exiting the context manager hands off the lock to the first task
+        assert c.statistics().lock_statistics.tasks_waiting == 1
+
+        await wait_run_loop_idle()
+        assert w[0].result is not None
+        assert w[1].result is not None
+        assert w[2].result is None
+
+        async with c:
+            c.notify_all()
+
+    # After being cancelled still hold the lock (!)
+    # (Note that c.__aexit__ checks that we hold the lock as well)
+    with _core.open_cancel_scope() as scope:
+        async with c:
+            scope.cancel()
+            try:
+                await c.wait()
+            finally:
+                assert c.locked()
+
+
 async def test_Queue_fairness():
 
     # We can remove an item we just put, and put an item back in after, if

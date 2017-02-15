@@ -183,6 +183,11 @@ class Lock:
             self._owner = None
 
 
+@attr.s(frozen=True)
+class _ConditionStatistics:
+    tasks_waiting = attr.ib()
+    lock_statistics = attr.ib()
+
 @async_cm
 class Condition:
     def __init__(self, lock=None):
@@ -193,6 +198,18 @@ class Condition:
         self._lock = lock
         self._lot = _core.ParkingLot()
 
+    def statistics(self):
+        return _ConditionStatistics(
+            tasks_waiting=len(self._lot),
+            lock_statistics=self._lock.statistics(),
+        )
+
+    def locked(self):
+        return self._lock.locked()
+
+    def acquire_nowait(self):
+        return self._lock.acquire_nowait()
+
     async def acquire(self):
         await self._lock.acquire()
 
@@ -200,16 +217,27 @@ class Condition:
         self._lock.release()
 
     async def wait(self):
+        if _core.current_task() is not self._lock._owner:
+            raise RuntimeError("must hold the lock to wait")
         self.release()
         # NOTE: we go to sleep on this lot, but we'll wake up on
         # self._lock._lot. Fortunately that's all that's required to acquire
         # a Lock.
-        await self._lot.park()
+        try:
+            await self._lot.park()
+        except _core.Cancelled:
+            with _core.open_cancel_scope(shield=True):
+                await self.acquire()
+            raise
 
     def notify(self, n=1):
+        if _core.current_task() is not self._lock._owner:
+            raise RuntimeError("must hold the lock to notify")
         self._lot.repark(self._lock._lot, count=n)
 
     def notify_all(self):
+        if _core.current_task() is not self._lock._owner:
+            raise RuntimeError("must hold the lock to notify")
         self._lot.repark(self._lock._lot)
 
 
