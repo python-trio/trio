@@ -1088,6 +1088,7 @@ def test_call_soon_threaded_stress_test():
         try:
             while True:
                 call_soon(cb)
+                time.sleep(0)
         except _core.RunFinishedError:
             pass
 
@@ -1095,7 +1096,7 @@ def test_call_soon_threaded_stress_test():
         call_soon = _core.current_call_soon_thread_and_signal_safe()
         thread = threading.Thread(target=stress_thread, args=(call_soon,))
         thread.start()
-        for _ in range(3):
+        for _ in range(10):
             start_value = cb_counter
             while cb_counter == start_value:
                 await sleep(0.01)
