@@ -40,10 +40,11 @@ nothing to see here
 
    The ideas behind trio come most directly from `analyzing the
    pitfalls of traditional async programming models like asyncio
-   <https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/>`__
-   and discussion with Dave Beazley and others around `curio
-   <https://github.com/dabeaz/curio>`__; other influences include `C#,
-   Erlang, and others
+   <https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/>`__,
+   with heavy influence from Dave Beazley's `curio
+   <https://github.com/dabeaz/curio>`__ (though trio and curio differ
+   in fundamental enough ways that a new library seemed
+   necessary). Other influences include `C#, Erlang, and others
    <https://github.com/njsmith/trio/wiki/Reading-list>`__. But you
    don't need to know any of that to use trio: the goal is to distill
    these ideas into a library that makes it *easy and fun* to write
@@ -53,11 +54,12 @@ nothing to see here
    `requests is to urllib2
    <https://gist.github.com/kennethreitz/973705>`__, or Python is
    to C. Of course, whether we can live up to that is an open
-   question! Trio represents one possible vision of the future of
-   asynchronous I/O in Python, but it's not the only such vision. If
-   you're interested in trio, then you should certainly check out
-   `asyncio <https://docs.python.org/3/library/asyncio.html>`__ and
-   `curio <https://github.com/dabeaz/curio>`__ too.
+   question! Trio represents one fairly opinionated vision for the
+   future of asynchronous I/O in Python, but it's not the only such
+   vision. If you're interested in trio, then you should certainly
+   check out `asyncio
+   <https://docs.python.org/3/library/asyncio.html>`__ and `curio
+   <https://github.com/dabeaz/curio>`__ too.
 
    So... where to next?
 
@@ -171,8 +173,20 @@ nothing to see here
 
 
    next:
-   - Should regular queues default to capacity=1? Should they even
-     *support* capacity >1?
+   - a thought: if we switch to a global parkinglot keyed off of
+     arbitrary hashables, and put the key into the task object, then
+     introspection will be able to do things like show which tasks are
+     blocked on the same mutex. (moving the key into the task object
+     in general lets us detect which tasks are parked in the same lot;
+     making the key be an actual synchronization object gives just a
+     bit more information. at least in some cases; e.g. currently
+     queues use semaphores internally so that's what you'd see in
+     introspection, not the queue object.)
+
+     alternatively, if we have an system for introspecting where tasks
+     are blocked through stack inspection, then maybe we can re-use
+     that? like if there's a magic local pointing to the frame, we can
+     use that frame's 'self'?
 
    - I looked at h2 and yeah, we definitely need to make stream have
      aclose() instead of close(). Sigh.
@@ -205,6 +219,11 @@ nothing to see here
      it's a problem in general for any kind of async cleanup: how do
      you set a timeout on the cancellation handling?
 
+   - make assert_yields properly check for cancel+schedule points
+     put a counter of how many time these things happen on task object
+
+   - add assert_yields tests to test_io
+
    - need to do a pass over TrioInternalError -- currently they can
      get double-wrapped in some cases
 
@@ -226,6 +245,31 @@ nothing to see here
                 goto fast_next_opcode;
             }
 
+       it looks like:
+       - for sync context managers, SETUP_WITH atomically calls
+         __enter__ + sets up the finally block (though of course you
+         could get a KI inside __enter__ if we don't have atomic KI
+         protection)
+       - for async context managers, the async setup stuff is split
+         over multiple bytecodes, so we lose this guarantee -- it's
+         possible for a KI to arrive in between calling __aenter__ and
+         the SETUP_ASYNC_WITH that pushes the finally block
+       - for sync context managers, WITH_CLEANUP_START atomically
+         calls __exit__
+       - for async context managers, there again are multiple
+         bytecodes (WITH_CLEANUP_START calls __aenter__ (i.e.,
+         instantiates the coroutine object), then GET_AWAITABLE calls
+         __await__, then LOAD_CONST for some reason (??), then
+         YIELD_FROM to actually run the __aenter__ body
+
+     - ability to go from stack frame to function object (maybe the
+       frame itself could hold a pointer to the function, if
+       available?)
+       used for:
+         - better introspection (right now you can't get
+           __qualname__ for tracebacks!)
+         - patching the KI protection gap (I think, assuming 'with'
+           calls __(a)exit__ atomically)
    - XX add a nursery fixture for pytest
 
      this is a bit complicated because it requires some tight
@@ -278,61 +322,23 @@ nothing to see here
      enough to arm the cancel, even if not deliver it? So maybe it's
      OK after all.
 
-   - Maybe ParkingLot should return a ticket when unparking a task,
-     that lets it repark and resume its place in line.
-
-     ticket = None
-     while not self._data:
-         (ticket, value) = await self._lot.park(ticket=ticket)
-
-     ...or maybe we should modify our uses of ParkingLot so that the
-     waking task can't have its resource stolen out from under it?
-     (strategy 1: hand off the lock directly to the woken task instead
-     of releasing it and letting the waking task re-acquire
-     it. strategy 2: get, get_nowait, acquire, etc., first check for
-     whether there are tasks parked and if so they automatically
-     park instead of stealing the resource.)
-
-     maybe ParkingLot should have some sort of flag/counter, where
-     parking consumes this, and you always park? so mutex unlock ->
-     let one task through the gate. (maybe now, maybe later.) put 3
-     items into queue -> let three tasks through the gate. I guess
-     states are gate open, gate closed, N-tickets-available? this
-     still doesn't handle all cases, like a queue with both get and
-     get_all, where (a) if you have get, get, get_all, get in the
-     wakequeue, and 4 items arrive, how do you know to wake just 3?,
-     (b) even if you do wake just just 3, what happens if the get_all
-     task runs first?
-
-     I guess tasks could declare how many tickets they needed on
-     entry. (get_all consumes: 1-infinity.) But that still
-     doesn't solve the scheduling nondeterminism issue. Of course
-     ParkingLot gets to be arbitrarily tightly integrated with the
-     scheduler. Or we could tell tasks how many tickets they got?
-
-     (Maybe the name for this is a Turnstile.)
-
-     implementing a fair condition variable is also an interesting
-     question -- you need to somehow move the tasks from waiting on
-     the CV to waiting on the lock, preserving order and keeping
-     cancellation working?
-     https://amanieu.github.io/parking_lot/parking_lot_core/fn.unpark_requeue.html
-
-     rwlocks too...
-     https://amanieu.github.io/parking_lot/parking_lot/struct.RwLock.html
-
-     ? https://amanieu.github.io/parking_lot/parking_lot_core/fn.unpark_filter.html
-
-     a cute thing about classic parking lots (WTF, parking_lot.rs) is
-     that it's a single global structure, to make individual
-     synchronization objects cheaper; this is a win b/c most objects
-     are uncontended most of the time, esp. when num_threads >>
-     num_locks. Not totally clear how the trade-offs work for us.
-
-     for reference:
-     https://webkit.org/blog/6161/locking-in-webkit/
-
    - convenience methods for catching/rethrowing parts of MultiErrors?
+
+     maybe
+
+     def filter():
+         try:
+             yield
+         except ...:
+             ...
+         except ...:
+             ...
+     with MultiError.filter(filter):
+         ...
+
+     calls the filter function repeatedly for each error inside the
+     MultiError (or just once if a non-MultiError is raised), then
+     collects the results.
 
    - notes for unix socket server:
 
@@ -341,24 +347,12 @@ nothing to see here
      https://github.com/twisted/twisted/blob/trunk/src/twisted/internet/unix.py#L290
      https://github.com/tornadoweb/tornado/blob/master/tornado/netutil.py#L215
 
+   - can we remove all busy_wait_for in favor of wait_run_loop_idle?
+
    - XX add test for UnboundedQueue schedules properly (only wakes 1
      task if 2 puts)
 
    - factor call_soon machinery off into its own object
-
-   - the example of why fairness is crucial:
-
-     await mutex.acquire()
-     while True:
-         ...
-         mutex.release()
-         # currently, this always succeeds (!!):
-         mutex.acquire_nowait()
-
-     (right now it... kinda works if you do a blocking acquire,
-     because it does reschedule before acquiring, so there's a 50%
-     chance that the other task will run first and win the race. But
-     50% is not so great either.)
 
    - On UDP send libuv seems to dispatch sends immediately without any
      backpressure
@@ -402,6 +396,12 @@ nothing to see here
      problem. I guess just a matter of setting a deadline?
 
    - should we provide a start_nursery?
+
+     problem: an empty nursery would close itself before start_nursery
+     even returns!
+
+     maybe as minimal extension to the existing thing,
+     open_nursery(autoclose=False), only closes when cancelled?
 
    - algorithm for WFQ ParkingLot:
 
