@@ -69,4 +69,4 @@ async def test_fail():
 
     with pytest.raises(ValueError):
         with fail_after(-1):
-            pass
+            pass  # pragma: no cover
