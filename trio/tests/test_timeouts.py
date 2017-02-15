@@ -66,3 +66,7 @@ async def test_fail():
 
     with fail_after(100):
         await sleep(0)
+
+    with pytest.raises(ValueError):
+        with fail_after(-1):
+            pass
