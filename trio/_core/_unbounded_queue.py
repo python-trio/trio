@@ -17,6 +17,8 @@ class UnboundedQueue:
     def __init__(self):
         self._lot = _core.ParkingLot()
         self._data = deque()
+        # used to allow handoff from put to the first task in the lot
+        self._can_get = False
 
     def __repr__(self):
         return "<UnboundedQueue holding {} items>".format(len(self._data))
@@ -35,22 +37,28 @@ class UnboundedQueue:
     @_core.enable_ki_protection
     def put_nowait(self, obj):
         if not self._data:
-            self._lot.unpark(count=1)
+            assert not self._can_get
+            if self._lot:
+                self._lot.unpark(count=1)
+            else:
+                self._can_get = True
         self._data.append(obj)
 
-    def get_all_nowait(self):
-        if not self._data:
-            raise _core.WouldBlock
-        data = list(self._data)
+    def _get_all_protected(self):
+        data = self._data.copy()
         self._data.clear()
+        self._can_get = False
         return data
 
+    def get_all_nowait(self):
+        if not self._can_get:
+            raise _core.WouldBlock
+        return self._get_all_protected()
+
     async def get_all(self):
-        if self._data:
-            await _core.yield_briefly()
-        while not self._data:
+        if not self._can_get:
             await self._lot.park()
-        return self.get_all_nowait()
+        return self._get_all_protected()
 
     @aiter_compat
     def __aiter__(self):
