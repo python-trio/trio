@@ -449,6 +449,7 @@ class Runner:
 
     def close(self):
         self.io_manager.close()
+        self.call_soon_wakeup.close()
         self.instrument("after_run")
 
     # Methods marked with @_public get converted into functions exported by
