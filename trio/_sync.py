@@ -6,7 +6,7 @@ import attr
 from . import _core
 from ._core._util import aiter_compat
 
-__all__ = ["Event", "BoundedSemaphore", "Queue"]
+__all__ = ["Event", "Semaphore", "Lock", "Condition", "Queue"]
 
 @attr.s(slots=True, repr=False, cmp=False, hash=False)
 class Event:
@@ -34,10 +34,48 @@ class Event:
             await self._lot.park()
 
 
-class BoundedSemaphore:
-    def __init__(self, value):
+def async_cm(cls):
+    @_core.enable_ki_protection
+    async def __aenter__(self):
+        await self.acquire()
+    __aenter__.__qualname__ = cls.__qualname__ + ".__aenter__"
+    cls.__aenter__ = __aenter__
+
+    @_core.enable_ki_protection
+    async def __aexit__(self, *args):
+        self.release()
+    __aexit__.__qualname__ = cls.__qualname__ + ".__aexit__"
+    cls.__aexit__ = __aexit__
+    return cls
+
+
+@async_cm
+class Semaphore:
+    def __init__(self, initial_value, *, max_value=None):
+        if not isinstance(initial_value, int):
+            raise TypeError("initial_value must be an int")
+        if initial_value < 0:
+            raise ValueError("initial value must be >= 0")
+        if max_value is not None:
+            if not isinstance(max_value, int):
+                raise TypeError("max_value must be None or an int")
+            if max_value < initial_value:
+                raise ValueError("max_values must be >= initial_value")
+
+        # Invariants:
+        # bool(self._lot) implies self._value == 0
+        # (or equivalently: self._value > 0 implies not self._lot)
         self._lot = _core.ParkingLot()
-        self._value = self._max_value = value
+        self._value = initial_value
+        self._max_value = max_value
+
+    def __repr__(self):
+        if self._max_value is None:
+            max_value_str = ""
+        else:
+            max_value_str = ", max_value={}".format(self._max_value)
+        return ("<trio.Semaphore({}{}) at {:#x}>"
+                .format(self._value, max_value_str, id(self)))
 
     @property
     def value(self):
@@ -52,33 +90,127 @@ class BoundedSemaphore:
 
     @_core.enable_ki_protection
     def acquire_nowait(self):
-        if self._value >= 0:
+        if self._value > 0:
+            assert not self._lot
             self._value -= 1
         else:
             raise _core.WouldBlock
 
     @_core.enable_ki_protection
     async def acquire(self):
-        if self._value >= 0:
-            await _core.yield_briefly()
-        while self._value == 0:
+        await _core.yield_if_cancelled()
+        try:
+            self.acquire_nowait()
+        except _core.WouldBlock:
             await self._lot.park()
-        self.acquire_nowait()
+        else:
+            await _core.yield_briefly_no_cancel()
 
     @_core.enable_ki_protection
     def release(self):
-        if self._value == self._max_value:
-            raise ValueError("BoundedSemaphore released too many times")
-        self._value += 1
-        self._lot.unpark(count=1)
+        if self._lot:
+            assert self._value == 0
+            self._lot.unpark(count=1)
+        else:
+            if self._max_value is not None and self._value == self._max_value:
+                raise ValueError("semaphore released too many times")
+            self._value += 1
+
+
+@attr.s(frozen=True)
+class _LockStatistics:
+    locked = attr.ib()
+    owner = attr.ib()
+    tasks_waiting = attr.ib()
+
+@async_cm
+@attr.s(slots=True, cmp=False, hash=False, repr=False)
+class Lock:
+    _lot = attr.ib(default=attr.Factory(_core.ParkingLot))
+    _owner = attr.ib(default=None)
+
+    def __repr__(self):
+        if self.locked():
+            s1 = "locked"
+            s2 = " with {} waiters".format(len(self._lot))
+        else:
+            s1 = "unlocked"
+            s2 = ""
+        return "<{} trio.Lock object at {:#x}{}>".format(s1, id(self), s2)
+
+    def statistics(self):
+        return _LockStatistics(
+            locked=self.locked(),
+            owner=self._owner,
+            tasks_waiting=len(self._lot),
+        )
+
+    def locked(self):
+        return self._owner is not None
 
     @_core.enable_ki_protection
-    async def __aenter__(self):
-        await self.acquire()
+    def acquire_nowait(self):
+        task = _core.current_task()
+        if self._owner is task:
+            raise RuntimeError("attempt to re-acquire an already held Lock")
+        elif self._owner is None and not self._lot:
+            # No-one owns it
+            self._owner = task
+        else:
+            raise _core.WouldBlock
 
     @_core.enable_ki_protection
-    async def __aexit__(self, type, value, traceback):
+    async def acquire(self):
+        await _core.yield_if_cancelled()
+        try:
+            self.acquire_nowait()
+        except _core.WouldBlock:
+            # NOTE: it's important that the contended acquire path is just
+            # "_lot.park()", because that's how Condition.wait() acquires the
+            # lock as well.
+            await self._lot.park()
+        else:
+            await _core.yield_briefly_no_cancel()
+
+    @_core.enable_ki_protection
+    def release(self):
+        task = _core.current_task()
+        if task is not self._owner:
+            raise RuntimeError("can't release a Lock you don't own")
+        if self._lot:
+            (self._owner,) = self._lot.unpark(count=1)
+        else:
+            self._owner = None
+
+
+@async_cm
+class Condition:
+    def __init__(self, lock=None):
+        if lock is None:
+            lock = Lock()
+        if not isinstance(lock, Lock):
+            raise TypeError("lock must be a trio.Lock")
+        self._lock = lock
+        self._lot = _core.ParkingLot()
+
+    async def acquire(self):
+        await self._lock.acquire()
+
+    def release(self):
+        self._lock.release()
+
+    async def wait(self):
         self.release()
+        # NOTE: we go to sleep on this lot, but we'll wake up on
+        # self._lock._lot. Fortunately that's all that's required to acquire
+        # a Lock.
+        await self._lot.park()
+
+    def notify(self, n=1):
+        self._lot.repark(self._lock._lot, count=n)
+
+    def notify_all(self):
+        self._lot.repark(self._lock._lot)
 
 
 @attr.s(frozen=True)
@@ -93,9 +225,16 @@ class _QueueStats:
 # mandatory.
 class Queue:
     def __init__(self, capacity):
+        if not isinstance(capacity, int):
+            raise TypeError("capacity must be an integer")
+        if capacity < 0:
+            raise ValueError("capacity must be >= 0")
+        # Invariants:
+        #   get_semaphore.value() == len(self._data)
+        #   put_semaphore.value() + get_semaphore.value() = capacity
         self.capacity = operator.index(capacity)
-        self._put_lot = _core.ParkingLot()
-        self._get_lot = _core.ParkingLot()
+        self._put_semaphore = Semaphore(capacity, max_value=capacity)
+        self._get_semaphore = Semaphore(0, max_value=capacity)
         self._data = deque()
         self._join_lot = _core.ParkingLot()
         self._unprocessed = 0
@@ -108,8 +247,8 @@ class Queue:
         return _QueueStats(
             qsize=len(self._data),
             capacity=self.capacity,
-            tasks_waiting_put=self._put_lot.statistics().tasks_waiting,
-            tasks_waiting_get=self._get_lot.statistics().tasks_waiting,
+            tasks_waiting_put=self._put_semaphore.statistics().tasks_waiting,
+            tasks_waiting_get=self._get_semaphore.statistics().tasks_waiting,
             tasks_waiting_join=self._join_lot.statistics().tasks_waiting)
 
     def full(self):
@@ -121,40 +260,34 @@ class Queue:
     def empty(self):
         return not self._data
 
+    def _put_protected(self, obj):
+        self._data.append(obj)
+        self._unprocessed += 1
+        self._get_semaphore.release()
+
     @_core.enable_ki_protection
     def put_nowait(self, obj):
-        if self.full():
-            raise _core.WouldBlock
-        else:
-            self._data.append(obj)
-            self._unprocessed += 1
-            self._get_lot.unpark(count=1)
+        self._put_semaphore.acquire_nowait()
+        self._put_protected(obj)
 
     @_core.enable_ki_protection
     async def put(self, obj):
-        # Tricky: if there's room, we must do an artificial wait... but after
-        # that there might not be room anymore.
-        if not self.full():
-            await _core.yield_briefly()
-        while self.full():
-            await self._put_lot.park()
-        self.put_nowait(obj)
+        await self._put_semaphore.acquire()
+        self._put_protected(obj)
 
-    @_core.enable_ki_protection
-    def get_nowait(self):
-        if not self._data:
-            raise _core.WouldBlock
-        self._put_lot.unpark(count=1)
+    def _get_protected(self):
+        self._put_semaphore.release()
         return self._data.popleft()
 
     @_core.enable_ki_protection
+    def get_nowait(self):
+        self._get_semaphore.acquire_nowait()
+        return self._get_protected()
+
+    @_core.enable_ki_protection
     async def get(self):
-        # See comment on put()
-        if self._data:
-            await _core.yield_briefly()
-        while not self._data:
-            await self._get_lot.park()
-        return self.get_nowait()
+        await self._get_semaphore.acquire()
+        return self._get_protected()
 
     @_core.enable_ki_protection
     def task_done(self):
@@ -174,3 +307,5 @@ class Queue:
 
     async def __anext__(self):
         return await self.get()
+
+#
