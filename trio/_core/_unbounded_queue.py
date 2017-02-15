@@ -14,9 +14,9 @@ class _UnboundedQueueStats:
 
 @_hazmat
 class UnboundedQueue:
-    def __init__(self):
+    def __init__(self, container=list):
         self._lot = _core.ParkingLot()
-        self._data = deque()
+        self._data = container()
         # used to allow handoff from put to the first task in the lot
         self._can_get = False
 
@@ -26,7 +26,7 @@ class UnboundedQueue:
     def statistics(self):
         return _UnboundedQueueStats(
             qsize=len(self._data),
-            tasks_waiting_get_all=self._lot.statistics().tasks_waiting)
+            tasks_waiting=self._lot.statistics().tasks_waiting)
 
     def qsize(self):
         return len(self._data)

@@ -3,6 +3,8 @@ import threading
 from contextlib import contextmanager
 
 from . import _core
+from ._core._util import aiter_compat
+from ._sync import Semaphore
 
 __all__ = ["catch_signals"]
 
@@ -52,20 +54,32 @@ def _signal_handler(signals, handler):
         for signum, original_handler in original_handlers.items():
             signal.signal(signum, original_handler)
 
-# XX it would be nice if we could coalesce signals here so if a bunch arrive
-# in a short time we don't require unbounded memory. This would need two things:
-# - a coalesce=True argument to call_soon that tells it that the function is
-#   hashable and idempotent. This would be implemented by having both a set
-#   and a deque of pending call_soon thunks, and I guess we'd read the set in
-#   a batched+threadsafe+signalsafe way by doing:
-#     batch = thunk_set.copy()
-#     for thunk in batch:
-#         thunk_set.remove(thunk)
-#         thunk.call()
-#   (this assumes set.copy and set.remove are atomic operations, which I'm
-#   pretty sure is correct).
-# - We'd need a custom queue-like object for delivering signals, that does
-#   coalescing.
+# XX maybe it would make sense to merge this implementation with
+# UnboundedQueue, via a tiny bit of code to let it use a set instead of a list
+# for the intermediate storage? It's *almost* enough to just change
+# UnboundedQueue.__init__ to do self._data = set() instead of self.data =
+# list(), except for the list.append vs. set.add incompatibility...
+class SignalQueue:
+    def __init__(self):
+        self._semaphore = Semaphore(0, max_value=1)
+        self._pending = set()
+
+    def _add(self, signum):
+        if not self._pending:
+            self._semaphore.release()
+        self._pending.add(signum)
+
+    @aiter_compat
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        await self._semaphore.acquire()
+        assert self._pending
+        pending = set(self._pending)
+        self._pending.clear()
+        return pending
+
 @contextmanager
 def catch_signals(signals):
     if threading.current_thread() != threading.main_thread():
@@ -73,8 +87,9 @@ def catch_signals(signals):
             "Sorry, catch_signals is only possible when running in the "
             "Python interpreter's main thread")
     call_soon = _core.current_call_soon_thread_and_signal_safe()
-    queue = _core.UnboundedQueue()
+    # XX this doesn't *quite* work due to append vs. add...
+    queue = SignalQueue()
     def handler(signum, _):
-        call_soon(queue.put_nowait, signum)
+        call_soon(queue._add, signum, idempotent=True)
     with _signal_handler(signals, handler):
         yield queue

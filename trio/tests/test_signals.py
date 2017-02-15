@@ -47,15 +47,20 @@ async def test_catch_signals():
     orig = signal.getsignal(signal.SIGILL)
     print(orig)
     with catch_signals([signal.SIGILL]) as queue:
-        print("in with")
-        with pytest.raises(_core.WouldBlock):
-            assert queue.get_all_nowait()
-        print("killing")
+        # Raise it a few times, to exercise signal coalescing, both at the
+        # call_soon level and at the SignalQueue level
         kill_self(signal.SIGILL)
-        print("killed")
-        assert (await queue.get_all()) == [signal.SIGILL]
-        print("got stuff")
-    print("out of with")
+        kill_self(signal.SIGILL)
+        await _core.wait_run_loop_idle()
+        kill_self(signal.SIGILL)
+        await _core.wait_run_loop_idle()
+        async for batch in queue:  # pragma: no branch
+            assert batch == {signal.SIGILL}
+            break
+        kill_self(signal.SIGILL)
+        async for batch in queue:  # pragma: no branch
+            assert batch == {signal.SIGILL}
+            break
     assert signal.getsignal(signal.SIGILL) is orig
 
 def test_catch_signals_wrong_thread():

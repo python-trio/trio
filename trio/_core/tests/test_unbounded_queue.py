@@ -23,7 +23,7 @@ async def test_UnboundedQueue_basic():
 
     stats = q.statistics()
     assert stats.qsize == 1
-    assert stats.tasks_waiting_get_all == 0
+    assert stats.tasks_waiting == 0
 
     # smoke test
     repr(q)
@@ -50,7 +50,7 @@ async def test_UnboundedQueue_blocking():
             await _core.wait_run_loop_idle()
             stats = q.statistics()
             assert stats.qsize == 0
-            assert stats.tasks_waiting_get_all == 1
+            assert stats.tasks_waiting == 1
             q.put_nowait(10)
             q.put_nowait(11)
             await _core.wait_run_loop_idle()
