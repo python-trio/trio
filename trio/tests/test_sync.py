@@ -13,7 +13,8 @@ async def test_Event():
 
     e.set()
     assert e.is_set()
-    await e.wait()
+    with assert_yields():
+        await e.wait()
 
     e.clear()
     assert not e.is_set()
@@ -57,8 +58,9 @@ async def test_Semaphore():
 
     s.release()
     assert s.value == 1
-    async with s:
-        assert s.value == 0
+    with assert_yields():
+        async with s:
+            assert s.value == 0
     assert s.value == 1
     s.acquire_nowait()
 
@@ -96,15 +98,17 @@ async def test_Lock():
     l = Lock()
     assert not l.locked()
     repr(l)  # smoke test
-    async with l:
-        assert l.locked()
-        repr(l)  # smoke test (repr branches on locked/unlocked)
+    with assert_yields():
+        async with l:
+            assert l.locked()
+            repr(l)  # smoke test (repr branches on locked/unlocked)
     assert not l.locked()
     l.acquire_nowait()
     assert l.locked()
     l.release()
     assert not l.locked()
-    await l.acquire()
+    with assert_yields():
+        await l.acquire()
     assert l.locked()
     l.release()
     assert not l.locked()
@@ -153,62 +157,6 @@ async def test_Lock():
     assert statistics.owner is None
     assert statistics.tasks_waiting == 0
 
-generic_lock_test = pytest.mark.parametrize(
-    "lock_factory", [lambda: Semaphore(1), Lock], ids=["Semaphore(1)", "Lock"])
-
-# Spawn a bunch of workers that take a lock and then yield; make sure that
-# only one worker is ever in the critical section at a time.
-@generic_lock_test
-async def test_generic_lock_exclusion(lock_factory):
-    LOOPS = 10
-    WORKERS = 5
-    in_critical_section = False
-    acquires = 0
-
-    async def worker(lock_like):
-        nonlocal in_critical_section, acquires
-        for _ in range(LOOPS):
-            async with lock_like:
-                acquires += 1
-                assert not in_critical_section
-                in_critical_section = True
-                await _core.yield_briefly()
-                await _core.yield_briefly()
-                assert in_critical_section
-                in_critical_section = False
-
-    async with _core.open_nursery() as nursery:
-        lock_like = lock_factory()
-        for _ in range(WORKERS):
-            nursery.spawn(worker, lock_like)
-    assert not in_critical_section
-    assert acquires == LOOPS * WORKERS
-
-# Several workers queue on the same lock; make sure they each get it, in
-# order.
-@generic_lock_test
-async def test_generic_lock_fairness(lock_factory):
-    initial_order = []
-    record = []
-    LOOPS = 5
-
-    async def loopy(name, lock_like):
-        # Record the order each task was initially scheduled in
-        initial_order.append(name)
-        for _ in range(LOOPS):
-            async with lock_like:
-                record.append(name)
-
-    lock_like = lock_factory()
-    async with _core.open_nursery() as nursery:
-        nursery.spawn(loopy, 1, lock_like)
-        nursery.spawn(loopy, 2, lock_like)
-        nursery.spawn(loopy, 3, lock_like)
-    # The first three could be in any order due to scheduling randomness,
-    # but after that they should repeat in the same order
-    for i in range(LOOPS):
-        assert record[3*i : 3*(i + 1)] == initial_order
-
 
 async def test_Condition():
     with pytest.raises(TypeError):
@@ -217,7 +165,8 @@ async def test_Condition():
     c = Condition(l)
     assert not l.locked()
     assert not c.locked()
-    await c.acquire()
+    with assert_yields():
+        await c.acquire()
     assert l.locked()
     assert c.locked()
 
@@ -293,6 +242,124 @@ async def test_Condition():
                 assert c.locked()
 
 
+async def test_Queue():
+    with pytest.raises(TypeError):
+        Queue(1.0)
+    with pytest.raises(ValueError):
+        Queue(-1)
+    with pytest.raises(ValueError):
+        Queue(0)
+
+    q = Queue(2)
+    repr(q)  # smoke test
+    assert q.capacity == 2
+    assert q.qsize() == 0
+    assert q.empty()
+    assert not q.full()
+
+    q.put_nowait(1)
+    assert q.qsize() == 1
+    assert not q.empty()
+    assert not q.full()
+
+    with assert_yields():
+        await q.put(2)
+    assert q.qsize() == 2
+    with pytest.raises(_core.WouldBlock):
+        q.put_nowait(None)
+    assert q.qsize() == 2
+    assert not q.empty()
+    assert q.full()
+
+    with assert_yields():
+        assert await q.get() == 1
+    assert q.get_nowait() == 2
+    with pytest.raises(_core.WouldBlock):
+        q.get_nowait()
+    assert q.empty()
+
+
+async def test_Queue_join():
+    q = Queue(2)
+    with assert_yields():
+        await q.join()
+
+    async with _core.open_nursery() as nursery:
+        await q.put(None)
+        t1 = nursery.spawn(q.join)
+        t2 = nursery.spawn(q.join)
+        await wait_run_loop_idle()
+        assert t1.result is t2.result is None
+        q.put_nowait(None)
+        q.get_nowait()
+        q.get_nowait()
+        q.task_done()
+        await wait_run_loop_idle()
+        assert t1.result is t2.result is None
+        q.task_done()
+
+
+async def test_Queue_iter():
+    q = Queue(1)
+
+    async def producer():
+        for i in range(10):
+            await q.put(i)
+        await q.put(None)
+
+    async def consumer():
+        expected = iter(range(10))
+        async for item in q:
+            if item is None:
+                break
+            assert item == next(expected)
+
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(producer)
+        nursery.spawn(consumer)
+
+
+async def test_Queue_statistics():
+    q = Queue(3)
+    q.put_nowait(1)
+    statistics = q.statistics()
+    assert statistics.qsize == 1
+    assert statistics.capacity == 3
+    assert statistics.tasks_waiting_put == 0
+    assert statistics.tasks_waiting_get == 0
+    assert statistics.tasks_waiting_join == 0
+
+    async with _core.open_nursery() as nursery:
+        q.put_nowait(2)
+        q.put_nowait(3)
+        assert q.full()
+        nursery.spawn(q.put, 4)
+        nursery.spawn(q.put, 5)
+        nursery.spawn(q.join)
+        await wait_run_loop_idle()
+        statistics = q.statistics()
+        assert statistics.qsize == 3
+        assert statistics.capacity == 3
+        assert statistics.tasks_waiting_put == 2
+        assert statistics.tasks_waiting_get == 0
+        assert statistics.tasks_waiting_join == 1
+        nursery.cancel_scope.cancel()
+
+    q = Queue(4)
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(q.get)
+        nursery.spawn(q.get)
+        nursery.spawn(q.get)
+        await wait_run_loop_idle()
+        statistics = q.statistics()
+        assert statistics.qsize == 0
+        assert statistics.capacity == 4
+        assert statistics.tasks_waiting_put == 0
+        assert statistics.tasks_waiting_get == 3
+        assert statistics.tasks_waiting_join == 0
+        nursery.cancel_scope.cancel()
+
+
 async def test_Queue_fairness():
 
     # We can remove an item we just put, and put an item back in after, if
@@ -329,3 +396,127 @@ async def test_Queue_fairness():
         with pytest.raises(_core.WouldBlock):
             q.put_nowait(3)
         assert (await q.get()) == 2
+
+
+# Two ways of implementing a Lock in terms of a Queue. Used to let us put the
+# Queue through the generic lock tests.
+
+from .._sync import async_cm
+@async_cm
+class QueueLock1:
+    def __init__(self, capacity):
+        self.q = Queue(capacity)
+        for _ in range(capacity - 1):
+            self.q.put_nowait(None)
+
+    def acquire_nowait(self):
+        self.q.put_nowait(None)
+
+    async def acquire(self):
+        await self.q.put(None)
+
+    def release(self):
+        self.q.get_nowait()
+
+@async_cm
+class QueueLock2:
+    def __init__(self):
+        self.q = Queue(10)
+        self.q.put_nowait(None)
+
+    def acquire_nowait(self):
+        self.q.get_nowait()
+
+    async def acquire(self):
+        await self.q.get()
+
+    def release(self):
+        self.q.put_nowait(None)
+
+lock_factories = [
+    lambda: Semaphore(1),
+    Lock,
+    lambda: QueueLock1(10),
+    lambda: QueueLock1(1),
+    QueueLock2,
+]
+lock_factory_names = [
+    "Semaphore(1)",
+    "Lock",
+    "QueueLock1(10)",
+    "QueueLock1(1)",
+    "QueueLock2",
+]
+
+generic_lock_test = pytest.mark.parametrize(
+    "lock_factory", lock_factories, ids=lock_factory_names)
+
+# Spawn a bunch of workers that take a lock and then yield; make sure that
+# only one worker is ever in the critical section at a time.
+@generic_lock_test
+async def test_generic_lock_exclusion(lock_factory):
+    LOOPS = 10
+    WORKERS = 5
+    in_critical_section = False
+    acquires = 0
+
+    async def worker(lock_like):
+        nonlocal in_critical_section, acquires
+        for _ in range(LOOPS):
+            async with lock_like:
+                acquires += 1
+                assert not in_critical_section
+                in_critical_section = True
+                await _core.yield_briefly()
+                await _core.yield_briefly()
+                assert in_critical_section
+                in_critical_section = False
+
+    async with _core.open_nursery() as nursery:
+        lock_like = lock_factory()
+        for _ in range(WORKERS):
+            nursery.spawn(worker, lock_like)
+    assert not in_critical_section
+    assert acquires == LOOPS * WORKERS
+
+
+# Several workers queue on the same lock; make sure they each get it, in
+# order.
+@generic_lock_test
+async def test_generic_lock_fairness(lock_factory):
+    initial_order = []
+    record = []
+    LOOPS = 5
+
+    async def loopy(name, lock_like):
+        # Record the order each task was initially scheduled in
+        initial_order.append(name)
+        for _ in range(LOOPS):
+            async with lock_like:
+                record.append(name)
+
+    lock_like = lock_factory()
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(loopy, 1, lock_like)
+        nursery.spawn(loopy, 2, lock_like)
+        nursery.spawn(loopy, 3, lock_like)
+    # The first three could be in any order due to scheduling randomness,
+    # but after that they should repeat in the same order
+    for i in range(LOOPS):
+        assert record[3*i : 3*(i + 1)] == initial_order
+
+
+@generic_lock_test
+async def test_generic_lock_acquire_nowait_blocks_acquire(lock_factory):
+    lock_like = lock_factory()
+
+    async def lock_taker():
+        async with lock_like:
+            pass
+
+    async with _core.open_nursery() as nursery:
+        lock_like.acquire_nowait()
+        t = nursery.spawn(lock_taker)
+        await wait_run_loop_idle()
+        assert t.result is None
+        lock_like.release()

@@ -255,8 +255,8 @@ class Queue:
     def __init__(self, capacity):
         if not isinstance(capacity, int):
             raise TypeError("capacity must be an integer")
-        if capacity < 0:
-            raise ValueError("capacity must be >= 0")
+        if capacity < 1:
+            raise ValueError("capacity must be >= 1")
         # Invariants:
         #   get_semaphore.value() == len(self._data)
         #   put_semaphore.value() + get_semaphore.value() = capacity
@@ -268,8 +268,8 @@ class Queue:
         self._unprocessed = 0
 
     def __repr__(self):
-        return ("<Queue({}) holding {} items>"
-                .format(self.capacity, len(self._data)))
+        return ("<Queue({}) at {:#x} holding {} items>"
+                .format(self.capacity, id(self), len(self._data)))
 
     def statistics(self):
         return _QueueStats(
