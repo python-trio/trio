@@ -568,9 +568,11 @@ class Runner:
     # not signal-safe. deque is implemented in C, so each operation is atomic
     # WRT threads (and this is guaranteed in the docs), AND each operation is
     # atomic WRT signal delivery (signal handlers can run on either side, but
-    # not *during* a deque operation).
+    # not *during* a deque operation). dict makes similar guarantees - and on
+    # CPython 3.6 and PyPy, it's even ordered!
     call_soon_wakeup = attr.ib(default=attr.Factory(WakeupSocketpair))
     call_soon_queue = attr.ib(default=attr.Factory(deque))
+    call_soon_idempotent_queue = attr.ib(default=attr.Factory(dict))
     call_soon_done = attr.ib(default=False)
     # Must be a reentrant lock, because it's acquired from signal
     # handlers. RLock is signal-safe as of cpython 3.2.
@@ -583,7 +585,7 @@ class Runner:
     # WRT a signal anyway.
     call_soon_lock = attr.ib(default=attr.Factory(threading.RLock))
 
-    def call_soon_thread_and_signal_safe(self, fn, *args):
+    def call_soon_thread_and_signal_safe(self, fn, *args, idempotent=False):
         with self.call_soon_lock:
             if self.call_soon_done:
                 raise RunFinishedError("run() has exited")
@@ -592,7 +594,10 @@ class Runner:
             # calls, and then our queue item might not be processed, or the
             # wakeup call might trigger an OSError b/c the IO manager has
             # already been shut down.
-            self.call_soon_queue.append((fn, args))
+            if idempotent:
+                self.call_soon_idempotent_queue[(fn, args)] = None
+            else:
+                self.call_soon_queue.append((fn, args))
             self.call_soon_wakeup.wakeup_thread_and_signal_safe()
 
     @_public
@@ -611,17 +616,12 @@ class Runner:
         #     https://bugs.python.org/issue13697#msg237140
         assert self.call_soon_lock.__class__.__module__ == "_thread"
 
-        # Returns True if it managed to do some work, and false if the queue
-        # was empty.
-        def maybe_call_next():
-            try:
-                fn, args = self.call_soon_queue.popleft()
-            except IndexError:
-                return False  # queue empty
+        def run_cb(job):
             # We run this with KI protection enabled; it's the callbacks
             # job to disable it if it wants it disabled. Exceptions are
             # treated like system task exceptions (i.e., converted into
             # TrioInternalError and cause everything to shut down).
+            fn, args = job
             try:
                 fn(*args)
             except BaseException as exc:
@@ -630,17 +630,22 @@ class Runner:
                 self.spawn_system_task(kill_everything, exc)
             return True
 
+        # This has to be carefully written to be safe in the face of new items
+        # being queued while we iterate, and to do a bounded amount of work on
+        # each pass:
+        def run_all_bounded():
+            for _ in range(len(self.call_soon_queue)):
+                run_cb(self.call_soon_queue.popleft())
+            for job in list(self.call_soon_idempotent_queue):
+                del self.call_soon_idempotent_queue[job]
+                run_cb(job)
+
         try:
             while True:
-                # Do a bounded amount of work between yields.
-                # We always want to try processing at least one, though;
-                # otherwise we could just loop around doing nothing at
-                # all. If the queue is really empty, maybe_call_next will
-                # return False and we'll sleep.
-                for _ in range(max(1, len(self.call_soon_queue))):
-                    if not maybe_call_next():
-                        await self.call_soon_wakeup.wait_woken()
-                        break
+                run_all_bounded()
+                if (not self.call_soon_queue
+                      and not self.call_soon_idempotent_queue):
+                    await self.call_soon_wakeup.wait_woken()
                 else:
                     await yield_briefly()
         except Cancelled:
@@ -659,8 +664,9 @@ class Runner:
                 self.call_soon_done = True
             # No more jobs will be submitted, so just clear out any residual
             # ones:
-            while maybe_call_next():
-                pass
+            run_all_bounded()
+            assert not self.call_soon_queue
+            assert not self.call_soon_idempotent_queue
 
     ################
     # KI handling

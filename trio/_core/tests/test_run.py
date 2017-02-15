@@ -2,6 +2,7 @@ import threading
 import sys
 import time
 from math import inf
+import platform
 
 import pytest
 import attr
@@ -946,6 +947,60 @@ def test_call_soon_too_late():
     with pytest.raises(_core.RunFinishedError):
         call_soon(lambda: None)  # pragma: no branch
 
+
+async def test_call_soon_idempotent():
+    record = []
+    def cb(x):
+        record.append(x)
+
+    call_soon = _core.current_call_soon_thread_and_signal_safe()
+    call_soon(cb, 1)
+    call_soon(cb, 1, idempotent=True)
+    call_soon(cb, 1, idempotent=True)
+    call_soon(cb, 1, idempotent=True)
+    call_soon(cb, 2, idempotent=True)
+    call_soon(cb, 2, idempotent=True)
+    await wait_run_loop_idle()
+    assert len(record) == 3
+    assert sorted(record) == [1, 1, 2]
+
+    # ordering test
+    record = []
+    for _ in range(3):
+        for i in range(100):
+            call_soon(cb, i, idempotent=True)
+    await wait_run_loop_idle()
+    if (sys.version_info < (3, 6)
+          and platform.python_implementation() == "CPython"):
+        # no order guarantees
+        record.sort()
+    # Otherwise, we guarantee FIFO
+    assert record == list(range(100))
+
+def test_call_soon_idempotent_requeue():
+    # We guarantee that if a call has finished, queueing it again will call it
+    # again. Due to the lack of synchronization, this effectively means that
+    # we have to guarantee that once a call has *started*, queueing it again
+    # will call it again. Also this is much easier to test :-)
+    record = []
+
+    def redo(call_soon):
+        record.append(None)
+        try:
+            call_soon(redo, call_soon, idempotent=True)
+        except _core.RunFinishedError:
+            pass
+
+    async def main():
+        call_soon = _core.current_call_soon_thread_and_signal_safe()
+        call_soon(redo, call_soon, idempotent=True)
+        await _core.yield_briefly()
+        await _core.yield_briefly()
+        await _core.yield_briefly()
+
+    _core.run(main)
+
+    assert len(record) >= 2
 
 def test_call_soon_after_main_crash():
     record = []
