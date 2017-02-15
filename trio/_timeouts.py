@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from . import _core
 
 __all__ = [
-    "move_on_at", "move_on_after", "sleep_until", "sleep",
+    "move_on_at", "move_on_after", "sleep_forever", "sleep_until", "sleep",
     "fail_at", "fail_after", "TooSlowError",
 ]
 
@@ -15,9 +15,12 @@ def move_on_after(seconds):
         raise ValueError("timeout must be non-negative")
     return move_on_at(_core.current_time() + seconds)
 
+async def sleep_forever():
+    await _core.yield_indefinitely(lambda _: _core.Abort.SUCCEEDED)
+
 async def sleep_until(deadline):
     with move_on_at(deadline):
-        await _core.yield_indefinitely(lambda _: _core.Abort.SUCCEEDED)
+        await sleep_forever()
 
 async def sleep(seconds):
     if seconds < 0:

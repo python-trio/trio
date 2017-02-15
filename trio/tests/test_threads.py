@@ -9,6 +9,7 @@ import pytest
 from .. import _core
 from ..testing import busy_wait_for, wait_run_loop_idle
 from .._threads import *
+from .._timeouts import sleep
 
 from .._core.tests.test_ki import ki_self
 
@@ -29,8 +30,7 @@ async def test_do_in_trio_thread():
         child_thread.start()
         while child_thread.is_alive():
             print("yawn")
-            time.sleep(0.01)
-            await _core.yield_briefly()
+            await sleep(0.01)
         assert record == [
             ("start", child_thread), ("f", trio_thread), expected]
 
@@ -111,7 +111,8 @@ def test_run_in_trio_thread_ki():
         thread = threading.Thread(target=external_thread_fn)
         thread.start()
         print("waiting")
-        await busy_wait_for(lambda: len(record) == 2)
+        while thread.is_alive():
+            await sleep(0.01)
         print("waited, joining")
         thread.join()
         print("done")

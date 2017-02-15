@@ -14,14 +14,18 @@ async def check_takes_about(f, expected_dur):
     assert 1 <= (dur / expected_dur) < 1.2
     return result.unwrap()
 
-async def test_sleep():
-    async def sleep_025_1():
-        await sleep_until(_core.current_time() + 0.25)
-    await check_takes_about(sleep_025_1, 0.25)
+# How long to (attempt to) sleep for when testing. Smaller numbers make the
+# test suite go faster.
+TARGET = 0.05
 
-    async def sleep_025_2():
-        await sleep(0.25)
-    await check_takes_about(sleep_025_2, 0.25)
+async def test_sleep():
+    async def sleep_1():
+        await sleep_until(_core.current_time() + TARGET)
+    await check_takes_about(sleep_1, TARGET)
+
+    async def sleep_2():
+        await sleep(TARGET)
+    await check_takes_about(sleep_2, TARGET)
 
     with pytest.raises(ValueError):
         await sleep(-1)
@@ -38,27 +42,27 @@ async def test_move_on_after():
         with move_on_after(-1):
             pass  # pragma: no cover
 
-    async def sleep_025_3():
-        with move_on_after(0.25):
+    async def sleep_3():
+        with move_on_after(TARGET):
             await sleep(100)
-    await check_takes_about(sleep_025_3, 0.25)
+    await check_takes_about(sleep_3, TARGET)
 
 
 async def test_fail():
-    async def sleep_025_4():
-        with fail_at(_core.current_time() + 0.25):
+    async def sleep_4():
+        with fail_at(_core.current_time() + TARGET):
             await sleep(100)
     with pytest.raises(TooSlowError):
-        await check_takes_about(sleep_025_4, 0.25)
+        await check_takes_about(sleep_4, TARGET)
 
     with fail_at(_core.current_time() + 100):
         await sleep(0)
 
-    async def sleep_025_5():
-        with fail_after(0.25):
+    async def sleep_5():
+        with fail_after(TARGET):
             await sleep(100)
     with pytest.raises(TooSlowError):
-        await check_takes_about(sleep_025_5, 0.25)
+        await check_takes_about(sleep_5, TARGET)
 
     with fail_after(100):
         await sleep(0)

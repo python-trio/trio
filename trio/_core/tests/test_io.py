@@ -182,7 +182,11 @@ async def test_socket_actual_streaming(
         socketpair, wait_readable, wait_writable):
     a, b = socketpair
 
-    N = 10000000  # 10 megabytes
+    # Use a small send buffer on one of the sockets to increase the chance of
+    # getting partial writes
+    a.setsockopt(stdlib_socket.SOL_SOCKET, stdlib_socket.SO_SNDBUF, 10000)
+
+    N = 1000000  # 1 megabyte
     MAX_CHUNK = 65536
 
     async def sender(sock, seed):

@@ -8,9 +8,13 @@ import attr
 
 from .test_util import check_sequence_matches
 from ...testing import busy_wait_for, wait_run_loop_idle, Sequencer
+from ..._timeouts import sleep
 
 from ... import _core
 
+# slightly different from _timeouts.sleep_forever because it returns the value
+# its rescheduled with, which is really only useful for tests of
+# rescheduling...
 async def sleep_forever():
     return await _core.yield_indefinitely(lambda _: _core.Abort.SUCCEEDED)
 
@@ -760,7 +764,7 @@ async def test_cancel_scope_nesting():
 
 async def test_timekeeping():
     # probably a good idea to use a real clock for *one* test anyway...
-    TARGET = 0.25
+    TARGET = 0.1
     # give it a few tries in case of random CI server flakiness
     for _ in range(4):
         real_start = time.monotonic()
@@ -1038,24 +1042,29 @@ def test_call_soon_threaded_stress_test():
         thread.start()
         for _ in range(3):
             start_value = cb_counter
-            await busy_wait_for(lambda: cb_counter > start_value)
+            while cb_counter == start_value:
+                await sleep(0.01)
 
     _core.run(main)
     print(cb_counter)
 
 
 async def test_call_soon_massive_queue():
-    # There are edge cases in the Unix wakeup pipe code when the pipe buffer
-    # overflows, so let's try to make that happen. On Linux the default pipe
-    # buffer size is 64 KiB (though we reduce it to 4096). This also serves as
-    # a good stress test of the Windows code.
-    COUNT = 66000
+    # There are edge cases in the wakeup fd code when the wakeup fd overflows,
+    # so let's try to make that happen. This is also just a good stress test
+    # in general. (With the current-as-of-2017-02-14 code using a socketpair
+    # with minimal buffer, Linux takes 6 wakeups to fill the buffer and MacOS
+    # takes 1 wakeup. So 1000 is overkill if anything. Windows OTOH takes
+    # ~600,000 wakeups, but has the same code paths...)
+    COUNT = 1000
     call_soon = _core.current_call_soon_thread_and_signal_safe()
     counter = [0]
-    def cb():
+    def cb(i):
+        # This also tests FIFO ordering of callbacks
+        assert counter[0] == i
         counter[0] += 1
-    for _ in range(COUNT):
-        call_soon(cb)
+    for i in range(COUNT):
+        call_soon(cb, i)
     await busy_wait_for(lambda: counter[0] == COUNT)
 
 
