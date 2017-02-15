@@ -232,6 +232,7 @@ nothing to see here
      - __iterclose__
      - better ergonomics for MultiErrors (catching, printing,
        rethrowing...)
+       - concatenating tracebacks
      - context chaining for .throw() and .athrow()
      - better support for KI management (in particular for __(a)exit__
        blocks, with their currently unfixable race condition)
@@ -264,7 +265,8 @@ nothing to see here
 
      - ability to go from stack frame to function object (maybe the
        frame itself could hold a pointer to the function, if
-       available?)
+       available? no circular references that way. though putting it
+       in the code object would probably be simpler otherwise.)
        used for:
          - better introspection (right now you can't get
            __qualname__ for tracebacks!)
