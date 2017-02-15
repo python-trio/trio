@@ -8,10 +8,10 @@ async def check_takes_about(f, expected_dur):
     start = time.monotonic()
     result = await _core.Result.acapture(f)
     dur = time.monotonic() - start
-    # In practice on my laptop I get numbers like 1.003, so 1.2 seems pretty
-    # conservative. On appveyor it's usually 1.0, so the <= is important.
+    # In practice on my Linux laptop I get numbers like 1.003, but Windows is
+    # really sloppy -- I've seen 1.6x or so fairly often.
     print(dur / expected_dur)
-    assert 1 <= (dur / expected_dur) < 1.2
+    assert 1 <= (dur / expected_dur) < 2
     return result.unwrap()
 
 # How long to (attempt to) sleep for when testing. Smaller numbers make the

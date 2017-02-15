@@ -776,7 +776,7 @@ async def test_timekeeping():
         print(accuracy)
         # Actual time elapsed should always be >= target time
         # (== is possible because time.monotonic on Windows is really low res)
-        if 1.0 <= accuracy < 1.2:  # pragma: no branch
+        if 1.0 <= accuracy < 2:  # pragma: no branch
             break
     else:  # pragma: no cover
         assert False
