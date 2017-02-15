@@ -216,6 +216,7 @@ class Condition:
     def release(self):
         self._lock.release()
 
+    @_core.enable_ki_protection
     async def wait(self):
         if _core.current_task() is not self._lock._owner:
             raise RuntimeError("must hold the lock to wait")
@@ -335,5 +336,3 @@ class Queue:
 
     async def __anext__(self):
         return await self.get()
-
-#
