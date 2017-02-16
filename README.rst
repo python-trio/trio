@@ -29,17 +29,18 @@ nothing to see here
    Traditionally, async programming is quite challenging, with many
    subtle edge cases that are easy to get wrong. The addition of
    `asyncio <https://docs.python.org/3/library/asyncio.html>`__ to the
-   standard library was a great step forward, but asyncio suffers from
-   backwards-compatibility constraints that (ironically) make it
-   difficult for it to take full advantage of the new language
-   features that it motivated. The result can be `confusing
+   standard library was a huge advance, but things have continued to
+   move forward since then, and ironically, asyncio suffers from
+   backwards-compatibility constraints that make it difficult for it
+   to take full advantage of the new language features that it
+   motivated. The resulting system with its layered strata of
+   different programming models can be `confusing
    <http://lucumr.pocoo.org/2016/10/30/i-dont-understand-asyncio/>`__,
-   and there's a `widespread sense
-   <https://mail.python.org/pipermail/async-sig/2016-November/000175.html>`__
-   that we can do better.
+   and there's a `widespread sense that we can do better
+   <https://mail.python.org/pipermail/async-sig/2016-November/000175.html>`__.
 
    The ideas behind trio come most directly from `analyzing the
-   pitfalls of traditional async programming models like asyncio
+   pitfalls of callback-based async programming models like asyncio
    <https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/>`__,
    with heavy influence from Dave Beazley's `curio
    <https://github.com/dabeaz/curio>`__ (though trio and curio differ
@@ -50,10 +51,11 @@ nothing to see here
    these ideas into a library that makes it *easy and fun* to write
    asynchronous code that's *safe, correct, and performant*.
 
-   Our (possibly overambitious!) goal is for trio to be to asyncio as
-   `requests is to urllib2
-   <https://gist.github.com/kennethreitz/973705>`__, or Python is
-   to C. Of course, whether we can live up to that is an open
+   Our (possibly overambitious!) goal is that switching to trio from a
+   library created in the pre-async/await-era should feel like
+   switching from `urllib2 to requests
+   <https://gist.github.com/kennethreitz/973705>`__, or from C to
+   Python. Of course, whether we can live up to that is an open
    question! Trio represents one fairly opinionated vision for the
    future of asynchronous I/O in Python, but it's not the only such
    vision. If you're interested in trio, then you should certainly
@@ -72,13 +74,20 @@ nothing to see here
    issue <https://github.com/njsmith/trio/issues/1>`__.
 
    *But wait, will it work on my system?* Probably! As long as you
-   have CPython 3.5+ or a PyPy 3.5 prerelease, and are using Linux,
-   MacOS, or Windows, then trio should absolutely work. (*BSD and
-   illumos likely work too, but we don't have testing infrastructure
-   for them.)
+   have either CPython 3.5+ or a PyPy 3.5 prerelease, and are using
+   Linux, MacOS, or Windows, then trio should absolutely work. *BSD
+   and illumos likely work too, but we don't have testing
+   infrastructure for them.
 
-   *I want to help!* You're the best! Check out our  <github issues>
+   *I want to help!* You're the best! There's tons of work to do
+   Check out our  <github issues>
    discussion, tests, docs, use it and let us know how it goes XX
+   usability testing (try teaching yourself or a friend to use trio
+   and make a list of every error message you hit and place where you
+   got confused?), docs, logo, ...
+   Depending on your interests, you might want to check out our lists
+   of low-hanging fruit, of significant missing functionality, or of
+   open high-level design questions.
 
    *I want to make sure my company's lawyers won't get angry at me!*
    No worries, trio is permissively licensed under your choice of MIT
@@ -124,17 +133,17 @@ nothing to see here
    - Listening for signals
    - run_in_worker_thread
    - {run,await}_in_trio_thread (from outside threads)
-
-   Needs work:
    - KeyboardInterrupt handling
    - Synchronization primitives (Event, Queue, Semaphore, etc.)
+   - Core socket handling
+
+   Needs work:
    - IDNA (someone help me please)
 
    Needs written:
    - socket module:
      - sendfile
-   - some sort of supervision story (+ probably want to change task API
-     in the process)
+     - high level helpers like start_tcp_server
    - docs
    - subprocesses
    - worker process pool
@@ -173,6 +182,102 @@ nothing to see here
 
 
    next:
+   - MultiError.acatch -- also tracebacks are quite a pain if
+     replacing one object by another... I guess each time we
+     catch/rethrow, push the tracebacks from the MultiError onto the
+     individual exceptions and then make a new MultiError?
+
+     just implement the set_wakeup_fd thing for now
+       (and I think we might actually need it on Unix too? because
+       blocking primitives are only interrupted *if* they raise? --
+       no, because the signal handler does run and does trigger the
+       regular call_soon wakeup logic)
+
+     arun/run/call_soon
+     run/call/call_soon
+     run/run_sync/(call_soon or run_sync_soon)
+
+     design document outline:
+
+     target audience: folks who want to read the code and potentially
+     contribute, folks working on competing libraries looking for
+     ideas to steal, folks who are interested in IO library design generally
+
+     - priorities: usability and correctness
+
+       usability means: assume user is going to take the trouble to
+       get all the anal details right, and then make that as easy as
+       possible
+
+       if the user *wants* to be sloppy that's fine too, it's a
+       reasonable decision, but we don't optimize for sloppy code
+
+       what about speed?
+
+     - design for stability
+
+       noticed that lots of interesting experiments in curio involve
+       stuff like new synchronization primitives which require
+       touching
+       and
+
+       hazmat layer: make it possible to implement new features
+       without touching the core
+       stable, public, but `nasty big pointy teeth <https://en.wikipedia.org/wiki/Rabbit_of_Caerbannog>`__
+
+     - the blog post & curio
+
+       no implicit concurrency -- no callbacks, no implicit spawn, no
+       implicit yield
+
+       when you call a function it runs and then returns, like Guido
+       intended
+
+     - give tools to *manage* concurrency (this is the major breaking
+       point from curio)
+
+     - exceptions always propagate
+
+       which leads to nursery design
+
+       (influenced by erlang's link + monitor; we also have monitor,
+       but our link is very different)
+
+       this also gives a really neat invariant: any async function can
+       use concurrency *within* itself *but* it has to be wrapped up
+       before it returns.
+
+       if you want concurrency that lasts beyond a function call
+       ("causality violation"), then you need to somehow have a
+       supervisor passed in
+
+     - cancellation: fundamental & error prone
+       we have this nice stack, want to be composable and allow
+       cancellation/timeouts for arbitrary code
+
+       combines curio's stack-based cancellation + new twist that
+       stacks extend across tasks + C# style level-triggering
+
+       potentially controversial: making them implicit/ambient instead
+       of explicit. rationale: you have to pass them to literally
+       every blocking operation, meaning that you would literally need
+       every single async function to take this as an argument
+
+     - Introspection as a first class concern
+
+     - clean API with consistent conventions
+
+     - KI: very challenging case for usability + correctness!
+
+       challenging cases:
+
+       - core run loop itself
+       - synchronization primitives
+
+       our solution
+
+   - idempotent call_soon is being missed in current_statistics
+
    - a thought: if we switch to a global parkinglot keyed off of
      arbitrary hashables, and put the key into the task object, then
      introspection will be able to do things like show which tasks are
