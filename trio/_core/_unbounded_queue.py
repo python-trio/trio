@@ -10,7 +10,7 @@ __all__ = ["UnboundedQueue"]
 @attr.s(frozen=True)
 class _UnboundedQueueStats:
     qsize = attr.ib()
-    tasks_waiting_get_all = attr.ib()
+    tasks_waiting = attr.ib()
 
 @_hazmat
 class UnboundedQueue:
