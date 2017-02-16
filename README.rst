@@ -187,15 +187,10 @@ nothing to see here
      catch/rethrow, push the tracebacks from the MultiError onto the
      individual exceptions and then make a new MultiError?
 
-     just implement the set_wakeup_fd thing for now
-       (and I think we might actually need it on Unix too? because
-       blocking primitives are only interrupted *if* they raise? --
-       no, because the signal handler does run and does trigger the
-       regular call_soon wakeup logic)
-
      arun/run/call_soon
      run/call/call_soon
      run/run_sync/(call_soon or run_sync_soon)
+     run_async/run_sync
 
      design document outline:
 
