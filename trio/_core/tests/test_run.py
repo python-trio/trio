@@ -304,7 +304,9 @@ async def test_current_statistics(mock_clock):
     async with _core.open_nursery() as nursery:
         task = nursery.spawn(child)
         await wait_run_loop_idle()
-        _core.current_call_soon_thread_and_signal_safe()(lambda: None)
+        call_soon = _core.current_call_soon_thread_and_signal_safe()
+        call_soon(lambda: None)
+        call_soon(lambda: None, idempotent=True)
         stats = _core.current_statistics()
         print(stats)
         # 2 system tasks + us + child
@@ -314,7 +316,7 @@ async def test_current_statistics(mock_clock):
         # runnable on the next pass), but still useful to at least test the
         # difference between now and after we wake up the child:
         assert stats.tasks_runnable == 0
-        assert stats.call_soon_queue_size == 1
+        assert stats.call_soon_queue_size == 2
 
         nursery.cancel_scope.cancel()
         stats = _core.current_statistics()

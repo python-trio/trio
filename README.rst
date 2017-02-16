@@ -271,8 +271,6 @@ nothing to see here
 
        our solution
 
-   - idempotent call_soon is being missed in current_statistics
-
    - a thought: if we switch to a global parkinglot keyed off of
      arbitrary hashables, and put the key into the task object, then
      introspection will be able to do things like show which tasks are
