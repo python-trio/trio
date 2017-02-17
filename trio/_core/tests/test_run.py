@@ -886,7 +886,9 @@ async def test_yield_briefly_checks_for_timeout(mock_clock):
 # This tests that sys.exc_info is properly saved/restored as we swap between
 # tasks. It turns out that the interpreter automagically handles this for us
 # so there's no special code in trio required to pass this test, but it's
-# still nice to know that it works :-)
+# still nice to know that it works :-).
+#
+# Update: it turns out I was right to be nervous! see the next test...
 async def test_exc_info():
     record = []
 
@@ -926,6 +928,50 @@ async def test_exc_info():
                       "child2 wake", "child2 sleep again",
                       "child1 re-raise", "child1 success",
                       "child2 re-raise", "child2 success"]
+
+
+# At least as of CPython 3.6, using .throw() to raise an exception inside a
+# coroutine/generator causes the original exc_info state to be lost, so things
+# like re-raising and exception chaining are broken.
+#
+# https://bugs.python.org/issue29587
+async def test_exc_info_after_yield_error():
+    async def child():
+        try:
+            raise KeyError
+        except Exception:
+            try:
+                await sleep_forever()
+            except Exception:
+                pass
+            raise
+
+    async with _core.open_nursery() as nursery:
+        t = nursery.spawn(child)
+        await wait_run_loop_idle()
+        _core.reschedule(t, _core.Error(ValueError()))
+        await t.wait()
+        with pytest.raises(KeyError):
+            nursery.reap_and_unwrap(t)
+
+
+# Similar to previous test -- if the ValueError() gets sent in via 'throw',
+# then Python's normal implicit chaining stuff is broken. We have to
+async def test_exception_chaining_after_yield_error():
+    async def child():
+        try:
+            raise KeyError
+        except Exception:
+            await sleep_forever()
+
+    async with _core.open_nursery() as nursery:
+        t = nursery.spawn(child)
+        await wait_run_loop_idle()
+        _core.reschedule(t, _core.Error(ValueError()))
+        await t.wait()
+        with pytest.raises(ValueError) as excinfo:
+            nursery.reap_and_unwrap(t)
+        assert isinstance(excinfo.value.__context__, KeyError)
 
 
 async def test_call_soon_basic():

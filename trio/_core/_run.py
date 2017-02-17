@@ -290,7 +290,8 @@ class Nursery:
                     try:
                         # We ignore the return value here, and will pick up
                         # the actual tasks from the zombies set after looping
-                        # around.
+                        # around. (E.g. it's possible there are tasks in the
+                        # queue that were already reaped.)
                         await self.monitor.get_all()
                     except Cancelled as exc:
                         exceptions.append(exc)
@@ -506,7 +507,9 @@ class Runner:
             for scope in nursery._cancel_stack:
                 scope._add_task(task)
         coro.cr_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = ki_protection_enabled
-        self.reschedule(task)
+        # Special case: normally next_send should be a Result, but for the
+        # very first send we have to send a literal unboxed None.
+        self.reschedule(task, None)
         return task
 
     def task_finished(self, task, result):
@@ -852,7 +855,13 @@ def run_impl(runner, fn, args):
             task._next_send = None
             final_result = None
             try:
-                msg = next_send.send(task.coro)
+                # We used to unwrap the Result object here and send/throw its
+                # contents in directly, but it turns out that .throw() is
+                # buggy, at least on CPython 3.6 and earlier:
+                #   https://bugs.python.org/issue29587
+                # So now we send in the Result object and unwrap it on the
+                # other side.
+                msg = task.coro.send(next_send)
             except StopIteration as stop_iteration:
                 final_result = Value(stop_iteration.value)
             except BaseException as task_exc:

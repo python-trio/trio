@@ -22,7 +22,7 @@ def asyncfunction(fn):
 @_hazmat
 @asyncfunction
 def yield_briefly_no_cancel():
-    return (yield (yield_briefly_no_cancel,))
+    return (yield (yield_briefly_no_cancel,)).unwrap()
 
 # Return values for abort functions
 @_hazmat
@@ -45,4 +45,4 @@ class Abort(enum.Enum):
 @_hazmat
 @asyncfunction
 def yield_indefinitely(abort_func):
-    return (yield (yield_indefinitely, abort_func))
+    return (yield (yield_indefinitely, abort_func)).unwrap()
