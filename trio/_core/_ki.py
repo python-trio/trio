@@ -99,8 +99,33 @@ def _ki_protection_decorator(enabled):
         if inspect.iscoroutinefunction(fn):
             @wraps(fn)
             async def wrapper(*args, **kwargs):
+                # Given
+                #     https://bugs.python.org/issue29590
+                # this might seem a little risky... maybe we should inject it
+                # directly like we do for generators (below)? But:
+                # - we're careful never to call .throw() on coroutines
+                # - the main run loop *does* inject this directly into
+                #   locals, and if we do the same here then a funny ordering
+                #   problem happens and the run loop version executes
+                #   second. Which means that this decorator becomes
+                #   ineffective on coroutines run as tasks.
                 locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
                 return await fn(*args, **kwargs)
+            return wrapper
+        elif inspect.isgeneratorfunction(fn):
+            @wraps(fn)
+            def wrapper(*args, **kwargs):
+                # It's important that we inject this directly into the
+                # generator's locals, as opposed to setting it here and then
+                # doing 'yield from'. The reason is, if a generator is
+                # throw()n into, then it may magically pop to the top of the
+                # stack. And @contextmanager generators in particular are a
+                # case where we often want KI protection, and which are often
+                # thrown into! See:
+                #     https://bugs.python.org/issue29590
+                gen = fn(*args, **kwargs)
+                gen.gi_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
+                return gen
             return wrapper
         else:
             @wraps(fn)
@@ -128,6 +153,7 @@ def ki_manager(deliver_cb):
     def handler(signum, frame):
         assert signum == signal.SIGINT
         protection_enabled = ki_protection_enabled(frame)
+        print(frame.f_code.co_name, protection_enabled)
         if protection_enabled:
             deliver_cb()
         else:

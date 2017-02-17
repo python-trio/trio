@@ -475,6 +475,10 @@ nothing to see here
          __await__, then LOAD_CONST for some reason (??), then
          YIELD_FROM to actually run the __aenter__ body
 
+       also of course we would need to fix
+       contextmanager/acontextmanager so that the outermost
+       __(a){enter,exit}__ actually are protected when they should be.
+
      - ability to go from stack frame to function object (maybe the
        frame itself could hold a pointer to the function, if
        available? no circular references that way. though putting it
@@ -545,6 +549,39 @@ nothing to see here
            "internal error in trio - please file a bug!") from exc
        trio._core._exceptions.TrioInternalError: internal error in trio - please file a bug!
        ~/trio$
+
+     here's a different one:
+
+     ~/trio$ python schedule-timing.py
+     15356.528164786758 loops/sec
+     15097.020960402195 loops/sec
+     15128.185759201793 loops/sec
+     14795.546545012578 loops/sec
+     15001.787497052788 loops/sec
+     15279.823309439222 loops/sec
+     14684.291508136756 loops/sec
+     14522.351898311712 loops/sec
+     ^CTraceback (most recent call last):
+       File "/home/njs/trio/trio/_core/_run.py", line 774, in run
+         result = run_impl(runner, fn, args)
+       File "/home/njs/trio/trio/_core/_run.py", line 875, in run_impl
+         runner.task_finished(task, final_result)
+       File "/home/njs/trio/trio/_core/_run.py", line 518, in task_finished
+         task._cancel_stack[-1]._remove_task(task)
+       File "/home/njs/trio/trio/_core/_run.py", line 156, in _remove_task
+         self._tasks.remove(task)
+     KeyError: <Task with coro=<coroutine object reschedule_loop at 0x7f582b5c6f10>>
+
+     The above exception was the direct cause of the following exception:
+
+     Traceback (most recent call last):
+       File "schedule-timing.py", line 37, in <module>
+         trio.run(main)
+       File "/home/njs/trio/trio/_core/_run.py", line 777, in run
+         "internal error in trio - please file a bug!") from exc
+     trio._core._exceptions.TrioInternalError: internal error in trio - please file a bug!
+     [then a bunch of chatter from __del__ assertions]
+     ~/trio$
 
 
    - add nursery statistics? add a task statistics method that also

@@ -3,6 +3,7 @@ import sys
 import os
 import signal
 import threading
+import contextlib
 
 from ... import _core
 from ...testing import wait_run_loop_idle
@@ -137,6 +138,27 @@ async def test_ki_enabled():
 
     await aprotected()
 
+    # make sure that the decorator here overrides the automatic manipulation
+    # that spawn() does:
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(aprotected)
+        nursery.spawn(aunprotected)
+
+    @_core.enable_ki_protection
+    def gen_protected():
+        assert _core.ki_protected()
+        yield
+
+    for _ in gen_protected():
+        pass
+
+    @_core.disable_ki_protection
+    def gen_unprotected():
+        assert not _core.ki_protected()
+        yield
+
+    for _ in gen_unprotected():
+        pass
 
 # This used to be broken due to
 #
@@ -166,6 +188,28 @@ async def test_ki_enabled_after_yield_briefly():
 
     await protected()
     await unprotected()
+
+
+# This also used to be broken due to
+#   https://bugs.python.org/issue29590
+async def test_generator_based_context_manager_throw():
+    @contextlib.contextmanager
+    @_core.enable_ki_protection
+    def protected_manager():
+        assert _core.ki_protected()
+        try:
+            yield
+        finally:
+            assert _core.ki_protected()
+
+    with protected_manager():
+        assert not _core.ki_protected()
+
+    with pytest.raises(KeyError):
+        # This is the one that used to fail
+        with protected_manager():
+            raise KeyError
+
 
 # Test the case where there's no magic local anywhere in the call stack
 def test_ki_enabled_out_of_context():
