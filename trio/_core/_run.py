@@ -859,6 +859,7 @@ def run_impl(runner, fn, args):
                 # contents in directly, but it turns out that .throw() is
                 # buggy, at least on CPython 3.6 and earlier:
                 #   https://bugs.python.org/issue29587
+                #   https://bugs.python.org/issue29590
                 # So now we send in the Result object and unwrap it on the
                 # other side.
                 msg = task.coro.send(next_send)

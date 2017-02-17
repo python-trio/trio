@@ -138,6 +138,35 @@ async def test_ki_enabled():
     await aprotected()
 
 
+# This used to be broken due to
+#
+#   https://bugs.python.org/issue29590
+#
+# Specifically, after a coroutine is resumed with .throw(), then the stack
+# makes it look like the immediate caller is the function that called
+# .throw(), not the actual caller. So child() here would have a caller deep in
+# the guts of the run loop, and always be protected, even when it shouldn't
+# have been. (Solution: we don't use .throw() anymore.)
+async def test_ki_enabled_after_yield_briefly():
+    @_core.enable_ki_protection
+    async def protected():
+        await child(True)
+
+    @_core.disable_ki_protection
+    async def unprotected():
+        await child(False)
+
+    async def child(expected):
+        import traceback
+        traceback.print_stack()
+        assert _core.ki_protected() == expected
+        await _core.yield_briefly()
+        traceback.print_stack()
+        assert _core.ki_protected() == expected
+
+    await protected()
+    await unprotected()
+
 # Test the case where there's no magic local anywhere in the call stack
 def test_ki_enabled_out_of_context():
     assert not _core.ki_protected()
