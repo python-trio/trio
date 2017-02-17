@@ -188,6 +188,9 @@ nothing to see here
 
 
    next:
+   - open_nursery is broken due to use of acontextmanager + missing KI
+     protection
+
    - MultiError.acatch -- also tracebacks are quite a pain if
      replacing one object by another... I guess each time we
      catch/rethrow, push the tracebacks from the MultiError onto the
