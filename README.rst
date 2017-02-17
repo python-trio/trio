@@ -20,11 +20,14 @@ nothing to see here
    Trio – async I/O for humans and snake people
    ============================================
 
+   *P.S. your API is a user interface – Kenneth Reitz*
+
    Trio is an experimental attempt to produce a portable,
    production-quality, `permissively licensed
    <https://github.com/njsmith/trio/blob/master/LICENSE>`__,
    async/await-native I/O library for Python, with an emphasis on
-   safety and usability.
+   **usability** and **safety**, i.e., we want to make it *easy* to get
+   things *right*.
 
    Traditionally, async programming is quite challenging, with many
    subtle edge cases that are easy to get wrong. The addition of
@@ -33,8 +36,7 @@ nothing to see here
    move forward since then, and ironically, asyncio suffers from
    backwards-compatibility constraints that make it difficult for it
    to take full advantage of the new language features that it
-   motivated. The resulting system with its layered strata of
-   different programming models can be `confusing
+   motivated. The resulting system can be `confusing
    <http://lucumr.pocoo.org/2016/10/30/i-dont-understand-asyncio/>`__,
    and there's a `widespread sense that we can do better
    <https://mail.python.org/pipermail/async-sig/2016-November/000175.html>`__.
@@ -47,15 +49,13 @@ nothing to see here
    in fundamental enough ways that a new library seemed
    necessary). Other influences include `C#, Erlang, and others
    <https://github.com/njsmith/trio/wiki/Reading-list>`__. But you
-   don't need to know any of that to use trio: the goal is to distill
-   these ideas into a library that makes it *easy and fun* to write
-   asynchronous code that's *safe, correct, and performant*.
+   don't need to know any of that to use trio.
 
-   Our (possibly overambitious!) goal is that switching to trio from a
-   library created in the pre-async/await-era should feel like
-   switching from `urllib2 to requests
-   <https://gist.github.com/kennethreitz/973705>`__, or from C to
-   Python. Of course, whether we can live up to that is an open
+   Our (possibly overambitious!) goal is that if you've previously
+   used an async I/O library created in the pre-async/await era, then
+   switching to trio should feel like switching from `urllib2 to
+   requests <https://gist.github.com/kennethreitz/973705>`__, or from
+   C to Python. Of course, whether we can live up to that is an open
    question! Trio represents one fairly opinionated vision for the
    future of asynchronous I/O in Python, but it's not the only such
    vision. If you're interested in trio, then you should certainly
@@ -66,7 +66,7 @@ nothing to see here
    So... where to next?
 
    *I want to know more!* Check out the `documentation
-   <https://trio.readthedocs.io>`__.
+   <https://trio.readthedocs.io>`__!
 
    *I want to dive in and try it!* Awesome! ``pip install trio`` and
    check out `our examples XX`. And if you use it for anything more
@@ -208,6 +208,10 @@ nothing to see here
        reasonable decision, but we don't optimize for sloppy code
 
        what about speed?
+
+       if you have a problem where speed is more important than
+       usability, then you're probably not using Python in the first
+       place, so...
 
      - design for stability
 
