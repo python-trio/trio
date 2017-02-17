@@ -889,8 +889,7 @@ def current_task():
 
 @_hazmat
 async def yield_briefly():
-    with open_cancel_scope() as scope:
-        scope.deadline = -inf
+    with open_cancel_scope(deadline=-inf) as scope:
         await _core.yield_indefinitely(lambda _: _core.Abort.SUCCEEDED)
 
 @_hazmat
