@@ -155,7 +155,7 @@ nothing to see here
    functions that take thunks (run, spawn, call_soon_threadsafe,
    run_in_thread, ...) all follow the pattern
 
-   def caller(thunk, *args_for_thunk, *, **kwargs_for_caller)
+   def caller(fn, *args_for_fn, **kwargs_for_caller)
 
    "notify"-style operations are sync-colored
 
@@ -165,6 +165,10 @@ nothing to see here
    whenever possible, have a statistics() method that returns an
    immutable object with attributes that provide some useful stats --
    e.g. for a lock, number of waiters
+
+   ``*_nowait``, ``trio.WouldBlock``
+
+   ``wait_*``
 
    all async-colored primitives are unconditionally cancellation
    points and unconditionally invoke the scheduler.
@@ -198,6 +202,8 @@ nothing to see here
      contribute, folks working on competing libraries looking for
      ideas to steal, folks who are interested in IO library design generally
 
+     -- high level --
+
      - priorities: usability and correctness
 
        usability means: assume user is going to take the trouble to
@@ -213,6 +219,15 @@ nothing to see here
        usability, then you're probably not using Python in the first
        place, so...
 
+     - a library isn't usable if it doesn't run on your system, or is
+       missing features you need
+
+       -> do our own low-level IO; expose the full capabilities of the
+       underlying system
+
+       (as of 2017-02-16, libuv is not able to support our rich
+       cancellation semantics)
+
      - design for stability
 
        noticed that lots of interesting experiments in curio involve
@@ -224,6 +239,8 @@ nothing to see here
        without touching the core
        stable, public, but `nasty big pointy teeth <https://en.wikipedia.org/wiki/Rabbit_of_Caerbannog>`__
 
+     -- user API --
+
      - the blog post & curio
 
        no implicit concurrency -- no callbacks, no implicit spawn, no
@@ -232,8 +249,97 @@ nothing to see here
        when you call a function it runs and then returns, like Guido
        intended
 
-     - give tools to *manage* concurrency (this is the major breaking
-       point from curio)
+     - strong API conventions about cancel points and schedule points
+       (major departure from curio)
+
+
+       A cancel point is a point where your code checks if it has been
+       cancelled – e.g., due to a timeout having expired – and
+       potentially raises a ``Cancelled`` error. A schedule point is a
+       point where the current task can potentially be suspended, and
+       another task allowed to run.
+
+       When writing async code, you need to be aware of cancel and
+       schedule these points, because they introduce a set of complex
+       and partially conflicting constraints:
+
+       You need to make sure that every task passes through a cancel
+       point regularly, because otherwise timeouts become ineffective
+       and your code becomes subject to DoS attacks and other
+       problems. So for correctness, it's important to make sure you
+       have enough cancel points.
+
+       But... every cancel point also increases the chance of subtle
+       bugs in your program, because it's a place where you have to be
+       prepared to handle a ``Cancelled`` exception and clean up
+       properly. And while we try to make this as easy as possible,
+       these kinds of clean-up paths are notorious for getting missed
+       in testing and harboring subtle bugs. So the more cancel points
+       you have, the harder it is to make sure your code is correct.
+
+       Similarly, you need to make sure that every task passes through
+       a schedule point regularly, because otherwise this task could
+       end up hogging the event loop and preventing other code from
+       running, causing a latency spike. So for correctness, it's
+       important to make sure you have enough schedule points.
+
+       But... you have to be careful here too, because every schedule
+       point is a point where arbitrary other code could run, and
+       alter your program's state out from under you, introducing
+       classic concurrency bugs. So as you add more schedule points,
+       it `becomes exponentially harder to reason about how your code
+       is interleaved and be sure that it's correct
+       <https://glyph.twistedmatrix.com/2014/02/unyielding.html>`__.
+
+       Trio's approach is informed by two further observations:
+
+       First, any time a task blocks (e.g., because it does an ``await
+       sock.recv()`` but there's no data available to receive), that
+       has to be a cancel point (because if the IO never arrives, we
+       need to be able to time out), and it has to be a schedule point
+       (because the whole idea of asynchronous programming is that
+       when one task is waiting we can switch to another task to get
+       something useful done).
+
+       And second, a function which sometimes counts as
+       cancel/schedule point, and sometimes doesn't, is the worst of
+       both worlds: you have to be prepared to handle cancellation or
+       interleaving, but you can't be sure that this will actually
+
+
+
+       Every point that is a cancel point is also a schedule point,
+       and vice versa. These are distinct concepts both theoretically
+       and in the actual implementation, but we hide that distinction
+       from the user so that there's only one concept they need to
+       keep track of. (Exception: some hazmat APIs.)
+
+       Any operation that *sometimes* blocks is *always* a cancel
+       point and a schedule point.
+
+       Operations that *never* block are *never* a cancel point or a
+       schedule point.
+
+
+
+       Exceptions:
+
+       * async context managers: Context managers are composed of two
+         operations – enter and exit – and sometimes only one of these
+         is potentially blocking. But, Python doesn't have
+         "half-asynchronous" context managers: either both operations
+         are async, or neither is.
+
+         (Examples: ``async with lock:`` can block when entering but
+         never when exiting; ``async with open_nursery() as ...:`` can
+         block when exiting but never when entering.)
+
+       * run in thread
+
+       * async close
+
+       * socket.connect: can get into a state where it can't be
+         cancelled; if so then closes socket on the way out
 
      - exceptions always propagate
 
@@ -274,6 +380,8 @@ nothing to see here
        - synchronization primitives
 
        our solution
+
+   - test helpers to explore all cancellation points?
 
    - a thought: if we switch to a global parkinglot keyed off of
      arbitrary hashables, and put the key into the task object, then
