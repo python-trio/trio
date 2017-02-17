@@ -280,11 +280,15 @@ class SocketType(_Stream):
         # submission...
         await _core.yield_if_cancelled()
         try:
-            return fn(self._sock, *args, **kwargs)
+            ret = fn(self._sock, *args, **kwargs)
         except BlockingIOError:
             pass
-        finally:
+        except:
             await _core.yield_briefly_no_cancel()
+            raise
+        else:
+            await _core.yield_briefly_no_cancel()
+            return ret
         # First attempt raised BlockingIOError:
         while True:
             await wait_fn(self._sock)
@@ -333,15 +337,17 @@ class SocketType(_Stream):
             # it'd have used EINPROGRESS. So we retry:
             while True:
                 try:
-                    return self._sock.connect(address)
+                    ret = self._sock.connect(address)
                 except InterruptedError:
                     pass
         except BlockingIOError:
             pass
-        finally:
-            # Either it raised a (real) error, or completed
-            # instantly. Yield and let it exit.
+        except:
             await _core.yield_briefly_no_cancel()
+            raise
+        else:
+            await _core.yield_briefly_no_cancel()
+            return ret
         # It raised BlockingIOError, meaning that it's started the
         # connection attempt. We wait for it to complete:
         try:
