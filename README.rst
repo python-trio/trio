@@ -1,20 +1,21 @@
 nothing to see here
 
-.. image:: https://readthedocs.org/projects/trio/badge/?version=latest
-   :target: http://trio.readthedocs.io/en/latest/?badge=latest
-   :alt: Documentation Status
+..
+   .. image:: https://readthedocs.org/projects/trio/badge/?version=latest
+      :target: http://trio.readthedocs.io/en/latest/?badge=latest
+      :alt: Documentation Status
 
-.. image:: https://travis-ci.org/njsmith/trio.svg?branch=master
-   :target: https://travis-ci.org/njsmith/trio
-   :alt: Automated test status (Linux and MacOS)
+   .. image:: https://travis-ci.org/njsmith/trio.svg?branch=master
+      :target: https://travis-ci.org/njsmith/trio
+      :alt: Automated test status (Linux and MacOS)
 
-.. image:: https://ci.appveyor.com/api/projects/status/af4eyed8o8tc3t0r/branch/master?svg=true
-   :target: https://ci.appveyor.com/project/njsmith/trio/history
-   :alt: Automated test status (Windows)
+   .. image:: https://ci.appveyor.com/api/projects/status/af4eyed8o8tc3t0r/branch/master?svg=true
+      :target: https://ci.appveyor.com/project/njsmith/trio/history
+      :alt: Automated test status (Windows)
 
-.. image:: https://codecov.io/gh/njsmith/trio/branch/master/graph/badge.svg
-   :target: https://codecov.io/gh/njsmith/trio
-   :alt: Test coverage
+   .. image:: https://codecov.io/gh/njsmith/trio/branch/master/graph/badge.svg
+      :target: https://codecov.io/gh/njsmith/trio
+      :alt: Test coverage
 
 ..
    Trio – async I/O for humans and snake people
@@ -22,12 +23,12 @@ nothing to see here
 
    *P.S. your API is a user interface – Kenneth Reitz*
 
-   Trio is an experimental attempt to produce a portable,
-   production-quality, `permissively licensed
+   Trio is an experimental attempt to produce a production-quality,
+   `permissively licensed
    <https://github.com/njsmith/trio/blob/master/LICENSE>`__,
    async/await-native I/O library for Python, with an emphasis on
-   **usability** and **safety**, i.e., we want to make it *easy* to get
-   things *right*.
+   **usability** and **correctness** – we want to make it *easy* to
+   get things *right*.
 
    Traditionally, async programming is quite challenging, with many
    subtle edge cases that are easy to get wrong. The addition of
@@ -52,10 +53,11 @@ nothing to see here
    don't need to know any of that to use trio.
 
    Our (possibly overambitious!) goal is that if you've previously
-   used an async I/O library created in the pre-async/await era, then
-   switching to trio should feel like switching from `urllib2 to
-   requests <https://gist.github.com/kennethreitz/973705>`__, or from
-   C to Python. Of course, whether we can live up to that is an open
+   used an async I/O library that was created in the pre-async/await
+   era, then switching to trio should feel like switching from
+   `urllib2 to requests
+   <https://gist.github.com/kennethreitz/973705>`__, or from C to
+   Python. Of course, whether we can live up to that is an open
    question! Trio represents one fairly opinionated vision for the
    future of asynchronous I/O in Python, but it's not the only such
    vision. If you're interested in trio, then you should certainly
@@ -488,6 +490,62 @@ nothing to see here
      integration with trio_test...
 
    - add an instrument hook for task created, task died, (task reaped?)
+
+   - investigate:
+
+     # this is fairly reproducible under pypy
+     # ...and I also managed under cpython!
+     ~/trio$ /tmp/pypy-c-jit-90116-b30c111d304e-linux64/bin/pypy3 -m vmprof --web schedule-timing.py
+       53714.35373615269 loops/sec
+       90986.52576135045 loops/sec
+       92658.02343558217 loops/sec
+       93007.6548706217 loops/sec
+       93864.61163651443 loops/sec
+       93248.05561866662 loops/sec
+       94092.07741495097 loops/sec
+       94105.7938769012 loops/sec
+       92232.44120369531 loops/sec
+       ^CTraceback (most recent call last):
+         File "/home/njs/trio/trio/_core/_run.py", line 774, in run
+           result = run_impl(runner, fn, args)
+         File "/home/njs/trio/trio/_core/_run.py", line 874, in run_impl
+           runner.task_finished(task, final_result)
+         File "/home/njs/trio/trio/_core/_run.py", line 518, in task_finished
+           task._cancel_stack[-1]._remove_task(task)
+         File "/home/njs/trio/trio/_core/_run.py", line 156, in _remove_task
+           self._tasks.remove(task)
+         File "/tmp/pypy-c-jit-90116-b30c111d304e-linux64/lib-python/3/contextlib.py", line 66, in __exit__
+           next(self.gen)
+         File "/home/njs/trio/trio/_core/_run.py", line 110, in _might_change_effective_deadline
+           del runner.deadlines[old, id(self)]
+         File "/tmp/pypy-c-jit-90116-b30c111d304e-linux64/site-packages/sortedcontainers/sorteddict.py", line 165, in __delitem__
+           self._delitem(key)
+       KeyError: (-inf, 61061952)
+
+       The above exception was the direct cause of the following exception:
+
+       Traceback (most recent call last):
+         File "/tmp/pypy-c-jit-90116-b30c111d304e-linux64/lib-python/3/runpy.py", line 193, in _run_module_as_main
+           "__main__", mod_spec)
+         File "/tmp/pypy-c-jit-90116-b30c111d304e-linux64/lib-python/3/runpy.py", line 85, in _run_code
+           exec(code, run_globals)
+         File "/tmp/pypy-c-jit-90116-b30c111d304e-linux64/site-packages/vmprof/__main__.py", line 75, in <module>
+           main()
+         File "/tmp/pypy-c-jit-90116-b30c111d304e-linux64/site-packages/vmprof/__main__.py", line 61, in main
+           runpy.run_path(args.program, run_name='__main__')
+         File "/tmp/pypy-c-jit-90116-b30c111d304e-linux64/lib-python/3/runpy.py", line 263, in run_path
+           pkg_name=pkg_name, script_name=fname)
+         File "/tmp/pypy-c-jit-90116-b30c111d304e-linux64/lib-python/3/runpy.py", line 96, in _run_module_code
+           mod_name, mod_spec, pkg_name, script_name)
+         File "/tmp/pypy-c-jit-90116-b30c111d304e-linux64/lib-python/3/runpy.py", line 85, in _run_code
+           exec(code, run_globals)
+         File "schedule-timing.py", line 37, in <module>
+           trio.run(main)
+         File "/home/njs/trio/trio/_core/_run.py", line 777, in run
+           "internal error in trio - please file a bug!") from exc
+       trio._core._exceptions.TrioInternalError: internal error in trio - please file a bug!
+       ~/trio$
+
 
    - add nursery statistics? add a task statistics method that also
      gives nursery statistics? "unreaped tasks" is probably a useful
