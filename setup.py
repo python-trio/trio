@@ -14,7 +14,7 @@ setup(name="trio",
       install_requires=[
           "attrs",
           "sortedcontainers",
-          "async_generator",
+          "async_generator >= 1.6",
           "cffi; os_name == 'nt'",  # "cffi is required on windows"
       ],
       python_requires=">=3.5",
