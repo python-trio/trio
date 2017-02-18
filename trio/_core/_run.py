@@ -211,12 +211,15 @@ def open_cancel_scope(*, deadline=inf, shield=False):
 
 @acontextmanager
 @async_generator
+@enable_ki_protection
 async def open_nursery():
+    assert ki_protected()
     with open_cancel_scope() as scope:
         nursery = Nursery(current_task(), scope)
         try:
             await yield_(nursery)
         finally:
+            assert ki_protected()
             exceptions = []
             _, exc, _ = sys.exc_info()
             if exc is not None:
@@ -506,7 +509,8 @@ class Runner:
             nursery._children.add(task)
             for scope in nursery._cancel_stack:
                 scope._add_task(task)
-        coro.cr_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = ki_protection_enabled
+        coro.cr_frame.f_locals.setdefault(
+            LOCALS_KEY_KI_PROTECTION_ENABLED, ki_protection_enabled)
         # Special case: normally next_send should be a Result, but for the
         # very first send we have to send a literal unboxed None.
         self.reschedule(task, None)

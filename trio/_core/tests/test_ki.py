@@ -5,8 +5,11 @@ import signal
 import threading
 import contextlib
 
+from async_generator import async_generator, yield_
+
 from ... import _core
 from ...testing import wait_run_loop_idle
+from ..._util import acontextmanager
 
 if os.name == "nt":
     # I looked at this pretty hard and I'm pretty sure there isn't any way to
@@ -160,6 +163,7 @@ async def test_ki_enabled():
     for _ in gen_unprotected():
         pass
 
+
 # This used to be broken due to
 #
 #   https://bugs.python.org/issue29590
@@ -209,6 +213,61 @@ async def test_generator_based_context_manager_throw():
         # This is the one that used to fail
         with protected_manager():
             raise KeyError
+
+
+async def test_agen_protection():
+    @_core.enable_ki_protection
+    @async_generator
+    async def agen_protected1():
+        assert _core.ki_protected()
+        try:
+            await yield_()
+        finally:
+            assert _core.ki_protected()
+
+    @_core.disable_ki_protection
+    @async_generator
+    async def agen_unprotected1():
+        assert not _core.ki_protected()
+        try:
+            await yield_()
+        finally:
+            assert not _core.ki_protected()
+
+    # Swap the order of the decorators:
+    @async_generator
+    @_core.enable_ki_protection
+    async def agen_protected2():
+        assert _core.ki_protected()
+        try:
+            await yield_()
+        finally:
+            assert _core.ki_protected()
+
+    @async_generator
+    @_core.disable_ki_protection
+    async def agen_unprotected2():
+        assert not _core.ki_protected()
+        try:
+            await yield_()
+        finally:
+            assert not _core.ki_protected()
+
+    for agen_fn in [
+            agen_protected1, agen_protected2,
+            agen_unprotected1, agen_unprotected2,
+    ]:
+        async for _ in agen_fn():
+            assert not _core.ki_protected()
+
+        async with acontextmanager(agen_fn)():
+            assert not _core.ki_protected()
+
+        # Another case that's tricky due to:
+        #   https://bugs.python.org/issue29590
+        with pytest.raises(KeyError):
+            async with acontextmanager(agen_fn)():
+                raise KeyError
 
 
 # Test the case where there's no magic local anywhere in the call stack

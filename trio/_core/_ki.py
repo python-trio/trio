@@ -6,6 +6,7 @@ import sys
 import inspect
 
 import attr
+import async_generator
 
 from . import _hazmat
 
@@ -96,23 +97,7 @@ def ki_protected():
 
 def _ki_protection_decorator(enabled):
     def decorator(fn):
-        if inspect.iscoroutinefunction(fn):
-            @wraps(fn)
-            async def wrapper(*args, **kwargs):
-                # Given
-                #     https://bugs.python.org/issue29590
-                # this might seem a little risky... maybe we should inject it
-                # directly like we do for generators (below)? But:
-                # - we're careful never to call .throw() on coroutines
-                # - the main run loop *does* inject this directly into
-                #   locals, and if we do the same here then a funny ordering
-                #   problem happens and the run loop version executes
-                #   second. Which means that this decorator becomes
-                #   ineffective on coroutines run as tasks.
-                locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
-                return await fn(*args, **kwargs)
-            return wrapper
-        elif inspect.isgeneratorfunction(fn):
+        if inspect.isgeneratorfunction(fn):
             @wraps(fn)
             def wrapper(*args, **kwargs):
                 # It's important that we inject this directly into the
@@ -126,6 +111,22 @@ def _ki_protection_decorator(enabled):
                 gen = fn(*args, **kwargs)
                 gen.gi_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
                 return gen
+            return wrapper
+        elif inspect.iscoroutinefunction(fn):
+            @wraps(fn)
+            def wrapper(*args, **kwargs):
+                # See the comment for regular generators above
+                coro = fn(*args, **kwargs)
+                coro.cr_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
+                return coro
+            return wrapper
+        elif async_generator.isasyncgenfunction(fn):
+            @wraps(fn)
+            def wrapper(*args, **kwargs):
+                # See the comment for regular generators above
+                agen = fn(*args, **kwargs)
+                agen.ag_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
+                return agen
             return wrapper
         else:
             @wraps(fn)
