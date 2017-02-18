@@ -3,7 +3,7 @@ import attr
 
 from .. import _core
 from . import _hazmat
-from ._util import aiter_compat
+from .._util import aiter_compat
 
 __all__ = ["UnboundedQueue"]
 

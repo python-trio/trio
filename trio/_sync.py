@@ -4,7 +4,7 @@ from collections import deque
 import attr
 
 from . import _core
-from ._core._util import aiter_compat
+from ._util import aiter_compat
 
 __all__ = ["Event", "Semaphore", "Lock", "Condition", "Queue"]
 
@@ -221,12 +221,11 @@ class Condition:
         if _core.current_task() is not self._lock._owner:
             raise RuntimeError("must hold the lock to wait")
         self.release()
-        # NOTE: we go to sleep on this lot, but we'll wake up on
-        # self._lock._lot. Fortunately that's all that's required to acquire
-        # a Lock.
+        # NOTE: we go to sleep on self._lot, but we'll wake up on
+        # self._lock._lot. That's all that's required to acquire a Lock.
         try:
             await self._lot.park()
-        except _core.Cancelled:
+        except:
             with _core.open_cancel_scope(shield=True):
                 await self.acquire()
             raise

@@ -3,7 +3,7 @@ import threading
 from contextlib import contextmanager
 
 from . import _core
-from ._core._util import aiter_compat
+from ._util import aiter_compat
 from ._sync import Semaphore
 
 __all__ = ["catch_signals"]

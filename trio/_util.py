@@ -3,6 +3,17 @@ from functools import wraps
 
 import async_generator
 
+__all__ = ["aitercompat", "acontextmanager"]
+
+def aiter_compat(aiter_impl):
+    if sys.version_info < (3, 5, 2):
+        @wraps(aiter_impl)
+        async def __aiter__(*args, **kwargs):
+            return aiter_impl(*args, **kwargs)
+        return __aiter__
+    else:
+        return aiter_impl
+
 # Very much derived from the one in contextlib, by copy/pasting and then
 # asyncifying everything.
 # So this is a derivative work licensed under the PSF License, which requires
