@@ -97,7 +97,18 @@ def ki_protected():
 
 def _ki_protection_decorator(enabled):
     def decorator(fn):
-        if inspect.isgeneratorfunction(fn):
+        # In some version of Python, isgeneratorfunction returns true for
+        # coroutine functions, so we have to check for coroutine functions
+        # first.
+        if inspect.iscoroutinefunction(fn):
+            @wraps(fn)
+            def wrapper(*args, **kwargs):
+                # See the comment for regular generators below
+                coro = fn(*args, **kwargs)
+                coro.cr_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
+                return coro
+            return wrapper
+        elif inspect.isgeneratorfunction(fn):
             @wraps(fn)
             def wrapper(*args, **kwargs):
                 # It's important that we inject this directly into the
@@ -111,14 +122,6 @@ def _ki_protection_decorator(enabled):
                 gen = fn(*args, **kwargs)
                 gen.gi_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
                 return gen
-            return wrapper
-        elif inspect.iscoroutinefunction(fn):
-            @wraps(fn)
-            def wrapper(*args, **kwargs):
-                # See the comment for regular generators above
-                coro = fn(*args, **kwargs)
-                coro.cr_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
-                return coro
             return wrapper
         elif async_generator.isasyncgenfunction(fn):
             @wraps(fn)
