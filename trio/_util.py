@@ -3,8 +3,22 @@ from functools import wraps
 
 import async_generator
 
-__all__ = ["aitercompat", "acontextmanager"]
+__all__ = ["run_sync_coro", "aitercompat", "acontextmanager"]
 
+# Given a coroutine that never actually yields, run it to completion. Useful
+# for writing code that wants to provide both sync and async interfaces to the
+# world but use a single set of code internally.
+def run_sync_coro(fn, *args, **kwargs):
+    coro = fn(*args, **kwargs)
+    it = coro.__await__()
+    try:
+        next(it)
+    except StopIteration as exc:
+        return exc.value
+    else:  # pragma: no cover
+        assert False
+
+# Decorator to handle the change to __aiter__ in 3.5.2
 def aiter_compat(aiter_impl):
     if sys.version_info < (3, 5, 2):
         @wraps(aiter_impl)

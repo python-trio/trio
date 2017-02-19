@@ -19,6 +19,9 @@ __all__ = []
 from ._exceptions import *
 __all__ += _exceptions.__all__
 
+from ._multierror import *
+__all__ += _multierror.__all__
+
 from ._result import *
 __all__ += _result.__all__
 

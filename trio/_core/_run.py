@@ -19,8 +19,9 @@ from .._util import acontextmanager
 
 from .. import _core
 from ._exceptions import (
-    TrioInternalError, RunFinishedError, MultiError, Cancelled, WouldBlock
+    TrioInternalError, RunFinishedError, Cancelled, WouldBlock
 )
+from ._multierror import MultiError
 from ._result import Result, Error, Value
 from ._traps import (
     yield_briefly_no_cancel, Abort, yield_indefinitely,
@@ -166,26 +167,11 @@ class CancelScope:
             self._excs[task] = exc
         return self._excs[task]
 
-    def _filter_exception(self, exc):
+    def _exc_filter(self, exc):
         if isinstance(exc, Cancelled) and exc._scope is self:
             self.cancel_caught = True
             return None
-        elif isinstance(exc, MultiError):
-            new_exceptions = []
-            for sub_exc in exc.exceptions:
-                if isinstance(sub_exc, Cancelled) and sub_exc._scope is self:
-                    self.cancel_caught = True
-                else:
-                    new_exceptions.append(sub_exc)
-            if len(new_exceptions) == 0:
-                return None
-            elif len(new_exceptions) == 1:
-                return new_exceptions[0]
-            else:
-                exc.exceptions = new_exceptions
-                return exc
-        else:
-            return exc
+        return exc
 
 @contextmanager
 @enable_ki_protection
@@ -196,11 +182,8 @@ def open_cancel_scope(*, deadline=inf, shield=False):
     scope.deadline = deadline
     scope.shield = shield
     try:
-        yield scope
-    except (Cancelled, MultiError) as exc:
-        new_exc = scope._filter_exception(exc)
-        if new_exc is not None:
-            raise new_exc
+        with MultiError.catch(scope._exc_filter):
+            yield scope
     finally:
         scope._remove_task(task)
 
@@ -307,7 +290,10 @@ class Nursery:
 
         self._closed = True
         if exceptions:
-            raise MultiError(exceptions)
+            print("removeme")
+            for exc in exceptions:
+                exc.__context__ = None
+            raise MultiError(exceptions) from None
 
     def __del__(self):
         assert not self.children and not self.zombies
