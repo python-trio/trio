@@ -49,19 +49,25 @@ function:
       async def print_double(x):
           print(await async_double(x))   # <-- OK!
 
-Together, these two facts mean that async functions can call both
-regular functions and async functions, but regular functions can't
-call async functions. So in a sense, async functions are more powerful
-than regular functions... but in a somewhat weird way.
+Together, these two facts mean that async functions can call either
+regular functions or async functions, but regular functions can't call
+async functions. In table form:
+
+Caller    Callee    Is it gonna work?
+async     sync         yep
+async     async        yep
+sync      sync         yep
+sync      async        NOPE
+
 
 should have two questions:
 
-- if the only reason to have an async function is that it lets you
-  call other async functions, then why have them at all? it seems
-  circular.
+First, when a Python program starts up, it's running in regular old
+sync code. Once we have an async function we can call other async
+functions, but how on earth do we call that first async function?
 
-- if only an async function can call an async function, then how do I
-  run one in the first place?
+And second, if the only advantage of async function is that it can
+call other async functions, why do we care? This seems
 
 [put in a sidebar somewhere here about what happens if you try to call
 an async function without await. You might think it would be an error,

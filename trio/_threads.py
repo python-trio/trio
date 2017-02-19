@@ -134,6 +134,11 @@ def current_await_in_trio_thread():
 # thread stack size on a thread-by-thread basis. Unfortunately as of 3.6
 # CPython doesn't expose this in a useful way (all you can do is set it
 # globally for the whole process, so it's - ironically - not thread safe).
+#
+# (It's also unclear how much stack size actually matters; on a 64-bit Linux
+# server with overcommit -- i.e., the most common configuration -- then AFAICT
+# really the only real limit is on stack size actually *used*; how much you
+# *allocate* should be pretty much irrelevant.)
 
 _worker_thread_counter = count()
 

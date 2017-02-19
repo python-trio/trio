@@ -1,5 +1,4 @@
-# This file is somewhat misnamed -- it has tests for ../_util.py, but also has
-# utilities for testing.
+# This file is misnamed -- it has utilities for testing.
 
 import pytest
 

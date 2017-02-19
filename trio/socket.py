@@ -504,6 +504,13 @@ __all__.append("SocketType")
 #   family=AF_INET6)
 # XX possibly we should just throw it out and replace with whatever API we
 # like better :-) maybe an easy TLS option? AF_UNIX equivalent?
+#
+# some prior art: https://twistedmatrix.com/documents/current/api/twisted.internet.endpoints.HostnameEndpoint.html
+# interesting considerations for happy eyeballs:
+# - controlling the lag between attempt starts
+# - start the next attempt early if the one before it errors out
+# - per-attempt timeouts? (for if lag is set very high / infinity, disabling
+#   happy eyeballs)
 async def create_connection(address, source_address=None):
     host, port = address
     err = None
