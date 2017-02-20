@@ -39,6 +39,6 @@ mkdir empty
 cd empty
 
 INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
-pytest -ra --run-slow $(INSTALLDIR) --cov="$INSTALLDIR" --cov-config=../.coveragerc
+pytest -ra --run-slow ${INSTALLDIR} --cov="$INSTALLDIR" --cov-config=../.coveragerc
 
 pip install codecov && codecov
