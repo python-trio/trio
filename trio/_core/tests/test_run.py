@@ -884,6 +884,31 @@ def test_system_task_crash_MultiError():
         cause_types.add(type(exc.__cause__ ))
     assert cause_types == {KeyError, ValueError}
 
+def test_system_task_crash_plus_Cancelled():
+    # Set up a situation where a system task crashes with a
+    # MultiError([Cancelled, ValueError])
+    async def crasher():
+        try:
+            await sleep_forever()
+        except _core.Cancelled:
+            raise ValueError
+
+    async def cancelme():
+        await sleep_forever()
+
+    async def system_task():
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(crasher)
+            nursery.spawn(cancelme)
+
+    async def main():
+        _core.spawn_system_task(system_task)
+        # then we exit, triggering a cancellation
+
+    with pytest.raises(_core.TrioInternalError) as excinfo:
+        _core.run(main)
+    assert type(excinfo.value.__cause__) is ValueError
+
 def test_system_task_crash_KeyboardInterrupt():
     async def ki():
         raise KeyboardInterrupt
