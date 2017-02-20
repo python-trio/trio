@@ -188,41 +188,10 @@ nothing to see here
 
 
    next:
-   - MultiError.acatch -- also tracebacks are quite a pain if
-     replacing one object by another... I guess each time we
-     catch/rethrow, push the tracebacks from the MultiError onto the
-     individual exceptions and then make a new MultiError?
-
-   - give up on acatch/afilter for now... Python is just too buggy
-     (https://bugs.python.org/issue29600)
-
-   - maybe check for traceback mutation while calling filter_leaf()
-     (or maybe even set the tb to None before hand, and then restore
-     after?), and switch to a "pull" model for traceback propagation?
-
-     - ...still not sure what to do about __context__ on MultiErrors
-       though
-
    - arun/run/call_soon
      run/call/call_soon
      run/run_sync/(call_soon or run_sync_soon)
      run_async/run_sync
-
-   - tag exceptions with task context, and show it in tracebacks
-
-     something like: exc.__trio_task_context__
-     _task_finished does:
-       .append((len(tb), "exit", task))
-     unwrap() (I guess? or run loop send, but unwrap is better...) does
-       .append((len(tb), "enter", current_task()))
-     (with some protection against current_task() failing, giving None
-     in that case)
-
-     and MultiError code needs to push these down along with
-     tracebacks (adjusting offsets as necessary)
-     ...or, could store a reference to the current tb object? ...but
-     ugh, we have to copy those :-( still, might be doable, and does
-     avoid some O(n) len calculations
 
    - design document outline:
 
@@ -472,6 +441,25 @@ nothing to see here
        rethrowing...)
        - concatenating tracebacks
        - better control over implicit exception chaining
+
+         example of a case that's simply broken and unfixable:
+
+         v = ValueError()
+         v.__context__ = KeyError()
+         def discard_NameError(exc):
+             if isinstance(exc, NameError):
+                 return None
+             return exc
+         with pytest.raises(ValueError) as excinfo:
+             with MultiError.catch(discard_NameError):
+                 raise MultiError([v, NameError()])
+         assert isinstance(excinfo.value.__context__, KeyError)
+         assert not excinfo.value.__suppress_context__
+
+         because Python *will* overwrite the ValueError's __context__
+         in the catch's __exit__, even though it's already
+         set. There's no way to stop it.
+
        - better hooks to control exception printing?
      - context chaining for .throw() and .athrow()
      - preserve the stack for yield from generators/coroutines, even

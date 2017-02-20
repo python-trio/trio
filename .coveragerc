@@ -3,6 +3,9 @@ branch=True
 source=trio
 omit=
   setup.py
+# The test suite spawns subprocesses to test some stuff, so make sure
+# this doesn't corrupt the coverage files
+parallel=True
 
 [report]
 precision = 1

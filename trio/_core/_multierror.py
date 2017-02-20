@@ -9,7 +9,7 @@ import attr
 
 from .._util import run_sync_coro
 
-__all__ = ["MultiError", "format_exception_multi"]
+__all__ = ["MultiError", "format_exception"]
 
 ################################################################
 # MultiError
@@ -72,26 +72,6 @@ def _filter_impl(handler, root_exc):
     #   https://bugs.python.org/issue29600
     # which is difficult to fix on our end.
 
-    # XX Problems:
-    # - handler adds a stack frame, might add several
-    #   potential solutions:
-    #   - push down all stack frames in the naive way
-    #   - somehow stop the handler from doing that
-    #     - do type checking before calling handler (but this doesn't help
-    #       for common cancel_scope case)
-    #     - pass exception object into the handler normally, without this
-    #       yield cleverness
-    #     - just unconditionally throw out the new stack frames
-    #       - maybe synthetically adding them to the root MultiError?
-    #
-    # - it's impossible to throw an exception out of 'with' without
-    #   exception chaining kicking in
-    #   ...I guess we could use ctypes to clear exc_info (only if exc
-    #   passed into __exit__ matches sys.exc_info() -- we *do* want to
-    #   chain if the *whole block* is in an except:)
-    #   (just PyErr_SetExcInfo(0, 0, 0))
-    #   ...which it always will if we have an exception at all
-
     # Filters a subtree, ignoring tracebacks, while keeping a record of
     # which MultiErrors were preserved unchanged
     def filter_tree(exc, preserved):
@@ -112,7 +92,11 @@ def _filter_impl(handler, root_exc):
                 preserved.add(exc)
                 return exc
         else:
-            return handler(exc)
+            new_exc = handler(exc)
+            # Our version of implicit exception chaining
+            if new_exc is not None and new_exc is not exc:
+                new_exc.__context__ = exc
+            return new_exc
 
     def push_tb_down(tb, exc, preserved):
         if exc in preserved:
@@ -137,7 +121,7 @@ def _filter_impl(handler, root_exc):
 # result: if the exception gets modified, then the 'raise' here makes this
 # frame show up in the traceback; otherwise, we leave no trace.)
 @attr.s(frozen=True)
-class MultiErrorCatch:
+class MultiErrorCatcher:
     _handler = attr.ib()
 
     def __enter__(self):
@@ -152,11 +136,10 @@ class MultiErrorCatch:
             if filtered_exc is None:
                 # Swallow the exception
                 return True
-            if (filtered_exc.__cause__ is None
-                  and filtered_exc.__context__ is None):
-                # We can't stop Python from setting __context__, but we can
-                # hide it
-                filtered_exc.__suppress_context__ = True
+            # We can't stop Python from setting __context__, but we can
+            # hide it. (Unfortunately Python *will* wipe out any existing
+            # __context__. Nothing we can do about it :-(.)
+            filtered_exc.__suppress_context__ = True
             raise filtered_exc
 
 class MultiError(BaseException):
@@ -183,7 +166,7 @@ class MultiError(BaseException):
 
     @classmethod
     def catch(cls, handler):
-        return MultiErrorCatch(handler)
+        return MultiErrorCatcher(handler)
 
 
 ################################################################
@@ -293,13 +276,13 @@ def concat_tb(head, tail):
 # format_exception's semantics for limit= are odd: they apply separately to
 # each traceback. I'm not sure how much sense this makes, but we copy it
 # anyway.
-def format_exception_multi(etype, value, tb, *, limit=None, chain=True):
+def format_exception(etype, value, tb, *, limit=None, chain=True):
     "Like traceback.format_exception, but supports MultiErrors."
     return _format_exception_multi(set(), etype, value, tb, limit, chain)
 
 def _format_exception_multi(seen, etype, value, tb, limit, chain):
     if id(value) in seen:
-        return ["<previously printed exception {!r}>\n".format(value)]
+        return ["<duplicate exception {!r}>\n".format(value)]
     seen.add(id(value))
 
     chunks = []
@@ -336,8 +319,8 @@ def _format_exception_multi(seen, etype, value, tb, limit, chain):
 
     return chunks
 
-def excepthook_multi(etype, value, tb):
-    for chunk in format_exception_multi(etype, value, tb):
+def trio_excepthook(etype, value, tb):
+    for chunk in format_exception(etype, value, tb):
         sys.stderr.write(chunk)
 
 IPython_handler_installed = False
@@ -349,23 +332,25 @@ if "IPython" in sys.modules:
         if ip.custom_exceptions != ():
             warnings.warn(
                 "IPython detected, but you already have a custom exception "
-                "handler installed.\n"
-                "I'll skip installing trio's custom handler, but this means "
-                "MultiErrors will not show full tracebacks.")
+                "handler installed. I'll skip installing trio's custom "
+                "handler, but this means MultiErrors will not show full "
+                "tracebacks.",
+                category=RuntimeWarning)
             warning_given = True
         else:
-            def show_multi_traceback(self, etype, value, tb, tb_offset=None):
+            def trio_show_traceback(self, etype, value, tb, tb_offset=None):
                 # XX it would be better to integrate with IPython's fancy
                 # exception formatting stuff (and not ignore tb_offset)
-                multi_excepthook(etype, value, tb)
-            ip.set_custom_exc((MultiError,), show_multi_traceback)
+                trio_excepthook(etype, value, tb)
+            ip.set_custom_exc((MultiError,), trio_show_traceback)
             IPython_handler_installed = True
 
 if sys.excepthook is sys.__excepthook__:
-    sys.excepthook = excepthook_multi
+    sys.excepthook = trio_excepthook
 else:
     if not IPython_handler_installed and not warning_given:
         warnings.warn(
-            "You seem to already have a custom sys.excepthook handler\n"
-            "installed. I'll skip installing trio's custom handler, but this\n"
-            "means MultiErrors will not show full tracebacks.")
+            "You seem to already have a custom sys.excepthook handler "
+            "installed. I'll skip installing trio's custom handler, but this "
+            "means MultiErrors will not show full tracebacks.",
+            category=RuntimeWarning)

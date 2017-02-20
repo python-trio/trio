@@ -207,6 +207,21 @@ async def open_nursery():
         assert ki_protected()
         await nursery._clean_up(pending_exc)
 
+class NurseryManager:
+    @enable_ki_protection
+    async def __aenter__(self):
+        self._scope_manager = open_cancel_scope()
+        scope = self._scope_manager.__enter__()
+        self._nursery = Nursery(current_task(), scope)
+        return self._nursery
+
+    @enable_ki_protection
+    async def __aexit__(self, etype, exc, tb):
+        try:
+            await self._nursery._clean_up(exc)
+        finally:
+            self._scope_manager.__exit__(*sys.exc_info())
+
 
 class Nursery:
     def __init__(self, parent, cancel_scope):
