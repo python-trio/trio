@@ -392,13 +392,13 @@ def run_script(name, use_ipython=False):
     if use_ipython:
         lines = [script_path.open().read(), "exit()"]
 
-        cmd = [sys.executable, "-m", "IPython",
+        cmd = [sys.executable, "-u", "-m", "IPython",
                # no startup files
                "--quick",
                "--TerminalIPythonApp.exec_lines=" + repr(lines),
         ]
     else:
-        cmd = [sys.executable, str(script_path)]
+        cmd = [sys.executable, "-u", str(script_path)]
     print("running:", cmd)
     completed = subprocess.run(
         cmd,
@@ -476,13 +476,6 @@ def test_ipython_custom_exc_handler():
             "RuntimeWarning",
             "IPython detected",
             "skip installing trio",
-        ],
-        completed.stdout.decode("utf-8"))
-    # Check this separately because there's some stdout/stderr mixup going on
-    # so the ordering of the error message relative to the warning is not
-    # obvious (and doesn't matter)
-    assert_match_in_seq(
-        [
             # The MultiError
             "MultiError", "ValueError", "KeyError",
         ],
