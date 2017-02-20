@@ -922,7 +922,10 @@ def run_impl(runner, fn, args):
 ################################################################
 
 def current_task():
-    return GLOBAL_RUN_CONTEXT.task
+    try:
+        return GLOBAL_RUN_CONTEXT.task
+    except AttributeError:
+        raise RuntimeError("must be called from async context") from None
 
 @_hazmat
 async def yield_briefly():
@@ -944,7 +947,7 @@ def wrapper(*args, **kwargs):
     try:
         meth = GLOBAL_RUN_CONTEXT.{}.{}
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None
     return meth(*args, **kwargs)
 """
 

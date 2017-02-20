@@ -288,6 +288,13 @@ async def test_current_task():
     assert child_task == child_task.result.unwrap()
 
 
+def test_out_of_context():
+    with pytest.raises(RuntimeError):
+        _core.current_task()
+    with pytest.raises(RuntimeError):
+        _core.current_time()
+
+
 async def test_current_statistics(mock_clock):
     # Just so there's some interesting stats:
     async def child():
