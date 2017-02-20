@@ -199,15 +199,14 @@ async def open_nursery():
     assert ki_protected()
     with open_cancel_scope() as scope:
         nursery = Nursery(current_task(), scope)
+        pending_exc = None
         try:
             await yield_(nursery)
-        finally:
-            assert ki_protected()
-            exceptions = []
-            _, exc, _ = sys.exc_info()
-            if exc is not None:
-                exceptions.append(exc)
-            await nursery._clean_up(exceptions)
+        except BaseException as exc:
+            pending_exc = exc
+        assert ki_protected()
+        await nursery._clean_up(pending_exc)
+
 
 class Nursery:
     def __init__(self, parent, cancel_scope):
@@ -251,13 +250,16 @@ class Nursery:
         self.reap(task)
         return task.result.unwrap()
 
-    async def _clean_up(self, exceptions):
+    async def _clean_up(self, pending_exc):
         cancelled_children = False
+        exceptions = []
+        if pending_exc is not None:
+            exceptions.append(pending_exc)
         # Careful - the logic in this loop is deceptively subtle, because of
         # all the different possible states that we have to handle. (Entering
         # with/out an error, with/out unreaped zombies, with/out children
         # living, with/out an error that occurs after we enter, ...)
-        with open_cancel_scope() as scope:
+        with open_cancel_scope() as clean_up_scope:
             while self._children or self._zombies:
                 # First, reap any zombies. They may or may not still be in the
                 # monitor queue, and they may or may not trigger cancellation
@@ -270,6 +272,7 @@ class Nursery:
 
                 if exceptions and not cancelled_children:
                     self.cancel_scope.cancel()
+                    clean_up_scope.shield = True
                     cancelled_children = True
 
                 if self.children:
@@ -281,19 +284,37 @@ class Nursery:
                         await self.monitor.get_all()
                     except Cancelled as exc:
                         exceptions.append(exc)
-                        # After we catch Cancelled once, mute it
-                        scope.shield = True
                     except KeyboardInterrupt as exc:
                         exceptions.append(exc)
                     except BaseException as exc:  # pragma: no cover
                         raise TrioInternalError from exc
 
-        self._closed = True
-        if exceptions:
-            print("removeme")
-            for exc in exceptions:
-                exc.__context__ = None
-            raise MultiError(exceptions) from None
+            self._closed = True
+            if exceptions:
+                mexc = MultiError(exceptions)
+                if (pending_exc
+                      and mexc.__cause__ is None
+                      and mexc.__context__ is None):
+                    # pending_exc is *part* of this MultiError, so it doesn't
+                    # make sense to also have it as
+                    # __context__. Unfortunately, we can't stop Python from
+                    # setting it as __context__, but we can at least suppress
+                    # it from being printed.
+                    raise mexc from None
+                else:
+                    # There could potentially be a genuine __context__ that
+                    # should be attached, e.g.:
+                    #
+                    #   try:
+                    #       ...
+                    #   except:
+                    #       with open_nursery():
+                    #           ...
+                    #
+                    # Or, if len(exceptions) == 1, this could be a regular
+                    # exception that already has __cause__ or __context__
+                    # set.
+                    raise mexc
 
     def __del__(self):
         assert not self.children and not self.zombies
@@ -524,16 +545,17 @@ class Runner:
     @_hazmat
     def spawn_system_task(self, fn, *args):
         async def system_task_wrapper(fn, args):
-            try:
+            PASS = (Cancelled, KeyboardInterrupt, GeneratorExit,
+                    TrioInternalError)
+            def excfilter(exc):
+                if isinstance(exc, PASS):
+                    return exc
+                else:
+                    new_exc = TrioInternalError("system task crashed")
+                    new_exc.__cause__ = exc
+                    return new_exc
+            with MultiError.catch(excfilter):
                 await fn(*args)
-            # XX: this is not really correct in the presence of MultiError
-            # (basically we should do this filtering on each error inside the
-            # MultiError)
-            except (Cancelled, KeyboardInterrupt, GeneratorExit,
-                    TrioInternalError):
-                raise
-            except BaseException as exc:
-                raise TrioInternalError from exc
         return self.spawn_impl(
             system_task_wrapper, (fn, args), self.system_nursery,
             ki_protection_enabled=True)

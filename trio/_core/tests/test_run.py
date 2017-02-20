@@ -562,15 +562,13 @@ async def test_cancel_scope_multierror_filtering():
             except _core.MultiError as multi_exc:
                 # This is outside the nursery scope but inside the outer
                 # scope, so the nursery should have absorbed t1 and t2's
-                # exceptions but t3 and t4 should remain, + a bonus cancelled
-                # error because *this* task is inside the cancelled outer
-                # scope.
-                assert len(multi_exc.exceptions) == 3
+                # exceptions but t3 and t4 should remain
+                assert len(multi_exc.exceptions) == 2
                 summary = {}
                 for exc in multi_exc.exceptions:
                     summary.setdefault(type(exc), 0)
                     summary[type(exc)] += 1
-                assert summary == {_core.Cancelled: 2, KeyError: 1}
+                assert summary == {_core.Cancelled: 1, KeyError: 1}
                 raise
     except BaseException as exc:
         # This is ouside the outer scope, so t3's Cancelled exception should
@@ -855,16 +853,48 @@ def test_system_task_crash():
 
     async def main():
         task = _core.spawn_system_task(crasher)
-        task.wait()
+        await task.wait()
 
     with pytest.raises(_core.TrioInternalError):
         _core.run(main)
 
-    # Because this crashes, various __del__ methods print complaints on
-    # stderr. Make sure that they get run now, so the output is attached to
-    # this test.
-    import gc
-    gc.collect()
+def test_system_task_crash_MultiError():
+    async def crasher1():
+        raise KeyError
+
+    async def crasher2():
+        raise ValueError
+
+    async def system_task():
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(crasher1)
+            nursery.spawn(crasher2)
+
+    async def main():
+        _core.spawn_system_task(system_task)
+        await sleep_forever()
+
+    with pytest.raises(_core.MultiError) as excinfo:
+        _core.run(main)
+
+    assert len(excinfo.value.exceptions) == 2
+    cause_types = set()
+    for exc in excinfo.value.exceptions:
+        assert type(exc) is _core.TrioInternalError
+        cause_types.add(type(exc.__cause__ ))
+    assert cause_types == {KeyError, ValueError}
+
+def test_system_task_crash_KeyboardInterrupt():
+    async def ki():
+        raise KeyboardInterrupt
+
+    async def main():
+        _core.spawn_system_task(ki)
+        await sleep_forever()
+
+    # KI doesn't get wrapped with TrioInternalError
+    with pytest.raises(KeyboardInterrupt):
+        _core.run(main)
 
 # This used to fail because yield_briefly was a yield followed by an immediate
 # reschedule. So we had:

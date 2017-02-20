@@ -15,7 +15,7 @@ __all__ = ["MultiError", "format_exception_multi"]
 # MultiError
 ################################################################
 
-async def _filter_impl(handler, root_exc, *, async_):
+def _filter_impl(handler, root_exc):
     # We have a tree of MultiError's, like:
     #
     #  MultiError([
@@ -68,6 +68,10 @@ async def _filter_impl(handler, root_exc, *, async_):
     #   until either we hit a leaf, or we hit a subtree which was
     #   preserved in the new tree.
 
+    # This used to also support async handler functions. But that runs into:
+    #   https://bugs.python.org/issue29600
+    # which is difficult to fix on our end.
+
     # XX Problems:
     # - handler adds a stack frame, might add several
     #   potential solutions:
@@ -90,12 +94,12 @@ async def _filter_impl(handler, root_exc, *, async_):
 
     # Filters a subtree, ignoring tracebacks, while keeping a record of
     # which MultiErrors were preserved unchanged
-    async def filter_tree(exc, preserved):
+    def filter_tree(exc, preserved):
         if isinstance(exc, MultiError):
             new_exceptions = []
             changed = False
             for child_exc in exc.exceptions:
-                new_child_exc = await filter_tree(child_exc, preserved)
+                new_child_exc = filter_tree(child_exc, preserved)
                 if new_child_exc is not child_exc:
                     changed = True
                 if new_child_exc is not None:
@@ -108,10 +112,7 @@ async def _filter_impl(handler, root_exc, *, async_):
                 preserved.add(exc)
                 return exc
         else:
-            if async_:
-                return await handler(exc)
-            else:
-                return handler(exc)
+            return handler(exc)
 
     def push_tb_down(tb, exc, preserved):
         if exc in preserved:
@@ -125,7 +126,7 @@ async def _filter_impl(handler, root_exc, *, async_):
             exc.__traceback__ = new_tb
 
     preserved = set()
-    new_root_exc = await filter_tree(root_exc, preserved)
+    new_root_exc = filter_tree(root_exc, preserved)
     push_tb_down(None, root_exc, preserved)
     return new_root_exc
 
@@ -133,20 +134,8 @@ async def _filter_impl(handler, root_exc, *, async_):
 # Normally I'm a big fan of (a)contextmanager, but in this case I found it
 # easier to use the raw context manager protocol, because it makes it a lot
 # easier to reason about how we're mutating the traceback as we go. (End
-# result: if the exception gets modified, then the 'raise' here makes these
-# two frames show up in the traceback; otherwise, we leave no trace.)
-def _catch_exit_helper(exc, filtered_exc):
-    if filtered_exc is exc:
-        # Let the interpreter re-raise it
-        return False
-    if filtered_exc is None:
-        # Swallow the exception
-        return True
-    print("fixme")
-    #if filtered_exc.__cause__ is None and filtered_exc.__context__ is None:
-    filtered_exc.__suppress_context__ = True
-    raise filtered_exc
-
+# result: if the exception gets modified, then the 'raise' here makes this
+# frame show up in the traceback; otherwise, we leave no trace.)
 @attr.s(frozen=True)
 class MultiErrorCatch:
     _handler = attr.ib()
@@ -157,19 +146,18 @@ class MultiErrorCatch:
     def __exit__(self, etype, exc, tb):
         if exc is not None:
             filtered_exc = MultiError.filter(self._handler, exc)
-            return _catch_exit_helper(exc, filtered_exc)
-
-@attr.s(frozen=True)
-class MultiErrorACatch:
-    _handler = attr.ib()
-
-    async def __aenter__(self):
-        pass
-
-    async def __aexit__(self, etype, exc, tb):
-        if exc is not None:
-            filtered_exc = await MultiError.afilter(self._handler, exc)
-            return _catch_exit_helper(exc, filtered_exc)
+            if filtered_exc is exc:
+                # Let the interpreter re-raise it
+                return False
+            if filtered_exc is None:
+                # Swallow the exception
+                return True
+            if (filtered_exc.__cause__ is None
+                  and filtered_exc.__context__ is None):
+                # We can't stop Python from setting __context__, but we can
+                # hide it
+                filtered_exc.__suppress_context__ = True
+            raise filtered_exc
 
 class MultiError(BaseException):
     def __new__(cls, exceptions):
@@ -191,19 +179,11 @@ class MultiError(BaseException):
 
     @classmethod
     def filter(cls, handler, root_exc):
-        return run_sync_coro(_filter_impl, handler, root_exc, async_=False)
-
-    @classmethod
-    async def afilter(cls, ahandler, root_exc):
-        return await _filter_impl(ahandler, root_exc, async_=True)
+        return _filter_impl(handler, root_exc)
 
     @classmethod
     def catch(cls, handler):
         return MultiErrorCatch(handler)
-
-    @classmethod
-    def acatch(cls, ahandler):
-        return MultiErrorACatch(ahandler)
 
 
 ################################################################
@@ -318,17 +298,13 @@ def format_exception_multi(etype, value, tb, *, limit=None, chain=True):
     return _format_exception_multi(set(), etype, value, tb, limit, chain)
 
 def _format_exception_multi(seen, etype, value, tb, limit, chain):
-    print(seen, etype, value, tb, limit, chain)
     if id(value) in seen:
-        print("(already seen)")
         return ["<previously printed exception {!r}>\n".format(value)]
-    print("(new)")
     seen.add(id(value))
 
     chunks = []
     if chain:
         if value.__cause__ is not None:
-            print("recurse on cause")
             v = value.__cause__
             chunks += _format_exception_multi(
                 seen, type(v), v, v.__traceback__, limit=limit, chain=True)
@@ -337,7 +313,6 @@ def _format_exception_multi(seen, etype, value, tb, limit, chain):
                 "following exception:\n\n",
             ]
         elif value.__context__ is not None and not value.__suppress_context__:
-            print("recurse on context")
             v = value.__context__
             chunks += _format_exception_multi(
                 seen, type(v), v, v.__traceback__, limit=limit, chain=True)
@@ -350,7 +325,6 @@ def _format_exception_multi(seen, etype, value, tb, limit, chain):
         etype, value, tb, limit=limit, chain=False)
 
     if isinstance(value, MultiError):
-        print("recurse on multi")
         for i, exc in enumerate(value.exceptions):
             chunks += [
                 "\nDetails of embedded exception {}:\n\n".format(i + 1),

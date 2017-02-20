@@ -112,9 +112,11 @@ def test_MultiError_filter():
     assert MultiError.filter(null_handler, m) is m
     assert_tree_eq(m, make_tree())
 
-    async def null_ahandler(exc):
-        return exc
-
+    # Make sure we don't pick up any detritus if run in a context where
+    # implicit exception chaining would like to kick in
     m = make_tree()
-    assert run_sync_coro(MultiError.afilter, null_ahandler, m) is m
+    try:
+        raise ValueError
+    except ValueError:
+        assert MultiError.filter(null_handler, m) is m
     assert_tree_eq(m, make_tree())

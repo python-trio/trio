@@ -42,13 +42,13 @@ nothing to see here
    and there's a `widespread sense that we can do better
    <https://mail.python.org/pipermail/async-sig/2016-November/000175.html>`__.
 
-   The ideas behind trio come most directly from `analyzing the
-   pitfalls of callback-based async programming models like asyncio
-   <https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/>`__,
-   with heavy influence from Dave Beazley's `curio
-   <https://github.com/dabeaz/curio>`__ (though trio and curio differ
-   in fundamental enough ways that a new library seemed
-   necessary). Other influences include `C#, Erlang, and others
+   Trio is heavily inspired by Dave Beazley's `curio
+   <https://github.com/dabeaz/curio>`__, and an analysis of how it
+   `avoids many of the pitfalls of callback-based async programming
+   models like asyncio
+   <https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/>`__;
+   trio tries to take these ideas further. Other influences include
+   `C#, Erlang, and others
    <https://github.com/njsmith/trio/wiki/Reading-list>`__. But you
    don't need to know any of that to use trio.
 
@@ -193,12 +193,38 @@ nothing to see here
      catch/rethrow, push the tracebacks from the MultiError onto the
      individual exceptions and then make a new MultiError?
 
-     arun/run/call_soon
+   - give up on acatch/afilter for now... Python is just too buggy
+     (https://bugs.python.org/issue29600)
+
+   - maybe check for traceback mutation while calling filter_leaf()
+     (or maybe even set the tb to None before hand, and then restore
+     after?), and switch to a "pull" model for traceback propagation?
+
+     - ...still not sure what to do about __context__ on MultiErrors
+       though
+
+   - arun/run/call_soon
      run/call/call_soon
      run/run_sync/(call_soon or run_sync_soon)
      run_async/run_sync
 
-     design document outline:
+   - tag exceptions with task context, and show it in tracebacks
+
+     something like: exc.__trio_task_context__
+     _task_finished does:
+       .append((len(tb), "exit", task))
+     unwrap() (I guess? or run loop send, but unwrap is better...) does
+       .append((len(tb), "enter", current_task()))
+     (with some protection against current_task() failing, giving None
+     in that case)
+
+     and MultiError code needs to push these down along with
+     tracebacks (adjusting offsets as necessary)
+     ...or, could store a reference to the current tb object? ...but
+     ugh, we have to copy those :-( still, might be doable, and does
+     avoid some O(n) len calculations
+
+   - design document outline:
 
      target audience: folks who want to read the code and potentially
      contribute, folks working on competing libraries looking for
@@ -445,7 +471,11 @@ nothing to see here
      - better ergonomics for MultiErrors (catching, printing,
        rethrowing...)
        - concatenating tracebacks
+       - better control over implicit exception chaining
+       - better hooks to control exception printing?
      - context chaining for .throw() and .athrow()
+     - preserve the stack for yield from generators/coroutines, even
+       when suspended
      - better support for KI management (in particular for __(a)exit__
        blocks, with their currently unfixable race condition)
        need to understand this better...
