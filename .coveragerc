@@ -1,8 +1,11 @@
 [run]
 branch=True
 source=trio
+# For some reason coverage recording doesn't work for ipython_custom_exc.py,
+# so leave it out of reports
 omit=
   setup.py
+  */ipython_custom_exc.py
 # The test suite spawns subprocesses to test some stuff, so make sure
 # this doesn't corrupt the coverage files
 parallel=True

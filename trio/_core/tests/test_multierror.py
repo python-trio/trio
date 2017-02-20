@@ -185,7 +185,8 @@ def test_MultiError_filter():
 
 def test_MultiError_catch():
     # No exception to catch
-    with MultiError.catch(lambda _: None):
+    noop = lambda _: None  # pragma: no cover
+    with MultiError.catch(noop):
         pass
 
     # Simple pass-through of all exceptions
@@ -381,7 +382,7 @@ def run_script(name, use_ipython=False):
     script_path = Path(__file__).parent / "test_multierror_scripts" / name
 
     env = dict(os.environ)
-    if "PYTHONPATH" in env:
+    if "PYTHONPATH" in env:  # pragma: no cover
         pp = env["PYTHONPATH"].split(os.pathsep)
     else:
         pp = []
@@ -445,7 +446,7 @@ def test_custom_excepthook():
 
 try:
     import IPython
-except ImportError:
+except ImportError:  # pragma: no cover
     have_ipython = False
 else:
     have_ipython = True
