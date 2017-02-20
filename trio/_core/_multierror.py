@@ -168,6 +168,8 @@ class MultiError(BaseException):
     def catch(cls, handler):
         return MultiErrorCatcher(handler)
 
+# Clean up exception printing:
+MultiError.__module__ = "trio"
 
 ################################################################
 # concat_tb
