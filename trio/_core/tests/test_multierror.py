@@ -451,21 +451,27 @@ else:
     have_ipython = True
 
 need_ipython = pytest.mark.skipif(not have_ipython, reason="need IPython")
+broken_on_appveyor = pytest.mark.skipif(
+    "APPVEYOR" in os.environ,
+    reason="For some reason this freezes on appveyor")
 
 @slow
 @need_ipython
+@broken_on_appveyor
 def test_ipython_exc_handler():
     completed = run_script("simple_excepthook.py", use_ipython=True)
     check_simple_excepthook(completed)
 
 @slow
 @need_ipython
+@broken_on_appveyor
 def test_ipython_imported_but_unused():
     completed = run_script("simple_excepthook_IPython.py")
     check_simple_excepthook(completed)
 
 @slow
 @need_ipython
+@broken_on_appveyor
 def test_ipython_custom_exc_handler():
     # Check we get a nice warning (but only one!) if the user is using IPython
     # and already has some other set_custom_exc handler installed.
