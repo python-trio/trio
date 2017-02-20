@@ -4,7 +4,7 @@ from traceback import extract_tb, print_exception
 import sys
 import os
 import re
-from path import Path
+from pathlib import Path
 import subprocess
 
 from ..._util import run_sync_coro
@@ -377,8 +377,8 @@ def test_format_exception_multi():
 
 def run_script(name, use_ipython=False):
     import trio
-    trio_path = Path(trio.__file__).dirname().dirname()
-    script_path = Path(__file__).dirname() / "test_multierror_scripts" / name
+    trio_path = Path(trio.__file__).parent.parent
+    script_path = Path(__file__).parent / "test_multierror_scripts" / name
 
     env = dict(os.environ)
     if "PYTHONPATH" in env:
@@ -386,7 +386,7 @@ def run_script(name, use_ipython=False):
     else:
         pp = []
     pp.insert(0, str(trio_path))
-    pp.insert(0, str(script_path.dirname()))
+    pp.insert(0, str(script_path.parent))
     env["PYTHONPATH"] = os.pathsep.join(pp)
 
     if use_ipython:
