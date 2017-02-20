@@ -2,7 +2,7 @@ import pytest
 
 from ... import _core
 from ...testing import busy_wait_for
-from .test_util import check_sequence_matches
+from .tutil import check_sequence_matches
 from .._parking_lot import ParkingLot
 
 async def test_parking_lot_basic():

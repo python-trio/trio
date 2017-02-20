@@ -4,10 +4,14 @@
 #
 # this stuff should become a proper pytest plugin
 
-import inspect
 import pytest
+import inspect
 
 from ..testing import trio_test, MockClock
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--run-slow", action="store_true", help="run slow tests")
 
 @pytest.fixture
 def mock_clock():

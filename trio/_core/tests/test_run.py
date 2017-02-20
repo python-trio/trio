@@ -7,7 +7,7 @@ import platform
 import pytest
 import attr
 
-from .test_util import check_sequence_matches
+from .tutil import check_sequence_matches
 from ...testing import busy_wait_for, wait_run_loop_idle, Sequencer
 from ..._timeouts import sleep
 
