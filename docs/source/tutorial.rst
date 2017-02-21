@@ -180,7 +180,9 @@ instantly, and prints something like::
 The exact place where the warning is printed might vary, because it
 depends on the whims of the garbage collector. If you're using PyPy,
 you might not even get a warning at all until the next GC collection
-runs::
+runs:
+
+.. code-block:: none
 
    # On PyPy:
    >>>> trio.run(broken_double_sleep, 3)
