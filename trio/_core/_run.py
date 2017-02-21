@@ -207,28 +207,43 @@ async def open_nursery():
         assert ki_protected()
         await nursery._clean_up(pending_exc)
 
-class NurseryManager:
-    @enable_ki_protection
-    async def __aenter__(self):
-        self._scope_manager = open_cancel_scope()
-        scope = self._scope_manager.__enter__()
-        self._nursery = Nursery(current_task(), scope)
-        return self._nursery
-
-    @enable_ki_protection
-    async def __aexit__(self, etype, exc, tb):
-        try:
-            await self._nursery._clean_up(exc)
-        finally:
-            self._scope_manager.__exit__(*sys.exc_info())
-
+# I *think* this is equivalent to the above, and it gives *much* nicer
+# exception tracebacks... but I'm a little nervous about it because it's much
+# trickier code :-(
+#
+# class NurseryManager:
+#     @enable_ki_protection
+#     async def __aenter__(self):
+#         self._scope_manager = open_cancel_scope()
+#         scope = self._scope_manager.__enter__()
+#         self._nursery = Nursery(current_task(), scope)
+#         return self._nursery
+#
+#     @enable_ki_protection
+#     async def __aexit__(self, etype, exc, tb):
+#         try:
+#             await self._nursery._clean_up(exc)
+#         except BaseException as new_exc:
+#             if not self._scope_manager.__exit__(
+#                     type(new_exc), new_exc, new_exc.__traceback__):
+#                 if exc is new_exc:
+#                     return False
+#                 else:
+#                     raise
+#         else:
+#             self._scope_manager.__exit__(None, None, None)
+#             return True
+#
+# def open_nursery():
+#     return NurseryManager()
 
 class Nursery:
     def __init__(self, parent, cancel_scope):
         # the parent task -- only used for introspection, to implement
         # task.parent_task
         self._parent = parent
-        # the cancel stack that children inherit
+        # the cancel stack that children inherit - we take a snapshot, so it
+        # won't be affected by any changes in the parent.
         self._cancel_stack = list(parent._cancel_stack)
         # the cancel scope that directly surrounds us; used for cancelling all
         # children.
