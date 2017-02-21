@@ -35,7 +35,7 @@ python setup.py sdist --formats=zip
 pip install dist/*.zip
 
 if [ "$DOC_BUILD" = "1" ]; then
-    pip install -U sphinx
+    pip install -U sphinx sphinx_rtd_theme
     cd docs
     # -n (nit-picky): warn on missing references
     # -W: turn warnings into errors
