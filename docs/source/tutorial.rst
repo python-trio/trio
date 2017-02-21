@@ -1,7 +1,11 @@
- Trio tutorial
-===============
+Trio tutorial
+=============
 
-Welcome to the Trio tutorial! Here we'll try to give a gentle
+.. currentmodule:: trio
+
+Welcome to the Trio tutorial! Trio is a modern Python library for
+writing asynchronous applications – often, but not exclusively,
+asynchronous network applications. Here we'll try to give a gentle
 introduction to asynchronous programming with Trio.
 
 We assume that you're familiar with Python in general, but don't worry
@@ -16,8 +20,18 @@ to know any of that stuff unless you want to *implement* a library
 like Trio, so we leave it out. We'll include some links at the end in
 case you're the kind of person who's curious to know how it works
 under the hood, but you should still read this section first, because
-the implementation will make more sense once you understand what it's
-all for.
+the internal details will make much more sense once you understand
+what it's all for.
+
+
+Installing Trio
+---------------
+
+1. Make sure you're using Python 3.5 or newer.
+
+2. ``pip install trio``
+
+3. You're good to go!
 
 
 Async functions
@@ -29,9 +43,11 @@ all about writing async functions, so lets start there.
 An async function is defined like a normal function, except you write
 ``async def`` instead of ``def``::
 
+   # A regular function
    def regular_double(x):
        return 2 * x
 
+   # An async function
    async def async_double(x):
        return 2 * x
 
@@ -42,7 +58,7 @@ From a user's point of view, there are two differences between an
 async function and a regular function:
 
 1. To call an async function, you have to use the ``await``
-   keyword. So instead of writing ``regular_double(3)``, we write
+   keyword. So instead of writing ``regular_double(3)``, you write
    ``await async_double(3)``.
 
 2. A regular function can't use the ``await`` keyword. If you try it,
@@ -63,36 +79,37 @@ Now, let's think about the consequences here: if you need ``await`` to
 call an async function, and only async functions can use
 ``await``... here's a little table:
 
-=======================  ===================================  ===================
-If a function like this  wants to call a functions like this  is it gonna happen?
-=======================  ===================================  ===================
-async                    sync                                 yep
-async                    async                                sure
-sync                     sync                                 of course
-sync                     async                                NOPE
-=======================  ===================================  ===================
+=======================  ==================================  ===================
+If a function like this  wants to call a function like this  is it gonna happen?
+=======================  ==================================  ===================
+sync                     sync                                ✓
+sync                     async                               **NOPE**
+async                    sync                                ✓
+async                    async                               ✓
+=======================  ==================================  ===================
 
-So in summary: The entire difference between an async function and a
-regular function is that an async function has a super-power: it can
-call other async functions.
+So in summary: As a user, the entire difference between async
+functions and regular functions is that async functions have a
+superpower: they can call other async functions.
 
 This immediately raises two questions: how, and why? Specifically:
 
-When your Python program starts up, it's running in regular old sync
-mode. Once we have an async function we can call other async
-functions, but *how* do we call that first async function?
+When your Python program starts up, it's running regular old sync
+code. So there's a chicken-and-the-egg problem: once we're running an
+async function we can call other async functions, but *how* do we call
+that first async function?
 
-And if the only reason to write an async function is that it can call
+And, if the only reason to write an async function is that it can call
 other async functions, *why* would on earth would we ever use them in
 the first place? I mean, as superpowers go this seems a bit
 pointless. Wouldn't it be simpler to just... not use any async
-functions?
+functions at all?
 
 This is where an async library like Trio comes in. It provides two
 things:
 
 1. A runner function, which is a special *synchronous* function that
-   takes and runs an *asynchronous* function. In Trio, this is
+   takes and calls an *asynchronous* function. In Trio, this is
    ``trio.run``::
 
       import trio
@@ -120,16 +137,18 @@ things:
       trio.run(double_sleep, 3)  # does nothing for 6 seconds then returns
 
 Our ``async_double`` function is actually a bad example. I mean, it
-works, it's fine, but it's pointless: you could just as easily write
-it as a regular function, and doing that makes it more useful, because
-then you can call it from anywhere. Generally async applications are
-like a sandwich: on one side you have ``trio.run``, on the other side
-you have async functions like ``trio.sleep``, and your code makes the
-tasty async filling in between.
+works, it's fine, there's nothing *wrong* with it, but it's pointless:
+not only could it be just as easily written as a regular function, but
+that would actually make it more useful, because then you could call
+it from anywhere. ``double_sleep`` is a much more typical
+example. Practical async applications are written like a sandwich: on
+one side you have ``trio.run``, on the other side you have async
+functions like ``trio.sleep``, and your code makes the tasty async
+filling in between.
 
 
-Side note: the missing ``await``
---------------------------------
+A warning: don't forget to ``await``
+------------------------------------
 
 Now would be a good time to open up a Python prompt and experiment a
 little with writing simple async functions and running them with
@@ -158,15 +177,18 @@ instantly, and prints something like::
    __main__:4: RuntimeWarning: coroutine 'sleep' was never awaited
    >>>
 
-Or if you're using PyPy, you might even get no warning at all, until a
-GC collection runs::
+The exact place where the warning is printed might vary, because it
+depends on the whims of the garbage collector. If you're using PyPy,
+you might not even get a warning at all until the next GC collection
+runs::
 
+   # On PyPy:
    >>>> trio.run(broken_double_sleep, 3)
    *yawn* Going to sleep
    Woke up again, feeling well rested!
    >>>> # what the ... ??
    >>>> import gc
-   >>>> gc.collect
+   >>>> gc.collect()
    /home/njs/pypy-3.5-nightly/lib-python/3/importlib/_bootstrap.py:191: RuntimeWarning: coroutine 'sleep' was never awaited
    if _module_locks.get(name) is wr:    # XXX PyPy fix?
    0
@@ -179,9 +201,11 @@ up. Everyone does. And Python will not help you as much as you'd hope
 *always* means that you made the mistake of leaving out an ``await``
 somewhere, and you should ignore all the other error messages you see
 and go fix that first, because there's a good chance the other stuff
-is just collateral damage.
+is just collateral damage. (I'm not even sure what all that other junk
+in the PyPy output is. Fortunately I don't need to know, I just need
+to fix my function.)
 
-What's going on here is: in Trio, every time we use ``await`` it's to
+Here's what's going on. In Trio, every time we use ``await`` it's to
 call an async function, and every time we call an async function we
 use ``await``. But Python's trying to keep its options open for other
 libraries that are *ahem* a little less organized about things. So
@@ -192,10 +216,10 @@ function call that returns this weird "coroutine" object::
    >>> trio.sleep(3)
    <coroutine object sleep at 0x7f5ac77be6d0>
 
-and then that thing gets passed to ``await``, which actually runs the
+and then that object gets passed to ``await``, which actually runs the
 function. So if you forget ``await``, then two bad things happen: your
-code doesn't actually run, and you get this coroutine object where you
-might have been expecting something else, like a number::
+function doesn't actually get called, and you get a "coroutine" object
+where you might have been expecting something else, like a number::
 
    >>> async_double(3) + 1
    TypeError: unsupported operand type(s) for +: 'coroutine' and 'int'
@@ -210,14 +234,20 @@ purpose: try writing some code with a missing ``await``, or an extra
 
    trio.run(double_sleep(3))
 
-This way you'll be prepared for when it happens to you later.
+This way you'll be prepared for when it happens to you for real.
 
 
-Okay, let's do some cool stuff
-------------------------------
+Okay, let's do something cool
+-----------------------------
 
+So that's all well and good, but so far all we can do is write
+functions that print things and sleep for various lengths of
+time. Nifty, but we could just as easily have done that with
+:func:`time.sleep`. ``async/await`` is useless!
 
-.. code-block:: python
+Well, not really. Trio has one more trick up its sleeve, that makes
+async functions more powerful than regular functions: it lets us run
+multiple async function *at the same time*. Here's an example::
 
    import trio
 
@@ -241,14 +271,28 @@ Okay, let's do some cool stuff
            nursery.spawn(child2)
 
            print("parent: waiting for children to finish...")
-
+           # -- we exit the nursery block here --
        print("parent: all done!")
 
    trio.run(parent)
 
-Output::
+There's a lot going on in here, so we'll take it one step at a
+time. First, we define two async functions ``child1`` and
+``child2``. This part should be familiar from the last section.
 
+Output:
 
+.. code-block:: none
+
+   parent: started!
+   parent: spawning child1...
+   parent: spawning child2...
+   parent: waiting for children to finish...
+     child2 started! sleeping now...
+     child1: started! sleeping now...
+     child1: exiting!
+     child2 exiting!
+   parent: all done!
 
 (note another common mistake: forgetting the call to ``trio.run``!)
 

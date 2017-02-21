@@ -30,16 +30,26 @@ if [ "$USE_PYPY_NIGHTLY" = "1" ]; then
 fi
 
 pip install -U pip setuptools wheel
-pip install -Ur test-requirements.txt
 
 python setup.py sdist --formats=zip
 pip install dist/*.zip
 
-mkdir empty
-cd empty
+if [ "$DOC_BUILD" = "1" ]; then
+    pip install -U sphinx
+    cd docs
+    # -n (nit-picky): warn on missing references
+    # -W: turn warnings into errors
+    sphinx-build -nW  -b html source build
+else
+    # Actual tests
+    pip install -Ur test-requirements.txt
 
-INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
-pytest -ra --run-slow ${INSTALLDIR} --cov="$INSTALLDIR" --cov-config=../.coveragerc
+    mkdir empty
+    cd empty
 
-coverage combine
-pip install codecov && codecov
+    INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
+    pytest -ra --run-slow ${INSTALLDIR} --cov="$INSTALLDIR" --cov-config=../.coveragerc
+
+    coverage combine
+    pip install codecov && codecov
+fi

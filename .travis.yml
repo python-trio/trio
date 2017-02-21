@@ -8,6 +8,10 @@ sudo: false
 matrix:
   include:
     - os: linux
+      language: python
+      python: 3.6
+      env: DOC_BUILD=1
+    - os: linux
       language: generic
       env: USE_PYPY_NIGHTLY=1
     - os: osx

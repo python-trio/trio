@@ -1,3 +1,6 @@
+Design and internals
+====================
+
 Principles
 
 Twin priorities: Usability and correctness
@@ -37,7 +40,7 @@ partially-working backends on Windows
 
 other conventions:
 
-- the fn(*args) convention
+- the ``fn(*args)`` convention
 
 - tasks always complete; cleanups always run
 

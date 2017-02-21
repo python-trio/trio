@@ -1,3 +1,7 @@
+Trio reference manual
+=====================
+
+
 ..
    Instrument API:
 
