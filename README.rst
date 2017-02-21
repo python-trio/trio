@@ -440,6 +440,7 @@ nothing to see here
      - better ergonomics for MultiErrors (catching, printing,
        rethrowing...)
        - concatenating tracebacks
+       - attaching attributes to tracebacks (probably: subclassing them)
        - better control over implicit exception chaining
 
          example of a case that's simply broken and unfixable:
@@ -463,7 +464,8 @@ nothing to see here
        - better hooks to control exception printing?
      - context chaining for .throw() and .athrow()
      - preserve the stack for yield from generators/coroutines, even
-       when suspended
+       when suspended -- XX no! you can recover this via cr_await! see
+       curio.monitor._get_stack.
      - better support for KI management (in particular for __(a)exit__
        blocks, with their currently unfixable race condition)
        need to understand this better...
