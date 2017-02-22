@@ -14,7 +14,7 @@ def _await_in_trio_thread_cb(q, afn, args):
         nonlocal afn
         afn = _core.disable_ki_protection(afn)
         q.put_nowait(await _core.Result.acapture(afn, *args))
-    _core.spawn_system_task(await_in_trio_thread_task)
+    _core.spawn_system_task(await_in_trio_thread_task, name=afn)
 
 def _run_in_trio_thread_cb(q, fn, args):
     fn = _core.disable_ki_protection(fn)

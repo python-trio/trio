@@ -3,6 +3,7 @@ import sys
 import time
 from math import inf
 import platform
+import functools
 
 import pytest
 import attr
@@ -1318,6 +1319,29 @@ async def test_nursery_closure():
     # But once we've left __aexit__, the nursery is closed
     with pytest.raises(RuntimeError):
         nursery.spawn(child2)
+
+async def test_spawn_name():
+    async def func1():
+        pass
+    async def func2():
+        pass
+
+    async with _core.open_nursery() as nursery:
+        for spawn_fn in [nursery.spawn, _core.spawn_system_task]:
+            t0 = spawn_fn(func1)
+            assert "func1" in t0.name
+
+            t1 = spawn_fn(func1, name=func2)
+            assert "func2" in t1.name
+
+            t2 = spawn_fn(func1, name="func3")
+            assert "func3" == t2.name
+
+            t3 = spawn_fn(functools.partial(func1))
+            assert "func1" in t3.name
+
+            t4 = spawn_fn(func1, name=object())
+            assert "object" in t4.name
 
 # make sure to set up one where all tasks are blocked on I/O to exercise the
 # timeout = _MAX_TIMEOUT line

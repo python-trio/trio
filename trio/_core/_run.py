@@ -10,6 +10,7 @@ from contextlib import contextmanager, closing
 import select
 import sys
 from math import inf
+import functools
 
 import attr
 from sortedcontainers import SortedDict
@@ -267,8 +268,8 @@ class Nursery:
         self._zombies.add(task)
         self.monitor.put_nowait(task)
 
-    def spawn(self, fn, *args):
-        return GLOBAL_RUN_CONTEXT.runner.spawn_impl(fn, args, self)
+    def spawn(self, fn, *args, name=None):
+        return GLOBAL_RUN_CONTEXT.runner.spawn_impl(fn, args, self, name)
 
     def reap(self, task):
         try:
@@ -359,13 +360,14 @@ class Task:
     _nursery = attr.ib()
     coro = attr.ib()
     _runner = attr.ib()
+    name = attr.ib()
     result = attr.ib(default=None)
     # tasks start out unscheduled, and unscheduled tasks have None here
     _next_send = attr.ib(default=None)
     _abort_func = attr.ib(default=None)
 
     def __repr__(self):
-        return "<Task with coro={!r}>".format(self.coro)
+        return ("<Task {!r} at {:#x}>".format(self.name, id(self)))
 
     # For debugging and visualization:
     @property
@@ -529,7 +531,8 @@ class Runner:
         self.runq.append(task)
         self.instrument("task_scheduled", task)
 
-    def spawn_impl(self, fn, args, nursery, *, ki_protection_enabled=False):
+    def spawn_impl(
+            self, fn, args, nursery, name, *, ki_protection_enabled=False):
         # This sorta feels like it should be a method on nursery, except it
         # has to handle nursery=None for init. And it touches the internals of
         # all kinds of objects.
@@ -540,7 +543,16 @@ class Runner:
         coro = fn(*args)
         if not inspect.iscoroutine(coro):
             raise TypeError("spawn expected an async function")
-        task = Task(coro=coro, nursery=nursery, runner=self)
+        if name is None:
+            name = fn
+        if isinstance(name, functools.partial):
+            name = name.func
+        if not isinstance(name, str):
+            try:
+                name = "{}.{}".format(name.__module__, name.__qualname__)
+            except AttributeError:
+                name = repr(name)
+        task = Task(coro=coro, nursery=nursery, runner=self, name=name)
         self.tasks.add(task)
         if nursery is not None:
             nursery._children.add(task)
@@ -573,7 +585,7 @@ class Runner:
 
     @_public
     @_hazmat
-    def spawn_system_task(self, fn, *args):
+    def spawn_system_task(self, fn, *args, name=None):
         async def system_task_wrapper(fn, args):
             PASS = (Cancelled, KeyboardInterrupt, GeneratorExit,
                     TrioInternalError)
@@ -586,8 +598,10 @@ class Runner:
                     return new_exc
             with MultiError.catch(excfilter):
                 await fn(*args)
+        if name is None:
+            name = fn
         return self.spawn_impl(
-            system_task_wrapper, (fn, args), self.system_nursery,
+            system_task_wrapper, (fn, args), self.system_nursery, name,
             ki_protection_enabled=True)
 
     async def init(self, fn, args):
@@ -834,7 +848,7 @@ _MAX_TIMEOUT = 24 * 60 * 60
 def run_impl(runner, fn, args):
     runner.instrument("before_run")
     runner.init_task = runner.spawn_impl(
-        runner.init, (fn, args), None, ki_protection_enabled=True)
+        runner.init, (fn, args), None, "__init__", ki_protection_enabled=True)
 
     while runner.tasks:
         if runner.runq or runner.waiting_for_idle:
