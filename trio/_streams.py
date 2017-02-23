@@ -44,14 +44,24 @@ class AsyncResource(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def forceful_close(self):
-        # XX docstring should warn that this is a harsh shutdown, so e.g. TLS
-        # will be truncated, which you might or might not want.
-        # XX HTTP/2 streams probably need an async close too huh. Maybe async
-        # is better? or maybe the abstract interface should have aclose, and
-        # sockets should support both?
+        """Force an immediate close of this resource.
+
+        This will never block, but (depending on the resource in question) it
+        might be a "rude" shutdown.
+        """
         pass
 
     async def graceful_close(self):
+        """Close this resource, gracefully.
+
+        This may block in order to perform a "graceful" shutdown (for example,
+        sending a message alerting the other side of a connection that it is
+        about to close). But, if cancelled, then it still *must* close the
+        underlying resource.
+
+        Default implementation is to perform a :meth:`forceful_close` and then
+        execute a yield point.
+        """
         self.forceful_close()
         await _core.yield_briefly()
 

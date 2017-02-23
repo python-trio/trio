@@ -7,7 +7,7 @@ __all__ = [
 ]
 
 class TrioInternalError(Exception):
-    """Raised by run() if we hit encounter a bug in trio.
+    """Raised by run() if we encounter a bug in trio.
 
     This should never happen! If you get this error, please file a bug.
     """

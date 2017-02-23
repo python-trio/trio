@@ -12,7 +12,6 @@ class _UnboundedQueueStats:
     qsize = attr.ib()
     tasks_waiting = attr.ib()
 
-@_hazmat
 class UnboundedQueue:
     def __init__(self, container=list):
         self._lot = _core.ParkingLot()

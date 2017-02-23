@@ -147,8 +147,8 @@ functions like ``trio.sleep``, and your code makes the tasty async
 filling in between.
 
 
-A warning: don't forget to ``await``
-------------------------------------
+Fair warning: don't forget to ``await``
+---------------------------------------
 
 Now would be a good time to open up a Python prompt and experiment a
 little with writing simple async functions and running them with
@@ -157,37 +157,43 @@ little with writing simple async functions and running them with
 At some point in this process, you'll probably write some code like
 this, with a missing ``await``::
 
+   import time
    import trio
 
    async def broken_double_sleep(x):
        print("*yawn* Going to sleep")
+       start_time = time.time()
        # Whoops, we forgot the 'await'!
        trio.sleep(2 * x)
-       print("Woke up again, feeling well rested!")
+       sleep_time = time.time() - start_time
+       print("Woke up after {:.2f} seconds, feeling well rested!".format(sleep_time))
 
    trio.run(broken_double_sleep, 3)
 
 You might think that when this happens, Python would raise an
-error. But unfortunately, what you actually get is that the code runs
-instantly, and prints something like::
+error. But unfortunately, what you actually get is:
+
+.. code-block:: none
 
    >>> trio.run(broken_double_sleep, 3)
    *yawn* Going to sleep
-   Woke up again, feeling well rested!
+   Woke up again after 0.00 seconds, feeling well rested!
    __main__:4: RuntimeWarning: coroutine 'sleep' was never awaited
    >>>
 
-The exact place where the warning is printed might vary, because it
-depends on the whims of the garbage collector. If you're using PyPy,
-you might not even get a warning at all until the next GC collection
-runs:
+This is clearly broken – 0.00 seconds is not long enough to feel well
+rested! The exact place where the warning is printed might vary,
+because it depends on the whims of the garbage collector. If you're
+using PyPy, you might not even get a warning at all until the next GC
+collection runs (you might need to scroll right to see the warning
+text):
 
 .. code-block:: none
 
    # On PyPy:
    >>>> trio.run(broken_double_sleep, 3)
    *yawn* Going to sleep
-   Woke up again, feeling well rested!
+   Woke up again after 0.00 seconds, feeling well rested!
    >>>> # what the ... ??
    >>>> import gc
    >>>> gc.collect()
@@ -196,16 +202,16 @@ runs:
    0
    >>>>
 
-This is an *incredibly common mistake*. You will mess this
-up. Everyone does. And Python will not help you as much as you'd hope
-😞. The key thing to remember is: if you see the magic words
-``RuntimeWarning: coroutine '...' was never awaited``, then this
-*always* means that you made the mistake of leaving out an ``await``
-somewhere, and you should ignore all the other error messages you see
-and go fix that first, because there's a good chance the other stuff
-is just collateral damage. (I'm not even sure what all that other junk
-in the PyPy output is. Fortunately I don't need to know, I just need
-to fix my function.)
+Forgetting an ``await`` like this is an *incredibly common
+mistake*. You will mess this up. Everyone does. And Python will not
+help you as much as you'd hope 😞. The key thing to remember is: if
+you see the magic words ``RuntimeWarning: coroutine '...' was never
+awaited``, then this *always* means that you made the mistake of
+leaving out an ``await`` somewhere, and you should ignore all the
+other error messages you see and go fix that first, because there's a
+good chance the other stuff is just collateral damage. (I'm not even
+sure what all that other junk in the PyPy output is. Fortunately I
+don't need to know, I just need to fix my function!)
 
 Here's what's going on. In Trio, every time we use ``await`` it's to
 call an async function, and every time we call an async function we
@@ -282,7 +288,10 @@ There's a lot going on in here, so we'll take it one step at a
 time. First, we define two async functions ``child1`` and
 ``child2``. This part should be familiar from the last section.
 
-Output:
+Next, we define ``parent`` as an async function that's going to run
+``child1`` and ``child2`` concurrently. It does this by creating a
+"nursery", and then "spawning" them both in the nursery (we'll go over
+this in more detail below). The output is:
 
 .. code-block:: none
 
@@ -292,12 +301,16 @@ Output:
    parent: waiting for children to finish...
      child2 started! sleeping now...
      child1: started! sleeping now...
+       [... 1 second passes ...]
      child1: exiting!
      child2 exiting!
    parent: all done!
 
-(note another common mistake: forgetting the call to ``trio.run``!)
+Notice that the output from ``child1`` and ``child2`` is mixed
+together, and that the whole program only takes 1 second to run, even
+though we have two calls to ``trio.sleep(1)``.
 
+:class:`trio.Task`
 (define terminology: "task")
 
 Under the covers, trio.run and trio.sleep work together to make this
@@ -320,6 +333,10 @@ arrive over the network – then we use ``await``. (Hence the name:
 is simple straight-line code: it prints a message, blocks for 1 second
 in sleep, and then prints another message. But while ``child1`` is
 blocked, the overall can keep getting useful work done.
+
+quick quiz: Try replacing the ``await trio.sleep(1)`` calls with
+``time.sleep(1)`` in our original script. What happens if you run it
+now? Why?
 
 if you've used threads before, this is very similar to starting
 
@@ -350,9 +367,25 @@ if you've used threads before, this is very similar to starting
 
    main()
 
-quick quiz: Try replacing the ``await trio.sleep(1)`` calls with
-``time.sleep(1)`` in our original script. What happens if you run it
-now? Why?
+threads versus tasks:
+either way, only one function is running at a time, because of the GIL
+
+downsides:
+
+- extra ceremony with ``async`` and ``await``
+
+- explicit yielding means it's possible for one task to accidentally
+  block the app
+
+upsides:
+
+- much more scalable – thousands of concurrent tasks is no big deal,
+  versus https://twitter.com/hynek/status/771790449057132544
+
+- control over interleaving https://glyph.twistedmatrix.com/2014/02/unyielding.html
+
+- because these "threads" are implemented in Python, we can have rich
+  semantics – nurseries, cancellation, introspection, etc.
 
 answer: [show transcript] [in trio you *NEVER SWITCH* except when
 using ``await``. If there's a stretch of code that doesn't have any
@@ -401,6 +434,7 @@ these cases all work the same though: if you have a context manager
 that wants to call an async function, then it has to be an async
 context manager, etc. Here ``open_nursery()`` is an async context
 manager, because it blocks waiting for all the child tasks to finish.
+
 
 
 https://snarky.ca/how-the-heck-does-async-await-work-in-python-3-5/
