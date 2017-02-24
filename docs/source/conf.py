@@ -28,13 +28,67 @@ import sphinx
 if sphinx.version_info < (1, 5, 3):
     print("Monkeypatching sphinx!")
     print("I hope they release a fixed version soon...")
+    import inspect
     import sphinx.util.inspect
-    orig_getargspec = sphinx.util.inspect.getargspec
-    def fixed_getargspec(func):
-        while hasattr(func, "__wrapped__"):
-            func = func.__wrapped__
-        return orig_getargspec(func)
-    sphinx.util.inspect.getargspec = fixed_getargspec
+    # Copied from the definition of inspect.getfullargspec from Python master,
+    # and modified to remove the use of special flags that break decorated
+    # callables and bound methods in the name of backwards compatibility. Used
+    # under the terms of PSF license v2, which requires the above statement
+    # and the following:
+    #
+    #   Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
+    #   2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017 Python Software
+    #   Foundation; All Rights Reserved
+    def getargspec(func):
+        """Like inspect.getfullargspec but supports bound methods, and wrapped
+        methods."""
+        sig = inspect.signature(func)
+
+        args = []
+        varargs = None
+        varkw = None
+        kwonlyargs = []
+        defaults = ()
+        annotations = {}
+        defaults = ()
+        kwdefaults = {}
+
+        if sig.return_annotation is not sig.empty:
+            annotations['return'] = sig.return_annotation
+
+        for param in sig.parameters.values():
+            kind = param.kind
+            name = param.name
+
+            if kind is inspect.Parameter.POSITIONAL_ONLY:
+                args.append(name)
+            elif kind is inspect.Parameter.POSITIONAL_OR_KEYWORD:
+                args.append(name)
+                if param.default is not param.empty:
+                    defaults += (param.default,)
+            elif kind is inspect.Parameter.VAR_POSITIONAL:
+                varargs = name
+            elif kind is inspect.Parameter.KEYWORD_ONLY:
+                kwonlyargs.append(name)
+                if param.default is not param.empty:
+                    kwdefaults[name] = param.default
+            elif kind is inspect.Parameter.VAR_KEYWORD:
+                varkw = name
+
+            if param.annotation is not param.empty:
+                annotations[name] = param.annotation
+
+        if not kwdefaults:
+            # compatibility with 'func.__kwdefaults__'
+            kwdefaults = None
+
+        if not defaults:
+            # compatibility with 'func.__defaults__'
+            defaults = None
+
+        return inspect.FullArgSpec(args, varargs, varkw, defaults,
+                                   kwonlyargs, kwdefaults, annotations)
+    sphinx.util.inspect.getargspec = getargspec
 
 # -- General configuration ------------------------------------------------
 
