@@ -1343,6 +1343,28 @@ async def test_spawn_name():
             t4 = spawn_fn(func1, name=object())
             assert "object" in t4.name
 
+
+async def test_current_effective_deadline(mock_clock):
+    assert _core.current_effective_deadline() == inf
+
+    with _core.open_cancel_scope(deadline=5) as scope1:
+        with _core.open_cancel_scope(deadline=10) as scope2:
+            assert _core.current_effective_deadline() == 5
+            scope2.deadline = 3
+            assert _core.current_effective_deadline() == 3
+            scope2.deadline = 10
+            assert _core.current_effective_deadline() == 5
+            scope2.shield = True
+            assert _core.current_effective_deadline() == 10
+            scope2.shield = False
+            assert _core.current_effective_deadline() == 5
+            scope1.cancel()
+            assert _core.current_effective_deadline() == -inf
+            scope2.shield = True
+            assert _core.current_effective_deadline() == 10
+        assert _core.current_effective_deadline() == -inf
+    assert _core.current_effective_deadline() == inf
+
 # make sure to set up one where all tasks are blocked on I/O to exercise the
 # timeout = _MAX_TIMEOUT line
 

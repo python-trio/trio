@@ -1,4 +1,3 @@
-import abc
 import inspect
 import enum
 from collections import deque
@@ -38,8 +37,9 @@ from . import _public, _hazmat
 # wrapper functions for runner and io manager methods, and adds them to
 # __all__. These are all re-exported as part of the 'trio' or 'trio.hazmat'
 # namespaces.
-__all__ = ["Clock", "Task", "run", "open_nursery", "open_cancel_scope",
-           "yield_briefly", "current_task", "yield_if_cancelled"]
+__all__ = ["Task", "run", "open_nursery", "open_cancel_scope",
+           "yield_briefly", "current_task", "current_effective_deadline",
+           "yield_if_cancelled"]
 
 GLOBAL_RUN_CONTEXT = threading.local()
 
@@ -54,18 +54,9 @@ else:  # pragma: no cover
     raise NotImplementedError("unsupported platform")
 
 
-class Clock(abc.ABC):
-    @abc.abstractmethod
-    def current_time(self):  # pragma: no cover
-        pass
-
-    @abc.abstractmethod
-    def deadline_to_sleep_time(self, deadline):  # pragma: no cover
-        pass
-
 _r = random.Random()
 @attr.s(slots=True, frozen=True)
-class SystemClock(Clock):
+class SystemClock:
     # Add a large random offset to our clock to ensure that if people
     # accidentally call time.monotonic() directly or start comparing clocks
     # between different runs, then they'll notice the bug quickly:
@@ -958,6 +949,40 @@ def current_task():
         return GLOBAL_RUN_CONTEXT.task
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
+
+def current_effective_deadline():
+    """Returns the current effective deadline for the current task.
+
+    This function examines all the cancellation scopes that are currently in
+    effect (taking into account shielding), and returns the deadline that will
+    expire first.
+
+    One example of where this might be is useful is if your code is trying to
+    decide whether to begin an expensive operation like an RPC call, but wants
+    to skip it if it knows that it can't possibly complete in the available
+    time. Another example would be if you're using a protocol like gRPC that
+    `propagates timeout information to the remote peer
+    <http://www.grpc.io/docs/guides/concepts.html#deadlines>`__; this function
+    gives a way to fetch that information so you can send it along.
+
+    If this is called in a context where a cancellation is currently active
+    (i.e., a blocking call will immediately raise :exc:`Cancelled`), then
+    returned deadline is ``-inf``. If it is called in a context where no
+    scopes have a deadline set, it returns ``inf``.
+
+    Returns:
+        float: the effective deadline, as an absolute time.
+
+    """
+    task = current_task()
+    deadline = inf
+    for scope in task._cancel_stack:
+        if scope._shield:
+            deadline = inf
+        if scope.cancel_called:
+            deadline = -inf
+        deadline = min(deadline, scope._deadline)
+    return deadline
 
 @_hazmat
 async def yield_briefly():

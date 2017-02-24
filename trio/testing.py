@@ -11,6 +11,7 @@ from async_generator import async_generator, yield_
 from ._util import acontextmanager
 from . import _core
 from . import Event
+from .abc import Clock
 
 __all__ = ["busy_wait_for", "wait_run_loop_idle", "trio_test", "MockClock",
            "assert_yields", "assert_no_yields", "Sequencer"]
@@ -37,7 +38,7 @@ def trio_test(fn):
     @wraps(fn)
     def wrapper(**kwargs):
         __tracebackhide__ = True
-        clocks = [c for c in kwargs.values() if isinstance(c, _core.Clock)]
+        clocks = [c for c in kwargs.values() if isinstance(c, Clock)]
         if not clocks:
             clock = None
         elif len(clocks) == 1:
@@ -51,7 +52,7 @@ def trio_test(fn):
 #   https://twistedmatrix.com/documents/current/api/twisted.internet.task.Clock.html
 #   https://github.com/ztellman/manifold/issues/57
 @attr.s(slots=True, cmp=False, hash=False)
-class MockClock(_core.Clock):
+class MockClock(Clock):
     _mock_time = attr.ib(convert=float, default=0.0)
 
     # XX could also have pause/unpause functionality to start it running in

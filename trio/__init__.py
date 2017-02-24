@@ -48,4 +48,5 @@ __all__ += _signals.__all__
 
 # Imported by default
 from . import socket
+from . import abc
 # Not imported by default: testing
