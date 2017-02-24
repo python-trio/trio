@@ -370,6 +370,10 @@ if you've used threads before, this is very similar to starting
 threads versus tasks:
 either way, only one function is running at a time, because of the GIL
 
+Async programming takes a kind of "if you can't beat 'em, join 'em"
+approach to the GIL: if we're going to have a GIL anyway, let's take
+advantage of that to make our API easier to use!
+
 downsides:
 
 - extra ceremony with ``async`` and ``await``
@@ -379,13 +383,15 @@ downsides:
 
 upsides:
 
+- control over interleaving https://glyph.twistedmatrix.com/2014/02/unyielding.html
+
 - much more scalable – thousands of concurrent tasks is no big deal,
   versus https://twitter.com/hynek/status/771790449057132544
 
-- control over interleaving https://glyph.twistedmatrix.com/2014/02/unyielding.html
-
 - because these "threads" are implemented in Python, we can have rich
   semantics – nurseries, cancellation, introspection, etc.
+
+generally much easier to reason about
 
 answer: [show transcript] [in trio you *NEVER SWITCH* except when
 using ``await``. If there's a stretch of code that doesn't have any

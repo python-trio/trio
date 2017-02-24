@@ -126,8 +126,8 @@ class _LockStatistics:
 @async_cm
 @attr.s(slots=True, cmp=False, hash=False, repr=False)
 class Lock:
-    _lot = attr.ib(default=attr.Factory(_core.ParkingLot))
-    _owner = attr.ib(default=None)
+    _lot = attr.ib(default=attr.Factory(_core.ParkingLot), init=False)
+    _owner = attr.ib(default=None, init=False)
 
     def __repr__(self):
         if self.locked():

@@ -13,9 +13,9 @@ class _UnboundedQueueStats:
     tasks_waiting = attr.ib()
 
 class UnboundedQueue:
-    def __init__(self, container=list):
+    def __init__(self):
         self._lot = _core.ParkingLot()
-        self._data = container()
+        self._data = []
         # used to allow handoff from put to the first task in the lot
         self._can_get = False
 

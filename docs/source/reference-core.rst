@@ -1,58 +1,118 @@
-Trio reference manual
-=====================
+Trio: core functionality
+========================
 
 .. module:: trio
 
+
+Entering trio
+-------------
+
 .. autofunction:: run
 
-.. autoexception:: TrioInternalError
 
-
-Timing, timeouts, and cancellation
-----------------------------------
+The passage of time
+-------------------
 
 .. can't use autofunction for the auto-wrapped stuff, because they
    look like bound methods and sphinx.ext.autodoc can't handle that
 
-.. function:: current_time
+.. autofunction:: current_time
 
-.. these are async...
-
-.. asyncfunction:: foo()
-
-.. autoasyncfunction:: sleep
+.. autofunction:: sleep
 .. autofunction:: sleep_until
 .. autofunction:: sleep_forever
 
-.. autoexception:: Cancelled
 
-.. these are context managers...
+Timeouts and cancellation
+-------------------------
 
 .. autofunction:: open_cancel_scope
+   :with: cancel_scope
+
+   .. currentmodule:: None
+
+   .. attribute:: deadline
+
+   .. attribute:: shield
+
+   .. method:: cancel()
+
+   .. currentmodule:: trio
 
 .. autofunction:: move_on_after
+   :with:
 
 .. autofunction:: move_on_at
+   :with:
+
+
 
 .. autofunction:: fail_after
+   :with:
 
 .. autofunction:: fail_at
-
-.. autoexception:: TooSlowError
+   :with:
 
 
 Spawning and managing tasks
 ---------------------------
 
 .. autofunction:: open_nursery
+   :async-with: nursery
 
-.. class:: Nursery
+   .. currentmodule:: None
 
-.. autoclass:: Task
+   .. method:: spawn(async_fn, *args, name=None)
+
+   .. attribute:: cancel_scope
+
+   The remaining attributes and methods are mainly used for
+   implementing new types of task supervisor:
+
+   .. attribute:: monitor
+
+      A :class:`~trio.UnboundedQueue` which receives each child
+      :class:`~trio.Task` object when it exits.
+
+   .. attribute:: children
+
+      A :class:`frozenset` containing all the child
+      :class:`~trio.Task` objects which are still running.
+
+   .. attribute:: zombies
+
+      A :class:`frozenset` containing all the child
+      :class:`~trio.Task` objects which have exited, but not yet been
+      reaped.
+
+   .. method:: reap(task)
+
+      Removes the given task from the :attr:`zombies` set.
+
+      :raises ValueError: If the given *task* is not in :attr:`zombies`.
+
+   .. method:: reap_and_unwrap(task)
+
+      A convenience shorthand for::
+
+         nursery.reap(task)
+         return task.result.unwrap()
+
+   .. currentmodule:: trio
+
+.. autoclass:: Task()
+   :members:
+
+.. autoclass:: Result
+
+.. autoclass:: Value
+
+.. autoclass:: Error
 
 .. autoexception:: MultiError
    :members:
 
+.. autofunction:: format_exception
 
 Synchronization and inter-task communication
 --------------------------------------------
@@ -106,31 +166,30 @@ Example::
    trio.run(main)
 
 .. function:: current_run_in_trio_thread
-.. function:: current_await_in_trio_thread
+              current_await_in_trio_thread
 
    Call these from inside a trio run to get a a reference to the
    current run's :func:`run_in_trio_thread` or
    :func:`await_in_trio_thread`:
 
-.. function:: run_in_trio_thread(sync_fn, *args)
-.. function:: await_in_trio_thread(async_fn, *args)
+   .. function:: run_in_trio_thread(sync_fn, *args)
+      :module:
+   .. function:: await_in_trio_thread(async_fn, *args)
+      :module:
 
-   These functions are not exposed as part of the ``trio`` namespace;
-   you get them by calling :func:`current_run_in_trio_thread` or
-   :func:`current_await_in_trio_thread`.
+   These functions schedule a call to ``sync_fn(*args)`` or ``await
+   async_fn(*args)`` to happen in the main trio thread, wait for it to
+   complete, and then return the result or raise whatever exception it
+   raised.
 
-   These are the *only* functions in the ``trio.*`` namespace that can
-   be called from a different thread than the one that called
+   These are the *only* non-hazmat functions in trio that can be
+   called from a different thread than the one that called
    :func:`trio.run`. These two functions *must* be called from a
-   different thread than the one that called :func:`trio.run` (after
-   all, they're blocking functions!).
+   different thread than the one that called :func:`trio.run`. (After
+   all, they're blocking functions!)
 
-   Schedules a call to ``sync_fn(*args)`` or ``await async_fn(*args)``
-   to happen in the trio thread, waits for it to complete, and then
-   returns the result or raises
-
-   If the corresponding call to :func:`trio.run` has already completed,
-   then raises :exc:`RunFinishedError`.
+   :raises RunFinishedError: If the corresponding call to
+      :func:`trio.run` has already completed.
 
 .. autoexception:: RunFinishedError
 
@@ -220,23 +279,11 @@ Other notes:
 * current_tasks
 
 
-Stream API
+Exceptions
 ----------
 
-.. autoclass:: AsyncResource
-   :members:
+.. autoexception:: TrioInternalError
 
-   .. asyncmethod:: foo()
+.. autoexception:: Cancelled
 
-.. autoclass:: SendStream
-   :members:
-
-.. autoclass:: RecvStream
-   :members:
-
-.. autoclass:: Stream
-   :members:
-
-
-Testing
--------
+.. autoexception:: TooSlowError

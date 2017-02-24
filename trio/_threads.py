@@ -143,7 +143,7 @@ def current_await_in_trio_thread():
 _worker_thread_counter = count()
 
 @_core.enable_ki_protection
-async def run_in_worker_thread(fn, *args, cancellable=False):
+async def run_in_worker_thread(sync_fn, *args, cancellable=False):
     await _core.yield_if_cancelled()
     call_soon = _core.current_call_soon_thread_and_signal_safe()
     task_register = [_core.current_task()]
@@ -151,7 +151,7 @@ async def run_in_worker_thread(fn, *args, cancellable=False):
         if task_register[0] is not None:
             _core.reschedule(task_register[0], result)
     def worker_thread_fn():
-        result = _core.Result.capture(fn, *args)
+        result = _core.Result.capture(sync_fn, *args)
         try:
             call_soon(trio_thread_fn, result)
         except _core.RunFinishedError:

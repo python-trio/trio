@@ -268,8 +268,8 @@ class Nursery:
         self._zombies.add(task)
         self.monitor.put_nowait(task)
 
-    def spawn(self, fn, *args, name=None):
-        return GLOBAL_RUN_CONTEXT.runner.spawn_impl(fn, args, self, name)
+    def spawn(self, async_fn, *args, name=None):
+        return GLOBAL_RUN_CONTEXT.runner.spawn_impl(async_fn, args, self, name)
 
     def reap(self, task):
         try:
@@ -532,7 +532,8 @@ class Runner:
         self.instrument("task_scheduled", task)
 
     def spawn_impl(
-            self, fn, args, nursery, name, *, ki_protection_enabled=False):
+            self, async_fn, args, nursery, name,
+            *, ki_protection_enabled=False):
         # This sorta feels like it should be a method on nursery, except it
         # has to handle nursery=None for init. And it touches the internals of
         # all kinds of objects.
@@ -540,11 +541,11 @@ class Runner:
             raise RuntimeError("Nursery is closed to new arrivals")
         if nursery is None:
             assert self.init_task is None
-        coro = fn(*args)
+        coro = async_fn(*args)
         if not inspect.iscoroutine(coro):
             raise TypeError("spawn expected an async function")
         if name is None:
-            name = fn
+            name = async_fn
         if isinstance(name, functools.partial):
             name = name.func
         if not isinstance(name, str):
@@ -585,8 +586,8 @@ class Runner:
 
     @_public
     @_hazmat
-    def spawn_system_task(self, fn, *args, name=None):
-        async def system_task_wrapper(fn, args):
+    def spawn_system_task(self, async_fn, *args, name=None):
+        async def system_task_wrapper(async_fn, args):
             PASS = (Cancelled, KeyboardInterrupt, GeneratorExit,
                     TrioInternalError)
             def excfilter(exc):
@@ -597,18 +598,18 @@ class Runner:
                     new_exc.__cause__ = exc
                     return new_exc
             with MultiError.catch(excfilter):
-                await fn(*args)
+                await async_fn(*args)
         if name is None:
-            name = fn
+            name = async_fn
         return self.spawn_impl(
-            system_task_wrapper, (fn, args), self.system_nursery, name,
+            system_task_wrapper, (async_fn, args), self.system_nursery, name,
             ki_protection_enabled=True)
 
-    async def init(self, fn, args):
+    async def init(self, async_fn, args):
         async with open_nursery() as system_nursery:
             self.system_nursery = system_nursery
             self.spawn_system_task(self.call_soon_task)
-            self.main_task = system_nursery.spawn(fn, *args)
+            self.main_task = system_nursery.spawn(async_fn, *args)
             async for task_batch in system_nursery.monitor:
                 for task in task_batch:
                     if task is self.main_task:
@@ -645,7 +646,8 @@ class Runner:
     # WRT a signal anyway.
     call_soon_lock = attr.ib(default=attr.Factory(threading.RLock))
 
-    def call_soon_thread_and_signal_safe(self, fn, *args, idempotent=False):
+    def call_soon_thread_and_signal_safe(
+            self, sync_fn, *args, idempotent=False):
         with self.call_soon_lock:
             if self.call_soon_done:
                 raise RunFinishedError("run() has exited")
@@ -655,9 +657,9 @@ class Runner:
             # wakeup call might trigger an OSError b/c the IO manager has
             # already been shut down.
             if idempotent:
-                self.call_soon_idempotent_queue[(fn, args)] = None
+                self.call_soon_idempotent_queue[(sync_fn, args)] = None
             else:
-                self.call_soon_queue.append((fn, args))
+                self.call_soon_queue.append((sync_fn, args))
             self.call_soon_wakeup.wakeup_thread_and_signal_safe()
 
     @_public
@@ -681,9 +683,9 @@ class Runner:
             # job to disable it if it wants it disabled. Exceptions are
             # treated like system task exceptions (i.e., converted into
             # TrioInternalError and cause everything to shut down).
-            fn, args = job
+            sync_fn, args = job
             try:
-                fn(*args)
+                sync_fn(*args)
             except BaseException as exc:
                 async def kill_everything(exc):
                     raise exc
@@ -800,7 +802,7 @@ class Runner:
 # run
 ################################################################
 
-def run(fn, *args, clock=None, instruments=[]):
+def run(async_fn, *args, clock=None, instruments=[]):
     # Do error-checking up front, before we enter the TrioInternalError
     # try/catch
     #
@@ -827,7 +829,7 @@ def run(fn, *args, clock=None, instruments=[]):
                 with closing(runner):
                     # The main reason this is split off into its own function
                     # is just to get rid of this extra indentation.
-                    result = run_impl(runner, fn, args)
+                    result = run_impl(runner, async_fn, args)
             except BaseException as exc:
                 raise TrioInternalError(
                     "internal error in trio - please file a bug!") from exc
@@ -845,10 +847,11 @@ def run(fn, *args, clock=None, instruments=[]):
 # 10**20 and then getting integer overflows in the underlying system calls.
 _MAX_TIMEOUT = 24 * 60 * 60
 
-def run_impl(runner, fn, args):
+def run_impl(runner, async_fn, args):
     runner.instrument("before_run")
     runner.init_task = runner.spawn_impl(
-        runner.init, (fn, args), None, "__init__", ki_protection_enabled=True)
+        runner.init, (async_fn, args), None, "__init__",
+        ki_protection_enabled=True)
 
     while runner.tasks:
         if runner.runq or runner.waiting_for_idle:

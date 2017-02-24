@@ -193,7 +193,7 @@ Cancel points and schedule points
   * There are a few rare operations where fully implementing Trio's
     cancellation semantics are impossible, in particular
     :func:`trio.run_in_worker_thread` and
-    :func:`trio.socket.socket.connect`. These are documented
+    :func:`trio.socket.SocketType.connect`. These are documented
 
 
 Exceptions always propagate

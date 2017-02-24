@@ -3,17 +3,39 @@
 #   https://github.com/dabeaz/curio/blob/master/docs/customization.py
 #   https://github.com/aio-libs/sphinxcontrib-asyncio/blob/master/sphinxcontrib/asyncio.py
 
-# Parts of this derived from the CPython source code, under the terms of the
-# PSF License, which requires the following notice:
-#   Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-#   2011, 2012, 2013, 2014, 2015, 2016, 2017 Python Software Foundation; All
-#   Rights Reserved
+# We take a somewhat different approach, though, based on the observation that
+# function properties like "classmethod", "async", "abstractmethod" can be
+# mixed and matched, so the the classic sphinx approach of defining different
+# directives for all of these quickly becomes cumbersome. Instead, we override
+# the ordinary function & method directives to add options corresponding to
+# these different properties, and override the autofunction and automethod
+# directives to sniff for these properties.
+
+# We also provide an anoninterface directive
 
 import inspect
+import async_generator
 
+from docutils.parsers.rst import directives
 from sphinx import addnodes
 from sphinx.domains.python import PyModulelevel, PyClassmember
-from sphinx.ext.autodoc import FunctionDocumenter, MethodDocumenter
+from sphinx.ext.autodoc import (
+    FunctionDocumenter, MethodDocumenter, ClassLevelDocumenter,
+)
+
+extended_function_option_spec = {
+    "async": directives.flag,
+    "with": directives.unchanged,
+    "async-with": directives.unchanged,
+}
+
+extended_method_option_spec = {
+    **extended_function_option_spec,
+    "abstractmethod": directives.flag,
+    "staticmethod": directives.flag,
+    "classmethod": directives.flag,
+    "property": directives.flag,
+}
 
 class ExtendedCallableMixin:
     def needs_arglist(self):
@@ -37,21 +59,23 @@ class ExtendedCallableMixin:
             ret += "classmethod "
         if "property" in self.options:
             ret += "property "
+        if "with" in self.options:
+            ret += "with "
+        if "async-with" in self.options:
+            ret += "async with "
         if "async" in self.options:
             ret += "await "
         return ret
 
-extended_function_option_spec = {
-    "async": directives.flag,
-}
-
-extended_method_option_spec = {
-    "abstractmethod": directives.flag,
-    "staticmethod": directives.flag,
-    "classmethod": directives.flag,
-    "property": directives.flag,
-    "async": directives.flag,
-}
+    def handle_signature(self, sig, signode):
+        ret = super().handle_signature(sig, signode)
+        for optname in ["with", "async-with"]:
+            if self.options.get(optname, "").strip():
+                # for some reason a regular space here gets stripped, so we
+                # use U+00A0 NO-BREAK SPACE
+                s = "\u00A0as {}".format(self.options[optname])
+                signode += addnodes.desc_annotation(s, s)
+        return ret
 
 class ExtendedPyFunction(ExtendedCallableMixin, PyModulelevel):
     option_spec = {
@@ -65,22 +89,33 @@ class ExtendedPyMethod(ExtendedCallableMixin, PyClassmember):
         **extended_method_option_spec,
     }
 
-
 def sniff_options(obj):
     options = set()
-    # Peek through any well-behaved decorators
-    while hasattr(obj, "__wrapped__"):
-        obj = obj.__wrapped__
-    if getattr(obj, "__isabstractmethod__", False):
-        options.add("abstractmethod")
-    if isinstance(obj, classmethod):
-        options.add("classmethod")
-    if isinstance(obj, staticmethod):
-        options.add("staticmethod")
-    if isinstance(obj, property):
-        options.add("property")
-    if inspect.iscoroutinefunction(obj):
-        options.add("async")
+    async_gen = False
+    # We walk the __wrapped__ chain to collect properties.
+    #
+    # If something sniffs as *both* an async generator *and* a coroutine, then
+    # it's probably an async_generator-style async_generator (since they wrap
+    # a coroutine, but are not a coroutine).
+    while True:
+        if getattr(obj, "__isabstractmethod__", False):
+            options.add("abstractmethod")
+        if isinstance(obj, classmethod):
+            options.add("classmethod")
+        if isinstance(obj, staticmethod):
+            options.add("staticmethod")
+        if isinstance(obj, property):
+            options.add("property")
+        if inspect.iscoroutinefunction(obj):
+            options.add("async")
+        if async_generator.isasyncgenfunction(obj):
+            async_gen = True
+        if hasattr(obj, "__wrapped__"):
+            obj = obj.__wrapped__
+        else:
+            break
+    if async_gen:
+        options.discard("async")
     return options
 
 class ExtendedFunctionDocumenter(FunctionDocumenter):
@@ -97,7 +132,11 @@ class ExtendedFunctionDocumenter(FunctionDocumenter):
         sniffed = sniff_options(self.object)
         for option in extended_function_option_spec:
             if option in self.options or option in sniffed:
-                self.add_line('   :{}:'.format(option), sourcename)
+                if self.options.get(option) is not None:
+                    line = "   :{}: {}".format(option, self.options[option])
+                else:
+                    line = "   :{}:".format(option)
+                self.add_line(line, sourcename)
 
 class ExtendedMethodDocumenter(MethodDocumenter):
     priority = MethodDocumenter.priority + 1
@@ -113,102 +152,30 @@ class ExtendedMethodDocumenter(MethodDocumenter):
         sniffed = sniff_options(self.object)
         for option in extended_method_option_spec:
             if option in self.options or option in sniffed:
-                self.add_line('   :{}:'.format(option), sourcename)
+                self.add_line("   :{}:".format(option), sourcename)
 
-################################################################
-# Async functions and methods
-################################################################
-
-class PyAsyncMixin:
-    def handle_signature(self, sig, signode):
-        ret = super(PyAsyncMixin, self).handle_signature(sig, signode)
-        signode.insert(0, addnodes.desc_annotation('await ', 'await '))
-        return ret
-
-class PyAsyncFunction(PyAsyncMixin, PyModulelevel):
-    def run(self):
-        self.name = 'py:function'
-        return PyModulelevel.run(self)
-
-class PyAsyncMethod(PyAsyncMixin, PyClassmember):
-    def run(self):
-        print(self)
-        self.name = 'py:method'
-        return PyClassmember.run(self)
-
-class AsyncDocumenterMixin:
-    @classmethod
-    def can_document_member(cls, member, membername, isattr, parent):
-        print("{}.can_document_member!".format(cls))
-        if not super().can_document_member(member, membername, isattr, parent):
-            print("nope!")
-            return False
-        ret = inspect.iscoroutinefunction(member)
-        print("result:", ret)
-        return ret
-
-    def add_directive_header(self, sig):
-        print("add_directive_header", self, sig, self.directivetype)
-        print(self.format_name())
-        print(self.get_sourcename())
-        return super().add_directive_header(sig)
-
-class AsyncFunctionDocumenter(AsyncDocumenterMixin, FunctionDocumenter):
-    objtype = directivetype = "asyncfunction"
-    priority = FunctionDocumenter.priority + 1
-
-class AsyncMethodDocumenter(AsyncDocumenterMixin, MethodDocumenter):
-    objtype = directivetype = "asyncmethod"
-    priority = 100 #MethodDocumenter.priority + 1
-
-################################################################
-# Abstract methods
-################################################################
-
-class PyAbstractMethod(PyClassmember):
-
-    def handle_signature(self, sig, signode):
-        ret = super(PyAbstractMethod, self).handle_signature(sig, signode)
-        signode.insert(0, addnodes.desc_annotation('abstractmethod ',
-                                                   'abstractmethod '))
-        return ret
-
-    def run(self):
-        self.name = 'py:method'
-        return PyClassmember.run(self)
-
-class AbstractMethodDocumenter(MethodDocumenter):
-    objtype = directivetype = "abstractmethod"
-    priority = MethodDocumenter.priority + 1
-
-    @classmethod
-    def can_document_member(cls, member, membername, isattr, parent):
-        if not super().can_document_member(member, membername, isattr, parent):
-            return False
-        return getattr(member, "__isabstractmethod__", False)
+    def import_object(self):
+        # MethodDocumenter overrides import_object to do some sniffing in
+        # addition to just importing. But we do our own sniffing and just want
+        # the import, so we un-override it. (This also means we lose the
+        # default behavior of putting classmethods and staticmethods earlier
+        # in the display ordering. I don't really mind; I figure if I want
+        # them to come first I can just put them first myself...)
+        return ClassLevelDocumenter.import_object(self)
 
 ################################################################
 # Register everything
 ################################################################
 
-# really async, abstractmethod, classmethod, staticmethod should be attributes
-# of the thing
-# maybe also generator, async generator, context manager, async context
-# manager
-# because these can all be mixed and matched
-
-# so we override .. function:: and .. method:: to add these attributes
-
-# abstract classmethod await foo(...)
-
 def setup(app):
-    app.add_directive_to_domain('py', 'asyncfunction', PyAsyncFunction)
-    app.add_directive_to_domain('py', 'asyncmethod', PyAsyncMethod)
-    app.add_directive_to_domain('py', 'asyncclassmethod', PyAsyncMethod)
-    app.add_directive_to_domain('py', 'asyncstaticmethod', PyAsyncMethod)
-    app.add_directive_to_domain('py', 'abstractmethod', PyAbstractMethod)
+    app.add_directive_to_domain('py', 'function', ExtendedPyFunction)
+    app.add_directive_to_domain('py', 'method', ExtendedPyMethod)
+    app.add_directive_to_domain('py', 'classmethod', ExtendedPyMethod)
+    app.add_directive_to_domain('py', 'staticmethod', ExtendedPyMethod)
 
-    app.add_autodocumenter(AsyncFunctionDocumenter)
-    app.add_autodocumenter(AsyncMethodDocumenter)
-    app.add_autodocumenter(AbstractMethodDocumenter)
+    # We're overriding these on purpose, so disable the warning about it
+    del directives._directives["autofunction"]
+    del directives._directives["automethod"]
+    app.add_autodocumenter(ExtendedFunctionDocumenter)
+    app.add_autodocumenter(ExtendedMethodDocumenter)
     return {'version': '0.1', 'parallel_read_safe': True}

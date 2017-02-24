@@ -12,7 +12,10 @@
    :caption: Contents:
 
    tutorial.rst
-   reference.rst
+   reference-core.rst
+   reference-io.rst
+   reference-testing.rst
+   reference-hazmat.rst
    design.rst
 
 ====================
