@@ -208,7 +208,7 @@ async def test_run_in_worker_thread_cancellation():
     with _core.open_cancel_scope() as scope:
         scope.cancel()
         await child(q, False)
-    assert scope.cancel_caught
+    assert scope.cancelled_caught
 
 
 # Make sure that if trio.run exits, and then the thread finishes, then that's

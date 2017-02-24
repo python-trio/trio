@@ -124,7 +124,14 @@ things:
 2. A bunch of useful async functions – in particular, functions for
    doing I/O. So that answers the "why": these functions are async,
    and they're useful, so if you want to use them, you have to write
-   async code. For example, there's ``trio.sleep``, which does the
+   async code. If you think keeping track of these ``async`` and
+   ``await`` things is annoying, then too bad – you've got no choice
+   in the matter! (Well, OK, you could just not use trio. That's a
+   legitimate option. But it turns out that the ``async/await`` stuff
+   is actually a good thing, for reasons we'll discuss a little bit
+   later.)
+
+   Here's an example function that uses ``trio.sleep``, which does the
    obvious thing:
 
    .. code-block:: python3
@@ -136,26 +143,30 @@ things:
 
       trio.run(double_sleep, 3)  # does nothing for 6 seconds then returns
 
-Our ``async_double`` function is actually a bad example. I mean, it
-works, it's fine, there's nothing *wrong* with it, but it's pointless:
-not only could it be just as easily written as a regular function, but
-that would actually make it more useful, because then you could call
-it from anywhere. ``double_sleep`` is a much more typical
-example. Practical async applications are written like a sandwich: on
-one side you have ``trio.run``, on the other side you have async
-functions like ``trio.sleep``, and your code makes the tasty async
-filling in between.
+So it turns out our ``async_double`` function is actually a bad
+example. I mean, it works, it's fine, there's nothing *wrong* with it,
+but it's pointless: not only could it be just as easily written as a
+regular function, but that would actually make it more useful, because
+then you could call it from anywhere. ``double_sleep`` is a much more
+typical example. Practical async applications are written like a
+sandwich: :func:`trio.run` calls one of your async functions, which
+calls another of your async functions, ..., which eventually calls
+trio primitives like :func:`trio.sleep`. It's exactly those functions
+which come in between :func:`trio.run` and :func:`trio.sleep` that
+need to be async, making up our async sandwich's tasty async
+filling. Other functions (e.g., helpers you call along the way) should
+generally be regular, non-async functions.
 
 
-Fair warning: don't forget to ``await``
----------------------------------------
+Warning: don't forget to ``await``
+----------------------------------
 
 Now would be a good time to open up a Python prompt and experiment a
 little with writing simple async functions and running them with
 ``trio.run``.
 
 At some point in this process, you'll probably write some code like
-this, with a missing ``await``::
+this, that's missing an ``await``::
 
    import time
    import trio
@@ -185,8 +196,7 @@ This is clearly broken – 0.00 seconds is not long enough to feel well
 rested! The exact place where the warning is printed might vary,
 because it depends on the whims of the garbage collector. If you're
 using PyPy, you might not even get a warning at all until the next GC
-collection runs (you might need to scroll right to see the warning
-text):
+collection runs:
 
 .. code-block:: none
 
@@ -201,6 +211,8 @@ text):
    if _module_locks.get(name) is wr:    # XXX PyPy fix?
    0
    >>>>
+
+(If you can't see the warning above, try scrolling right.)
 
 Forgetting an ``await`` like this is an *incredibly common
 mistake*. You will mess this up. Everyone does. And Python will not
@@ -244,17 +256,20 @@ purpose: try writing some code with a missing ``await``, or an extra
 
 This way you'll be prepared for when it happens to you for real.
 
+And remember: ``RuntimeWarning: coroutine '...' was never awaited``
+means you need to find and fix your missing ``await``.
+
 
 Okay, let's do something cool
 -----------------------------
 
-So that's all well and good, but so far all we can do is write
-functions that print things and sleep for various lengths of
-time. Nifty, but we could just as easily have done that with
-:func:`time.sleep`. ``async/await`` is useless!
+So now we've started using trio, but so far all we've learned to do is
+write functions that print things and sleep for various lengths of
+time. Interesting enough, but we could just as easily have done that
+with :func:`time.sleep`. ``async/await`` is useless!
 
 Well, not really. Trio has one more trick up its sleeve, that makes
-async functions more powerful than regular functions: it lets us run
+async functions more powerful than regular functions: it can run
 multiple async function *at the same time*. Here's an example::
 
    import trio
@@ -291,7 +306,7 @@ time. First, we define two async functions ``child1`` and
 Next, we define ``parent`` as an async function that's going to run
 ``child1`` and ``child2`` concurrently. It does this by creating a
 "nursery", and then "spawning" them both in the nursery (we'll go over
-this in more detail below). The output is:
+this in more detail below). The output looks like:
 
 .. code-block:: none
 
@@ -309,6 +324,11 @@ this in more detail below). The output is:
 Notice that the output from ``child1`` and ``child2`` is mixed
 together, and that the whole program only takes 1 second to run, even
 though we have two calls to ``trio.sleep(1)``.
+
+Now, if you're familiar with programming using threads, this might
+look familiar – and that's intentional. But it's important to realize
+that *there are no threads here*. All of this is happening in a single
+thread.
 
 :class:`trio.Task`
 (define terminology: "task")

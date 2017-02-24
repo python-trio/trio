@@ -530,7 +530,7 @@ async def test_cancel_edge_cases():
         scope.cancel()
         await _core.yield_briefly()
     assert scope.cancel_called
-    assert scope.cancel_caught
+    assert scope.cancelled_caught
 
     with _core.open_cancel_scope() as scope:
         # Check level-triggering
@@ -638,7 +638,7 @@ async def test_cancel_shielding():
             inner.cancel()
             # This should now raise, but be absorbed by the inner scope
             await _core.yield_briefly()
-        assert inner.cancel_caught
+        assert inner.cancelled_caught
 
 
 # make sure that cancellation propagates immediately to all children
@@ -717,7 +717,7 @@ async def test_basic_timeout(mock_clock):
     # But then the scope swallowed the exception... but we can still see it
     # here:
     assert scope.cancel_called
-    assert scope.cancel_caught
+    assert scope.cancelled_caught
 
     # changing deadline
     start = _core.current_time()
@@ -742,11 +742,11 @@ async def test_cancel_scope_nesting():
                 scope2.cancel()
                 await sleep_forever()
     assert scope3.cancel_called
-    assert not scope3.cancel_caught
+    assert not scope3.cancelled_caught
     assert scope2.cancel_called
-    assert scope2.cancel_caught
+    assert scope2.cancelled_caught
     assert not scope1.cancel_called
-    assert not scope1.cancel_caught
+    assert not scope1.cancelled_caught
 
     # shielding
     with _core.open_cancel_scope() as scope1:
@@ -768,7 +768,7 @@ async def test_cancel_scope_nesting():
         scope.cancel()
         await _core.yield_briefly_no_cancel()
     await _core.yield_briefly()
-    assert not scope.cancel_caught
+    assert not scope.cancelled_caught
 
 
 async def test_timekeeping():

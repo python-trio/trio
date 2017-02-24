@@ -52,6 +52,8 @@ When there's a conflict, we care more about 99th percentile latencies
 than about throughput, because throughput can often be handled with
 horizontal scaling, but once you lose latency it's gone forever.
 
+asymptotics
+
 We care about speed on real-world applications quite a bit, but speed
 on microbenchmarks is just about our lowest priority. We aren't
 interested in competing to build the fastest echo server in the

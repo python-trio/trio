@@ -83,7 +83,7 @@ class CancelScope:
     # complete tracebacks. This maps {task: exception} for active tasks.
     _excs = attr.ib(default=attr.Factory(dict))
     cancel_called = attr.ib(default=False)
-    cancel_caught = attr.ib(default=False)
+    cancelled_caught = attr.ib(default=False)
 
     @contextmanager
     @enable_ki_protection
@@ -161,13 +161,17 @@ class CancelScope:
 
     def _exc_filter(self, exc):
         if isinstance(exc, Cancelled) and exc._scope is self:
-            self.cancel_caught = True
+            self.cancelled_caught = True
             return None
         return exc
 
 @contextmanager
 @enable_ki_protection
 def open_cancel_scope(*, deadline=inf, shield=False):
+    """Returns a context manager which creates a new cancellation scope.
+
+    """
+
     task = _core.current_task()
     scope = CancelScope()
     scope._add_task(task)
@@ -506,6 +510,15 @@ class Runner:
 
     @_public
     def current_time(self):
+        """Returns the current time according to trio's internal clock.
+
+        Returns:
+            float: The current time.
+
+        Raises:
+            RuntimeError: if not inside a call to :func:`trio.run`.
+
+        """
         return self.clock.current_time()
 
     ################
@@ -794,6 +807,45 @@ class Runner:
 ################################################################
 
 def run(async_fn, *args, clock=None, instruments=[]):
+    """Run a trio-flavored async function, and return the result.
+
+    Calling::
+
+       run(async_fn, *args)
+
+    is the equivalent of::
+
+       await async_fn(*args)
+
+    except that :func:`run` can be called from a synchronous context.
+
+    This is trio's main entry point. Almost every other function in trio
+    requires that you be inside a call to :func:`run`.
+
+    Args:
+      async_fn: An async function.
+      args: Positional arguments to be passed to *async_fn*. If you need to
+          pass keyword arguments, then use :func:`functools.partial`.
+      clock: ``None`` to use the default system-specific monotonic clock;
+          otherwise, an object implementing the :class:`trio.abc.Clock`
+          interface, like (for example) a :class:`trio.testing.MockClock`
+          instance.
+      instruments (list of :class:`trio.abc.Instrument` objects): Any
+          instrumentation you want to apply to this run. This can also be
+          modified during the run; see :ref:`instrumentation`.
+
+    Returns:
+      Whatever ``async_fn`` returns.
+
+    Raises:
+      TrioInternalError: if an unexpected error is encountered inside trio's
+          internal machinery. This is a bug and you should `let us know
+          <https://github.com/njsmith/trio/issues>`__.
+      Anything else: if ``async_fn`` raises an exception, then we propagate
+          it.
+
+    """
+
     # Do error-checking up front, before we enter the TrioInternalError
     # try/catch
     #

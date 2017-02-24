@@ -102,7 +102,7 @@ class Instrument(_abc.ABC):
 
         Args:
             timeout (float): The number of seconds we were willing to
-            wait. This much time may or may not have elapsed, depending on
-            whether any I/O was ready.
+                wait. This much time may or may not have elapsed, depending on
+                whether any I/O was ready.
 
         """

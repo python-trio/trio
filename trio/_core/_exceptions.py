@@ -28,9 +28,27 @@ class WouldBlock(Exception):
 WouldBlock.__module__ = "trio"
 
 
-# This is very much like the other exceptions that inherit directly from
-# BaseException (= SystemExit, KeyboardInterrupt, GeneratorExit)
 class Cancelled(BaseException):
+    """Raised by blocking calls if the surrounding scope has been cancelled.
+
+    You should let this exception propagate, to be caught by the relevant
+    cancel scope. To remind you of this, it inherits from
+    :exc:`BaseException`, like :exc:`KeyboardInterrupt` and
+    :exc:`SystemExit`.
+
+    .. note::
+
+       In the US it's also common to see this word spelled "canceled", with
+       only one "l". This is a `recent
+       <https://books.google.com/ngrams/graph?content=canceled%2Ccancelled&year_start=1800&year_end=2000&corpus=5&smoothing=3&direct_url=t1%3B%2Ccanceled%3B%2Cc0%3B.t1%3B%2Ccancelled%3B%2Cc0>`__
+       and `US-specific
+       <https://books.google.com/ngrams/graph?content=canceled%2Ccancelled&year_start=1800&year_end=2000&corpus=18&smoothing=3&share=&direct_url=t1%3B%2Ccanceled%3B%2Cc0%3B.t1%3B%2Ccancelled%3B%2Cc0>`__
+       innovation, and even in the US both forms are still commonly used. So
+       for consistency with the rest of the world and with "cancellation"
+       (which always has two "l"s), trio uses the two "l" spelling
+       everywhere.)
+
+    """
     _scope = None
 
 Cancelled.__module__ = "trio"
