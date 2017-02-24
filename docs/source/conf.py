@@ -21,6 +21,20 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('.'))
 
+# XX monkeypatch until
+#   https://github.com/sphinx-doc/sphinx/pull/3449
+# is resolved (hopefully before the next release...)
+import sphinx
+if sphinx.version_info < (1, 5, 3):
+    print("Monkeypatching sphinx!")
+    print("I hope they release a fixed version soon...")
+    import sphinx.util.inspect
+    orig_getargspec = sphinx.util.inspect.getargspec
+    def fixed_getargspec(func):
+        while hasattr(func, "__wrapped__"):
+            func = func.__wrapped__
+        return orig_getargspec(func)
+    sphinx.util.inspect.getargspec = fixed_getargspec
 
 # -- General configuration ------------------------------------------------
 
