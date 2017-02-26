@@ -145,17 +145,19 @@ things:
 
 So it turns out our ``async_double`` function is actually a bad
 example. I mean, it works, it's fine, there's nothing *wrong* with it,
-but it's pointless: not only could it be just as easily written as a
-regular function, but that would actually make it more useful, because
-then you could call it from anywhere. ``double_sleep`` is a much more
-typical example. Practical async applications are written like a
-sandwich: :func:`trio.run` calls one of your async functions, which
-calls another of your async functions, ..., which eventually calls
-trio primitives like :func:`trio.sleep`. It's exactly those functions
-which come in between :func:`trio.run` and :func:`trio.sleep` that
-need to be async, making up our async sandwich's tasty async
-filling. Other functions (e.g., helpers you call along the way) should
-generally be regular, non-async functions.
+but it's pointless: it could just as easily be written as a regular
+function, and that would actually make it more
+useful. ``double_sleep`` is a much more typical example: we have to
+make it async, because it calls another async function.
+
+The end result is that in practice, trio code generally looks like an
+async sandwich: :func:`trio.run` calls one of your async functions,
+which calls another of your async functions, ..., which eventually
+calls trio primitives like :func:`trio.sleep`. It's exactly those
+functions which come in between :func:`trio.run` and
+:func:`trio.sleep` that need to be async, making up our async
+sandwich's tasty async filling. Other functions (e.g., helpers you
+call along the way) should generally be regular, non-async functions.
 
 
 Warning: don't forget to ``await``
@@ -166,7 +168,8 @@ little with writing simple async functions and running them with
 ``trio.run``.
 
 At some point in this process, you'll probably write some code like
-this, that's missing an ``await``::
+this, that tries to call an async function but leaves out the
+``await``::
 
    import time
    import trio
@@ -181,8 +184,8 @@ this, that's missing an ``await``::
 
    trio.run(broken_double_sleep, 3)
 
-You might think that when this happens, Python would raise an
-error. But unfortunately, what you actually get is:
+You might think that Python would raise an error here. But
+unfortunately, it doesn't. What you actually get is:
 
 .. code-block:: none
 
@@ -225,7 +228,7 @@ good chance the other stuff is just collateral damage. (I'm not even
 sure what all that other junk in the PyPy output is. Fortunately I
 don't need to know, I just need to fix my function!)
 
-Here's what's going on. In Trio, every time we use ``await`` it's to
+Why does this happen? In Trio, every time we use ``await`` it's to
 call an async function, and every time we call an async function we
 use ``await``. But Python's trying to keep its options open for other
 libraries that are *ahem* a little less organized about things. So
@@ -250,11 +253,8 @@ Guido ;-).)
 
 If you didn't already mess this up naturally, then give it a try on
 purpose: try writing some code with a missing ``await``, or an extra
-``await``, and see what you get. Or try this::
-
-   trio.run(double_sleep(3))
-
-This way you'll be prepared for when it happens to you for real.
+``await``, and see what you get. This way you'll be prepared for when
+it happens to you for real.
 
 And remember: ``RuntimeWarning: coroutine '...' was never awaited``
 means you need to find and fix your missing ``await``.

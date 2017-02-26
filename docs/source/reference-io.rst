@@ -1,14 +1,20 @@
-Performing I/O
-==============
+I/O in Trio
+===========
 
 Sockets and networking
 ----------------------
 
 .. module:: trio.socket
 
+.. autofunction:: getaddrinfo
+
 .. autoclass:: trio.socket.SocketType()
 
    .. method:: connect
+
+   .. method:: send
+
+   .. method:: recv
 
 
 The abstract Stream API

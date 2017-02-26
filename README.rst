@@ -193,8 +193,6 @@ nothing to see here
      run/run_sync/(call_soon or run_sync_soon)
      run_async/run_sync
 
-   - design document outline:
-
    - test helpers to explore all cancellation points?
 
    - a thought: if we switch to a global parkinglot keyed off of
@@ -211,6 +209,15 @@ nothing to see here
      are blocked through stack inspection, then maybe we can re-use
      that? like if there's a magic local pointing to the frame, we can
      use that frame's 'self'?
+
+   - blog post: a simple two-way proxy in both curio and trio
+     (intentionally similar to the big blog post example)
+
+     code is basically identical, but trio version:
+     - correctly propagates errors
+     - handles cancellations/timeouts
+     - not subject to starvation
+     - handles control-C
 
    - I looked at h2 and yeah, we definitely need to make stream have
      aclose() instead of close(). Sigh.

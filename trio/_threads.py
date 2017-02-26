@@ -144,6 +144,66 @@ _worker_thread_counter = count()
 
 @_core.enable_ki_protection
 async def run_in_worker_thread(sync_fn, *args, cancellable=False):
+    """Convert a blocking operation in an async operation using a thread.
+
+    These two lines are equivalent::
+
+        sync_fn(*args)
+        await run_in_worker_thread(sync_fn, *args)
+
+    except that if ``sync_fn`` takes a long time, then the first line will
+    block the Trio loop while it runs, while the second line allows other Trio
+    tasks to continue working while ``sync_fn`` runs. This is accomplished by
+    pushing the call to ``sync_fn(*args)`` off into a worker thread.
+
+    **Cancellation handling**: Cancellation is a tricky issue here, because
+    neither Python nor the operating systems it runs on provide any general
+    way to communicate with an arbitrary synchronous function running in a
+    thread and tell it to stop. This function will always check for
+    cancellation on entry, before starting the thread. But once the thread is
+    running, there are two ways it can handle being cancelled:
+
+    * If ``cancellable=False``, the function ignores the cancellation and
+      keeps going, just like if we had called ``sync_fn`` synchronously. This
+      is the default behavior.
+
+    * If ``cancellable=True``, then ``run_in_worker_thread`` immediately
+      raises :exc:`Cancelled`. In this case **the thread keeps running in
+      background** – we just abandon it to do whatever it's going to do, and
+      silently discard any return value or errors that it raises. Only use
+      this if you know that the operation is safe and side-effect free. (For
+      example: :func:`trio.socket.getaddrinfo` is implemented using
+      :func:`run_in_worker_thread`, and it sets ``cancellable=True`` because
+      it doesn't really matter if a stray hostname lookup keeps running in the
+      background.)
+
+    .. warning::
+
+       You should not use :func:`run_in_worker_thread` to call CPU-bound
+       functions! In addition to the usual GIL-related reasons why using
+       threads for CPU-bound work is not very effective in Python, there is an
+       additional problem: on CPython, `CPU-bound threads tend to "starve out"
+       IO-bound threads <https://bugs.python.org/issue7946>`__, so using
+       :func:`run_in_worker_thread` for CPU-bound work is likely to adversely
+       affect the main thread running trio. If you need to do this, you're
+       better off using a worker process, or perhaps PyPy (which still has a
+       GIL, but may do a better job of fairly allocating CPU time between
+       threads).
+
+    Args:
+      sync_fn: An arbitrary synchronous callable.
+      *args: Positional arguments to pass to sync_fn. If you need keyword
+          arguments, use :func:`functools.partial`.
+      cancellable (bool): Whether to allow cancellation of this operation. See
+          discussion above.
+
+    Returns:
+      Whatever ``sync_fn`` returns.
+
+    Raises:
+      Whatever ``sync_fn`` raises.
+
+    """
     await _core.yield_if_cancelled()
     call_soon = _core.current_call_soon_thread_and_signal_safe()
     task_register = [_core.current_task()]

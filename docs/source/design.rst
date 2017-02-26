@@ -44,9 +44,11 @@ exceptions propagate until handled and if the system `catches you when
 you make potentially dangerous resource handling errors
 <https://github.com/njsmith/trio/issues/23>`__.
 
-It's also worth saying something about speed, since
+It's also worth saying something about speed, since it
 
 Speed is important –  But "speed" is a large and complex topic.
+
+First of all, there are speed
 
 When there's a conflict, we care more about 99th percentile latencies
 than about throughput, because throughput can often be handled with
@@ -235,8 +237,8 @@ Introspection and debugging
 - Introspection as a first class concern
 
 
-API style
----------
+API style guidelines
+--------------------
 
 
 

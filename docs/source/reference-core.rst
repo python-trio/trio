@@ -1,5 +1,5 @@
-Trio: core functionality
-========================
+Trio's core functionality
+=========================
 
 .. module:: trio
 
@@ -42,8 +42,8 @@ you don't control.
 .. autofunction:: sleep_forever
 
 If you're a mad scientist or otherwise feel the need to take direct
-control over the passage of time, then you can implement a custom
-:class:`~trio.abc.Clock` class:
+control over the PASSAGE OF TIME ITSELF, then you can implement a
+custom :class:`~trio.abc.Clock` class:
 
 .. autoclass:: trio.abc.Clock
    :members:
@@ -69,6 +69,14 @@ In the simplest case, you can apply a timeout to a block of code::
 We refer :func:`move_on_after` as creating a "cancel scope", that
 contains all the code that runs inside the ``with`` block.
 
+If the HTTP request finishes in less than 30 seconds, then ``result``
+is set and the ``with`` block exits normally. If it does *not* finish
+within 30 seconds, then the cancel scope becomes "cancelled", and any
+attempt to call a blocking trio operation will raise a
+:exc:`Cancelled` exception. This exception eventually propagates out
+of ``do_http_get``, and is caught by the ``with`` block, and execution
+continues on the line ``print("with block statement")``.
+
 .. note::
 
    Note that this is a simple 30 second timeout for the entire body of
@@ -77,12 +85,6 @@ contains all the code that runs inside the ``with`` block.
    something `more complicated
    <http://docs.python-requests.org/en/master/user/quickstart/#timeouts>`__. We
    think this way is easier to reason about.
-
-If the HTTP request finishes in less than 30 seconds, then ``result``
-is set and the ``with`` block exits normally. If it does *not* finish
-within 30 seconds, then the cancel scope becomes "cancelled", and any
-attempt to call a blocking trio operation will raise the
-:exc:`Cancelled` exception.
 
 
 Handling cancellation
@@ -98,8 +100,36 @@ it or otherwise let it continue propagating (unless you encounter an
 error, in which case it's OK to let that propagate instead). To help
 remind you of this fact, :exc:`Cancelled` inherits from
 :exc:`BaseException`, like :exc:`KeyboardInterrupt` and
-:exc:`SystemExit`, so that it won't be caught by catch-all ``except
+:exc:`SystemExit` do, so that it won't be caught by catch-all ``except
 Exception:`` blocks.
+
+It's also important in any long-running code to make sure that you
+regularly check for cancellation, because otherwise timeouts won't
+work! This happens implicitly every time you call a cancellable
+operation; see :ref:`below <cancellable-primitives>` for details. If
+you have a task that has to do a lot of work without any IO, then you
+can use ``await sleep(0)`` to insert an explicit cancel+schedule
+point.
+
+Here's a rule of thumb for designing good trio-style ("trionic"?)
+APIs: if you're writing a reusable function, then you shouldn't take a
+``timeout=`` parameter, and instead let your caller worry about
+it. This has several advantages. First, it leaves the caller's options
+open for deciding how they prefer to handle timeouts – for example,
+they might find it easier to work with absolute deadlines instead of
+relative timeouts. If they're the ones calling into the cancellation
+machinery, then they get to pick, and you don't have to worry about
+it. Second, and more importantly, this makes it easier for others to
+re-use your code. If you write a ``http_get`` function, and then I
+come along later and write a ``log_in_to_twitter`` function that needs
+to internally make several ``http_get`` calls, I don't want to have to
+figure out how to configure the individual timeouts on each of those
+calls – and with trio's timeout system, it's totally unnecessary.
+
+Of course, this rule doesn't apply to APIs that need to impose
+internal timeouts. For example, if you write a ``start_http_server``
+function, then you probably should give your caller some way to
+configure timeouts on individual requests.
 
 
 Cancellation semantics
@@ -145,10 +175,12 @@ whether this scope caught a :exc:`Cancelled` exception::
        await sleep(10)
    print(cancel_scope.cancelled_caught)  # prints "True"
 
-The ``cancel_scope`` object also allows you to check or adjust this
+The ``cancel_scope`` object also allows you to check or adjust tvhis
 scope's deadline, explicitly trigger a cancellation without waiting
 for the deadline, check if the scope has already been cancelled, and
 so forth – see :func:`open_cancel_scope` below for the full details.
+
+.. _blocking-cleanup-example:
 
 Cancellations in trio are "level triggered", meaning that once a block
 has been cancelled, *all* cancellable operations in that block will
@@ -190,31 +222,71 @@ create a new scope, and set its :attr:`shield` attribute to
            await conn.send_hello_msg()
        finally:
            with move_on_after(CLEANUP_TIMEOUT) as cleanup_scope:
-               # This protects us from any "outside" timeouts
                cleanup_scope.shield = True
                await conn.send_goodbye_msg()
 
-Of course, if the ``await conn.send_goodbye_msg()`` call uses any
-timeouts internally, those won't be affected – the shield only affects
-outer scopes, not inner ones.
+So long as you're inside a scope with ``shield = True`` set, then
+you'll be protected from outside cancellations. Note though that this
+*only* applies to *outside* cancellations: if ``CLEANUP_TIMEOUT``
+expires then ``await conn.send_goodbye_msg()`` will still be
+cancelled, and if ``await conn.send_goodbye_msg()`` call uses any
+timeouts internally, then those will continue to work normally as
+well. This is a pretty advanced feature that most people probably
+won't use, but it's there for the rare cases where you need it.
 
 
-How primitives handle cancellation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. _cancellable-primitives:
 
-standard semantics for all trio primitives:
+Cancellation and primitive operations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-cleanup operations succeed even if cancelled, though perhaps not in
-the most elegant way (for example, the ``close`` method on a
-TLS-wrapped socket should normally try to do a graceful shutdown,
-which requires sending some data to the remote side, and thus might
-require blocking; if cancelled, it will instead simply close the
-underlying socket). The reason for this is that
+We've talked a lot about what happens when an operation is cancelled,
+and how you need to be prepared for this whenever calling a
+cancellable operation... but we haven't said which operations are
+cancellable.
 
-for everything else, cancelled means "this operation didn't happen"
+As far as trio's primitives go, the rule is: if it's in the trio
+namespace, and you use ``await`` to call it, then it's
+cancellable. Cancellable means:
 
-there are a very small number of exceptions, all of which are
-documented
+* If you try to call it when inside a cancelled scope, then it will
+  raise :exc:`Cancelled`.
+
+* If it blocks, and while it's blocked then one of the scopes around
+  it becomes cancelled, it will return early and raise
+  :exc:`Cancelled`.
+
+* Raising :exc:`Cancelled` means that the operation *did not
+  happen*. If :meth:`~trio.socket.SocketType.send` raises
+  :exc:`Cancelled`, then no bytes were sent. If
+  :meth:`~trio.socket.SocketType.recv` raises :exc:`Cancelled` then no
+  data was lost – it's still sitting in the socket recieve buffer
+  waiting for you to call :meth:`~trio.socket.SocketType.recv`
+  again. And so forth.
+
+There are a few idiosyncratic cases where external constraints make it
+impossible to fully implement these semantics. These are always
+documented. There is also one systematic exception:
+
+* Async cleanup operations – like ``__aexit__`` methods or async close
+  methods – are cancellable just like anything else *except* that if
+  they are cancelled, they still perform a minimum level of cleanup
+  before raising :exc:`Cancelled`.
+
+For example, closing a TLS-wrapped socket normally involves sending a
+notification to the remote peer, so that they can be cryptographically
+assured that you really meant to close the socket, and your connection
+wasn't just broken by a man-in-the-middle attacker. But handling this
+robustly is a bit tricky. Remember our :ref:`example
+<blocking-cleanup-example>` above where the blocking
+``send_goodbye_msg`` caused problems? That's exactly how closing a TLS
+socket works: if the remote peer has disappeared, then we may never be
+able to actually send our shutdown notification, and it would be nice
+if we didn't block forever trying. Therefore, the ``close`` method on
+a TLS-wrapped socket will *try* to send that notification – but if it
+gets cancelled, then it will go ahead and close the underlying socket
+before raising :exc:`Cancelled`, so at least you don't leak that
+resource.
 
 
 The cancellation API
@@ -336,12 +408,13 @@ Cheat sheet:
 
      with move_on_after(TIMEOUT) as cancel_scope:
          await do_whatever()
-     if cancel_scope.cancel_caught:
+     if cancel_scope.cancelled_caught:
          # The operation timed out, try something else
          try_to_recover()
 
 * If you want to impose a timeout on a function, and then if it times
-  out then just give up::
+  out then just give up and raise an error for your caller to deal
+  with::
 
      with fail_after(TIMEOUT):
          await do_whatever()
@@ -352,17 +425,37 @@ which is sometimes useful:
 .. autofunction:: current_effective_deadline
 
 
-Tasks: spawning and managing
-----------------------------
+Tasks let you do multiple things at once
+----------------------------------------
+
+One of trio's core design principles is: *no implicit
+concurrency*. Every function executes in a straightforward,
+top-to-bottom manner, finishing each operation before moving on to the
+next – *like Guido intended*.
+
+But, of course, the entire point of an async library is to let you do
+multiple things at once. The one and only way to do that in trio is
+through the task spawning interface. So if you want your program to
+walk *and* chew gum, this is the section for you.
+
+
 
 .. autofunction:: open_nursery
    :async-with: nursery
+
+   Nursery objects provide the following interface:
 
    .. currentmodule:: None
 
    .. method:: spawn(async_fn, *args, name=None)
 
+      This is *the* method for creating
+
    .. attribute:: cancel_scope
+
+      Creating a nursery also implicitly creates a cancellation
+      scope. This is necessary so that the nursery can cancel all the
+      child tasks if an error occurs.
 
    The remaining attributes and methods are mainly used for
    implementing new types of task supervisor:
@@ -398,8 +491,44 @@ Tasks: spawning and managing
 
    .. currentmodule:: trio
 
-.. autoclass:: Task()
-   :members:
+.. class:: Task()
+
+   .. attribute:: result
+
+      If this :class:`Task` is still running, then its :attr:`result`
+      attribute is ``None``. (This can be used to check whether a task
+      has finished running.)
+
+      Otherwise, this is a :class:`Result` object holding the value
+      returned or the exception raised by the async function that was
+      spawned to create this task.
+
+   The next three methods allow another task to monitor the result of
+   this task, even if it isn't supervising it:
+
+   .. automethod:: wait
+
+   .. automethod:: add_monitor
+
+   .. automethod:: discard_monitor
+
+   The remaining members are mostly useful for introspection and
+   debugging:
+
+   .. attribute:: name
+
+      String containing this :class:`Task`\'s name. Usually (but not
+      always) the name of the function this :class:`Task` is running.
+
+   .. attribute:: coro
+
+      This task's coroutine object. Example usage: extracting a stack
+      trace.
+
+   .. attribute:: parent_task
+
+      This task's parent. Example usage: drawing a visualization of
+      the task tree.
 
 .. autofunction:: current_task()
 
@@ -414,13 +543,11 @@ Tasks: spawning and managing
 
 .. autofunction:: format_exception
 
-Synchronization and inter-task communication
---------------------------------------------
+Synchronizing and communicating between tasks
+---------------------------------------------
 
 .. autoclass:: Event
    :members:
-
-.. autoexception:: WouldBlock
 
 .. autoclass:: Queue
    :members:
@@ -441,36 +568,30 @@ Synchronization and inter-task communication
 Threads (if you must)
 ---------------------
 
-Normally, trio applications use a single thread for
+In a perfect world, all third-party libraries and low-level APIs would
+be natively async and integrated into Trio, and all would be happiness
+and rainbows.
 
-in particular, on CPython, `CPU-bound threads tend to "starve out"
-IO-bound threads <https://bugs.python.org/issue7946>`__, so using
-:func:`run_in_worker_thread` for CPU-bound work is likely to adversely
-affect the main thread running trio. If you need to do this, you're
-better off using a child process, or perhaps PyPy (which still has a
-GIL, but may do a better job of fairly allocating CPU time between
-threads).
+That world, alas, does not (yet) exist. Until it does, you may find
+yourself needing to interact with non-Trio APIs that do uncouth things
+like "blocking".
+
+In acknowledgment of this reality, Trio provides two useful
+capabilities for working with real, operating-system level,
+:mod:`threading`\-module-style threads. First, if you're in Trio but
+need to push some work into a thread, there's
+:func:`run_in_worker_thread`. And if you're in a thread and need to
+communicate back with trio, there's :func:`current_run_in_trio_thread`
+and :func:`current_await_in_trio_thread`.
+
 
 .. autofunction:: run_in_worker_thread
-
-Example::
-
-   import trio
-   import time
-
-   async def main():
-       # In real life, you'd use trio.sleep instead.
-       # time.sleep stands in here for some blocking, IO-bound operation.
-       await trio.run_in_worker_thread(time.sleep, 5)
-
-   trio.run(main)
 
 .. function:: current_run_in_trio_thread
               current_await_in_trio_thread
 
-   Call these from inside a trio run to get a a reference to the
-   current run's :func:`run_in_trio_thread` or
-   :func:`await_in_trio_thread`:
+   Call these from inside a trio run to get a reference to the current
+   run's :func:`run_in_trio_thread` or :func:`await_in_trio_thread`:
 
    .. function:: run_in_trio_thread(sync_fn, *args)
       :module:
@@ -491,9 +612,6 @@ Example::
    :raises RunFinishedError: If the corresponding call to
       :func:`trio.run` has already completed.
 
-.. autoexception:: RunFinishedError
-
-   Raised if
 
 This will probably be clearer with an example. Here we demonstrate how
 to spawn a child thread::
@@ -561,3 +679,7 @@ Exceptions
 .. autoexception:: Cancelled
 
 .. autoexception:: TooSlowError
+
+.. autoexception:: WouldBlock
+
+.. autoexception:: RunFinishedError

@@ -279,7 +279,10 @@ def concat_tb(head, tail):
 # each traceback. I'm not sure how much sense this makes, but we copy it
 # anyway.
 def format_exception(etype, value, tb, *, limit=None, chain=True):
-    "Like traceback.format_exception, but supports MultiErrors."
+    """Like :func:`traceback.format_exception`, but with special support for
+    printing :exc:`MultiError` objects.
+
+    """
     return _format_exception_multi(set(), etype, value, tb, limit, chain)
 
 def _format_exception_multi(seen, etype, value, tb, limit, chain):
