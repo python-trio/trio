@@ -82,12 +82,46 @@ class SignalQueue:
 
 @contextmanager
 def catch_signals(signals):
+    """A context manager for catching signals.
+
+    Entering this context manager starts listening for the given signals and
+    returns an async iterator; exiting the context manager stops listening.
+
+    Iterating the async iterator blocks until at least one signal has arrived,
+    and then returns a :class:`set` containing all of the signals that were
+    received since the last iteration. (This is generally similar to how
+    :class:`UnboundedQueue` works, but since Unix semantics are that identical
+    signals can/should be coalesced, here we use a :class:`set` for storage
+    instead of a :class:`list`.)
+
+    Args:
+      signals: a set of signals to listen for.
+
+    Raises:
+      RuntimeError: if you try to use this anywhere except Python's main
+          thread. (This is a Python limitation.)
+
+    Example:
+
+      A common convention for Unix daemon is that they should reload their
+      configuration when they receive a ``SIGHUP``. Here's a sketch of what
+      that might look like using :func:`catch_signals`::
+
+         with trio.catch_signals({signal.SIGHUP}) as batched_signal_aiter:
+             async for batch in batched_signal_aiter:
+                 # We're only listening for one signal, so the batch is always
+                 # {signal.SIGHUP}, but if we were listening to more signals
+                 # then it could vary.
+                 for signum in batch:
+                     assert signum == signal.SIGHUP
+                     reload_configuration()
+
+    """
     if threading.current_thread() != threading.main_thread():
         raise RuntimeError(
             "Sorry, catch_signals is only possible when running in the "
             "Python interpreter's main thread")
     call_soon = _core.current_call_soon_thread_and_signal_safe()
-    # XX this doesn't *quite* work due to append vs. add...
     queue = SignalQueue()
     def handler(signum, _):
         call_soon(queue._add, signum, idempotent=True)

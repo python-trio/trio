@@ -20,6 +20,8 @@ Sockets and networking
 The abstract Stream API
 -----------------------
 
+(this is currently more of a sketch than something actually useful)
+
 .. currentmodule:: trio
 
 .. autoclass:: AsyncResource
@@ -57,4 +59,4 @@ Signals
 .. currentmodule:: trio
 
 .. autofunction:: catch_signals
-   :with:
+   :with: batched_signal_aiter
