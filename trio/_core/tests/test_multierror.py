@@ -76,6 +76,11 @@ def test_MultiError():
     assert "ValueError" in str(m)
     assert "ValueError" in repr(m)
 
+    with pytest.raises(TypeError):
+        MultiError(object())
+    with pytest.raises(TypeError):
+        MultiError([KeyError(), ValueError])
+
 def make_tree():
     # Returns an object like:
     #   MultiError([

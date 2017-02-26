@@ -144,6 +144,12 @@ class MultiErrorCatcher:
 
 class MultiError(BaseException):
     def __new__(cls, exceptions):
+        exceptions = list(exceptions)
+        for exc in exceptions:
+            if not isinstance(exc, BaseException):
+                raise TypeError(
+                    "Expected an exception object, not {!r}"
+                    .format(exc))
         if len(exceptions) == 1:
             return exceptions[0]
         else:
