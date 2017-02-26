@@ -612,7 +612,7 @@ class Runner:
     async def init(self, async_fn, args):
         async with open_nursery() as system_nursery:
             self.system_nursery = system_nursery
-            self.spawn_system_task(self.call_soon_task)
+            self.spawn_system_task(self.call_soon_task, name="<call soon task>")
             self.main_task = system_nursery.spawn(async_fn, *args)
             async for task_batch in system_nursery.monitor:
                 for task in task_batch:
@@ -893,7 +893,7 @@ _MAX_TIMEOUT = 24 * 60 * 60
 def run_impl(runner, async_fn, args):
     runner.instrument("before_run")
     runner.init_task = runner.spawn_impl(
-        runner.init, (async_fn, args), None, "__init__",
+        runner.init, (async_fn, args), None, "<init>",
         ki_protection_enabled=True)
 
     while runner.tasks:
