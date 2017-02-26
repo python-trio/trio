@@ -1304,6 +1304,12 @@ async def test_parent_task():
         assert t1.parent_task is _core.current_task()
         assert t2.parent_task is t1
 
+    t = _core.current_task()
+    # Make sure that chaining parent_task eventually gives None (and not, for
+    # example, an error)
+    while t is not None:
+        t = t.parent_task
+
 
 async def test_nursery_closure():
     async def child1(nursery):

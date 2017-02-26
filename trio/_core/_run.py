@@ -367,7 +367,14 @@ class Task:
     # For debugging and visualization:
     @property
     def parent_task(self):
-        return self._nursery._parent
+        """This task's parent task (or None if this is the "init" task).
+
+        Example use case: drawing a visualization of the task tree.
+        """
+        if self._nursery is None:
+            return None
+        else:
+            return self._nursery._parent
 
     ################
     # Monitoring task exit
