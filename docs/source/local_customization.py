@@ -11,7 +11,13 @@
 # these different properties, and override the autofunction and automethod
 # directives to sniff for these properties.
 
-# We also provide an anoninterface directive
+# TODO:
+# - integrate decorator handling
+# - figure out why properties aren't handled correctly (e.g. an abstractmethod
+#   property doesn't get tagged with abstractmethod; I suspect we aren't
+#   handling it at all)
+# - for some reason Stream.staple isn't getting tagged as a staticmethod, even
+#   though it is?
 
 import inspect
 import async_generator

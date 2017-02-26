@@ -1,5 +1,5 @@
-Testing made easy with ``trio.testing``
-=======================================
+Testing made easier with ``trio.testing``
+=========================================
 
 .. module:: trio.testing
 

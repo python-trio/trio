@@ -7,22 +7,30 @@ __all__ = [
 ]
 
 class TrioInternalError(Exception):
-    """Raised by run() if we encounter a bug in trio.
+    """Raised by :func:`run` if we encounter a bug in trio.
 
     This should never happen! If you get this error, please file a bug.
+
     """
+    pass
 
 TrioInternalError.__module__ = "trio"
 
 
-# Raised by call_soon if you try to queue work to a runner that isn't running
 class RunFinishedError(RuntimeError):
+    """Raised by ``run_in_trio_thread`` and similar functions if the
+    corresponding call to :func:`trio.run` has already finished.
+
+    """
     pass
 
 RunFinishedError.__module__ = "trio"
 
 
 class WouldBlock(Exception):
+    """Raised by ``X_nowait`` functions if ``X`` would block.
+
+    """
     pass
 
 WouldBlock.__module__ = "trio"

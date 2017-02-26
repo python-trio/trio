@@ -13,6 +13,34 @@ class _UnboundedQueueStats:
     tasks_waiting = attr.ib()
 
 class UnboundedQueue:
+    """An unbounded queue suitable for certain unusual forms of inter-task
+    communication.
+
+    This class is designed for use as a queue in cases where the producer for
+    some reason cannot be subjected to back-pressure, i.e., :meth:`put_nowait`
+    has to always succeed. In order to prevent the queue backlog from actually
+    growing without bound, the consumer API is modified to dequeue items in
+    "batches". If a consumer task processes each batch without yielding, then
+    this helps achieve (but does not guarantee) an effective bound on the
+    queue's memory use, at the cost of potentially increasing system latencies
+    in general. You should generally prefer to use a :class:`Queue` instead if
+    you can.
+
+    Currently each batch completely empties the queue, but `this may change in
+    the future <https://github.com/njsmith/trio/issues/51>`__.
+
+    A :class:`UnboundedQueue` object can be used as an asynchronous iterator,
+    where each iteration returns a new batch of items. I.e., these two loops
+    are equivalent::
+
+       async for batch in queue:
+           ...
+
+       while True:
+           obj = await queue.get_batch()
+           ...
+
+    """
     def __init__(self):
         self._lot = _core.ParkingLot()
         self._data = []
@@ -22,19 +50,32 @@ class UnboundedQueue:
     def __repr__(self):
         return "<UnboundedQueue holding {} items>".format(len(self._data))
 
-    def statistics(self):
-        return _UnboundedQueueStats(
-            qsize=len(self._data),
-            tasks_waiting=self._lot.statistics().tasks_waiting)
-
     def qsize(self):
+        """Returns the number of items currently in the queue.
+
+        """
         return len(self._data)
 
     def empty(self):
+        """Returns True if the queue is empty, False otherwise.
+
+        There is some subtlety to interpreting this method's return value: see
+        `issue #63 <https://github.com/njsmith/trio/issues/63>`__.
+
+        """
         return not self._data
 
     @_core.enable_ki_protection
     def put_nowait(self, obj):
+        """Put an object into the queue, without blocking.
+
+        This always succeeds, because the queue is unbounded. We don't provide
+        a blocking ``put`` method, because it would never need to block.
+
+        Args:
+          obj (object): The object to enqueue.
+
+        """
         if not self._data:
             assert not self._can_get
             if self._lot:
@@ -50,11 +91,29 @@ class UnboundedQueue:
         return data
 
     def get_batch_nowait(self):
+        """Attempt to get the next batch from the queue, without blocking.
+
+        Returns:
+          list: A list of dequeued items, in order. On a successful call this
+              list is always non-empty; if it would be empty we raise
+              :exc:`WouldBlock` instead.
+
+        Raises:
+          WouldBlock: if the queue is empty.
+
+        """
         if not self._can_get:
             raise _core.WouldBlock
         return self._get_batch_protected()
 
     async def get_batch(self):
+        """Get the next batch from the queue, blocking as necessary.
+
+        Returns:
+          list: A list of dequeued items, in order. This list is always
+              non-empty.
+
+        """
         await _core.yield_if_cancelled()
         if not self._can_get:
             await self._lot.park()
@@ -64,6 +123,20 @@ class UnboundedQueue:
                 return self._get_batch_protected()
             finally:
                 await _core.yield_briefly_no_cancel()
+
+    def statistics(self):
+        """Return an object containing debugging information.
+
+        Currently the following fields are defined:
+
+        * ``qsize``: The number of items currently in the queue.
+        * ``tasks_waiting``: The number of tasks blocked on this queue's
+          :meth:`get_batch` method.
+
+        """
+        return _UnboundedQueueStats(
+            qsize=len(self._data),
+            tasks_waiting=self._lot.statistics().tasks_waiting)
 
     @aiter_compat
     def __aiter__(self):

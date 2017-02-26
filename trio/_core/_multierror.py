@@ -333,6 +333,9 @@ def format_exception(etype, value, tb, *, limit=None, chain=True):
     """Like :func:`traceback.format_exception`, but with special support for
     printing :exc:`MultiError` objects.
 
+    This is a pure, stateless function, and thus safe to call from any
+    thread at any time.
+
     """
     return _format_exception_multi(set(), etype, value, tb, limit, chain)
 

@@ -97,7 +97,7 @@ class _ParkingLotStatistics:
 @attr.s(slots=True, cmp=False, hash=False)
 class ParkingLot:
     # {idx: [task, idx, lot]}
-    _parked = attr.ib(default=attr.Factory(SortedDict))
+    _parked = attr.ib(default=attr.Factory(SortedDict), init=False)
 
     ALL = _AllType()
 

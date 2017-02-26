@@ -110,7 +110,7 @@ class Stream(SendStream, RecvStream):
     __slots__ = ()
 
     @staticmethod
-    def staple(cls, send_stream, recv_stream):
+    def staple(send_stream, recv_stream):
         return StapledStream(send_stream=send_stream, recv_stream=recv_stream)
 
 @attr.s(slots=True, cmp=False, hash=False)

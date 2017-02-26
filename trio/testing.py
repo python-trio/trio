@@ -53,7 +53,7 @@ def trio_test(fn):
 #   https://github.com/ztellman/manifold/issues/57
 @attr.s(slots=True, cmp=False, hash=False)
 class MockClock(Clock):
-    _mock_time = attr.ib(convert=float, default=0.0)
+    _mock_time = attr.ib(convert=float, default=0.0, init=False)
 
     # XX could also have pause/unpause functionality to start it running in
     # real time... is that useful?
@@ -71,12 +71,6 @@ class MockClock(Clock):
         if offset < 0:
             raise ValueError("time can't go backwards")
         self._mock_time += offset
-
-    # async def pump(self, offsets):
-    #     for offset in offsets:
-    #         self.advance(offset)
-    #         await _core.yield_briefly()
-    #         await _core.yield_briefly()
 
 
 @attr.s(cmp=False, hash=False)
@@ -111,9 +105,9 @@ def assert_no_yields():
 @attr.s(slots=True, cmp=False, hash=False)
 class Sequencer:
     _sequence_points = attr.ib(
-        default=attr.Factory(lambda: defaultdict(Event)))
-    _claimed = attr.ib(default=attr.Factory(set))
-    _broken = attr.ib(default=False)
+        default=attr.Factory(lambda: defaultdict(Event)), init=False)
+    _claimed = attr.ib(default=attr.Factory(set), init=False)
+    _broken = attr.ib(default=False, init=False)
 
     @acontextmanager
     @async_generator

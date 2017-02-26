@@ -44,12 +44,16 @@ __all__ += _unbounded_queue.__all__
 if hasattr(_run, "wait_readable"):
     import socket as _stdlib_socket
 
+    @_hazmat
     async def wait_socket_readable(sock):
         if type(sock) != _stdlib_socket.socket:
             raise TypeError("need a socket")
         await wait_readable(sock)
 
+    @_hazmat
     async def wait_socket_writable(sock):
         if type(sock) != _stdlib_socket.socket:
             raise TypeError("need a socket")
         await wait_writable(sock)
+
+    __all__ += ["wait_socket_readable", "wait_socket_writable"]

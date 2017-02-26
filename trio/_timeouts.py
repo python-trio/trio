@@ -74,6 +74,10 @@ async def sleep(seconds):
         await sleep_until(_core.current_time() + seconds)
 
 class TooSlowError(Exception):
+    """Raised by :func:`fail_after` and :func:`fail_at` if the timeout
+    expires.
+
+    """
     pass
 
 @contextmanager

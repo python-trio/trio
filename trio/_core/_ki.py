@@ -91,8 +91,13 @@ def ki_protection_enabled(frame):
 
 @_hazmat
 def ki_protected():
-    """Returns True if the current stack frame has KeyboardInterrupt
-    protection enabled, and False otherwise."""
+    """Check whether the calling code has :exc:`KeyboardInterrupt` protection
+    enabled.
+
+    Returns:
+      bool: True if protection is enabled, and False otherwise.
+
+    """
     return ki_protection_enabled(sys._getframe())
 
 def _ki_protection_decorator(enabled):

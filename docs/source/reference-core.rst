@@ -16,9 +16,65 @@ If you want to use trio, then the first thing you have to do is call
 General notes
 -------------
 
-XX thread-safety
+.. _yield-points:
 
-XX yield points
+Yield points
+~~~~~~~~~~~~
+
+When writing code using trio, it's very important to understand the
+concept of a *yield point*.
+
+A yield point is two things:
+
+1. It's a point where we check for cancellation, and can potentially
+   raise a :exc:`Cancelled` error. See :ref:`cancellation` below for
+   more details.
+
+2. It's a point where the trio scheduler has the option of switching
+   to a different task. (Currently, this scheduler is very simple: it
+   simply cycles through all the runnable tasks, running each one
+   until it hits its first yield point. But `this might change in the
+   future <https://github.com/njsmith/trio/issues/32>`__.)
+
+So you need to be aware of yield points for two reasons. First, you
+need to know where they are so you can make sure you're prepared to
+handle a :exc:`Cancelled` error, or for another task to run and
+`rearrange some state out from under you
+<https://glyph.twistedmatrix.com/2014/02/unyielding.html>`__. And
+second, you need to know where they are so you can make sure your code
+hits them fairly frequently: if you go too long before executing a
+yield point, then you'll be slow to notice cancellation and – much
+worse – you'll adversely effect the response latency of all the other
+code running in the same process, because in a cooperative
+multi-tasking system like trio, nothing else can run until you hit a
+yield point.
+
+To help you out here, Trio tries to make this as simple as
+possible. If an operation blocks (e.g., trying to read from a socket
+when there's no data available), then that has to be a yield
+point. (Otherwise timeouts wouldn't work, and we couldn't get other
+stuff done while waiting for data to arrive.) Therefore, we make a
+policy that for public functions exposed by trio, if a function *can*
+block then it is *always* a yield point. (So if you try to read from a
+socket and there *is* data available, that doesn't block but it's
+still a yield point.)
+
+How do we know which functions can block? They're the async functions,
+of course. So this gives us our general rule for identifying yield
+points: if you see an ``await``, then it *might* be a yield point, and
+if it's ``await <something in trio>`` then it's *definitely* a yield
+point.
+
+
+Thread safety
+~~~~~~~~~~~~~
+
+The vast majority of trio's API is *not* thread safe: it can only be
+used from inside a call to :func:`trio.run`. We don't bother
+documenting this on individual calls; unless specifically noted
+otherwise, you should assume that it isn't safe to call any trio
+functions from anywhere except the trio thread. (But :ref:`see below
+<threads>` if you really do need to work with threads.)
 
 
 Time and clocks
@@ -56,6 +112,8 @@ custom :class:`~trio.abc.Clock` class:
 .. autoclass:: trio.abc.Clock
    :members:
 
+
+.. _cancellation:
 
 Cancellation and timeouts
 -------------------------
@@ -253,9 +311,9 @@ and how you need to be prepared for this whenever calling a
 cancellable operation... but we haven't said which operations are
 cancellable.
 
-As far as trio's primitives go, the rule is: if it's in the trio
-namespace, and you use ``await`` to call it, then it's
-cancellable. Cancellable means:
+Here's the rule: if it's in the trio namespace, and you use ``await``
+to call it, then it's cancellable (see :ref:`yield-points`
+above). Cancellable means:
 
 * If you try to call it when inside a cancelled scope, then it will
   raise :exc:`Cancelled`.
@@ -292,9 +350,9 @@ socket works: if the remote peer has disappeared, then we may never be
 able to actually send our shutdown notification, and it would be nice
 if we didn't block forever trying. Therefore, the ``close`` method on
 a TLS-wrapped socket will *try* to send that notification – but if it
-gets cancelled, then it will go ahead and close the underlying socket
-before raising :exc:`Cancelled`, so at least you don't leak that
-resource.
+gets cancelled, then it will give up on sending the message but will
+still close the underlying socket before raising :exc:`Cancelled`, so
+at least you don't leak that resource.
 
 
 Cancellation API details
@@ -888,18 +946,179 @@ Result objects
 .. autoclass:: Error
    :members:
 
+.. note::
+
+   Since :class:`Result` objects are simple immutable data structures
+   that don't otherwise interact with the trio machinery, it's safe to
+   create and access :class:`Result` objects from any thread you like.
+
 
 Synchronizing and communicating between tasks
 ---------------------------------------------
 
+Trio provides a standard set of synchronization and inter-task
+communication primitives. These objects' APIs are generally modelled
+off of the analogous classes in the standard library, but with some
+differences.
+
+
+Blocking and non-blocking methods
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The standard library synchronization primitives have a variety of
+mechanisms for specifying timeouts and blocking behavior, and of
+signaling whether an operation returned due to success versus a
+timeout.
+
+In trio, we standardize on the following conventions:
+
+* We don't provide timeout arguments. If you want a timeout, then use
+  a cancel scope.
+
+* For operations that have a non-blocking variant, the blocking and
+  non-blocking variants are different methods with names like ``X``
+  and ``X_nowait``, respectively. (This is similar to
+  :class:`queue.Queue`, but unlike most of the classes in
+  :mod:`threading`.) We like this approach because it allows us to
+  make the blocking version async and the non-blocking version sync.
+
+* When a non-blocking method cannot succeed (the queue is empty, the
+  lock is already held, etc.), then it raises
+  :exc:`trio.WouldBlock`. There's no equivalent to the
+  :exc:`queue.Empty` versus :exc:`queue.Full` distinction – we just
+  have the one exception that we use consistently.
+
+
+Fairness
+~~~~~~~~
+
+These classes are all guaranteed to be "fair", meaning that when it
+comes time to choose who's next to acquire a lock, get an item from a
+queue, etc., then it always goes to the task which has been waiting
+longest. It's `not entirely clear
+<https://github.com/njsmith/trio/issues/54>`__ whether this is the
+best choice, but for now that's how it works.
+
+As an example of what this means, here's a small program in which two
+tasks compete for a lock. Notice that the task which releases the lock
+always immedately attempts to re-acquire it, before the other task has
+a chance to run. (And remember that we're doing cooperative
+multi-tasking here, so it's actually *deterministic* that the task
+releasing the lock will call :meth:`~Lock.acquire` before the other
+task wakes up; in trio releasing a lock is not a yield point.)  With
+an unfair lock, this would result in the same task holding the lock
+forever and the other task being starved out. But if you run this,
+you'll see that the two tasks politely take turns::
+
+   # fairness-demo.py
+
+   import trio
+
+   async def loopy_child(number, lock):
+       while True:
+           async with lock:
+               print("Child {} has the lock!".format(number))
+               await trio.sleep(0.5)
+
+   async def main():
+       async with trio.open_nursery() as nursery:
+           lock = trio.Lock()
+           nursery.spawn(loopy_child, 1, lock)
+           nursery.spawn(loopy_child, 2, lock)
+
+   trio.run(main)
+
+
+Broadcasting an event with :class:`Event`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 .. autoclass:: Event
    :members:
+
+
+Passing messages with :class:`Queue` and :class:`UnboundedQueue`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Trio provides two types of queues suitable for different
+purposes. Where they differ is in their strategies for handling flow
+control. Here's a toy example to demonstrate the problem. Suppose we
+have a queue with two producers and one consumer::
+
+   async def producer(queue):
+       while True:
+           await queue.put(1)
+
+   async def consumer(queue):
+       while True:
+           print(await queue.get())
+
+   async def main():
+       # Trio's actual queue classes have countermeasures to prevent
+       # this example from working, so imagine we have some sort of
+       # platonic ideal of a queue here
+       queue = trio.HypotheticalQueue()
+       async with trio.open_nursery() as nursery:
+           # Two producers
+           nursery.spawn(producer, queue)
+           nursery.spawn(producer, queue)
+           # One consumer
+           nursery.spawn(consumer, queue)
+
+   trio.run(main)
+
+If we naively cycle between these three tasks, then we put an item,
+then put an item, then get an item, then put an item, then put an
+item, then get an item, ... and over time the queue size grows
+arbitrarily large, our latency is terrible, we run out of memory, it's
+just generally bad news all around.
+
+There are two potential strategies for avoiding this problem.
+
+The preferred solution is to apply *backpressure*. If our queue starts
+getting too big, then we can make the producers slow down by having
+``put`` block until ``get`` has had a chance to remove an item. This
+is the strategy used by :class:`trio.Queue`.
+
+The other possibility is for the queue consumer to get greedy: each
+time it runs, it could eagerly consume all of the pending items before
+yielding and allowing another task to run. (In some other systems,
+this would happen automatically because their queue's ``get`` method
+doesn't yield so long as there's data available. But :ref:`in trio,
+it's always a yield point <yield-points>`.) This would work, but it's
+a bit risky: basically instead of applying backpressure to
+specifically the producer tasks, we're applying it to *all* the tasks
+in our system. The danger here is that if enough items have built up
+in the queue, then "stopping the world" to process them all may cause
+unacceptable latency spikes in unrelated tasks. Nonetheless, this is
+still the right choice in situations where it's impossible to apply
+backpressure more precisely. For example, when monitoring exiting
+tasks, blocking tasks from reporting their death doesn't really
+accomplish anything – the tasks are taking up memory either way,
+etc. (In this particular case it `might be possible to do better
+<https://github.com/njsmith/trio/issues/64>`__, but in general the
+principle holds.) So this is the strategy implemented by
+:class:`trio.UnboundedQueue`.
 
 .. autoclass:: Queue
    :members:
 
 .. autoclass:: UnboundedQueue
    :members:
+
+
+Lower-level synchronization primitives
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Personally, I find that events and queues are usually enough to
+implement most things I care about, and lead to easier to read code
+than the lower-level primitives discussed in this section. But if you
+need them, they're here. (If you find yourself reaching for these
+because you're trying to implement a new higher-level synchronization
+primitive, then you might also want to check out the facilities in
+:mod:`trio.hazmat` for a more direct exposure of trio's underlying
+synchronization logic. All of classes discussed in this section are
+implemented on top of the public APIs in :mod:`trio.hazmat`; they
+don't have any special access to trio's internals.)
 
 .. autoclass:: Semaphore
    :members:
@@ -910,6 +1129,8 @@ Synchronizing and communicating between tasks
 .. autoclass:: Condition
    :members:
 
+
+.. _threads:
 
 Threads (if you must)
 ---------------------
@@ -949,26 +1170,59 @@ communicate back with trio, there's the closely related
    complete, and then return the result or raise whatever exception it
    raised.
 
-   These are the *only* non-hazmat functions in trio that can be
-   called from a different thread than the one that called
-   :func:`trio.run`. These two functions *must* be called from a
-   different thread than the one that called :func:`trio.run`. (After
-   all, they're blocking functions!)
+   These are the *only* non-hazmat functions that interact with the
+   trio run loop and that can safely be called from a different thread
+   than the one that called :func:`trio.run`. These two functions
+   *must* be called from a different thread than the one that called
+   :func:`trio.run`. (After all, they're blocking functions!)
 
    :raises RunFinishedError: If the corresponding call to
       :func:`trio.run` has already completed.
 
 
 This will probably be clearer with an example. Here we demonstrate how
-to spawn a child thread::
+to spawn a child thread, and then use a :class:`trio.Queue` to send
+messages between the thread and a trio task::
 
    import trio
    import threading
 
-   async def main():
-       q = trio.Queue(1)
+   def thread_fn(await_in_trio_thread, request_queue, response_queue):
+       while True:
+           # Since we're in a thread, we can't call trio.Queue methods
+           # directly -- so we use await_in_trio_thread to call them.
+           request = await_in_trio_thread(request_queue.get)
+           # We use 'None' as a request to quit
+           if request is not None:
+               response = request + 1
+               await_in_trio_thread(response_queue.put, response)
+           else:
+               # acknowledge that we're shutting down, and then do it
+               await_in_trio_thread(response_queue.put, None)
+               return
 
-       await
+   async def main():
+       # Get a reference to the await_in_trio_thread function
+       await_in_trio_thread = trio.current_await_in_trio_thread()
+       request_queue = trio.Queue(1)
+       response_queue = trio.Queue(1)
+       thread = threading.Thread(
+           target=thread_fn,
+           args=(await_in_trio_thread, request_queue, response_queue))
+       thread.start()
+
+       # prints "1"
+       await request_queue.put(0)
+       print(await response_queue.get())
+
+       # prints "2"
+       await request_queue.put(1)
+       print(await response_queue.get())
+
+       # prints "None"
+       await request_queue.put(None)
+       print(await response_queue.get())
+       thread.join()
 
    trio.run(main)
 

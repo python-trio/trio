@@ -24,15 +24,19 @@ The abstract Stream API
 
 .. autoclass:: AsyncResource
    :members:
+   :undoc-members:
 
 .. autoclass:: SendStream
    :members:
+   :undoc-members:
 
 .. autoclass:: RecvStream
    :members:
+   :undoc-members:
 
 .. autoclass:: Stream
    :members:
+   :undoc-members:
 
 
 TLS support

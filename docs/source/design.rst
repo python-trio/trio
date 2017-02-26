@@ -42,44 +42,59 @@ use case and valid definition of usability, but it's not the one we
 use: we think it's easier to build reliable and correct systems if
 exceptions propagate until handled and if the system `catches you when
 you make potentially dangerous resource handling errors
-<https://github.com/njsmith/trio/issues/23>`__.
+<https://github.com/njsmith/trio/issues/23>`__, so that's what we
+optimize for.
 
-It's also worth saying something about speed, since it
+It's also worth saying something about speed, since it often looms
+large in comparisons between I/O libraries. This is a rather subtle
+and complex topic.
 
-Speed is important –  But "speed" is a large and complex topic.
+In general, speed is certainly important – but the fact that people
+sometimes use Python instead of C is a pretty good indicator that
+usability often trumps speed in practice. We want to make trio fast,
+but it's not an accident that it's left off our list of overriding
+goals at the top: if necessary we are willing to accept some slowdowns
+in the service of usability and reliability.
 
-First of all, there are speed
+To break things down in more detail:
 
-When there's a conflict, we care more about 99th percentile latencies
-than about throughput, because throughput can often be handled with
-horizontal scaling, but once you lose latency it's gone forever.
+First of all, there are the cases where speed directly impacts
+correctness, like when you hit an accidental ``O(N**2)`` algorithm and
+your program effectively locks up. Trio is very careful to use
+algorithms and data structures that have good worst-case behavior
+(even if this might mean sacrificing a few percentage points of speed
+in the average case).
 
-asymptotics
+Similarly, when there's a conflict, we care more about (for example)
+99th percentile latencies than we do about raw throughput, because
+insufficient throughput – if it's consistent! – can often be budgeted
+for and handled with horizontal scaling, but once you lose latency
+it's gone forever, and latency spikes can easily cross over to become
+a correctness issue (e.g., an RPC server that responds slowly enough
+to trigger timeouts is effectively non-functional). Again, of course,
+this doesn't mean we don't care about throughput – but sometimes
+engineering requires making trade-offs, especially for early-stage
+projects that haven't had time to optimize for all use cases yet.
 
-We care about speed on real-world applications quite a bit, but speed
-on microbenchmarks is just about our lowest priority. We aren't
-interested in competing to build the fastest echo server in the
-West. I mean, it's nice if it happens or whatever, and microbenchmarks
-are certainly a useful tool. But if you play that game seriously then
-it's very easy to get into a situation with seriously misaligned
-incentives, where you have to start compromising on features and
-correctness in order to get a speedup that's totally irrelevant to
-real-world applications. In most cases it's the application code
-that's the bottleneck, and you'll get more of a win out of running the
-whole app under PyPy than out of any heroic optimizations to the IO
-library. (And this is why Trio *does* place a priority on PyPy
+And finally: we care about speed on real-world applications quite a
+bit, but speed on microbenchmarks is just about our lowest
+priority. We aren't interested in competing to build the fastest echo
+server in the West. I mean, it's nice if it happens or whatever, and
+microbenchmarks are an invaluable tool for understanding a system's
+behavior. But if you play that game to win then it's very easy to get
+yourself into a situation with seriously misaligned incentives, where
+you have to start compromising on features and correctness in order to
+get a speedup that's totally irrelevant to real-world applications. In
+most cases (we suspect) it's the application code that's the
+bottleneck, and you'll get more of a win out of running the whole app
+under PyPy than out of any heroic optimizations to the IO
+layer. (And this is why Trio *does* place a priority on PyPy
 compatibility.)
 
-And then of course there absolutely are applications where it's worth
-going through all kinds of contortions to squeeze out every last drop
-of speed. Trio might not be the best choice there; we can't be all
-things to all people. But in these cases you're probably not using
-Python either, so :-).
-
-And finally, we note that at this stage in Trio's lifecycle, it'd
-probably be a mistake to worry about speed too much. It doesn't make
-sense to spend lots of effort optimizing an API whose semantics are
-still in flux.
+As a matter of tactics, we also note that at this stage in Trio's
+lifecycle, it'd probably be a mistake to worry about speed too
+much. It doesn't make sense to spend lots of effort optimizing an API
+whose semantics are still in flux.
 
 
 User-level API
