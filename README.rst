@@ -219,6 +219,10 @@ nothing to see here
      - not subject to starvation
      - handles control-C
 
+   - rename UnboundedQueue.get_all to UnboundedQueue.get_batch?
+
+   - should we drop reap_and_unwrap? Is it really useful?
+
    - I looked at h2 and yeah, we definitely need to make stream have
      aclose() instead of close(). Sigh.
      ...If aclose is a cancellation point, does it need special

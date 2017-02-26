@@ -143,6 +143,28 @@ class MultiErrorCatcher:
             raise filtered_exc
 
 class MultiError(BaseException):
+    """An exception that contains other exceptions; also known as an
+    "inception".
+
+    It's main use is to represent the situation when multiple child tasks all
+    raise errors "in parallel".
+
+    Args:
+      exceptions (list): The exceptions
+
+    Returns:
+      If ``len(exceptions) == 1``, returns that exception. This means that a
+      call to ``MultiError(...)`` is not guaranteed to return a
+      :exc:`MultiError` object!
+
+      Otherwise, returns a new :exc:`MultiError` object.
+
+    Raises:
+      TypeError: if any of the passed in objects are not instances of
+          :exc:`BaseException`.
+
+    """
+
     def __new__(cls, exceptions):
         exceptions = list(exceptions)
         for exc in exceptions:
@@ -168,10 +190,33 @@ class MultiError(BaseException):
 
     @classmethod
     def filter(cls, handler, root_exc):
+        """Apply the given ``handler`` to all the exceptions in ``root_exc``.
+
+        Args:
+          handler: A callable that takes an atomic (non-MultiError) exception
+              as input, and returns either a new exception object or None.
+          root_exc: An exception, often (though not necessarily) a
+              :exc:`MultiError`.
+
+        Returns:
+          A new exception object in which each component exception ``exc`` has
+          been replaced by the result of running ``handler(exc)`` – or, if
+          ``handler`` returned None for all the inputs, returns None.
+
+        """
+
         return _filter_impl(handler, root_exc)
 
     @classmethod
     def catch(cls, handler):
+        """Return a context manager that catches and re-throws exceptions
+        after running :meth:`filter` on them.
+
+        Args:
+          handler: as for :meth:`filter`
+
+        """
+
         return MultiErrorCatcher(handler)
 
 # Clean up exception printing:

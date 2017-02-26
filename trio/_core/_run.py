@@ -192,6 +192,12 @@ def open_cancel_scope(*, deadline=inf, shield=False):
 @async_generator
 @enable_ki_protection
 async def open_nursery():
+    """Returns an async context manager which creates a new nursery.
+
+    This context manager's ``__aenter__`` method executes synchronously. Its
+    ``__aexit__`` method blocks until all child tasks have exited.
+
+    """
     assert ki_protected()
     with open_cancel_scope() as scope:
         nursery = Nursery(current_task(), scope)
@@ -386,6 +392,17 @@ class Task:
     _monitors = attr.ib(default=attr.Factory(set))
 
     def add_monitor(self, queue):
+        """Register to be notified when this task exits.
+
+        Args:
+          queue (UnboundedQueue): An :class:`UnboundedQueue` object that this
+              task object will be put into when it exits.
+
+        Raises:
+          TypeError: if ``queue`` is not a :class:`UnboundedQueue`
+          ValueError: if ``queue`` is already registered with this task
+
+        """
         # Rationale: (a) don't particularly want to create a
         # callback-in-disguise API by allowing people to stick in some
         # arbitrary object with a put_nowait method, (b) don't want to have to
@@ -402,9 +419,23 @@ class Task:
             self._monitors.add(queue)
 
     def discard_monitor(self, queue):
+        """Unregister the given queue from being notified about this task
+        exiting.
+
+        This operation always succeeds, regardless of whether ``queue`` was
+        previously registered.
+
+        Args:
+          queue (UnboundedQueue): The queue that should no longer recieve
+              notification.
+        """
+
         self._monitors.discard(queue)
 
     async def wait(self):
+        """Wait for this task to exit.
+
+        """
         q = _core.UnboundedQueue()
         self.add_monitor(q)
         try:
@@ -601,6 +632,38 @@ class Runner:
     @_public
     @_hazmat
     def spawn_system_task(self, async_fn, *args, name=None):
+        """Spawn a "system" task.
+
+        System tasks have a few differences from regular tasks:
+
+        * They don't need an explicit nursery; instead they go into the
+          internal "system nursery".
+
+        * If a system task raises an exception, then it's converted into a
+          :exc:`TrioInternalError` and *all* tasks are cancelled. If you write
+          a system task, you should be careful to make sure it doesn't crash.
+
+        * System tasks are automatically cancelled when the main task exits.
+
+        * By default, system tasks have :exc:`KeyboardInterrupt` protection
+          *enabled*. If you want your task to be interruptible by control-C,
+          then you should disable this explicitly.
+
+        Args:
+          async_fn: An async callable.
+          args: Positional arguments for ``async_fn``. If you want to pass
+              keyword arguments, use :func:`functools.partial`.
+          name: The name for this task. Only used for debugging/introspection
+              (e.g. ``repr(task_obj)``). If this isn't a string,
+              :func:`spawn_system_task` will try to make it one. A common use
+              case is if you're wrapping a function before spawning a new
+              task, you might pass the original function as the ``name=`` to
+              make debugging easier.
+
+        Returns:
+          Task: the newly spawned task
+
+        """
         async def system_task_wrapper(async_fn, args):
             PASS = (Cancelled, KeyboardInterrupt, GeneratorExit,
                     TrioInternalError)
@@ -1019,6 +1082,13 @@ def run_impl(runner, async_fn, args):
 ################################################################
 
 def current_task():
+    """Return the :class:`Task` object representing the current task.
+
+    Returns:
+      Task: the :class:`Task` that called :func:`current_task`.
+
+    """
+
     try:
         return GLOBAL_RUN_CONTEXT.task
     except AttributeError:

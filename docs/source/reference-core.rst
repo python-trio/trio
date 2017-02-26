@@ -13,6 +13,14 @@ If you want to use trio, then the first thing you have to do is call
 .. autofunction:: run
 
 
+General notes
+-------------
+
+XX thread-safety
+
+XX yield points
+
+
 Time and clocks
 ---------------
 
@@ -61,7 +69,7 @@ A simple timeout example
 
 In the simplest case, you can apply a timeout to a block of code::
 
-   with move_on_after(30):
+   with trio.move_on_after(30):
        result = await do_http_get("https://...")
        print("result is", result)
    print("with block finished")
@@ -143,8 +151,8 @@ that raised it, at which point it will stop automatically.
 Here's an example::
 
    print("starting...")
-   with move_on_after(5):
-       with move_on_after(10):
+   with trio.move_on_after(5):
+       with trio.move_on_after(10):
            await sleep(20)
            print("sleep finished without error")
        print("move_on_after(10) finished without error")
@@ -171,7 +179,7 @@ easier, :func:`move_on_after`'s ``__enter__`` function returns an
 object representing this cancel scope, which we can use to check
 whether this scope caught a :exc:`Cancelled` exception::
 
-   with move_on_after(5) as cancel_scope:
+   with trio.move_on_after(5) as cancel_scope:
        await sleep(10)
    print(cancel_scope.cancelled_caught)  # prints "True"
 
@@ -189,7 +197,7 @@ resource clean-up. For example, imagine that we have a function that
 connects to a remote server and sends some messages, and then cleans
 up on the way out::
 
-   with move_on_after(TIMEOUT):
+   with trio.move_on_after(TIMEOUT):
        conn = make_connection()
        try:
            await conn.send_hello_msg()
@@ -216,7 +224,7 @@ is no problem (or at least – it's not trio's problem). To do this,
 create a new scope, and set its :attr:`shield` attribute to
 :data:`True`::
 
-   with move_on_after(TIMEOUT):
+   with trio.move_on_after(TIMEOUT):
        conn = make_connection()
        try:
            await conn.send_hello_msg()
@@ -289,8 +297,8 @@ before raising :exc:`Cancelled`, so at least you don't leak that
 resource.
 
 
-The cancellation API
-~~~~~~~~~~~~~~~~~~~~
+Cancellation API details
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 The primitive operation for creating a new cancellation scope is:
 
@@ -316,7 +324,7 @@ The primitive operation for creating a new cancellation scope is:
       deadline expires doesn't actually block, then it may complete
       before we process deadlines::
 
-         with open_cancel_scope(deadline=current_time()):
+         with trio.open_cancel_scope(deadline=current_time()):
              # current_time() is now >= deadline, so cancel should fire,
              # at the next yield point. BUT, if the next yield point
              # completes instantly -- e.g., a recv on a socket that
@@ -343,7 +351,7 @@ The primitive operation for creating a new cancellation scope is:
       :exc:`~trio.Cancelled` exceptions from (1) this scope, or (2)
       scopes inside this scope. You can modify this attribute::
 
-         with open_cancel_scope() as cancel_scope:
+         with trio.open_cancel_scope() as cancel_scope:
              cancel_scope.shield = True
              # This cannot be interrupted by any means short of
              # killing the process:
@@ -399,14 +407,14 @@ Cheat sheet:
 * If you want to impose a timeout on a function, but you don't care
   whether it timed out or not::
 
-     with move_on_after(TIMEOUT):
+     with trio.move_on_after(TIMEOUT):
          await do_whatever()
      # carry on!
 
 * If you want to impose a timeout on a function, and then do some
   recovery if it timed out::
 
-     with move_on_after(TIMEOUT) as cancel_scope:
+     with trio.move_on_after(TIMEOUT) as cancel_scope:
          await do_whatever()
      if cancel_scope.cancelled_caught:
          # The operation timed out, try something else
@@ -416,7 +424,7 @@ Cheat sheet:
   out then just give up and raise an error for your caller to deal
   with::
 
-     with fail_after(TIMEOUT):
+     with trio.fail_after(TIMEOUT):
          await do_whatever()
 
 It's also possible to check what the current effective deadline is,
@@ -439,6 +447,238 @@ through the task spawning interface. So if you want your program to
 walk *and* chew gum, this is the section for you.
 
 
+Nurseries and spawning
+~~~~~~~~~~~~~~~~~~~~~~
+
+Most libraries for concurrent programming let you spawn new child
+tasks (or threads, or whatever) willy-nilly, whenever and where-ever
+you feel like it. Trio is a bit different: you can't spawn a child
+task unless you're prepared to be a responsible parent. The way you
+demonstrate your responsibility is by creating a nursery::
+
+   async with trio.open_nursery() as nursery:
+       ...
+
+And once you have a reference to a nursery object, you can spawn
+children into that nursery::
+
+   async def child():
+       ...
+
+   async def parent():
+       async with trio.open_nursery() as nursery:
+           # Make two concurrent calls to child()
+           nursery.spawn(child)
+           nursery.spawn(child)
+
+This means that tasks form a tree: when you call :func:`run`, then
+this creates an initial task, and all your other tasks will be
+children, grandchildren, etc. of the initial task.
+
+The crucial thing about this setup is that when we exit the ``async
+with`` block, then the nursery cleanup code runs. The nursery cleanup
+code does the following things:
+
+* If the body of the ``async with`` block raised an exception, then it
+  cancels all remaining child tasks and saves the exception.
+
+* It watches for child tasks to exit. If a child task exits with an
+  exception, then it cancels all remaining child tasks and saves the
+  exception.
+
+* Once all child tasks have exited:
+
+  * It marks the nursery as "closed", so no new tasks can be spawned
+    in it,
+
+  * If there's just one saved exception, it re-raises it,
+
+  * If there are multiple saved exceptions, it re-raises them as a
+    :exc:`MultiError`,
+
+  * and if there are no saved exceptions, it exits normally.
+
+Since all tasks are descendents of the initial task, one consequence
+of this is that :func:`run` can't finish until all tasks have
+finished.
+
+
+Getting results from child tasks
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``spawn`` method returns a :class:`Task` object that can be used
+for various things – and in particular, for retrieving the task's
+return value. Example::
+
+   async def child_fn(x):
+       return 2 * x
+
+   async with trio.open_nursery() as nursery:
+       child_task = nursery.spawn(child_fn, 3)
+   # We've left the nursery, so we know child_task has completed
+   assert child_task.result.unwrap() == 6
+
+See :attr:`Task.result` and :class:`Result` for more details.
+
+
+Child tasks and cancellation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In trio, child tasks inherit the parent nursery's cancel scopes. So in
+this example, both the child tasks will be cancelled when the timeout
+expires::
+
+   with move_on_after(TIMEOUT):
+       async with trio.open_nursery() as nursery:
+           nursery.spawn(child1)
+           nursery.spawn(child2)
+
+
+Errors in multiple child tasks
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Normally, in Python, only one thing happens at a time, which means
+that only one thing can wrong at a time. Trio is not so
+limited. Consider code like::
+
+    async def broken1():
+        d = {}
+        return d["missing"]
+
+    async def broken2():
+        seq = range(10)
+        return seq[20]
+
+    async def parent():
+        async with trio.open_nursery() as nursery:
+            nursery.spawn(broken1)
+            nursery.spawn(broken2)
+
+``broken1`` raises ``KeyError``. ``broken2`` raises
+``IndexError``. Obviously ``parent`` should raise some error, but
+what? In some sense, the answer should be "both of these at once", but
+in Python there can only be one exception at a time.
+
+Trio's answer is that it raises a :exc:`MultiError` object. This is a
+special exception which encapsulates multiple exception objects –
+either regular exceptions or nested :exc:`MultiError`\s. To make these
+easier to work with, trio installs a custom :obj:`sys.excepthook` that
+knows how to print nice tracebacks for unhandled :exc:`MultiError`\s,
+and we also provide some helpful utilities like
+:meth:`MultiError.catch`, which allows you to catch "part of" a
+:exc:`MultiError`.
+
+
+How to be a good parent task
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Supervising child tasks is a full time job. If you want your program
+to do two things at once, then don't expect the parent task to do one
+while a child task does another – instead, spawn two children and let
+the parent focus on managing them.
+
+So, don't do this::
+
+    # bad idea!
+    async with trio.open_nursery() as nursery:
+        nursery.spawn(walk)
+        await chew_gum()
+
+Instead, do this::
+
+    # good idea!
+    async with trio.open_nursery() as nursery:
+        nursery.spawn(walk)
+        nursery.spawn(chew_gum)
+        # now parent task blocks in the nursery cleanup code
+
+The difference between these is that in the first example, if ``walk``
+crashes, the parent is off distracted chewing gum, and won't
+notice. In the second example, the parent is watching both children,
+and will notice and respond appropriately if anything happens.
+
+
+Spawning tasks without becoming a parent
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Sometimes it doesn't make sense for the task that spawns a child to
+take on responsibility for watching it. For example, a server task may
+want to spawn a new task for each connection, but it can't listen for
+connections and supervise children at the same time.
+
+The solution here is simple once you see it: there's no requirement
+that a nursery object stay in the task that created it! We can write
+code like this::
+
+   async def new_connection_listener(handler, nursery):
+       while True:
+           conn = await get_new_connection()
+           nursery.spawn(handler, conn)
+
+   async def server(handler):
+       async with trio.open_nursery() as nursery:
+           nursery.spawn(new_connection_listener, handler, nursery)
+
+Now ``new_connection_listener`` can focus on handling new connections,
+while its parent focus on supervising both it and all the individual
+connection handlers.
+
+Note that cancel scopes are inherited from the nursery, **not** from
+the task that calls ``spawn``. So in this example, the timeout does
+*not* apply to ``child`` (or to anything else)::
+
+   async with do_spawn(nursery):
+       with move_on_after(TIMEOUT):  # don't do this, it has no effect
+           nursery.spawn(child)
+
+   async with trio.open_nursery() as nursery:
+       nursery.spawn(do_spawn, nursery)
+
+
+Custom supervisors
+~~~~~~~~~~~~~~~~~~
+
+The default cleanup logic is often sufficient for simple cases, but
+what if you want a more sophisticated supervisor? For example, maybe
+you have `Erlang envy <http://learnyousomeerlang.com/supervisors>`__
+and want features like automatic restart of crashed tasks. Trio itself
+doesn't provide such a feature, but the nursery interface is designed
+to give you all the tools you need to build such a thing, while
+enforcing basic hygiene (e.g., it's not possible to build a supervisor
+that exits and leaves orphaned tasks behind). And then hopefully
+you'll wrap your fancy supervisor up in a library and put it on PyPI,
+because building custom supervisors is a challenging task that most
+people don't want to deal with!
+
+For simple custom supervisors, it's often possible to lean on the
+default nursery logic to take care of annoying details. For example,
+here's a function that takes a list of functions, runs them all
+concurrently, and returns the result from the one that finishes
+first::
+
+   async def race(*async_fns):
+       if not async_fns:
+           raise ValueError("must pass at least one argument")
+       async with trio.open_nursery() as nursery:
+           for async_fn in async_fns:
+               nursery.spawn(async_fn)
+           task_batch = await nursery.monitor.get_all()
+           nursery.cancel_scope.cancel()
+           return task_batch[0].reap_and_unwrap(finished_task)
+
+This works by waiting until at least one task has finished, then
+cancelling all remaining tasks and returning the result from the first
+task. This implicitly invokes the default logic to take care of all
+the other tasks, so we block to wait for the cancellation to finish,
+and if any of them raise errors in the process we'll propagate
+those.
+
+
+Task-related API details
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The nursery API
++++++++++++++++
 
 .. autofunction:: open_nursery
    :async-with: nursery
@@ -449,13 +689,41 @@ walk *and* chew gum, this is the section for you.
 
    .. method:: spawn(async_fn, *args, name=None)
 
-      This is *the* method for creating
+      Runs ``await async_fn(*args)`` in a new child task inside this nursery.
+
+      This is *the* method for creating concurrent tasks in trio.
+
+      It's possible to pass a nursery object into another task, which
+      allows that task to spawn new tasks into the first task's
+      nursery.
+
+      The child task inherits its parent nursery's cancel scopes.
+
+      :param async_fn: An async callable.
+      :param args: Positional arguments for ``async_fn``. If you want
+                   to pass keyword arguments, use
+                   :func:`functools.partial`.
+      :param name: The name for this task. Only used for
+                   debugging/introspection
+                   (e.g. ``repr(task_obj)``). If this isn't a string,
+                   :meth:`spawn` will try to make it one. A common use
+                   case is if you're wrapping a function before
+                   spawning a new task, you might pass the original
+                   function as the ``name=`` to make debugging easier.
+      :return: the newly spawned task
+      :rtype trio.Task:
+      :raises RuntimeError: If this nursery is no longer open
+                            (i.e. its ``async with`` block has
+                            exited).
 
    .. attribute:: cancel_scope
 
-      Creating a nursery also implicitly creates a cancellation
-      scope. This is necessary so that the nursery can cancel all the
-      child tasks if an error occurs.
+      Creating a nursery also implicitly creates a cancellation scope,
+      which is exposed as the :attr:`cancel_scope` attribute. This is
+      used internally to implement the logic where if an error occurs
+      then ``__aexit__`` cancels all children, but you can use it for
+      other things, e.g. if you want to explicitly cancel all children
+      in response to some external event.
 
    The remaining attributes and methods are mainly used for
    implementing new types of task supervisor:
@@ -480,7 +748,13 @@ walk *and* chew gum, this is the section for you.
 
       Removes the given task from the :attr:`zombies` set.
 
-      :raises ValueError: If the given *task* is not in :attr:`zombies`.
+      Calling this method indicates to the nursery that you have taken
+      care of any cleanup needed. In particular, if the task exited
+      with an exception and you don't call this method, then
+      ``__aexit__`` will eventually re-raise that exception. If you do
+      call this method, then ``__aexit__`` won't do anything.
+
+      :raises ValueError: If the given ``task`` is not in :attr:`zombies`.
 
    .. method:: reap_and_unwrap(task)
 
@@ -490,6 +764,12 @@ walk *and* chew gum, this is the section for you.
          return task.result.unwrap()
 
    .. currentmodule:: trio
+
+
+Task object API
++++++++++++++++
+
+.. autofunction:: current_task()
 
 .. class:: Task()
 
@@ -525,23 +805,89 @@ walk *and* chew gum, this is the section for you.
       This task's coroutine object. Example usage: extracting a stack
       trace.
 
-   .. attribute:: parent_task
+   .. autoattribute:: parent_task
 
-      This task's parent. Example usage: drawing a visualization of
-      the task tree.
 
-.. autofunction:: current_task()
-
-.. autoclass:: Result
-
-.. autoclass:: Value
-
-.. autoclass:: Error
-
-.. autoexception:: MultiError
-   :members:
+Working with :exc:`MultiError`\s
+++++++++++++++++++++++++++++++++
 
 .. autofunction:: format_exception
+
+.. autoexception:: MultiError
+
+   .. attribute:: exceptions
+
+      The list of exception objects that this :exc:`MultiError`
+      represents.
+
+   .. automethod:: filter
+
+   .. automethod:: catch
+      :with:
+
+Examples:
+
+Suppose we have a handler function that discards :exc:`ValueError`\s::
+
+    def handle_ValueError(exc):
+        if isinstance(exc, ValueError):
+            return None
+        else:
+            return exc
+
+Then these both raise :exc:`KeyError`::
+
+    with MultiError.catch(handle_ValueError):
+         raise MultiError([KeyError(), ValueError()])
+
+    with MultiError.catch(handle_ValueError):
+         raise MultiError([
+             ValueError(),
+             MultiError([KeyError(), ValueError()]),
+         ])
+
+And both of these raise nothing at all::
+
+    with MultiError.catch(handle_ValueError):
+         raise MultiError([ValueError(), ValueError()])
+
+    with MultiError.catch(handle_ValueError):
+         raise MultiError([
+             MultiError([ValueError(), ValueError()]),
+             ValueError(),
+         ])
+
+You can also return a new or modified exception, for example::
+
+    def convert_ValueError_to_MyCustomError(exc):
+        if isinstance(exc, ValueError):
+            # Similar to 'raise MyCustomError from exc'
+            new_exc = MyCustomError(...)
+            new_exc.__cause__ = exc
+            return new_exc
+        else:
+            return exc
+
+In the example above, we set ``__cause__`` as a form of explicit
+context chaining. :meth:`MultiError.filter` and
+:meth:`MultiError.catch` also perform implicit exception chaining – if
+you return a new exception object, then the new object's
+``__context__`` attribute will automatically be set to the original
+exception.
+
+
+Result objects
+++++++++++++++
+
+.. autoclass:: Result
+   :members:
+
+.. autoclass:: Value
+   :members:
+
+.. autoclass:: Error
+   :members:
+
 
 Synchronizing and communicating between tasks
 ---------------------------------------------
@@ -573,17 +919,17 @@ be natively async and integrated into Trio, and all would be happiness
 and rainbows.
 
 That world, alas, does not (yet) exist. Until it does, you may find
-yourself needing to interact with non-Trio APIs that do uncouth things
+yourself needing to interact with non-Trio APIs that do rude things
 like "blocking".
 
-In acknowledgment of this reality, Trio provides two useful
-capabilities for working with real, operating-system level,
+In acknowledgment of this reality, Trio provides two useful utilities
+for working with real, operating-system level,
 :mod:`threading`\-module-style threads. First, if you're in Trio but
 need to push some work into a thread, there's
 :func:`run_in_worker_thread`. And if you're in a thread and need to
-communicate back with trio, there's :func:`current_run_in_trio_thread`
-and :func:`current_await_in_trio_thread`.
-
+communicate back with trio, there's the closely related
+:func:`current_run_in_trio_thread` and
+:func:`current_await_in_trio_thread`.
 
 .. autofunction:: run_in_worker_thread
 

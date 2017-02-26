@@ -1,5 +1,5 @@
-Trio tutorial
-=============
+Tutorial
+========
 
 .. currentmodule:: trio
 
@@ -24,14 +24,14 @@ the internal details will make much more sense once you understand
 what it's all for.
 
 
-Installing Trio
----------------
+Before you begin
+----------------
 
 1. Make sure you're using Python 3.5 or newer.
 
 2. ``pip install trio``
 
-3. You're good to go!
+3. Can you ``import trio``? If so then you're good to go!
 
 
 Async functions
