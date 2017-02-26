@@ -94,7 +94,10 @@ def _assert_yields_or_not(expected):
     try:
         yield
     finally:
-        assert instrument.yielded == expected
+        if expected:
+            assert instrument.yielded, "assert_yields block did not yield!"
+        else:
+            assert not instrument.yielded, "assert_no_yields block yielded!"
 
 def assert_yields():
     __tracebackhide__ = True

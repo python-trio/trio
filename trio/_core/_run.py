@@ -286,6 +286,11 @@ class Nursery:
         # with/out an error, with/out unreaped zombies, with/out children
         # living, with/out an error that occurs after we enter, ...)
         with open_cancel_scope() as clean_up_scope:
+            if not self._children and not self._zombies:
+                try:
+                    await _core.yield_briefly()
+                except BaseException as exc:
+                    exceptions.append(exc)
             while self._children or self._zombies:
                 # First, reap any zombies. They may or may not still be in the
                 # monitor queue, and they may or may not trigger cancellation
@@ -308,9 +313,7 @@ class Nursery:
                         # around. (E.g. it's possible there are tasks in the
                         # queue that were already reaped.)
                         await self.monitor.get_all()
-                    except Cancelled as exc:
-                        exceptions.append(exc)
-                    except KeyboardInterrupt as exc:
+                    except (Cancelled, KeyboardInterrupt) as exc:
                         exceptions.append(exc)
                     except BaseException as exc:  # pragma: no cover
                         raise TrioInternalError from exc

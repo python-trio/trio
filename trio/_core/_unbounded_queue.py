@@ -55,9 +55,15 @@ class UnboundedQueue:
         return self._get_all_protected()
 
     async def get_all(self):
+        await _core.yield_if_cancelled()
         if not self._can_get:
             await self._lot.park()
-        return self._get_all_protected()
+            return self._get_all_protected()
+        else:
+            try:
+                return self._get_all_protected()
+            finally:
+                await _core.yield_briefly_no_cancel()
 
     @aiter_compat
     def __aiter__(self):

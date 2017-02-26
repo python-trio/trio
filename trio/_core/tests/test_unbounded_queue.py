@@ -3,6 +3,7 @@ import itertools
 import pytest
 
 from ... import _core
+from ...testing import assert_yields
 
 async def test_UnboundedQueue_basic():
     q = _core.UnboundedQueue()
@@ -99,3 +100,16 @@ async def test_UnboundedQueue_fairness():
         nursery.cancel_scope.cancel()
 
     assert record == list(zip(itertools.cycle("ab"), [[i] for i in range(20)]))
+
+
+async def test_UnboundedQueue_trivial_yields():
+    q = _core.UnboundedQueue()
+
+    q.put_nowait(None)
+    with assert_yields():
+        await q.get_all()
+
+    q.put_nowait(None)
+    with assert_yields():
+        async for _ in q:  # pragma: no branch
+            break

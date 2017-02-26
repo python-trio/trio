@@ -9,7 +9,9 @@ import pytest
 import attr
 
 from .tutil import check_sequence_matches
-from ...testing import busy_wait_for, wait_run_loop_idle, Sequencer
+from ...testing import (
+    busy_wait_for, wait_run_loop_idle, Sequencer, assert_yields,
+)
 from ..._timeouts import sleep
 
 from ... import _core
@@ -1386,9 +1388,32 @@ def test_nice_error_on_curio_style_run():
         await coro
     _core.run(consume_it)
 
-# make sure to set up one where all tasks are blocked on I/O to exercise the
-# timeout = _MAX_TIMEOUT line
 
-# other files:
-# unix IO
-# windows IO
+async def test_trivial_yields():
+    with assert_yields():
+        await _core.yield_briefly()
+
+    with assert_yields():
+        _core.yield_if_cancelled()
+        await _core.yield_briefly_no_cancel()
+
+    with assert_yields():
+        async with _core.open_nursery():
+            pass
+
+    with _core.open_cancel_scope() as cancel_scope:
+        cancel_scope.cancel()
+        with pytest.raises(_core.MultiError) as excinfo:
+            async with _core.open_nursery():
+                raise KeyError
+        assert len(excinfo.value.exceptions) == 2
+        assert set(type(e) for e in excinfo.value.exceptions) == {
+            KeyError, _core.Cancelled}
+
+    async def trivial():
+        pass
+    async with _core.open_nursery() as nursery:
+        t = nursery.spawn(trivial)
+    assert t.result is not None
+    with assert_yields():
+        await t.wait()
