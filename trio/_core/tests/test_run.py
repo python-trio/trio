@@ -1365,6 +1365,21 @@ async def test_current_effective_deadline(mock_clock):
         assert _core.current_effective_deadline() == -inf
     assert _core.current_effective_deadline() == inf
 
+
+def test_nice_error_on_curio_style_run():
+    async def f():
+        pass
+
+    coro = f()
+    with pytest.raises(TypeError) as excinfo:
+        _core.run(coro)
+    assert "unexpected coroutine object" in str(excinfo.value)
+
+    # consume the coroutine to avoid a warning message
+    async def consume_it():
+        await coro
+    _core.run(consume_it)
+
 # make sure to set up one where all tasks are blocked on I/O to exercise the
 # timeout = _MAX_TIMEOUT line
 

@@ -855,6 +855,18 @@ def run(async_fn, *args, clock=None, instruments=[]):
     if hasattr(GLOBAL_RUN_CONTEXT, "runner"):
         raise RuntimeError("Attempted to call run() from inside a run()")
 
+    if inspect.iscoroutine(async_fn):
+        raise TypeError(
+            "trio.run received unexpected coroutine object {}.\n"
+            "Probably you did something like this:\n"
+            "\n"
+            "    trio.run(my_function(1))  # incorrect!\n"
+            "\n"
+            "Instead, do this:\n"
+            "\n"
+            "    trio.run(my_function, 1)  # correct!"
+            .format(async_fn))
+
     if clock is None:
         clock = SystemClock()
     instruments = list(instruments)
