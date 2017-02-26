@@ -8,13 +8,13 @@ from ...testing import assert_yields
 async def test_UnboundedQueue_basic():
     q = _core.UnboundedQueue()
     q.put_nowait("hi")
-    assert await q.get_all() == ["hi"]
+    assert await q.get_batch() == ["hi"]
     with pytest.raises(_core.WouldBlock):
-        q.get_all_nowait()
+        q.get_batch_nowait()
     q.put_nowait(1)
     q.put_nowait(2)
     q.put_nowait(3)
-    assert q.get_all_nowait() == [1, 2, 3]
+    assert q.get_batch_nowait() == [1, 2, 3]
 
     assert q.empty()
     assert q.qsize() == 0
@@ -33,9 +33,9 @@ async def test_UnboundedQueue_basic():
 async def test_UnboundedQueue_blocking():
     record = []
     q = _core.UnboundedQueue()
-    async def get_all_consumer():
+    async def get_batch_consumer():
         while True:
-            batch = await q.get_all()
+            batch = await q.get_batch()
             assert batch
             record.append(batch)
 
@@ -44,7 +44,7 @@ async def test_UnboundedQueue_blocking():
             assert batch
             record.append(batch)
 
-    for consumer in (get_all_consumer, aiter_consumer):
+    for consumer in (get_batch_consumer, aiter_consumer):
         record.clear()
         async with _core.open_nursery() as nursery:
             task = nursery.spawn(consumer)
@@ -68,16 +68,16 @@ async def test_UnboundedQueue_fairness():
     # again, no problem
     q.put_nowait(1)
     q.put_nowait(2)
-    assert q.get_all_nowait() == [1, 2]
+    assert q.get_batch_nowait() == [1, 2]
 
     # But if someone else is waiting to read, then they get dibs
     async with _core.open_nursery() as nursery:
-        t = nursery.spawn(q.get_all)
+        t = nursery.spawn(q.get_batch)
         await _core.wait_run_loop_idle()
         q.put_nowait(3)
         q.put_nowait(4)
         with pytest.raises(_core.WouldBlock):
-            q.get_all_nowait()
+            q.get_batch_nowait()
         await t.wait()
         assert t.result.unwrap() == [3, 4]
 
@@ -85,7 +85,7 @@ async def test_UnboundedQueue_fairness():
     record = []
     async def reader(name):
         while True:
-            record.append((name, await q.get_all()))
+            record.append((name, await q.get_batch()))
 
     async with _core.open_nursery() as nursery:
         nursery.spawn(reader, "a")
@@ -107,7 +107,7 @@ async def test_UnboundedQueue_trivial_yields():
 
     q.put_nowait(None)
     with assert_yields():
-        await q.get_all()
+        await q.get_batch()
 
     q.put_nowait(None)
     with assert_yields():

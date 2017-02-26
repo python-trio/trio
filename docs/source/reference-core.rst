@@ -662,7 +662,7 @@ first::
        async with trio.open_nursery() as nursery:
            for async_fn in async_fns:
                nursery.spawn(async_fn)
-           task_batch = await nursery.monitor.get_all()
+           task_batch = await nursery.monitor.get_batch()
            nursery.cancel_scope.cancel()
            return task_batch[0].reap_and_unwrap(finished_task)
 

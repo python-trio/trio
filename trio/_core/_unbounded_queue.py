@@ -43,25 +43,25 @@ class UnboundedQueue:
                 self._can_get = True
         self._data.append(obj)
 
-    def _get_all_protected(self):
+    def _get_batch_protected(self):
         data = self._data.copy()
         self._data.clear()
         self._can_get = False
         return data
 
-    def get_all_nowait(self):
+    def get_batch_nowait(self):
         if not self._can_get:
             raise _core.WouldBlock
-        return self._get_all_protected()
+        return self._get_batch_protected()
 
-    async def get_all(self):
+    async def get_batch(self):
         await _core.yield_if_cancelled()
         if not self._can_get:
             await self._lot.park()
-            return self._get_all_protected()
+            return self._get_batch_protected()
         else:
             try:
-                return self._get_all_protected()
+                return self._get_batch_protected()
             finally:
                 await _core.yield_briefly_no_cancel()
 
@@ -70,4 +70,4 @@ class UnboundedQueue:
         return self
 
     async def __anext__(self):
-        return await self.get_all()
+        return await self.get_batch()

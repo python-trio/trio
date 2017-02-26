@@ -236,17 +236,17 @@ async def test_task_monitor():
         await _core.wait_run_loop_idle()
 
         assert task.result.unwrap() == 1
-        assert q1.get_all_nowait() == [task]
+        assert q1.get_batch_nowait() == [task]
         with pytest.raises(_core.WouldBlock):
-            q2.get_all_nowait()
-        assert q3.get_all_nowait() == [task]
+            q2.get_batch_nowait()
+        assert q3.get_batch_nowait() == [task]
 
     # can re-add the queue now
     for _ in range(2):
         assert q1.empty()
         task.add_monitor(q1)
         # and it immediately receives the result:
-        assert q1.get_all_nowait() == [task]
+        assert q1.get_batch_nowait() == [task]
         # and since it was used, it's already gone from the set, so we can
         # loop around and do it again
 

@@ -318,7 +318,7 @@ class Nursery:
                         # the actual tasks from the zombies set after looping
                         # around. (E.g. it's possible there are tasks in the
                         # queue that were already reaped.)
-                        await self.monitor.get_all()
+                        await self.monitor.get_batch()
                     except (Cancelled, KeyboardInterrupt) as exc:
                         exceptions.append(exc)
                     except BaseException as exc:  # pragma: no cover
@@ -439,7 +439,7 @@ class Task:
         q = _core.UnboundedQueue()
         self.add_monitor(q)
         try:
-            await q.get_all()
+            await q.get_batch()
         finally:
             self.discard_monitor(q)
 
@@ -640,8 +640,9 @@ class Runner:
           internal "system nursery".
 
         * If a system task raises an exception, then it's converted into a
-          :exc:`TrioInternalError` and *all* tasks are cancelled. If you write
-          a system task, you should be careful to make sure it doesn't crash.
+          :exc:`~trio.TrioInternalError` and *all* tasks are cancelled. If you
+          write a system task, you should be careful to make sure it doesn't
+          crash.
 
         * System tasks are automatically cancelled when the main task exits.
 
