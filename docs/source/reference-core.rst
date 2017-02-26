@@ -59,6 +59,8 @@ block then it is *always* a yield point. (So if you try to read from a
 socket and there *is* data available, that doesn't block but it's
 still a yield point.)
 
+.. _yield-point-rule:
+
 How do we know which functions can block? They're the async functions,
 of course. So this gives us our general rule for identifying yield
 points: if you see an ``await``, then it *might* be a yield point, and
@@ -831,6 +833,9 @@ Task object API
 
 .. class:: Task()
 
+   A :class:`Task` object represents a concurrent "thread" of
+   execution.
+
    .. attribute:: result
 
       If this :class:`Task` is still running, then its :attr:`result`
@@ -1084,8 +1089,8 @@ time it runs, it could eagerly consume all of the pending items before
 yielding and allowing another task to run. (In some other systems,
 this would happen automatically because their queue's ``get`` method
 doesn't yield so long as there's data available. But :ref:`in trio,
-it's always a yield point <yield-points>`.) This would work, but it's
-a bit risky: basically instead of applying backpressure to
+it's always a yield point <yield-point-rule>`.) This would work, but
+it's a bit risky: basically instead of applying backpressure to
 specifically the producer tasks, we're applying it to *all* the tasks
 in our system. The danger here is that if enough items have built up
 in the queue, then "stopping the world" to process them all may cause
@@ -1232,16 +1237,52 @@ messages between the thread and a trio task::
 Debugging and instrumentation
 -----------------------------
 
-.. function:: current_statistics
+Trio tries hard to provide useful hooks for debugging and
+instrumentation. Some are documented above (:attr:`Task.name`,
+:meth:`Queue.statistics`, etc.). Here are some more:
 
-Instrument API:
+Global statistics
+~~~~~~~~~~~~~~~~~
 
-.. function:: current_instruments
+.. autofunction:: current_statistics
+
+Instrument API
+~~~~~~~~~~~~~~
+
+The instrument API provides a standard way to add custom
+instrumentation to the run loop. Want to make a histogram of
+scheduling latencies, log a stack trace of any task that blocks the
+run loop for >50 ms, or measure what percentage of your process's
+running time is spent waiting for I/O? This is the place.
+
+The general idea is that at any given moment, :func:`trio.run`
+maintains a set of "instruments", which are objects that implement the
+:class:`trio.abc.Instrument` interface. When an interesting event
+happens, it loops over these instruments and notifies them by calling
+an appropriate method.
+
+Since this hooks into trio at a rather low-level, you do have to be
+somewhat careful. The callbacks are run synchronously, and in many
+cases if they error out then we don't have any plausible way to
+propagate this exception (for instance, we might be deep in the guts
+of the exception propagation machinery...). Therefore our `current
+strategy <https://github.com/njsmith/trio/issues/47>`__ for handling
+exceptions raised by instruments is to (a) dump a stack trace to
+stderr and (b) disable the offending instrument.
+
+You can register an initial list of instruments by passing them to
+:func:`trio.run`. :func:`current_instruments` lets you introspect and
+modify this list at runtime from inside trio:
+
+.. autofunction:: current_instruments
+
+And here's the instrument API:
 
 .. autoclass:: trio.abc.Instrument
    :members:
 
-Example::
+As an example, here's how you could print a warning about tasks that
+block the run loop for 20 ms or longer::
 
    import time
    import warnings
@@ -1260,15 +1301,7 @@ Example::
                    "Task {} hogged the event loop for {} ms!"
                    .format(task, round(duration * 1000)))
 
-Usage::
-
    trio.run(..., instruments=[WarnAboutLoopHogsInstrument(0.020)])
-
-Other notes:
-
-``Task.parent_task``
-
-* current_tasks
 
 
 Exceptions

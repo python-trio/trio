@@ -636,7 +636,7 @@ class Queue:
         return await self.get()
 
     def statistics(self):
-        """Return an object containing debugging information.
+        """Returns an object containing debugging information.
 
         Currently the following fields are defined:
 

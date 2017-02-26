@@ -535,6 +535,28 @@ class Runner:
     # trio.hazmat:
     @_public
     def current_statistics(self):
+        """Returns an object containing run-loop-level debugging information.
+
+        Currently the following fields are defined:
+
+        * ``tasks_living`` (int): The number of tasks that have been spawned
+          and not yet exited.
+        * ``tasks_runnable`` (int): The number of tasks that are currently
+          queued on the run queue (as opposed to blocked waiting for something
+          to happen).
+        * ``seconds_to_next_deadline`` (float): The time until the next
+          pending cancel scope deadline. May be negative if the deadline has
+          expired but we haven't yet processed cancellations. May be
+          :data:`~math.inf` if there are no pending deadlines.
+        * ``call_soon_queue_size`` (int): The number of unprocessed callbacks
+          queued via
+          :func:`trio.hazmat.current_call_soon_thread_and_signal_safe`.
+        * ``io_statistics`` (object): Some statistics from trio's I/O
+          backend. This always has an attribute ``backend`` which is a string
+          naming which operating-system-specific I/O backend is in use; the
+          other attributes vary between backends.
+
+        """
         if self.deadlines:
             next_deadline, _ = self.deadlines.keys()[0]
             seconds_to_next_deadline = next_deadline - self.current_time()
@@ -873,6 +895,13 @@ class Runner:
 
     @_public
     def current_instruments(self):
+        """Returns the list of currently active instruments.
+
+        This list is *live*: if you mutate it, then :func:`trio.run` will
+        stop calling the instruments you remove and start calling the ones you
+        add.
+
+        """
         return self.instruments
 
 
