@@ -866,6 +866,48 @@ class Runner:
     @_public
     @_hazmat
     async def wait_run_loop_idle(self):
+        """Block until there are no runnable tasks.
+
+        This is useful in testing code when you want to give other tasks a
+        chance to "settle down". The calling task is blocked, and doesn't wake
+        up until all other tasks are also blocked.
+
+        If there are multiple tasks blocked in :func:`wait_run_loop_idle`,
+        then they all wake up together.
+
+        You should also consider :class:`trio.testing.Sequencer`, which
+        provides a more explicit way to control execution ordering in a
+        test, and will often produce more readable tests.
+
+        Example:
+          Here's an example of one way to test that trio's locks are fair: we
+          take the lock in the parent, spawn a child, wait for the child to be
+          blocked waiting for the lock (!), and then check that we can't
+          release and immediately re-acquire the lock::
+
+             async def lock_taker(lock):
+                 await lock.acquire()
+                 lock.release()
+
+             async def test_lock_fairness():
+                 lock = trio.Lock()
+                 await lock.acquire()
+                 async with trio.open_nursery() as nursery:
+                     nursery.spawn(lock_taker, lock)
+                     # child hasn't run yet
+                     assert not lock.locked()
+                     await trio.testing.wait_run_loop_idle()
+                     # now the child has run
+                     assert lock.locked()
+                     lock.release()
+                     try:
+                         lock.acquire_nowait()
+                     except trio.WouldBlock:
+                         print("PASS")
+                     else:
+                         print("FAIL")
+
+        """
         task = current_task()
         self.waiting_for_idle.add(task)
         def abort(_):
