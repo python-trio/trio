@@ -62,6 +62,14 @@ class Instrument(_abc.ABC):
 
         """
 
+    def task_spawned(self, task):
+        """Called when the given task is created.
+
+        Args:
+            task (trio.Task): The new task.
+
+        """
+
     def task_scheduled(self, task):
         """Called when the given task becomes runnable.
 
@@ -86,6 +94,14 @@ class Instrument(_abc.ABC):
 
         Args:
             task (trio.Task): The task that just ran.
+
+        """
+
+    def task_exited(self, task):
+        """Called when the given task exits.
+
+        Args:
+            task (trio.Task): The finished task.
 
         """
 

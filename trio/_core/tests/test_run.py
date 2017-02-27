@@ -459,6 +459,22 @@ def test_instrument_before_after_run():
     _core.run(main, instruments=[BeforeAfterRun()])
     assert record == ["before_run", "after_run"]
 
+
+def test_instrument_task_spawn_exit():
+    record = []
+    class SpawnExitRecorder:
+        def task_spawned(self, task):
+            record.append(("spawned", task))
+        def task_exited(self, task):
+            record.append(("exited", task))
+
+    async def main():
+        return _core.current_task()
+
+    main_task = _core.run(main, instruments=[SpawnExitRecorder()])
+    assert ("spawned", main_task) in record
+    assert ("exited", main_task) in record
+
 # This test also tests having a crash before the initial task is even spawned,
 # which is very difficult to handle.
 def test_instruments_crash(capfd):

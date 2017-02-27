@@ -628,12 +628,13 @@ class Runner:
                 scope._add_task(task)
         coro.cr_frame.f_locals.setdefault(
             LOCALS_KEY_KI_PROTECTION_ENABLED, ki_protection_enabled)
+        self.instrument("task_spawned", task)
         # Special case: normally next_send should be a Result, but for the
         # very first send we have to send a literal unboxed None.
         self.reschedule(task, None)
         return task
 
-    def task_finished(self, task, result):
+    def task_exited(self, task, result):
         task.result = result
         while task._cancel_stack:
             task._cancel_stack[-1]._remove_task(task)
@@ -646,6 +647,7 @@ class Runner:
         for monitor in task._monitors:
             monitor.put_nowait(task)
         task._monitors.clear()
+        self.instrument("task_exited", task)
 
     ################
     # System tasks and init
@@ -1131,7 +1133,7 @@ def run_impl(runner, async_fn, args):
                 # We can't call this directly inside the except: blocks above,
                 # because then the exceptions end up attaching themselves to
                 # other exceptions as __context__ in unwanted ways.
-                runner.task_finished(task, final_result)
+                runner.task_exited(task, final_result)
             else:
                 yield_fn, *args = msg
                 if yield_fn is yield_briefly_no_cancel:
