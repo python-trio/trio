@@ -148,14 +148,19 @@ example. I mean, it works, it's fine, there's nothing *wrong* with it,
 but it's pointless: it could just as easily be written as a regular
 function, and that would actually make it more
 useful. ``double_sleep`` is a much more typical example: we have to
-make it async, because it calls another async function.
+make it async, because it calls another async function. The end result
+is a kind of async sandwich, with trio on both sides and our code in
+the middle::
 
-The end result is that in practice, trio code generally looks like an
-async sandwich: :func:`trio.run` calls one of your async functions,
-which calls another of your async functions, ..., which eventually
-calls trio primitives like :func:`trio.sleep`. It's exactly those
-functions which come in between :func:`trio.run` and
-:func:`trio.sleep` that need to be async, making up our async
+  trio.run -> double_sleep -> trio.sleep
+
+This "sandwich" structure is typical for async code; in general, it
+looks like::
+
+  trio.run -> [async function] -> ... -> [async function] -> trio.whatever
+
+It's exactly the functions on the path between :func:`trio.run` and
+``trio.whatever`` that have to be async, making up our async
 sandwich's tasty async filling. Other functions (e.g., helpers you
 call along the way) should generally be regular, non-async functions.
 
@@ -270,34 +275,9 @@ with :func:`time.sleep`. ``async/await`` is useless!
 
 Well, not really. Trio has one more trick up its sleeve, that makes
 async functions more powerful than regular functions: it can run
-multiple async function *at the same time*. Here's an example::
+multiple async function *at the same time*. Here's an example:
 
-   import trio
-
-   async def child1():
-       print("  child1: started! sleeping now...")
-       await trio.sleep(1)
-       print("  child1: exiting!")
-
-   async def child2():
-       print("  child2 started! sleeping now...")
-       await trio.sleep(1)
-       print("  child2 exiting!")
-
-   async def parent():
-       print("parent: started!")
-       async with trio.open_nursery() as nursery:
-           print("parent: spawning child1...")
-           nursery.spawn(child1)
-
-           print("parent: spawning child2...")
-           nursery.spawn(child2)
-
-           print("parent: waiting for children to finish...")
-           # -- we exit the nursery block here --
-       print("parent: all done!")
-
-   trio.run(parent)
+.. literalinclude:: tutorial/tasks1.py
 
 There's a lot going on in here, so we'll take it one step at a
 time. First, we define two async functions ``child1`` and
@@ -321,17 +301,22 @@ this in more detail below). The output looks like:
      child2 exiting!
    parent: all done!
 
-Notice that the output from ``child1`` and ``child2`` is mixed
-together, and that the whole program only takes 1 second to run, even
-though we have two calls to ``trio.sleep(1)``.
+(You might have the "started" or "exiting" lines swapped compared to
+the sample output.)
+
+Notice that ``child1`` and ``child2`` both start together and then
+both exit together, and that the whole program only takes 1 second to
+run, even though we made two calls to ``trio.sleep(1)``, which should
+take two seconds. So it looks like ``child1`` and ``child2`` really
+are running at the same time!
 
 Now, if you're familiar with programming using threads, this might
 look familiar – and that's intentional. But it's important to realize
 that *there are no threads here*. All of this is happening in a single
-thread.
+thread. To remind us of this, we use slightly different terminology:
+instead of spawning two "threads", we say that we spawned two
+"tasks".
 
-:class:`trio.Task`
-(define terminology: "task")
 
 Under the covers, trio.run and trio.sleep work together to make this
 happen: trio.sleep has access to some special magic that lets it pause
