@@ -865,14 +865,14 @@ class Runner:
 
     @_public
     @_hazmat
-    async def wait_run_loop_idle(self):
+    async def wait_all_tasks_blocked(self):
         """Block until there are no runnable tasks.
 
         This is useful in testing code when you want to give other tasks a
         chance to "settle down". The calling task is blocked, and doesn't wake
         up until all other tasks are also blocked.
 
-        If there are multiple tasks blocked in :func:`wait_run_loop_idle`,
+        If there are multiple tasks blocked in :func:`wait_all_tasks_blocked`,
         then they all wake up together.
 
         You should also consider :class:`trio.testing.Sequencer`, which
@@ -896,7 +896,7 @@ class Runner:
                      nursery.spawn(lock_taker, lock)
                      # child hasn't run yet
                      assert not lock.locked()
-                     await trio.testing.wait_run_loop_idle()
+                     await trio.testing.wait_all_tasks_blocked()
                      # now the child has run
                      assert lock.locked()
                      lock.release()

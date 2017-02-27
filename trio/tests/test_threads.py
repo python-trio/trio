@@ -7,7 +7,7 @@ import signal
 import pytest
 
 from .. import _core
-from ..testing import busy_wait_for, wait_run_loop_idle
+from ..testing import busy_wait_for, wait_all_tasks_blocked
 from .._threads import *
 from .._timeouts import sleep
 
@@ -179,7 +179,7 @@ async def test_run_in_worker_thread_cancellation():
         # Give it a chance to get started. (This is important because
         # run_in_worker_thread does a yield_if_cancelled before blocking on
         # the thread, and we don't want to trigger this.)
-        await wait_run_loop_idle()
+        await wait_all_tasks_blocked()
         # Then cancel it.
         nursery.cancel_scope.cancel()
     # The task exited, but the thread didn't:
@@ -193,7 +193,7 @@ async def test_run_in_worker_thread_cancellation():
     register[0] = None
     async with _core.open_nursery() as nursery:
         task2 = nursery.spawn(child, q, False)
-        await wait_run_loop_idle()
+        await wait_all_tasks_blocked()
         nursery.cancel_scope.cancel()
         with _core.open_cancel_scope(shield=True):
             for _ in range(10):
@@ -227,7 +227,7 @@ def test_run_in_worker_thread_abandoned(capfd):
             await run_in_worker_thread(thread_fn, cancellable=True)
         async with _core.open_nursery() as nursery:
             t = nursery.spawn(child)
-            await wait_run_loop_idle()
+            await wait_all_tasks_blocked()
             nursery.cancel_scope.cancel()
     _core.run(main)
 

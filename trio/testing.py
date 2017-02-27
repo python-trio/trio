@@ -13,7 +13,7 @@ from . import _core
 from . import Event
 from .abc import Clock
 
-__all__ = ["busy_wait_for", "wait_run_loop_idle", "trio_test", "MockClock",
+__all__ = ["busy_wait_for", "wait_all_tasks_blocked", "trio_test", "MockClock",
            "assert_yields", "assert_no_yields", "Sequencer"]
 
 async def busy_wait_for(predicate):
@@ -30,7 +30,7 @@ async def busy_wait_for(predicate):
         time.sleep(0)
 
 # re-export
-from ._core import wait_run_loop_idle
+from ._core import wait_all_tasks_blocked
 
 # Use:
 #

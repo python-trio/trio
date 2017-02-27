@@ -8,7 +8,7 @@ import contextlib
 from async_generator import async_generator, yield_
 
 from ... import _core
-from ...testing import wait_run_loop_idle
+from ...testing import wait_all_tasks_blocked
 from ..._util import acontextmanager
 
 if os.name == "nt":
@@ -116,7 +116,7 @@ async def test_ki_enabled():
     def check():
         record.append(_core.ki_protected())
     call_soon(check)
-    await wait_run_loop_idle()
+    await wait_all_tasks_blocked()
     assert record == [True]
 
     @_core.enable_ki_protection

@@ -51,9 +51,9 @@ async def test_catch_signals():
         # call_soon level and at the SignalQueue level
         kill_self(signal.SIGILL)
         kill_self(signal.SIGILL)
-        await _core.wait_run_loop_idle()
+        await _core.wait_all_tasks_blocked()
         kill_self(signal.SIGILL)
-        await _core.wait_run_loop_idle()
+        await _core.wait_all_tasks_blocked()
         async for batch in queue:  # pragma: no branch
             assert batch == {signal.SIGILL}
             break

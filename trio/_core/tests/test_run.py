@@ -10,7 +10,7 @@ import attr
 
 from .tutil import check_sequence_matches
 from ...testing import (
-    busy_wait_for, wait_run_loop_idle, Sequencer, assert_yields,
+    busy_wait_for, wait_all_tasks_blocked, Sequencer, assert_yields,
 )
 from ..._timeouts import sleep
 
@@ -233,7 +233,7 @@ async def test_task_monitor():
         task.add_monitor(q3)
 
         # q1 and q3 should be there now, check that they indeed get notified
-        await _core.wait_run_loop_idle()
+        await _core.wait_all_tasks_blocked()
 
         assert task.result.unwrap() == 1
         assert q1.get_batch_nowait() == [task]
@@ -313,7 +313,7 @@ async def test_current_statistics(mock_clock):
 
     async with _core.open_nursery() as nursery:
         task = nursery.spawn(child)
-        await wait_run_loop_idle()
+        await wait_all_tasks_blocked()
         call_soon = _core.current_call_soon_thread_and_signal_safe()
         call_soon(lambda: None)
         call_soon(lambda: None, idempotent=True)
@@ -1013,7 +1013,7 @@ async def test_exc_info_after_yield_error():
 
     async with _core.open_nursery() as nursery:
         t = nursery.spawn(child)
-        await wait_run_loop_idle()
+        await wait_all_tasks_blocked()
         _core.reschedule(t, _core.Error(ValueError()))
         await t.wait()
         with pytest.raises(KeyError):
@@ -1031,7 +1031,7 @@ async def test_exception_chaining_after_yield_error():
 
     async with _core.open_nursery() as nursery:
         t = nursery.spawn(child)
-        await wait_run_loop_idle()
+        await wait_all_tasks_blocked()
         _core.reschedule(t, _core.Error(ValueError()))
         await t.wait()
         with pytest.raises(ValueError) as excinfo:
@@ -1073,7 +1073,7 @@ async def test_call_soon_idempotent():
     call_soon(cb, 1, idempotent=True)
     call_soon(cb, 2, idempotent=True)
     call_soon(cb, 2, idempotent=True)
-    await wait_run_loop_idle()
+    await wait_all_tasks_blocked()
     assert len(record) == 3
     assert sorted(record) == [1, 1, 2]
 
@@ -1082,7 +1082,7 @@ async def test_call_soon_idempotent():
     for _ in range(3):
         for i in range(100):
             call_soon(cb, i, idempotent=True)
-    await wait_run_loop_idle()
+    await wait_all_tasks_blocked()
     if (sys.version_info < (3, 6)
           and platform.python_implementation() == "CPython"):
         # no order guarantees

@@ -21,6 +21,6 @@ explicitly.
 .. autofunction:: assert_no_yields
    :with:
 
-.. autofunction:: wait_run_loop_idle
+.. autofunction:: wait_all_tasks_blocked
 
 .. autofunction:: busy_wait_for

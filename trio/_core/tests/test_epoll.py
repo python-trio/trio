@@ -14,7 +14,7 @@ pytestmark = pytest.mark.skipif(not using_epoll, reason="epoll platforms only")
 
 from .test_io import fill_socket
 from ... import _core
-from ...testing import wait_run_loop_idle
+from ...testing import wait_all_tasks_blocked
 
 async def test_epoll_statistics():
     a1, b1 = stdlib_socket.socketpair()
@@ -24,7 +24,7 @@ async def test_epoll_statistics():
         sock.setblocking(False)
     with a1, b1, a2, b2, a3, b3:
         # let the call_soon_task settle down
-        await wait_run_loop_idle()
+        await wait_all_tasks_blocked()
 
         statistics = _core.current_statistics()
         print(statistics)
@@ -46,7 +46,7 @@ async def test_epoll_statistics():
             nursery.spawn(_core.wait_writable, a3)
             nursery.spawn(_core.wait_readable, a3)
 
-            await wait_run_loop_idle()
+            await wait_all_tasks_blocked()
 
             statistics = _core.current_statistics()
             print(statistics)

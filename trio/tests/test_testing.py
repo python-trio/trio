@@ -29,7 +29,7 @@ async def test_wait_run_loop_idle():
         record.append("busy bee exhausted")
 
     async def waiting_for_bee_to_leave():
-        await wait_run_loop_idle()
+        await wait_all_tasks_blocked()
         record.append("quiet at last!")
 
     async with _core.open_nursery() as nursery:
@@ -40,7 +40,7 @@ async def test_wait_run_loop_idle():
     # check cancellation
     async def cancelled_while_waiting():
         try:
-            await wait_run_loop_idle()
+            await wait_all_tasks_blocked()
         except _core.Cancelled:
             return "ok"
     async with _core.open_nursery() as nursery:
@@ -56,10 +56,10 @@ async def test_wait_run_loop_idle_with_timeouts(mock_clock):
         record.append("tt finished")
     async with _core.open_nursery() as nursery:
         t = nursery.spawn(timeout_task)
-        await wait_run_loop_idle()
+        await wait_all_tasks_blocked()
         assert record == ["tt start"]
         mock_clock.advance(10)
-        await wait_run_loop_idle()
+        await wait_all_tasks_blocked()
         assert record == ["tt start", "tt finished"]
 
 

@@ -5,7 +5,7 @@ import select
 import random
 
 from ... import _core
-from ...testing import wait_run_loop_idle, Sequencer
+from ...testing import wait_all_tasks_blocked, Sequencer
 
 # Cross-platform tests for IO handling
 
@@ -93,7 +93,7 @@ async def test_wait_basic(socketpair, wait_readable, wait_writable):
             return a.recv(10)
     async with _core.open_nursery() as nursery:
         t = nursery.spawn(block_on_read)
-        await wait_run_loop_idle()
+        await wait_all_tasks_blocked()
         assert record == []
         b.send(b"x")
     assert t.result.unwrap() == b"x"
@@ -111,7 +111,7 @@ async def test_wait_basic(socketpair, wait_readable, wait_writable):
             record.append("writable")
     async with _core.open_nursery() as nursery:
         t = nursery.spawn(block_on_write)
-        await wait_run_loop_idle()
+        await wait_all_tasks_blocked()
         assert record == []
         drain_socket(b)
 
@@ -119,7 +119,7 @@ async def test_wait_basic(socketpair, wait_readable, wait_writable):
     record = []
     async with _core.open_nursery() as nursery:
         t = nursery.spawn(block_on_read)
-        await wait_run_loop_idle()
+        await wait_all_tasks_blocked()
         nursery.cancel_scope.cancel()
     assert record == ["cancelled"]
 
@@ -127,7 +127,7 @@ async def test_wait_basic(socketpair, wait_readable, wait_writable):
     record = []
     async with _core.open_nursery() as nursery:
         t = nursery.spawn(block_on_write)
-        await wait_run_loop_idle()
+        await wait_all_tasks_blocked()
         nursery.cancel_scope.cancel()
     assert record == ["cancelled"]
 
@@ -139,7 +139,7 @@ async def test_double_read(socketpair, wait_readable):
     # You can't have two tasks trying to read from a socket at the same time
     async with _core.open_nursery() as nursery:
         nursery.spawn(wait_readable, a)
-        await wait_run_loop_idle()
+        await wait_all_tasks_blocked()
         with pytest.raises(RuntimeError):
             await wait_readable(a)
         nursery.cancel_scope.cancel()
@@ -152,7 +152,7 @@ async def test_double_write(socketpair, wait_writable):
     fill_socket(a)
     async with _core.open_nursery() as nursery:
         nursery.spawn(wait_writable, a)
-        await wait_run_loop_idle()
+        await wait_all_tasks_blocked()
         with pytest.raises(RuntimeError):
             await wait_writable(a)
         nursery.cancel_scope.cancel()
@@ -167,7 +167,7 @@ async def test_socket_simultaneous_read_write(
     async with _core.open_nursery() as nursery:
         r_task = nursery.spawn(wait_readable, a)
         w_task = nursery.spawn(wait_writable, a)
-        await wait_run_loop_idle()
+        await wait_all_tasks_blocked()
         assert r_task.result is None
         assert w_task.result is None
         b.send(b"x")

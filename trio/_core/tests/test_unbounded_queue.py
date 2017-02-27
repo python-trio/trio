@@ -48,15 +48,15 @@ async def test_UnboundedQueue_blocking():
         record.clear()
         async with _core.open_nursery() as nursery:
             task = nursery.spawn(consumer)
-            await _core.wait_run_loop_idle()
+            await _core.wait_all_tasks_blocked()
             stats = q.statistics()
             assert stats.qsize == 0
             assert stats.tasks_waiting == 1
             q.put_nowait(10)
             q.put_nowait(11)
-            await _core.wait_run_loop_idle()
+            await _core.wait_all_tasks_blocked()
             q.put_nowait(12)
-            await _core.wait_run_loop_idle()
+            await _core.wait_all_tasks_blocked()
             assert record == [[10, 11], [12]]
             nursery.cancel_scope.cancel()
 
@@ -73,7 +73,7 @@ async def test_UnboundedQueue_fairness():
     # But if someone else is waiting to read, then they get dibs
     async with _core.open_nursery() as nursery:
         t = nursery.spawn(q.get_batch)
-        await _core.wait_run_loop_idle()
+        await _core.wait_all_tasks_blocked()
         q.put_nowait(3)
         q.put_nowait(4)
         with pytest.raises(_core.WouldBlock):
@@ -89,13 +89,13 @@ async def test_UnboundedQueue_fairness():
 
     async with _core.open_nursery() as nursery:
         nursery.spawn(reader, "a")
-        await _core.wait_run_loop_idle()
+        await _core.wait_all_tasks_blocked()
         nursery.spawn(reader, "b")
-        await _core.wait_run_loop_idle()
+        await _core.wait_all_tasks_blocked()
 
         for i in range(20):
             q.put_nowait(i)
-            await _core.wait_run_loop_idle()
+            await _core.wait_all_tasks_blocked()
 
         nursery.cancel_scope.cancel()
 
