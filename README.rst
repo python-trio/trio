@@ -413,8 +413,6 @@ nothing to see here
      https://github.com/twisted/twisted/blob/trunk/src/twisted/internet/unix.py#L290
      https://github.com/tornadoweb/tornado/blob/master/tornado/netutil.py#L215
 
-   - can we remove all busy_wait_for in favor of wait_all_tasks_blocked?
-
    - XX add test for UnboundedQueue schedules properly (only wakes 1
      task if 2 puts)
 

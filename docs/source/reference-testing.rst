@@ -22,5 +22,3 @@ explicitly.
    :with:
 
 .. autofunction:: wait_all_tasks_blocked
-
-.. autofunction:: busy_wait_for

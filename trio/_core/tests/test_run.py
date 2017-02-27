@@ -10,7 +10,7 @@ import attr
 
 from .tutil import check_sequence_matches
 from ...testing import (
-    busy_wait_for, wait_all_tasks_blocked, Sequencer, assert_yields,
+    wait_all_tasks_blocked, Sequencer, assert_yields,
 )
 from ..._timeouts import sleep
 
@@ -683,12 +683,8 @@ async def test_cancel_shield_abort():
                 except _core.Cancelled:
                     record.append("cancelled")
             task = nursery.spawn(sleeper)
-            await busy_wait_for(lambda: record)
+            await wait_all_tasks_blocked()
             assert record == ["sleeping"]
-            # just to make sure that the sleeper really is sleeping
-            await _core.yield_briefly()
-            await _core.yield_briefly()
-            await _core.yield_briefly()
             # now when we unshield, it should abort the sleep.
             nursery.cancel_scope.shield = False
             # wait for the task to finish before entering the nursery
@@ -810,11 +806,13 @@ async def test_failed_abort():
 
     async with _core.open_nursery() as nursery:
         task = nursery.spawn(stubborn_sleeper)
-        await busy_wait_for(lambda: record)
+        await wait_all_tasks_blocked()
+        assert record == ["sleep"]
         stubborn_scope[0].cancel()
-        await _core.yield_briefly()
-        await _core.yield_briefly()
-        await _core.yield_briefly()
+        await wait_all_tasks_blocked()
+        # cancel didn't wake it up
+        assert record == ["sleep"]
+        # wake it up again by hand
         _core.reschedule(task, _core.Value(1))
     assert record == ["sleep", "woke", "cancelled"]
 
@@ -956,15 +954,20 @@ async def test_yield_briefly_checks_for_timeout(mock_clock):
 # Update: it turns out I was right to be nervous! see the next test...
 async def test_exc_info():
     record = []
+    seq = Sequencer()
 
     async def child1():
         with pytest.raises(ValueError) as excinfo:
             try:
+                async with seq(0):
+                    pass  # we don't yield until seq(2) below
                 record.append("child1 raise")
                 raise ValueError("child1")
             except ValueError:
                 record.append("child1 sleep")
-                await busy_wait_for(lambda: "child2 wake" in record)
+                async with seq(2):
+                    pass
+                assert "child2 wake" in record
                 record.append("child1 re-raise")
                 raise
         assert excinfo.value.__context__ is None
@@ -972,14 +975,18 @@ async def test_exc_info():
 
     async def child2():
         with pytest.raises(KeyError) as excinfo:
-            await busy_wait_for(lambda: record)
+            async with seq(1):
+                pass  # we don't yield until seq(3) below
+            assert "child1 sleep" in record
             record.append("child2 wake")
             assert sys.exc_info() == (None, None, None)
             try:
                 raise KeyError("child2")
             except KeyError:
                 record.append("child2 sleep again")
-                await busy_wait_for(lambda: "child1 re-raise" in record)
+                async with seq(3):
+                    pass
+                assert "child1 re-raise" in record
                 record.append("child2 re-raise")
                 raise
         assert excinfo.value.__context__ is None
@@ -1046,7 +1053,7 @@ async def test_call_soon_basic():
     call_soon = _core.current_call_soon_thread_and_signal_safe()
     call_soon(cb, 1)
     assert not record
-    await busy_wait_for(lambda: len(record) == 1)
+    await wait_all_tasks_blocked()
     assert record == [("cb", 1)]
 
 
@@ -1158,7 +1165,7 @@ async def test_call_soon_FIFO():
     call_soon = _core.current_call_soon_thread_and_signal_safe()
     for i in range(N):
         call_soon(lambda j: record.append(j), i)
-    await busy_wait_for(lambda: len(record) == N)
+    await wait_all_tasks_blocked()
     assert record == list(range(N))
 
 
@@ -1234,7 +1241,8 @@ async def test_call_soon_massive_queue():
         counter[0] += 1
     for i in range(COUNT):
         call_soon(cb, i)
-    await busy_wait_for(lambda: counter[0] == COUNT)
+    await wait_all_tasks_blocked()
+    assert counter[0] == COUNT
 
 
 async def test_slow_abort_basic():
@@ -1275,7 +1283,8 @@ async def test_slow_abort_edge_cases():
                 # So we have a task blocked on an operation that can't be
                 # aborted immediately
                 nursery.spawn(slow_aborter)
-                await busy_wait_for(lambda: record == ["sleeping"])
+                await wait_all_tasks_blocked()
+                assert record == ["sleeping"]
                 # And then we cancel it, so the abort callback gets run
                 outer1.cancel()
                 assert record == ["sleeping", "abort-called"]

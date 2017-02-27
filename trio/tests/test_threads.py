@@ -7,7 +7,8 @@ import signal
 import pytest
 
 from .. import _core
-from ..testing import busy_wait_for, wait_all_tasks_blocked
+from .. import Event
+from ..testing import wait_all_tasks_blocked
 from .._threads import *
 from .._timeouts import sleep
 
@@ -122,9 +123,11 @@ def test_run_in_trio_thread_ki():
 
 def test_await_in_trio_thread_while_main_exits():
     record = []
+    ev = Event()
 
     async def trio_fn():
         record.append("sleeping")
+        ev.set()
         await _core.yield_indefinitely(lambda _: _core.Abort.SUCCEEDED)
 
     def thread_fn(await_in_trio_thread):
@@ -137,7 +140,8 @@ def test_await_in_trio_thread_while_main_exits():
         aitt = current_await_in_trio_thread()
         thread = threading.Thread(target=thread_fn, args=(aitt,))
         thread.start()
-        await busy_wait_for(lambda: record == ["sleeping"])
+        await ev.wait()
+        assert record == ["sleeping"]
         return thread
 
     thread = _core.run(main)

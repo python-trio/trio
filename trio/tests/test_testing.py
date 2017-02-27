@@ -4,23 +4,6 @@ from .. import sleep
 from .. import _core
 from ..testing import *
 
-async def test_busy_wait_for():
-    record = []
-    register = [0]
-    async def child(childname, values):
-        for value in values:
-            await busy_wait_for(lambda: register[0] == value)
-            record.append("{}{}".format(childname, value))
-            register[0] += 1
-
-    async with _core.open_nursery() as nursery:
-        nursery.spawn(child, "a", [0, 3, 4])
-        nursery.spawn(child, "b", [1, 2])
-        nursery.spawn(child, "c", [5])
-
-    assert record == ["a0", "b1", "b2", "a3", "a4", "c5"]
-
-
 async def test_wait_run_loop_idle():
     record = []
     async def busy_bee():

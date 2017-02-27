@@ -13,21 +13,8 @@ from . import _core
 from . import Event
 from .abc import Clock
 
-__all__ = ["busy_wait_for", "wait_all_tasks_blocked", "trio_test", "MockClock",
+__all__ = ["wait_all_tasks_blocked", "trio_test", "MockClock",
            "assert_yields", "assert_no_yields", "Sequencer"]
-
-async def busy_wait_for(predicate):
-    """A crude but useful way to wait for a predicate to become true.
-
-    Args:
-      predicate: A zero-argument callable that returns a bool.
-
-    """
-    while not predicate():
-        await _core.yield_briefly()
-        # Sometimes we're waiting for things in other threads, so best to
-        # yield the CPU as well.
-        time.sleep(0)
 
 # re-export
 from ._core import wait_all_tasks_blocked
