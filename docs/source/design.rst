@@ -255,6 +255,13 @@ Introspection and debugging
 API style guidelines
 --------------------
 
+``fun, *args``
+
+statistics
+
+wait
+
+``X_nowait``
 
 
 

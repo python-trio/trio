@@ -116,8 +116,8 @@ custom :class:`~trio.abc.Clock` class:
 
 
 .. _cancellation:
-
-Cancellation and timeouts
+C
+ancellation and timeouts
 -------------------------
 
 Trio has a rich, composable system for cancelling work, either
@@ -814,6 +814,11 @@ The nursery API
       ``__aexit__`` will eventually re-raise that exception. If you do
       call this method, then ``__aexit__`` won't do anything.
 
+      Once you call this method, then as far as trio is concerned the
+      :class:`~trio.Task` object no longer exists. You can hold onto a
+      reference to it as long as you like, but trio no longer has any
+      record of it.
+
       :raises ValueError: If the given ``task`` is not in :attr:`zombies`.
 
    .. method:: reap_and_unwrap(task)
@@ -998,9 +1003,9 @@ Fairness
 ~~~~~~~~
 
 These classes are all guaranteed to be "fair", meaning that when it
-comes time to choose who's next to acquire a lock, get an item from a
-queue, etc., then it always goes to the task which has been waiting
-longest. It's `not entirely clear
+comes time to choose who will be next to acquire a lock, get an item
+from a queue, etc., then it always goes to the task which has been
+waiting longest. It's `not entirely clear
 <https://github.com/njsmith/trio/issues/54>`__ whether this is the
 best choice, but for now that's how it works.
 
@@ -1259,7 +1264,8 @@ The general idea is that at any given moment, :func:`trio.run`
 maintains a set of "instruments", which are objects that implement the
 :class:`trio.abc.Instrument` interface. When an interesting event
 happens, it loops over these instruments and notifies them by calling
-an appropriate method.
+an appropriate method. The tutorial has :ref:`a simple example of
+using this for tracing <tutorial-instrument-example>`.
 
 Since this hooks into trio at a rather low-level, you do have to be
 somewhat careful. The callbacks are run synchronously, and in many

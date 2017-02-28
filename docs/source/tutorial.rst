@@ -265,8 +265,8 @@ And remember: ``RuntimeWarning: coroutine '...' was never awaited``
 means you need to find and fix your missing ``await``.
 
 
-Okay, let's do something cool
------------------------------
+Okay, let's see something cool already
+--------------------------------------
 
 So now we've started using trio, but so far all we've learned to do is
 write functions that print things and sleep for various lengths of
@@ -277,16 +277,89 @@ Well, not really. Trio has one more trick up its sleeve, that makes
 async functions more powerful than regular functions: it can run
 multiple async function *at the same time*. Here's an example:
 
-.. literalinclude:: tutorial/tasks1.py
+.. _tutorial-example-tasks-intro:
+
+.. literalinclude:: tutorial/tasks-intro.py
+   :linenos:
 
 There's a lot going on in here, so we'll take it one step at a
-time. First, we define two async functions ``child1`` and
-``child2``. This part should be familiar from the last section.
+time. In the first part, we define two async functions ``child1`` and
+``child2``. This part should be familiar from the last section:
 
-Next, we define ``parent`` as an async function that's going to run
-``child1`` and ``child2`` concurrently. It does this by creating a
-"nursery", and then "spawning" them both in the nursery (we'll go over
-this in more detail below). The output looks like:
+.. literalinclude:: tutorial/tasks-intro.py
+   :linenos:
+   :lineno-match:
+   :start-at: async def child1
+   :end-at: child2 exiting
+
+Next, we define ``parent`` as an async function that's going to call
+``child1`` and ``child2`` concurrently:
+
+.. literalinclude:: tutorial/tasks-intro.py
+   :linenos:
+   :lineno-match:
+   :start-at: async def parent
+   :end-at: all done!
+
+It does this by using a mysterious ``async with`` statement to create
+a "nursery", and then "spawns" child1 and child2 into the nursery.
+
+The ``async with`` part is actually pretty simple. In regular Python,
+a statement like ``with someobj: ...`` instructs the interpreter to
+call ``someobj.__enter__()`` at the beginning of the block, and to
+call ``someobj.__exit__()`` at the end of the block (this is glossing
+over some subtleties around exception handling, but that's the basic
+idea). Here ``someobj`` is called a "context manager". An ``async
+with`` does exactly the same thing, except that where a regular
+``with`` statement calls regular methods, an ``async with`` statement
+calls async methods: it basically does ``await someobj.__aenter__()``
+and ``await someobj.__aexit__()``, and now we call ``someobj`` an
+"async context manager". So in short: ``with`` blocks are a shorthand
+for calling some functions, and now that we have two kinds of
+functions we need two kinds of ``with`` blocks. If you understand
+async functions, then you understand ``async with``.
+
+.. note::
+
+   This example doesn't use them, but while we're here we might as
+   well mention the last piece of new syntax that async/await added:
+   ``async for``. An ``async for`` loop is just like a ``for`` loop,
+   except that where a ``for`` loop does ``iterator.__next__()`` to
+   fetch the next item, an ``async for`` does ``await
+   async_iterator.__anext__()``. Now you understand all of
+   async/await. Basically just remember that it involves sandwiches
+   and sticking the word "async" in front of everything, and you'll do
+   fine.
+
+So let's look at ``parent`` one last time:
+
+.. literalinclude:: tutorial/tasks-intro.py
+   :linenos:
+   :lineno-match:
+   :start-at: async def parent
+   :end-at: all done!
+
+There are only 4 lines of code that really do anything here. On line
+17, we use :func:`trio.open_nursery` to get a "nursery" object, and
+then inside the ``async with`` block we call ``nursery.spawn`` twice,
+on lines 19 and 22. ``nursery.spawn(async_fn)`` is another way to call
+an async function: it asks trio to start running this function, but
+then returns immediately without waiting for the function to
+finish. So after our two calls to ``nursery.spawn``, ``child1`` and
+``child2`` are now running in the background. And then at line 25, the
+commented line, we hit the end of the ``async with`` block, and the
+nursery's ``__aexit__`` function runs. What this does is force
+``parent`` to stop here and wait for all the children in the nursery
+to exit. This is why you have to use ``async with`` to get a nursery:
+it gives us a way to make sure that the child calls can't run away and
+get lost. One reason this is important is that if there's a bug or
+other problem in one of the children, and it raises an exception, then
+it lets us propagate that exception into the parent; in many other
+frameworks, exceptions like this are just discarded. Trio never
+discards exceptions.
+
+Anyway, phew, that was a lot of description. Let's try running it and
+see what we get:
 
 .. code-block:: none
 
@@ -301,8 +374,8 @@ this in more detail below). The output looks like:
      child2 exiting!
    parent: all done!
 
-(You might have the "started" or "exiting" lines swapped compared to
-the sample output.)
+(Your output might have order of the "started" and/or "exiting" lines
+swapped compared to to mine.)
 
 Notice that ``child1`` and ``child2`` both start together and then
 both exit together, and that the whole program only takes 1 second to
@@ -315,137 +388,351 @@ look familiar – and that's intentional. But it's important to realize
 that *there are no threads here*. All of this is happening in a single
 thread. To remind us of this, we use slightly different terminology:
 instead of spawning two "threads", we say that we spawned two
-"tasks".
+"tasks". There are two differences between tasks and threads: (1) many
+tasks can take turns running on a single thread, and (2) with threads,
+the Python interpreter/operating system can switch which thread is running
+whenever they feel like it; with tasks, we can only switch at
+certain designated places we call :ref:`"yield points" <yield-points>`.
 
 
-Under the covers, trio.run and trio.sleep work together to make this
-happen: trio.sleep has access to some special magic that lets it pause
-its entire callstack and send a message to trio.run requesting that it
-be woken up again after N seconds. (Inside the Python interpreter,
-it's this special magic that ``async/await`` are all about.) Then when
-trio.run gets this message, it makes a note about when ``child1``
-wants to be woken up, and switches to executing ``child2``, until
-``child2`` calls ``trio.sleep``...
+.. _tutorial-instrument-example:
 
-(this is also why our async sandwich is important: the two pieces of
-bread talk to each other! curio.run + trio.sleep or trio.run +
-curio.sleep is not going to work out.)
+Task switching illustrated
+--------------------------
 
-So whenever we do something that will block a task for a while – like
-waiting for time to pass with ``trio.sleep``, or waiting for data to
-arrive over the network – then we use ``await``. (Hence the name:
-``await`` is for waiting.) From the point of view of ``child1``, this
-is simple straight-line code: it prints a message, blocks for 1 second
-in sleep, and then prints another message. But while ``child1`` is
-blocked, the overall can keep getting useful work done.
+The big idea behind async/await-based libraries is this one of running
+lots of tasks on a single thread by switching between them at the
+appropriate places. If all you want to do is use these libraries, then
+you don't need to understand all the nitty-gritty detail of how this
+works – but it's very useful to at least have a general intuition. To
+help build that intuition, let's look more closely at how trio
+actually ran our example from the last section.
 
-quick quiz: Try replacing the ``await trio.sleep(1)`` calls with
-``time.sleep(1)`` in our original script. What happens if you run it
-now? Why?
+Fortunately, trio provides a :ref:`rich set of tools for inspecting
+and debugging your programs <instrumentation>`. Here we want to watch
+:func:`trio.run` at work, which we can do by implementing an
+:class:`~trio.abc.Instrument` class to log various events as they
+happen:
 
-if you've used threads before, this is very similar to starting
+.. literalinclude:: tutorial/tasks-with-trace.py
+   :pyobject: Tracer
 
-.. code-block:: python
+Then we re-run our example program from the previous section, but this
+time we pass :func:`trio.run` a ``Tracer`` object:
 
-   import threading
-   import time
+.. literalinclude:: tutorial/tasks-with-trace.py
+   :start-at: trio.run
 
-   def child1():
-       print("child1 started!")
-       time.sleep(1)
-       print("child1 exiting!")
+This generates a *lot* of output, so we'll go through it one step at a
+time.
 
-   def child2():
-       print("child2 started!")
-       time.sleep(1)
-       print("child2 exiting!")
+First, there's a bit of chatter while trio sets up some internal
+housekeeping. In the middle there though you can see that trio has
+created a task for the ``__main__.parent`` function, and "scheduled"
+it (i.e., made a note that it's ready to run):
 
-   def main():
-       print("main started!")
-       thread1 = threading.Thread(target=child1)
-       thread1.start()
-       thread2 = threading.Thread(target=child2)
-       thread2.start()
-       thread1.join()
-       thread2.join()
-       print("main exiting!")
+.. code-block:: none
 
-   main()
+   $ python3 tutorial/tasks-with-trace.py
+   ### new task spawned: <init>
+   ### task scheduled: <init>
+   ### doing a quick check for I/O
+   ### finished I/O check (took 1.1122087016701698e-05 seconds)
+   >>> about to run one step of task: <init>
+   ### new task spawned: <call soon task>
+   ### task scheduled: <call soon task>
+   ### new task spawned: __main__.parent
+   ### task scheduled: __main__.parent
+   <<< task step finished: <init>
+   ### doing a quick check for I/O
+   ### finished I/O check (took 6.4980704337358475e-06 seconds)
 
-threads versus tasks:
-either way, only one function is running at a time, because of the GIL
+Once the initial housekeeping is done, it then starts our ``parent``
+function, and you can see it printing and creating the two child
+tasks. Then it hits the end of the ``async with`` block, and pauses:
 
-Async programming takes a kind of "if you can't beat 'em, join 'em"
-approach to the GIL: if we're going to have a GIL anyway, let's take
-advantage of that to make our API easier to use!
+.. code-block:: none
 
-downsides:
+   >>> about to run one step of task: __main__.parent
+   parent: started!
+   parent: spawning child1...
+   ### new task spawned: __main__.child1
+   ### task scheduled: __main__.child1
+   parent: spawning child2...
+   ### new task spawned: __main__.child2
+   ### task scheduled: __main__.child2
+   parent: waiting for children to finish...
+   <<< task step finished: __main__.parent
 
-- extra ceremony with ``async`` and ``await``
+Control then goes back to :func:`trio.run`, which logs a bit more
+internal chatter:
 
-- explicit yielding means it's possible for one task to accidentally
-  block the app
+.. code-block:: none
 
-upsides:
+   >>> about to run one step of task: <call soon task>
+   <<< task step finished: <call soon task>
+   ### doing a quick check for I/O
+   ### finished I/O check (took 5.476875230669975e-06 seconds)
 
-- control over interleaving https://glyph.twistedmatrix.com/2014/02/unyielding.html
+And then gives the two child tasks a chance to run:
 
-- much more scalable – thousands of concurrent tasks is no big deal,
-  versus https://twitter.com/hynek/status/771790449057132544
+.. code-block:: none
 
-- because these "threads" are implemented in Python, we can have rich
-  semantics – nurseries, cancellation, introspection, etc.
+   >>> about to run one step of task: __main__.child2
+     child2 started! sleeping now...
+   <<< task step finished: __main__.child2
 
-generally much easier to reason about
+   >>> about to run one step of task: __main__.child1
+     child1: started! sleeping now...
+   <<< task step finished: __main__.child1
 
-answer: [show transcript] [in trio you *NEVER SWITCH* except when
-using ``await``. If there's a stretch of code that doesn't have any
-awaits in it, then that code will run straight through, and all the
-other tasks will have to wait for it to finish! For example, in the
-threaded version, it's possible to see something like
+Each task runs until it hits the call to :func:`trio.sleep`, and then
+suddenly we're back in :func:`trio.run` deciding what to run next. How
+does this happen? It involves some cooperation between
+:func:`trio.run` and :func:`trio.sleep`: :func:`trio.sleep` has access
+to some special magic that lets it pause its entire callstack, so it
+sends a note to :func:`trio.run` requesting to be woken again after 1
+second, and then suspends the task. And when the task is suspended,
+Python gives control back to :func:`trio.run`, which decides what to
+do next. (If this sounds similar to the way that generators can
+suspend execution by doing a ``yield``, then that's not a coincidence:
+inside the Python interpreter, generators and async functions share a
+lot of their implementations.)
 
-  parent: started child1
-  child1: running!
-  parent: started child2
+.. note::
 
-but in the trio version this is *not* possible, because there's no
-``await`` there. The only ``await`` in ``parent`` is the invisible one
-at the exit from the ``async with`` block.
+   You might wonder whether you can mix-and-match primitives from
+   different async libraries. For example, could we use
+   :func:`trio.run` together with :func:`asyncio.sleep`? We can't, and
+   the paragraph above is why: the two sides of our async sandwich
+   have a private language they use to talk to each
+   other, and different libraries use different languages. So if you
+   try to call :func:`asyncio.sleep` from inside a :func:`trio.run`,
+   then trio will get very confused indeed and probably blow up in
+   some dramatic way.
 
-This is both good and bad: it makes it much easier to reason about
-things, because there's less opportunity for different tasks to
-interfere with each other. For example, an expression like ``x += 1``
-might be unsafe in a threaded program, but is always safe in Trio.
-But OTOH it means that if you aren't careful, then one task can end up
-hogging control and stopping other tasks from executing. Which is bad
-if, say, you have 1000 tasks answering different HTTP requests – 999
-of your users will be left staring at a blank screen and waiting for
-their data! Fortunately though there are some ways that trio can help
-you avoid this, which we'll talk about later.]
+Only async functions have access to the special magic for suspending a
+task, so only async functions can cause the program to switch to a
+different task. What this means if a call *doesn't* have an ``await``
+on it, then you know that it *can't* be a place where your task will
+be suspended. This makes tasks much `easier to reason about
+<https://glyph.twistedmatrix.com/2014/02/unyielding.html>`__ than
+threads, because there are far fewer ways that tasks can be
+interleaved with each other and stomp on each others' state. Trio also
+makes some :ref:`further guarantees beyond that <yield-points>`, but
+that's the big one.
 
-also introduces ``async with``. In addition to async functions,
-there's a whole parallel world of async constructions. You can have
-async methods (like a regular method, but defined with ``async def``
-and called like ``await obj.doit()``), async context managers (like a
-regular context manager, but the enter and exit functions are async,
-and instead of ``with`` you use ``async with``), async iterators
-(with regular iterators you fetch the next value by calling the
-regular method ``__next__``, or use a ``for`` loop; with async iterators you
-fetch the next value by calling the async method ``__anext__``, or use
-an ``async for`` loop),
+And now you also know why ``parent`` had to use an ``async with`` to
+open the nursery: if we had used a regular ``with`` block, then it
+wouldn't have been able to pause at the end and wait for the children
+to finish; we need our cleanup function to be async, which is exactly
+what ``async with`` gives us.
 
-async generators
+Now, back to our execution trace. To recap: at this point ``parent``
+is waiting on ``child1`` and ``child2``, and both children are
+sleeping. So trio knows that there's nothing to be done until those
+sleeps finish – unless possibly some external I/O event comes in. Of
+course we aren't doing any I/O here so that won't happen, but in other
+situations it could. So next it calls an operating system primitive to
+put the whole process to sleep:
 
-[also say explicitly that you can only use ``async with``, ``async
-for``, inside an ``async def``]
+.. code-block:: none
 
-(maybe a table?)
+   ### waiting for I/O for up to 0.9999009938910604 seconds
 
-these cases all work the same though: if you have a context manager
-that wants to call an async function, then it has to be an async
-context manager, etc. Here ``open_nursery()`` is an async context
-manager, because it blocks waiting for all the child tasks to finish.
+And in fact no I/O does arrive, so one second later we wake up again,
+and trio looks around to see if there's anything to do. When it does,
+it discovers the note that :func:`trio.sleep` sent, saying that this
+is when the children should be woken up again:
+
+.. code-block:: none
+
+   ### finished I/O check (took 1.0006483688484877 seconds)
+   ### task scheduled: __main__.child1
+   ### task scheduled: __main__.child2
+
+And then the children get to run, and this time they exit. Remember
+how ``parent`` is waiting for that to happen? When they exit
+``parent`` gets woken up:
+
+.. code-block:: none
+
+   >>> about to run one step of task: __main__.child2
+     child2 exiting!
+   ### task scheduled: __main__.parent
+   ### task exited: __main__.child2
+   <<< task step finished: __main__.child2
+
+   >>> about to run one step of task: __main__.child1
+     child1: exiting!
+   ### task exited: __main__.child1
+   <<< task step finished: __main__.child1
+
+So after another check for I/O, ``parent`` wakes up. The nursery
+cleanup code notices that all its children have exited, and lets the
+nursery block finish. And then ``parent`` makes a final print and
+exits:
+
+.. code-block:: none
+
+   ### doing a quick check for I/O
+   ### finished I/O check (took 9.045004844665527e-06 seconds)
+   >>> about to run one step of task: __main__.parent
+   parent: all done!
+   ### task scheduled: <init>
+   ### task exited: __main__.parent
+   <<< task step finished: __main__.parent
+
+And then, after a bit more internal bookkeeping, we're done:
+
+.. code-block:: none
+
+   ### doing a quick check for I/O
+   ### finished I/O check (took 5.996786057949066e-06 seconds)
+   >>> about to run one step of task: <init>
+   ### task scheduled: <call soon task>
+   ### task scheduled: <init>
+   <<< task step finished: <init>
+   ### doing a quick check for I/O
+   ### finished I/O check (took 6.258022040128708e-06 seconds)
+   >>> about to run one step of task: <call soon task>
+   ### task exited: <call soon task>
+   <<< task step finished: <call soon task>
+   >>> about to run one step of task: <init>
+   ### task exited: <init>
+   <<< task step finished: <init>
+
+You made it!
+
+That was a lot of text, but again, you don't need to understand
+everything here to use trio – in fact, trio goes to great lengths to
+make tasks feel like they execute in a simple linear way. (Just like
+your operating system goes to great lengths to make it feel like
+single-threaded code executes in a simple linear way, even though
+under the covers it's doing essentially the same things trio is.) But
+it is useful to have a rough model in your head of how the code you
+write is actually executed, and – most importantly – the consequences
+of that for parallelism.
 
 
+Best GIL ever
+-------------
+
+From trio's point of view, the problem with the GIL isn't that it
+restricts parallelism. Of course it would be nice if Python had better
+options for taking advantage of multiple cores, but that's an
+extremely difficult problem to solve, and in the mean time there are
+lots of problems where a single core is totally adequate – or if it
+isn't, then process- or machine-level parallelism works fine.
+
+No, the problem with the GIL is that it's a *lousy deal*: we give up
+on using multiple cores, and in exchange we get... almost all the
+challenges and mind bending bugs that come with real parallel
+programming, and – to add insult to injury – `pretty poor scalability
+<https://twitter.com/hynek/status/771790449057132544>`__. Threads in
+Python just aren't that appealing.
+
+Trio doesn't make your code run on multiple cores; in fact, as we saw
+above, it's baked into trio's design that you never have two tasks
+running at the same time. We're not so much overcoming the GIL as
+embracing it. But if we're willing to accept that, plus a bit of extra
+bookkeeping to keep track of these new ``async`` and ``await``
+keywords, then in exchange we get:
+
+* Excellent scalability: running 10,000+ tasks simultaneously is not a
+  big deal, so long as their total CPU demands don't exceed what a
+  single core can provide.
+
+* Fancy features: most threading systems are implemented in C and
+  restricted to whatever features the operating system provides. In
+  trio our logic is all in Python, which makes it possible to
+  implement powerful and ergonomic features like :ref:`trio's
+  cancellation system <cancellation>`.
+
+* Code that's easier to reason about: the ``await`` keyword means that
+  potential task-switching points are explicitly marked within each
+  function. This `dramatically reduces
+  <https://glyph.twistedmatrix.com/2014/02/unyielding.html>`__ the
+  complexities of reasoning about concurrent programs.
+
+Certainly it's not appropriate for every app... but there are a lot of
+situations where the trade-offs here look pretty appealing.
+
+There is one downside that's important to keep in mind, though. Making
+yield points explicit gives you more control over how your tasks can
+be interleaved – but with great power comes great responsibility. With
+threads, the runtime environment is responsible for making sure that
+each thread gets its fair share of running time. With trio, if some
+task runs off and  without executing a yield
+point, then... all your other tasks will just have to wait.
+
+Here's an example of how this can go wrong. Take our :ref:`example
+from above <tutorial-example-tasks-intro>`, and replace the calls to
+:func:`trio.sleep` with calls to :func:`time.sleep`. If we run our
+modified program, we'll see something like:
+
+.. code-block:: none
+
+   parent: started!
+   parent: spawning child1...
+   parent: spawning child2...
+   parent: waiting for children to finish...
+     child2 started! sleeping now...
+       [... pauses for 1 second ...]
+     child2 exiting!
+     child1: started! sleeping now...
+       [... pauses for 1 second ...]
+     child1: exiting!
+   parent: all done!
+
+
+
+One of the major reasons why trio has such a rich
+:ref:`instrumentation API <tutorial-instrument-example>` is to make it
+possible to catch issues like this.
+
+
+An echo server: low-level API
+-----------------------------
+
+
+An echo server: higher-level API
+--------------------------------
+
+
+Errors in concurrent tasks
+--------------------------
+
+walk through a multierror traceback
+
+
+Timeouts
+--------
+
+timeout example::
+
+   async def counter():
+       for i in range(100000):
+           print(i)
+           await trio.sleep(1)
+
+   async def main():
+       with trio.fail_after(10):
+           await counter()
+
+you can stick anything inside a timeout block, even child tasks
+
+  [they both get cancelled, the cancelleds get packed into a
+  multierror, and then the timeout block catches the cancelled]
+
+brief discussion of KI?
+tasks-with-trace.py + control-C is pretty interesting
+or maybe leave it for a blog post?
+
+
+Where next?
+-----------
+
+main manual
 
 https://snarky.ca/how-the-heck-does-async-await-work-in-python-3-5/
