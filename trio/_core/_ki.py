@@ -162,7 +162,6 @@ def ki_manager(deliver_cb):
     def handler(signum, frame):
         assert signum == signal.SIGINT
         protection_enabled = ki_protection_enabled(frame)
-        print(frame.f_code.co_name, protection_enabled)
         if protection_enabled:
             deliver_cb()
         else:
