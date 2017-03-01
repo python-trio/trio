@@ -1,5 +1,6 @@
 # echo-server-low-level.py
 
+import os
 import trio
 
 PORT = 12345
@@ -15,8 +16,10 @@ async def echo_serve(sock):
 
 async def echo_listener(nursery):
     with trio.socket.socket() as listen_sock:
-        listen_sock.setsockopt(
-            trio.socket.SOL_SOCKET, trio.socket.SO_REUSEADDR, 1)
+        if os.name != "nt":
+            # SO_REUSEADDR on Windows is weird and broken
+            listen_sock.setsockopt(
+                trio.socket.SOL_SOCKET, trio.socket.SO_REUSEADDR, 1)
         listen_sock.bind(("127.0.0.1", PORT))
         listen_sock.listen(10)
         print("Echo server listening on 127.0.0.1:{}".format(PORT))
