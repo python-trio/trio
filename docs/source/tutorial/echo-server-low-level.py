@@ -2,7 +2,7 @@
 
 import trio
 
-PORT = 12346
+PORT = 12345
 BUFSIZE = 65536  # arbitrary
 
 async def echo_serve(sock):
