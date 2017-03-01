@@ -116,8 +116,8 @@ custom :class:`~trio.abc.Clock` class:
 
 
 .. _cancellation:
-C
-ancellation and timeouts
+
+Cancellation and timeouts
 -------------------------
 
 Trio has a rich, composable system for cancelling work, either
