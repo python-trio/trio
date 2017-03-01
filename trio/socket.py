@@ -97,13 +97,21 @@ for _name in [
         return await _run_in_worker_thread(
             _partial(fn, *args, **kwargs), cancellable=True)
 
+# sock.type gets weird stuff set in it, in particular on Linux:
+#
+#   https://bugs.python.org/issue21327
+#
+# But on other platforms (e.g. Windows) SOCK_NONBLOCK and SOCK_CLOEXEC aren't
+# even defined. We just want the actual SOCK_STREAM or SOCK_DGRAM or
+# whatever.
+_SOCK_TYPE_MASK = ~(
+    getattr(_stdlib_socket, "SOCK_NONBLOCK", 0)
+    | getattr(_stdlib_socket, "SOCK_CLOEXEC", 0))
+
 class SocketType(_Stream):
     def __init__(self, sock):
         self._sock = sock
-        # https://bugs.python.org/issue21327
-        self._actual_type = (
-            sock.type
-            & ~(_stdlib_socket.SOCK_NONBLOCK | _stdlib_socket.SOCK_CLOEXEC))
+        self._actual_type = sock.type & _SOCK_TYPE_MASK
         self._sock.setblocking(False)
         try:
             self.setsockopt(IPPROTO_TCP, TCP_NODELAY, True)
