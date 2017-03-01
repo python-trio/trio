@@ -26,6 +26,9 @@ async def parent():
     print("parent: all done!")
 
 class Tracer(trio.abc.Instrument):
+    def before_run(self):
+        print("!!! run started")
+
     def _print_with_task(self, msg, task):
         # repr(task) is perhaps more useful than task.name in general,
         # but in context of a tutorial the extra noise is unhelpful.
@@ -56,5 +59,8 @@ class Tracer(trio.abc.Instrument):
     def after_io_wait(self, timeout):
         duration = trio.current_time() - self._sleep_time
         print("### finished I/O check (took {} seconds)".format(duration))
+
+    def after_run(self):
+        print("!!! run finished")
 
 trio.run(parent, instruments=[Tracer()])
