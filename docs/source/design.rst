@@ -65,13 +65,13 @@ algorithms and data structures that have good worst-case behavior
 (even if this might mean sacrificing a few percentage points of speed
 in the average case).
 
-Similarly, when there's a conflict, we care more about (for example)
-99th percentile latencies than we do about raw throughput, because
-insufficient throughput – if it's consistent! – can often be budgeted
-for and handled with horizontal scaling, but once you lose latency
-it's gone forever, and latency spikes can easily cross over to become
-a correctness issue (e.g., an RPC server that responds slowly enough
-to trigger timeouts is effectively non-functional). Again, of course,
+Similarly, when there's a conflict, we care more about 99th percentile
+latencies than we do about raw throughput, because insufficient
+throughput – if it's consistent! – can often be budgeted for and
+handled with horizontal scaling, but once you lose latency it's gone
+forever, and latency spikes can easily cross over to become a
+correctness issue (e.g., an RPC server that responds slowly enough to
+trigger timeouts is effectively non-functional). Again, of course,
 this doesn't mean we don't care about throughput – but sometimes
 engineering requires making trade-offs, especially for early-stage
 projects that haven't had time to optimize for all use cases yet.
@@ -100,169 +100,302 @@ whose semantics are still in flux.
 User-level API
 --------------
 
-Explicit is better than implicit
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Basic principles
+~~~~~~~~~~~~~~~~
 
-- the blog post & curio
+Trio is very much a continuation of the ideas explored in `this blog
+post
+<https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/>`__,
+and in particular the `principles identified there
+<https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/#review-and-summing-up-what-is-async-await-native-anyway>`__
+that make curio easier to use correctly than asyncio. So trio also
+adopts these rules, in particular:
 
-  no implicit concurrency -- no callbacks, no implicit spawn, no
-  implicit yield
+* The only form of concurrency is the task.
 
-  when you call a function it runs and then returns, like Guido
-  intended
+* Tasks are guaranteed to run to completion
+
+* Task spawning is always explicit. No callbacks, no implicit
+  concurrency, no futures/deferreds/promises/other APIs that involve
+  callbacks. All APIs are `"causal"
+  <https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/#review-and-summing-up-what-is-async-await-native-anyway>`__
+  except for those that are explicitly used for task spawning.
+
+* Exceptions are used for error handling; try/finally and with blocks
+  for handling cleanup
 
 
 Cancel points and schedule points
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- strong API conventions about cancel points and schedule points
-  (major departure from curio)
+The first major place that trio departs from curio is in its decision
+to make a much larger fraction of the API use sync functions rather
+than async functions, and to provide strong conventions about cancel
+points and schedule points. (At this point, there are a lot of ways
+that trio and curio have diverged. But this was really the origin –
+the tipping point where I realized that exploring these ideas would
+require a new library, and couldn't be done inside curio.) The full
+reasoning here takes some unpacking.
 
+First, some definitions: a *cancel point* is a point where your code
+checks if it has been cancelled – e.g., due to a timeout having
+expired – and potentially raises a ``Cancelled`` error. A *schedule
+point* is a point where the current task can potentially be suspended,
+and another task allowed to run.
 
-  A cancel point is a point where your code checks if it has been
-  cancelled – e.g., due to a timeout having expired – and
-  potentially raises a ``Cancelled`` error. A schedule point is a
-  point where the current task can potentially be suspended, and
-  another task allowed to run.
+In curio, the convention is that all operations that interact with the
+run loop in any way are syntactically async, and it's undefined which
+of these operations are cancel/schedule points; users are instructed
+to assume that any of them *might* be cancel/schedule points, but with
+a few exceptions there's no guarantee that any of them are unless they
+actually block. (I.e., whether a given call acts as a cancel/schedule
+point is allowed to vary across curio versions and also depending on
+runtime factors like network load.)
 
-  When writing async code, you need to be aware of cancel and
-  schedule these points, because they introduce a set of complex
-  and partially conflicting constraints:
+But when using an async library, there are good reasons why you need to be
+aware of cancel and schedule these points. They introduce a set of
+complex and partially conflicting constraints on your code:
 
-  You need to make sure that every task passes through a cancel
-  point regularly, because otherwise timeouts become ineffective
-  and your code becomes subject to DoS attacks and other
-  problems. So for correctness, it's important to make sure you
-  have enough cancel points.
+You need to make sure that every task passes through a cancel
+point regularly, because otherwise timeouts become ineffective
+and your code becomes subject to DoS attacks and other
+problems. So for correctness, it's important to make sure you
+have enough cancel points.
 
-  But... every cancel point also increases the chance of subtle
-  bugs in your program, because it's a place where you have to be
-  prepared to handle a ``Cancelled`` exception and clean up
-  properly. And while we try to make this as easy as possible,
-  these kinds of clean-up paths are notorious for getting missed
-  in testing and harboring subtle bugs. So the more cancel points
-  you have, the harder it is to make sure your code is correct.
+But... every cancel point also increases the chance of subtle
+bugs in your program, because it's a place where you have to be
+prepared to handle a ``Cancelled`` exception and clean up
+properly. And while we try to make this as easy as possible,
+these kinds of clean-up paths are notorious for getting missed
+in testing and harboring subtle bugs. So the more cancel points
+you have, the harder it is to make sure your code is correct.
 
-  Similarly, you need to make sure that every task passes through
-  a schedule point regularly, because otherwise this task could
-  end up hogging the event loop and preventing other code from
-  running, causing a latency spike. So for correctness, it's
-  important to make sure you have enough schedule points.
+Similarly, you need to make sure that every task passes through
+a schedule point regularly, because otherwise this task could
+end up hogging the event loop and preventing other code from
+running, causing a latency spike. So for correctness, it's
+important to make sure you have enough schedule points.
 
-  But... you have to be careful here too, because every schedule
-  point is a point where arbitrary other code could run, and
-  alter your program's state out from under you, introducing
-  classic concurrency bugs. So as you add more schedule points,
-  it `becomes exponentially harder to reason about how your code
-  is interleaved and be sure that it's correct
-  <https://glyph.twistedmatrix.com/2014/02/unyielding.html>`__.
+But... you have to be careful here too, because every schedule
+point is a point where arbitrary other code could run, and
+alter your program's state out from under you, introducing
+classic concurrency bugs. So as you add more schedule points,
+it `becomes exponentially harder to reason about how your code
+is interleaved and be sure that it's correct
+<https://glyph.twistedmatrix.com/2014/02/unyielding.html>`__.
 
-  Trio's approach is informed by two further observations:
+Trio's approach is informed by two further observations:
 
-  First, any time a task blocks (e.g., because it does an ``await
-  sock.recv()`` but there's no data available to receive), that
-  has to be a cancel point (because if the IO never arrives, we
-  need to be able to time out), and it has to be a schedule point
-  (because the whole idea of asynchronous programming is that
-  when one task is waiting we can switch to another task to get
-  something useful done).
+First, any time a task blocks (e.g., because it does an ``await
+sock.recv()`` but there's no data available to receive), that
+has to be a cancel point (because if the IO never arrives, we
+need to be able to time out), and it has to be a schedule point
+(because the whole idea of asynchronous programming is that
+when one task is waiting we can switch to another task to get
+something useful done).
 
-  And second, a function which sometimes counts as
-  cancel/schedule point, and sometimes doesn't, is the worst of
-  both worlds: you have to be prepared to handle cancellation or
-  interleaving, but you can't be sure that this will actually
+And second, a function which sometimes counts as cancel/schedule
+point, and sometimes doesn't, is the worst of both worlds: you pay the
+costs of having to prepare for cancellation or interleaving, but can't
+count on it to meet latency requirements.
 
+The goal then is to come up with a set of API conventions that make it
+easy for users to deal with all this. Trio's solution is:
 
+Rule 1: to reduce the number of concepts to keep track, we collapse
+cancel points and schedule points together. Every point that is a
+cancel point is also a schedule point and vice versa. These are
+distinct concepts both theoretically and in the actual implementation,
+but we hide that distinction from the user so that there's only one
+concept they need to keep track of. (Exception: there are hazmat APIs
+that deal with the two concepts separately.)
 
-  Every point that is a cancel point is also a schedule point,
-  and vice versa. These are distinct concepts both theoretically
-  and in the actual implementation, but we hide that distinction
-  from the user so that there's only one concept they need to
-  keep track of. (Exception: some hazmat APIs.)
+Rule 2: Cancel+schedule points are determined *statically*. A trio
+primitive is either *always* a cancel+schedule point, or *never* a
+cancel+schedule point, regardless of runtime conditions. This is
+because we want it to be possible to determine whether some code has
+"enough" cancel/schedule points by reading the source code.
 
-  Any operation that *sometimes* blocks is *always* a cancel
-  point and a schedule point.
+In fact, to make this even simpler, we require that this be
+determined without looking at the function arguments: each
+*function* is either a cancel+schedule point, or it isn't.
 
-  Operations that *never* block are *never* a cancel point or a
-  schedule point.
+Observation: rule 2 implies that any operation that *sometimes* blocks
+is *always* a cancel+schedule point.
 
+Are there any other cancel+schedule points? Our answer is: no. It's
+easy to add new points explicitly (throw in a ``sleep(0)`` or
+whatever) but hard to get rid of them when you don't want them. (And
+this is a real issue – "too many potential cancel points" is
+definitely a tension `I've felt
+<https://github.com/dabeaz/curio/issues/149#issuecomment-269745283>`__
+while trying to build things like task supervisors in curio.) And we
+expect that most trio programs will execute potentially-blocking
+operations "often enough" to produce reasonable behavior. So, rule 3:
+the *only* cancel+schedule points are the potentially-blocking
+operations.
 
-  There are a few exceptions to this rule:
+And then there's the question of how to effectively communicate this
+information to the user. We want some way to mark out a category of
+functions that might block or trigger a task switch, so that they're
+clearly distinguished from functions that don't do this... if only
+there were some Python feature, that naturally divided functions into
+two categories, maybe with some sort of syntactic marking associated
+with the category that can do weird things like block and task
+switch... ahem, well. Anyway, rule 4 is that in trio, it's only the
+potentially blocking functions that are async. So
+e.g. :meth:`Event.wait` is async, but :meth:`Event.set` is sync.
 
-  * async context managers: Context managers are composed of two
-    operations – enter and exit – and sometimes only one of these is
-    potentially blocking. But, Python doesn't have "half-asynchronous"
-    context managers: either both operations are async-flavored, or
-    neither is. In Trio we take a pragmatic approach: if for a
-    particular construct there's only one operation that might block,
-    then only that operation is a cancel+schedule point.
+So to sum up: out of what's actually a pretty vast space of design
+possibilities here, we declare by fiat that when it comes to trio
+primitives, all of these categories are identical:
 
-    Examples: ``async with lock:`` can block when entering but never
-    when exiting; ``async with open_nursery() as ...:`` can block when
-    exiting but never when entering.
+* async functions
+* functions that can block
+* functions where you need to be prepared to handle cancellation
+* functions that are guaranteed to take care of checking for cancellation
+* functions where you need to be prepared for a task switch
+* functions that are guaranteed to take care of switching tasks if
+  appropriate
 
-  * async cleanup functions, like asynchronous versions of ``close``:
-    These have a special rule: they can be cancelled, but they're
-    always guaranteed to complete even if they are cancelled, though
-    possibly in a rude way (so e.g. if you have a TLS stream and do
-    ``await stream.graceful_close()``, and it's cancelled, then it
-    will abandon the graceful shutdown and instead forcibly close the
-    underlying socket before returning).
+This requires some non-trivial work internally – it actually takes a
+fair amount of care to make those 4 cancel/schedule categories line
+up, and there are some shenanigans with thread-locals required to let
+synchronous APIs interact with the run loop. But we feel that it pays
+off in terms of usability and correctness.
 
-  * There are a few rare operations where fully implementing Trio's
-    cancellation semantics are impossible, in particular
-    :func:`trio.run_in_worker_thread` and
-    :func:`trio.socket.SocketType.connect`. These are documented
+There is one exception to these rules, for async context
+managers. Context managers are composed of two operations – enter and
+exit – and sometimes only one of these is potentially
+blocking. (Examples: ``async with lock:`` can block when entering but
+never when exiting; ``async with open_nursery() as ...:`` can block
+when exiting but never when entering.) But, Python doesn't have
+"half-asynchronous" context managers: either both operations are
+async-flavored, or neither is. In Trio we take a pragmatic approach:
+if for a particular construct there's only one operation that might
+block, then the above requirements are only applied to it, and we
+document this on a case-by-case basis.
 
 
 Exceptions always propagate
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- exceptions always propagate
+Another rule that trio follows is that *exceptions must always
+propagate*. This is like the zen line about "Errors should never pass
+silently", except that in other libraries (Python threads, asyncio,
+curio, ...), it's fairly common to end up with an undeliverable
+exception, which just gets printed to stderr and then discarded. While
+we understand the pragmatic constraints that motivated these libraries
+to adopt this approach, we feel that there are far too many situations
+where no human will ever look at stderr and notice the problem, and
+insist that trio APIs find a way to propagate exceptions up the stack
+– whatever that might mean.
 
-  which leads to nursery design
+This is often a challenging rule to follow – for example, the call
+soon code has to jump through some hoops to make it happen – but its
+most dramatic influence can seen in trio's task-spawning interface,
+where it motivates the use of "nurseries"::
 
-  (influenced by erlang's link + monitor; we also have monitor,
-  but our link is very different)
+   async def parent():
+       async with trio.open_nursery() as nursery:
+           nursery.spawn(child)
 
-  this also gives a really neat invariant: any async function can
-  use concurrency *within* itself *but* it has to be wrapped up
-  before it returns.
+(See :ref:`tasks` for full details.)
 
-  if you want concurrency that lasts beyond a function call
-  ("causality violation"), then you need to somehow have a
-  supervisor passed in
+If you squint you can see the influence of erlang's "task linking"
+idea here, but it's quite different in detail, exactly because Python
+has exceptions and Erlang doesn't. To support exceptions we need our
+"links" to be asymmetric and mandatory.
 
-- cancellation: fundamental & error prone
-  we have this nice stack, want to be composable and allow
-  cancellation/timeouts for arbitrary code
+This design also turns out to enforce a remarkable, unexpected
+invariant.
 
-  combines curio's stack-based cancellation + new twist that
-  stacks extend across tasks + C# style level-triggering
+In `the blog post
+<https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/#c-c-c-c-causality-breaker>`__
+I called out a nice feature of curio's spawning API, which is that
+since spawning is the only way to break causality, and in curio
+``spawn`` is async, this means that in curio sync functions are
+guaranteed to be causal. One limitation though is that most async
+functions don't (or shouldn't) spawn off children and violate
+causality, and there's no clear marker for the ones that do.
 
-  potentially controversial: making them implicit/ambient instead
-  of explicit. rationale: you have to pass them to literally
-  every blocking operation, meaning that you would literally need
-  every single async function to take this as an argument
+Our API doesn't quite give that guarantee, but actually a better
+one. In trio:
+
+* Sync functions can't create nurseries, because nurseries require an
+  ``async with``
+
+* Any async function can create a nursery and spawn new tasks... but
+  creating a nursery *allows task spawning without allowing causality
+  breaking*, because the children have to exit before the function is
+  allowed to return. So we get concurrency + causality together – we
+  can have our cake and eat it too!
+
+* The only way to violate causality (which is an important feature,
+  just one that needs to be handled carefully) is to explicitly create
+  a nursery object in one task and then pass it into another task. So
+  this provides a very clear and precise signal about where the funny
+  stuff is going on.
 
 
 Introspection and debugging
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Introspection as a first class concern
+Tools for introspection and debugging are critical to achieving
+usability and correctness in practice, so they should be first-class
+considerations in trio.
 
 
-API style guidelines
---------------------
+Some specific notes on API style
+--------------------------------
 
-``fun, *args``
+* As noted above, functions that don't block should be sync-colored,
+  and functions that can block should be async-colored and
+  unconditionally act as cancel+schedule points.
 
-statistics
+* Any function that takes a callable+arguments should have a signature
+  like::
 
-wait
+     def call_the_thing(fn, *args, kwonly1, kwonly2, ...)::
+         ...
 
-``X_nowait``
+  where ``fn(*args)`` is the thing to be called, and ``kwonly1``,
+  ``kwonly2``, ... are keyword-only arguments that belong to
+  ``call_the_thing``. This allows
+  (Hat-tip to asyncio, which is where we stole this from.)
 
+* Whenever it makes sense, trio classes should have a method called
+  ``statistics()`` which returns an immutable object with named fields
+  containing internal statistics about the object that are useful for
+  debugging or introspection (:ref:`examples <synchronization>`).
+
+* Functions or methods whose purpose is to wait for a condition to
+  become true should be called ``wait_<condition>``.
+
+  Sometimes this leads to the slightly funny looking ``await
+  wait_...``. Sorry. As far as I can tell all the alternatives are
+  worse, and you get used to it pretty quick.
+
+* If it's desireable to have both blocking and non-blocking versions of
+  a function, then they look like::
+
+     async def OPERATION(...):
+         ...
+
+     def OPERATION_nowait(...):
+         ...
+
+  and the ``nowait`` version raises :exc:`trio.WouldBlock` if it would block.
+
+* The word ``monitor`` is used for APIs that involve an
+  :class:`UnboundedQueue` receiving some kind of events. (Examples:
+  nursery ``.monitor`` attribute, some of the low-level I/O functions in
+  :mod:`trio.hazmat`.)
+
+* ...we should, but currently don't, have a solid convention for
+  distinguish between functions that take an async callable and those
+  that take a sync callable. See `issue #68
+  <https://github.com/njsmith/trio/issues/68>`__.
 
 
 Implementation decisions

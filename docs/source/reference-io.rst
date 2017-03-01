@@ -47,6 +47,12 @@ TLS support
 `Not implemented yet! <https://github.com/njsmith/trio/issues/9>`__
 
 
+Async disk I/O
+--------------
+
+`Not implemented yet! <https://github.com/njsmith/trio/issues/20>`__
+
+
 Subprocesses
 ------------
 

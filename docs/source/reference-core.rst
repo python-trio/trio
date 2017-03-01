@@ -493,6 +493,8 @@ which is sometimes useful:
 .. autofunction:: current_effective_deadline
 
 
+.. _tasks:
+
 Tasks let you do multiple things at once
 ----------------------------------------
 
@@ -963,6 +965,8 @@ Result objects
    create and access :class:`Result` objects from any thread you like.
 
 
+.. _synchronization:
+
 Synchronizing and communicating between tasks
 ---------------------------------------------
 
@@ -1185,6 +1189,15 @@ communicate back with trio, there's the closely related
    than the one that called :func:`trio.run`. These two functions
    *must* be called from a different thread than the one that called
    :func:`trio.run`. (After all, they're blocking functions!)
+
+   .. warning::
+
+      If the relevant call to :func:`trio.run` finishes while a call
+      to ``await_in_trio_thread`` is in progress, then the call to
+      ``async_fn`` will be :ref:`cancelled <cancellation>` and the
+      resulting :exc:`~trio.Cancelled` exception may propagate out of
+      ``await_in_trio_thread`` and into the calling thread. You should
+      be prepared for this.
 
    :raises RunFinishedError: If the corresponding call to
       :func:`trio.run` has already completed.

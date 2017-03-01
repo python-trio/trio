@@ -116,13 +116,6 @@ nothing to see here
    queues, etc. built on top of it, but you can pretty easily write your
    own if you need them.)
 
-   make it as easy as possible to reason about concurrency and
-   cancellation
-   documented which points are cancellation points, etc.
-   clear principles for which functions are async and which aren't
-
-   exceptions cannot pass silently
-
    goals that we don't meet yet, but want to:
    rigorous test suite
    cross-platform (and only *one* implementation per platform)
@@ -146,45 +139,9 @@ nothing to see here
    - socket module:
      - sendfile
      - high level helpers like start_tcp_server
-   - docs
    - subprocesses
    - worker process pool
    - SSL
-
-
-   design/API principles:
-
-   functions that take thunks (run, spawn, call_soon_threadsafe,
-   run_in_thread, ...) all follow the pattern
-
-   def caller(fn, *args_for_fn, **kwargs_for_caller)
-
-   "notify"-style operations are sync-colored
-
-   potentially-blocking operations always check for cancellation first,
-   and always invoke the scheduler
-
-   whenever possible, have a statistics() method that returns an
-   immutable object with attributes that provide some useful stats --
-   e.g. for a lock, number of waiters
-
-   ``*_nowait``, ``trio.WouldBlock``
-
-   ``wait_*``
-
-   all async-colored primitives are unconditionally cancellation
-   points and unconditionally invoke the scheduler.
-   for non-primitives,
-   => async means: at least sometimes invokes concurrency, suspension,
-   cancellation
-
-   only way to spawn is by having a nursery to spawn into
-
-   admittedly this is a conceptual distinction rather than a strict
-   technical one, e.g. we could set up a "spawn server" and then send
-   spawn requests to it using synchronous calls to put_nowait, but we
-   conjecture that it's a useful conceptual distinction.
-   and in fact threads can do this!
 
 
    next:

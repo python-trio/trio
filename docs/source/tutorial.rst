@@ -17,11 +17,11 @@ programs, so we won't go into the nitty-gritty details of how
 ``async/await`` is implemented inside the Python interpreter. The word
 "coroutine" is never mentioned. The fact is, you really don't *need*
 to know any of that stuff unless you want to *implement* a library
-like Trio, so we leave it out. We'll include some links at the end in
-case you're the kind of person who's curious to know how it works
-under the hood, but you should still read this section first, because
-the internal details will make much more sense once you understand
-what it's all for.
+like Trio, so we leave it out. We'll include some links in case you're
+the kind of person who's curious to know how it works under the hood,
+but you should still read this section first, because the internal
+details will make much more sense once you understand what it's all
+for.
 
 
 Before you begin
@@ -614,6 +614,12 @@ it is useful to have a rough model in your head of how the code you
 write is actually executed, and – most importantly – the consequences
 of that for parallelism.
 
+Alternatively, if this has just whetted your appetite and you want to
+know more about how ``async/await`` works internally, then `this blog
+post
+<https://snarky.ca/how-the-heck-does-async-await-work-in-python-3-5/>`__
+is a good explanation.
+
 
 Best GIL ever
 -------------
@@ -695,7 +701,13 @@ possible to catch issues like this.
 An echo server: low-level API
 -----------------------------
 
-.. literalinclude:: tutorial/echo-server-low-level.rst
+XX maybe start with echo client so the structure is like our 2 child
+one but with sockets instad of sleep
+
+and then echo server to introduce the spawn-into-another-nursery
+trick?
+
+.. literalinclude:: tutorial/echo-server-low-level.py
 
 
 An echo server: higher-level API
@@ -724,17 +736,10 @@ timeout example::
 
 you can stick anything inside a timeout block, even child tasks
 
-  [they both get cancelled, the cancelleds get packed into a
-  multierror, and then the timeout block catches the cancelled]
+  [show something like the first example but with a timeout – they
+  both get cancelled, the cancelleds get packed into a multierror, and
+  then the timeout block catches the cancelled]
 
 brief discussion of KI?
 tasks-with-trace.py + control-C is pretty interesting
 or maybe leave it for a blog post?
-
-
-Where next?
------------
-
-main manual
-
-https://snarky.ca/how-the-heck-does-async-await-work-in-python-3-5/
