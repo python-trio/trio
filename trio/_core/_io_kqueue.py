@@ -77,7 +77,7 @@ class KqueueIOManager:
     @_public
     @_hazmat
     @contextmanager
-    def kevent_monitor(self, ident, filter):
+    def monitor_kevent(self, ident, filter):
         key = (ident, filter)
         if key in self._registered:
             raise RuntimeError(

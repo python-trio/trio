@@ -20,7 +20,7 @@ async def test_completion_key_listen():
                 iocp, i, key, ffi.NULL)
             assert success
 
-    with _core.completion_key_monitor() as (key, queue):
+    with _core.monitor_completion_key() as (key, queue):
         async with _core.open_nursery() as nursery:
             task = nursery.spawn(post, key)
             i = 0

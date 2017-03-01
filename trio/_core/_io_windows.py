@@ -330,7 +330,7 @@ class WindowsIOManager:
     @_public
     @_hazmat
     @contextmanager
-    def completion_key_monitor(self):
+    def monitor_completion_key(self):
         key = next(self._completion_key_counter)
         queue = _core.UnboundedQueue()
         self._completion_key_queues[key] = queue
