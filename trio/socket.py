@@ -100,6 +100,10 @@ for _name in [
 class SocketType(_Stream):
     def __init__(self, sock):
         self._sock = sock
+        # https://bugs.python.org/issue21327
+        self._actual_type = (
+            sock.type
+            & ~(_stdlib_socket.SOCK_NONBLOCK | _stdlib_socket.SOCK_CLOEXEC))
         self._sock.setblocking(False)
         try:
             self.setsockopt(IPPROTO_TCP, TCP_NODELAY, True)
@@ -130,7 +134,7 @@ class SocketType(_Stream):
     # del _name, _meth, _wrapped
 
     _forward = {
-        "__enter__", "__exit__", "close", "detach", "get_inheritable",
+        "close", "detach", "get_inheritable",
         "set_inheritable", "fileno", "getpeername", "getsockname",
         "getsockopt", "setsockopt", "listen", "shutdown", "close",
     }
@@ -145,6 +149,12 @@ class SocketType(_Stream):
     async def graceful_close(self):
         self.forceful_close()
         await _core.yield_briefly()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        self._sock.close()
 
     @property
     def family(self):
@@ -206,12 +216,17 @@ class SocketType(_Stream):
             try:
                 _stdlib_socket.getaddrinfo(
                     address[0], address[1],
-                    self._sock.family, self._sock.type, self._sock.proto,
+                    self._sock.family,
+                    self._actual_type,
+                    self._sock.proto,
                     flags=_NUMERIC_ONLY)
-            except gaierror:
-                raise ValueError(
-                    "expected an already-resolved numeric address, not {}"
-                    .format(address))
+            except gaierror as exc:
+                if exc.errno == _stdlib_socket.EAI_NONAME:
+                    raise ValueError(
+                        "expected an already-resolved numeric address, not {}"
+                        .format(address))
+                else:
+                    raise
 
     # Take an address in Python's representation, and returns a new address in
     # the same representation, but with names resolved to numbers,
@@ -307,8 +322,12 @@ class SocketType(_Stream):
     # accept
     ################################################################
 
-    accept = _make_simple_wrapper(
+    _accept = _make_simple_wrapper(
         _stdlib_socket.socket.accept, _core.wait_socket_readable)
+
+    async def accept(self):
+        sock, addr = await self._accept()
+        return from_stdlib_socket(sock), addr
 
     ################################################################
     # connect
