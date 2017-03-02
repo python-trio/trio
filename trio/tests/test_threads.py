@@ -38,13 +38,13 @@ async def test_do_in_trio_thread():
     run_in_trio_thread = current_run_in_trio_thread()
 
     def f(record):
-        assert not _core.ki_protected()
+        assert not _core.currently_ki_protected()
         record.append(("f", threading.current_thread()))
         return 2
     await check_case(run_in_trio_thread, f, ("got", 2))
 
     def f(record):
-        assert not _core.ki_protected()
+        assert not _core.currently_ki_protected()
         record.append(("f", threading.current_thread()))
         raise ValueError
     await check_case(run_in_trio_thread, f, ("error", ValueError))
@@ -52,14 +52,14 @@ async def test_do_in_trio_thread():
     await_in_trio_thread = current_await_in_trio_thread()
 
     async def f(record):
-        assert not _core.ki_protected()
+        assert not _core.currently_ki_protected()
         await _core.yield_briefly()
         record.append(("f", threading.current_thread()))
         return 3
     await check_case(await_in_trio_thread, f, ("got", 3))
 
     async def f(record):
-        assert not _core.ki_protected()
+        assert not _core.currently_ki_protected()
         await _core.yield_briefly()
         record.append(("f", threading.current_thread()))
         raise KeyError
@@ -88,7 +88,7 @@ def test_run_in_trio_thread_ki():
         await_in_trio_thread = current_await_in_trio_thread()
         def trio_thread_fn():
             print("in trio thread")
-            assert not _core.ki_protected()
+            assert not _core.currently_ki_protected()
             print("ki_self")
             try:
                 ki_self()

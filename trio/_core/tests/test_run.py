@@ -863,7 +863,7 @@ async def test_spawn_system_task():
     record = []
     async def system_task(x):
         record.append(("x", x))
-        record.append(("ki", _core.ki_protected()))
+        record.append(("ki", _core.currently_ki_protected()))
         await _core.yield_briefly()
     task = _core.spawn_system_task(system_task, 1)
     await task.wait()

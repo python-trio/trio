@@ -27,7 +27,7 @@ from ._traps import (
     yield_briefly_no_cancel, Abort, yield_indefinitely,
 )
 from ._ki import (
-    LOCALS_KEY_KI_PROTECTION_ENABLED, ki_protected, ki_manager,
+    LOCALS_KEY_KI_PROTECTION_ENABLED, currently_ki_protected, ki_manager,
     enable_ki_protection
 )
 from ._wakeup_socketpair import WakeupSocketpair
@@ -198,7 +198,7 @@ async def open_nursery():
     ``__aexit__`` method blocks until all child tasks have exited.
 
     """
-    assert ki_protected()
+    assert currently_ki_protected()
     with open_cancel_scope() as scope:
         nursery = Nursery(current_task(), scope)
         pending_exc = None
@@ -206,7 +206,7 @@ async def open_nursery():
             await yield_(nursery)
         except BaseException as exc:
             pending_exc = exc
-        assert ki_protected()
+        assert currently_ki_protected()
         await nursery._clean_up(pending_exc)
 
 # I *think* this is equivalent to the above, and it gives *much* nicer
@@ -770,7 +770,7 @@ class Runner:
         return self.call_soon_thread_and_signal_safe
 
     async def call_soon_task(self):
-        assert ki_protected()
+        assert currently_ki_protected()
         # RLock has two implementations: a signal-safe version in _thread, and
         # and signal-UNsafe version in threading. We need the signal safe
         # version. Python 3.2 and later should always use this anyway, but,

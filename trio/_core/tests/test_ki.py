@@ -108,36 +108,36 @@ def test_ki_self():
 
 async def test_ki_enabled():
     # Regular tasks aren't KI-protected
-    assert not _core.ki_protected()
+    assert not _core.currently_ki_protected()
 
     # Low-level call-soon callbacks are KI-protected
     call_soon = _core.current_call_soon_thread_and_signal_safe()
     record = []
     def check():
-        record.append(_core.ki_protected())
+        record.append(_core.currently_ki_protected())
     call_soon(check)
     await wait_all_tasks_blocked()
     assert record == [True]
 
     @_core.enable_ki_protection
     def protected():
-        assert _core.ki_protected()
+        assert _core.currently_ki_protected()
         unprotected()
 
     @_core.disable_ki_protection
     def unprotected():
-        assert not _core.ki_protected()
+        assert not _core.currently_ki_protected()
 
     protected()
 
     @_core.enable_ki_protection
     async def aprotected():
-        assert _core.ki_protected()
+        assert _core.currently_ki_protected()
         await aunprotected()
 
     @_core.disable_ki_protection
     async def aunprotected():
-        assert not _core.ki_protected()
+        assert not _core.currently_ki_protected()
 
     await aprotected()
 
@@ -149,7 +149,7 @@ async def test_ki_enabled():
 
     @_core.enable_ki_protection
     def gen_protected():
-        assert _core.ki_protected()
+        assert _core.currently_ki_protected()
         yield
 
     for _ in gen_protected():
@@ -157,7 +157,7 @@ async def test_ki_enabled():
 
     @_core.disable_ki_protection
     def gen_unprotected():
-        assert not _core.ki_protected()
+        assert not _core.currently_ki_protected()
         yield
 
     for _ in gen_unprotected():
@@ -185,10 +185,10 @@ async def test_ki_enabled_after_yield_briefly():
     async def child(expected):
         import traceback
         traceback.print_stack()
-        assert _core.ki_protected() == expected
+        assert _core.currently_ki_protected() == expected
         await _core.yield_briefly()
         traceback.print_stack()
-        assert _core.ki_protected() == expected
+        assert _core.currently_ki_protected() == expected
 
     await protected()
     await unprotected()
@@ -200,14 +200,14 @@ async def test_generator_based_context_manager_throw():
     @contextlib.contextmanager
     @_core.enable_ki_protection
     def protected_manager():
-        assert _core.ki_protected()
+        assert _core.currently_ki_protected()
         try:
             yield
         finally:
-            assert _core.ki_protected()
+            assert _core.currently_ki_protected()
 
     with protected_manager():
-        assert not _core.ki_protected()
+        assert not _core.currently_ki_protected()
 
     with pytest.raises(KeyError):
         # This is the one that used to fail
@@ -219,49 +219,49 @@ async def test_agen_protection():
     @_core.enable_ki_protection
     @async_generator
     async def agen_protected1():
-        assert _core.ki_protected()
+        assert _core.currently_ki_protected()
         try:
             await yield_()
         finally:
-            assert _core.ki_protected()
+            assert _core.currently_ki_protected()
 
     @_core.disable_ki_protection
     @async_generator
     async def agen_unprotected1():
-        assert not _core.ki_protected()
+        assert not _core.currently_ki_protected()
         try:
             await yield_()
         finally:
-            assert not _core.ki_protected()
+            assert not _core.currently_ki_protected()
 
     # Swap the order of the decorators:
     @async_generator
     @_core.enable_ki_protection
     async def agen_protected2():
-        assert _core.ki_protected()
+        assert _core.currently_ki_protected()
         try:
             await yield_()
         finally:
-            assert _core.ki_protected()
+            assert _core.currently_ki_protected()
 
     @async_generator
     @_core.disable_ki_protection
     async def agen_unprotected2():
-        assert not _core.ki_protected()
+        assert not _core.currently_ki_protected()
         try:
             await yield_()
         finally:
-            assert not _core.ki_protected()
+            assert not _core.currently_ki_protected()
 
     for agen_fn in [
             agen_protected1, agen_protected2,
             agen_unprotected1, agen_unprotected2,
     ]:
         async for _ in agen_fn():
-            assert not _core.ki_protected()
+            assert not _core.currently_ki_protected()
 
         async with acontextmanager(agen_fn)():
-            assert not _core.ki_protected()
+            assert not _core.currently_ki_protected()
 
         # Another case that's tricky due to:
         #   https://bugs.python.org/issue29590
@@ -272,7 +272,7 @@ async def test_agen_protection():
 
 # Test the case where there's no magic local anywhere in the call stack
 def test_ki_enabled_out_of_context():
-    assert not _core.ki_protected()
+    assert not _core.currently_ki_protected()
 
 
 def test_ki_protection_works():
@@ -287,7 +287,7 @@ def test_ki_protection_works():
         try:
             # os.kill runs signal handlers before returning, so we don't need
             # to worry that the handler will be delayed
-            print("killing, protection =", _core.ki_protected())
+            print("killing, protection =", _core.currently_ki_protected())
             ki_self()
         except KeyboardInterrupt:
             print("raised!")
@@ -336,7 +336,7 @@ def test_ki_protection_works():
     async def check_kill_during_shutdown():
         call_soon = _core.current_call_soon_thread_and_signal_safe()
         def kill_during_shutdown():
-            assert _core.ki_protected()
+            assert _core.currently_ki_protected()
             try:
                 call_soon(kill_during_shutdown)
             except _core.RunFinishedError:
@@ -362,7 +362,7 @@ def test_ki_protection_works():
     print("check 5")
     @_core.enable_ki_protection
     async def main():
-        assert _core.ki_protected()
+        assert _core.currently_ki_protected()
         ki_self()
         with pytest.raises(KeyboardInterrupt):
             await _core.yield_if_cancelled()
@@ -372,7 +372,7 @@ def test_ki_protection_works():
     print("check 6")
     @_core.enable_ki_protection
     async def main():
-        assert _core.ki_protected()
+        assert _core.currently_ki_protected()
         ki_self()
         await _core.yield_briefly_no_cancel()
         await _core.yield_briefly_no_cancel()
@@ -385,7 +385,7 @@ def test_ki_protection_works():
     print("check 7")
     @_core.enable_ki_protection
     async def main():
-        assert _core.ki_protected()
+        assert _core.currently_ki_protected()
         ki_self()
         task = _core.current_task()
         def abort(_):
@@ -400,7 +400,7 @@ def test_ki_protection_works():
     print("check 8")
     @_core.enable_ki_protection
     async def main():
-        assert _core.ki_protected()
+        assert _core.currently_ki_protected()
         ki_self()
         task = _core.current_task()
         def abort(raise_cancel):

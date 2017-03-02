@@ -50,7 +50,7 @@ Safe handling of KeyboardInterrupt
 
 .. decorator:: disable_ki_protection
 .. decorator:: enable_ki_protection
-.. autofunction:: ki_protected
+.. autofunction:: currently_ki_protected
 
 
 System tasks

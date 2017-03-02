@@ -10,7 +10,7 @@ import async_generator
 
 from . import _hazmat
 
-__all__ = ["enable_ki_protection", "disable_ki_protection", "ki_protected"]
+__all__ = ["enable_ki_protection", "disable_ki_protection", "currently_ki_protected"]
 
 # In ordinary single-threaded Python code, when you hit control-C, it raises
 # an exception and automatically does all the regular unwinding stuff.
@@ -90,7 +90,7 @@ def ki_protection_enabled(frame):
     return False
 
 @_hazmat
-def ki_protected():
+def currently_ki_protected():
     """Check whether the calling code has :exc:`KeyboardInterrupt` protection
     enabled.
 
