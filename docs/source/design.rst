@@ -462,7 +462,7 @@ three implementations:
 
 * ``EpollIOManager`` in ``_io_epoll.py`` (used on Linux, Illuminos)
 
-* ``KqueueIOManager`` in ``_io_kqueue.py`` (used on MacOS, *BSD)
+* ``KqueueIOManager`` in ``_io_kqueue.py`` (used on MacOS, \*BSD)
 
 * ``WindowsIOManager`` in ``_io_windows.py`` (used on Windows)
 
