@@ -54,7 +54,7 @@ class Cancelled(BaseException):
        innovation, and even in the US both forms are still commonly used. So
        for consistency with the rest of the world and with "cancellation"
        (which always has two "l"s), trio uses the two "l" spelling
-       everywhere.)
+       everywhere.
 
     """
     _scope = None

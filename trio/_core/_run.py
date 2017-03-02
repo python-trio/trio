@@ -964,7 +964,8 @@ def run(async_fn, *args, clock=None, instruments=[]):
 
        await async_fn(*args)
 
-    except that :func:`run` can be called from a synchronous context.
+    except that :func:`run` can (and must) be called from a synchronous
+    context.
 
     This is trio's main entry point. Almost every other function in trio
     requires that you be inside a call to :func:`run`.

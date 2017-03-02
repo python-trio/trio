@@ -725,15 +725,20 @@ trick?
 An echo server: higher-level API
 --------------------------------
 
+XX todo
 
 Errors in concurrent tasks
 --------------------------
+
+XX todo
 
 walk through a multierror traceback
 
 
 Timeouts
 --------
+
+XX todo
 
 timeout example::
 
