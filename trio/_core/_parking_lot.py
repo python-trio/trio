@@ -81,10 +81,6 @@ __all__ = ["ParkingLot"]
 
 _counter = count()
 
-class _AllType:
-    def __repr__(self):
-        return "ParkingLot.ALL"
-
 @attr.s(frozen=True)
 class _ParkingLotStatistics:
     tasks_waiting = attr.ib()
