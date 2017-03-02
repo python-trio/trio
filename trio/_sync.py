@@ -33,7 +33,7 @@ class Event:
 
         """
         self._flag = True
-        self._lot.unpark()
+        self._lot.unpark_all()
 
     def clear(self):
         """Set the internal flag value to False.
@@ -444,7 +444,7 @@ class Condition:
         """
         if _core.current_task() is not self._lock._owner:
             raise RuntimeError("must hold the lock to notify")
-        self._lot.repark(self._lock._lot)
+        self._lot.repark_all(self._lock._lot)
 
     def statistics(self):
         """Return an object containing debugging information.
@@ -615,7 +615,7 @@ class Queue:
         """
         self._unprocessed -= 1
         if self._unprocessed == 0:
-            self._join_lot.unpark()
+            self._join_lot.unpark_all()
 
     async def join(self):
         """Block until the count of unfinished work reaches zero.

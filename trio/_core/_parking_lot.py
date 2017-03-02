@@ -68,10 +68,6 @@
 # later. But this means we can't commit to which task we are unparking when
 # unpark is called.
 #
-# XX: maybe drop the ability to specify what unpark returns? It's unused right
-# now. And it might be useful to have it instead return a ticket that can be
-# used to re-park without giving up the place in line?
-#
 # See: https://github.com/njsmith/trio/issues/53
 
 from itertools import count
@@ -96,13 +92,8 @@ class _ParkingLotStatistics:
 @_hazmat
 @attr.s(slots=True, cmp=False, hash=False)
 class ParkingLot:
-    # {idx: [task, idx, lot]}
+    # {idx: ticket}, where ticket = [task, idx, lot]
     _parked = attr.ib(default=attr.Factory(SortedDict), init=False)
-
-    ALL = _AllType()
-
-    def statistics(self):
-        return _ParkingLotStatistics(tasks_waiting=len(self._parked))
 
     def __len__(self):
         return len(self._parked)
@@ -118,6 +109,10 @@ class ParkingLot:
         ticket[2] = self
         self._parked[idx] = ticket
 
+    # XX this currently returns None
+    # if we ever add the ability to repark while one's resuming place in
+    # line (for false wakeups), then we could have it return a ticket that
+    # abstracts the "place in line" concept.
     @_core.enable_ki_protection
     async def park(self):
         ticket = [_core.current_task(), None, None]
@@ -126,25 +121,32 @@ class ParkingLot:
             task, idx, lot = ticket
             del lot._parked[idx]
             return _core.Abort.SUCCEEDED
-        return await _core.yield_indefinitely(abort)
+        await _core.yield_indefinitely(abort)
 
     def _pop_several(self, count):
-        if count is ParkingLot.ALL:
-            count = len(self._parked)
         for _ in range(min(count, len(self._parked))):
             _, ticket = self._parked.popitem(last=False)
             yield ticket
 
     @_core.enable_ki_protection
-    def unpark(self, *, count=ALL, result=_core.Value(None)):
+    def unpark(self, *, count=1):
         tasks = [task for (task, _, _) in self._pop_several(count)]
         for task in tasks:
-            _core.reschedule(task, result)
+            _core.reschedule(task)
         return tasks
 
+    def unpark_all(self):
+        return self.unpark(count=len(self))
+
     @_core.enable_ki_protection
-    def repark(self, new_lot, *, count=ALL):
+    def repark(self, new_lot, *, count=1):
         if not isinstance(new_lot, ParkingLot):
             raise TypeError("new_lot must be a ParkingLot")
         for ticket in self._pop_several(count):
             new_lot._deposit_ticket(ticket)
+
+    def repark_all(self, new_lot):
+        return self.repark(new_lot, count=len(self))
+
+    def statistics(self):
+        return _ParkingLotStatistics(tasks_waiting=len(self._parked))
