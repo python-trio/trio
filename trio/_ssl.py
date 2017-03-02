@@ -21,13 +21,13 @@
 
 # Definitely keep an eye on Cory's TLS API ideas on security-sig etc.
 
-from ._stream import Stream
+# from ._stream import Stream
 
-class SSLStream(Stream):
-    async def unwrap(self):
-        # does a clean shutdown (!) by calling SSLObject.unwrap(), sends the
-        # resulting close_notify data, and *then* returns the underlying
-        # stream.
-        XX
+# class SSLStream(Stream):
+#     async def unwrap(self):
+#         # does a clean shutdown (!) by calling SSLObject.unwrap(), sends the
+#         # resulting close_notify data, and *then* returns the underlying
+#         # stream.
+#         XX
 
-    # XX
+#     # XX
