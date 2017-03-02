@@ -370,6 +370,10 @@ class Task:
     _next_send = attr.ib(default=None)
     _abort_func = attr.ib(default=None)
 
+    # XX maybe these should be exposed as part of a statistics() method?
+    _cancel_points = attr.ib(default=0)
+    _schedule_points = attr.ib(default=0)
+
     def __repr__(self):
         return ("<Task {!r} at {:#x}>".format(self.name, id(self)))
 
@@ -1136,11 +1140,13 @@ def run_impl(runner, async_fn, args):
                 # other exceptions as __context__ in unwanted ways.
                 runner.task_exited(task, final_result)
             else:
+                task._schedule_points += 1
                 yield_fn, *args = msg
                 if yield_fn is yield_briefly_no_cancel:
                     runner.reschedule(task)
                 else:
                     assert yield_fn is yield_indefinitely
+                    task._cancel_points += 1
                     task._abort_func, = args
                     task._attempt_delivery_of_any_pending_cancel()
                     if runner.ki_pending and task is runner.main_task:
@@ -1215,7 +1221,7 @@ async def yield_if_cancelled():
           or (task is task._runner.main_task and task._runner.ki_pending)):
         await _core.yield_briefly()
         assert False  # pragma: no cover
-
+    task._cancel_points += 1
 
 _WRAPPER_TEMPLATE = """
 def wrapper(*args, **kwargs):

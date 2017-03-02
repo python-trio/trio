@@ -61,6 +61,26 @@ async def test_assert_yields():
         with assert_no_yields():
             await _core.yield_briefly()
 
+    # partial yield cases
+    # if you have a schedule point but not a cancel point, or vice-versa, then
+    # that doesn't make *either* version of assert_{no_,}yields happy.
+    for partial_yield in [
+            _core.yield_if_cancelled, _core.yield_briefly_no_cancel]:
+        for block in [assert_yields, assert_no_yields]:
+            print(partial_yield, block)
+            with pytest.raises(AssertionError):
+                with block():
+                    await partial_yield()
+
+    # But both together count as a yield point
+    with assert_yields():
+        await _core.yield_if_cancelled()
+        await _core.yield_briefly()
+    with pytest.raises(AssertionError):
+        with assert_no_yields():
+            await _core.yield_if_cancelled()
+            await _core.yield_briefly()
+
 
 async def test_Sequencer():
     record = []

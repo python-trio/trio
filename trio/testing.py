@@ -75,24 +75,22 @@ class MockClock(Clock):
         self._mock_time += offset
 
 
-@attr.s(cmp=False, hash=False)
-class _RecordYieldInstrument:
-    yielded = attr.ib(default=False)
-
-    def after_task_step(self, task):
-        self.yielded = True
-
 @contextmanager
 def _assert_yields_or_not(expected):
     __tracebackhide__ = True
-    instrument = _RecordYieldInstrument()
-    _core.current_instruments().append(instrument)
+    task = _core.current_task()
+    orig_cancel = task._cancel_points
+    orig_schedule = task._schedule_points
     try:
         yield
     finally:
-        if expected and not instrument.yielded:
+        if (expected
+            and (task._cancel_points == orig_cancel
+                 or task._schedule_points == orig_schedule)):
             raise AssertionError("assert_yields block did not yield!")
-        elif not expected and instrument.yielded:
+        elif (not expected
+              and (task._cancel_points != orig_cancel
+                   or task._schedule_points != orig_schedule)):
             raise AssertionError("assert_no_yields block yielded!")
 
 def assert_yields():

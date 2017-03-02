@@ -1419,7 +1419,7 @@ async def test_trivial_yields():
         await _core.yield_briefly()
 
     with assert_yields():
-        _core.yield_if_cancelled()
+        await _core.yield_if_cancelled()
         await _core.yield_briefly_no_cancel()
 
     with assert_yields():
