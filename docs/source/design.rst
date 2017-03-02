@@ -138,7 +138,7 @@ reasoning here takes some unpacking.
 
 First, some definitions: a *cancel point* is a point where your code
 checks if it has been cancelled – e.g., due to a timeout having
-expired – and potentially raises a ``Cancelled`` error. A *schedule
+expired – and potentially raises a :exc:`Cancelled` error. A *schedule
 point* is a point where the current task can potentially be suspended,
 and another task allowed to run.
 
@@ -163,7 +163,7 @@ have enough cancel points.
 
 But... every cancel point also increases the chance of subtle
 bugs in your program, because it's a place where you have to be
-prepared to handle a ``Cancelled`` exception and clean up
+prepared to handle a :exc:`Cancelled` exception and clean up
 properly. And while we try to make this as easy as possible,
 these kinds of clean-up paths are notorious for getting missed
 in testing and harboring subtle bugs. So the more cancel points
