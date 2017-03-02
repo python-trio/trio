@@ -92,13 +92,31 @@ class _ParkingLotStatistics:
 @_hazmat
 @attr.s(slots=True, cmp=False, hash=False)
 class ParkingLot:
+    """A fair wait queue with cancellation and requeueing.
+
+    This class encapsulates the tricky parts of implementing a wait
+    queue. It's useful for implementing higher-level synchronization
+    primitives like queues and locks.
+
+    In addition to the methods below, you can use ``len(parking_lot)`` to get
+    the number of parked tasks, and ``if parking_lot: ...`` to check whether
+    there are any parked tasks.
+
+    """
+
     # {idx: ticket}, where ticket = [task, idx, lot]
     _parked = attr.ib(default=attr.Factory(SortedDict), init=False)
 
     def __len__(self):
+        """Returns the number of parked tasks.
+
+        """
         return len(self._parked)
 
     def __bool__(self):
+        """True if there are parked tasks, False otherwise.
+
+        """
         return bool(self._parked)
 
     def _deposit_ticket(self, ticket):
@@ -115,6 +133,10 @@ class ParkingLot:
     # abstracts the "place in line" concept.
     @_core.enable_ki_protection
     async def park(self):
+        """Park the current task until woken by a call to :meth:`unpark` or
+        :meth:`unpark_all`.
+
+        """
         ticket = [_core.current_task(), None, None]
         self._deposit_ticket(ticket)
         def abort(_):
@@ -130,23 +152,82 @@ class ParkingLot:
 
     @_core.enable_ki_protection
     def unpark(self, *, count=1):
+        """Unpark one or more tasks.
+
+        This wakes up ``count`` tasks that are blocked in :meth:`park`. If
+        there are fewer than ``count`` tasks parked, then wakes as many tasks
+        are available and then returns successfully.
+
+        Args:
+          count (int): the number of tasks to unpark.
+
+        """
         tasks = [task for (task, _, _) in self._pop_several(count)]
         for task in tasks:
             _core.reschedule(task)
         return tasks
 
     def unpark_all(self):
+        """Unpark all parked tasks.
+
+        """
         return self.unpark(count=len(self))
 
     @_core.enable_ki_protection
     def repark(self, new_lot, *, count=1):
+        """Move parked tasks from one :class:`ParkingLot` object to another.
+
+        This dequeues ``count`` tasks from one lot, and requeues them on
+        another, preserving order. For example::
+
+           async def parker(lot):
+               print("sleeping")
+               await lot.park()
+               print("woken")
+
+           async def main():
+               lot1 = trio.hazmat.ParkingLot()
+               lot2 = trio.hazmat.ParkingLot()
+               async with trio.open_nursery() as nursery:
+                   nursery.spawn(lot1)
+                   await trio.testing.wait_all_tasks_blocked()
+                   assert len(lot1) == 1
+                   assert len(lot2) == 0
+                   lot1.repark(lot2)
+                   assert len(lot1) == 0
+                   assert len(lot2) == 1
+                   # This wakes up the task that was originally parked in lot1
+                   lot2.unpark()
+
+        If there are fewer than ``count`` tasks parked, then reparks as many
+        tasks as are available and then returns successfully.
+
+        Args:
+          new_lot (ParkingLot): the parking lot to move tasks to.
+          count (int): the number of tasks to move.
+
+        """
         if not isinstance(new_lot, ParkingLot):
             raise TypeError("new_lot must be a ParkingLot")
         for ticket in self._pop_several(count):
             new_lot._deposit_ticket(ticket)
 
     def repark_all(self, new_lot):
+        """Move all parked tasks from one :class:`ParkingLot` object to
+        another.
+
+        See :meth:`repark` for details.
+
+        """
         return self.repark(new_lot, count=len(self))
 
     def statistics(self):
+        """Return an object containing debugging information.
+
+        Currently the following fields are defined:
+
+        * ``tasks_waiting``: The number of tasks blocked on this lot's
+          :meth:`park` method.
+
+        """
         return _ParkingLotStatistics(tasks_waiting=len(self._parked))
