@@ -338,12 +338,16 @@ one. In trio:
   stuff is going on.
 
 
-Introspection and debugging
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Introspection, debugging, testing
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Tools for introspection and debugging are critical to achieving
 usability and correctness in practice, so they should be first-class
 considerations in trio.
+
+Similarly, the availability of powerful testing tools has a huge
+impact on usability and correctness; we consider testing tools to be
+very much in scope for the trio project.
 
 
 Specific style guidelines
@@ -376,7 +380,7 @@ Specific style guidelines
   wait_...``. Sorry. As far as I can tell all the alternatives are
   worse, and you get used to it pretty quick.
 
-* If it's desireable to have both blocking and non-blocking versions of
+* If it's desirable to have both blocking and non-blocking versions of
   a function, then they look like::
 
      async def OPERATION(...):
@@ -392,104 +396,118 @@ Specific style guidelines
   nursery ``.monitor`` attribute, some of the low-level I/O functions in
   :mod:`trio.hazmat`.)
 
-* ...we should, but currently don't, have a solid convention for
+* ...we should, but currently don't, have a solid convention to
   distinguish between functions that take an async callable and those
   that take a sync callable. See `issue #68
   <https://github.com/njsmith/trio/issues/68>`__.
 
 
-Internals tour
---------------
+A tour of trio's internals
+--------------------------
+
+If you want to understand how trio is put together internally, then
+the first thing to know is that there's a very strict internal
+layering: the ``trio._core`` package is a fully self-contained
+implementation of the core scheduling/cancellation/IO handling logic,
+and then the other ``trio.*`` modules are implemented in terms of the
+API it exposes. (If you want to see what this API looks like, then
+``import trio; print(trio._core.__all__)``). Everything exported from
+``trio._core`` is *also* exported as part of either the ``trio`` or
+``trio.hazmat`` namespaces. (This is managed through the use of a
+``@_hazmat`` decorator that marks which items in
+``trio._core.__all__`` should go into ``trio.hazmat``.)
+
+Rationale: currently, trio is a new project in a novel part of the
+design space, so we don't make any stability guarantees. But the goal
+is to reach the point where we *can* declare the API stable. It's
+unlikely that we'll be able to quickly explore all possible corners of
+the design space and cover all possible types of I/O. So instead, our
+strategy is to make sure that it's possible for independent packages
+to add new features on top of trio. Enforcing the ``trio`` vs
+``trio._core`` split is a way of `eating our own dogfood
+<https://en.wikipedia.org/wiki/Eating_your_own_dog_food>`__: basic
+functionality like :class:`trio.Queue` and :mod:`trio.socket` is
+actually implemented solely in terms of public APIs. And the hope is
+that by doing this, we increase the chances that someone who comes up
+with a better kind of queue or wants to add some new functionality
+like, say, file system change watching, will be able to do that on top
+of our public APIs without having to modify trio internals.
 
 
+Inside ``trio._core``
+~~~~~~~~~~~~~~~~~~~~~
 
-- design for stability
+There are three notable sub-modules that are largely independent of
+the rest of trio, and could (possibly should?) be extracted into their
+own independent packages:
 
-  noticed that lots of interesting experiments in curio involve
-  stuff like new synchronization primitives which require
-  touching
-  and
+* ``_result.py``: Defines :class:`Result`.
 
-  hazmat layer: make it possible to implement new features
-  without touching the core
-  stable, public, but `nasty big pointy teeth <https://en.wikipedia.org/wiki/Rabbit_of_Caerbannog>`__
+* ``_multierror.py``: Implements :class:`MultiError` and associated
+  infrastructure.
 
-low-level IO:
+* ``_ki.py``: Implements the core infrastructure for safe handling of
+  :class:`KeyboardInterrupt`.
 
-- need to be portable
+The most important submodule, where everything is integrated, is
+``_run.py``. (This is also by far the largest submodule; it'd be nice
+to factor bits of it out with possible, but it's tricky because the
+core functionality genuinely is pretty intertwined.) Notably, this is
+where cancel scopes, nurseries, and :class:`Task` are defined; it's
+also where the scheduler state and :func:`trio.run` live.
 
-- need to expose/take advantage of the full capabilities of each
-  system
+The one thing that *isn't* in ``_run.py`` is I/O handling. This is
+delegated to an ``IOManager`` class, of which there are currently
+three implementations:
 
-- should "just work"
+* ``EpollIOManager`` in ``_io_epoll.py`` (used on Linux, Illuminos)
 
-- a library isn't usable if it doesn't run on your system, or is
-  missing features you need
+* ``KqueueIOManager`` in ``_io_kqueue.py`` (used on MacOS, *BSD)
 
-  -> do our own low-level IO; expose the full capabilities of the
-  underlying system
+* ``WindowsIOManager`` in ``_io_windows.py`` (used on Windows)
 
-  (as of 2017-02-16, libuv is not able to support our rich
-  cancellation semantics)
+The epoll and kqueue backends take advantage of the epoll and kqueue
+wrappers in the stdlib :mod:`select` module. The windows backend uses
+CFFI to access to the Win32 API directly (see
+``trio/_core/_windows_cffi.py``). In general, we prefer to go directly
+to the raw OS functionality rather than use :mod:`selectors`, for
+several reasons:
 
-should "just work" out of the box
+* Controlling our own fate: I/O handling is pretty core to what trio
+  is about, and :mod:`selectors` is (as of 2017-03-01) somewhat buggy
+  (e.g. `issue 29587 <https://bugs.python.org/issue29256>`__, `issue
+  29255 <https://bugs.python.org/issue29255>`__). Which isn't a big
+  deal on its own, but since :mod:`selectors` is part of the standard
+  library we can't fix it and ship an updated version; we're stuck
+  with whatever we get. We want more control over our users'
+  experience than that.
 
+* Impedence mismatch: the :mod:`selectors` API isn't particularly
+  well-fitted to how we want to use it. For example, kqueue natively
+  treats an interest in readability of some fd as a separate thing
+  from an interest in that same fd's writability, which neatly matches
+  trio's model. :class:`selectors.KqueueSelector` goes to some effort
+  internally to lump together all interests in a single fd, and to use
+  it we'd then we'd have to jump through more hoops to reverse
+  this. Of course, the native epoll API is fd-centric in the same way
+  as the :mod:`selectors` API so we do still have to write code to
+  jump through these hoops, but the point is that the :mod:`selectors`
+  abstractions aren't providing a lot of extra value.
 
+* (Most important) Access to raw platform capabilities:
+  :mod:`selectors` is highly inadequate on Windows, and even on
+  Unix-like systems it hides a lot of power (e.g. kqueue can do a lot
+  more than just check fd readability/writability!).
 
+The IOManager layer provides a fairly raw exposure of the capabilities
+of each system, with public API functions that vary between different
+backends. (This is somewhat inspired by how :mod:`os` works.) These
+public APIs are then exported as part of :mod:`trio.hazmat`, and
+higher-level APIs like :mod:`trio.socket` abstract over these
+system-specific APIs to provide a uniform experience.
 
-
-- KI: very challenging case for usability + correctness!
-
-  challenging cases:
-
-  - core run loop itself
-  - synchronization primitives
-
-  our solution
-
-
-Principles
-
-Twin priorities: Usability and correctness
-
-(What about performance? Nuanced.
-Very important. But: 99th percentile latency more important than
-throughput, and real-world speed more important than
-microbenchmarks. Not interested in trying to build the fastest echo
-server in the west.)
-
-Specific notes
-
-one of the hardest things is managing cancellation and concurrency.
-correct code has to regularly check for cancellation, and has to
-regularly yield to the event loop to maintain system
-responsiveness. (so: you want more of these)
-(these are linked because blocking operations have to be cancellation
-points)
-but these also create challenges -- handling cancellation is hard,
-handling yields are hard
-our strategy:
-one exception: spawn
-
-of course this isn't enough to guarantee correctness, still have to test
-
-transparency: instrumentation hooks in the main loop to make it easy
-to profile your app and track down CPU hogs
-convention: statistics() method that reports things like number of
-waiters
-
-provide an excellent testing and debugging experience
-
-stability: architectured for flexibility
--
-just works out of the box - e.g. no picking between two
-partially-working backends on Windows
-
-other conventions:
-
-- the ``fn(*args)`` convention
-
-- tasks always complete; cleanups always run
-
-- exceptions can never pass silently. in fact stronger: dumping some
-  text to the console doesn't count. exceptions always **propagate**.
+Currently the choice of backend is made statically at import time, and
+there is no provision for "pluggable" backends. The intuition here is
+that we'd rather focus our energy on making one set of solid, official
+backends that provide a high-quality experience out-of-the-box on all
+supported systems.
