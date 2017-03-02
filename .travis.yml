@@ -3,6 +3,9 @@ python:
   - 3.5.0
   - 3.5.2
   - 3.6
+  - 3.5-dev
+  - 3.6-dev
+  - 3.7-dev
 sudo: false
 
 matrix:
@@ -20,8 +23,6 @@ matrix:
     - os: osx
       language: generic
       env: MACPYTHON=3.6.0
-  allow_failures:
-    - env: USE_PYPY_NIGHTLY=1
 
 script:
   - ci/travis.sh
