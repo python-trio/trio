@@ -3,4 +3,4 @@ name: rtd-conda-env
 dependencies:
 - python=3.5
 # For some reason RTD's default install of this is v0.1.7, which is ancient
-- rtd_sphinx_theme=2.0.0
+- rtd_sphinx_theme=0.1.9
