@@ -11,8 +11,12 @@ class Result(metaclass=abc.ABCMeta):
     value, and :class:`Error` representing an exception.
 
     In addition to the methods described below, comparison operators on
-    :class:`Result` objects (``==``, ``<``, etc.) checks for type equality and
-    then compares the encapsulated objects.
+    :class:`Value` and :class:`Error` objects (``==``, ``<``, etc.) check that
+    the other object is also a :class:`Value` or :class:`Error` object
+    respectively, and then compare the contained objects.
+
+    :class:`Result` objects are hashable if the contained objects are
+    hashable.
 
     """
 

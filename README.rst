@@ -207,6 +207,10 @@ nothing to see here
    - Python 3.7 wishlist items:
 
      - __iterclose__
+     - possibly Result should actually be builtin? I think it would
+       actually really simplify the generator API and
+       implementation. (in particular, unifying send and throw could
+       dramatically simplify the implementation of yield from etc.)
      - better ergonomics for MultiErrors (catching, printing,
        rethrowing...)
        - concatenating tracebacks
