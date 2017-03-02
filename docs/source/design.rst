@@ -22,10 +22,9 @@ Trio's two overriding goals are **usability** and **correctness**: we
 want to make it *easy* to get things *right*.
 
 Of course there are lots of other things that matter too, like speed,
-maintainability, etc. We like those too, as much as we can get. But
-sometimes these things come in conflict, and in those cases – while
-there are never any absolute rules in engineering – these are our
-priorities.
+maintainability, etc. We want those too, as much as we can get. But
+sometimes these things come in conflict, and when that happens, these
+are our priorities.
 
 In some sense the entire rest of this document is a description of how
 these play out, but to give a simple example: Trio's
