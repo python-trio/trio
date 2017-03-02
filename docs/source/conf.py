@@ -175,7 +175,12 @@ else:
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
-# html_theme_options = {}
+html_theme_options = {
+    # default is 2
+    # show an extra level of nesting in the RTD theme's sidebar TOC
+    # https://stackoverflow.com/questions/27669376/
+    "navigation_depth": 3,
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
