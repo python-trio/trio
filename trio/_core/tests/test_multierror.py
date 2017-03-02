@@ -7,7 +7,6 @@ import re
 from pathlib import Path
 import subprocess
 
-from ..._util import run_sync_coro
 from .tutil import slow
 
 from .._multierror import (

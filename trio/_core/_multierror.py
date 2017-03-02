@@ -7,8 +7,6 @@ from contextlib import contextmanager
 
 import attr
 
-from .._util import run_sync_coro
-
 __all__ = ["MultiError", "format_exception"]
 
 ################################################################
