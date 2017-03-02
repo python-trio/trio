@@ -321,8 +321,6 @@ class Nursery:
                         await self.monitor.get_batch()
                     except (Cancelled, KeyboardInterrupt) as exc:
                         exceptions.append(exc)
-                    except BaseException as exc:  # pragma: no cover
-                        raise TrioInternalError from exc
 
             self._closed = True
             if exceptions:
@@ -1037,6 +1035,8 @@ def run(async_fn, *args, clock=None, instruments=[]):
                     # The main reason this is split off into its own function
                     # is just to get rid of this extra indentation.
                     result = run_impl(runner, async_fn, args)
+            except TrioInternalError:
+                raise
             except BaseException as exc:
                 raise TrioInternalError(
                     "internal error in trio - please file a bug!") from exc

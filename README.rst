@@ -202,13 +202,7 @@ nothing to see here
      it's a problem in general for any kind of async cleanup: how do
      you set a timeout on the cancellation handling?
 
-   - make assert_yields properly check for cancel+schedule points
-     put a counter of how many time these things happen on task object
-
    - add assert_yields tests to test_io and everywhere else
-
-   - need to do a pass over TrioInternalError -- currently they can
-     get double-wrapped in some cases
 
    - Python 3.7 wishlist items:
 
