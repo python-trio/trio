@@ -97,8 +97,8 @@ much. It doesn't make sense to spend lots of effort optimizing an API
 whose semantics are still in flux.
 
 
-User-level API
---------------
+User-level API principles
+-------------------------
 
 Basic principles
 ~~~~~~~~~~~~~~~~
@@ -346,8 +346,8 @@ usability and correctness in practice, so they should be first-class
 considerations in trio.
 
 
-Some specific notes on API style
---------------------------------
+Specific style guidelines
+-------------------------
 
 * As noted above, functions that don't block should be sync-colored,
   and functions that can block should be async-colored and
@@ -398,8 +398,10 @@ Some specific notes on API style
   <https://github.com/njsmith/trio/issues/68>`__.
 
 
-Implementation decisions
-------------------------
+Internals tour
+--------------
+
+
 
 - design for stability
 

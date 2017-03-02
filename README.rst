@@ -145,11 +145,6 @@ nothing to see here
 
 
    next:
-   - arun/run/call_soon
-     run/call/call_soon
-     run/run_sync/(call_soon or run_sync_soon)
-     run_async/run_sync
-
    - test helpers to explore all cancellation points?
 
    - a thought: if we switch to a global parkinglot keyed off of
@@ -175,10 +170,6 @@ nothing to see here
      - handles cancellations/timeouts
      - not subject to starvation
      - handles control-C
-
-   - rename UnboundedQueue.get_all to UnboundedQueue.get_batch?
-
-   - should we drop reap_and_unwrap? Is it really useful?
 
    - I looked at h2 and yeah, we definitely need to make stream have
      aclose() instead of close(). Sigh.
@@ -214,7 +205,7 @@ nothing to see here
    - make assert_yields properly check for cancel+schedule points
      put a counter of how many time these things happen on task object
 
-   - add assert_yields tests to test_io
+   - add assert_yields tests to test_io and everywhere else
 
    - need to do a pass over TrioInternalError -- currently they can
      get double-wrapped in some cases
@@ -293,12 +284,6 @@ nothing to see here
            __qualname__ for tracebacks!)
          - patching the KI protection gap (I think, assuming 'with'
            calls __(a)exit__ atomically)
-   - XX add a nursery fixture for pytest
-
-     this is a bit complicated because it requires some tight
-     integration with trio_test...
-
-   - add an instrument hook for task created, task died, (task reaped?)
 
    - add nursery statistics? add a task statistics method that also
      gives nursery statistics? "unreaped tasks" is probably a useful
@@ -330,38 +315,6 @@ nothing to see here
      I'm actually not 100% certain that this is even possible at the
      bytecode level, since exiting a with block seems to expand into 3
      separate bytecodes?
-
-   - does yield_if_cancelled need to check the deadline before
-     deciding whether to yield? could we get in a situation where a
-     deadline never fires b/c we aren't yielding to the IO loop?
-     though... actually this is a more general problem, because even
-     in a pure model where we always await wait_socket_readable()
-     before attempting the call (for example), then the readability
-     success + rescheduling will happen before the timeout check!
-     but then at least b/c we did yield the timeout will be marked as
-     pending and delivered the next time -- the problem with
-     yield_if_cancelled is that it may not yield. though... it is then
-     paired with a yield_briefly_no_cancel, which I think is
-     enough to arm the cancel, even if not deliver it? So maybe it's
-     OK after all.
-
-   - convenience methods for catching/rethrowing parts of MultiErrors?
-
-     maybe
-
-     def filter():
-         try:
-             yield
-         except ...:
-             ...
-         except ...:
-             ...
-     with MultiError.filter(filter):
-         ...
-
-     calls the filter function repeatedly for each error inside the
-     MultiError (or just once if a non-MultiError is raised), then
-     collects the results.
 
    - notes for unix socket server:
 
@@ -423,29 +376,6 @@ nothing to see here
 
      maybe as minimal extension to the existing thing,
      open_nursery(autoclose=False), only closes when cancelled?
-
-   - algorithm for WFQ ParkingLot:
-
-     if there are multiple tasks that are eligible to run immediately, then we
-     want to wake the one that's been waiting longest (FIFO rule)
-     otherwise, we want to wake the task that will be eligible to run first
-     for each waiter, we know its entry time and its vtime
-     we keep two data structures: one sorted by vtime, and one by entry
-     time. Any given task is listed on *one* of these, not both! the vtime
-     collection holds tasks that are not eligible to run yet (vtime in the
-     future); the FIFO collection holds tasks that are eligible to run
-     immediately (vtime in the past).
-     to wake 1 task:
-     - get the current vtime on the vclock
-     - look at the set of tasks sorted by vtime, and for all the ones
-       whose vtime is older than the current vtime, move them to the
-       FIFO queue
-     - pop from the FIFO queue
-     - unless it's empty, in which case pop from the vtime queue
-     this is something like amortized O(N log N) to queue/dequeue N tasks.
-
-     HWFQ is... a much worse mess though, b/c a task could be eligible
-     to run now but become ineligible before being scheduled :-(
 
    - according to the docs on Windows, with overlapped I/o you can
      still get WSAEWOULDBLOCK ("too many outstanding overlapped
