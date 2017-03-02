@@ -12,6 +12,7 @@ explicitly.
 .. decorator:: trio_test
 
 .. autoclass:: MockClock
+   :members:
 
 .. autoclass:: Sequencer
 
