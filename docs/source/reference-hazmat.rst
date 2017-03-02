@@ -48,8 +48,12 @@ Entering trio from external threads or signal handlers
 Safe handling of KeyboardInterrupt
 ----------------------------------
 
-.. decorator:: disable_ki_protection
-.. decorator:: enable_ki_protection
+.. autofunction:: disable_ki_protection()
+   :decorator:
+
+.. autofunction:: enable_ki_protection()
+   :decorator:
+
 .. autofunction:: currently_ki_protected
 
 

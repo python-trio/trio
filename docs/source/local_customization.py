@@ -12,7 +12,6 @@
 # directives to sniff for these properties.
 
 # TODO:
-# - integrate decorator handling
 # - figure out why properties aren't handled correctly (e.g. an abstractmethod
 #   property doesn't get tagged with abstractmethod; I suspect we aren't
 #   handling it at all)
@@ -31,6 +30,7 @@ from sphinx.ext.autodoc import (
 
 extended_function_option_spec = {
     "async": directives.flag,
+    "decorator": directives.flag,
     "with": directives.unchanged,
     "async-with": directives.unchanged,
 }
@@ -47,8 +47,9 @@ class ExtendedCallableMixin:
     def needs_arglist(self):
         if "property" in self.options:
             return False
-        else:
-            return True
+        if "decorator" in self.options or self.objtype == "decorator":
+            return False
+        return True
 
     def get_signature_prefix(self, sig):
         ret = ""
@@ -75,6 +76,8 @@ class ExtendedCallableMixin:
 
     def handle_signature(self, sig, signode):
         ret = super().handle_signature(sig, signode)
+        if "decorator" in self.options or self.objtype == "decorator":
+            signode.insert(0, addnodes.desc_addname("@", "@"))
         for optname in ["with", "async-with"]:
             if self.options.get(optname, "").strip():
                 # for some reason a regular space here gets stripped, so we
@@ -178,6 +181,7 @@ def setup(app):
     app.add_directive_to_domain('py', 'method', ExtendedPyMethod)
     app.add_directive_to_domain('py', 'classmethod', ExtendedPyMethod)
     app.add_directive_to_domain('py', 'staticmethod', ExtendedPyMethod)
+    app.add_directive_to_domain('py', 'decorator', ExtendedPyMethod)
 
     # We're overriding these on purpose, so disable the warning about it
     del directives._directives["autofunction"]
