@@ -334,11 +334,6 @@ nothing to see here
 
    - Linux sendall should temporarily disable notsent_lowat
 
-   - Wondering if I should rename run->await_, and
-     call_soon->run_soon. Maybe sync_await or something?
-
-     or maybe await_in...->run_in..., and run_in...->call_in...?
-
    - Currently libuv uses neither SO_REUSEADDR, SO_EXCLUSIVEADDR,
      because they want to allow rebinding of TIME_WAIT sockets. But
      then there's https://github.com/joyent/libuv/issues/150
@@ -397,6 +392,7 @@ nothing to see here
    disadvantages:
    - not in debian at all yet; 3.6-final not in any ubuntu until 17.04
    - pypy (but pypy has f-strings at least)
+   - might be tricky on RTD (though conda might take care of this)
 
 Code of conduct
 ---------------
