@@ -194,20 +194,21 @@ when one task is waiting we can switch to another task to get
 something useful done).
 
 And second, a function which sometimes counts as cancel/schedule
-point, and sometimes doesn't, is the worst of both worlds: you pay the
-costs of having to prepare for cancellation or interleaving, but can't
-count on it to meet latency requirements.
+point, and sometimes doesn't, is the worst of both worlds: you have
+put in the effort to make sure your code handles cancellation or
+interleaving correctly, but you can't count on it to help meet latency
+requirements.
 
 The goal then is to come up with a set of API conventions that make it
 easy for users to deal with all this. Trio's solution is:
 
-Rule 1: to reduce the number of concepts to keep track, we collapse
+Rule 1: to reduce the number of concepts to keep track of, we collapse
 cancel points and schedule points together. Every point that is a
 cancel point is also a schedule point and vice versa. These are
 distinct concepts both theoretically and in the actual implementation,
 but we hide that distinction from the user so that there's only one
-concept they need to keep track of. (Exception: there are hazmat APIs
-that deal with the two concepts separately.)
+concept they need to keep track of. (Exception: there are
+:mod:`trio.hazmat` APIs that deal with the two concepts separately.)
 
 Rule 2: Cancel+schedule points are determined *statically*. A trio
 primitive is either *always* a cancel+schedule point, or *never* a
@@ -222,11 +223,11 @@ determined without looking at the function arguments: each
 Observation: rule 2 implies that any operation that *sometimes* blocks
 is *always* a cancel+schedule point.
 
-Are there any other cancel+schedule points? Our answer is: no. It's
-easy to add new points explicitly (throw in a ``sleep(0)`` or
-whatever) but hard to get rid of them when you don't want them. (And
-this is a real issue – "too many potential cancel points" is
-definitely a tension `I've felt
+So that gives us a number of cancel+schedule points. Are there any
+others? Our answer is: no. It's easy to add new points explicitly
+(throw in a ``sleep(0)`` or whatever) but hard to get rid of them when
+you don't want them. (And this is a real issue – "too many potential
+cancel points" is definitely a tension `I've felt
 <https://github.com/dabeaz/curio/issues/149#issuecomment-269745283>`__
 while trying to build things like task supervisors in curio.) And we
 expect that most trio programs will execute potentially-blocking
@@ -237,16 +238,16 @@ operations.
 And then there's the question of how to effectively communicate this
 information to the user. We want some way to mark out a category of
 functions that might block or trigger a task switch, so that they're
-clearly distinguished from functions that don't do this... if only
-there were some Python feature, that naturally divided functions into
-two categories, maybe with some sort of syntactic marking associated
-with the category that can do weird things like block and task
-switch... ahem, well. Anyway, rule 4 is that in trio, it's only the
-potentially blocking functions that are async. So
-e.g. :meth:`Event.wait` is async, but :meth:`Event.set` is sync.
+clearly distinguished from functions that don't do this. Wouldn't it
+be nice if there were some Python feature, that naturally divided
+functions into two categories, and maybe put some sort of special
+syntactic marking on with the functions that can do weird things like
+block and task switch...? Rule 4: in trio, only the potentially
+blocking functions are async. So e.g. :meth:`Event.wait` is async, but
+:meth:`Event.set` is sync.
 
-So to sum up: out of what's actually a pretty vast space of design
-possibilities here, we declare by fiat that when it comes to trio
+Summing up: out of what's actually a pretty vast space of design
+possibilities, we declare by fiat that when it comes to trio
 primitives, all of these categories are identical:
 
 * async functions
@@ -271,9 +272,10 @@ never when exiting; ``async with open_nursery() as ...:`` can block
 when exiting but never when entering.) But, Python doesn't have
 "half-asynchronous" context managers: either both operations are
 async-flavored, or neither is. In Trio we take a pragmatic approach:
-if for a particular construct there's only one operation that might
-block, then the above requirements are only applied to it, and we
-document this on a case-by-case basis.
+for this kind of async context manager, we enforce the above rules
+only on the potentially blocking operation. And async context managers
+should always document which of their operations are schedule+cancel
+points.
 
 
 Exceptions always propagate
@@ -281,14 +283,14 @@ Exceptions always propagate
 
 Another rule that trio follows is that *exceptions must always
 propagate*. This is like the zen line about "Errors should never pass
-silently", except that in other libraries (Python threads, asyncio,
-curio, ...), it's fairly common to end up with an undeliverable
-exception, which just gets printed to stderr and then discarded. While
-we understand the pragmatic constraints that motivated these libraries
-to adopt this approach, we feel that there are far too many situations
-where no human will ever look at stderr and notice the problem, and
-insist that trio APIs find a way to propagate exceptions up the stack
-– whatever that might mean.
+silently", except that in other concurrency libraries (Python threads,
+asyncio, curio, ...), it's fairly common to end up with an
+undeliverable exception, which just gets printed to stderr and then
+discarded. While we understand the pragmatic constraints that
+motivated these libraries to adopt this approach, we feel that there
+are far too many situations where no human will ever look at stderr
+and notice the problem, and insist that trio APIs find a way to
+propagate exceptions "up the stack" – whatever that might mean.
 
 This is often a challenging rule to follow – for example, the call
 soon code has to jump through some hoops to make it happen – but its
@@ -303,8 +305,9 @@ where it motivates the use of "nurseries"::
 
 If you squint you can see the influence of erlang's "task linking"
 idea here, but it's quite different in detail, exactly because Python
-has exceptions and Erlang doesn't. To support exceptions we need our
-"links" to be asymmetric and mandatory.
+has exceptions and Erlang doesn't. Erlang's links are symmetric and
+optional; to support exceptions we need ours to be asymmetric and
+mandatory.
 
 This design also turns out to enforce a remarkable, unexpected
 invariant.
@@ -314,9 +317,10 @@ In `the blog post
 I called out a nice feature of curio's spawning API, which is that
 since spawning is the only way to break causality, and in curio
 ``spawn`` is async, this means that in curio sync functions are
-guaranteed to be causal. One limitation though is that most async
-functions don't (or shouldn't) spawn off children and violate
-causality, and there's no clear marker for the ones that do.
+guaranteed to be causal. One limitation though is that this invariant
+is actually not very predictive: in curio there are lots of async
+functions that could spawn off children and violate causality, but
+most of them don't, but there's no clear marker for the ones that do.
 
 Our API doesn't quite give that guarantee, but actually a better
 one. In trio:
@@ -327,14 +331,15 @@ one. In trio:
 * Any async function can create a nursery and spawn new tasks... but
   creating a nursery *allows task spawning without allowing causality
   breaking*, because the children have to exit before the function is
-  allowed to return. So we get concurrency + causality together – we
-  can have our cake and eat it too!
+  allowed to return. So we can preserve causality without having to
+  give up concurrency!
 
 * The only way to violate causality (which is an important feature,
   just one that needs to be handled carefully) is to explicitly create
-  a nursery object in one task and then pass it into another task. So
+  a nursery object in one task and then pass it into another task. And
   this provides a very clear and precise signal about where the funny
-  stuff is going on.
+  stuff is happening – just watch for the nursery object getting
+  passed around.
 
 
 Introspection, debugging, testing
@@ -345,7 +350,7 @@ usability and correctness in practice, so they should be first-class
 considerations in trio.
 
 Similarly, the availability of powerful testing tools has a huge
-impact on usability and correctness; we consider testing tools to be
+impact on usability and correctness; we consider testing helpers to be
 very much in scope for the trio project.
 
 
@@ -353,10 +358,10 @@ Specific style guidelines
 -------------------------
 
 * As noted above, functions that don't block should be sync-colored,
-  and functions that can block should be async-colored and
+  and functions that might block should be async-colored and
   unconditionally act as cancel+schedule points.
 
-* Any function that takes a callable+arguments should have a signature
+* Any function that takes a callable to run should have a signature
   like::
 
      def call_the_thing(fn, *args, kwonly1, kwonly2, ...)::
@@ -364,8 +369,17 @@ Specific style guidelines
 
   where ``fn(*args)`` is the thing to be called, and ``kwonly1``,
   ``kwonly2``, ... are keyword-only arguments that belong to
-  ``call_the_thing``. This allows
-  (Hat-tip to asyncio, which is where we stole this from.)
+  ``call_the_thing``. This applies even if ``call_the_thing`` doesn't
+  take any arguments of its own, i.e. in this case its signature looks
+  like::
+
+     def call_the_thing(fn, *args)::
+         ...
+
+  This allows users to skip faffing about with
+  :func:`functools.partial` in most cases, while still providing an
+  unambiguous and extensible way to pass arguments to the caller.
+  (Hat-tip to asyncio, who we stole this convention from.)
 
 * Whenever it makes sense, trio classes should have a method called
   ``statistics()`` which returns an immutable object with named fields
@@ -373,7 +387,9 @@ Specific style guidelines
   debugging or introspection (:ref:`examples <synchronization>`).
 
 * Functions or methods whose purpose is to wait for a condition to
-  become true should be called ``wait_<condition>``.
+  become true should be called ``wait_<condition>``. This avoids
+  ambiguities like "does ``await readable()`` *check* readability
+  (returning a bool) or *wait for* readability?".
 
   Sometimes this leads to the slightly funny looking ``await
   wait_...``. Sorry. As far as I can tell all the alternatives are
@@ -401,8 +417,8 @@ Specific style guidelines
   <https://github.com/njsmith/trio/issues/68>`__.
 
 
-A tour of trio's internals
---------------------------
+A brief tour of trio's internals
+--------------------------------
 
 If you want to understand how trio is put together internally, then
 the first thing to know is that there's a very strict internal
