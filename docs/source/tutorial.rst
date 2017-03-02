@@ -85,9 +85,9 @@ async                    sync                                ✓
 async                    async                               ✓
 =======================  ==================================  ===================
 
-So in summary: As a user, the entire difference between async
-functions and regular functions is that async functions have a
-superpower: they can call other async functions.
+So in summary: As a user, the entire advantage of async functions over
+regular functions is that async functions have a superpower: they can
+call other async functions.
 
 This immediately raises two questions: how, and why? Specifically:
 
@@ -128,8 +128,8 @@ things:
    is actually a good thing, for reasons we'll discuss a little bit
    later.)
 
-   Here's an example function that uses ``trio.sleep``, which does the
-   obvious thing:
+   Here's an example function that uses :func:`trio.sleep`, which is
+   like :func:`time.sleep` but more async-y:
 
    .. code-block:: python3
 
@@ -146,12 +146,16 @@ but it's pointless: it could just as easily be written as a regular
 function, and it would be more useful that way. ``double_sleep`` is a
 much more typical example: we have to make it async, because it calls
 another async function. The end result is a kind of async sandwich,
-with trio on both sides and our code in the middle::
+with trio on both sides and our code in the middle:
+
+.. code-block:: none
 
   trio.run -> double_sleep -> trio.sleep
 
 This "sandwich" structure is typical for async code; in general, it
-looks like::
+looks like:
+
+.. code-block:: none
 
   trio.run -> [async function] -> ... -> [async function] -> trio.whatever
 
@@ -161,8 +165,8 @@ sandwich's tasty async filling. Other functions (e.g., helpers you
 call along the way) should generally be regular, non-async functions.
 
 
-Warning: don't forget to ``await``
-----------------------------------
+Warning: don't forget that ``await``
+------------------------------------
 
 Now would be a good time to open up a Python prompt and experiment a
 little with writing simple async functions and running them with
@@ -322,11 +326,12 @@ you understand async functions, then you understand ``async with``.
 
    This example doesn't use them, but while we're here we might as
    well mention the one other piece of new syntax that async/await
-   added: ``async for``. An ``async for`` loop is just like a ``for``
-   loop, except that where a ``for`` loop does ``iterator.__next__()``
-   to fetch the next item, an ``async for`` does ``await
-   async_iterator.__anext__()``. Now you understand all of
-   async/await. Basically just remember that it involves sandwiches
+   added: ``async for``. It's basically the same idea was ``async
+   with`` versus ``with``: An ``async for`` loop is just like a
+   ``for`` loop, except that where a ``for`` loop does
+   ``iterator.__next__()`` to fetch the next item, an ``async for``
+   does ``await async_iterator.__anext__()``. Now you understand all
+   of async/await. Basically just remember that it involves sandwiches
    and sticking the word "async" in front of everything, and you'll do
    fine.
 
@@ -388,9 +393,10 @@ thread. To remind us of this, we use slightly different terminology:
 instead of spawning two "threads", we say that we spawned two
 "tasks". There are two differences between tasks and threads: (1) many
 tasks can take turns running on a single thread, and (2) with threads,
-the Python interpreter/operating system can switch which thread is running
-whenever they feel like it; with tasks, we can only switch at
-certain designated places we call :ref:`"yield points" <yield-points>`.
+the Python interpreter/operating system can switch which thread is
+running whenever they feel like it; with tasks, we can only switch at
+certain designated places we call :ref:`"yield points"
+<yield-points>`. In the next section, we'll dig into what this means.
 
 
 .. _tutorial-instrument-example:
@@ -425,10 +431,10 @@ time we pass :func:`trio.run` a ``Tracer`` object:
 This generates a *lot* of output, so we'll go through it one step at a
 time.
 
-First, there's a bit of chatter while trio sets up some internal
-housekeeping. In the middle there though you can see that trio has
-created a task for the ``__main__.parent`` function, and "scheduled"
-it (i.e., made a note that it's ready to run):
+First, there's a bit of chatter while trio gets ready to run our
+code. Most of this is irrelevant to us for now, but in the middle you
+can see that trio has created a task for the ``__main__.parent``
+function, and "scheduled" it (i.e., made a note to run it soon):
 
 .. code-block:: none
 
@@ -488,28 +494,28 @@ And then gives the two child tasks a chance to run:
 
 Each task runs until it hits the call to :func:`trio.sleep`, and then
 suddenly we're back in :func:`trio.run` deciding what to run next. How
-does this happen? It requires cooperation between :func:`trio.run` and
-:func:`trio.sleep`: :func:`trio.sleep` has access to some special
-magic that lets it pause its entire callstack, so it sends a note to
-:func:`trio.run` requesting to be woken again after 1 second, and then
-suspends the task. And once the task is suspended, Python gives
-control back to :func:`trio.run`, which decides what to do next. (If
-this sounds similar to the way that generators can suspend execution
-by doing a ``yield``, then that's not a coincidence: inside the Python
-interpreter, there's a lot of overlap between the implementation of
-generators and async functions.)
+does this happen? The secret is some cooperation between
+:func:`trio.run` and :func:`trio.sleep`: :func:`trio.sleep` has access
+to some special magic that lets it pause its entire callstack, so it
+sends a note to :func:`trio.run` requesting to be woken again after 1
+second, and then suspends the task. And once the task is suspended,
+Python gives control back to :func:`trio.run`, which decides what to
+do next. (If this sounds similar to the way that generators can
+suspend execution by doing a ``yield``, then that's not a coincidence:
+inside the Python interpreter, there's a lot of overlap between the
+implementation of generators and async functions.)
 
 .. note::
 
    You might wonder whether you can mix-and-match primitives from
    different async libraries. For example, could we use
-   :func:`trio.run` together with :func:`asyncio.sleep`? We can't, and
-   the paragraph above is why: the two sides of our async sandwich
-   have a private language they use to talk to each
-   other, and different libraries use different languages. So if you
-   try to call :func:`asyncio.sleep` from inside a :func:`trio.run`,
-   then trio will get very confused indeed and probably blow up in
-   some dramatic way.
+   :func:`trio.run` together with :func:`asyncio.sleep`? The answer is
+   no, we can't, and the paragraph above explains why: the two sides
+   of our async sandwich have a private language they use to talk to
+   each other, and different libraries use different languages. So if
+   you try to call :func:`asyncio.sleep` from inside a
+   :func:`trio.run`, then trio will get very confused indeed and
+   probably blow up in some dramatic way.
 
 Only async functions have access to the special magic for suspending a
 task, so only async functions can cause the program to switch to a
