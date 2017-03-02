@@ -1356,7 +1356,7 @@ async def test_nursery_closure():
 async def test_spawn_name():
     async def func1():
         pass
-    async def func2():
+    async def func2():  # pragma: no cover
         pass
 
     async with _core.open_nursery() as nursery:
