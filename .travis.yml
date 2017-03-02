@@ -23,6 +23,8 @@ matrix:
     - os: osx
       language: generic
       env: MACPYTHON=3.6.0
+  allow_failures:
+    - env: USE_PYPY_NIGHTLY=1
 
 script:
   - ci/travis.sh
