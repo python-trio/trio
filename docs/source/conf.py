@@ -179,7 +179,7 @@ html_theme_options = {
     # default is 2
     # show an extra level of nesting in the RTD theme's sidebar TOC
     # https://stackoverflow.com/questions/27669376/
-    "navigation_depth": 3,
+    "navigation_depth": 4,
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
