@@ -15,8 +15,6 @@
 # - figure out why properties aren't handled correctly (e.g. an abstractmethod
 #   property doesn't get tagged with abstractmethod; I suspect we aren't
 #   handling it at all)
-# - for some reason Stream.staple isn't getting tagged as a staticmethod, even
-#   though it is?
 
 import inspect
 import async_generator
@@ -158,7 +156,18 @@ class ExtendedMethodDocumenter(MethodDocumenter):
     def add_directive_header(self, sig):
         super().add_directive_header(sig)
         sourcename = self.get_sourcename()
-        sniffed = sniff_options(self.object)
+        # If you have a classmethod or staticmethod, then
+        #
+        #   Class.__dict__["name"]
+        #
+        # returns the classmethod/staticmethod object, but
+        #
+        #   getattr(Class, "name")
+        #
+        # returns a regular function. We want to detect
+        # classmethod/staticmethod, so we need to go through __dict__.
+        obj = self.parent.__dict__.get(self.object_name)
+        sniffed = sniff_options(obj)
         for option in extended_method_option_spec:
             if option in self.options or option in sniffed:
                 self.add_line("   :{}:".format(option), sourcename)
