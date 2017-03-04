@@ -79,6 +79,8 @@ functions from anywhere except the trio thread. (But :ref:`see below
 <threads>` if you really do need to work with threads.)
 
 
+.. _time-and-clocks:
+
 Time and clocks
 ---------------
 
@@ -113,6 +115,11 @@ custom :class:`~trio.abc.Clock` class:
 
 .. autoclass:: trio.abc.Clock
    :members:
+
+You can also fetch a reference to the current clock, which might be
+useful if you're using a custom clock class:
+
+.. autofunction:: current_clock
 
 
 .. _cancellation:

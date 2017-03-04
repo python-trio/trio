@@ -282,6 +282,10 @@ async def test_current_time_with_mock_clock(mock_clock):
     assert start + 3.14 == mock_clock.current_time() == _core.current_time()
 
 
+async def test_current_clock(mock_clock):
+    assert mock_clock is _core.current_clock()
+
+
 async def test_current_task():
     async def child():
         return _core.current_task()
@@ -299,7 +303,10 @@ def test_out_of_context():
 
 
 async def test_current_statistics(mock_clock):
-    # Just so there's some interesting stats:
+    # Make sure all the early startup stuff has settled down
+    await wait_all_tasks_blocked()
+
+    # A child that sticks around to make some interesting stats:
     async def child():
         try:
             await sleep_forever()

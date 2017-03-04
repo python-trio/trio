@@ -8,6 +8,14 @@ class Clock(_abc.ABC):
     """
 
     @_abc.abstractmethod
+    def start_clock(self):
+        """Do any setup this clock might need.
+
+        Called at the beginning of the run.
+
+        """
+
+    @_abc.abstractmethod
     def current_time(self):
         """Return the current time, according to this clock.
 

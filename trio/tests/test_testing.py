@@ -1,4 +1,5 @@
 import time
+from math import inf
 
 import pytest
 
@@ -224,3 +225,85 @@ def test_mock_clock():
     assert c.current_time() == 4.0
     REAL_NOW += 1
     assert c.current_time() == 4.5
+
+
+    c2 = MockClock(rate=3)
+    assert c2.rate == 3
+    assert c2.current_time() < 10
+
+
+async def test_mock_clock_autojump(mock_clock):
+    assert mock_clock.autojump_threshold == inf
+
+    mock_clock.autojump_threshold = 0
+    assert mock_clock.autojump_threshold == 0
+
+    real_start = time.monotonic()
+
+    virtual_start = _core.current_time()
+    for i in range(10):
+        print("sleeping {} seconds".format(10 * i))
+        await sleep(10 * i)
+        print("woke up!")
+        assert virtual_start + 10 * i == _core.current_time()
+        virtual_start = _core.current_time()
+
+    real_duration = time.monotonic() - real_start
+    print("Slept {} seconds in {} seconds"
+          .format(10 * sum(range(10)), real_duration))
+    assert real_duration < 1
+
+    mock_clock.autojump_threshold = 0.02
+    t = _core.current_time()
+    # this should wake up before the autojump threshold triggers, so time
+    # shouldn't change
+    await wait_all_tasks_blocked()
+    assert t == _core.current_time()
+    # this should too
+    await wait_all_tasks_blocked(0.01)
+    assert t == _core.current_time()
+
+    # This should wake up at the same time as the autojump_threshold, and
+    # confuse things. There is no deadline, so it shouldn't actually advance
+    # the clock. But does it handle the situation gracefully?
+    await wait_all_tasks_blocked(0.02)
+    # And again with threshold=0, because that has some special
+    # busy-wait-avoidance logic:
+    mock_clock.autojump_threshold = 0
+    await wait_all_tasks_blocked()
+
+    # set up a situation where the autojump task is blocked for a long long
+    # time, to make sure that cancel-and-adjust-threshold logic is working
+    mock_clock.autojump_threshold = 10000
+    await wait_all_tasks_blocked()
+    mock_clock.autojump_threshold = 0
+    # if the above line didn't take affect immediately, then this would be
+    # bad:
+    await sleep(100000)
+
+
+async def test_mock_clock_autojump_interference(mock_clock):
+    mock_clock.autojump_threshold = 0.02
+
+    mock_clock2 = MockClock()
+    # messing with the autojump threshold of a clock that isn't actually
+    # installed in the run loop shouldn't do anything.
+    mock_clock2.autojump_threshold = 0.01
+
+    # if the autojump_threshold of 0.01 were in effect, then the next line
+    # would block forever, as the autojump task kept waking up to try to
+    # advance the clock.
+    await wait_all_tasks_blocked(0.015)
+
+    # but the 0.02 limit does apply
+    await sleep(100000)
+
+
+def test_mock_clock_autojump_preset():
+    # Check that we can set the autojump_threshold before the clock is
+    # actually in use, and it gets picked up
+    mock_clock = MockClock(autojump_threshold=0.1)
+    mock_clock.autojump_threshold = 0.01
+    real_start = time.monotonic()
+    _core.run(sleep, 10000, clock=mock_clock)
+    assert time.monotonic() - real_start < 1

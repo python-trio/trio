@@ -147,6 +147,13 @@ nothing to see here
    next:
    - test helpers to explore all cancellation points?
 
+   - make @trio_test accept clock_rate=, clock_autojump_threshold=
+     arguments
+     and if given then it automatically creates a clock with those
+     settings and uses it; can be accessed via current_clock()
+     while also doing the logic to sniff for a clock fixture
+     (and of course error if used kwargs *and* a fixture)
+
    - a thought: if we switch to a global parkinglot keyed off of
      arbitrary hashables, and put the key into the task object, then
      introspection will be able to do things like show which tasks are

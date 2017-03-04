@@ -62,6 +62,9 @@ class SystemClock:
     # between different runs, then they'll notice the bug quickly:
     offset = attr.ib(default=attr.Factory(lambda: _r.uniform(10000, 200000)))
 
+    def start_clock(self):
+        pass
+
     def current_time(self):
         return self.offset + monotonic()
 
@@ -585,6 +588,13 @@ class Runner:
 
         """
         return self.clock.current_time()
+
+    @_public
+    def current_clock(self):
+        """Returns the current :class:`~trio.abc.Clock`.
+
+        """
+        return self.clock
 
     ################
     # Core task handling primitives
@@ -1127,6 +1137,7 @@ _MAX_TIMEOUT = 24 * 60 * 60
 
 def run_impl(runner, async_fn, args):
     runner.instrument("before_run")
+    runner.clock.start_clock()
     runner.init_task = runner.spawn_impl(
         runner.init, (async_fn, args), None, "<init>",
         ki_protection_enabled=True)
