@@ -44,25 +44,66 @@ def trio_test(fn):
 # Prior art:
 #   https://twistedmatrix.com/documents/current/api/twisted.internet.task.Clock.html
 #   https://github.com/ztellman/manifold/issues/57
-@attr.s(slots=True, cmp=False, hash=False)
+@attr.s(slots=True, cmp=False, hash=False, repr=False)
 class MockClock(Clock):
     """A user-controllable clock suitable for writing tests.
 
-    This clock starts at time 0, and only advances when explicitly requested.
+    This clock starts at time 0, and advances at the given rate relative to
+    real time. Can also be manually stepped by calling :meth:`advance`.
+
+    Args:
+      rate (float): the initial :attr:`rate`.
+
+    .. attribute:: rate
+
+       How many seconds of clock time pass per second of real time. Default is
+       0.0, i.e. the clock only advances through manuals calls to
+       :meth:`advance`. You can assign to this attribute to change it.
 
     """
 
-    _mock_time = attr.ib(convert=float, default=0.0, init=False)
+    # When the real clock read "_real_base", our time was "_virtual_base"
+    _real_base = attr.ib(convert=float, default=0.0, init=False)
+    _virtual_base = attr.ib(convert=float, default=0.0, init=False)
+    # How many seconds our clock has advanced since then, per second of real
+    # time
+    _rate = attr.ib(convert=float, default=0.0, init=True)
+    # overrideable for purposes of our own tests:
+    _real_clock = attr.ib(default=time.monotonic, init=False)
 
-    # XX could also have pause/unpause functionality to start it running in
-    # real time... is that useful?
+    def __repr__(self):
+        return ("<MockClock, time={:.7f}, rate={}>"
+                .format(self.current_time(), self._rate))
+
+    @property
+    def rate(self):
+        return self._rate
+
+    @rate.setter
+    def rate(self, new_rate):
+        if new_rate < 0:
+            raise ValueError("rate must be >= 0")
+        else:
+            real = self._real_clock()
+            virtual = self._real_to_virtual(real)
+            self._virtual_base = virtual
+            self._real_base = real
+            self._rate = new_rate
+
+    def _real_to_virtual(self, real):
+        real_offset = real - self._real_base
+        virtual_offset = self._rate * real_offset
+        return self._virtual_base + virtual_offset
 
     def current_time(self):
-        return self._mock_time
+        return self._real_to_virtual(self._real_clock())
 
     def deadline_to_sleep_time(self, deadline):
-        if deadline <= self._mock_time:
+        virtual_timeout = deadline - self.current_time()
+        if virtual_timeout <= 0:
             return 0
+        elif self._rate > 0:
+            return virtual_timeout / self._rate
         else:
             return 999999999
 
@@ -75,7 +116,7 @@ class MockClock(Clock):
         """
         if offset < 0:
             raise ValueError("time can't go backwards")
-        self._mock_time += offset
+        self._virtual_base += offset
 
 
 @contextmanager

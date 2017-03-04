@@ -1,3 +1,5 @@
+import time
+
 import pytest
 
 from .. import sleep
@@ -182,3 +184,43 @@ async def test_Sequencer_cancel():
     with pytest.raises(RuntimeError):
         async with seq(3):
             pass  # pragma: no cover
+
+
+def test_mock_clock():
+    REAL_NOW = 123.0
+    c = MockClock()
+    c._real_clock = lambda: REAL_NOW
+    repr(c)  # smoke test
+    assert c.rate == 0
+    assert c.current_time() == 0
+    c.advance(1.2)
+    assert c.current_time() == 1.2
+    with pytest.raises(ValueError):
+        c.advance(-1)
+    assert c.current_time() == 1.2
+    assert c.deadline_to_sleep_time(1.1) == 0
+    assert c.deadline_to_sleep_time(1.2) == 0
+    assert c.deadline_to_sleep_time(1.3) > 999999
+
+    with pytest.raises(ValueError):
+        c.rate = -1
+    assert c.rate == 0
+
+    c.rate = 2
+    assert c.current_time() == 1.2
+    REAL_NOW += 1
+    assert c.current_time() == 3.2
+    assert c.deadline_to_sleep_time(3.1) == 0
+    assert c.deadline_to_sleep_time(3.2) == 0
+    assert c.deadline_to_sleep_time(4.2) == 0.5
+
+    c.rate = 0.5
+    assert c.current_time() == 3.2
+    assert c.deadline_to_sleep_time(3.1) == 0
+    assert c.deadline_to_sleep_time(3.2) == 0
+    assert c.deadline_to_sleep_time(4.2) == 2.0
+
+    c.advance(0.8)
+    assert c.current_time() == 4.0
+    REAL_NOW += 1
+    assert c.current_time() == 4.5
