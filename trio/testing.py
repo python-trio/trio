@@ -100,16 +100,19 @@ class MockClock(Clock):
     """
 
     def __init__(self, rate=0.0, autojump_threshold=inf):
+        # when the real clock said 'real_base', the virtual time was
+        # 'virtual_base', and since then it's advanced at 'rate' virtual
+        # seconds per real second.
         self._real_base = 0.0
         self._virtual_base = 0.0
         self._rate = 0.0
         self._autojump_threshold = 0.0
         self._autojump_task = None
         self._autojump_cancel_scope = None
-        # kept here so that our tests can monkeypatch it
+        # kept as an attribute so that our tests can monkeypatch it
         self._real_clock = time.monotonic
 
-        # use the property update logic
+        # use the property update logic to set initial values
         self.rate = rate
         self.autojump_threshold = autojump_threshold
 

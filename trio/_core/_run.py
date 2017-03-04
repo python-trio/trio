@@ -957,10 +957,13 @@ class Runner:
         time.
 
         If there are multiple tasks blocked in :func:`wait_all_tasks_blocked`,
-        then the one(s) with the shortest timeout are the ones woken.
+        then the one with the shortest ``cushion`` is the one woken (and the
+        this task becoming unblocked resets the timers for the remaining
+        tasks). If there are multiple tasks that have exactly the same
+        ``cushion``, then all are woken.
 
         You should also consider :class:`trio.testing.Sequencer`, which
-        provides a more explicit way to control execution ordering in a
+        provides a more explicit way to control execution ordering within a
         test, and will often produce more readable tests.
 
         Example:
@@ -985,6 +988,7 @@ class Runner:
                      assert lock.locked()
                      lock.release()
                      try:
+                         # The child has a prior claim, so we can't have it
                          lock.acquire_nowait()
                      except trio.WouldBlock:
                          print("PASS")
