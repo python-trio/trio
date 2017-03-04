@@ -593,6 +593,22 @@ class Runner:
     @_public
     @_hazmat
     def reschedule(self, task, next_send=Value(None)):
+        """Reschedule the given task with the given :class:`~trio.Result`.
+
+        See :func:`yield_indefinitely` for the gory details.
+
+        There must be exactly one call to :func:`reschedule` for every call to
+        :func:`yield_indefinitely`. (And when counting, keep in mind that
+        returning :data:`Abort.SUCCEEDED` from an abort callback is equivalent
+        to calling :func:`reschedule` once.)
+
+        Args:
+          task (trio.Task): the task to be rescheduled. Must be blocked in a
+            call to :func:`yield_indefinitely`.
+          next_send (trio.Result): the value (or error) to return (or raise)
+            from :func:`yield_indefinitely`.
+
+        """
         assert task._runner is self
         assert task._next_send is None
         task._next_send = next_send
@@ -674,7 +690,7 @@ class Runner:
 
         * By default, system tasks have :exc:`KeyboardInterrupt` protection
           *enabled*. If you want your task to be interruptible by control-C,
-          then you should disable this explicitly.
+          then you need to use :func:`disable_ki_protection` explicitly.
 
         Args:
           async_fn: An async callable.
@@ -769,6 +785,53 @@ class Runner:
     @_public
     @_hazmat
     def current_call_soon_thread_and_signal_safe(self):
+        """Get a reference to the ``call_soon_thread_and_signal_safe``
+        function for the current trio run:
+
+        .. currentmodule:: None
+
+        .. function:: call_soon_thread_and_signal_safe(sync_fn, *args, idempotent=False)
+
+           Schedule a call to ``sync_fn(*args)`` to occur in the context of a
+           trio task. This is safe to call from the main thread, from other
+           threads, and from signal handlers.
+
+           The call is effectively run as part of a system task (see
+           :func:`~trio.hazmat.spawn_system_task`). In particular this means
+           that:
+
+           * :exc:`KeyboardInterrupt` protection is *enabled* by default; if
+             you want ``sync_fn`` to be interruptible by control-C, then you
+             need to use :func:`~trio.hazmat.disable_ki_protection`
+             explicitly.
+
+           * If ``sync_fn`` raises an exception, then it's converted into a
+             :exc:`~trio.TrioInternalError` and *all* tasks are cancelled. You
+             should be careful that ``sync_fn`` doesn't crash.
+
+           All calls with ``idempotent=False`` are processed in strict
+           first-in first-out order.
+
+           If ``idempotent=True``, then ``sync_fn`` and ``args`` must be
+           hashable, and trio will make a best-effort attempt to discard any
+           call submission which is equal to an already-pending call. Trio
+           will make an attempt to process these in first-in first-out order,
+           but no guarantees. (Currently processing is FIFO on CPython 3.6 and
+           PyPy, but not CPython 3.5.)
+
+           Any ordering guarantees apply separately to ``idempotent=False``
+           and ``idempotent=True`` calls; there's no rule for how calls in the
+           different categories are ordered with respect to each other.
+
+           :raises trio.RunFinishedError:
+                 if the associated call to :func:`trio.run`
+                 has already exited. (Any call that *doesn't* raise this error
+                 is guaranteed to be fully processed before :func:`trio.run`
+                 exits.)
+
+        .. currentmodule:: trio.hazmat
+
+        """
         return self.call_soon_thread_and_signal_safe
 
     async def call_soon_task(self):
@@ -1211,11 +1274,30 @@ def current_effective_deadline():
 
 @_hazmat
 async def yield_briefly():
+    """A pure :ref:`yield point <yield-points>`.
+
+    This checks for cancellation and allows other tasks to be scheduled,
+    without otherwise blocking.
+
+    Note that the scheduler has the option of ignoring this and continuing to
+    run the current task if it decides this is appropriate (e.g. for increased
+    efficiency).
+
+    Equivalent to ``await trio.sleep(0)`` (which is implemented by calling
+    :func:`yield_briefly`.)
+
+    """
     with open_cancel_scope(deadline=-inf) as scope:
         await _core.yield_indefinitely(lambda _: _core.Abort.SUCCEEDED)
 
 @_hazmat
 async def yield_if_cancelled():
+    """A conditional :ref:`yield point <yield-points>`.
+
+    If a cancellation is active, then allows other tasks to be scheduled,
+    and then raises :exc:`trio.Cancelled`.
+
+    """
     task = current_task()
     if (task._pending_cancel_scope() is not None
           or (task is task._runner.main_task and task._runner.ki_pending)):

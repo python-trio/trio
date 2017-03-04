@@ -94,6 +94,11 @@ def currently_ki_protected():
     """Check whether the calling code has :exc:`KeyboardInterrupt` protection
     enabled.
 
+    It's surprisingly easy to think that one's :exc:`KeyboardInterrupt`
+    protection is enabled when it isn't, or vice-versa. This function tells
+    you what trio thinks of the matter, which makes it useful for ``assert``\s
+    and unit tests.
+
     Returns:
       bool: True if protection is enabled, and False otherwise.
 

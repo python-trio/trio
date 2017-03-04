@@ -29,7 +29,8 @@ Before you begin
 
 1. Make sure you're using Python 3.5 or newer.
 
-2. ``pip install trio``
+2. ``pip install --upgrade trio`` (`details
+   <https://packaging.python.org/installing/>`__)
 
 3. Can you ``import trio``? If so then you're good to go!
 
@@ -51,8 +52,9 @@ An async function is defined like a normal function, except you write
    async def async_double(x):
        return 2 * x
 
-(We'll sometimes refer to regular functions like ``regular_double`` as
-"synchronous functions", to distinguish them from async functions.)
+"Async" is short for "asynchronous"; we'll sometimes refer to regular
+functions like ``regular_double`` as "synchronous functions", to
+distinguish them from async functions.
 
 From a user's point of view, there are two differences between an
 async function and a regular function:
@@ -128,8 +130,9 @@ things:
    is actually a good thing, for reasons we'll discuss a little bit
    later.)
 
-   Here's an example function that uses :func:`trio.sleep`, which is
-   like :func:`time.sleep` but more async-y:
+   Here's an example function that uses
+   :func:`trio.sleep`. (:func:`trio.sleep` is like :func:`time.sleep`,
+   but with more async.)
 
    .. code-block:: python3
 
@@ -165,8 +168,8 @@ sandwich's tasty async filling. Other functions (e.g., helpers you
 call along the way) should generally be regular, non-async functions.
 
 
-Warning: don't forget that ``await``
-------------------------------------
+Warning: don't forget that ``await``!
+-------------------------------------
 
 Now would be a good time to open up a Python prompt and experiment a
 little with writing simple async functions and running them with
@@ -231,9 +234,14 @@ you see the magic words ``RuntimeWarning: coroutine '...' was never
 awaited``, then this *always* means that you made the mistake of
 leaving out an ``await`` somewhere, and you should ignore all the
 other error messages you see and go fix that first, because there's a
-good chance the other stuff is just collateral damage. (I'm not even
+good chance the other stuff is just collateral damage. I'm not even
 sure what all that other junk in the PyPy output is. Fortunately I
-don't need to know, I just need to fix my function!)
+don't need to know, I just need to fix my function!
+
+("I thought you said you weren't going to mention coroutines!" Yes,
+well, *I* didn't mention coroutines, Python did. Take it up with
+Guido! But seriously, this is unfortunately a place where the internal
+implementation details do leak out a bit.)
 
 Why does this happen? In Trio, every time we use ``await`` it's to
 call an async function, and every time we call an async function we
@@ -253,10 +261,6 @@ where you might have been expecting something else, like a number::
 
    >>> async_double(3) + 1
    TypeError: unsupported operand type(s) for +: 'coroutine' and 'int'
-
-("I thought you said you weren't going to mention coroutines!" Yes,
-well, *I* didn't mention coroutines, Python did. Take it up with
-Guido ;-).)
 
 If you didn't already mess this up naturally, then give it a try on
 purpose: try writing some code with a missing ``await``, or an extra
