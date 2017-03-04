@@ -2,6 +2,7 @@ import pytest
 import time
 
 from .. import _core
+from ..testing import assert_yields
 from .._timeouts import *
 
 async def check_takes_about(f, expected_dur):
@@ -30,7 +31,8 @@ async def test_sleep():
     with pytest.raises(ValueError):
         await sleep(-1)
 
-    await sleep(0)
+    with assert_yields():
+        await sleep(0)
     # This also serves as a test of the trivial move_on_at
     with move_on_at(_core.current_time()):
         with pytest.raises(_core.Cancelled):

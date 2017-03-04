@@ -5,7 +5,7 @@ import select
 import random
 
 from ... import _core
-from ...testing import wait_all_tasks_blocked, Sequencer
+from ...testing import wait_all_tasks_blocked, Sequencer, assert_yields
 
 # Cross-platform tests for IO handling
 
@@ -79,13 +79,15 @@ async def test_wait_basic(socketpair, wait_readable, wait_writable):
     a, b = socketpair
 
     # They start out writable()
-    await wait_writable(a)
+    with assert_yields():
+        await wait_writable(a)
 
     # But readable() blocks until data arrives
     record = []
     async def block_on_read():
         try:
-            await wait_readable(a)
+            with assert_yields():
+                await wait_readable(a)
         except _core.Cancelled:
             record.append("cancelled")
         else:
@@ -100,11 +102,14 @@ async def test_wait_basic(socketpair, wait_readable, wait_writable):
 
     fill_socket(a)
 
-    # Now writable will block
+    # Now writable will block, but readable won't
+    with assert_yields():
+        await wait_readable(b)
     record = []
     async def block_on_write():
         try:
-            await wait_writable(a)
+            with assert_yields():
+                await wait_writable(a)
         except _core.Cancelled:
             record.append("cancelled")
         else:
@@ -196,7 +201,8 @@ async def test_socket_actual_streaming(
             print("sent", sent)
             chunk = bytearray(r.randrange(MAX_CHUNK))
             while chunk:
-                await wait_writable(sock)
+                with assert_yields():
+                    await wait_writable(sock)
                 this_chunk_size = sock.send(chunk)
                 sent += this_chunk_size
                 del chunk[:this_chunk_size]
@@ -207,7 +213,8 @@ async def test_socket_actual_streaming(
         received = 0
         while True:
             print("received", received)
-            await wait_readable(sock)
+            with assert_yields():
+                await wait_readable(sock)
             this_chunk_size = len(sock.recv(MAX_CHUNK))
             if not this_chunk_size:
                 break
