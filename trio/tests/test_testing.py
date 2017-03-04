@@ -44,7 +44,7 @@ async def test_wait_all_tasks_blocked_with_timeouts(mock_clock):
         t = nursery.spawn(timeout_task)
         await wait_all_tasks_blocked()
         assert record == ["tt start"]
-        mock_clock.advance(10)
+        mock_clock.jump(10)
         await wait_all_tasks_blocked()
         assert record == ["tt start", "tt finished"]
 
@@ -194,10 +194,10 @@ def test_mock_clock():
     repr(c)  # smoke test
     assert c.rate == 0
     assert c.current_time() == 0
-    c.advance(1.2)
+    c.jump(1.2)
     assert c.current_time() == 1.2
     with pytest.raises(ValueError):
-        c.advance(-1)
+        c.jump(-1)
     assert c.current_time() == 1.2
     assert c.deadline_to_sleep_time(1.1) == 0
     assert c.deadline_to_sleep_time(1.2) == 0
@@ -221,7 +221,7 @@ def test_mock_clock():
     assert c.deadline_to_sleep_time(3.2) == 0
     assert c.deadline_to_sleep_time(4.2) == 2.0
 
-    c.advance(0.8)
+    c.jump(0.8)
     assert c.current_time() == 4.0
     REAL_NOW += 1
     assert c.current_time() == 4.5
@@ -264,7 +264,7 @@ async def test_mock_clock_autojump(mock_clock):
     assert t == _core.current_time()
 
     # This should wake up at the same time as the autojump_threshold, and
-    # confuse things. There is no deadline, so it shouldn't actually advance
+    # confuse things. There is no deadline, so it shouldn't actually jump
     # the clock. But does it handle the situation gracefully?
     await wait_all_tasks_blocked(0.02)
     # And again with threshold=0, because that has some special
@@ -292,7 +292,7 @@ async def test_mock_clock_autojump_interference(mock_clock):
 
     # if the autojump_threshold of 0.01 were in effect, then the next line
     # would block forever, as the autojump task kept waking up to try to
-    # advance the clock.
+    # jump the clock.
     await wait_all_tasks_blocked(0.015)
 
     # but the 0.02 limit does apply

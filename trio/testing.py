@@ -56,7 +56,7 @@ class MockClock(Clock):
 
        How many seconds of clock time pass per second of real time. Default is
        0.0, i.e. the clock only advances through manuals calls to
-       :meth:`advance`. You can assign to this attribute to change it.
+       :meth:`jump`. You can assign to this attribute to change it.
 
     .. attribute:: autojump_threshold
 
@@ -153,7 +153,7 @@ class MockClock(Clock):
                     statistics = _core.current_statistics()
                     jump = statistics.seconds_to_next_deadline
                     if jump < inf:
-                        self.advance(jump)
+                        self.jump(jump)
                     else:
                         # There are no deadlines, nothing is going to happen
                         # until some actual I/O arrives (or maybe another
@@ -205,16 +205,19 @@ class MockClock(Clock):
         else:
             return 999999999
 
-    def advance(self, offset):
-        """Advance the clock.
+    def jump(self, seconds):
+        """Manually advance the clock by the given number of seconds.
 
         Args:
-          offset (float): the number of seconds to advance the clock.
+          seconds (float): the number of seconds to jump the clock forward.
+
+        Raises:
+          ValueError: if you try to pass a negative ``seconds``
 
         """
-        if offset < 0:
+        if seconds < 0:
             raise ValueError("time can't go backwards")
-        self._virtual_base += offset
+        self._virtual_base += seconds
 
 
 @contextmanager

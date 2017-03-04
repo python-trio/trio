@@ -23,7 +23,7 @@ Time and timeouts
 you efficiently test code involving timeouts:
 
 * By default, it starts at time 0, and clock time only advances when
-  you explicitly call :meth:`~MockClock.advance`. This provides an
+  you explicitly call :meth:`~MockClock.jump`. This provides an
   extremely controllable clock for testing.
 
 * You can set :attr:`~MockClock.rate` to 1.0 if you want it to start

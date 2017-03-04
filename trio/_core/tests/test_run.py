@@ -278,7 +278,7 @@ async def test_current_time_with_mock_clock(mock_clock):
     start = mock_clock.current_time()
     assert mock_clock.current_time() == _core.current_time()
     assert mock_clock.current_time() == _core.current_time()
-    mock_clock.advance(3.14)
+    mock_clock.jump(3.14)
     assert start + 3.14 == mock_clock.current_time() == _core.current_time()
 
 
@@ -725,7 +725,7 @@ async def test_basic_timeout(mock_clock):
         scope.deadline = start + 1
         assert scope.deadline == start + 1
     assert not scope.cancel_called
-    mock_clock.advance(2)
+    mock_clock.jump(2)
     await _core.yield_briefly()
     await _core.yield_briefly()
     await _core.yield_briefly()
@@ -733,7 +733,7 @@ async def test_basic_timeout(mock_clock):
 
     start = _core.current_time()
     with _core.open_cancel_scope(deadline=start + 1) as scope:
-        mock_clock.advance(2)
+        mock_clock.jump(2)
         await sleep_forever()
     # But then the scope swallowed the exception... but we can still see it
     # here:
@@ -746,7 +746,7 @@ async def test_basic_timeout(mock_clock):
         await _core.yield_briefly()
         scope.deadline = start + 10
         await _core.yield_briefly()
-        mock_clock.advance(5)
+        mock_clock.jump(5)
         await _core.yield_briefly()
         scope.deadline = start + 1
         with pytest.raises(_core.Cancelled):
@@ -965,7 +965,7 @@ async def test_yield_briefly_checks_for_timeout(mock_clock):
     with _core.open_cancel_scope(deadline=_core.current_time() + 5) as scope:
         await _core.yield_briefly()
         with pytest.raises(_core.Cancelled):
-            mock_clock.advance(10)
+            mock_clock.jump(10)
             await _core.yield_briefly()
 
 
