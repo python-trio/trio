@@ -4,7 +4,7 @@ from .. import sleep
 from .. import _core
 from ..testing import *
 
-async def test_wait_run_loop_idle():
+async def test_wait_all_tasks_blocked():
     record = []
     async def busy_bee():
         for _ in range(10):
@@ -31,7 +31,7 @@ async def test_wait_run_loop_idle():
         nursery.cancel_scope.cancel()
     assert t4.result.unwrap() == "ok"
 
-async def test_wait_run_loop_idle_with_timeouts(mock_clock):
+async def test_wait_all_tasks_blocked_with_timeouts(mock_clock):
     record = []
     async def timeout_task():
         record.append("tt start")
@@ -45,6 +45,42 @@ async def test_wait_run_loop_idle_with_timeouts(mock_clock):
         await wait_all_tasks_blocked()
         assert record == ["tt start", "tt finished"]
 
+
+async def test_wait_all_tasks_blocked_with_cushion():
+    record = []
+    async def blink():
+        record.append("blink start")
+        await sleep(0.01)
+        await sleep(0.01)
+        await sleep(0.01)
+        record.append("blink end")
+
+    async def wait_no_cushion():
+        await wait_all_tasks_blocked()
+        record.append("wait_no_cushion end")
+
+    async def wait_small_cushion():
+        await wait_all_tasks_blocked(0.02)
+        record.append("wait_small_cushion end")
+
+    async def wait_big_cushion():
+        await wait_all_tasks_blocked(0.03)
+        record.append("wait_big_cushion end")
+
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(blink)
+        nursery.spawn(wait_no_cushion)
+        nursery.spawn(wait_small_cushion)
+        nursery.spawn(wait_small_cushion)
+        nursery.spawn(wait_big_cushion)
+    assert record == [
+        "blink start",
+        "wait_no_cushion end",
+        "blink end",
+        "wait_small_cushion end",
+        "wait_small_cushion end",
+        "wait_big_cushion end",
+    ]
 
 async def test_assert_yields():
     with assert_yields():

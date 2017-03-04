@@ -928,19 +928,26 @@ class Runner:
     # Quiescing
     ################
 
-    waiting_for_idle = attr.ib(default=attr.Factory(set))
+    waiting_for_idle = attr.ib(default=attr.Factory(SortedDict))
 
     @_public
     @_hazmat
-    async def wait_all_tasks_blocked(self):
+    async def wait_all_tasks_blocked(self, cushion=0.0):
         """Block until there are no runnable tasks.
 
         This is useful in testing code when you want to give other tasks a
         chance to "settle down". The calling task is blocked, and doesn't wake
-        up until all other tasks are also blocked.
+        up until all other tasks are also blocked for at least ``cushion``
+        seconds. (Setting a non-zero ``cushion`` is intended to handle cases
+        like two tasks talking to each other over a local socket, where we
+        want to ignore the potential brief moment between a send and receive
+        when all tasks are blocked.)
+
+        Note that ``cushion`` is measured in *real* time, not the trio clock
+        time.
 
         If there are multiple tasks blocked in :func:`wait_all_tasks_blocked`,
-        then they all wake up together.
+        then the one(s) with the shortest timeout are the ones woken.
 
         You should also consider :class:`trio.testing.Sequencer`, which
         provides a more explicit way to control execution ordering in a
@@ -976,9 +983,10 @@ class Runner:
 
         """
         task = current_task()
-        self.waiting_for_idle.add(task)
+        key = (cushion, id(task))
+        self.waiting_for_idle[key] = task
         def abort(_):
-            self.waiting_for_idle.remove(task)
+            del self.waiting_for_idle[key]
             return Abort.SUCCEEDED
         await yield_indefinitely(abort)
 
@@ -1124,7 +1132,7 @@ def run_impl(runner, async_fn, args):
         ki_protection_enabled=True)
 
     while runner.tasks:
-        if runner.runq or runner.waiting_for_idle:
+        if runner.runq:
             timeout = 0
         elif runner.deadlines:
             deadline, _ = runner.deadlines.keys()[0]
@@ -1132,6 +1140,13 @@ def run_impl(runner, async_fn, args):
         else:
             timeout = _MAX_TIMEOUT
         timeout = min(max(0, timeout), _MAX_TIMEOUT)
+
+        idle_primed = False
+        if runner.waiting_for_idle:
+            cushion, _ = runner.waiting_for_idle.keys()[0]
+            if cushion < timeout:
+                timeout = cushion
+                idle_primed = True
 
         runner.instrument("before_io_wait", timeout)
         runner.io_manager.handle_io(timeout)
@@ -1147,14 +1162,20 @@ def run_impl(runner, async_fn, args):
             if deadline <= now:
                 # This removes the given scope from runner.deadlines:
                 cancelled_tasks.update(cancel_scope._cancel_no_notify())
+                idle_primed = False
             else:
                 break
         for task in cancelled_tasks:
             task._attempt_delivery_of_any_pending_cancel()
 
-        if not runner.runq:
+        if not runner.runq and idle_primed:
             while runner.waiting_for_idle:
-                runner.reschedule(runner.waiting_for_idle.pop())
+                key, task = runner.waiting_for_idle.peekitem(0)
+                if key[0] == cushion:
+                    del runner.waiting_for_idle[key]
+                    runner.reschedule(task)
+                else:
+                    break
 
         # Process all runnable tasks, but only the ones that are already
         # runnable now. Anything that becomes runnable during this cycle needs
