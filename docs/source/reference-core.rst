@@ -67,6 +67,9 @@ points: if you see an ``await``, then it *might* be a yield point, and
 if it's ``await <something in trio>`` then it's *definitely* a yield
 point.
 
+[Note: `we really need to come up with a less confusing name for yield
+points <https://github.com/njsmith/trio/issues/66>`__]
+
 
 Thread safety
 ~~~~~~~~~~~~~
@@ -146,11 +149,12 @@ contains all the code that runs inside the ``with`` block.
 
 If the HTTP request finishes in less than 30 seconds, then ``result``
 is set and the ``with`` block exits normally. If it does *not* finish
-within 30 seconds, then the cancel scope becomes "cancelled", and any
-attempt to call a blocking trio operation will raise a
-:exc:`Cancelled` exception. This exception eventually propagates out
-of ``do_http_get``, and is caught by the ``with`` block, and execution
-continues on the line ``print("with block statement")``.
+within 30 seconds, then the cancel scope becomes "cancelled", and the
+next time ``do_http_get`` attempts to call a blocking trio operation
+it will fail immediately with a :exc:`Cancelled` exception. This
+exception eventually propagates out of ``do_http_get``, is caught by
+the ``with`` block, and execution then continues on the line
+``print("with block statement")``.
 
 .. note::
 
@@ -558,14 +562,14 @@ code does the following things:
 * Once all child tasks have exited:
 
   * It marks the nursery as "closed", so no new tasks can be spawned
-    in it,
+    in it.
 
-  * If there's just one saved exception, it re-raises it,
+  * If there's just one saved exception, it re-raises it, or
 
   * If there are multiple saved exceptions, it re-raises them as a
-    :exc:`MultiError`,
+    :exc:`MultiError`, or
 
-  * and if there are no saved exceptions, it exits normally.
+  * if there are no saved exceptions, it exits normally.
 
 Since all tasks are descendents of the initial task, one consequence
 of this is that :func:`run` can't finish until all tasks have
@@ -601,6 +605,15 @@ expires::
        async with trio.open_nursery() as nursery:
            nursery.spawn(child1)
            nursery.spawn(child2)
+
+Note that what matters here is the scopes that were active when
+:func:`open_nursery` was called, *not* the scopes active when
+``spawn`` is called. So for example, the timeout block below does
+nothing at all::
+
+   async with trio.open_nursery() as nursery:
+       with move_on_after(TIMEOUT):  # don't do this!
+           nursery.spawn(child)
 
 
 Errors in multiple child tasks
@@ -689,12 +702,12 @@ code like this::
            nursery.spawn(new_connection_listener, handler, nursery)
 
 Now ``new_connection_listener`` can focus on handling new connections,
-while its parent focus on supervising both it and all the individual
+while its parent focuses on supervising both it and all the individual
 connection handlers.
 
-Note that cancel scopes are inherited from the nursery, **not** from
-the task that calls ``spawn``. So in this example, the timeout does
-*not* apply to ``child`` (or to anything else)::
+And remember that cancel scopes are inherited from the nursery,
+**not** from the task that calls ``spawn``. So in this example, the
+timeout does *not* apply to ``child`` (or to anything else)::
 
    async with do_spawn(nursery):
        with move_on_after(TIMEOUT):  # don't do this, it has no effect
@@ -1087,11 +1100,12 @@ have a queue with two producers and one consumer::
 
    trio.run(main)
 
-If we naively cycle between these three tasks, then we put an item,
-then put an item, then get an item, then put an item, then put an
-item, then get an item, ... and over time the queue size grows
-arbitrarily large, our latency is terrible, we run out of memory, it's
-just generally bad news all around.
+If we naively cycle between these three tasks in round-robin style,
+then we put an item, then put an item, then get an item, then put an
+item, then put an item, then get an item, ... and since on each cycle
+we add two items to the queue but only remove one, then over time the
+queue size grows arbitrarily large, our latency is terrible, we run
+out of memory, it's just generally bad news all around.
 
 There are two potential strategies for avoiding this problem.
 
@@ -1105,7 +1119,7 @@ time it runs, it could eagerly consume all of the pending items before
 yielding and allowing another task to run. (In some other systems,
 this would happen automatically because their queue's ``get`` method
 doesn't yield so long as there's data available. But :ref:`in trio,
-it's always a yield point <yield-point-rule>`.) This would work, but
+get is always a yield point <yield-point-rule>`.) This would work, but
 it's a bit risky: basically instead of applying backpressure to
 specifically the producer tasks, we're applying it to *all* the tasks
 in our system. The danger here is that if enough items have built up
@@ -1119,6 +1133,8 @@ etc. (In this particular case it `might be possible to do better
 <https://github.com/njsmith/trio/issues/64>`__, but in general the
 principle holds.) So this is the strategy implemented by
 :class:`trio.UnboundedQueue`.
+
+tl;dr: use :class:`Queue` if you can.
 
 .. autoclass:: Queue
    :members:
@@ -1266,10 +1282,12 @@ Trio tries hard to provide useful hooks for debugging and
 instrumentation. Some are documented above (:attr:`Task.name`,
 :meth:`Queue.statistics`, etc.). Here are some more:
 
+
 Global statistics
 ~~~~~~~~~~~~~~~~~
 
 .. autofunction:: current_statistics
+
 
 Instrument API
 ~~~~~~~~~~~~~~
@@ -1287,7 +1305,7 @@ happens, it loops over these instruments and notifies them by calling
 an appropriate method. The tutorial has :ref:`a simple example of
 using this for tracing <tutorial-instrument-example>`.
 
-Since this hooks into trio at a rather low-level, you do have to be
+Since this hooks into trio at a rather low level, you do have to be
 somewhat careful. The callbacks are run synchronously, and in many
 cases if they error out then we don't have any plausible way to
 propagate this exception (for instance, we might be deep in the guts
@@ -1307,27 +1325,9 @@ And here's the instrument API:
 .. autoclass:: trio.abc.Instrument
    :members:
 
-As an example, here's how you could print a warning about tasks that
-block the run loop for 20 ms or longer::
-
-   import time
-   import warnings
-
-   class WarnAboutLoopHogsInstrument:
-       def __init__(self, threshold):
-           self._threshold = threshold
-
-       def before_task_step(self, task):
-           self._start_time = time.perf_counter()
-
-       def after_task_step(self, task):
-           duration = time.perf_counter() - self._start_time
-           if duration > threshold:
-               warnings.warn(
-                   "Task {} hogged the event loop for {} ms!"
-                   .format(task, round(duration * 1000)))
-
-   trio.run(..., instruments=[WarnAboutLoopHogsInstrument(0.020)])
+The tutorial has a :ref:`fully-worked example
+<tutorial-instrument-example>` of defining a custom instrument to log
+trio's internal scheduling decisions.
 
 
 Exceptions
