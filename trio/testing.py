@@ -67,7 +67,10 @@ class MockClock(Clock):
             return 999999999
 
     def advance(self, offset):
-        """Advance the clock by ``offset`` seconds.
+        """Advance the clock.
+
+        Args:
+          offset (float): the number of seconds to advance the clock.
 
         """
         if offset < 0:
@@ -94,10 +97,8 @@ def _assert_yields_or_not(expected):
             raise AssertionError("assert_no_yields block yielded!")
 
 def assert_yields():
-    """Check that a block of code executes at least one yield point.
-
-    Use as a context manager to check that the code inside the ``with`` block
-    executes at least one :ref:`yield point <yield-points>`.
+    """Use as a context manager to check that the code inside the ``with``
+    block executes at least one :ref:`yield point <yield-points>`.
 
     Raises:
       AssertionError: if no yield point was executed.
@@ -114,10 +115,8 @@ def assert_yields():
     return _assert_yields_or_not(True)
 
 def assert_no_yields():
-    """Check that a block of code does not execute any yield points.
-
-    Use as a context manager to check that the code inside the ``with`` block
-    does not execute any :ref:`yield points <yield-points>`.
+    """Use as a context manager to check that the code inside the ``with``
+    block does not execute any :ref:`yield points <yield-points>`.
 
     Raises:
       AssertionError: if a yield point was executed.
