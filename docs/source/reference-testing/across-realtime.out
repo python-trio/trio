@@ -1,0 +1,23 @@
+Clock where time passes at 100 years per second:
+
+task2: sleeping for 5 years
+task1: sleeping for 1 year
+task1: woke up; clock says I've slept 1.0365006048232317 years
+task1: sleeping for 1 year, 100 times
+task2: woke up; clock says I've slept 5.0572111969813704 years
+task2: sleeping for 500 years
+task1: slept 104.77677842136472 years total
+task2: slept 505.25014589075 years total
+Total real time elapsed: 5.053582429885864 seconds
+
+Clock where time automatically skips past the boring parts:
+
+task2: sleeping for 5 years
+task1: sleeping for 1 year
+task1: woke up; clock says I've slept 1.0 years
+task1: sleeping for 1 year, 100 times
+task2: woke up; clock says I've slept 5.0 years
+task2: sleeping for 500 years
+task1: slept 101.0 years total
+task2: slept 505.0 years total
+Total real time elapsed: 0.019298791885375977 seconds
