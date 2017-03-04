@@ -209,8 +209,6 @@ nothing to see here
      it's a problem in general for any kind of async cleanup: how do
      you set a timeout on the cancellation handling?
 
-   - add assert_yields tests to test_io and everywhere else
-
    - Python 3.7 wishlist items:
 
      - __iterclose__
