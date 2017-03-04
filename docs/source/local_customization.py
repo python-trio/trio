@@ -190,7 +190,8 @@ def setup(app):
     app.add_directive_to_domain('py', 'method', ExtendedPyMethod)
     app.add_directive_to_domain('py', 'classmethod', ExtendedPyMethod)
     app.add_directive_to_domain('py', 'staticmethod', ExtendedPyMethod)
-    app.add_directive_to_domain('py', 'decorator', ExtendedPyMethod)
+    app.add_directive_to_domain('py', 'decorator', ExtendedPyFunction)
+    app.add_directive_to_domain('py', 'decoratormethod', ExtendedPyMethod)
 
     # We're overriding these on purpose, so disable the warning about it
     del directives._directives["autofunction"]
