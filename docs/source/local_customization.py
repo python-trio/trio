@@ -1,3 +1,6 @@
+# A sphinx extension to help documenting Python code that uses async/await (or
+# context managers, or abstract methods, or ...).
+
 # Inspirations:
 #   https://github.com/python/cpython/blob/master/Doc/tools/extensions/pyspecific.py
 #   https://github.com/dabeaz/curio/blob/master/docs/customization.py
@@ -12,9 +15,19 @@
 # directives to sniff for these properties.
 
 # TODO:
-# - figure out why properties aren't handled correctly (e.g. an abstractmethod
-#   property doesn't get tagged with abstractmethod; I suspect we aren't
-#   handling it at all)
+# - A minor infelicity is that it's possible to explicitly document methods as
+#   being a property -- which is useful for cases like
+#
+#      .. method:: foo
+#         :property:
+#         :abstractmethod:
+#
+#   -- but our autodoc classes never generate this (they don't pick up
+#   properties at all). Most of the time this is actually reasonable since
+#   you usually want to treat properties as attributes rather than methods, or
+#   even calling out their property-ness at all. Not sure if there's a better
+#   way to handle this.
+# - maybe add :for: and :async-for: to match :with: and :async-with:?
 
 import inspect
 import async_generator
@@ -41,6 +54,11 @@ extended_method_option_spec = {
     "property": directives.flag,
 }
 
+
+################################################################
+# Extending the basic function and method directives
+################################################################
+
 class ExtendedCallableMixin:
     def needs_arglist(self):
         if "property" in self.options:
@@ -54,10 +72,18 @@ class ExtendedCallableMixin:
         if "abstractmethod" in self.options:
             ret += "abstractmethod "
         # objtype checks are for backwards compatibility, to support
+        #
         #   .. staticmethod::
+        #
         # in addition to
+        #
         #   .. method::
         #      :staticmethod:
+        #
+        # it would be nice if there were a central place we could normalize
+        # the directive name into the options dict instead of having to check
+        # both here at time-of-use, but I don't understand sphinx well enough
+        # to do that.
         if "staticmethod" in self.options or self.objtype == "staticmethod":
             ret += "staticmethod "
         if "classmethod" in self.options or self.objtype == "classmethod":
@@ -96,6 +122,11 @@ class ExtendedPyMethod(ExtendedCallableMixin, PyClassmember):
         **extended_method_option_spec,
     }
 
+
+################################################################
+# Autodoc
+################################################################
+
 def sniff_options(obj):
     options = set()
     async_gen = False
@@ -125,6 +156,21 @@ def sniff_options(obj):
         options.discard("async")
     return options
 
+def update_with_sniffed_options(obj, option_dict):
+    sniffed = sniff_options(obj)
+    for attr in sniffed:
+        option_dict[attr] = None
+
+def passthrough_option_lines(self, option_spec):
+    sourcename = self.get_sourcename()
+    for option in option_spec:
+        if option in self.options:
+            if self.options.get(option) is not None:
+                line = "   :{}: {}".format(option, self.options[option])
+            else:
+                line = "   :{}:".format(option)
+            self.add_line(line, sourcename)
+
 class ExtendedFunctionDocumenter(FunctionDocumenter):
     priority = FunctionDocumenter.priority + 1
     # You can explicitly set the options in case autodetection fails
@@ -135,15 +181,12 @@ class ExtendedFunctionDocumenter(FunctionDocumenter):
 
     def add_directive_header(self, sig):
         super().add_directive_header(sig)
-        sourcename = self.get_sourcename()
-        sniffed = sniff_options(self.object)
-        for option in extended_function_option_spec:
-            if option in self.options or option in sniffed:
-                if self.options.get(option) is not None:
-                    line = "   :{}: {}".format(option, self.options[option])
-                else:
-                    line = "   :{}:".format(option)
-                self.add_line(line, sourcename)
+        passthrough_option_lines(self, extended_function_option_spec)
+
+    def import_object(self):
+        ret = super().import_object()
+        update_with_sniffed_options(self.object, self.options)
+        return ret
 
 class ExtendedMethodDocumenter(MethodDocumenter):
     priority = MethodDocumenter.priority + 1
@@ -155,7 +198,13 @@ class ExtendedMethodDocumenter(MethodDocumenter):
 
     def add_directive_header(self, sig):
         super().add_directive_header(sig)
-        sourcename = self.get_sourcename()
+        passthrough_option_lines(self, extended_method_option_spec)
+
+    def import_object(self):
+        # MethodDocumenter overrides import_object to do some sniffing in
+        # addition to just importing. But we do our own sniffing and just want
+        # the import, so we un-override it.
+        ret = ClassLevelDocumenter.import_object(self)
         # If you have a classmethod or staticmethod, then
         #
         #   Class.__dict__["name"]
@@ -167,19 +216,12 @@ class ExtendedMethodDocumenter(MethodDocumenter):
         # returns a regular function. We want to detect
         # classmethod/staticmethod, so we need to go through __dict__.
         obj = self.parent.__dict__.get(self.object_name)
-        sniffed = sniff_options(obj)
-        for option in extended_method_option_spec:
-            if option in self.options or option in sniffed:
-                self.add_line("   :{}:".format(option), sourcename)
-
-    def import_object(self):
-        # MethodDocumenter overrides import_object to do some sniffing in
-        # addition to just importing. But we do our own sniffing and just want
-        # the import, so we un-override it. (This also means we lose the
-        # default behavior of putting classmethods and staticmethods earlier
-        # in the display ordering. I don't really mind; I figure if I want
-        # them to come first I can just put them first myself...)
-        return ClassLevelDocumenter.import_object(self)
+        update_with_sniffed_options(obj, self.options)
+        # Replicate the special ordering hacks in
+        # MethodDocumenter.import_object
+        if "classmethod" in self.options or "staticmethod" in self.options:
+            self.member_order -= 1
+        return ret
 
 ################################################################
 # Register everything
