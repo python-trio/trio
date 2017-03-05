@@ -26,8 +26,13 @@
 #   properties at all). Most of the time this is actually reasonable since
 #   you usually want to treat properties as attributes rather than methods, or
 #   even calling out their property-ness at all. Not sure if there's a better
-#   way to handle this.
-# - maybe add :for: and :async-for: to match :with: and :async-with:?
+#   way to handle this. Maybe override attribute and autoattribute too, so it
+#   can take an :abstractproperty: flag?
+# - maybe add :for: and :async-for: to match :with: and :async-with:? rendered
+#   like
+#     for ... in
+#   or
+#     for ARGVALUE in
 
 import inspect
 import async_generator
