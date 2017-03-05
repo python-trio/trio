@@ -177,8 +177,10 @@ else:
 #
 html_theme_options = {
     # default is 2
-    # show an extra level of nesting in the RTD theme's sidebar TOC
+    # show deeper nesting in the RTD theme's sidebar TOC
     # https://stackoverflow.com/questions/27669376/
+    # I'm not 100% sure this actually does anything with our current
+    # versions/settings...
     "navigation_depth": 4,
 }
 
