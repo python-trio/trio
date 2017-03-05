@@ -866,6 +866,21 @@ def test_broken_abort():
     gc.collect()
 
 
+def test_error_in_run_loop():
+    # Blow stuff up real good to check we at least get a TrioInternalError
+    async def main():
+        task = _core.current_task()
+        task._schedule_points = "hello!"
+        await _core.yield_briefly()
+
+    with pytest.raises(_core.TrioInternalError):
+        _core.run(main)
+
+    # Make sure any warnings etc. are associated with this test
+    import gc
+    gc.collect()
+
+
 async def test_spawn_system_task():
     record = []
     async def system_task(x):
