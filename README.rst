@@ -145,7 +145,24 @@ nothing to see here
 
 
    next:
+   - set default role and get rid of all this :func: things
+
+   - @_testing for stuff that needs tighter integration? kinda weird
+     that wait_all_tasks_blocked is in hazmat right now
+
    - test helpers to explore all cancellation points?
+
+     teach coverage to treat 'await ...' as a place with a Cancelled
+     branch
+
+     I think technically the mechanism we'd want is something like:
+     - keep a record of places where we *have* issued a cancellation
+       (like: stack snapshots, or maybe stack snapshot + scope depth,
+       for if we want to exercise all the different depths of
+       cancellation)
+     - make it so the "are we cancelled?" check first invokes a check
+       against this database, and the first time it finds one not in
+       there it adds it and raises Cancelled
 
    - make @trio_test accept clock_rate=, clock_autojump_threshold=
      arguments
@@ -212,6 +229,10 @@ nothing to see here
    - Python 3.7 wishlist items:
 
      - __iterclose__
+     - can we do anything about forgetting-an-await?
+       in retrospect async functions shouldn't implement __call__ I
+       think
+       but probably too late to do anything about that...?
      - possibly Result should actually be builtin? I think it would
        actually really simplify the generator API and
        implementation. (in particular, unifying send and throw could
@@ -293,6 +314,8 @@ nothing to see here
      metric... maybe we should just count that at the runner
      level. right now the runner knows the set of all tasks, but not
      zombies.
+
+     (task statistics are closely related)
 
    - make sure to @ki_protection_enabled all our __(a)exit__
      implementations. Including @acontextmanager! it's not enough to
@@ -380,8 +403,6 @@ nothing to see here
      requests"). No-one on the internet seems to have any idea when
      this actually occurs or why. Twisted has a FIXME b/c they don't
      handle it, just propagate the error out.
-
-   - kqueue power interface needs another pass + tests
 
    - possible improved robustness ("quality of implementation") ideas:
      - if an abort callback fails, discard that task but clean up the
