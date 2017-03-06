@@ -104,17 +104,29 @@ async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
 
 __all__.append("getaddrinfo")
 
-for _name in [
-        "getfqdn", "getnameinfo",
-        # obsolete gethostbyname etc. intentionally omitted
-]:
-    _fn = getattr(_stdlib_socket, _name)
-    @_wraps(_fn, assigned=("__name__", "__doc__"))
-    async def _wrapper(*args, **kwargs):
+@_wraps(_stdlib_socket.getfqdn, assigned=("__name__", "__doc__"))
+async def getfqdn(*args, **kwargs):
+    return await _run_in_worker_thread(
+        _partial(_stdlib_socket.getfqdn, *args, **kwargs),
+        cancellable=True)
+__all__.append("getfqdn")
+
+def _worker_thread_reexport(name):
+    fn = getattr(_stdlib_socket, name)
+    @_wraps(fn, assigned=("__name__", "__doc__"))
+    async def wrapper(*args, **kwargs):
+        # re-import to allow for monkeypatch-based testing
+        fn = getattr(_stdlib_socket, name)
         return await _run_in_worker_thread(
             _partial(fn, *args, **kwargs), cancellable=True)
-    globals()[_name] = _wrapper
-    __all__.append(_name)
+    globals()[name] = wrapper
+    __all__.append(name)
+
+_worker_thread_reexport("getfqdn")
+
+_worker_thread_reexport("getnameinfo")
+
+# obsolete gethostbyname etc. intentionally omitted
 
 
 ################################################################
@@ -220,12 +232,18 @@ class SocketType:
         "close", "detach", "get_inheritable",
         "set_inheritable", "fileno", "getpeername", "getsockname",
         "getsockopt", "setsockopt", "listen", "shutdown", "close",
-        "__enter__", "__exit__",
+        "share",
     }
     def __getattr__(self, name):
         if name in self._forward:
             return getattr(self._sock, name)
         raise AttributeError(name)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        return self._sock.__exit__(*exc_info)
 
     @property
     def family(self):

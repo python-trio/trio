@@ -1,5 +1,6 @@
 import pytest
 
+import os
 import socket as stdlib_socket
 import inspect
 
@@ -7,7 +8,11 @@ from .. import _core
 from .. import socket as tsocket
 from ..testing import assert_yields
 
-class MonkeypatchedFunc:
+################################################################
+# utils
+################################################################
+
+class MonkeypatchedGAI:
     def __init__(self, orig_getaddrinfo):
         self._orig_getaddrinfo = orig_getaddrinfo
         self._responses = {}
@@ -69,6 +74,10 @@ async def test__try_sync():
                 raise BlockingIOError
 
 
+################################################################
+# basic re-exports
+################################################################
+
 def test_socket_has_some_reexports():
     assert tsocket.SOL_SOCKET == stdlib_socket.SOL_SOCKET
     assert tsocket.TCP_NODELAY == stdlib_socket.TCP_NODELAY
@@ -76,28 +85,40 @@ def test_socket_has_some_reexports():
     assert tsocket.ntohs == stdlib_socket.ntohs
 
 
+################################################################
+# name resolution
+################################################################
+
 async def test_getaddrinfo(monkeygai):
     # Simple non-blocking non-error cases, ipv4 and ipv6:
     with assert_yields():
         res = await tsocket.getaddrinfo(
             "127.0.0.1", "12345", type=tsocket.SOCK_STREAM)
-    assert res == [
+    def check(got, expected):
+        # win32 returns 0 for the proto field
+        def without_proto(gai_tup):
+            return gai_tup[:2] + (0,) + gai_tup[3:]
+        expected2 = [without_proto(gt) for gt in expected]
+        assert got == expected or got == expected2
+
+    check(res, [
         (tsocket.AF_INET,  # 127.0.0.1 is ipv4
          tsocket.SOCK_STREAM,
          tsocket.IPPROTO_TCP,
          "",
          ("127.0.0.1", 12345)),
-    ]
+    ])
+
     with assert_yields():
         res = await tsocket.getaddrinfo(
             "::1", "12345", type=tsocket.SOCK_DGRAM)
-    assert res == [
+    check(res, [
         (tsocket.AF_INET6,
          tsocket.SOCK_DGRAM,
          tsocket.IPPROTO_UDP,
          "",
          ("::1", 12345, 0, 0)),
-    ]
+    ])
 
     monkeygai.set("x", "host", "port", family=0, type=0, proto=0, flags=0)
     with assert_yields():
@@ -120,7 +141,46 @@ async def test_getaddrinfo(monkeygai):
 
 
 async def test_getfqdn(monkeypatch):
+    def my_getfqdn(name=""):
+        return "x{}x".format(name)
+    monkeypatch.setattr(stdlib_socket, "getfqdn", my_getfqdn)
+    with assert_yields():
+        assert await tsocket.getfqdn() == "xx"
+    with assert_yields():
+        assert await tsocket.getfqdn("foo") == "xfoox"
 
+
+async def test_getnameinfo():
+    ni_numeric = stdlib_socket.NI_NUMERICHOST | stdlib_socket.NI_NUMERICSERV
+    with assert_yields():
+        assert (await tsocket.getnameinfo(("127.0.0.1", 1234), ni_numeric)
+                == ("127.0.0.1", "1234"))
+    with assert_yields():
+        with pytest.raises(tsocket.gaierror):
+            # getnameinfo requires a numeric address as input
+            await tsocket.getnameinfo(("google.com", 80), 0)
+
+
+################################################################
+# constructors
+################################################################
+
+async def test_from_stdlib_socket():
+    sa, sb = stdlib_socket.socketpair()
+    with sa, sb:
+        ta = tsocket.from_stdlib_socket(sa)
+        assert sa.fileno() == ta.fileno()
+        await ta.send(b"xxx")
+        assert sb.recv(3) == b"xxx"
+
+
+async def test_from_fd():
+    sa, sb = stdlib_socket.socketpair()
+    ta = tsocket.fromfd(sa.fileno(), sa.family, sa.type, sa.proto)
+    with sa, sb, ta:
+        assert ta.fileno() != sa.fileno()
+        await ta.send(b"xxx")
+        assert sb.recv(3) == b"xxx"
 
 
 async def test_socketpair_simple():
@@ -134,8 +194,37 @@ async def test_socketpair_simple():
         return "ok"
 
     a, b = tsocket.socketpair()
-    async with _core.open_nursery() as nursery:
-        task1 = nursery.spawn(child, a)
-        task2 = nursery.spawn(child, b)
+    with a, b:
+        async with _core.open_nursery() as nursery:
+            task1 = nursery.spawn(child, a)
+            task2 = nursery.spawn(child, b)
     assert task1.result.unwrap() == "ok"
     assert task2.result.unwrap() == "ok"
+
+
+@pytest.mark.skipif(not hasattr(tsocket, "fromshare"), reason="windows only")
+async def test_fromshare():
+    a, b = tsocket.socketpair()
+    with a, b:
+        # share with ourselves
+        shared = a.share(os.getpid())
+        a2 = tsocket.fromshare(shared)
+        with a2:
+            assert a.fileno() != a2.fileno()
+            await a2.send(b"xxx")
+            assert await b.recv(3) == b"xxx"
+
+
+async def test_socket():
+    with tsocket.socket() as s:
+        assert isinstance(s, tsocket.SocketType)
+        assert s.family == tsocket.AF_INET
+
+    with tsocket.socket(tsocket.AF_INET6, tsocket.SOCK_DGRAM) as s:
+        assert isinstance(s, tsocket.SocketType)
+        assert s.family == tsocket.AF_INET6
+
+
+################################################################
+# SocketType
+################################################################
