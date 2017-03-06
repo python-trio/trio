@@ -130,7 +130,12 @@ async def test_getaddrinfo(monkeygai):
     with assert_yields():
         with pytest.raises(tsocket.gaierror) as excinfo:
             await tsocket.getaddrinfo("::1", "12345", type=-1)
-    assert excinfo.value.errno == tsocket.EAI_SOCKTYPE
+    assert excinfo.value.errno in {
+        # Linux
+        tsocket.EAI_SOCKTYPE,
+        # MacOS
+        tsocket.EAI_BADHINTS,
+    }
 
     # check raising an error from a blocking getaddrinfo (exploits the fact
     # that monkeygai raises if it gets a non-numeric request it hasn't been
