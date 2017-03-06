@@ -229,15 +229,17 @@ class SocketType:
     # del _name, _meth, _wrapped
 
     _forward = {
-        "close", "detach", "get_inheritable",
-        "set_inheritable", "fileno", "getpeername", "getsockname",
-        "getsockopt", "setsockopt", "listen", "shutdown", "close",
-        "share",
+        "detach", "get_inheritable", "set_inheritable", "fileno",
+        "getpeername", "getsockname", "getsockopt", "setsockopt", "listen",
+        "shutdown", "close", "share",
     }
     def __getattr__(self, name):
         if name in self._forward:
             return getattr(self._sock, name)
         raise AttributeError(name)
+
+    def __dir__(self):
+        return super().__dir__() + list(self._forward)
 
     def __enter__(self):
         return self
