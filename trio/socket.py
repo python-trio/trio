@@ -4,24 +4,73 @@ import sys as _sys
 
 from . import _core
 from ._threads import run_in_worker_thread as _run_in_worker_thread
-from ._streams import Stream as _Stream
 
 __all__ = []
 
-if _sys.platform == "darwin":
-    TCP_NOTSENT_LOWAT = 0x201
-elif _sys.platform == "linux":
-    TCP_NOTSENT_LOWAT = 25
+################################################################
+# misc utilities
+################################################################
 
 def _reexport(name):
     globals()[name] = getattr(_stdlib_socket, name)
     __all__.append(name)
 
+
+# Usage:
+#   async with _try_sync():
+#       return sync_call_that_might_fail_with_exception()
+#   # we only get here if the sync call in fact did fail with an exception
+#   # that passed the blocking_exc_check
+#   return await do_it_properly_with_a_yield_point()
+
+def _is_blocking_io_error(exc):
+    return isinstance(exc, BlockingIOError)
+
+class _try_sync:
+    def __init__(self, blocking_exc_check=_is_blocking_io_error):
+        self._blocking_exc_check = blocking_exc_check
+
+    async def __aenter__(self):
+        await _core.yield_if_cancelled()
+
+    async def __aexit__(self, etype, value, tb):
+        if value is not None and self._blocking_exc_check(value):
+            # discard the exception and fall through to the code below the
+            # block
+            return True
+        else:
+            await _core.yield_briefly_no_cancel()
+            # Let the return or exception propagate
+
+
+################################################################
+# CONSTANTS
+################################################################
+
+# Hopefully will show up in 3.7:
+#   https://github.com/python/cpython/pull/477
+if not hasattr(_stdlib_socket, "TCP_NOTSENT_LOWAT"):
+    if _sys.platform == "darwin":
+        TCP_NOTSENT_LOWAT = 0x201
+    elif _sys.platform == "linux":
+        TCP_NOTSENT_LOWAT = 25
+
 for _name in _stdlib_socket.__dict__.keys():
     if _name == _name.upper():
         _reexport(_name)
+
+if _sys.platform == "win32":
+    # See https://github.com/njsmith/trio/issues/39
+    # (you can still get it from stdlib socket, of course, if you want it)
+    del SO_REUSEADDR
+
+
+################################################################
+# Simple re-exports
+################################################################
+
 for _name in [
-        "gaierror", "herror", "getprotobyname", "getservbyname",
+        "gaierror", "herror", "gethostname", "getprotobyname", "getservbyname",
         "getservbyport", "ntohs", "htonl", "htons", "inet_aton", "inet_ntoa",
         "inet_pton", "inet_ntop", "sethostname", "if_nameindex",
         "if_nametoindex", "if_indextoname",
@@ -29,13 +78,53 @@ for _name in [
     if hasattr(_stdlib_socket, _name):
         _reexport(_name)
 
+
+################################################################
+# getaddrinfo and friends
+################################################################
+
+_NUMERIC_ONLY = _stdlib_socket.AI_NUMERICHOST
+if hasattr(_stdlib_socket, "AI_NUMERICSERV"):
+    _NUMERIC_ONLY |= _stdlib_socket.AI_NUMERICSERV
+
+async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+    # If host and port are numeric, then getaddrinfo doesn't block and we can
+    # skip the whole thread thing, which seems worthwhile. So we try first
+    # with the _NUMERIC_ONLY flags set, and then only spawn a thread if that
+    # fails with EAI_NONAME:
+    def numeric_only_failure(exc):
+        return isinstance(exc, gaierror) and exc.errno == EAI_NONAME
+    async with _try_sync(numeric_only_failure):
+        return _stdlib_socket.getaddrinfo(
+            host, port, family, type, proto, flags | _NUMERIC_ONLY)
+    # That failed, try a thread instead
+    return await _run_in_worker_thread(
+        _stdlib_socket.getaddrinfo, host, port, type, proto, flags,
+        cancellable=True)
+
+__all__.append("getaddrinfo")
+
+for _name in [
+        "getfqdn", "getnameinfo",
+        # obsolete gethostbyname etc. intentionally omitted
+]:
+    _fn = getattr(_stdlib_socket, _name)
+    @_wraps(_fn, assigned=("__name__", "__doc__"))
+    async def _wrapper(*args, **kwargs):
+        return await _run_in_worker_thread(
+            _partial(fn, *args, **kwargs), cancellable=True)
+    globals()[_name] = _wrapper
+    __all__.append(_name)
+
+
+################################################################
+# Socket "constructors"
+################################################################
+
 def from_stdlib_socket(sock):
-    if type(sock) is not _stdlib_socket.socket:
-        # For example, ssl.SSLSocket subclasses socket.socket, but we
-        # certainly don't want to blindly wrap one of those.
-        raise TypeError(
-            "expected object of type 'socket.socket', not '{}"
-            .format(type(sock).__name__))
+    """Convert a standard library :func:`socket.socket` into a trio socket.
+
+    """
     return SocketType(sock)
 __all__.append("from_stdlib_socket")
 
@@ -62,71 +151,57 @@ def socket(*args, **kwargs):
     return from_stdlib_socket(_stdlib_socket.socket(*args, **kwargs))
 __all__.append("socket")
 
-_NUMERIC_ONLY = _stdlib_socket.AI_NUMERICHOST
-if hasattr(_stdlib_socket, "AI_NUMERICSERV"):
-    _NUMERIC_ONLY |= _stdlib_socket.AI_NUMERICSERV
 
-async def _getaddrinfo_impl(host, port, family=0, type=0, proto=0, flags=0,
-                            *, must_yield):
-    try:
-        info =_stdlib_socket.getaddrinfo(
-            host, port, family, type, proto, flags | _NUMERIC_ONLY)
-    except _stdlib_socket.gaierror:
-        return await _run_in_worker_thread(
-            _stdlib_socket.getaddrinfo,
-            host, port, family, type, proto, flags,
-            cancellable=True)
-    else:
-        if must_yield:
-            await _core.yield_briefly()
-        return info
-
-@_wraps(_stdlib_socket.getaddrinfo, assigned=(), updated=())
-async def getaddrinfo(*args, **kwargs):
-    return await _getaddrinfo_impl(*args, **kwargs, must_yield=False)
-
-__all__.append("getaddrinfo")
-
-for _name in [
-        "getfqdn", "getnameinfo",
-        # obsolete gethostbyname etc. intentionally omitted
-]:
-    _fn = getattr(_stdlib_socket, _name)
-    @_wraps(_fn, assigned=("__name__", "__doc__"))
-    async def _wrapper(*args, **kwargs):
-        return await _run_in_worker_thread(
-            _partial(fn, *args, **kwargs), cancellable=True)
+################################################################
+# SocketType
+################################################################
 
 # sock.type gets weird stuff set in it, in particular on Linux:
 #
 #   https://bugs.python.org/issue21327
 #
 # But on other platforms (e.g. Windows) SOCK_NONBLOCK and SOCK_CLOEXEC aren't
-# even defined. We just want the actual SOCK_STREAM or SOCK_DGRAM or
-# whatever.
+# even defined. To recover the actual socket type (e.g. SOCK_STREAM) from a
+# socket.type attribute, mask with this:
 _SOCK_TYPE_MASK = ~(
     getattr(_stdlib_socket, "SOCK_NONBLOCK", 0)
     | getattr(_stdlib_socket, "SOCK_CLOEXEC", 0))
 
-class SocketType(_Stream):
+class SocketType:
     def __init__(self, sock):
+        if type(sock) is not _stdlib_socket.socket:
+            # For example, ssl.SSLSocket subclasses socket.socket, but we
+            # certainly don't want to blindly wrap one of those.
+            raise TypeError(
+                "expected object of type 'socket.socket', not '{}"
+                .format(type(sock).__name__))
         self._sock = sock
-        self._actual_type = sock.type & _SOCK_TYPE_MASK
         self._sock.setblocking(False)
         try:
             self.setsockopt(IPPROTO_TCP, TCP_NODELAY, True)
         except OSError:
             pass
         try:
-            # 16 KiB is somewhat arbitrary and could possibly do with some
+            # 16 KiB is pretty arbitrary and could probably do with some
             # tuning. (Apple is also setting this by default in CFNetwork
             # apparently -- I'm curious what value they're using, though I
-            # couldn't find it online trivially.)
+            # couldn't find it online trivially. CFNetwork-129.20 source has
+            # no mentions of TCP_NOTSENT_LOWAT. This presentation says
+            # "typically 8 kilobytes":
+            #     http://devstreaming.apple.com/videos/wwdc/2015/719ui2k57m/719/719_your_app_and_next_generation_networks.pdf?dl=1
+            # ). The theory is that you want it to be bandwidth * rescheduling
+            # interval.
             self.setsockopt(IPPROTO_TCP, TCP_NOTSENT_LOWAT, 2 ** 14)
         except (NameError, OSError):
             pass
         if self._sock.family == AF_INET6:
-            self.setsockopt(IPPROTO_IPV6, IPV6_V6ONLY, True)
+            self.setsockopt(IPPROTO_IPV6, IPV6_V6ONLY, False)
+        # See https://github.com/njsmith/trio/issues/39
+        if _sys.platform == "win32":
+            self.setsockopt(SOL_SOCKET, _stdlib_socket.SO_REUSEADDR, False)
+            self.setsockopt(SOL_SOCKET, SO_EXCLUSIVEADDRUSE, True)
+        else:
+            self.setsockopt(SOL_SOCKET, SO_REUSEADDR, True)
 
     ################################################################
     # Simple + portable methods and attributes
@@ -145,24 +220,12 @@ class SocketType(_Stream):
         "close", "detach", "get_inheritable",
         "set_inheritable", "fileno", "getpeername", "getsockname",
         "getsockopt", "setsockopt", "listen", "shutdown", "close",
+        "__enter__", "__exit__",
     }
     def __getattr__(self, name):
         if name in self._forward:
             return getattr(self._sock, name)
         raise AttributeError(name)
-
-    def forceful_close(self):
-        self._sock.close()
-
-    async def graceful_close(self):
-        self.forceful_close()
-        await _core.yield_briefly()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc_info):
-        self._sock.close()
 
     @property
     def family(self):
@@ -185,12 +248,6 @@ class SocketType(_Stream):
     def bind(self, address):
         self._check_address(address, require_resolved=True)
         return self._sock.bind(address)
-
-    def can_send_eof(self):
-        return True
-
-    def send_eof(self):
-        self.shutdown(SHUT_WR)
 
     ################################################################
     # Address handling
@@ -225,7 +282,7 @@ class SocketType(_Stream):
                 _stdlib_socket.getaddrinfo(
                     address[0], address[1],
                     self._sock.family,
-                    self._actual_type,
+                    self._sock.type & _SOCK_TYPE_MASK,
                     self._sock.proto,
                     flags=_NUMERIC_ONLY)
             except gaierror as exc:
@@ -275,9 +332,6 @@ class SocketType(_Stream):
     # Returns something appropriate to pass to connect()/sendto()/sendmsg()
     async def resolve_remote_address(self, address):
         return await self._resolve_address(address, 0)
-
-    async def wait_maybe_writable(self):
-        await _core.wait_socket_writable(self._sock)
 
     async def _nonblocking_helper(self, fn, args, kwargs, wait_fn):
         # We have to reconcile two conflicting goals:
@@ -505,9 +559,9 @@ class SocketType(_Stream):
     # sendfile
     ################################################################
 
-    async def sendfile(self, file, offset=0, count=None):
-        "Not implemented yet"
-        XX
+    # Not implemented yet:
+    # async def sendfile(self, file, offset=0, count=None):
+    #     XX
 
     # Intentionally omitted:
     #   makefile
@@ -517,6 +571,10 @@ class SocketType(_Stream):
 
 __all__.append("SocketType")
 
+
+################################################################
+# create_connection
+################################################################
 
 # Copied from socket.create_connection and slightly tweaked.
 #
@@ -541,8 +599,7 @@ __all__.append("SocketType")
 async def create_connection(address, source_address=None):
     host, port = address
     err = None
-    for res in await _getaddrinfo_impl(
-            host, port, 0, SOCK_STREAM, must_yield=False):
+    for res in await _getaddrinfo_impl(host, port, 0, SOCK_STREAM):
         af, socktype, proto, canonname, sa = res
         sock = None
         try:
