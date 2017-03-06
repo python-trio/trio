@@ -172,7 +172,7 @@ async def run_in_worker_thread(sync_fn, *args, cancellable=False):
       background** – we just abandon it to do whatever it's going to do, and
       silently discard any return value or errors that it raises. Only use
       this if you know that the operation is safe and side-effect free. (For
-      example: :func:`trio.socket.getaddrinfo` is implemented using
+      example: ``trio.socket.getaddrinfo`` is implemented using
       :func:`run_in_worker_thread`, and it sets ``cancellable=True`` because
       it doesn't really matter if a stray hostname lookup keeps running in the
       background.)

@@ -107,6 +107,10 @@ extensions = [
     'local_customization',
 ]
 
+intersphinx_mapping = {
+    "python": ('https://docs.python.org/3', None),
+}
+
 autodoc_member_order = "bysource"
 
 # Add any paths that contain templates here, relative to this directory.
@@ -245,9 +249,3 @@ texinfo_documents = [
      author, 'Trio', 'One line description of project.',
      'Miscellaneous'),
 ]
-
-
-
-
-# Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {'https://docs.python.org/3': None}
