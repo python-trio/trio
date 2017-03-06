@@ -64,6 +64,11 @@ if _sys.platform == "win32":
     # (you can still get it from stdlib socket, of course, if you want it)
     del SO_REUSEADDR
 
+    # As of at least 3.6, python on Windows is missing IPPROTO_IPV6
+    # https://bugs.python.org/issue29515
+    if not hasattr(_stdlib_socket, "IPPROTO_IPV6"):
+        IPPROTO_IPV6 = 41
+
 
 ################################################################
 # Simple re-exports
