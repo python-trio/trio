@@ -372,12 +372,12 @@ async def test_SocketType_resolve():
         sock6.setsockopt(tsocket.IPPROTO_IPV6, tsocket.IPV6_V6ONLY, True)
         with pytest.raises(tsocket.gaierror) as excinfo:
             await s6res(("1.2.3.4", 80))
-        assert excinfo.value.errno in {
-            # Linux
-            tsocket.EAI_ADDRFAMILY,
-            # MacOS, Windows
-            tsocket.EAI_NONAME,
-        }
+        # Windows, MacOS
+        expected_errnos = {tsocket.EAI_NONAME}
+        # Linux
+        if hasattr(tsocket, "EAI_ADDRFAMILY"):
+            expected_errnos.add(tsocket.EAI_ADDRFAMILY)
+        assert excinfo.value.errno in expected_errnos
 
         # A family where we know nothing about the addresses, so should just
         # pass them through. Linux and Windows both seem to support AF_IRDA
