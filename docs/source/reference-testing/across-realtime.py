@@ -4,7 +4,7 @@ import time
 import trio
 import trio.testing
 
-YEAR = 365 * 24 * 60 * 60
+YEAR = 365 * 24 * 60 * 60  # seconds
 
 async def task1():
     start = trio.current_time()

@@ -19,8 +19,9 @@ Test harness integration
 Time and timeouts
 -----------------
 
-:class:`trio.testing.MockClock` has a few tricks up its sleeve to help
-you efficiently test code involving timeouts:
+:class:`trio.testing.MockClock` is a :class:`~trio.abc.Clock` with a
+few tricks up its sleeve to help you efficiently test code involving
+timeouts:
 
 * By default, it starts at time 0, and clock time only advances when
   you explicitly call :meth:`~MockClock.jump`. This provides an
@@ -37,14 +38,14 @@ you efficiently test code involving timeouts:
   then it will watch the execution of the run loop, and any time
   things have settled down and everyone's waiting for a timeout, it
   jumps the clock forward to that timeout. In many cases this allows
-  natural-looking code with timeouts to be automatically run many
-  times faster with no changes. (Thanks to `fluxcapacitor
+  natural-looking code involving timeouts to be automatically run at
+  near full CPU utilization with no changes. (Thanks to `fluxcapacitor
   <https://github.com/majek/fluxcapacitor>`__ for this awesome idea.)
 
 * And of course these can be mixed and matched at will.
 
-Of course from "inside" trio, throughout all these shenanigans, time still
-seems to pass normally, so long as you restrict yourself to trio's time
+Regardless of these shenanignas, from "inside" trio time still seems
+to pass normally, so long as you restrict yourself to trio's time
 functions (see :ref:`time-and-clocks`). Here's an example
 demonstrating two different ways of making time pass quickly. Notice
 how in both cases, the two tasks keep a consistent view of reality and
