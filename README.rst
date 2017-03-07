@@ -144,11 +144,45 @@ nothing to see here
    - SSL
 
 
+   Some features:
+   - Aspires to production-quality
+   - Full support for Windows, Linux, MacOS
+   - Full support for both CPython 3.5+ and for PyPy 3.5 pre-releases
+   - Flow control is fully async/await-native and easy to reason about
+     -- no callbacks, no futures, no implicit concurrency
+   - Powerful and composable framework for handling cancellation and
+     timeouts
+   - Strong user-centered guarantees around cancel and schedule points
+     make it easier to manage and reason about cooperative concurrency.
+   - Erlang-influenced interface for task spawning provides a
+     structured system for managing child tasks. If user code raises
+     an exception then it's always propagated until handled, never
+     logged-and-discarded.
+   - First-class support for introspection and debugging
+   - Powerful built-in testing helpers. Example: you can speed up
+     tests that involve timeouts by using a clock that automatically
+     skips over boring periods:
+     https://trio.readthedocs.io/en/latest/reference-testing.html#time-and-timeouts
+     - As a demonstration of the power of good testing tools, trio's
+       own test suite achieves XX% coverage and runs in ~5 seconds in
+       "slow" mode (~2 seconds in default mode).
+   - Interrupting programs with control-C magically just works.
+   - A low-level "hazmat" API for when you need to go under the
+     hood. To make sure it's powerful enough, Trio's main
+     synchronization, networking, and threading APIs are implemented
+     using only public interfaces.
+   - Tutorial doesn't assume any familiarity with async/await
+   - Exposes a whole laundry list of Python limitations
+   - Lots of missing pieces that you can help fill in! :-)
+
+
    next:
    - set default role and get rid of all this :func: things
 
    - @_testing for stuff that needs tighter integration? kinda weird
      that wait_all_tasks_blocked is in hazmat right now
+
+     and assert_yields stuff might make more sense in core
 
    - test helpers to explore all cancellation points?
 
@@ -185,6 +219,28 @@ nothing to see here
      are blocked through stack inspection, then maybe we can re-use
      that? like if there's a magic local pointing to the frame, we can
      use that frame's 'self'?
+
+   - add an argument to sendall that says whether this send was done
+     ASAP gated off writability? so we can autotune the
+     TCP_NOTSENT_LOWAT buffer size? idea being that if the buffer was
+     empty for a write-limited send then our buffer is too small, but
+     if it's empty in other cases then that doesn't mean anything.
+
+     meh. probably better to leave this for apps I guess.
+
+     even echo server loop::
+
+        while True:
+            await sock.wait_send_buffer_available()
+            data = await sock.recv(BUFSIZE)
+            if not data:
+                break
+            await sock.sendall(data)
+
+     ...we don't actually know whether the send was write-limited
+     b/c it depends on whether recv blocked.
+
+   - wait_send_buffer_available()
 
    - blog post: a simple two-way proxy in both curio and trio
      (intentionally similar to the big blog post example)
