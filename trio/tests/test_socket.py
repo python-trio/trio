@@ -382,8 +382,11 @@ async def test_SocketType_resolve():
         # A family where we know nothing about the addresses, so should just
         # pass them through. Linux and Windows both seem to support AF_IRDA
         # well enough for this test to work.
-        if hasattr(tsocket, "AF_IRDA"):
+        try:
             irda_sock = tsocket.socket(family=tsocket.AF_IRDA)
+        except AttributeError, OSError:
+            pass
+        else:
             assert await getattr(irda_sock, res)("asdf") == "asdf"
 
         with pytest.raises(ValueError):
