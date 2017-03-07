@@ -17,10 +17,6 @@ library :mod:`socket` module. Most constants (like ``SOL_SOCKET``) and
 simple utilities (like :func:`~socket.inet_aton`) are simply
 re-exported unchanged. But there are also some differences:
 
-The following functions have similar interfaces to their standard
-library version, but are modified to return trio socket objects
-instead of stdlib socket objects:
-
 All functions that return sockets (e.g. :func:`socket.socket`,
 :func:`socket.socketpair`, ...) are modified to return trio sockets
 instead. In addition, there is a new function to directly convert a
@@ -35,7 +31,6 @@ library version, but are now ``async`` functions, so you need to use
 * :func:`~socket.getaddrinfo`
 * :func:`~socket.getnameinfo`
 * :func:`~socket.getfqdn`
-* :func:`~socket.create_connection`
 
 We intentionally DO NOT include some obsolete, redundant, or broken
 features:
