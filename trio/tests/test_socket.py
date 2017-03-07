@@ -589,15 +589,20 @@ async def test_send_recv_variants():
         assert addr == a.getsockname()
 
         # sendto + flags
-        # (I can't find any flags that send() accepts... on Linux at least
+        #
+        # I can't find any flags that send() accepts... on Linux at least
         # passing MSG_MORE to send on a connected UDP socket seems to just be
-        # ignored)
-        assert await a.sendto(b"xxx", tsocket.MSG_MORE, b.getsockname()) == 3
-        assert await a.sendto(b"yyy", tsocket.MSG_MORE, b.getsockname()) == 3
-        assert await a.sendto(b"zzz", b.getsockname()) == 3
-        (data, addr) = await b.recvfrom(10)
-        assert data == b"xxxyyyzzz"
-        assert addr == a.getsockname()
+        # ignored.
+        #
+        # But there's no MSG_MORE on Windows or MacOS. I guess send flags are
+        # really not very useful, but at least this tests them a bit.
+        if hasattr(tsocket, "MSG_MORE"):
+            await a.sendto(b"xxx", tsocket.MSG_MORE, b.getsockname())
+            await a.sendto(b"yyy", tsocket.MSG_MORE, b.getsockname())
+            await a.sendto(b"zzz", b.getsockname())
+            (data, addr) = await b.recvfrom(10)
+            assert data == b"xxxyyyzzz"
+            assert addr == a.getsockname()
 
         # recvfrom_into
         assert await a.sendto(b"xxx", b.getsockname()) == 3
