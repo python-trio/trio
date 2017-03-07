@@ -6,7 +6,7 @@ import inspect
 
 from .. import _core
 from .. import socket as tsocket
-from ..testing import assert_yields
+from ..testing import assert_yields, wait_all_tasks_blocked
 
 ################################################################
 # utils
@@ -178,6 +178,14 @@ async def test_from_stdlib_socket():
         await ta.send(b"xxx")
         assert sb.recv(3) == b"xxx"
 
+    # rejects other types
+    with pytest.raises(TypeError):
+        tsocket.from_stdlib_socket(1)
+    class MySocket(stdlib_socket.socket):
+        pass
+    mysock = MySocket()
+    with pytest.raises(TypeError):
+        tsocket.from_stdlib_socket(mysock)
 
 async def test_from_fd():
     sa, sb = stdlib_socket.socketpair()
@@ -233,3 +241,258 @@ async def test_socket():
 ################################################################
 # SocketType
 ################################################################
+
+async def test_SocketType_basics():
+    sock = tsocket.socket()
+    with sock as cm_enter_value:
+        assert cm_enter_value is sock
+        assert isinstance(sock.fileno(), int)
+        assert not sock.get_inheritable()
+        sock.set_inheritable(True)
+        assert sock.get_inheritable()
+
+        sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, False)
+        assert not sock.getsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY)
+        sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, True)
+        assert sock.getsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY)
+    # closed sockets have fileno() == -1
+    assert sock.fileno() == -1
+
+    # smoke test
+    repr(sock)
+
+    # detach
+    with tsocket.socket() as sock:
+        fd = sock.fileno()
+        assert sock.detach() == fd
+        assert sock.fileno() == -1
+
+    # close
+    sock = tsocket.socket()
+    assert sock.fileno() >= 0
+    sock.close()
+    assert sock.fileno() == -1
+
+    # share was tested above together with fromshare
+
+    # check __dir__
+    assert "family" in dir(sock)
+    assert "send" in dir(sock)
+    assert "setsockopt" in dir(sock)
+
+    # our __getattr__ handles unknown names
+    with pytest.raises(AttributeError):
+        sock.asdf
+
+    # type family proto
+    stdlib_sock = stdlib_socket.socket()
+    sock = tsocket.from_stdlib_socket(stdlib_sock)
+    assert sock.type == stdlib_sock.type
+    assert sock.family == stdlib_sock.family
+    assert sock.proto == stdlib_sock.proto
+    sock.close()
+
+
+async def test_SocketType_dup():
+    a, b = tsocket.socketpair()
+    with a, b:
+        a2 = a.dup()
+        with a2:
+            assert isinstance(a2, tsocket.SocketType)
+            assert a2.fileno() != a.fileno()
+            a.close()
+            await a2.sendall(b"xxx")
+            assert await b.recv(3) == b"xxx"
+
+
+async def test_SocketType_shutdown():
+    a, b = tsocket.socketpair()
+    with a, b:
+        await a.sendall(b"xxx")
+        assert await b.recv(3) == b"xxx"
+        a.shutdown(tsocket.SHUT_WR)
+        assert await b.recv(3) == b""
+        await b.sendall(b"yyy")
+        assert await a.recv(3) == b"yyy"
+
+
+async def test_SocketType_simple_server():
+    # listen, bind, accept, connect, getpeername, getsockname
+    with tsocket.socket() as listener, tsocket.socket() as client:
+        listener.bind(("127.0.0.1", 0))
+        listener.listen(20)
+        addr = listener.getsockname()
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(client.connect, addr)
+            accept_task = nursery.spawn(listener.accept)
+        server, client_addr = accept_task.result.unwrap()
+        with server:
+            assert client_addr == server.getpeername() == client.getsockname()
+            await server.send(b"xxx")
+            assert await client.recv(3) == b"xxx"
+
+
+async def test_SocketType_resolve():
+    sock4 = tsocket.socket(family=tsocket.AF_INET)
+    with assert_yields():
+        assert await sock4.resolve_local_address((None, 80)) == ("0.0.0.0", 80)
+    with assert_yields():
+        assert (await sock4.resolve_remote_address((None, 80))
+                == ("127.0.0.1", 80))
+
+    sock6 = tsocket.socket(family=tsocket.AF_INET6)
+    with assert_yields():
+        assert (await sock6.resolve_local_address((None, 80))
+                == ("::", 80, 0, 0))
+    with assert_yields():
+        assert (await sock6.resolve_remote_address((None, 80))
+                == ("::1", 80, 0, 0))
+
+    # AI_PASSIVE only affects the wildcard address, so for everything else
+    # resolve_local_address and resolve_remote_address should work the same:
+    for res in ["resolve_local_address", "resolve_remote_address"]:
+        async def s4res(*args):
+            with assert_yields():
+                return await getattr(sock4, res)(*args)
+        async def s6res(*args):
+            with assert_yields():
+                return await getattr(sock6, res)(*args)
+
+        assert await s4res(("1.2.3.4", "http")) == ("1.2.3.4", 80)
+        assert await s6res(("1::2", "http")) == ("1::2", 80, 0, 0)
+
+        assert await s6res(("1::2", 80, 1)) == ("1::2", 80, 1, 0)
+        assert await s6res(("1::2", 80, 1, 2)) == ("1::2", 80, 1, 2)
+
+        # V4 mapped addresses resolved if V6ONLY if False
+        sock6.setsockopt(tsocket.IPPROTO_IPV6, tsocket.IPV6_V6ONLY, False)
+        assert await s6res(("1.2.3.4", "http")) == ("::ffff:1.2.3.4", 80, 0, 0)
+
+        # But not if it's true
+        sock6.setsockopt(tsocket.IPPROTO_IPV6, tsocket.IPV6_V6ONLY, True)
+        with pytest.raises(tsocket.gaierror) as excinfo:
+            await s6res(("1.2.3.4", 80))
+        assert excinfo.value.errno in {
+            # Linux
+            tsocket.EAI_ADDRFAMILY,
+            # MacOS, Windows
+            tsocket.EAI_NONAME,
+        }
+
+        # A family where we know nothing about the addresses, so should just
+        # pass them through. Linux and Windows both seem to support AF_IRDA
+        # well enough for this test to work.
+        if hasattr(tsocket, "AF_IRDA"):
+            irda_sock = tsocket.socket(family=tsocket.AF_IRDA)
+            assert await getattr(irda_sock, res)("asdf") == "asdf"
+
+        with pytest.raises(ValueError):
+            print("hi")
+            await s4res("1.2.3.4")
+        with pytest.raises(ValueError):
+            await s4res(("1.2.3.4",))
+        with pytest.raises(ValueError):
+            await s4res(("1.2.3.4", 80, 0, 0))
+        with pytest.raises(ValueError):
+            await s6res("1.2.3.4")
+        with pytest.raises(ValueError):
+            await s6res(("1.2.3.4",))
+        with pytest.raises(ValueError):
+            await s6res(("1.2.3.4", 80, 0, 0, 0))
+
+
+async def test_SocketType_requires_preresolved(monkeypatch):
+    sock = tsocket.socket()
+    with pytest.raises(ValueError):
+        sock.bind(("localhost", 0))
+
+    # I don't think it's possible to actually get a gaierror from the way we
+    # call getaddrinfo in _check_address, but just in case someone finds a
+    # way, check that it propagates correctly
+    def gai_oops(*args, **kwargs):
+        raise tsocket.gaierror("nope!")
+    monkeypatch.setattr(stdlib_socket, "getaddrinfo", gai_oops)
+    with pytest.raises(tsocket.gaierror):
+        sock.bind(("localhost", 0))
+
+
+async def test_SocketType_non_blocking_paths():
+    a, b = stdlib_socket.socketpair()
+    with a, b:
+        ta = tsocket.from_stdlib_socket(a)
+        b.setblocking(False)
+
+        # cancel before even calling
+        b.send(b"1")
+        with _core.open_cancel_scope() as cscope:
+            cscope.cancel()
+            with assert_yields():
+                with pytest.raises(_core.Cancelled):
+                    await ta.recv(10)
+        # immedate success (also checks that the previous attempt didn't
+        # actually read anything)
+        with assert_yields():
+            await ta.recv(10) == b"1"
+        # immediate failure
+        with assert_yields():
+            with pytest.raises(TypeError):
+                await ta.recv("haha")
+        # block then succeed
+        async def do_successful_blocking_recv():
+            with assert_yields():
+                assert await ta.recv(10) == b"2"
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(do_successful_blocking_recv)
+            await wait_all_tasks_blocked()
+            b.send(b"2")
+        # block then cancelled
+        async def do_cancelled_blocking_recv():
+            with assert_yields():
+                with pytest.raises(_core.Cancelled):
+                    await ta.recv(10)
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(do_cancelled_blocking_recv)
+            await wait_all_tasks_blocked()
+            nursery.cancel_scope.cancel()
+        # Okay, here's the trickiest one: we want to exercise the path where
+        # the task is signaled to wake, goes to recv, but then the recv fails,
+        # so it has to go back to sleep and try again. Strategy: have two
+        # tasks waiting on two sockets (to work around the rule against having
+        # two tasks waiting on the same socket), wake them both up at the same
+        # time, and whichever one runs first "steals" the data from the
+        # other:
+        tb = tsocket.from_stdlib_socket(b)
+        async def t1():
+            with assert_yields():
+                assert await ta.recv(1) == b"a"
+            with assert_yields():
+                assert await tb.recv(1) == b"b"
+        async def t2():
+            with assert_yields():
+                assert await tb.recv(1) == b"b"
+            with assert_yields():
+                assert await ta.recv(1) == b"a"
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(t1)
+            nursery.spawn(t2)
+            await wait_all_tasks_blocked()
+            a.send(b"b")
+            b.send(b"a")
+            await wait_all_tasks_blocked()
+            a.send(b"b")
+            b.send(b"a")
+
+# connect cancelled, interrupted -- probably requires monkeypatching
+# socket.socket.connect
+# - invalid arguments
+# - cancelled before we start
+# - raises InterruptedError 3 times then switches to actually working
+# - connect() cancels and then issues the real connect
+# - delayed error: connect to unused port on localhost
+#   (I guess bind a socket but don't call listen, to get an unused port)
+
+# recv recv_into recvfrom recvfrom_into recvmsg recvmsg_into
+# send sendto sendmsg
+# sendall
+
+# create_connection

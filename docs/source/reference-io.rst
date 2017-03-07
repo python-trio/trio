@@ -66,13 +66,19 @@ Socket objects
 
    Trio socket objects are overall very similar to the :ref:`standard
    library socket objects <python:socket-objects>`, with a few
-   differences:
+   important differences:
 
    **Async all the things:** Most obviously, everything is made
-   "trio-style": blocking methods are now async, there is no
-   ``setblocking`` (if you need to multiplex across different sockets
-   then you should spawn multiple tasks), and the timeout methods are
-   removed in favor of trio's generic timeout features.
+   "trio-style": blocking methods become async methods, and the
+   following attributes are *not* supported:
+
+   * :meth:`~socket.socket.setblocking`: trio sockets always act like
+     blocking sockets; if you need to read/write from multiple sockets
+     at once, then create multiple tasks.
+   * :meth:`~socket.socket.settimeout`: see :ref:`cancellation` instead.
+   * :meth:`~socket.socket.makefile`: Python's file-like API is
+     synchronous, so it can't be implemented on top of an async
+     socket.
 
    **No implicit name resolution:** In the standard library
    :mod:`socket` API, there are number of methods that take network
@@ -92,12 +98,16 @@ Socket objects
 
    This is problematic because DNS lookups are a blocking operation.
 
-   :meth:`resolve_local_address` and :meth:`resolve_remote_address`
+   For simplicity, trio forbids such usages: hostnames must be
+   "pre-resolved" to numeric addresses before they are passed to
+   socket methods like :meth:`bind` or :meth:`connect`. In most cases
+   this can be easily accomplished by calling either
+   :meth:`resolve_local_address` or :meth:`resolve_remote_address`.
 
-   **Modern defaults:** And finally, we took the opportunity of making
-   a new API with minimal backwards-compatibility concerns to update
-   several defaults. You can always use :meth:`setsockopt` to change
-   these back, but for trio sockets by default:
+   **Modern defaults:** And finally, we took the opportunity to update
+   the defaults for several socket options that were stuck in the
+   1980s. You can always use :meth:`setsockopt` to change these back,
+   but for trio sockets:
 
    1. Everywhere except Windows, ``SO_REUSEADDR`` is enabled by
       default. This is almost always what you want, but if you're in
@@ -140,10 +150,15 @@ Socket objects
       MacOS), ``TCP_NOTSENT_LOWAT`` is enabled with a reasonable
       buffer size (currently 16 KiB).
 
+   See `issue #72 <https://github.com/njsmith/trio/issues/72>`__ for
+   discussion of these defaults.
+
    .. automethod:: resolve_local_address
    .. automethod:: resolve_remote_address
 
    .. method:: connect
+
+   .. method:: bind
 
    .. method:: send
 
@@ -152,11 +167,19 @@ Socket objects
    .. method:: setsockopt
    .. method:: getsockopt
 
+   .. method:: sendfile
+
+      `Not implemented yet! <https://github.com/njsmith/trio/issues/45>`__
+
+   All methods and attributes *not* mentioned above are identical to
+   their equivalents in :func:`socket.socket`.
+
 
 The abstract Stream API
 -----------------------
 
-(this is currently more of a sketch than something actually useful)
+(this is currently more of a sketch than something actually useful,
+`see issue #73 <https://github.com/njsmith/trio/issues/73>`__)
 
 .. currentmodule:: trio
 

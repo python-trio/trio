@@ -104,17 +104,10 @@ async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
             host, port, family, type, proto, flags | _NUMERIC_ONLY)
     # That failed, try a thread instead
     return await _run_in_worker_thread(
-        _stdlib_socket.getaddrinfo, host, port, type, proto, flags,
+        _stdlib_socket.getaddrinfo, host, port, family, type, proto, flags,
         cancellable=True)
 
 __all__.append("getaddrinfo")
-
-@_wraps(_stdlib_socket.getfqdn, assigned=("__name__", "__doc__"))
-async def getfqdn(*args, **kwargs):
-    return await _run_in_worker_thread(
-        _partial(_stdlib_socket.getfqdn, *args, **kwargs),
-        cancellable=True)
-__all__.append("getfqdn")
 
 def _worker_thread_reexport(name):
     fn = getattr(_stdlib_socket, name)
@@ -128,7 +121,6 @@ def _worker_thread_reexport(name):
     __all__.append(name)
 
 _worker_thread_reexport("getfqdn")
-
 _worker_thread_reexport("getnameinfo")
 
 # obsolete gethostbyname etc. intentionally omitted
@@ -194,10 +186,23 @@ class SocketType:
                 .format(type(sock).__name__))
         self._sock = sock
         self._sock.setblocking(False)
+
+        # Defaults:
+        if self._sock.family == AF_INET6:
+            self.setsockopt(IPPROTO_IPV6, IPV6_V6ONLY, False)
+
+        # See https://github.com/njsmith/trio/issues/39
+        if _sys.platform == "win32":
+            self.setsockopt(SOL_SOCKET, _stdlib_socket.SO_REUSEADDR, False)
+            self.setsockopt(SOL_SOCKET, SO_EXCLUSIVEADDRUSE, True)
+        else:
+            self.setsockopt(SOL_SOCKET, SO_REUSEADDR, True)
+
         try:
             self.setsockopt(IPPROTO_TCP, TCP_NODELAY, True)
         except OSError:
             pass
+
         try:
             # 16 KiB is pretty arbitrary and could probably do with some
             # tuning. (Apple is also setting this by default in CFNetwork
@@ -211,14 +216,6 @@ class SocketType:
             self.setsockopt(IPPROTO_TCP, TCP_NOTSENT_LOWAT, 2 ** 14)
         except (NameError, OSError):
             pass
-        if self._sock.family == AF_INET6:
-            self.setsockopt(IPPROTO_IPV6, IPV6_V6ONLY, False)
-        # See https://github.com/njsmith/trio/issues/39
-        if _sys.platform == "win32":
-            self.setsockopt(SOL_SOCKET, _stdlib_socket.SO_REUSEADDR, False)
-            self.setsockopt(SOL_SOCKET, SO_EXCLUSIVEADDRUSE, True)
-        else:
-            self.setsockopt(SOL_SOCKET, SO_REUSEADDR, True)
 
     ################################################################
     # Simple + portable methods and attributes
@@ -322,9 +319,14 @@ class SocketType:
     # the same representation, but with names resolved to numbers,
     # etc.
     async def _resolve_address(self, address, flags):
-        self._check_address(address, require_resolved=False)
+        await _core.yield_if_cancelled()
+        try:
+            self._check_address(address, require_resolved=False)
+        except:
+            await _core.yield_briefly_no_cancel()
+            raise
         if self._sock.family not in (AF_INET, AF_INET6):
-            await _core.yield_briefly()
+            await _core.yield_briefly_no_cancel()
             return address
         flags |= AI_ADDRCONFIG
         if self._sock.family == AF_INET6:
@@ -332,10 +334,15 @@ class SocketType:
                 flags |= AI_V4MAPPED
         gai_res = await getaddrinfo(
             address[0], address[1],
-            self._sock.family, self._sock.type, self._sock.proto, flags)
-        if not gai_res:
-            raise OSError("getaddrinfo returned an empty list")
-        normed, *_ = gai_res
+            self._sock.family,
+            self._sock.type & _SOCK_TYPE_MASK,
+            self._sock.proto,
+            flags)
+        # AFAICT from the spec it's not possible for getaddrinfo to return an
+        # empty list.
+        assert len(gai_res) >= 1
+        # Address is the last item in the first entry
+        (*_, normed), *_ = gai_res
         # The above ignored any flowid and scopeid in the passed-in address,
         # so restore them if present:
         if self._sock.family == AF_INET6:
@@ -347,7 +354,7 @@ class SocketType:
                 normed[3] = address[3]
             normed = tuple(normed)
         # Should never fail:
-        self._check_address(address, require_resolved=True)
+        self._check_address(normed, require_resolved=True)
         return normed
 
     # Returns something appropriate to pass to bind()
@@ -380,17 +387,8 @@ class SocketType:
         #
         # XX think if this can be combined with the similar logic for IOCP
         # submission...
-        await _core.yield_if_cancelled()
-        try:
-            ret = fn(self._sock, *args, **kwargs)
-        except BlockingIOError:
-            pass
-        except:
-            await _core.yield_briefly_no_cancel()
-            raise
-        else:
-            await _core.yield_briefly_no_cancel()
-            return ret
+        async with _try_sync():
+            return fn(self._sock, *args, **kwargs)
         # First attempt raised BlockingIOError:
         while True:
             await wait_fn(self._sock)
@@ -431,8 +429,7 @@ class SocketType:
         # nonblocking connect is weird -- you call it to start things
         # off, then the socket becomes writable as a completion
         # notification. This means it isn't really cancellable...
-        await _core.yield_if_cancelled()
-        try:
+        async with _try_sync():
             # For some reason, PEP 475 left InterruptedError as a
             # possible error for non-blocking connect
             # (specifically). But as far as I know, EINTR always means
@@ -443,17 +440,9 @@ class SocketType:
             # it'd have used EINPROGRESS. So we retry:
             while True:
                 try:
-                    ret = self._sock.connect(address)
+                    return self._sock.connect(address)
                 except InterruptedError:
                     pass
-        except BlockingIOError:
-            pass
-        except:
-            await _core.yield_briefly_no_cancel()
-            raise
-        else:
-            await _core.yield_briefly_no_cancel()
-            return ret
         # It raised BlockingIOError, meaning that it's started the
         # connection attempt. We wait for it to complete:
         try:

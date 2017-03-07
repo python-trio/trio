@@ -55,8 +55,9 @@ class MockClock(Clock):
     .. attribute:: rate
 
        How many seconds of clock time pass per second of real time. Default is
-       0.0, i.e. the clock only advances through manuals calls to
-       :meth:`jump`. You can assign to this attribute to change it.
+       0.0, i.e. the clock only advances through manuals calls to :meth:`jump`
+       or when the :attr:`autojump_threshold` is triggered. You can assign to
+       this attribute to change it.
 
     .. attribute:: autojump_threshold
 
