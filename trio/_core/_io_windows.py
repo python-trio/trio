@@ -213,13 +213,13 @@ class WindowsIOManager:
         def do_select():
             r_waiting = self._socket_waiters["read"]
             w_waiting = self._socket_waiters["write"]
-            r1, w, r2 = select(r_waiting, w_waiting, r_waiting, timeout)
-            return set(r1 + r2), w
+            # We select for exceptional conditions on the writable set because
+            # on Windows, a failed non-blocking connect shows up as
+            # "exceptional". Everyone else uses "writable" for this, so we
+            # normalize it.
+            r, w1, w2 = select(r_waiting, w_waiting, w_waiting, timeout)
+            return r, set(w1 + w2)
 
-        # We select for exceptional conditions on the readable set because on
-        # Windows, a failed non-blocking connect shows up as
-        # "exceptional". Everyone else uses "readable" for this, so we
-        # normalize it.
         try:
             r, w = do_select()
         except OSError:

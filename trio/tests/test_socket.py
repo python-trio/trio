@@ -390,7 +390,6 @@ async def test_SocketType_resolve():
             assert await getattr(irda_sock, res)("asdf") == "asdf"
 
         with pytest.raises(ValueError):
-            print("hi")
             await s4res("1.2.3.4")
         with pytest.raises(ValueError):
             await s4res(("1.2.3.4",))
@@ -419,6 +418,8 @@ async def test_SocketType_requires_preresolved(monkeypatch):
         sock.bind(("localhost", 0))
 
 
+# This tests all the complicated paths through _nonblocking_helper, using recv
+# as a stand-in for all the methods that use _nonblocking_helper.
 async def test_SocketType_non_blocking_paths():
     a, b = stdlib_socket.socketpair()
     with a, b:
@@ -485,17 +486,187 @@ async def test_SocketType_non_blocking_paths():
             a.send(b"b")
             b.send(b"a")
 
-# connect cancelled, interrupted -- probably requires monkeypatching
-# socket.socket.connect
-# - invalid arguments
-# - cancelled before we start
-# - raises InterruptedError 3 times then switches to actually working
-# - connect() cancels and then issues the real connect
-# - delayed error: connect to unused port on localhost
-#   (I guess bind a socket but don't call listen, to get an unused port)
 
-# recv recv_into recvfrom recvfrom_into recvmsg recvmsg_into
-# send sendto sendmsg
-# sendall
+# This tests the complicated paths through connect
+async def test_SocketType_connect_paths():
+    with tsocket.socket() as sock:
+        with assert_yields():
+            with pytest.raises(ValueError):
+                # Should be a tuple
+                await sock.connect("localhost")
 
-# create_connection
+    # cancelled before we start
+    with tsocket.socket() as sock:
+        with assert_yields():
+            with _core.open_cancel_scope() as cancel_scope:
+                cancel_scope.cancel()
+                with pytest.raises(_core.Cancelled):
+                    await sock.connect(("127.0.0.1", 80))
+
+    # Handling InterruptedError
+    class InterruptySocket(stdlib_socket.socket):
+        def connect(self, *args, **kwargs):
+            if not hasattr(self, "_connect_count"):
+                self._connect_count = 0
+            self._connect_count += 1
+            if self._connect_count < 3:
+                raise InterruptedError
+            else:
+                return super().connect(*args, **kwargs)
+    with tsocket.socket() as sock, tsocket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        listener.listen()
+        # Swap in our weird subclass under the trio.socket.SocketType's nose
+        sock._sock.close()
+        sock._sock = InterruptySocket()
+        with assert_yields():
+            await sock.connect(listener.getsockname())
+        assert sock.getpeername() == listener.getsockname()
+
+    # Cancelled in between the connect() call and the connect completing
+    with _core.open_cancel_scope() as cancel_scope:
+        with tsocket.socket() as sock, tsocket.socket() as listener:
+            listener.bind(("127.0.0.1", 0))
+            listener.listen()
+            # Swap in our weird subclass under the trio.socket.SocketType's
+            # nose -- and then swap it back out again before we hit
+            # wait_socket_writable, which insists on a real socket.
+            class CancelSocket(stdlib_socket.socket):
+                def connect(self, *args, **kwargs):
+                    cancel_scope.cancel()
+                    sock._sock = stdlib_socket.fromfd(
+                        self.detach(), self.family, self.type)
+                    sock._sock.connect(*args, **kwargs)
+                    # If connect *doesn't* raise, then pretend it did
+                    raise BlockingIOError  # pragma: no cover
+            sock._sock.close()
+            sock._sock = CancelSocket()
+
+            with assert_yields():
+                with pytest.raises(_core.Cancelled):
+                    await sock.connect(listener.getsockname())
+            assert sock.fileno() == -1
+
+    # Failed connect (hopefully after raising BlockingIOError)
+    with tsocket.socket() as sock, tsocket.socket() as non_listener:
+        # Claim an unused port
+        non_listener.bind(("127.0.0.1", 0))
+        # ...but don't call listen, so we're guaranteed that connect attempts
+        # to it will fail.
+        with assert_yields():
+            with pytest.raises(OSError):
+                await sock.connect(non_listener.getsockname())
+
+
+async def test_send_recv_variants():
+    a, b = tsocket.socketpair()
+    with a, b:
+        # recv, including with flags
+        assert await a.send(b"xxx") == 3
+        assert await b.recv(10, tsocket.MSG_PEEK) == b"xxx"
+        assert await b.recv(10) == b"xxx"
+
+        # recv_into
+        assert await a.send(b"xxx") == 3
+        buf = bytearray(10)
+        await b.recv_into(buf)
+        assert buf == b"xxx" + b"\x00" * 7
+
+    a = tsocket.socket(type=tsocket.SOCK_DGRAM)
+    b = tsocket.socket(type=tsocket.SOCK_DGRAM)
+    with a, b:
+        a.bind(("127.0.0.1", 0))
+        b.bind(("127.0.0.1", 0))
+        # recvfrom
+        assert await a.sendto(b"xxx", b.getsockname()) == 3
+        (data, addr) = await b.recvfrom(10)
+        assert data == b"xxx"
+        assert addr == a.getsockname()
+
+        # recvfrom_into
+        assert await a.sendto(b"xxx", b.getsockname()) == 3
+        buf = bytearray(10)
+        (nbytes, addr) = await b.recvfrom_into(buf)
+        assert nbytes == 3
+        assert buf == b"xxx" + b"\x00" * 7
+        assert addr == a.getsockname()
+
+        if hasattr(b, "recvmsg"):
+            assert await a.sendto(b"xxx", b.getsockname()) == 3
+            (data, ancdata, msg_flags, addr) = await b.recvmsg(10)
+            assert data == b"xxx"
+            assert ancdata == []
+            assert msg_flags == 0
+            assert addr == a.getsockname()
+
+        if hasattr(b, "recvmsg_into"):
+            assert await a.sendto(b"xyzw", b.getsockname()) == 4
+            buf1 = bytearray(2)
+            buf2 = bytearray(3)
+            ret = await b.recvmsg_into([buf1, buf2])
+            (nbytes, ancdata, msg_flags, addr) = ret
+            assert nbytes == 4
+            assert buf1 == b"xy"
+            assert buf2 == b"zw" + b"\x00"
+            assert ancdata == []
+            assert msg_flags == 0
+            assert addr == a.getsockname()
+
+        if hasattr(b, "sendmsg"):
+            assert await a.sendmsg([b"x", b"yz"], [], 0, b.getsockname()) == 3
+            assert await b.recvfrom(10) == (b"xyz", a.getsockname())
+
+
+async def test_SocketType_sendall():
+    BIG = 10000000
+
+    a, b = tsocket.socketpair()
+    with a, b:
+        # Check a sendall that has to be split into multiple parts (on most
+        # platforms... on Windows every send() either succeeds or fails as a
+        # whole)
+        async with _core.open_nursery() as nursery:
+            send_task = nursery.spawn(a.sendall, b"x" * BIG)
+            await wait_all_tasks_blocked()
+            nbytes = 0
+            while nbytes < BIG:
+                nbytes += len(await b.recv(BIG))
+            assert send_task.result is not None
+            assert nbytes == BIG
+            with pytest.raises(BlockingIOError):
+                b._sock.recv(1)
+
+    a, b = tsocket.socketpair()
+    with a, b:
+        # Cancel half-way through
+        async with _core.open_nursery() as nursery:
+            sent_complete = 0
+            async def sendall_until_cancelled():
+                nonlocal sent_complete
+                # Need to loop to make sure that we actually do block on
+                # Windows
+                while True:
+                    await a.sendall(b"x" * BIG)
+                    sent_complete += BIG
+            send_task = nursery.spawn(sendall_until_cancelled)
+            await wait_all_tasks_blocked()
+            nursery.cancel_scope.cancel()
+        assert type(send_task.result) is _core.Error
+        assert isinstance(send_task.result.error, _core.Cancelled)
+        sent_partial = send_task.result.error.partial_result.bytes_sent
+        a.close()
+        sent_total = 0
+        while True:
+            got = len(await b.recv(BIG))
+            if not got:
+                break
+            sent_total += got
+        assert sent_complete + sent_partial == sent_total
+
+    a, b = tsocket.socketpair()
+    with a, b:
+        # A different error
+        a.close()
+        with pytest.raises(OSError) as excinfo:
+            await a.sendall(b"x")
+        assert excinfo.value.partial_result.bytes_sent == 0

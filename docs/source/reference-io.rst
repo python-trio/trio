@@ -21,13 +21,10 @@ The following functions have similar interfaces to their standard
 library version, but are modified to return trio socket objects
 instead of stdlib socket objects:
 
-* :func:`~socket.socket`
-* :func:`~socket.socketpair`
-* :func:`~socket.fromfd`
-* :func:`~socket.fromshare`
-
-In addition, there is a new function to directly convert a standard
-library socket into a trio socket:
+All functions that return sockets (e.g. :func:`socket.socket`,
+:func:`socket.socketpair`, ...) are modified to return trio sockets
+instead. In addition, there is a new function to directly convert a
+standard library socket into a trio socket:
 
 .. autofunction:: from_stdlib_socket
 
@@ -38,6 +35,7 @@ library version, but are now ``async`` functions, so you need to use
 * :func:`~socket.getaddrinfo`
 * :func:`~socket.getnameinfo`
 * :func:`~socket.getfqdn`
+* :func:`~socket.create_connection`
 
 We intentionally DO NOT include some obsolete, redundant, or broken
 features:
@@ -104,10 +102,14 @@ Socket objects
    this can be easily accomplished by calling either
    :meth:`resolve_local_address` or :meth:`resolve_remote_address`.
 
+   .. automethod:: resolve_local_address
+
+   .. automethod:: resolve_remote_address
+
    **Modern defaults:** And finally, we took the opportunity to update
    the defaults for several socket options that were stuck in the
-   1980s. You can always use :meth:`setsockopt` to change these back,
-   but for trio sockets:
+   1980s. You can always use :meth:`~socket.socket.setsockopt` to
+   change these back, but for trio sockets:
 
    1. Everywhere except Windows, ``SO_REUSEADDR`` is enabled by
       default. This is almost always what you want, but if you're in
@@ -153,26 +155,53 @@ Socket objects
    See `issue #72 <https://github.com/njsmith/trio/issues/72>`__ for
    discussion of these defaults.
 
-   .. automethod:: resolve_local_address
-   .. automethod:: resolve_remote_address
+   The following methods are similar, but not identical, to the
+   equivalents in :func:`socket.socket`:
 
-   .. method:: connect
+   .. automethod:: bind
 
-   .. method:: bind
+   .. automethod:: connect
 
-   .. method:: send
-
-   .. method:: recv
-
-   .. method:: setsockopt
-   .. method:: getsockopt
+   .. automethod:: sendall
 
    .. method:: sendfile
 
       `Not implemented yet! <https://github.com/njsmith/trio/issues/45>`__
 
+   The following methods are identical to their equivalents in
+   :func:`socket.socket`, except async, and the ones that take address
+   arguments require pre-resolved addresses:
+
+   * :meth:`~socket.socket.accept`
+   * :meth:`~socket.socket.recv`
+   * :meth:`~socket.socket.recv_into`
+   * :meth:`~socket.socket.recvfrom`
+   * :meth:`~socket.socket.recvfrom_into`
+   * :meth:`~socket.socket.recvmsg` (if available)
+   * :meth:`~socket.socket.recvmsg_into` (if available)
+   * :meth:`~socket.socket.send`
+   * :meth:`~socket.socket.sendto`
+   * :meth:`~socket.socket.sendmsg` (if available)
+
    All methods and attributes *not* mentioned above are identical to
-   their equivalents in :func:`socket.socket`.
+   their equivalents in :func:`socket.socket`:
+
+   * :attr:`~socket.socket.family`
+   * :attr:`~socket.socket.type`
+   * :attr:`~socket.socket.proto`
+   * :meth:`~socket.socket.fileno`
+   * :meth:`~socket.socket.listen`
+   * :meth:`~socket.socket.getpeername`
+   * :meth:`~socket.socket.getsockname`
+   * :meth:`~socket.socket.close`
+   * :meth:`~socket.socket.shutdown`
+   * :meth:`~socket.socket.setsockopt`
+   * :meth:`~socket.socket.getsockopt`
+   * :meth:`~socket.socket.dup`
+   * :meth:`~socket.socket.detach`
+   * :meth:`~socket.socket.share`
+   * :meth:`~socket.socket.set_inheritable`
+   * :meth:`~socket.socket.get_inheritable`
 
 
 The abstract Stream API

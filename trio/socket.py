@@ -1,6 +1,7 @@
 from functools import wraps as _wraps, partial as _partial
 import socket as _stdlib_socket
 import sys as _sys
+import os
 
 from . import _core
 from ._threads import run_in_worker_thread as _run_in_worker_thread
@@ -49,7 +50,7 @@ class _try_sync:
 
 # Hopefully will show up in 3.7:
 #   https://github.com/python/cpython/pull/477
-if not hasattr(_stdlib_socket, "TCP_NOTSENT_LOWAT"):
+if not hasattr(_stdlib_socket, "TCP_NOTSENT_LOWAT"):  # pragma: no branch
     if _sys.platform == "darwin":
         TCP_NOTSENT_LOWAT = 0x201
     elif _sys.platform == "linux":
@@ -59,7 +60,7 @@ for _name in _stdlib_socket.__dict__.keys():
     if _name == _name.upper():
         _reexport(_name)
 
-if _sys.platform == "win32":
+if _sys.platform == "win32":  # pragma: no branch
     # See https://github.com/njsmith/trio/issues/39
     # (you can still get it from stdlib socket, of course, if you want it)
     del SO_REUSEADDR
@@ -88,9 +89,7 @@ for _name in [
 # getaddrinfo and friends
 ################################################################
 
-_NUMERIC_ONLY = _stdlib_socket.AI_NUMERICHOST
-if hasattr(_stdlib_socket, "AI_NUMERICSERV"):
-    _NUMERIC_ONLY |= _stdlib_socket.AI_NUMERICSERV
+_NUMERIC_ONLY = _stdlib_socket.AI_NUMERICHOST | _stdlib_socket.AI_NUMERICSERV
 
 async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
     # If host and port are numeric, then getaddrinfo doesn't block and we can
@@ -265,9 +264,18 @@ class SocketType:
         return repr(self._sock).replace("socket.socket", "trio.socket.socket")
 
     def dup(self):
+        """Same as :meth:`socket.socket.dup`.
+
+        """
         return SocketType(self._sock.dup())
 
     def bind(self, address):
+        """Bind this socket to the given address.
+
+        Unlike the stdlib :meth:`~socket.socket.connect`, this method requires
+        a pre-resolved address. See :meth:`resolve_local_address`.
+
+        """
         self._check_address(address, require_resolved=True)
         return self._sock.bind(address)
 
@@ -365,10 +373,30 @@ class SocketType:
 
     # Returns something appropriate to pass to bind()
     async def resolve_local_address(self, address):
+        """Resolve the given address into a numeric address suitable for
+        passing to :meth:`bind`.
+
+        This performs the same address resolution that the standard library
+        :meth:`~socket.socket.bind` call would do, taking into account the
+        current socket's settings (e.g. if this is an IPv6 socket then it
+        returns IPv6 addresses). In particular, a hostname of ``None`` is
+        mapped to the wildcard address.
+
+        """
         return await self._resolve_address(address, AI_PASSIVE)
 
     # Returns something appropriate to pass to connect()/sendto()/sendmsg()
     async def resolve_remote_address(self, address):
+        """Resolve the given address into a numeric address suitable for
+        passing to :meth:`connect` or similar.
+
+        This performs the same address resolution that the standard library
+        :meth:`~socket.socket.connect` call would do, taking into account the
+        current socket's settings (e.g. if this is an IPv6 socket then it
+        returns IPv6 addresses). In particular, a hostname of ``None`` is
+        mapped to the localhost address.
+
+        """
         return await self._resolve_address(address, 0)
 
     async def _nonblocking_helper(self, fn, args, kwargs, wait_fn):
@@ -403,20 +431,32 @@ class SocketType:
             except BlockingIOError:
                 pass
 
-    def _make_simple_wrapper(fn, wait_fn):
-        @_wraps(fn, assigned=("__name__", "__doc__"), updated=())
+    def _make_simple_sock_method_wrapper(methname, wait_fn, maybe_avail=False):
+        fn = getattr(_stdlib_socket.socket, methname)
+        @_wraps(fn, assigned=("__name__",), updated=())
         async def wrapper(self, *args, **kwargs):
             return await self._nonblocking_helper(fn, args, kwargs, wait_fn)
+        wrapper.__doc__ = (
+            """Like :meth:`socket.socket.{}`, but async.
+
+            """.format(methname))
+        if maybe_avail:
+            wrapper.__doc__ += (
+                "Only available on platforms where :meth:`socket.socket.{}` "
+                "is available.".format(methname))
         return wrapper
 
     ################################################################
     # accept
     ################################################################
 
-    _accept = _make_simple_wrapper(
-        _stdlib_socket.socket.accept, _core.wait_socket_readable)
+    _accept = _make_simple_sock_method_wrapper(
+        "accept", _core.wait_socket_readable)
 
     async def accept(self):
+        """Like :meth:`socket.socket.accept`, but async.
+
+        """
         sock, addr = await self._accept()
         return from_stdlib_socket(sock), addr
 
@@ -427,15 +467,28 @@ class SocketType:
     async def connect(self, address):
         """Connect the socket to a remote address.
 
-        Unlike the stdlib ``connect``, this method requires a pre-resolved
-        address. See :meth:`resolve_remote_address`.
+        Similar to :meth:`socket.socket.connect`, except async and requiring a
+        pre-resolved address. See :meth:`resolve_remote_address`.
+
+        .. warning::
+
+           Due to limitations of the underlying operating system APIs, it is
+           not always possible to properly cancel a connection attempt once it
+           has begun. If :meth:`connect` is cancelled, and is unable to
+           abort the connection attempt, then it will:
+
+           1. forcibly close the socket to prevent accidental re-use
+           2. raise :exc:`~trio.Cancelled`.
+
+           tl;dr: if :meth:`connect` is cancelled then you should throw away
+           that socket and make a new one.
 
         """
-        self._check_address(address, require_resolved=True)
         # nonblocking connect is weird -- you call it to start things
         # off, then the socket becomes writable as a completion
         # notification. This means it isn't really cancellable...
         async with _try_sync():
+            self._check_address(address, require_resolved=True)
             # For some reason, PEP 475 left InterruptedError as a
             # possible error for non-blocking connect
             # (specifically). But as far as I know, EINTR always means
@@ -468,59 +521,63 @@ class SocketType:
     # recv
     ################################################################
 
-    recv = _make_simple_wrapper(
-        _stdlib_socket.socket.recv, _core.wait_socket_readable)
+    recv = _make_simple_sock_method_wrapper(
+        "recv", _core.wait_socket_readable)
 
     ################################################################
     # recv_into
     ################################################################
 
-    recv_into = _make_simple_wrapper(
-        _stdlib_socket.socket.recv_into, _core.wait_socket_readable)
+    recv_into = _make_simple_sock_method_wrapper(
+        "recv_into", _core.wait_socket_readable)
 
     ################################################################
     # recvfrom
     ################################################################
 
-    recvfrom = _make_simple_wrapper(
-        _stdlib_socket.socket.recvfrom, _core.wait_socket_readable)
+    recvfrom = _make_simple_sock_method_wrapper(
+        "recvfrom", _core.wait_socket_readable)
 
     ################################################################
     # recvfrom_into
     ################################################################
 
-    recvfrom_into = _make_simple_wrapper(
-        _stdlib_socket.socket.recvfrom_into, _core.wait_socket_readable)
+    recvfrom_into = _make_simple_sock_method_wrapper(
+        "recvfrom_into", _core.wait_socket_readable)
 
     ################################################################
     # recvmsg
     ################################################################
 
     if hasattr(_stdlib_socket.socket, "recvmsg"):
-        recvmsg = _make_simple_wrapper(
-            _stdlib_socket.socket.recvmsg, _core.wait_socket_readable)
+        recvmsg = _make_simple_sock_method_wrapper(
+            "recvmsg", _core.wait_socket_readable, maybe_avail=True)
 
     ################################################################
     # recvmsg_into
     ################################################################
 
     if hasattr(_stdlib_socket.socket, "recvmsg_into"):
-        recvmsg_into = _make_simple_wrapper(
-            _stdlib_socket.socket.recvmsg_into, _core.wait_socket_readable)
+        recvmsg_into = _make_simple_sock_method_wrapper(
+            "recvmsg_into", _core.wait_socket_readable, maybe_avail=True)
 
     ################################################################
     # send
     ################################################################
 
-    send = _make_simple_wrapper(
-        _stdlib_socket.socket.send, _core.wait_socket_writable)
+    send = _make_simple_sock_method_wrapper(
+        "send", _core.wait_socket_writable)
 
     ################################################################
     # sendto
     ################################################################
 
     @_wraps(_stdlib_socket.socket.sendto, assigned=(), updated=())
-    async def sendto(*args):
+    async def sendto(self, *args):
+        """Similar to :meth:`socket.socket.sendto`, but async and requiring a
+        pre-resolved address. See :meth:`resolve_remote_address`.
+
+        """
         # args is: data[, flags], address)
         # and kwargs are not accepted
         self._check_address(args[-1], require_resolved=True)
@@ -534,7 +591,15 @@ class SocketType:
 
     if hasattr(_stdlib_socket.socket, "sendmsg"):
         @_wraps(_stdlib_socket.socket.sendmsg, assigned=(), updated=())
-        async def sendmsg(*args):
+        async def sendmsg(self, *args):
+            """Similar to :meth:`socket.socket.sendmsg`, but async and
+            requiring a pre-resolved address. See
+            :meth:`resolve_remote_address`.
+
+            Only available on platforms where :meth:`socket.socket.sendmsg` is
+            available.
+
+            """
             # args is: buffers[, ancdata[, flags[, address]]]
             # and kwargs are not accepted
             if len(args) == 4 and args[-1] is not None:
@@ -543,20 +608,14 @@ class SocketType:
                 _stdlib_socket.socket.sendmsg, args, {},
                 _core.wait_socket_writable)
 
-        sendmsg.__doc__ = """See :meth:`socket.socket.sendmsg`.
-
-        Unlike the stdlib ``sendmsg``, this method requires that if an address
-        is given, it must be pre-resolved. See :meth:`resolve_remote_address`.
-        """
-
     ################################################################
     # sendall
     ################################################################
 
     async def sendall(self, data, flags=0):
-        """Send all the data to the socket.
+        """Send all the data to the socket by calling ``send`` repeatedly.
 
-        Accepts the same flags as :meth:`send`.
+        ``flags`` are passed on to ``send``.
 
         If an error occurs or the operation is cancelled, then the resulting
         exception will have a ``.partial_result`` attribute with a
@@ -616,24 +675,29 @@ __all__.append("SocketType")
 # - start the next attempt early if the one before it errors out
 # - per-attempt timeouts? (for if lag is set very high / infinity, disabling
 #   happy eyeballs)
-async def create_connection(address, source_address=None):
-    host, port = address
-    err = None
-    for res in await _getaddrinfo_impl(host, port, 0, SOCK_STREAM):
-        af, socktype, proto, canonname, sa = res
-        sock = None
-        try:
-            sock = socket(af, socktype, proto)
-            if source_address:
-                sock.bind(source_address)
-            await sock.connect(sa)
-            return sock
-        except OSError as _:
-            err = _
-            if sock is not None:
-                sock.close()
-    if err is not None:
-        raise err
-    else:
-        raise OSError("getaddrinfo returned an empty list")
-__all__.append("create_connection")
+
+# Actually, disabling this for now because it's probably broken (see above),
+# untested, and we probably want to use a different API anyway (see #73). We
+# can revisit after the initial release.
+#
+# async def create_connection(address, source_address=None):
+#     host, port = address
+#     err = None
+#     for res in await _getaddrinfo_impl(host, port, 0, SOCK_STREAM):
+#         af, socktype, proto, canonname, sa = res
+#         sock = None
+#         try:
+#             sock = socket(af, socktype, proto)
+#             if source_address:
+#                 sock.bind(source_address)
+#             await sock.connect(sa)
+#             return sock
+#         except OSError as _:
+#             err = _
+#             if sock is not None:
+#                 sock.close()
+#     if err is not None:
+#         raise err
+#     else:
+#         raise OSError("getaddrinfo returned an empty list")
+# __all__.append("create_connection")
