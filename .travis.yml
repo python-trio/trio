@@ -23,8 +23,9 @@ matrix:
     - os: osx
       language: generic
       env: MACPYTHON=3.6.0
-  allow_failures:
-    - env: USE_PYPY_NIGHTLY=1
+  # 2017-03-07: They fixed the main bug I was hitting, so let's give it a try...
+  # allow_failures:
+  #   - env: USE_PYPY_NIGHTLY=1
 
 script:
   - ci/travis.sh
