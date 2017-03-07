@@ -328,7 +328,13 @@ class SocketType:
         if self._sock.family not in (AF_INET, AF_INET6):
             await _core.yield_briefly_no_cancel()
             return address
-        flags |= AI_ADDRCONFIG
+        # Since we always pass in an explicit family here, AI_ADDRCONFIG
+        # doesn't add any value -- if we have no ipv6 connectivity and are
+        # working with an ipv6 socket, then things will break soon enough! And
+        # if we do enable it, then it makes it impossible to even run tests
+        # for ipv6 address resolution on travis-ci, which as of 2017-03-07 has
+        # no ipv6.
+        # flags |= AI_ADDRCONFIG
         if self._sock.family == AF_INET6:
             if not self._sock.getsockopt(IPPROTO_IPV6, IPV6_V6ONLY):
                 flags |= AI_V4MAPPED
