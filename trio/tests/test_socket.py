@@ -637,13 +637,17 @@ async def test_send_recv_variants():
             assert await a.sendmsg([b"x", b"yz"], [], 0, b.getsockname()) == 3
             assert await b.recvfrom(10) == (b"xyz", a.getsockname())
 
-    a, b = tsocket.socketpair(type=tsocket.SOCK_DGRAM)
+    a = tsocket.socket(type=tsocket.SOCK_DGRAM)
+    b = tsocket.socket(type=tsocket.SOCK_DGRAM)
     with a, b:
+        b.bind(("127.0.0.1", 0))
+        await a.connect(b.getsockname())
         # send on a connected udp socket; each call creates a separate datagram
         await a.send(b"xxx")
         await a.send(b"yyy")
         assert await b.recv(10) == b"xxx"
         assert await b.recv(10) == b"yyy"
+
 
 async def test_SocketType_sendall():
     BIG = 10000000
