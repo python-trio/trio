@@ -12,9 +12,55 @@
 # directives for all of these quickly becomes cumbersome. Instead, we override
 # the ordinary function & method directives to add options corresponding to
 # these different properties, and override the autofunction and automethod
-# directives to sniff for these properties.
+# directives to sniff for these properties. Examples:
+#
+# A function that returns a context manager:
+#
+#    .. function:: foo(x, y)
+#       :with: bar
+#
+# renders in the docs like:
+#
+#    with foo(x, y) as bar
+#
+# The 'bar' part is optional. Use :async-with: for an async context
+# manager. These are also accepted on method, autofunction, and automethod.
+#
+# An abstract async classmethod:
+#
+#    .. method:: foo
+#       :abstractmethod:
+#       :classmethod:
+#       :async:
+#
+# renders like:
+#
+#    abstractmethod classmethod await foo()
+#
+# Or since all of these attributes are introspectable, we can get the same
+# result with:
+#
+#    .. automethod:: foo
+#
+# An abstract static decorator:
+#
+#    .. method:: foo
+#       :abstractmethod:
+#       :staticmethod:
+#       :decorator:
+#
+# The :decorator: attribute isn't introspectable, but the others
+# are, so this also works:
+#
+#    .. automethod:: foo
+#       :decorator:
+#
+# and renders like
+#
+#    abstractmethod staticmethod @foo()
 
 # TODO:
+#
 # - A minor infelicity is that it's possible to explicitly document methods as
 #   being a property -- which is useful for cases like
 #
@@ -28,6 +74,7 @@
 #   even calling out their property-ness at all. Not sure if there's a better
 #   way to handle this. Maybe override attribute and autoattribute too, so it
 #   can take an :abstractproperty: flag?
+#
 # - maybe add :for: and :async-for: to match :with: and :async-with:? rendered
 #   like
 #     for ... in
