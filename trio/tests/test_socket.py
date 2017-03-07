@@ -384,7 +384,7 @@ async def test_SocketType_resolve():
         # well enough for this test to work.
         try:
             irda_sock = tsocket.socket(family=tsocket.AF_IRDA)
-        except AttributeError, OSError:
+        except (AttributeError, OSError):
             pass
         else:
             assert await getattr(irda_sock, res)("asdf") == "asdf"
