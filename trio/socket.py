@@ -60,14 +60,14 @@ for _name in _stdlib_socket.__dict__.keys():
     if _name == _name.upper():
         _reexport(_name)
 
-if _sys.platform == "win32":  # pragma: no branch
+if _sys.platform == "win32":
     # See https://github.com/njsmith/trio/issues/39
     # (you can still get it from stdlib socket, of course, if you want it)
     del SO_REUSEADDR
 
     # As of at least 3.6, python on Windows is missing IPPROTO_IPV6
     # https://bugs.python.org/issue29515
-    if not hasattr(_stdlib_socket, "IPPROTO_IPV6"):
+    if not hasattr(_stdlib_socket, "IPPROTO_IPV6"):  # pragma: no branch
         IPPROTO_IPV6 = 41
 
 

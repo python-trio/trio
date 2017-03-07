@@ -380,14 +380,15 @@ async def test_SocketType_resolve():
         assert excinfo.value.errno in expected_errnos
 
         # A family where we know nothing about the addresses, so should just
-        # pass them through. Linux and Windows both seem to support AF_IRDA
-        # well enough for this test to work.
+        # pass them through. This should work on Linux, which is enough to
+        # smoke test the basic functionality...
         try:
-            irda_sock = tsocket.socket(family=tsocket.AF_IRDA)
+            netlink_sock = tsocket.socket(
+                family=tsocket.AF_NETLINK, type=tsocket.SOCK_DGRAM)
         except (AttributeError, OSError):
             pass
         else:
-            assert await getattr(irda_sock, res)("asdf") == "asdf"
+            assert await getattr(netlink_sock, res)("asdf") == "asdf"
 
         with pytest.raises(ValueError):
             await s4res("1.2.3.4")
@@ -572,6 +573,10 @@ async def test_send_recv_variants():
         await b.recv_into(buf)
         assert buf == b"xxx" + b"\x00" * 7
 
+        if hasattr(a, "sendmsg"):
+            assert await a.sendmsg([b"xxx"], []) == 3
+            assert await b.recv(10) == b"xxx"
+
     a = tsocket.socket(type=tsocket.SOCK_DGRAM)
     b = tsocket.socket(type=tsocket.SOCK_DGRAM)
     with a, b:
@@ -581,6 +586,17 @@ async def test_send_recv_variants():
         assert await a.sendto(b"xxx", b.getsockname()) == 3
         (data, addr) = await b.recvfrom(10)
         assert data == b"xxx"
+        assert addr == a.getsockname()
+
+        # sendto + flags
+        # (I can't find any flags that send() accepts... on Linux at least
+        # passing MSG_MORE to send on a connected UDP socket seems to just be
+        # ignored)
+        assert await a.sendto(b"xxx", tsocket.MSG_MORE, b.getsockname()) == 3
+        assert await a.sendto(b"yyy", tsocket.MSG_MORE, b.getsockname()) == 3
+        assert await a.sendto(b"zzz", b.getsockname()) == 3
+        (data, addr) = await b.recvfrom(10)
+        assert data == b"xxxyyyzzz"
         assert addr == a.getsockname()
 
         # recvfrom_into
@@ -612,10 +628,17 @@ async def test_send_recv_variants():
             assert msg_flags == 0
             assert addr == a.getsockname()
 
-        if hasattr(b, "sendmsg"):
+        if hasattr(a, "sendmsg"):
             assert await a.sendmsg([b"x", b"yz"], [], 0, b.getsockname()) == 3
             assert await b.recvfrom(10) == (b"xyz", a.getsockname())
 
+    a, b = tsocket.socketpair(type=tsocket.SOCK_DGRAM)
+    with a, b:
+        # send on a connected udp socket; each call creates a separate datagram
+        await a.send(b"xxx")
+        await a.send(b"yyy")
+        assert await b.recv(10) == b"xxx"
+        assert await b.recv(10) == b"yyy"
 
 async def test_SocketType_sendall():
     BIG = 10000000
