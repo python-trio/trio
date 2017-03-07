@@ -795,7 +795,7 @@ class Runner:
     @_public
     @_hazmat
     def current_call_soon_thread_and_signal_safe(self):
-        """Get a reference to the ``call_soon_thread_and_signal_safe``
+        """Returns a reference to the ``call_soon_thread_and_signal_safe``
         function for the current trio run:
 
         .. currentmodule:: None
