@@ -12,7 +12,8 @@ The API defined here is public and stable (at least as much as
 anything in trio is stable given its pre-1.0 status), but it has
 `nasty big pointy teeth
 <https://en.wikipedia.org/wiki/Rabbit_of_Caerbannog>`__. Mistakes may
-not be handled gracefully; normal rules may not apply. Read and tread
+not be handled gracefully; rules and conventions that are followed
+strictly in the rest of trio do not always apply. Read and tread
 carefully.
 
 But if you find yourself needing to, for example, implement new
