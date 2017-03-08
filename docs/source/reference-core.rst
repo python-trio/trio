@@ -984,6 +984,12 @@ Result objects
    create and access :class:`Result` objects from any thread you like.
 
 
+Task-local storage and run-local storage
+----------------------------------------
+
+`Not implemented yet! <https://github.com/njsmith/trio/issues/2>`__
+
+
 .. _synchronization:
 
 Synchronizing and communicating between tasks
