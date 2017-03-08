@@ -151,8 +151,8 @@ actually block. (I.e., whether a given call acts as a cancel/schedule
 point is allowed to vary across curio versions and also depending on
 runtime factors like network load.)
 
-But when using an async library, there are good reasons why you need to be
-aware of cancel and schedule these points. They introduce a set of
+But when using an async library, there are good reasons why you need
+to be aware of cancel and schedule points. They introduce a set of
 complex and partially conflicting constraints on your code:
 
 You need to make sure that every task passes through a cancel
@@ -183,7 +183,10 @@ it `becomes exponentially harder to reason about how your code
 is interleaved and be sure that it's correct
 <https://glyph.twistedmatrix.com/2014/02/unyielding.html>`__.
 
-Trio's approach is informed by two further observations:
+So an important question for an async I/O library is: how do we help
+the user manage these trade-offs?
+
+Trio's answer is informed by two further observations:
 
 First, any time a task blocks (e.g., because it does an ``await
 sock.recv()`` but there's no data available to receive), that
@@ -199,16 +202,14 @@ put in the effort to make sure your code handles cancellation or
 interleaving correctly, but you can't count on it to help meet latency
 requirements.
 
-The goal then is to come up with a set of API conventions that make it
-easy for users to deal with all this. Trio's solution is:
+With all that in mind, trio takes the following approach:
 
 Rule 1: to reduce the number of concepts to keep track of, we collapse
 cancel points and schedule points together. Every point that is a
 cancel point is also a schedule point and vice versa. These are
 distinct concepts both theoretically and in the actual implementation,
 but we hide that distinction from the user so that there's only one
-concept they need to keep track of. (Exception: there are
-:mod:`trio.hazmat` APIs that deal with the two concepts separately.)
+concept they need to keep track of.
 
 Rule 2: Cancel+schedule points are determined *statically*. A trio
 primitive is either *always* a cancel+schedule point, or *never* a
@@ -260,9 +261,10 @@ primitives, all of these categories are identical:
 
 This requires some non-trivial work internally – it actually takes a
 fair amount of care to make those 4 cancel/schedule categories line
-up, and there are some shenanigans with thread-locals required to let
-synchronous APIs interact with the run loop. But we feel that it pays
-off in terms of usability and correctness.
+up, and there are some shenanigans required to let sync and async APIs
+interact with the run loop on an equal footing. But this is all
+invisible to the user, we feel that it pays off in terms of usability
+and correctness.
 
 There is one exception to these rules, for async context
 managers. Context managers are composed of two operations – enter and
@@ -273,9 +275,10 @@ when exiting but never when entering.) But, Python doesn't have
 "half-asynchronous" context managers: either both operations are
 async-flavored, or neither is. In Trio we take a pragmatic approach:
 for this kind of async context manager, we enforce the above rules
-only on the potentially blocking operation. And async context managers
-should always document which of their operations are schedule+cancel
-points.
+only on the potentially blocking operation, and the other operation is
+allowed to be syntactically ``async`` but semantically
+synchronous. And async context managers should always document which
+of their operations are schedule+cancel points.
 
 
 Exceptions always propagate
