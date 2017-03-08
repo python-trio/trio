@@ -250,7 +250,12 @@ if have_tproxy:
     # http://doc.pypy.org/en/latest/objspace-proxies.html
     def copy_tb(base_tb, tb_next):
         def controller(operation):
-            if operation.opname in ["__getattribute__", "__getattr__"]:
+            # Rationale for pragma: I looked fairly carefully and tried a few
+            # things, and AFAICT it's not actually possible to get any
+            # 'opname' that isn't __getattr__ or __getattribute__. So there's
+            # no missing test we could add, and no value in coverage nagging
+            # us about adding one.
+            if operation.opname in ["__getattribute__", "__getattr__"]:  # pragma: no cover
                 if operation.args[0] == "tb_next":
                     return tb_next
             return operation.delegate()
