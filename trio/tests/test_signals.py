@@ -6,41 +6,8 @@ import queue as stdlib_queue
 import pytest
 
 from .. import _core
-from .._signals import *
-
-def kill_self(signum):
-    if os.name == "nt":
-        # On windows, os.kill exists but is really weird.
-        #
-        # If you give it CTRL_C_EVENT or CTRL_BREAK_EVENT, it tries to deliver
-        # those using GenerateConsoleCtrlEvent. But I found that when I tried
-        # to run my test normally, it would freeze waiting... unless I added
-        # print statements, in which case the test suddenly worked. So I guess
-        # these signals are only delivered if/when you access the console? I
-        # don't really know what was going on there. From reading the
-        # GenerateConsoleCtrlEvent docs I don't know how it worked at all.
-        #
-        # OTOH, if you pass os.kill any *other* signal number... then CPython
-        # just calls TerminateProcess (wtf).
-        #
-        # So, anyway, os.kill is not so useful for testing purposes. Instead
-        # we use raise():
-        #
-        #   https://msdn.microsoft.com/en-us/library/dwwzkt4c.aspx
-        #
-        # Have to import cffi inside the 'if os.name' block because we don't
-        # depend on cffi on non-Windows platforms. (It would be easy to switch
-        # this to ctypes though if we ever remove the cffi dependency.)
-        #
-        # Some more information:
-        #   https://bugs.python.org/issue26350
-        import cffi
-        ffi = cffi.FFI()
-        ffi.cdef("int raise(int);")
-        lib = ffi.dlopen("api-ms-win-crt-runtime-l1-1-0.dll")
-        getattr(lib, "raise")(signum)
-    else:
-        os.kill(os.getpid(), signum)
+from .._signals import catch_signals, _signal_handler, _signal_raise
+from .._sync import Event
 
 async def test_catch_signals():
     print = lambda *args: None
@@ -49,15 +16,15 @@ async def test_catch_signals():
     with catch_signals([signal.SIGILL]) as queue:
         # Raise it a few times, to exercise signal coalescing, both at the
         # call_soon level and at the SignalQueue level
-        kill_self(signal.SIGILL)
-        kill_self(signal.SIGILL)
+        _signal_raise(signal.SIGILL)
+        _signal_raise(signal.SIGILL)
         await _core.wait_all_tasks_blocked()
-        kill_self(signal.SIGILL)
+        _signal_raise(signal.SIGILL)
         await _core.wait_all_tasks_blocked()
         async for batch in queue:  # pragma: no branch
             assert batch == {signal.SIGILL}
             break
-        kill_self(signal.SIGILL)
+        _signal_raise(signal.SIGILL)
         async for batch in queue:  # pragma: no branch
             assert batch == {signal.SIGILL}
             break
@@ -78,3 +45,55 @@ def test_catch_signals_wrong_thread():
     thread.join()
     exc = threadqueue.get_nowait()
     assert type(exc) is RuntimeError
+
+async def test_catch_signals_race_condition_on_exit():
+    delivered_directly = set()
+
+    def direct_handler(signo, frame):
+        delivered_directly.add(signo)
+
+    async def wait_call_soon_idempotent_queue_barrier():
+        ev = Event()
+        call_soon = _core.current_call_soon_thread_and_signal_safe()
+        call_soon(ev.set, idempotent = True)
+        await ev.wait()
+
+    print(1)
+    # Test the version where the call_soon *doesn't* have a chance to run
+    # before we exit the with block:
+    with _signal_handler({signal.SIGILL, signal.SIGFPE}, direct_handler):
+        with catch_signals({signal.SIGILL, signal.SIGFPE}) as queue:
+            _signal_raise(signal.SIGILL)
+            _signal_raise(signal.SIGFPE)
+        await wait_call_soon_idempotent_queue_barrier()
+    assert delivered_directly == {signal.SIGILL, signal.SIGFPE}
+    delivered_directly.clear()
+
+    print(2)
+    # Test the version where the call_soon *does* have a chance to run before
+    # we exit the with block:
+    with _signal_handler({signal.SIGILL, signal.SIGFPE}, direct_handler):
+        with catch_signals({signal.SIGILL, signal.SIGFPE}) as queue:
+            _signal_raise(signal.SIGILL)
+            _signal_raise(signal.SIGFPE)
+            await wait_call_soon_idempotent_queue_barrier()
+            assert len(queue._pending) == 2
+    assert delivered_directly == {signal.SIGILL, signal.SIGFPE}
+    delivered_directly.clear()
+
+    # Again, but with a SIG_IGN signal:
+
+    print(3)
+    with _signal_handler({signal.SIGILL}, signal.SIG_IGN):
+        with catch_signals({signal.SIGILL}) as queue:
+            _signal_raise(signal.SIGILL)
+        await wait_call_soon_idempotent_queue_barrier()
+    # test passes if the process reaches this point without dying
+
+    print(4)
+    with _signal_handler({signal.SIGILL}, signal.SIG_IGN):
+        with catch_signals({signal.SIGILL}) as queue:
+            _signal_raise(signal.SIGILL)
+            await wait_call_soon_idempotent_queue_barrier()
+            assert len(queue._pending) == 1
+    # test passes if the process reaches this point without dying
