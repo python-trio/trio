@@ -131,6 +131,8 @@ class SignalQueue:
         return self
 
     async def __anext__(self):
+        if self._closed:
+            raise RuntimeError("catch_signals block exited")
         await self._semaphore.acquire()
         assert self._pending
         pending = set(self._pending)

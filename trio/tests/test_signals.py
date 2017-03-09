@@ -28,6 +28,8 @@ async def test_catch_signals():
         async for batch in queue:  # pragma: no branch
             assert batch == {signal.SIGILL}
             break
+    with pytest.raises(RuntimeError):
+        await queue.__anext__()
     assert signal.getsignal(signal.SIGILL) is orig
 
 def test_catch_signals_wrong_thread():
