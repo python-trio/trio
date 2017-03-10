@@ -163,6 +163,12 @@ Socket objects
 
       `Not implemented yet! <https://github.com/njsmith/trio/issues/45>`__
 
+   The following methods are *not* provided:
+
+   * :meth:`~socket.socket.send`: This method has confusing semantics
+     hidden under a friendly name, and makes it too easy to create
+     subtle bugs. Use :meth:`sendall` instead.
+
    The following methods are identical to their equivalents in
    :func:`socket.socket`, except async, and the ones that take address
    arguments require pre-resolved addresses:
@@ -174,7 +180,6 @@ Socket objects
    * :meth:`~socket.socket.recvfrom_into`
    * :meth:`~socket.socket.recvmsg` (if available)
    * :meth:`~socket.socket.recvmsg_into` (if available)
-   * :meth:`~socket.socket.send`
    * :meth:`~socket.socket.sendto`
    * :meth:`~socket.socket.sendmsg` (if available)
 

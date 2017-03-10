@@ -565,7 +565,7 @@ class SocketType:
     # send
     ################################################################
 
-    send = _make_simple_sock_method_wrapper(
+    _send = _make_simple_sock_method_wrapper(
         "send", _core.wait_socket_writable)
 
     ################################################################
@@ -613,7 +613,8 @@ class SocketType:
     ################################################################
 
     async def sendall(self, data, flags=0):
-        """Send all the data to the socket by calling ``send`` repeatedly.
+        """Send the data to the socket, blocking until all of it has been
+        accepted by the operating system.
 
         ``flags`` are passed on to ``send``.
 
@@ -626,7 +627,7 @@ class SocketType:
             total_sent = 0
             try:
                 while data:
-                    sent = await self.send(data, flags)
+                    sent = await self._send(data, flags)
                     total_sent += sent
                     data = data[sent:]
             except BaseException as exc:

@@ -175,7 +175,7 @@ async def test_from_stdlib_socket():
     with sa, sb:
         ta = tsocket.from_stdlib_socket(sa)
         assert sa.fileno() == ta.fileno()
-        await ta.send(b"xxx")
+        await ta.sendall(b"xxx")
         assert sb.recv(3) == b"xxx"
 
     # rejects other types
@@ -192,7 +192,7 @@ async def test_from_fd():
     ta = tsocket.fromfd(sa.fileno(), sa.family, sa.type, sa.proto)
     with sa, sb, ta:
         assert ta.fileno() != sa.fileno()
-        await ta.send(b"xxx")
+        await ta.sendall(b"xxx")
         assert sb.recv(3) == b"xxx"
 
 
@@ -224,7 +224,7 @@ async def test_fromshare():
         a2 = tsocket.fromshare(shared)
         with a2:
             assert a.fileno() != a2.fileno()
-            await a2.send(b"xxx")
+            await a2.sendall(b"xxx")
             assert await b.recv(3) == b"xxx"
 
 
@@ -277,7 +277,7 @@ async def test_SocketType_basics():
 
     # check __dir__
     assert "family" in dir(sock)
-    assert "send" in dir(sock)
+    assert "recv" in dir(sock)
     assert "setsockopt" in dir(sock)
 
     # our __getattr__ handles unknown names
@@ -328,7 +328,7 @@ async def test_SocketType_simple_server():
         server, client_addr = accept_task.result.unwrap()
         with server:
             assert client_addr == server.getpeername() == client.getsockname()
-            await server.send(b"xxx")
+            await server.sendall(b"xxx")
             assert await client.recv(3) == b"xxx"
 
 
@@ -563,12 +563,12 @@ async def test_send_recv_variants():
     a, b = tsocket.socketpair()
     with a, b:
         # recv, including with flags
-        assert await a.send(b"xxx") == 3
+        await a.sendall(b"xxx")
         assert await b.recv(10, tsocket.MSG_PEEK) == b"xxx"
         assert await b.recv(10) == b"xxx"
 
         # recv_into
-        assert await a.send(b"xxx") == 3
+        await a.sendall(b"xxx")
         buf = bytearray(10)
         await b.recv_into(buf)
         assert buf == b"xxx" + b"\x00" * 7
@@ -591,11 +591,11 @@ async def test_send_recv_variants():
         # sendto + flags
         #
         # I can't find any flags that send() accepts... on Linux at least
-        # passing MSG_MORE to send on a connected UDP socket seems to just be
-        # ignored.
+        # passing MSG_MORE to send_some on a connected UDP socket seems to
+        # just be ignored.
         #
-        # But there's no MSG_MORE on Windows or MacOS. I guess send flags are
-        # really not very useful, but at least this tests them a bit.
+        # But there's no MSG_MORE on Windows or MacOS. I guess send_some flags
+        # are really not very useful, but at least this tests them a bit.
         if hasattr(tsocket, "MSG_MORE"):
             await a.sendto(b"xxx", tsocket.MSG_MORE, b.getsockname())
             await a.sendto(b"yyy", tsocket.MSG_MORE, b.getsockname())
@@ -642,9 +642,10 @@ async def test_send_recv_variants():
     with a, b:
         b.bind(("127.0.0.1", 0))
         await a.connect(b.getsockname())
-        # send on a connected udp socket; each call creates a separate datagram
-        await a.send(b"xxx")
-        await a.send(b"yyy")
+        # sendall on a connected udp socket; each call creates a separate
+        # datagram
+        await a.sendall(b"xxx")
+        await a.sendall(b"yyy")
         assert await b.recv(10) == b"xxx"
         assert await b.recv(10) == b"yyy"
 
