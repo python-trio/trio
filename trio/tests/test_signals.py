@@ -32,6 +32,7 @@ async def test_catch_signals():
         await queue.__anext__()
     assert signal.getsignal(signal.SIGILL) is orig
 
+
 def test_catch_signals_wrong_thread():
     threadqueue = stdlib_queue.Queue()
     async def naughty():
@@ -47,6 +48,7 @@ def test_catch_signals_wrong_thread():
     thread.join()
     exc = threadqueue.get_nowait()
     assert type(exc) is RuntimeError
+
 
 async def test_catch_signals_race_condition_on_exit():
     delivered_directly = set()
@@ -99,3 +101,21 @@ async def test_catch_signals_race_condition_on_exit():
             await wait_call_soon_idempotent_queue_barrier()
             assert len(queue._pending) == 1
     # test passes if the process reaches this point without dying
+
+    # Check exception chaining if there are multiple exception-raising
+    # handlers
+    def raise_handler(signum, _):
+        raise RuntimeError(signum)
+
+    with _signal_handler({signal.SIGILL, signal.SIGFPE}, direct_handler):
+        try:
+            with catch_signals({signal.SIGILL, signal.SIGFPE}) as queue:
+                _signal_raise(signal.SIGILL)
+                _signal_raise(signal.SIGFPE)
+                await wait_call_soon_idempotent_queue_barrier()
+                assert len(queue._pending) == 2
+        except RuntimeError as exc:
+            signums = {exc.args[0]}
+            assert isinstance(exc.__context__, RuntimeError)
+            signums.add(exc.__context__.args[0])
+            assert signums == {signal.SIGILL, signal.SIGFPE}
