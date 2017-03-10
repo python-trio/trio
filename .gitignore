@@ -3,7 +3,7 @@ docs/build/
 
 bench/results/
 bench/env/
-bench/oratorio/
+bench/trio/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -37,6 +37,7 @@ pip-log.txt
 htmlcov/
 .tox/
 .coverage
+.coverage.*
 .cache
 nosetests.xml
 coverage.xml
