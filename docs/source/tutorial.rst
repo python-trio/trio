@@ -169,7 +169,7 @@ call along the way) should generally be regular, non-async functions.
 
 
 Warning: don't forget that ``await``!
--------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Now would be a good time to open up a Python prompt and experiment a
 little with writing simple async functions and running them with
@@ -273,7 +273,7 @@ never awaited``; it means you need to find and fix your missing
 
 
 Okay, let's see something cool already
---------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 So now we've started using trio, but so far all we've learned to do is
 write functions that print things and sleep for various lengths of
@@ -309,22 +309,24 @@ Next, we define ``parent`` as an async function that's going to call
    :end-at: all done!
 
 It does this by using a mysterious ``async with`` statement to create
-a "nursery", and then "spawns" child1 and child2 into the nursery.
+a "nursery", and then "spawns" ``child1`` and ``child2`` into the
+nursery.
 
 Let's start with this ``async with`` thing. It's actually pretty
 simple. In regular Python, a statement like ``with someobj: ...``
 instructs the interpreter to call ``someobj.__enter__()`` at the
 beginning of the block, and to call ``someobj.__exit__()`` at the end
-of the block (this is glossing over some subtleties around exception
-handling, but that's the basic idea). We call ``someobj`` a "context
-manager". An ``async with`` does exactly the same thing, except that
-where a regular ``with`` statement calls regular methods, an ``async
-with`` statement calls async methods: it basically does ``await
-someobj.__aenter__()`` and ``await someobj.__aexit__()``, and now we
-call ``someobj`` an "async context manager". So in short: ``with``
-blocks are a shorthand for calling some functions, and now that we
-have two kinds of functions we need two kinds of ``with`` blocks. If
-you understand async functions, then you understand ``async with``.
+of the block. We call ``someobj`` a "context manager". An ``async
+with`` does exactly the same thing, except that where a regular
+``with`` statement calls regular methods, an ``async with`` statement
+calls async methods: at the start of the block it does ``await
+someobj.__aenter__()`` and at that end of the block it does ``await
+someobj.__aexit__()``. In this case we call ``someobj`` an "async
+context manager". So in short: ``with`` blocks are a shorthand for
+calling some functions, and since with async/await Python now has two
+kinds of functions, it also needs two kinds of ``with`` blocks. That's
+all there is to it! If you understand async functions, then you
+understand ``async with``.
 
 .. note::
 
@@ -335,9 +337,9 @@ you understand async functions, then you understand ``async with``.
    ``for`` loop, except that where a ``for`` loop does
    ``iterator.__next__()`` to fetch the next item, an ``async for``
    does ``await async_iterator.__anext__()``. Now you understand all
-   of async/await. Basically just remember that it involves sandwiches
-   and sticking the word "async" in front of everything, and you'll do
-   fine.
+   of async/await. Basically just remember that it involves making
+   sandwiches and sticking the word "async" in front of everything,
+   and you'll do fine.
 
 Now that we understand ``async with``, let's look at ``parent`` again:
 
@@ -406,7 +408,7 @@ certain designated places we call :ref:`"yield points"
 .. _tutorial-instrument-example:
 
 Task switching illustrated
---------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The big idea behind async/await-based libraries is to run lots of
 tasks on a single thread by switching between them at the appropriate
@@ -498,16 +500,16 @@ And then gives the two child tasks a chance to run:
 
 Each task runs until it hits the call to :func:`trio.sleep`, and then
 suddenly we're back in :func:`trio.run` deciding what to run next. How
-does this happen? The secret is some cooperation between
-:func:`trio.run` and :func:`trio.sleep`: :func:`trio.sleep` has access
-to some special magic that lets it pause its entire callstack, so it
-sends a note to :func:`trio.run` requesting to be woken again after 1
-second, and then suspends the task. And once the task is suspended,
-Python gives control back to :func:`trio.run`, which decides what to
-do next. (If this sounds similar to the way that generators can
-suspend execution by doing a ``yield``, then that's not a coincidence:
-inside the Python interpreter, there's a lot of overlap between the
-implementation of generators and async functions.)
+does this happen? The secret is that :func:`trio.run` and
+:func:`trio.sleep` work together to make it happen: :func:`trio.sleep`
+has access to some special magic that lets it pause its entire
+callstack, so it sends a note to :func:`trio.run` requesting to be
+woken again after 1 second, and then suspends the task. And once the
+task is suspended, Python gives control back to :func:`trio.run`,
+which decides what to do next. (If this sounds similar to the way that
+generators can suspend execution by doing a ``yield``, then that's not
+a coincidence: inside the Python interpreter, there's a lot of overlap
+between the implementation of generators and async functions.)
 
 .. note::
 
@@ -528,7 +530,9 @@ on it, then you know that it *can't* be a place where your task will
 be suspended. This makes tasks much `easier to reason about
 <https://glyph.twistedmatrix.com/2014/02/unyielding.html>`__ than
 threads, because there are far fewer ways that tasks can be
-interleaved with each other and stomp on each others' state. Trio also
+interleaved with each other and stomp on each others' state. (For
+example, in trio a statement like ``a += 1`` is always atomic – even
+if ``a`` is some arbitrarily complicated custom object!) Trio also
 makes some :ref:`further guarantees beyond that <yield-points>`, but
 that's the big one.
 
@@ -540,20 +544,20 @@ what ``async with`` gives us.
 
 Now, back to our execution trace. To recap: at this point ``parent``
 is waiting on ``child1`` and ``child2``, and both children are
-sleeping. So trio knows that there's nothing to be done until those
-sleeps finish – unless possibly some external I/O event comes in. Of
-course we aren't doing any I/O here so that won't happen, but in other
-situations it could. So next it calls an operating system primitive to
-put the whole process to sleep:
+sleeping. So :func:`trio.run` checks its notes, and sees that there's
+nothing to be done until those sleeps finish – unless possibly some
+external I/O event comes in. Of course we aren't doing any I/O here so
+that won't happen, but in other situations it could. So next it calls
+an operating system primitive to put the whole process to sleep:
 
 .. code-block:: none
 
    ### waiting for I/O for up to 0.9999009938910604 seconds
 
 And in fact no I/O does arrive, so one second later we wake up again,
-and trio looks around to see if there's anything to do. At this point
-it discovers the note that :func:`trio.sleep` sent, saying that this
-is when the children should be woken up again:
+and trio checks its notes again. At this point it discovers the notes
+that :func:`trio.sleep` sent, saying that this is when the children
+should be woken up again, so it schedules them to run soon:
 
 .. code-block:: none
 
@@ -578,7 +582,7 @@ Notice how ``parent`` gets scheduled when the first child exits:
    ### task exited: __main__.child2
    <<< task step finished: __main__.child2
 
-So then, after another check for I/O, ``parent`` wakes up. The nursery
+Then, after another check for I/O, ``parent`` wakes up. The nursery
 cleanup code notices that all its children have exited, and lets the
 nursery block finish. And then ``parent`` makes a final print and
 exits:
@@ -594,7 +598,7 @@ exits:
    ### task exited: __main__.parent
    <<< task step finished: __main__.parent
 
-And then, after a bit more internal bookkeeping, :func:`trio.run`
+And finally, after a bit more internal bookkeeping, :func:`trio.run`
 exits too:
 
 .. code-block:: none
@@ -622,10 +626,10 @@ everything here to use trio – in fact, trio goes to great lengths to
 make tasks feel like they execute in a simple linear way. (Just like
 your operating system goes to great lengths to make it feel like
 single-threaded code executes in a simple linear way, even though
-under the covers it's doing essentially the same things trio is.) But
-it is useful to have a rough model in your head of how the code you
-write is actually executed, and – most importantly – the consequences
-of that for parallelism.
+under the covers it's juggling between threads in essentially the same
+way trio does.) But it is useful to have a rough model in your head of
+how the code you write is actually executed, and – most importantly –
+the consequences of that for parallelism.
 
 Alternatively, if this has just whetted your appetite and you want to
 know more about how ``async/await`` works internally, then `this blog
@@ -637,8 +641,9 @@ is a good explanation.
 A kinder, gentler GIL
 ---------------------
 
-Let's zoom out for a moment and talk about how this compares to other
-ways of handling concurrency in Python.
+Speaking of parallelism – let's zoom out for a moment and talk about
+how async/await compares to other ways of handling concurrency in
+Python.
 
 Of course, it's impossible to talk about Python concurrency without
 talking about the GIL. From trio's point of view, the problem with the
@@ -687,8 +692,8 @@ yield points explicit gives you more control over how your tasks can
 be interleaved – but with great power comes great responsibility. With
 threads, the runtime environment is responsible for making sure that
 each thread gets its fair share of running time. With trio, if some
-task runs off and  without executing a yield
-point, then... all your other tasks will just have to wait.
+task runs off and does stuff for seconds on end without executing a
+yield point, then... all your other tasks will just have to wait.
 
 Here's an example of how this can go wrong. Take our :ref:`example
 from above <tutorial-example-tasks-intro>`, and replace the calls to
@@ -711,56 +716,359 @@ modified program, we'll see something like:
 
 One of the major reasons why trio has such a rich
 :ref:`instrumentation API <tutorial-instrument-example>` is to make it
-possible to catch issues like this.
+possible to write tools to catch issues like this.
+
+
+Networking with trio
+--------------------
+
+Now let's take what we've learned and use it to do some I/O, which is
+where async/await really shines.
+
+
+An echo client: low-level API
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The traditional application for demonstrating network APIs is an "echo
+server": a program that accepts arbitrary data from a client, and then
+sends that same data right back. Probably a more relevant example
+these days would be an application that does lots of concurrent HTTP
+requests, but trio doesn't have an HTTP library yet, so we'll stick
+with the echo server tradition.
+
+To start with, here's an example echo *client*, i.e., the program that
+will send some data at our echo server and get responses back:
+
+.. literalinclude:: tutorial/echo-client-low-level.py
+   :linenos:
+
+The overall structure here should be familiar, because it's just like
+our :ref:`last example <tutorial-example-tasks-intro>`: we have a
+parent task, which spawns two child tasks to do the actual work. But
+now instead of just calling :func:`trio.sleep`, the children use some
+of trio's networking APIs.
+
+Let's look at the parent first:
+
+.. literalinclude:: tutorial/echo-client-low-level.py
+   :linenos:
+   :lineno-match:
+   :pyobject: parent
+
+We're using the :mod:`trio.socket` API to access network
+functionality. (If you know the :mod:`socket` module in the standard
+library, then :mod:`trio.socket` is very similar, just asyncified.)
+First we call ``trio.socket.socket()`` to create the socket object
+we'll use to connect to the server, and we use a ``with`` block to
+make sure that it will be closed properly. (Trio is designed around
+the assumption that you'll be using ``with`` blocks to manage resource
+cleanup – highly recommended!) Then we call ``connect`` to connect to
+the echo server. ``127.0.0.1`` is a magic `IP address
+<https://en.wikipedia.org/wiki/IP_address>`__ meaning "the computer
+I'm running on", so ``(127.0.0.1, PORT)`` means that we want to
+connect to whatever program on the current computer is using ``PORT``
+as its contact point. And then once the connection is made, we pass
+the connected client socket into the two child tasks. (This is also a
+good example of how ``nursery.spawn`` lets you pass positional
+arguments to the spawned function.)
+
+Our first task's job is to send data to the server:
+
+.. literalinclude:: tutorial/echo-client-low-level.py
+   :linenos:
+   :lineno-match:
+   :pyobject: sender
+
+It uses a loop that alternates between calling ``await
+client_sock.sendall(...)`` to send some data, and then sleeping for a
+second to avoid making the output scroll by too fast on your terminal.
+
+And the second task's job is to process the data the server sends back:
+
+.. literalinclude:: tutorial/echo-client-low-level.py
+   :linenos:
+   :lineno-match:
+   :pyobject: receiver
+
+It repeatedly calls ``await client_sock.recv(...)`` to get more data
+from the server, and then checks to see if the server hass closed the
+connection. ``recv`` only returns an empty bytestring if the
+connection has been closed; if there's no data available, then it
+blocks until more data arrives.
+
+And now we're ready to look at the server.
 
 
 An echo server: low-level API
------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-XX maybe start with echo client so the structure is like our 2 child
-one but with sockets instad of sleep
-
-and then echo server to introduce the spawn-into-another-nursery
-trick?
+The server is a little trickier. As usual, let's look at the whole
+thing, and then we'll discuss the pieces:
 
 .. literalinclude:: tutorial/echo-server-low-level.py
+   :linenos:
+
+The actual echo server implementation should be fairly familiar at
+this point. Each incoming connection from an echo client gets handled
+by its own dedicated task, running the ``echo_server`` function:
+
+.. literalinclude:: tutorial/echo-server-low-level.py
+   :linenos:
+   :lineno-match:
+   :pyobject: echo_server
+
+We take a socket object that's connected to the client (so the data we
+pass to ``sendall`` on the client comes out of ``recv`` here, and
+vice-versa), plus ``ident`` which is just a unique number used to make
+the print output less confusing when there are multiple clients
+connected at the same time. Then we have our usual ``with`` block to
+make sure the socket gets closed, a ``try`` block discussed below, and
+finally the server loop which alternates between reading some data
+from the socket and then sending it back out again (unless the socket
+was closed, in which case we quit).
+
+Remember that in trio, like Python in general, exceptions keep
+propagating until they're caught. Here we think it's plausible there
+might be unexpected exceptions, and we want to isolate that to making
+just this one task crash, without taking down the whole program. For
+example, if the client closes the connection at the wrong moment then
+it's possible this code will end up calling ``sendall`` on a closed
+connection and get an :exc:`OSError`; that's unfortunate, and in a
+more serious program we might want to handle it more explicitly, but
+it doesn't indicate a problem for any other connections. On the other
+hand, if the exception is something like a :exc:`KeyboardInterrupt`,
+we *do* want that to propagate out into the parent task and cause the
+program to exit. To express this, we use a ``try`` block with an
+``except Exception:`` handler.
+
+But where do these ``echo_server`` tasks come from? An important part
+of writing a trio program is deciding how you want to organize your
+tasks. In the examples we've seen so far, this was simple, because the
+set of tasks was fixed. Here, we want to wait for clients to connect,
+and then spawn a new task for each one. The tricky part is that
+generally, managing a nursery is a full time job: you don't want the
+task that has the nursery and is supervising the child tasks to do
+anything else, like listen for new connections.
+
+There's a standard trick for handling this in trio: our parent task
+creates a nursery, spawns a child task to listen for new connections,
+and then *passes the nursery object to the child task*:
+
+.. literalinclude:: tutorial/echo-server-low-level.py
+   :linenos:
+   :lineno-match:
+   :pyobject: parent
+
+This allows the ``echo_listener`` to spawn "siblings" instead of
+children – even though the ``echo_listener`` is the one spawning
+``echo_server`` tasks, we end up with a task tree the looks like:
+
+.. code-block:: none
+
+   parent
+   │
+   ├─ echo_listener
+   │
+   ├─ echo_server 1
+   │
+   ├─ echo_server 2
+   │
+   ⋮
+
+Once we know this trick, the listener code becomes pretty
+straightforward:
+
+.. literalinclude:: tutorial/echo-server-low-level.py
+   :linenos:
+   :lineno-match:
+   :pyobject: echo_listener
+
+We create a listen socket, start it listening, and then go into an
+infinite loop, accepting connections from clients and spawning an
+``echo_server`` task to handle each one.
+
+We don't expect there to be any errors here in the listener code – if
+there are, it's probably a bug, and probably means that our whole
+program is broken (a server that doesn't accept connections isn't very
+useful!). So we don't have a catch-all ``try`` block here. In general,
+trio leaves it up to you to decide whether and how you want to handle
+exceptions.
 
 
-An echo server: higher-level API
---------------------------------
+Try it out
+~~~~~~~~~~
 
-XX todo
+Open a few terminals, run ``echo-server-low-level.py`` in one, run
+``echo-client-low-level.py`` in another, and watch the messages scroll
+by! When you get bored, you can exit by hitting control-C.
 
-Errors in concurrent tasks
---------------------------
+Some things to try:
 
-XX todo
+* Open another terminal, and run 2 clients at the same time.
 
-walk through a multierror traceback
+* See how the server reacts when you hit control-C on the client
+
+* See how the client reacts when you hit control-C on the server
 
 
-Timeouts
---------
+Flow control in our echo client and server
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-XX todo
+Here's a question you might be wondering about: why does our client
+use two separate tasks for sending and receiving, instead of a single
+task that alternates between them – like the server has? For example,
+our client could use a single task like::
 
-timeout example::
-
-   async def counter():
-       for i in range(100000):
-           print(i)
+   # Can you spot the two problems with this code?
+   async def send_and_receive(client_sock):
+       while True:
+           data = ...
+           await client_sock.sendall(data)
+           received = await client_sock.recv(BUFSIZE)
+           if not received:
+               sys.exit()
            await trio.sleep(1)
 
-   async def main():
-       with trio.fail_after(10):
-           await counter()
+It turns out there are two problems with this – one minor and one
+major. Both relate to flow control. The minor problem is that when we
+call ``recv`` here we're not waiting for *all* the data to be
+available; ``recv`` returns as soon as *any* data is available. If
+``data`` is small, then our operating systems / network / server will
+*probably* keep it all together in a single chunk, but there's no
+guarantee. If we send ``hello world`` then the other side might get
+``hello world``, or ``hello`` ``world``, or ``h`` ``e`` ``l`` ``l``
+``o`` `` `` ``w`` ``o`` ``r`` ``l`` ``d``, or ... bottom line, if
+we're expecting 10 bytes of data, we need to be prepared to call
+``recv`` up to 10 times to get all that data.
 
-you can stick anything inside a timeout block, even child tasks
+And where this would go especially wrong is if we find ourselves in
+the situation where ``len(data) > BUFSIZE``. On each pass through the
+loop, we send ``len(data)`` bytes, but only read *at most* ``BUFSIZE``
+bytes. The result is something like a memory leak: we'll end up with
+more and more data backed up in the network, until eventually
+something breaks.
 
-  [show something like the first example but with a timeout – they
-  both get cancelled, the cancelleds get packed into a multierror, and
-  then the timeout block catches the cancelled]
+We could fix this by keeping track of how much data we're expecting at
+each moment, and then keep calling ``recv`` until we get it all::
 
-brief discussion of KI?
-tasks-with-trace.py + control-C is pretty interesting
-or maybe leave it for a blog post?
+   expected = len(data)
+   while expected > 0:
+       received = await client_sock.recv(BUFSIZE)
+       if not received:
+           sys.exit(1)
+       expected -= len(received)
+
+This is a bit cumbersome, but it would solve this problem.
+
+There's another problem, though, that's deeper. We're still
+alternating between sending and receiving. Notice that when we send
+data, we use ``await``: this means that sending can potentially
+*block*. Why does this happen? Any data that we send goes first into
+an operating system buffer, and from there onto the network, and then
+another operating system buffer on the receiving computer, before the
+receiving program finally calls ``recv`` to take the data out of these
+buffers. If we call ``sendall`` with a small amount of data, then it
+goes into these buffers and ``sendall`` returns immediately. But if we
+send enough data fast enough, eventually the buffers fill up, and
+``sendall`` will block until the remote side calls ``recv`` and frees
+up some space.
+
+Now let's think about this from the server's point of view. Each time
+it calls ``recv``, it gets some data that it needs to send back. And
+until it sends it back, the data is sitting around takes up
+memory. Computers have finite amounts of RAM, so if our server is well
+behaved then at some point it needs to stop calling ``recv`` until
+it gets rid of some of the old data by doing its own call to
+``sendall``. So for the server, really the only viable option is to
+alternate between receiving and sending.
+
+But we need to remember that it's not just the client's call to
+``sendall`` that might block: the server's call to ``sendall`` can
+also get into a situation where it blocks until the client calls
+``recv``. So if the server is waiting for ``sendall`` to finish before
+it calls ``recv``, and our client also waits for ``sendall`` to finish
+before it calls ``recv``,... we have a problem! The client won't call
+``recv`` until the server has called ``recv``, and the server won't
+call ``recv`` until the client has called ``recv``. If our client is
+written to alternate between sending and receiving, and the chunk of
+data it's trying to send is large enough (e.g. 10 megabytes will
+probably do it in most configurations), then the two processes will
+`deadlock <https://en.wikipedia.org/wiki/Deadlock>`__.
+
+Moral: trio gives you powerful tools to manage sequential and
+concurrent execution. In this example we saw that the server needs
+``send`` and ``recv`` to alternate in sequence, while the client needs
+them to run concurrently, and both were straightforward to
+implement. But when you're implementing network code like this then
+it's important to think carefully about flow control and buffering,
+because it's up to you to choose the right execution mode!
+
+Other popular async libraries like `Twisted
+<https://twistedmatrix.com/>`__ and :mod:`asyncio` tend to paper over
+these kinds of issues by throwing in unbounded buffers
+everywhere. This can avoid deadlocks, but can introduce its own
+problems and in particular can make it difficult to keep `memory usage
+and latency under control
+<https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/#three-bugs>`__. While
+both approaches have their advantages, trio takes the position that
+it's better to expose the underlying problem as directly as possible
+and provide good tools to confront it head-on.
+
+.. note::
+
+   If you want to try and make the deadlock happen on purpose to see
+   for yourself, and you're using Windows, then you might need to
+   split the ``sendall`` call up into two calls that each send half of
+   the data. This is because Windows has a `somewhat unusual way of
+   handling buffering
+   <https://stackoverflow.com/questions/28785626/what-is-the-size-of-a-socket-send-buffer-in-windows>`__.
+
+
+An echo client and server: higher-level API
+-------------------------------------------
+
+TODO: `Not implemented yet!
+<https://github.com/njsmith/trio/issues/73>`__
+
+
+When things go wrong: timeouts, cancellation and exceptions in concurrent tasks
+-------------------------------------------------------------------------------
+
+TODO: give an example using :func:`fail_after`
+
+TODO: explain :exc:`Cancelled`
+
+TODO: explain how cancellation is also used when one child raises an
+exception
+
+TODO: show an example :exc:`MultiError` traceback and walk through its
+structure
+
+TODO: maybe a brief discussion of :exc:`KeyboardInterrupt` handling?
+
+..
+   Timeouts
+   --------
+
+   XX todo
+
+   timeout example::
+
+      async def counter():
+          for i in range(100000):
+              print(i)
+              await trio.sleep(1)
+
+      async def main():
+          with trio.fail_after(10):
+              await counter()
+
+   you can stick anything inside a timeout block, even child tasks
+
+     [show something like the first example but with a timeout – they
+     both get cancelled, the cancelleds get packed into a multierror, and
+     then the timeout block catches the cancelled]
+
+   brief discussion of KI?
+   tasks-with-trace.py + control-C is pretty interesting
+   or maybe leave it for a blog post?

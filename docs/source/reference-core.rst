@@ -619,8 +619,8 @@ Errors in multiple child tasks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Normally, in Python, only one thing happens at a time, which means
-that only one thing can wrong at a time. Trio is not so
-limited. Consider code like::
+that only one thing can wrong at a time. Trio has no such
+limitation. Consider code like::
 
     async def broken1():
         d = {}
