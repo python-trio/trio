@@ -1,202 +1,124 @@
-nothing to see here
+.. image:: https://readthedocs.org/projects/trio/badge/?version=latest
+   :target: http://trio.readthedocs.io/en/latest/?badge=latest
+   :alt: Documentation Status
+
+.. image:: https://travis-ci.org/njsmith/trio.svg?branch=master
+   :target: https://travis-ci.org/njsmith/trio
+   :alt: Automated test status (Linux and MacOS)
+
+.. image:: https://ci.appveyor.com/api/projects/status/af4eyed8o8tc3t0r/branch/master?svg=true
+   :target: https://ci.appveyor.com/project/njsmith/trio/history
+   :alt: Automated test status (Windows)
+
+.. image:: https://codecov.io/gh/njsmith/trio/branch/master/graph/badge.svg
+   :target: https://codecov.io/gh/njsmith/trio
+   :alt: Test coverage
+
+Trio – async I/O for humans and snake people
+============================================
+
+*P.S. your API is a user interface – Kenneth Reitz*
+
+Trio is an experimental attempt to produce a production-quality,
+`permissively licensed
+<https://github.com/njsmith/trio/blob/master/LICENSE>`__,
+async/await-native I/O library for Python, with an emphasis on
+**usability** and **correctness** – we want to make it *easy* to
+get things *right*.
+
+Traditionally, async programming is quite challenging, with many
+subtle edge cases that are easy to get wrong. The addition of
+`asyncio <https://docs.python.org/3/library/asyncio.html>`__ to the
+standard library was a huge advance, but things have continued to
+move forward since then, and ironically, asyncio suffers from
+backwards-compatibility constraints that make it difficult for it
+to take full advantage of the new language features that it
+motivated. The resulting system can be `confusing
+<http://lucumr.pocoo.org/2016/10/30/i-dont-understand-asyncio/>`__,
+and there's a `widespread sense that we can do better
+<https://mail.python.org/pipermail/async-sig/2016-November/000175.html>`__.
+
+Trio is heavily inspired by Dave Beazley's `curio
+<https://github.com/dabeaz/curio>`__, and an analysis of how it
+`avoids many of the pitfalls of callback-based async programming
+models like asyncio
+<https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/>`__;
+trio tries to take these ideas further. Other influences include
+`C#, Erlang, and others
+<https://github.com/njsmith/trio/wiki/Reading-list>`__. But you
+don't need to know any of that to use trio.
+
+Our (possibly overambitious!) goal is that if you're coming from an
+async I/O library that was created in the pre-async/await era, then
+switching to trio should feel like switching from `urllib2 to
+requests <https://gist.github.com/kennethreitz/973705>`__, or from
+C to Python. Of course, whether we can live up to that is an open
+question! Trio represents one fairly opinionated vision for the
+future of asynchronous I/O in Python, but it's not the only such
+vision. If you're interested in trio, then you should certainly
+check out `asyncio
+<https://docs.python.org/3/library/asyncio.html>`__ and `curio
+<https://github.com/dabeaz/curio>`__ too.
+
+So... where to next?
+
+*I want to know more!* Check out the `documentation
+<https://trio.readthedocs.io>`__!
+
+*I want to dive in and try it!* Awesome! ``pip install trio`` and
+start with the `tutorial
+<https://trio.readthedocs.io/en/latest/tutorial.html>`__. (If you
+already know async/await, then you might want to jump straight to
+the `networking section
+<https://trio.readthedocs.io/en/latest/tutorial.html#networking-with-trio>`__.)
+And if you use it for anything more than toy experiments, then you
+should `read and subscribe to this issue
+<https://github.com/njsmith/trio/issues/1>`__.
+
+*But wait, will it work on my system?* Probably! As long as you
+have either CPython 3.5+ or a PyPy 3.5 prerelease, and are using
+Linux, MacOS, or Windows, then trio should absolutely work. *BSD
+and illumos likely work too, but we don't have testing
+infrastructure for them.
+
+*I want to help!* You're the best! There's tons of work to do –
+filling in missing functionality, building up an ecosystem of
+trio-using libraries, usability testing (e.g., maybe try teaching
+yourself or a friedn to use trio and make a list of every error
+message you hit and place where you got confused?), improving the
+docs, ... We `don't have a CONTRIBUTING.md yet
+<https://github.com/njsmith/trio/issues/46>`__ (want to help write
+one?), but you can check out our `issue tracker
+<https://github.com/njsmith/trio/issues>`__, and depending on your
+interests check out our `labels
+<https://github.com/njsmith/trio/labels>`__ for `low-hanging fruit
+<https://github.com/njsmith/trio/labels/todo%20soon>`__, `significant
+missing functionality
+<https://github.com/njsmith/trio/labels/missing%20piece>`__, `open
+questions regarding high-level design
+<https://github.com/njsmith/trio/labels/design%20discussion>`__, ...
+
+*I don't have any immediate plans to use it, but I love geeking out
+about I/O library design!* That's a little weird, but so are we;
+you'll fit in nicely here. Check out our `discussion of design choices
+<https://trio.readthedocs.io/en/latest/design.html#user-level-api-principles>`__,
+`reading list <https://github.com/njsmith/trio/wiki/Reading-list>`__,
+and `issues tagged design-discussion
+<https://github.com/njsmith/trio/labels/design%20discussion>`__.
+
+*I want to make sure my company's lawyers won't get angry at me!*
+No worries, trio is permissively licensed under your choice of MIT
+or Apache 2. See `LICENSE
+<https://github.com/njsmith/trio/blob/master/LICENSE>`__ for
+details.
+
 
 ..
-   .. image:: https://readthedocs.org/projects/trio/badge/?version=latest
-      :target: http://trio.readthedocs.io/en/latest/?badge=latest
-      :alt: Documentation Status
-
-   .. image:: https://travis-ci.org/njsmith/trio.svg?branch=master
-      :target: https://travis-ci.org/njsmith/trio
-      :alt: Automated test status (Linux and MacOS)
-
-   .. image:: https://ci.appveyor.com/api/projects/status/af4eyed8o8tc3t0r/branch/master?svg=true
-      :target: https://ci.appveyor.com/project/njsmith/trio/history
-      :alt: Automated test status (Windows)
-
-   .. image:: https://codecov.io/gh/njsmith/trio/branch/master/graph/badge.svg
-      :target: https://codecov.io/gh/njsmith/trio
-      :alt: Test coverage
-
-..
-   Trio – async I/O for humans and snake people
-   ============================================
-
-   *P.S. your API is a user interface – Kenneth Reitz*
-
-   Trio is an experimental attempt to produce a production-quality,
-   `permissively licensed
-   <https://github.com/njsmith/trio/blob/master/LICENSE>`__,
-   async/await-native I/O library for Python, with an emphasis on
-   **usability** and **correctness** – we want to make it *easy* to
-   get things *right*.
-
-   Traditionally, async programming is quite challenging, with many
-   subtle edge cases that are easy to get wrong. The addition of
-   `asyncio <https://docs.python.org/3/library/asyncio.html>`__ to the
-   standard library was a huge advance, but things have continued to
-   move forward since then, and ironically, asyncio suffers from
-   backwards-compatibility constraints that make it difficult for it
-   to take full advantage of the new language features that it
-   motivated. The resulting system can be `confusing
-   <http://lucumr.pocoo.org/2016/10/30/i-dont-understand-asyncio/>`__,
-   and there's a `widespread sense that we can do better
-   <https://mail.python.org/pipermail/async-sig/2016-November/000175.html>`__.
-
-   Trio is heavily inspired by Dave Beazley's `curio
-   <https://github.com/dabeaz/curio>`__, and an analysis of how it
-   `avoids many of the pitfalls of callback-based async programming
-   models like asyncio
-   <https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/>`__;
-   trio tries to take these ideas further. Other influences include
-   `C#, Erlang, and others
-   <https://github.com/njsmith/trio/wiki/Reading-list>`__. But you
-   don't need to know any of that to use trio.
-
-   Our (possibly overambitious!) goal is that if you've previously
-   used an async I/O library that was created in the pre-async/await
-   era, then switching to trio should feel like switching from
-   `urllib2 to requests
-   <https://gist.github.com/kennethreitz/973705>`__, or from C to
-   Python. Of course, whether we can live up to that is an open
-   question! Trio represents one fairly opinionated vision for the
-   future of asynchronous I/O in Python, but it's not the only such
-   vision. If you're interested in trio, then you should certainly
-   check out `asyncio
-   <https://docs.python.org/3/library/asyncio.html>`__ and `curio
-   <https://github.com/dabeaz/curio>`__ too.
-
-   So... where to next?
-
-   *I want to know more!* Check out the `documentation
-   <https://trio.readthedocs.io>`__!
-
-   *I want to dive in and try it!* Awesome! ``pip install trio`` and
-   check out `our examples XX`. And if you use it for anything more
-   than toy experiments, then you should `read and subscribe to this
-   issue <https://github.com/njsmith/trio/issues/1>`__.
-
-   *But wait, will it work on my system?* Probably! As long as you
-   have either CPython 3.5+ or a PyPy 3.5 prerelease, and are using
-   Linux, MacOS, or Windows, then trio should absolutely work. *BSD
-   and illumos likely work too, but we don't have testing
-   infrastructure for them.
-
-   *I want to help!* You're the best! There's tons of work to do
-   Check out our  <github issues>
-   discussion, tests, docs, use it and let us know how it goes XX
-   usability testing (try teaching yourself or a friend to use trio
-   and make a list of every error message you hit and place where you
-   got confused?), docs, logo, ...
-   Depending on your interests, you might want to check out our lists
-   of low-hanging fruit, of significant missing functionality, or of
-   open high-level design questions.
-
-   *I want to make sure my company's lawyers won't get angry at me!*
-   No worries, trio is permissively licensed under your choice of MIT
-   or Apache 2. See `LICENSE
-   <https://github.com/njsmith/trio/blob/master/LICENSE>`__ for
-   details.
-
-
-   emphasis on usability: goal is to help you write programs that are
-   safe, correct, low latency, high throughput
-   (in that order)
-
-   is it fast? it's not slow; for real optimization though going to wait
-   until we have real programs, b/c we'd rather not get into a fight over
-   who has the fastest echo server in the west. (rule: optimizations must
-   either demonstrate appreciable speedups on realistic (ideally real)
-   applications *or* demonstrate appreciable speedups on
-   microbenchmarks + be ~neutral WRT to code maintainability.)
-
-   minimal (TOOWTDI), layered design
-   -> as a way to minimize the tension between stability and experimentation
-   (e.g., there is only one *built-in* synchronization primitive, the
-   ParkingLot; we provide the standard set of primitives like locks,
-   queues, etc. built on top of it, but you can pretty easily write your
-   own if you need them.)
-
-   goals that we don't meet yet, but want to:
-   rigorous test suite
-   cross-platform (and only *one* implementation per platform)
-   stable
-
-
-   Implemented:
-   - Core loop functionality (tasks, timeouts, cancellation, etc.)
-   - Thread/signal-safe assignment of work to the trio thread
-   - Listening for signals
-   - run_in_worker_thread
-   - {run,await}_in_trio_thread (from outside threads)
-   - KeyboardInterrupt handling
-   - Synchronization primitives (Event, Queue, Semaphore, etc.)
-   - Core socket handling
-
-   Needs work:
-   - IDNA (someone help me please)
-
-   Needs written:
-   - socket module:
-     - sendfile
-     - high level helpers like start_tcp_server
-   - subprocesses
-   - worker process pool
-   - SSL
-
-
-   Some features:
-   - Aspires to production-quality
-   - Full support for Windows, Linux, MacOS
-   - Full support for both CPython 3.5+ and for PyPy 3.5 pre-releases
-   - Flow control is fully async/await-native and easy to reason about
-     -- no callbacks, no futures, no implicit concurrency
-   - Powerful and composable framework for handling cancellation and
-     timeouts
-   - Strong user-centered guarantees around cancel and schedule points
-     make it easier to manage and reason about cooperative concurrency.
-   - Erlang-influenced interface for task spawning provides a
-     structured system for managing child tasks. If user code raises
-     an exception then it's always propagated until handled, never
-     logged-and-discarded.
-   - First-class support for introspection and debugging
-   - Powerful built-in testing helpers. Example: you can speed up
-     tests that involve timeouts by using a clock that automatically
-     skips over boring periods:
-     https://trio.readthedocs.io/en/latest/reference-testing.html#time-and-timeouts
-     - As a demonstration of the power of good testing tools, trio's
-       own test suite achieves XX% coverage and runs in ~5 seconds in
-       "slow" mode (~2 seconds in default mode).
-   - Interrupting programs with control-C magically just works.
-   - A low-level "hazmat" API for when you need to go under the
-     hood. To make sure it's powerful enough, Trio's main
-     synchronization, networking, and threading APIs are implemented
-     using only public interfaces.
-   - Tutorial doesn't assume any familiarity with async/await
-   - Exposes a whole laundry list of Python limitations
-   - Lots of missing pieces that you can help fill in! :-)
-
-
    next:
-   - set default role and get rid of all this :func: things
-
    - @_testing for stuff that needs tighter integration? kinda weird
      that wait_all_tasks_blocked is in hazmat right now
 
      and assert_yields stuff might make more sense in core
-
-   - test helpers to explore all cancellation points?
-
-     teach coverage to treat 'await ...' as a place with a Cancelled
-     branch
-
-     I think technically the mechanism we'd want is something like:
-     - keep a record of places where we *have* issued a cancellation
-       (like: stack snapshots, or maybe stack snapshot + scope depth,
-       for if we want to exercise all the different depths of
-       cancellation)
-     - make it so the "are we cancelled?" check first invokes a check
-       against this database, and the first time it finds one not in
-       there it adds it and raises Cancelled
 
    - make @trio_test accept clock_rate=, clock_autojump_threshold=
      arguments
@@ -220,150 +142,7 @@ nothing to see here
      that? like if there's a magic local pointing to the frame, we can
      use that frame's 'self'?
 
-   - add an argument to sendall that says whether this send was done
-     ASAP gated off writability? so we can autotune the
-     TCP_NOTSENT_LOWAT buffer size? idea being that if the buffer was
-     empty for a write-limited send then our buffer is too small, but
-     if it's empty in other cases then that doesn't mean anything.
-
-     meh. probably better to leave this for apps I guess.
-
-     even echo server loop::
-
-        while True:
-            await sock.wait_send_buffer_available()
-            data = await sock.recv(BUFSIZE)
-            if not data:
-                break
-            await sock.sendall(data)
-
-     ...we don't actually know whether the send was write-limited
-     b/c it depends on whether recv blocked.
-
    - wait_send_buffer_available()
-
-   - blog post: a simple two-way proxy in both curio and trio
-     (intentionally similar to the big blog post example)
-
-     code is basically identical, but trio version:
-     - correctly propagates errors
-     - handles cancellations/timeouts
-     - not subject to starvation
-     - handles control-C
-
-   - I looked at h2 and yeah, we definitely need to make stream have
-     aclose() instead of close(). Sigh.
-     ...If aclose is a cancellation point, does it need special
-     cancellation semantics, like the mess around POSIX close? I'm
-     leaning towards, for sockets it's implemented as
-
-     async def aclose(self):
-         self.close()
-         await yield_briefly()
-
-     ...but what about for other objects where closing really does
-     require some work? __aexit__ in general has a problem here.
-
-     in, like, an HTTP/2 server, you can't just defer cancellation
-     while doing await sendall(channel_close_frame), because you've
-     just made your timeouts ineffective and put yourself at the mercy
-     of the remote server. So maybe the rule is you need a with on the
-     socket *and* an async with on the stream, where the with on the
-     socket does the rude cleanup (if necessary).
-
-     Or maybe stream needs a force_close() method. Or just a mandatory
-     rule that when implementing aclose() you need some strategy for
-     handling cancellation?
-
-     or maybe we need some ugly way to force h2 channels to be sync
-     closeable. we just set a flag, someone else's job to force it
-     out?
-
-     it's a problem in general for any kind of async cleanup: how do
-     you set a timeout on the cancellation handling?
-
-   - Python 3.7 wishlist items:
-
-     - __iterclose__
-     - can we do anything about forgetting-an-await?
-       in retrospect async functions shouldn't implement __call__ I
-       think
-       but probably too late to do anything about that...?
-     - possibly Result should actually be builtin? I think it would
-       actually really simplify the generator API and
-       implementation. (in particular, unifying send and throw could
-       dramatically simplify the implementation of yield from etc.)
-     - better ergonomics for MultiErrors (catching, printing,
-       rethrowing...)
-       - concatenating tracebacks
-       - attaching attributes to tracebacks (probably: subclassing them)
-       - better control over implicit exception chaining
-
-         example of a case that's simply broken and unfixable:
-
-         v = ValueError()
-         v.__context__ = KeyError()
-         def discard_NameError(exc):
-             if isinstance(exc, NameError):
-                 return None
-             return exc
-         with pytest.raises(ValueError) as excinfo:
-             with MultiError.catch(discard_NameError):
-                 raise MultiError([v, NameError()])
-         assert isinstance(excinfo.value.__context__, KeyError)
-         assert not excinfo.value.__suppress_context__
-
-         because Python *will* overwrite the ValueError's __context__
-         in the catch's __exit__, even though it's already
-         set. There's no way to stop it.
-
-       - better hooks to control exception printing?
-     - context chaining for .throw() and .athrow()
-     - preserve the stack for yield from generators/coroutines, even
-       when suspended -- XX no! you can recover this via cr_await! see
-       curio.monitor._get_stack.
-     - better support for KI management (in particular for __(a)exit__
-       blocks, with their currently unfixable race condition)
-       need to understand this better...
-
-       Interesting comment in ceval.c:
-
-            if (_Py_OPCODE(*next_instr) == SETUP_FINALLY) {
-                /* Make the last opcode before
-                   a try: finally: block uninterruptible. */
-                goto fast_next_opcode;
-            }
-
-       it looks like:
-       - for sync context managers, SETUP_WITH atomically calls
-         __enter__ + sets up the finally block (though of course you
-         could get a KI inside __enter__ if we don't have atomic KI
-         protection)
-       - for async context managers, the async setup stuff is split
-         over multiple bytecodes, so we lose this guarantee -- it's
-         possible for a KI to arrive in between calling __aenter__ and
-         the SETUP_ASYNC_WITH that pushes the finally block
-       - for sync context managers, WITH_CLEANUP_START atomically
-         calls __exit__
-       - for async context managers, there again are multiple
-         bytecodes (WITH_CLEANUP_START calls __aenter__ (i.e.,
-         instantiates the coroutine object), then GET_AWAITABLE calls
-         __await__, then LOAD_CONST for some reason (??), then
-         YIELD_FROM to actually run the __aenter__ body
-
-       also of course we would need to fix
-       contextmanager/acontextmanager so that the outermost
-       __(a){enter,exit}__ actually are protected when they should be.
-
-     - ability to go from stack frame to function object (maybe the
-       frame itself could hold a pointer to the function, if
-       available? no circular references that way. though putting it
-       in the code object would probably be simpler otherwise.)
-       used for:
-         - better introspection (right now you can't get
-           __qualname__ for tracebacks!)
-         - patching the KI protection gap (I think, assuming 'with'
-           calls __(a)exit__ atomically)
 
    - add nursery statistics? add a task statistics method that also
      gives nursery statistics? "unreaped tasks" is probably a useful
@@ -398,40 +177,6 @@ nothing to see here
      bytecode level, since exiting a with block seems to expand into 3
      separate bytecodes?
 
-   - notes for unix socket server:
-
-     https://github.com/python/asyncio/issues/425
-     Twisted uses a lockfile:
-     https://github.com/twisted/twisted/blob/trunk/src/twisted/internet/unix.py#L290
-     https://github.com/tornadoweb/tornado/blob/master/tornado/netutil.py#L215
-
-   - factor call_soon machinery off into its own object
-
-   - On UDP send libuv seems to dispatch sends immediately without any
-     backpressure
-
-   - Libuv uniformly *disables* v6only
-
-   - Libuv UDP has some complicated handling of
-     SetFileCompletionNotificationModes (they want to handle
-     synchronous completions synchronously, but apparently there are
-     bugs)
-
-   - Linux sendall should temporarily disable notsent_lowat
-
-   - Currently libuv uses neither SO_REUSEADDR, SO_EXCLUSIVEADDR,
-     because they want to allow rebinding of TIME_WAIT sockets. But
-     then there's https://github.com/joyent/libuv/issues/150
-
-   - Libuv on Windows actually issues multiple AcceptEx calls
-     simultaneously (optionally)
-
-   - There is some mess around cancellation and LSPs... If a "non-IFS
-     LSP" is installed then libuv uses wsaioctl to get the base handle
-     before trying to cancel things
-     http://www.komodia.com/KomodiaLSPTypes.pdf
-     http://www.lenholgate.com/blog/2017/01/setfilecompletionnotificationmodes-can-cause-iocp-to-fail-if-a-non-ifs-lsp-is-installed.html
-
    - start_* convention -- if you want to run it synchronously, do
      async with make_nursery() as nursery:
          task = await start_foo(nursery)
@@ -451,12 +196,6 @@ nothing to see here
      maybe as minimal extension to the existing thing,
      open_nursery(autoclose=False), only closes when cancelled?
 
-   - according to the docs on Windows, with overlapped I/o you can
-     still get WSAEWOULDBLOCK ("too many outstanding overlapped
-     requests"). No-one on the internet seems to have any idea when
-     this actually occurs or why. Twisted has a FIXME b/c they don't
-     handle it, just propagate the error out.
-
    - possible improved robustness ("quality of implementation") ideas:
      - if an abort callback fails, discard that task but clean up the
        others (instead of discarding all)
@@ -466,16 +205,6 @@ nothing to see here
      http://infolab.stanford.edu/trio/ -- dead for a ~decade
      http://inamidst.com/sw/trio/ -- dead for a ~decade
 
-
-   3.6 advantages:
-   - no __aiter__ mess
-   - async generators
-   - no need to check for AbstractContextManager
-   - f strings
-   disadvantages:
-   - not in debian at all yet; 3.6-final not in any ubuntu until 17.04
-   - pypy (but pypy has f-strings at least)
-   - might be tricky on RTD (though conda might take care of this)
 
 Code of conduct
 ---------------
