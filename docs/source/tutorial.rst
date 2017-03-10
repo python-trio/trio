@@ -872,8 +872,7 @@ children – even though the ``echo_listener`` is the one spawning
    ├─ echo_server 1
    │
    ├─ echo_server 2
-   │
-   ⋮
+   ┆
 
 Once we know this trick, the listener code becomes pretty
 straightforward:
