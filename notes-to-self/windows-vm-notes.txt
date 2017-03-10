@@ -1,0 +1,16 @@
+Have a VM in virtualbox
+
+activate winenv here, or use py, py -m pip, etc.; regular python is
+not in the path
+
+virtualbox is set to map my home dir to \\vboxsrv\njs, which can be
+mapped to a drive with: net use x: \\vboxsrv\njs
+
+if switching back and forth between windows and linux in the same
+directory and using the same version of python, .pyc files are a problem.
+  find -name __pycache__ | xargs rm -rf
+export PYTHONDONTWRITEBYTECODE=1
+
+if things freeze, control-C doesn't seem reliable... possibly this is
+a bug in my code :-(. but can get to task manager via vbox menu Input
+Keyboard -> Insert ctrl-alt-del.
