@@ -3,7 +3,7 @@ import itertools
 import pytest
 
 from ... import _core
-from ...testing import assert_yields
+from ...testing import assert_yields, wait_all_tasks_blocked
 
 async def test_UnboundedQueue_basic():
     q = _core.UnboundedQueue()
@@ -113,3 +113,29 @@ async def test_UnboundedQueue_trivial_yields():
     with assert_yields():
         async for _ in q:  # pragma: no branch
             break
+
+
+async def test_UnboundedQueue_no_spurious_wakeups():
+    # If we have two tasks waiting, and put two items into the queue... then
+    # only one task wakes up
+    record = []
+    async def getter(q, i):
+        got = await q.get_batch()
+        record.append((i, got))
+
+    async with _core.open_nursery() as nursery:
+        q = _core.UnboundedQueue()
+        t1 = nursery.spawn(getter, q, 1)
+        await wait_all_tasks_blocked()
+        t2 = nursery.spawn(getter, q, 2)
+        await wait_all_tasks_blocked()
+
+        for i in range(10):
+            q.put_nowait(i)
+        await wait_all_tasks_blocked()
+
+        assert t1.result is not None
+        assert t2.result is None
+        assert record == [(1, list(range(10)))]
+
+        nursery.cancel_scope.cancel()

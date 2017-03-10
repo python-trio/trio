@@ -405,9 +405,6 @@ nothing to see here
      https://github.com/twisted/twisted/blob/trunk/src/twisted/internet/unix.py#L290
      https://github.com/tornadoweb/tornado/blob/master/tornado/netutil.py#L215
 
-   - XX add test for UnboundedQueue schedules properly (only wakes 1
-     task if 2 puts)
-
    - factor call_soon machinery off into its own object
 
    - On UDP send libuv seems to dispatch sends immediately without any
