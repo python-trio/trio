@@ -34,7 +34,7 @@ A yield point is two things:
    to a different task. (Currently, this scheduler is very simple: it
    simply cycles through all the runnable tasks, running each one
    until it hits its first yield point. But `this might change in the
-   future <https://github.com/njsmith/trio/issues/32>`__.)
+   future <https://github.com/python-trio/trio/issues/32>`__.)
 
 So you need to be aware of yield points for two reasons. First, you
 need to know where they are so you can make sure you're prepared to
@@ -68,7 +68,7 @@ if it's ``await <something in trio>`` then it's *definitely* a yield
 point.
 
 [Note: `we really need to come up with a less confusing name for yield
-points <https://github.com/njsmith/trio/issues/66>`__]
+points <https://github.com/python-trio/trio/issues/66>`__]
 
 
 Thread safety
@@ -101,7 +101,7 @@ The default clock is currently implemented as :func:`time.monotonic`
 plus a large random offset. The idea here is to catch code that
 accidentally uses :func:`time.monotonic` early, which should help keep
 our options open for `changing the clock implementation later
-<https://github.com/njsmith/trio/issues/33>`__, and (more importantly)
+<https://github.com/python-trio/trio/issues/33>`__, and (more importantly)
 make sure you can be confident that custom clocks like
 :class:`trio.testing.MockClock` will work with third-party libraries
 you don't control.
@@ -987,7 +987,7 @@ Result objects
 Task-local storage and run-local storage
 ----------------------------------------
 
-`Not implemented yet! <https://github.com/njsmith/trio/issues/2>`__
+`Not implemented yet! <https://github.com/python-trio/trio/issues/2>`__
 
 
 .. _synchronization:
@@ -1035,7 +1035,7 @@ These classes are all guaranteed to be "fair", meaning that when it
 comes time to choose who will be next to acquire a lock, get an item
 from a queue, etc., then it always goes to the task which has been
 waiting longest. It's `not entirely clear
-<https://github.com/njsmith/trio/issues/54>`__ whether this is the
+<https://github.com/python-trio/trio/issues/54>`__ whether this is the
 best choice, but for now that's how it works.
 
 As an example of what this means, here's a small program in which two
@@ -1135,7 +1135,7 @@ backpressure more precisely. For example, when monitoring exiting
 tasks, blocking tasks from reporting their death doesn't really
 accomplish anything – the tasks are taking up memory either way,
 etc. (In this particular case it `might be possible to do better
-<https://github.com/njsmith/trio/issues/64>`__, but in general the
+<https://github.com/python-trio/trio/issues/64>`__, but in general the
 principle holds.) So this is the strategy implemented by
 :class:`trio.UnboundedQueue`.
 
@@ -1315,7 +1315,7 @@ somewhat careful. The callbacks are run synchronously, and in many
 cases if they error out then we don't have any plausible way to
 propagate this exception (for instance, we might be deep in the guts
 of the exception propagation machinery...). Therefore our `current
-strategy <https://github.com/njsmith/trio/issues/47>`__ for handling
+strategy <https://github.com/python-trio/trio/issues/47>`__ for handling
 exceptions raised by instruments is to (a) dump a stack trace to
 stderr and (b) disable the offending instrument.
 

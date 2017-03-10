@@ -61,7 +61,7 @@ for _name in _stdlib_socket.__dict__.keys():
         _reexport(_name)
 
 if _sys.platform == "win32":
-    # See https://github.com/njsmith/trio/issues/39
+    # See https://github.com/python-trio/trio/issues/39
     # (you can still get it from stdlib socket, of course, if you want it)
     del SO_REUSEADDR
 
@@ -190,7 +190,7 @@ class SocketType:
         if self._sock.family == AF_INET6:
             self.setsockopt(IPPROTO_IPV6, IPV6_V6ONLY, False)
 
-        # See https://github.com/njsmith/trio/issues/39
+        # See https://github.com/python-trio/trio/issues/39
         if _sys.platform == "win32":
             self.setsockopt(SOL_SOCKET, _stdlib_socket.SO_REUSEADDR, False)
             self.setsockopt(SOL_SOCKET, SO_EXCLUSIVEADDRUSE, True)

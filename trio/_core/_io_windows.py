@@ -20,7 +20,7 @@ from ._windows_cffi import (
 # There's a lot to be said about the overall design of a Windows event
 # loop. See
 #
-#    https://github.com/njsmith/trio/issues/52
+#    https://github.com/python-trio/trio/issues/52
 #
 # for discussion. This now just has some lower-level notes:
 #
@@ -134,7 +134,7 @@ class WindowsIOManager:
         self._socket_waiters["read"][self._main_thread_waker.wakeup_sock] = None
 
         # This is necessary to allow control-C to interrupt select().
-        # https://github.com/njsmith/trio/issues/42
+        # https://github.com/python-trio/trio/issues/42
         #
         # Basically it's doing the same thing as signal.set_wakeup_fd, except
         # for some reason when I do it here it works, which I can't say for

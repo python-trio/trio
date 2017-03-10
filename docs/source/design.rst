@@ -41,7 +41,7 @@ use case and valid definition of usability, but it's not the one we
 use: we think it's easier to build reliable and correct systems if
 exceptions propagate until handled and if the system `catches you when
 you make potentially dangerous resource handling errors
-<https://github.com/njsmith/trio/issues/23>`__, so that's what we
+<https://github.com/python-trio/trio/issues/23>`__, so that's what we
 optimize for.
 
 It's also worth saying something about speed, since it often looms
@@ -417,7 +417,7 @@ Specific style guidelines
 * ...we should, but currently don't, have a solid convention to
   distinguish between functions that take an async callable and those
   that take a sync callable. See `issue #68
-  <https://github.com/njsmith/trio/issues/68>`__.
+  <https://github.com/python-trio/trio/issues/68>`__.
 
 
 A brief tour of trio's internals

@@ -110,7 +110,7 @@ Kqueue-specific API
 -------------------
 
 TODO: these are currently more of a sketch than anything real. See
-`#26 <https://github.com/njsmith/trio/issues/26>`__.
+`#26 <https://github.com/python-trio/trio/issues/26>`__.
 
 .. function:: current_kqueue()
 
@@ -125,8 +125,8 @@ Windows-specific API
 --------------------
 
 TODO: these are currently more of a sketch than anything real. See
-`#26 <https://github.com/njsmith/trio/issues/26>`__ and `#52
-<https://github.com/njsmith/trio/issues/52>`__.
+`#26 <https://github.com/python-trio/trio/issues/26>`__ and `#52
+<https://github.com/python-trio/trio/issues/52>`__.
 
 .. function:: register_with_iocp(handle)
 

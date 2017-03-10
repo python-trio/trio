@@ -521,7 +521,7 @@ class Queue:
         """Returns the number of items currently in the queue.
 
         There is some subtlety to interpreting this method's return value: see
-        `issue #63 <https://github.com/njsmith/trio/issues/63>`__.
+        `issue #63 <https://github.com/python-trio/trio/issues/63>`__.
 
         """
         return len(self._data)
@@ -530,7 +530,7 @@ class Queue:
         """Returns True if the queue is at capacity, False otherwise.
 
         There is some subtlety to interpreting this method's return value: see
-        `issue #63 <https://github.com/njsmith/trio/issues/63>`__.
+        `issue #63 <https://github.com/python-trio/trio/issues/63>`__.
 
         """
         return len(self._data) == self.capacity
@@ -539,7 +539,7 @@ class Queue:
         """Returns True if the queue is empty, False otherwise.
 
         There is some subtlety to interpreting this method's return value: see
-        `issue #63 <https://github.com/njsmith/trio/issues/63>`__.
+        `issue #63 <https://github.com/python-trio/trio/issues/63>`__.
 
         """
         return not self._data

@@ -614,7 +614,7 @@ async def test_cancel_scope_multierror_filtering():
 
 async def test_precancelled_task():
     # a task that gets spawned into an already-cancelled nursery should begin
-    # execution (https://github.com/njsmith/trio/issues/41), but get a
+    # execution (https://github.com/python-trio/trio/issues/41), but get a
     # cancelled error at its first blocking call.
     record = []
     async def blocker():

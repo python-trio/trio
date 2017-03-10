@@ -9,7 +9,7 @@ Trio: async programming for humans and snake people
 
 Trio is an experimental attempt to produce a production-quality,
 `permissively licensed
-<https://github.com/njsmith/trio/blob/master/LICENSE>`__,
+<https://github.com/python-trio/trio/blob/master/LICENSE>`__,
 async/await-native I/O library for Python, with an emphasis on
 **usability** and **correctness** – we want to make it *easy* to
 get things *right*.

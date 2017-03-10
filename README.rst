@@ -2,16 +2,16 @@
    :target: http://trio.readthedocs.io/en/latest/?badge=latest
    :alt: Documentation Status
 
-.. image:: https://travis-ci.org/njsmith/trio.svg?branch=master
-   :target: https://travis-ci.org/njsmith/trio
+.. image:: https://travis-ci.org/python-trio/trio.svg?branch=master
+   :target: https://travis-ci.org/python-trio/trio
    :alt: Automated test status (Linux and MacOS)
 
 .. image:: https://ci.appveyor.com/api/projects/status/af4eyed8o8tc3t0r/branch/master?svg=true
-   :target: https://ci.appveyor.com/project/njsmith/trio/history
+   :target: https://ci.appveyor.com/project/python-trio/trio/history
    :alt: Automated test status (Windows)
 
-.. image:: https://codecov.io/gh/njsmith/trio/branch/master/graph/badge.svg
-   :target: https://codecov.io/gh/njsmith/trio
+.. image:: https://codecov.io/gh/python-trio/trio/branch/master/graph/badge.svg
+   :target: https://codecov.io/gh/python-trio/trio
    :alt: Test coverage
 
 Trio – async I/O for humans and snake people
@@ -21,7 +21,7 @@ Trio – async I/O for humans and snake people
 
 Trio is an experimental attempt to produce a production-quality,
 `permissively licensed
-<https://github.com/njsmith/trio/blob/master/LICENSE>`__,
+<https://github.com/python-trio/trio/blob/master/LICENSE>`__,
 async/await-native I/O library for Python, with an emphasis on
 **usability** and **correctness** – we want to make it *easy* to
 get things *right*.
@@ -46,7 +46,7 @@ callback-based async programming models like asyncio
 <https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/>`__;
 trio tries to take these ideas further. Other influences include `C#,
 Erlang, and others
-<https://github.com/njsmith/trio/wiki/Reading-list>`__. But you don't
+<https://github.com/python-trio/trio/wiki/Reading-list>`__. But you don't
 need to know any of that to use trio.
 
 Our (possibly overambitious!) goal is that if you're coming from an
@@ -75,7 +75,7 @@ already know async/await, then you might want to jump straight to the
 <https://trio.readthedocs.io/en/latest/tutorial.html#networking-with-trio>`__.)
 And if you use it for anything more than toy experiments, then you
 should `read and subscribe to this issue
-<https://github.com/njsmith/trio/issues/1>`__.
+<https://github.com/python-trio/trio/issues/1>`__.
 
 **But wait, will it work on my system?** Probably! As long as you have
 either CPython 3.5+ or a PyPy 3.5 prerelease, and are using Linux,
@@ -90,29 +90,29 @@ trio-using libraries, usability testing (e.g., maybe try teaching
 yourself or a friedn to use trio and make a list of every error
 message you hit and place where you got confused?), improving the
 docs, ... We `don't have a CONTRIBUTING.md yet
-<https://github.com/njsmith/trio/issues/46>`__ (want to help write
+<https://github.com/python-trio/trio/issues/46>`__ (want to help write
 one?), but you can check out our `issue tracker
-<https://github.com/njsmith/trio/issues>`__, and depending on your
+<https://github.com/python-trio/trio/issues>`__, and depending on your
 interests check out our `labels
-<https://github.com/njsmith/trio/labels>`__ for `low-hanging fruit
-<https://github.com/njsmith/trio/labels/todo%20soon>`__, `significant
+<https://github.com/python-trio/trio/labels>`__ for `low-hanging fruit
+<https://github.com/python-trio/trio/labels/todo%20soon>`__, `significant
 missing functionality
-<https://github.com/njsmith/trio/labels/missing%20piece>`__, `open
+<https://github.com/python-trio/trio/labels/missing%20piece>`__, `open
 questions regarding high-level design
-<https://github.com/njsmith/trio/labels/design%20discussion>`__, ...
+<https://github.com/python-trio/trio/labels/design%20discussion>`__, ...
 
 **I don't have any immediate plans to use it, but I love geeking out
 about I/O library design!** That's a little weird? But tbh you'll fit
 in great. Check out our `discussion of design choices
 <https://trio.readthedocs.io/en/latest/design.html#user-level-api-principles>`__,
-`reading list <https://github.com/njsmith/trio/wiki/Reading-list>`__,
+`reading list <https://github.com/python-trio/trio/wiki/Reading-list>`__,
 and `issues tagged design-discussion
-<https://github.com/njsmith/trio/labels/design%20discussion>`__.
+<https://github.com/python-trio/trio/labels/design%20discussion>`__.
 
 **I want to make sure my company's lawyers won't get angry at me!** No
 worries, trio is permissively licensed under your choice of MIT or
 Apache 2. See `LICENSE
-<https://github.com/njsmith/trio/blob/master/LICENSE>`__ for details.
+<https://github.com/python-trio/trio/blob/master/LICENSE>`__ for details.
 
 
 ..
@@ -212,5 +212,5 @@ Code of conduct
 ---------------
 
 Contributors are requested to follow our `code of conduct
-<https://github.com/njsmith/trio/blob/master/CODE_OF_CONDUCT.md>`__ in
+<https://github.com/python-trio/trio/blob/master/CODE_OF_CONDUCT.md>`__ in
 all project spaces.

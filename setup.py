@@ -5,16 +5,16 @@ exec(open("trio/_version.py", encoding="utf-8").read())
 LONG_DESC = """
 Trio is an experimental attempt to produce a production-quality,
 `permissively licensed
-<https://github.com/njsmith/trio/blob/master/LICENSE>`__,
+<https://github.com/python-trio/trio/blob/master/LICENSE>`__,
 async/await-native I/O library for Python, with an emphasis on
 **usability** and **correctness** – we want to make it *easy* to
 get things *right*.
 
 Docs: https://trio.readthedocs.io
 
-Issues: https://github.com/njsmith/trio/issues
+Issues: https://github.com/python-trio/trio/issues
 
-Repository: https://github.com/njsmith/trio
+Repository: https://github.com/python-trio/trio
 """
 
 setup(name="trio",
@@ -23,7 +23,7 @@ setup(name="trio",
       long_description=LONG_DESC,
       author="Nathaniel J. Smith",
       author_email="njs@pobox.com",
-      url="https://github.com/njsmith/trio",
+      url="https://github.com/python-trio/trio",
       license="MIT -or- Apache License 2.0",
       packages=find_packages(),
       install_requires=[

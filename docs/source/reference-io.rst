@@ -147,7 +147,7 @@ Socket objects
       MacOS), ``TCP_NOTSENT_LOWAT`` is enabled with a reasonable
       buffer size (currently 16 KiB).
 
-   See `issue #72 <https://github.com/njsmith/trio/issues/72>`__ for
+   See `issue #72 <https://github.com/python-trio/trio/issues/72>`__ for
    discussion of these defaults.
 
    The following methods are similar, but not identical, to the
@@ -161,7 +161,7 @@ Socket objects
 
    .. method:: sendfile
 
-      `Not implemented yet! <https://github.com/njsmith/trio/issues/45>`__
+      `Not implemented yet! <https://github.com/python-trio/trio/issues/45>`__
 
    The following methods are *not* provided:
 
@@ -208,7 +208,7 @@ The abstract Stream API
 -----------------------
 
 (this is currently more of a sketch than something actually useful,
-`see issue #73 <https://github.com/njsmith/trio/issues/73>`__)
+`see issue #73 <https://github.com/python-trio/trio/issues/73>`__)
 
 .. currentmodule:: trio
 
@@ -232,19 +232,19 @@ The abstract Stream API
 TLS support
 -----------
 
-`Not implemented yet! <https://github.com/njsmith/trio/issues/9>`__
+`Not implemented yet! <https://github.com/python-trio/trio/issues/9>`__
 
 
 Async disk I/O
 --------------
 
-`Not implemented yet! <https://github.com/njsmith/trio/issues/20>`__
+`Not implemented yet! <https://github.com/python-trio/trio/issues/20>`__
 
 
 Subprocesses
 ------------
 
-`Not implemented yet! <https://github.com/njsmith/trio/issues/4>`__
+`Not implemented yet! <https://github.com/python-trio/trio/issues/4>`__
 
 
 Signals

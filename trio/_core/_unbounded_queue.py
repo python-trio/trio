@@ -27,7 +27,7 @@ class UnboundedQueue:
     you can.
 
     Currently each batch completely empties the queue, but `this may change in
-    the future <https://github.com/njsmith/trio/issues/51>`__.
+    the future <https://github.com/python-trio/trio/issues/51>`__.
 
     A :class:`UnboundedQueue` object can be used as an asynchronous iterator,
     where each iteration returns a new batch of items. I.e., these two loops
@@ -60,7 +60,7 @@ class UnboundedQueue:
         """Returns True if the queue is empty, False otherwise.
 
         There is some subtlety to interpreting this method's return value: see
-        `issue #63 <https://github.com/njsmith/trio/issues/63>`__.
+        `issue #63 <https://github.com/python-trio/trio/issues/63>`__.
 
         """
         return not self._data

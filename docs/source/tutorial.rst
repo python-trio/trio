@@ -1027,7 +1027,7 @@ An echo client and server: higher-level API
 -------------------------------------------
 
 TODO: `Not implemented yet!
-<https://github.com/njsmith/trio/issues/73>`__
+<https://github.com/python-trio/trio/issues/73>`__
 
 
 When things go wrong: timeouts, cancellation and exceptions in concurrent tasks

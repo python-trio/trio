@@ -28,7 +28,7 @@
 # our FIFO scheduler this is relatively trivial (it's just a FIFO waitqueue),
 # but in the future we ever start support task priorities or fair scheduling
 #
-#    https://github.com/njsmith/trio/issues/32
+#    https://github.com/python-trio/trio/issues/32
 #
 # then all we'll have to do is update this. (Well, full-fledged task
 # priorities might also require priority inheritance, which would require more
@@ -68,7 +68,7 @@
 # later. But this means we can't commit to which task we are unparking when
 # unpark is called.
 #
-# See: https://github.com/njsmith/trio/issues/53
+# See: https://github.com/python-trio/trio/issues/53
 
 from itertools import count
 import attr
