@@ -27,26 +27,27 @@ async/await-native I/O library for Python, with an emphasis on
 get things *right*.
 
 Traditionally, async programming is quite challenging, with many
-subtle edge cases that are easy to get wrong. The addition of
-`asyncio <https://docs.python.org/3/library/asyncio.html>`__ to the
-standard library was a huge advance, but things have continued to
-move forward since then, and ironically, asyncio suffers from
-backwards-compatibility constraints that make it difficult for it
-to take full advantage of the new language features that it
-motivated. The resulting system can be `confusing
+subtle edge cases that are easy to get wrong. The addition of `asyncio
+<https://docs.python.org/3/library/asyncio.html>`__ to the standard
+library was a huge advance, but things have continued to move forward
+since then, and ironically, asyncio suffers from
+backwards-compatibility constraints that make it difficult for it to
+take full advantage of the new language features that it
+motivated. The result can be `somewhat confusing
 <http://lucumr.pocoo.org/2016/10/30/i-dont-understand-asyncio/>`__,
 and there's a `widespread sense that we can do better
 <https://mail.python.org/pipermail/async-sig/2016-November/000175.html>`__.
 
-Trio is heavily inspired by Dave Beazley's `curio
-<https://github.com/dabeaz/curio>`__, and an analysis of how it
-`avoids many of the pitfalls of callback-based async programming
-models like asyncio
+Trio is my attempt to ingest the ideas from asyncio and other systems
+and to better. In particular, it's heavily inspired from studying and
+working on Dave Beazley's `curio <https://github.com/dabeaz/curio>`__,
+and my `analysis of how it avoids many of the pitfalls of
+callback-based async programming models like asyncio
 <https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/>`__;
-trio tries to take these ideas further. Other influences include
-`C#, Erlang, and others
-<https://github.com/njsmith/trio/wiki/Reading-list>`__. But you
-don't need to know any of that to use trio.
+trio tries to take these ideas further. Other influences include `C#,
+Erlang, and others
+<https://github.com/njsmith/trio/wiki/Reading-list>`__. But you don't
+need to know any of that to use trio.
 
 Our (possibly overambitious!) goal is that if you're coming from an
 async I/O library that was created in the pre-async/await era, then
@@ -61,27 +62,29 @@ check out `asyncio
 <https://github.com/dabeaz/curio>`__ too.
 
 So... where to next?
+--------------------
 
-*I want to know more!* Check out the `documentation
+**I want to know more!** Check out the `documentation
 <https://trio.readthedocs.io>`__!
 
-*I want to dive in and try it!* Awesome! ``pip install trio`` and
+**I want to dive in and try it!** Awesome! ``pip install -U trio`` and
 start with the `tutorial
 <https://trio.readthedocs.io/en/latest/tutorial.html>`__. (If you
-already know async/await, then you might want to jump straight to
-the `networking section
+already know async/await, then you might want to jump straight to the
+`networking section
 <https://trio.readthedocs.io/en/latest/tutorial.html#networking-with-trio>`__.)
 And if you use it for anything more than toy experiments, then you
 should `read and subscribe to this issue
 <https://github.com/njsmith/trio/issues/1>`__.
 
-*But wait, will it work on my system?* Probably! As long as you
-have either CPython 3.5+ or a PyPy 3.5 prerelease, and are using
-Linux, MacOS, or Windows, then trio should absolutely work. *BSD
-and illumos likely work too, but we don't have testing
-infrastructure for them.
+**But wait, will it work on my system?** Probably! As long as you have
+either CPython 3.5+ or a PyPy 3.5 prerelease, and are using Linux,
+MacOS, or Windows, then trio should absolutely work. *BSD and illumos
+likely work too, but we don't have testing infrastructure for
+them. All of our dependencies are pure Python, except for CFFI on
+Windows, and that has wheels available.
 
-*I want to help!* You're the best! There's tons of work to do –
+**I want to help!** You're the best! There's tons of work to do –
 filling in missing functionality, building up an ecosystem of
 trio-using libraries, usability testing (e.g., maybe try teaching
 yourself or a friedn to use trio and make a list of every error
@@ -98,19 +101,18 @@ missing functionality
 questions regarding high-level design
 <https://github.com/njsmith/trio/labels/design%20discussion>`__, ...
 
-*I don't have any immediate plans to use it, but I love geeking out
-about I/O library design!* That's a little weird, but so are we;
-you'll fit in nicely here. Check out our `discussion of design choices
+**I don't have any immediate plans to use it, but I love geeking out
+about I/O library design!** That's a little weird? But tbh you'll fit
+in great. Check out our `discussion of design choices
 <https://trio.readthedocs.io/en/latest/design.html#user-level-api-principles>`__,
 `reading list <https://github.com/njsmith/trio/wiki/Reading-list>`__,
 and `issues tagged design-discussion
 <https://github.com/njsmith/trio/labels/design%20discussion>`__.
 
-*I want to make sure my company's lawyers won't get angry at me!*
-No worries, trio is permissively licensed under your choice of MIT
-or Apache 2. See `LICENSE
-<https://github.com/njsmith/trio/blob/master/LICENSE>`__ for
-details.
+**I want to make sure my company's lawyers won't get angry at me!** No
+worries, trio is permissively licensed under your choice of MIT or
+Apache 2. See `LICENSE
+<https://github.com/njsmith/trio/blob/master/LICENSE>`__ for details.
 
 
 ..
