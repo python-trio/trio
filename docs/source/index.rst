@@ -24,6 +24,7 @@ get things *right*.
    reference-testing.rst
    reference-hazmat.rst
    design.rst
+   history.rst
 
 ====================
  Indices and tables
