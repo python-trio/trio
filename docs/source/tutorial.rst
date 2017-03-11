@@ -383,8 +383,8 @@ Ok! Let's try running it and see what we get:
      child2 exiting!
    parent: all done!
 
-(Your output might have order of the "started" and/or "exiting" lines
-swapped compared to to mine.)
+(Your output might have the order of the "started" and/or "exiting"
+lines swapped compared to to mine.)
 
 Notice that ``child1`` and ``child2`` both start together and then
 both exit together, and that the whole program only takes 1 second to
