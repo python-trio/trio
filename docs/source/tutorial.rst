@@ -29,7 +29,7 @@ Before you begin
 
 1. Make sure you're using Python 3.5 or newer.
 
-2. ``pip install --upgrade trio`` (`details
+2. ``python3 -m pip install --upgrade trio`` (`details
    <https://packaging.python.org/installing/>`__)
 
 3. Can you ``import trio``? If so then you're good to go!
