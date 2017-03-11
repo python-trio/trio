@@ -937,11 +937,10 @@ call ``recv`` here we're not waiting for *all* the data to be
 available; ``recv`` returns as soon as *any* data is available. If
 ``data`` is small, then our operating systems / network / server will
 *probably* keep it all together in a single chunk, but there's no
-guarantee. If we send ``hello world`` then the other side might get
-``hello world``, or ``hello`` ``world``, or ``h`` ``e`` ``l`` ``l``
-``o`` `` `` ``w`` ``o`` ``r`` ``l`` ``d``, or ... bottom line, if
-we're expecting 10 bytes of data, we need to be prepared to call
-``recv`` up to 10 times to get all that data.
+guarantee. If the server sends ``hello`` then we might get ``hello``,
+or ``hel`` ``lo``, or ``h`` ``e`` ``l`` ``l`` ``o``, or ... bottom
+line, any time we're expecting more than one byte of data, we have to
+be prepared to call ``recv`` multiple times.
 
 And where this would go especially wrong is if we find ourselves in
 the situation where ``len(data) > BUFSIZE``. On each pass through the
