@@ -29,8 +29,8 @@ Before you begin
 
 1. Make sure you're using Python 3.5 or newer.
 
-2. ``python3 -m pip install --upgrade trio`` (``py -3 -m pip``
-   on Windows; `details
+2. ``python3 -m pip install --upgrade trio`` (or on Windows, maybe
+   ``py -3 -m pip install --upgrade trio`` – `details
    <https://packaging.python.org/installing/>`__)
 
 3. Can you ``import trio``? If so then you're good to go!
