@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 exec(open("trio/_version.py", encoding="utf-8").read())
 
-LONG_DESC = """
+LONG_DESC = """\
 Trio is an experimental attempt to produce a production-quality,
 `permissively licensed
 <https://github.com/python-trio/trio/blob/master/LICENSE>`__,
@@ -30,8 +30,17 @@ setup(name="trio",
           "attrs",
           "sortedcontainers",
           "async_generator >= 1.6",
-          "cffi; os_name == 'nt'",  # "cffi is required on windows"
+          # PEP 508 style, but:
+          # https://bitbucket.org/pypa/wheel/issues/181/bdist_wheel-silently-discards-pep-508
+          #"cffi; os_name == 'nt'",  # "cffi is required on windows"
       ],
+      # Quirky bdist_wheel-specific way:
+      # https://wheel.readthedocs.io/en/latest/#defining-conditional-dependencies
+      # also supported by pip and setuptools, as long as they're vaguely
+      # recent
+      extras_require={
+          ":os_name == 'nt'": ["cffi"],
+      },
       python_requires=">=3.5",
       classifiers=[
         "Development Status :: 3 - Alpha",
