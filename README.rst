@@ -39,8 +39,8 @@ and there's a `widespread sense that we can do better
 <https://mail.python.org/pipermail/async-sig/2016-November/000175.html>`__.
 
 Trio is my attempt to ingest the ideas from asyncio and other systems
-and to better. In particular, it's heavily inspired from studying and
-working on Dave Beazley's `curio <https://github.com/dabeaz/curio>`__,
+and to improve upon them. In particular, it's heavily inspired from studying
+and working on Dave Beazley's `curio <https://github.com/dabeaz/curio>`__,
 and my `analysis of how it avoids many of the pitfalls of
 callback-based async programming models like asyncio
 <https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/>`__;
@@ -87,7 +87,7 @@ Windows, and that has wheels available.
 **I want to help!** You're the best! There's tons of work to do –
 filling in missing functionality, building up an ecosystem of
 trio-using libraries, usability testing (e.g., maybe try teaching
-yourself or a friedn to use trio and make a list of every error
+yourself or a friend to use trio and make a list of every error
 message you hit and place where you got confused?), improving the
 docs, ... We `don't have a CONTRIBUTING.md yet
 <https://github.com/python-trio/trio/issues/46>`__ (want to help write
