@@ -67,8 +67,8 @@ So... where to next?
 **I want to know more!** Check out the `documentation
 <https://trio.readthedocs.io>`__!
 
-**I want to dive in and try it!** Awesome! ``pip install -U trio`` and
-start with the `tutorial
+**I want to dive in and try it!** Awesome! ``python3 -m pip install -U trio``
+(or ``py -3 -m pip install -U trio`` on Windows) and start with the `tutorial
 <https://trio.readthedocs.io/en/latest/tutorial.html>`__. (If you
 already know async/await, then you might want to jump straight to the
 `networking section
