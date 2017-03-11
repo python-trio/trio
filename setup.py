@@ -47,10 +47,10 @@ setup(name="trio",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
         "License :: OSI Approved :: Apache Software License",
-        "Operating System :: POSIX :: Linux"
+        "Operating System :: POSIX :: Linux",
         "Operating System :: MacOS :: MacOS X",
-        "Operating System :: POSIX :: BSD"
-        "Operating System :: Microsoft :: Windows"
+        "Operating System :: POSIX :: BSD",
+        "Operating System :: Microsoft :: Windows",
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
         "Programming Language :: Python :: 3 :: Only",
