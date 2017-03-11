@@ -384,8 +384,8 @@ Ok! Let's try running it and see what we get:
      child2 exiting!
    parent: all done!
 
-(Your output might have order of the "started" and/or "exiting" lines
-swapped compared to to mine.)
+(Your output might have the order of the "started" and/or "exiting"
+lines swapped compared to to mine.)
 
 Notice that ``child1`` and ``child2`` both start together and then
 both exit together, and that the whole program only takes 1 second to
@@ -624,7 +624,7 @@ You made it!
 
 That was a lot of text, but again, you don't need to understand
 everything here to use trio – in fact, trio goes to great lengths to
-make tasks feel like they execute in a simple linear way. (Just like
+make tasks feel like they execute in a simple, linear way. (Just like
 your operating system goes to great lengths to make it feel like
 single-threaded code executes in a simple linear way, even though
 under the covers it's juggling between threads in essentially the same
