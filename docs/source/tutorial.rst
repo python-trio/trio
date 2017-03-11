@@ -623,7 +623,7 @@ You made it!
 
 That was a lot of text, but again, you don't need to understand
 everything here to use trio – in fact, trio goes to great lengths to
-make tasks feel like they execute in a simple linear way. (Just like
+make tasks feel like they execute in a simple, linear way. (Just like
 your operating system goes to great lengths to make it feel like
 single-threaded code executes in a simple linear way, even though
 under the covers it's juggling between threads in essentially the same
