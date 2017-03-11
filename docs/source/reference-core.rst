@@ -254,7 +254,7 @@ whether this scope caught a :exc:`Cancelled` exception::
        await sleep(10)
    print(cancel_scope.cancelled_caught)  # prints "True"
 
-The ``cancel_scope`` object also allows you to check or adjust tvhis
+The ``cancel_scope`` object also allows you to check or adjust this
 scope's deadline, explicitly trigger a cancellation without waiting
 for the deadline, check if the scope has already been cancelled, and
 so forth – see :func:`open_cancel_scope` below for the full details.
