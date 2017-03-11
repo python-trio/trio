@@ -635,7 +635,9 @@ Alternatively, if this has just whetted your appetite and you want to
 know more about how ``async/await`` works internally, then `this blog
 post
 <https://snarky.ca/how-the-heck-does-async-await-work-in-python-3-5/>`__
-is a good explanation.
+is a good deep dive, or check out `this great walkthrough
+<https://github.com/AndreLouisCaron/a-tale-of-event-loops>`__ to see
+how to build a simple async I/O framework from the ground up.
 
 
 A kinder, gentler GIL
