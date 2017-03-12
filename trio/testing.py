@@ -213,7 +213,7 @@ class MockClock(Clock):
           seconds (float): the number of seconds to jump the clock forward.
 
         Raises:
-          ValueError: if you try to pass a negative ``seconds``
+          ValueError: if you try to pass a negative value for ``seconds``.
 
         """
         if seconds < 0:
