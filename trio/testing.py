@@ -74,7 +74,7 @@ class MockClock(Clock):
        environment. If you aren't doing any I/O (like in our sleeping example
        above) then setting it to zero is fine.
 
-       Note that setting this attribute interacts with the run loop, so can
+       Note that setting this attribute interacts with the run loop, so it can
        only be done from inside a run context or (as a special case) before
        calling :func:`trio.run`.
 
