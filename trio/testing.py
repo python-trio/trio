@@ -94,8 +94,8 @@ class MockClock(Clock):
           autojump task will keep waking up before your task does, and each
           time it does it'll reset your task's timer.
 
-          tl;dr: you should set :attr:`autojump_threshold` to be at least as
-          large as the largest cushion you plan to pass to
+          **Summary**: you should set :attr:`autojump_threshold` to be at _least_
+          as large as the largest cushion you plan to pass to
           :func:`wait_all_tasks_blocked`.
 
     """
