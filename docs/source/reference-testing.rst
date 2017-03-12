@@ -44,13 +44,13 @@ timeouts:
 
 * And of course these can be mixed and matched at will.
 
-Regardless of these shenanignas, from "inside" trio time still seems
-to pass normally, so long as you restrict yourself to trio's time
-functions (see :ref:`time-and-clocks`). Here's an example
+Regardless of these shenanigans, from "inside" trio the passage of time
+still seems normal so long as you restrict yourself to trio's time
+functions (see :ref:`time-and-clocks`). Below is an example
 demonstrating two different ways of making time pass quickly. Notice
 how in both cases, the two tasks keep a consistent view of reality and
 events happen in the expected order, despite being wildly divorced
-from actual real time:
+from real time:
 
 .. literalinclude:: reference-testing/across-realtime.py
 
