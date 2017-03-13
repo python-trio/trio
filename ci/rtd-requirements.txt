@@ -1,2 +1,2 @@
 # RTD is currently installing 1.5.3, which has a bug in :lineno-match:
-git+git://github.com/sphinx-doc/sphinx.git@dc61f68e141ab3d6bdaf7d94aa4b942d4821dfdb#egg=sphinx
+git+git://github.com/sphinx-doc/sphinx.git@dc61f68e141ab3d6bdaf7d94aa4b942d4821dfdb
