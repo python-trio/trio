@@ -4,9 +4,10 @@
 
 .. module:: trio.hazmat
 
-DANGER DANGER DANGER
+.. warning::
+   ⚠️ DANGER DANGER DANGER ⚠️
 
-You probably don't want to use this module.
+   You probably don't want to use this module.
 
 The API defined here is public and stable (at least as much as
 anything in trio is stable given its pre-1.0 status), but it has
