@@ -9,9 +9,9 @@ is use Trio, then you don't need to read this – though you might find
 it interesting. The main target audience here is (a) folks who want to
 read the code and potentially contribute, (b) anyone working on
 similar libraries who want to understand what we're up to, (c) anyone
-interested in IO library design generally.
+interested in I/O library design generally.
 
-There are many valid approaches to writing an async IO library. This
+There are many valid approaches to writing an async I/O library. This
 is ours.
 
 
@@ -86,7 +86,7 @@ you have to start compromising on features and correctness in order to
 get a speedup that's totally irrelevant to real-world applications. In
 most cases (we suspect) it's the application code that's the
 bottleneck, and you'll get more of a win out of running the whole app
-under PyPy than out of any heroic optimizations to the IO
+under PyPy than out of any heroic optimizations to the I/O
 layer. (And this is why Trio *does* place a priority on PyPy
 compatibility.)
 
@@ -190,7 +190,7 @@ Trio's answer is informed by two further observations:
 
 First, any time a task blocks (e.g., because it does an ``await
 sock.recv()`` but there's no data available to receive), that
-has to be a cancel point (because if the IO never arrives, we
+has to be a cancel point (because if the I/O never arrives, we
 need to be able to time out), and it has to be a schedule point
 (because the whole idea of asynchronous programming is that
 when one task is waiting we can switch to another task to get
@@ -517,7 +517,7 @@ several reasons:
   Unix-like systems it hides a lot of power (e.g. kqueue can do a lot
   more than just check fd readability/writability!).
 
-The IOManager layer provides a fairly raw exposure of the capabilities
+The ``IOManager`` layer provides a fairly raw exposure of the capabilities
 of each system, with public API functions that vary between different
 backends. (This is somewhat inspired by how :mod:`os` works.) These
 public APIs are then exported as part of :mod:`trio.hazmat`, and
