@@ -196,7 +196,7 @@ need to be able to time out), and it has to be a schedule point
 when one task is waiting we can switch to another task to get
 something useful done).
 
-And second, a function which sometimes counts as cancel/schedule
+And second, a function which sometimes counts as a cancel/schedule
 point, and sometimes doesn't, is the worst of both worlds: you have
 put in the effort to make sure your code handles cancellation or
 interleaving correctly, but you can't count on it to help meet latency
