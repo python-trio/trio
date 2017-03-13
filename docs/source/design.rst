@@ -77,8 +77,8 @@ projects that haven't had time to optimize for all use cases yet.
 
 And finally: we care about speed on real-world applications quite a
 bit, but speed on microbenchmarks is just about our lowest
-priority. We aren't interested in competing to build the fastest echo
-server in the West. I mean, it's nice if it happens or whatever, and
+priority. We aren't interested in competing to build "the fastest echo
+server in the West". I mean, it's nice if it happens or whatever, and
 microbenchmarks are an invaluable tool for understanding a system's
 behavior. But if you play that game to win then it's very easy to get
 yourself into a situation with seriously misaligned incentives, where
