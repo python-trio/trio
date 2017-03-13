@@ -268,6 +268,18 @@ class WindowsIOManager:
                     queue.put_nowait(info)
 
     def _iocp_thread_fn(self):
+        # This thread sits calling GetQueuedCompletionStatusEx forever. To
+        # signal that it should shut down, the main thread just closes the
+        # IOCP, which causes GetQueuedCompletionStatusEx to return with an
+        # error:
+        IOCP_CLOSED_ERRORS = {
+            # If the IOCP is closed while we're blocked in
+            # GetQueuedCompletionStatusEx, then we get this error:
+            ErrorCodes.ERROR_ABANDONED_WAIT_0,
+            # If the IOCP is already closed when we initiate a
+            # GetQueuedCompletionStatusEx, then we get this error:
+            ErrorCodes.ERROR_INVALID_HANDLE,
+        }
         while True:
             max_events = 1
             batch = ffi.new("OVERLAPPED_ENTRY[]", max_events)
@@ -277,7 +289,7 @@ class WindowsIOManager:
                 _check(kernel32.GetQueuedCompletionStatusEx(
                     self._iocp, batch, max_events, received, 0xffffffff, 0))
             except OSError as exc:
-                if exc.winerror == ErrorCodes.ERROR_ABANDONED_WAIT_0:
+                if exc.winerror in IOCP_CLOSED_ERRORS:
                     # The IOCP handle was closed; time to shut down.
                     return
                 else:
