@@ -112,7 +112,7 @@ adopts these rules, in particular:
 
 * The only form of concurrency is the task.
 
-* Tasks are guaranteed to run to completion
+* Tasks are guaranteed to run to completion.
 
 * Task spawning is always explicit. No callbacks, no implicit
   concurrency, no futures/deferreds/promises/other APIs that involve
@@ -120,8 +120,8 @@ adopts these rules, in particular:
   <https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/#review-and-summing-up-what-is-async-await-native-anyway>`__
   except for those that are explicitly used for task spawning.
 
-* Exceptions are used for error handling; try/finally and with blocks
-  for handling cleanup
+* Exceptions are used for error handling; ``try``/``finally``
+  and ``with`` blocks for handling cleanup.
 
 
 Cancel points and schedule points
