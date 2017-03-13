@@ -1,0 +1,2 @@
+# RTD is currently installing 1.5.2, which has a bug in :lineno-match:
+sphinx==1.5.3
