@@ -794,7 +794,7 @@ And the second task's job is to process the data the server sends back:
    :pyobject: receiver
 
 It repeatedly calls ``await client_sock.recv(...)`` to get more data
-from the server, and then checks to see if the server hass closed the
+from the server, and then checks to see if the server has closed the
 connection. ``recv`` only returns an empty bytestring if the
 connection has been closed; if there's no data available, then it
 blocks until more data arrives.
