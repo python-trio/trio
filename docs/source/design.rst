@@ -396,7 +396,7 @@ Specific style guidelines
 
   Sometimes this leads to the slightly funny looking ``await
   wait_...``. Sorry. As far as I can tell all the alternatives are
-  worse, and you get used to it pretty quick.
+  worse, and you get used to the convention pretty quick.
 
 * If it's desirable to have both blocking and non-blocking versions of
   a function, then they look like::
