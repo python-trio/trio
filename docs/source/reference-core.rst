@@ -745,7 +745,8 @@ first::
                nursery.spawn(async_fn)
            task_batch = await nursery.monitor.get_batch()
            nursery.cancel_scope.cancel()
-           return task_batch[0].reap_and_unwrap(finished_task)
+           finished_task = task_batch[0]
+           return nursery.reap_and_unwrap(finished_task)
 
 This works by waiting until at least one task has finished, then
 cancelling all remaining tasks and returning the result from the first
