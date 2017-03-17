@@ -144,6 +144,8 @@ things:
 
       trio.run(double_sleep, 3)  # does nothing for 6 seconds then returns
 
+.. _async-sandwich:
+
 So it turns out our ``async_double`` function is actually a bad
 example. I mean, it works, it's fine, there's nothing *wrong* with it,
 but it's pointless: it could just as easily be written as a regular

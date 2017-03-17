@@ -22,50 +22,156 @@ Yield points
 ~~~~~~~~~~~~
 
 When writing code using trio, it's very important to understand the
-concept of a *yield point*.
+concept of a *yield point*. Many of trio's functions act as yield
+points.
 
 A yield point is two things:
 
-1. It's a point where we check for cancellation, and can potentially
-   raise a :exc:`Cancelled` error. See :ref:`cancellation` below for
-   more details.
+1. It's a point where trio checks for cancellation. For example, if
+   the code that called your function set a timeout, and that timeout
+   has expired, then the next time your code executes a yield point
+   then trio will raise a :exc:`Cancelled` exception. See
+   :ref:`cancellation` below for more details.
 
-2. It's a point where the trio scheduler has the option of switching
-   to a different task. (Currently, this scheduler is very simple: it
-   simply cycles through all the runnable tasks, running each one
-   until it hits its first yield point. But `this might change in the
-   future <https://github.com/python-trio/trio/issues/32>`__.)
+2. It's a point where the trio scheduler checks its scheduling policy
+   to see if it's a good time to switch to another task, and
+   potentially does so. (Currently, this check is very simple: the
+   scheduler always switches at every yield point. But `this might
+   change in the future
+   <https://github.com/python-trio/trio/issues/32>`__.)
 
-So you need to be aware of yield points for two reasons. First, you
-need to know where they are so you can make sure you're prepared to
-handle a :exc:`Cancelled` error, or for another task to run and
-`rearrange some state out from under you
+When writing trio code, you need to keep track of where your yield
+points are. Why? First, because yield points require extra scrutiny:
+whenever you execute a yield point, you need to be prepared to handle
+a :exc:`Cancelled` error, or for another task to run and `rearrange
+some state out from under you
 <https://glyph.twistedmatrix.com/2014/02/unyielding.html>`__. And
-second, you need to know where they are so you can make sure your code
-hits them fairly frequently: if you go too long before executing a
-yield point, then you'll be slow to notice cancellation and – much
-worse – you'll adversely effect the response latency of all the other
-code running in the same process, because in a cooperative
-multi-tasking system like trio, nothing else can run until you hit a
-yield point.
+second, because you also need to make sure that you have *enough*
+yield points: if your code doesn't pass through a yield point on a
+regular basis, then it will be slow to notice and respond to
+cancellation and – much worse – since trio is a cooperative
+multi-tasking system where the *only* place the scheduler can switch
+tasks is at yield points, it'll also prevent the scheduler from fairly
+allocating time between different tasks and adversely effect the
+response latency of all the other code running in the same
+process. (Informally we say that a task that does this is "hogging the
+run loop".)
 
-To help you out here, Trio tries to make this as simple as
-possible. If an operation blocks (e.g., trying to read from a socket
-when there's no data available), then that has to be a yield
-point. (Otherwise timeouts wouldn't work, and we couldn't get other
-stuff done while waiting for data to arrive.) Therefore, we make a
-policy that for public functions exposed by trio, if a function *can*
-block then it is *always* a yield point. (So if you try to read from a
-socket and there *is* data available, that doesn't block but it's
-still a yield point.)
+So when you're doing code review on a project that uses trio, one of
+the things you'll want to look over is whether there are enough yield
+points, and whether each one is handled correctly. Of course this
+means you need a way to recognize yield points. How do you do that?
+The underlying principle is that any operation that blocks has to be a
+yield point. This makes sense: if an operation blocks, then it might
+block for a long time, and you'll want to be able to cancel it if a
+timeout expires; and in any case, while this task is blocked we want
+to schedule another task to run so we can make full use of the CPU.
+
+But if we want to write correct code in practice, then this principle
+is a little too sloppy and imprecise to be useful. How do we know
+which functions might block?  What if a function blocks sometimes, but
+not others, depending on the arguments passed / network speed / phase
+of the moon? How do we figure out where the yield points are when
+we're stressed and sleep deprived but still want to get this code
+review right, and would prefer to reserve our mental energy for
+thinking about the actual logic instead of worrying about yield
+points?
 
 .. _yield-point-rule:
 
-How do we know which functions can block? They're the async functions,
-of course. So this gives us our general rule for identifying yield
-points: if you see an ``await``, then it *might* be a yield point, and
-if it's ``await <something in trio>`` then it's *definitely* a yield
-point.
+Don't worry – trio's got your back. Since yield points are important
+and ubiquitous, we make it as simple as possible to keep track of
+them. Here are the rules:
+
+* Regular (synchronous) functions never contain any yield points.
+
+* Every async function provided by trio *always* acts as a yield
+  point; if you see ``await <something in trio>``, then that's
+  *definitely* a yield point.
+
+* Third-party async functions can act as yield points; if you see
+  ``await <something>`` then that *might* be a yield point (so at a
+  minimum, you definitely need to be prepared for scheduling or
+  cancellation).
+
+The reason we distinguish between trio functions and other functions
+is that we can't make any guarantees about third party
+code. Yield-point-ness is a transitive property: if function A acts as
+a yield point, and you write a function that calls function A, then
+your function also acts as a yield point. If you don't, then it
+isn't. So there's nothing stopping someone from writing a function
+like::
+
+   # technically legal, but bad style:
+   async def why_is_this_async():
+       return 7
+
+that never calls any of trio's async functions. This is an async
+function, but it's not a yield point. But why make a function async if
+it never calls any async functions? It's possible, but it's a bad
+idea. If you have a function that's not calling any async functions,
+then you should make it synchronous. The people who use your function
+will thank you, because it makes it obvious that your function is not
+a yield point, and their code reviews will go faster.
+
+(Remember how in the tutorial we emphasized the importance of the
+:ref:`"async sandwich" <async-sandwich>`, and the way it means that
+``await`` ends up being a marker that shows when you're calling a
+function that calls a function that ... eventually calls one of trio's
+built-in async functions? The transitivity of async-ness is a
+technical requirement that Python imposes, but since it exactly
+matches the transitivity of yield-point-ness, we're able to exploit it
+to help you keep track of yield points. Pretty sneaky, eh?)
+
+A slightly trickier case is a function like::
+
+   async def sleep_or_not(should_sleep):
+       if should_sleep:
+           await trio.sleep(1)
+       else:
+           pass
+
+Here the function acts as a yield point if you call it with
+``should_sleep`` set to a true value, but not otherwise. This is why
+we emphasize that trio's own async functions are *unconditional* yield
+points: they don't work like this; they *always* check for
+cancellation and check for scheduling, regardless of what arguments
+they're passed. If you find an async function in trio that doesn't
+follow this rule, then it's a bug and you should `let us know
+<https://github.com/python-trio/trio/issues>`__.
+
+Inside trio, we're very picky about this, because trio is the
+foundation of the whole system so we think it's worth the extra effort
+to make things extra predictable. It's up to you how picky you want to
+be in your code. To give you a more realistic example of what this
+kind of issue looks like in real life, consider this function::
+
+    async def recv_exactly(sock, nbytes):
+        data = bytearray()
+        while nbytes > 0:
+            # SocketType.recv() reads up to 'nbytes' bytes each time
+            chunk += await sock.recv(nbytes)
+            if not chunk:
+                raise RuntimeError("socket unexpected closed")
+            nbytes -= len(chunk)
+            data += chunk
+        return data
+
+If called with an ``nbytes`` that's greater than zero, then it will
+call ``sock.recv`` at least once, and ``recv`` is an async trio
+function, and thus an unconditional yield point. But if we do ``await
+recv_exactly(sock, 0)``, then it will just return an empty buffer,
+without executing a yield point. If this were a function in trio
+itself, then this kind of edge case wouldn't be acceptable, but you
+may decide you don't want to worry about this kind of thing in your
+own code.
+
+If you do want to be careful, or if you have some CPU-bound code that
+doesn't have enough yield points in it, then it's useful to know that
+``await trio.sleep(0)`` is an idiomatic way to execute a yield point
+without doing anything else, and that
+:func:`trio.testing.assert_yields` can be used to test that some code
+executes a yield point.
 
 [Note: `we really need to come up with a less confusing name for yield
 points <https://github.com/python-trio/trio/issues/66>`__]
