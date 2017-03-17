@@ -60,7 +60,7 @@ async def sleep(seconds):
 
     Args:
         seconds (float): The number of seconds to sleep. May be zero to
-            insert a yield point without actually blocking.
+            insert a check point without actually blocking.
 
     Raises:
         ValueError: if *seconds* is negative.

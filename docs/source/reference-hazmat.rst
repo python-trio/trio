@@ -209,7 +209,7 @@ These transitions are accomplished using two function decorators:
    function, async function, or async generator function as
    unprotected, i.e., the code inside this function *won't* be rudely
    interrupted by :exc:`KeyboardInterrupt` at any moment. (Though if
-   it contains any :ref:`yield points <yield-points>`, then it can
+   it contains any :ref:`check points <check-points>`, then it can
    still receive :exc:`KeyboardInterrupt` at those.)
 
    Be very careful to only use this decorator on functions that you
@@ -238,19 +238,19 @@ Wait queue abstraction
    :undoc-members:
 
 
-Inserting yield points
+Inserting check points
 ----------------------
 
 .. autofunction:: yield_briefly
 
-The next two functions are used *together* to make up a yield point:
+The next two functions are used *together* to make up a check point:
 
 .. autofunction:: yield_if_cancelled
 .. autofunction:: yield_briefly_no_cancel
 
 These are commonly used in cases where we have an operation that
 might-or-might-not block, and we want to implement trio's standard
-yield point semantics. Example::
+check point semantics. Example::
 
    async def operation_that_maybe_blocks():
        await yield_if_cancelled()
@@ -260,11 +260,11 @@ yield point semantics. Example::
            # need to block and then retry, which we do below
            pass
        except:
-           # some other error, finish the yield point then let it propagate
+           # some other error, finish the check point then let it propagate
            await yield_briefly_no_cancel()
            raise
        else:
-           # operation succeeded, finish the yield point then return
+           # operation succeeded, finish the check point then return
            await yield_briefly_no_cancel()
            return ret
        while True:
@@ -276,8 +276,8 @@ yield point semantics. Example::
 
 This logic is a bit convoluted, but accomplishes all of the following:
 
-* Every execution path passes through a yield point (assuming that
-  ``wait_for_operation_to_be_ready`` is an unconditional yield point)
+* Every execution path passes through a check point (assuming that
+  ``wait_for_operation_to_be_ready`` is an unconditional check point)
 
 * Our :ref:`cancellation semantics <cancellable-primitives>` say that
   :exc:`~trio.Cancelled` should only be raised if the operation didn't
@@ -296,7 +296,7 @@ These functions can also be useful in other situations, e.g. if you're
 going to call an uncancellable operation like
 :func:`trio.run_in_worker_thread` or (potentially) overlapped I/O
 operations on Windows, then you can call :func:`yield_if_cancelled`
-first to make sure that the whole thing is a yield point.
+first to make sure that the whole thing is a check point.
 
 
 Low-level blocking
@@ -309,7 +309,7 @@ Low-level blocking
 Here's an example lock class implemented using
 :func:`yield_indefinitely` directly. This implementation has a number
 of flaws, including lack of fairness, O(n) cancellation, missing error
-checking, failure to insert a yield point on the non-blocking path,
+checking, failure to insert a check point on the non-blocking path,
 etc. If you really want to implement your own lock, then you should
 study the implementation of :class:`trio.Lock` and use
 :class:`ParkingLot`, which handles some of these issues for you. But

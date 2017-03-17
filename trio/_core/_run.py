@@ -1310,7 +1310,7 @@ def current_effective_deadline():
 
 @_hazmat
 async def yield_briefly():
-    """A pure :ref:`yield point <yield-points>`.
+    """A pure :ref:`check point <check-points>`.
 
     This checks for cancellation and allows other tasks to be scheduled,
     without otherwise blocking.
@@ -1328,7 +1328,7 @@ async def yield_briefly():
 
 @_hazmat
 async def yield_if_cancelled():
-    """A conditional :ref:`yield point <yield-points>`.
+    """A conditional :ref:`check point <check-points>`.
 
     If a cancellation is active, then allows other tasks to be scheduled,
     and then raises :exc:`trio.Cancelled`.

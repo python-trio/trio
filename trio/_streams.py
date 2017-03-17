@@ -45,7 +45,7 @@ class AsyncResource(metaclass=abc.ABCMeta):
         underlying resource.
 
         Default implementation is to perform a :meth:`forceful_close` and then
-        execute a yield point.
+        execute a check point.
         """
         self.forceful_close()
         await _core.yield_briefly()
