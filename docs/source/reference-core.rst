@@ -87,13 +87,18 @@ them. Here are the rules:
 * Regular (synchronous) functions never contain any check points.
 
 * Every async function provided by trio *always* acts as a check
-  point; if you see ``await <something in trio>``, then that's
-  *definitely* a check point.
+  point; if you see ``await <something in trio>``, or ``async for
+  ... in <a trio object>``, or ``async with <trio.something>``, then
+  that's *definitely* a check point.
+
+  (Partial exception: for async context managers, it might be only the
+  entry or only the exit that acts as a check point; this is
+  documented on a case-by-case basis.)
 
 * Third-party async functions can act as check points; if you see
-  ``await <something>`` then that *might* be a check point (so at a
-  minimum, you definitely need to be prepared for scheduling or
-  cancellation).
+  ``await <something>`` or one of its friends, then that *might* be a
+  check point. So to be safe, you should prepare for scheduling or
+  cancellation happening there.
 
 The reason we distinguish between trio functions and other functions
 is that we can't make any guarantees about third party
@@ -135,10 +140,10 @@ A slightly trickier case is a function like::
 Here the function acts as a check point if you call it with
 ``should_sleep`` set to a true value, but not otherwise. This is why
 we emphasize that trio's own async functions are *unconditional* check
-points: they don't work like this; they *always* check for
-cancellation and check for scheduling, regardless of what arguments
-they're passed. If you find an async function in trio that doesn't
-follow this rule, then it's a bug and you should `let us know
+points: they *always* check for cancellation and check for scheduling,
+regardless of what arguments they're passed. If you find an async
+function in trio that doesn't follow this rule, then it's a bug and
+you should `let us know
 <https://github.com/python-trio/trio/issues>`__.
 
 Inside trio, we're very picky about this, because trio is the
@@ -160,19 +165,20 @@ kind of issue looks like in real life, consider this function::
 
 If called with an ``nbytes`` that's greater than zero, then it will
 call ``sock.recv`` at least once, and ``recv`` is an async trio
-function, and thus an unconditional check point. But if we do ``await
-recv_exactly(sock, 0)``, then it will just return an empty buffer,
-without executing a check point. If this were a function in trio
-itself, then this kind of edge case wouldn't be acceptable, but you
-may decide you don't want to worry about this kind of thing in your
-own code.
+function, and thus an unconditional check point. So in this case,
+``recv_exactly`` acts as a check point. But if we do ``await
+recv_exactly(sock, 0)``, then it will immediately return an empty
+buffer without executing a check point. If this were a function in
+trio itself, then this wouldn't be acceptable, but you may decide you
+don't want to worry about this kind of minor edge case in your own
+code.
 
 If you do want to be careful, or if you have some CPU-bound code that
 doesn't have enough check points in it, then it's useful to know that
 ``await trio.sleep(0)`` is an idiomatic way to execute a check point
 without doing anything else, and that
-:func:`trio.testing.assert_yields` can be used to test that some code
-executes a check point.
+:func:`trio.testing.assert_yields` can be used to test that an
+arbitrary block of code contains a check point.
 
 
 Thread safety
@@ -198,8 +204,8 @@ changed by passing a custom clock object to :func:`run` (e.g. for
 testing).
 
 You should not assume that trio's internal clock matches any other
-clock you have access to, including the clocks of other concurrent
-calls to :func:`trio.run`!
+clock you have access to, including the clocks of simultaneous calls
+to :func:`trio.run` happening in other processes or threads!
 
 The default clock is currently implemented as :func:`time.monotonic`
 plus a large random offset. The idea here is to catch code that
