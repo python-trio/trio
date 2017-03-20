@@ -5,6 +5,7 @@ import os
 
 from . import _core
 from ._threads import run_in_worker_thread as _run_in_worker_thread
+from . import _streams
 
 __all__ = []
 
@@ -175,7 +176,7 @@ _SOCK_TYPE_MASK = ~(
     getattr(_stdlib_socket, "SOCK_NONBLOCK", 0)
     | getattr(_stdlib_socket, "SOCK_CLOEXEC", 0))
 
-class SocketType:
+class SocketType(_streams.Stream):
     def __init__(self, sock):
         if type(sock) is not _stdlib_socket.socket:
             # For example, ssl.SSLSocket subclasses socket.socket, but we
@@ -445,6 +446,24 @@ class SocketType:
                 "Only available on platforms where :meth:`socket.socket.{}` "
                 "is available.".format(methname))
         return wrapper
+
+    ################################################################
+    # Stream methods
+    ################################################################
+
+    async def wait_writable(self):
+        await _core.wait_socket_writable(self._sock)
+
+    can_send_eof = True
+
+    async def send_eof(self):
+        await _core.yield_briefly()
+        self.shutdown(SHUT_WR)
+
+    def forceful_close(self):
+        self.close()
+
+    # graceful_close, __aenter__, __aexit__ inherited from Stream are OK
 
     ################################################################
     # accept

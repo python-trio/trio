@@ -60,6 +60,7 @@ class AsyncResource(metaclass=abc.ABCMeta):
 if hasattr(contextlib, "AbstractContextManager"):
     contextlib.AbstractContextManager.register(AsyncResource)
 
+
 class SendStream(AsyncResource):
     __slots__ = ()
 
@@ -67,12 +68,9 @@ class SendStream(AsyncResource):
     async def sendall(self, data):
         pass
 
-    # This is only a hint, because in some cases we don't know (Windows), or
-    # we have only a noisy signal (TLS). And in the use cases this is included
-    # to account for, returning before it's actually writable is NBD, it just
-    # makes them slightly less efficient.
+    # This should be considered a hint rather than a guarantee
     @abc.abstractmethod
-    async def wait_maybe_writable(self):
+    async def wait_writable(self):
         pass
 
     @property
@@ -81,8 +79,9 @@ class SendStream(AsyncResource):
         pass
 
     @abc.abstractmethod
-    def send_eof(self):
+    async def send_eof(self):
         pass
+
 
 class RecvStream(AsyncResource):
     __slots__ = ()
@@ -91,12 +90,14 @@ class RecvStream(AsyncResource):
     async def recv(self, max_bytes):
         pass
 
+
 class Stream(SendStream, RecvStream):
     __slots__ = ()
 
     @staticmethod
     def staple(send_stream, recv_stream):
         return StapledStream(send_stream=send_stream, recv_stream=recv_stream)
+
 
 @attr.s(slots=True, cmp=False, hash=False)
 class StapledStream(Stream):
@@ -106,8 +107,8 @@ class StapledStream(Stream):
     async def sendall(self, data):
         return await self.send_stream.sendall(data)
 
-    async def wait_maybe_writable(self):
-        return await self.send_stream.wait_maybe_writable()
+    async def wait_writable(self):
+        return await self.send_stream.wait_writable()
 
     @property
     def can_send_eof(self):
