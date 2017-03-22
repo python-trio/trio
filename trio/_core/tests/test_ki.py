@@ -359,8 +359,14 @@ def test_ki_is_good_neighbor():
 # For details on why this test is non-trivial, see:
 #   https://github.com/python-trio/trio/issues/42
 #   https://github.com/python-trio/trio/issues/109
+# To make it an even better test, we should try doing
+#   pthread_kill(pthread_self, SIGINT)
+# in the child thread, to make sure signals in non-main threads also wake up
+# the main loop... but currently that test would fail (see gh-109 again).
 @slow
 def test_ki_wakes_us_up():
+    assert threading.current_thread() == threading.main_thread()
+
     def kill_soon():
         # We want the signal to be raised after the main thread has entered
         # the IO manager blocking primitive. There really is no way to
