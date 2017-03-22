@@ -135,32 +135,9 @@ class WindowsIOManager:
 
         # This is necessary to allow control-C to interrupt select().
         # https://github.com/python-trio/trio/issues/42
-        #
-        # Basically it's doing the same thing as signal.set_wakeup_fd, except
-        # for some reason when I do it here it works, which I can't say for
-        # set_wakeup_fd. I don't know why.
-        #
-        # caveat 1: if there are subinterpreters in use, the callback always
-        # runs in the main interpreter, which might be very broken. (Or might
-        # work fine? who knows)
-        # caveat 2: this callback running means that Python's signal
-        # handlers will be run soon... but there's a race condition; we might
-        # go back to sleep again before the signal handler actually
-        # runs. (Hitting control-C again will work though.)
-        # caveat 3: there's no test for this, because I can't figure out how
-        # to reliably generate a synthetic control-C on windows. Manual test:
-        #
-        #    python -c "import trio; trio.run(trio.sleep_forever)"
-        #
-        # then hit control-C.
         if threading.current_thread() == threading.main_thread():
-            @ffi.callback("BOOL WINAPI(DWORD)")
-            def cb(dwCtrlType):
-                self._main_thread_waker.wakeup_thread_and_signal_safe()
-                # 0 = FALSE = keep running handlers after this
-                return 0
-            self._cb = cb
-            kernel32.SetConsoleCtrlHandler(self._cb, 1)
+            fileno = self._main_thread_waker.write_sock.fileno()
+            self._old_signal_wakeup_fd = signal.set_wakeup_fd(fileno)
 
     def statistics(self):
         return _WindowsStatistics(
@@ -179,7 +156,7 @@ class WindowsIOManager:
                 self._iocp_thread.join()
             self._main_thread_waker.close()
             if threading.current_thread() == threading.main_thread():
-                kernel32.SetConsoleCtrlHandler(self._cb, 0)
+                signal.set_wakeup_fd(self._old_signal_wakeup_fd)
 
     def __del__(self):
         # Need to make sure we clean up self._iocp (raw handle) and the IOCP

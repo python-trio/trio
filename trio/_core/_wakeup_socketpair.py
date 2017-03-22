@@ -4,9 +4,9 @@ from .. import _core
 
 class WakeupSocketpair:
     def __init__(self):
-        self.wakeup_sock, self._write_sock = socket.socketpair()
+        self.wakeup_sock, self.write_sock = socket.socketpair()
         self.wakeup_sock.setblocking(False)
-        self._write_sock.setblocking(False)
+        self.write_sock.setblocking(False)
         # This somewhat reduces the amount of memory wasted queueing up data
         # for wakeups. With these settings, maximum number of 1-byte sends
         # before getting BlockingIOError:
@@ -16,11 +16,11 @@ class WakeupSocketpair:
         # Windows you're weird. (And on Windows setting SNDBUF to 0 makes send
         # blocking, even on non-blocking sockets, so don't do that.)
         self.wakeup_sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1)
-        self._write_sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1)
+        self.write_sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1)
 
     def wakeup_thread_and_signal_safe(self):
         try:
-            self._write_sock.send(b"\x00")
+            self.write_sock.send(b"\x00")
         except BlockingIOError:
             pass
 
@@ -37,4 +37,4 @@ class WakeupSocketpair:
 
     def close(self):
         self.wakeup_sock.close()
-        self._write_sock.close()
+        self.write_sock.close()
