@@ -107,15 +107,15 @@ async def test_catch_signals_race_condition_on_exit():
     def raise_handler(signum, _):
         raise RuntimeError(signum)
 
-    with _signal_handler({signal.SIGILL, signal.SIGFPE}, direct_handler):
-        try:
+    with _signal_handler({signal.SIGILL, signal.SIGFPE}, raise_handler):
+        with pytest.raises(RuntimeError) as excinfo:
             with catch_signals({signal.SIGILL, signal.SIGFPE}) as queue:
                 _signal_raise(signal.SIGILL)
                 _signal_raise(signal.SIGFPE)
                 await wait_call_soon_idempotent_queue_barrier()
                 assert len(queue._pending) == 2
-        except RuntimeError as exc:
-            signums = {exc.args[0]}
-            assert isinstance(exc.__context__, RuntimeError)
-            signums.add(exc.__context__.args[0])
-            assert signums == {signal.SIGILL, signal.SIGFPE}
+        exc = excinfo.value
+        signums = {exc.args[0]}
+        assert isinstance(exc.__context__, RuntimeError)
+        signums.add(exc.__context__.args[0])
+        assert signums == {signal.SIGILL, signal.SIGFPE}
