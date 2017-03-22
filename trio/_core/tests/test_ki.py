@@ -4,103 +4,18 @@ import os
 import signal
 import threading
 import contextlib
+import time
 
 from async_generator import async_generator, yield_
 
 from ... import _core
 from ...testing import wait_all_tasks_blocked
-from ..._util import acontextmanager
+from ..._util import acontextmanager, signal_raise
+from ..._timeouts import sleep
+from .tutil import slow
 
-if os.name == "nt":
-    # I looked at this pretty hard and I'm pretty sure there isn't any way to
-    # deliver a real CTRL_C_EVENT to the test process that works reliably on
-    # Appveyor etc.
-    #
-    # You can make a synthetic CTRL_C_EVENT using GenerateConsoleCtrlEvent:
-    #
-    #    https://msdn.microsoft.com/en-us/library/windows/desktop/ms683155(v=vs.85).aspx
-    #
-    # However, this isn't directed at a *process*. Your options are:
-    #
-    # 1) send it to process 0, which means "everyone attached to this
-    # console".
-    #
-    # 2) If a process is a group leader, then you can pass in its PID, and
-    # which case it might send it to just the processes that are in that group
-    # and also share a console with the caller. Or maybe not -- the page above
-    # claims that this doesn't work for CTRL_C_EVENT, only
-    # CTRL_BREAK_EVENT. But it's clearly wrong, because it did work for me in
-    # some cases?
-    #
-    # 3) If a process is *not* a group leader and you pass in its PID, then
-    # the results are not documented. But empirically it seems like it might
-    # act like you passed 0:
-    #
-    #    https://stackoverflow.com/questions/42180468
-    #
-    # So our problem is that we want to deliver a CTRL_C_EVENT to the current
-    # process, without causing side-effects like freezing Appveyor.
-    #
-    # There are two strategies that suggest themselves: either run pytest as a
-    # new process group, so we're a process group leader, or else run pytest
-    # on a new console.
-    #
-    # There are some annoyances here that I do know how to overcome. If
-    # creating a new process group: (a) we need to spawn Python directly,
-    # e.g. "python -m pytest". If we use a entry-point script like "pytest",
-    # or a launcher like "py", then it doesn't work -- probably because then
-    # the launching process ends up as group leader, so the actual test
-    # process isn't, and that breaks things as per above. (b)
-    # CREATE_NEW_PROCESS_GROUP also sets an internal flag that makes it so the
-    # spawned process ignores CTRL_C_EVENT. We have to flip that flag back by
-    # hand, using SetConsoleCtrlHandler(NULL, FALSE).
-    #
-    # If creating a new console: we need to hide the new console window
-    # (shell=True in subprocess.Popen), and pass in a stdout/stderr PIPE and
-    # pump the output back by hand. (Otherwise the output goes to the new
-    # console window, which on Appveyor is obviously useless regardless of
-    # whether the new window is hidden.) AFAICT there's no way to directly
-    # pass in the original console's output handles as handles for the child
-    # process, probably because console handles are weird virtual handle
-    # things.
-    #
-    # The docs claim that if you try to do both at once (CREATE_NEW_CONSOLE |
-    # CREATE_NEW_PROCESS_GROUP) then that's equivalent to CREATE_NEW_CONSOLE
-    # alone. I haven't tried to check this.
-    #
-    # There is also some subtlety required when using GenerateConsoleCtrlEvent
-    # to make sure that the event is actually delivered at the right time --
-    # for the tests we want the Python-level signal handler to run before we
-    # exit ki_self, but this is tricky because the CTRL_C_EVENT handler runs
-    # in a new thread that isn't synchronized to anything.
-    #
-    # Anyway. Having done all the work to deal with this issues, both of these
-    # approaches work... kind of. They work locally. And I was able to get
-    # them to work seemingly-reliably on Appveyor (like, passing 8/8 runs),
-    # BUT this required weird tweaking -- in particular, the working runs were
-    # like
-    #
-    #    python -u -m pytest -v -s
-    #
-    # Yes, it is critically important that we run python with unbuffered stdio
-    # (-u). Without this then there are freezes on a regular (but not 100%
-    # deterministic) basis. Maybe there is something where you have to
-    # actually interact with the console in order to get CTRL_C_EVENT
-    # delivered? It's totally baffling to me.
-    #
-    # So anyway, I just don't trust this. I'd much rather have a test suite
-    # that runs 100% reliably and tests 99% of the stuff than a test suite
-    # that runs 99% reliably and tests 100% of the stuff. So we fake it.
-    def ki_self():
-        assert threading.current_thread() == threading.main_thread()
-        handler = signal.getsignal(signal.SIGINT)
-        handler(signal.SIGINT, sys._getframe())
-else:
-    # On Unix, kill invokes the C handler synchronously, in this process only,
-    # and then os.kill immediately checks for this and runs the Python handler
-    # before returning. So... that's easy.
-    def ki_self():
-        os.kill(os.getpid(), signal.SIGINT)
+def ki_self():
+    signal_raise(signal.SIGINT)
 
 def test_ki_self():
     with pytest.raises(KeyboardInterrupt):
@@ -439,3 +354,32 @@ def test_ki_is_good_neighbor():
         assert signal.getsignal(signal.SIGINT) is my_handler
     finally:
         signal.signal(signal.SIGINT, orig)
+
+
+# For details on why this test is non-trivial, see:
+#   https://github.com/python-trio/trio/issues/42
+#   https://github.com/python-trio/trio/issues/109
+@slow
+def test_ki_wakes_us_up():
+    def kill_soon():
+        # We want the signal to be raised after the main thread has entered
+        # the IO manager blocking primitive. There really is no way to
+        # deterministically interlock with that, so we have to use sleep and
+        # hope it's long enough.
+        time.sleep(1)
+        ki_self()
+
+    async def main():
+        thread = threading.Thread(target=kill_soon)
+        thread.start()
+        try:
+            # To limit the damage on CI if this does get broken
+            with pytest.raises(KeyboardInterrupt):
+                await sleep(20)
+        finally:
+            thread.join()
+
+    start = time.time()
+    _core.run(main)
+    end = time.time()
+    assert 1.0 <= (end - start) < 2

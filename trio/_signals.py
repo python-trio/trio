@@ -5,7 +5,7 @@ import threading
 from contextlib import contextmanager
 
 from . import _core
-from ._util import aiter_compat
+from ._util import signal_raise, aiter_compat
 from ._sync import Semaphore, Event
 
 __all__ = ["catch_signals"]
@@ -56,46 +56,6 @@ def _signal_handler(signals, handler):
         for signum, original_handler in original_handlers.items():
             signal.signal(signum, original_handler)
 
-# Equivalent to the C function raise(), which Python doesn't wrap
-if os.name == "nt":
-    # On windows, os.kill exists but is really weird.
-    #
-    # If you give it CTRL_C_EVENT or CTRL_BREAK_EVENT, it tries to deliver
-    # those using GenerateConsoleCtrlEvent. But I found that when I tried
-    # to run my test normally, it would freeze waiting... unless I added
-    # print statements, in which case the test suddenly worked. So I guess
-    # these signals are only delivered if/when you access the console? I
-    # don't really know what was going on there. From reading the
-    # GenerateConsoleCtrlEvent docs I don't know how it worked at all.
-    #
-    # OTOH, if you pass os.kill any *other* signal number... then CPython
-    # just calls TerminateProcess (wtf).
-    #
-    # So, anyway, os.kill is not so useful for testing purposes. Instead
-    # we use raise():
-    #
-    #   https://msdn.microsoft.com/en-us/library/dwwzkt4c.aspx
-    #
-    # Have to import cffi inside the 'if os.name' block because we don't
-    # depend on cffi on non-Windows platforms. (It would be easy to switch
-    # this to ctypes though if we ever remove the cffi dependency.)
-    #
-    # Some more information:
-    #   https://bugs.python.org/issue26350
-    #
-    # Anyway, we use this for two things:
-    # - redelivering unhandled signals
-    # - generating synthetic signals for tests
-    # and for both of those purposes, 'raise' works fine.
-    import cffi
-    _ffi = cffi.FFI()
-    _ffi.cdef("int raise(int);")
-    _lib = _ffi.dlopen("api-ms-win-crt-runtime-l1-1-0.dll")
-    _signal_raise = getattr(_lib, "raise")
-else:
-    def _signal_raise(signum):
-        os.kill(os.getpid(), signum)
-
 class SignalQueue:
     def __init__(self):
         self._semaphore = Semaphore(0, max_value=1)
@@ -104,7 +64,7 @@ class SignalQueue:
 
     def _add(self, signum):
         if self._closed:
-            _signal_raise(signum)
+            signal_raise(signum)
         else:
             if not self._pending:
                 self._semaphore.release()
@@ -121,7 +81,7 @@ class SignalQueue:
             if self._pending:
                 signum = self._pending.pop()
                 try:
-                    _signal_raise(signum)
+                    signal_raise(signum)
                 finally:
                     deliver_next()
         deliver_next()
