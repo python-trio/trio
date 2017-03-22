@@ -6,7 +6,8 @@ import queue as stdlib_queue
 import pytest
 
 from .. import _core
-from .._signals import catch_signals, _signal_handler, _signal_raise
+from .._util import signal_raise
+from .._signals import catch_signals, _signal_handler
 from .._sync import Event
 
 async def test_catch_signals():
@@ -16,15 +17,15 @@ async def test_catch_signals():
     with catch_signals([signal.SIGILL]) as queue:
         # Raise it a few times, to exercise signal coalescing, both at the
         # call_soon level and at the SignalQueue level
-        _signal_raise(signal.SIGILL)
-        _signal_raise(signal.SIGILL)
+        signal_raise(signal.SIGILL)
+        signal_raise(signal.SIGILL)
         await _core.wait_all_tasks_blocked()
-        _signal_raise(signal.SIGILL)
+        signal_raise(signal.SIGILL)
         await _core.wait_all_tasks_blocked()
         async for batch in queue:  # pragma: no branch
             assert batch == {signal.SIGILL}
             break
-        _signal_raise(signal.SIGILL)
+        signal_raise(signal.SIGILL)
         async for batch in queue:  # pragma: no branch
             assert batch == {signal.SIGILL}
             break
@@ -67,8 +68,8 @@ async def test_catch_signals_race_condition_on_exit():
     # before we exit the with block:
     with _signal_handler({signal.SIGILL, signal.SIGFPE}, direct_handler):
         with catch_signals({signal.SIGILL, signal.SIGFPE}) as queue:
-            _signal_raise(signal.SIGILL)
-            _signal_raise(signal.SIGFPE)
+            signal_raise(signal.SIGILL)
+            signal_raise(signal.SIGFPE)
         await wait_call_soon_idempotent_queue_barrier()
     assert delivered_directly == {signal.SIGILL, signal.SIGFPE}
     delivered_directly.clear()
@@ -78,8 +79,8 @@ async def test_catch_signals_race_condition_on_exit():
     # we exit the with block:
     with _signal_handler({signal.SIGILL, signal.SIGFPE}, direct_handler):
         with catch_signals({signal.SIGILL, signal.SIGFPE}) as queue:
-            _signal_raise(signal.SIGILL)
-            _signal_raise(signal.SIGFPE)
+            signal_raise(signal.SIGILL)
+            signal_raise(signal.SIGFPE)
             await wait_call_soon_idempotent_queue_barrier()
             assert len(queue._pending) == 2
     assert delivered_directly == {signal.SIGILL, signal.SIGFPE}
@@ -90,14 +91,14 @@ async def test_catch_signals_race_condition_on_exit():
     print(3)
     with _signal_handler({signal.SIGILL}, signal.SIG_IGN):
         with catch_signals({signal.SIGILL}) as queue:
-            _signal_raise(signal.SIGILL)
+            signal_raise(signal.SIGILL)
         await wait_call_soon_idempotent_queue_barrier()
     # test passes if the process reaches this point without dying
 
     print(4)
     with _signal_handler({signal.SIGILL}, signal.SIG_IGN):
         with catch_signals({signal.SIGILL}) as queue:
-            _signal_raise(signal.SIGILL)
+            signal_raise(signal.SIGILL)
             await wait_call_soon_idempotent_queue_barrier()
             assert len(queue._pending) == 1
     # test passes if the process reaches this point without dying
@@ -110,8 +111,8 @@ async def test_catch_signals_race_condition_on_exit():
     with _signal_handler({signal.SIGILL, signal.SIGFPE}, direct_handler):
         try:
             with catch_signals({signal.SIGILL, signal.SIGFPE}) as queue:
-                _signal_raise(signal.SIGILL)
-                _signal_raise(signal.SIGFPE)
+                signal_raise(signal.SIGILL)
+                signal_raise(signal.SIGFPE)
                 await wait_call_soon_idempotent_queue_barrier()
                 assert len(queue._pending) == 2
         except RuntimeError as exc:

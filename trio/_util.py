@@ -1,9 +1,59 @@
+# Little utilities we use internally
+
+import os
 import sys
 from functools import wraps
 
 import async_generator
 
-__all__ = ["aitercompat", "acontextmanager"]
+__all__ = ["signal_raise", "aitercompat", "acontextmanager"]
+
+# Equivalent to the C function raise(), which Python doesn't wrap
+if os.name == "nt":
+    # On windows, os.kill exists but is really weird.
+    #
+    # If you give it CTRL_C_EVENT or CTRL_BREAK_EVENT, it tries to deliver
+    # those using GenerateConsoleCtrlEvent. But I found that when I tried
+    # to run my test normally, it would freeze waiting... unless I added
+    # print statements, in which case the test suddenly worked. So I guess
+    # these signals are only delivered if/when you access the console? I
+    # don't really know what was going on there. From reading the
+    # GenerateConsoleCtrlEvent docs I don't know how it worked at all.
+    #
+    # I later spent a bunch of time trying to make GenerateConsoleCtrlEvent
+    # work for creating synthetic control-C events, and... failed
+    # utterly. There are lots of details in the code and comments
+    # removed/added at this commit:
+    #     https://github.com/python-trio/trio/commit/95843654173e3e826c34d70a90b369ba6edf2c23
+    #
+    # OTOH, if you pass os.kill any *other* signal number... then CPython
+    # just calls TerminateProcess (wtf).
+    #
+    # So, anyway, os.kill is not so useful for testing purposes. Instead
+    # we use raise():
+    #
+    #   https://msdn.microsoft.com/en-us/library/dwwzkt4c.aspx
+    #
+    # Have to import cffi inside the 'if os.name' block because we don't
+    # depend on cffi on non-Windows platforms. (It would be easy to switch
+    # this to ctypes though if we ever remove the cffi dependency.)
+    #
+    # Some more information:
+    #   https://bugs.python.org/issue26350
+    #
+    # Anyway, we use this for two things:
+    # - redelivering unhandled signals
+    # - generating synthetic signals for tests
+    # and for both of those purposes, 'raise' works fine.
+    import cffi
+    _ffi = cffi.FFI()
+    _ffi.cdef("int raise(int);")
+    _lib = _ffi.dlopen("api-ms-win-crt-runtime-l1-1-0.dll")
+    signal_raise = getattr(_lib, "raise")
+else:
+    def signal_raise(signum):
+        os.kill(os.getpid(), signum)
+
 
 # Decorator to handle the change to __aiter__ in 3.5.2
 def aiter_compat(aiter_impl):
@@ -14,6 +64,7 @@ def aiter_compat(aiter_impl):
         return __aiter__
     else:
         return aiter_impl
+
 
 # Very much derived from the one in contextlib, by copy/pasting and then
 # asyncifying everything.
