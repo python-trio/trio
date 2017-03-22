@@ -11,6 +11,7 @@ from async_generator import async_generator, yield_
 from ... import _core
 from ...testing import wait_all_tasks_blocked
 from ..._util import acontextmanager, signal_raise
+from ..._timeouts import sleep
 from .tutil import slow
 
 def ki_self():
@@ -373,13 +374,12 @@ def test_ki_wakes_us_up():
         thread.start()
         try:
             # To limit the damage on CI if this does get broken
-            with _core.move_on_after(10):
-                await _core.yield_indefinitely(lambda _: _core.Abort.SUCCEEDED)
+            with pytest.raises(KeyboardInterrupt):
+                await sleep(20)
         finally:
             thread.join()
 
     start = time.time()
-    with pytest.raises(KeyboardInterrupt):
-        _core.run(main)
+    _core.run(main)
     end = time.time()
     assert 1.0 <= (end - start) < 2
