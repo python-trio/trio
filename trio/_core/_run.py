@@ -1076,8 +1076,8 @@ def run(async_fn, *args, clock=None, instruments=[]):
       TrioInternalError: if an unexpected error is encountered inside trio's
           internal machinery. This is a bug and you should `let us know
           <https://github.com/python-trio/trio/issues>`__.
-      Anything else: if ``async_fn`` raises an exception, then we propagate
-          it.
+      Anything else: if ``async_fn`` raises an exception, then :func:`run`
+          propagates it.
 
     """
 
