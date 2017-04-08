@@ -398,13 +398,13 @@ are running at the same time!
 Now, if you're familiar with programming using threads, this might
 look familiar – and that's intentional. But it's important to realize
 that *there are no threads here*. All of this is happening in a single
-thread. To remind us of this, we use slightly different terminology:
-instead of spawning two "threads", we say that we spawned two
-"tasks". There are two differences between tasks and threads: (1) many
-tasks can take turns running on a single thread, and (2) with threads,
-the Python interpreter/operating system can switch which thread is
-running whenever they feel like it; with tasks, we can only switch at
-certain designated places we call :ref:`"check points"
+thread. To remind ourselves of this, we use slightly different
+terminology: instead of spawning two "threads", we say that we spawned
+two "tasks". There are two differences between tasks and threads: (1)
+many tasks can take turns running on a single thread, and (2) with
+threads, the Python interpreter/operating system can switch which
+thread is running whenever they feel like it; with tasks, we can only
+switch at certain designated places we call :ref:`"checkpoints"
 <checkpoints>`. In the next section, we'll dig into what this means.
 
 
