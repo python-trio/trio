@@ -275,24 +275,23 @@ inside the ``with`` block. Instead, we take advantage of Python's
 standard way of aborting a large and complex piece of code: we raise
 an exception.
 
-Here's the idea: whenever you call one of trio's built-in async
-functions like ``await trio.sleep(...)`` or ``await sock.recv(...)`` –
-see :ref:`checkpoints` – then the first thing that function does is to
-check if there's a surrounding cancel scope whose timeout has expired,
-or otherwise been cancelled. If so, then instead of performing the
-requested operation, the function fails immediately with a
-:exc:`Cancelled` exception. In this example, this probably happens
-somewhere deep inside the bowels of ``do_http_get``. The exception
-then propagates out like any normal exception (you could even catch it
-if you wanted, but that's generally a bad idea), until it reaches the
-``with move_on_after(...):``. And at this point, the :exc:`Cancelled`
-exception has done its job – it's successfully unwound the whole
-cancelled scope – so :func:`move_on_after` catches it, and execution
-continues as normal after the ``with`` block. And this all works
-correctly even if you have nested cancel scopes, because every
-:exc:`Cancelled` object carries an invisible marker that makes sure
-that the cancel scope that triggered it is the only one that will
-catch it.
+Here's the idea: whenever you call a cancellable function like ``await
+trio.sleep(...)`` or ``await sock.recv(...)`` – see :ref:`checkpoints`
+– then the first thing that function does is to check if there's a
+surrounding cancel scope whose timeout has expired, or otherwise been
+cancelled. If so, then instead of performing the requested operation,
+the function fails immediately with a :exc:`Cancelled` exception. In
+this example, this probably happens somewhere deep inside the bowels
+of ``do_http_get``. The exception then propagates out like any normal
+exception (you could even catch it if you wanted, but that's generally
+a bad idea), until it reaches the ``with move_on_after(...):``. And at
+this point, the :exc:`Cancelled` exception has done its job – it's
+successfully unwound the whole cancelled scope – so
+:func:`move_on_after` catches it, and execution continues as normal
+after the ``with`` block. And this all works correctly even if you
+have nested cancel scopes, because every :exc:`Cancelled` object
+carries an invisible marker that makes sure that the cancel scope that
+triggered it is the only one that will catch it.
 
 
 Handling cancellation
@@ -369,11 +368,11 @@ move_on_after(5)`` context manager. So this code will print:
    starting...
    move_on_after(5) finished without error
 
-The end result is that we have successfully cancelled exactly the work
-that was happening within the scope that was cancelled.
+The end result is that trio has successfully cancelled exactly the
+work that was happening within the scope that was cancelled.
 
-Looking at this, you might wonder how we can tell whether the inner
-block timed out – perhaps we want to do something different, like try
+Looking at this, you might wonder how you can tell whether the inner
+block timed out – perhaps you want to do something different, like try
 a fallback procedure or report a failure to our caller. To make this
 easier, :func:`move_on_after`'s ``__enter__`` function returns an
 object representing this cancel scope, which we can use to check
@@ -412,8 +411,8 @@ timeout will expire and ``send_hello_msg`` will raise
 blocking operation, which will also hang forever! At this point, if we
 were using :mod:`asyncio` or another library with "edge-triggered"
 cancellation, we'd be in trouble: since our timeout already fired, it
-wouldn't fire again, and at this point our application would lock
-up. But in trio, this *doesn't* happen: the ``await
+wouldn't fire again, and at this point our application would lock up
+forever. But in trio, this *doesn't* happen: the ``await
 conn.send_goodbye_msg()`` call is still inside the cancelled block, so
 it will also raise :exc:`Cancelled`.
 
@@ -450,8 +449,9 @@ Cancellation and primitive operations
 
 We've talked a lot about what happens when an operation is cancelled,
 and how you need to be prepared for this whenever calling a
-cancellable operation... but we haven't said which operations are
-cancellable.
+cancellable operation... but we haven't gone into the details about
+which operations are cancellable, and how exactly they behave when
+they're cancelled.
 
 Here's the rule: if it's in the trio namespace, and you use ``await``
 to call it, then it's cancellable (see :ref:`checkpoints`
@@ -487,13 +487,13 @@ wasn't just broken by a man-in-the-middle attacker. But handling this
 robustly is a bit tricky. Remember our :ref:`example
 <blocking-cleanup-example>` above where the blocking
 ``send_goodbye_msg`` caused problems? That's exactly how closing a TLS
-socket works: if the remote peer has disappeared, then we may never be
-able to actually send our shutdown notification, and it would be nice
-if we didn't block forever trying. Therefore, the ``close`` method on
-a TLS-wrapped socket will *try* to send that notification – but if it
-gets cancelled, then it will give up on sending the message but will
-still close the underlying socket before raising :exc:`Cancelled`, so
-at least you don't leak that resource.
+socket works: if the remote peer has disappeared, then our code may
+never be able to actually send our shutdown notification, and it would
+be nice if it didn't block forever trying. Therefore, the method for
+closing a TLS-wrapped socket will *try* to send that notification –
+and if it gets cancelled, then it will give up on sending the message,
+but *will* still close the underlying socket before raising
+:exc:`Cancelled`, so at least you don't leak that resource.
 
 
 Cancellation API details
@@ -518,27 +518,15 @@ The primitive operation for creating a new cancellation scope is:
          # I need a little more time!
          cancel_scope.deadline += 30
 
-      Note that the core run loop alternates between running tasks and
-      processing deadlines, so if the very first checkpoint after the
-      deadline expires doesn't actually block, then it may complete
-      before we process deadlines::
-
-         with trio.open_cancel_scope(deadline=current_time()):
-             # current_time() is now >= deadline, so cancel should fire,
-             # at the next checkpoint. BUT, if the next checkpoint
-             # completes instantly -- e.g., a recv on a socket that
-             # already has data pending -- then the operation may
-             # complete before we process deadlines, and then it's too
-             # late to cancel (the data's already been read from the
-             # socket):
-             await sock.recv(1)
-
-             # But the next call after that *is* guaranteed to raise
-             # Cancelled:
-             await sock.recv(1)
-
-      This is a very obscure corner case that you're unlikely to
-      notice, but we document it for completeness.
+      Note that for efficiency, the core run loop only checks for
+      expired deadlines every once in a while. This means that in
+      certain cases there may be a short delay between when the clock
+      says the deadline should have expired, and when checkpoints
+      start raising :exc:`Cancelled`. This is a very obscure corner
+      case that you're unlikely to notice, but we document it for
+      completeness. (If this *does* cause problems for you, of course,
+      then `we want to know!
+      <https://github.com/python-trio/trio/issues>`__)
 
       Defaults to :data:`math.inf`, which means "no deadline", though
       this can be overridden by the ``deadline=`` argument to
@@ -589,8 +577,8 @@ The primitive operation for creating a new cancellation scope is:
 
    .. currentmodule:: trio
 
-We also provide several convenience functions for the common situation
-of just wanting to impose a timeout on some code:
+Trio also provides several convenience functions for the common
+situation of just wanting to impose a timeout on some code:
 
 .. autofunction:: move_on_after
    :with: cancel_scope
@@ -679,9 +667,9 @@ This means that tasks form a tree: when you call :func:`run`, then
 this creates an initial task, and all your other tasks will be
 children, grandchildren, etc. of the initial task.
 
-The crucial thing about this setup is that when we exit the ``async
-with`` block, then the nursery cleanup code runs. The nursery cleanup
-code does the following things:
+The crucial thing about this setup is that when execution reaches the
+end of the ``async with`` block, then the nursery cleanup code
+runs. The nursery cleanup code does the following things:
 
 * If the body of the ``async with`` block raised an exception, then it
   cancels all remaining child tasks and saves the exception.
@@ -777,7 +765,7 @@ special exception which encapsulates multiple exception objects –
 either regular exceptions or nested :exc:`MultiError`\s. To make these
 easier to work with, trio installs a custom :obj:`sys.excepthook` that
 knows how to print nice tracebacks for unhandled :exc:`MultiError`\s,
-and we also provide some helpful utilities like
+and it also provides some helpful utilities like
 :meth:`MultiError.catch`, which allows you to catch "part of" a
 :exc:`MultiError`.
 
@@ -883,8 +871,8 @@ first::
 This works by waiting until at least one task has finished, then
 cancelling all remaining tasks and returning the result from the first
 task. This implicitly invokes the default logic to take care of all
-the other tasks, so we block to wait for the cancellation to finish,
-and if any of them raise errors in the process we'll propagate
+the other tasks, so it blocks to wait for the cancellation to finish,
+and if any of them raise errors in the process it will propagate
 those.
 
 
@@ -1445,12 +1433,12 @@ using this for tracing <tutorial-instrument-example>`.
 
 Since this hooks into trio at a rather low level, you do have to be
 somewhat careful. The callbacks are run synchronously, and in many
-cases if they error out then we don't have any plausible way to
+cases if they error out then there isn't any plausible way to
 propagate this exception (for instance, we might be deep in the guts
 of the exception propagation machinery...). Therefore our `current
-strategy <https://github.com/python-trio/trio/issues/47>`__ for handling
-exceptions raised by instruments is to (a) dump a stack trace to
-stderr and (b) disable the offending instrument.
+strategy <https://github.com/python-trio/trio/issues/47>`__ for
+handling exceptions raised by instruments is to (a) dump a stack trace
+to stderr and (b) disable the offending instrument.
 
 You can register an initial list of instruments by passing them to
 :func:`trio.run`. :func:`current_instruments` lets you introspect and

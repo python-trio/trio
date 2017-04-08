@@ -256,8 +256,8 @@ The next two functions are used *together* to make up a checkpoint:
 .. autofunction:: yield_if_cancelled
 .. autofunction:: yield_briefly_no_cancel
 
-These are commonly used in cases where we have an operation that
-might-or-might-not block, and we want to implement trio's standard
+These are commonly used in cases where you have an operation that
+might-or-might-not block, and you want to implement trio's standard
 checkpoint semantics. Example::
 
    async def operation_that_maybe_blocks():
