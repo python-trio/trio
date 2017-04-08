@@ -111,7 +111,7 @@ async def test_assert_yields():
                 with block():
                     await partial_yield()
 
-    # But both together count as a check point
+    # But both together count as a checkpoint
     with assert_yields():
         await _core.yield_if_cancelled()
         await _core.yield_briefly()

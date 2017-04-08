@@ -241,13 +241,13 @@ def _assert_yields_or_not(expected):
 
 def assert_yields():
     """Use as a context manager to check that the code inside the ``with``
-    block executes at least one :ref:`check point <check-points>`.
+    block executes at least one :ref:`checkpoint <checkpoints>`.
 
     Raises:
-      AssertionError: if no check point was executed.
+      AssertionError: if no checkpoint was executed.
 
     Example:
-      Check that :func:`trio.sleep` is a check point, even if it doesn't
+      Check that :func:`trio.sleep` is a checkpoint, even if it doesn't
       block::
 
          with trio.testing.assert_yields():
@@ -259,10 +259,10 @@ def assert_yields():
 
 def assert_no_yields():
     """Use as a context manager to check that the code inside the ``with``
-    block does not execute any :ref:`check points <check-points>`.
+    block does not execute any :ref:`check points <checkpoints>`.
 
     Raises:
-      AssertionError: if a check point was executed.
+      AssertionError: if a checkpoint was executed.
 
     Example:
       Synchronous code never yields, but we can double-check that::

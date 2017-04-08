@@ -16,42 +16,41 @@ If you want to use trio, then the first thing you have to do is call
 General notes
 -------------
 
-.. _check-points:
+.. _checkpoints:
 
-Check points
-~~~~~~~~~~~~
+Checkpoints
+~~~~~~~~~~~
 
 When writing code using trio, it's very important to understand the
-concept of a *check point*. Many of trio's functions act as check
-points.
+concept of a *checkpoint*. Many of trio's functions act as checkpoints.
 
-A check point is two things:
+A checkpoint is two things:
 
 1. It's a point where trio checks for cancellation. For example, if
    the code that called your function set a timeout, and that timeout
-   has expired, then the next time your code executes a check point
-   then trio will raise a :exc:`Cancelled` exception. See
+   has expired, then the next time your function executes a checkpoint
+   trio will raise a :exc:`Cancelled` exception. See
    :ref:`cancellation` below for more details.
 
 2. It's a point where the trio scheduler checks its scheduling policy
    to see if it's a good time to switch to another task, and
    potentially does so. (Currently, this check is very simple: the
-   scheduler always switches at every check point. But `this might
+   scheduler always switches at every checkpoint. But `this might
    change in the future
    <https://github.com/python-trio/trio/issues/32>`__.)
 
-When writing trio code, you need to keep track of where your check
-points are. Why? First, because check points require extra scrutiny:
-whenever you execute a check point, you need to be prepared to handle
-a :exc:`Cancelled` error, or for another task to run and `rearrange
-some state out from under you
+When writing trio code, you need to keep track of where your
+checkpoints are. Why? First, because checkpoints require extra
+scrutiny: whenever you execute a checkpoint, you need to be prepared
+to handle a :exc:`Cancelled` error, or for another task to run and
+`rearrange some state out from under you
 <https://glyph.twistedmatrix.com/2014/02/unyielding.html>`__. And
 second, because you also need to make sure that you have *enough*
-check points: if your code doesn't pass through a check point on a
+checkpoints: if your code doesn't pass through a checkpoint on a
 regular basis, then it will be slow to notice and respond to
 cancellation and – much worse – since trio is a cooperative
 multi-tasking system where the *only* place the scheduler can switch
-tasks is at check points, it'll also prevent the scheduler from fairly
+tasks is at checkpoints, it'll also prevent the scheduler from fairly
 allocating time between different tasks and adversely effect the
 response latency of all the other code running in the same
 process. (Informally we say that a task that does this is "hogging the
@@ -59,10 +58,10 @@ run loop".)
 
 So when you're doing code review on a project that uses trio, one of
 the things you'll want to think about is whether there are enough
-check points, and whether each one is handled correctly. Of course
-this means you need a way to recognize check points. How do you do
+checkpoints, and whether each one is handled correctly. Of course
+this means you need a way to recognize checkpoints. How do you do
 that?  The underlying principle is that any operation that blocks has
-to be a check point. This makes sense: if an operation blocks, then it
+to be a checkpoint. This makes sense: if an operation blocks, then it
 might block for a long time, and you'll want to be able to cancel it
 if a timeout expires; and in any case, while this task is blocked we
 want to schedule another task to run so we can make full use of the
@@ -72,39 +71,39 @@ But if we want to write correct code in practice, then this principle
 is a little too sloppy and imprecise to be useful. How do we know
 which functions might block?  What if a function blocks sometimes, but
 not others, depending on the arguments passed / network speed / phase
-of the moon? How do we figure out where the check points are when
+of the moon? How do we figure out where the checkpoints are when
 we're stressed and sleep deprived but still want to get this code
 review right, and would prefer to reserve our mental energy for
 thinking about the actual logic instead of worrying about check
 points?
 
-.. _check-point-rule:
+.. _checkpoint-rule:
 
-Don't worry – trio's got your back. Since check points are important
+Don't worry – trio's got your back. Since checkpoints are important
 and ubiquitous, we make it as simple as possible to keep track of
 them. Here are the rules:
 
-* Regular (synchronous) functions never contain any check points.
+* Regular (synchronous) functions never contain any checkpoints.
 
 * Every async function provided by trio *always* acts as a check
   point; if you see ``await <something in trio>``, or ``async for
   ... in <a trio object>``, or ``async with <trio.something>``, then
-  that's *definitely* a check point.
+  that's *definitely* a checkpoint.
 
   (Partial exception: for async context managers, it might be only the
-  entry or only the exit that acts as a check point; this is
+  entry or only the exit that acts as a checkpoint; this is
   documented on a case-by-case basis.)
 
-* Third-party async functions can act as check points; if you see
+* Third-party async functions can act as checkpoints; if you see
   ``await <something>`` or one of its friends, then that *might* be a
-  check point. So to be safe, you should prepare for scheduling or
+  checkpoint. So to be safe, you should prepare for scheduling or
   cancellation happening there.
 
 The reason we distinguish between trio functions and other functions
 is that we can't make any guarantees about third party
-code. Check-point-ness is a transitive property: if function A acts as
-a check point, and you write a function that calls function A, then
-your function also acts as a check point. If you don't, then it
+code. Checkpoint-ness is a transitive property: if function A acts as
+a checkpoint, and you write a function that calls function A, then
+your function also acts as a checkpoint. If you don't, then it
 isn't. So there's nothing stopping someone from writing a function
 like::
 
@@ -113,12 +112,12 @@ like::
        return 7
 
 that never calls any of trio's async functions. This is an async
-function, but it's not a check point. But why make a function async if
+function, but it's not a checkpoint. But why make a function async if
 it never calls any async functions? It's possible, but it's a bad
 idea. If you have a function that's not calling any async functions,
 then you should make it synchronous. The people who use your function
 will thank you, because it makes it obvious that your function is not
-a check point, and their code reviews will go faster.
+a checkpoint, and their code reviews will go faster.
 
 (Remember how in the tutorial we emphasized the importance of the
 :ref:`"async sandwich" <async-sandwich>`, and the way it means that
@@ -126,8 +125,8 @@ a check point, and their code reviews will go faster.
 function that calls a function that ... eventually calls one of trio's
 built-in async functions? The transitivity of async-ness is a
 technical requirement that Python imposes, but since it exactly
-matches the transitivity of check-point-ness, we're able to exploit it
-to help you keep track of check points. Pretty sneaky, eh?)
+matches the transitivity of checkpoint-ness, we're able to exploit it
+to help you keep track of checkpoints. Pretty sneaky, eh?)
 
 A slightly trickier case is a function like::
 
@@ -137,7 +136,7 @@ A slightly trickier case is a function like::
        else:
            pass
 
-Here the function acts as a check point if you call it with
+Here the function acts as a checkpoint if you call it with
 ``should_sleep`` set to a true value, but not otherwise. This is why
 we emphasize that trio's own async functions are *unconditional* check
 points: they *always* check for cancellation and check for scheduling,
@@ -165,20 +164,20 @@ kind of issue looks like in real life, consider this function::
 
 If called with an ``nbytes`` that's greater than zero, then it will
 call ``sock.recv`` at least once, and ``recv`` is an async trio
-function, and thus an unconditional check point. So in this case,
-``recv_exactly`` acts as a check point. But if we do ``await
+function, and thus an unconditional checkpoint. So in this case,
+``recv_exactly`` acts as a checkpoint. But if we do ``await
 recv_exactly(sock, 0)``, then it will immediately return an empty
-buffer without executing a check point. If this were a function in
+buffer without executing a checkpoint. If this were a function in
 trio itself, then this wouldn't be acceptable, but you may decide you
 don't want to worry about this kind of minor edge case in your own
 code.
 
 If you do want to be careful, or if you have some CPU-bound code that
-doesn't have enough check points in it, then it's useful to know that
-``await trio.sleep(0)`` is an idiomatic way to execute a check point
+doesn't have enough checkpoints in it, then it's useful to know that
+``await trio.sleep(0)`` is an idiomatic way to execute a checkpoint
 without doing anything else, and that
 :func:`trio.testing.assert_yields` can be used to test that an
-arbitrary block of code contains a check point.
+arbitrary block of code contains a checkpoint.
 
 
 Thread safety
@@ -435,7 +434,7 @@ cancellable operation... but we haven't said which operations are
 cancellable.
 
 Here's the rule: if it's in the trio namespace, and you use ``await``
-to call it, then it's cancellable (see :ref:`check-points`
+to call it, then it's cancellable (see :ref:`checkpoints`
 above). Cancellable means:
 
 * If you try to call it when inside a cancelled scope, then it will
@@ -500,13 +499,13 @@ The primitive operation for creating a new cancellation scope is:
          cancel_scope.deadline += 30
 
       Note that the core run loop alternates between running tasks and
-      processing deadlines, so if the very first check point after the
+      processing deadlines, so if the very first checkpoint after the
       deadline expires doesn't actually block, then it may complete
       before we process deadlines::
 
          with trio.open_cancel_scope(deadline=current_time()):
              # current_time() is now >= deadline, so cancel should fire,
-             # at the next check point. BUT, if the next check point
+             # at the next checkpoint. BUT, if the next checkpoint
              # completes instantly -- e.g., a recv on a socket that
              # already has data pending -- then the operation may
              # complete before we process deadlines, and then it's too
@@ -517,6 +516,9 @@ The primitive operation for creating a new cancellation scope is:
              # But the next call after that *is* guaranteed to raise
              # Cancelled:
              await sock.recv(1)
+
+      This is a very obscure corner case that you're unlikely to
+      notice, but we document it for completeness.
 
       Defaults to :data:`math.inf`, which means "no deadline", though
       this can be overridden by the ``deadline=`` argument to
@@ -1155,7 +1157,7 @@ always immedately attempts to re-acquire it, before the other task has
 a chance to run. (And remember that we're doing cooperative
 multi-tasking here, so it's actually *deterministic* that the task
 releasing the lock will call :meth:`~Lock.acquire` before the other
-task wakes up; in trio releasing a lock is not a check point.)  With
+task wakes up; in trio releasing a lock is not a checkpoint.)  With
 an unfair lock, this would result in the same task holding the lock
 forever and the other task being starved out. But if you run this,
 you'll see that the two tasks politely take turns::
@@ -1235,7 +1237,7 @@ time it runs, it could eagerly consume all of the pending items before
 allowing another task to run. (In some other systems, this would
 happen automatically because their queue's ``get`` method doesn't
 invoke the scheduler unless it has to block. But :ref:`in trio, get is
-always a check point <check-point-rule>`.) This would work, but it's a
+always a checkpoint <checkpoint-rule>`.) This would work, but it's a
 bit risky: basically instead of applying backpressure to specifically
 the producer tasks, we're applying it to *all* the tasks in our
 system. The danger here is that if enough items have built up in the

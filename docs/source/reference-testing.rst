@@ -71,7 +71,7 @@ Inter-task ordering
 .. autofunction:: wait_all_tasks_blocked
 
 
-Testing check points
+Testing checkpoints
 --------------------
 
 .. autofunction:: assert_yields

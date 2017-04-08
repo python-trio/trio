@@ -44,7 +44,7 @@ class Event:
     async def wait(self):
         """Block until the internal flag value becomes True.
 
-        If it's already True, then this method is still a check point, but
+        If it's already True, then this method is still a checkpoint, but
         otherwise returns immediately.
 
         """
