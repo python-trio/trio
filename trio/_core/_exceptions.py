@@ -46,9 +46,16 @@ class Cancelled(BaseException):
     """Raised by blocking calls if the surrounding scope has been cancelled.
 
     You should let this exception propagate, to be caught by the relevant
-    cancel scope. To remind you of this, it inherits from
-    :exc:`BaseException`, like :exc:`KeyboardInterrupt` and
-    :exc:`SystemExit`.
+    cancel scope. To remind you of this, it inherits from :exc:`BaseException`
+    instead of :exc:`Exception`, just like :exc:`KeyboardInterrupt` and
+    :exc:`SystemExit` do. This means that if you write something like::
+
+       try:
+           ...
+       except Exception:
+           ...
+
+    then this *won't* catch a :exc:`Cancelled` exception.
 
     .. note::
 

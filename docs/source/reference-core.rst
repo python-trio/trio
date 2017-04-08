@@ -58,14 +58,14 @@ run loop".)
 
 So when you're doing code review on a project that uses trio, one of
 the things you'll want to think about is whether there are enough
-checkpoints, and whether each one is handled correctly. Of course
-this means you need a way to recognize checkpoints. How do you do
-that?  The underlying principle is that any operation that blocks has
-to be a checkpoint. This makes sense: if an operation blocks, then it
-might block for a long time, and you'll want to be able to cancel it
-if a timeout expires; and in any case, while this task is blocked we
-want to schedule another task to run so we can make full use of the
-CPU.
+checkpoints, and whether each one is handled correctly. Of course this
+means you need a way to recognize checkpoints. How do you do that?
+The underlying principle is that any operation that blocks has to be a
+checkpoint. This makes sense: if an operation blocks, then it might
+block for a long time, and you'll want to be able to cancel it if a
+timeout expires; and in any case, while this task is blocked we want
+another task to be scheduled to run so our code can make full use of
+the CPU.
 
 But if we want to write correct code in practice, then this principle
 is a little too sloppy and imprecise to be useful. How do we know
@@ -184,8 +184,8 @@ Thread safety
 ~~~~~~~~~~~~~
 
 The vast majority of trio's API is *not* thread safe: it can only be
-used from inside a call to :func:`trio.run`. We don't bother
-documenting this on individual calls; unless specifically noted
+used from inside a call to :func:`trio.run`. This manual doesn't
+bother documenting this on individual calls; unless specifically noted
 otherwise, you should assume that it isn't safe to call any trio
 functions from anywhere except the trio thread. (But :ref:`see below
 <threads>` if you really do need to work with threads.)
@@ -253,26 +253,46 @@ In the simplest case, you can apply a timeout to a block of code::
        print("result is", result)
    print("with block finished")
 
-We refer :func:`move_on_after` as creating a "cancel scope", that
-contains all the code that runs inside the ``with`` block.
-
-If the HTTP request finishes in less than 30 seconds, then ``result``
-is set and the ``with`` block exits normally. If it does *not* finish
-within 30 seconds, then the cancel scope becomes "cancelled", and the
-next time ``do_http_get`` attempts to call a blocking trio operation
-it will fail immediately with a :exc:`Cancelled` exception. This
-exception eventually propagates out of ``do_http_get``, is caught by
-the ``with`` block, and execution then continues on the line
-``print("with block statement")``.
+We refer to :func:`move_on_after` as creating a "cancel scope", which
+contains all the code that runs inside the ``with`` block. If the HTTP
+request takes more than 30 seconds to run, then it will be cancelled:
+we'll abort the request and we *won't* see ``result is ...`` printed
+on the console; instead we'll go straight to printing the ``with block
+finished`` message.
 
 .. note::
 
-   Note that this is a simple 30 second timeout for the entire body of
+   Note that this is a single 30 second timeout for the entire body of
    the ``with`` statement. This is different from what you might have
    seen with other Python libraries, where timeouts often refer to
    something `more complicated
    <http://docs.python-requests.org/en/master/user/quickstart/#timeouts>`__. We
    think this way is easier to reason about.
+
+How does this work? There's no magic here: trio is built using
+ordinary Python functionality, so we can't just abandon the code
+inside the ``with`` block. Instead, we take advantage of Python's
+standard way of aborting a large and complex piece of code: we raise
+an exception.
+
+Here's the idea: whenever you call one of trio's built-in async
+functions like ``await trio.sleep(...)`` or ``await sock.recv(...)`` –
+see :ref:`checkpoints` – then the first thing that function does is to
+check if there's a surrounding cancel scope whose timeout has expired,
+or otherwise been cancelled. If so, then instead of performing the
+requested operation, the function fails immediately with a
+:exc:`Cancelled` exception. In this example, this probably happens
+somewhere deep inside the bowels of ``do_http_get``. The exception
+then propagates out like any normal exception (you could even catch it
+if you wanted, but that's generally a bad idea), until it reaches the
+``with move_on_after(...):``. And at this point, the :exc:`Cancelled`
+exception has done its job – it's successfully unwound the whole
+cancelled scope – so :func:`move_on_after` catches it, and execution
+continues as normal after the ``with`` block. And this all works
+correctly even if you have nested cancel scopes, because every
+:exc:`Cancelled` object carries an invisible marker that makes sure
+that the cancel scope that triggered it is the only one that will
+catch it.
 
 
 Handling cancellation
