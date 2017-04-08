@@ -153,8 +153,8 @@ Entering trio from external threads or signal handlers
 .. autofunction:: current_call_soon_thread_and_signal_safe
 
 
-Safe KeyboardInterrupt handling
-===============================
+Safer KeyboardInterrupt handling
+================================
 
 Trio's handling of control-C is designed to balance usability and
 safety. On the one hand, there are sensitive regions (like the core
@@ -185,8 +185,9 @@ These transitions are accomplished using two function decorators:
 
    Decorator that marks the given regular function, generator
    function, async function, or async generator function as
-   unprotected, i.e., the code inside this function *can* be rudely
-   interrupted by :exc:`KeyboardInterrupt` at any moment.
+   unprotected against :exc:`KeyboardInterrupt`, i.e., the code inside
+   this function *can* be rudely interrupted by
+   :exc:`KeyboardInterrupt` at any moment.
 
    If you have multiple decorators on the same function, then this
    should be at the bottom of the stack (closest to the actual
@@ -206,14 +207,21 @@ These transitions are accomplished using two function decorators:
    :decorator:
 
    Decorator that marks the given regular function, generator
-   function, async function, or async generator function as
-   unprotected, i.e., the code inside this function *won't* be rudely
-   interrupted by :exc:`KeyboardInterrupt` at any moment. (Though if
-   it contains any :ref:`check points <check-points>`, then it can
-   still receive :exc:`KeyboardInterrupt` at those.)
+   function, async function, or async generator function as protected
+   against :exc:`KeyboardInterrupt`, i.e., the code inside this
+   function *won't* be rudely interrupted by
+   :exc:`KeyboardInterrupt`. (Though if it contains any :ref:`check
+   points <check-points>`, then it can still receive
+   :exc:`KeyboardInterrupt` at those. This is considered a polite
+   interruption.)
 
-   Be very careful to only use this decorator on functions that you
-   know will run in bounded time.
+   .. warning::
+
+      Be very careful to only use this decorator on functions that you
+      know will either exit in bounded time, or else pass through a
+      check point regularly. (Of course all of your functions should
+      have this property, but if you mess it up here then you won't
+      even be able to use control-C to escape!)
 
    If you have multiple decorators on the same function, then this
    should be at the bottom of the stack (closest to the actual
