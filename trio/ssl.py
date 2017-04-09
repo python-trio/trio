@@ -30,29 +30,46 @@ from . import _core
 from . import _streams
 from . import _sync
 
-from ssl import (
-    SSLError, SSLZeroReturnError, SSLSyscallError, SSLEOFError,
-    CertificateError, create_default_context, match_hostname,
-    cert_time_to_seconds, DER_cert_to_PEM_cert, PEM_cert_to_DER_cert,
-    get_default_verify_paths, enum_certificates, enum_crls, VerifyMode,
-    VerifyFlags, Options, AlertDescription, SSLErrorNumber, SSLContext,
-    Purpose,
-)
-try:
-    # 3.6+ only:
-    from ssl import SSLSession
-except ImportError:
-    pass
+__all__ = ["SSLStream"]
 
 def _reexport(name):
-    globals()[name] = getattr(_stdlib_socket, name)
+    globals()[name] = getattr(_stdlib_ssl, name)
     __all__.append(name)
+
+for _name in [
+        "SSLError", "SSLZeroReturnError", "SSLSyscallError", "SSLEOFError",
+        "CertificateError", "create_default_context", "match_hostname",
+        "cert_time_to_seconds", "DER_cert_to_PEM_cert", "PEM_cert_to_DER_cert",
+        "get_default_verify_paths", "SSLContext", "Purpose",
+]:
+    _reexport(_name)
+
+
+# Windows only
+try:
+    for _name in ["enum_certificates", "enum_crls"]:
+        _reexport(_name)
+except AttributeError:
+    pass
+
+try:
+    # 3.6+ only:
+    for _name in [
+            "SSLSession", "VerifyMode", "VerifyFlags", "Options",
+            "AlertDescription", "SSLErrorNumber",
+    ]:
+        _reexport(_name)
+except AttributeError:
+    pass
 
 for _name in _stdlib_ssl.__dict__.keys():
     if _name == _name.upper():
         _reexport(_name)
 
 # XX add suppress_ragged_eofs option?
+# or maybe actually make an option that means "I want the variant of the
+# protocol that doesn't do EOFs", so it ignores lack from the other side and
+# also doesn't send them.
 
 class SSLStream(_streams.Stream):
     def __init__(
@@ -89,9 +106,7 @@ class SSLStream(_streams.Stream):
     def __dir__(self):
         return super().__dir__() + list(self._forwarded)
 
-    @property
-    def can_send_eof(self):
-        return False
+    can_send_eof = False
 
     async def send_eof(self):
         raise RuntimeError("the TLS protocol does not support send_eof")
@@ -180,6 +195,6 @@ class SSLStream(_streams.Stream):
         try:
             await self.unwrap()
             await self.wrapped_stream.graceful_close()
-        except _core.Cancelled:
+        except:
             self.forceful_close()
             raise
