@@ -36,6 +36,7 @@ async def test_ssl_simple():
         server_ctx = stdlib_ssl.create_default_context(
             stdlib_ssl.Purpose.CLIENT_AUTH,
         )
+        print(CERT1)
         server_ctx.load_cert_chain(CERT1)
         t = threading.Thread(target=ssl_echo_server, args=(b, server_ctx))
         t.start()
