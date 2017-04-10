@@ -2,5 +2,6 @@ include LICENSE LICENSE.MIT LICENSE.APACHE2
 include README.rst
 include CODE_OF_CONDUCT.md
 include test-requirements.txt
+recursive-include trio/tests/test_ssl_certs *.pem
 recursive-include docs *
 prune docs/build

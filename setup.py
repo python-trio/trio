@@ -57,6 +57,9 @@ setup(name="trio",
           # https://bitbucket.org/pypa/wheel/issues/181/bdist_wheel-silently-discards-pep-508
           #"cffi; os_name == 'nt'",  # "cffi is required on windows"
       ],
+      # This means, just install *everything* you see under trio/, even if it
+      # doesn't look like a source file, so long as it appears in MANIFEST.in:
+      include_package_data=True,
       # Quirky bdist_wheel-specific way:
       # https://wheel.readthedocs.io/en/latest/#defining-conditional-dependencies
       # also supported by pip and setuptools, as long as they're vaguely
