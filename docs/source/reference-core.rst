@@ -522,10 +522,10 @@ The primitive operation for creating a new cancellation scope is:
       expired deadlines every once in a while. This means that in
       certain cases there may be a short delay between when the clock
       says the deadline should have expired, and when checkpoints
-      start raising :exc:`Cancelled`. This is a very obscure corner
-      case that you're unlikely to notice, but we document it for
-      completeness. (If this *does* cause problems for you, of course,
-      then `we want to know!
+      start raising :exc:`~trio.Cancelled`. This is a very obscure
+      corner case that you're unlikely to notice, but we document it
+      for completeness. (If this *does* cause problems for you, of
+      course, then `we want to know!
       <https://github.com/python-trio/trio/issues>`__)
 
       Defaults to :data:`math.inf`, which means "no deadline", though
