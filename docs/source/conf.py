@@ -25,7 +25,9 @@ sys.path.insert(0, os.path.abspath('.'))
 #   https://github.com/sphinx-doc/sphinx/pull/3449
 # is resolved (hopefully before the next release...)
 import sphinx
-if sphinx.version_info < (1, 5, 4):
+# Currently sphinx issue #3449 has the 1.6 milestone set, so maybe that's
+# the plan?
+if sphinx.version_info < (1, 6, 0):
     print("Monkeypatching sphinx!")
     print("I hope they release a fixed version soon...")
     import inspect
