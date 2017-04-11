@@ -15,7 +15,7 @@ build_script:
   - "python -c \"import struct; print(struct.calcsize('P') * 8)\""
   - "pip install ."
   - "pip install -Ur test-requirements.txt"
-  - "pip install codecov"
+  #- "pip install codecov"
 
 test_script:
   - "mkdir empty"
@@ -23,5 +23,5 @@ test_script:
   - "python -c \"import os, trio; print(os.path.dirname(trio.__file__))\""
   # -u makes sure we get prompt output
   - "python -u -m pytest -ra --run-slow ../trio -k test_ki -v -s --cov=trio --cov-config=../.coveragerc"
-  - "coverage combine"
-  - "codecov"
+  #- "coverage combine"
+  #- "codecov"
