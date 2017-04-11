@@ -32,8 +32,8 @@ library version, but are now ``async`` functions, so you need to use
 * :func:`~socket.getnameinfo`
 * :func:`~socket.getfqdn`
 
-We intentionally DO NOT include some obsolete, redundant, or broken
-features:
+Trio intentionally DOES NOT include some obsolete, redundant, or
+broken features:
 
 * :func:`~socket.gethostbyname`, :func:`~socket.gethostbyname_ex`,
   :func:`~socket.gethostbyaddr`: obsolete; use

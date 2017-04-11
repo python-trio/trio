@@ -16,67 +16,176 @@ If you want to use trio, then the first thing you have to do is call
 General notes
 -------------
 
-.. _yield-points:
+.. _checkpoints:
 
-Yield points
-~~~~~~~~~~~~
+Checkpoints
+~~~~~~~~~~~
 
 When writing code using trio, it's very important to understand the
-concept of a *yield point*.
+concept of a *checkpoint*. Many of trio's functions act as checkpoints.
 
-A yield point is two things:
+A checkpoint is two things:
 
-1. It's a point where we check for cancellation, and can potentially
-   raise a :exc:`Cancelled` error. See :ref:`cancellation` below for
-   more details.
+1. It's a point where trio checks for cancellation. For example, if
+   the code that called your function set a timeout, and that timeout
+   has expired, then the next time your function executes a checkpoint
+   trio will raise a :exc:`Cancelled` exception. See
+   :ref:`cancellation` below for more details.
 
-2. It's a point where the trio scheduler has the option of switching
-   to a different task. (Currently, this scheduler is very simple: it
-   simply cycles through all the runnable tasks, running each one
-   until it hits its first yield point. But `this might change in the
-   future <https://github.com/python-trio/trio/issues/32>`__.)
+2. It's a point where the trio scheduler checks its scheduling policy
+   to see if it's a good time to switch to another task, and
+   potentially does so. (Currently, this check is very simple: the
+   scheduler always switches at every checkpoint. But `this might
+   change in the future
+   <https://github.com/python-trio/trio/issues/32>`__.)
 
-So you need to be aware of yield points for two reasons. First, you
-need to know where they are so you can make sure you're prepared to
-handle a :exc:`Cancelled` error, or for another task to run and
+When writing trio code, you need to keep track of where your
+checkpoints are. Why? First, because checkpoints require extra
+scrutiny: whenever you execute a checkpoint, you need to be prepared
+to handle a :exc:`Cancelled` error, or for another task to run and
 `rearrange some state out from under you
 <https://glyph.twistedmatrix.com/2014/02/unyielding.html>`__. And
-second, you need to know where they are so you can make sure your code
-hits them fairly frequently: if you go too long before executing a
-yield point, then you'll be slow to notice cancellation and – much
-worse – you'll adversely effect the response latency of all the other
-code running in the same process, because in a cooperative
-multi-tasking system like trio, nothing else can run until you hit a
-yield point.
+second, because you also need to make sure that you have *enough*
+checkpoints: if your code doesn't pass through a checkpoint on a
+regular basis, then it will be slow to notice and respond to
+cancellation and – much worse – since trio is a cooperative
+multi-tasking system where the *only* place the scheduler can switch
+tasks is at checkpoints, it'll also prevent the scheduler from fairly
+allocating time between different tasks and adversely effect the
+response latency of all the other code running in the same
+process. (Informally we say that a task that does this is "hogging the
+run loop".)
 
-To help you out here, Trio tries to make this as simple as
-possible. If an operation blocks (e.g., trying to read from a socket
-when there's no data available), then that has to be a yield
-point. (Otherwise timeouts wouldn't work, and we couldn't get other
-stuff done while waiting for data to arrive.) Therefore, we make a
-policy that for public functions exposed by trio, if a function *can*
-block then it is *always* a yield point. (So if you try to read from a
-socket and there *is* data available, that doesn't block but it's
-still a yield point.)
+So when you're doing code review on a project that uses trio, one of
+the things you'll want to think about is whether there are enough
+checkpoints, and whether each one is handled correctly. Of course this
+means you need a way to recognize checkpoints. How do you do that?
+The underlying principle is that any operation that blocks has to be a
+checkpoint. This makes sense: if an operation blocks, then it might
+block for a long time, and you'll want to be able to cancel it if a
+timeout expires; and in any case, while this task is blocked we want
+another task to be scheduled to run so our code can make full use of
+the CPU.
 
-.. _yield-point-rule:
+But if we want to write correct code in practice, then this principle
+is a little too sloppy and imprecise to be useful. How do we know
+which functions might block?  What if a function blocks sometimes, but
+not others, depending on the arguments passed / network speed / phase
+of the moon? How do we figure out where the checkpoints are when
+we're stressed and sleep deprived but still want to get this code
+review right, and would prefer to reserve our mental energy for
+thinking about the actual logic instead of worrying about check
+points?
 
-How do we know which functions can block? They're the async functions,
-of course. So this gives us our general rule for identifying yield
-points: if you see an ``await``, then it *might* be a yield point, and
-if it's ``await <something in trio>`` then it's *definitely* a yield
-point.
+.. _checkpoint-rule:
 
-[Note: `we really need to come up with a less confusing name for yield
-points <https://github.com/python-trio/trio/issues/66>`__]
+Don't worry – trio's got your back. Since checkpoints are important
+and ubiquitous, we make it as simple as possible to keep track of
+them. Here are the rules:
+
+* Regular (synchronous) functions never contain any checkpoints.
+
+* Every async function provided by trio *always* acts as a check
+  point; if you see ``await <something in trio>``, or ``async for
+  ... in <a trio object>``, or ``async with <trio.something>``, then
+  that's *definitely* a checkpoint.
+
+  (Partial exception: for async context managers, it might be only the
+  entry or only the exit that acts as a checkpoint; this is
+  documented on a case-by-case basis.)
+
+* Third-party async functions can act as checkpoints; if you see
+  ``await <something>`` or one of its friends, then that *might* be a
+  checkpoint. So to be safe, you should prepare for scheduling or
+  cancellation happening there.
+
+The reason we distinguish between trio functions and other functions
+is that we can't make any guarantees about third party
+code. Checkpoint-ness is a transitive property: if function A acts as
+a checkpoint, and you write a function that calls function A, then
+your function also acts as a checkpoint. If you don't, then it
+isn't. So there's nothing stopping someone from writing a function
+like::
+
+   # technically legal, but bad style:
+   async def why_is_this_async():
+       return 7
+
+that never calls any of trio's async functions. This is an async
+function, but it's not a checkpoint. But why make a function async if
+it never calls any async functions? It's possible, but it's a bad
+idea. If you have a function that's not calling any async functions,
+then you should make it synchronous. The people who use your function
+will thank you, because it makes it obvious that your function is not
+a checkpoint, and their code reviews will go faster.
+
+(Remember how in the tutorial we emphasized the importance of the
+:ref:`"async sandwich" <async-sandwich>`, and the way it means that
+``await`` ends up being a marker that shows when you're calling a
+function that calls a function that ... eventually calls one of trio's
+built-in async functions? The transitivity of async-ness is a
+technical requirement that Python imposes, but since it exactly
+matches the transitivity of checkpoint-ness, we're able to exploit it
+to help you keep track of checkpoints. Pretty sneaky, eh?)
+
+A slightly trickier case is a function like::
+
+   async def sleep_or_not(should_sleep):
+       if should_sleep:
+           await trio.sleep(1)
+       else:
+           pass
+
+Here the function acts as a checkpoint if you call it with
+``should_sleep`` set to a true value, but not otherwise. This is why
+we emphasize that trio's own async functions are *unconditional* check
+points: they *always* check for cancellation and check for scheduling,
+regardless of what arguments they're passed. If you find an async
+function in trio that doesn't follow this rule, then it's a bug and
+you should `let us know
+<https://github.com/python-trio/trio/issues>`__.
+
+Inside trio, we're very picky about this, because trio is the
+foundation of the whole system so we think it's worth the extra effort
+to make things extra predictable. It's up to you how picky you want to
+be in your code. To give you a more realistic example of what this
+kind of issue looks like in real life, consider this function::
+
+    async def recv_exactly(sock, nbytes):
+        data = bytearray()
+        while nbytes > 0:
+            # SocketType.recv() reads up to 'nbytes' bytes each time
+            chunk += await sock.recv(nbytes)
+            if not chunk:
+                raise RuntimeError("socket unexpected closed")
+            nbytes -= len(chunk)
+            data += chunk
+        return data
+
+If called with an ``nbytes`` that's greater than zero, then it will
+call ``sock.recv`` at least once, and ``recv`` is an async trio
+function, and thus an unconditional checkpoint. So in this case,
+``recv_exactly`` acts as a checkpoint. But if we do ``await
+recv_exactly(sock, 0)``, then it will immediately return an empty
+buffer without executing a checkpoint. If this were a function in
+trio itself, then this wouldn't be acceptable, but you may decide you
+don't want to worry about this kind of minor edge case in your own
+code.
+
+If you do want to be careful, or if you have some CPU-bound code that
+doesn't have enough checkpoints in it, then it's useful to know that
+``await trio.sleep(0)`` is an idiomatic way to execute a checkpoint
+without doing anything else, and that
+:func:`trio.testing.assert_yields` can be used to test that an
+arbitrary block of code contains a checkpoint.
 
 
 Thread safety
 ~~~~~~~~~~~~~
 
 The vast majority of trio's API is *not* thread safe: it can only be
-used from inside a call to :func:`trio.run`. We don't bother
-documenting this on individual calls; unless specifically noted
+used from inside a call to :func:`trio.run`. This manual doesn't
+bother documenting this on individual calls; unless specifically noted
 otherwise, you should assume that it isn't safe to call any trio
 functions from anywhere except the trio thread. (But :ref:`see below
 <threads>` if you really do need to work with threads.)
@@ -94,8 +203,8 @@ changed by passing a custom clock object to :func:`run` (e.g. for
 testing).
 
 You should not assume that trio's internal clock matches any other
-clock you have access to, including the clocks of other concurrent
-calls to :func:`trio.run`!
+clock you have access to, including the clocks of simultaneous calls
+to :func:`trio.run` happening in other processes or threads!
 
 The default clock is currently implemented as :func:`time.monotonic`
 plus a large random offset. The idea here is to catch code that
@@ -144,26 +253,45 @@ In the simplest case, you can apply a timeout to a block of code::
        print("result is", result)
    print("with block finished")
 
-We refer :func:`move_on_after` as creating a "cancel scope", that
-contains all the code that runs inside the ``with`` block.
-
-If the HTTP request finishes in less than 30 seconds, then ``result``
-is set and the ``with`` block exits normally. If it does *not* finish
-within 30 seconds, then the cancel scope becomes "cancelled", and the
-next time ``do_http_get`` attempts to call a blocking trio operation
-it will fail immediately with a :exc:`Cancelled` exception. This
-exception eventually propagates out of ``do_http_get``, is caught by
-the ``with`` block, and execution then continues on the line
-``print("with block statement")``.
+We refer to :func:`move_on_after` as creating a "cancel scope", which
+contains all the code that runs inside the ``with`` block. If the HTTP
+request takes more than 30 seconds to run, then it will be cancelled:
+we'll abort the request and we *won't* see ``result is ...`` printed
+on the console; instead we'll go straight to printing the ``with block
+finished`` message.
 
 .. note::
 
-   Note that this is a simple 30 second timeout for the entire body of
+   Note that this is a single 30 second timeout for the entire body of
    the ``with`` statement. This is different from what you might have
    seen with other Python libraries, where timeouts often refer to
    something `more complicated
    <http://docs.python-requests.org/en/master/user/quickstart/#timeouts>`__. We
    think this way is easier to reason about.
+
+How does this work? There's no magic here: trio is built using
+ordinary Python functionality, so we can't just abandon the code
+inside the ``with`` block. Instead, we take advantage of Python's
+standard way of aborting a large and complex piece of code: we raise
+an exception.
+
+Here's the idea: whenever you call a cancellable function like ``await
+trio.sleep(...)`` or ``await sock.recv(...)`` – see :ref:`checkpoints`
+– then the first thing that function does is to check if there's a
+surrounding cancel scope whose timeout has expired, or otherwise been
+cancelled. If so, then instead of performing the requested operation,
+the function fails immediately with a :exc:`Cancelled` exception. In
+this example, this probably happens somewhere deep inside the bowels
+of ``do_http_get``. The exception then propagates out like any normal
+exception (you could even catch it if you wanted, but that's generally
+a bad idea), until it reaches the ``with move_on_after(...):``. And at
+this point, the :exc:`Cancelled` exception has done its job – it's
+successfully unwound the whole cancelled scope – so
+:func:`move_on_after` catches it, and execution continues as normal
+after the ``with`` block. And this all works correctly even if you
+have nested cancel scopes, because every :exc:`Cancelled` object
+carries an invisible marker that makes sure that the cancel scope that
+triggered it is the only one that will catch it.
 
 
 Handling cancellation
@@ -240,11 +368,11 @@ move_on_after(5)`` context manager. So this code will print:
    starting...
    move_on_after(5) finished without error
 
-The end result is that we have successfully cancelled exactly the work
-that was happening within the scope that was cancelled.
+The end result is that trio has successfully cancelled exactly the
+work that was happening within the scope that was cancelled.
 
-Looking at this, you might wonder how we can tell whether the inner
-block timed out – perhaps we want to do something different, like try
+Looking at this, you might wonder how you can tell whether the inner
+block timed out – perhaps you want to do something different, like try
 a fallback procedure or report a failure to our caller. To make this
 easier, :func:`move_on_after`'s ``__enter__`` function returns an
 object representing this cancel scope, which we can use to check
@@ -283,8 +411,8 @@ timeout will expire and ``send_hello_msg`` will raise
 blocking operation, which will also hang forever! At this point, if we
 were using :mod:`asyncio` or another library with "edge-triggered"
 cancellation, we'd be in trouble: since our timeout already fired, it
-wouldn't fire again, and at this point our application would lock
-up. But in trio, this *doesn't* happen: the ``await
+wouldn't fire again, and at this point our application would lock up
+forever. But in trio, this *doesn't* happen: the ``await
 conn.send_goodbye_msg()`` call is still inside the cancelled block, so
 it will also raise :exc:`Cancelled`.
 
@@ -321,11 +449,12 @@ Cancellation and primitive operations
 
 We've talked a lot about what happens when an operation is cancelled,
 and how you need to be prepared for this whenever calling a
-cancellable operation... but we haven't said which operations are
-cancellable.
+cancellable operation... but we haven't gone into the details about
+which operations are cancellable, and how exactly they behave when
+they're cancelled.
 
 Here's the rule: if it's in the trio namespace, and you use ``await``
-to call it, then it's cancellable (see :ref:`yield-points`
+to call it, then it's cancellable (see :ref:`checkpoints`
 above). Cancellable means:
 
 * If you try to call it when inside a cancelled scope, then it will
@@ -358,13 +487,13 @@ wasn't just broken by a man-in-the-middle attacker. But handling this
 robustly is a bit tricky. Remember our :ref:`example
 <blocking-cleanup-example>` above where the blocking
 ``send_goodbye_msg`` caused problems? That's exactly how closing a TLS
-socket works: if the remote peer has disappeared, then we may never be
-able to actually send our shutdown notification, and it would be nice
-if we didn't block forever trying. Therefore, the ``close`` method on
-a TLS-wrapped socket will *try* to send that notification – but if it
-gets cancelled, then it will give up on sending the message but will
-still close the underlying socket before raising :exc:`Cancelled`, so
-at least you don't leak that resource.
+socket works: if the remote peer has disappeared, then our code may
+never be able to actually send our shutdown notification, and it would
+be nice if it didn't block forever trying. Therefore, the method for
+closing a TLS-wrapped socket will *try* to send that notification –
+and if it gets cancelled, then it will give up on sending the message,
+but *will* still close the underlying socket before raising
+:exc:`Cancelled`, so at least you don't leak that resource.
 
 
 Cancellation API details
@@ -389,24 +518,15 @@ The primitive operation for creating a new cancellation scope is:
          # I need a little more time!
          cancel_scope.deadline += 30
 
-      Note that the core run loop alternates between running tasks and
-      processing deadlines, so if the very first yield point after the
-      deadline expires doesn't actually block, then it may complete
-      before we process deadlines::
-
-         with trio.open_cancel_scope(deadline=current_time()):
-             # current_time() is now >= deadline, so cancel should fire,
-             # at the next yield point. BUT, if the next yield point
-             # completes instantly -- e.g., a recv on a socket that
-             # already has data pending -- then the operation may
-             # complete before we process deadlines, and then it's too
-             # late to cancel (the data's already been read from the
-             # socket):
-             await sock.recv(1)
-
-             # But the next call after that *is* guaranteed to raise
-             # Cancelled:
-             await sock.recv(1)
+      Note that for efficiency, the core run loop only checks for
+      expired deadlines every once in a while. This means that in
+      certain cases there may be a short delay between when the clock
+      says the deadline should have expired, and when checkpoints
+      start raising :exc:`~trio.Cancelled`. This is a very obscure
+      corner case that you're unlikely to notice, but we document it
+      for completeness. (If this *does* cause problems for you, of
+      course, then `we want to know!
+      <https://github.com/python-trio/trio/issues>`__)
 
       Defaults to :data:`math.inf`, which means "no deadline", though
       this can be overridden by the ``deadline=`` argument to
@@ -457,8 +577,8 @@ The primitive operation for creating a new cancellation scope is:
 
    .. currentmodule:: trio
 
-We also provide several convenience functions for the common situation
-of just wanting to impose a timeout on some code:
+Trio also provides several convenience functions for the common
+situation of just wanting to impose a timeout on some code:
 
 .. autofunction:: move_on_after
    :with: cancel_scope
@@ -547,9 +667,9 @@ This means that tasks form a tree: when you call :func:`run`, then
 this creates an initial task, and all your other tasks will be
 children, grandchildren, etc. of the initial task.
 
-The crucial thing about this setup is that when we exit the ``async
-with`` block, then the nursery cleanup code runs. The nursery cleanup
-code does the following things:
+The crucial thing about this setup is that when execution reaches the
+end of the ``async with`` block, then the nursery cleanup code
+runs. The nursery cleanup code does the following things:
 
 * If the body of the ``async with`` block raised an exception, then it
   cancels all remaining child tasks and saves the exception.
@@ -645,7 +765,7 @@ special exception which encapsulates multiple exception objects –
 either regular exceptions or nested :exc:`MultiError`\s. To make these
 easier to work with, trio installs a custom :obj:`sys.excepthook` that
 knows how to print nice tracebacks for unhandled :exc:`MultiError`\s,
-and we also provide some helpful utilities like
+and it also provides some helpful utilities like
 :meth:`MultiError.catch`, which allows you to catch "part of" a
 :exc:`MultiError`.
 
@@ -751,8 +871,8 @@ first::
 This works by waiting until at least one task has finished, then
 cancelling all remaining tasks and returning the result from the first
 task. This implicitly invokes the default logic to take care of all
-the other tasks, so we block to wait for the cancellation to finish,
-and if any of them raise errors in the process we'll propagate
+the other tasks, so it blocks to wait for the cancellation to finish,
+and if any of them raise errors in the process it will propagate
 those.
 
 
@@ -1045,7 +1165,7 @@ always immedately attempts to re-acquire it, before the other task has
 a chance to run. (And remember that we're doing cooperative
 multi-tasking here, so it's actually *deterministic* that the task
 releasing the lock will call :meth:`~Lock.acquire` before the other
-task wakes up; in trio releasing a lock is not a yield point.)  With
+task wakes up; in trio releasing a lock is not a checkpoint.)  With
 an unfair lock, this would result in the same task holding the lock
 forever and the other task being starved out. But if you run this,
 you'll see that the two tasks politely take turns::
@@ -1122,14 +1242,14 @@ is the strategy used by :class:`trio.Queue`.
 
 The other possibility is for the queue consumer to get greedy: each
 time it runs, it could eagerly consume all of the pending items before
-yielding and allowing another task to run. (In some other systems,
-this would happen automatically because their queue's ``get`` method
-doesn't yield so long as there's data available. But :ref:`in trio,
-get is always a yield point <yield-point-rule>`.) This would work, but
-it's a bit risky: basically instead of applying backpressure to
-specifically the producer tasks, we're applying it to *all* the tasks
-in our system. The danger here is that if enough items have built up
-in the queue, then "stopping the world" to process them all may cause
+allowing another task to run. (In some other systems, this would
+happen automatically because their queue's ``get`` method doesn't
+invoke the scheduler unless it has to block. But :ref:`in trio, get is
+always a checkpoint <checkpoint-rule>`.) This would work, but it's a
+bit risky: basically instead of applying backpressure to specifically
+the producer tasks, we're applying it to *all* the tasks in our
+system. The danger here is that if enough items have built up in the
+queue, then "stopping the world" to process them all may cause
 unacceptable latency spikes in unrelated tasks. Nonetheless, this is
 still the right choice in situations where it's impossible to apply
 backpressure more precisely. For example, when monitoring exiting
@@ -1313,12 +1433,12 @@ using this for tracing <tutorial-instrument-example>`.
 
 Since this hooks into trio at a rather low level, you do have to be
 somewhat careful. The callbacks are run synchronously, and in many
-cases if they error out then we don't have any plausible way to
+cases if they error out then there isn't any plausible way to
 propagate this exception (for instance, we might be deep in the guts
 of the exception propagation machinery...). Therefore our `current
-strategy <https://github.com/python-trio/trio/issues/47>`__ for handling
-exceptions raised by instruments is to (a) dump a stack trace to
-stderr and (b) disable the offending instrument.
+strategy <https://github.com/python-trio/trio/issues/47>`__ for
+handling exceptions raised by instruments is to (a) dump a stack trace
+to stderr and (b) disable the offending instrument.
 
 You can register an initial list of instruments by passing them to
 :func:`trio.run`. :func:`current_instruments` lets you introspect and

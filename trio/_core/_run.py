@@ -1076,8 +1076,8 @@ def run(async_fn, *args, clock=None, instruments=[]):
       TrioInternalError: if an unexpected error is encountered inside trio's
           internal machinery. This is a bug and you should `let us know
           <https://github.com/python-trio/trio/issues>`__.
-      Anything else: if ``async_fn`` raises an exception, then we propagate
-          it.
+      Anything else: if ``async_fn`` raises an exception, then :func:`run`
+          propagates it.
 
     """
 
@@ -1310,7 +1310,7 @@ def current_effective_deadline():
 
 @_hazmat
 async def yield_briefly():
-    """A pure :ref:`yield point <yield-points>`.
+    """A pure :ref:`checkpoint <checkpoints>`.
 
     This checks for cancellation and allows other tasks to be scheduled,
     without otherwise blocking.
@@ -1328,7 +1328,7 @@ async def yield_briefly():
 
 @_hazmat
 async def yield_if_cancelled():
-    """A conditional :ref:`yield point <yield-points>`.
+    """A conditional :ref:`checkpoint <checkpoints>`.
 
     If a cancellation is active, then allows other tasks to be scheduled,
     and then raises :exc:`trio.Cancelled`.

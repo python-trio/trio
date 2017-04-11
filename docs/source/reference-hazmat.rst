@@ -153,8 +153,8 @@ Entering trio from external threads or signal handlers
 .. autofunction:: current_call_soon_thread_and_signal_safe
 
 
-Safe KeyboardInterrupt handling
-===============================
+Safer KeyboardInterrupt handling
+================================
 
 Trio's handling of control-C is designed to balance usability and
 safety. On the one hand, there are sensitive regions (like the core
@@ -185,8 +185,9 @@ These transitions are accomplished using two function decorators:
 
    Decorator that marks the given regular function, generator
    function, async function, or async generator function as
-   unprotected, i.e., the code inside this function *can* be rudely
-   interrupted by :exc:`KeyboardInterrupt` at any moment.
+   unprotected against :exc:`KeyboardInterrupt`, i.e., the code inside
+   this function *can* be rudely interrupted by
+   :exc:`KeyboardInterrupt` at any moment.
 
    If you have multiple decorators on the same function, then this
    should be at the bottom of the stack (closest to the actual
@@ -206,14 +207,21 @@ These transitions are accomplished using two function decorators:
    :decorator:
 
    Decorator that marks the given regular function, generator
-   function, async function, or async generator function as
-   unprotected, i.e., the code inside this function *won't* be rudely
-   interrupted by :exc:`KeyboardInterrupt` at any moment. (Though if
-   it contains any :ref:`yield points <yield-points>`, then it can
-   still receive :exc:`KeyboardInterrupt` at those.)
+   function, async function, or async generator function as protected
+   against :exc:`KeyboardInterrupt`, i.e., the code inside this
+   function *won't* be rudely interrupted by
+   :exc:`KeyboardInterrupt`. (Though if it contains any
+   :ref:`checkpoints <checkpoints>`, then it can still receive
+   :exc:`KeyboardInterrupt` at those. This is considered a polite
+   interruption.)
 
-   Be very careful to only use this decorator on functions that you
-   know will run in bounded time.
+   .. warning::
+
+      Be very careful to only use this decorator on functions that you
+      know will either exit in bounded time, or else pass through a
+      checkpoint regularly. (Of course all of your functions should
+      have this property, but if you mess it up here then you won't
+      even be able to use control-C to escape!)
 
    If you have multiple decorators on the same function, then this
    should be at the bottom of the stack (closest to the actual
@@ -238,19 +246,19 @@ Wait queue abstraction
    :undoc-members:
 
 
-Inserting yield points
-----------------------
+Low-level checkpoint functions
+------------------------------
 
 .. autofunction:: yield_briefly
 
-The next two functions are used *together* to make up a yield point:
+The next two functions are used *together* to make up a checkpoint:
 
 .. autofunction:: yield_if_cancelled
 .. autofunction:: yield_briefly_no_cancel
 
-These are commonly used in cases where we have an operation that
-might-or-might-not block, and we want to implement trio's standard
-yield point semantics. Example::
+These are commonly used in cases where you have an operation that
+might-or-might-not block, and you want to implement trio's standard
+checkpoint semantics. Example::
 
    async def operation_that_maybe_blocks():
        await yield_if_cancelled()
@@ -260,11 +268,11 @@ yield point semantics. Example::
            # need to block and then retry, which we do below
            pass
        except:
-           # some other error, finish the yield point then let it propagate
+           # some other error, finish the checkpoint then let it propagate
            await yield_briefly_no_cancel()
            raise
        else:
-           # operation succeeded, finish the yield point then return
+           # operation succeeded, finish the checkpoint then return
            await yield_briefly_no_cancel()
            return ret
        while True:
@@ -276,8 +284,8 @@ yield point semantics. Example::
 
 This logic is a bit convoluted, but accomplishes all of the following:
 
-* Every execution path passes through a yield point (assuming that
-  ``wait_for_operation_to_be_ready`` is an unconditional yield point)
+* Every execution path passes through a checkpoint (assuming that
+  ``wait_for_operation_to_be_ready`` is an unconditional checkpoint)
 
 * Our :ref:`cancellation semantics <cancellable-primitives>` say that
   :exc:`~trio.Cancelled` should only be raised if the operation didn't
@@ -296,7 +304,7 @@ These functions can also be useful in other situations, e.g. if you're
 going to call an uncancellable operation like
 :func:`trio.run_in_worker_thread` or (potentially) overlapped I/O
 operations on Windows, then you can call :func:`yield_if_cancelled`
-first to make sure that the whole thing is a yield point.
+first to make sure that the whole thing is a checkpoint.
 
 
 Low-level blocking
@@ -309,7 +317,7 @@ Low-level blocking
 Here's an example lock class implemented using
 :func:`yield_indefinitely` directly. This implementation has a number
 of flaws, including lack of fairness, O(n) cancellation, missing error
-checking, failure to insert a yield point on the non-blocking path,
+checking, failure to insert a checkpoint on the non-blocking path,
 etc. If you really want to implement your own lock, then you should
 study the implementation of :class:`trio.Lock` and use
 :class:`ParkingLot`, which handles some of these issues for you. But

@@ -22,7 +22,7 @@ def _reexport(name):
 #       return sync_call_that_might_fail_with_exception()
 #   # we only get here if the sync call in fact did fail with an exception
 #   # that passed the blocking_exc_check
-#   return await do_it_properly_with_a_yield_point()
+#   return await do_it_properly_with_a_check_point()
 
 def _is_blocking_io_error(exc):
     return isinstance(exc, BlockingIOError)

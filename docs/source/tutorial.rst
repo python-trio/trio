@@ -144,6 +144,8 @@ things:
 
       trio.run(double_sleep, 3)  # does nothing for 6 seconds then returns
 
+.. _async-sandwich:
+
 So it turns out our ``async_double`` function is actually a bad
 example. I mean, it works, it's fine, there's nothing *wrong* with it,
 but it's pointless: it could just as easily be written as a regular
@@ -396,14 +398,14 @@ are running at the same time!
 Now, if you're familiar with programming using threads, this might
 look familiar – and that's intentional. But it's important to realize
 that *there are no threads here*. All of this is happening in a single
-thread. To remind us of this, we use slightly different terminology:
-instead of spawning two "threads", we say that we spawned two
-"tasks". There are two differences between tasks and threads: (1) many
-tasks can take turns running on a single thread, and (2) with threads,
-the Python interpreter/operating system can switch which thread is
-running whenever they feel like it; with tasks, we can only switch at
-certain designated places we call :ref:`"yield points"
-<yield-points>`. In the next section, we'll dig into what this means.
+thread. To remind ourselves of this, we use slightly different
+terminology: instead of spawning two "threads", we say that we spawned
+two "tasks". There are two differences between tasks and threads: (1)
+many tasks can take turns running on a single thread, and (2) with
+threads, the Python interpreter/operating system can switch which
+thread is running whenever they feel like it; with tasks, we can only
+switch at certain designated places we call :ref:`"checkpoints"
+<checkpoints>`. In the next section, we'll dig into what this means.
 
 
 .. _tutorial-instrument-example:
@@ -534,7 +536,7 @@ threads, because there are far fewer ways that tasks can be
 interleaved with each other and stomp on each others' state. (For
 example, in trio a statement like ``a += 1`` is always atomic – even
 if ``a`` is some arbitrarily complicated custom object!) Trio also
-makes some :ref:`further guarantees beyond that <yield-points>`, but
+makes some :ref:`further guarantees beyond that <checkpoints>`, but
 that's the big one.
 
 And now you also know why ``parent`` had to use an ``async with`` to
@@ -691,12 +693,12 @@ Certainly it's not appropriate for every app... but there are a lot of
 situations where the trade-offs here look pretty appealing.
 
 There is one downside that's important to keep in mind, though. Making
-yield points explicit gives you more control over how your tasks can
+check points explicit gives you more control over how your tasks can
 be interleaved – but with great power comes great responsibility. With
 threads, the runtime environment is responsible for making sure that
 each thread gets its fair share of running time. With trio, if some
 task runs off and does stuff for seconds on end without executing a
-yield point, then... all your other tasks will just have to wait.
+checkpoint, then... all your other tasks will just have to wait.
 
 Here's an example of how this can go wrong. Take our :ref:`example
 from above <tutorial-example-tasks-intro>`, and replace the calls to
