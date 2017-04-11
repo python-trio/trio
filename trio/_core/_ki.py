@@ -165,6 +165,8 @@ def ki_manager(deliver_cb):
         return
 
     def handler(signum, frame):
+        import time
+        print("sigint handler @", time.time())
         assert signum == signal.SIGINT
         protection_enabled = ki_protection_enabled(frame)
         if protection_enabled:

@@ -381,8 +381,10 @@ def test_ki_wakes_us_up():
         try:
             # To limit the damage on CI if this does get broken
             with pytest.raises(KeyboardInterrupt):
+                print("sleeping @", time.time())
                 await sleep(20)
         finally:
+            print("finally @", time.time())
             thread.join()
 
     start = time.time()
