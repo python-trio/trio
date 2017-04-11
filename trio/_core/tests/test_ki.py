@@ -379,13 +379,41 @@ def test_ki_wakes_us_up():
         thread = threading.Thread(target=kill_soon)
         thread.start()
         try:
-            # To limit the damage on CI if this does get broken
             with pytest.raises(KeyboardInterrupt):
+                # To limit the damage on CI if this does get broken (as
+                # compared to sleep_forever())
                 await sleep(20)
         finally:
             thread.join()
 
-    start = time.time()
-    _core.run(main)
-    end = time.time()
-    assert 1.0 <= (end - start) < 2
+    # This is flaky due to a race condition; see:
+    #   https://github.com/python-trio/trio/issues/119
+    #   https://bugs.python.org/issue30038
+    # I think the only fix is to wait for fixed CPython to be released, so in
+    # the mean time, we give it 5 chances to pass.
+    #
+    # Affected version of CPython include:
+    # - 3.5.3
+    # - 3.6.1
+    # Hopefully the next releases won't be affected...
+    if (3, 5, 0) <= sys.version_info < (3, 5, 4):
+        retries = 5
+    elif (3, 6, 0) <= sys.version_info < (3, 6, 2):
+        retries = 5
+    else:  # pragma: no cover
+        retries = 1
+    for _ in range(retries):  # pragma: no branch
+        # The actual test:
+        start = time.time()
+        try:
+            # This shouldn't raise KeyboardInterrupt, but sometimes it does
+            _core.run(main)
+        except KeyboardInterrupt:  # pragma: no cover
+            # Try again
+            continue
+        end = time.time()
+        assert 1.0 <= (end - start) < 2
+        # Test passed!
+        break
+    else:  # pragma: no cover
+        assert False, "flaky test_ki_wakes_us_up failed 5 times in a row!"
