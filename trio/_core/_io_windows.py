@@ -17,6 +17,8 @@ from ._windows_cffi import (
     ffi, kernel32, INVALID_HANDLE_VALUE, raise_winerror, ErrorCodes,
 )
 
+import ctypes
+
 # There's a lot to be said about the overall design of a Windows event
 # loop. See
 #
@@ -197,6 +199,8 @@ class WindowsIOManager:
             r, w1, w2 = select(r_waiting, w_waiting, w_waiting, timeout)
             return r, set(w1 + w2)
 
+        import time
+        print("sleeping @", time.time())
         try:
             r, w = do_select()
         except OSError:
@@ -206,10 +210,15 @@ class WindowsIOManager:
                 for sock in self._socket_waiters[what]:
                     socket_check(what, sock)
             r, w = do_select()
+        print("woke up @", time.time())
 
         for sock in r:
             if sock is not self._main_thread_waker.wakeup_sock:
                 socket_ready("read", sock)
+            else:
+                print("wakeup sock is readable")
+                print("PyErr_CheckSignals returned", ctypes.pythonapi.PyErr_CheckSignals())
+
         for sock in w:
             socket_ready("write", sock)
 

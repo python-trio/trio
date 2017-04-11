@@ -165,6 +165,11 @@ def ki_manager(deliver_cb):
         return
 
     def handler(signum, frame):
+        import time, sys
+        # We have other prints going to stdout, and if you try to re-enter
+        # BufferWriter.write then it crashes, so send this to stderr instead
+        # (massive kluge):
+        print("sigint handler @", time.time(), file=sys.stderr)
         assert signum == signal.SIGINT
         protection_enabled = ki_protection_enabled(frame)
         if protection_enabled:

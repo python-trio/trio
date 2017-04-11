@@ -29,10 +29,14 @@ class WakeupSocketpair:
         self.drain()
 
     def drain(self):
+        import time
+        print("draining wakeup socket @", time.time())
         try:
             while True:
-                self.wakeup_sock.recv(2 ** 16)
+                data = self.wakeup_sock.recv(2 ** 16)
+                print("drained", data)
         except BlockingIOError:
+            print("done draining")
             pass
 
     def close(self):
