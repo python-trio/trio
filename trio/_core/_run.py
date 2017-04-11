@@ -1133,7 +1133,8 @@ def run(async_fn, *args, clock=None, instruments=[]):
         # check for pending ones once more after leaving the context manager:
         if runner.ki_pending:
             # Implicitly chains with any exception from result.unwrap():
-            raise KeyboardInterrupt
+            #raise KeyboardInterrupt
+            raise KeyError
 
 # 24 hours is arbitrary, but it avoids issues like people setting timeouts of
 # 10**20 and then getting integer overflows in the underlying system calls.

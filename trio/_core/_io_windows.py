@@ -17,6 +17,8 @@ from ._windows_cffi import (
     ffi, kernel32, INVALID_HANDLE_VALUE, raise_winerror, ErrorCodes,
 )
 
+import ctypes
+
 # There's a lot to be said about the overall design of a Windows event
 # loop. See
 #
@@ -215,6 +217,8 @@ class WindowsIOManager:
                 socket_ready("read", sock)
             else:
                 print("wakeup sock is readable")
+                print("PyErr_CheckSignals returned", ctypes.pythonapi.PyErr_CheckSignals())
+
         for sock in w:
             socket_ready("write", sock)
 
