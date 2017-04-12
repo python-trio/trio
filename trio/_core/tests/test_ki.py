@@ -367,6 +367,38 @@ def test_ki_is_good_neighbor():
 def test_ki_wakes_us_up():
     assert threading.current_thread() == threading.main_thread()
 
+    # This test is flaky due to a race condition on Windows; see:
+    #   https://github.com/python-trio/trio/issues/119
+    #   https://bugs.python.org/issue30038
+    # I think the only fix is to wait for fixed CPython to be released, so in
+    # the mean time, on affected versions we send two signals (equivalent to
+    # hitting control-C twice). This works because the problem is that the C
+    # level signal handler does
+    #
+    #   write-to-fd -> set-flags
+    #
+    # and we need
+    #
+    #   set-flags -> write-to-fd
+    #
+    # so running the C level signal handler twice does
+    #
+    #   write-to-fd -> set-flags -> write-to-fd -> set-flags
+    #
+    # which contains the desired sequence.
+    #
+    # Affected version of CPython include:
+    # - 3.5.3
+    # - 3.6.1
+    # Let's be optimistic and assume the next releases won't be affected...
+    buggy_wakeup_fd = False
+    import platform
+    if os.name == "nt" and platform.python_implementation() == "CPython":
+        if (3, 5, 0) <= sys.version_info < (3, 5, 4):
+            buggy_wakeup_fd = True
+        if (3, 6, 0) <= sys.version_info < (3, 6, 2):
+            buggy_wakeup_fd = True
+
     def kill_soon():
         # We want the signal to be raised after the main thread has entered
         # the IO manager blocking primitive. There really is no way to
@@ -374,6 +406,8 @@ def test_ki_wakes_us_up():
         # hope it's long enough.
         time.sleep(1)
         ki_self()
+        if buggy_wakeup_fd:
+            ki_self()
 
     async def main():
         thread = threading.Thread(target=kill_soon)
@@ -386,34 +420,7 @@ def test_ki_wakes_us_up():
         finally:
             thread.join()
 
-    # This is flaky due to a race condition; see:
-    #   https://github.com/python-trio/trio/issues/119
-    #   https://bugs.python.org/issue30038
-    # I think the only fix is to wait for fixed CPython to be released, so in
-    # the mean time, we give it 5 chances to pass.
-    #
-    # Affected version of CPython include:
-    # - 3.5.3
-    # - 3.6.1
-    # Hopefully the next releases won't be affected...
-    if (3, 5, 0) <= sys.version_info < (3, 5, 4):
-        retries = 5
-    elif (3, 6, 0) <= sys.version_info < (3, 6, 2):
-        retries = 5
-    else:  # pragma: no cover
-        retries = 1
-    for _ in range(retries):  # pragma: no branch
-        # The actual test:
-        start = time.time()
-        try:
-            # This shouldn't raise KeyboardInterrupt, but sometimes it does
-            _core.run(main)
-        except KeyboardInterrupt:  # pragma: no cover
-            # Try again
-            continue
-        end = time.time()
-        assert 1.0 <= (end - start) < 2
-        # Test passed!
-        break
-    else:  # pragma: no cover
-        assert False, "flaky test_ki_wakes_us_up failed 5 times in a row!"
+    start = time.time()
+    _core.run(main)
+    end = time.time()
+    assert 1.0 <= (end - start) < 2
