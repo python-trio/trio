@@ -1,0 +1,6 @@
+/* Temporary hack to work around bug in rtd theme 2.0 through 2.4
+   See https://github.com/rtfd/sphinx_rtd_theme/pull/382
+*/
+pre {
+    line-height: normal !important;
+}

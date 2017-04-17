@@ -21,6 +21,12 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('.'))
 
+# XX hack the RTD theme until
+#   https://github.com/rtfd/sphinx_rtd_theme/pull/382
+# is shipped (should be in the release after 0.2.4)
+def setup(app):
+    app.add_stylesheet("hackrtd.css")
+
 # XX monkeypatch until
 #   https://github.com/sphinx-doc/sphinx/pull/3449
 # is resolved (hopefully before the next release...)
