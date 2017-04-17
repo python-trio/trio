@@ -335,7 +335,7 @@ understand ``async with``.
 
    This example doesn't use them, but while we're here we might as
    well mention the one other piece of new syntax that async/await
-   added: ``async for``. It's basically the same idea was ``async
+   added: ``async for``. It's basically the same idea as ``async
    with`` versus ``with``: An ``async for`` loop is just like a
    ``for`` loop, except that where a ``for`` loop does
    ``iterator.__next__()`` to fetch the next item, an ``async for``
@@ -355,21 +355,22 @@ Now that we understand ``async with``, let's look at ``parent`` again:
 There are only 4 lines of code that really do anything here. On line
 17, we use :func:`trio.open_nursery` to get a "nursery" object, and
 then inside the ``async with`` block we call ``nursery.spawn`` twice,
-on lines 19 and 22. ``nursery.spawn(async_fn)`` is a way to call an
-async function: it asks trio to start running this function, but then
-returns immediately without waiting for the function to finish. So
-after our two calls to ``nursery.spawn``, ``child1`` and ``child2``
-are now running in the background. And then at line 25, the commented
-line, we hit the end of the ``async with`` block, and the nursery's
-``__aexit__`` function runs. What this does is force ``parent`` to
-stop here and wait for all the children in the nursery to exit. This
-is why you have to use ``async with`` to get a nursery: it gives us a
-way to make sure that the child calls can't run away and get lost. One
-reason this is important is that if there's a bug or other problem in
-one of the children, and it raises an exception, then it lets us
-propagate that exception into the parent; in many other frameworks,
-exceptions like this are just discarded. Trio never discards
-exceptions.
+on lines 19 and 22. There are actually two ways to call an async
+function: the first one is the one we already say, using ``await
+async_fn()``; the new one is ``nursery.spawn(async_fn)``: it asks trio
+to start running this async function, *but then returns immediately
+without waiting for the function to finish*. So after our two calls to
+``nursery.spawn``, ``child1`` and ``child2`` are now running in the
+background. And then at line 25, the commented line, we hit the end of
+the ``async with`` block, and the nursery's ``__aexit__`` function
+runs. What this does is force ``parent`` to stop here and wait for all
+the children in the nursery to exit. This is why you have to use
+``async with`` to get a nursery: it gives us a way to make sure that
+the child calls can't run away and get lost. One reason this is
+important is that if there's a bug or other problem in one of the
+children, and it raises an exception, then it lets us propagate that
+exception into the parent; in many other frameworks, exceptions like
+this are just discarded. Trio never discards exceptions.
 
 Ok! Let's try running it and see what we get:
 
@@ -379,11 +380,11 @@ Ok! Let's try running it and see what we get:
    parent: spawning child1...
    parent: spawning child2...
    parent: waiting for children to finish...
-     child2 started! sleeping now...
+     child2: started! sleeping now...
      child1: started! sleeping now...
        [... 1 second passes ...]
      child1: exiting!
-     child2 exiting!
+     child2: exiting!
    parent: all done!
 
 (Your output might have the order of the "started" and/or "exiting"
@@ -413,20 +414,23 @@ switch at certain designated places we call :ref:`"checkpoints"
 Task switching illustrated
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The big idea behind async/await-based libraries is to run lots of
-tasks on a single thread by switching between them at the appropriate
-places. If all you want to do is use these libraries, then you don't
-need to understand all the nitty-gritty detail of how this switching
-works – but it's very useful to at least have a general intuition
-about how your code is actually executed. To help build that
-intuition, let's look more closely at how trio ran our example from
-the last section.
+The big idea behind async/await-based libraries like trio is to run
+lots of tasks simultaneously on a single thread by switching between
+them at appropriate places – so for example, if we're implementing a
+web server, then one task could be sending an HTTP response at the
+same time as another task is waiting for new connections. If all you
+want to do is use trio, then you don't need to understand all the
+nitty-gritty detail of how this switching works – but it's very useful
+to have at least a general intuition about what trio is doing "under
+the hood" when your code is executing. To help build that intuition,
+let's look more closely at how trio ran our example from the last
+section.
 
 Fortunately, trio provides a :ref:`rich set of tools for inspecting
 and debugging your programs <instrumentation>`. Here we want to watch
-:func:`trio.run` at work, which we can do by implementing an
-:class:`~trio.abc.Instrument` class to log various events as they
-happen:
+:func:`trio.run` at work, which we can do by writing a class we'll
+call ``Tracer``, which implements trio's :class:`~trio.abc.Instrument`
+interface. Its job is to log various events as they happen:
 
 .. literalinclude:: tutorial/tasks-with-trace.py
    :pyobject: Tracer
@@ -443,7 +447,8 @@ time.
 First, there's a bit of chatter while trio gets ready to run our
 code. Most of this is irrelevant to us for now, but in the middle you
 can see that trio has created a task for the ``__main__.parent``
-function, and "scheduled" it (i.e., made a note to run it soon):
+function, and "scheduled" it (i.e., made a note that it should be run
+soon):
 
 .. code-block:: none
 
@@ -549,18 +554,20 @@ Now, back to our execution trace. To recap: at this point ``parent``
 is waiting on ``child1`` and ``child2``, and both children are
 sleeping. So :func:`trio.run` checks its notes, and sees that there's
 nothing to be done until those sleeps finish – unless possibly some
-external I/O event comes in. Of course we aren't doing any I/O here so
-that won't happen, but in other situations it could. So next it calls
-an operating system primitive to put the whole process to sleep:
+external I/O event comes in. If that happened, then it might give us
+something to do. Of course we aren't doing any I/O here so it won't
+happen, but in other situations it could. So next it calls an
+operating system primitive to put the whole process to sleep:
 
 .. code-block:: none
 
    ### waiting for I/O for up to 0.9999009938910604 seconds
 
 And in fact no I/O does arrive, so one second later we wake up again,
-and trio checks its notes again. At this point it discovers the notes
-that :func:`trio.sleep` sent, saying that this is when the children
-should be woken up again, so it schedules them to run soon:
+and trio checks its notes again. At this point it checks the current
+time, compares it to the notes that :func:`trio.sleep` sent saying
+when when the two child tasks should be woken up again, and realizes
+that they've slept for long enough, so it schedules them to run soon:
 
 .. code-block:: none
 
@@ -626,13 +633,14 @@ You made it!
 
 That was a lot of text, but again, you don't need to understand
 everything here to use trio – in fact, trio goes to great lengths to
-make tasks feel like they execute in a simple, linear way. (Just like
-your operating system goes to great lengths to make it feel like
-single-threaded code executes in a simple linear way, even though
-under the covers it's juggling between threads in essentially the same
-way trio does.) But it is useful to have a rough model in your head of
-how the code you write is actually executed, and – most importantly –
-the consequences of that for parallelism.
+make each task feel like it executes in a simple, linear way. (Just
+like your operating system goes to great lengths to make it feel like
+your single-threaded code executes in a simple linear way, even though
+under the covers the operating system juggles between different
+threads and processes in essentially the same way trio does.) But it
+is useful to have a rough model in your head of how the code you write
+is actually executed, and – most importantly – the consequences of
+that for parallelism.
 
 Alternatively, if this has just whetted your appetite and you want to
 know more about how ``async/await`` works internally, then `this blog
@@ -650,14 +658,20 @@ Speaking of parallelism – let's zoom out for a moment and talk about
 how async/await compares to other ways of handling concurrency in
 Python.
 
-Of course, it's impossible to talk about Python concurrency without
-talking about the GIL. From trio's point of view, the problem with the
-GIL isn't that it restricts parallelism. Of course it would be nice if
-Python had better options for taking advantage of multiple cores, but
-that's an extremely difficult problem to solve, and in the mean time
-there are lots of problems where a single core is totally adequate –
-or where if it isn't, then process- or machine-level parallelism works
-fine.
+As we've already noted, trio tasks are conceptually rather similar to
+Python's built-in threads, as provided by the :mod:`threading`
+module. And in all common Python implementations, threads have a
+famous limitation: the Global Interpreter Lock, or "GIL" for
+short. The GIL means that even if you use multiple threads, your code
+still (mostly) ends up running on a single core. People tend to find
+this frustrating.
+
+But from trio's point of view, the problem with the GIL isn't that it
+restricts parallelism. Of course it would be nice if Python had better
+options for taking advantage of multiple cores, but that's an
+extremely difficult problem to solve, and in the mean time there are
+lots of problems where a single core is totally adequate – or where if
+it isn't, then process- or machine-level parallelism works fine.
 
 No, the problem with the GIL is that it's a *lousy deal*: we give up
 on using multiple cores, and in exchange we get... almost all the same
@@ -669,13 +683,15 @@ Python just aren't that appealing.
 Trio doesn't make your code run on multiple cores; in fact, as we saw
 above, it's baked into trio's design that you never have two tasks
 running at the same time. We're not so much overcoming the GIL as
-embracing it. But if we're willing to accept that, plus a bit of extra
-bookkeeping to keep track of these new ``async`` and ``await``
-keywords, then in exchange we get:
+embracing it. But if you're willing to accept that, plus a bit of
+extra work to put these new ``async`` and ``await`` keywords in the
+right places, then in exchange you get:
 
 * Excellent scalability: trio can run 10,000+ tasks simultaneously
   without breaking a sweat, so long as their total CPU demands don't
-  exceed what a single core can provide.
+  exceed what a single core can provide. (This is common in, for
+  example, network servers that have lots of clients connected, but
+  only a few active at any given time.)
 
 * Fancy features: most threading systems are implemented in C and
   restricted to whatever features the operating system provides. In
@@ -685,16 +701,16 @@ keywords, then in exchange we get:
 
 * Code that's easier to reason about: the ``await`` keyword means that
   potential task-switching points are explicitly marked within each
-  function. This makes trio code `dramatically easier to reason about
-  <https://glyph.twistedmatrix.com/2014/02/unyielding.html>`__ than
-  the equivalent program using threads.
+  function. This can make trio code `dramatically easier to reason
+  about <https://glyph.twistedmatrix.com/2014/02/unyielding.html>`__
+  than the equivalent program using threads.
 
 Certainly it's not appropriate for every app... but there are a lot of
 situations where the trade-offs here look pretty appealing.
 
 There is one downside that's important to keep in mind, though. Making
-check points explicit gives you more control over how your tasks can
-be interleaved – but with great power comes great responsibility. With
+checkpoints explicit gives you more control over how your tasks can be
+interleaved – but with great power comes great responsibility. With
 threads, the runtime environment is responsible for making sure that
 each thread gets its fair share of running time. With trio, if some
 task runs off and does stuff for seconds on end without executing a
@@ -721,7 +737,7 @@ modified program, we'll see something like:
 
 One of the major reasons why trio has such a rich
 :ref:`instrumentation API <tutorial-instrument-example>` is to make it
-possible to write tools to catch issues like this.
+possible to write debugging tools to catch issues like this.
 
 
 Networking with trio
@@ -743,6 +759,8 @@ with the echo server tradition.
 
 To start with, here's an example echo *client*, i.e., the program that
 will send some data at our echo server and get responses back:
+
+.. _tutorial-echo-client-example:
 
 .. literalinclude:: tutorial/echo-client-low-level.py
    :linenos:
@@ -803,6 +821,8 @@ blocks until more data arrives.
 
 And now we're ready to look at the server.
 
+
+.. _tutorial-echo-server-example:
 
 An echo server: low-level API
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
