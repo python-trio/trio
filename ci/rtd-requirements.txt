@@ -1,5 +1,11 @@
 # RTD is currently installing 1.5.3, which has a bug in :lineno-match:
 git+git://github.com/sphinx-doc/sphinx.git@dc61f68e141ab3d6bdaf7d94aa4b942d4821dfdb
 # RTD is currently installing 0.2.4, we need something that includes
-# https://github.com/rtfd/sphinx_rtd_theme/pull/382
-git+git://github.com/rtfd/sphinx_rtd_theme.git@d2a6253d9c782888c4468c637a5ee2a42ab3eb88
+#   https://github.com/rtfd/sphinx_rtd_theme/pull/382
+# We can't just pull from their git repo though, because:
+#   https://github.com/pypa/pip/issues/536#issuecomment-294406115
+#git+git://github.com/rtfd/sphinx_rtd_theme.git@d2a6253d9c782888c4468c637a5ee2a42ab3eb88
+# I hate software.
+# Here's a fork with the setup.py tweaked in a branch, otherwise
+# identical to the commented out commit above.
+git+git://github.com/njsmith/sphinx_rtd_theme.git@tweaked-version
