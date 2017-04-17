@@ -44,7 +44,7 @@ Where to next?
 started; no prior experience with async coding is required.
 
 **Ugh, I don't want to read all that – show me some code!** It's a
-good tutorial, Brent! But if you're impatiant, here's a `simple
+good tutorial, Brent! But if you're impatient, here's a `simple
 concurrency example
 <https://trio.readthedocs.io/en/latest/tutorial.html#tutorial-example-tasks-intro>`__,
 an `echo client
