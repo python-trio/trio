@@ -8,9 +8,9 @@ async def child1():
     print("  child1: exiting!")
 
 async def child2():
-    print("  child2 started! sleeping now...")
+    print("  child2: started! sleeping now...")
     await trio.sleep(1)
-    print("  child2 exiting!")
+    print("  child2: exiting!")
 
 async def parent():
     print("parent: started!")

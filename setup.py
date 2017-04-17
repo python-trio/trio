@@ -8,13 +8,36 @@ Trio is an experimental attempt to produce a production-quality,
 <https://github.com/python-trio/trio/blob/master/LICENSE>`__,
 async/await-native I/O library for Python, with an emphasis on
 **usability** and **correctness** – we want to make it *easy* to
-get things *right*.
+get things *right*. Our ultimate goal is to become Python's de facto
+standard async I/O library.
 
-Docs: https://trio.readthedocs.io
+This is project is young and still somewhat experimental: the overall
+design is solid and the existing features are fully tested and
+documented, but you may encounter missing functionality or rough
+edges. We *do* encourage you do use it, but you should `read and
+subscribe to this issue
+<https://github.com/python-trio/trio/issues/1>`__ to get warning and a
+chance to give feedback about any compatibility-breaking changes.
 
-Issues: https://github.com/python-trio/trio/issues
+Vital statistics:
 
-Repository: https://github.com/python-trio/trio
+* Supported environments: Linux, MacOS, or Windows running some kind of Python
+  3.5-or-better (either CPython or PyPy3 is fine). *BSD and illumus likely
+  work too, but are not tested.
+
+* Install: ``python3 -m pip install -U trio`` (or on Windows, maybe
+  ``py -3 -m pip install -U trio``). No compiler needed.
+
+* Tutorial and reference manual: https://trio.readthedocs.io
+
+* Bug tracker and source code: https://github.com/python-trio/trio
+
+* License: MIT or Apache 2, your choice
+
+* Code of conduct: Contributors are requested to follow our `code of
+  conduct
+  <https://github.com/python-trio/trio/blob/master/CODE_OF_CONDUCT.md>`_
+  in all project spaces.
 """
 
 setup(name="trio",
@@ -39,7 +62,7 @@ setup(name="trio",
       # also supported by pip and setuptools, as long as they're vaguely
       # recent
       extras_require={
-          ":os_name == 'nt'": ["cffi"],
+          ":os_name == 'nt'": ["cffi"],  # "cffi is required on windows"
       },
       python_requires=">=3.5",
       classifiers=[
