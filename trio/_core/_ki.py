@@ -158,7 +158,7 @@ disable_ki_protection.__name__ = "disable_ki_protection"
 _hazmat(disable_ki_protection)
 
 @contextmanager
-def ki_manager(deliver_cb):
+def ki_manager(deliver_cb, restrict_keyboard_interrupt_to_checkpoints):
     if (threading.current_thread() != threading.main_thread()
           or signal.getsignal(signal.SIGINT) != signal.default_int_handler):
         yield
@@ -167,7 +167,7 @@ def ki_manager(deliver_cb):
     def handler(signum, frame):
         assert signum == signal.SIGINT
         protection_enabled = ki_protection_enabled(frame)
-        if protection_enabled:
+        if protection_enabled or restrict_keyboard_interrupt_to_checkpoints:
             deliver_cb()
         else:
             raise KeyboardInterrupt

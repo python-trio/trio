@@ -338,6 +338,27 @@ def test_ki_protection_works():
     with pytest.raises(KeyboardInterrupt):
         _core.run(main)
 
+    print("check 10")
+    # KI in unprotected code, with
+    # restrict_keyboard_interrupt_to_checkpoints=True
+    record = []
+    async def main():
+        # We're not KI protected...
+        assert not _core.currently_ki_protected()
+        ki_self()
+        # ...but even after the KI, we keep running uninterrupted...
+        record.append("ok")
+        # ...until we hit a checkpoint:
+        with pytest.raises(KeyboardInterrupt):
+            await sleep(10)
+    _core.run(main, restrict_keyboard_interrupt_to_checkpoints=True)
+    assert record == ["ok"]
+    record = []
+    # Exact same code raises KI early if we leave off the argument, doesn't
+    # even reach the record.append call:
+    with pytest.raises(KeyboardInterrupt):
+        _core.run(main)
+    assert record == []
 
 def test_ki_is_good_neighbor():
     # in the unlikely event someone overwrites our signal handler, we leave
