@@ -1040,7 +1040,8 @@ class Runner:
 # run
 ################################################################
 
-def run(async_fn, *args, clock=None, instruments=[]):
+def run(async_fn, *args, clock=None, instruments=[],
+        restrict_keyboard_interrupt_to_checkpoints=False):
     """Run a trio-flavored async function, and return the result.
 
     Calling::
@@ -1059,15 +1060,42 @@ def run(async_fn, *args, clock=None, instruments=[]):
 
     Args:
       async_fn: An async function.
+
       args: Positional arguments to be passed to *async_fn*. If you need to
           pass keyword arguments, then use :func:`functools.partial`.
+
       clock: ``None`` to use the default system-specific monotonic clock;
           otherwise, an object implementing the :class:`trio.abc.Clock`
           interface, like (for example) a :class:`trio.testing.MockClock`
           instance.
+
       instruments (list of :class:`trio.abc.Instrument` objects): Any
           instrumentation you want to apply to this run. This can also be
           modified during the run; see :ref:`instrumentation`.
+
+      restrict_keyboard_interrupt_to_checkpoints (bool): What happens if the
+          user hits control-C while :func:`run` is running? If this argument
+          is False (the default), then you get the standard Python behavior: a
+          :exc:`KeyboardInterrupt` exception will immediately interrupt
+          whatever task is running (or if no task is running, then trio will
+          wake up a task to be interrupted). Alternatively, if you set this
+          argument to True, then :exc:`KeyboardInterrupt` delivery will be
+          delayed: it will be *only* be raised at :ref:`checkpoints
+          <checkpoints>`, like a :exc:`Cancelled` exception.
+
+          The default behavior is nice because it means that even if you
+          accidentally write an infinite loop that never executes any
+          checkpoints, then you can still break out of it using control-C. The
+          the alternative behavior is nice if you're paranoid about a
+          :exc:`KeyboardInterrupt` at just the wrong place leaving your
+          program in an inconsistent state, because it means that you only
+          have to worry about :exc:`KeyboardInterrupt` at the exact same
+          places where you already have to worry about :exc:`Cancelled`.
+
+          This setting has no effect if your program has registered a custom
+          SIGINT handler, or if :func:`run` is called from anywhere but the
+          main thread (this is a Python limitation), or if you use
+          :func:`catch_signals` to catch SIGINT.
 
     Returns:
       Whatever ``async_fn`` returns.
@@ -1076,6 +1104,7 @@ def run(async_fn, *args, clock=None, instruments=[]):
       TrioInternalError: if an unexpected error is encountered inside trio's
           internal machinery. This is a bug and you should `let us know
           <https://github.com/python-trio/trio/issues>`__.
+
       Anything else: if ``async_fn`` raises an exception, then :func:`run`
           propagates it.
 
@@ -1114,7 +1143,8 @@ def run(async_fn, *args, clock=None, instruments=[]):
     # where KeyboardInterrupt would be allowed and converted into an
     # TrioInternalError:
     try:
-        with ki_manager(runner.deliver_ki):
+        with ki_manager(
+                runner.deliver_ki, restrict_keyboard_interrupt_to_checkpoints):
             try:
                 with closing(runner):
                     # The main reason this is split off into its own function

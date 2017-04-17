@@ -13,8 +13,8 @@ If you want to use trio, then the first thing you have to do is call
 .. autofunction:: run
 
 
-General notes
--------------
+General principle
+-----------------
 
 .. _checkpoints:
 
@@ -314,7 +314,7 @@ It's also important in any long-running code to make sure that you
 regularly check for cancellation, because otherwise timeouts won't
 work! This happens implicitly every time you call a cancellable
 operation; see :ref:`below <cancellable-primitives>` for details. If
-you have a task that has to do a lot of work without any IO, then you
+you have a task that has to do a lot of work without any I/O, then you
 can use ``await sleep(0)`` to insert an explicit cancel+schedule
 point.
 
