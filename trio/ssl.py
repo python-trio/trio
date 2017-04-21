@@ -143,8 +143,10 @@ class SSLStream(_streams.Stream):
                     ret = fn(*args)
                 except _stdlib_ssl.SSLWantReadError:
                     want_read = True
-                except _stdlib_ssl.SSLWantWriteError:
-                    pass
+                # SSLWantWriteError can't happen – "Writes to memory BIOs will
+                # always succeed if memory is available: that is their size
+                # can grow indefinitely."
+                # https://wiki.openssl.org/index.php/Manual:BIO_s_mem(3)
                 else:
                     finished = True
                 recv_count = self._recv_count
