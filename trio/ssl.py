@@ -71,6 +71,24 @@ for _name in _stdlib_ssl.__dict__.keys():
 # protocol that doesn't do EOFs", so it ignores lack from the other side and
 # also doesn't send them.
 
+class _Once:
+    def __init__(self, afn, *args):
+        self._afn = afn
+        self._args = args
+        self._started = False
+        self._done = _sync.Event()
+
+    async def ensure(self, *, checkpoint):
+        if not self._started:
+            self._started = True
+            await self._afn(*self._args)
+            self._done.set()
+        elif not checkpoint and self._done.is_set():
+            return
+        else:
+            await self._done.wait()
+
+
 class SSLStream(_streams.Stream):
     def __init__(
             self, wrapped_stream, sslcontext, *, bufsize=32 * 1024, **kwargs):
@@ -83,7 +101,7 @@ class SSLStream(_streams.Stream):
         self._send_lock = _sync.Lock()
         self._recv_count = 0
         self._recv_lock = _sync.Lock()
-        self._handshook = False
+        self._handshook = _Once(self._do_handshake)
 
     _forwarded = {
         "context", "server_side", "server_hostname", "session",
@@ -158,19 +176,18 @@ class SSLStream(_streams.Stream):
             if not yielded:
                 await _core.yield_briefly_no_cancel()
 
+    async def _do_handshake(self):
+        await self._retry(self._ssl_object.do_handshake)
+
     async def do_handshake(self):
-        ret = await self._retry(self._ssl_object.do_handshake)
-        self._handshook = True
-        return ret
+        await self._handshook.ensure(checkpoint=True)
 
     async def recv(self, bufsize):
-        if not self._handshook:
-            await self.do_handshake()
+        await self._handshook.ensure(checkpoint=False)
         return await self._retry(self._ssl_object.read, bufsize)
 
     async def sendall(self, data):
-        if not self._handshook:
-            await self.do_handshake()
+        await self._handshook.ensure(checkpoint=False)
         return await self._retry(self._ssl_object.write, data)
 
     # This doesn't work right because it loops one time too many...
@@ -185,6 +202,7 @@ class SSLStream(_streams.Stream):
     # once a close_notify is sent/received then openssl makes it impossible to
     # send/receive anything else.
     async def unwrap(self):
+        await self._handshook.ensure(checkpoint=False)
         await self._retry(self._ssl_object.unwrap)
         return self.wrapped_stream
 
