@@ -337,9 +337,11 @@ understand ``async with``.
    well mention the one other piece of new syntax that async/await
    added: ``async for``. It's basically the same idea as ``async
    with`` versus ``with``: An ``async for`` loop is just like a
-   ``for`` loop, except that where a ``for`` loop does
+   ``for`` loop, except that where a ``for`` loop calls
+   ``iterable.__iter__()`` to get the iterator and
    ``iterator.__next__()`` to fetch the next item, an ``async for``
-   does ``await async_iterator.__anext__()``. Now you understand all
+   does ``await async_iterable.__aiter__()`` and
+   ``await async_iterator.__anext__()``. Now you understand all
    of async/await. Basically just remember that it involves making
    sandwiches and sticking the word "async" in front of everything,
    and you'll do fine.
