@@ -372,6 +372,16 @@ children, and it raises an exception, then it lets us propagate that
 exception into the parent; in many other frameworks, exceptions like
 this are just discarded. Trio never discards exceptions.
 
+However – this is important! – the parent won't see the exception
+unless and until it reaches the end of the nursery's ``async wait``
+block and runs the ``__aexit__`` function. So remember: in trio,
+parenting is a full-time job! Any given piece of code manage a nursery
+– which means opening it, spawning some children, and then sitting in
+``__aexit__`` to supervise them – or it can do actual work, but you
+shouldn't try to do both at the same time in the same function. If you
+find yourself tempted to do some work in the parent, then ``spawn``
+another child and have it do the work. In trio, children are cheap.
+
 Ok! Let's try running it and see what we get:
 
 .. code-block:: none
@@ -393,8 +403,8 @@ lines swapped compared to to mine.)
 Notice that ``child1`` and ``child2`` both start together and then
 both exit together, and that the whole program only takes 1 second to
 run, even though we made two calls to ``trio.sleep(1)``, which should
-take two seconds. So it looks like ``child1`` and ``child2`` really
-are running at the same time!
+take two seconds in total. So it looks like ``child1`` and ``child2``
+really are running at the same time!
 
 Now, if you're familiar with programming using threads, this might
 look familiar – and that's intentional. But it's important to realize
@@ -767,9 +777,11 @@ will send some data at our echo server and get responses back:
 
 The overall structure here should be familiar, because it's just like
 our :ref:`last example <tutorial-example-tasks-intro>`: we have a
-parent task, which spawns two child tasks to do the actual work. But
-now instead of just calling :func:`trio.sleep`, the children use some
-of trio's networking APIs.
+parent task, which spawns two child tasks to do the actual work, and
+then at the end of the ``async with`` block it switches into full-time
+parenting mode while waiting for them to finish. But now instead of
+just calling :func:`trio.sleep`, the children use some of trio's
+networking APIs.
 
 Let's look at the parent first:
 
@@ -870,10 +882,10 @@ But where do these ``echo_server`` tasks come from? An important part
 of writing a trio program is deciding how you want to organize your
 tasks. In the examples we've seen so far, this was simple, because the
 set of tasks was fixed. Here, we want to wait for clients to connect,
-and then spawn a new task for each one. The tricky part is that
-generally, managing a nursery is a full time job: you don't want the
-task that has the nursery and is supervising the child tasks to do
-anything else, like listen for new connections.
+and then spawn a new task for each one. The tricky part is that like
+we mentioned above, managing a nursery is a full time job: you don't
+want the task that has the nursery and is supervising the child tasks
+to do anything else, like listen for new connections.
 
 There's a standard trick for handling this in trio: our parent task
 creates a nursery, spawns a child task to listen for new connections,
@@ -884,9 +896,9 @@ and then *passes the nursery object to the child task*:
    :lineno-match:
    :pyobject: parent
 
-This allows the ``echo_listener`` to spawn "siblings" instead of
-children – even though the ``echo_listener`` is the one spawning
-``echo_server`` tasks, we end up with a task tree the looks like:
+Now ``echo_listener`` can spawn "siblings" instead of children – even
+though the ``echo_listener`` is the one spawning ``echo_server``
+tasks, we end up with a task tree that looks like:
 
 .. code-block:: none
 
@@ -898,6 +910,10 @@ children – even though the ``echo_listener`` is the one spawning
    │
    ├─ echo_server 2
    ┆
+
+This lets ``parent`` focus on supervising the children,
+``echo_listener`` focus on listening for new connections, each
+``echo_server`` call will handle a single client.
 
 Once we know this trick, the listener code becomes pretty
 straightforward:
