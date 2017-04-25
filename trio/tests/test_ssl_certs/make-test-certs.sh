@@ -47,6 +47,11 @@ for CERT in 1 2; do
     cat trio-test-${CERT}.key trio-test-${CERT}.crt trio-test-CA.pem \
         > trio-test-${CERT}.pem
     rm -f trio-test-${CERT}.{csr,key,crt}
+
+    # Also make a PKCS12 export, for java
+    # java can't read files with an empty password, for some reason
+    openssl pkcs12 -export -passout pass:trio                        \
+            -out trio-test-${CERT}.pkcs12 -in trio-test-${CERT}.pem
 done
 
 # We don't need the signing key anymore, remove it to reduce clutter

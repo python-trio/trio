@@ -89,6 +89,21 @@ class _Once:
             await self._done.wait()
 
 
+class _NonblockingMutex:
+    def __init__(self, errmsg):
+        self._errmsg = errmsg
+        self._held = False
+
+    def __enter__(self):
+        if self._held:
+            raise RuntimeError(errmsg)
+        else:
+            self._held = True
+
+    def __exit__(self, *args):
+        self._held = False
+
+
 class SSLStream(_streams.Stream):
     def __init__(
             self, wrapped_stream, sslcontext, *, bufsize=32 * 1024, **kwargs):
@@ -98,10 +113,15 @@ class SSLStream(_streams.Stream):
         self._incoming = _stdlib_ssl.MemoryBIO()
         self._ssl_object = sslcontext.wrap_bio(
             self._incoming, self._outgoing, **kwargs)
-        self._send_lock = _sync.Lock()
-        self._recv_count = 0
-        self._recv_lock = _sync.Lock()
+        self._inner_send_lock = _sync.Lock()
+        self._inner_recv_count = 0
+        self._inner_recv_lock = _sync.Lock()
         self._handshook = _Once(self._do_handshake)
+
+        self._outer_send_lock = _NonblockingMutex(
+            "another task is currently sending data on this SSLStream")
+        self._outer_recv_lock = _NonblockingMutex(
+            "another task is currently receiving data on this SSLStream")
 
     _forwarded = {
         "context", "server_side", "server_hostname", "session",
@@ -149,7 +169,7 @@ class SSLStream(_streams.Stream):
                 # https://wiki.openssl.org/index.php/Manual:BIO_s_mem(3)
                 else:
                     finished = True
-                recv_count = self._recv_count
+                recv_count = self._inner_recv_count
                 if self._outgoing.pending:
                     # We pull the data out eagerly, so that in the common case
                     # of simultaneous sendall() and recv(), sendall() doesn't
@@ -158,20 +178,121 @@ class SSLStream(_streams.Stream):
                     # send. This relies on the fairness of send_lock for
                     # correctness, to make sure that 'data' chunks don't get
                     # re-ordered.
+                    print("sending")
                     data = self._outgoing.read()
-                    async with self._send_lock:
+                    async with self._inner_send_lock:
                         await self.wrapped_stream.sendall(data)
                         yielded = True
-                if want_read and recv_count == self._recv_count:
-                    async with self._recv_lock:
-                        if recv_count == self._recv_count:
-                            data = await self.wrapped_stream.recv(self._bufsize)
-                            yielded = True
-                            if not data:
-                                self._incoming.write_eof()
-                            else:
-                                self._incoming.write(data)
-                            recv_count += 1
+                if want_read:
+                    print("receiving")
+                    if recv_count == self._inner_recv_count:
+                        async with self._inner_recv_lock:
+                            if recv_count == self._inner_recv_count:
+                                data = await self.wrapped_stream.recv(self._bufsize)
+                                yielded = True
+                                if not data:
+                                    self._incoming.write_eof()
+                                else:
+                                    self._incoming.write(data)
+                                recv_count += 1
+
+            return ret
+        finally:
+            if not yielded:
+                await _core.yield_briefly_no_cancel()
+
+    async def _retry_recv(self, fn, *args):
+        await _core.yield_if_cancelled()
+        yielded = False
+        try:
+            finished = False
+            while not finished:
+                want_read = False
+                try:
+                    ret = fn(*args)
+                except _stdlib_ssl.SSLWantReadError:
+                    want_read = True
+                # SSLWantWriteError can't happen – "Writes to memory BIOs will
+                # always succeed if memory is available: that is their size
+                # can grow indefinitely."
+                # https://wiki.openssl.org/index.php/Manual:BIO_s_mem(3)
+                else:
+                    finished = True
+                recv_count = self._inner_recv_count
+                if self._outgoing.pending:
+                    # We pull the data out eagerly, so that in the common case
+                    # of simultaneous sendall() and recv(), sendall() doesn't
+                    # leave data in self._outgoing over a schedule point and
+                    # trick recv() into thinking that it has data to
+                    # send. This relies on the fairness of send_lock for
+                    # correctness, to make sure that 'data' chunks don't get
+                    # re-ordered.
+                    print("recv sending")
+                    data = self._outgoing.read()
+                    async with self._inner_send_lock:
+                        await self.wrapped_stream.sendall(data)
+                        yielded = True
+                if want_read:
+                    print("recv reading")
+                    if recv_count == self._inner_recv_count:
+                        async with self._inner_recv_lock:
+                            if recv_count == self._inner_recv_count:
+                                data = await self.wrapped_stream.recv(self._bufsize)
+                                yielded = True
+                                if not data:
+                                    self._incoming.write_eof()
+                                else:
+                                    self._incoming.write(data)
+                                recv_count += 1
+
+            return ret
+        finally:
+            if not yielded:
+                await _core.yield_briefly_no_cancel()
+
+    async def _retry_sendall(self, fn, *args):
+        await _core.yield_if_cancelled()
+        yielded = False
+        try:
+            finished = False
+            while not finished:
+                want_read = False
+                try:
+                    ret = fn(*args)
+                except _stdlib_ssl.SSLWantReadError:
+                    want_read = True
+                # SSLWantWriteError can't happen – "Writes to memory BIOs will
+                # always succeed if memory is available: that is their size
+                # can grow indefinitely."
+                # https://wiki.openssl.org/index.php/Manual:BIO_s_mem(3)
+                else:
+                    finished = True
+                recv_count = self._inner_recv_count
+                if self._outgoing.pending:
+                    # We pull the data out eagerly, so that in the common case
+                    # of simultaneous sendall() and recv(), sendall() doesn't
+                    # leave data in self._outgoing over a schedule point and
+                    # trick recv() into thinking that it has data to
+                    # send. This relies on the fairness of send_lock for
+                    # correctness, to make sure that 'data' chunks don't get
+                    # re-ordered.
+                    print("sendall sending")
+                    data = self._outgoing.read()
+                    async with self._inner_send_lock:
+                        await self.wrapped_stream.sendall(data)
+                        yielded = True
+                if want_read:
+                    print("sendall reading")
+                    if recv_count == self._inner_recv_count:
+                        async with self._inner_recv_lock:
+                            if recv_count == self._inner_recv_count:
+                                data = await self.wrapped_stream.recv(self._bufsize)
+                                yielded = True
+                                if not data:
+                                    self._incoming.write_eof()
+                                else:
+                                    self._incoming.write(data)
+                                recv_count += 1
 
             return ret
         finally:
@@ -184,29 +305,28 @@ class SSLStream(_streams.Stream):
     async def do_handshake(self):
         await self._handshook.ensure(checkpoint=True)
 
+    # Most things work if we don't explicitly force do_handshake to be called
+    # before calling recv or sendall, because openssl will automatically
+    # perform the handshake on the first SSL_{read,write} call. BUT, allowing
+    # openssl to do this will disable Python's hostname checking! See:
+    #   https://bugs.python.org/issue30141
+    # So we *definitely* have to make sure that do_handshake is called
+    # before doing anything else.
     async def recv(self, bufsize):
-        await self._handshook.ensure(checkpoint=False)
-        return await self._retry(self._ssl_object.read, bufsize)
+        with self._outer_recv_lock:
+            await self._handshook.ensure(checkpoint=False)
+            return await self._retry_recv(self._ssl_object.read, bufsize)
 
     async def sendall(self, data):
-        await self._handshook.ensure(checkpoint=False)
-        return await self._retry(self._ssl_object.write, data)
+        with self._outer_send_lock:
+            await self._handshook.ensure(checkpoint=False)
+            return await self._retry_sendall(self._ssl_object.write, data)
 
-    # This doesn't work right because it loops one time too many...
-    # and what happens if more legitimate data arrives after we send the
-    # shutdown request? do we really support send_eof after all? or does
-    # openssl stop us from sending stuff after receiving a shutdown request?
-    # XX need to experiment.
-    # See here:
-    #    https://wiki.openssl.org/index.php/Manual:SSL_shutdown(3)
-    # it sounds like the rule is it should be called exactly twice (or maybe
-    # exactly once if the other side already send a close_notify?), and that
-    # once a close_notify is sent/received then openssl makes it impossible to
-    # send/receive anything else.
     async def unwrap(self):
-        await self._handshook.ensure(checkpoint=False)
-        await self._retry(self._ssl_object.unwrap)
-        return self.wrapped_stream
+        with self._outer_recv_lock, self._outer_send_lock:
+            await self._handshook.ensure(checkpoint=False)
+            await self._retry(self._ssl_object.unwrap)
+            return (self.wrapped_stream, self._incoming.read())
 
     def forceful_close(self):
         self.wrapped_stream.forceful_close()

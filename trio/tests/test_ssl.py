@@ -5,6 +5,9 @@ import threading
 import socket as stdlib_socket
 import ssl as stdlib_ssl
 from contextlib import contextmanager
+import subprocess
+import shutil
+import os
 
 from .. import _core
 from .. import ssl as tssl
@@ -13,17 +16,21 @@ from .. import socket as tsocket
 from ..testing import assert_yields, wait_all_tasks_blocked
 
 
-_cert_dir = Path(__file__).parent / "test_ssl_certs"
-CA = str(_cert_dir / "trio-test-CA.pem")
-CERT1 = str(_cert_dir / "trio-test-1.pem")
-CERT2 = str(_cert_dir / "trio-test-2.pem")
+ASSETS_DIR = Path(__file__).parent / "test_ssl_certs"
+CA = str(ASSETS_DIR / "trio-test-CA.pem")
+CERT1 = str(ASSETS_DIR / "trio-test-1.pem")
+CERT2 = str(ASSETS_DIR / "trio-test-2.pem")
 
-
-def ssl_echo_serve_sync(sock, ctx, *, expect_fail=False):
+def ssl_echo_serve_sync(sock, *, expect_fail=False):
     try:
-        wrapped = ctx.wrap_socket(sock, server_side=True)
+        server_ctx = stdlib_ssl.create_default_context(
+            stdlib_ssl.Purpose.CLIENT_AUTH,
+        )
+        server_ctx.load_cert_chain(CERT1)
+        wrapped = server_ctx.wrap_socket(sock, server_side=True)
+        wrapped.do_handshake()
         while True:
-            data = wrapped.recv(1024)
+            data = wrapped.recv(4096)
             if not data:
                 # graceful shutdown
                 wrapped.unwrap()
@@ -32,39 +39,130 @@ def ssl_echo_serve_sync(sock, ctx, *, expect_fail=False):
     except Exception as exc:
         if expect_fail:
             print("ssl_echo_serve_sync got error as expected:", exc)
-        else:
+        else:  # pragma: no cover
             raise
+    else:
+        if expect_fail:  # pragma: no cover
+            print("failed to fail?!")
 
 
-# fixture that gives a socket connected to a trio-test-1 echo server (running
-# in a thread)
+# fixture that gives a raw socket connected to a trio-test-1 echo server
+# (running in a thread)
 @contextmanager
-def ssl_echo_server_raw(*, expect_fail=False):
+def ssl_echo_server_raw(**kwargs):
     a, b = stdlib_socket.socketpair()
     with a, b:
-        server_ctx = stdlib_ssl.create_default_context(
-            stdlib_ssl.Purpose.CLIENT_AUTH,
-        )
-        server_ctx.load_cert_chain(CERT1)
         t = threading.Thread(
             target=ssl_echo_serve_sync,
-            args=(b, server_ctx),
-            kwargs={"expect_fail": expect_fail},
+            args=(b,),
+            kwargs=kwargs,
         )
         t.start()
 
         yield tsocket.from_stdlib_socket(a)
+
     # exiting the context manager closes the sockets, which should force the
-    # thread to shut down
+    # thread to shut down (possibly with an error)
     t.join()
 
 
+# fixture that gives a properly set up SSLStream connected to a trio-test-1
+# echo server (running in a thread)
 @contextmanager
-def ssl_echo_server(*, expect_fail=False):
-    with ssl_echo_server_raw(expect_fail=expect_fail) as sock:
+def ssl_echo_server(**kwargs):
+    with ssl_echo_server_raw(**kwargs) as sock:
         client_ctx = stdlib_ssl.create_default_context(cafile=CA)
         yield tssl.SSLStream(
             sock, client_ctx, server_hostname="trio-test-1.example.org")
+
+
+# experiment with using PyOpenSSL
+def ssl_echo_serve_sync_pyopenssl(sock, *, expect_fail=False):
+    # ref:
+    # https://github.com/pyca/pyopenssl/blob/master/examples/simple/server.py
+    # https://github.com/pyca/pyopenssl/blob/master/examples/simple/client.py
+    from OpenSSL import SSL
+    try:
+        # Hard-code a version that supports renegotiation (since in the future
+        # 1.3 won't)
+        ctx = SSL.Context(SSL.TLSv1_2_METHOD)
+        ctx.use_certificate_file(CERT1)
+        ctx.use_privatekey_file(CERT1)
+        wrapped = SSL.Connection(ctx, sock)
+        wrapped.set_accept_state()
+        wrapped.do_handshake()
+        while True:
+            try:
+                data = wrapped.recv(1)
+            except SSL.ZeroReturnError:
+                wrapped.shutdown()
+                return
+            except SSL.WantReadError:
+                # This sometimes happens during renegotiation, even on
+                # blocking sockets.
+                # See: https://github.com/pyca/pyopenssl/issues/190
+                continue
+            if data == b"\xff":
+                if not wrapped.renegotiate_pending():
+                    # Request that the next IO trigger the start of a
+                    # renegotiation
+                    print("starting renegotiation")
+                    assert wrapped.renegotiate()
+                else:
+                    print("not starting renegotiation b/c last is still going")
+            wrapped.send(data)
+    except Exception as exc:
+        if expect_fail:
+            print("ssl_echo_serve_sync got error as expected:", repr(exc))
+        else:
+            raise
+    else:
+        if expect_fail:
+            print("failed to fail?!")
+
+
+@contextmanager
+def ssl_echo_server_pyopenssl(**kwargs):
+    a, b = stdlib_socket.socketpair()
+    with a, b:
+        t = threading.Thread(
+            target=ssl_echo_serve_sync_pyopenssl,
+            args=(b,),
+            kwargs=kwargs,
+        )
+        t.start()
+
+        client_ctx = stdlib_ssl.create_default_context(cafile=CA)
+        tsock = tsocket.from_stdlib_socket(a)
+        yield tssl.SSLStream(
+            tsock, client_ctx, server_hostname="trio-test-1.example.org")
+
+    # exiting the context manager closes the sockets, which should force the
+    # thread to shut down (possibly with an error)
+    t.join()
+
+
+needs_java = pytest.mark.skipif(shutil.which("java") is None, reason="need java")
+
+@contextmanager
+def ssl_echo_server_java(**kwargs):
+    p = subprocess.Popen(
+        ["java", "SSLEchoServer", CERT1.replace("pem", "pkcs12")],
+        stdout=subprocess.PIPE,
+        universal_newlines=True,
+        env={**os.environ, "CLASSPATH": str(ASSETS_DIR)},
+    )
+    try:
+        port = int(p.stdout.readline())
+
+        with stdlib_socket.create_connection(("127.0.0.1", port)) as ssock:
+            tsock = tsocket.from_stdlib_socket(ssock)
+            client_ctx = tssl.create_default_context(cafile=CA)
+            yield tssl.SSLStream(
+                tsock, client_ctx, server_hostname="trio-test-1.example.org")
+    finally:
+        p.kill()
+        p.wait()
 
 
 # Simple smoke test for handshake/send/receive/shutdown talking to a
@@ -126,7 +224,7 @@ async def test_ssl_server_basics():
         t.join()
 
 
-async def test_attrs():
+async def test_attributes():
     with ssl_echo_server_raw(expect_fail=True) as sock:
         good_ctx = stdlib_ssl.create_default_context(cafile=CA)
         bad_ctx = stdlib_ssl.create_default_context()
@@ -175,7 +273,7 @@ async def test_send_eof():
 async def test_full_duplex_basics():
     CHUNKS = 100
     # bigger than the echo server's recv limit
-    CHUNK_SIZE = 4096
+    CHUNK_SIZE = 65536
     EXPECTED = CHUNKS * CHUNK_SIZE
 
     sent = bytearray()
@@ -183,6 +281,7 @@ async def test_full_duplex_basics():
     async def sender(s):
         nonlocal sent
         for i in range(CHUNKS):
+            print(i)
             chunk = bytes([i] * CHUNK_SIZE)
             sent += chunk
             await s.sendall(chunk)
@@ -197,6 +296,10 @@ async def test_full_duplex_basics():
         async with _core.open_nursery() as nursery:
             nursery.spawn(sender, s)
             nursery.spawn(receiver, s)
+            # And let's have some doing handshakes too, everyone
+            # simultaneously
+            nursery.spawn(s.do_handshake)
+            nursery.spawn(s.do_handshake)
 
         await s.graceful_close()
 
@@ -204,16 +307,95 @@ async def test_full_duplex_basics():
     assert sent == received
 
 
+@needs_java
+async def test_renegotiation():
+    with ssl_echo_server_pyopenssl() as s:
+        print("-- 1")
+        await s.sendall(b"a")
+        print("-- 2")
+        assert await s.recv(1) == b"a"
+        print("-- 3")
+        await s.sendall(b"\xff")
+        print("-- 4")
+        assert await s.recv(1) == b"\xff"
+        print("-- 5")
+        await s.sendall(b"a")
+        print("-- 6")
+        assert await s.recv(1) == b"a"
+
+        print("-- 7")
+        await s.sendall(b"\xff")
+
+        print("-- 8")
+        async def send_a():
+            print("send_a")
+            await s.sendall(b"a")
+
+        async def recv_ff():
+            print("recv_ff")
+            assert await s.recv(1) == b"\xff"
+
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(send_a)
+            nursery.spawn(recv_ff)
+        print("-- 9")
+        assert await s.recv(1) == b"a"
+
+        print("-- 10")
+        await s.sendall(b"b")
+        print("-- 11")
+        assert await s.recv(1) == b"b"
+
+        print("-- 12")
+        async def send_ff():
+            print("send_ff")
+            await s.sendall(b"\xff")
+
+        for _ in range(10):
+            async with _core.open_nursery() as nursery:
+                nursery.spawn(send_ff)
+                nursery.spawn(recv_ff)
+            # freezes without this? I guess something bad about starting a new
+            # renegotiation while the last one is still going...
+            await s.sendall(b"a")
+            assert await s.recv(1) == b"a"
+
+        print("-- 13")
+        async def send_lots_of_ffa(count):
+            print("send_lots_of_ffa")
+            await s.sendall(b"\xffa" * count)
+
+        async def recv_lots_of_ffa(count):
+            expected = b"\xffa" * count
+            got = bytearray()
+            while len(got) < len(expected):
+                got += await s.recv(1)
+            assert got == expected
+
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(send_lots_of_ffa, 10)
+            nursery.spawn(recv_lots_of_ffa, 10)
+
+        print("--")
+        await s.sendall(b"b")
+        assert await s.recv(1) == b"b"
+
+        print("closing")
+        await s.graceful_close()
+
 # assert checkpoints
 
 # - simultaneous read and read, or write and write -> error
 
 # check wait_writable (and write + wait_writable should also error)
 
-# - check explicit handshake, repeated handshake
-# probably need an object to encapsulate the setup, with an event to keep
-# track of whether it's happened
-
-# - unwrap
+# unwrap, switching protocols. ...what if we read too much? I guess unwrap
+# should also return the residual data from the incoming BIO?
 
 # - sloppy and strict EOF modes
+
+# maybe some tests with a stream that writes and receives in small pieces, so
+# there's lots of looping and retrying?
+
+# check getpeercert(), probably need to work around:
+# https://bugs.python.org/issue29334
