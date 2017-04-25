@@ -23,6 +23,12 @@
 
 # XX document behavior on cancellation/error (i.e.: all is lost abandon
 # stream)
+# docs will need to make very clear that this is different from all the other
+# cancellations in core trio
+
+# XX should we make server_hostname required (so you set it to None to disable
+# hostname checking?) whenever ctx.check_hostname is True? -- ah, actually ssl
+# already does this for us :-)
 
 import ssl as _stdlib_ssl
 
@@ -183,6 +189,7 @@ class SSLStream(_streams.Stream):
                     async with self._inner_send_lock:
                         await self.wrapped_stream.sendall(data)
                         yielded = True
+                    #continue
                 if want_read:
                     print("receiving")
                     if recv_count == self._inner_recv_count:
@@ -227,13 +234,13 @@ class SSLStream(_streams.Stream):
                     # send. This relies on the fairness of send_lock for
                     # correctness, to make sure that 'data' chunks don't get
                     # re-ordered.
-                    print("recv sending")
+                    print("recv sending", self._inner_send_lock.locked())
                     data = self._outgoing.read()
                     async with self._inner_send_lock:
                         await self.wrapped_stream.sendall(data)
                         yielded = True
                 if want_read:
-                    print("recv reading")
+                    print("recv reading", self._inner_recv_lock.locked())
                     if recv_count == self._inner_recv_count:
                         async with self._inner_recv_lock:
                             if recv_count == self._inner_recv_count:
@@ -276,13 +283,13 @@ class SSLStream(_streams.Stream):
                     # send. This relies on the fairness of send_lock for
                     # correctness, to make sure that 'data' chunks don't get
                     # re-ordered.
-                    print("sendall sending")
+                    print("sendall sending", self._inner_send_lock.locked())
                     data = self._outgoing.read()
                     async with self._inner_send_lock:
                         await self.wrapped_stream.sendall(data)
                         yielded = True
                 if want_read:
-                    print("sendall reading")
+                    print("sendall reading", self._inner_recv_lock.locked())
                     if recv_count == self._inner_recv_count:
                         async with self._inner_recv_lock:
                             if recv_count == self._inner_recv_count:
