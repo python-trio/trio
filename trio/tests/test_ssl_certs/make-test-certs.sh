@@ -29,7 +29,7 @@ openssl req -x509 -newkey rsa:2048 -nodes -sha256 -days 99999   \
         -subj '/O=Trio test CA'                                 \
         -keyout trio-test-CA.key -out trio-test-CA.pem
 
-for CERT in 1 2; do
+for CERT in 1; do
     # Create a key and CSR.
     #
     # Our tests only use one name, so CN= is enough. (Otherwise we would need
@@ -47,11 +47,6 @@ for CERT in 1 2; do
     cat trio-test-${CERT}.key trio-test-${CERT}.crt trio-test-CA.pem \
         > trio-test-${CERT}.pem
     rm -f trio-test-${CERT}.{csr,key,crt}
-
-    # Also make a PKCS12 export, for java
-    # java can't read files with an empty password, for some reason
-    openssl pkcs12 -export -passout pass:trio                        \
-            -out trio-test-${CERT}.pkcs12 -in trio-test-${CERT}.pem
 done
 
 # We don't need the signing key anymore, remove it to reduce clutter

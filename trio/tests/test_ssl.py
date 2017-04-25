@@ -22,39 +22,6 @@ CA = str(ASSETS_DIR / "trio-test-CA.pem")
 CERT1 = str(ASSETS_DIR / "trio-test-1.pem")
 CERT2 = str(ASSETS_DIR / "trio-test-2.pem")
 
-class TrickleStream(trio.Stream):
-    def __init__(self, wrapped):
-        import random
-        self._r = random.Random(0)
-        self._wrapped = wrapped
-
-    @property
-    def can_send_eof(self):
-        return self._wrapped.can_send_eof
-
-    def forceful_close(self):
-        return self._wrapped.forceful_close()
-
-    async def graceful_close(self):
-        return await self._wrapped.graceful_close()
-
-    async def send_eof(self):
-        return await self._wrapped.send_eof()
-
-    async def wait_writable(self):
-        return await self._wrapped.wait_writable()
-
-    # The actual work is here:
-
-    async def sendall(self, data):
-        for i in range(len(data)):
-            await self._wrapped.sendall(data[i:i+1])
-            await trio.sleep(self._r.uniform(0, 1))
-
-    async def recv(self, max_bytes):
-        await trio.sleep(self._r.uniform(0, 1))
-        return await self._wrapped.recv(1)
-
 
 def ssl_echo_serve_sync(sock, *, expect_fail=False):
     try:
@@ -202,103 +169,12 @@ class PyOpenSSLEchoStream(trio.Stream):
                     print("parking (b)")
                     await self._lot.park()
 
-
-# experiment with using PyOpenSSL
-def ssl_echo_serve_sync_pyopenssl(sock, *, expect_fail=False):
-    # ref:
-    # https://github.com/pyca/pyopenssl/blob/master/examples/simple/server.py
-    # https://github.com/pyca/pyopenssl/blob/master/examples/simple/client.py
-    from OpenSSL import SSL
-    try:
-        # Hard-code a version that supports renegotiation (since in the future
-        # 1.3 won't)
-        ctx = SSL.Context(SSL.TLSv1_2_METHOD)
-        ctx.use_certificate_file(CERT1)
-        ctx.use_privatekey_file(CERT1)
-        wrapped = SSL.Connection(ctx, sock)
-        wrapped.set_accept_state()
-        wrapped.do_handshake()
-        while True:
-            try:
-                data = wrapped.recv(1)
-            except SSL.ZeroReturnError:
-                wrapped.shutdown()
-                return
-            except SSL.WantReadError:
-                # This sometimes happens during renegotiation, even on
-                # blocking sockets.
-                # See: https://github.com/pyca/pyopenssl/issues/190
-                continue
-            if data == b"\xff":
-                if not wrapped.renegotiate_pending():
-                    # Request that the next IO trigger the start of a
-                    # renegotiation
-                    print("starting renegotiation")
-                    assert wrapped.renegotiate()
-                else:
-                    print("not starting renegotiation b/c last is still going")
-            wrapped.send(data)
-    except Exception as exc:
-        if expect_fail:
-            print("ssl_echo_serve_sync got error as expected:", repr(exc))
-        else:
-            raise
-    else:
-        if expect_fail:
-            print("failed to fail?!")
-
-
 @contextmanager
-def ssl_echo_server_pyopenssl(**kwargs):
-    a, b = stdlib_socket.socketpair()
-    with a, b:
-        t = threading.Thread(
-            target=ssl_echo_serve_sync_pyopenssl,
-            args=(b,),
-            kwargs=kwargs,
-        )
-        t.start()
-
-        client_ctx = stdlib_ssl.create_default_context(cafile=CA)
-        tsock = tsocket.from_stdlib_socket(a)
-        #tsock = TrickleStream(tsock)
-        yield tssl.SSLStream(
-            tsock, client_ctx, server_hostname="trio-test-1.example.org")
-
-    # exiting the context manager closes the sockets, which should force the
-    # thread to shut down (possibly with an error)
-    t.join()
-
-
-@contextmanager
-def ssl_echo_server_pyopenssl(**kwargs):
+def virtual_ssl_echo_server():
     client_ctx = tssl.create_default_context(cafile=CA)
     fakesock = PyOpenSSLEchoStream()
     yield tssl.SSLStream(
         fakesock, client_ctx, server_hostname="trio-test-1.example.org")
-
-
-needs_java = pytest.mark.skipif(shutil.which("java") is None, reason="need java")
-
-@contextmanager
-def ssl_echo_server_java(**kwargs):
-    p = subprocess.Popen(
-        ["java", "SSLEchoServer", CERT1.replace("pem", "pkcs12")],
-        stdout=subprocess.PIPE,
-        universal_newlines=True,
-        env={**os.environ, "CLASSPATH": str(ASSETS_DIR)},
-    )
-    try:
-        port = int(p.stdout.readline())
-
-        with stdlib_socket.create_connection(("127.0.0.1", port)) as ssock:
-            tsock = tsocket.from_stdlib_socket(ssock)
-            client_ctx = tssl.create_default_context(cafile=CA)
-            yield tssl.SSLStream(
-                tsock, client_ctx, server_hostname="trio-test-1.example.org")
-    finally:
-        p.kill()
-        p.wait()
 
 
 # Simple smoke test for handshake/send/receive/shutdown talking to a
@@ -473,96 +349,8 @@ async def test_full_duplex_basics():
     assert sent == received
 
 
-@needs_java
 async def test_renegotiation():
-    with ssl_echo_server_pyopenssl() as s:
-        print("-- 1")
-        await s.sendall(b"a")
-        print("-- 2")
-        assert await s.recv(1) == b"a"
-        print("-- 3")
-        await s.sendall(b"\xff")
-        print("-- 4")
-        assert await s.recv(1) == b"\xff"
-        print("-- 5")
-        await s.sendall(b"a")
-        print("-- 6")
-        assert await s.recv(1) == b"a"
-
-        async def send_a():
-            print("send_a")
-            await s.sendall(b"a")
-
-        async def recv_ff():
-            print("recv_ff")
-            assert await s.recv(1) == b"\xff"
-
-        print("-- 7")
-        await s.sendall(b"\xff")
-        print("-- 8")
-        async with _core.open_nursery() as nursery:
-            nursery.spawn(send_a)
-            #await _core.wait_all_tasks_blocked()
-            nursery.spawn(recv_ff)
-        print("-- 9")
-        assert await s.recv(1) == b"a"
-
-        print("-- 7.2")
-        await s.sendall(b"\xff")
-        print("-- 8.2")
-        async with _core.open_nursery() as nursery:
-            nursery.spawn(recv_ff)
-            await _core.wait_all_tasks_blocked()
-            nursery.spawn(send_a)
-        print("-- 9.2")
-        assert await s.recv(1) == b"a"
-
-        print("-- 10")
-        await s.sendall(b"b")
-        print("-- 11")
-        assert await s.recv(1) == b"b"
-
-        print("-- 12")
-        async def send_ff():
-            print("send_ff")
-            await s.sendall(b"\xff")
-
-        for _ in range(10):
-            async with _core.open_nursery() as nursery:
-                nursery.spawn(send_ff)
-                nursery.spawn(recv_ff)
-            # freezes without this? I guess something bad about starting a new
-            # renegotiation while the last one is still going...
-            await s.sendall(b"a")
-            assert await s.recv(1) == b"a"
-
-        print("-- 13")
-        async def send_lots_of_ffa(count):
-            print("send_lots_of_ffa")
-            await s.sendall(b"\xffa" * count)
-
-        async def recv_lots_of_ffa(count):
-            expected = b"\xffa" * count
-            got = bytearray()
-            while len(got) < len(expected):
-                got += await s.recv(1)
-            assert got == expected
-
-        async with _core.open_nursery() as nursery:
-            nursery.spawn(send_lots_of_ffa, 10)
-            nursery.spawn(recv_lots_of_ffa, 10)
-
-        print("--")
-        await s.sendall(b"b")
-        assert await s.recv(1) == b"b"
-
-        print("closing")
-        await s.graceful_close()
-
-
-@needs_java
-async def test_renegotiation():
-    with ssl_echo_server_pyopenssl() as s:
+    with virtual_ssl_echo_server() as s:
         await s.do_handshake()
 
         async def expect(expected):
