@@ -34,12 +34,14 @@ async def test_wait_all_tasks_blocked():
         nursery.cancel_scope.cancel()
     assert t4.result.unwrap() == "ok"
 
+
 async def test_wait_all_tasks_blocked_with_timeouts(mock_clock):
     record = []
     async def timeout_task():
         record.append("tt start")
         await sleep(5)
         record.append("tt finished")
+
     async with _core.open_nursery() as nursery:
         t = nursery.spawn(timeout_task)
         await wait_all_tasks_blocked()
@@ -76,6 +78,7 @@ async def test_wait_all_tasks_blocked_with_cushion():
         nursery.spawn(wait_small_cushion)
         nursery.spawn(wait_small_cushion)
         nursery.spawn(wait_big_cushion)
+
     assert record == [
         "blink start",
         "wait_no_cushion end",
@@ -84,6 +87,33 @@ async def test_wait_all_tasks_blocked_with_cushion():
         "wait_small_cushion end",
         "wait_big_cushion end",
     ]
+
+
+async def test_wait_all_tasks_blocked_with_tiebreaker():
+    record = []
+
+    async def do_wait(cushion, tiebreaker):
+        await wait_all_tasks_blocked(cushion=cushion, tiebreaker=tiebreaker)
+        record.append((cushion, tiebreaker))
+
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(do_wait, 0, 0)
+        nursery.spawn(do_wait, 0, -1)
+        nursery.spawn(do_wait, 0, 1)
+        nursery.spawn(do_wait, 0, -1)
+        nursery.spawn(do_wait, 0.0001, 10)
+        nursery.spawn(do_wait, 0.0001, -10)
+
+    assert record == sorted(record)
+    assert record == [
+        (0, -1),
+        (0, -1),
+        (0, 0),
+        (0, 1),
+        (0.0001, -10),
+        (0.0001, 10),
+    ]
+
 
 async def test_assert_yields():
     with assert_yields():
@@ -266,11 +296,11 @@ async def test_mock_clock_autojump(mock_clock):
     # This should wake up at the same time as the autojump_threshold, and
     # confuse things. There is no deadline, so it shouldn't actually jump
     # the clock. But does it handle the situation gracefully?
-    await wait_all_tasks_blocked(0.02)
+    await wait_all_tasks_blocked(cushion=0.02, tiebreaker=float("inf"))
     # And again with threshold=0, because that has some special
     # busy-wait-avoidance logic:
     mock_clock.autojump_threshold = 0
-    await wait_all_tasks_blocked()
+    await wait_all_tasks_blocked(tiebreaker=float("inf"))
 
     # set up a situation where the autojump task is blocked for a long long
     # time, to make sure that cancel-and-adjust-threshold logic is working
@@ -307,3 +337,30 @@ def test_mock_clock_autojump_preset():
     real_start = time.monotonic()
     _core.run(sleep, 10000, clock=mock_clock)
     assert time.monotonic() - real_start < 1
+
+
+async def test_mock_clock_autojump_0_and_wait_all_tasks_blocked(mock_clock):
+    # Checks that autojump_threshold=0 doesn't interfere with
+    # calling wait_all_tasks_blocked with the default cushion=0 and arbitrary
+    # tiebreakers.
+
+    mock_clock.autojump_threshold = 0
+
+    record = []
+
+    async def sleeper():
+        await sleep(100)
+        record.append("yawn")
+
+    async def waiter():
+        for i in range(10):
+            await wait_all_tasks_blocked(tiebreaker=i)
+            record.append(i)
+        await sleep(1000)
+        record.append("waiter done")
+
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(sleeper)
+        nursery.spawn(waiter)
+
+    assert record == list(range(10)) + ["yawn", "waiter done"]

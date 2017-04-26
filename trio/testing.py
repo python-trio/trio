@@ -82,20 +82,27 @@ class MockClock(Clock):
 
           If you're using :func:`wait_all_tasks_blocked` and
           :attr:`autojump_threshold` together, then you have to be
-          careful. Setting :attr:`autojump_threshold` acts like a task
-          calling::
+          careful. Setting :attr:`autojump_threshold` acts like a background
+          task calling::
 
              while True:
-                 await wait_all_tasks_blocked(cushion=clock.autojump_threshold)
+                 await wait_all_tasks_blocked(
+                   cushion=clock.autojump_threshold, tiebreaker=float("inf"))
 
           This means that if you call :func:`wait_all_tasks_blocked` with a
           cushion *larger* than your autojump threshold, then your call to
           :func:`wait_all_tasks_blocked` will never return, because the
           autojump task will keep waking up before your task does, and each
-          time it does it'll reset your task's timer.
+          time it does it'll reset your task's timer. However, if your cushion
+          and the autojump threshold are the *same*, then the autojump's
+          tiebreaker will prevent them from interfering (unless you also set
+          your tiebreaker to infinity for some reason. Don't do that). As an
+          important special case: this means that if you set an autojump
+          threshold of zero and use :func:`wait_all_tasks_blocked` with the
+          default zero cushion, then everything will work fine.
 
-          **Summary**: you should set :attr:`autojump_threshold` to be at *least*
-          as large as the largest cushion you plan to pass to
+          **Summary**: you should set :attr:`autojump_threshold` to be at
+          least as large as the largest cushion you plan to pass to
           :func:`wait_all_tasks_blocked`.
 
     """
@@ -146,11 +153,12 @@ class MockClock(Clock):
                 self._autojump_cancel_scope = cancel_scope
                 try:
                     # If the autojump_threshold changes, then the setter does
-                    # cancel_scope.cancel() ,which causes this line to raise
-                    # Cancelled, which is absorbed by the cancel scope above,
-                    # and effectively just causes us to skip start the loop
-                    # over, like a 'continue' here.
-                    await wait_all_tasks_blocked(self._autojump_threshold)
+                    # cancel_scope.cancel(), which causes the next line here
+                    # to raise Cancelled, which is absorbed by the cancel
+                    # scope above, and effectively just causes us to skip back
+                    # to the start the loop, like a 'continue'.
+                    await wait_all_tasks_blocked(
+                        self._autojump_threshold, float("inf"))
                     statistics = _core.current_statistics()
                     jump = statistics.seconds_to_next_deadline
                     if jump < inf:
