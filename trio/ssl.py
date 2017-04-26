@@ -95,6 +95,16 @@ class _Once:
             await self._done.wait()
 
 
+# Instead of _Once, have an ensure_n_times, and use it for recv? or maybe
+# just ensure_increment, since we know we don't yield between the ssl call and
+# the ensure call? (assume we don't try to both send and receive together)
+
+# maybe _NonblockingMutex should be public as like UnLock (= unnecessary lock)
+# also useful for things like documenting that we do all our interaction with
+# the ssl_object without yielding? (but lighter weight than assert_no_yields?)
+# though the critical thing is not just that we don't yield but how exactly we
+# do eventually yield so eh.
+
 class _NonblockingMutex:
     def __init__(self, errmsg):
         self._errmsg = errmsg
@@ -201,7 +211,7 @@ class SSLStream(_streams.Stream):
                                     self._incoming.write_eof()
                                 else:
                                     self._incoming.write(data)
-                                recv_count += 1
+                                self._inner_recv_count += 1
 
             return ret
         finally:
@@ -250,7 +260,7 @@ class SSLStream(_streams.Stream):
                                     self._incoming.write_eof()
                                 else:
                                     self._incoming.write(data)
-                                recv_count += 1
+                                self._inner_recv_count += 1
 
             return ret
         finally:
@@ -290,8 +300,10 @@ class SSLStream(_streams.Stream):
                         yielded = True
                 if want_read:
                     print("sendall reading", self._inner_recv_lock.locked())
+                    print(recv_count, self._inner_recv_count)
                     if recv_count == self._inner_recv_count:
                         async with self._inner_recv_lock:
+                            print(recv_count, self._inner_recv_count)
                             if recv_count == self._inner_recv_count:
                                 data = await self.wrapped_stream.recv(self._bufsize)
                                 yielded = True
@@ -299,7 +311,7 @@ class SSLStream(_streams.Stream):
                                     self._incoming.write_eof()
                                 else:
                                     self._incoming.write(data)
-                                recv_count += 1
+                                self._inner_recv_count += 1
 
             return ret
         finally:

@@ -90,6 +90,14 @@ class PyOpenSSLEchoStream(trio.Stream):
         self._lot = _core.ParkingLot()
         self._pending_cleartext = bytearray()
 
+        self._sendall_mutex = tssl._NonblockingMutex(
+            "simultaneous calls to PyOpenSSLEchoStream.sendall")
+        self._recv_mutex = tssl._NonblockingMutex(
+            "simultaneous calls to PyOpenSSLEchoStream.recv")
+
+        self.sendall_wait_after = -1
+        self.recv_wait_after = -1
+
     can_send_eof = False
     async def send_eof(self):
         raise RuntimeError
@@ -112,62 +120,80 @@ class PyOpenSSLEchoStream(trio.Stream):
         assert self._conn.renegotiate()
 
     async def sendall(self, data):
-        await _core.yield_briefly()
-        self._conn.bio_write(data)
-        while True:
-            try:
-                data = self._conn.recv(1)
-            except SSL.ZeroReturnError:
-                self._conn.shutdown()
-                print("R:", self._conn.total_renegotiations())
-                break
-            except SSL.WantReadError:
-                break
-            else:
-                # if data == b"\xff":
-                #     self._conn.renegotiate()
-                #self._conn.send(data)
-                self._pending_cleartext += data
-        self._lot.unpark_all()
+        print("  --> wrapped_stream.sendall")
+        with self._sendall_mutex:
+            await _core.yield_briefly()
+            self._conn.bio_write(data)
+            while True:
+                try:
+                    data = self._conn.recv(1)
+                except SSL.ZeroReturnError:
+                    self._conn.shutdown()
+                    print("renegotiations:", self._conn.total_renegotiations())
+                    break
+                except SSL.WantReadError:
+                    break
+                else:
+                    # if data == b"\xff":
+                    #     self._conn.renegotiate()
+                    #self._conn.send(data)
+                    self._pending_cleartext += data
+            self._lot.unpark_all()
+            self.sendall_wait_after -= 1
+            if self.sendall_wait_after == 0:
+                print("    ~~ wrapped_stream.sendall waiting")
+                await _core.wait_all_tasks_blocked(0.0001)
+            print("  <-- wrapped_stream.sendall finished")
 
     async def recv(self, nbytes):
-        #await _core.yield_briefly()
-        while True:
+        print("  --> wrapped_stream.recv")
+        with self._recv_mutex:
             try:
-                return self._conn.bio_read(nbytes)
-            except SSL.WantReadError:
-                # No data in our ciphertext buffer; try to generate some.
-                if self._pending_cleartext:
-                    # We have some cleartext; maybe we can encrypt it and then
-                    # return it.
-                    print("trying", self._pending_cleartext)
+                await _core.yield_briefly()
+                while True:
                     try:
-                        # PyOpenSSL bug: doesn't accept bytearray
-                        # https://github.com/pyca/pyopenssl/issues/621
-                        self._conn.send(bytes(self._pending_cleartext))
+                        return self._conn.bio_read(nbytes)
                     except SSL.WantReadError:
-                        # We didn't manage to send the cleartext (and in
-                        # particular we better leave it there to try
-                        # again, due to openssl's retry semantics), but
-                        # it's possible we pushed a renegotiation forward
-                        # and *now* we have data to send.
-                        try:
-                            return self._conn.bio_read(nbytes)
-                        except SSL.WantReadError:
-                            # Nope. We're just going to have to wait for
-                            # someone to call sendall() to give use more
-                            # data.
-                            print("parking (a)")
+                        # No data in our ciphertext buffer; try to generate
+                        # some.
+                        if self._pending_cleartext:
+                            # We have some cleartext; maybe we can encrypt it
+                            # and then return it.
+                            print("    trying", self._pending_cleartext)
+                            try:
+                                # PyOpenSSL bug: doesn't accept bytearray
+                                # https://github.com/pyca/pyopenssl/issues/621
+                                self._conn.send(bytes(self._pending_cleartext))
+                            except SSL.WantReadError:
+                                # We didn't manage to send the cleartext (and
+                                # in particular we better leave it there to
+                                # try again, due to openssl's retry
+                                # semantics), but it's possible we pushed a
+                                # renegotiation forward and *now* we have data
+                                # to send.
+                                try:
+                                    return self._conn.bio_read(nbytes)
+                                except SSL.WantReadError:
+                                    # Nope. We're just going to have to wait
+                                    # for someone to call sendall() to give
+                                    # use more data.
+                                    print("parking (a)")
+                                    await self._lot.park()
+                            else:
+                                # We successfully sent this cleartext, so we
+                                # don't have to again.
+                                del self._pending_cleartext[:]
+                        else:
+                            # no pending cleartext; nothing to do but wait for
+                            # someone to call sendall
+                            print("parking (b)")
                             await self._lot.park()
-                    else:
-                        # We successfully sent this cleartext, so we don't
-                        # have to again.
-                        del self._pending_cleartext[:]
-                else:
-                    # no pending cleartext; nothing to do but wait for someone
-                    # to call sendall
-                    print("parking (b)")
-                    await self._lot.park()
+            finally:
+                self.recv_wait_after -= 1
+                if self.recv_wait_after == 0:
+                    print("    ~~ wrapped_stream.recv waiting")
+                    await _core.wait_all_tasks_blocked(0.0001)
+                print("  <-- wrapped_stream.recv finished")
 
 @contextmanager
 def virtual_ssl_echo_server():
@@ -211,7 +237,7 @@ async def test_ssl_server_basics():
     with a, b:
         server_sock = tsocket.from_stdlib_socket(b)
         server_ctx = tssl.create_default_context(tssl.Purpose.CLIENT_AUTH)
-        server_ctx.load_cert_chain(CERT2)
+        server_ctx.load_cert_chain(CERT1)
         server_stream = tssl.SSLStream(
             server_sock, server_ctx, server_side=True)
         assert server_stream.server_side
@@ -219,7 +245,7 @@ async def test_ssl_server_basics():
         def client():
             client_ctx = stdlib_ssl.create_default_context(cafile=CA)
             client_sock = client_ctx.wrap_socket(
-                a, server_hostname="trio-test-2.example.org")
+                a, server_hostname="trio-test-1.example.org")
             client_sock.sendall(b"x")
             assert client_sock.recv(1) == b"y"
             client_sock.sendall(b"z")
@@ -353,66 +379,120 @@ async def test_renegotiation():
     with virtual_ssl_echo_server() as s:
         await s.do_handshake()
 
+        async def send(byte):
+            print("calling SSLStream.sendall", byte)
+            await s.sendall(byte)
+
         async def expect(expected):
+            print("calling SSLStream.recv, expecting", expected)
             assert len(expected) == 1
             assert await s.recv(1) == expected
 
         # Send some data back and forth to make sure any previous
-        # renegotations have finished
+        # renegotations have finished. (This *doesn't* clear the buffers; we
+        # still need to explicitly recv everything we send.)
         async def clear():
             while s.wrapped_stream.renegotiate_pending():
-                await s.sendall(b"-")
+                await send(b"-")
                 await expect(b"-")
-            print("--")
+            print("-- clear --")
 
         # simplest cases
-        await s.sendall(b"a")
+        await send(b"a")
         await expect(b"a")
 
         await clear()
 
         s.wrapped_stream.renegotiate()
-        await s.sendall(b"b")
+        await send(b"b")
         await expect(b"b")
 
         await clear()
 
-        await s.sendall(b"c")
+        await send(b"c")
         s.wrapped_stream.renegotiate()
         await expect(b"c")
 
         await clear()
 
-        # This renegotiate starts with the sendall(x), then the simultaneous
-        # sendall(y) and recv(x) end up both wanting to send, and the recv(x)
-        # has to wait; this wouldn't work if we didn't have a lock protecting
-        # wrapped_stream.sendall.
+        await send(b"x")
         s.wrapped_stream.renegotiate()
-        await s.sendall(b"x")
-        async with _core.open_nursery() as nursery:
-            nursery.spawn(s.sendall, b"y")
-            nursery.spawn(expect, b"x")
+        await expect(b"x")
+        # This sendall will call wrapped_stream.recv, which is a bit tricky to
+        # accomplish
+        await send(b"y")
         await expect(b"y")
 
         await clear()
 
+        # This renegotiate starts with the sendall(x), then the sendall(y)
+        # does a wrapped_stream.sendall, and the recv(x) does a
+        # wrapped_stream.recv followed by a wrapped_stream.sendall. We force
+        # the sendall(y)'s wrapped_stream.sendall to block and wait for the
+        # recv(x) to go idle, which happens when it tries to call
+        # wrapped_stream.sendall and gets stuck on the lock. This wouldn't
+        # work if we didn't have a lock protecting wrapped_stream.sendall.
         s.wrapped_stream.renegotiate()
+        await send(b"x")
+        print("[parallel]")
+        s.wrapped_stream.sendall_wait_after = 1
         async with _core.open_nursery() as nursery:
-            nursery.spawn(expect, b"x")
+            nursery.spawn(send, b"y")
+            # Let sendall(y) go first and get stuck in wrapped_stream.sendall
             await _core.wait_all_tasks_blocked()
-            nursery.spawn(s.sendall, b"x")
+            # Now call recv(x) and let it hit the wrapped_stream.sendall lock
+            nursery.spawn(expect, b"x")
+        print("[/parallel]")
+        await expect(b"y")
 
         await clear()
 
-        for _ in range(10):
+        await send(b"m")
+        s.wrapped_stream.renegotiate()
+        await expect(b"m")
+        # This sendall will call wrapped_stream.recv, which is a bit tricky to
+        # accomplish. Then we make it block there so the expect(n) has to wait
+        # to call wrapped_stream.recv (and then ends up skipping it b/c the
+        # sendall incremented recv_count)
+        s.wrapped_stream.recv_wait_after = 1
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(send, b"n")
+            await _core.wait_all_tasks_blocked()
+            nursery.spawn(expect, b"n")
+
+        await clear()
+
+        await send(b"o")
+        s.wrapped_stream.renegotiate()
+        await expect(b"o")
+        # Similar to the last one. They both call wrapped_stream.recv, just
+        # like before, but here we make sendall wait on the lock (and then
+        # skip it).
+        s.wrapped_stream.recv_wait_after = 1
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(expect, b"p")
+            await _core.wait_all_tasks_blocked()
+            nursery.spawn(send, b"p")
+
+        await clear()
+
+        import itertools
+        for i, j in itertools.product(range(10), range(10)):
+            s.wrapped_stream.sendall_wait_after = i
+            s.wrapped_stream.recv_wait_after = j
             s.wrapped_stream.renegotiate()
+            print("[parallel]")
             async with _core.open_nursery() as nursery:
-                nursery.spawn(s.sendall, b"a")
+                nursery.spawn(send, b"a")
                 nursery.spawn(expect, b"a")
+            print("[/parallel]")
             # freezes without this? I guess something bad about starting a new
             # renegotiation while the last one is still going...
-            await s.sendall(b"z")
+            await send(b"z")
             await expect(b"z")
+
+        s.wrapped_stream.sendall_wait_after = -1
+        s.wrapped_stream.recv_wait_after = -1
 
         # Have to make sure the last renegotiation has had a chance to fully
         # finish before shutting down; openssl errors out if we try to call
@@ -421,6 +501,17 @@ async def test_renegotiation():
         await clear()
 
         await s.graceful_close()
+
+# the 0.0001 thing is a bit silly, maybe add a priority argument for
+# distinguishing between waits with the same timeout?
+
+# and instead of having an explicit count, maybe it would be better to have a
+# coin-flip wait_all_tasks_blocked (and also give them a random priority);
+# then we can scatter them in more places and run the whole thing 1000 times
+# or whatever.
+# also randomize the position of the call to renegotiate
+
+# maybe a test of presenting a client cert on a renegotiation?
 
 # assert checkpoints
 
@@ -441,3 +532,10 @@ async def test_renegotiation():
 
 # clean things up:
 # - I think we can delete java and pkcs12 and even trio-example-2
+
+# sendall(b"") should not be treated as an EOF! but openssl does...
+
+# StapledStream
+
+# test that PyOpenSSLEchoStream correctly excludes concurrent sendall/recv,
+# because we're assuming that in later tests
