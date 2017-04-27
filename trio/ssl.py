@@ -154,6 +154,7 @@ import ssl as _stdlib_ssl
 from . import _core
 from . import _streams
 from . import _sync
+from ._util import UnLock
 
 __all__ = ["SSLStream"]
 
@@ -214,21 +215,6 @@ class _Once:
             await self._done.wait()
 
 
-class _NonblockingMutex:
-    def __init__(self, errmsg):
-        self._errmsg = errmsg
-        self._held = False
-
-    def __enter__(self):
-        if self._held:
-            raise RuntimeError(self._errmsg)
-        else:
-            self._held = True
-
-    def __exit__(self, *args):
-        self._held = False
-
-
 class SSLStream(_streams.Stream):
     def __init__(
             self, wrapped_stream, sslcontext, *, bufsize=32 * 1024, **kwargs):
@@ -248,9 +234,11 @@ class SSLStream(_streams.Stream):
 
         # These are used to make sure that our caller doesn't attempt to make
         # multiple concurrent calls to sendall/wait_writable or to recv.
-        self._outer_send_lock = _NonblockingMutex(
+        self._outer_send_lock = UnLock(
+            RuntimeError,
             "another task is currently sending data on this SSLStream")
-        self._outer_recv_lock = _NonblockingMutex(
+        self._outer_recv_lock = UnLock(
+            RuntimeError,
             "another task is currently receiving data on this SSLStream")
 
     _forwarded = {

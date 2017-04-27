@@ -12,6 +12,7 @@ import trio
 from .. import _core
 from .. import ssl as tssl
 from .. import socket as tsocket
+from .._util import UnLock
 
 from .._core.tests.tutil import slow
 
@@ -114,10 +115,10 @@ class PyOpenSSLEchoStream:
         self._lot = _core.ParkingLot()
         self._pending_cleartext = bytearray()
 
-        self._sendall_mutex = tssl._NonblockingMutex(
-            "simultaneous calls to PyOpenSSLEchoStream.sendall")
-        self._recv_mutex = tssl._NonblockingMutex(
-            "simultaneous calls to PyOpenSSLEchoStream.recv")
+        self._sendall_mutex = UnLock(
+            RuntimeError, "simultaneous calls to PyOpenSSLEchoStream.sendall")
+        self._recv_mutex = UnLock(
+            RuntimeError, "simultaneous calls to PyOpenSSLEchoStream.recv")
 
         if sleeper is None:
             async def no_op_sleeper(_):

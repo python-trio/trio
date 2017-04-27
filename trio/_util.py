@@ -6,7 +6,7 @@ from functools import wraps
 
 import async_generator
 
-__all__ = ["signal_raise", "aitercompat", "acontextmanager"]
+__all__ = ["signal_raise", "aiter_compat", "acontextmanager", "UnLock"]
 
 # Equivalent to the C function raise(), which Python doesn't wrap
 if os.name == "nt":
@@ -136,3 +136,30 @@ def acontextmanager(func):
     def helper(*args, **kwds):
         return _AsyncGeneratorContextManager(func, args, kwds)
     return helper
+
+
+class UnLock:
+    """An unnecessary lock.
+
+    Use as a (synchronous) context manager; if two tasks enter it at the same
+    time then the second one raises an error. You can use it when there are
+    two pieces of code that *would* collide and need a lock if they ever were
+    called at the same time, but that should never happen.
+
+    We use this in particular for things like, making sure that two different
+    tasks don't call sendall simultaneously on the same stream.
+
+    """
+    def __init__(self, exc, *args):
+        self._exc = exc
+        self._args = args
+        self._held = False
+
+    def __enter__(self):
+        if self._held:
+            raise self._exc(*self._args)
+        else:
+            self._held = True
+
+    def __exit__(self, *args):
+        self._held = False
