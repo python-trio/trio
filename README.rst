@@ -29,7 +29,7 @@ standard async I/O library.
 This is project is young and still somewhat experimental: the overall
 design is solid and the existing features are fully tested and
 documented, but you may encounter missing functionality or rough
-edges. We *do* encourage you do use it, but you should `read and
+edges. We *do* encourage you to use it, but you should `read and
 subscribe to this issue
 <https://github.com/python-trio/trio/issues/1>`__ to get warning and a
 chance to give feedback about any potential compatibility-breaking
