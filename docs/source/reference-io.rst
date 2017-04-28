@@ -232,7 +232,13 @@ The abstract Stream API
 TLS support
 -----------
 
+.. module:: trio.ssl
+
 `Not implemented yet! <https://github.com/python-trio/trio/issues/9>`__
+
+.. autoclass:: SSLStream
+   :members:
+   :undoc-members:
 
 
 Async disk I/O

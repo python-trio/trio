@@ -94,10 +94,14 @@ async def test_Semaphore_bounded():
     assert bs.value == 1
 
 
-async def test_Lock():
-    l = Lock()
+@pytest.mark.parametrize(
+    "lockcls", [Lock, StrictFIFOLock], ids=lambda fn: fn.__name__)
+async def test_Lock_and_StrictFIFOLock(lockcls):
+    l = lockcls()
     assert not l.locked()
     repr(l)  # smoke test
+    # make sure repr uses the right name for subclasses
+    assert lockcls.__name__ in repr(l)
     with assert_yields():
         async with l:
             assert l.locked()
@@ -161,6 +165,8 @@ async def test_Lock():
 async def test_Condition():
     with pytest.raises(TypeError):
         Condition(Semaphore(1))
+    with pytest.raises(TypeError):
+        Condition(StrictFIFOLock)
     l = Lock()
     c = Condition(l)
     assert not l.locked()
@@ -436,6 +442,7 @@ class QueueLock2:
 lock_factories = [
     lambda: Semaphore(1),
     Lock,
+    StrictFIFOLock,
     lambda: QueueLock1(10),
     lambda: QueueLock1(1),
     QueueLock2,
@@ -443,6 +450,7 @@ lock_factories = [
 lock_factory_names = [
     "Semaphore(1)",
     "Lock",
+    "StrictFIFOLock",
     "QueueLock1(10)",
     "QueueLock1(1)",
     "QueueLock2",
@@ -483,7 +491,7 @@ async def test_generic_lock_exclusion(lock_factory):
 # Several workers queue on the same lock; make sure they each get it, in
 # order.
 @generic_lock_test
-async def test_generic_lock_fairness(lock_factory):
+async def test_generic_lock_fifo_fairness(lock_factory):
     initial_order = []
     record = []
     LOOPS = 5

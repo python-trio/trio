@@ -1289,6 +1289,9 @@ don't have any special access to trio's internals.)
 .. autoclass:: Lock
    :members:
 
+.. autoclass:: StrictFIFOLock
+   :members:
+
 .. autoclass:: Condition
    :members:
 
