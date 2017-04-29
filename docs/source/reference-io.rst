@@ -204,6 +204,8 @@ Socket objects
    * :meth:`~socket.socket.get_inheritable`
 
 
+.. _abstract-stream-api:
+
 The abstract Stream API
 -----------------------
 

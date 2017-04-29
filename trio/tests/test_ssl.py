@@ -695,3 +695,4 @@ async def test_sendall_empty_string():
 # repeated calls to close methods are OK
 
 # fix testing.py namespace
+# maybe by promoting it to a package

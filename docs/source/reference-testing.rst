@@ -76,11 +76,58 @@ Inter-task ordering
 Virtual, controllable streams
 -----------------------------
 
-One useful trick: you can insert :func:`~trio.sleep` calls into your
-pump implementation to control the order that different bytes move
-from the sender to the receiver... and then use :class:`MockClock` to
+One particularly challenging problem when testing network protocols is
+making sure that your implementation can handle data whose flow gets
+broken up in weird ways and arrives with weird timings: localhost
+connections tend to be much better behaved than real networks, so if
+you only test on localhost then you might get bitten later. To help
+you out, trio provides some fully in-memory implementations of the
+stream interfaces (see :ref:`abstract-stream-api`), that let you write
+all kinds of interestingly evil tests.
 
-XX
+There are a few pieces here, so here's how they fit together:
+
+:func:`memory_stream_two_way` gives you a pair of connected,
+bidirectional streams. It's like :func:`socket.socketpair`, but
+without any involvement from that pesky operating system and its
+networking stack.
+
+To build a bidirectional stream, :func:`memory_stream_two_way` uses
+two unidirectional streams. It gets these by calling
+:func:`memory_stream_one_way`.
+
+:func:`memory_stream_one_way`, in turn, is implemented using the
+low-ish level classes :class:`MemorySendStream` and
+:class:`MemoryRecvStream`. These are implementations of (you guessed
+it) :class:`trio.abc.SendStream` and :class:`trio.abc.RecvStream` that
+on their own, aren't attached to anything – "sending" and "receiving"
+just put data into and get data out of a private internal buffer that
+each object owns. They also have some interesting hooks you can set,
+that let you customize the behavior of their methods. This is where
+you can insert the evil, if you want it. :func:`memory_stream_one_way`
+takes advantage of these hooks in a relatively boring way: it just
+sets it up so that when you call ``sendall``, or when you close the
+send stream, then it automatically triggers a call to
+:func:`memory_stream_pump`, which is a convenience function that takes
+data out of a :class:`MemorySendStream`'s buffer and puts it into a
+:class:`MemoryRecvStream`'s buffer. But that's just the default – you
+can replace this with whatever arbitrary behavior you want.
+
+
+API details
+~~~~~~~~~~~
+
+.. autoclass:: MemorySendStream
+   :members:
+
+.. autoclass:: MemoryRecvStream
+   :members:
+
+.. autofunction:: memory_stream_pump
+
+.. autofunction:: memory_stream_one_way
+
+.. autofunction:: memory_stream_two_way
 
 
 Testing checkpoints

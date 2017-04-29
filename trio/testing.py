@@ -14,8 +14,12 @@ from . import _core
 from . import Event as _Event, sleep as _sleep, StapledStream as _StapledStream
 from . import abc as _abc
 
-__all__ = ["wait_all_tasks_blocked", "trio_test", "MockClock",
-           "assert_yields", "assert_no_yields", "Sequencer"]
+__all__ = [
+    "wait_all_tasks_blocked", "trio_test", "MockClock",
+    "assert_yields", "assert_no_yields", "Sequencer",
+    "MemorySendStream", "MemoryRecvStream", "memory_stream_pump",
+    "memory_stream_one_way", "memory_stream_two_way",
+]
 
 # re-export
 from ._core import wait_all_tasks_blocked
@@ -418,97 +422,286 @@ class _UnboundedByteQueue:
             return self._get_impl(max_bytes)
 
     async def get(self, max_bytes=None):
-        _core.yield_briefly()
+        await _core.yield_briefly()
         with self._fetch_lock:
             if not self._closed and not self._data:
                 await self._lot.park()
-            return self._get_impl()
+            return self._get_impl(max_bytes)
+
+
+class MemorySendStream(_abc.SendStream):
+    """An in-memory :class:`~trio.abc.SendStream`.
+
+    Args:
+      sendall_hook: An async function, or None. Called from
+          :meth:`sendall`. Can do whatever you like.
+      wait_sendall_might_not_block_hook: An async function, or None. Called
+          from :meth:`wait_sendall_might_not_block`. Can do whatever you
+          like.
+      close_hook: A synchronous function, or None. Called from
+          :meth:`forceful_close`. Can do whatever you like.
+
+    .. attribute:: sendall_hook
+                   wait_sendall_might_not_block_hook
+                   close_hook
+
+       All of these hooks are also exposed as attributes on the object, and
+       you can change them at any time.
+
+    """
+    def __init__(self,
+                 sendall_hook=None,
+                 wait_sendall_might_not_block_hook=None,
+                 close_hook=None):
+        self._lock = _util.UnLock(
+            RuntimeError, "another task is using this stream")
+        self._outgoing = _UnboundedByteQueue()
+        self.sendall_hook = sendall_hook
+        self.wait_sendall_might_not_block_hook = wait_sendall_might_not_block_hook
+        self.close_hook = close_hook
+
+    async def sendall(self, data):
+        """Places the given data into the object's internal buffer, and then
+        calls the :attr:`sendall_hook` (if any).
+
+        """
+        # We yield outside the lock as a lazy way to make sure we checkpoint
+        # even if the lock raises an error; then we yield inside the lock to
+        # give ourselves a chance to detect buggy user code that calls this
+        # twice at the same time.
+        await _core.yield_briefly()
+        with self._lock:
+            await _core.yield_briefly()
+            self._outgoing.put(data)
+            if self.sendall_hook is not None:
+                await self.sendall_hook()
+
+    async def wait_sendall_might_not_block(self):
+        """Calls the :attr:`wait_sendall_might_not_block_hook` (if any), and
+        then returns immediately.
+
+        """
+        # We yield outside the lock as a lazy way to make sure we checkpoint
+        # even if the lock raises an error; then we yield inside the lock to
+        # give ourselves a chance to detect buggy user code that calls this
+        # twice at the same time.
+        await _core.yield_briefly()
+        with self._lock:
+            await _core.yield_briefly()
+            if self.wait_sendall_might_not_block_hook is not None:
+                await self.wait_sendall_might_not_block_hook()
+
+    def forceful_close(self):
+        """Marks this stream as closed, and then calls the :attr:`close_hook`
+        (if any).
+
+        """
+        self._outgoing.close()
+        if self.close_hook is not None:
+            self.close_hook()
+
+    async def get_data(self, max_bytes=None):
+        """Retrieves data from the internal buffer, blocking if necessary.
+
+        Args:
+          max_bytes (int or None): The maximum amount of data to
+              retrieve. None (the default) means to retrieve all the data
+              that's present (but still blocks until at least one byte is
+              available).
+
+        Returns:
+          If this stream has been closed, an empty bytearray. Otherwise, the
+          requested data.
+
+        """
+        return await self._outgoing.get(max_bytes)
+
+    def get_data_nowait(self, max_bytes=None):
+        """Retrieves data from the internal buffer, but doesn't block.
+
+        See :meth:`get_data` for details.
+
+        Raises:
+          trio.WouldBlock: if no data is available to retrieve.
+
+        """
+        return self._outgoing.get_nowait(max_bytes)
 
 
 class MemoryRecvStream(_abc.RecvStream):
+    """An in-memory :class:`~trio.abc.RecvStream`.
+
+    Args:
+      recv_hook: An async function, or None. Called from
+          :meth:`recv`. Can do whatever you like.
+
+    .. attribute:: recv_hook
+
+       The :attr:`recv_hook` is also exposed as an attribute on the object,
+       and you can change it at any time.
+
+    """
     def __init__(self, recv_hook=None):
         self._lock = _util.UnLock(
             RuntimeError, "another task is using this stream")
         self._incoming = _UnboundedByteQueue()
         self.recv_hook = recv_hook
 
-    async def forceful_close(self):
-        self._incoming.close()
-
     async def recv(self, max_bytes):
+        """Calls the :attr:`recv_hook` (if any), and then retrieves data from
+        the internal buffer, blocking if necessary.
+
+        """
+        # We yield outside the lock as a lazy way to make sure we checkpoint
+        # even if the lock raises an error; then we yield inside the lock to
+        # give ourselves a chance to detect buggy user code that calls this
+        # twice at the same time.
+        await _core.yield_briefly()
         with self._lock:
+            await _core.yield_briefly()
+            if max_bytes is None:
+                raise TypeError("max_bytes must not be None")
             if self.recv_hook is not None:
                 await self.recv_hook()
             return await self._incoming.get(max_bytes)
 
+    def forceful_close(self):
+        """Discards any pending data from the internal buffer, and marks this
+        stream as closed.
+
+        """
+        # discard any pending data
+        self._incoming.get_nowait()
+        self._incoming.close()
+
     def put_data(self, data):
+        """Appends the given data to the internal buffer.
+
+        """
         self._incoming.put(data)
 
     def put_eof(self):
+        """Adds an end-of-file marker to the internal buffer; the stream will
+        be closed after any previous data is retrieved.
+
+        """
         self._incoming.close()
 
-    def forceful_close(self):
-        self._incoming.close()
 
+def memory_stream_pump(
+        memory_send_stream, memory_recv_stream, *, max_bytes=None):
+    """Take data out of the given :class:`MemorySendStream`'s internal buffer,
+    and put it into the given :class:`MemoryRecvStream`'s internal buffer.
 
-class MemorySendStream(_abc.SendStream):
-    def __init__(self,
-                 sendall_hook=None, wait_sendall_might_not_block_hook=None):
-        self._lock = _util.UnLock(
-            RuntimeError, "another task is using this stream")
-        self._outgoing = _UnboundedByteQueue()
-        self.sendall_hook = sendall_hook
-        self.wait_sendall_might_not_block_hook = wait_sendall_might_not_block_hook
+    Args:
+      memory_send_stream (MemorySendStream): The stream to get data from.
+      memory_recv_stream (MemoryRecvStream): The stream to put data into.
+      max_bytes (int or None): The maximum amount of data to transfer in this
+          call, or None to transfer all available data.
 
-    async def sendall(self, data):
-        with self._lock:
-            await _core.yield_briefly()
-            if self.sendall_hook is not None:
-                await self.sendall_hook()
-            self._outgoing.put(data)
+    Returns:
+      True if it successfully transferred some data, or False if there was no
+      data to transfer.
 
-    def forceful_close(self):
-        self._outgoing.close()
+    This is used to implement of :func:`memory_stream_one_way` and
+    :func:`memory_stream_two_way`; see the latter's docstring for an example
+    of how you might use it yourself.
 
-    async def graceful_close(self):
-        self.forceful_close()
-
-    async def wait_sendall_might_not_block(self):
-        with self._lock:
-            if self.wait_sendall_might_not_block_hook is not None:
-                await self.wait_sendall_might_not_block_hook()
-            await _core.yield_briefly()
-
-    async def get_data(self, max_bytes=None):
-        return self._outgoing.get(max_bytes)
-
-    def get_data_nowait(self, max_bytes=None):
-        return self._outgoing.get_nowait(max_bytes)
-
-
-def memory_stream_pump(memory_send_stream, memory_recv_stream):
+    """
     try:
-        data = memory_send_stream.get_data_nowait()
+        data = memory_send_stream.get_data_nowait(max_bytes)
     except _core.WouldBlock:
-        return
+        return False
     if not data:
         memory_recv_stream.put_eof()
     else:
         memory_recv_stream.put_data(data)
+    return True
 
 
-def memory_pipe():
+def memory_stream_one_way():
+    """Create a connected, in-memory, unidirectional stream.
+
+    You can think of this as being a pure-Python, trio-streamsified version of
+    :func:`os.pipe`.
+
+    Returns:
+      A tuple (:class:`MemorySendStream`, :class:`MemoryRecvStream`), where
+      the :class:`MemorySendStream` has its hooks set up so that it calls
+      :func:`memory_stream_pump` from its
+      :attr:`~MemorySendStream.sendall_hook` and
+      :attr:`~MemorySendStream.close_hook`.
+
+    The end result is that data automatically flows from the
+    :class:`MemorySendStream` to the :class:`MemoryRecvStream`. But you're
+    also free to rearrange things however you like. For example, you can
+    temporarily set the :attr:`~MemorySendStream.sendall_hook` to None if you
+    want to simulate a stall in data transmission. Or see
+    :func:`memory_stream_two_way` for a more elaborate example.
+
+    """
     send_stream = MemorySendStream()
     recv_stream = MemoryRecvStream()
-    async def pump_from_send_stream_to_recv_stream():
+    def pump_from_send_stream_to_recv_stream():
         memory_stream_pump(send_stream, recv_stream)
-    send_stream.sendall_hook = pump_from_send_stream_to_recv_stream
+    async def async_pump_from_send_stream_to_recv_stream():
+        pump_from_send_stream_to_recv_stream()
+    send_stream.sendall_hook = async_pump_from_send_stream_to_recv_stream
+    send_stream.close_hook = pump_from_send_stream_to_recv_stream
     return send_stream, recv_stream
 
 
-def memory_stream_pair():
-    pipe1_send, pipe1_recv = memory_pipe()
-    pipe2_send, pipe2_recv = memory_pipe()
-    stream1 = _streams.stapled_stream(pipe1_send, pipe2_recv)
-    stream2 = _streams.stapled_stream(pipe2_send, pipe1_recv)
+def memory_stream_two_way():
+    """Create a connected, in-memory, bidirectional stream.
+
+    This is a convenience function that creates two one-way streams using
+    :func:`memory_stream_one_way`, and then uses :class:`~trio.StapledStream`
+    to combine them into a single bidirectional stream.
+
+    This is like a pure-Python, trio-streamsified version of
+    :func:`socket.socketpair`.
+
+    Returns:
+      A pair of :class:`~trio.StapledStream` objects that are connected so
+      that data automatically flows from one to the other in both directions.
+
+    See :class:`~trio.StapledStream` and :func:`memory_stream_one_way` for the
+    full details of how this is wired up; all the pieces involved are public
+    APIs, so you can adjust to suit the requirements of your tests. For
+    example, here's how to tweak a stream so that data flowing from left to
+    right trickles in one byte at a time (but data flowing from right to left
+    proceeds at full speed)::
+
+        left, right = memory_stream_two_way()
+        async def trickle():
+            # left is a StapledStream, and left.send_stream is a MemorySendStream
+            # right is a StapledStream, and right.recv_stream is a MemoryRecvStream
+            while memory_stream_pump(left.send_stream, right.recv_stream, max_byes=1):
+                # Pause between each byte
+                await trio.sleep(1)
+        # Replace the regular call to memory_stream_pump
+        left.send_stream.sendall_hook = trickle
+
+        # Will take 5 seconds
+        await left.sendall(b"12345")
+
+        assert await right.recv(5) == b"12345"
+
+    Pro-tip: you can insert sleep calls (like in our example above) to
+    manipulate the flow of data between your tasks... and then use
+    :class:`MockClock` and its :attr:`~MockClock.autojump_threshold`
+    functionality to keep your test suite running quickly.
+
+    If you want to stress test a protocol implementation, one nice trick is to
+    use the :mod:`random` module (preferably with a fixed seed) to move random
+    numbers of bytes at a time, and insert random sleeps in between them. You
+    can also set up a custom :attr:`~MemoryRecvStream.recv_hook` if you want
+    to manipulate things on the receiving side, and not just the sending
+    side.
+
+    """
+    pipe1_send, pipe1_recv = memory_stream_one_way()
+    pipe2_send, pipe2_recv = memory_stream_one_way()
+    stream1 = _StapledStream(pipe1_send, pipe2_recv)
+    stream2 = _StapledStream(pipe2_send, pipe1_recv)
     return stream1, stream2

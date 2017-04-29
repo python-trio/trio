@@ -6,6 +6,7 @@ import pytest
 from .. import sleep
 from .. import _core
 from ..testing import *
+from ..testing import _UnboundedByteQueue
 
 async def test_wait_all_tasks_blocked():
     record = []
@@ -115,6 +116,8 @@ async def test_wait_all_tasks_blocked_with_tiebreaker():
     ]
 
 
+################################################################
+
 async def test_assert_yields():
     with assert_yields():
         await _core.yield_briefly()
@@ -150,6 +153,8 @@ async def test_assert_yields():
             await _core.yield_if_cancelled()
             await _core.yield_briefly()
 
+
+################################################################
 
 async def test_Sequencer():
     record = []
@@ -216,6 +221,8 @@ async def test_Sequencer_cancel():
         async with seq(3):
             pass  # pragma: no cover
 
+
+################################################################
 
 def test_mock_clock():
     REAL_NOW = 123.0
@@ -364,3 +371,310 @@ async def test_mock_clock_autojump_0_and_wait_all_tasks_blocked(mock_clock):
         nursery.spawn(waiter)
 
     assert record == list(range(10)) + ["yawn", "waiter done"]
+
+
+################################################################
+
+# This is a private implementation detail, but it's complex enough to be worth
+# testing directly
+async def test__UnboundeByteQueue():
+    ubq = _UnboundedByteQueue()
+
+    ubq.put(b"123")
+    ubq.put(b"456")
+    assert ubq.get_nowait(1) == b"1"
+    assert ubq.get_nowait(10) == b"23456"
+    ubq.put(b"789")
+    assert ubq.get_nowait() == b"789"
+
+    with pytest.raises(_core.WouldBlock):
+        ubq.get_nowait(10)
+    with pytest.raises(_core.WouldBlock):
+        ubq.get_nowait()
+
+    with pytest.raises(TypeError):
+        ubq.put("string")
+
+    ubq.put(b"abc")
+    with assert_yields():
+        assert await ubq.get(10) == b"abc"
+    ubq.put(b"def")
+    ubq.put(b"ghi")
+    with assert_yields():
+        assert await ubq.get(1) == b"d"
+    with assert_yields():
+        assert await ubq.get() == b"efghi"
+
+    async def putter(data):
+        await wait_all_tasks_blocked()
+        ubq.put(data)
+
+    async def getter(expect):
+        with assert_yields():
+            assert await ubq.get() == expect
+
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(getter, b"xyz")
+        nursery.spawn(putter, b"xyz")
+
+    # Two gets at the same time -> RuntimeError
+    with pytest.raises(RuntimeError):
+        nursery.spawn(getter, b"asdf")
+        nursery.spawn(getter, b"asdf")
+
+    # Closing
+
+    ubq.close()
+    with pytest.raises(BrokenPipeError):
+        ubq.put(b"---")
+
+    assert ubq.get_nowait(10) == b""
+    assert ubq.get_nowait() == b""
+    assert await ubq.get(10) == b""
+    assert await ubq.get() == b""
+
+    # close is idempotent
+    ubq.close()
+
+    # close wakes up blocked getters
+    ubq2 = _UnboundedByteQueue()
+
+    async def closer():
+        await wait_all_tasks_blocked()
+        ubq2.close()
+
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(getter, b"")
+        nursery.spawn(closer)
+
+
+async def test_MemorySendStream():
+    mss = MemorySendStream()
+
+    async def do_sendall(data):
+        with assert_yields():
+            await mss.sendall(data)
+
+    await do_sendall(b"123")
+    assert mss.get_data_nowait(1) == b"1"
+    assert mss.get_data_nowait() == b"23"
+
+    with assert_yields():
+        await mss.wait_sendall_might_not_block()
+
+    with pytest.raises(_core.WouldBlock):
+        mss.get_data_nowait()
+    with pytest.raises(_core.WouldBlock):
+        mss.get_data_nowait(10)
+
+    await do_sendall(b"456")
+    with assert_yields():
+        assert await mss.get_data() == b"456"
+
+    with pytest.raises(RuntimeError):
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(do_sendall, b"xxx")
+            nursery.spawn(do_sendall, b"xxx")
+
+    with assert_yields():
+        await mss.graceful_close()
+
+    assert await mss.get_data() == b"xxx"
+    assert await mss.get_data() == b""
+    with pytest.raises(BrokenPipeError):
+        await do_sendall(b"---")
+
+    # hooks
+
+    assert mss.sendall_hook is None
+    assert mss.wait_sendall_might_not_block_hook is None
+    assert mss.close_hook is None
+
+    record = []
+    async def sendall_hook():
+        # hook runs after sendall does its work (can pull data out)
+        assert mss2.get_data_nowait() == b"abc"
+        record.append("sendall_hook")
+    async def wait_sendall_might_not_block_hook():
+        record.append("wait_sendall_might_not_block_hook")
+    def close_hook():
+        record.append("close_hook")
+
+    mss2 = MemorySendStream(
+        sendall_hook,
+        wait_sendall_might_not_block_hook,
+        close_hook,
+    )
+
+    assert mss2.sendall_hook is sendall_hook
+    assert mss2.wait_sendall_might_not_block_hook is wait_sendall_might_not_block_hook
+    assert mss2.close_hook is close_hook
+
+    await mss2.sendall(b"abc")
+    await mss2.wait_sendall_might_not_block()
+    mss2.forceful_close()
+
+    assert record == [
+        "sendall_hook",
+        "wait_sendall_might_not_block_hook",
+        "close_hook",
+    ]
+
+
+async def test_MemoryRecvStream():
+    mrs = MemoryRecvStream()
+
+    async def do_recv(max_bytes):
+        with assert_yields():
+            return await mrs.recv(max_bytes)
+
+    mrs.put_data(b"abc")
+    assert await do_recv(1) == b"a"
+    assert await do_recv(10) == b"bc"
+    with pytest.raises(TypeError):
+        await do_recv(None)
+
+    assert mrs.recv_hook is None
+
+    mrs.put_data(b"def")
+    mrs.put_eof()
+    mrs.put_eof()
+
+    assert await do_recv(10) == b"def"
+    assert await do_recv(10) == b""
+    assert await do_recv(10) == b""
+
+    with pytest.raises(BrokenPipeError):
+        mrs.put_data(b"---")
+
+    record = []
+    async def recv_hook():
+        mrs2.put_data(b"xxx")
+
+    mrs2 = MemoryRecvStream(recv_hook)
+    assert mrs2.recv_hook is recv_hook
+
+    mrs2.put_data(b"yyy")
+    assert await mrs2.recv(10) == b"yyyxxx"
+    assert await mrs2.recv(10) == b"xxx"
+    assert await mrs2.recv(10) == b"xxx"
+
+    mrs2.put_data(b"zzz")
+    mrs2.recv_hook = None
+    assert await mrs2.recv(10) == b"zzz"
+
+    mrs2.put_data(b"lost on close")
+    with assert_yields():
+        await mrs2.graceful_close()
+
+    assert await mrs2.recv(10) == b""
+
+
+async def test_memory_stream_pump():
+    mss = MemorySendStream()
+    mrs = MemoryRecvStream()
+
+    # no-op if no data present
+    memory_stream_pump(mss, mrs)
+
+    await mss.sendall(b"123")
+    memory_stream_pump(mss, mrs)
+    assert await mrs.recv(10) == b"123"
+
+    await mss.sendall(b"456")
+    assert memory_stream_pump(mss, mrs, max_bytes=1)
+    assert await mrs.recv(10) == b"4"
+    assert memory_stream_pump(mss, mrs, max_bytes=1)
+    assert memory_stream_pump(mss, mrs, max_bytes=1)
+    assert not memory_stream_pump(mss, mrs, max_bytes=1)
+    assert await mrs.recv(10) == b"56"
+
+    mss.forceful_close()
+    memory_stream_pump(mss, mrs)
+    assert await mrs.recv(10) == b""
+
+
+async def test_memory_stream_one_way():
+    s, r = memory_stream_one_way()
+    assert s.sendall_hook is not None
+    assert s.wait_sendall_might_not_block_hook is None
+    assert s.close_hook is not None
+    assert r.recv_hook is None
+    await s.sendall(b"123")
+    assert await r.recv(10) == b"123"
+
+    # This fails if we pump on r.recv_hook; we need to pump on s.sendall_hook
+    async def sender():
+        await wait_all_tasks_blocked()
+        await s.sendall(b"abc")
+
+    async def receiver(expected):
+        assert await r.recv(10) == expected
+
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(receiver, b"abc")
+        nursery.spawn(sender)
+
+    # And this fails if we don't pump from close_hook
+    async def graceful_closer():
+        await wait_all_tasks_blocked()
+        await s.graceful_close()
+
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(receiver, b"")
+        nursery.spawn(graceful_closer)
+
+    s, r = memory_stream_one_way()
+
+    async def forceful_closer():
+        await wait_all_tasks_blocked()
+        s.forceful_close()
+
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(receiver, b"")
+        nursery.spawn(forceful_closer)
+
+    s, r = memory_stream_one_way()
+
+    old = s.sendall_hook
+    s.sendall_hook = None
+    await s.sendall(b"456")
+
+    async def cancel_after_idle(nursery):
+        await wait_all_tasks_blocked()
+        nursery.cancel_scope.cancel()
+
+    async def check_for_cancel():
+        with pytest.raises(_core.Cancelled):
+            # This should block forever... or until cancelled. Even though we
+            # sent some data on the send stream.
+            await r.recv(10)
+
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(cancel_after_idle, nursery)
+        nursery.spawn(check_for_cancel)
+
+    s.sendall_hook = old
+    await s.sendall(b"789")
+    assert await r.recv(10) == b"456789"
+
+async def test_memory_stream_two_way():
+    a, b = memory_stream_two_way()
+    await a.sendall(b"123")
+    await b.sendall(b"abc")
+    assert await b.recv(10) == b"123"
+    assert await a.recv(10) == b"abc"
+
+    await a.send_eof()
+    assert await b.recv(10) == b""
+
+    async def sender():
+        await wait_all_tasks_blocked()
+        await b.sendall(b"xyz")
+
+    async def receiver():
+        assert await a.recv(10) == b"xyz"
+
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(receiver)
+        nursery.spawn(sender)
