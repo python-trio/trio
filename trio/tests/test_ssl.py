@@ -691,18 +691,13 @@ async def test_unwrap():
 
 # maybe a test of TLS-over-TLS, just to prove we can?
 
-# unwrap, switching protocols. ...what if we read too much? I guess unwrap
-# should also return the residual data from the incoming BIO?
-
 # - sloppy and strict EOF modes
 
 # check getpeercert(), probably need to work around:
 # https://bugs.python.org/issue29334
 
-# StapledStream, docs
-# testing streams, docs
-
 # repeated calls to close methods are OK
+# and cancelled graceful_close falls back to forceful_close
 
 # fix testing.py namespace
 # maybe by promoting it to a package
