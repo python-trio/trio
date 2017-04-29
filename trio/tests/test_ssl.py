@@ -16,8 +16,9 @@ from .._util import UnLock
 
 from .._core.tests.tutil import slow
 
-from ..testing import assert_yields, wait_all_tasks_blocked
-
+from ..testing import (
+    assert_yields, wait_all_tasks_blocked, Sequencer, memory_stream_two_way,
+)
 
 ASSETS_DIR = Path(__file__).parent / "test_ssl_certs"
 CA = str(ASSETS_DIR / "trio-test-CA.pem")
@@ -636,45 +637,54 @@ async def test_sendall_empty_string():
         await s.graceful_close()
 
 
-# I'm pretty sure this can't be made to work without better control over the
-# flow of data.
-#
-# async def test_unwrap():
-#     client_sock, server_sock = tsocket.socketpair()
-#     with client_sock, server_sock:
-#         client_ctx = stdlib_ssl.create_default_context(cafile=CA)
-#         client_stream = tssl.SSLStream(
-#             client_sock, client_ctx, server_hostname="trio-test-1.example.org")
-#         server_stream = tssl.SSLStream(
-#             server_sock, SERVER_CTX, server_side=True)
+async def test_unwrap():
+    client_stream, server_stream = memory_stream_two_way()
+    client_ctx = stdlib_ssl.create_default_context(cafile=CA)
+    client_ssl = tssl.SSLStream(
+        client_stream, client_ctx, server_hostname="trio-test-1.example.org")
+    server_ssl = tssl.SSLStream(
+        server_stream, SERVER_CTX, server_side=True)
 
-#         async def client():
-#             await client_stream.do_handshake()
-#             await client_stream.sendall(b"x")
-#             assert await client_stream.recv(1) == b"y"
-#             await client_stream.sendall(b"z")
-#             assert await client_stream.recv(1) == b""
-#             # Give the server a chance to write trailing data
-#             await wait_all_tasks_blocked()
-#             raw, trailing = await client_stream.unwrap()
-#             assert raw is client_sock
-#             assert trailing == b"t"
+    seq = Sequencer()
 
-#         async def server():
-#             await server_stream.do_handshake()
-#             assert await server_stream.recv(1) == b"x"
-#             assert await server_stream.sendall(b"y")
-#             assert await server_stream.recv(1) == b"z"
-#             # Now client is blocked waiting for us to send something, but
-#             # instead we close the TLS connection
-#             raw, trailing = await server_stream.unwrap()
-#             assert raw is server_sock
-#             assert trailing == b""
-#             await raw.sendall(b"t")
+    async def client():
+        await client_ssl.do_handshake()
+        await client_ssl.sendall(b"x")
+        assert await client_ssl.recv(1) == b"y"
 
-#         async with _core.open_nursery() as nursery:
-#             nursery.spawn(client)
-#             nursery.spawn(server)
+        async with seq(0):
+            await client_ssl.sendall(b"z")
+            # After sending that, disable outgoing data from our end, to make
+            # sure the server doesn't see our EOF until after we've sent some
+            # trailing data
+            sendall_hook = client_stream.send_stream.sendall_hook
+            client_stream.send_stream.sendall_hook = None
+
+        assert await client_ssl.recv(1) == b""
+        # We just received EOF. Unwrap the connection and send some more.
+        raw, trailing = await client_ssl.unwrap()
+        assert raw is client_stream
+        assert trailing == b""
+        await raw.sendall(b"trailing")
+        # Reconnect the streams
+        client_stream.send_stream.sendall_hook = sendall_hook
+        await client_stream.send_stream.sendall_hook()
+
+    async def server():
+        await server_ssl.do_handshake()
+        assert await server_ssl.recv(1) == b"x"
+        assert await server_ssl.sendall(b"y")
+        async with seq(1):
+            assert await server_ssl.recv(1) == b"z"
+        # Now client is blocked waiting for us to send something, but
+        # instead we close the TLS connection
+        raw, trailing = await server_ssl.unwrap()
+        assert raw is server_stream
+        assert trailing == b"trailing"
+
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(client)
+        nursery.spawn(server)
 
 
 # maybe a test of presenting a client cert on a renegotiation?
