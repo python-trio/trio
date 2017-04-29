@@ -207,10 +207,6 @@ class AsyncResource(metaclass=_abc.ABCMeta):
     async def __aexit__(self, *args):
         await self.graceful_close()
 
-# XX added in 3.6
-if hasattr(_contextlib, "AbstractContextManager"):
-    _contextlib.AbstractContextManager.register(AsyncResource)
-
 
 class SendStream(AsyncResource):
     """A standard interface for sending data on a byte stream.
