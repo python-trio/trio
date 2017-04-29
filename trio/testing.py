@@ -426,19 +426,19 @@ class _UnboundedByteQueue:
 
 
 class MemoryRecvStream(_abc.RecvStream):
-    def __init__(self, pull_pump=None):
+    def __init__(self, recv_hook=None):
         self._lock = _util.UnLock(
             RuntimeError, "another task is using this stream")
         self._incoming = _UnboundedByteQueue()
-        self._pull_pump = pull_pump
+        self.recv_hook = recv_hook
 
     async def forceful_close(self):
         self._incoming.close()
 
     async def recv(self, max_bytes):
         with self._lock:
-            if self._pull_pump is not None:
-                await self._pull_pump.pull(self)
+            if self.recv_hook is not None:
+                await self.recv_hook()
             return await self._incoming.get(max_bytes)
 
     def put_data(self, data):
@@ -452,61 +452,38 @@ class MemoryRecvStream(_abc.RecvStream):
 
 
 class MemorySendStream(_abc.SendStream):
-    def __init__(self, push_pump=None):
+    def __init__(self,
+                 sendall_hook=None, wait_sendall_might_not_block_hook=None):
         self._lock = _util.UnLock(
             RuntimeError, "another task is using this stream")
         self._outgoing = _UnboundedByteQueue()
-        self._push_pump = push_pump
-
-    # Not necessarily a checkpoint
-    async def _do_push_pump(self):
-        if self._push_pump is not None:
-            await self._push_pump.push(self)
+        self.sendall_hook = sendall_hook
+        self.wait_sendall_might_not_block_hook = wait_sendall_might_not_block_hook
 
     async def sendall(self, data):
         with self._lock:
             await _core.yield_briefly()
+            if self.sendall_hook is not None:
+                await self.sendall_hook()
             self._outgoing.put(data)
-            await self._do_push_pump()
 
     def forceful_close(self):
         self._outgoing.close()
 
     async def graceful_close(self):
         self.forceful_close()
-        await self._do_push_pump()
 
     async def wait_sendall_might_not_block(self):
         with self._lock:
+            if self.wait_sendall_might_not_block_hook is not None:
+                await self.wait_sendall_might_not_block_hook()
             await _core.yield_briefly()
-            if self._push_pump is not None:
-                await self._push_pump.wait_push_might_not_block(self)
 
     async def get_data(self, max_bytes=None):
         return self._outgoing.get(max_bytes)
 
     def get_data_nowait(self, max_bytes=None):
         return self._outgoing.get_nowait(max_bytes)
-
-    @property
-    def push_pump(self):
-        return self._push_pump
-
-    async def set_push_pump(self, push_pump):
-        await _core.yield_briefly()
-        old_push_pump = self._push_pump
-        self._push_pump = push_pump
-        await self._do_push_pump()
-        return old_push_pump
-
-    @_util.acontextmanager
-    @async_generator
-    async def temporary_push_pump(self, push_pump):
-        old_push_pump = await self.set_push_pump(push_pump)
-        try:
-            await yield_()
-        finally:
-            await self.set_push_pump(old_push_pump)
 
 
 def memory_stream_pump(memory_send_stream, memory_recv_stream):
@@ -520,32 +497,12 @@ def memory_stream_pump(memory_send_stream, memory_recv_stream):
         memory_recv_stream.put_data(data)
 
 
-class MemoryRecvStreamPushPump:
-    def __init__(self, memory_recv_stream):
-        self._memory_recv_stream = memory_recv_stream
-
-    async def push(self, memory_send_stream):
-        await _core.yield_briefly()
-        memory_stream_pump(memory_send_stream, self._memory_recv_stream)
-
-    async def wait_push_might_not_block(self):
-        # our push implementation never blocks
-        return
-
-
-class MemorySendStreamPullPump:
-    def __init__(self, memory_send_stream):
-        self._memory_send_stream = memory_send_stream
-
-    async def pull(self, memory_recv_stream):
-        await _core.yield_briefly()
-        memory_stream_pump(self._memory_send_stream, memory_recv_stream)
-
-
 def memory_pipe():
+    send_stream = MemorySendStream()
     recv_stream = MemoryRecvStream()
-    push_pump = MemoryRecvStreamPushPump(recv_stream)
-    send_stream = MemorySendStream(push_pump)
+    async def pump_from_send_stream_to_recv_stream():
+        memory_stream_pump(send_stream, recv_stream)
+    send_stream.sendall_hook = pump_from_send_stream_to_recv_stream
     return send_stream, recv_stream
 
 
