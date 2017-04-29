@@ -152,9 +152,9 @@
 import ssl as _stdlib_ssl
 
 from . import _core
-from . import _streams
+from .abc import Stream as _Stream
 from . import _sync
-from ._util import UnLock
+from ._util import UnLock as _UnLock
 
 __all__ = ["SSLStream"]
 
@@ -215,7 +215,7 @@ class _Once:
             await self._done.wait()
 
 
-class SSLStream(_streams.Stream):
+class SSLStream(_Stream):
     def __init__(
             self, wrapped_stream, sslcontext, *, bufsize=32 * 1024, **kwargs):
         self.wrapped_stream = wrapped_stream
@@ -233,11 +233,11 @@ class SSLStream(_streams.Stream):
         self._inner_recv_lock = _sync.Lock()
 
         # These are used to make sure that our caller doesn't attempt to make
-        # multiple concurrent calls to sendall/wait_writable or to recv.
-        self._outer_send_lock = UnLock(
+        # multiple concurrent calls to sendall/wait_sendall_might_not_block or to recv.
+        self._outer_send_lock = _UnLock(
             RuntimeError,
             "another task is currently sending data on this SSLStream")
-        self._outer_recv_lock = UnLock(
+        self._outer_recv_lock = _UnLock(
             RuntimeError,
             "another task is currently receiving data on this SSLStream")
 
@@ -261,11 +261,6 @@ class SSLStream(_streams.Stream):
 
     def __dir__(self):
         return super().__dir__() + list(self._forwarded)
-
-    can_send_eof = False
-
-    async def send_eof(self):
-        raise RuntimeError("the TLS protocol does not support send_eof")
 
     # This is probably the single trickiest function in trio. It has lots of
     # comments, though, just make sure to think carefully if you ever have to
@@ -447,10 +442,15 @@ class SSLStream(_streams.Stream):
             return (wrapped_stream, self._incoming.read())
 
     def forceful_close(self):
-        self.wrapped_stream.forceful_close()
+        if self.wrapped_stream is not None:
+            self.wrapped_stream.forceful_close()
+            self.wrapped_stream = None
 
     async def graceful_close(self):
         wrapped_stream = self.wrapped_stream
+        if wrapped_stream is None:
+            await _core.yield_briefly()
+            return
         try:
             # Do the TLS goodbye exchange
             await self.unwrap()
@@ -460,21 +460,21 @@ class SSLStream(_streams.Stream):
             wrapped_stream.forceful_close()
             raise
 
-    async def wait_writable(self):
+    async def wait_sendall_might_not_block(self):
         # This method's implementation is deceptively simple.
         #
         # First, we take the outer send lock, because of trio's standard
-        # semantics that wait_writable and sendall conflict.
+        # semantics that wait_sendall_might_not_block and sendall conflict.
         with self._outer_send_lock:
             # Then we take the inner send lock. We know that no other tasks
-            # are calling self.sendall or self.wait_writable, because we have
+            # are calling self.sendall or self.wait_sendall_might_not_block, because we have
             # the outer_send_lock. But! There might be another task calling
             # self.recv -> wrapped_stream.sendall, in which case if we were to
-            # call wrapped_stream.wait_writable directly we'd have two tasks
+            # call wrapped_stream.wait_sendall_might_not_block directly we'd have two tasks
             # doing write-related operations on wrapped_stream simultaneously,
             # which is not allowed. We *don't* want to raise this conflict to
             # our caller, because it's purely an internal affair – all they
-            # did was call wait_writable and recv at the same time, which is
+            # did was call wait_sendall_might_not_block and recv at the same time, which is
             # totally valid. And waiting for the lock is OK, because a call to
             # sendall certainly wouldn't complete while the other task holds
             # the lock.
@@ -489,7 +489,7 @@ class SSLStream(_streams.Stream):
                 # Of course, this does mean we might return *before* the
                 # stream is logically writable, because immediately after we
                 # return self.recv might write some data and make it
-                # non-writable again. But that's OK too, wait_writable only
+                # non-writable again. But that's OK too, wait_sendall_might_not_block only
                 # guarantees that it doesn't return late.
-                await self.wrapped_stream.wait_writable()
+                await self.wrapped_stream.wait_sendall_might_not_block()
                 print(self._inner_send_lock.statistics())

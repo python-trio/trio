@@ -5,7 +5,7 @@ import os
 
 from . import _core
 from ._threads import run_in_worker_thread as _run_in_worker_thread
-from . import _streams
+from .abc import StreamWithSendEOF as _StreamWithSendEOF
 
 __all__ = []
 
@@ -176,7 +176,7 @@ _SOCK_TYPE_MASK = ~(
     getattr(_stdlib_socket, "SOCK_NONBLOCK", 0)
     | getattr(_stdlib_socket, "SOCK_CLOEXEC", 0))
 
-class SocketType(_streams.Stream):
+class SocketType(_StreamWithSendEOF):
     def __init__(self, sock):
         if type(sock) is not _stdlib_socket.socket:
             # For example, ssl.SSLSocket subclasses socket.socket, but we
@@ -451,7 +451,7 @@ class SocketType(_streams.Stream):
     # Stream methods
     ################################################################
 
-    async def wait_writable(self):
+    async def wait_sendall_might_not_block(self):
         await _core.wait_socket_writable(self._sock)
 
     can_send_eof = True

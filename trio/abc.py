@@ -1,6 +1,11 @@
+import contextlib as _contextlib
 import abc as _abc
+from . import _core
 
-__all__ = ["Clock", "Instrument"]
+__all__ = [
+    "Clock", "Instrument", "AsyncResource", "SendStream", "RecvStream",
+    "Stream", "StreamWithSendEOF",
+]
 
 class Clock(_abc.ABC):
     """The interface for custom run loop clocks.
@@ -130,3 +135,258 @@ class Instrument(_abc.ABC):
                 whether any I/O was ready.
 
         """
+
+
+# We use ABCMeta instead of ABC, plus setting __slots__=(), so as not to force
+# a __dict__ onto subclasses.
+class AsyncResource(metaclass=_abc.ABCMeta):
+    """A standard interface for resources that needs to be cleaned up, and
+    where that cleanup may require blocking operations.
+
+    This class distinguishes between "graceful" closes, which may perform I/O
+    and thus block, and a "forceful" close, which cannot. For example, cleanly
+    shutting down a TLS-encrypted connection requires sending a "goodbye"
+    message; but if a peer has become non-responsive, then sending this
+    message might block forever, so we may want to just drop the connection
+    instead. Therefore the :meth:`graceful_close` method is unusual in that it
+    should always close the connection (or at least make its best attempt)
+    *even if it fails*; failure indicates a failure to achieve grace, not a
+    failure to close the connection.
+
+    Objects that implement this interface can be used as async context
+    managers, i.e., you can write::
+
+      async with create_resource() as some_async_resource:
+          ...
+
+    Entering the context manager is synchronous (not a checkpoint); exiting it
+    calls :meth:`graceful_close`. The default implementations of
+    ``__aenter__`` and ``__aexit__`` should be adequate for all subclasses.
+
+    """
+    __slots__ = ()
+
+    @_abc.abstractmethod
+    def forceful_close(self):
+        """Force an immediate close of this resource.
+
+        This will never block, but (depending on the resource in question) it
+        might be a "rude" shutdown.
+
+        If the resource is already closed, then this method should silently
+        succeed.
+
+        """
+        pass
+
+    async def graceful_close(self):
+        """Close this resource, gracefully.
+
+        This may block in order to perform a "graceful" shutdown (for example,
+        sending a "goodbye" message). But, if this fails (e.g., due to being
+        cancelled), then it still *must* close the underlying resource,
+        possibly by calling :meth:`forceful_close`.
+
+        If the resource is already closed, then this method should silently
+        succeed.
+
+        :class:`AsyncResource` provides a default implementation of this
+        method that's suitable for resources that don't distinguish between
+        graceful and forceful closure: it simply calls :meth:`forceful_close`
+        and then executes a checkpoint.
+
+        """
+        try:
+            self.forceful_close()
+        finally:
+            await _core.yield_briefly()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        await self.graceful_close()
+
+# XX added in 3.6
+if hasattr(_contextlib, "AbstractContextManager"):
+    _contextlib.AbstractContextManager.register(AsyncResource)
+
+
+class SendStream(AsyncResource):
+    """A standard interface for sending data on a byte stream.
+
+    The underlying stream may be unidirectional, or bidirectional. If it's
+    bidirectional, then you probably want to also implement
+    :class:`SendStream`, which makes your object a :class:`Stream`.
+
+    Every :class:`SendStream` also implements the :class:`AsyncResource`
+    interface.
+
+    """
+    __slots__ = ()
+
+    @_abc.abstractmethod
+    async def sendall(self, data):
+        """Sends the given data through the stream, blocking if necessary.
+
+        Args:
+          data (bytes, bytearray, or memoryview): The data to send.
+
+        Raises:
+          RuntimeError: if another task is already executing a :meth:`sendall`
+              or :meth:`wait_sendall_might_not_block` on this stream.
+
+        """
+        pass
+
+    # This should be considered a hint rather than a guarantee.
+    # Definitely will not stay asleep after sendall could succeed; might wake
+    # up before it could succeed.
+    @_abc.abstractmethod
+    async def wait_sendall_might_not_block(self):
+        """Block until it's possible that :meth:`sendall` might not block.
+
+        This method may return early: it's possible that after it returns,
+        :meth:`sendall` will still block. (In the worst case, if no better
+        implementation is available, then it might always return immediately
+        without blocking. It's nice to do better than that when possible,
+        though.)
+
+        This method **must not** return *late*: if it's possible for
+        :meth:`sendall` to complete without blocking, then it must
+        return. When implementing it, err on the side of returning early.
+
+        Raises:
+          RuntimeError: if another task is already executing a :meth:`sendall`
+              or :meth:`wait_sendall_might_not_block` on this stream.
+
+        Note:
+
+          This method is intended to aid in implementing protocols that want
+          to delay choosing which data to send until the last moment. E.g.,
+          suppose you're working on an implemention of a remote display server
+          like `VNC
+          <https://en.wikipedia.org/wiki/Virtual_Network_Computing>`__, and
+          the network connection is currently backed up so that if you call
+          :meth:`sendall` now then it will sit for 0.5 seconds before actually
+          sending anything. In this case it doesn't make sense to take a
+          screenshot, then wait 0.5 seconds, and then send it, because the
+          screen will keep changing while you wait; it's better to wait 0.5
+          seconds, then take the screenshot, and then send it, because this
+          way the data you deliver will be more
+          up-to-date. Using :meth:`wait_sendall_might_not_block` makes it
+          possible to implement the better strategy.
+
+          If you use this method, you might also want to read up on
+          ``TCP_NOTSENT_LOWAT``.
+
+          Further reading:
+
+          * `Prioritization Only Works When There's Pending Data to Prioritize
+            <https://insouciant.org/tech/prioritization-only-works-when-theres-pending-data-to-prioritize/>`__:
+            * WWDC 2015: Your App and Next Generation Networks: `slides
+            <http://devstreaming.apple.com/videos/wwdc/2015/719ui2k57m/719/719_your_app_and_next_generation_networks.pdf?dl=1>`__,
+            `video and transcript
+            <https://developer.apple.com/videos/play/wwdc2015/719/>`__
+
+        """
+        pass
+
+
+class RecvStream(AsyncResource):
+    """A standard interface for receiving data on a byte stream.
+
+    The underlying stream may be unidirectional, or bidirectional. If it's
+    bidirectional, then you probably want to also implement
+    :class:`SendStream`, which makes your object a :class:`Stream`.
+
+    Every :class:`RecvStream` also implements the :class:`AsyncResource`
+    interface.
+
+    """
+    __slots__ = ()
+
+    @_abc.abstractmethod
+    async def recv(self, max_bytes):
+        """Wait until there is data available on this stream, and then return
+        some of it.
+
+        A return value of ``b""`` (an empty byte-stream) indicates that the
+        stream has reached end-of-file. Implementations should be careful that
+        they return ``b""`` if, and only if, the stream has reached
+        end-of-file!
+
+        This method will return as soon as any data is available, so it return
+        give fewer than ``max_bytes`` of data. But it will never return more.
+
+        Args:
+          max_bytes (int): The maximum number of bytes to return.
+
+        Returns:
+          bytes or bytearray: The data received.
+
+        Raises:
+          RuntimeError: if another task is already executing a :meth:`recv` on
+              this stream.
+
+        """
+        pass
+
+
+class Stream(SendStream, RecvStream):
+    """A standard interface for interacting with bidirectional byte streams.
+
+    A :class:`Stream` is an object that implements both the
+    :class:`SendStream` and :class:`RecvStream` interfaces.
+
+    If implementing this interface, you should consider whether you can go one
+    step further and implement :class:`StreamWithSendEOF`.
+
+    """
+    __slots__ = ()
+
+
+class StreamWithSendEOF(Stream):
+    """A standard interface for :class:`Stream`\s that also allow closing the
+    send part of the stream without closing the receive part.
+
+    """
+    __slots__ = ()
+
+    @_abc.abstractmethod
+    async def send_eof(self):
+        """Send an end-of-file indication on this stream.
+
+        This is distinct from :meth:`~AsyncResource.graceful_close` in that
+        this is a *unidirectional* end-of-file indication. After you call this
+        method, you shouldn't try sending any more data on this stream, and
+        your remote peer should receive an end-of-file indication (eventually,
+        after receiving all the data you sent before that). But, they may
+        continue to send data to you, and you can continue to receive it by
+        calling :meth:`~RecvStream.recv`. You can think of it as calling
+        :meth:`~AsyncResource.graceful_close` on just the :class:`SendStream`
+        "half" of this object (and in fact that's literally how
+        :class:`trio.StapledStream` implements it).
+
+        Examples:
+
+        * On a socket, this corresponds to ``shutdown(..., SHUT_WR)`` (`man
+          page <https://linux.die.net/man/2/shutdown>`__).
+
+        * The SSH protocol provides the ability to multiplex bidirectional
+          "channels" on top of a single encrypted connection. A trio
+          implementation of SSH could expose these channels as
+          :class:`StreamWithSendEOF` objects, and calling :meth:`send_eof`
+          would send an ``SSH_MSG_CHANNEL_EOF`` request (see `RFC 4254 §5.3
+          <https://tools.ietf.org/html/rfc4254#section-5.3>`__).
+
+        * On an SSL/TLS-encrypted connection, the protocol doesn't provide any
+          way to do a unidirectional shutdown without closing the connection
+          entirely, so :meth:`~trio.ssl.SSLStream` implements :class:`Stream`,
+          not :class:`StreamWithSendEOF`.
+
+        If the stream is already closed, or if an EOF has already been sent,
+        then this method should silently succeed.
+
+        """
+        pass

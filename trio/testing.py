@@ -9,10 +9,10 @@ from math import inf
 import attr
 from async_generator import async_generator, yield_
 
-from ._util import acontextmanager
+from . import _util
 from . import _core
-from . import Event, sleep
-from .abc import Clock
+from . import Event as _Event, sleep as _sleep, StapledStream as _StapledStream
+from . import abc as _abc
 
 __all__ = ["wait_all_tasks_blocked", "trio_test", "MockClock",
            "assert_yields", "assert_no_yields", "Sequencer"]
@@ -32,7 +32,7 @@ def trio_test(fn):
     @wraps(fn)
     def wrapper(**kwargs):
         __tracebackhide__ = True
-        clocks = [c for c in kwargs.values() if isinstance(c, Clock)]
+        clocks = [c for c in kwargs.values() if isinstance(c, _abc.Clock)]
         if not clocks:
             clock = None
         elif len(clocks) == 1:
@@ -42,10 +42,15 @@ def trio_test(fn):
         return _core.run(partial(fn, **kwargs), clock=clock)
     return wrapper
 
+
+################################################################
+# The glorious MockClock
+################################################################
+
 # Prior art:
 #   https://twistedmatrix.com/documents/current/api/twisted.internet.task.Clock.html
 #   https://github.com/ztellman/manifold/issues/57
-class MockClock(Clock):
+class MockClock(_abc.Clock):
     """A user-controllable clock suitable for writing tests.
 
     Args:
@@ -61,22 +66,27 @@ class MockClock(Clock):
 
     .. attribute:: autojump_threshold
 
-       If all tasks are blocked for this many real seconds (i.e., according to
-       the actual clock, not this clock), then this clock automatically jumps
-       ahead to the run loop's next scheduled timeout. Default is
-       :data:`math.inf`, i.e., to never autojump. You can assign to this
-       attribute to change it.
+       The clock keeps an eye on the run loop, and if at any point it detects
+       that all tasks have been blocked for this many real seconds (i.e.,
+       according to the actual clock, not this clock), then the clock
+       automatically jumps ahead to the run loop's next scheduled
+       timeout. Default is :data:`math.inf`, i.e., to never autojump. You can
+       assign to this attribute to change it.
+
+       Basically the idea is that if you have code or tests that use sleeps
+       and timeouts, you can use this to make it run much faster, totally
+       automatically. (At least, as long as those sleeps/timeouts are
+       happening inside trio; if your test involves talking to external
+       service and waiting for it to timeout then obviously we can't help you
+       there.)
 
        You should set this to the smallest value that lets you reliably avoid
        "false alarms" where some I/O is in flight (e.g. between two halves of
        a socketpair) but the threshold gets triggered and time gets advanced
        anyway. This will depend on the details of your tests and test
        environment. If you aren't doing any I/O (like in our sleeping example
-       above) then setting it to zero is fine.
-
-       Note that setting this attribute interacts with the run loop, so it can
-       only be done from inside a run context or (as a special case) before
-       calling :func:`trio.run`.
+       above) then just set it to zero, and the clock will jump whenever all
+       tasks are blocked.
 
        .. warning::
 
@@ -168,7 +178,7 @@ class MockClock(Clock):
                         # until some actual I/O arrives (or maybe another
                         # wait_all_tasks_blocked task wakes up). That's fine,
                         # but if our threshold is zero then this will become a
-                        # busy-wait -- so insert a small-but-non-zero sleep to
+                        # busy-wait -- so insert a small-but-non-zero _sleep to
                         # avoid that.
                         if self._autojump_threshold == 0:
                             await wait_all_tasks_blocked(0.01)
@@ -229,6 +239,10 @@ class MockClock(Clock):
         self._virtual_base += seconds
 
 
+################################################################
+# Testing checkpoints
+################################################################
+
 @contextmanager
 def _assert_yields_or_not(expected):
     __tracebackhide__ = True
@@ -284,6 +298,10 @@ def assert_no_yields():
     return _assert_yields_or_not(False)
 
 
+################################################################
+# Sequencer
+################################################################
+
 @attr.s(slots=True, cmp=False, hash=False)
 class Sequencer:
     """A convenience class for forcing code in different tasks to run in an
@@ -326,11 +344,11 @@ class Sequencer:
     """
 
     _sequence_points = attr.ib(
-        default=attr.Factory(lambda: defaultdict(Event)), init=False)
+        default=attr.Factory(lambda: defaultdict(_Event)), init=False)
     _claimed = attr.ib(default=attr.Factory(set), init=False)
     _broken = attr.ib(default=False, init=False)
 
-    @acontextmanager
+    @_util.acontextmanager
     @async_generator
     async def __call__(self, position):
         if position in self._claimed:
@@ -355,3 +373,185 @@ class Sequencer:
             await yield_()
         finally:
             self._sequence_points[position + 1].set()
+
+
+################################################################
+# In-memory streams
+################################################################
+
+# XX it might be useful to move this to _sync.py and make it public?
+class _UnboundedByteQueue:
+    def __init__(self):
+        self._data = bytearray()
+        self._closed = False
+        self._lot = _core.ParkingLot()
+        self._fetch_lock = _util.UnLock(
+            RuntimeError, "another task is already fetching data")
+
+    def close(self):
+        self._closed = True
+        self._lot.unpark_all()
+
+    def put(self, data):
+        if self._closed:
+            # Same error raised by trying to send on a closed socket
+            raise BrokenPipeError("virtual connection closed")
+        self._data += data
+        self._lot.unpark_all()
+
+    def _get_impl(self, max_bytes):
+        assert self._closed or self._data
+        if max_bytes is None:
+            max_bytes = len(self._data)
+        if self._data:
+            chunk = self._data[:max_bytes]
+            del self._data[:max_bytes]
+            assert chunk
+            return chunk
+        else:
+            return bytearray()
+
+    def get_nowait(self, max_bytes=None):
+        with self._fetch_lock:
+            if not self._closed and not self._data:
+                raise _core.WouldBlock
+            return self._get_impl(max_bytes)
+
+    async def get(self, max_bytes=None):
+        _core.yield_briefly()
+        with self._fetch_lock:
+            if not self._closed and not self._data:
+                await self._lot.park()
+            return self._get_impl()
+
+
+class MemoryRecvStream(_abc.RecvStream):
+    def __init__(self, pull_pump=None):
+        self._lock = _util.UnLock(
+            RuntimeError, "another task is using this stream")
+        self._incoming = _UnboundedByteQueue()
+        self._pull_pump = pull_pump
+
+    async def forceful_close(self):
+        self._incoming.close()
+
+    async def recv(self, max_bytes):
+        with self._lock:
+            if self._pull_pump is not None:
+                await self._pull_pump.pull(self)
+            return await self._incoming.get(max_bytes)
+
+    def put_data(self, data):
+        self._incoming.put(data)
+
+    def put_eof(self):
+        self._incoming.close()
+
+    def forceful_close(self):
+        self._incoming.close()
+
+
+class MemorySendStream(_abc.SendStream):
+    def __init__(self, push_pump=None):
+        self._lock = _util.UnLock(
+            RuntimeError, "another task is using this stream")
+        self._outgoing = _UnboundedByteQueue()
+        self._push_pump = push_pump
+
+    # Not necessarily a checkpoint
+    async def _do_push_pump(self):
+        if self._push_pump is not None:
+            await self._push_pump.push(self)
+
+    async def sendall(self, data):
+        with self._lock:
+            await _core.yield_briefly()
+            self._outgoing.put(data)
+            await self._do_push_pump()
+
+    def forceful_close(self):
+        self._outgoing.close()
+
+    async def graceful_close(self):
+        self.forceful_close()
+        await self._do_push_pump()
+
+    async def wait_sendall_might_not_block(self):
+        with self._lock:
+            await _core.yield_briefly()
+            if self._push_pump is not None:
+                await self._push_pump.wait_push_might_not_block(self)
+
+    async def get_data(self, max_bytes=None):
+        return self._outgoing.get(max_bytes)
+
+    def get_data_nowait(self, max_bytes=None):
+        return self._outgoing.get_nowait(max_bytes)
+
+    @property
+    def push_pump(self):
+        return self._push_pump
+
+    async def set_push_pump(self, push_pump):
+        await _core.yield_briefly()
+        old_push_pump = self._push_pump
+        self._push_pump = push_pump
+        await self._do_push_pump()
+        return old_push_pump
+
+    @_util.acontextmanager
+    @async_generator
+    async def temporary_push_pump(self, push_pump):
+        old_push_pump = await self.set_push_pump(push_pump)
+        try:
+            await yield_()
+        finally:
+            await self.set_push_pump(old_push_pump)
+
+
+def memory_stream_pump(memory_send_stream, memory_recv_stream):
+    try:
+        data = memory_send_stream.get_data_nowait()
+    except _core.WouldBlock:
+        return
+    if not data:
+        memory_recv_stream.put_eof()
+    else:
+        memory_recv_stream.put_data(data)
+
+
+class MemoryRecvStreamPushPump:
+    def __init__(self, memory_recv_stream):
+        self._memory_recv_stream = memory_recv_stream
+
+    async def push(self, memory_send_stream):
+        await _core.yield_briefly()
+        memory_stream_pump(memory_send_stream, self._memory_recv_stream)
+
+    async def wait_push_might_not_block(self):
+        # our push implementation never blocks
+        return
+
+
+class MemorySendStreamPullPump:
+    def __init__(self, memory_send_stream):
+        self._memory_send_stream = memory_send_stream
+
+    async def pull(self, memory_recv_stream):
+        await _core.yield_briefly()
+        memory_stream_pump(self._memory_send_stream, memory_recv_stream)
+
+
+def memory_pipe():
+    recv_stream = MemoryRecvStream()
+    push_pump = MemoryRecvStreamPushPump(recv_stream)
+    send_stream = MemorySendStream(push_pump)
+    return send_stream, recv_stream
+
+
+def memory_stream_pair():
+    pipe1_send, pipe1_recv = memory_pipe()
+    pipe2_send, pipe2_recv = memory_pipe()
+    stream1 = _streams.stapled_stream(pipe1_send, pipe2_recv)
+    stream2 = _streams.stapled_stream(pipe2_send, pipe1_recv)
+    return stream1, stream2

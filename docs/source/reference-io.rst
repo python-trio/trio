@@ -207,30 +207,100 @@ Socket objects
 The abstract Stream API
 -----------------------
 
-(this is currently more of a sketch than something actually useful,
-`see issue #73 <https://github.com/python-trio/trio/issues/73>`__)
+.. currentmodule:: trio.abc
 
-.. currentmodule:: trio
+Trio provides a set of abstract base classes that define a standard
+interface for unidirectional and bidirectional byte streams.
+
+Why is this useful? It lets you write generic protocol implementations
+that can work over arbitrary transports, and its lets us write generic
+adapter classes. Here's some examples:
+
+* :mod:`trio.ssl.SSLStream` is a "stream adapter" that can take any
+  object that implements the :class:`Stream` interface, and lets you
+  speak SSL over it. Trio socket objects implement the :class:`Stream`
+  interface, so in trio the standard way to speak SSL over the network
+  is to wrap an :class:`~trio.ssl.SSLStream` around a socket object.
+
+* If you spawn a subprocess then you can get a :class:`SendStream`
+  that lets you write to its stdin, and a :class:`RecvStream` that
+  lets you read from its stdout. If for some reason you wanted to
+  speak SSL to a subprocess, you could use a
+  :class:`~trio.StapledStream` to combine its stdin/stdout into a
+  single bidirectional :class:`Stream`, and then wrap that in an
+  :class:`~trio.ssl.SSLStream`::
+
+     ssl_context = trio.ssl.create_default_context()
+     ssl_context.check_hostname = False
+     s = SSLStream(StapledStream(process.stdin, process.stdout), ssl_context)
+
+  [Note: subprocess support is not implemented yet, but that's the
+  plan. Hopefully I'll remember to remove this note when subprocess
+  support gets implemented...]
+
+* It sometimes happens that you want to connect to an HTTPS server,
+  but you have to go through a web proxy... and the proxy also uses
+  HTTPS. So you end up having to do `SSL-on-top-of-SSL
+  <https://daniel.haxx.se/blog/2016/11/26/https-proxy-with-curl/>`__. In
+  trio this is trivial – just wrap your first
+  :class:`~trio.ssl.SSLStream` in a second
+  :class:`~trio.ssl.SSLStream`::
+
+     sock = await make_connection("proxy", 443)
+
+     # Set up SSL connection to proxy:
+     s1 = SSLStream(sock, proxy_ssl_context, server_hostname="proxy")
+     # Request a connection to the website
+     await s1.sendall(b"CONNECT website:443 / HTTP/1.0\r\n")
+     await check_CONNECT_response(s1)
+
+     # Set up SSL connection to the real website. Notice that s1 is
+     # already an SSLStream object, and here we're wrapping a second
+     # SSLStream object around it.
+     s2 = SSLStream(s1, website_ssl_context, server_hostname="website")
+     # Make our request
+     await s2.sendall("GET /index.html HTTP/1.0\r\n")
+     ...
+
+* The :mod:`trio.testing` module provides a set of :ref:`flexible
+  in-memory stream object implementations <testing-streams>`, so if
+  you have a protocol implementation to test then you can can spawn
+  two tasks, set up a virtual "socket" connecting them, and then do
+  things like inject random-but-repeatable delays into the connection.
+
+
+Abstract base classes
+~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: AsyncResource
    :members:
-   :undoc-members:
 
 .. autoclass:: SendStream
    :members:
-   :undoc-members:
 
 .. autoclass:: RecvStream
    :members:
-   :undoc-members:
 
 .. autoclass:: Stream
    :members:
-   :undoc-members:
+
+.. autoclass:: StreamWithSendEOF
+   :members:
 
 
-TLS support
------------
+Generic stream implementations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. currentmodule:: trio
+
+.. autoclass:: StapledStream
+   :members:
+
+See also: :ref:`testing-streams` in :mod:`trio.testing`.
+
+
+SSL / TLS support
+-----------------
 
 .. module:: trio.ssl
 

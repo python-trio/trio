@@ -71,6 +71,18 @@ Inter-task ordering
 .. autofunction:: wait_all_tasks_blocked
 
 
+.. _testing-streams:
+
+Virtual, controllable streams
+-----------------------------
+
+One useful trick: you can insert :func:`~trio.sleep` calls into your
+pump implementation to control the order that different bytes move
+from the sender to the receiver... and then use :class:`MockClock` to
+
+XX
+
+
 Testing checkpoints
 --------------------
 

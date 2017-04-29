@@ -141,9 +141,9 @@ class PyOpenSSLEchoStream:
         # nothing happens.
         assert self._conn.renegotiate()
 
-    async def wait_writable(self):
+    async def wait_sendall_might_not_block(self):
         await _core.yield_briefly()
-        await self.sleeper("wait_writable")
+        await self.sleeper("wait_sendall_might_not_block")
 
     async def sendall(self, data):
         print("  --> wrapped_stream.sendall")
@@ -342,15 +342,6 @@ async def test_attributes():
             await s.do_handshake()
 
 
-async def test_send_eof():
-    with ssl_echo_server(expect_fail=True) as s:
-        assert not s.can_send_eof
-        await s.do_handshake()
-        with pytest.raises(RuntimeError):
-            await s.send_eof()
-        await s.graceful_close()
-
-
 # Note: this test fails horribly if we force TLS 1.2 and trigger a
 # renegotiation at the beginning (e.g. by switching to the pyopenssl
 # server). Usually the client crashes in SSLObject.write with "UNEXPECTED
@@ -502,21 +493,21 @@ async def test_renegotiation_randomized(mock_clock):
             await clear()
 
 
-    # Checking that wait_writable and recv don't conflict:
+    # Checking that wait_sendall_might_not_block and recv don't conflict:
 
     # 1) Set up a situation where expect (recv) is blocked sending, and
-    # wait_writable comes in.
+    # wait_sendall_might_not_block comes in.
 
     # Our recv() call will get stuck when it hits sendall
     async def sleeper_with_slow_sendall(method):
         if method == "sendall":
             await trio.sleep(100000)
 
-    # And our wait_writable call will give it time to get stuck, and then
+    # And our wait_sendall_might_not_block call will give it time to get stuck, and then
     # start
     async def sleep_then_wait_writable():
         await trio.sleep(1000)
-        await s.wait_writable()
+        await s.wait_sendall_might_not_block()
 
     with virtual_ssl_echo_server(sleeper=sleeper_with_slow_sendall) as s:
         await send(b"x")
@@ -529,10 +520,10 @@ async def test_renegotiation_randomized(mock_clock):
 
         await s.graceful_close()
 
-    # 2) Same, but now wait_writable is stuck when recv tries to send.
+    # 2) Same, but now wait_sendall_might_not_block is stuck when recv tries to send.
 
     async def sleeper_with_slow_wait_writable_and_expect(method):
-        if method == "wait_writable":
+        if method == "wait_sendall_might_not_block":
             await trio.sleep(100000)
         elif method == "expect":
             await trio.sleep(1000)
@@ -543,7 +534,7 @@ async def test_renegotiation_randomized(mock_clock):
         s.wrapped_stream.renegotiate()
         async with _core.open_nursery() as nursery:
             nursery.spawn(expect, b"x")
-            nursery.spawn(s.wait_writable)
+            nursery.spawn(s.wait_sendall_might_not_block)
 
         await clear()
 
@@ -580,24 +571,24 @@ async def test_resource_busy_errors():
         with pytest.raises(RuntimeError) as excinfo:
             async with _core.open_nursery() as nursery:
                 nursery.spawn(s.sendall, b"x")
-                nursery.spawn(s.wait_writable)
+                nursery.spawn(s.wait_sendall_might_not_block)
         assert "another task" in str(excinfo.value)
 
         with pytest.raises(RuntimeError) as excinfo:
             async with _core.open_nursery() as nursery:
-                nursery.spawn(s.wait_writable)
-                nursery.spawn(s.wait_writable)
+                nursery.spawn(s.wait_sendall_might_not_block)
+                nursery.spawn(s.wait_sendall_might_not_block)
         assert "another task" in str(excinfo.value)
 
 
 async def test_wait_writable_calls_underlying_wait_writable():
     record = []
     class NotAStream:
-        async def wait_writable(self):
+        async def wait_sendall_might_not_block(self):
             record.append("ok")
     ctx = stdlib_ssl.create_default_context()
     s = tssl.SSLStream(NotAStream(), ctx, server_hostname="x")
-    await s.wait_writable()
+    await s.wait_sendall_might_not_block()
     assert record == ["ok"]
 
 
@@ -608,7 +599,7 @@ async def test_checkpoints():
         with assert_yields():
             await s.do_handshake()
         with assert_yields():
-            await s.wait_writable()
+            await s.wait_sendall_might_not_block()
         with assert_yields():
             await s.sendall(b"xxx")
         with assert_yields():
@@ -688,6 +679,8 @@ async def test_sendall_empty_string():
 
 # maybe a test of presenting a client cert on a renegotiation?
 
+# maybe a test of TLS-over-TLS, just to prove we can?
+
 # unwrap, switching protocols. ...what if we read too much? I guess unwrap
 # should also return the residual data from the incoming BIO?
 
@@ -696,6 +689,7 @@ async def test_sendall_empty_string():
 # check getpeercert(), probably need to work around:
 # https://bugs.python.org/issue29334
 
-# StapledStream
+# StapledStream, docs
+# testing streams, docs
 
-# make it wait_sendall_might_not_block
+# repeated calls to close methods are OK
