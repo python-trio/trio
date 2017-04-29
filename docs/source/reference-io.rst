@@ -277,15 +277,19 @@ Abstract base classes
 
 .. autoclass:: SendStream
    :members:
+   :show-inheritance:
 
 .. autoclass:: RecvStream
    :members:
+   :show-inheritance:
 
 .. autoclass:: Stream
    :members:
+   :show-inheritance:
 
 .. autoclass:: StreamWithSendEOF
    :members:
+   :show-inheritance:
 
 
 Generic stream implementations
@@ -293,10 +297,14 @@ Generic stream implementations
 
 .. currentmodule:: trio
 
+Trio currently provides one generic utility class for working with
+streams. And if you want to test code that's written against the
+streams interface, you should also check out :ref:`testing-streams` in
+:mod:`trio.testing`.
+
 .. autoclass:: StapledStream
    :members:
-
-See also: :ref:`testing-streams` in :mod:`trio.testing`.
+   :show-inheritance:
 
 
 SSL / TLS support
@@ -307,6 +315,7 @@ SSL / TLS support
 `Not implemented yet! <https://github.com/python-trio/trio/issues/9>`__
 
 .. autoclass:: SSLStream
+   :show-inheritance:
    :members:
    :undoc-members:
 

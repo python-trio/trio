@@ -693,3 +693,5 @@ async def test_sendall_empty_string():
 # testing streams, docs
 
 # repeated calls to close methods are OK
+
+# fix testing.py namespace

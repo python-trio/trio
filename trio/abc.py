@@ -283,8 +283,9 @@ class SendStream(AsyncResource):
           Further reading:
 
           * `Prioritization Only Works When There's Pending Data to Prioritize
-            <https://insouciant.org/tech/prioritization-only-works-when-theres-pending-data-to-prioritize/>`__:
-            * WWDC 2015: Your App and Next Generation Networks: `slides
+            <https://insouciant.org/tech/prioritization-only-works-when-theres-pending-data-to-prioritize/>`__
+
+          * WWDC 2015: Your App and Next Generation Networks: `slides
             <http://devstreaming.apple.com/videos/wwdc/2015/719ui2k57m/719/719_your_app_and_next_generation_networks.pdf?dl=1>`__,
             `video and transcript
             <https://developer.apple.com/videos/play/wwdc2015/719/>`__
@@ -347,8 +348,8 @@ class Stream(SendStream, RecvStream):
 
 
 class StreamWithSendEOF(Stream):
-    """A standard interface for :class:`Stream`\s that also allow closing the
-    send part of the stream without closing the receive part.
+    """This interface extends :class:`Stream` to also allow closing the send
+    part of the stream without closing the receive part.
 
     """
     __slots__ = ()
@@ -382,8 +383,8 @@ class StreamWithSendEOF(Stream):
 
         * On an SSL/TLS-encrypted connection, the protocol doesn't provide any
           way to do a unidirectional shutdown without closing the connection
-          entirely, so :meth:`~trio.ssl.SSLStream` implements :class:`Stream`,
-          not :class:`StreamWithSendEOF`.
+          entirely, so :class:`~trio.ssl.SSLStream` implements
+          :class:`Stream`, not :class:`StreamWithSendEOF`.
 
         If the stream is already closed, or if an EOF has already been sent,
         then this method should silently succeed.
