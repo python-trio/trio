@@ -170,7 +170,6 @@ for _name in [
 ]:
     _reexport(_name)
 
-
 # Windows only
 try:
     for _name in ["enum_certificates", "enum_crls"]:
@@ -217,8 +216,8 @@ class _Once:
 
 class SSLStream(_Stream):
     def __init__(
-            self, wrapped_stream, sslcontext, *, bufsize=32 * 1024, **kwargs):
-        self.wrapped_stream = wrapped_stream
+            self, transport_stream, sslcontext, *, bufsize=32 * 1024, **kwargs):
+        self.transport_stream = transport_stream
         self._bufsize = bufsize
         self._outgoing = _stdlib_ssl.MemoryBIO()
         self._incoming = _stdlib_ssl.MemoryBIO()
@@ -227,7 +226,7 @@ class SSLStream(_Stream):
         # Tracks whether we've already done the initial handshake
         self._handshook = _Once(self._do_handshake)
 
-        # These are used to synchronize access to self.wrapped_stream
+        # These are used to synchronize access to self.transport_stream
         self._inner_send_lock = _sync.Lock()
         self._inner_recv_count = 0
         self._inner_recv_lock = _sync.Lock()
@@ -365,23 +364,23 @@ class SSLStream(_Stream):
                     # NOTE: This relies on the lock being strict FIFO fair!
                     async with self._inner_send_lock:
                         yielded = True
-                        await self.wrapped_stream.sendall(to_send)
+                        await self.transport_stream.sendall(to_send)
                 elif want_read:
                     # It's possible that someone else is already blocked
-                    # in wrapped_stream.recv. If so then we want to wait for
+                    # in transport_stream.recv. If so then we want to wait for
                     # them to finish, but we don't want to call
-                    # wrapped_stream.recv again ourselves; we just want to
+                    # transport_stream.recv again ourselves; we just want to
                     # loop around and check if their contribution helped
                     # anything. So we make a note of how many times some task
                     # has been through here before taking the lock, and if
                     # it's changed by the time we get the lock, then we skip
-                    # calling wrapped_stream.recv and loop around
+                    # calling transport_stream.recv and loop around
                     # immediately.
                     recv_count = self._inner_recv_count
                     async with self._inner_recv_lock:
                         yielded = True
                         if recv_count == self._inner_recv_count:
-                            data = await self.wrapped_stream.recv(self._bufsize)
+                            data = await self.transport_stream.recv(self._bufsize)
                             if not data:
                                 self._incoming.write_eof()
                             else:
@@ -401,22 +400,40 @@ class SSLStream(_Stream):
     # renegotiation is in progress it doesn't push it forward... OTOH this is
     # how the stdlib ssl do_handshake works too.
     async def do_handshake(self):
+        """Ensure that the initial handshake has completed.
+
+        The SSL protocol requires an initial handshake to exchange
+        certificates, select cryptographic keys, and so forth, before any
+        actual data can be sent or received. You don't have to call this
+        method; if you don't, then :class:`SSLStream` will automatically
+        peform the handshake as needed, the first time you try to send or
+        receive data. But if you want to trigger it manually – for example,
+        because you want to look at the peer's certificate before you start
+        talking to them – then you can call this method.
+
+        If the initial handshake is already in progress in another task, this
+        waits for it to complete and then returns.
+
+        If the initial handshake has already completed, this returns
+        immediately without doing anything (except executing a checkpoint).
+
+        """
         await self._handshook.ensure(checkpoint=True)
 
     # Most things work if we don't explicitly force do_handshake to be called
     # before calling recv or sendall, because openssl will automatically
     # perform the handshake on the first SSL_{read,write} call. BUT, allowing
-    # openssl to do this will disable Python's hostname checking! See:
+    # openssl to do this will disable Python's hostname checking!!! See:
     #   https://bugs.python.org/issue30141
     # So we *definitely* have to make sure that do_handshake is called
     # before doing anything else.
     async def recv(self, bufsize):
-        with self._outer_recv_lock:
+        async with self._outer_recv_lock:
             await self._handshook.ensure(checkpoint=False)
             return await self._retry(self._ssl_object.read, bufsize)
 
     async def sendall(self, data):
-        with self._outer_send_lock:
+        async with self._outer_send_lock:
             await self._handshook.ensure(checkpoint=False)
             # SSLObject interprets write(b"") as an EOF for some reason, which
             # is not what we want.
@@ -434,30 +451,30 @@ class SSLStream(_Stream):
     # detect that an fd you're waiting on has been closed :-( :-( :-(), so
     # maybe it's actually better to error out...?
     async def unwrap(self):
-        with self._outer_recv_lock, self._outer_send_lock:
+        async with self._outer_recv_lock, self._outer_send_lock:
             await self._handshook.ensure(checkpoint=False)
             await self._retry(self._ssl_object.unwrap)
-            wrapped_stream = self.wrapped_stream
-            self.wrapped_stream = None
-            return (wrapped_stream, self._incoming.read())
+            transport_stream = self.transport_stream
+            self.transport_stream = None
+            return (transport_stream, self._incoming.read())
 
     def forceful_close(self):
-        if self.wrapped_stream is not None:
-            self.wrapped_stream.forceful_close()
-            self.wrapped_stream = None
+        if self.transport_stream is not None:
+            self.transport_stream.forceful_close()
+            self.transport_stream = None
 
     async def graceful_close(self):
-        wrapped_stream = self.wrapped_stream
-        if wrapped_stream is None:
+        transport_stream = self.transport_stream
+        if transport_stream is None:
             await _core.yield_briefly()
             return
         try:
             # Do the TLS goodbye exchange
             await self.unwrap()
             # Close the underlying stream
-            await wrapped_stream.graceful_close()
+            await transport_stream.graceful_close()
         except:
-            wrapped_stream.forceful_close()
+            transport_stream.forceful_close()
             raise
 
     async def wait_sendall_might_not_block(self):
@@ -465,13 +482,13 @@ class SSLStream(_Stream):
         #
         # First, we take the outer send lock, because of trio's standard
         # semantics that wait_sendall_might_not_block and sendall conflict.
-        with self._outer_send_lock:
+        async with self._outer_send_lock:
             # Then we take the inner send lock. We know that no other tasks
             # are calling self.sendall or self.wait_sendall_might_not_block, because we have
             # the outer_send_lock. But! There might be another task calling
-            # self.recv -> wrapped_stream.sendall, in which case if we were to
-            # call wrapped_stream.wait_sendall_might_not_block directly we'd have two tasks
-            # doing write-related operations on wrapped_stream simultaneously,
+            # self.recv -> transport_stream.sendall, in which case if we were to
+            # call transport_stream.wait_sendall_might_not_block directly we'd have two tasks
+            # doing write-related operations on transport_stream simultaneously,
             # which is not allowed. We *don't* want to raise this conflict to
             # our caller, because it's purely an internal affair – all they
             # did was call wait_sendall_might_not_block and recv at the same time, which is
@@ -481,7 +498,7 @@ class SSLStream(_Stream):
             async with self._inner_send_lock:
                 # Now we have the lock, which creates another potential
                 # problem: what if a call to self.recv attempts to do
-                # wrapped_stream.sendall now? It'll have to wait for us to
+                # transport_stream.sendall now? It'll have to wait for us to
                 # finish! But that's OK, because we release the lock as soon
                 # as the underlying stream becomes writable, and the self.recv
                 # call wasn't going to make any progress until then anyway.
@@ -491,5 +508,5 @@ class SSLStream(_Stream):
                 # return self.recv might write some data and make it
                 # non-writable again. But that's OK too, wait_sendall_might_not_block only
                 # guarantees that it doesn't return late.
-                await self.wrapped_stream.wait_sendall_might_not_block()
+                await self.transport_stream.wait_sendall_might_not_block()
                 print(self._inner_send_lock.statistics())

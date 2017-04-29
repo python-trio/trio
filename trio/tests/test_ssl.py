@@ -17,7 +17,7 @@ from .._util import UnLock
 from .._core.tests.tutil import slow
 
 from ..testing import (
-    assert_yields, wait_all_tasks_blocked, Sequencer, memory_stream_two_way,
+    assert_yields, Sequencer, memory_stream_two_way,
 )
 
 ASSETS_DIR = Path(__file__).parent / "test_ssl_certs"
@@ -143,12 +143,13 @@ class PyOpenSSLEchoStream:
         assert self._conn.renegotiate()
 
     async def wait_sendall_might_not_block(self):
-        await _core.yield_briefly()
-        await self.sleeper("wait_sendall_might_not_block")
+        async with self._sendall_mutex:
+            await _core.yield_briefly()
+            await self.sleeper("wait_sendall_might_not_block")
 
     async def sendall(self, data):
-        print("  --> wrapped_stream.sendall")
-        with self._sendall_mutex:
+        print("  --> transport_stream.sendall")
+        async with self._sendall_mutex:
             await _core.yield_briefly()
             await self.sleeper("sendall")
             self._conn.bio_write(data)
@@ -166,11 +167,11 @@ class PyOpenSSLEchoStream:
                     self._pending_cleartext += data
             self._lot.unpark_all()
             await self.sleeper("sendall")
-            print("  <-- wrapped_stream.sendall finished")
+            print("  <-- transport_stream.sendall finished")
 
     async def recv(self, nbytes):
-        print("  --> wrapped_stream.recv")
-        with self._recv_mutex:
+        print("  --> transport_stream.recv")
+        async with self._recv_mutex:
             try:
                 await _core.yield_briefly()
                 while True:
@@ -215,7 +216,7 @@ class PyOpenSSLEchoStream:
                             await self._lot.park()
             finally:
                 await self.sleeper("recv")
-                print("  <-- wrapped_stream.recv finished")
+                print("  <-- transport_stream.recv finished")
 
 
 async def test_PyOpenSSLEchoStream_gives_resource_busy_errors():
@@ -230,6 +231,20 @@ async def test_PyOpenSSLEchoStream_gives_resource_busy_errors():
         async with _core.open_nursery() as nursery:
             nursery.spawn(s.sendall, b"x")
             nursery.spawn(s.sendall, b"x")
+    assert "simultaneous" in str(excinfo.value)
+
+    s = PyOpenSSLEchoStream()
+    with pytest.raises(RuntimeError) as excinfo:
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(s.sendall, b"x")
+            nursery.spawn(s.wait_sendall_might_not_block)
+    assert "simultaneous" in str(excinfo.value)
+
+    s = PyOpenSSLEchoStream()
+    with pytest.raises(RuntimeError) as excinfo:
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(s.wait_sendall_might_not_block)
+            nursery.spawn(s.wait_sendall_might_not_block)
     assert "simultaneous" in str(excinfo.value)
 
     s = PyOpenSSLEchoStream()
@@ -313,7 +328,7 @@ async def test_attributes():
         s = tssl.SSLStream(
             sock, good_ctx, server_hostname="trio-test-1.example.org")
 
-        assert s.wrapped_stream is sock
+        assert s.transport_stream is sock
 
         # Forwarded attribute getting
         assert s.context is good_ctx
@@ -323,7 +338,7 @@ async def test_attributes():
             s.asfdasdfsa
 
         # __dir__
-        assert "wrapped_stream" in dir(s)
+        assert "transport_stream" in dir(s)
         assert "context" in dir(s)
 
         # Setting the attribute goes through to the underlying object
@@ -381,6 +396,7 @@ async def test_full_duplex_basics():
 
     sent = bytearray()
     received = bytearray()
+
     async def sender(s):
         nonlocal sent
         for i in range(CHUNKS):
@@ -414,7 +430,7 @@ async def test_renegotiation_simple():
     with virtual_ssl_echo_server() as s:
         await s.do_handshake()
 
-        s.wrapped_stream.renegotiate()
+        s.transport_stream.renegotiate()
         await s.sendall(b"a")
         assert await s.recv(1) == b"a"
 
@@ -441,7 +457,7 @@ async def test_renegotiation_randomized(mock_clock):
         await trio.sleep(r.uniform(0, 10))
 
     async def clear():
-        while s.wrapped_stream.renegotiate_pending():
+        while s.transport_stream.renegotiate_pending():
             with assert_yields():
                 await send(b"-")
             with assert_yields():
@@ -449,13 +465,13 @@ async def test_renegotiation_randomized(mock_clock):
         print("-- clear --")
 
     async def send(byte):
-        await s.wrapped_stream.sleeper("outer send")
+        await s.transport_stream.sleeper("outer send")
         print("calling SSLStream.sendall", byte)
         with assert_yields():
             await s.sendall(byte)
 
     async def expect(expected):
-        await s.wrapped_stream.sleeper("expect")
+        await s.transport_stream.sleeper("expect")
         print("calling SSLStream.recv, expecting", expected)
         assert len(expected) == 1
         with assert_yields():
@@ -465,7 +481,7 @@ async def test_renegotiation_randomized(mock_clock):
         await s.do_handshake()
 
         await send(b"a")
-        s.wrapped_stream.renegotiate()
+        s.transport_stream.renegotiate()
         await expect(b"a")
 
         await clear()
@@ -473,7 +489,7 @@ async def test_renegotiation_randomized(mock_clock):
         for i in range(100):
             b1 = bytes([i % 0xff])
             b2 = bytes([(2 * i) % 0xff])
-            s.wrapped_stream.renegotiate()
+            s.transport_stream.renegotiate()
             async with _core.open_nursery() as nursery:
                 nursery.spawn(send, b1)
                 nursery.spawn(expect, b1)
@@ -486,13 +502,12 @@ async def test_renegotiation_randomized(mock_clock):
             b1 = bytes([i % 0xff])
             b2 = bytes([(2 * i) % 0xff])
             await send(b1)
-            s.wrapped_stream.renegotiate()
+            s.transport_stream.renegotiate()
             await expect(b1)
             async with _core.open_nursery() as nursery:
                 nursery.spawn(expect, b2)
                 nursery.spawn(send, b2)
             await clear()
-
 
     # Checking that wait_sendall_might_not_block and recv don't conflict:
 
@@ -504,15 +519,15 @@ async def test_renegotiation_randomized(mock_clock):
         if method == "sendall":
             await trio.sleep(100000)
 
-    # And our wait_sendall_might_not_block call will give it time to get stuck, and then
-    # start
+    # And our wait_sendall_might_not_block call will give it time to get
+    # stuck, and then start
     async def sleep_then_wait_writable():
         await trio.sleep(1000)
         await s.wait_sendall_might_not_block()
 
     with virtual_ssl_echo_server(sleeper=sleeper_with_slow_sendall) as s:
         await send(b"x")
-        s.wrapped_stream.renegotiate()
+        s.transport_stream.renegotiate()
         async with _core.open_nursery() as nursery:
             nursery.spawn(expect, b"x")
             nursery.spawn(sleep_then_wait_writable)
@@ -521,7 +536,8 @@ async def test_renegotiation_randomized(mock_clock):
 
         await s.graceful_close()
 
-    # 2) Same, but now wait_sendall_might_not_block is stuck when recv tries to send.
+    # 2) Same, but now wait_sendall_might_not_block is stuck when recv tries
+    # to send.
 
     async def sleeper_with_slow_wait_writable_and_expect(method):
         if method == "wait_sendall_might_not_block":
@@ -532,7 +548,7 @@ async def test_renegotiation_randomized(mock_clock):
     with virtual_ssl_echo_server(
             sleeper=sleeper_with_slow_wait_writable_and_expect) as s:
         await send(b"x")
-        s.wrapped_stream.renegotiate()
+        s.transport_stream.renegotiate()
         async with _core.open_nursery() as nursery:
             nursery.spawn(expect, b"x")
             nursery.spawn(s.wait_sendall_might_not_block)
@@ -543,17 +559,29 @@ async def test_renegotiation_randomized(mock_clock):
 
 
 async def test_resource_busy_errors():
+    async def do_sendall():
+        with assert_yields():
+            await s.sendall(b"x")
+
+    async def do_recv():
+        with assert_yields():
+            await s.recv(1)
+
+    async def do_wait_sendall_might_not_block():
+        with assert_yields():
+            await s.wait_sendall_might_not_block()
+
     with ssl_echo_server(expect_fail=True) as s:
         with pytest.raises(RuntimeError) as excinfo:
             async with _core.open_nursery() as nursery:
-                nursery.spawn(s.sendall, b"x")
-                nursery.spawn(s.sendall, b"x")
+                nursery.spawn(do_sendall)
+                nursery.spawn(do_sendall)
         assert "another task" in str(excinfo.value)
 
         with pytest.raises(RuntimeError) as excinfo:
             async with _core.open_nursery() as nursery:
-                nursery.spawn(s.recv, 1)
-                nursery.spawn(s.recv, 1)
+                nursery.spawn(do_recv)
+                nursery.spawn(do_recv)
         assert "another task" in str(excinfo.value)
 
     a, b = stdlib_socket.socketpair()
@@ -571,14 +599,14 @@ async def test_resource_busy_errors():
 
         with pytest.raises(RuntimeError) as excinfo:
             async with _core.open_nursery() as nursery:
-                nursery.spawn(s.sendall, b"x")
-                nursery.spawn(s.wait_sendall_might_not_block)
+                nursery.spawn(do_sendall)
+                nursery.spawn(do_wait_sendall_might_not_block)
         assert "another task" in str(excinfo.value)
 
         with pytest.raises(RuntimeError) as excinfo:
             async with _core.open_nursery() as nursery:
-                nursery.spawn(s.wait_sendall_might_not_block)
-                nursery.spawn(s.wait_sendall_might_not_block)
+                nursery.spawn(do_wait_sendall_might_not_block)
+                nursery.spawn(do_wait_sendall_might_not_block)
         assert "another task" in str(excinfo.value)
 
 
@@ -701,3 +729,10 @@ async def test_unwrap():
 
 # fix testing.py namespace
 # maybe by promoting it to a package
+
+# CI failures:
+# let pyopenssl use lower versions of TLS, b/c macos 3.5 can't handle 1.2
+# https://github.com/pyca/pyopenssl/issues/624
+# (maybe assert the negotiated version is reasonable?)
+#
+# figure out why pypy's ssl object is missing server_side

@@ -416,14 +416,13 @@ class _UnboundedByteQueue:
             return bytearray()
 
     def get_nowait(self, max_bytes=None):
-        with self._fetch_lock:
+        with self._fetch_lock.sync:
             if not self._closed and not self._data:
                 raise _core.WouldBlock
             return self._get_impl(max_bytes)
 
     async def get(self, max_bytes=None):
-        await _core.yield_briefly()
-        with self._fetch_lock:
+        async with self._fetch_lock:
             if not self._closed and not self._data:
                 await self._lot.park()
             return self._get_impl(max_bytes)
@@ -465,12 +464,10 @@ class MemorySendStream(_abc.SendStream):
         calls the :attr:`sendall_hook` (if any).
 
         """
-        # We yield outside the lock as a lazy way to make sure we checkpoint
-        # even if the lock raises an error; then we yield inside the lock to
-        # give ourselves a chance to detect buggy user code that calls this
-        # twice at the same time.
-        await _core.yield_briefly()
-        with self._lock:
+        # The lock itself is a checkpoint, but then we also yield inside the
+        # lock to give ourselves a chance to detect buggy user code that calls
+        # this twice at the same time.
+        async with self._lock:
             await _core.yield_briefly()
             self._outgoing.put(data)
             if self.sendall_hook is not None:
@@ -481,12 +478,10 @@ class MemorySendStream(_abc.SendStream):
         then returns immediately.
 
         """
-        # We yield outside the lock as a lazy way to make sure we checkpoint
-        # even if the lock raises an error; then we yield inside the lock to
-        # give ourselves a chance to detect buggy user code that calls this
-        # twice at the same time.
-        await _core.yield_briefly()
-        with self._lock:
+        # The lock itself is a checkpoint, but then we also yield inside the
+        # lock to give ourselves a chance to detect buggy user code that calls
+        # this twice at the same time.
+        async with self._lock:
             await _core.yield_briefly()
             if self.wait_sendall_might_not_block_hook is not None:
                 await self.wait_sendall_might_not_block_hook()
@@ -552,12 +547,10 @@ class MemoryRecvStream(_abc.RecvStream):
         the internal buffer, blocking if necessary.
 
         """
-        # We yield outside the lock as a lazy way to make sure we checkpoint
-        # even if the lock raises an error; then we yield inside the lock to
-        # give ourselves a chance to detect buggy user code that calls this
-        # twice at the same time.
-        await _core.yield_briefly()
-        with self._lock:
+        # The lock itself is a checkpoint, but then we also yield inside the
+        # lock to give ourselves a chance to detect buggy user code that calls
+        # this twice at the same time.
+        async with self._lock:
             await _core.yield_briefly()
             if max_bytes is None:
                 raise TypeError("max_bytes must not be None")
