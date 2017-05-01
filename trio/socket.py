@@ -637,22 +637,21 @@ class SocketType(_StreamWithSendEOF):
 
         ``flags`` are passed on to ``send``.
 
-        If an error occurs or the operation is cancelled, then the resulting
-        exception will have a ``.partial_result`` attribute with a
-        ``.bytes_sent`` attribute containing the number of bytes sent.
+        Most low-level operations in trio provide a guarantee: if they raise
+        :exc:`trio.Cancelled`, this means that they had no effect, so the
+        system remains in a known state. This is **not true** for
+        :meth:`sendall`. If this operation raises :exc:`trio.Cancelled` (or
+        any other exception for that matter), then it may have sent some, all,
+        or none of the requested data, and there is no way to know which.
 
         """
         with memoryview(data) as data:
             total_sent = 0
-            try:
-                while data:
-                    sent = await self._send(data, flags)
-                    total_sent += sent
-                    data = data[sent:]
-            except BaseException as exc:
-                pr = _core.PartialResult(bytes_sent=total_sent)
-                exc.partial_result = pr
-                raise
+            while total_sent < len(data):
+                # with data[total_sent:] as remaining:
+                #     sent = await self._send(remaining, flags)
+                sent = await self._send(data[total_sent:], flags)
+                total_sent += sent
 
     ################################################################
     # sendfile

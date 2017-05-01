@@ -2,8 +2,7 @@ import attr
 
 # Re-exported
 __all__ = [
-    "TrioInternalError", "RunFinishedError", "WouldBlock",
-    "Cancelled", "PartialResult",
+    "TrioInternalError", "RunFinishedError", "WouldBlock", "Cancelled",
 ]
 
 class TrioInternalError(Exception):
@@ -73,9 +72,3 @@ class Cancelled(BaseException):
     _scope = None
 
 Cancelled.__module__ = "trio"
-
-
-@attr.s(slots=True, frozen=True)
-class PartialResult:
-    # XX
-    bytes_sent = attr.ib()
