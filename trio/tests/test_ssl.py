@@ -297,9 +297,9 @@ async def test_ssl_server_basics():
     a, b = stdlib_socket.socketpair()
     with a, b:
         server_sock = tsocket.from_stdlib_socket(b)
-        server_stream = tssl.SSLStream(
+        server_transport = tssl.SSLStream(
             server_sock, SERVER_CTX, server_side=True)
-        assert server_stream.server_side
+        assert server_transport.server_side
 
         def client():
             client_ctx = stdlib_ssl.create_default_context(cafile=CA)
@@ -312,11 +312,11 @@ async def test_ssl_server_basics():
         t = threading.Thread(target=client)
         t.start()
 
-        assert await server_stream.recv(1) == b"x"
-        await server_stream.sendall(b"y")
-        assert await server_stream.recv(1) == b"z"
-        assert await server_stream.recv(1) == b""
-        await server_stream.graceful_close()
+        assert await server_transport.recv(1) == b"x"
+        await server_transport.sendall(b"y")
+        assert await server_transport.recv(1) == b"z"
+        assert await server_transport.recv(1) == b""
+        await server_transport.graceful_close()
 
         t.join()
 
@@ -665,13 +665,21 @@ async def test_sendall_empty_string():
         await s.graceful_close()
 
 
-async def test_unwrap():
-    client_stream, server_stream = memory_stream_two_way()
+def ssl_memory_stream_two_way(*, client_kwargs={}, server_kwargs={}):
+    client_transport, server_transport = memory_stream_two_way()
     client_ctx = stdlib_ssl.create_default_context(cafile=CA)
     client_ssl = tssl.SSLStream(
-        client_stream, client_ctx, server_hostname="trio-test-1.example.org")
+        client_transport, client_ctx,
+        server_hostname="trio-test-1.example.org", **client_kwargs)
     server_ssl = tssl.SSLStream(
-        server_stream, SERVER_CTX, server_side=True)
+        server_transport, SERVER_CTX, server_side=True, **server_kwargs)
+    return client_ssl, server_ssl
+
+
+async def test_unwrap():
+    client_ssl, server_ssl = ssl_memory_stream_two_way()
+    client_transport = client_ssl.transport_stream
+    server_transport = server_ssl.transport_stream
 
     seq = Sequencer()
 
@@ -679,41 +687,121 @@ async def test_unwrap():
         await client_ssl.do_handshake()
         await client_ssl.sendall(b"x")
         assert await client_ssl.recv(1) == b"y"
+        await client_ssl.sendall(b"z")
 
+        # After sending that, disable outgoing data from our end, to make
+        # sure the server doesn't see our EOF until after we've sent some
+        # trailing data
         async with seq(0):
-            await client_ssl.sendall(b"z")
-            # After sending that, disable outgoing data from our end, to make
-            # sure the server doesn't see our EOF until after we've sent some
-            # trailing data
-            sendall_hook = client_stream.send_stream.sendall_hook
-            client_stream.send_stream.sendall_hook = None
+            sendall_hook = client_transport.send_stream.sendall_hook
+            client_transport.send_stream.sendall_hook = None
 
         assert await client_ssl.recv(1) == b""
+        assert client_ssl.transport_stream is client_transport
         # We just received EOF. Unwrap the connection and send some more.
         raw, trailing = await client_ssl.unwrap()
-        assert raw is client_stream
+        assert raw is client_transport
         assert trailing == b""
+        assert client_ssl.transport_stream is None
         await raw.sendall(b"trailing")
-        # Reconnect the streams
-        client_stream.send_stream.sendall_hook = sendall_hook
-        await client_stream.send_stream.sendall_hook()
+
+        # Reconnect the streams. Now the server will receive both our shutdown
+        # acknowledgement + the trailing data in a single lump.
+        client_transport.send_stream.sendall_hook = sendall_hook
+        await client_transport.send_stream.sendall_hook()
 
     async def server():
         await server_ssl.do_handshake()
         assert await server_ssl.recv(1) == b"x"
         assert await server_ssl.sendall(b"y")
-        async with seq(1):
-            assert await server_ssl.recv(1) == b"z"
+        assert await server_ssl.recv(1) == b"z"
         # Now client is blocked waiting for us to send something, but
-        # instead we close the TLS connection
-        raw, trailing = await server_ssl.unwrap()
-        assert raw is server_stream
+        # instead we close the TLS connection (with sequencer to make sure
+        # that the client won't see and automatically respond before we've had
+        # a chance to disable the client->server transport)
+        async with seq(1):
+            raw, trailing = await server_ssl.unwrap()
+        assert raw is server_transport
         assert trailing == b"trailing"
+        assert server_ssl.transport_stream is None
 
     async with _core.open_nursery() as nursery:
         nursery.spawn(client)
         nursery.spawn(server)
 
+
+async def test_closing_nice_case():
+    # the nice case: graceful closes all around
+
+    client_ssl, server_ssl = ssl_memory_stream_two_way()
+    client_transport = client_ssl.transport_stream
+
+    # Both the handshake and the close require back-and-forth discussion, so
+    # we need to run them concurrently
+    async def client_closer():
+        with assert_yields():
+            await client_ssl.graceful_close()
+        assert client_ssl.transport_stream is None
+
+    async def server_closer():
+        assert await server_ssl.recv(10) == b""
+        assert await server_ssl.recv(10) == b""
+        assert server_ssl.transport_stream is not None
+        with assert_yields():
+            await server_ssl.graceful_close()
+        assert server_ssl.transport_stream is None
+
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(client_closer)
+        nursery.spawn(server_closer)
+
+    # closing the SSLStream also closes its transport
+    assert client_ssl.transport_stream is None
+    with pytest.raises(BrokenPipeError):
+        await client_transport.sendall(b"123")
+
+    # once closed, it's OK to close again
+    with assert_yields():
+        await client_ssl.graceful_close()
+    client_ssl.forceful_close()
+
+    # Trying to send more data does not work
+    with assert_yields():
+        with pytest.raises(tssl.SSLError):
+            await server_ssl.sendall(b"123")
+
+    # And once the connection is has been closed *locally*, then instead of
+    # getting empty bytestrings we get a proper error
+    with assert_yields():
+        with pytest.raises(tssl.SSLError):
+            await client_ssl.recv(10) == b""
+
+    with assert_yields():
+        with pytest.raises(RuntimeError):
+            await client_ssl.unwrap()
+
+
+async def test_closing_forceful():
+    ### connection drops and such like, in the default mode where this is an
+    ### error
+
+    client_ssl, server_ssl = ssl_memory_stream_two_way()
+
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(client_ssl.do_handshake)
+        nursery.spawn(server_ssl.do_handshake)
+
+    client_ssl.forceful_close()
+    # as far as the client is concerned, we closed this fine
+    assert client_ssl.transport_stream is None
+
+# There are a lot of complicated error cases around shutting down and I'm not
+# sure how SSLStream should signal them:
+# - underlying connection dropped, transport's sendall or recv raises some
+#   arbitrary error (NB: recv() can give a BrokenPipeError!)
+# - trying to send/recv on a connection that we already closed
+# - SSLObject has lots of possible complaints, e.g. trying to send/recv on a
+#   successfully closed connection raises SSLZeroReturnError,
 
 # maybe a test of presenting a client cert on a renegotiation?
 

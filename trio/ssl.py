@@ -452,6 +452,8 @@ class SSLStream(_Stream):
     # maybe it's actually better to error out...?
     async def unwrap(self):
         async with self._outer_recv_lock, self._outer_send_lock:
+            if self.transport_stream is None:
+                raise RuntimeError("can't unwrap an already-closed SSLStream")
             await self._handshook.ensure(checkpoint=False)
             await self._retry(self._ssl_object.unwrap)
             transport_stream = self.transport_stream
