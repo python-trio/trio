@@ -570,6 +570,24 @@ async def test_MemoryRecvStream():
     assert await mrs2.recv(10) == b""
 
 
+async def test_MemoryRecvStream_closing():
+    mrs = MemoryRecvStream()
+    # close with no pending data
+    mrs.forceful_close()
+    assert await mrs.recv(10) == b""
+    # repeated closes ok
+    mrs.forceful_close()
+    # put_data now fails
+    with pytest.raises(BrokenPipeError):
+        mrs.put_data(b"123")
+
+    mrs2 = MemoryRecvStream()
+    # close with pending data
+    mrs2.put_data(b"xyz")
+    mrs2.forceful_close()
+    assert await mrs2.recv(10) == b""
+
+
 async def test_memory_stream_pump():
     mss = MemorySendStream()
     mrs = MemoryRecvStream()

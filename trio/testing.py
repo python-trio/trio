@@ -564,7 +564,10 @@ class MemoryRecvStream(_abc.RecvStream):
 
         """
         # discard any pending data
-        self._incoming.get_nowait()
+        try:
+            self._incoming.get_nowait()
+        except _core.WouldBlock:
+            pass
         self._incoming.close()
 
     def put_data(self, data):
