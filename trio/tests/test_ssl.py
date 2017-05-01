@@ -103,12 +103,32 @@ def ssl_echo_server(**kwargs):
             sock, client_ctx, server_hostname="trio-test-1.example.org")
 
 
-# The weird ... in-memory server thing.
+# The weird in-memory server ... thing.
 # Doesn't inherit from Stream because I left out the methods that we don't
 # actually need.
 class PyOpenSSLEchoStream:
     def __init__(self, sleeper=None):
-        ctx = SSL.Context(SSL.TLSv1_2_METHOD)
+        ctx = SSL.Context(SSL.SSLv23_METHOD)
+        # TLS 1.3 removes renegotiation support. Which is great for them, but
+        # we still have to support versions before that, and that means we
+        # need to test renegotation support, which means we need to force this
+        # to use a lower version where this test server can trigger
+        # renegotiations. Of course TLS 1.3 support isn't released yet, but
+        # I'm told that this will work once it is. (And once it is we can
+        # remove the pragma: no cover too.) Alternatively, once we drop
+        # support for CPython 3.5 on MacOS, then we could switch to using
+        # TLSv1_2_METHOD.
+        #
+        # Discussion: https://github.com/pyca/pyopenssl/issues/624
+        if hasattr(SSL, "OP_NO_TLSv1_3"):  # pragma: no cover
+            ctx.set_options(SSL.OP_NO_TLSv1_3)
+        # Unfortunately there's currently no way to say "use 1.3 or worse", we
+        # can only disable specific versions. And if the two sides start
+        # negotiating 1.4 at some point in the future, it *might* mean that
+        # our tests silently stop working properly. So the next line is a
+        # tripwire to remind us we need to revisit this stuff in 5 years or
+        # whatever when the next TLS version is released:
+        assert not hasattr(SSL, "OP_NO_TLSv1_4")
         ctx.use_certificate_file(CERT1)
         ctx.use_privatekey_file(CERT1)
         self._conn = SSL.Connection(ctx, None)
