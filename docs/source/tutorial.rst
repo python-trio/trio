@@ -912,8 +912,8 @@ tasks, we end up with a task tree that looks like:
    ┆
 
 This lets ``parent`` focus on supervising the children,
-``echo_listener`` focus on listening for new connections, each
-``echo_server`` call will handle a single client.
+``echo_listener`` focus on listening for new connections, and each
+``echo_server`` focus on handling a single client.
 
 Once we know this trick, the listener code becomes pretty
 straightforward:
