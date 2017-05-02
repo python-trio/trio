@@ -842,5 +842,3 @@ async def test_closing_forceful():
 # let pyopenssl use lower versions of TLS, b/c macos 3.5 can't handle 1.2
 # https://github.com/pyca/pyopenssl/issues/624
 # (maybe assert the negotiated version is reasonable?)
-#
-# figure out why pypy's ssl object is missing server_side
