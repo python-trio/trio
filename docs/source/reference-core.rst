@@ -1462,12 +1462,14 @@ trio's internal scheduling decisions.
 Exceptions
 ----------
 
-.. autoexception:: TrioInternalError
-
 .. autoexception:: Cancelled
 
 .. autoexception:: TooSlowError
 
 .. autoexception:: WouldBlock
 
+.. autoexception:: ResourceBusyError
+
 .. autoexception:: RunFinishedError
+
+.. autoexception:: TrioInternalError

@@ -137,9 +137,11 @@ class PyOpenSSLEchoStream:
         self._pending_cleartext = bytearray()
 
         self._sendall_mutex = UnLock(
-            RuntimeError, "simultaneous calls to PyOpenSSLEchoStream.sendall")
+            _core.ResourceBusyError,
+            "simultaneous calls to PyOpenSSLEchoStream.sendall")
         self._recv_mutex = UnLock(
-            RuntimeError, "simultaneous calls to PyOpenSSLEchoStream.recv")
+            _core.ResourceBusyError,
+            "simultaneous calls to PyOpenSSLEchoStream.recv")
 
         if sleeper is None:
             async def no_op_sleeper(_):
@@ -247,28 +249,28 @@ async def test_PyOpenSSLEchoStream_gives_resource_busy_errors():
     # PyOpenSSLEchoStream will notice and complain.
 
     s = PyOpenSSLEchoStream()
-    with pytest.raises(RuntimeError) as excinfo:
+    with pytest.raises(_core.ResourceBusyError) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.spawn(s.sendall, b"x")
             nursery.spawn(s.sendall, b"x")
     assert "simultaneous" in str(excinfo.value)
 
     s = PyOpenSSLEchoStream()
-    with pytest.raises(RuntimeError) as excinfo:
+    with pytest.raises(_core.ResourceBusyError) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.spawn(s.sendall, b"x")
             nursery.spawn(s.wait_sendall_might_not_block)
     assert "simultaneous" in str(excinfo.value)
 
     s = PyOpenSSLEchoStream()
-    with pytest.raises(RuntimeError) as excinfo:
+    with pytest.raises(_core.ResourceBusyError) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.spawn(s.wait_sendall_might_not_block)
             nursery.spawn(s.wait_sendall_might_not_block)
     assert "simultaneous" in str(excinfo.value)
 
     s = PyOpenSSLEchoStream()
-    with pytest.raises(RuntimeError) as excinfo:
+    with pytest.raises(_core.ResourceBusyError) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.spawn(s.recv, 1)
             nursery.spawn(s.recv, 1)
@@ -592,13 +594,13 @@ async def test_resource_busy_errors():
             await s.wait_sendall_might_not_block()
 
     with ssl_echo_server(expect_fail=True) as s:
-        with pytest.raises(RuntimeError) as excinfo:
+        with pytest.raises(_core.ResourceBusyError) as excinfo:
             async with _core.open_nursery() as nursery:
                 nursery.spawn(do_sendall)
                 nursery.spawn(do_sendall)
         assert "another task" in str(excinfo.value)
 
-        with pytest.raises(RuntimeError) as excinfo:
+        with pytest.raises(_core.ResourceBusyError) as excinfo:
             async with _core.open_nursery() as nursery:
                 nursery.spawn(do_recv)
                 nursery.spawn(do_recv)
@@ -617,13 +619,13 @@ async def test_resource_busy_errors():
         ctx = stdlib_ssl.create_default_context()
         s = tssl.SSLStream(sockstream, ctx, server_hostname="x")
 
-        with pytest.raises(RuntimeError) as excinfo:
+        with pytest.raises(_core.ResourceBusyError) as excinfo:
             async with _core.open_nursery() as nursery:
                 nursery.spawn(do_sendall)
                 nursery.spawn(do_wait_sendall_might_not_block)
         assert "another task" in str(excinfo.value)
 
-        with pytest.raises(RuntimeError) as excinfo:
+        with pytest.raises(_core.ResourceBusyError) as excinfo:
             async with _core.open_nursery() as nursery:
                 nursery.spawn(do_wait_sendall_might_not_block)
                 nursery.spawn(do_wait_sendall_might_not_block)

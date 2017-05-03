@@ -3,6 +3,7 @@ import attr
 # Re-exported
 __all__ = [
     "TrioInternalError", "RunFinishedError", "WouldBlock", "Cancelled",
+    "ResourceBusyError",
 ]
 
 class TrioInternalError(Exception):
@@ -72,3 +73,15 @@ class Cancelled(BaseException):
     _scope = None
 
 Cancelled.__module__ = "trio"
+
+
+class ResourceBusyError(Exception):
+    """Raised when a task attempts to use a resource that some other task is
+    already using, and this would lead to bugs and nonsense.
+
+    For example, if two tasks try to send data through the same socket at the
+    same time, trio will raise :class:`ResourceBusyError` instead of letting
+    the data get scrambled.
+
+    """
+ResourceBusyError.__module__ = "trio"

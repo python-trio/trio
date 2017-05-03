@@ -80,7 +80,7 @@ class KqueueIOManager:
     def monitor_kevent(self, ident, filter):
         key = (ident, filter)
         if key in self._registered:
-            raise RuntimeError(
+            raise _core.ResourceBusyError(
                 "attempt to register multiple listeners for same "
                 "ident/filter pair")
         q = _core.UnboundedQueue()
@@ -95,7 +95,7 @@ class KqueueIOManager:
     async def wait_kevent(self, ident, filter, abort_func):
         key = (ident, filter)
         if key in self._registered:
-            raise RuntimeError(
+            raise _core.ResourceBusyError(
                 "attempt to register multiple listeners for same "
                 "ident/filter pair")
         self._registered[key] = _core.current_task()

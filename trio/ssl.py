@@ -234,10 +234,10 @@ class SSLStream(_Stream):
         # These are used to make sure that our caller doesn't attempt to make
         # multiple concurrent calls to sendall/wait_sendall_might_not_block or to recv.
         self._outer_send_lock = _UnLock(
-            RuntimeError,
+            _core.ResourceBusyError,
             "another task is currently sending data on this SSLStream")
         self._outer_recv_lock = _UnLock(
-            RuntimeError,
+            _core.ResourceBusyError,
             "another task is currently receiving data on this SSLStream")
 
     _forwarded = {

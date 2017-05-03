@@ -229,8 +229,9 @@ class SendStream(AsyncResource):
           data (bytes, bytearray, or memoryview): The data to send.
 
         Raises:
-          RuntimeError: if another task is already executing a :meth:`sendall`
-              or :meth:`wait_sendall_might_not_block` on this stream.
+          trio.ResourceBusyError: if another task is already executing a
+              :meth:`sendall`, :meth:`wait_sendall_might_not_block`, or
+              :meth:`StreamWithSendEOF.send_eof` on this stream.
 
         """
         pass
@@ -253,8 +254,9 @@ class SendStream(AsyncResource):
         return. When implementing it, err on the side of returning early.
 
         Raises:
-          RuntimeError: if another task is already executing a :meth:`sendall`
-              or :meth:`wait_sendall_might_not_block` on this stream.
+          trio.ResourceBusyError: if another task is already executing a
+              :meth:`sendall`, :meth:`wait_sendall_might_not_block`, or
+              :meth:`StreamWithSendEOF.send_eof` on this stream.
 
         Note:
 
@@ -323,8 +325,8 @@ class RecvStream(AsyncResource):
           bytes or bytearray: The data received.
 
         Raises:
-          RuntimeError: if another task is already executing a :meth:`recv` on
-              this stream.
+          trio.ResourceBusyError: if another task is already executing a
+              :meth:`recv` on this stream.
 
         """
         pass
@@ -382,8 +384,13 @@ class StreamWithSendEOF(Stream):
           entirely, so :class:`~trio.ssl.SSLStream` implements
           :class:`Stream`, not :class:`StreamWithSendEOF`.
 
-        If the stream is already closed, or if an EOF has already been sent,
-        then this method should silently succeed.
+        If an EOF has already been sent, then this method should silently
+        succeed.
+
+        Raises:
+          trio.ResourceBusyError: if another task is already executing a
+              :meth:`sendall`, :meth:`wait_sendall_might_not_block`, or
+              :meth:`StreamWithSendEOF.send_eof` on this stream.
 
         """
         pass

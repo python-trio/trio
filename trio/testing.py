@@ -390,7 +390,7 @@ class _UnboundedByteQueue:
         self._closed = False
         self._lot = _core.ParkingLot()
         self._fetch_lock = _util.UnLock(
-            RuntimeError, "another task is already fetching data")
+            _core.ResourceBusyError, "another task is already fetching data")
 
     def close(self):
         self._closed = True
@@ -453,7 +453,7 @@ class MemorySendStream(_abc.SendStream):
                  wait_sendall_might_not_block_hook=None,
                  close_hook=None):
         self._lock = _util.UnLock(
-            RuntimeError, "another task is using this stream")
+            _core.ResourceBusyError, "another task is using this stream")
         self._outgoing = _UnboundedByteQueue()
         self.sendall_hook = sendall_hook
         self.wait_sendall_might_not_block_hook = wait_sendall_might_not_block_hook
@@ -538,7 +538,7 @@ class MemoryRecvStream(_abc.RecvStream):
     """
     def __init__(self, recv_hook=None):
         self._lock = _util.UnLock(
-            RuntimeError, "another task is using this stream")
+            _core.ResourceBusyError, "another task is using this stream")
         self._incoming = _UnboundedByteQueue()
         self.recv_hook = recv_hook
 

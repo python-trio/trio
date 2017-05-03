@@ -417,10 +417,11 @@ async def test__UnboundeByteQueue():
         nursery.spawn(getter, b"xyz")
         nursery.spawn(putter, b"xyz")
 
-    # Two gets at the same time -> RuntimeError
-    with pytest.raises(RuntimeError):
-        nursery.spawn(getter, b"asdf")
-        nursery.spawn(getter, b"asdf")
+    # Two gets at the same time -> ResourceBusyError
+    with pytest.raises(_core.ResourceBusyError):
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(getter, b"asdf")
+            nursery.spawn(getter, b"asdf")
 
     # Closing
 
@@ -471,7 +472,7 @@ async def test_MemorySendStream():
     with assert_yields():
         assert await mss.get_data() == b"456"
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(_core.ResourceBusyError):
         async with _core.open_nursery() as nursery:
             nursery.spawn(do_sendall, b"xxx")
             nursery.spawn(do_sendall, b"xxx")
@@ -533,6 +534,11 @@ async def test_MemoryRecvStream():
     assert await do_recv(10) == b"bc"
     with pytest.raises(TypeError):
         await do_recv(None)
+
+    with pytest.raises(_core.ResourceBusyError):
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(do_recv, 10)
+            nursery.spawn(do_recv, 10)
 
     assert mrs.recv_hook is None
 

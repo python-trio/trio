@@ -48,7 +48,7 @@ All environments provide the following functions:
 
    :raises TypeError:
        if the given object is not of type :func:`socket.socket`.
-   :raises RuntimeError:
+   :raises trio.ResourceBusyError:
        if another task is already waiting for the given socket to
        become readable.
 
@@ -62,7 +62,7 @@ All environments provide the following functions:
 
    :raises TypeError:
        if the given object is not of type :func:`socket.socket`.
-   :raises RuntimeError:
+   :raises trio.ResourceBusyError:
        if another task is already waiting for the given socket to
        become writable.
 
@@ -85,7 +85,7 @@ Unix-like systems provide the following functions:
 
    :arg fd:
        integer file descriptor, or else an object with a ``fileno()`` method
-   :raises RuntimeError:
+   :raises trio.ResourceBusyError:
        if another task is already waiting for the given fd to
        become readable.
 
@@ -103,7 +103,7 @@ Unix-like systems provide the following functions:
 
    :arg fd:
        integer file descriptor, or else an object with a ``fileno()`` method
-   :raises RuntimeError:
+   :raises trio.ResourceBusyError:
        if another task is already waiting for the given fd to
        become writable.
 

@@ -31,6 +31,18 @@ for _symbol in _core.__all__:
         __all__.append(_symbol)
 del _symbol, _value
 
+
+class BrokenStreamError(Exception):
+    """
+
+    """
+    pass
+
+
+class ClosedStreamError(Exception):
+    pass
+
+
 from ._timeouts import *
 __all__ += _timeouts.__all__
 
