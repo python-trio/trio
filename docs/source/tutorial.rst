@@ -100,7 +100,7 @@ async function we can call other async functions, but *how* do we call
 that first async function?
 
 And, if the only reason to write an async function is that it can call
-other async functions, *why* would on earth would we ever use them in
+other async functions, *why* on earth would we ever use them in
 the first place? I mean, as superpowers go this seems a bit
 pointless. Wouldn't it be simpler to just... not use any async
 functions at all?
@@ -166,9 +166,10 @@ looks like:
   trio.run -> [async function] -> ... -> [async function] -> trio.whatever
 
 It's exactly the functions on the path between :func:`trio.run` and
-``trio.whatever`` that have to be async, making up our async
-sandwich's tasty async filling. Other functions (e.g., helpers you
-call along the way) should generally be regular, non-async functions.
+``trio.whatever`` that have to be async. Trio provides the async
+bread, and then your code makes up the async sandwich's tasty async
+filling. Other functions (e.g., helpers you call along the way) should
+generally be regular, non-async functions.
 
 
 Warning: don't forget that ``await``!
@@ -197,8 +198,12 @@ this, that tries to call an async function but leaves out the
 
    trio.run(broken_double_sleep, 3)
 
-You might think that Python would raise an error here. But
-unfortunately, it doesn't. What you actually get is:
+You might think that Python would raise an error here, like it does
+for other kinds of mistakes we sometimes make when calling a
+function. Like, if we forgot to pass :func:`trio.sleep` it's required
+argument, then we would get a nice :exc:`TypeError` saying so. But
+unfortunately, if you forget an ``await``, you don't get that. What
+you actually get is:
 
 .. code-block:: none
 
@@ -209,10 +214,13 @@ unfortunately, it doesn't. What you actually get is:
    >>>
 
 This is clearly broken – 0.00 seconds is not long enough to feel well
-rested! The exact place where the warning is printed might vary,
-because it depends on the whims of the garbage collector. If you're
-using PyPy, you might not even get a warning at all until the next GC
-collection runs:
+rested! Yet the code acts like it succeeded – no exception was
+raised. The only clue that something went wrong is that it prints
+``RuntimeWarning: coroutine 'sleep' was never awaited``. Also, the
+exact place where the warning is printed might vary, because it
+depends on the whims of the garbage collector. If you're using PyPy,
+you might not even get a warning at all until the next GC collection
+runs:
 
 .. code-block:: none
 
@@ -220,7 +228,9 @@ collection runs:
    >>>> trio.run(broken_double_sleep, 3)
    *yawn* Going to sleep
    Woke up again after 0.00 seconds, feeling well rested!
-   >>>> # what the ... ??
+   >>>> # what the ... ?? not even a warning!
+
+   >>>> # but forcing a garbage collection gives us a warning:
    >>>> import gc
    >>>> gc.collect()
    /home/njs/pypy-3.5-nightly/lib-python/3/importlib/_bootstrap.py:191: RuntimeWarning: coroutine 'sleep' was never awaited

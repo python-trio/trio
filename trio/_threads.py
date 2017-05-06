@@ -198,10 +198,10 @@ async def run_in_worker_thread(sync_fn, *args, cancellable=False):
           discussion above.
 
     Returns:
-      Whatever ``sync_fn`` returns.
+      Whatever ``sync_fn(*args)`` returns.
 
     Raises:
-      Whatever ``sync_fn`` raises.
+      Whatever ``sync_fn(*args)`` raises.
 
     """
     await _core.yield_if_cancelled()
