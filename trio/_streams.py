@@ -7,8 +7,42 @@ from . import _core
 from .abc import StreamWithSendEOF
 
 __all__ = [
-    "StapledStream",
+    "BrokenStreamError", "ClosedStreamError", "StapledStream",
 ]
+
+class BrokenStreamError(Exception):
+    """Raised when an attempt to use a stream a stream fails due to external
+    circumstances.
+
+    For example, you might get this if you try to send data on a stream where
+    the remote side has already closed the connection.
+
+    You *don't* get this error if *you* closed the stream – in that case you
+    get :class:`ClosedStreamError`.
+
+    This exception's ``__cause__`` attribute will often contain more
+    information about the underlying error.
+
+    """
+    pass
+
+
+class ClosedStreamError(Exception):
+    """Raised when an attempt to use a stream a stream fails because the
+    stream was already closed locally.
+
+    You *only* get this error if *your* code closed the stream object you're
+    attempting to use by calling :meth:`~AsyncResource.graceful_close` or
+    similar. (:meth:`~SendStream.send_all` might also raise this if you
+    already called :meth:`~StreamWithSendEOF.send_eof`.) Therefore this
+    exception generally indicates a bug in your code.
+
+    If a problem arises elsewhere, for example due to a network failure or a
+    misbehaving peer, then you get :class:`BrokenStreamError` instead.
+
+    """
+    pass
+
 
 @attr.s(slots=True, cmp=False, hash=False)
 class StapledStream(StreamWithSendEOF):
@@ -17,7 +51,8 @@ class StapledStream(StreamWithSendEOF):
 
     Args:
       send_stream (~trio.abc.SendStream): The stream to use for sending.
-      recv_stream (~trio.abc.RecvStream): The stream to use for receiving.
+      receive_stream (~trio.abc.ReceiveStream): The stream to use for
+          receiving.
 
     Example:
 

@@ -5,6 +5,7 @@ import inspect
 from collections import defaultdict
 import time
 from math import inf
+import random
 
 import attr
 from async_generator import async_generator, yield_
@@ -377,6 +378,303 @@ class Sequencer:
             await yield_()
         finally:
             self._sequence_points[position + 1].set()
+
+
+################################################################
+# Generic stream tests
+################################################################
+
+class _CloseBoth:
+    def __init__(self, both):
+        self._both = both
+
+    async def __aenter__(self):
+        return self._both
+
+    async def __aexit__(self, *args):
+        try:
+            await self._both[0].graceful_close()
+        finally:
+            await self._both[1].graceful_close()
+
+
+@contextmanager
+def _assert_raises(exc):
+    try:
+        yield
+    except exc:
+        ok = True
+    else:
+        ok = False
+    assert ok, "expected exception: {}".format(exc)
+
+
+async def check_one_way_stream(stream_maker, clogged_stream_maker):
+    async with _CloseBoth(stream_maker()) as (s, r):
+        assert isinstance(s, SendStream)
+        assert isinstance(r, ReceiveStream)
+
+        async def do_send_all(data):
+            with assert_yields():
+                assert await s.send_all(data) is None
+
+        async def do_receive_some(max_bytes):
+            with assert_yields():
+                return await r.receive_some(1)
+
+        async def checked_receive_1(expected):
+            assert await do_receive_some(1) == expected
+
+        async def do_graceful_close(resource):
+            with assert_yields():
+                await resource.graceful_close()
+
+        # Simple sending/receiving
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(do_send_all, b"x")
+            nursery.spawn(checked_receive, 1, b"x")
+
+        async def send_empty_then_y():
+            # Streams should tolerate sending b"" without giving it any
+            # special meaning.
+            await do_send_all(b"")
+            await do_send_all(b"y")
+
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(send_empty_then_y)
+            nursery.spawn(checked_receive, 1, b"y")
+
+        ### Checking various argument types
+
+        # send_all accepts bytearray and memoryview
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(do_send_all, bytearray(b"1"))
+            nursery.spawn(checked_receive_1, b"1")
+
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(do_send_all, memoryview(b"2"))
+            nursery.spawn(checked_receive_1, b"2")
+
+        # max_bytes must be a positive integer
+        for bad in [-1, 0, 1.5]:
+            with _assert_raises((TypeError, ValueError)):
+                await r.receive_some(bad)
+
+        with _assert_raises(_core.ResourceBusyError):
+            async with _core.open_nursery() as nursery:
+                nursery.spawn(do_receive_some, 1)
+                nursery.spawn(do_receive_some, 1)
+
+        # Method always has to exist, and an empty stream with a blocked
+        # receive_some should *always* allow send_all. (Technically it's legal
+        # for send_all to wait until receive_some is called to run, though; a
+        # stream doesn't *have* to have any internal buffering. That's why we
+        # spawn a concurrent receive_some call, then cancel it.)
+        async def simple_check_wait_send_all_might_not_block(scope):
+            with assert_yields():
+                await s.wait_send_all_might_not_block()
+            scope.cancel()
+
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(simple_check_wait_send_all_might_not_block)
+            nursery.spawn(do_receive_some, 1)
+
+        # closing the r side
+        do_graceful_close(r)
+
+        # ...leads to BrokenStreamError on the s side (eventually)
+        with _assert_raises(_core.BrokenStreamError):
+            while True:
+                await do_send_all(b"x" * 100)
+
+        # once detected, the stream stays broken
+        with _assert_raises(_core.BrokenStreamError):
+            await do_send_all(b"x" * 100)
+
+        # r closed -> ClosedStreamError on the receive side
+        with _assert_raises(_core.ClosedStreamError):
+            await do_receive_some(4096)
+
+        # we can close the same stream repeatedly, it's fine
+        r.forceful_close()
+        with assert_yields():
+            await r.graceful_close()
+        r.forceful_close()
+
+        # closing the sender side
+        with assert_yields():
+            await s.graceful_close()
+
+        # now trying to send raises ClosedStreamError
+        with _assert_raises(_core.ClosedStreamError):
+            await do_send_all(b"x" * 100)
+
+        # and again, repeated closing is fine
+        s.forceful_close()
+        with assert_yields():
+            await do_graceful_close(s)
+        s.forceful_close()
+
+    async with _CloseBoth(stream_maker()) as (s, r):
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(do_send_all, b"x")
+            nursery.spawn(checked_receive, 1, b"x")
+
+        # receiver get b"" after the sender does a graceful_close
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(s.graceful_close)
+            nursery.spawn(checked_receive, 1, b"")
+
+    # using forceful_close also makes things closed
+    async with _CloseBoth(stream_maker()) as (s, r):
+        r.forceful_close()
+
+        with _assert_raises(_core.BrokenStreamError):
+            while True:
+                await do_send_all(b"x" * 100)
+
+        with _assert_raises(_core.ClosedStreamError):
+            await do_receive_some(4096)
+
+    async with _CloseBoth(stream_maker()) as (s, r):
+        s.forceful_close()
+
+        with _assert_raises(_core.ClosedStreamError):
+            await do_send_all(b"123")
+
+        # after the sender does a forceful close, the receiver might either
+        # get BrokenStreamError or a clean b""; either is OK. Not OK would be
+        # if it freezes, or returns data.
+        try:
+            await checked_receive_1(b"")
+        except _core.BrokenStreamError:
+            pass
+
+    # cancelled graceful_close still closes
+    async with _CloseBoth(stream_maker()) as (s, r):
+        with _core.open_cancel_scope() as scope:
+            scope.cancel()
+            await r.graceful_close()
+
+        with _core.open_cancel_scope() as scope:
+            scope.cancel()
+            await s.graceful_close()
+
+        with _assert_raises(_core.ClosedStreamError):
+            do_send_all(b"123")
+
+        with _assert_raises(_core.ClosedStreamError):
+            do_receive_some(4096)
+
+    # check wait_send_all_might_not_block, if we can
+    if clogged_stream_maker is not None:
+        async with _CloseBoth(clogged_stream_maker()) as (s, r):
+            record = []
+
+            async def waiter():
+                record.append("waiter sleeping")
+                with assert_yields():
+                    await s.wait_send_all_might_not_block()
+                record.append("waiter wokeup")
+
+            async def receiver():
+                # give wait_send_all_might_not_block a chance to block
+                await wait_all_tasks_blocked()
+                record.append("receiver starting")
+                while "waiter wokeup" not in record:
+                    await r.receive_some(16834)
+
+            async with _core.open_nursery() as nursery:
+                nursery.spawn(waiter)
+                await wait_all_tasks_blocked()
+                nursery.spawn(receiver)
+
+            assert record == [
+                "waiter sleeping",
+                "receiver starting",
+                "waiter wokeup",
+            ]
+
+        async with _CloseBoth(clogged_stream_maker()) as (s, r):
+            # simultaneous wait_send_all_might_not_block fails
+            with _assert_raises(_core.ResourceBusyError):
+                async with _core.open_nursery() as nursery:
+                    nursery.spawn(s.wait_send_all_might_not_block)
+                    nursery.spawn(s.wait_send_all_might_not_block)
+
+            # and simultaneous send_all and wait_send_all_might_not_block (NB
+            # this test might destroy the stream b/c we end up cancelling
+            # send_all and e.g. SSLStream can't handle that, so we have to
+            # recreate afterwards)
+            with _assert_raises(_core.ResourceBusyError):
+                async with _core.open_nursery() as nursery:
+                    nursery.spawn(s.wait_send_all_might_not_block)
+                    nursery.spawn(s.send_all, b"123")
+
+        async with _CloseBoth(clogged_stream_maker()) as (s, r):
+            # send_all and send_all blocked simultaneously should also raise
+            # (but again this might destroy the stream)
+            with _assert_raises(_core.ResourceBusyError):
+                async with _core.open_nursery() as nursery:
+                    nursery.spawn(s.send_all, b"123")
+                    nursery.spawn(s.send_all, b"123")
+
+
+async def check_two_way_stream(stream_maker, clogged_stream_maker):
+    check_one_way_stream(stream_maker, clogged_stream_maker)
+    flipped_stream_maker = lambda: stream_maker()[::-1]
+    if clogged_stream_maker is not None:
+        flipped_clogged_stream_maker = lambda: clogged_stream_maker()[::-1]
+    else:
+        flipped_clogged_stream_maker = None
+    check_one_way_stream(flipped_stream_maker, flipped_clogged_stream_maker)
+
+    async with _CloseBoth(stream_maker()) as (s1, s2):
+        assert isinstance(s1, Stream)
+        assert isinstance(s2, Stream)
+
+        # Duplex can be a bit tricky, might as well check it as well
+        DUPLEX_TEST_SIZE = 2 ** 20
+        CHUNK_SIZE_MAX = 2 ** 14
+
+        r = random.Random(0)
+        i = r.getrandbits(256 ** DUPLEX_TEST_SIZE)
+        test_data = i.to_bytes(DUPLEX_TEST_SIZE, "little")
+
+        async def sender(s, data, seed):
+            r = random.Random(seed)
+            m = memoryview(data)
+            while m:
+                chunk_size = r.randint(1, CHUNK_SIZE_MAX)
+                await s.send_all(m[:chunk_size])
+                m = m[chunk_size:]
+
+        async def receiver(s, data, seed):
+            r = random.Random(seed)
+            got = bytearray()
+            while len(got) < len(data):
+                chunk = await r.receive_some(r.randint(1, CHUNK_SIZE_MAX))
+                assert chunk
+                got += chunk
+            assert got == data
+
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(sender, s1, test_data, 0)
+            nursery.spawn(sender, s2, test_data[::-1], 1)
+            nursery.spawn(receiver, s1, test_data[::-1], 2)
+            nursery.spawn(receiver, s2, test_data, 3)
+
+        await s1.graceful_close()
+        assert await s2.receive_some(10) == b""
+        await s2.graceful_close()
+
+
+async def check_half_closeable_stream(stream_maker):
+    check_two_way_stream(stream_maker)
+
+    async with _CloseBoth(stream_maker()) as (s1, s2):
+        assert isinstance(s1, HalfCloseableStream)
+        assert isinstance(s2, HalfCloseableStream)
 
 
 ################################################################

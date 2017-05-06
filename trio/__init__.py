@@ -32,17 +32,6 @@ for _symbol in _core.__all__:
 del _symbol, _value
 
 
-class BrokenStreamError(Exception):
-    """
-
-    """
-    pass
-
-
-class ClosedStreamError(Exception):
-    pass
-
-
 from ._timeouts import *
 __all__ += _timeouts.__all__
 
@@ -57,6 +46,9 @@ __all__ += _streams.__all__
 
 from ._signals import *
 __all__ += _signals.__all__
+
+from ._network import *
+__all__ += _network.__all__
 
 # Imported by default
 from . import socket

@@ -1,7 +1,9 @@
 from functools import wraps as _wraps, partial as _partial
 import socket as _stdlib_socket
 import sys as _sys
-import os
+import os as _os
+from contextlib import contextmanager as _contextmanager
+import errno as _errno
 
 from . import _core
 from ._threads import run_in_worker_thread as _run_in_worker_thread
@@ -176,7 +178,7 @@ _SOCK_TYPE_MASK = ~(
     getattr(_stdlib_socket, "SOCK_NONBLOCK", 0)
     | getattr(_stdlib_socket, "SOCK_CLOEXEC", 0))
 
-class SocketType(_StreamWithSendEOF):
+class SocketType:
     def __init__(self, sock):
         if type(sock) is not _stdlib_socket.socket:
             # For example, ssl.SSLSocket subclasses socket.socket, but we
@@ -186,6 +188,7 @@ class SocketType(_StreamWithSendEOF):
                 .format(type(sock).__name__))
         self._sock = sock
         self._sock.setblocking(False)
+        self._did_SHUT_WR = False
 
         # Defaults:
         if self._sock.family == AF_INET6:
@@ -233,7 +236,7 @@ class SocketType(_StreamWithSendEOF):
     _forward = {
         "detach", "get_inheritable", "set_inheritable", "fileno",
         "getpeername", "getsockname", "getsockopt", "setsockopt", "listen",
-        "shutdown", "close", "share",
+        "close", "share",
     }
     def __getattr__(self, name):
         if name in self._forward:
@@ -279,6 +282,16 @@ class SocketType(_StreamWithSendEOF):
         """
         self._check_address(address, require_resolved=True)
         return self._sock.bind(address)
+
+    def shutdown(self, flag):
+        # no need to worry about return value b/c always returns None:
+        self._sock.shutdown(flag)
+        # only do this if the call succeeded:
+        if flag in [SHUT_WR, SHUT_RDWR]:
+            self._did_SHUT_WR = True
+
+    async def wait_writable(self):
+        await _core.wait_socket_writable(self.socket)
 
     ################################################################
     # Address handling
@@ -448,24 +461,6 @@ class SocketType(_StreamWithSendEOF):
         return wrapper
 
     ################################################################
-    # Stream methods
-    ################################################################
-
-    async def wait_sendall_might_not_block(self):
-        await _core.wait_socket_writable(self._sock)
-
-    can_send_eof = True
-
-    async def send_eof(self):
-        await _core.yield_briefly()
-        self.shutdown(SHUT_WR)
-
-    def forceful_close(self):
-        self.close()
-
-    # graceful_close, __aenter__, __aexit__ inherited from Stream are OK
-
-    ################################################################
     # accept
     ################################################################
 
@@ -534,7 +529,7 @@ class SocketType(_StreamWithSendEOF):
         # Okay, the connect finished, but it might have failed:
         err = self._sock.getsockopt(SOL_SOCKET, SO_ERROR)
         if err != 0:
-            raise OSError(err, "Error in connect: " + os.strerror(err))
+            raise OSError(err, "Error in connect: " + _os.strerror(err))
 
     ################################################################
     # recv
@@ -584,7 +579,7 @@ class SocketType(_StreamWithSendEOF):
     # send
     ################################################################
 
-    _send = _make_simple_sock_method_wrapper(
+    send = _make_simple_sock_method_wrapper(
         "send", _core.wait_socket_writable)
 
     ################################################################
@@ -648,9 +643,8 @@ class SocketType(_StreamWithSendEOF):
         with memoryview(data) as data:
             total_sent = 0
             while total_sent < len(data):
-                # with data[total_sent:] as remaining:
-                #     sent = await self._send(remaining, flags)
-                sent = await self._send(data[total_sent:], flags)
+                with data[total_sent:] as remaining:
+                    sent = await self.send(remaining, flags)
                 total_sent += sent
 
     ################################################################
@@ -720,3 +714,5 @@ __all__.append("SocketType")
 #     else:
 #         raise OSError("getaddrinfo returned an empty list")
 # __all__.append("create_connection")
+
+

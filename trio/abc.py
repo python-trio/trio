@@ -4,7 +4,7 @@ from . import _core
 
 __all__ = [
     "Clock", "Instrument", "AsyncResource", "SendStream", "RecvStream",
-    "Stream", "StreamWithSendEOF",
+    "Stream", "HalfCloseableStream",
 ]
 
 class Clock(_abc.ABC):
@@ -222,7 +222,7 @@ class SendStream(AsyncResource):
     __slots__ = ()
 
     @_abc.abstractmethod
-    async def sendall(self, data):
+    async def send_all(self, data):
         """Sends the given data through the stream, blocking if necessary.
 
         Args:
@@ -230,33 +230,30 @@ class SendStream(AsyncResource):
 
         Raises:
           trio.ResourceBusyError: if another task is already executing a
-              :meth:`sendall`, :meth:`wait_sendall_might_not_block`, or
-              :meth:`StreamWithSendEOF.send_eof` on this stream.
+              :meth:`send_all`, :meth:`wait_send_all_might_not_block`, or
+              :meth:`HalfCloseableStream.send_eof` on this stream.
 
         """
         pass
 
-    # This should be considered a hint rather than a guarantee.
-    # Definitely will not stay asleep after sendall could succeed; might wake
-    # up before it could succeed.
     @_abc.abstractmethod
-    async def wait_sendall_might_not_block(self):
-        """Block until it's possible that :meth:`sendall` might not block.
+    async def wait_send_all_might_not_block(self):
+        """Block until it's possible that :meth:`send_all` might not block.
 
         This method may return early: it's possible that after it returns,
-        :meth:`sendall` will still block. (In the worst case, if no better
+        :meth:`send_all` will still block. (In the worst case, if no better
         implementation is available, then it might always return immediately
         without blocking. It's nice to do better than that when possible,
         though.)
 
         This method **must not** return *late*: if it's possible for
-        :meth:`sendall` to complete without blocking, then it must
+        :meth:`send_all` to complete without blocking, then it must
         return. When implementing it, err on the side of returning early.
 
         Raises:
           trio.ResourceBusyError: if another task is already executing a
-              :meth:`sendall`, :meth:`wait_sendall_might_not_block`, or
-              :meth:`StreamWithSendEOF.send_eof` on this stream.
+              :meth:`send_all`, :meth:`wait_send_all_might_not_block`, or
+              :meth:`HalfCloseableStream.send_eof` on this stream.
 
         Note:
 
@@ -266,13 +263,13 @@ class SendStream(AsyncResource):
           like `VNC
           <https://en.wikipedia.org/wiki/Virtual_Network_Computing>`__, and
           the network connection is currently backed up so that if you call
-          :meth:`sendall` now then it will sit for 0.5 seconds before actually
+          :meth:`send_all` now then it will sit for 0.5 seconds before actually
           sending anything. In this case it doesn't make sense to take a
           screenshot, then wait 0.5 seconds, and then send it, because the
           screen will keep changing while you wait; it's better to wait 0.5
           seconds, then take the screenshot, and then send it, because this
           way the data you deliver will be more
-          up-to-date. Using :meth:`wait_sendall_might_not_block` makes it
+          up-to-date. Using :meth:`wait_send_all_might_not_block` makes it
           possible to implement the better strategy.
 
           If you use this method, you might also want to read up on
@@ -292,7 +289,7 @@ class SendStream(AsyncResource):
         pass
 
 
-class RecvStream(AsyncResource):
+class ReceiveStream(AsyncResource):
     """A standard interface for receiving data on a byte stream.
 
     The underlying stream may be unidirectional, or bidirectional. If it's
@@ -306,27 +303,33 @@ class RecvStream(AsyncResource):
     __slots__ = ()
 
     @_abc.abstractmethod
-    async def recv(self, max_bytes):
+    async def receive_some(self, max_bytes):
         """Wait until there is data available on this stream, and then return
-        some of it.
+        at most ``max_bytes`` of it.
 
-        A return value of ``b""`` (an empty byte-stream) indicates that the
+        A return value of ``b""`` (an empty bytestring) indicates that the
         stream has reached end-of-file. Implementations should be careful that
         they return ``b""`` if, and only if, the stream has reached
         end-of-file!
 
-        This method will return as soon as any data is available, so it return
-        give fewer than ``max_bytes`` of data. But it will never return more.
+        This method will return as soon as any data is available, so it may
+        return fewer than ``max_bytes`` of data. But it will never return
+        more.
 
         Args:
-          max_bytes (int): The maximum number of bytes to return.
+          max_bytes (int): The maximum number of bytes to return. Must be
+              greater than zero.
 
         Returns:
           bytes or bytearray: The data received.
 
         Raises:
-          trio.ResourceBusyError: if another task is already executing a
-              :meth:`recv` on this stream.
+          trio.ResourceBusyError: if two tasks attempt to call
+              :meth:`receive_some` on the same stream at the same time.
+          trio.BrokenStreamError: if something has gone wrong, and the stream
+              is broken.
+          trio.ClosedStreamError: if someone already called one of the close
+              methods on this stream object.
 
         """
         pass
@@ -339,33 +342,35 @@ class Stream(SendStream, RecvStream):
     :class:`SendStream` and :class:`RecvStream` interfaces.
 
     If implementing this interface, you should consider whether you can go one
-    step further and implement :class:`StreamWithSendEOF`.
+    step further and implement :class:`HalfCloseableStream`.
 
     """
     __slots__ = ()
 
 
-class StreamWithSendEOF(Stream):
+class HalfCloseableStream(Stream):
     """This interface extends :class:`Stream` to also allow closing the send
     part of the stream without closing the receive part.
 
     """
     __slots__ = ()
 
+
     @_abc.abstractmethod
     async def send_eof(self):
-        """Send an end-of-file indication on this stream.
+        """Send an end-of-file indication on this stream, if possible.
 
-        This is distinct from :meth:`~AsyncResource.graceful_close` in that
-        this is a *unidirectional* end-of-file indication. After you call this
-        method, you shouldn't try sending any more data on this stream, and
-        your remote peer should receive an end-of-file indication (eventually,
+        The difference between :meth:`send_eof` and
+        :meth:`~AsyncResource.graceful_close` is that :meth:`send_eof` is a
+        *unidirectional* end-of-file indication. After you call this method,
+        you shouldn't try sending any more data on this stream, and your
+        remote peer should receive an end-of-file indication (eventually,
         after receiving all the data you sent before that). But, they may
         continue to send data to you, and you can continue to receive it by
-        calling :meth:`~RecvStream.recv`. You can think of it as calling
-        :meth:`~AsyncResource.graceful_close` on just the :class:`SendStream`
-        "half" of this object (and in fact that's literally how
-        :class:`trio.StapledStream` implements it).
+        calling :meth:`~RecvStream.receive_some`. You can think of it as
+        calling :meth:`~AsyncResource.graceful_close` on just the
+        :class:`SendStream` "half" of the stream object (and in fact that's
+        literally how :class:`trio.StapledStream` implements it).
 
         Examples:
 
@@ -375,22 +380,22 @@ class StreamWithSendEOF(Stream):
         * The SSH protocol provides the ability to multiplex bidirectional
           "channels" on top of a single encrypted connection. A trio
           implementation of SSH could expose these channels as
-          :class:`StreamWithSendEOF` objects, and calling :meth:`send_eof`
+          :class:`HalfCloseableStream` objects, and calling :meth:`send_eof`
           would send an ``SSH_MSG_CHANNEL_EOF`` request (see `RFC 4254 §5.3
           <https://tools.ietf.org/html/rfc4254#section-5.3>`__).
 
         * On an SSL/TLS-encrypted connection, the protocol doesn't provide any
           way to do a unidirectional shutdown without closing the connection
           entirely, so :class:`~trio.ssl.SSLStream` implements
-          :class:`Stream`, not :class:`StreamWithSendEOF`.
+          :class:`Stream`, not :class:`HalfCloseableStream`.
 
         If an EOF has already been sent, then this method should silently
         succeed.
 
         Raises:
           trio.ResourceBusyError: if another task is already executing a
-              :meth:`sendall`, :meth:`wait_sendall_might_not_block`, or
-              :meth:`StreamWithSendEOF.send_eof` on this stream.
+              :meth:`send_all`, :meth:`wait_send_all_might_not_block`, or
+              :meth:`HalfCloseableStream.send_eof` on this stream.
 
         """
         pass
