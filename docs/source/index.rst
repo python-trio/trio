@@ -7,19 +7,39 @@
 Trio: async programming for humans and snake people
 ===================================================
 
-Trio is an experimental attempt to produce a production-quality,
+*P.S. your API is a user interface – Kenneth Reitz*
+
+The Trio project's goal is to produce a production-quality,
 `permissively licensed
 <https://github.com/python-trio/trio/blob/master/LICENSE>`__,
-async/await-native I/O library for Python, with an emphasis on
-**usability** and **correctness** – we want to make it *easy* to get
-things *right*. Our ultimate goal is to become Python's de facto
-standard async I/O library.
+async/await-native I/O library for Python. Like all async libraries,
+its main purpose is to help you write programs that do **multiple
+things at the same time** with **parallelized I/O**. A web spider that
+wants to fetch lots of pages in parallel, a web server that needs to
+juggle lots of downloads and websocket connections at the same time, a
+process supervisor monitoring multiple subprocesses... that sort of
+thing. Compared to other libraries, Trio attempts to distinguish
+itself with an obsessive focus on **usability** and
+**correctness**. Concurrency is complicated; we try to make it *easy*
+to get things *right*.
 
-This is project is young and still somewhat experimental: the overall
+Trio was built from the ground up to take advantage of the `latest
+Python features <https://www.python.org/dev/peps/pep-0492/>`__, and
+draws inspiration from `many sources
+<https://github.com/python-trio/trio/wiki/Reading-list>`__, in
+particular Dave Beazley's `Curio <https://curio.readthedocs.io/>`__.
+The resulting design is radically simpler than older competitors like
+`asyncio <https://docs.python.org/3/library/asyncio.html>`__ and
+`Twisted <https://twistedmatrix.com/>`__, yet just as capable. Trio is
+the Python I/O library I always wanted; I find it makes building
+I/O-oriented programs easier, less error-prone, and just plain more
+fun. Perhaps you'll find the same.
+
+This project is young and still somewhat experimental: the overall
 design is solid and the existing features are fully tested and
 documented, but you may encounter missing functionality or rough
 edges. We *do* encourage you do use it, but you should `read and
-subscribe to this issue
+subscribe to issue #1
 <https://github.com/python-trio/trio/issues/1>`__ to get warning and a
 chance to give feedback about any compatibility-breaking changes.
 
@@ -46,7 +66,7 @@ Vital statistics:
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Trio's friendly, yet comprehensive, manual:
 
    tutorial.rst
    reference-core.rst
