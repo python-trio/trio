@@ -14,7 +14,7 @@ If you want to use trio, then the first thing you have to do is call
 
 
 General principles
------------------
+------------------
 
 .. _checkpoints:
 
