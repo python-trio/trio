@@ -426,22 +426,31 @@ def test_ki_wakes_us_up():
         # deterministically interlock with that, so we have to use sleep and
         # hope it's long enough.
         time.sleep(1)
+        print("thread doing ki_self()")
         ki_self()
         if buggy_wakeup_fd:
+            print("buggy_wakeup_fd =", buggy_wakeup_fd)
             ki_self()
 
     async def main():
         thread = threading.Thread(target=kill_soon)
+        print("Starting thread")
         thread.start()
         try:
             with pytest.raises(KeyboardInterrupt):
                 # To limit the damage on CI if this does get broken (as
                 # compared to sleep_forever())
+                print("Going to sleep")
                 await sleep(20)
+                print("Woke without raising?!")  # pragma: no cover
         finally:
             thread.join()
 
     start = time.time()
-    _core.run(main)
-    end = time.time()
+    try:
+        _core.run(main)
+    finally:
+        end = time.time()
+        print("duration", start - end)
+        print("sys.exc_info", sys.exc_info())
     assert 1.0 <= (end - start) < 2
