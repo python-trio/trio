@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 exec(open("trio/_version.py", encoding="utf-8").read())
 
 LONG_DESC = """\
-.. image:: https://cdn.rawgit.com/njsmith/trio/7e521a7bdc89bdb18c2b8f7ba1571ebac1203d42/logo/logo-with-background.svg
+.. image:: https://cdn.rawgit.com/python-trio/trio/9b0bec646a31e0d0f67b8b6ecc6939726faf3e17/logo/logo-with-background.svg
    :width: 200px
    :align: right
 
