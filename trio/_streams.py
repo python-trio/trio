@@ -4,7 +4,7 @@ import contextlib
 import attr
 
 from . import _core
-from .abc import StreamWithSendEOF
+from .abc import HalfCloseableStream
 
 __all__ = [
     "BrokenStreamError", "ClosedStreamError", "StapledStream",
@@ -34,7 +34,7 @@ class ClosedStreamError(Exception):
     You *only* get this error if *your* code closed the stream object you're
     attempting to use by calling :meth:`~AsyncResource.graceful_close` or
     similar. (:meth:`~SendStream.send_all` might also raise this if you
-    already called :meth:`~StreamWithSendEOF.send_eof`.) Therefore this
+    already called :meth:`~HalfCloseableStream.send_eof`.) Therefore this
     exception generally indicates a bug in your code.
 
     If a problem arises elsewhere, for example due to a network failure or a
@@ -45,7 +45,7 @@ class ClosedStreamError(Exception):
 
 
 @attr.s(slots=True, cmp=False, hash=False)
-class StapledStream(StreamWithSendEOF):
+class StapledStream(HalfCloseableStream):
     """This class `staples <https://en.wikipedia.org/wiki/Staple_(fastener)>`__
     together two unidirectional streams to make single bidirectional stream.
 
@@ -56,44 +56,43 @@ class StapledStream(StreamWithSendEOF):
 
     Example:
 
-       A silly and deadlock-prone way to make a stream that echoes back
-       whatever you write to it::
+       A silly way to make a stream that echoes back whatever you write to
+       it::
 
           sock1, sock2 = trio.socket.socketpair()
-          echo_stream = StapledStream(sock1, sock2)
-          await echo_stream.sendall(b"x")
-          assert await echo_stream.recv(1) == b"x"
+          echo_stream = StapledStream(SocketStream(sock1), SocketStream(sock2))
+          await echo_stream.send_all(b"x")
+          assert await echo_stream.receive_some(1) == b"x"
 
-    :class:`StapledStream` objects have two public attributes:
+    :class:`StapledStream` objects implement the methods in the
+    :class:`~trio.abc.HalfCloseableStream` interface. They also have two
+    additional public attributes:
 
     .. attribute:: send_stream
 
-       The underlying :class:`~trio.abc.SendStream`. :meth:`sendall` and
-       :meth:`wait_sendall_might_not_block` are delegated to this object.
+       The underlying :class:`~trio.abc.SendStream`. :meth:`send_all` and
+       :meth:`wait_send_all_might_not_block` are delegated to this object.
 
-    .. attribute:: recv_stream
+    .. attribute:: receive_stream
 
-       The underlying :class:`~trio.abc.RecvStream`. :meth:`recv` is delegated
-       to this object.
-
-    They also, of course, implement the methods in the
-    :class:`~trio.abc.StreamWithSendEOF` interface:
+       The underlying :class:`~trio.abc.ReceiveStream`. :meth:`receive_some`
+       is delegated to this object.
 
     """
     send_stream = attr.ib()
-    recv_stream = attr.ib()
+    receive_stream = attr.ib()
 
-    async def sendall(self, data):
-        """Calls ``self.send_stream.sendall``.
-
-        """
-        return await self.send_stream.sendall(data)
-
-    async def wait_sendall_might_not_block(self):
-        """Calls ``self.send_stream.wait_sendall_might_not_block``.
+    async def send_all(self, data):
+        """Calls ``self.send_stream.send_all``.
 
         """
-        return await self.send_stream.wait_sendall_might_not_block()
+        return await self.send_stream.send_all(data)
+
+    async def wait_send_all_might_not_block(self):
+        """Calls ``self.send_stream.wait_send_all_might_not_block``.
+
+        """
+        return await self.send_stream.wait_send_all_might_not_block()
 
     async def send_eof(self):
         """Shuts down the send side of the stream.
@@ -107,11 +106,11 @@ class StapledStream(StreamWithSendEOF):
         else:
             return await self.send_stream.graceful_close()
 
-    async def recv(self, max_bytes):
-        """Calls ``self.recv_stream.recv``.
+    async def receive_some(self, max_bytes):
+        """Calls ``self.receive_stream.receive_some``.
 
         """
-        return await self.recv_stream.recv(max_bytes)
+        return await self.receive_stream.receive_some(max_bytes)
 
     def forceful_close(self):
         """Calls ``forceful_close`` on both underlying streams.
@@ -120,7 +119,7 @@ class StapledStream(StreamWithSendEOF):
         try:
             self.send_stream.forceful_close()
         finally:
-            self.recv_stream.forceful_close()
+            self.receive_stream.forceful_close()
 
     async def graceful_close(self):
         """Calls ``graceful_close`` on both underlying streams.
@@ -129,4 +128,4 @@ class StapledStream(StreamWithSendEOF):
         try:
             await self.send_stream.graceful_close()
         finally:
-            await self.recv_stream.graceful_close()
+            await self.receive_stream.graceful_close()

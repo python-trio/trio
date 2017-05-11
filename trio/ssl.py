@@ -113,11 +113,11 @@
 # data.
 #
 # One final wrinkle: we want our SSLStream to support full-duplex operation,
-# i.e. it should be possible for one task to be calling sendall while another
-# task is calling recv. But renegotiation makes this a big hassle, because
-# even if SSLStream's restricts themselves to one task calling sendall and one
-# task calling recv, those two tasks might end up both wanting to call
-# sendall, or both to call recv at the same time *on the underlying
+# i.e. it should be possible for one task to be calling send_all while another
+# task is calling receive_some. But renegotiation makes this a big hassle, because
+# even if SSLStream's restricts themselves to one task calling send_all and one
+# task calling receive_some, those two tasks might end up both wanting to call
+# send_all, or both to call receive_some at the same time *on the underlying
 # stream*. So we have to do some careful locking to hide this problem from our
 # users.
 #
@@ -232,7 +232,7 @@ class SSLStream(_Stream):
         self._inner_recv_lock = _sync.Lock()
 
         # These are used to make sure that our caller doesn't attempt to make
-        # multiple concurrent calls to sendall/wait_sendall_might_not_block or to recv.
+        # multiple concurrent calls to send_all/wait_send_all_might_not_block or to receive_some.
         self._outer_send_lock = _UnLock(
             _core.ResourceBusyError,
             "another task is currently sending data on this SSLStream")
@@ -309,7 +309,7 @@ class SSLStream(_Stream):
                 # - to_send: bytestring; if non-empty then we need to send
                 #   this data to make forward progress
                 #
-                # - want_read: True if we need to recv some data to make
+                # - want_read: True if we need to receive_some some data to make
                 #   forward progress
                 #
                 # - finished: False means that we need to retry the call to
@@ -330,20 +330,20 @@ class SSLStream(_Stream):
                 #
                 # - send the data in to_send
                 #
-                # - recv some data and put it into the incoming BIO
+                # - receive_some some data and put it into the incoming BIO
                 #
                 # Our strategy is: if there's data to send, send it;
-                # *otherwise* if there's data to recv, recv it.
+                # *otherwise* if there's data to receive_some, receive_some it.
                 #
                 # If both need to happen, then we only send. Why? Well, we
-                # know that *right now* we have to both send and recv before
+                # know that *right now* we have to both send and receive_some before
                 # the operation can complete. But as soon as we yield, that
                 # information becomes potentially stale – e.g. while we're
-                # sending, some other task might go and recv the data we need
+                # sending, some other task might go and receive_some the data we need
                 # and put it into the incoming BIO. And if it does, then we
-                # *definitely don't* want to do a recv – there might not be
+                # *definitely don't* want to do a receive_some – there might not be
                 # any more data coming, and we'd deadlock! We could do
-                # something tricky to keep track of whether a recv happens
+                # something tricky to keep track of whether a receive_some happens
                 # while we're sending, but the case where we have to do both
                 # is very unusual (only during a renegotation), so it's better
                 # to keep things simple. So we do just one
@@ -351,7 +351,7 @@ class SSLStream(_Stream):
                 # information.
                 #
                 # And we prioritize sending over receiving because, if there
-                # are multiple tasks that want to recv, then it doesn't matter
+                # are multiple tasks that want to receive_some, then it doesn't matter
                 # what order they go in. But if there are multiple tasks that
                 # want to send, then they each have different data, and the
                 # data needs to get put onto the wire in the same order that
@@ -364,23 +364,23 @@ class SSLStream(_Stream):
                     # NOTE: This relies on the lock being strict FIFO fair!
                     async with self._inner_send_lock:
                         yielded = True
-                        await self.transport_stream.sendall(to_send)
+                        await self.transport_stream.send_all(to_send)
                 elif want_read:
                     # It's possible that someone else is already blocked
-                    # in transport_stream.recv. If so then we want to wait for
+                    # in transport_stream.receive_some. If so then we want to wait for
                     # them to finish, but we don't want to call
-                    # transport_stream.recv again ourselves; we just want to
+                    # transport_stream.receive_some again ourselves; we just want to
                     # loop around and check if their contribution helped
                     # anything. So we make a note of how many times some task
                     # has been through here before taking the lock, and if
                     # it's changed by the time we get the lock, then we skip
-                    # calling transport_stream.recv and loop around
+                    # calling transport_stream.receive_some and loop around
                     # immediately.
                     recv_count = self._inner_recv_count
                     async with self._inner_recv_lock:
                         yielded = True
                         if recv_count == self._inner_recv_count:
-                            data = await self.transport_stream.recv(self._bufsize)
+                            data = await self.transport_stream.receive_some(self._bufsize)
                             if not data:
                                 self._incoming.write_eof()
                             else:
@@ -421,18 +421,18 @@ class SSLStream(_Stream):
         await self._handshook.ensure(checkpoint=True)
 
     # Most things work if we don't explicitly force do_handshake to be called
-    # before calling recv or sendall, because openssl will automatically
+    # before calling receive_some or send_all, because openssl will automatically
     # perform the handshake on the first SSL_{read,write} call. BUT, allowing
     # openssl to do this will disable Python's hostname checking!!! See:
     #   https://bugs.python.org/issue30141
     # So we *definitely* have to make sure that do_handshake is called
     # before doing anything else.
-    async def recv(self, bufsize):
+    async def receive_some(self, bufsize):
         async with self._outer_recv_lock:
             await self._handshook.ensure(checkpoint=False)
             return await self._retry(self._ssl_object.read, bufsize)
 
-    async def sendall(self, data):
+    async def send_all(self, data):
         async with self._outer_send_lock:
             await self._handshook.ensure(checkpoint=False)
             # SSLObject interprets write(b"") as an EOF for some reason, which
@@ -479,36 +479,40 @@ class SSLStream(_Stream):
             transport_stream.forceful_close()
             raise
 
-    async def wait_sendall_might_not_block(self):
+    async def wait_send_all_might_not_block(self):
         # This method's implementation is deceptively simple.
         #
         # First, we take the outer send lock, because of trio's standard
-        # semantics that wait_sendall_might_not_block and sendall conflict.
+        # semantics that wait_send_all_might_not_block and send_all conflict.
         async with self._outer_send_lock:
             # Then we take the inner send lock. We know that no other tasks
-            # are calling self.sendall or self.wait_sendall_might_not_block, because we have
-            # the outer_send_lock. But! There might be another task calling
-            # self.recv -> transport_stream.sendall, in which case if we were to
-            # call transport_stream.wait_sendall_might_not_block directly we'd have two tasks
-            # doing write-related operations on transport_stream simultaneously,
-            # which is not allowed. We *don't* want to raise this conflict to
-            # our caller, because it's purely an internal affair – all they
-            # did was call wait_sendall_might_not_block and recv at the same time, which is
-            # totally valid. And waiting for the lock is OK, because a call to
-            # sendall certainly wouldn't complete while the other task holds
-            # the lock.
+            # are calling self.send_all or self.wait_send_all_might_not_block,
+            # because we have the outer_send_lock. But! There might be another
+            # task calling self.receive_some -> transport_stream.send_all, in
+            # which case if we were to call
+            # transport_stream.wait_send_all_might_not_block directly we'd
+            # have two tasks doing write-related operations on
+            # transport_stream simultaneously, which is not allowed. We
+            # *don't* want to raise this conflict to our caller, because it's
+            # purely an internal affair – all they did was call
+            # wait_send_all_might_not_block and receive_some at the same time,
+            # which is totally valid. And waiting for the lock is OK, because
+            # a call to send_all certainly wouldn't complete while the other
+            # task holds the lock.
             async with self._inner_send_lock:
                 # Now we have the lock, which creates another potential
-                # problem: what if a call to self.recv attempts to do
-                # transport_stream.sendall now? It'll have to wait for us to
+                # problem: what if a call to self.receive_some attempts to do
+                # transport_stream.send_all now? It'll have to wait for us to
                 # finish! But that's OK, because we release the lock as soon
-                # as the underlying stream becomes writable, and the self.recv
-                # call wasn't going to make any progress until then anyway.
+                # as the underlying stream becomes writable, and the
+                # self.receive_some call wasn't going to make any progress
+                # until then anyway.
                 #
                 # Of course, this does mean we might return *before* the
                 # stream is logically writable, because immediately after we
-                # return self.recv might write some data and make it
-                # non-writable again. But that's OK too, wait_sendall_might_not_block only
-                # guarantees that it doesn't return late.
-                await self.transport_stream.wait_sendall_might_not_block()
+                # return self.receive_some might write some data and make it
+                # non-writable again. But that's OK too,
+                # wait_send_all_might_not_block only guarantees that it
+                # doesn't return late.
+                await self.transport_stream.wait_send_all_might_not_block()
                 print(self._inner_send_lock.statistics())

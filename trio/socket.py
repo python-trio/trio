@@ -7,7 +7,6 @@ import errno as _errno
 
 from . import _core
 from ._threads import run_in_worker_thread as _run_in_worker_thread
-from .abc import StreamWithSendEOF as _StreamWithSendEOF
 
 __all__ = []
 
@@ -190,6 +189,12 @@ class SocketType:
         self._sock.setblocking(False)
         self._did_SHUT_WR = False
 
+        # Hopefully Python will eventually make something like this public
+        # (see bpo-21327) but I don't want to make it public myself and then
+        # find out they picked a different name... this is used internally in
+        # this file and also elsewhere in trio.
+        self._real_type = sock.type & _SOCK_TYPE_MASK
+
         # Defaults:
         if self._sock.family == AF_INET6:
             self.setsockopt(IPPROTO_IPV6, IPV6_V6ONLY, False)
@@ -291,7 +296,7 @@ class SocketType:
             self._did_SHUT_WR = True
 
     async def wait_writable(self):
-        await _core.wait_socket_writable(self.socket)
+        await _core.wait_socket_writable(self._sock)
 
     ################################################################
     # Address handling
@@ -326,7 +331,7 @@ class SocketType:
                 _stdlib_socket.getaddrinfo(
                     address[0], address[1],
                     self._sock.family,
-                    self._sock.type & _SOCK_TYPE_MASK,
+                    self._real_type,
                     self._sock.proto,
                     flags=_NUMERIC_ONLY)
             except gaierror as exc:
@@ -363,7 +368,7 @@ class SocketType:
         gai_res = await getaddrinfo(
             address[0], address[1],
             self._sock.family,
-            self._sock.type & _SOCK_TYPE_MASK,
+            self._real_type,
             self._sock.proto,
             flags)
         # AFAICT from the spec it's not possible for getaddrinfo to return an

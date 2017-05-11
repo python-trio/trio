@@ -22,7 +22,7 @@ adapter classes. Here's some examples:
   is to wrap an :class:`~trio.ssl.SSLStream` around a socket object.
 
 * If you spawn a subprocess then you can get a :class:`SendStream`
-  that lets you write to its stdin, and a :class:`RecvStream` that
+  that lets you write to its stdin, and a :class:`ReceiveStream` that
   lets you read from its stdout. If for some reason you wanted to
   speak SSL to a subprocess, you could use a
   :class:`~trio.StapledStream` to combine its stdin/stdout into a
@@ -34,8 +34,7 @@ adapter classes. Here's some examples:
      s = SSLStream(StapledStream(process.stdin, process.stdout), ssl_context)
 
   [Note: subprocess support is not implemented yet, but that's the
-  plan. Hopefully I'll remember to remove this note when subprocess
-  support gets implemented...]
+  plan. Unless it is implemented, and I forgot to remove this note.]
 
 * It sometimes happens that you want to connect to an HTTPS server,
   but you have to go through a web proxy... and the proxy also uses
@@ -45,12 +44,12 @@ adapter classes. Here's some examples:
   :class:`~trio.ssl.SSLStream` in a second
   :class:`~trio.ssl.SSLStream`::
 
-     sock = await make_connection("proxy", 443)
+     s0 = await open_tcp_stream("proxy", 443)
 
      # Set up SSL connection to proxy:
-     s1 = SSLStream(sock, proxy_ssl_context, server_hostname="proxy")
+     s1 = SSLStream(s0, proxy_ssl_context, server_hostname="proxy")
      # Request a connection to the website
-     await s1.sendall(b"CONNECT website:443 / HTTP/1.0\r\n")
+     await s1.send_all(b"CONNECT website:443 / HTTP/1.0\r\n")
      await check_CONNECT_response(s1)
 
      # Set up SSL connection to the real website. Notice that s1 is
@@ -58,7 +57,7 @@ adapter classes. Here's some examples:
      # SSLStream object around it.
      s2 = SSLStream(s1, website_ssl_context, server_hostname="website")
      # Make our request
-     await s2.sendall("GET /index.html HTTP/1.0\r\n")
+     await s2.send_all("GET /index.html HTTP/1.0\r\n")
      ...
 
 * The :mod:`trio.testing` module provides a set of :ref:`flexible
@@ -78,7 +77,7 @@ Abstract base classes
    :members:
    :show-inheritance:
 
-.. autoclass:: RecvStream
+.. autoclass:: ReceiveStream
    :members:
    :show-inheritance:
 
@@ -86,7 +85,7 @@ Abstract base classes
    :members:
    :show-inheritance:
 
-.. autoclass:: StreamWithSendEOF
+.. autoclass:: HalfCloseableStream
    :members:
    :show-inheritance:
 
@@ -281,7 +280,7 @@ Socket objects
 
    .. automethod:: connect
 
-   .. automethod:: sendall
+   .. automethod:: send_all
 
    .. method:: sendfile
 

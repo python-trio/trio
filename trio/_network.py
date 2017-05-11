@@ -1,11 +1,13 @@
 # "High-level" networking interface
 
 import errno
+from contextlib import contextmanager
 
 from . import socket as tsocket
+from .abc import HalfCloseableStream
 from ._streams import ClosedStreamError, BrokenStreamError
 
-__all__ = ["SocketStream"]
+__all__ = ["SocketStream", "socket_stream_pair"]
 
 _closed_stream_errnos = {
     # Unix
@@ -18,7 +20,7 @@ _closed_stream_errnos = {
 # on Windows it's WSAESHUTDOWN, which is fair, though probably we only want
 # this on send_all not receive_some
 
-@_contextmanager
+@contextmanager
 def _translate_socket_errors_to_stream_errors():
     try:
         yield
@@ -30,11 +32,11 @@ def _translate_socket_errors_to_stream_errors():
             raise BrokenStreamError(
                 "socket connection broken: {}".format(exc)) from exc
 
-class SocketStream(_StreamWithSendEOF):
+class SocketStream(HalfCloseableStream):
     def __init__(self, sock):
         if not isinstance(sock, tsocket.SocketType):
             raise TypeError("SocketStream requires trio.socket.SocketType")
-        if sock.type != tsocket.SOCK_STREAM:
+        if sock._real_type != tsocket.SOCK_STREAM:
             raise TypeError("SocketStream requires a SOCK_STREAM socket")
         try:
             sock.getpeername()
@@ -64,12 +66,18 @@ class SocketStream(_StreamWithSendEOF):
             return await self.socket.recv(max_bytes)
 
     def forceful_close(self):
-        self.close()
+        self.socket.close()
 
-    # graceful_close, __aenter__, __aexit__ inherited from Stream are OK
+    # graceful_close, __aenter__, __aexit__ inherited from HalfCloseableStream
+    # are OK
 
     def getsockopt(self, level, option, buffersize=0):
         return self.socket.getsockopt(level, option, buffersize)
 
     def setsockopt(self, level, option, value):
         return self.socket.setsockopt(level, option, value)
+
+
+def socket_stream_pair():
+    left, right = tsocket.socketpair()
+    return SocketStream(left), SocketStream(right)

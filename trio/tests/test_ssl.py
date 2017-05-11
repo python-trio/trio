@@ -10,6 +10,8 @@ from OpenSSL import SSL
 
 import trio
 from .. import _core
+from .. import _network
+from .._streams import BrokenStreamError, ClosedStreamError
 from .. import ssl as tssl
 from .. import socket as tsocket
 from .._util import UnLock
@@ -17,7 +19,7 @@ from .._util import UnLock
 from .._core.tests.tutil import slow
 
 from ..testing import (
-    assert_yields, Sequencer, memory_stream_two_way,
+    assert_yields, Sequencer, memory_stream_pair,
 )
 
 ASSETS_DIR = Path(__file__).parent / "test_ssl_certs"
@@ -33,9 +35,9 @@ CERT1 = str(ASSETS_DIR / "trio-test-1.pem")
 # The second is a very weird virtual echo server that lives inside a custom
 # Stream class. It lives entirely inside the Python object space; there are no
 # operating system calls in it at all. No threads, no I/O, nothing. It's
-# 'sendall' call takes encrypted data from a client and feeds it directly into
+# 'send_all' call takes encrypted data from a client and feeds it directly into
 # the server-side TLS state engine to decrypt, then takes that data, feeds it
-# back through to get the encrypted response, and returns it from 'recv'. This
+# back through to get the encrypted response, and returns it from 'receive_some'. This
 # gives us full control and reproducibility. This server is written using
 # PyOpenSSL, so that we can trigger renegotiations on demand. It also allows
 # us to insert random (virtual) delays, to really exercise all the weird paths
@@ -86,7 +88,7 @@ def ssl_echo_server_raw(**kwargs):
         )
         t.start()
 
-        yield tsocket.from_stdlib_socket(a)
+        yield _network.SocketStream(tsocket.from_stdlib_socket(a))
 
     # exiting the context manager closes the sockets, which should force the
     # thread to shut down (possibly with an error)
@@ -136,12 +138,12 @@ class PyOpenSSLEchoStream:
         self._lot = _core.ParkingLot()
         self._pending_cleartext = bytearray()
 
-        self._sendall_mutex = UnLock(
+        self._send_all_mutex = UnLock(
             _core.ResourceBusyError,
-            "simultaneous calls to PyOpenSSLEchoStream.sendall")
-        self._recv_mutex = UnLock(
+            "simultaneous calls to PyOpenSSLEchoStream.send_all")
+        self._receive_some_mutex = UnLock(
             _core.ResourceBusyError,
-            "simultaneous calls to PyOpenSSLEchoStream.recv")
+            "simultaneous calls to PyOpenSSLEchoStream.receive_some")
 
         if sleeper is None:
             async def no_op_sleeper(_):
@@ -164,19 +166,19 @@ class PyOpenSSLEchoStream:
         # nothing happens.
         assert self._conn.renegotiate()
 
-    async def wait_sendall_might_not_block(self):
-        async with self._sendall_mutex:
+    async def wait_send_all_might_not_block(self):
+        async with self._send_all_mutex:
             await _core.yield_briefly()
-            await self.sleeper("wait_sendall_might_not_block")
+            await self.sleeper("wait_send_all_might_not_block")
 
-    async def sendall(self, data):
-        print("  --> transport_stream.sendall")
-        async with self._sendall_mutex:
+    async def send_all(self, data):
+        print("  --> transport_stream.send_all")
+        async with self._send_all_mutex:
             await _core.yield_briefly()
-            await self.sleeper("sendall")
+            await self.sleeper("send_all")
             self._conn.bio_write(data)
             while True:
-                await self.sleeper("sendall")
+                await self.sleeper("send_all")
                 try:
                     data = self._conn.recv(1)
                 except SSL.ZeroReturnError:
@@ -188,16 +190,16 @@ class PyOpenSSLEchoStream:
                 else:
                     self._pending_cleartext += data
             self._lot.unpark_all()
-            await self.sleeper("sendall")
-            print("  <-- transport_stream.sendall finished")
+            await self.sleeper("send_all")
+            print("  <-- transport_stream.send_all finished")
 
-    async def recv(self, nbytes):
-        print("  --> transport_stream.recv")
-        async with self._recv_mutex:
+    async def receive_some(self, nbytes):
+        print("  --> transport_stream.receive_some")
+        async with self._receive_some_mutex:
             try:
                 await _core.yield_briefly()
                 while True:
-                    await self.sleeper("recv")
+                    await self.sleeper("receive_some")
                     try:
                         return self._conn.bio_read(nbytes)
                     except SSL.WantReadError:
@@ -223,7 +225,7 @@ class PyOpenSSLEchoStream:
                                     return self._conn.bio_read(nbytes)
                                 except SSL.WantReadError:
                                     # Nope. We're just going to have to wait
-                                    # for someone to call sendall() to give
+                                    # for someone to call send_all() to give
                                     # use more data.
                                     print("parking (a)")
                                     await self._lot.park()
@@ -233,17 +235,17 @@ class PyOpenSSLEchoStream:
                                 del self._pending_cleartext[0:1]
                         else:
                             # no pending cleartext; nothing to do but wait for
-                            # someone to call sendall
+                            # someone to call send_all
                             print("parking (b)")
                             await self._lot.park()
             finally:
-                await self.sleeper("recv")
-                print("  <-- transport_stream.recv finished")
+                await self.sleeper("receive_some")
+                print("  <-- transport_stream.receive_some finished")
 
 
 async def test_PyOpenSSLEchoStream_gives_resource_busy_errors():
-    # Make sure that PyOpenSSLEchoStream complains if two tasks call sendall
-    # at the same time, or ditto for recv. The tricky cases where SSLStream
+    # Make sure that PyOpenSSLEchoStream complains if two tasks call send_all
+    # at the same time, or ditto for receive_some. The tricky cases where SSLStream
     # might accidentally do this are during renegotation, which we test using
     # PyOpenSSLEchoStream, so this makes sure that if we do have a bug then
     # PyOpenSSLEchoStream will notice and complain.
@@ -251,29 +253,29 @@ async def test_PyOpenSSLEchoStream_gives_resource_busy_errors():
     s = PyOpenSSLEchoStream()
     with pytest.raises(_core.ResourceBusyError) as excinfo:
         async with _core.open_nursery() as nursery:
-            nursery.spawn(s.sendall, b"x")
-            nursery.spawn(s.sendall, b"x")
+            nursery.spawn(s.send_all, b"x")
+            nursery.spawn(s.send_all, b"x")
     assert "simultaneous" in str(excinfo.value)
 
     s = PyOpenSSLEchoStream()
     with pytest.raises(_core.ResourceBusyError) as excinfo:
         async with _core.open_nursery() as nursery:
-            nursery.spawn(s.sendall, b"x")
-            nursery.spawn(s.wait_sendall_might_not_block)
+            nursery.spawn(s.send_all, b"x")
+            nursery.spawn(s.wait_send_all_might_not_block)
     assert "simultaneous" in str(excinfo.value)
 
     s = PyOpenSSLEchoStream()
     with pytest.raises(_core.ResourceBusyError) as excinfo:
         async with _core.open_nursery() as nursery:
-            nursery.spawn(s.wait_sendall_might_not_block)
-            nursery.spawn(s.wait_sendall_might_not_block)
+            nursery.spawn(s.wait_send_all_might_not_block)
+            nursery.spawn(s.wait_send_all_might_not_block)
     assert "simultaneous" in str(excinfo.value)
 
     s = PyOpenSSLEchoStream()
     with pytest.raises(_core.ResourceBusyError) as excinfo:
         async with _core.open_nursery() as nursery:
-            nursery.spawn(s.recv, 1)
-            nursery.spawn(s.recv, 1)
+            nursery.spawn(s.receive_some, 1)
+            nursery.spawn(s.receive_some, 1)
     assert "simultaneous" in str(excinfo.value)
 
 
@@ -292,8 +294,8 @@ async def test_ssl_client_basics():
     # Everything OK
     with ssl_echo_server() as s:
         assert not s.server_side
-        await s.sendall(b"x")
-        assert await s.recv(1) == b"x"
+        await s.send_all(b"x")
+        assert await s.receive_some(1) == b"x"
         await s.graceful_close()
 
     # Didn't configure the CA file, should fail
@@ -303,7 +305,7 @@ async def test_ssl_client_basics():
             sock, client_ctx, server_hostname="trio-test-1.example.org")
         assert not s.server_side
         with pytest.raises(tssl.SSLError):
-            await s.sendall(b"x")
+            await s.send_all(b"x")
 
     # Trusted CA, but wrong host name
     with ssl_echo_server_raw(expect_fail=True) as sock:
@@ -312,7 +314,7 @@ async def test_ssl_client_basics():
             sock, client_ctx, server_hostname="trio-test-2.example.org")
         assert not s.server_side
         with pytest.raises(tssl.CertificateError):
-            await s.sendall(b"x")
+            await s.send_all(b"x")
 
 
 async def test_ssl_server_basics():
@@ -320,7 +322,7 @@ async def test_ssl_server_basics():
     with a, b:
         server_sock = tsocket.from_stdlib_socket(b)
         server_transport = tssl.SSLStream(
-            server_sock, SERVER_CTX, server_side=True)
+            _network.SocketStream(server_sock), SERVER_CTX, server_side=True)
         assert server_transport.server_side
 
         def client():
@@ -334,10 +336,10 @@ async def test_ssl_server_basics():
         t = threading.Thread(target=client)
         t.start()
 
-        assert await server_transport.recv(1) == b"x"
-        await server_transport.sendall(b"y")
-        assert await server_transport.recv(1) == b"z"
-        assert await server_transport.recv(1) == b""
+        assert await server_transport.receive_some(1) == b"x"
+        await server_transport.send_all(b"y")
+        assert await server_transport.receive_some(1) == b"z"
+        assert await server_transport.receive_some(1) == b""
         await server_transport.graceful_close()
 
         t.join()
@@ -395,7 +397,7 @@ async def test_attributes():
 #   https://stackoverflow.com/questions/18728355/ssl-renegotiation-with-full-duplex-socket-communication
 #
 # In some variants of this test (maybe only against the java server?) I've
-# also seen cases where our sendall blocks waiting to write, and then our recv
+# also seen cases where our send_all blocks waiting to write, and then our receive_some
 # also blocks waiting to write, and they never wake up again. It looks like
 # some kind of deadlock. I suspect there may be an issue where we've filled up
 # the send buffers, and the remote side is trying to handle the renegotiation
@@ -425,12 +427,12 @@ async def test_full_duplex_basics():
             print(i)
             chunk = bytes([i] * CHUNK_SIZE)
             sent += chunk
-            await s.sendall(chunk)
+            await s.send_all(chunk)
 
     async def receiver(s):
         nonlocal received
         while len(received) < EXPECTED:
-            chunk = await s.recv(CHUNK_SIZE // 2)
+            chunk = await s.receive_some(CHUNK_SIZE // 2)
             received += chunk
 
     with ssl_echo_server() as s:
@@ -453,15 +455,15 @@ async def test_renegotiation_simple():
         await s.do_handshake()
 
         s.transport_stream.renegotiate()
-        await s.sendall(b"a")
-        assert await s.recv(1) == b"a"
+        await s.send_all(b"a")
+        assert await s.receive_some(1) == b"a"
 
         # Have to send some more data back and forth to make sure the
         # renegotiation is finished before shutting down the
         # connection... otherwise openssl raises an error. I think this is a
         # bug in openssl but what can ya do.
-        await s.sendall(b"b")
-        assert await s.recv(1) == b"b"
+        await s.send_all(b"b")
+        assert await s.receive_some(1) == b"b"
 
         await s.graceful_close()
 
@@ -488,16 +490,16 @@ async def test_renegotiation_randomized(mock_clock):
 
     async def send(byte):
         await s.transport_stream.sleeper("outer send")
-        print("calling SSLStream.sendall", byte)
+        print("calling SSLStream.send_all", byte)
         with assert_yields():
-            await s.sendall(byte)
+            await s.send_all(byte)
 
     async def expect(expected):
         await s.transport_stream.sleeper("expect")
-        print("calling SSLStream.recv, expecting", expected)
+        print("calling SSLStream.receive_some, expecting", expected)
         assert len(expected) == 1
         with assert_yields():
-            assert await s.recv(1) == expected
+            assert await s.receive_some(1) == expected
 
     with virtual_ssl_echo_server(sleeper=sleeper) as s:
         await s.do_handshake()
@@ -531,23 +533,23 @@ async def test_renegotiation_randomized(mock_clock):
                 nursery.spawn(send, b2)
             await clear()
 
-    # Checking that wait_sendall_might_not_block and recv don't conflict:
+    # Checking that wait_send_all_might_not_block and receive_some don't conflict:
 
-    # 1) Set up a situation where expect (recv) is blocked sending, and
-    # wait_sendall_might_not_block comes in.
+    # 1) Set up a situation where expect (receive_some) is blocked sending, and
+    # wait_send_all_might_not_block comes in.
 
-    # Our recv() call will get stuck when it hits sendall
-    async def sleeper_with_slow_sendall(method):
-        if method == "sendall":
+    # Our receive_some() call will get stuck when it hits send_all
+    async def sleeper_with_slow_send_all(method):
+        if method == "send_all":
             await trio.sleep(100000)
 
-    # And our wait_sendall_might_not_block call will give it time to get
+    # And our wait_send_all_might_not_block call will give it time to get
     # stuck, and then start
     async def sleep_then_wait_writable():
         await trio.sleep(1000)
-        await s.wait_sendall_might_not_block()
+        await s.wait_send_all_might_not_block()
 
-    with virtual_ssl_echo_server(sleeper=sleeper_with_slow_sendall) as s:
+    with virtual_ssl_echo_server(sleeper=sleeper_with_slow_send_all) as s:
         await send(b"x")
         s.transport_stream.renegotiate()
         async with _core.open_nursery() as nursery:
@@ -558,11 +560,11 @@ async def test_renegotiation_randomized(mock_clock):
 
         await s.graceful_close()
 
-    # 2) Same, but now wait_sendall_might_not_block is stuck when recv tries
+    # 2) Same, but now wait_send_all_might_not_block is stuck when receive_some tries
     # to send.
 
     async def sleeper_with_slow_wait_writable_and_expect(method):
-        if method == "wait_sendall_might_not_block":
+        if method == "wait_send_all_might_not_block":
             await trio.sleep(100000)
         elif method == "expect":
             await trio.sleep(1000)
@@ -573,7 +575,7 @@ async def test_renegotiation_randomized(mock_clock):
         s.transport_stream.renegotiate()
         async with _core.open_nursery() as nursery:
             nursery.spawn(expect, b"x")
-            nursery.spawn(s.wait_sendall_might_not_block)
+            nursery.spawn(s.wait_send_all_might_not_block)
 
         await clear()
 
@@ -581,29 +583,29 @@ async def test_renegotiation_randomized(mock_clock):
 
 
 async def test_resource_busy_errors():
-    async def do_sendall():
+    async def do_send_all():
         with assert_yields():
-            await s.sendall(b"x")
+            await s.send_all(b"x")
 
-    async def do_recv():
+    async def do_receive_some():
         with assert_yields():
-            await s.recv(1)
+            await s.receive_some(1)
 
-    async def do_wait_sendall_might_not_block():
+    async def do_wait_send_all_might_not_block():
         with assert_yields():
-            await s.wait_sendall_might_not_block()
+            await s.wait_send_all_might_not_block()
 
     with ssl_echo_server(expect_fail=True) as s:
         with pytest.raises(_core.ResourceBusyError) as excinfo:
             async with _core.open_nursery() as nursery:
-                nursery.spawn(do_sendall)
-                nursery.spawn(do_sendall)
+                nursery.spawn(do_send_all)
+                nursery.spawn(do_send_all)
         assert "another task" in str(excinfo.value)
 
         with pytest.raises(_core.ResourceBusyError) as excinfo:
             async with _core.open_nursery() as nursery:
-                nursery.spawn(do_recv)
-                nursery.spawn(do_recv)
+                nursery.spawn(do_receive_some)
+                nursery.spawn(do_receive_some)
         assert "another task" in str(excinfo.value)
 
     a, b = stdlib_socket.socketpair()
@@ -614,32 +616,32 @@ async def test_resource_busy_errors():
                 a.send(b"x" * 10000)
         except BlockingIOError:
             pass
-        sockstream = tsocket.from_stdlib_socket(a)
+        sockstream = _network.SocketStream(tsocket.from_stdlib_socket(a))
 
         ctx = stdlib_ssl.create_default_context()
         s = tssl.SSLStream(sockstream, ctx, server_hostname="x")
 
         with pytest.raises(_core.ResourceBusyError) as excinfo:
             async with _core.open_nursery() as nursery:
-                nursery.spawn(do_sendall)
-                nursery.spawn(do_wait_sendall_might_not_block)
+                nursery.spawn(do_send_all)
+                nursery.spawn(do_wait_send_all_might_not_block)
         assert "another task" in str(excinfo.value)
 
         with pytest.raises(_core.ResourceBusyError) as excinfo:
             async with _core.open_nursery() as nursery:
-                nursery.spawn(do_wait_sendall_might_not_block)
-                nursery.spawn(do_wait_sendall_might_not_block)
+                nursery.spawn(do_wait_send_all_might_not_block)
+                nursery.spawn(do_wait_send_all_might_not_block)
         assert "another task" in str(excinfo.value)
 
 
 async def test_wait_writable_calls_underlying_wait_writable():
     record = []
     class NotAStream:
-        async def wait_sendall_might_not_block(self):
+        async def wait_send_all_might_not_block(self):
             record.append("ok")
     ctx = stdlib_ssl.create_default_context()
     s = tssl.SSLStream(NotAStream(), ctx, server_hostname="x")
-    await s.wait_sendall_might_not_block()
+    await s.wait_send_all_might_not_block()
     assert record == ["ok"]
 
 
@@ -650,18 +652,18 @@ async def test_checkpoints():
         with assert_yields():
             await s.do_handshake()
         with assert_yields():
-            await s.wait_sendall_might_not_block()
+            await s.wait_send_all_might_not_block()
         with assert_yields():
-            await s.sendall(b"xxx")
+            await s.send_all(b"xxx")
         with assert_yields():
-            await s.recv(1)
-        # These recv's in theory could return immediately, because the "xxx"
-        # was sent in a single record and after the first recv(1) the rest are
+            await s.receive_some(1)
+        # These receive_some's in theory could return immediately, because the "xxx"
+        # was sent in a single record and after the first receive_some(1) the rest are
         # sitting inside the SSLObject's internal buffers.
         with assert_yields():
-            await s.recv(1)
+            await s.receive_some(1)
         with assert_yields():
-            await s.recv(1)
+            await s.receive_some(1)
         with assert_yields():
             await s.unwrap()
 
@@ -671,24 +673,24 @@ async def test_checkpoints():
             await s.graceful_close()
 
 
-async def test_sendall_empty_string():
+async def test_send_all_empty_string():
     with ssl_echo_server() as s:
         await s.do_handshake()
 
         # underlying SSLObject interprets writing b"" as indicating an EOF,
         # for some reason. Make sure we don't inherit this.
         with assert_yields():
-            await s.sendall(b"")
+            await s.send_all(b"")
         with assert_yields():
-            await s.sendall(b"")
-        await s.sendall(b"x")
-        assert await s.recv(1) == b"x"
+            await s.send_all(b"")
+        await s.send_all(b"x")
+        assert await s.receive_some(1) == b"x"
 
         await s.graceful_close()
 
 
 def ssl_memory_stream_two_way(*, client_kwargs={}, server_kwargs={}):
-    client_transport, server_transport = memory_stream_two_way()
+    client_transport, server_transport = memory_stream_pair()
     client_ctx = stdlib_ssl.create_default_context(cafile=CA)
     client_ssl = tssl.SSLStream(
         client_transport, client_ctx,
@@ -707,36 +709,36 @@ async def test_unwrap():
 
     async def client():
         await client_ssl.do_handshake()
-        await client_ssl.sendall(b"x")
-        assert await client_ssl.recv(1) == b"y"
-        await client_ssl.sendall(b"z")
+        await client_ssl.send_all(b"x")
+        assert await client_ssl.receive_some(1) == b"y"
+        await client_ssl.send_all(b"z")
 
         # After sending that, disable outgoing data from our end, to make
         # sure the server doesn't see our EOF until after we've sent some
         # trailing data
         async with seq(0):
-            sendall_hook = client_transport.send_stream.sendall_hook
-            client_transport.send_stream.sendall_hook = None
+            send_all_hook = client_transport.send_stream.send_all_hook
+            client_transport.send_stream.send_all_hook = None
 
-        assert await client_ssl.recv(1) == b""
+        assert await client_ssl.receive_some(1) == b""
         assert client_ssl.transport_stream is client_transport
         # We just received EOF. Unwrap the connection and send some more.
         raw, trailing = await client_ssl.unwrap()
         assert raw is client_transport
         assert trailing == b""
         assert client_ssl.transport_stream is None
-        await raw.sendall(b"trailing")
+        await raw.send_all(b"trailing")
 
         # Reconnect the streams. Now the server will receive both our shutdown
         # acknowledgement + the trailing data in a single lump.
-        client_transport.send_stream.sendall_hook = sendall_hook
-        await client_transport.send_stream.sendall_hook()
+        client_transport.send_stream.send_all_hook = send_all_hook
+        await client_transport.send_stream.send_all_hook()
 
     async def server():
         await server_ssl.do_handshake()
-        assert await server_ssl.recv(1) == b"x"
-        assert await server_ssl.sendall(b"y")
-        assert await server_ssl.recv(1) == b"z"
+        assert await server_ssl.receive_some(1) == b"x"
+        assert await server_ssl.send_all(b"y")
+        assert await server_ssl.receive_some(1) == b"z"
         # Now client is blocked waiting for us to send something, but
         # instead we close the TLS connection (with sequencer to make sure
         # that the client won't see and automatically respond before we've had
@@ -766,8 +768,8 @@ async def test_closing_nice_case():
         assert client_ssl.transport_stream is None
 
     async def server_closer():
-        assert await server_ssl.recv(10) == b""
-        assert await server_ssl.recv(10) == b""
+        assert await server_ssl.receive_some(10) == b""
+        assert await server_ssl.receive_some(10) == b""
         assert server_ssl.transport_stream is not None
         with assert_yields():
             await server_ssl.graceful_close()
@@ -779,8 +781,8 @@ async def test_closing_nice_case():
 
     # closing the SSLStream also closes its transport
     assert client_ssl.transport_stream is None
-    with pytest.raises(BrokenPipeError):
-        await client_transport.sendall(b"123")
+    with pytest.raises(ClosedStreamError):
+        await client_transport.send_all(b"123")
 
     # once closed, it's OK to close again
     with assert_yields():
@@ -790,13 +792,13 @@ async def test_closing_nice_case():
     # Trying to send more data does not work
     with assert_yields():
         with pytest.raises(tssl.SSLError):
-            await server_ssl.sendall(b"123")
+            await server_ssl.send_all(b"123")
 
     # And once the connection is has been closed *locally*, then instead of
     # getting empty bytestrings we get a proper error
     with assert_yields():
         with pytest.raises(tssl.SSLError):
-            await client_ssl.recv(10) == b""
+            await client_ssl.receive_some(10) == b""
 
     with assert_yields():
         with pytest.raises(RuntimeError):
@@ -819,10 +821,10 @@ async def test_closing_forceful():
 
 # There are a lot of complicated error cases around shutting down and I'm not
 # sure how SSLStream should signal them:
-# - underlying connection dropped, transport's sendall or recv raises some
-#   arbitrary error (NB: recv() can give a BrokenPipeError!)
-# - trying to send/recv on a connection that we already closed
-# - SSLObject has lots of possible complaints, e.g. trying to send/recv on a
+# - underlying connection dropped, transport's send_all or receive_some raises some
+#   arbitrary error (NB: receive_some() can give a BrokenPipeError!)
+# - trying to send/receive_some on a connection that we already closed
+# - SSLObject has lots of possible complaints, e.g. trying to send/receive_some on a
 #   successfully closed connection raises SSLZeroReturnError,
 
 # maybe a test of presenting a client cert on a renegotiation?
@@ -840,7 +842,44 @@ async def test_closing_forceful():
 # fix testing.py namespace
 # maybe by promoting it to a package
 
-# CI failures:
-# let pyopenssl use lower versions of TLS, b/c macos 3.5 can't handle 1.2
-# https://github.com/pyca/pyopenssl/issues/624
-# (maybe assert the negotiated version is reasonable?)
+# what happens if a send_all was aborted half-way through, and *then* we call
+# graceful_close?
+
+# graceful_close is wrong - it should call SSL_shutdown once to send the
+# close_notify, and then immediately close the transport. unwrap needs to wait
+# for the peer to respond; graceful_close does not.
+#
+# SSL_shutdown has the return values:
+# - 0 meaning it sent the close notify, but hasn't seen one and should be
+#   called again if you want that
+# - 1 if the complete shutdown handshake is done
+# - <0, get_error has an error saying the problem
+#
+# Then CPython's _ssl.c has the logic where in its shutdown() method (which is
+# what ssl.py's unwrap() calls), if it sees a zero return, then it calls
+# SSL_shutdown exactly one more time.
+#
+# so when we graceful_close, there are three possible paths:
+#
+# - call unwrap
+#   - SSL_shutdown already saw a close notify, so it sends one back and
+#     returns 1
+# - unwrap succeeds
+#
+# or
+#
+# - call unwrap
+#   - SSL_shutdown writes the close notify to the outgoing BIO then returns 0
+#   - Python calls SSL_shutdown again to look for the response, which sees a
+#     close notify already in its receive buffer, and returns 1
+# - unwrap succeeds
+#
+# or
+#
+# - call unwrap
+#   - SSL_shutdown writes the close notify to the outgoing BIO then returns 0
+#   - Python calls SSL_shutdown again to look for the response, which isn't
+#     there, so it gives a WANT_READ error
+# - unwrap raises SSLWantRead
+#
+# in all of these cases, for graceful_close's purposes, this is a success.

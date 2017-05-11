@@ -6,20 +6,24 @@ from collections import defaultdict
 import time
 from math import inf
 import random
+import operator
 
 import attr
 from async_generator import async_generator, yield_
 
 from . import _util
 from . import _core
-from . import Event as _Event, sleep as _sleep, StapledStream as _StapledStream
+from . import _streams
+from . import Event as _Event, sleep as _sleep
 from . import abc as _abc
 
 __all__ = [
     "wait_all_tasks_blocked", "trio_test", "MockClock",
     "assert_yields", "assert_no_yields", "Sequencer",
-    "MemorySendStream", "MemoryRecvStream", "memory_stream_pump",
-    "memory_stream_one_way", "memory_stream_two_way",
+    "MemorySendStream", "MemoryReceiveStream", "memory_stream_pump",
+    "memory_stream_one_way_pair", "memory_stream_pair",
+    "check_one_way_stream", "check_two_way_stream",
+    "check_half_closeable_stream",
 ]
 
 # re-export
@@ -400,6 +404,7 @@ class _CloseBoth:
 
 @contextmanager
 def _assert_raises(exc):
+    __tracebackhide__ = True
     try:
         yield
     except exc:
@@ -411,8 +416,8 @@ def _assert_raises(exc):
 
 async def check_one_way_stream(stream_maker, clogged_stream_maker):
     async with _CloseBoth(stream_maker()) as (s, r):
-        assert isinstance(s, SendStream)
-        assert isinstance(r, ReceiveStream)
+        assert isinstance(s, _abc.SendStream)
+        assert isinstance(r, _abc.ReceiveStream)
 
         async def do_send_all(data):
             with assert_yields():
@@ -432,7 +437,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
         # Simple sending/receiving
         async with _core.open_nursery() as nursery:
             nursery.spawn(do_send_all, b"x")
-            nursery.spawn(checked_receive, 1, b"x")
+            nursery.spawn(checked_receive_1, b"x")
 
         async def send_empty_then_y():
             # Streams should tolerate sending b"" without giving it any
@@ -442,7 +447,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
 
         async with _core.open_nursery() as nursery:
             nursery.spawn(send_empty_then_y)
-            nursery.spawn(checked_receive, 1, b"y")
+            nursery.spawn(checked_receive_1, b"y")
 
         ### Checking various argument types
 
@@ -476,23 +481,24 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             scope.cancel()
 
         async with _core.open_nursery() as nursery:
-            nursery.spawn(simple_check_wait_send_all_might_not_block)
+            nursery.spawn(simple_check_wait_send_all_might_not_block,
+                          nursery.cancel_scope)
             nursery.spawn(do_receive_some, 1)
 
         # closing the r side
-        do_graceful_close(r)
+        await do_graceful_close(r)
 
         # ...leads to BrokenStreamError on the s side (eventually)
-        with _assert_raises(_core.BrokenStreamError):
+        with _assert_raises(_streams.BrokenStreamError):
             while True:
                 await do_send_all(b"x" * 100)
 
         # once detected, the stream stays broken
-        with _assert_raises(_core.BrokenStreamError):
+        with _assert_raises(_streams.BrokenStreamError):
             await do_send_all(b"x" * 100)
 
         # r closed -> ClosedStreamError on the receive side
-        with _assert_raises(_core.ClosedStreamError):
+        with _assert_raises(_streams.ClosedStreamError):
             await do_receive_some(4096)
 
         # we can close the same stream repeatedly, it's fine
@@ -506,40 +512,48 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             await s.graceful_close()
 
         # now trying to send raises ClosedStreamError
-        with _assert_raises(_core.ClosedStreamError):
+        with _assert_raises(_streams.ClosedStreamError):
             await do_send_all(b"x" * 100)
 
         # and again, repeated closing is fine
         s.forceful_close()
-        with assert_yields():
-            await do_graceful_close(s)
+        await do_graceful_close(s)
         s.forceful_close()
 
     async with _CloseBoth(stream_maker()) as (s, r):
-        async with _core.open_nursery() as nursery:
-            nursery.spawn(do_send_all, b"x")
-            nursery.spawn(checked_receive, 1, b"x")
+        # if send-then-graceful-close, receiver gets data then b""
+        async def send_then_close():
+            await do_send_all(b"y")
+            await do_graceful_close(s)
 
-        # receiver get b"" after the sender does a graceful_close
+        async def receive_send_then_close():
+            # We want to make sure that if the sender closes the stream before
+            # we read anything, then we still get all the data. But some
+            # streams might block on the do_send_all call. So we let the
+            # sender get as far as it can, then we receive.
+            await wait_all_tasks_blocked()
+            await checked_receive_1(b"y")
+            await checked_receive_1(b"")
+
         async with _core.open_nursery() as nursery:
-            nursery.spawn(s.graceful_close)
-            nursery.spawn(checked_receive, 1, b"")
+            nursery.spawn(send_then_close)
+            nursery.spawn(receive_send_then_close)
 
     # using forceful_close also makes things closed
     async with _CloseBoth(stream_maker()) as (s, r):
         r.forceful_close()
 
-        with _assert_raises(_core.BrokenStreamError):
+        with _assert_raises(_streams.BrokenStreamError):
             while True:
                 await do_send_all(b"x" * 100)
 
-        with _assert_raises(_core.ClosedStreamError):
+        with _assert_raises(_streams.ClosedStreamError):
             await do_receive_some(4096)
 
     async with _CloseBoth(stream_maker()) as (s, r):
         s.forceful_close()
 
-        with _assert_raises(_core.ClosedStreamError):
+        with _assert_raises(_streams.ClosedStreamError):
             await do_send_all(b"123")
 
         # after the sender does a forceful close, the receiver might either
@@ -547,7 +561,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
         # if it freezes, or returns data.
         try:
             await checked_receive_1(b"")
-        except _core.BrokenStreamError:
+        except _streams.BrokenStreamError:
             pass
 
     # cancelled graceful_close still closes
@@ -560,11 +574,34 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             scope.cancel()
             await s.graceful_close()
 
-        with _assert_raises(_core.ClosedStreamError):
-            do_send_all(b"123")
+        with _assert_raises(_streams.ClosedStreamError):
+            await do_send_all(b"123")
 
-        with _assert_raises(_core.ClosedStreamError):
-            do_receive_some(4096)
+        with _assert_raises(_streams.ClosedStreamError):
+            await do_receive_some(4096)
+
+    # Check that we can still gracefully close a stream after an operation has
+    # been cancelled. This can be challenging if cancellation can leave the
+    # stream internals in an inconsistent state, e.g. for
+    # SSLStream. Unfortunately this test isn't very thorough; the really
+    # challenging case for something like SSLStream is it gets cancelled
+    # *while* it's sending data on the underlying, not before. But testing
+    # that requires some special-case handling of the particular stream setup;
+    # we can't do it here. Maybe we could do a bit better with
+    #     https://github.com/python-trio/trio/issues/77
+    async with _CloseBoth(stream_maker()) as (s, r):
+        async def expect_cancelled(afn, *args):
+            with _assert_raises(_core.Cancelled):
+                await afn(*args)
+
+        with _core.open_cancel_scope() as scope:
+            scope.cancel()
+            async with _core.open_nursery() as nursery:
+                nursery.spawn(expect_cancelled, do_send_all, b"x")
+                nursery.spawn(expect_cancelled, do_receive_some, 1)
+
+        await do_graceful_close(s)
+        await do_graceful_close(r)
 
     # check wait_send_all_might_not_block, if we can
     if clogged_stream_maker is not None:
@@ -622,16 +659,16 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
 
 async def check_two_way_stream(stream_maker, clogged_stream_maker):
     check_one_way_stream(stream_maker, clogged_stream_maker)
-    flipped_stream_maker = lambda: stream_maker()[::-1]
+    flipped_stream_maker = lambda: reversed(stream_maker())
     if clogged_stream_maker is not None:
-        flipped_clogged_stream_maker = lambda: clogged_stream_maker()[::-1]
+        flipped_clogged_stream_maker = lambda: reversed(clogged_stream_maker())
     else:
         flipped_clogged_stream_maker = None
     check_one_way_stream(flipped_stream_maker, flipped_clogged_stream_maker)
 
     async with _CloseBoth(stream_maker()) as (s1, s2):
-        assert isinstance(s1, Stream)
-        assert isinstance(s2, Stream)
+        assert isinstance(s1, _abc.Stream)
+        assert isinstance(s2, _abc.Stream)
 
         # Duplex can be a bit tricky, might as well check it as well
         DUPLEX_TEST_SIZE = 2 ** 20
@@ -669,12 +706,59 @@ async def check_two_way_stream(stream_maker, clogged_stream_maker):
         await s2.graceful_close()
 
 
-async def check_half_closeable_stream(stream_maker):
-    check_two_way_stream(stream_maker)
+async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
+    check_two_way_stream(stream_maker, clogged_stream_maker)
 
     async with _CloseBoth(stream_maker()) as (s1, s2):
-        assert isinstance(s1, HalfCloseableStream)
-        assert isinstance(s2, HalfCloseableStream)
+        assert isinstance(s1, _abc.HalfCloseableStream)
+        assert isinstance(s2, _abc.HalfCloseableStream)
+
+        async def send_x_then_eof(s):
+            await s.send_all(b"x")
+            with assert_yields():
+                await s.send_eof()
+
+        async def expect_x_then_eof(r):
+            await wait_all_tasks_blocked()
+            assert await r.receive_some(10) == b"x"
+            assert await r.receive_some(10) == b""
+
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(send_x_then_eof, s1)
+            nursery.spawn(expect_x_then_eof, s2)
+
+        # now sending is disallowed
+        with _assert_raises(_streams.ClosedStreamError):
+            await s1.send_all(b"y")
+
+        # but we can do send_eof again
+        with assert_yields():
+            await s1.send_eof()
+
+        # and we can still send stuff back the other way
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(send_x_then_eof, s2)
+            nursery.spawn(expect_x_then_eof, s1)
+
+    if clogged_stream_maker is not None:
+        async with _CloseBoth(stream_maker()) as (s1, s2):
+            # send_all and send_eof simultaneously is not ok
+            with _assert_raises(_core.ResourceBusyError):
+                async with _core.open_nursery() as nursery:
+                    t = nursery.spawn(s1.send_all, b"x")
+                    await wait_all_tasks_blocked()
+                    assert t.result is None
+                    nursery.spawn(s1.send_eof)
+
+        async with _CloseBoth(stream_maker()) as (s1, s2):
+            # wait_send_all_might_not_block and send_eof simultaneously is not
+            # ok either
+            with _assert_raises(_core.ResourceBusyError):
+                async with _core.open_nursery() as nursery:
+                    t = nursery.spawn(s1.wait_send_all_might_not_block)
+                    await wait_all_tasks_blocked()
+                    assert t.result is None
+                    nursery.spawn(s1.send_eof)
 
 
 ################################################################
@@ -696,10 +780,16 @@ class _UnboundedByteQueue:
 
     def put(self, data):
         if self._closed:
-            # Same error raised by trying to send on a closed socket
-            raise BrokenPipeError("virtual connection closed")
+            raise _streams.ClosedStreamError("virtual connection closed")
         self._data += data
         self._lot.unpark_all()
+
+    def _check_max_bytes(self, max_bytes):
+        if max_bytes is None:
+            return
+        max_bytes = operator.index(max_bytes)
+        if max_bytes < 1:
+            raise ValueError("max_bytes must be >= 1")
 
     def _get_impl(self, max_bytes):
         assert self._closed or self._data
@@ -715,12 +805,14 @@ class _UnboundedByteQueue:
 
     def get_nowait(self, max_bytes=None):
         with self._fetch_lock.sync:
+            self._check_max_bytes(max_bytes)
             if not self._closed and not self._data:
                 raise _core.WouldBlock
             return self._get_impl(max_bytes)
 
     async def get(self, max_bytes=None):
         async with self._fetch_lock:
+            self._check_max_bytes(max_bytes)
             if not self._closed and not self._data:
                 await self._lot.park()
             return self._get_impl(max_bytes)
@@ -730,16 +822,16 @@ class MemorySendStream(_abc.SendStream):
     """An in-memory :class:`~trio.abc.SendStream`.
 
     Args:
-      sendall_hook: An async function, or None. Called from
-          :meth:`sendall`. Can do whatever you like.
-      wait_sendall_might_not_block_hook: An async function, or None. Called
-          from :meth:`wait_sendall_might_not_block`. Can do whatever you
+      send_all_hook: An async function, or None. Called from
+          :meth:`send_all`. Can do whatever you like.
+      wait_send_all_might_not_block_hook: An async function, or None. Called
+          from :meth:`wait_send_all_might_not_block`. Can do whatever you
           like.
       close_hook: A synchronous function, or None. Called from
           :meth:`forceful_close`. Can do whatever you like.
 
-    .. attribute:: sendall_hook
-                   wait_sendall_might_not_block_hook
+    .. attribute:: send_all_hook
+                   wait_send_all_might_not_block_hook
                    close_hook
 
        All of these hooks are also exposed as attributes on the object, and
@@ -747,19 +839,19 @@ class MemorySendStream(_abc.SendStream):
 
     """
     def __init__(self,
-                 sendall_hook=None,
-                 wait_sendall_might_not_block_hook=None,
+                 send_all_hook=None,
+                 wait_send_all_might_not_block_hook=None,
                  close_hook=None):
         self._lock = _util.UnLock(
             _core.ResourceBusyError, "another task is using this stream")
         self._outgoing = _UnboundedByteQueue()
-        self.sendall_hook = sendall_hook
-        self.wait_sendall_might_not_block_hook = wait_sendall_might_not_block_hook
+        self.send_all_hook = send_all_hook
+        self.wait_send_all_might_not_block_hook = wait_send_all_might_not_block_hook
         self.close_hook = close_hook
 
-    async def sendall(self, data):
+    async def send_all(self, data):
         """Places the given data into the object's internal buffer, and then
-        calls the :attr:`sendall_hook` (if any).
+        calls the :attr:`send_all_hook` (if any).
 
         """
         # The lock itself is a checkpoint, but then we also yield inside the
@@ -768,11 +860,11 @@ class MemorySendStream(_abc.SendStream):
         async with self._lock:
             await _core.yield_briefly()
             self._outgoing.put(data)
-            if self.sendall_hook is not None:
-                await self.sendall_hook()
+            if self.send_all_hook is not None:
+                await self.send_all_hook()
 
-    async def wait_sendall_might_not_block(self):
-        """Calls the :attr:`wait_sendall_might_not_block_hook` (if any), and
+    async def wait_send_all_might_not_block(self):
+        """Calls the :attr:`wait_send_all_might_not_block_hook` (if any), and
         then returns immediately.
 
         """
@@ -781,8 +873,8 @@ class MemorySendStream(_abc.SendStream):
         # this twice at the same time.
         async with self._lock:
             await _core.yield_briefly()
-            if self.wait_sendall_might_not_block_hook is not None:
-                await self.wait_sendall_might_not_block_hook()
+            if self.wait_send_all_might_not_block_hook is not None:
+                await self.wait_send_all_might_not_block_hook()
 
     def forceful_close(self):
         """Marks this stream as closed, and then calls the :attr:`close_hook`
@@ -821,28 +913,29 @@ class MemorySendStream(_abc.SendStream):
         return self._outgoing.get_nowait(max_bytes)
 
 
-class MemoryRecvStream(_abc.RecvStream):
-    """An in-memory :class:`~trio.abc.RecvStream`.
+class MemoryReceiveStream(_abc.ReceiveStream):
+    """An in-memory :class:`~trio.abc.ReceiveStream`.
 
     Args:
-      recv_hook: An async function, or None. Called from
-          :meth:`recv`. Can do whatever you like.
+      receive_some_hook: An async function, or None. Called from
+          :meth:`receive_some`. Can do whatever you like.
 
-    .. attribute:: recv_hook
+    .. attribute:: receive_some_hook
 
-       The :attr:`recv_hook` is also exposed as an attribute on the object,
-       and you can change it at any time.
+       The :attr:`receive_some_hook` is also exposed as an attribute on the
+       object, and you can change it at any time.
 
     """
-    def __init__(self, recv_hook=None):
+    def __init__(self, receive_some_hook=None):
         self._lock = _util.UnLock(
             _core.ResourceBusyError, "another task is using this stream")
         self._incoming = _UnboundedByteQueue()
-        self.recv_hook = recv_hook
+        self._closed = False
+        self.receive_some_hook = receive_some_hook
 
-    async def recv(self, max_bytes):
-        """Calls the :attr:`recv_hook` (if any), and then retrieves data from
-        the internal buffer, blocking if necessary.
+    async def receive_some(self, max_bytes):
+        """Calls the :attr:`receive_some_hook` (if any), and then retrieves
+        data from the internal buffer, blocking if necessary.
 
         """
         # The lock itself is a checkpoint, but then we also yield inside the
@@ -852,8 +945,10 @@ class MemoryRecvStream(_abc.RecvStream):
             await _core.yield_briefly()
             if max_bytes is None:
                 raise TypeError("max_bytes must not be None")
-            if self.recv_hook is not None:
-                await self.recv_hook()
+            if self._closed:
+                raise _streams.ClosedStreamError
+            if self.receive_some_hook is not None:
+                await self.receive_some_hook()
             return await self._incoming.get(max_bytes)
 
     def forceful_close(self):
@@ -862,11 +957,13 @@ class MemoryRecvStream(_abc.RecvStream):
 
         """
         # discard any pending data
+        self._closed = True
         try:
             self._incoming.get_nowait()
         except _core.WouldBlock:
             pass
         self._incoming.close()
+        self._closed = True
 
     def put_data(self, data):
         """Appends the given data to the internal buffer.
@@ -875,21 +972,20 @@ class MemoryRecvStream(_abc.RecvStream):
         self._incoming.put(data)
 
     def put_eof(self):
-        """Adds an end-of-file marker to the internal buffer; the stream will
-        be closed after any previous data is retrieved.
+        """Adds an end-of-file marker to the internal buffer.
 
         """
         self._incoming.close()
 
 
 def memory_stream_pump(
-        memory_send_stream, memory_recv_stream, *, max_bytes=None):
+        memory_send_stream, memory_recieve_stream, *, max_bytes=None):
     """Take data out of the given :class:`MemorySendStream`'s internal buffer,
-    and put it into the given :class:`MemoryRecvStream`'s internal buffer.
+    and put it into the given :class:`MemoryReceiveStream`'s internal buffer.
 
     Args:
       memory_send_stream (MemorySendStream): The stream to get data from.
-      memory_recv_stream (MemoryRecvStream): The stream to put data into.
+      memory_recieve_stream (MemoryReceiveStream): The stream to put data into.
       max_bytes (int or None): The maximum amount of data to transfer in this
           call, or None to transfer all available data.
 
@@ -897,8 +993,8 @@ def memory_stream_pump(
       True if it successfully transferred some data, or False if there was no
       data to transfer.
 
-    This is used to implement of :func:`memory_stream_one_way` and
-    :func:`memory_stream_two_way`; see the latter's docstring for an example
+    This is used to implement :func:`memory_stream_one_way_pair` and
+    :func:`memory_stream_pair`; see the latter's docstring for an example
     of how you might use it yourself.
 
     """
@@ -906,51 +1002,55 @@ def memory_stream_pump(
         data = memory_send_stream.get_data_nowait(max_bytes)
     except _core.WouldBlock:
         return False
-    if not data:
-        memory_recv_stream.put_eof()
-    else:
-        memory_recv_stream.put_data(data)
+    try:
+        if not data:
+            memory_recieve_stream.put_eof()
+        else:
+            memory_recieve_stream.put_data(data)
+    except _streams.ClosedStreamError:
+        raise _streams.BrokenStreamError("MemoryReceiveStream was closed")
     return True
 
 
-def memory_stream_one_way():
+def memory_stream_one_way_pair():
     """Create a connected, in-memory, unidirectional stream.
 
     You can think of this as being a pure-Python, trio-streamsified version of
     :func:`os.pipe`.
 
     Returns:
-      A tuple (:class:`MemorySendStream`, :class:`MemoryRecvStream`), where
+      A tuple (:class:`MemorySendStream`, :class:`MemoryReceiveStream`), where
       the :class:`MemorySendStream` has its hooks set up so that it calls
       :func:`memory_stream_pump` from its
-      :attr:`~MemorySendStream.sendall_hook` and
+      :attr:`~MemorySendStream.send_all_hook` and
       :attr:`~MemorySendStream.close_hook`.
 
     The end result is that data automatically flows from the
-    :class:`MemorySendStream` to the :class:`MemoryRecvStream`. But you're
+    :class:`MemorySendStream` to the :class:`MemoryReceiveStream`. But you're
     also free to rearrange things however you like. For example, you can
-    temporarily set the :attr:`~MemorySendStream.sendall_hook` to None if you
+    temporarily set the :attr:`~MemorySendStream.send_all_hook` to None if you
     want to simulate a stall in data transmission. Or see
-    :func:`memory_stream_two_way` for a more elaborate example.
+    :func:`memory_stream_pair` for a more elaborate example.
 
     """
     send_stream = MemorySendStream()
-    recv_stream = MemoryRecvStream()
+    recv_stream = MemoryReceiveStream()
     def pump_from_send_stream_to_recv_stream():
         memory_stream_pump(send_stream, recv_stream)
     async def async_pump_from_send_stream_to_recv_stream():
         pump_from_send_stream_to_recv_stream()
-    send_stream.sendall_hook = async_pump_from_send_stream_to_recv_stream
+    send_stream.send_all_hook = async_pump_from_send_stream_to_recv_stream
     send_stream.close_hook = pump_from_send_stream_to_recv_stream
     return send_stream, recv_stream
 
 
-def memory_stream_two_way():
+def memory_stream_pair():
     """Create a connected, in-memory, bidirectional stream.
 
     This is a convenience function that creates two one-way streams using
-    :func:`memory_stream_one_way`, and then uses :class:`~trio.StapledStream`
-    to combine them into a single bidirectional stream.
+    :func:`memory_stream_one_way_pair`, and then uses
+    :class:`~trio.StapledStream` to combine them into a single bidirectional
+    stream.
 
     This is like a pure-Python, trio-streamsified version of
     :func:`socket.socketpair`.
@@ -959,43 +1059,69 @@ def memory_stream_two_way():
       A pair of :class:`~trio.StapledStream` objects that are connected so
       that data automatically flows from one to the other in both directions.
 
-    See :class:`~trio.StapledStream` and :func:`memory_stream_one_way` for the
-    full details of how this is wired up; all the pieces involved are public
-    APIs, so you can adjust to suit the requirements of your tests. For
-    example, here's how to tweak a stream so that data flowing from left to
-    right trickles in one byte at a time (but data flowing from right to left
-    proceeds at full speed)::
+    After creating a stream pair, you can send data back and forth, which is
+    enough for simple tests::
 
-        left, right = memory_stream_two_way()
+       left, right = memory_stream_pair()
+       await left.send_all(b"123")
+       assert await right.receive_some(10) == b"123"
+       await right.send_all(b"456")
+       assert await left.receive_some(10) == b"456"
+
+    But if you read the docs for :class:`~trio.StapledStream` and
+    :func:`memory_stream_one_way_pair`, you'll see that all the pieces
+    involved in wiring this up are public APIs, so you can adjust to suit the
+    requirements of your tests. For example, here's how to tweak a stream so
+    that data flowing from left to right trickles in one byte at a time (but
+    data flowing from right to left proceeds at full speed)::
+
+        left, right = memory_stream_pair()
         async def trickle():
             # left is a StapledStream, and left.send_stream is a MemorySendStream
-            # right is a StapledStream, and right.recv_stream is a MemoryRecvStream
+            # right is a StapledStream, and right.recv_stream is a MemoryReceiveStream
             while memory_stream_pump(left.send_stream, right.recv_stream, max_byes=1):
                 # Pause between each byte
                 await trio.sleep(1)
-        # Replace the regular call to memory_stream_pump
-        left.send_stream.sendall_hook = trickle
+        # Normally this send_all_hook calls memory_stream_pump directly without
+        # passing in a max_bytes. We replace it with our custom version:
+        left.send_stream.send_all_hook = trickle
 
-        # Will take 5 seconds
-        await left.sendall(b"12345")
+    And here's a simple test using our modified stream objects::
 
-        assert await right.recv(5) == b"12345"
+        async def sender():
+            await left.send_all(b"12345")
+            await left.send_eof()
+
+        async def receiver():
+            while True:
+                data = await right.receive_some(10)
+                if data == b"":
+                    return
+                print(data)
+
+        async with trio.open_nursery() as nursery:
+            nursery.spawn(sender)
+            nursery.spawn(receiver)
+
+    By default, this will print ``b"12345"`` and then immediately exit; with
+    our trickle stream it instead sleeps 1 second, then prints ``b"1"``, then
+    sleeps 1 second, then prints ``b"2"``, etc.
 
     Pro-tip: you can insert sleep calls (like in our example above) to
-    manipulate the flow of data between your tasks... and then use
+    manipulate the flow of data across tasks... and then use
     :class:`MockClock` and its :attr:`~MockClock.autojump_threshold`
     functionality to keep your test suite running quickly.
 
     If you want to stress test a protocol implementation, one nice trick is to
     use the :mod:`random` module (preferably with a fixed seed) to move random
     numbers of bytes at a time, and insert random sleeps in between them. You
-    can also set up a custom :attr:`~MemoryRecvStream.recv_hook` if you want
-    to manipulate things on the receiving side, and not just the sending
-    side.
+    can also set up a custom :attr:`~MemoryReceiveStream.receive_some_hook` if
+    you want to manipulate things on the receiving side, and not just the
+    sending side.
 
     """
-    pipe1_send, pipe1_recv = memory_stream_one_way()
-    pipe2_send, pipe2_recv = memory_stream_one_way()
-    stream1 = _StapledStream(pipe1_send, pipe2_recv)
-    stream2 = _StapledStream(pipe2_send, pipe1_recv)
+    pipe1_send, pipe1_recv = memory_stream_one_way_pair()
+    pipe2_send, pipe2_recv = memory_stream_one_way_pair()
+    stream1 = _streams.StapledStream(pipe1_send, pipe2_recv)
+    stream2 = _streams.StapledStream(pipe2_send, pipe1_recv)
     return stream1, stream2

@@ -3,7 +3,7 @@ import abc as _abc
 from . import _core
 
 __all__ = [
-    "Clock", "Instrument", "AsyncResource", "SendStream", "RecvStream",
+    "Clock", "Instrument", "AsyncResource", "SendStream", "ReceiveStream",
     "Stream", "HalfCloseableStream",
 ]
 
@@ -296,7 +296,7 @@ class ReceiveStream(AsyncResource):
     bidirectional, then you probably want to also implement
     :class:`SendStream`, which makes your object a :class:`Stream`.
 
-    Every :class:`RecvStream` also implements the :class:`AsyncResource`
+    Every :class:`ReceiveStream` also implements the :class:`AsyncResource`
     interface.
 
     """
@@ -335,11 +335,11 @@ class ReceiveStream(AsyncResource):
         pass
 
 
-class Stream(SendStream, RecvStream):
+class Stream(SendStream, ReceiveStream):
     """A standard interface for interacting with bidirectional byte streams.
 
     A :class:`Stream` is an object that implements both the
-    :class:`SendStream` and :class:`RecvStream` interfaces.
+    :class:`SendStream` and :class:`ReceiveStream` interfaces.
 
     If implementing this interface, you should consider whether you can go one
     step further and implement :class:`HalfCloseableStream`.
@@ -367,7 +367,7 @@ class HalfCloseableStream(Stream):
         remote peer should receive an end-of-file indication (eventually,
         after receiving all the data you sent before that). But, they may
         continue to send data to you, and you can continue to receive it by
-        calling :meth:`~RecvStream.receive_some`. You can think of it as
+        calling :meth:`~ReceiveStream.receive_some`. You can think of it as
         calling :meth:`~AsyncResource.graceful_close` on just the
         :class:`SendStream` "half" of the stream object (and in fact that's
         literally how :class:`trio.StapledStream` implements it).
@@ -396,6 +396,10 @@ class HalfCloseableStream(Stream):
           trio.ResourceBusyError: if another task is already executing a
               :meth:`send_all`, :meth:`wait_send_all_might_not_block`, or
               :meth:`HalfCloseableStream.send_eof` on this stream.
+          trio.BrokenStreamError: if something has gone wrong, and the stream
+              is broken.
+          trio.ClosedStreamError: if someone already called one of the close
+              methods on this stream object.
 
         """
         pass

@@ -845,9 +845,13 @@ thing, and then we'll discuss the pieces:
 .. literalinclude:: tutorial/echo-server-low-level.py
    :linenos:
 
-The actual echo server implementation should be fairly familiar at
-this point. Each incoming connection from an echo client gets handled
-by its own dedicated task, running the ``echo_server`` function:
+Let's start with ``echo_server``. As we'll see below, each time an
+echo client connects, our server will spawn a child task running
+``echo_server``; there might be lots of these running at once if lots
+of clients are connected. Its job is to read data from its particular
+client, and then echo it back. It should be pretty straightforward to
+understand, because it uses the same socket functions we saw in the
+last section:
 
 .. literalinclude:: tutorial/echo-server-low-level.py
    :linenos:

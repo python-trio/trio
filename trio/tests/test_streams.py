@@ -2,18 +2,18 @@ import pytest
 
 import attr
 
-from ..abc import SendStream, RecvStream
+from ..abc import SendStream, ReceiveStream
 from .._streams import StapledStream
 
 @attr.s
 class RecordSendStream(SendStream):
     record = attr.ib(default=attr.Factory(list))
 
-    async def sendall(self, data):
-        self.record.append(("sendall", data))
+    async def send_all(self, data):
+        self.record.append(("send_all", data))
 
-    async def wait_sendall_might_not_block(self):
-        self.record.append("wait_sendall_might_not_block")
+    async def wait_send_all_might_not_block(self):
+        self.record.append("wait_send_all_might_not_block")
 
     async def graceful_close(self):
         self.record.append("graceful_close")
@@ -23,11 +23,11 @@ class RecordSendStream(SendStream):
 
 
 @attr.s
-class RecordRecvStream(RecvStream):
+class RecordReceiveStream(ReceiveStream):
     record = attr.ib(default=attr.Factory(list))
 
-    async def recv(self, max_bytes):
-        self.record.append(("recv", max_bytes))
+    async def receive_some(self, max_bytes):
+        self.record.append(("receive_some", max_bytes))
 
     async def graceful_close(self):
         self.record.append("graceful_close")
@@ -38,16 +38,16 @@ class RecordRecvStream(RecvStream):
 
 async def test_StapledStream():
     send_stream = RecordSendStream()
-    recv_stream = RecordRecvStream()
-    stapled = StapledStream(send_stream, recv_stream)
+    receive_stream = RecordReceiveStream()
+    stapled = StapledStream(send_stream, receive_stream)
 
     assert stapled.send_stream is send_stream
-    assert stapled.recv_stream is recv_stream
+    assert stapled.receive_stream is receive_stream
 
-    await stapled.sendall(b"foo")
-    await stapled.wait_sendall_might_not_block()
+    await stapled.send_all(b"foo")
+    await stapled.wait_send_all_might_not_block()
     assert send_stream.record == [
-        ("sendall", b"foo"), "wait_sendall_might_not_block",
+        ("send_all", b"foo"), "wait_send_all_might_not_block",
     ]
     send_stream.record.clear()
 
@@ -62,16 +62,16 @@ async def test_StapledStream():
     assert send_stream.record == ["send_eof"]
 
     send_stream.record.clear()
-    assert recv_stream.record == []
+    assert receive_stream.record == []
 
-    await stapled.recv(1234)
-    assert recv_stream.record == [("recv", 1234)]
+    await stapled.receive_some(1234)
+    assert receive_stream.record == [("receive_some", 1234)]
     assert send_stream.record == []
-    recv_stream.record.clear()
+    receive_stream.record.clear()
 
     await stapled.graceful_close()
     stapled.forceful_close()
-    assert recv_stream.record == ["graceful_close", "forceful_close"]
+    assert receive_stream.record == ["graceful_close", "forceful_close"]
     assert send_stream.record == ["graceful_close", "forceful_close"]
 
 
@@ -85,7 +85,7 @@ async def test_StapledStream_with_erroring_close():
             await super().graceful_close()
             raise ValueError
 
-    class BrokenRecvStream(RecordRecvStream):
+    class BrokenReceiveStream(RecordReceiveStream):
         def forceful_close(self):
             super().forceful_close()
             raise KeyError
@@ -94,7 +94,7 @@ async def test_StapledStream_with_erroring_close():
             await super().graceful_close()
             raise ValueError
 
-    stapled = StapledStream(BrokenSendStream(), BrokenRecvStream())
+    stapled = StapledStream(BrokenSendStream(), BrokenReceiveStream())
 
     with pytest.raises(KeyError) as excinfo:
         stapled.forceful_close()
@@ -105,4 +105,4 @@ async def test_StapledStream_with_erroring_close():
     assert isinstance(excinfo.value.__context__, ValueError)
 
     assert stapled.send_stream.record == ["forceful_close", "graceful_close"]
-    assert stapled.recv_stream.record == ["forceful_close", "graceful_close"]
+    assert stapled.receive_stream.record == ["forceful_close", "graceful_close"]
