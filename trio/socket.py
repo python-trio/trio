@@ -206,25 +206,6 @@ class SocketType:
         else:
             self.setsockopt(SOL_SOCKET, SO_REUSEADDR, True)
 
-        try:
-            self.setsockopt(IPPROTO_TCP, TCP_NODELAY, True)
-        except OSError:
-            pass
-
-        try:
-            # 16 KiB is pretty arbitrary and could probably do with some
-            # tuning. (Apple is also setting this by default in CFNetwork
-            # apparently -- I'm curious what value they're using, though I
-            # couldn't find it online trivially. CFNetwork-129.20 source has
-            # no mentions of TCP_NOTSENT_LOWAT. This presentation says
-            # "typically 8 kilobytes":
-            #     http://devstreaming.apple.com/videos/wwdc/2015/719ui2k57m/719/719_your_app_and_next_generation_networks.pdf?dl=1
-            # ). The theory is that you want it to be bandwidth * rescheduling
-            # interval.
-            self.setsockopt(IPPROTO_TCP, TCP_NOTSENT_LOWAT, 2 ** 14)
-        except (NameError, OSError):
-            pass
-
     ################################################################
     # Simple + portable methods and attributes
     ################################################################
@@ -646,6 +627,9 @@ class SocketType:
 
         """
         with memoryview(data) as data:
+            if not data:
+                await _core.yield_briefly()
+                return
             total_sent = 0
             while total_sent < len(data):
                 with data[total_sent:] as remaining:

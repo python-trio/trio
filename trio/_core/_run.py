@@ -366,11 +366,19 @@ class Task:
     coro = attr.ib()
     _runner = attr.ib()
     name = attr.ib()
+    # Invariant:
+    # - for unfinished tasks, result is None
+    # - for finished tasks, result is a Result object
     result = attr.ib(default=None)
-    # tasks start out unscheduled, and unscheduled tasks have None here
+    # Invariant:
+    # - for unscheduled tasks, _next_send is None
+    # - for scheduled tasks, _next_send is a Result object
+    # Tasks start out unscheduled.
     _next_send = attr.ib(default=None)
     _abort_func = attr.ib(default=None)
 
+    # these are counts of how many cancel/schedule points this task has
+    # executed, for assert{_no,}_yields
     # XX maybe these should be exposed as part of a statistics() method?
     _cancel_points = attr.ib(default=0)
     _schedule_points = attr.ib(default=0)

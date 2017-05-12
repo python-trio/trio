@@ -1,3 +1,5 @@
+.. currentmodule:: trio
+
 I/O in Trio
 ===========
 
@@ -6,28 +8,29 @@ I/O in Trio
 The abstract Stream API
 -----------------------
 
-.. currentmodule:: trio.abc
-
 Trio provides a set of abstract base classes that define a standard
 interface for unidirectional and bidirectional byte streams.
 
 Why is this useful? It lets you write generic protocol implementations
-that can work over arbitrary transports, and its lets us write generic
-adapter classes. Here's some examples:
+that can work over arbitrary transports, and easily create complex
+transport configurations. Here's some examples:
 
-* :mod:`trio.ssl.SSLStream` is a "stream adapter" that can take any
-  object that implements the :class:`Stream` interface, and lets you
-  speak SSL over it. Trio socket objects implement the :class:`Stream`
-  interface, so in trio the standard way to speak SSL over the network
-  is to wrap an :class:`~trio.ssl.SSLStream` around a socket object.
+* :class:`trio.SocketStream` wraps a raw socket (like a TCP connection
+  over the network), and converts it to the standard stream interface.
 
-* If you spawn a subprocess then you can get a :class:`SendStream`
-  that lets you write to its stdin, and a :class:`ReceiveStream` that
-  lets you read from its stdout. If for some reason you wanted to
-  speak SSL to a subprocess, you could use a
-  :class:`~trio.StapledStream` to combine its stdin/stdout into a
-  single bidirectional :class:`Stream`, and then wrap that in an
-  :class:`~trio.ssl.SSLStream`::
+* :class:`trio.ssl.SSLStream` is a "stream adapter" that can take any
+  object that implements the :class:`trio.abc.Stream` interface, and
+  convert it into an encrypted stream. In trio the standard way to
+  speak SSL over the network is to wrap an
+  :class:`~trio.ssl.SSLStream` around a :class:`~trio.SocketStream`.
+
+* If you spawn a subprocess then you can get a
+  :class:`~trio.abc.SendStream` that lets you write to its stdin, and
+  a :class:`~trio.abc.ReceiveStream` that lets you read from its
+  stdout. If for some reason you wanted to speak SSL to a subprocess,
+  you could use a :class:`StapledStream` to combine its stdin/stdout
+  into a single bidirectional :class:`~trio.abc.Stream`, and then wrap
+  that in an :class:`~trio.ssl.SSLStream`::
 
      ssl_context = trio.ssl.create_default_context()
      ssl_context.check_hostname = False
@@ -44,6 +47,7 @@ adapter classes. Here's some examples:
   :class:`~trio.ssl.SSLStream` in a second
   :class:`~trio.ssl.SSLStream`::
 
+     # Get a raw SocketStream connection to the proxy:
      s0 = await open_tcp_stream("proxy", 443)
 
      # Set up SSL connection to proxy:
@@ -70,30 +74,28 @@ adapter classes. Here's some examples:
 Abstract base classes
 ~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: AsyncResource
+.. autoclass:: trio.abc.AsyncResource
    :members:
 
-.. autoclass:: SendStream
-   :members:
-   :show-inheritance:
-
-.. autoclass:: ReceiveStream
+.. autoclass:: trio.abc.SendStream
    :members:
    :show-inheritance:
 
-.. autoclass:: Stream
+.. autoclass:: trio.abc.ReceiveStream
    :members:
    :show-inheritance:
 
-.. autoclass:: HalfCloseableStream
+.. autoclass:: trio.abc.Stream
+   :members:
+   :show-inheritance:
+
+.. autoclass:: trio.abc.HalfCloseableStream
    :members:
    :show-inheritance:
 
 
 Generic stream implementations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. currentmodule:: trio
 
 Trio currently provides one generic utility class for working with
 streams. And if you want to test code that's written against the
@@ -108,7 +110,9 @@ streams interface, you should also check out :ref:`testing-streams` in
 Sockets and networking
 ----------------------
 
-XX
+.. autoclass:: SocketStream
+
+.. autofunction:: socket_stream_pair
 
 
 SSL / TLS support
@@ -140,10 +144,10 @@ library :mod:`socket` module. Most constants (like ``SOL_SOCKET``) and
 simple utilities (like :func:`~socket.inet_aton`) are simply
 re-exported unchanged. But there are also some differences:
 
-All functions that return sockets (e.g. :func:`socket.socket`,
-:func:`socket.socketpair`, ...) are modified to return trio sockets
-instead. In addition, there is a new function to directly convert a
-standard library socket into a trio socket:
+All functions that return socket objects (e.g. :func:`socket.socket`,
+:func:`socket.socketpair`, ...) are modified to return trio socket
+objects instead. In addition, there is a new function to directly
+convert a standard library socket into a trio socket:
 
 .. autofunction:: from_stdlib_socket
 
@@ -251,9 +255,7 @@ Socket objects
       to port hijacking attacks
       <https://msdn.microsoft.com/en-us/library/windows/desktop/ms740621(v=vs.85).aspx>`__.
 
-   2. ``TCP_NODELAY`` is enabled by default.
-
-   3. ``IPV6_V6ONLY`` is disabled, i.e., by default on dual-stack
+   2. ``IPV6_V6ONLY`` is disabled, i.e., by default on dual-stack
       hosts a ``AF_INET6`` socket is able to communicate with both
       IPv4 and IPv6 peers, where the IPv4 peers appear to be in the
       `"IPv4-mapped" portion of IPv6 address space
@@ -266,10 +268,6 @@ Socket objects
       This makes trio applications behave more consistently across
       different environments.
 
-   4. On platforms where it's supported (recent Linux and recent
-      MacOS), ``TCP_NOTSENT_LOWAT`` is enabled with a reasonable
-      buffer size (currently 16 KiB).
-
    See `issue #72 <https://github.com/python-trio/trio/issues/72>`__ for
    discussion of these defaults.
 
@@ -280,7 +278,7 @@ Socket objects
 
    .. automethod:: connect
 
-   .. automethod:: send_all
+   .. automethod:: sendall
 
    .. method:: sendfile
 

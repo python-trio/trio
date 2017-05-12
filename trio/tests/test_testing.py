@@ -7,7 +7,7 @@ from .. import sleep
 from .. import _core
 from .. import _streams
 from ..testing import *
-from ..testing import _UnboundedByteQueue
+from ..testing import _assert_raises, _UnboundedByteQueue
 
 async def test_wait_all_tasks_blocked():
     record = []
@@ -376,6 +376,18 @@ async def test_mock_clock_autojump_0_and_wait_all_tasks_blocked(mock_clock):
 
 ################################################################
 
+async def test__assert_raises():
+    with pytest.raises(AssertionError):
+        with _assert_raises(RuntimeError):
+            1 + 1
+
+    with pytest.raises(TypeError):
+        with _assert_raises(RuntimeError):
+            "foo" + 1
+
+    with _assert_raises(RuntimeError):
+        raise RuntimeError
+
 # This is a private implementation detail, but it's complex enough to be worth
 # testing directly
 async def test__UnboundeByteQueue():
@@ -710,5 +722,10 @@ async def test_memory_stream_pair():
 
 
 async def test_memory_streams_with_generic_tests():
-    await check_one_way_stream(memory_stream_one_way_pair, None)
-    await check_half_closeable_stream(memory_stream_pair, None)
+    async def one_way_stream_maker():
+        return memory_stream_one_way_pair()
+    await check_one_way_stream(one_way_stream_maker, None)
+
+    async def half_closeable_stream_maker():
+        return memory_stream_pair()
+    await check_half_closeable_stream(half_closeable_stream_maker, None)

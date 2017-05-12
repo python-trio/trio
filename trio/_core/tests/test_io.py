@@ -145,8 +145,9 @@ async def test_double_read(socketpair, wait_readable):
     async with _core.open_nursery() as nursery:
         nursery.spawn(wait_readable, a)
         await wait_all_tasks_blocked()
-        with pytest.raises(_core.ResourceBusyError):
-            await wait_readable(a)
+        with assert_yields():
+            with pytest.raises(_core.ResourceBusyError):
+                await wait_readable(a)
         nursery.cancel_scope.cancel()
 
 @write_socket_test
@@ -158,8 +159,9 @@ async def test_double_write(socketpair, wait_writable):
     async with _core.open_nursery() as nursery:
         nursery.spawn(wait_writable, a)
         await wait_all_tasks_blocked()
-        with pytest.raises(_core.ResourceBusyError):
-            await wait_writable(a)
+        with assert_yields():
+            with pytest.raises(_core.ResourceBusyError):
+                await wait_writable(a)
         nursery.cancel_scope.cancel()
 
 

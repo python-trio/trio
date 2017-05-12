@@ -390,7 +390,7 @@ class Sequencer:
 
 class _CloseBoth:
     def __init__(self, both):
-        self._both = both
+        self._both = list(both)
 
     async def __aenter__(self):
         return self._both
@@ -408,14 +408,13 @@ def _assert_raises(exc):
     try:
         yield
     except exc:
-        ok = True
+        pass
     else:
-        ok = False
-    assert ok, "expected exception: {}".format(exc)
+        raise AssertionError("expected exception: {}".format(exc))
 
 
 async def check_one_way_stream(stream_maker, clogged_stream_maker):
-    async with _CloseBoth(stream_maker()) as (s, r):
+    async with _CloseBoth(await stream_maker()) as (s, r):
         assert isinstance(s, _abc.SendStream)
         assert isinstance(r, _abc.ReceiveStream)
 
@@ -461,9 +460,12 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             nursery.spawn(checked_receive_1, b"2")
 
         # max_bytes must be a positive integer
-        for bad in [-1, 0, 1.5]:
-            with _assert_raises((TypeError, ValueError)):
-                await r.receive_some(bad)
+        with _assert_raises(ValueError):
+            await r.receive_some(-1)
+        with _assert_raises(ValueError):
+            await r.receive_some(0)
+        with _assert_raises(TypeError):
+            await r.receive_some(1.5)
 
         with _assert_raises(_core.ResourceBusyError):
             async with _core.open_nursery() as nursery:
@@ -520,7 +522,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
         await do_graceful_close(s)
         s.forceful_close()
 
-    async with _CloseBoth(stream_maker()) as (s, r):
+    async with _CloseBoth(await stream_maker()) as (s, r):
         # if send-then-graceful-close, receiver gets data then b""
         async def send_then_close():
             await do_send_all(b"y")
@@ -540,7 +542,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             nursery.spawn(receive_send_then_close)
 
     # using forceful_close also makes things closed
-    async with _CloseBoth(stream_maker()) as (s, r):
+    async with _CloseBoth(await stream_maker()) as (s, r):
         r.forceful_close()
 
         with _assert_raises(_streams.BrokenStreamError):
@@ -550,7 +552,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
         with _assert_raises(_streams.ClosedStreamError):
             await do_receive_some(4096)
 
-    async with _CloseBoth(stream_maker()) as (s, r):
+    async with _CloseBoth(await stream_maker()) as (s, r):
         s.forceful_close()
 
         with _assert_raises(_streams.ClosedStreamError):
@@ -565,7 +567,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             pass
 
     # cancelled graceful_close still closes
-    async with _CloseBoth(stream_maker()) as (s, r):
+    async with _CloseBoth(await stream_maker()) as (s, r):
         with _core.open_cancel_scope() as scope:
             scope.cancel()
             await r.graceful_close()
@@ -589,7 +591,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
     # that requires some special-case handling of the particular stream setup;
     # we can't do it here. Maybe we could do a bit better with
     #     https://github.com/python-trio/trio/issues/77
-    async with _CloseBoth(stream_maker()) as (s, r):
+    async with _CloseBoth(await stream_maker()) as (s, r):
         async def expect_cancelled(afn, *args):
             with _assert_raises(_core.Cancelled):
                 await afn(*args)
@@ -605,7 +607,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
 
     # check wait_send_all_might_not_block, if we can
     if clogged_stream_maker is not None:
-        async with _CloseBoth(clogged_stream_maker()) as (s, r):
+        async with _CloseBoth(await clogged_stream_maker()) as (s, r):
             record = []
 
             async def waiter():
@@ -632,7 +634,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
                 "waiter wokeup",
             ]
 
-        async with _CloseBoth(clogged_stream_maker()) as (s, r):
+        async with _CloseBoth(await clogged_stream_maker()) as (s, r):
             # simultaneous wait_send_all_might_not_block fails
             with _assert_raises(_core.ResourceBusyError):
                 async with _core.open_nursery() as nursery:
@@ -648,7 +650,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
                     nursery.spawn(s.wait_send_all_might_not_block)
                     nursery.spawn(s.send_all, b"123")
 
-        async with _CloseBoth(clogged_stream_maker()) as (s, r):
+        async with _CloseBoth(await clogged_stream_maker()) as (s, r):
             # send_all and send_all blocked simultaneously should also raise
             # (but again this might destroy the stream)
             with _assert_raises(_core.ResourceBusyError):
@@ -658,15 +660,19 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
 
 
 async def check_two_way_stream(stream_maker, clogged_stream_maker):
-    check_one_way_stream(stream_maker, clogged_stream_maker)
-    flipped_stream_maker = lambda: reversed(stream_maker())
+    await check_one_way_stream(stream_maker, clogged_stream_maker)
+
+    async def flipped_stream_maker():
+        return reversed(await stream_maker())
     if clogged_stream_maker is not None:
-        flipped_clogged_stream_maker = lambda: reversed(clogged_stream_maker())
+        async def flipped_clogged_stream_maker():
+            return reversed(await clogged_stream_maker())
     else:
         flipped_clogged_stream_maker = None
-    check_one_way_stream(flipped_stream_maker, flipped_clogged_stream_maker)
+    await check_one_way_stream(
+        flipped_stream_maker, flipped_clogged_stream_maker)
 
-    async with _CloseBoth(stream_maker()) as (s1, s2):
+    async with _CloseBoth(await stream_maker()) as (s1, s2):
         assert isinstance(s1, _abc.Stream)
         assert isinstance(s2, _abc.Stream)
 
@@ -675,7 +681,7 @@ async def check_two_way_stream(stream_maker, clogged_stream_maker):
         CHUNK_SIZE_MAX = 2 ** 14
 
         r = random.Random(0)
-        i = r.getrandbits(256 ** DUPLEX_TEST_SIZE)
+        i = r.getrandbits(8 * DUPLEX_TEST_SIZE)
         test_data = i.to_bytes(DUPLEX_TEST_SIZE, "little")
 
         async def sender(s, data, seed):
@@ -690,7 +696,7 @@ async def check_two_way_stream(stream_maker, clogged_stream_maker):
             r = random.Random(seed)
             got = bytearray()
             while len(got) < len(data):
-                chunk = await r.receive_some(r.randint(1, CHUNK_SIZE_MAX))
+                chunk = await s.receive_some(r.randint(1, CHUNK_SIZE_MAX))
                 assert chunk
                 got += chunk
             assert got == data
@@ -707,9 +713,9 @@ async def check_two_way_stream(stream_maker, clogged_stream_maker):
 
 
 async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
-    check_two_way_stream(stream_maker, clogged_stream_maker)
+    await check_two_way_stream(stream_maker, clogged_stream_maker)
 
-    async with _CloseBoth(stream_maker()) as (s1, s2):
+    async with _CloseBoth(await stream_maker()) as (s1, s2):
         assert isinstance(s1, _abc.HalfCloseableStream)
         assert isinstance(s2, _abc.HalfCloseableStream)
 
@@ -741,7 +747,7 @@ async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
             nursery.spawn(expect_x_then_eof, s1)
 
     if clogged_stream_maker is not None:
-        async with _CloseBoth(stream_maker()) as (s1, s2):
+        async with _CloseBoth(await clogged_stream_maker()) as (s1, s2):
             # send_all and send_eof simultaneously is not ok
             with _assert_raises(_core.ResourceBusyError):
                 async with _core.open_nursery() as nursery:
@@ -750,7 +756,7 @@ async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
                     assert t.result is None
                     nursery.spawn(s1.send_eof)
 
-        async with _CloseBoth(stream_maker()) as (s1, s2):
+        async with _CloseBoth(await clogged_stream_maker()) as (s1, s2):
             # wait_send_all_might_not_block and send_eof simultaneously is not
             # ok either
             with _assert_raises(_core.ResourceBusyError):
