@@ -112,7 +112,7 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.coverage',
     'sphinx.ext.napoleon',
-    'local_customization',
+    'sphinxcontrib_trio',
 ]
 
 intersphinx_mapping = {
