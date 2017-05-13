@@ -135,4 +135,6 @@ def acontextmanager(func):
     @wraps(func)
     def helper(*args, **kwds):
         return _AsyncGeneratorContextManager(func, args, kwds)
+    # A hint for sphinxcontrib-trio:
+    helper.__returns_acontextmanager__ = True
     return helper
