@@ -883,3 +883,11 @@ async def test_closing_forceful():
 # - unwrap raises SSLWantRead
 #
 # in all of these cases, for graceful_close's purposes, this is a success.
+
+
+# should unwrap switch to a mode where we only receive 1 byte at a time? this
+# would cause a CPU spike when unwrapping, but probably not *too* much (?)
+# since we're not talking about a lot of data? I think the actual close_notify
+# record is <40 bytes long (though there might be arbitrary amounts of data
+# stacked up ahead of it... but this really shouldn't happen during a
+# coordinated unwrap).
