@@ -310,7 +310,7 @@ time. In the first part, we define two async functions ``child1`` and
    :linenos:
    :lineno-match:
    :start-at: async def child1
-   :end-at: child2 exiting
+   :end-at: child2: exiting
 
 Next, we define ``parent`` as an async function that's going to call
 ``child1`` and ``child2`` concurrently:

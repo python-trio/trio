@@ -6,7 +6,7 @@ import threading
 import contextlib
 import time
 
-from async_generator import async_generator, yield_
+from async_generator import async_generator, yield_, isasyncgenfunction
 
 from ... import _core
 from ...testing import wait_all_tasks_blocked
@@ -175,14 +175,17 @@ async def test_agen_protection():
         async for _ in agen_fn():
             assert not _core.currently_ki_protected()
 
-        async with acontextmanager(agen_fn)():
-            assert not _core.currently_ki_protected()
-
-        # Another case that's tricky due to:
-        #   https://bugs.python.org/issue29590
-        with pytest.raises(KeyError):
+        # acontextmanager insists that the function passed must itself be an
+        # async gen function, not a wrapper around one
+        if isasyncgenfunction(agen_fn):
             async with acontextmanager(agen_fn)():
-                raise KeyError
+                assert not _core.currently_ki_protected()
+
+            # Another case that's tricky due to:
+            #   https://bugs.python.org/issue29590
+            with pytest.raises(KeyError):
+                async with acontextmanager(agen_fn)():
+                    raise KeyError
 
 
 # Test the case where there's no magic local anywhere in the call stack
