@@ -472,6 +472,11 @@ def test_ki_wakes_us_up():
                     print("waiting for lock")
                     with lock:
                         print("got lock")
+                    # And then we want to force a PyErr_CheckSignals. Which is
+                    # not so easy on Windows. Weird kluge: builtin_repr calls
+                    # PyObject_Repr, which does an unconditional
+                    # PyErr_CheckSignals for some reason.
+                    print(repr(None))
         finally:
             print("joining thread", sys.exc_info())
             thread.join()
