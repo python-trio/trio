@@ -17,86 +17,17 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-import os
-import sys
-sys.path.insert(0, os.path.abspath('.'))
+# import os
+# import sys
+# sys.path.insert(0, os.path.abspath('.'))
 
 # XX hack the RTD theme until
 #   https://github.com/rtfd/sphinx_rtd_theme/pull/382
 # is shipped (should be in the release after 0.2.4)
+# ...note that this has since grown to contain a bunch of other CSS hacks too
+# though.
 def setup(app):
     app.add_stylesheet("hackrtd.css")
-
-# XX monkeypatch until
-#   https://github.com/sphinx-doc/sphinx/pull/3449
-# is resolved (hopefully before the next release...)
-import sphinx
-# Currently sphinx issue #3449 has the 1.6 milestone set, so maybe that's
-# the plan?
-if sphinx.version_info < (1, 6, 0):
-    print("Monkeypatching sphinx!")
-    print("I hope they release a fixed version soon...")
-    import inspect
-    import sphinx.util.inspect
-    # Copied from the definition of inspect.getfullargspec from Python master,
-    # and modified to remove the use of special flags that break decorated
-    # callables and bound methods in the name of backwards compatibility. Used
-    # under the terms of PSF license v2, which requires the above statement
-    # and the following:
-    #
-    #   Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-    #   2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017 Python Software
-    #   Foundation; All Rights Reserved
-    def getargspec(func):
-        """Like inspect.getfullargspec but supports bound methods, and wrapped
-        methods."""
-        sig = inspect.signature(func)
-
-        args = []
-        varargs = None
-        varkw = None
-        kwonlyargs = []
-        defaults = ()
-        annotations = {}
-        defaults = ()
-        kwdefaults = {}
-
-        if sig.return_annotation is not sig.empty:
-            annotations['return'] = sig.return_annotation
-
-        for param in sig.parameters.values():
-            kind = param.kind
-            name = param.name
-
-            if kind is inspect.Parameter.POSITIONAL_ONLY:
-                args.append(name)
-            elif kind is inspect.Parameter.POSITIONAL_OR_KEYWORD:
-                args.append(name)
-                if param.default is not param.empty:
-                    defaults += (param.default,)
-            elif kind is inspect.Parameter.VAR_POSITIONAL:
-                varargs = name
-            elif kind is inspect.Parameter.KEYWORD_ONLY:
-                kwonlyargs.append(name)
-                if param.default is not param.empty:
-                    kwdefaults[name] = param.default
-            elif kind is inspect.Parameter.VAR_KEYWORD:
-                varkw = name
-
-            if param.annotation is not param.empty:
-                annotations[name] = param.annotation
-
-        if not kwdefaults:
-            # compatibility with 'func.__kwdefaults__'
-            kwdefaults = None
-
-        if not defaults:
-            # compatibility with 'func.__defaults__'
-            defaults = None
-
-        return inspect.FullArgSpec(args, varargs, varkw, defaults,
-                                   kwonlyargs, kwdefaults, annotations)
-    sphinx.util.inspect.getargspec = getargspec
 
 # -- General configuration ------------------------------------------------
 
