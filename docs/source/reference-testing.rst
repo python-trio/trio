@@ -114,6 +114,12 @@ a convenience function that takes data out of a
 :class:`MemoryReceiveStream`'s buffer. But that's just the default –
 you can replace this with whatever arbitrary behavior you want.
 
+Trio also provides some specialized functions for testing completely
+**un**\buffered streams: :func:`lockstep_stream_one_way_pair` and
+:func:`lockstep_stream_pair`. These aren't customizable, but they do
+exhibit an extreme kind of behavior that's otherwise hard to
+implement.
+
 
 API details
 ~~~~~~~~~~~
@@ -129,6 +135,10 @@ API details
 .. autofunction:: memory_stream_one_way_pair
 
 .. autofunction:: memory_stream_pair
+
+.. autofunction:: lockstep_stream_one_way_pair
+
+.. autofunction:: lockstep_stream_pair
 
 
 Testing checkpoints

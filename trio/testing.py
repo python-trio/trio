@@ -22,6 +22,7 @@ __all__ = [
     "assert_yields", "assert_no_yields", "Sequencer",
     "MemorySendStream", "MemoryReceiveStream", "memory_stream_pump",
     "memory_stream_one_way_pair", "memory_stream_pair",
+    "lockstep_stream_one_way_pair", "lockstep_stream_pair",
     "check_one_way_stream", "check_two_way_stream",
     "check_half_closeable_stream",
 ]
@@ -610,21 +611,22 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
         async with _CloseBoth(await clogged_stream_maker()) as (s, r):
             record = []
 
-            async def waiter():
+            async def waiter(cancel_scope):
                 record.append("waiter sleeping")
                 with assert_yields():
                     await s.wait_send_all_might_not_block()
                 record.append("waiter wokeup")
+                cancel_scope.cancel()
 
             async def receiver():
                 # give wait_send_all_might_not_block a chance to block
                 await wait_all_tasks_blocked()
                 record.append("receiver starting")
-                while "waiter wokeup" not in record:
+                while True:
                     await r.receive_some(16834)
 
             async with _core.open_nursery() as nursery:
-                nursery.spawn(waiter)
+                nursery.spawn(waiter, nursery.cancel_scope)
                 await wait_all_tasks_blocked()
                 nursery.spawn(receiver)
 
@@ -771,7 +773,6 @@ async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
 # In-memory streams
 ################################################################
 
-# XX it might be useful to move this to _sync.py and make it public?
 class _UnboundedByteQueue:
     def __init__(self):
         self._data = bytearray()
@@ -1019,10 +1020,13 @@ def memory_stream_pump(
 
 
 def memory_stream_one_way_pair():
-    """Create a connected, in-memory, unidirectional stream.
+    """Create a connected, pure-Python, unidirectional stream with infinite
+    buffering and flexible configuration options.
 
-    You can think of this as being a pure-Python, trio-streamsified version of
-    :func:`os.pipe`.
+    You can think of this as being a no-operating-system-involved
+    trio-streamsified version of :func:`os.pipe` (except that :func:`os.pipe`
+    returns the streams in the wrong order – we follow the superior convention
+    that data flows from left to right).
 
     Returns:
       A tuple (:class:`MemorySendStream`, :class:`MemoryReceiveStream`), where
@@ -1050,15 +1054,24 @@ def memory_stream_one_way_pair():
     return send_stream, recv_stream
 
 
+def _make_stapled_pair(one_way_pair):
+    pipe1_send, pipe1_recv = one_way_pair()
+    pipe2_send, pipe2_recv = one_way_pair()
+    stream1 = _streams.StapledStream(pipe1_send, pipe2_recv)
+    stream2 = _streams.StapledStream(pipe2_send, pipe1_recv)
+    return stream1, stream2
+
+
 def memory_stream_pair():
-    """Create a connected, in-memory, bidirectional stream.
+    """Create a connected, pure-Python, bidirectional stream with infinite
+    buffering and flexible configuration options.
 
     This is a convenience function that creates two one-way streams using
     :func:`memory_stream_one_way_pair`, and then uses
     :class:`~trio.StapledStream` to combine them into a single bidirectional
     stream.
 
-    This is like a pure-Python, trio-streamsified version of
+    This is like a no-operating-system-involved, trio-streamsified version of
     :func:`socket.socketpair`.
 
     Returns:
@@ -1126,8 +1139,146 @@ def memory_stream_pair():
     sending side.
 
     """
-    pipe1_send, pipe1_recv = memory_stream_one_way_pair()
-    pipe2_send, pipe2_recv = memory_stream_one_way_pair()
-    stream1 = _streams.StapledStream(pipe1_send, pipe2_recv)
-    stream2 = _streams.StapledStream(pipe2_send, pipe1_recv)
-    return stream1, stream2
+    return _make_stapled_pair(memory_stream_one_way_pair)
+
+
+class _LockstepByteQueue:
+    def __init__(self):
+        self._data = bytearray()
+        self._sender_closed = False
+        self._receiver_closed = False
+        self._receiver_waiting = False
+        self._waiters = _core.ParkingLot()
+        self._send_lock = _util.UnLock(
+            _core.ResourceBusyError, "another task is already sending")
+        self._receive_lock = _util.UnLock(
+            _core.ResourceBusyError, "another task is already receiving")
+
+    def _something_happened(self):
+        self._waiters.unpark_all()
+
+    async def _wait_for(self, fn):
+        while not fn():
+            await self._waiters.park()
+
+    def close_sender(self):
+        # close while send_all is in progress is undefined
+        self._sender_closed = True
+        self._something_happened()
+
+    def close_receiver(self):
+        self._receiver_closed = True
+        self._something_happened()
+
+    async def send_all(self, data):
+        async with self._send_lock:
+            if self._sender_closed:
+                raise _streams.ClosedStreamError
+            if self._receiver_closed:
+                raise _streams.BrokenStreamError
+            assert not self._data
+            self._data += data
+            self._something_happened()
+            await self._wait_for(
+                lambda: not self._data or self._receiver_closed)
+            if self._data and self._receiver_closed:
+                raise _streams.BrokenStreamError
+            if not self._data:
+                return
+
+    async def wait_send_all_might_not_block(self):
+        async with self._send_lock:
+            if self._sender_closed:
+                raise _streams.ClosedStreamError
+            if self._receiver_closed:
+                return
+            await self._wait_for(
+                lambda: self._receiver_waiting or self._receiver_closed)
+
+    async def receive_some(self, max_bytes):
+        async with self._receive_lock:
+            # Argument validation
+            max_bytes = operator.index(max_bytes)
+            if max_bytes < 1:
+                raise ValueError("max_bytes must be >= 1")
+            # State validation
+            if self._receiver_closed:
+                raise _streams.ClosedStreamError
+            # Wake wait_send_all_might_not_block and wait for data
+            self._receiver_waiting = True
+            self._something_happened()
+            try:
+                await self._wait_for(lambda: self._data or self._sender_closed)
+            finally:
+                self._receiver_waiting = False
+            # Get data, possibly waking send_all
+            if self._data:
+                got = self._data[:max_bytes]
+                del self._data[:max_bytes]
+                self._something_happened()
+                return got
+            else:
+                assert self._sender_closed
+                return b""
+
+
+class _LockstepSendStream(_abc.SendStream):
+    def __init__(self, lbq):
+        self._lbq = lbq
+
+    def forceful_close(self):
+        self._lbq.close_sender()
+
+    async def send_all(self, data):
+        await self._lbq.send_all(data)
+
+    async def wait_send_all_might_not_block(self):
+        await self._lbq.wait_send_all_might_not_block()
+
+
+class _LockstepReceiveStream(_abc.ReceiveStream):
+    def __init__(self, lbq):
+        self._lbq = lbq
+
+    def forceful_close(self):
+        self._lbq.close_receiver()
+
+    async def receive_some(self, max_bytes):
+        return await self._lbq.receive_some(max_bytes)
+
+
+def lockstep_stream_one_way_pair():
+    """Create a connected, pure Python, unidirectional stream where data flows
+    in lockstep.
+
+    Returns:
+      A tuple (:class:`SendStream`, :class:`ReceiveStream`).
+
+    This stream has *absolutely no* buffering. Each call to
+    :meth:`SendStream.send_all` will block until all the given data has been
+    returned by a call to :meth:`ReceiveStream.receive_some`.
+
+    This can be useful for testing flow control mechanisms in an extreme case,
+    or for setting up "clogged" streams to use with
+    :func:`check_one_way_stream` and friends.
+
+    """
+
+    lbq = _LockstepByteQueue()
+    return _LockstepSendStream(lbq), _LockstepReceiveStream(lbq)
+
+
+def lockstep_stream_pair():
+    """Create a connected, pure-Python, bidirectional stream where data flows
+    in lockstep.
+
+    Returns:
+      A tuple (:class:`StapledStream`, :class:`StapledStream`).
+
+    This is a convenience function that creates two one-way streams using
+    :func:`lockstep_stream_one_way_pair`, and then uses
+    :class:`~trio.StapledStream` to combine them into a single bidirectional
+    stream.
+
+    """
+    return _make_stapled_pair(lockstep_stream_one_way_pair)
