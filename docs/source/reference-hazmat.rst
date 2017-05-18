@@ -180,7 +180,7 @@ unprotected code or vice-versa.
 
 These transitions are accomplished using two function decorators:
 
-.. autofunction:: disable_ki_protection()
+.. function:: disable_ki_protection()
    :decorator:
 
    Decorator that marks the given regular function, generator
@@ -203,7 +203,7 @@ These transitions are accomplished using two function decorators:
    then uses :func:`disable_ki_protection` when entering the
    user-provided function.
 
-.. autofunction:: enable_ki_protection()
+.. function:: enable_ki_protection()
    :decorator:
 
    Decorator that marks the given regular function, generator

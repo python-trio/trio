@@ -6,7 +6,7 @@ import threading
 import contextlib
 import time
 
-from async_generator import async_generator, yield_
+from async_generator import async_generator, yield_, isasyncgenfunction
 
 from ... import _core
 from ...testing import wait_all_tasks_blocked
@@ -175,14 +175,17 @@ async def test_agen_protection():
         async for _ in agen_fn():
             assert not _core.currently_ki_protected()
 
-        async with acontextmanager(agen_fn)():
-            assert not _core.currently_ki_protected()
-
-        # Another case that's tricky due to:
-        #   https://bugs.python.org/issue29590
-        with pytest.raises(KeyError):
+        # acontextmanager insists that the function passed must itself be an
+        # async gen function, not a wrapper around one
+        if isasyncgenfunction(agen_fn):
             async with acontextmanager(agen_fn)():
-                raise KeyError
+                assert not _core.currently_ki_protected()
+
+            # Another case that's tricky due to:
+            #   https://bugs.python.org/issue29590
+            with pytest.raises(KeyError):
+                async with acontextmanager(agen_fn)():
+                    raise KeyError
 
 
 # Test the case where there's no magic local anywhere in the call stack
@@ -420,28 +423,69 @@ def test_ki_wakes_us_up():
         if (3, 6, 0) <= sys.version_info < (3, 6, 2):
             buggy_wakeup_fd = True
 
+    # lock is only needed to avoid an annoying race condition where the
+    # *second* ki_self() call arrives *after* the first one woke us up and its
+    # KeyboardInterrupt was caught, and then generates a second
+    # KeyboardInterrupt that aborts the test run. The kill_soon thread holds
+    # the lock while doing the calls to ki_self, which means that it holds it
+    # while the C-level signal handler is running. Then in the main thread,
+    # when we're woken up we know that ki_self() has been run at least once;
+    # if we then take the lock it guaranteeds that ki_self() has been run
+    # twice, so if a second KeyboardInterrupt is going to arrive it should
+    # arrive by the time we've acquired the lock. This lets us force it to
+    # happen inside the pytest.raises block.
+    #
+    # It will be very nice when the buggy_wakeup_fd bug is fixed.
+    lock = threading.Lock()
+
     def kill_soon():
         # We want the signal to be raised after the main thread has entered
         # the IO manager blocking primitive. There really is no way to
         # deterministically interlock with that, so we have to use sleep and
         # hope it's long enough.
         time.sleep(1)
-        ki_self()
-        if buggy_wakeup_fd:
+        with lock:
+            print("thread doing ki_self()")
             ki_self()
+            if buggy_wakeup_fd:
+                print("buggy_wakeup_fd =", buggy_wakeup_fd)
+                ki_self()
 
     async def main():
         thread = threading.Thread(target=kill_soon)
+        print("Starting thread")
         thread.start()
         try:
             with pytest.raises(KeyboardInterrupt):
                 # To limit the damage on CI if this does get broken (as
                 # compared to sleep_forever())
-                await sleep(20)
+                print("Going to sleep")
+                try:
+                    await sleep(20)
+                    print("Woke without raising?!")  # pragma: no cover
+                # The only purpose of this finally: block is to soak up the
+                # second KeyboardInterrupt that might arrive on
+                # buggy_wakeup_fd platforms. So it might get aborted at any
+                # moment randomly on some runs, so pragma: no cover avoids
+                # coverage flapping:
+                finally:  # pragma: no cover
+                    print("waiting for lock")
+                    with lock:
+                        print("got lock")
+                    # And then we want to force a PyErr_CheckSignals. Which is
+                    # not so easy on Windows. Weird kluge: builtin_repr calls
+                    # PyObject_Repr, which does an unconditional
+                    # PyErr_CheckSignals for some reason.
+                    print(repr(None))
         finally:
+            print("joining thread", sys.exc_info())
             thread.join()
 
     start = time.time()
-    _core.run(main)
-    end = time.time()
+    try:
+        _core.run(main)
+    finally:
+        end = time.time()
+        print("duration", end - start)
+        print("sys.exc_info", sys.exc_info())
     assert 1.0 <= (end - start) < 2

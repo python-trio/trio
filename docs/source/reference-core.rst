@@ -13,8 +13,8 @@ If you want to use trio, then the first thing you have to do is call
 .. autofunction:: run
 
 
-General principle
------------------
+General principles
+------------------
 
 .. _checkpoints:
 

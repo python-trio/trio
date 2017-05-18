@@ -19,21 +19,53 @@ Trio – async I/O for humans and snake people
 
 *P.S. your API is a user interface – Kenneth Reitz*
 
-Trio is an attempt to produce a production-quality, `permissively
-licensed <https://github.com/python-trio/trio/blob/master/LICENSE>`__,
-async/await-native I/O library for Python, with an emphasis on
-**usability** and **correctness** – we want to make it *easy* to get
-things *right*. Our ultimate goal is to become Python's de facto
-standard async I/O library.
+.. Github carefully breaks rendering of SVG directly out of the repo,
+   so we have to redirect through cdn.rawgit.com
+   See:
+     https://github.com/isaacs/github/issues/316
+     https://github.com/github/markup/issues/556#issuecomment-288581799
+   I also tried rendering to PNG and linking to that locally, which
+   "works" in that it displays the image, but for some reason it
+   ignores the width and align directives, so it's actually pretty
+   useless...
 
-This is project is young and still somewhat experimental: the overall
+.. image:: https://cdn.rawgit.com/python-trio/trio/9b0bec646a31e0d0f67b8b6ecc6939726faf3e17/logo/logo-with-background.svg
+   :width: 200px
+   :align: right
+
+The Trio project's goal is to produce a production-quality,
+`permissively licensed
+<https://github.com/python-trio/trio/blob/master/LICENSE>`__,
+async/await-native I/O library for Python. Like all async libraries,
+its main purpose is to help you write programs that do **multiple
+things at the same time** with **parallelized I/O**. A web spider that
+wants to fetch lots of pages in parallel, a web server that needs to
+juggle lots of downloads and websocket connections at the same time, a
+process supervisor monitoring multiple subprocesses... that sort of
+thing. Compared to other libraries, Trio attempts to distinguish
+itself with an obsessive focus on **usability** and
+**correctness**. Concurrency is complicated; we try to make it *easy*
+to get things *right*.
+
+Trio was built from the ground up to take advantage of the `latest
+Python features <https://www.python.org/dev/peps/pep-0492/>`__, and
+draws inspiration from `many sources
+<https://github.com/python-trio/trio/wiki/Reading-list>`__, in
+particular Dave Beazley's `Curio <https://curio.readthedocs.io/>`__.
+The resulting design is radically simpler than older competitors like
+`asyncio <https://docs.python.org/3/library/asyncio.html>`__ and
+`Twisted <https://twistedmatrix.com/>`__, yet just as capable. Trio is
+the Python I/O library I always wanted; I find it makes building
+I/O-oriented programs easier, less error-prone, and just plain more
+fun. Perhaps you'll find the same.
+
+This project is young and still somewhat experimental: the overall
 design is solid and the existing features are fully tested and
 documented, but you may encounter missing functionality or rough
-edges. We *do* encourage you to use it, but you should `read and
-subscribe to this issue
+edges. We *do* encourage you do use it, but you should `read and
+subscribe to issue #1
 <https://github.com/python-trio/trio/issues/1>`__ to get warning and a
-chance to give feedback about any potential compatibility-breaking
-changes.
+chance to give feedback about any compatibility-breaking changes.
 
 
 Where to next?
@@ -121,8 +153,6 @@ Apache 2. See `LICENSE
      that? like if there's a magic local pointing to the frame, we can
      use that frame's 'self'?
 
-   - wait_send_buffer_available()
-
    - add nursery statistics? add a task statistics method that also
      gives nursery statistics? "unreaped tasks" is probably a useful
      metric... maybe we should just count that at the runner
@@ -158,7 +188,7 @@ Apache 2. See `LICENSE
 
    - start_* convention -- if you want to run it synchronously, do
      async with make_nursery() as nursery:
-         task = await start_foo(nursery)
+         info, task = await start_foo(nursery)
      return task.result.unwrap()
      we might even want to wrap this idiom up in a convenience function
 

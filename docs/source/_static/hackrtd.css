@@ -4,3 +4,74 @@
 pre {
     line-height: normal !important;
 }
+
+/* Add a snakey triskelion ornament to <hr>
+ * https://stackoverflow.com/questions/8862344/css-hr-with-ornament/18541258#18541258
+ * but only do it to <hr>s in the content box, b/c the RTD popup control panel
+ * thingummy also has an <hr> in it, and putting the ornament on that looks
+ * *really weird*. (In particular, the background color is wrong.)
+ */
+.rst-content hr:after {
+    /* This .svg gets displayed on top of the middle of the hrule. It has a box
+     * behind the logo that's colored to match the RTD theme body background
+     * color (#fcfcfc), which hides the middle part of the hrule to make it
+     * look like there's a gap in it. The size of the box determines the size
+     * of the gap.
+     */
+    background: url('ornament.svg') no-repeat top center;
+    background-size: contain;
+    content: "";
+    display: block;
+    height: 30px;
+    position: relative;
+    top: -15px;
+}
+
+/* Hacks to make the upper-left logo area look nicer */
+
+.wy-side-nav-search {
+    /* Lighter background color to match logo */
+    background-color: #d2e7fa !important;
+}
+
+.wy-side-nav-search > div.version {
+    /* Make the version number text visible against the new lighter
+     * background */
+    color: #306998 !important;
+    /* Reduce vertical space btwn version number and search bar (default is
+     * 0.809em, 9px matches space between logo and version number */
+    margin-bottom: 7px !important;
+}
+
+/* tighten up the vertical whitespace */
+.wy-side-nav-search img {
+    padding-top: 0 !important;
+}
+.wy-side-nav-search > a {
+    /* Mostly this is just to simplify things, so we don't have margin/padding
+     * on both the <a> and the <img> inside it */
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Get rid of the weird super dark "Contents" label that wastes vertical space
+ */
+.wy-menu-vertical > p.caption {
+    display: none !important;
+}
+
+/* I do not like RTD's use of Roboto Slab for headlines. So force it back to
+ * Lato (or whatever fallback it's using if Lato isn't available for some
+ * reason). I also experimented with using Montserrat to be extra obnoxiously
+ * on brand, but honestly you couldn't really tell so there wasn't much point
+ * in adding page weight for that, and this is going to match the body text
+ * better. (Montserrat for body text *definitely* didn't look good, alas.)
+ */
+h1, h2, h3, h4, h5, h6, legend, .rst-content .toctree-wrapper p.caption {
+    font-family: inherit !important;
+}
+
+/* Get rid of the horrible red for literal content */
+.rst-content tt.literal, .rst-content tt.literal, .rst-content code.literal {
+    color: #222 !important;
+}
