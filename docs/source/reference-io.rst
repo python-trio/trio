@@ -11,9 +11,9 @@ The abstract Stream API
 Trio provides a set of abstract base classes that define a standard
 interface for unidirectional and bidirectional byte streams.
 
-Why is this useful? It lets you write generic protocol implementations
-that can work over arbitrary transports, and easily create complex
-transport configurations. Here's some examples:
+Why is this useful? Because it lets you write generic protocol
+implementations that can work over arbitrary transports, and easily
+create complex transport configurations. Here's some examples:
 
 * :class:`trio.SocketStream` wraps a raw socket (like a TCP connection
   over the network), and converts it to the standard stream interface.
@@ -108,7 +108,7 @@ streams interface, you should also check out :ref:`testing-streams` in
 
 
 Sockets and networking
-----------------------
+~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: SocketStream
 
@@ -129,7 +129,7 @@ SSL / TLS support
 
 
 Low-level sockets and networking
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--------------------------------
 
 .. module:: trio.socket
 
