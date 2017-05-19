@@ -819,6 +819,30 @@ async def test_closing_forceful():
     # as far as the client is concerned, we closed this fine
     assert client_ssl.transport_stream is None
 
+
+async def test_ssl_over_ssl():
+    client_0, server_0 = memory_stream_pair()
+    client_ctx = tssl.create_default_context(cafile=CA)
+    client_1 = tssl.SSLStream(
+        client_0, client_ctx, server_hostname="trio-test-1.example.org")
+    server_1 = tssl.SSLStream(server_0, SERVER_CTX, server_side=True)
+
+    client_2 = tssl.SSLStream(
+        client_1, client_ctx, server_hostname="trio-test-1.example.org")
+    server_2 = tssl.SSLStream(server_1, SERVER_CTX, server_side=True)
+
+    async def client():
+        await client_2.send_all(b"hi")
+        assert await client_2.receive_some(10) == b"bye"
+
+    async def server():
+        assert await server_2.receive_some(10) == b"hi"
+        await server_2.send_all(b"bye")
+
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(client)
+        nursery.spawn(server)
+
 # There are a lot of complicated error cases around shutting down and I'm not
 # sure how SSLStream should signal them:
 # - underlying connection dropped, transport's send_all or receive_some raises some
