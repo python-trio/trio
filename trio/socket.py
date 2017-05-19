@@ -489,19 +489,54 @@ class SocketType:
         # notification. This means it isn't really cancellable...
         async with _try_sync():
             self._check_address(address, require_resolved=True)
-            # For some reason, PEP 475 left InterruptedError as a
-            # possible error for non-blocking connect
-            # (specifically). But as far as I know, EINTR always means
-            # you need to redo the call (with the extremely special
-            # exception of close() on Linux, but that's unrelated, and
-            # POSIX is cranky at them about it). If the kernel wanted
-            # to signal that the connect really was in progress then
-            # it'd have used EINPROGRESS. So we retry:
-            while True:
-                try:
-                    return self._sock.connect(address)
-                except InterruptedError:
-                    pass
+            # An interesting puzzle: can a non-blocking connect() return EINTR
+            # (= raise InterruptedError)? PEP 475 specifically left this as
+            # the one place where it lets an InterruptedError escape instead
+            # of automatically retrying. This is based on the idea that EINTR
+            # from connect means that the connection was already started, and
+            # will continue in the background. For a blocking connect, this
+            # sort of makes sense: if it returns EINTR then the connection
+            # attempt is continuing in the background, and on many system you
+            # can't then call connect() again because there is already a
+            # connect happening. See:
+            #
+            #   http://www.madore.org/~david/computers/connect-intr.html
+            #
+            # For a non-blocking connect, it doesn't make as much sense --
+            # surely the interrupt didn't happen after we successfully
+            # initiated the connect and are just waiting for it to complete,
+            # because a non-blocking connect does not wait! And the spec
+            # describes the interaction between EINTR/blocking connect, but
+            # doesn't have anything useful to say about non-blocking connect:
+            #
+            #   http://pubs.opengroup.org/onlinepubs/007904975/functions/connect.html
+            #
+            # So we have a conundrum: if EINTR means that the connect() hasn't
+            # happened (like it does for essentially every other syscall),
+            # then InterruptedError should be caught and retried. If EINTR
+            # means that the connect() has successfully started, then
+            # InterruptedError should be caught and ignored. Which should we
+            # do?
+            #
+            # In practice, the resolution is probably that non-blocking
+            # connect simply never returns EINTR, so the question of how to
+            # handle it is moot.  Someone spelunked MacOS/FreeBSD and
+            # confirmed this is true there:
+            #
+            #   https://stackoverflow.com/questions/14134440/eintr-and-non-blocking-calls
+            #
+            # and exarkun seems to think it's true in general of non-blocking
+            # calls:
+            #
+            #   https://twistedmatrix.com/pipermail/twisted-python/2010-September/022864.html
+            # (and indeed, AFAICT twisted doesn't try to handle
+            # InterruptedError).
+            #
+            # So we don't try to catch InterruptedError. This way if it
+            # happens, someone will hopefully tell us, and then hopefully we
+            # can investigate their system to figure out what its semantics
+            # are.
+            return self._sock.connect(address)
         # It raised BlockingIOError, meaning that it's started the
         # connection attempt. We wait for it to complete:
         try:
