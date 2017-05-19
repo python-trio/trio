@@ -137,7 +137,7 @@ The :mod:`trio.socket` module provides trio's basic networking API.
 
 
 :mod:`trio.socket`\'s top-level exports
-+++++++++++++++++++++++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Generally, :mod:`trio.socket`\'s API mirrors that of the standard
 library :mod:`socket` module. Most constants (like ``SOL_SOCKET``) and
@@ -180,7 +180,7 @@ broken features:
 
 
 Socket objects
-++++++++++++++
+~~~~~~~~~~~~~~
 
 .. class:: SocketType()
 
