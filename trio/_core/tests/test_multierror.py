@@ -228,9 +228,10 @@ def test_MultiError_catch():
     # ValueError disappeared & KeyError became RuntimeError, so now:
     assert isinstance(new_m.exceptions[0], RuntimeError)
     assert isinstance(new_m.exceptions[1], NameError)
-    # we can't stop Python from attaching the original MultiError to this as a
-    # __context__, but we can hide it:
-    assert new_m.__suppress_context__
+    # Make sure that Python did not successfully attach the old MultiError to
+    # our new MultiError's __context__
+    assert not new_m.__suppress_context__
+    assert new_m.__context__ is None
 
     # check preservation of __cause__ and __context__
     v = ValueError()
@@ -241,12 +242,30 @@ def test_MultiError_catch():
     assert isinstance(excinfo.value.__cause__, KeyError)
 
     v = ValueError()
-    v.__context__ = KeyError()
+    context = KeyError()
+    v.__context__ = context
     with pytest.raises(ValueError) as excinfo:
         with MultiError.catch(lambda exc: exc):
             raise v
-    assert isinstance(excinfo.value.__context__, KeyError)
+    assert excinfo.value.__context__ is context
     assert not excinfo.value.__suppress_context__
+
+    for suppress_context in [True, False]:
+        v = ValueError()
+        context = KeyError()
+        v.__context__ = context
+        v.__suppress_context__ = suppress_context
+        distractor = RuntimeError()
+        with pytest.raises(ValueError) as excinfo:
+            def catch_RuntimeError(exc):
+                if isinstance(exc, RuntimeError):
+                    return None
+                else:
+                    return exc
+            with MultiError.catch(catch_RuntimeError):
+                raise MultiError([v, distractor])
+        assert excinfo.value.__context__ is context
+        assert excinfo.value.__suppress_context__ == suppress_context
 
 
 def assert_match_in_seq(pattern_list, string):
