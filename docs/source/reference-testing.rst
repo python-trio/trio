@@ -73,8 +73,11 @@ Inter-task ordering
 
 .. _testing-streams:
 
+Streams
+-------
+
 Virtual, controllable streams
------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 One particularly challenging problem when testing network protocols is
 making sure that your implementation can handle data whose flow gets
@@ -100,7 +103,7 @@ two unidirectional streams. It gets these by calling
 low-ish level classes :class:`MemorySendStream` and
 :class:`MemoryReceiveStream`. These are implementations of (you
 guessed it) :class:`trio.abc.SendStream` and
-:class:`trio.abc.RecvStream` that on their own, aren't attached to
+:class:`trio.abc.ReceiveStream` that on their own, aren't attached to
 anything – "sending" and "receiving" just put data into and get data
 out of a private internal buffer that each object owns. They also have
 some interesting hooks you can set, that let you customize the
@@ -139,6 +142,19 @@ API details
 .. autofunction:: lockstep_stream_one_way_pair
 
 .. autofunction:: lockstep_stream_pair
+
+
+Testing custom stream implementations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Trio also provides some functions to help you test your custom stream
+implementations:
+
+.. autofunction:: check_one_way_stream
+
+.. autofunction:: check_two_way_stream
+
+.. autofunction:: check_half_closeable_stream
 
 
 Testing checkpoints

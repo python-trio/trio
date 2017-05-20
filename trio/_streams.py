@@ -32,10 +32,11 @@ class ClosedStreamError(Exception):
     stream was already closed locally.
 
     You *only* get this error if *your* code closed the stream object you're
-    attempting to use by calling :meth:`~AsyncResource.graceful_close` or
-    similar. (:meth:`~SendStream.send_all` might also raise this if you
-    already called :meth:`~HalfCloseableStream.send_eof`.) Therefore this
-    exception generally indicates a bug in your code.
+    attempting to use by calling
+    :meth:`~trio.abc.AsyncResource.graceful_close` or
+    similar. (:meth:`~trio.abc.SendStream.send_all` might also raise this if
+    you already called :meth:`~trio.abc.HalfCloseableStream.send_eof`.)
+    Therefore this exception generally indicates a bug in your code.
 
     If a problem arises elsewhere, for example due to a network failure or a
     misbehaving peer, then you get :class:`BrokenStreamError` instead.

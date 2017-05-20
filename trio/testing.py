@@ -415,6 +415,24 @@ def _assert_raises(exc):
 
 
 async def check_one_way_stream(stream_maker, clogged_stream_maker):
+    """Perform a number of generic tests on a custom one-way stream
+    implementation.
+
+    Args:
+      stream_maker: An async (!) function which returns a connected
+          (:class:`~trio.abc.SendStream`, :class:`~trio.abc.ReceiveStream`)
+          pair.
+      clogged_stream_maker: Either None, or an async function similar to
+          stream_maker, but with the extra property that the returned stream
+          is in a state where ``send_all`` and
+          ``wait_send_all_might_not_block`` will block until ``receive_some``
+          has been called. This allows for more thorough testing of some edge
+          cases, especially around ``wait_send_all_might_not_block``.
+
+    Raises:
+      AssertionError: if a test fails.
+
+    """
     async with _CloseBoth(await stream_maker()) as (s, r):
         assert isinstance(s, _abc.SendStream)
         assert isinstance(r, _abc.ReceiveStream)
@@ -662,6 +680,18 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
 
 
 async def check_two_way_stream(stream_maker, clogged_stream_maker):
+    """Perform a number of generic tests on a custom two-way stream
+    implementation.
+
+    This is similar to :func:`check_one_way_stream`, except that the maker
+    functions are expected to return objects implementing the
+    :class:`~trio.abc.Stream` interface.
+
+    This function tests a *superset* of what :func:`check_one_way_stream`
+    checks – if you call this, then you don't need to also call
+    :func:`check_one_way_stream`.
+
+    """
     await check_one_way_stream(stream_maker, clogged_stream_maker)
 
     async def flipped_stream_maker():
@@ -715,6 +745,18 @@ async def check_two_way_stream(stream_maker, clogged_stream_maker):
 
 
 async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
+    """Perform a number of generic tests on a custom half-closeable stream
+    implementation.
+
+    This is similar to :func:`check_two_way_stream`, except that the maker
+    functions are expected to return objects that implement the
+    :class:`~trio.abc.HalfCloseableStream` interface.
+
+    This function tests a *superset* of what :func:`check_two_way_stream`
+    checks – if you call this, then you don't need to also call
+    :func:`check_two_way_stream`.
+
+    """
     await check_two_way_stream(stream_maker, clogged_stream_maker)
 
     async with _CloseBoth(await stream_maker()) as (s1, s2):
@@ -1252,11 +1294,13 @@ def lockstep_stream_one_way_pair():
     in lockstep.
 
     Returns:
-      A tuple (:class:`SendStream`, :class:`ReceiveStream`).
+      A tuple
+      (:class:`~trio.abc.SendStream`, :class:`~trio.abc.ReceiveStream`).
 
     This stream has *absolutely no* buffering. Each call to
-    :meth:`SendStream.send_all` will block until all the given data has been
-    returned by a call to :meth:`ReceiveStream.receive_some`.
+    :meth:`~trio.abc.SendStream.send_all` will block until all the given data
+    has been returned by a call to
+    :meth:`~trio.abc.ReceiveStream.receive_some`.
 
     This can be useful for testing flow control mechanisms in an extreme case,
     or for setting up "clogged" streams to use with
@@ -1273,7 +1317,7 @@ def lockstep_stream_pair():
     in lockstep.
 
     Returns:
-      A tuple (:class:`StapledStream`, :class:`StapledStream`).
+      A tuple (:class:`~trio.StapledStream`, :class:`~trio.StapledStream`).
 
     This is a convenience function that creates two one-way streams using
     :func:`lockstep_stream_one_way_pair`, and then uses

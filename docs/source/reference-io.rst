@@ -74,6 +74,8 @@ create complex transport configurations. Here's some examples:
 Abstract base classes
 ~~~~~~~~~~~~~~~~~~~~~
 
+.. currentmodule:: trio.abc
+
 .. autoclass:: trio.abc.AsyncResource
    :members:
 
@@ -93,6 +95,12 @@ Abstract base classes
    :members:
    :show-inheritance:
 
+.. currentmodule:: trio
+
+.. autoexception:: BrokenStreamError
+
+.. autoexception:: ClosedStreamError
+
 
 Generic stream implementations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -111,6 +119,8 @@ Sockets and networking
 ~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: SocketStream
+   :members:
+   :show-inheritance:
 
 .. autofunction:: socket_stream_pair
 

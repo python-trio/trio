@@ -394,8 +394,9 @@ class HalfCloseableStream(Stream):
 
         Raises:
           trio.ResourceBusyError: if another task is already executing a
-              :meth:`send_all`, :meth:`wait_send_all_might_not_block`, or
-              :meth:`HalfCloseableStream.send_eof` on this stream.
+              :meth:`~SendStream.send_all`,
+              :meth:`~SendStream.wait_send_all_might_not_block`, or
+              :meth:`send_eof` on this stream.
           trio.BrokenStreamError: if something has gone wrong, and the stream
               is broken.
           trio.ClosedStreamError: if someone already called one of the close
