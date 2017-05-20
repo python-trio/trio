@@ -112,6 +112,10 @@ class SocketStream(HalfCloseableStream):
 
     async def send_eof(self):
         async with self._send_lock:
+            # On MacOS, calling shutdown a second time raises ENOTCONN, but
+            # send_eof needs to be idempotent.
+            if self.socket._did_SHUT_WR:
+                return
             with _translate_socket_errors_to_stream_errors():
                 self.socket.shutdown(tsocket.SHUT_WR)
 
