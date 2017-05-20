@@ -529,14 +529,17 @@ async def test_SocketType_connect_paths():
             assert sock.fileno() == -1
 
     # Failed connect (hopefully after raising BlockingIOError)
-    with tsocket.socket() as sock, tsocket.socket() as non_listener:
-        # Claim an unused port
-        non_listener.bind(("127.0.0.1", 0))
-        # ...but don't call listen, so we're guaranteed that connect attempts
-        # to it will fail.
+    with tsocket.socket() as sock:
         with assert_yields():
             with pytest.raises(OSError):
-                await sock.connect(non_listener.getsockname())
+                # TCP port 2 is not assigned. Pretty sure nothing will be
+                # listening there. (We used to bind a port and then *not* call
+                # listen() to ensure nothing was listening there, but it turns
+                # out on MacOS if you do this it takes 30 seconds for the
+                # connect to fail. Really. Also if you use a non-routable
+                # address. This way fails instantly though. As long as nothing
+                # is listening on port 2.)
+                await sock.connect(("127.0.0.1", 2))
 
 
 async def test_send_recv_variants():
