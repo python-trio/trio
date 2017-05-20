@@ -398,9 +398,9 @@ class _CloseBoth:
 
     async def __aexit__(self, *args):
         try:
-            await self._both[0].graceful_close()
+            self._both[0].forceful_close()
         finally:
-            await self._both[1].graceful_close()
+            self._both[1].forceful_close()
 
 
 @contextmanager

@@ -149,10 +149,12 @@
 # docs will need to make very clear that this is different from all the other
 # cancellations in core trio
 
+import operator as _operator
 import ssl as _stdlib_ssl
 
 from . import _core
 from .abc import Stream as _Stream
+from . import _streams
 from . import _sync
 from ._util import UnLock as _UnLock
 
@@ -200,12 +202,12 @@ class _Once:
     def __init__(self, afn, *args):
         self._afn = afn
         self._args = args
-        self._started = False
+        self.started = False
         self._done = _sync.Event()
 
     async def ensure(self, *, checkpoint):
-        if not self._started:
-            self._started = True
+        if not self.started:
+            self.started = True
             await self._afn(*self._args)
             self._done.set()
         elif not checkpoint and self._done.is_set():
@@ -216,9 +218,9 @@ class _Once:
 
 class SSLStream(_Stream):
     def __init__(
-            self, transport_stream, sslcontext, *, bufsize=32 * 1024, **kwargs):
+            self, transport_stream, sslcontext, *, max_bytes=32 * 1024, **kwargs):
         self.transport_stream = transport_stream
-        self._bufsize = bufsize
+        self._bufsize = max_bytes
         self._outgoing = _stdlib_ssl.MemoryBIO()
         self._incoming = _stdlib_ssl.MemoryBIO()
         self._ssl_object = sslcontext.wrap_bio(
@@ -265,7 +267,7 @@ class SSLStream(_Stream):
     # comments, though, just make sure to think carefully if you ever have to
     # touch it. The big comment at the top of this file will help explain
     # too.
-    async def _retry(self, fn, *args):
+    async def _retry(self, fn, *args, ignore_want_read=False):
         await _core.yield_if_cancelled()
         yielded = False
         try:
@@ -296,11 +298,17 @@ class SSLStream(_Stream):
                 # indefinitely."
                 # https://wiki.openssl.org/index.php/Manual:BIO_s_mem(3)
                 want_read = False
+                ret = None
                 try:
                     ret = fn(*args)
                 except _stdlib_ssl.SSLWantReadError:
                     want_read = True
+                except _stdlib_ssl.SSLError as exc:
+                    raise _streams.BrokenStreamError from exc
                 else:
+                    finished = True
+                if ignore_want_read:
+                    want_read = False
                     finished = True
                 to_send = self._outgoing.read()
 
@@ -336,46 +344,47 @@ class SSLStream(_Stream):
                 # *otherwise* if there's data to receive_some, receive_some it.
                 #
                 # If both need to happen, then we only send. Why? Well, we
-                # know that *right now* we have to both send and receive_some before
-                # the operation can complete. But as soon as we yield, that
-                # information becomes potentially stale – e.g. while we're
-                # sending, some other task might go and receive_some the data we need
-                # and put it into the incoming BIO. And if it does, then we
-                # *definitely don't* want to do a receive_some – there might not be
-                # any more data coming, and we'd deadlock! We could do
-                # something tricky to keep track of whether a receive_some happens
-                # while we're sending, but the case where we have to do both
-                # is very unusual (only during a renegotation), so it's better
-                # to keep things simple. So we do just one
-                # potentially-blocking operation, then check again for fresh
-                # information.
+                # know that *right now* we have to both send and receive_some
+                # before the operation can complete. But as soon as we yield,
+                # that information becomes potentially stale – e.g. while
+                # we're sending, some other task might go and receive_some the
+                # data we need and put it into the incoming BIO. And if it
+                # does, then we *definitely don't* want to do a receive_some –
+                # there might not be any more data coming, and we'd deadlock!
+                # We could do something tricky to keep track of whether a
+                # receive_some happens while we're sending, but the case where
+                # we have to do both is very unusual (only during a
+                # renegotation), so it's better to keep things simple. So we
+                # do just one potentially-blocking operation, then check again
+                # for fresh information.
                 #
                 # And we prioritize sending over receiving because, if there
-                # are multiple tasks that want to receive_some, then it doesn't matter
-                # what order they go in. But if there are multiple tasks that
-                # want to send, then they each have different data, and the
-                # data needs to get put onto the wire in the same order that
-                # it was retrieved from the outgoing BIO. So if we have data
-                # to send, that *needs* to be the *very* *next* *thing* we do,
-                # to make sure no-one else sneaks in before us. Or if we can't
-                # send immediately because someone else is, then we at least
-                # need to get in line immediately.
+                # are multiple tasks that want to receive_some, then it
+                # doesn't matter what order they go in. But if there are
+                # multiple tasks that want to send, then they each have
+                # different data, and the data needs to get put onto the wire
+                # in the same order that it was retrieved from the outgoing
+                # BIO. So if we have data to send, that *needs* to be the
+                # *very* *next* *thing* we do, to make sure no-one else sneaks
+                # in before us. Or if we can't send immediately because
+                # someone else is, then we at least need to get in line
+                # immediately.
                 if to_send:
                     # NOTE: This relies on the lock being strict FIFO fair!
                     async with self._inner_send_lock:
                         yielded = True
                         await self.transport_stream.send_all(to_send)
                 elif want_read:
-                    # It's possible that someone else is already blocked
-                    # in transport_stream.receive_some. If so then we want to wait for
-                    # them to finish, but we don't want to call
-                    # transport_stream.receive_some again ourselves; we just want to
-                    # loop around and check if their contribution helped
-                    # anything. So we make a note of how many times some task
-                    # has been through here before taking the lock, and if
-                    # it's changed by the time we get the lock, then we skip
-                    # calling transport_stream.receive_some and loop around
-                    # immediately.
+                    # It's possible that someone else is already blocked in
+                    # transport_stream.receive_some. If so then we want to
+                    # wait for them to finish, but we don't want to call
+                    # transport_stream.receive_some again ourselves; we just
+                    # want to loop around and check if their contribution
+                    # helped anything. So we make a note of how many times
+                    # some task has been through here before taking the lock,
+                    # and if it's changed by the time we get the lock, then we
+                    # skip calling transport_stream.receive_some and loop
+                    # around immediately.
                     recv_count = self._inner_recv_count
                     async with self._inner_recv_lock:
                         yielded = True
@@ -418,6 +427,9 @@ class SSLStream(_Stream):
         immediately without doing anything (except executing a checkpoint).
 
         """
+        if self.transport_stream is None:
+            await _core.yield_briefly()
+            raise _streams.ClosedStreamError
         await self._handshook.ensure(checkpoint=True)
 
     # Most things work if we don't explicitly force do_handshake to be called
@@ -427,20 +439,27 @@ class SSLStream(_Stream):
     #   https://bugs.python.org/issue30141
     # So we *definitely* have to make sure that do_handshake is called
     # before doing anything else.
-    async def receive_some(self, bufsize):
+    async def receive_some(self, max_bytes):
         async with self._outer_recv_lock:
+            if self.transport_stream is None:
+                raise _streams.ClosedStreamError
             await self._handshook.ensure(checkpoint=False)
-            return await self._retry(self._ssl_object.read, bufsize)
+            max_bytes = _operator.index(max_bytes)
+            if max_bytes < 1:
+                raise ValueError("max_bytes must be >= 1")
+            return await self._retry(self._ssl_object.read, max_bytes)
 
     async def send_all(self, data):
         async with self._outer_send_lock:
+            if self.transport_stream is None:
+                raise _streams.ClosedStreamError
             await self._handshook.ensure(checkpoint=False)
             # SSLObject interprets write(b"") as an EOF for some reason, which
             # is not what we want.
             if not data:
                 await _core.yield_briefly()
                 return
-            return await self._retry(self._ssl_object.write, data)
+            await self._retry(self._ssl_object.write, data)
 
     # Question: should this take outer_send_lock and/or outer_recv_lock? I
     # initially thought it should, because it doesn't make sense to unwrap a
@@ -453,7 +472,7 @@ class SSLStream(_Stream):
     async def unwrap(self):
         async with self._outer_recv_lock, self._outer_send_lock:
             if self.transport_stream is None:
-                raise RuntimeError("can't unwrap an already-closed SSLStream")
+                raise _streams.ClosedStreamError
             await self._handshook.ensure(checkpoint=False)
             await self._retry(self._ssl_object.unwrap)
             transport_stream = self.transport_stream
@@ -471,13 +490,37 @@ class SSLStream(_Stream):
             await _core.yield_briefly()
             return
         try:
-            # Do the TLS goodbye exchange
-            await self.unwrap()
+            # If we haven't even started the handshake, then we can (and must)
+            # skip the SSL-level shutdown.
+            if self._handshook.started:
+                # But if the handshake is in progress, wait for it to finish.
+                await self._handshook.ensure(checkpoint=False)
+                # Then we want to call SSL_shutdown *once*, to send a
+                # close_notify but *not* wait for the response (because we're
+                # closing the socket anyway, so there's no point in waiting).
+                # Subtlety: SSLObject.unwrap will immediately call it a second
+                # time, and the second time will raise SSLWantReadError
+                # because there hasn't been time for the other side to respond
+                # yet. (Unless they spontaneously sent a close_notify before
+                # we called this, and it's either already been processed or
+                # gets pulled out of the buffer by Python's second call.) So
+                # the way to do what we want is to to ignore SSLWantReadError
+                # on this call.
+                try:
+                    await self._retry(
+                        self._ssl_object.unwrap, ignore_want_read=True)
+                except _streams.BrokenStreamError:
+                    # It's okay if the stream is broken and we can't send our
+                    # goodbye message, because we're cutting off the
+                    # connection anyway...
+                    pass
             # Close the underlying stream
             await transport_stream.graceful_close()
         except:
             transport_stream.forceful_close()
             raise
+        finally:
+            self.transport_stream = None
 
     async def wait_send_all_might_not_block(self):
         # This method's implementation is deceptively simple.
@@ -485,6 +528,8 @@ class SSLStream(_Stream):
         # First, we take the outer send lock, because of trio's standard
         # semantics that wait_send_all_might_not_block and send_all conflict.
         async with self._outer_send_lock:
+            if self.transport_stream is None:
+                raise _streams.ClosedStreamError
             # Then we take the inner send lock. We know that no other tasks
             # are calling self.send_all or self.wait_send_all_might_not_block,
             # because we have the outer_send_lock. But! There might be another
@@ -515,4 +560,3 @@ class SSLStream(_Stream):
                 # wait_send_all_might_not_block only guarantees that it
                 # doesn't return late.
                 await self.transport_stream.wait_send_all_might_not_block()
-                print(self._inner_send_lock.statistics())

@@ -19,7 +19,8 @@ from .._util import UnLock
 from .._core.tests.tutil import slow
 
 from ..testing import (
-    assert_yields, Sequencer, memory_stream_pair,
+    assert_yields, Sequencer, memory_stream_pair, lockstep_stream_pair,
+    check_two_way_stream,
 )
 
 ASSETS_DIR = Path(__file__).parent / "test_ssl_certs"
@@ -688,14 +689,38 @@ async def test_send_all_empty_string():
         await s.graceful_close()
 
 
-def ssl_memory_stream_two_way(*, client_kwargs={}, server_kwargs={}):
-    client_transport, server_transport = memory_stream_pair()
+def ssl_wrap_pair(client_transport, server_transport,
+                  *, client_kwargs={}, server_kwargs={}):
     client_ssl = tssl.SSLStream(
         client_transport, CLIENT_CTX,
         server_hostname="trio-test-1.example.org", **client_kwargs)
     server_ssl = tssl.SSLStream(
         server_transport, SERVER_CTX, server_side=True, **server_kwargs)
     return client_ssl, server_ssl
+
+def ssl_memory_stream_two_way(*, client_kwargs={}, server_kwargs={}):
+    client_transport, server_transport = memory_stream_pair()
+    return ssl_wrap_pair(client_transport, server_transport)
+
+async def test_SSLStream_generic():
+    async def stream_maker():
+        return ssl_memory_stream_two_way()
+
+    async def clogged_stream_maker():
+        client_transport, server_transport = lockstep_stream_pair()
+        client, server = ssl_wrap_pair(client_transport, server_transport)
+        # If we don't do handshakes up front, then we run into a problem in
+        # the following situation:
+        # - server does wait_send_all_might_not_block
+        # - client does receive_some to unclog it
+        # Then the client's receive_some will actually send some data to start
+        # the handshake, and itself get stuck.
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(client.do_handshake)
+            nursery.spawn(server.do_handshake)
+        return client, server
+
+    await check_two_way_stream(stream_maker, clogged_stream_maker)
 
 
 async def test_unwrap():
@@ -735,7 +760,7 @@ async def test_unwrap():
     async def server():
         await server_ssl.do_handshake()
         assert await server_ssl.receive_some(1) == b"x"
-        assert await server_ssl.send_all(b"y")
+        await server_ssl.send_all(b"y")
         assert await server_ssl.receive_some(1) == b"z"
         # Now client is blocked waiting for us to send something, but
         # instead we close the TLS connection (with sequencer to make sure
@@ -789,17 +814,17 @@ async def test_closing_nice_case():
 
     # Trying to send more data does not work
     with assert_yields():
-        with pytest.raises(tssl.SSLError):
+        with pytest.raises(ClosedStreamError):
             await server_ssl.send_all(b"123")
 
     # And once the connection is has been closed *locally*, then instead of
     # getting empty bytestrings we get a proper error
     with assert_yields():
-        with pytest.raises(tssl.SSLError):
+        with pytest.raises(ClosedStreamError):
             await client_ssl.receive_some(10) == b""
 
     with assert_yields():
-        with pytest.raises(RuntimeError):
+        with pytest.raises(ClosedStreamError):
             await client_ssl.unwrap()
 
 
@@ -852,8 +877,6 @@ async def test_ssl_over_ssl():
 #   successfully closed connection raises SSLZeroReturnError,
 
 # maybe a test of presenting a client cert on a renegotiation?
-
-# maybe a test of TLS-over-TLS, just to prove we can?
 
 # - sloppy and strict EOF modes
 
