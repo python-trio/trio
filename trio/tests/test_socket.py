@@ -504,26 +504,6 @@ async def test_SocketType_connect_paths():
                 with pytest.raises(_core.Cancelled):
                     await sock.connect(("127.0.0.1", 80))
 
-    # Handling InterruptedError
-    class InterruptySocket(stdlib_socket.socket):
-        def connect(self, *args, **kwargs):
-            if not hasattr(self, "_connect_count"):
-                self._connect_count = 0
-            self._connect_count += 1
-            if self._connect_count < 3:
-                raise InterruptedError
-            else:
-                return super().connect(*args, **kwargs)
-    with tsocket.socket() as sock, tsocket.socket() as listener:
-        listener.bind(("127.0.0.1", 0))
-        listener.listen()
-        # Swap in our weird subclass under the trio.socket.SocketType's nose
-        sock._sock.close()
-        sock._sock = InterruptySocket()
-        with assert_yields():
-            await sock.connect(listener.getsockname())
-        assert sock.getpeername() == listener.getsockname()
-
     # Cancelled in between the connect() call and the connect completing
     with _core.open_cancel_scope() as cancel_scope:
         with tsocket.socket() as sock, tsocket.socket() as listener:
