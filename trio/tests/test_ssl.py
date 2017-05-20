@@ -868,14 +868,6 @@ async def test_ssl_over_ssl():
         nursery.spawn(client)
         nursery.spawn(server)
 
-# There are a lot of complicated error cases around shutting down and I'm not
-# sure how SSLStream should signal them:
-# - underlying connection dropped, transport's send_all or receive_some raises some
-#   arbitrary error (NB: receive_some() can give a BrokenPipeError!)
-# - trying to send/receive_some on a connection that we already closed
-# - SSLObject has lots of possible complaints, e.g. trying to send/receive_some on a
-#   successfully closed connection raises SSLZeroReturnError,
-
 # maybe a test of presenting a client cert on a renegotiation?
 
 # - sloppy and strict EOF modes
@@ -891,46 +883,6 @@ async def test_ssl_over_ssl():
 
 # what happens if a send_all was aborted half-way through, and *then* we call
 # graceful_close?
-
-# graceful_close is wrong - it should call SSL_shutdown once to send the
-# close_notify, and then immediately close the transport. unwrap needs to wait
-# for the peer to respond; graceful_close does not.
-#
-# SSL_shutdown has the return values:
-# - 0 meaning it sent the close notify, but hasn't seen one and should be
-#   called again if you want that
-# - 1 if the complete shutdown handshake is done
-# - <0, get_error has an error saying the problem
-#
-# Then CPython's _ssl.c has the logic where in its shutdown() method (which is
-# what ssl.py's unwrap() calls), if it sees a zero return, then it calls
-# SSL_shutdown exactly one more time.
-#
-# so when we graceful_close, there are three possible paths:
-#
-# - call unwrap
-#   - SSL_shutdown already saw a close notify, so it sends one back and
-#     returns 1
-# - unwrap succeeds
-#
-# or
-#
-# - call unwrap
-#   - SSL_shutdown writes the close notify to the outgoing BIO then returns 0
-#   - Python calls SSL_shutdown again to look for the response, which sees a
-#     close notify already in its receive buffer, and returns 1
-# - unwrap succeeds
-#
-# or
-#
-# - call unwrap
-#   - SSL_shutdown writes the close notify to the outgoing BIO then returns 0
-#   - Python calls SSL_shutdown again to look for the response, which isn't
-#     there, so it gives a WANT_READ error
-# - unwrap raises SSLWantRead
-#
-# in all of these cases, for graceful_close's purposes, this is a success.
-
 
 # should unwrap switch to a mode where we only receive 1 byte at a time? this
 # would cause a CPU spike when unwrapping, but probably not *too* much (?)
