@@ -316,12 +316,13 @@ async def test_SocketType_shutdown():
         assert await a.recv(3) == b"yyy"
 
 
-async def test_SocketType_simple_server():
+@pytest.mark.parametrize("address, socket_type", [('127.0.0.1', tsocket.AF_INET), ('::1', tsocket.AF_INET6)])
+async def test_SocketType_simple_server(address, socket_type):
     # listen, bind, accept, connect, getpeername, getsockname
-    with tsocket.socket() as listener, tsocket.socket() as client:
-        listener.bind(("127.0.0.1", 0))
+    with tsocket.socket(socket_type) as listener, tsocket.socket(socket_type) as client:
+        listener.bind((address, 0))
         listener.listen(20)
-        addr = listener.getsockname()
+        addr = listener.getsockname()[:2]
         async with _core.open_nursery() as nursery:
             nursery.spawn(client.connect, addr)
             accept_task = nursery.spawn(listener.accept)
