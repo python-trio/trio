@@ -52,6 +52,8 @@ SERVER_CTX = stdlib_ssl.create_default_context(
 )
 SERVER_CTX.load_cert_chain(CERT1)
 
+CLIENT_CTX = stdlib_ssl.create_default_context(cafile=CA)
+
 # The blocking socket server.
 def ssl_echo_serve_sync(sock, *, expect_fail=False):
     try:
@@ -100,9 +102,8 @@ def ssl_echo_server_raw(**kwargs):
 @contextmanager
 def ssl_echo_server(**kwargs):
     with ssl_echo_server_raw(**kwargs) as sock:
-        client_ctx = stdlib_ssl.create_default_context(cafile=CA)
         yield tssl.SSLStream(
-            sock, client_ctx, server_hostname="trio-test-1.example.org")
+            sock, CLIENT_CTX, server_hostname="trio-test-1.example.org")
 
 
 # The weird in-memory server ... thing.
@@ -281,10 +282,9 @@ async def test_PyOpenSSLEchoStream_gives_resource_busy_errors():
 
 @contextmanager
 def virtual_ssl_echo_server(**kwargs):
-    client_ctx = tssl.create_default_context(cafile=CA)
     fakesock = PyOpenSSLEchoStream(**kwargs)
     yield tssl.SSLStream(
-        fakesock, client_ctx, server_hostname="trio-test-1.example.org")
+        fakesock, CLIENT_CTX, server_hostname="trio-test-1.example.org")
 
 
 # Simple smoke test for handshake/send/receive/shutdown talking to a
@@ -309,9 +309,8 @@ async def test_ssl_client_basics():
 
     # Trusted CA, but wrong host name
     with ssl_echo_server_raw(expect_fail=True) as sock:
-        client_ctx = stdlib_ssl.create_default_context(cafile=CA)
         s = tssl.SSLStream(
-            sock, client_ctx, server_hostname="trio-test-2.example.org")
+            sock, CLIENT_CTX, server_hostname="trio-test-2.example.org")
         assert not s.server_side
         with pytest.raises(tssl.CertificateError):
             await s.send_all(b"x")
@@ -326,8 +325,7 @@ async def test_ssl_server_basics():
         assert server_transport.server_side
 
         def client():
-            client_ctx = stdlib_ssl.create_default_context(cafile=CA)
-            client_sock = client_ctx.wrap_socket(
+            client_sock = CLIENT_CTX.wrap_socket(
                 a, server_hostname="trio-test-1.example.org")
             client_sock.sendall(b"x")
             assert client_sock.recv(1) == b"y"
@@ -347,7 +345,7 @@ async def test_ssl_server_basics():
 
 async def test_attributes():
     with ssl_echo_server_raw(expect_fail=True) as sock:
-        good_ctx = stdlib_ssl.create_default_context(cafile=CA)
+        good_ctx = CLIENT_CTX
         bad_ctx = stdlib_ssl.create_default_context()
         s = tssl.SSLStream(
             sock, good_ctx, server_hostname="trio-test-1.example.org")
@@ -657,9 +655,10 @@ async def test_checkpoints():
             await s.send_all(b"xxx")
         with assert_yields():
             await s.receive_some(1)
-        # These receive_some's in theory could return immediately, because the "xxx"
-        # was sent in a single record and after the first receive_some(1) the rest are
-        # sitting inside the SSLObject's internal buffers.
+        # These receive_some's in theory could return immediately, because the
+        # "xxx" was sent in a single record and after the first
+        # receive_some(1) the rest are sitting inside the SSLObject's internal
+        # buffers.
         with assert_yields():
             await s.receive_some(1)
         with assert_yields():
@@ -691,9 +690,8 @@ async def test_send_all_empty_string():
 
 def ssl_memory_stream_two_way(*, client_kwargs={}, server_kwargs={}):
     client_transport, server_transport = memory_stream_pair()
-    client_ctx = stdlib_ssl.create_default_context(cafile=CA)
     client_ssl = tssl.SSLStream(
-        client_transport, client_ctx,
+        client_transport, CLIENT_CTX,
         server_hostname="trio-test-1.example.org", **client_kwargs)
     server_ssl = tssl.SSLStream(
         server_transport, SERVER_CTX, server_side=True, **server_kwargs)
@@ -822,14 +820,16 @@ async def test_closing_forceful():
 
 async def test_ssl_over_ssl():
     client_0, server_0 = memory_stream_pair()
-    client_ctx = tssl.create_default_context(cafile=CA)
+
     client_1 = tssl.SSLStream(
-        client_0, client_ctx, server_hostname="trio-test-1.example.org")
-    server_1 = tssl.SSLStream(server_0, SERVER_CTX, server_side=True)
+        client_0, CLIENT_CTX, server_hostname="trio-test-1.example.org")
+    server_1 = tssl.SSLStream(
+        server_0, SERVER_CTX, server_side=True)
 
     client_2 = tssl.SSLStream(
-        client_1, client_ctx, server_hostname="trio-test-1.example.org")
-    server_2 = tssl.SSLStream(server_1, SERVER_CTX, server_side=True)
+        client_1, CLIENT_CTX, server_hostname="trio-test-1.example.org")
+    server_2 = tssl.SSLStream(
+        server_1, SERVER_CTX, server_side=True)
 
     async def client():
         await client_2.send_all(b"hi")
