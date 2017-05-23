@@ -130,12 +130,20 @@ SSL / TLS support
 
 .. module:: trio.ssl
 
-`Not implemented yet! <https://github.com/python-trio/trio/issues/9>`__
+The :mod:`trio.ssl` module implements SSL/TLS support for Trio, using
+the standard library :mod:`ssl` module. It re-exports most of
+:mod:`ssl`\´s API, with the notable exception is
+:class:`ssl.SSLContext`, which has unsafe defaults; if you really want
+to use :class:`ssl.SSLContext` you can import it from :mod:`ssl`, but
+normally you should create your contexts using
+:func:`trio.ssl.create_default_context <ssl.create_default_context>`.
+
+Instead of using :meth:`ssl.SSLContext.wrap_socket`, though, you
+create a :class:`SSLStream`:
 
 .. autoclass:: SSLStream
    :show-inheritance:
    :members:
-   :undoc-members:
 
 
 Low-level sockets and networking
@@ -146,13 +154,13 @@ Low-level sockets and networking
 The :mod:`trio.socket` module provides trio's basic networking API.
 
 
-:mod:`trio.socket`\'s top-level exports
+:mod:`trio.socket`: top-level exports
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Generally, :mod:`trio.socket`\'s API mirrors that of the standard
-library :mod:`socket` module. Most constants (like ``SOL_SOCKET``) and
-simple utilities (like :func:`~socket.inet_aton`) are simply
-re-exported unchanged. But there are also some differences:
+Generally, the API exposed by :mod:`trio.socket` mirrors that of the
+standard library :mod:`socket` module. Most constants (like
+``SOL_SOCKET``) and simple utilities (like :func:`~socket.inet_aton`)
+are simply re-exported unchanged. But there are also some differences:
 
 All functions that return socket objects (e.g. :func:`socket.socket`,
 :func:`socket.socketpair`, ...) are modified to return trio socket

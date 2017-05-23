@@ -374,7 +374,7 @@ work that was happening within the scope that was cancelled.
 Looking at this, you might wonder how you can tell whether the inner
 block timed out – perhaps you want to do something different, like try
 a fallback procedure or report a failure to our caller. To make this
-easier, :func:`move_on_after`'s ``__enter__`` function returns an
+easier, :func:`move_on_after`\´s ``__enter__`` function returns an
 object representing this cancel scope, which we can use to check
 whether this scope caught a :exc:`Cancelled` exception::
 

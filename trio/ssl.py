@@ -237,7 +237,8 @@ class SSLStream(_Stream):
 
       ssl_context (~ssl.SSLContext): The :class:`~ssl.SSLContext` used for
           this connection. Required. Usually created by calling
-          :func:`trio.ssl.create_default_context()`.
+          :func:`trio.ssl.create_default_context()
+          <ssl.create_default_context>`.
 
       server_hostname (str or None): The name of the server being connected
           to. Used for `SNI
@@ -294,7 +295,7 @@ class SSLStream(_Stream):
           to worry about this.
 
     Attributes:
-      transport_stream (~trio.abc.Stream): The underlying transport stream
+      transport_stream (trio.abc.Stream): The underlying transport stream
           that was passed to ``__init__``. An example of when this would be
           useful is if you're using :class:`SSLStream` over a
           :class:`~trio.SocketStream` and want to call the
@@ -656,23 +657,24 @@ class SSLStream(_Stream):
             return (transport_stream, self._incoming.read())
 
     def forceful_close(self):
-        """See :meth:`~trio.abc.AsyncResource.forceful_close`.
-
-        Closes the underlying transport.
+        """Forcefully closes the underlying transport and marks this stream as
+        closed.
 
         """
         if self._state is not _State.CLOSED:
-            self.transport_stream.forceful_close()
             self._state = _State.CLOSED
+            self.transport_stream.forceful_close()
 
     async def graceful_close(self):
         """Gracefully shut down this connection, and close the underlying
         transport.
 
+        If ``https_compatible`` is False (the default), then this attempts to
+        first send a ``close_notify`` and then close the underlying stream by
+        calling its :meth:`~trio.abc.AsyncResource.graceful_close` method.
+
         If ``https_compatible`` is set to True, then this simply closes the
-        underlying stream. If ``https_compatible`` is False (the default),
-        then this attempts to send a ``close_notify`` and then close the
-        underlying stream.
+        underlying stream and marks this stream as closed.
 
         """
         if self._state is _State.CLOSED:
@@ -741,7 +743,7 @@ class SSLStream(_Stream):
             self._state = _State.CLOSED
 
     async def wait_send_all_might_not_block(self):
-        """See :meth:`~trio.abc.SendStream.wait_send_all_might_not_block`.
+        """See :meth:`trio.abc.SendStream.wait_send_all_might_not_block`.
 
         """
         # This method's implementation is deceptively simple.

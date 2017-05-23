@@ -113,8 +113,8 @@ these hooks in a relatively boring way: it just sets it up so that
 when you call ``sendall``, or when you close the send stream, then it
 automatically triggers a call to :func:`memory_stream_pump`, which is
 a convenience function that takes data out of a
-:class:`MemorySendStream`'s buffer and puts it into a
-:class:`MemoryReceiveStream`'s buffer. But that's just the default –
+:class:`MemorySendStream`\´s buffer and puts it into a
+:class:`MemoryReceiveStream`\´s buffer. But that's just the default –
 you can replace this with whatever arbitrary behavior you want.
 
 Trio also provides some specialized functions for testing completely
