@@ -472,10 +472,12 @@ class SSLStream(_Stream):
             try:
                 await self._handshook.ensure(checkpoint=False)
             except _streams.BrokenStreamError as exc:
-                # For some reason, EOF before handshake raises SSLSyscallError
-                # instead of SSLEOFError. Thanks openssl.
+                # For some reason, EOF before handshake sometimes raises
+                # SSLSyscallError instead of SSLEOFError (e.g. on my linux
+                # laptop, but not on appveyor). Thanks openssl.
                 if (self._https_compatible
-                        and isinstance(exc.__cause__, SSLSyscallError)):
+                        and isinstance(
+                            exc.__cause__, (SSLEOFError, SSLSyscallError))):
                     return b""
                 else:
                     raise
@@ -495,7 +497,6 @@ class SSLStream(_Stream):
                     return b""
                 else:
                     raise
-
 
     async def send_all(self, data):
         async with self._outer_send_lock:
