@@ -539,6 +539,11 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
         with _assert_raises(_streams.ClosedStreamError):
             await do_send_all(b"x" * 100)
 
+        # ditto for wait_send_all_might_not_block
+        with _assert_raises(_streams.ClosedStreamError):
+            with assert_yields():
+                await s.wait_send_all_might_not_block()
+
         # and again, repeated closing is fine
         s.forceful_close()
         await do_graceful_close(s)
@@ -682,6 +687,32 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
                 async with _core.open_nursery() as nursery:
                     nursery.spawn(s.send_all, b"123")
                     nursery.spawn(s.send_all, b"123")
+
+        # closing the receiver causes wait_send_all_might_not_block to return
+        async with _CloseBoth(await clogged_stream_maker()) as (s, r):
+            async def sender():
+                try:
+                    with assert_yields():
+                        await s.wait_send_all_might_not_block()
+                except _streams.BrokenStreamError:
+                    pass
+
+            async def receiver():
+                await wait_all_tasks_blocked()
+                r.forceful_close()
+
+            async with _core.open_nursery() as nursery:
+                nursery.spawn(sender)
+                nursery.spawn(receiver)
+
+        # and again with the call starting after the close
+        async with _CloseBoth(await clogged_stream_maker()) as (s, r):
+            r.forceful_close()
+            try:
+                with assert_yields():
+                    await s.wait_send_all_might_not_block()
+            except _streams.BrokenStreamError:
+                pass
 
 
 async def check_two_way_stream(stream_maker, clogged_stream_maker):
@@ -931,6 +962,8 @@ class MemorySendStream(_abc.SendStream):
         # this twice at the same time.
         async with self._lock:
             await _core.yield_briefly()
+            # check for being closed:
+            self._outgoing.put(b"")
             if self.wait_send_all_might_not_block_hook is not None:
                 await self.wait_send_all_might_not_block_hook()
 

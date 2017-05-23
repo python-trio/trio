@@ -107,6 +107,8 @@ class SocketStream(HalfCloseableStream):
 
     async def wait_send_all_might_not_block(self):
         async with self._send_lock:
+            if self.socket.fileno() == -1:
+                raise ClosedStreamError
             with _translate_socket_errors_to_stream_errors():
                 await self.socket.wait_writable()
 
