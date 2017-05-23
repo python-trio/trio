@@ -177,7 +177,6 @@ class AsyncResource(metaclass=_abc.ABCMeta):
         succeed.
 
         """
-        pass
 
     async def graceful_close(self):
         """Close this resource, gracefully.
@@ -234,7 +233,6 @@ class SendStream(AsyncResource):
               :meth:`HalfCloseableStream.send_eof` on this stream.
 
         """
-        pass
 
     @_abc.abstractmethod
     async def wait_send_all_might_not_block(self):
@@ -286,7 +284,6 @@ class SendStream(AsyncResource):
             <https://developer.apple.com/videos/play/wwdc2015/719/>`__
 
         """
-        pass
 
 
 class ReceiveStream(AsyncResource):
@@ -332,7 +329,6 @@ class ReceiveStream(AsyncResource):
               methods on this stream object.
 
         """
-        pass
 
 
 class Stream(SendStream, ReceiveStream):
@@ -403,4 +399,3 @@ class HalfCloseableStream(Stream):
               methods on this stream object.
 
         """
-        pass
