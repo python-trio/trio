@@ -543,6 +543,16 @@ class SSLStream(_Stream):
             # here. (This is safe, because literally the only thing this call
             # to _retry will do is send the close_notify alert, so that's
             # surely where the error comes from.)
+            #
+            # FYI in some cases this could also raise SSLSyscallError which I
+            # think is because SSL_shutdown is terrible. (Check out that note
+            # at the bottom of the man page saying that it sometimes gets
+            # raised spuriously.) I haven't seen this since we switched to
+            # immediately closing the socket, and I don't know exactly what
+            # conditions cause it and how to respond, so for now we're just
+            # letting that happen. But if you start seeing it, then hopefully
+            # this will give you a little head start on tracking it down,
+            # because whoa did this puzzle us at the 2017 PyCon sprints.
             try:
                 await self._retry(
                     self._ssl_object.unwrap, ignore_want_read=True)
