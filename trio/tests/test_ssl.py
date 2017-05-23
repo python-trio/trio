@@ -967,14 +967,8 @@ async def test_https_mode_eof_before_handshake():
         nursery.spawn(client.graceful_close)
         nursery.spawn(server_expect_clean_eof)
 
-# EOF before handshake gives different error
-# and I guess we need to propagate that, unless we're in receive_some
-# so receive_some can catch that and turn it into b""
-
 
 # maybe a test of presenting a client cert on a renegotiation?
-
-# - sloppy and strict EOF modes
 
 # check getpeercert(), probably need to work around:
 # https://bugs.python.org/issue29334
@@ -998,3 +992,17 @@ async def test_https_mode_eof_before_handshake():
 #
 # it also always sends close_notify, and then tries to wait for the full
 # shutdown
+
+
+# add something to trio_test to check for ResourceWarning
+# (unfortunately it also can't be made an error, so I guess we add an always
+# filter and then replace warnings.showwarning?)
+
+# file Yury bug for making it easy+cheap to learn about "... not awaited"
+
+# maybe add DeprecationWarning error filter to test suite
+
+# Glyph says that trio.ssl shouldn't be imported by default
+
+# error during handshake -- messes up our has-it-happened tracking!
+# probably better just to unconditionally mark the stream broken

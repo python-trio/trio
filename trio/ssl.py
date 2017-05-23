@@ -220,13 +220,26 @@ class _Once:
 _State = _Enum("_State", ["OK", "BROKEN", "CLOSED"])
 
 class SSLStream(_Stream):
+    """Encrypted communication using SSL/TLS.
+
+    :class:`SSLStream`
+
+takes an arbitrary :class:`~trio.abc.Stream`
+
+is a :class:`~trio.abc.Stream` that encrypts data on
+    transmission and decrypts it on receipt,
+
+    You should
+    :mod:`ssl`
+
+    """
     def __init__(
             self, transport_stream, sslcontext,
             *, max_bytes=32 * 1024, https_compatible=False, **kwargs):
         self.transport_stream = transport_stream
         self._state = _State.OK
         self._max_bytes = max_bytes
-        self._https_compatible = https_compatible
+        self.https_compatible = https_compatible
         self._outgoing = _stdlib_ssl.MemoryBIO()
         self._incoming = _stdlib_ssl.MemoryBIO()
         self._ssl_object = sslcontext.wrap_bio(
@@ -450,6 +463,11 @@ class SSLStream(_Stream):
         If the initial handshake has already completed, this returns
         immediately without doing anything (except executing a checkpoint).
 
+        .. warning:: If this method is cancelled, then it may leave the
+           :class:`SSLStream` in an unusable state. If this happens then any
+           attempt to use the object will raise
+           :exc:`trio.BrokenStreamError`.
+
         """
         try:
             self._check_status()
@@ -467,6 +485,15 @@ class SSLStream(_Stream):
     # So we *definitely* have to make sure that do_handshake is called
     # before doing anything else.
     async def receive_some(self, max_bytes):
+        """
+
+        .. warning:: If this method is cancelled while the initial handshake
+           or a renegotiation are in progress, then it may leave the
+           :class:`SSLStream` in an unusable state. If this happens then any
+           attempt to use the object will raise
+           :exc:`trio.BrokenStreamError`.
+
+        """
         async with self._outer_recv_lock:
             self._check_status()
             try:
@@ -475,7 +502,7 @@ class SSLStream(_Stream):
                 # For some reason, EOF before handshake sometimes raises
                 # SSLSyscallError instead of SSLEOFError (e.g. on my linux
                 # laptop, but not on appveyor). Thanks openssl.
-                if (self._https_compatible
+                if (self.https_compatible
                         and isinstance(
                             exc.__cause__, (SSLEOFError, SSLSyscallError))):
                     return b""
@@ -492,13 +519,21 @@ class SSLStream(_Stream):
                 # BROKEN. But that's actually fine, because after getting an
                 # EOF on TLS then the only thing you can do is close the
                 # stream, and closing doesn't care about the state.
-                if (self._https_compatible
+                if (self.https_compatible
                         and isinstance(exc.__cause__, SSLEOFError)):
                     return b""
                 else:
                     raise
 
     async def send_all(self, data):
+        """
+
+        .. warning:: If this method is cancelled, then it may leave the
+           :class:`SSLStream` in an unusable state. If this happens then any
+           attempt to use the object will raise
+           :exc:`trio.BrokenStreamError`.
+
+        """
         async with self._outer_send_lock:
             self._check_status()
             await self._handshook.ensure(checkpoint=False)
@@ -509,14 +544,6 @@ class SSLStream(_Stream):
                 return
             await self._retry(self._ssl_object.write, data)
 
-    # Question: should this take outer_send_lock and/or outer_recv_lock? I
-    # initially thought it should, because it doesn't make sense to unwrap a
-    # stream that you're in the middle of using. But then I thought, this is
-    # also called by graceful_close(), and it *is* generally expected that you
-    # can close a stream that's in active use. But, actually in trio that
-    # generally leads to freezes (epoll and kqueue don't give any way to
-    # detect that an fd you're waiting on has been closed :-( :-( :-(), so
-    # maybe it's actually better to error out...?
     async def unwrap(self):
         async with self._outer_recv_lock, self._outer_send_lock:
             self._check_status()
@@ -536,7 +563,7 @@ class SSLStream(_Stream):
         if self._state is _State.CLOSED:
             await _core.yield_briefly()
             return
-        if self._state is _State.BROKEN or self._https_compatible:
+        if self._state is _State.BROKEN or self.https_compatible:
             self.forceful_close()
             await _core.yield_briefly()
             return
