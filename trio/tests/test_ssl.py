@@ -288,6 +288,24 @@ def virtual_ssl_echo_server(**kwargs):
         fakesock, CLIENT_CTX, server_hostname="trio-test-1.example.org")
 
 
+def ssl_wrap_pair(client_transport, server_transport,
+                  *, client_kwargs={}, server_kwargs={}):
+    client_ssl = tssl.SSLStream(
+        client_transport, CLIENT_CTX,
+        server_hostname="trio-test-1.example.org", **client_kwargs)
+    server_ssl = tssl.SSLStream(
+        server_transport, SERVER_CTX, server_side=True, **server_kwargs)
+    return client_ssl, server_ssl
+
+def ssl_memory_stream_pair(*, client_kwargs={}, server_kwargs={}):
+    client_transport, server_transport = memory_stream_pair()
+    return ssl_wrap_pair(client_transport, server_transport)
+
+def ssl_lockstep_stream_pair():
+    client_transport, server_transport = lockstep_stream_pair()
+    return ssl_wrap_pair(client_transport, server_transport)
+
+
 # Simple smoke test for handshake/send/receive/shutdown talking to a
 # synchronous server, plus make sure that we do the bare minimum of
 # certificate checking (even though this is really Python's responsibility)
@@ -305,16 +323,18 @@ async def test_ssl_client_basics():
         s = tssl.SSLStream(
             sock, client_ctx, server_hostname="trio-test-1.example.org")
         assert not s.server_side
-        with pytest.raises(tssl.SSLError):
+        with pytest.raises(BrokenStreamError) as excinfo:
             await s.send_all(b"x")
+        assert isinstance(excinfo.value.__cause__, tssl.SSLError)
 
     # Trusted CA, but wrong host name
     with ssl_echo_server_raw(expect_fail=True) as sock:
         s = tssl.SSLStream(
             sock, CLIENT_CTX, server_hostname="trio-test-2.example.org")
         assert not s.server_side
-        with pytest.raises(tssl.CertificateError):
+        with pytest.raises(BrokenStreamError) as excinfo:
             await s.send_all(b"x")
+        assert isinstance(excinfo.value.__cause__, tssl.CertificateError)
 
 
 async def test_ssl_server_basics():
@@ -377,8 +397,9 @@ async def test_attributes():
         # fails:
         s.context = bad_ctx
         assert s.context is bad_ctx
-        with pytest.raises(tssl.SSLError):
+        with pytest.raises(BrokenStreamError) as excinfo:
             await s.do_handshake()
+        assert isinstance(excinfo.value.__cause__, tssl.SSLError)
 
 
 # Note: this test fails horribly if we force TLS 1.2 and trigger a
@@ -413,8 +434,8 @@ async def test_attributes():
 # I begin to see why HTTP/2 forbids renegotiation and TLS 1.3 removes it...
 
 async def test_full_duplex_basics():
-    CHUNKS = 100
-    CHUNK_SIZE = 65536
+    CHUNKS = 30
+    CHUNK_SIZE = 32768
     EXPECTED = CHUNKS * CHUNK_SIZE
 
     sent = bytearray()
@@ -532,10 +553,11 @@ async def test_renegotiation_randomized(mock_clock):
                 nursery.spawn(send, b2)
             await clear()
 
-    # Checking that wait_send_all_might_not_block and receive_some don't conflict:
+    # Checking that wait_send_all_might_not_block and receive_some don't
+    # conflict:
 
-    # 1) Set up a situation where expect (receive_some) is blocked sending, and
-    # wait_send_all_might_not_block comes in.
+    # 1) Set up a situation where expect (receive_some) is blocked sending,
+    # and wait_send_all_might_not_block comes in.
 
     # Our receive_some() call will get stuck when it hits send_all
     async def sleeper_with_slow_send_all(method):
@@ -559,8 +581,8 @@ async def test_renegotiation_randomized(mock_clock):
 
         await s.graceful_close()
 
-    # 2) Same, but now wait_send_all_might_not_block is stuck when receive_some tries
-    # to send.
+    # 2) Same, but now wait_send_all_might_not_block is stuck when
+    # receive_some tries to send.
 
     async def sleeper_with_slow_wait_writable_and_expect(method):
         if method == "wait_send_all_might_not_block":
@@ -594,43 +616,33 @@ async def test_resource_busy_errors():
         with assert_yields():
             await s.wait_send_all_might_not_block()
 
-    with ssl_echo_server(expect_fail=True) as s:
-        with pytest.raises(_core.ResourceBusyError) as excinfo:
-            async with _core.open_nursery() as nursery:
-                nursery.spawn(do_send_all)
-                nursery.spawn(do_send_all)
-        assert "another task" in str(excinfo.value)
+    s, _ = ssl_lockstep_stream_pair()
+    with pytest.raises(_core.ResourceBusyError) as excinfo:
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(do_send_all)
+            nursery.spawn(do_send_all)
+    assert "another task" in str(excinfo.value)
 
-        with pytest.raises(_core.ResourceBusyError) as excinfo:
-            async with _core.open_nursery() as nursery:
-                nursery.spawn(do_receive_some)
-                nursery.spawn(do_receive_some)
-        assert "another task" in str(excinfo.value)
+    s, _ = ssl_lockstep_stream_pair()
+    with pytest.raises(_core.ResourceBusyError) as excinfo:
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(do_receive_some)
+            nursery.spawn(do_receive_some)
+    assert "another task" in str(excinfo.value)
 
-    a, b = stdlib_socket.socketpair()
-    with a, b:
-        a.setblocking(False)
-        try:
-            while True:
-                a.send(b"x" * 10000)
-        except BlockingIOError:
-            pass
-        sockstream = _network.SocketStream(tsocket.from_stdlib_socket(a))
+    s, _ = ssl_lockstep_stream_pair()
+    with pytest.raises(_core.ResourceBusyError) as excinfo:
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(do_send_all)
+            nursery.spawn(do_wait_send_all_might_not_block)
+    assert "another task" in str(excinfo.value)
 
-        ctx = stdlib_ssl.create_default_context()
-        s = tssl.SSLStream(sockstream, ctx, server_hostname="x")
-
-        with pytest.raises(_core.ResourceBusyError) as excinfo:
-            async with _core.open_nursery() as nursery:
-                nursery.spawn(do_send_all)
-                nursery.spawn(do_wait_send_all_might_not_block)
-        assert "another task" in str(excinfo.value)
-
-        with pytest.raises(_core.ResourceBusyError) as excinfo:
-            async with _core.open_nursery() as nursery:
-                nursery.spawn(do_wait_send_all_might_not_block)
-                nursery.spawn(do_wait_send_all_might_not_block)
-        assert "another task" in str(excinfo.value)
+    s, _ = ssl_lockstep_stream_pair()
+    with pytest.raises(_core.ResourceBusyError) as excinfo:
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(do_wait_send_all_might_not_block)
+            nursery.spawn(do_wait_send_all_might_not_block)
+    assert "another task" in str(excinfo.value)
 
 
 async def test_wait_writable_calls_underlying_wait_writable():
@@ -689,26 +701,12 @@ async def test_send_all_empty_string():
         await s.graceful_close()
 
 
-def ssl_wrap_pair(client_transport, server_transport,
-                  *, client_kwargs={}, server_kwargs={}):
-    client_ssl = tssl.SSLStream(
-        client_transport, CLIENT_CTX,
-        server_hostname="trio-test-1.example.org", **client_kwargs)
-    server_ssl = tssl.SSLStream(
-        server_transport, SERVER_CTX, server_side=True, **server_kwargs)
-    return client_ssl, server_ssl
-
-def ssl_memory_stream_two_way(*, client_kwargs={}, server_kwargs={}):
-    client_transport, server_transport = memory_stream_pair()
-    return ssl_wrap_pair(client_transport, server_transport)
-
 async def test_SSLStream_generic():
     async def stream_maker():
-        return ssl_memory_stream_two_way()
+        return ssl_memory_stream_pair()
 
     async def clogged_stream_maker():
-        client_transport, server_transport = lockstep_stream_pair()
-        client, server = ssl_wrap_pair(client_transport, server_transport)
+        client, server = ssl_lockstep_stream_pair()
         # If we don't do handshakes up front, then we run into a problem in
         # the following situation:
         # - server does wait_send_all_might_not_block
@@ -724,7 +722,7 @@ async def test_SSLStream_generic():
 
 
 async def test_unwrap():
-    client_ssl, server_ssl = ssl_memory_stream_two_way()
+    client_ssl, server_ssl = ssl_memory_stream_pair()
     client_transport = client_ssl.transport_stream
     server_transport = server_ssl.transport_stream
 
@@ -780,7 +778,7 @@ async def test_unwrap():
 async def test_closing_nice_case():
     # the nice case: graceful closes all around
 
-    client_ssl, server_ssl = ssl_memory_stream_two_way()
+    client_ssl, server_ssl = ssl_memory_stream_pair()
     client_transport = client_ssl.transport_stream
 
     # Both the handshake and the close require back-and-forth discussion, so
@@ -788,22 +786,18 @@ async def test_closing_nice_case():
     async def client_closer():
         with assert_yields():
             await client_ssl.graceful_close()
-        assert client_ssl.transport_stream is None
 
     async def server_closer():
         assert await server_ssl.receive_some(10) == b""
         assert await server_ssl.receive_some(10) == b""
-        assert server_ssl.transport_stream is not None
         with assert_yields():
             await server_ssl.graceful_close()
-        assert server_ssl.transport_stream is None
 
     async with _core.open_nursery() as nursery:
         nursery.spawn(client_closer)
         nursery.spawn(server_closer)
 
     # closing the SSLStream also closes its transport
-    assert client_ssl.transport_stream is None
     with pytest.raises(ClosedStreamError):
         await client_transport.send_all(b"123")
 
@@ -827,20 +821,52 @@ async def test_closing_nice_case():
         with pytest.raises(ClosedStreamError):
             await client_ssl.unwrap()
 
+    with assert_yields():
+        with pytest.raises(ClosedStreamError):
+            await client_ssl.do_handshake()
 
-async def test_closing_forceful():
-    ### connection drops and such like, in the default mode where this is an
-    ### error
-
-    client_ssl, server_ssl = ssl_memory_stream_two_way()
+    # Check that a graceful close *before* handshaking gives a clean EOF on
+    # the other side
+    client_ssl, server_ssl = ssl_memory_stream_pair()
+    async def expect_eof_server():
+        with assert_yields():
+            assert await server_ssl.receive_some(10) == b""
+        with assert_yields():
+            await server_ssl.graceful_close()
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(client_ssl.do_handshake)
-        nursery.spawn(server_ssl.do_handshake)
+        nursery.spawn(client_ssl.graceful_close)
+        nursery.spawn(expect_eof_server)
 
-    client_ssl.forceful_close()
-    # as far as the client is concerned, we closed this fine
-    assert client_ssl.transport_stream is None
+
+async def test_send_all_fails_in_the_middle():
+    client, server = ssl_memory_stream_pair()
+
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(client.do_handshake)
+        nursery.spawn(server.do_handshake)
+
+    async def bad_hook():
+        raise KeyError
+
+    client.transport_stream.send_stream.send_all_hook = bad_hook
+
+    with pytest.raises(KeyError):
+        await client.send_all(b"x")
+
+    with pytest.raises(BrokenStreamError):
+        await client.wait_send_all_might_not_block()
+
+    closed = 0
+    def close_hook():
+        nonlocal closed
+        closed += 1
+
+    client.transport_stream.send_stream.close_hook = close_hook
+    client.transport_stream.receive_stream.close_hook = close_hook
+    await client.graceful_close()
+
+    assert closed == 2
 
 
 async def test_ssl_over_ssl():
@@ -868,6 +894,24 @@ async def test_ssl_over_ssl():
         nursery.spawn(client)
         nursery.spawn(server)
 
+
+async def test_ssl_bad_shutdown():
+    client, server = ssl_memory_stream_pair()
+
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(client.do_handshake)
+        nursery.spawn(server.do_handshake)
+
+    client.forceful_close()
+    # now the server sees a broken stream
+    with pytest.raises(BrokenStreamError):
+        await server.receive_some(10)
+    with pytest.raises(BrokenStreamError):
+        await server.send_all(b"x" * 10)
+
+    await server.graceful_close()
+
+
 # maybe a test of presenting a client cert on a renegotiation?
 
 # - sloppy and strict EOF modes
@@ -875,18 +919,35 @@ async def test_ssl_over_ssl():
 # check getpeercert(), probably need to work around:
 # https://bugs.python.org/issue29334
 
-# repeated calls to close methods are OK
-# and cancelled graceful_close falls back to forceful_close
-
 # fix testing.py namespace
 # maybe by promoting it to a package
-
-# what happens if a send_all was aborted half-way through, and *then* we call
-# graceful_close?
 
 # should unwrap switch to a mode where we only receive 1 byte at a time? this
 # would cause a CPU spike when unwrapping, but probably not *too* much (?)
 # since we're not talking about a lot of data? I think the actual close_notify
-# record is <40 bytes long (though there might be arbitrary amounts of data
+# record is 32 bytes long (though there might be arbitrary amounts of data
 # stacked up ahead of it... but this really shouldn't happen during a
-# coordinated unwrap).
+# coordinated unwrap). Of course unwrap is basically never ever used (twisted
+# doesn't even implement it), so not sure how much it's worth worrying about
+# this...
+
+
+# non-compliant mode... we definitely need to accept EOF as indicating a
+# close. should we also skip sending EOF? That's what python always does and
+# likewise for common servers, so
+
+# how do we even convert errors into b"" in HTTPS mode? just assume that any
+# StreamBroken after receiving a transport-level EOF is the end?
+# Lib/ssl.py catches SSLError and checks for SSL_ERROR_EOF
+# Oh, we do get this! I wonder why I thought we got SyscallError... it's
+# SSLEOFError.
+# Ah, it's SyscallError if you get the EOF before the handshake. Well, I guess
+# that's fair...
+
+
+# Twisted always reports unclean shutdown, and then http implementations just
+# have to ignore it (which is easy b/c it's just an argument to
+# connectionLost)
+#
+# it also always sends close_notify, and then tries to wait for the full
+# shutdown

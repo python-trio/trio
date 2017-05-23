@@ -566,12 +566,16 @@ async def test_MemoryRecieveStream():
     with pytest.raises(_streams.ClosedStreamError):
         mrs.put_data(b"---")
 
-    record = []
     async def receive_some_hook():
         mrs2.put_data(b"xxx")
 
-    mrs2 = MemoryReceiveStream(receive_some_hook)
+    record = []
+    def close_hook():
+        record.append("closed")
+
+    mrs2 = MemoryReceiveStream(receive_some_hook, close_hook)
     assert mrs2.receive_some_hook is receive_some_hook
+    assert mrs2.close_hook is close_hook
 
     mrs2.put_data(b"yyy")
     assert await mrs2.receive_some(10) == b"yyyxxx"
@@ -585,6 +589,7 @@ async def test_MemoryRecieveStream():
     mrs2.put_data(b"lost on close")
     with assert_yields():
         await mrs2.graceful_close()
+    assert record == ["closed"]
 
     with pytest.raises(_streams.ClosedStreamError):
         await mrs2.receive_some(10)

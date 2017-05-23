@@ -220,6 +220,7 @@ class SSLStream(_Stream):
     def __init__(
             self, transport_stream, sslcontext, *, max_bytes=32 * 1024, **kwargs):
         self.transport_stream = transport_stream
+        self._exc = None
         self._bufsize = max_bytes
         self._outgoing = _stdlib_ssl.MemoryBIO()
         self._incoming = _stdlib_ssl.MemoryBIO()
@@ -234,7 +235,8 @@ class SSLStream(_Stream):
         self._inner_recv_lock = _sync.Lock()
 
         # These are used to make sure that our caller doesn't attempt to make
-        # multiple concurrent calls to send_all/wait_send_all_might_not_block or to receive_some.
+        # multiple concurrent calls to send_all/wait_send_all_might_not_block
+        # or to receive_some.
         self._outer_send_lock = _UnLock(
             _core.ResourceBusyError,
             "another task is currently sending data on this SSLStream")
@@ -263,11 +265,16 @@ class SSLStream(_Stream):
     def __dir__(self):
         return super().__dir__() + list(self._forwarded)
 
+    def _check_status(self):
+        if self._exc is not None:
+            raise self._exc
+
     # This is probably the single trickiest function in trio. It has lots of
     # comments, though, just make sure to think carefully if you ever have to
     # touch it. The big comment at the top of this file will help explain
     # too.
     async def _retry(self, fn, *args, ignore_want_read=False):
+        print("doing", fn)
         await _core.yield_if_cancelled()
         yielded = False
         try:
@@ -288,11 +295,11 @@ class SSLStream(_Stream):
                 # might come in and mess with it while we're suspended), and
                 # we don't want to yield *before* starting the operation that
                 # will help us make progress, because then someone else might
-                # come in and
+                # come in and leapfrog us.
 
                 # Call the SSLObject method, and get its result.
                 #
-                # NB: despite what the docs, say SSLWantWriteError can't
+                # NB: despite what the docs say, SSLWantWriteError can't
                 # happen – "Writes to memory BIOs will always succeed if
                 # memory is available: that is their size can grow
                 # indefinitely."
@@ -303,7 +310,8 @@ class SSLStream(_Stream):
                     ret = fn(*args)
                 except _stdlib_ssl.SSLWantReadError:
                     want_read = True
-                except _stdlib_ssl.SSLError as exc:
+                except (SSLError, CertificateError) as exc:
+                    self._exc = _streams.BrokenStreamError
                     raise _streams.BrokenStreamError from exc
                 else:
                     finished = True
@@ -311,6 +319,7 @@ class SSLStream(_Stream):
                     want_read = False
                     finished = True
                 to_send = self._outgoing.read()
+                print(bool(to_send), want_read)
 
                 # Outputs from the above code block are:
                 #
@@ -373,7 +382,13 @@ class SSLStream(_Stream):
                     # NOTE: This relies on the lock being strict FIFO fair!
                     async with self._inner_send_lock:
                         yielded = True
-                        await self.transport_stream.send_all(to_send)
+                        try:
+                            await self.transport_stream.send_all(to_send)
+                        except:
+                            # Some unknown amount of our data got sent, and we
+                            # don't know how much. This stream is doomed.
+                            self._exc = _streams.BrokenStreamError
+                            raise
                 elif want_read:
                     # It's possible that someone else is already blocked in
                     # transport_stream.receive_some. If so then we want to
@@ -427,22 +442,24 @@ class SSLStream(_Stream):
         immediately without doing anything (except executing a checkpoint).
 
         """
-        if self.transport_stream is None:
+        try:
+            self._check_status()
+        except:
             await _core.yield_briefly()
-            raise _streams.ClosedStreamError
+            raise
         await self._handshook.ensure(checkpoint=True)
 
     # Most things work if we don't explicitly force do_handshake to be called
-    # before calling receive_some or send_all, because openssl will automatically
-    # perform the handshake on the first SSL_{read,write} call. BUT, allowing
-    # openssl to do this will disable Python's hostname checking!!! See:
+    # before calling receive_some or send_all, because openssl will
+    # automatically perform the handshake on the first SSL_{read,write}
+    # call. BUT, allowing openssl to do this will disable Python's hostname
+    # checking!!! See:
     #   https://bugs.python.org/issue30141
     # So we *definitely* have to make sure that do_handshake is called
     # before doing anything else.
     async def receive_some(self, max_bytes):
         async with self._outer_recv_lock:
-            if self.transport_stream is None:
-                raise _streams.ClosedStreamError
+            self._check_status()
             await self._handshook.ensure(checkpoint=False)
             max_bytes = _operator.index(max_bytes)
             if max_bytes < 1:
@@ -451,8 +468,7 @@ class SSLStream(_Stream):
 
     async def send_all(self, data):
         async with self._outer_send_lock:
-            if self.transport_stream is None:
-                raise _streams.ClosedStreamError
+            self._check_status()
             await self._handshook.ensure(checkpoint=False)
             # SSLObject interprets write(b"") as an EOF for some reason, which
             # is not what we want.
@@ -471,56 +487,74 @@ class SSLStream(_Stream):
     # maybe it's actually better to error out...?
     async def unwrap(self):
         async with self._outer_recv_lock, self._outer_send_lock:
-            if self.transport_stream is None:
-                raise _streams.ClosedStreamError
+            self._check_status()
             await self._handshook.ensure(checkpoint=False)
             await self._retry(self._ssl_object.unwrap)
             transport_stream = self.transport_stream
             self.transport_stream = None
+            self._exc = _streams.ClosedStreamError
             return (transport_stream, self._incoming.read())
 
     def forceful_close(self):
-        if self.transport_stream is not None:
+        if self._exc is not _streams.ClosedStreamError:
             self.transport_stream.forceful_close()
-            self.transport_stream = None
+            self._exc = _streams.ClosedStreamError
 
     async def graceful_close(self):
-        transport_stream = self.transport_stream
-        if transport_stream is None:
+        if self._exc is _streams.ClosedStreamError:
+            await _core.yield_briefly()
+            return
+        if self._exc is _streams.BrokenStreamError:
+            self.forceful_close()
             await _core.yield_briefly()
             return
         try:
-            # If we haven't even started the handshake, then we can (and must)
-            # skip the SSL-level shutdown.
-            if self._handshook.started:
-                # But if the handshake is in progress, wait for it to finish.
-                await self._handshook.ensure(checkpoint=False)
-                # Then we want to call SSL_shutdown *once*, to send a
-                # close_notify but *not* wait for the response (because we're
-                # closing the socket anyway, so there's no point in waiting).
-                # Subtlety: SSLObject.unwrap will immediately call it a second
-                # time, and the second time will raise SSLWantReadError
-                # because there hasn't been time for the other side to respond
-                # yet. (Unless they spontaneously sent a close_notify before
-                # we called this, and it's either already been processed or
-                # gets pulled out of the buffer by Python's second call.) So
-                # the way to do what we want is to to ignore SSLWantReadError
-                # on this call.
-                try:
-                    await self._retry(
-                        self._ssl_object.unwrap, ignore_want_read=True)
-                except _streams.BrokenStreamError:
-                    # It's okay if the stream is broken and we can't send our
-                    # goodbye message, because we're cutting off the
-                    # connection anyway...
-                    pass
+            await self._handshook.ensure(checkpoint=False)
+            # Here, we call SSL_shutdown *once*, because we want to send a
+            # close_notify but *not* wait for the other side to send back a
+            # response. In principle it would be more polite to wait for the
+            # other side to reply with their own close_notify. However, if
+            # they aren't paying attention (e.g., if they're just sending
+            # data and not receiving) then we will never notice our
+            # close_notify and we'll be waiting forever. Eventually we'll time
+            # out (hopefully), but it's still kind of nasty. And we can't
+            # require the other side to always be receiving, because (a)
+            # backpressure is kind of important, and (b) I bet there are
+            # broken TLS implementations out there that don't receive all the
+            # time. (Like e.g. anyone using Python ssl in synchronous mode.)
+            #
+            # The send-then-immediately-close behavior is explicitly allowed
+            # by the TLS specs, so we're ok on that.
+            #
+            # Subtlety: SSLObject.unwrap will immediately call it a second
+            # time, and the second time will raise SSLWantReadError because
+            # there hasn't been time for the other side to respond
+            # yet. (Unless they spontaneously sent a close_notify before we
+            # called this, and it's either already been processed or gets
+            # pulled out of the buffer by Python's second call.) So the way to
+            # do what we want is to ignore SSLWantReadError on this call.
+            #
+            # Also, because the other side might have already sent
+            # close_notify and closed their connection then it's possible that
+            # our attempt to send close_notify will raise
+            # BrokenStreamError. This is totally legal, and in fact can happen
+            # with two well-behaved trio programs talking to each other, so we
+            # don't want to raise an error. So we suppress BrokenStreamError
+            # here. (This is safe, because literally the only thing this call
+            # to _retry will do is send the close_notify alert, so that's
+            # surely where the error comes from.)
+            try:
+                await self._retry(
+                    self._ssl_object.unwrap, ignore_want_read=True)
+            except _streams.BrokenStreamError:
+                pass
             # Close the underlying stream
-            await transport_stream.graceful_close()
+            await self.transport_stream.graceful_close()
         except:
-            transport_stream.forceful_close()
+            self.transport_stream.forceful_close()
             raise
         finally:
-            self.transport_stream = None
+            self._exc = _streams.ClosedStreamError
 
     async def wait_send_all_might_not_block(self):
         # This method's implementation is deceptively simple.
@@ -528,8 +562,7 @@ class SSLStream(_Stream):
         # First, we take the outer send lock, because of trio's standard
         # semantics that wait_send_all_might_not_block and send_all conflict.
         async with self._outer_send_lock:
-            if self.transport_stream is None:
-                raise _streams.ClosedStreamError
+            self._check_status()
             # Then we take the inner send lock. We know that no other tasks
             # are calling self.send_all or self.wait_send_all_might_not_block,
             # because we have the outer_send_lock. But! There might be another

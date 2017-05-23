@@ -506,13 +506,16 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
                           nursery.cancel_scope)
             nursery.spawn(do_receive_some, 1)
 
-        # closing the r side
-        await do_graceful_close(r)
+        # closing the r side leads to BrokenStreamError on the s side
+        # (eventually)
+        async def expect_broken_stream_on_send():
+            with _assert_raises(_streams.BrokenStreamError):
+                while True:
+                    await do_send_all(b"x" * 100)
 
-        # ...leads to BrokenStreamError on the s side (eventually)
-        with _assert_raises(_streams.BrokenStreamError):
-            while True:
-                await do_send_all(b"x" * 100)
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(expect_broken_stream_on_send)
+            nursery.spawn(do_graceful_close, r)
 
         # once detected, the stream stays broken
         with _assert_raises(_streams.BrokenStreamError):
@@ -555,6 +558,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             await wait_all_tasks_blocked()
             await checked_receive_1(b"y")
             await checked_receive_1(b"")
+            await do_graceful_close(r)
 
         async with _core.open_nursery() as nursery:
             nursery.spawn(send_then_close)
@@ -621,8 +625,9 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
                 nursery.spawn(expect_cancelled, do_send_all, b"x")
                 nursery.spawn(expect_cancelled, do_receive_some, 1)
 
-        await do_graceful_close(s)
-        await do_graceful_close(r)
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(do_graceful_close, s)
+            nursery.spawn(do_graceful_close, r)
 
     # check wait_send_all_might_not_block, if we can
     if clogged_stream_maker is not None:
@@ -739,9 +744,13 @@ async def check_two_way_stream(stream_maker, clogged_stream_maker):
             nursery.spawn(receiver, s1, test_data[::-1], 2)
             nursery.spawn(receiver, s2, test_data, 3)
 
-        await s1.graceful_close()
-        assert await s2.receive_some(10) == b""
-        await s2.graceful_close()
+        async def expect_receive_some_empty():
+            assert await s2.receive_some(10) == b""
+            await s2.graceful_close()
+
+        async with _core.open_nursery() as nursery:
+            nursery.spawn(expect_receive_some_empty)
+            nursery.spawn(s1.graceful_close)
 
 
 async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
@@ -968,19 +977,23 @@ class MemoryReceiveStream(_abc.ReceiveStream):
     Args:
       receive_some_hook: An async function, or None. Called from
           :meth:`receive_some`. Can do whatever you like.
+      close_hook: A synchronous function, or None. Called from
+          :meth:`forceful_close`. Can do whatever you like.
 
     .. attribute:: receive_some_hook
+                   close_hook
 
-       The :attr:`receive_some_hook` is also exposed as an attribute on the
-       object, and you can change it at any time.
+       Both hooks are also exposed as attributes on the object, and you can
+       change them at any time.
 
     """
-    def __init__(self, receive_some_hook=None):
+    def __init__(self, receive_some_hook=None, close_hook=None):
         self._lock = _util.UnLock(
             _core.ResourceBusyError, "another task is using this stream")
         self._incoming = _UnboundedByteQueue()
         self._closed = False
         self.receive_some_hook = receive_some_hook
+        self.close_hook = close_hook
 
     async def receive_some(self, max_bytes):
         """Calls the :attr:`receive_some_hook` (if any), and then retrieves
@@ -1012,7 +1025,8 @@ class MemoryReceiveStream(_abc.ReceiveStream):
         except _core.WouldBlock:
             pass
         self._incoming.close()
-        self._closed = True
+        if self.close_hook is not None:
+            self.close_hook()
 
     def put_data(self, data):
         """Appends the given data to the internal buffer.
