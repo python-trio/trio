@@ -42,14 +42,12 @@ async def test_SocketStream_basics():
 
             # TCP_NODELAY enabled by default
             assert s.getsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY)
-            assert (s.getsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, 4)
-                    == bytes([1, 0, 0, 0]))
             # We can disable it though
             s.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, False)
             assert not s.getsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY)
 
-            assert (s.getsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, 4)
-                    == bytes([0, 0, 0, 0]))
+            b = s.getsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, 1)
+            assert isinstance(b, bytes)
 
 
 async def fill_stream(s):
