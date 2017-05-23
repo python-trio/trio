@@ -934,6 +934,44 @@ async def test_ssl_bad_shutdown_but_its_ok():
     await server.graceful_close()
 
 
+async def test_ssl_https_compatibility_disagreement():
+    client, server = ssl_memory_stream_pair(
+        server_kwargs={"https_compatible": False},
+        client_kwargs={"https_compatible": True})
+
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(client.do_handshake)
+        nursery.spawn(server.do_handshake)
+
+    # client is in HTTPS-mode, server is not
+    # so client doing graceful_shutdown causes an error on server
+    async def receive_and_expect_error():
+        with pytest.raises(BrokenStreamError) as excinfo:
+            await server.receive_some(10)
+        assert isinstance(excinfo.value.__cause__, tssl.SSLEOFError)
+
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(client.graceful_close)
+        nursery.spawn(receive_and_expect_error)
+
+
+async def test_https_mode_eof_before_handshake():
+    client, server = ssl_memory_stream_pair(
+        server_kwargs={"https_compatible": True},
+        client_kwargs={"https_compatible": True})
+
+    async def server_expect_clean_eof():
+        assert await server.receive_some(10) == b""
+
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(client.graceful_close)
+        nursery.spawn(server_expect_clean_eof)
+
+# EOF before handshake gives different error
+# and I guess we need to propagate that, unless we're in receive_some
+# so receive_some can catch that and turn it into b""
+
+
 # maybe a test of presenting a client cert on a renegotiation?
 
 # - sloppy and strict EOF modes
@@ -952,19 +990,6 @@ async def test_ssl_bad_shutdown_but_its_ok():
 # coordinated unwrap). Of course unwrap is basically never ever used (twisted
 # doesn't even implement it), so not sure how much it's worth worrying about
 # this...
-
-
-# non-compliant mode... we definitely need to accept EOF as indicating a
-# close. should we also skip sending EOF? That's what python always does and
-# likewise for common servers, so
-
-# how do we even convert errors into b"" in HTTPS mode? just assume that any
-# StreamBroken after receiving a transport-level EOF is the end?
-# Lib/ssl.py catches SSLError and checks for SSL_ERROR_EOF
-# Oh, we do get this! I wonder why I thought we got SyscallError... it's
-# SSLEOFError.
-# Ah, it's SyscallError if you get the EOF before the handshake. Well, I guess
-# that's fair...
 
 
 # Twisted always reports unclean shutdown, and then http implementations just

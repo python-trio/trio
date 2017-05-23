@@ -469,7 +469,16 @@ class SSLStream(_Stream):
     async def receive_some(self, max_bytes):
         async with self._outer_recv_lock:
             self._check_status()
-            await self._handshook.ensure(checkpoint=False)
+            try:
+                await self._handshook.ensure(checkpoint=False)
+            except _streams.BrokenStreamError as exc:
+                # For some reason, EOF before handshake raises SSLSyscallError
+                # instead of SSLEOFError. Thanks openssl.
+                if (self._https_compatible
+                        and isinstance(exc.__cause__, SSLSyscallError)):
+                    return b""
+                else:
+                    raise
             max_bytes = _operator.index(max_bytes)
             if max_bytes < 1:
                 raise ValueError("max_bytes must be >= 1")
@@ -481,8 +490,6 @@ class SSLStream(_Stream):
                 # BROKEN. But that's actually fine, because after getting an
                 # EOF on TLS then the only thing you can do is close the
                 # stream, and closing doesn't care about the state.
-                print("caught!")
-                print(self._https_compatible, exc.__cause__)
                 if (self._https_compatible
                         and isinstance(exc.__cause__, SSLEOFError)):
                     return b""
