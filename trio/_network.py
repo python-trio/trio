@@ -17,10 +17,6 @@ _closed_stream_errnos = {
     # Windows
     errno.ENOTSOCK,
 }
-# XXXXX EPIPE on send_all *can* just mean send_eof was called :-(
-# that's what I get on Linux and MacOS
-# on Windows it's WSAESHUTDOWN, which is fair, though probably we only want
-# this on send_all not receive_some
 
 @contextmanager
 def _translate_socket_errors_to_stream_errors():
