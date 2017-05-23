@@ -297,13 +297,13 @@ def ssl_wrap_pair(client_transport, server_transport,
         server_transport, SERVER_CTX, server_side=True, **server_kwargs)
     return client_ssl, server_ssl
 
-def ssl_memory_stream_pair(*, client_kwargs={}, server_kwargs={}):
+def ssl_memory_stream_pair(**kwargs):
     client_transport, server_transport = memory_stream_pair()
-    return ssl_wrap_pair(client_transport, server_transport)
+    return ssl_wrap_pair(client_transport, server_transport, **kwargs)
 
-def ssl_lockstep_stream_pair():
+def ssl_lockstep_stream_pair(**kwargs):
     client_transport, server_transport = lockstep_stream_pair()
-    return ssl_wrap_pair(client_transport, server_transport)
+    return ssl_wrap_pair(client_transport, server_transport, **kwargs)
 
 
 # Simple smoke test for handshake/send/receive/shutdown talking to a
@@ -701,9 +701,13 @@ async def test_send_all_empty_string():
         await s.graceful_close()
 
 
-async def test_SSLStream_generic():
+@pytest.mark.parametrize("https_compatible", [False, True])
+async def test_SSLStream_generic(https_compatible):
     async def stream_maker():
-        return ssl_memory_stream_pair()
+        return ssl_memory_stream_pair(
+            client_kwargs={"https_compatible": https_compatible},
+            server_kwargs={"https_compatible": https_compatible},
+        )
 
     async def clogged_stream_maker():
         client, server = ssl_lockstep_stream_pair()
@@ -906,6 +910,24 @@ async def test_ssl_bad_shutdown():
     # now the server sees a broken stream
     with pytest.raises(BrokenStreamError):
         await server.receive_some(10)
+    with pytest.raises(BrokenStreamError):
+        await server.send_all(b"x" * 10)
+
+    await server.graceful_close()
+
+
+async def test_ssl_bad_shutdown_but_its_ok():
+    client, server = ssl_memory_stream_pair(
+        server_kwargs={"https_compatible": True},
+        client_kwargs={"https_compatible": True})
+
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(client.do_handshake)
+        nursery.spawn(server.do_handshake)
+
+    client.forceful_close()
+    # the server sees that as a clean shutdown
+    assert await server.receive_some(10) == b""
     with pytest.raises(BrokenStreamError):
         await server.send_all(b"x" * 10)
 

@@ -222,10 +222,11 @@ _State = _Enum("_State", ["OK", "BROKEN", "CLOSED"])
 class SSLStream(_Stream):
     def __init__(
             self, transport_stream, sslcontext,
-            *, max_bytes=32 * 1024, **kwargs):
+            *, max_bytes=32 * 1024, https_compatible=False, **kwargs):
         self.transport_stream = transport_stream
         self._state = _State.OK
-        self._bufsize = max_bytes
+        self._max_bytes = max_bytes
+        self._https_compatible = https_compatible
         self._outgoing = _stdlib_ssl.MemoryBIO()
         self._incoming = _stdlib_ssl.MemoryBIO()
         self._ssl_object = sslcontext.wrap_bio(
@@ -284,7 +285,6 @@ class SSLStream(_Stream):
     # touch it. The big comment at the top of this file will help explain
     # too.
     async def _retry(self, fn, *args, ignore_want_read=False):
-        print("doing", fn)
         await _core.yield_if_cancelled()
         yielded = False
         try:
@@ -329,7 +329,6 @@ class SSLStream(_Stream):
                     want_read = False
                     finished = True
                 to_send = self._outgoing.read()
-                print(bool(to_send), want_read)
 
                 # Outputs from the above code block are:
                 #
@@ -414,7 +413,7 @@ class SSLStream(_Stream):
                     async with self._inner_recv_lock:
                         yielded = True
                         if recv_count == self._inner_recv_count:
-                            data = await self.transport_stream.receive_some(self._bufsize)
+                            data = await self.transport_stream.receive_some(self._max_bytes)
                             if not data:
                                 self._incoming.write_eof()
                             else:
@@ -474,7 +473,22 @@ class SSLStream(_Stream):
             max_bytes = _operator.index(max_bytes)
             if max_bytes < 1:
                 raise ValueError("max_bytes must be >= 1")
-            return await self._retry(self._ssl_object.read, max_bytes)
+            try:
+                return await self._retry(self._ssl_object.read, max_bytes)
+            except _streams.BrokenStreamError as exc:
+                # This isn't quite equivalent to just returning b"" in the
+                # first place, because we still end up with self._state set to
+                # BROKEN. But that's actually fine, because after getting an
+                # EOF on TLS then the only thing you can do is close the
+                # stream, and closing doesn't care about the state.
+                print("caught!")
+                print(self._https_compatible, exc.__cause__)
+                if (self._https_compatible
+                        and isinstance(exc.__cause__, SSLEOFError)):
+                    return b""
+                else:
+                    raise
+
 
     async def send_all(self, data):
         async with self._outer_send_lock:
@@ -514,7 +528,7 @@ class SSLStream(_Stream):
         if self._state is _State.CLOSED:
             await _core.yield_briefly()
             return
-        if self._state is _State.BROKEN:
+        if self._state is _State.BROKEN or self._https_compatible:
             self.forceful_close()
             await _core.yield_briefly()
             return
