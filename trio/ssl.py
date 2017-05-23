@@ -438,7 +438,11 @@ is a :class:`~trio.abc.Stream` that encrypts data on
                 await _core.yield_briefly_no_cancel()
 
     async def _do_handshake(self):
-        await self._retry(self._ssl_object.do_handshake)
+        try:
+            await self._retry(self._ssl_object.do_handshake)
+        except:
+            self._state = _State.BROKEN
+            raise
 
     # XX wrong name? or I guess if we ever gain the ability to explicitly
     # renegotiate then this could slightly change semantics to ensure that

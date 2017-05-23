@@ -968,6 +968,46 @@ async def test_https_mode_eof_before_handshake():
         nursery.spawn(server_expect_clean_eof)
 
 
+async def test_send_error_during_handshake():
+    client, server = ssl_memory_stream_pair()
+
+    async def bad_hook():
+        raise KeyError
+
+    client.transport_stream.send_stream.send_all_hook = bad_hook
+
+    with pytest.raises(KeyError):
+        with assert_yields():
+            await client.do_handshake()
+
+    with pytest.raises(BrokenStreamError):
+        with assert_yields():
+            await client.do_handshake()
+
+
+async def test_receive_error_during_handshake():
+    client, server = ssl_memory_stream_pair()
+
+    async def bad_hook():
+        raise KeyError
+
+    client.transport_stream.receive_stream.receive_some_hook = bad_hook
+
+    async def client_side(cancel_scope):
+        with pytest.raises(KeyError):
+            with assert_yields():
+                await client.do_handshake()
+        cancel_scope.cancel()
+
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(client_side, nursery.cancel_scope)
+        nursery.spawn(server.do_handshake)
+
+    with pytest.raises(BrokenStreamError):
+        with assert_yields():
+            await client.do_handshake()
+
+
 # maybe a test of presenting a client cert on a renegotiation?
 
 # check getpeercert(), probably need to work around:
