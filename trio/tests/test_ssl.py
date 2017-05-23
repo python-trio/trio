@@ -216,7 +216,10 @@ class PyOpenSSLEchoStream:
                                 # https://github.com/pyca/pyopenssl/issues/621
                                 next_byte = self._pending_cleartext[0:1]
                                 self._conn.send(bytes(next_byte))
-                            except SSL.WantReadError:
+                            # Apparently this next bit never gets hit in the
+                            # test suite, but it's not an interesting omission
+                            # so let's pragma it.
+                            except SSL.WantReadError: # pragma: no cover
                                 # We didn't manage to send the cleartext (and
                                 # in particular we better leave it there to
                                 # try again, due to openssl's retry
