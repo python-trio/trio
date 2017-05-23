@@ -222,7 +222,7 @@ class SSLStream(_Stream):
     allows you to perform encrypted communication over it using the usual
     :class:`~trio.abc.Stream` interface. You pass regular data to
     :meth:`send_all`, then it encrypts it and sends the encrypted data on the
-    underlying :class:`~trio.abc.Stream`; :meth:`recieve_some` takes encrypted
+    underlying :class:`~trio.abc.Stream`; :meth:`receive_some` takes encrypted
     data out of the underlying :class:`~trio.abc.Stream` and decrypts it
     before returning it.
 
@@ -235,8 +235,9 @@ class SSLStream(_Stream):
       transport_stream (~trio.abc.Stream): The stream used to transport
           encrypted data. Required.
 
-      ssl_context (SSLContext): The :class:`~ssl.SSLContext` used for this
-          connection. Required.
+      ssl_context (~ssl.SSLContext): The :class:`~ssl.SSLContext` used for
+          this connection. Required. Usually created by calling
+          :func:`trio.ssl.create_default_context()`.
 
       server_hostname (str or None): The name of the server being connected
           to. Used for `SNI
@@ -280,15 +281,15 @@ class SSLStream(_Stream):
           If you have code that was written to use :class:`ssl.SSLSocket` and
           now you're porting it to Trio, then it may be useful to know that a
           difference between :class:`SSLStream` and :class:`ssl.SSLSocket` is
-          that :class:`SSLSocket` implements the ``https_compatible=True``
-          behavior by default.
+          that :class:`~ssl.SSLSocket` implements the
+          ``https_compatible=True`` behavior by default.
 
-      max_refill_bytes (int): :class:`SSLSocket` maintains an internal buffer
-          of incoming data, and when it runs low then it calls
+      max_refill_bytes (int): :class:`~ssl.SSLSocket` maintains an internal
+          buffer of incoming data, and when it runs low then it calls
           :meth:`receive_some` on the underlying transport stream to refill
           it. This argument lets you set the ``max_bytes`` argument passed to
           the *underlying* :meth:`receive_some` call. It doesn't affect calls
-          to *this* class's :meth:`recieve_some`, or really anything else
+          to *this* class's :meth:`receive_some`, or really anything else
           user-observable except possibly performance. You probably don't need
           to worry about this.
 
@@ -297,8 +298,8 @@ class SSLStream(_Stream):
           that was passed to ``__init__``. An example of when this would be
           useful is if you're using :class:`SSLStream` over a
           :class:`~trio.SocketStream` and want to call the
-          :class:`SocketStream`'s :meth:`~trio.SocketStream.setsockopt` or
-          :meth:`~trio.socket.getpeername` methods.
+          :class:`~trio.SocketStream`'s :meth:`~trio.SocketStream.setsockopt`
+          method.
 
     Internally, this class is implemented using an instance of
     :class:`ssl.SSLObject`, and all of :class:`~ssl.SSLObject`'s methods and
@@ -642,7 +643,7 @@ class SSLStream(_Stream):
           be, it can happen that it accidentally reads too much from the
           underlying stream. ``trailing_bytes`` contains this extra data; you
           should process it as if it was returned from a call to
-          ``transport_stream.recieve_some(...)``.
+          ``transport_stream.receive_some(...)``.
 
         """
         async with self._outer_recv_lock, self._outer_send_lock:
@@ -655,7 +656,7 @@ class SSLStream(_Stream):
             return (transport_stream, self._incoming.read())
 
     def forceful_close(self):
-        """See :meth:`~trio.abc.AsyncResource.forceful_close.
+        """See :meth:`~trio.abc.AsyncResource.forceful_close`.
 
         Closes the underlying transport.
 
@@ -740,7 +741,7 @@ class SSLStream(_Stream):
             self._state = _State.CLOSED
 
     async def wait_send_all_might_not_block(self):
-        """See :meth:`~trio.abc.SendStream.wait_send_all_might_not_block.
+        """See :meth:`~trio.abc.SendStream.wait_send_all_might_not_block`.
 
         """
         # This method's implementation is deceptively simple.
