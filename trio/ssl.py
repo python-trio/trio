@@ -151,6 +151,7 @@
 
 import operator as _operator
 import ssl as _stdlib_ssl
+from enum import Enum as _Enum
 
 from . import _core
 from .abc import Stream as _Stream
@@ -216,11 +217,14 @@ class _Once:
             await self._done.wait()
 
 
+_State = _Enum("_State", ["OK", "BROKEN", "CLOSED"])
+
 class SSLStream(_Stream):
     def __init__(
-            self, transport_stream, sslcontext, *, max_bytes=32 * 1024, **kwargs):
+            self, transport_stream, sslcontext,
+            *, max_bytes=32 * 1024, **kwargs):
         self.transport_stream = transport_stream
-        self._exc = None
+        self._state = _State.OK
         self._bufsize = max_bytes
         self._outgoing = _stdlib_ssl.MemoryBIO()
         self._incoming = _stdlib_ssl.MemoryBIO()
@@ -266,8 +270,14 @@ class SSLStream(_Stream):
         return super().__dir__() + list(self._forwarded)
 
     def _check_status(self):
-        if self._exc is not None:
-            raise self._exc
+        if self._state is _State.OK:
+            return
+        elif self._state is _State.BROKEN:
+            raise _streams.BrokenStreamError
+        elif self._state is _State.CLOSED:
+            raise _streams.ClosedStreamError
+        else:  # pragma: no cover
+            assert False
 
     # This is probably the single trickiest function in trio. It has lots of
     # comments, though, just make sure to think carefully if you ever have to
@@ -311,7 +321,7 @@ class SSLStream(_Stream):
                 except _stdlib_ssl.SSLWantReadError:
                     want_read = True
                 except (SSLError, CertificateError) as exc:
-                    self._exc = _streams.BrokenStreamError
+                    self._state = _State.BROKEN
                     raise _streams.BrokenStreamError from exc
                 else:
                     finished = True
@@ -387,7 +397,7 @@ class SSLStream(_Stream):
                         except:
                             # Some unknown amount of our data got sent, and we
                             # don't know how much. This stream is doomed.
-                            self._exc = _streams.BrokenStreamError
+                            self._state = _State.BROKEN
                             raise
                 elif want_read:
                     # It's possible that someone else is already blocked in
@@ -492,19 +502,19 @@ class SSLStream(_Stream):
             await self._retry(self._ssl_object.unwrap)
             transport_stream = self.transport_stream
             self.transport_stream = None
-            self._exc = _streams.ClosedStreamError
+            self._state = _State.CLOSED
             return (transport_stream, self._incoming.read())
 
     def forceful_close(self):
-        if self._exc is not _streams.ClosedStreamError:
+        if self._state is not _State.CLOSED:
             self.transport_stream.forceful_close()
-            self._exc = _streams.ClosedStreamError
+            self._state = _State.CLOSED
 
     async def graceful_close(self):
-        if self._exc is _streams.ClosedStreamError:
+        if self._state is _State.CLOSED:
             await _core.yield_briefly()
             return
-        if self._exc is _streams.BrokenStreamError:
+        if self._state is _State.BROKEN:
             self.forceful_close()
             await _core.yield_briefly()
             return
@@ -564,7 +574,7 @@ class SSLStream(_Stream):
             self.transport_stream.forceful_close()
             raise
         finally:
-            self._exc = _streams.ClosedStreamError
+            self._state = _State.CLOSED
 
     async def wait_send_all_might_not_block(self):
         # This method's implementation is deceptively simple.
