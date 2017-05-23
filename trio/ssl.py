@@ -161,43 +161,38 @@ from ._util import UnLock as _UnLock
 
 __all__ = ["SSLStream"]
 
+################################################################
+# Faking the stdlib ssl API
+################################################################
+
 def _reexport(name):
-    globals()[name] = getattr(_stdlib_ssl, name)
-    __all__.append(name)
+    try:
+        value = getattr(_stdlib_ssl, name)
+    except AttributeError:
+        pass
+    else:
+        globals()[name] = value
+        __all__.append(name)
 
 for _name in [
         "SSLError", "SSLZeroReturnError", "SSLSyscallError", "SSLEOFError",
         "CertificateError", "create_default_context", "match_hostname",
         "cert_time_to_seconds", "DER_cert_to_PEM_cert", "PEM_cert_to_DER_cert",
-        "get_default_verify_paths", "SSLContext", "Purpose",
+        "get_default_verify_paths", "Purpose", "enum_certificates",
+        "enum_crls", "SSLSession", "VerifyMode", "VerifyFlags", "Options",
+        "AlertDescription", "SSLErrorNumber",
+        # Intentionally not re-exported: SSLContext
 ]:
     _reexport(_name)
-
-# Windows only
-try:
-    for _name in ["enum_certificates", "enum_crls"]:
-        _reexport(_name)
-except AttributeError:
-    pass
-
-try:
-    # 3.6+ only:
-    for _name in [
-            "SSLSession", "VerifyMode", "VerifyFlags", "Options",
-            "AlertDescription", "SSLErrorNumber",
-    ]:
-        _reexport(_name)
-except AttributeError:
-    pass
 
 for _name in _stdlib_ssl.__dict__.keys():
     if _name == _name.upper():
         _reexport(_name)
 
-# XX add suppress_ragged_eofs option?
-# or maybe actually make an option that means "I want the variant of the
-# protocol that doesn't do EOFs", so it ignores lack from the other side and
-# also doesn't send them.
+
+################################################################
+# SSLStream
+################################################################
 
 class _Once:
     def __init__(self, afn, *args):
@@ -219,36 +214,121 @@ class _Once:
 
 _State = _Enum("_State", ["OK", "BROKEN", "CLOSED"])
 
+
 class SSLStream(_Stream):
     """Encrypted communication using SSL/TLS.
 
-    :class:`SSLStream`
+    :class:`SSLStream` wraps an arbitrary :class:`~trio.abc.Stream`, and
+    allows you to perform encrypted communication over it using the usual
+    :class:`~trio.abc.Stream` interface. You pass regular data to
+    :meth:`send_all`, then it encrypts it and sends the encrypted data on the
+    underlying :class:`~trio.abc.Stream`; :meth:`recieve_some` takes encrypted
+    data out of the underlying :class:`~trio.abc.Stream` and decrypts it
+    before returning it.
 
-takes an arbitrary :class:`~trio.abc.Stream`
+    You should read the standard library's :mod:`ssl` documentation carefully
+    before attempting to use this class, and probably other general
+    documentation on SSL/TLS as well. SSL/TLS is subtle and quick to
+    anger. Really. I'm not kidding.
 
-is a :class:`~trio.abc.Stream` that encrypts data on
-    transmission and decrypts it on receipt,
+    Args:
+      transport_stream (~trio.abc.Stream): The stream used to transport
+          encrypted data. Required.
 
-    You should
-    :mod:`ssl`
+      ssl_context (SSLContext): The :class:`~ssl.SSLContext` used for this
+          connection. Required.
+
+      server_hostname (str or None): The name of the server being connected
+          to. Used for `SNI
+          <https://en.wikipedia.org/wiki/Server_Name_Indication>`__ and for
+          validating the server's certificate (if hostname checking is
+          enabled). This is effectively mandatory for clients, and actually
+          mandatory if ``ssl_context.check_hostname`` is True.
+
+      server_side (bool): Whether this stream is acting as a client or
+          server. Defaults to False, i.e. client mode.
+
+      https_compatible (bool): There are two versions of SSL/TLS commonly
+          encountered in the wild: the standard version, and the version used
+          for HTTPS (HTTP-over-SSL/TLS).
+
+          Standard-compliant SSL/TLS implementations always send a
+          cryptographically signed ``close_notify`` message before closing the
+          connection. This is important because if the underlying transport
+          were simply closed, then there wouldn't be any way for the other
+          side to know whether the connection was intentionally closed by the
+          peer that they negotiated a cryptographic connection to, or by some
+          `man-in-the-middle
+          <https://en.wikipedia.org/wiki/Man-in-the-middle_attack>`__ attacker
+          who can't manipulate the cryptographic stream, but can manipulate
+          the transport layer (a so-called "truncation attack").
+
+          However, this part of the standard is widely ignored by real-world
+          HTTPS implementations, which means that if you want to interoperate
+          with them, then you NEED to ignore it too.
+
+          Fortunately this isn't as bad as it sounds, because the HTTP
+          protocol already includes its own equivalent of ``close_notify``, so
+          doing this again at the SSL/TLS level is redundant. But not all
+          protocols do! Therefore, by default Trio implements the safer
+          standard-compliant version (``https_compatible=False``). But if
+          you're speaking HTTPS or some other protocol where
+          ``close_notify``\s are commonly skipped, then you should set
+          ``https_compatible=True``; with this setting, Trio will neither
+          expect nor send ``close_notify`` messages.
+
+          If you have code that was written to use :class:`ssl.SSLSocket` and
+          now you're porting it to Trio, then it may be useful to know that a
+          difference between :class:`SSLStream` and :class:`ssl.SSLSocket` is
+          that :class:`SSLSocket` implements the ``https_compatible=True``
+          behavior by default.
+
+      max_refill_bytes (int): :class:`SSLSocket` maintains an internal buffer
+          of incoming data, and when it runs low then it calls
+          :meth:`receive_some` on the underlying transport stream to refill
+          it. This argument lets you set the ``max_bytes`` argument passed to
+          the *underlying* :meth:`receive_some` call. It doesn't affect calls
+          to *this* class's :meth:`recieve_some`, or really anything else
+          user-observable except possibly performance. You probably don't need
+          to worry about this.
+
+    Attributes:
+      transport_stream (~trio.abc.Stream): The underlying transport stream
+          that was passed to ``__init__``. An example of when this would be
+          useful is if you're using :class:`SSLStream` over a
+          :class:`~trio.SocketStream` and want to call the
+          :class:`SocketStream`'s :meth:`~trio.SocketStream.setsockopt` or
+          :meth:`~trio.socket.getpeername` methods.
+
+    Internally, this class is implemented using an instance of
+    :class:`ssl.SSLObject`, and all of :class:`~ssl.SSLObject`'s methods and
+    attributes are re-exported as methods and attributes on this class.
+
+    This also means that you register a SNI callback using
+    :meth:`~ssl.SSLContext.set_servername_callback`, then the first argument
+    your callback receives will be a :class:`ssl.SSLObject`.
 
     """
     def __init__(
-            self, transport_stream, sslcontext,
-            *, max_bytes=32 * 1024, https_compatible=False, **kwargs):
+            self, transport_stream, ssl_context,
+            *,
+            server_hostname=None, server_side=False,
+            https_compatible=False, max_refill_bytes=32 * 1024
+    ):
         self.transport_stream = transport_stream
         self._state = _State.OK
-        self._max_bytes = max_bytes
-        self.https_compatible = https_compatible
+        self._max_bytes = max_refill_bytes
+        self._https_compatible = https_compatible
         self._outgoing = _stdlib_ssl.MemoryBIO()
         self._incoming = _stdlib_ssl.MemoryBIO()
-        self._ssl_object = sslcontext.wrap_bio(
-            self._incoming, self._outgoing, **kwargs)
+        self._ssl_object = ssl_context.wrap_bio(
+            self._incoming, self._outgoing,
+            server_side=server_side, server_hostname=server_hostname)
         # Tracks whether we've already done the initial handshake
         self._handshook = _Once(self._do_handshake)
 
         # These are used to synchronize access to self.transport_stream
-        self._inner_send_lock = _sync.Lock()
+        self._inner_send_lock = _sync.StrictFIFOLock()
         self._inner_recv_count = 0
         self._inner_recv_lock = _sync.Lock()
 
@@ -444,11 +524,6 @@ is a :class:`~trio.abc.Stream` that encrypts data on
             self._state = _State.BROKEN
             raise
 
-    # XX wrong name? or I guess if we ever gain the ability to explicitly
-    # renegotiate then this could slightly change semantics to ensure that
-    # it's been driven to completion? But it's weird given that if a
-    # renegotiation is in progress it doesn't push it forward... OTOH this is
-    # how the stdlib ssl do_handshake works too.
     async def do_handshake(self):
         """Ensure that the initial handshake has completed.
 
@@ -469,7 +544,7 @@ is a :class:`~trio.abc.Stream` that encrypts data on
 
         .. warning:: If this method is cancelled, then it may leave the
            :class:`SSLStream` in an unusable state. If this happens then any
-           attempt to use the object will raise
+           future attempt to use the object will raise
            :exc:`trio.BrokenStreamError`.
 
         """
@@ -489,12 +564,15 @@ is a :class:`~trio.abc.Stream` that encrypts data on
     # So we *definitely* have to make sure that do_handshake is called
     # before doing anything else.
     async def receive_some(self, max_bytes):
-        """
+        """Read some data from the underlying transport, decrypt it, and
+        return it.
+
+        See :meth:`trio.abc.ReceiveStream.receive_some` for details.
 
         .. warning:: If this method is cancelled while the initial handshake
            or a renegotiation are in progress, then it may leave the
            :class:`SSLStream` in an unusable state. If this happens then any
-           attempt to use the object will raise
+           future attempt to use the object will raise
            :exc:`trio.BrokenStreamError`.
 
         """
@@ -506,7 +584,7 @@ is a :class:`~trio.abc.Stream` that encrypts data on
                 # For some reason, EOF before handshake sometimes raises
                 # SSLSyscallError instead of SSLEOFError (e.g. on my linux
                 # laptop, but not on appveyor). Thanks openssl.
-                if (self.https_compatible
+                if (self._https_compatible
                         and isinstance(
                             exc.__cause__, (SSLEOFError, SSLSyscallError))):
                     return b""
@@ -523,14 +601,16 @@ is a :class:`~trio.abc.Stream` that encrypts data on
                 # BROKEN. But that's actually fine, because after getting an
                 # EOF on TLS then the only thing you can do is close the
                 # stream, and closing doesn't care about the state.
-                if (self.https_compatible
+                if (self._https_compatible
                         and isinstance(exc.__cause__, SSLEOFError)):
                     return b""
                 else:
                     raise
 
     async def send_all(self, data):
-        """
+        """Encrypt some data and then send it on the underlying transport.
+
+        See :meth:`trio.abc.SendStream.send_all` for details.
 
         .. warning:: If this method is cancelled, then it may leave the
            :class:`SSLStream` in an unusable state. If this happens then any
@@ -549,6 +629,22 @@ is a :class:`~trio.abc.Stream` that encrypts data on
             await self._retry(self._ssl_object.write, data)
 
     async def unwrap(self):
+        """Cleanly close down the SSL/TLS encryption layer, allowing the
+        underlying stream to be used for unencrypted communication.
+
+        You almost certainly don't need this.
+
+        Returns:
+          A pair ``(transport_stream, trailing_bytes)``, where
+          ``transport_stream`` is the underlying transport stream, and
+          ``trailing_bytes`` is a byte string. Since :class:`SSLStream`
+          doesn't necessarily know where the end of the encrypted data will
+          be, it can happen that it accidentally reads too much from the
+          underlying stream. ``trailing_bytes`` contains this extra data; you
+          should process it as if it was returned from a call to
+          ``transport_stream.recieve_some(...)``.
+
+        """
         async with self._outer_recv_lock, self._outer_send_lock:
             self._check_status()
             await self._handshook.ensure(checkpoint=False)
@@ -559,17 +655,31 @@ is a :class:`~trio.abc.Stream` that encrypts data on
             return (transport_stream, self._incoming.read())
 
     def forceful_close(self):
+        """See :meth:`~trio.abc.AsyncResource.forceful_close.
+
+        Closes the underlying transport.
+
+        """
         if self._state is not _State.CLOSED:
             self.transport_stream.forceful_close()
             self._state = _State.CLOSED
 
     async def graceful_close(self):
+        """Gracefully shut down this connection, and close the underlying
+        transport.
+
+        If ``https_compatible`` is set to True, then this simply closes the
+        underlying stream. If ``https_compatible`` is False (the default),
+        then this attempts to send a ``close_notify`` and then close the
+        underlying stream.
+
+        """
         if self._state is _State.CLOSED:
             await _core.yield_briefly()
             return
-        if self._state is _State.BROKEN or self.https_compatible:
-            self.forceful_close()
-            await _core.yield_briefly()
+        if self._state is _State.BROKEN or self._https_compatible:
+            self._state = _State.CLOSED
+            await self.transport_stream.graceful_close()
             return
         try:
             await self._handshook.ensure(checkpoint=False)
@@ -630,6 +740,9 @@ is a :class:`~trio.abc.Stream` that encrypts data on
             self._state = _State.CLOSED
 
     async def wait_send_all_might_not_block(self):
+        """See :meth:`~trio.abc.SendStream.wait_send_all_might_not_block.
+
+        """
         # This method's implementation is deceptively simple.
         #
         # First, we take the outer send lock, because of trio's standard

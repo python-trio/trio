@@ -306,6 +306,18 @@ def ssl_lockstep_stream_pair(**kwargs):
     return ssl_wrap_pair(client_transport, server_transport, **kwargs)
 
 
+def test_exports():
+    # Just a quick check to make sure _reexport isn't totally broken
+    assert hasattr(tssl, "SSLError")
+    assert "SSLError" in tssl.__all__
+
+    assert hasattr(tssl, "Purpose")
+    assert "Purpose" in tssl.__all__
+
+    # Intentionally omitted
+    assert not hasattr(tssl, "SSLContext")
+
+
 # Simple smoke test for handshake/send/receive/shutdown talking to a
 # synchronous server, plus make sure that we do the bare minimum of
 # certificate checking (even though this is really Python's responsibility)
@@ -1008,10 +1020,19 @@ async def test_receive_error_during_handshake():
             await client.do_handshake()
 
 
-# maybe a test of presenting a client cert on a renegotiation?
+async def test_getpeercert():
+    # Make sure we're not affected by https://bugs.python.org/issue29334
+    client, server = ssl_memory_stream_pair()
 
-# check getpeercert(), probably need to work around:
-# https://bugs.python.org/issue29334
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(client.do_handshake)
+        nursery.spawn(server.do_handshake)
+
+    assert server.getpeercert() is None
+    assert ((("commonName", "trio-test-1.example.org"),)
+            in client.getpeercert()["subject"])
+
+# maybe a test of presenting a client cert on a renegotiation?
 
 # fix testing.py namespace
 # maybe by promoting it to a package
@@ -1025,15 +1046,6 @@ async def test_receive_error_during_handshake():
 # doesn't even implement it), so not sure how much it's worth worrying about
 # this...
 
-
-# Twisted always reports unclean shutdown, and then http implementations just
-# have to ignore it (which is easy b/c it's just an argument to
-# connectionLost)
-#
-# it also always sends close_notify, and then tries to wait for the full
-# shutdown
-
-
 # add something to trio_test to check for ResourceWarning
 # (unfortunately it also can't be made an error, so I guess we add an always
 # filter and then replace warnings.showwarning?)
@@ -1043,6 +1055,3 @@ async def test_receive_error_during_handshake():
 # maybe add DeprecationWarning error filter to test suite
 
 # Glyph says that trio.ssl shouldn't be imported by default
-
-# error during handshake -- messes up our has-it-happened tracking!
-# probably better just to unconditionally mark the stream broken
