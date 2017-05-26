@@ -586,7 +586,7 @@ operating system primitive to put the whole process to sleep:
 And in fact no I/O does arrive, so one second later we wake up again,
 and trio checks its notes again. At this point it checks the current
 time, compares it to the notes that :func:`trio.sleep` sent saying
-when when the two child tasks should be woken up again, and realizes
+when the two child tasks should be woken up again, and realizes
 that they've slept for long enough, so it schedules them to run soon:
 
 .. code-block:: none
