@@ -1,5 +1,4 @@
 import inspect
-import enum
 from collections import deque
 import threading
 from time import monotonic
@@ -11,6 +10,7 @@ import sys
 from math import inf
 import functools
 
+
 import attr
 from sortedcontainers import SortedDict
 from async_generator import async_generator, yield_
@@ -19,7 +19,7 @@ from .._util import acontextmanager
 
 from .. import _core
 from ._exceptions import (
-    TrioInternalError, RunFinishedError, Cancelled, WouldBlock
+    TrioInternalError, RunFinishedError, Cancelled, WouldBlock, NonAwaitedCoroutines
 )
 from ._multierror import MultiError
 from ._result import Result, Error, Value
@@ -36,6 +36,8 @@ from ._ki import (
 )
 from ._wakeup_socketpair import WakeupSocketpair
 from . import _public, _hazmat
+
+from ._non_awaited_coroutines import protector
 
 # At the bottom of this file there's also some "clever" code that generates
 # wrapper functions for runner and io manager methods, and adds them to
@@ -75,7 +77,6 @@ class SystemClock:
 
     def deadline_to_sleep_time(self, deadline):
         return deadline - self.current_time()
-
 
 ################################################################
 # CancelScope and friends
@@ -355,7 +356,7 @@ class Nursery:
                     raise mexc
 
     def __del__(self):
-        assert not self.children and not self.zombies
+        assert not self.children and not self.zombies, "Children: {} and Zombies : {}".format(self.children, self.zombies)
 
 
 ################################################################
@@ -379,6 +380,7 @@ class Task:
     # Tasks start out unscheduled.
     _next_send = attr.ib(default=None)
     _abort_func = attr.ib(default=None)
+    _unawaited_coros = attr.ib(default=attr.Factory(list))
 
     # Task-local values, see _local.py
     _locals = attr.ib(default=attr.Factory(dict))
@@ -480,6 +482,9 @@ class Task:
                 pending_scope = scope
         return pending_scope
 
+    def add_unawaited_coroutines(self, coroutines):
+        self._unawaited_coros.extend(coroutines)
+
     def _attempt_abort(self, raise_cancel):
         # Either the abort succeeds, in which case we will reschedule the
         # task, or else it fails, in which case it will worry about
@@ -494,18 +499,25 @@ class Task:
         if success is Abort.SUCCEEDED:
             self._runner.reschedule(self, Result.capture(raise_cancel))
 
+
     def _attempt_delivery_of_any_pending_cancel(self):
         if self._abort_func is None:
             return
         pending_scope = self._pending_cancel_scope()
-        if pending_scope is None:
+        if self._unawaited_coros:
+            def raise_unawaited():
+                coros = self._unawaited_coros
+                self._unawaited_coros = []
+                raise protector.make_non_awaited_coroutines_error(coros)
+            raise_fn =  raise_unawaited
+        elif pending_scope:
+            exc = pending_scope._make_exc()
+            def raise_cancel():
+                raise exc
+            raise_fn = raise_cancel
+        else:
             return
-        exc = pending_scope._make_exc()
-
-        def raise_cancel():
-            raise exc
-
-        self._attempt_abort(raise_cancel)
+        self._attempt_abort(raise_fn)
 
     def _attempt_delivery_of_pending_ki(self):
         assert self._runner.ki_pending
@@ -692,7 +704,7 @@ class Runner:
             return False
 
         try:
-            coro = async_fn(*args)
+            coro = protector.await_later(async_fn(*args))
         except TypeError:
             # Give good error for: nursery.spawn(trio.sleep(1))
             if inspect.iscoroutine(async_fn):
@@ -780,8 +792,14 @@ class Runner:
         self.reschedule(task, None)
         return task
 
-    def task_exited(self, task, result):
-        task.result = result
+    def task_exited(self, task, result, stop_iteration=None):
+        if task._unawaited_coros:
+            try:
+                raise protector.make_non_awaited_coroutines_error(task._unawaited_coros) from stop_iteration
+            except NonAwaitedCoroutines as e:
+                task.result = Error(e)
+        else:
+            task.result = result
         while task._cancel_stack:
             task._cancel_stack[-1]._remove_task(task)
         self.tasks.remove(task)
@@ -1180,13 +1198,13 @@ class Runner:
 # run
 ################################################################
 
-
 def run(
         async_fn,
         *args,
         clock=None,
         instruments=[],
-        restrict_keyboard_interrupt_to_checkpoints=False
+        restrict_keyboard_interrupt_to_checkpoints=False,
+        allow_unawaited_coroutines=False
 ):
     """Run a trio-flavored async function, and return the result.
 
@@ -1255,7 +1273,6 @@ def run(
           propagates it.
 
     """
-
     # Do error-checking up front, before we enter the TrioInternalError
     # try/catch
     #
@@ -1269,6 +1286,8 @@ def run(
         clock = SystemClock()
     instruments = list(instruments)
     io_manager = TheIOManager()
+    if not allow_unawaited_coroutines:
+        protector.install()
     runner = Runner(
         clock=clock, instruments=instruments, io_manager=io_manager
     )
@@ -1298,6 +1317,8 @@ def run(
     finally:
         # To guarantee that we never swallow a KeyboardInterrupt, we have to
         # check for pending ones once more after leaving the context manager:
+        if not allow_unawaited_coroutines:
+            protector.install()
         if runner.ki_pending:
             # Implicitly chains with any exception from result.unwrap():
             raise KeyboardInterrupt
@@ -1391,6 +1412,7 @@ def run_impl(runner, async_fn, args):
             next_send = task._next_send
             task._next_send = None
             final_result = None
+            _stop_it = None
             try:
                 # We used to unwrap the Result object here and send/throw its
                 # contents in directly, but it turns out that .throw() is
@@ -1402,14 +1424,17 @@ def run_impl(runner, async_fn, args):
                 msg = task.coro.send(next_send)
             except StopIteration as stop_iteration:
                 final_result = Value(stop_iteration.value)
+                _stop_it = stop_iteration
             except BaseException as task_exc:
                 final_result = Error(task_exc)
+            finally:
+                task.add_unawaited_coroutines(protector.pop_all_unawaited_coroutines())
 
             if final_result is not None:
                 # We can't call this directly inside the except: blocks above,
                 # because then the exceptions end up attaching themselves to
                 # other exceptions as __context__ in unwanted ways.
-                runner.task_exited(task, final_result)
+                runner.task_exited(task, final_result, _stop_it)
             else:
                 task._schedule_points += 1
                 if msg is YieldBrieflyNoCancel:
@@ -1522,7 +1547,8 @@ async def yield_if_cancelled():
     """
     task = current_task()
     if (task._pending_cancel_scope() is not None or
-        (task is task._runner.main_task and task._runner.ki_pending)):
+        (task is task._runner.main_task and task._runner.ki_pending)
+        or task._unawaited_coros):
         await _core.yield_briefly()
         assert False  # pragma: no cover
     task._cancel_points += 1

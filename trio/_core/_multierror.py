@@ -2,8 +2,8 @@ import sys
 import traceback
 import textwrap
 import warnings
-import types
-from contextlib import contextmanager
+
+from ._non_awaited_coroutines import protector
 
 import attr
 
@@ -127,9 +127,16 @@ class MultiErrorCatcher:
         pass
 
     def __exit__(self, etype, exc, tb):
+
+        force_raise = False
+        if protector.has_unawaited_coroutines():
+            exc =  protector.make_non_awaited_coroutines_error(
+                protector.pop_all_unawaited_coroutines()
+            )
+            force_raise = True
         if exc is not None:
             filtered_exc = MultiError.filter(self._handler, exc)
-            if filtered_exc is exc:
+            if filtered_exc is exc and not force_raise:
                 # Let the interpreter re-raise it
                 return False
             if filtered_exc is None:

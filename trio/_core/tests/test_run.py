@@ -21,6 +21,7 @@ from ..._timeouts import sleep
 
 from ... import _core
 
+from .._multierror import MultiError
 
 # slightly different from _timeouts.sleep_forever because it returns the value
 # its rescheduled with, which is really only useful for tests of
@@ -1540,7 +1541,16 @@ def test_nice_error_on_bad_calls_to_run_or_spawn():
     class Deferred:
         "Just kidding"
 
-    with ignore_coroutine_never_awaited_warnings():
+    @contextmanager
+    def disable_coro_protection():
+        old = _core._run.protector._enabled
+        _core._run.protector._enabled = False
+        try:
+            yield
+        finally:
+            _core._run.protector._enabled = old
+
+    with ignore_coroutine_never_awaited_warnings(), disable_coro_protection():
         for bad_call in bad_call_run, bad_call_spawn:
 
             async def f():  # pragma: no cover
@@ -1625,3 +1635,138 @@ async def test_trivial_yields():
     assert t.result is not None
     with assert_yields():
         await t.wait()
+
+# Various test that non awaited coroutines end up as error states on task
+
+def test_raise_task_end():
+    """
+    Test that asynchronous function that does not await *any* checkpoint does
+    raise.
+    """
+
+    async def coro_fun():
+        sleep(0)
+        return 'ok'
+
+    with pytest.raises(_core.NonAwaitedCoroutines) as err:
+        _core.run(coro_fun)
+
+    async def consume():
+        for c in err.value.coroutines:
+            await c
+    _core.run(consume)
+
+
+def test_raise_task_end_raise():
+    """
+    Test that asynchronous functions that raise after forgetting to await
+    coroutine still raise a NonAwaitedCoroutines error.
+    """
+    async def coro_fun():
+        sleep(0)
+        raise ValueError('...')
+
+    with pytest.raises(_core.NonAwaitedCoroutines) as err:
+        _core.run(coro_fun)
+
+    async def consume():
+        for c in err.value.coroutines:
+            await c
+    _core.run(consume)
+
+
+def test_raise_task_middle():
+    """
+    Test that asynchronous functions that forgets to await a coroutine raises a
+    NonAwaitedCoroutines error
+    """
+
+    async def coro_fun():
+        sleep(0)
+        await sleep(0)
+        assert False # pragma: no cover
+
+    with pytest.raises(_core.NonAwaitedCoroutines) as err:
+        _core.run(coro_fun)
+
+    async def consume():
+        for c in err.value.coroutines:
+            await c
+    _core.run(consume)
+
+
+def test_raise_task_before_return():
+    """
+    Test that asynchronous functions that forgets to await a coroutine just before returning
+    raises a NonAwaitedCoroutines error.
+    """
+    async def coro_fun():
+        await sleep(0)
+        sleep(0)
+        return 'ok'
+
+    with pytest.raises(_core.NonAwaitedCoroutines) as err:
+        _core.run(coro_fun)
+
+    async def consume():
+        for c in err.value.coroutines:
+            await c
+    _core.run(consume)
+
+def test_non_awaited_caught_in_multierror():
+
+    async def run():
+
+        async def task(exception):
+            raise exception('just because')
+
+        async def unawaited():
+            pass  # pragma: no cover
+
+        def handler(exc):
+            unawaited()
+            return exc
+
+        with MultiError.catch(handler):
+            async with _core.open_nursery() as n:
+                n.spawn(task, ValueError)
+                n.spawn(task, OSError)
+
+    with ignore_coroutine_never_awaited_warnings():
+        with pytest.raises(_core.NonAwaitedCoroutines):
+            _core.run(run)
+
+
+def test_non_awaited_caught_in_multierror_II():
+
+    async def run():
+
+        async def unawaited():
+            pass  # pragma: no cover
+
+        def handler(exc):
+            return exc
+
+        with MultiError.catch(handler):
+            unawaited()
+
+    with ignore_coroutine_never_awaited_warnings():
+        with pytest.raises(_core.NonAwaitedCoroutines):
+            _core.run(run)
+
+
+def test_non_awaited_caught_in_multierror_swallow_nonawaited():
+
+    async def run():
+
+        async def unawaited():
+            pass  # pragma: no cover
+
+        def handler(exc):
+            return None
+
+        with MultiError.catch(handler):
+            unawaited()
+
+    with ignore_coroutine_never_awaited_warnings():
+        _core.run(run)
