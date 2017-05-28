@@ -1,5 +1,9 @@
-.. image:: https://readthedocs.org/projects/trio/badge/?version=latest
-   :target: http://trio.readthedocs.io/en/latest/?badge=latest
+.. image:: https://img.shields.io/badge/chat-join%20now-blue.svg
+   :target: https://gitter.im/python-trio/general
+   :alt: Join chatroom
+
+.. image:: https://img.shields.io/badge/docs-read%20now-blue.svg
+   :target: https://trio.readthedocs.io/en/latest/?badge=latest
    :alt: Documentation Status
 
 .. image:: https://travis-ci.org/python-trio/trio.svg?branch=master
@@ -92,22 +96,31 @@ testing infrastructure for them. All of our dependencies are pure
 Python, except for CFFI on Windows, and that has wheels available, so
 installation should be easy.
 
-**I want to help!** You're the best! There's tons of work to do –
-filling in missing functionality, building up an ecosystem of
-trio-using libraries, usability testing (e.g., maybe try teaching
-yourself or a friend to use trio and make a list of every error
-message you hit and place where you got confused?), improving the
-docs, ... We `don't have a CONTRIBUTING.md yet
-<https://github.com/python-trio/trio/issues/46>`__ (want to help write
-one?), but you can check out our `issue tracker
+**I tried it but it's not working.** Sorry to hear that! You can try
+asking for help in our `chat room
+<https://gitter.im/python-trio/general>`__, `filing a bug
+<https://github.com/python-trio/trio/issues/new>`__, or `posting a
+question on StackOverflow
+<https://stackoverflow.com/questions/ask?tags=python+trio>`__, and
+we'll do our best to help you out.
+
+**Trio is awesome and I want to help make it more awesome!** You're
+the best! There's tons of work to do – filling in missing
+functionality, building up an ecosystem of trio-using libraries,
+usability testing (e.g., maybe try teaching yourself or a friend to
+use trio and make a list of every error message you hit and place
+where you got confused?), improving the docs, ... We `don't have a
+CONTRIBUTING.md yet <https://github.com/python-trio/trio/issues/46>`__
+(want to help write one?), but you can check out our `issue tracker
 <https://github.com/python-trio/trio/issues>`__, and depending on your
 interests check out our `labels
 <https://github.com/python-trio/trio/labels>`__ for `low-hanging fruit
-<https://github.com/python-trio/trio/labels/todo%20soon>`__, `significant
-missing functionality
+<https://github.com/python-trio/trio/labels/todo%20soon>`__,
+`significant missing functionality
 <https://github.com/python-trio/trio/labels/missing%20piece>`__, `open
 questions regarding high-level design
-<https://github.com/python-trio/trio/labels/design%20discussion>`__, ...
+<https://github.com/python-trio/trio/labels/design%20discussion>`__,
+...
 
 **I don't have any immediate plans to use it, but I love geeking out
 about I/O library design!** That's a little weird? But tbh you'll fit
