@@ -72,7 +72,8 @@ async def test_types_wrap(cls, wrap_cls):
 
 
 async def test_open_context_manager(tmpdir):
-    async with io.open(tmpdir.join('test'), 'w') as f:
+    path = tmpdir.join('test').__fspath__()
+    async with io.open(path, 'w') as f:
         assert isinstance(f, types.AsyncIOBase)
         assert not f.closed
 
@@ -80,7 +81,8 @@ async def test_open_context_manager(tmpdir):
 
 
 async def test_open_await(tmpdir):
-    f = await io.open(tmpdir.join('test'), 'w')
+    path = tmpdir.join('test').__fspath__()
+    f = await io.open(path, 'w')
 
     assert isinstance(f, types.AsyncIOBase)
     assert not f.closed
