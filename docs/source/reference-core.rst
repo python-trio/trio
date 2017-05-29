@@ -1358,6 +1358,9 @@ synchronization logic. All of classes discussed in this section are
 implemented on top of the public APIs in :mod:`trio.hazmat`; they
 don't have any special access to trio's internals.)
 
+.. autoclass:: CapacityLimiter
+   :members:
+
 .. autoclass:: Semaphore
    :members:
 
@@ -1394,6 +1397,8 @@ communicate back with trio, there's the closely related
 :func:`current_await_in_trio_thread`.
 
 .. autofunction:: run_in_worker_thread
+
+.. autofunction:: current_default_worker_thread_limiter
 
 .. function:: current_run_in_trio_thread
               current_await_in_trio_thread

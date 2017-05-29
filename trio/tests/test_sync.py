@@ -36,6 +36,114 @@ async def test_Event():
         assert record == ["sleeping", "sleeping", "woken", "woken"]
 
 
+async def test_CapacityLimiter():
+    with pytest.raises(TypeError):
+        CapacityLimiter(1.0)
+    with pytest.raises(ValueError):
+        CapacityLimiter(-1)
+    c = CapacityLimiter(2)
+    repr(c)  # smoke test
+    assert c.total_tokens == 2
+    assert c.borrowed_tokens == 0
+    assert c.available_tokens == 2
+    with pytest.raises(RuntimeError):
+        c.release()
+    assert c.borrowed_tokens == 0
+    c.acquire_nowait()
+    assert c.borrowed_tokens == 1
+    assert c.available_tokens == 1
+
+    stats = c.statistics()
+    assert stats.borrowed_tokens == 1
+    assert stats.total_tokens == 2
+    assert stats.borrowers == [_core.current_task()]
+    assert stats.tasks_waiting == 0
+
+    # Can't re-acquire when we already have it
+    with pytest.raises(RuntimeError):
+        c.acquire_nowait()
+    assert c.borrowed_tokens == 1
+    with assert_yields():
+        with pytest.raises(RuntimeError):
+            await c.acquire()
+    assert c.borrowed_tokens == 1
+
+    # We can acquire on behalf of someone else though
+    with assert_yields():
+        await c.acquire_on_behalf_of("someone")
+
+    # But then we've run out of capacity
+    assert c.borrowed_tokens == 2
+    with pytest.raises(_core.WouldBlock):
+        c.acquire_on_behalf_of_nowait("third party")
+
+    assert set(c.statistics().borrowers) == {_core.current_task(), "someone"}
+
+    # Until we release one
+    c.release_on_behalf_of(_core.current_task())
+    assert c.statistics().borrowers == ["someone"]
+
+    c.release_on_behalf_of("someone")
+    assert c.borrowed_tokens == 0
+    with assert_yields():
+        async with c:
+            assert c.borrowed_tokens == 1
+
+    async with _core.open_nursery() as nursery:
+        await c.acquire_on_behalf_of("value 1")
+        await c.acquire_on_behalf_of("value 2")
+        t = nursery.spawn(c.acquire_on_behalf_of, "value 3")
+        await wait_all_tasks_blocked()
+        assert t.result is None
+        assert c.borrowed_tokens == 2
+        assert c.statistics().tasks_waiting == 1
+        c.release_on_behalf_of("value 2")
+        # Fairness:
+        assert c.borrowed_tokens == 2
+        with pytest.raises(_core.WouldBlock):
+            c.acquire_nowait()
+        await t.wait()
+
+    c.release_on_behalf_of("value 3")
+    c.release_on_behalf_of("value 1")
+
+
+async def test_CapacityLimiter_change_tokens():
+    c = CapacityLimiter(2)
+
+    with pytest.raises(TypeError):
+        c.total_tokens = 1.0
+
+    with pytest.raises(ValueError):
+        c.total_tokens = 0
+
+    with pytest.raises(ValueError):
+        c.total_tokens = -10
+
+    assert c.total_tokens == 2
+
+    async with _core.open_nursery() as nursery:
+        for i in range(5):
+            nursery.spawn(c.acquire_on_behalf_of, i)
+            await wait_all_tasks_blocked()
+        assert set(c.statistics().borrowers) == {0, 1}
+        assert c.statistics().tasks_waiting == 3
+        c.total_tokens += 2
+        assert set(c.statistics().borrowers) == {0, 1, 2, 3}
+        assert c.statistics().tasks_waiting == 1
+        c.total_tokens -= 3
+        assert c.borrowed_tokens == 4
+        assert c.total_tokens == 1
+        c.release_on_behalf_of(0)
+        c.release_on_behalf_of(1)
+        c.release_on_behalf_of(2)
+        assert set(c.statistics().borrowers) == {3}
+        assert c.statistics().tasks_waiting == 1
+        c.release_on_behalf_of(3)
+        assert set(c.statistics().borrowers) == {4}
+        assert c.statistics().tasks_waiting == 0
+
+
 async def test_Semaphore():
     with pytest.raises(TypeError):
         Semaphore(1.0)
