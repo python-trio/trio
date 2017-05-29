@@ -51,7 +51,7 @@ class AsyncIOBase(metaclass=AsyncIOType):
         if line:
             return line
         else:
-            return StopAsyncIteration
+            raise StopAsyncIteration
 
 
 class AsyncRawIOBase(AsyncIOBase):
