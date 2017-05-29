@@ -3,6 +3,9 @@ from functools import partial
 import trio
 
 
+__all__ = ['AsyncRawIOBase', 'AsyncBufferedIOBase', 'AsyncTextIOBase']
+
+
 def _method_factory(cls, meth_name):
     async def wrapper(self, *args, **kwargs):
         meth = getattr(self._file, meth_name)

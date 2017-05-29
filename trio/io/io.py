@@ -1,4 +1,4 @@
-from functools import singledispatch, wraps, partial
+from functools import singledispatch, wraps
 import io
 
 import trio
@@ -34,6 +34,20 @@ def closing(func):
 @closing
 async def open(file, mode='r', buffering=-1, encoding=None, errors=None,
                newline=None, closefd=True, opener=None):
+    """Asynchronous version of :func:`~io.open`.
+
+    Returns:
+        An :term:`asynchronous file object` wrapped in an :term:`asynchronous context manager`.
+
+    Example::
+
+        async with trio.io.open(filename) as f:
+            async for line in f:
+                pass
+
+        assert f.closed
+
+    """
     _file = wrap(await trio.run_in_worker_thread(io.open, file, mode,
                                                  buffering, encoding, errors, newline, closefd, opener))
     return _file
@@ -41,6 +55,30 @@ async def open(file, mode='r', buffering=-1, encoding=None, errors=None,
 
 @singledispatch
 def wrap(file):
+    """This wraps any file-like object in an equivalent asynchronous file-like
+    object.
+
+    Args:
+        file: a :term:`file object`
+
+    Returns:
+        An :term:`asynchronous file object`
+
+    Example::
+
+        f = StringIO('asdf')
+        async_f = wrap(f)
+
+        assert await async_f.read() == 'asdf'
+
+    It is also possible to extend :func:`wrap` to support new types::
+
+        @wrap.register(pyfakefs.fake_filesystem.FakeFileWrapper):
+        def _(file):
+            return trio.io.AsyncRawIOBase(file)
+
+    """
+
     raise TypeError(file)
 
 

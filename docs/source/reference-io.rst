@@ -374,12 +374,30 @@ Socket objects
    * :meth:`~socket.socket.set_inheritable`
    * :meth:`~socket.socket.get_inheritable`
 
+Asynchronous disk I/O
+---------------------
 
-Async disk I/O
---------------
+.. currentmodule:: trio.io
+.. module:: trio.io
 
-`Not implemented yet! <https://github.com/python-trio/trio/issues/20>`__
+The :mod:`trio.io` module provides wrappers around :class:`~io.IOBase`
+subclasses. Methods that could block are executed in
+:meth:`trio.run_in_worker_thread`.
 
+.. autofunction:: open
+
+.. autofunction:: wrap
+
+Asynchronous file objects
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. currentmodule:: trio.io
+
+.. autoclass:: AsyncRawIOBase
+
+.. autoclass:: AsyncBufferedIOBase
+
+.. autoclass:: AsyncTextIOBase
 
 Subprocesses
 ------------

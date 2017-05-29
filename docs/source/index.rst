@@ -83,3 +83,4 @@ Vital statistics:
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+* :ref:`glossary`
