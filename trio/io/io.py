@@ -45,16 +45,16 @@ def wrap(file):
     raise TypeError(file)
 
 
-@wrap.register(io._io._TextIOBase)
+@wrap.register(io.TextIOBase)
 def _(file):
     return types.AsyncTextIOBase(file)
 
 
-@wrap.register(io._io._BufferedIOBase)
+@wrap.register(io.BufferedIOBase)
 def _(file):
     return types.AsyncBufferedIOBase(file)
 
 
-@wrap.register(io._io._RawIOBase)
+@wrap.register(io.RawIOBase)
 def _(file):
     return types.AsyncRawIOBase(file)
