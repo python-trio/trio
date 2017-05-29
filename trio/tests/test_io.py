@@ -87,6 +87,8 @@ async def test_open_await(tmpdir):
     assert isinstance(f, types.AsyncIOBase)
     assert not f.closed
 
+    f.close()
+
 
 async def test_async_iter():
     string = 'test\nstring\nend'

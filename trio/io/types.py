@@ -43,7 +43,7 @@ class AsyncIOBase(metaclass=AsyncIOType):
     def __dir__(self):
         return super().__dir__() + list(self._forward)
 
-    async def __aiter__(self):
+    def __aiter__(self):
         return self
 
     async def __anext__(self):
