@@ -377,6 +377,9 @@ class Task:
     _next_send = attr.ib(default=None)
     _abort_func = attr.ib(default=None)
 
+    # Task-local values, see _local.py
+    _locals = attr.ib(default=attr.Factory(dict))
+
     # these are counts of how many cancel/schedule points this task has
     # executed, for assert{_no,}_yields
     # XX maybe these should be exposed as part of a statistics() method?
@@ -526,6 +529,9 @@ class Runner:
     instruments = attr.ib()
     io_manager = attr.ib()
 
+    # Run-local values, see _local.py
+    _locals = attr.ib(default=attr.Factory(dict))
+
     runq = attr.ib(default=attr.Factory(deque))
     tasks = attr.ib(default=attr.Factory(set))
     r = attr.ib(default=attr.Factory(random.Random))
@@ -664,6 +670,13 @@ class Runner:
                 scope._add_task(task)
         coro.cr_frame.f_locals.setdefault(
             LOCALS_KEY_KI_PROTECTION_ENABLED, ki_protection_enabled)
+        if nursery is not None:
+            # Task locals are inherited from the spawning task, not the
+            # nursery task. The 'if nursery' check is just used as a guard to
+            # make sure we don't try to do this to the root task.
+            parent_task = current_task()
+            for local, values in parent_task._locals.items():
+                task._locals[local] = dict(values)
         self.instrument("task_spawned", task)
         # Special case: normally next_send should be a Result, but for the
         # very first send we have to send a literal unboxed None.

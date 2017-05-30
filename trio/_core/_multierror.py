@@ -134,11 +134,17 @@ class MultiErrorCatcher:
             if filtered_exc is None:
                 # Swallow the exception
                 return True
-            # We can't stop Python from setting __context__, but we can
-            # hide it. (Unfortunately Python *will* wipe out any existing
-            # __context__. Nothing we can do about it :-(.)
-            filtered_exc.__suppress_context__ = True
-            raise filtered_exc
+            # When we raise filtered_exc, Python will unconditionally blow
+            # away its __context__ attribute and replace it with the original
+            # exc we caught. So after we raise it, we have to pause it while
+            # it's in flight to put the correct __context__ back.
+            old_context = filtered_exc.__context__
+            try:
+                raise filtered_exc
+            finally:
+                _, value, _ = sys.exc_info()
+                assert value is filtered_exc
+                value.__context__ = old_context
 
 class MultiError(BaseException):
     """An exception that contains other exceptions; also known as an

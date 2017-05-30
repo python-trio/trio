@@ -197,7 +197,10 @@ class SocketType:
 
         # Defaults:
         if self._sock.family == AF_INET6:
-            self.setsockopt(IPPROTO_IPV6, IPV6_V6ONLY, False)
+            try:
+                self.setsockopt(IPPROTO_IPV6, IPV6_V6ONLY, False)
+            except OSError:
+                pass
 
         # See https://github.com/python-trio/trio/issues/39
         if _sys.platform == "win32":
