@@ -384,9 +384,9 @@ The :mod:`trio.io` module provides wrappers around :class:`~io.IOBase`
 subclasses. Methods that could block are executed in
 :meth:`trio.run_in_worker_thread`.
 
-.. autofunction:: open
+.. autofunction:: open_file
 
-.. autofunction:: wrap
+.. autofunction:: wrap_file
 
 Asynchronous file objects
 ~~~~~~~~~~~~~~~~~~~~~~~~~

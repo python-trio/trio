@@ -1,11 +1,11 @@
-from functools import singledispatch, wraps
+from functools import wraps
 import io
 
 import trio
 from trio.io import types
 
 
-__all__ = ['open', 'wrap']
+__all__ = ['open_file', 'wrap_file']
 
 
 class ClosingContextManager:
@@ -32,8 +32,8 @@ def closing(func):
 
 
 @closing
-async def open(file, mode='r', buffering=-1, encoding=None, errors=None,
-               newline=None, closefd=True, opener=None):
+async def open_file(file, mode='r', buffering=-1, encoding=None, errors=None,
+                    newline=None, closefd=True, opener=None):
     """Asynchronous version of :func:`~io.open`.
 
     Returns:
@@ -41,20 +41,19 @@ async def open(file, mode='r', buffering=-1, encoding=None, errors=None,
 
     Example::
 
-        async with trio.io.open(filename) as f:
+        async with trio.io.open_file(filename) as f:
             async for line in f:
                 pass
 
         assert f.closed
 
     """
-    _file = wrap(await trio.run_in_worker_thread(io.open, file, mode,
-                                                 buffering, encoding, errors, newline, closefd, opener))
+    _file = wrap_file(await trio.run_in_worker_thread(io.open, file, mode,
+                                                      buffering, encoding, errors, newline, closefd, opener))
     return _file
 
 
-@singledispatch
-def wrap(file):
+def wrap_file(file):
     """This wraps any file-like object in an equivalent asynchronous file-like
     object.
 
@@ -67,31 +66,19 @@ def wrap(file):
     Example::
 
         f = StringIO('asdf')
-        async_f = wrap(f)
+        async_f = wrap_file(f)
 
         assert await async_f.read() == 'asdf'
 
-    It is also possible to extend :func:`wrap` to support new types::
-
-        @wrap.register(pyfakefs.fake_filesystem.FakeFileWrapper):
-        def _(file):
-            return trio.io.AsyncRawIOBase(file)
-
     """
 
+    if isinstance(file, io.TextIOBase):
+        return types.AsyncTextIOBase(file)
+    if isinstance(file, io.BufferedIOBase):
+        return types.AsyncBufferedIOBase(file)
+    if isinstance(file, io.RawIOBase):
+        return types.AsyncRawIOBase(file)
+    if isinstance(file, io.IOBase):
+        return types.AsyncIOBase(file)
+
     raise TypeError(file)
-
-
-@wrap.register(io.TextIOBase)
-def _(file):
-    return types.AsyncTextIOBase(file)
-
-
-@wrap.register(io.BufferedIOBase)
-def _(file):
-    return types.AsyncBufferedIOBase(file)
-
-
-@wrap.register(io.RawIOBase)
-def _(file):
-    return types.AsyncRawIOBase(file)

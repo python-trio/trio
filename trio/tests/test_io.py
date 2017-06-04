@@ -12,26 +12,28 @@ from trio.io import types
 concrete_cls = [
     _io.StringIO, # io.TextIOBase
     _io.BytesIO, # io.BufferedIOBase
-    _io.FileIO # io.RawIOBase
+    _io.FileIO, # io.RawIOBase
+    _io.IOBase #
 ]
 
 wrapper_cls = [
     types.AsyncTextIOBase,
     types.AsyncBufferedIOBase,
-    types.AsyncRawIOBase
+    types.AsyncRawIOBase,
+    types.AsyncIOBase
 ]
 
 
 @pytest.mark.parametrize("cls,wrap_cls", zip(concrete_cls, wrapper_cls))
 def test_wrap(cls, wrap_cls):
-    wrapped = io.wrap(cls.__new__(cls))
+    wrapped = io.wrap_file(cls.__new__(cls))
 
     assert isinstance(wrapped, wrap_cls)
 
 
 def test_wrap_invalid():
     with pytest.raises(TypeError):
-        io.wrap(str())
+        io.wrap_file(str())
 
 
 @pytest.mark.parametrize("wrap_cls", wrapper_cls)
@@ -73,7 +75,7 @@ async def test_types_wrap(cls, wrap_cls):
 
 async def test_open_context_manager(tmpdir):
     path = tmpdir.join('test').__fspath__()
-    async with io.open(path, 'w') as f:
+    async with io.open_file(path, 'w') as f:
         assert isinstance(f, types.AsyncIOBase)
         assert not f.closed
 
@@ -82,7 +84,7 @@ async def test_open_context_manager(tmpdir):
 
 async def test_open_await(tmpdir):
     path = tmpdir.join('test').__fspath__()
-    f = await io.open(path, 'w')
+    f = await io.open_file(path, 'w')
 
     assert isinstance(f, types.AsyncIOBase)
     assert not f.closed
@@ -92,7 +94,7 @@ async def test_open_await(tmpdir):
 
 async def test_open_await_context_manager(tmpdir):
     path = tmpdir.join('test').__fspath__()
-    f = await io.open(path, 'w')
+    f = await io.open_file(path, 'w')
     async with f:
         assert not f.closed
 
@@ -102,7 +104,7 @@ async def test_open_await_context_manager(tmpdir):
 async def test_async_iter():
     string = 'test\nstring\nend'
 
-    inst = io.wrap(_io.StringIO(string))
+    inst = io.wrap_file(_io.StringIO(string))
 
     expected = iter(string.splitlines(True))
     async for actual in inst:
