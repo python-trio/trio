@@ -2,7 +2,7 @@ from functools import wraps
 import io
 
 import trio
-from trio.io import types
+from trio._file_io import _types
 
 
 __all__ = ['open_file', 'wrap_file']
@@ -73,12 +73,12 @@ def wrap_file(file):
     """
 
     if isinstance(file, io.TextIOBase):
-        return types.AsyncTextIOBase(file)
+        return _types.AsyncTextIOBase(file)
     if isinstance(file, io.BufferedIOBase):
-        return types.AsyncBufferedIOBase(file)
+        return _types.AsyncBufferedIOBase(file)
     if isinstance(file, io.RawIOBase):
-        return types.AsyncRawIOBase(file)
+        return _types.AsyncRawIOBase(file)
     if isinstance(file, io.IOBase):
-        return types.AsyncIOBase(file)
+        return _types.AsyncIOBase(file)
 
     raise TypeError(file)

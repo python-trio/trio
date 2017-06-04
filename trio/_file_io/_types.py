@@ -4,7 +4,8 @@ import trio
 from trio._util import aiter_compat
 
 
-__all__ = ['AsyncRawIOBase', 'AsyncBufferedIOBase', 'AsyncTextIOBase']
+__all__ = ['AsyncRawIOBase', 'AsyncBufferedIOBase', 'AsyncTextIOBase',
+           'AsyncIOBase']
 
 
 def _method_factory(cls, meth_name):

@@ -5,8 +5,7 @@ import pytest
 from unittest import mock
 from unittest.mock import patch, sentinel
 
-from trio import io
-from trio.io import types
+import trio
 
 
 concrete_cls = [
@@ -17,23 +16,23 @@ concrete_cls = [
 ]
 
 wrapper_cls = [
-    types.AsyncTextIOBase,
-    types.AsyncBufferedIOBase,
-    types.AsyncRawIOBase,
-    types.AsyncIOBase
+    trio.AsyncTextIOBase,
+    trio.AsyncBufferedIOBase,
+    trio.AsyncRawIOBase,
+    trio.AsyncIOBase
 ]
 
 
 @pytest.mark.parametrize("cls,wrap_cls", zip(concrete_cls, wrapper_cls))
 def test_wrap(cls, wrap_cls):
-    wrapped = io.wrap_file(cls.__new__(cls))
+    wrapped = trio.wrap_file(cls.__new__(cls))
 
     assert isinstance(wrapped, wrap_cls)
 
 
 def test_wrap_invalid():
     with pytest.raises(TypeError):
-        io.wrap_file(str())
+        trio.wrap_file(str())
 
 
 @pytest.mark.parametrize("wrap_cls", wrapper_cls)
@@ -45,14 +44,14 @@ def test_types_forward(wrap_cls):
 
 
 def test_types_forward_invalid():
-    inst = types.AsyncIOBase(None)
+    inst = trio.AsyncIOBase(None)
 
     with pytest.raises(AttributeError):
         inst.nonexistant_attr
 
 
 def test_types_forward_in_dir():
-    inst = types.AsyncIOBase(None)
+    inst = trio.AsyncIOBase(None)
 
     assert all(attr in dir(inst) for attr in inst._forward)
 
@@ -62,7 +61,7 @@ async def test_types_wrap(cls, wrap_cls):
     mock_cls = mock.Mock(spec_set=cls)
     inst = wrap_cls(mock_cls)
 
-    for meth_name in wrap_cls._wrap + types.AsyncIOBase._wrap:
+    for meth_name in wrap_cls._wrap + trio.AsyncIOBase._wrap:
         meth = getattr(inst, meth_name)
         mock_meth = getattr(mock_cls, meth_name)
 
@@ -75,8 +74,8 @@ async def test_types_wrap(cls, wrap_cls):
 
 async def test_open_context_manager(tmpdir):
     path = tmpdir.join('test').__fspath__()
-    async with io.open_file(path, 'w') as f:
-        assert isinstance(f, types.AsyncIOBase)
+    async with trio.open_file(path, 'w') as f:
+        assert isinstance(f, trio.AsyncIOBase)
         assert not f.closed
 
     assert f.closed
@@ -84,9 +83,9 @@ async def test_open_context_manager(tmpdir):
 
 async def test_open_await(tmpdir):
     path = tmpdir.join('test').__fspath__()
-    f = await io.open_file(path, 'w')
+    f = await trio.open_file(path, 'w')
 
-    assert isinstance(f, types.AsyncIOBase)
+    assert isinstance(f, trio.AsyncIOBase)
     assert not f.closed
 
     await f.close()
@@ -94,7 +93,7 @@ async def test_open_await(tmpdir):
 
 async def test_open_await_context_manager(tmpdir):
     path = tmpdir.join('test').__fspath__()
-    f = await io.open_file(path, 'w')
+    f = await trio.open_file(path, 'w')
     async with f:
         assert not f.closed
 
@@ -104,7 +103,7 @@ async def test_open_await_context_manager(tmpdir):
 async def test_async_iter():
     string = 'test\nstring\nend'
 
-    inst = io.wrap_file(_io.StringIO(string))
+    inst = trio.wrap_file(_io.StringIO(string))
 
     expected = iter(string.splitlines(True))
     async for actual in inst:

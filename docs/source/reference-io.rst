@@ -377,21 +377,23 @@ Socket objects
 Asynchronous disk I/O
 ---------------------
 
-.. currentmodule:: trio.io
-.. module:: trio.io
+.. currentmodule:: trio
 
-The :mod:`trio.io` module provides wrappers around :class:`~io.IOBase`
-subclasses. Methods that could block are executed in
-:meth:`trio.run_in_worker_thread`.
+trio provides wrappers around :class:`~io.IOBase` subclasses. Methods that could
+block are executed in :meth:`trio.run_in_worker_thread`.
 
 .. autofunction:: open_file
 
 .. autofunction:: wrap_file
 
+.. _asynchronous-file-objects:
+
 Asynchronous file objects
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. currentmodule:: trio.io
+.. currentmodule:: trio
+
+.. autoclass:: AsyncIOBase
 
 .. autoclass:: AsyncRawIOBase
 

@@ -50,6 +50,9 @@ __all__ += _signals.__all__
 from ._network import *
 __all__ += _network.__all__
 
+from ._file_io import *
+__all__ += _file_io.__all__
+
 # Imported by default
 from . import socket
 from . import abc
