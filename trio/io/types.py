@@ -1,6 +1,7 @@
 from functools import partial
 
 import trio
+from trio._util import aiter_compat
 
 
 __all__ = ['AsyncRawIOBase', 'AsyncBufferedIOBase', 'AsyncTextIOBase']
@@ -46,6 +47,7 @@ class AsyncIOBase(metaclass=AsyncIOType):
     def __dir__(self):
         return super().__dir__() + list(self._forward)
 
+    @aiter_compat
     def __aiter__(self):
         return self
 
