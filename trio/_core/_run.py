@@ -1290,9 +1290,11 @@ def run_impl(runner, async_fn, args):
                     assert yield_fn is yield_indefinitely
                     task._cancel_points += 1
                     task._abort_func, = args
-                    task._attempt_delivery_of_any_pending_cancel()
+                    # KI is "outside" all cancel scopes, so check for it
+                    # before checking for regular cancellation:
                     if runner.ki_pending and task is runner.main_task:
                         task._attempt_delivery_of_pending_ki()
+                    task._attempt_delivery_of_any_pending_cancel()
 
             runner.instrument("after_task_step", task)
             del GLOBAL_RUN_CONTEXT.task
