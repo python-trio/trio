@@ -363,6 +363,25 @@ def test_ki_protection_works():
         _core.run(main)
     assert record == []
 
+    # KI arrives while main task is inside a cancelled cancellation scope
+    # the KeyboardInterrupt should take priority
+    print("check 11")
+    @_core.enable_ki_protection
+    async def main():
+        assert _core.currently_ki_protected()
+        with _core.open_cancel_scope() as cancel_scope:
+            cancel_scope.cancel()
+            with pytest.raises(_core.Cancelled):
+                await _core.yield_briefly()
+            ki_self()
+            with pytest.raises(KeyboardInterrupt):
+                await _core.yield_briefly()
+            with pytest.raises(_core.Cancelled):
+                await _core.yield_briefly()
+    _core.run(main)
+
+
+
 def test_ki_is_good_neighbor():
     # in the unlikely event someone overwrites our signal handler, we leave
     # the overwritten one be
