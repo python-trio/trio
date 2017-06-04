@@ -56,6 +56,12 @@ class AsyncIOBase(metaclass=AsyncIOType):
         else:
             raise StopAsyncIteration
 
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, typ, value, traceback):
+        await self.close()
+
 
 class AsyncRawIOBase(AsyncIOBase):
     _wrap = ['read', 'readall', 'readinto', 'write']

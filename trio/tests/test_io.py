@@ -87,7 +87,16 @@ async def test_open_await(tmpdir):
     assert isinstance(f, types.AsyncIOBase)
     assert not f.closed
 
-    f.close()
+    await f.close()
+
+
+async def test_open_await_context_manager(tmpdir):
+    path = tmpdir.join('test').__fspath__()
+    f = await io.open(path, 'w')
+    async with f:
+        assert not f.closed
+
+    assert f.closed
 
 
 async def test_async_iter():
