@@ -223,6 +223,7 @@ class SocketType:
     # Simple + portable methods and attributes
     ################################################################
 
+    # NB this doesn't work because for loops don't create a scope
     # for _name in [
     #         ]:
     #     _meth = getattr(_stdlib_socket.socket, _name)
