@@ -1,6 +1,7 @@
 from functools import partial
 
 import trio
+from trio import _core
 from trio._util import aiter_compat
 
 
@@ -34,7 +35,7 @@ class AsyncIOBase(metaclass=AsyncIOType):
     _forward = ['readable', 'writable', 'seekable', 'isatty',
                 'closed', 'fileno']
 
-    _wrap = ['close', 'flush', 'readline', 'readlines', 'tell',
+    _wrap = ['flush', 'readline', 'readlines', 'tell',
              'writelines', 'seek', 'truncate']
 
     def __init__(self, file):
@@ -64,6 +65,13 @@ class AsyncIOBase(metaclass=AsyncIOType):
 
     async def __aexit__(self, typ, value, traceback):
         await self.close()
+
+    async def close(self):
+        # ensure the underling file is closed during cancellation
+        with _core.open_cancel_scope(shield=True):
+            await trio.run_in_worker_thread(self._file.close)
+
+        await _core.yield_if_cancelled()
 
 
 class AsyncRawIOBase(AsyncIOBase):

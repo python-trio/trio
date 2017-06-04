@@ -6,6 +6,7 @@ from unittest import mock
 from unittest.mock import patch, sentinel
 
 import trio
+from trio import _core
 
 
 concrete_cls = [
@@ -21,6 +22,11 @@ wrapper_cls = [
     trio.AsyncRawIOBase,
     trio.AsyncIOBase
 ]
+
+
+@pytest.fixture
+def path(tmpdir):
+    return tmpdir.join('test').__fspath__()
 
 
 @pytest.mark.parametrize("cls,wrap_cls", zip(concrete_cls, wrapper_cls))
@@ -72,8 +78,7 @@ async def test_types_wrap(cls, wrap_cls):
         mock_cls.reset_mock()
 
 
-async def test_open_context_manager(tmpdir):
-    path = tmpdir.join('test').__fspath__()
+async def test_open_context_manager(path):
     async with trio.open_file(path, 'w') as f:
         assert isinstance(f, trio.AsyncIOBase)
         assert not f.closed
@@ -81,8 +86,7 @@ async def test_open_context_manager(tmpdir):
     assert f.closed
 
 
-async def test_open_await(tmpdir):
-    path = tmpdir.join('test').__fspath__()
+async def test_open_await(path):
     f = await trio.open_file(path, 'w')
 
     assert isinstance(f, trio.AsyncIOBase)
@@ -91,8 +95,7 @@ async def test_open_await(tmpdir):
     await f.close()
 
 
-async def test_open_await_context_manager(tmpdir):
-    path = tmpdir.join('test').__fspath__()
+async def test_open_await_context_manager(path):
     f = await trio.open_file(path, 'w')
     async with f:
         assert not f.closed
@@ -108,3 +111,13 @@ async def test_async_iter():
     expected = iter(string.splitlines(True))
     async for actual in inst:
         assert actual == next(expected)
+
+
+async def test_close_cancelled(path):
+    with _core.open_cancel_scope() as cscope:
+        async with trio.open_file(path, 'w') as f:
+            cscope.cancel()
+            with pytest.raises(_core.Cancelled):
+                await f.write('a')
+
+    assert f.closed
