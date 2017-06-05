@@ -3,35 +3,23 @@ from functools import partial
 import trio
 from trio import _core
 from trio._util import aiter_compat
+from trio._file_io._helpers import thread_wrapper_factory
 
 
 __all__ = ['AsyncRawIOBase', 'AsyncBufferedIOBase', 'AsyncTextIOBase',
            'AsyncIOBase']
 
 
-def _method_factory(cls, meth_name):
-    async def wrapper(self, *args, **kwargs):
-        meth = getattr(self._file, meth_name)
-        func = partial(meth, *args, **kwargs)
-        return await trio.run_in_worker_thread(func)
-
-    wrapper.__name__ = meth_name
-    wrapper.__qualname__ = '.'.join((__name__,
-                                     cls.__name__,
-                                     meth_name))
-    return wrapper
-
-
-class AsyncIOType(type):
+class AsyncWrapperType(type):
     def __init__(cls, name, bases, attrs):
         super().__init__(name, bases, attrs)
 
         for meth_name in cls._wrap:
-            wrapper = _method_factory(cls, meth_name)
+            wrapper = thread_wrapper_factory(cls, meth_name)
             setattr(cls, meth_name, wrapper)
 
 
-class AsyncIOBase(metaclass=AsyncIOType):
+class AsyncIOBase(metaclass=AsyncWrapperType):
     _forward = ['readable', 'writable', 'seekable', 'isatty',
                 'closed', 'fileno']
 
@@ -39,11 +27,11 @@ class AsyncIOBase(metaclass=AsyncIOType):
              'writelines', 'seek', 'truncate']
 
     def __init__(self, file):
-        self._file = file
+        self._wrapped = file
 
     def __getattr__(self, name):
         if name in self._forward:
-            return getattr(self._file, name)
+            return getattr(self._wrapped, name)
         raise AttributeError(name)
 
     def __dir__(self):
@@ -69,7 +57,7 @@ class AsyncIOBase(metaclass=AsyncIOType):
     async def close(self):
         # ensure the underling file is closed during cancellation
         with _core.open_cancel_scope(shield=True):
-            await trio.run_in_worker_thread(self._file.close)
+            await trio.run_in_worker_thread(self._wrapped.close)
 
         await _core.yield_if_cancelled()
 
