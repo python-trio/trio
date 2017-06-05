@@ -21,7 +21,10 @@ def thread_wrapper_factory(cls, meth_name):
     async def wrapper(self, *args, **kwargs):
         meth = getattr(self._wrapped, meth_name)
         func = partial(meth, *args, **kwargs)
-        return await trio.run_in_worker_thread(func)
+        value = await trio.run_in_worker_thread(func)
+        if isinstance(value, cls._wraps):
+            value = cls._from_wrapped(value)
+        return value
 
     return wrapper
 

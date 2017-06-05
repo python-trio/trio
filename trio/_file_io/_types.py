@@ -1,4 +1,4 @@
-from functools import partial
+import io
 
 import trio
 from trio import _core
@@ -26,8 +26,14 @@ class AsyncIOBase(metaclass=AsyncWrapperType):
     _wrap = ['flush', 'readline', 'readlines', 'tell',
              'writelines', 'seek', 'truncate']
 
+    _wraps = io.IOBase
+
     def __init__(self, file):
         self._wrapped = file
+
+    @classmethod
+    def _from_wrapped(cls, wrapped):
+        return cls(wrapped)
 
     def __getattr__(self, name):
         if name in self._forward:

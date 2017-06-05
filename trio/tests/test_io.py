@@ -121,3 +121,15 @@ async def test_close_cancelled(path):
                 await f.write('a')
 
     assert f.closed
+
+
+async def test_detach_rewraps_asynciobase():
+    raw = _io.BytesIO()
+    buffered = _io.BufferedReader(raw)
+
+    inst = trio.AsyncBufferedIOBase(buffered)
+
+    detached = await inst.detach()
+
+    assert isinstance(detached, trio.AsyncIOBase)
+    assert detached._wrapped == raw

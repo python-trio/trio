@@ -16,20 +16,7 @@ def _forward_factory(cls, attr_name, attr):
         value = attr(*args, **kwargs)
         if isinstance(value, cls._forwards):
             # re-wrap methods that return new paths
-            value = cls._from_path(value)
-        return value
-
-    return wrapper
-
-
-def _wrapper_factory(cls, attr_name):
-    wrapped = thread_wrapper_factory(cls, attr_name)
-
-    @wraps(wrapped)
-    async def wrapper(self, *args, **kwargs):
-        value = await wrapped(self, *args, **kwargs)
-        if isinstance(value, cls._wraps):
-            value = cls._from_path(value)
+            value = cls._from_wrapped(value)
         return value
 
     return wrapper
@@ -63,7 +50,7 @@ class AsyncAutoWrapperType(type):
             if isinstance(attr, classmethod):
                 setattr(cls, attr_name, attr)
             elif isinstance(attr, types.FunctionType):
-                wrapper = _wrapper_factory(cls, attr_name)
+                wrapper = thread_wrapper_factory(cls, attr_name)
                 setattr(cls, attr_name, wrapper)
             else:
                 raise TypeError(attr_name, type(attr))
@@ -76,13 +63,13 @@ class AsyncPath(metaclass=AsyncAutoWrapperType):
     def __new__(cls, *args, **kwargs):
         path = Path(*args, **kwargs)
 
-        self = cls._from_path(path)
+        self = cls._from_wrapped(path)
         return self
 
     @classmethod
-    def _from_path(cls, path):
+    def _from_wrapped(cls, wrapped):
         self = object.__new__(cls)
-        self._wrapped = path
+        self._wrapped = wrapped
         return self
 
     def __fspath__(self):
