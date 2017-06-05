@@ -1,12 +1,12 @@
 from functools import wraps, update_wrapper
 import os
 import types
-from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath, PosixPath, WindowsPath
+from pathlib import Path, PurePath
 
 from trio._file_io._helpers import thread_wrapper_factory, getattr_factory, copy_metadata
 
 
-__all__ = ['AsyncPath', 'AsyncPosixPath', 'AsyncWindowsPath']
+__all__ = ['AsyncPath']
 
 
 def _forward_factory(cls, attr_name, attr):
@@ -38,9 +38,6 @@ def _wrapper_factory(cls, attr_name):
 class AsyncAutoWrapperType(type):
     def __init__(cls, name, bases, attrs):
         super().__init__(name, bases, attrs)
-        # only initialize the superclass
-        if bases:
-            return
 
         forward = []
         # forward functions of _forwards
@@ -84,13 +81,6 @@ class AsyncPath(metaclass=AsyncAutoWrapperType):
 
     @classmethod
     def _from_path(cls, path):
-        if isinstance(path, PosixPath):
-            cls = AsyncPosixPath
-        elif isinstance(path, WindowsPath):
-            cls = AsyncWindowsPath
-        else:
-            raise TypeError(type(path))
-
         self = object.__new__(cls)
         self._wrapped = path
         return self
@@ -102,11 +92,3 @@ class AsyncPath(metaclass=AsyncAutoWrapperType):
 # python3.5 compat
 if hasattr(os, 'PathLike'):
     os.PathLike.register(AsyncPath)
-
-
-class AsyncPosixPath(AsyncPath):
-    __slots__ = ()
-
-
-class AsyncWindowsPath(AsyncPath):
-    __slots__ = ()
