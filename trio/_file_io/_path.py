@@ -99,7 +99,9 @@ class AsyncPath(metaclass=AsyncAutoWrapperType):
         return self._wrapped.__fspath__()
 
 
-os.PathLike.register(AsyncPath)
+# python3.5 compat
+if hasattr(os, 'PathLike'):
+    os.PathLike.register(AsyncPath)
 
 
 class AsyncPosixPath(AsyncPath):
