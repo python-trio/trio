@@ -24,3 +24,11 @@ def thread_wrapper_factory(cls, meth_name):
         return await trio.run_in_worker_thread(func)
 
     return wrapper
+
+
+def getattr_factory(cls, forward):
+    def __getattr__(self, name):
+        if name in forward:
+            return getattr(self._wrapped, name)
+        raise AttributeError(name)
+    return __getattr__
