@@ -5,6 +5,9 @@ import time
 methods = {"fileno"}
 
 class Proxy1:
+    strategy = "__getattr__"
+    works_for = "any attr"
+
     def __init__(self, wrapped):
         self._wrapped = wrapped
 
@@ -16,6 +19,9 @@ class Proxy1:
 ################################################################
 
 class Proxy2:
+    strategy = "generated methods (getattr + closure)"
+    works_for = "methods"
+
     def __init__(self, wrapped):
         self._wrapped = wrapped
 
@@ -30,6 +36,9 @@ for method in methods:
 ################################################################
 
 class Proxy3:
+    strategy = "generated methods (exec)"
+    works_for = "methods"
+
     def __init__(self, wrapped):
         self._wrapped = wrapped
 
@@ -48,6 +57,9 @@ for method in methods:
 ################################################################
 
 class Proxy4:
+    strategy = "generated properties (getattr + closure)"
+    works_for = "any attr"
+
     def __init__(self, wrapped):
         self._wrapped = wrapped
 
@@ -69,6 +81,9 @@ for method in methods:
 ################################################################
 
 class Proxy5:
+    strategy = "generated properties (exec)"
+    works_for = "any attr"
+
     def __init__(self, wrapped):
         self._wrapped = wrapped
 
@@ -94,6 +109,9 @@ for method in methods:
 
 # methods only
 class Proxy6:
+    strategy = "copy attrs from wrappee to wrapper"
+    works_for = "methods + constant attrs"
+
     def __init__(self, wrapper):
         self._wrapper = wrapper
 
@@ -130,5 +148,8 @@ while True:
         start = time.time()
         for _ in range(COUNT):
             obj.fileno()
+            #obj.fileno
         end = time.time()
-        print("{!r}: {:.2f}".format(obj, end - start))
+        per_usec = COUNT / (end - start) / 1e6
+        print("{:7.2f} / us: {} ({})"
+              .format(per_usec, obj.strategy, obj.works_for))
