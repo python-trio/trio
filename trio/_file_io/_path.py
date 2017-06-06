@@ -1,8 +1,10 @@
-from functools import wraps, update_wrapper
+from functools import wraps, partial
 import os
 import types
 from pathlib import Path, PurePath
 
+import trio
+from trio._file_io._file_io import closing
 from trio._file_io._helpers import thread_wrapper_factory, getattr_factory, copy_metadata
 
 
@@ -74,6 +76,12 @@ class AsyncPath(metaclass=AsyncAutoWrapperType):
 
     def __fspath__(self):
         return self._wrapped.__fspath__()
+
+    @closing
+    async def open(self, *args, **kwargs):
+        func = partial(self._wrapped.open, *args, **kwargs)
+        value = await trio.run_in_worker_thread(func)
+        return trio.wrap_file(value)
 
 
 # python3.5 compat

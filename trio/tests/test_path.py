@@ -6,8 +6,9 @@ import trio
 
 
 @pytest.fixture
-def path():
-    return trio.AsyncPath()
+def path(tmpdir):
+    p = tmpdir.join('test').__fspath__()
+    return trio.AsyncPath(p)
 
 
 async def test_windows_owner_group_raises(path):
@@ -20,3 +21,17 @@ async def test_windows_owner_group_raises(path):
 
     with pytest.raises(NotImplementedError):
         await path.group()
+
+
+async def test_open_is_async_context_manager(path):
+    async with path.open('w') as f:
+        assert isinstance(f, trio.AsyncIO)
+
+    assert f.closed
+
+
+async def test_open_is_awaitable_context_manager(path):
+    async with await path.open('w') as f:
+        assert isinstance(f, trio.AsyncIO)
+
+    assert f.closed
