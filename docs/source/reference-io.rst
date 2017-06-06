@@ -379,9 +379,6 @@ Asynchronous disk I/O
 
 .. currentmodule:: trio
 
-trio provides wrappers around :class:`~io.IOBase` subclasses. Methods that could
-block are executed in :meth:`trio.run_in_worker_thread`.
-
 .. autofunction:: open_file
 
 .. autofunction:: wrap_file
@@ -393,13 +390,8 @@ Asynchronous file objects
 
 .. currentmodule:: trio
 
-.. autoclass:: AsyncIOBase
-
-.. autoclass:: AsyncRawIOBase
-
-.. autoclass:: AsyncBufferedIOBase
-
-.. autoclass:: AsyncTextIOBase
+.. autoclass:: AsyncIO
+   :members:
 
 Subprocesses
 ------------

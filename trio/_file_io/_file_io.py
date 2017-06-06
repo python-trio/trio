@@ -29,11 +29,23 @@ _FILE_ASYNC_METHODS = [
 
 
 class AsyncIO:
+    """:class:`trio.AsyncIO` is a generic :class:`~io.IOBase` wrapper that
+    implements the :term:`asynchronous file object` interface. Wrapped methods that
+    could block are executed in :meth:`trio.run_in_worker_thread`.
+
+    All properties and methods defined in in :mod:`~io` are exposed by this
+    wrapper, if they exist in the wrapped file object.
+    """
+
     def __init__(self, file):
         self._wrapped = file
 
     @property
     def wrapped(self):
+        """object: A reference to the wrapped file object
+
+        """
+
         return self._wrapped
 
     def __getattr__(self, name):
@@ -78,10 +90,24 @@ class AsyncIO:
         await self.close()
 
     async def detach(self):
+        """Like :meth:`~io.BufferedIOBase.detach`, but async.
+
+        This also re-wraps the result in a new :term:`asynchronous file object`
+        wrapper.
+
+        """
+
         raw = await trio.run_in_worker_thread(self._wrapped.detach)
         return wrap_file(raw)
 
     async def close(self):
+        """Like :meth:`~io.IOBase.close`, but async.
+
+        This is also shielded from cancellation; if a cancellation scope is
+        cancelled, the wrapped file object will still be safely closed.
+
+        """
+
         # ensure the underling file is closed during cancellation
         with _core.open_cancel_scope(shield=True):
             await trio.run_in_worker_thread(self._wrapped.close)
@@ -94,11 +120,11 @@ async def open_file(file, mode='r', buffering=-1, encoding=None, errors=None,
     """Asynchronous version of :func:`~io.open`.
 
     Returns:
-        An :term:`asynchronous file object` wrapped in an :term:`asynchronous context manager`.
+        An :term:`asynchronous file object`
 
     Example::
 
-        async with trio.io.open_file(filename) as f:
+        async with await trio.open_file(filename) as f:
             async for line in f:
                 pass
 
@@ -111,21 +137,20 @@ async def open_file(file, mode='r', buffering=-1, encoding=None, errors=None,
 
 
 def wrap_file(file):
-    """This wraps any file-like object in an equivalent asynchronous file-like
-    object.
+    """This wraps any file object in a wrapper that provides an asynchronous file
+    object interface.
 
     Args:
         file: a :term:`file object`
 
     Returns:
-        An :term:`asynchronous file object`
+        AsyncIO: a file object wrapper
 
     Example::
 
-        f = StringIO('asdf')
-        async_f = wrap_file(f)
+        async_file = trio.wrap_file(StringIO('asdf'))
 
-        assert await async_f.read() == 'asdf'
+        assert await async_file.read() == 'asdf'
 
     """
 
