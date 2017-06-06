@@ -27,11 +27,3 @@ def thread_wrapper_factory(cls, meth_name):
         return value
 
     return wrapper
-
-
-def getattr_factory(cls, forward):
-    def __getattr__(self, name):
-        if name in forward:
-            return getattr(self._wrapped, name)
-        raise AttributeError(name)
-    return __getattr__

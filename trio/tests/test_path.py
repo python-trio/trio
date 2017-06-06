@@ -35,3 +35,10 @@ async def test_open_is_awaitable_context_manager(path):
         assert isinstance(f, trio.AsyncIO)
 
     assert f.closed
+
+
+async def test_forwarded_properties(path):
+    # use `name` as a representative of forwarded properties
+
+    assert 'name' in dir(path)
+    assert path.name == 'test'

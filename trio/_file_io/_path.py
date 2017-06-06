@@ -5,7 +5,7 @@ from pathlib import Path, PurePath
 
 import trio
 from trio._file_io._file_io import closing
-from trio._file_io._helpers import thread_wrapper_factory, getattr_factory, copy_metadata
+from trio._file_io._helpers import thread_wrapper_factory
 
 
 __all__ = ['AsyncPath']
@@ -28,21 +28,19 @@ class AsyncAutoWrapperType(type):
     def __init__(cls, name, bases, attrs):
         super().__init__(name, bases, attrs)
 
-        forward = []
+        cls._forward = []
         # forward functions of _forwards
         for attr_name, attr in cls._forwards.__dict__.items():
             if attr_name.startswith('_') or attr_name in attrs:
                 continue
 
             if isinstance(attr, property):
-                forward.append(attr_name)
+                cls._forward.append(attr_name)
             elif isinstance(attr, types.FunctionType):
                 wrapper = _forward_factory(cls, attr_name, attr)
                 setattr(cls, attr_name, wrapper)
             else:
                 raise TypeError(attr_name, type(attr))
-
-        setattr(cls, '__getattr__', getattr_factory(cls, forward))
 
         # generate wrappers for functions of _wraps
         for attr_name, attr in cls._wraps.__dict__.items():
@@ -67,6 +65,14 @@ class AsyncPath(metaclass=AsyncAutoWrapperType):
 
         self = cls._from_wrapped(path)
         return self
+
+    def __getattr__(self, name):
+        if name in self._forward:
+            return getattr(self._wrapped, name)
+        raise AttributeError(name)
+
+    def __dir__(self):
+        return super().__dir__() + self._forward
 
     @classmethod
     def _from_wrapped(cls, wrapped):
