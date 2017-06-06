@@ -1,4 +1,4 @@
-import io as _io
+import io
 import tempfile
 
 import pytest
@@ -10,17 +10,10 @@ from trio import _core
 
 
 concrete_cls = [
-    _io.StringIO, # io.TextIOBase
-    _io.BytesIO, # io.BufferedIOBase
-    _io.FileIO, # io.RawIOBase
-    _io.IOBase #
-]
-
-wrapper_cls = [
-    trio.AsyncTextIOBase,
-    trio.AsyncBufferedIOBase,
-    trio.AsyncRawIOBase,
-    trio.AsyncIOBase
+    io.StringIO,
+    io.BytesIO,
+    io.FileIO,
+    io.IOBase
 ]
 
 
@@ -29,45 +22,37 @@ def path(tmpdir):
     return tmpdir.join('test').__fspath__()
 
 
-@pytest.mark.parametrize("cls,wrap_cls", zip(concrete_cls, wrapper_cls))
-def test_wrap(cls, wrap_cls):
-    wrapped = trio.wrap_file(cls.__new__(cls))
-
-    assert isinstance(wrapped, wrap_cls)
-
-
 def test_wrap_invalid():
     with pytest.raises(TypeError):
         trio.wrap_file(str())
 
 
-@pytest.mark.parametrize("wrap_cls", wrapper_cls)
-def test_types_forward(wrap_cls):
-    inst = wrap_cls(sentinel)
+def test_types_forward():
+    inst = trio.AsyncIO(sentinel)
 
-    for attr_name in wrap_cls._forward:
+    for attr_name in inst._available_sync_attrs:
         assert getattr(inst, attr_name) == getattr(sentinel, attr_name)
 
 
 def test_types_forward_invalid():
-    inst = trio.AsyncIOBase(None)
+    inst = trio.AsyncIO(None)
 
     with pytest.raises(AttributeError):
         inst.nonexistant_attr
 
 
 def test_types_forward_in_dir():
-    inst = trio.AsyncIOBase(None)
+    inst = trio.AsyncIO(io.StringIO())
 
-    assert all(attr in dir(inst) for attr in inst._forward)
+    assert all(attr in dir(inst) for attr in inst._available_sync_attrs)
 
 
-@pytest.mark.parametrize("cls,wrap_cls", zip(concrete_cls, wrapper_cls))
-async def test_types_wrap(cls, wrap_cls):
+@pytest.mark.parametrize("cls", zip(concrete_cls))
+async def test_types_wrap(cls):
     mock_cls = mock.Mock(spec_set=cls)
-    inst = wrap_cls(mock_cls)
+    inst = trio.AsyncIO(mock_cls)
 
-    for meth_name in wrap_cls._wrap + trio.AsyncIOBase._wrap:
+    for meth_name in inst._available_async_methods:
         meth = getattr(inst, meth_name)
         mock_meth = getattr(mock_cls, meth_name)
 
@@ -80,7 +65,7 @@ async def test_types_wrap(cls, wrap_cls):
 
 async def test_open_context_manager(path):
     async with trio.open_file(path, 'w') as f:
-        assert isinstance(f, trio.AsyncIOBase)
+        assert isinstance(f, trio.AsyncIO)
         assert not f.closed
 
     assert f.closed
@@ -89,7 +74,7 @@ async def test_open_context_manager(path):
 async def test_open_await(path):
     f = await trio.open_file(path, 'w')
 
-    assert isinstance(f, trio.AsyncIOBase)
+    assert isinstance(f, trio.AsyncIO)
     assert not f.closed
 
     await f.close()
@@ -106,7 +91,7 @@ async def test_open_await_context_manager(path):
 async def test_async_iter():
     string = 'test\nstring\nend'
 
-    inst = trio.wrap_file(_io.StringIO(string))
+    inst = trio.wrap_file(io.StringIO(string))
 
     expected = iter(string.splitlines(True))
     async for actual in inst:
@@ -124,12 +109,26 @@ async def test_close_cancelled(path):
 
 
 async def test_detach_rewraps_asynciobase():
-    raw = _io.BytesIO()
-    buffered = _io.BufferedReader(raw)
+    raw = io.BytesIO()
+    buffered = io.BufferedReader(raw)
 
-    inst = trio.AsyncBufferedIOBase(buffered)
+    inst = trio.AsyncIO(buffered)
 
     detached = await inst.detach()
 
-    assert isinstance(detached, trio.AsyncIOBase)
+    assert isinstance(detached, trio.AsyncIO)
     assert detached._wrapped == raw
+
+
+async def test_async_method_generated_once():
+    inst = trio.wrap_file(io.StringIO())
+
+    for meth_name in inst._available_async_methods:
+        assert getattr(inst, meth_name) == getattr(inst, meth_name)
+
+
+async def test_wrapped_property():
+    wrapped = io.StringIO()
+    inst = trio.wrap_file(wrapped)
+
+    assert inst.wrapped == wrapped

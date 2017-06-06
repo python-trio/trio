@@ -1,34 +1,86 @@
-from functools import wraps
+from functools import partial
 import io
 
 import trio
-from trio._file_io import _types
+from trio import _core
+from trio._util import aiter_compat
+from trio._file_io._helpers import closing
 
 
-__all__ = ['open_file', 'wrap_file']
+__all__ = ['open_file', 'wrap_file', 'AsyncIO']
+
+_FILE_SYNC_ATTRS = [
+    'closed',
+    'encoding', 'errors', 'fileno', 'isatty', 'newlines',
+    'readable', 'seekable', 'writable',
+]
+
+_FILE_ASYNC_METHODS = [
+    'detach', 'flush',
+    'read', 'read1', 'readall', 'readinto', 'readline', 'readlines',
+    'seek', 'tell', 'truncate',
+    'write', 'writelines',
+]
 
 
-class ClosingContextManager:
-    def __init__(self, coro):
-        self._coro = coro
-        self._wrapper = None
+class AsyncIO:
+    def __init__(self, file):
+        self._wrapped = file
+
+        self._available_sync_attrs = [a for a in _FILE_SYNC_ATTRS if hasattr(self._wrapped, a)]
+        self._available_async_methods = [a for a in _FILE_ASYNC_METHODS if hasattr(self._wrapped, a)]
+
+    @property
+    def wrapped(self):
+        return self._wrapped
+
+    def __getattr__(self, name):
+        if name in self._available_sync_attrs:
+            return getattr(self._wrapped, name)
+        if name in self._available_async_methods:
+            meth = getattr(self._wrapped, name)
+            async def async_wrapper(*args, **kwargs):
+                return await trio.run_in_worker_thread(partial(meth, *args, **kwargs))
+            async_wrapper.__name__ = name
+            async_wrapper.__qualname__ = self.__class__.__qualname__ + "." + name
+            # cache the generated method
+            setattr(self, name, async_wrapper)
+            return async_wrapper
+
+        raise AttributeError(name)
+
+    def __dir__(self):
+        return set(super().__dir__() +
+                   self._available_sync_attrs +
+                   self._available_async_methods)
+
+    @aiter_compat
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        line = await self.readline()
+        if line:
+            return line
+        else:
+            raise StopAsyncIteration
 
     async def __aenter__(self):
-        self._wrapper = await self._coro
-        return self._wrapper
+        return self
 
     async def __aexit__(self, typ, value, traceback):
-        await self._wrapper.close()
+        await self.close()
 
-    def __await__(self):
-        return self._coro.__await__()
+    async def detach(self):
+        raw = await trio.run_in_worker_thread(self._wrapped.detach)
+        return wrap_file(raw)
 
+    async def close(self):
+        # ensure the underling file is closed during cancellation
+        with _core.open_cancel_scope(shield=True):
+            await trio.run_in_worker_thread(self._wrapped.close)
 
-def closing(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        return ClosingContextManager(func(*args, **kwargs))
-    return wrapper
+        await _core.yield_if_cancelled()
 
 
 @closing
@@ -72,13 +124,7 @@ def wrap_file(file):
 
     """
 
-    if isinstance(file, io.TextIOBase):
-        return _types.AsyncTextIOBase(file)
-    if isinstance(file, io.BufferedIOBase):
-        return _types.AsyncBufferedIOBase(file)
-    if isinstance(file, io.RawIOBase):
-        return _types.AsyncRawIOBase(file)
     if isinstance(file, io.IOBase):
-        return _types.AsyncIOBase(file)
+        return AsyncIO(file)
 
     raise TypeError(file)
