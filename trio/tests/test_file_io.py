@@ -35,7 +35,7 @@ def test_wrapped_property(async_file, wrapped):
 
 
 def test_sync_attrs_forwarded(async_file, wrapped):
-    for attr_name in async_file._available_sync_attrs:
+    for attr_name in _FILE_SYNC_ATTRS:
         assert getattr(async_file, attr_name) == getattr(wrapped, attr_name)
 
 
@@ -51,11 +51,14 @@ def test_sync_attrs_invalid_not_forwarded(async_file):
 def test_sync_attrs_in_dir():
     inst = trio.AsyncIO(io.StringIO())
 
-    assert all(attr in dir(inst) for attr in inst._available_sync_attrs)
+    assert all(attr in dir(inst) for attr in _FILE_SYNC_ATTRS)
 
 
 def test_async_methods_generated_once(async_file):
-    for meth_name in async_file._available_async_methods:
+    for meth_name in _FILE_ASYNC_METHODS:
+        if meth_name not in dir(async_file):
+            continue
+
         assert getattr(async_file, meth_name) == getattr(async_file, meth_name)
 
 
@@ -70,7 +73,9 @@ def test_async_methods_signature(async_file):
 async def test_async_methods_wrap(async_file, wrapped):
     skip = ['detach']
 
-    for meth_name in async_file._available_async_methods:
+    for meth_name in _FILE_ASYNC_METHODS:
+        if meth_name not in dir(async_file):
+            continue
         if meth_name in skip:
             continue
 
@@ -83,6 +88,18 @@ async def test_async_methods_wrap(async_file, wrapped):
         assert value == wrapped_meth()
 
         wrapped.reset_mock()
+
+
+async def test_async_methods_match_wrapper(async_file, wrapped):
+    for meth_name in _FILE_ASYNC_METHODS:
+        if meth_name in dir(async_file):
+            continue
+
+        with pytest.raises(AttributeError):
+            getattr(async_file, meth_name)
+
+        with pytest.raises(AttributeError):
+            getattr(wrapped, meth_name)
 
 
 async def test_open(path):

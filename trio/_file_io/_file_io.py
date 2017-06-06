@@ -27,17 +27,14 @@ class AsyncIO:
     def __init__(self, file):
         self._wrapped = file
 
-        self._available_sync_attrs = [a for a in _FILE_SYNC_ATTRS if hasattr(self._wrapped, a)]
-        self._available_async_methods = [a for a in _FILE_ASYNC_METHODS if hasattr(self._wrapped, a)]
-
     @property
     def wrapped(self):
         return self._wrapped
 
     def __getattr__(self, name):
-        if name in self._available_sync_attrs:
+        if name in _FILE_SYNC_ATTRS:
             return getattr(self._wrapped, name)
-        if name in self._available_async_methods:
+        if name in _FILE_ASYNC_METHODS:
             meth = getattr(self._wrapped, name)
 
             @async_wraps(self.__class__, self._wrapped.__class__, name)
@@ -52,9 +49,11 @@ class AsyncIO:
         raise AttributeError(name)
 
     def __dir__(self):
-        return set(super().__dir__() +
-                   self._available_sync_attrs +
-                   self._available_async_methods)
+        attrs = set(super().__dir__())
+        attrs.update(a for a in _FILE_SYNC_ATTRS if hasattr(self.wrapped, a))
+        attrs.update(a for a in _FILE_ASYNC_METHODS if hasattr(self.wrapped, a))
+        return attrs
+
 
     @aiter_compat
     def __aiter__(self):
