@@ -24,13 +24,6 @@ async def test_windows_owner_group_raises(path):
 
 
 async def test_open_is_async_context_manager(path):
-    async with path.open('w') as f:
-        assert isinstance(f, trio.AsyncIO)
-
-    assert f.closed
-
-
-async def test_open_is_awaitable_context_manager(path):
     async with await path.open('w') as f:
         assert isinstance(f, trio.AsyncIO)
 

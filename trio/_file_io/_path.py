@@ -5,7 +5,6 @@ from pathlib import Path, PurePath
 
 import trio
 from trio._file_io._helpers import async_wraps
-from trio._file_io._file_io import closing
 
 
 __all__ = ['AsyncPath']
@@ -96,7 +95,6 @@ class AsyncPath(metaclass=AsyncAutoWrapperType):
     def __fspath__(self):
         return self._wrapped.__fspath__()
 
-    @closing
     async def open(self, *args, **kwargs):
         func = partial(self._wrapped.open, *args, **kwargs)
         value = await trio.run_in_worker_thread(func)

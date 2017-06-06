@@ -4,7 +4,7 @@ import io
 import trio
 from trio import _core
 from trio._util import aiter_compat
-from trio._file_io._helpers import closing, async_wraps
+from trio._file_io._helpers import async_wraps
 
 
 __all__ = ['open_file', 'wrap_file', 'AsyncIO']
@@ -85,7 +85,6 @@ class AsyncIO:
         await _core.yield_if_cancelled()
 
 
-@closing
 async def open_file(file, mode='r', buffering=-1, encoding=None, errors=None,
                     newline=None, closefd=True, opener=None):
     """Asynchronous version of :func:`~io.open`.

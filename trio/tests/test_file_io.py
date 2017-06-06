@@ -85,26 +85,17 @@ async def test_async_methods_wrap(async_file, wrapped):
         wrapped.reset_mock()
 
 
-async def test_open_context_manager(path):
-    async with trio.open_file(path, 'w') as f:
-        assert isinstance(f, trio.AsyncIO)
-        assert not f.closed
-
-    assert f.closed
-
-
-async def test_open_await(path):
+async def test_open(path):
     f = await trio.open_file(path, 'w')
 
     assert isinstance(f, trio.AsyncIO)
-    assert not f.closed
 
     await f.close()
 
 
-async def test_open_await_context_manager(path):
-    f = await trio.open_file(path, 'w')
-    async with f:
+async def test_open_context_manager(path):
+    async with await trio.open_file(path, 'w') as f:
+        assert isinstance(f, trio.AsyncIO)
         assert not f.closed
 
     assert f.closed
@@ -124,7 +115,7 @@ async def test_async_iter(async_file):
 
 async def test_close_cancelled(path):
     with _core.open_cancel_scope() as cscope:
-        async with trio.open_file(path, 'w') as f:
+        async with await trio.open_file(path, 'w') as f:
             cscope.cancel()
             with pytest.raises(_core.Cancelled):
                 await f.write('a')
