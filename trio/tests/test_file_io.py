@@ -140,3 +140,5 @@ async def test_async_method_signature():
     # use read as a representative of all async methods
     assert inst.read.__name__ == 'read'
     assert inst.read.__qualname__ == 'AsyncIO.read'
+
+    assert 'io.StringIO.read' in inst.read.__doc__

@@ -49,3 +49,5 @@ async def test_async_method_signature(path):
 
     assert path.resolve.__name__ == 'resolve'
     assert path.resolve.__qualname__ == 'AsyncPath.resolve'
+
+    assert 'pathlib.Path.resolve' in path.resolve.__doc__

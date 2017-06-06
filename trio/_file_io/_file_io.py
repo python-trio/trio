@@ -40,7 +40,7 @@ class AsyncIO:
         if name in self._available_async_methods:
             meth = getattr(self._wrapped, name)
 
-            @async_wraps(self.__class__, name)
+            @async_wraps(self.__class__, self._wrapped.__class__, name)
             async def wrapper(*args, **kwargs):
                 func = partial(meth, *args, **kwargs)
                 return await trio.run_in_worker_thread(func)

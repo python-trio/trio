@@ -25,7 +25,7 @@ def _forward_factory(cls, attr_name, attr):
 
 
 def thread_wrapper_factory(cls, meth_name):
-    @async_wraps(cls, meth_name)
+    @async_wraps(cls, Path, meth_name)
     async def wrapper(self, *args, **kwargs):
         meth = getattr(self._wrapped, meth_name)
         func = partial(meth, *args, **kwargs)
