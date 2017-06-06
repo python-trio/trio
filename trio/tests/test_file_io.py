@@ -34,24 +34,42 @@ def test_wrapped_property(async_file, wrapped):
     assert async_file.wrapped == wrapped
 
 
+def test_dir_matches_wrapped(async_file, wrapped):
+    attrs = _FILE_SYNC_ATTRS + _FILE_ASYNC_METHODS
+
+    # all supported attrs in wrapped should be available in async_file
+    assert all(attr in dir(async_file) for attr in attrs if attr in dir(wrapped))
+    # all supported attrs not in wrapped should not be available in async_file
+    assert not any(attr in dir(async_file) for attr in attrs if attr not in dir(wrapped))
+
+
+def test_unsupported_not_forwarded(async_file):
+    async_file._wrapped = sentinel
+
+    assert hasattr(async_file.wrapped, 'unsupported_attr')
+
+    with pytest.raises(AttributeError):
+        getattr(async_file, 'unsupported_attr')
+
+
 def test_sync_attrs_forwarded(async_file, wrapped):
     for attr_name in _FILE_SYNC_ATTRS:
+        if attr_name not in dir(async_file):
+            continue
+
         assert getattr(async_file, attr_name) == getattr(wrapped, attr_name)
 
 
-def test_sync_attrs_invalid_not_forwarded(async_file):
-    async_file._wrapped = sentinel
+def test_sync_attrs_match_wrapper(async_file, wrapped):
+    for attr_name in _FILE_SYNC_ATTRS:
+        if attr_name in dir(async_file):
+            continue
 
-    assert hasattr(async_file.wrapped, 'invalid_attr')
+        with pytest.raises(AttributeError):
+            getattr(async_file, attr_name)
 
-    with pytest.raises(AttributeError):
-        getattr(async_file, 'invalid_attr')
-
-
-def test_sync_attrs_in_dir():
-    inst = trio.AsyncIO(io.StringIO())
-
-    assert all(attr in dir(inst) for attr in _FILE_SYNC_ATTRS)
+        with pytest.raises(AttributeError):
+            getattr(wrapped, attr_name)
 
 
 def test_async_methods_generated_once(async_file):
@@ -71,12 +89,8 @@ def test_async_methods_signature(async_file):
 
 
 async def test_async_methods_wrap(async_file, wrapped):
-    skip = ['detach']
-
     for meth_name in _FILE_ASYNC_METHODS:
         if meth_name not in dir(async_file):
-            continue
-        if meth_name in skip:
             continue
 
         meth = getattr(async_file, meth_name)
@@ -132,10 +146,13 @@ async def test_async_iter(async_file):
 
 async def test_close_cancelled(path):
     with _core.open_cancel_scope() as cscope:
-        async with await trio.open_file(path, 'w') as f:
-            cscope.cancel()
-            with pytest.raises(_core.Cancelled):
-                await f.write('a')
+        f = await trio.open_file(path, 'w')
+        cscope.cancel()
+
+        with pytest.raises(_core.Cancelled):
+            await f.write('a')
+
+        await f.close()
 
     assert f.closed
 
