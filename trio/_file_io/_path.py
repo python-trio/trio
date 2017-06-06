@@ -4,8 +4,8 @@ import types
 from pathlib import Path, PurePath
 
 import trio
+from trio._file_io._helpers import async_wraps
 from trio._file_io._file_io import closing
-from trio._file_io._helpers import thread_wrapper_factory
 
 
 __all__ = ['AsyncPath']
@@ -18,6 +18,19 @@ def _forward_factory(cls, attr_name, attr):
         value = attr(*args, **kwargs)
         if isinstance(value, cls._forwards):
             # re-wrap methods that return new paths
+            value = cls._from_wrapped(value)
+        return value
+
+    return wrapper
+
+
+def thread_wrapper_factory(cls, meth_name):
+    @async_wraps(cls, meth_name)
+    async def wrapper(self, *args, **kwargs):
+        meth = getattr(self._wrapped, meth_name)
+        func = partial(meth, *args, **kwargs)
+        value = await trio.run_in_worker_thread(func)
+        if isinstance(value, cls._wraps):
             value = cls._from_wrapped(value)
         return value
 

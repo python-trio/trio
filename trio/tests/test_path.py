@@ -42,3 +42,10 @@ async def test_forwarded_properties(path):
 
     assert 'name' in dir(path)
     assert path.name == 'test'
+
+
+async def test_async_method_signature(path):
+    # use `resolve` as a representative of wrapped methods
+
+    assert path.resolve.__name__ == 'resolve'
+    assert path.resolve.__qualname__ == 'AsyncPath.resolve'

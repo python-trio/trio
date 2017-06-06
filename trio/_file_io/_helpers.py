@@ -3,30 +3,13 @@ import trio
 from functools import wraps, partial
 
 
-def copy_metadata(func):
-    @wraps(func)
-    def wrapper(cls, attr_name):
-        wrapped = func(cls, attr_name)
-
-        wrapped.__name__ = attr_name
-        wrapped.__qualname__ = '.'.join((__name__,
-                                         cls.__name__,
-                                         attr_name))
-        return wrapped
-    return wrapper
-
-
-@copy_metadata
-def thread_wrapper_factory(cls, meth_name):
-    async def wrapper(self, *args, **kwargs):
-        meth = getattr(self._wrapped, meth_name)
-        func = partial(meth, *args, **kwargs)
-        value = await trio.run_in_worker_thread(func)
-        if isinstance(value, cls._wraps):
-            value = cls._from_wrapped(value)
-        return value
-
-    return wrapper
+def async_wraps(cls, attr_name):
+    def decorator(func):
+        func.__name__ = attr_name
+        func.__qualname__ = '.'.join((cls.__qualname__,
+                                      attr_name))
+        return func
+    return decorator
 
 
 class ClosingContextManager:

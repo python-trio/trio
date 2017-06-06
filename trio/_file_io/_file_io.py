@@ -4,7 +4,7 @@ import io
 import trio
 from trio import _core
 from trio._util import aiter_compat
-from trio._file_io._helpers import closing
+from trio._file_io._helpers import closing, async_wraps
 
 
 __all__ = ['open_file', 'wrap_file', 'AsyncIO']
@@ -39,13 +39,15 @@ class AsyncIO:
             return getattr(self._wrapped, name)
         if name in self._available_async_methods:
             meth = getattr(self._wrapped, name)
-            async def async_wrapper(*args, **kwargs):
-                return await trio.run_in_worker_thread(partial(meth, *args, **kwargs))
-            async_wrapper.__name__ = name
-            async_wrapper.__qualname__ = self.__class__.__qualname__ + "." + name
+
+            @async_wraps(self.__class__, name)
+            async def wrapper(*args, **kwargs):
+                func = partial(meth, *args, **kwargs)
+                return await trio.run_in_worker_thread(func)
+
             # cache the generated method
-            setattr(self, name, async_wrapper)
-            return async_wrapper
+            setattr(self, name, wrapper)
+            return wrapper
 
         raise AttributeError(name)
 

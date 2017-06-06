@@ -132,3 +132,11 @@ async def test_wrapped_property():
     inst = trio.wrap_file(wrapped)
 
     assert inst.wrapped == wrapped
+
+
+async def test_async_method_signature():
+    inst = trio.wrap_file(io.StringIO())
+
+    # use read as a representative of all async methods
+    assert inst.read.__name__ == 'read'
+    assert inst.read.__qualname__ == 'AsyncIO.read'
