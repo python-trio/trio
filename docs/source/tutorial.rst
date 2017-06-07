@@ -366,7 +366,7 @@ There are only 4 lines of code that really do anything here. On line
 17, we use :func:`trio.open_nursery` to get a "nursery" object, and
 then inside the ``async with`` block we call ``nursery.spawn`` twice,
 on lines 19 and 22. There are actually two ways to call an async
-function: the first one is the one we already say, using ``await
+function: the first one is the one we already saw, using ``await
 async_fn()``; the new one is ``nursery.spawn(async_fn)``: it asks trio
 to start running this async function, *but then returns immediately
 without waiting for the function to finish*. So after our two calls to
