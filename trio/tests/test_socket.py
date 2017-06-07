@@ -4,6 +4,8 @@ import os
 import socket as stdlib_socket
 import inspect
 
+from .._core.tests.tutil import slow
+
 from .. import _core
 from .. import socket as tsocket
 from ..testing import assert_yields, wait_all_tasks_blocked
@@ -549,6 +551,8 @@ async def test_SocketType_connect_paths():
                     await sock.connect(listener.getsockname())
             assert sock.fileno() == -1
 
+@slow
+async def test_SocketType_connect_paths_not_listening():
     # Failed connect (hopefully after raising BlockingIOError)
     with tsocket.socket() as sock, tsocket.socket() as non_listener:
         # Claim an unused port
