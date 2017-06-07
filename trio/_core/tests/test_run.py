@@ -4,6 +4,7 @@ import time
 from math import inf
 import platform
 import functools
+import warnings
 
 import pytest
 import attr
@@ -873,12 +874,21 @@ def test_error_in_run_loop():
         task._schedule_points = "hello!"
         await _core.yield_briefly()
 
-    with pytest.raises(_core.TrioInternalError):
-        _core.run(main)
+    # This test triggers a "Warning: coroutine '...' was never awaited" on
+    # purpose. We want to hide it, because (a) it's clutter, and (b) on 3.5.x
+    # where x < 3, this warning can trigger a segfault if we run with warnings
+    # turned into errors. See:
+    #   https://bugs.python.org/issue27811
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="was never awaited")
 
-    # Make sure any warnings etc. are associated with this test
-    import gc
-    gc.collect()
+        with pytest.raises(_core.TrioInternalError):
+            _core.run(main)
+
+        # Make sure any warnings etc. are associated with this test and happen
+        # inside the catch_warnings block:
+        import gc
+        gc.collect()
 
 
 async def test_spawn_system_task():
