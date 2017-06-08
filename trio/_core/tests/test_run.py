@@ -880,7 +880,8 @@ def test_error_in_run_loop():
     # turned into errors. See:
     #   https://bugs.python.org/issue27811
     with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", message="was never awaited")
+        warnings.filterwarnings(
+            "ignore", message="coroutine '.*' was never awaited")
 
         with pytest.raises(_core.TrioInternalError):
             _core.run(main)
