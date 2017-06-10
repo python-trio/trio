@@ -11,16 +11,10 @@ def path(tmpdir):
     return trio.AsyncPath(p)
 
 
-async def test_windows_owner_group_raises(path):
-    path._wrapped.__class__ = pathlib.WindowsPath
-
-    assert isinstance(path._wrapped, pathlib.WindowsPath)
-
-    with pytest.raises(NotImplementedError):
-        await path.owner()
-
-    with pytest.raises(NotImplementedError):
-        await path.group()
+def method_pair(path, method_name):
+    path = pathlib.Path(path)
+    async_path = trio.AsyncPath(path)
+    return getattr(path, method_name), getattr(async_path, method_name)
 
 
 async def test_open_is_async_context_manager(path):
@@ -44,3 +38,31 @@ async def test_async_method_signature(path):
     assert path.resolve.__qualname__ == 'AsyncPath.resolve'
 
     assert 'pathlib.Path.resolve' in path.resolve.__doc__
+
+
+@pytest.mark.parametrize('method_name', ['is_dir', 'is_file'])
+async def test_compare_async_stat_methods(method_name):
+
+    method, async_method = method_pair('.', method_name)
+
+    result = method()
+    async_result = await async_method()
+
+    assert result == async_result
+
+
+async def test_invalid_name_not_wrapped(path):
+    with pytest.raises(AttributeError):
+        getattr(path, 'invalid_fake_attr')
+
+
+@pytest.mark.parametrize('method_name', ['absolute', 'resolve'])
+async def test_forward_functions_rewrap(method_name):
+
+    method, async_method = method_pair('.', method_name)
+
+    result = method()
+    async_result = await async_method()
+
+    assert isinstance(async_result, trio.AsyncPath)
+    assert result.__fspath__() == async_result.__fspath__()

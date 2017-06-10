@@ -86,6 +86,9 @@ class AsyncPath(metaclass=AsyncAutoWrapperType):
     def __dir__(self):
         return super().__dir__() + self._forward
 
+    def __repr__(self):
+        return 'AsyncPath({})'.format(self.__fspath__())
+
     @classmethod
     def _from_wrapped(cls, wrapped):
         self = object.__new__(cls)
@@ -102,5 +105,5 @@ class AsyncPath(metaclass=AsyncAutoWrapperType):
 
 
 # python3.5 compat
-if hasattr(os, 'PathLike'):
+if hasattr(os, 'PathLike'):  # pragma: no cover
     os.PathLike.register(AsyncPath)
