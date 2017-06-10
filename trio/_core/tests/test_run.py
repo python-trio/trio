@@ -1438,7 +1438,7 @@ async def test_current_effective_deadline(mock_clock):
     assert _core.current_effective_deadline() == inf
 
 
-def test_nice_error_on_curio_style_run():
+def test_nice_error_on_bad_calls_to_run_or_spawn():
     def bad_call_run(*args):
         _core.run(*args)
 
@@ -1447,6 +1447,9 @@ def test_nice_error_on_curio_style_run():
             async with _core.open_nursery() as nursery:
                 nursery.spawn(*args)
         _core.run(main)
+
+    class Deferred:
+        "Just kidding"
 
     with ignore_coroutine_never_awaited_warnings():
         for bad_call in bad_call_run, bad_call_spawn:
@@ -1470,6 +1473,18 @@ def test_nice_error_on_curio_style_run():
             with pytest.raises(TypeError) as excinfo:
                 bad_call(asyncio.sleep, 1)
             assert "asyncio" in str(excinfo.value)
+
+            with pytest.raises(TypeError) as excinfo:
+                bad_call(lambda: asyncio.Future())
+            assert "asyncio" in str(excinfo.value)
+
+            with pytest.raises(TypeError) as excinfo:
+                bad_call(Deferred())
+            assert "twisted" in str(excinfo.value)
+
+            with pytest.raises(TypeError) as excinfo:
+                bad_call(lambda: Deferred())
+            assert "twisted" in str(excinfo.value)
 
             with pytest.raises(TypeError) as excinfo:
                 bad_call(len, [1, 2, 3])

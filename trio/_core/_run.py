@@ -654,10 +654,21 @@ class Runner:
         # errors for common mistakes.
         ######
 
-        def _return_value_looks_asyncioish(value):
+        def _return_value_looks_like_wrong_library(value):
+            # Returned by legacy @asyncio.coroutine functions, which includes
+            # a surprising proportion of asyncio builtins.
             if inspect.isgenerator(value):
                 return True
-            if getattr(async_fn, "_asyncio_future_blocking", None) is not None:
+            # The protocol for detecting an asyncio Future-like object
+            if getattr(value, "_asyncio_future_blocking", None) is not None:
+                return True
+            # asyncio.Future doesn't have _asyncio_future_blocking until
+            # 3.5.3. We don't want to import asyncio, but this janky check
+            # should work well enough for our purposes. And it also catches
+            # tornado Futures and twisted Deferreds. By the time we're calling
+            # this function, we already know something has gone wrong, so a
+            # heuristic is pretty safe.
+            if value.__class__.__name__ in ("Future", "Deferred"):
                 return True
             return False
 
@@ -682,12 +693,12 @@ class Runner:
                     .format(async_fn=async_fn)) from None
 
             # Give good error for: nursery.spawn(asyncio.sleep(1))
-            if _return_value_looks_asyncioish(async_fn):
+            if _return_value_looks_like_wrong_library(async_fn):
                 raise TypeError(
                     "trio was expecting an async function, but instead it got "
                     "{!r} – are you trying to use a library written for "
-                    "asyncio? That won't work without some sort of "
-                    "compatibility shim."
+                    "asyncio/twisted/tornado or similar? That won't work "
+                    "without some sort of compatibility shim."
                     .format(async_fn)) from None
 
             raise
@@ -698,11 +709,13 @@ class Runner:
         # result is a coroutine object.
         if not inspect.iscoroutine(coro):
             # Give good error for: nursery.spawn(asyncio.sleep, 1)
-            if _return_value_looks_asyncioish(coro):
+            print(coro)
+            if _return_value_looks_like_wrong_library(coro):
                 raise TypeError(
                     "spawn got unexpected {!r} – are you trying to use a "
-                    "library written for asyncio? That won't work without "
-                    "some sort of compatibility shim.".format(coro))
+                    "library written for asyncio/twisted/tornado or similar? "
+                    "That won't work without some sort of compatibility shim."
+                    .format(coro))
             # Give good error for: nursery.spawn(some_sync_fn)
             raise TypeError(
                 "trio expected an async function, but {!r} appears to be "
