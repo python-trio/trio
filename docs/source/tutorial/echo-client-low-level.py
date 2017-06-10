@@ -6,7 +6,7 @@ import trio
 # arbitrary, but:
 # - must be in between 1024 and 65535
 # - can't be in use by some other program on your computer
-# - must match what we set in our echo client
+# - must match what we set in our echo server
 PORT = 12345
 # How much memory to spend (at most) on each call to recv. Pretty arbitrary,
 # but shouldn't be too big or too small.
