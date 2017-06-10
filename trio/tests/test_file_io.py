@@ -83,7 +83,7 @@ def test_async_methods_generated_once(async_file):
 def test_async_methods_signature(async_file):
     # use read as a representative of all async methods
     assert async_file.read.__name__ == 'read'
-    assert async_file.read.__qualname__ == 'AsyncIO.read'
+    assert async_file.read.__qualname__ == 'AsyncIOWrapper.read'
 
     assert 'io.StringIO.read' in async_file.read.__doc__
 
@@ -119,14 +119,14 @@ async def test_async_methods_match_wrapper(async_file, wrapped):
 async def test_open(path):
     f = await trio.open_file(path, 'w')
 
-    assert isinstance(f, trio.AsyncIO)
+    assert isinstance(f, trio.AsyncIOWrapper)
 
     await f.close()
 
 
 async def test_open_context_manager(path):
     async with await trio.open_file(path, 'w') as f:
-        assert isinstance(f, trio.AsyncIO)
+        assert isinstance(f, trio.AsyncIOWrapper)
         assert not f.closed
 
     assert f.closed
@@ -165,5 +165,5 @@ async def test_detach_rewraps_asynciobase():
 
     detached = await async_file.detach()
 
-    assert isinstance(detached, trio.AsyncIO)
+    assert isinstance(detached, trio.AsyncIOWrapper)
     assert detached.wrapped == raw

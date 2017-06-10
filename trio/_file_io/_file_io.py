@@ -7,7 +7,7 @@ from trio._util import aiter_compat
 from trio._file_io._helpers import async_wraps
 
 
-__all__ = ['open_file', 'wrap_file', 'AsyncIO']
+__all__ = ['open_file', 'wrap_file', 'AsyncIOWrapper']
 
 _FILE_SYNC_ATTRS = [
     'closed',
@@ -28,8 +28,8 @@ _FILE_ASYNC_METHODS = [
 ]
 
 
-class AsyncIO:
-    """:class:`trio.AsyncIO` is a generic :class:`~io.IOBase` wrapper that
+class AsyncIOWrapper:
+    """:class:`trio.AsyncIOWrapper` is a generic :class:`~io.IOBase` wrapper that
     implements the :term:`asynchronous file object` interface. Wrapped methods that
     could block are executed in :meth:`trio.run_in_worker_thread`.
 
@@ -144,7 +144,7 @@ def wrap_file(file):
         file: a :term:`file object`
 
     Returns:
-        AsyncIO: a file object wrapper
+        AsyncIOWrapper: a file object wrapper
 
     Example::
 
@@ -155,6 +155,6 @@ def wrap_file(file):
     """
 
     if isinstance(file, io.IOBase):
-        return AsyncIO(file)
+        return AsyncIOWrapper(file)
 
     raise TypeError(file)

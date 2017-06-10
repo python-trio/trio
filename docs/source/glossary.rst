@@ -12,6 +12,6 @@ Glossary
        This is an object with an API identical to a :term:`file object`, with
        the exception that all nontrivial methods are coroutine functions.
 
-       A non-normative interface is defined by :class:`trio.AsyncIO`. The main
-       way to create an asynchronous file object is by using the
+       A non-normative interface is defined by :class:`trio.AsyncIOWrapper`. The
+       main way to create an asynchronous file object is by using the
        :func:`trio.open_file` function.

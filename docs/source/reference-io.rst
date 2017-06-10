@@ -390,7 +390,7 @@ Asynchronous file objects
 
 .. currentmodule:: trio
 
-.. autoclass:: AsyncIO
+.. autoclass:: AsyncIOWrapper
    :members:
 
 Subprocesses
