@@ -7,7 +7,7 @@ import trio
 
 @pytest.fixture
 def path(tmpdir):
-    p = tmpdir.join('test').__fspath__()
+    p = str(tmpdir.join('test'))
     return trio.AsyncPath(p)
 
 
@@ -22,6 +22,11 @@ async def test_open_is_async_context_manager(path):
         assert isinstance(f, trio.AsyncIOWrapper)
 
     assert f.closed
+
+
+async def test_forward_magic(path):
+    assert path.__fspath__() == path._wrapped.__fspath__()
+    assert str(path) == str(path._wrapped)
 
 
 async def test_forwarded_properties(path):
@@ -65,4 +70,4 @@ async def test_forward_functions_rewrap(method_name):
     async_result = await async_method()
 
     assert isinstance(async_result, trio.AsyncPath)
-    assert result.__fspath__() == async_result.__fspath__()
+    assert str(result) == str(async_result)

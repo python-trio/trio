@@ -41,6 +41,7 @@ class AsyncAutoWrapperType(type):
         super().__init__(name, bases, attrs)
 
         cls._forward = []
+
         # forward functions of _forwards
         for attr_name, attr in cls._forwards.__dict__.items():
             if attr_name.startswith('_') or attr_name in attrs:
@@ -67,10 +68,20 @@ class AsyncAutoWrapperType(type):
             else:
                 raise TypeError(attr_name, type(attr))
 
+        # generate wrappers for magic
+        for attr_name in cls._forward_magic:
+            attr = getattr(cls._forwards, attr_name)
+            wrapper = _forward_factory(cls, attr_name, attr)
+            setattr(cls, attr_name, wrapper)
+
 
 class AsyncPath(metaclass=AsyncAutoWrapperType):
     _wraps = Path
     _forwards = PurePath
+    _forward_magic = [
+        '__str__', '__fspath__', '__bytes__',
+        '__eq__', '__lt__', '__le__', '__gt__', '__ge__'
+    ]
 
     def __new__(cls, *args, **kwargs):
         path = Path(*args, **kwargs)
@@ -94,9 +105,6 @@ class AsyncPath(metaclass=AsyncAutoWrapperType):
         self = object.__new__(cls)
         self._wrapped = wrapped
         return self
-
-    def __fspath__(self):
-        return self._wrapped.__fspath__()
 
     async def open(self, *args, **kwargs):
         func = partial(self._wrapped.open, *args, **kwargs)
