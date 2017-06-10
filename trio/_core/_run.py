@@ -683,13 +683,13 @@ class Runner:
                     "\n"
                     "Probably you did something like:\n"
                     "\n"
-                    "    trio.run({async_fn.__name__}(1))       # incorrect!\n"
-                    "    nursery.spawn({async_fn.__name__}(1))  # incorrect!\n"
+                    "  trio.run({async_fn.__name__}(...))       # incorrect!\n"
+                    "  nursery.spawn({async_fn.__name__}(...))  # incorrect!\n"
                     "\n"
-                    "Instead, you want:\n"
+                    "Instead, you want (notice the parentheses!):\n"
                     "\n"
-                    "    trio.run({async_fn.__name__}, 1)       # correct!\n"
-                    "    nursery.spawn({async_fn.__name__}, 1)  # correct!"
+                    "  trio.run({async_fn.__name__}, ...)       # correct!\n"
+                    "  nursery.spawn({async_fn.__name__}, ...)  # correct!"
                     .format(async_fn=async_fn)) from None
 
             # Give good error for: nursery.spawn(asyncio.sleep(1))
