@@ -26,7 +26,6 @@ async def test_open_is_async_context_manager(path):
 
 
 async def test_forward_magic(path):
-    assert path.__fspath__() == path._wrapped.__fspath__()
     assert str(path) == str(path._wrapped)
 
 

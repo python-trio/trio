@@ -85,7 +85,7 @@ class AsyncPath(metaclass=AsyncAutoWrapperType):
     _wraps = Path
     _forwards = PurePath
     _forward_magic = [
-        '__str__', '__fspath__', '__bytes__',
+        '__str__', '__bytes__',
         '__eq__', '__lt__', '__le__', '__gt__', '__ge__'
     ]
 
@@ -104,7 +104,13 @@ class AsyncPath(metaclass=AsyncAutoWrapperType):
         return super().__dir__() + self._forward
 
     def __repr__(self):
-        return 'AsyncPath({})'.format(self.__fspath__())
+        return 'AsyncPath({})'.format(str(self))
+
+    def __fspath__(self):
+        try:
+            return self._wrapped.__fspath__()
+        except AttributeError:
+            return str(self)
 
     @classmethod
     def _from_wrapped(cls, wrapped):
