@@ -5,6 +5,8 @@ from math import inf
 import platform
 import functools
 import warnings
+from contextlib import contextmanager
+import gc
 
 import pytest
 import attr
@@ -22,6 +24,24 @@ from ... import _core
 # rescheduling...
 async def sleep_forever():
     return await _core.yield_indefinitely(lambda _: _core.Abort.SUCCEEDED)
+
+# Some of our tests need to leak coroutines, and thus trigger the
+# "RuntimeWarning: coroutine '...' was never awaited" message. This context
+# manager should be used anywhere this happens to hide those messages, because
+# (a) when expected they're clutter, (b) on CPython 3.5.x where x < 3, this
+# warning can trigger a segfault if we run with warnings turned into errors:
+#   https://bugs.python.org/issue27811
+@contextmanager
+def ignore_coroutine_never_awaited_warnings():
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message="coroutine '.*' was never awaited")
+        try:
+            yield
+        finally:
+            # Make sure to trigger any coroutine __del__ methods now, before
+            # we leave the context manager.
+            gc.collect()
 
 def test_basic():
     async def trivial(x):
@@ -863,7 +883,6 @@ def test_broken_abort():
     # Because this crashes, various __del__ methods print complaints on
     # stderr. Make sure that they get run now, so the output is attached to
     # this test.
-    import gc
     gc.collect()
 
 
@@ -874,22 +893,9 @@ def test_error_in_run_loop():
         task._schedule_points = "hello!"
         await _core.yield_briefly()
 
-    # This test triggers a "Warning: coroutine '...' was never awaited" on
-    # purpose. We want to hide it, because (a) it's clutter, and (b) on 3.5.x
-    # where x < 3, this warning can trigger a segfault if we run with warnings
-    # turned into errors. See:
-    #   https://bugs.python.org/issue27811
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "ignore", message="coroutine '.*' was never awaited")
-
+    with ignore_coroutine_never_awaited_warnings():
         with pytest.raises(_core.TrioInternalError):
             _core.run(main)
-
-        # Make sure any warnings etc. are associated with this test and happen
-        # inside the catch_warnings block:
-        import gc
-        gc.collect()
 
 
 async def test_spawn_system_task():
@@ -1433,18 +1439,52 @@ async def test_current_effective_deadline(mock_clock):
 
 
 def test_nice_error_on_curio_style_run():
-    async def f():
-        pass
+    def bad_call_run(*args):
+        _core.run(*args)
 
-    coro = f()
+    def bad_call_spawn(*args):
+        async def main():
+            async with _core.open_nursery() as nursery:
+                nursery.spawn(*args)
+        _core.run(main)
+
+    with ignore_coroutine_never_awaited_warnings():
+        for bad_call in bad_call_run, bad_call_spawn:
+            async def f():
+                pass
+
+            with pytest.raises(TypeError) as excinfo:
+                bad_call(f())
+            assert "expecting an async function" in str(excinfo.value)
+
+            import asyncio
+
+            with pytest.raises(TypeError) as excinfo:
+                bad_call(asyncio.sleep(1))
+            assert "asyncio" in str(excinfo.value)
+
+            with pytest.raises(TypeError) as excinfo:
+                bad_call(asyncio.Future())
+            assert "asyncio" in str(excinfo.value)
+
+            with pytest.raises(TypeError) as excinfo:
+                bad_call(asyncio.sleep, 1)
+            assert "asyncio" in str(excinfo.value)
+
+            with pytest.raises(TypeError) as excinfo:
+                bad_call(len, [1, 2, 3])
+            assert "appears to be synchronous" in str(excinfo.value)
+
+
+def test_calling_asyncio_function_gives_nice_error():
+    async def misguided():
+        import asyncio
+        await asyncio.sleep(1)
+
     with pytest.raises(TypeError) as excinfo:
-        _core.run(coro)
-    assert "unexpected coroutine object" in str(excinfo.value)
+        _core.run(misguided)
 
-    # consume the coroutine to avoid a warning message
-    async def consume_it():
-        await coro
-    _core.run(consume_it)
+    assert "asyncio" in str(excinfo.value)
 
 
 async def test_trivial_yields():
