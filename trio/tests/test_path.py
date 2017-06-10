@@ -3,6 +3,7 @@ import pathlib
 import pytest
 
 import trio
+from trio._file_io._path import AsyncAutoWrapperType as Type
 
 
 @pytest.fixture
@@ -87,3 +88,35 @@ async def test_repr():
     path = trio.AsyncPath('.')
 
     assert repr(path) == 'AsyncPath(.)'
+
+
+class MockWrapped:
+    unsupported = 'unsupported'
+    _private = 'private'
+
+
+class MockWrapper:
+    _forwards = MockWrapped
+    _wraps = MockWrapped
+
+
+async def test_type_forwards_unsupported():
+    with pytest.raises(TypeError):
+        Type.generate_forwards(MockWrapper, {})
+
+
+async def test_type_wraps_unsupported():
+    with pytest.raises(TypeError):
+        Type.generate_wraps(MockWrapper, {})
+
+
+async def test_type_forwards_private():
+    Type.generate_forwards(MockWrapper, {'unsupported': None})
+
+    assert not hasattr(MockWrapper, '_private')
+
+
+async def test_type_wraps_private():
+    Type.generate_wraps(MockWrapper, {'unsupported': None})
+
+    assert not hasattr(MockWrapper, '_private')

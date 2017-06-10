@@ -41,7 +41,11 @@ class AsyncAutoWrapperType(type):
         super().__init__(name, bases, attrs)
 
         cls._forward = []
+        type(cls).generate_forwards(cls, attrs)
+        type(cls).generate_wraps(cls, attrs)
+        type(cls).generate_magic(cls, attrs)
 
+    def generate_forwards(cls, attrs):
         # forward functions of _forwards
         for attr_name, attr in cls._forwards.__dict__.items():
             if attr_name.startswith('_') or attr_name in attrs:
@@ -55,6 +59,7 @@ class AsyncAutoWrapperType(type):
             else:
                 raise TypeError(attr_name, type(attr))
 
+    def generate_wraps(cls, attrs):
         # generate wrappers for functions of _wraps
         for attr_name, attr in cls._wraps.__dict__.items():
             if attr_name.startswith('_') or attr_name in attrs:
@@ -68,6 +73,7 @@ class AsyncAutoWrapperType(type):
             else:
                 raise TypeError(attr_name, type(attr))
 
+    def generate_magic(cls, attrs):
         # generate wrappers for magic
         for attr_name in cls._forward_magic:
             attr = getattr(cls._forwards, attr_name)
