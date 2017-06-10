@@ -62,7 +62,7 @@ async def test_invalid_name_not_wrapped(path):
 
 
 @pytest.mark.parametrize('method_name', ['absolute', 'resolve'])
-async def test_forward_functions_rewrap(method_name):
+async def test_async_methods_rewrap(method_name):
 
     method, async_method = method_pair('.', method_name)
 
@@ -71,3 +71,19 @@ async def test_forward_functions_rewrap(method_name):
 
     assert isinstance(async_result, trio.AsyncPath)
     assert str(result) == str(async_result)
+
+
+async def test_forward_methods_rewrap(path, tmpdir):
+    with_name = path.with_name('foo')
+    with_suffix = path.with_suffix('.py')
+
+    assert isinstance(with_name, trio.AsyncPath)
+    assert with_name == tmpdir.join('foo')
+    assert isinstance(with_suffix, trio.AsyncPath)
+    assert with_suffix == tmpdir.join('test.py')
+
+
+async def test_repr():
+    path = trio.AsyncPath('.')
+
+    assert repr(path) == 'AsyncPath(.)'
