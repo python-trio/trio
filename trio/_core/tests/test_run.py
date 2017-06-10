@@ -1453,7 +1453,7 @@ def test_nice_error_on_bad_calls_to_run_or_spawn():
 
     with ignore_coroutine_never_awaited_warnings():
         for bad_call in bad_call_run, bad_call_spawn:
-            async def f():
+            async def f():  # pragma: no cover
                 pass
 
             with pytest.raises(TypeError) as excinfo:
