@@ -82,6 +82,11 @@ class AsyncAutoWrapperType(type):
 
 
 class AsyncPath(metaclass=AsyncAutoWrapperType):
+    """:class:`trio.AsyncPath` is a :class:`~pathlib.Path` wrapper executes concrete
+    non-computational Path methods in :meth:`trio.run_in_worker_thread`.
+
+    """
+
     _wraps = Path
     _forwards = PurePath
     _forward_magic = [
@@ -122,6 +127,10 @@ class AsyncPath(metaclass=AsyncAutoWrapperType):
         func = partial(self._wrapped.open, *args, **kwargs)
         value = await trio.run_in_worker_thread(func)
         return trio.wrap_file(value)
+
+
+# not documented upstream
+delattr(AsyncPath.absolute, '__doc__')
 
 
 # python3.5 compat

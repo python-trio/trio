@@ -388,9 +388,13 @@ Asynchronous disk I/O
 Asynchronous file objects
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. currentmodule:: trio
-
 .. autoclass:: AsyncIOWrapper
+   :members:
+
+Asynchronous path objects
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: AsyncPath
    :members:
 
 Subprocesses
