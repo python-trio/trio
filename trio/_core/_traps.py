@@ -4,6 +4,8 @@ import types
 import enum
 from functools import wraps
 
+import attr
+
 from . import _hazmat
 
 __all__ = ["yield_briefly_no_cancel", "Abort", "yield_indefinitely"]
@@ -19,13 +21,21 @@ def asyncfunction(fn):
         return await fn(*args, **kwargs)
     return wrapper
 
+
+# This class object is used as a singleton.
+# Not exported in the trio._core namespace, but imported directly by _run.
+class YieldBrieflyNoCancel:
+    pass
+
+
 @_hazmat
 @asyncfunction
 def yield_briefly_no_cancel():
     """Introduce a schedule point, but not a cancel point.
 
     """
-    return (yield (yield_briefly_no_cancel,)).unwrap()
+    return (yield YieldBrieflyNoCancel).unwrap()
+
 
 # Return values for abort functions
 @_hazmat
@@ -41,9 +51,16 @@ class Abort(enum.Enum):
     SUCCEEDED = 1
     FAILED = 2
 
+
+# Not exported in the trio._core namespace, but imported directly by _run.
+@attr.s(frozen=True)
+class YieldIndefinitely:
+    abort_func = attr.ib()
+
+
 @_hazmat
 @asyncfunction
-def yield_indefinitely(abort_fn):
+def yield_indefinitely(abort_func):
     """Put the current task to sleep, with cancellation support.
 
     This is the lowest-level API for blocking in trio. Every time a
@@ -57,7 +74,7 @@ def yield_indefinitely(abort_fn):
     arrangements for "someone" to call :func:`reschedule` on the current task
     at some later point.
 
-    Then you call :func:`yield_indefinitely`, passing in ``abort_fn``, an
+    Then you call :func:`yield_indefinitely`, passing in ``abort_func``, an
     "abort callback".
 
     (Terminology: in trio, "aborting" is the process of attempting to
@@ -70,10 +87,10 @@ def yield_indefinitely(abort_fn):
        was passed to :func:`reschedule`.
 
     2. The call's context transitions to a cancelled state (e.g. due to a
-       timeout expiring). When this happens, the ``abort_fn`` is called. It's
+       timeout expiring). When this happens, the ``abort_func`` is called. It's
        interface looks like::
 
-           def abort_fn(raise_cancel):
+           def abort_func(raise_cancel):
                ...
                return trio.hazmat.Abort.SUCCEEDED  # or FAILED
 
@@ -91,14 +108,14 @@ def yield_indefinitely(abort_fn):
        the cancellation altogether: wait for the operation to complete and
        then reschedule and continue as normal. (For example, this is what
        :func:`trio.run_in_worker_thread` does if cancellation is disabled.)
-       The other possibility is that the ``abort_fn`` does succeed in
+       The other possibility is that the ``abort_func`` does succeed in
        cancelling the operation, but for some reason isn't able to report that
        right away. (Example: on Windows, it's possible to request that an
        async ("overlapped") I/O operation be cancelled, but this request is
        *also* asynchronous – you don't find out until later whether the
        operation was actually cancelled or not.)  To report a delayed
        cancellation, then you should reschedule the task yourself, and call
-       the ``raise_cancel`` callback passed to ``abort_fn`` to raise a
+       the ``raise_cancel`` callback passed to ``abort_func`` to raise a
        :exc:`~trio.Cancelled` (or possibly :exc:`KeyboardInterrupt`) exception
        into this task. Either of the approaches sketched below can work::
 
@@ -122,12 +139,12 @@ def yield_indefinitely(abort_fn):
               # raises the error
               outer_raise_cancel()
 
-       In any case it's guaranteed that we only call the ``abort_fn`` at most
+       In any case it's guaranteed that we only call the ``abort_func`` at most
        once per call to :func:`yield_indefinitely`.
 
     .. warning::
 
-       If your ``abort_fn`` raises an error, or returns any value other than
+       If your ``abort_func`` raises an error, or returns any value other than
        :data:`Abort.SUCCEEDED` or :data:`Abort.FAILED`, then trio will crash
        violently. Be careful! Similarly, it is entirely possible to deadlock a
        trio program by failing to reschedule a blocked task, or cause havoc by
@@ -135,4 +152,4 @@ def yield_indefinitely(abort_fn):
        above about how you should use a higher-level API if at all possible?
 
     """
-    return (yield (yield_indefinitely, abort_fn)).unwrap()
+    return (yield YieldIndefinitely(abort_func)).unwrap()

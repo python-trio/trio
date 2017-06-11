@@ -25,6 +25,7 @@ from ._multierror import MultiError
 from ._result import Result, Error, Value
 from ._traps import (
     yield_briefly_no_cancel, Abort, yield_indefinitely,
+    YieldBrieflyNoCancel, YieldIndefinitely,
 )
 from ._ki import (
     LOCALS_KEY_KI_PROTECTION_ENABLED, currently_ki_protected, ki_manager,
@@ -635,6 +636,11 @@ class Runner:
     def spawn_impl(
             self, async_fn, args, nursery, name,
             *, ki_protection_enabled=False):
+
+        ######
+        # Make sure the nursery is in working order
+        ######
+
         # This sorta feels like it should be a method on nursery, except it
         # has to handle nursery=None for init. And it touches the internals of
         # all kinds of objects.
@@ -642,9 +648,84 @@ class Runner:
             raise RuntimeError("Nursery is closed to new arrivals")
         if nursery is None:
             assert self.init_task is None
-        coro = async_fn(*args)
+
+        ######
+        # Call the function and get the coroutine object, while giving helpful
+        # errors for common mistakes.
+        ######
+
+        def _return_value_looks_like_wrong_library(value):
+            # Returned by legacy @asyncio.coroutine functions, which includes
+            # a surprising proportion of asyncio builtins.
+            if inspect.isgenerator(value):
+                return True
+            # The protocol for detecting an asyncio Future-like object
+            if getattr(value, "_asyncio_future_blocking", None) is not None:
+                return True
+            # asyncio.Future doesn't have _asyncio_future_blocking until
+            # 3.5.3. We don't want to import asyncio, but this janky check
+            # should work well enough for our purposes. And it also catches
+            # tornado Futures and twisted Deferreds. By the time we're calling
+            # this function, we already know something has gone wrong, so a
+            # heuristic is pretty safe.
+            if value.__class__.__name__ in ("Future", "Deferred"):
+                return True
+            return False
+
+        try:
+            coro = async_fn(*args)
+        except TypeError:
+            # Give good error for: nursery.spawn(trio.sleep(1))
+            if inspect.iscoroutine(async_fn):
+                raise TypeError(
+                    "trio was expecting an async function, but instead it got "
+                    "a coroutine object {async_fn!r}\n"
+                    "\n"
+                    "Probably you did something like:\n"
+                    "\n"
+                    "  trio.run({async_fn.__name__}(...))       # incorrect!\n"
+                    "  nursery.spawn({async_fn.__name__}(...))  # incorrect!\n"
+                    "\n"
+                    "Instead, you want (notice the parentheses!):\n"
+                    "\n"
+                    "  trio.run({async_fn.__name__}, ...)       # correct!\n"
+                    "  nursery.spawn({async_fn.__name__}, ...)  # correct!"
+                    .format(async_fn=async_fn)) from None
+
+            # Give good error for: nursery.spawn(asyncio.sleep(1))
+            if _return_value_looks_like_wrong_library(async_fn):
+                raise TypeError(
+                    "trio was expecting an async function, but instead it got "
+                    "{!r} – are you trying to use a library written for "
+                    "asyncio/twisted/tornado or similar? That won't work "
+                    "without some sort of compatibility shim."
+                    .format(async_fn)) from None
+
+            raise
+
+        # We can't check iscoroutinefunction(async_fn), because that will fail
+        # for things like functools.partial objects wrapping an async
+        # function. So we have to just call it and then check whether the
+        # result is a coroutine object.
         if not inspect.iscoroutine(coro):
-            raise TypeError("spawn expected an async function")
+            # Give good error for: nursery.spawn(asyncio.sleep, 1)
+            print(coro)
+            if _return_value_looks_like_wrong_library(coro):
+                raise TypeError(
+                    "spawn got unexpected {!r} – are you trying to use a "
+                    "library written for asyncio/twisted/tornado or similar? "
+                    "That won't work without some sort of compatibility shim."
+                    .format(coro))
+            # Give good error for: nursery.spawn(some_sync_fn)
+            raise TypeError(
+                "trio expected an async function, but {!r} appears to be "
+                "synchronous"
+                .format(getattr(async_fn, "__qualname__", async_fn)))
+
+        ######
+        # Set up the Task object
+        ######
+
         if name is None:
             name = async_fn
         if isinstance(name, functools.partial):
@@ -1132,18 +1213,6 @@ def run(async_fn, *args, clock=None, instruments=[],
     if hasattr(GLOBAL_RUN_CONTEXT, "runner"):
         raise RuntimeError("Attempted to call run() from inside a run()")
 
-    if inspect.iscoroutine(async_fn):
-        raise TypeError(
-            "trio.run received unexpected coroutine object {}.\n"
-            "Probably you did something like this:\n"
-            "\n"
-            "    trio.run(my_function(1))  # incorrect!\n"
-            "\n"
-            "Instead, do this:\n"
-            "\n"
-            "    trio.run(my_function, 1)  # correct!"
-            .format(async_fn))
-
     if clock is None:
         clock = SystemClock()
     instruments = list(instruments)
@@ -1283,18 +1352,26 @@ def run_impl(runner, async_fn, args):
                 runner.task_exited(task, final_result)
             else:
                 task._schedule_points += 1
-                yield_fn, *args = msg
-                if yield_fn is yield_briefly_no_cancel:
+                if msg is YieldBrieflyNoCancel:
                     runner.reschedule(task)
-                else:
-                    assert yield_fn is yield_indefinitely
+                elif type(msg) is YieldIndefinitely:
                     task._cancel_points += 1
-                    task._abort_func, = args
+                    task._abort_func = msg.abort_func
                     # KI is "outside" all cancel scopes, so check for it
                     # before checking for regular cancellation:
                     if runner.ki_pending and task is runner.main_task:
                         task._attempt_delivery_of_pending_ki()
                     task._attempt_delivery_of_any_pending_cancel()
+                else:
+                    exc = TypeError(
+                        "trio.run received unrecognized yield message {!r}. "
+                        "Are you trying to use a library written for some "
+                        "other framework like asyncio? That won't work "
+                        "without some kind of compatibility shim."
+                        .format(msg))
+                    # There's really no way to resume this task, so abandon it
+                    # and propagate the exception into the task's spawner.
+                    runner.task_exited(task, Error(exc))
 
             runner.instrument("after_task_step", task)
             del GLOBAL_RUN_CONTEXT.task
