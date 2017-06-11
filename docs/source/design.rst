@@ -217,18 +217,20 @@ cancel+schedule point, regardless of runtime conditions. This is
 because we want it to be possible to determine whether some code has
 "enough" cancel/schedule points by reading the source code.
 
-In fact, to make this even simpler, we require that this be
-determined without looking at the function arguments: each
-*function* is either a cancel+schedule point, or it isn't.
+In fact, to make this even simpler, we make it so you don't even have
+to look at the function arguments: each *function* is either a
+cancel+schedule point on *every* call or on *no* calls.
 
-Observation: rule 2 implies that any operation that *sometimes* blocks
-is *always* a cancel+schedule point.
+Observation: since blocking is always a cancel+schedule point, rule 2
+implies that any function that *sometimes* blocks is *always* a
+cancel+schedule point.
 
-So that gives us a number of cancel+schedule points. Are there any
-others? Our answer is: no. It's easy to add new points explicitly
-(throw in a ``sleep(0)`` or whatever) but hard to get rid of them when
-you don't want them. (And this is a real issue – "too many potential
-cancel points" is definitely a tension `I've felt
+So that gives us a number of cancel+schedule points: all the functions
+that can block. Are there any others? Trio's answer is: no. It's easy
+to add new points explicitly (throw in a ``sleep(0)`` or whatever) but
+hard to get rid of them when you don't want them. (And this is a real
+issue – "too many potential cancel points" is definitely a tension
+`I've felt
 <https://github.com/dabeaz/curio/issues/149#issuecomment-269745283>`__
 while trying to build things like task supervisors in curio.) And we
 expect that most trio programs will execute potentially-blocking
@@ -236,33 +238,36 @@ operations "often enough" to produce reasonable behavior. So, rule 3:
 the *only* cancel+schedule points are the potentially-blocking
 operations.
 
-And then there's the question of how to effectively communicate this
-information to the user. We want some way to mark out a category of
-functions that might block or trigger a task switch, so that they're
-clearly distinguished from functions that don't do this. Wouldn't it
-be nice if there were some Python feature, that naturally divided
-functions into two categories, and maybe put some sort of special
-syntactic marking on with the functions that can do weird things like
-block and task switch...? Rule 4: in trio, only the potentially
-blocking functions are async. So e.g. :meth:`Event.wait` is async, but
-:meth:`Event.set` is sync.
+And now that we know where our cancel+schedule points are, there's the
+question of how to effectively communicate this information to the
+user. We want some way to mark out a category of functions that might
+block or trigger a task switch, so that they're clearly distinguished
+from functions that don't do this. Wouldn't it be nice if there were
+some Python feature, that naturally divided functions into two
+categories, and maybe put some sort of special syntactic marking on
+with the functions that can do weird things like block and task
+switch...? What a coincidence, that's exactly how async functions
+work! Rule 4: in trio, only the potentially blocking functions are
+async. So e.g. :meth:`Event.wait` is async, but :meth:`Event.set` is
+sync.
 
 Summing up: out of what's actually a pretty vast space of design
 possibilities, we declare by fiat that when it comes to trio
 primitives, all of these categories are identical:
 
 * async functions
-* functions that can block
-* functions where you need to be prepared to handle cancellation
-* functions that are guaranteed to take care of checking for cancellation
-* functions where you need to be prepared for a task switch
+* functions that can, under at least some circumstances, block
+* functions where the caller needs to be prepared to handle
+  potential :exc:`Cancelled` exceptions
+* functions that are guaranteed to notice any pending cancellation
+* functions where you need to be prepared for a potential task switch
 * functions that are guaranteed to take care of switching tasks if
   appropriate
 
 This requires some non-trivial work internally – it actually takes a
 fair amount of care to make those 4 cancel/schedule categories line
 up, and there are some shenanigans required to let sync and async APIs
-interact with the run loop on an equal footing. But this is all
+both interact with the run loop on an equal footing. But this is all
 invisible to the user, we feel that it pays off in terms of usability
 and correctness.
 
@@ -285,15 +290,17 @@ Exceptions always propagate
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Another rule that trio follows is that *exceptions must always
-propagate*. This is like the zen line about "Errors should never pass
-silently", except that in other concurrency libraries (Python threads,
-asyncio, curio, ...), it's fairly common to end up with an
-undeliverable exception, which just gets printed to stderr and then
-discarded. While we understand the pragmatic constraints that
-motivated these libraries to adopt this approach, we feel that there
-are far too many situations where no human will ever look at stderr
-and notice the problem, and insist that trio APIs find a way to
-propagate exceptions "up the stack" – whatever that might mean.
+propagate*. This is like the `zen
+<https://www.python.org/dev/peps/pep-0020/>`__ line about "Errors
+should never pass silently", except that in every other concurrency
+library for Python (threads, asyncio, curio, ...), it's fairly common
+to end up with an undeliverable exception, which just gets printed to
+stderr and then discarded. While we understand the pragmatic
+constraints that motivated these libraries to adopt this approach, we
+feel that there are far too many situations where no human will ever
+look at stderr and notice the problem, and insist that trio APIs find
+a way to propagate exceptions "up the stack" – whatever that might
+mean.
 
 This is often a challenging rule to follow – for example, the call
 soon code has to jump through some hoops to make it happen – but its

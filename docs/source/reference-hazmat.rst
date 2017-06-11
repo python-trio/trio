@@ -141,8 +141,10 @@ TODO: these are currently more of a sketch than anything real. See
    :with: queue
 
 
-System tasks
-============
+Global state: system tasks and run-local storage
+================================================
+
+.. autoclass:: RunLocal
 
 .. autofunction:: spawn_system_task
 

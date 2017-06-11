@@ -1105,10 +1105,85 @@ Result objects
    create and access :class:`Result` objects from any thread you like.
 
 
-Task-local storage and run-local storage
-----------------------------------------
+Task-local storage
+------------------
 
-`Not implemented yet! <https://github.com/python-trio/trio/issues/2>`__
+Suppose you're writing a server that responds to network requests, and
+you log some information about each request as you process it. If the
+server is busy and there are multiple requests being handled at the
+same time, then you might end up with logs like this:
+
+.. code-block:: none
+
+   Request handler started
+   Request handler started
+   Request handler finished
+   Request handler finished
+
+In this log, it's hard to know which lines came from which
+request. (Did the request that started first also finish first, or
+not?) One way to solve this is to assign each request a unique
+identifier, and then include this identifier in each log message:
+
+.. code-block:: none
+
+   request 1: Request handler started
+   request 2: Request handler started
+   request 2: Request handler finished
+   request 1: Request handler finished
+
+This way we can see that request 1 was slow: it started before request
+2 but finished afterwards. (You can also get `much fancier
+<http://opentracing.io/documentation/>`__, but this is enough for an
+example.)
+
+Now, here's the problem: how does the logging code know what the
+request identifier is? One approach would be to explicitly pass it
+around to every function that might want to emit logs... but that's
+basically every function, because you never know when you might need
+to add a ``log.debug(...)`` call to some utility function buried deep
+in the call stack, and when you're in the middle of a debugging a
+nasty problem that last thing you want is to have to stop first and
+refactor everything to pass through the request identifier! Sometimes
+this is the right solution, but other times it would be much more
+convenient if we could store the identifier in a global variable, so
+that the logging function could look it up whenever it needed
+it. Except... a global variable can only have one value at a time, so
+if we have multiple handlers running at once then this isn't going to
+work. What we need is something that's *like* a global variable, but
+that can have different values depending on which request handler is
+accessing it.
+
+That's what :class:`trio.TaskLocal` gives you:
+
+.. autoclass:: TaskLocal
+
+And here's a toy example demonstrating how to use :class:`TaskLocal`:
+
+.. literalinclude:: reference-core/tasklocal-example.py
+
+Example output (yours may differ slightly):
+
+.. code-block:: none
+
+   request 1: Request handler started
+   request 2: Request handler started
+   request 0: Request handler started
+   request 2: Helper task a started
+   request 2: Helper task b started
+   request 1: Helper task a started
+   request 1: Helper task b started
+   request 0: Helper task b started
+   request 0: Helper task a started
+   request 2: Helper task b finished
+   request 2: Helper task a finished
+   request 2: Request received finished
+   request 0: Helper task a finished
+   request 1: Helper task a finished
+   request 1: Helper task b finished
+   request 1: Request received finished
+   request 0: Helper task b finished
+   request 0: Request received finished
 
 
 .. _synchronization:
