@@ -386,7 +386,7 @@ Asynchronous disk I/O
 Asynchronous path objects
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: AsyncPath
+.. autoclass:: Path
    :members:
 
 Subprocesses

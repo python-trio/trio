@@ -10,12 +10,12 @@ from trio._file_io import AsyncIOWrapper
 @pytest.fixture
 def path(tmpdir):
     p = str(tmpdir.join('test'))
-    return trio.AsyncPath(p)
+    return trio.Path(p)
 
 
 def method_pair(path, method_name):
     path = pathlib.Path(path)
-    async_path = trio.AsyncPath(path)
+    async_path = trio.Path(path)
     return getattr(path, method_name), getattr(async_path, method_name)
 
 
@@ -41,7 +41,7 @@ async def test_async_method_signature(path):
     # use `resolve` as a representative of wrapped methods
 
     assert path.resolve.__name__ == 'resolve'
-    assert path.resolve.__qualname__ == 'AsyncPath.resolve'
+    assert path.resolve.__qualname__ == 'Path.resolve'
 
     assert 'pathlib.Path.resolve' in path.resolve.__doc__
 
@@ -70,7 +70,7 @@ async def test_async_methods_rewrap(method_name):
     result = method()
     async_result = await async_method()
 
-    assert isinstance(async_result, trio.AsyncPath)
+    assert isinstance(async_result, trio.Path)
     assert str(result) == str(async_result)
 
 
@@ -78,16 +78,16 @@ async def test_forward_methods_rewrap(path, tmpdir):
     with_name = path.with_name('foo')
     with_suffix = path.with_suffix('.py')
 
-    assert isinstance(with_name, trio.AsyncPath)
+    assert isinstance(with_name, trio.Path)
     assert with_name == tmpdir.join('foo')
-    assert isinstance(with_suffix, trio.AsyncPath)
+    assert isinstance(with_suffix, trio.Path)
     assert with_suffix == tmpdir.join('test.py')
 
 
 async def test_repr():
-    path = trio.AsyncPath('.')
+    path = trio.Path('.')
 
-    assert repr(path) == 'AsyncPath(.)'
+    assert repr(path) == 'trio.Path(.)'
 
 
 class MockWrapped:

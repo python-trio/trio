@@ -1,13 +1,13 @@
 from functools import wraps, partial
 import os
 import types
-from pathlib import Path, PurePath
+import pathlib
 
 import trio
 from trio._util import async_wraps
 
 
-__all__ = ['AsyncPath']
+__all__ = ['Path']
 
 
 def _forward_factory(cls, attr_name, attr):
@@ -24,7 +24,7 @@ def _forward_factory(cls, attr_name, attr):
 
 
 def thread_wrapper_factory(cls, meth_name):
-    @async_wraps(cls, Path, meth_name)
+    @async_wraps(cls, pathlib.Path, meth_name)
     async def wrapper(self, *args, **kwargs):
         meth = getattr(self._wrapped, meth_name)
         func = partial(meth, *args, **kwargs)
@@ -81,21 +81,21 @@ class AsyncAutoWrapperType(type):
             setattr(cls, attr_name, wrapper)
 
 
-class AsyncPath(metaclass=AsyncAutoWrapperType):
-    """:class:`trio.AsyncPath` is a :class:`~pathlib.Path` wrapper executes concrete
-    non-computational Path methods in :meth:`trio.run_in_worker_thread`.
+class Path(metaclass=AsyncAutoWrapperType):
+    """A :class:`~pathlib.Path` wrapper that executes non-computational Path methods in
+    :meth:`trio.run_in_worker_thread`.
 
     """
 
-    _wraps = Path
-    _forwards = PurePath
+    _wraps = pathlib.Path
+    _forwards = pathlib.PurePath
     _forward_magic = [
         '__str__', '__bytes__',
         '__eq__', '__lt__', '__le__', '__gt__', '__ge__'
     ]
 
     def __new__(cls, *args, **kwargs):
-        path = Path(*args, **kwargs)
+        path = pathlib.Path(*args, **kwargs)
 
         self = cls._from_wrapped(path)
         return self
@@ -109,7 +109,7 @@ class AsyncPath(metaclass=AsyncAutoWrapperType):
         return super().__dir__() + self._forward
 
     def __repr__(self):
-        return 'AsyncPath({})'.format(str(self))
+        return 'trio.Path({})'.format(str(self))
 
     def __fspath__(self):
         try:
@@ -130,9 +130,9 @@ class AsyncPath(metaclass=AsyncAutoWrapperType):
 
 
 # not documented upstream
-delattr(AsyncPath.absolute, '__doc__')
+delattr(Path.absolute, '__doc__')
 
 
 # python3.5 compat
 if hasattr(os, 'PathLike'):  # pragma: no cover
-    os.PathLike.register(AsyncPath)
+    os.PathLike.register(Path)
