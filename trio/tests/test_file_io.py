@@ -7,7 +7,7 @@ from unittest.mock import patch, sentinel
 
 import trio
 from trio import _core
-from trio._file_io._file_io import _FILE_SYNC_ATTRS, _FILE_ASYNC_METHODS
+from trio._file_io._file_io import AsyncIOWrapper, _FILE_SYNC_ATTRS, _FILE_ASYNC_METHODS
 
 
 @pytest.fixture
@@ -119,14 +119,14 @@ async def test_async_methods_match_wrapper(async_file, wrapped):
 async def test_open(path):
     f = await trio.open_file(path, 'w')
 
-    assert isinstance(f, trio.AsyncIOWrapper)
+    assert isinstance(f, AsyncIOWrapper)
 
     await f.close()
 
 
 async def test_open_context_manager(path):
     async with await trio.open_file(path, 'w') as f:
-        assert isinstance(f, trio.AsyncIOWrapper)
+        assert isinstance(f, AsyncIOWrapper)
         assert not f.closed
 
     assert f.closed
@@ -165,5 +165,5 @@ async def test_detach_rewraps_asynciobase():
 
     detached = await async_file.detach()
 
-    assert isinstance(detached, trio.AsyncIOWrapper)
+    assert isinstance(detached, AsyncIOWrapper)
     assert detached.wrapped == raw

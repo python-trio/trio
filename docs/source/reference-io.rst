@@ -383,14 +383,6 @@ Asynchronous disk I/O
 
 .. autofunction:: wrap_file
 
-.. _asynchronous-file-objects:
-
-Asynchronous file objects
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: AsyncIOWrapper
-   :members:
-
 Asynchronous path objects
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 

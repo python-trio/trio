@@ -4,6 +4,7 @@ import pytest
 
 import trio
 from trio._file_io._path import AsyncAutoWrapperType as Type
+from trio._file_io._file_io import AsyncIOWrapper
 
 
 @pytest.fixture
@@ -20,7 +21,7 @@ def method_pair(path, method_name):
 
 async def test_open_is_async_context_manager(path):
     async with await path.open('w') as f:
-        assert isinstance(f, trio.AsyncIOWrapper)
+        assert isinstance(f, AsyncIOWrapper)
 
     assert f.closed
 
