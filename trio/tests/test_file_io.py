@@ -3,7 +3,7 @@ import tempfile
 
 import pytest
 from unittest import mock
-from unittest.mock import patch, sentinel
+from unittest.mock import sentinel
 
 import trio
 from trio import _core
@@ -35,7 +35,7 @@ def test_wrapped_property(async_file, wrapped):
 
 
 def test_dir_matches_wrapped(async_file, wrapped):
-    attrs = _FILE_SYNC_ATTRS + _FILE_ASYNC_METHODS
+    attrs = _FILE_SYNC_ATTRS.union(_FILE_ASYNC_METHODS)
 
     # all supported attrs in wrapped should be available in async_file
     assert all(attr in dir(async_file) for attr in attrs if attr in dir(wrapped))

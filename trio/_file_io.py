@@ -8,23 +8,23 @@ from trio._util import aiter_compat, async_wraps
 
 __all__ = ['open_file', 'wrap_file']
 
-_FILE_SYNC_ATTRS = [
+_FILE_SYNC_ATTRS = {
     'closed',
     'encoding', 'errors', 'fileno', 'isatty', 'newlines',
     'readable', 'seekable', 'writable',
     # not defined in *IOBase:
     'buffer', 'raw', 'line_buffering', 'closefd', 'name', 'mode',
     'getvalue', 'getbuffer',
-]
+}
 
-_FILE_ASYNC_METHODS = [
+_FILE_ASYNC_METHODS = {
     'flush',
     'read', 'read1', 'readall', 'readinto', 'readline', 'readlines',
     'seek', 'tell', 'truncate',
     'write', 'writelines',
     # not defined in *IOBase:
     'readinto1', 'peek',
-]
+}
 
 
 class AsyncIOWrapper:
