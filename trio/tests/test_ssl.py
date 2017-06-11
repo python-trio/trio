@@ -1034,27 +1034,3 @@ async def test_getpeercert():
     assert server.getpeercert() is None
     assert ((("commonName", "trio-test-1.example.org"),)
             in client.getpeercert()["subject"])
-
-# maybe a test of presenting a client cert on a renegotiation?
-
-# fix testing.py namespace
-# maybe by promoting it to a package
-
-# should unwrap switch to a mode where we only receive 1 byte at a time? this
-# would cause a CPU spike when unwrapping, but probably not *too* much (?)
-# since we're not talking about a lot of data? I think the actual close_notify
-# record is 32 bytes long (though there might be arbitrary amounts of data
-# stacked up ahead of it... but this really shouldn't happen during a
-# coordinated unwrap). Of course unwrap is basically never ever used (twisted
-# doesn't even implement it), so not sure how much it's worth worrying about
-# this...
-
-# add something to trio_test to check for ResourceWarning
-# (unfortunately it also can't be made an error, so I guess we add an always
-# filter and then replace warnings.showwarning?)
-
-# file Yury bug for making it easy+cheap to learn about "... not awaited"
-
-# maybe add DeprecationWarning error filter to test suite
-
-# Glyph says that trio.ssl shouldn't be imported by default
