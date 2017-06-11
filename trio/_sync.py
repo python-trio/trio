@@ -594,7 +594,7 @@ class Queue:
 
     @_core.enable_ki_protection
     async def get(self):
-        """Get an object from the queue, blocking is necessary.
+        """Get an object from the queue, blocking if necessary.
 
         Returns:
           object: The dequeued object.
