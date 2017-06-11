@@ -43,8 +43,12 @@ def test_dir_matches_wrapped(async_file, wrapped):
     assert not any(attr in dir(async_file) for attr in attrs if attr not in dir(wrapped))
 
 
-def test_unsupported_not_forwarded(async_file):
-    async_file._wrapped = sentinel
+def test_unsupported_not_forwarded():
+    class FakeFile(io.IOBase):
+        def unsupported_attr(self):
+            pass
+
+    async_file = trio.wrap_file(FakeFile())
 
     assert hasattr(async_file.wrapped, 'unsupported_attr')
 
@@ -132,8 +136,8 @@ async def test_open_context_manager(path):
     assert f.closed
 
 
-async def test_async_iter(async_file):
-    async_file._wrapped = io.StringIO('test\nfoo\nbar')
+async def test_async_iter():
+    async_file = trio.wrap_file(io.StringIO('test\nfoo\nbar'))
     expected = iter(list(async_file.wrapped))
     async_file.wrapped.seek(0)
 
