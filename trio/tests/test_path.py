@@ -3,8 +3,8 @@ import pathlib
 import pytest
 
 import trio
-from trio._file_io._path import AsyncAutoWrapperType as Type
-from trio._file_io._file_io import AsyncIOWrapper
+from trio._path import AsyncAutoWrapperType as Type
+from trio._file_io import AsyncIOWrapper
 
 
 @pytest.fixture

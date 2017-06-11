@@ -7,7 +7,7 @@ from unittest.mock import patch, sentinel
 
 import trio
 from trio import _core
-from trio._file_io._file_io import AsyncIOWrapper, _FILE_SYNC_ATTRS, _FILE_ASYNC_METHODS
+from trio._file_io import AsyncIOWrapper, _FILE_SYNC_ATTRS, _FILE_ASYNC_METHODS
 
 
 @pytest.fixture

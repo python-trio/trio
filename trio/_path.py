@@ -4,7 +4,7 @@ import types
 from pathlib import Path, PurePath
 
 import trio
-from trio._file_io._helpers import async_wraps
+from trio._util import async_wraps
 
 
 __all__ = ['AsyncPath']

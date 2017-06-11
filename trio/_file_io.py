@@ -3,8 +3,7 @@ import io
 
 import trio
 from trio import _core
-from trio._util import aiter_compat
-from trio._file_io._helpers import async_wraps
+from trio._util import aiter_compat, async_wraps
 
 
 __all__ = ['open_file', 'wrap_file']
