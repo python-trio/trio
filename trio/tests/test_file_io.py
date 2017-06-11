@@ -31,7 +31,7 @@ def test_wrap_invalid():
 
 
 def test_wrapped_property(async_file, wrapped):
-    assert async_file.wrapped == wrapped
+    assert async_file.wrapped is wrapped
 
 
 def test_dir_matches_wrapped(async_file, wrapped):
@@ -61,7 +61,7 @@ def test_sync_attrs_forwarded(async_file, wrapped):
         if attr_name not in dir(async_file):
             continue
 
-        assert getattr(async_file, attr_name) == getattr(wrapped, attr_name)
+        assert getattr(async_file, attr_name) is getattr(wrapped, attr_name)
 
 
 def test_sync_attrs_match_wrapper(async_file, wrapped):
@@ -81,7 +81,7 @@ def test_async_methods_generated_once(async_file):
         if meth_name not in dir(async_file):
             continue
 
-        assert getattr(async_file, meth_name) == getattr(async_file, meth_name)
+        assert getattr(async_file, meth_name) is getattr(async_file, meth_name)
 
 
 def test_async_methods_signature(async_file):
@@ -138,14 +138,14 @@ async def test_open_context_manager(path):
 
 async def test_async_iter():
     async_file = trio.wrap_file(io.StringIO('test\nfoo\nbar'))
-    expected = iter(list(async_file.wrapped))
+    expected = list(async_file.wrapped)
+    result = []
     async_file.wrapped.seek(0)
 
-    async for actual in async_file:
-        assert actual == next(expected)
+    async for line in async_file:
+        result.append(line)
 
-    with pytest.raises(StopIteration):
-        next(expected)
+    assert result == expected
 
 
 async def test_close_cancelled(path):
@@ -156,7 +156,8 @@ async def test_close_cancelled(path):
         with pytest.raises(_core.Cancelled):
             await f.write('a')
 
-        await f.close()
+        with pytest.raises(_core.Cancelled):
+            await f.close()
 
     assert f.closed
 
@@ -170,4 +171,4 @@ async def test_detach_rewraps_asynciobase():
     detached = await async_file.detach()
 
     assert isinstance(detached, AsyncIOWrapper)
-    assert detached.wrapped == raw
+    assert detached.wrapped is raw
