@@ -3,6 +3,19 @@
 I/O in Trio
 ===========
 
+.. note::
+
+   Please excuse our dust! `geocities-construction-worker.gif
+   <http://www.textfiles.com/underconstruction/>`__
+
+   You're looking at the documentation for trio's development branch,
+   which is currently about half-way through implementing a proper
+   high-level networking API. If you want to know how to do networking
+   in trio *right now*, then you might want to jump down to read about
+   :mod:`trio.socket`, which is the already-working lower-level
+   API. Alternatively, you can read on for a (somewhat disorganized)
+   preview of coming attractions.
+
 .. _abstract-stream-api:
 
 The abstract Stream API
@@ -118,6 +131,9 @@ streams interface, you should also check out :ref:`testing-streams` in
 Sockets and networking
 ~~~~~~~~~~~~~~~~~~~~~~
 
+The high-level network interface is built on top of our stream
+abstraction.
+
 .. autoclass:: SocketStream
    :members:
    :show-inheritance:
@@ -151,7 +167,13 @@ Low-level sockets and networking
 
 .. module:: trio.socket
 
-The :mod:`trio.socket` module provides trio's basic networking API.
+The :mod:`trio.socket` module provides trio's basic low-level
+networking API. If you're doing ordinary things with stream-oriented
+connections over IPv4/IPv6/Unix domain sockets, then you probably want
+to stick to the high-level API described above. If you want to use
+UDP, or exotic address families like ``AF_BLUETOOTH``, or otherwise
+get direct access to all the quirky bits of your system's networking
+API, then you're in the right place.
 
 
 :mod:`trio.socket`: top-level exports
