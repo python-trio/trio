@@ -191,12 +191,17 @@ convert a standard library socket into a trio socket:
 
 .. autofunction:: from_stdlib_socket
 
+For name lookup, Trio provides the standard :func:`getaddrinfo` and
+:func:`getnameinfo`, but with small changes:
+
+.. autofunction:: getaddrinfo
+
+.. autofunction:: getnameinfo
+
 The following functions have identical interfaces to their standard
 library version, but are now ``async`` functions, so you need to use
 ``await`` to call them:
 
-* :func:`~socket.getaddrinfo`
-* :func:`~socket.getnameinfo`
 * :func:`~socket.getfqdn`
 
 Trio intentionally DOES NOT include some obsolete, redundant, or
