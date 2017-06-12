@@ -730,3 +730,10 @@ async def test_getnameinfo():
 
     assert (await tsocket.getnameinfo(("127.0.0.1", 80), tsocket.NI_NUMERICSERV)
             == ("localhost", "80"))
+
+
+async def test_getprotobyname():
+    # These are the constants used in IP header fields, so the numeric values
+    # had *better* be stable across systems...
+    assert await tsocket.getprotobyname("ip") == 0
+    assert await tsocket.getprotobyname("tcp") == 6

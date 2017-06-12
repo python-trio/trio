@@ -80,8 +80,8 @@ if _sys.platform == "win32":
 ################################################################
 
 for _name in [
-        "gaierror", "herror", "gethostname", "getprotobyname", "getservbyname",
-        "getservbyport", "ntohs", "htonl", "htons", "inet_aton", "inet_ntoa",
+        "gaierror", "herror", "gethostname", "getprotobyname", "ntohs",
+        "htonl", "htons", "inet_aton", "inet_ntoa",
         "inet_pton", "inet_ntop", "sethostname", "if_nameindex",
         "if_nametoindex", "if_indextoname",
         ]:
@@ -183,18 +183,16 @@ async def getnameinfo(sockaddr, flags):
 __all__.append("getnameinfo")
 
 
-def _worker_thread_reexport(name):
-    fn = getattr(_stdlib_socket, name)
-    @_wraps(fn, assigned=("__name__", "__doc__"))
-    async def wrapper(*args, **kwargs):
-        # re-import to allow for monkeypatch-based testing
-        fn = getattr(_stdlib_socket, name)
-        return await _run_in_worker_thread(
-            _partial(fn, *args, **kwargs), cancellable=True)
-    globals()[name] = wrapper
-    __all__.append(name)
+async def getprotobyname(name):
+    """Look up a protocol number by name. (Rarely used.)
 
-_worker_thread_reexport("getfqdn")
+    Like :func:`socket.getprotobyname`, but async.
+
+    """
+    return await _run_in_worker_thread(
+        _stdlib_socket.getprotobyname, name, cancellable=True)
+
+__all__.append("getprotobyname")
 
 # obsolete gethostbyname etc. intentionally omitted
 
