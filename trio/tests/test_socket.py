@@ -145,25 +145,34 @@ async def test_getaddrinfo(monkeygai):
             await tsocket.getaddrinfo("asdf", "12345")
 
 
-async def test_getfqdn(monkeypatch):
-    def my_getfqdn(name=""):
-        return "x{}x".format(name)
-    monkeypatch.setattr(stdlib_socket, "getfqdn", my_getfqdn)
-    with assert_yields():
-        assert await tsocket.getfqdn() == "xx"
-    with assert_yields():
-        assert await tsocket.getfqdn("foo") == "xfoox"
-
-
 async def test_getnameinfo():
+    # Trivial test:
     ni_numeric = stdlib_socket.NI_NUMERICHOST | stdlib_socket.NI_NUMERICSERV
     with assert_yields():
         assert (await tsocket.getnameinfo(("127.0.0.1", 1234), ni_numeric)
                 == ("127.0.0.1", "1234"))
+
+    # getnameinfo requires a numeric address as input:
     with assert_yields():
         with pytest.raises(tsocket.gaierror):
-            # getnameinfo requires a numeric address as input
             await tsocket.getnameinfo(("google.com", 80), 0)
+
+    with assert_yields():
+        with pytest.raises(tsocket.gaierror):
+            await tsocket.getnameinfo(("localhost", 80), 0)
+
+    # Blocking call to get expected values:
+    host, service = stdlib_socket.getnameinfo(("127.0.0.1", 80), 0)
+
+    # Some working calls:
+    assert (await tsocket.getnameinfo(("127.0.0.1", 80), 0)
+            == (host, service))
+
+    assert (await tsocket.getnameinfo(("127.0.0.1", 80), tsocket.NI_NUMERICHOST)
+            == ("127.0.0.1", service))
+
+    assert (await tsocket.getnameinfo(("127.0.0.1", 80), tsocket.NI_NUMERICSERV)
+            == (host, "80"))
 
 
 ################################################################
@@ -702,38 +711,6 @@ async def test_idna(monkeygai):
     assert "ok faß.de" == await tsocket.getaddrinfo("faß.de", 80)
     assert "ok faß.de" == await tsocket.getaddrinfo("xn--fa-hia.de", 80)
     assert "ok faß.de" == await tsocket.getaddrinfo(b"xn--fa-hia.de", 80)
-
-
-async def test_getnameinfo():
-    # Only 2-to-4-tuples allowed
-    with assert_yields():
-        with pytest.raises(ValueError):
-            await tsocket.getnameinfo(("127.0.0.1",), 0)
-    with assert_yields():
-        with pytest.raises(ValueError):
-            await tsocket.getnameinfo(("127.0.0.1", 0, 0, 0, 0), 0)
-    with assert_yields():
-        with pytest.raises(ValueError):
-            await tsocket.getnameinfo(["127.0.0.1", 80], 0)
-
-    # Must be numeric
-    with assert_yields():
-        with pytest.raises(ValueError):
-            await tsocket.getnameinfo(("localhost", 80), 0)
-
-    # A working version:
-
-    # Blocking call to get expected values:
-    host, service = stdlib_socket.getnameinfo(("127.0.0.1", 80))
-
-    assert (await tsocket.getnameinfo(("127.0.0.1", 80), 0)
-            == (host, service))
-
-    assert (await tsocket.getnameinfo(("127.0.0.1", 80), tsocket.NI_NUMERICHOST)
-            == ("127.0.0.1", service))
-
-    assert (await tsocket.getnameinfo(("127.0.0.1", 80), tsocket.NI_NUMERICSERV)
-            == (host, "80"))
 
 
 async def test_getprotobyname():

@@ -145,38 +145,9 @@ async def getnameinfo(sockaddr, flags):
     """Look up a name given a numeric address.
 
     Arguments and return values are identical to :func:`socket.getnameinfo`,
-    except:
-
-    * This version is async.
-
-    * This version does *not* perform implicit name resolution. For example,
-      this will raise an error::
-
-         await trio.socket.getnameinfo(("localhost", 80), 0)  # error!
-
-      Instead, use :func:`getaddrinfo` or similar to get a numeric address,
-      and then use that::
-
-         await trio.socket.getnameinfo(("127.0.0.1", 80), 0)  # correct!
+    except that this version is async.
 
     """
-    # stdlib version accepts hostnames; we want to restrict to only numeric
-    # addresses, to avoid complications with IDNA etc. and for consistency
-    # with analogous socket methods.
-    if not isinstance(sockaddr, tuple) or not 2 <= len(sockaddr) <= 4:
-        await _core.yield_briefly()
-        raise ValueError(
-            "expected a (host, port) tuple, not {}".format(sockaddr))
-    host, port, *_ = sockaddr
-    try:
-        _stdlib_socket.getaddrinfo(host, port, flags=_NUMERIC_ONLY)
-    except gaierror as exc:
-        await _core.yield_briefly()
-        if exc.errno == EAI_NONAME:
-            raise ValueError(
-                "expected an already-resolved numeric address, not {}"
-                .format(sockaddr))
-        raise
     return await _run_in_worker_thread(
         _stdlib_socket.getnameinfo, sockaddr, flags, cancellable=True)
 
