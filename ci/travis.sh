@@ -30,7 +30,7 @@ if [ "$USE_PYPY_NIGHTLY" = "1" ]; then
 fi
 
 if [ "$USE_PYPY_RELEASE" = "1" ]; then
-    curl -Lo pypy.tar.bz2 https://bitbucket.org/squeaky/portable-pypy/downloads/pypy3.5-5.7.1-beta-linux_x86_64-portable.tar.bz2
+    curl -Lo pypy.tar.bz2 https://bitbucket.org/squeaky/portable-pypy/downloads/pypy3.5-5.8-beta-linux_x86_64-portable.tar.bz2
     tar xaf pypy.tar.bz2
     # something like "pypy3.5-5.7.1-beta-linux_x86_64-portable"
     PYPY_DIR=$(echo pypy3.5-*)
