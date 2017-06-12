@@ -135,9 +135,8 @@ async def test_type_wraps_private():
     assert not hasattr(MockWrapper, '_private')
 
 
-@pytest.mark.parametrize('other_cls', [pathlib.Path, trio.Path])
-async def test_path_wraps_path(other_cls, path):
-    other = other_cls(path)
+async def test_path_wraps_path(path):
+    other = trio.Path(path)
 
     assert path == other
 

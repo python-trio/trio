@@ -131,6 +131,10 @@ async def open_file(file, mode='r', buffering=-1, encoding=None, errors=None,
         assert f.closed
 
     """
+    # python3.5 compat
+    if isinstance(file, trio.Path):
+        file = file.__fspath__()
+
     _file = wrap_file(await trio.run_in_worker_thread(io.open, file, mode,
                                                       buffering, encoding, errors, newline, closefd, opener))
     return _file
