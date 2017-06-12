@@ -505,26 +505,6 @@ async def test_SocketType_connect_paths():
                 with pytest.raises(_core.Cancelled):
                     await sock.connect(("127.0.0.1", 80))
 
-    # Handling InterruptedError
-    class InterruptySocket(stdlib_socket.socket):
-        def connect(self, *args, **kwargs):
-            if not hasattr(self, "_connect_count"):
-                self._connect_count = 0
-            self._connect_count += 1
-            if self._connect_count < 3:
-                raise InterruptedError
-            else:
-                return super().connect(*args, **kwargs)
-    with tsocket.socket() as sock, tsocket.socket() as listener:
-        listener.bind(("127.0.0.1", 0))
-        listener.listen()
-        # Swap in our weird subclass under the trio.socket.SocketType's nose
-        sock._sock.close()
-        sock._sock = InterruptySocket()
-        with assert_yields():
-            await sock.connect(listener.getsockname())
-        assert sock.getpeername() == listener.getsockname()
-
     # Cancelled in between the connect() call and the connect completing
     with _core.open_cancel_scope() as cancel_scope:
         with tsocket.socket() as sock, tsocket.socket() as listener:
@@ -550,14 +530,17 @@ async def test_SocketType_connect_paths():
             assert sock.fileno() == -1
 
     # Failed connect (hopefully after raising BlockingIOError)
-    with tsocket.socket() as sock, tsocket.socket() as non_listener:
-        # Claim an unused port
-        non_listener.bind(("127.0.0.1", 0))
-        # ...but don't call listen, so we're guaranteed that connect attempts
-        # to it will fail.
+    with tsocket.socket() as sock:
         with assert_yields():
             with pytest.raises(OSError):
-                await sock.connect(non_listener.getsockname())
+                # TCP port 2 is not assigned. Pretty sure nothing will be
+                # listening there. (We used to bind a port and then *not* call
+                # listen() to ensure nothing was listening there, but it turns
+                # out on MacOS if you do this it takes 30 seconds for the
+                # connect to fail. Really. Also if you use a non-routable
+                # address. This way fails instantly though. As long as nothing
+                # is listening on port 2.)
+                await sock.connect(("127.0.0.1", 2))
 
 
 async def test_send_recv_variants():
@@ -659,48 +642,45 @@ async def test_SocketType_sendall():
         # Check a sendall that has to be split into multiple parts (on most
         # platforms... on Windows every send() either succeeds or fails as a
         # whole)
-        async with _core.open_nursery() as nursery:
-            send_task = nursery.spawn(a.sendall, b"x" * BIG)
+        async def sender():
+            data = bytearray(BIG)
+            await a.sendall(data)
+            # sendall uses memoryviews internally, which temporarily "lock"
+            # the object they view. If it doesn't clean them up properly, then
+            # some bytearray operations might raise an error afterwards, which
+            # would be a pretty weird and annoying side-effect to spring on
+            # users. So test that this doesn't happen, by forcing the
+            # bytearray's underlying buffer to be realloc'ed:
+            data += bytes(BIG)
+            # (Note: the above line of code doesn't do a very good job at
+            # testing anything, because:
+            # - on CPython, the refcount GC generally cleans up memoryviews
+            #   for us even if we're sloppy.
+            # - on PyPy3, at least as of 5.7.0, the memoryview code and the
+            #   bytearray code conspire so that resizing never fails – if
+            #   resizing forces the bytearray's internal buffer to move, then
+            #   all memoryview references are automagically updated (!!).
+            #   See:
+            #   https://gist.github.com/njsmith/0ffd38ec05ad8e34004f34a7dc492227
+            # But I'm leaving the test here in hopes that if this ever changes
+            # and we break our implementation of sendall, then we'll get some
+            # early warning...)
+
+        async def receiver():
+            # Make sure the sender fills up the kernel buffers and blocks
             await wait_all_tasks_blocked()
             nbytes = 0
             while nbytes < BIG:
                 nbytes += len(await b.recv(BIG))
-            assert send_task.result is not None
             assert nbytes == BIG
-            with pytest.raises(BlockingIOError):
-                b._sock.recv(1)
 
-    a, b = tsocket.socketpair()
-    with a, b:
-        # Cancel half-way through
         async with _core.open_nursery() as nursery:
-            sent_complete = 0
-            async def sendall_until_cancelled():
-                nonlocal sent_complete
-                # Need to loop to make sure that we actually do block on
-                # Windows
-                while True:
-                    await a.sendall(b"x" * BIG)
-                    sent_complete += BIG
-            send_task = nursery.spawn(sendall_until_cancelled)
-            await wait_all_tasks_blocked()
-            nursery.cancel_scope.cancel()
-        assert type(send_task.result) is _core.Error
-        assert isinstance(send_task.result.error, _core.Cancelled)
-        sent_partial = send_task.result.error.partial_result.bytes_sent
-        a.close()
-        sent_total = 0
-        while True:
-            got = len(await b.recv(BIG))
-            if not got:
-                break
-            sent_total += got
-        assert sent_complete + sent_partial == sent_total
+            nursery.spawn(sender)
+            nursery.spawn(receiver)
 
-    a, b = tsocket.socketpair()
-    with a, b:
-        # A different error
-        a.close()
-        with pytest.raises(OSError) as excinfo:
-            await a.sendall(b"x")
-        assert excinfo.value.partial_result.bytes_sent == 0
+        # We know that we received BIG bytes of NULs so far. Make sure that
+        # was all the data in there.
+        await a.sendall(b"e")
+        assert await b.recv(10) == b"e"
+        a.shutdown(tsocket.SHUT_WR)
+        assert await b.recv(10) == b""

@@ -1,26 +1,193 @@
+.. currentmodule:: trio
+
 I/O in Trio
 ===========
 
+.. note::
+
+   Please excuse our dust! `geocities-construction-worker.gif
+   <http://www.textfiles.com/underconstruction/>`__
+
+   You're looking at the documentation for trio's development branch,
+   which is currently about half-way through implementing a proper
+   high-level networking API. If you want to know how to do networking
+   in trio *right now*, then you might want to jump down to read about
+   :mod:`trio.socket`, which is the already-working lower-level
+   API. Alternatively, you can read on for a (somewhat disorganized)
+   preview of coming attractions.
+
+.. _abstract-stream-api:
+
+The abstract Stream API
+-----------------------
+
+Trio provides a set of abstract base classes that define a standard
+interface for unidirectional and bidirectional byte streams.
+
+Why is this useful? Because it lets you write generic protocol
+implementations that can work over arbitrary transports, and easily
+create complex transport configurations. Here's some examples:
+
+* :class:`trio.SocketStream` wraps a raw socket (like a TCP connection
+  over the network), and converts it to the standard stream interface.
+
+* :class:`trio.ssl.SSLStream` is a "stream adapter" that can take any
+  object that implements the :class:`trio.abc.Stream` interface, and
+  convert it into an encrypted stream. In trio the standard way to
+  speak SSL over the network is to wrap an
+  :class:`~trio.ssl.SSLStream` around a :class:`~trio.SocketStream`.
+
+* If you spawn a subprocess then you can get a
+  :class:`~trio.abc.SendStream` that lets you write to its stdin, and
+  a :class:`~trio.abc.ReceiveStream` that lets you read from its
+  stdout. If for some reason you wanted to speak SSL to a subprocess,
+  you could use a :class:`StapledStream` to combine its stdin/stdout
+  into a single bidirectional :class:`~trio.abc.Stream`, and then wrap
+  that in an :class:`~trio.ssl.SSLStream`::
+
+     ssl_context = trio.ssl.create_default_context()
+     ssl_context.check_hostname = False
+     s = SSLStream(StapledStream(process.stdin, process.stdout), ssl_context)
+
+  [Note: subprocess support is not implemented yet, but that's the
+  plan. Unless it is implemented, and I forgot to remove this note.]
+
+* It sometimes happens that you want to connect to an HTTPS server,
+  but you have to go through a web proxy... and the proxy also uses
+  HTTPS. So you end up having to do `SSL-on-top-of-SSL
+  <https://daniel.haxx.se/blog/2016/11/26/https-proxy-with-curl/>`__. In
+  trio this is trivial – just wrap your first
+  :class:`~trio.ssl.SSLStream` in a second
+  :class:`~trio.ssl.SSLStream`::
+
+     # Get a raw SocketStream connection to the proxy:
+     s0 = await open_tcp_stream("proxy", 443)
+
+     # Set up SSL connection to proxy:
+     s1 = SSLStream(s0, proxy_ssl_context, server_hostname="proxy")
+     # Request a connection to the website
+     await s1.send_all(b"CONNECT website:443 / HTTP/1.0\r\n")
+     await check_CONNECT_response(s1)
+
+     # Set up SSL connection to the real website. Notice that s1 is
+     # already an SSLStream object, and here we're wrapping a second
+     # SSLStream object around it.
+     s2 = SSLStream(s1, website_ssl_context, server_hostname="website")
+     # Make our request
+     await s2.send_all("GET /index.html HTTP/1.0\r\n")
+     ...
+
+* The :mod:`trio.testing` module provides a set of :ref:`flexible
+  in-memory stream object implementations <testing-streams>`, so if
+  you have a protocol implementation to test then you can can spawn
+  two tasks, set up a virtual "socket" connecting them, and then do
+  things like inject random-but-repeatable delays into the connection.
+
+
+Abstract base classes
+~~~~~~~~~~~~~~~~~~~~~
+
+.. currentmodule:: trio.abc
+
+.. autoclass:: trio.abc.AsyncResource
+   :members:
+
+.. autoclass:: trio.abc.SendStream
+   :members:
+   :show-inheritance:
+
+.. autoclass:: trio.abc.ReceiveStream
+   :members:
+   :show-inheritance:
+
+.. autoclass:: trio.abc.Stream
+   :members:
+   :show-inheritance:
+
+.. autoclass:: trio.abc.HalfCloseableStream
+   :members:
+   :show-inheritance:
+
+.. currentmodule:: trio
+
+.. autoexception:: BrokenStreamError
+
+.. autoexception:: ClosedStreamError
+
+
+Generic stream implementations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Trio currently provides one generic utility class for working with
+streams. And if you want to test code that's written against the
+streams interface, you should also check out :ref:`testing-streams` in
+:mod:`trio.testing`.
+
+.. autoclass:: StapledStream
+   :members:
+   :show-inheritance:
+
+
 Sockets and networking
-----------------------
+~~~~~~~~~~~~~~~~~~~~~~
+
+The high-level network interface is built on top of our stream
+abstraction.
+
+.. autoclass:: SocketStream
+   :members:
+   :show-inheritance:
+
+.. autofunction:: socket_stream_pair
+
+
+SSL / TLS support
+~~~~~~~~~~~~~~~~~
+
+.. module:: trio.ssl
+
+The :mod:`trio.ssl` module implements SSL/TLS support for Trio, using
+the standard library :mod:`ssl` module. It re-exports most of
+:mod:`ssl`\´s API, with the notable exception is
+:class:`ssl.SSLContext`, which has unsafe defaults; if you really want
+to use :class:`ssl.SSLContext` you can import it from :mod:`ssl`, but
+normally you should create your contexts using
+:func:`trio.ssl.create_default_context <ssl.create_default_context>`.
+
+Instead of using :meth:`ssl.SSLContext.wrap_socket`, though, you
+create a :class:`SSLStream`:
+
+.. autoclass:: SSLStream
+   :show-inheritance:
+   :members:
+
+
+Low-level sockets and networking
+--------------------------------
 
 .. module:: trio.socket
 
-The :mod:`trio.socket` module provides trio's basic networking API.
+The :mod:`trio.socket` module provides trio's basic low-level
+networking API. If you're doing ordinary things with stream-oriented
+connections over IPv4/IPv6/Unix domain sockets, then you probably want
+to stick to the high-level API described above. If you want to use
+UDP, or exotic address families like ``AF_BLUETOOTH``, or otherwise
+get direct access to all the quirky bits of your system's networking
+API, then you're in the right place.
 
 
-:mod:`trio.socket`\'s top-level exports
+:mod:`trio.socket`: top-level exports
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Generally, :mod:`trio.socket`\'s API mirrors that of the standard
-library :mod:`socket` module. Most constants (like ``SOL_SOCKET``) and
-simple utilities (like :func:`~socket.inet_aton`) are simply
-re-exported unchanged. But there are also some differences:
+Generally, the API exposed by :mod:`trio.socket` mirrors that of the
+standard library :mod:`socket` module. Most constants (like
+``SOL_SOCKET``) and simple utilities (like :func:`~socket.inet_aton`)
+are simply re-exported unchanged. But there are also some differences:
 
-All functions that return sockets (e.g. :func:`socket.socket`,
-:func:`socket.socketpair`, ...) are modified to return trio sockets
-instead. In addition, there is a new function to directly convert a
-standard library socket into a trio socket:
+All functions that return socket objects (e.g. :func:`socket.socket`,
+:func:`socket.socketpair`, ...) are modified to return trio socket
+objects instead. In addition, there is a new function to directly
+convert a standard library socket into a trio socket:
 
 .. autofunction:: from_stdlib_socket
 
@@ -128,9 +295,7 @@ Socket objects
       to port hijacking attacks
       <https://msdn.microsoft.com/en-us/library/windows/desktop/ms740621(v=vs.85).aspx>`__.
 
-   2. ``TCP_NODELAY`` is enabled by default.
-
-   3. ``IPV6_V6ONLY`` is disabled, i.e., by default on dual-stack
+   2. ``IPV6_V6ONLY`` is disabled, i.e., by default on dual-stack
       hosts a ``AF_INET6`` socket is able to communicate with both
       IPv4 and IPv6 peers, where the IPv4 peers appear to be in the
       `"IPv4-mapped" portion of IPv6 address space
@@ -142,10 +307,6 @@ Socket objects
 
       This makes trio applications behave more consistently across
       different environments.
-
-   4. On platforms where it's supported (recent Linux and recent
-      MacOS), ``TCP_NOTSENT_LOWAT`` is enabled with a reasonable
-      buffer size (currently 16 KiB).
 
    See `issue #72 <https://github.com/python-trio/trio/issues/72>`__ for
    discussion of these defaults.
@@ -163,12 +324,6 @@ Socket objects
 
       `Not implemented yet! <https://github.com/python-trio/trio/issues/45>`__
 
-   The following methods are *not* provided:
-
-   * :meth:`~socket.socket.send`: This method has confusing semantics
-     hidden under a friendly name, and makes it too easy to create
-     subtle bugs. Use :meth:`sendall` instead.
-
    The following methods are identical to their equivalents in
    :func:`socket.socket`, except async, and the ones that take address
    arguments require pre-resolved addresses:
@@ -180,6 +335,7 @@ Socket objects
    * :meth:`~socket.socket.recvfrom_into`
    * :meth:`~socket.socket.recvmsg` (if available)
    * :meth:`~socket.socket.recvmsg_into` (if available)
+   * :meth:`~socket.socket.send`
    * :meth:`~socket.socket.sendto`
    * :meth:`~socket.socket.sendmsg` (if available)
 
@@ -202,37 +358,6 @@ Socket objects
    * :meth:`~socket.socket.share`
    * :meth:`~socket.socket.set_inheritable`
    * :meth:`~socket.socket.get_inheritable`
-
-
-The abstract Stream API
------------------------
-
-(this is currently more of a sketch than something actually useful,
-`see issue #73 <https://github.com/python-trio/trio/issues/73>`__)
-
-.. currentmodule:: trio
-
-.. autoclass:: AsyncResource
-   :members:
-   :undoc-members:
-
-.. autoclass:: SendStream
-   :members:
-   :undoc-members:
-
-.. autoclass:: RecvStream
-   :members:
-   :undoc-members:
-
-.. autoclass:: Stream
-   :members:
-   :undoc-members:
-
-
-TLS support
------------
-
-`Not implemented yet! <https://github.com/python-trio/trio/issues/9>`__
 
 
 Async disk I/O

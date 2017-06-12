@@ -6,7 +6,14 @@ from functools import wraps
 
 import async_generator
 
-__all__ = ["signal_raise", "aitercompat", "acontextmanager"]
+# There's a dependency loop here... _core is allowed to use this file (in fact
+# it's the *only* file in the main trio/ package it's allowed to use), but
+# UnLock needs yield_briefly so it also has to import _core. Possibly we
+# should split this file into two: one for true generic low-level utility
+# code, and one for higher level helpers?
+from . import _core
+
+__all__ = ["signal_raise", "aiter_compat", "acontextmanager", "UnLock"]
 
 # Equivalent to the C function raise(), which Python doesn't wrap
 if os.name == "nt":
@@ -67,7 +74,9 @@ def aiter_compat(aiter_impl):
 
 
 # Very much derived from the one in contextlib, by copy/pasting and then
-# asyncifying everything.
+# asyncifying everything. (Also I dropped the obscure support for using
+# context managers as function decorators. It could be re-added; I just
+# couldn't be bothered.)
 # So this is a derivative work licensed under the PSF License, which requires
 # the following notice:
 #
@@ -138,3 +147,44 @@ def acontextmanager(func):
     # A hint for sphinxcontrib-trio:
     helper.__returns_acontextmanager__ = True
     return helper
+
+
+class _UnLockSync:
+    def __init__(self, exc, *args):
+        self._exc = exc
+        self._args = args
+        self._held = False
+
+    def __enter__(self):
+        if self._held:
+            raise self._exc(*self._args)
+        else:
+            self._held = True
+
+    def __exit__(self, *args):
+        self._held = False
+
+
+class UnLock:
+    """An unnecessary lock.
+
+    Use as an async context manager; if two tasks enter it at the same
+    time then the second one raises an error. You can use it when there are
+    two pieces of code that *would* collide and need a lock if they ever were
+    called at the same time, but that should never happen.
+
+    We use this in particular for things like, making sure that two different
+    tasks don't call sendall simultaneously on the same stream.
+
+    This executes a checkpoint on entry. That's the only reason it's async.
+
+    """
+    def __init__(self, exc, *args):
+        self.sync = _UnLockSync(exc, *args)
+
+    async def __aenter__(self):
+        await _core.yield_briefly()
+        return self.sync.__enter__()
+
+    async def __aexit__(self, *args):
+        return self.sync.__exit__()

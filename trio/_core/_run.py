@@ -367,14 +367,22 @@ class Task:
     coro = attr.ib()
     _runner = attr.ib()
     name = attr.ib()
+    # Invariant:
+    # - for unfinished tasks, result is None
+    # - for finished tasks, result is a Result object
     result = attr.ib(default=None)
-    # tasks start out unscheduled, and unscheduled tasks have None here
+    # Invariant:
+    # - for unscheduled tasks, _next_send is None
+    # - for scheduled tasks, _next_send is a Result object
+    # Tasks start out unscheduled.
     _next_send = attr.ib(default=None)
     _abort_func = attr.ib(default=None)
 
     # Task-local values, see _local.py
     _locals = attr.ib(default=attr.Factory(dict))
 
+    # these are counts of how many cancel/schedule points this task has
+    # executed, for assert{_no,}_yields
     # XX maybe these should be exposed as part of a statistics() method?
     _cancel_points = attr.ib(default=0)
     _schedule_points = attr.ib(default=0)
@@ -1036,7 +1044,7 @@ class Runner:
 
     @_public
     @_hazmat
-    async def wait_all_tasks_blocked(self, cushion=0.0):
+    async def wait_all_tasks_blocked(self, cushion=0.0, tiebreaker=0):
         """Block until there are no runnable tasks.
 
         This is useful in testing code when you want to give other tasks a
@@ -1054,7 +1062,9 @@ class Runner:
         then the one with the shortest ``cushion`` is the one woken (and the
         this task becoming unblocked resets the timers for the remaining
         tasks). If there are multiple tasks that have exactly the same
-        ``cushion``, then all are woken.
+        ``cushion``, then the one with the lowest ``tiebreaker`` value is
+        woken first. And if there are multiple tasks with the same ``cushion``
+        and the same ``tiebreaker``, then all are woken.
 
         You should also consider :class:`trio.testing.Sequencer`, which
         provides a more explicit way to control execution ordering within a
@@ -1091,7 +1101,7 @@ class Runner:
 
         """
         task = current_task()
-        key = (cushion, id(task))
+        key = (cushion, tiebreaker, id(task))
         self.waiting_for_idle[key] = task
         def abort(_):
             del self.waiting_for_idle[key]
@@ -1270,7 +1280,7 @@ def run_impl(runner, async_fn, args):
 
         idle_primed = False
         if runner.waiting_for_idle:
-            cushion, _ = runner.waiting_for_idle.keys()[0]
+            cushion, tiebreaker, _ = runner.waiting_for_idle.keys()[0]
             if cushion < timeout:
                 timeout = cushion
                 idle_primed = True
@@ -1298,7 +1308,7 @@ def run_impl(runner, async_fn, args):
         if not runner.runq and idle_primed:
             while runner.waiting_for_idle:
                 key, task = runner.waiting_for_idle.peekitem(0)
-                if key[0] == cushion:
+                if key[:2] == (cushion, tiebreaker):
                     del runner.waiting_for_idle[key]
                     runner.reschedule(task)
                 else:

@@ -18,6 +18,12 @@ matrix:
     - os: linux
       language: generic
       env: USE_PYPY_NIGHTLY=1
+    # 5.7.1 has some minor bugs that are nonetheless annoying/hard to
+    # work around; let's wait for the next beta before we start
+    # testing pypy releases.
+    # - os: linux
+    #   language: generic
+    #   env: USE_PYPY_RELEASE=1
     - os: osx
       language: generic
       env: MACPYTHON=3.5.3

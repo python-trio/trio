@@ -71,6 +71,92 @@ Inter-task ordering
 .. autofunction:: wait_all_tasks_blocked
 
 
+.. _testing-streams:
+
+Streams
+-------
+
+Virtual, controllable streams
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+One particularly challenging problem when testing network protocols is
+making sure that your implementation can handle data whose flow gets
+broken up in weird ways and arrives with weird timings: localhost
+connections tend to be much better behaved than real networks, so if
+you only test on localhost then you might get bitten later. To help
+you out, trio provides some fully in-memory implementations of the
+stream interfaces (see :ref:`abstract-stream-api`), that let you write
+all kinds of interestingly evil tests.
+
+There are a few pieces here, so here's how they fit together:
+
+:func:`memory_stream_pair` gives you a pair of connected,
+bidirectional streams. It's like :func:`socket.socketpair`, but
+without any involvement from that pesky operating system and its
+networking stack.
+
+To build a bidirectional stream, :func:`memory_stream_pair` uses
+two unidirectional streams. It gets these by calling
+:func:`memory_stream_one_way_pair`.
+
+:func:`memory_stream_one_way_pair`, in turn, is implemented using the
+low-ish level classes :class:`MemorySendStream` and
+:class:`MemoryReceiveStream`. These are implementations of (you
+guessed it) :class:`trio.abc.SendStream` and
+:class:`trio.abc.ReceiveStream` that on their own, aren't attached to
+anything – "sending" and "receiving" just put data into and get data
+out of a private internal buffer that each object owns. They also have
+some interesting hooks you can set, that let you customize the
+behavior of their methods. This is where you can insert the evil, if
+you want it. :func:`memory_stream_one_way_pair` takes advantage of
+these hooks in a relatively boring way: it just sets it up so that
+when you call ``sendall``, or when you close the send stream, then it
+automatically triggers a call to :func:`memory_stream_pump`, which is
+a convenience function that takes data out of a
+:class:`MemorySendStream`\´s buffer and puts it into a
+:class:`MemoryReceiveStream`\´s buffer. But that's just the default –
+you can replace this with whatever arbitrary behavior you want.
+
+Trio also provides some specialized functions for testing completely
+**un**\buffered streams: :func:`lockstep_stream_one_way_pair` and
+:func:`lockstep_stream_pair`. These aren't customizable, but they do
+exhibit an extreme kind of behavior that's otherwise hard to
+implement.
+
+
+API details
+~~~~~~~~~~~
+
+.. autoclass:: MemorySendStream
+   :members:
+
+.. autoclass:: MemoryReceiveStream
+   :members:
+
+.. autofunction:: memory_stream_pump
+
+.. autofunction:: memory_stream_one_way_pair
+
+.. autofunction:: memory_stream_pair
+
+.. autofunction:: lockstep_stream_one_way_pair
+
+.. autofunction:: lockstep_stream_pair
+
+
+Testing custom stream implementations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Trio also provides some functions to help you test your custom stream
+implementations:
+
+.. autofunction:: check_one_way_stream
+
+.. autofunction:: check_two_way_stream
+
+.. autofunction:: check_half_closeable_stream
+
+
 Testing checkpoints
 --------------------
 

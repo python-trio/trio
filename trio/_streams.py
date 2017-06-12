@@ -4,129 +4,129 @@ import contextlib
 import attr
 
 from . import _core
+from .abc import HalfCloseableStream
 
-__all__ = ["AsyncResource", "SendStream", "RecvStream", "Stream"]
+__all__ = [
+    "BrokenStreamError", "ClosedStreamError", "StapledStream",
+]
 
-# The close API is a big question here.
-#
-# Technically, socket close can block if you set various weird
-# lingering-related options. This doesn't seem very useful though.
-#
-# For other kinds of channels, though, the natural implementation definitely
-# can block – e.g. TLS wants to send a goodbye message, and if we're tunneling
-# over ssh or HTTP/2 e.g. then again closing requires sending some actual
-# data. So we need a concept of a blocking close.
-#
-# BUT, if the other side is uncooperative, we can't necessarily block in
-# close. So if a blocking close is cancelled, we need to do some sort of
-# forceful cleanup before raising the exception.
-#
-# (Probably implementing H2-based streams will be a useful forcing function
-# here to figure this out.)
+class BrokenStreamError(Exception):
+    """Raised when an attempt to use a stream a stream fails due to external
+    circumstances.
 
-class AsyncResource(metaclass=abc.ABCMeta):
-    __slots__ = ()
+    For example, you might get this if you try to send data on a stream where
+    the remote side has already closed the connection.
 
-    @abc.abstractmethod
-    def forceful_close(self):
-        """Force an immediate close of this resource.
+    You *don't* get this error if *you* closed the stream – in that case you
+    get :class:`ClosedStreamError`.
 
-        This will never block, but (depending on the resource in question) it
-        might be a "rude" shutdown.
-        """
-        pass
+    This exception's ``__cause__`` attribute will often contain more
+    information about the underlying error.
 
-    async def graceful_close(self):
-        """Close this resource, gracefully.
+    """
+    pass
 
-        This may block in order to perform a "graceful" shutdown (for example,
-        sending a message alerting the other side of a connection that it is
-        about to close). But, if cancelled, then it still *must* close the
-        underlying resource.
 
-        Default implementation is to perform a :meth:`forceful_close` and then
-        execute a checkpoint.
-        """
-        self.forceful_close()
-        await _core.yield_briefly()
+class ClosedStreamError(Exception):
+    """Raised when an attempt to use a stream a stream fails because the
+    stream was already closed locally.
 
-    async def __aenter__(self):
-        return self
+    You *only* get this error if *your* code closed the stream object you're
+    attempting to use by calling
+    :meth:`~trio.abc.AsyncResource.graceful_close` or
+    similar. (:meth:`~trio.abc.SendStream.send_all` might also raise this if
+    you already called :meth:`~trio.abc.HalfCloseableStream.send_eof`.)
+    Therefore this exception generally indicates a bug in your code.
 
-    async def __aexit__(self, *args):
-        await self.graceful_close()
+    If a problem arises elsewhere, for example due to a network failure or a
+    misbehaving peer, then you get :class:`BrokenStreamError` instead.
 
-# XX added in 3.6
-if hasattr(contextlib, "AbstractContextManager"):
-    contextlib.AbstractContextManager.register(AsyncResource)
+    """
+    pass
 
-class SendStream(AsyncResource):
-    __slots__ = ()
-
-    @abc.abstractmethod
-    async def sendall(self, data):
-        pass
-
-    # This is only a hint, because in some cases we don't know (Windows), or
-    # we have only a noisy signal (TLS). And in the use cases this is included
-    # to account for, returning before it's actually writable is NBD, it just
-    # makes them slightly less efficient.
-    @abc.abstractmethod
-    async def wait_maybe_writable(self):
-        pass
-
-    @property
-    @abc.abstractmethod
-    def can_send_eof(self):
-        pass
-
-    @abc.abstractmethod
-    def send_eof(self):
-        pass
-
-class RecvStream(AsyncResource):
-    __slots__ = ()
-
-    @abc.abstractmethod
-    async def recv(self, max_bytes):
-        pass
-
-class Stream(SendStream, RecvStream):
-    __slots__ = ()
-
-    @staticmethod
-    def staple(send_stream, recv_stream):
-        return StapledStream(send_stream=send_stream, recv_stream=recv_stream)
 
 @attr.s(slots=True, cmp=False, hash=False)
-class StapledStream(Stream):
+class StapledStream(HalfCloseableStream):
+    """This class `staples <https://en.wikipedia.org/wiki/Staple_(fastener)>`__
+    together two unidirectional streams to make single bidirectional stream.
+
+    Args:
+      send_stream (~trio.abc.SendStream): The stream to use for sending.
+      receive_stream (~trio.abc.ReceiveStream): The stream to use for
+          receiving.
+
+    Example:
+
+       A silly way to make a stream that echoes back whatever you write to
+       it::
+
+          sock1, sock2 = trio.socket.socketpair()
+          echo_stream = StapledStream(SocketStream(sock1), SocketStream(sock2))
+          await echo_stream.send_all(b"x")
+          assert await echo_stream.receive_some(1) == b"x"
+
+    :class:`StapledStream` objects implement the methods in the
+    :class:`~trio.abc.HalfCloseableStream` interface. They also have two
+    additional public attributes:
+
+    .. attribute:: send_stream
+
+       The underlying :class:`~trio.abc.SendStream`. :meth:`send_all` and
+       :meth:`wait_send_all_might_not_block` are delegated to this object.
+
+    .. attribute:: receive_stream
+
+       The underlying :class:`~trio.abc.ReceiveStream`. :meth:`receive_some`
+       is delegated to this object.
+
+    """
     send_stream = attr.ib()
-    recv_stream = attr.ib()
+    receive_stream = attr.ib()
 
-    async def sendall(self, data):
-        return await self.send_stream.sendall(data)
+    async def send_all(self, data):
+        """Calls ``self.send_stream.send_all``.
 
-    async def wait_maybe_writable(self):
-        return await self.send_stream.wait_maybe_writable()
+        """
+        return await self.send_stream.send_all(data)
 
-    @property
-    def can_send_eof(self):
-        return self.send_stream.can_send_eof
+    async def wait_send_all_might_not_block(self):
+        """Calls ``self.send_stream.wait_send_all_might_not_block``.
 
-    def send_eof(self):
-        return self.send_stream.send_eof()
+        """
+        return await self.send_stream.wait_send_all_might_not_block()
 
-    async def recv(self, max_bytes):
-        return self.recv_stream.recv(max_bytes)
+    async def send_eof(self):
+        """Shuts down the send side of the stream.
+
+        If ``self.send_stream.send_eof`` exists, then calls it. Otherwise,
+        calls ``self.send_stream.graceful_close()``.
+
+        """
+        if hasattr(self.send_stream, "send_eof"):
+            return await self.send_stream.send_eof()
+        else:
+            return await self.send_stream.graceful_close()
+
+    async def receive_some(self, max_bytes):
+        """Calls ``self.receive_stream.receive_some``.
+
+        """
+        return await self.receive_stream.receive_some(max_bytes)
 
     def forceful_close(self):
+        """Calls ``forceful_close`` on both underlying streams.
+
+        """
         try:
             self.send_stream.forceful_close()
         finally:
-            self.recv_stream.forceful_close()
+            self.receive_stream.forceful_close()
 
     async def graceful_close(self):
+        """Calls ``graceful_close`` on both underlying streams.
+
+        """
         try:
             await self.send_stream.graceful_close()
         finally:
-            await self.recv_stream.graceful_close()
+            await self.receive_stream.graceful_close()

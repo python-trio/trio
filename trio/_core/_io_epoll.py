@@ -98,7 +98,8 @@ class EpollIOManager:
             self._registered[fd] = EpollWaiters()
         waiters = self._registered[fd]
         if getattr(waiters, attr_name) is not None:
-            raise RuntimeError(
+            await _core.yield_briefly()
+            raise _core.ResourceBusyError(
                 "another task is already reading / writing this fd")
         setattr(waiters, attr_name, _core.current_task())
         self._update_registrations(fd, currently_registered)

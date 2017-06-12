@@ -1,7 +1,9 @@
 from functools import wraps as _wraps, partial as _partial
 import socket as _stdlib_socket
 import sys as _sys
-import os
+import os as _os
+from contextlib import contextmanager as _contextmanager
+import errno as _errno
 
 from . import _core
 from ._threads import run_in_worker_thread as _run_in_worker_thread
@@ -185,6 +187,13 @@ class SocketType:
                 .format(type(sock).__name__))
         self._sock = sock
         self._sock.setblocking(False)
+        self._did_SHUT_WR = False
+
+        # Hopefully Python will eventually make something like this public
+        # (see bpo-21327) but I don't want to make it public myself and then
+        # find out they picked a different name... this is used internally in
+        # this file and also elsewhere in trio.
+        self._real_type = sock.type & _SOCK_TYPE_MASK
 
         # Defaults:
         if self._sock.family == AF_INET6:
@@ -199,25 +208,6 @@ class SocketType:
             self.setsockopt(SOL_SOCKET, SO_EXCLUSIVEADDRUSE, True)
         else:
             self.setsockopt(SOL_SOCKET, SO_REUSEADDR, True)
-
-        try:
-            self.setsockopt(IPPROTO_TCP, TCP_NODELAY, True)
-        except OSError:
-            pass
-
-        try:
-            # 16 KiB is pretty arbitrary and could probably do with some
-            # tuning. (Apple is also setting this by default in CFNetwork
-            # apparently -- I'm curious what value they're using, though I
-            # couldn't find it online trivially. CFNetwork-129.20 source has
-            # no mentions of TCP_NOTSENT_LOWAT. This presentation says
-            # "typically 8 kilobytes":
-            #     http://devstreaming.apple.com/videos/wwdc/2015/719ui2k57m/719/719_your_app_and_next_generation_networks.pdf?dl=1
-            # ). The theory is that you want it to be bandwidth * rescheduling
-            # interval.
-            self.setsockopt(IPPROTO_TCP, TCP_NOTSENT_LOWAT, 2 ** 14)
-        except (NameError, OSError):
-            pass
 
     ################################################################
     # Simple + portable methods and attributes
@@ -236,7 +226,7 @@ class SocketType:
     _forward = {
         "detach", "get_inheritable", "set_inheritable", "fileno",
         "getpeername", "getsockname", "getsockopt", "setsockopt", "listen",
-        "shutdown", "close", "share",
+        "close", "share",
     }
     def __getattr__(self, name):
         if name in self._forward:
@@ -283,6 +273,16 @@ class SocketType:
         self._check_address(address, require_resolved=True)
         return self._sock.bind(address)
 
+    def shutdown(self, flag):
+        # no need to worry about return value b/c always returns None:
+        self._sock.shutdown(flag)
+        # only do this if the call succeeded:
+        if flag in [SHUT_WR, SHUT_RDWR]:
+            self._did_SHUT_WR = True
+
+    async def wait_writable(self):
+        await _core.wait_socket_writable(self._sock)
+
     ################################################################
     # Address handling
     ################################################################
@@ -316,7 +316,7 @@ class SocketType:
                 _stdlib_socket.getaddrinfo(
                     address[0], address[1],
                     self._sock.family,
-                    self._sock.type & _SOCK_TYPE_MASK,
+                    self._real_type,
                     self._sock.proto,
                     flags=_NUMERIC_ONLY)
             except gaierror as exc:
@@ -353,7 +353,7 @@ class SocketType:
         gai_res = await getaddrinfo(
             address[0], address[1],
             self._sock.family,
-            self._sock.type & _SOCK_TYPE_MASK,
+            self._real_type,
             self._sock.proto,
             flags)
         # AFAICT from the spec it's not possible for getaddrinfo to return an
@@ -493,19 +493,54 @@ class SocketType:
         # notification. This means it isn't really cancellable...
         async with _try_sync():
             self._check_address(address, require_resolved=True)
-            # For some reason, PEP 475 left InterruptedError as a
-            # possible error for non-blocking connect
-            # (specifically). But as far as I know, EINTR always means
-            # you need to redo the call (with the extremely special
-            # exception of close() on Linux, but that's unrelated, and
-            # POSIX is cranky at them about it). If the kernel wanted
-            # to signal that the connect really was in progress then
-            # it'd have used EINPROGRESS. So we retry:
-            while True:
-                try:
-                    return self._sock.connect(address)
-                except InterruptedError:
-                    pass
+            # An interesting puzzle: can a non-blocking connect() return EINTR
+            # (= raise InterruptedError)? PEP 475 specifically left this as
+            # the one place where it lets an InterruptedError escape instead
+            # of automatically retrying. This is based on the idea that EINTR
+            # from connect means that the connection was already started, and
+            # will continue in the background. For a blocking connect, this
+            # sort of makes sense: if it returns EINTR then the connection
+            # attempt is continuing in the background, and on many system you
+            # can't then call connect() again because there is already a
+            # connect happening. See:
+            #
+            #   http://www.madore.org/~david/computers/connect-intr.html
+            #
+            # For a non-blocking connect, it doesn't make as much sense --
+            # surely the interrupt didn't happen after we successfully
+            # initiated the connect and are just waiting for it to complete,
+            # because a non-blocking connect does not wait! And the spec
+            # describes the interaction between EINTR/blocking connect, but
+            # doesn't have anything useful to say about non-blocking connect:
+            #
+            #   http://pubs.opengroup.org/onlinepubs/007904975/functions/connect.html
+            #
+            # So we have a conundrum: if EINTR means that the connect() hasn't
+            # happened (like it does for essentially every other syscall),
+            # then InterruptedError should be caught and retried. If EINTR
+            # means that the connect() has successfully started, then
+            # InterruptedError should be caught and ignored. Which should we
+            # do?
+            #
+            # In practice, the resolution is probably that non-blocking
+            # connect simply never returns EINTR, so the question of how to
+            # handle it is moot.  Someone spelunked MacOS/FreeBSD and
+            # confirmed this is true there:
+            #
+            #   https://stackoverflow.com/questions/14134440/eintr-and-non-blocking-calls
+            #
+            # and exarkun seems to think it's true in general of non-blocking
+            # calls:
+            #
+            #   https://twistedmatrix.com/pipermail/twisted-python/2010-September/022864.html
+            # (and indeed, AFAICT twisted doesn't try to handle
+            # InterruptedError).
+            #
+            # So we don't try to catch InterruptedError. This way if it
+            # happens, someone will hopefully tell us, and then hopefully we
+            # can investigate their system to figure out what its semantics
+            # are.
+            return self._sock.connect(address)
         # It raised BlockingIOError, meaning that it's started the
         # connection attempt. We wait for it to complete:
         try:
@@ -519,7 +554,7 @@ class SocketType:
         # Okay, the connect finished, but it might have failed:
         err = self._sock.getsockopt(SOL_SOCKET, SO_ERROR)
         if err != 0:
-            raise OSError(err, "Error in connect: " + os.strerror(err))
+            raise OSError(err, "Error in connect: " + _os.strerror(err))
 
     ################################################################
     # recv
@@ -569,7 +604,7 @@ class SocketType:
     # send
     ################################################################
 
-    _send = _make_simple_sock_method_wrapper(
+    send = _make_simple_sock_method_wrapper(
         "send", _core.wait_socket_writable)
 
     ################################################################
@@ -622,22 +657,23 @@ class SocketType:
 
         ``flags`` are passed on to ``send``.
 
-        If an error occurs or the operation is cancelled, then the resulting
-        exception will have a ``.partial_result`` attribute with a
-        ``.bytes_sent`` attribute containing the number of bytes sent.
+        Most low-level operations in trio provide a guarantee: if they raise
+        :exc:`trio.Cancelled`, this means that they had no effect, so the
+        system remains in a known state. This is **not true** for
+        :meth:`sendall`. If this operation raises :exc:`trio.Cancelled` (or
+        any other exception for that matter), then it may have sent some, all,
+        or none of the requested data, and there is no way to know which.
 
         """
         with memoryview(data) as data:
+            if not data:
+                await _core.yield_briefly()
+                return
             total_sent = 0
-            try:
-                while data:
-                    sent = await self._send(data, flags)
-                    total_sent += sent
-                    data = data[sent:]
-            except BaseException as exc:
-                pr = _core.PartialResult(bytes_sent=total_sent)
-                exc.partial_result = pr
-                raise
+            while total_sent < len(data):
+                with data[total_sent:] as remaining:
+                    sent = await self.send(remaining, flags)
+                total_sent += sent
 
     ################################################################
     # sendfile
@@ -706,3 +742,5 @@ __all__.append("SocketType")
 #     else:
 #         raise OSError("getaddrinfo returned an empty list")
 # __all__.append("create_connection")
+
+
