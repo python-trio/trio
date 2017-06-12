@@ -111,7 +111,8 @@ class Path(metaclass=AsyncAutoWrapperType):
     def __fspath__(self):
         try:
             return self._wrapped.__fspath__()
-        except AttributeError:
+        # python3.5 compat
+        except AttributeError:  # pragma: no cover
             return str(self)
 
     @classmethod
