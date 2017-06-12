@@ -154,7 +154,7 @@ def wrap_file(file):
 
     """
 
-    if isinstance(file, io.IOBase):
-        return AsyncIOWrapper(file)
+    if not hasattr(file, 'close') or not callable(file.close):
+        raise TypeError('{} does not implement required method close()'.format(file))
 
-    raise TypeError(file)
+    return AsyncIOWrapper(file)

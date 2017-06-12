@@ -30,6 +30,18 @@ def test_wrap_invalid():
         trio.wrap_file(str())
 
 
+def test_wrap_non_iobase():
+    class FakeFile:
+        def close(self):
+            pass
+
+    wrapped = FakeFile()
+    assert not isinstance(wrapped, io.IOBase)
+
+    async_file = trio.wrap_file(wrapped)
+    assert isinstance(async_file, AsyncIOWrapper)
+
+
 def test_wrapped_property(async_file, wrapped):
     assert async_file.wrapped is wrapped
 
