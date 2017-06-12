@@ -26,8 +26,21 @@ async def test_open_is_async_context_manager(path):
     assert f.closed
 
 
+async def test_cmp_magic():
+    a, b = trio.Path(''), trio.Path('')
+    assert a == b
+    assert not a != b
+
+    a, b = trio.Path('a'), trio.Path('b')
+    assert a < b
+    assert b > a
+
+    assert not a == None
+
+
 async def test_forward_magic(path):
     assert str(path) == str(path._wrapped)
+    assert bytes(path) == bytes(path._wrapped)
 
 
 async def test_forwarded_properties(path):

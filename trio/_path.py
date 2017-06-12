@@ -23,6 +23,18 @@ def _forward_factory(cls, attr_name, attr):
     return wrapper
 
 
+def _forward_magic(cls, attr):
+    sentinel = object()
+    @wraps(attr)
+    def wrapper(self, other=sentinel):
+        if other is sentinel:
+            return attr(self._wrapped)
+        if isinstance(other, cls):
+            other = other._wrapped
+        return attr(self._wrapped, other)
+    return wrapper
+
+
 def thread_wrapper_factory(cls, meth_name):
     @async_wraps(cls, pathlib.Path, meth_name)
     async def wrapper(self, *args, **kwargs):
@@ -77,7 +89,7 @@ class AsyncAutoWrapperType(type):
         # generate wrappers for magic
         for attr_name in cls._forward_magic:
             attr = getattr(cls._forwards, attr_name)
-            wrapper = _forward_factory(cls, attr_name, attr)
+            wrapper = _forward_magic(cls, attr)
             setattr(cls, attr_name, wrapper)
 
 
