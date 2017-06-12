@@ -716,5 +716,5 @@ async def test_idna(monkeygai):
 async def test_getprotobyname():
     # These are the constants used in IP header fields, so the numeric values
     # had *better* be stable across systems...
-    assert await tsocket.getprotobyname("ip") == 0
+    assert await tsocket.getprotobyname("ipv4") == 4
     assert await tsocket.getprotobyname("tcp") == 6
