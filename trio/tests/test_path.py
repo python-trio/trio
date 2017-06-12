@@ -133,3 +133,15 @@ async def test_type_wraps_private():
     Type.generate_wraps(MockWrapper, {'unsupported': None})
 
     assert not hasattr(MockWrapper, '_private')
+
+
+@pytest.mark.parametrize('other_cls', [pathlib.Path, trio.Path])
+async def test_path_wraps_path(other_cls, path):
+    other = other_cls(path)
+
+    assert path == other
+
+
+async def test_open_file_can_open_path(path):
+    async with await trio.open_file(path, 'w') as f:
+        assert f.name == path.__fspath__()

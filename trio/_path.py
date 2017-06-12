@@ -17,7 +17,7 @@ def _forward_factory(cls, attr_name, attr):
         value = attr(*args, **kwargs)
         if isinstance(value, cls._forwards):
             # re-wrap methods that return new paths
-            value = cls._from_wrapped(value)
+            value = cls(value)
         return value
 
     return wrapper
@@ -42,7 +42,7 @@ def thread_wrapper_factory(cls, meth_name):
         func = partial(meth, *args, **kwargs)
         value = await trio.run_in_worker_thread(func)
         if isinstance(value, cls._wraps):
-            value = cls._from_wrapped(value)
+            value = cls(value)
         return value
 
     return wrapper
@@ -126,12 +126,6 @@ class Path(metaclass=AsyncAutoWrapperType):
         # python3.5 compat
         except AttributeError:  # pragma: no cover
             return str(self)
-
-    @classmethod
-    def _from_wrapped(cls, wrapped):
-        self = object.__new__(cls)
-        self._wrapped = wrapped
-        return self
 
     async def open(self, *args, **kwargs):
         func = partial(self._wrapped.open, *args, **kwargs)
