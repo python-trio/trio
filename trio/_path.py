@@ -94,7 +94,7 @@ class AsyncAutoWrapperType(type):
 
 
 class Path(metaclass=AsyncAutoWrapperType):
-    """A :class:`~pathlib.Path` wrapper that executes non-computational Path methods in
+    """A :class:`~pathlib.Path` wrapper that executes blocking Path methods in
     :meth:`trio.run_in_worker_thread`.
 
     """
@@ -136,10 +136,12 @@ class Path(metaclass=AsyncAutoWrapperType):
         return trio.wrap_file(value)
 
 
-# not documented upstream
-delattr(Path.absolute, '__doc__')
+# The value of Path.absolute.__doc__ makes a reference to
+# :meth:~pathlib.Path.absolute, which does not exist. Removing this makes more
+# sense than inventing our own special docstring for this.
+del Path.absolute.__doc__
 
 
 # python3.5 compat
-if hasattr(os, 'PathLike'):  # pragma: no cover
+if hasattr(os, 'PathLike'):
     os.PathLike.register(Path)
