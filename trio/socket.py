@@ -5,6 +5,8 @@ import os as _os
 from contextlib import contextmanager as _contextmanager
 import errno as _errno
 
+import idna
+
 from . import _core
 from ._threads import run_in_worker_thread as _run_in_worker_thread
 
@@ -78,8 +80,8 @@ if _sys.platform == "win32":
 ################################################################
 
 for _name in [
-        "gaierror", "herror", "gethostname", "getprotobyname", "getservbyname",
-        "getservbyport", "ntohs", "htonl", "htons", "inet_aton", "inet_ntoa",
+        "gaierror", "herror", "gethostname", "getprotobyname", "ntohs",
+        "htonl", "htons", "inet_aton", "inet_ntoa",
         "inet_pton", "inet_ntop", "sethostname", "if_nameindex",
         "if_nametoindex", "if_indextoname",
         ]:
@@ -94,6 +96,19 @@ for _name in [
 _NUMERIC_ONLY = _stdlib_socket.AI_NUMERICHOST | _stdlib_socket.AI_NUMERICSERV
 
 async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+    """Look up a numeric address given a name.
+
+    Arguments and return values are identical to :func:`socket.getaddrinfo`,
+    except that this version is async.
+
+    Also, :func:`trio.socket.getaddrinfo` correctly uses IDNA 2008 to process
+    non-ASCII domain names. (:func:`socket.getaddrinfo` uses IDNA 2003, which
+    can give the wrong result in some cases and cause you to connect to a
+    different host than the one you intended; see `bpo-17305
+    <https://bugs.python.org/issue17305>`__.)
+
+    """
+
     # If host and port are numeric, then getaddrinfo doesn't block and we can
     # skip the whole thread thing, which seems worthwhile. So we try first
     # with the _NUMERIC_ONLY flags set, and then only spawn a thread if that
@@ -103,26 +118,52 @@ async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
     async with _try_sync(numeric_only_failure):
         return _stdlib_socket.getaddrinfo(
             host, port, family, type, proto, flags | _NUMERIC_ONLY)
-    # That failed, try a thread instead
+    # That failed; it's a real hostname. We better use a thread.
+    #
+    # Also, it might be a unicode hostname, in which case we want to do our
+    # own encoding using the idna module, rather than letting Python do
+    # it. (Python will use the old IDNA 2003 standard, and possibly get the
+    # wrong answer - see bpo-17305). However, the idna module is picky, and
+    # will refuse to process some valid hostname strings, like "::1". So if
+    # it's already ascii, we pass it through; otherwise, we encode it to.
+    if isinstance(host, str):
+        try:
+            host = host.encode("ascii")
+        except UnicodeEncodeError:
+            # UTS-46 defines various normalizations; in particular, by default
+            # idna.encode will error out if the hostname has Capital Letters
+            # in it; with uts46=True it will lowercase them instead.
+            host = idna.encode(host, uts46=True)
     return await _run_in_worker_thread(
         _stdlib_socket.getaddrinfo, host, port, family, type, proto, flags,
         cancellable=True)
 
 __all__.append("getaddrinfo")
 
-def _worker_thread_reexport(name):
-    fn = getattr(_stdlib_socket, name)
-    @_wraps(fn, assigned=("__name__", "__doc__"))
-    async def wrapper(*args, **kwargs):
-        # re-import to allow for monkeypatch-based testing
-        fn = getattr(_stdlib_socket, name)
-        return await _run_in_worker_thread(
-            _partial(fn, *args, **kwargs), cancellable=True)
-    globals()[name] = wrapper
-    __all__.append(name)
 
-_worker_thread_reexport("getfqdn")
-_worker_thread_reexport("getnameinfo")
+async def getnameinfo(sockaddr, flags):
+    """Look up a name given a numeric address.
+
+    Arguments and return values are identical to :func:`socket.getnameinfo`,
+    except that this version is async.
+
+    """
+    return await _run_in_worker_thread(
+        _stdlib_socket.getnameinfo, sockaddr, flags, cancellable=True)
+
+__all__.append("getnameinfo")
+
+
+async def getprotobyname(name):
+    """Look up a protocol number by name. (Rarely used.)
+
+    Like :func:`socket.getprotobyname`, but async.
+
+    """
+    return await _run_in_worker_thread(
+        _stdlib_socket.getprotobyname, name, cancellable=True)
+
+__all__.append("getprotobyname")
 
 # obsolete gethostbyname etc. intentionally omitted
 

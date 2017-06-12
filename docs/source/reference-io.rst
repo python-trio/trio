@@ -182,7 +182,8 @@ API, then you're in the right place.
 Generally, the API exposed by :mod:`trio.socket` mirrors that of the
 standard library :mod:`socket` module. Most constants (like
 ``SOL_SOCKET``) and simple utilities (like :func:`~socket.inet_aton`)
-are simply re-exported unchanged. But there are also some differences:
+are simply re-exported unchanged. But there are also some differences,
+which are described here.
 
 All functions that return socket objects (e.g. :func:`socket.socket`,
 :func:`socket.socketpair`, ...) are modified to return trio socket
@@ -191,13 +192,14 @@ convert a standard library socket into a trio socket:
 
 .. autofunction:: from_stdlib_socket
 
-The following functions have identical interfaces to their standard
-library version, but are now ``async`` functions, so you need to use
-``await`` to call them:
+For name lookup, Trio provides the standard functions, but with some
+changes:
 
-* :func:`~socket.getaddrinfo`
-* :func:`~socket.getnameinfo`
-* :func:`~socket.getfqdn`
+.. autofunction:: getaddrinfo
+
+.. autofunction:: getnameinfo
+
+.. autofunction:: getprotobyname
 
 Trio intentionally DOES NOT include some obsolete, redundant, or
 broken features:
@@ -206,9 +208,22 @@ broken features:
   :func:`~socket.gethostbyaddr`: obsolete; use
   :func:`~socket.getaddrinfo` and :func:`~socket.getnameinfo` instead.
 
+* :func:`~socket.getservbyport`: obsolete and `buggy
+  <https://bugs.python.org/issue30482>`__; instead, do::
+
+     _, service_name = await getnameinfo((127.0.0.1, port), NI_NUMERICHOST))
+
+* :func:`~socket.getservbyname`: obsolete and `buggy
+  <https://bugs.python.org/issue30482>`__; instead, do::
+
+     await getaddrinfo(None, service_name)
+
+* :func:`~socket.getfqdn`: obsolete; use :func:`getaddrinfo` with the
+  ``AI_CANONNAME`` flag.
+
 * :func:`~socket.getdefaulttimeout`,
-  :func:`~socket.setdefaulttimeout`: Use trio's standard support for
-  :ref:`cancellation`.
+  :func:`~socket.setdefaulttimeout`: instead, use trio's standard
+  support for :ref:`cancellation`.
 
 * On Windows, ``SO_REUSEADDR`` is not exported, because it's a trap:
   the name is the same as Unix ``SO_REUSEADDR``, but the semantics are
