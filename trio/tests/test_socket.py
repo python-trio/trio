@@ -722,14 +722,18 @@ async def test_getnameinfo():
             await tsocket.getnameinfo(("localhost", 80), 0)
 
     # A working version:
+
+    # Blocking call to get expected values:
+    host, service = stdlib_socket.getnameinfo(("127.0.0.1", 80))
+
     assert (await tsocket.getnameinfo(("127.0.0.1", 80), 0)
-            == ("localhost", "http"))
+            == (host, service))
 
     assert (await tsocket.getnameinfo(("127.0.0.1", 80), tsocket.NI_NUMERICHOST)
-            == ("127.0.0.1", "http"))
+            == ("127.0.0.1", service))
 
     assert (await tsocket.getnameinfo(("127.0.0.1", 80), tsocket.NI_NUMERICSERV)
-            == ("localhost", "80"))
+            == (host, "80"))
 
 
 async def test_getprotobyname():
