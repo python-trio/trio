@@ -158,7 +158,11 @@ def wrap_file(file):
 
     """
 
-    if not hasattr(file, 'close') or not callable(file.close):
-        raise TypeError('{} does not implement required method close()'.format(file))
+    def has(attr):
+        return hasattr(file, attr) and callable(getattr(file, attr))
+
+    if not (has('close') and (has('read') or has('write'))):
+        raise TypeError('{} does not implement required duck-file methods: '
+                        'close and (read or write)'.format(file))
 
     return AsyncIOWrapper(file)

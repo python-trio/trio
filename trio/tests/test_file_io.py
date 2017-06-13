@@ -35,11 +35,19 @@ def test_wrap_non_iobase():
         def close(self):  # pragma: no cover
             pass
 
+        def write(self):  # pragma: no cover
+            pass
+
     wrapped = FakeFile()
     assert not isinstance(wrapped, io.IOBase)
 
     async_file = trio.wrap_file(wrapped)
     assert isinstance(async_file, AsyncIOWrapper)
+
+    del FakeFile.write
+
+    with pytest.raises(TypeError):
+        trio.wrap_file(FakeFile())
 
 
 def test_wrapped_property(async_file, wrapped):
@@ -56,7 +64,7 @@ def test_dir_matches_wrapped(async_file, wrapped):
 
 
 def test_unsupported_not_forwarded():
-    class FakeFile(io.IOBase):
+    class FakeFile(io.RawIOBase):
         def unsupported_attr(self):  # pragma: no cover
             pass
 
