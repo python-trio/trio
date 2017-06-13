@@ -1,3 +1,4 @@
+import os
 import pathlib
 
 import pytest
@@ -64,7 +65,7 @@ async def test_div_magic(cls_a, cls_b):
 
     result = a / b
     assert isinstance(result, trio.Path)
-    assert str(result) == 'a/b'
+    assert str(result) == os.path.join('a', 'b')
 
 
 async def test_forwarded_properties(path):
@@ -129,7 +130,6 @@ async def test_forward_methods_without_rewrap(path, tmpdir):
     path = await path.parent.resolve()
 
     assert path.as_uri().startswith('file:///')
-    assert path.as_posix().startswith('/')
 
 
 async def test_repr():
