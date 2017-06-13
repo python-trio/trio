@@ -89,6 +89,16 @@ async def test_basic_spawn_wait():
         await task.wait()
         assert task.result.unwrap() == 20
 
+async def test_nursery_warn_use_async_with():
+    with pytest.raises(RuntimeError) as excinfo:
+        on = _core.open_nursery()
+        with on as nursery:
+            pass # pragma: no-cover
+    excinfo.match(r"use 'async with open_nursery\(...\)', not 'with open_nursery\(...\)'")
+                  
+    # avoid unawaited coro.
+    async with on:
+        pass
 
 async def test_child_crash_basic():
     exc = ValueError("uh oh")

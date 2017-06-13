@@ -83,6 +83,7 @@ def aiter_compat(aiter_impl):
 # Copyright © 2001-2017 Python Software Foundation; All Rights Reserved
 class _AsyncGeneratorContextManager:
     def __init__(self, func, args, kwds):
+        self._func_name = func.__name__
         self._agen = func(*args, **kwds).__aiter__()
 
     async def __aenter__(self):
@@ -134,6 +135,13 @@ class _AsyncGeneratorContextManager:
                 #
                 if sys.exc_info()[1] is not value:
                     raise
+
+    def __enter__(self):
+        raise RuntimeError("use 'async with {func_name}(...)', not 'with {func_name}(...)'".format(func_name=self._func_name))
+
+    def __exit__(self):
+        assert False, """Never called, but should be defined""" # pragma: no-cover
+
 
 def acontextmanager(func):
     """Like @contextmanager, but async."""
