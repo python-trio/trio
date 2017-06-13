@@ -212,7 +212,7 @@ class SendStream(AsyncResource):
 
     The underlying stream may be unidirectional, or bidirectional. If it's
     bidirectional, then you probably want to also implement
-    :class:`SendStream`, which makes your object a :class:`Stream`.
+    :class:`ReceiveStream`, which makes your object a :class:`Stream`.
 
     Every :class:`SendStream` also implements the :class:`AsyncResource`
     interface.
