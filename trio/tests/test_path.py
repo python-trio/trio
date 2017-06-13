@@ -135,7 +135,7 @@ async def test_forward_methods_without_rewrap(path, tmpdir):
 async def test_repr():
     path = trio.Path('.')
 
-    assert repr(path) == 'trio.Path(.)'
+    assert repr(path) == "trio.Path('.')"
 
 
 class MockWrapped:

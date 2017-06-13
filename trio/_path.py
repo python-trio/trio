@@ -137,7 +137,7 @@ class Path(metaclass=AsyncAutoWrapperType):
         return super().__dir__() + self._forward
 
     def __repr__(self):
-        return 'trio.Path({})'.format(str(self))
+        return 'trio.Path({})'.format(repr(str(self)))
 
     def __fspath__(self):
         try:
