@@ -374,12 +374,20 @@ Socket objects
    * :meth:`~socket.socket.set_inheritable`
    * :meth:`~socket.socket.get_inheritable`
 
+Asynchronous disk I/O
+---------------------
 
-Async disk I/O
---------------
+.. currentmodule:: trio
 
-`Not implemented yet! <https://github.com/python-trio/trio/issues/20>`__
+.. autofunction:: open_file
 
+.. autofunction:: wrap_file
+
+Asynchronous path objects
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: Path
+   :members:
 
 Subprocesses
 ------------
