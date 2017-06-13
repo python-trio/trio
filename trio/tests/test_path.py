@@ -106,6 +106,13 @@ async def test_forward_methods_rewrap(path, tmpdir):
     assert with_suffix == tmpdir.join('test.py')
 
 
+async def test_forward_methods_without_rewrap(path, tmpdir):
+    path = await path.parent.resolve()
+
+    assert path.as_uri().startswith('file:///')
+    assert path.as_posix().startswith('/')
+
+
 async def test_repr():
     path = trio.Path('.')
 

@@ -21,16 +21,20 @@ def unwrap_paths(args):
     return new_args
 
 
+# re-wrap return value from methods that return new instances of pathlib.Path
+def rewrap_path(value):
+    if isinstance(value, pathlib.Path):
+        value = Path(value)
+    return value
+
+
 def _forward_factory(cls, attr_name, attr):
     @wraps(attr)
     def wrapper(self, *args, **kwargs):
         args = unwrap_paths(args)
         attr = getattr(self._wrapped, attr_name)
         value = attr(*args, **kwargs)
-        if isinstance(value, cls._forwards):
-            # re-wrap methods that return new paths
-            value = cls(value)
-        return value
+        return rewrap_path(value)
 
     return wrapper
 
@@ -54,9 +58,7 @@ def thread_wrapper_factory(cls, meth_name):
         meth = getattr(self._wrapped, meth_name)
         func = partial(meth, *args, **kwargs)
         value = await trio.run_in_worker_thread(func)
-        if isinstance(value, cls._wraps):
-            value = cls(value)
-        return value
+        return rewrap_path(value)
 
     return wrapper
 
