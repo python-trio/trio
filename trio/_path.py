@@ -108,9 +108,13 @@ class Path(metaclass=AsyncAutoWrapperType):
 
     def __init__(self, *args):
         # python3.5 compat
-        args = [str(a) for a in args]
+        new_args = []
+        for arg in args:
+            if isinstance(arg, Path):
+                arg = arg._wrapped
+            new_args.append(arg)
 
-        self._wrapped = pathlib.Path(*args)
+        self._wrapped = pathlib.Path(*new_args)
 
     def __getattr__(self, name):
         if name in self._forward:

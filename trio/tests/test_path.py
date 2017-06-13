@@ -150,6 +150,11 @@ async def test_path_wraps_path(path):
     assert path == other
 
 
+async def test_path_nonpath():
+    with pytest.raises(TypeError):
+        trio.Path(1)
+
+
 async def test_open_file_can_open_path(path):
     async with await trio.open_file(path, 'w') as f:
         assert f.name == path.__fspath__()
