@@ -147,6 +147,11 @@ class Path(metaclass=AsyncAutoWrapperType):
             return str(self)
 
     async def open(self, *args, **kwargs):
+        """Open the file pointed to by the path, like the :func:`trio.open_file`
+        function does.
+
+        """
+
         func = partial(self._wrapped.open, *args, **kwargs)
         value = await trio.run_in_worker_thread(func)
         return trio.wrap_file(value)
