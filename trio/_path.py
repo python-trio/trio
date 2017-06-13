@@ -128,7 +128,8 @@ class Path(metaclass=AsyncAutoWrapperType):
 
     def __getattr__(self, name):
         if name in self._forward:
-            return getattr(self._wrapped, name)
+            value = getattr(self._wrapped, name)
+            return rewrap_path(value)
         raise AttributeError(name)
 
     def __dir__(self):

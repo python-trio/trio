@@ -106,6 +106,10 @@ async def test_forward_methods_rewrap(path, tmpdir):
     assert with_suffix == tmpdir.join('test.py')
 
 
+async def test_forward_properties_rewrap(path):
+    assert isinstance(path.parent, trio.Path)
+
+
 async def test_forward_methods_without_rewrap(path, tmpdir):
     path = await path.parent.resolve()
 
