@@ -47,7 +47,8 @@ def _forward_magic(cls, attr):
             return attr(self._wrapped)
         if isinstance(other, cls):
             other = other._wrapped
-        return attr(self._wrapped, other)
+        value = attr(self._wrapped, other)
+        return rewrap_path(value)
     return wrapper
 
 
@@ -117,7 +118,7 @@ class Path(metaclass=AsyncAutoWrapperType):
     _wraps = pathlib.Path
     _forwards = pathlib.PurePath
     _forward_magic = [
-        '__str__', '__bytes__',
+        '__str__', '__bytes__', '__truediv__', '__rtruediv__',
         '__eq__', '__lt__', '__le__', '__gt__', '__ge__'
     ]
 

@@ -52,6 +52,21 @@ async def test_cmp_magic(cls_a, cls_b):
     assert not b == None
 
 
+# upstream python3.5 bug: we should also test (pathlib.Path, trio.Path), but
+# __*div__ does not properly raise NotImplementedError like the other comparison
+# magic, so trio.Path's implementation does not get dispatched
+cls_pairs = [(trio.Path, pathlib.Path), (trio.Path, trio.Path), (trio.Path, str), (str, trio.Path)]
+
+
+@pytest.mark.parametrize('cls_a,cls_b', cls_pairs)
+async def test_div_magic(cls_a, cls_b):
+    a, b = cls_a('a'), cls_b('b')
+
+    result = a / b
+    assert isinstance(result, trio.Path)
+    assert str(result) == 'a/b'
+
+
 async def test_forwarded_properties(path):
     # use `name` as a representative of forwarded properties
 
