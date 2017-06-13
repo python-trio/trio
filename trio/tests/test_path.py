@@ -26,21 +26,30 @@ async def test_open_is_async_context_manager(path):
     assert f.closed
 
 
-async def test_cmp_magic():
-    a, b = trio.Path(''), trio.Path('')
+async def test_magic():
+    path = trio.Path('test')
+
+    assert str(path) == 'test'
+    assert bytes(path) == b'test'
+
+
+cls_pairs = [(trio.Path, pathlib.Path), (pathlib.Path, trio.Path), (trio.Path, trio.Path)]
+
+
+@pytest.mark.parametrize('cls_a,cls_b', cls_pairs)
+async def test_cmp_magic(cls_a, cls_b):
+    a, b = cls_a(''), cls_b('')
     assert a == b
     assert not a != b
 
-    a, b = trio.Path('a'), trio.Path('b')
+    a, b = cls_a('a'), cls_b('b')
     assert a < b
     assert b > a
 
+    # this is intentionally testing equivalence with none, due to the
+    # other=sentinel logic in _forward_magic
     assert not a == None
-
-
-async def test_forward_magic(path):
-    assert str(path) == str(path._wrapped)
-    assert bytes(path) == bytes(path._wrapped)
+    assert not b == None
 
 
 async def test_forwarded_properties(path):
