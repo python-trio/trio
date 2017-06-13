@@ -10,9 +10,21 @@ from trio._util import async_wraps
 __all__ = ['Path']
 
 
+# python3.5 compat: __fspath__ does not exist in 3.5, so unwrap any trio.Path
+# being passed to any wrapped method
+def unwrap_paths(args):
+    new_args = []
+    for arg in args:
+        if isinstance(arg, Path):
+            arg = arg._wrapped
+        new_args.append(arg)
+    return new_args
+
+
 def _forward_factory(cls, attr_name, attr):
     @wraps(attr)
     def wrapper(self, *args, **kwargs):
+        args = unwrap_paths(args)
         attr = getattr(self._wrapped, attr_name)
         value = attr(*args, **kwargs)
         if isinstance(value, cls._forwards):
@@ -38,6 +50,7 @@ def _forward_magic(cls, attr):
 def thread_wrapper_factory(cls, meth_name):
     @async_wraps(cls, pathlib.Path, meth_name)
     async def wrapper(self, *args, **kwargs):
+        args = unwrap_paths(args)
         meth = getattr(self._wrapped, meth_name)
         func = partial(meth, *args, **kwargs)
         value = await trio.run_in_worker_thread(func)
@@ -107,14 +120,9 @@ class Path(metaclass=AsyncAutoWrapperType):
     ]
 
     def __init__(self, *args):
-        # python3.5 compat
-        new_args = []
-        for arg in args:
-            if isinstance(arg, Path):
-                arg = arg._wrapped
-            new_args.append(arg)
+        args = unwrap_paths(args)
 
-        self._wrapped = pathlib.Path(*new_args)
+        self._wrapped = pathlib.Path(*args)
 
     def __getattr__(self, name):
         if name in self._forward:

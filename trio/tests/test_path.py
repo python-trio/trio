@@ -144,10 +144,14 @@ async def test_type_wraps_private():
     assert not hasattr(MockWrapper, '_private')
 
 
-async def test_path_wraps_path(path):
-    other = trio.Path(path)
+@pytest.mark.parametrize('meth', [trio.Path.__init__, trio.Path.joinpath])
+async def test_path_wraps_path(path, meth):
+    wrapped = await path.absolute()
+    result = meth(path, wrapped)
+    if result is None:
+        result = path
 
-    assert path == other
+    assert wrapped == result
 
 
 async def test_path_nonpath():
