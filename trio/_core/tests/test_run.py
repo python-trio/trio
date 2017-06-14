@@ -11,7 +11,7 @@ import gc
 import pytest
 import attr
 
-from .tutil import check_sequence_matches
+from .tutil import check_sequence_matches, gc_collect_harder
 from ...testing import (
     wait_all_tasks_blocked, Sequencer, assert_yields,
 )
@@ -41,7 +41,8 @@ def ignore_coroutine_never_awaited_warnings():
         finally:
             # Make sure to trigger any coroutine __del__ methods now, before
             # we leave the context manager.
-            gc.collect()
+            gc_collect_harder()
+
 
 def test_basic():
     async def trivial(x):
@@ -883,7 +884,7 @@ def test_broken_abort():
     # Because this crashes, various __del__ methods print complaints on
     # stderr. Make sure that they get run now, so the output is attached to
     # this test.
-    gc.collect()
+    gc_collect_harder()
 
 
 def test_error_in_run_loop():
@@ -1490,6 +1491,8 @@ def test_nice_error_on_bad_calls_to_run_or_spawn():
                 bad_call(len, [1, 2, 3])
             assert "appears to be synchronous" in str(excinfo.value)
 
+            # Make sure no references are kept around to keep anything alive
+            del excinfo
 
 def test_calling_asyncio_function_gives_nice_error():
     async def misguided():
