@@ -57,10 +57,23 @@ SERVER_CTX.load_cert_chain(CERT1)
 
 CLIENT_CTX = stdlib_ssl.create_default_context(cafile=CA)
 
+# workaround for
+#   https://bitbucket.org/pypy/pypy/issues/2578/
+# (fortunately only affects our test suite, not the actual ssl.py)
+# bug is in 5.8.0-beta and at least some of the 5.9.0-alpha nightlies, but
+# will hopefully be fixed soon
+import sys
+WORKAROUND_PYPY_BUG = False
+if (hasattr(sys, "pypy_version_info")
+        and (sys.pypy_version_info < (5, 9)
+             or sys.pypy_version_info[:4] == (5, 9, 0, "alpha"))):
+    WORKAROUND_PYPY_BUG = True
+
 # The blocking socket server.
 def ssl_echo_serve_sync(sock, *, expect_fail=False):
     try:
-        wrapped = SERVER_CTX.wrap_socket(sock, server_side=True)
+        wrapped = SERVER_CTX.wrap_socket(
+            sock, server_side=True, suppress_ragged_eofs=False)
         wrapped.do_handshake()
         while True:
             data = wrapped.recv(4096)
@@ -68,9 +81,12 @@ def ssl_echo_serve_sync(sock, *, expect_fail=False):
                 # other side has initiated a graceful shutdown; we try to
                 # respond in kind but it's legal for them to have already gone
                 # away.
+                exceptions = (BrokenPipeError,)
+                if WORKAROUND_PYPY_BUG:
+                    exceptions += (stdlib_ssl.SSLEOFError,)
                 try:
                     wrapped.unwrap()
-                except BrokenPipeError:
+                except exceptions:
                     pass
                 return
             wrapped.sendall(data)
