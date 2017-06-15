@@ -93,7 +93,7 @@ async def test_nursery_warn_use_async_with():
     with pytest.raises(RuntimeError) as excinfo:
         on = _core.open_nursery()
         with on as nursery:
-            pass # pragma: no-cover
+            pass  # pragma: no cover
     excinfo.match(r"use 'async with open_nursery\(...\)', not 'with open_nursery\(...\)'")
                   
     # avoid unawaited coro.
