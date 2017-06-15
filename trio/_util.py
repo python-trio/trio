@@ -139,8 +139,8 @@ class _AsyncGeneratorContextManager:
     def __enter__(self):
         raise RuntimeError("use 'async with {func_name}(...)', not 'with {func_name}(...)'".format(func_name=self._func_name))
 
-    def __exit__(self):
-        assert False, """Never called, but should be defined""" # pragma: no-cover
+    def __exit__(self):  # pragma: no cover
+        assert False, """Never called, but should be defined"""
 
 
 def acontextmanager(func):
