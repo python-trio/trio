@@ -5,8 +5,10 @@ import threading
 import socket as stdlib_socket
 import ssl as stdlib_ssl
 from contextlib import contextmanager
+from functools import partial
 
 from OpenSSL import SSL
+from async_generator import async_generator, yield_
 
 import trio
 from .. import _core
@@ -14,7 +16,7 @@ from .. import _network
 from .._streams import BrokenStreamError, ClosedStreamError
 from .. import ssl as tssl
 from .. import socket as tsocket
-from .._util import UnLock
+from .._util import UnLock, acontextmanager
 
 from .._core.tests.tutil import slow
 
@@ -55,16 +57,37 @@ SERVER_CTX.load_cert_chain(CERT1)
 
 CLIENT_CTX = stdlib_ssl.create_default_context(cafile=CA)
 
+# workaround for
+#   https://bitbucket.org/pypy/pypy/issues/2578/
+# (fortunately only affects our test suite, not the actual ssl.py)
+# bug is in 5.8.0-beta and at least some of the 5.9.0-alpha nightlies, but
+# will hopefully be fixed soon
+import sys
+WORKAROUND_PYPY_BUG = False
+if (hasattr(sys, "pypy_version_info")
+        and (sys.pypy_version_info < (5, 9)
+             or sys.pypy_version_info[:4] == (5, 9, 0, "alpha"))):
+    WORKAROUND_PYPY_BUG = True
+
 # The blocking socket server.
 def ssl_echo_serve_sync(sock, *, expect_fail=False):
     try:
-        wrapped = SERVER_CTX.wrap_socket(sock, server_side=True)
+        wrapped = SERVER_CTX.wrap_socket(
+            sock, server_side=True, suppress_ragged_eofs=False)
         wrapped.do_handshake()
         while True:
             data = wrapped.recv(4096)
             if not data:
-                # graceful shutdown
-                wrapped.unwrap()
+                # other side has initiated a graceful shutdown; we try to
+                # respond in kind but it's legal for them to have already gone
+                # away.
+                exceptions = (BrokenPipeError,)
+                if WORKAROUND_PYPY_BUG:
+                    exceptions += (stdlib_ssl.SSLEOFError,)
+                try:
+                    wrapped.unwrap()
+                except exceptions:
+                    pass
                 return
             wrapped.sendall(data)
     except Exception as exc:
@@ -74,37 +97,38 @@ def ssl_echo_serve_sync(sock, *, expect_fail=False):
             raise
     else:
         if expect_fail:  # pragma: no cover
-            print("failed to fail?!")
+            raise RuntimeError("failed to fail?")
 
 
 # Fixture that gives a raw socket connected to a trio-test-1 echo server
 # (running in a thread). Useful for testing making connections with different
 # SSLContexts.
-@contextmanager
-def ssl_echo_server_raw(**kwargs):
+#
+# This way of writing it is pretty janky, with the nursery hidden inside the
+# fixture and no proper parental supervision. Don't copy this code; it was
+# written this way before we knew better.
+@acontextmanager
+@async_generator
+async def ssl_echo_server_raw(**kwargs):
     a, b = stdlib_socket.socketpair()
-    with a, b:
-        t = threading.Thread(
-            target=ssl_echo_serve_sync,
-            args=(b,),
-            kwargs=kwargs,
-        )
-        t.start()
+    async with trio.open_nursery() as nursery:
+        with a, b:
+            nursery.spawn(
+                trio.run_in_worker_thread,
+                partial(ssl_echo_serve_sync, b, **kwargs))
 
-        yield _network.SocketStream(tsocket.from_stdlib_socket(a))
-
-    # exiting the context manager closes the sockets, which should force the
-    # thread to shut down (possibly with an error)
-    t.join()
-
+            await yield_(_network.SocketStream(tsocket.from_stdlib_socket(a)))
+        # exiting the 'with a, b' context manager closes the sockets, which
+        # should force the thread to shut down (possibly with an error)
 
 # Fixture that gives a properly set up SSLStream connected to a trio-test-1
 # echo server (running in a thread)
-@contextmanager
-def ssl_echo_server(**kwargs):
-    with ssl_echo_server_raw(**kwargs) as sock:
-        yield tssl.SSLStream(
-            sock, CLIENT_CTX, server_hostname="trio-test-1.example.org")
+@acontextmanager
+@async_generator
+async def ssl_echo_server(**kwargs):
+    async with ssl_echo_server_raw(**kwargs) as sock:
+        await yield_(tssl.SSLStream(
+            sock, CLIENT_CTX, server_hostname="trio-test-1.example.org"))
 
 
 # The weird in-memory server ... thing.
@@ -326,14 +350,14 @@ def test_exports():
 # certificate checking (even though this is really Python's responsibility)
 async def test_ssl_client_basics():
     # Everything OK
-    with ssl_echo_server() as s:
+    async with ssl_echo_server() as s:
         assert not s.server_side
         await s.send_all(b"x")
         assert await s.receive_some(1) == b"x"
         await s.graceful_close()
 
     # Didn't configure the CA file, should fail
-    with ssl_echo_server_raw(expect_fail=True) as sock:
+    async with ssl_echo_server_raw(expect_fail=True) as sock:
         client_ctx = stdlib_ssl.create_default_context()
         s = tssl.SSLStream(
             sock, client_ctx, server_hostname="trio-test-1.example.org")
@@ -343,7 +367,7 @@ async def test_ssl_client_basics():
         assert isinstance(excinfo.value.__cause__, tssl.SSLError)
 
     # Trusted CA, but wrong host name
-    with ssl_echo_server_raw(expect_fail=True) as sock:
+    async with ssl_echo_server_raw(expect_fail=True) as sock:
         s = tssl.SSLStream(
             sock, CLIENT_CTX, server_hostname="trio-test-2.example.org")
         assert not s.server_side
@@ -380,7 +404,7 @@ async def test_ssl_server_basics():
 
 
 async def test_attributes():
-    with ssl_echo_server_raw(expect_fail=True) as sock:
+    async with ssl_echo_server_raw(expect_fail=True) as sock:
         good_ctx = CLIENT_CTX
         bad_ctx = stdlib_ssl.create_default_context()
         s = tssl.SSLStream(
@@ -470,7 +494,7 @@ async def test_full_duplex_basics():
             chunk = await s.receive_some(CHUNK_SIZE // 2)
             received += chunk
 
-    with ssl_echo_server() as s:
+    async with ssl_echo_server() as s:
         async with _core.open_nursery() as nursery:
             nursery.spawn(sender, s)
             nursery.spawn(receiver, s)
@@ -672,7 +696,7 @@ async def test_wait_writable_calls_underlying_wait_writable():
 
 
 async def test_checkpoints():
-    with ssl_echo_server() as s:
+    async with ssl_echo_server() as s:
         with assert_yields():
             await s.do_handshake()
         with assert_yields():
@@ -694,14 +718,14 @@ async def test_checkpoints():
         with assert_yields():
             await s.unwrap()
 
-    with ssl_echo_server() as s:
+    async with ssl_echo_server() as s:
         await s.do_handshake()
         with assert_yields():
             await s.graceful_close()
 
 
 async def test_send_all_empty_string():
-    with ssl_echo_server() as s:
+    async with ssl_echo_server() as s:
         await s.do_handshake()
 
         # underlying SSLObject interprets writing b"" as indicating an EOF,
