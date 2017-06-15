@@ -3,6 +3,7 @@ import pytest
 import attr
 
 import trio
+from trio.socket import AF_INET, AF_INET6, SOCK_STREAM, IPPROTO_TCP
 from trio._open_tcp_stream import (
     reorder_for_rfc_6555_section_5_4, close_on_error, open_tcp_stream,
     format_host_port,
@@ -27,16 +28,16 @@ def test_close_on_error():
 
 def test_reorder_for_rfc_6555_section_5_4():
     def fake4(i):
-        return (trio.socket.AF_INET,
-                trio.socket.SOCK_STREAM,
-                trio.socket.IPPROTO_TCP,
+        return (AF_INET,
+                SOCK_STREAM,
+                IPPROTO_TCP,
                 "",
                 ("10.0.0.{}".format(i), 80))
 
     def fake6(i):
-        return (trio.socket.AF_INET6,
-                trio.socket.SOCK_STREAM,
-                trio.socket.IPPROTO_TCP,
+        return (AF_INET6,
+                SOCK_STREAM,
+                IPPROTO_TCP,
                 "",
                 ("::{}".format(i), 80))
 
@@ -157,8 +158,8 @@ class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
             family = trio.socket.AF_INET
             sockaddr = (ip, self.port)
         return (family,
-                trio.socket.SOCK_STREAM,
-                trio.socket.IPPROTO_TCP,
+                SOCK_STREAM,
+                IPPROTO_TCP,
                 "",
                 sockaddr)
 

@@ -90,16 +90,19 @@ def test_socket_has_some_reexports():
 ################################################################
 
 async def test_getaddrinfo(monkeygai):
-    # Simple non-blocking non-error cases, ipv4 and ipv6:
-    with assert_yields():
-        res = await tsocket.getaddrinfo(
-            "127.0.0.1", "12345", type=tsocket.SOCK_STREAM)
     def check(got, expected):
         # win32 returns 0 for the proto field
         def without_proto(gai_tup):
             return gai_tup[:2] + (0,) + gai_tup[3:]
+
         expected2 = [without_proto(gt) for gt in expected]
         assert got == expected or got == expected2
+
+    # Simple non-blocking non-error cases, ipv4 and ipv6:
+    with assert_yields():
+        res = await tsocket.getaddrinfo(
+            "127.0.0.1", "12345", type=tsocket.SOCK_STREAM
+        )
 
     check(res, [
         (tsocket.AF_INET,  # 127.0.0.1 is ipv4
@@ -107,7 +110,7 @@ async def test_getaddrinfo(monkeygai):
          tsocket.IPPROTO_TCP,
          "",
          ("127.0.0.1", 12345)),
-    ])
+    ])  # yapf: disable
 
     with assert_yields():
         res = await tsocket.getaddrinfo(
@@ -118,7 +121,7 @@ async def test_getaddrinfo(monkeygai):
          tsocket.IPPROTO_UDP,
          "",
          ("::1", 12345, 0, 0)),
-    ])
+    ])  # yapf: disable
 
     monkeygai.set("x", b"host", "port", family=0, type=0, proto=0, flags=0)
     with assert_yields():
@@ -149,8 +152,8 @@ async def test_getnameinfo():
     # Trivial test:
     ni_numeric = stdlib_socket.NI_NUMERICHOST | stdlib_socket.NI_NUMERICSERV
     with assert_yields():
-        assert (await tsocket.getnameinfo(("127.0.0.1", 1234), ni_numeric)
-                == ("127.0.0.1", "1234"))
+        got = await tsocket.getnameinfo(("127.0.0.1", 1234), ni_numeric)
+    assert got == ("127.0.0.1", "1234")
 
     # getnameinfo requires a numeric address as input:
     with assert_yields():
@@ -165,14 +168,14 @@ async def test_getnameinfo():
     host, service = stdlib_socket.getnameinfo(("127.0.0.1", 80), 0)
 
     # Some working calls:
-    assert (await tsocket.getnameinfo(("127.0.0.1", 80), 0)
-            == (host, service))
+    got = await tsocket.getnameinfo(("127.0.0.1", 80), 0)
+    assert got == (host, service)
 
-    assert (await tsocket.getnameinfo(("127.0.0.1", 80), tsocket.NI_NUMERICHOST)
-            == ("127.0.0.1", service))
+    got = await tsocket.getnameinfo(("127.0.0.1", 80), tsocket.NI_NUMERICHOST)
+    assert got == ("127.0.0.1", service)
 
-    assert (await tsocket.getnameinfo(("127.0.0.1", 80), tsocket.NI_NUMERICSERV)
-            == (host, "80"))
+    got = await tsocket.getnameinfo(("127.0.0.1", 80), tsocket.NI_NUMERICSERV)
+    assert got == (host, "80")
 
 
 ################################################################
@@ -348,7 +351,9 @@ async def test_SocketType_shutdown():
 @pytest.mark.parametrize("address, socket_type", [('127.0.0.1', tsocket.AF_INET), ('::1', tsocket.AF_INET6)])
 async def test_SocketType_simple_server(address, socket_type):
     # listen, bind, accept, connect, getpeername, getsockname
-    with tsocket.socket(socket_type) as listener, tsocket.socket(socket_type) as client:
+    listener = tsocket.socket(socket_type)
+    client = tsocket.socket(socket_type)
+    with listener, client:
         listener.bind((address, 0))
         listener.listen(20)
         addr = listener.getsockname()[:2]
@@ -365,18 +370,20 @@ async def test_SocketType_simple_server(address, socket_type):
 async def test_SocketType_resolve():
     sock4 = tsocket.socket(family=tsocket.AF_INET)
     with assert_yields():
-        assert await sock4.resolve_local_address((None, 80)) == ("0.0.0.0", 80)
+        got = await sock4.resolve_local_address((None, 80))
+    assert got == ("0.0.0.0", 80)
     with assert_yields():
-        assert (await sock4.resolve_remote_address((None, 80))
-                == ("127.0.0.1", 80))
+        got = await sock4.resolve_remote_address((None, 80))
+    assert got == ("127.0.0.1", 80)
 
     sock6 = tsocket.socket(family=tsocket.AF_INET6)
     with assert_yields():
-        assert (await sock6.resolve_local_address((None, 80))
-                == ("::", 80, 0, 0))
+        got = await sock6.resolve_local_address((None, 80))
+    assert got == ("::", 80, 0, 0)
+
     with assert_yields():
-        assert (await sock6.resolve_remote_address((None, 80))
-                == ("::1", 80, 0, 0))
+        got = await sock6.resolve_remote_address((None, 80))
+    assert got == ("::1", 80, 0, 0)
 
     # AI_PASSIVE only affects the wildcard address, so for everything else
     # resolve_local_address and resolve_remote_address should work the same:
@@ -758,13 +765,14 @@ async def test_custom_hostname_resolver(monkeygai):
     for vals in [(tsocket.AF_INET, 0, 0, 0),
                  (0, tsocket.SOCK_STREAM, 0, 0),
                  (0, 0, tsocket.IPPROTO_TCP, 0),
-                 (0, 0, 0, tsocket.AI_CANONNAME)]:
+                 (0, 0, 0, tsocket.AI_CANONNAME),]:
         assert (await tsocket.getaddrinfo("localhost", "foo", *vals)
                 == ("custom_gai", b"localhost", "foo", *vals))
 
     # IDNA encoding is handled before calling the special object
-    assert (await tsocket.getaddrinfo("föö", "foo")
-            == ("custom_gai", b"xn--f-1gaa", "foo", 0, 0, 0, 0))
+    got = await tsocket.getaddrinfo("föö", "foo")
+    expected = ("custom_gai", b"xn--f-1gaa", "foo", 0, 0, 0, 0)
+    assert got == expected
 
     assert (await tsocket.getnameinfo("a", 0) == ("custom_gni", "a", 0))
 

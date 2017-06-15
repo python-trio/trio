@@ -131,7 +131,8 @@ class WindowsIOManager:
         # except that wakeup socket is mapped to None
         self._socket_waiters = {"read": {}, "write": {}}
         self._main_thread_waker = WakeupSocketpair()
-        self._socket_waiters["read"][self._main_thread_waker.wakeup_sock] = None
+        wakeup_sock = self._main_thread_waker.wakeup_sock
+        self._socket_waiters["read"][wakeup_sock] = None
 
         # This is necessary to allow control-C to interrupt select().
         # https://github.com/python-trio/trio/issues/42
@@ -237,11 +238,12 @@ class WindowsIOManager:
                 else:
                     # dispatch on lpCompletionKey
                     queue = self._completion_key_queues[entry.lpCompletionKey]
+                    overlapped = int(ffi.cast("uintptr_t", entry.lpOverlapped))
+                    transferred = entry.dwNumberOfBytesTransferred
                     info = CompletionKeyEventInfo(
-                        lpOverlapped=
-                            int(ffi.cast("uintptr_t", entry.lpOverlapped)),
-                        dwNumberOfBytesTransferred=
-                            entry.dwNumberOfBytesTransferred)
+                        lpOverlapped=overlapped,
+                        dwNumberOfBytesTransferred=transferred,
+                    )
                     queue.put_nowait(info)
 
     def _iocp_thread_fn(self):

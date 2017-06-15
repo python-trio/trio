@@ -581,7 +581,7 @@ class Runner:
             seconds_to_next_deadline=seconds_to_next_deadline,
             io_statistics=self.io_manager.statistics(),
             call_soon_queue_size=
-              len(self.call_soon_queue) + len(self.call_soon_idempotent_queue),
+              (len(self.call_soon_queue) + len(self.call_soon_idempotent_queue)),
         )
 
     @_public

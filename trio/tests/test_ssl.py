@@ -63,8 +63,8 @@ TRIO_TEST_CA.configure_trust(CLIENT_CTX)
 import sys
 WORKAROUND_PYPY_BUG = False
 if (hasattr(sys, "pypy_version_info")
-        and (sys.pypy_version_info < (5, 9)
-             or sys.pypy_version_info[:4] == (5, 9, 0, "alpha"))):
+        and ((sys.pypy_version_info < (5, 9))
+             or (sys.pypy_version_info[:4] == (5, 9, 0, "alpha")))):
     WORKAROUND_PYPY_BUG = True
 
 # The blocking socket server.
@@ -110,14 +110,15 @@ def ssl_echo_serve_sync(sock, *, expect_fail=False):
 async def ssl_echo_server_raw(**kwargs):
     a, b = stdlib_socket.socketpair()
     async with trio.open_nursery() as nursery:
+        # Exiting the 'with a, b' context manager closes the sockets, which
+        # causes the thread to exit (possibly with an error), which allows the
+        # nursery context manager to exit too.
         with a, b:
             nursery.spawn(
                 trio.run_in_worker_thread,
                 partial(ssl_echo_serve_sync, b, **kwargs))
 
             await yield_(_network.SocketStream(tsocket.from_stdlib_socket(a)))
-        # exiting the 'with a, b' context manager closes the sockets, which
-        # should force the thread to shut down (possibly with an error)
 
 # Fixture that gives a properly set up SSLStream connected to a trio-test-1
 # echo server (running in a thread)

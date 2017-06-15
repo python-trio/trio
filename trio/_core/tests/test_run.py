@@ -460,17 +460,22 @@ def test_instruments_interleave():
         ("before_run",),
         ("schedule", tasks["t1"]),
         ("schedule", tasks["t2"]),
-        {("before", tasks["t1"]),
-         ("after", tasks["t1"]),
-         ("before", tasks["t2"]),
-         ("after", tasks["t2"])},
-        {("schedule", tasks["t1"]),
-         ("before", tasks["t1"]),
-         ("after", tasks["t1"]),
-         ("schedule", tasks["t2"]),
-         ("before", tasks["t2"]),
-         ("after", tasks["t2"])},
-        ("after_run",)]
+        {
+            ("before", tasks["t1"]),
+            ("after", tasks["t1"]),
+            ("before", tasks["t2"]),
+            ("after", tasks["t2"])
+        },
+        {
+            ("schedule", tasks["t1"]),
+            ("before", tasks["t1"]),
+            ("after", tasks["t1"]),
+            ("schedule", tasks["t2"]),
+            ("before", tasks["t2"]),
+            ("after", tasks["t2"])
+        },
+        ("after_run",),
+    ]  # yapf: disable
     print(list(r.filter_tasks(tasks.values())))
     check_sequence_matches(list(r.filter_tasks(tasks.values())), expected)
 

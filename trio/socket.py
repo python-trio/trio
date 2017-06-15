@@ -22,30 +22,35 @@ def _reexport(name):
 
 
 # Usage:
+#
 #   async with _try_sync():
 #       return sync_call_that_might_fail_with_exception()
-#   # we only get here if the sync call in fact did fail with an exception
-#   # that passed the blocking_exc_check
+#   # we only get here if the sync call in fact did fail with a
+#   # BlockingIOError
 #   return await do_it_properly_with_a_check_point()
-
-def _is_blocking_io_error(exc):
-    return isinstance(exc, BlockingIOError)
-
+#
 class _try_sync:
-    def __init__(self, blocking_exc_check=_is_blocking_io_error):
-        self._blocking_exc_check = blocking_exc_check
+    def __init__(self, blocking_exc_override=None):
+        self._blocking_exc_override = blocking_exc_override
+
+    def _is_blocking_io_error(self, exc):
+        if self._blocking_exc_override is None:
+            return isinstance(exc, BlockingIOError)
+        else:
+            return self._blocking_exc_override(exc)
 
     async def __aenter__(self):
         await _core.yield_if_cancelled()
 
     async def __aexit__(self, etype, value, tb):
-        if value is not None and self._blocking_exc_check(value):
-            # discard the exception and fall through to the code below the
+        if value is not None and self._is_blocking_io_error(value):
+            # Discard the exception and fall through to the code below the
             # block
             return True
         else:
             await _core.yield_briefly_no_cancel()
             # Let the return or exception propagate
+            return False
 
 
 ################################################################
@@ -163,8 +168,15 @@ __all__.append("set_custom_socket_factory")
 # getaddrinfo and friends
 ################################################################
 
+def _add_to_all(obj):
+    __all__.append(obj.__name__)
+    return obj
+
+
 _NUMERIC_ONLY = _stdlib_socket.AI_NUMERICHOST | _stdlib_socket.AI_NUMERICSERV
 
+
+@_add_to_all
 async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
     """Look up a numeric address given a name.
 
@@ -215,9 +227,8 @@ async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
             _stdlib_socket.getaddrinfo, host, port, family, type, proto, flags,
             cancellable=True)
 
-__all__.append("getaddrinfo")
 
-
+@_add_to_all
 async def getnameinfo(sockaddr, flags):
     """Look up a name given a numeric address.
 
@@ -235,9 +246,9 @@ async def getnameinfo(sockaddr, flags):
         return await _run_in_worker_thread(
             _stdlib_socket.getnameinfo, sockaddr, flags, cancellable=True)
 
-__all__.append("getnameinfo")
 
 
+@_add_to_all
 async def getprotobyname(name):
     """Look up a protocol number by name. (Rarely used.)
 
@@ -247,41 +258,42 @@ async def getprotobyname(name):
     return await _run_in_worker_thread(
         _stdlib_socket.getprotobyname, name, cancellable=True)
 
-__all__.append("getprotobyname")
 
 # obsolete gethostbyname etc. intentionally omitted
+# likewise for create_connection (use open_tcp_stream instead)
 
 
 ################################################################
 # Socket "constructors"
 ################################################################
 
+@_add_to_all
 def from_stdlib_socket(sock):
     """Convert a standard library :func:`socket.socket` object into a trio
     socket object.
 
     """
     return _SocketType(sock)
-__all__.append("from_stdlib_socket")
 
 
 @_wraps(_stdlib_socket.fromfd, assigned=(), updated=())
+@_add_to_all
 def fromfd(*args, **kwargs):
     """Like :func:`socket.fromfd`, but returns a trio socket object.
 
     """
     return from_stdlib_socket(_stdlib_socket.fromfd(*args, **kwargs))
-__all__.append("fromfd")
 
 
 if hasattr(_stdlib_socket, "fromshare"):
     @_wraps(_stdlib_socket.fromshare, assigned=(), updated=())
+    @_add_to_all
     def fromshare(*args, **kwargs):
         return from_stdlib_socket(_stdlib_socket.fromshare(*args, **kwargs))
-    __all__.append("fromshare")
 
 
 @_wraps(_stdlib_socket.socketpair, assigned=(), updated=())
+@_add_to_all
 def socketpair(*args, **kwargs):
     """Like :func:`socket.socketpair`, but returns a pair of trio socket
     objects.
@@ -289,10 +301,10 @@ def socketpair(*args, **kwargs):
     """
     left, right = _stdlib_socket.socketpair(*args, **kwargs)
     return (from_stdlib_socket(left), from_stdlib_socket(right))
-__all__.append("socketpair")
 
 
 @_wraps(_stdlib_socket.socket, assigned=(), updated=())
+@_add_to_all
 def socket(family=AF_INET, type=SOCK_STREAM, proto=0, fileno=None):
     """Create a new trio socket, like :func:`socket.socket`.
 
@@ -306,13 +318,13 @@ def socket(family=AF_INET, type=SOCK_STREAM, proto=0, fileno=None):
             return sf.socket(family, type, proto)
     stdlib_socket = _stdlib_socket.socket(family, type, proto, fileno)
     return from_stdlib_socket(stdlib_socket)
-__all__.append("socket")
 
 
 ################################################################
 # Type checking
 ################################################################
 
+@_add_to_all
 def is_trio_socket(obj):
     """Check whether the given object is a trio socket.
 
@@ -325,7 +337,6 @@ def is_trio_socket(obj):
         return True
     return isinstance(obj, _SocketType)
 
-__all__.append("is_trio_socket")
 
 ################################################################
 # _SocketType
@@ -349,6 +360,7 @@ _SOCK_TYPE_MASK = ~(
 def _real_type(type_num):
     return type_num & _SOCK_TYPE_MASK
 
+@_add_to_all
 class _SocketType:
     def __init__(self, sock):
         if type(sock) is not _stdlib_socket.socket:
@@ -801,57 +813,3 @@ class _SocketType:
     #   setblocking
     #   settimeout
     #   timeout
-
-
-################################################################
-# create_connection
-################################################################
-
-# Copied from socket.create_connection and slightly tweaked.
-#
-# So this is a derivative work licensed under the PSF License, which requires
-# the following notice:
-#
-#     Copyright © 2001-2017 Python Software Foundation; All Rights Reserved
-#
-# XX shouldn't this use AI_ADDRCONFIG? and ideally happy eyeballs...
-#   actually it looks like V4MAPPED | ADDRCONFIG is the default on Linux, but
-#   not on other systems. (V4MAPPED is irrelevant here b/c it's a no-op unless
-#   family=AF_INET6)
-# XX possibly we should just throw it out and replace with whatever API we
-# like better :-) maybe an easy TLS option? AF_UNIX equivalent?
-#
-# some prior art: https://twistedmatrix.com/documents/current/api/twisted.internet.endpoints.HostnameEndpoint.html
-# interesting considerations for happy eyeballs:
-# - controlling the lag between attempt starts
-# - start the next attempt early if the one before it errors out
-# - per-attempt timeouts? (for if lag is set very high / infinity, disabling
-#   happy eyeballs)
-
-# Actually, disabling this for now because it's probably broken (see above),
-# untested, and we probably want to use a different API anyway (see #73). We
-# can revisit after the initial release.
-#
-# async def create_connection(address, source_address=None):
-#     host, port = address
-#     err = None
-#     for res in await _getaddrinfo_impl(host, port, 0, SOCK_STREAM):
-#         af, socktype, proto, canonname, sa = res
-#         sock = None
-#         try:
-#             sock = socket(af, socktype, proto)
-#             if source_address:
-#                 sock.bind(source_address)
-#             await sock.connect(sa)
-#             return sock
-#         except OSError as _:
-#             err = _
-#             if sock is not None:
-#                 sock.close()
-#     if err is not None:
-#         raise err
-#     else:
-#         raise OSError("getaddrinfo returned an empty list")
-# __all__.append("create_connection")
-
-

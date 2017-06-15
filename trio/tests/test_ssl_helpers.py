@@ -3,6 +3,7 @@ import pytest
 import attr
 
 import trio
+from trio.socket import AF_INET, SOCK_STREAM, IPPROTO_TCP
 import trio.testing
 from .._util import acontextmanager
 from .test_ssl import CLIENT_CTX, SERVER_CTX
@@ -54,9 +55,9 @@ class FakeNetwork(trio.abc.HostnameResolver, trio.abc.SocketFactory):
     nursery = attr.ib()
 
     async def getaddrinfo(self, *args):
-        return [(trio.socket.AF_INET,
-                 trio.socket.SOCK_STREAM,
-                 trio.socket.IPPROTO_TCP,
+        return [(AF_INET,
+                 SOCK_STREAM,
+                 IPPROTO_TCP,
                  "",
                  ("1.1.1.1", 443))]
 

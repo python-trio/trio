@@ -174,6 +174,9 @@ def _reexport(name):
         globals()[name] = value
         __all__.append(name)
 
+
+# Intentionally not re-exported:
+# SSLContext
 for _name in [
         "SSLError", "SSLZeroReturnError", "SSLSyscallError", "SSLEOFError",
         "CertificateError", "create_default_context", "match_hostname",
@@ -181,7 +184,6 @@ for _name in [
         "get_default_verify_paths", "Purpose", "enum_certificates",
         "enum_crls", "SSLSession", "VerifyMode", "VerifyFlags", "Options",
         "AlertDescription", "SSLErrorNumber",
-        # Intentionally not re-exported: SSLContext
 ]:
     _reexport(_name)
 
