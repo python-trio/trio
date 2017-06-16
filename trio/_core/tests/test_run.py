@@ -1770,3 +1770,50 @@ def test_non_awaited_caught_in_multierror_swallow_nonawaited():
 
     with ignore_coroutine_never_awaited_warnings():
         _core.run(run)
+
+def test_user_wrapper_restored():
+    """check that trio.run correctly restore user-set coroutine wrappers"""
+
+    called = False
+    def _coro_wrapper(coro):
+        nonlocal called
+        called = True
+        return coro
+
+    import sys
+    sys.set_coroutine_wrapper(_coro_wrapper)
+
+    async def dummy_coroutine():
+        pass
+
+    async def run():
+        await dummy_coroutine()
+
+    with ignore_coroutine_never_awaited_warnings():
+        _core.run(run)
+
+    assert called is True , "original coro wrapper got called"
+    current_coro_wrapper = sys.get_coroutine_wrapper()
+    assert current_coro_wrapper == _coro_wrapper , "coroutine wrapper correctly reinstated on exit of run"
+
+
+def test_run_with_allow_non_awaited_coroutine_true():
+    "Check that both checkpoint an multierror do not raise"
+
+    async def run_me():
+
+        def handler(exc):
+            return exc
+
+        async def unawaited():
+            pass  # pragma: no cover
+
+        with MultiError.catch(handler):
+            unawaited()
+
+        unawaited()
+        await sleep(0)
+        unawaited()
+
+    with ignore_coroutine_never_awaited_warnings():
+        _core.run(run_me, allow_unawaited_coroutines=True)

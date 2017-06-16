@@ -1318,7 +1318,7 @@ def run(
         # To guarantee that we never swallow a KeyboardInterrupt, we have to
         # check for pending ones once more after leaving the context manager:
         if not allow_unawaited_coroutines:
-            protector.install()
+            protector.uninstall()
         if runner.ki_pending:
             # Implicitly chains with any exception from result.unwrap():
             raise KeyboardInterrupt
