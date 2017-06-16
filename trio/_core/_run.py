@@ -1084,17 +1084,21 @@ class Runner:
                  lock = trio.Lock()
                  await lock.acquire()
                  async with trio.open_nursery() as nursery:
-                     nursery.spawn(lock_taker, lock)
-                     # child hasn't run yet
-                     assert not lock.locked()
-                     await trio.testing.wait_all_tasks_blocked()
-                     # now the child has run
+                     child = nursery.spawn(lock_taker, lock)
+                     # child hasn't run yet, we have the lock
                      assert lock.locked()
+                     assert lock._owner is trio.current_task()
+                     await trio.testing.wait_all_tasks_blocked()
+                     # now the child has run and is blocked on lock.acquire(), we
+                     # still have the lock
+                     assert lock.locked()
+                     assert lock._owner is trio.current_task()
                      lock.release()
                      try:
                          # The child has a prior claim, so we can't have it
                          lock.acquire_nowait()
                      except trio.WouldBlock:
+                         assert lock._owner is child
                          print("PASS")
                      else:
                          print("FAIL")
