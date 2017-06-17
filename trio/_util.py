@@ -99,7 +99,7 @@ class _AsyncGeneratorContextManager:
             try:
                 await self._agen.asend(None)
             except StopAsyncIteration:
-                return
+                return False
             else:
                 raise RuntimeError("async generator didn't stop")
         else:
@@ -122,7 +122,7 @@ class _AsyncGeneratorContextManager:
                 # Likewise, avoid suppressing if a StopIteration exception
                 # was passed to throw() and later wrapped into a RuntimeError
                 # (see PEP 479).
-                if exc.__cause__ is value:
+                if isinstance(value, (StopIteration, StopAsyncIteration)) and exc.__cause__ is value:
                     return False
                 raise
             except:
@@ -133,8 +133,9 @@ class _AsyncGeneratorContextManager:
                 # fixes the impedance mismatch between the throw() protocol
                 # and the __exit__() protocol.
                 #
-                if sys.exc_info()[1] is not value:
-                    raise
+                if sys.exc_info()[1] is value:
+                    return False
+                raise
 
     def __enter__(self):
         raise RuntimeError("use 'async with {func_name}(...)', not 'with {func_name}(...)'".format(func_name=self._func_name))
