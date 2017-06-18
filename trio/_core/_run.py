@@ -505,10 +505,13 @@ class Task:
         if self._abort_func is None:
             return
         pending_scope = self._pending_cancel_scope()
-        if self._unawaited_coros:
+
+        _maybe_delivered = protector.get_all_unawaited_coroutines()
+        if self._unawaited_coros or _maybe_delivered:
             def raise_unawaited():
-                coros = self._unawaited_coros
+                coros = self._unawaited_coros+list(_maybe_delivered)
                 self._unawaited_coros = []
+                protector.forget(_maybe_delivered)
                 raise protector.make_non_awaited_coroutines_error(coros)
             raise_fn =  raise_unawaited
         elif pending_scope:
@@ -1206,7 +1209,7 @@ def run(
         clock=None,
         instruments=[],
         restrict_keyboard_interrupt_to_checkpoints=False,
-        allow_unawaited_coroutines=False
+        allow_unawaited_coroutines=True
 ):
     """Run a trio-flavored async function, and return the result.
 

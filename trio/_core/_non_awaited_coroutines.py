@@ -30,6 +30,8 @@ except ImportError: # Not available on, for example, PyPy
     def _get_tb(obj):
         return None
 
+from typing import Coroutine, Set
+
 
 __all__ = ["CoroProtector", "protector"]
 
@@ -49,7 +51,7 @@ class CoroProtector:
         self._key = object()
         self._previous_coro_wrapper = None
 
-    def _coro_wrapper(self, coro):
+    def _coro_wrapper(self, coro:Coroutine):
         """
         Coroutine wrapper to track creation of coroutines.
         """
@@ -60,7 +62,7 @@ class CoroProtector:
         else:
             return self._previous_coro_wrapper(coro)
 
-    def await_later(self, coro):
+    def await_later(self, coro:Coroutine) -> Coroutine :
         """
         Mark a coroutine as safe to no be awaited, and return it.
         """
@@ -68,7 +70,7 @@ class CoroProtector:
         return coro
 
 
-    def install(self):
+    def install(self) -> None:
         """install a coroutine wrapper to track created coroutines.
 
         If a coroutine wrapper is already set wrap and call it. 
@@ -76,32 +78,37 @@ class CoroProtector:
         self._previous_coro_wrapper = sys.get_coroutine_wrapper()
         sys.set_coroutine_wrapper(self._coro_wrapper)
 
-    def uninstall(self):
+    def uninstall(self) -> None:
         assert sys.get_coroutine_wrapper() == self._coro_wrapper
         sys.set_coroutine_wrapper(self._previous_coro_wrapper)
 
-    def has_unawaited_coroutines(self):
+    def has_unawaited_coroutines(self) -> bool:
         """
         Return whether there are unawaited coroutines.
 
         Flush all internally tracked awaited coroutine. Does not discard non-awaited
         ones. You need to call `pop_all_unawaited_coroutines` to do that.
         """
+        return len(self.get_all_unawaited_coroutines()) > 0
+
+    def get_all_unawaited_coroutines(self) ->  Set[Coroutine]:
         state = inspect.getcoroutinestate
         self._pending_test = {coro for coro in self._pending_test if state(coro) == 'CORO_CREATED'}
-        return len(self._pending_test) > 0
+        return set(self._pending_test)
 
-    def pop_all_unawaited_coroutines(self, error=True):
+    def forget(self, coroutines: Set[Coroutine] ) -> None:
+        self._pending_test.difference_update(coroutines)
+
+    def pop_all_unawaited_coroutines(self) ->  Set[Coroutine]:
         """
         Check that since last invocation no coroutine has been left unawaited.
 
         Return a list of unawaited coroutines since last call to this function,
         and stop tracking them.
         """
-        pending = self._pending_test
-        state = inspect.getcoroutinestate
+        coros = self.get_all_unawaited_coroutines()
         self._pending_test = set()
-        return [coro for coro in pending if state(coro) == 'CORO_CREATED']
+        return coros
 
     @staticmethod
     def make_non_awaited_coroutines_error(coros):

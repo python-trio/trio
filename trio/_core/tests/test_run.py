@@ -1649,12 +1649,12 @@ def test_raise_task_end():
         return 'ok'
 
     with pytest.raises(_core.NonAwaitedCoroutines) as err:
-        _core.run(coro_fun)
+        _core.run(coro_fun, allow_unawaited_coroutines=False)
 
     async def consume():
         for c in err.value.coroutines:
             await c
-    _core.run(consume)
+    _core.run(consume, allow_unawaited_coroutines=False)
 
 
 def test_raise_task_end_raise():
@@ -1667,12 +1667,12 @@ def test_raise_task_end_raise():
         raise ValueError('...')
 
     with pytest.raises(_core.NonAwaitedCoroutines) as err:
-        _core.run(coro_fun)
+        _core.run(coro_fun, allow_unawaited_coroutines=False)
 
     async def consume():
         for c in err.value.coroutines:
             await c
-    _core.run(consume)
+    _core.run(consume, allow_unawaited_coroutines=False)
 
 
 def test_raise_task_middle():
@@ -1687,12 +1687,12 @@ def test_raise_task_middle():
         assert False # pragma: no cover
 
     with pytest.raises(_core.NonAwaitedCoroutines) as err:
-        _core.run(coro_fun)
+        _core.run(coro_fun, allow_unawaited_coroutines=False)
 
     async def consume():
         for c in err.value.coroutines:
             await c
-    _core.run(consume)
+    _core.run(consume, allow_unawaited_coroutines=False)
 
 
 def test_raise_task_before_return():
@@ -1706,12 +1706,12 @@ def test_raise_task_before_return():
         return 'ok'
 
     with pytest.raises(_core.NonAwaitedCoroutines) as err:
-        _core.run(coro_fun)
+        _core.run(coro_fun, allow_unawaited_coroutines=False)
 
     async def consume():
         for c in err.value.coroutines:
             await c
-    _core.run(consume)
+    _core.run(consume, allow_unawaited_coroutines=False)
 
 def test_non_awaited_caught_in_multierror():
 
@@ -1734,7 +1734,7 @@ def test_non_awaited_caught_in_multierror():
 
     with ignore_coroutine_never_awaited_warnings():
         with pytest.raises(_core.NonAwaitedCoroutines):
-            _core.run(run)
+            _core.run(run, allow_unawaited_coroutines=False)
 
 
 def test_non_awaited_caught_in_multierror_II():
@@ -1752,7 +1752,7 @@ def test_non_awaited_caught_in_multierror_II():
 
     with ignore_coroutine_never_awaited_warnings():
         with pytest.raises(_core.NonAwaitedCoroutines):
-            _core.run(run)
+            _core.run(run, allow_unawaited_coroutines=False)
 
 
 def test_non_awaited_caught_in_multierror_swallow_nonawaited():
@@ -1769,7 +1769,7 @@ def test_non_awaited_caught_in_multierror_swallow_nonawaited():
             unawaited()
 
     with ignore_coroutine_never_awaited_warnings():
-        _core.run(run)
+        _core.run(run, allow_unawaited_coroutines=False)
 
 def test_user_wrapper_restored():
     """check that trio.run correctly restore user-set coroutine wrappers"""
