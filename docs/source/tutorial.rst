@@ -209,7 +209,7 @@ this, that tries to call an async function but leaves out the
        sleep_time = time.time() - start_time
        print("Woke up after {:.2f} seconds, feeling well rested!".format(sleep_time))
 
-   trio.run(broken_double_sleep, 3, allow_unawaited_coroutines=True)
+   trio.run(broken_double_sleep, 3)
 
 You might think that Python would raise an error here, like it does
 for other kinds of mistakes we sometimes make when calling a
@@ -220,12 +220,11 @@ you actually get is:
 
 .. code-block:: none
 
-   >>> trio.run(broken_double_sleep, 3, allow_unawaited_coroutines=True)
+   >>> trio.run(broken_double_sleep, 3)
    *yawn* Going to sleep
    Woke up again after 0.00 seconds, feeling well rested!
    __main__:4: RuntimeWarning: coroutine 'sleep' was never awaited
    >>>
-
 
 This is clearly broken – 0.00 seconds is not long enough to feel well
 rested! Yet the code acts like it succeeded – no exception was
@@ -239,7 +238,7 @@ runs:
 .. code-block:: none
 
    # On PyPy:
-   >>>> trio.run(broken_double_sleep, 3, allow_unawaited_coroutines=True)
+   >>>> trio.run(broken_double_sleep, 3)
    *yawn* Going to sleep
    Woke up again after 0.00 seconds, feeling well rested!
    >>>> # what the ... ?? not even a warning!
@@ -269,48 +268,6 @@ don't need to know, I just need to fix my function!
 well, *I* didn't mention coroutines, Python did. Take it up with
 Guido! But seriously, this is unfortunately a place where the internal
 implementation details do leak out a bit.)
-
-Thus we strongly recommend that you run trio by setting the
-``allow_unawaited_coroutines`` to ``False``. with this flag set trio
-will error as soon as possible when we detect that your code is
-missing an ``await``. Unfortunately this check often happen at a later
-time, and it can be difficult to find where the non-awaited  is. Now
-at least you will get an error message.
-
-.. code-block:: none
-
-   >>> trio.run(broken_double_sleep, 3, allow_unawaited_coroutines=False)
-   *yawn* Going to sleep
-   Woke up after 0.00 seconds, feeling well rested!
-   Traceback (most recent call last):
-     File "/Users/bussonniermatthias/dev/trio/trio/_core/_run.py", line 1378, in run_impl
-       msg = task.coro.send(next_send)
-   StopIteration
-
-   The above exception was the direct cause of the following exception:
-
-   Traceback (most recent call last):
-     File "foo.py", line 14, in <module>
-       trio.run(broken_double_sleep, 3)
-     ...
-       raise self.error
-     File "~/trio/_core/_run.py", line 785, in task_exited
-       raise protector.make_non_awaited_coroutines_error(task._unawaited_coros) from stop_iteration
-   trio.NonAwaitedCoroutines: One or more coroutines where not awaited:
-
-    - <coroutine object sleep at 0x108e24780>
-
-   Trio has detected that at least a coroutine has not been between awaited
-   between this checkpoint point and previous one. This is may be due
-   to a missing `await`.
-
-
-Whether this flag will default to ``True`` or ``False`` in the long
-term is unclear, so we suggest you always set it. Tip, if you encounter
-an error and are using CPython, try rerunning after ``import
-tracemalloc(); tracemalloc.start()``, the error will attempt to give
-you more informations about where the un awaited coroutines were
-created.
 
 Why does this happen? In Trio, every time we use ``await`` it's to
 call an async function, and every time we call an async function we
