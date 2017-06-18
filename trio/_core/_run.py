@@ -356,7 +356,8 @@ class Nursery:
                     raise mexc
 
     def __del__(self):
-        assert not self.children and not self.zombies, "Children: {} and Zombies : {}".format(self.children, self.zombies)
+        assert not self.children and not self.zombies,\
+            "Children: {} and Zombies : {}".format(self.children, self.zombies)
 
 
 ################################################################
@@ -794,12 +795,13 @@ class Runner:
 
     def task_exited(self, task, result, stop_iteration=None):
         if task._unawaited_coros:
-            try:
-                raise protector.make_non_awaited_coroutines_error(task._unawaited_coros) from stop_iteration
-            except NonAwaitedCoroutines as e:
-                task.result = Error(e)
+            exc = protector.make_non_awaited_coroutines_error(task._unawaited_coros)
+            if type(result) is Error:
+                exc.__context__ = result.error
+            task.result = Error(exc)
         else:
             task.result = result
+
         while task._cancel_stack:
             task._cancel_stack[-1]._remove_task(task)
         self.tasks.remove(task)

@@ -47,8 +47,7 @@ class CoroProtector:
         self._enabled = True
         self._pending_test = set()
         self._key = object()
-
-        self._wrapped_coro_wrapper = None
+        self._previous_coro_wrapper = None
 
     def _coro_wrapper(self, coro):
         """
@@ -56,10 +55,10 @@ class CoroProtector:
         """
         if self._enabled :
             self._pending_test.add(coro)
-        if not self._wrapped_coro_wrapper:
+        if not self._previous_coro_wrapper:
             return coro
         else:
-            return self._wrapped_coro_wrapper(coro)
+            return self._previous_coro_wrapper(coro)
 
     def await_later(self, coro):
         """
@@ -74,20 +73,12 @@ class CoroProtector:
 
         If a coroutine wrapper is already set wrap and call it. 
         """
-        origin_coro_wrapper = sys.get_coroutine_wrapper()
-        if origin_coro_wrapper:
-            self._wrapped_coro_wrapper = origin_coro_wrapper
-        else:
-            self._wrapped_protector = None
+        self._previous_coro_wrapper = sys.get_coroutine_wrapper()
         sys.set_coroutine_wrapper(self._coro_wrapper)
 
     def uninstall(self):
         assert sys.get_coroutine_wrapper() == self._coro_wrapper
-        if self._wrapped_coro_wrapper:
-            sys.set_coroutine_wrapper(self._wrapped_coro_wrapper)
-            self._wrapped_protector = None
-        else:
-            sys.set_coroutine_wrapper(None)
+        sys.set_coroutine_wrapper(self._previous_coro_wrapper)
 
     def has_unawaited_coroutines(self):
         """
