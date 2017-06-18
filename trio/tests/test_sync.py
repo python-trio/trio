@@ -108,7 +108,7 @@ async def test_CapacityLimiter():
     c.release_on_behalf_of("value 1")
 
 
-async def test_CapacityLimiter_change_tokens():
+async def test_CapacityLimiter_change_total_tokens():
     c = CapacityLimiter(2)
 
     with pytest.raises(TypeError):
@@ -548,6 +548,7 @@ class QueueLock2:
         self.q.put_nowait(None)
 
 lock_factories = [
+    lambda: CapacityLimiter(1),
     lambda: Semaphore(1),
     Lock,
     StrictFIFOLock,
@@ -556,6 +557,7 @@ lock_factories = [
     QueueLock2,
 ]
 lock_factory_names = [
+    "CapacityLimiter(1)",
     "Semaphore(1)",
     "Lock",
     "StrictFIFOLock",
