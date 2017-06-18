@@ -1,6 +1,8 @@
 import abc
 import attr
 
+from ._non_awaited_coroutines import protector
+
 __all__ = ["Result", "Value", "Error"]
 
 
@@ -30,9 +32,20 @@ class Result(metaclass=abc.ABCMeta):
 
         """
         try:
-            return Value(sync_fn(*args))
+            result =  Value(sync_fn(*args))
         except BaseException as exc:
-            return Error(exc)
+            result = Error(exc)
+        finally:
+            if protector.has_unawaited_coroutines():
+                exc = protector.make_non_awaited_coroutines_error(
+                    protector.pop_all_unawaited_coroutines()
+                )
+                if type(result) is Error:
+                    exc.__context__ = result.error
+                result = Error(exc)
+        return result
+
+
 
     @staticmethod
     async def acapture(async_fn, *args):
@@ -43,9 +56,20 @@ class Result(metaclass=abc.ABCMeta):
 
         """
         try:
-            return Value(await async_fn(*args))
+            result = Value(await async_fn(*args))
         except BaseException as exc:
-            return Error(exc)
+            result = Error(exc)
+        finally:
+            if protector.has_unawaited_coroutines():
+                exc = protector.make_non_awaited_coroutines_error(
+                    protector.pop_all_unawaited_coroutines()
+                )
+                
+                if type(result) is Error:
+                    exc.__context__ = result.error
+                result = Error(exc)
+        return result
+
 
     @abc.abstractmethod
     def unwrap(self):

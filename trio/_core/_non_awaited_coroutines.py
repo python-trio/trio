@@ -30,8 +30,6 @@ except ImportError: # Not available on, for example, PyPy
     def _get_tb(obj):
         return None
 
-from typing import Coroutine, Set
-
 
 __all__ = ["CoroProtector", "protector"]
 
@@ -51,7 +49,7 @@ class CoroProtector:
         self._key = object()
         self._previous_coro_wrapper = None
 
-    def _coro_wrapper(self, coro:Coroutine):
+    def _coro_wrapper(self, coro):
         """
         Coroutine wrapper to track creation of coroutines.
         """
@@ -62,7 +60,7 @@ class CoroProtector:
         else:
             return self._previous_coro_wrapper(coro)
 
-    def await_later(self, coro:Coroutine) -> Coroutine :
+    def await_later(self, coro):
         """
         Mark a coroutine as safe to no be awaited, and return it.
         """
@@ -91,15 +89,15 @@ class CoroProtector:
         """
         return len(self.get_all_unawaited_coroutines()) > 0
 
-    def get_all_unawaited_coroutines(self) ->  Set[Coroutine]:
+    def get_all_unawaited_coroutines(self):
         state = inspect.getcoroutinestate
         self._pending_test = {coro for coro in self._pending_test if state(coro) == 'CORO_CREATED'}
         return set(self._pending_test)
 
-    def forget(self, coroutines: Set[Coroutine] ) -> None:
+    def forget(self, coroutines) -> None:
         self._pending_test.difference_update(coroutines)
 
-    def pop_all_unawaited_coroutines(self) ->  Set[Coroutine]:
+    def pop_all_unawaited_coroutines(self):
         """
         Check that since last invocation no coroutine has been left unawaited.
 

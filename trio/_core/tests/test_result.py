@@ -3,7 +3,9 @@ import pytest
 from async_generator import async_generator, yield_
 
 from ... import _core
-from ..._core._result import *
+from ..._core._result import Result, Error, Value
+
+from .test_run import ignore_coroutine_never_awaited_warnings
 
 
 def test_Result():
@@ -125,3 +127,62 @@ async def test_Result_asend():
     assert (await Error(KeyError()).asend(my_agen)) == 3
     with pytest.raises(StopAsyncIteration):
         await my_agen.asend(None)
+
+async def unawaited():  # pragma: no cover
+    pass
+
+def test_capture_raise_unawaited_value():
+
+    def computation():
+        unawaited()
+        return 'Ok'
+
+    async def run_me():
+        return Result.capture(computation).unwrap()
+
+    with ignore_coroutine_never_awaited_warnings():
+        with pytest.raises(_core.NonAwaitedCoroutines):
+            _core.run(run_me, allow_unawaited_coroutines=False)
+
+
+def test_capture_raise_unawaited_error():
+
+    def computation():
+        unawaited()
+        raise ValueError(...)
+
+    async def run_me():
+        return Result.capture(computation).unwrap()
+
+
+    with ignore_coroutine_never_awaited_warnings():
+        with pytest.raises(_core.NonAwaitedCoroutines):
+            _core.run(run_me, allow_unawaited_coroutines=False)
+
+def test_acapture_raise_unawaited_value():
+
+    async def computation():
+        unawaited()
+        return 'Ok'
+
+    async def run_me():
+        return Result.acapture(computation).unwrap()
+
+
+    with ignore_coroutine_never_awaited_warnings():
+        with pytest.raises(_core.NonAwaitedCoroutines):
+            _core.run(run_me, allow_unawaited_coroutines=False)
+
+def test_acapture_raise_unawaited_error():
+
+    async def computation():
+        unawaited()
+        raise ValueError(...)
+
+    async def run_me():
+        return Result.acapture(computation).unwrap()
+
+
+    with ignore_coroutine_never_awaited_warnings():
+        with pytest.raises(_core.NonAwaitedCoroutines):
+            _core.run(run_me, allow_unawaited_coroutines=False)
