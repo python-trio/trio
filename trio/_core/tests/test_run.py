@@ -1820,3 +1820,30 @@ def test_run_with_allow_non_awaited_coroutine_true():
 
     with ignore_coroutine_never_awaited_warnings():
         _core.run(run_me, allow_unawaited_coroutines=True)
+
+def test_unawaited_coro_trigger_yield_if_cancelled():
+    """
+    Check that yield_if_cancelled create a schedule point if non-awaited
+    coroutines are present, but not yet attached to current task
+    """
+
+    called = False
+
+    def not_reached():  # pragma: no cover
+        nonlocal called
+        called = True
+        pass
+
+    async def unawaited():
+        pass  # pragma: no cover
+
+    async def run_me():
+        unawaited()
+        await _core.yield_if_cancelled()
+        not_reached()
+
+
+    with ignore_coroutine_never_awaited_warnings():
+        with pytest.raises(_core.NonAwaitedCoroutines):
+            _core.run(run_me, allow_unawaited_coroutines=False)
+        assert called is False

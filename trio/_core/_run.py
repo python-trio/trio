@@ -1539,7 +1539,7 @@ async def yield_briefly():
 
     """
     with open_cancel_scope(deadline=-inf) as scope:
-        await _core.yield_indefinitely(lambda _: _core.Abort.SUCCEEDED)
+        await yield_indefinitely(lambda _: _core.Abort.SUCCEEDED)
 
 
 @_hazmat
@@ -1553,8 +1553,10 @@ async def yield_if_cancelled():
     task = current_task()
     if (task._pending_cancel_scope() is not None or
         (task is task._runner.main_task and task._runner.ki_pending)
-        or task._unawaited_coros):
+        or task._unawaited_coros
+        or protector.has_unawaited_coroutines()):
         await _core.yield_briefly()
+        print('Yielding briefly')
         assert False  # pragma: no cover
     task._cancel_points += 1
 
