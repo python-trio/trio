@@ -1837,8 +1837,7 @@ def test_unawaited_coro_trigger_yield_if_cancelled():
     async def run_me():
         unawaited()
         await _core.yield_if_cancelled()
-        not_reached()
-
+        not_reached()   # pragma: no cover
 
     with ignore_coroutine_never_awaited_warnings():
         with pytest.raises(_core.NonAwaitedCoroutines):
