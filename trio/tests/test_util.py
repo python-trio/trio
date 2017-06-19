@@ -96,6 +96,14 @@ async def test_contextmanager_do_not_unchain_non_stopiteration_exceptions():
     assert excinfo.value.args[0] == 'issue29692:Unchained'
     assert excinfo.value.__cause__ is None
 
+    @acontextmanager
+    @async_generator
+    async def noop_async_context_manager():
+        await yield_()
+
+    with pytest.raises(StopIteration):
+        async with noop_async_context_manager():
+            raise StopIteration
 
 # Native async generators are only available from Python 3.6 and onwards
 nativeasyncgenerators = True
