@@ -79,8 +79,8 @@ async def test_contextmanager_do_not_unchain_non_stopiteration_exceptions():
     assert excinfo.value.args[0] == 'issue29692:Chained'
     assert isinstance(excinfo.value.__cause__, ZeroDivisionError)
 
-    # This is a little funky because of implementation details in async_generator
-    # It can all go away once we stop supporting Python3.5
+    # This is a little funky because of implementation details in
+    # async_generator It can all go away once we stop supporting Python3.5
     with pytest.raises(RuntimeError) as excinfo:
         async with manager_issue29692():
             exc = StopIteration('issue29692:Unchained')
@@ -96,6 +96,14 @@ async def test_contextmanager_do_not_unchain_non_stopiteration_exceptions():
     assert excinfo.value.args[0] == 'issue29692:Unchained'
     assert excinfo.value.__cause__ is None
 
+    @acontextmanager
+    @async_generator
+    async def noop_async_context_manager():
+        await yield_()
+
+    with pytest.raises(StopIteration):
+        async with noop_async_context_manager():
+            raise StopIteration
 
 # Native async generators are only available from Python 3.6 and onwards
 nativeasyncgenerators = True
@@ -112,7 +120,8 @@ except SyntaxError:
     nativeasyncgenerators = False
 
 
-@pytest.mark.skipif(not nativeasyncgenerators, reason="Python < 3.6 doesn't have native async generators")
+@pytest.mark.skipif(not nativeasyncgenerators,
+                    reason="Python < 3.6 doesn't have native async generators")
 async def test_native_contextmanager_do_not_unchain_non_stopiteration_exceptions():
 
     with pytest.raises(RuntimeError) as excinfo:
