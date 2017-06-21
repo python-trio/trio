@@ -268,9 +268,7 @@ async def run_in_worker_thread(
     # This function gets scheduled into the trio run loop to deliver the
     # thread's result.
     def report_back_in_trio_thread_fn(result):
-        print("in trio thread", result)
         def do_release_then_return_result():
-            print("asdF")
             # release_on_behalf_of is an arbitrary user-defined method, so it
             # might raise an error. If it does, we want that error to
             # replace the regular return value, and if the regular return was
