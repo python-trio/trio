@@ -207,6 +207,8 @@ class CapacityLimiter:
 
         Raises:
           WouldBlock: if no tokens are available.
+          RuntimeError: if the current task already holds one of this sack's
+              tokens.
 
         """
         self.acquire_on_behalf_of_nowait(_core.current_task())
@@ -226,6 +228,8 @@ class CapacityLimiter:
 
         Raises:
           WouldBlock: if no tokens are available.
+          RuntimeError: if ``borrower`` already holds one of this sack's
+              tokens.
 
         """
         if borrower in self._borrowers:
@@ -241,6 +245,10 @@ class CapacityLimiter:
     async def acquire(self):
         """Borrow a token from the sack, blocking if necessary.
 
+        Raises:
+          RuntimeError: if the current task already holds a one of this sack's
+              tokens.
+
         """
         await self.acquire_on_behalf_of(_core.current_task())
 
@@ -253,6 +261,10 @@ class CapacityLimiter:
           borrower: A :class:`Task` or arbitrary opaque object used to record
              who is borrowing this token; see
              :meth:`acquire_on_behalf_of_nowait` for details.
+
+        Raises:
+          RuntimeError: if ``borrower`` task already holds one of this sack's
+             tokens.
 
         """
         await _core.yield_if_cancelled()
