@@ -21,6 +21,13 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
+# Warn about all references to unknown targets
+nitpicky = True
+# Except for these ones, which we expect to point to unknown targets:
+nitpick_ignore = [
+    ("py:obj", "CapacityLimiter-like object"),
+]
+
 # XX hack the RTD theme until
 #   https://github.com/rtfd/sphinx_rtd_theme/pull/382
 # is shipped (should be in the release after 0.2.4)

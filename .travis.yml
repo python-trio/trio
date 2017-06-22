@@ -1,32 +1,32 @@
 language: python
 python:
-  - 3.5.0
-  - 3.5.2
-  - 3.6
-  - 3.5-dev
-  - 3.6-dev
+  # - 3.5.0
+  # - 3.5.2
+  # - 3.6
+  # - 3.5-dev
+  # - 3.6-dev
   - 3.7-dev
 sudo: false
 dist: trusty
 
 matrix:
   include:
-    - os: linux
-      language: python
-      python: 3.6
-      env: DOC_BUILD=1
+    # - os: linux
+    #   language: python
+    #   python: 3.6
+    #   env: DOC_BUILD=1
     - os: linux
       language: generic
       env: USE_PYPY_NIGHTLY=1
     - os: linux
       language: generic
       env: USE_PYPY_RELEASE=1
-    - os: osx
-      language: generic
-      env: MACPYTHON=3.5.3
-    - os: osx
-      language: generic
-      env: MACPYTHON=3.6.0
+    # - os: osx
+    #   language: generic
+    #   env: MACPYTHON=3.5.3
+    # - os: osx
+    #   language: generic
+    #   env: MACPYTHON=3.6.0
   # 2017-03-07: They fixed the main bug I was hitting, so let's give it a try...
   # allow_failures:
   #   - env: USE_PYPY_NIGHTLY=1
