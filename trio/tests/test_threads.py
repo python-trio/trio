@@ -282,17 +282,24 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
             print("thread_fn start")
             nonlocal ran, running, high_water, parked
             run_in_trio_thread(cancel_scope.cancel)
+            print("getting lock")
             with lock:
+                print("got lock, old values:", ran, running, high_water, parked)
                 ran += 1
                 running += 1
                 high_water = max(high_water, running)
                 # The trio thread below watches this value and uses it as a
                 # signal that all the stats calculations have finished.
                 parked += 1
+                print("releasing lock, new values:", ran, running, high_water, parked)
+            print("gate.wait()")
             gate.wait()
+            print("passed gate")
             with lock:
+                print("got lock again, old values:", parked, running)
                 parked -= 1
                 running -= 1
+                print("releasing lock again, new values:", parked, running)
             print("thread_fn exiting")
 
         async def run_thread():
@@ -317,15 +324,19 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
             if cancel:
                 print("waiting for first cancellation to clear")
                 await tasks[0].wait()
+                print("wait_all_tasks_blocked")
                 await wait_all_tasks_blocked()
+                print("they did")
             # Then wait until the first MAX threads are parked in gate.wait(),
             # and the next MAX threads are parked on the semaphore, to make
             # sure no-one is sneaking past, and to make sure the high_water
             # check below won't fail due to scheduling issues. (It could still
             # fail if too many threads are let through here.)
             while parked != MAX or c.statistics().tasks_waiting != MAX:
-                await sleep(0.01)  # pragma: no cover
+                print(parked, c.statistics())
+                await sleep(1)  # pragma: no cover
             # Then release the threads
+            print("setting gate")
             gate.set()
 
         assert high_water == MAX
