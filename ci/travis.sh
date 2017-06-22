@@ -72,5 +72,5 @@ else
     cd empty
 
     INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
-    pytest -W error -ra --run-slow ${INSTALLDIR} -k run_in_worker_thread --verbose
+    pytest -W error -ra --run-slow ${INSTALLDIR} -k run_in_worker_thread --cov="$INSTALLDIR" --cov-config=../.coveragerc --verbose
 fi
