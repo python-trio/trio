@@ -249,6 +249,18 @@ def test_run_in_worker_thread_abandoned(capfd):
     assert not out and not err
 
 
+# Skip this test on PyPy, because it triggers this bug:
+#   https://bitbucket.org/pypy/pypy/issues/2591/
+# bug is in 5.8.0-beta and at least some of the 5.9.0-alpha nightlies, but
+# will hopefully be fixed soon
+import sys
+WORKAROUND_PYPY_BUG = False
+if (hasattr(sys, "pypy_version_info")
+        and (sys.pypy_version_info < (5, 9)
+             or sys.pypy_version_info[:4] == (5, 9, 0, "alpha"))):
+    WORKAROUND_PYPY_BUG = True
+
+@pytest.mark.skipif(WORKAROUND_PYPY_BUG, reason="PyPy is buggy")
 @pytest.mark.parametrize("MAX", [3, 5, 10])
 @pytest.mark.parametrize("cancel", [False, True])
 @pytest.mark.parametrize("use_default_limiter", [False, True])
