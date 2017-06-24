@@ -13,15 +13,20 @@ __all__ = [
 ]
 
 def _await_in_trio_thread_cb(q, afn, args):
+    @_core.disable_ki_protection
+    async def unprotected_afn():
+        return await afn(*args)
     async def await_in_trio_thread_task():
-        nonlocal afn
-        afn = _core.disable_ki_protection(afn)
-        q.put_nowait(await _core.Result.acapture(afn, *args))
+        q.put_nowait(await _core.Result.acapture(unprotected_afn))
     _core.spawn_system_task(await_in_trio_thread_task, name=afn)
 
 def _run_in_trio_thread_cb(q, fn, args):
-    fn = _core.disable_ki_protection(fn)
-    q.put_nowait(_core.Result.capture(fn, *args))
+    @_core.disable_ki_protection
+    def unprotected_fn():
+        return fn(*args)
+    res = _core.Result.capture(unprotected_fn)
+    print(res)
+    q.put_nowait(res)
 
 def _current_do_in_trio_thread(name, cb):
     call_soon = _core.current_call_soon_thread_and_signal_safe()

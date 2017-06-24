@@ -249,18 +249,6 @@ def test_run_in_worker_thread_abandoned(capfd):
     assert not out and not err
 
 
-# Skip this test on PyPy, because it triggers this bug:
-#   https://bitbucket.org/pypy/pypy/issues/2591/
-# bug is in 5.8.0-beta and at least some of the 5.9.0-alpha nightlies, but
-# will hopefully be fixed soon
-import sys
-WORKAROUND_PYPY_BUG = False
-if (hasattr(sys, "pypy_version_info")
-        and (sys.pypy_version_info < (5, 9)
-             or sys.pypy_version_info[:4] == (5, 9, 0, "alpha"))):
-    WORKAROUND_PYPY_BUG = True
-
-@pytest.mark.skipif(WORKAROUND_PYPY_BUG, reason="PyPy is buggy")
 @pytest.mark.parametrize("MAX", [3, 5, 10])
 @pytest.mark.parametrize("cancel", [False, True])
 @pytest.mark.parametrize("use_default_limiter", [False, True])
@@ -283,28 +271,39 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
         orig_total_tokens = MAX
         limiter_arg = c
     try:
-        ran = 0
-        high_water = 0
-        running = 0
-        parked = 0
+        # We used to use regular variables and 'nonlocal' here, but it turns
+        # out that it's not safe to assign to closed-over variables that are
+        # visible in multiple threads, at least as of CPython 3.6 and PyPy
+        # 5.8:
+        #
+        #   https://bugs.python.org/issue30744
+        #   https://bitbucket.org/pypy/pypy/issues/2591/
+        #
+        # Mutating them in-place is OK though (as long as you use proper
+        # locking etc.).
+        class state:
+            pass
+        state.ran = 0
+        state.high_water = 0
+        state.running = 0
+        state.parked = 0
 
         run_in_trio_thread = current_run_in_trio_thread()
 
         def thread_fn(cancel_scope):
             print("thread_fn start")
-            nonlocal ran, running, high_water, parked
             run_in_trio_thread(cancel_scope.cancel)
             with lock:
-                ran += 1
-                running += 1
-                high_water = max(high_water, running)
+                state.ran += 1
+                state.running += 1
+                state.high_water = max(state.high_water, state.running)
                 # The trio thread below watches this value and uses it as a
                 # signal that all the stats calculations have finished.
-                parked += 1
+                state.parked += 1
             gate.wait()
             with lock:
-                parked -= 1
-                running -= 1
+                state.parked -= 1
+                state.running -= 1
             print("thread_fn exiting")
 
         async def run_thread():
@@ -335,12 +334,12 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
             # sure no-one is sneaking past, and to make sure the high_water
             # check below won't fail due to scheduling issues. (It could still
             # fail if too many threads are let through here.)
-            while parked != MAX or c.statistics().tasks_waiting != MAX:
+            while state.parked != MAX or c.statistics().tasks_waiting != MAX:
                 await sleep(0.01)  # pragma: no cover
             # Then release the threads
             gate.set()
 
-        assert high_water == MAX
+        assert state.high_water == MAX
 
         if cancel:
             # Some threads might still be running; need to wait to them to
@@ -349,7 +348,8 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
             while c.borrowed_tokens > 0:
                 await sleep(0.01)  # pragma: no cover
 
-        assert ran == COUNT
+        assert state.ran == COUNT
+        assert state.running == 0
     finally:
         c.total_tokens = orig_total_tokens
 
