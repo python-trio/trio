@@ -410,7 +410,7 @@ async def test_run_in_worker_thread_fail_to_spawn(monkeypatch):
 
     # We get an appropriate error, and the limiter is cleanly released
     with pytest.raises(RuntimeError) as excinfo:
-        await run_in_worker_thread(lambda: None)
+        await run_in_worker_thread(lambda: None)  # pragma: no cover
     assert "engines" in str(excinfo.value)
 
     assert limiter.borrowed_tokens == 0
