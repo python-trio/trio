@@ -3,16 +3,17 @@ import queue as stdlib_queue
 import time
 import os
 import signal
+from functools import partial
 
 import pytest
 
 from .. import _core
-from .. import Event
+from .. import Event, CapacityLimiter, sleep
 from ..testing import wait_all_tasks_blocked
 from .._threads import *
-from .._timeouts import sleep
 
 from .._core.tests.test_ki import ki_self
+from .._core.tests.tutil import slow
 
 async def test_do_in_trio_thread():
     trio_thread = threading.current_thread()
@@ -248,3 +249,168 @@ def test_run_in_worker_thread_abandoned(capfd):
     assert not out and not err
 
 
+@pytest.mark.parametrize("MAX", [3, 5, 10])
+@pytest.mark.parametrize("cancel", [False, True])
+@pytest.mark.parametrize("use_default_limiter", [False, True])
+async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
+    # This test is a bit tricky. The goal is to make sure that if we set
+    # limiter=CapacityLimiter(MAX), then in fact only MAX threads are ever
+    # running at a time, even if there are more concurrent calls to
+    # run_in_worker_thread, and even if some of those are cancelled. And also
+    # to make sure that the default limiter actually limits.
+    COUNT = 2 * MAX
+    gate = threading.Event()
+    lock = threading.Lock()
+    if use_default_limiter:
+        c = current_default_worker_thread_limiter()
+        orig_total_tokens = c.total_tokens
+        c.total_tokens = MAX
+        limiter_arg = None
+    else:
+        c = CapacityLimiter(MAX)
+        orig_total_tokens = MAX
+        limiter_arg = c
+    try:
+        # We used to use regular variables and 'nonlocal' here, but it turns
+        # out that it's not safe to assign to closed-over variables that are
+        # visible in multiple threads, at least as of CPython 3.6 and PyPy
+        # 5.8:
+        #
+        #   https://bugs.python.org/issue30744
+        #   https://bitbucket.org/pypy/pypy/issues/2591/
+        #
+        # Mutating them in-place is OK though (as long as you use proper
+        # locking etc.).
+        class state:
+            pass
+        state.ran = 0
+        state.high_water = 0
+        state.running = 0
+        state.parked = 0
+
+        run_in_trio_thread = current_run_in_trio_thread()
+
+        def thread_fn(cancel_scope):
+            print("thread_fn start")
+            run_in_trio_thread(cancel_scope.cancel)
+            with lock:
+                state.ran += 1
+                state.running += 1
+                state.high_water = max(state.high_water, state.running)
+                # The trio thread below watches this value and uses it as a
+                # signal that all the stats calculations have finished.
+                state.parked += 1
+            gate.wait()
+            with lock:
+                state.parked -= 1
+                state.running -= 1
+            print("thread_fn exiting")
+
+        async def run_thread():
+            with _core.open_cancel_scope() as cancel_scope:
+                await run_in_worker_thread(
+                    thread_fn, cancel_scope,
+                    limiter=limiter_arg, cancellable=cancel)
+            print("run_thread finished, cancelled:",
+                  cancel_scope.cancelled_caught)
+
+        async with _core.open_nursery() as nursery:
+            print("spawning")
+            tasks = []
+            for i in range(COUNT):
+                tasks.append(nursery.spawn(run_thread))
+                await wait_all_tasks_blocked()
+            # In the cancel case, we in particular want to make sure that the
+            # cancelled tasks don't release the semaphore. So let's wait until
+            # at least one of them has exited, and that everything has had a
+            # chance to settle down from this, before we check that everyone
+            # who's supposed to be waiting is waiting:
+            if cancel:
+                print("waiting for first cancellation to clear")
+                await tasks[0].wait()
+                await wait_all_tasks_blocked()
+            # Then wait until the first MAX threads are parked in gate.wait(),
+            # and the next MAX threads are parked on the semaphore, to make
+            # sure no-one is sneaking past, and to make sure the high_water
+            # check below won't fail due to scheduling issues. (It could still
+            # fail if too many threads are let through here.)
+            while state.parked != MAX or c.statistics().tasks_waiting != MAX:
+                await sleep(0.01)  # pragma: no cover
+            # Then release the threads
+            gate.set()
+
+        assert state.high_water == MAX
+
+        if cancel:
+            # Some threads might still be running; need to wait to them to
+            # finish before checking that all threads ran. We can do this
+            # using the CapacityLimiter.
+            while c.borrowed_tokens > 0:
+                await sleep(0.01)  # pragma: no cover
+
+        assert state.ran == COUNT
+        assert state.running == 0
+    finally:
+        c.total_tokens = orig_total_tokens
+
+
+async def test_run_in_worker_thread_custom_limiter():
+    # Basically just checking that we only call acquire_on_behalf_of and
+    # release_on_behalf_of, since that's part of our documented API.
+    record = []
+    class CustomLimiter:
+        async def acquire_on_behalf_of(self, borrower):
+            record.append("acquire")
+            self._borrower = borrower
+
+        def release_on_behalf_of(self, borrower):
+            record.append("release")
+            assert borrower == self._borrower
+
+    await run_in_worker_thread(lambda: None, limiter=CustomLimiter())
+    assert record == ["acquire", "release"]
+
+
+async def test_run_in_worker_thread_limiter_error():
+    record = []
+
+    class BadCapacityLimiter:
+        async def acquire_on_behalf_of(self, borrower):
+            record.append("acquire")
+
+        def release_on_behalf_of(self, borrower):
+            record.append("release")
+            raise ValueError
+
+    bs = BadCapacityLimiter()
+
+    with pytest.raises(ValueError) as excinfo:
+        await run_in_worker_thread(lambda: None, limiter=bs)
+    assert excinfo.value.__context__ is None
+    assert record == ["acquire", "release"]
+    record = []
+
+    # If the original function raised an error, then the semaphore error
+    # chains with it
+    d = {}
+    with pytest.raises(ValueError) as excinfo:
+        await run_in_worker_thread(lambda: d["x"], limiter=bs)
+    assert isinstance(excinfo.value.__context__, KeyError)
+    assert record == ["acquire", "release"]
+
+
+async def test_run_in_worker_thread_fail_to_spawn(monkeypatch):
+    # Test the unlikely but possible case where trying to spawn a thread fails
+    def bad_start(self):
+        raise RuntimeError("the engines canna take it captain")
+    monkeypatch.setattr(threading.Thread, "start", bad_start)
+
+    limiter = current_default_worker_thread_limiter()
+    assert limiter.borrowed_tokens == 0
+
+    # We get an appropriate error, and the limiter is cleanly released
+    with pytest.raises(RuntimeError) as excinfo:
+        await run_in_worker_thread(lambda: None)  # pragma: no cover
+    assert "engines" in str(excinfo.value)
+
+    assert limiter.borrowed_tokens == 0
