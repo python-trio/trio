@@ -83,9 +83,6 @@ class CancelScope:
     _effective_deadline = attr.ib(default=inf)
     _deadline = attr.ib(default=inf)
     _shield = attr.ib(default=False)
-    # We want to re-use the same exception object within a given task, to get
-    # complete tracebacks. This maps {task: exception} for active tasks.
-    _excs = attr.ib(default=attr.Factory(dict))
     cancel_called = attr.ib(default=False)
     cancelled_caught = attr.ib(default=False)
 
@@ -151,17 +148,13 @@ class CancelScope:
     def _remove_task(self, task):
         with self._might_change_effective_deadline():
             self._tasks.remove(task)
-        if task in self._excs:
-            del self._excs[task]
         assert task._cancel_stack[-1] is self
         task._cancel_stack.pop()
 
-    def _make_exc(self, task):
-        if task not in self._excs:
-            exc = Cancelled()
-            exc._scope = self
-            self._excs[task] = exc
-        return self._excs[task]
+    def _make_exc(self):
+        exc = Cancelled()
+        exc._scope = self
+        return exc
 
     def _exc_filter(self, exc):
         if isinstance(exc, Cancelled) and exc._scope is self:
@@ -498,7 +491,7 @@ class Task:
         pending_scope = self._pending_cancel_scope()
         if pending_scope is None:
             return
-        exc = pending_scope._make_exc(self)
+        exc = pending_scope._make_exc()
         def raise_cancel():
             raise exc
         self._attempt_abort(raise_cancel)
