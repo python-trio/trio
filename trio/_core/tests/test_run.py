@@ -592,12 +592,10 @@ async def test_cancel_edge_cases():
     with _core.open_cancel_scope() as scope:
         # Check level-triggering
         scope.cancel()
-        with pytest.raises(_core.Cancelled) as excinfo1:
+        with pytest.raises(_core.Cancelled):
             await sleep_forever()
-        with pytest.raises(_core.Cancelled) as excinfo2:
+        with pytest.raises(_core.Cancelled):
             await sleep_forever()
-        # Same exception both times, to ensure complete tracebacks:
-        assert excinfo1.value is excinfo2.value
 
 
 async def test_cancel_scope_multierror_filtering():
