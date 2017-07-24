@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from functools import partial
 
 from OpenSSL import SSL
+import trustme
 from async_generator import async_generator, yield_
 
 import trio
@@ -25,11 +26,6 @@ from ..testing import (
     check_two_way_stream,
 )
 
-ASSETS_DIR = Path(__file__).parent / "test_ssl_certs"
-CA = str(ASSETS_DIR / "trio-test-CA.pem")
-CERT1 = str(ASSETS_DIR / "trio-test-1.pem")
-
-
 # We have two different kinds of echo server fixtures we use for testing. The
 # first is a real server written using the stdlib ssl module and blocking
 # sockets. It runs in a thread and we talk to it over a real socketpair(), to
@@ -46,16 +42,18 @@ CERT1 = str(ASSETS_DIR / "trio-test-1.pem")
 # us to insert random (virtual) delays, to really exercise all the weird paths
 # in SSLStream's state engine.
 #
-# Both present a certificate for "trio-test-1.example.org", that's signed by
-# trio-test-CA.pem, an extremely trustworthy CA.
+# Both present a certificate for "trio-test-1.example.org".
 
+TRIO_TEST_CA = trustme.CA()
+TRIO_TEST_1_CERT = TRIO_TEST_CA.issue_server_cert("trio-test-1.example.org")
 
 SERVER_CTX = stdlib_ssl.create_default_context(
     stdlib_ssl.Purpose.CLIENT_AUTH,
 )
-SERVER_CTX.load_cert_chain(CERT1)
+TRIO_TEST_1_CERT.configure_cert(SERVER_CTX)
 
-CLIENT_CTX = stdlib_ssl.create_default_context(cafile=CA)
+CLIENT_CTX = stdlib_ssl.create_default_context()
+TRIO_TEST_CA.configure_trust(CLIENT_CTX)
 
 # workaround for
 #   https://bitbucket.org/pypy/pypy/issues/2578/
@@ -157,8 +155,7 @@ class PyOpenSSLEchoStream:
         # tripwire to remind us we need to revisit this stuff in 5 years or
         # whatever when the next TLS version is released:
         assert not hasattr(SSL, "OP_NO_TLSv1_4")
-        ctx.use_certificate_file(CERT1)
-        ctx.use_privatekey_file(CERT1)
+        TRIO_TEST_1_CERT.configure_cert(ctx)
         self._conn = SSL.Connection(ctx, None)
         self._conn.set_accept_state()
         self._lot = _core.ParkingLot()
@@ -1056,5 +1053,6 @@ async def test_getpeercert():
         nursery.spawn(server.do_handshake)
 
     assert server.getpeercert() is None
-    assert ((("commonName", "trio-test-1.example.org"),)
-            in client.getpeercert()["subject"])
+    print(client.getpeercert())
+    assert (("DNS", "trio-test-1.example.org")
+            in client.getpeercert()["subjectAltName"])
