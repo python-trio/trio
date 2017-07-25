@@ -56,7 +56,7 @@ class SocketStream(HalfCloseableStream):
     def __init__(self, sock):
         if not tsocket.is_trio_socket(sock):
             raise TypeError("SocketStream requires trio socket object")
-        if sock._real_type != tsocket.SOCK_STREAM:
+        if tsocket._real_type(sock.type) != tsocket.SOCK_STREAM:
             raise ValueError("SocketStream requires a SOCK_STREAM socket")
         try:
             sock.getpeername()
