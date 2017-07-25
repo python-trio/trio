@@ -5,8 +5,8 @@ I/O in Trio
 
 .. note::
 
-   Please excuse our dust! `geocities-construction-worker.gif
-   <http://www.textfiles.com/underconstruction/>`__
+   Please excuse our dust! `[insert geocities construction worker gif
+   here] <http://www.textfiles.com/underconstruction/>`__
 
    You're looking at the documentation for trio's development branch,
    which is currently about half-way through implementing a proper
@@ -162,10 +162,10 @@ create a :class:`SSLStream`:
    :members:
 
 
-Low-level sockets and networking
---------------------------------
-
 .. module:: trio.socket
+
+Low-level networking with :mod:`trio.socket`
+---------------------------------------------
 
 The :mod:`trio.socket` module provides trio's basic low-level
 networking API. If you're doing ordinary things with stream-oriented
@@ -176,8 +176,8 @@ get direct access to all the quirky bits of your system's networking
 API, then you're in the right place.
 
 
-:mod:`trio.socket`: top-level exports
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Top-level exports
+~~~~~~~~~~~~~~~~~
 
 Generally, the API exposed by :mod:`trio.socket` mirrors that of the
 standard library :mod:`socket` module. Most constants (like
@@ -185,12 +185,25 @@ standard library :mod:`socket` module. Most constants (like
 are simply re-exported unchanged. But there are also some differences,
 which are described here.
 
-All functions that return socket objects (e.g. :func:`socket.socket`,
-:func:`socket.socketpair`, ...) are modified to return trio socket
-objects instead. In addition, there is a new function to directly
-convert a standard library socket into a trio socket:
+.. function:: socket(...)
+              socketpair(...)
+              fromfd(...)
+              fromshare(...)
+
+   Trio provides analogues to all the standard library functions that
+   return socket objects; their interface is identical, except that
+   they're modified to return trio socket objects instead.
+
+In addition, there is a new function to directly convert a standard
+library socket into a trio socket:
 
 .. autofunction:: from_stdlib_socket
+
+Unlike :func:`socket.socket`, :func:`trio.socket.socket` is a
+function, not a class; if you want to check whether an object is a
+trio socket, use:
+
+.. autofunction:: is_trio_socket
 
 For name lookup, Trio provides the standard functions, but with some
 changes:
@@ -237,7 +250,7 @@ broken features:
 Socket objects
 ~~~~~~~~~~~~~~
 
-.. class:: SocketType()
+.. interface:: The trio socket object interface
 
    Trio socket objects are overall very similar to the :ref:`standard
    library socket objects <python:socket-objects>`, with a few
@@ -279,9 +292,27 @@ Socket objects
    this can be easily accomplished by calling either
    :meth:`resolve_local_address` or :meth:`resolve_remote_address`.
 
-   .. automethod:: resolve_local_address
+   .. method:: resolve_local_address(address)
 
-   .. automethod:: resolve_remote_address
+      Resolve the given address into a numeric address suitable for
+      passing to :meth:`bind`.
+
+      This performs the same address resolution that the standard library
+      :meth:`~socket.socket.bind` call would do, taking into account the
+      current socket's settings (e.g. if this is an IPv6 socket then it
+      returns IPv6 addresses). In particular, a hostname of ``None`` is
+      mapped to the wildcard address.
+
+   .. method:: resolve_remote_address(address)
+
+      Resolve the given address into a numeric address suitable for
+      passing to :meth:`connect` or similar.
+
+      This performs the same address resolution that the standard library
+      :meth:`~socket.socket.connect` call would do, taking into account the
+      current socket's settings (e.g. if this is an IPv6 socket then it
+      returns IPv6 addresses). In particular, a hostname of ``None`` is
+      mapped to the localhost address.
 
    **Modern defaults:** And finally, we took the opportunity to update
    the defaults for several socket options that were stuck in the
@@ -326,14 +357,54 @@ Socket objects
    See `issue #72 <https://github.com/python-trio/trio/issues/72>`__ for
    discussion of these defaults.
 
-   The following methods are similar, but not identical, to the
-   equivalents in :func:`socket.socket`:
+   The following methods are similar to the equivalents in
+   :func:`socket.socket`, but have some trio-specific quirks:
 
-   .. automethod:: bind
+   .. method:: bind
 
-   .. automethod:: connect
+      Bind this socket to the given address.
 
-   .. automethod:: sendall
+      Unlike the stdlib :meth:`~socket.socket.bind`, this method
+      requires a pre-resolved address. See
+      :meth:`resolve_local_address`.
+
+   .. method:: connect
+      :async:
+
+      Connect the socket to a remote address.
+
+      Similar to :meth:`socket.socket.connect`, except async and
+      requiring a pre-resolved address. See
+      :meth:`resolve_remote_address`.
+
+      .. warning::
+
+         Due to limitations of the underlying operating system APIs, it is
+         not always possible to properly cancel a connection attempt once it
+         has begun. If :meth:`connect` is cancelled, and is unable to
+         abort the connection attempt, then it will:
+
+         1. forcibly close the socket to prevent accidental re-use
+         2. raise :exc:`~trio.Cancelled`.
+
+         tl;dr: if :meth:`connect` is cancelled then the socket is
+         left in an unknown state – possibly open, and possibly
+         closed. The only reasonable thing to do is to close it.
+
+   .. method:: sendall(data, flags=0)
+      :async:
+
+      Send the data to the socket, blocking until all of it has been
+      accepted by the operating system.
+
+      ``flags`` are passed on to ``send``.
+
+      Most low-level operations in trio provide a guarantee: if they raise
+      :exc:`trio.Cancelled`, this means that they had no effect, so the
+      system remains in a known state. This is **not true** for
+      :meth:`sendall`. If this operation raises :exc:`trio.Cancelled` (or
+      any other exception for that matter), then it may have sent some, all,
+      or none of the requested data, and there is no way to know which.
 
    .. method:: sendfile
 
@@ -373,6 +444,7 @@ Socket objects
    * :meth:`~socket.socket.share`
    * :meth:`~socket.socket.set_inheritable`
    * :meth:`~socket.socket.get_inheritable`
+
 
 Asynchronous disk I/O
 ---------------------
