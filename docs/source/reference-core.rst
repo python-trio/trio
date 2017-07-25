@@ -420,8 +420,8 @@ Of course, if you really want to make another blocking call in your
 cleanup handler, trio will let you; it's trying to prevent you from
 accidentally shooting yourself in the foot. Intentional foot-shooting
 is no problem (or at least – it's not trio's problem). To do this,
-create a new scope, and set its :attr:`shield` attribute to
-:data:`True`::
+create a new scope, and set its :attr:`~cancel_scope_interface.shield`
+attribute to :data:`True`::
 
    with trio.move_on_after(TIMEOUT):
        conn = make_connection()
@@ -504,9 +504,14 @@ The primitive operation for creating a new cancellation scope is:
 .. autofunction:: open_cancel_scope
    :with: cancel_scope
 
-   Cancel scope objects provide the following interface:
+Cancel scope objects provide the following interface:
 
-   .. currentmodule:: None
+.. class:: cancel_scope_interface
+
+   (Note: there is no public class called
+   :class:`cancel_scope_interface`; this is a convenient fiction to
+   make our documentation generator happy. You get a cancel scope
+   object by calling :func:`open_cancel_scope`.)
 
    .. attribute:: deadline
 
@@ -574,8 +579,6 @@ The primitive operation for creating a new cancellation scope is:
       the ``with`` block exited with a :exc:`~trio.Cancelled`
       exception, and (2) this scope is the one that was responsible
       for triggering this :exc:`~trio.Cancelled` exception.
-
-   .. currentmodule:: trio
 
 Trio also provides several convenience functions for the common
 situation of just wanting to impose a timeout on some code:
@@ -885,9 +888,13 @@ The nursery API
 .. autofunction:: open_nursery
    :async-with: nursery
 
-   Nursery objects provide the following interface:
+Nursery objects provide the following interface:
 
-   .. currentmodule:: None
+.. class:: nursery_interface
+
+   (Note: there is no public class called :class:`nursery_interface`;
+   this is a convenient fiction to make our documentation generator
+   happy. You get a nursery object by calling :func:`open_nursery`.)
 
    .. method:: spawn(async_fn, *args, name=None)
 
@@ -969,8 +976,6 @@ The nursery API
 
          nursery.reap(task)
          return task.result.unwrap()
-
-   .. currentmodule:: trio
 
 
 Task object API
