@@ -176,7 +176,7 @@ def from_stdlib_socket(sock):
     """Convert a standard library :func:`socket.socket` into a trio socket.
 
     """
-    return SocketType(sock)
+    return _SocketType(sock)
 __all__.append("from_stdlib_socket")
 
 @_wraps(_stdlib_socket.fromfd, assigned=(), updated=())
@@ -192,9 +192,8 @@ if hasattr(_stdlib_socket, "fromshare"):
 
 @_wraps(_stdlib_socket.socketpair, assigned=(), updated=())
 def socketpair(*args, **kwargs):
-    return tuple(
-        from_stdlib_socket(s)
-        for s in _stdlib_socket.socketpair(*args, **kwargs))
+    left, right = _stdlib_socket.socketpair(*args, **kwargs)
+    return (from_stdlib_socket(left), from_stdlib_socket(right))
 __all__.append("socketpair")
 
 @_wraps(_stdlib_socket.socket, assigned=(), updated=())
@@ -204,7 +203,19 @@ __all__.append("socket")
 
 
 ################################################################
-# SocketType
+# Type checking
+################################################################
+
+def is_trio_socket(obj):
+    """Check whether the given object is a trio socket.
+
+    """
+    return isinstance(obj, _SocketType)
+
+__all__.append("is_trio_socket")
+
+################################################################
+# _SocketType
 ################################################################
 
 # sock.type gets weird stuff set in it, in particular on Linux:
@@ -218,7 +229,7 @@ _SOCK_TYPE_MASK = ~(
     getattr(_stdlib_socket, "SOCK_NONBLOCK", 0)
     | getattr(_stdlib_socket, "SOCK_CLOEXEC", 0))
 
-class SocketType:
+class _SocketType:
     def __init__(self, sock):
         if type(sock) is not _stdlib_socket.socket:
             # For example, ssl.SSLSocket subclasses socket.socket, but we
@@ -302,15 +313,9 @@ class SocketType:
         """Same as :meth:`socket.socket.dup`.
 
         """
-        return SocketType(self._sock.dup())
+        return _SocketType(self._sock.dup())
 
     def bind(self, address):
-        """Bind this socket to the given address.
-
-        Unlike the stdlib :meth:`~socket.socket.connect`, this method requires
-        a pre-resolved address. See :meth:`resolve_local_address`.
-
-        """
         self._check_address(address, require_resolved=True)
         return self._sock.bind(address)
 
@@ -418,30 +423,10 @@ class SocketType:
 
     # Returns something appropriate to pass to bind()
     async def resolve_local_address(self, address):
-        """Resolve the given address into a numeric address suitable for
-        passing to :meth:`bind`.
-
-        This performs the same address resolution that the standard library
-        :meth:`~socket.socket.bind` call would do, taking into account the
-        current socket's settings (e.g. if this is an IPv6 socket then it
-        returns IPv6 addresses). In particular, a hostname of ``None`` is
-        mapped to the wildcard address.
-
-        """
         return await self._resolve_address(address, AI_PASSIVE)
 
     # Returns something appropriate to pass to connect()/sendto()/sendmsg()
     async def resolve_remote_address(self, address):
-        """Resolve the given address into a numeric address suitable for
-        passing to :meth:`connect` or similar.
-
-        This performs the same address resolution that the standard library
-        :meth:`~socket.socket.connect` call would do, taking into account the
-        current socket's settings (e.g. if this is an IPv6 socket then it
-        returns IPv6 addresses). In particular, a hostname of ``None`` is
-        mapped to the localhost address.
-
-        """
         return await self._resolve_address(address, 0)
 
     async def _nonblocking_helper(self, fn, args, kwargs, wait_fn):
@@ -510,28 +495,10 @@ class SocketType:
     ################################################################
 
     async def connect(self, address):
-        """Connect the socket to a remote address.
-
-        Similar to :meth:`socket.socket.connect`, except async and requiring a
-        pre-resolved address. See :meth:`resolve_remote_address`.
-
-        .. warning::
-
-           Due to limitations of the underlying operating system APIs, it is
-           not always possible to properly cancel a connection attempt once it
-           has begun. If :meth:`connect` is cancelled, and is unable to
-           abort the connection attempt, then it will:
-
-           1. forcibly close the socket to prevent accidental re-use
-           2. raise :exc:`~trio.Cancelled`.
-
-           tl;dr: if :meth:`connect` is cancelled then you should throw away
-           that socket and make a new one.
-
-        """
         # nonblocking connect is weird -- you call it to start things
         # off, then the socket becomes writable as a completion
-        # notification. This means it isn't really cancellable...
+        # notification. This means it isn't really cancellable... we close the
+        # socket if cancelled, to avoid confusion.
         async with _try_sync():
             self._check_address(address, require_resolved=True)
             # An interesting puzzle: can a non-blocking connect() return EINTR
@@ -693,19 +660,6 @@ class SocketType:
     ################################################################
 
     async def sendall(self, data, flags=0):
-        """Send the data to the socket, blocking until all of it has been
-        accepted by the operating system.
-
-        ``flags`` are passed on to ``send``.
-
-        Most low-level operations in trio provide a guarantee: if they raise
-        :exc:`trio.Cancelled`, this means that they had no effect, so the
-        system remains in a known state. This is **not true** for
-        :meth:`sendall`. If this operation raises :exc:`trio.Cancelled` (or
-        any other exception for that matter), then it may have sent some, all,
-        or none of the requested data, and there is no way to know which.
-
-        """
         with memoryview(data) as data:
             if not data:
                 await _core.yield_briefly()
@@ -729,8 +683,6 @@ class SocketType:
     #   setblocking
     #   settimeout
     #   timeout
-
-__all__.append("SocketType")
 
 
 ################################################################

@@ -35,8 +35,8 @@ class SocketStream(HalfCloseableStream):
     interface based on a raw network socket.
 
     Args:
-      sock (trio.socket.SocketType): The trio socket object to wrap. Must have
-          type ``SOCK_STREAM``, and be connected.
+      sock: The trio socket object to wrap. Must have type ``SOCK_STREAM``,
+          and be connected.
 
     By default, :class:`SocketStream` enables ``TCP_NODELAY``, and (on
     platforms where it's supported) enables ``TCP_NOTSENT_LOWAT`` with a
@@ -50,12 +50,12 @@ class SocketStream(HalfCloseableStream):
 
     .. attribute:: socket
 
-       The :class:`trio.socket.SocketType` object that this stream wraps.
+       The Trio socket object that this stream wraps.
 
     """
     def __init__(self, sock):
-        if not isinstance(sock, tsocket.SocketType):
-            raise TypeError("SocketStream requires trio.socket.SocketType")
+        if not tsocket.is_trio_socket(sock):
+            raise TypeError("SocketStream requires trio socket object")
         if sock._real_type != tsocket.SOCK_STREAM:
             raise ValueError("SocketStream requires a SOCK_STREAM socket")
         try:

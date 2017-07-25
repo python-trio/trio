@@ -154,7 +154,7 @@ kind of issue looks like in real life, consider this function::
     async def recv_exactly(sock, nbytes):
         data = bytearray()
         while nbytes > 0:
-            # SocketType.recv() reads up to 'nbytes' bytes each time
+            # recv() reads up to 'nbytes' bytes each time
             chunk += await sock.recv(nbytes)
             if not chunk:
                 raise RuntimeError("socket unexpected closed")

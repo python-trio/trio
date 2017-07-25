@@ -181,8 +181,10 @@ async def test_getnameinfo():
 
 async def test_from_stdlib_socket():
     sa, sb = stdlib_socket.socketpair()
+    assert not tsocket.is_trio_socket(sa)
     with sa, sb:
         ta = tsocket.from_stdlib_socket(sa)
+        assert tsocket.is_trio_socket(ta)
         assert sa.fileno() == ta.fileno()
         await ta.sendall(b"xxx")
         assert sb.recv(3) == b"xxx"
@@ -239,16 +241,18 @@ async def test_fromshare():
 
 async def test_socket():
     with tsocket.socket() as s:
-        assert isinstance(s, tsocket.SocketType)
+        assert isinstance(s, tsocket._SocketType)
+        assert tsocket.is_trio_socket(s)
         assert s.family == tsocket.AF_INET
 
     with tsocket.socket(tsocket.AF_INET6, tsocket.SOCK_DGRAM) as s:
-        assert isinstance(s, tsocket.SocketType)
+        assert isinstance(s, tsocket._SocketType)
+        assert tsocket.is_trio_socket(s)
         assert s.family == tsocket.AF_INET6
 
 
 ################################################################
-# SocketType
+# _SocketType
 ################################################################
 
 async def test_SocketType_basics():
@@ -307,7 +311,7 @@ async def test_SocketType_dup():
     with a, b:
         a2 = a.dup()
         with a2:
-            assert isinstance(a2, tsocket.SocketType)
+            assert isinstance(a2, tsocket._SocketType)
             assert a2.fileno() != a.fileno()
             a.close()
             await a2.sendall(b"xxx")
@@ -519,7 +523,7 @@ async def test_SocketType_connect_paths():
         with tsocket.socket() as sock, tsocket.socket() as listener:
             listener.bind(("127.0.0.1", 0))
             listener.listen()
-            # Swap in our weird subclass under the trio.socket.SocketType's
+            # Swap in our weird subclass under the trio.socket._SocketType's
             # nose -- and then swap it back out again before we hit
             # wait_socket_writable, which insists on a real socket.
             class CancelSocket(stdlib_socket.socket):
