@@ -323,10 +323,26 @@ async def test_SocketType_shutdown():
     with a, b:
         await a.sendall(b"xxx")
         assert await b.recv(3) == b"xxx"
+        assert not a.did_shutdown_SHUT_WR
+        assert not b.did_shutdown_SHUT_WR
         a.shutdown(tsocket.SHUT_WR)
+        assert a.did_shutdown_SHUT_WR
+        assert not b.did_shutdown_SHUT_WR
         assert await b.recv(3) == b""
         await b.sendall(b"yyy")
         assert await a.recv(3) == b"yyy"
+
+    a, b = tsocket.socketpair()
+    with a, b:
+        assert not a.did_shutdown_SHUT_WR
+        a.shutdown(tsocket.SHUT_RD)
+        assert not a.did_shutdown_SHUT_WR
+
+    a, b = tsocket.socketpair()
+    with a, b:
+        assert not a.did_shutdown_SHUT_WR
+        a.shutdown(tsocket.SHUT_RDWR)
+        assert a.did_shutdown_SHUT_WR
 
 
 @pytest.mark.parametrize("address, socket_type", [('127.0.0.1', tsocket.AF_INET), ('::1', tsocket.AF_INET6)])
