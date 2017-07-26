@@ -410,6 +410,15 @@ Socket objects
 
       `Not implemented yet! <https://github.com/python-trio/trio/issues/45>`__
 
+   We also keep track of an extra bit of state, because it turns out
+   to be useful for :class:`trio.SocketStream`:
+
+   .. attribute:: did_shutdown_SHUT_WR
+
+      This :class:`bool` attribute it True if you've called
+      ``sock.shutdown(SHUT_WR)`` or ``sock.shutdown(SHUT_RDWR)``, and
+      False otherwise.
+
    The following methods are identical to their equivalents in
    :func:`socket.socket`, except async, and the ones that take address
    arguments require pre-resolved addresses:

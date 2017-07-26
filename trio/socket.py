@@ -229,6 +229,13 @@ _SOCK_TYPE_MASK = ~(
     getattr(_stdlib_socket, "SOCK_NONBLOCK", 0)
     | getattr(_stdlib_socket, "SOCK_CLOEXEC", 0))
 
+# Hopefully Python will eventually make something like this public
+# (see bpo-21327) but I don't want to make it public myself and then
+# find out they picked a different name... this is used internally in
+# this file and also elsewhere in trio.
+def _real_type(type_num):
+    return type_num & _SOCK_TYPE_MASK
+
 class _SocketType:
     def __init__(self, sock):
         if type(sock) is not _stdlib_socket.socket:
@@ -239,13 +246,7 @@ class _SocketType:
                 .format(type(sock).__name__))
         self._sock = sock
         self._sock.setblocking(False)
-        self._did_SHUT_WR = False
-
-        # Hopefully Python will eventually make something like this public
-        # (see bpo-21327) but I don't want to make it public myself and then
-        # find out they picked a different name... this is used internally in
-        # this file and also elsewhere in trio.
-        self._real_type = sock.type & _SOCK_TYPE_MASK
+        self._did_shutdown_SHUT_WR = False
 
         # Defaults:
         if self._sock.family == AF_INET6:
@@ -306,6 +307,10 @@ class _SocketType:
     def proto(self):
         return self._sock.proto
 
+    @property
+    def did_shutdown_SHUT_WR(self):
+        return self._did_shutdown_SHUT_WR
+
     def __repr__(self):
         return repr(self._sock).replace("socket.socket", "trio.socket.socket")
 
@@ -324,7 +329,7 @@ class _SocketType:
         self._sock.shutdown(flag)
         # only do this if the call succeeded:
         if flag in [SHUT_WR, SHUT_RDWR]:
-            self._did_SHUT_WR = True
+            self._did_shutdown_SHUT_WR = True
 
     async def wait_writable(self):
         await _core.wait_socket_writable(self._sock)
@@ -362,7 +367,7 @@ class _SocketType:
                 _stdlib_socket.getaddrinfo(
                     address[0], address[1],
                     self._sock.family,
-                    self._real_type,
+                    _real_type(self._sock.type),
                     self._sock.proto,
                     flags=_NUMERIC_ONLY)
             except gaierror as exc:
@@ -399,7 +404,7 @@ class _SocketType:
         gai_res = await getaddrinfo(
             address[0], address[1],
             self._sock.family,
-            self._real_type,
+            _real_type(self._sock.type),
             self._sock.proto,
             flags)
         # AFAICT from the spec it's not possible for getaddrinfo to return an

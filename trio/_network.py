@@ -56,7 +56,7 @@ class SocketStream(HalfCloseableStream):
     def __init__(self, sock):
         if not tsocket.is_trio_socket(sock):
             raise TypeError("SocketStream requires trio socket object")
-        if sock._real_type != tsocket.SOCK_STREAM:
+        if tsocket._real_type(sock.type) != tsocket.SOCK_STREAM:
             raise ValueError("SocketStream requires a SOCK_STREAM socket")
         try:
             sock.getpeername()
@@ -94,7 +94,7 @@ class SocketStream(HalfCloseableStream):
                 pass
 
     async def send_all(self, data):
-        if self.socket._did_SHUT_WR:
+        if self.socket.did_shutdown_SHUT_WR:
             await _core.yield_briefly()
             raise ClosedStreamError("can't send data after sending EOF")
         with self._send_lock.sync:
@@ -112,7 +112,7 @@ class SocketStream(HalfCloseableStream):
         async with self._send_lock:
             # On MacOS, calling shutdown a second time raises ENOTCONN, but
             # send_eof needs to be idempotent.
-            if self.socket._did_SHUT_WR:
+            if self.socket.did_shutdown_SHUT_WR:
                 return
             with _translate_socket_errors_to_stream_errors():
                 self.socket.shutdown(tsocket.SHUT_WR)
