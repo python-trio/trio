@@ -153,3 +153,14 @@ async def test_local_inheritance_from_spawner_not_supervisor():
 
     async with _core.open_nursery() as nursery:
         nursery.spawn(spawner, nursery)
+
+
+async def test_local_defaults():
+    for cls in _core.TaskLocal, _core.RunLocal:
+        local = cls(default1=123, default2="abc")
+        assert local.default1 == 123
+        assert local.default2 == "abc"
+        del local.default1
+        assert not hasattr(local, "default1")
+
+    
