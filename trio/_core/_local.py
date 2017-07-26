@@ -18,12 +18,20 @@ def _local_dict(local_obj):
         refobj = getattr(_run.GLOBAL_RUN_CONTEXT, locals_type)
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
-    return refobj._locals.setdefault(local_obj, {})
+    try:
+        return refobj._locals[local_obj]
+    except KeyError:
+        new_dict = dict(object.__getattribute__(local_obj, "_defaults"))
+        refobj._locals[local_obj] = new_dict
+        return new_dict
 
 
 # Ughhh subclassing I feel so dirty
 class _LocalBase:
-    __slots__ = ("__dict__",)
+    __slots__ = ("_defaults",)
+
+    def __init__(self, **kwargs):
+        object.__setattr__(self, "_defaults", kwargs)
 
     def __getattribute__(self, name):
         ld = _local_dict(self)
@@ -65,6 +73,35 @@ class TaskLocal(_LocalBase):
     :class:`trio.TaskLocal` is very similar, except adapted to work with tasks
     instead of threads, and with the added feature that values are
     automatically inherited across tasks.
+
+    When creating a :class:`TaskLocal` object, you can provide default values
+    as keyword arguments::
+
+       local = trio.TaskLocal(a=1)
+
+       async def main():
+           # The first time we access the TaskLocal object, the 'a' attribute
+           # is already present:
+           assert local.a == 1
+
+    The default values are like the default values to functions: they're only
+    evaluated once, when the object is created. So you shouldn't use mutable
+    objects as defaults -- they'll be shared not just across tasks, but even
+    across entirely unrelated runs! For example::
+
+       # Don't do this!!
+       local = trio.TaskLocal(a=[])
+
+       async def main():
+           assert local.a == []
+           local.a.append(1)
+
+       # First time, everything seems to work
+       trio.run(main)
+
+       # Second time, the assertion fails, because the first time modified
+       # the list object.
+       trio.run(main)
 
     """
     __slots__ = ()
