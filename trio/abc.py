@@ -137,6 +137,68 @@ class Instrument(_abc.ABC):
         """
 
 
+class HostnameResolver(metaclass=_abc.ABCMeta):
+    """If you have a custom hostname resolver, then implementing
+    :class:`HostnameResolver` allows you to register this to be used by trio.
+
+    See :func:`trio.socket.set_custom_hostname_resolver`.
+
+    """
+    __slots__ = ()
+
+    @_abc.abstractmethod
+    async def getaddrinfo(self, host, port, family=0, type=0, proto=0, flags=0):
+        """A custom implementation of :func:`~trio.socket.getaddrinfo`.
+
+        Called by :func:`trio.socket.getaddrinfo`.
+
+        If ``host`` is given as a numeric IP address, then
+        :func:`~trio.socket.getaddrinfo` may handle the request itself rather
+        than calling this method.
+
+        """
+
+    @_abc.abstractmethod
+    async def getnameinfo(self, sockaddr, flags):
+        """A custom implementation of :func:`~trio.socket.getnameinfo`.
+
+        Called by :func:`trio.socket.getnameinfo`.
+
+        """
+
+
+class SocketFactory(metaclass=_abc.ABCMeta):
+    """If you write a custom class implementing the trio socket interface,
+    then you can use a :class:`SocketFactory` to get trio to use it.
+
+    See :func:`trio.socket.set_custom_socket_factory`.
+
+    """
+
+    @_abc.abstractmethod
+    def socket(self, family=None, type=None, proto=None):
+        """Create and return a socket object.
+
+        Called by :func:`trio.socket.socket`.
+
+        Note that unlike :func:`trio.socket.socket`, this does not take a
+        ``fileno=`` argument. If a ``fileno=`` is specified, then
+        :func:`trio.socket.socket` returns a regular trio socket object
+        instead of calling this method.
+
+        """
+
+    @_abc.abstractmethod
+    def is_trio_socket(self, obj):
+        """Check if the given object is a socket instance.
+
+        Called by :func:`trio.socket.is_trio_socket`, which returns True if
+        the given object is a builtin trio socket object *or* if this method
+        returns True.
+
+        """
+
+
 # We use ABCMeta instead of ABC, plus setting __slots__=(), so as not to force
 # a __dict__ onto subclasses.
 class AsyncResource(metaclass=_abc.ABCMeta):

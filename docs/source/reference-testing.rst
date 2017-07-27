@@ -157,6 +157,36 @@ implementations:
 .. autofunction:: check_half_closeable_stream
 
 
+Virtual networking for testing
+------------------------------
+
+In the previous section you learned how to use virtual in-memory
+streams to test protocols that are written against trio's
+:class:`~trio.abc.Stream` abstraction. But what if you have more
+complicated networking code – the kind of code that makes connections
+to multiple hosts, or opens a listening socket, or sends UDP packets?
+
+Trio doesn't itself provide a virtual in-memory network implementation
+for testing – but :mod:`trio.socket` module does provide the hooks you
+need to write your own! And if you're interested in helping implement
+a reusable virtual network for testing, then `please get in touch
+<https://github.com/python-trio/trio/issues/170>`__.
+
+Note that these APIs are actually in :mod:`trio.socket` and
+:mod:`trio.abc`, but we document them here because they're primarily
+intended for testing.
+
+.. autofunction:: trio.socket.set_custom_hostname_resolver
+
+.. autoclass:: trio.abc.HostnameResolver
+   :members:
+
+.. autofunction:: trio.socket.set_custom_socket_factory
+
+.. autoclass:: trio.abc.SocketFactory
+   :members:
+
+
 Testing checkpoints
 --------------------
 
