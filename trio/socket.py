@@ -5,7 +5,7 @@ import os as _os
 from contextlib import contextmanager as _contextmanager
 import errno as _errno
 
-import idna
+import idna as _idna
 
 from . import _core
 from ._threads import run_in_worker_thread as _run_in_worker_thread
@@ -133,7 +133,7 @@ async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
             # UTS-46 defines various normalizations; in particular, by default
             # idna.encode will error out if the hostname has Capital Letters
             # in it; with uts46=True it will lowercase them instead.
-            host = idna.encode(host, uts46=True)
+            host = _idna.encode(host, uts46=True)
     return await _run_in_worker_thread(
         _stdlib_socket.getaddrinfo, host, port, family, type, proto, flags,
         cancellable=True)
