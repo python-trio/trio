@@ -752,8 +752,15 @@ async def test_custom_hostname_resolver(monkeygai):
 
     assert tsocket.set_custom_hostname_resolver(cr) is None
 
-    assert (await tsocket.getaddrinfo("localhost", "foo", 0, 1, 2, 3)
-            == ("custom_gai", b"localhost", "foo", 0, 1, 2, 3))
+    # Check that the arguments are all getting passed through.
+    # We have to use valid calls to avoid making the underlying system
+    # getaddrinfo cranky when it's used for NUMERIC checks.
+    for vals in [(tsocket.AF_INET, 0, 0, 0),
+                 (0, tsocket.SOCK_STREAM, 0, 0),
+                 (0, 0, tsocket.IPPROTO_TCP, 0),
+                 (0, 0, 0, tsocket.AI_CANONNAME)]:
+        assert (await tsocket.getaddrinfo("localhost", "foo", *vals)
+                == ("custom_gai", b"localhost", "foo", *vals))
 
     # IDNA encoding is handled before calling the special object
     assert (await tsocket.getaddrinfo("föö", "foo")
