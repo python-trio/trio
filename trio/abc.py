@@ -156,6 +156,11 @@ class HostnameResolver(metaclass=_abc.ABCMeta):
         :func:`~trio.socket.getaddrinfo` may handle the request itself rather
         than calling this method.
 
+        Any required IDNA encoding is handled before calling this function;
+        your implementation can assume that it will never see U-labels like
+        ``"café.com"``, and only needs to handle A-labels like
+        ``b"xn--caf-dma.com"``.
+
         """
 
     @_abc.abstractmethod
