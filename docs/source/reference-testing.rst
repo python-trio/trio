@@ -176,15 +176,25 @@ Note that these APIs are actually in :mod:`trio.socket` and
 :mod:`trio.abc`, but we document them here because they're primarily
 intended for testing.
 
+.. currentmodule:: trio.socket
+
 .. autofunction:: trio.socket.set_custom_hostname_resolver
+
+.. currentmodule:: trio.abc
 
 .. autoclass:: trio.abc.HostnameResolver
    :members:
 
+.. currentmodule:: trio.socket
+
 .. autofunction:: trio.socket.set_custom_socket_factory
+
+.. currentmodule:: trio.abc
 
 .. autoclass:: trio.abc.SocketFactory
    :members:
+
+.. currentmodule:: trio.testing
 
 
 Testing checkpoints

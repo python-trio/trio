@@ -26,6 +26,9 @@ nitpicky = True
 # Except for these ones, which we expect to point to unknown targets:
 nitpick_ignore = [
     ("py:obj", "CapacityLimiter-like object"),
+    # trio.abc this is documented at random places scattered throughout the
+    # docs
+    ("py:mod", "trio.abc"),
 ]
 
 # XX hack the RTD theme until
