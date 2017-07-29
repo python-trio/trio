@@ -738,3 +738,76 @@ async def test_getprotobyname():
     # had *better* be stable across systems...
     assert await tsocket.getprotobyname("udp") == 17
     assert await tsocket.getprotobyname("tcp") == 6
+
+
+async def test_custom_hostname_resolver(monkeygai):
+    class CustomResolver:
+        async def getaddrinfo(self, host, port, family, type, proto, flags):
+            return ("custom_gai", host, port, family, type, proto, flags)
+
+        async def getnameinfo(self, sockaddr, flags):
+            return ("custom_gni", sockaddr, flags)
+
+    cr = CustomResolver()
+
+    assert tsocket.set_custom_hostname_resolver(cr) is None
+
+    # Check that the arguments are all getting passed through.
+    # We have to use valid calls to avoid making the underlying system
+    # getaddrinfo cranky when it's used for NUMERIC checks.
+    for vals in [(tsocket.AF_INET, 0, 0, 0),
+                 (0, tsocket.SOCK_STREAM, 0, 0),
+                 (0, 0, tsocket.IPPROTO_TCP, 0),
+                 (0, 0, 0, tsocket.AI_CANONNAME)]:
+        assert (await tsocket.getaddrinfo("localhost", "foo", *vals)
+                == ("custom_gai", b"localhost", "foo", *vals))
+
+    # IDNA encoding is handled before calling the special object
+    assert (await tsocket.getaddrinfo("föö", "foo")
+            == ("custom_gai", b"xn--f-1gaa", "foo", 0, 0, 0, 0))
+
+    assert (await tsocket.getnameinfo("a", 0) == ("custom_gni", "a", 0))
+
+    # We can set it back to None
+    assert tsocket.set_custom_hostname_resolver(None) is cr
+
+    # And now trio switches back to calling socket.getaddrinfo (specifically
+    # our monkeypatched version of socket.getaddrinfo)
+    monkeygai.set("x", b"host", "port", family=0, type=0, proto=0, flags=0)
+    assert await tsocket.getaddrinfo("host", "port") == "x"
+
+
+async def test_custom_socket_factory():
+    class CustomSocketFactory:
+        def socket(self, family, type, proto):
+            return ("hi", family, type, proto)
+
+        def is_trio_socket(self, obj):
+            return obj == "foo"
+
+    csf = CustomSocketFactory()
+
+    assert not tsocket.is_trio_socket("foo")
+
+    assert tsocket.set_custom_socket_factory(csf) is None
+
+    assert tsocket.socket() == ("hi", tsocket.AF_INET, tsocket.SOCK_STREAM, 0)
+    assert tsocket.socket(1, 2, 3) == ("hi", 1, 2, 3)
+
+    # socket with fileno= doesn't call our custom method
+    fd = stdlib_socket.socket().detach()
+    wrapped = tsocket.socket(fileno=fd)
+    assert hasattr(wrapped, "bind")
+    wrapped.close()
+
+    # Likewise for socketpair
+    a, b = tsocket.socketpair()
+    with a, b:
+        assert hasattr(a, "bind")
+        assert hasattr(b, "bind")
+
+    assert tsocket.is_trio_socket("foo")
+
+    assert tsocket.set_custom_socket_factory(None) is csf
+
+    assert not tsocket.is_trio_socket("foo")

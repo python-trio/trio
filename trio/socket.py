@@ -5,7 +5,7 @@ import os as _os
 from contextlib import contextmanager as _contextmanager
 import errno as _errno
 
-import idna
+import idna as _idna
 
 from . import _core
 from ._threads import run_in_worker_thread as _run_in_worker_thread
@@ -90,6 +90,76 @@ for _name in [
 
 
 ################################################################
+# Overrides
+################################################################
+
+_overrides = _core.RunLocal(hostname_resolver=None, socket_factory=None)
+
+def set_custom_hostname_resolver(hostname_resolver):
+    """Set a custom hostname resolver.
+
+    By default, trio's :func:`getaddrinfo` and :func:`getnameinfo` functions
+    use the standard system resolver functions. This function allows you to
+    customize that behavior. The main intended use case is for testing, but it
+    might also be useful for using third-party resolvers like `c-ares
+    <https://c-ares.haxx.se/>`__ (though be warned that these rarely make
+    perfect drop-in replacements for the system resolver). See
+    :class:`trio.abc.HostnameResolver` for more details.
+
+    Setting a custom hostname resolver affects all future calls to
+    :func:`getaddrinfo` and :func:`getnameinfo` within the enclosing call to
+    :func:`trio.run`. All other hostname resolution in trio is implemented in
+    terms of these functions.
+
+    Generally you should call this function just once, right at the beginning
+    of your program.
+
+    Args:
+      hostname_resolver (trio.abc.HostnameResolver or None): The new custom
+          hostname resolver, or None to restore the default behavior.
+
+    Returns: 
+      The previous hostname resolver (which may be None).
+
+    """
+    old = _overrides.hostname_resolver
+    _overrides.hostname_resolver = hostname_resolver
+    return old
+
+__all__.append("set_custom_hostname_resolver")
+
+
+def set_custom_socket_factory(socket_factory):
+    """Set a custom socket object factory.
+
+    This function allows you to replace trio's normal socket class with a
+    custom class. This is very useful for testing, and probably a bad idea in
+    any other circumstance. See :class:`trio.abc.HostnameResolver` for more
+    details.
+
+    Setting a custom socket factory affects all future calls to :func:`socket`
+    and :func:`is_trio_socket` within the enclosing call to
+    :func:`trio.run`.
+
+    Generally you should call this function just once, right at the beginning
+    of your program.
+
+    Args:
+      socket_factory (trio.abc.SocketFactory or None): The new custom
+          socket factory, or None to restore the default behavior.
+
+    Returns: 
+      The previous socket factory (which may be None).
+
+    """
+    old = _overrides.socket_factory
+    _overrides.socket_factory = socket_factory
+    return old
+
+__all__.append("set_custom_socket_factory")
+
+
+################################################################
 # getaddrinfo and friends
 ################################################################
 
@@ -106,6 +176,9 @@ async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
     can give the wrong result in some cases and cause you to connect to a
     different host than the one you intended; see `bpo-17305
     <https://bugs.python.org/issue17305>`__.)
+
+    This function's behavior can be customized using
+    :func:`set_custom_hostname_resolver`.
 
     """
 
@@ -133,10 +206,14 @@ async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
             # UTS-46 defines various normalizations; in particular, by default
             # idna.encode will error out if the hostname has Capital Letters
             # in it; with uts46=True it will lowercase them instead.
-            host = idna.encode(host, uts46=True)
-    return await _run_in_worker_thread(
-        _stdlib_socket.getaddrinfo, host, port, family, type, proto, flags,
-        cancellable=True)
+            host = _idna.encode(host, uts46=True)
+    hr = _overrides.hostname_resolver
+    if hr is not None:
+        return await hr.getaddrinfo(host, port, family, type, proto, flags)
+    else:
+        return await _run_in_worker_thread(
+            _stdlib_socket.getaddrinfo, host, port, family, type, proto, flags,
+            cancellable=True)
 
 __all__.append("getaddrinfo")
 
@@ -147,9 +224,16 @@ async def getnameinfo(sockaddr, flags):
     Arguments and return values are identical to :func:`socket.getnameinfo`,
     except that this version is async.
 
+    This function's behavior can be customized using
+    :func:`set_custom_hostname_resolver`.
+
     """
-    return await _run_in_worker_thread(
-        _stdlib_socket.getnameinfo, sockaddr, flags, cancellable=True)
+    hr = _overrides.hostname_resolver
+    if hr is not None:
+        return await hr.getnameinfo(sockaddr, flags)
+    else:
+        return await _run_in_worker_thread(
+            _stdlib_socket.getnameinfo, sockaddr, flags, cancellable=True)
 
 __all__.append("getnameinfo")
 
@@ -173,16 +257,22 @@ __all__.append("getprotobyname")
 ################################################################
 
 def from_stdlib_socket(sock):
-    """Convert a standard library :func:`socket.socket` into a trio socket.
+    """Convert a standard library :func:`socket.socket` object into a trio
+    socket object.
 
     """
     return _SocketType(sock)
 __all__.append("from_stdlib_socket")
 
+
 @_wraps(_stdlib_socket.fromfd, assigned=(), updated=())
 def fromfd(*args, **kwargs):
+    """Like :func:`socket.fromfd`, but returns a trio socket object.
+
+    """
     return from_stdlib_socket(_stdlib_socket.fromfd(*args, **kwargs))
 __all__.append("fromfd")
+
 
 if hasattr(_stdlib_socket, "fromshare"):
     @_wraps(_stdlib_socket.fromshare, assigned=(), updated=())
@@ -190,15 +280,32 @@ if hasattr(_stdlib_socket, "fromshare"):
         return from_stdlib_socket(_stdlib_socket.fromshare(*args, **kwargs))
     __all__.append("fromshare")
 
+
 @_wraps(_stdlib_socket.socketpair, assigned=(), updated=())
 def socketpair(*args, **kwargs):
+    """Like :func:`socket.socketpair`, but returns a pair of trio socket
+    objects.
+
+    """
     left, right = _stdlib_socket.socketpair(*args, **kwargs)
     return (from_stdlib_socket(left), from_stdlib_socket(right))
 __all__.append("socketpair")
 
+
 @_wraps(_stdlib_socket.socket, assigned=(), updated=())
-def socket(*args, **kwargs):
-    return from_stdlib_socket(_stdlib_socket.socket(*args, **kwargs))
+def socket(family=AF_INET, type=SOCK_STREAM, proto=0, fileno=None):
+    """Create a new trio socket, like :func:`socket.socket`.
+
+    This function's behavior can be customized using
+    :func:`set_custom_socket_factory`.
+
+    """
+    if fileno is None:
+        sf = _overrides.socket_factory
+        if sf is not None:
+            return sf.socket(family, type, proto)
+    stdlib_socket = _stdlib_socket.socket(family, type, proto, fileno)
+    return from_stdlib_socket(stdlib_socket)
 __all__.append("socket")
 
 
@@ -209,7 +316,13 @@ __all__.append("socket")
 def is_trio_socket(obj):
     """Check whether the given object is a trio socket.
 
+    This function's behavior can be customized using
+    :func:`set_custom_socket_factory`.
+
     """
+    sf = _overrides.socket_factory
+    if sf is not None and sf.is_trio_socket(obj):
+        return True
     return isinstance(obj, _SocketType)
 
 __all__.append("is_trio_socket")

@@ -185,14 +185,19 @@ standard library :mod:`socket` module. Most constants (like
 are simply re-exported unchanged. But there are also some differences,
 which are described here.
 
-.. function:: socket(...)
-              socketpair(...)
-              fromfd(...)
-              fromshare(...)
+First, Trio provides analogues to all the standard library functions
+that return socket objects; their interface is identical, except that
+they're modified to return trio socket objects instead:
 
-   Trio provides analogues to all the standard library functions that
-   return socket objects; their interface is identical, except that
-   they're modified to return trio socket objects instead.
+.. autofunction:: socket
+
+.. autofunction:: socketpair
+
+.. autofunction:: fromfd
+
+.. function:: fromshare(data)
+
+   Like :func:`socket.fromshare`, but returns a trio socket object.
 
 In addition, there is a new function to directly convert a standard
 library socket into a trio socket:
