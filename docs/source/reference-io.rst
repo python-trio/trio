@@ -142,6 +142,8 @@ abstraction.
 
 .. autofunction:: open_tcp_stream
 
+.. autofunction:: open_ssl_tcp_stream
+
 
 SSL / TLS support
 ~~~~~~~~~~~~~~~~~
