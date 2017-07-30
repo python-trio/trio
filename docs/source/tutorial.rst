@@ -4,24 +4,25 @@ Tutorial
 .. currentmodule:: trio
 
 Welcome to the Trio tutorial! Trio is a modern Python library for
-writing asynchronous applications – often, but not exclusively,
-asynchronous network applications. Here we'll try to give a gentle
-introduction to asynchronous programming with Trio.
+writing asynchronous applications – that is, programs that want to do
+multiple things at the same time with parallelized I/O, like a web
+spider that fetches lots of pages in parallel, a web server juggling
+lots of simultaneous downloads... that sort of thing. Here we'll try
+to give a gentle introduction to asynchronous programming with Trio.
 
 We assume that you're familiar with Python in general, but don't worry
 – we don't assume you know anything about asynchronous programming or
 Python's new ``async/await`` feature.
 
-Also, we assume that your goal is to *use* Trio to write interesting
-programs, so we won't go into the nitty-gritty details of how
-``async/await`` is implemented inside the Python interpreter. The word
-"coroutine" is never mentioned. The fact is, you really don't *need*
-to know any of that stuff unless you want to *implement* a library
-like Trio, so we leave it out. We'll include some links in case you're
-the kind of person who's curious to know how it works under the hood,
-but you should still read this section first, because the internal
-details will make much more sense once you understand what it's all
-for.
+Also, unlike many ``async/await`` tutorials, we assume that your goal
+is to *use* Trio to write interesting programs, so we won't go into
+the nitty-gritty details of how ``async/await`` is implemented inside
+the Python interpreter. The word "coroutine" is never mentioned. The
+fact is, you really don't *need* to know any of that stuff unless you
+want to *implement* a library like Trio, so we leave it out (though
+we'll throw in a few links for those who want to dig deeper).
+
+Okay, ready? Let's get started.
 
 
 Before you begin
@@ -36,11 +37,23 @@ Before you begin
 3. Can you ``import trio``? If so then you're good to go!
 
 
+If you get lost or confused...
+------------------------------
+
+...then we want to know! We have a friendly `chat channel
+<https://gitter.im/python-trio/general>`__, you can ask questions
+`using the "trio" tag on StackOverflow
+<https://stackoverflow.com/questions/ask?tags=python+trio>`__, or just
+`file a bug <https://github.com/python-trio/trio/issues/new>`__ (if
+our documentation is confusing, that's our fault, and we want to fix
+it!).
+
+
 Async functions
 ---------------
 
 Python 3.5 added a major new feature: async functions. Using Trio is
-all about writing async functions, so lets start there.
+all about writing async functions, so let's start there.
 
 An async function is defined like a normal function, except you write
 ``async def`` instead of ``def``::
