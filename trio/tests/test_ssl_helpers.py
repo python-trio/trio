@@ -60,7 +60,7 @@ class FakeNetwork(trio.abc.HostnameResolver, trio.abc.SocketFactory):
                  "",
                  ("1.1.1.1", 443))]
 
-    async def getnameinfo(self, *args):  # pragma: no-cover
+    async def getnameinfo(self, *args):  # pragma: no cover
         raise NotImplementedError
 
     def is_trio_socket(self, obj):
