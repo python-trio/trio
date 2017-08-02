@@ -7,7 +7,7 @@ import trio.testing
 from .._util import acontextmanager
 from .test_ssl import CLIENT_CTX, SERVER_CTX
 
-from .._ssl_stream_helpers import open_ssl_tcp_stream
+from .._ssl_stream_helpers import open_ssl_over_tcp_stream
 
 # this would be much simpler with a real fake network
 # or just having trustme support for IP addresses so I could try connecting to
@@ -84,7 +84,7 @@ class FakeNetwork(trio.abc.HostnameResolver, trio.abc.SocketFactory):
             await ssl_server_stream.send_all(data)
 
 
-async def test_open_ssl_tcp_stream():
+async def test_open_ssl_over_tcp_stream():
     async with trio.open_nursery() as nursery:
         network = FakeNetwork(nursery)
         trio.socket.set_custom_hostname_resolver(network)
@@ -92,20 +92,20 @@ async def test_open_ssl_tcp_stream():
 
         # We don't have the right trust set up
         # (checks that ssl_context=None is doing some validation)
-        stream = await open_ssl_tcp_stream("trio-test-1.example.org", 80)
+        stream = await open_ssl_over_tcp_stream("trio-test-1.example.org", 80)
         with pytest.raises(trio.BrokenStreamError):
             await stream.do_handshake()
 
         # We have the trust but not the hostname
         # (checks custom ssl_context + hostname checking)
-        stream = await open_ssl_tcp_stream(
+        stream = await open_ssl_over_tcp_stream(
             "xyzzy.example.org", 80, ssl_context=CLIENT_CTX,
         )
         with pytest.raises(trio.BrokenStreamError):
             await stream.do_handshake()
 
         # This one should work!
-        stream = await open_ssl_tcp_stream(
+        stream = await open_ssl_over_tcp_stream(
             "trio-test-1.example.org", 80,
             ssl_context=CLIENT_CTX,
         )
@@ -115,7 +115,7 @@ async def test_open_ssl_tcp_stream():
 
         # Check https_compatible settings are being passed through
         assert not stream._https_compatible
-        stream = await open_ssl_tcp_stream(
+        stream = await open_ssl_over_tcp_stream(
             "trio-test-1.example.org", 80,
             ssl_context=CLIENT_CTX,
             https_compatible=True,

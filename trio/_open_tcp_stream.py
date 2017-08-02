@@ -206,7 +206,7 @@ async def open_tcp_stream(
       OSError: if the connection fails.
 
     See also:
-      open_ssl_tcp_stream
+      open_ssl_over_tcp_stream
 
     """
 

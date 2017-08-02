@@ -2,7 +2,7 @@ import trio
 
 from ._open_tcp_stream import DEFAULT_DELAY
 
-__all__ = ["open_ssl_tcp_stream"]
+__all__ = ["open_ssl_over_tcp_stream"]
 
 # It might have been nice to take a ssl_protocols= argument here to set up
 # NPN/ALPN, but to do this we have to mutate the context object, which is OK
@@ -17,7 +17,7 @@ __all__ = ["open_ssl_tcp_stream"]
 #   assert copy.copy(ctx).check_hostname == False
 # So... let's punt on that for now. Hopefully we'll be getting a new Python
 # TLS API soon and can revisit this then.
-async def open_ssl_tcp_stream(
+async def open_ssl_over_tcp_stream(
         host,
         port,
         *,
