@@ -17,6 +17,10 @@ def pytest_addoption(parser):
 def mock_clock():
     return MockClock()
 
+@pytest.fixture
+def autojump_clock():
+    return MockClock(autojump_threshold=0)
+
 # FIXME: split off into a package (or just make part of trio's public
 # interface?), with config file to enable? and I guess a mark option too; I
 # guess it's useful with the class- and file-level marking machinery (where

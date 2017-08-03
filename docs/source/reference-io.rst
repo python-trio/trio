@@ -140,6 +140,10 @@ abstraction.
 
 .. autofunction:: socket_stream_pair
 
+.. autofunction:: open_tcp_stream
+
+.. autofunction:: open_ssl_over_tcp_stream
+
 
 SSL / TLS support
 ~~~~~~~~~~~~~~~~~
