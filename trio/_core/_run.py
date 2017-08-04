@@ -10,7 +10,6 @@ import sys
 from math import inf
 import functools
 
-
 import attr
 from sortedcontainers import SortedDict
 from async_generator import async_generator, yield_
@@ -19,7 +18,8 @@ from .._util import acontextmanager
 
 from .. import _core
 from ._exceptions import (
-    TrioInternalError, RunFinishedError, Cancelled, WouldBlock, NonAwaitedCoroutines
+    TrioInternalError, RunFinishedError, Cancelled, WouldBlock,
+    NonAwaitedCoroutines
 )
 from ._multierror import MultiError
 from ._result import Result, Error, Value
@@ -77,6 +77,7 @@ class SystemClock:
 
     def deadline_to_sleep_time(self, deadline):
         return deadline - self.current_time()
+
 
 ################################################################
 # CancelScope and friends
@@ -500,7 +501,6 @@ class Task:
         if success is Abort.SUCCEEDED:
             self._runner.reschedule(self, Result.capture(raise_cancel))
 
-
     def _attempt_delivery_of_any_pending_cancel(self):
         if self._abort_func is None:
             return
@@ -508,16 +508,20 @@ class Task:
 
         _maybe_delivered = protector.get_all_unawaited_coroutines()
         if self._unawaited_coros or _maybe_delivered:
+
             def raise_unawaited():
-                coros = self._unawaited_coros+list(_maybe_delivered)
+                coros = self._unawaited_coros + list(_maybe_delivered)
                 self._unawaited_coros = []
                 protector.forget(_maybe_delivered)
                 raise protector.make_non_awaited_coroutines_error(coros)
-            raise_fn =  raise_unawaited
+
+            raise_fn = raise_unawaited
         elif pending_scope:
             exc = pending_scope._make_exc()
+
             def raise_cancel():
                 raise exc
+
             raise_fn = raise_cancel
         else:
             return
@@ -798,7 +802,9 @@ class Runner:
 
     def task_exited(self, task, result, stop_iteration=None):
         if task._unawaited_coros:
-            exc = protector.make_non_awaited_coroutines_error(task._unawaited_coros)
+            exc = protector.make_non_awaited_coroutines_error(
+                task._unawaited_coros
+            )
             if type(result) is Error:
                 exc.__context__ = result.error
             task.result = Error(exc)
@@ -1203,6 +1209,7 @@ class Runner:
 # run
 ################################################################
 
+
 def run(
         async_fn,
         *args,
@@ -1433,7 +1440,9 @@ def run_impl(runner, async_fn, args):
             except BaseException as task_exc:
                 final_result = Error(task_exc)
             finally:
-                task.add_unawaited_coroutines(protector.pop_all_unawaited_coroutines())
+                task.add_unawaited_coroutines(
+                    protector.pop_all_unawaited_coroutines()
+                )
 
             if final_result is not None:
                 # We can't call this directly inside the except: blocks above,
@@ -1553,8 +1562,7 @@ async def yield_if_cancelled():
     task = current_task()
     if (task._pending_cancel_scope() is not None or
         (task is task._runner.main_task and task._runner.ki_pending)
-        or task._unawaited_coros
-        or protector.has_unawaited_coroutines()):
+            or task._unawaited_coros or protector.has_unawaited_coroutines()):
         await _core.yield_briefly()
         print('Yielding briefly')
         assert False  # pragma: no cover

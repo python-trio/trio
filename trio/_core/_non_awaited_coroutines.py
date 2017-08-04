@@ -26,7 +26,8 @@ from ._exceptions import NonAwaitedCoroutines
 
 try:
     from tracemalloc import get_object_traceback as _get_tb
-except ImportError: # Not available on, for example, PyPy
+except ImportError:  # Not available on, for example, PyPy
+
     def _get_tb(obj):
         return None
 
@@ -36,6 +37,7 @@ __all__ = ["CoroProtector", "protector"]
 ################################################################
 # Protection against non-awaited coroutines
 ################################################################
+
 
 class CoroProtector:
     """
@@ -53,7 +55,7 @@ class CoroProtector:
         """
         Coroutine wrapper to track creation of coroutines.
         """
-        if self._enabled :
+        if self._enabled:
             self._pending_test.add(coro)
         if not self._previous_coro_wrapper:
             return coro
@@ -66,7 +68,6 @@ class CoroProtector:
         """
         self._pending_test.discard(coro)
         return coro
-
 
     def install(self) -> None:
         """install a coroutine wrapper to track created coroutines.
@@ -91,7 +92,10 @@ class CoroProtector:
 
     def get_all_unawaited_coroutines(self):
         state = inspect.getcoroutinestate
-        self._pending_test = {coro for coro in self._pending_test if state(coro) == 'CORO_CREATED'}
+        self._pending_test = {
+            coro
+            for coro in self._pending_test if state(coro) == 'CORO_CREATED'
+        }
         return set(self._pending_test)
 
     def forget(self, coroutines) -> None:
@@ -114,16 +118,18 @@ class CoroProtector:
         Construct a nice NonAwaitedCoroutines error messages with the origin of the
         coroutine if possible.
         """
-        err =[]
+        err = []
         for coro in coros:
             tb = _get_tb(coro)
             if tb:
-                err.append(' - {coro} ({tb})'.format(coro=coro, tb=tb)) # pragma: no cover
+                err.append(' - {coro} ({tb})'.format(coro=coro, tb=tb)
+                           )  # pragma: no cover
             else:
                 err.append(' - {coro}'.format(coro=coro))
         err = '\n'.join(err)
-        return NonAwaitedCoroutines(textwrap.dedent(
-            '''
+        return NonAwaitedCoroutines(
+            textwrap.dedent(
+                '''
             One or more coroutines where not awaited:
 
             {err}
@@ -131,6 +137,10 @@ class CoroProtector:
             Trio has detected that at least a coroutine has not been between awaited
             between this checkpoint point and previous one. This is may be due
             to a missing `await`.
-            '''[1:]).format(err=err), coroutines=coros)
+            ''' [1:]
+            ).format(err=err),
+            coroutines=coros
+        )
+
 
 protector = CoroProtector()

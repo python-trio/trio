@@ -128,11 +128,12 @@ async def test_Result_asend():
     with pytest.raises(StopAsyncIteration):
         await my_agen.asend(None)
 
+
 async def unawaited():  # pragma: no cover
     pass
 
-def test_capture_raise_unawaited_value():
 
+def test_capture_raise_unawaited_value():
     def computation():
         unawaited()
         return 'Ok'
@@ -146,7 +147,6 @@ def test_capture_raise_unawaited_value():
 
 
 def test_capture_raise_unawaited_error():
-
     def computation():
         unawaited()
         raise ValueError(...)
@@ -154,13 +154,12 @@ def test_capture_raise_unawaited_error():
     async def run_me():
         return Result.capture(computation).unwrap()
 
-
     with ignore_coroutine_never_awaited_warnings():
         with pytest.raises(_core.NonAwaitedCoroutines):
             _core.run(run_me, allow_unawaited_coroutines=False)
 
-def test_acapture_raise_unawaited_value():
 
+def test_acapture_raise_unawaited_value():
     async def computation():
         unawaited()
         return 'Ok'
@@ -168,20 +167,18 @@ def test_acapture_raise_unawaited_value():
     async def run_me():
         return Result.acapture(computation).unwrap()
 
-
     with ignore_coroutine_never_awaited_warnings():
         with pytest.raises(_core.NonAwaitedCoroutines):
             _core.run(run_me, allow_unawaited_coroutines=False)
 
-def test_acapture_raise_unawaited_error():
 
+def test_acapture_raise_unawaited_error():
     async def computation():
         unawaited()
         raise ValueError(...)
 
     async def run_me():
         return Result.acapture(computation).unwrap()
-
 
     with ignore_coroutine_never_awaited_warnings():
         with pytest.raises(_core.NonAwaitedCoroutines):

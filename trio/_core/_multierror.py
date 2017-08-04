@@ -130,7 +130,7 @@ class MultiErrorCatcher:
 
         original_exc = exc
         if protector.has_unawaited_coroutines():
-            exc =  protector.make_non_awaited_coroutines_error(
+            exc = protector.make_non_awaited_coroutines_error(
                 protector.pop_all_unawaited_coroutines()
             )
 

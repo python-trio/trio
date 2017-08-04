@@ -32,7 +32,7 @@ class Result(metaclass=abc.ABCMeta):
 
         """
         try:
-            result =  Value(sync_fn(*args))
+            result = Value(sync_fn(*args))
         except BaseException as exc:
             result = Error(exc)
         finally:
@@ -44,8 +44,6 @@ class Result(metaclass=abc.ABCMeta):
                     exc.__context__ = result.error
                 result = Error(exc)
         return result
-
-
 
     @staticmethod
     async def acapture(async_fn, *args):
@@ -64,12 +62,11 @@ class Result(metaclass=abc.ABCMeta):
                 exc = protector.make_non_awaited_coroutines_error(
                     protector.pop_all_unawaited_coroutines()
                 )
-                
+
                 if type(result) is Error:
                     exc.__context__ = result.error
                 result = Error(exc)
         return result
-
 
     @abc.abstractmethod
     def unwrap(self):

@@ -23,6 +23,7 @@ from ... import _core
 
 from .._multierror import MultiError
 
+
 # slightly different from _timeouts.sleep_forever because it returns the value
 # its rescheduled with, which is really only useful for tests of
 # rescheduling...
@@ -1636,7 +1637,9 @@ async def test_trivial_yields():
     with assert_yields():
         await t.wait()
 
+
 # Various test that non awaited coroutines end up as error states on task
+
 
 def test_raise_task_end():
     """
@@ -1654,6 +1657,7 @@ def test_raise_task_end():
     async def consume():
         for c in err.value.coroutines:
             await c
+
     _core.run(consume, allow_unawaited_coroutines=False)
 
 
@@ -1662,6 +1666,7 @@ def test_raise_task_end_raise():
     Test that asynchronous functions that raise after forgetting to await
     coroutine still raise a NonAwaitedCoroutines error.
     """
+
     async def coro_fun():
         sleep(0)
         raise ValueError('...')
@@ -1672,6 +1677,7 @@ def test_raise_task_end_raise():
     async def consume():
         for c in err.value.coroutines:
             await c
+
     _core.run(consume, allow_unawaited_coroutines=False)
 
 
@@ -1684,7 +1690,7 @@ def test_raise_task_middle():
     async def coro_fun():
         sleep(0)
         await sleep(0)
-        assert False # pragma: no cover
+        assert False  # pragma: no cover
 
     with pytest.raises(_core.NonAwaitedCoroutines) as err:
         _core.run(coro_fun, allow_unawaited_coroutines=False)
@@ -1692,6 +1698,7 @@ def test_raise_task_middle():
     async def consume():
         for c in err.value.coroutines:
             await c
+
     _core.run(consume, allow_unawaited_coroutines=False)
 
 
@@ -1700,6 +1707,7 @@ def test_raise_task_before_return():
     Test that asynchronous functions that forgets to await a coroutine just before returning
     raises a NonAwaitedCoroutines error.
     """
+
     async def coro_fun():
         await sleep(0)
         sleep(0)
@@ -1711,12 +1719,12 @@ def test_raise_task_before_return():
     async def consume():
         for c in err.value.coroutines:
             await c
+
     _core.run(consume, allow_unawaited_coroutines=False)
 
+
 def test_non_awaited_caught_in_multierror():
-
     async def run():
-
         async def task(exception):
             raise exception('just because')
 
@@ -1738,9 +1746,7 @@ def test_non_awaited_caught_in_multierror():
 
 
 def test_non_awaited_caught_in_multierror_II():
-
     async def run():
-
         async def unawaited():
             pass  # pragma: no cover
 
@@ -1756,9 +1762,7 @@ def test_non_awaited_caught_in_multierror_II():
 
 
 def test_non_awaited_caught_in_multierror_swallow_nonawaited():
-
     async def run():
-
         async def unawaited():
             pass  # pragma: no cover
 
@@ -1771,10 +1775,12 @@ def test_non_awaited_caught_in_multierror_swallow_nonawaited():
     with ignore_coroutine_never_awaited_warnings():
         _core.run(run, allow_unawaited_coroutines=False)
 
+
 def test_user_wrapper_restored():
     """check that trio.run correctly restore user-set coroutine wrappers"""
 
     called = False
+
     def _coro_wrapper(coro):
         nonlocal called
         called = True
@@ -1792,19 +1798,19 @@ def test_user_wrapper_restored():
     with ignore_coroutine_never_awaited_warnings():
         _core.run(run)
 
-    assert called is True , "original coro wrapper got called"
+    assert called is True, "original coro wrapper got called"
     current_coro_wrapper = sys.get_coroutine_wrapper()
-    assert current_coro_wrapper == _coro_wrapper , "coroutine wrapper correctly reinstated on exit of run"
+    assert current_coro_wrapper == _coro_wrapper, "coroutine wrapper correctly reinstated on exit of run"
 
 
 async def unawaited():  # pragma: no cover
     pass
 
+
 def test_run_with_allow_non_awaited_coroutine_true():
     "Check that both checkpoint an multierror do not raise"
 
     async def run_me():
-
         def handler(exc):
             """
             This will actually not be called, as there will be no errors.
@@ -1820,6 +1826,7 @@ def test_run_with_allow_non_awaited_coroutine_true():
 
     with ignore_coroutine_never_awaited_warnings():
         _core.run(run_me, allow_unawaited_coroutines=True)
+
 
 def test_unawaited_coro_trigger_yield_if_cancelled():
     """
@@ -1837,7 +1844,7 @@ def test_unawaited_coro_trigger_yield_if_cancelled():
     async def run_me():
         unawaited()
         await _core.yield_if_cancelled()
-        not_reached()   # pragma: no cover
+        not_reached()  # pragma: no cover
 
     with ignore_coroutine_never_awaited_warnings():
         with pytest.raises(_core.NonAwaitedCoroutines):
