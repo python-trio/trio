@@ -467,16 +467,26 @@ def test_ki_wakes_us_up():
     # which contains the desired sequence.
     #
     # Affected version of CPython include:
-    # - 3.5.3
-    # - 3.6.1
-    # Let's be optimistic and assume the next releases won't be affected...
-    buggy_wakeup_fd = False
+    # - all versions of 3.5 (fix will not be backported)
+    # - 3.6.1 and earlier
+    # It's fixed in 3.6.2 and 3.7+
+    #
+    # PyPy was never affected.
+    #
+    # The problem technically occurs on Unix as well, if a signal is delivered
+    # to a non-main thread, and if we were relying on the wakeup fd to wake
+    # us. Currently we don't use the wakeup fd on Unix anyway, though (see
+    # gh-109).
+    #
+    # There's also this theoretical problem, but hopefully it won't actually
+    # bite us in practice:
+    #   https://bugs.python.org/issue31119
+    #   https://bitbucket.org/pypy/pypy/issues/2623
     import platform
-    if os.name == "nt" and platform.python_implementation() == "CPython":
-        if (3, 5, 0) <= sys.version_info < (3, 5, 4):
-            buggy_wakeup_fd = True
-        if (3, 6, 0) <= sys.version_info < (3, 6, 2):
-            buggy_wakeup_fd = True
+    buggy_wakeup_fd = (
+        os.name == "nt" and platform.python_implementation() == "CPython"
+        and sys.version_info < (3, 6, 2)
+    )
 
     # lock is only needed to avoid an annoying race condition where the
     # *second* ki_self() call arrives *after* the first one woke us up and its
@@ -532,6 +542,11 @@ def test_ki_wakes_us_up():
                     # PyObject_Repr, which does an unconditional
                     # PyErr_CheckSignals for some reason.
                     print(repr(None))
+                    # And finally, it's possible that the signal was delivered
+                    # but at a moment when we had KI protection enabled, so we
+                    # need to execute a checkpoint to ensure it's delivered
+                    # before we exit main().
+                    await _core.yield_briefly()
         finally:
             print("joining thread", sys.exc_info())
             thread.join()
