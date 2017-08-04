@@ -58,6 +58,7 @@ if os.name == "nt":
     _lib = _ffi.dlopen("api-ms-win-crt-runtime-l1-1-0.dll")
     signal_raise = getattr(_lib, "raise")
 else:
+
     def signal_raise(signum):
         os.kill(os.getpid(), signum)
 
@@ -65,9 +66,11 @@ else:
 # Decorator to handle the change to __aiter__ in 3.5.2
 def aiter_compat(aiter_impl):
     if sys.version_info < (3, 5, 2):
+
         @wraps(aiter_impl)
         async def __aiter__(*args, **kwargs):
             return aiter_impl(*args, **kwargs)
+
         return __aiter__
     else:
         return aiter_impl
@@ -109,7 +112,9 @@ class _AsyncGeneratorContextManager:
                 value = type()
             try:
                 await self._agen.athrow(type, value, traceback)
-                raise RuntimeError("async generator didn't stop after athrow()")
+                raise RuntimeError(
+                    "async generator didn't stop after athrow()"
+                )
             except StopAsyncIteration as exc:
                 # Suppress StopIteration *unless* it's the same exception that
                 # was passed to throw().  This prevents a StopIteration
@@ -122,7 +127,8 @@ class _AsyncGeneratorContextManager:
                 # Likewise, avoid suppressing if a StopIteration exception
                 # was passed to throw() and later wrapped into a RuntimeError
                 # (see PEP 479).
-                if isinstance(value, (StopIteration, StopAsyncIteration)) and exc.__cause__ is value:
+                if isinstance(value, (StopIteration, StopAsyncIteration)
+                              ) and exc.__cause__ is value:
                     return False
                 raise
             except:
@@ -138,7 +144,10 @@ class _AsyncGeneratorContextManager:
                 raise
 
     def __enter__(self):
-        raise RuntimeError("use 'async with {func_name}(...)', not 'with {func_name}(...)'".format(func_name=self._func_name))
+        raise RuntimeError(
+            "use 'async with {func_name}(...)', not 'with {func_name}(...)'".
+            format(func_name=self._func_name)
+        )
 
     def __exit__(self):  # pragma: no cover
         assert False, """Never called, but should be defined"""
@@ -149,10 +158,13 @@ def acontextmanager(func):
     if not async_generator.isasyncgenfunction(func):
         raise TypeError(
             "must be an async generator (native or from async_generator; "
-            "if using @async_generator then @acontextmanager must be on top.")
+            "if using @async_generator then @acontextmanager must be on top."
+        )
+
     @wraps(func)
     def helper(*args, **kwds):
         return _AsyncGeneratorContextManager(func, args, kwds)
+
     # A hint for sphinxcontrib-trio:
     helper.__returns_acontextmanager__ = True
     return helper
@@ -188,6 +200,7 @@ class UnLock:
     This executes a checkpoint on entry. That's the only reason it's async.
 
     """
+
     def __init__(self, exc, *args):
         self.sync = _UnLockSync(exc, *args)
 
@@ -203,16 +216,17 @@ def async_wraps(cls, wrapped_cls, attr_name):
     """Similar to wraps, but for async wrappers of non-async functions.
 
     """
+
     def decorator(func):
         func.__name__ = attr_name
-        func.__qualname__ = '.'.join((cls.__qualname__,
-                                      attr_name))
+        func.__qualname__ = '.'.join((cls.__qualname__, attr_name))
 
         func.__doc__ = """Like :meth:`~{}.{}.{}`, but async.
 
-        """.format(wrapped_cls.__module__,
-                   wrapped_cls.__qualname__,
-                   attr_name)
+        """.format(
+            wrapped_cls.__module__, wrapped_cls.__qualname__, attr_name
+        )
 
         return func
+
     return decorator

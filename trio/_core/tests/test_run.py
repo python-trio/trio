@@ -13,17 +13,21 @@ import attr
 
 from .tutil import check_sequence_matches, gc_collect_harder
 from ...testing import (
-    wait_all_tasks_blocked, Sequencer, assert_yields,
+    wait_all_tasks_blocked,
+    Sequencer,
+    assert_yields,
 )
 from ..._timeouts import sleep
 
 from ... import _core
+
 
 # slightly different from _timeouts.sleep_forever because it returns the value
 # its rescheduled with, which is really only useful for tests of
 # rescheduling...
 async def sleep_forever():
     return await _core.yield_indefinitely(lambda _: _core.Abort.SUCCEEDED)
+
 
 # Some of our tests need to leak coroutines, and thus trigger the
 # "RuntimeWarning: coroutine '...' was never awaited" message. This context
@@ -35,7 +39,8 @@ async def sleep_forever():
 def ignore_coroutine_never_awaited_warnings():
     with warnings.catch_warnings():
         warnings.filterwarnings(
-            "ignore", message="coroutine '.*' was never awaited")
+            "ignore", message="coroutine '.*' was never awaited"
+        )
         try:
             yield
         finally:
@@ -47,6 +52,7 @@ def ignore_coroutine_never_awaited_warnings():
 def test_basic():
     async def trivial(x):
         return x
+
     assert _core.run(trivial, 8) == 8
 
     with pytest.raises(TypeError):
@@ -60,6 +66,7 @@ def test_basic():
     async def trivial2(x):
         await _core.yield_briefly()
         return x
+
     assert _core.run(trivial2, 1) == 1
 
 
@@ -76,7 +83,9 @@ def test_run_nesting():
     async def inception():
         async def main():  # pragma: no cover
             pass
+
         return _core.run(main)
+
     with pytest.raises(RuntimeError) as excinfo:
         _core.run(inception)
     assert "from inside" in str(excinfo.value)
@@ -85,24 +94,30 @@ def test_run_nesting():
 async def test_basic_spawn_wait():
     async def child(x):
         return 2 * x
+
     async with _core.open_nursery() as nursery:
         task = nursery.spawn(child, 10)
         await task.wait()
         assert task.result.unwrap() == 20
+
 
 async def test_nursery_warn_use_async_with():
     with pytest.raises(RuntimeError) as excinfo:
         on = _core.open_nursery()
         with on as nursery:
             pass  # pragma: no cover
-    excinfo.match(r"use 'async with open_nursery\(...\)', not 'with open_nursery\(...\)'")
-                  
+    excinfo.match(
+        r"use 'async with open_nursery\(...\)', not 'with open_nursery\(...\)'"
+    )
+
     # avoid unawaited coro.
     async with on:
         pass
 
+
 async def test_child_crash_basic():
     exc = ValueError("uh oh")
+
     async def erroring():
         raise exc
 
@@ -123,6 +138,7 @@ async def test_child_crash_basic():
 async def test_reap_bad_task():
     async def child():
         pass
+
     async with _core.open_nursery() as nursery:
         t = nursery.spawn(child)
         with pytest.raises(ValueError):
@@ -146,14 +162,15 @@ async def test_basic_interleave():
         t1 = nursery.spawn(looper, "a", record)
         t2 = nursery.spawn(looper, "b", record)
 
-    check_sequence_matches(record, [
-        {("a", 0), ("b", 0)},
-        {("a", 1), ("b", 1)},
-        {("a", 2), ("b", 2)}])
+    check_sequence_matches(
+        record,
+        [{("a", 0), ("b", 0)}, {("a", 1), ("b", 1)}, {("a", 2), ("b", 2)}]
+    )
 
 
 def test_task_crash_propagation():
     looper_record = []
+
     async def looper():
         try:
             while True:
@@ -197,7 +214,8 @@ def test_main_and_task_both_crash():
             _core.run(main, wait)
         print(excinfo.value)
         assert set(type(exc) for exc in excinfo.value.exceptions) == {
-            ValueError, KeyError}
+            ValueError, KeyError
+        }
 
 
 def test_two_child_crashes():
@@ -211,8 +229,8 @@ def test_two_child_crashes():
 
     with pytest.raises(_core.MultiError) as excinfo:
         _core.run(main)
-    assert set(type(exc) for exc in excinfo.value.exceptions) == {
-        ValueError, KeyError}
+    assert set(type(exc)
+               for exc in excinfo.value.exceptions) == {ValueError, KeyError}
 
 
 async def test_reschedule():
@@ -292,6 +310,7 @@ async def test_bad_monitor_object():
     class BadQueue:
         def put_nowait(self, obj):  # pragma: no cover
             raise KeyError
+
     bad_queue = BadQueue()
     with pytest.raises(TypeError):
         task.add_monitor(bad_queue)
@@ -344,6 +363,7 @@ async def test_current_statistics(mock_clock):
             await sleep_forever()
         except _core.Cancelled:
             pass
+
     stats = _core.current_statistics()
     print(stats)
     # 2 system tasks + us
@@ -413,6 +433,7 @@ class TaskRecorder:
             if item[0] in ("before_run", "after_run"):
                 yield item
 
+
 def test_instruments():
     r1 = TaskRecorder()
     r2 = TaskRecorder()
@@ -428,23 +449,28 @@ def test_instruments():
         for _ in range(1):
             await _core.yield_briefly()
         return _core.current_task()
+
     task = _core.run(main, instruments=[r1, r2])
     # It sleeps 5 times, so it runs 6 times
     expected = (
-        [("before_run",)]
-        + 6 * [("schedule", task), ("before", task), ("after", task)]
-        + [("after_run",)])
+        [("before_run",)] +
+        6 * [("schedule", task),
+             ("before", task),
+             ("after", task)] + [("after_run",)]
+    )
     assert len(r1.record) > len(r2.record) > len(r3.record)
     assert r1.record == r2.record + r3.record
     # Need to filter b/c there's also the system task bumping around in the
     # record:
     assert list(r1.filter_tasks([task])) == expected
 
+
 def test_instruments_interleave():
     tasks = {}
 
     async def two_step1():
         await _core.yield_briefly()
+
     async def two_step2():
         await _core.yield_briefly()
 
@@ -493,22 +519,28 @@ def test_null_instrument():
 
 def test_instrument_before_after_run():
     record = []
+
     class BeforeAfterRun:
         def before_run(self):
             record.append("before_run")
+
         def after_run(self):
             record.append("after_run")
+
     async def main():
         pass
+
     _core.run(main, instruments=[BeforeAfterRun()])
     assert record == ["before_run", "after_run"]
 
 
 def test_instrument_task_spawn_exit():
     record = []
+
     class SpawnExitRecorder:
         def task_spawned(self, task):
             record.append(("spawned", task))
+
         def task_exited(self, task):
             record.append(("exited", task))
 
@@ -518,6 +550,7 @@ def test_instrument_task_spawn_exit():
     main_task = _core.run(main, instruments=[SpawnExitRecorder()])
     assert ("spawned", main_task) in record
     assert ("exited", main_task) in record
+
 
 # This test also tests having a crash before the initial task is even spawned,
 # which is very difficult to handle.
@@ -558,6 +591,7 @@ def test_cancel_points():
             scope.cancel()
             with pytest.raises(_core.Cancelled):
                 await _core.yield_if_cancelled()
+
     _core.run(main1)
 
     async def main2():
@@ -566,6 +600,7 @@ def test_cancel_points():
             scope.cancel()
             with pytest.raises(_core.Cancelled):
                 await _core.yield_briefly()
+
     _core.run(main2)
 
     async def main3():
@@ -573,6 +608,7 @@ def test_cancel_points():
             scope.cancel()
             with pytest.raises(_core.Cancelled):
                 await sleep_forever()
+
     _core.run(main3)
 
     async def main4():
@@ -582,6 +618,7 @@ def test_cancel_points():
             await _core.yield_briefly_no_cancel()
             with pytest.raises(_core.Cancelled):
                 await _core.yield_briefly()
+
     _core.run(main4)
 
 
@@ -606,6 +643,7 @@ async def test_cancel_edge_cases():
 async def test_cancel_scope_multierror_filtering():
     async def child():
         await sleep_forever()
+
     async def crasher():
         raise KeyError
 
@@ -652,9 +690,11 @@ async def test_precancelled_task():
     # execution (https://github.com/python-trio/trio/issues/41), but get a
     # cancelled error at its first blocking call.
     record = []
+
     async def blocker():
         record.append("started")
         await sleep_forever()
+
     async with _core.open_nursery() as nursery:
         nursery.cancel_scope.cancel()
         nursery.spawn(blocker)
@@ -704,11 +744,13 @@ async def test_cancel_shielding():
 # make sure that cancellation propagates immediately to all children
 async def test_cancel_inheritance():
     record = set()
+
     async def leaf(ident):
         try:
             await sleep_forever()
         except _core.Cancelled:
             record.add(ident)
+
     async def worker(ident):
         async with _core.open_nursery() as nursery:
             t1 = nursery.spawn(leaf, ident + "-l1")
@@ -716,6 +758,7 @@ async def test_cancel_inheritance():
             with _core.open_cancel_scope(shield=True):
                 await t1.wait()
                 await t2.wait()
+
     async with _core.open_nursery() as nursery:
         w1 = nursery.spawn(worker, "w1")
         w2 = nursery.spawn(worker, "w2")
@@ -734,12 +777,14 @@ async def test_cancel_shield_abort():
             # The outer scope is cancelled, but this task is protected by the
             # shield, so it manages to get to sleep
             record = []
+
             async def sleeper():
                 record.append("sleeping")
                 try:
                     await sleep_forever()
                 except _core.Cancelled:
                     record.append("cancelled")
+
             task = nursery.spawn(sleeper)
             await wait_all_tasks_blocked()
             assert record == ["sleeping"]
@@ -752,6 +797,7 @@ async def test_cancel_shield_abort():
             # passed, even though shield assignment was buggy.)
             with _core.open_cancel_scope(shield=True):
                 await task.wait()
+
 
 async def test_basic_timeout(mock_clock):
     start = _core.current_time()
@@ -788,6 +834,7 @@ async def test_basic_timeout(mock_clock):
             await _core.yield_briefly()
         with pytest.raises(_core.Cancelled):
             await _core.yield_briefly()
+
 
 async def test_cancel_scope_nesting():
     # Nested scopes: if two triggering at once, the outer one wins
@@ -850,6 +897,7 @@ async def test_timekeeping():
 async def test_failed_abort():
     stubborn_scope = [None]
     record = []
+
     async def stubborn_sleeper():
         with _core.open_cancel_scope() as scope:
             stubborn_scope[0] = scope
@@ -891,6 +939,7 @@ def test_broken_abort():
             scope.cancel()
             # None is not a legal return value here
             await _core.yield_indefinitely(lambda _: None)
+
     with pytest.raises(_core.TrioInternalError):
         _core.run(main)
 
@@ -914,13 +963,16 @@ def test_error_in_run_loop():
 
 async def test_spawn_system_task():
     record = []
+
     async def system_task(x):
         record.append(("x", x))
         record.append(("ki", _core.currently_ki_protected()))
         await _core.yield_briefly()
+
     task = _core.spawn_system_task(system_task, 1)
     await task.wait()
     assert record == [("x", 1), ("ki", True)]
+
 
 # intentionally make a system task crash (simulates a bug in call_soon_task or
 # similar)
@@ -934,6 +986,7 @@ def test_system_task_crash():
 
     with pytest.raises(_core.TrioInternalError):
         _core.run(main)
+
 
 def test_system_task_crash_MultiError():
     async def crasher1():
@@ -958,8 +1011,9 @@ def test_system_task_crash_MultiError():
     cause_types = set()
     for exc in excinfo.value.exceptions:
         assert type(exc) is _core.TrioInternalError
-        cause_types.add(type(exc.__cause__ ))
+        cause_types.add(type(exc.__cause__))
     assert cause_types == {KeyError, ValueError}
+
 
 def test_system_task_crash_plus_Cancelled():
     # Set up a situation where a system task crashes with a
@@ -986,6 +1040,7 @@ def test_system_task_crash_plus_Cancelled():
         _core.run(main)
     assert type(excinfo.value.__cause__) is ValueError
 
+
 def test_system_task_crash_KeyboardInterrupt():
     async def ki():
         raise KeyboardInterrupt
@@ -997,6 +1052,7 @@ def test_system_task_crash_KeyboardInterrupt():
     # KI doesn't get wrapped with TrioInternalError
     with pytest.raises(KeyboardInterrupt):
         _core.run(main)
+
 
 # This used to fail because yield_briefly was a yield followed by an immediate
 # reschedule. So we had:
@@ -1065,10 +1121,11 @@ async def test_exc_info():
         nursery.spawn(child1)
         nursery.spawn(child2)
 
-    assert record == ["child1 raise", "child1 sleep",
-                      "child2 wake", "child2 sleep again",
-                      "child1 re-raise", "child1 success",
-                      "child2 re-raise", "child2 success"]
+    assert record == [
+        "child1 raise", "child1 sleep", "child2 wake", "child2 sleep again",
+        "child1 re-raise", "child1 success", "child2 re-raise",
+        "child2 success"
+    ]
 
 
 # At least as of CPython 3.6, using .throw() to raise an exception inside a
@@ -1117,8 +1174,10 @@ async def test_exception_chaining_after_yield_error():
 
 async def test_call_soon_basic():
     record = []
+
     def cb(x):
         record.append(("cb", x))
+
     call_soon = _core.current_call_soon_thread_and_signal_safe()
     call_soon(cb, 1)
     assert not record
@@ -1128,9 +1187,11 @@ async def test_call_soon_basic():
 
 def test_call_soon_too_late():
     call_soon = None
+
     async def main():
         nonlocal call_soon
         call_soon = _core.current_call_soon_thread_and_signal_safe()
+
     _core.run(main)
     assert call_soon is not None
     with pytest.raises(_core.RunFinishedError):
@@ -1139,6 +1200,7 @@ def test_call_soon_too_late():
 
 async def test_call_soon_idempotent():
     record = []
+
     def cb(x):
         record.append(x)
 
@@ -1160,11 +1222,12 @@ async def test_call_soon_idempotent():
             call_soon(cb, i, idempotent=True)
     await wait_all_tasks_blocked()
     if (sys.version_info < (3, 6)
-          and platform.python_implementation() == "CPython"):
+            and platform.python_implementation() == "CPython"):
         # no order guarantees
         record.sort()
     # Otherwise, we guarantee FIFO
     assert record == list(range(100))
+
 
 def test_call_soon_idempotent_requeue():
     # We guarantee that if a call has finished, queueing it again will call it
@@ -1190,6 +1253,7 @@ def test_call_soon_idempotent_requeue():
     _core.run(main)
 
     assert len(record) >= 2
+
 
 def test_call_soon_after_main_crash():
     record = []
@@ -1269,6 +1333,7 @@ def test_call_soon_starvation_resistance():
 
 def test_call_soon_threaded_stress_test():
     cb_counter = 0
+
     def cb():
         nonlocal cb_counter
         cb_counter += 1
@@ -1304,10 +1369,12 @@ async def test_call_soon_massive_queue():
     COUNT = 1000
     call_soon = _core.current_call_soon_thread_and_signal_safe()
     counter = [0]
+
     def cb(i):
         # This also tests FIFO ordering of callbacks
         assert counter[0] == i
         counter[0] += 1
+
     for i in range(COUNT):
         call_soon(cb, i)
     await wait_all_tasks_blocked()
@@ -1320,10 +1387,12 @@ async def test_slow_abort_basic():
         with pytest.raises(_core.Cancelled):
             task = _core.current_task()
             call_soon = _core.current_call_soon_thread_and_signal_safe()
+
             def slow_abort(raise_cancel):
                 result = _core.Result.capture(raise_cancel)
                 call_soon(_core.reschedule, task, result)
                 return _core.Abort.FAILED
+
             await _core.yield_indefinitely(slow_abort)
 
 
@@ -1333,11 +1402,13 @@ async def test_slow_abort_edge_cases():
     async def slow_aborter():
         task = _core.current_task()
         call_soon = _core.current_call_soon_thread_and_signal_safe()
+
         def slow_abort(raise_cancel):
             record.append("abort-called")
             result = _core.Result.capture(raise_cancel)
             call_soon(_core.reschedule, task, result)
             return _core.Abort.FAILED
+
         with pytest.raises(_core.Cancelled):
             record.append("sleeping")
             await _core.yield_indefinitely(slow_abort)
@@ -1396,6 +1467,7 @@ async def test_nursery_closure():
         # We can add new tasks to the nursery even after entering __aexit__,
         # so long as there are still tasks running
         nursery.spawn(child2)
+
     async def child2():
         pass
 
@@ -1406,9 +1478,11 @@ async def test_nursery_closure():
     with pytest.raises(RuntimeError):
         nursery.spawn(child2)
 
+
 async def test_spawn_name():
     async def func1():
         pass
+
     async def func2():  # pragma: no cover
         pass
 
@@ -1460,6 +1534,7 @@ def test_nice_error_on_bad_calls_to_run_or_spawn():
         async def main():
             async with _core.open_nursery() as nursery:
                 nursery.spawn(*args)
+
         _core.run(main)
 
     class Deferred:
@@ -1467,6 +1542,7 @@ def test_nice_error_on_bad_calls_to_run_or_spawn():
 
     with ignore_coroutine_never_awaited_warnings():
         for bad_call in bad_call_run, bad_call_spawn:
+
             async def f():  # pragma: no cover
                 pass
 
@@ -1507,6 +1583,7 @@ def test_nice_error_on_bad_calls_to_run_or_spawn():
             # Make sure no references are kept around to keep anything alive
             del excinfo
 
+
 def test_calling_asyncio_function_gives_nice_error():
     async def misguided():
         import asyncio
@@ -1537,10 +1614,12 @@ async def test_trivial_yields():
                 raise KeyError
         assert len(excinfo.value.exceptions) == 2
         assert set(type(e) for e in excinfo.value.exceptions) == {
-            KeyError, _core.Cancelled}
+            KeyError, _core.Cancelled
+        }
 
     async def trivial():
         pass
+
     async with _core.open_nursery() as nursery:
         t = nursery.spawn(trivial)
     assert t.result is not None

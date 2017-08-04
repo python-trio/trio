@@ -5,6 +5,7 @@ import attr
 from ..abc import SendStream, ReceiveStream
 from .._streams import StapledStream
 
+
 @attr.s
 class RecordSendStream(SendStream):
     record = attr.ib(default=attr.Factory(list))
@@ -47,7 +48,8 @@ async def test_StapledStream():
     await stapled.send_all(b"foo")
     await stapled.wait_send_all_might_not_block()
     assert send_stream.record == [
-        ("send_all", b"foo"), "wait_send_all_might_not_block",
+        ("send_all", b"foo"),
+        "wait_send_all_might_not_block",
     ]
     send_stream.record.clear()
 
@@ -57,6 +59,7 @@ async def test_StapledStream():
 
     async def fake_send_eof():
         send_stream.record.append("send_eof")
+
     send_stream.send_eof = fake_send_eof
     await stapled.send_eof()
     assert send_stream.record == ["send_eof"]
@@ -105,4 +108,6 @@ async def test_StapledStream_with_erroring_close():
     assert isinstance(excinfo.value.__context__, ValueError)
 
     assert stapled.send_stream.record == ["forceful_close", "graceful_close"]
-    assert stapled.receive_stream.record == ["forceful_close", "graceful_close"]
+    assert stapled.receive_stream.record == [
+        "forceful_close", "graceful_close"
+    ]

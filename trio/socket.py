@@ -16,6 +16,7 @@ __all__ = []
 # misc utilities
 ################################################################
 
+
 def _reexport(name):
     globals()[name] = getattr(_stdlib_socket, name)
     __all__.append(name)
@@ -79,26 +80,35 @@ if _sys.platform == "win32":
     if not hasattr(_stdlib_socket, "IPPROTO_IPV6"):  # pragma: no branch
         IPPROTO_IPV6 = 41
 
-
 ################################################################
 # Simple re-exports
 ################################################################
 
 for _name in [
-        "gaierror", "herror", "gethostname", "ntohs",
-        "htonl", "htons", "inet_aton", "inet_ntoa",
-        "inet_pton", "inet_ntop", "sethostname", "if_nameindex",
-        "if_nametoindex", "if_indextoname",
-        ]:
+        "gaierror",
+        "herror",
+        "gethostname",
+        "ntohs",
+        "htonl",
+        "htons",
+        "inet_aton",
+        "inet_ntoa",
+        "inet_pton",
+        "inet_ntop",
+        "sethostname",
+        "if_nameindex",
+        "if_nametoindex",
+        "if_indextoname",
+]:
     if hasattr(_stdlib_socket, _name):
         _reexport(_name)
-
 
 ################################################################
 # Overrides
 ################################################################
 
 _overrides = _core.RunLocal(hostname_resolver=None, socket_factory=None)
+
 
 def set_custom_hostname_resolver(hostname_resolver):
     """Set a custom hostname resolver.
@@ -131,6 +141,7 @@ def set_custom_hostname_resolver(hostname_resolver):
     _overrides.hostname_resolver = hostname_resolver
     return old
 
+
 __all__.append("set_custom_hostname_resolver")
 
 
@@ -161,12 +172,13 @@ def set_custom_socket_factory(socket_factory):
     _overrides.socket_factory = socket_factory
     return old
 
-__all__.append("set_custom_socket_factory")
 
+__all__.append("set_custom_socket_factory")
 
 ################################################################
 # getaddrinfo and friends
 ################################################################
+
 
 def _add_to_all(obj):
     __all__.append(obj.__name__)
@@ -200,9 +212,11 @@ async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
     # fails with EAI_NONAME:
     def numeric_only_failure(exc):
         return isinstance(exc, gaierror) and exc.errno == EAI_NONAME
+
     async with _try_sync(numeric_only_failure):
         return _stdlib_socket.getaddrinfo(
-            host, port, family, type, proto, flags | _NUMERIC_ONLY)
+            host, port, family, type, proto, flags | _NUMERIC_ONLY
+        )
     # That failed; it's a real hostname. We better use a thread.
     #
     # Also, it might be a unicode hostname, in which case we want to do our
@@ -224,8 +238,15 @@ async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
         return await hr.getaddrinfo(host, port, family, type, proto, flags)
     else:
         return await _run_in_worker_thread(
-            _stdlib_socket.getaddrinfo, host, port, family, type, proto, flags,
-            cancellable=True)
+            _stdlib_socket.getaddrinfo,
+            host,
+            port,
+            family,
+            type,
+            proto,
+            flags,
+            cancellable=True
+        )
 
 
 @_add_to_all
@@ -244,8 +265,8 @@ async def getnameinfo(sockaddr, flags):
         return await hr.getnameinfo(sockaddr, flags)
     else:
         return await _run_in_worker_thread(
-            _stdlib_socket.getnameinfo, sockaddr, flags, cancellable=True)
-
+            _stdlib_socket.getnameinfo, sockaddr, flags, cancellable=True
+        )
 
 
 @_add_to_all
@@ -256,16 +277,17 @@ async def getprotobyname(name):
 
     """
     return await _run_in_worker_thread(
-        _stdlib_socket.getprotobyname, name, cancellable=True)
+        _stdlib_socket.getprotobyname, name, cancellable=True
+    )
 
 
 # obsolete gethostbyname etc. intentionally omitted
 # likewise for create_connection (use open_tcp_stream instead)
 
-
 ################################################################
 # Socket "constructors"
 ################################################################
+
 
 @_add_to_all
 def from_stdlib_socket(sock):
@@ -286,6 +308,7 @@ def fromfd(*args, **kwargs):
 
 
 if hasattr(_stdlib_socket, "fromshare"):
+
     @_wraps(_stdlib_socket.fromshare, assigned=(), updated=())
     @_add_to_all
     def fromshare(*args, **kwargs):
@@ -324,6 +347,7 @@ def socket(family=AF_INET, type=SOCK_STREAM, proto=0, fileno=None):
 # Type checking
 ################################################################
 
+
 @_add_to_all
 def is_trio_socket(obj):
     """Check whether the given object is a trio socket.
@@ -351,7 +375,9 @@ def is_trio_socket(obj):
 # socket.type attribute, mask with this:
 _SOCK_TYPE_MASK = ~(
     getattr(_stdlib_socket, "SOCK_NONBLOCK", 0)
-    | getattr(_stdlib_socket, "SOCK_CLOEXEC", 0))
+    | getattr(_stdlib_socket, "SOCK_CLOEXEC", 0)
+)
+
 
 # Hopefully Python will eventually make something like this public
 # (see bpo-21327) but I don't want to make it public myself and then
@@ -359,6 +385,7 @@ _SOCK_TYPE_MASK = ~(
 # this file and also elsewhere in trio.
 def _real_type(type_num):
     return type_num & _SOCK_TYPE_MASK
+
 
 @_add_to_all
 class _SocketType:
@@ -368,7 +395,8 @@ class _SocketType:
             # certainly don't want to blindly wrap one of those.
             raise TypeError(
                 "expected object of type 'socket.socket', not '{}"
-                .format(type(sock).__name__))
+                .format(type(sock).__name__)
+            )
         self._sock = sock
         self._sock.setblocking(False)
         self._did_shutdown_SHUT_WR = False
@@ -402,10 +430,19 @@ class _SocketType:
     # del _name, _meth, _wrapped
 
     _forward = {
-        "detach", "get_inheritable", "set_inheritable", "fileno",
-        "getpeername", "getsockname", "getsockopt", "setsockopt", "listen",
-        "close", "share",
+        "detach",
+        "get_inheritable",
+        "set_inheritable",
+        "fileno",
+        "getpeername",
+        "getsockname",
+        "getsockopt",
+        "setsockopt",
+        "listen",
+        "close",
+        "share",
     }
+
     def __getattr__(self, name):
         if name in self._forward:
             return getattr(self._sock, name)
@@ -484,22 +521,26 @@ class _SocketType:
             if not isinstance(address, tuple) or not 2 <= len(address) <= 4:
                 raise ValueError(
                     "address should be a (host, port, [flowinfo, [scopeid]]) "
-                    "tuple")
+                    "tuple"
+                )
         else:
             return
         if require_resolved:  # for AF_INET{,6} only
             try:
                 _stdlib_socket.getaddrinfo(
-                    address[0], address[1],
+                    address[0],
+                    address[1],
                     self._sock.family,
                     _real_type(self._sock.type),
                     self._sock.proto,
-                    flags=_NUMERIC_ONLY)
+                    flags=_NUMERIC_ONLY
+                )
             except gaierror as exc:
                 if exc.errno == _stdlib_socket.EAI_NONAME:
                     raise ValueError(
                         "expected an already-resolved numeric address, not {}"
-                        .format(address))
+                        .format(address)
+                    )
                 else:
                     raise
 
@@ -527,11 +568,9 @@ class _SocketType:
             if not self._sock.getsockopt(IPPROTO_IPV6, IPV6_V6ONLY):
                 flags |= AI_V4MAPPED
         gai_res = await getaddrinfo(
-            address[0], address[1],
-            self._sock.family,
-            _real_type(self._sock.type),
-            self._sock.proto,
-            flags)
+            address[0], address[1], self._sock.family,
+            _real_type(self._sock.type), self._sock.proto, flags
+        )
         # AFAICT from the spec it's not possible for getaddrinfo to return an
         # empty list.
         assert len(gai_res) >= 1
@@ -593,17 +632,21 @@ class _SocketType:
 
     def _make_simple_sock_method_wrapper(methname, wait_fn, maybe_avail=False):
         fn = getattr(_stdlib_socket.socket, methname)
+
         @_wraps(fn, assigned=("__name__",), updated=())
         async def wrapper(self, *args, **kwargs):
             return await self._nonblocking_helper(fn, args, kwargs, wait_fn)
+
         wrapper.__doc__ = (
             """Like :meth:`socket.socket.{}`, but async.
 
-            """.format(methname))
+            """.format(methname)
+        )
         if maybe_avail:
             wrapper.__doc__ += (
                 "Only available on platforms where :meth:`socket.socket.{}` "
-                "is available.".format(methname))
+                "is available.".format(methname)
+            )
         return wrapper
 
     ################################################################
@@ -611,7 +654,8 @@ class _SocketType:
     ################################################################
 
     _accept = _make_simple_sock_method_wrapper(
-        "accept", _core.wait_socket_readable)
+        "accept", _core.wait_socket_readable
+    )
 
     async def accept(self):
         """Like :meth:`socket.socket.accept`, but async.
@@ -698,29 +742,31 @@ class _SocketType:
     # recv
     ################################################################
 
-    recv = _make_simple_sock_method_wrapper(
-        "recv", _core.wait_socket_readable)
+    recv = _make_simple_sock_method_wrapper("recv", _core.wait_socket_readable)
 
     ################################################################
     # recv_into
     ################################################################
 
     recv_into = _make_simple_sock_method_wrapper(
-        "recv_into", _core.wait_socket_readable)
+        "recv_into", _core.wait_socket_readable
+    )
 
     ################################################################
     # recvfrom
     ################################################################
 
     recvfrom = _make_simple_sock_method_wrapper(
-        "recvfrom", _core.wait_socket_readable)
+        "recvfrom", _core.wait_socket_readable
+    )
 
     ################################################################
     # recvfrom_into
     ################################################################
 
     recvfrom_into = _make_simple_sock_method_wrapper(
-        "recvfrom_into", _core.wait_socket_readable)
+        "recvfrom_into", _core.wait_socket_readable
+    )
 
     ################################################################
     # recvmsg
@@ -728,7 +774,8 @@ class _SocketType:
 
     if hasattr(_stdlib_socket.socket, "recvmsg"):
         recvmsg = _make_simple_sock_method_wrapper(
-            "recvmsg", _core.wait_socket_readable, maybe_avail=True)
+            "recvmsg", _core.wait_socket_readable, maybe_avail=True
+        )
 
     ################################################################
     # recvmsg_into
@@ -736,14 +783,14 @@ class _SocketType:
 
     if hasattr(_stdlib_socket.socket, "recvmsg_into"):
         recvmsg_into = _make_simple_sock_method_wrapper(
-            "recvmsg_into", _core.wait_socket_readable, maybe_avail=True)
+            "recvmsg_into", _core.wait_socket_readable, maybe_avail=True
+        )
 
     ################################################################
     # send
     ################################################################
 
-    send = _make_simple_sock_method_wrapper(
-        "send", _core.wait_socket_writable)
+    send = _make_simple_sock_method_wrapper("send", _core.wait_socket_writable)
 
     ################################################################
     # sendto
@@ -759,14 +806,15 @@ class _SocketType:
         # and kwargs are not accepted
         self._check_address(args[-1], require_resolved=True)
         return await self._nonblocking_helper(
-            _stdlib_socket.socket.sendto, args, {},
-            _core.wait_socket_writable)
+            _stdlib_socket.socket.sendto, args, {}, _core.wait_socket_writable
+        )
 
     ################################################################
     # sendmsg
     ################################################################
 
     if hasattr(_stdlib_socket.socket, "sendmsg"):
+
         @_wraps(_stdlib_socket.socket.sendmsg, assigned=(), updated=())
         async def sendmsg(self, *args):
             """Similar to :meth:`socket.socket.sendmsg`, but async and
@@ -783,7 +831,8 @@ class _SocketType:
                 self._check_address(args[-1], require_resolved=True)
             return await self._nonblocking_helper(
                 _stdlib_socket.socket.sendmsg, args, {},
-                _core.wait_socket_writable)
+                _core.wait_socket_writable
+            )
 
     ################################################################
     # sendall

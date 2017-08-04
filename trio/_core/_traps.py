@@ -10,6 +10,7 @@ from . import _hazmat
 
 __all__ = ["yield_briefly_no_cancel", "Abort", "yield_indefinitely"]
 
+
 # Decorator to turn a generator into a well-behaved async function:
 def asyncfunction(fn):
     # Set the coroutine flag
@@ -19,6 +20,7 @@ def asyncfunction(fn):
     @wraps(fn)
     async def wrapper(*args, **kwargs):
         return await fn(*args, **kwargs)
+
     return wrapper
 
 

@@ -11,7 +11,9 @@ import async_generator
 from . import _hazmat
 
 __all__ = [
-    "enable_ki_protection", "disable_ki_protection", "currently_ki_protected",
+    "enable_ki_protection",
+    "disable_ki_protection",
+    "currently_ki_protected",
 ]
 
 # In ordinary single-threaded Python code, when you hit control-C, it raises
@@ -76,11 +78,13 @@ __all__ = [
 # for any Python program that's written to catch and ignore
 # KeyboardInterrupt.)
 
+
 # We use this class object as a unique key into the frame locals dictionary,
 # which in particular is guaranteed not to clash with any possible real local
 # name (I bet this will confuse some debugger at some point though...):
 class LOCALS_KEY_KI_PROTECTION_ENABLED:
     pass
+
 
 # NB: according to the signal.signal docs, 'frame' can be None on entry to
 # this function:
@@ -90,6 +94,7 @@ def ki_protection_enabled(frame):
             return frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED]
         frame = frame.f_back
     return False
+
 
 @_hazmat
 def currently_ki_protected():
@@ -107,20 +112,25 @@ def currently_ki_protected():
     """
     return ki_protection_enabled(sys._getframe())
 
+
 def _ki_protection_decorator(enabled):
     def decorator(fn):
         # In some version of Python, isgeneratorfunction returns true for
         # coroutine functions, so we have to check for coroutine functions
         # first.
         if inspect.iscoroutinefunction(fn):
+
             @wraps(fn)
             def wrapper(*args, **kwargs):
                 # See the comment for regular generators below
                 coro = fn(*args, **kwargs)
-                coro.cr_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
+                coro.cr_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED
+                                       ] = enabled
                 return coro
+
             return wrapper
         elif inspect.isgeneratorfunction(fn):
+
             @wraps(fn)
             def wrapper(*args, **kwargs):
                 # It's important that we inject this directly into the
@@ -132,24 +142,33 @@ def _ki_protection_decorator(enabled):
                 # thrown into! See:
                 #     https://bugs.python.org/issue29590
                 gen = fn(*args, **kwargs)
-                gen.gi_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
+                gen.gi_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED
+                                      ] = enabled
                 return gen
+
             return wrapper
         elif async_generator.isasyncgenfunction(fn):
+
             @wraps(fn)
             def wrapper(*args, **kwargs):
                 # See the comment for regular generators above
                 agen = fn(*args, **kwargs)
-                agen.ag_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
+                agen.ag_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED
+                                       ] = enabled
                 return agen
+
             return wrapper
         else:
+
             @wraps(fn)
             def wrapper(*args, **kwargs):
                 locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
                 return fn(*args, **kwargs)
+
             return wrapper
+
     return decorator
+
 
 enable_ki_protection = _ki_protection_decorator(True)
 enable_ki_protection.__name__ = "enable_ki_protection"
@@ -159,10 +178,11 @@ disable_ki_protection = _ki_protection_decorator(False)
 disable_ki_protection.__name__ = "disable_ki_protection"
 _hazmat(disable_ki_protection)
 
+
 @contextmanager
 def ki_manager(deliver_cb, restrict_keyboard_interrupt_to_checkpoints):
     if (threading.current_thread() != threading.main_thread()
-          or signal.getsignal(signal.SIGINT) != signal.default_int_handler):
+            or signal.getsignal(signal.SIGINT) != signal.default_int_handler):
         yield
         return
 

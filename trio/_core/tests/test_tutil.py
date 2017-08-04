@@ -2,6 +2,7 @@ import pytest
 
 from .tutil import check_sequence_matches
 
+
 def test_check_sequence_matches():
     check_sequence_matches([1, 2, 3], [1, 2, 3])
     with pytest.raises(AssertionError):

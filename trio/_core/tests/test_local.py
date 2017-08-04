@@ -6,6 +6,7 @@ import queue
 from ... import _core
 from ...testing import Sequencer
 
+
 async def test_local_smoketest():
     for cls in _core.TaskLocal, _core.RunLocal:
         local = cls()
@@ -128,6 +129,7 @@ def test_run_local_simultaneous_runs():
     with pytest.raises(RuntimeError):
         r.attr
 
+
 def test_local_outside_run():
     for cls in _core.RunLocal, _core.TaskLocal:
         local = cls()
@@ -162,5 +164,3 @@ async def test_local_defaults():
         assert local.default2 == "abc"
         del local.default1
         assert not hasattr(local, "default1")
-
-    

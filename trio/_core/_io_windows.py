@@ -14,7 +14,11 @@ from . import _public, _hazmat
 from ._wakeup_socketpair import WakeupSocketpair
 
 from ._windows_cffi import (
-    ffi, kernel32, INVALID_HANDLE_VALUE, raise_winerror, ErrorCodes,
+    ffi,
+    kernel32,
+    INVALID_HANDLE_VALUE,
+    raise_winerror,
+    ErrorCodes,
 )
 
 # There's a lot to be said about the overall design of a Windows event
@@ -82,10 +86,12 @@ from ._windows_cffi import (
 #     ...but, on x86-64 calling convention distinctions are erased! so we can
 #     do Sleep on x86-32 and free on x86-64...
 
+
 def _check(success):
     if not success:
         raise_winerror()
     return success
+
 
 def _handle(obj):
     # For now, represent handles as either cffi HANDLEs or as ints.  If you
@@ -99,6 +105,7 @@ def _handle(obj):
     else:
         return obj
 
+
 @attr.s(frozen=True)
 class _WindowsStatistics:
     tasks_waiting_overlapped = attr.ib()
@@ -108,17 +115,21 @@ class _WindowsStatistics:
     iocp_backlog = attr.ib()
     backend = attr.ib(default="windows")
 
+
 @attr.s(frozen=True)
 class CompletionKeyEventInfo:
     lpOverlapped = attr.ib()
     dwNumberOfBytesTransferred = attr.ib()
 
+
 class WindowsIOManager:
     def __init__(self):
         # https://msdn.microsoft.com/en-us/library/windows/desktop/aa363862(v=vs.85).aspx
         self._closed = True
-        self._iocp = _check(kernel32.CreateIoCompletionPort(
-            INVALID_HANDLE_VALUE, ffi.NULL, 0, 0))
+        self._iocp = _check(
+            kernel32.
+            CreateIoCompletionPort(INVALID_HANDLE_VALUE, ffi.NULL, 0, 0)
+        )
         self._closed = False
         self._iocp_queue = deque()
         self._iocp_thread = None
@@ -170,7 +181,8 @@ class WindowsIOManager:
             # The rare non-daemonic thread -- close() should always be called,
             # even on error paths, and we want to join it there.
             self._iocp_thread = threading.Thread(
-                target=self._iocp_thread_fn, name="trio-IOCP")
+                target=self._iocp_thread_fn, name="trio-IOCP"
+            )
             self._iocp_thread.start()
 
         # Step 1: select for sockets, with the given timeout.
@@ -265,8 +277,11 @@ class WindowsIOManager:
             received = ffi.new("PULONG")
             # https://msdn.microsoft.com/en-us/library/windows/desktop/aa364988(v=vs.85).aspx
             try:
-                _check(kernel32.GetQueuedCompletionStatusEx(
-                    self._iocp, batch, max_events, received, 0xffffffff, 0))
+                _check(
+                    kernel32.GetQueuedCompletionStatusEx(
+                        self._iocp, batch, max_events, received, 0xffffffff, 0
+                    )
+                )
             except OSError as exc:
                 if exc.winerror in IOCP_CLOSED_ERRORS:
                     # The IOCP handle was closed; time to shut down.
@@ -297,10 +312,12 @@ class WindowsIOManager:
             lpOverlapped = ffi.cast("LPOVERLAPPED", lpOverlapped)
         if lpOverlapped in self._overlapped_waiters:
             raise _core.ResourceBusyError(
-                "another task is already waiting on that lpOverlapped")
+                "another task is already waiting on that lpOverlapped"
+            )
         task = _core.current_task()
         self._overlapped_waiters[lpOverlapped] = task
         raise_cancel = None
+
         def abort(raise_cancel_):
             # https://msdn.microsoft.com/en-us/library/windows/desktop/aa363792(v=vs.85).aspx
             # the _check here is probably wrong -- I guess we should just
@@ -310,6 +327,7 @@ class WindowsIOManager:
             raise_cancel = raise_cancel_
             _check(kernel32.CancelIoEx(handle, lpOverlapped))
             return _core.Abort.FAILED
+
         await _core.yield_indefinitely(abort)
         if lpOverlapped.Internal != 0:
             if lpOverlapped.Internal == ErrorCodes.ERROR_OPERATION_ABORTED:
@@ -347,11 +365,14 @@ class WindowsIOManager:
             await _core.yield_briefly()
             raise _core.ResourceBusyError(
                 "another task is already waiting to {} this socket"
-                .format(which))
+                .format(which)
+            )
         self._socket_waiters[which][sock] = _core.current_task()
+
         def abort(_):
             del self._socket_waiters[which][sock]
             return _core.Abort.SUCCEEDED
+
         await _core.yield_indefinitely(abort)
 
     @_public

@@ -7,10 +7,12 @@ from .._util import aiter_compat
 
 __all__ = ["UnboundedQueue"]
 
+
 @attr.s(frozen=True)
 class _UnboundedQueueStats:
     qsize = attr.ib()
     tasks_waiting = attr.ib()
+
 
 class UnboundedQueue:
     """An unbounded queue suitable for certain unusual forms of inter-task
@@ -41,6 +43,7 @@ class UnboundedQueue:
            ...
 
     """
+
     def __init__(self):
         self._lot = _core.ParkingLot()
         self._data = []
@@ -136,7 +139,8 @@ class UnboundedQueue:
         """
         return _UnboundedQueueStats(
             qsize=len(self._data),
-            tasks_waiting=self._lot.statistics().tasks_waiting)
+            tasks_waiting=self._lot.statistics().tasks_waiting
+        )
 
     @aiter_compat
     def __aiter__(self):

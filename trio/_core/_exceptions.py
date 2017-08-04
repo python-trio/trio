@@ -2,9 +2,13 @@ import attr
 
 # Re-exported
 __all__ = [
-    "TrioInternalError", "RunFinishedError", "WouldBlock", "Cancelled",
+    "TrioInternalError",
+    "RunFinishedError",
+    "WouldBlock",
+    "Cancelled",
     "ResourceBusyError",
 ]
+
 
 # Exceptions often get printed as module.Classname. We pretend these are in
 # the trio namespace (where they'll eventually end up) so that users get
@@ -12,6 +16,7 @@ __all__ = [
 def pretend_module_is_trio(cls):
     cls.__module__ = "trio"
     return cls
+
 
 @pretend_module_is_trio
 class TrioInternalError(Exception):
@@ -88,4 +93,6 @@ class ResourceBusyError(Exception):
     the data get scrambled.
 
     """
+
+
 ResourceBusyError.__module__ = "trio"

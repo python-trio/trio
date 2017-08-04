@@ -9,6 +9,7 @@ from ... import _core
 if on_windows:
     from .._windows_cffi import ffi, kernel32
 
+
 async def test_completion_key_listen():
     async def post(key):
         iocp = ffi.cast("HANDLE", _core.current_iocp())
@@ -17,7 +18,8 @@ async def test_completion_key_listen():
             if i % 3 == 0:
                 await _core.yield_briefly()
             success = kernel32.PostQueuedCompletionStatus(
-                iocp, i, key, ffi.NULL)
+                iocp, i, key, ffi.NULL
+            )
             assert success
 
     with _core.monitor_completion_key() as (key, queue):

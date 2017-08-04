@@ -81,9 +81,11 @@ __all__ = ["ParkingLot"]
 
 _counter = count()
 
+
 @attr.s(frozen=True)
 class _ParkingLotStatistics:
     tasks_waiting = attr.ib()
+
 
 @_hazmat
 @attr.s(slots=True, cmp=False, hash=False)
@@ -135,10 +137,12 @@ class ParkingLot:
         """
         ticket = [_core.current_task(), None, None]
         self._deposit_ticket(ticket)
+
         def abort(_):
             task, idx, lot = ticket
             del lot._parked[idx]
             return _core.Abort.SUCCEEDED
+
         await _core.yield_indefinitely(abort)
 
     def _pop_several(self, count):

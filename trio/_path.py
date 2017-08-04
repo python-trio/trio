@@ -6,7 +6,6 @@ import pathlib
 import trio
 from trio._util import async_wraps
 
-
 __all__ = ['Path']
 
 
@@ -41,6 +40,7 @@ def _forward_factory(cls, attr_name, attr):
 
 def _forward_magic(cls, attr):
     sentinel = object()
+
     @wraps(attr)
     def wrapper(self, other=sentinel):
         if other is sentinel:
@@ -49,6 +49,7 @@ def _forward_magic(cls, attr):
             other = other._wrapped
         value = attr(self._wrapped, other)
         return rewrap_path(value)
+
     return wrapper
 
 
@@ -118,8 +119,8 @@ class Path(metaclass=AsyncAutoWrapperType):
     _wraps = pathlib.Path
     _forwards = pathlib.PurePath
     _forward_magic = [
-        '__str__', '__bytes__', '__truediv__', '__rtruediv__',
-        '__eq__', '__lt__', '__le__', '__gt__', '__ge__'
+        '__str__', '__bytes__', '__truediv__', '__rtruediv__', '__eq__',
+        '__lt__', '__le__', '__gt__', '__ge__'
     ]
 
     def __init__(self, *args):
@@ -161,7 +162,6 @@ class Path(metaclass=AsyncAutoWrapperType):
 # :meth:~pathlib.Path.absolute, which does not exist. Removing this makes more
 # sense than inventing our own special docstring for this.
 del Path.absolute.__doc__
-
 
 # python3.5 compat
 if hasattr(os, 'PathLike'):

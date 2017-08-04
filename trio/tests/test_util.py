@@ -10,8 +10,10 @@ from .._util import *
 from .. import _core
 from ..testing import wait_all_tasks_blocked, assert_yields
 
+
 def test_signal_raise():
     record = []
+
     def handler(signum, _):
         record.append(signum)
 
@@ -105,24 +107,30 @@ async def test_contextmanager_do_not_unchain_non_stopiteration_exceptions():
         async with noop_async_context_manager():
             raise StopIteration
 
+
 # Native async generators are only available from Python 3.6 and onwards
 nativeasyncgenerators = True
 try:
-    exec("""
+    exec(
+        """
 @acontextmanager
 async def manager_issue29692_2():
     try:
         yield
     except Exception as exc:
         raise RuntimeError('issue29692:Chained') from exc
-""")
+"""
+    )
 except SyntaxError:
     nativeasyncgenerators = False
 
 
-@pytest.mark.skipif(not nativeasyncgenerators,
-                    reason="Python < 3.6 doesn't have native async generators")
-async def test_native_contextmanager_do_not_unchain_non_stopiteration_exceptions():
+@pytest.mark.skipif(
+    not nativeasyncgenerators,
+    reason="Python < 3.6 doesn't have native async generators"
+)
+async def test_native_contextmanager_do_not_unchain_non_stopiteration_exceptions(
+):
 
     with pytest.raises(RuntimeError) as excinfo:
         async with manager_issue29692_2():

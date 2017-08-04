@@ -3,9 +3,15 @@ import abc as _abc
 from . import _core
 
 __all__ = [
-    "Clock", "Instrument", "AsyncResource", "SendStream", "ReceiveStream",
-    "Stream", "HalfCloseableStream",
+    "Clock",
+    "Instrument",
+    "AsyncResource",
+    "SendStream",
+    "ReceiveStream",
+    "Stream",
+    "HalfCloseableStream",
 ]
+
 
 class Clock(_abc.ABC):
     """The interface for custom run loop clocks.
@@ -147,7 +153,9 @@ class HostnameResolver(metaclass=_abc.ABCMeta):
     __slots__ = ()
 
     @_abc.abstractmethod
-    async def getaddrinfo(self, host, port, family=0, type=0, proto=0, flags=0):
+    async def getaddrinfo(
+        self, host, port, family=0, type=0, proto=0, flags=0
+    ):
         """A custom implementation of :func:`~trio.socket.getaddrinfo`.
 
         Called by :func:`trio.socket.getaddrinfo`.
@@ -417,7 +425,6 @@ class HalfCloseableStream(Stream):
 
     """
     __slots__ = ()
-
 
     @_abc.abstractmethod
     async def send_eof(self):

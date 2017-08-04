@@ -4,11 +4,13 @@ import attr
 from .. import _core
 from . import _public, _hazmat
 
+
 @attr.s(frozen=True)
 class _EpollStatistics:
     tasks_waiting_read = attr.ib()
     tasks_waiting_write = attr.ib()
     backend = attr.ib(default="epoll")
+
 
 @attr.s(slots=True, cmp=False, hash=False)
 class EpollWaiters:
@@ -34,6 +36,7 @@ class EpollWaiters:
         # something?)...
         # https://lkml.org/lkml/2016/2/4/541
         return flags
+
 
 @attr.s(slots=True, cmp=False, hash=False)
 class EpollIOManager:
@@ -100,13 +103,16 @@ class EpollIOManager:
         if getattr(waiters, attr_name) is not None:
             await _core.yield_briefly()
             raise _core.ResourceBusyError(
-                "another task is already reading / writing this fd")
+                "another task is already reading / writing this fd"
+            )
         setattr(waiters, attr_name, _core.current_task())
         self._update_registrations(fd, currently_registered)
+
         def abort(_):
             setattr(self._registered[fd], attr_name, None)
             self._update_registrations(fd, True)
             return _core.Abort.SUCCEEDED
+
         await _core.yield_indefinitely(abort)
 
     @_public

@@ -2,6 +2,7 @@ import socket
 
 from .. import _core
 
+
 class WakeupSocketpair:
     def __init__(self):
         self.wakeup_sock, self.write_sock = socket.socketpair()
@@ -31,7 +32,7 @@ class WakeupSocketpair:
     def drain(self):
         try:
             while True:
-                self.wakeup_sock.recv(2 ** 16)
+                self.wakeup_sock.recv(2**16)
         except BlockingIOError:
             pass
 

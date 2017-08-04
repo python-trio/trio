@@ -85,7 +85,8 @@ BOOL WINAPI SetConsoleCtrlHandler(
 # cribbed from pywincffi
 # programmatically strips out those annotations MSDN likes, like _In_
 REGEX_SAL_ANNOTATION = re.compile(
-    r"\b(_In_|_Inout_|_Out_|_Outptr_|_Reserved_)(opt_)?\b")
+    r"\b(_In_|_Inout_|_Out_|_Outptr_|_Reserved_)(opt_)?\b"
+)
 LIB = REGEX_SAL_ANNOTATION.sub(" ", LIB)
 
 # Other fixups:

@@ -7,8 +7,11 @@ from . import _core
 from .abc import HalfCloseableStream
 
 __all__ = [
-    "BrokenStreamError", "ClosedStreamError", "StapledStream",
+    "BrokenStreamError",
+    "ClosedStreamError",
+    "StapledStream",
 ]
+
 
 class BrokenStreamError(Exception):
     """Raised when an attempt to use a stream a stream fails due to external

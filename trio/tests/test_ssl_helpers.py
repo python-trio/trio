@@ -21,6 +21,7 @@ from .._ssl_stream_helpers import open_ssl_over_tcp_stream
 # lot that could go wrong here. Probably don't need to test
 # happy_eyeballs_delay separately.
 
+
 @attr.s
 class FakeSocket:
     stream = attr.ib()
@@ -55,11 +56,7 @@ class FakeNetwork(trio.abc.HostnameResolver, trio.abc.SocketFactory):
     nursery = attr.ib()
 
     async def getaddrinfo(self, *args):
-        return [(AF_INET,
-                 SOCK_STREAM,
-                 IPPROTO_TCP,
-                 "",
-                 ("1.1.1.1", 443))]
+        return [(AF_INET, SOCK_STREAM, IPPROTO_TCP, "", ("1.1.1.1", 443))]
 
     async def getnameinfo(self, *args):  # pragma: no cover
         raise NotImplementedError
@@ -100,14 +97,17 @@ async def test_open_ssl_over_tcp_stream():
         # We have the trust but not the hostname
         # (checks custom ssl_context + hostname checking)
         stream = await open_ssl_over_tcp_stream(
-            "xyzzy.example.org", 80, ssl_context=CLIENT_CTX,
+            "xyzzy.example.org",
+            80,
+            ssl_context=CLIENT_CTX,
         )
         with pytest.raises(trio.BrokenStreamError):
             await stream.do_handshake()
 
         # This one should work!
         stream = await open_ssl_over_tcp_stream(
-            "trio-test-1.example.org", 80,
+            "trio-test-1.example.org",
+            80,
             ssl_context=CLIENT_CTX,
         )
         await stream.send_all(b"x")
@@ -117,7 +117,8 @@ async def test_open_ssl_over_tcp_stream():
         # Check https_compatible settings are being passed through
         assert not stream._https_compatible
         stream = await open_ssl_over_tcp_stream(
-            "trio-test-1.example.org", 80,
+            "trio-test-1.example.org",
+            80,
             ssl_context=CLIENT_CTX,
             https_compatible=True,
             # also, smoke test happy_eyeballs_delay

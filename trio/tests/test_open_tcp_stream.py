@@ -5,9 +5,12 @@ import attr
 import trio
 from trio.socket import AF_INET, AF_INET6, SOCK_STREAM, IPPROTO_TCP
 from trio._open_tcp_stream import (
-    reorder_for_rfc_6555_section_5_4, close_on_error, open_tcp_stream,
+    reorder_for_rfc_6555_section_5_4,
+    close_on_error,
+    open_tcp_stream,
     format_host_port,
 )
+
 
 def test_close_on_error():
     class CloseMe:
@@ -28,18 +31,12 @@ def test_close_on_error():
 
 def test_reorder_for_rfc_6555_section_5_4():
     def fake4(i):
-        return (AF_INET,
-                SOCK_STREAM,
-                IPPROTO_TCP,
-                "",
-                ("10.0.0.{}".format(i), 80))
+        return (
+            AF_INET, SOCK_STREAM, IPPROTO_TCP, "", ("10.0.0.{}".format(i), 80)
+        )
 
     def fake6(i):
-        return (AF_INET6,
-                SOCK_STREAM,
-                IPPROTO_TCP,
-                "",
-                ("::{}".format(i), 80))
+        return (AF_INET6, SOCK_STREAM, IPPROTO_TCP, "", ("::{}".format(i), 80))
 
     for fake in fake4, fake6:
         # No effect on homogenous lists
@@ -86,6 +83,7 @@ async def test_open_tcp_stream_real_socket_smoketest():
 
 
 # Now, thorough tests using fake sockets
+
 
 @attr.s
 class FakeSocket:
@@ -157,11 +155,7 @@ class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
         else:
             family = trio.socket.AF_INET
             sockaddr = (ip, self.port)
-        return (family,
-                SOCK_STREAM,
-                IPPROTO_TCP,
-                "",
-                sockaddr)
+        return (family, SOCK_STREAM, IPPROTO_TCP, "", sockaddr)
 
     async def getaddrinfo(self, host, port, family, type, proto, flags):
         assert host == b"test.example.com"
@@ -188,23 +182,23 @@ class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
 
 
 async def run_scenario(
-        # The port to connect to
-        port,
-        # A list of
-        #  (ip, delay, result)
-        # tuples, where delay is in seconds and result is "success" or "error"
-        # The ip's will be returned from getaddrinfo in this order, and then
-        # connect() calls to them will have the given result.
-        ip_list,
-        *,
-        # If False, AF_INET6 sockets error out on creation, before connect is
-        # even called.
-        ipv6_supported=True,
-        # Normally, we return (winning_sock, scenario object)
-        # If this is True, we require there to be an exception, and return
-        #   (exception, scenario object)
-        expect_error=(),
-        **kwargs
+    # The port to connect to
+    port,
+    # A list of
+    #  (ip, delay, result)
+    # tuples, where delay is in seconds and result is "success" or "error"
+    # The ip's will be returned from getaddrinfo in this order, and then
+    # connect() calls to them will have the given result.
+    ip_list,
+    *,
+    # If False, AF_INET6 sockets error out on creation, before connect is
+    # even called.
+    ipv6_supported=True,
+    # Normally, we return (winning_sock, scenario object)
+    # If this is True, we require there to be an exception, and return
+    #   (exception, scenario object)
+    expect_error=(),
+    **kwargs
 ):
     scenario = Scenario(port, ip_list, ipv6_supported)
     trio.socket.set_custom_hostname_resolver(scenario)
@@ -221,30 +215,31 @@ async def run_scenario(
         scenario.check(None)
         return (exc, scenario)
 
+
 async def test_one_host_quick_success(autojump_clock):
-    sock, scenario = await run_scenario(
-        80, [("1.2.3.4", 0.123, "success")])
+    sock, scenario = await run_scenario(80, [("1.2.3.4", 0.123, "success")])
     assert sock.ip == "1.2.3.4"
     assert trio.current_time() == 0.123
 
 
 async def test_one_host_slow_success(autojump_clock):
-    sock, scenario = await run_scenario(
-        81, [("1.2.3.4", 100, "success")])
+    sock, scenario = await run_scenario(81, [("1.2.3.4", 100, "success")])
     assert sock.ip == "1.2.3.4"
     assert trio.current_time() == 100
 
 
 async def test_one_host_quick_fail(autojump_clock):
     exc, scenario = await run_scenario(
-        82, [("1.2.3.4", 0.123, "error")], expect_error=OSError)
+        82, [("1.2.3.4", 0.123, "error")], expect_error=OSError
+    )
     assert isinstance(exc, OSError)
     assert trio.current_time() == 0.123
 
 
 async def test_one_host_slow_fail(autojump_clock):
     exc, scenario = await run_scenario(
-        83, [("1.2.3.4", 100, "error")], expect_error=OSError)
+        83, [("1.2.3.4", 100, "error")], expect_error=OSError
+    )
     assert isinstance(exc, OSError)
     assert trio.current_time() == 100
 
@@ -253,9 +248,10 @@ async def test_one_host_slow_fail(autojump_clock):
 async def test_basic_fallthrough(autojump_clock):
     sock, scenario = await run_scenario(
         80,
-        [("1.1.1.1", 1, "success"),
-         ("2.2.2.2", 1, "success"),
-         ("3.3.3.3", 0.2, "success"),
+        [
+            ("1.1.1.1", 1, "success"),
+            ("2.2.2.2", 1, "success"),
+            ("3.3.3.3", 0.2, "success"),
         ],
     )
     assert sock.ip == "3.3.3.3"
@@ -270,9 +266,10 @@ async def test_basic_fallthrough(autojump_clock):
 async def test_early_success(autojump_clock):
     sock, scenario = await run_scenario(
         80,
-        [("1.1.1.1", 1, "success"),
-         ("2.2.2.2", 0.1, "success"),
-         ("3.3.3.3", 0.2, "success"),
+        [
+            ("1.1.1.1", 1, "success"),
+            ("2.2.2.2", 0.1, "success"),
+            ("3.3.3.3", 0.2, "success"),
         ],
     )
     assert sock.ip == "2.2.2.2"
@@ -288,9 +285,10 @@ async def test_early_success(autojump_clock):
 async def test_custom_delay(autojump_clock):
     sock, scenario = await run_scenario(
         80,
-        [("1.1.1.1", 1, "success"),
-         ("2.2.2.2", 1, "success"),
-         ("3.3.3.3", 0.2, "success"),
+        [
+            ("1.1.1.1", 1, "success"),
+            ("2.2.2.2", 1, "success"),
+            ("3.3.3.3", 0.2, "success"),
         ],
         happy_eyeballs_delay=0.450,
     )
@@ -306,10 +304,11 @@ async def test_custom_delay(autojump_clock):
 async def test_custom_errors_expedite(autojump_clock):
     sock, scenario = await run_scenario(
         80,
-        [("1.1.1.1", 0.1, "error"),
-         ("2.2.2.2", 0.2, "error"),
-         ("3.3.3.3", 10, "success"),
-         ("4.4.4.4", 0.3, "success"),
+        [
+            ("1.1.1.1", 0.1, "error"),
+            ("2.2.2.2", 0.2, "error"),
+            ("3.3.3.3", 10, "success"),
+            ("4.4.4.4", 0.3, "success"),
         ],
     )
     assert sock.ip == "4.4.4.4"
@@ -325,10 +324,11 @@ async def test_custom_errors_expedite(autojump_clock):
 async def test_all_fail(autojump_clock):
     exc, scenario = await run_scenario(
         80,
-        [("1.1.1.1", 0.1, "error"),
-         ("2.2.2.2", 0.2, "error"),
-         ("3.3.3.3", 10, "error"),
-         ("4.4.4.4", 0.3, "error"),
+        [
+            ("1.1.1.1", 0.1, "error"),
+            ("2.2.2.2", 0.2, "error"),
+            ("3.3.3.3", 10, "error"),
+            ("4.4.4.4", 0.3, "error"),
         ],
         expect_error=OSError,
     )
@@ -347,11 +347,12 @@ async def test_all_fail(autojump_clock):
 async def test_multi_success(autojump_clock):
     sock, scenario = await run_scenario(
         80,
-        [("1.1.1.1", 0.5, "error"),
-         ("2.2.2.2", 10, "success"),
-         ("3.3.3.3", 10 - 1, "success"),
-         ("4.4.4.4", 10 - 2, "success"),
-         ("5.5.5.5", 0.5, "error"),
+        [
+            ("1.1.1.1", 0.5, "error"),
+            ("2.2.2.2", 10, "success"),
+            ("3.3.3.3", 10 - 1, "success"),
+            ("4.4.4.4", 10 - 2, "success"),
+            ("5.5.5.5", 0.5, "error"),
         ],
         happy_eyeballs_delay=1,
     )
@@ -374,11 +375,12 @@ async def test_multi_success(autojump_clock):
 async def test_does_reorder(autojump_clock):
     sock, scenario = await run_scenario(
         80,
-        [("1.1.1.1", 10, "error"),
-         # This would win if we tried it first...
-         ("2.2.2.2", 1, "success"),
-         # But in fact we try this first, because of section 5.4
-         ("::3", 0.5, "success"),
+        [
+            ("1.1.1.1", 10, "error"),
+            # This would win if we tried it first...
+            ("2.2.2.2", 1, "success"),
+            # But in fact we try this first, because of section 5.4
+            ("::3", 0.5, "success"),
         ],
         happy_eyeballs_delay=1,
     )
@@ -395,10 +397,11 @@ async def test_handles_no_ipv6(autojump_clock):
         80,
         # Here the ipv6 addresses fail at socket creation time, so the connect
         # configuration doesn't matter
-        [("::1", 0, "success"),
-         ("2.2.2.2", 10, "success"),
-         ("::3", 0, "success"),
-         ("4.4.4.4", 0.1, "success"),
+        [
+            ("::1", 0, "success"),
+            ("2.2.2.2", 10, "success"),
+            ("::3", 0, "success"),
+            ("4.4.4.4", 0.1, "success"),
         ],
         happy_eyeballs_delay=1,
         ipv6_supported=False,
@@ -420,11 +423,12 @@ async def test_cancel(autojump_clock):
     with trio.move_on_after(5) as cancel_scope:
         exc, scenario = await run_scenario(
             80,
-            [("1.1.1.1", 10, "success"),
-             ("2.2.2.2", 10, "success"),
-             ("3.3.3.3", 10, "success"),
-             ("4.4.4.4", 10, "success"),
-             ],
+            [
+                ("1.1.1.1", 10, "success"),
+                ("2.2.2.2", 10, "success"),
+                ("3.3.3.3", 10, "success"),
+                ("4.4.4.4", 10, "success"),
+            ],
             expect_error=trio.MultiError,
         )
         # What comes out should be 1 or more Cancelled errors that all belong

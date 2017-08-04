@@ -6,6 +6,7 @@ from .. import _core
 from .._timeouts import sleep_forever
 from .._sync import *
 
+
 async def test_Event():
     e = Event()
     assert not e.is_set()
@@ -20,6 +21,7 @@ async def test_Event():
     assert not e.is_set()
 
     record = []
+
     async def child():
         record.append("sleeping")
         await e.wait()
@@ -203,7 +205,8 @@ async def test_Semaphore_bounded():
 
 
 @pytest.mark.parametrize(
-    "lockcls", [Lock, StrictFIFOLock], ids=lambda fn: fn.__name__)
+    "lockcls", [Lock, StrictFIFOLock], ids=lambda fn: fn.__name__
+)
 async def test_Lock_and_StrictFIFOLock(lockcls):
     l = lockcls()
     assert not l.locked()
@@ -516,6 +519,8 @@ async def test_Queue_fairness():
 # Queue through the generic lock tests.
 
 from .._sync import async_cm
+
+
 @async_cm
 class QueueLock1:
     def __init__(self, capacity):
@@ -532,6 +537,7 @@ class QueueLock1:
     def release(self):
         self.q.get_nowait()
 
+
 @async_cm
 class QueueLock2:
     def __init__(self):
@@ -546,6 +552,7 @@ class QueueLock2:
 
     def release(self):
         self.q.put_nowait(None)
+
 
 lock_factories = [
     lambda: CapacityLimiter(1),
@@ -567,7 +574,9 @@ lock_factory_names = [
 ]
 
 generic_lock_test = pytest.mark.parametrize(
-    "lock_factory", lock_factories, ids=lock_factory_names)
+    "lock_factory", lock_factories, ids=lock_factory_names
+)
+
 
 # Spawn a bunch of workers that take a lock and then yield; make sure that
 # only one worker is ever in the critical section at a time.
@@ -621,7 +630,7 @@ async def test_generic_lock_fifo_fairness(lock_factory):
     # The first three could be in any order due to scheduling randomness,
     # but after that they should repeat in the same order
     for i in range(LOOPS):
-        assert record[3*i : 3*(i + 1)] == initial_order
+        assert record[3 * i:3 * (i + 1)] == initial_order
 
 
 @generic_lock_test
