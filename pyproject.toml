@@ -1,0 +1,19 @@
+[tool.towncrier]
+# Usage:
+# - PRs should drop a file like "issuenumber.feature" in newsfragments
+#   (or "bugfix", "doc", "removal", "misc"; misc gets no text, we can
+#    customize this)
+# - At release time after bumping version number, run: towncrier
+#   (or towncrier --draft)
+# - Make sure to use a version with the PRs mentioned below merged.
+#   You probably want https://github.com/hawkowl/towncrier/pull/69 too.
+#   Right now on my laptop it's
+#     PYTHONPATH=~/src/towncrier/src ~/src/towncrier/bin/towncrier
+#   with the merge-64-66-69 branch checked out.
+package = "trio"
+filename = "docs/source/history.rst"
+directory = "newsfragments"
+# Requires https://github.com/hawkowl/towncrier/pull/64
+underlines = ["-", "~", "^"]
+# Requires https://github.com/hawkowl/towncrier/pull/66
+issue_format = "`#{issue} <https://github.com/python-trio/trio/issues/{issue}>`__"
