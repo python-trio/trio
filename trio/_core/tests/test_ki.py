@@ -482,11 +482,11 @@ def test_ki_wakes_us_up():
     # bite us in practice:
     #   https://bugs.python.org/issue31119
     #   https://bitbucket.org/pypy/pypy/issues/2623
-    buggy_wakeup_fd = False
     import platform
-    if os.name == "nt" and platform.python_implementation() == "CPython":
-        if sys.version_info < (3, 6, 2):
-            buggy_wakeup_fd = True
+    buggy_wakeup_fd = (
+        os.name == "nt" and platform.python_implementation() == "CPython"
+        and sys.version_info < (3, 6, 2)
+    )
 
     # lock is only needed to avoid an annoying race condition where the
     # *second* ki_self() call arrives *after* the first one woke us up and its
