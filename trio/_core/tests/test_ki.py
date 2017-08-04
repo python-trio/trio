@@ -532,6 +532,11 @@ def test_ki_wakes_us_up():
                     # PyObject_Repr, which does an unconditional
                     # PyErr_CheckSignals for some reason.
                     print(repr(None))
+                    # And finally, it's possible that the signal was delivered
+                    # but at a moment when we had KI protection enabled, so we
+                    # need to execute a checkpoint to ensure it's delivered
+                    # before we exit main().
+                    await _core.yield_briefly()
         finally:
             print("joining thread", sys.exc_info())
             thread.join()
