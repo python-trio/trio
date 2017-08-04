@@ -12,6 +12,7 @@ from ..testing import assert_yields, wait_all_tasks_blocked
 # utils
 ################################################################
 
+
 class MonkeypatchedGAI:
     def __init__(self, orig_getaddrinfo):
         self._orig_getaddrinfo = orig_getaddrinfo
@@ -39,7 +40,8 @@ class MonkeypatchedGAI:
             return self._orig_getaddrinfo(*args, **kwargs)
         else:
             raise RuntimeError(
-                "gai called with unexpected arguments {}".format(bound))
+                "gai called with unexpected arguments {}".format(bound)
+            )
 
 
 @pytest.fixture
@@ -78,6 +80,7 @@ async def test__try_sync():
 # basic re-exports
 ################################################################
 
+
 def test_socket_has_some_reexports():
     assert tsocket.SOL_SOCKET == stdlib_socket.SOL_SOCKET
     assert tsocket.TCP_NODELAY == stdlib_socket.TCP_NODELAY
@@ -89,17 +92,21 @@ def test_socket_has_some_reexports():
 # name resolution
 ################################################################
 
+
 async def test_getaddrinfo(monkeygai):
-    # Simple non-blocking non-error cases, ipv4 and ipv6:
-    with assert_yields():
-        res = await tsocket.getaddrinfo(
-            "127.0.0.1", "12345", type=tsocket.SOCK_STREAM)
     def check(got, expected):
         # win32 returns 0 for the proto field
         def without_proto(gai_tup):
             return gai_tup[:2] + (0,) + gai_tup[3:]
+
         expected2 = [without_proto(gt) for gt in expected]
         assert got == expected or got == expected2
+
+    # Simple non-blocking non-error cases, ipv4 and ipv6:
+    with assert_yields():
+        res = await tsocket.getaddrinfo(
+            "127.0.0.1", "12345", type=tsocket.SOCK_STREAM
+        )
 
     check(res, [
         (tsocket.AF_INET,  # 127.0.0.1 is ipv4
@@ -107,18 +114,19 @@ async def test_getaddrinfo(monkeygai):
          tsocket.IPPROTO_TCP,
          "",
          ("127.0.0.1", 12345)),
-    ])
+    ])  # yapf: disable
 
     with assert_yields():
         res = await tsocket.getaddrinfo(
-            "::1", "12345", type=tsocket.SOCK_DGRAM)
+            "::1", "12345", type=tsocket.SOCK_DGRAM
+        )
     check(res, [
         (tsocket.AF_INET6,
          tsocket.SOCK_DGRAM,
          tsocket.IPPROTO_UDP,
          "",
          ("::1", 12345, 0, 0)),
-    ])
+    ])  # yapf: disable
 
     monkeygai.set("x", b"host", "port", family=0, type=0, proto=0, flags=0)
     with assert_yields():
@@ -149,8 +157,8 @@ async def test_getnameinfo():
     # Trivial test:
     ni_numeric = stdlib_socket.NI_NUMERICHOST | stdlib_socket.NI_NUMERICSERV
     with assert_yields():
-        assert (await tsocket.getnameinfo(("127.0.0.1", 1234), ni_numeric)
-                == ("127.0.0.1", "1234"))
+        got = await tsocket.getnameinfo(("127.0.0.1", 1234), ni_numeric)
+    assert got == ("127.0.0.1", "1234")
 
     # getnameinfo requires a numeric address as input:
     with assert_yields():
@@ -165,19 +173,20 @@ async def test_getnameinfo():
     host, service = stdlib_socket.getnameinfo(("127.0.0.1", 80), 0)
 
     # Some working calls:
-    assert (await tsocket.getnameinfo(("127.0.0.1", 80), 0)
-            == (host, service))
+    got = await tsocket.getnameinfo(("127.0.0.1", 80), 0)
+    assert got == (host, service)
 
-    assert (await tsocket.getnameinfo(("127.0.0.1", 80), tsocket.NI_NUMERICHOST)
-            == ("127.0.0.1", service))
+    got = await tsocket.getnameinfo(("127.0.0.1", 80), tsocket.NI_NUMERICHOST)
+    assert got == ("127.0.0.1", service)
 
-    assert (await tsocket.getnameinfo(("127.0.0.1", 80), tsocket.NI_NUMERICSERV)
-            == (host, "80"))
+    got = await tsocket.getnameinfo(("127.0.0.1", 80), tsocket.NI_NUMERICSERV)
+    assert got == (host, "80")
 
 
 ################################################################
 # constructors
 ################################################################
+
 
 async def test_from_stdlib_socket():
     sa, sb = stdlib_socket.socketpair()
@@ -192,11 +201,14 @@ async def test_from_stdlib_socket():
     # rejects other types
     with pytest.raises(TypeError):
         tsocket.from_stdlib_socket(1)
+
     class MySocket(stdlib_socket.socket):
         pass
+
     mysock = MySocket()
     with pytest.raises(TypeError):
         tsocket.from_stdlib_socket(mysock)
+
 
 async def test_from_fd():
     sa, sb = stdlib_socket.socketpair()
@@ -254,6 +266,7 @@ async def test_socket():
 ################################################################
 # _SocketType
 ################################################################
+
 
 async def test_SocketType_basics():
     sock = tsocket.socket()
@@ -345,10 +358,16 @@ async def test_SocketType_shutdown():
         assert a.did_shutdown_SHUT_WR
 
 
-@pytest.mark.parametrize("address, socket_type", [('127.0.0.1', tsocket.AF_INET), ('::1', tsocket.AF_INET6)])
+@pytest.mark.parametrize(
+    "address, socket_type",
+    [('127.0.0.1', tsocket.AF_INET),
+     ('::1', tsocket.AF_INET6)]
+)
 async def test_SocketType_simple_server(address, socket_type):
     # listen, bind, accept, connect, getpeername, getsockname
-    with tsocket.socket(socket_type) as listener, tsocket.socket(socket_type) as client:
+    listener = tsocket.socket(socket_type)
+    client = tsocket.socket(socket_type)
+    with listener, client:
         listener.bind((address, 0))
         listener.listen(20)
         addr = listener.getsockname()[:2]
@@ -365,25 +384,29 @@ async def test_SocketType_simple_server(address, socket_type):
 async def test_SocketType_resolve():
     sock4 = tsocket.socket(family=tsocket.AF_INET)
     with assert_yields():
-        assert await sock4.resolve_local_address((None, 80)) == ("0.0.0.0", 80)
+        got = await sock4.resolve_local_address((None, 80))
+    assert got == ("0.0.0.0", 80)
     with assert_yields():
-        assert (await sock4.resolve_remote_address((None, 80))
-                == ("127.0.0.1", 80))
+        got = await sock4.resolve_remote_address((None, 80))
+    assert got == ("127.0.0.1", 80)
 
     sock6 = tsocket.socket(family=tsocket.AF_INET6)
     with assert_yields():
-        assert (await sock6.resolve_local_address((None, 80))
-                == ("::", 80, 0, 0))
+        got = await sock6.resolve_local_address((None, 80))
+    assert got == ("::", 80, 0, 0)
+
     with assert_yields():
-        assert (await sock6.resolve_remote_address((None, 80))
-                == ("::1", 80, 0, 0))
+        got = await sock6.resolve_remote_address((None, 80))
+    assert got == ("::1", 80, 0, 0)
 
     # AI_PASSIVE only affects the wildcard address, so for everything else
     # resolve_local_address and resolve_remote_address should work the same:
     for res in ["resolve_local_address", "resolve_remote_address"]:
+
         async def s4res(*args):
             with assert_yields():
                 return await getattr(sock4, res)(*args)
+
         async def s6res(*args):
             with assert_yields():
                 return await getattr(sock6, res)(*args)
@@ -414,7 +437,8 @@ async def test_SocketType_resolve():
         # smoke test the basic functionality...
         try:
             netlink_sock = tsocket.socket(
-                family=tsocket.AF_NETLINK, type=tsocket.SOCK_DGRAM)
+                family=tsocket.AF_NETLINK, type=tsocket.SOCK_DGRAM
+            )
         except (AttributeError, OSError):
             pass
         else:
@@ -444,6 +468,7 @@ async def test_SocketType_requires_preresolved(monkeypatch):
     # way, check that it propagates correctly
     def gai_oops(*args, **kwargs):
         raise tsocket.gaierror("nope!")
+
     monkeypatch.setattr(stdlib_socket, "getaddrinfo", gai_oops)
     with pytest.raises(tsocket.gaierror):
         sock.bind(("localhost", 0))
@@ -476,6 +501,7 @@ async def test_SocketType_non_blocking_paths():
         async def do_successful_blocking_recv():
             with assert_yields():
                 assert await ta.recv(10) == b"2"
+
         async with _core.open_nursery() as nursery:
             nursery.spawn(do_successful_blocking_recv)
             await wait_all_tasks_blocked()
@@ -485,6 +511,7 @@ async def test_SocketType_non_blocking_paths():
             with assert_yields():
                 with pytest.raises(_core.Cancelled):
                     await ta.recv(10)
+
         async with _core.open_nursery() as nursery:
             nursery.spawn(do_cancelled_blocking_recv)
             await wait_all_tasks_blocked()
@@ -497,16 +524,19 @@ async def test_SocketType_non_blocking_paths():
         # time, and whichever one runs first "steals" the data from the
         # other:
         tb = tsocket.from_stdlib_socket(b)
+
         async def t1():
             with assert_yields():
                 assert await ta.recv(1) == b"a"
             with assert_yields():
                 assert await tb.recv(1) == b"b"
+
         async def t2():
             with assert_yields():
                 assert await tb.recv(1) == b"b"
             with assert_yields():
                 assert await ta.recv(1) == b"a"
+
         async with _core.open_nursery() as nursery:
             nursery.spawn(t1)
             nursery.spawn(t2)
@@ -539,6 +569,7 @@ async def test_SocketType_connect_paths():
         with tsocket.socket() as sock, tsocket.socket() as listener:
             listener.bind(("127.0.0.1", 0))
             listener.listen()
+
             # Swap in our weird subclass under the trio.socket._SocketType's
             # nose -- and then swap it back out again before we hit
             # wait_socket_writable, which insists on a real socket.
@@ -546,10 +577,12 @@ async def test_SocketType_connect_paths():
                 def connect(self, *args, **kwargs):
                     cancel_scope.cancel()
                     sock._sock = stdlib_socket.fromfd(
-                        self.detach(), self.family, self.type)
+                        self.detach(), self.family, self.type
+                    )
                     sock._sock.connect(*args, **kwargs)
                     # If connect *doesn't* raise, then pretend it did
                     raise BlockingIOError  # pragma: no cover
+
             sock._sock.close()
             sock._sock = CancelSocket()
 
@@ -755,16 +788,22 @@ async def test_custom_hostname_resolver(monkeygai):
     # Check that the arguments are all getting passed through.
     # We have to use valid calls to avoid making the underlying system
     # getaddrinfo cranky when it's used for NUMERIC checks.
-    for vals in [(tsocket.AF_INET, 0, 0, 0),
-                 (0, tsocket.SOCK_STREAM, 0, 0),
-                 (0, 0, tsocket.IPPROTO_TCP, 0),
-                 (0, 0, 0, tsocket.AI_CANONNAME)]:
-        assert (await tsocket.getaddrinfo("localhost", "foo", *vals)
-                == ("custom_gai", b"localhost", "foo", *vals))
+    for vals in [
+        (tsocket.AF_INET, 0, 0, 0),
+        (0, tsocket.SOCK_STREAM, 0, 0),
+        (0, 0, tsocket.IPPROTO_TCP, 0),
+        (0, 0, 0, tsocket.AI_CANONNAME),
+    ]:
+        assert (
+            await tsocket.getaddrinfo(
+                "localhost", "foo", *vals
+            ) == ("custom_gai", b"localhost", "foo", *vals)
+        )
 
     # IDNA encoding is handled before calling the special object
-    assert (await tsocket.getaddrinfo("föö", "foo")
-            == ("custom_gai", b"xn--f-1gaa", "foo", 0, 0, 0, 0))
+    got = await tsocket.getaddrinfo("föö", "foo")
+    expected = ("custom_gai", b"xn--f-1gaa", "foo", 0, 0, 0, 0)
+    assert got == expected
 
     assert (await tsocket.getnameinfo("a", 0) == ("custom_gni", "a", 0))
 

@@ -5,6 +5,7 @@ import attr
 from ..testing import assert_yields
 from .. import abc as tabc
 
+
 async def test_AsyncResource_defaults():
     @attr.s
     class MyAR(tabc.AsyncResource):

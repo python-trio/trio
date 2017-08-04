@@ -58,9 +58,13 @@ def test_dir_matches_wrapped(async_file, wrapped):
     attrs = _FILE_SYNC_ATTRS.union(_FILE_ASYNC_METHODS)
 
     # all supported attrs in wrapped should be available in async_file
-    assert all(attr in dir(async_file) for attr in attrs if attr in dir(wrapped))
+    assert all(
+        attr in dir(async_file) for attr in attrs if attr in dir(wrapped)
+    )
     # all supported attrs not in wrapped should not be available in async_file
-    assert not any(attr in dir(async_file) for attr in attrs if attr not in dir(wrapped))
+    assert not any(
+        attr in dir(async_file) for attr in attrs if attr not in dir(wrapped)
+    )
 
 
 def test_unsupported_not_forwarded():
@@ -122,7 +126,9 @@ async def test_async_methods_wrap(async_file, wrapped):
 
         value = await meth(sentinel.argument, keyword=sentinel.keyword)
 
-        wrapped_meth.assert_called_once_with(sentinel.argument, keyword=sentinel.keyword)
+        wrapped_meth.assert_called_once_with(
+            sentinel.argument, keyword=sentinel.keyword
+        )
         assert value == wrapped_meth()
 
         wrapped.reset_mock()

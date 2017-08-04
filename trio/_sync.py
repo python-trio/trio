@@ -7,9 +7,15 @@ from . import _core
 from ._util import aiter_compat
 
 __all__ = [
-    "Event", "CapacityLimiter", "Semaphore", "Lock", "StrictFIFOLock",
-    "Condition", "Queue",
+    "Event",
+    "CapacityLimiter",
+    "Semaphore",
+    "Lock",
+    "StrictFIFOLock",
+    "Condition",
+    "Queue",
 ]
+
 
 @attr.s(slots=True, repr=False, cmp=False, hash=False)
 class Event:
@@ -72,12 +78,14 @@ def async_cm(cls):
     @_core.enable_ki_protection
     async def __aenter__(self):
         await self.acquire()
+
     __aenter__.__qualname__ = cls.__qualname__ + ".__aenter__"
     cls.__aenter__ = __aenter__
 
     @_core.enable_ki_protection
     async def __aexit__(self, *args):
         self.release()
+
     __aexit__.__qualname__ = cls.__qualname__ + ".__aexit__"
     cls.__aexit__ = __aexit__
     return cls
@@ -145,6 +153,7 @@ class CapacityLimiter:
        just borrowed and then put back.
 
     """
+
     def __init__(self, total_tokens):
         self._lot = _core.ParkingLot()
         self._borrowers = set()
@@ -155,8 +164,12 @@ class CapacityLimiter:
         assert self._total_tokens == total_tokens
 
     def __repr__(self):
-        return ("<trio.CapacityLimiter at {:#x}, {}/{} with {} waiting>"
-                .format(id(self), len(self._borrowers), self._total_tokens, len(self._lot)))
+        return (
+            "<trio.CapacityLimiter at {:#x}, {}/{} with {} waiting>".format(
+                id(self),
+                len(self._borrowers), self._total_tokens, len(self._lot)
+            )
+        )
 
     @property
     def total_tokens(self):
@@ -235,7 +248,8 @@ class CapacityLimiter:
         if borrower in self._borrowers:
             raise RuntimeError(
                 "this borrower is already holding one of this "
-                "CapacityLimiter's tokens")
+                "CapacityLimiter's tokens"
+            )
         if len(self._borrowers) < self._total_tokens and not self._lot:
             self._borrowers.add(borrower)
         else:
@@ -303,7 +317,8 @@ class CapacityLimiter:
         if borrower not in self._borrowers:
             raise RuntimeError(
                 "this borrower isn't holding any of this CapacityLimiter's "
-                "tokens")
+                "tokens"
+            )
         self._borrowers.remove(borrower)
         self._wake_waiters()
 
@@ -361,6 +376,7 @@ class Semaphore:
         ``max_value``.
 
     """
+
     def __init__(self, initial_value, *, max_value=None):
         if not isinstance(initial_value, int):
             raise TypeError("initial_value must be an int")
@@ -384,8 +400,10 @@ class Semaphore:
             max_value_str = ""
         else:
             max_value_str = ", max_value={}".format(self._max_value)
-        return ("<trio.Semaphore({}{}) at {:#x}>"
-                .format(self._value, max_value_str, id(self)))
+        return (
+            "<trio.Semaphore({}{}) at {:#x}>"
+            .format(self._value, max_value_str, id(self))
+        )
 
     @property
     def value(self):
@@ -465,6 +483,7 @@ class _LockStatistics:
     owner = attr.ib()
     tasks_waiting = attr.ib()
 
+
 @async_cm
 @attr.s(slots=True, cmp=False, hash=False, repr=False)
 class Lock:
@@ -490,8 +509,10 @@ class Lock:
         else:
             s1 = "unlocked"
             s2 = ""
-        return ("<{} {} object at {:#x}{}>"
-                .format(s1, self.__class__.__name__, id(self), s2))
+        return (
+            "<{} {} object at {:#x}{}>"
+            .format(s1, self.__class__.__name__, id(self), s2)
+        )
 
     def locked(self):
         """Check whether the lock is currently held.
@@ -639,6 +660,7 @@ class _ConditionStatistics:
     tasks_waiting = attr.ib()
     lock_statistics = attr.ib()
 
+
 @async_cm
 class Condition:
     """A classic `condition variable
@@ -654,6 +676,7 @@ class Condition:
           and used.
 
     """
+
     def __init__(self, lock=None):
         if lock is None:
             lock = Lock()
@@ -778,6 +801,7 @@ class _QueueStats:
     tasks_waiting_get = attr.ib()
     tasks_waiting_join = attr.ib()
 
+
 # Like queue.Queue, with the notable difference that the capacity argument is
 # mandatory.
 class Queue:
@@ -821,8 +845,10 @@ class Queue:
         self._unprocessed = 0
 
     def __repr__(self):
-        return ("<Queue({}) at {:#x} holding {} items>"
-                .format(self.capacity, id(self), len(self._data)))
+        return (
+            "<Queue({}) at {:#x} holding {} items>"
+            .format(self.capacity, id(self), len(self._data))
+        )
 
     def qsize(self):
         """Returns the number of items currently in the queue.
@@ -962,4 +988,5 @@ class Queue:
             capacity=self.capacity,
             tasks_waiting_put=self._put_semaphore.statistics().tasks_waiting,
             tasks_waiting_get=self._get_semaphore.statistics().tasks_waiting,
-            tasks_waiting_join=self._join_lot.statistics().tasks_waiting)
+            tasks_waiting_join=self._join_lot.statistics().tasks_waiting
+        )

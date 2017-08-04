@@ -103,6 +103,7 @@ DEFAULT_DELAY = 0.300
 #
 # Twisted and Tornado always uses default flags. I think we'll do the same.
 
+
 @contextmanager
 def close_on_error(obj):
     try:
@@ -158,11 +159,12 @@ def format_host_port(host, port):
 #   AF_INET6: "..."}
 # this might be simpler after
 async def open_tcp_stream(
-        host, port,
-        *,
-        # No trailing comma b/c bpo-9232 (fixed in py36)
-        happy_eyeballs_delay=DEFAULT_DELAY
-    ):
+    host,
+    port,
+    *,
+    # No trailing comma b/c bpo-9232 (fixed in py36)
+    happy_eyeballs_delay=DEFAULT_DELAY
+):
     """Connect to the given host and port over TCP.
 
     If the given ``host`` has multiple IP addresses associated with it, then
@@ -220,7 +222,8 @@ async def open_tcp_stream(
     # list. But let's be paranoid and handle it anyway:
     if not targets:
         msg = "no results found for hostname lookup: {}".format(
-            format_host_port(host, port))
+            format_host_port(host, port)
+        )
         raise OSError(msg)
 
     reorder_for_rfc_6555_section_5_4(targets)
@@ -290,5 +293,6 @@ async def open_tcp_stream(
     else:
         assert len(oserrors) == len(targets)
         msg = "all attempts to connect to {} failed".format(
-            format_host_port(host, port))
+            format_host_port(host, port)
+        )
         raise OSError(msg) from trio.MultiError(oserrors)

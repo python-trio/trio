@@ -7,6 +7,7 @@ from ..testing import check_half_closeable_stream, wait_all_tasks_blocked
 from .._network import *
 from .. import socket as tsocket
 
+
 async def test_SocketStream_basics():
     # stdlib socket bad (even if connected)
     a, b = stdlib_socket.socketpair()

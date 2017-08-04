@@ -6,6 +6,7 @@ def _public(fn):
     fn._public = True
     return fn
 
+
 def _hazmat(fn):
     # Everything exported by this module gets re-exported as either part of
     # the trio.* namespace or else the trio.hazmat.* namespace. By default,
@@ -13,6 +14,7 @@ def _hazmat(fn):
     # trio.hazmat.* instead. See trio/__init__.py for details.
     fn._hazmat = True
     return fn
+
 
 __all__ = []
 

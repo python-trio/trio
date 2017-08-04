@@ -24,8 +24,11 @@ from ._exceptions import (
 from ._multierror import MultiError
 from ._result import Result, Error, Value
 from ._traps import (
-    yield_briefly_no_cancel, Abort, yield_indefinitely,
-    YieldBrieflyNoCancel, YieldIndefinitely,
+    yield_briefly_no_cancel,
+    Abort,
+    yield_indefinitely,
+    YieldBrieflyNoCancel,
+    YieldIndefinitely,
 )
 from ._ki import (
     LOCALS_KEY_KI_PROTECTION_ENABLED, currently_ki_protected, ki_manager,
@@ -38,12 +41,12 @@ from . import _public, _hazmat
 # wrapper functions for runner and io manager methods, and adds them to
 # __all__. These are all re-exported as part of the 'trio' or 'trio.hazmat'
 # namespaces.
-__all__ = ["Task", "run", "open_nursery", "open_cancel_scope",
-           "yield_briefly", "current_task", "current_effective_deadline",
-           "yield_if_cancelled"]
+__all__ = [
+    "Task", "run", "open_nursery", "open_cancel_scope", "yield_briefly",
+    "current_task", "current_effective_deadline", "yield_if_cancelled"
+]
 
 GLOBAL_RUN_CONTEXT = threading.local()
-
 
 if os.name == "nt":
     from ._io_windows import WindowsIOManager as TheIOManager
@@ -54,8 +57,9 @@ elif hasattr(select, "kqueue"):
 else:  # pragma: no cover
     raise NotImplementedError("unsupported platform")
 
-
 _r = random.Random()
+
+
 @attr.s(slots=True, frozen=True)
 class SystemClock:
     # Add a large random offset to our clock to ensure that if people
@@ -76,6 +80,7 @@ class SystemClock:
 ################################################################
 # CancelScope and friends
 ################################################################
+
 
 @attr.s(slots=True, cmp=False, hash=False)
 class CancelScope:
@@ -162,6 +167,7 @@ class CancelScope:
             return None
         return exc
 
+
 @contextmanager
 @enable_ki_protection
 def open_cancel_scope(*, deadline=inf, shield=False):
@@ -185,6 +191,7 @@ def open_cancel_scope(*, deadline=inf, shield=False):
 # Nursery and friends
 ################################################################
 
+
 @acontextmanager
 @async_generator
 @enable_ki_protection
@@ -205,6 +212,7 @@ async def open_nursery():
             pending_exc = exc
         assert currently_ki_protected()
         await nursery._clean_up(pending_exc)
+
 
 # I *think* this is equivalent to the above, and it gives *much* nicer
 # exception tracebacks... but I'm a little nervous about it because it's much
@@ -235,6 +243,7 @@ async def open_nursery():
 #
 # def open_nursery():
 #     return NurseryManager()
+
 
 class Nursery:
     def __init__(self, parent, cancel_scope):
@@ -322,9 +331,8 @@ class Nursery:
             self._closed = True
             if exceptions:
                 mexc = MultiError(exceptions)
-                if (pending_exc
-                      and mexc.__cause__ is None
-                      and mexc.__context__ is None):
+                if (pending_exc and mexc.__cause__ is None
+                        and mexc.__context__ is None):
                     # pending_exc is *part* of this MultiError, so it doesn't
                     # make sense to also have it as
                     # __context__. Unfortunately, we can't stop Python from
@@ -353,6 +361,7 @@ class Nursery:
 ################################################################
 # Task and friends
 ################################################################
+
 
 @attr.s(slots=True, cmp=False, hash=False, repr=False)
 class Task:
@@ -492,22 +501,28 @@ class Task:
         if pending_scope is None:
             return
         exc = pending_scope._make_exc()
+
         def raise_cancel():
             raise exc
+
         self._attempt_abort(raise_cancel)
 
     def _attempt_delivery_of_pending_ki(self):
         assert self._runner.ki_pending
         if self._abort_func is None:
             return
+
         def raise_cancel():
             self._runner.ki_pending = False
             raise KeyboardInterrupt
+
         self._attempt_abort(raise_cancel)
+
 
 ################################################################
 # The central Runner object
 ################################################################
+
 
 @attr.s(frozen=True)
 class _RunStatistics:
@@ -516,6 +531,7 @@ class _RunStatistics:
     seconds_to_next_deadline = attr.ib()
     io_statistics = attr.ib()
     call_soon_queue_size = attr.ib()
+
 
 @attr.s(cmp=False, hash=False)
 class Runner:
@@ -580,8 +596,10 @@ class Runner:
             tasks_runnable=len(self.runq),
             seconds_to_next_deadline=seconds_to_next_deadline,
             io_statistics=self.io_manager.statistics(),
-            call_soon_queue_size=
-              len(self.call_soon_queue) + len(self.call_soon_idempotent_queue),
+            call_soon_queue_size=(
+                len(self.call_soon_queue) +
+                len(self.call_soon_idempotent_queue)
+            ),
         )
 
     @_public
@@ -635,8 +653,8 @@ class Runner:
         self.instrument("task_scheduled", task)
 
     def spawn_impl(
-            self, async_fn, args, nursery, name,
-            *, ki_protection_enabled=False):
+            self, async_fn, args, nursery, name, *, ki_protection_enabled=False
+    ):
 
         ######
         # Make sure the nursery is in working order
@@ -691,7 +709,8 @@ class Runner:
                     "\n"
                     "  trio.run({async_fn.__name__}, ...)       # correct!\n"
                     "  nursery.spawn({async_fn.__name__}, ...)  # correct!"
-                    .format(async_fn=async_fn)) from None
+                    .format(async_fn=async_fn)
+                ) from None
 
             # Give good error for: nursery.spawn(asyncio.sleep(1))
             if _return_value_looks_like_wrong_library(async_fn):
@@ -700,7 +719,8 @@ class Runner:
                     "{!r} – are you trying to use a library written for "
                     "asyncio/twisted/tornado or similar? That won't work "
                     "without some sort of compatibility shim."
-                    .format(async_fn)) from None
+                    .format(async_fn)
+                ) from None
 
             raise
 
@@ -716,12 +736,14 @@ class Runner:
                     "spawn got unexpected {!r} – are you trying to use a "
                     "library written for asyncio/twisted/tornado or similar? "
                     "That won't work without some sort of compatibility shim."
-                    .format(coro))
+                    .format(coro)
+                )
             # Give good error for: nursery.spawn(some_sync_fn)
             raise TypeError(
                 "trio expected an async function, but {!r} appears to be "
                 "synchronous"
-                .format(getattr(async_fn, "__qualname__", async_fn)))
+                .format(getattr(async_fn, "__qualname__", async_fn))
+            )
 
         ######
         # Set up the Task object
@@ -743,7 +765,8 @@ class Runner:
             for scope in nursery._cancel_stack:
                 scope._add_task(task)
         coro.cr_frame.f_locals.setdefault(
-            LOCALS_KEY_KI_PROTECTION_ENABLED, ki_protection_enabled)
+            LOCALS_KEY_KI_PROTECTION_ENABLED, ki_protection_enabled
+        )
         if nursery is not None:
             # Task locals are inherited from the spawning task, not the
             # nursery task. The 'if nursery' check is just used as a guard to
@@ -812,9 +835,12 @@ class Runner:
           Task: the newly spawned task
 
         """
+
         async def system_task_wrapper(async_fn, args):
-            PASS = (Cancelled, KeyboardInterrupt, GeneratorExit,
-                    TrioInternalError)
+            PASS = (
+                Cancelled, KeyboardInterrupt, GeneratorExit, TrioInternalError
+            )
+
             def excfilter(exc):
                 if isinstance(exc, PASS):
                     return exc
@@ -822,18 +848,25 @@ class Runner:
                     new_exc = TrioInternalError("system task crashed")
                     new_exc.__cause__ = exc
                     return new_exc
+
             with MultiError.catch(excfilter):
                 await async_fn(*args)
+
         if name is None:
             name = async_fn
         return self.spawn_impl(
-            system_task_wrapper, (async_fn, args), self.system_nursery, name,
-            ki_protection_enabled=True)
+            system_task_wrapper, (async_fn, args),
+            self.system_nursery,
+            name,
+            ki_protection_enabled=True
+        )
 
     async def init(self, async_fn, args):
         async with open_nursery() as system_nursery:
             self.system_nursery = system_nursery
-            self.spawn_system_task(self.call_soon_task, name="<call soon task>")
+            self.spawn_system_task(
+                self.call_soon_task, name="<call soon task>"
+            )
             self.main_task = system_nursery.spawn(async_fn, *args)
             async for task_batch in system_nursery.monitor:
                 for task in task_batch:
@@ -872,7 +905,8 @@ class Runner:
     call_soon_lock = attr.ib(default=attr.Factory(threading.RLock))
 
     def call_soon_thread_and_signal_safe(
-            self, sync_fn, *args, idempotent=False):
+            self, sync_fn, *args, idempotent=False
+    ):
         with self.call_soon_lock:
             if self.call_soon_done:
                 raise RunFinishedError("run() has exited")
@@ -959,8 +993,10 @@ class Runner:
             try:
                 sync_fn(*args)
             except BaseException as exc:
+
                 async def kill_everything(exc):
                     raise exc
+
                 self.spawn_system_task(kill_everything, exc)
             return True
 
@@ -978,7 +1014,7 @@ class Runner:
             while True:
                 run_all_bounded()
                 if (not self.call_soon_queue
-                      and not self.call_soon_idempotent_queue):
+                        and not self.call_soon_idempotent_queue):
                     await self.call_soon_wakeup.wait_woken()
                 else:
                     await yield_briefly()
@@ -1100,9 +1136,11 @@ class Runner:
         task = current_task()
         key = (cushion, tiebreaker, id(task))
         self.waiting_for_idle[key] = task
+
         def abort(_):
             del self.waiting_for_idle[key]
             return Abort.SUCCEEDED
+
         await yield_indefinitely(abort)
 
     ################
@@ -1121,7 +1159,8 @@ class Runner:
                 self.instruments.remove(instrument)
                 sys.stderr.write(
                     "Exception raised when calling {!r} on instrument {!r}\n"
-                    .format(method_name, instrument))
+                    .format(method_name, instrument)
+                )
                 sys.excepthook(*sys.exc_info())
                 sys.stderr.write("Instrument has been disabled.\n")
 
@@ -1141,8 +1180,14 @@ class Runner:
 # run
 ################################################################
 
-def run(async_fn, *args, clock=None, instruments=[],
-        restrict_keyboard_interrupt_to_checkpoints=False):
+
+def run(
+        async_fn,
+        *args,
+        clock=None,
+        instruments=[],
+        restrict_keyboard_interrupt_to_checkpoints=False
+):
     """Run a trio-flavored async function, and return the result.
 
     Calling::
@@ -1224,7 +1269,9 @@ def run(async_fn, *args, clock=None, instruments=[],
         clock = SystemClock()
     instruments = list(instruments)
     io_manager = TheIOManager()
-    runner = Runner(clock=clock, instruments=instruments, io_manager=io_manager)
+    runner = Runner(
+        clock=clock, instruments=instruments, io_manager=io_manager
+    )
     GLOBAL_RUN_CONTEXT.runner = runner
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
 
@@ -1232,8 +1279,8 @@ def run(async_fn, *args, clock=None, instruments=[],
     # where KeyboardInterrupt would be allowed and converted into an
     # TrioInternalError:
     try:
-        with ki_manager(
-                runner.deliver_ki, restrict_keyboard_interrupt_to_checkpoints):
+        with ki_manager(runner.deliver_ki,
+                        restrict_keyboard_interrupt_to_checkpoints):
             try:
                 with closing(runner):
                     # The main reason this is split off into its own function
@@ -1243,7 +1290,8 @@ def run(async_fn, *args, clock=None, instruments=[],
                 raise
             except BaseException as exc:
                 raise TrioInternalError(
-                    "internal error in trio - please file a bug!") from exc
+                    "internal error in trio - please file a bug!"
+                ) from exc
             finally:
                 GLOBAL_RUN_CONTEXT.__dict__.clear()
             return result.unwrap()
@@ -1254,16 +1302,21 @@ def run(async_fn, *args, clock=None, instruments=[],
             # Implicitly chains with any exception from result.unwrap():
             raise KeyboardInterrupt
 
+
 # 24 hours is arbitrary, but it avoids issues like people setting timeouts of
 # 10**20 and then getting integer overflows in the underlying system calls.
 _MAX_TIMEOUT = 24 * 60 * 60
+
 
 def run_impl(runner, async_fn, args):
     runner.instrument("before_run")
     runner.clock.start_clock()
     runner.init_task = runner.spawn_impl(
-        runner.init, (async_fn, args), None, "<init>",
-        ki_protection_enabled=True)
+        runner.init, (async_fn, args),
+        None,
+        "<init>",
+        ki_protection_enabled=True
+    )
 
     while runner.tasks:
         if runner.runq:
@@ -1374,8 +1427,8 @@ def run_impl(runner, async_fn, args):
                         "trio.run received unrecognized yield message {!r}. "
                         "Are you trying to use a library written for some "
                         "other framework like asyncio? That won't work "
-                        "without some kind of compatibility shim."
-                        .format(msg))
+                        "without some kind of compatibility shim.".format(msg)
+                    )
                     # There's really no way to resume this task, so abandon it
                     # and propagate the exception into the task's spawner.
                     runner.task_exited(task, Error(exc))
@@ -1390,6 +1443,7 @@ def run_impl(runner, async_fn, args):
 # Other public API functions
 ################################################################
 
+
 def current_task():
     """Return the :class:`Task` object representing the current task.
 
@@ -1402,6 +1456,7 @@ def current_task():
         return GLOBAL_RUN_CONTEXT.task
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
+
 
 def current_effective_deadline():
     """Returns the current effective deadline for the current task.
@@ -1437,6 +1492,7 @@ def current_effective_deadline():
         deadline = min(deadline, scope._deadline)
     return deadline
 
+
 @_hazmat
 async def yield_briefly():
     """A pure :ref:`checkpoint <checkpoints>`.
@@ -1455,6 +1511,7 @@ async def yield_briefly():
     with open_cancel_scope(deadline=-inf) as scope:
         await _core.yield_indefinitely(lambda _: _core.Abort.SUCCEEDED)
 
+
 @_hazmat
 async def yield_if_cancelled():
     """A conditional :ref:`checkpoint <checkpoints>`.
@@ -1464,11 +1521,12 @@ async def yield_if_cancelled():
 
     """
     task = current_task()
-    if (task._pending_cancel_scope() is not None
-          or (task is task._runner.main_task and task._runner.ki_pending)):
+    if (task._pending_cancel_scope() is not None or
+        (task is task._runner.main_task and task._runner.ki_pending)):
         await _core.yield_briefly()
         assert False  # pragma: no cover
     task._cancel_points += 1
+
 
 _WRAPPER_TEMPLATE = """
 def wrapper(*args, **kwargs):
@@ -1480,6 +1538,7 @@ def wrapper(*args, **kwargs):
     return meth(*args, **kwargs)
 """
 
+
 def _generate_method_wrappers(cls, path_to_instance):
     for methname, fn in cls.__dict__.items():
         if callable(fn) and getattr(fn, "_public", False):
@@ -1487,9 +1546,12 @@ def _generate_method_wrappers(cls, path_to_instance):
             # current thread-local context version of this object, and calls
             # it. exec() is a bit ugly but the resulting code is faster and
             # simpler than doing some loop over getattr.
-            ns = {"GLOBAL_RUN_CONTEXT": GLOBAL_RUN_CONTEXT,
-                  "LOCALS_KEY_KI_PROTECTION_ENABLED":
-                      LOCALS_KEY_KI_PROTECTION_ENABLED}
+            ns = {
+                "GLOBAL_RUN_CONTEXT":
+                    GLOBAL_RUN_CONTEXT,
+                "LOCALS_KEY_KI_PROTECTION_ENABLED":
+                    LOCALS_KEY_KI_PROTECTION_ENABLED
+            }
             exec(_WRAPPER_TEMPLATE.format(path_to_instance, methname), ns)
             wrapper = ns["wrapper"]
             # 'fn' is the *unbound* version of the method, but our exported
@@ -1503,6 +1565,7 @@ def _generate_method_wrappers(cls, path_to_instance):
             # And finally export it:
             globals()[methname] = wrapper
             __all__.append(methname)
+
 
 _generate_method_wrappers(Runner, "runner")
 _generate_method_wrappers(TheIOManager, "runner.io_manager")

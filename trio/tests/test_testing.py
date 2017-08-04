@@ -9,8 +9,10 @@ from .. import _streams
 from ..testing import *
 from ..testing import _assert_raises, _UnboundedByteQueue
 
+
 async def test_wait_all_tasks_blocked():
     record = []
+
     async def busy_bee():
         for _ in range(10):
             await _core.yield_briefly()
@@ -31,6 +33,7 @@ async def test_wait_all_tasks_blocked():
             await wait_all_tasks_blocked()
         except _core.Cancelled:
             return "ok"
+
     async with _core.open_nursery() as nursery:
         t4 = nursery.spawn(cancelled_while_waiting)
         nursery.cancel_scope.cancel()
@@ -39,6 +42,7 @@ async def test_wait_all_tasks_blocked():
 
 async def test_wait_all_tasks_blocked_with_timeouts(mock_clock):
     record = []
+
     async def timeout_task():
         record.append("tt start")
         await sleep(5)
@@ -55,6 +59,7 @@ async def test_wait_all_tasks_blocked_with_timeouts(mock_clock):
 
 async def test_wait_all_tasks_blocked_with_cushion():
     record = []
+
     async def blink():
         record.append("blink start")
         await sleep(0.01)
@@ -119,6 +124,7 @@ async def test_wait_all_tasks_blocked_with_tiebreaker():
 
 ################################################################
 
+
 async def test_assert_yields():
     with assert_yields():
         await _core.yield_briefly()
@@ -137,8 +143,8 @@ async def test_assert_yields():
     # partial yield cases
     # if you have a schedule point but not a cancel point, or vice-versa, then
     # that doesn't make *either* version of assert_{no_,}yields happy.
-    for partial_yield in [
-            _core.yield_if_cancelled, _core.yield_briefly_no_cancel]:
+    for partial_yield in [_core.yield_if_cancelled,
+                          _core.yield_briefly_no_cancel]:
         for block in [assert_yields, assert_no_yields]:
             print(partial_yield, block)
             with pytest.raises(AssertionError):
@@ -157,8 +163,10 @@ async def test_assert_yields():
 
 ################################################################
 
+
 async def test_Sequencer():
     record = []
+
     def t(val):
         print(val)
         record.append(val)
@@ -184,7 +192,9 @@ async def test_Sequencer():
         async with seq(5):
             await t1.wait()
             await t2.wait()
-        assert record == [("f2", 0), ("f1", 1), ("f2", 2), ("f1", 3), ("f1", 4)]
+        assert record == [
+            ("f2", 0), ("f1", 1), ("f2", 2), ("f1", 3), ("f1", 4)
+        ]
 
     seq = Sequencer()
     # Catches us if we try to re-use a sequence point:
@@ -199,6 +209,7 @@ async def test_Sequencer_cancel():
     # Killing a blocked task makes everything blow up
     record = []
     seq = Sequencer()
+
     async def child(i):
         with _core.open_cancel_scope() as scope:
             if i == 1:
@@ -224,6 +235,7 @@ async def test_Sequencer_cancel():
 
 
 ################################################################
+
 
 def test_mock_clock():
     REAL_NOW = 123.0
@@ -264,7 +276,6 @@ def test_mock_clock():
     REAL_NOW += 1
     assert c.current_time() == 4.5
 
-
     c2 = MockClock(rate=3)
     assert c2.rate == 3
     assert c2.current_time() < 10
@@ -287,8 +298,10 @@ async def test_mock_clock_autojump(mock_clock):
         virtual_start = _core.current_time()
 
     real_duration = time.monotonic() - real_start
-    print("Slept {} seconds in {} seconds"
-          .format(10 * sum(range(10)), real_duration))
+    print(
+        "Slept {} seconds in {} seconds"
+        .format(10 * sum(range(10)), real_duration)
+    )
     assert real_duration < 1
 
     mock_clock.autojump_threshold = 0.02
@@ -376,6 +389,7 @@ async def test_mock_clock_autojump_0_and_wait_all_tasks_blocked(mock_clock):
 
 ################################################################
 
+
 async def test__assert_raises():
     with pytest.raises(AssertionError):
         with _assert_raises(RuntimeError):
@@ -387,6 +401,7 @@ async def test__assert_raises():
 
     with _assert_raises(RuntimeError):
         raise RuntimeError
+
 
 # This is a private implementation detail, but it's complex enough to be worth
 # testing directly
@@ -505,12 +520,15 @@ async def test_MemorySendStream():
     assert mss.close_hook is None
 
     record = []
+
     async def send_all_hook():
         # hook runs after send_all does its work (can pull data out)
         assert mss2.get_data_nowait() == b"abc"
         record.append("send_all_hook")
+
     async def wait_send_all_might_not_block_hook():
         record.append("wait_send_all_might_not_block_hook")
+
     def close_hook():
         record.append("close_hook")
 
@@ -570,6 +588,7 @@ async def test_MemoryRecieveStream():
         mrs2.put_data(b"xxx")
 
     record = []
+
     def close_hook():
         record.append("closed")
 
@@ -729,18 +748,22 @@ async def test_memory_stream_pair():
 async def test_memory_streams_with_generic_tests():
     async def one_way_stream_maker():
         return memory_stream_one_way_pair()
+
     await check_one_way_stream(one_way_stream_maker, None)
 
     async def half_closeable_stream_maker():
         return memory_stream_pair()
+
     await check_half_closeable_stream(half_closeable_stream_maker, None)
 
 
 async def test_lockstep_streams_with_generic_tests():
     async def one_way_stream_maker():
         return lockstep_stream_one_way_pair()
+
     await check_one_way_stream(one_way_stream_maker, one_way_stream_maker)
 
     async def two_way_stream_maker():
         return lockstep_stream_pair()
+
     await check_two_way_stream(two_way_stream_maker, two_way_stream_maker)

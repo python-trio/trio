@@ -34,7 +34,11 @@ async def test_magic():
     assert bytes(path) == b'test'
 
 
-cls_pairs = [(trio.Path, pathlib.Path), (pathlib.Path, trio.Path), (trio.Path, trio.Path)]
+cls_pairs = [
+    (trio.Path, pathlib.Path),
+    (pathlib.Path, trio.Path),
+    (trio.Path, trio.Path)
+]
 
 
 @pytest.mark.parametrize('cls_a,cls_b', cls_pairs)
@@ -56,7 +60,12 @@ async def test_cmp_magic(cls_a, cls_b):
 # upstream python3.5 bug: we should also test (pathlib.Path, trio.Path), but
 # __*div__ does not properly raise NotImplementedError like the other comparison
 # magic, so trio.Path's implementation does not get dispatched
-cls_pairs = [(trio.Path, pathlib.Path), (trio.Path, trio.Path), (trio.Path, str), (str, trio.Path)]
+cls_pairs = [
+    (trio.Path, pathlib.Path),
+    (trio.Path, trio.Path),
+    (trio.Path, str),
+    (str, trio.Path)
+]
 
 
 @pytest.mark.parametrize('cls_a,cls_b', cls_pairs)

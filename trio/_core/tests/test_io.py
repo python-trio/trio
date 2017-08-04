@@ -9,6 +9,7 @@ from ...testing import wait_all_tasks_blocked, Sequencer, assert_yields
 
 # Cross-platform tests for IO handling
 
+
 def fill_socket(sock):
     try:
         while True:
@@ -16,12 +17,14 @@ def fill_socket(sock):
     except BlockingIOError:
         pass
 
+
 def drain_socket(sock):
     try:
         while True:
             sock.recv(65536)
     except BlockingIOError:
         pass
+
 
 @pytest.fixture
 def socketpair():
@@ -32,39 +35,46 @@ def socketpair():
     for sock in pair:
         sock.close()
 
+
 wait_readable_options = [_core.wait_socket_readable]
 wait_writable_options = [_core.wait_socket_writable]
 if hasattr(_core, "wait_readable"):
     wait_readable_options.append(_core.wait_readable)
+
     async def wait_readable_fd(fileobj):
         return await _core.wait_readable(fileobj.fileno())
+
     wait_readable_options.append(wait_readable_fd)
 if hasattr(_core, "wait_writable"):
     wait_writable_options.append(_core.wait_writable)
+
     async def wait_writable_fd(fileobj):
         return await _core.wait_writable(fileobj.fileno())
+
     wait_writable_options.append(wait_writable_fd)
 
 # Decorators that feed in different settings for wait_readable / wait_writable.
 # Note that if you use both decorators on the same test, it will run all
 # N**2 *combinations*
 read_socket_test = pytest.mark.parametrize(
-    "wait_readable", wait_readable_options, ids=lambda fn: fn.__name__)
+    "wait_readable", wait_readable_options, ids=lambda fn: fn.__name__
+)
 write_socket_test = pytest.mark.parametrize(
-    "wait_writable", wait_writable_options, ids=lambda fn: fn.__name__)
+    "wait_writable", wait_writable_options, ids=lambda fn: fn.__name__
+)
 
 
 async def test_wait_socket_type_checking(socketpair):
     a, b = socketpair
 
     # wait_socket_* accept actual socket objects, only
-    for sock_fn in [
-            _core.wait_socket_readable, _core.wait_socket_writable]:
+    for sock_fn in [_core.wait_socket_readable, _core.wait_socket_writable]:
         with pytest.raises(TypeError):
             await sock_fn(a.fileno())
 
         class AllegedSocket(stdlib_socket.socket):
             pass
+
         with AllegedSocket() as alleged_socket:
             with pytest.raises(TypeError):
                 await sock_fn(alleged_socket)
@@ -84,6 +94,7 @@ async def test_wait_basic(socketpair, wait_readable, wait_writable):
 
     # But readable() blocks until data arrives
     record = []
+
     async def block_on_read():
         try:
             with assert_yields():
@@ -93,6 +104,7 @@ async def test_wait_basic(socketpair, wait_readable, wait_writable):
         else:
             record.append("readable")
             return a.recv(10)
+
     async with _core.open_nursery() as nursery:
         t = nursery.spawn(block_on_read)
         await wait_all_tasks_blocked()
@@ -106,6 +118,7 @@ async def test_wait_basic(socketpair, wait_readable, wait_writable):
     with assert_yields():
         await wait_readable(b)
     record = []
+
     async def block_on_write():
         try:
             with assert_yields():
@@ -114,6 +127,7 @@ async def test_wait_basic(socketpair, wait_readable, wait_writable):
             record.append("cancelled")
         else:
             record.append("writable")
+
     async with _core.open_nursery() as nursery:
         t = nursery.spawn(block_on_write)
         await wait_all_tasks_blocked()
@@ -150,6 +164,7 @@ async def test_double_read(socketpair, wait_readable):
                 await wait_readable(a)
         nursery.cancel_scope.cancel()
 
+
 @write_socket_test
 async def test_double_write(socketpair, wait_writable):
     a, b = socketpair
@@ -168,7 +183,8 @@ async def test_double_write(socketpair, wait_writable):
 @read_socket_test
 @write_socket_test
 async def test_socket_simultaneous_read_write(
-        socketpair, wait_readable, wait_writable):
+    socketpair, wait_readable, wait_writable
+):
     a, b = socketpair
     fill_socket(a)
     async with _core.open_nursery() as nursery:
@@ -186,7 +202,8 @@ async def test_socket_simultaneous_read_write(
 @read_socket_test
 @write_socket_test
 async def test_socket_actual_streaming(
-        socketpair, wait_readable, wait_writable):
+    socketpair, wait_readable, wait_writable
+):
     a, b = socketpair
 
     # Use a small send buffer on one of the sockets to increase the chance of

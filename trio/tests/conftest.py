@@ -9,17 +9,20 @@ import inspect
 
 from ..testing import trio_test, MockClock
 
+
 def pytest_addoption(parser):
-    parser.addoption(
-        "--run-slow", action="store_true", help="run slow tests")
+    parser.addoption("--run-slow", action="store_true", help="run slow tests")
+
 
 @pytest.fixture
 def mock_clock():
     return MockClock()
 
+
 @pytest.fixture
 def autojump_clock():
     return MockClock(autojump_threshold=0)
+
 
 # FIXME: split off into a package (or just make part of trio's public
 # interface?), with config file to enable? and I guess a mark option too; I

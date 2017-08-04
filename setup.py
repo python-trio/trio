@@ -61,37 +61,38 @@ Vital statistics:
   in all project spaces.
 """
 
-setup(name="trio",
-      version=__version__,
-      description="An async/await-native I/O library for humans and snake people",
-      long_description=LONG_DESC,
-      author="Nathaniel J. Smith",
-      author_email="njs@pobox.com",
-      url="https://github.com/python-trio/trio",
-      license="MIT -or- Apache License 2.0",
-      packages=find_packages(),
-      install_requires=[
-          "attrs",
-          "sortedcontainers",
-          "async_generator >= 1.6",
-          "idna",
-          # PEP 508 style, but:
-          # https://bitbucket.org/pypa/wheel/issues/181/bdist_wheel-silently-discards-pep-508
-          #"cffi; os_name == 'nt'",  # "cffi is required on windows"
-      ],
-      # This means, just install *everything* you see under trio/, even if it
-      # doesn't look like a source file, so long as it appears in MANIFEST.in:
-      include_package_data=True,
-      # Quirky bdist_wheel-specific way:
-      # https://wheel.readthedocs.io/en/latest/#defining-conditional-dependencies
-      # also supported by pip and setuptools, as long as they're vaguely
-      # recent
-      extras_require={
-          ":os_name == 'nt'": ["cffi"],  # "cffi is required on windows"
-      },
-      python_requires=">=3.5",
-      keywords=["async", "io", "networking", "trio"],
-      classifiers=[
+setup(
+    name="trio",
+    version=__version__,
+    description="An async/await-native I/O library for humans and snake people",
+    long_description=LONG_DESC,
+    author="Nathaniel J. Smith",
+    author_email="njs@pobox.com",
+    url="https://github.com/python-trio/trio",
+    license="MIT -or- Apache License 2.0",
+    packages=find_packages(),
+    install_requires=[
+        "attrs",
+        "sortedcontainers",
+        "async_generator >= 1.6",
+        "idna",
+        # PEP 508 style, but:
+        # https://bitbucket.org/pypa/wheel/issues/181/bdist_wheel-silently-discards-pep-508
+        #"cffi; os_name == 'nt'",  # "cffi is required on windows"
+    ],
+    # This means, just install *everything* you see under trio/, even if it
+    # doesn't look like a source file, so long as it appears in MANIFEST.in:
+    include_package_data=True,
+    # Quirky bdist_wheel-specific way:
+    # https://wheel.readthedocs.io/en/latest/#defining-conditional-dependencies
+    # also supported by pip and setuptools, as long as they're vaguely
+    # recent
+    extras_require={
+        ":os_name == 'nt'": ["cffi"],  # "cffi is required on windows"
+    },
+    python_requires=">=3.5",
+    keywords=["async", "io", "networking", "trio"],
+    classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
@@ -106,5 +107,5 @@ setup(name="trio",
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Topic :: System :: Networking",
-      ],
+    ],
 )

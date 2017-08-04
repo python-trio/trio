@@ -18,17 +18,27 @@ from . import Event as _Event, sleep as _sleep
 from . import abc as _abc
 
 __all__ = [
-    "wait_all_tasks_blocked", "trio_test", "MockClock",
-    "assert_yields", "assert_no_yields", "Sequencer",
-    "MemorySendStream", "MemoryReceiveStream", "memory_stream_pump",
-    "memory_stream_one_way_pair", "memory_stream_pair",
-    "lockstep_stream_one_way_pair", "lockstep_stream_pair",
-    "check_one_way_stream", "check_two_way_stream",
+    "wait_all_tasks_blocked",
+    "trio_test",
+    "MockClock",
+    "assert_yields",
+    "assert_no_yields",
+    "Sequencer",
+    "MemorySendStream",
+    "MemoryReceiveStream",
+    "memory_stream_pump",
+    "memory_stream_one_way_pair",
+    "memory_stream_pair",
+    "lockstep_stream_one_way_pair",
+    "lockstep_stream_pair",
+    "check_one_way_stream",
+    "check_two_way_stream",
     "check_half_closeable_stream",
 ]
 
 # re-export
 from ._core import wait_all_tasks_blocked
+
 
 # Use:
 #
@@ -50,12 +60,14 @@ def trio_test(fn):
         else:
             raise ValueError("too many clocks spoil the broth!")
         return _core.run(partial(fn, **kwargs), clock=clock)
+
     return wrapper
 
 
 ################################################################
 # The glorious MockClock
 ################################################################
+
 
 # Prior art:
 #   https://twistedmatrix.com/documents/current/api/twisted.internet.task.Clock.html
@@ -145,8 +157,10 @@ class MockClock(_abc.Clock):
         self.autojump_threshold = autojump_threshold
 
     def __repr__(self):
-        return ("<MockClock, time={:.7f}, rate={} @ {:#x}>"
-                .format(self.current_time(), self._rate, id(self)))
+        return (
+            "<MockClock, time={:.7f}, rate={} @ {:#x}>"
+            .format(self.current_time(), self._rate, id(self))
+        )
 
     @property
     def rate(self):
@@ -178,7 +192,8 @@ class MockClock(_abc.Clock):
                     # scope above, and effectively just causes us to skip back
                     # to the start the loop, like a 'continue'.
                     await wait_all_tasks_blocked(
-                        self._autojump_threshold, float("inf"))
+                        self._autojump_threshold, float("inf")
+                    )
                     statistics = _core.current_statistics()
                     jump = statistics.seconds_to_next_deadline
                     if jump < inf:
@@ -253,6 +268,7 @@ class MockClock(_abc.Clock):
 # Testing checkpoints
 ################################################################
 
+
 @contextmanager
 def _assert_yields_or_not(expected):
     __tracebackhide__ = True
@@ -262,14 +278,13 @@ def _assert_yields_or_not(expected):
     try:
         yield
     finally:
-        if (expected
-            and (task._cancel_points == orig_cancel
-                 or task._schedule_points == orig_schedule)):
+        if (expected and (task._cancel_points == orig_cancel
+                          or task._schedule_points == orig_schedule)):
             raise AssertionError("assert_yields block did not yield!")
-        elif (not expected
-              and (task._cancel_points != orig_cancel
-                   or task._schedule_points != orig_schedule)):
+        elif (not expected and (task._cancel_points != orig_cancel
+                                or task._schedule_points != orig_schedule)):
             raise AssertionError("assert_no_yields block yielded!")
+
 
 def assert_yields():
     """Use as a context manager to check that the code inside the ``with``
@@ -288,6 +303,7 @@ def assert_yields():
     """
     __tracebackhide__ = True
     return _assert_yields_or_not(True)
+
 
 def assert_no_yields():
     """Use as a context manager to check that the code inside the ``with``
@@ -311,6 +327,7 @@ def assert_no_yields():
 ################################################################
 # Sequencer
 ################################################################
+
 
 @attr.s(slots=True, cmp=False, hash=False)
 class Sequencer:
@@ -354,7 +371,8 @@ class Sequencer:
     """
 
     _sequence_points = attr.ib(
-        default=attr.Factory(lambda: defaultdict(_Event)), init=False)
+        default=attr.Factory(lambda: defaultdict(_Event)), init=False
+    )
     _claimed = attr.ib(default=attr.Factory(set), init=False)
     _broken = attr.ib(default=False, init=False)
 
@@ -363,7 +381,8 @@ class Sequencer:
     async def __call__(self, position):
         if position in self._claimed:
             raise RuntimeError(
-                "Attempted to re-use sequence point {}".format(position))
+                "Attempted to re-use sequence point {}".format(position)
+            )
         if self._broken:
             raise RuntimeError("sequence broken!")
         self._claimed.add(position)
@@ -375,7 +394,8 @@ class Sequencer:
                 for event in self._sequence_points.values():
                     event.set()
                 raise RuntimeError(
-                    "Sequencer wait cancelled -- sequence broken")
+                    "Sequencer wait cancelled -- sequence broken"
+                )
             else:
                 if self._broken:
                     raise RuntimeError("sequence broken!")
@@ -388,6 +408,7 @@ class Sequencer:
 ################################################################
 # Generic stream tests
 ################################################################
+
 
 class _CloseBoth:
     def __init__(self, both):
@@ -502,8 +523,10 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             scope.cancel()
 
         async with _core.open_nursery() as nursery:
-            nursery.spawn(simple_check_wait_send_all_might_not_block,
-                          nursery.cancel_scope)
+            nursery.spawn(
+                simple_check_wait_send_all_might_not_block,
+                nursery.cancel_scope
+            )
             nursery.spawn(do_receive_some, 1)
 
         # closing the r side leads to BrokenStreamError on the s side
@@ -732,21 +755,24 @@ async def check_two_way_stream(stream_maker, clogged_stream_maker):
 
     async def flipped_stream_maker():
         return reversed(await stream_maker())
+
     if clogged_stream_maker is not None:
+
         async def flipped_clogged_stream_maker():
             return reversed(await clogged_stream_maker())
     else:
         flipped_clogged_stream_maker = None
     await check_one_way_stream(
-        flipped_stream_maker, flipped_clogged_stream_maker)
+        flipped_stream_maker, flipped_clogged_stream_maker
+    )
 
     async with _CloseBoth(await stream_maker()) as (s1, s2):
         assert isinstance(s1, _abc.Stream)
         assert isinstance(s2, _abc.Stream)
 
         # Duplex can be a bit tricky, might as well check it as well
-        DUPLEX_TEST_SIZE = 2 ** 20
-        CHUNK_SIZE_MAX = 2 ** 14
+        DUPLEX_TEST_SIZE = 2**20
+        CHUNK_SIZE_MAX = 2**14
 
         r = random.Random(0)
         i = r.getrandbits(8 * DUPLEX_TEST_SIZE)
@@ -855,13 +881,15 @@ async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
 # In-memory streams
 ################################################################
 
+
 class _UnboundedByteQueue:
     def __init__(self):
         self._data = bytearray()
         self._closed = False
         self._lot = _core.ParkingLot()
         self._fetch_lock = _util.UnLock(
-            _core.ResourceBusyError, "another task is already fetching data")
+            _core.ResourceBusyError, "another task is already fetching data"
+        )
 
     def close(self):
         self._closed = True
@@ -927,12 +955,16 @@ class MemorySendStream(_abc.SendStream):
        you can change them at any time.
 
     """
-    def __init__(self,
-                 send_all_hook=None,
-                 wait_send_all_might_not_block_hook=None,
-                 close_hook=None):
+
+    def __init__(
+            self,
+            send_all_hook=None,
+            wait_send_all_might_not_block_hook=None,
+            close_hook=None
+    ):
         self._lock = _util.UnLock(
-            _core.ResourceBusyError, "another task is using this stream")
+            _core.ResourceBusyError, "another task is using this stream"
+        )
         self._outgoing = _UnboundedByteQueue()
         self.send_all_hook = send_all_hook
         self.wait_send_all_might_not_block_hook = wait_send_all_might_not_block_hook
@@ -1020,9 +1052,11 @@ class MemoryReceiveStream(_abc.ReceiveStream):
        change them at any time.
 
     """
+
     def __init__(self, receive_some_hook=None, close_hook=None):
         self._lock = _util.UnLock(
-            _core.ResourceBusyError, "another task is using this stream")
+            _core.ResourceBusyError, "another task is using this stream"
+        )
         self._incoming = _UnboundedByteQueue()
         self._closed = False
         self.receive_some_hook = receive_some_hook
@@ -1075,7 +1109,8 @@ class MemoryReceiveStream(_abc.ReceiveStream):
 
 
 def memory_stream_pump(
-        memory_send_stream, memory_recieve_stream, *, max_bytes=None):
+        memory_send_stream, memory_recieve_stream, *, max_bytes=None
+):
     """Take data out of the given :class:`MemorySendStream`'s internal buffer,
     and put it into the given :class:`MemoryReceiveStream`'s internal buffer.
 
@@ -1134,10 +1169,13 @@ def memory_stream_one_way_pair():
     """
     send_stream = MemorySendStream()
     recv_stream = MemoryReceiveStream()
+
     def pump_from_send_stream_to_recv_stream():
         memory_stream_pump(send_stream, recv_stream)
+
     async def async_pump_from_send_stream_to_recv_stream():
         pump_from_send_stream_to_recv_stream()
+
     send_stream.send_all_hook = async_pump_from_send_stream_to_recv_stream
     send_stream.close_hook = pump_from_send_stream_to_recv_stream
     return send_stream, recv_stream
@@ -1239,9 +1277,11 @@ class _LockstepByteQueue:
         self._receiver_waiting = False
         self._waiters = _core.ParkingLot()
         self._send_lock = _util.UnLock(
-            _core.ResourceBusyError, "another task is already sending")
+            _core.ResourceBusyError, "another task is already sending"
+        )
         self._receive_lock = _util.UnLock(
-            _core.ResourceBusyError, "another task is already receiving")
+            _core.ResourceBusyError, "another task is already receiving"
+        )
 
     def _something_happened(self):
         self._waiters.unpark_all()
@@ -1269,7 +1309,8 @@ class _LockstepByteQueue:
             self._data += data
             self._something_happened()
             await self._wait_for(
-                lambda: not self._data or self._receiver_closed)
+                lambda: not self._data or self._receiver_closed
+            )
             if self._data and self._receiver_closed:
                 raise _streams.BrokenStreamError
             if not self._data:
@@ -1282,7 +1323,8 @@ class _LockstepByteQueue:
             if self._receiver_closed:
                 return
             await self._wait_for(
-                lambda: self._receiver_waiting or self._receiver_closed)
+                lambda: self._receiver_waiting or self._receiver_closed
+            )
 
     async def receive_some(self, max_bytes):
         async with self._receive_lock:

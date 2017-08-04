@@ -8,45 +8,60 @@ from . import _core
 from ._sync import CapacityLimiter
 
 __all__ = [
-    "current_await_in_trio_thread", "current_run_in_trio_thread",
-    "run_in_worker_thread", "current_default_worker_thread_limiter",
+    "current_await_in_trio_thread",
+    "current_run_in_trio_thread",
+    "run_in_worker_thread",
+    "current_default_worker_thread_limiter",
 ]
+
 
 def _await_in_trio_thread_cb(q, afn, args):
     @_core.disable_ki_protection
     async def unprotected_afn():
         return await afn(*args)
+
     async def await_in_trio_thread_task():
         q.put_nowait(await _core.Result.acapture(unprotected_afn))
+
     _core.spawn_system_task(await_in_trio_thread_task, name=afn)
+
 
 def _run_in_trio_thread_cb(q, fn, args):
     @_core.disable_ki_protection
     def unprotected_fn():
         return fn(*args)
+
     res = _core.Result.capture(unprotected_fn)
     print(res)
     q.put_nowait(res)
 
+
 def _current_do_in_trio_thread(name, cb):
     call_soon = _core.current_call_soon_thread_and_signal_safe()
     trio_thread = threading.current_thread()
+
     def do_in_trio_thread(fn, *args):
         if threading.current_thread() == trio_thread:
             raise RuntimeError("must be called from a thread")
         q = stdlib_queue.Queue()
         call_soon(cb, q, fn, args)
         return q.get().unwrap()
+
     do_in_trio_thread.__name__ = name
     return do_in_trio_thread
 
+
 def current_run_in_trio_thread():
     return _current_do_in_trio_thread(
-        "run_in_trio_thread", _run_in_trio_thread_cb)
+        "run_in_trio_thread", _run_in_trio_thread_cb
+    )
+
 
 def current_await_in_trio_thread():
     return _current_do_in_trio_thread(
-        "await_in_trio_thread", _await_in_trio_thread_cb)
+        "await_in_trio_thread", _await_in_trio_thread_cb
+    )
+
 
 ################################################################
 
@@ -154,6 +169,7 @@ _limiter_local = _core.RunLocal()
 DEFAULT_LIMIT = 40
 _worker_thread_counter = count()
 
+
 def current_default_worker_thread_limiter():
     """Get the default :class:`CapacityLimiter` used by
     :func:`run_in_worker_thread`.
@@ -168,6 +184,7 @@ def current_default_worker_thread_limiter():
         limiter = _limiter_local.limiter = CapacityLimiter(DEFAULT_LIMIT)
     return limiter
 
+
 # Eventually we might build this into a full-fledged deadlock-detection
 # system; see https://github.com/python-trio/trio/issues/182
 # But for now we just need an object to stand in for the thread, so we can
@@ -176,9 +193,11 @@ def current_default_worker_thread_limiter():
 class ThreadPlaceholder:
     name = attr.ib()
 
+
 @_core.enable_ki_protection
 async def run_in_worker_thread(
-        sync_fn, *args, cancellable=False, limiter=None):
+    sync_fn, *args, cancellable=False, limiter=None
+):
     """Convert a blocking operation into an async operation using a thread.
 
     These two lines are equivalent::
@@ -282,6 +301,7 @@ async def run_in_worker_thread(
                 return result.unwrap()
             finally:
                 limiter.release_on_behalf_of(placeholder)
+
         result = _core.Result.capture(do_release_then_return_result)
         if task_register[0] is not None:
             _core.reschedule(task_register[0], result)
@@ -302,7 +322,8 @@ async def run_in_worker_thread(
         # daemon=True because it might get left behind if we cancel, and in
         # this case shouldn't block process exit.
         thread = threading.Thread(
-            target=worker_thread_fn, name=name, daemon=True)
+            target=worker_thread_fn, name=name, daemon=True
+        )
         thread.start()
     except:
         limiter.release_on_behalf_of(placeholder)
@@ -314,4 +335,5 @@ async def run_in_worker_thread(
             return _core.Abort.SUCCEEDED
         else:
             return _core.Abort.FAILED
+
     return await _core.yield_indefinitely(abort)

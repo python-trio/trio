@@ -165,6 +165,7 @@ __all__ = ["SSLStream"]
 # Faking the stdlib ssl API
 ################################################################
 
+
 def _reexport(name):
     try:
         value = getattr(_stdlib_ssl, name)
@@ -174,14 +175,30 @@ def _reexport(name):
         globals()[name] = value
         __all__.append(name)
 
+
+# Intentionally not re-exported:
+# SSLContext
 for _name in [
-        "SSLError", "SSLZeroReturnError", "SSLSyscallError", "SSLEOFError",
-        "CertificateError", "create_default_context", "match_hostname",
-        "cert_time_to_seconds", "DER_cert_to_PEM_cert", "PEM_cert_to_DER_cert",
-        "get_default_verify_paths", "Purpose", "enum_certificates",
-        "enum_crls", "SSLSession", "VerifyMode", "VerifyFlags", "Options",
-        "AlertDescription", "SSLErrorNumber",
-        # Intentionally not re-exported: SSLContext
+        "SSLError",
+        "SSLZeroReturnError",
+        "SSLSyscallError",
+        "SSLEOFError",
+        "CertificateError",
+        "create_default_context",
+        "match_hostname",
+        "cert_time_to_seconds",
+        "DER_cert_to_PEM_cert",
+        "PEM_cert_to_DER_cert",
+        "get_default_verify_paths",
+        "Purpose",
+        "enum_certificates",
+        "enum_crls",
+        "SSLSession",
+        "VerifyMode",
+        "VerifyFlags",
+        "Options",
+        "AlertDescription",
+        "SSLErrorNumber",
 ]:
     _reexport(_name)
 
@@ -189,10 +206,10 @@ for _name in _stdlib_ssl.__dict__.keys():
     if _name == _name.upper():
         _reexport(_name)
 
-
 ################################################################
 # SSLStream
 ################################################################
+
 
 class _Once:
     def __init__(self, afn, *args):
@@ -311,11 +328,16 @@ class SSLStream(_Stream):
     your callback receives will be a :class:`ssl.SSLObject`.
 
     """
+
     def __init__(
-            self, transport_stream, ssl_context,
+            self,
+            transport_stream,
+            ssl_context,
             *,
-            server_hostname=None, server_side=False,
-            https_compatible=False, max_refill_bytes=32 * 1024
+            server_hostname=None,
+            server_side=False,
+            https_compatible=False,
+            max_refill_bytes=32 * 1024
     ):
         self.transport_stream = transport_stream
         self._state = _State.OK
@@ -324,8 +346,11 @@ class SSLStream(_Stream):
         self._outgoing = _stdlib_ssl.MemoryBIO()
         self._incoming = _stdlib_ssl.MemoryBIO()
         self._ssl_object = ssl_context.wrap_bio(
-            self._incoming, self._outgoing,
-            server_side=server_side, server_hostname=server_hostname)
+            self._incoming,
+            self._outgoing,
+            server_side=server_side,
+            server_hostname=server_hostname
+        )
         # Tracks whether we've already done the initial handshake
         self._handshook = _Once(self._do_handshake)
 
@@ -339,17 +364,30 @@ class SSLStream(_Stream):
         # or to receive_some.
         self._outer_send_lock = _UnLock(
             _core.ResourceBusyError,
-            "another task is currently sending data on this SSLStream")
+            "another task is currently sending data on this SSLStream"
+        )
         self._outer_recv_lock = _UnLock(
             _core.ResourceBusyError,
-            "another task is currently receiving data on this SSLStream")
+            "another task is currently receiving data on this SSLStream"
+        )
 
     _forwarded = {
-        "context", "server_side", "server_hostname", "session",
-        "session_reused", "getpeercert", "selected_npn_protocol", "cipher",
-        "shared_ciphers", "compression", "pending", "get_channel_binding",
-        "selected_alpn_protocol", "version",
+        "context",
+        "server_side",
+        "server_hostname",
+        "session",
+        "session_reused",
+        "getpeercert",
+        "selected_npn_protocol",
+        "cipher",
+        "shared_ciphers",
+        "compression",
+        "pending",
+        "get_channel_binding",
+        "selected_alpn_protocol",
+        "version",
     }
+
     def __getattr__(self, name):
         if name in self._forwarded:
             return getattr(self._ssl_object, name)
@@ -508,7 +546,9 @@ class SSLStream(_Stream):
                     async with self._inner_recv_lock:
                         yielded = True
                         if recv_count == self._inner_recv_count:
-                            data = await self.transport_stream.receive_some(self._max_bytes)
+                            data = await self.transport_stream.receive_some(
+                                self._max_bytes
+                            )
                             if not data:
                                 self._incoming.write_eof()
                             else:
@@ -587,8 +627,8 @@ class SSLStream(_Stream):
                 # SSLSyscallError instead of SSLEOFError (e.g. on my linux
                 # laptop, but not on appveyor). Thanks openssl.
                 if (self._https_compatible
-                        and isinstance(
-                            exc.__cause__, (SSLEOFError, SSLSyscallError))):
+                        and isinstance(exc.__cause__,
+                                       (SSLEOFError, SSLSyscallError))):
                     return b""
                 else:
                     raise
@@ -731,7 +771,8 @@ class SSLStream(_Stream):
             # because whoa did this puzzle us at the 2017 PyCon sprints.
             try:
                 await self._retry(
-                    self._ssl_object.unwrap, ignore_want_read=True)
+                    self._ssl_object.unwrap, ignore_want_read=True
+                )
             except _streams.BrokenStreamError:
                 pass
             # Close the underlying stream

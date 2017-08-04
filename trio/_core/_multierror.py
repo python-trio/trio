@@ -13,6 +13,7 @@ __all__ = ["MultiError", "format_exception"]
 # MultiError
 ################################################################
 
+
 def _filter_impl(handler, root_exc):
     # We have a tree of MultiError's, like:
     #
@@ -146,6 +147,7 @@ class MultiErrorCatcher:
                 assert value is filtered_exc
                 value.__context__ = old_context
 
+
 class MultiError(BaseException):
     """An exception that contains other exceptions; also known as an
     "inception".
@@ -174,8 +176,8 @@ class MultiError(BaseException):
         for exc in exceptions:
             if not isinstance(exc, BaseException):
                 raise TypeError(
-                    "Expected an exception object, not {!r}"
-                    .format(exc))
+                    "Expected an exception object, not {!r}".format(exc)
+                )
         if len(exceptions) == 1:
             return exceptions[0]
         else:
@@ -187,6 +189,7 @@ class MultiError(BaseException):
         def format_child(exc):
             #return "{}: {}".format(exc.__class__.__name__, exc)
             return repr(exc)
+
         return ", ".join(format_child(exc) for exc in self.exceptions)
 
     def __repr__(self):
@@ -222,6 +225,7 @@ class MultiError(BaseException):
         """
 
         return MultiErrorCatcher(handler)
+
 
 # Clean up exception printing:
 MultiError.__module__ = "trio"
@@ -261,10 +265,12 @@ if have_tproxy:
             # 'opname' that isn't __getattr__ or __getattribute__. So there's
             # no missing test we could add, and no value in coverage nagging
             # us about adding one.
-            if operation.opname in ["__getattribute__", "__getattr__"]:  # pragma: no cover
+            if operation.opname in ["__getattribute__",
+                                    "__getattr__"]:  # pragma: no cover
                 if operation.args[0] == "tb_next":
                     return tb_next
             return operation.delegate()
+
         return tputil.make_proxy(controller, type(base_tb), base_tb)
 else:
     # ctypes it is
@@ -317,6 +323,7 @@ else:
 
         return new_tb
 
+
 def concat_tb(head, tail):
     # We have to use an iterative algorithm here, because in the worst case
     # this might be a RecursionError stack that is by definition too deep to
@@ -331,9 +338,11 @@ def concat_tb(head, tail):
         current_head = copy_tb(head_tb, tb_next=current_head)
     return current_head
 
+
 ################################################################
 # MultiError traceback formatting
 ################################################################
+
 
 # format_exception's semantics for limit= are odd: they apply separately to
 # each traceback. I'm not sure how much sense this makes, but we copy it
@@ -348,6 +357,7 @@ def format_exception(etype, value, tb, *, limit=None, chain=True):
     """
     return _format_exception_multi(set(), etype, value, tb, limit, chain)
 
+
 def _format_exception_multi(seen, etype, value, tb, limit, chain):
     if id(value) in seen:
         return ["<duplicate exception {!r}>\n".format(value)]
@@ -358,7 +368,8 @@ def _format_exception_multi(seen, etype, value, tb, limit, chain):
         if value.__cause__ is not None:
             v = value.__cause__
             chunks += _format_exception_multi(
-                seen, type(v), v, v.__traceback__, limit=limit, chain=True)
+                seen, type(v), v, v.__traceback__, limit=limit, chain=True
+            )
             chunks += [
                 "\nThe above exception was the direct cause of the "
                 "following exception:\n\n",
@@ -366,14 +377,16 @@ def _format_exception_multi(seen, etype, value, tb, limit, chain):
         elif value.__context__ is not None and not value.__suppress_context__:
             v = value.__context__
             chunks += _format_exception_multi(
-                seen, type(v), v, v.__traceback__, limit=limit, chain=True)
+                seen, type(v), v, v.__traceback__, limit=limit, chain=True
+            )
             chunks += [
                 "\nDuring handling of the above exception, another "
                 "exception occurred:\n\n",
             ]
 
     chunks += traceback.format_exception(
-        etype, value, tb, limit=limit, chain=False)
+        etype, value, tb, limit=limit, chain=False
+    )
 
     if isinstance(value, MultiError):
         for i, exc in enumerate(value.exceptions):
@@ -381,15 +394,23 @@ def _format_exception_multi(seen, etype, value, tb, limit, chain):
                 "\nDetails of embedded exception {}:\n\n".format(i + 1),
             ]
             sub_chunks = _format_exception_multi(
-                seen, type(exc), exc, exc.__traceback__, limit=limit, chain=chain)
+                seen,
+                type(exc),
+                exc,
+                exc.__traceback__,
+                limit=limit,
+                chain=chain
+            )
             for chunk in sub_chunks:
                 chunks.append(textwrap.indent(chunk, " " * 2))
 
     return chunks
 
+
 def trio_excepthook(etype, value, tb):
     for chunk in format_exception(etype, value, tb):
         sys.stderr.write(chunk)
+
 
 IPython_handler_installed = False
 warning_given = False
@@ -403,13 +424,16 @@ if "IPython" in sys.modules:
                 "handler installed. I'll skip installing trio's custom "
                 "handler, but this means MultiErrors will not show full "
                 "tracebacks.",
-                category=RuntimeWarning)
+                category=RuntimeWarning
+            )
             warning_given = True
         else:
+
             def trio_show_traceback(self, etype, value, tb, tb_offset=None):
                 # XX it would be better to integrate with IPython's fancy
                 # exception formatting stuff (and not ignore tb_offset)
                 trio_excepthook(etype, value, tb)
+
             ip.set_custom_exc((MultiError,), trio_show_traceback)
             IPython_handler_installed = True
 
@@ -421,4 +445,5 @@ else:
             "You seem to already have a custom sys.excepthook handler "
             "installed. I'll skip installing trio's custom handler, but this "
             "means MultiErrors will not show full tracebacks.",
-            category=RuntimeWarning)
+            category=RuntimeWarning
+        )

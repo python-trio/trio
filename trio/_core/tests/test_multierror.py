@@ -10,26 +10,35 @@ import subprocess
 from .tutil import slow
 
 from .._multierror import (
-    MultiError, format_exception, concat_tb,
+    MultiError,
+    format_exception,
+    concat_tb,
 )
+
 
 def raiser1():
     raiser1_2()
 
+
 def raiser1_2():
     raiser1_3()
+
 
 def raiser1_3():
     raise ValueError("raiser1_string")
 
+
 def raiser2():
     raiser2_2()
+
 
 def raiser2_2():
     raise KeyError("raiser2_string")
 
+
 def raiser3():
     raise NameError
+
 
 def get_exc(raiser):
     try:
@@ -37,8 +46,10 @@ def get_exc(raiser):
     except Exception as exc:
         return exc
 
+
 def get_tb(raiser):
     return get_exc(raiser).__traceback__
+
 
 def test_concat_tb():
 
@@ -65,6 +76,7 @@ def test_concat_tb():
     assert extract_tb(get_tb(raiser1)) == entries1
     assert extract_tb(get_tb(raiser2)) == entries2
 
+
 def test_MultiError():
     exc1 = get_exc(raiser1)
     exc2 = get_exc(raiser2)
@@ -79,6 +91,7 @@ def test_MultiError():
         MultiError(object())
     with pytest.raises(TypeError):
         MultiError([KeyError(), ValueError])
+
 
 def make_tree():
     # Returns an object like:
@@ -100,6 +113,7 @@ def make_tree():
     except BaseException as m12:
         return MultiError([m12, exc3])
 
+
 def assert_tree_eq(m1, m2):
     if m1 is None or m2 is None:
         assert m1 is m2
@@ -112,6 +126,7 @@ def assert_tree_eq(m1, m2):
         assert len(m1.exceptions) == len(m2.exceptions)
         for e1, e2 in zip(m1.exceptions, m2.exceptions):
             assert_tree_eq(e1, e2)
+
 
 def test_MultiError_filter():
     def null_handler(exc):
@@ -156,12 +171,14 @@ def test_MultiError_filter():
     assert isinstance(orig.exceptions[0].exceptions[1], KeyError)
     # get original traceback summary
     orig_extracted = (
-        extract_tb(orig.__traceback__)
-        + extract_tb(orig.exceptions[0].__traceback__)
-        + extract_tb(orig.exceptions[0].exceptions[1].__traceback__)
+        extract_tb(orig.__traceback__) +
+        extract_tb(orig.exceptions[0].__traceback__) +
+        extract_tb(orig.exceptions[0].exceptions[1].__traceback__)
     )
+
     def p(exc):
         print_exception(type(exc), exc, exc.__traceback__)
+
     p(orig)
     p(orig.exceptions[0])
     p(orig.exceptions[0].exceptions[1])
@@ -176,6 +193,7 @@ def test_MultiError_filter():
         if isinstance(exc, NameError):
             return None
         return exc
+
     m = make_tree()
     new_m = MultiError.filter(filter_NameError, m)
     # with the NameError gone, the other branch gets promoted
@@ -184,6 +202,7 @@ def test_MultiError_filter():
     # check fully handling everything
     def filter_all(exc):
         return None
+
     assert MultiError.filter(filter_all, make_tree()) is None
 
 
@@ -257,11 +276,13 @@ def test_MultiError_catch():
         v.__suppress_context__ = suppress_context
         distractor = RuntimeError()
         with pytest.raises(ValueError) as excinfo:
+
             def catch_RuntimeError(exc):
                 if isinstance(exc, RuntimeError):
                     return None
                 else:
                     return exc
+
             with MultiError.catch(catch_RuntimeError):
                 raise MultiError([v, distractor])
         assert excinfo.value.__context__ is context
@@ -278,11 +299,13 @@ def assert_match_in_seq(pattern_list, string):
         assert match is not None
         offset = match.end()
 
+
 def test_assert_match_in_seq():
     assert_match_in_seq(["a", "b"], "xx a xx b xx")
     assert_match_in_seq(["b", "a"], "xx b xx a xx")
     with pytest.raises(AssertionError):
         assert_match_in_seq(["a", "b"], "xx b xx a xx")
+
 
 def test_format_exception_multi():
     def einfo(exc):
@@ -397,7 +420,9 @@ def test_format_exception_multi():
             r"in raiser3",
             r"NameError",
         ],
-        formatted)
+        formatted
+    )
+
 
 def run_script(name, use_ipython=False):
     import trio
@@ -416,22 +441,25 @@ def run_script(name, use_ipython=False):
     if use_ipython:
         lines = [script_path.open().read(), "exit()"]
 
-        cmd = [sys.executable, "-u", "-m", "IPython",
-               # no startup files
-               "--quick",
-               "--TerminalIPythonApp.code_to_run=" + '\n'.join(lines),
+        cmd = [
+            sys.executable,
+            "-u",
+            "-m",
+            "IPython",
+            # no startup files
+            "--quick",
+            "--TerminalIPythonApp.code_to_run=" + '\n'.join(lines),
         ]
     else:
         cmd = [sys.executable, "-u", str(script_path)]
     print("running:", cmd)
     completed = subprocess.run(
-        cmd,
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT)
+        cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+    )
     print("process output:")
     print(completed.stdout.decode("utf-8"))
     return completed
+
 
 def check_simple_excepthook(completed):
     assert_match_in_seq(
@@ -444,12 +472,14 @@ def check_simple_excepthook(completed):
             "Details of embedded exception 2",
             "in exc2_fn",
             "KeyError",
-        ],
-        completed.stdout.decode("utf-8"))
+        ], completed.stdout.decode("utf-8")
+    )
+
 
 def test_simple_excepthook():
     completed = run_script("simple_excepthook.py")
     check_simple_excepthook(completed)
+
 
 def test_custom_excepthook():
     # Check that user-defined excepthooks aren't overridden
@@ -465,7 +495,9 @@ def test_custom_excepthook():
             # The MultiError
             "MultiError:",
         ],
-        completed.stdout.decode("utf-8"))
+        completed.stdout.decode("utf-8")
+    )
+
 
 try:
     import IPython
@@ -476,17 +508,20 @@ else:
 
 need_ipython = pytest.mark.skipif(not have_ipython, reason="need IPython")
 
+
 @slow
 @need_ipython
 def test_ipython_exc_handler():
     completed = run_script("simple_excepthook.py", use_ipython=True)
     check_simple_excepthook(completed)
 
+
 @slow
 @need_ipython
 def test_ipython_imported_but_unused():
     completed = run_script("simple_excepthook_IPython.py")
     check_simple_excepthook(completed)
+
 
 @slow
 @need_ipython
@@ -501,8 +536,11 @@ def test_ipython_custom_exc_handler():
             "IPython detected",
             "skip installing trio",
             # The MultiError
-            "MultiError", "ValueError", "KeyError",
+            "MultiError",
+            "ValueError",
+            "KeyError",
         ],
-        completed.stdout.decode("utf-8"))
+        completed.stdout.decode("utf-8")
+    )
     # Make sure our other warning doesn't show up
     assert "custom sys.excepthook" not in completed.stdout.decode("utf-8")

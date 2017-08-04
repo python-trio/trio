@@ -56,7 +56,6 @@
 # this is also a way to cancel a WaitForSingleObjectEx, actually. So it
 # actually is possible to cancel the equivalent of a waitpid on Windows.
 
-
 # Potentially useful observation: you *can* use a socket as the
 # stdin/stdout/stderr for a child, iff you create that socket *without*
 # WSA_FLAG_OVERLAPPED:

@@ -2,9 +2,12 @@ import _common
 
 import sys
 
+
 def custom_excepthook(*args):
     print("custom running!")
     return sys.__excepthook__(*args)
+
+
 sys.excepthook = custom_excepthook
 
 # Should warn that we'll get kinda-broken tracebacks

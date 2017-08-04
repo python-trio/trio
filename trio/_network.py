@@ -18,17 +18,19 @@ _closed_stream_errnos = {
     errno.ENOTSOCK,
 }
 
+
 @contextmanager
 def _translate_socket_errors_to_stream_errors():
     try:
         yield
     except OSError as exc:
         if exc.errno in _closed_stream_errnos:
-            raise ClosedStreamError(
-                "this socket was already closed") from None
+            raise ClosedStreamError("this socket was already closed") from None
         else:
             raise BrokenStreamError(
-                "socket connection broken: {}".format(exc)) from exc
+                "socket connection broken: {}".format(exc)
+            ) from exc
+
 
 class SocketStream(HalfCloseableStream):
     """An implementation of the :class:`trio.abc.HalfCloseableStream`
@@ -53,6 +55,7 @@ class SocketStream(HalfCloseableStream):
        The Trio socket object that this stream wraps.
 
     """
+
     def __init__(self, sock):
         if not tsocket.is_trio_socket(sock):
             raise TypeError("SocketStream requires trio socket object")
@@ -67,7 +70,8 @@ class SocketStream(HalfCloseableStream):
         self.socket = sock
         self._send_lock = UnLock(
             _core.ResourceBusyError,
-            "another task is currently sending data on this SocketStream")
+            "another task is currently sending data on this SocketStream"
+        )
 
         # Socket defaults:
 
@@ -89,7 +93,8 @@ class SocketStream(HalfCloseableStream):
                 # ). The theory is that you want it to be bandwidth *
                 # rescheduling interval.
                 self.setsockopt(
-                    tsocket.IPPROTO_TCP, tsocket.TCP_NOTSENT_LOWAT, 2 ** 14)
+                    tsocket.IPPROTO_TCP, tsocket.TCP_NOTSENT_LOWAT, 2**14
+                )
             except OSError:
                 pass
 

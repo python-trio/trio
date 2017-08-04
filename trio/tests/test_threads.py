@@ -15,11 +15,13 @@ from .._threads import *
 from .._core.tests.test_ki import ki_self
 from .._core.tests.tutil import slow
 
+
 async def test_do_in_trio_thread():
     trio_thread = threading.current_thread()
 
     async def check_case(do_in_trio_thread, fn, expected):
         record = []
+
         def threadfn():
             try:
                 record.append(("start", threading.current_thread()))
@@ -28,13 +30,16 @@ async def test_do_in_trio_thread():
             except BaseException as exc:
                 print(exc)
                 record.append(("error", type(exc)))
+
         child_thread = threading.Thread(target=threadfn, daemon=True)
         child_thread.start()
         while child_thread.is_alive():
             print("yawn")
             await sleep(0.01)
         assert record == [
-            ("start", child_thread), ("f", trio_thread), expected]
+            ("start", child_thread),
+            ("f", trio_thread), expected
+        ]
 
     run_in_trio_thread = current_run_in_trio_thread()
 
@@ -42,12 +47,14 @@ async def test_do_in_trio_thread():
         assert not _core.currently_ki_protected()
         record.append(("f", threading.current_thread()))
         return 2
+
     await check_case(run_in_trio_thread, f, ("got", 2))
 
     def f(record):
         assert not _core.currently_ki_protected()
         record.append(("f", threading.current_thread()))
         raise ValueError
+
     await check_case(run_in_trio_thread, f, ("error", ValueError))
 
     await_in_trio_thread = current_await_in_trio_thread()
@@ -57,6 +64,7 @@ async def test_do_in_trio_thread():
         await _core.yield_briefly()
         record.append(("f", threading.current_thread()))
         return 3
+
     await check_case(await_in_trio_thread, f, ("got", 3))
 
     async def f(record):
@@ -64,6 +72,7 @@ async def test_do_in_trio_thread():
         await _core.yield_briefly()
         record.append(("f", threading.current_thread()))
         raise KeyError
+
     await check_case(await_in_trio_thread, f, ("error", KeyError))
 
 
@@ -76,6 +85,7 @@ async def test_do_in_trio_thread_from_trio_thread():
 
     async def foo():  # pragma: no cover
         pass
+
     with pytest.raises(RuntimeError):
         await_in_trio_thread(foo)
 
@@ -84,9 +94,11 @@ def test_run_in_trio_thread_ki():
     # if we get a control-C during a run_in_trio_thread, then it propagates
     # back to the caller (slick!)
     record = set()
+
     async def check_run_in_trio_thread():
         run_in_trio_thread = current_run_in_trio_thread()
         await_in_trio_thread = current_await_in_trio_thread()
+
         def trio_thread_fn():
             print("in trio thread")
             assert not _core.currently_ki_protected()
@@ -96,8 +108,10 @@ def test_run_in_trio_thread_ki():
             finally:
                 import sys
                 print("finally", sys.exc_info())
+
         async def trio_thread_afn():
             trio_thread_fn()
+
         def external_thread_fn():
             try:
                 print("running")
@@ -110,6 +124,7 @@ def test_run_in_trio_thread_ki():
             except KeyboardInterrupt:
                 print("ok2")
                 record.add("ok2")
+
         thread = threading.Thread(target=external_thread_fn)
         thread.start()
         print("waiting")
@@ -118,6 +133,7 @@ def test_run_in_trio_thread_ki():
         print("waited, joining")
         thread.join()
         print("done")
+
     _core.run(check_run_in_trio_thread)
     assert record == {"ok1", "ok2"}
 
@@ -155,12 +171,14 @@ async def test_run_in_worker_thread():
 
     def f(x):
         return (x, threading.current_thread())
+
     x, child_thread = await run_in_worker_thread(f, 1)
     assert x == 1
     assert child_thread != trio_thread
 
     def g():
         raise ValueError(threading.current_thread())
+
     with pytest.raises(ValueError) as excinfo:
         await run_in_worker_thread(g)
     print(excinfo.value.args)
@@ -169,6 +187,7 @@ async def test_run_in_worker_thread():
 
 async def test_run_in_worker_thread_cancellation():
     register = [None]
+
     def f(q):
         # Make the thread block for a controlled amount of time
         register[0] = "blocking"
@@ -230,10 +249,12 @@ def test_run_in_worker_thread_abandoned(capfd):
     async def main():
         async def child():
             await run_in_worker_thread(thread_fn, cancellable=True)
+
         async with _core.open_nursery() as nursery:
             t = nursery.spawn(child)
             await wait_all_tasks_blocked()
             nursery.cancel_scope.cancel()
+
     _core.run(main)
 
     q1.put(None)
@@ -283,6 +304,7 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
         # locking etc.).
         class state:
             pass
+
         state.ran = 0
         state.high_water = 0
         state.running = 0
@@ -309,10 +331,15 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
         async def run_thread():
             with _core.open_cancel_scope() as cancel_scope:
                 await run_in_worker_thread(
-                    thread_fn, cancel_scope,
-                    limiter=limiter_arg, cancellable=cancel)
-            print("run_thread finished, cancelled:",
-                  cancel_scope.cancelled_caught)
+                    thread_fn,
+                    cancel_scope,
+                    limiter=limiter_arg,
+                    cancellable=cancel
+                )
+            print(
+                "run_thread finished, cancelled:",
+                cancel_scope.cancelled_caught
+            )
 
         async with _core.open_nursery() as nursery:
             print("spawning")
@@ -358,6 +385,7 @@ async def test_run_in_worker_thread_custom_limiter():
     # Basically just checking that we only call acquire_on_behalf_of and
     # release_on_behalf_of, since that's part of our documented API.
     record = []
+
     class CustomLimiter:
         async def acquire_on_behalf_of(self, borrower):
             record.append("acquire")
@@ -403,6 +431,7 @@ async def test_run_in_worker_thread_fail_to_spawn(monkeypatch):
     # Test the unlikely but possible case where trying to spawn a thread fails
     def bad_start(self):
         raise RuntimeError("the engines canna take it captain")
+
     monkeypatch.setattr(threading.Thread, "start", bad_start)
 
     limiter = current_default_worker_thread_limiter()

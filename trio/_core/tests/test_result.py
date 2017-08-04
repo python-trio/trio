@@ -5,6 +5,7 @@ from async_generator import async_generator, yield_
 from ... import _core
 from ..._core._result import *
 
+
 def test_Result():
     v = Value(1)
     assert v.value == 1
@@ -37,9 +38,11 @@ def test_Result():
         with pytest.raises(RuntimeError):
             yield
         yield "ok"
+
     it = iter(expect_RuntimeError())
     next(it)
     assert e.send(it) == "ok"
+
 
 def test_Result_eq_hash():
     v1 = Value(["hello"])
@@ -64,39 +67,47 @@ def test_Result_eq_hash():
     assert e1 != e3
     assert {e1, e2, e3, e4} == {e1, e3}
 
+
 def test_Value_compare():
     assert Value(1) < Value(2)
     assert not Value(3) < Value(2)
     with pytest.raises(TypeError):
         Value(1) < Value("foo")
 
+
 def test_Result_capture():
     def return_arg(x):
         return x
+
     v = Result.capture(return_arg, 2)
     assert type(v) == Value
     assert v.unwrap() == 2
 
     def raise_ValueError(x):
         raise ValueError(x)
+
     e = Result.capture(raise_ValueError, "two")
     assert type(e) == Error
     assert type(e.error) is ValueError
     assert e.error.args == ("two",)
 
+
 async def test_Result_acapture():
     async def return_arg(x):
         await _core.yield_briefly()
         return x
+
     v = await Result.acapture(return_arg, 7)
     assert v == Value(7)
 
     async def raise_ValueError(x):
         await _core.yield_briefly()
         raise ValueError(x)
+
     e = await Result.acapture(raise_ValueError, 9)
     assert type(e.error) is ValueError
     assert e.error.args == (9,)
+
 
 async def test_Result_asend():
     @async_generator
@@ -105,6 +116,7 @@ async def test_Result_asend():
         with pytest.raises(KeyError):
             await yield_(2)
         await yield_(3)
+
     my_agen = my_agen_func().__aiter__()
     if sys.version_info < (3, 5, 2):
         my_agen = await my_agen

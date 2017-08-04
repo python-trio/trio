@@ -5,11 +5,13 @@ import attr
 from .. import _core
 from . import _public, _hazmat
 
+
 @attr.s(frozen=True)
 class _KqueueStatistics:
     tasks_waiting = attr.ib()
     monitors = attr.ib()
     backend = attr.ib(default="kqueue")
+
 
 @attr.s(slots=True, cmp=False, hash=False)
 class KqueueIOManager:
@@ -82,7 +84,8 @@ class KqueueIOManager:
         if key in self._registered:
             raise _core.ResourceBusyError(
                 "attempt to register multiple listeners for same "
-                "ident/filter pair")
+                "ident/filter pair"
+            )
         q = _core.UnboundedQueue()
         self._registered[key] = q
         try:
@@ -98,13 +101,16 @@ class KqueueIOManager:
             await _core.yield_briefly()
             raise _core.ResourceBusyError(
                 "attempt to register multiple listeners for same "
-                "ident/filter pair")
+                "ident/filter pair"
+            )
         self._registered[key] = _core.current_task()
+
         def abort(raise_cancel):
             r = abort_func(raise_cancel)
             if r is _core.Abort.SUCCEEDED:
                 del self._registered[key]
             return r
+
         return await _core.yield_indefinitely(abort)
 
     async def _wait_common(self, fd, filter):
@@ -113,10 +119,12 @@ class KqueueIOManager:
         flags = select.KQ_EV_ADD | select.KQ_EV_ONESHOT
         event = select.kevent(fd, filter, flags)
         self._kqueue.control([event], 0)
+
         def abort(_):
             event = select.kevent(fd, filter, select.KQ_EV_DELETE)
             self._kqueue.control([event], 0)
             return _core.Abort.SUCCEEDED
+
         await self.wait_kevent(fd, filter, abort)
 
     @_public

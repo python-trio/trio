@@ -5,6 +5,7 @@ import pytest
 from ... import _core
 from ...testing import assert_yields, wait_all_tasks_blocked
 
+
 async def test_UnboundedQueue_basic():
     q = _core.UnboundedQueue()
     q.put_nowait("hi")
@@ -33,6 +34,7 @@ async def test_UnboundedQueue_basic():
 async def test_UnboundedQueue_blocking():
     record = []
     q = _core.UnboundedQueue()
+
     async def get_batch_consumer():
         while True:
             batch = await q.get_batch()
@@ -83,6 +85,7 @@ async def test_UnboundedQueue_fairness():
 
     # If two tasks are trying to read, they alternate
     record = []
+
     async def reader(name):
         while True:
             record.append((name, await q.get_batch()))
@@ -119,6 +122,7 @@ async def test_UnboundedQueue_no_spurious_wakeups():
     # If we have two tasks waiting, and put two items into the queue... then
     # only one task wakes up
     record = []
+
     async def getter(q, i):
         got = await q.get_batch()
         record.append((i, got))

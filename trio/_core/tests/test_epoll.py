@@ -16,6 +16,7 @@ from .test_io import fill_socket
 from ... import _core
 from ...testing import wait_all_tasks_blocked
 
+
 async def test_epoll_statistics():
     a1, b1 = stdlib_socket.socketpair()
     a2, b2 = stdlib_socket.socketpair()

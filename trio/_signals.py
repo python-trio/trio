@@ -45,6 +45,7 @@ __all__ = ["catch_signals"]
 # kqueue might give us that, but in kqueue we don't need it, because kqueue
 # can directly monitor for child process state changes.)
 
+
 @contextmanager
 def _signal_handler(signals, handler):
     original_handlers = {}
@@ -55,6 +56,7 @@ def _signal_handler(signals, handler):
     finally:
         for signum, original_handler in original_handlers.items():
             signal.signal(signum, original_handler)
+
 
 class SignalQueue:
     def __init__(self):
@@ -74,6 +76,7 @@ class SignalQueue:
         # First make sure that any signals still in the delivery pipeline will
         # get redelivered
         self._closed = True
+
         # And then redeliver any that are sitting in pending. This is doen
         # using a weird recursive construct to make sure we process everything
         # even if some of the handlers raise exceptions.
@@ -84,6 +87,7 @@ class SignalQueue:
                     signal_raise(signum)
                 finally:
                     deliver_next()
+
         deliver_next()
 
     @aiter_compat
@@ -98,6 +102,7 @@ class SignalQueue:
         pending = set(self._pending)
         self._pending.clear()
         return pending
+
 
 @contextmanager
 def catch_signals(signals):
@@ -145,11 +150,14 @@ def catch_signals(signals):
     if threading.current_thread() != threading.main_thread():
         raise RuntimeError(
             "Sorry, catch_signals is only possible when running in the "
-            "Python interpreter's main thread")
+            "Python interpreter's main thread"
+        )
     call_soon = _core.current_call_soon_thread_and_signal_safe()
     queue = SignalQueue()
+
     def handler(signum, _):
         call_soon(queue._add, signum, idempotent=True)
+
     try:
         with _signal_handler(signals, handler):
             yield queue

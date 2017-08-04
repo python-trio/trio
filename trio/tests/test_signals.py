@@ -10,6 +10,7 @@ from .._util import signal_raise
 from .._signals import catch_signals, _signal_handler
 from .._sync import Event
 
+
 async def test_catch_signals():
     print = lambda *args: None
     orig = signal.getsignal(signal.SIGILL)
@@ -36,6 +37,7 @@ async def test_catch_signals():
 
 def test_catch_signals_wrong_thread():
     threadqueue = stdlib_queue.Queue()
+
     async def naughty():
         try:
             with catch_signals([signal.SIGINT]) as _:
@@ -44,6 +46,7 @@ def test_catch_signals_wrong_thread():
             threadqueue.put(exc)
         else:  # pragma: no cover
             threadqueue.put(None)
+
     thread = threading.Thread(target=_core.run, args=(naughty,))
     thread.start()
     thread.join()
@@ -60,7 +63,7 @@ async def test_catch_signals_race_condition_on_exit():
     async def wait_call_soon_idempotent_queue_barrier():
         ev = Event()
         call_soon = _core.current_call_soon_thread_and_signal_safe()
-        call_soon(ev.set, idempotent = True)
+        call_soon(ev.set, idempotent=True)
         await ev.wait()
 
     print(1)

@@ -10,6 +10,7 @@ __all__ = ["TaskLocal", "RunLocal"]
 # return the last value that was assigned to this attribute *by code running
 # inside the same task or run*.
 
+
 # This is conceptually a method on _LocalBase, but given the way we're playing
 # with attribute access making it a free-standing function is simpler:
 def _local_dict(local_obj):

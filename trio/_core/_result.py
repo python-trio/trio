@@ -3,6 +3,7 @@ import attr
 
 __all__ = ["Result", "Value", "Error"]
 
+
 @attr.s(slots=True, frozen=True)
 class Result(metaclass=abc.ABCMeta):
     """An abstract class representing the result of a Python computation.
