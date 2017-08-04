@@ -56,6 +56,8 @@ Vital statistics:
 
 * Bug tracker and source code: https://github.com/python-trio/trio
 
+* Real-time chat: https://gitter.im/python-trio/general
+
 * License: MIT or Apache 2, your choice
 
 * Code of conduct: Contributors are requested to follow our `code of
