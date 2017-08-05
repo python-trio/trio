@@ -32,7 +32,6 @@ def _run_in_trio_thread_cb(q, fn, args):
         return fn(*args)
 
     res = _core.Result.capture(unprotected_fn)
-    print(res)
     q.put_nowait(res)
 
 
