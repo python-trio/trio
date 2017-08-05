@@ -696,22 +696,13 @@ class SSLStream(_Stream):
             self._state = _State.CLOSED
             return (transport_stream, self._incoming.read())
 
-    def forceful_close(self):
-        """Forcefully closes the underlying transport and marks this stream as
-        closed.
-
-        """
-        if self._state is not _State.CLOSED:
-            self._state = _State.CLOSED
-            self.transport_stream.forceful_close()
-
-    async def graceful_close(self):
+    async def aclose(self):
         """Gracefully shut down this connection, and close the underlying
         transport.
 
         If ``https_compatible`` is False (the default), then this attempts to
         first send a ``close_notify`` and then close the underlying stream by
-        calling its :meth:`~trio.abc.AsyncResource.graceful_close` method.
+        calling its :meth:`~trio.abc.AsyncResource.aclose` method.
 
         If ``https_compatible`` is set to True, then this simply closes the
         underlying stream and marks this stream as closed.
@@ -722,7 +713,7 @@ class SSLStream(_Stream):
             return
         if self._state is _State.BROKEN or self._https_compatible:
             self._state = _State.CLOSED
-            await self.transport_stream.graceful_close()
+            await self.transport_stream.aclose()
             return
         try:
             await self._handshook.ensure(checkpoint=False)
@@ -776,9 +767,9 @@ class SSLStream(_Stream):
             except _streams.BrokenStreamError:
                 pass
             # Close the underlying stream
-            await self.transport_stream.graceful_close()
+            await self.transport_stream.aclose()
         except:
-            self.transport_stream.forceful_close()
+            await _streams.aclose_forcefully(self.transport_stream)
             raise
         finally:
             self._state = _State.CLOSED

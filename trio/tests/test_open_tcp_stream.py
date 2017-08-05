@@ -78,7 +78,7 @@ async def test_open_tcp_stream_real_socket_smoketest():
     server_sock, _ = await listen_sock.accept()
     await client_stream.send_all(b"x")
     assert await server_sock.recv(1) == b"x"
-    client_stream.forceful_close()
+    await client_stream.aclose()
     server_sock.close()
 
 

@@ -190,11 +190,8 @@ class PyOpenSSLEchoStream:
         else:
             self.sleeper = sleeper
 
-    def forceful_close(self):
+    async def aclose(self):
         self._conn.bio_shutdown()
-
-    async def graceful_close(self):
-        self.forceful_close()
 
     def renegotiate_pending(self):
         return self._conn.renegotiate_pending()
@@ -375,7 +372,7 @@ async def test_ssl_client_basics():
         assert not s.server_side
         await s.send_all(b"x")
         assert await s.receive_some(1) == b"x"
-        await s.graceful_close()
+        await s.aclose()
 
     # Didn't configure the CA file, should fail
     async with ssl_echo_server_raw(expect_fail=True) as sock:
@@ -424,7 +421,7 @@ async def test_ssl_server_basics():
         await server_transport.send_all(b"y")
         assert await server_transport.receive_some(1) == b"z"
         assert await server_transport.receive_some(1) == b""
-        await server_transport.graceful_close()
+        await server_transport.aclose()
 
         t.join()
 
@@ -531,7 +528,7 @@ async def test_full_duplex_basics():
             nursery.spawn(s.do_handshake)
             nursery.spawn(s.do_handshake)
 
-        await s.graceful_close()
+        await s.aclose()
 
     assert len(sent) == len(received) == EXPECTED
     assert sent == received
@@ -552,7 +549,7 @@ async def test_renegotiation_simple():
         await s.send_all(b"b")
         assert await s.receive_some(1) == b"b"
 
-        await s.graceful_close()
+        await s.aclose()
 
 
 @slow
@@ -646,7 +643,7 @@ async def test_renegotiation_randomized(mock_clock):
 
         await clear()
 
-        await s.graceful_close()
+        await s.aclose()
 
     # 2) Same, but now wait_send_all_might_not_block is stuck when
     # receive_some tries to send.
@@ -667,7 +664,7 @@ async def test_renegotiation_randomized(mock_clock):
 
         await clear()
 
-        await s.graceful_close()
+        await s.aclose()
 
 
 async def test_resource_busy_errors():
@@ -751,7 +748,7 @@ async def test_checkpoints():
     async with ssl_echo_server() as s:
         await s.do_handshake()
         with assert_yields():
-            await s.graceful_close()
+            await s.aclose()
 
 
 async def test_send_all_empty_string():
@@ -767,7 +764,7 @@ async def test_send_all_empty_string():
         await s.send_all(b"x")
         assert await s.receive_some(1) == b"x"
 
-        await s.graceful_close()
+        await s.aclose()
 
 
 @pytest.mark.parametrize("https_compatible", [False, True])
@@ -858,13 +855,13 @@ async def test_closing_nice_case():
     # we need to run them concurrently
     async def client_closer():
         with assert_yields():
-            await client_ssl.graceful_close()
+            await client_ssl.aclose()
 
     async def server_closer():
         assert await server_ssl.receive_some(10) == b""
         assert await server_ssl.receive_some(10) == b""
         with assert_yields():
-            await server_ssl.graceful_close()
+            await server_ssl.aclose()
 
     async with _core.open_nursery() as nursery:
         nursery.spawn(client_closer)
@@ -876,8 +873,9 @@ async def test_closing_nice_case():
 
     # once closed, it's OK to close again
     with assert_yields():
-        await client_ssl.graceful_close()
-    client_ssl.forceful_close()
+        await client_ssl.aclose()
+    with assert_yields():
+        await client_ssl.aclose()
 
     # Trying to send more data does not work
     with assert_yields():
@@ -906,10 +904,10 @@ async def test_closing_nice_case():
         with assert_yields():
             assert await server_ssl.receive_some(10) == b""
         with assert_yields():
-            await server_ssl.graceful_close()
+            await server_ssl.aclose()
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(client_ssl.graceful_close)
+        nursery.spawn(client_ssl.aclose)
         nursery.spawn(expect_eof_server)
 
 
@@ -939,7 +937,7 @@ async def test_send_all_fails_in_the_middle():
 
     client.transport_stream.send_stream.close_hook = close_hook
     client.transport_stream.receive_stream.close_hook = close_hook
-    await client.graceful_close()
+    await client.aclose()
 
     assert closed == 2
 
@@ -977,14 +975,14 @@ async def test_ssl_bad_shutdown():
         nursery.spawn(client.do_handshake)
         nursery.spawn(server.do_handshake)
 
-    client.forceful_close()
+    await trio.aclose_forcefully(client)
     # now the server sees a broken stream
     with pytest.raises(BrokenStreamError):
         await server.receive_some(10)
     with pytest.raises(BrokenStreamError):
         await server.send_all(b"x" * 10)
 
-    await server.graceful_close()
+    await server.aclose()
 
 
 async def test_ssl_bad_shutdown_but_its_ok():
@@ -997,13 +995,13 @@ async def test_ssl_bad_shutdown_but_its_ok():
         nursery.spawn(client.do_handshake)
         nursery.spawn(server.do_handshake)
 
-    client.forceful_close()
+    await trio.aclose_forcefully(client)
     # the server sees that as a clean shutdown
     assert await server.receive_some(10) == b""
     with pytest.raises(BrokenStreamError):
         await server.send_all(b"x" * 10)
 
-    await server.graceful_close()
+    await server.aclose()
 
 
 async def test_ssl_https_compatibility_disagreement():
@@ -1024,7 +1022,7 @@ async def test_ssl_https_compatibility_disagreement():
         assert isinstance(excinfo.value.__cause__, tssl.SSLEOFError)
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(client.graceful_close)
+        nursery.spawn(client.aclose)
         nursery.spawn(receive_and_expect_error)
 
 
@@ -1038,7 +1036,7 @@ async def test_https_mode_eof_before_handshake():
         assert await server.receive_some(10) == b""
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(client.graceful_close)
+        nursery.spawn(client.aclose)
         nursery.spawn(server_expect_clean_eof)
 
 

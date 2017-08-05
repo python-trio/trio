@@ -2,15 +2,48 @@ import abc
 import contextlib
 
 import attr
+from async_generator import async_generator, yield_
 
 from . import _core
 from .abc import HalfCloseableStream
+from ._util import acontextmanager
 
 __all__ = [
+    "aclose_forcefully",
     "BrokenStreamError",
     "ClosedStreamError",
     "StapledStream",
 ]
+
+
+async def aclose_forcefully(resource):
+    """Close an async resource or async generator immediately, without
+    blocking to do any graceful cleanup.
+
+    :class:`~trio.abc.AsyncResource` objects guarantee that if their
+    :meth:`~trio.abc.AsyncResource.aclose` method is cancelled, then they will
+    still close the resource (albeit in a potentially ungraceful
+    fashion). :func:`aclose_forcefully` is a convenience function that
+    exploits this behavior to let you force a resource to be closed without
+    blocking: it works by calling ``await resource.aclose()`` and then
+    cancelling it immediately.
+
+    Most users won't need this, but it may be useful on cleanup paths where
+    you can't afford to block, or if you want to close an resource and don't
+    care about handling it gracefully. For example, if
+    :class:`~trio.ssl.SSLStream` encounters an error and cannot perform its
+    own graceful close, then there's no point in waiting to gracefully shut
+    down the underlying transport either, so it calls ``await
+    aclose_forcefully(self.transport_stream)``.
+
+    Note that this function is async, and that it acts as a checkpoint, but
+    unlike most async functions it cannot block indefinitely (at least,
+    assuming the underlying resource object is correctly implemented).
+
+    """
+    with _core.open_cancel_scope() as cs:
+        cs.cancel()
+        await resource.aclose()
 
 
 class BrokenStreamError(Exception):
@@ -31,12 +64,12 @@ class BrokenStreamError(Exception):
 
 
 class ClosedStreamError(Exception):
-    """Raised when an attempt to use a stream a stream fails because the
-    stream was already closed locally.
+    """Raised when an attempt to use a stream fails because the stream was
+    already closed locally.
 
     You *only* get this error if *your* code closed the stream object you're
     attempting to use by calling
-    :meth:`~trio.abc.AsyncResource.graceful_close` or
+    :meth:`~trio.abc.AsyncResource.aclose` or
     similar. (:meth:`~trio.abc.SendStream.send_all` might also raise this if
     you already called :meth:`~trio.abc.HalfCloseableStream.send_eof`.)
     Therefore this exception generally indicates a bug in your code.
@@ -63,8 +96,8 @@ class StapledStream(HalfCloseableStream):
        A silly way to make a stream that echoes back whatever you write to
        it::
 
-          sock1, sock2 = trio.socket.socketpair()
-          echo_stream = StapledStream(SocketStream(sock1), SocketStream(sock2))
+          left, right = trio.testing.memory_stream_pair()
+          echo_stream = StapledStream(SocketStream(left), SocketStream(right))
           await echo_stream.send_all(b"x")
           assert await echo_stream.receive_some(1) == b"x"
 
@@ -102,13 +135,13 @@ class StapledStream(HalfCloseableStream):
         """Shuts down the send side of the stream.
 
         If ``self.send_stream.send_eof`` exists, then calls it. Otherwise,
-        calls ``self.send_stream.graceful_close()``.
+        calls ``self.send_stream.aclose()``.
 
         """
         if hasattr(self.send_stream, "send_eof"):
             return await self.send_stream.send_eof()
         else:
-            return await self.send_stream.graceful_close()
+            return await self.send_stream.aclose()
 
     async def receive_some(self, max_bytes):
         """Calls ``self.receive_stream.receive_some``.
@@ -116,20 +149,11 @@ class StapledStream(HalfCloseableStream):
         """
         return await self.receive_stream.receive_some(max_bytes)
 
-    def forceful_close(self):
-        """Calls ``forceful_close`` on both underlying streams.
+    async def aclose(self):
+        """Calls ``aclose`` on both underlying streams.
 
         """
         try:
-            self.send_stream.forceful_close()
+            await self.send_stream.aclose()
         finally:
-            self.receive_stream.forceful_close()
-
-    async def graceful_close(self):
-        """Calls ``graceful_close`` on both underlying streams.
-
-        """
-        try:
-            await self.send_stream.graceful_close()
-        finally:
-            await self.receive_stream.graceful_close()
+            await self.receive_stream.aclose()

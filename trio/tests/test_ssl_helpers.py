@@ -36,7 +36,10 @@ class FakeSocket:
         return await self.stream.receive_some(max_bytes)
 
     def close(self):
-        self.stream.forceful_close()
+        # Memory{Send,Receive}Streams provide a synchronous close method just
+        # to support this case.
+        self.stream.receive_stream.close()
+        self.stream.send_stream.close()
 
     # Stubs to make SocketStream happy:
     def setsockopt(self, *args, **kwargs):
@@ -112,7 +115,7 @@ async def test_open_ssl_over_tcp_stream():
         )
         await stream.send_all(b"x")
         assert await stream.receive_some(1) == b"x"
-        await stream.graceful_close()
+        await stream.aclose()
 
         # Check https_compatible settings are being passed through
         assert not stream._https_compatible
