@@ -63,8 +63,10 @@ class _try_sync:
 if not hasattr(_stdlib_socket, "TCP_NOTSENT_LOWAT"):  # pragma: no branch
     if _sys.platform == "darwin":
         TCP_NOTSENT_LOWAT = 0x201
+        __all__.append("TCP_NOTSENT_LOWAT")
     elif _sys.platform == "linux":
         TCP_NOTSENT_LOWAT = 25
+        __all__.append("TCP_NOTSENT_LOWAT")
 
 for _name in _stdlib_socket.__dict__.keys():
     if _name == _name.upper():
@@ -74,11 +76,13 @@ if _sys.platform == "win32":
     # See https://github.com/python-trio/trio/issues/39
     # (you can still get it from stdlib socket, of course, if you want it)
     del SO_REUSEADDR
+    __all__.remove("SO_REUSEADDR")
 
     # As of at least 3.6, python on Windows is missing IPPROTO_IPV6
     # https://bugs.python.org/issue29515
     if not hasattr(_stdlib_socket, "IPPROTO_IPV6"):  # pragma: no branch
         IPPROTO_IPV6 = 41
+        __all__.append("IPPROTO_IPV6")
 
 ################################################################
 # Simple re-exports
