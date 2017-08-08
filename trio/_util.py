@@ -241,5 +241,5 @@ def async_wraps(cls, wrapped_cls, attr_name):
 def fixup_module_metadata(module_name, namespace):
     for objname in namespace["__all__"]:
         obj = namespace[objname]
-        if hasattr(obj, "__module__"):
+        if hasattr(obj, "__module__") and obj.__module__.startswith("trio."):
             obj.__module__ = module_name
