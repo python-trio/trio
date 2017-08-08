@@ -111,7 +111,7 @@ class AsyncAutoWrapperType(type):
 
 
 class Path(metaclass=AsyncAutoWrapperType):
-    """A :class:`~pathlib.Path` wrapper that executes blocking Path methods in
+    """A :class:`pathlib.Path` wrapper that executes blocking methods in
     :meth:`trio.run_in_worker_thread`.
 
     """
@@ -147,6 +147,7 @@ class Path(metaclass=AsyncAutoWrapperType):
         except AttributeError:  # pragma: no cover
             return str(self)
 
+    @wraps(pathlib.Path.open)
     async def open(self, *args, **kwargs):
         """Open the file pointed to by the path, like the :func:`trio.open_file`
         function does.

@@ -168,28 +168,33 @@ async def open_tcp_stream(
     """Connect to the given host and port over TCP.
 
     If the given ``host`` has multiple IP addresses associated with it, then
-    we have a problem: which one do we use? One approach would be to attempt
-    to connect to the first one, and then if that fails, attempt to connect to
-    the second one ... until we've tried all of them. The problem with this is
-    that if the first IP address is unreachable (for example, because it's an
-    IPv6 address and our network discards IPv6 packets), then we might end up
-    waiting tens of seconds for the first connection attempt to timeout before
-    we try the second address. Another approach would be to attempt to connect
-    to all of the addresses at the same time, and then use whichever address
-    succeeds first. This will be fast, but it creates a lot of unnecessary
-    network load.
+    we have a problem: which one do we use?
+
+    One approach would be to attempt to connect to the first one, and then if
+    that fails, attempt to connect to the second one ... until we've tried all
+    of them. But the problem with this is that if the first IP address is
+    unreachable (for example, because it's an IPv6 address and our network
+    discards IPv6 packets), then we might end up waiting tens of seconds for
+    the first connection attempt to timeout before we try the second address.
+
+    Another approach would be to attempt to connect to all of the addresses at
+    the same time, in parallel, and then use whichever connection succeeds
+    first, abandoning the others. This would be fast, but create a lot of
+    unnecessary load on the network and the remote server.
 
     This function strikes a balance between these two extremes: it works its
-    way through the available addresses in sequence, like the first approach;
-    but, if an attempt hasn't succeeded or failed after
-    ``happy_eyeballs_delay`` seconds, then it gets impatient and starts the
-    next connection attempt in parallel. As soon as any one connection attempt
-    succeeds, all the other attempts are cancelled. This way most connections
-    involve minimal network load, but if one of the addresses is unreachable
-    then it doesn't slow us down too much.
+    way through the available addresses one at a time, like the first
+    approach; but, if ``happy_eyeballs_delay`` seconds have passed and it's
+    still waiting for an attempt to succeed or fail, then it gets impatient
+    and starts the next connection attempt in parallel. As soon as any one
+    connection attempt succeeds, all the other attempts are cancelled. This
+    avoids unnecessary load because most connections will succeed after just
+    one or two attempts, but if one of the addresses is unreachable then it
+    doesn't slow us down too much.
 
-    This is a "happy eyeballs" algorithm, and roughly matches what Chrome
-    does; see `RFC 6555 <https://tools.ietf.org/html/rfc6555>`__.
+    This is known as a "happy eyeballs" algorithm, and our particular variant
+    is modelled after how Chrome connects to webservers; see `RFC 6555
+    <https://tools.ietf.org/html/rfc6555>`__ for more details.
 
     Args:
       host (bytes or str): The host to connect to. Can be an IPv4 address,
