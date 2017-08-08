@@ -379,11 +379,13 @@ _SOCK_TYPE_MASK = ~(
 )
 
 
+# Note that this is *not* in __all__.
+#
 # Hopefully Python will eventually make something like this public
 # (see bpo-21327) but I don't want to make it public myself and then
 # find out they picked a different name... this is used internally in
 # this file and also elsewhere in trio.
-def _real_type(type_num):
+def real_socket_type(type_num):
     return type_num & _SOCK_TYPE_MASK
 
 
@@ -531,7 +533,7 @@ class _SocketType:
                     address[0],
                     address[1],
                     self._sock.family,
-                    _real_type(self._sock.type),
+                    real_socket_type(self._sock.type),
                     self._sock.proto,
                     flags=_NUMERIC_ONLY
                 )
@@ -569,7 +571,7 @@ class _SocketType:
                 flags |= AI_V4MAPPED
         gai_res = await getaddrinfo(
             address[0], address[1], self._sock.family,
-            _real_type(self._sock.type), self._sock.proto, flags
+            real_socket_type(self._sock.type), self._sock.proto, flags
         )
         # AFAICT from the spec it's not possible for getaddrinfo to return an
         # empty list.

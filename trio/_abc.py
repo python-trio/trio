@@ -10,6 +10,8 @@ __all__ = [
     "ReceiveStream",
     "Stream",
     "HalfCloseableStream",
+    "SocketFactory",
+    "HostnameResolver",
 ]
 
 

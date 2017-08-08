@@ -5,6 +5,7 @@ from contextlib import contextmanager
 
 from . import _core
 from . import socket as tsocket
+from ._socket import real_socket_type
 from ._util import UnLock
 from .abc import HalfCloseableStream
 from ._streams import ClosedStreamError, BrokenStreamError
@@ -59,7 +60,7 @@ class SocketStream(HalfCloseableStream):
     def __init__(self, sock):
         if not tsocket.is_trio_socket(sock):
             raise TypeError("SocketStream requires trio socket object")
-        if tsocket._real_type(sock.type) != tsocket.SOCK_STREAM:
+        if real_socket_type(sock.type) != tsocket.SOCK_STREAM:
             raise ValueError("SocketStream requires a SOCK_STREAM socket")
         try:
             sock.getpeername()
