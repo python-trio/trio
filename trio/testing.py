@@ -410,7 +410,7 @@ class Sequencer:
 ################################################################
 
 
-class _CloseBoth:
+class _ForceCloseBoth:
     def __init__(self, both):
         self._both = list(both)
 
@@ -419,9 +419,9 @@ class _CloseBoth:
 
     async def __aexit__(self, *args):
         try:
-            self._both[0].forceful_close()
+            await _streams.aclose_forcefully(self._both[0])
         finally:
-            self._both[1].forceful_close()
+            await _streams.aclose_forcefully(self._both[1])
 
 
 @contextmanager
@@ -454,7 +454,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
       AssertionError: if a test fails.
 
     """
-    async with _CloseBoth(await stream_maker()) as (s, r):
+    async with _ForceCloseBoth(await stream_maker()) as (s, r):
         assert isinstance(s, _abc.SendStream)
         assert isinstance(r, _abc.ReceiveStream)
 
@@ -469,9 +469,9 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
         async def checked_receive_1(expected):
             assert await do_receive_some(1) == expected
 
-        async def do_graceful_close(resource):
+        async def do_aclose(resource):
             with assert_yields():
-                await resource.graceful_close()
+                await resource.aclose()
 
         # Simple sending/receiving
         async with _core.open_nursery() as nursery:
@@ -538,7 +538,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
 
         async with _core.open_nursery() as nursery:
             nursery.spawn(expect_broken_stream_on_send)
-            nursery.spawn(do_graceful_close, r)
+            nursery.spawn(do_aclose, r)
 
         # once detected, the stream stays broken
         with _assert_raises(_streams.BrokenStreamError):
@@ -549,14 +549,11 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             await do_receive_some(4096)
 
         # we can close the same stream repeatedly, it's fine
-        r.forceful_close()
-        with assert_yields():
-            await r.graceful_close()
-        r.forceful_close()
+        await do_aclose(r)
+        await do_aclose(r)
 
         # closing the sender side
-        with assert_yields():
-            await s.graceful_close()
+        await do_aclose(s)
 
         # now trying to send raises ClosedStreamError
         with _assert_raises(_streams.ClosedStreamError):
@@ -568,15 +565,14 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
                 await s.wait_send_all_might_not_block()
 
         # and again, repeated closing is fine
-        s.forceful_close()
-        await do_graceful_close(s)
-        s.forceful_close()
+        await do_aclose(s)
+        await do_aclose(s)
 
-    async with _CloseBoth(await stream_maker()) as (s, r):
+    async with _ForceCloseBoth(await stream_maker()) as (s, r):
         # if send-then-graceful-close, receiver gets data then b""
         async def send_then_close():
             await do_send_all(b"y")
-            await do_graceful_close(s)
+            await do_aclose(s)
 
         async def receive_send_then_close():
             # We want to make sure that if the sender closes the stream before
@@ -586,15 +582,14 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             await wait_all_tasks_blocked()
             await checked_receive_1(b"y")
             await checked_receive_1(b"")
-            await do_graceful_close(r)
+            await do_aclose(r)
 
         async with _core.open_nursery() as nursery:
             nursery.spawn(send_then_close)
             nursery.spawn(receive_send_then_close)
 
-    # using forceful_close also makes things closed
-    async with _CloseBoth(await stream_maker()) as (s, r):
-        r.forceful_close()
+    async with _ForceCloseBoth(await stream_maker()) as (s, r):
+        await _streams.aclose_forcefully(r)
 
         with _assert_raises(_streams.BrokenStreamError):
             while True:
@@ -603,8 +598,8 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
         with _assert_raises(_streams.ClosedStreamError):
             await do_receive_some(4096)
 
-    async with _CloseBoth(await stream_maker()) as (s, r):
-        s.forceful_close()
+    async with _ForceCloseBoth(await stream_maker()) as (s, r):
+        await _streams.aclose_forcefully(s)
 
         with _assert_raises(_streams.ClosedStreamError):
             await do_send_all(b"123")
@@ -617,15 +612,15 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
         except _streams.BrokenStreamError:
             pass
 
-    # cancelled graceful_close still closes
-    async with _CloseBoth(await stream_maker()) as (s, r):
+    # cancelled aclose still closes
+    async with _ForceCloseBoth(await stream_maker()) as (s, r):
         with _core.open_cancel_scope() as scope:
             scope.cancel()
-            await r.graceful_close()
+            await r.aclose()
 
         with _core.open_cancel_scope() as scope:
             scope.cancel()
-            await s.graceful_close()
+            await s.aclose()
 
         with _assert_raises(_streams.ClosedStreamError):
             await do_send_all(b"123")
@@ -642,7 +637,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
     # that requires some special-case handling of the particular stream setup;
     # we can't do it here. Maybe we could do a bit better with
     #     https://github.com/python-trio/trio/issues/77
-    async with _CloseBoth(await stream_maker()) as (s, r):
+    async with _ForceCloseBoth(await stream_maker()) as (s, r):
         async def expect_cancelled(afn, *args):
             with _assert_raises(_core.Cancelled):
                 await afn(*args)
@@ -654,12 +649,12 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
                 nursery.spawn(expect_cancelled, do_receive_some, 1)
 
         async with _core.open_nursery() as nursery:
-            nursery.spawn(do_graceful_close, s)
-            nursery.spawn(do_graceful_close, r)
+            nursery.spawn(do_aclose, s)
+            nursery.spawn(do_aclose, r)
 
     # check wait_send_all_might_not_block, if we can
     if clogged_stream_maker is not None:
-        async with _CloseBoth(await clogged_stream_maker()) as (s, r):
+        async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
             record = []
 
             async def waiter(cancel_scope):
@@ -687,7 +682,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
                 "waiter wokeup",
             ]
 
-        async with _CloseBoth(await clogged_stream_maker()) as (s, r):
+        async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
             # simultaneous wait_send_all_might_not_block fails
             with _assert_raises(_core.ResourceBusyError):
                 async with _core.open_nursery() as nursery:
@@ -703,7 +698,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
                     nursery.spawn(s.wait_send_all_might_not_block)
                     nursery.spawn(s.send_all, b"123")
 
-        async with _CloseBoth(await clogged_stream_maker()) as (s, r):
+        async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
             # send_all and send_all blocked simultaneously should also raise
             # (but again this might destroy the stream)
             with _assert_raises(_core.ResourceBusyError):
@@ -712,7 +707,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
                     nursery.spawn(s.send_all, b"123")
 
         # closing the receiver causes wait_send_all_might_not_block to return
-        async with _CloseBoth(await clogged_stream_maker()) as (s, r):
+        async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
             async def sender():
                 try:
                     with assert_yields():
@@ -722,15 +717,15 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
 
             async def receiver():
                 await wait_all_tasks_blocked()
-                r.forceful_close()
+                await _streams.aclose_forcefully(r)
 
             async with _core.open_nursery() as nursery:
                 nursery.spawn(sender)
                 nursery.spawn(receiver)
 
         # and again with the call starting after the close
-        async with _CloseBoth(await clogged_stream_maker()) as (s, r):
-            r.forceful_close()
+        async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
+            await _streams.aclose_forcefully(r)
             try:
                 with assert_yields():
                     await s.wait_send_all_might_not_block()
@@ -766,7 +761,7 @@ async def check_two_way_stream(stream_maker, clogged_stream_maker):
         flipped_stream_maker, flipped_clogged_stream_maker
     )
 
-    async with _CloseBoth(await stream_maker()) as (s1, s2):
+    async with _ForceCloseBoth(await stream_maker()) as (s1, s2):
         assert isinstance(s1, _abc.Stream)
         assert isinstance(s2, _abc.Stream)
 
@@ -803,11 +798,11 @@ async def check_two_way_stream(stream_maker, clogged_stream_maker):
 
         async def expect_receive_some_empty():
             assert await s2.receive_some(10) == b""
-            await s2.graceful_close()
+            await s2.aclose()
 
         async with _core.open_nursery() as nursery:
             nursery.spawn(expect_receive_some_empty)
-            nursery.spawn(s1.graceful_close)
+            nursery.spawn(s1.aclose)
 
 
 async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
@@ -825,7 +820,7 @@ async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
     """
     await check_two_way_stream(stream_maker, clogged_stream_maker)
 
-    async with _CloseBoth(await stream_maker()) as (s1, s2):
+    async with _ForceCloseBoth(await stream_maker()) as (s1, s2):
         assert isinstance(s1, _abc.HalfCloseableStream)
         assert isinstance(s2, _abc.HalfCloseableStream)
 
@@ -857,7 +852,7 @@ async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
             nursery.spawn(expect_x_then_eof, s1)
 
     if clogged_stream_maker is not None:
-        async with _CloseBoth(await clogged_stream_maker()) as (s1, s2):
+        async with _ForceCloseBoth(await clogged_stream_maker()) as (s1, s2):
             # send_all and send_eof simultaneously is not ok
             with _assert_raises(_core.ResourceBusyError):
                 async with _core.open_nursery() as nursery:
@@ -866,7 +861,7 @@ async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
                     assert t.result is None
                     nursery.spawn(s1.send_eof)
 
-        async with _CloseBoth(await clogged_stream_maker()) as (s1, s2):
+        async with _ForceCloseBoth(await clogged_stream_maker()) as (s1, s2):
             # wait_send_all_might_not_block and send_eof simultaneously is not
             # ok either
             with _assert_raises(_core.ResourceBusyError):
@@ -944,8 +939,8 @@ class MemorySendStream(_abc.SendStream):
       wait_send_all_might_not_block_hook: An async function, or None. Called
           from :meth:`wait_send_all_might_not_block`. Can do whatever you
           like.
-      close_hook: A synchronous function, or None. Called from
-          :meth:`forceful_close`. Can do whatever you like.
+      close_hook: A synchronous function, or None. Called from :meth:`close`
+          and :meth:`aclose`. Can do whatever you like.
 
     .. attribute:: send_all_hook
                    wait_send_all_might_not_block_hook
@@ -999,7 +994,7 @@ class MemorySendStream(_abc.SendStream):
             if self.wait_send_all_might_not_block_hook is not None:
                 await self.wait_send_all_might_not_block_hook()
 
-    def forceful_close(self):
+    def close(self):
         """Marks this stream as closed, and then calls the :attr:`close_hook`
         (if any).
 
@@ -1007,6 +1002,13 @@ class MemorySendStream(_abc.SendStream):
         self._outgoing.close()
         if self.close_hook is not None:
             self.close_hook()
+
+    async def aclose(self):
+        """Same as :meth:`close`, but async.
+
+        """
+        self.close()
+        await _core.yield_briefly()
 
     async def get_data(self, max_bytes=None):
         """Retrieves data from the internal buffer, blocking if necessary.
@@ -1042,8 +1044,8 @@ class MemoryReceiveStream(_abc.ReceiveStream):
     Args:
       receive_some_hook: An async function, or None. Called from
           :meth:`receive_some`. Can do whatever you like.
-      close_hook: A synchronous function, or None. Called from
-          :meth:`forceful_close`. Can do whatever you like.
+      close_hook: A synchronous function, or None. Called from :meth:`close`
+          and :meth:`aclose`. Can do whatever you like.
 
     .. attribute:: receive_some_hook
                    close_hook
@@ -1080,7 +1082,7 @@ class MemoryReceiveStream(_abc.ReceiveStream):
                 await self.receive_some_hook()
             return await self._incoming.get(max_bytes)
 
-    def forceful_close(self):
+    def close(self):
         """Discards any pending data from the internal buffer, and marks this
         stream as closed.
 
@@ -1094,6 +1096,13 @@ class MemoryReceiveStream(_abc.ReceiveStream):
         self._incoming.close()
         if self.close_hook is not None:
             self.close_hook()
+
+    async def aclose(self):
+        """Same as :meth:`close`, but async.
+
+        """
+        self.close()
+        await _core.yield_briefly()
 
     def put_data(self, data):
         """Appends the given data to the internal buffer.
@@ -1357,8 +1366,12 @@ class _LockstepSendStream(_abc.SendStream):
     def __init__(self, lbq):
         self._lbq = lbq
 
-    def forceful_close(self):
+    def close(self):
         self._lbq.close_sender()
+
+    async def aclose(self):
+        self.close()
+        await _core.yield_briefly()
 
     async def send_all(self, data):
         await self._lbq.send_all(data)
@@ -1371,8 +1384,12 @@ class _LockstepReceiveStream(_abc.ReceiveStream):
     def __init__(self, lbq):
         self._lbq = lbq
 
-    def forceful_close(self):
+    def close(self):
         self._lbq.close_receiver()
+
+    async def aclose(self):
+        self.close()
+        await _core.yield_briefly()
 
     async def receive_some(self, max_bytes):
         return await self._lbq.receive_some(max_bytes)
@@ -1394,6 +1411,10 @@ def lockstep_stream_one_way_pair():
     This can be useful for testing flow control mechanisms in an extreme case,
     or for setting up "clogged" streams to use with
     :func:`check_one_way_stream` and friends.
+
+    In addition to fulfilling the :class:`~trio.abc.SendStream` and
+    :class:`~trio.abc.ReceiveStream` interfaces, the return objects
+    also have a synchronous ``close`` method.
 
     """
 

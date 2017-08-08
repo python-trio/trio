@@ -223,7 +223,7 @@ class AsyncResource(metaclass=_abc.ABCMeta):
     shutting down a TLS-encrypted connection requires sending a "goodbye"
     message; but if a peer has become non-responsive, then sending this
     message might block forever, so we may want to just drop the connection
-    instead. Therefore the :meth:`graceful_close` method is unusual in that it
+    instead. Therefore the :meth:`aclose` method is unusual in that it
     should always close the connection (or at least make its best attempt)
     *even if it fails*; failure indicates a failure to achieve grace, not a
     failure to close the connection.
@@ -235,51 +235,42 @@ class AsyncResource(metaclass=_abc.ABCMeta):
           ...
 
     Entering the context manager is synchronous (not a checkpoint); exiting it
-    calls :meth:`graceful_close`. The default implementations of
+    calls :meth:`aclose`. The default implementations of
     ``__aenter__`` and ``__aexit__`` should be adequate for all subclasses.
 
     """
     __slots__ = ()
 
     @_abc.abstractmethod
-    def forceful_close(self):
-        """Force an immediate close of this resource.
+    async def aclose(self):
+        """Close this resource, possibly blocking.
 
-        This will never block, but (depending on the resource in question) it
-        might be a "rude" shutdown.
+        IMPORTANT: This method may block in order to perform a "graceful"
+        shutdown. But, if this fails, then it still *must* close any
+        underlying resources before returning. An error from this method
+        indicates a failure to achieve grace, *not* a failure to close the
+        connection.
 
-        If the resource is already closed, then this method should silently
-        succeed.
-
-        """
-
-    async def graceful_close(self):
-        """Close this resource, gracefully.
-
-        This may block in order to perform a "graceful" shutdown (for example,
-        sending a "goodbye" message). But, if this fails (e.g., due to being
-        cancelled), then it still *must* close the underlying resource,
-        possibly by calling :meth:`forceful_close`.
+        For example, suppose we call :meth:`aclose` on a TLS-encrypted
+        connection. This requires sending a "goodbye" message; but if the peer
+        has become non-responsive, then our attempt to send this message might
+        block forever, and eventually time out and be cancelled. In this case
+        the :meth:`aclose` method on :class:`~trio.ssl.SSLStream` will
+        immediately close the underlying transport stream using
+        :func:`trio.aclose_forcefully` before raising :exc:`~trio.Cancelled`.
 
         If the resource is already closed, then this method should silently
         succeed.
 
-        :class:`AsyncResource` provides a default implementation of this
-        method that's suitable for resources that don't distinguish between
-        graceful and forceful closure: it simply calls :meth:`forceful_close`
-        and then executes a checkpoint.
+        See also: :func:`trio.aclose_forcefully`.
 
         """
-        try:
-            self.forceful_close()
-        finally:
-            await _core.yield_briefly()
 
     async def __aenter__(self):
         return self
 
     async def __aexit__(self, *args):
-        await self.graceful_close()
+        await self.aclose()
 
 
 class SendStream(AsyncResource):
@@ -431,14 +422,14 @@ class HalfCloseableStream(Stream):
         """Send an end-of-file indication on this stream, if possible.
 
         The difference between :meth:`send_eof` and
-        :meth:`~AsyncResource.graceful_close` is that :meth:`send_eof` is a
+        :meth:`~AsyncResource.aclose` is that :meth:`send_eof` is a
         *unidirectional* end-of-file indication. After you call this method,
         you shouldn't try sending any more data on this stream, and your
         remote peer should receive an end-of-file indication (eventually,
         after receiving all the data you sent before that). But, they may
         continue to send data to you, and you can continue to receive it by
         calling :meth:`~ReceiveStream.receive_some`. You can think of it as
-        calling :meth:`~AsyncResource.graceful_close` on just the
+        calling :meth:`~AsyncResource.aclose` on just the
         :class:`SendStream` "half" of the stream object (and in fact that's
         literally how :class:`trio.StapledStream` implements it).
 

@@ -129,11 +129,11 @@ class SocketStream(HalfCloseableStream):
         with _translate_socket_errors_to_stream_errors():
             return await self.socket.recv(max_bytes)
 
-    def forceful_close(self):
+    async def aclose(self):
         self.socket.close()
+        await _core.yield_briefly()
 
-    # graceful_close, __aenter__, __aexit__ inherited from HalfCloseableStream
-    # are OK
+    # __aenter__, __aexit__ inherited from HalfCloseableStream are OK
 
     def setsockopt(self, level, option, value):
         """Set an option on the underlying socket.

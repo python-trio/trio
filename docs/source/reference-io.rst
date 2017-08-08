@@ -92,6 +92,8 @@ Abstract base classes
 .. autoclass:: trio.abc.AsyncResource
    :members:
 
+.. function:: trio.aclose_forcefully
+
 .. autoclass:: trio.abc.SendStream
    :members:
    :show-inheritance:

@@ -696,22 +696,13 @@ class SSLStream(_Stream):
             self._state = _State.CLOSED
             return (transport_stream, self._incoming.read())
 
-    def forceful_close(self):
-        """Forcefully closes the underlying transport and marks this stream as
-        closed.
-
-        """
-        if self._state is not _State.CLOSED:
-            self._state = _State.CLOSED
-            self.transport_stream.forceful_close()
-
-    async def graceful_close(self):
+    async def aclose(self):
         """Gracefully shut down this connection, and close the underlying
         transport.
 
         If ``https_compatible`` is False (the default), then this attempts to
         first send a ``close_notify`` and then close the underlying stream by
-        calling its :meth:`~trio.abc.AsyncResource.graceful_close` method.
+        calling its :meth:`~trio.abc.AsyncResource.aclose` method.
 
         If ``https_compatible`` is set to True, then this simply closes the
         underlying stream and marks this stream as closed.
@@ -722,11 +713,16 @@ class SSLStream(_Stream):
             return
         if self._state is _State.BROKEN or self._https_compatible:
             self._state = _State.CLOSED
-            await self.transport_stream.graceful_close()
+            await self.transport_stream.aclose()
             return
         try:
+            # https_compatible=False, so we're in spec-compliant mode and have
+            # to send close_notify so that the other side gets a cryptographic
+            # assurance that we've called aclose. Of course, we can't do
+            # anything cryptographic until after we've completed the
+            # handshake:
             await self._handshook.ensure(checkpoint=False)
-            # Here, we call SSL_shutdown *once*, because we want to send a
+            # Then, we call SSL_shutdown *once*, because we want to send a
             # close_notify but *not* wait for the other side to send back a
             # response. In principle it would be more polite to wait for the
             # other side to reply with their own close_notify. However, if
@@ -775,11 +771,13 @@ class SSLStream(_Stream):
                 )
             except _streams.BrokenStreamError:
                 pass
-            # Close the underlying stream
-            await self.transport_stream.graceful_close()
         except:
-            self.transport_stream.forceful_close()
+            # Failure! Kill the stream and move on.
+            await _streams.aclose_forcefully(self.transport_stream)
             raise
+        else:
+            # Success! Gracefully close the underlying stream.
+            await self.transport_stream.aclose()
         finally:
             self._state = _State.CLOSED
 
@@ -790,7 +788,9 @@ class SSLStream(_Stream):
         # This method's implementation is deceptively simple.
         #
         # First, we take the outer send lock, because of trio's standard
-        # semantics that wait_send_all_might_not_block and send_all conflict.
+        # semantics that wait_send_all_might_not_block and send_all
+        # conflict. This also takes care of providing correct checkpoint
+        # semantics before we potentially error out from _check_status().
         async with self._outer_send_lock:
             self._check_status()
             # Then we take the inner send lock. We know that no other tasks

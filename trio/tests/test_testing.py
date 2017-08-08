@@ -506,7 +506,7 @@ async def test_MemorySendStream():
             nursery.spawn(do_send_all, b"xxx")
 
     with assert_yields():
-        await mss.graceful_close()
+        await mss.aclose()
 
     assert await mss.get_data() == b"xxx"
     assert await mss.get_data() == b""
@@ -544,11 +544,13 @@ async def test_MemorySendStream():
 
     await mss2.send_all(b"abc")
     await mss2.wait_send_all_might_not_block()
-    mss2.forceful_close()
+    await _streams.aclose_forcefully(mss2)
+    mss2.close()
 
     assert record == [
         "send_all_hook",
         "wait_send_all_might_not_block_hook",
+        "close_hook",
         "close_hook",
     ]
 
@@ -607,7 +609,7 @@ async def test_MemoryRecieveStream():
 
     mrs2.put_data(b"lost on close")
     with assert_yields():
-        await mrs2.graceful_close()
+        await mrs2.aclose()
     assert record == ["closed"]
 
     with pytest.raises(_streams.ClosedStreamError):
@@ -617,11 +619,11 @@ async def test_MemoryRecieveStream():
 async def test_MemoryRecvStream_closing():
     mrs = MemoryReceiveStream()
     # close with no pending data
-    mrs.forceful_close()
+    mrs.close()
     with pytest.raises(_streams.ClosedStreamError):
         assert await mrs.receive_some(10) == b""
     # repeated closes ok
-    mrs.forceful_close()
+    mrs.close()
     # put_data now fails
     with pytest.raises(_streams.ClosedStreamError):
         mrs.put_data(b"123")
@@ -629,7 +631,7 @@ async def test_MemoryRecvStream_closing():
     mrs2 = MemoryReceiveStream()
     # close with pending data
     mrs2.put_data(b"xyz")
-    mrs2.forceful_close()
+    mrs2.close()
     with pytest.raises(_streams.ClosedStreamError):
         await mrs2.receive_some(10)
 
@@ -653,7 +655,7 @@ async def test_memory_stream_pump():
     assert not memory_stream_pump(mss, mrs, max_bytes=1)
     assert await mrs.receive_some(10) == b"56"
 
-    mss.forceful_close()
+    mss.close()
     memory_stream_pump(mss, mrs)
     assert await mrs.receive_some(10) == b""
 
@@ -680,23 +682,23 @@ async def test_memory_stream_one_way_pair():
         nursery.spawn(sender)
 
     # And this fails if we don't pump from close_hook
-    async def graceful_closer():
+    async def aclose_after_all_tasks_blocked():
         await wait_all_tasks_blocked()
-        await s.graceful_close()
+        await s.aclose()
 
     async with _core.open_nursery() as nursery:
         nursery.spawn(receiver, b"")
-        nursery.spawn(graceful_closer)
+        nursery.spawn(aclose_after_all_tasks_blocked)
 
     s, r = memory_stream_one_way_pair()
 
-    async def forceful_closer():
+    async def close_after_all_tasks_blocked():
         await wait_all_tasks_blocked()
-        s.forceful_close()
+        s.close()
 
     async with _core.open_nursery() as nursery:
         nursery.spawn(receiver, b"")
-        nursery.spawn(forceful_closer)
+        nursery.spawn(close_after_all_tasks_blocked)
 
     s, r = memory_stream_one_way_pair()
 

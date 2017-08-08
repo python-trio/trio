@@ -16,11 +16,8 @@ class RecordSendStream(SendStream):
     async def wait_send_all_might_not_block(self):
         self.record.append("wait_send_all_might_not_block")
 
-    async def graceful_close(self):
-        self.record.append("graceful_close")
-
-    def forceful_close(self):
-        self.record.append("forceful_close")
+    async def aclose(self):
+        self.record.append("aclose")
 
 
 @attr.s
@@ -30,11 +27,8 @@ class RecordReceiveStream(ReceiveStream):
     async def receive_some(self, max_bytes):
         self.record.append(("receive_some", max_bytes))
 
-    async def graceful_close(self):
-        self.record.append("graceful_close")
-
-    def forceful_close(self):
-        self.record.append("forceful_close")
+    async def aclose(self):
+        self.record.append("aclose")
 
 
 async def test_StapledStream():
@@ -54,7 +48,7 @@ async def test_StapledStream():
     send_stream.record.clear()
 
     await stapled.send_eof()
-    assert send_stream.record == ["graceful_close"]
+    assert send_stream.record == ["aclose"]
     send_stream.record.clear()
 
     async def fake_send_eof():
@@ -72,42 +66,29 @@ async def test_StapledStream():
     assert send_stream.record == []
     receive_stream.record.clear()
 
-    await stapled.graceful_close()
-    stapled.forceful_close()
-    assert receive_stream.record == ["graceful_close", "forceful_close"]
-    assert send_stream.record == ["graceful_close", "forceful_close"]
+    await stapled.aclose()
+    assert receive_stream.record == ["aclose"]
+    assert send_stream.record == ["aclose"]
 
 
 async def test_StapledStream_with_erroring_close():
+    # Make sure that if one of the aclose methods errors out, then the other
+    # one still gets called.
     class BrokenSendStream(RecordSendStream):
-        def forceful_close(self):
-            super().forceful_close()
-            raise KeyError
-
-        async def graceful_close(self):
-            await super().graceful_close()
+        async def aclose(self):
+            await super().aclose()
             raise ValueError
 
     class BrokenReceiveStream(RecordReceiveStream):
-        def forceful_close(self):
-            super().forceful_close()
-            raise KeyError
-
-        async def graceful_close(self):
-            await super().graceful_close()
+        async def aclose(self):
+            await super().aclose()
             raise ValueError
 
     stapled = StapledStream(BrokenSendStream(), BrokenReceiveStream())
 
-    with pytest.raises(KeyError) as excinfo:
-        stapled.forceful_close()
-    assert isinstance(excinfo.value.__context__, KeyError)
-
     with pytest.raises(ValueError) as excinfo:
-        await stapled.graceful_close()
+        await stapled.aclose()
     assert isinstance(excinfo.value.__context__, ValueError)
 
-    assert stapled.send_stream.record == ["forceful_close", "graceful_close"]
-    assert stapled.receive_stream.record == [
-        "forceful_close", "graceful_close"
-    ]
+    assert stapled.send_stream.record == ["aclose"]
+    assert stapled.receive_stream.record == ["aclose"]
