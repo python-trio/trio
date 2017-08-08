@@ -144,3 +144,15 @@ async def test_native_contextmanager_do_not_unchain_non_stopiteration_exceptions
                 raise cls('issue29692:Unchained')
         assert excinfo.value.args[0] == 'issue29692:Unchained'
         assert excinfo.value.__cause__ is None
+
+
+async def test_contextmanager_StopAsyncIteration_passthrough():
+    # This was the cause of annoying coverage flapping, see gh-140
+    @acontextmanager
+    @async_generator
+    async def noop_async_context_manager():
+        await yield_()
+
+    with pytest.raises(StopAsyncIteration):
+        async with noop_async_context_manager():
+            raise StopAsyncIteration
