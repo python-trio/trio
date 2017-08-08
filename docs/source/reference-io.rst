@@ -465,21 +465,205 @@ Socket objects
    * :meth:`~socket.socket.set_inheritable`
    * :meth:`~socket.socket.get_inheritable`
 
-
-Asynchronous disk I/O
----------------------
-
 .. currentmodule:: trio
 
-.. autofunction:: open_file
 
-.. autofunction:: wrap_file
+.. _async-file-io:
+
+Asynchronous filesystem I/O
+---------------------------
+
+Trio provides built-in facilities for performing asynchronous
+filesystem operations like reading or renaming a file. Generally, we
+recommend that you use these instead of Python's normal synchronous
+file APIs. But the tradeoffs here are somewhat subtle: sometimes
+people switch to async I/O, and then they're surprised and confused
+when they find it doesn't speed up their program. The next section
+explains the theory behind async file I/O, to help you better
+understand your code's behavior. Or, if you just want to get started,
+you can `jump down to the API overview
+<ref:async-file-io-overview>`__.
+
+
+Background: Why is async file I/O useful? The answer may surprise you
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Many people expect that switching to from synchronous file I/O to
+async file I/O will always make their program faster. This is not
+true! If we just look at total throughput, then async file I/O might
+be faster, slower, or about the same, and it depends in a complicated
+way on things like your exact patterns of disk access how much RAM you
+have. The main motivation for async file I/O is not to improve
+throughput, but to **reduce the frequency of latency glitches.**
+
+To understand why, you need to know two things.
+
+First, right now no mainstream operating system offers a generic,
+reliable, native API for async file for filesystem operations, so we
+have to fake it by using threads (specifically,
+:func:`run_in_worker_thread`). This is cheap but isn't free: on a
+typical PC, dispatching to a worker thread adds something like ~100 µs
+of overhead to each operation. ("µs" is pronounced "microseconds", and
+there are 1,000,000 µs in a second. Note that all the numbers here are
+going to be rough orders of magnitude to give you a sense of scale; if
+you need precise numbers for your environment, measure!)
+
+.. file.read benchmark is notes-to-self/file-read-latency.py
+.. Numbers for spinning disks and SSDs are from taking a few random
+   recent reviews from http://www.storagereview.com/best_drives and
+   looking at their "4K Write Latency" test results for "Average MS"
+   and "Max MS":
+   http://www.storagereview.com/samsung_ssd_850_evo_ssd_review
+   http://www.storagereview.com/wd_black_6tb_hdd_review
+
+And second, the cost of a disk operation is incredibly
+bimodal. Sometimes, the data you need is already cached in RAM, and
+then accessing it is very, very fast – calling :class:`io.FileIO`\'s
+``read`` method on a cached file takes on the order of ~1 µs. But when
+the data isn't cached, then accessing it is much, much slower: the
+average is ~100 µs for SSDs and ~10,000 µs for spinning disks, and if
+you look at tail latencies then for both types of storage you'll see
+cases where occasionally some operation will be 10x or 100x slower
+than average. And that's assuming your program is the only thing
+trying to use that disk – if you're on some oversold cloud VM fighting
+for I/O with other tenants then who knows what will happen. And some
+operations can require multiple disk accesses.
+
+Putting these together: if your data is in RAM then it should be clear
+that using a thread is a terrible idea – if you add 100 µs of overhead
+to a 1 µs operation, then that's a 100x slowdown! On the other hand,
+if your data's on a spinning disk, then using a thread is *great* –
+instead of blocking the main thread and all tasks for 10,000 µs, we
+only block them for 100 µs and can spend the rest of that time running
+other tasks to get useful work done, which can effectively be a 100x
+speedup.
+
+But here's the problem: for any individual I/O operation, there's no
+way to know in advance whether it's going to be one of the fast ones
+or one of the slow ones, so you can't pick and choose. When you switch
+to async file I/O, it makes all the fast operations slower, and all
+the slow operations faster. Is that a win? In terms of overall speed,
+it's hard to say: it depends what kind of disks you're using and your
+kernel's disk cache hit rate, which in turn depends on your file
+access patterns, how much spare RAM you have, the load on your
+service, ... all kinds of things. If the answer is important to you,
+then there's no substitute for measuring your code's actual behavior
+in your actual deployment environment. But what we *can* say is that
+async disk I/O makes performance much more predictable across a wider
+range of runtime conditions.
+
+**If you're not sure what to do, then we recommend that you use async
+disk I/O by default,** because it makes your code more robust when
+conditions are bad, especially with regards to tail latencies; this
+improves the chances that what your users see matches what you saw in
+testing. Blocking the main thread stops *all* tasks from running for
+that time. 10,000 µs is 10 ms, and it doesn't take many 10 ms glitches
+to start adding up to `real money
+<https://google.com/search?q=latency+cost>`__; async disk I/O can help
+prevent those. Just don't expect it to be magic, and be aware of the
+tradeoffs.
+
+
+.. _async-file-io-overview:
+
+API overview
+~~~~~~~~~~~~
+
+If you want to perform general filesystem operations like creating and
+listing directories, renaming files, or checking file metadata – or if
+you just want a friendly way to work with filesystem paths – then you
+want :class:`trio.Path`. It's an asyncified replacement for the
+standard library's :class:`pathlib.Path`, and provides the same
+comprehensive set of operations.
+
+For reading and writing to files and file-like objects, Trio also
+provides a mechanism for wrapping any synchronous file-like object
+into an asynchronous interface. If you have a :class:`trio.Path`
+object you can get one of these by calling its :meth:`~trio.Path.open`
+method; or if you know the file's name you can open it directly with
+:func:`trio.open_file`. Alternatively, if you already have an open
+file-like object, you can wrap it with :func:`trio.wrap_file` – one
+case where this is especially useful is to wrap :class:`io.BytesIO` or
+:class:`io.StringIO` when writing tests.
+
 
 Asynchronous path objects
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: Path
    :members:
+
+
+Asynchronous file objects
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autofunction:: open_file
+
+.. autofunction:: wrap_file
+
+.. interface:: Asynchronous file interface
+
+   Trio's asynchronous file objects have an interface that
+   automatically adapts to the object being wrapped. Intuitively, you
+   can mostly treat them like a regular :term:`file object`, except
+   adding an ``await`` in front of any of methods that do I/O. The
+   definition of :term:`file object` is a little vague in Python
+   though, so here are the details:
+
+   * Synchronous attributes/methods: if any of the following
+     attributes or methods are present, then they're re-exported
+     unchanged: ``closed``, ``encoding``, ``errors``, ``fileno``,
+     ``isatty``, ``newlines``, ``readable``, ``seekable``,
+     ``writable``, ``buffer``, ``raw``, ``line_buffering``,
+     ``closefd``, ``name``, ``mode``, ``getvalue``, ``getbuffer``.
+
+   * Async methods: if any of the following methods are present, then
+     they're re-exported as an async method: ``flush``, ``read``,
+     ``read1``, ``readall``, ``readinto``, ``readline``,
+     ``readlines``, ``seek``, ``tell`, ``truncate``, ``write``,
+     ``writelines``, ``readinto1``, ``peek``, ``detach``.
+
+   Special notes:
+
+   * Async file objects implement trio's
+     :class:`~trio.abc.AsyncResource` interface: you close them by
+     calling :meth:`~trio.abc.AsyncResource.aclose` instead of
+     ``close`` (!!), and they can be used as async context
+     managers. Like all :meth:`~trio.abc.AsyncResource.aclose`
+     methods, the ``aclose`` method on async file objects is
+     guaranteed to close the file before returning, even if it is
+     cancelled or otherwise raises an error.
+
+   * Using the same async file object from multiple tasks
+     simultaneously: because the async methods on async file objects
+     are implemented using threads, it's only safe to call two of them
+     at the same time from different tasks IF the underlying
+     synchronous file object is thread-safe. You should consult the
+     documentation for the object you're wrapping. For objects
+     returned from :func:`trio.open_file` or `trio.Path.open`, it
+     depends on whether you open the file in binary mode or text mode:
+     `binary mode files are task-safe/thread-safe, text mode files are
+     not
+     <https://docs.python.org/3/library/io.html#multi-threading>`__.
+
+   * Async file objects can be used as async iterators to iterate over
+     the lines of the file::
+
+        async with trio.open_file(...) as f:
+            async for line in f:
+                print(line)
+
+   * The ``detach`` method, if present, returns an async file object.
+
+   This should include all the attributes exposed by classes in
+   :mod:`io`. But if you're wrapping an object that has other
+   attributes that aren't on the list above, then you can access them
+   via the ``.wrapped`` attribute:
+
+   .. attribute:: wrapped
+
+      The underlying synchronous file object.
+
 
 Subprocesses
 ------------

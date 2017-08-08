@@ -19,7 +19,10 @@
 #
 import os
 import sys
+# For our local_customization module
 sys.path.insert(0, os.path.abspath('.'))
+# For trio itself
+sys.path.insert(0, os.path.abspath('../..'))
 
 # Warn about all references to unknown targets
 nitpicky = True

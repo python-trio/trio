@@ -2,11 +2,13 @@ from functools import partial
 import io
 
 import trio
-from trio import _core
-from trio._util import aiter_compat, async_wraps
+from . import _core
+from .abc import AsyncResource
+from ._util import aiter_compat, async_wraps
 
 __all__ = ['open_file', 'wrap_file']
 
+# This list is also in the docs, make sure to keep them in sync
 _FILE_SYNC_ATTRS = {
     'closed',
     'encoding',
@@ -28,6 +30,7 @@ _FILE_SYNC_ATTRS = {
     'getbuffer',
 }
 
+# This list is also in the docs, make sure to keep them in sync
 _FILE_ASYNC_METHODS = {
     'flush',
     'read',
@@ -47,7 +50,7 @@ _FILE_ASYNC_METHODS = {
 }
 
 
-class AsyncIOWrapper:
+class AsyncIOWrapper(AsyncResource):
     """A generic :class:`~io.IOBase` wrapper that implements the :term:`asynchronous
     file object` interface. Wrapped methods that could block are executed in
     :meth:`trio.run_in_worker_thread`.
@@ -104,14 +107,8 @@ class AsyncIOWrapper:
         else:
             raise StopAsyncIteration
 
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, typ, value, traceback):
-        await self.close()
-
     async def detach(self):
-        """Like :meth:`~io.BufferedIOBase.detach`, but async.
+        """Like :meth:`io.BufferedIOBase.detach`, but async.
 
         This also re-wraps the result in a new :term:`asynchronous file object`
         wrapper.
@@ -121,8 +118,8 @@ class AsyncIOWrapper:
         raw = await trio.run_in_worker_thread(self._wrapped.detach)
         return wrap_file(raw)
 
-    async def close(self):
-        """Like :meth:`~io.IOBase.close`, but async.
+    async def aclose(self):
+        """Like :meth:`io.IOBase.close`, but async.
 
         This is also shielded from cancellation; if a cancellation scope is
         cancelled, the wrapped file object will still be safely closed.
@@ -146,7 +143,7 @@ async def open_file(
     closefd=True,
     opener=None
 ):
-    """Asynchronous version of :func:`~io.open`.
+    """Asynchronous version of :func:`io.open`.
 
     Returns:
         An :term:`asynchronous file object`
@@ -158,6 +155,9 @@ async def open_file(
                 pass
 
         assert f.closed
+
+    See also:
+      :func:`trio.Path.open`
 
     """
     # python3.5 compat
@@ -174,8 +174,8 @@ async def open_file(
 
 
 def wrap_file(file):
-    """This wraps any file object in a wrapper that provides an asynchronous file
-    object interface.
+    """This wraps any file object in a wrapper that provides an asynchronous
+    file object interface.
 
     Args:
         file: a :term:`file object`

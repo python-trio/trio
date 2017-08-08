@@ -151,7 +151,7 @@ async def test_open(path):
 
     assert isinstance(f, AsyncIOWrapper)
 
-    await f.close()
+    await f.aclose()
 
 
 async def test_open_context_manager(path):
@@ -174,7 +174,7 @@ async def test_async_iter():
     assert result == expected
 
 
-async def test_close_cancelled(path):
+async def test_aclose_cancelled(path):
     with _core.open_cancel_scope() as cscope:
         f = await trio.open_file(path, 'w')
         cscope.cancel()
@@ -183,7 +183,7 @@ async def test_close_cancelled(path):
             await f.write('a')
 
         with pytest.raises(_core.Cancelled):
-            await f.close()
+            await f.aclose()
 
     assert f.closed
 
