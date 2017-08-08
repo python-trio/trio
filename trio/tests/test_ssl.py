@@ -1036,11 +1036,13 @@ async def test_ssl_only_closes_stream_once():
 
     client_orig_close_hook = client.transport_stream.send_stream.close_hook
     transport_close_count = 0
+
     def close_hook():
         nonlocal transport_close_count
         client_orig_close_hook()
         transport_close_count += 1
         raise KeyError
+
     client.transport_stream.send_stream.close_hook = close_hook
 
     with pytest.raises(KeyError):

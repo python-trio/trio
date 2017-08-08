@@ -1,3 +1,5 @@
+# XX this should get broken up, like testing.py did
+
 import time
 from math import inf
 
@@ -7,7 +9,8 @@ from .. import sleep
 from .. import _core
 from .. import _streams
 from ..testing import *
-from ..testing import _assert_raises, _UnboundedByteQueue
+from ..testing._check_streams import _assert_raises
+from ..testing._memory_streams import _UnboundedByteQueue
 
 
 async def test_wait_all_tasks_blocked():
