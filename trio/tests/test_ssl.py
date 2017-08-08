@@ -1004,6 +1004,27 @@ async def test_ssl_bad_shutdown_but_its_ok():
     await server.aclose()
 
 
+async def test_ssl_handshake_failure_during_aclose():
+    # Weird scenario: aclose() triggers an automatic handshake, and this
+    # fails. This also exercises a bit of code in aclose() that was otherwise
+    # uncovered, for re-raising exceptions after calling aclose_forcefully on
+    # the underlying transport.
+    async with ssl_echo_server_raw(expect_fail=True) as sock:
+        # Don't configure trust correctly
+        client_ctx = stdlib_ssl.create_default_context()
+        s = tssl.SSLStream(
+            sock, client_ctx, server_hostname="trio-test-1.example.org"
+        )
+        # It's a little unclear here whether aclose should swallow the error
+        # or let it escape. We *do* swallow the error if it arrives when we're
+        # sending close_notify, because both sides closing the connection
+        # simultaneously is allowed. But I guess when https_compatible=False
+        # then it's bad if we can get through a whole connection with a peer
+        # that has no valid certificate, and never raise an error.
+        with pytest.raises(BrokenStreamError) as excinfo:
+            await s.aclose()
+
+
 async def test_ssl_https_compatibility_disagreement():
     client, server = ssl_memory_stream_pair(
         server_kwargs={"https_compatible": False},
