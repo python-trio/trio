@@ -2,8 +2,8 @@ import sys
 import traceback
 import textwrap
 import warnings
-import types
-from contextlib import contextmanager
+
+from ._non_awaited_coroutines import protector
 
 import attr
 
@@ -127,25 +127,33 @@ class MultiErrorCatcher:
         pass
 
     def __exit__(self, etype, exc, tb):
+
+        original_exc = exc
+        if protector.has_unawaited_coroutines():
+            exc = protector.make_non_awaited_coroutines_error(
+                protector.pop_all_unawaited_coroutines()
+            )
+
         if exc is not None:
-            filtered_exc = MultiError.filter(self._handler, exc)
-            if filtered_exc is exc:
-                # Let the interpreter re-raise it
-                return False
-            if filtered_exc is None:
-                # Swallow the exception
-                return True
-            # When we raise filtered_exc, Python will unconditionally blow
-            # away its __context__ attribute and replace it with the original
-            # exc we caught. So after we raise it, we have to pause it while
-            # it's in flight to put the correct __context__ back.
-            old_context = filtered_exc.__context__
-            try:
-                raise filtered_exc
-            finally:
-                _, value, _ = sys.exc_info()
-                assert value is filtered_exc
-                value.__context__ = old_context
+            exc = MultiError.filter(self._handler, exc)
+        if exc is None:
+            # Swallow the exception
+            return True
+        if exc is original_exc:
+            # Let the interpreter re-raise it
+            return False
+
+        # When we raise filtered_exc, Python will unconditionally blow
+        # away its __context__ attribute and replace it with the original
+        # exc we caught. So after we raise it, we have to pause it while
+        # it's in flight to put the correct __context__ back.
+        old_context = exc.__context__
+        try:
+            raise exc
+        finally:
+            _, value, _ = sys.exc_info()
+            assert value is exc
+            value.__context__ = old_context
 
 
 class MultiError(BaseException):

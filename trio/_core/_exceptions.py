@@ -7,6 +7,7 @@ __all__ = [
     "WouldBlock",
     "Cancelled",
     "ResourceBusyError",
+    "NonAwaitedCoroutines",
 ]
 
 
@@ -41,6 +42,16 @@ class RunFinishedError(RuntimeError):
 
     """
     pass
+
+
+@pretend_module_is_trio
+class NonAwaitedCoroutines(RuntimeError):
+    """Raised by blocking calls if a non-awaited coroutine detected in current task
+    """
+
+    def __init__(self, *args, coroutines=None, **kwargs):
+        self.coroutines = set(coroutines)
+        super().__init__(*args, **kwargs)
 
 
 @pretend_module_is_trio
