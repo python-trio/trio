@@ -4,6 +4,7 @@ import io
 import trio
 from trio import _core
 from trio._util import aiter_compat, async_wraps
+from .abc import AsyncResource
 
 __all__ = ['open_file', 'wrap_file']
 
@@ -47,7 +48,7 @@ _FILE_ASYNC_METHODS = {
 }
 
 
-class AsyncIOWrapper:
+class AsyncIOWrapper(AsyncResource):
     """A generic :class:`~io.IOBase` wrapper that implements the :term:`asynchronous
     file object` interface. Wrapped methods that could block are executed in
     :meth:`trio.run_in_worker_thread`.
@@ -104,12 +105,6 @@ class AsyncIOWrapper:
         else:
             raise StopAsyncIteration
 
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, typ, value, traceback):
-        await self.close()
-
     async def detach(self):
         """Like :meth:`~io.BufferedIOBase.detach`, but async.
 
@@ -121,8 +116,8 @@ class AsyncIOWrapper:
         raw = await trio.run_in_worker_thread(self._wrapped.detach)
         return wrap_file(raw)
 
-    async def close(self):
-        """Like :meth:`~io.IOBase.close`, but async.
+    async def aclose(self):
+        """Like :meth:`io.IOBase.close`, but async.
 
         This is also shielded from cancellation; if a cancellation scope is
         cancelled, the wrapped file object will still be safely closed.
