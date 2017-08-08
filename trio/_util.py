@@ -13,7 +13,13 @@ import async_generator
 # code, and one for higher level helpers?
 from . import _core
 
-__all__ = ["signal_raise", "aiter_compat", "acontextmanager", "UnLock"]
+__all__ = [
+    "signal_raise",
+    "aiter_compat",
+    "acontextmanager",
+    "UnLock",
+    "fixup_module_metadata",
+]
 
 # Equivalent to the C function raise(), which Python doesn't wrap
 if os.name == "nt":
@@ -230,3 +236,10 @@ def async_wraps(cls, wrapped_cls, attr_name):
         return func
 
     return decorator
+
+
+def fixup_module_metadata(module_name, namespace):
+    for objname in namespace["__all__"]:
+        obj = namespace[objname]
+        if hasattr(obj, "__module__"):
+            obj.__module__ = module_name

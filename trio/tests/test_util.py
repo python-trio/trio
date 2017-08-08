@@ -156,3 +156,14 @@ async def test_contextmanager_StopAsyncIteration_passthrough():
     with pytest.raises(StopAsyncIteration):
         async with noop_async_context_manager():
             raise StopAsyncIteration
+
+
+def test_module_metadata_is_fixed_up():
+    import trio
+    assert trio.Cancelled.__module__ == "trio"
+    assert trio.open_cancel_scope.__module__ == "trio"
+    assert trio.ssl.SSLStream.__module__ == "trio.ssl"
+    assert trio.abc.Stream.__module__ == "trio.abc"
+    assert trio.hazmat.yield_indefinitely.__module__ == "trio.hazmat"
+    import trio.testing
+    assert trio.testing.trio_test.__module__ == "trio.testing"
