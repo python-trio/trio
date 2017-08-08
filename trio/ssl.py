@@ -716,8 +716,13 @@ class SSLStream(_Stream):
             await self.transport_stream.aclose()
             return
         try:
+            # https_compatible=False, so we're in spec-compliant mode and have
+            # to send close_notify so that the other side gets a cryptographic
+            # assurance that we've called aclose. Of course, we can't do
+            # anything cryptographic until after we've completed the
+            # handshake:
             await self._handshook.ensure(checkpoint=False)
-            # Here, we call SSL_shutdown *once*, because we want to send a
+            # Then, we call SSL_shutdown *once*, because we want to send a
             # close_notify but *not* wait for the other side to send back a
             # response. In principle it would be more polite to wait for the
             # other side to reply with their own close_notify. However, if
@@ -766,11 +771,13 @@ class SSLStream(_Stream):
                 )
             except _streams.BrokenStreamError:
                 pass
-            # Close the underlying stream
-            await self.transport_stream.aclose()
         except:
+            # Failure! Kill the stream and move on.
             await _streams.aclose_forcefully(self.transport_stream)
             raise
+        else:
+            # Success! Gracefully close the underlying stream.
+            await self.transport_stream.aclose()
         finally:
             self._state = _State.CLOSED
 
@@ -781,7 +788,9 @@ class SSLStream(_Stream):
         # This method's implementation is deceptively simple.
         #
         # First, we take the outer send lock, because of trio's standard
-        # semantics that wait_send_all_might_not_block and send_all conflict.
+        # semantics that wait_send_all_might_not_block and send_all
+        # conflict. This also takes care of providing correct checkpoint
+        # semantics before we potentially error out from _check_status().
         async with self._outer_send_lock:
             self._check_status()
             # Then we take the inner send lock. We know that no other tasks

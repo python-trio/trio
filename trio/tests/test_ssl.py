@@ -1025,6 +1025,29 @@ async def test_ssl_handshake_failure_during_aclose():
             await s.aclose()
 
 
+async def test_ssl_only_closes_stream_once():
+    # We used to have a bug where if transport_stream.aclose() raised an
+    # error, we would call it again. This checks that that's fixed.
+    client, server = ssl_memory_stream_pair()
+
+    async with _core.open_nursery() as nursery:
+        nursery.spawn(client.do_handshake)
+        nursery.spawn(server.do_handshake)
+
+    client_orig_close_hook = client.transport_stream.send_stream.close_hook
+    transport_close_count = 0
+    def close_hook():
+        nonlocal transport_close_count
+        client_orig_close_hook()
+        transport_close_count += 1
+        raise KeyError
+    client.transport_stream.send_stream.close_hook = close_hook
+
+    with pytest.raises(KeyError):
+        await client.aclose()
+    assert transport_close_count == 1
+
+
 async def test_ssl_https_compatibility_disagreement():
     client, server = ssl_memory_stream_pair(
         server_kwargs={"https_compatible": False},
