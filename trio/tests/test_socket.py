@@ -6,6 +6,7 @@ import inspect
 
 from .. import _core
 from .. import socket as tsocket
+from .._socket import _NUMERIC_ONLY, _try_sync
 from ..testing import assert_yields, wait_all_tasks_blocked
 
 ################################################################
@@ -53,26 +54,26 @@ def monkeygai(monkeypatch):
 
 async def test__try_sync():
     with assert_yields():
-        async with tsocket._try_sync():
+        async with _try_sync():
             pass
 
     with assert_yields():
         with pytest.raises(KeyError):
-            async with tsocket._try_sync():
+            async with _try_sync():
                 raise KeyError
 
-    async with tsocket._try_sync():
+    async with _try_sync():
         raise BlockingIOError
 
     def _is_ValueError(exc):
         return isinstance(exc, ValueError)
 
-    async with tsocket._try_sync(_is_ValueError):
+    async with _try_sync(_is_ValueError):
         raise ValueError
 
     with assert_yields():
         with pytest.raises(BlockingIOError):
-            async with tsocket._try_sync(_is_ValueError):
+            async with _try_sync(_is_ValueError):
                 raise BlockingIOError
 
 
@@ -752,8 +753,8 @@ async def test_idna(monkeygai):
     # This is the encoding for "faß.de", which uses one of the characters that
     # IDNA 2003 handles incorrectly:
     monkeygai.set("ok faß.de", b"xn--fa-hia.de", 80)
-    monkeygai.set("ok ::1", "::1", 80, flags=tsocket._NUMERIC_ONLY)
-    monkeygai.set("ok ::1", b"::1", 80, flags=tsocket._NUMERIC_ONLY)
+    monkeygai.set("ok ::1", "::1", 80, flags=_NUMERIC_ONLY)
+    monkeygai.set("ok ::1", b"::1", 80, flags=_NUMERIC_ONLY)
     # Some things that should not reach the underlying socket.getaddrinfo:
     monkeygai.set("bad", "fass.de", 80)
     # We always call socket.getaddrinfo with bytes objects:

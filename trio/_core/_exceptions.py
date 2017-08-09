@@ -10,15 +10,6 @@ __all__ = [
 ]
 
 
-# Exceptions often get printed as module.Classname. We pretend these are in
-# the trio namespace (where they'll eventually end up) so that users get
-# better messages.
-def pretend_module_is_trio(cls):
-    cls.__module__ = "trio"
-    return cls
-
-
-@pretend_module_is_trio
 class TrioInternalError(Exception):
     """Raised by :func:`run` if we encounter a bug in trio, or (possibly) a
     misuse of one of the low-level :mod:`trio.hazmat` APIs.
@@ -34,7 +25,6 @@ class TrioInternalError(Exception):
     pass
 
 
-@pretend_module_is_trio
 class RunFinishedError(RuntimeError):
     """Raised by ``run_in_trio_thread`` and similar functions if the
     corresponding call to :func:`trio.run` has already finished.
@@ -43,7 +33,6 @@ class RunFinishedError(RuntimeError):
     pass
 
 
-@pretend_module_is_trio
 class WouldBlock(Exception):
     """Raised by ``X_nowait`` functions if ``X`` would block.
 
@@ -51,7 +40,6 @@ class WouldBlock(Exception):
     pass
 
 
-@pretend_module_is_trio
 class Cancelled(BaseException):
     """Raised by blocking calls if the surrounding scope has been cancelled.
 
@@ -83,7 +71,6 @@ class Cancelled(BaseException):
     _scope = None
 
 
-@pretend_module_is_trio
 class ResourceBusyError(Exception):
     """Raised when a task attempts to use a resource that some other task is
     already using, and this would lead to bugs and nonsense.
@@ -93,6 +80,3 @@ class ResourceBusyError(Exception):
     the data get scrambled.
 
     """
-
-
-ResourceBusyError.__module__ = "trio"

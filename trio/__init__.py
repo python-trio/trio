@@ -66,3 +66,16 @@ from . import socket
 from . import abc
 from . import ssl
 # Not imported by default: testing
+
+# Having the public path in .__module__ attributes is important for:
+# - exception names in printed tracebacks
+# - sphinx :show-inheritance:
+# - pickle
+# - probably other stuff
+from ._util import fixup_module_metadata
+fixup_module_metadata(__name__, globals())
+fixup_module_metadata(hazmat.__name__, hazmat.__dict__)
+fixup_module_metadata(socket.__name__, socket.__dict__)
+fixup_module_metadata(abc.__name__, abc.__dict__)
+fixup_module_metadata(ssl.__name__, ssl.__dict__)
+del fixup_module_metadata
