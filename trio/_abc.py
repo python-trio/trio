@@ -1,5 +1,4 @@
-import contextlib as _contextlib
-import abc as _abc
+from abc import ABCMeta, abstractmethod
 from . import _core
 
 __all__ = [
@@ -15,12 +14,13 @@ __all__ = [
 ]
 
 
-class Clock(_abc.ABC):
+class Clock(metaclass=ABCMeta):
     """The interface for custom run loop clocks.
 
     """
+    __slots__ = ()
 
-    @_abc.abstractmethod
+    @abstractmethod
     def start_clock(self):
         """Do any setup this clock might need.
 
@@ -28,7 +28,7 @@ class Clock(_abc.ABC):
 
         """
 
-    @_abc.abstractmethod
+    @abstractmethod
     def current_time(self):
         """Return the current time, according to this clock.
 
@@ -40,7 +40,7 @@ class Clock(_abc.ABC):
 
         """
 
-    @_abc.abstractmethod
+    @abstractmethod
     def deadline_to_sleep_time(self, deadline):
         """Compute the real time until the given deadline.
 
@@ -65,13 +65,14 @@ class Clock(_abc.ABC):
         """
 
 
-class Instrument(_abc.ABC):
+class Instrument(metaclass=ABCMeta):
     """The interface for run loop instrumentation.
 
     Instruments don't have to inherit from this abstract base class, and all
     of these methods are optional. This class serves mostly as documentation.
 
     """
+    __slots__ = ()
 
     def before_run(self):
         """Called at the beginning of :func:`trio.run`.
@@ -145,7 +146,7 @@ class Instrument(_abc.ABC):
         """
 
 
-class HostnameResolver(metaclass=_abc.ABCMeta):
+class HostnameResolver(metaclass=ABCMeta):
     """If you have a custom hostname resolver, then implementing
     :class:`HostnameResolver` allows you to register this to be used by trio.
 
@@ -154,7 +155,7 @@ class HostnameResolver(metaclass=_abc.ABCMeta):
     """
     __slots__ = ()
 
-    @_abc.abstractmethod
+    @abstractmethod
     async def getaddrinfo(
         self, host, port, family=0, type=0, proto=0, flags=0
     ):
@@ -173,7 +174,7 @@ class HostnameResolver(metaclass=_abc.ABCMeta):
 
         """
 
-    @_abc.abstractmethod
+    @abstractmethod
     async def getnameinfo(self, sockaddr, flags):
         """A custom implementation of :func:`~trio.socket.getnameinfo`.
 
@@ -182,7 +183,7 @@ class HostnameResolver(metaclass=_abc.ABCMeta):
         """
 
 
-class SocketFactory(metaclass=_abc.ABCMeta):
+class SocketFactory(metaclass=ABCMeta):
     """If you write a custom class implementing the trio socket interface,
     then you can use a :class:`SocketFactory` to get trio to use it.
 
@@ -190,7 +191,7 @@ class SocketFactory(metaclass=_abc.ABCMeta):
 
     """
 
-    @_abc.abstractmethod
+    @abstractmethod
     def socket(self, family=None, type=None, proto=None):
         """Create and return a socket object.
 
@@ -203,7 +204,7 @@ class SocketFactory(metaclass=_abc.ABCMeta):
 
         """
 
-    @_abc.abstractmethod
+    @abstractmethod
     def is_trio_socket(self, obj):
         """Check if the given object is a socket instance.
 
@@ -216,7 +217,7 @@ class SocketFactory(metaclass=_abc.ABCMeta):
 
 # We use ABCMeta instead of ABC, plus setting __slots__=(), so as not to force
 # a __dict__ onto subclasses.
-class AsyncResource(metaclass=_abc.ABCMeta):
+class AsyncResource(metaclass=ABCMeta):
     """A standard interface for resources that needs to be cleaned up, and
     where that cleanup may require blocking operations.
 
@@ -243,7 +244,7 @@ class AsyncResource(metaclass=_abc.ABCMeta):
     """
     __slots__ = ()
 
-    @_abc.abstractmethod
+    @abstractmethod
     async def aclose(self):
         """Close this resource, possibly blocking.
 
@@ -288,7 +289,7 @@ class SendStream(AsyncResource):
     """
     __slots__ = ()
 
-    @_abc.abstractmethod
+    @abstractmethod
     async def send_all(self, data):
         """Sends the given data through the stream, blocking if necessary.
 
@@ -302,7 +303,7 @@ class SendStream(AsyncResource):
 
         """
 
-    @_abc.abstractmethod
+    @abstractmethod
     async def wait_send_all_might_not_block(self):
         """Block until it's possible that :meth:`send_all` might not block.
 
@@ -367,7 +368,7 @@ class ReceiveStream(AsyncResource):
     """
     __slots__ = ()
 
-    @_abc.abstractmethod
+    @abstractmethod
     async def receive_some(self, max_bytes):
         """Wait until there is data available on this stream, and then return
         at most ``max_bytes`` of it.
@@ -419,7 +420,7 @@ class HalfCloseableStream(Stream):
     """
     __slots__ = ()
 
-    @_abc.abstractmethod
+    @abstractmethod
     async def send_eof(self):
         """Send an end-of-file indication on this stream, if possible.
 
