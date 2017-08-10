@@ -407,20 +407,6 @@ class _SocketType:
         self._sock.setblocking(False)
         self._did_shutdown_SHUT_WR = False
 
-        # Defaults:
-        if self._sock.family == AF_INET6:
-            try:
-                self.setsockopt(IPPROTO_IPV6, IPV6_V6ONLY, False)
-            except OSError:
-                pass
-
-        # See https://github.com/python-trio/trio/issues/39
-        if _sys.platform == "win32":
-            self.setsockopt(SOL_SOCKET, _stdlib_socket.SO_REUSEADDR, False)
-            self.setsockopt(SOL_SOCKET, SO_EXCLUSIVEADDRUSE, True)
-        else:
-            self.setsockopt(SOL_SOCKET, SO_REUSEADDR, True)
-
     ################################################################
     # Simple + portable methods and attributes
     ################################################################
