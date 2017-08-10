@@ -13,8 +13,11 @@ from async_generator import async_generator, yield_
 
 import trio
 from .. import _core
-from .._highlevel_socket import SocketStream
-from .._highlevel_generic import BrokenStreamError, ClosedStreamError
+from .._highlevel_socket import SocketStream, SocketListener
+from .._highlevel_generic import (
+    BrokenStreamError, ClosedStreamError, aclose_forcefully
+)
+from .._highlevel_open_tcp_stream import open_tcp_stream
 from .. import ssl as tssl
 from .. import socket as tsocket
 from .._util import UnLock, acontextmanager
@@ -1140,3 +1143,54 @@ async def test_getpeercert():
         ("DNS",
          "trio-test-1.example.org") in client.getpeercert()["subjectAltName"]
     )
+
+
+async def test_SSLListener():
+    async def setup(**kwargs):
+        listen_sock = tsocket.socket()
+        listen_sock.bind(("127.0.0.1", 0))
+        listen_sock.listen(1)
+        socket_listener = SocketListener(listen_sock)
+        ssl_listener = tssl.SSLListener(socket_listener, SERVER_CTX, **kwargs)
+
+        transport_client = await open_tcp_stream(*listen_sock.getsockname())
+        ssl_client = tssl.SSLStream(
+            transport_client,
+            CLIENT_CTX,
+            server_hostname="trio-test-1.example.org"
+        )
+        return listen_sock, ssl_listener, ssl_client
+
+    listen_sock, ssl_listener, ssl_client = await setup()
+
+    async with ssl_client:
+        ssl_server = await ssl_listener.accept()
+
+        async with ssl_server:
+            assert not ssl_server._https_compatible
+
+            # Make sure the connection works
+            async with _core.open_nursery() as nursery:
+                nursery.spawn(ssl_client.do_handshake)
+                nursery.spawn(ssl_server.do_handshake)
+
+        # Test SSLListener.aclose
+        await ssl_listener.aclose()
+        assert listen_sock.fileno() == -1
+
+    ################
+
+    # Test https_compatible and max_refill_bytes
+    _, ssl_listener, ssl_client = await setup(
+        https_compatible=True,
+        max_refill_bytes=100,
+    )
+
+    ssl_server = await ssl_listener.accept()
+
+    assert ssl_server._https_compatible
+    assert ssl_server._max_refill_bytes == 100
+
+    await aclose_forcefully(ssl_listener)
+    await aclose_forcefully(ssl_client)
+    await aclose_forcefully(ssl_server)

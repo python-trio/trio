@@ -176,6 +176,12 @@ create a :class:`SSLStream`:
    :show-inheritance:
    :members:
 
+And if you're implementing a server, you can use :class:`SSLListener`:
+
+.. autoclass:: SSLListener
+   :show-inheritance:
+   :members:
+
 
 .. module:: trio.socket
 

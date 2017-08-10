@@ -154,14 +154,14 @@ import ssl as _stdlib_ssl
 from enum import Enum as _Enum
 
 from . import _core
-from .abc import Stream as _Stream
+from .abc import Stream, Listener
 from ._highlevel_generic import (
     BrokenStreamError, ClosedStreamError, aclose_forcefully
 )
 from . import _sync
-from ._util import UnLock as _UnLock
+from ._util import UnLock
 
-__all__ = ["SSLStream"]
+__all__ = ["SSLStream", "SSLListener"]
 
 ################################################################
 # Faking the stdlib ssl API
@@ -233,8 +233,10 @@ class _Once:
 
 _State = _Enum("_State", ["OK", "BROKEN", "CLOSED"])
 
+_default_max_refill_bytes = 32 * 1024
 
-class SSLStream(_Stream):
+
+class SSLStream(Stream):
     """Encrypted communication using SSL/TLS.
 
     :class:`SSLStream` wraps an arbitrary :class:`~trio.abc.Stream`, and
@@ -331,6 +333,8 @@ class SSLStream(_Stream):
 
     """
 
+    # Note: any new arguments here should likely also be added to
+    # SSLListener.__init__, and maybe the open_ssl_over_tcp_* helpers.
     def __init__(
             self,
             transport_stream,
@@ -339,11 +343,11 @@ class SSLStream(_Stream):
             server_hostname=None,
             server_side=False,
             https_compatible=False,
-            max_refill_bytes=32 * 1024
+            max_refill_bytes=_default_max_refill_bytes
     ):
         self.transport_stream = transport_stream
         self._state = _State.OK
-        self._max_bytes = max_refill_bytes
+        self._max_refill_bytes = max_refill_bytes
         self._https_compatible = https_compatible
         self._outgoing = _stdlib_ssl.MemoryBIO()
         self._incoming = _stdlib_ssl.MemoryBIO()
@@ -364,11 +368,11 @@ class SSLStream(_Stream):
         # These are used to make sure that our caller doesn't attempt to make
         # multiple concurrent calls to send_all/wait_send_all_might_not_block
         # or to receive_some.
-        self._outer_send_lock = _UnLock(
+        self._outer_send_lock = UnLock(
             _core.ResourceBusyError,
             "another task is currently sending data on this SSLStream"
         )
-        self._outer_recv_lock = _UnLock(
+        self._outer_recv_lock = UnLock(
             _core.ResourceBusyError,
             "another task is currently receiving data on this SSLStream"
         )
@@ -549,7 +553,7 @@ class SSLStream(_Stream):
                         yielded = True
                         if recv_count == self._inner_recv_count:
                             data = await self.transport_stream.receive_some(
-                                self._max_bytes
+                                self._max_refill_bytes
                             )
                             if not data:
                                 self._incoming.write_eof()
@@ -825,3 +829,60 @@ class SSLStream(_Stream):
                 # wait_send_all_might_not_block only guarantees that it
                 # doesn't return late.
                 await self.transport_stream.wait_send_all_might_not_block()
+
+
+class SSLListener(Listener):
+    """A :class:`~trio.abc.Listener` for SSL/TLS-encrypted servers.
+
+    :class:`SSLListener` allows you to wrap
+
+    Args:
+      transport_listener (~trio.abc.Listener): The listener whose incoming
+          connections will be wrapped in :class:`SSLStream`.
+
+      ssl_context (~ssl.SSLContext): The :class:`~ssl.SSLContext` that will be
+          used for incoming connections.
+
+      https_compatible (bool): Passed on to :class:`SSLStream`.
+
+      max_refill_bytes (int): Passed on to :class:`SSLStream`.
+
+    Attributes:
+      transport_listener (trio.abc.Listener): The underlying listener that was
+          passed to ``__init__``.
+
+    """
+
+    def __init__(
+            self,
+            transport_listener,
+            ssl_context,
+            *,
+            https_compatible=False,
+            max_refill_bytes=_default_max_refill_bytes
+    ):
+        self.transport_listener = transport_listener
+        self._ssl_context = ssl_context
+        self._https_compatible = https_compatible
+        self._max_refill_bytes = max_refill_bytes
+
+    async def accept(self):
+        """Accept the next connection and wrap it in an :class:`SSLStream`.
+
+        See :meth:`trio.abc.Listener.accept` for details.
+
+        """
+        transport_stream = await self.transport_listener.accept()
+        return SSLStream(
+            transport_stream,
+            self._ssl_context,
+            server_side=True,
+            https_compatible=self._https_compatible,
+            max_refill_bytes=self._max_refill_bytes,
+        )
+
+    async def aclose(self):
+        """Close the transport listener.
+
+        """
+        await self.transport_listener.aclose()
