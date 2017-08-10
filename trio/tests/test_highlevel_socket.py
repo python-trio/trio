@@ -183,16 +183,18 @@ async def test_SocketListener_accept_errors():
 
     fake_server_sock = FakeSocket([])
 
-    fake_listen_sock = FakeSocket([
-        OSError(errno.ECONNABORTED, "Connection aborted"),
-        OSError(errno.EPERM, "Permission denied"),
-        OSError(errno.EPROTO, "Bad protocol"),
-        fake_server_sock,
-        OSError(errno.EMFILE, "Out of file descriptors"),
-        OSError(errno.EFAULT, "attempt to write to read-only memory"),
-        OSError(errno.ENOBUFS, "out of buffers"),
-        fake_server_sock,
-    ])
+    fake_listen_sock = FakeSocket(
+        [
+            OSError(errno.ECONNABORTED, "Connection aborted"),
+            OSError(errno.EPERM, "Permission denied"),
+            OSError(errno.EPROTO, "Bad protocol"),
+            fake_server_sock,
+            OSError(errno.EMFILE, "Out of file descriptors"),
+            OSError(errno.EFAULT, "attempt to write to read-only memory"),
+            OSError(errno.ENOBUFS, "out of buffers"),
+            fake_server_sock,
+        ]
+    )
 
     l = SocketListener(fake_listen_sock)
 
