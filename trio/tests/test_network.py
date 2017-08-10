@@ -7,8 +7,8 @@ from .. import _core
 from ..testing import (
     check_half_closeable_stream, wait_all_tasks_blocked, assert_yields
 )
-from .._streams import ClosedListenerError
-from .._network import *
+from .._highlevel_generic import ClosedListenerError
+from .._highlevel_socket import *
 from .. import socket as tsocket
 
 

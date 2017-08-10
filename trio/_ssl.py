@@ -155,7 +155,9 @@ from enum import Enum as _Enum
 
 from . import _core
 from .abc import Stream as _Stream
-from . import _streams
+from ._highlevel_generic import (
+    BrokenStreamError, ClosedStreamError, aclose_forcefully
+)
 from . import _sync
 from ._util import UnLock as _UnLock
 
@@ -407,9 +409,9 @@ class SSLStream(_Stream):
         if self._state is _State.OK:
             return
         elif self._state is _State.BROKEN:
-            raise _streams.BrokenStreamError
+            raise BrokenStreamError
         elif self._state is _State.CLOSED:
-            raise _streams.ClosedStreamError
+            raise ClosedStreamError
         else:  # pragma: no cover
             assert False
 
@@ -455,7 +457,7 @@ class SSLStream(_Stream):
                     want_read = True
                 except (SSLError, CertificateError) as exc:
                     self._state = _State.BROKEN
-                    raise _streams.BrokenStreamError from exc
+                    raise BrokenStreamError from exc
                 else:
                     finished = True
                 if ignore_want_read:
@@ -622,7 +624,7 @@ class SSLStream(_Stream):
             self._check_status()
             try:
                 await self._handshook.ensure(checkpoint=False)
-            except _streams.BrokenStreamError as exc:
+            except BrokenStreamError as exc:
                 # For some reason, EOF before handshake sometimes raises
                 # SSLSyscallError instead of SSLEOFError (e.g. on my linux
                 # laptop, but not on appveyor). Thanks openssl.
@@ -637,7 +639,7 @@ class SSLStream(_Stream):
                 raise ValueError("max_bytes must be >= 1")
             try:
                 return await self._retry(self._ssl_object.read, max_bytes)
-            except _streams.BrokenStreamError as exc:
+            except BrokenStreamError as exc:
                 # This isn't quite equivalent to just returning b"" in the
                 # first place, because we still end up with self._state set to
                 # BROKEN. But that's actually fine, because after getting an
@@ -769,11 +771,11 @@ class SSLStream(_Stream):
                 await self._retry(
                     self._ssl_object.unwrap, ignore_want_read=True
                 )
-            except _streams.BrokenStreamError:
+            except BrokenStreamError:
                 pass
         except:
             # Failure! Kill the stream and move on.
-            await _streams.aclose_forcefully(self.transport_stream)
+            await aclose_forcefully(self.transport_stream)
             raise
         else:
             # Success! Gracefully close the underlying stream.

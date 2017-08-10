@@ -13,8 +13,8 @@ from async_generator import async_generator, yield_
 
 import trio
 from .. import _core
-from .. import _network
-from .._streams import BrokenStreamError, ClosedStreamError
+from .._highlevel_socket import SocketStream
+from .._highlevel_generic import BrokenStreamError, ClosedStreamError
 from .. import ssl as tssl
 from .. import socket as tsocket
 from .._util import UnLock, acontextmanager
@@ -124,7 +124,7 @@ async def ssl_echo_server_raw(**kwargs):
                 partial(ssl_echo_serve_sync, b, **kwargs)
             )
 
-            await yield_(_network.SocketStream(tsocket.from_stdlib_socket(a)))
+            await yield_(SocketStream(tsocket.from_stdlib_socket(a)))
 
 
 # Fixture that gives a properly set up SSLStream connected to a trio-test-1
@@ -401,7 +401,7 @@ async def test_ssl_server_basics():
     with a, b:
         server_sock = tsocket.from_stdlib_socket(b)
         server_transport = tssl.SSLStream(
-            _network.SocketStream(server_sock), SERVER_CTX, server_side=True
+            SocketStream(server_sock), SERVER_CTX, server_side=True
         )
         assert server_transport.server_side
 

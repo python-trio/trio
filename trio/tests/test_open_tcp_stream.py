@@ -4,7 +4,7 @@ import attr
 
 import trio
 from trio.socket import AF_INET, AF_INET6, SOCK_STREAM, IPPROTO_TCP
-from trio._open_tcp_stream import (
+from trio._highlevel_open_tcp_stream import (
     reorder_for_rfc_6555_section_5_4,
     close_on_error,
     open_tcp_stream,

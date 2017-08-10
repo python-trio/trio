@@ -8,7 +8,7 @@ from . import socket as tsocket
 from ._socket import real_socket_type
 from ._util import UnLock
 from .abc import HalfCloseableStream, Listener
-from ._streams import (
+from ._highlevel_generic import (
     ClosedStreamError, BrokenStreamError, ClosedListenerError
 )
 

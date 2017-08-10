@@ -1,6 +1,6 @@
 import trio
 
-from ._open_tcp_stream import DEFAULT_DELAY
+from ._highlevel_open_tcp_stream import DEFAULT_DELAY
 
 __all__ = ["open_ssl_over_tcp_stream"]
 

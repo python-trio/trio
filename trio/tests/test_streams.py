@@ -3,7 +3,7 @@ import pytest
 import attr
 
 from ..abc import SendStream, ReceiveStream
-from .._streams import StapledStream
+from .._highlevel_generic import StapledStream
 
 
 @attr.s

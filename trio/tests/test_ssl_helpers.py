@@ -8,7 +8,7 @@ import trio.testing
 from .._util import acontextmanager
 from .test_ssl import CLIENT_CTX, SERVER_CTX
 
-from .._ssl_stream_helpers import open_ssl_over_tcp_stream
+from .._highlevel_ssl_helpers import open_ssl_over_tcp_stream
 
 # this would be much simpler with a real fake network
 # or just having trustme support for IP addresses so I could try connecting to

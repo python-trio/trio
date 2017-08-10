@@ -1,7 +1,9 @@
 import operator
 
 from .. import _core
-from .. import _streams
+from .._highlevel_generic import (
+    ClosedStreamError, BrokenStreamError, StapledStream
+)
 from .. import _util
 from ..abc import SendStream, ReceiveStream
 
@@ -35,7 +37,7 @@ class _UnboundedByteQueue:
 
     def put(self, data):
         if self._closed:
-            raise _streams.ClosedStreamError("virtual connection closed")
+            raise ClosedStreamError("virtual connection closed")
         self._data += data
         self._lot.unpark_all()
 
@@ -220,7 +222,7 @@ class MemoryReceiveStream(ReceiveStream):
             if max_bytes is None:
                 raise TypeError("max_bytes must not be None")
             if self._closed:
-                raise _streams.ClosedStreamError
+                raise ClosedStreamError
             if self.receive_some_hook is not None:
                 await self.receive_some_hook()
             return await self._incoming.get(max_bytes)
@@ -290,8 +292,8 @@ def memory_stream_pump(
             memory_recieve_stream.put_eof()
         else:
             memory_recieve_stream.put_data(data)
-    except _streams.ClosedStreamError:
-        raise _streams.BrokenStreamError("MemoryReceiveStream was closed")
+    except ClosedStreamError:
+        raise BrokenStreamError("MemoryReceiveStream was closed")
     return True
 
 
@@ -336,8 +338,8 @@ def memory_stream_one_way_pair():
 def _make_stapled_pair(one_way_pair):
     pipe1_send, pipe1_recv = one_way_pair()
     pipe2_send, pipe2_recv = one_way_pair()
-    stream1 = _streams.StapledStream(pipe1_send, pipe2_recv)
-    stream2 = _streams.StapledStream(pipe2_send, pipe1_recv)
+    stream1 = StapledStream(pipe1_send, pipe2_recv)
+    stream2 = StapledStream(pipe2_send, pipe1_recv)
     return stream1, stream2
 
 
@@ -459,9 +461,9 @@ class _LockstepByteQueue:
     async def send_all(self, data):
         async with self._send_lock:
             if self._sender_closed:
-                raise _streams.ClosedStreamError
+                raise ClosedStreamError
             if self._receiver_closed:
-                raise _streams.BrokenStreamError
+                raise BrokenStreamError
             assert not self._data
             self._data += data
             self._something_happened()
@@ -469,14 +471,14 @@ class _LockstepByteQueue:
                 lambda: not self._data or self._receiver_closed
             )
             if self._data and self._receiver_closed:
-                raise _streams.BrokenStreamError
+                raise BrokenStreamError
             if not self._data:
                 return
 
     async def wait_send_all_might_not_block(self):
         async with self._send_lock:
             if self._sender_closed:
-                raise _streams.ClosedStreamError
+                raise ClosedStreamError
             if self._receiver_closed:
                 return
             await self._wait_for(
@@ -491,7 +493,7 @@ class _LockstepByteQueue:
                 raise ValueError("max_bytes must be >= 1")
             # State validation
             if self._receiver_closed:
-                raise _streams.ClosedStreamError
+                raise ClosedStreamError
             # Wake wait_send_all_might_not_block and wait for data
             self._receiver_waiting = True
             self._something_happened()

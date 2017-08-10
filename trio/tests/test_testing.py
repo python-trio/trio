@@ -7,7 +7,7 @@ import pytest
 
 from .. import sleep
 from .. import _core
-from .. import _streams
+from .._highlevel_generic import ClosedStreamError, aclose_forcefully
 from ..testing import *
 from ..testing._check_streams import _assert_raises
 from ..testing._memory_streams import _UnboundedByteQueue
@@ -457,7 +457,7 @@ async def test__UnboundeByteQueue():
     # Closing
 
     ubq.close()
-    with pytest.raises(_streams.ClosedStreamError):
+    with pytest.raises(ClosedStreamError):
         ubq.put(b"---")
 
     assert ubq.get_nowait(10) == b""
@@ -513,7 +513,7 @@ async def test_MemorySendStream():
 
     assert await mss.get_data() == b"xxx"
     assert await mss.get_data() == b""
-    with pytest.raises(_streams.ClosedStreamError):
+    with pytest.raises(ClosedStreamError):
         await do_send_all(b"---")
 
     # hooks
@@ -547,7 +547,7 @@ async def test_MemorySendStream():
 
     await mss2.send_all(b"abc")
     await mss2.wait_send_all_might_not_block()
-    await _streams.aclose_forcefully(mss2)
+    await aclose_forcefully(mss2)
     mss2.close()
 
     assert record == [
@@ -586,7 +586,7 @@ async def test_MemoryRecieveStream():
     assert await do_receive_some(10) == b""
     assert await do_receive_some(10) == b""
 
-    with pytest.raises(_streams.ClosedStreamError):
+    with pytest.raises(ClosedStreamError):
         mrs.put_data(b"---")
 
     async def receive_some_hook():
@@ -615,7 +615,7 @@ async def test_MemoryRecieveStream():
         await mrs2.aclose()
     assert record == ["closed"]
 
-    with pytest.raises(_streams.ClosedStreamError):
+    with pytest.raises(ClosedStreamError):
         await mrs2.receive_some(10)
 
 
@@ -623,19 +623,19 @@ async def test_MemoryRecvStream_closing():
     mrs = MemoryReceiveStream()
     # close with no pending data
     mrs.close()
-    with pytest.raises(_streams.ClosedStreamError):
+    with pytest.raises(ClosedStreamError):
         assert await mrs.receive_some(10) == b""
     # repeated closes ok
     mrs.close()
     # put_data now fails
-    with pytest.raises(_streams.ClosedStreamError):
+    with pytest.raises(ClosedStreamError):
         mrs.put_data(b"123")
 
     mrs2 = MemoryReceiveStream()
     # close with pending data
     mrs2.put_data(b"xyz")
     mrs2.close()
-    with pytest.raises(_streams.ClosedStreamError):
+    with pytest.raises(ClosedStreamError):
         await mrs2.receive_some(10)
 
 
