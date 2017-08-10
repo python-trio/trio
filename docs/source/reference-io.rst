@@ -116,6 +116,17 @@ Abstract base classes
 
 .. autoexception:: ClosedStreamError
 
+.. currentmodule:: trio.abc
+
+.. autoclass:: trio.abc.Listener
+   :members:
+   :show-inheritance:
+
+.. currentmodule:: trio
+
+.. autoexception:: ClosedListenerError
+
+
 
 Generic stream implementations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -139,8 +150,6 @@ abstraction.
 .. autoclass:: SocketStream
    :members:
    :show-inheritance:
-
-.. autofunction:: socket_stream_pair
 
 .. autofunction:: open_tcp_stream
 

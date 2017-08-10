@@ -11,9 +11,12 @@ __all__ = [
     "HalfCloseableStream",
     "SocketFactory",
     "HostnameResolver",
+    "Listener",
 ]
 
 
+# We use ABCMeta instead of ABC, plus set __slots__=(), so as not to force a
+# __dict__ onto subclasses.
 class Clock(metaclass=ABCMeta):
     """The interface for custom run loop clocks.
 
@@ -215,8 +218,6 @@ class SocketFactory(metaclass=ABCMeta):
         """
 
 
-# We use ABCMeta instead of ABC, plus setting __slots__=(), so as not to force
-# a __dict__ onto subclasses.
 class AsyncResource(metaclass=ABCMeta):
     """A standard interface for resources that needs to be cleaned up, and
     where that cleanup may require blocking operations.
@@ -300,6 +301,9 @@ class SendStream(AsyncResource):
           trio.ResourceBusyError: if another task is already executing a
               :meth:`send_all`, :meth:`wait_send_all_might_not_block`, or
               :meth:`HalfCloseableStream.send_eof` on this stream.
+          trio.BrokenStreamError: if something has gone wrong, and the stream
+              is broken.
+          trio.ClosedStreamError: if you already closed this stream object.
 
         """
 
@@ -321,6 +325,9 @@ class SendStream(AsyncResource):
           trio.ResourceBusyError: if another task is already executing a
               :meth:`send_all`, :meth:`wait_send_all_might_not_block`, or
               :meth:`HalfCloseableStream.send_eof` on this stream.
+          trio.BrokenStreamError: if something has gone wrong, and the stream
+              is broken.
+          trio.ClosedStreamError: if you already closed this stream object.
 
         Note:
 
@@ -394,8 +401,7 @@ class ReceiveStream(AsyncResource):
               :meth:`receive_some` on the same stream at the same time.
           trio.BrokenStreamError: if something has gone wrong, and the stream
               is broken.
-          trio.ClosedStreamError: if someone already called one of the close
-              methods on this stream object.
+          trio.ClosedStreamError: if you already closed this stream object.
 
         """
 
@@ -463,7 +469,37 @@ class HalfCloseableStream(Stream):
               :meth:`send_eof` on this stream.
           trio.BrokenStreamError: if something has gone wrong, and the stream
               is broken.
-          trio.ClosedStreamError: if someone already called one of the close
-              methods on this stream object.
+          trio.ClosedStreamError: if you already closed this stream object.
+
+        """
+
+
+class Listener(AsyncResource):
+    """A standard interface for listening for incoming connections.
+
+    """
+    __slots__ = ()
+
+    @abstractmethod
+    async def accept(self):
+        """Wait until an incoming connection arrives, and then return it.
+
+        Returns:
+          AsyncResource: an object representing the incoming connection. In
+              practice this is almost always some variety of :class:`Stream`,
+              though in principle you could also use this interface with, say,
+              SOCK_SEQPACKET sockets or similar.
+
+        Raises:
+          trio.ResourceBusyError: if two tasks attempt to call
+              :meth:`accept` on the same listener at the same time.
+          trio.ClosedListenerError: if you already closed this listener.
+
+        Note that there is no ``BrokenListenerError``, because for listeners
+        there is no general condition of "the network/remote peer broke the
+        connection" that can be handled in a generic way, like there is for
+        streams. Other errors *can* occur and be raised from :meth:`accept` –
+        for example, if you run out of file descriptors then you might get an
+        :class:`OSError` with its errno set to ``EMFILE``.
 
         """
