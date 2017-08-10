@@ -10,7 +10,7 @@ from ._util import UnLock
 from .abc import HalfCloseableStream
 from ._streams import ClosedStreamError, BrokenStreamError
 
-__all__ = ["SocketStream", "socket_stream_pair"]
+__all__ = ["SocketStream"]
 
 _closed_stream_errnos = {
     # Unix
@@ -159,13 +159,5 @@ class SocketStream(HalfCloseableStream):
             return self.socket.getsockopt(level, option, buffersize)
 
 
-def socket_stream_pair():
-    """Returns a pair of connected :class:`SocketStream` objects.
 
-    This is a convenience function that uses :func:`socket.socketpair` to
-    create the sockets, and then converts the result into
-    :class:`SocketStream`\s.
 
-    """
-    left, right = tsocket.socketpair()
-    return SocketStream(left), SocketStream(right)
