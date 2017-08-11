@@ -159,6 +159,8 @@ abstraction.
    :members:
    :show-inheritance:
 
+.. autofunction:: open_tcp_listeners
+
 
 SSL / TLS support
 ~~~~~~~~~~~~~~~~~
