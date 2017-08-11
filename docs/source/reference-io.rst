@@ -155,6 +155,10 @@ abstraction.
 
 .. autofunction:: open_ssl_over_tcp_stream
 
+.. autoclass:: SocketListener
+   :members:
+   :show-inheritance:
+
 
 SSL / TLS support
 ~~~~~~~~~~~~~~~~~

@@ -313,8 +313,8 @@ for name in _ignorable_accept_errno_names:
 
 
 class SocketListener(Listener):
-    """A :class:`Listener` that uses a listening socket to accept incoming
-    connections as :class:`SocketStream` objects.
+    """A :class:`~trio.abc.Listener` that uses a listening socket to accept
+    incoming connections as :class:`SocketStream` objects.
 
     Args:
       socket: The trio socket object to wrap. Must have type ``SOCK_STREAM``,
@@ -345,6 +345,16 @@ class SocketListener(Listener):
         Returns:
           :class:`SocketStream`
 
+        Raises:
+          OSError: if the underlying call to ``accept`` raises an unexpected
+              error.
+          ClosedListenerError: if you already closed the socket.
+
+        This method handles routine errors like ``ECONNABORTED``, but passes
+        other errors on to its caller. In particular, it does *not* make any
+        special effort to handle resource exhaustion errors like ``EMFILE``,
+        ``ENFILE``, ``ENOBUFS``, ``ENOMEM``.
+
         """
         while True:
             try:
@@ -358,10 +368,7 @@ class SocketListener(Listener):
                 return SocketStream(sock)
 
     async def aclose(self):
-        """Close this listener.
-
-        If ``close_socket`` is True, then this method also closes the
-        underlying socket.
+        """Close this listener and its underlying socket.
 
         """
         try:
