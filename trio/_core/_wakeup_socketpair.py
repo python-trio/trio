@@ -18,6 +18,14 @@ class WakeupSocketpair:
         # blocking, even on non-blocking sockets, so don't do that.)
         self.wakeup_sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1)
         self.write_sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1)
+        # On Windows this is a TCP socket so this might matter. On other
+        # platforms this fails b/c AF_UNIX sockets aren't actually TCP.
+        try:
+            self.write_sock.setsockopt(
+                socket.IPPROTO_TCP, socket.TCP_NODELAY, 1
+            )
+        except OSError:
+            pass
 
     def wakeup_thread_and_signal_safe(self):
         try:
