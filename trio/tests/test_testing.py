@@ -11,6 +11,8 @@ from .._highlevel_generic import ClosedStreamError, aclose_forcefully
 from ..testing import *
 from ..testing._check_streams import _assert_raises
 from ..testing._memory_streams import _UnboundedByteQueue
+from .. import socket as tsocket
+from .._highlevel_socket import SocketListener
 
 
 async def test_wait_all_tasks_blocked():
@@ -772,3 +774,40 @@ async def test_lockstep_streams_with_generic_tests():
         return lockstep_stream_pair()
 
     await check_two_way_stream(two_way_stream_maker, two_way_stream_maker)
+
+
+async def test_open_stream_to_socket_listener(tmpdir):
+    async def check(listener):
+        async with listener:
+            client_stream = await open_stream_to_socket_listener(listener)
+            async with client_stream:
+                server_stream = await listener.accept()
+                async with server_stream:
+                    await client_stream.send_all(b"x")
+                    await server_stream.receive_some(1) == b"x"
+
+    # Listener bound to localhost
+    sock = tsocket.socket()
+    sock.bind(("127.0.0.1", 0))
+    sock.listen(10)
+    await check(SocketListener(sock))
+
+    # Listener bound to IPv4 wildcard (needs special handling)
+    sock = tsocket.socket()
+    sock.bind(("0.0.0.0", 0))
+    sock.listen(10)
+    await check(SocketListener(sock))
+
+    # Listener bound to IPv6 wildcard (needs special handling)
+    sock = tsocket.socket(family=tsocket.AF_INET6)
+    sock.bind(("::", 0))
+    sock.listen(10)
+    await check(SocketListener(sock))
+
+    if hasattr(tsocket, "AF_UNIX"):
+        # Listener bound to Unix-domain socket
+        sock = tsocket.socket(family=tsocket.AF_UNIX)
+        path = str(tmpdir / "sock")
+        sock.bind(path)
+        sock.listen(10)
+        await check(SocketListener(sock))
