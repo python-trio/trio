@@ -309,7 +309,7 @@ for name in _ignorable_accept_errno_names:
     try:
         _ignorable_accept_errnos.add(getattr(errno, name))
     except AttributeError:
-        raise
+        pass
 
 
 class SocketListener(Listener):
