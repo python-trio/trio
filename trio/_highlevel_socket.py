@@ -334,8 +334,16 @@ class SocketListener(Listener):
             raise TypeError("SocketListener requires trio socket object")
         if real_socket_type(socket.type) != tsocket.SOCK_STREAM:
             raise ValueError("SocketListener requires a SOCK_STREAM socket")
-        if not socket.getsockopt(tsocket.SOL_SOCKET, tsocket.SO_ACCEPTCONN):
-            raise ValueError("SocketListener requires a listening socket")
+        try:
+            listening = socket.getsockopt(
+                tsocket.SOL_SOCKET, tsocket.SO_ACCEPTCONN
+            )
+        except OSError:
+            # SO_ACCEPTCONN fails on MacOS; we just have to trust the user.
+            pass
+        else:
+            if not listening:
+                raise ValueError("SocketListener requires a listening socket")
 
         self.socket = socket
 

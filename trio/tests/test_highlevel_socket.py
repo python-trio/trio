@@ -1,5 +1,6 @@
 import pytest
 
+import sys
 import socket as stdlib_socket
 import errno
 
@@ -99,11 +100,13 @@ async def test_SocketListener():
         excinfo.match(r".*SOCK_STREAM")
 
     # Didn't call .listen()
-    with tsocket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        with pytest.raises(ValueError) as excinfo:
-            SocketListener(s)
-        excinfo.match(r".*listen")
+    # MacOS has no way to check for this, so skip testing it there.
+    if sys.platform != "darwin":
+        with tsocket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            with pytest.raises(ValueError) as excinfo:
+                SocketListener(s)
+            excinfo.match(r".*listen")
 
     listen_sock = tsocket.socket()
     listen_sock.bind(("127.0.0.1", 0))
