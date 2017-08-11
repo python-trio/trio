@@ -2,6 +2,7 @@
 
 import time
 from math import inf
+import tempfile
 
 import pytest
 
@@ -776,7 +777,7 @@ async def test_lockstep_streams_with_generic_tests():
     await check_two_way_stream(two_way_stream_maker, two_way_stream_maker)
 
 
-async def test_open_stream_to_socket_listener(tmpdir):
+async def test_open_stream_to_socket_listener():
     async def check(listener):
         async with listener:
             client_stream = await open_stream_to_socket_listener(listener)
@@ -807,7 +808,10 @@ async def test_open_stream_to_socket_listener(tmpdir):
     if hasattr(tsocket, "AF_UNIX"):
         # Listener bound to Unix-domain socket
         sock = tsocket.socket(family=tsocket.AF_UNIX)
-        path = str(tmpdir / "sock")
-        sock.bind(path)
-        sock.listen(10)
-        await check(SocketListener(sock))
+        # can't use pytest's tmpdir; if we try then MacOS says "OSError:
+        # AF_UNIX path too long"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = "{}/sock".format(tmpdir)
+            sock.bind(path)
+            sock.listen(10)
+            await check(SocketListener(sock))
