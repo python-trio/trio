@@ -161,6 +161,8 @@ abstraction.
 
 .. autofunction:: open_tcp_listeners
 
+.. autofunction:: open_ssl_over_tcp_listeners
+
 
 SSL / TLS support
 ~~~~~~~~~~~~~~~~~
