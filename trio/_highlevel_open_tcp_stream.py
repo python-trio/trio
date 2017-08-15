@@ -197,7 +197,7 @@ async def open_tcp_stream(
     <https://tools.ietf.org/html/rfc6555>`__ for more details.
 
     Args:
-      host (bytes or str): The host to connect to. Can be an IPv4 address,
+      host (str or bytes): The host to connect to. Can be an IPv4 address,
           IPv6 address, or a hostname.
       port (int): The port to connect to.
       happy_eyeballs_delay (float): How many seconds to wait for each
@@ -216,6 +216,14 @@ async def open_tcp_stream(
       open_ssl_over_tcp_stream
 
     """
+    # To keep our public API surface smaller, rule out some cases that
+    # getaddrinfo will accept in some circumstances, but that act weird or
+    # have non-portable behavior or are just plain not useful.
+    # No type check on host though b/c we want to allow bytes-likes.
+    if host is None:
+        raise ValueError("host cannot be None")
+    if not isinstance(port, int):
+        raise TypeError("port must be int, not {!r}".format(port))
 
     if happy_eyeballs_delay is None:
         happy_eyeballs_delay = DEFAULT_DELAY

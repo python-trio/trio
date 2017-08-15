@@ -81,6 +81,14 @@ async def test_open_tcp_stream_real_socket_smoketest():
     await client_stream.aclose()
     server_sock.close()
 
+    listen_sock.close()
+
+async def test_open_tcp_stream_input_validation():
+    with pytest.raises(ValueError):
+        await open_tcp_stream(None, 80)
+    with pytest.raises(TypeError):
+        await open_tcp_stream("127.0.0.1", b"80")
+
 
 # Now, thorough tests using fake sockets
 

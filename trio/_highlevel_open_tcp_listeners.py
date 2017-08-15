@@ -48,27 +48,32 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
 
     Args:
 
-      port (int): The port to listen on. If you pass 0, the kernel will
-          automatically pick an arbitrary open port. But be careful: if you
-          use ``port=0`` when binding to multiple IP address, then each IP
-          address will be assigned a different port. An example of when this
-          happens is when ``host=None``, which means to bind to both the IPv4
-          wildcard address (``0.0.0.0``) and also the IPv6 wildcard address
-          (``::``).
+      port (int): The port to listen on.
 
-      host (str or None): The local interface to bind to. This is passed to
-          :func:`~socket.getaddrinfo` with the ``AI_PASSIVE`` flag set.
+          If you use 0 as your port, then the kernel will automatically pick
+          an arbitrary open port. But be careful: if you use this feature when
+          binding to multiple IP addresses, then each IP address will get its
+          own random port, and the returned listeners will probably be
+          listening on different ports. In particular, this will happen if you
+          use ``host=None`` – which is the default – because in this case
+          :func:`open_tcp_listeners` will bind to both the IPv4 wildcard
+          address (``0.0.0.0``) and also the IPv6 wildcard address (``::``).
+
+      host (str, bytes-like, or None): The local interface to bind to. This is
+          passed to :func:`~socket.getaddrinfo` with the ``AI_PASSIVE`` flag
+          set.
+
+          If you want to bind to bind to the wildcard address on both IPv4 and
+          IPv6, in order to accept connections on all available interfaces,
+          then pass ``None``. This is the default.
 
           If you have a specific interface you want to bind to, pass its IP
           address or hostname here. If a hostname resolves to multiple IP
-          addresses, this function will bind one listener to each of them.
-
-          If you want to bind to all available interfaces (the wildcard
-          address) for both IPv4 and IPv6, pass ``None`` (the default).
+          addresses, this function will open one listener on each of them.
 
           If you want to use only IPv4, or only IPv6, but want to accept on
           all interfaces, pass the family-specific wildcard address:
-          ``"0.0.0.0"`` or ``"::"``.
+          ``"0.0.0.0"`` for IPv4-only and ``"::"`` for IPv6-only.
 
       backlog (int or None): The listen backlog to use. If you leave this as
           ``None`` then Trio will pick a good default.
@@ -77,6 +82,13 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
       list of :class:`SocketListener`
 
     """
+    # getaddrinfo sometimes allows port=None, sometimes not (depending on
+    # whether host=None). And on some systems it treats "" as 0, others it
+    # doesn't:
+    #   http://klickverbot.at/blog/2012/01/getaddrinfo-edge-case-behavior-on-windows-linux-and-osx/
+    if not isinstance(port, int):
+        raise TypeError("port must be an int or str, not {!r}".format(port))
+
     backlog = _compute_backlog(backlog)
 
     addresses = await tsocket.getaddrinfo(

@@ -74,11 +74,12 @@ async def open_ssl_over_tcp_listeners(
     """Start listening for SSL/TLS-encrypted TCP connections to the given port.
 
     Args:
-      port (int): The port to listen on. See :func:`open_tcp_listeners`.
+      port (int or str): The port to listen on. See
+          :func:`open_tcp_listeners`.
       ssl_context (~ssl.SSLContext): The SSL context to use for all incoming
           connections.
-      host (str or None): The address to bind to; use ``None`` to bind to the
-          wildcard address. See :func:`open_tcp_listeners`.
+      host (str, bytes, or None): The address to bind to; use ``None`` to bind
+          to the wildcard address. See :func:`open_tcp_listeners`.
       https_compatible (bool): See :class:`~trio.ssl.SSLStream` for details.
       backlog (int or None): See :class:`~trio.ssl.SSLStream` for details.
 

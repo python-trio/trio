@@ -210,3 +210,13 @@ async def test_open_tcp_listeners_multiple_host_cleanup_on_error():
     assert len(fsf.sockets) == 3
     for sock in fsf.sockets:
         assert sock.closed
+
+
+async def test_open_tcp_listeners_port_checking():
+    for host in ["127.0.0.1", None]:
+        with pytest.raises(TypeError):
+            await open_tcp_listeners(None, host=host)
+        with pytest.raises(TypeError):
+            await open_tcp_listeners(b"80", host=host)
+        with pytest.raises(TypeError):
+            await open_tcp_listeners("http", host=host)
