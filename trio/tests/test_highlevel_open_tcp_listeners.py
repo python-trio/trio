@@ -20,13 +20,13 @@ async def test_open_tcp_listeners_basic():
         assert obj.socket.family in [tsocket.AF_INET, tsocket.AF_INET6]
         assert obj.socket.getsockname()[0] in ["0.0.0.0", "::"]
 
-    l = listeners[0]
+    listener = listeners[0]
     # Make sure the backlog is at least 2
-    c1 = await open_stream_to_socket_listener(l)
-    c2 = await open_stream_to_socket_listener(l)
+    c1 = await open_stream_to_socket_listener(listener)
+    c2 = await open_stream_to_socket_listener(listener)
 
-    s1 = await l.accept()
-    s2 = await l.accept()
+    s1 = await listener.accept()
+    s2 = await listener.accept()
 
     # Note that we don't know which client stream is connected to which server
     # stream
@@ -46,9 +46,9 @@ async def test_open_tcp_listeners_specific_port_specific_host():
     host, port = sock.getsockname()
     sock.close()
 
-    (l,) = await open_tcp_listeners(port, host=host)
-    async with l:
-        assert l.socket.getsockname() == (host, port)
+    (listener,) = await open_tcp_listeners(port, host=host)
+    async with listener:
+        assert listener.socket.getsockname() == (host, port)
 
 
 # Warning: this sleeps, and needs to use a real sleep -- MockClock won't
