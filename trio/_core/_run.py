@@ -378,6 +378,7 @@ class Task:
     # - for scheduled tasks, _next_send is a Result object
     # Tasks start out unscheduled.
     _next_send = attr.ib(default=None)
+    # ParkingLot modifies this directly
     _abort_func = attr.ib(default=None)
 
     # Task-local values, see _local.py

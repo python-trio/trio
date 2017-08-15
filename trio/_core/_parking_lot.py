@@ -72,7 +72,7 @@
 
 from itertools import count
 import attr
-from sortedcontainers import SortedDict
+from collections import OrderedDict
 
 from .. import _core
 from . import _hazmat
@@ -102,8 +102,9 @@ class ParkingLot:
 
     """
 
-    # {idx: ticket}, where ticket = [task, idx, lot]
-    _parked = attr.ib(default=attr.Factory(SortedDict), init=False)
+    # {task: None}, we just want a deque where we can quickly delete random
+    # items
+    _parked = attr.ib(default=attr.Factory(OrderedDict), init=False)
 
     def __len__(self):
         """Returns the number of parked tasks.
@@ -117,13 +118,11 @@ class ParkingLot:
         """
         return bool(self._parked)
 
-    def _deposit_ticket(self, ticket):
-        # On entry, 'ticket' is a 3-list where the first element is the task
-        # and we overwrite the other two.
-        idx = next(_counter)
-        ticket[1] = idx
-        ticket[2] = self
-        self._parked[idx] = ticket
+    def _abort_func_for(self, task):
+        def abort(_):
+            del self._parked[task]
+            return _core.Abort.SUCCEEDED
+        return abort
 
     # XX this currently returns None
     # if we ever add the ability to repark while one's resuming place in
@@ -135,20 +134,14 @@ class ParkingLot:
         :meth:`unpark_all`.
 
         """
-        ticket = [_core.current_task(), None, None]
-        self._deposit_ticket(ticket)
-
-        def abort(_):
-            task, idx, lot = ticket
-            del lot._parked[idx]
-            return _core.Abort.SUCCEEDED
-
-        await _core.yield_indefinitely(abort)
+        task = _core.current_task()
+        self._parked[task] = None
+        await _core.yield_indefinitely(self._abort_func_for(task))
 
     def _pop_several(self, count):
         for _ in range(min(count, len(self._parked))):
-            _, ticket = self._parked.popitem(last=False)
-            yield ticket
+            task, _ = self._parked.popitem(last=False)
+            yield task
 
     @_core.enable_ki_protection
     def unpark(self, *, count=1):
@@ -162,7 +155,7 @@ class ParkingLot:
           count (int): the number of tasks to unpark.
 
         """
-        tasks = [task for (task, _, _) in self._pop_several(count)]
+        tasks = list(self._pop_several(count))
         for task in tasks:
             _core.reschedule(task)
         return tasks
@@ -209,8 +202,9 @@ class ParkingLot:
         """
         if not isinstance(new_lot, ParkingLot):
             raise TypeError("new_lot must be a ParkingLot")
-        for ticket in self._pop_several(count):
-            new_lot._deposit_ticket(ticket)
+        for task in self._pop_several(count):
+            new_lot._parked[task] = None
+            task._abort_func = new_lot._abort_func_for(task)
 
     def repark_all(self, new_lot):
         """Move all parked tasks from one :class:`ParkingLot` object to
