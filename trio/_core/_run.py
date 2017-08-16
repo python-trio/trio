@@ -730,7 +730,6 @@ class Runner:
         # result is a coroutine object.
         if not inspect.iscoroutine(coro):
             # Give good error for: nursery.spawn(asyncio.sleep, 1)
-            print(coro)
             if _return_value_looks_like_wrong_library(coro):
                 raise TypeError(
                     "spawn got unexpected {!r} – are you trying to use a "
