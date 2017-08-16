@@ -92,7 +92,11 @@ Abstract base classes
 .. autoclass:: trio.abc.AsyncResource
    :members:
 
-.. function:: trio.aclose_forcefully
+.. currentmodule:: trio
+
+.. autofunction:: aclose_forcefully
+
+.. currentmodule:: trio.abc
 
 .. autoclass:: trio.abc.SendStream
    :members:
