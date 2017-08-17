@@ -83,6 +83,7 @@ async def test_open_tcp_stream_real_socket_smoketest():
 
     listen_sock.close()
 
+
 async def test_open_tcp_stream_input_validation():
     with pytest.raises(ValueError):
         await open_tcp_stream(None, 80)
