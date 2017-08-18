@@ -153,6 +153,7 @@ abstraction.
 
 .. autoclass:: SocketStream
    :members:
+   :undoc-members:
    :show-inheritance:
 
 .. autofunction:: open_tcp_stream
@@ -393,6 +394,12 @@ Socket objects
       accepted by the operating system.
 
       ``flags`` are passed on to ``send``.
+
+      .. warning:: If two tasks call this method simultaneously on the
+         same socket, then their data may end up intermingled on the
+         wire. This is almost certainly not what you want. Use the
+         highlevel interface instead (:meth:`trio.SocketStream.send_all`);
+         it reliably detects this error.
 
       Most low-level operations in trio provide a guarantee: if they raise
       :exc:`trio.Cancelled`, this means that they had no effect, so the
