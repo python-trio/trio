@@ -40,14 +40,14 @@ __all__ += _sync.__all__
 from ._threads import *
 __all__ += _threads.__all__
 
-from ._streams import *
-__all__ += _streams.__all__
+from ._highlevel_generic import *
+__all__ += _highlevel_generic.__all__
 
 from ._signals import *
 __all__ += _signals.__all__
 
-from ._network import *
-__all__ += _network.__all__
+from ._highlevel_socket import *
+__all__ += _highlevel_socket.__all__
 
 from ._file_io import *
 __all__ += _file_io.__all__
@@ -55,11 +55,14 @@ __all__ += _file_io.__all__
 from ._path import *
 __all__ += _path.__all__
 
-from ._open_tcp_stream import *
-__all__ += _open_tcp_stream.__all__
+from ._highlevel_open_tcp_stream import *
+__all__ += _highlevel_open_tcp_stream.__all__
 
-from ._ssl_stream_helpers import *
-__all__ += _ssl_stream_helpers.__all__
+from ._highlevel_open_tcp_listeners import *
+__all__ += _highlevel_open_tcp_listeners.__all__
+
+from ._highlevel_ssl_helpers import *
+__all__ += _highlevel_ssl_helpers.__all__
 
 # Imported by default
 from . import socket

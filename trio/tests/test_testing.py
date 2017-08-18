@@ -2,15 +2,18 @@
 
 import time
 from math import inf
+import tempfile
 
 import pytest
 
 from .. import sleep
 from .. import _core
-from .. import _streams
+from .._highlevel_generic import ClosedStreamError, aclose_forcefully
 from ..testing import *
 from ..testing._check_streams import _assert_raises
 from ..testing._memory_streams import _UnboundedByteQueue
+from .. import socket as tsocket
+from .._highlevel_socket import SocketListener
 
 
 async def test_wait_all_tasks_blocked():
@@ -457,7 +460,7 @@ async def test__UnboundeByteQueue():
     # Closing
 
     ubq.close()
-    with pytest.raises(_streams.ClosedStreamError):
+    with pytest.raises(ClosedStreamError):
         ubq.put(b"---")
 
     assert ubq.get_nowait(10) == b""
@@ -513,7 +516,7 @@ async def test_MemorySendStream():
 
     assert await mss.get_data() == b"xxx"
     assert await mss.get_data() == b""
-    with pytest.raises(_streams.ClosedStreamError):
+    with pytest.raises(ClosedStreamError):
         await do_send_all(b"---")
 
     # hooks
@@ -547,7 +550,7 @@ async def test_MemorySendStream():
 
     await mss2.send_all(b"abc")
     await mss2.wait_send_all_might_not_block()
-    await _streams.aclose_forcefully(mss2)
+    await aclose_forcefully(mss2)
     mss2.close()
 
     assert record == [
@@ -586,7 +589,7 @@ async def test_MemoryRecieveStream():
     assert await do_receive_some(10) == b""
     assert await do_receive_some(10) == b""
 
-    with pytest.raises(_streams.ClosedStreamError):
+    with pytest.raises(ClosedStreamError):
         mrs.put_data(b"---")
 
     async def receive_some_hook():
@@ -615,7 +618,7 @@ async def test_MemoryRecieveStream():
         await mrs2.aclose()
     assert record == ["closed"]
 
-    with pytest.raises(_streams.ClosedStreamError):
+    with pytest.raises(ClosedStreamError):
         await mrs2.receive_some(10)
 
 
@@ -623,19 +626,19 @@ async def test_MemoryRecvStream_closing():
     mrs = MemoryReceiveStream()
     # close with no pending data
     mrs.close()
-    with pytest.raises(_streams.ClosedStreamError):
+    with pytest.raises(ClosedStreamError):
         assert await mrs.receive_some(10) == b""
     # repeated closes ok
     mrs.close()
     # put_data now fails
-    with pytest.raises(_streams.ClosedStreamError):
+    with pytest.raises(ClosedStreamError):
         mrs.put_data(b"123")
 
     mrs2 = MemoryReceiveStream()
     # close with pending data
     mrs2.put_data(b"xyz")
     mrs2.close()
-    with pytest.raises(_streams.ClosedStreamError):
+    with pytest.raises(ClosedStreamError):
         await mrs2.receive_some(10)
 
 
@@ -772,3 +775,43 @@ async def test_lockstep_streams_with_generic_tests():
         return lockstep_stream_pair()
 
     await check_two_way_stream(two_way_stream_maker, two_way_stream_maker)
+
+
+async def test_open_stream_to_socket_listener():
+    async def check(listener):
+        async with listener:
+            client_stream = await open_stream_to_socket_listener(listener)
+            async with client_stream:
+                server_stream = await listener.accept()
+                async with server_stream:
+                    await client_stream.send_all(b"x")
+                    await server_stream.receive_some(1) == b"x"
+
+    # Listener bound to localhost
+    sock = tsocket.socket()
+    sock.bind(("127.0.0.1", 0))
+    sock.listen(10)
+    await check(SocketListener(sock))
+
+    # Listener bound to IPv4 wildcard (needs special handling)
+    sock = tsocket.socket()
+    sock.bind(("0.0.0.0", 0))
+    sock.listen(10)
+    await check(SocketListener(sock))
+
+    # Listener bound to IPv6 wildcard (needs special handling)
+    sock = tsocket.socket(family=tsocket.AF_INET6)
+    sock.bind(("::", 0))
+    sock.listen(10)
+    await check(SocketListener(sock))
+
+    if hasattr(tsocket, "AF_UNIX"):
+        # Listener bound to Unix-domain socket
+        sock = tsocket.socket(family=tsocket.AF_UNIX)
+        # can't use pytest's tmpdir; if we try then MacOS says "OSError:
+        # AF_UNIX path too long"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = "{}/sock".format(tmpdir)
+            sock.bind(path)
+            sock.listen(10)
+            await check(SocketListener(sock))

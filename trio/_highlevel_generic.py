@@ -12,6 +12,7 @@ __all__ = [
     "aclose_forcefully",
     "BrokenStreamError",
     "ClosedStreamError",
+    "ClosedListenerError",
     "StapledStream",
 ]
 
@@ -76,6 +77,18 @@ class ClosedStreamError(Exception):
 
     If a problem arises elsewhere, for example due to a network failure or a
     misbehaving peer, then you get :class:`BrokenStreamError` instead.
+
+    """
+    pass
+
+
+class ClosedListenerError(Exception):
+    """Raised when an attempt to use a listener fails because it was already
+    closed locally.
+
+    You *only* get this error if *your* code closed the stream object you're
+    attempting to use by calling :meth:`~trio.abc.AsyncResource.aclose` or
+    similar. Therefore this exception generally indicates a bug in your code.
 
     """
     pass

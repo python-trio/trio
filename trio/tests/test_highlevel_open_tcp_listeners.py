@@ -1,0 +1,222 @@
+import pytest
+
+import socket as stdlib_socket
+
+import attr
+
+import trio
+from trio import open_tcp_listeners, SocketListener, open_tcp_stream
+from trio.testing import open_stream_to_socket_listener
+from .. import socket as tsocket
+from .._core.tests.tutil import slow
+
+
+async def test_open_tcp_listeners_basic():
+    listeners = await open_tcp_listeners(0)
+    assert isinstance(listeners, list)
+    for obj in listeners:
+        assert isinstance(obj, SocketListener)
+        # Binds to wildcard address by default
+        assert obj.socket.family in [tsocket.AF_INET, tsocket.AF_INET6]
+        assert obj.socket.getsockname()[0] in ["0.0.0.0", "::"]
+
+    listener = listeners[0]
+    # Make sure the backlog is at least 2
+    c1 = await open_stream_to_socket_listener(listener)
+    c2 = await open_stream_to_socket_listener(listener)
+
+    s1 = await listener.accept()
+    s2 = await listener.accept()
+
+    # Note that we don't know which client stream is connected to which server
+    # stream
+    await s1.send_all(b"x")
+    await s2.send_all(b"x")
+    assert await c1.receive_some(1) == b"x"
+    assert await c2.receive_some(1) == b"x"
+
+    for resource in [c1, c2, s1, s2] + listeners:
+        await resource.aclose()
+
+
+async def test_open_tcp_listeners_specific_port_specific_host():
+    # Pick a port
+    sock = tsocket.socket()
+    sock.bind(("127.0.0.1", 0))
+    host, port = sock.getsockname()
+    sock.close()
+
+    (listener,) = await open_tcp_listeners(port, host=host)
+    async with listener:
+        assert listener.socket.getsockname() == (host, port)
+
+
+# Warning: this sleeps, and needs to use a real sleep -- MockClock won't
+# work.
+async def measure_backlog(listener):
+    client_streams = []
+    while True:
+        # Generally the response to the listen buffer being full is that the
+        # SYN gets dropped, and the client retries after 1 second. So we
+        # assume that any connect() call to localhost that takes >0.5 seconds
+        # indicates a dropped SYN.
+        with trio.move_on_after(0.5) as cancel_scope:
+            client_stream = await open_stream_to_socket_listener(listener)
+        if cancel_scope.cancelled_caught:
+            await client_stream.aclose()
+            break
+        client_streams.append(client_stream)
+
+    for client_stream in client_streams:
+        await client_stream.aclose()
+
+    return len(client_streams)
+
+
+@slow
+async def test_open_tcp_listeners_backlog():
+    # Operating systems don't necessarily use the exact backlog you pass
+    async def check_backlog(nominal, required_min, required_max):
+        listeners = await open_tcp_listeners(0, backlog=nominal)
+        actual = await measure_backlog(listeners[0])
+        for listener in listeners:
+            await listener.aclose()
+        print("nominal ", nominal, "actual", actual)
+        assert required_min <= actual <= required_max
+
+    await check_backlog(nominal=1, required_min=1, required_max=10)
+    await check_backlog(nominal=10, required_min=10, required_max=20)
+
+
+async def test_open_tcp_listeners_ipv6_v6only():
+    # Check IPV6_V6ONLY is working properly
+    (ipv6_listener,) = await open_tcp_listeners(0, host="::1")
+    _, port, *_ = ipv6_listener.socket.getsockname()
+
+    with pytest.raises(OSError):
+        await open_tcp_stream("127.0.0.1", port)
+
+
+async def test_open_tcp_listeners_rebind():
+    (l1,) = await open_tcp_listeners(0, host="127.0.0.1")
+    sockaddr1 = l1.socket.getsockname()
+
+    # Plain old rebinding while it's still there should fail, even if we have
+    # SO_REUSEADDR set (requires SO_EXCLUSIVEADDRUSE on Windows)
+    probe = stdlib_socket.socket()
+    probe.setsockopt(stdlib_socket.SOL_SOCKET, stdlib_socket.SO_REUSEADDR, 1)
+    with pytest.raises(OSError):
+        probe.bind(sockaddr1)
+
+    # Now use the first listener to set up some connections in various states,
+    # and make sure that they don't create any obstacle to rebinding a second
+    # listener after the first one is closed.
+    c_established = await open_stream_to_socket_listener(l1)
+    s_established = await l1.accept()
+
+    c_time_wait = await open_stream_to_socket_listener(l1)
+    s_time_wait = await l1.accept()
+    # Server-initiated close leaves socket in TIME_WAIT
+    await s_time_wait.aclose()
+
+    await l1.aclose()
+    (l2,) = await open_tcp_listeners(sockaddr1[1], host="127.0.0.1")
+    sockaddr2 = l2.socket.getsockname()
+
+    assert sockaddr1 == sockaddr2
+    assert s_established.socket.getsockname() == sockaddr2
+    assert c_time_wait.socket.getpeername() == sockaddr2
+
+    for resource in [
+            l1,
+            l2,
+            c_established,
+            s_established,
+            c_time_wait,
+            s_time_wait,
+    ]:
+        await resource.aclose()
+
+
+class FakeOSError(OSError):
+    pass
+
+
+@attr.s
+class FakeSocket:
+    family = attr.ib()
+    type = attr.ib()
+    proto = attr.ib()
+
+    closed = attr.ib(default=False)
+    poison_listen = attr.ib(default=False)
+
+    def getsockopt(self, level, option):
+        if (level, option) == (tsocket.SOL_SOCKET, tsocket.SO_ACCEPTCONN):
+            return True
+        assert False  # pragma: no cover
+
+    def setsockopt(self, level, option, value):
+        pass
+
+    def bind(self, sockaddr):
+        pass
+
+    def listen(self, backlog):
+        if self.poison_listen:
+            raise FakeOSError("whoops")
+
+    def close(self):
+        self.closed = True
+
+
+@attr.s
+class FakeSocketFactory:
+    poison_after = attr.ib()
+    sockets = attr.ib(default=attr.Factory(list))
+
+    def is_trio_socket(self, obj):
+        return isinstance(obj, FakeSocket)
+
+    def socket(self, family, type, proto):
+        sock = FakeSocket(family, type, proto)
+        self.poison_after -= 1
+        if self.poison_after == 0:
+            sock.poison_listen = True
+        self.sockets.append(sock)
+        return sock
+
+
+class FakeHostnameResolver:
+    async def getaddrinfo(self, host, port, family, type, proto, flags):
+        common = (tsocket.AF_INET, tsocket.SOCK_STREAM, 0, "")
+        return [
+            common + (("1.1.1.1", port),),
+            common + (("2.2.2.2", port),),
+            common + (("3.3.3.3", port),),
+        ]
+
+
+async def test_open_tcp_listeners_multiple_host_cleanup_on_error():
+    # If we were trying to bind to multiple hosts and one of them failed, they
+    # call get cleaned up before returning
+    fsf = FakeSocketFactory(3)
+    tsocket.set_custom_socket_factory(fsf)
+    tsocket.set_custom_hostname_resolver(FakeHostnameResolver())
+
+    with pytest.raises(FakeOSError):
+        await open_tcp_listeners(80, host="example.org")
+
+    assert len(fsf.sockets) == 3
+    for sock in fsf.sockets:
+        assert sock.closed
+
+
+async def test_open_tcp_listeners_port_checking():
+    for host in ["127.0.0.1", None]:
+        with pytest.raises(TypeError):
+            await open_tcp_listeners(None, host=host)
+        with pytest.raises(TypeError):
+            await open_tcp_listeners(b"80", host=host)
+        with pytest.raises(TypeError):
+            await open_tcp_listeners("http", host=host)

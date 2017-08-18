@@ -22,6 +22,9 @@ __all__ += _check_streams.__all__
 from ._memory_streams import *
 __all__ += _memory_streams.__all__
 
+from ._network import *
+__all__ += _network.__all__
+
 from .._util import fixup_module_metadata
 fixup_module_metadata(__name__, globals())
 del fixup_module_metadata

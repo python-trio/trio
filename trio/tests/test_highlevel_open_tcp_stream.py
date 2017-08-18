@@ -4,7 +4,7 @@ import attr
 
 import trio
 from trio.socket import AF_INET, AF_INET6, SOCK_STREAM, IPPROTO_TCP
-from trio._open_tcp_stream import (
+from trio._highlevel_open_tcp_stream import (
     reorder_for_rfc_6555_section_5_4,
     close_on_error,
     open_tcp_stream,
@@ -80,6 +80,15 @@ async def test_open_tcp_stream_real_socket_smoketest():
     assert await server_sock.recv(1) == b"x"
     await client_stream.aclose()
     server_sock.close()
+
+    listen_sock.close()
+
+
+async def test_open_tcp_stream_input_validation():
+    with pytest.raises(ValueError):
+        await open_tcp_stream(None, 80)
+    with pytest.raises(TypeError):
+        await open_tcp_stream("127.0.0.1", b"80")
 
 
 # Now, thorough tests using fake sockets

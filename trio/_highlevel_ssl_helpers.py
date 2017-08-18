@@ -1,8 +1,8 @@
 import trio
 
-from ._open_tcp_stream import DEFAULT_DELAY
+from ._highlevel_open_tcp_stream import DEFAULT_DELAY
 
-__all__ = ["open_ssl_over_tcp_stream"]
+__all__ = ["open_ssl_over_tcp_stream", "open_ssl_over_tcp_listeners"]
 
 
 # It might have been nice to take a ssl_protocols= argument here to set up
@@ -66,3 +66,32 @@ async def open_ssl_over_tcp_stream(
         server_hostname=host,
         https_compatible=https_compatible,
     )
+
+
+async def open_ssl_over_tcp_listeners(
+    port, ssl_context, *, host=None, https_compatible=False, backlog=None
+):
+    """Start listening for SSL/TLS-encrypted TCP connections to the given port.
+
+    Args:
+      port (int or str): The port to listen on. See
+          :func:`open_tcp_listeners`.
+      ssl_context (~ssl.SSLContext): The SSL context to use for all incoming
+          connections.
+      host (str, bytes, or None): The address to bind to; use ``None`` to bind
+          to the wildcard address. See :func:`open_tcp_listeners`.
+      https_compatible (bool): See :class:`~trio.ssl.SSLStream` for details.
+      backlog (int or None): See :class:`~trio.ssl.SSLStream` for details.
+
+    """
+    tcp_listeners = await trio.open_tcp_listeners(
+        port, host=host, backlog=backlog
+    )
+    ssl_listeners = [
+        trio.ssl.SSLListener(
+            tcp_listener,
+            ssl_context,
+            https_compatible=https_compatible,
+        ) for tcp_listener in tcp_listeners
+    ]
+    return ssl_listeners

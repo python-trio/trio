@@ -4,7 +4,9 @@ from contextlib import contextmanager
 import random
 
 from .. import _core
-from .. import _streams
+from .._highlevel_generic import (
+    BrokenStreamError, ClosedStreamError, aclose_forcefully
+)
 from .._abc import SendStream, ReceiveStream, Stream, HalfCloseableStream
 from ._checkpoints import assert_yields
 
@@ -24,9 +26,9 @@ class _ForceCloseBoth:
 
     async def __aexit__(self, *args):
         try:
-            await _streams.aclose_forcefully(self._both[0])
+            await aclose_forcefully(self._both[0])
         finally:
-            await _streams.aclose_forcefully(self._both[1])
+            await aclose_forcefully(self._both[1])
 
 
 @contextmanager
@@ -137,7 +139,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
         # closing the r side leads to BrokenStreamError on the s side
         # (eventually)
         async def expect_broken_stream_on_send():
-            with _assert_raises(_streams.BrokenStreamError):
+            with _assert_raises(BrokenStreamError):
                 while True:
                     await do_send_all(b"x" * 100)
 
@@ -146,11 +148,11 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             nursery.spawn(do_aclose, r)
 
         # once detected, the stream stays broken
-        with _assert_raises(_streams.BrokenStreamError):
+        with _assert_raises(BrokenStreamError):
             await do_send_all(b"x" * 100)
 
         # r closed -> ClosedStreamError on the receive side
-        with _assert_raises(_streams.ClosedStreamError):
+        with _assert_raises(ClosedStreamError):
             await do_receive_some(4096)
 
         # we can close the same stream repeatedly, it's fine
@@ -161,11 +163,11 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
         await do_aclose(s)
 
         # now trying to send raises ClosedStreamError
-        with _assert_raises(_streams.ClosedStreamError):
+        with _assert_raises(ClosedStreamError):
             await do_send_all(b"x" * 100)
 
         # ditto for wait_send_all_might_not_block
-        with _assert_raises(_streams.ClosedStreamError):
+        with _assert_raises(ClosedStreamError):
             with assert_yields():
                 await s.wait_send_all_might_not_block()
 
@@ -194,19 +196,19 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             nursery.spawn(receive_send_then_close)
 
     async with _ForceCloseBoth(await stream_maker()) as (s, r):
-        await _streams.aclose_forcefully(r)
+        await aclose_forcefully(r)
 
-        with _assert_raises(_streams.BrokenStreamError):
+        with _assert_raises(BrokenStreamError):
             while True:
                 await do_send_all(b"x" * 100)
 
-        with _assert_raises(_streams.ClosedStreamError):
+        with _assert_raises(ClosedStreamError):
             await do_receive_some(4096)
 
     async with _ForceCloseBoth(await stream_maker()) as (s, r):
-        await _streams.aclose_forcefully(s)
+        await aclose_forcefully(s)
 
-        with _assert_raises(_streams.ClosedStreamError):
+        with _assert_raises(ClosedStreamError):
             await do_send_all(b"123")
 
         # after the sender does a forceful close, the receiver might either
@@ -214,7 +216,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
         # if it freezes, or returns data.
         try:
             await checked_receive_1(b"")
-        except _streams.BrokenStreamError:
+        except BrokenStreamError:
             pass
 
     # cancelled aclose still closes
@@ -227,10 +229,10 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             scope.cancel()
             await s.aclose()
 
-        with _assert_raises(_streams.ClosedStreamError):
+        with _assert_raises(ClosedStreamError):
             await do_send_all(b"123")
 
-        with _assert_raises(_streams.ClosedStreamError):
+        with _assert_raises(ClosedStreamError):
             await do_receive_some(4096)
 
     # Check that we can still gracefully close a stream after an operation has
@@ -317,12 +319,12 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
                 try:
                     with assert_yields():
                         await s.wait_send_all_might_not_block()
-                except _streams.BrokenStreamError:
+                except BrokenStreamError:
                     pass
 
             async def receiver():
                 await _core.wait_all_tasks_blocked()
-                await _streams.aclose_forcefully(r)
+                await aclose_forcefully(r)
 
             async with _core.open_nursery() as nursery:
                 nursery.spawn(sender)
@@ -330,11 +332,11 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
 
         # and again with the call starting after the close
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
-            await _streams.aclose_forcefully(r)
+            await aclose_forcefully(r)
             try:
                 with assert_yields():
                     await s.wait_send_all_might_not_block()
-            except _streams.BrokenStreamError:
+            except BrokenStreamError:
                 pass
 
 
@@ -444,7 +446,7 @@ async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
             nursery.spawn(expect_x_then_eof, s2)
 
         # now sending is disallowed
-        with _assert_raises(_streams.ClosedStreamError):
+        with _assert_raises(ClosedStreamError):
             await s1.send_all(b"y")
 
         # but we can do send_eof again

@@ -76,6 +76,12 @@ Inter-task ordering
 Streams
 -------
 
+Connecting to an in-process socket server
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autofunction:: open_stream_to_socket_listener
+
+
 Virtual, controllable streams
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
