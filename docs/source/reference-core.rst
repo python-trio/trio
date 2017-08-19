@@ -1665,8 +1665,8 @@ The tutorial has a :ref:`fully-worked example
 trio's internal scheduling decisions.
 
 
-Exceptions
-----------
+Exceptions and warnings
+-----------------------
 
 .. autoexception:: Cancelled
 
@@ -1679,3 +1679,6 @@ Exceptions
 .. autoexception:: RunFinishedError
 
 .. autoexception:: TrioInternalError
+
+.. autoexception:: TrioDeprecationWarning
+   :show-inheritance:
