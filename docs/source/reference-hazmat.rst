@@ -304,7 +304,7 @@ This logic is a bit convoluted, but accomplishes all of the following:
 
 These functions can also be useful in other situations, e.g. if you're
 going to call an uncancellable operation like
-:func:`trio.run_in_worker_thread` or (potentially) overlapped I/O
+:func:`trio.run_sync_in_worker_thread` or (potentially) overlapped I/O
 operations on Windows, then you can call :func:`yield_if_cancelled`
 first to make sure that the whole thing is a checkpoint.
 

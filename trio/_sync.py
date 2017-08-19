@@ -133,9 +133,9 @@ class CapacityLimiter:
     fixed number of seats, and if they're all taken then you have to wait for
     someone to get up before you can sit down.
 
-    By default, :func:`run_in_worker_thread` uses a :class:`CapacityLimiter` to
-    limit the number of threads running at once; see
-    :func:`current_default_worker_thread_limiter` for details.
+    By default, :func:`run_sync_in_worker_thread` uses a
+    :class:`CapacityLimiter` to limit the number of threads running at once;
+    see :func:`current_default_worker_thread_limiter` for details.
 
     If you're familiar with semaphores, then you can think of this as a
     restricted semaphore that's specialized for one common use case, with
@@ -234,9 +234,9 @@ class CapacityLimiter:
         Args:
           borrower: A :class:`Task` or arbitrary opaque object used to record
              who is borrowing this token. This is used by
-             :func:`run_in_worker_thread` to allow threads to "hold tokens",
-             with the intention in the future of using it to `allow deadlock
-             detection and other useful things
+             :func:`run_sync_in_worker_thread` to allow threads to "hold
+             tokens", with the intention in the future of using it to `allow
+             deadlock detection and other useful things
              <https://github.com/python-trio/trio/issues/182>`__
 
         Raises:

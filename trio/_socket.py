@@ -9,7 +9,7 @@ import idna as _idna
 
 from . import _core
 from ._deprecate import deprecated
-from ._threads import run_in_worker_thread as _run_in_worker_thread
+from ._threads import run_sync_in_worker_thread
 
 __all__ = []
 
@@ -242,7 +242,7 @@ async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
     if hr is not None:
         return await hr.getaddrinfo(host, port, family, type, proto, flags)
     else:
-        return await _run_in_worker_thread(
+        return await run_sync_in_worker_thread(
             _stdlib_socket.getaddrinfo,
             host,
             port,
@@ -269,7 +269,7 @@ async def getnameinfo(sockaddr, flags):
     if hr is not None:
         return await hr.getnameinfo(sockaddr, flags)
     else:
-        return await _run_in_worker_thread(
+        return await run_sync_in_worker_thread(
             _stdlib_socket.getnameinfo, sockaddr, flags, cancellable=True
         )
 
@@ -281,7 +281,7 @@ async def getprotobyname(name):
     Like :func:`socket.getprotobyname`, but async.
 
     """
-    return await _run_in_worker_thread(
+    return await run_sync_in_worker_thread(
         _stdlib_socket.getprotobyname, name, cancellable=True
     )
 

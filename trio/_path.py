@@ -59,7 +59,7 @@ def thread_wrapper_factory(cls, meth_name):
         args = unwrap_paths(args)
         meth = getattr(self._wrapped, meth_name)
         func = partial(meth, *args, **kwargs)
-        value = await trio.run_in_worker_thread(func)
+        value = await trio.run_sync_in_worker_thread(func)
         return rewrap_path(value)
 
     return wrapper
@@ -112,7 +112,7 @@ class AsyncAutoWrapperType(type):
 
 class Path(metaclass=AsyncAutoWrapperType):
     """A :class:`pathlib.Path` wrapper that executes blocking methods in
-    :meth:`trio.run_in_worker_thread`.
+    :meth:`trio.run_sync_in_worker_thread`.
 
     """
 
@@ -155,7 +155,7 @@ class Path(metaclass=AsyncAutoWrapperType):
         """
 
         func = partial(self._wrapped.open, *args, **kwargs)
-        value = await trio.run_in_worker_thread(func)
+        value = await trio.run_sync_in_worker_thread(func)
         return trio.wrap_file(value)
 
 

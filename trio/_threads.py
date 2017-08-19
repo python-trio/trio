@@ -6,12 +6,14 @@ import attr
 
 from . import _core
 from ._sync import CapacityLimiter
+from ._deprecate import deprecated_alias
 
 __all__ = [
     "current_await_in_trio_thread",
     "current_run_in_trio_thread",
-    "run_in_worker_thread",
+    "run_sync_in_worker_thread",
     "current_default_worker_thread_limiter",
+    "run_in_worker_thread",
 ]
 
 
@@ -171,7 +173,7 @@ _worker_thread_counter = count()
 
 def current_default_worker_thread_limiter():
     """Get the default :class:`CapacityLimiter` used by
-    :func:`run_in_worker_thread`.
+    :func:`run_sync_in_worker_thread`.
 
     The most common reason to call this would be if you want to modify its
     :attr:`~CapacityLimiter.total_tokens` attribute.
@@ -194,7 +196,7 @@ class ThreadPlaceholder:
 
 
 @_core.enable_ki_protection
-async def run_in_worker_thread(
+async def run_sync_in_worker_thread(
     sync_fn, *args, cancellable=False, limiter=None
 ):
     """Convert a blocking operation into an async operation using a thread.
@@ -202,7 +204,7 @@ async def run_in_worker_thread(
     These two lines are equivalent::
 
         sync_fn(*args)
-        await run_in_worker_thread(sync_fn, *args)
+        await run_sync_in_worker_thread(sync_fn, *args)
 
     except that if ``sync_fn`` takes a long time, then the first line will
     block the Trio loop while it runs, while the second line allows other Trio
@@ -221,7 +223,7 @@ async def run_in_worker_thread(
           anything providing compatible
           :meth:`~trio.CapacityLimiter.acquire_on_behalf_of` and
           :meth:`~trio.CapacityLimiter.release_on_behalf_of`
-          methods. :func:`run_in_worker_thread` will call
+          methods. :func:`run_sync_in_worker_thread` will call
           ``acquire_on_behalf_of`` before starting the thread, and
           ``release_on_behalf_of`` after the thread has finished.
 
@@ -231,39 +233,41 @@ async def run_in_worker_thread(
     **Cancellation handling**: Cancellation is a tricky issue here, because
     neither Python nor the operating systems it runs on provide any general
     mechanism for cancelling an arbitrary synchronous function running in a
-    thread. :func:`run_in_worker_thread` will always check for cancellation on
-    entry, before starting the thread. But once the thread is running, there
-    are two ways it can handle being cancelled:
+    thread. :func:`run_sync_in_worker_thread` will always check for
+    cancellation on entry, before starting the thread. But once the thread is
+    running, there are two ways it can handle being cancelled:
 
     * If ``cancellable=False``, the function ignores the cancellation and
       keeps going, just like if we had called ``sync_fn`` synchronously. This
       is the default behavior.
 
-    * If ``cancellable=True``, then ``run_in_worker_thread`` immediately
+    * If ``cancellable=True``, then ``run_sync_in_worker_thread`` immediately
       raises :exc:`Cancelled`. In this case **the thread keeps running in
       background** – we just abandon it to do whatever it's going to do, and
       silently discard any return value or errors that it raises. Only use
       this if you know that the operation is safe and side-effect free. (For
       example: :func:`trio.socket.getaddrinfo` is implemented using
-      :func:`run_in_worker_thread`, and it sets ``cancellable=True`` because
-      it doesn't really affect anything if a stray hostname lookup keeps
-      running in the background.)
+      :func:`run_sync_in_worker_thread`, and it sets ``cancellable=True``
+      because it doesn't really affect anything if a stray hostname lookup
+      keeps running in the background.)
 
       The ``limiter`` is only released after the thread has *actually*
       finished – which in the case of cancellation may be some time after
-      :func:`run_in_worker_thread` has returned. (This is why it's crucial
-      that :func:`run_in_worker_thread` takes care of acquiring and releasing
-      the limiter.) If :func:`trio.run` finishes before the thread does, then
-      the limiter release method will never be called at all.
+      :func:`run_sync_in_worker_thread` has returned. (This is why it's
+      crucial that :func:`run_sync_in_worker_thread` takes care of acquiring
+      and releasing the limiter.) If :func:`trio.run` finishes before the
+      thread does, then the limiter release method will never be called at
+      all.
 
     .. warning::
 
-       You should not use :func:`run_in_worker_thread` to call long-running
-       CPU-bound functions! In addition to the usual GIL-related reasons why
-       using threads for CPU-bound work is not very effective in Python, there
-       is an additional problem: on CPython, `CPU-bound threads tend to
-       "starve out" IO-bound threads <https://bugs.python.org/issue7946>`__,
-       so using :func:`run_in_worker_thread` for CPU-bound work is likely to
+       You should not use :func:`run_sync_in_worker_thread` to call
+       long-running CPU-bound functions! In addition to the usual GIL-related
+       reasons why using threads for CPU-bound work is not very effective in
+       Python, there is an additional problem: on CPython, `CPU-bound threads
+       tend to "starve out" IO-bound threads
+       <https://bugs.python.org/issue7946>`__, so using
+       :func:`run_sync_in_worker_thread` for CPU-bound work is likely to
        adversely affect the main thread running trio. If you need to do this,
        you're better off using a worker process, or perhaps PyPy (which still
        has a GIL, but may do a better job of fairly allocating CPU time
@@ -336,3 +340,8 @@ async def run_in_worker_thread(
             return _core.Abort.FAILED
 
     return await _core.yield_indefinitely(abort)
+
+
+run_in_worker_thread = deprecated_alias(
+    "run_in_worker_thread", run_sync_in_worker_thread, version="0.2.0"
+)
