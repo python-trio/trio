@@ -27,8 +27,8 @@ class _UnboundedByteQueue:
         self._data = bytearray()
         self._closed = False
         self._lot = _core.ParkingLot()
-        self._fetch_lock = _util.UnLock(
-            _core.ResourceBusyError, "another task is already fetching data"
+        self._fetch_lock = _util.ConflictDetector(
+            "another task is already fetching data"
         )
 
     def close(self):
@@ -102,8 +102,8 @@ class MemorySendStream(SendStream):
             wait_send_all_might_not_block_hook=None,
             close_hook=None
     ):
-        self._lock = _util.UnLock(
-            _core.ResourceBusyError, "another task is using this stream"
+        self._conflict_detector = _util.ConflictDetector(
+            "another task is using this stream"
         )
         self._outgoing = _UnboundedByteQueue()
         self.send_all_hook = send_all_hook
@@ -118,7 +118,7 @@ class MemorySendStream(SendStream):
         # The lock itself is a checkpoint, but then we also yield inside the
         # lock to give ourselves a chance to detect buggy user code that calls
         # this twice at the same time.
-        async with self._lock:
+        async with self._conflict_detector:
             await _core.yield_briefly()
             self._outgoing.put(data)
             if self.send_all_hook is not None:
@@ -132,7 +132,7 @@ class MemorySendStream(SendStream):
         # The lock itself is a checkpoint, but then we also yield inside the
         # lock to give ourselves a chance to detect buggy user code that calls
         # this twice at the same time.
-        async with self._lock:
+        async with self._conflict_detector:
             await _core.yield_briefly()
             # check for being closed:
             self._outgoing.put(b"")
@@ -201,8 +201,8 @@ class MemoryReceiveStream(ReceiveStream):
     """
 
     def __init__(self, receive_some_hook=None, close_hook=None):
-        self._lock = _util.UnLock(
-            _core.ResourceBusyError, "another task is using this stream"
+        self._conflict_detector = _util.ConflictDetector(
+            "another task is using this stream"
         )
         self._incoming = _UnboundedByteQueue()
         self._closed = False
@@ -217,7 +217,7 @@ class MemoryReceiveStream(ReceiveStream):
         # The lock itself is a checkpoint, but then we also yield inside the
         # lock to give ourselves a chance to detect buggy user code that calls
         # this twice at the same time.
-        async with self._lock:
+        async with self._conflict_detector:
             await _core.yield_briefly()
             if max_bytes is None:
                 raise TypeError("max_bytes must not be None")
@@ -435,11 +435,11 @@ class _LockstepByteQueue:
         self._receiver_closed = False
         self._receiver_waiting = False
         self._waiters = _core.ParkingLot()
-        self._send_lock = _util.UnLock(
-            _core.ResourceBusyError, "another task is already sending"
+        self._send_conflict_detector = _util.ConflictDetector(
+            "another task is already sending"
         )
-        self._receive_lock = _util.UnLock(
-            _core.ResourceBusyError, "another task is already receiving"
+        self._receive_conflict_detector = _util.ConflictDetector(
+            "another task is already receiving"
         )
 
     def _something_happened(self):
@@ -459,7 +459,7 @@ class _LockstepByteQueue:
         self._something_happened()
 
     async def send_all(self, data):
-        async with self._send_lock:
+        async with self._send_conflict_detector:
             if self._sender_closed:
                 raise ClosedStreamError
             if self._receiver_closed:
@@ -476,7 +476,7 @@ class _LockstepByteQueue:
                 return
 
     async def wait_send_all_might_not_block(self):
-        async with self._send_lock:
+        async with self._send_conflict_detector:
             if self._sender_closed:
                 raise ClosedStreamError
             if self._receiver_closed:
@@ -486,7 +486,7 @@ class _LockstepByteQueue:
             )
 
     async def receive_some(self, max_bytes):
-        async with self._receive_lock:
+        async with self._receive_conflict_detector:
             # Argument validation
             max_bytes = operator.index(max_bytes)
             if max_bytes < 1:

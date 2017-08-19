@@ -8,16 +8,16 @@ import async_generator
 
 # There's a dependency loop here... _core is allowed to use this file (in fact
 # it's the *only* file in the main trio/ package it's allowed to use), but
-# UnLock needs yield_briefly so it also has to import _core. Possibly we
-# should split this file into two: one for true generic low-level utility
-# code, and one for higher level helpers?
+# ConflictDetector needs yield_briefly so it also has to import
+# _core. Possibly we should split this file into two: one for true generic
+# low-level utility code, and one for higher level helpers?
 from . import _core
 
 __all__ = [
     "signal_raise",
     "aiter_compat",
     "acontextmanager",
-    "UnLock",
+    "ConflictDetector",
     "fixup_module_metadata",
 ]
 
@@ -176,15 +176,14 @@ def acontextmanager(func):
     return helper
 
 
-class _UnLockSync:
-    def __init__(self, exc, *args):
-        self._exc = exc
-        self._args = args
+class _ConflictDetectorSync:
+    def __init__(self, msg):
+        self._msg = msg
         self._held = False
 
     def __enter__(self):
         if self._held:
-            raise self._exc(*self._args)
+            raise _core.ResourceBusyError(self._msg)
         else:
             self._held = True
 
@@ -192,8 +191,9 @@ class _UnLockSync:
         self._held = False
 
 
-class UnLock:
-    """An unnecessary lock.
+class ConflictDetector:
+    """Detect when two tasks are about to perform operations that would
+    conflict.
 
     Use as an async context manager; if two tasks enter it at the same
     time then the second one raises an error. You can use it when there are
@@ -205,10 +205,13 @@ class UnLock:
 
     This executes a checkpoint on entry. That's the only reason it's async.
 
+    To use from sync code, do ``with cd.sync``; this is just like ``async with
+    cd`` except that it doesn't execute a checkpoint.
+
     """
 
-    def __init__(self, exc, *args):
-        self.sync = _UnLockSync(exc, *args)
+    def __init__(self, msg):
+        self.sync = _ConflictDetectorSync(msg)
 
     async def __aenter__(self):
         await _core.yield_briefly()

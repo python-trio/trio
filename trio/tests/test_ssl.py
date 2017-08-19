@@ -20,7 +20,7 @@ from .._highlevel_generic import (
 from .._highlevel_open_tcp_stream import open_tcp_stream
 from .. import ssl as tssl
 from .. import socket as tsocket
-from .._util import UnLock, acontextmanager
+from .._util import ConflictDetector, acontextmanager
 
 from .._core.tests.tutil import slow
 
@@ -175,12 +175,10 @@ class PyOpenSSLEchoStream:
         self._lot = _core.ParkingLot()
         self._pending_cleartext = bytearray()
 
-        self._send_all_mutex = UnLock(
-            _core.ResourceBusyError,
+        self._send_all_conflict_detector = ConflictDetector(
             "simultaneous calls to PyOpenSSLEchoStream.send_all"
         )
-        self._receive_some_mutex = UnLock(
-            _core.ResourceBusyError,
+        self._receive_some_conflict_detector = ConflictDetector(
             "simultaneous calls to PyOpenSSLEchoStream.receive_some"
         )
 
@@ -205,13 +203,13 @@ class PyOpenSSLEchoStream:
         assert self._conn.renegotiate()
 
     async def wait_send_all_might_not_block(self):
-        async with self._send_all_mutex:
+        async with self._send_all_conflict_detector:
             await _core.yield_briefly()
             await self.sleeper("wait_send_all_might_not_block")
 
     async def send_all(self, data):
         print("  --> transport_stream.send_all")
-        async with self._send_all_mutex:
+        async with self._send_all_conflict_detector:
             await _core.yield_briefly()
             await self.sleeper("send_all")
             self._conn.bio_write(data)
@@ -233,7 +231,7 @@ class PyOpenSSLEchoStream:
 
     async def receive_some(self, nbytes):
         print("  --> transport_stream.receive_some")
-        async with self._receive_some_mutex:
+        async with self._receive_some_conflict_detector:
             try:
                 await _core.yield_briefly()
                 while True:
