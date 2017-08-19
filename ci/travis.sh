@@ -64,6 +64,27 @@ if [ "$DOC_BUILD" = "1" ]; then
     # -n (nit-picky): warn on missing references
     # -W: turn warnings into errors
     sphinx-build -nW  -b html source build
+elif [ "$FORMATTING" = "1" ]; then
+    pip install -U yapf
+    yapf -rdp setup.py trio > formatting-fixes.patch
+    if [ -s formatting-fixes.patch ]; then
+        cat <<EOF
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+The following formatting problems were found. To fix them, run
+
+   pip install yapf
+   yapf -rip setup.py trio
+
+in your local checkout.
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+EOF
+        cat formatting-fixes.patch
+        exit 1
+    fi
 else
     # Actual tests
     pip install -Ur test-requirements.txt
