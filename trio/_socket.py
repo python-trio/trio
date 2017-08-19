@@ -8,7 +8,8 @@ import errno as _errno
 import idna as _idna
 
 from . import _core
-from ._threads import run_in_worker_thread as _run_in_worker_thread
+from ._deprecate import deprecated
+from ._threads import run_sync_in_worker_thread
 
 __all__ = []
 
@@ -241,7 +242,7 @@ async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
     if hr is not None:
         return await hr.getaddrinfo(host, port, family, type, proto, flags)
     else:
-        return await _run_in_worker_thread(
+        return await run_sync_in_worker_thread(
             _stdlib_socket.getaddrinfo,
             host,
             port,
@@ -268,7 +269,7 @@ async def getnameinfo(sockaddr, flags):
     if hr is not None:
         return await hr.getnameinfo(sockaddr, flags)
     else:
-        return await _run_in_worker_thread(
+        return await run_sync_in_worker_thread(
             _stdlib_socket.getnameinfo, sockaddr, flags, cancellable=True
         )
 
@@ -280,7 +281,7 @@ async def getprotobyname(name):
     Like :func:`socket.getprotobyname`, but async.
 
     """
-    return await _run_in_worker_thread(
+    return await run_sync_in_worker_thread(
         _stdlib_socket.getprotobyname, name, cancellable=True
     )
 
@@ -830,7 +831,9 @@ class _SocketType:
     # sendall
     ################################################################
 
-    async def sendall(self, data, flags=0):
+    # XX: When we remove sendall(), we should move this code (and its test)
+    # into SocketStream.send_all().
+    async def _sendall(self, data, flags=0):
         with memoryview(data) as data:
             if not data:
                 await _core.yield_briefly()
@@ -840,6 +843,12 @@ class _SocketType:
                 with data[total_sent:] as remaining:
                     sent = await self.send(remaining, flags)
                 total_sent += sent
+
+    @deprecated(
+        version="0.2.0", alternative="the high-level SocketStream interface"
+    )
+    async def sendall(self, data, flags=0):
+        return await self._sendall(data, flags)
 
     ################################################################
     # sendfile

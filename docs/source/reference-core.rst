@@ -1387,8 +1387,8 @@ In acknowledgment of this reality, Trio provides two useful utilities
 for working with real, operating-system level,
 :mod:`threading`\-module-style threads. First, if you're in Trio but
 need to push some blocking I/O into a thread, there's
-:func:`run_in_worker_thread`. And if you're in a thread and need to
-communicate back with trio, there's the closely related
+:func:`run_sync_in_worker_thread`. And if you're in a thread and need
+to communicate back with trio, there's the closely related
 :func:`current_run_in_trio_thread` and
 :func:`current_await_in_trio_thread`.
 
@@ -1409,7 +1409,7 @@ are spawned and the system gets overloaded and crashes. Instead, the N
 threads start executing the first N jobs, while the other
 (100,000 - N) jobs sit in a queue and wait their turn. Which is
 generally what you want, and this is how
-:func:`trio.run_in_worker_thread` works by default.
+:func:`trio.run_sync_in_worker_thread` works by default.
 
 The downside of this kind of thread pool is that sometimes, you need
 more sophisticated logic for controlling how many threads are run at
@@ -1456,7 +1456,7 @@ re-using threads, but has no admission control policy: if you give it
 responsible for providing the policy to make sure that this doesn't
 happen – but since it *only* has to worry about policy, it can be much
 simpler. In fact, all there is to it is the ``limiter=`` argument
-passed to :func:`run_in_worker_thread`. This defaults to a global
+passed to :func:`run_sync_in_worker_thread`. This defaults to a global
 :class:`CapacityLimiter` object, which gives us the classic fixed-size
 thread pool behavior. (See
 :func:`current_default_worker_thread_limiter`.) But if you want to use
@@ -1510,15 +1510,15 @@ time::
 
 
    async def run_in_worker_thread_for_user(user_id, async_fn, *args, **kwargs):
-       # *args belong to async_fn; **kwargs belong to run_in_worker_thread
+       # *args belong to async_fn; **kwargs belong to run_sync_in_worker_thread
        kwargs["limiter"] = get_user_limiter(user_id)
-       return await trio.run_in_worker_thread(asycn_fn, *args, **kwargs)
+       return await trio.run_sync_in_worker_thread(asycn_fn, *args, **kwargs)
 
 
 Putting blocking I/O into worker threads
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autofunction:: run_in_worker_thread
+.. autofunction:: run_sync_in_worker_thread
 
 .. autofunction:: current_default_worker_thread_limiter
 
@@ -1665,8 +1665,8 @@ The tutorial has a :ref:`fully-worked example
 trio's internal scheduling decisions.
 
 
-Exceptions
-----------
+Exceptions and warnings
+-----------------------
 
 .. autoexception:: Cancelled
 
@@ -1679,3 +1679,6 @@ Exceptions
 .. autoexception:: RunFinishedError
 
 .. autoexception:: TrioInternalError
+
+.. autoexception:: TrioDeprecationWarning
+   :show-inheritance:

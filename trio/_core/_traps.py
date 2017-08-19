@@ -109,7 +109,7 @@ def yield_indefinitely(abort_func):
        At that point there are again two possibilities. You can simply ignore
        the cancellation altogether: wait for the operation to complete and
        then reschedule and continue as normal. (For example, this is what
-       :func:`trio.run_in_worker_thread` does if cancellation is disabled.)
+       :func:`trio.run_sync_in_worker_thread` does if cancellation is disabled.)
        The other possibility is that the ``abort_func`` does succeed in
        cancelling the operation, but for some reason isn't able to report that
        right away. (Example: on Windows, it's possible to request that an

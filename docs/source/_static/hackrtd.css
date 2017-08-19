@@ -5,6 +5,13 @@ pre {
     line-height: normal !important;
 }
 
+/* Make .. deprecation:: blocks visible
+ * (by default they're entirely unstyled)
+ */
+.deprecated {
+    background-color: #ffe13b;
+}
+
 /* Add a snakey triskelion ornament to <hr>
  * https://stackoverflow.com/questions/8862344/css-hr-with-ornament/18541258#18541258
  * but only do it to <hr>s in the content box, b/c the RTD popup control panel

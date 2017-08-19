@@ -172,7 +172,7 @@ async def test_run_in_worker_thread():
     def f(x):
         return (x, threading.current_thread())
 
-    x, child_thread = await run_in_worker_thread(f, 1)
+    x, child_thread = await run_sync_in_worker_thread(f, 1)
     assert x == 1
     assert child_thread != trio_thread
 
@@ -180,7 +180,7 @@ async def test_run_in_worker_thread():
         raise ValueError(threading.current_thread())
 
     with pytest.raises(ValueError) as excinfo:
-        await run_in_worker_thread(g)
+        await run_sync_in_worker_thread(g)
     print(excinfo.value.args)
     assert excinfo.value.args[0] != trio_thread
 
@@ -195,14 +195,14 @@ async def test_run_in_worker_thread_cancellation():
         register[0] = "finished"
 
     async def child(q, cancellable):
-        return await run_in_worker_thread(f, q, cancellable=cancellable)
+        return await run_sync_in_worker_thread(f, q, cancellable=cancellable)
 
     q = stdlib_queue.Queue()
     async with _core.open_nursery() as nursery:
         task1 = nursery.spawn(child, q, True)
         # Give it a chance to get started. (This is important because
-        # run_in_worker_thread does a yield_if_cancelled before blocking on
-        # the thread, and we don't want to trigger this.)
+        # run_sync_in_worker_thread does a yield_if_cancelled before blocking
+        # on the thread, and we don't want to trigger this.)
         await wait_all_tasks_blocked()
         # Then cancel it.
         nursery.cancel_scope.cancel()
@@ -248,7 +248,7 @@ def test_run_in_worker_thread_abandoned(capfd):
 
     async def main():
         async def child():
-            await run_in_worker_thread(thread_fn, cancellable=True)
+            await run_sync_in_worker_thread(thread_fn, cancellable=True)
 
         async with _core.open_nursery() as nursery:
             t = nursery.spawn(child)
@@ -277,8 +277,8 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
     # This test is a bit tricky. The goal is to make sure that if we set
     # limiter=CapacityLimiter(MAX), then in fact only MAX threads are ever
     # running at a time, even if there are more concurrent calls to
-    # run_in_worker_thread, and even if some of those are cancelled. And also
-    # to make sure that the default limiter actually limits.
+    # run_sync_in_worker_thread, and even if some of those are cancelled. And
+    # also to make sure that the default limiter actually limits.
     COUNT = 2 * MAX
     gate = threading.Event()
     lock = threading.Lock()
@@ -330,7 +330,7 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
 
         async def run_thread():
             with _core.open_cancel_scope() as cancel_scope:
-                await run_in_worker_thread(
+                await run_sync_in_worker_thread(
                     thread_fn,
                     cancel_scope,
                     limiter=limiter_arg,
@@ -395,7 +395,7 @@ async def test_run_in_worker_thread_custom_limiter():
             record.append("release")
             assert borrower == self._borrower
 
-    await run_in_worker_thread(lambda: None, limiter=CustomLimiter())
+    await run_sync_in_worker_thread(lambda: None, limiter=CustomLimiter())
     assert record == ["acquire", "release"]
 
 
@@ -413,7 +413,7 @@ async def test_run_in_worker_thread_limiter_error():
     bs = BadCapacityLimiter()
 
     with pytest.raises(ValueError) as excinfo:
-        await run_in_worker_thread(lambda: None, limiter=bs)
+        await run_sync_in_worker_thread(lambda: None, limiter=bs)
     assert excinfo.value.__context__ is None
     assert record == ["acquire", "release"]
     record = []
@@ -422,7 +422,7 @@ async def test_run_in_worker_thread_limiter_error():
     # chains with it
     d = {}
     with pytest.raises(ValueError) as excinfo:
-        await run_in_worker_thread(lambda: d["x"], limiter=bs)
+        await run_sync_in_worker_thread(lambda: d["x"], limiter=bs)
     assert isinstance(excinfo.value.__context__, KeyError)
     assert record == ["acquire", "release"]
 
@@ -439,7 +439,7 @@ async def test_run_in_worker_thread_fail_to_spawn(monkeypatch):
 
     # We get an appropriate error, and the limiter is cleanly released
     with pytest.raises(RuntimeError) as excinfo:
-        await run_in_worker_thread(lambda: None)  # pragma: no cover
+        await run_sync_in_worker_thread(lambda: None)  # pragma: no cover
     assert "engines" in str(excinfo.value)
 
     assert limiter.borrowed_tokens == 0

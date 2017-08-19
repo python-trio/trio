@@ -64,6 +64,9 @@ __all__ += _highlevel_open_tcp_listeners.__all__
 from ._highlevel_ssl_helpers import *
 __all__ += _highlevel_ssl_helpers.__all__
 
+from ._deprecate import *
+__all__ += _deprecate.__all__
+
 # Imported by default
 from . import socket
 from . import abc

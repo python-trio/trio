@@ -390,6 +390,9 @@ Socket objects
    .. method:: sendall(data, flags=0)
       :async:
 
+      .. deprecated:: 0.2.0
+         Use :class:`trio.SocketStream` and its ``send_all`` method instead.
+
       Send the data to the socket, blocking until all of it has been
       accepted by the operating system.
 
@@ -492,7 +495,7 @@ To understand why, you need to know two things.
 First, right now no mainstream operating system offers a generic,
 reliable, native API for async file for filesystem operations, so we
 have to fake it by using threads (specifically,
-:func:`run_in_worker_thread`). This is cheap but isn't free: on a
+:func:`run_sync_in_worker_thread`). This is cheap but isn't free: on a
 typical PC, dispatching to a worker thread adds something like ~100 µs
 of overhead to each operation. ("µs" is pronounced "microseconds", and
 there are 1,000,000 µs in a second. Note that all the numbers here are
