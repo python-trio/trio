@@ -159,7 +159,7 @@ from ._highlevel_generic import (
     BrokenStreamError, ClosedStreamError, aclose_forcefully
 )
 from . import _sync
-from ._util import UnLock
+from ._util import ConflictDetector
 
 __all__ = ["SSLStream", "SSLListener"]
 
@@ -368,12 +368,10 @@ class SSLStream(Stream):
         # These are used to make sure that our caller doesn't attempt to make
         # multiple concurrent calls to send_all/wait_send_all_might_not_block
         # or to receive_some.
-        self._outer_send_lock = UnLock(
-            _core.ResourceBusyError,
+        self._outer_send_conflict_detector = ConflictDetector(
             "another task is currently sending data on this SSLStream"
         )
-        self._outer_recv_lock = UnLock(
-            _core.ResourceBusyError,
+        self._outer_recv_conflict_detector = ConflictDetector(
             "another task is currently receiving data on this SSLStream"
         )
 
@@ -624,7 +622,7 @@ class SSLStream(Stream):
            :exc:`trio.BrokenStreamError`.
 
         """
-        async with self._outer_recv_lock:
+        async with self._outer_recv_conflict_detector:
             self._check_status()
             try:
                 await self._handshook.ensure(checkpoint=False)
@@ -666,7 +664,7 @@ class SSLStream(Stream):
            :exc:`trio.BrokenStreamError`.
 
         """
-        async with self._outer_send_lock:
+        async with self._outer_send_conflict_detector:
             self._check_status()
             await self._handshook.ensure(checkpoint=False)
             # SSLObject interprets write(b"") as an EOF for some reason, which
@@ -693,7 +691,8 @@ class SSLStream(Stream):
           ``transport_stream.receive_some(...)``.
 
         """
-        async with self._outer_recv_lock, self._outer_send_lock:
+        async with self._outer_recv_conflict_detector, \
+                   self._outer_send_conflict_detector:
             self._check_status()
             await self._handshook.ensure(checkpoint=False)
             await self._retry(self._ssl_object.unwrap)
@@ -797,7 +796,7 @@ class SSLStream(Stream):
         # semantics that wait_send_all_might_not_block and send_all
         # conflict. This also takes care of providing correct checkpoint
         # semantics before we potentially error out from _check_status().
-        async with self._outer_send_lock:
+        async with self._outer_send_conflict_detector:
             self._check_status()
             # Then we take the inner send lock. We know that no other tasks
             # are calling self.send_all or self.wait_send_all_might_not_block,

@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from . import _core
 from . import socket as tsocket
 from ._socket import real_socket_type
-from ._util import UnLock
+from ._util import ConflictDetector
 from .abc import HalfCloseableStream, Listener
 from ._highlevel_generic import (
     ClosedStreamError, BrokenStreamError, ClosedListenerError
@@ -71,8 +71,7 @@ class SocketStream(HalfCloseableStream):
             raise err from None
 
         self.socket = socket
-        self._send_lock = UnLock(
-            _core.ResourceBusyError,
+        self._send_conflict_detector = ConflictDetector(
             "another task is currently sending data on this SocketStream"
         )
 
@@ -105,19 +104,19 @@ class SocketStream(HalfCloseableStream):
         if self.socket.did_shutdown_SHUT_WR:
             await _core.yield_briefly()
             raise ClosedStreamError("can't send data after sending EOF")
-        with self._send_lock.sync:
+        with self._send_conflict_detector.sync:
             with _translate_socket_errors_to_stream_errors():
                 await self.socket.sendall(data)
 
     async def wait_send_all_might_not_block(self):
-        async with self._send_lock:
+        async with self._send_conflict_detector:
             if self.socket.fileno() == -1:
                 raise ClosedStreamError
             with _translate_socket_errors_to_stream_errors():
                 await self.socket.wait_writable()
 
     async def send_eof(self):
-        async with self._send_lock:
+        async with self._send_conflict_detector:
             # On MacOS, calling shutdown a second time raises ENOTCONN, but
             # send_eof needs to be idempotent.
             if self.socket.did_shutdown_SHUT_WR:
