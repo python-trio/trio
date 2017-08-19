@@ -158,6 +158,17 @@ async def test_contextmanager_StopAsyncIteration_passthrough():
             raise StopAsyncIteration
 
 
+async def test_acontextmanager_catches_exception():
+    @acontextmanager
+    @async_generator
+    async def catch_it():
+        with pytest.raises(ValueError):
+            await yield_()
+
+    async with catch_it():
+        raise ValueError
+
+
 def test_module_metadata_is_fixed_up():
     import trio
     assert trio.Cancelled.__module__ == "trio"
