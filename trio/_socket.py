@@ -8,6 +8,7 @@ import errno as _errno
 import idna as _idna
 
 from . import _core
+from ._deprecate import deprecated
 from ._threads import run_in_worker_thread as _run_in_worker_thread
 
 __all__ = []
@@ -830,7 +831,9 @@ class _SocketType:
     # sendall
     ################################################################
 
-    async def sendall(self, data, flags=0):
+    # XX: When we remove sendall(), we should move this code (and its test)
+    # into SocketStream.send_all().
+    async def _sendall(self, data, flags=0):
         with memoryview(data) as data:
             if not data:
                 await _core.yield_briefly()
@@ -840,6 +843,12 @@ class _SocketType:
                 with data[total_sent:] as remaining:
                     sent = await self.send(remaining, flags)
                 total_sent += sent
+
+    @deprecated(
+        version="0.2.0", alternative="the high-level SocketStream interface"
+    )
+    async def sendall(self, data, flags=0):
+        return await self._sendall(data, flags)
 
     ################################################################
     # sendfile

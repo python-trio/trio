@@ -196,8 +196,8 @@ async def test_from_stdlib_socket():
         ta = tsocket.from_stdlib_socket(sa)
         assert tsocket.is_trio_socket(ta)
         assert sa.fileno() == ta.fileno()
-        await ta.sendall(b"xxx")
-        assert sb.recv(3) == b"xxx"
+        await ta.send(b"x")
+        assert sb.recv(1) == b"x"
 
     # rejects other types
     with pytest.raises(TypeError):
@@ -216,27 +216,21 @@ async def test_from_fd():
     ta = tsocket.fromfd(sa.fileno(), sa.family, sa.type, sa.proto)
     with sa, sb, ta:
         assert ta.fileno() != sa.fileno()
-        await ta.sendall(b"xxx")
-        assert sb.recv(3) == b"xxx"
+        await ta.send(b"x")
+        assert sb.recv(3) == b"x"
 
 
 async def test_socketpair_simple():
     async def child(sock):
         print("sending hello")
-        await sock.sendall(b"hello!")
-        buf = bytearray()
-        while buf != b"hello!":
-            print("reading", buf)
-            buf += await sock.recv(10)
-        return "ok"
+        await sock.send(b"h")
+        assert await sock.recv(1) == b"h"
 
     a, b = tsocket.socketpair()
     with a, b:
         async with _core.open_nursery() as nursery:
-            task1 = nursery.spawn(child, a)
-            task2 = nursery.spawn(child, b)
-    assert task1.result.unwrap() == "ok"
-    assert task2.result.unwrap() == "ok"
+            nursery.spawn(child, a)
+            nursery.spawn(child, b)
 
 
 @pytest.mark.skipif(not hasattr(tsocket, "fromshare"), reason="windows only")
@@ -248,8 +242,8 @@ async def test_fromshare():
         a2 = tsocket.fromshare(shared)
         with a2:
             assert a.fileno() != a2.fileno()
-            await a2.sendall(b"xxx")
-            assert await b.recv(3) == b"xxx"
+            await a2.send(b"x")
+            assert await b.recv(1) == b"x"
 
 
 async def test_socket():
@@ -328,23 +322,23 @@ async def test_SocketType_dup():
             assert isinstance(a2, tsocket._SocketType)
             assert a2.fileno() != a.fileno()
             a.close()
-            await a2.sendall(b"xxx")
-            assert await b.recv(3) == b"xxx"
+            await a2.send(b"x")
+            assert await b.recv(1) == b"x"
 
 
 async def test_SocketType_shutdown():
     a, b = tsocket.socketpair()
     with a, b:
-        await a.sendall(b"xxx")
-        assert await b.recv(3) == b"xxx"
+        await a.send(b"x")
+        assert await b.recv(1) == b"x"
         assert not a.did_shutdown_SHUT_WR
         assert not b.did_shutdown_SHUT_WR
         a.shutdown(tsocket.SHUT_WR)
         assert a.did_shutdown_SHUT_WR
         assert not b.did_shutdown_SHUT_WR
-        assert await b.recv(3) == b""
-        await b.sendall(b"yyy")
-        assert await a.recv(3) == b"yyy"
+        assert await b.recv(1) == b""
+        await b.send(b"y")
+        assert await a.recv(1) == b"y"
 
     a, b = tsocket.socketpair()
     with a, b:
@@ -378,8 +372,8 @@ async def test_SocketType_simple_server(address, socket_type):
         server, client_addr = accept_task.result.unwrap()
         with server:
             assert client_addr == server.getpeername() == client.getsockname()
-            await server.sendall(b"xxx")
-            assert await client.recv(3) == b"xxx"
+            await server.send(b"x")
+            assert await client.recv(1) == b"x"
 
 
 async def test_SocketType_resolve():
@@ -610,15 +604,15 @@ async def test_send_recv_variants():
     a, b = tsocket.socketpair()
     with a, b:
         # recv, including with flags
-        await a.sendall(b"xxx")
-        assert await b.recv(10, tsocket.MSG_PEEK) == b"xxx"
-        assert await b.recv(10) == b"xxx"
+        assert await a.send(b"x") == 1
+        assert await b.recv(10, tsocket.MSG_PEEK) == b"x"
+        assert await b.recv(10) == b"x"
 
         # recv_into
-        await a.sendall(b"xxx")
+        await a.send(b"x")
         buf = bytearray(10)
         await b.recv_into(buf)
-        assert buf == b"xxx" + b"\x00" * 7
+        assert buf == b"x" + b"\x00" * 9
 
         if hasattr(a, "sendmsg"):
             assert await a.sendmsg([b"xxx"], []) == 3
@@ -689,15 +683,19 @@ async def test_send_recv_variants():
     with a, b:
         b.bind(("127.0.0.1", 0))
         await a.connect(b.getsockname())
-        # sendall on a connected udp socket; each call creates a separate
+        # send on a connected udp socket; each call creates a separate
         # datagram
-        await a.sendall(b"xxx")
-        await a.sendall(b"yyy")
+        await a.send(b"xxx")
+        await a.send(b"yyy")
         assert await b.recv(10) == b"xxx"
         assert await b.recv(10) == b"yyy"
 
 
-async def test_SocketType_sendall():
+# XX: when we remove sendall(), then this test should be:
+# - moved to the SocketStream tests
+# - have the recwarn fixture removed (currently used to suppress the
+#   deprecation warnings that it's issuing)
+async def test_SocketType_sendall(recwarn):
     BIG = 10000000
 
     a, b = tsocket.socketpair()

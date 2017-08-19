@@ -107,7 +107,7 @@ class SocketStream(HalfCloseableStream):
             raise ClosedStreamError("can't send data after sending EOF")
         with self._send_lock.sync:
             with _translate_socket_errors_to_stream_errors():
-                await self.socket.sendall(data)
+                await self.socket._sendall(data)
 
     async def wait_send_all_might_not_block(self):
         async with self._send_lock:

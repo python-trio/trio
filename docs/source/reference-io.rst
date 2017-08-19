@@ -390,6 +390,9 @@ Socket objects
    .. method:: sendall(data, flags=0)
       :async:
 
+      .. deprecated:: 0.2.0
+         Use :class:`trio.SocketStream` and its ``send_all`` method instead.
+
       Send the data to the socket, blocking until all of it has been
       accepted by the operating system.
 
