@@ -2,6 +2,10 @@
 
 set -ex
 
+git --no-pager log -n2
+echo TRAVIS_PULL_REQUEST_SHA $TRAVIS_PULL_REQUEST_SHA
+echo TRAVIS_COMMIT $TRAVIS_COMMIT
+
 if [ "$TRAVIS_OS_NAME" = "osx" ]; then
     curl -Lo macpython.pkg https://www.python.org/ftp/python/${MACPYTHON}/python-${MACPYTHON}-macosx10.6.pkg
     sudo installer -pkg macpython.pkg -target /

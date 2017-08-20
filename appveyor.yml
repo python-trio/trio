@@ -10,6 +10,8 @@ environment:
     - PYTHON: "C:\\Python36-x64"
 
 build_script:
+  - "git --no-pager log -n2"
+  - "echo %APPVEYOR_REPO_COMMIT%"
   - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;;%PATH%"
   - "python --version"
   - "python -c \"import struct; print(struct.calcsize('P') * 8)\""
