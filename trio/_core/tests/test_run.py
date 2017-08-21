@@ -1709,7 +1709,8 @@ async def test_nursery_start(autojump_clock):
             with pytest.raises(_core.MultiError) as excinfo:
                 await nursery.start(raise_keyerror_after_started)
     assert set(type(e) for e in excinfo.value.exceptions) == {
-        _core.Cancelled, KeyError}
+        _core.Cancelled, KeyError
+    }
 
     # trying to start in a closed nursery raises an error immediately
     async with _core.open_nursery() as closed_nursery:
@@ -1755,7 +1756,9 @@ async def test_nursery_start_with_cancelled_nursery():
     # Cancelling the setup_nursery just *before* calling started()
     async with _core.open_nursery() as nursery:
         target_nursery = await nursery.start(setup_nursery)
-        await target_nursery.start(sleeping_children, target_nursery.cancel_scope.cancel)
+        await target_nursery.start(
+            sleeping_children, target_nursery.cancel_scope.cancel
+        )
 
     # Cancelling the setup_nursery just *after* calling started()
     async with _core.open_nursery() as nursery:
