@@ -230,15 +230,9 @@ class _TaskStatus:
         if _pending_cancel_scope(self._old_nursery._cancel_stack) is not None:
             return
 
-        # if the new nursery is not accepting new children, then inject an
-        # error into the old nursery (which will implicitly cancel the child)
-        if self._new_nursery._closed:
-
-            async def raise_new_nursery_closed():
-                raise RuntimeError("Nursery is closed to new arrivals")
-
-            self._old_nursery.start_soon(raise_new_nursery_closed)
-            return
+        # Can't be closed, b/c we checked in start() and then _pending_starts
+        # should keep it open.
+        assert not self._new_nursery._closed
 
         # otherwise, find all the tasks under the old nursery, and move them
         # under the new nursery instead. This means:
@@ -362,6 +356,7 @@ class Nursery:
         self.cancel_scope = cancel_scope
         assert self.cancel_scope is self._cancel_stack[-1]
         self._children = set()
+        self._pending_starts = 0
         self._zombies = set()
         self.monitor = _core.UnboundedQueue()
         self._closed = False
@@ -388,18 +383,25 @@ class Nursery:
         return GLOBAL_RUN_CONTEXT.runner.spawn_impl(async_fn, args, self, name)
 
     async def start(self, async_fn, *args, name=None):
-        async with open_nursery() as old_nursery:
-            task_status = _TaskStatus(old_nursery, self)
-            thunk = functools.partial(async_fn, task_status=task_status)
-            old_nursery.start_soon(thunk, *args, name=name)
-        # If we get here, then the child either got reparented or exited
-        # normally. The complicated logic is all in __TaskStatus.started().
-        # (Any exceptions propagate directly out of the above.)
-        if not task_status._called_started:
-            raise RuntimeError(
-                "child exited without calling task_status.started()"
-            )
-        return task_status._value
+        if self._closed:
+            raise RuntimeError("Nursery is closed to new arrivals")
+        try:
+            self._pending_starts += 1
+            async with open_nursery() as old_nursery:
+                task_status = _TaskStatus(old_nursery, self)
+                thunk = functools.partial(async_fn, task_status=task_status)
+                old_nursery.start_soon(thunk, *args, name=name)
+            # If we get here, then the child either got reparented or exited
+            # normally. The complicated logic is all in __TaskStatus.started().
+            # (Any exceptions propagate directly out of the above.)
+            if not task_status._called_started:
+                raise RuntimeError(
+                    "child exited without calling task_status.started()"
+                )
+            return task_status._value
+        finally:
+            self._pending_starts -= 1
+            self.monitor.put_nowait(None)
 
     def reap(self, task):
         try:
@@ -426,7 +428,7 @@ class Nursery:
                     await _core.yield_briefly()
                 except BaseException as exc:
                     exceptions.append(exc)
-            while self._children or self._zombies:
+            while self._children or self._zombies or self._pending_starts:
                 # First, reap any zombies. They may or may not still be in the
                 # monitor queue, and they may or may not trigger cancellation
                 # of remaining tasks, so we have to check first before
@@ -441,7 +443,7 @@ class Nursery:
                     clean_up_scope.shield = True
                     cancelled_children = True
 
-                if self.children:
+                if self.children or self._pending_starts:
                     try:
                         # We ignore the return value here, and will pick up
                         # the actual tasks from the zombies set after looping
