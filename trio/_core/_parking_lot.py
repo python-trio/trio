@@ -122,6 +122,7 @@ class ParkingLot:
         def abort(_):
             del self._parked[task]
             return _core.Abort.SUCCEEDED
+
         return abort
 
     # XX this currently returns None
