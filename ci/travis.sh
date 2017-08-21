@@ -56,36 +56,37 @@ fi
 
 pip install -U pip setuptools wheel
 
-python setup.py sdist --formats=zip
-pip install dist/*.zip
-
-if [ "$DOC_BUILD" = "1" ]; then
-    pip install -Ur ci/rtd-requirements.txt
-    cd docs
-    # -n (nit-picky): warn on missing references
-    # -W: turn warnings into errors
-    sphinx-build -nW  -b html source build
-elif [ "$FORMATTING" = "1" ]; then
+if [ "$CHECK_FORMATTING" = "1" ]; then
     pip install -U yapf
-    yapf -rdp setup.py trio > formatting-fixes.patch
-    if [ -s formatting-fixes.patch ]; then
+    if ! yapf -rpd setup.py trio; then
         cat <<EOF
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-The following formatting problems were found. To fix them, run
+Formatting problems were found (listed above). To fix them, run
 
-   pip install yapf
-   yapf -rip setup.py trio
+   pip install -U yapf
+   yapf -rpi setup.py trio
 
 in your local checkout.
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 EOF
-        cat formatting-fixes.patch
         exit 1
     fi
+    exit 0
+fi
+
+python setup.py sdist --formats=zip
+pip install dist/*.zip
+
+if [ "$CHECK_DOCS" = "1" ]; then
+    pip install -Ur ci/rtd-requirements.txt
+    cd docs
+    # -n (nit-picky): warn on missing references
+    # -W: turn warnings into errors
+    sphinx-build -nW  -b html source build
 else
     # Actual tests
     pip install -Ur test-requirements.txt
