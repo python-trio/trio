@@ -53,9 +53,7 @@ from ..testing import (
 TRIO_TEST_CA = trustme.CA()
 TRIO_TEST_1_CERT = TRIO_TEST_CA.issue_server_cert("trio-test-1.example.org")
 
-SERVER_CTX = stdlib_ssl.create_default_context(
-    stdlib_ssl.Purpose.CLIENT_AUTH,
-)
+SERVER_CTX = stdlib_ssl.create_default_context(stdlib_ssl.Purpose.CLIENT_AUTH)
 TRIO_TEST_1_CERT.configure_cert(SERVER_CTX)
 
 CLIENT_CTX = stdlib_ssl.create_default_context()

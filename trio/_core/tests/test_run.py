@@ -1625,3 +1625,182 @@ async def test_trivial_yields():
     assert t.result is not None
     with assert_yields():
         await t.wait()
+
+
+async def test_nursery_start(autojump_clock):
+    async def no_args():  # pragma: no cover
+        pass
+
+    # Errors in calling convention get raised immediately from start
+    async with _core.open_nursery() as nursery:
+        with pytest.raises(TypeError):
+            await nursery.start(no_args)
+
+    async def sleep_then_start(seconds, *, task_status=_core.STATUS_IGNORED):
+        repr(task_status)  # smoke test
+        await sleep(seconds)
+        task_status.started(seconds)
+        await sleep(seconds)
+
+    # Basic happy-path check: start waits for the task to call started(), then
+    # returns, passes back the value, and the given nursery then waits for it
+    # to exit.
+    for seconds in [1, 2]:
+        async with _core.open_nursery() as nursery:
+            assert len(nursery.children) == 0
+            t0 = _core.current_time()
+            assert await nursery.start(sleep_then_start, seconds) == seconds
+            assert _core.current_time() - t0 == seconds
+            assert len(nursery.children) == 1
+        assert _core.current_time() - t0 == 2 * seconds
+
+    # Make sure STATUS_IGNORED works so task function can be called directly
+    t0 = _core.current_time()
+    await sleep_then_start(3)
+    assert _core.current_time() - t0 == 2 * 3
+
+    # calling started twice
+    async def double_started(task_status=_core.STATUS_IGNORED):
+        task_status.started()
+        with pytest.raises(RuntimeError):
+            task_status.started()
+
+    async with _core.open_nursery() as nursery:
+        await nursery.start(double_started)
+
+    # child crashes before calling started -> error comes out of .start()
+    async def raise_keyerror(task_status=_core.STATUS_IGNORED):
+        raise KeyError("oops")
+
+    async with _core.open_nursery() as nursery:
+        with pytest.raises(KeyError):
+            await nursery.start(raise_keyerror)
+
+    # child exiting cleanly before calling started -> triggers a RuntimeError
+    async def nothing(task_status=_core.STATUS_IGNORED):
+        return
+
+    async with _core.open_nursery() as nursery:
+        with pytest.raises(RuntimeError) as excinfo:
+            await nursery.start(nothing)
+        assert "exited without calling" in str(excinfo.value)
+
+    # if the call to start() is cancelled, then the call to started() does
+    # nothing -- the child keeps executing under start(). The value it passed
+    # is ignored; start() raises Cancelled.
+    async def just_started(task_status=_core.STATUS_IGNORED):
+        task_status.started("hi")
+
+    async with _core.open_nursery() as nursery:
+        with _core.open_cancel_scope() as cs:
+            cs.cancel()
+            with pytest.raises(_core.Cancelled):
+                await nursery.start(just_started)
+
+    # and if after the no-op started(), the child crashes, the error comes out
+    # of start()
+    async def raise_keyerror_after_started(task_status=_core.STATUS_IGNORED):
+        task_status.started()
+        raise KeyError("whoopsiedaisy")
+
+    async with _core.open_nursery() as nursery:
+        with _core.open_cancel_scope() as cs:
+            cs.cancel()
+            with pytest.raises(_core.MultiError) as excinfo:
+                await nursery.start(raise_keyerror_after_started)
+    assert set(type(e) for e in excinfo.value.exceptions) == {
+        _core.Cancelled, KeyError
+    }
+
+    # trying to start in a closed nursery raises an error immediately
+    async with _core.open_nursery() as closed_nursery:
+        pass
+    t0 = _core.current_time()
+    with pytest.raises(RuntimeError):
+        await closed_nursery.start(sleep_then_start, 7)
+    assert _core.current_time() == t0
+
+
+async def test_task_nursery_stack():
+    task = _core.current_task()
+    assert task._child_nurseries == []
+    async with _core.open_nursery() as nursery1:
+        assert task._child_nurseries == [nursery1]
+        with pytest.raises(KeyError):
+            async with _core.open_nursery() as nursery2:
+                assert task._child_nurseries == [nursery1, nursery2]
+                raise KeyError
+        assert task._child_nurseries == [nursery1]
+    assert task._child_nurseries == []
+
+
+async def test_nursery_start_with_cancelled_nursery():
+    # This function isn't testing task_status, it's using task_status as a
+    # convenient way to get a nursery that we can test spawning stuff into.
+    async def setup_nursery(task_status=_core.STATUS_IGNORED):
+        async with _core.open_nursery() as nursery:
+            task_status.started(nursery)
+            await sleep_forever()
+
+    # Calls started() while children are asleep, so we can make sure
+    # that the cancellation machinery notices and aborts when a sleeping task
+    # is moved into a cancelled scope.
+    async def sleeping_children(fn, *, task_status=_core.STATUS_IGNORED):
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(sleep_forever)
+            nursery.start_soon(sleep_forever)
+            await wait_all_tasks_blocked()
+            fn()
+            task_status.started()
+
+    # Cancelling the setup_nursery just *before* calling started()
+    async with _core.open_nursery() as nursery:
+        target_nursery = await nursery.start(setup_nursery)
+        await target_nursery.start(
+            sleeping_children, target_nursery.cancel_scope.cancel
+        )
+
+    # Cancelling the setup_nursery just *after* calling started()
+    async with _core.open_nursery() as nursery:
+        target_nursery = await nursery.start(setup_nursery)
+        await target_nursery.start(sleeping_children, lambda: None)
+        target_nursery.cancel_scope.cancel()
+
+
+async def test_nursery_start_keeps_nursery_open(autojump_clock):
+    async def sleep_a_bit(task_status=_core.STATUS_IGNORED):
+        await sleep(2)
+        task_status.started()
+        await sleep(3)
+
+    async with _core.open_nursery() as nursery1:
+        t0 = _core.current_time()
+        async with _core.open_nursery() as nursery2:
+            # Start the 'start' call running in the background
+            nursery1.start_soon(nursery2.start, sleep_a_bit)
+            # Sleep a bit
+            await sleep(1)
+            # Start another one.
+            nursery1.start_soon(nursery2.start, sleep_a_bit)
+            # Then exit this nursery. At this point, there are no tasks
+            # present in this nursery -- the only thing keeping it open is
+            # that the tasks will be placed into it soon, when they call
+            # started().
+        assert _core.current_time() - t0 == 6
+
+    # Check that it still works even if the task that the nursery is waiting
+    # for ends up crashing, and never actually enters the nursery.
+    async def sleep_then_crash(task_status=_core.STATUS_IGNORED):
+        await sleep(7)
+        raise KeyError
+
+    async def start_sleep_then_crash(nursery):
+        with pytest.raises(KeyError):
+            await nursery.start(sleep_then_crash)
+
+    async with _core.open_nursery() as nursery1:
+        t0 = _core.current_time()
+        async with _core.open_nursery() as nursery2:
+            nursery1.start_soon(start_sleep_then_crash, nursery2)
+            await wait_all_tasks_blocked()
+        assert _core.current_time() - t0 == 7

@@ -916,6 +916,51 @@ Nursery objects provide the following interface:
                             (i.e. its ``async with`` block has
                             exited).
 
+   .. method:: start_soon(async_fn, *args, name=None)
+
+      Like :meth:`spawn`, but doesn't return the newly created task.
+
+   .. method:: start(async_fn, *args, name=None)
+      :async:
+
+      Like :meth:`start`, but blocks until the new task has finished
+      initializing itself, and optionally returns some information
+      from it.
+
+      The ``async_fn`` must accept a ``task_status`` keyword argument,
+      and it must make sure that it (or someone) eventually calls
+      ``task_status.started()``.
+
+      The conventional way to define ``async_fn`` is like::
+
+         async def async_fn(arg1, arg2, *, task_status=trio.STATUS_IGNORED):
+             ...
+             task_status.started()
+             ...
+
+      :attr:`trio.STATUS_IGNORED` is a special global object with a
+      do-nothing ``started`` method. This way your function supports
+      being called either like ``await nursery.start(async_fn, arg1,
+      arg2)`` or directly like ``await async_fn(arg1, arg2)``, and
+      either way it can call ``task_status.started()`` without
+      worrying about which mode it's in. Defining your function like
+      this will make it obvious to readers that it supports being used
+      in both modes.
+
+      Before the child calls ``task_status.started()``, it's
+      effectively run underneath the call to :meth:`start`: if it
+      raises an exception then that exception is reported by
+      :meth:`start`, and does *not* propagate out of the nursery. If
+      :meth:`start` is cancelled, then the child task is also
+      cancelled.
+
+      When the child calls ``task_status.started()``, it's moved from
+      out from underneath :meth:`start` and into the given nursery.
+
+      If the child task passes a value to
+      ``task_status.started(value)``, then :meth:`start` returns this
+      value. Otherwise it returns ``None``.
+
    .. attribute:: cancel_scope
 
       Creating a nursery also implicitly creates a cancellation scope,
@@ -932,6 +977,9 @@ Nursery objects provide the following interface:
 
       A :class:`~trio.UnboundedQueue` which receives each child
       :class:`~trio.Task` object when it exits.
+
+      It also receives a ``None`` value after each call to
+      :meth:`start`.
 
    .. attribute:: children
 
@@ -967,6 +1015,10 @@ Nursery objects provide the following interface:
 
          nursery.reap(task)
          return task.result.unwrap()
+
+.. attribute:: STATUS_IGNORED
+
+   See :meth:`~The nursery interface.start`.
 
 
 Task object API
