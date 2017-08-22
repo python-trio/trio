@@ -434,7 +434,7 @@ class TaskRecorder:
                 yield item
 
 
-def test_instruments():
+def test_instruments_deprecated(recwarn):
     r1 = TaskRecorder()
     r2 = TaskRecorder()
     r3 = TaskRecorder()
@@ -446,6 +446,40 @@ def test_instruments():
         assert cp == [r1, r2]
         # replace r2 with r3, to test that we can manipulate them as we go
         cp[1] = r3
+        for _ in range(1):
+            await _core.yield_briefly()
+        return _core.current_task()
+
+    task = _core.run(main, instruments=[r1, r2])
+    # It sleeps 5 times, so it runs 6 times
+    expected = (
+        [("before_run",)] +
+        6 * [("schedule", task),
+             ("before", task),
+             ("after", task)] + [("after_run",)]
+    )
+    assert len(r1.record) > len(r2.record) > len(r3.record)
+    assert r1.record == r2.record + r3.record
+    # Need to filter b/c there's also the system task bumping around in the
+    # record:
+    assert list(r1.filter_tasks([task])) == expected
+
+
+def test_instruments(recwarn):
+    r1 = TaskRecorder()
+    r2 = TaskRecorder()
+    r3 = TaskRecorder()
+
+    async def main():
+        for _ in range(4):
+            await _core.yield_briefly()
+        # replace r2 with r3, to test that we can manipulate them as we go
+        _core.remove_instrument(r2)
+        with pytest.raises(KeyError):
+            _core.remove_instrument(r2)
+        # add is idempotent
+        _core.add_instrument(r3)
+        _core.add_instrument(r3)
         for _ in range(1):
             await _core.yield_briefly()
         return _core.current_task()

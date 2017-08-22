@@ -845,7 +845,7 @@ class _SocketType:
                 total_sent += sent
 
     @deprecated(
-        version="0.2.0", alternative="the high-level SocketStream interface"
+        "0.2.0", issue=291, instead="the high-level SocketStream interface"
     )
     async def sendall(self, data, flags=0):
         return await self._sendall(data, flags)

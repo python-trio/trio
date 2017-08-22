@@ -343,5 +343,5 @@ async def run_sync_in_worker_thread(
 
 
 run_in_worker_thread = deprecated_alias(
-    "run_in_worker_thread", run_sync_in_worker_thread, version="0.2.0"
+    "run_in_worker_thread", run_sync_in_worker_thread, "0.2.0", issue=68
 )
