@@ -923,9 +923,9 @@ Nursery objects provide the following interface:
    .. method:: start(async_fn, *args, name=None)
       :async:
 
-      Like :meth:`start`, but blocks until the new task has finished
-      initializing itself, and optionally returns some information
-      from it.
+      Like :meth:`start_soon`, but blocks until the new task has
+      finished initializing itself, and optionally returns some
+      information from it.
 
       The ``async_fn`` must accept a ``task_status`` keyword argument,
       and it must make sure that it (or someone) eventually calls
