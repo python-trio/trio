@@ -386,7 +386,7 @@ class Nursery:
 
     # Returns the task, unlike start_soon
     @deprecated("0.2.0", thing="nursery.spawn", instead="nursery.start_soon",
-    issue=136)
+    issue=284)
     def spawn(self, async_fn, *args, name=None):
         return GLOBAL_RUN_CONTEXT.runner.spawn_impl(async_fn, args, self, name)
 
