@@ -115,44 +115,6 @@ async def test_serve_listeners_accept_capacity_error(autojump_clock, caplog):
         assert record.exc_info[1].errno == errno.EMFILE
 
 
-async def test_serve_listeners_accept_multi_capacity_error(
-    autojump_clock, caplog
-):
-    listener = MemoryListener()
-
-    async def raise_MultiError():
-        error1 = OSError(errno.EMFILE, "out of file descriptors")
-        error2 = OSError(errno.ENOBUFS, "out of file buffers")
-        raise trio.MultiError([error1, error2])
-
-    listener.accept_hook = raise_MultiError
-
-    # It retries every 100 ms (even with 2 failures), so in 950 ms it will
-    # retry at 0, 100, ..., 900 = 10 times total
-    with trio.move_on_after(0.950):
-        await trio.serve_listeners(None, [listener])
-
-    # This time each failure generates 2 logging records
-    assert len(caplog.records) == 20
-    for record in caplog.records:
-        assert "retrying" in record.msg
-        assert record.exc_info[1].errno in (errno.EMFILE, errno.ENOBUFS)
-
-
-async def test_serve_listeners_accept_mixed_error(autojump_clock, caplog):
-    listener = MemoryListener()
-
-    async def raise_MultiError():
-        error1 = OSError(errno.EMFILE, "out of file descriptors")
-        error2 = KeyError()
-        raise trio.MultiError([error1, error2])
-
-    listener.accept_hook = raise_MultiError
-
-    with pytest.raises(KeyError):
-        await trio.serve_listeners(None, [listener])
-
-
 async def test_serve_listeners_connection_nursery(autojump_clock):
     listener = MemoryListener()
 

@@ -32,32 +32,20 @@ async def _run_handler(stream, handler):
 async def _serve_one_listener(listener, connection_nursery, handler):
     async with listener:
         while True:
-            # Using MultiError.catch here is kind of overkill -- it's pretty
-            # unlikely that someone accept() method is going to like, spawn
-            # multiple subtasks and the have some of them fail simultaneously.
-            # But if they do, we're ready for them :-)
-            capacity_errors = []
-
-            def filter_capacity_errors(exc):
-                if (isinstance(exc, OSError)
-                        and exc.errno in ACCEPT_CAPACITY_ERRNOS):
-                    capacity_errors.append(exc)
-                    return None
-                return exc
-
-            with trio.MultiError.catch(filter_capacity_errors):
+            try:
                 stream = await listener.accept()
-
-            if capacity_errors:
-                for exc in capacity_errors:
+            except OSError as exc:
+                if exc.errno in ACCEPT_CAPACITY_ERRNOS:
                     LOGGER.error(
                         "accept returned %s (%s); retrying in %s seconds",
                         errno.errorcode[exc.errno],
                         os.strerror(exc.errno),
                         SLEEP_TIME,
-                        exc_info=exc
+                        exc_info=True
                     )
-                await trio.sleep(SLEEP_TIME)
+                    await trio.sleep(SLEEP_TIME)
+                else:
+                    raise
             else:
                 connection_nursery.start_soon(_run_handler, stream, handler)
 
