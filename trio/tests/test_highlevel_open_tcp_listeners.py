@@ -5,7 +5,9 @@ import socket as stdlib_socket
 import attr
 
 import trio
-from trio import open_tcp_listeners, SocketListener, open_tcp_stream
+from trio import (
+    open_tcp_listeners, serve_tcp, SocketListener, open_tcp_stream
+)
 from trio.testing import open_stream_to_socket_listener
 from .. import socket as tsocket
 from .._core.tests.tutil import slow
@@ -220,3 +222,15 @@ async def test_open_tcp_listeners_port_checking():
             await open_tcp_listeners(b"80", host=host)
         with pytest.raises(TypeError):
             await open_tcp_listeners("http", host=host)
+
+
+async def test_serve_tcp():
+    async def handler(stream):
+        await stream.send_all(b"x")
+
+    async with trio.open_nursery() as nursery:
+        listeners = await nursery.start(serve_tcp, handler, 0)
+        stream = await open_stream_to_socket_listener(listeners[0])
+        async with stream:
+            await stream.receive_some(1) == b"x"
+            nursery.cancel_scope.cancel()

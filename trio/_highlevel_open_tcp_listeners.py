@@ -1,10 +1,10 @@
 import sys
 from math import inf
 
-from ._highlevel_socket import SocketListener
+import trio
 from . import socket as tsocket
 
-__all__ = ["open_tcp_listeners"]
+__all__ = ["open_tcp_listeners", "serve_tcp"]
 
 
 # Default backlog size:
@@ -121,7 +121,7 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
                 sock.bind(sockaddr)
                 sock.listen(backlog)
 
-                listeners.append(SocketListener(sock))
+                listeners.append(trio.SocketListener(sock))
             except:
                 sock.close()
                 raise
@@ -131,3 +131,21 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
         raise
 
     return listeners
+
+
+async def serve_tcp(
+    handler,
+    port,
+    *,
+    host=None,
+    backlog=None,
+    handler_nursery=None,
+    task_status=trio.STATUS_IGNORED
+):
+    listeners = await trio.open_tcp_listeners(port, host=host, backlog=backlog)
+    await trio.serve_listeners(
+        handler,
+        listeners,
+        handler_nursery=handler_nursery,
+        task_status=task_status
+    )
