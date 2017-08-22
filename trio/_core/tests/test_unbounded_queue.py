@@ -73,6 +73,7 @@ async def test_UnboundedQueue_fairness():
     assert q.get_batch_nowait() == [1, 2]
 
     result = None
+
     async def get_batch(q):
         nonlocal result
         result = await q.get_batch()

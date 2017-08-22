@@ -173,6 +173,7 @@ async def test_Semaphore():
     s.acquire_nowait()
 
     record = []
+
     async def do_acquire(s):
         record.append("started")
         await s.acquire()
@@ -242,6 +243,7 @@ async def test_Lock_and_StrictFIFOLock(lockcls):
         l.release()
 
     holder_task = None
+
     async def holder():
         nonlocal holder_task
         holder_task = _core.current_task()
@@ -313,6 +315,7 @@ async def test_Condition():
         c.notify_all()
 
     finished_waiters = set()
+
     async def waiter(i):
         async with c:
             await c.wait()
@@ -406,6 +409,7 @@ async def test_Queue_join():
         await q.join()
 
     record = []
+
     async def do_join(q):
         record.append("started")
         await q.join()
@@ -426,6 +430,7 @@ async def test_Queue_join():
         q.task_done()
 
     assert record == ["started", "started", "finished", "finished"]
+
 
 async def test_Queue_iter():
     q = Queue(1)
@@ -503,6 +508,7 @@ async def test_Queue_fairness():
     q = Queue(1)
 
     result = None
+
     async def do_get(q):
         nonlocal result
         result = await q.get()

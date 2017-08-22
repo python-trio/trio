@@ -35,6 +35,7 @@ async def test_wait_all_tasks_blocked():
 
     # check cancellation
     record = []
+
     async def cancelled_while_waiting():
         try:
             await wait_all_tasks_blocked()
