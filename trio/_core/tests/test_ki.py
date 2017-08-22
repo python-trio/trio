@@ -62,7 +62,7 @@ async def test_ki_enabled():
     await aprotected()
 
     # make sure that the decorator here overrides the automatic manipulation
-    # that spawn() does:
+    # that start_soon() does:
     async with _core.open_nursery() as nursery:
         nursery.start_soon(aprotected)
         nursery.start_soon(aunprotected)

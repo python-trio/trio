@@ -869,7 +869,7 @@ thing, and then we'll discuss the pieces:
    :linenos:
 
 Let's start with ``echo_server``. As we'll see below, each time an
-echo client connects, our server will spawn a child task running
+echo client connects, our server will start a child task running
 ``echo_server``; there might be lots of these running at once if lots
 of clients are connected. Its job is to read data from its particular
 client, and then echo it back. It should be pretty straightforward to
@@ -909,7 +909,7 @@ But where do these ``echo_server`` tasks come from? An important part
 of writing a trio program is deciding how you want to organize your
 tasks. In the examples we've seen so far, this was simple, because the
 set of tasks was fixed. Here, we want to wait for clients to connect,
-and then spawn a new task for each one. The tricky part is that like
+and then start a new task for each one. The tricky part is that like
 we mentioned above, managing a nursery is a full time job: you don't
 want the task that has the nursery and is supervising the child tasks
 to do anything else, like listen for new connections.
@@ -923,7 +923,7 @@ and then *passes the nursery object to the child task*:
    :lineno-match:
    :pyobject: parent
 
-Now ``echo_listener`` can spawn "siblings" instead of children – even
+Now ``echo_listener`` can start "siblings" instead of children – even
 though the ``echo_listener`` is the one spawning ``echo_server``
 tasks, we end up with a task tree that looks like:
 

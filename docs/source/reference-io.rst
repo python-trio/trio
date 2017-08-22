@@ -79,7 +79,7 @@ create complex transport configurations. Here's some examples:
 
 * The :mod:`trio.testing` module provides a set of :ref:`flexible
   in-memory stream object implementations <testing-streams>`, so if
-  you have a protocol implementation to test then you can can spawn
+  you have a protocol implementation to test then you can can start
   two tasks, set up a virtual "socket" connecting them, and then do
   things like inject random-but-repeatable delays into the connection.
 
