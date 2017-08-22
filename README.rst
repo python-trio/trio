@@ -199,25 +199,6 @@ Apache 2. See `LICENSE
      bytecode level, since exiting a with block seems to expand into 3
      separate bytecodes?
 
-   - start_* convention -- if you want to run it synchronously, do
-     async with make_nursery() as nursery:
-         info, task = await start_foo(nursery)
-     return task.result.unwrap()
-     we might even want to wrap this idiom up in a convenience function
-
-     for our server helper, it's a start_ function
-     maybe it takes listener_nursery, connection_nursery arguments, to let you
-     set up the graceful shutdown thing? though draining is still a
-     problem. I guess just a matter of setting a deadline?
-
-   - should we provide a start_nursery?
-
-     problem: an empty nursery would close itself before start_nursery
-     even returns!
-
-     maybe as minimal extension to the existing thing,
-     open_nursery(autoclose=False), only closes when cancelled?
-
    - possible improved robustness ("quality of implementation") ideas:
      - if an abort callback fails, discard that task but clean up the
        others (instead of discarding all)
