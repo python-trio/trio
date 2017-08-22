@@ -124,6 +124,10 @@ def test_deprecated_alias(recwarn_always):
     assert "test_deprecate.new_hotness instead" in got.message.args[0]
     assert "issues/1" in got.message.args[0]
 
+    assert ".. deprecated:: 1.23" in old_hotness.__doc__
+    assert "test_deprecate.new_hotness instead" in old_hotness.__doc__
+    assert "issues/1>`__" in old_hotness.__doc__
+
 
 class Alias:
     def new_hotness_method(self):
@@ -141,3 +145,61 @@ def test_deprecated_alias_method(recwarn_always):
     msg = got.message.args[0]
     assert "test_deprecate.Alias.old_hotness_method is deprecated" in msg
     assert "test_deprecate.Alias.new_hotness_method instead" in msg
+
+
+@deprecated("2.1", issue=1, instead="hi")
+def docstring_test1():  # pragma: no cover
+    """Hello!
+
+    """
+
+
+@deprecated("2.1", issue=None, instead="hi")
+def docstring_test2():  # pragma: no cover
+    """Hello!
+
+    """
+
+
+@deprecated("2.1", issue=1, instead=None)
+def docstring_test3():  # pragma: no cover
+    """Hello!
+
+    """
+
+
+@deprecated("2.1", issue=None, instead=None)
+def docstring_test4():  # pragma: no cover
+    """Hello!
+
+    """
+
+
+def test_deprecated_docstring_munging():
+    assert docstring_test1.__doc__ == """Hello!
+
+.. deprecated:: 2.1
+   Use hi instead.
+   For details, see `issue #1 <https://github.com/python-trio/trio/issues/1>`__.
+
+"""
+
+    assert docstring_test2.__doc__ == """Hello!
+
+.. deprecated:: 2.1
+   Use hi instead.
+
+"""
+
+    assert docstring_test3.__doc__ == """Hello!
+
+.. deprecated:: 2.1
+   For details, see `issue #1 <https://github.com/python-trio/trio/issues/1>`__.
+
+"""
+
+    assert docstring_test4.__doc__ == """Hello!
+
+.. deprecated:: 2.1
+
+"""
