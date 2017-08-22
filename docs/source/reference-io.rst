@@ -132,13 +132,17 @@ Abstract base classes
 
 
 
-Generic stream implementations
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Generic stream tools
+~~~~~~~~~~~~~~~~~~~~
 
-Trio currently provides one generic utility class for working with
-streams. And if you want to test code that's written against the
+Trio currently provides a generic helper for writing servers that
+listen for connections using one or more
+:class:`~trio.abc.Listener`\s, and a generic utility class for working
+with streams. And if you want to test code that's written against the
 streams interface, you should also check out :ref:`testing-streams` in
 :mod:`trio.testing`.
+
+.. autofunction:: serve_listeners
 
 .. autoclass:: StapledStream
    :members:
@@ -151,14 +155,18 @@ Sockets and networking
 The high-level network interface is built on top of our stream
 abstraction.
 
+.. autofunction:: open_tcp_stream
+
+.. autofunction:: serve_tcp
+
+.. autofunction:: open_ssl_over_tcp_stream
+
+.. autofunction:: serve_ssl_over_tcp
+
 .. autoclass:: SocketStream
    :members:
    :undoc-members:
    :show-inheritance:
-
-.. autofunction:: open_tcp_stream
-
-.. autofunction:: open_ssl_over_tcp_stream
 
 .. autoclass:: SocketListener
    :members:
