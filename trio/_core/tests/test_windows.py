@@ -24,7 +24,7 @@ async def test_completion_key_listen():
 
     with _core.monitor_completion_key() as (key, queue):
         async with _core.open_nursery() as nursery:
-            task = nursery.spawn(post, key)
+            nursery.start_soon(post, key)
             i = 0
             print("loop")
             async for batch in queue:  # pragma: no branch

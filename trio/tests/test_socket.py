@@ -368,8 +368,7 @@ async def test_SocketType_simple_server(address, socket_type):
         addr = listener.getsockname()[:2]
         async with _core.open_nursery() as nursery:
             nursery.start_soon(client.connect, addr)
-            accept_task = nursery.spawn(listener.accept)
-        server, client_addr = accept_task.result.unwrap()
+            server, client_addr = await listener.accept()
         with server:
             assert client_addr == server.getpeername() == client.getsockname()
             await server.send(b"x")

@@ -123,7 +123,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
         # receive_some should *always* allow send_all. (Technically it's legal
         # for send_all to wait until receive_some is called to run, though; a
         # stream doesn't *have* to have any internal buffering. That's why we
-        # spawn a concurrent receive_some call, then cancel it.)
+        # start a concurrent receive_some call, then cancel it.)
         async def simple_check_wait_send_all_might_not_block(scope):
             with assert_yields():
                 await s.wait_send_all_might_not_block()
@@ -463,9 +463,8 @@ async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
             # send_all and send_eof simultaneously is not ok
             with _assert_raises(_core.ResourceBusyError):
                 async with _core.open_nursery() as nursery:
-                    t = nursery.spawn(s1.send_all, b"x")
+                    nursery.start_soon(s1.send_all, b"x")
                     await _core.wait_all_tasks_blocked()
-                    assert t.result is None
                     nursery.start_soon(s1.send_eof)
 
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s1, s2):
@@ -473,7 +472,6 @@ async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
             # ok either
             with _assert_raises(_core.ResourceBusyError):
                 async with _core.open_nursery() as nursery:
-                    t = nursery.spawn(s1.wait_send_all_might_not_block)
+                    nursery.start_soon(s1.wait_send_all_might_not_block)
                     await _core.wait_all_tasks_blocked()
-                    assert t.result is None
                     nursery.start_soon(s1.send_eof)

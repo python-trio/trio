@@ -29,21 +29,22 @@ async def test_wait_all_tasks_blocked():
         record.append("quiet at last!")
 
     async with _core.open_nursery() as nursery:
-        t1 = nursery.spawn(busy_bee)
-        t2 = nursery.spawn(waiting_for_bee_to_leave)
-        t3 = nursery.spawn(waiting_for_bee_to_leave)
+        nursery.start_soon(busy_bee)
+        nursery.start_soon(waiting_for_bee_to_leave)
+        nursery.start_soon(waiting_for_bee_to_leave)
 
     # check cancellation
+    record = []
     async def cancelled_while_waiting():
         try:
             await wait_all_tasks_blocked()
         except _core.Cancelled:
-            return "ok"
+            record.append("ok")
 
     async with _core.open_nursery() as nursery:
-        t4 = nursery.spawn(cancelled_while_waiting)
+        nursery.start_soon(cancelled_while_waiting)
         nursery.cancel_scope.cancel()
-    assert t4.result.unwrap() == "ok"
+    assert record == ["ok"]
 
 
 async def test_wait_all_tasks_blocked_with_timeouts(mock_clock):
@@ -55,7 +56,7 @@ async def test_wait_all_tasks_blocked_with_timeouts(mock_clock):
         record.append("tt finished")
 
     async with _core.open_nursery() as nursery:
-        t = nursery.spawn(timeout_task)
+        nursery.start_soon(timeout_task)
         await wait_all_tasks_blocked()
         assert record == ["tt start"]
         mock_clock.jump(10)
@@ -193,11 +194,10 @@ async def test_Sequencer():
 
     seq = Sequencer()
     async with _core.open_nursery() as nursery:
-        t1 = nursery.spawn(f1, seq)
-        t2 = nursery.spawn(f2, seq)
+        nursery.start_soon(f1, seq)
+        nursery.start_soon(f2, seq)
         async with seq(5):
-            await t1.wait()
-            await t2.wait()
+            await wait_all_tasks_blocked()
         assert record == [
             ("f2", 0), ("f1", 1), ("f2", 2), ("f1", 3), ("f1", 4)
         ]
@@ -227,8 +227,8 @@ async def test_Sequencer_cancel():
                 record.append("seq({}) RuntimeError".format(i))
 
     async with _core.open_nursery() as nursery:
-        t1 = nursery.spawn(child, 1)
-        t2 = nursery.spawn(child, 2)
+        nursery.start_soon(child, 1)
+        nursery.start_soon(child, 2)
         async with seq(0):
             pass  # pragma: no cover
 
