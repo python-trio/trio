@@ -133,12 +133,12 @@ async def test_serve_listeners_connection_nursery(autojump_clock):
 
     with pytest.raises(Done):
         async with trio.open_nursery() as nursery:
-            connection_nursery = await nursery.start(connection_watcher)
+            handler_nursery = await nursery.start(connection_watcher)
             await nursery.start(
                 partial(
                     trio.serve_listeners,
                     handler, [listener],
-                    connection_nursery=connection_nursery
+                    handler_nursery=handler_nursery
                 )
             )
             for _ in range(10):

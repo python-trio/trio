@@ -29,7 +29,7 @@ async def _run_handler(stream, handler):
         await trio.aclose_forcefully(stream)
 
 
-async def _serve_one_listener(listener, connection_nursery, handler):
+async def _serve_one_listener(listener, handler_nursery, handler):
     async with listener:
         while True:
             try:
@@ -47,22 +47,22 @@ async def _serve_one_listener(listener, connection_nursery, handler):
                 else:
                     raise
             else:
-                connection_nursery.start_soon(_run_handler, stream, handler)
+                handler_nursery.start_soon(_run_handler, stream, handler)
 
 
 async def serve_listeners(
     handler,
     listeners,
     *,
-    connection_nursery=None,
+    handler_nursery=None,
     task_status=trio.STATUS_IGNORED
 ):
     async with trio.open_nursery() as nursery:
-        if connection_nursery is None:
-            connection_nursery = nursery
+        if handler_nursery is None:
+            handler_nursery = nursery
         for listener in listeners:
             nursery.start_soon(
-                _serve_one_listener, listener, connection_nursery, handler
+                _serve_one_listener, listener, handler_nursery, handler
             )
         # The listeners are already queueing connections when we're called,
         # but we wait until the end to call started() just in case we get an
