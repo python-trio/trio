@@ -640,17 +640,17 @@ walk *and* chew gum, this is the section for you.
 Nurseries and spawning
 ~~~~~~~~~~~~~~~~~~~~~~
 
-Most libraries for concurrent programming let you spawn new child
+Most libraries for concurrent programming let you start new child
 tasks (or threads, or whatever) willy-nilly, whenever and where-ever
-you feel like it. Trio is a bit different: you can't spawn a child
+you feel like it. Trio is a bit different: you can't start a child
 task unless you're prepared to be a responsible parent. The way you
 demonstrate your responsibility is by creating a nursery::
 
    async with trio.open_nursery() as nursery:
        ...
 
-And once you have a reference to a nursery object, you can spawn
-children into that nursery::
+And once you have a reference to a nursery object, you can start
+children in that nursery::
 
    async def child():
        ...
@@ -658,8 +658,8 @@ children into that nursery::
    async def parent():
        async with trio.open_nursery() as nursery:
            # Make two concurrent calls to child()
-           nursery.spawn(child)
-           nursery.spawn(child)
+           nursery.start_soon(child)
+           nursery.start_soon(child)
 
 This means that tasks form a tree: when you call :func:`run`, then
 this creates an initial task, and all your other tasks will be
@@ -693,24 +693,6 @@ of this is that :func:`run` can't finish until all tasks have
 finished.
 
 
-Getting results from child tasks
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The ``spawn`` method returns a :class:`Task` object that can be used
-for various things – and in particular, for retrieving the task's
-return value. Example::
-
-   async def child_fn(x):
-       return 2 * x
-
-   async with trio.open_nursery() as nursery:
-       child_task = nursery.spawn(child_fn, 3)
-   # We've left the nursery, so we know child_task has completed
-   assert child_task.result.unwrap() == 6
-
-See :attr:`Task.result` and :class:`Result` for more details.
-
-
 Child tasks and cancellation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -720,17 +702,17 @@ expires::
 
    with move_on_after(TIMEOUT):
        async with trio.open_nursery() as nursery:
-           nursery.spawn(child1)
-           nursery.spawn(child2)
+           nursery.start_soon(child1)
+           nursery.start_soon(child2)
 
 Note that what matters here is the scopes that were active when
 :func:`open_nursery` was called, *not* the scopes active when
-``spawn`` is called. So for example, the timeout block below does
+``start_soon`` is called. So for example, the timeout block below does
 nothing at all::
 
    async with trio.open_nursery() as nursery:
        with move_on_after(TIMEOUT):  # don't do this!
-           nursery.spawn(child)
+           nursery.start_soon(child)
 
 
 Errors in multiple child tasks
@@ -750,8 +732,8 @@ limitation. Consider code like::
 
     async def parent():
         async with trio.open_nursery() as nursery:
-            nursery.spawn(broken1)
-            nursery.spawn(broken2)
+            nursery.start_soon(broken1)
+            nursery.start_soon(broken2)
 
 ``broken1`` raises ``KeyError``. ``broken2`` raises
 ``IndexError``. Obviously ``parent`` should raise some error, but
@@ -773,22 +755,22 @@ How to be a good parent task
 
 Supervising child tasks is a full time job. If you want your program
 to do two things at once, then don't expect the parent task to do one
-while a child task does another – instead, spawn two children and let
+while a child task does another – instead, start two children and let
 the parent focus on managing them.
 
 So, don't do this::
 
     # bad idea!
     async with trio.open_nursery() as nursery:
-        nursery.spawn(walk)
+        nursery.start_soon(walk)
         await chew_gum()
 
 Instead, do this::
 
     # good idea!
     async with trio.open_nursery() as nursery:
-        nursery.spawn(walk)
-        nursery.spawn(chew_gum)
+        nursery.start_soon(walk)
+        nursery.start_soon(chew_gum)
         # now parent task blocks in the nursery cleanup code
 
 The difference between these is that in the first example, if ``walk``
@@ -802,7 +784,7 @@ Spawning tasks without becoming a parent
 
 Sometimes it doesn't make sense for the task that spawns a child to
 take on responsibility for watching it. For example, a server task may
-want to spawn a new task for each connection, but it can't listen for
+want to start a new task for each connection, but it can't listen for
 connections and supervise children at the same time.
 
 The solution here is simple once you see it: there's no requirement
@@ -812,26 +794,26 @@ code like this::
    async def new_connection_listener(handler, nursery):
        while True:
            conn = await get_new_connection()
-           nursery.spawn(handler, conn)
+           nursery.start_soon(handler, conn)
 
    async def server(handler):
        async with trio.open_nursery() as nursery:
-           nursery.spawn(new_connection_listener, handler, nursery)
+           nursery.start_soon(new_connection_listener, handler, nursery)
 
 Now ``new_connection_listener`` can focus on handling new connections,
 while its parent focuses on supervising both it and all the individual
 connection handlers.
 
 And remember that cancel scopes are inherited from the nursery,
-**not** from the task that calls ``spawn``. So in this example, the
-timeout does *not* apply to ``child`` (or to anything else)::
+**not** from the task that calls ``start_soon``. So in this example,
+the timeout does *not* apply to ``child`` (or to anything else)::
 
    async with do_spawn(nursery):
        with move_on_after(TIMEOUT):  # don't do this, it has no effect
-           nursery.spawn(child)
+           nursery.start_soon(child)
 
    async with trio.open_nursery() as nursery:
-       nursery.spawn(do_spawn, nursery)
+       nursery.start_soon(do_spawn, nursery)
 
 
 Custom supervisors
@@ -860,7 +842,7 @@ first::
            raise ValueError("must pass at least one argument")
        async with trio.open_nursery() as nursery:
            for async_fn in async_fns:
-               nursery.spawn(async_fn)
+               nursery.start_soon(async_fn)
            task_batch = await nursery.monitor.get_batch()
            nursery.cancel_scope.cancel()
            finished_task = task_batch[0]
@@ -887,14 +869,22 @@ Nursery objects provide the following interface:
 
 .. interface:: The nursery interface
 
-   .. method:: spawn(async_fn, *args, name=None)
+   .. method:: start_soon(async_fn, *args, name=None)
 
-      Runs ``await async_fn(*args)`` in a new child task inside this nursery.
+      Creates a new child task inside this nursery, and sets it up to
+      run ``await async_fn(*args)``.
 
       This is *the* method for creating concurrent tasks in trio.
 
+      Note that this is a synchronous function: it sets up the new
+      task, but then returns immediately, *before* it has a chance to
+      run. It won't actually run until some later point when you
+      execute a checkpoint and the scheduler decides to run it. If you
+      need to wait for the task to initialize itself before
+      continuing, see :meth:`start`.
+
       It's possible to pass a nursery object into another task, which
-      allows that task to spawn new tasks into the first task's
+      allows that task to start new child tasks in the first task's
       nursery.
 
       The child task inherits its parent nursery's cancel scopes.
@@ -906,19 +896,14 @@ Nursery objects provide the following interface:
       :param name: The name for this task. Only used for
                    debugging/introspection
                    (e.g. ``repr(task_obj)``). If this isn't a string,
-                   :meth:`spawn` will try to make it one. A common use
-                   case is if you're wrapping a function before
-                   spawning a new task, you might pass the original
-                   function as the ``name=`` to make debugging easier.
-      :return: the newly spawned task
-      :rtype trio.Task:
+                   :meth:`start_soon` will try to make it one. A
+                   common use case is if you're wrapping a function
+                   before spawning a new task, you might pass the
+                   original function as the ``name=`` to make
+                   debugging easier.
       :raises RuntimeError: If this nursery is no longer open
                             (i.e. its ``async with`` block has
                             exited).
-
-   .. method:: start_soon(async_fn, *args, name=None)
-
-      Like :meth:`spawn`, but doesn't return the newly created task.
 
    .. method:: start(async_fn, *args, name=None)
       :async:

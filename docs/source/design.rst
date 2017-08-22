@@ -309,7 +309,7 @@ where it motivates the use of "nurseries"::
 
    async def parent():
        async with trio.open_nursery() as nursery:
-           nursery.spawn(child)
+           nursery.start_soon(child)
 
 (See :ref:`tasks` for full details.)
 
@@ -326,7 +326,7 @@ In `the blog post
 <https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/#c-c-c-c-causality-breaker>`__
 I called out a nice feature of curio's spawning API, which is that
 since spawning is the only way to break causality, and in curio
-``spawn`` is async, this means that in curio sync functions are
+``spawn`` is async, which means that in curio sync functions are
 guaranteed to be causal. One limitation though is that this invariant
 is actually not very predictive: in curio there are lots of async
 functions that could spawn off children and violate causality, but
@@ -338,11 +338,11 @@ one. In trio:
 * Sync functions can't create nurseries, because nurseries require an
   ``async with``
 
-* Any async function can create a nursery and spawn new tasks... but
-  creating a nursery *allows task spawning without allowing causality
-  breaking*, because the children have to exit before the function is
-  allowed to return. So we can preserve causality without having to
-  give up concurrency!
+* Any async function can create a nursery and start new tasks... but
+  creating a nursery *allows task starting but does not permit
+  causality breaking*, because the children have to exit before the
+  function is allowed to return. So we can preserve causality without
+  having to give up concurrency!
 
 * The only way to violate causality (which is an important feature,
   just one that needs to be handled carefully) is to explicitly create

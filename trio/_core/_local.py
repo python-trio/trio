@@ -62,13 +62,14 @@ class TaskLocal(_LocalBase):
     Instances of this class have no particular attributes or methods. Instead,
     they serve as a blank slate to which you can add whatever attributes you
     like. Modifications made within one task will only be visible to that task
-    – with one exception: when you ``spawn`` a new task, then any
-    :class:`TaskLocal` attributes that are visible in the spawning task will
-    be inherited by the child. This inheritance takes the form of a shallow
-    copy: further changes in the parent will *not* affect the child, and
-    changes in the child will not affect the parent. (If you're familiar with
-    how environment variables are inherited across processes, then
-    :class:`TaskLocal` inheritance is somewhat similar.)
+    – with one exception: when you start a new task, then any
+    :class:`TaskLocal` attributes that are visible in the task that called
+    ``start`` or ``start_soon`` will be inherited by the child. This
+    inheritance takes the form of a shallow copy: further changes in the
+    parent will *not* affect the child, and changes in the child will not
+    affect the parent. (If you're familiar with how environment variables are
+    inherited across processes, then :class:`TaskLocal` inheritance is
+    somewhat similar.)
 
     If you're familiar with :class:`threading.local`, then
     :class:`trio.TaskLocal` is very similar, except adapted to work with tasks

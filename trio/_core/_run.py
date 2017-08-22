@@ -856,7 +856,7 @@ class Runner:
         try:
             coro = async_fn(*args)
         except TypeError:
-            # Give good error for: nursery.spawn(trio.sleep(1))
+            # Give good error for: nursery.start_soon(trio.sleep(1))
             if inspect.iscoroutine(async_fn):
                 raise TypeError(
                     "trio was expecting an async function, but instead it got "
@@ -864,17 +864,17 @@ class Runner:
                     "\n"
                     "Probably you did something like:\n"
                     "\n"
-                    "  trio.run({async_fn.__name__}(...))       # incorrect!\n"
-                    "  nursery.spawn({async_fn.__name__}(...))  # incorrect!\n"
+                    "  trio.run({async_fn.__name__}(...))            # incorrect!\n"
+                    "  nursery.start_soon({async_fn.__name__}(...))  # incorrect!\n"
                     "\n"
                     "Instead, you want (notice the parentheses!):\n"
                     "\n"
-                    "  trio.run({async_fn.__name__}, ...)       # correct!\n"
-                    "  nursery.spawn({async_fn.__name__}, ...)  # correct!"
+                    "  trio.run({async_fn.__name__}, ...)            # correct!\n"
+                    "  nursery.start_soon({async_fn.__name__}, ...)  # correct!"
                     .format(async_fn=async_fn)
                 ) from None
 
-            # Give good error for: nursery.spawn(asyncio.sleep(1))
+            # Give good error for: nursery.start_soon(asyncio.sleep(1))
             if _return_value_looks_like_wrong_library(async_fn):
                 raise TypeError(
                     "trio was expecting an async function, but instead it got "
@@ -891,15 +891,15 @@ class Runner:
         # function. So we have to just call it and then check whether the
         # result is a coroutine object.
         if not inspect.iscoroutine(coro):
-            # Give good error for: nursery.spawn(asyncio.sleep, 1)
+            # Give good error for: nursery.start_soon(asyncio.sleep, 1)
             if _return_value_looks_like_wrong_library(coro):
                 raise TypeError(
-                    "spawn got unexpected {!r} – are you trying to use a "
+                    "start_soon got unexpected {!r} – are you trying to use a "
                     "library written for asyncio/twisted/tornado or similar? "
                     "That won't work without some sort of compatibility shim."
                     .format(coro)
                 )
-            # Give good error for: nursery.spawn(some_sync_fn)
+            # Give good error for: nursery.start_soon(some_sync_fn)
             raise TypeError(
                 "trio expected an async function, but {!r} appears to be "
                 "synchronous"
@@ -1264,7 +1264,7 @@ class Runner:
 
         Example:
           Here's an example of one way to test that trio's locks are fair: we
-          take the lock in the parent, spawn a child, wait for the child to be
+          take the lock in the parent, start a child, wait for the child to be
           blocked waiting for the lock (!), and then check that we can't
           release and immediately re-acquire the lock::
 
@@ -1276,7 +1276,7 @@ class Runner:
                  lock = trio.Lock()
                  await lock.acquire()
                  async with trio.open_nursery() as nursery:
-                     child = nursery.spawn(lock_taker, lock)
+                     child = nursery.start_soon(lock_taker, lock)
                      # child hasn't run yet, we have the lock
                      assert lock.locked()
                      assert lock._owner is trio.current_task()

@@ -103,14 +103,13 @@ async def test_wait_basic(socketpair, wait_readable, wait_writable):
             record.append("cancelled")
         else:
             record.append("readable")
-            return a.recv(10)
+            assert a.recv(10) == b"x"
 
     async with _core.open_nursery() as nursery:
-        t = nursery.spawn(block_on_read)
+        nursery.start_soon(block_on_read)
         await wait_all_tasks_blocked()
         assert record == []
         b.send(b"x")
-    assert t.result.unwrap() == b"x"
 
     fill_socket(a)
 
@@ -129,7 +128,7 @@ async def test_wait_basic(socketpair, wait_readable, wait_writable):
             record.append("writable")
 
     async with _core.open_nursery() as nursery:
-        t = nursery.spawn(block_on_write)
+        nursery.start_soon(block_on_write)
         await wait_all_tasks_blocked()
         assert record == []
         drain_socket(b)
@@ -137,7 +136,7 @@ async def test_wait_basic(socketpair, wait_readable, wait_writable):
     # check cancellation
     record = []
     async with _core.open_nursery() as nursery:
-        t = nursery.spawn(block_on_read)
+        nursery.start_soon(block_on_read)
         await wait_all_tasks_blocked()
         nursery.cancel_scope.cancel()
     assert record == ["cancelled"]
@@ -145,7 +144,7 @@ async def test_wait_basic(socketpair, wait_readable, wait_writable):
     fill_socket(a)
     record = []
     async with _core.open_nursery() as nursery:
-        t = nursery.spawn(block_on_write)
+        nursery.start_soon(block_on_write)
         await wait_all_tasks_blocked()
         nursery.cancel_scope.cancel()
     assert record == ["cancelled"]
@@ -185,18 +184,29 @@ async def test_double_write(socketpair, wait_writable):
 async def test_socket_simultaneous_read_write(
     socketpair, wait_readable, wait_writable
 ):
+    record = []
+
+    async def r_task(sock):
+        await wait_readable(sock)
+        record.append("r_task")
+
+    async def w_task(sock):
+        await wait_writable(sock)
+        record.append("w_task")
+
     a, b = socketpair
     fill_socket(a)
     async with _core.open_nursery() as nursery:
-        r_task = nursery.spawn(wait_readable, a)
-        w_task = nursery.spawn(wait_writable, a)
+        nursery.start_soon(r_task, a)
+        nursery.start_soon(w_task, a)
         await wait_all_tasks_blocked()
-        assert r_task.result is None
-        assert w_task.result is None
+        assert record == []
         b.send(b"x")
-        await r_task.wait()
+        await wait_all_tasks_blocked()
+        assert record == ["r_task"]
         drain_socket(b)
-        await w_task.wait()
+        await wait_all_tasks_blocked()
+        assert record == ["r_task", "w_task"]
 
 
 @read_socket_test
