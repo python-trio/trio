@@ -1,10 +1,10 @@
 import sys
 from math import inf
 
-from ._highlevel_socket import SocketListener
+import trio
 from . import socket as tsocket
 
-__all__ = ["open_tcp_listeners"]
+__all__ = ["open_tcp_listeners", "serve_tcp"]
 
 
 # Default backlog size:
@@ -76,7 +76,8 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
           ``"0.0.0.0"`` for IPv4-only and ``"::"`` for IPv6-only.
 
       backlog (int or None): The listen backlog to use. If you leave this as
-          ``None`` then Trio will pick a good default.
+          ``None`` then Trio will pick a good default. (Currently: whatever
+          your system has configured as the maximum backlog.)
 
     Returns:
       list of :class:`SocketListener`
@@ -121,7 +122,7 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
                 sock.bind(sockaddr)
                 sock.listen(backlog)
 
-                listeners.append(SocketListener(sock))
+                listeners.append(trio.SocketListener(sock))
             except:
                 sock.close()
                 raise
@@ -131,3 +132,84 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
         raise
 
     return listeners
+
+
+async def serve_tcp(
+    handler,
+    port,
+    *,
+    host=None,
+    backlog=None,
+    handler_nursery=None,
+    task_status=trio.STATUS_IGNORED
+):
+    """Listen for incoming TCP connections, and for each one start a task
+    running ``handler(stream)``.
+
+    This is a thin convenience wrapper around :func:`open_tcp_listeners` and
+    :func:`serve_listeners` – see them for full details.
+
+    .. warning::
+
+       If ``handler`` raises an exception, then this function doesn't do
+       anything special to catch it – so by default the exception will
+       propagate out and crash your server. If you don't want this, then catch
+       exceptions inside your ``handler``, or use a ``handler_nursery`` object
+       that responds to exceptions in some other way.
+
+    When used with ``nursery.start`` you get back the newly opened listeners.
+    So, for example, if you want to start a server in your test suite and then
+    connect to it to check that it's working properly, you can use something
+    like::
+
+        from trio.testing import open_stream_to_socket_listener
+
+        async with trio.open_nursery() as nursery:
+            listeners = await nursery.start(serve_tcp, handler, 0)
+            client_stream = await open_stream_to_socket_listener(listeners[0])
+
+            # Then send and receive data on 'client', for example:
+            await client.send_all(b"GET / HTTP/1.0\r\n\r\n")
+
+    This avoids several common pitfalls:
+
+    1. It lets the kernel pick a random open port, so your test suite doesn't
+       depend on any particular port being open.
+
+    2. It waits for the server to be accepting connections on that port before
+       ``start`` returns, so there's no race condition where the incoming
+       connection arrives before the server is ready.
+
+    3. It uses the Listener object to find out which port was picked, so it
+       can connect to the right place.
+
+    Args:
+      handler: The handler to start for each incoming connection. Passed to
+          :func:`serve_listeners`.
+
+      port: The port to listen on. Use 0 to let the kernel pick an open port.
+          Passed to :func:`open_tcp_listeners`.
+
+      host (str, bytes, or None): The host interface to listen on; use
+          ``None`` to bind to the wildcard address. Passed to
+          :func:`open_tcp_listeners`.
+
+      backlog: The listen backlog, or None to have a good default picked.
+          Passed to :func:`open_tcp_listeners`.
+
+      handler_nursery: The nursery to start handlers in, or None to use an
+          internal nursery. Passed to :func:`serve_listeners`.
+
+      task_status: This function can be used with ``nursery.start``.
+
+    Returns:
+      This function only returns when cancelled.
+
+    """
+    listeners = await trio.open_tcp_listeners(port, host=host, backlog=backlog)
+    await trio.serve_listeners(
+        handler,
+        listeners,
+        handler_nursery=handler_nursery,
+        task_status=task_status
+    )

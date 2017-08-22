@@ -1,5 +1,7 @@
 import pytest
 
+from functools import partial
+
 import attr
 
 import trio
@@ -9,36 +11,20 @@ from .._util import acontextmanager
 from .test_ssl import CLIENT_CTX, SERVER_CTX
 
 from .._highlevel_ssl_helpers import (
-    open_ssl_over_tcp_stream, open_ssl_over_tcp_listeners
+    open_ssl_over_tcp_stream, open_ssl_over_tcp_listeners, serve_ssl_over_tcp
 )
 
 
-# This is used by test_open_ssl_over_tcp_stream to test it, and it also uses
-# open_ssl_over_tcp_listeners so it tests that too.
-async def start_echo_server(nursery):
-
-    async def accept_loop(listener):
-        async with listener:
+async def echo_handler(stream):
+    async with stream:
+        try:
             while True:
-                server_stream = await listener.accept()
-                nursery.spawn(echo_server, server_stream)
-
-    async def echo_server(server_stream):
-        async with server_stream:
-            try:
-                while True:
-                    data = await server_stream.receive_some(10000)
-                    if not data:
-                        break
-                    await server_stream.send_all(data)
-            except trio.BrokenStreamError:
-                pass
-
-    (listener,) = await trio.open_ssl_over_tcp_listeners(
-        0, SERVER_CTX, host="127.0.0.1"
-    )
-    nursery.spawn(accept_loop, listener)
-    return listener.transport_listener.socket.getsockname()
+                data = await stream.receive_some(10000)
+                if not data:
+                    break
+                await stream.send_all(data)
+        except trio.BrokenStreamError:
+            pass
 
 
 # Resolver that always returns the given sockaddr, no matter what host/port
@@ -54,9 +40,19 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
         raise NotImplementedError
 
 
-async def test_open_ssl_over_tcp_stream():
+# This uses serve_ssl_over_tcp, which uses open_ssl_over_tcp_listeners...
+async def test_open_ssl_over_tcp_stream_and_everything_else():
     async with trio.open_nursery() as nursery:
-        sockaddr = await start_echo_server(nursery)
+        (listener,) = await nursery.start(
+            partial(
+                serve_ssl_over_tcp,
+                echo_handler,
+                0,
+                SERVER_CTX,
+                host="127.0.0.1"
+            )
+        )
+        sockaddr = listener.transport_listener.socket.getsockname()
         hostname_resolver = FakeHostnameResolver(sockaddr)
         trio.socket.set_custom_hostname_resolver(hostname_resolver)
 
