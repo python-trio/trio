@@ -120,7 +120,7 @@ async def ssl_echo_server_raw(**kwargs):
         # causes the thread to exit (possibly with an error), which allows the
         # nursery context manager to exit too.
         with a, b:
-            nursery.spawn(
+            nursery.start_soon(
                 trio.run_sync_in_worker_thread,
                 partial(ssl_echo_serve_sync, b, **kwargs)
             )
@@ -290,29 +290,29 @@ async def test_PyOpenSSLEchoStream_gives_resource_busy_errors():
     s = PyOpenSSLEchoStream()
     with pytest.raises(_core.ResourceBusyError) as excinfo:
         async with _core.open_nursery() as nursery:
-            nursery.spawn(s.send_all, b"x")
-            nursery.spawn(s.send_all, b"x")
+            nursery.start_soon(s.send_all, b"x")
+            nursery.start_soon(s.send_all, b"x")
     assert "simultaneous" in str(excinfo.value)
 
     s = PyOpenSSLEchoStream()
     with pytest.raises(_core.ResourceBusyError) as excinfo:
         async with _core.open_nursery() as nursery:
-            nursery.spawn(s.send_all, b"x")
-            nursery.spawn(s.wait_send_all_might_not_block)
+            nursery.start_soon(s.send_all, b"x")
+            nursery.start_soon(s.wait_send_all_might_not_block)
     assert "simultaneous" in str(excinfo.value)
 
     s = PyOpenSSLEchoStream()
     with pytest.raises(_core.ResourceBusyError) as excinfo:
         async with _core.open_nursery() as nursery:
-            nursery.spawn(s.wait_send_all_might_not_block)
-            nursery.spawn(s.wait_send_all_might_not_block)
+            nursery.start_soon(s.wait_send_all_might_not_block)
+            nursery.start_soon(s.wait_send_all_might_not_block)
     assert "simultaneous" in str(excinfo.value)
 
     s = PyOpenSSLEchoStream()
     with pytest.raises(_core.ResourceBusyError) as excinfo:
         async with _core.open_nursery() as nursery:
-            nursery.spawn(s.receive_some, 1)
-            nursery.spawn(s.receive_some, 1)
+            nursery.start_soon(s.receive_some, 1)
+            nursery.start_soon(s.receive_some, 1)
     assert "simultaneous" in str(excinfo.value)
 
 
@@ -520,12 +520,12 @@ async def test_full_duplex_basics():
 
     async with ssl_echo_server() as s:
         async with _core.open_nursery() as nursery:
-            nursery.spawn(sender, s)
-            nursery.spawn(receiver, s)
+            nursery.start_soon(sender, s)
+            nursery.start_soon(receiver, s)
             # And let's have some doing handshakes too, everyone
             # simultaneously
-            nursery.spawn(s.do_handshake)
-            nursery.spawn(s.do_handshake)
+            nursery.start_soon(s.do_handshake)
+            nursery.start_soon(s.do_handshake)
 
         await s.aclose()
 
@@ -598,11 +598,11 @@ async def test_renegotiation_randomized(mock_clock):
             b2 = bytes([(2 * i) % 0xff])
             s.transport_stream.renegotiate()
             async with _core.open_nursery() as nursery:
-                nursery.spawn(send, b1)
-                nursery.spawn(expect, b1)
+                nursery.start_soon(send, b1)
+                nursery.start_soon(expect, b1)
             async with _core.open_nursery() as nursery:
-                nursery.spawn(expect, b2)
-                nursery.spawn(send, b2)
+                nursery.start_soon(expect, b2)
+                nursery.start_soon(send, b2)
             await clear()
 
         for i in range(100):
@@ -612,8 +612,8 @@ async def test_renegotiation_randomized(mock_clock):
             s.transport_stream.renegotiate()
             await expect(b1)
             async with _core.open_nursery() as nursery:
-                nursery.spawn(expect, b2)
-                nursery.spawn(send, b2)
+                nursery.start_soon(expect, b2)
+                nursery.start_soon(send, b2)
             await clear()
 
     # Checking that wait_send_all_might_not_block and receive_some don't
@@ -637,8 +637,8 @@ async def test_renegotiation_randomized(mock_clock):
         await send(b"x")
         s.transport_stream.renegotiate()
         async with _core.open_nursery() as nursery:
-            nursery.spawn(expect, b"x")
-            nursery.spawn(sleep_then_wait_writable)
+            nursery.start_soon(expect, b"x")
+            nursery.start_soon(sleep_then_wait_writable)
 
         await clear()
 
@@ -658,8 +658,8 @@ async def test_renegotiation_randomized(mock_clock):
         await send(b"x")
         s.transport_stream.renegotiate()
         async with _core.open_nursery() as nursery:
-            nursery.spawn(expect, b"x")
-            nursery.spawn(s.wait_send_all_might_not_block)
+            nursery.start_soon(expect, b"x")
+            nursery.start_soon(s.wait_send_all_might_not_block)
 
         await clear()
 
@@ -682,29 +682,29 @@ async def test_resource_busy_errors():
     s, _ = ssl_lockstep_stream_pair()
     with pytest.raises(_core.ResourceBusyError) as excinfo:
         async with _core.open_nursery() as nursery:
-            nursery.spawn(do_send_all)
-            nursery.spawn(do_send_all)
+            nursery.start_soon(do_send_all)
+            nursery.start_soon(do_send_all)
     assert "another task" in str(excinfo.value)
 
     s, _ = ssl_lockstep_stream_pair()
     with pytest.raises(_core.ResourceBusyError) as excinfo:
         async with _core.open_nursery() as nursery:
-            nursery.spawn(do_receive_some)
-            nursery.spawn(do_receive_some)
+            nursery.start_soon(do_receive_some)
+            nursery.start_soon(do_receive_some)
     assert "another task" in str(excinfo.value)
 
     s, _ = ssl_lockstep_stream_pair()
     with pytest.raises(_core.ResourceBusyError) as excinfo:
         async with _core.open_nursery() as nursery:
-            nursery.spawn(do_send_all)
-            nursery.spawn(do_wait_send_all_might_not_block)
+            nursery.start_soon(do_send_all)
+            nursery.start_soon(do_wait_send_all_might_not_block)
     assert "another task" in str(excinfo.value)
 
     s, _ = ssl_lockstep_stream_pair()
     with pytest.raises(_core.ResourceBusyError) as excinfo:
         async with _core.open_nursery() as nursery:
-            nursery.spawn(do_wait_send_all_might_not_block)
-            nursery.spawn(do_wait_send_all_might_not_block)
+            nursery.start_soon(do_wait_send_all_might_not_block)
+            nursery.start_soon(do_wait_send_all_might_not_block)
     assert "another task" in str(excinfo.value)
 
 
@@ -783,8 +783,8 @@ async def test_SSLStream_generic(https_compatible):
         # Then the client's receive_some will actually send some data to start
         # the handshake, and itself get stuck.
         async with _core.open_nursery() as nursery:
-            nursery.spawn(client.do_handshake)
-            nursery.spawn(server.do_handshake)
+            nursery.start_soon(client.do_handshake)
+            nursery.start_soon(server.do_handshake)
         return client, server
 
     await check_two_way_stream(stream_maker, clogged_stream_maker)
@@ -840,8 +840,8 @@ async def test_unwrap():
         assert server_ssl.transport_stream is None
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(client)
-        nursery.spawn(server)
+        nursery.start_soon(client)
+        nursery.start_soon(server)
 
 
 async def test_closing_nice_case():
@@ -863,8 +863,8 @@ async def test_closing_nice_case():
             await server_ssl.aclose()
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(client_closer)
-        nursery.spawn(server_closer)
+        nursery.start_soon(client_closer)
+        nursery.start_soon(server_closer)
 
     # closing the SSLStream also closes its transport
     with pytest.raises(ClosedStreamError):
@@ -906,16 +906,16 @@ async def test_closing_nice_case():
             await server_ssl.aclose()
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(client_ssl.aclose)
-        nursery.spawn(expect_eof_server)
+        nursery.start_soon(client_ssl.aclose)
+        nursery.start_soon(expect_eof_server)
 
 
 async def test_send_all_fails_in_the_middle():
     client, server = ssl_memory_stream_pair()
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(client.do_handshake)
-        nursery.spawn(server.do_handshake)
+        nursery.start_soon(client.do_handshake)
+        nursery.start_soon(server.do_handshake)
 
     async def bad_hook():
         raise KeyError
@@ -963,16 +963,16 @@ async def test_ssl_over_ssl():
         await server_2.send_all(b"bye")
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(client)
-        nursery.spawn(server)
+        nursery.start_soon(client)
+        nursery.start_soon(server)
 
 
 async def test_ssl_bad_shutdown():
     client, server = ssl_memory_stream_pair()
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(client.do_handshake)
-        nursery.spawn(server.do_handshake)
+        nursery.start_soon(client.do_handshake)
+        nursery.start_soon(server.do_handshake)
 
     await trio.aclose_forcefully(client)
     # now the server sees a broken stream
@@ -991,8 +991,8 @@ async def test_ssl_bad_shutdown_but_its_ok():
     )
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(client.do_handshake)
-        nursery.spawn(server.do_handshake)
+        nursery.start_soon(client.do_handshake)
+        nursery.start_soon(server.do_handshake)
 
     await trio.aclose_forcefully(client)
     # the server sees that as a clean shutdown
@@ -1030,8 +1030,8 @@ async def test_ssl_only_closes_stream_once():
     client, server = ssl_memory_stream_pair()
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(client.do_handshake)
-        nursery.spawn(server.do_handshake)
+        nursery.start_soon(client.do_handshake)
+        nursery.start_soon(server.do_handshake)
 
     client_orig_close_hook = client.transport_stream.send_stream.close_hook
     transport_close_count = 0
@@ -1056,8 +1056,8 @@ async def test_ssl_https_compatibility_disagreement():
     )
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(client.do_handshake)
-        nursery.spawn(server.do_handshake)
+        nursery.start_soon(client.do_handshake)
+        nursery.start_soon(server.do_handshake)
 
     # client is in HTTPS-mode, server is not
     # so client doing graceful_shutdown causes an error on server
@@ -1067,8 +1067,8 @@ async def test_ssl_https_compatibility_disagreement():
         assert isinstance(excinfo.value.__cause__, tssl.SSLEOFError)
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(client.aclose)
-        nursery.spawn(receive_and_expect_error)
+        nursery.start_soon(client.aclose)
+        nursery.start_soon(receive_and_expect_error)
 
 
 async def test_https_mode_eof_before_handshake():
@@ -1081,8 +1081,8 @@ async def test_https_mode_eof_before_handshake():
         assert await server.receive_some(10) == b""
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(client.aclose)
-        nursery.spawn(server_expect_clean_eof)
+        nursery.start_soon(client.aclose)
+        nursery.start_soon(server_expect_clean_eof)
 
 
 async def test_send_error_during_handshake():
@@ -1117,8 +1117,8 @@ async def test_receive_error_during_handshake():
         cancel_scope.cancel()
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(client_side, nursery.cancel_scope)
-        nursery.spawn(server.do_handshake)
+        nursery.start_soon(client_side, nursery.cancel_scope)
+        nursery.start_soon(server.do_handshake)
 
     with pytest.raises(BrokenStreamError):
         with assert_yields():
@@ -1130,8 +1130,8 @@ async def test_getpeercert():
     client, server = ssl_memory_stream_pair()
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(client.do_handshake)
-        nursery.spawn(server.do_handshake)
+        nursery.start_soon(client.do_handshake)
+        nursery.start_soon(server.do_handshake)
 
     assert server.getpeercert() is None
     print(client.getpeercert())
@@ -1167,8 +1167,8 @@ async def test_SSLListener():
 
             # Make sure the connection works
             async with _core.open_nursery() as nursery:
-                nursery.spawn(ssl_client.do_handshake)
-                nursery.spawn(ssl_server.do_handshake)
+                nursery.start_soon(ssl_client.do_handshake)
+                nursery.start_soon(ssl_server.do_handshake)
 
         # Test SSLListener.aclose
         await ssl_listener.aclose()

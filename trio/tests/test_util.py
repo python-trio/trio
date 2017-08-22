@@ -47,8 +47,8 @@ async def test_ConflictDetector():
 
     with pytest.raises(_core.ResourceBusyError) as excinfo:
         async with _core.open_nursery() as nursery:
-            nursery.spawn(wait_with_ul1)
-            nursery.spawn(wait_with_ul1)
+            nursery.start_soon(wait_with_ul1)
+            nursery.start_soon(wait_with_ul1)
     assert "ul1" in str(excinfo.value)
 
     # mixing sync and async entry

@@ -229,8 +229,8 @@ async def test_socketpair_simple():
     a, b = tsocket.socketpair()
     with a, b:
         async with _core.open_nursery() as nursery:
-            nursery.spawn(child, a)
-            nursery.spawn(child, b)
+            nursery.start_soon(child, a)
+            nursery.start_soon(child, b)
 
 
 @pytest.mark.skipif(not hasattr(tsocket, "fromshare"), reason="windows only")
@@ -367,7 +367,7 @@ async def test_SocketType_simple_server(address, socket_type):
         listener.listen(20)
         addr = listener.getsockname()[:2]
         async with _core.open_nursery() as nursery:
-            nursery.spawn(client.connect, addr)
+            nursery.start_soon(client.connect, addr)
             accept_task = nursery.spawn(listener.accept)
         server, client_addr = accept_task.result.unwrap()
         with server:
@@ -498,7 +498,7 @@ async def test_SocketType_non_blocking_paths():
                 assert await ta.recv(10) == b"2"
 
         async with _core.open_nursery() as nursery:
-            nursery.spawn(do_successful_blocking_recv)
+            nursery.start_soon(do_successful_blocking_recv)
             await wait_all_tasks_blocked()
             b.send(b"2")
         # block then cancelled
@@ -508,7 +508,7 @@ async def test_SocketType_non_blocking_paths():
                     await ta.recv(10)
 
         async with _core.open_nursery() as nursery:
-            nursery.spawn(do_cancelled_blocking_recv)
+            nursery.start_soon(do_cancelled_blocking_recv)
             await wait_all_tasks_blocked()
             nursery.cancel_scope.cancel()
         # Okay, here's the trickiest one: we want to exercise the path where
@@ -533,8 +533,8 @@ async def test_SocketType_non_blocking_paths():
                 assert await ta.recv(1) == b"a"
 
         async with _core.open_nursery() as nursery:
-            nursery.spawn(t1)
-            nursery.spawn(t2)
+            nursery.start_soon(t1)
+            nursery.start_soon(t2)
             await wait_all_tasks_blocked()
             a.send(b"b")
             b.send(b"a")
@@ -736,8 +736,8 @@ async def test_SocketType_sendall(recwarn):
             assert nbytes == BIG
 
         async with _core.open_nursery() as nursery:
-            nursery.spawn(sender)
-            nursery.spawn(receiver)
+            nursery.start_soon(sender)
+            nursery.start_soon(receiver)
 
         # We know that we received BIG bytes of NULs so far. Make sure that
         # was all the data in there.

@@ -126,7 +126,7 @@ async def test_CapacityLimiter_change_total_tokens():
 
     async with _core.open_nursery() as nursery:
         for i in range(5):
-            nursery.spawn(c.acquire_on_behalf_of, i)
+            nursery.start_soon(c.acquire_on_behalf_of, i)
             await wait_all_tasks_blocked()
         assert set(c.statistics().borrowers) == {0, 1}
         assert c.statistics().tasks_waiting == 3
@@ -259,7 +259,7 @@ async def test_Lock_and_StrictFIFOLock(lockcls):
         assert statistics.owner is t
         assert statistics.tasks_waiting == 0
 
-        nursery.spawn(holder)
+        nursery.start_soon(holder)
         await wait_all_tasks_blocked()
         statistics = l.statistics()
         print(statistics)
@@ -432,8 +432,8 @@ async def test_Queue_iter():
             assert item == next(expected)
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(producer)
-        nursery.spawn(consumer)
+        nursery.start_soon(producer)
+        nursery.start_soon(consumer)
 
 
 async def test_Queue_statistics():
@@ -450,9 +450,9 @@ async def test_Queue_statistics():
         q.put_nowait(2)
         q.put_nowait(3)
         assert q.full()
-        nursery.spawn(q.put, 4)
-        nursery.spawn(q.put, 5)
-        nursery.spawn(q.join)
+        nursery.start_soon(q.put, 4)
+        nursery.start_soon(q.put, 5)
+        nursery.start_soon(q.join)
         await wait_all_tasks_blocked()
         statistics = q.statistics()
         assert statistics.qsize == 3
@@ -464,9 +464,9 @@ async def test_Queue_statistics():
 
     q = Queue(4)
     async with _core.open_nursery() as nursery:
-        nursery.spawn(q.get)
-        nursery.spawn(q.get)
-        nursery.spawn(q.get)
+        nursery.start_soon(q.get)
+        nursery.start_soon(q.get)
+        nursery.start_soon(q.get)
         await wait_all_tasks_blocked()
         statistics = q.statistics()
         assert statistics.qsize == 0
@@ -602,7 +602,7 @@ async def test_generic_lock_exclusion(lock_factory):
     async with _core.open_nursery() as nursery:
         lock_like = lock_factory()
         for _ in range(WORKERS):
-            nursery.spawn(worker, lock_like)
+            nursery.start_soon(worker, lock_like)
     assert not in_critical_section
     assert acquires == LOOPS * WORKERS
 
@@ -624,9 +624,9 @@ async def test_generic_lock_fifo_fairness(lock_factory):
 
     lock_like = lock_factory()
     async with _core.open_nursery() as nursery:
-        nursery.spawn(loopy, 1, lock_like)
-        nursery.spawn(loopy, 2, lock_like)
-        nursery.spawn(loopy, 3, lock_like)
+        nursery.start_soon(loopy, 1, lock_like)
+        nursery.start_soon(loopy, 2, lock_like)
+        nursery.start_soon(loopy, 3, lock_like)
     # The first three could be in any order due to scheduling randomness,
     # but after that they should repeat in the same order
     for i in range(LOOPS):

@@ -156,7 +156,7 @@ async def test_double_read(socketpair, wait_readable):
 
     # You can't have two tasks trying to read from a socket at the same time
     async with _core.open_nursery() as nursery:
-        nursery.spawn(wait_readable, a)
+        nursery.start_soon(wait_readable, a)
         await wait_all_tasks_blocked()
         with assert_yields():
             with pytest.raises(_core.ResourceBusyError):
@@ -171,7 +171,7 @@ async def test_double_write(socketpair, wait_writable):
     # You can't have two tasks trying to write to a socket at the same time
     fill_socket(a)
     async with _core.open_nursery() as nursery:
-        nursery.spawn(wait_writable, a)
+        nursery.start_soon(wait_writable, a)
         await wait_all_tasks_blocked()
         with assert_yields():
             with pytest.raises(_core.ResourceBusyError):

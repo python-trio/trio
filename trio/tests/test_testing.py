@@ -86,11 +86,11 @@ async def test_wait_all_tasks_blocked_with_cushion():
         record.append("wait_big_cushion end")
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(blink)
-        nursery.spawn(wait_no_cushion)
-        nursery.spawn(wait_small_cushion)
-        nursery.spawn(wait_small_cushion)
-        nursery.spawn(wait_big_cushion)
+        nursery.start_soon(blink)
+        nursery.start_soon(wait_no_cushion)
+        nursery.start_soon(wait_small_cushion)
+        nursery.start_soon(wait_small_cushion)
+        nursery.start_soon(wait_big_cushion)
 
     assert record == [
         "blink start",
@@ -110,12 +110,12 @@ async def test_wait_all_tasks_blocked_with_tiebreaker():
         record.append((cushion, tiebreaker))
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(do_wait, 0, 0)
-        nursery.spawn(do_wait, 0, -1)
-        nursery.spawn(do_wait, 0, 1)
-        nursery.spawn(do_wait, 0, -1)
-        nursery.spawn(do_wait, 0.0001, 10)
-        nursery.spawn(do_wait, 0.0001, -10)
+        nursery.start_soon(do_wait, 0, 0)
+        nursery.start_soon(do_wait, 0, -1)
+        nursery.start_soon(do_wait, 0, 1)
+        nursery.start_soon(do_wait, 0, -1)
+        nursery.start_soon(do_wait, 0.0001, 10)
+        nursery.start_soon(do_wait, 0.0001, -10)
 
     assert record == sorted(record)
     assert record == [
@@ -387,8 +387,8 @@ async def test_mock_clock_autojump_0_and_wait_all_tasks_blocked(mock_clock):
         record.append("waiter done")
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(sleeper)
-        nursery.spawn(waiter)
+        nursery.start_soon(sleeper)
+        nursery.start_soon(waiter)
 
     assert record == list(range(10)) + ["yawn", "waiter done"]
 
@@ -448,14 +448,14 @@ async def test__UnboundeByteQueue():
             assert await ubq.get() == expect
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(getter, b"xyz")
-        nursery.spawn(putter, b"xyz")
+        nursery.start_soon(getter, b"xyz")
+        nursery.start_soon(putter, b"xyz")
 
     # Two gets at the same time -> ResourceBusyError
     with pytest.raises(_core.ResourceBusyError):
         async with _core.open_nursery() as nursery:
-            nursery.spawn(getter, b"asdf")
-            nursery.spawn(getter, b"asdf")
+            nursery.start_soon(getter, b"asdf")
+            nursery.start_soon(getter, b"asdf")
 
     # Closing
 
@@ -479,8 +479,8 @@ async def test__UnboundeByteQueue():
         ubq2.close()
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(getter, b"")
-        nursery.spawn(closer)
+        nursery.start_soon(getter, b"")
+        nursery.start_soon(closer)
 
 
 async def test_MemorySendStream():
@@ -508,8 +508,8 @@ async def test_MemorySendStream():
 
     with pytest.raises(_core.ResourceBusyError):
         async with _core.open_nursery() as nursery:
-            nursery.spawn(do_send_all, b"xxx")
-            nursery.spawn(do_send_all, b"xxx")
+            nursery.start_soon(do_send_all, b"xxx")
+            nursery.start_soon(do_send_all, b"xxx")
 
     with assert_yields():
         await mss.aclose()
@@ -576,8 +576,8 @@ async def test_MemoryRecieveStream():
 
     with pytest.raises(_core.ResourceBusyError):
         async with _core.open_nursery() as nursery:
-            nursery.spawn(do_receive_some, 10)
-            nursery.spawn(do_receive_some, 10)
+            nursery.start_soon(do_receive_some, 10)
+            nursery.start_soon(do_receive_some, 10)
 
     assert mrs.receive_some_hook is None
 
@@ -684,8 +684,8 @@ async def test_memory_stream_one_way_pair():
         assert await r.receive_some(10) == expected
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(receiver, b"abc")
-        nursery.spawn(sender)
+        nursery.start_soon(receiver, b"abc")
+        nursery.start_soon(sender)
 
     # And this fails if we don't pump from close_hook
     async def aclose_after_all_tasks_blocked():
@@ -693,8 +693,8 @@ async def test_memory_stream_one_way_pair():
         await s.aclose()
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(receiver, b"")
-        nursery.spawn(aclose_after_all_tasks_blocked)
+        nursery.start_soon(receiver, b"")
+        nursery.start_soon(aclose_after_all_tasks_blocked)
 
     s, r = memory_stream_one_way_pair()
 
@@ -703,8 +703,8 @@ async def test_memory_stream_one_way_pair():
         s.close()
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(receiver, b"")
-        nursery.spawn(close_after_all_tasks_blocked)
+        nursery.start_soon(receiver, b"")
+        nursery.start_soon(close_after_all_tasks_blocked)
 
     s, r = memory_stream_one_way_pair()
 
@@ -723,8 +723,8 @@ async def test_memory_stream_one_way_pair():
             await r.receive_some(10)
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(cancel_after_idle, nursery)
-        nursery.spawn(check_for_cancel)
+        nursery.start_soon(cancel_after_idle, nursery)
+        nursery.start_soon(check_for_cancel)
 
     s.send_all_hook = old
     await s.send_all(b"789")
@@ -749,8 +749,8 @@ async def test_memory_stream_pair():
         assert await a.receive_some(10) == b"xyz"
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(receiver)
-        nursery.spawn(sender)
+        nursery.start_soon(receiver)
+        nursery.start_soon(sender)
 
 
 async def test_memory_streams_with_generic_tests():

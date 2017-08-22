@@ -64,8 +64,8 @@ async def test_ki_enabled():
     # make sure that the decorator here overrides the automatic manipulation
     # that spawn() does:
     async with _core.open_nursery() as nursery:
-        nursery.spawn(aprotected)
-        nursery.spawn(aunprotected)
+        nursery.start_soon(aprotected)
+        nursery.start_soon(aunprotected)
 
     @_core.enable_ki_protection
     def gen_protected():
@@ -235,9 +235,9 @@ def test_ki_protection_works():
 
     async def check_unprotected_kill():
         async with _core.open_nursery() as nursery:
-            nursery.spawn(sleeper, "s1", record)
-            nursery.spawn(sleeper, "s2", record)
-            nursery.spawn(raiser, "r1", record)
+            nursery.start_soon(sleeper, "s1", record)
+            nursery.start_soon(sleeper, "s2", record)
+            nursery.start_soon(raiser, "r1", record)
 
     with pytest.raises(KeyboardInterrupt):
         _core.run(check_unprotected_kill)
@@ -250,9 +250,9 @@ def test_ki_protection_works():
 
     async def check_protected_kill():
         async with _core.open_nursery() as nursery:
-            nursery.spawn(sleeper, "s1", record)
-            nursery.spawn(sleeper, "s2", record)
-            nursery.spawn(_core.enable_ki_protection(raiser), "r1", record)
+            nursery.start_soon(sleeper, "s1", record)
+            nursery.start_soon(sleeper, "s2", record)
+            nursery.start_soon(_core.enable_ki_protection(raiser), "r1", record)
             # __aexit__ blocks, and then receives the KI
 
     with pytest.raises(KeyboardInterrupt):

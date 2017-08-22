@@ -40,7 +40,7 @@ async def test_local_smoketest():
             assert local.b == 2
 
         async with _core.open_nursery() as nursery:
-            nursery.spawn(child)
+            nursery.start_soon(child)
 
 
 async def test_local_isolation():
@@ -73,8 +73,8 @@ async def test_local_isolation():
             rlocal.a = "run child2"
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(child1)
-        nursery.spawn(child2)
+        nursery.start_soon(child1)
+        nursery.start_soon(child2)
 
     assert tlocal.a == "task root"
     assert rlocal.a == "run child2"
@@ -148,13 +148,13 @@ async def test_local_inheritance_from_spawner_not_supervisor():
 
     async def spawner(nursery):
         t.x = "spawner"
-        nursery.spawn(child)
+        nursery.start_soon(child)
 
     async def child():
         assert t.x == "spawner"
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(spawner, nursery)
+        nursery.start_soon(spawner, nursery)
 
 
 async def test_local_defaults():

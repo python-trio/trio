@@ -66,8 +66,8 @@ async def fill_stream(s):
         nursery.cancel_scope.cancel()
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(sender)
-        nursery.spawn(waiter, nursery)
+        nursery.start_soon(sender)
+        nursery.start_soon(waiter, nursery)
 
 
 async def test_SocketStream_generic():

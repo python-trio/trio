@@ -45,9 +45,9 @@ class Sequencer:
          async def main():
             seq = trio.testing.Sequencer()
             async with trio.open_nursery() as nursery:
-                nursery.spawn(worker1, seq)
-                nursery.spawn(worker2, seq)
-                nursery.spawn(worker3, seq)
+                nursery.start_soon(worker1, seq)
+                nursery.start_soon(worker2, seq)
+                nursery.start_soon(worker3, seq)
 
     """
 

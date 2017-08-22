@@ -1291,8 +1291,8 @@ you'll see that the two tasks politely take turns::
    async def main():
        async with trio.open_nursery() as nursery:
            lock = trio.Lock()
-           nursery.spawn(loopy_child, 1, lock)
-           nursery.spawn(loopy_child, 2, lock)
+           nursery.start_soon(loopy_child, 1, lock)
+           nursery.start_soon(loopy_child, 2, lock)
 
    trio.run(main)
 
@@ -1327,10 +1327,10 @@ have a queue with two producers and one consumer::
        queue = trio.HypotheticalQueue()
        async with trio.open_nursery() as nursery:
            # Two producers
-           nursery.spawn(producer, queue)
-           nursery.spawn(producer, queue)
+           nursery.start_soon(producer, queue)
+           nursery.start_soon(producer, queue)
            # One consumer
-           nursery.spawn(consumer, queue)
+           nursery.start_soon(consumer, queue)
 
    trio.run(main)
 

@@ -10,8 +10,8 @@ async def loopy():
         print("KI!")
 
 async def main():
-    await trio.spawn(loopy)
-    await trio.spawn(loopy)
-    await trio.spawn(loopy)
+    await trio.start_soon(loopy)
+    await trio.start_soon(loopy)
+    await trio.start_soon(loopy)
 
 trio.run(main)

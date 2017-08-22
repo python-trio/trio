@@ -41,8 +41,8 @@ async def task2():
 
 async def main():
     async with trio.open_nursery() as nursery:
-        nursery.spawn(task1)
-        nursery.spawn(task2)
+        nursery.start_soon(task1)
+        nursery.start_soon(task2)
 
 def run_example(clock):
     real_start = time.time()

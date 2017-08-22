@@ -20,7 +20,7 @@ async def test_parking_lot_basic():
         assert len(lot) == 0
         assert lot.statistics().tasks_waiting == 0
         for i in range(3):
-            nursery.spawn(waiter, i, lot)
+            nursery.start_soon(waiter, i, lot)
         await wait_all_tasks_blocked()
         assert len(record) == 3
         assert bool(lot)
@@ -41,7 +41,7 @@ async def test_parking_lot_basic():
     async with _core.open_nursery() as nursery:
         record = []
         for i in range(3):
-            nursery.spawn(waiter, i, lot)
+            nursery.start_soon(waiter, i, lot)
             await wait_all_tasks_blocked()
         assert len(record) == 3
         for i in range(3):
@@ -66,7 +66,7 @@ async def test_parking_lot_basic():
     async with _core.open_nursery() as nursery:
         record = []
         for i in range(3):
-            nursery.spawn(waiter, i, lot)
+            nursery.start_soon(waiter, i, lot)
             await wait_all_tasks_blocked()
         lot.unpark(count=2)
         await wait_all_tasks_blocked()

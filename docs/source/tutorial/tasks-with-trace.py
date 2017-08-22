@@ -16,10 +16,10 @@ async def parent():
     print("parent: started!")
     async with trio.open_nursery() as nursery:
         print("parent: spawning child1...")
-        nursery.spawn(child1)
+        nursery.start_soon(child1)
 
         print("parent: spawning child2...")
-        nursery.spawn(child2)
+        nursery.start_soon(child2)
 
         print("parent: waiting for children to finish...")
         # -- we exit the nursery block here --

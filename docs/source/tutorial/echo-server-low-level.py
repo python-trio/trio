@@ -42,11 +42,11 @@ async def echo_listener(nursery):
             server_sock, _ = await listen_sock.accept()
             print("echo_listener: got new connection, spawning echo_server")
             ident += 1
-            nursery.spawn(echo_server, server_sock, ident)
+            nursery.start_soon(echo_server, server_sock, ident)
 
 async def parent():
     async with trio.open_nursery() as nursery:
         print("parent: spawning echo_listener")
-        nursery.spawn(echo_listener, nursery)
+        nursery.start_soon(echo_listener, nursery)
 
 trio.run(parent)

@@ -31,7 +31,7 @@ async def report_loop():
 
 async def main():
     async with trio.open_nursery() as nursery:
-        nursery.spawn(reschedule_loop, 10)
-        nursery.spawn(report_loop)
+        nursery.start_soon(reschedule_loop, 10)
+        nursery.start_soon(report_loop)
 
 trio.run(main)

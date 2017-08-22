@@ -41,11 +41,11 @@ async def test_epoll_statistics():
         fill_socket(a1)
         fill_socket(a3)
         async with _core.open_nursery() as nursery:
-            nursery.spawn(_core.wait_writable, a1)
-            nursery.spawn(_core.wait_readable, a2)
-            nursery.spawn(_core.wait_readable, b2)
-            nursery.spawn(_core.wait_writable, a3)
-            nursery.spawn(_core.wait_readable, a3)
+            nursery.start_soon(_core.wait_writable, a1)
+            nursery.start_soon(_core.wait_readable, a2)
+            nursery.start_soon(_core.wait_readable, b2)
+            nursery.start_soon(_core.wait_writable, a3)
+            nursery.start_soon(_core.wait_readable, a3)
 
             await wait_all_tasks_blocked()
 

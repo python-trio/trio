@@ -400,8 +400,8 @@ def memory_stream_pair():
                 print(data)
 
         async with trio.open_nursery() as nursery:
-            nursery.spawn(sender)
-            nursery.spawn(receiver)
+            nursery.start_soon(sender)
+            nursery.start_soon(receiver)
 
     By default, this will print ``b"12345"`` and then immediately exit; with
     our trickle stream it instead sleeps 1 second, then prints ``b"1"``, then
