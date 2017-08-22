@@ -16,6 +16,7 @@ from sortedcontainers import SortedDict
 from async_generator import async_generator, yield_
 
 from .._util import acontextmanager
+from .._deprecate import deprecated
 
 from .. import _core
 from ._exceptions import (
@@ -1299,6 +1300,41 @@ class Runner:
                 sys.stderr.write("Instrument has been disabled.\n")
 
     @_public
+    def add_instrument(self, instrument):
+        """Start instrumenting the current run loop with the given instrument.
+
+        Args:
+          instrument (trio.abc.Instrument): The instrument to activate.
+
+        If ``instrument`` is already active, does nothing.
+
+        """
+        if instrument not in self.instruments:
+            self.instruments.append(instrument)
+
+    @_public
+    def remove_instrument(self, instrument):
+        """Stop instrumenting the current run loop with the given instrument.
+
+        Args:
+          instrument (trio.abc.Instrument): The instrument to de-activate.
+
+        Raises:
+          KeyError: if the instrument is not currently active. This could
+              occur either because you never added it, or because you added it
+              and then it raised an unhandled exception and was automatically
+              deactivated.
+
+        """
+        # We're moving 'instruments' to being a set, so raise KeyError like
+        # set.remove does.
+        try:
+            self.instruments.remove(instrument)
+        except ValueError as exc:
+            raise KeyError(*exc.args)
+
+    @_public
+    @deprecated("0.2.0", issue=257, instead="{add,remove}_instrument")
     def current_instruments(self):
         """Returns the list of currently active instruments.
 

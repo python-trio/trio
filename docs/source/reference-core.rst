@@ -1702,8 +1702,14 @@ handling exceptions raised by instruments is to (a) dump a stack trace
 to stderr and (b) disable the offending instrument.
 
 You can register an initial list of instruments by passing them to
-:func:`trio.run`. :func:`current_instruments` lets you introspect and
-modify this list at runtime from inside trio:
+:func:`trio.run`. :func:`add_instrument` and
+:func:`remove_instrument` let you add and remove instruments at
+runtime. There's also :func:`current_instruments`, which is deprecated
+and will be removed soon.
+
+.. autofunction:: add_instrument
+
+.. autofunction:: remove_instrument
 
 .. autofunction:: current_instruments
 
