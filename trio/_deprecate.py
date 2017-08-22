@@ -33,22 +33,25 @@ def _stringify(thing):
     return str(thing)
 
 
-def warn_deprecated(thing, *, version, alternative, stacklevel=2):
+def warn_deprecated(thing, version, *, issue, instead, stacklevel=2):
     stacklevel += 1
     msg = "{} is deprecated since Trio {}".format(_stringify(thing), version)
-    if alternative is not None:
-        msg = "{}; use {} instead".format(msg, _stringify(alternative))
+    if instead is not None:
+        msg += "; use {} instead".format(_stringify(instead))
+    if issue is not None:
+        msg += " (https://github.com/python-trio/trio/issues/{})".format(issue)
     warnings.warn(TrioDeprecationWarning(msg), stacklevel=stacklevel)
 
 
-# deprecated(version=..., alternative=...)
-def deprecated(*, thing=None, version, alternative):
+# @deprecated("0.2.0", issue=..., instead=...)
+# def ...
+def deprecated(version, *, thing=None, issue, instead):
     def do_wrap(fn):
         nonlocal thing
 
         @wraps(fn)
         def wrapper(*args, **kwargs):
-            warn_deprecated(thing, version=version, alternative=alternative)
+            warn_deprecated(thing, version, instead=instead, issue=issue)
             return fn(*args, **kwargs)
 
         # If our __module__ or __qualname__ get modified, we want to pick up
@@ -62,8 +65,8 @@ def deprecated(*, thing=None, version, alternative):
     return do_wrap
 
 
-def deprecated_alias(old_qualname, new_fn, *, version):
-    @deprecated(version=version, alternative=new_fn)
+def deprecated_alias(old_qualname, new_fn, version, *, issue):
+    @deprecated(version, issue=issue, instead=new_fn)
     @wraps(new_fn)
     def wrapper(*args, **kwargs):
         return new_fn(*args, **kwargs)
