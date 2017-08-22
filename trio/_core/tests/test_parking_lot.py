@@ -83,7 +83,7 @@ async def test_parking_lot_basic():
 
 async def cancellable_waiter(name, lot, scopes, record):
     with _core.open_cancel_scope() as scope:
-        scopes[_core.current_task()] = scope
+        scopes[name] = scope
         record.append("sleep {}".format(name))
         try:
             await lot.park()
@@ -99,15 +99,15 @@ async def test_parking_lot_cancel():
 
     async with _core.open_nursery() as nursery:
         lot = ParkingLot()
-        w1 = nursery.spawn(cancellable_waiter, 1, lot, scopes, record)
+        nursery.start_soon(cancellable_waiter, 1, lot, scopes, record)
         await wait_all_tasks_blocked()
-        w2 = nursery.spawn(cancellable_waiter, 2, lot, scopes, record)
+        nursery.start_soon(cancellable_waiter, 2, lot, scopes, record)
         await wait_all_tasks_blocked()
-        w3 = nursery.spawn(cancellable_waiter, 3, lot, scopes, record)
+        nursery.start_soon(cancellable_waiter, 3, lot, scopes, record)
         await wait_all_tasks_blocked()
         assert len(record) == 3
 
-        scopes[w2].cancel()
+        scopes[2].cancel()
         await wait_all_tasks_blocked()
         assert len(record) == 4
         lot.unpark_all()
@@ -135,11 +135,11 @@ async def test_parking_lot_repark():
         lot1.repark([])
 
     async with _core.open_nursery() as nursery:
-        w1 = nursery.spawn(cancellable_waiter, 1, lot1, scopes, record)
+        nursery.start_soon(cancellable_waiter, 1, lot1, scopes, record)
         await wait_all_tasks_blocked()
-        w2 = nursery.spawn(cancellable_waiter, 2, lot1, scopes, record)
+        nursery.start_soon(cancellable_waiter, 2, lot1, scopes, record)
         await wait_all_tasks_blocked()
-        w3 = nursery.spawn(cancellable_waiter, 3, lot1, scopes, record)
+        nursery.start_soon(cancellable_waiter, 3, lot1, scopes, record)
         await wait_all_tasks_blocked()
         assert len(record) == 3
 
@@ -156,7 +156,7 @@ async def test_parking_lot_repark():
         assert len(lot1) == 0
         assert len(lot2) == 2
 
-        scopes[w2].cancel()
+        scopes[2].cancel()
         await wait_all_tasks_blocked()
         assert len(lot2) == 1
         assert record == [
@@ -176,11 +176,11 @@ async def test_parking_lot_repark_with_count():
     lot1 = ParkingLot()
     lot2 = ParkingLot()
     async with _core.open_nursery() as nursery:
-        w1 = nursery.spawn(cancellable_waiter, 1, lot1, scopes, record)
+        nursery.start_soon(cancellable_waiter, 1, lot1, scopes, record)
         await wait_all_tasks_blocked()
-        w2 = nursery.spawn(cancellable_waiter, 2, lot1, scopes, record)
+        nursery.start_soon(cancellable_waiter, 2, lot1, scopes, record)
         await wait_all_tasks_blocked()
-        w3 = nursery.spawn(cancellable_waiter, 3, lot1, scopes, record)
+        nursery.start_soon(cancellable_waiter, 3, lot1, scopes, record)
         await wait_all_tasks_blocked()
         assert len(record) == 3
 

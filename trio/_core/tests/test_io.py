@@ -223,7 +223,9 @@ async def test_socket_actual_streaming(
     N = 1000000  # 1 megabyte
     MAX_CHUNK = 65536
 
-    async def sender(sock, seed):
+    results = {}
+
+    async def sender(sock, seed, key):
         r = random.Random(seed)
         sent = 0
         while sent < N:
@@ -236,9 +238,9 @@ async def test_socket_actual_streaming(
                 sent += this_chunk_size
                 del chunk[:this_chunk_size]
         sock.shutdown(stdlib_socket.SHUT_WR)
-        return sent
+        results[key] = sent
 
-    async def receiver(sock):
+    async def receiver(sock, key):
         received = 0
         while True:
             print("received", received)
@@ -248,13 +250,13 @@ async def test_socket_actual_streaming(
             if not this_chunk_size:
                 break
             received += this_chunk_size
-        return received
+        results[key] = received
 
     async with _core.open_nursery() as nursery:
-        send_a = nursery.spawn(sender, a, 0)
-        send_b = nursery.spawn(sender, b, 1)
-        recv_a = nursery.spawn(receiver, a)
-        recv_b = nursery.spawn(receiver, b)
+        nursery.start_soon(sender, a, 0, "send_a")
+        nursery.start_soon(sender, b, 1, "send_b")
+        nursery.start_soon(receiver, a, "recv_a")
+        nursery.start_soon(receiver, b, "recv_b")
 
-    assert send_a.result.unwrap() == recv_b.result.unwrap()
-    assert send_b.result.unwrap() == recv_a.result.unwrap()
+    assert results["send_a"] == results["recv_b"]
+    assert results["send_b"] == results["recv_a"]
