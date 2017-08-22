@@ -3,3 +3,4 @@ pytest-cov
 ipython   # for the IPython traceback integration tests
 pyOpenSSL # for the ssl tests
 trustme   # for the ssl tests
+pytest-catchlog
