@@ -127,6 +127,7 @@ async def test_child_crash_basic_deprecated(recwarn):
         assert task.result.error is exc
         nursery.reap(task)
 
+
 async def test_child_crash_basic_deprecated(recwarn):
     exc = ValueError("uh oh")
 
@@ -702,13 +703,13 @@ async def test_cancel_scope_multierror_filtering():
             try:
                 async with _core.open_nursery() as nursery:
                     # Two children that get cancelled by the nursery scope
-                    nursery.start_soon(child)    # t1
-                    nursery.start_soon(child)    # t2
+                    nursery.start_soon(child)  # t1
+                    nursery.start_soon(child)  # t2
                     nursery.cancel_scope.cancel()
                     with _core.open_cancel_scope(shield=True):
                         await wait_all_tasks_blocked()
                     # One child that gets cancelled by the outer scope
-                    nursery.start_soon(child)    # t3
+                    nursery.start_soon(child)  # t3
                     outer.cancel()
                     # And one that raises a different error
                     nursery.start_soon(crasher)  # t4

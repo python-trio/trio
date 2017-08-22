@@ -385,8 +385,12 @@ class Nursery:
         GLOBAL_RUN_CONTEXT.runner.spawn_impl(async_fn, args, self, name)
 
     # Returns the task, unlike start_soon
-    @deprecated("0.2.0", thing="nursery.spawn", instead="nursery.start_soon",
-    issue=284)
+    @deprecated(
+        "0.2.0",
+        thing="nursery.spawn",
+        instead="nursery.start_soon",
+        issue=284
+    )
     def spawn(self, async_fn, *args, name=None):
         return GLOBAL_RUN_CONTEXT.runner.spawn_impl(async_fn, args, self, name)
 
@@ -1029,8 +1033,9 @@ class Runner:
                 self.call_soon_task, name="<call soon task>"
             )
 
-            self.main_task = self.spawn_impl(async_fn, args,
-                                             self.system_nursery, name=None)
+            self.main_task = self.spawn_impl(
+                async_fn, args, self.system_nursery, name=None
+            )
             async for task_batch in system_nursery._monitor:
                 for task in task_batch:
                     if task is self.main_task:

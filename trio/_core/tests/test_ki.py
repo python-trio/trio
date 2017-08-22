@@ -252,7 +252,9 @@ def test_ki_protection_works():
         async with _core.open_nursery() as nursery:
             nursery.start_soon(sleeper, "s1", record)
             nursery.start_soon(sleeper, "s2", record)
-            nursery.start_soon(_core.enable_ki_protection(raiser), "r1", record)
+            nursery.start_soon(
+                _core.enable_ki_protection(raiser), "r1", record
+            )
             # __aexit__ blocks, and then receives the KI
 
     with pytest.raises(KeyboardInterrupt):
