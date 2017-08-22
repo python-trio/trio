@@ -2,7 +2,10 @@ import trio
 
 from ._highlevel_open_tcp_stream import DEFAULT_DELAY
 
-__all__ = ["open_ssl_over_tcp_stream", "open_ssl_over_tcp_listeners"]
+__all__ = [
+    "open_ssl_over_tcp_stream", "open_ssl_over_tcp_listeners",
+    "serve_ssl_over_tcp"
+]
 
 
 # It might have been nice to take a ssl_protocols= argument here to set up
@@ -95,3 +98,29 @@ async def open_ssl_over_tcp_listeners(
         ) for tcp_listener in tcp_listeners
     ]
     return ssl_listeners
+
+
+async def serve_ssl_over_tcp(
+    handler,
+    port,
+    ssl_context,
+    *,
+    host=None,
+    https_compatible=False,
+    backlog=None,
+    handler_nursery=None,
+    task_status=trio.STATUS_IGNORED
+):
+    listeners = await trio.open_ssl_over_tcp_listeners(
+        port,
+        ssl_context,
+        host=host,
+        https_compatible=https_compatible,
+        backlog=backlog
+    )
+    await trio.serve_listeners(
+        handler,
+        listeners,
+        handler_nursery=handler_nursery,
+        task_status=task_status
+    )
