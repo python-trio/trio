@@ -356,7 +356,7 @@ async def test_current_task():
     parent_task = _core.current_task()
 
     async def child():
-        assert _core.current_task().parent_task is parent_task
+        assert _core.current_task().parent_nursery.parent_task is parent_task
 
     async with _core.open_nursery() as nursery:
         nursery.start_soon(child)
@@ -1493,7 +1493,7 @@ async def test_slow_abort_edge_cases():
             assert record == ["sleeping", "abort-called", "cancelled", "done"]
 
 
-async def test_parent_task():
+async def test_Task_parent_task_deprecated(recwarn):
     tasks = {}
 
     async def child2():
@@ -1515,6 +1515,53 @@ async def test_parent_task():
     # example, an error)
     while t is not None:
         t = t.parent_task
+
+
+async def test_task_tree_introspection():
+    tasks = {}
+
+    tasks["parent"] = _core.current_task()
+
+    assert tasks["parent"].child_nurseries == []
+
+    async with _core.open_nursery() as nursery1:
+        async with _core.open_nursery() as nursery2:
+            assert tasks["parent"].child_nurseries == [nursery1, nursery2]
+
+    assert tasks["parent"].child_nurseries == []
+
+    nurseries = {}
+
+    async def child2():
+        tasks["child2"] = _core.current_task()
+        assert tasks["parent"].child_nurseries == [nurseries["parent"]]
+        assert nurseries["parent"].child_tasks == frozenset({tasks["child1"]})
+        assert tasks["child1"].child_nurseries == [nurseries["child1"]]
+        assert nurseries["child1"].child_tasks == frozenset({tasks["child2"]})
+        assert tasks["child2"].child_nurseries == []
+
+    async def child1():
+        tasks["child1"] = _core.current_task()
+        async with _core.open_nursery() as nursery:
+            nurseries["child1"] = nursery
+            nursery.start_soon(child2)
+
+    async with _core.open_nursery() as nursery:
+        nurseries["parent"] = nursery
+        nursery.start_soon(child1)
+
+    # Upward links survive after tasks/nurseries exit
+    assert nurseries["parent"].parent_task is tasks["parent"]
+    assert tasks["child1"].parent_nursery is nurseries["parent"]
+    assert nurseries["child1"].parent_task is tasks["child1"]
+    assert tasks["child2"].parent_nursery is nurseries["child1"]
+
+    nursery = _core.current_task().parent_nursery
+    # Make sure that chaining eventually gives a nursery of None (and not, for
+    # example, an error)
+    while nursery is not None:
+        t = nursery.parent_task
+        nursery = t.parent_nursery
 
 
 async def test_nursery_closure():
@@ -1694,11 +1741,11 @@ async def test_nursery_start(autojump_clock):
     # to exit.
     for seconds in [1, 2]:
         async with _core.open_nursery() as nursery:
-            assert len(nursery.children) == 0
+            assert len(nursery.child_tasks) == 0
             t0 = _core.current_time()
             assert await nursery.start(sleep_then_start, seconds) == seconds
             assert _core.current_time() - t0 == seconds
-            assert len(nursery.children) == 1
+            assert len(nursery.child_tasks) == 1
         assert _core.current_time() - t0 == 2 * seconds
 
     # Make sure STATUS_IGNORED works so task function can be called directly

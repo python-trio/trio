@@ -344,14 +344,14 @@ async def open_nursery():
 
 
 class Nursery:
-    def __init__(self, parent, cancel_scope):
+    def __init__(self, parent_task, cancel_scope):
         # the parent task -- only used for introspection, to implement
         # task.parent_task
-        self._parent = parent
-        parent._child_nurseries.append(self)
+        self._parent_task = parent_task
+        parent_task._child_nurseries.append(self)
         # the cancel stack that children inherit - we take a snapshot, so it
         # won't be affected by any changes in the parent.
-        self._cancel_stack = list(parent._cancel_stack)
+        self._cancel_stack = list(parent_task._cancel_stack)
         # the cancel scope that directly surrounds us; used for cancelling all
         # children.
         self.cancel_scope = cancel_scope
@@ -363,8 +363,17 @@ class Nursery:
         self._closed = False
 
     @property
+    @deprecated("0.2.0", instead="child_tasks", issue=136)
     def children(self):
         return frozenset(self._children)
+
+    @property
+    def child_tasks(self):
+        return frozenset(self._children)
+
+    @property
+    def parent_task(self):
+        return self._parent_task
 
     @property
     @deprecated("0.2.0", instead=None, issue=136)
@@ -474,7 +483,7 @@ class Nursery:
                         exceptions.append(exc)
 
             self._closed = True
-            popped = self._parent._child_nurseries.pop()
+            popped = self._parent_task._child_nurseries.pop()
             assert popped is self
             if exceptions:
                 mexc = MultiError(exceptions)
@@ -563,6 +572,7 @@ class Task:
 
     # For debugging and visualization:
     @property
+    @deprecated("0.2.0", instead="parent_nursery.parent_task", issue=136)
     def parent_task(self):
         """This task's parent task (or None if this is the "init" task).
 
@@ -571,7 +581,27 @@ class Task:
         if self._parent_nursery is None:
             return None
         else:
-            return self._parent_nursery._parent
+            return self._parent_nursery._parent_task
+
+    @property
+    def parent_nursery(self):
+        """The nursery this task is inside (or None if this is the "init"
+        take).
+
+        Example use case: drawing a visualization of the task tree in a
+        debugger.
+
+        """
+        return self._parent_nursery
+
+    @property
+    def child_nurseries(self):
+        """The nurseries this task contains.
+
+        This is a list, with outer nurseries before inner nurseries.
+
+        """
+        return list(self._child_nurseries)
 
     ################
     # Monitoring task exit

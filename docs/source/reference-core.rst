@@ -956,9 +956,14 @@ Nursery objects provide the following interface:
       other things, e.g. if you want to explicitly cancel all children
       in response to some external event.
 
+   The last two attributes are mainly to enable introspection of the
+   task tree, for example in debuggers.
 
+   .. attribute:: parent_task
 
+      The :class:`~trio.Task` that opened this nursery.
 
+   .. attribute:: child_tasks
 
       A :class:`frozenset` containing all the child
       :class:`~trio.Task` objects which are still running.
@@ -1012,6 +1017,10 @@ Task object API
       trace.
 
    .. autoattribute:: parent_task
+
+   .. autoattribute:: parent_nursery
+
+   .. autoattribute:: child_nurseries
 
 
 Working with :exc:`MultiError`\s
