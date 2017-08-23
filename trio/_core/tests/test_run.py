@@ -115,6 +115,7 @@ async def test_nursery_warn_use_async_with():
         pass
 
 
+# can remove after 0.2.0
 async def test_child_crash_basic_deprecated(recwarn):
     exc = ValueError("uh oh")
 
@@ -1850,3 +1851,21 @@ async def test_nursery_start_keeps_nursery_open(autojump_clock):
             nursery1.start_soon(start_sleep_then_crash, nursery2)
             await wait_all_tasks_blocked()
         assert _core.current_time() - t0 == 7
+
+
+# can remove after 0.2.0
+async def test_some_deprecated_but_uncovered_methods(recwarn):
+    async def noop():
+        return 33
+
+    async with _core.open_nursery() as nursery:
+        assert not nursery.zombies
+        nursery.start_soon(noop)
+        await wait_all_tasks_blocked()
+        assert len(nursery.zombies) == 1
+
+        batch = await nursery.monitor.get_batch()
+        for task in batch:
+            assert nursery.reap_and_unwrap(task) == 33
+
+        assert not nursery.zombies
