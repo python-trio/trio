@@ -1907,9 +1907,14 @@ async def test_some_deprecated_but_uncovered_methods(recwarn):
 
     async with _core.open_nursery() as nursery:
         assert not nursery.zombies
+        assert not nursery.children
+
         nursery.start_soon(noop)
+        assert len(nursery.children) == 1
+
         await wait_all_tasks_blocked()
         assert len(nursery.zombies) == 1
+        assert not nursery.children
 
         batch = await nursery.monitor.get_batch()
         for task in batch:
