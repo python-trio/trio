@@ -874,7 +874,8 @@ Nursery objects provide the following interface:
       Creates a new child task inside this nursery, and sets it up to
       run ``await async_fn(*args)``.
 
-      This is *the* method for creating concurrent tasks in trio.
+      This and :meth:`start` are the two fundamental methods for
+      creating concurrent tasks in trio.
 
       Note that this is a synchronous function: it sets up the new
       task, but then returns immediately, *before* it has a chance to
@@ -955,51 +956,13 @@ Nursery objects provide the following interface:
       other things, e.g. if you want to explicitly cancel all children
       in response to some external event.
 
-   The remaining attributes and methods are mainly used for
-   implementing new types of task supervisor:
 
-   .. attribute:: monitor
 
-      A :class:`~trio.UnboundedQueue` which receives each child
-      :class:`~trio.Task` object when it exits.
 
-      It also receives a ``None`` value after each call to
-      :meth:`start`.
-
-   .. attribute:: children
 
       A :class:`frozenset` containing all the child
       :class:`~trio.Task` objects which are still running.
 
-   .. attribute:: zombies
-
-      A :class:`frozenset` containing all the child
-      :class:`~trio.Task` objects which have exited, but not yet been
-      reaped.
-
-   .. method:: reap(task)
-
-      Removes the given task from the :attr:`zombies` set.
-
-      Calling this method indicates to the nursery that you have taken
-      care of any cleanup needed. In particular, if the task exited
-      with an exception and you don't call this method, then
-      ``__aexit__`` will eventually re-raise that exception. If you do
-      call this method, then ``__aexit__`` won't do anything.
-
-      Once you call this method, then as far as trio is concerned the
-      :class:`~trio.Task` object no longer exists. You can hold onto a
-      reference to it as long as you like, but trio no longer has any
-      record of it.
-
-      :raises ValueError: If the given ``task`` is not in :attr:`zombies`.
-
-   .. method:: reap_and_unwrap(task)
-
-      A convenience shorthand for::
-
-         nursery.reap(task)
-         return task.result.unwrap()
 
 .. attribute:: STATUS_IGNORED
 
