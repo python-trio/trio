@@ -823,37 +823,47 @@ The default cleanup logic is often sufficient for simple cases, but
 what if you want a more sophisticated supervisor? For example, maybe
 you have `Erlang envy <http://learnyousomeerlang.com/supervisors>`__
 and want features like automatic restart of crashed tasks. Trio itself
-doesn't provide such a feature, but the nursery interface is designed
-to give you all the tools you need to build such a thing, while
-enforcing basic hygiene (e.g., it's not possible to build a supervisor
-that exits and leaves orphaned tasks behind). And then hopefully
-you'll wrap your fancy supervisor up in a library and put it on PyPI,
-because building custom supervisors is a challenging task that most
-people don't want to deal with!
+doesn't provide these kinds of features, but you can build them on
+top; Trio's goal is to enforce basic hygiene and then get out of your
+way. (Specifically: Trio won't let you build a supervisor that exits
+and leaves orphaned tasks behind, and if you have an unhandled
+exception due to bugs or laziness then Trio will make sure they
+propagate.) And then you can wrap your fancy supervisor up in a
+library and put it on PyPI, because supervisors are tricky and there's
+no reason everyone should have to write their own.
 
-For simple custom supervisors, it's often possible to lean on the
-default nursery logic to take care of annoying details. For example,
-here's a function that takes a list of functions, runs them all
-concurrently, and returns the result from the one that finishes
-first::
+For example, here's a function that takes a list of functions, runs
+them all concurrently, and returns the result from the one that
+finishes first::
+
+   # XX this example can be simplified a little after #136 is fixed in 0.3.0
 
    async def race(*async_fns):
        if not async_fns:
            raise ValueError("must pass at least one argument")
-       async with trio.open_nursery() as nursery:
-           for async_fn in async_fns:
-               nursery.start_soon(async_fn)
-           task_batch = await nursery.monitor.get_batch()
-           nursery.cancel_scope.cancel()
-           finished_task = task_batch[0]
-           return nursery.reap_and_unwrap(finished_task)
 
-This works by waiting until at least one task has finished, then
-cancelling all remaining tasks and returning the result from the first
-task. This implicitly invokes the default logic to take care of all
-the other tasks, so it blocks to wait for the cancellation to finish,
-and if any of them raise errors in the process it will propagate
-those.
+       async def racecar(results, async_fn, cancel_scope):
+           result = await async_fn()
+           results.append(result)
+           cancel_scope.cancel()
+
+       async with trio.open_nursery() as nursery:
+           results = []
+           cancel_scope = nursery.cancel_scope
+           for async_fn in async_fns:
+               nursery.start_soon(racecar, results, async_fn, cancel_scope)
+
+       return results[0]
+
+This works by starting a set of racecar tasks which each try to run
+their function, report back, and then cancel all the rest. Eventually
+one suceeds, all the tasks are cancelled and exit, and then our
+nursery exits and we return the winning value. And if one or more of
+them raises an unhandled exception then Trio's normal handling kicks
+in: it cancels the others and then propagates the exception. If you
+wanted different behavior, you could do that by adding a ``try`` block
+to the ``racecar`` function to catch exceptions and handle them
+however you like.
 
 
 Task-related API details
@@ -984,39 +994,19 @@ Task object API
    A :class:`Task` object represents a concurrent "thread" of
    execution.
 
-   .. attribute:: result
-
-      If this :class:`Task` is still running, then its :attr:`result`
-      attribute is ``None``. (This can be used to check whether a task
-      has finished running.)
-
-      Otherwise, this is a :class:`Result` object holding the value
-      returned or the exception raised by the async function that was
-      spawned to create this task.
-
-   The next three methods allow another task to monitor the result of
-   this task, even if it isn't supervising it:
-
-   .. automethod:: wait
-
-   .. automethod:: add_monitor
-
-   .. automethod:: discard_monitor
-
-   The remaining members are mostly useful for introspection and
+   Its public members are mostly useful for introspection and
    debugging:
 
    .. attribute:: name
 
-      String containing this :class:`Task`\'s name. Usually (but not
-      always) the name of the function this :class:`Task` is running.
+      String containing this :class:`Task`\'s name. Usually the name
+      of the function this :class:`Task` is running, but can be
+      overridden by passing ``name=`` to ``start`` or ``start_soon``.
 
    .. attribute:: coro
 
       This task's coroutine object. Example usage: extracting a stack
       trace.
-
-   .. autoattribute:: parent_task
 
    .. autoattribute:: parent_nursery
 
