@@ -128,7 +128,7 @@ async def test_child_crash_basic_deprecated(recwarn):
         nursery.reap(task)
 
 
-async def test_child_crash_basic_deprecated(recwarn):
+async def test_child_crash_basic(recwarn):
     exc = ValueError("uh oh")
 
     async def erroring():
