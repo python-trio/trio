@@ -2,8 +2,13 @@ import pytest
 
 import inspect
 import warnings
+from types import ModuleType
 
-from .._deprecate import TrioDeprecationWarning, warn_deprecated, deprecated, deprecated_alias
+from .._deprecate import (
+    TrioDeprecationWarning, warn_deprecated, deprecated, deprecated_alias
+)
+
+from . import module_with_deprecations
 
 
 @pytest.fixture
@@ -203,3 +208,44 @@ def test_deprecated_docstring_munging():
 .. deprecated:: 2.1
 
 """
+
+
+mod = ModuleType("mod")
+
+
+class SubMod(ModuleType):
+    pass
+
+
+try:
+    mod.__class__ = SubMod
+except TypeError:
+    have_class_assignment = False
+else:
+    have_class_assignment = True
+
+
+@pytest.mark.skipif(
+    not have_class_assignment, reason="need ModuleType.__class__ assignment"
+)
+def test_module_with_deprecations(recwarn_always):
+    assert module_with_deprecations.regular == "hi"
+    assert len(recwarn_always) == 0
+
+    filename, lineno = _here()  # https://github.com/google/yapf/issues/447
+    assert module_with_deprecations.dep1 == "value1"
+    got = recwarn_always.pop(TrioDeprecationWarning)
+    assert got.filename == filename
+    assert got.lineno == lineno + 1
+
+    assert "module_with_deprecations.dep1" in got.message.args[0]
+    assert "Trio 1.1" in got.message.args[0]
+    assert "/issues/1" in got.message.args[0]
+    assert "value1 instead" in got.message.args[0]
+
+    assert module_with_deprecations.dep2 == "value2"
+    got = recwarn_always.pop(TrioDeprecationWarning)
+    assert "instead-string instead" in got.message.args[0]
+
+    with pytest.raises(AttributeError):
+        module_with_deprecations.asdf
