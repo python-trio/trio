@@ -1052,25 +1052,6 @@ you return a new exception object, then the new object's
 exception.
 
 
-Result objects
-++++++++++++++
-
-.. autoclass:: Result
-   :members:
-
-.. autoclass:: Value
-   :members:
-
-.. autoclass:: Error
-   :members:
-
-.. note::
-
-   Since :class:`Result` objects are simple immutable data structures
-   that don't otherwise interact with the trio machinery, it's safe to
-   create and access :class:`Result` objects from any thread you like.
-
-
 Task-local storage
 ------------------
 

@@ -466,7 +466,7 @@ There are three notable sub-modules that are largely independent of
 the rest of trio, and could (possibly should?) be extracted into their
 own independent packages:
 
-* ``_result.py``: Defines :class:`Result`.
+* ``_result.py``: Defines :class:`~trio.hazmat.Result`.
 
 * ``_multierror.py``: Implements :class:`MultiError` and associated
   infrastructure.

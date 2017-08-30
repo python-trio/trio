@@ -826,7 +826,8 @@ class Runner:
     @_public
     @_hazmat
     def reschedule(self, task, next_send=Value(None)):
-        """Reschedule the given task with the given :class:`~trio.Result`.
+        """Reschedule the given task with the given
+        :class:`~trio.hazmat.Result`.
 
         See :func:`yield_indefinitely` for the gory details.
 
@@ -838,7 +839,7 @@ class Runner:
         Args:
           task (trio.hazmat.Task): the task to be rescheduled. Must be blocked
             in a call to :func:`yield_indefinitely`.
-          next_send (trio.Result): the value (or error) to return (or
+          next_send (trio.hazmat.Result): the value (or error) to return (or
             raise) from :func:`yield_indefinitely`.
 
         """

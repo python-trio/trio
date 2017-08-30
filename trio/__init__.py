@@ -86,6 +86,12 @@ __deprecated_attributes__ = {
         _deprecate.DeprecatedAttribute(
             hazmat.current_task, "0.2.0", issue=136
         ),
+    "Result":
+        _deprecate.DeprecatedAttribute(hazmat.Result, "0.2.0", issue=136),
+    "Value":
+        _deprecate.DeprecatedAttribute(hazmat.Value, "0.2.0", issue=136),
+    "Error":
+        _deprecate.DeprecatedAttribute(hazmat.Error, "0.2.0", issue=136),
     "run_in_worker_thread":
         _deprecate.DeprecatedAttribute(
             run_sync_in_worker_thread, "0.2.0", issue=68
