@@ -76,6 +76,11 @@ from . import abc
 from . import ssl
 # Not imported by default: testing
 
+# Stuff that got moved:
+@_deprecate.deprecated("0.2.0", instead="trio.hazmat.current_task", issue=136)
+def current_task():
+    return hazmat.current_task()
+
 # Having the public path in .__module__ attributes is important for:
 # - exception names in printed tracebacks
 # - sphinx :show-inheritance:

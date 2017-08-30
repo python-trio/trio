@@ -330,9 +330,9 @@ first to make sure that the whole thing is a checkpoint.
 Low-level blocking
 ------------------
 
+.. autofunction:: yield_indefinitely
 .. autoclass:: Abort
 .. autofunction:: reschedule
-.. autofunction:: yield_indefinitely
 
 Here's an example lock class implemented using
 :func:`yield_indefinitely` directly. This implementation has a number
@@ -364,3 +364,35 @@ this does serve to illustrate the basic structure of the
            if self._blocked_tasks:
                woken_task = self._blocked_tasks.popleft()
                trio.hazmat.reschedule(woken_task)
+
+
+Task API
+--------
+
+.. autofunction:: current_task()
+
+.. class:: Task()
+
+   A :class:`Task` object represents a concurrent "thread" of
+   execution. It has no public constructor; Trio internally creates a
+   :class:`Task` object for each call to ``nursery.start(...)`` or
+   ``nursery.start_soon(...)``.
+
+   Its public members are mostly useful for introspection and
+   debugging:
+
+   .. attribute:: name
+
+      String containing this :class:`Task`\'s name. Usually the name
+      of the function this :class:`Task` is running, but can be
+      overridden by passing ``name=`` to ``start`` or ``start_soon``.
+
+   .. attribute:: coro
+
+      This task's coroutine object. Example usage: extracting a stack
+      trace.
+
+   .. autoattribute:: parent_nursery
+
+   .. autoattribute:: child_nurseries
+

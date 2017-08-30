@@ -971,46 +971,17 @@ Nursery objects provide the following interface:
 
    .. attribute:: parent_task
 
-      The :class:`~trio.Task` that opened this nursery.
+      The :class:`~trio.hazmat.Task` that opened this nursery.
 
    .. attribute:: child_tasks
 
       A :class:`frozenset` containing all the child
-      :class:`~trio.Task` objects which are still running.
+      :class:`~trio.hazmat.Task` objects which are still running.
 
 
 .. attribute:: STATUS_IGNORED
 
    See :meth:`~The nursery interface.start`.
-
-
-Task object API
-+++++++++++++++
-
-.. autofunction:: current_task()
-
-.. class:: Task()
-
-   A :class:`Task` object represents a concurrent "thread" of
-   execution.
-
-   Its public members are mostly useful for introspection and
-   debugging:
-
-   .. attribute:: name
-
-      String containing this :class:`Task`\'s name. Usually the name
-      of the function this :class:`Task` is running, but can be
-      overridden by passing ``name=`` to ``start`` or ``start_soon``.
-
-   .. attribute:: coro
-
-      This task's coroutine object. Example usage: extracting a stack
-      trace.
-
-   .. autoattribute:: parent_nursery
-
-   .. autoattribute:: child_nurseries
 
 
 Working with :exc:`MultiError`\s
@@ -1613,8 +1584,8 @@ Debugging and instrumentation
 -----------------------------
 
 Trio tries hard to provide useful hooks for debugging and
-instrumentation. Some are documented above (:attr:`Task.name`,
-:meth:`Queue.statistics`, etc.). Here are some more:
+instrumentation. Some are documented above (the nursery introspection
+attributes, :meth:`Queue.statistics`, etc.). Here are some more:
 
 
 Global statistics

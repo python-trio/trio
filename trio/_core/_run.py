@@ -532,6 +532,7 @@ def _pending_cancel_scope(cancel_stack):
     return pending_scope
 
 
+@_hazmat
 @attr.s(slots=True, cmp=False, hash=False, repr=False)
 class Task:
     _parent_nursery = attr.ib()
@@ -835,10 +836,10 @@ class Runner:
         to calling :func:`reschedule` once.)
 
         Args:
-          task (trio.Task): the task to be rescheduled. Must be blocked in a
-            call to :func:`yield_indefinitely`.
-          next_send (trio.Result): the value (or error) to return (or raise)
-            from :func:`yield_indefinitely`.
+          task (trio.hazmat.Task): the task to be rescheduled. Must be blocked
+            in a call to :func:`yield_indefinitely`.
+          next_send (trio.Result): the value (or error) to return (or
+            raise) from :func:`yield_indefinitely`.
 
         """
         assert task._runner is self
@@ -1688,6 +1689,7 @@ class _StatusIgnored:
 STATUS_IGNORED = _StatusIgnored()
 
 
+@_hazmat
 def current_task():
     """Return the :class:`Task` object representing the current task.
 
