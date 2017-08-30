@@ -417,9 +417,9 @@ Specific style guidelines
   and the ``nowait`` version raises :exc:`trio.WouldBlock` if it would block.
 
 * The word ``monitor`` is used for APIs that involve an
-  :class:`UnboundedQueue` receiving some kind of events. (Examples:
-  nursery ``.monitor`` attribute, some of the low-level I/O functions in
-  :mod:`trio.hazmat`.)
+  :class:`trio.hazmat.UnboundedQueue` receiving some kind of events.
+  (Examples: nursery ``.monitor`` attribute, some of the low-level I/O
+  functions in :mod:`trio.hazmat`.)
 
 * ...we should, but currently don't, have a solid convention to
   distinguish between functions that take an async callable and those

@@ -14,6 +14,7 @@ class _UnboundedQueueStats:
     tasks_waiting = attr.ib()
 
 
+@_hazmat
 class UnboundedQueue:
     """An unbounded queue suitable for certain unusual forms of inter-task
     communication.
@@ -25,8 +26,8 @@ class UnboundedQueue:
     "batches". If a consumer task processes each batch without yielding, then
     this helps achieve (but does not guarantee) an effective bound on the
     queue's memory use, at the cost of potentially increasing system latencies
-    in general. You should generally prefer to use a :class:`Queue` instead if
-    you can.
+    in general. You should generally prefer to use a :class:`trio.Queue`
+    instead if you can.
 
     Currently each batch completely empties the queue, but `this may change in
     the future <https://github.com/python-trio/trio/issues/51>`__.
@@ -99,10 +100,10 @@ class UnboundedQueue:
         Returns:
           list: A list of dequeued items, in order. On a successful call this
               list is always non-empty; if it would be empty we raise
-              :exc:`WouldBlock` instead.
+              :exc:`~trio.WouldBlock` instead.
 
         Raises:
-          WouldBlock: if the queue is empty.
+          ~trio.WouldBlock: if the queue is empty.
 
         """
         if not self._can_get:

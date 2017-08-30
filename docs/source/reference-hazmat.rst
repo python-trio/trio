@@ -159,6 +159,36 @@ anything real. See `#26
    :with: queue
 
 
+Unbounded queues
+================
+
+In the section :ref:`queue`, we showed an example with two producers
+and one consumer using the same queue, where the queue size would grow
+without bound to produce unbounded latency and memory usage.
+:class:`trio.Queue` avoids this by placing an upper bound on how big
+the queue can get before ``put`` starts blocking. But what if you're
+in a situation where ``put`` can't block?
+
+There is another option: the queue consumer could get greedy. Each
+time it runs, it could eagerly consume all of the pending items before
+allowing another task to run. (In some other systems, this would
+happen automatically because their queue's ``get`` method doesn't
+invoke the scheduler unless it has to block. But :ref:`in trio, get is
+always a checkpoint <checkpoint-rule>`.) This works, but it's a bit
+risky: basically instead of applying backpressure to specifically the
+producer tasks, we're applying it to *all* the tasks in our system.
+The danger here is that if enough items have built up in the queue,
+then "stopping the world" to process them all may cause unacceptable
+latency spikes in unrelated tasks. Nonetheless, this is still the
+right choice in situations where it's impossible to apply backpressure
+more precisely. So this is the strategy implemented by
+:class:`UnboundedQueue`. The main time you should use this is when
+working with low-level APIs like :func:`monitor_kevent`.
+
+.. autoclass:: UnboundedQueue
+   :members:
+
+
 Global state: system tasks and run-local storage
 ================================================
 

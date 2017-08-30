@@ -808,8 +808,7 @@ class Queue:
     """A bounded queue suitable for inter-task communication.
 
     This class is generally modelled after :class:`queue.Queue`, but with the
-    major difference that it is always bounded. For an unbounded queue, see
-    :class:`trio.UnboundedQueue`.
+    major difference that it is always bounded.
 
     A :class:`Queue` object can be used as an asynchronous iterator, that
     dequeues objects one at a time. I.e., these two loops are equivalent::

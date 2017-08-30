@@ -1218,13 +1218,15 @@ Broadcasting an event with :class:`Event`
    :members:
 
 
-Passing messages with :class:`Queue` and :class:`UnboundedQueue`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. _queue:
 
-Trio provides two types of queues suitable for different
-purposes. Where they differ is in their strategies for handling flow
-control. Here's a toy example to demonstrate the problem. Suppose we
-have a queue with two producers and one consumer::
+Passing messages with :class:`Queue`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can use :class:`Queue` objects to safely pass objects between
+tasks. Trio :class:`Queue` objects always have a bounded size. Here's
+a toy example to demonstrate why this is important. Suppose we have a
+queue with two producers and one consumer::
 
    async def producer(queue):
        while True:
@@ -1235,9 +1237,9 @@ have a queue with two producers and one consumer::
            print(await queue.get())
 
    async def main():
-       # Trio's actual queue classes have countermeasures to prevent
-       # this example from working, so imagine we have some sort of
-       # platonic ideal of a queue here
+       # This example won't work with Trio's actual Queue class, so
+       # imagine we have some sort of platonic ideal of an unbounded
+       # queue here:
        queue = trio.HypotheticalQueue()
        async with trio.open_nursery() as nursery:
            # Two producers
@@ -1255,39 +1257,12 @@ we add two items to the queue but only remove one, then over time the
 queue size grows arbitrarily large, our latency is terrible, we run
 out of memory, it's just generally bad news all around.
 
-There are two potential strategies for avoiding this problem.
-
-The preferred solution is to apply *backpressure*. If our queue starts
-getting too big, then we can make the producers slow down by having
-``put`` block until ``get`` has had a chance to remove an item. This
-is the strategy used by :class:`trio.Queue`.
-
-The other possibility is for the queue consumer to get greedy: each
-time it runs, it could eagerly consume all of the pending items before
-allowing another task to run. (In some other systems, this would
-happen automatically because their queue's ``get`` method doesn't
-invoke the scheduler unless it has to block. But :ref:`in trio, get is
-always a checkpoint <checkpoint-rule>`.) This would work, but it's a
-bit risky: basically instead of applying backpressure to specifically
-the producer tasks, we're applying it to *all* the tasks in our
-system. The danger here is that if enough items have built up in the
-queue, then "stopping the world" to process them all may cause
-unacceptable latency spikes in unrelated tasks. Nonetheless, this is
-still the right choice in situations where it's impossible to apply
-backpressure more precisely. For example, when monitoring exiting
-tasks, blocking tasks from reporting their death doesn't really
-accomplish anything – the tasks are taking up memory either way,
-etc. (In this particular case it `might be possible to do better
-<https://github.com/python-trio/trio/issues/64>`__, but in general the
-principle holds.) So this is the strategy implemented by
-:class:`trio.UnboundedQueue`.
-
-tl;dr: use :class:`Queue` if you can.
+By placing an upper bound on our queue's size, we avoid this problem.
+If the queue gets too big, then it applies *backpressure*: ``put``
+blocks and forces the producers to slow down and wait until the
+consumer calls ``get``.
 
 .. autoclass:: Queue
-   :members:
-
-.. autoclass:: UnboundedQueue
    :members:
 
 
