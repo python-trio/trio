@@ -394,7 +394,6 @@ def real_socket_type(type_num):
     return type_num & _SOCK_TYPE_MASK
 
 
-@_add_to_all
 class _SocketType:
     def __init__(self, sock):
         if type(sock) is not _stdlib_socket.socket:
