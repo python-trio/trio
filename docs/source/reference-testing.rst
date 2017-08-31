@@ -206,8 +206,5 @@ intended for testing.
 Testing checkpoints
 --------------------
 
-.. autofunction:: assert_yields
-   :with:
-
-.. autofunction:: assert_no_yields
+.. autofunction:: assert_checkpoints
    :with:

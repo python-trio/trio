@@ -176,7 +176,7 @@ If you do want to be careful, or if you have some CPU-bound code that
 doesn't have enough checkpoints in it, then it's useful to know that
 ``await trio.sleep(0)`` is an idiomatic way to execute a checkpoint
 without doing anything else, and that
-:func:`trio.testing.assert_yields` can be used to test that an
+:func:`trio.testing.assert_checkpoints` can be used to test that an
 arbitrary block of code contains a checkpoint.
 
 

@@ -2,7 +2,7 @@ import pytest
 import time
 
 from .. import _core
-from ..testing import assert_yields
+from ..testing import assert_checkpoints
 from .._timeouts import *
 
 
@@ -36,7 +36,7 @@ async def test_sleep():
     with pytest.raises(ValueError):
         await sleep(-1)
 
-    with assert_yields():
+    with assert_checkpoints():
         await sleep(0)
     # This also serves as a test of the trivial move_on_at
     with move_on_at(_core.current_time()):

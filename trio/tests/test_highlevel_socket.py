@@ -6,7 +6,7 @@ import errno
 
 from .. import _core
 from ..testing import (
-    check_half_closeable_stream, wait_all_tasks_blocked, assert_yields
+    check_half_closeable_stream, wait_all_tasks_blocked, assert_checkpoints
 )
 from .._highlevel_generic import ClosedListenerError
 from .._highlevel_socket import *
@@ -117,19 +117,19 @@ async def test_SocketListener():
 
     client_sock = tsocket.socket()
     await client_sock.connect(listen_sock.getsockname())
-    with assert_yields():
+    with assert_checkpoints():
         server_stream = await listener.accept()
     assert isinstance(server_stream, SocketStream)
     assert server_stream.socket.getsockname() == listen_sock.getsockname()
     assert server_stream.socket.getpeername() == client_sock.getsockname()
 
-    with assert_yields():
+    with assert_checkpoints():
         await listener.aclose()
 
-    with assert_yields():
+    with assert_checkpoints():
         await listener.aclose()
 
-    with assert_yields():
+    with assert_checkpoints():
         with pytest.raises(ClosedListenerError):
             await listener.accept()
 
@@ -147,7 +147,7 @@ async def test_SocketListener_socket_closed_underfoot():
     listen_sock.close()
 
     # SocketListener gives correct error
-    with assert_yields():
+    with assert_checkpoints():
         with pytest.raises(ClosedListenerError):
             await listener.accept()
 
@@ -201,16 +201,16 @@ async def test_SocketListener_accept_errors():
 
     l = SocketListener(fake_listen_sock)
 
-    with assert_yields():
+    with assert_checkpoints():
         s = await l.accept()
         assert s.socket is fake_server_sock
 
     for code in [errno.EMFILE, errno.EFAULT, errno.ENOBUFS]:
-        with assert_yields():
+        with assert_checkpoints():
             with pytest.raises(OSError) as excinfo:
                 await l.accept()
             assert excinfo.value.errno == code
 
-    with assert_yields():
+    with assert_checkpoints():
         s = await l.accept()
         assert s.socket is fake_server_sock

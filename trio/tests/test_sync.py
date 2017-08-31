@@ -1,6 +1,6 @@
 import pytest
 
-from ..testing import wait_all_tasks_blocked, assert_yields
+from ..testing import wait_all_tasks_blocked, assert_checkpoints
 
 from .. import _core
 from .._timeouts import sleep_forever
@@ -14,7 +14,7 @@ async def test_Event():
 
     e.set()
     assert e.is_set()
-    with assert_yields():
+    with assert_checkpoints():
         await e.wait()
 
     e.clear()
@@ -65,13 +65,13 @@ async def test_CapacityLimiter():
     with pytest.raises(RuntimeError):
         c.acquire_nowait()
     assert c.borrowed_tokens == 1
-    with assert_yields():
+    with assert_checkpoints():
         with pytest.raises(RuntimeError):
             await c.acquire()
     assert c.borrowed_tokens == 1
 
     # We can acquire on behalf of someone else though
-    with assert_yields():
+    with assert_checkpoints():
         await c.acquire_on_behalf_of("someone")
 
     # But then we've run out of capacity
@@ -87,7 +87,7 @@ async def test_CapacityLimiter():
 
     c.release_on_behalf_of("someone")
     assert c.borrowed_tokens == 0
-    with assert_yields():
+    with assert_checkpoints():
         async with c:
             assert c.borrowed_tokens == 1
 
@@ -158,7 +158,7 @@ async def test_Semaphore():
     assert s.statistics().tasks_waiting == 0
     s.acquire_nowait()
     assert s.value == 1
-    with assert_yields():
+    with assert_checkpoints():
         await s.acquire()
     assert s.value == 0
     with pytest.raises(_core.WouldBlock):
@@ -166,7 +166,7 @@ async def test_Semaphore():
 
     s.release()
     assert s.value == 1
-    with assert_yields():
+    with assert_checkpoints():
         async with s:
             assert s.value == 0
     assert s.value == 1
@@ -218,7 +218,7 @@ async def test_Lock_and_StrictFIFOLock(lockcls):
     repr(l)  # smoke test
     # make sure repr uses the right name for subclasses
     assert lockcls.__name__ in repr(l)
-    with assert_yields():
+    with assert_checkpoints():
         async with l:
             assert l.locked()
             repr(l)  # smoke test (repr branches on locked/unlocked)
@@ -227,7 +227,7 @@ async def test_Lock_and_StrictFIFOLock(lockcls):
     assert l.locked()
     l.release()
     assert not l.locked()
-    with assert_yields():
+    with assert_checkpoints():
         await l.acquire()
     assert l.locked()
     l.release()
@@ -291,7 +291,7 @@ async def test_Condition():
     c = Condition(l)
     assert not l.locked()
     assert not c.locked()
-    with assert_yields():
+    with assert_checkpoints():
         await c.acquire()
     assert l.locked()
     assert c.locked()
@@ -386,7 +386,7 @@ async def test_Queue():
     assert not q.empty()
     assert not q.full()
 
-    with assert_yields():
+    with assert_checkpoints():
         await q.put(2)
     assert q.qsize() == 2
     with pytest.raises(_core.WouldBlock):
@@ -395,7 +395,7 @@ async def test_Queue():
     assert not q.empty()
     assert q.full()
 
-    with assert_yields():
+    with assert_checkpoints():
         assert await q.get() == 1
     assert q.get_nowait() == 2
     with pytest.raises(_core.WouldBlock):
@@ -405,7 +405,7 @@ async def test_Queue():
 
 async def test_Queue_join():
     q = Queue(2)
-    with assert_yields():
+    with assert_checkpoints():
         await q.join()
 
     record = []

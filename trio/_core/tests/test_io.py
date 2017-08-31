@@ -5,7 +5,7 @@ import select
 import random
 
 from ... import _core
-from ...testing import wait_all_tasks_blocked, Sequencer, assert_yields
+from ...testing import wait_all_tasks_blocked, Sequencer, assert_checkpoints
 
 # Cross-platform tests for IO handling
 
@@ -89,7 +89,7 @@ async def test_wait_basic(socketpair, wait_readable, wait_writable):
     a, b = socketpair
 
     # They start out writable()
-    with assert_yields():
+    with assert_checkpoints():
         await wait_writable(a)
 
     # But readable() blocks until data arrives
@@ -97,7 +97,7 @@ async def test_wait_basic(socketpair, wait_readable, wait_writable):
 
     async def block_on_read():
         try:
-            with assert_yields():
+            with assert_checkpoints():
                 await wait_readable(a)
         except _core.Cancelled:
             record.append("cancelled")
@@ -114,13 +114,13 @@ async def test_wait_basic(socketpair, wait_readable, wait_writable):
     fill_socket(a)
 
     # Now writable will block, but readable won't
-    with assert_yields():
+    with assert_checkpoints():
         await wait_readable(b)
     record = []
 
     async def block_on_write():
         try:
-            with assert_yields():
+            with assert_checkpoints():
                 await wait_writable(a)
         except _core.Cancelled:
             record.append("cancelled")
@@ -158,7 +158,7 @@ async def test_double_read(socketpair, wait_readable):
     async with _core.open_nursery() as nursery:
         nursery.start_soon(wait_readable, a)
         await wait_all_tasks_blocked()
-        with assert_yields():
+        with assert_checkpoints():
             with pytest.raises(_core.ResourceBusyError):
                 await wait_readable(a)
         nursery.cancel_scope.cancel()
@@ -173,7 +173,7 @@ async def test_double_write(socketpair, wait_writable):
     async with _core.open_nursery() as nursery:
         nursery.start_soon(wait_writable, a)
         await wait_all_tasks_blocked()
-        with assert_yields():
+        with assert_checkpoints():
             with pytest.raises(_core.ResourceBusyError):
                 await wait_writable(a)
         nursery.cancel_scope.cancel()
@@ -232,7 +232,7 @@ async def test_socket_actual_streaming(
             print("sent", sent)
             chunk = bytearray(r.randrange(MAX_CHUNK))
             while chunk:
-                with assert_yields():
+                with assert_checkpoints():
                     await wait_writable(sock)
                 this_chunk_size = sock.send(chunk)
                 sent += this_chunk_size
@@ -244,7 +244,7 @@ async def test_socket_actual_streaming(
         received = 0
         while True:
             print("received", received)
-            with assert_yields():
+            with assert_checkpoints():
                 await wait_readable(sock)
             this_chunk_size = len(sock.recv(MAX_CHUNK))
             if not this_chunk_size:

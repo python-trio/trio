@@ -8,7 +8,7 @@ from .._highlevel_generic import (
     BrokenStreamError, ClosedStreamError, aclose_forcefully
 )
 from .._abc import SendStream, ReceiveStream, Stream, HalfCloseableStream
-from ._checkpoints import assert_yields
+from ._checkpoints import assert_checkpoints
 
 __all__ = [
     "check_one_way_stream",
@@ -66,18 +66,18 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
         assert isinstance(r, ReceiveStream)
 
         async def do_send_all(data):
-            with assert_yields():
+            with assert_checkpoints():
                 assert await s.send_all(data) is None
 
         async def do_receive_some(max_bytes):
-            with assert_yields():
+            with assert_checkpoints():
                 return await r.receive_some(1)
 
         async def checked_receive_1(expected):
             assert await do_receive_some(1) == expected
 
         async def do_aclose(resource):
-            with assert_yields():
+            with assert_checkpoints():
                 await resource.aclose()
 
         # Simple sending/receiving
@@ -125,7 +125,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
         # stream doesn't *have* to have any internal buffering. That's why we
         # start a concurrent receive_some call, then cancel it.)
         async def simple_check_wait_send_all_might_not_block(scope):
-            with assert_yields():
+            with assert_checkpoints():
                 await s.wait_send_all_might_not_block()
             scope.cancel()
 
@@ -168,7 +168,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
 
         # ditto for wait_send_all_might_not_block
         with _assert_raises(ClosedStreamError):
-            with assert_yields():
+            with assert_checkpoints():
                 await s.wait_send_all_might_not_block()
 
         # and again, repeated closing is fine
@@ -266,7 +266,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
 
             async def waiter(cancel_scope):
                 record.append("waiter sleeping")
-                with assert_yields():
+                with assert_checkpoints():
                     await s.wait_send_all_might_not_block()
                 record.append("waiter wokeup")
                 cancel_scope.cancel()
@@ -317,7 +317,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
             async def sender():
                 try:
-                    with assert_yields():
+                    with assert_checkpoints():
                         await s.wait_send_all_might_not_block()
                 except BrokenStreamError:
                     pass
@@ -334,7 +334,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
             await aclose_forcefully(r)
             try:
-                with assert_yields():
+                with assert_checkpoints():
                     await s.wait_send_all_might_not_block()
             except BrokenStreamError:
                 pass
@@ -433,7 +433,7 @@ async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
 
         async def send_x_then_eof(s):
             await s.send_all(b"x")
-            with assert_yields():
+            with assert_checkpoints():
                 await s.send_eof()
 
         async def expect_x_then_eof(r):
@@ -450,7 +450,7 @@ async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
             await s1.send_all(b"y")
 
         # but we can do send_eof again
-        with assert_yields():
+        with assert_checkpoints():
             await s1.send_eof()
 
         # and we can still send stuff back the other way

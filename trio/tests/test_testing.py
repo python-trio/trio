@@ -133,14 +133,30 @@ async def test_wait_all_tasks_blocked_with_tiebreaker():
 ################################################################
 
 
-async def test_assert_yields():
-    with assert_yields():
+async def test_assert_checkpoints(recwarn):
+    with assert_checkpoints():
         await _core.checkpoint()
 
     with pytest.raises(AssertionError):
-        with assert_yields():
+        with assert_checkpoints():
             1 + 1
 
+    # partial yield cases
+    # if you have a schedule point but not a cancel point, or vice-versa, then
+    # that's not a checkpoint.
+    for partial_yield in [_core.yield_if_cancelled,
+                          _core.yield_briefly_no_cancel]:
+        print(partial_yield)
+        with pytest.raises(AssertionError):
+            with assert_checkpoints():
+                await partial_yield()
+
+    # But both together count as a checkpoint
+    with assert_checkpoints():
+        await _core.yield_if_cancelled()
+        await _core.yield_briefly_no_cancel()
+
+async def test_assert_no_yields(recwarn):
     with assert_no_yields():
         1 + 1
 
@@ -153,20 +169,16 @@ async def test_assert_yields():
     # that doesn't make *either* version of assert_{no_,}yields happy.
     for partial_yield in [_core.yield_if_cancelled,
                           _core.yield_briefly_no_cancel]:
-        for block in [assert_yields, assert_no_yields]:
-            print(partial_yield, block)
-            with pytest.raises(AssertionError):
-                with block():
-                    await partial_yield()
+        print(partial_yield)
+        with pytest.raises(AssertionError):
+            with assert_no_yields():
+                await partial_yield()
 
-    # But both together count as a checkpoint
-    with assert_yields():
-        await _core.yield_if_cancelled()
-        await _core.checkpoint()
+    # And both together also count as a checkpoint
     with pytest.raises(AssertionError):
         with assert_no_yields():
             await _core.yield_if_cancelled()
-            await _core.checkpoint()
+            await _core.yield_briefly_no_cancel()
 
 
 ################################################################
@@ -431,13 +443,13 @@ async def test__UnboundeByteQueue():
         ubq.put("string")
 
     ubq.put(b"abc")
-    with assert_yields():
+    with assert_checkpoints():
         assert await ubq.get(10) == b"abc"
     ubq.put(b"def")
     ubq.put(b"ghi")
-    with assert_yields():
+    with assert_checkpoints():
         assert await ubq.get(1) == b"d"
-    with assert_yields():
+    with assert_checkpoints():
         assert await ubq.get() == b"efghi"
 
     async def putter(data):
@@ -445,7 +457,7 @@ async def test__UnboundeByteQueue():
         ubq.put(data)
 
     async def getter(expect):
-        with assert_yields():
+        with assert_checkpoints():
             assert await ubq.get() == expect
 
     async with _core.open_nursery() as nursery:
@@ -488,14 +500,14 @@ async def test_MemorySendStream():
     mss = MemorySendStream()
 
     async def do_send_all(data):
-        with assert_yields():
+        with assert_checkpoints():
             await mss.send_all(data)
 
     await do_send_all(b"123")
     assert mss.get_data_nowait(1) == b"1"
     assert mss.get_data_nowait() == b"23"
 
-    with assert_yields():
+    with assert_checkpoints():
         await mss.wait_send_all_might_not_block()
 
     with pytest.raises(_core.WouldBlock):
@@ -504,7 +516,7 @@ async def test_MemorySendStream():
         mss.get_data_nowait(10)
 
     await do_send_all(b"456")
-    with assert_yields():
+    with assert_checkpoints():
         assert await mss.get_data() == b"456"
 
     with pytest.raises(_core.ResourceBusyError):
@@ -512,7 +524,7 @@ async def test_MemorySendStream():
             nursery.start_soon(do_send_all, b"xxx")
             nursery.start_soon(do_send_all, b"xxx")
 
-    with assert_yields():
+    with assert_checkpoints():
         await mss.aclose()
 
     assert await mss.get_data() == b"xxx"
@@ -566,7 +578,7 @@ async def test_MemoryRecieveStream():
     mrs = MemoryReceiveStream()
 
     async def do_receive_some(max_bytes):
-        with assert_yields():
+        with assert_checkpoints():
             return await mrs.receive_some(max_bytes)
 
     mrs.put_data(b"abc")
@@ -615,7 +627,7 @@ async def test_MemoryRecieveStream():
     assert await mrs2.receive_some(10) == b"zzz"
 
     mrs2.put_data(b"lost on close")
-    with assert_yields():
+    with assert_checkpoints():
         await mrs2.aclose()
     assert record == ["closed"]
 

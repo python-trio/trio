@@ -8,7 +8,7 @@ from async_generator import async_generator, yield_
 
 from .._util import *
 from .. import _core
-from ..testing import wait_all_tasks_blocked, assert_yields
+from ..testing import wait_all_tasks_blocked, assert_checkpoints
 
 
 def test_signal_raise():
@@ -30,13 +30,13 @@ async def test_ConflictDetector():
     ul2 = ConflictDetector("ul2")
 
     async with ul1:
-        with assert_yields():
+        with assert_checkpoints():
             async with ul2:
                 print("ok")
 
     with pytest.raises(_core.ResourceBusyError) as excinfo:
         async with ul1:
-            with assert_yields():
+            with assert_checkpoints():
                 async with ul1:
                     pass  # pragma: no cover
     assert "ul1" in str(excinfo.value)
@@ -54,7 +54,7 @@ async def test_ConflictDetector():
     # mixing sync and async entry
     with pytest.raises(_core.ResourceBusyError) as excinfo:
         with ul1.sync:
-            with assert_yields():
+            with assert_checkpoints():
                 async with ul1:
                     pass  # pragma: no cover
     assert "ul1" in str(excinfo.value)

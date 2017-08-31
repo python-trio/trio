@@ -15,7 +15,7 @@ from .tutil import check_sequence_matches, gc_collect_harder
 from ...testing import (
     wait_all_tasks_blocked,
     Sequencer,
-    assert_yields,
+    assert_checkpoints,
 )
 from ..._timeouts import sleep
 
@@ -1690,14 +1690,14 @@ def test_calling_asyncio_function_gives_nice_error():
 
 
 async def test_trivial_yields(recwarn):
-    with assert_yields():
+    with assert_checkpoints():
         await _core.checkpoint()
 
-    with assert_yields():
+    with assert_checkpoints():
         await _core.yield_if_cancelled()
         await _core.yield_briefly_no_cancel()
 
-    with assert_yields():
+    with assert_checkpoints():
         async with _core.open_nursery():
             pass
 
@@ -1717,7 +1717,7 @@ async def test_trivial_yields(recwarn):
     async with _core.open_nursery() as nursery:
         t = nursery.spawn(trivial)
     assert t.result is not None
-    with assert_yields():
+    with assert_checkpoints():
         await t.wait()
 
 

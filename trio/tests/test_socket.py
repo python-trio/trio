@@ -7,7 +7,7 @@ import inspect
 from .. import _core
 from .. import socket as tsocket
 from .._socket import _NUMERIC_ONLY, _try_sync, _SocketType
-from ..testing import assert_yields, wait_all_tasks_blocked
+from ..testing import assert_checkpoints, wait_all_tasks_blocked
 
 ################################################################
 # utils
@@ -53,11 +53,11 @@ def monkeygai(monkeypatch):
 
 
 async def test__try_sync():
-    with assert_yields():
+    with assert_checkpoints():
         async with _try_sync():
             pass
 
-    with assert_yields():
+    with assert_checkpoints():
         with pytest.raises(KeyError):
             async with _try_sync():
                 raise KeyError
@@ -71,7 +71,7 @@ async def test__try_sync():
     async with _try_sync(_is_ValueError):
         raise ValueError
 
-    with assert_yields():
+    with assert_checkpoints():
         with pytest.raises(BlockingIOError):
             async with _try_sync(_is_ValueError):
                 raise BlockingIOError
@@ -104,7 +104,7 @@ async def test_getaddrinfo(monkeygai):
         assert got == expected or got == expected2
 
     # Simple non-blocking non-error cases, ipv4 and ipv6:
-    with assert_yields():
+    with assert_checkpoints():
         res = await tsocket.getaddrinfo(
             "127.0.0.1", "12345", type=tsocket.SOCK_STREAM
         )
@@ -117,7 +117,7 @@ async def test_getaddrinfo(monkeygai):
          ("127.0.0.1", 12345)),
     ])  # yapf: disable
 
-    with assert_yields():
+    with assert_checkpoints():
         res = await tsocket.getaddrinfo(
             "::1", "12345", type=tsocket.SOCK_DGRAM
         )
@@ -130,13 +130,13 @@ async def test_getaddrinfo(monkeygai):
     ])  # yapf: disable
 
     monkeygai.set("x", b"host", "port", family=0, type=0, proto=0, flags=0)
-    with assert_yields():
+    with assert_checkpoints():
         res = await tsocket.getaddrinfo("host", "port")
     assert res == "x"
     assert monkeygai.record[-1] == (b"host", "port", 0, 0, 0, 0)
 
     # check raising an error from a non-blocking getaddrinfo
-    with assert_yields():
+    with assert_checkpoints():
         with pytest.raises(tsocket.gaierror) as excinfo:
             await tsocket.getaddrinfo("::1", "12345", type=-1)
     # Linux, Windows
@@ -149,7 +149,7 @@ async def test_getaddrinfo(monkeygai):
     # check raising an error from a blocking getaddrinfo (exploits the fact
     # that monkeygai raises if it gets a non-numeric request it hasn't been
     # given an answer for)
-    with assert_yields():
+    with assert_checkpoints():
         with pytest.raises(RuntimeError):
             await tsocket.getaddrinfo("asdf", "12345")
 
@@ -157,16 +157,16 @@ async def test_getaddrinfo(monkeygai):
 async def test_getnameinfo():
     # Trivial test:
     ni_numeric = stdlib_socket.NI_NUMERICHOST | stdlib_socket.NI_NUMERICSERV
-    with assert_yields():
+    with assert_checkpoints():
         got = await tsocket.getnameinfo(("127.0.0.1", 1234), ni_numeric)
     assert got == ("127.0.0.1", "1234")
 
     # getnameinfo requires a numeric address as input:
-    with assert_yields():
+    with assert_checkpoints():
         with pytest.raises(tsocket.gaierror):
             await tsocket.getnameinfo(("google.com", 80), 0)
 
-    with assert_yields():
+    with assert_checkpoints():
         with pytest.raises(tsocket.gaierror):
             await tsocket.getnameinfo(("localhost", 80), 0)
 
@@ -378,19 +378,19 @@ async def test_SocketType_simple_server(address, socket_type):
 
 async def test_SocketType_resolve():
     sock4 = tsocket.socket(family=tsocket.AF_INET)
-    with assert_yields():
+    with assert_checkpoints():
         got = await sock4.resolve_local_address((None, 80))
     assert got == ("0.0.0.0", 80)
-    with assert_yields():
+    with assert_checkpoints():
         got = await sock4.resolve_remote_address((None, 80))
     assert got == ("127.0.0.1", 80)
 
     sock6 = tsocket.socket(family=tsocket.AF_INET6)
-    with assert_yields():
+    with assert_checkpoints():
         got = await sock6.resolve_local_address((None, 80))
     assert got == ("::", 80, 0, 0)
 
-    with assert_yields():
+    with assert_checkpoints():
         got = await sock6.resolve_remote_address((None, 80))
     assert got == ("::1", 80, 0, 0)
 
@@ -399,11 +399,11 @@ async def test_SocketType_resolve():
     for res in ["resolve_local_address", "resolve_remote_address"]:
 
         async def s4res(*args):
-            with assert_yields():
+            with assert_checkpoints():
                 return await getattr(sock4, res)(*args)
 
         async def s6res(*args):
-            with assert_yields():
+            with assert_checkpoints():
                 return await getattr(sock6, res)(*args)
 
         assert await s4res(("1.2.3.4", "http")) == ("1.2.3.4", 80)
@@ -481,20 +481,20 @@ async def test_SocketType_non_blocking_paths():
         b.send(b"1")
         with _core.open_cancel_scope() as cscope:
             cscope.cancel()
-            with assert_yields():
+            with assert_checkpoints():
                 with pytest.raises(_core.Cancelled):
                     await ta.recv(10)
         # immedate success (also checks that the previous attempt didn't
         # actually read anything)
-        with assert_yields():
+        with assert_checkpoints():
             await ta.recv(10) == b"1"
         # immediate failure
-        with assert_yields():
+        with assert_checkpoints():
             with pytest.raises(TypeError):
                 await ta.recv("haha")
         # block then succeed
         async def do_successful_blocking_recv():
-            with assert_yields():
+            with assert_checkpoints():
                 assert await ta.recv(10) == b"2"
 
         async with _core.open_nursery() as nursery:
@@ -503,7 +503,7 @@ async def test_SocketType_non_blocking_paths():
             b.send(b"2")
         # block then cancelled
         async def do_cancelled_blocking_recv():
-            with assert_yields():
+            with assert_checkpoints():
                 with pytest.raises(_core.Cancelled):
                     await ta.recv(10)
 
@@ -521,15 +521,15 @@ async def test_SocketType_non_blocking_paths():
         tb = tsocket.from_stdlib_socket(b)
 
         async def t1():
-            with assert_yields():
+            with assert_checkpoints():
                 assert await ta.recv(1) == b"a"
-            with assert_yields():
+            with assert_checkpoints():
                 assert await tb.recv(1) == b"b"
 
         async def t2():
-            with assert_yields():
+            with assert_checkpoints():
                 assert await tb.recv(1) == b"b"
-            with assert_yields():
+            with assert_checkpoints():
                 assert await ta.recv(1) == b"a"
 
         async with _core.open_nursery() as nursery:
@@ -546,14 +546,14 @@ async def test_SocketType_non_blocking_paths():
 # This tests the complicated paths through connect
 async def test_SocketType_connect_paths():
     with tsocket.socket() as sock:
-        with assert_yields():
+        with assert_checkpoints():
             with pytest.raises(ValueError):
                 # Should be a tuple
                 await sock.connect("localhost")
 
     # cancelled before we start
     with tsocket.socket() as sock:
-        with assert_yields():
+        with assert_checkpoints():
             with _core.open_cancel_scope() as cancel_scope:
                 cancel_scope.cancel()
                 with pytest.raises(_core.Cancelled):
@@ -581,14 +581,14 @@ async def test_SocketType_connect_paths():
             sock._sock.close()
             sock._sock = CancelSocket()
 
-            with assert_yields():
+            with assert_checkpoints():
                 with pytest.raises(_core.Cancelled):
                     await sock.connect(listener.getsockname())
             assert sock.fileno() == -1
 
     # Failed connect (hopefully after raising BlockingIOError)
     with tsocket.socket() as sock:
-        with assert_yields():
+        with assert_checkpoints():
             with pytest.raises(OSError):
                 # TCP port 2 is not assigned. Pretty sure nothing will be
                 # listening there. (We used to bind a port and then *not* call

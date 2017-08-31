@@ -25,6 +25,21 @@ __all__ += _memory_streams.__all__
 from ._network import *
 __all__ += _network.__all__
 
+################################################################
+
+from .. import _deprecate
+
+_deprecate.enable_attribute_deprecations(__name__)
+
+__deprecated_attributes__ = {
+    "assert_yields":
+        _deprecate.DeprecatedAttribute(assert_checkpoints, "0.2.0", issue=157),
+}
+
+del _deprecate
+
+################################################################
+
 from .._util import fixup_module_metadata
 fixup_module_metadata(__name__, globals())
 del fixup_module_metadata
