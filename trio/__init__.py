@@ -102,6 +102,13 @@ __deprecated_attributes__ = {
         ),
 }
 
+_deprecate.enable_attribute_deprecations(hazmat.__name__)
+
+hazmat.__deprecated_attributes__ = {
+    "yield_briefly":
+        _deprecate.DeprecatedAttribute(hazmat.checkpoint, "0.2.0", issue=157),
+}
+
 # Having the public path in .__module__ attributes is important for:
 # - exception names in printed tracebacks
 # - sphinx :show-inheritance:

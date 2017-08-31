@@ -58,7 +58,7 @@ class Event:
 
         """
         if self._flag:
-            await _core.yield_briefly()
+            await _core.checkpoint()
         else:
             await self._lot.park()
 
@@ -956,7 +956,7 @@ class Queue:
 
         """
         if self._unprocessed == 0:
-            await _core.yield_briefly()
+            await _core.checkpoint()
         else:
             await self._join_lot.park()
 

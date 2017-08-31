@@ -597,7 +597,7 @@ class SSLStream(Stream):
         try:
             self._check_status()
         except:
-            await _core.yield_briefly()
+            await _core.checkpoint()
             raise
         await self._handshook.ensure(checkpoint=True)
 
@@ -670,7 +670,7 @@ class SSLStream(Stream):
             # SSLObject interprets write(b"") as an EOF for some reason, which
             # is not what we want.
             if not data:
-                await _core.yield_briefly()
+                await _core.checkpoint()
                 return
             await self._retry(self._ssl_object.write, data)
 
@@ -714,7 +714,7 @@ class SSLStream(Stream):
 
         """
         if self._state is _State.CLOSED:
-            await _core.yield_briefly()
+            await _core.checkpoint()
             return
         if self._state is _State.BROKEN or self._https_compatible:
             self._state = _State.CLOSED

@@ -8,7 +8,7 @@ import async_generator
 
 # There's a dependency loop here... _core is allowed to use this file (in fact
 # it's the *only* file in the main trio/ package it's allowed to use), but
-# ConflictDetector needs yield_briefly so it also has to import
+# ConflictDetector needs checkpoint so it also has to import
 # _core. Possibly we should split this file into two: one for true generic
 # low-level utility code, and one for higher level helpers?
 from . import _core
@@ -214,7 +214,7 @@ class ConflictDetector:
         self.sync = _ConflictDetectorSync(msg)
 
     async def __aenter__(self):
-        await _core.yield_briefly()
+        await _core.checkpoint()
         return self.sync.__enter__()
 
     async def __aexit__(self, *args):

@@ -102,7 +102,7 @@ class SocketStream(HalfCloseableStream):
 
     async def send_all(self, data):
         if self.socket.did_shutdown_SHUT_WR:
-            await _core.yield_briefly()
+            await _core.checkpoint()
             raise ClosedStreamError("can't send data after sending EOF")
         with self._send_conflict_detector.sync:
             with _translate_socket_errors_to_stream_errors():
@@ -126,14 +126,14 @@ class SocketStream(HalfCloseableStream):
 
     async def receive_some(self, max_bytes):
         if max_bytes < 1:
-            await _core.yield_briefly()
+            await _core.checkpoint()
             raise ValueError("max_bytes must be >= 1")
         with _translate_socket_errors_to_stream_errors():
             return await self.socket.recv(max_bytes)
 
     async def aclose(self):
         self.socket.close()
-        await _core.yield_briefly()
+        await _core.checkpoint()
 
     # __aenter__, __aexit__ inherited from HalfCloseableStream are OK
 
@@ -381,4 +381,4 @@ class SocketListener(Listener):
         try:
             self.socket.close()
         finally:
-            await _core.yield_briefly()
+            await _core.checkpoint()

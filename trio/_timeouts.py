@@ -80,7 +80,7 @@ async def sleep(seconds):
     if seconds < 0:
         raise ValueError("duration must be non-negative")
     if seconds == 0:
-        await _core.yield_briefly()
+        await _core.checkpoint()
     else:
         await sleep_until(_core.current_time() + seconds)
 

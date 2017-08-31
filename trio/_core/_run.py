@@ -43,7 +43,7 @@ from . import _public, _hazmat
 # __all__. These are all re-exported as part of the 'trio' or 'trio.hazmat'
 # namespaces.
 __all__ = [
-    "Task", "run", "open_nursery", "open_cancel_scope", "yield_briefly",
+    "Task", "run", "open_nursery", "open_cancel_scope", "checkpoint",
     "current_task", "current_effective_deadline", "yield_if_cancelled",
     "STATUS_IGNORED"
 ]
@@ -454,7 +454,7 @@ class Nursery:
         with open_cancel_scope() as clean_up_scope:
             if not self._children and not self._zombies:
                 try:
-                    await _core.yield_briefly()
+                    await _core.checkpoint()
                 except BaseException as exc:
                     exceptions.append(exc)
             while self._children or self._zombies or self._pending_starts:
@@ -1217,7 +1217,7 @@ class Runner:
                         and not self.call_soon_idempotent_queue):
                     await self.call_soon_wakeup.wait_woken()
                 else:
-                    await yield_briefly()
+                    await checkpoint()
         except Cancelled:
             # Keep the work done with this lock held as minimal as possible,
             # because it doesn't protect us against concurrent signal delivery
@@ -1741,7 +1741,7 @@ def current_effective_deadline():
 
 
 @_hazmat
-async def yield_briefly():
+async def checkpoint():
     """A pure :ref:`checkpoint <checkpoints>`.
 
     This checks for cancellation and allows other tasks to be scheduled,
@@ -1752,7 +1752,7 @@ async def yield_briefly():
     efficiency).
 
     Equivalent to ``await trio.sleep(0)`` (which is implemented by calling
-    :func:`yield_briefly`.)
+    :func:`checkpoint`.)
 
     """
     with open_cancel_scope(deadline=-inf) as scope:
@@ -1770,7 +1770,7 @@ async def yield_if_cancelled():
     task = current_task()
     if (task._pending_cancel_scope() is not None or
         (task is task._runner.main_task and task._runner.ki_pending)):
-        await _core.yield_briefly()
+        await _core.checkpoint()
         assert False  # pragma: no cover
     task._cancel_points += 1
 

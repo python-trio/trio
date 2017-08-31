@@ -202,13 +202,13 @@ class PyOpenSSLEchoStream:
 
     async def wait_send_all_might_not_block(self):
         async with self._send_all_conflict_detector:
-            await _core.yield_briefly()
+            await _core.checkpoint()
             await self.sleeper("wait_send_all_might_not_block")
 
     async def send_all(self, data):
         print("  --> transport_stream.send_all")
         async with self._send_all_conflict_detector:
-            await _core.yield_briefly()
+            await _core.checkpoint()
             await self.sleeper("send_all")
             self._conn.bio_write(data)
             while True:
@@ -231,7 +231,7 @@ class PyOpenSSLEchoStream:
         print("  --> transport_stream.receive_some")
         async with self._receive_some_conflict_detector:
             try:
-                await _core.yield_briefly()
+                await _core.checkpoint()
                 while True:
                     await self.sleeper("receive_some")
                     try:

@@ -64,7 +64,7 @@ def test_basic():
         _core.run(lambda: None)
 
     async def trivial2(x):
-        await _core.yield_briefly()
+        await _core.checkpoint()
         return x
 
     assert _core.run(trivial2, 1) == 1
@@ -163,7 +163,7 @@ async def test_basic_interleave():
     async def looper(whoami, record):
         for i in range(3):
             record.append((whoami, i))
-            await _core.yield_briefly()
+            await _core.checkpoint()
 
     record = []
     async with _core.open_nursery() as nursery:
@@ -183,7 +183,7 @@ def test_task_crash_propagation():
         try:
             while True:
                 print("looper sleeping")
-                await _core.yield_briefly()
+                await _core.checkpoint()
                 print("looper woke up")
         except _core.Cancelled:
             print("looper cancelled")
@@ -269,7 +269,7 @@ async def test_reschedule():
     async with _core.open_nursery() as nursery:
         nursery.start_soon(child1)
         # let t1 run and fall asleep
-        await _core.yield_briefly()
+        await _core.checkpoint()
         nursery.start_soon(child2)
 
 
@@ -409,8 +409,8 @@ async def test_current_statistics(mock_clock):
         assert stats.tasks_runnable == 1
 
     # Give the child a chance to die and the call_soon a chance to clear
-    await _core.yield_briefly()
-    await _core.yield_briefly()
+    await _core.checkpoint()
+    await _core.checkpoint()
 
     with _core.open_cancel_scope(deadline=_core.current_time() + 5) as scope:
         stats = _core.current_statistics()
@@ -457,13 +457,13 @@ def test_instruments_deprecated(recwarn):
 
     async def main():
         for _ in range(4):
-            await _core.yield_briefly()
+            await _core.checkpoint()
         cp = _core.current_instruments()
         assert cp == [r1, r2]
         # replace r2 with r3, to test that we can manipulate them as we go
         cp[1] = r3
         for _ in range(1):
-            await _core.yield_briefly()
+            await _core.checkpoint()
         return _core.current_task()
 
     task = _core.run(main, instruments=[r1, r2])
@@ -488,7 +488,7 @@ def test_instruments(recwarn):
 
     async def main():
         for _ in range(4):
-            await _core.yield_briefly()
+            await _core.checkpoint()
         # replace r2 with r3, to test that we can manipulate them as we go
         _core.remove_instrument(r2)
         with pytest.raises(KeyError):
@@ -497,7 +497,7 @@ def test_instruments(recwarn):
         _core.add_instrument(r3)
         _core.add_instrument(r3)
         for _ in range(1):
-            await _core.yield_briefly()
+            await _core.checkpoint()
         return _core.current_task()
 
     task = _core.run(main, instruments=[r1, r2])
@@ -520,11 +520,11 @@ def test_instruments_interleave():
 
     async def two_step1():
         tasks["t1"] = _core.current_task()
-        await _core.yield_briefly()
+        await _core.checkpoint()
 
     async def two_step2():
         tasks["t2"] = _core.current_task()
-        await _core.yield_briefly()
+        await _core.checkpoint()
 
     async def main():
         async with _core.open_nursery() as nursery:
@@ -564,7 +564,7 @@ def test_null_instrument():
         pass
 
     async def main():
-        await _core.yield_briefly()
+        await _core.checkpoint()
 
     _core.run(main, instruments=[NullInstrument()])
 
@@ -648,10 +648,10 @@ def test_cancel_points():
 
     async def main2():
         with _core.open_cancel_scope() as scope:
-            await _core.yield_briefly()
+            await _core.checkpoint()
             scope.cancel()
             with pytest.raises(_core.Cancelled):
-                await _core.yield_briefly()
+                await _core.checkpoint()
 
     _core.run(main2)
 
@@ -669,7 +669,7 @@ def test_cancel_points():
             await _core.yield_briefly_no_cancel()
             await _core.yield_briefly_no_cancel()
             with pytest.raises(_core.Cancelled):
-                await _core.yield_briefly()
+                await _core.checkpoint()
 
     _core.run(main4)
 
@@ -679,7 +679,7 @@ async def test_cancel_edge_cases():
         # Two cancels in a row -- idempotent
         scope.cancel()
         scope.cancel()
-        await _core.yield_briefly()
+        await _core.checkpoint()
     assert scope.cancel_called
     assert scope.cancelled_caught
 
@@ -753,10 +753,10 @@ async def test_precancelled_task():
 async def test_cancel_shielding():
     with _core.open_cancel_scope() as outer:
         with _core.open_cancel_scope() as inner:
-            await _core.yield_briefly()
+            await _core.checkpoint()
             outer.cancel()
             with pytest.raises(_core.Cancelled):
-                await _core.yield_briefly()
+                await _core.checkpoint()
 
             assert inner.shield is False
             with pytest.raises(TypeError):
@@ -766,27 +766,27 @@ async def test_cancel_shielding():
             inner.shield = True
             assert inner.shield is True
             # shield protects us from 'outer'
-            await _core.yield_briefly()
+            await _core.checkpoint()
 
             with _core.open_cancel_scope() as innerest:
                 innerest.cancel()
                 # but it doesn't protect us from scope inside inner
                 with pytest.raises(_core.Cancelled):
-                    await _core.yield_briefly()
-            await _core.yield_briefly()
+                    await _core.checkpoint()
+            await _core.checkpoint()
 
             inner.shield = False
             # can disable shield again
             with pytest.raises(_core.Cancelled):
-                await _core.yield_briefly()
+                await _core.checkpoint()
 
             # re-enable shield
             inner.shield = True
-            await _core.yield_briefly()
+            await _core.checkpoint()
             # shield doesn't protect us from inner itself
             inner.cancel()
             # This should now raise, but be absorbed by the inner scope
-            await _core.yield_briefly()
+            await _core.checkpoint()
         assert inner.cancelled_caught
 
 
@@ -852,9 +852,9 @@ async def test_basic_timeout(mock_clock):
         assert scope.deadline == start + 1
     assert not scope.cancel_called
     mock_clock.jump(2)
-    await _core.yield_briefly()
-    await _core.yield_briefly()
-    await _core.yield_briefly()
+    await _core.checkpoint()
+    await _core.checkpoint()
+    await _core.checkpoint()
     assert not scope.cancel_called
 
     start = _core.current_time()
@@ -869,16 +869,16 @@ async def test_basic_timeout(mock_clock):
     # changing deadline
     start = _core.current_time()
     with _core.open_cancel_scope() as scope:
-        await _core.yield_briefly()
+        await _core.checkpoint()
         scope.deadline = start + 10
-        await _core.yield_briefly()
+        await _core.checkpoint()
         mock_clock.jump(5)
-        await _core.yield_briefly()
+        await _core.checkpoint()
         scope.deadline = start + 1
         with pytest.raises(_core.Cancelled):
-            await _core.yield_briefly()
+            await _core.checkpoint()
         with pytest.raises(_core.Cancelled):
-            await _core.yield_briefly()
+            await _core.checkpoint()
 
 
 async def test_cancel_scope_nesting():
@@ -901,21 +901,21 @@ async def test_cancel_scope_nesting():
         with _core.open_cancel_scope() as scope2:
             scope1.cancel()
             with pytest.raises(_core.Cancelled):
-                await _core.yield_briefly()
+                await _core.checkpoint()
             with pytest.raises(_core.Cancelled):
-                await _core.yield_briefly()
+                await _core.checkpoint()
             scope2.shield = True
-            await _core.yield_briefly()
+            await _core.checkpoint()
             scope2.cancel()
             with pytest.raises(_core.Cancelled):
-                await _core.yield_briefly()
+                await _core.checkpoint()
 
     # if a scope is pending, but then gets popped off the stack, then it
     # isn't delivered
     with _core.open_cancel_scope() as scope:
         scope.cancel()
         await _core.yield_briefly_no_cancel()
-    await _core.yield_briefly()
+    await _core.checkpoint()
     assert not scope.cancelled_caught
 
 
@@ -980,8 +980,8 @@ def test_broken_abort():
         # semi-meaningful error after things have gone totally pear-shaped, so
         # it's not relevant.)  By letting the call_soon_task run first, we
         # avoid the warning.
-        await _core.yield_briefly()
-        await _core.yield_briefly()
+        await _core.checkpoint()
+        await _core.checkpoint()
         with _core.open_cancel_scope() as scope:
             scope.cancel()
             # None is not a legal return value here
@@ -1001,7 +1001,7 @@ def test_error_in_run_loop():
     async def main():
         task = _core.current_task()
         task._schedule_points = "hello!"
-        await _core.yield_briefly()
+        await _core.checkpoint()
 
     with ignore_coroutine_never_awaited_warnings():
         with pytest.raises(_core.TrioInternalError):
@@ -1014,7 +1014,7 @@ async def test_spawn_system_task():
     async def system_task(x):
         record.append(("x", x))
         record.append(("ki", _core.currently_ki_protected()))
-        await _core.yield_briefly()
+        await _core.checkpoint()
 
     _core.spawn_system_task(system_task, 1)
     await wait_all_tasks_blocked()
@@ -1101,7 +1101,7 @@ def test_system_task_crash_KeyboardInterrupt():
         _core.run(main)
 
 
-# This used to fail because yield_briefly was a yield followed by an immediate
+# This used to fail because checkpoint was a yield followed by an immediate
 # reschedule. So we had:
 # 1) this task yields
 # 2) this task is rescheduled
@@ -1112,10 +1112,10 @@ def test_system_task_crash_KeyboardInterrupt():
 #    the next time that it's blocked.
 async def test_yield_briefly_checks_for_timeout(mock_clock):
     with _core.open_cancel_scope(deadline=_core.current_time() + 5) as scope:
-        await _core.yield_briefly()
+        await _core.checkpoint()
         with pytest.raises(_core.Cancelled):
             mock_clock.jump(10)
-            await _core.yield_briefly()
+            await _core.checkpoint()
 
 
 # This tests that sys.exc_info is properly saved/restored as we swap between
@@ -1300,9 +1300,9 @@ def test_call_soon_idempotent_requeue():
     async def main():
         call_soon = _core.current_call_soon_thread_and_signal_safe()
         call_soon(redo, call_soon, idempotent=True)
-        await _core.yield_briefly()
-        await _core.yield_briefly()
-        await _core.yield_briefly()
+        await _core.checkpoint()
+        await _core.checkpoint()
+        await _core.checkpoint()
 
     _core.run(main)
 
@@ -1376,7 +1376,7 @@ def test_call_soon_starvation_resistance():
         call_soon(naughty_cb, 0)
         record.append("starting")
         for _ in range(20):
-            await _core.yield_briefly()
+            await _core.checkpoint()
 
     _core.run(main)
     assert len(record) == 2
@@ -1468,7 +1468,7 @@ async def test_slow_abort_edge_cases():
             await _core.yield_indefinitely(slow_abort)
         record.append("cancelled")
         # blocking again, this time it's okay, because we're shielded
-        await _core.yield_briefly()
+        await _core.checkpoint()
         record.append("done")
 
     with _core.open_cancel_scope() as outer1:
@@ -1691,7 +1691,7 @@ def test_calling_asyncio_function_gives_nice_error():
 
 async def test_trivial_yields(recwarn):
     with assert_yields():
-        await _core.yield_briefly()
+        await _core.checkpoint()
 
     with assert_yields():
         await _core.yield_if_cancelled()

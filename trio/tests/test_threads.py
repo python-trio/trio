@@ -61,7 +61,7 @@ async def test_do_in_trio_thread():
 
     async def f(record):
         assert not _core.currently_ki_protected()
-        await _core.yield_briefly()
+        await _core.checkpoint()
         record.append(("f", threading.current_thread()))
         return 3
 
@@ -69,7 +69,7 @@ async def test_do_in_trio_thread():
 
     async def f(record):
         assert not _core.currently_ki_protected()
-        await _core.yield_briefly()
+        await _core.checkpoint()
         record.append(("f", threading.current_thread()))
         raise KeyError
 
@@ -230,7 +230,7 @@ async def test_run_in_worker_thread_cancellation():
         nursery.cancel_scope.cancel()
         with _core.open_cancel_scope(shield=True):
             for _ in range(10):
-                await _core.yield_briefly()
+                await _core.checkpoint()
         # It's still running
         assert record == ["start"]
         q.put(None)

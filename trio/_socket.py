@@ -835,7 +835,7 @@ class _SocketType:
     async def _sendall(self, data, flags=0):
         with memoryview(data) as data:
             if not data:
-                await _core.yield_briefly()
+                await _core.checkpoint()
                 return
             total_sent = 0
             while total_sent < len(data):

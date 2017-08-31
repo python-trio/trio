@@ -359,10 +359,10 @@ class WindowsIOManager:
         # sockets in another thread? And on unix we don't handle this case at
         # all), but hey, why not.
         if type(sock) is not stdlib_socket.socket:
-            await _core.yield_briefly()
+            await _core.checkpoint()
             raise TypeError("need a stdlib socket")
         if sock in self._socket_waiters[which]:
-            await _core.yield_briefly()
+            await _core.checkpoint()
             raise _core.ResourceBusyError(
                 "another task is already waiting to {} this socket"
                 .format(which)

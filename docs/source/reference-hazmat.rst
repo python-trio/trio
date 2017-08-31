@@ -336,7 +336,7 @@ Wait queue abstraction
 Low-level checkpoint functions
 ------------------------------
 
-.. autofunction:: yield_briefly
+.. autofunction:: checkpoint
 
 The next two functions are used *together* to make up a checkpoint:
 

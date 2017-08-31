@@ -171,7 +171,7 @@ async def test_SocketListener_accept_errors():
             pass
 
         async def accept(self):
-            await _core.yield_briefly()
+            await _core.checkpoint()
             event = next(self._events)
             if isinstance(event, BaseException):
                 raise event

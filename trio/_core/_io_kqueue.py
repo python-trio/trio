@@ -98,7 +98,7 @@ class KqueueIOManager:
     async def wait_kevent(self, ident, filter, abort_func):
         key = (ident, filter)
         if key in self._registered:
-            await _core.yield_briefly()
+            await _core.checkpoint()
             raise _core.ResourceBusyError(
                 "attempt to register multiple listeners for same "
                 "ident/filter pair"

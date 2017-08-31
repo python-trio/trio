@@ -617,8 +617,8 @@ async def test_generic_lock_exclusion(lock_factory):
                 acquires += 1
                 assert not in_critical_section
                 in_critical_section = True
-                await _core.yield_briefly()
-                await _core.yield_briefly()
+                await _core.checkpoint()
+                await _core.checkpoint()
                 assert in_critical_section
                 in_critical_section = False
 

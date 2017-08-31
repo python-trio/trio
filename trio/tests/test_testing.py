@@ -21,7 +21,7 @@ async def test_wait_all_tasks_blocked():
 
     async def busy_bee():
         for _ in range(10):
-            await _core.yield_briefly()
+            await _core.checkpoint()
         record.append("busy bee exhausted")
 
     async def waiting_for_bee_to_leave():
@@ -135,7 +135,7 @@ async def test_wait_all_tasks_blocked_with_tiebreaker():
 
 async def test_assert_yields():
     with assert_yields():
-        await _core.yield_briefly()
+        await _core.checkpoint()
 
     with pytest.raises(AssertionError):
         with assert_yields():
@@ -146,7 +146,7 @@ async def test_assert_yields():
 
     with pytest.raises(AssertionError):
         with assert_no_yields():
-            await _core.yield_briefly()
+            await _core.checkpoint()
 
     # partial yield cases
     # if you have a schedule point but not a cancel point, or vice-versa, then
@@ -162,11 +162,11 @@ async def test_assert_yields():
     # But both together count as a checkpoint
     with assert_yields():
         await _core.yield_if_cancelled()
-        await _core.yield_briefly()
+        await _core.checkpoint()
     with pytest.raises(AssertionError):
         with assert_no_yields():
             await _core.yield_if_cancelled()
-            await _core.yield_briefly()
+            await _core.checkpoint()
 
 
 ################################################################

@@ -94,14 +94,14 @@ def test_Result_capture():
 
 async def test_Result_acapture():
     async def return_arg(x):
-        await _core.yield_briefly()
+        await _core.checkpoint()
         return x
 
     v = await Result.acapture(return_arg, 7)
     assert v == Value(7)
 
     async def raise_ValueError(x):
-        await _core.yield_briefly()
+        await _core.checkpoint()
         raise ValueError(x)
 
     e = await Result.acapture(raise_ValueError, 9)
