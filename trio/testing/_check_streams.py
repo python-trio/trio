@@ -82,8 +82,8 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
 
         # Simple sending/receiving
         async with _core.open_nursery() as nursery:
-            nursery.spawn(do_send_all, b"x")
-            nursery.spawn(checked_receive_1, b"x")
+            nursery.start_soon(do_send_all, b"x")
+            nursery.start_soon(checked_receive_1, b"x")
 
         async def send_empty_then_y():
             # Streams should tolerate sending b"" without giving it any
@@ -92,19 +92,19 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             await do_send_all(b"y")
 
         async with _core.open_nursery() as nursery:
-            nursery.spawn(send_empty_then_y)
-            nursery.spawn(checked_receive_1, b"y")
+            nursery.start_soon(send_empty_then_y)
+            nursery.start_soon(checked_receive_1, b"y")
 
         ### Checking various argument types
 
         # send_all accepts bytearray and memoryview
         async with _core.open_nursery() as nursery:
-            nursery.spawn(do_send_all, bytearray(b"1"))
-            nursery.spawn(checked_receive_1, b"1")
+            nursery.start_soon(do_send_all, bytearray(b"1"))
+            nursery.start_soon(checked_receive_1, b"1")
 
         async with _core.open_nursery() as nursery:
-            nursery.spawn(do_send_all, memoryview(b"2"))
-            nursery.spawn(checked_receive_1, b"2")
+            nursery.start_soon(do_send_all, memoryview(b"2"))
+            nursery.start_soon(checked_receive_1, b"2")
 
         # max_bytes must be a positive integer
         with _assert_raises(ValueError):
@@ -116,25 +116,25 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
 
         with _assert_raises(_core.ResourceBusyError):
             async with _core.open_nursery() as nursery:
-                nursery.spawn(do_receive_some, 1)
-                nursery.spawn(do_receive_some, 1)
+                nursery.start_soon(do_receive_some, 1)
+                nursery.start_soon(do_receive_some, 1)
 
         # Method always has to exist, and an empty stream with a blocked
         # receive_some should *always* allow send_all. (Technically it's legal
         # for send_all to wait until receive_some is called to run, though; a
         # stream doesn't *have* to have any internal buffering. That's why we
-        # spawn a concurrent receive_some call, then cancel it.)
+        # start a concurrent receive_some call, then cancel it.)
         async def simple_check_wait_send_all_might_not_block(scope):
             with assert_yields():
                 await s.wait_send_all_might_not_block()
             scope.cancel()
 
         async with _core.open_nursery() as nursery:
-            nursery.spawn(
+            nursery.start_soon(
                 simple_check_wait_send_all_might_not_block,
                 nursery.cancel_scope
             )
-            nursery.spawn(do_receive_some, 1)
+            nursery.start_soon(do_receive_some, 1)
 
         # closing the r side leads to BrokenStreamError on the s side
         # (eventually)
@@ -144,8 +144,8 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
                     await do_send_all(b"x" * 100)
 
         async with _core.open_nursery() as nursery:
-            nursery.spawn(expect_broken_stream_on_send)
-            nursery.spawn(do_aclose, r)
+            nursery.start_soon(expect_broken_stream_on_send)
+            nursery.start_soon(do_aclose, r)
 
         # once detected, the stream stays broken
         with _assert_raises(BrokenStreamError):
@@ -192,8 +192,8 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             await do_aclose(r)
 
         async with _core.open_nursery() as nursery:
-            nursery.spawn(send_then_close)
-            nursery.spawn(receive_send_then_close)
+            nursery.start_soon(send_then_close)
+            nursery.start_soon(receive_send_then_close)
 
     async with _ForceCloseBoth(await stream_maker()) as (s, r):
         await aclose_forcefully(r)
@@ -252,12 +252,12 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
         with _core.open_cancel_scope() as scope:
             scope.cancel()
             async with _core.open_nursery() as nursery:
-                nursery.spawn(expect_cancelled, do_send_all, b"x")
-                nursery.spawn(expect_cancelled, do_receive_some, 1)
+                nursery.start_soon(expect_cancelled, do_send_all, b"x")
+                nursery.start_soon(expect_cancelled, do_receive_some, 1)
 
         async with _core.open_nursery() as nursery:
-            nursery.spawn(do_aclose, s)
-            nursery.spawn(do_aclose, r)
+            nursery.start_soon(do_aclose, s)
+            nursery.start_soon(do_aclose, r)
 
     # check wait_send_all_might_not_block, if we can
     if clogged_stream_maker is not None:
@@ -279,9 +279,9 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
                     await r.receive_some(16834)
 
             async with _core.open_nursery() as nursery:
-                nursery.spawn(waiter, nursery.cancel_scope)
+                nursery.start_soon(waiter, nursery.cancel_scope)
                 await _core.wait_all_tasks_blocked()
-                nursery.spawn(receiver)
+                nursery.start_soon(receiver)
 
             assert record == [
                 "waiter sleeping",
@@ -293,8 +293,8 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             # simultaneous wait_send_all_might_not_block fails
             with _assert_raises(_core.ResourceBusyError):
                 async with _core.open_nursery() as nursery:
-                    nursery.spawn(s.wait_send_all_might_not_block)
-                    nursery.spawn(s.wait_send_all_might_not_block)
+                    nursery.start_soon(s.wait_send_all_might_not_block)
+                    nursery.start_soon(s.wait_send_all_might_not_block)
 
             # and simultaneous send_all and wait_send_all_might_not_block (NB
             # this test might destroy the stream b/c we end up cancelling
@@ -302,16 +302,16 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             # recreate afterwards)
             with _assert_raises(_core.ResourceBusyError):
                 async with _core.open_nursery() as nursery:
-                    nursery.spawn(s.wait_send_all_might_not_block)
-                    nursery.spawn(s.send_all, b"123")
+                    nursery.start_soon(s.wait_send_all_might_not_block)
+                    nursery.start_soon(s.send_all, b"123")
 
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
             # send_all and send_all blocked simultaneously should also raise
             # (but again this might destroy the stream)
             with _assert_raises(_core.ResourceBusyError):
                 async with _core.open_nursery() as nursery:
-                    nursery.spawn(s.send_all, b"123")
-                    nursery.spawn(s.send_all, b"123")
+                    nursery.start_soon(s.send_all, b"123")
+                    nursery.start_soon(s.send_all, b"123")
 
         # closing the receiver causes wait_send_all_might_not_block to return
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
@@ -327,8 +327,8 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
                 await aclose_forcefully(r)
 
             async with _core.open_nursery() as nursery:
-                nursery.spawn(sender)
-                nursery.spawn(receiver)
+                nursery.start_soon(sender)
+                nursery.start_soon(receiver)
 
         # and again with the call starting after the close
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
@@ -398,18 +398,18 @@ async def check_two_way_stream(stream_maker, clogged_stream_maker):
             assert got == data
 
         async with _core.open_nursery() as nursery:
-            nursery.spawn(sender, s1, test_data, 0)
-            nursery.spawn(sender, s2, test_data[::-1], 1)
-            nursery.spawn(receiver, s1, test_data[::-1], 2)
-            nursery.spawn(receiver, s2, test_data, 3)
+            nursery.start_soon(sender, s1, test_data, 0)
+            nursery.start_soon(sender, s2, test_data[::-1], 1)
+            nursery.start_soon(receiver, s1, test_data[::-1], 2)
+            nursery.start_soon(receiver, s2, test_data, 3)
 
         async def expect_receive_some_empty():
             assert await s2.receive_some(10) == b""
             await s2.aclose()
 
         async with _core.open_nursery() as nursery:
-            nursery.spawn(expect_receive_some_empty)
-            nursery.spawn(s1.aclose)
+            nursery.start_soon(expect_receive_some_empty)
+            nursery.start_soon(s1.aclose)
 
 
 async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
@@ -442,8 +442,8 @@ async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
             assert await r.receive_some(10) == b""
 
         async with _core.open_nursery() as nursery:
-            nursery.spawn(send_x_then_eof, s1)
-            nursery.spawn(expect_x_then_eof, s2)
+            nursery.start_soon(send_x_then_eof, s1)
+            nursery.start_soon(expect_x_then_eof, s2)
 
         # now sending is disallowed
         with _assert_raises(ClosedStreamError):
@@ -455,25 +455,23 @@ async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
 
         # and we can still send stuff back the other way
         async with _core.open_nursery() as nursery:
-            nursery.spawn(send_x_then_eof, s2)
-            nursery.spawn(expect_x_then_eof, s1)
+            nursery.start_soon(send_x_then_eof, s2)
+            nursery.start_soon(expect_x_then_eof, s1)
 
     if clogged_stream_maker is not None:
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s1, s2):
             # send_all and send_eof simultaneously is not ok
             with _assert_raises(_core.ResourceBusyError):
                 async with _core.open_nursery() as nursery:
-                    t = nursery.spawn(s1.send_all, b"x")
+                    nursery.start_soon(s1.send_all, b"x")
                     await _core.wait_all_tasks_blocked()
-                    assert t.result is None
-                    nursery.spawn(s1.send_eof)
+                    nursery.start_soon(s1.send_eof)
 
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s1, s2):
             # wait_send_all_might_not_block and send_eof simultaneously is not
             # ok either
             with _assert_raises(_core.ResourceBusyError):
                 async with _core.open_nursery() as nursery:
-                    t = nursery.spawn(s1.wait_send_all_might_not_block)
+                    nursery.start_soon(s1.wait_send_all_might_not_block)
                     await _core.wait_all_tasks_blocked()
-                    assert t.result is None
-                    nursery.spawn(s1.send_eof)
+                    nursery.start_soon(s1.send_eof)

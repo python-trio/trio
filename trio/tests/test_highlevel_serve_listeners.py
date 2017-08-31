@@ -128,7 +128,7 @@ async def test_serve_listeners_connection_nursery(autojump_clock):
         async with trio.open_nursery() as nursery:
             task_status.started(nursery)
             await wait_all_tasks_blocked()
-            assert len(nursery.children) == 10
+            assert len(nursery.child_tasks) == 10
             raise Done
 
     with pytest.raises(Done):

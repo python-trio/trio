@@ -1,36 +1,52 @@
-=========================================
- Low-level operations in ``trio.hazmat``
-=========================================
+=======================================================
+ Introspecting and extending Trio with ``trio.hazmat``
+=======================================================
 
 .. module:: trio.hazmat
 
 .. warning::
-   ⚠️ DANGER DANGER DANGER ⚠️
-
    You probably don't want to use this module.
 
-The :mod:`trio.hazmat` API is public and stable (or at least, `as
-stable as anything in trio is!
-<https://github.com/python-trio/trio/issues/1>`__), but it has `nasty
-big pointy teeth
+:mod:`trio.hazmat` contains APIs useful for introspecting and
+extending Trio. If you're writing ordinary, everyday code, then you
+can ignore this module completely. But sometimes it's what you need.
+Here are some examples of situations where you should reach for
+:mod:`trio.hazmat`:
+
+* You want to implement a new :ref:`synchronization primitive
+  <synchronization>` that Trio doesn't (yet) provide, like a
+  reader-writer lock.
+* You want to extract low-level metrics to monitor the health of your
+  application.
+* You're wrapping some low-level operating system interfaces that Trio
+  doesn't (yet) expose, like watching a filesystem directory for
+  changes.
+* You want to implement an interface for calling between Trio and
+  another event loop within the same process.
+* You're writing a debugger and want to visualize Trio's task tree.
+* You need to interoperate with a C library whose API exposes raw file
+  descriptors.
+
+Using :mod:`trio.hazmat` is perfectly safe, *if* you take proper
+precautions. In fact, you're already using it – it's how most of the
+functionality described in previous chapters is implemented. The APIs
+described here have strictly defined and carefully documented
+semantics. But some of them have `nasty big pointy teeth
 <https://en.wikipedia.org/wiki/Rabbit_of_Caerbannog>`__. Mistakes may
 not be handled gracefully; rules and conventions that are followed
-strictly in the rest of trio do not always apply. Read and tread
-carefully.
-
-But if you find yourself needing to, for example, implement new
-synchronization primitives or expose new low-level I/O functionality,
-then you're in the right place.
+strictly in the rest of Trio do not always apply. Read and tread
+carefully: using this module makes it your responsibility to handle
+the nasty cases and expose a friendly Trio-style API to your users.
 
 
 Low-level I/O primitives
 ========================
 
 Different environments expose different low-level APIs for performing
-async I/O. :mod:`trio.hazmat` attempts to expose these APIs in a
-relatively direct way, so as to allow maximum power and flexibility
-for higher level code. However, this means that the exact API provided
-may vary depending on what system trio is running on.
+async I/O. :mod:`trio.hazmat` exposes these APIs in a relatively
+direct way, so as to allow maximum power and flexibility for higher
+level code. However, this means that the exact API provided may vary
+depending on what system trio is running on.
 
 
 Universally available API
@@ -111,8 +127,9 @@ Unix-like systems provide the following functions:
 Kqueue-specific API
 -------------------
 
-TODO: these are currently more of a sketch than anything real. See
-`#26 <https://github.com/python-trio/trio/issues/26>`__.
+TODO: these are implemented, but are currently more of a sketch than
+anything real. See `#26
+<https://github.com/python-trio/trio/issues/26>`__.
 
 .. function:: current_kqueue()
 
@@ -126,8 +143,9 @@ TODO: these are currently more of a sketch than anything real. See
 Windows-specific API
 --------------------
 
-TODO: these are currently more of a sketch than anything real. See
-`#26 <https://github.com/python-trio/trio/issues/26>`__ and `#52
+TODO: these are implemented, but are currently more of a sketch than
+anything real. See `#26
+<https://github.com/python-trio/trio/issues/26>`__ and `#52
 <https://github.com/python-trio/trio/issues/52>`__.
 
 .. function:: register_with_iocp(handle)
@@ -139,6 +157,36 @@ TODO: these are currently more of a sketch than anything real. See
 
 .. function:: monitor_completion_key()
    :with: queue
+
+
+Unbounded queues
+================
+
+In the section :ref:`queue`, we showed an example with two producers
+and one consumer using the same queue, where the queue size would grow
+without bound to produce unbounded latency and memory usage.
+:class:`trio.Queue` avoids this by placing an upper bound on how big
+the queue can get before ``put`` starts blocking. But what if you're
+in a situation where ``put`` can't block?
+
+There is another option: the queue consumer could get greedy. Each
+time it runs, it could eagerly consume all of the pending items before
+allowing another task to run. (In some other systems, this would
+happen automatically because their queue's ``get`` method doesn't
+invoke the scheduler unless it has to block. But :ref:`in trio, get is
+always a checkpoint <checkpoint-rule>`.) This works, but it's a bit
+risky: basically instead of applying backpressure to specifically the
+producer tasks, we're applying it to *all* the tasks in our system.
+The danger here is that if enough items have built up in the queue,
+then "stopping the world" to process them all may cause unacceptable
+latency spikes in unrelated tasks. Nonetheless, this is still the
+right choice in situations where it's impossible to apply backpressure
+more precisely. So this is the strategy implemented by
+:class:`UnboundedQueue`. The main time you should use this is when
+working with low-level APIs like :func:`monitor_kevent`.
+
+.. autoclass:: UnboundedQueue
+   :members:
 
 
 Global state: system tasks and run-local storage
@@ -237,6 +285,43 @@ These transitions are accomplished using two function decorators:
 .. autofunction:: currently_ki_protected
 
 
+Result objects
+==============
+
+Trio provides some simple classes for representing the result of a
+Python function call, so that it can be passed around. The basic rule
+is::
+
+    result = Result.capture(f, *args)
+    x = result.unwrap()
+
+is the same as::
+
+    x = f(*args)
+
+even if ``f`` raises an error. And there's also
+:meth:`Result.acapture`, which is like ``await f(*args)``.
+
+There's nothing really dangerous about this system – it's actually
+very general and quite handy! But mostly it's used for things like
+implementing :func:`trio.run_sync_in_worker_thread`, or for getting
+values to pass to :func:`reschedule`, so we put it in
+:mod:`trio.hazmat` to avoid cluttering up the main API.
+
+Since :class:`Result` objects are simple immutable data structures
+that don't otherwise interact with the trio machinery, it's safe to
+create and access :class:`Result` objects from any thread you like.
+
+.. autoclass:: Result
+   :members:
+
+.. autoclass:: Value
+   :members:
+
+.. autoclass:: Error
+   :members:
+
+
 Sleeping and waking
 ===================
 
@@ -312,9 +397,9 @@ first to make sure that the whole thing is a checkpoint.
 Low-level blocking
 ------------------
 
+.. autofunction:: yield_indefinitely
 .. autoclass:: Abort
 .. autofunction:: reschedule
-.. autofunction:: yield_indefinitely
 
 Here's an example lock class implemented using
 :func:`yield_indefinitely` directly. This implementation has a number
@@ -346,3 +431,35 @@ this does serve to illustrate the basic structure of the
            if self._blocked_tasks:
                woken_task = self._blocked_tasks.popleft()
                trio.hazmat.reschedule(woken_task)
+
+
+Task API
+--------
+
+.. autofunction:: current_task()
+
+.. class:: Task()
+
+   A :class:`Task` object represents a concurrent "thread" of
+   execution. It has no public constructor; Trio internally creates a
+   :class:`Task` object for each call to ``nursery.start(...)`` or
+   ``nursery.start_soon(...)``.
+
+   Its public members are mostly useful for introspection and
+   debugging:
+
+   .. attribute:: name
+
+      String containing this :class:`Task`\'s name. Usually the name
+      of the function this :class:`Task` is running, but can be
+      overridden by passing ``name=`` to ``start`` or ``start_soon``.
+
+   .. attribute:: coro
+
+      This task's coroutine object. Example usage: extracting a stack
+      trace.
+
+   .. autoattribute:: parent_nursery
+
+   .. autoattribute:: child_nurseries
+

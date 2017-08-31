@@ -377,13 +377,13 @@ Now that we understand ``async with``, let's look at ``parent`` again:
 
 There are only 4 lines of code that really do anything here. On line
 17, we use :func:`trio.open_nursery` to get a "nursery" object, and
-then inside the ``async with`` block we call ``nursery.spawn`` twice,
+then inside the ``async with`` block we call ``nursery.start_soon`` twice,
 on lines 19 and 22. There are actually two ways to call an async
 function: the first one is the one we already saw, using ``await
-async_fn()``; the new one is ``nursery.spawn(async_fn)``: it asks trio
+async_fn()``; the new one is ``nursery.start_soon(async_fn)``: it asks trio
 to start running this async function, *but then returns immediately
 without waiting for the function to finish*. So after our two calls to
-``nursery.spawn``, ``child1`` and ``child2`` are now running in the
+``nursery.start_soon``, ``child1`` and ``child2`` are now running in the
 background. And then at line 25, the commented line, we hit the end of
 the ``async with`` block, and the nursery's ``__aexit__`` function
 runs. What this does is force ``parent`` to stop here and wait for all
@@ -402,7 +402,7 @@ parenting is a full-time job! Any given piece of code manage a nursery
 – which means opening it, spawning some children, and then sitting in
 ``__aexit__`` to supervise them – or it can do actual work, but you
 shouldn't try to do both at the same time in the same function. If you
-find yourself tempted to do some work in the parent, then ``spawn``
+find yourself tempted to do some work in the parent, then ``start_soon``
 another child and have it do the work. In trio, children are cheap.
 
 Ok! Let's try running it and see what we get:
@@ -827,7 +827,7 @@ I'm running on", so ``(127.0.0.1, PORT)`` means that we want to
 connect to whatever program on the current computer is using ``PORT``
 as its contact point. And then once the connection is made, we pass
 the connected client socket into the two child tasks. (This is also a
-good example of how ``nursery.spawn`` lets you pass positional
+good example of how ``nursery.start_soon`` lets you pass positional
 arguments to the spawned function.)
 
 Our first task's job is to send data to the server:
@@ -869,7 +869,7 @@ thing, and then we'll discuss the pieces:
    :linenos:
 
 Let's start with ``echo_server``. As we'll see below, each time an
-echo client connects, our server will spawn a child task running
+echo client connects, our server will start a child task running
 ``echo_server``; there might be lots of these running at once if lots
 of clients are connected. Its job is to read data from its particular
 client, and then echo it back. It should be pretty straightforward to
@@ -909,7 +909,7 @@ But where do these ``echo_server`` tasks come from? An important part
 of writing a trio program is deciding how you want to organize your
 tasks. In the examples we've seen so far, this was simple, because the
 set of tasks was fixed. Here, we want to wait for clients to connect,
-and then spawn a new task for each one. The tricky part is that like
+and then start a new task for each one. The tricky part is that like
 we mentioned above, managing a nursery is a full time job: you don't
 want the task that has the nursery and is supervising the child tasks
 to do anything else, like listen for new connections.
@@ -923,7 +923,7 @@ and then *passes the nursery object to the child task*:
    :lineno-match:
    :pyobject: parent
 
-Now ``echo_listener`` can spawn "siblings" instead of children – even
+Now ``echo_listener`` can start "siblings" instead of children – even
 though the ``echo_listener`` is the one spawning ``echo_server``
 tasks, we end up with a task tree that looks like:
 

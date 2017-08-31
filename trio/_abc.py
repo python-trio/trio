@@ -91,7 +91,7 @@ class Instrument(metaclass=ABCMeta):
         """Called when the given task is created.
 
         Args:
-            task (trio.Task): The new task.
+            task (trio.hazmat.Task): The new task.
 
         """
 
@@ -102,7 +102,7 @@ class Instrument(metaclass=ABCMeta):
         runnable tasks ahead of it.
 
         Args:
-            task (trio.Task): The task that became runnable.
+            task (trio.hazmat.Task): The task that became runnable.
 
         """
 
@@ -110,7 +110,7 @@ class Instrument(metaclass=ABCMeta):
         """Called immediately before we resume running the given task.
 
         Args:
-            task (trio.Task): The task that is about to run.
+            task (trio.hazmat.Task): The task that is about to run.
 
         """
 
@@ -118,7 +118,7 @@ class Instrument(metaclass=ABCMeta):
         """Called when we return to the main run loop after a task has yielded.
 
         Args:
-            task (trio.Task): The task that just ran.
+            task (trio.hazmat.Task): The task that just ran.
 
         """
 
@@ -126,7 +126,7 @@ class Instrument(metaclass=ABCMeta):
         """Called when the given task exits.
 
         Args:
-            task (trio.Task): The finished task.
+            task (trio.hazmat.Task): The finished task.
 
         """
 

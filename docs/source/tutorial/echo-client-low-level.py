@@ -35,9 +35,9 @@ async def parent():
         await client_sock.connect(("127.0.0.1", PORT))
         async with trio.open_nursery() as nursery:
             print("parent: spawning sender...")
-            nursery.spawn(sender, client_sock)
+            nursery.start_soon(sender, client_sock)
 
             print("parent: spawning receiver...")
-            nursery.spawn(receiver, client_sock)
+            nursery.start_soon(receiver, client_sock)
 
 trio.run(parent)

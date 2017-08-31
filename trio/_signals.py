@@ -113,10 +113,7 @@ def catch_signals(signals):
 
     The async iterator blocks until at least one signal has arrived, and then
     yields a :class:`set` containing all of the signals that were received
-    since the last iteration. (This is generally similar to how
-    :class:`UnboundedQueue` works, but since Unix semantics are that identical
-    signals can/should be coalesced, here we use a :class:`set` for storage
-    instead of a :class:`list`.)
+    since the last iteration.
 
     Note that if you leave the ``with`` block while the iterator has
     unextracted signals still pending inside it, then they will be

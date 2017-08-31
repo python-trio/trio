@@ -29,21 +29,23 @@ async def test_wait_all_tasks_blocked():
         record.append("quiet at last!")
 
     async with _core.open_nursery() as nursery:
-        t1 = nursery.spawn(busy_bee)
-        t2 = nursery.spawn(waiting_for_bee_to_leave)
-        t3 = nursery.spawn(waiting_for_bee_to_leave)
+        nursery.start_soon(busy_bee)
+        nursery.start_soon(waiting_for_bee_to_leave)
+        nursery.start_soon(waiting_for_bee_to_leave)
 
     # check cancellation
+    record = []
+
     async def cancelled_while_waiting():
         try:
             await wait_all_tasks_blocked()
         except _core.Cancelled:
-            return "ok"
+            record.append("ok")
 
     async with _core.open_nursery() as nursery:
-        t4 = nursery.spawn(cancelled_while_waiting)
+        nursery.start_soon(cancelled_while_waiting)
         nursery.cancel_scope.cancel()
-    assert t4.result.unwrap() == "ok"
+    assert record == ["ok"]
 
 
 async def test_wait_all_tasks_blocked_with_timeouts(mock_clock):
@@ -55,7 +57,7 @@ async def test_wait_all_tasks_blocked_with_timeouts(mock_clock):
         record.append("tt finished")
 
     async with _core.open_nursery() as nursery:
-        t = nursery.spawn(timeout_task)
+        nursery.start_soon(timeout_task)
         await wait_all_tasks_blocked()
         assert record == ["tt start"]
         mock_clock.jump(10)
@@ -86,11 +88,11 @@ async def test_wait_all_tasks_blocked_with_cushion():
         record.append("wait_big_cushion end")
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(blink)
-        nursery.spawn(wait_no_cushion)
-        nursery.spawn(wait_small_cushion)
-        nursery.spawn(wait_small_cushion)
-        nursery.spawn(wait_big_cushion)
+        nursery.start_soon(blink)
+        nursery.start_soon(wait_no_cushion)
+        nursery.start_soon(wait_small_cushion)
+        nursery.start_soon(wait_small_cushion)
+        nursery.start_soon(wait_big_cushion)
 
     assert record == [
         "blink start",
@@ -110,12 +112,12 @@ async def test_wait_all_tasks_blocked_with_tiebreaker():
         record.append((cushion, tiebreaker))
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(do_wait, 0, 0)
-        nursery.spawn(do_wait, 0, -1)
-        nursery.spawn(do_wait, 0, 1)
-        nursery.spawn(do_wait, 0, -1)
-        nursery.spawn(do_wait, 0.0001, 10)
-        nursery.spawn(do_wait, 0.0001, -10)
+        nursery.start_soon(do_wait, 0, 0)
+        nursery.start_soon(do_wait, 0, -1)
+        nursery.start_soon(do_wait, 0, 1)
+        nursery.start_soon(do_wait, 0, -1)
+        nursery.start_soon(do_wait, 0.0001, 10)
+        nursery.start_soon(do_wait, 0.0001, -10)
 
     assert record == sorted(record)
     assert record == [
@@ -193,11 +195,10 @@ async def test_Sequencer():
 
     seq = Sequencer()
     async with _core.open_nursery() as nursery:
-        t1 = nursery.spawn(f1, seq)
-        t2 = nursery.spawn(f2, seq)
+        nursery.start_soon(f1, seq)
+        nursery.start_soon(f2, seq)
         async with seq(5):
-            await t1.wait()
-            await t2.wait()
+            await wait_all_tasks_blocked()
         assert record == [
             ("f2", 0), ("f1", 1), ("f2", 2), ("f1", 3), ("f1", 4)
         ]
@@ -227,8 +228,8 @@ async def test_Sequencer_cancel():
                 record.append("seq({}) RuntimeError".format(i))
 
     async with _core.open_nursery() as nursery:
-        t1 = nursery.spawn(child, 1)
-        t2 = nursery.spawn(child, 2)
+        nursery.start_soon(child, 1)
+        nursery.start_soon(child, 2)
         async with seq(0):
             pass  # pragma: no cover
 
@@ -387,8 +388,8 @@ async def test_mock_clock_autojump_0_and_wait_all_tasks_blocked(mock_clock):
         record.append("waiter done")
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(sleeper)
-        nursery.spawn(waiter)
+        nursery.start_soon(sleeper)
+        nursery.start_soon(waiter)
 
     assert record == list(range(10)) + ["yawn", "waiter done"]
 
@@ -448,14 +449,14 @@ async def test__UnboundeByteQueue():
             assert await ubq.get() == expect
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(getter, b"xyz")
-        nursery.spawn(putter, b"xyz")
+        nursery.start_soon(getter, b"xyz")
+        nursery.start_soon(putter, b"xyz")
 
     # Two gets at the same time -> ResourceBusyError
     with pytest.raises(_core.ResourceBusyError):
         async with _core.open_nursery() as nursery:
-            nursery.spawn(getter, b"asdf")
-            nursery.spawn(getter, b"asdf")
+            nursery.start_soon(getter, b"asdf")
+            nursery.start_soon(getter, b"asdf")
 
     # Closing
 
@@ -479,8 +480,8 @@ async def test__UnboundeByteQueue():
         ubq2.close()
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(getter, b"")
-        nursery.spawn(closer)
+        nursery.start_soon(getter, b"")
+        nursery.start_soon(closer)
 
 
 async def test_MemorySendStream():
@@ -508,8 +509,8 @@ async def test_MemorySendStream():
 
     with pytest.raises(_core.ResourceBusyError):
         async with _core.open_nursery() as nursery:
-            nursery.spawn(do_send_all, b"xxx")
-            nursery.spawn(do_send_all, b"xxx")
+            nursery.start_soon(do_send_all, b"xxx")
+            nursery.start_soon(do_send_all, b"xxx")
 
     with assert_yields():
         await mss.aclose()
@@ -576,8 +577,8 @@ async def test_MemoryRecieveStream():
 
     with pytest.raises(_core.ResourceBusyError):
         async with _core.open_nursery() as nursery:
-            nursery.spawn(do_receive_some, 10)
-            nursery.spawn(do_receive_some, 10)
+            nursery.start_soon(do_receive_some, 10)
+            nursery.start_soon(do_receive_some, 10)
 
     assert mrs.receive_some_hook is None
 
@@ -684,8 +685,8 @@ async def test_memory_stream_one_way_pair():
         assert await r.receive_some(10) == expected
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(receiver, b"abc")
-        nursery.spawn(sender)
+        nursery.start_soon(receiver, b"abc")
+        nursery.start_soon(sender)
 
     # And this fails if we don't pump from close_hook
     async def aclose_after_all_tasks_blocked():
@@ -693,8 +694,8 @@ async def test_memory_stream_one_way_pair():
         await s.aclose()
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(receiver, b"")
-        nursery.spawn(aclose_after_all_tasks_blocked)
+        nursery.start_soon(receiver, b"")
+        nursery.start_soon(aclose_after_all_tasks_blocked)
 
     s, r = memory_stream_one_way_pair()
 
@@ -703,8 +704,8 @@ async def test_memory_stream_one_way_pair():
         s.close()
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(receiver, b"")
-        nursery.spawn(close_after_all_tasks_blocked)
+        nursery.start_soon(receiver, b"")
+        nursery.start_soon(close_after_all_tasks_blocked)
 
     s, r = memory_stream_one_way_pair()
 
@@ -723,8 +724,8 @@ async def test_memory_stream_one_way_pair():
             await r.receive_some(10)
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(cancel_after_idle, nursery)
-        nursery.spawn(check_for_cancel)
+        nursery.start_soon(cancel_after_idle, nursery)
+        nursery.start_soon(check_for_cancel)
 
     s.send_all_hook = old
     await s.send_all(b"789")
@@ -749,8 +750,8 @@ async def test_memory_stream_pair():
         assert await a.receive_some(10) == b"xyz"
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(receiver)
-        nursery.spawn(sender)
+        nursery.start_soon(receiver)
+        nursery.start_soon(sender)
 
 
 async def test_memory_streams_with_generic_tests():

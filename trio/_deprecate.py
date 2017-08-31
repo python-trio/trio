@@ -1,5 +1,9 @@
+import sys
 from functools import wraps, partial
+from types import ModuleType
 import warnings
+
+import attr
 
 __all__ = ["TrioDeprecationWarning"]
 
@@ -93,3 +97,38 @@ def deprecated_alias(old_qualname, new_fn, version, *, issue):
     wrapper.__qualname__ = old_qualname
     wrapper.__name__ = old_qualname.rpartition(".")[-1]
     return wrapper
+
+
+@attr.s(frozen=True)
+class DeprecatedAttribute:
+    _not_set = object()
+
+    value = attr.ib()
+    version = attr.ib()
+    issue = attr.ib()
+    instead = attr.ib(default=_not_set)
+
+
+class ModuleWithDeprecations(ModuleType):
+    def __getattr__(self, name):
+        if name in self.__deprecated_attributes__:
+            info = self.__deprecated_attributes__[name]
+            instead = info.instead
+            if instead is DeprecatedAttribute._not_set:
+                instead = info.value
+            thing = "{}.{}".format(self.__name__, name)
+            warn_deprecated(
+                thing, info.version, issue=info.issue, instead=instead
+            )
+            return info.value
+
+        raise AttributeError(name)
+
+
+def enable_attribute_deprecations(module_name):
+    module = sys.modules[module_name]
+    try:
+        module.__class__ = ModuleWithDeprecations
+    except TypeError:
+        # Need PyPy 5.9+ to support module __class__ assignment
+        return

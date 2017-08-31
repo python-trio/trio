@@ -13,7 +13,6 @@ __all__ = [
     "current_run_in_trio_thread",
     "run_sync_in_worker_thread",
     "current_default_worker_thread_limiter",
-    "run_in_worker_thread",
 ]
 
 
@@ -340,8 +339,3 @@ async def run_sync_in_worker_thread(
             return _core.Abort.FAILED
 
     return await _core.yield_indefinitely(abort)
-
-
-run_in_worker_thread = deprecated_alias(
-    "run_in_worker_thread", run_sync_in_worker_thread, "0.2.0", issue=68
-)

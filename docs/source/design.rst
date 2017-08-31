@@ -309,7 +309,7 @@ where it motivates the use of "nurseries"::
 
    async def parent():
        async with trio.open_nursery() as nursery:
-           nursery.spawn(child)
+           nursery.start_soon(child)
 
 (See :ref:`tasks` for full details.)
 
@@ -326,7 +326,7 @@ In `the blog post
 <https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/#c-c-c-c-causality-breaker>`__
 I called out a nice feature of curio's spawning API, which is that
 since spawning is the only way to break causality, and in curio
-``spawn`` is async, this means that in curio sync functions are
+``spawn`` is async, which means that in curio sync functions are
 guaranteed to be causal. One limitation though is that this invariant
 is actually not very predictive: in curio there are lots of async
 functions that could spawn off children and violate causality, but
@@ -338,11 +338,11 @@ one. In trio:
 * Sync functions can't create nurseries, because nurseries require an
   ``async with``
 
-* Any async function can create a nursery and spawn new tasks... but
-  creating a nursery *allows task spawning without allowing causality
-  breaking*, because the children have to exit before the function is
-  allowed to return. So we can preserve causality without having to
-  give up concurrency!
+* Any async function can create a nursery and start new tasks... but
+  creating a nursery *allows task starting but does not permit
+  causality breaking*, because the children have to exit before the
+  function is allowed to return. So we can preserve causality without
+  having to give up concurrency!
 
 * The only way to violate causality (which is an important feature,
   just one that needs to be handled carefully) is to explicitly create
@@ -417,9 +417,9 @@ Specific style guidelines
   and the ``nowait`` version raises :exc:`trio.WouldBlock` if it would block.
 
 * The word ``monitor`` is used for APIs that involve an
-  :class:`UnboundedQueue` receiving some kind of events. (Examples:
-  nursery ``.monitor`` attribute, some of the low-level I/O functions in
-  :mod:`trio.hazmat`.)
+  :class:`trio.hazmat.UnboundedQueue` receiving some kind of events.
+  (Examples: nursery ``.monitor`` attribute, some of the low-level I/O
+  functions in :mod:`trio.hazmat`.)
 
 * ...we should, but currently don't, have a solid convention to
   distinguish between functions that take an async callable and those
@@ -466,7 +466,7 @@ There are three notable sub-modules that are largely independent of
 the rest of trio, and could (possibly should?) be extracted into their
 own independent packages:
 
-* ``_result.py``: Defines :class:`Result`.
+* ``_result.py``: Defines :class:`~trio.hazmat.Result`.
 
 * ``_multierror.py``: Implements :class:`MultiError` and associated
   infrastructure.
@@ -478,8 +478,9 @@ The most important submodule, where everything is integrated, is
 ``_run.py``. (This is also by far the largest submodule; it'd be nice
 to factor bits of it out with possible, but it's tricky because the
 core functionality genuinely is pretty intertwined.) Notably, this is
-where cancel scopes, nurseries, and :class:`Task` are defined; it's
-also where the scheduler state and :func:`trio.run` live.
+where cancel scopes, nurseries, and :class:`~trio.hazmat.Task` are
+defined; it's also where the scheduler state and :func:`trio.run`
+live.
 
 The one thing that *isn't* in ``_run.py`` is I/O handling. This is
 delegated to an ``IOManager`` class, of which there are currently

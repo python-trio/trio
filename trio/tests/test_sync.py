@@ -28,8 +28,8 @@ async def test_Event():
         record.append("woken")
 
     async with _core.open_nursery() as nursery:
-        t1 = nursery.spawn(child)
-        t2 = nursery.spawn(child)
+        nursery.start_soon(child)
+        nursery.start_soon(child)
         await wait_all_tasks_blocked()
         assert record == ["sleeping", "sleeping"]
         assert e.statistics().tasks_waiting == 2
@@ -94,9 +94,8 @@ async def test_CapacityLimiter():
     async with _core.open_nursery() as nursery:
         await c.acquire_on_behalf_of("value 1")
         await c.acquire_on_behalf_of("value 2")
-        t = nursery.spawn(c.acquire_on_behalf_of, "value 3")
+        nursery.start_soon(c.acquire_on_behalf_of, "value 3")
         await wait_all_tasks_blocked()
-        assert t.result is None
         assert c.borrowed_tokens == 2
         assert c.statistics().tasks_waiting == 1
         c.release_on_behalf_of("value 2")
@@ -104,7 +103,6 @@ async def test_CapacityLimiter():
         assert c.borrowed_tokens == 2
         with pytest.raises(_core.WouldBlock):
             c.acquire_nowait()
-        await t.wait()
 
     c.release_on_behalf_of("value 3")
     c.release_on_behalf_of("value 1")
@@ -126,7 +124,7 @@ async def test_CapacityLimiter_change_total_tokens():
 
     async with _core.open_nursery() as nursery:
         for i in range(5):
-            nursery.spawn(c.acquire_on_behalf_of, i)
+            nursery.start_soon(c.acquire_on_behalf_of, i)
             await wait_all_tasks_blocked()
         assert set(c.statistics().borrowers) == {0, 1}
         assert c.statistics().tasks_waiting == 3
@@ -174,17 +172,24 @@ async def test_Semaphore():
     assert s.value == 1
     s.acquire_nowait()
 
+    record = []
+
+    async def do_acquire(s):
+        record.append("started")
+        await s.acquire()
+        record.append("finished")
+
     async with _core.open_nursery() as nursery:
-        t = nursery.spawn(s.acquire)
+        nursery.start_soon(do_acquire, s)
         await wait_all_tasks_blocked()
-        assert t.result is None
+        assert record == ["started"]
         assert s.value == 0
         s.release()
         # Fairness:
         assert s.value == 0
         with pytest.raises(_core.WouldBlock):
             s.acquire_nowait()
-        await t.wait()
+    assert record == ["started", "finished"]
 
 
 async def test_Semaphore_bounded():
@@ -237,13 +242,17 @@ async def test_Lock_and_StrictFIFOLock(lockcls):
         # Error out if we don't own the lock
         l.release()
 
+    holder_task = None
+
     async def holder():
+        nonlocal holder_task
+        holder_task = _core.current_task()
         async with l:
             await sleep_forever()
 
     async with _core.open_nursery() as nursery:
         assert not l.locked()
-        t = nursery.spawn(holder)
+        nursery.start_soon(holder)
         await wait_all_tasks_blocked()
         assert l.locked()
         # WouldBlock if someone else holds the lock
@@ -256,10 +265,10 @@ async def test_Lock_and_StrictFIFOLock(lockcls):
         statistics = l.statistics()
         print(statistics)
         assert statistics.locked
-        assert statistics.owner is t
+        assert statistics.owner is holder_task
         assert statistics.tasks_waiting == 0
 
-        nursery.spawn(holder)
+        nursery.start_soon(holder)
         await wait_all_tasks_blocked()
         statistics = l.statistics()
         print(statistics)
@@ -305,31 +314,31 @@ async def test_Condition():
         # Can't notify without holding the lock
         c.notify_all()
 
-    async def waiter():
+    finished_waiters = set()
+
+    async def waiter(i):
         async with c:
             await c.wait()
+        finished_waiters.add(i)
 
     async with _core.open_nursery() as nursery:
-        w = []
-        for _ in range(3):
-            w.append(nursery.spawn(waiter))
+        for i in range(3):
+            nursery.start_soon(waiter, i)
             await wait_all_tasks_blocked()
         async with c:
             c.notify()
         assert c.locked()
         await wait_all_tasks_blocked()
-        assert w[0].result is not None
-        assert w[1].result is w[2].result is None
+        assert finished_waiters == {0}
         async with c:
             c.notify_all()
         await wait_all_tasks_blocked()
-        assert w[1].result is not None
-        assert w[2].result is not None
+        assert finished_waiters == {0, 1, 2}
 
+    finished_waiters = set()
     async with _core.open_nursery() as nursery:
-        w = []
-        for _ in range(3):
-            w.append(nursery.spawn(waiter))
+        for i in range(3):
+            nursery.start_soon(waiter, i)
             await wait_all_tasks_blocked()
         async with c:
             c.notify(2)
@@ -341,9 +350,7 @@ async def test_Condition():
         assert c.statistics().lock_statistics.tasks_waiting == 1
 
         await wait_all_tasks_blocked()
-        assert w[0].result is not None
-        assert w[1].result is not None
-        assert w[2].result is None
+        assert finished_waiters == {0, 1}
 
         async with c:
             c.notify_all()
@@ -401,19 +408,28 @@ async def test_Queue_join():
     with assert_yields():
         await q.join()
 
+    record = []
+
+    async def do_join(q):
+        record.append("started")
+        await q.join()
+        record.append("finished")
+
     async with _core.open_nursery() as nursery:
         await q.put(None)
-        t1 = nursery.spawn(q.join)
-        t2 = nursery.spawn(q.join)
+        nursery.start_soon(do_join, q)
+        nursery.start_soon(do_join, q)
         await wait_all_tasks_blocked()
-        assert t1.result is t2.result is None
+        assert record == ["started", "started"]
         q.put_nowait(None)
         q.get_nowait()
         q.get_nowait()
         q.task_done()
         await wait_all_tasks_blocked()
-        assert t1.result is t2.result is None
+        assert record == ["started", "started"]
         q.task_done()
+
+    assert record == ["started", "started", "finished", "finished"]
 
 
 async def test_Queue_iter():
@@ -432,8 +448,8 @@ async def test_Queue_iter():
             assert item == next(expected)
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(producer)
-        nursery.spawn(consumer)
+        nursery.start_soon(producer)
+        nursery.start_soon(consumer)
 
 
 async def test_Queue_statistics():
@@ -450,9 +466,9 @@ async def test_Queue_statistics():
         q.put_nowait(2)
         q.put_nowait(3)
         assert q.full()
-        nursery.spawn(q.put, 4)
-        nursery.spawn(q.put, 5)
-        nursery.spawn(q.join)
+        nursery.start_soon(q.put, 4)
+        nursery.start_soon(q.put, 5)
+        nursery.start_soon(q.join)
         await wait_all_tasks_blocked()
         statistics = q.statistics()
         assert statistics.qsize == 3
@@ -464,9 +480,9 @@ async def test_Queue_statistics():
 
     q = Queue(4)
     async with _core.open_nursery() as nursery:
-        nursery.spawn(q.get)
-        nursery.spawn(q.get)
-        nursery.spawn(q.get)
+        nursery.start_soon(q.get)
+        nursery.start_soon(q.get)
+        nursery.start_soon(q.get)
         await wait_all_tasks_blocked()
         statistics = q.statistics()
         assert statistics.qsize == 0
@@ -490,13 +506,20 @@ async def test_Queue_fairness():
     # But if someone else is waiting to get, then they "own" the item we put,
     # so we can't get it (even though we run first):
     q = Queue(1)
+
+    result = None
+
+    async def do_get(q):
+        nonlocal result
+        result = await q.get()
+
     async with _core.open_nursery() as nursery:
-        t = nursery.spawn(q.get)
+        nursery.start_soon(do_get, q)
         await wait_all_tasks_blocked()
         q.put_nowait(2)
         with pytest.raises(_core.WouldBlock):
             q.get_nowait()
-    assert t.result.unwrap() == 2
+    assert result == 2
 
     # And the analogous situation for put: if we free up a space, we can't
     # immediately put something in it if someone is already waiting to do that
@@ -506,7 +529,7 @@ async def test_Queue_fairness():
         q.put_nowait(None)
     assert q.qsize() == 1
     async with _core.open_nursery() as nursery:
-        t = nursery.spawn(q.put, 2)
+        nursery.start_soon(q.put, 2)
         await wait_all_tasks_blocked()
         assert q.qsize() == 1
         assert q.get_nowait() == 1
@@ -602,7 +625,7 @@ async def test_generic_lock_exclusion(lock_factory):
     async with _core.open_nursery() as nursery:
         lock_like = lock_factory()
         for _ in range(WORKERS):
-            nursery.spawn(worker, lock_like)
+            nursery.start_soon(worker, lock_like)
     assert not in_critical_section
     assert acquires == LOOPS * WORKERS
 
@@ -624,9 +647,9 @@ async def test_generic_lock_fifo_fairness(lock_factory):
 
     lock_like = lock_factory()
     async with _core.open_nursery() as nursery:
-        nursery.spawn(loopy, 1, lock_like)
-        nursery.spawn(loopy, 2, lock_like)
-        nursery.spawn(loopy, 3, lock_like)
+        nursery.start_soon(loopy, 1, lock_like)
+        nursery.start_soon(loopy, 2, lock_like)
+        nursery.start_soon(loopy, 3, lock_like)
     # The first three could be in any order due to scheduling randomness,
     # but after that they should repeat in the same order
     for i in range(LOOPS):
@@ -637,13 +660,17 @@ async def test_generic_lock_fifo_fairness(lock_factory):
 async def test_generic_lock_acquire_nowait_blocks_acquire(lock_factory):
     lock_like = lock_factory()
 
+    record = []
+
     async def lock_taker():
+        record.append("started")
         async with lock_like:
             pass
+        record.append("finished")
 
     async with _core.open_nursery() as nursery:
         lock_like.acquire_nowait()
-        t = nursery.spawn(lock_taker)
+        nursery.start_soon(lock_taker)
         await wait_all_tasks_blocked()
-        assert t.result is None
+        assert record == ["started"]
         lock_like.release()

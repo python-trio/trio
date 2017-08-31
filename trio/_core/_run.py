@@ -344,14 +344,14 @@ async def open_nursery():
 
 
 class Nursery:
-    def __init__(self, parent, cancel_scope):
+    def __init__(self, parent_task, cancel_scope):
         # the parent task -- only used for introspection, to implement
         # task.parent_task
-        self._parent = parent
-        parent._child_nurseries.append(self)
+        self._parent_task = parent_task
+        parent_task._child_nurseries.append(self)
         # the cancel stack that children inherit - we take a snapshot, so it
         # won't be affected by any changes in the parent.
-        self._cancel_stack = list(parent._cancel_stack)
+        self._cancel_stack = list(parent_task._cancel_stack)
         # the cancel scope that directly surrounds us; used for cancelling all
         # children.
         self.cancel_scope = cancel_scope
@@ -359,27 +359,47 @@ class Nursery:
         self._children = set()
         self._pending_starts = 0
         self._zombies = set()
-        self.monitor = _core.UnboundedQueue()
+        self._monitor = _core.UnboundedQueue()
         self._closed = False
 
     @property
+    @deprecated("0.2.0", instead="child_tasks", issue=136)
     def children(self):
         return frozenset(self._children)
 
     @property
+    def child_tasks(self):
+        return frozenset(self._children)
+
+    @property
+    def parent_task(self):
+        return self._parent_task
+
+    @property
+    @deprecated("0.2.0", instead=None, issue=136)
     def zombies(self):
         return frozenset(self._zombies)
+
+    @property
+    @deprecated("0.2.0", instead=None, issue=136)
+    def monitor(self):
+        return self._monitor
 
     def _child_finished(self, task):
         self._children.remove(task)
         self._zombies.add(task)
-        self.monitor.put_nowait(task)
+        self._monitor.put_nowait(task)
 
     def start_soon(self, async_fn, *args, name=None):
         GLOBAL_RUN_CONTEXT.runner.spawn_impl(async_fn, args, self, name)
 
     # Returns the task, unlike start_soon
-    #@deprecated("nursery.spawn", version="0.2.0", "nursery.start_soon")
+    @deprecated(
+        "0.2.0",
+        thing="nursery.spawn",
+        instead="nursery.start_soon",
+        issue=284
+    )
     def spawn(self, async_fn, *args, name=None):
         return GLOBAL_RUN_CONTEXT.runner.spawn_impl(async_fn, args, self, name)
 
@@ -402,17 +422,25 @@ class Nursery:
             return task_status._value
         finally:
             self._pending_starts -= 1
-            self.monitor.put_nowait(None)
+            self._monitor.put_nowait(None)
 
-    def reap(self, task):
+    def _reap(self, task):
         try:
             self._zombies.remove(task)
         except KeyError:
             raise ValueError("{} is not a zombie in this nursery".format(task))
 
+    @deprecated("0.2.0", instead=None, issue=136)
+    def reap(self, task):
+        return self._reap(task)
+
+    def _reap_and_unwrap(self, task):
+        self._reap(task)
+        return task._result.unwrap()
+
+    @deprecated("0.2.0", instead=None, issue=136)
     def reap_and_unwrap(self, task):
-        self.reap(task)
-        return task.result.unwrap()
+        return self._reap_and_unwrap(task)
 
     async def _clean_up(self, pending_exc):
         cancelled_children = False
@@ -435,27 +463,27 @@ class Nursery:
                 # of remaining tasks, so we have to check first before
                 # blocking on the monitor queue.
                 for task in list(self._zombies):
-                    if type(task.result) is Error:
-                        exceptions.append(task.result.error)
-                    self.reap(task)
+                    if type(task._result) is Error:
+                        exceptions.append(task._result.error)
+                    self._reap(task)
 
                 if exceptions and not cancelled_children:
                     self.cancel_scope.cancel()
                     clean_up_scope.shield = True
                     cancelled_children = True
 
-                if self.children or self._pending_starts:
+                if self._children or self._pending_starts:
                     try:
                         # We ignore the return value here, and will pick up
                         # the actual tasks from the zombies set after looping
                         # around. (E.g. it's possible there are tasks in the
                         # queue that were already reaped.)
-                        await self.monitor.get_batch()
+                        await self._monitor.get_batch()
                     except (Cancelled, KeyboardInterrupt) as exc:
                         exceptions.append(exc)
 
             self._closed = True
-            popped = self._parent._child_nurseries.pop()
+            popped = self._parent_task._child_nurseries.pop()
             assert popped is self
             if exceptions:
                 mexc = MultiError(exceptions)
@@ -483,7 +511,7 @@ class Nursery:
                     raise mexc
 
     def __del__(self):
-        assert not self.children and not self.zombies
+        assert not self._children and not self._zombies
 
 
 ################################################################
@@ -504,6 +532,7 @@ def _pending_cancel_scope(cancel_stack):
     return pending_scope
 
 
+@_hazmat
 @attr.s(slots=True, cmp=False, hash=False, repr=False)
 class Task:
     _parent_nursery = attr.ib()
@@ -513,7 +542,7 @@ class Task:
     # Invariant:
     # - for unfinished tasks, result is None
     # - for finished tasks, result is a Result object
-    result = attr.ib(default=None)
+    _result = attr.ib(default=None)
     # Invariant:
     # - for unscheduled tasks, _next_send is None
     # - for scheduled tasks, _next_send is a Result object
@@ -537,8 +566,14 @@ class Task:
     def __repr__(self):
         return ("<Task {!r} at {:#x}>".format(self.name, id(self)))
 
+    @property
+    @deprecated("0.2.0", instead=None, issue=136)
+    def result(self):
+        return self._result
+
     # For debugging and visualization:
     @property
+    @deprecated("0.2.0", instead="parent_nursery.parent_task", issue=136)
     def parent_task(self):
         """This task's parent task (or None if this is the "init" task).
 
@@ -547,7 +582,27 @@ class Task:
         if self._parent_nursery is None:
             return None
         else:
-            return self._parent_nursery._parent
+            return self._parent_nursery._parent_task
+
+    @property
+    def parent_nursery(self):
+        """The nursery this task is inside (or None if this is the "init"
+        take).
+
+        Example use case: drawing a visualization of the task tree in a
+        debugger.
+
+        """
+        return self._parent_nursery
+
+    @property
+    def child_nurseries(self):
+        """The nurseries this task contains.
+
+        This is a list, with outer nurseries before inner nurseries.
+
+        """
+        return list(self._child_nurseries)
 
     ################
     # Monitoring task exit
@@ -555,6 +610,7 @@ class Task:
 
     _monitors = attr.ib(default=attr.Factory(set))
 
+    @deprecated("0.2.0", instead=None, issue=136)
     def add_monitor(self, queue):
         """Register to be notified when this task exits.
 
@@ -567,6 +623,9 @@ class Task:
           ValueError: if ``queue`` is already registered with this task
 
         """
+        return self._add_monitor(queue)
+
+    def _add_monitor(self, queue):
         # Rationale: (a) don't particularly want to create a
         # callback-in-disguise API by allowing people to stick in some
         # arbitrary object with a put_nowait method, (b) don't want to have to
@@ -577,11 +636,12 @@ class Task:
             raise TypeError("monitor must be an UnboundedQueue object")
         if queue in self._monitors:
             raise ValueError("can't add same monitor twice")
-        if self.result is not None:
+        if self._result is not None:
             queue.put_nowait(self)
         else:
             self._monitors.add(queue)
 
+    @deprecated("0.2.0", instead=None, issue=136)
     def discard_monitor(self, queue):
         """Unregister the given queue from being notified about this task
         exiting.
@@ -596,16 +656,17 @@ class Task:
 
         self._monitors.discard(queue)
 
+    @deprecated("0.2.0", instead=None, issue=136)
     async def wait(self):
         """Wait for this task to exit.
 
         """
         q = _core.UnboundedQueue()
-        self.add_monitor(q)
+        self._add_monitor(q)
         try:
             await q.get_batch()
         finally:
-            self.discard_monitor(q)
+            self._monitors.discard(q)
 
     ################
     # Cancellation
@@ -765,7 +826,8 @@ class Runner:
     @_public
     @_hazmat
     def reschedule(self, task, next_send=Value(None)):
-        """Reschedule the given task with the given :class:`~trio.Result`.
+        """Reschedule the given task with the given
+        :class:`~trio.hazmat.Result`.
 
         See :func:`yield_indefinitely` for the gory details.
 
@@ -775,10 +837,10 @@ class Runner:
         to calling :func:`reschedule` once.)
 
         Args:
-          task (trio.Task): the task to be rescheduled. Must be blocked in a
-            call to :func:`yield_indefinitely`.
-          next_send (trio.Result): the value (or error) to return (or raise)
-            from :func:`yield_indefinitely`.
+          task (trio.hazmat.Task): the task to be rescheduled. Must be blocked
+            in a call to :func:`yield_indefinitely`.
+          next_send (trio.hazmat.Result): the value (or error) to return (or
+            raise) from :func:`yield_indefinitely`.
 
         """
         assert task._runner is self
@@ -830,7 +892,7 @@ class Runner:
         try:
             coro = async_fn(*args)
         except TypeError:
-            # Give good error for: nursery.spawn(trio.sleep(1))
+            # Give good error for: nursery.start_soon(trio.sleep(1))
             if inspect.iscoroutine(async_fn):
                 raise TypeError(
                     "trio was expecting an async function, but instead it got "
@@ -838,17 +900,17 @@ class Runner:
                     "\n"
                     "Probably you did something like:\n"
                     "\n"
-                    "  trio.run({async_fn.__name__}(...))       # incorrect!\n"
-                    "  nursery.spawn({async_fn.__name__}(...))  # incorrect!\n"
+                    "  trio.run({async_fn.__name__}(...))            # incorrect!\n"
+                    "  nursery.start_soon({async_fn.__name__}(...))  # incorrect!\n"
                     "\n"
                     "Instead, you want (notice the parentheses!):\n"
                     "\n"
-                    "  trio.run({async_fn.__name__}, ...)       # correct!\n"
-                    "  nursery.spawn({async_fn.__name__}, ...)  # correct!"
+                    "  trio.run({async_fn.__name__}, ...)            # correct!\n"
+                    "  nursery.start_soon({async_fn.__name__}, ...)  # correct!"
                     .format(async_fn=async_fn)
                 ) from None
 
-            # Give good error for: nursery.spawn(asyncio.sleep(1))
+            # Give good error for: nursery.start_soon(asyncio.sleep(1))
             if _return_value_looks_like_wrong_library(async_fn):
                 raise TypeError(
                     "trio was expecting an async function, but instead it got "
@@ -865,15 +927,15 @@ class Runner:
         # function. So we have to just call it and then check whether the
         # result is a coroutine object.
         if not inspect.iscoroutine(coro):
-            # Give good error for: nursery.spawn(asyncio.sleep, 1)
+            # Give good error for: nursery.start_soon(asyncio.sleep, 1)
             if _return_value_looks_like_wrong_library(coro):
                 raise TypeError(
-                    "spawn got unexpected {!r} – are you trying to use a "
+                    "start_soon got unexpected {!r} – are you trying to use a "
                     "library written for asyncio/twisted/tornado or similar? "
                     "That won't work without some sort of compatibility shim."
                     .format(coro)
                 )
-            # Give good error for: nursery.spawn(some_sync_fn)
+            # Give good error for: nursery.start_soon(some_sync_fn)
             raise TypeError(
                 "trio expected an async function, but {!r} appears to be "
                 "synchronous"
@@ -916,7 +978,7 @@ class Runner:
         return task
 
     def task_exited(self, task, result):
-        task.result = result
+        task._result = result
         while task._cancel_stack:
             task._cancel_stack[-1]._remove_task(task)
         self.tasks.remove(task)
@@ -1002,14 +1064,17 @@ class Runner:
             self.spawn_system_task(
                 self.call_soon_task, name="<call soon task>"
             )
-            self.main_task = system_nursery.spawn(async_fn, *args)
-            async for task_batch in system_nursery.monitor:
+
+            self.main_task = self.spawn_impl(
+                async_fn, args, self.system_nursery, name=None
+            )
+            async for task_batch in system_nursery._monitor:
                 for task in task_batch:
                     if task is self.main_task:
                         system_nursery.cancel_scope.cancel()
-                        return system_nursery.reap_and_unwrap(task)
+                        return system_nursery._reap_and_unwrap(task)
                     else:
-                        system_nursery.reap_and_unwrap(task)
+                        system_nursery._reap_and_unwrap(task)
 
     ################
     # Outside Context Problems
@@ -1194,7 +1259,7 @@ class Runner:
         # same time -- so even if KI arrives before main_task is created, we
         # won't get here until afterwards.
         assert self.main_task is not None
-        if self.main_task.result is not None:
+        if self.main_task._result is not None:
             # We're already in the process of exiting -- leave ki_pending set
             # and we'll check it again on our way out of run().
             return
@@ -1236,7 +1301,7 @@ class Runner:
 
         Example:
           Here's an example of one way to test that trio's locks are fair: we
-          take the lock in the parent, spawn a child, wait for the child to be
+          take the lock in the parent, start a child, wait for the child to be
           blocked waiting for the lock (!), and then check that we can't
           release and immediately re-acquire the lock::
 
@@ -1248,7 +1313,7 @@ class Runner:
                  lock = trio.Lock()
                  await lock.acquire()
                  async with trio.open_nursery() as nursery:
-                     child = nursery.spawn(lock_taker, lock)
+                     child = nursery.start_soon(lock_taker, lock)
                      # child hasn't run yet, we have the lock
                      assert lock.locked()
                      assert lock._owner is trio.current_task()
@@ -1606,7 +1671,7 @@ def run_impl(runner, async_fn, args):
             runner.instrument("after_task_step", task)
             del GLOBAL_RUN_CONTEXT.task
 
-    return runner.init_task.result
+    return runner.init_task._result
 
 
 ################################################################
@@ -1625,6 +1690,7 @@ class _StatusIgnored:
 STATUS_IGNORED = _StatusIgnored()
 
 
+@_hazmat
 def current_task():
     """Return the :class:`Task` object representing the current task.
 

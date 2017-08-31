@@ -103,14 +103,13 @@ async def test_wait_basic(socketpair, wait_readable, wait_writable):
             record.append("cancelled")
         else:
             record.append("readable")
-            return a.recv(10)
+            assert a.recv(10) == b"x"
 
     async with _core.open_nursery() as nursery:
-        t = nursery.spawn(block_on_read)
+        nursery.start_soon(block_on_read)
         await wait_all_tasks_blocked()
         assert record == []
         b.send(b"x")
-    assert t.result.unwrap() == b"x"
 
     fill_socket(a)
 
@@ -129,7 +128,7 @@ async def test_wait_basic(socketpair, wait_readable, wait_writable):
             record.append("writable")
 
     async with _core.open_nursery() as nursery:
-        t = nursery.spawn(block_on_write)
+        nursery.start_soon(block_on_write)
         await wait_all_tasks_blocked()
         assert record == []
         drain_socket(b)
@@ -137,7 +136,7 @@ async def test_wait_basic(socketpair, wait_readable, wait_writable):
     # check cancellation
     record = []
     async with _core.open_nursery() as nursery:
-        t = nursery.spawn(block_on_read)
+        nursery.start_soon(block_on_read)
         await wait_all_tasks_blocked()
         nursery.cancel_scope.cancel()
     assert record == ["cancelled"]
@@ -145,7 +144,7 @@ async def test_wait_basic(socketpair, wait_readable, wait_writable):
     fill_socket(a)
     record = []
     async with _core.open_nursery() as nursery:
-        t = nursery.spawn(block_on_write)
+        nursery.start_soon(block_on_write)
         await wait_all_tasks_blocked()
         nursery.cancel_scope.cancel()
     assert record == ["cancelled"]
@@ -157,7 +156,7 @@ async def test_double_read(socketpair, wait_readable):
 
     # You can't have two tasks trying to read from a socket at the same time
     async with _core.open_nursery() as nursery:
-        nursery.spawn(wait_readable, a)
+        nursery.start_soon(wait_readable, a)
         await wait_all_tasks_blocked()
         with assert_yields():
             with pytest.raises(_core.ResourceBusyError):
@@ -172,7 +171,7 @@ async def test_double_write(socketpair, wait_writable):
     # You can't have two tasks trying to write to a socket at the same time
     fill_socket(a)
     async with _core.open_nursery() as nursery:
-        nursery.spawn(wait_writable, a)
+        nursery.start_soon(wait_writable, a)
         await wait_all_tasks_blocked()
         with assert_yields():
             with pytest.raises(_core.ResourceBusyError):
@@ -185,18 +184,29 @@ async def test_double_write(socketpair, wait_writable):
 async def test_socket_simultaneous_read_write(
     socketpair, wait_readable, wait_writable
 ):
+    record = []
+
+    async def r_task(sock):
+        await wait_readable(sock)
+        record.append("r_task")
+
+    async def w_task(sock):
+        await wait_writable(sock)
+        record.append("w_task")
+
     a, b = socketpair
     fill_socket(a)
     async with _core.open_nursery() as nursery:
-        r_task = nursery.spawn(wait_readable, a)
-        w_task = nursery.spawn(wait_writable, a)
+        nursery.start_soon(r_task, a)
+        nursery.start_soon(w_task, a)
         await wait_all_tasks_blocked()
-        assert r_task.result is None
-        assert w_task.result is None
+        assert record == []
         b.send(b"x")
-        await r_task.wait()
+        await wait_all_tasks_blocked()
+        assert record == ["r_task"]
         drain_socket(b)
-        await w_task.wait()
+        await wait_all_tasks_blocked()
+        assert record == ["r_task", "w_task"]
 
 
 @read_socket_test
@@ -213,7 +223,9 @@ async def test_socket_actual_streaming(
     N = 1000000  # 1 megabyte
     MAX_CHUNK = 65536
 
-    async def sender(sock, seed):
+    results = {}
+
+    async def sender(sock, seed, key):
         r = random.Random(seed)
         sent = 0
         while sent < N:
@@ -226,9 +238,9 @@ async def test_socket_actual_streaming(
                 sent += this_chunk_size
                 del chunk[:this_chunk_size]
         sock.shutdown(stdlib_socket.SHUT_WR)
-        return sent
+        results[key] = sent
 
-    async def receiver(sock):
+    async def receiver(sock, key):
         received = 0
         while True:
             print("received", received)
@@ -238,13 +250,13 @@ async def test_socket_actual_streaming(
             if not this_chunk_size:
                 break
             received += this_chunk_size
-        return received
+        results[key] = received
 
     async with _core.open_nursery() as nursery:
-        send_a = nursery.spawn(sender, a, 0)
-        send_b = nursery.spawn(sender, b, 1)
-        recv_a = nursery.spawn(receiver, a)
-        recv_b = nursery.spawn(receiver, b)
+        nursery.start_soon(sender, a, 0, "send_a")
+        nursery.start_soon(sender, b, 1, "send_b")
+        nursery.start_soon(receiver, a, "recv_a")
+        nursery.start_soon(receiver, b, "recv_b")
 
-    assert send_a.result.unwrap() == recv_b.result.unwrap()
-    assert send_b.result.unwrap() == recv_a.result.unwrap()
+    assert results["send_a"] == results["recv_b"]
+    assert results["send_b"] == results["recv_a"]

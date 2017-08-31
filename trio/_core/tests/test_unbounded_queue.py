@@ -49,7 +49,7 @@ async def test_UnboundedQueue_blocking():
     for consumer in (get_batch_consumer, aiter_consumer):
         record.clear()
         async with _core.open_nursery() as nursery:
-            task = nursery.spawn(consumer)
+            nursery.start_soon(consumer)
             await _core.wait_all_tasks_blocked()
             stats = q.statistics()
             assert stats.qsize == 0
@@ -72,16 +72,21 @@ async def test_UnboundedQueue_fairness():
     q.put_nowait(2)
     assert q.get_batch_nowait() == [1, 2]
 
+    result = None
+
+    async def get_batch(q):
+        nonlocal result
+        result = await q.get_batch()
+
     # But if someone else is waiting to read, then they get dibs
     async with _core.open_nursery() as nursery:
-        t = nursery.spawn(q.get_batch)
+        nursery.start_soon(get_batch, q)
         await _core.wait_all_tasks_blocked()
         q.put_nowait(3)
         q.put_nowait(4)
         with pytest.raises(_core.WouldBlock):
             q.get_batch_nowait()
-        await t.wait()
-        assert t.result.unwrap() == [3, 4]
+    assert result == [3, 4]
 
     # If two tasks are trying to read, they alternate
     record = []
@@ -91,9 +96,9 @@ async def test_UnboundedQueue_fairness():
             record.append((name, await q.get_batch()))
 
     async with _core.open_nursery() as nursery:
-        nursery.spawn(reader, "a")
+        nursery.start_soon(reader, "a")
         await _core.wait_all_tasks_blocked()
-        nursery.spawn(reader, "b")
+        nursery.start_soon(reader, "b")
         await _core.wait_all_tasks_blocked()
 
         for i in range(20):
@@ -129,17 +134,15 @@ async def test_UnboundedQueue_no_spurious_wakeups():
 
     async with _core.open_nursery() as nursery:
         q = _core.UnboundedQueue()
-        t1 = nursery.spawn(getter, q, 1)
+        nursery.start_soon(getter, q, 1)
         await wait_all_tasks_blocked()
-        t2 = nursery.spawn(getter, q, 2)
+        nursery.start_soon(getter, q, 2)
         await wait_all_tasks_blocked()
 
         for i in range(10):
             q.put_nowait(i)
         await wait_all_tasks_blocked()
 
-        assert t1.result is not None
-        assert t2.result is None
         assert record == [(1, list(range(10)))]
 
         nursery.cancel_scope.cancel()

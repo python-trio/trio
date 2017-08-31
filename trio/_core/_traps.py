@@ -66,7 +66,7 @@ def yield_indefinitely(abort_func):
     """Put the current task to sleep, with cancellation support.
 
     This is the lowest-level API for blocking in trio. Every time a
-    :class:`~trio.Task` blocks, it does so by calling this function.
+    :class:`~trio.hazmat.Task` blocks, it does so by calling this function.
 
     This is a tricky interface with no guard rails. If you can use
     :class:`ParkingLot` or the built-in I/O wait functions instead, then you

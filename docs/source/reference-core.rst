@@ -640,17 +640,17 @@ walk *and* chew gum, this is the section for you.
 Nurseries and spawning
 ~~~~~~~~~~~~~~~~~~~~~~
 
-Most libraries for concurrent programming let you spawn new child
+Most libraries for concurrent programming let you start new child
 tasks (or threads, or whatever) willy-nilly, whenever and where-ever
-you feel like it. Trio is a bit different: you can't spawn a child
+you feel like it. Trio is a bit different: you can't start a child
 task unless you're prepared to be a responsible parent. The way you
 demonstrate your responsibility is by creating a nursery::
 
    async with trio.open_nursery() as nursery:
        ...
 
-And once you have a reference to a nursery object, you can spawn
-children into that nursery::
+And once you have a reference to a nursery object, you can start
+children in that nursery::
 
    async def child():
        ...
@@ -658,8 +658,8 @@ children into that nursery::
    async def parent():
        async with trio.open_nursery() as nursery:
            # Make two concurrent calls to child()
-           nursery.spawn(child)
-           nursery.spawn(child)
+           nursery.start_soon(child)
+           nursery.start_soon(child)
 
 This means that tasks form a tree: when you call :func:`run`, then
 this creates an initial task, and all your other tasks will be
@@ -693,24 +693,6 @@ of this is that :func:`run` can't finish until all tasks have
 finished.
 
 
-Getting results from child tasks
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The ``spawn`` method returns a :class:`Task` object that can be used
-for various things – and in particular, for retrieving the task's
-return value. Example::
-
-   async def child_fn(x):
-       return 2 * x
-
-   async with trio.open_nursery() as nursery:
-       child_task = nursery.spawn(child_fn, 3)
-   # We've left the nursery, so we know child_task has completed
-   assert child_task.result.unwrap() == 6
-
-See :attr:`Task.result` and :class:`Result` for more details.
-
-
 Child tasks and cancellation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -720,17 +702,17 @@ expires::
 
    with move_on_after(TIMEOUT):
        async with trio.open_nursery() as nursery:
-           nursery.spawn(child1)
-           nursery.spawn(child2)
+           nursery.start_soon(child1)
+           nursery.start_soon(child2)
 
 Note that what matters here is the scopes that were active when
 :func:`open_nursery` was called, *not* the scopes active when
-``spawn`` is called. So for example, the timeout block below does
+``start_soon`` is called. So for example, the timeout block below does
 nothing at all::
 
    async with trio.open_nursery() as nursery:
        with move_on_after(TIMEOUT):  # don't do this!
-           nursery.spawn(child)
+           nursery.start_soon(child)
 
 
 Errors in multiple child tasks
@@ -750,8 +732,8 @@ limitation. Consider code like::
 
     async def parent():
         async with trio.open_nursery() as nursery:
-            nursery.spawn(broken1)
-            nursery.spawn(broken2)
+            nursery.start_soon(broken1)
+            nursery.start_soon(broken2)
 
 ``broken1`` raises ``KeyError``. ``broken2`` raises
 ``IndexError``. Obviously ``parent`` should raise some error, but
@@ -773,22 +755,22 @@ How to be a good parent task
 
 Supervising child tasks is a full time job. If you want your program
 to do two things at once, then don't expect the parent task to do one
-while a child task does another – instead, spawn two children and let
+while a child task does another – instead, start two children and let
 the parent focus on managing them.
 
 So, don't do this::
 
     # bad idea!
     async with trio.open_nursery() as nursery:
-        nursery.spawn(walk)
+        nursery.start_soon(walk)
         await chew_gum()
 
 Instead, do this::
 
     # good idea!
     async with trio.open_nursery() as nursery:
-        nursery.spawn(walk)
-        nursery.spawn(chew_gum)
+        nursery.start_soon(walk)
+        nursery.start_soon(chew_gum)
         # now parent task blocks in the nursery cleanup code
 
 The difference between these is that in the first example, if ``walk``
@@ -802,7 +784,7 @@ Spawning tasks without becoming a parent
 
 Sometimes it doesn't make sense for the task that spawns a child to
 take on responsibility for watching it. For example, a server task may
-want to spawn a new task for each connection, but it can't listen for
+want to start a new task for each connection, but it can't listen for
 connections and supervise children at the same time.
 
 The solution here is simple once you see it: there's no requirement
@@ -812,26 +794,26 @@ code like this::
    async def new_connection_listener(handler, nursery):
        while True:
            conn = await get_new_connection()
-           nursery.spawn(handler, conn)
+           nursery.start_soon(handler, conn)
 
    async def server(handler):
        async with trio.open_nursery() as nursery:
-           nursery.spawn(new_connection_listener, handler, nursery)
+           nursery.start_soon(new_connection_listener, handler, nursery)
 
 Now ``new_connection_listener`` can focus on handling new connections,
 while its parent focuses on supervising both it and all the individual
 connection handlers.
 
 And remember that cancel scopes are inherited from the nursery,
-**not** from the task that calls ``spawn``. So in this example, the
-timeout does *not* apply to ``child`` (or to anything else)::
+**not** from the task that calls ``start_soon``. So in this example,
+the timeout does *not* apply to ``child`` (or to anything else)::
 
    async with do_spawn(nursery):
        with move_on_after(TIMEOUT):  # don't do this, it has no effect
-           nursery.spawn(child)
+           nursery.start_soon(child)
 
    async with trio.open_nursery() as nursery:
-       nursery.spawn(do_spawn, nursery)
+       nursery.start_soon(do_spawn, nursery)
 
 
 Custom supervisors
@@ -841,37 +823,47 @@ The default cleanup logic is often sufficient for simple cases, but
 what if you want a more sophisticated supervisor? For example, maybe
 you have `Erlang envy <http://learnyousomeerlang.com/supervisors>`__
 and want features like automatic restart of crashed tasks. Trio itself
-doesn't provide such a feature, but the nursery interface is designed
-to give you all the tools you need to build such a thing, while
-enforcing basic hygiene (e.g., it's not possible to build a supervisor
-that exits and leaves orphaned tasks behind). And then hopefully
-you'll wrap your fancy supervisor up in a library and put it on PyPI,
-because building custom supervisors is a challenging task that most
-people don't want to deal with!
+doesn't provide these kinds of features, but you can build them on
+top; Trio's goal is to enforce basic hygiene and then get out of your
+way. (Specifically: Trio won't let you build a supervisor that exits
+and leaves orphaned tasks behind, and if you have an unhandled
+exception due to bugs or laziness then Trio will make sure they
+propagate.) And then you can wrap your fancy supervisor up in a
+library and put it on PyPI, because supervisors are tricky and there's
+no reason everyone should have to write their own.
 
-For simple custom supervisors, it's often possible to lean on the
-default nursery logic to take care of annoying details. For example,
-here's a function that takes a list of functions, runs them all
-concurrently, and returns the result from the one that finishes
-first::
+For example, here's a function that takes a list of functions, runs
+them all concurrently, and returns the result from the one that
+finishes first::
+
+   # XX this example can be simplified a little after #136 is fixed in 0.3.0
 
    async def race(*async_fns):
        if not async_fns:
            raise ValueError("must pass at least one argument")
-       async with trio.open_nursery() as nursery:
-           for async_fn in async_fns:
-               nursery.spawn(async_fn)
-           task_batch = await nursery.monitor.get_batch()
-           nursery.cancel_scope.cancel()
-           finished_task = task_batch[0]
-           return nursery.reap_and_unwrap(finished_task)
 
-This works by waiting until at least one task has finished, then
-cancelling all remaining tasks and returning the result from the first
-task. This implicitly invokes the default logic to take care of all
-the other tasks, so it blocks to wait for the cancellation to finish,
-and if any of them raise errors in the process it will propagate
-those.
+       async def racecar(results, async_fn, cancel_scope):
+           result = await async_fn()
+           results.append(result)
+           cancel_scope.cancel()
+
+       async with trio.open_nursery() as nursery:
+           results = []
+           cancel_scope = nursery.cancel_scope
+           for async_fn in async_fns:
+               nursery.start_soon(racecar, results, async_fn, cancel_scope)
+
+       return results[0]
+
+This works by starting a set of racecar tasks which each try to run
+their function, report back, and then cancel all the rest. Eventually
+one suceeds, all the tasks are cancelled and exit, and then our
+nursery exits and we return the winning value. And if one or more of
+them raises an unhandled exception then Trio's normal handling kicks
+in: it cancels the others and then propagates the exception. If you
+wanted different behavior, you could do that by adding a ``try`` block
+to the ``racecar`` function to catch exceptions and handle them
+however you like.
 
 
 Task-related API details
@@ -887,14 +879,23 @@ Nursery objects provide the following interface:
 
 .. interface:: The nursery interface
 
-   .. method:: spawn(async_fn, *args, name=None)
+   .. method:: start_soon(async_fn, *args, name=None)
 
-      Runs ``await async_fn(*args)`` in a new child task inside this nursery.
+      Creates a new child task inside this nursery, and sets it up to
+      run ``await async_fn(*args)``.
 
-      This is *the* method for creating concurrent tasks in trio.
+      This and :meth:`start` are the two fundamental methods for
+      creating concurrent tasks in trio.
+
+      Note that this is a synchronous function: it sets up the new
+      task, but then returns immediately, *before* it has a chance to
+      run. It won't actually run until some later point when you
+      execute a checkpoint and the scheduler decides to run it. If you
+      need to wait for the task to initialize itself before
+      continuing, see :meth:`start`.
 
       It's possible to pass a nursery object into another task, which
-      allows that task to spawn new tasks into the first task's
+      allows that task to start new child tasks in the first task's
       nursery.
 
       The child task inherits its parent nursery's cancel scopes.
@@ -906,19 +907,14 @@ Nursery objects provide the following interface:
       :param name: The name for this task. Only used for
                    debugging/introspection
                    (e.g. ``repr(task_obj)``). If this isn't a string,
-                   :meth:`spawn` will try to make it one. A common use
-                   case is if you're wrapping a function before
-                   spawning a new task, you might pass the original
-                   function as the ``name=`` to make debugging easier.
-      :return: the newly spawned task
-      :rtype trio.Task:
+                   :meth:`start_soon` will try to make it one. A
+                   common use case is if you're wrapping a function
+                   before spawning a new task, you might pass the
+                   original function as the ``name=`` to make
+                   debugging easier.
       :raises RuntimeError: If this nursery is no longer open
                             (i.e. its ``async with`` block has
                             exited).
-
-   .. method:: start_soon(async_fn, *args, name=None)
-
-      Like :meth:`spawn`, but doesn't return the newly created task.
 
    .. method:: start(async_fn, *args, name=None)
       :async:
@@ -970,100 +966,22 @@ Nursery objects provide the following interface:
       other things, e.g. if you want to explicitly cancel all children
       in response to some external event.
 
-   The remaining attributes and methods are mainly used for
-   implementing new types of task supervisor:
+   The last two attributes are mainly to enable introspection of the
+   task tree, for example in debuggers.
 
-   .. attribute:: monitor
+   .. attribute:: parent_task
 
-      A :class:`~trio.UnboundedQueue` which receives each child
-      :class:`~trio.Task` object when it exits.
+      The :class:`~trio.hazmat.Task` that opened this nursery.
 
-      It also receives a ``None`` value after each call to
-      :meth:`start`.
-
-   .. attribute:: children
+   .. attribute:: child_tasks
 
       A :class:`frozenset` containing all the child
-      :class:`~trio.Task` objects which are still running.
+      :class:`~trio.hazmat.Task` objects which are still running.
 
-   .. attribute:: zombies
-
-      A :class:`frozenset` containing all the child
-      :class:`~trio.Task` objects which have exited, but not yet been
-      reaped.
-
-   .. method:: reap(task)
-
-      Removes the given task from the :attr:`zombies` set.
-
-      Calling this method indicates to the nursery that you have taken
-      care of any cleanup needed. In particular, if the task exited
-      with an exception and you don't call this method, then
-      ``__aexit__`` will eventually re-raise that exception. If you do
-      call this method, then ``__aexit__`` won't do anything.
-
-      Once you call this method, then as far as trio is concerned the
-      :class:`~trio.Task` object no longer exists. You can hold onto a
-      reference to it as long as you like, but trio no longer has any
-      record of it.
-
-      :raises ValueError: If the given ``task`` is not in :attr:`zombies`.
-
-   .. method:: reap_and_unwrap(task)
-
-      A convenience shorthand for::
-
-         nursery.reap(task)
-         return task.result.unwrap()
 
 .. attribute:: STATUS_IGNORED
 
    See :meth:`~The nursery interface.start`.
-
-
-Task object API
-+++++++++++++++
-
-.. autofunction:: current_task()
-
-.. class:: Task()
-
-   A :class:`Task` object represents a concurrent "thread" of
-   execution.
-
-   .. attribute:: result
-
-      If this :class:`Task` is still running, then its :attr:`result`
-      attribute is ``None``. (This can be used to check whether a task
-      has finished running.)
-
-      Otherwise, this is a :class:`Result` object holding the value
-      returned or the exception raised by the async function that was
-      spawned to create this task.
-
-   The next three methods allow another task to monitor the result of
-   this task, even if it isn't supervising it:
-
-   .. automethod:: wait
-
-   .. automethod:: add_monitor
-
-   .. automethod:: discard_monitor
-
-   The remaining members are mostly useful for introspection and
-   debugging:
-
-   .. attribute:: name
-
-      String containing this :class:`Task`\'s name. Usually (but not
-      always) the name of the function this :class:`Task` is running.
-
-   .. attribute:: coro
-
-      This task's coroutine object. Example usage: extracting a stack
-      trace.
-
-   .. autoattribute:: parent_task
 
 
 Working with :exc:`MultiError`\s
@@ -1132,25 +1050,6 @@ context chaining. :meth:`MultiError.filter` and
 you return a new exception object, then the new object's
 ``__context__`` attribute will automatically be set to the original
 exception.
-
-
-Result objects
-++++++++++++++
-
-.. autoclass:: Result
-   :members:
-
-.. autoclass:: Value
-   :members:
-
-.. autoclass:: Error
-   :members:
-
-.. note::
-
-   Since :class:`Result` objects are simple immutable data structures
-   that don't otherwise interact with the trio machinery, it's safe to
-   create and access :class:`Result` objects from any thread you like.
 
 
 Task-local storage
@@ -1306,8 +1205,8 @@ you'll see that the two tasks politely take turns::
    async def main():
        async with trio.open_nursery() as nursery:
            lock = trio.Lock()
-           nursery.spawn(loopy_child, 1, lock)
-           nursery.spawn(loopy_child, 2, lock)
+           nursery.start_soon(loopy_child, 1, lock)
+           nursery.start_soon(loopy_child, 2, lock)
 
    trio.run(main)
 
@@ -1319,13 +1218,15 @@ Broadcasting an event with :class:`Event`
    :members:
 
 
-Passing messages with :class:`Queue` and :class:`UnboundedQueue`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. _queue:
 
-Trio provides two types of queues suitable for different
-purposes. Where they differ is in their strategies for handling flow
-control. Here's a toy example to demonstrate the problem. Suppose we
-have a queue with two producers and one consumer::
+Passing messages with :class:`Queue`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can use :class:`Queue` objects to safely pass objects between
+tasks. Trio :class:`Queue` objects always have a bounded size. Here's
+a toy example to demonstrate why this is important. Suppose we have a
+queue with two producers and one consumer::
 
    async def producer(queue):
        while True:
@@ -1336,16 +1237,16 @@ have a queue with two producers and one consumer::
            print(await queue.get())
 
    async def main():
-       # Trio's actual queue classes have countermeasures to prevent
-       # this example from working, so imagine we have some sort of
-       # platonic ideal of a queue here
+       # This example won't work with Trio's actual Queue class, so
+       # imagine we have some sort of platonic ideal of an unbounded
+       # queue here:
        queue = trio.HypotheticalQueue()
        async with trio.open_nursery() as nursery:
            # Two producers
-           nursery.spawn(producer, queue)
-           nursery.spawn(producer, queue)
+           nursery.start_soon(producer, queue)
+           nursery.start_soon(producer, queue)
            # One consumer
-           nursery.spawn(consumer, queue)
+           nursery.start_soon(consumer, queue)
 
    trio.run(main)
 
@@ -1356,39 +1257,12 @@ we add two items to the queue but only remove one, then over time the
 queue size grows arbitrarily large, our latency is terrible, we run
 out of memory, it's just generally bad news all around.
 
-There are two potential strategies for avoiding this problem.
-
-The preferred solution is to apply *backpressure*. If our queue starts
-getting too big, then we can make the producers slow down by having
-``put`` block until ``get`` has had a chance to remove an item. This
-is the strategy used by :class:`trio.Queue`.
-
-The other possibility is for the queue consumer to get greedy: each
-time it runs, it could eagerly consume all of the pending items before
-allowing another task to run. (In some other systems, this would
-happen automatically because their queue's ``get`` method doesn't
-invoke the scheduler unless it has to block. But :ref:`in trio, get is
-always a checkpoint <checkpoint-rule>`.) This would work, but it's a
-bit risky: basically instead of applying backpressure to specifically
-the producer tasks, we're applying it to *all* the tasks in our
-system. The danger here is that if enough items have built up in the
-queue, then "stopping the world" to process them all may cause
-unacceptable latency spikes in unrelated tasks. Nonetheless, this is
-still the right choice in situations where it's impossible to apply
-backpressure more precisely. For example, when monitoring exiting
-tasks, blocking tasks from reporting their death doesn't really
-accomplish anything – the tasks are taking up memory either way,
-etc. (In this particular case it `might be possible to do better
-<https://github.com/python-trio/trio/issues/64>`__, but in general the
-principle holds.) So this is the strategy implemented by
-:class:`trio.UnboundedQueue`.
-
-tl;dr: use :class:`Queue` if you can.
+By placing an upper bound on our queue's size, we avoid this problem.
+If the queue gets too big, then it applies *backpressure*: ``put``
+blocks and forces the producers to slow down and wait until the
+consumer calls ``get``.
 
 .. autoclass:: Queue
-   :members:
-
-.. autoclass:: UnboundedQueue
    :members:
 
 
@@ -1666,8 +1540,8 @@ Debugging and instrumentation
 -----------------------------
 
 Trio tries hard to provide useful hooks for debugging and
-instrumentation. Some are documented above (:attr:`Task.name`,
-:meth:`Queue.statistics`, etc.). Here are some more:
+instrumentation. Some are documented above (the nursery introspection
+attributes, :meth:`Queue.statistics`, etc.). Here are some more:
 
 
 Global statistics

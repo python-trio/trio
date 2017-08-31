@@ -1,9 +1,12 @@
 import abc
 import attr
 
+from . import _hazmat
+
 __all__ = ["Result", "Value", "Error"]
 
 
+@_hazmat
 @attr.s(slots=True, frozen=True)
 class Result(metaclass=abc.ABCMeta):
     """An abstract class representing the result of a Python computation.
@@ -81,6 +84,7 @@ class Result(metaclass=abc.ABCMeta):
         """
 
 
+@_hazmat
 @attr.s(slots=True, frozen=True, repr=False)
 class Value(Result):
     """Concrete :class:`Result` subclass representing a regular value.
@@ -103,6 +107,7 @@ class Value(Result):
         return await agen.asend(self.value)
 
 
+@_hazmat
 @attr.s(slots=True, frozen=True, repr=False)
 class Error(Result):
     """Concrete :class:`Result` subclass representing a raised exception.

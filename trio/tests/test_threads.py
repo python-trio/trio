@@ -195,15 +195,23 @@ async def test_run_in_worker_thread_cancellation():
         register[0] = "finished"
 
     async def child(q, cancellable):
-        return await run_sync_in_worker_thread(f, q, cancellable=cancellable)
+        record.append("start")
+        try:
+            return await run_sync_in_worker_thread(
+                f, q, cancellable=cancellable
+            )
+        finally:
+            record.append("exit")
 
+    record = []
     q = stdlib_queue.Queue()
     async with _core.open_nursery() as nursery:
-        task1 = nursery.spawn(child, q, True)
+        nursery.start_soon(child, q, True)
         # Give it a chance to get started. (This is important because
         # run_sync_in_worker_thread does a yield_if_cancelled before blocking
         # on the thread, and we don't want to trigger this.)
         await wait_all_tasks_blocked()
+        assert record == ["start"]
         # Then cancel it.
         nursery.cancel_scope.cancel()
     # The task exited, but the thread didn't:
@@ -214,16 +222,17 @@ async def test_run_in_worker_thread_cancellation():
         time.sleep(0.01)
 
     # This one can't be cancelled
+    record = []
     register[0] = None
     async with _core.open_nursery() as nursery:
-        task2 = nursery.spawn(child, q, False)
+        nursery.start_soon(child, q, False)
         await wait_all_tasks_blocked()
         nursery.cancel_scope.cancel()
         with _core.open_cancel_scope(shield=True):
             for _ in range(10):
                 await _core.yield_briefly()
         # It's still running
-        assert task2.result is None
+        assert record == ["start"]
         q.put(None)
         # Now it exits
 
@@ -251,7 +260,7 @@ def test_run_in_worker_thread_abandoned(capfd):
             await run_sync_in_worker_thread(thread_fn, cancellable=True)
 
         async with _core.open_nursery() as nursery:
-            t = nursery.spawn(child)
+            nursery.start_soon(child)
             await wait_all_tasks_blocked()
             nursery.cancel_scope.cancel()
 
@@ -328,7 +337,7 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
                 state.running -= 1
             print("thread_fn exiting")
 
-        async def run_thread():
+        async def run_thread(event):
             with _core.open_cancel_scope() as cancel_scope:
                 await run_sync_in_worker_thread(
                     thread_fn,
@@ -340,12 +349,14 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
                 "run_thread finished, cancelled:",
                 cancel_scope.cancelled_caught
             )
+            event.set()
 
         async with _core.open_nursery() as nursery:
             print("spawning")
-            tasks = []
+            events = []
             for i in range(COUNT):
-                tasks.append(nursery.spawn(run_thread))
+                events.append(Event())
+                nursery.start_soon(run_thread, events[-1])
                 await wait_all_tasks_blocked()
             # In the cancel case, we in particular want to make sure that the
             # cancelled tasks don't release the semaphore. So let's wait until
@@ -354,7 +365,7 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
             # who's supposed to be waiting is waiting:
             if cancel:
                 print("waiting for first cancellation to clear")
-                await tasks[0].wait()
+                await events[0].wait()
                 await wait_all_tasks_blocked()
             # Then wait until the first MAX threads are parked in gate.wait(),
             # and the next MAX threads are parked on the semaphore, to make

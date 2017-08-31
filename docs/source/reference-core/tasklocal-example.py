@@ -19,8 +19,8 @@ async def handle_request(tag):
     log("Request handler started")
     await trio.sleep(random.random())
     async with trio.open_nursery() as nursery:
-        nursery.spawn(concurrent_helper, "a")
-        nursery.spawn(concurrent_helper, "b")
+        nursery.start_soon(concurrent_helper, "a")
+        nursery.start_soon(concurrent_helper, "b")
     await trio.sleep(random.random())
     log("Request received finished")
 
@@ -34,6 +34,6 @@ async def concurrent_helper(job):
 async def main():
     async with trio.open_nursery() as nursery:
         for i in range(3):
-            nursery.spawn(handle_request, i)
+            nursery.start_soon(handle_request, i)
 
 trio.run(main)

@@ -272,7 +272,7 @@ async def open_tcp_stream(
 
         # Then kick off the next attempt.
         this_attempt_failed = trio.Event()
-        nursery.spawn(attempt_connect, nursery, this_attempt_failed)
+        nursery.start_soon(attempt_connect, nursery, this_attempt_failed)
 
         # Then make this invocation's attempt
         try:
@@ -293,7 +293,7 @@ async def open_tcp_stream(
 
     # Kick off the chain of connection attempts.
     async with trio.open_nursery() as nursery:
-        nursery.spawn(attempt_connect, nursery, None)
+        nursery.start_soon(attempt_connect, nursery, None)
 
     # All connection attempts complete, and no unexpected errors escaped. So
     # at this point the oserrors and winning_sockets lists are filled in.

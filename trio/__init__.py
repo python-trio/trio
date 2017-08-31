@@ -76,6 +76,32 @@ from . import abc
 from . import ssl
 # Not imported by default: testing
 
+# Stuff that got moved:
+_deprecate.enable_attribute_deprecations(__name__)
+
+__deprecated_attributes__ = {
+    "Task":
+        _deprecate.DeprecatedAttribute(hazmat.Task, "0.2.0", issue=136),
+    "current_task":
+        _deprecate.DeprecatedAttribute(
+            hazmat.current_task, "0.2.0", issue=136
+        ),
+    "Result":
+        _deprecate.DeprecatedAttribute(hazmat.Result, "0.2.0", issue=136),
+    "Value":
+        _deprecate.DeprecatedAttribute(hazmat.Value, "0.2.0", issue=136),
+    "Error":
+        _deprecate.DeprecatedAttribute(hazmat.Error, "0.2.0", issue=136),
+    "UnboundedQueue":
+        _deprecate.DeprecatedAttribute(
+            hazmat.UnboundedQueue, "0.2.0", issue=136
+        ),
+    "run_in_worker_thread":
+        _deprecate.DeprecatedAttribute(
+            run_sync_in_worker_thread, "0.2.0", issue=68
+        ),
+}
+
 # Having the public path in .__module__ attributes is important for:
 # - exception names in printed tracebacks
 # - sphinx :show-inheritance:

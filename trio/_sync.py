@@ -232,8 +232,8 @@ class CapacityLimiter:
         blocking.
 
         Args:
-          borrower: A :class:`Task` or arbitrary opaque object used to record
-             who is borrowing this token. This is used by
+          borrower: A :class:`trio.hazmat.Task` or arbitrary opaque object
+             used to record who is borrowing this token. This is used by
              :func:`run_sync_in_worker_thread` to allow threads to "hold
              tokens", with the intention in the future of using it to `allow
              deadlock detection and other useful things
@@ -272,8 +272,8 @@ class CapacityLimiter:
         necessary.
 
         Args:
-          borrower: A :class:`Task` or arbitrary opaque object used to record
-             who is borrowing this token; see
+          borrower: A :class:`trio.hazmat.Task` or arbitrary opaque object
+             used to record who is borrowing this token; see
              :meth:`acquire_on_behalf_of_nowait` for details.
 
         Raises:
@@ -579,8 +579,8 @@ class Lock:
         Currently the following fields are defined:
 
         * ``locked``: boolean indicating whether the lock is held.
-        * ``owner``: the :class:`Task` currently holding the lock, or None if
-          the lock is not held.
+        * ``owner``: the :class:`trio.hazmat.Task` currently holding the lock,
+          or None if the lock is not held.
         * ``tasks_waiting``: The number of tasks blocked on this lock's
           :meth:`acquire` method.
 
@@ -808,8 +808,7 @@ class Queue:
     """A bounded queue suitable for inter-task communication.
 
     This class is generally modelled after :class:`queue.Queue`, but with the
-    major difference that it is always bounded. For an unbounded queue, see
-    :class:`trio.UnboundedQueue`.
+    major difference that it is always bounded.
 
     A :class:`Queue` object can be used as an asynchronous iterator, that
     dequeues objects one at a time. I.e., these two loops are equivalent::
