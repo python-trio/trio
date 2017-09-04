@@ -208,8 +208,8 @@ async def test_run_in_worker_thread_cancellation():
     async with _core.open_nursery() as nursery:
         nursery.start_soon(child, q, True)
         # Give it a chance to get started. (This is important because
-        # run_sync_in_worker_thread does a yield_if_cancelled before blocking
-        # on the thread, and we don't want to trigger this.)
+        # run_sync_in_worker_thread does a checkpoint_if_cancelled before
+        # blocking on the thread, and we don't want to trigger this.)
         await wait_all_tasks_blocked()
         assert record == ["start"]
         # Then cancel it.

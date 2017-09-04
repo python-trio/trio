@@ -130,7 +130,7 @@ class AsyncIOWrapper(AsyncResource):
         with _core.open_cancel_scope(shield=True):
             await trio.run_sync_in_worker_thread(self._wrapped.close)
 
-        await _core.yield_if_cancelled()
+        await _core.checkpoint_if_cancelled()
 
 
 async def open_file(

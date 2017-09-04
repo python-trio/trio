@@ -118,7 +118,7 @@ class UnboundedQueue:
               non-empty.
 
         """
-        await _core.yield_if_cancelled()
+        await _core.checkpoint_if_cancelled()
         if not self._can_get:
             await self._lot.park()
             return self._get_batch_protected()

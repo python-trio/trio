@@ -44,7 +44,7 @@ from . import _public, _hazmat
 # namespaces.
 __all__ = [
     "Task", "run", "open_nursery", "open_cancel_scope", "checkpoint",
-    "current_task", "current_effective_deadline", "yield_if_cancelled",
+    "current_task", "current_effective_deadline", "checkpoint_if_cancelled",
     "STATUS_IGNORED"
 ]
 
@@ -1760,7 +1760,7 @@ async def checkpoint():
 
 
 @_hazmat
-async def yield_if_cancelled():
+async def checkpoint_if_cancelled():
     """A conditional :ref:`checkpoint <checkpoints>`.
 
     If a cancellation is active, then allows other tasks to be scheduled,

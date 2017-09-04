@@ -281,7 +281,7 @@ class CapacityLimiter:
              tokens.
 
         """
-        await _core.yield_if_cancelled()
+        await _core.checkpoint_if_cancelled()
         try:
             self.acquire_on_behalf_of_nowait(borrower)
         except _core.WouldBlock:
@@ -439,7 +439,7 @@ class Semaphore:
         letting it drop below zero.
 
         """
-        await _core.yield_if_cancelled()
+        await _core.checkpoint_if_cancelled()
         try:
             self.acquire_nowait()
         except _core.WouldBlock:
@@ -546,7 +546,7 @@ class Lock:
         """Acquire the lock, blocking if necessary.
 
         """
-        await _core.yield_if_cancelled()
+        await _core.checkpoint_if_cancelled()
         try:
             self.acquire_nowait()
         except _core.WouldBlock:

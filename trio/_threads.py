@@ -279,7 +279,7 @@ async def run_sync_in_worker_thread(
       Whatever ``sync_fn(*args)`` raises.
 
     """
-    await _core.yield_if_cancelled()
+    await _core.checkpoint_if_cancelled()
     call_soon = _core.current_call_soon_thread_and_signal_safe()
     if limiter is None:
         limiter = current_default_worker_thread_limiter()

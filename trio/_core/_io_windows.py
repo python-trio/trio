@@ -393,7 +393,7 @@ class WindowsIOManager:
     # async def perform_overlapped(self, handle, submit_fn):
     #     # submit_fn(lpOverlapped) submits some I/O
     #     # it may raise an OSError with ERROR_IO_PENDING
-    #     await _core.yield_if_cancelled()
+    #     await _core.checkpoint_if_cancelled()
     #     self.register_with_iocp(handle)
     #     lpOverlapped = ffi.new("LPOVERLAPPED")
     #     try:

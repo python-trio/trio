@@ -295,7 +295,7 @@ def test_ki_protection_works():
     with pytest.raises(KeyboardInterrupt):
         _core.run(main, instruments=[InstrumentOfDeath()])
 
-    # yield_if_cancelled notices pending KI
+    # checkpoint_if_cancelled notices pending KI
     print("check 5")
 
     @_core.enable_ki_protection
@@ -303,7 +303,7 @@ def test_ki_protection_works():
         assert _core.currently_ki_protected()
         ki_self()
         with pytest.raises(KeyboardInterrupt):
-            await _core.yield_if_cancelled()
+            await _core.checkpoint_if_cancelled()
 
     _core.run(main)
 

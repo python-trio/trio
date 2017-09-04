@@ -42,7 +42,7 @@ class _try_sync:
             return self._blocking_exc_override(exc)
 
     async def __aenter__(self):
-        await _core.yield_if_cancelled()
+        await _core.checkpoint_if_cancelled()
 
     async def __aexit__(self, etype, value, tb):
         if value is not None and self._is_blocking_io_error(value):
@@ -540,7 +540,7 @@ class _SocketType:
     # the same representation, but with names resolved to numbers,
     # etc.
     async def _resolve_address(self, address, flags):
-        await _core.yield_if_cancelled()
+        await _core.checkpoint_if_cancelled()
         try:
             self._check_address(address, require_resolved=False)
         except:

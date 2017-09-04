@@ -422,7 +422,7 @@ class SSLStream(Stream):
     # touch it. The big comment at the top of this file will help explain
     # too.
     async def _retry(self, fn, *args, ignore_want_read=False):
-        await _core.yield_if_cancelled()
+        await _core.checkpoint_if_cancelled()
         yielded = False
         try:
             finished = False

@@ -109,6 +109,8 @@ hazmat.__deprecated_attributes__ = {
         _deprecate.DeprecatedAttribute(hazmat.checkpoint, "0.2.0", issue=157),
     "yield_briefly_no_cancel":
         _deprecate.DeprecatedAttribute(hazmat.cancel_shielded_checkpoint, "0.2.0", issue=157),
+    "yield_if_cancelled":
+        _deprecate.DeprecatedAttribute(hazmat.checkpoint_if_cancelled, "0.2.0", issue=157),
 }
 
 # Having the public path in .__module__ attributes is important for:

@@ -340,7 +340,7 @@ Low-level checkpoint functions
 
 The next two functions are used *together* to make up a checkpoint:
 
-.. autofunction:: yield_if_cancelled
+.. autofunction:: checkpoint_if_cancelled
 .. autofunction:: cancel_shielded_checkpoint
 
 These are commonly used in cases where you have an operation that
@@ -348,7 +348,7 @@ might-or-might-not block, and you want to implement trio's standard
 checkpoint semantics. Example::
 
    async def operation_that_maybe_blocks():
-       await yield_if_cancelled()
+       await checkpoint_if_cancelled()
        try:
            ret = attempt_operation()
        except BlockingIOError:
@@ -390,7 +390,7 @@ This logic is a bit convoluted, but accomplishes all of the following:
 These functions can also be useful in other situations, e.g. if you're
 going to call an uncancellable operation like
 :func:`trio.run_sync_in_worker_thread` or (potentially) overlapped I/O
-operations on Windows, then you can call :func:`yield_if_cancelled`
+operations on Windows, then you can call :func:`checkpoint_if_cancelled`
 first to make sure that the whole thing is a checkpoint.
 
 

@@ -639,10 +639,10 @@ def test_instruments_crash(capfd):
 def test_cancel_points():
     async def main1():
         with _core.open_cancel_scope() as scope:
-            await _core.yield_if_cancelled()
+            await _core.checkpoint_if_cancelled()
             scope.cancel()
             with pytest.raises(_core.Cancelled):
-                await _core.yield_if_cancelled()
+                await _core.checkpoint_if_cancelled()
 
     _core.run(main1)
 
@@ -953,7 +953,7 @@ async def test_failed_abort():
             assert x == 1
             record.append("woke")
             try:
-                await _core.yield_if_cancelled()
+                await _core.checkpoint_if_cancelled()
             except _core.Cancelled:
                 record.append("cancelled")
 
@@ -1694,7 +1694,7 @@ async def test_trivial_yields(recwarn):
         await _core.checkpoint()
 
     with assert_checkpoints():
-        await _core.yield_if_cancelled()
+        await _core.checkpoint_if_cancelled()
         await _core.cancel_shielded_checkpoint()
 
     with assert_checkpoints():
