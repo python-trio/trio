@@ -156,6 +156,7 @@ async def test_assert_checkpoints(recwarn):
         await _core.checkpoint_if_cancelled()
         await _core.cancel_shielded_checkpoint()
 
+
 async def test_assert_no_yields(recwarn):
     with assert_no_yields():
         1 + 1
