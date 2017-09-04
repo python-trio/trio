@@ -75,7 +75,8 @@ def wait_task_rescheduled(abort_func):
     """Put the current task to sleep, with cancellation support.
 
     This is the lowest-level API for blocking in trio. Every time a
-    :class:`~trio.hazmat.Task` blocks, it does so by calling this function.
+    :class:`~trio.hazmat.Task` blocks, it does so by calling this function
+    (usually indirectly via some higher-level API).
 
     This is a tricky interface with no guard rails. If you can use
     :class:`ParkingLot` or the built-in I/O wait functions instead, then you

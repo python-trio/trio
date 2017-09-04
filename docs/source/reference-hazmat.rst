@@ -403,11 +403,11 @@ Low-level blocking
 .. autofunction:: reschedule
 
 Here's an example lock class implemented using
-:func:`wait_task_rescheduled` directly. This implementation has a number
-of flaws, including lack of fairness, O(n) cancellation, missing error
-checking, failure to insert a checkpoint on the non-blocking path,
-etc. If you really want to implement your own lock, then you should
-study the implementation of :class:`trio.Lock` and use
+:func:`wait_task_rescheduled` directly. This implementation has a
+number of flaws, including lack of fairness, O(n) cancellation,
+missing error checking, failure to insert a checkpoint on the
+non-blocking path, etc. If you really want to implement your own lock,
+then you should study the implementation of :class:`trio.Lock` and use
 :class:`ParkingLot`, which handles some of these issues for you. But
 this does serve to illustrate the basic structure of the
 :func:`wait_task_rescheduled` API::
