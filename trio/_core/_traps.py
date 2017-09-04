@@ -8,7 +8,7 @@ import attr
 
 from . import _hazmat
 
-__all__ = ["yield_briefly_no_cancel", "Abort", "yield_indefinitely"]
+__all__ = ["cancel_shielded_checkpoint", "Abort", "yield_indefinitely"]
 
 
 # Decorator to turn a generator into a well-behaved async function:
@@ -32,7 +32,7 @@ class YieldBrieflyNoCancel:
 
 @_hazmat
 @asyncfunction
-def yield_briefly_no_cancel():
+def cancel_shielded_checkpoint():
     """Introduce a schedule point, but not a cancel point.
 
     """

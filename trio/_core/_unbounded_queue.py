@@ -126,7 +126,7 @@ class UnboundedQueue:
             try:
                 return self._get_batch_protected()
             finally:
-                await _core.yield_briefly_no_cancel()
+                await _core.cancel_shielded_checkpoint()
 
     def statistics(self):
         """Return an object containing debugging information.

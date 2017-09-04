@@ -341,7 +341,7 @@ Low-level checkpoint functions
 The next two functions are used *together* to make up a checkpoint:
 
 .. autofunction:: yield_if_cancelled
-.. autofunction:: yield_briefly_no_cancel
+.. autofunction:: cancel_shielded_checkpoint
 
 These are commonly used in cases where you have an operation that
 might-or-might-not block, and you want to implement trio's standard
@@ -356,11 +356,11 @@ checkpoint semantics. Example::
            pass
        except:
            # some other error, finish the checkpoint then let it propagate
-           await yield_briefly_no_cancel()
+           await cancel_shielded_checkpoint()
            raise
        else:
            # operation succeeded, finish the checkpoint then return
-           await yield_briefly_no_cancel()
+           await cancel_shielded_checkpoint()
            return ret
        while True:
            await wait_for_operation_to_be_ready()
@@ -376,7 +376,7 @@ This logic is a bit convoluted, but accomplishes all of the following:
 
 * Our :ref:`cancellation semantics <cancellable-primitives>` say that
   :exc:`~trio.Cancelled` should only be raised if the operation didn't
-  happen. Using :func:`yield_briefly_no_cancel` on the early-exit
+  happen. Using :func:`cancel_shielded_checkpoint` on the early-exit
   branches accomplishes this.
 
 * On the path where we do end up blocking, we don't pass through any

@@ -561,7 +561,7 @@ class SSLStream(Stream):
             return ret
         finally:
             if not yielded:
-                await _core.yield_briefly_no_cancel()
+                await _core.cancel_shielded_checkpoint()
 
     async def _do_handshake(self):
         try:

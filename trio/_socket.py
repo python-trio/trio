@@ -50,7 +50,7 @@ class _try_sync:
             # block
             return True
         else:
-            await _core.yield_briefly_no_cancel()
+            await _core.cancel_shielded_checkpoint()
             # Let the return or exception propagate
             return False
 
@@ -544,10 +544,10 @@ class _SocketType:
         try:
             self._check_address(address, require_resolved=False)
         except:
-            await _core.yield_briefly_no_cancel()
+            await _core.cancel_shielded_checkpoint()
             raise
         if self._sock.family not in (AF_INET, AF_INET6):
-            await _core.yield_briefly_no_cancel()
+            await _core.cancel_shielded_checkpoint()
             return address
         # Since we always pass in an explicit family here, AI_ADDRCONFIG
         # doesn't add any value -- if we have no ipv6 connectivity and are

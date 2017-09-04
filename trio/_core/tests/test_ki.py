@@ -314,9 +314,9 @@ def test_ki_protection_works():
     async def main():
         assert _core.currently_ki_protected()
         ki_self()
-        await _core.yield_briefly_no_cancel()
-        await _core.yield_briefly_no_cancel()
-        await _core.yield_briefly_no_cancel()
+        await _core.cancel_shielded_checkpoint()
+        await _core.cancel_shielded_checkpoint()
+        await _core.cancel_shielded_checkpoint()
         with pytest.raises(KeyboardInterrupt):
             await _core.checkpoint()
 

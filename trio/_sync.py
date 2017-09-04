@@ -289,10 +289,10 @@ class CapacityLimiter:
             self._pending_borrowers[task] = borrower
             await self._lot.park()
         except:
-            await _core.yield_briefly_no_cancel()
+            await _core.cancel_shielded_checkpoint()
             raise
         else:
-            await _core.yield_briefly_no_cancel()
+            await _core.cancel_shielded_checkpoint()
 
     @_core.enable_ki_protection
     def release(self):
@@ -445,7 +445,7 @@ class Semaphore:
         except _core.WouldBlock:
             await self._lot.park()
         else:
-            await _core.yield_briefly_no_cancel()
+            await _core.cancel_shielded_checkpoint()
 
     @_core.enable_ki_protection
     def release(self):
@@ -555,7 +555,7 @@ class Lock:
             # lock as well.
             await self._lot.park()
         else:
-            await _core.yield_briefly_no_cancel()
+            await _core.cancel_shielded_checkpoint()
 
     @_core.enable_ki_protection
     def release(self):

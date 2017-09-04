@@ -666,8 +666,8 @@ def test_cancel_points():
     async def main4():
         with _core.open_cancel_scope() as scope:
             scope.cancel()
-            await _core.yield_briefly_no_cancel()
-            await _core.yield_briefly_no_cancel()
+            await _core.cancel_shielded_checkpoint()
+            await _core.cancel_shielded_checkpoint()
             with pytest.raises(_core.Cancelled):
                 await _core.checkpoint()
 
@@ -914,7 +914,7 @@ async def test_cancel_scope_nesting():
     # isn't delivered
     with _core.open_cancel_scope() as scope:
         scope.cancel()
-        await _core.yield_briefly_no_cancel()
+        await _core.cancel_shielded_checkpoint()
     await _core.checkpoint()
     assert not scope.cancelled_caught
 
@@ -1695,7 +1695,7 @@ async def test_trivial_yields(recwarn):
 
     with assert_checkpoints():
         await _core.yield_if_cancelled()
-        await _core.yield_briefly_no_cancel()
+        await _core.cancel_shielded_checkpoint()
 
     with assert_checkpoints():
         async with _core.open_nursery():

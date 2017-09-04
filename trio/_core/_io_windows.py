@@ -400,7 +400,7 @@ class WindowsIOManager:
     #         submit_fn(lpOverlapped)
     #     except OSError as exc:
     #         if exc.winerror != Error.ERROR_IO_PENDING:
-    #             await _core.yield_briefly_no_cancel()
+    #             await _core.cancel_shielded_checkpoint()
     #             raise
     #     await self.wait_overlapped(handle, lpOverlapped)
     #     return lpOverlapped

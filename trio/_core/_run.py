@@ -25,7 +25,7 @@ from ._exceptions import (
 from ._multierror import MultiError
 from ._result import Result, Error, Value
 from ._traps import (
-    yield_briefly_no_cancel,
+    cancel_shielded_checkpoint,
     Abort,
     yield_indefinitely,
     YieldBrieflyNoCancel,
