@@ -225,7 +225,9 @@ def test_ki_protection_works():
             # If we didn't raise (b/c protected), then we *should* get
             # cancelled at the next opportunity
             try:
-                await _core.yield_indefinitely(lambda _: _core.Abort.SUCCEEDED)
+                await _core.wait_task_rescheduled(
+                    lambda _: _core.Abort.SUCCEEDED
+                )
             except _core.Cancelled:
                 record.add((name + " cancel ok"))
 
@@ -335,7 +337,7 @@ def test_ki_protection_works():
             _core.reschedule(task, _core.Value(1))
             return _core.Abort.FAILED
 
-        assert await _core.yield_indefinitely(abort) == 1
+        assert await _core.wait_task_rescheduled(abort) == 1
         with pytest.raises(KeyboardInterrupt):
             await _core.checkpoint()
 
@@ -356,7 +358,7 @@ def test_ki_protection_works():
             return _core.Abort.FAILED
 
         with pytest.raises(KeyboardInterrupt):
-            assert await _core.yield_indefinitely(abort)
+            assert await _core.wait_task_rescheduled(abort)
         await _core.checkpoint()
 
     _core.run(main)

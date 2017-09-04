@@ -398,19 +398,19 @@ make sure that the call always acts as a checkpoint, it calls
 Low-level blocking
 ------------------
 
-.. autofunction:: yield_indefinitely
+.. autofunction:: wait_task_rescheduled
 .. autoclass:: Abort
 .. autofunction:: reschedule
 
 Here's an example lock class implemented using
-:func:`yield_indefinitely` directly. This implementation has a number
+:func:`wait_task_rescheduled` directly. This implementation has a number
 of flaws, including lack of fairness, O(n) cancellation, missing error
 checking, failure to insert a checkpoint on the non-blocking path,
 etc. If you really want to implement your own lock, then you should
 study the implementation of :class:`trio.Lock` and use
 :class:`ParkingLot`, which handles some of these issues for you. But
 this does serve to illustrate the basic structure of the
-:func:`yield_indefinitely` API::
+:func:`wait_task_rescheduled` API::
 
    class NotVeryGoodLock:
        def __init__(self):
@@ -424,7 +424,7 @@ this does serve to illustrate the basic structure of the
                def abort_fn(_):
                    self._blocked_tasks.remove(task)
                    return trio.hazmat.Abort.SUCCEEDED
-               await trio.hazmat.yield_indefinitely(abort_fn)
+               await trio.hazmat.wait_task_rescheduled(abort_fn)
            self._held = True
 
        def release(self):

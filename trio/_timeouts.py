@@ -48,7 +48,7 @@ async def sleep_forever():
     Equivalent to calling ``await sleep(math.inf)``.
 
     """
-    await _core.yield_indefinitely(lambda _: _core.Abort.SUCCEEDED)
+    await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
 
 
 async def sleep_until(deadline):

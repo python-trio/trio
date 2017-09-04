@@ -8,7 +8,7 @@ import attr
 
 from . import _hazmat
 
-__all__ = ["cancel_shielded_checkpoint", "Abort", "yield_indefinitely"]
+__all__ = ["cancel_shielded_checkpoint", "Abort", "wait_task_rescheduled"]
 
 
 # Decorator to turn a generator into a well-behaved async function:
@@ -53,7 +53,7 @@ def cancel_shielded_checkpoint():
 class Abort(enum.Enum):
     """:class:`enum.Enum` used as the return value from abort functions.
 
-    See :func:`yield_indefinitely` for details.
+    See :func:`wait_task_rescheduled` for details.
 
     .. data:: SUCCEEDED
               FAILED
@@ -71,7 +71,7 @@ class YieldIndefinitely:
 
 @_hazmat
 @asyncfunction
-def yield_indefinitely(abort_func):
+def wait_task_rescheduled(abort_func):
     """Put the current task to sleep, with cancellation support.
 
     This is the lowest-level API for blocking in trio. Every time a
@@ -85,7 +85,7 @@ def yield_indefinitely(abort_func):
     arrangements for "someone" to call :func:`reschedule` on the current task
     at some later point.
 
-    Then you call :func:`yield_indefinitely`, passing in ``abort_func``, an
+    Then you call :func:`wait_task_rescheduled`, passing in ``abort_func``, an
     "abort callback".
 
     (Terminology: in trio, "aborting" is the process of attempting to
@@ -94,7 +94,7 @@ def yield_indefinitely(abort_func):
     There are two possibilities for what happens next:
 
     1. "Someone" calls :func:`reschedule` on the current task, and
-       :func:`yield_indefinitely` returns or raises whatever value or error
+       :func:`wait_task_rescheduled` returns or raises whatever value or error
        was passed to :func:`reschedule`.
 
     2. The call's context transitions to a cancelled state (e.g. due to a
@@ -145,13 +145,13 @@ def yield_indefinitely(abort_func):
               outer_raise_cancel = inner_raise_cancel
               TRY_TO_CANCEL_OPERATION()
               return trio.hazmat.Abort.FAILED
-          await yield_indefinitely(abort)
+          await wait_task_rescheduled(abort)
           if OPERATION_WAS_SUCCESSFULLY_CANCELLED:
               # raises the error
               outer_raise_cancel()
 
        In any case it's guaranteed that we only call the ``abort_func`` at most
-       once per call to :func:`yield_indefinitely`.
+       once per call to :func:`wait_task_rescheduled`.
 
     .. warning::
 

@@ -145,7 +145,7 @@ def test_await_in_trio_thread_while_main_exits():
     async def trio_fn():
         record.append("sleeping")
         ev.set()
-        await _core.yield_indefinitely(lambda _: _core.Abort.SUCCEEDED)
+        await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
 
     def thread_fn(await_in_trio_thread):
         try:

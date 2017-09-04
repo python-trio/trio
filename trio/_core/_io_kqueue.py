@@ -111,7 +111,7 @@ class KqueueIOManager:
                 del self._registered[key]
             return r
 
-        return await _core.yield_indefinitely(abort)
+        return await _core.wait_task_rescheduled(abort)
 
     async def _wait_common(self, fd, filter):
         if not isinstance(fd, int):

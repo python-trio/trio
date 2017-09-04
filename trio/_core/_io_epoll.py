@@ -113,7 +113,7 @@ class EpollIOManager:
             self._update_registrations(fd, True)
             return _core.Abort.SUCCEEDED
 
-        await _core.yield_indefinitely(abort)
+        await _core.wait_task_rescheduled(abort)
 
     @_public
     @_hazmat

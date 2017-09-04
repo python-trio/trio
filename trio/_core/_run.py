@@ -27,7 +27,7 @@ from ._result import Result, Error, Value
 from ._traps import (
     cancel_shielded_checkpoint,
     Abort,
-    yield_indefinitely,
+    wait_task_rescheduled,
     YieldBrieflyNoCancel,
     YieldIndefinitely,
 )
@@ -829,18 +829,18 @@ class Runner:
         """Reschedule the given task with the given
         :class:`~trio.hazmat.Result`.
 
-        See :func:`yield_indefinitely` for the gory details.
+        See :func:`wait_task_rescheduled` for the gory details.
 
         There must be exactly one call to :func:`reschedule` for every call to
-        :func:`yield_indefinitely`. (And when counting, keep in mind that
+        :func:`wait_task_rescheduled`. (And when counting, keep in mind that
         returning :data:`Abort.SUCCEEDED` from an abort callback is equivalent
         to calling :func:`reschedule` once.)
 
         Args:
           task (trio.hazmat.Task): the task to be rescheduled. Must be blocked
-            in a call to :func:`yield_indefinitely`.
+            in a call to :func:`wait_task_rescheduled`.
           next_send (trio.hazmat.Result): the value (or error) to return (or
-            raise) from :func:`yield_indefinitely`.
+            raise) from :func:`wait_task_rescheduled`.
 
         """
         assert task._runner is self
@@ -1341,7 +1341,7 @@ class Runner:
             del self.waiting_for_idle[key]
             return Abort.SUCCEEDED
 
-        await yield_indefinitely(abort)
+        await wait_task_rescheduled(abort)
 
     ################
     # Instrumentation
@@ -1756,7 +1756,7 @@ async def checkpoint():
 
     """
     with open_cancel_scope(deadline=-inf) as scope:
-        await _core.yield_indefinitely(lambda _: _core.Abort.SUCCEEDED)
+        await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
 
 
 @_hazmat

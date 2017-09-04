@@ -338,4 +338,4 @@ async def run_sync_in_worker_thread(
         else:
             return _core.Abort.FAILED
 
-    return await _core.yield_indefinitely(abort)
+    return await _core.wait_task_rescheduled(abort)

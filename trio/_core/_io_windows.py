@@ -328,7 +328,7 @@ class WindowsIOManager:
             _check(kernel32.CancelIoEx(handle, lpOverlapped))
             return _core.Abort.FAILED
 
-        await _core.yield_indefinitely(abort)
+        await _core.wait_task_rescheduled(abort)
         if lpOverlapped.Internal != 0:
             if lpOverlapped.Internal == ErrorCodes.ERROR_OPERATION_ABORTED:
                 assert raise_cancel is not None
@@ -373,7 +373,7 @@ class WindowsIOManager:
             del self._socket_waiters[which][sock]
             return _core.Abort.SUCCEEDED
 
-        await _core.yield_indefinitely(abort)
+        await _core.wait_task_rescheduled(abort)
 
     @_public
     @_hazmat

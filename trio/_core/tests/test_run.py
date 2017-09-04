@@ -26,7 +26,7 @@ from ... import _core
 # its rescheduled with, which is really only useful for tests of
 # rescheduling...
 async def sleep_forever():
-    return await _core.yield_indefinitely(lambda _: _core.Abort.SUCCEEDED)
+    return await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
 
 
 # Some of our tests need to leak coroutines, and thus trigger the
@@ -949,7 +949,7 @@ async def test_failed_abort():
         with _core.open_cancel_scope() as scope:
             stubborn_scope[0] = scope
             record.append("sleep")
-            x = await _core.yield_indefinitely(lambda _: _core.Abort.FAILED)
+            x = await _core.wait_task_rescheduled(lambda _: _core.Abort.FAILED)
             assert x == 1
             record.append("woke")
             try:
@@ -985,7 +985,7 @@ def test_broken_abort():
         with _core.open_cancel_scope() as scope:
             scope.cancel()
             # None is not a legal return value here
-            await _core.yield_indefinitely(lambda _: None)
+            await _core.wait_task_rescheduled(lambda _: None)
 
     with pytest.raises(_core.TrioInternalError):
         _core.run(main)
@@ -1447,7 +1447,7 @@ async def test_slow_abort_basic():
                 call_soon(_core.reschedule, task, result)
                 return _core.Abort.FAILED
 
-            await _core.yield_indefinitely(slow_abort)
+            await _core.wait_task_rescheduled(slow_abort)
 
 
 async def test_slow_abort_edge_cases():
@@ -1465,7 +1465,7 @@ async def test_slow_abort_edge_cases():
 
         with pytest.raises(_core.Cancelled):
             record.append("sleeping")
-            await _core.yield_indefinitely(slow_abort)
+            await _core.wait_task_rescheduled(slow_abort)
         record.append("cancelled")
         # blocking again, this time it's okay, because we're shielded
         await _core.checkpoint()
