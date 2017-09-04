@@ -387,11 +387,12 @@ This logic is a bit convoluted, but accomplishes all of the following:
   ``wait_for_operation_to_be_ready``, by keeping the ``while True:``
   loop outside of the ``except BlockingIOError:`` block.
 
-These functions can also be useful in other situations, e.g. if you're
-going to call an uncancellable operation like
-:func:`trio.run_sync_in_worker_thread` or (potentially) overlapped I/O
-operations on Windows, then you can call :func:`checkpoint_if_cancelled`
-first to make sure that the whole thing is a checkpoint.
+These functions can also be useful in other situations. For example,
+when :func:`trio.run_sync_in_worker_thread` schedules some work to run
+in a worker thread, it blocks until the work is finished (so it's a
+schedule point), but by default it doesn't allow cancellation. So to
+make sure that the call always acts as a checkpoint, it calls
+:func:`checkpoint_if_cancelled` before starting the thread.
 
 
 Low-level blocking

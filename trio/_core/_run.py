@@ -1761,10 +1761,18 @@ async def checkpoint():
 
 @_hazmat
 async def checkpoint_if_cancelled():
-    """A conditional :ref:`checkpoint <checkpoints>`.
+    """Issue a :ref:`checkpoint <checkpoints>` if the calling context has been
+    cancelled.
 
-    If a cancellation is active, then allows other tasks to be scheduled,
-    and then raises :exc:`trio.Cancelled`.
+    Equivalent to (but potentially more efficient than)::
+
+        if trio.current_deadline() == -inf:
+            await trio.hazmat.checkpoint()
+
+    This is either a no-op, or else it allow other tasks to be scheduled and
+    then raises :exc:`trio.Cancelled`.
+
+    Typically used together with :func:`cancel_shielded_checkpoint`.
 
     """
     task = current_task()

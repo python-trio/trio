@@ -35,6 +35,15 @@ class YieldBrieflyNoCancel:
 def cancel_shielded_checkpoint():
     """Introduce a schedule point, but not a cancel point.
 
+    This is *not* a :ref:`checkpoint <checkpoints>`, but it is half of a
+    checkpoint, and when combined with :func:`checkpoint_if_cancelled` it can
+    make a full checkpoint.
+
+    Equivalent to (but potentially more efficient than)::
+
+        with trio.open_cancel_scope(shield=True):
+            await trio.hazmat.checkpoint()
+
     """
     return (yield YieldBrieflyNoCancel).unwrap()
 
