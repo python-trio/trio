@@ -26,7 +26,7 @@ def asyncfunction(fn):
 
 # This class object is used as a singleton.
 # Not exported in the trio._core namespace, but imported directly by _run.
-class YieldBrieflyNoCancel:
+class CancelShieldedCheckpoint:
     pass
 
 
@@ -45,7 +45,7 @@ def cancel_shielded_checkpoint():
             await trio.hazmat.checkpoint()
 
     """
-    return (yield YieldBrieflyNoCancel).unwrap()
+    return (yield CancelShieldedCheckpoint).unwrap()
 
 
 # Return values for abort functions
@@ -65,7 +65,7 @@ class Abort(enum.Enum):
 
 # Not exported in the trio._core namespace, but imported directly by _run.
 @attr.s(frozen=True)
-class YieldIndefinitely:
+class WaitTaskRescheduled:
     abort_func = attr.ib()
 
 
@@ -164,4 +164,4 @@ def wait_task_rescheduled(abort_func):
        above about how you should use a higher-level API if at all possible?
 
     """
-    return (yield YieldIndefinitely(abort_func)).unwrap()
+    return (yield WaitTaskRescheduled(abort_func)).unwrap()
