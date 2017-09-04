@@ -118,7 +118,7 @@ class UnboundedQueue:
               non-empty.
 
         """
-        await _core.yield_if_cancelled()
+        await _core.checkpoint_if_cancelled()
         if not self._can_get:
             await self._lot.park()
             return self._get_batch_protected()
@@ -126,7 +126,7 @@ class UnboundedQueue:
             try:
                 return self._get_batch_protected()
             finally:
-                await _core.yield_briefly_no_cancel()
+                await _core.cancel_shielded_checkpoint()
 
     def statistics(self):
         """Return an object containing debugging information.

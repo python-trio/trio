@@ -16,7 +16,7 @@ async def test_completion_key_listen():
         for i in range(10):
             print("post", i)
             if i % 3 == 0:
-                await _core.yield_briefly()
+                await _core.checkpoint()
             success = kernel32.PostQueuedCompletionStatus(
                 iocp, i, key, ffi.NULL
             )

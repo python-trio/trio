@@ -48,7 +48,7 @@ async def sleep_forever():
     Equivalent to calling ``await sleep(math.inf)``.
 
     """
-    await _core.yield_indefinitely(lambda _: _core.Abort.SUCCEEDED)
+    await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
 
 
 async def sleep_until(deadline):
@@ -80,7 +80,7 @@ async def sleep(seconds):
     if seconds < 0:
         raise ValueError("duration must be non-negative")
     if seconds == 0:
-        await _core.yield_briefly()
+        await _core.checkpoint()
     else:
         await sleep_until(_core.current_time() + seconds)
 

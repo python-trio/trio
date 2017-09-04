@@ -328,7 +328,7 @@ class WindowsIOManager:
             _check(kernel32.CancelIoEx(handle, lpOverlapped))
             return _core.Abort.FAILED
 
-        await _core.yield_indefinitely(abort)
+        await _core.wait_task_rescheduled(abort)
         if lpOverlapped.Internal != 0:
             if lpOverlapped.Internal == ErrorCodes.ERROR_OPERATION_ABORTED:
                 assert raise_cancel is not None
@@ -359,10 +359,10 @@ class WindowsIOManager:
         # sockets in another thread? And on unix we don't handle this case at
         # all), but hey, why not.
         if type(sock) is not stdlib_socket.socket:
-            await _core.yield_briefly()
+            await _core.checkpoint()
             raise TypeError("need a stdlib socket")
         if sock in self._socket_waiters[which]:
-            await _core.yield_briefly()
+            await _core.checkpoint()
             raise _core.ResourceBusyError(
                 "another task is already waiting to {} this socket"
                 .format(which)
@@ -373,7 +373,7 @@ class WindowsIOManager:
             del self._socket_waiters[which][sock]
             return _core.Abort.SUCCEEDED
 
-        await _core.yield_indefinitely(abort)
+        await _core.wait_task_rescheduled(abort)
 
     @_public
     @_hazmat
@@ -393,14 +393,14 @@ class WindowsIOManager:
     # async def perform_overlapped(self, handle, submit_fn):
     #     # submit_fn(lpOverlapped) submits some I/O
     #     # it may raise an OSError with ERROR_IO_PENDING
-    #     await _core.yield_if_cancelled()
+    #     await _core.checkpoint_if_cancelled()
     #     self.register_with_iocp(handle)
     #     lpOverlapped = ffi.new("LPOVERLAPPED")
     #     try:
     #         submit_fn(lpOverlapped)
     #     except OSError as exc:
     #         if exc.winerror != Error.ERROR_IO_PENDING:
-    #             await _core.yield_briefly_no_cancel()
+    #             await _core.cancel_shielded_checkpoint()
     #             raise
     #     await self.wait_overlapped(handle, lpOverlapped)
     #     return lpOverlapped

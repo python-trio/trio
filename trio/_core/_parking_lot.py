@@ -137,7 +137,7 @@ class ParkingLot:
         """
         task = _core.current_task()
         self._parked[task] = None
-        await _core.yield_indefinitely(self._abort_func_for(task))
+        await _core.wait_task_rescheduled(self._abort_func_for(task))
 
     def _pop_several(self, count):
         for _ in range(min(count, len(self._parked))):

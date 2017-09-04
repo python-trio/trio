@@ -8,7 +8,7 @@ from async_generator import async_generator, yield_
 
 from .._util import *
 from .. import _core
-from ..testing import wait_all_tasks_blocked, assert_yields
+from ..testing import wait_all_tasks_blocked, assert_checkpoints
 
 
 def test_signal_raise():
@@ -30,13 +30,13 @@ async def test_ConflictDetector():
     ul2 = ConflictDetector("ul2")
 
     async with ul1:
-        with assert_yields():
+        with assert_checkpoints():
             async with ul2:
                 print("ok")
 
     with pytest.raises(_core.ResourceBusyError) as excinfo:
         async with ul1:
-            with assert_yields():
+            with assert_checkpoints():
                 async with ul1:
                     pass  # pragma: no cover
     assert "ul1" in str(excinfo.value)
@@ -54,7 +54,7 @@ async def test_ConflictDetector():
     # mixing sync and async entry
     with pytest.raises(_core.ResourceBusyError) as excinfo:
         with ul1.sync:
-            with assert_yields():
+            with assert_checkpoints():
                 async with ul1:
                     pass  # pragma: no cover
     assert "ul1" in str(excinfo.value)
@@ -169,6 +169,6 @@ def test_module_metadata_is_fixed_up():
     assert trio.open_cancel_scope.__module__ == "trio"
     assert trio.ssl.SSLStream.__module__ == "trio.ssl"
     assert trio.abc.Stream.__module__ == "trio.abc"
-    assert trio.hazmat.yield_indefinitely.__module__ == "trio.hazmat"
+    assert trio.hazmat.wait_task_rescheduled.__module__ == "trio.hazmat"
     import trio.testing
     assert trio.testing.trio_test.__module__ == "trio.testing"

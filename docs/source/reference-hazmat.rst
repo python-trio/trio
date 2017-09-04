@@ -336,19 +336,19 @@ Wait queue abstraction
 Low-level checkpoint functions
 ------------------------------
 
-.. autofunction:: yield_briefly
+.. autofunction:: checkpoint
 
 The next two functions are used *together* to make up a checkpoint:
 
-.. autofunction:: yield_if_cancelled
-.. autofunction:: yield_briefly_no_cancel
+.. autofunction:: checkpoint_if_cancelled
+.. autofunction:: cancel_shielded_checkpoint
 
 These are commonly used in cases where you have an operation that
 might-or-might-not block, and you want to implement trio's standard
 checkpoint semantics. Example::
 
    async def operation_that_maybe_blocks():
-       await yield_if_cancelled()
+       await checkpoint_if_cancelled()
        try:
            ret = attempt_operation()
        except BlockingIOError:
@@ -356,11 +356,11 @@ checkpoint semantics. Example::
            pass
        except:
            # some other error, finish the checkpoint then let it propagate
-           await yield_briefly_no_cancel()
+           await cancel_shielded_checkpoint()
            raise
        else:
            # operation succeeded, finish the checkpoint then return
-           await yield_briefly_no_cancel()
+           await cancel_shielded_checkpoint()
            return ret
        while True:
            await wait_for_operation_to_be_ready()
@@ -376,7 +376,7 @@ This logic is a bit convoluted, but accomplishes all of the following:
 
 * Our :ref:`cancellation semantics <cancellable-primitives>` say that
   :exc:`~trio.Cancelled` should only be raised if the operation didn't
-  happen. Using :func:`yield_briefly_no_cancel` on the early-exit
+  happen. Using :func:`cancel_shielded_checkpoint` on the early-exit
   branches accomplishes this.
 
 * On the path where we do end up blocking, we don't pass through any
@@ -387,29 +387,30 @@ This logic is a bit convoluted, but accomplishes all of the following:
   ``wait_for_operation_to_be_ready``, by keeping the ``while True:``
   loop outside of the ``except BlockingIOError:`` block.
 
-These functions can also be useful in other situations, e.g. if you're
-going to call an uncancellable operation like
-:func:`trio.run_sync_in_worker_thread` or (potentially) overlapped I/O
-operations on Windows, then you can call :func:`yield_if_cancelled`
-first to make sure that the whole thing is a checkpoint.
+These functions can also be useful in other situations. For example,
+when :func:`trio.run_sync_in_worker_thread` schedules some work to run
+in a worker thread, it blocks until the work is finished (so it's a
+schedule point), but by default it doesn't allow cancellation. So to
+make sure that the call always acts as a checkpoint, it calls
+:func:`checkpoint_if_cancelled` before starting the thread.
 
 
 Low-level blocking
 ------------------
 
-.. autofunction:: yield_indefinitely
+.. autofunction:: wait_task_rescheduled
 .. autoclass:: Abort
 .. autofunction:: reschedule
 
 Here's an example lock class implemented using
-:func:`yield_indefinitely` directly. This implementation has a number
-of flaws, including lack of fairness, O(n) cancellation, missing error
-checking, failure to insert a checkpoint on the non-blocking path,
-etc. If you really want to implement your own lock, then you should
-study the implementation of :class:`trio.Lock` and use
+:func:`wait_task_rescheduled` directly. This implementation has a
+number of flaws, including lack of fairness, O(n) cancellation,
+missing error checking, failure to insert a checkpoint on the
+non-blocking path, etc. If you really want to implement your own lock,
+then you should study the implementation of :class:`trio.Lock` and use
 :class:`ParkingLot`, which handles some of these issues for you. But
 this does serve to illustrate the basic structure of the
-:func:`yield_indefinitely` API::
+:func:`wait_task_rescheduled` API::
 
    class NotVeryGoodLock:
        def __init__(self):
@@ -423,7 +424,7 @@ this does serve to illustrate the basic structure of the
                def abort_fn(_):
                    self._blocked_tasks.remove(task)
                    return trio.hazmat.Abort.SUCCEEDED
-               await trio.hazmat.yield_indefinitely(abort_fn)
+               await trio.hazmat.wait_task_rescheduled(abort_fn)
            self._held = True
 
        def release(self):

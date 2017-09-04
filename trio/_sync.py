@@ -58,7 +58,7 @@ class Event:
 
         """
         if self._flag:
-            await _core.yield_briefly()
+            await _core.checkpoint()
         else:
             await self._lot.park()
 
@@ -281,7 +281,7 @@ class CapacityLimiter:
              tokens.
 
         """
-        await _core.yield_if_cancelled()
+        await _core.checkpoint_if_cancelled()
         try:
             self.acquire_on_behalf_of_nowait(borrower)
         except _core.WouldBlock:
@@ -289,10 +289,10 @@ class CapacityLimiter:
             self._pending_borrowers[task] = borrower
             await self._lot.park()
         except:
-            await _core.yield_briefly_no_cancel()
+            await _core.cancel_shielded_checkpoint()
             raise
         else:
-            await _core.yield_briefly_no_cancel()
+            await _core.cancel_shielded_checkpoint()
 
     @_core.enable_ki_protection
     def release(self):
@@ -439,13 +439,13 @@ class Semaphore:
         letting it drop below zero.
 
         """
-        await _core.yield_if_cancelled()
+        await _core.checkpoint_if_cancelled()
         try:
             self.acquire_nowait()
         except _core.WouldBlock:
             await self._lot.park()
         else:
-            await _core.yield_briefly_no_cancel()
+            await _core.cancel_shielded_checkpoint()
 
     @_core.enable_ki_protection
     def release(self):
@@ -546,7 +546,7 @@ class Lock:
         """Acquire the lock, blocking if necessary.
 
         """
-        await _core.yield_if_cancelled()
+        await _core.checkpoint_if_cancelled()
         try:
             self.acquire_nowait()
         except _core.WouldBlock:
@@ -555,7 +555,7 @@ class Lock:
             # lock as well.
             await self._lot.park()
         else:
-            await _core.yield_briefly_no_cancel()
+            await _core.cancel_shielded_checkpoint()
 
     @_core.enable_ki_protection
     def release(self):
@@ -956,7 +956,7 @@ class Queue:
 
         """
         if self._unprocessed == 0:
-            await _core.yield_briefly()
+            await _core.checkpoint()
         else:
             await self._join_lot.park()
 

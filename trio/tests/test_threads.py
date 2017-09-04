@@ -61,7 +61,7 @@ async def test_do_in_trio_thread():
 
     async def f(record):
         assert not _core.currently_ki_protected()
-        await _core.yield_briefly()
+        await _core.checkpoint()
         record.append(("f", threading.current_thread()))
         return 3
 
@@ -69,7 +69,7 @@ async def test_do_in_trio_thread():
 
     async def f(record):
         assert not _core.currently_ki_protected()
-        await _core.yield_briefly()
+        await _core.checkpoint()
         record.append(("f", threading.current_thread()))
         raise KeyError
 
@@ -145,7 +145,7 @@ def test_await_in_trio_thread_while_main_exits():
     async def trio_fn():
         record.append("sleeping")
         ev.set()
-        await _core.yield_indefinitely(lambda _: _core.Abort.SUCCEEDED)
+        await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
 
     def thread_fn(await_in_trio_thread):
         try:
@@ -208,8 +208,8 @@ async def test_run_in_worker_thread_cancellation():
     async with _core.open_nursery() as nursery:
         nursery.start_soon(child, q, True)
         # Give it a chance to get started. (This is important because
-        # run_sync_in_worker_thread does a yield_if_cancelled before blocking
-        # on the thread, and we don't want to trigger this.)
+        # run_sync_in_worker_thread does a checkpoint_if_cancelled before
+        # blocking on the thread, and we don't want to trigger this.)
         await wait_all_tasks_blocked()
         assert record == ["start"]
         # Then cancel it.
@@ -230,7 +230,7 @@ async def test_run_in_worker_thread_cancellation():
         nursery.cancel_scope.cancel()
         with _core.open_cancel_scope(shield=True):
             for _ in range(10):
-                await _core.yield_briefly()
+                await _core.checkpoint()
         # It's still running
         assert record == ["start"]
         q.put(None)

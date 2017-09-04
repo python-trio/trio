@@ -25,9 +25,9 @@ from ._exceptions import (
 from ._multierror import MultiError
 from ._result import Result, Error, Value
 from ._traps import (
-    yield_briefly_no_cancel,
+    cancel_shielded_checkpoint,
     Abort,
-    yield_indefinitely,
+    wait_task_rescheduled,
     YieldBrieflyNoCancel,
     YieldIndefinitely,
 )
@@ -43,8 +43,8 @@ from . import _public, _hazmat
 # __all__. These are all re-exported as part of the 'trio' or 'trio.hazmat'
 # namespaces.
 __all__ = [
-    "Task", "run", "open_nursery", "open_cancel_scope", "yield_briefly",
-    "current_task", "current_effective_deadline", "yield_if_cancelled",
+    "Task", "run", "open_nursery", "open_cancel_scope", "checkpoint",
+    "current_task", "current_effective_deadline", "checkpoint_if_cancelled",
     "STATUS_IGNORED"
 ]
 
@@ -454,7 +454,7 @@ class Nursery:
         with open_cancel_scope() as clean_up_scope:
             if not self._children and not self._zombies:
                 try:
-                    await _core.yield_briefly()
+                    await _core.checkpoint()
                 except BaseException as exc:
                     exceptions.append(exc)
             while self._children or self._zombies or self._pending_starts:
@@ -829,18 +829,18 @@ class Runner:
         """Reschedule the given task with the given
         :class:`~trio.hazmat.Result`.
 
-        See :func:`yield_indefinitely` for the gory details.
+        See :func:`wait_task_rescheduled` for the gory details.
 
         There must be exactly one call to :func:`reschedule` for every call to
-        :func:`yield_indefinitely`. (And when counting, keep in mind that
+        :func:`wait_task_rescheduled`. (And when counting, keep in mind that
         returning :data:`Abort.SUCCEEDED` from an abort callback is equivalent
         to calling :func:`reschedule` once.)
 
         Args:
           task (trio.hazmat.Task): the task to be rescheduled. Must be blocked
-            in a call to :func:`yield_indefinitely`.
+            in a call to :func:`wait_task_rescheduled`.
           next_send (trio.hazmat.Result): the value (or error) to return (or
-            raise) from :func:`yield_indefinitely`.
+            raise) from :func:`wait_task_rescheduled`.
 
         """
         assert task._runner is self
@@ -1217,7 +1217,7 @@ class Runner:
                         and not self.call_soon_idempotent_queue):
                     await self.call_soon_wakeup.wait_woken()
                 else:
-                    await yield_briefly()
+                    await checkpoint()
         except Cancelled:
             # Keep the work done with this lock held as minimal as possible,
             # because it doesn't protect us against concurrent signal delivery
@@ -1341,7 +1341,7 @@ class Runner:
             del self.waiting_for_idle[key]
             return Abort.SUCCEEDED
 
-        await yield_indefinitely(abort)
+        await wait_task_rescheduled(abort)
 
     ################
     # Instrumentation
@@ -1741,7 +1741,7 @@ def current_effective_deadline():
 
 
 @_hazmat
-async def yield_briefly():
+async def checkpoint():
     """A pure :ref:`checkpoint <checkpoints>`.
 
     This checks for cancellation and allows other tasks to be scheduled,
@@ -1752,25 +1752,33 @@ async def yield_briefly():
     efficiency).
 
     Equivalent to ``await trio.sleep(0)`` (which is implemented by calling
-    :func:`yield_briefly`.)
+    :func:`checkpoint`.)
 
     """
     with open_cancel_scope(deadline=-inf) as scope:
-        await _core.yield_indefinitely(lambda _: _core.Abort.SUCCEEDED)
+        await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
 
 
 @_hazmat
-async def yield_if_cancelled():
-    """A conditional :ref:`checkpoint <checkpoints>`.
+async def checkpoint_if_cancelled():
+    """Issue a :ref:`checkpoint <checkpoints>` if the calling context has been
+    cancelled.
 
-    If a cancellation is active, then allows other tasks to be scheduled,
-    and then raises :exc:`trio.Cancelled`.
+    Equivalent to (but potentially more efficient than)::
+
+        if trio.current_deadline() == -inf:
+            await trio.hazmat.checkpoint()
+
+    This is either a no-op, or else it allow other tasks to be scheduled and
+    then raises :exc:`trio.Cancelled`.
+
+    Typically used together with :func:`cancel_shielded_checkpoint`.
 
     """
     task = current_task()
     if (task._pending_cancel_scope() is not None or
         (task is task._runner.main_task and task._runner.ki_pending)):
-        await _core.yield_briefly()
+        await _core.checkpoint()
         assert False  # pragma: no cover
     task._cancel_points += 1
 

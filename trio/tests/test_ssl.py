@@ -25,7 +25,7 @@ from .._util import ConflictDetector, acontextmanager
 from .._core.tests.tutil import slow
 
 from ..testing import (
-    assert_yields,
+    assert_checkpoints,
     Sequencer,
     memory_stream_pair,
     lockstep_stream_pair,
@@ -202,13 +202,13 @@ class PyOpenSSLEchoStream:
 
     async def wait_send_all_might_not_block(self):
         async with self._send_all_conflict_detector:
-            await _core.yield_briefly()
+            await _core.checkpoint()
             await self.sleeper("wait_send_all_might_not_block")
 
     async def send_all(self, data):
         print("  --> transport_stream.send_all")
         async with self._send_all_conflict_detector:
-            await _core.yield_briefly()
+            await _core.checkpoint()
             await self.sleeper("send_all")
             self._conn.bio_write(data)
             while True:
@@ -231,7 +231,7 @@ class PyOpenSSLEchoStream:
         print("  --> transport_stream.receive_some")
         async with self._receive_some_conflict_detector:
             try:
-                await _core.yield_briefly()
+                await _core.checkpoint()
                 while True:
                     await self.sleeper("receive_some")
                     try:
@@ -565,23 +565,23 @@ async def test_renegotiation_randomized(mock_clock):
 
     async def clear():
         while s.transport_stream.renegotiate_pending():
-            with assert_yields():
+            with assert_checkpoints():
                 await send(b"-")
-            with assert_yields():
+            with assert_checkpoints():
                 await expect(b"-")
         print("-- clear --")
 
     async def send(byte):
         await s.transport_stream.sleeper("outer send")
         print("calling SSLStream.send_all", byte)
-        with assert_yields():
+        with assert_checkpoints():
             await s.send_all(byte)
 
     async def expect(expected):
         await s.transport_stream.sleeper("expect")
         print("calling SSLStream.receive_some, expecting", expected)
         assert len(expected) == 1
-        with assert_yields():
+        with assert_checkpoints():
             assert await s.receive_some(1) == expected
 
     with virtual_ssl_echo_server(sleeper=sleeper) as s:
@@ -668,15 +668,15 @@ async def test_renegotiation_randomized(mock_clock):
 
 async def test_resource_busy_errors():
     async def do_send_all():
-        with assert_yields():
+        with assert_checkpoints():
             await s.send_all(b"x")
 
     async def do_receive_some():
-        with assert_yields():
+        with assert_checkpoints():
             await s.receive_some(1)
 
     async def do_wait_send_all_might_not_block():
-        with assert_yields():
+        with assert_checkpoints():
             await s.wait_send_all_might_not_block()
 
     s, _ = ssl_lockstep_stream_pair()
@@ -723,30 +723,30 @@ async def test_wait_writable_calls_underlying_wait_writable():
 
 async def test_checkpoints():
     async with ssl_echo_server() as s:
-        with assert_yields():
+        with assert_checkpoints():
             await s.do_handshake()
-        with assert_yields():
+        with assert_checkpoints():
             await s.do_handshake()
-        with assert_yields():
+        with assert_checkpoints():
             await s.wait_send_all_might_not_block()
-        with assert_yields():
+        with assert_checkpoints():
             await s.send_all(b"xxx")
-        with assert_yields():
+        with assert_checkpoints():
             await s.receive_some(1)
         # These receive_some's in theory could return immediately, because the
         # "xxx" was sent in a single record and after the first
         # receive_some(1) the rest are sitting inside the SSLObject's internal
         # buffers.
-        with assert_yields():
+        with assert_checkpoints():
             await s.receive_some(1)
-        with assert_yields():
+        with assert_checkpoints():
             await s.receive_some(1)
-        with assert_yields():
+        with assert_checkpoints():
             await s.unwrap()
 
     async with ssl_echo_server() as s:
         await s.do_handshake()
-        with assert_yields():
+        with assert_checkpoints():
             await s.aclose()
 
 
@@ -756,9 +756,9 @@ async def test_send_all_empty_string():
 
         # underlying SSLObject interprets writing b"" as indicating an EOF,
         # for some reason. Make sure we don't inherit this.
-        with assert_yields():
+        with assert_checkpoints():
             await s.send_all(b"")
-        with assert_yields():
+        with assert_checkpoints():
             await s.send_all(b"")
         await s.send_all(b"x")
         assert await s.receive_some(1) == b"x"
@@ -853,13 +853,13 @@ async def test_closing_nice_case():
     # Both the handshake and the close require back-and-forth discussion, so
     # we need to run them concurrently
     async def client_closer():
-        with assert_yields():
+        with assert_checkpoints():
             await client_ssl.aclose()
 
     async def server_closer():
         assert await server_ssl.receive_some(10) == b""
         assert await server_ssl.receive_some(10) == b""
-        with assert_yields():
+        with assert_checkpoints():
             await server_ssl.aclose()
 
     async with _core.open_nursery() as nursery:
@@ -871,27 +871,27 @@ async def test_closing_nice_case():
         await client_transport.send_all(b"123")
 
     # once closed, it's OK to close again
-    with assert_yields():
+    with assert_checkpoints():
         await client_ssl.aclose()
-    with assert_yields():
+    with assert_checkpoints():
         await client_ssl.aclose()
 
     # Trying to send more data does not work
-    with assert_yields():
+    with assert_checkpoints():
         with pytest.raises(ClosedStreamError):
             await server_ssl.send_all(b"123")
 
     # And once the connection is has been closed *locally*, then instead of
     # getting empty bytestrings we get a proper error
-    with assert_yields():
+    with assert_checkpoints():
         with pytest.raises(ClosedStreamError):
             await client_ssl.receive_some(10) == b""
 
-    with assert_yields():
+    with assert_checkpoints():
         with pytest.raises(ClosedStreamError):
             await client_ssl.unwrap()
 
-    with assert_yields():
+    with assert_checkpoints():
         with pytest.raises(ClosedStreamError):
             await client_ssl.do_handshake()
 
@@ -900,9 +900,9 @@ async def test_closing_nice_case():
     client_ssl, server_ssl = ssl_memory_stream_pair()
 
     async def expect_eof_server():
-        with assert_yields():
+        with assert_checkpoints():
             assert await server_ssl.receive_some(10) == b""
-        with assert_yields():
+        with assert_checkpoints():
             await server_ssl.aclose()
 
     async with _core.open_nursery() as nursery:
@@ -1094,11 +1094,11 @@ async def test_send_error_during_handshake():
     client.transport_stream.send_stream.send_all_hook = bad_hook
 
     with pytest.raises(KeyError):
-        with assert_yields():
+        with assert_checkpoints():
             await client.do_handshake()
 
     with pytest.raises(BrokenStreamError):
-        with assert_yields():
+        with assert_checkpoints():
             await client.do_handshake()
 
 
@@ -1112,7 +1112,7 @@ async def test_receive_error_during_handshake():
 
     async def client_side(cancel_scope):
         with pytest.raises(KeyError):
-            with assert_yields():
+            with assert_checkpoints():
                 await client.do_handshake()
         cancel_scope.cancel()
 
@@ -1121,7 +1121,7 @@ async def test_receive_error_during_handshake():
         nursery.start_soon(server.do_handshake)
 
     with pytest.raises(BrokenStreamError):
-        with assert_yields():
+        with assert_checkpoints():
             await client.do_handshake()
 
 

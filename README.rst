@@ -142,7 +142,7 @@ Apache 2. See `LICENSE
    - @_testing for stuff that needs tighter integration? kinda weird
      that wait_all_tasks_blocked is in hazmat right now
 
-     and assert_yields stuff might make more sense in core
+     and assert_checkpoints stuff might make more sense in core
 
    - make @trio_test accept clock_rate=, clock_autojump_threshold=
      arguments

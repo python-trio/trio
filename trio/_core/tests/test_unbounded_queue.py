@@ -3,7 +3,7 @@ import itertools
 import pytest
 
 from ... import _core
-from ...testing import assert_yields, wait_all_tasks_blocked
+from ...testing import assert_checkpoints, wait_all_tasks_blocked
 
 
 async def test_UnboundedQueue_basic():
@@ -114,11 +114,11 @@ async def test_UnboundedQueue_trivial_yields():
     q = _core.UnboundedQueue()
 
     q.put_nowait(None)
-    with assert_yields():
+    with assert_checkpoints():
         await q.get_batch()
 
     q.put_nowait(None)
-    with assert_yields():
+    with assert_checkpoints():
         async for _ in q:  # pragma: no branch
             break
 

@@ -119,7 +119,7 @@ class MemorySendStream(SendStream):
         # lock to give ourselves a chance to detect buggy user code that calls
         # this twice at the same time.
         async with self._conflict_detector:
-            await _core.yield_briefly()
+            await _core.checkpoint()
             self._outgoing.put(data)
             if self.send_all_hook is not None:
                 await self.send_all_hook()
@@ -133,7 +133,7 @@ class MemorySendStream(SendStream):
         # lock to give ourselves a chance to detect buggy user code that calls
         # this twice at the same time.
         async with self._conflict_detector:
-            await _core.yield_briefly()
+            await _core.checkpoint()
             # check for being closed:
             self._outgoing.put(b"")
             if self.wait_send_all_might_not_block_hook is not None:
@@ -153,7 +153,7 @@ class MemorySendStream(SendStream):
 
         """
         self.close()
-        await _core.yield_briefly()
+        await _core.checkpoint()
 
     async def get_data(self, max_bytes=None):
         """Retrieves data from the internal buffer, blocking if necessary.
@@ -218,7 +218,7 @@ class MemoryReceiveStream(ReceiveStream):
         # lock to give ourselves a chance to detect buggy user code that calls
         # this twice at the same time.
         async with self._conflict_detector:
-            await _core.yield_briefly()
+            await _core.checkpoint()
             if max_bytes is None:
                 raise TypeError("max_bytes must not be None")
             if self._closed:
@@ -247,7 +247,7 @@ class MemoryReceiveStream(ReceiveStream):
 
         """
         self.close()
-        await _core.yield_briefly()
+        await _core.checkpoint()
 
     def put_data(self, data):
         """Appends the given data to the internal buffer.
@@ -521,7 +521,7 @@ class _LockstepSendStream(SendStream):
 
     async def aclose(self):
         self.close()
-        await _core.yield_briefly()
+        await _core.checkpoint()
 
     async def send_all(self, data):
         await self._lbq.send_all(data)
@@ -539,7 +539,7 @@ class _LockstepReceiveStream(ReceiveStream):
 
     async def aclose(self):
         self.close()
-        await _core.yield_briefly()
+        await _core.checkpoint()
 
     async def receive_some(self, max_bytes):
         return await self._lbq.receive_some(max_bytes)

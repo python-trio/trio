@@ -106,7 +106,7 @@ async def test_ki_enabled_after_yield_briefly():
         import traceback
         traceback.print_stack()
         assert _core.currently_ki_protected() == expected
-        await _core.yield_briefly()
+        await _core.checkpoint()
         traceback.print_stack()
         assert _core.currently_ki_protected() == expected
 
@@ -204,7 +204,7 @@ def test_ki_protection_works():
     async def sleeper(name, record):
         try:
             while True:
-                await _core.yield_briefly()
+                await _core.checkpoint()
         except _core.Cancelled:
             record.add((name + " ok"))
 
@@ -217,7 +217,7 @@ def test_ki_protection_works():
         except KeyboardInterrupt:
             print("raised!")
             # Make sure we aren't getting cancelled as well as siginted
-            await _core.yield_briefly()
+            await _core.checkpoint()
             record.add((name + " raise ok"))
             raise
         else:
@@ -225,7 +225,9 @@ def test_ki_protection_works():
             # If we didn't raise (b/c protected), then we *should* get
             # cancelled at the next opportunity
             try:
-                await _core.yield_indefinitely(lambda _: _core.Abort.SUCCEEDED)
+                await _core.wait_task_rescheduled(
+                    lambda _: _core.Abort.SUCCEEDED
+                )
             except _core.Cancelled:
                 record.add((name + " cancel ok"))
 
@@ -290,12 +292,12 @@ def test_ki_protection_works():
             ki_self()
 
     async def main():
-        await _core.yield_briefly()
+        await _core.checkpoint()
 
     with pytest.raises(KeyboardInterrupt):
         _core.run(main, instruments=[InstrumentOfDeath()])
 
-    # yield_if_cancelled notices pending KI
+    # checkpoint_if_cancelled notices pending KI
     print("check 5")
 
     @_core.enable_ki_protection
@@ -303,7 +305,7 @@ def test_ki_protection_works():
         assert _core.currently_ki_protected()
         ki_self()
         with pytest.raises(KeyboardInterrupt):
-            await _core.yield_if_cancelled()
+            await _core.checkpoint_if_cancelled()
 
     _core.run(main)
 
@@ -314,11 +316,11 @@ def test_ki_protection_works():
     async def main():
         assert _core.currently_ki_protected()
         ki_self()
-        await _core.yield_briefly_no_cancel()
-        await _core.yield_briefly_no_cancel()
-        await _core.yield_briefly_no_cancel()
+        await _core.cancel_shielded_checkpoint()
+        await _core.cancel_shielded_checkpoint()
+        await _core.cancel_shielded_checkpoint()
         with pytest.raises(KeyboardInterrupt):
-            await _core.yield_briefly()
+            await _core.checkpoint()
 
     _core.run(main)
 
@@ -335,9 +337,9 @@ def test_ki_protection_works():
             _core.reschedule(task, _core.Value(1))
             return _core.Abort.FAILED
 
-        assert await _core.yield_indefinitely(abort) == 1
+        assert await _core.wait_task_rescheduled(abort) == 1
         with pytest.raises(KeyboardInterrupt):
-            await _core.yield_briefly()
+            await _core.checkpoint()
 
     _core.run(main)
 
@@ -356,8 +358,8 @@ def test_ki_protection_works():
             return _core.Abort.FAILED
 
         with pytest.raises(KeyboardInterrupt):
-            assert await _core.yield_indefinitely(abort)
-        await _core.yield_briefly()
+            assert await _core.wait_task_rescheduled(abort)
+        await _core.checkpoint()
 
     _core.run(main)
 
@@ -408,12 +410,12 @@ def test_ki_protection_works():
         with _core.open_cancel_scope() as cancel_scope:
             cancel_scope.cancel()
             with pytest.raises(_core.Cancelled):
-                await _core.yield_briefly()
+                await _core.checkpoint()
             ki_self()
             with pytest.raises(KeyboardInterrupt):
-                await _core.yield_briefly()
+                await _core.checkpoint()
             with pytest.raises(_core.Cancelled):
-                await _core.yield_briefly()
+                await _core.checkpoint()
 
     _core.run(main)
 
@@ -548,7 +550,7 @@ def test_ki_wakes_us_up():
                     # but at a moment when we had KI protection enabled, so we
                     # need to execute a checkpoint to ensure it's delivered
                     # before we exit main().
-                    await _core.yield_briefly()
+                    await _core.checkpoint()
         finally:
             print("joining thread", sys.exc_info())
             thread.join()

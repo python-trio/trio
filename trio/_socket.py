@@ -42,7 +42,7 @@ class _try_sync:
             return self._blocking_exc_override(exc)
 
     async def __aenter__(self):
-        await _core.yield_if_cancelled()
+        await _core.checkpoint_if_cancelled()
 
     async def __aexit__(self, etype, value, tb):
         if value is not None and self._is_blocking_io_error(value):
@@ -50,7 +50,7 @@ class _try_sync:
             # block
             return True
         else:
-            await _core.yield_briefly_no_cancel()
+            await _core.cancel_shielded_checkpoint()
             # Let the return or exception propagate
             return False
 
@@ -540,14 +540,14 @@ class _SocketType:
     # the same representation, but with names resolved to numbers,
     # etc.
     async def _resolve_address(self, address, flags):
-        await _core.yield_if_cancelled()
+        await _core.checkpoint_if_cancelled()
         try:
             self._check_address(address, require_resolved=False)
         except:
-            await _core.yield_briefly_no_cancel()
+            await _core.cancel_shielded_checkpoint()
             raise
         if self._sock.family not in (AF_INET, AF_INET6):
-            await _core.yield_briefly_no_cancel()
+            await _core.cancel_shielded_checkpoint()
             return address
         # Since we always pass in an explicit family here, AI_ADDRCONFIG
         # doesn't add any value -- if we have no ipv6 connectivity and are
@@ -835,7 +835,7 @@ class _SocketType:
     async def _sendall(self, data, flags=0):
         with memoryview(data) as data:
             if not data:
-                await _core.yield_briefly()
+                await _core.checkpoint()
                 return
             total_sent = 0
             while total_sent < len(data):
