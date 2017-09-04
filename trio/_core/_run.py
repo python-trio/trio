@@ -28,8 +28,8 @@ from ._traps import (
     cancel_shielded_checkpoint,
     Abort,
     wait_task_rescheduled,
-    YieldBrieflyNoCancel,
-    YieldIndefinitely,
+    CancelShieldedCheckpoint,
+    WaitTaskRescheduled,
 )
 from ._ki import (
     LOCALS_KEY_KI_PROTECTION_ENABLED, currently_ki_protected, ki_manager,
@@ -1647,9 +1647,9 @@ def run_impl(runner, async_fn, args):
                 runner.task_exited(task, final_result)
             else:
                 task._schedule_points += 1
-                if msg is YieldBrieflyNoCancel:
+                if msg is CancelShieldedCheckpoint:
                     runner.reschedule(task)
-                elif type(msg) is YieldIndefinitely:
+                elif type(msg) is WaitTaskRescheduled:
                     task._cancel_points += 1
                     task._abort_func = msg.abort_func
                     # KI is "outside" all cancel scopes, so check for it
