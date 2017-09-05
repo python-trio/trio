@@ -2,34 +2,45 @@
 #
 # trio/_core/... is the self-contained core library. It does various
 # shenanigans to export a consistent "core API", but parts of the core API are
-# too low-level to be recommended for regular use. These are marked by having
-# a _hazmat=True attribute.
+# too low-level to be recommended for regular use.
 #
 # trio/*.py define a set of more usable tools on top of this. They import from
 # trio._core and from each other.
 #
 # This file pulls together the friendly public API, by re-exporting the more
-# innocuous bits of the _core API + the the tools from trio/*.py. No-one
-# imports it internally; it's only for public consumption. When re-exporting
-# _core here, we check for the _hazmat=True attribute and shunt things into
-# either our namespace or the hazmat namespace accordingly.
-
-__all__ = []
+# innocuous bits of the _core API + the higher-level tools from trio/*.py.
 
 from ._version import __version__
 
-from . import hazmat
+# PyCharm tries to statically infer the set of attributes of this module, so
+# that it can offer completions. (Other IDEs probably do similar things.)
+#
+# Specifically, it seems to need to see:
+#   __all__ = ["some_name"]
+# or
+#   __all__.append("some_name")
+# or
+#   from ... import some_name
+# or an actual definition of 'some_name'. (See
+# https://github.com/python-trio/trio/issues/314 for details.)
+#
+# _core's exports use all kinds of wacky runtime tricks to set up their
+# exports, and then they get divided between trio, trio.hazmat, and
+# trio.testing. In an attempt to make this easier to understand for static
+# analysis, we now list the re-exports directly here and in trio.hazmat and
+# trio.testing, and then we have a test to make sure that every _core export
+# does get re-exported in one of these places or another.
+__all__ = [
+    "TrioInternalError", "RunFinishedError", "WouldBlock", "Cancelled",
+    "ResourceBusyError", "MultiError", "format_exception", "run",
+    "open_nursery", "open_cancel_scope", "current_effective_deadline",
+    "STATUS_IGNORED", "current_time", "current_instruments", "current_clock",
+    "remove_instrument", "add_instrument", "current_statistics", "TaskLocal"
+]
 
 from . import _core
-for _symbol in _core.__all__:
-    _value = getattr(_core, _symbol)
-    if getattr(_value, "_hazmat", False):
-        setattr(hazmat, _symbol, _value)
-        hazmat.__all__.append(_symbol)
-    else:
-        globals()[_symbol] = _value
-        __all__.append(_symbol)
-del _symbol, _value
+
+globals().update({sym: getattr(_core, sym) for sym in __all__})
 
 from ._timeouts import *
 __all__ += _timeouts.__all__
@@ -71,6 +82,7 @@ from ._deprecate import *
 __all__ += _deprecate.__all__
 
 # Imported by default
+from . import hazmat
 from . import socket
 from . import abc
 from . import ssl

@@ -2,7 +2,7 @@ import select
 import attr
 
 from .. import _core
-from . import _public, _hazmat
+from . import _public
 
 
 @attr.s(frozen=True)
@@ -116,11 +116,9 @@ class EpollIOManager:
         await _core.wait_task_rescheduled(abort)
 
     @_public
-    @_hazmat
     async def wait_readable(self, fd):
         await self._epoll_wait(fd, "read_task")
 
     @_public
-    @_hazmat
     async def wait_writable(self, fd):
         await self._epoll_wait(fd, "write_task")

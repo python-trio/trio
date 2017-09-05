@@ -1,18 +1,9 @@
-# Need to be defined early so they can be imported:
+# Needs to be defined early so it can be imported:
 def _public(fn):
     # Used to mark methods on _Runner and on IOManager implementations that
     # should be wrapped as global context-sensitive functions (see the bottom
     # of _run.py for the wrapper implementation).
     fn._public = True
-    return fn
-
-
-def _hazmat(fn):
-    # Everything exported by this module gets re-exported as either part of
-    # the trio.* namespace or else the trio.hazmat.* namespace. By default,
-    # thing go into trio.*. But functions marked with this decorator go into
-    # trio.hazmat.* instead. See trio/__init__.py for details.
-    fn._hazmat = True
     return fn
 
 
@@ -48,13 +39,12 @@ __all__ += _local.__all__
 if hasattr(_run, "wait_readable"):
     import socket as _stdlib_socket
 
-    @_hazmat
     async def wait_socket_readable(sock):
         if type(sock) != _stdlib_socket.socket:
             raise TypeError("need a socket")
         await wait_readable(sock)
 
-    @_hazmat
+
     async def wait_socket_writable(sock):
         if type(sock) != _stdlib_socket.socket:
             raise TypeError("need a socket")

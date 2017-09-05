@@ -10,7 +10,7 @@ import signal
 import attr
 
 from .. import _core
-from . import _public, _hazmat
+from . import _public
 from ._wakeup_socketpair import WakeupSocketpair
 
 from ._windows_cffi import (
@@ -293,19 +293,16 @@ class WindowsIOManager:
             self._main_thread_waker.wakeup_thread_and_signal_safe()
 
     @_public
-    @_hazmat
     def current_iocp(self):
         return int(ffi.cast("uintptr_t", self._iocp))
 
     @_public
-    @_hazmat
     def register_with_iocp(self, handle):
         handle = _handle(obj)
         # https://msdn.microsoft.com/en-us/library/windows/desktop/aa363862(v=vs.85).aspx
         _check(kernel32.CreateIoCompletionPort(handle, self._iocp, 0, 0))
 
     @_public
-    @_hazmat
     async def wait_overlapped(self, handle, lpOverlapped):
         handle = _handle(obj)
         if isinstance(lpOverlapped, int):
@@ -337,7 +334,6 @@ class WindowsIOManager:
                 raise_winerror(lpOverlapped.Internal)
 
     @_public
-    @_hazmat
     @contextmanager
     def monitor_completion_key(self):
         key = next(self._completion_key_counter)
@@ -376,12 +372,10 @@ class WindowsIOManager:
         await _core.wait_task_rescheduled(abort)
 
     @_public
-    @_hazmat
     async def wait_socket_readable(self, sock):
         await self._wait_socket("read", sock)
 
     @_public
-    @_hazmat
     async def wait_socket_writable(self, sock):
         await self._wait_socket("write", sock)
 
@@ -389,7 +383,6 @@ class WindowsIOManager:
     # logic we'll want when we start actually using overlapped I/O.
     #
     # @_public
-    # @_hazmat
     # async def perform_overlapped(self, handle, submit_fn):
     #     # submit_fn(lpOverlapped) submits some I/O
     #     # it may raise an OSError with ERROR_IO_PENDING

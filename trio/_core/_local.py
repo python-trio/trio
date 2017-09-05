@@ -1,6 +1,6 @@
 # Task- and Run-local storage
 
-from . import _hazmat, _run
+from . import _run
 
 __all__ = ["TaskLocal", "RunLocal"]
 
@@ -110,7 +110,6 @@ class TaskLocal(_LocalBase):
     _locals_key = "task"
 
 
-@_hazmat
 class RunLocal(_LocalBase):
     """Run-local storage.
 

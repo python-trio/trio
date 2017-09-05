@@ -8,8 +8,6 @@ import inspect
 import attr
 import async_generator
 
-from . import _hazmat
-
 __all__ = [
     "enable_ki_protection",
     "disable_ki_protection",
@@ -96,7 +94,6 @@ def ki_protection_enabled(frame):
     return False
 
 
-@_hazmat
 def currently_ki_protected():
     """Check whether the calling code has :exc:`KeyboardInterrupt` protection
     enabled.
@@ -172,11 +169,9 @@ def _ki_protection_decorator(enabled):
 
 enable_ki_protection = _ki_protection_decorator(True)
 enable_ki_protection.__name__ = "enable_ki_protection"
-_hazmat(enable_ki_protection)
 
 disable_ki_protection = _ki_protection_decorator(False)
 disable_ki_protection.__name__ = "disable_ki_protection"
-_hazmat(disable_ki_protection)
 
 
 @contextmanager
