@@ -99,6 +99,8 @@ Fix ``sock.accept()`` for IPv6 sockets (https://github.com/python-trio/trio/issu
 
 deprecate most of the task and nursery APIs
 
+make our exports visible to PyCharm (314)
+
 Renames from https://github.com/python-trio/trio/issues/157
 
 Note that pypy needs 5.9+ to support deprecations properly

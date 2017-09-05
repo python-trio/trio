@@ -44,7 +44,6 @@ if hasattr(_run, "wait_readable"):
             raise TypeError("need a socket")
         await wait_readable(sock)
 
-
     async def wait_socket_writable(sock):
         if type(sock) != _stdlib_socket.socket:
             raise TypeError("need a socket")
