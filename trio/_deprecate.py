@@ -109,7 +109,7 @@ class DeprecatedAttribute:
     instead = attr.ib(default=_not_set)
 
 
-class ModuleWithDeprecations(ModuleType):
+class _ModuleWithDeprecations(ModuleType):
     def __getattr__(self, name):
         if name in self.__deprecated_attributes__:
             info = self.__deprecated_attributes__[name]
@@ -128,7 +128,11 @@ class ModuleWithDeprecations(ModuleType):
 def enable_attribute_deprecations(module_name):
     module = sys.modules[module_name]
     try:
-        module.__class__ = ModuleWithDeprecations
+        module.__class__ = _ModuleWithDeprecations
     except TypeError:
         # Need PyPy 5.9+ to support module __class__ assignment
         return
+    # Make sure that this is always defined so that
+    # _ModuleWithDeprecations.__getattr__ can access it without jumping
+    # through hoops or risking infinite recursion.
+    module.__deprecated_attributes__ = {}
