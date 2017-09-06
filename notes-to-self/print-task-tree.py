@@ -1,3 +1,29 @@
+"""
+Demo/exploration of how to print a task tree. Outputs:
+
+<init>
+├─ __main__.main
+│  ├─ __main__.child1
+│  │  ├─ trio.sleep_forever
+│  │  ├─ __main__.child2
+│  │  │  ├─ trio.sleep_forever
+│  │  │  └─ trio.sleep_forever
+│  │  └─ __main__.child2
+│  │     ├─ trio.sleep_forever
+│  │     └─ trio.sleep_forever
+│  └─ (nested nursery)
+│     └─ __main__.child1
+│        ├─ trio.sleep_forever
+│        ├─ __main__.child2
+│        │  ├─ trio.sleep_forever
+│        │  └─ trio.sleep_forever
+│        └─ __main__.child2
+│           ├─ trio.sleep_forever
+│           └─ trio.sleep_forever
+└─ <call soon task>
+
+"""
+
 import trio
 import trio.testing
 
