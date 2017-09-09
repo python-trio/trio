@@ -5,6 +5,7 @@ import attr
 
 from . import _core
 from ._util import aiter_compat
+from ._deprecate import deprecated
 
 __all__ = [
     "Event",
@@ -810,8 +811,8 @@ class Queue:
     This class is generally modelled after :class:`queue.Queue`, but with the
     major difference that it is always bounded.
 
-    A :class:`Queue` object can be used as an asynchronous iterator, that
-    dequeues objects one at a time. I.e., these two loops are equivalent::
+    A :class:`Queue` object can be used as an asynchronous iterator that
+    dequeues objects one at a time. That is, these two loops are equivalent::
 
        async for obj in queue:
            ...
@@ -935,6 +936,7 @@ class Queue:
         await self._get_semaphore.acquire()
         return self._get_protected()
 
+    @deprecated("0.2.0", issue=321, instead=None)
     @_core.enable_ki_protection
     def task_done(self):
         """Decrement the count of unfinished work.
@@ -949,6 +951,7 @@ class Queue:
         if self._unprocessed == 0:
             self._join_lot.unpark_all()
 
+    @deprecated("0.2.0", issue=321, instead=None)
     async def join(self):
         """Block until the count of unfinished work reaches zero.
 
@@ -978,8 +981,6 @@ class Queue:
           :meth:`put` method.
         * ``tasks_waiting_get``: The number of tasks blocked on this queue's
           :meth:`get` method.
-        * ``tasks_waiting_join``: The number of tasks blocked on this queue's
-          :meth:`join` method.
 
         """
         return _QueueStats(
