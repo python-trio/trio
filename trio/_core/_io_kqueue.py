@@ -3,7 +3,7 @@ from contextlib import contextmanager
 import attr
 
 from .. import _core
-from . import _public, _hazmat
+from . import _public
 
 
 @attr.s(frozen=True)
@@ -72,12 +72,10 @@ class KqueueIOManager:
     # be more ergonomic...
 
     @_public
-    @_hazmat
     def current_kqueue(self):
         return self._kqueue
 
     @_public
-    @_hazmat
     @contextmanager
     def monitor_kevent(self, ident, filter):
         key = (ident, filter)
@@ -94,7 +92,6 @@ class KqueueIOManager:
             del self._registered[key]
 
     @_public
-    @_hazmat
     async def wait_kevent(self, ident, filter, abort_func):
         key = (ident, filter)
         if key in self._registered:
@@ -128,11 +125,9 @@ class KqueueIOManager:
         await self.wait_kevent(fd, filter, abort)
 
     @_public
-    @_hazmat
     async def wait_readable(self, fd):
         await self._wait_common(fd, select.KQ_FILTER_READ)
 
     @_public
-    @_hazmat
     async def wait_writable(self, fd):
         await self._wait_common(fd, select.KQ_FILTER_WRITE)

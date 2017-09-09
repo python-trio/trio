@@ -2,7 +2,6 @@ from collections import deque
 import attr
 
 from .. import _core
-from . import _hazmat
 from .._util import aiter_compat
 
 __all__ = ["UnboundedQueue"]
@@ -14,7 +13,6 @@ class _UnboundedQueueStats:
     tasks_waiting = attr.ib()
 
 
-@_hazmat
 class UnboundedQueue:
     """An unbounded queue suitable for certain unusual forms of inter-task
     communication.

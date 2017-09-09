@@ -6,8 +6,6 @@ from functools import wraps
 
 import attr
 
-from . import _hazmat
-
 __all__ = ["cancel_shielded_checkpoint", "Abort", "wait_task_rescheduled"]
 
 
@@ -30,7 +28,6 @@ class CancelShieldedCheckpoint:
     pass
 
 
-@_hazmat
 @asyncfunction
 def cancel_shielded_checkpoint():
     """Introduce a schedule point, but not a cancel point.
@@ -49,7 +46,6 @@ def cancel_shielded_checkpoint():
 
 
 # Return values for abort functions
-@_hazmat
 class Abort(enum.Enum):
     """:class:`enum.Enum` used as the return value from abort functions.
 
@@ -69,7 +65,6 @@ class WaitTaskRescheduled:
     abort_func = attr.ib()
 
 
-@_hazmat
 @asyncfunction
 def wait_task_rescheduled(abort_func):
     """Put the current task to sleep, with cancellation support.

@@ -437,10 +437,9 @@ implementation of the core scheduling/cancellation/IO handling logic,
 and then the other ``trio.*`` modules are implemented in terms of the
 API it exposes. (If you want to see what this API looks like, then
 ``import trio; print(trio._core.__all__)``). Everything exported from
-``trio._core`` is *also* exported as part of either the ``trio`` or
-``trio.hazmat`` namespaces. (This is managed through the use of a
-``@_hazmat`` decorator that marks which items in
-``trio._core.__all__`` should go into ``trio.hazmat``.)
+``trio._core`` is *also* exported as part of the ``trio``,
+``trio.hazmat``, or ``trio.testing`` namespaces. (See their respective
+``__init__.py`` files for details; there's a test to enforce this.)
 
 Rationale: currently, trio is a new project in a novel part of the
 design space, so we don't make any stability guarantees. But the goal

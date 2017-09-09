@@ -36,7 +36,7 @@ from ._ki import (
     enable_ki_protection
 )
 from ._wakeup_socketpair import WakeupSocketpair
-from . import _public, _hazmat
+from . import _public
 
 # At the bottom of this file there's also some "clever" code that generates
 # wrapper functions for runner and io manager methods, and adds them to
@@ -532,7 +532,6 @@ def _pending_cancel_scope(cancel_stack):
     return pending_scope
 
 
-@_hazmat
 @attr.s(slots=True, cmp=False, hash=False, repr=False)
 class Task:
     _parent_nursery = attr.ib()
@@ -824,7 +823,6 @@ class Runner:
     ################
 
     @_public
-    @_hazmat
     def reschedule(self, task, next_send=Value(None)):
         """Reschedule the given task with the given
         :class:`~trio.hazmat.Result`.
@@ -997,7 +995,6 @@ class Runner:
     ################
 
     @_public
-    @_hazmat
     def spawn_system_task(self, async_fn, *args, name=None):
         """Spawn a "system" task.
 
@@ -1122,7 +1119,6 @@ class Runner:
             self.call_soon_wakeup.wakeup_thread_and_signal_safe()
 
     @_public
-    @_hazmat
     def current_call_soon_thread_and_signal_safe(self):
         """Returns a reference to the ``call_soon_thread_and_signal_safe``
         function for the current trio run:
@@ -1272,7 +1268,6 @@ class Runner:
     waiting_for_idle = attr.ib(default=attr.Factory(SortedDict))
 
     @_public
-    @_hazmat
     async def wait_all_tasks_blocked(self, cushion=0.0, tiebreaker=0):
         """Block until there are no runnable tasks.
 
@@ -1690,7 +1685,6 @@ class _StatusIgnored:
 STATUS_IGNORED = _StatusIgnored()
 
 
-@_hazmat
 def current_task():
     """Return the :class:`Task` object representing the current task.
 
@@ -1740,7 +1734,6 @@ def current_effective_deadline():
     return deadline
 
 
-@_hazmat
 async def checkpoint():
     """A pure :ref:`checkpoint <checkpoints>`.
 
@@ -1759,7 +1752,6 @@ async def checkpoint():
         await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
 
 
-@_hazmat
 async def checkpoint_if_cancelled():
     """Issue a :ref:`checkpoint <checkpoints>` if the calling context has been
     cancelled.

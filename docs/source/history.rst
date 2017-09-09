@@ -81,6 +81,10 @@ task.parent_nursery
 
 Fix ``sock.accept()`` for IPv6 sockets (https://github.com/python-trio/trio/issues/164)
 
+PyCharm (and hopefully other IDEs) offer better completions for
+the :mod:`trio` and :mod:`trio.hazmat` modules
+https://github.com/python-trio/trio/issues/314
+
 
 * ``trio.socket.SocketType`` will no longer be exposed publically in
   0.3.0. Since it had no public constructor, the only thing you could
@@ -98,6 +102,8 @@ Fix ``sock.accept()`` for IPv6 sockets (https://github.com/python-trio/trio/issu
   - :func:`~trio.hazmat.current_task`
 
 deprecate most of the task and nursery APIs
+
+make our exports visible to PyCharm (314)
 
 Renames from https://github.com/python-trio/trio/issues/157
 

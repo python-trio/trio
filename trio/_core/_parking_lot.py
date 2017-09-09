@@ -75,7 +75,6 @@ import attr
 from collections import OrderedDict
 
 from .. import _core
-from . import _hazmat
 
 __all__ = ["ParkingLot"]
 
@@ -87,7 +86,6 @@ class _ParkingLotStatistics:
     tasks_waiting = attr.ib()
 
 
-@_hazmat
 @attr.s(slots=True, cmp=False, hash=False)
 class ParkingLot:
     """A fair wait queue with cancellation and requeueing.
