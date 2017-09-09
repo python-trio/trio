@@ -43,4 +43,10 @@ for _sym in list(__all__):
     if hasattr(_core, _sym):
         globals()[_sym] = getattr(_core, _sym)
     else:
-        __all__.remove(_sym)
+        # Fool static analysis (at least PyCharm's) into thinking that we're
+        # not modifying __all__, so it can trust the static list up above.
+        # https://github.com/python-trio/trio/pull/316#issuecomment-328255867
+        # This was useful in September 2017. If it's not September 2017 then
+        # who knows.
+        remove_from_all = __all__.remove
+        remove_from_all(_sym)
