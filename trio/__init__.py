@@ -12,35 +12,10 @@
 
 from ._version import __version__
 
-# PyCharm tries to statically infer the set of attributes of this module, so
-# that it can offer completions. (Other IDEs probably do similar things.)
-#
-# Specifically, it seems to need to see:
-#   __all__ = ["some_name"]
-# or
-#   __all__.append("some_name")
-# or
-#   from ... import some_name
-# or an actual definition of 'some_name'. (See
-# https://github.com/python-trio/trio/issues/314 for details.)
-#
-# _core's exports use all kinds of wacky runtime tricks to set up their
-# exports, and then they get divided between trio, trio.hazmat, and
-# trio.testing. In an attempt to make this easier to understand for static
-# analysis, we now list the re-exports directly here and in trio.hazmat and
-# trio.testing, and then we have a test to make sure that every _core export
-# does get re-exported in one of these places or another.
-__all__ = [
-    "TrioInternalError", "RunFinishedError", "WouldBlock", "Cancelled",
-    "ResourceBusyError", "MultiError", "format_exception", "run",
-    "open_nursery", "open_cancel_scope", "current_effective_deadline",
-    "STATUS_IGNORED", "current_time", "current_instruments", "current_clock",
-    "remove_instrument", "add_instrument", "current_statistics", "TaskLocal"
-]
+__all__ = []
 
-from . import _core
-
-globals().update({sym: getattr(_core, sym) for sym in __all__})
+from ._toplevel_core_reexports import *
+__all__ += _toplevel_core_reexports.__all__
 
 from ._timeouts import *
 __all__ += _timeouts.__all__
