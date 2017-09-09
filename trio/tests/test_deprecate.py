@@ -44,6 +44,7 @@ def test_warn_deprecated_no_instead_or_issue(recwarn_always):
     assert len(recwarn_always) == 1
     got = recwarn_always.pop(TrioDeprecationWarning)
     assert "water is deprecated" in got.message.args[0]
+    assert "no replacement" in got.message.args[0]
     assert "Trio 1.3" in got.message.args[0]
 
 

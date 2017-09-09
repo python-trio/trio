@@ -44,7 +44,9 @@ def _stringify(thing):
 def warn_deprecated(thing, version, *, issue, instead, stacklevel=2):
     stacklevel += 1
     msg = "{} is deprecated since Trio {}".format(_stringify(thing), version)
-    if instead is not None:
+    if instead is None:
+        msg += " with no replacement"
+    else:
         msg += "; use {} instead".format(_stringify(instead))
     if issue is not None:
         msg += " ({})".format(_url_for_issue(issue))
