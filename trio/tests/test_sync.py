@@ -403,7 +403,7 @@ async def test_Queue():
     assert q.empty()
 
 
-async def test_Queue_join():
+async def test_Queue_join(recwarn):
     q = Queue(2)
     with assert_checkpoints():
         await q.join()
@@ -452,7 +452,8 @@ async def test_Queue_iter():
         nursery.start_soon(consumer)
 
 
-async def test_Queue_statistics():
+# XX remove the 'recwarn' fixture after join is removed
+async def test_Queue_statistics(recwarn):
     q = Queue(3)
     q.put_nowait(1)
     statistics = q.statistics()
