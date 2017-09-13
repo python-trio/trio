@@ -26,6 +26,8 @@ __all__ = [
     "RunLocal",
     "wait_socket_readable",
     "wait_socket_writable",
+    "TrioToken",
+    "current_trio_token",
     # kqueue symbols
     "current_kqueue",
     "monitor_kevent",

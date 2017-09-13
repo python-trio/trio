@@ -111,6 +111,7 @@ hazmat.__deprecated_attributes__ = {
 # Having the public path in .__module__ attributes is important for:
 # - exception names in printed tracebacks
 # - sphinx :show-inheritance:
+# - deprecation warnings
 # - pickle
 # - probably other stuff
 from ._util import fixup_module_metadata
