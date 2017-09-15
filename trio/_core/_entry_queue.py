@@ -124,6 +124,24 @@ class EntryQueue:
 
 
 class TrioToken:
+    """An opaque object representing a single call to :func:`trio.run`.
+
+    It has no public constructor; instead, see :func:`current_trio_token`.
+
+    This object has two uses:
+
+    1. It lets you re-enter the Trio run loop from external threads or signal
+       handlers. This is the low-level primitive that
+       :func:`trio.run_sync_in_worker_thread` uses to receive results from
+       worker threads, that :func:`trio.catch_signals` uses to receive
+       notifications about signals, and so forth.
+
+    2. Each call to :func:`trio.run` has exactly one associated
+       :class:`TrioToken` object, so you can use it to identify a particular
+       call.
+
+    """
+
     def __init__(self, reentry_queue):
         self._reentry_queue = reentry_queue
 

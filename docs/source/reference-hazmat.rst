@@ -197,10 +197,13 @@ Global state: system tasks and run-local storage
 .. autofunction:: spawn_system_task
 
 
-Entering trio from external threads or signal handlers
-======================================================
+Trio tokens
+===========
 
-.. autofunction:: current_call_soon_thread_and_signal_safe
+.. autoclass:: TrioToken()
+   :members:
+
+.. autofunction:: current_trio_token
 
 
 Safer KeyboardInterrupt handling

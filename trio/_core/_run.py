@@ -1084,6 +1084,10 @@ class Runner:
 
     @_public
     def current_trio_token(self):
+        """Retrieve the :class:`TrioToken` for the current call to
+        :func:`trio.run`.
+
+        """
         if self.trio_token is None:
             self.trio_token = TrioToken(self.entry_queue)
         return self.trio_token
