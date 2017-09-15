@@ -6,61 +6,71 @@ import attr
 
 from . import _core
 from ._sync import CapacityLimiter
-from ._deprecate import deprecated_alias
+from ._deprecate import deprecated
 
 __all__ = [
     "current_await_in_trio_thread",
     "current_run_in_trio_thread",
     "run_sync_in_worker_thread",
     "current_default_worker_thread_limiter",
+    "BlockingTrioPortal",
 ]
 
 
-def _await_in_trio_thread_cb(q, afn, args):
-    @_core.disable_ki_protection
-    async def unprotected_afn():
-        return await afn(*args)
+class BlockingTrioPortal:
+    def __init__(self, trio_token=None):
+        if trio_token is None:
+            trio_token = _core.current_trio_token()
+        self._trio_token = trio_token
 
-    async def await_in_trio_thread_task():
-        q.put_nowait(await _core.Result.acapture(unprotected_afn))
+    # This is the part that runs in the trio thread
+    def _run_cb(self, q, afn, args):
+        @_core.disable_ki_protection
+        async def unprotected_afn():
+            return await afn(*args)
 
-    _core.spawn_system_task(await_in_trio_thread_task, name=afn)
+        async def await_in_trio_thread_task():
+            q.put_nowait(await _core.Result.acapture(unprotected_afn))
 
+        _core.spawn_system_task(await_in_trio_thread_task, name=afn)
 
-def _run_in_trio_thread_cb(q, fn, args):
-    @_core.disable_ki_protection
-    def unprotected_fn():
-        return fn(*args)
+    # This is the part that runs in the trio thread
+    def _run_sync_cb(self, q, fn, args):
+        @_core.disable_ki_protection
+        def unprotected_fn():
+            return fn(*args)
 
-    res = _core.Result.capture(unprotected_fn)
-    q.put_nowait(res)
+        res = _core.Result.capture(unprotected_fn)
+        q.put_nowait(res)
 
-
-def _current_do_in_trio_thread(name, cb):
-    token = _core.current_trio_token()
-    trio_thread = threading.current_thread()
-
-    def do_in_trio_thread(fn, *args):
-        if threading.current_thread() == trio_thread:
-            raise RuntimeError("must be called from a thread")
+    def _do_it(self, cb, fn, *args):
+        try:
+            _core.current_task()
+        except RuntimeError:
+            pass
+        else:
+            raise RuntimeError(
+                "this is a blocking function; call it from a thread"
+            )
         q = stdlib_queue.Queue()
-        token.run_sync_soon(cb, q, fn, args)
+        self._trio_token.run_sync_soon(cb, q, fn, args)
         return q.get().unwrap()
 
-    do_in_trio_thread.__name__ = name
-    return do_in_trio_thread
+    def run(self, afn, *args):
+        return self._do_it(self._run_cb, afn, *args)
+
+    def run_sync(self, fn, *args):
+        return self._do_it(self._run_sync_cb, fn, *args)
 
 
+@deprecated("0.2.0", issue=68, instead=BlockingTrioPortal.run_sync)
 def current_run_in_trio_thread():
-    return _current_do_in_trio_thread(
-        "run_in_trio_thread", _run_in_trio_thread_cb
-    )
+    return BlockingTrioPortal().run_sync
 
 
+@deprecated("0.2.0", issue=68, instead=BlockingTrioPortal.run)
 def current_await_in_trio_thread():
-    return _current_do_in_trio_thread(
-        "await_in_trio_thread", _await_in_trio_thread_cb
-    )
+    return BlockingTrioPortal().run
 
 
 ################################################################
