@@ -1225,6 +1225,20 @@ async def test_exception_chaining_after_yield_error():
     assert isinstance(excinfo.value.__context__, KeyError)
 
 
+def test_TrioToken_identity():
+    async def get_and_check_token():
+        token = _core.current_trio_token()
+        # Two calls in the same run give the same object
+        assert token is _core.current_trio_token()
+        return token
+
+    t1 = _core.run(get_and_check_token)
+    t2 = _core.run(get_and_check_token)
+    assert t1 is not t2
+    assert t1 != t2
+    assert hash(t1) != hash(t2)
+
+
 async def test_TrioToken_run_sync_soon_basic():
     record = []
 
