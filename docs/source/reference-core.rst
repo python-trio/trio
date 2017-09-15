@@ -228,11 +228,6 @@ custom :class:`~trio.abc.Clock` class:
 .. autoclass:: trio.abc.Clock
    :members:
 
-You can also fetch a reference to the current clock, which might be
-useful if you're using a custom clock class:
-
-.. autofunction:: current_clock
-
 
 .. _cancellation:
 
@@ -1532,69 +1527,6 @@ messages between the thread and a trio task::
        thread.join()
 
    trio.run(main)
-
-
-.. _instrumentation:
-
-Debugging and instrumentation
------------------------------
-
-Trio tries hard to provide useful hooks for debugging and
-instrumentation. Some are documented above (the nursery introspection
-attributes, :meth:`Queue.statistics`, etc.). Here are some more:
-
-
-Global statistics
-~~~~~~~~~~~~~~~~~
-
-.. autofunction:: current_statistics
-
-
-Instrument API
-~~~~~~~~~~~~~~
-
-The instrument API provides a standard way to add custom
-instrumentation to the run loop. Want to make a histogram of
-scheduling latencies, log a stack trace of any task that blocks the
-run loop for >50 ms, or measure what percentage of your process's
-running time is spent waiting for I/O? This is the place.
-
-The general idea is that at any given moment, :func:`trio.run`
-maintains a set of "instruments", which are objects that implement the
-:class:`trio.abc.Instrument` interface. When an interesting event
-happens, it loops over these instruments and notifies them by calling
-an appropriate method. The tutorial has :ref:`a simple example of
-using this for tracing <tutorial-instrument-example>`.
-
-Since this hooks into trio at a rather low level, you do have to be
-somewhat careful. The callbacks are run synchronously, and in many
-cases if they error out then there isn't any plausible way to
-propagate this exception (for instance, we might be deep in the guts
-of the exception propagation machinery...). Therefore our `current
-strategy <https://github.com/python-trio/trio/issues/47>`__ for
-handling exceptions raised by instruments is to (a) dump a stack trace
-to stderr and (b) disable the offending instrument.
-
-You can register an initial list of instruments by passing them to
-:func:`trio.run`. :func:`add_instrument` and
-:func:`remove_instrument` let you add and remove instruments at
-runtime. There's also :func:`current_instruments`, which is deprecated
-and will be removed soon.
-
-.. autofunction:: add_instrument
-
-.. autofunction:: remove_instrument
-
-.. autofunction:: current_instruments
-
-And here's the instrument API:
-
-.. autoclass:: trio.abc.Instrument
-   :members:
-
-The tutorial has a :ref:`fully-worked example
-<tutorial-instrument-example>` of defining a custom instrument to log
-trio's internal scheduling decisions.
 
 
 Exceptions and warnings
