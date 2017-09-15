@@ -18,6 +18,37 @@ __all__ = [
 
 
 class BlockingTrioPortal:
+    """A portal that synchronous threads can reach through to run code in the
+    Trio thread.
+
+    Most Trio functions can only be called from the Trio thread, which is
+    sometimes annoying. What if you really need to call a Trio function from a
+    worker thread? That's where :class:`BlockingTrioPortal` comes in: its the
+    rare Trio object whose methods can – in fact, must! – be called from a
+    another thread, and it allows you to call all those other functions.
+
+    There is one complication: it's possible for a single Python program to
+    contain multiple calls to :func:`trio.run`, either in sequence – like in a
+    test suite that calls :func:`trio.run` for each test – or simultaneously
+    in different threads. So how do you control which :func:`trio.run` your
+    portal opens into?
+
+    The answer is that each :class:`BlockingTrioPortal` object is associated
+    with one *specific* call to :func:`trio.run`.
+
+    The simplest way to set this up is to instantiate the class with no
+    arguments inside Trio; this automatically binds it to the context where
+    you instantiate it::
+
+       async def some_function():
+           portal = trio.BlockingTrioPortal()
+           await trio.run_sync_in_worker_thread(sync_fn, portal)
+
+    Alternatively, you can pass an explicit :class:`trio.hazmat.TrioToken` to
+    specify the :func:`trio.run` that you want your portal to connect to.
+
+    """
+
     def __init__(self, trio_token=None):
         if trio_token is None:
             trio_token = _core.current_trio_token()
@@ -57,9 +88,38 @@ class BlockingTrioPortal:
         return q.get().unwrap()
 
     def run(self, afn, *args):
+        """Run the given async function in the trio thread, blocking until it
+        is complete.
+
+        Returns or raises whatever the given function returns or raises. It
+        can also raise exceptions of its own:
+
+        Raises:
+          RunFinishedError: if the corresponding call to :func:`trio.run` has
+              already completed.
+          Cancelled: if the corresponding call to :func:`trio.run` completes
+              while ``afn(*args)`` is running, then ``afn`` is likely to raise
+              :class:`Cancelled`, and this will propagate out into
+          RuntimeError: if you try calling this from inside the Trio thread,
+              which would otherwise cause a deadlock.
+
+        """
         return self._do_it(self._run_cb, afn, *args)
 
     def run_sync(self, fn, *args):
+        """Run the given synchronous function in the trio thread, blocking
+        until it is complete.
+
+        Returns or raises whatever the given function returns or raises. It
+        can also exceptions of its own:
+
+        Raises:
+          RunFinishedError: if the corresponding call to :func:`trio.run` has
+              already completed.
+          RuntimeError: if you try calling this from inside the Trio thread,
+              which would otherwise cause a deadlock.
+
+        """
         return self._do_it(self._run_sync_cb, fn, *args)
 
 
