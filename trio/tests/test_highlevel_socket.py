@@ -153,7 +153,7 @@ async def test_SocketListener_socket_closed_underfoot():
 
 
 async def test_SocketListener_accept_errors():
-    class FakeSocket:
+    class FakeSocket(tsocket.SocketType):
         def __init__(self, events):
             self._events = iter(events)
 
@@ -177,12 +177,6 @@ async def test_SocketListener_accept_errors():
                 raise event
             else:
                 return event, None
-
-    class FakeSocketFactory:
-        def is_trio_socket(self, obj):
-            return isinstance(obj, FakeSocket)
-
-    tsocket.set_custom_socket_factory(FakeSocketFactory())
 
     fake_server_sock = FakeSocket([])
 

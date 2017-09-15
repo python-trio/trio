@@ -248,9 +248,7 @@ library socket into a trio socket:
 
 Unlike :func:`socket.socket`, :func:`trio.socket.socket` is a
 function, not a class; if you want to check whether an object is a
-trio socket, use:
-
-.. autofunction:: is_trio_socket
+trio socket, use ``isinstance(obj, trio.socket.SocketType)``.
 
 For name lookup, Trio provides the standard functions, but with some
 changes:
@@ -297,7 +295,13 @@ broken features:
 Socket objects
 ~~~~~~~~~~~~~~
 
-.. interface:: The trio socket object interface
+.. class:: SocketType
+
+   .. note:: :class:`trio.socket.SocketType` is an abstract class and
+      cannot be instantiated directly; you get concrete socket objects
+      by calling constructors like :func:`trio.socket.socket`.
+      However, you can use it to check if an object is a Trio socket
+      via ``isinstance(obj, trio.socket.SocketType)``.
 
    Trio socket objects are overall very similar to the :ref:`standard
    library socket objects <python:socket-objects>`, with a few

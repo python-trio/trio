@@ -6,7 +6,7 @@ import inspect
 
 from .. import _core
 from .. import socket as tsocket
-from .._socket import _NUMERIC_ONLY, _try_sync, _SocketType
+from .._socket import _NUMERIC_ONLY, _try_sync
 from ..testing import assert_checkpoints, wait_all_tasks_blocked
 
 ################################################################
@@ -191,10 +191,10 @@ async def test_getnameinfo():
 
 async def test_from_stdlib_socket():
     sa, sb = stdlib_socket.socketpair()
-    assert not tsocket.is_trio_socket(sa)
+    assert not isinstance(sa, tsocket.SocketType)
     with sa, sb:
         ta = tsocket.from_stdlib_socket(sa)
-        assert tsocket.is_trio_socket(ta)
+        assert isinstance(ta, tsocket.SocketType)
         assert sa.fileno() == ta.fileno()
         await ta.send(b"x")
         assert sb.recv(1) == b"x"
@@ -248,13 +248,11 @@ async def test_fromshare():
 
 async def test_socket():
     with tsocket.socket() as s:
-        assert isinstance(s, _SocketType)
-        assert tsocket.is_trio_socket(s)
+        assert isinstance(s, tsocket.SocketType)
         assert s.family == tsocket.AF_INET
 
     with tsocket.socket(tsocket.AF_INET6, tsocket.SOCK_DGRAM) as s:
-        assert isinstance(s, _SocketType)
-        assert tsocket.is_trio_socket(s)
+        assert isinstance(s, tsocket.SocketType)
         assert s.family == tsocket.AF_INET6
 
 
@@ -319,8 +317,7 @@ async def test_SocketType_dup():
     with a, b:
         a2 = a.dup()
         with a2:
-            assert isinstance(a2, _SocketType)
-            assert tsocket.is_trio_socket(a2)
+            assert isinstance(a2, tsocket.SocketType)
             assert a2.fileno() != a.fileno()
             a.close()
             await a2.send(b"x")
@@ -820,12 +817,7 @@ async def test_custom_socket_factory():
         def socket(self, family, type, proto):
             return ("hi", family, type, proto)
 
-        def is_trio_socket(self, obj):
-            return obj == "foo"
-
     csf = CustomSocketFactory()
-
-    assert not tsocket.is_trio_socket("foo")
 
     assert tsocket.set_custom_socket_factory(csf) is None
 
@@ -844,8 +836,9 @@ async def test_custom_socket_factory():
         assert hasattr(a, "bind")
         assert hasattr(b, "bind")
 
-    assert tsocket.is_trio_socket("foo")
-
     assert tsocket.set_custom_socket_factory(None) is csf
 
-    assert not tsocket.is_trio_socket("foo")
+
+async def test_SocketType_is_abstract():
+    with pytest.raises(TypeError):
+        tsocket.SocketType()

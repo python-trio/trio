@@ -95,7 +95,7 @@ async def test_open_tcp_stream_input_validation():
 
 
 @attr.s
-class FakeSocket:
+class FakeSocket(trio.socket.SocketType):
     scenario = attr.ib()
     family = attr.ib()
     type = attr.ib()
@@ -153,9 +153,6 @@ class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
             raise OSError("pretending not to support ipv6")
         self.socket_count += 1
         return FakeSocket(self, family, type, proto)
-
-    def is_trio_socket(self, obj):
-        return isinstance(obj, FakeSocket)
 
     def _ip_to_gai_entry(self, ip):
         if ":" in ip:

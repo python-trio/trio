@@ -198,22 +198,16 @@ class SocketFactory(metaclass=ABCMeta):
     def socket(self, family=None, type=None, proto=None):
         """Create and return a socket object.
 
+        Your socket object must inherit from :class:`trio.socket.SocketType`,
+        which is an empty class whose only purpose is to "mark" which classes
+        should be considered valid trio sockets.
+
         Called by :func:`trio.socket.socket`.
 
         Note that unlike :func:`trio.socket.socket`, this does not take a
         ``fileno=`` argument. If a ``fileno=`` is specified, then
         :func:`trio.socket.socket` returns a regular trio socket object
         instead of calling this method.
-
-        """
-
-    @abstractmethod
-    def is_trio_socket(self, obj):
-        """Check if the given object is a socket instance.
-
-        Called by :func:`trio.socket.is_trio_socket`, which returns True if
-        the given object is a builtin trio socket object *or* if this method
-        returns True.
 
         """
 

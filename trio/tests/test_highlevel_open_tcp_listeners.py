@@ -145,7 +145,7 @@ class FakeOSError(OSError):
 
 
 @attr.s
-class FakeSocket:
+class FakeSocket(tsocket.SocketType):
     family = attr.ib()
     type = attr.ib()
     proto = attr.ib()
@@ -176,9 +176,6 @@ class FakeSocket:
 class FakeSocketFactory:
     poison_after = attr.ib()
     sockets = attr.ib(default=attr.Factory(list))
-
-    def is_trio_socket(self, obj):
-        return isinstance(obj, FakeSocket)
 
     def socket(self, family, type, proto):
         sock = FakeSocket(family, type, proto)
