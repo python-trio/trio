@@ -86,10 +86,11 @@ the :mod:`trio` and :mod:`trio.hazmat` modules
 https://github.com/python-trio/trio/issues/314
 
 
-* ``trio.socket.SocketType`` will no longer be exposed publically in
-  0.3.0. Since it had no public constructor, the only thing you could
-  do with it was ``isinstance(obj, SocketType)``. Instead, use
-  :func:`trio.socket.is_trio_socket`. (https://github.com/python-trio/trio/issues/170)
+* ``trio.socket.SocketType`` is now an empty abstract base class, with
+  the actual socket class made private. This shouldn't effect anyone,
+  since the only thing you could directly use it for in the first
+  place was ``isinstance`` checks, and those still work
+  (https://github.com/python-trio/trio/issues/170)
 
 * The following classes and functions have moved from :mod:`trio` to
   :mod:`trio.hazmat`:

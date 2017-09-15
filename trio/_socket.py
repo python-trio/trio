@@ -23,6 +23,11 @@ def _reexport(name):
     __all__.append(name)
 
 
+def _add_to_all(obj):
+    __all__.append(obj.__name__)
+    return obj
+
+
 # Usage:
 #
 #   async with _try_sync():
@@ -115,6 +120,7 @@ for _name in [
 _overrides = _core.RunLocal(hostname_resolver=None, socket_factory=None)
 
 
+@_add_to_all
 def set_custom_hostname_resolver(hostname_resolver):
     """Set a custom hostname resolver.
 
@@ -147,9 +153,7 @@ def set_custom_hostname_resolver(hostname_resolver):
     return old
 
 
-__all__.append("set_custom_hostname_resolver")
-
-
+@_add_to_all
 def set_custom_socket_factory(socket_factory):
     """Set a custom socket object factory.
 
@@ -159,8 +163,7 @@ def set_custom_socket_factory(socket_factory):
     details.
 
     Setting a custom socket factory affects all future calls to :func:`socket`
-    and :func:`is_trio_socket` within the enclosing call to
-    :func:`trio.run`.
+    within the enclosing call to :func:`trio.run`.
 
     Generally you should call this function just once, right at the beginning
     of your program.
@@ -178,17 +181,9 @@ def set_custom_socket_factory(socket_factory):
     return old
 
 
-__all__.append("set_custom_socket_factory")
-
 ################################################################
 # getaddrinfo and friends
 ################################################################
-
-
-def _add_to_all(obj):
-    __all__.append(obj.__name__)
-    return obj
-
 
 _NUMERIC_ONLY = _stdlib_socket.AI_NUMERICHOST | _stdlib_socket.AI_NUMERICSERV
 
@@ -349,25 +344,6 @@ def socket(family=AF_INET, type=SOCK_STREAM, proto=0, fileno=None):
 
 
 ################################################################
-# Type checking
-################################################################
-
-
-@_add_to_all
-def is_trio_socket(obj):
-    """Check whether the given object is a trio socket.
-
-    This function's behavior can be customized using
-    :func:`set_custom_socket_factory`.
-
-    """
-    sf = _overrides.socket_factory
-    if sf is not None and sf.is_trio_socket(obj):
-        return True
-    return isinstance(obj, _SocketType)
-
-
-################################################################
 # _SocketType
 ################################################################
 
@@ -394,7 +370,16 @@ def real_socket_type(type_num):
     return type_num & _SOCK_TYPE_MASK
 
 
-class _SocketType:
+@_add_to_all
+class SocketType:
+    def __init__(self):
+        raise TypeError(
+            "SocketType is an abstract class; use trio.socket.socket if you "
+            "want to construct a socket object"
+        )
+
+
+class _SocketType(SocketType):
     def __init__(self, sock):
         if type(sock) is not _stdlib_socket.socket:
             # For example, ssl.SSLSocket subclasses socket.socket, but we
