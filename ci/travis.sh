@@ -42,7 +42,7 @@ if [ "$USE_PYPY_NIGHTLY" = "1" ]; then
     ($PYTHON_EXE -m ensurepip \
      && $PYTHON_EXE -m pip install virtualenv \
      && $PYTHON_EXE -m virtualenv testenv) \
-        || echo "pypy nightly is broken; skipping tests"; exit 0
+        || (echo "pypy nightly is broken; skipping tests"; exit 0)
     source testenv/bin/activate
 fi
 
