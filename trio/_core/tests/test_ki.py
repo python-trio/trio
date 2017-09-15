@@ -29,13 +29,13 @@ async def test_ki_enabled():
     assert not _core.currently_ki_protected()
 
     # Low-level call-soon callbacks are KI-protected
-    call_soon = _core.current_call_soon_thread_and_signal_safe()
+    token = _core.current_trio_token()
     record = []
 
     def check():
         record.append(_core.currently_ki_protected())
 
-    call_soon(check)
+    token.run_sync_soon(check)
     await wait_all_tasks_blocked()
     assert record == [True]
 
@@ -263,23 +263,23 @@ def test_ki_protection_works():
         _core.run(check_protected_kill)
     assert record == {"s1 ok", "s2 ok", "r1 cancel ok"}
 
-    # kill at last moment still raises (call_soon until it raises an error,
-    # then kill)
+    # kill at last moment still raises (run_sync_soon until it raises an
+    # error, then kill)
     print("check 3")
 
     async def check_kill_during_shutdown():
-        call_soon = _core.current_call_soon_thread_and_signal_safe()
+        token = _core.current_trio_token()
 
         def kill_during_shutdown():
             assert _core.currently_ki_protected()
             try:
-                call_soon(kill_during_shutdown)
+                token.run_sync_soon(kill_during_shutdown)
             except _core.RunFinishedError:
                 # it's too late for regular handling! handle this!
                 print("kill! kill!")
                 ki_self()
 
-        call_soon(kill_during_shutdown)
+        token.run_sync_soon(kill_during_shutdown)
 
     with pytest.raises(KeyboardInterrupt):
         _core.run(check_kill_during_shutdown)
@@ -363,9 +363,9 @@ def test_ki_protection_works():
 
     _core.run(main)
 
-    # KI arrives just before main task exits, so the call_soon machinery is
-    # still functioning and will accept the callback to deliver the KI, but by
-    # the time the callback is actually run, main has exited and can't be
+    # KI arrives just before main task exits, so the run_sync_soon machinery
+    # is still functioning and will accept the callback to deliver the KI, but
+    # by the time the callback is actually run, main has exited and can't be
     # aborted.
     print("check 9")
 

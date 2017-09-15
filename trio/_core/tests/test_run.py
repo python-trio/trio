@@ -384,14 +384,14 @@ async def test_current_statistics(mock_clock):
     print(stats)
     # 2 system tasks + us
     assert stats.tasks_living == 3
-    assert stats.call_soon_queue_size == 0
+    assert stats.run_sync_soon_queue_size == 0
 
     async with _core.open_nursery() as nursery:
         nursery.start_soon(child)
         await wait_all_tasks_blocked()
-        call_soon = _core.current_call_soon_thread_and_signal_safe()
-        call_soon(lambda: None)
-        call_soon(lambda: None, idempotent=True)
+        token = _core.current_trio_token()
+        token.run_sync_soon(lambda: None)
+        token.run_sync_soon(lambda: None, idempotent=True)
         stats = _core.current_statistics()
         print(stats)
         # 2 system tasks + us + child
@@ -401,14 +401,14 @@ async def test_current_statistics(mock_clock):
         # runnable on the next pass), but still useful to at least test the
         # difference between now and after we wake up the child:
         assert stats.tasks_runnable == 0
-        assert stats.call_soon_queue_size == 2
+        assert stats.run_sync_soon_queue_size == 2
 
         nursery.cancel_scope.cancel()
         stats = _core.current_statistics()
         print(stats)
         assert stats.tasks_runnable == 1
 
-    # Give the child a chance to die and the call_soon a chance to clear
+    # Give the child a chance to die and the run_sync_soon a chance to clear
     await _core.checkpoint()
     await _core.checkpoint()
 
@@ -974,11 +974,11 @@ def test_broken_abort():
     async def main():
         # These yields are here to work around an annoying warning -- we're
         # going to crash the main loop, and if we (by chance) do this before
-        # the call_soon_task runs for the first time, then Python gives us a
-        # spurious warning about it not being awaited. (I mean, the warning is
-        # correct, but here we're testing our ability to deliver a
+        # the run_sync_soon task runs for the first time, then Python gives us
+        # a spurious warning about it not being awaited. (I mean, the warning
+        # is correct, but here we're testing our ability to deliver a
         # semi-meaningful error after things have gone totally pear-shaped, so
-        # it's not relevant.)  By letting the call_soon_task run first, we
+        # it's not relevant.) By letting the run_sync_soon_task run first, we
         # avoid the warning.
         await _core.checkpoint()
         await _core.checkpoint()
@@ -1021,8 +1021,7 @@ async def test_spawn_system_task():
     assert record == [("x", 1), ("ki", True)]
 
 
-# intentionally make a system task crash (simulates a bug in call_soon_task or
-# similar)
+# intentionally make a system task crash
 def test_system_task_crash():
     async def crasher():
         raise KeyError
@@ -1226,45 +1225,45 @@ async def test_exception_chaining_after_yield_error():
     assert isinstance(excinfo.value.__context__, KeyError)
 
 
-async def test_call_soon_basic():
+async def test_TrioToken_run_sync_soon_basic():
     record = []
 
     def cb(x):
         record.append(("cb", x))
 
-    call_soon = _core.current_call_soon_thread_and_signal_safe()
-    call_soon(cb, 1)
+    token = _core.current_trio_token()
+    token.run_sync_soon(cb, 1)
     assert not record
     await wait_all_tasks_blocked()
     assert record == [("cb", 1)]
 
 
-def test_call_soon_too_late():
-    call_soon = None
+def test_TrioToken_run_sync_soon_too_late():
+    token = None
 
     async def main():
-        nonlocal call_soon
-        call_soon = _core.current_call_soon_thread_and_signal_safe()
+        nonlocal token
+        token = _core.current_trio_token()
 
     _core.run(main)
-    assert call_soon is not None
+    assert token is not None
     with pytest.raises(_core.RunFinishedError):
-        call_soon(lambda: None)  # pragma: no branch
+        token.run_sync_soon(lambda: None)  # pragma: no branch
 
 
-async def test_call_soon_idempotent():
+async def test_TrioToken_run_sync_soon_idempotent():
     record = []
 
     def cb(x):
         record.append(x)
 
-    call_soon = _core.current_call_soon_thread_and_signal_safe()
-    call_soon(cb, 1)
-    call_soon(cb, 1, idempotent=True)
-    call_soon(cb, 1, idempotent=True)
-    call_soon(cb, 1, idempotent=True)
-    call_soon(cb, 2, idempotent=True)
-    call_soon(cb, 2, idempotent=True)
+    token = _core.current_trio_token()
+    token.run_sync_soon(cb, 1)
+    token.run_sync_soon(cb, 1, idempotent=True)
+    token.run_sync_soon(cb, 1, idempotent=True)
+    token.run_sync_soon(cb, 1, idempotent=True)
+    token.run_sync_soon(cb, 2, idempotent=True)
+    token.run_sync_soon(cb, 2, idempotent=True)
     await wait_all_tasks_blocked()
     assert len(record) == 3
     assert sorted(record) == [1, 1, 2]
@@ -1273,7 +1272,7 @@ async def test_call_soon_idempotent():
     record = []
     for _ in range(3):
         for i in range(100):
-            call_soon(cb, i, idempotent=True)
+            token.run_sync_soon(cb, i, idempotent=True)
     await wait_all_tasks_blocked()
     if (sys.version_info < (3, 6)
             and platform.python_implementation() == "CPython"):
@@ -1283,23 +1282,23 @@ async def test_call_soon_idempotent():
     assert record == list(range(100))
 
 
-def test_call_soon_idempotent_requeue():
+def test_TrioToken_run_sync_soon_idempotent_requeue():
     # We guarantee that if a call has finished, queueing it again will call it
     # again. Due to the lack of synchronization, this effectively means that
     # we have to guarantee that once a call has *started*, queueing it again
     # will call it again. Also this is much easier to test :-)
     record = []
 
-    def redo(call_soon):
+    def redo(token):
         record.append(None)
         try:
-            call_soon(redo, call_soon, idempotent=True)
+            token.run_sync_soon(redo, token, idempotent=True)
         except _core.RunFinishedError:
             pass
 
     async def main():
-        call_soon = _core.current_call_soon_thread_and_signal_safe()
-        call_soon(redo, call_soon, idempotent=True)
+        token = _core.current_trio_token()
+        token.run_sync_soon(redo, token, idempotent=True)
         await _core.checkpoint()
         await _core.checkpoint()
         await _core.checkpoint()
@@ -1309,14 +1308,14 @@ def test_call_soon_idempotent_requeue():
     assert len(record) >= 2
 
 
-def test_call_soon_after_main_crash():
+def test_TrioToken_run_sync_soon_after_main_crash():
     record = []
 
     async def main():
-        call_soon = _core.current_call_soon_thread_and_signal_safe()
+        token = _core.current_trio_token()
         # After main exits but before finally cleaning up, callback processed
         # normally
-        call_soon(lambda: record.append("sync-cb"))
+        token.run_sync_soon(lambda: record.append("sync-cb"))
         raise ValueError
 
     with pytest.raises(ValueError):
@@ -1325,15 +1324,15 @@ def test_call_soon_after_main_crash():
     assert record == ["sync-cb"]
 
 
-def test_call_soon_crashes():
+def test_TrioToken_run_sync_soon_crashes():
     record = set()
 
     async def main():
-        call_soon = _core.current_call_soon_thread_and_signal_safe()
-        call_soon(lambda: dict()["nope"])
-        # check that a crashing call_soon callback doesn't stop further calls
-        # to call_soon
-        call_soon(lambda: record.add("2nd call_soon ran"))
+        token = _core.current_trio_token()
+        token.run_sync_soon(lambda: dict()["nope"])
+        # check that a crashing run_sync_soon callback doesn't stop further
+        # calls to run_sync_soon
+        token.run_sync_soon(lambda: record.add("2nd run_sync_soon ran"))
         try:
             await sleep_forever()
         except _core.Cancelled:
@@ -1343,37 +1342,37 @@ def test_call_soon_crashes():
         _core.run(main)
 
     assert type(excinfo.value.__cause__) is KeyError
-    assert record == {"2nd call_soon ran", "cancelled!"}
+    assert record == {"2nd run_sync_soon ran", "cancelled!"}
 
 
-async def test_call_soon_FIFO():
+async def test_TrioToken_run_sync_soon_FIFO():
     N = 100
     record = []
-    call_soon = _core.current_call_soon_thread_and_signal_safe()
+    token = _core.current_trio_token()
     for i in range(N):
-        call_soon(lambda j: record.append(j), i)
+        token.run_sync_soon(lambda j: record.append(j), i)
     await wait_all_tasks_blocked()
     assert record == list(range(N))
 
 
-def test_call_soon_starvation_resistance():
+def test_TrioToken_run_sync_soon_starvation_resistance():
     # Even if we push callbacks in from callbacks, so that the callback queue
     # never empties out, then we still can't starve out other tasks from
     # running.
-    call_soon = None
+    token = None
     record = []
 
     def naughty_cb(i):
-        nonlocal call_soon
+        nonlocal token
         try:
-            call_soon(naughty_cb, i + 1)
+            token.run_sync_soon(naughty_cb, i + 1)
         except _core.RunFinishedError:
             record.append(("run finished", i))
 
     async def main():
-        nonlocal call_soon
-        call_soon = _core.current_call_soon_thread_and_signal_safe()
-        call_soon(naughty_cb, 0)
+        nonlocal token
+        token = _core.current_trio_token()
+        token.run_sync_soon(naughty_cb, 0)
         record.append("starting")
         for _ in range(20):
             await _core.checkpoint()
@@ -1385,24 +1384,24 @@ def test_call_soon_starvation_resistance():
     assert record[1][1] >= 20
 
 
-def test_call_soon_threaded_stress_test():
+def test_TrioToken_run_sync_soon_threaded_stress_test():
     cb_counter = 0
 
     def cb():
         nonlocal cb_counter
         cb_counter += 1
 
-    def stress_thread(call_soon):
+    def stress_thread(token):
         try:
             while True:
-                call_soon(cb)
+                token.run_sync_soon(cb)
                 time.sleep(0)
         except _core.RunFinishedError:
             pass
 
     async def main():
-        call_soon = _core.current_call_soon_thread_and_signal_safe()
-        thread = threading.Thread(target=stress_thread, args=(call_soon,))
+        token = _core.current_trio_token()
+        thread = threading.Thread(target=stress_thread, args=(token,))
         thread.start()
         for _ in range(10):
             start_value = cb_counter
@@ -1413,7 +1412,7 @@ def test_call_soon_threaded_stress_test():
     print(cb_counter)
 
 
-async def test_call_soon_massive_queue():
+async def test_TrioToken_run_sync_soon_massive_queue():
     # There are edge cases in the wakeup fd code when the wakeup fd overflows,
     # so let's try to make that happen. This is also just a good stress test
     # in general. (With the current-as-of-2017-02-14 code using a socketpair
@@ -1421,7 +1420,7 @@ async def test_call_soon_massive_queue():
     # takes 1 wakeup. So 1000 is overkill if anything. Windows OTOH takes
     # ~600,000 wakeups, but has the same code paths...)
     COUNT = 1000
-    call_soon = _core.current_call_soon_thread_and_signal_safe()
+    token = _core.current_trio_token()
     counter = [0]
 
     def cb(i):
@@ -1430,7 +1429,7 @@ async def test_call_soon_massive_queue():
         counter[0] += 1
 
     for i in range(COUNT):
-        call_soon(cb, i)
+        token.run_sync_soon(cb, i)
     await wait_all_tasks_blocked()
     assert counter[0] == COUNT
 
@@ -1440,11 +1439,11 @@ async def test_slow_abort_basic():
         scope.cancel()
         with pytest.raises(_core.Cancelled):
             task = _core.current_task()
-            call_soon = _core.current_call_soon_thread_and_signal_safe()
+            token = _core.current_trio_token()
 
             def slow_abort(raise_cancel):
                 result = _core.Result.capture(raise_cancel)
-                call_soon(_core.reschedule, task, result)
+                token.run_sync_soon(_core.reschedule, task, result)
                 return _core.Abort.FAILED
 
             await _core.wait_task_rescheduled(slow_abort)
@@ -1455,12 +1454,12 @@ async def test_slow_abort_edge_cases():
 
     async def slow_aborter():
         task = _core.current_task()
-        call_soon = _core.current_call_soon_thread_and_signal_safe()
+        token = _core.current_trio_token()
 
         def slow_abort(raise_cancel):
             record.append("abort-called")
             result = _core.Result.capture(raise_cancel)
-            call_soon(_core.reschedule, task, result)
+            token.run_sync_soon(_core.reschedule, task, result)
             return _core.Abort.FAILED
 
         with pytest.raises(_core.Cancelled):
@@ -1921,3 +1920,9 @@ async def test_some_deprecated_but_uncovered_methods(recwarn):
             assert nursery.reap_and_unwrap(task) == 33
 
         assert not nursery.zombies
+
+    record = []
+    call_soon = _core.current_call_soon_thread_and_signal_safe()
+    call_soon(record.append, 1)
+    await wait_all_tasks_blocked()
+    assert record == [1]

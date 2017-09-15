@@ -37,14 +37,14 @@ def _run_in_trio_thread_cb(q, fn, args):
 
 
 def _current_do_in_trio_thread(name, cb):
-    call_soon = _core.current_call_soon_thread_and_signal_safe()
+    token = _core.current_trio_token()
     trio_thread = threading.current_thread()
 
     def do_in_trio_thread(fn, *args):
         if threading.current_thread() == trio_thread:
             raise RuntimeError("must be called from a thread")
         q = stdlib_queue.Queue()
-        call_soon(cb, q, fn, args)
+        token.run_sync_soon(cb, q, fn, args)
         return q.get().unwrap()
 
     do_in_trio_thread.__name__ = name
@@ -280,7 +280,7 @@ async def run_sync_in_worker_thread(
 
     """
     await _core.checkpoint_if_cancelled()
-    call_soon = _core.current_call_soon_thread_and_signal_safe()
+    token = _core.current_trio_token()
     if limiter is None:
         limiter = current_default_worker_thread_limiter()
 
@@ -313,7 +313,7 @@ async def run_sync_in_worker_thread(
     def worker_thread_fn():
         result = _core.Result.capture(sync_fn, *args)
         try:
-            call_soon(report_back_in_trio_thread_fn, result)
+            token.run_sync_soon(report_back_in_trio_thread_fn, result)
         except _core.RunFinishedError:
             # The entire run finished, so our particular task is certainly
             # long gone -- it must have cancelled.

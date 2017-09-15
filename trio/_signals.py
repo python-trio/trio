@@ -149,11 +149,11 @@ def catch_signals(signals):
             "Sorry, catch_signals is only possible when running in the "
             "Python interpreter's main thread"
         )
-    call_soon = _core.current_call_soon_thread_and_signal_safe()
+    token = _core.current_trio_token()
     queue = SignalQueue()
 
     def handler(signum, _):
-        call_soon(queue._add, signum, idempotent=True)
+        token.run_sync_soon(queue._add, signum, idempotent=True)
 
     try:
         with _signal_handler(signals, handler):
