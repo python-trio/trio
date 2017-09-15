@@ -1936,7 +1936,9 @@ async def test_some_deprecated_but_uncovered_methods(recwarn):
         assert not nursery.zombies
 
     record = []
+    assert _core.current_statistics().call_soon_queue_size == 0
     call_soon = _core.current_call_soon_thread_and_signal_safe()
     call_soon(record.append, 1)
+    assert _core.current_statistics().call_soon_queue_size == 1
     await wait_all_tasks_blocked()
     assert record == [1]
