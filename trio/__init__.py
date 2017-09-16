@@ -87,6 +87,14 @@ __deprecated_attributes__ = {
         _deprecate.DeprecatedAttribute(
             run_sync_in_worker_thread, "0.2.0", issue=68
         ),
+    "current_clock":
+        _deprecate.DeprecatedAttribute(
+            hazmat.current_clock, "0.2.0", issue=317
+        ),
+    "current_statistics":
+        _deprecate.DeprecatedAttribute(
+            hazmat.current_statistics, "0.2.0", issue=317
+        ),
 }
 
 _deprecate.enable_attribute_deprecations(hazmat.__name__)

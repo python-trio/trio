@@ -101,6 +101,8 @@ https://github.com/python-trio/trio/issues/314
   - :class:`~trio.hazmat.Error`
   - :class:`~trio.hazmat.Value`
   - :func:`~trio.hazmat.current_task`
+  - :func:`~trio.hazmat.current_clock`
+  - :func:`~trio.hazmat.current_statistics`
 
 deprecate most of the task and nursery APIs
 
