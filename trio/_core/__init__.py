@@ -27,6 +27,9 @@ __all__ += _ki.__all__
 from ._run import *
 __all__ += _run.__all__
 
+from ._entry_queue import *
+__all__ += _entry_queue.__all__
+
 from ._parking_lot import *
 __all__ += _parking_lot.__all__
 

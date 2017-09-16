@@ -176,8 +176,8 @@ class MockClock(Clock):
         return self._virtual_base + virtual_offset
 
     def start_clock(self):
-        call_soon = _core.current_call_soon_thread_and_signal_safe()
-        call_soon(self._maybe_spawn_autojump_task)
+        token = _core.current_trio_token()
+        token.run_sync_soon(self._maybe_spawn_autojump_task)
 
     def current_time(self):
         return self._real_to_virtual(self._real_clock())

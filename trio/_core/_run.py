@@ -31,11 +31,11 @@ from ._traps import (
     CancelShieldedCheckpoint,
     WaitTaskRescheduled,
 )
+from ._entry_queue import EntryQueue, TrioToken
 from ._ki import (
     LOCALS_KEY_KI_PROTECTION_ENABLED, currently_ki_protected, ki_manager,
     enable_ki_protection
 )
-from ._wakeup_socketpair import WakeupSocketpair
 from . import _public
 
 # At the bottom of this file there's also some "clever" code that generates
@@ -44,8 +44,8 @@ from . import _public
 # namespaces.
 __all__ = [
     "Task", "run", "open_nursery", "open_cancel_scope", "checkpoint",
-    "current_task", "current_effective_deadline", "checkpoint_if_cancelled",
-    "STATUS_IGNORED"
+    "current_call_soon_thread_and_signal_safe", "current_task",
+    "current_effective_deadline", "checkpoint_if_cancelled", "STATUS_IGNORED"
 ]
 
 GLOBAL_RUN_CONTEXT = threading.local()
@@ -726,7 +726,12 @@ class _RunStatistics:
     tasks_runnable = attr.ib()
     seconds_to_next_deadline = attr.ib()
     io_statistics = attr.ib()
-    call_soon_queue_size = attr.ib()
+    run_sync_soon_queue_size = attr.ib()
+
+    @property
+    @deprecated("0.2.0", issue=68, instead="run_sync_soon_queue_size")
+    def call_soon_queue_size(self):
+        return self.run_sync_soon_queue_size
 
 
 @attr.s(cmp=False, hash=False)
@@ -751,9 +756,12 @@ class Runner:
     main_task = attr.ib(default=None)
     system_nursery = attr.ib(default=None)
 
+    entry_queue = attr.ib(default=attr.Factory(EntryQueue))
+    trio_token = attr.ib(default=None)
+
     def close(self):
         self.io_manager.close()
-        self.call_soon_wakeup.close()
+        self.entry_queue.close()
         self.instrument("after_run")
 
     # Methods marked with @_public get converted into functions exported by
@@ -773,9 +781,9 @@ class Runner:
           pending cancel scope deadline. May be negative if the deadline has
           expired but we haven't yet processed cancellations. May be
           :data:`~math.inf` if there are no pending deadlines.
-        * ``call_soon_queue_size`` (int): The number of unprocessed callbacks
-          queued via
-          :func:`trio.hazmat.current_call_soon_thread_and_signal_safe`.
+        * ``run_sync_soon_queue_size`` (int): The number of
+          unprocessed callbacks queued via
+          :meth:`trio.hazmat.TrioToken.run_sync_soon`.
         * ``io_statistics`` (object): Some statistics from trio's I/O
           backend. This always has an attribute ``backend`` which is a string
           naming which operating-system-specific I/O backend is in use; the
@@ -792,10 +800,7 @@ class Runner:
             tasks_runnable=len(self.runq),
             seconds_to_next_deadline=seconds_to_next_deadline,
             io_statistics=self.io_manager.statistics(),
-            call_soon_queue_size=(
-                len(self.call_soon_queue) +
-                len(self.call_soon_idempotent_queue)
-            ),
+            run_sync_soon_queue_size=self.entry_queue.size(),
         )
 
     @_public
@@ -1058,13 +1063,13 @@ class Runner:
     async def init(self, async_fn, args):
         async with open_nursery() as system_nursery:
             self.system_nursery = system_nursery
-            self.spawn_system_task(
-                self.call_soon_task, name="<call soon task>"
-            )
+
+            self.entry_queue.spawn()
 
             self.main_task = self.spawn_impl(
                 async_fn, args, self.system_nursery, name=None
             )
+
             async for task_batch in system_nursery._monitor:
                 for task in task_batch:
                     if task is self.main_task:
@@ -1074,165 +1079,18 @@ class Runner:
                         system_nursery._reap_and_unwrap(task)
 
     ################
-    # Outside Context Problems
+    # Outside context problems
     ################
 
-    # XX factor this chunk into another file
-
-    # This used to use a queue.Queue. but that was broken, because Queues are
-    # implemented in Python, and not reentrant -- so it was thread-safe, but
-    # not signal-safe. deque is implemented in C, so each operation is atomic
-    # WRT threads (and this is guaranteed in the docs), AND each operation is
-    # atomic WRT signal delivery (signal handlers can run on either side, but
-    # not *during* a deque operation). dict makes similar guarantees - and on
-    # CPython 3.6 and PyPy, it's even ordered!
-    call_soon_wakeup = attr.ib(default=attr.Factory(WakeupSocketpair))
-    call_soon_queue = attr.ib(default=attr.Factory(deque))
-    call_soon_idempotent_queue = attr.ib(default=attr.Factory(dict))
-    call_soon_done = attr.ib(default=False)
-    # Must be a reentrant lock, because it's acquired from signal
-    # handlers. RLock is signal-safe as of cpython 3.2.
-    # NB that this does mean that the lock is effectively *disabled* when we
-    # enter from signal context. The way we use the lock this is OK though,
-    # because when call_soon_thread_and_signal_safe is called from a signal
-    # it's atomic WRT the main thread -- it just might happen at some
-    # inconvenient place. But if you look at the one place where the main
-    # thread holds the lock, it's just to make 1 assignment, so that's atomic
-    # WRT a signal anyway.
-    call_soon_lock = attr.ib(default=attr.Factory(threading.RLock))
-
-    def call_soon_thread_and_signal_safe(
-            self, sync_fn, *args, idempotent=False
-    ):
-        with self.call_soon_lock:
-            if self.call_soon_done:
-                raise RunFinishedError("run() has exited")
-            # We have to hold the lock all the way through here, because
-            # otherwise the main thread might exit *while* we're doing these
-            # calls, and then our queue item might not be processed, or the
-            # wakeup call might trigger an OSError b/c the IO manager has
-            # already been shut down.
-            if idempotent:
-                self.call_soon_idempotent_queue[(sync_fn, args)] = None
-            else:
-                self.call_soon_queue.append((sync_fn, args))
-            self.call_soon_wakeup.wakeup_thread_and_signal_safe()
-
     @_public
-    def current_call_soon_thread_and_signal_safe(self):
-        """Returns a reference to the ``call_soon_thread_and_signal_safe``
-        function for the current trio run:
-
-        .. currentmodule:: None
-
-        .. function:: call_soon_thread_and_signal_safe(sync_fn, *args, idempotent=False)
-
-           Schedule a call to ``sync_fn(*args)`` to occur in the context of a
-           trio task. This is safe to call from the main thread, from other
-           threads, and from signal handlers.
-
-           The call is effectively run as part of a system task (see
-           :func:`~trio.hazmat.spawn_system_task`). In particular this means
-           that:
-
-           * :exc:`KeyboardInterrupt` protection is *enabled* by default; if
-             you want ``sync_fn`` to be interruptible by control-C, then you
-             need to use :func:`~trio.hazmat.disable_ki_protection`
-             explicitly.
-
-           * If ``sync_fn`` raises an exception, then it's converted into a
-             :exc:`~trio.TrioInternalError` and *all* tasks are cancelled. You
-             should be careful that ``sync_fn`` doesn't crash.
-
-           All calls with ``idempotent=False`` are processed in strict
-           first-in first-out order.
-
-           If ``idempotent=True``, then ``sync_fn`` and ``args`` must be
-           hashable, and trio will make a best-effort attempt to discard any
-           call submission which is equal to an already-pending call. Trio
-           will make an attempt to process these in first-in first-out order,
-           but no guarantees. (Currently processing is FIFO on CPython 3.6 and
-           PyPy, but not CPython 3.5.)
-
-           Any ordering guarantees apply separately to ``idempotent=False``
-           and ``idempotent=True`` calls; there's no rule for how calls in the
-           different categories are ordered with respect to each other.
-
-           :raises trio.RunFinishedError:
-                 if the associated call to :func:`trio.run`
-                 has already exited. (Any call that *doesn't* raise this error
-                 is guaranteed to be fully processed before :func:`trio.run`
-                 exits.)
-
-        .. currentmodule:: trio.hazmat
+    def current_trio_token(self):
+        """Retrieve the :class:`TrioToken` for the current call to
+        :func:`trio.run`.
 
         """
-        return self.call_soon_thread_and_signal_safe
-
-    async def call_soon_task(self):
-        assert currently_ki_protected()
-        # RLock has two implementations: a signal-safe version in _thread, and
-        # and signal-UNsafe version in threading. We need the signal safe
-        # version. Python 3.2 and later should always use this anyway, but,
-        # since the symptoms if this goes wrong are just "weird rare
-        # deadlocks", then let's make a little check.
-        # See:
-        #     https://bugs.python.org/issue13697#msg237140
-        assert self.call_soon_lock.__class__.__module__ == "_thread"
-
-        def run_cb(job):
-            # We run this with KI protection enabled; it's the callbacks
-            # job to disable it if it wants it disabled. Exceptions are
-            # treated like system task exceptions (i.e., converted into
-            # TrioInternalError and cause everything to shut down).
-            sync_fn, args = job
-            try:
-                sync_fn(*args)
-            except BaseException as exc:
-
-                async def kill_everything(exc):
-                    raise exc
-
-                self.spawn_system_task(kill_everything, exc)
-            return True
-
-        # This has to be carefully written to be safe in the face of new items
-        # being queued while we iterate, and to do a bounded amount of work on
-        # each pass:
-        def run_all_bounded():
-            for _ in range(len(self.call_soon_queue)):
-                run_cb(self.call_soon_queue.popleft())
-            for job in list(self.call_soon_idempotent_queue):
-                del self.call_soon_idempotent_queue[job]
-                run_cb(job)
-
-        try:
-            while True:
-                run_all_bounded()
-                if (not self.call_soon_queue
-                        and not self.call_soon_idempotent_queue):
-                    await self.call_soon_wakeup.wait_woken()
-                else:
-                    await checkpoint()
-        except Cancelled:
-            # Keep the work done with this lock held as minimal as possible,
-            # because it doesn't protect us against concurrent signal delivery
-            # (see the comment above). Notice that this could would still be
-            # correct if written like:
-            #   self.call_soon_done = True
-            #   with self.call_soon_lock:
-            #       pass
-            # because all we want is to force call_soon_thread_and_signal_safe
-            # to either be completely before or completely after the write to
-            # call_soon_done. That's why we don't need the lock to protect
-            # against signal handlers.
-            with self.call_soon_lock:
-                self.call_soon_done = True
-            # No more jobs will be submitted, so just clear out any residual
-            # ones:
-            run_all_bounded()
-            assert not self.call_soon_queue
-            assert not self.call_soon_idempotent_queue
+        if self.trio_token is None:
+            self.trio_token = TrioToken(self.entry_queue)
+        return self.trio_token
 
     ################
     # KI handling
@@ -1240,20 +1098,26 @@ class Runner:
 
     ki_pending = attr.ib(default=False)
 
+    # deliver_ki is broke. Maybe move all the actual logic and state into
+    # RunToken, and we'll only have one instance per runner? But then we can't
+    # have a public constructor. Eh, but current_run_token() returning a
+    # unique object per run feels pretty nice. Maybe let's just go for it. And
+    # keep the class public so people can isinstance() it if they want.
+
     # This gets called from signal context
     def deliver_ki(self):
         self.ki_pending = True
         try:
-            self.call_soon_thread_and_signal_safe(self._deliver_ki_cb)
+            self.entry_queue.run_sync_soon(self._deliver_ki_cb)
         except RunFinishedError:
             pass
 
     def _deliver_ki_cb(self):
         if not self.ki_pending:
             return
-        # Can't happen because main_task and call_soon_task are created at the
-        # same time -- so even if KI arrives before main_task is created, we
-        # won't get here until afterwards.
+        # Can't happen because main_task and run_sync_soon_task are created at
+        # the same time -- so even if KI arrives before main_task is created,
+        # we won't get here until afterwards.
         assert self.main_task is not None
         if self.main_task._result is not None:
             # We're already in the process of exiting -- leave ki_pending set
@@ -1816,3 +1680,8 @@ def _generate_method_wrappers(cls, path_to_instance):
 
 _generate_method_wrappers(Runner, "runner")
 _generate_method_wrappers(TheIOManager, "runner.io_manager")
+
+
+@deprecated("0.2.0", issue=68, instead=TrioToken)
+def current_call_soon_thread_and_signal_safe():
+    return current_trio_token().run_sync_soon

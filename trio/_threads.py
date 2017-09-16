@@ -6,61 +6,131 @@ import attr
 
 from . import _core
 from ._sync import CapacityLimiter
-from ._deprecate import deprecated_alias
+from ._deprecate import deprecated
 
 __all__ = [
     "current_await_in_trio_thread",
     "current_run_in_trio_thread",
     "run_sync_in_worker_thread",
     "current_default_worker_thread_limiter",
+    "BlockingTrioPortal",
 ]
 
 
-def _await_in_trio_thread_cb(q, afn, args):
-    @_core.disable_ki_protection
-    async def unprotected_afn():
-        return await afn(*args)
+class BlockingTrioPortal:
+    """A portal that synchronous threads can reach through to run code in the
+    Trio thread.
 
-    async def await_in_trio_thread_task():
-        q.put_nowait(await _core.Result.acapture(unprotected_afn))
+    Most Trio functions can only be called from the Trio thread, which is
+    sometimes annoying. What if you really need to call a Trio function from a
+    worker thread? That's where :class:`BlockingTrioPortal` comes in: its the
+    rare Trio object whose methods can – in fact, must! – be called from a
+    another thread, and it allows you to call all those other functions.
 
-    _core.spawn_system_task(await_in_trio_thread_task, name=afn)
+    There is one complication: it's possible for a single Python program to
+    contain multiple calls to :func:`trio.run`, either in sequence – like in a
+    test suite that calls :func:`trio.run` for each test – or simultaneously
+    in different threads. So how do you control which :func:`trio.run` your
+    portal opens into?
 
+    The answer is that each :class:`BlockingTrioPortal` object is associated
+    with one *specific* call to :func:`trio.run`.
 
-def _run_in_trio_thread_cb(q, fn, args):
-    @_core.disable_ki_protection
-    def unprotected_fn():
-        return fn(*args)
+    The simplest way to set this up is to instantiate the class with no
+    arguments inside Trio; this automatically binds it to the context where
+    you instantiate it::
 
-    res = _core.Result.capture(unprotected_fn)
-    q.put_nowait(res)
+       async def some_function():
+           portal = trio.BlockingTrioPortal()
+           await trio.run_sync_in_worker_thread(sync_fn, portal)
 
+    Alternatively, you can pass an explicit :class:`trio.hazmat.TrioToken` to
+    specify the :func:`trio.run` that you want your portal to connect to.
 
-def _current_do_in_trio_thread(name, cb):
-    call_soon = _core.current_call_soon_thread_and_signal_safe()
-    trio_thread = threading.current_thread()
+    """
 
-    def do_in_trio_thread(fn, *args):
-        if threading.current_thread() == trio_thread:
-            raise RuntimeError("must be called from a thread")
+    def __init__(self, trio_token=None):
+        if trio_token is None:
+            trio_token = _core.current_trio_token()
+        self._trio_token = trio_token
+
+    # This is the part that runs in the trio thread
+    def _run_cb(self, q, afn, args):
+        @_core.disable_ki_protection
+        async def unprotected_afn():
+            return await afn(*args)
+
+        async def await_in_trio_thread_task():
+            q.put_nowait(await _core.Result.acapture(unprotected_afn))
+
+        _core.spawn_system_task(await_in_trio_thread_task, name=afn)
+
+    # This is the part that runs in the trio thread
+    def _run_sync_cb(self, q, fn, args):
+        @_core.disable_ki_protection
+        def unprotected_fn():
+            return fn(*args)
+
+        res = _core.Result.capture(unprotected_fn)
+        q.put_nowait(res)
+
+    def _do_it(self, cb, fn, *args):
+        try:
+            _core.current_task()
+        except RuntimeError:
+            pass
+        else:
+            raise RuntimeError(
+                "this is a blocking function; call it from a thread"
+            )
         q = stdlib_queue.Queue()
-        call_soon(cb, q, fn, args)
+        self._trio_token.run_sync_soon(cb, q, fn, args)
         return q.get().unwrap()
 
-    do_in_trio_thread.__name__ = name
-    return do_in_trio_thread
+    def run(self, afn, *args):
+        """Run the given async function in the trio thread, blocking until it
+        is complete.
+
+        Returns or raises whatever the given function returns or raises. It
+        can also raise exceptions of its own:
+
+        Raises:
+          RunFinishedError: if the corresponding call to :func:`trio.run` has
+              already completed.
+          Cancelled: if the corresponding call to :func:`trio.run` completes
+              while ``afn(*args)`` is running, then ``afn`` is likely to raise
+              :class:`Cancelled`, and this will propagate out into
+          RuntimeError: if you try calling this from inside the Trio thread,
+              which would otherwise cause a deadlock.
+
+        """
+        return self._do_it(self._run_cb, afn, *args)
+
+    def run_sync(self, fn, *args):
+        """Run the given synchronous function in the trio thread, blocking
+        until it is complete.
+
+        Returns or raises whatever the given function returns or raises. It
+        can also exceptions of its own:
+
+        Raises:
+          RunFinishedError: if the corresponding call to :func:`trio.run` has
+              already completed.
+          RuntimeError: if you try calling this from inside the Trio thread,
+              which would otherwise cause a deadlock.
+
+        """
+        return self._do_it(self._run_sync_cb, fn, *args)
 
 
+@deprecated("0.2.0", issue=68, instead=BlockingTrioPortal.run_sync)
 def current_run_in_trio_thread():
-    return _current_do_in_trio_thread(
-        "run_in_trio_thread", _run_in_trio_thread_cb
-    )
+    return BlockingTrioPortal().run_sync
 
 
+@deprecated("0.2.0", issue=68, instead=BlockingTrioPortal.run)
 def current_await_in_trio_thread():
-    return _current_do_in_trio_thread(
-        "await_in_trio_thread", _await_in_trio_thread_cb
-    )
+    return BlockingTrioPortal().run
 
 
 ################################################################
@@ -280,7 +350,7 @@ async def run_sync_in_worker_thread(
 
     """
     await _core.checkpoint_if_cancelled()
-    call_soon = _core.current_call_soon_thread_and_signal_safe()
+    token = _core.current_trio_token()
     if limiter is None:
         limiter = current_default_worker_thread_limiter()
 
@@ -313,7 +383,7 @@ async def run_sync_in_worker_thread(
     def worker_thread_fn():
         result = _core.Result.capture(sync_fn, *args)
         try:
-            call_soon(report_back_in_trio_thread_fn, result)
+            token.run_sync_soon(report_back_in_trio_thread_fn, result)
         except _core.RunFinishedError:
             # The entire run finished, so our particular task is certainly
             # long gone -- it must have cancelled.

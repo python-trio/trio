@@ -1314,9 +1314,8 @@ for working with real, operating-system level,
 :mod:`threading`\-module-style threads. First, if you're in Trio but
 need to push some blocking I/O into a thread, there's
 :func:`run_sync_in_worker_thread`. And if you're in a thread and need
-to communicate back with trio, there's the closely related
-:func:`current_run_in_trio_thread` and
-:func:`current_await_in_trio_thread`.
+to communicate back with trio, you can use a
+:class:`BlockingTrioPortal`.
 
 
 Trio's philosophy about managing worker threads
@@ -1452,40 +1451,8 @@ Putting blocking I/O into worker threads
 Getting back into the trio thread from another thread
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. function:: current_run_in_trio_thread
-              current_await_in_trio_thread
-
-   Call these from inside a trio run to get a reference to the current
-   run's :func:`run_in_trio_thread` or :func:`await_in_trio_thread`:
-
-   .. function:: run_in_trio_thread(sync_fn, *args)
-      :module:
-   .. function:: await_in_trio_thread(async_fn, *args)
-      :module:
-
-   These functions schedule a call to ``sync_fn(*args)`` or ``await
-   async_fn(*args)`` to happen in the main trio thread, wait for it to
-   complete, and then return the result or raise whatever exception it
-   raised.
-
-   These are the *only* non-hazmat functions that interact with the
-   trio run loop and that can safely be called from a different thread
-   than the one that called :func:`trio.run`. These two functions
-   *must* be called from a different thread than the one that called
-   :func:`trio.run`. (After all, they're blocking functions!)
-
-   .. warning::
-
-      If the relevant call to :func:`trio.run` finishes while a call
-      to ``await_in_trio_thread`` is in progress, then the call to
-      ``async_fn`` will be :ref:`cancelled <cancellation>` and the
-      resulting :exc:`~trio.Cancelled` exception may propagate out of
-      ``await_in_trio_thread`` and into the calling thread. You should
-      be prepared for this.
-
-   :raises RunFinishedError: If the corresponding call to
-      :func:`trio.run` has already completed.
-
+.. autoclass:: BlockingTrioPortal
+   :members:
 
 This will probably be clearer with an example. Here we demonstrate how
 to spawn a child thread, and then use a :class:`trio.Queue` to send
@@ -1494,28 +1461,27 @@ messages between the thread and a trio task::
    import trio
    import threading
 
-   def thread_fn(await_in_trio_thread, request_queue, response_queue):
+   def thread_fn(portal, request_queue, response_queue):
        while True:
            # Since we're in a thread, we can't call trio.Queue methods
-           # directly -- so we use await_in_trio_thread to call them.
-           request = await_in_trio_thread(request_queue.get)
+           # directly -- so we use our portal to call them.
+           request = portal.run(request_queue.get)
            # We use 'None' as a request to quit
            if request is not None:
                response = request + 1
-               await_in_trio_thread(response_queue.put, response)
+               portal.run(response_queue.put, response)
            else:
                # acknowledge that we're shutting down, and then do it
-               await_in_trio_thread(response_queue.put, None)
+               portal.run(response_queue.put, None)
                return
 
    async def main():
-       # Get a reference to the await_in_trio_thread function
-       await_in_trio_thread = trio.current_await_in_trio_thread()
+       portal = trio.BlockingTrioPortal()
        request_queue = trio.Queue(1)
        response_queue = trio.Queue(1)
        thread = threading.Thread(
            target=thread_fn,
-           args=(await_in_trio_thread, request_queue, response_queue))
+           args=(portal, request_queue, response_queue))
        thread.start()
 
        # prints "1"

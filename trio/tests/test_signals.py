@@ -62,8 +62,8 @@ async def test_catch_signals_race_condition_on_exit():
 
     async def wait_call_soon_idempotent_queue_barrier():
         ev = Event()
-        call_soon = _core.current_call_soon_thread_and_signal_safe()
-        call_soon(ev.set, idempotent=True)
+        token = _core.current_trio_token()
+        token.run_sync_soon(ev.set, idempotent=True)
         await ev.wait()
 
     print(1)

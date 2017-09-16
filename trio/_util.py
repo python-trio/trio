@@ -242,7 +242,14 @@ def async_wraps(cls, wrapped_cls, attr_name):
 
 
 def fixup_module_metadata(module_name, namespace):
+    def fix_one(obj):
+        mod = getattr(obj, "__module__", None)
+        if mod is not None and mod.startswith("trio."):
+            obj.__module__ = module_name
+            if isinstance(obj, type):
+                for attr_value in obj.__dict__.values():
+                    fix_one(attr_value)
+
     for objname in namespace["__all__"]:
         obj = namespace[objname]
-        if hasattr(obj, "__module__") and obj.__module__.startswith("trio."):
-            obj.__module__ = module_name
+        fix_one(obj)

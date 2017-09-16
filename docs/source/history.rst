@@ -137,6 +137,9 @@ will work but complain loudly, and won't work in 0.3.0):
 ``run_in_worker_thread`` → ``run_sync_in_worker_thread``
 ``nursery.spawn`` → ``nursery.start_soon``
 
+``current_call_soon_thread_and_signal_safe`` → :class:`trio.hazmat.TrioToken`
+``run_in_trio_thread``, ``await_in_trio_thread`` → :class:`trio.BlockingTrioPortal`
+
 deprecated big chunks of nursery and Task API
 
 
