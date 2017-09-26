@@ -4,13 +4,6 @@ import pytest
 
 import gc
 
-# See trio/tests/conftest.py for the other half of this
-slow = pytest.mark.skipif(
-    not pytest.config.getoption("--run-slow", True),
-    reason="use --run-slow to run slow tests",
-)
-
-
 def gc_collect_harder():
     # In the test suite we sometimes want to call gc.collect() to make sure
     # that any objects with noisy __del__ methods (e.g. unawaited coroutines)

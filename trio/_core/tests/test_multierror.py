@@ -7,8 +7,6 @@ import re
 from pathlib import Path
 import subprocess
 
-from .tutil import slow
-
 from .._multierror import (
     MultiError,
     format_exception,
@@ -509,21 +507,21 @@ else:
 need_ipython = pytest.mark.skipif(not have_ipython, reason="need IPython")
 
 
-@slow
+@pytest.mark.slow
 @need_ipython
 def test_ipython_exc_handler():
     completed = run_script("simple_excepthook.py", use_ipython=True)
     check_simple_excepthook(completed)
 
 
-@slow
+@pytest.mark.slow
 @need_ipython
 def test_ipython_imported_but_unused():
     completed = run_script("simple_excepthook_IPython.py")
     check_simple_excepthook(completed)
 
 
-@slow
+@pytest.mark.slow
 @need_ipython
 def test_ipython_custom_exc_handler():
     # Check we get a nice warning (but only one!) if the user is using IPython

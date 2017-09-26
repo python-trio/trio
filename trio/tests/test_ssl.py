@@ -22,8 +22,6 @@ from .. import ssl as tssl
 from .. import socket as tsocket
 from .._util import ConflictDetector, acontextmanager
 
-from .._core.tests.tutil import slow
-
 from ..testing import (
     assert_checkpoints,
     Sequencer,
@@ -551,7 +549,7 @@ async def test_renegotiation_simple():
         await s.aclose()
 
 
-@slow
+@pytest.mark.slow
 async def test_renegotiation_randomized(mock_clock):
     # The only blocking things in this function are our random sleeps, so 0 is
     # a good threshold.

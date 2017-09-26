@@ -12,7 +12,6 @@ from ... import _core
 from ...testing import wait_all_tasks_blocked
 from ..._util import acontextmanager, signal_raise
 from ..._timeouts import sleep
-from .tutil import slow
 
 
 def ki_self():
@@ -446,7 +445,7 @@ def test_ki_is_good_neighbor():
 #   pthread_kill(pthread_self, SIGINT)
 # in the child thread, to make sure signals in non-main threads also wake up
 # the main loop... but currently that test would fail (see gh-109 again).
-@slow
+@pytest.mark.slow
 def test_ki_wakes_us_up():
     assert threading.current_thread() == threading.main_thread()
 
