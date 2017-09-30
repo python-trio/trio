@@ -10,7 +10,7 @@ from .. import Event
 __all__ = ["Sequencer"]
 
 
-@attr.s(slots=True, cmp=False, hash=False)
+@attr.s(cmp=False, hash=False)
 class Sequencer:
     """A convenience class for forcing code in different tasks to run in an
     explicit linear order.

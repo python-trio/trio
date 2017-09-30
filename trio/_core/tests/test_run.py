@@ -421,7 +421,7 @@ async def test_current_statistics(mock_clock):
     assert stats.seconds_to_next_deadline == inf
 
 
-@attr.s(slots=True, cmp=False, hash=False)
+@attr.s(cmp=False, hash=False)
 class TaskRecorder:
     record = attr.ib(default=attr.Factory(list))
 

@@ -94,7 +94,7 @@ class ClosedListenerError(Exception):
     pass
 
 
-@attr.s(slots=True, cmp=False, hash=False)
+@attr.s(cmp=False, hash=False)
 class StapledStream(HalfCloseableStream):
     """This class `staples <https://en.wikipedia.org/wiki/Staple_(fastener)>`__
     together two unidirectional streams to make single bidirectional stream.
