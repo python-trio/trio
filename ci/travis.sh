@@ -2,6 +2,9 @@
 
 set -ex
 
+# See https://github.com/python-trio/trio/issues/334
+YAPF_VERSION=0.17.0
+
 git --no-pager log -n2
 echo TRAVIS_PULL_REQUEST_SHA $TRAVIS_PULL_REQUEST_SHA
 echo TRAVIS_COMMIT $TRAVIS_COMMIT
@@ -61,7 +64,7 @@ fi
 pip install -U pip setuptools wheel
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
-    pip install -U yapf
+    pip install yapf==${YAPF_VERSION}
     if ! yapf -rpd setup.py trio; then
         cat <<EOF
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -69,7 +72,7 @@ if [ "$CHECK_FORMATTING" = "1" ]; then
 
 Formatting problems were found (listed above). To fix them, run
 
-   pip install -U yapf
+   pip install yapf==${YAPF_VERSION}
    yapf -rpi setup.py trio
 
 in your local checkout.
