@@ -1,6 +1,8 @@
 import abc
 import attr
 
+from .._util import weakref_attrib
+
 __all__ = ["Result", "Value", "Error"]
 
 
@@ -90,6 +92,8 @@ class Value(Result):
     value = attr.ib()
     """The contained value."""
 
+    __weakref__ = weakref_attrib()
+
     def __repr__(self):
         return "Value({!r})".format(self.value)
 
@@ -111,6 +115,8 @@ class Error(Result):
 
     error = attr.ib(validator=attr.validators.instance_of(BaseException))
     """The contained exception object."""
+
+    __weakref__ = weakref_attrib()
 
     def __repr__(self):
         return "Error({!r})".format(self.error)

@@ -4,6 +4,8 @@ import os
 import sys
 from functools import wraps
 
+import attr
+
 import async_generator
 
 # There's a dependency loop here... _core is allowed to use this file (in fact
@@ -19,6 +21,7 @@ __all__ = [
     "acontextmanager",
     "ConflictDetector",
     "fixup_module_metadata",
+    "weakref_attrib",
 ]
 
 # Equivalent to the C function raise(), which Python doesn't wrap
@@ -253,3 +256,16 @@ def fixup_module_metadata(module_name, namespace):
     for objname in namespace["__all__"]:
         obj = namespace[objname]
         fix_one(obj)
+
+
+# If you
+# - have a class that uses @attr.s(slots=True, ...), AND
+# - want it to be possible to take weakrefs to that class (true for basically
+#   any public class)
+# THEN you should add this boilerplate to the class body:
+#
+#   __weakref__ = weakref_attrib()
+#
+# See: https://github.com/python-attrs/attrs/issues/174
+def weakref_attrib():
+    return attr.ib(init=False, hash=False, repr=False, cmp=False)

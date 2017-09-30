@@ -3,7 +3,9 @@ import pytest
 import signal
 import sys
 import textwrap
+import weakref
 
+import attr
 from async_generator import async_generator, yield_
 
 from .._util import *
@@ -176,3 +178,25 @@ def test_module_metadata_is_fixed_up():
     # Also check methods
     assert trio.ssl.SSLStream.__init__.__module__ == "trio.ssl"
     assert trio.abc.Stream.send_all.__module__ == "trio.abc"
+
+
+@attr.s(slots=True)
+class NotWeakrefable:
+    pass
+
+
+@attr.s(slots=True)
+class Weakrefable:
+    __weakref__ = weakref_attrib()
+
+
+def test_weakref_attrib():
+    nw = NotWeakrefable()
+    with pytest.raises(TypeError):
+        weakref.ref(nw)
+
+    w = Weakrefable()
+    r = weakref.ref(w)
+    assert r() is w
+
+    assert repr(w) == "Weakrefable()"

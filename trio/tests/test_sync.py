@@ -1,5 +1,7 @@
 import pytest
 
+import weakref
+
 from ..testing import wait_all_tasks_blocked, assert_checkpoints
 
 from .. import _core
@@ -223,6 +225,11 @@ async def test_Lock_and_StrictFIFOLock(lockcls):
             assert l.locked()
             repr(l)  # smoke test (repr branches on locked/unlocked)
     assert not l.locked()
+
+    # Make sure locks can be weakref'ed (gh-331)
+    r = weakref.ref(l)
+    assert r() is l
+
     l.acquire_nowait()
     assert l.locked()
     l.release()

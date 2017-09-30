@@ -74,6 +74,7 @@ from itertools import count
 import attr
 from collections import OrderedDict
 
+from .._util import weakref_attrib
 from .. import _core
 
 __all__ = ["ParkingLot"]
@@ -103,6 +104,7 @@ class ParkingLot:
     # {task: None}, we just want a deque where we can quickly delete random
     # items
     _parked = attr.ib(default=attr.Factory(OrderedDict), init=False)
+    __weakref__ = weakref_attrib()
 
     def __len__(self):
         """Returns the number of parked tasks.

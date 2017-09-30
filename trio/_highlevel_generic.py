@@ -6,7 +6,7 @@ from async_generator import async_generator, yield_
 
 from . import _core
 from .abc import HalfCloseableStream
-from ._util import acontextmanager
+from ._util import acontextmanager, weakref_attrib
 
 __all__ = [
     "aclose_forcefully",
@@ -131,6 +131,7 @@ class StapledStream(HalfCloseableStream):
     """
     send_stream = attr.ib()
     receive_stream = attr.ib()
+    __weakref__ = weakref_attrib()
 
     async def send_all(self, data):
         """Calls ``self.send_stream.send_all``.
