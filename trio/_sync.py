@@ -4,7 +4,7 @@ from collections import deque
 import attr
 
 from . import _core
-from ._util import aiter_compat
+from ._util import aiter_compat, weakref_attrib
 from ._deprecate import deprecated
 
 __all__ = [
@@ -30,6 +30,7 @@ class Event:
 
     _lot = attr.ib(default=attr.Factory(_core.ParkingLot), init=False)
     _flag = attr.ib(default=False, init=False)
+    __weakref__ = weakref_attrib()
 
     def is_set(self):
         """Return the current value of the internal flag.
@@ -502,6 +503,7 @@ class Lock:
 
     _lot = attr.ib(default=attr.Factory(_core.ParkingLot), init=False)
     _owner = attr.ib(default=None, init=False)
+    __weakref__ = weakref_attrib()
 
     def __repr__(self):
         if self.locked():

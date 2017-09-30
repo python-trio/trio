@@ -7,6 +7,7 @@ import attr
 from . import _core
 from ._sync import CapacityLimiter
 from ._deprecate import deprecated
+from ._util import weakref_attrib
 
 __all__ = [
     "current_await_in_trio_thread",
@@ -262,6 +263,7 @@ def current_default_worker_thread_limiter():
 @attr.s(frozen=True, cmp=False, hash=False, slots=True)
 class ThreadPlaceholder:
     name = attr.ib()
+    __weakref__ = weakref_attrib()
 
 
 @_core.enable_ki_protection

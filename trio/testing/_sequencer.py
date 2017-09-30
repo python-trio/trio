@@ -56,6 +56,7 @@ class Sequencer:
     )
     _claimed = attr.ib(default=attr.Factory(set), init=False)
     _broken = attr.ib(default=False, init=False)
+    __weakref__ = _util.weakref_attrib()
 
     @_util.acontextmanager
     @async_generator

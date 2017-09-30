@@ -15,7 +15,7 @@ import attr
 from sortedcontainers import SortedDict
 from async_generator import async_generator, yield_
 
-from .._util import acontextmanager
+from .._util import acontextmanager, weakref_attrib
 from .._deprecate import deprecated
 
 from .. import _core
@@ -69,6 +69,8 @@ class SystemClock:
     # between different runs, then they'll notice the bug quickly:
     offset = attr.ib(default=attr.Factory(lambda: _r.uniform(10000, 200000)))
 
+    __weakref__ = weakref_attrib()
+
     def start_clock(self):
         pass
 
@@ -92,6 +94,7 @@ class CancelScope:
     _shield = attr.ib(default=False)
     cancel_called = attr.ib(default=False)
     cancelled_caught = attr.ib(default=False)
+    __weakref__ = weakref_attrib()
 
     @contextmanager
     @enable_ki_protection
@@ -211,6 +214,7 @@ class _TaskStatus:
     _new_nursery = attr.ib()
     _called_started = attr.ib(default=False)
     _value = attr.ib(default=None)
+    __weakref__ = weakref_attrib()
 
     def __repr__(self):
         return "<Task status object at {:#x}>".format(id(self))
@@ -561,6 +565,8 @@ class Task:
     # XX maybe these should be exposed as part of a statistics() method?
     _cancel_points = attr.ib(default=0)
     _schedule_points = attr.ib(default=0)
+
+    __weakref__ = weakref_attrib()
 
     def __repr__(self):
         return ("<Task {!r} at {:#x}>".format(self.name, id(self)))
