@@ -62,7 +62,7 @@ else:  # pragma: no cover
 _r = random.Random()
 
 
-@attr.s(slots=True, frozen=True)
+@attr.s(frozen=True)
 class SystemClock:
     # Add a large random offset to our clock to ensure that if people
     # accidentally call time.monotonic() directly or start comparing clocks
@@ -84,7 +84,7 @@ class SystemClock:
 ################################################################
 
 
-@attr.s(slots=True, cmp=False, hash=False)
+@attr.s(cmp=False, hash=False)
 class CancelScope:
     _tasks = attr.ib(default=attr.Factory(set))
     _effective_deadline = attr.ib(default=inf)
@@ -205,7 +205,7 @@ def open_cancel_scope(*, deadline=inf, shield=False):
 
 # This code needs to be read alongside the code from Nursery.start to make
 # sense.
-@attr.s(slots=True, cmp=False, hash=False, repr=False)
+@attr.s(cmp=False, hash=False, repr=False)
 class _TaskStatus:
     _old_nursery = attr.ib()
     _new_nursery = attr.ib()
@@ -532,7 +532,7 @@ def _pending_cancel_scope(cancel_stack):
     return pending_scope
 
 
-@attr.s(slots=True, cmp=False, hash=False, repr=False)
+@attr.s(cmp=False, hash=False, repr=False)
 class Task:
     _parent_nursery = attr.ib()
     coro = attr.ib()

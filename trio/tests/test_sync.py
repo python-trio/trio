@@ -1,5 +1,7 @@
 import pytest
 
+import weakref
+
 from ..testing import wait_all_tasks_blocked, assert_checkpoints
 
 from .. import _core
@@ -215,6 +217,11 @@ async def test_Semaphore_bounded():
 async def test_Lock_and_StrictFIFOLock(lockcls):
     l = lockcls()
     assert not l.locked()
+
+    # make sure locks can be weakref'ed (gh-331)
+    r = weakref.ref(l)
+    assert r() is l
+
     repr(l)  # smoke test
     # make sure repr uses the right name for subclasses
     assert lockcls.__name__ in repr(l)

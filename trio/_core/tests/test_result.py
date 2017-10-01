@@ -10,7 +10,6 @@ def test_Result():
     v = Value(1)
     assert v.value == 1
     assert v.unwrap() == 1
-    assert not hasattr(v, "__dict__")
     assert repr(v) == "Value(1)"
 
     exc = RuntimeError("oops")
@@ -18,7 +17,6 @@ def test_Result():
     assert e.error is exc
     with pytest.raises(RuntimeError):
         e.unwrap()
-    assert not hasattr(e, "__dict__")
     assert repr(e) == "Error(RuntimeError('oops',))"
 
     with pytest.raises(TypeError):
