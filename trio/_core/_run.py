@@ -929,7 +929,14 @@ class Runner:
         # for things like functools.partial objects wrapping an async
         # function. So we have to just call it and then check whether the
         # result is a coroutine object.
-        if not inspect.iscoroutine(coro):
+        if coro.__class__.__name__ == "CoroWrapper":
+            # CoroWrapper is an asyncio class used during debugging.
+            # They are not recognized as coroutines by the Python core,
+            # but they duck-type as such, so silently accept them.
+            # Testing by name because importing asyncio just for that test
+            # is overkill.
+            pass
+        elif not inspect.iscoroutine(coro):
             # Give good error for: nursery.start_soon(asyncio.sleep, 1)
             if _return_value_looks_like_wrong_library(coro):
                 raise TypeError(
