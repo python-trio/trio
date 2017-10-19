@@ -288,38 +288,33 @@ class _TaskStatus:
         self._old_nursery.cancel_scope.cancel()
 
 
-def open_nursery():
-    return Nursery()
-
-
 class Nursery:
-    _scope_manager = None
+    def __init__(self):
+        self._scope_manager = None
 
-    def __init__(self, parent_task = None, cancel_scope = None):
-        # the parent task -- only used for introspection, to implement
-        # task.parent_task
-        if parent_task is None:
-            parent_task = current_task()
-        if cancel_scope is None:
-            self._scope_manager = open_cancel_scope()
-            cancel_scope = self._scope_manager.__enter__()
+    @enable_ki_protection
+    async def __aenter__(self):
+        assert self._scope_manager is None, "You cannot re-enter a Nursery"
+
+        parent_task = current_task()
         self._parent_task = parent_task
         parent_task._child_nurseries.append(self)
+
+        # my cancel scope; used for cancelling all children.
+        self._scope_manager = open_cancel_scope()
+        self.cancel_scope = self._scope_manager.__enter__()
+
         # the cancel stack that children inherit - we take a snapshot, so it
         # won't be affected by any changes in the parent.
         self._cancel_stack = list(parent_task._cancel_stack)
-        # the cancel scope that directly surrounds us; used for cancelling all
-        # children.
-        self.cancel_scope = cancel_scope
         assert self.cancel_scope is self._cancel_stack[-1]
+
         self._children = set()
         self._pending_starts = 0
         self._zombies = set()
         self._monitor = _core.UnboundedQueue()
         self._closed = False
 
-    @enable_ki_protection
-    async def __aenter__(self):
         return self
 
     @enable_ki_protection
@@ -327,9 +322,7 @@ class Nursery:
         try:
             await self._clean_up(exc)
         except BaseException as new_exc:
-            if self._scope_manager is None:
-                return False
-            elif not self._scope_manager.__exit__(
+            if not self._scope_manager.__exit__(
                     type(new_exc), new_exc, new_exc.__traceback__):
                 if isinstance(exc,Cancelled):
                     return True
@@ -340,6 +333,8 @@ class Nursery:
         else:
             self._scope_manager.__exit__(None, None, None)
             return True
+        finally:
+            self._scope_manager = None
 
     def __enter__(self):
         raise RuntimeError(
@@ -500,6 +495,8 @@ class Nursery:
 
     def __del__(self):
         assert not self._children and not self._zombies
+
+open_nursery = Nursery
 
 
 ################################################################
