@@ -288,20 +288,48 @@ class _TaskStatus:
         self._old_nursery.cancel_scope.cancel()
 
 
-class NurseryManager:
+def open_nursery():
+    return Nursery()
+
+
+class Nursery:
+    _scope_manager = None
+
+    def __init__(self, parent_task = None, cancel_scope = None):
+        # the parent task -- only used for introspection, to implement
+        # task.parent_task
+        if parent_task is None:
+            parent_task = current_task()
+        if cancel_scope is None:
+            self._scope_manager = open_cancel_scope()
+            cancel_scope = self._scope_manager.__enter__()
+        self._parent_task = parent_task
+        parent_task._child_nurseries.append(self)
+        # the cancel stack that children inherit - we take a snapshot, so it
+        # won't be affected by any changes in the parent.
+        self._cancel_stack = list(parent_task._cancel_stack)
+        # the cancel scope that directly surrounds us; used for cancelling all
+        # children.
+        self.cancel_scope = cancel_scope
+        assert self.cancel_scope is self._cancel_stack[-1]
+        self._children = set()
+        self._pending_starts = 0
+        self._zombies = set()
+        self._monitor = _core.UnboundedQueue()
+        self._closed = False
+
     @enable_ki_protection
     async def __aenter__(self):
-        self._scope_manager = open_cancel_scope()
-        scope = self._scope_manager.__enter__()
-        self._parent_nursery = Nursery(current_task(), scope)
-        return self._parent_nursery
+        return self
 
     @enable_ki_protection
     async def __aexit__(self, etype, exc, tb):
         try:
-            await self._parent_nursery._clean_up(exc)
+            await self._clean_up(exc)
         except BaseException as new_exc:
-            if not self._scope_manager.__exit__(
+            if self._scope_manager is None:
+                return False
+            elif not self._scope_manager.__exit__(
                     type(new_exc), new_exc, new_exc.__traceback__):
                 if isinstance(exc,Cancelled):
                     return True
@@ -321,29 +349,6 @@ class NurseryManager:
     def __exit__(self):  # pragma: no cover
         assert False, """Never called, but should be defined"""
 
-
-def open_nursery():
-    return NurseryManager()
-
-
-class Nursery:
-    def __init__(self, parent_task, cancel_scope):
-        # the parent task -- only used for introspection, to implement
-        # task.parent_task
-        self._parent_task = parent_task
-        parent_task._child_nurseries.append(self)
-        # the cancel stack that children inherit - we take a snapshot, so it
-        # won't be affected by any changes in the parent.
-        self._cancel_stack = list(parent_task._cancel_stack)
-        # the cancel scope that directly surrounds us; used for cancelling all
-        # children.
-        self.cancel_scope = cancel_scope
-        assert self.cancel_scope is self._cancel_stack[-1]
-        self._children = set()
-        self._pending_starts = 0
-        self._zombies = set()
-        self._monitor = _core.UnboundedQueue()
-        self._closed = False
 
     @property
     @deprecated("0.2.0", instead="child_tasks", issue=136)
