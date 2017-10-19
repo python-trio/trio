@@ -13,9 +13,7 @@ import functools
 
 import attr
 from sortedcontainers import SortedDict
-from async_generator import async_generator, yield_
 
-from .._util import acontextmanager
 from .._deprecate import deprecated
 
 from .. import _core
@@ -290,57 +288,42 @@ class _TaskStatus:
         self._old_nursery.cancel_scope.cancel()
 
 
-@acontextmanager
-@async_generator
-@enable_ki_protection
-async def open_nursery():
-    """Returns an async context manager which creates a new nursery.
+class NurseryManager:
+    @enable_ki_protection
+    async def __aenter__(self):
+        self._scope_manager = open_cancel_scope()
+        scope = self._scope_manager.__enter__()
+        self._parent_nursery = Nursery(current_task(), scope)
+        return self._parent_nursery
 
-    This context manager's ``__aenter__`` method executes synchronously. Its
-    ``__aexit__`` method blocks until all child tasks have exited.
-
-    """
-    assert currently_ki_protected()
-    with open_cancel_scope() as scope:
-        nursery = Nursery(current_task(), scope)
-        pending_exc = None
+    @enable_ki_protection
+    async def __aexit__(self, etype, exc, tb):
         try:
-            await yield_(nursery)
-        except BaseException as exc:
-            pending_exc = exc
-        assert currently_ki_protected()
-        await nursery._clean_up(pending_exc)
+            await self._parent_nursery._clean_up(exc)
+        except BaseException as new_exc:
+            if not self._scope_manager.__exit__(
+                    type(new_exc), new_exc, new_exc.__traceback__):
+                if isinstance(exc,Cancelled):
+                    return True
+                elif exc is new_exc:
+                    return False
+                else:
+                    raise
+        else:
+            self._scope_manager.__exit__(None, None, None)
+            return True
+
+    def __enter__(self):
+        raise RuntimeError(
+            "use 'async with open_nursery(...)', not 'with open_nursery(...)'"
+        )
+
+    def __exit__(self):  # pragma: no cover
+        assert False, """Never called, but should be defined"""
 
 
-# I *think* this is equivalent to the above, and it gives *much* nicer
-# exception tracebacks... but I'm a little nervous about it because it's much
-# trickier code :-(
-#
-# class NurseryManager:
-#     @enable_ki_protection
-#     async def __aenter__(self):
-#         self._scope_manager = open_cancel_scope()
-#         scope = self._scope_manager.__enter__()
-#         self._parent_nursery = Nursery(current_task(), scope)
-#         return self._parent_nursery
-#
-#     @enable_ki_protection
-#     async def __aexit__(self, etype, exc, tb):
-#         try:
-#             await self._parent_nursery._clean_up(exc)
-#         except BaseException as new_exc:
-#             if not self._scope_manager.__exit__(
-#                     type(new_exc), new_exc, new_exc.__traceback__):
-#                 if exc is new_exc:
-#                     return False
-#                 else:
-#                     raise
-#         else:
-#             self._scope_manager.__exit__(None, None, None)
-#             return True
-#
-# def open_nursery():
-#     return NurseryManager()
+def open_nursery():
+    return NurseryManager()
 
 
 class Nursery:
