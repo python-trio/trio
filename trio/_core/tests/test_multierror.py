@@ -1,6 +1,7 @@
+import logging
 import pytest
 
-from traceback import extract_tb, print_exception
+from traceback import extract_tb, print_exception, format_exception, _cause_message
 import sys
 import os
 import re
@@ -9,10 +10,9 @@ import subprocess
 
 from .tutil import slow
 
+from ..._deprecate import TrioDeprecationWarning
 from .._multierror import (
-    MultiError,
-    format_exception,
-    concat_tb,
+    MultiError, concat_tb, format_exception as trio_format_exception
 )
 
 
@@ -307,7 +307,7 @@ def test_assert_match_in_seq():
         assert_match_in_seq(["a", "b"], "xx b xx a xx")
 
 
-def test_format_exception_multi():
+def test_format_exception():
     def einfo(exc):
         return (type(exc), exc, exc.__traceback__)
 
@@ -329,6 +329,8 @@ def test_format_exception_multi():
     assert "in raiser2_2" in formatted
     assert "direct cause" in formatted
     assert "During handling" not in formatted
+    # ensure cause included
+    assert _cause_message in formatted
 
     exc = get_exc(raiser1)
     exc.__context__ = get_exc(raiser2)
@@ -391,7 +393,8 @@ def test_format_exception_multi():
     assert "in raiser1_3" in formatted
     assert "raiser2_string" not in formatted
     assert "in raiser2_2" not in formatted
-    assert "duplicate exception" in formatted
+    # ensure duplicate exception is not included as cause
+    assert _cause_message not in formatted
 
     # MultiError
     formatted = "".join(format_exception(*einfo(make_tree())))
@@ -422,6 +425,95 @@ def test_format_exception_multi():
         ],
         formatted
     )
+
+    # Prints duplicate exceptions in sub-exceptions
+    exc1 = get_exc(raiser1)
+
+    def raise1_raiser1():
+        try:
+            raise exc1
+        except:
+            raise ValueError("foo")
+
+    def raise2_raiser1():
+        try:
+            raise exc1
+        except:
+            raise KeyError("bar")
+
+    exc2 = get_exc(raise1_raiser1)
+    exc3 = get_exc(raise2_raiser1)
+
+    try:
+        raise MultiError([exc2, exc3])
+    except MultiError as e:
+        exc = e
+
+    formatted = "".join(format_exception(*einfo(exc)))
+    print(formatted)
+
+    assert_match_in_seq(
+        [
+            r"Traceback",
+            # Outer exception is MultiError
+            r"MultiError:",
+            # First embedded exception is the embedded ValueError with cause of raiser1
+            r"\nDetails of embedded exception 1",
+            # Print details of exc1
+            r"  Traceback",
+            r"in get_exc",
+            r"in raiser1",
+            r"ValueError: raiser1_string",
+            # Print details of exc2
+            r"\n  During handling of the above exception, another exception occurred:",
+            r"  Traceback",
+            r"in get_exc",
+            r"in raise1_raiser1",
+            r"  ValueError: foo",
+            # Second embedded exception is the embedded KeyError with cause of raiser1
+            r"\nDetails of embedded exception 2",
+            # Print details of exc1 again
+            r"  Traceback",
+            r"in get_exc",
+            r"in raiser1",
+            r"ValueError: raiser1_string",
+            # Print details of exc3
+            r"\n  During handling of the above exception, another exception occurred:",
+            r"  Traceback",
+            r"in get_exc",
+            r"in raise2_raiser1",
+            r"  KeyError: 'bar'",
+        ],
+        formatted
+    )
+
+    # Deprecation
+
+    with pytest.warns(TrioDeprecationWarning) as record:
+        exc_info = einfo(make_tree())
+        assert format_exception(*exc_info) == trio_format_exception(*exc_info)
+
+    assert 'trio.format_exception is deprecated since Trio 0.2.0; ' \
+           'use traceback.format_exception instead' in record[0].message.args[0]
+
+
+def test_logging(caplog):
+    exc1 = get_exc(raiser1)
+    exc2 = get_exc(raiser2)
+
+    m = MultiError([exc1, exc2])
+
+    message = "test test test"
+    try:
+        raise m
+    except MultiError as exc:
+        logging.getLogger().exception(message)
+        # Join lines together
+        formatted = "".join(
+            format_exception(type(exc), exc, exc.__traceback__)
+        )
+        assert message in caplog.text
+        assert formatted in caplog.text
 
 
 def run_script(name, use_ipython=False):
