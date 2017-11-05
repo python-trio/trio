@@ -6,8 +6,9 @@ import types
 from contextlib import contextmanager
 
 import attr
+import logging
 
-__all__ = ["MultiError", "format_exception"]
+__all__ = ["MultiError", "format_exception", "Formatter"]
 
 ################################################################
 # MultiError
@@ -405,6 +406,28 @@ def _format_exception_multi(seen, etype, value, tb, limit, chain):
                 chunks.append(textwrap.indent(chunk, " " * 2))
 
     return chunks
+
+
+################################################################
+# MultiError logging Formatter
+################################################################
+
+
+class Formatter(logging.Formatter):
+    """
+    A :class:`logging.Formatter` but with special support for printing tracebacks for :class:`trio.MultiError`.
+    """
+
+    def formatException(self, ei):
+        """
+        Format and return the specified exception information as a string.
+
+        This implementation uses :func:`trio.format_exception`.
+        """
+        s = "".join(format_exception(ei[0], ei[1], ei[2]))
+        if s[-1:] == "\n":
+            s = s[:-1]
+        return s
 
 
 def trio_excepthook(etype, value, tb):

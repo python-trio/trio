@@ -17,7 +17,8 @@ __all__ = [
     "TrioInternalError", "RunFinishedError", "WouldBlock", "Cancelled",
     "ResourceBusyError", "MultiError", "format_exception", "run",
     "open_nursery", "open_cancel_scope", "current_effective_deadline",
-    "STATUS_IGNORED", "current_time", "current_instruments", "TaskLocal"
+    "STATUS_IGNORED", "current_time", "current_instruments", "TaskLocal",
+    "Formatter"
 ]
 
 from . import _core
