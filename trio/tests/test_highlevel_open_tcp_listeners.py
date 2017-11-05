@@ -10,7 +10,7 @@ from trio import (
 )
 from trio.testing import open_stream_to_socket_listener
 from .. import socket as tsocket
-from .._core.tests.tutil import slow
+from .._core.tests.tutil import slow, need_ipv6
 
 
 async def test_open_tcp_listeners_basic():
@@ -90,6 +90,7 @@ async def test_open_tcp_listeners_backlog():
     await check_backlog(nominal=10, required_min=10, required_max=20)
 
 
+@need_ipv6
 async def test_open_tcp_listeners_ipv6_v6only():
     # Check IPV6_V6ONLY is working properly
     (ipv6_listener,) = await open_tcp_listeners(0, host="::1")

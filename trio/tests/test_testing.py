@@ -6,6 +6,7 @@ import tempfile
 
 import pytest
 
+from .._core.tests.tutil import have_ipv6
 from .. import sleep
 from .. import _core
 from .._highlevel_generic import ClosedStreamError, aclose_forcefully
@@ -813,11 +814,12 @@ async def test_open_stream_to_socket_listener():
     sock.listen(10)
     await check(SocketListener(sock))
 
-    # Listener bound to IPv6 wildcard (needs special handling)
-    sock = tsocket.socket(family=tsocket.AF_INET6)
-    sock.bind(("::", 0))
-    sock.listen(10)
-    await check(SocketListener(sock))
+    if have_ipv6:
+        # Listener bound to IPv6 wildcard (needs special handling)
+        sock = tsocket.socket(family=tsocket.AF_INET6)
+        sock.bind(("::", 0))
+        sock.listen(10)
+        await check(SocketListener(sock))
 
     if hasattr(tsocket, "AF_UNIX"):
         # Listener bound to Unix-domain socket

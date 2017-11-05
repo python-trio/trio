@@ -4,6 +4,7 @@ import os
 import socket as stdlib_socket
 import inspect
 
+from .._core.tests.tutil import need_ipv6
 from .. import _core
 from .. import socket as tsocket
 from .._socket import _NUMERIC_ONLY, _try_sync
@@ -352,9 +353,10 @@ async def test_SocketType_shutdown():
 
 
 @pytest.mark.parametrize(
-    "address, socket_type",
-    [('127.0.0.1', tsocket.AF_INET),
-     ('::1', tsocket.AF_INET6)]
+    "address, socket_type", [
+        ('127.0.0.1', tsocket.AF_INET),
+        pytest.param('::1', tsocket.AF_INET6, marks=need_ipv6)
+    ]
 )
 async def test_SocketType_simple_server(address, socket_type):
     # listen, bind, accept, connect, getpeername, getsockname
