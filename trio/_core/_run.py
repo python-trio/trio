@@ -10,6 +10,7 @@ import select
 import sys
 from math import inf
 import functools
+import logging
 
 import attr
 from sortedcontainers import SortedDict
@@ -60,6 +61,9 @@ else:  # pragma: no cover
     raise NotImplementedError("unsupported platform")
 
 _r = random.Random()
+
+# Used to log exceptions in instruments
+INSTRUMENT_LOGGER = logging.getLogger("trio.abc.Instrument")
 
 
 @attr.s(frozen=True)
@@ -1216,12 +1220,10 @@ class Runner:
                 method(*args)
             except:
                 self.instruments.remove(instrument)
-                sys.stderr.write(
-                    "Exception raised when calling {!r} on instrument {!r}\n"
-                    .format(method_name, instrument)
+                INSTRUMENT_LOGGER.exception(
+                    "Exception raised when calling %r on instrument %r. "
+                    "Instrument has been disabled.", method_name, instrument
                 )
-                sys.excepthook(*sys.exc_info())
-                sys.stderr.write("Instrument has been disabled.\n")
 
     @_public
     def add_instrument(self, instrument):

@@ -606,7 +606,7 @@ def test_instrument_task_spawn_exit():
 
 # This test also tests having a crash before the initial task is even spawned,
 # which is very difficult to handle.
-def test_instruments_crash(capfd):
+def test_instruments_crash(caplog):
     record = []
 
     class BrokenInstrument:
@@ -630,10 +630,11 @@ def test_instruments_crash(capfd):
     # was disabled
     assert ("after", main_task) in r.record
     assert ("after_run",) in r.record
-    # And we got a traceback on stderr
-    out, err = capfd.readouterr()
-    assert "ValueError: oops" in err
-    assert "Instrument has been disabled" in err
+    # And we got a log message
+    exc_type, exc_value, exc_traceback = caplog.records[0].exc_info
+    assert exc_type is ValueError
+    assert str(exc_value) == "oops"
+    assert "Instrument has been disabled" in caplog.records[0].message
 
 
 def test_cancel_points():
