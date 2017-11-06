@@ -1,4 +1,5 @@
 # Utilities for testing
+import socket as stdlib_socket
 
 import pytest
 
@@ -9,6 +10,16 @@ slow = pytest.mark.skipif(
     not pytest.config.getoption("--run-slow", True),
     reason="use --run-slow to run slow tests",
 )
+
+try:
+    with stdlib_socket.socket(stdlib_socket.AF_INET6,
+                              stdlib_socket.SOCK_STREAM, 0) as s:
+        s.bind(('::1', 0))
+    have_ipv6 = True
+except OSError:
+    have_ipv6 = False
+
+need_ipv6 = pytest.mark.skipif(not have_ipv6, reason="need IPv6")
 
 
 def gc_collect_harder():
