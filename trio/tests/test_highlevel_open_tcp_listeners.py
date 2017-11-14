@@ -55,22 +55,34 @@ async def test_open_tcp_listeners_specific_port_specific_host():
 
 # Warning: this sleeps, and needs to use a real sleep -- MockClock won't
 # work.
-async def measure_backlog(listener):
+#
+# Also, this measurement technique often works, but not always: sometimes SYN
+# cookies get triggered, and then the backlog measured this way effectively
+# becomes infinite. (In particular, this has been observed happening on
+# Travis-CI.) To avoid this blowing up and eating all FDs / ephemeral ports,
+# we put an upper limit on the number of connections we attempt, and if we hit
+# it then we return the magic string "lots". Then
+# test_open_tcp_listeners_backlog uses a special path to handle this, treating
+# it as a success -- but at least we'll see in coverage if none of our test
+# runs are actually running the test properly.
+async def measure_backlog(listener, limit):
     client_streams = []
-    while True:
-        # Generally the response to the listen buffer being full is that the
-        # SYN gets dropped, and the client retries after 1 second. So we
-        # assume that any connect() call to localhost that takes >0.5 seconds
-        # indicates a dropped SYN.
-        with trio.move_on_after(0.5) as cancel_scope:
-            client_stream = await open_stream_to_socket_listener(listener)
-        if cancel_scope.cancelled_caught:
+    try:
+        while True:
+            # Generally the response to the listen buffer being full is that
+            # the SYN gets dropped, and the client retries after 1 second. So
+            # we assume that any connect() call to localhost that takes >0.5
+            # seconds indicates a dropped SYN.
+            with trio.move_on_after(0.5) as cancel_scope:
+                client_stream = await open_stream_to_socket_listener(listener)
+                client_streams.append(client_stream)
+            if cancel_scope.cancelled_caught:
+                break
+            if len(client_streams) >= limit:  # pragma: no cover
+                return "lots"
+    finally:
+        for client_stream in client_streams:
             await client_stream.aclose()
-            break
-        client_streams.append(client_stream)
-
-    for client_stream in client_streams:
-        await client_stream.aclose()
 
     return len(client_streams)
 
@@ -80,10 +92,12 @@ async def test_open_tcp_listeners_backlog():
     # Operating systems don't necessarily use the exact backlog you pass
     async def check_backlog(nominal, required_min, required_max):
         listeners = await open_tcp_listeners(0, backlog=nominal)
-        actual = await measure_backlog(listeners[0])
+        actual = await measure_backlog(listeners[0], required_max + 10)
         for listener in listeners:
             await listener.aclose()
-        print("nominal ", nominal, "actual", actual)
+        print("nominal", nominal, "actual", actual)
+        if actual == "lots":  # pragma: no cover
+            return
         assert required_min <= actual <= required_max
 
     await check_backlog(nominal=1, required_min=1, required_max=10)
