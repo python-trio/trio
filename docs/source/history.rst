@@ -16,14 +16,18 @@ Highlights
 Async I/O for files and filesystem operations: :func:`trio.open_file`,
 :func:`trio.Path`
 
-Complete support for TLS over arbitrary transports, including
-STARTTLS, renegotiation during full-duplex usage, and `TLS-over-TLS
+Complete support for SSL/TLS encryption over arbitrary transports,
+including SNI (both client and server side), STARTTLS, renegotiation
+during full-duplex usage, and `TLS-over-TLS
 <https://daniel.haxx.se/blog/2016/11/26/https-proxy-with-curl/>`__:
 :func:`trio.open_ssl_over_tcp_stream`,
 :func:`trio.serve_ssl_over_tcp`,
 :func:`trio.open_ssl_over_tcp_listeners`, and :mod:`trio.ssl`
 
 ``nursery.start`` (and rename ``spawn`` to ``start_soon``)
+
+Exceptions from instrumentation are now routed through the logging
+module (gh-306)
 
 High-level networking interface
 
@@ -75,6 +79,8 @@ misleading with stream wrappers like :class:`~trio.ssl.SSLStream`
 
 :meth:`MultiError.catch` now correctly preserves ``__context__``,
 despite Python's bets attempts to stop us. (gh-165)
+
+:class:`Lock` and many other classes now support weakrefs (gh-331)
 
 nursery.child_tasks, nursery.parent_task, task.child_nurseries,
 task.parent_nursery
@@ -144,6 +150,7 @@ will work but complain loudly, and won't work in 0.3.0):
 
 deprecated big chunks of nursery and Task API
 
+queue join and task_done are deprecated
 
 Features
 ~~~~~~~~
