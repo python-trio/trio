@@ -7,36 +7,38 @@
 .. warning::
    You probably don't want to use this module.
 
-:mod:`trio.hazmat` contains APIs useful for introspecting and
-extending Trio. If you're writing ordinary, everyday code, then you
-can ignore this module completely. But sometimes it's what you need.
-Here are some examples of situations where you should reach for
-:mod:`trio.hazmat`:
+:mod:`trio.hazmat` is Trio's "hazardous materials" layer: it contains
+APIs useful for introspecting and extending Trio. If you're writing
+ordinary, everyday code, then you can ignore this module completely.
+But sometimes you need something a bit lower level. Here are some
+examples of situations where you should reach for :mod:`trio.hazmat`:
 
 * You want to implement a new :ref:`synchronization primitive
   <synchronization>` that Trio doesn't (yet) provide, like a
   reader-writer lock.
 * You want to extract low-level metrics to monitor the health of your
   application.
-* You're wrapping some low-level operating system interfaces that Trio
-  doesn't (yet) expose, like watching a filesystem directory for
-  changes.
+* You want to add support for a low-level operating system interface
+  that Trio doesn't (yet) expose, like watching a filesystem directory
+  for changes.
 * You want to implement an interface for calling between Trio and
   another event loop within the same process.
 * You're writing a debugger and want to visualize Trio's task tree.
 * You need to interoperate with a C library whose API exposes raw file
   descriptors.
 
-Using :mod:`trio.hazmat` is perfectly safe, *if* you take proper
-precautions. In fact, you're already using it – it's how most of the
-functionality described in previous chapters is implemented. The APIs
-described here have strictly defined and carefully documented
-semantics. But some of them have `nasty big pointy teeth
-<https://en.wikipedia.org/wiki/Rabbit_of_Caerbannog>`__. Mistakes may
-not be handled gracefully; rules and conventions that are followed
-strictly in the rest of Trio do not always apply. Read and tread
-carefully: using this module makes it your responsibility to handle
-the nasty cases and expose a friendly Trio-style API to your users.
+Using :mod:`trio.hazmat` isn't really *that* hazardous; in fact you're
+already using it – it's how most of the functionality described in
+previous chapters is implemented. The APIs described here have
+strictly defined and carefully documented semantics, and are perfectly
+safe – *if* you read carefully and take proper precautions. Some of
+those strict semantics have `nasty big pointy teeth
+<https://en.wikipedia.org/wiki/Rabbit_of_Caerbannog>`__. If you make a
+mistake, Trio may not be able to handle it gracefully; conventions and
+guarantees that are followed strictly in the rest of Trio do not
+always apply. Using this module makes it your responsibility to think
+through and handle the nasty cases to expose a friendly Trio-style API
+to your users.
 
 
 Debugging and instrumentation
@@ -78,13 +80,14 @@ an appropriate method. The tutorial has :ref:`a simple example of
 using this for tracing <tutorial-instrument-example>`.
 
 Since this hooks into trio at a rather low level, you do have to be
-somewhat careful. The callbacks are run synchronously, and in many
-cases if they error out then there isn't any plausible way to
-propagate this exception (for instance, we might be deep in the guts
-of the exception propagation machinery...). Therefore our `current
-strategy <https://github.com/python-trio/trio/issues/47>`__ for
-handling exceptions raised by instruments is to (a) dump a stack trace
-to stderr and (b) disable the offending instrument.
+careful. The callbacks are run synchronously, and in many cases if
+they error out then there isn't any plausible way to propagate this
+exception (for instance, we might be deep in the guts of the exception
+propagation machinery...). Therefore our `current strategy
+<https://github.com/python-trio/trio/issues/47>`__ for handling
+exceptions raised by instruments is to (a) log an exception to the
+``"trio.abc.Instrument"`` logger, which by default prints a stack
+trace to standard error and (b) disable the offending instrument.
 
 You can register an initial list of instruments by passing them to
 :func:`trio.run`. :func:`add_instrument` and
