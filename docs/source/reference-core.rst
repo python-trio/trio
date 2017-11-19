@@ -803,7 +803,7 @@ And remember that cancel scopes are inherited from the nursery,
 **not** from the task that calls ``start_soon``. So in this example,
 the timeout does *not* apply to ``child`` (or to anything else)::
 
-   async with do_spawn(nursery):
+   async def do_spawn(nursery):
        with move_on_after(TIMEOUT):  # don't do this, it has no effect
            nursery.start_soon(child)
 
