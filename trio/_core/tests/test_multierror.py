@@ -1,3 +1,4 @@
+import logging
 import pytest
 
 from traceback import extract_tb, print_exception
@@ -9,11 +10,7 @@ import subprocess
 
 from .tutil import slow
 
-from .._multierror import (
-    MultiError,
-    format_exception,
-    concat_tb,
-)
+from .._multierror import (MultiError, format_exception, concat_tb, Formatter)
 
 
 def raiser1():
@@ -422,6 +419,28 @@ def test_format_exception_multi():
         ],
         formatted
     )
+
+
+def test_trio_formatter(caplog):
+    formatter = Formatter()
+    caplog.handler.setFormatter(formatter)
+
+    exc1 = get_exc(raiser1)
+    exc2 = get_exc(raiser2)
+
+    m = MultiError([exc1, exc2])
+
+    message = "test test test"
+    try:
+        raise m
+    except MultiError as exc:
+        logging.getLogger().exception(message)
+        # Join lines together
+        formatted = "".join(
+            format_exception(type(exc), exc, exc.__traceback__)
+        )
+        assert message in caplog.text
+        assert formatted in caplog.text
 
 
 def run_script(name, use_ipython=False):

@@ -1046,6 +1046,82 @@ you return a new exception object, then the new object's
 ``__context__`` attribute will automatically be set to the original
 exception.
 
+.. autoclass:: Formatter
+
+Example:
+
+To setup a logger that will properly format :exc:`MultiError`
+tracebacks::
+
+    import logging
+
+    # Create logger
+    logger = logging.getLogger('simple_example')
+
+    # Create console handler
+    ch = logging.StreamHandler()
+
+    # Create formatter
+    formatter = trio.Formatter()
+
+    # add formatter to ch
+    ch.setFormatter(formatter)
+
+    # add ch to logger
+    logger.addHandler(ch)
+
+If you use a ``logging.conf`` file with :func:`logging.config.fileConfig`
+
+.. code-block:: ini
+
+    [loggers]
+    keys=root,trioExample
+
+    [handlers]
+    keys=consoleHandler
+
+    [formatters]
+    keys=trioFormatter
+
+    [logger_root]
+    handlers=consoleHandler
+
+    [logger_trioExample]
+    handlers=consoleHandler
+    qualname=trioExample
+    propagate=0
+
+    [handler_consoleHandler]
+    class=StreamHandler
+    formatter=trioFormatter
+    args=(sys.stdout,)
+
+    [formatter_trioFormatter]
+    class=trio.Formatter
+
+If you use a YAML file with :func:`logging.config.dictConfig`
+
+.. code-block:: yaml
+
+    version: 1
+    formatters:
+      trio:
+        class: trio.Formatter
+    handlers:
+      console:
+        class: logging.StreamHandler
+        formatter: trio
+        stream: ext://sys.stdout
+    loggers:
+      trioExample:
+        handlers: [console]
+        propagate: no
+    root:
+      handlers: [console]
+
+For more details see the :ref:`Standard Library Logging Configuration
+functions<logging-config-api>`.
+
 
 Task-local storage
 ------------------
