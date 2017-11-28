@@ -3,19 +3,6 @@
 I/O in Trio
 ===========
 
-.. note::
-
-   Please excuse our dust! `[insert geocities construction worker gif
-   here] <http://www.textfiles.com/underconstruction/>`__
-
-   You're looking at the documentation for trio's development branch,
-   which is currently about half-way through implementing a proper
-   high-level networking API. If you want to know how to do networking
-   in trio *right now*, then you might want to jump down to read about
-   :mod:`trio.socket`, which is the already-working lower-level
-   API. Alternatively, you can read on for a (somewhat disorganized)
-   preview of coming attractions.
-
 .. _abstract-stream-api:
 
 The abstract Stream API
