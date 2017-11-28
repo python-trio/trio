@@ -531,7 +531,24 @@ Task API
    .. attribute:: coro
 
       This task's coroutine object. Example usage: extracting a stack
-      trace.
+      trace::
+
+          import traceback
+
+          def walk_coro_stack(coro):
+              while coro is not None:
+                  if hasattr(coro, "cr_frame"):
+                      # A real coroutine
+                      yield coro.cr_frame, coro.cr_frame.f_lineno
+                      coro = coro.cr_await
+                  else:
+                      # A generator decorated with @types.coroutine
+                      yield coro.gi_frame, coro.gi_frame.f_lineno
+                      coro = coro.gi_yieldfrom
+
+          def print_stack_for_task(task):
+              ss = traceback.StackSummary.extract(walk_coro_stack(task.coro))
+              print("".join(ss.format()))
 
    .. autoattribute:: parent_nursery
 
