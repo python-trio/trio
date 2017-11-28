@@ -212,3 +212,6 @@ Testing checkpoints
 
 .. autofunction:: assert_checkpoints
    :with:
+
+.. autofunction:: assert_no_checkpoints
+   :with:
