@@ -1744,7 +1744,9 @@ async def test_nursery_start(autojump_clock):
         with pytest.raises(TypeError):
             await nursery.start(no_args)
 
-    async def sleep_then_start(seconds, *, task_status=_core.STATUS_IGNORED):
+    async def sleep_then_start(
+        seconds, *, task_status=_core.TASK_STATUS_IGNORED
+    ):
         repr(task_status)  # smoke test
         await sleep(seconds)
         task_status.started(seconds)
@@ -1762,13 +1764,14 @@ async def test_nursery_start(autojump_clock):
             assert len(nursery.child_tasks) == 1
         assert _core.current_time() - t0 == 2 * seconds
 
-    # Make sure STATUS_IGNORED works so task function can be called directly
+    # Make sure TASK_STATUS_IGNORED works so task function can be called
+    # directly
     t0 = _core.current_time()
     await sleep_then_start(3)
     assert _core.current_time() - t0 == 2 * 3
 
     # calling started twice
-    async def double_started(task_status=_core.STATUS_IGNORED):
+    async def double_started(task_status=_core.TASK_STATUS_IGNORED):
         task_status.started()
         with pytest.raises(RuntimeError):
             task_status.started()
@@ -1777,7 +1780,7 @@ async def test_nursery_start(autojump_clock):
         await nursery.start(double_started)
 
     # child crashes before calling started -> error comes out of .start()
-    async def raise_keyerror(task_status=_core.STATUS_IGNORED):
+    async def raise_keyerror(task_status=_core.TASK_STATUS_IGNORED):
         raise KeyError("oops")
 
     async with _core.open_nursery() as nursery:
@@ -1785,7 +1788,7 @@ async def test_nursery_start(autojump_clock):
             await nursery.start(raise_keyerror)
 
     # child exiting cleanly before calling started -> triggers a RuntimeError
-    async def nothing(task_status=_core.STATUS_IGNORED):
+    async def nothing(task_status=_core.TASK_STATUS_IGNORED):
         return
 
     async with _core.open_nursery() as nursery:
@@ -1796,7 +1799,7 @@ async def test_nursery_start(autojump_clock):
     # if the call to start() is cancelled, then the call to started() does
     # nothing -- the child keeps executing under start(). The value it passed
     # is ignored; start() raises Cancelled.
-    async def just_started(task_status=_core.STATUS_IGNORED):
+    async def just_started(task_status=_core.TASK_STATUS_IGNORED):
         task_status.started("hi")
 
     async with _core.open_nursery() as nursery:
@@ -1807,7 +1810,9 @@ async def test_nursery_start(autojump_clock):
 
     # and if after the no-op started(), the child crashes, the error comes out
     # of start()
-    async def raise_keyerror_after_started(task_status=_core.STATUS_IGNORED):
+    async def raise_keyerror_after_started(
+        task_status=_core.TASK_STATUS_IGNORED
+    ):
         task_status.started()
         raise KeyError("whoopsiedaisy")
 
@@ -1845,7 +1850,7 @@ async def test_task_nursery_stack():
 async def test_nursery_start_with_cancelled_nursery():
     # This function isn't testing task_status, it's using task_status as a
     # convenient way to get a nursery that we can test spawning stuff into.
-    async def setup_nursery(task_status=_core.STATUS_IGNORED):
+    async def setup_nursery(task_status=_core.TASK_STATUS_IGNORED):
         async with _core.open_nursery() as nursery:
             task_status.started(nursery)
             await sleep_forever()
@@ -1853,7 +1858,7 @@ async def test_nursery_start_with_cancelled_nursery():
     # Calls started() while children are asleep, so we can make sure
     # that the cancellation machinery notices and aborts when a sleeping task
     # is moved into a cancelled scope.
-    async def sleeping_children(fn, *, task_status=_core.STATUS_IGNORED):
+    async def sleeping_children(fn, *, task_status=_core.TASK_STATUS_IGNORED):
         async with _core.open_nursery() as nursery:
             nursery.start_soon(sleep_forever)
             nursery.start_soon(sleep_forever)
@@ -1876,7 +1881,7 @@ async def test_nursery_start_with_cancelled_nursery():
 
 
 async def test_nursery_start_keeps_nursery_open(autojump_clock):
-    async def sleep_a_bit(task_status=_core.STATUS_IGNORED):
+    async def sleep_a_bit(task_status=_core.TASK_STATUS_IGNORED):
         await sleep(2)
         task_status.started()
         await sleep(3)
@@ -1898,7 +1903,7 @@ async def test_nursery_start_keeps_nursery_open(autojump_clock):
 
     # Check that it still works even if the task that the nursery is waiting
     # for ends up crashing, and never actually enters the nursery.
-    async def sleep_then_crash(task_status=_core.STATUS_IGNORED):
+    async def sleep_then_crash(task_status=_core.TASK_STATUS_IGNORED):
         await sleep(7)
         raise KeyError
 

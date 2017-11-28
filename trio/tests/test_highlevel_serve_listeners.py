@@ -124,7 +124,7 @@ async def test_serve_listeners_connection_nursery(autojump_clock):
     class Done(Exception):
         pass
 
-    async def connection_watcher(*, task_status=trio.STATUS_IGNORED):
+    async def connection_watcher(*, task_status=trio.TASK_STATUS_IGNORED):
         async with trio.open_nursery() as nursery:
             task_status.started(nursery)
             await wait_all_tasks_blocked()

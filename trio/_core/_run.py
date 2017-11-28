@@ -46,7 +46,8 @@ from . import _public
 __all__ = [
     "Task", "run", "open_nursery", "open_cancel_scope", "checkpoint",
     "current_call_soon_thread_and_signal_safe", "current_task",
-    "current_effective_deadline", "checkpoint_if_cancelled", "STATUS_IGNORED"
+    "current_effective_deadline", "checkpoint_if_cancelled",
+    "TASK_STATUS_IGNORED"
 ]
 
 GLOBAL_RUN_CONTEXT = threading.local()
@@ -1540,15 +1541,15 @@ def run_impl(runner, async_fn, args):
 ################################################################
 
 
-class _StatusIgnored:
+class _TaskStatusIgnored:
     def __repr__(self):
-        return "STATUS_IGNORED"
+        return "TASK_STATUS_IGNORED"
 
     def started(self, value=None):
         pass
 
 
-STATUS_IGNORED = _StatusIgnored()
+TASK_STATUS_IGNORED = _TaskStatusIgnored()
 
 
 def current_task():

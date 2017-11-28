@@ -25,7 +25,7 @@ __all__ = [
     "open_nursery",
     "open_cancel_scope",
     "current_effective_deadline",
-    "STATUS_IGNORED",
+    "TASK_STATUS_IGNORED",
     "current_time",
     "current_instruments",
     "TaskLocal",

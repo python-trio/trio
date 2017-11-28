@@ -924,13 +924,13 @@ Nursery objects provide the following interface:
 
       The conventional way to define ``async_fn`` is like::
 
-         async def async_fn(arg1, arg2, *, task_status=trio.STATUS_IGNORED):
+         async def async_fn(arg1, arg2, *, task_status=trio.TASK_STATUS_IGNORED):
              ...
              task_status.started()
              ...
 
-      :attr:`trio.STATUS_IGNORED` is a special global object with a
-      do-nothing ``started`` method. This way your function supports
+      :attr:`trio.TASK_STATUS_IGNORED` is a special global object with
+      a do-nothing ``started`` method. This way your function supports
       being called either like ``await nursery.start(async_fn, arg1,
       arg2)`` or directly like ``await async_fn(arg1, arg2)``, and
       either way it can call ``task_status.started()`` without
@@ -974,7 +974,7 @@ Nursery objects provide the following interface:
       :class:`~trio.hazmat.Task` objects which are still running.
 
 
-.. attribute:: STATUS_IGNORED
+.. attribute:: TASK_STATUS_IGNORED
 
    See :meth:`~The nursery interface.start`.
 

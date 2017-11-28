@@ -141,7 +141,7 @@ async def serve_tcp(
     host=None,
     backlog=None,
     handler_nursery=None,
-    task_status=trio.STATUS_IGNORED
+    task_status=trio.TASK_STATUS_IGNORED
 ):
     """Listen for incoming TCP connections, and for each one start a task
     running ``handler(stream)``.
