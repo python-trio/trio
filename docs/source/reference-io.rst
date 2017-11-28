@@ -136,6 +136,8 @@ streams interface, you should also check out :ref:`testing-streams` in
    :show-inheritance:
 
 
+.. _high-level-networking:
+
 Sockets and networking
 ~~~~~~~~~~~~~~~~~~~~~~
 

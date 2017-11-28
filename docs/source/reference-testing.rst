@@ -82,6 +82,8 @@ Connecting to an in-process socket server
 .. autofunction:: open_stream_to_socket_listener
 
 
+.. _virtual-streams:
+
 Virtual, controllable streams
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -149,6 +151,8 @@ API details
 
 .. autofunction:: lockstep_stream_pair
 
+
+.. _testing-custom-streams:
 
 Testing custom stream implementations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

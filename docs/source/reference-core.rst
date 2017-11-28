@@ -1047,6 +1047,8 @@ you return a new exception object, then the new object's
 exception.
 
 
+.. _task-local-storage:
+
 Task-local storage
 ------------------
 
