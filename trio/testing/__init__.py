@@ -34,6 +34,10 @@ _deprecate.enable_attribute_deprecations(__name__)
 __deprecated_attributes__ = {
     "assert_yields":
         _deprecate.DeprecatedAttribute(assert_checkpoints, "0.2.0", issue=157),
+    "assert_no_yields":
+        _deprecate.DeprecatedAttribute(
+            assert_no_checkpoints, "0.2.0", issue=157
+        ),
 }
 
 del _deprecate
