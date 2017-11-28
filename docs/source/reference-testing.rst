@@ -128,8 +128,8 @@ you can replace this with whatever arbitrary behavior you want.
 Trio also provides some specialized functions for testing completely
 **un**\buffered streams: :func:`lockstep_stream_one_way_pair` and
 :func:`lockstep_stream_pair`. These aren't customizable, but they do
-exhibit an extreme kind of behavior that's otherwise hard to
-implement.
+exhibit an extreme kind of behavior that's good at catching out edge
+cases in protocol implementations.
 
 
 API details
