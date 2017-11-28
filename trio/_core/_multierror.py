@@ -7,6 +7,8 @@ from contextlib import contextmanager
 
 import attr
 
+from .._deprecate import deprecated
+
 __all__ = ["MultiError", "format_exception"]
 
 ################################################################
@@ -341,12 +343,14 @@ def concat_tb(head, tail):
 
 ################################################################
 # MultiError traceback formatting
+#
+# What follows is terrible, terrible monkey patching of
+# traceback.TracebackException to add support for handling
+# MultiErrors
 ################################################################
 
 
-# format_exception's semantics for limit= are odd: they apply separately to
-# each traceback. I'm not sure how much sense this makes, but we copy it
-# anyway.
+@deprecated("0.2.0", issue=347, instead="traceback.format_exception")
 def format_exception(etype, value, tb, *, limit=None, chain=True):
     """Like :func:`traceback.format_exception`, but with special support for
     printing :exc:`MultiError` objects.
@@ -355,60 +359,80 @@ def format_exception(etype, value, tb, *, limit=None, chain=True):
     thread at any time.
 
     """
-    return _format_exception_multi(set(), etype, value, tb, limit, chain)
-
-
-def _format_exception_multi(seen, etype, value, tb, limit, chain):
-    if id(value) in seen:
-        return ["<duplicate exception {!r}>\n".format(value)]
-    seen.add(id(value))
-
-    chunks = []
-    if chain:
-        if value.__cause__ is not None:
-            v = value.__cause__
-            chunks += _format_exception_multi(
-                seen, type(v), v, v.__traceback__, limit=limit, chain=True
-            )
-            chunks += [
-                "\nThe above exception was the direct cause of the "
-                "following exception:\n\n",
-            ]
-        elif value.__context__ is not None and not value.__suppress_context__:
-            v = value.__context__
-            chunks += _format_exception_multi(
-                seen, type(v), v, v.__traceback__, limit=limit, chain=True
-            )
-            chunks += [
-                "\nDuring handling of the above exception, another "
-                "exception occurred:\n\n",
-            ]
-
-    chunks += traceback.format_exception(
-        etype, value, tb, limit=limit, chain=False
+    return traceback.format_exception(
+        etype, value, tb, limit=limit, chain=chain
     )
 
-    if isinstance(value, MultiError):
-        for i, exc in enumerate(value.exceptions):
-            chunks += [
-                "\nDetails of embedded exception {}:\n\n".format(i + 1),
-            ]
-            sub_chunks = _format_exception_multi(
-                seen,
-                type(exc),
-                exc,
-                exc.__traceback__,
-                limit=limit,
-                chain=chain
-            )
-            for chunk in sub_chunks:
-                chunks.append(textwrap.indent(chunk, " " * 2))
 
-    return chunks
+traceback_exception_original_init = traceback.TracebackException.__init__
+
+
+def traceback_exception_init(
+        self,
+        exc_type,
+        exc_value,
+        exc_traceback,
+        *,
+        limit=None,
+        lookup_lines=True,
+        capture_locals=False,
+        _seen=None
+):
+    if _seen is None:
+        _seen = set()
+
+    # Capture the original exception and its cause and context as TracebackExceptions
+    traceback_exception_original_init(
+        self,
+        exc_type,
+        exc_value,
+        exc_traceback,
+        limit=limit,
+        lookup_lines=lookup_lines,
+        capture_locals=capture_locals,
+        _seen=_seen
+    )
+
+    # Capture each of the exceptions in the MultiError along with each of their causes and contexts
+    if isinstance(exc_value, MultiError):
+        embedded = []
+        for exc in exc_value.exceptions:
+            if exc not in _seen:
+                embedded.append(
+                    traceback.TracebackException.from_exception(
+                        exc,
+                        limit=limit,
+                        lookup_lines=lookup_lines,
+                        capture_locals=capture_locals,
+                        # copy the set of _seen exceptions so that duplicates
+                        # shared between sub-exceptions are not omitted
+                        _seen=set(_seen)
+                    )
+                )
+        self.embedded = embedded
+    else:
+        self.embedded = []
+
+
+traceback.TracebackException.__init__ = traceback_exception_init
+traceback_exception_original_format = traceback.TracebackException.format
+
+
+def traceback_exception_format(self, *, chain=True):
+    yield from traceback_exception_original_format(self, chain=chain)
+
+    for i, exc in enumerate(self.embedded):
+        yield "\nDetails of embedded exception {}:\n\n".format(i + 1)
+        yield from (
+            textwrap.indent(line, " " * 2) for line in exc.format(chain=chain)
+        )
+
+
+traceback.TracebackException.format = traceback_exception_format
 
 
 def trio_excepthook(etype, value, tb):
-    for chunk in format_exception(etype, value, tb):
+    for chunk in traceback.format_exception(etype, value, tb):
         sys.stderr.write(chunk)
 
 

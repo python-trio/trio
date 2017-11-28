@@ -982,8 +982,6 @@ Nursery objects provide the following interface:
 Working with :exc:`MultiError`\s
 ++++++++++++++++++++++++++++++++
 
-.. autofunction:: format_exception
-
 .. autoexception:: MultiError
 
    .. attribute:: exceptions
@@ -1045,6 +1043,38 @@ context chaining. :meth:`MultiError.filter` and
 you return a new exception object, then the new object's
 ``__context__`` attribute will automatically be set to the original
 exception.
+
+We also monkey patch :class:`traceback.TracebackException` to be able
+to handle formatting :exc:`MultiError`\s. This means that anything that
+formats exception messages like :mod:`logging` will work out of the
+box::
+
+    import logging
+
+    logging.basicConfig()
+
+    try:
+        raise MultiError([ValueError("foo"), KeyError("bar")])
+    except:
+        logging.exception("Oh no!")
+        raise
+
+Will properly log the inner exceptions:
+
+.. code-block:: none
+
+    ERROR:root:Oh no!
+    Traceback (most recent call last):
+      File "<stdin>", line 2, in <module>
+    trio.MultiError: ValueError('foo',), KeyError('bar',)
+
+    Details of embedded exception 1:
+
+      ValueError: foo
+
+    Details of embedded exception 2:
+
+      KeyError: 'bar'
 
 
 Task-local storage
