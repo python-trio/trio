@@ -158,12 +158,12 @@ async def test_assert_checkpoints(recwarn):
         await _core.cancel_shielded_checkpoint()
 
 
-async def test_assert_no_yields(recwarn):
-    with assert_no_yields():
+async def test_assert_no_checkpoints(recwarn):
+    with assert_no_checkpoints():
         1 + 1
 
     with pytest.raises(AssertionError):
-        with assert_no_yields():
+        with assert_no_checkpoints():
             await _core.checkpoint()
 
     # partial yield cases
@@ -173,12 +173,12 @@ async def test_assert_no_yields(recwarn):
                           _core.cancel_shielded_checkpoint]:
         print(partial_yield)
         with pytest.raises(AssertionError):
-            with assert_no_yields():
+            with assert_no_checkpoints():
                 await partial_yield()
 
     # And both together also count as a checkpoint
     with pytest.raises(AssertionError):
-        with assert_no_yields():
+        with assert_no_checkpoints():
             await _core.checkpoint_if_cancelled()
             await _core.cancel_shielded_checkpoint()
 

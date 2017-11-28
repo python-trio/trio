@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from .. import _core
 from .._deprecate import deprecated
 
-__all__ = ["assert_checkpoints", "assert_no_yields"]
+__all__ = ["assert_checkpoints", "assert_no_checkpoints"]
 
 
 @contextmanager
@@ -42,8 +42,7 @@ def assert_checkpoints():
     return _assert_yields_or_not(True)
 
 
-@deprecated("0.2.0", issue=157, instead=None)
-def assert_no_yields():
+def assert_no_checkpoints():
     """Use as a context manager to check that the code inside the ``with``
     block does not execute any :ref:`check points <checkpoints>`.
 
@@ -51,10 +50,11 @@ def assert_no_yields():
       AssertionError: if a checkpoint was executed.
 
     Example:
-      Synchronous code never yields, but we can double-check that::
+      Synchronous code never contains any checkpoints, but we can double-check
+      that::
 
          queue = trio.Queue(10)
-         with trio.testing.assert_no_yields():
+         with trio.testing.assert_no_checkpoints():
              queue.put_nowait(None)
 
     """
