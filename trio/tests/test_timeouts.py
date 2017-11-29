@@ -1,6 +1,7 @@
 import pytest
 import time
 
+from .._core.tests.tutil import slow
 from .. import _core
 from ..testing import assert_checkpoints
 from .._timeouts import *
@@ -10,18 +11,23 @@ async def check_takes_about(f, expected_dur):
     start = time.monotonic()
     result = await _core.Result.acapture(f)
     dur = time.monotonic() - start
-    # In practice on my Linux laptop I get numbers like 1.003, but Windows is
-    # really sloppy -- I've seen 1.6x or so fairly often.
     print(dur / expected_dur)
-    assert 1 <= (dur / expected_dur) < 2
+    # 1.2 is an arbitrary fudge factor because there's always some delay
+    # between when we become eligible to wake up and when we actually do. We
+    # used to sleep for 0.05, and regularly observed overruns of 1.6x on
+    # Appveyor, and then started seeing overruns of 2.3x on Travis's MacOS, so
+    # now we bumped up the sleep to 1 second, marked the tests as slow, and
+    # hopefully now the proportional error will be less huge.
+    assert 1 <= (dur / expected_dur) < 1.2
     return result.unwrap()
 
 
 # How long to (attempt to) sleep for when testing. Smaller numbers make the
 # test suite go faster.
-TARGET = 0.05
+TARGET = 1.0
 
 
+@slow
 async def test_sleep():
     async def sleep_1():
         await sleep_until(_core.current_time() + TARGET)
@@ -44,6 +50,7 @@ async def test_sleep():
             await sleep(0)
 
 
+@slow
 async def test_move_on_after():
     with pytest.raises(ValueError):
         with move_on_after(-1):
@@ -56,6 +63,7 @@ async def test_move_on_after():
     await check_takes_about(sleep_3, TARGET)
 
 
+@slow
 async def test_fail():
     async def sleep_4():
         with fail_at(_core.current_time() + TARGET):
