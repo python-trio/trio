@@ -167,6 +167,8 @@ implementations:
 .. autofunction:: check_half_closeable_stream
 
 
+.. _virtual-network-hooks:
+
 Virtual networking for testing
 ------------------------------
 

@@ -1315,6 +1315,8 @@ to communicate back with trio, you can use a
 :class:`BlockingTrioPortal`.
 
 
+.. _worker-thread-limiting:
+
 Trio's philosophy about managing worker threads
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
