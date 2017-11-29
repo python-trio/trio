@@ -1077,6 +1077,8 @@ Will properly log the inner exceptions:
       KeyError: 'bar'
 
 
+.. _task-local-storage:
+
 Task-local storage
 ------------------
 
@@ -1342,6 +1344,8 @@ need to push some blocking I/O into a thread, there's
 to communicate back with trio, you can use a
 :class:`BlockingTrioPortal`.
 
+
+.. _worker-thread-limiting:
 
 Trio's philosophy about managing worker threads
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

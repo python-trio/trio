@@ -130,7 +130,7 @@ def catch_signals(signals):
 
     Example:
 
-      A common convention for Unix daemon is that they should reload their
+      A common convention for Unix daemons is that they should reload their
       configuration when they receive a ``SIGHUP``. Here's a sketch of what
       that might look like using :func:`catch_signals`::
 

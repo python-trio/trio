@@ -3,19 +3,6 @@
 I/O in Trio
 ===========
 
-.. note::
-
-   Please excuse our dust! `[insert geocities construction worker gif
-   here] <http://www.textfiles.com/underconstruction/>`__
-
-   You're looking at the documentation for trio's development branch,
-   which is currently about half-way through implementing a proper
-   high-level networking API. If you want to know how to do networking
-   in trio *right now*, then you might want to jump down to read about
-   :mod:`trio.socket`, which is the already-working lower-level
-   API. Alternatively, you can read on for a (somewhat disorganized)
-   preview of coming attractions.
-
 .. _abstract-stream-api:
 
 The abstract Stream API
@@ -89,6 +76,49 @@ Abstract base classes
 
 .. currentmodule:: trio.abc
 
+.. http://docutils.sourceforge.net/docs/ref/rst/directives.html#list-table
+
+.. list-table:: Overview: abstract base classes for I/O
+   :widths: auto
+   :header-rows: 1
+
+   * - Abstract base class
+     - Inherits from...
+     - Adds these abstract methods...
+     - And these concrete methods.
+     - Example implementations
+   * - :class:`AsyncResource`
+     -
+     - :meth:`~AsyncResource.aclose`
+     - ``__aenter__``, ``__aexit__``
+     - :ref:`async-file-objects`
+   * - :class:`SendStream`
+     - :class:`AsyncResource`
+     - :meth:`~SendStream.send_all`,
+       :meth:`~SendStream.wait_send_all_might_not_block`
+     -
+     - :class:`~trio.testing.MemorySendStream`
+   * - :class:`ReceiveStream`
+     - :class:`AsyncResource`
+     - :meth:`~ReceiveStream.receive_some`
+     -
+     - :class:`~trio.testing.MemoryReceiveStream`
+   * - :class:`Stream`
+     - :class:`SendStream`, :class:`ReceiveStream`
+     -
+     -
+     - :class:`~trio.ssl.SSLStream`
+   * - :class:`HalfCloseableStream`
+     - :class:`Stream`
+     - :meth:`~HalfCloseableStream.send_eof`
+     -
+     - :class:`~trio.SocketStream`, :class:`~trio.StapledStream`
+   * - :class:`Listener`
+     - :class:`AsyncResource`
+     - :meth:`~Listener.accept`
+     -
+     - :class:`~trio.SocketListener`, :class:`~trio.ssl.SSLListener`
+
 .. autoclass:: trio.abc.AsyncResource
    :members:
 
@@ -148,6 +178,8 @@ streams interface, you should also check out :ref:`testing-streams` in
    :members:
    :show-inheritance:
 
+
+.. _high-level-networking:
 
 Sockets and networking
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -600,6 +632,8 @@ Asynchronous path objects
    :members:
 
 
+.. _async-file-objects:
+
 Asynchronous file objects
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -626,7 +660,7 @@ Asynchronous file objects
    * Async methods: if any of the following methods are present, then
      they're re-exported as an async method: ``flush``, ``read``,
      ``read1``, ``readall``, ``readinto``, ``readline``,
-     ``readlines``, ``seek``, ``tell`, ``truncate``, ``write``,
+     ``readlines``, ``seek``, ``tell``, ``truncate``, ``write``,
      ``writelines``, ``readinto1``, ``peek``, ``detach``.
 
    Special notes:
@@ -646,10 +680,10 @@ Asynchronous file objects
      at the same time from different tasks IF the underlying
      synchronous file object is thread-safe. You should consult the
      documentation for the object you're wrapping. For objects
-     returned from :func:`trio.open_file` or `trio.Path.open`, it
-     depends on whether you open the file in binary mode or text mode:
-     `binary mode files are task-safe/thread-safe, text mode files are
-     not
+     returned from :func:`trio.open_file` or :meth:`trio.Path.open`,
+     it depends on whether you open the file in binary mode or text
+     mode: `binary mode files are task-safe/thread-safe, text mode
+     files are not
      <https://docs.python.org/3/library/io.html#multi-threading>`__.
 
    * Async file objects can be used as async iterators to iterate over

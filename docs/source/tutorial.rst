@@ -1,6 +1,72 @@
 Tutorial
 ========
 
+.. The Trio tutorial
+
+   the spiel about what a concurrent library is
+
+   Traditionally Python is a synchronous language, and we assume
+   you're familiar with that kind of programming, but don't assume any
+   knowledge of concurrent programming. (And even if you are familiar
+   with concurrent programming using another library like Twisted or
+   asyncio, or another language like Go or Erlang, then you should
+   still probably read this, because Trio is different.)
+
+   trio turns Python into a concurrent language. It takes the core
+   async/await syntax introduced in 3.5, and uses it to add three
+   new pieces of semantics:
+
+   - cancel scopes: a generic system for managing timeouts and
+     cancellation
+   - nurseries: which let your program do multiple things at the same
+     time
+   - MultiErrors: for when multiple things go wrong at once
+
+   Of course it also provides a complete suite of APIs for doing
+   networking, file I/O, using worker threads,
+
+   We'll go through and explain each of these
+
+   simple cancellation
+   applied to an HTTP request
+     with fail_after(5):
+         response = await asks.get("https://httpbin.org/delay/1")
+         print(response)
+   and then again with /delay/10
+
+   (note that asks needs cpython 3.6 though. maybe just for one async
+   generator?)
+
+   value of async/await: show you where the cancellation exceptions
+   can happen -- see pillar re: explicit cancel points
+
+   (also briefly discuss cancel scopes and cancel() + the query APIs,
+   fail_after vs move_on_after, current_time() and
+   current_effective_deadline())
+
+   simple multi-task concurrency
+   applied to do multiple HTTP requests
+   adding a per-request timeout
+   adding a timeout on the whole thing -- demonstrating wrapping
+       cancel around a nursery
+
+   pillars: implicit concurrency and exception raising
+   and explicit schedule points
+
+   example: the scheduling trace
+
+   implicit concurrency -> use echo example to introduce networking
+   API, and show how to do explicit concurrency
+   and demonstrate start()
+   then point out that you can just use serve_tcp()
+
+   exceptions and MultiError
+
+   example: catch-all logging in our echo server
+
+   review of the three (or four) core language extensions
+   and how they fit together and
+
 .. currentmodule:: trio
 
 Welcome to the Trio tutorial! Trio is a modern Python library for
