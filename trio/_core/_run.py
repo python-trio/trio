@@ -88,7 +88,7 @@ class SystemClock:
 ################################################################
 
 
-@attr.s(cmp=False, hash=False)
+@attr.s(cmp=False, hash=False, repr=False)
 class CancelScope:
     _tasks = attr.ib(default=attr.Factory(set))
     _effective_deadline = attr.ib(default=inf)
@@ -96,6 +96,9 @@ class CancelScope:
     _shield = attr.ib(default=False)
     cancel_called = attr.ib(default=False)
     cancelled_caught = attr.ib(default=False)
+
+    def __repr__(self):
+        return "<cancel scope object at {:#x}>".format(id(self))
 
     @contextmanager
     @enable_ki_protection
