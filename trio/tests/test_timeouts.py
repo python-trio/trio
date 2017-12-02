@@ -18,7 +18,20 @@ async def check_takes_about(f, expected_dur):
     # Appveyor, and then started seeing overruns of 2.3x on Travis's MacOS, so
     # now we bumped up the sleep to 1 second, marked the tests as slow, and
     # hopefully now the proportional error will be less huge.
-    assert 1 <= (dur / expected_dur) < 1.2
+    #
+    # We also also for durations that are a hair shorter than expected. For
+    # example, here's a run on Windows where a 1.0 second sleep was measured
+    # to take 0.9999999999999858 seconds:
+    #   https://ci.appveyor.com/project/njsmith/trio/build/1.0.768/job/3lbdyxl63q3h9s21
+    # I believe that what happened here is that Windows's low clock resolution
+    # meant that our calls to time.monotonic() returned exactly the same
+    # values as the calls inside the actual run loop, but the two subtractions
+    # returned slightly different values because the run loop's clock adds a
+    # random floating point offset to both times, which should cancel out, but
+    # lol floating point we got slightly different rounding errors. (That
+    # value above is exactly 128 ULPs below 1.0, which would make sense if it
+    # started as a 1 ULP error at a different dynamic range.)
+    assert (1 - 1e-8) <= (dur / expected_dur) < 1.2
     return result.unwrap()
 
 
