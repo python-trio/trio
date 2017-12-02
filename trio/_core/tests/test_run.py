@@ -637,6 +637,12 @@ def test_instruments_crash(caplog):
     assert "Instrument has been disabled" in caplog.records[0].message
 
 
+async def test_cancel_scope_repr():
+    # Trivial smoke test
+    with _core.open_cancel_scope() as scope:
+        assert repr(scope).startswith("<cancel scope object")
+
+
 def test_cancel_points():
     async def main1():
         with _core.open_cancel_scope() as scope:
