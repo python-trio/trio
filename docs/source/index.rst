@@ -77,6 +77,8 @@ Vital statistics:
    reference-hazmat.rst
    design.rst
    history.rst
+   contributing.rst
+   code-of-conduct.rst
 
 ====================
  Indices and tables
