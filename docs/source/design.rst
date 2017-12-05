@@ -313,11 +313,8 @@ where it motivates the use of "nurseries"::
 
 (See :ref:`tasks` for full details.)
 
-If you squint you can see the influence of erlang's "task linking"
-idea here, but it's quite different in detail, exactly because Python
-has exceptions and Erlang doesn't. Erlang's links are symmetric and
-optional; to support exceptions we need ours to be asymmetric and
-mandatory.
+If you squint you can see the conceptual influence of Erlang's "task
+linking" and "task tree" ideas here, though the details are different.
 
 This design also turns out to enforce a remarkable, unexpected
 invariant.
