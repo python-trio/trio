@@ -86,6 +86,10 @@ def ssl_echo_serve_sync(sock, *, expect_fail=False):
                 # respond in kind but it's legal for them to have already gone
                 # away.
                 exceptions = (BrokenPipeError,)
+                # Under unclear conditions, CPython sometimes raises
+                # SSLWantWriteError here. This is a bug (bpo-32219), but it's
+                # not our bug, so ignore it.
+                exceptions += (stdlib_ssl.SSLWantWriteError,)
                 if WORKAROUND_PYPY_BUG:
                     exceptions += (stdlib_ssl.SSLEOFError,)
                 try:
