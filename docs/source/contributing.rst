@@ -211,7 +211,7 @@ Some rules for writing good tests:
 
 * (Trio package only) Slow tests – anything that takes more than about
   0.25 seconds – should be marked with ``@slow``. This makes it so they
-  only run if you do ``pytest trio --run-slow``. Our CI scripts do pass
+  only run if you do ``pytest trio --run-slow``. Our CI scripts do
   run slow tests, so you can be sure that the code will still be
   thoroughly tested, and this way you don't have to sit around waiting
   for a few irrelevant multi-second tests to run while you're iterating
