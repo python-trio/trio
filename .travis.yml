@@ -17,12 +17,6 @@ matrix:
     - os: linux
       language: generic
       env: USE_PYPY_RELEASE=1
-    - os: osx
-      language: generic
-      env: MACPYTHON=3.5.3
-    - os: osx
-      language: generic
-      env: MACPYTHON=3.6.2
     - os: linux
       language: python
       python: 3.6
