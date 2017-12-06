@@ -72,6 +72,8 @@ Highlights
   :class:`~trio.hazmat.RunLocal`. (`#2
   <https://github.com/python-trio/trio/pull/2>`__)
 
+* Added a new :ref:`guide to for contributors <contributing>`.
+
 
 Breaking changes and deprecations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
