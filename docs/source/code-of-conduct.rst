@@ -21,7 +21,7 @@ If you see a Code of Conduct violation, follow these steps:
    issue.
 3. If this doesn’t happen, or if you're uncomfortable speaking up,
    :ref:`contact the maintainers <coc-contacting-maintainers>`.
-4. As soon as available, a maintainer will look into the issue, and take
+4. As soon as possible, a maintainer will look into the issue, and take
    :ref:`further action (see below) <coc-further-enforcement>`, starting with
    a warning, then temporary block, then long-term repo or organization
    ban.
@@ -142,7 +142,9 @@ As a small and young project, we don't yet have a Code of Conduct
 enforcement team. Hopefully that will be addressed as we grow, but for
 now, any issues should be addressed to `Nathaniel J. Smith
 <https://github.com/njsmith>`__, via `email <mailto:njs@pobox.com>`__
-or any other medium that you feel comfortable with.
+or any other medium that you feel comfortable with. Using words like
+"Trio code of conduct" in your subject will help make sure your
+message is noticed quickly.
 
 
 .. _coc-further-enforcement:
@@ -162,6 +164,8 @@ take for further enforcement, as needed:
    blocked from participating for 24 hours.
 4. If the behavior continues or is repeated after the temporary block, a
    long-term (6-12mo) ban will be used.
+5. If after this the behavior still continues, a permanent ban may be
+   enforced.
 
 On top of this, maintainers may remove any offending messages, images,
 contributions, etc, as they deem necessary.
