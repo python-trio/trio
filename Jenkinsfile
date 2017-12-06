@@ -73,7 +73,8 @@ def build(pyversion, label) {
                             pytest -W error -ra --run-slow \${INSTALLDIR} --cov="\$INSTALLDIR" --cov-config=../.coveragerc --verbose
 
                             coverage combine
-                            pip install codecov && codecov
+                            #pip install codecov && codecov
+                            bash <(curl -s https://codecov.io/bash)
                         """
                     }
                 }
