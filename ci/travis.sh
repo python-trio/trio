@@ -5,24 +5,7 @@ set -ex
 # See https://github.com/python-trio/trio/issues/334
 YAPF_VERSION=0.17.0
 
-git --no-pager log -n2
-echo TRAVIS_PULL_REQUEST_SHA $TRAVIS_PULL_REQUEST_SHA
-echo TRAVIS_COMMIT $TRAVIS_COMMIT
-
-if [ "$TRAVIS_OS_NAME" = "osx" ]; then
-    curl -Lo macpython.pkg https://www.python.org/ftp/python/${MACPYTHON}/python-${MACPYTHON}-macosx10.6.pkg
-    sudo installer -pkg macpython.pkg -target /
-    ls /Library/Frameworks/Python.framework/Versions/*/bin/
-    if expr "${MACPYTHON}" : 2; then
-        PYBASE=python
-    else
-        PYBASE=python3
-    fi
-    PYTHON_EXE=/Library/Frameworks/Python.framework/Versions/*/bin/${PYBASE}
-    sudo $PYTHON_EXE -m pip install virtualenv
-    $PYTHON_EXE -m virtualenv testenv
-    source testenv/bin/activate
-fi
+git rev-parse HEAD
 
 if [ "$USE_PYPY_NIGHTLY" = "1" ]; then
     curl -fLo pypy.tar.bz2 http://buildbot.pypy.org/nightly/py3.5/pypy-c-jit-latest-linux64.tar.bz2
@@ -105,5 +88,5 @@ else
     pytest -W error -ra --run-slow ${INSTALLDIR} --cov="$INSTALLDIR" --cov-config=../.coveragerc --verbose
 
     coverage combine
-    pip install codecov && codecov
+    bash <(curl -s https://codecov.io/bash)
 fi

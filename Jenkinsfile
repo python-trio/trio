@@ -36,10 +36,6 @@ def checkout_git(label) {
             ])
         }
     }
-    sh """
-        cd trio
-        git rev-parse HEAD
-    """
 }
 def build(pyversion, label) {
     try {
@@ -56,25 +52,11 @@ def build(pyversion, label) {
                             export PATH="/usr/local/bin:\${PATH}"
                             export PATH="/Library/Frameworks/Python.framework/Versions/3.5/bin:\${PATH}"
                             export PATH="/Library/Frameworks/Python.framework/Versions/3.6/bin:\${PATH}"
-                            #export PATH="/Users/jenkins/.pyenv/shims:\${PATH}"
                             cd trio
-                            #virtualenv .venv -p $PYVERSION
                             $PYVERSION -m venv .venv
                             source .venv/bin/activate
-                            python setup.py sdist --formats=zip
-                            pip install dist/*.zip
 
-                            pip install -Ur test-requirements.txt
-
-                            mkdir empty
-                            cd empty
-
-                            INSTALLDIR=\$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
-                            pytest -W error -ra --run-slow \${INSTALLDIR} --cov="\$INSTALLDIR" --cov-config=../.coveragerc --verbose
-
-                            coverage combine
-                            #pip install codecov && codecov
-                            bash <(curl -s https://codecov.io/bash)
+                            source ci/travis.sh
                         """
                     }
                 }
