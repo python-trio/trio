@@ -95,6 +95,13 @@ __deprecated_attributes__ = {
         _deprecate.DeprecatedAttribute(
             hazmat.current_statistics, "0.2.0", issue=317
         ),
+    # STATUS_IGNORED never made it into a release, but I think people were
+    # using while it was in the dev version, so we might as well provide an
+    # alias for a little while.
+    "STATUS_IGNORED":
+        _deprecate.DeprecatedAttribute(
+            TASK_STATUS_IGNORED, "0.2.0", issue=353
+        ),
 }
 
 _deprecate.enable_attribute_deprecations(hazmat.__name__)
