@@ -5,8 +5,8 @@ Release history
 
 .. towncrier release notes start
 
-Trio 0.2.0 (coming soon)
-------------------------
+Trio 0.2.0 (2017-12-06)
+-----------------------
 
 Trio 0.2.0 contains changes from 14 contributors, and brings major new
 features and bug fixes, as well as a number of deprecations and a very
@@ -71,6 +71,8 @@ Highlights
   related, but more obscure, run-local storage; see
   :class:`~trio.hazmat.RunLocal`. (`#2
   <https://github.com/python-trio/trio/pull/2>`__)
+
+* Added a new :ref:`guide to for contributors <contributing>`.
 
 
 Breaking changes and deprecations
