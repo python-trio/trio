@@ -213,5 +213,5 @@ Code of conduct
 ---------------
 
 Contributors are requested to follow our `code of conduct
-<https://github.com/python-trio/trio/blob/master/CODE_OF_CONDUCT.md>`__ in
-all project spaces.
+<https://trio.readthedocs.io/en/latest/code-of-conduct.html>`__ in all
+project spaces.

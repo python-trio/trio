@@ -57,7 +57,7 @@ Vital statistics:
 
 * Code of conduct: Contributors are requested to follow our `code of
   conduct
-  <https://github.com/python-trio/trio/blob/master/CODE_OF_CONDUCT.md>`_
+  <https://trio.readthedocs.io/en/latest/code-of-conduct.html>`_
   in all project spaces.
 """
 
