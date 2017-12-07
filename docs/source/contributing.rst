@@ -238,8 +238,8 @@ Some rules for writing good tests:
 * For cases where real testing isn't relevant or sufficient, then we
   strongly prefer fakes or stubs over mocks. Useful articles:
 
-* `Test Doubles - Fakes, Mocks and Stubs
-  <https://dev.to/milipski/test-doubles---fakes-mocks-and-stubs>`__
+  * `Test Doubles - Fakes, Mocks and Stubs
+    <https://dev.to/milipski/test-doubles---fakes-mocks-and-stubs>`__
 
   * `Mocks aren't stubs
     <https://martinfowler.com/articles/mocksArentStubs.html>`__
