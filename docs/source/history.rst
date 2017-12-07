@@ -37,9 +37,9 @@ Highlights
 
 * Added a :ref:`new abstract API for byte streams
   <abstract-stream-api>`, and :mod:`trio.testing` gained helpers for
-  :ref:`creating fake streams for testing your protocol
-  implementations <virtual-streams>` and :ref:`checking that your
-  custom stream implementations follow the abstract contract
+  creating fake streams for :ref:`testing your protocol implementation
+  <virtual-streams>` and checking that your custom stream
+  implementation :ref:`follows the stream contract
   <testing-custom-streams>`.
 
 * If you're currently using :mod:`trio.socket` then you should
@@ -196,7 +196,7 @@ Upcoming breaking changes with warnings (i.e., stuff that in 0.2.0
   the following functions are moving:
 
   * ``trio.current_clock`` → :func:`trio.hazmat.current_clock`
-  * ``trio.current_statistics`` → func:`trio.hazmat.current_statistics`
+  * ``trio.current_statistics`` → :func:`trio.hazmat.current_statistics`
 
   See `#317 <https://github.com/python-trio/trio/issues/317>`__ for
   more details.
