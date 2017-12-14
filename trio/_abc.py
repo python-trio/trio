@@ -299,6 +299,13 @@ class SendStream(AsyncResource):
               is broken.
           trio.ClosedStreamError: if you already closed this stream object.
 
+        Most low-level operations in trio provide a guarantee: if they raise
+        :exc:`trio.Cancelled`, this means that they had no effect, so the
+        system remains in a known state. This is **not true** for
+        :meth:`send_all`. If this operation raises :exc:`trio.Cancelled` (or
+        any other exception for that matter), then it may have sent some, all,
+        or none of the requested data, and there is no way to know which.
+
         """
 
     @abstractmethod
