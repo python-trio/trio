@@ -55,6 +55,12 @@ whose pull request is merged is automatically invited to join the
 GitHub organization, and gets commit rights to all of our
 repositories. See :ref:`joining-the-team` below for more details.
 
+If you're looking for a good place to start, then check out our issues
+labeled `good first issue
+<https://github.com/search?utf8=%E2%9C%93&q=user%3Apython-trio+label%3A%22good+first+issue%22+state%3Aopen&type=Issues&ref=advsearch&l=&l=>`__,
+or feel free to `ask in chat
+<https://gitter.im/python-trio/general>`__.
+
 
 Providing support
 -----------------
@@ -355,7 +361,8 @@ documentation around that.
 We enable Sphinx's "nitpick mode", which turns dangling references
 into an error – this helps catch typos. (This will be automatically
 checked when your PR is submitted.) If you intentionally want to allow
-a dangling reference, you can add it to the ``nitpick_ignore``
+a dangling reference, you can add it to the `nitpick_ignore
+<http://www.sphinx-doc.org/en/stable/config.html#confval-nitpick_ignore>`__
 whitelist in ``docs/source/conf.py``.
 
 
@@ -447,6 +454,71 @@ For general tips on doing code reviews, the `node.js guide
 <https://github.com/nodejs/node/blob/master/CONTRIBUTING.md#reviewing-pull-requests>`__
 has some good suggestions, and `so does this blog post
 <http://verraes.net/2013/10/pre-merge-code-reviews/>`__.
+
+
+Managing issues
+---------------
+
+As issues come in, they need to be responded to, tracked, and –
+hopefully! – eventually closed.
+
+As a general rule, each open issue should represent some kind of task
+that we need to do. Sometimes that task might be "figure out what to
+do here", or even "figure out whether we want to address this issue";
+sometimes it will be "answer this person's question". But if there's
+no followup to be done, then the issue should be closed.
+
+
+Issue labels
+~~~~~~~~~~~~
+
+The Trio repository in particular uses a number of labels to try and
+keep track of issues. The current list is somewhat ad hoc, and may or
+may not remain useful over time – if you think of a new label that
+would be useful, a better name for an existing label, or think a label
+has outlived its usefulness, then speak up.
+
+* `good first issue
+  <https://github.com/python-trio/trio/labels/good%20first%20issue>`__:
+  Used to mark issues that are relatively straightforward, and could
+  be good places for a new contributor to start.
+
+* `todo soon
+  <https://github.com/python-trio/trio/labels/todo%20soon>`__: This
+  marks issues where there aren't questions left about whether or how
+  to do it, it's just waiting for someone to dig in and do the work.
+
+* `missing piece
+  <https://github.com/python-trio/trio/labels/missing%20piece>`__:
+  This generally marks significant self-contained chunks of missing
+  functionality. If you're looking for a more ambitious project to
+  work on, this might be useful.
+
+* `potential API breaker
+  <https://github.com/python-trio/trio/labels/potential%20API%20breaker>`__:
+  What it says. This is useful because these are issues that we'll
+  want to make sure to review aggressively as Trio starts to
+  stabilize, and certainly before we reach 1.0.
+
+* `design discussion
+  <https://github.com/python-trio/trio/labels/design%20discussion>`__:
+  This marks issues where there's significant design questions to be
+  discussed; if you like meaty theoretical debates and discussions of
+  API design, then browsing this might be interesting.
+
+* `polish <https://github.com/python-trio/trio/labels/polish>`__:
+  Marks issues that it'd be nice to resolve eventually, because it's
+  the Right Thing To Do, but it's addressing a kind of edge case thing
+  that isn't necessary for a minimum viable product. Sometimes
+  overlaps with "user happiness".
+
+* `user happiness
+  <https://github.com/python-trio/trio/labels/user%20happiness>`__:
+  From the name alone, this could apply to any bug (users certainly
+  are happier when you fix bugs!), but that's not what we mean. This
+  label is used for issues involving places where users stub their
+  toes, or for the kinds of quality-of-life features that leave users
+  surprised and excited – e.g. fancy testing tools that Just Work.
 
 
 Governance
