@@ -91,16 +91,6 @@ def test_run_nesting():
     assert "from inside" in str(excinfo.value)
 
 
-async def test_basic_spawn_wait(recwarn):
-    async def child(x):
-        return 2 * x
-
-    async with _core.open_nursery() as nursery:
-        task = nursery.spawn(child, 10)
-        await task.wait()
-        assert task.result.unwrap() == 20
-
-
 async def test_nursery_warn_use_async_with():
     with pytest.raises(RuntimeError) as excinfo:
         on = _core.open_nursery()
@@ -115,21 +105,16 @@ async def test_nursery_warn_use_async_with():
         pass
 
 
-# can remove after 0.2.0
-async def test_child_crash_basic_deprecated(recwarn):
-    exc = ValueError("uh oh")
+async def test_nursery_main_block_error_basic():
+    exc = ValueError("whoops")
 
-    async def erroring():
-        raise exc
-
-    async with _core.open_nursery() as nursery:
-        task = nursery.spawn(erroring)
-        await task.wait()
-        assert task.result.error is exc
-        nursery.reap(task)
+    with pytest.raises(ValueError) as excinfo:
+        async with _core.open_nursery() as nursery:
+            raise exc
+    assert excinfo.value is exc
 
 
-async def test_child_crash_basic(recwarn):
+async def test_child_crash_basic():
     exc = ValueError("uh oh")
 
     async def erroring():
@@ -141,22 +126,6 @@ async def test_child_crash_basic(recwarn):
             nursery.start_soon(erroring)
     except ValueError as e:
         assert e is exc
-
-
-async def test_reap_bad_task(recwarn):
-    async def child():
-        pass
-
-    async with _core.open_nursery() as nursery:
-        t = nursery.spawn(child)
-        with pytest.raises(ValueError):
-            nursery.reap(None)
-        with pytest.raises(ValueError):
-            nursery.reap(t)
-        await t.wait()
-        nursery.reap(t)
-        with pytest.raises(ValueError):
-            nursery.reap(t)
 
 
 async def test_basic_interleave():
@@ -182,9 +151,7 @@ def test_task_crash_propagation():
     async def looper():
         try:
             while True:
-                print("looper sleeping")
                 await _core.checkpoint()
-                print("looper woke up")
         except _core.Cancelled:
             print("looper cancelled")
             looper_record.append("cancelled")
@@ -204,26 +171,22 @@ def test_task_crash_propagation():
     assert excinfo.value.args == ("argh",)
 
 
-def test_main_and_task_both_crash(recwarn):
+def test_main_and_task_both_crash():
     # If main crashes and there's also a task crash, then we get both in a
     # MultiError
     async def crasher():
         raise ValueError
 
-    async def main(wait):
+    async def main():
         async with _core.open_nursery() as nursery:
-            crasher_task = nursery.spawn(crasher)
-            if wait:
-                await crasher_task.wait()
+            crasher_task = nursery.start_soon(crasher)
             raise KeyError
 
-    for wait in [True, False]:
-        with pytest.raises(_core.MultiError) as excinfo:
-            _core.run(main, wait)
-        print(excinfo.value)
-        assert set(type(exc) for exc in excinfo.value.exceptions) == {
-            ValueError, KeyError
-        }
+    with pytest.raises(_core.MultiError) as excinfo:
+        _core.run(main)
+    print(excinfo.value)
+    assert set(type(exc)
+               for exc in excinfo.value.exceptions) == {ValueError, KeyError}
 
 
 def test_two_child_crashes():
@@ -239,6 +202,16 @@ def test_two_child_crashes():
         _core.run(main)
     assert set(type(exc)
                for exc in excinfo.value.exceptions) == {ValueError, KeyError}
+
+
+async def test_child_crash_wakes_parent():
+    async def crasher():
+        raise ValueError
+
+    with pytest.raises(ValueError):
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(crasher)
+            await sleep_forever()
 
 
 async def test_reschedule():
@@ -271,64 +244,6 @@ async def test_reschedule():
         # let t1 run and fall asleep
         await _core.checkpoint()
         nursery.start_soon(child2)
-
-
-async def test_task_monitor(recwarn):
-    async def child():
-        return 1
-
-    q1 = _core.UnboundedQueue()
-    q2 = _core.UnboundedQueue()
-    q3 = _core.UnboundedQueue()
-    async with _core.open_nursery() as nursery:
-        task = nursery.spawn(child)
-        task.add_monitor(q1)
-        task.add_monitor(q2)
-
-        # okay to discard one that was never there
-        task.discard_monitor(q3)
-
-        # discard one that *was* there, to make sure it works
-        task.discard_monitor(q2)
-
-        # add one that's already there:
-        with pytest.raises(ValueError):
-            task.add_monitor(q1)
-
-        task.add_monitor(q3)
-
-        # q1 and q3 should be there now, check that they indeed get notified
-        await _core.wait_all_tasks_blocked()
-
-        assert task.result.unwrap() == 1
-        assert q1.get_batch_nowait() == [task]
-        with pytest.raises(_core.WouldBlock):
-            q2.get_batch_nowait()
-        assert q3.get_batch_nowait() == [task]
-
-    # can re-add the queue now
-    for _ in range(2):
-        assert q1.empty()
-        task.add_monitor(q1)
-        # and it immediately receives the result:
-        assert q1.get_batch_nowait() == [task]
-        # and since it was used, it's already gone from the set, so we can
-        # loop around and do it again
-
-
-async def test_bad_monitor_object(recwarn):
-    task = _core.current_task()
-
-    with pytest.raises(TypeError):
-        task.add_monitor("hello")
-
-    class BadQueue:
-        def put_nowait(self, obj):  # pragma: no cover
-            raise KeyError
-
-    bad_queue = BadQueue()
-    with pytest.raises(TypeError):
-        task.add_monitor(bad_queue)
 
 
 async def test_current_time():
@@ -450,43 +365,20 @@ class TaskRecorder:
                 yield item
 
 
-def test_instruments_deprecated(recwarn):
-    r1 = TaskRecorder()
-    r2 = TaskRecorder()
-    r3 = TaskRecorder()
-
-    async def main():
-        for _ in range(4):
-            await _core.checkpoint()
-        cp = _core.current_instruments()
-        assert cp == [r1, r2]
-        # replace r2 with r3, to test that we can manipulate them as we go
-        cp[1] = r3
-        for _ in range(1):
-            await _core.checkpoint()
-        return _core.current_task()
-
-    task = _core.run(main, instruments=[r1, r2])
-    # It sleeps 5 times, so it runs 6 times
-    expected = (
-        [("before_run",)] +
-        6 * [("schedule", task),
-             ("before", task),
-             ("after", task)] + [("after_run",)]
-    )
-    assert len(r1.record) > len(r2.record) > len(r3.record)
-    assert r1.record == r2.record + r3.record
-    # Need to filter b/c there's also the system task bumping around in the
-    # record:
-    assert list(r1.filter_tasks([task])) == expected
-
-
 def test_instruments(recwarn):
     r1 = TaskRecorder()
     r2 = TaskRecorder()
     r3 = TaskRecorder()
 
-    async def main():
+    task = None
+
+    # We use a child task for this, because the main task does some extra
+    # bookkeeping stuff that can leak into the instrument results, and we
+    # don't want to deal with it.
+    async def task_fn():
+        nonlocal task
+        task = _core.current_task()
+
         for _ in range(4):
             await _core.checkpoint()
         # replace r2 with r3, to test that we can manipulate them as we go
@@ -498,9 +390,13 @@ def test_instruments(recwarn):
         _core.add_instrument(r3)
         for _ in range(1):
             await _core.checkpoint()
-        return _core.current_task()
 
-    task = _core.run(main, instruments=[r1, r2])
+    async def main():
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(task_fn)
+
+    _core.run(main, instruments=[r1, r2])
+
     # It sleeps 5 times, so it runs 6 times
     expected = (
         [("before_run",)] +
@@ -510,8 +406,6 @@ def test_instruments(recwarn):
     )
     assert len(r1.record) > len(r2.record) > len(r3.record)
     assert r1.record == r2.record + r3.record
-    # Need to filter b/c there's also the system task bumping around in the
-    # record:
     assert list(r1.filter_tasks([task])) == expected
 
 
@@ -700,9 +594,6 @@ async def test_cancel_edge_cases():
 
 
 async def test_cancel_scope_multierror_filtering():
-    async def child():
-        await sleep_forever()
-
     async def crasher():
         raise KeyError
 
@@ -711,34 +602,38 @@ async def test_cancel_scope_multierror_filtering():
             try:
                 async with _core.open_nursery() as nursery:
                     # Two children that get cancelled by the nursery scope
-                    nursery.start_soon(child)  # t1
-                    nursery.start_soon(child)  # t2
+                    nursery.start_soon(sleep_forever)  # t1
+                    nursery.start_soon(sleep_forever)  # t2
                     nursery.cancel_scope.cancel()
                     with _core.open_cancel_scope(shield=True):
                         await wait_all_tasks_blocked()
                     # One child that gets cancelled by the outer scope
-                    nursery.start_soon(child)  # t3
+                    nursery.start_soon(sleep_forever)  # t3
                     outer.cancel()
                     # And one that raises a different error
                     nursery.start_soon(crasher)  # t4
+                # and then our __aexit__ also receives an outer Cancelled
             except _core.MultiError as multi_exc:
                 # This is outside the nursery scope but inside the outer
                 # scope, so the nursery should have absorbed t1 and t2's
-                # exceptions but t3 and t4 should remain
-                assert len(multi_exc.exceptions) == 2
+                # exceptions but t3 and t4 should remain, plus the Cancelled
+                # from 'outer'
+                assert len(multi_exc.exceptions) == 3
                 summary = {}
                 for exc in multi_exc.exceptions:
                     summary.setdefault(type(exc), 0)
                     summary[type(exc)] += 1
-                assert summary == {_core.Cancelled: 1, KeyError: 1}
+                assert summary == {_core.Cancelled: 2, KeyError: 1}
                 raise
+    except AssertionError:  # pragma: no cover
+        raise
     except BaseException as exc:
-        # This is ouside the outer scope, so t3's Cancelled exception should
-        # also have been absorbed, leaving just a regular KeyError from
-        # crasher()
+        # This is ouside the outer scope, so the two outer Cancelled
+        # exceptions should have been absorbed, leaving just a regular
+        # KeyError from crasher()
         assert type(exc) is KeyError
-    else:
-        assert False  # pragma: no cover
+    else:  # pragma: no cover
+        assert False
 
 
 async def test_precancelled_task():
@@ -1232,6 +1127,17 @@ async def test_exception_chaining_after_yield_error():
     assert isinstance(excinfo.value.__context__, KeyError)
 
 
+async def test_nursery_exception_chaining_doesnt_make_context_loops():
+    async def crasher():
+        raise KeyError
+
+    with pytest.raises(_core.MultiError) as excinfo:
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(crasher)
+            raise ValueError
+    assert excinfo.value.__context__ is None
+
+
 def test_TrioToken_identity():
     async def get_and_check_token():
         token = _core.current_trio_token()
@@ -1513,44 +1419,37 @@ async def test_slow_abort_edge_cases():
             assert record == ["sleeping", "abort-called", "cancelled", "done"]
 
 
-async def test_Task_parent_task_deprecated(recwarn):
-    tasks = {}
-
-    async def child2():
-        tasks["child2"] = _core.current_task()
-
-    async def child1():
-        tasks["child1"] = _core.current_task()
-        async with _core.open_nursery() as nursery:
-            return nursery.start_soon(child2)
-
-    async with _core.open_nursery() as nursery:
-        nursery.start_soon(child1)
-
-    assert tasks["child1"].parent_task is _core.current_task()
-    assert tasks["child2"].parent_task is tasks["child1"]
-
-    t = _core.current_task()
-    # Make sure that chaining parent_task eventually gives None (and not, for
-    # example, an error)
-    while t is not None:
-        t = t.parent_task
-
-
 async def test_task_tree_introspection():
     tasks = {}
-
-    tasks["parent"] = _core.current_task()
-
-    assert tasks["parent"].child_nurseries == []
-
-    async with _core.open_nursery() as nursery1:
-        async with _core.open_nursery() as nursery2:
-            assert tasks["parent"].child_nurseries == [nursery1, nursery2]
-
-    assert tasks["parent"].child_nurseries == []
-
     nurseries = {}
+
+    async def parent():
+        tasks["parent"] = _core.current_task()
+
+        assert tasks["parent"].child_nurseries == []
+
+        async with _core.open_nursery() as nursery1:
+            async with _core.open_nursery() as nursery2:
+                assert tasks["parent"].child_nurseries == [nursery1, nursery2]
+
+        assert tasks["parent"].child_nurseries == []
+
+        async with _core.open_nursery() as nursery:
+            nurseries["parent"] = nursery
+            nursery.start_soon(child1)
+
+        # Upward links survive after tasks/nurseries exit
+        assert nurseries["parent"].parent_task is tasks["parent"]
+        assert tasks["child1"].parent_nursery is nurseries["parent"]
+        assert nurseries["child1"].parent_task is tasks["child1"]
+        assert tasks["child2"].parent_nursery is nurseries["child1"]
+
+        nursery = _core.current_task().parent_nursery
+        # Make sure that chaining eventually gives a nursery of None (and not,
+        # for example, an error)
+        while nursery is not None:
+            t = nursery.parent_task
+            nursery = t.parent_nursery
 
     async def child2():
         tasks["child2"] = _core.current_task()
@@ -1567,21 +1466,7 @@ async def test_task_tree_introspection():
             nursery.start_soon(child2)
 
     async with _core.open_nursery() as nursery:
-        nurseries["parent"] = nursery
-        nursery.start_soon(child1)
-
-    # Upward links survive after tasks/nurseries exit
-    assert nurseries["parent"].parent_task is tasks["parent"]
-    assert tasks["child1"].parent_nursery is nurseries["parent"]
-    assert nurseries["child1"].parent_task is tasks["child1"]
-    assert tasks["child2"].parent_nursery is nurseries["child1"]
-
-    nursery = _core.current_task().parent_nursery
-    # Make sure that chaining eventually gives a nursery of None (and not, for
-    # example, an error)
-    while nursery is not None:
-        t = nursery.parent_task
-        nursery = t.parent_nursery
+        nursery.start_soon(parent)
 
 
 async def test_nursery_closure():
@@ -1709,7 +1594,7 @@ def test_calling_asyncio_function_gives_nice_error():
     assert "asyncio" in str(excinfo.value)
 
 
-async def test_trivial_yields(recwarn):
+async def test_trivial_yields():
     with assert_checkpoints():
         await _core.checkpoint()
 
@@ -1730,15 +1615,6 @@ async def test_trivial_yields(recwarn):
         assert set(type(e) for e in excinfo.value.exceptions) == {
             KeyError, _core.Cancelled
         }
-
-    async def trivial():
-        pass
-
-    async with _core.open_nursery() as nursery:
-        t = nursery.spawn(trivial)
-    assert t.result is not None
-    with assert_checkpoints():
-        await t.wait()
 
 
 async def test_nursery_start(autojump_clock):
@@ -1923,34 +1799,3 @@ async def test_nursery_start_keeps_nursery_open(autojump_clock):
             nursery1.start_soon(start_sleep_then_crash, nursery2)
             await wait_all_tasks_blocked()
         assert _core.current_time() - t0 == 7
-
-
-# can remove after 0.2.0
-async def test_some_deprecated_but_uncovered_methods(recwarn):
-    async def noop():
-        return 33
-
-    async with _core.open_nursery() as nursery:
-        assert not nursery.zombies
-        assert not nursery.children
-
-        nursery.start_soon(noop)
-        assert len(nursery.children) == 1
-
-        await wait_all_tasks_blocked()
-        assert len(nursery.zombies) == 1
-        assert not nursery.children
-
-        batch = await nursery.monitor.get_batch()
-        for task in batch:
-            assert nursery.reap_and_unwrap(task) == 33
-
-        assert not nursery.zombies
-
-    record = []
-    assert _core.current_statistics().call_soon_queue_size == 0
-    call_soon = _core.current_call_soon_thread_and_signal_safe()
-    call_soon(record.append, 1)
-    assert _core.current_statistics().call_soon_queue_size == 1
-    await wait_all_tasks_blocked()
-    assert record == [1]

@@ -472,8 +472,6 @@ class _LockstepByteQueue:
             )
             if self._data and self._receiver_closed:
                 raise BrokenStreamError
-            if not self._data:
-                return
 
     async def wait_send_all_might_not_block(self):
         async with self._send_conflict_detector:

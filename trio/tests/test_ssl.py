@@ -111,10 +111,6 @@ def ssl_echo_serve_sync(sock, *, expect_fail=False):
 # Fixture that gives a raw socket connected to a trio-test-1 echo server
 # (running in a thread). Useful for testing making connections with different
 # SSLContexts.
-#
-# This way of writing it is pretty janky, with the nursery hidden inside the
-# fixture and no proper parental supervision. Don't copy this code; it was
-# written this way before we knew better.
 @acontextmanager
 @async_generator
 async def ssl_echo_server_raw(**kwargs):
