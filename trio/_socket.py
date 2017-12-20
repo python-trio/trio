@@ -462,7 +462,15 @@ class _SocketType(SocketType):
     async def bind(self, address):
         await _core.checkpoint()
         self._check_address(address, require_resolved=True)
-        return self._sock.bind(address)
+        if hasattr(_stdlib_socket, "AF_UNIX") and self.family == AF_UNIX:
+            # Use a thread for the filesystem traversal.
+            return await run_sync_in_worker_thread(self._sock.bind, address)
+        else:
+            # POSIX actually says that bind can return EWOULDBLOCK and
+            # complete asynchronously, like connect. But in practice AFAICT
+            # there aren't yet any real systems that do this, so we'll worry
+            # about it when it happens.
+            return self._sock.bind(address)
 
     def shutdown(self, flag):
         # no need to worry about return value b/c always returns None:

@@ -3,6 +3,7 @@ import pytest
 import os
 import socket as stdlib_socket
 import inspect
+import tempfile
 
 from .._core.tests.tutil import need_ipv6
 from .. import _core
@@ -844,3 +845,24 @@ async def test_custom_socket_factory():
 async def test_SocketType_is_abstract():
     with pytest.raises(TypeError):
         tsocket.SocketType()
+
+
+@pytest.mark.skipif(
+    not hasattr(tsocket, "AF_UNIX"), reason="no unix domain sockets"
+)
+async def test_unix_domain_socket():
+    # Bind has a special branch to use a thread, since it has to do filesystem
+    # traversal. Maybe connect should too? Not sure.
+
+    # Can't use tmpdir fixture, because we can exceed the maximum AF_UNIX path
+    # length on MacOS.
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = "{}/sock".format(tmpdir)
+        with tsocket.socket(family=tsocket.AF_UNIX) as lsock:
+            await lsock.bind(path)
+            lsock.listen(10)
+            with tsocket.socket(family=tsocket.AF_UNIX) as csock:
+                await csock.connect(path)
+                ssock, _ = await lsock.accept()
+                await csock.send(b"x")
+                assert await ssock.recv(1) == b"x"
