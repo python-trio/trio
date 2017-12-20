@@ -119,7 +119,7 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
                         tsocket.IPPROTO_IPV6, tsocket.IPV6_V6ONLY, 1
                     )
 
-                sock.bind(sockaddr)
+                await sock.bind(sockaddr)
                 sock.listen(backlog)
 
                 listeners.append(trio.SocketListener(sock))

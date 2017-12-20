@@ -363,7 +363,7 @@ async def test_SocketType_simple_server(address, socket_type):
     listener = tsocket.socket(socket_type)
     client = tsocket.socket(socket_type)
     with listener, client:
-        listener.bind((address, 0))
+        await listener.bind((address, 0))
         listener.listen(20)
         addr = listener.getsockname()[:2]
         async with _core.open_nursery() as nursery:
@@ -455,7 +455,7 @@ async def test_SocketType_resolve():
 async def test_SocketType_requires_preresolved(monkeypatch):
     sock = tsocket.socket()
     with pytest.raises(ValueError):
-        sock.bind(("localhost", 0))
+        await sock.bind(("localhost", 0))
 
     # I don't think it's possible to actually get a gaierror from the way we
     # call getaddrinfo in _check_address, but just in case someone finds a
@@ -465,7 +465,7 @@ async def test_SocketType_requires_preresolved(monkeypatch):
 
     monkeypatch.setattr(stdlib_socket, "getaddrinfo", gai_oops)
     with pytest.raises(tsocket.gaierror):
-        sock.bind(("localhost", 0))
+        await sock.bind(("localhost", 0))
 
 
 # This tests all the complicated paths through _nonblocking_helper, using recv
@@ -561,7 +561,7 @@ async def test_SocketType_connect_paths():
     # Cancelled in between the connect() call and the connect completing
     with _core.open_cancel_scope() as cancel_scope:
         with tsocket.socket() as sock, tsocket.socket() as listener:
-            listener.bind(("127.0.0.1", 0))
+            await listener.bind(("127.0.0.1", 0))
             listener.listen()
 
             # Swap in our weird subclass under the trio.socket._SocketType's
@@ -620,8 +620,8 @@ async def test_send_recv_variants():
     a = tsocket.socket(type=tsocket.SOCK_DGRAM)
     b = tsocket.socket(type=tsocket.SOCK_DGRAM)
     with a, b:
-        a.bind(("127.0.0.1", 0))
-        b.bind(("127.0.0.1", 0))
+        await a.bind(("127.0.0.1", 0))
+        await b.bind(("127.0.0.1", 0))
         # recvfrom
         assert await a.sendto(b"xxx", b.getsockname()) == 3
         (data, addr) = await b.recvfrom(10)
@@ -680,7 +680,7 @@ async def test_send_recv_variants():
     a = tsocket.socket(type=tsocket.SOCK_DGRAM)
     b = tsocket.socket(type=tsocket.SOCK_DGRAM)
     with a, b:
-        b.bind(("127.0.0.1", 0))
+        await b.bind(("127.0.0.1", 0))
         await a.connect(b.getsockname())
         # send on a connected udp socket; each call creates a separate
         # datagram

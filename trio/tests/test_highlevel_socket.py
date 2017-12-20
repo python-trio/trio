@@ -39,7 +39,7 @@ async def test_SocketStream_basics():
     # socketpair() might give us a unix socket that doesn't support any of
     # these options
     with tsocket.socket() as listen_sock:
-        listen_sock.bind(("127.0.0.1", 0))
+        await listen_sock.bind(("127.0.0.1", 0))
         listen_sock.listen(1)
         with tsocket.socket() as client_sock:
             await client_sock.connect(listen_sock.getsockname())
@@ -94,7 +94,7 @@ async def test_SocketListener():
 
     # Not a SOCK_STREAM
     with tsocket.socket(type=tsocket.SOCK_DGRAM) as s:
-        s.bind(("127.0.0.1", 0))
+        await s.bind(("127.0.0.1", 0))
         with pytest.raises(ValueError) as excinfo:
             SocketListener(s)
         excinfo.match(r".*SOCK_STREAM")
@@ -103,13 +103,13 @@ async def test_SocketListener():
     # MacOS has no way to check for this, so skip testing it there.
     if sys.platform != "darwin":
         with tsocket.socket() as s:
-            s.bind(("127.0.0.1", 0))
+            await s.bind(("127.0.0.1", 0))
             with pytest.raises(ValueError) as excinfo:
                 SocketListener(s)
             excinfo.match(r".*listen")
 
     listen_sock = tsocket.socket()
-    listen_sock.bind(("127.0.0.1", 0))
+    await listen_sock.bind(("127.0.0.1", 0))
     listen_sock.listen(10)
     listener = SocketListener(listen_sock)
 
@@ -139,7 +139,7 @@ async def test_SocketListener():
 
 async def test_SocketListener_socket_closed_underfoot():
     listen_sock = tsocket.socket()
-    listen_sock.bind(("127.0.0.1", 0))
+    await listen_sock.bind(("127.0.0.1", 0))
     listen_sock.listen(10)
     listener = SocketListener(listen_sock)
 

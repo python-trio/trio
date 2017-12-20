@@ -459,7 +459,8 @@ class _SocketType(SocketType):
         """
         return _SocketType(self._sock.dup())
 
-    def bind(self, address):
+    async def bind(self, address):
+        await _core.checkpoint()
         self._check_address(address, require_resolved=True)
         return self._sock.bind(address)
 

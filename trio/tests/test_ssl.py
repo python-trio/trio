@@ -1148,7 +1148,7 @@ async def test_getpeercert():
 async def test_SSLListener():
     async def setup(**kwargs):
         listen_sock = tsocket.socket()
-        listen_sock.bind(("127.0.0.1", 0))
+        await listen_sock.bind(("127.0.0.1", 0))
         listen_sock.listen(1)
         socket_listener = SocketListener(listen_sock)
         ssl_listener = tssl.SSLListener(socket_listener, SERVER_CTX, **kwargs)
