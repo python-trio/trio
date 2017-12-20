@@ -112,10 +112,10 @@ class _AsyncGeneratorContextManager:
             else:
                 raise RuntimeError("async generator didn't stop")
         else:
-            if value is None:
-                # Need to force instantiation so we can reliably
-                # tell if we get the same exception back
-                value = type()
+            # It used to be possible to have type != None, value == None:
+            #    https://bugs.python.org/issue1705170
+            # but AFAICT this can't happen anymore.
+            assert value is not None
             try:
                 await self._agen.athrow(type, value, traceback)
                 raise RuntimeError(
