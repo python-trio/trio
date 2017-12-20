@@ -385,6 +385,7 @@ class Nursery:
                 and not self._pending_starts):
             self._closed = True
             if self._parent_waiting_in_aexit:
+                self._parent_waiting_in_aexit = False
                 GLOBAL_RUN_CONTEXT.runner.reschedule(self._parent_task)
 
     def _child_finished(self, task, result):
