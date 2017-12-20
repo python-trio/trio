@@ -462,8 +462,10 @@ class _SocketType(SocketType):
     async def bind(self, address):
         await _core.checkpoint()
         self._check_address(address, require_resolved=True)
-        if hasattr(_stdlib_socket, "AF_UNIX") and self.family == AF_UNIX:
-            # Use a thread for the filesystem traversal.
+        if (hasattr(_stdlib_socket, "AF_UNIX") and self.family == AF_UNIX
+                and address[0]):
+            # Use a thread for the filesystem traversal (unless it's an
+            # abstract domain socket)
             return await run_sync_in_worker_thread(self._sock.bind, address)
         else:
             # POSIX actually says that bind can return EWOULDBLOCK and

@@ -854,10 +854,7 @@ async def test_unix_domain_socket():
     # Bind has a special branch to use a thread, since it has to do filesystem
     # traversal. Maybe connect should too? Not sure.
 
-    # Can't use tmpdir fixture, because we can exceed the maximum AF_UNIX path
-    # length on MacOS.
-    with tempfile.TemporaryDirectory() as tmpdir:
-        path = "{}/sock".format(tmpdir)
+    async def check_AF_UNIX(path):
         with tsocket.socket(family=tsocket.AF_UNIX) as lsock:
             await lsock.bind(path)
             lsock.listen(10)
@@ -866,3 +863,16 @@ async def test_unix_domain_socket():
                 ssock, _ = await lsock.accept()
                 await csock.send(b"x")
                 assert await ssock.recv(1) == b"x"
+
+    # Can't use tmpdir fixture, because we can exceed the maximum AF_UNIX path
+    # length on MacOS.
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = "{}/sock".format(tmpdir)
+        await check_AF_UNIX(path)
+
+    try:
+        cookie = os.urandom(20).hex().encode("ascii")
+        await check_AF_UNIX(b"\x00trio-test-" + cookie)
+    except FileNotFoundError:
+        # MacOS doesn't support abstract filenames with the leading NUL byte
+        pass
