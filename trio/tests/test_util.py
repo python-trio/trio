@@ -140,16 +140,17 @@ async def test_native_contextmanager_do_not_unchain_non_stopiteration_exceptions
         assert excinfo.value.__cause__ is None
 
 
-async def test_contextmanager_StopAsyncIteration_passthrough():
+async def test_acontextmanager_exception_passthrough():
     # This was the cause of annoying coverage flapping, see gh-140
     @acontextmanager
     @async_generator
     async def noop_async_context_manager():
         await yield_()
 
-    with pytest.raises(StopAsyncIteration):
-        async with noop_async_context_manager():
-            raise StopAsyncIteration
+    for exc_type in [StopAsyncIteration, RuntimeError, ValueError]:
+        with pytest.raises(exc_type):
+            async with noop_async_context_manager():
+                raise exc_type
 
 
 async def test_acontextmanager_catches_exception():
@@ -161,6 +162,50 @@ async def test_acontextmanager_catches_exception():
 
     async with catch_it():
         raise ValueError
+
+
+async def test_acontextmanager_no_yield():
+    @acontextmanager
+    @async_generator
+    async def yeehaw():
+        pass
+
+    with pytest.raises(RuntimeError) as excinfo:
+        async with yeehaw():
+            assert False  # pragma: no cover
+
+    assert "didn't yield" in str(excinfo.value)
+
+
+async def test_acontextmanager_too_many_yields():
+    @acontextmanager
+    @async_generator
+    async def doubleyield():
+        try:
+            await yield_()
+        except Exception:
+            pass
+        await yield_()
+
+    with pytest.raises(RuntimeError) as excinfo:
+        async with doubleyield():
+            pass
+
+    assert "didn't stop" in str(excinfo.value)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        async with doubleyield():
+            raise ValueError
+
+    assert "didn't stop after athrow" in str(excinfo.value)
+
+
+async def test_acontextmanager_requires_asyncgenfunction():
+    with pytest.raises(TypeError):
+
+        @acontextmanager
+        def syncgen():  # pragma: no cover
+            yield
 
 
 def test_module_metadata_is_fixed_up():
