@@ -55,6 +55,8 @@ Vital statistics:
 
 * License: MIT or Apache 2, your choice
 
+* Contributor guide: https://trio.readthedocs.io/en/latest/contributing.html
+
 * Code of conduct: Contributors are requested to follow our `code of
   conduct
   <https://trio.readthedocs.io/en/latest/code-of-conduct.html>`_
