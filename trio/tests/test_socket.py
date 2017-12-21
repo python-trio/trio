@@ -378,18 +378,22 @@ async def test_SocketType_simple_server(address, socket_type):
 
 # Direct thorough tests of the implicit resolver helpers
 async def test_SocketType_resolve():
-    sock4 = tsocket.socket(family=tsocket.AF_INET)
-    got = await sock4._resolve_local_address((None, 80))
-    assert got == ("0.0.0.0", 80)
-    got = await sock4._resolve_remote_address((None, 80))
-    assert got == ("127.0.0.1", 80)
+    # For some reason the stdlib special-cases "" to pass NULL to getaddrinfo
+    # They also error out on None, but whatever, None is much more consistent,
+    # so we accept it too.
+    for null in [None, ""]:
+        sock4 = tsocket.socket(family=tsocket.AF_INET)
+        got = await sock4._resolve_local_address((null, 80))
+        assert got == ("0.0.0.0", 80)
+        got = await sock4._resolve_remote_address((null, 80))
+        assert got == ("127.0.0.1", 80)
 
-    sock6 = tsocket.socket(family=tsocket.AF_INET6)
-    got = await sock6._resolve_local_address((None, 80))
-    assert got == ("::", 80, 0, 0)
+        sock6 = tsocket.socket(family=tsocket.AF_INET6)
+        got = await sock6._resolve_local_address((null, 80))
+        assert got == ("::", 80, 0, 0)
 
-    got = await sock6._resolve_remote_address((None, 80))
-    assert got == ("::1", 80, 0, 0)
+        got = await sock6._resolve_remote_address((null, 80))
+        assert got == ("::1", 80, 0, 0)
 
     # AI_PASSIVE only affects the wildcard address, so for everything else
     # _resolve_local_address and _resolve_remote_address should work the same:
@@ -446,6 +450,11 @@ async def test_SocketType_resolve():
             await s6res(("1.2.3.4",))
         with pytest.raises(ValueError):
             await s6res(("1.2.3.4", 80, 0, 0, 0))
+
+        # The <broadcast> special case, because why not
+        await s4res(("<broadcast>", 123)) == ("255.255.255.255", 123)
+        with pytest.raises(tsocket.gaierror):
+            await s6res(("<broadcast>", 123))
 
 
 async def test_deprecated_resolver_methods(recwarn):
