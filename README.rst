@@ -109,18 +109,9 @@ the best! There's tons of work to do – filling in missing
 functionality, building up an ecosystem of trio-using libraries,
 usability testing (e.g., maybe try teaching yourself or a friend to
 use trio and make a list of every error message you hit and place
-where you got confused?), improving the docs, ... We `don't have a
-CONTRIBUTING.md yet <https://github.com/python-trio/trio/issues/46>`__
-(want to help write one?), but you can check out our `issue tracker
-<https://github.com/python-trio/trio/issues>`__, and depending on your
-interests check out our `labels
-<https://github.com/python-trio/trio/labels>`__ for `low-hanging fruit
-<https://github.com/python-trio/trio/labels/todo%20soon>`__,
-`significant missing functionality
-<https://github.com/python-trio/trio/labels/missing%20piece>`__, `open
-questions regarding high-level design
-<https://github.com/python-trio/trio/labels/design%20discussion>`__,
-...
+where you got confused?), improving the docs, ... check out our `guide
+for contributors
+<https://trio.readthedocs.io/en/latest/contributing.html>`!
 
 **I don't have any immediate plans to use it, but I love geeking out
 about I/O library design!** That's a little weird? But tbh you'll fit
