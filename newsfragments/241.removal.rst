@@ -1,0 +1,4 @@
+As was foretold in the v0.2.0 release notes, the ``bind`` method on
+Trio sockets is now async. Please update your calls or – better yet –
+switch to our shiny new high-level networking API, like
+:func:`serve_tcp`.

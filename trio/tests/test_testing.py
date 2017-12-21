@@ -804,20 +804,20 @@ async def test_open_stream_to_socket_listener():
 
     # Listener bound to localhost
     sock = tsocket.socket()
-    sock.bind(("127.0.0.1", 0))
+    await sock.bind(("127.0.0.1", 0))
     sock.listen(10)
     await check(SocketListener(sock))
 
     # Listener bound to IPv4 wildcard (needs special handling)
     sock = tsocket.socket()
-    sock.bind(("0.0.0.0", 0))
+    await sock.bind(("0.0.0.0", 0))
     sock.listen(10)
     await check(SocketListener(sock))
 
     if have_ipv6:
         # Listener bound to IPv6 wildcard (needs special handling)
         sock = tsocket.socket(family=tsocket.AF_INET6)
-        sock.bind(("::", 0))
+        await sock.bind(("::", 0))
         sock.listen(10)
         await check(SocketListener(sock))
 
@@ -828,6 +828,6 @@ async def test_open_stream_to_socket_listener():
         # AF_UNIX path too long"
         with tempfile.TemporaryDirectory() as tmpdir:
             path = "{}/sock".format(tmpdir)
-            sock.bind(path)
+            await sock.bind(path)
             sock.listen(10)
             await check(SocketListener(sock))

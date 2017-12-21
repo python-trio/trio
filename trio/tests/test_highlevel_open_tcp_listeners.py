@@ -44,7 +44,7 @@ async def test_open_tcp_listeners_basic():
 async def test_open_tcp_listeners_specific_port_specific_host():
     # Pick a port
     sock = tsocket.socket()
-    sock.bind(("127.0.0.1", 0))
+    await sock.bind(("127.0.0.1", 0))
     host, port = sock.getsockname()
     sock.close()
 
@@ -176,7 +176,7 @@ class FakeSocket(tsocket.SocketType):
     def setsockopt(self, level, option, value):
         pass
 
-    def bind(self, sockaddr):
+    async def bind(self, sockaddr):
         pass
 
     def listen(self, backlog):

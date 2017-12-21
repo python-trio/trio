@@ -4,7 +4,7 @@ async def run_test(nominal_backlog):
     print("--\nnominal:", nominal_backlog)
 
     listen_sock = trio.socket.socket()
-    listen_sock.bind(("127.0.0.1", 0))
+    await listen_sock.bind(("127.0.0.1", 0))
     listen_sock.listen(nominal_backlog)
     client_socks = []
     while True:

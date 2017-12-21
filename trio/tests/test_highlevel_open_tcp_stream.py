@@ -71,7 +71,7 @@ def test_format_host_port():
 # Make sure we can connect to localhost using real kernel sockets
 async def test_open_tcp_stream_real_socket_smoketest():
     listen_sock = trio.socket.socket()
-    listen_sock.bind(("127.0.0.1", 0))
+    await listen_sock.bind(("127.0.0.1", 0))
     _, listen_port = listen_sock.getsockname()
     listen_sock.listen(1)
     client_stream = await open_tcp_stream("127.0.0.1", listen_port)

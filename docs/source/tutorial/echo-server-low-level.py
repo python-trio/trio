@@ -33,7 +33,7 @@ async def echo_listener(nursery):
     with trio.socket.socket() as listen_sock:
         # Notify the operating system that we want to receive connection
         # attempts at this address:
-        listen_sock.bind(("127.0.0.1", PORT))
+        await listen_sock.bind(("127.0.0.1", PORT))
         listen_sock.listen()
         print("echo_listener: listening on 127.0.0.1:{}".format(PORT))
 
