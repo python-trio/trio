@@ -111,7 +111,7 @@ usability testing (e.g., maybe try teaching yourself or a friend to
 use trio and make a list of every error message you hit and place
 where you got confused?), improving the docs, ... check out our `guide
 for contributors
-<https://trio.readthedocs.io/en/latest/contributing.html>`!
+<https://trio.readthedocs.io/en/latest/contributing.html>`__!
 
 **I don't have any immediate plans to use it, but I love geeking out
 about I/O library design!** That's a little weird? But tbh you'll fit
