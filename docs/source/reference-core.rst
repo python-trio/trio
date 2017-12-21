@@ -826,9 +826,9 @@ finishes first::
        async with trio.open_nursery() as nursery:
            for async_fn in async_fns:
                nursery.start_soon(jockey, async_fn)
-               winner = await q.get()
-               nursery.cancel_scope.cancel()
-               return winner
+           winner = await q.get()
+           nursery.cancel_scope.cancel()
+           return winner
 
 This works by starting a set of tasks which each try to run their
 function, and then report back the value it returns. The main task
