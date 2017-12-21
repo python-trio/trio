@@ -1,0 +1,3 @@
+The ``resolve_local_address`` and ``resolve_remote_address`` methods
+on Trio sockets have been deprecated; just pass your hostnames
+directly to the socket methods you want to use.

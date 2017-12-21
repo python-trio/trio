@@ -339,9 +339,9 @@ Socket objects
    library socket objects <python:socket-objects>`, with a few
    important differences:
 
-   **Async all the things:** Most obviously, everything is made
-   "trio-style": blocking methods become async methods, and the
-   following attributes are *not* supported:
+   First, and most obviously, everything is made "trio-style":
+   blocking methods become async methods, and the following attributes
+   are *not* supported:
 
    * :meth:`~socket.socket.setblocking`: trio sockets always act like
      blocking sockets; if you need to read/write from multiple sockets
@@ -351,71 +351,15 @@ Socket objects
      synchronous, so it can't be implemented on top of an async
      socket.
 
-   **No implicit name resolution:** In the standard library
-   :mod:`socket` API, there are number of methods that take network
-   addresses as arguments. When given a numeric address this is fine::
-
-      # OK
-      sock.bind(("127.0.0.1", 80))
-      sock.connect(("2607:f8b0:4000:80f::200e", 80))
-
-   But in the standard library, these methods also accept hostnames,
-   and in this case implicitly trigger a DNS lookup to find the IP
-   address::
-
-      # Might block!
-      sock.bind(("localhost", 80))
-      sock.connect(("google.com", 80))
-
-   This is problematic because DNS lookups are a blocking operation.
-
-   For simplicity, trio forbids such usages: hostnames must be
-   "pre-resolved" to numeric addresses before they are passed to
-   socket methods like :meth:`bind` or :meth:`connect`. In most cases
-   this can be easily accomplished by calling either
-   :meth:`resolve_local_address` or :meth:`resolve_remote_address`.
-
-   .. method:: resolve_local_address(address)
-
-      Resolve the given address into a numeric address suitable for
-      passing to :meth:`bind`.
-
-      This performs the same address resolution that the standard library
-      :meth:`~socket.socket.bind` call would do, taking into account the
-      current socket's settings (e.g. if this is an IPv6 socket then it
-      returns IPv6 addresses). In particular, a hostname of ``None`` is
-      mapped to the wildcard address.
-
-   .. method:: resolve_remote_address(address)
-
-      Resolve the given address into a numeric address suitable for
-      passing to :meth:`connect` or similar.
-
-      This performs the same address resolution that the standard library
-      :meth:`~socket.socket.connect` call would do, taking into account the
-      current socket's settings (e.g. if this is an IPv6 socket then it
-      returns IPv6 addresses). In particular, a hostname of ``None`` is
-      mapped to the localhost address.
-
-   The following methods are similar to the equivalents in
-   :func:`socket.socket`, but have some trio-specific quirks:
-
-   .. method:: bind
-
-      Bind this socket to the given address.
-
-      Unlike the stdlib :meth:`~socket.socket.bind`, this method
-      requires a pre-resolved address. See
-      :meth:`resolve_local_address`.
+   In addition, the following methods are similar to the equivalents
+   in :func:`socket.socket`, but have some trio-specific quirks:
 
    .. method:: connect
       :async:
 
       Connect the socket to a remote address.
 
-      Similar to :meth:`socket.socket.connect`, except async and
-      requiring a pre-resolved address. See
-      :meth:`resolve_remote_address`.
+      Similar to :meth:`socket.socket.connect`, except async.
 
       .. warning::
 

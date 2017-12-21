@@ -376,35 +376,30 @@ async def test_SocketType_simple_server(address, socket_type):
             assert await client.recv(1) == b"x"
 
 
+# Direct thorough tests of the implicit resolver helpers
 async def test_SocketType_resolve():
     sock4 = tsocket.socket(family=tsocket.AF_INET)
-    with assert_checkpoints():
-        got = await sock4.resolve_local_address((None, 80))
+    got = await sock4._resolve_local_address((None, 80))
     assert got == ("0.0.0.0", 80)
-    with assert_checkpoints():
-        got = await sock4.resolve_remote_address((None, 80))
+    got = await sock4._resolve_remote_address((None, 80))
     assert got == ("127.0.0.1", 80)
 
     sock6 = tsocket.socket(family=tsocket.AF_INET6)
-    with assert_checkpoints():
-        got = await sock6.resolve_local_address((None, 80))
+    got = await sock6._resolve_local_address((None, 80))
     assert got == ("::", 80, 0, 0)
 
-    with assert_checkpoints():
-        got = await sock6.resolve_remote_address((None, 80))
+    got = await sock6._resolve_remote_address((None, 80))
     assert got == ("::1", 80, 0, 0)
 
     # AI_PASSIVE only affects the wildcard address, so for everything else
-    # resolve_local_address and resolve_remote_address should work the same:
-    for res in ["resolve_local_address", "resolve_remote_address"]:
+    # _resolve_local_address and _resolve_remote_address should work the same:
+    for res in ["_resolve_local_address", "_resolve_remote_address"]:
 
         async def s4res(*args):
-            with assert_checkpoints():
-                return await getattr(sock4, res)(*args)
+            return await getattr(sock4, res)(*args)
 
         async def s6res(*args):
-            with assert_checkpoints():
-                return await getattr(sock6, res)(*args)
+            return await getattr(sock6, res)(*args)
 
         assert await s4res(("1.2.3.4", "http")) == ("1.2.3.4", 80)
         assert await s6res(("1::2", "http")) == ("1::2", 80, 0, 0)
@@ -453,20 +448,29 @@ async def test_SocketType_resolve():
             await s6res(("1.2.3.4", 80, 0, 0, 0))
 
 
-async def test_SocketType_requires_preresolved(monkeypatch):
-    sock = tsocket.socket()
-    with pytest.raises(ValueError):
-        await sock.bind(("localhost", 0))
+async def test_deprecated_resolver_methods(recwarn):
+    with tsocket.socket() as sock:
+        got = await sock.resolve_local_address((None, 80))
+        assert got == ("0.0.0.0", 80)
+        got = await sock.resolve_remote_address((None, 80))
+        assert got == ("127.0.0.1", 80)
 
-    # I don't think it's possible to actually get a gaierror from the way we
-    # call getaddrinfo in _check_address, but just in case someone finds a
-    # way, check that it propagates correctly
-    def gai_oops(*args, **kwargs):
-        raise tsocket.gaierror("nope!")
 
-    monkeypatch.setattr(stdlib_socket, "getaddrinfo", gai_oops)
-    with pytest.raises(tsocket.gaierror):
+async def test_SocketType_unresolved_names():
+    with tsocket.socket() as sock:
         await sock.bind(("localhost", 0))
+        assert sock.getsockname()[0] == "127.0.0.1"
+        sock.listen(10)
+
+        with tsocket.socket() as sock2:
+            await sock2.connect(("localhost", sock.getsockname()[1]))
+            assert sock2.getpeername() == sock.getsockname()
+
+    # check gaierror propagates out
+    with tsocket.socket() as sock:
+        with pytest.raises(tsocket.gaierror):
+            # definitely not a valid request
+            await sock.bind(("1.2:3", -1))
 
 
 # This tests all the complicated paths through _nonblocking_helper, using recv
@@ -623,11 +627,15 @@ async def test_send_recv_variants():
     with a, b:
         await a.bind(("127.0.0.1", 0))
         await b.bind(("127.0.0.1", 0))
-        # recvfrom
-        assert await a.sendto(b"xxx", b.getsockname()) == 3
-        (data, addr) = await b.recvfrom(10)
-        assert data == b"xxx"
-        assert addr == a.getsockname()
+
+        targets = [b.getsockname(), ("localhost", b.getsockname()[1])]
+
+        # recvfrom + sendto, with and without names
+        for target in targets:
+            assert await a.sendto(b"xxx", target) == 3
+            (data, addr) = await b.recvfrom(10)
+            assert data == b"xxx"
+            assert addr == a.getsockname()
 
         # sendto + flags
         #
@@ -675,8 +683,9 @@ async def test_send_recv_variants():
             assert addr == a.getsockname()
 
         if hasattr(a, "sendmsg"):
-            assert await a.sendmsg([b"x", b"yz"], [], 0, b.getsockname()) == 3
-            assert await b.recvfrom(10) == (b"xyz", a.getsockname())
+            for target in targets:
+                assert await a.sendmsg([b"x", b"yz"], [], 0, target) == 3
+                assert await b.recvfrom(10) == (b"xyz", a.getsockname())
 
     a = tsocket.socket(type=tsocket.SOCK_DGRAM)
     b = tsocket.socket(type=tsocket.SOCK_DGRAM)

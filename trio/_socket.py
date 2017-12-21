@@ -461,7 +461,7 @@ class _SocketType(SocketType):
 
     async def bind(self, address):
         await _core.checkpoint()
-        self._check_address(address, require_resolved=True)
+        address = await self._resolve_local_address(address)
         if (hasattr(_stdlib_socket, "AF_UNIX") and self.family == AF_UNIX
                 and address[0]):
             # Use a thread for the filesystem traversal (unless it's an
@@ -488,62 +488,24 @@ class _SocketType(SocketType):
     # Address handling
     ################################################################
 
-    # For socket operations that take addresses, Python helpfully accepts
-    # addresses containing names, and implicitly resolves them. This is no
-    # good, because the implicit resolution is blocking. We require that all
-    # such addresses be "pre-resolved" meaning:
-    #
-    # - For AF_INET or AF_INET6, they must contain only numeric elements. We
-    #   check using getaddrinfo with AI_NUMERIC{HOST,SERV} flags set.
-    # - For other families, we cross our fingers and hope the user knows what
-    #   they're doing.
-    #
-    # And we provide two convenience functions to do this "pre-resolution",
-    # which attempt to match what Python does.
-
-    def _check_address(self, address, *, require_resolved):
+    # Take an address in Python's representation, and returns a new address in
+    # the same representation, but with names resolved to numbers,
+    # etc.
+    async def _resolve_address(self, address, flags):
+        # Do some pre-checking (or exit early for non-IP sockets)
         if self._sock.family == AF_INET:
             if not isinstance(address, tuple) or not len(address) == 2:
+                await _core.checkpoint()
                 raise ValueError("address should be a (host, port) tuple")
         elif self._sock.family == AF_INET6:
             if not isinstance(address, tuple) or not 2 <= len(address) <= 4:
+                await _core.checkpoint()
                 raise ValueError(
                     "address should be a (host, port, [flowinfo, [scopeid]]) "
                     "tuple"
                 )
         else:
-            return
-        if require_resolved:  # for AF_INET{,6} only
-            try:
-                _stdlib_socket.getaddrinfo(
-                    address[0],
-                    address[1],
-                    self._sock.family,
-                    real_socket_type(self._sock.type),
-                    self._sock.proto,
-                    flags=_NUMERIC_ONLY
-                )
-            except gaierror as exc:
-                if exc.errno == _stdlib_socket.EAI_NONAME:
-                    raise ValueError(
-                        "expected an already-resolved numeric address, not {}"
-                        .format(address)
-                    )
-                else:
-                    raise
-
-    # Take an address in Python's representation, and returns a new address in
-    # the same representation, but with names resolved to numbers,
-    # etc.
-    async def _resolve_address(self, address, flags):
-        await _core.checkpoint_if_cancelled()
-        try:
-            self._check_address(address, require_resolved=False)
-        except:
-            await _core.cancel_shielded_checkpoint()
-            raise
-        if self._sock.family not in (AF_INET, AF_INET6):
-            await _core.cancel_shielded_checkpoint()
+            await _core.checkpoint()
             return address
         # Since we always pass in an explicit family here, AI_ADDRCONFIG
         # doesn't add any value -- if we have no ipv6 connectivity and are
@@ -574,17 +536,31 @@ class _SocketType(SocketType):
             if len(address) >= 4:
                 normed[3] = address[3]
             normed = tuple(normed)
-        # Should never fail:
-        self._check_address(normed, require_resolved=True)
         return normed
 
     # Returns something appropriate to pass to bind()
-    async def resolve_local_address(self, address):
+    async def _resolve_local_address(self, address):
         return await self._resolve_address(address, AI_PASSIVE)
 
+    @deprecated(
+        "0.3.0",
+        issue=377,
+        instead="just pass the address to the method you want to use"
+    )
+    async def resolve_local_address(self, address):
+        return await self._resolve_local_address(address)
+
     # Returns something appropriate to pass to connect()/sendto()/sendmsg()
-    async def resolve_remote_address(self, address):
+    async def _resolve_remote_address(self, address):
         return await self._resolve_address(address, 0)
+
+    @deprecated(
+        "0.3.0",
+        issue=377,
+        instead="just pass the address to the method you want to use"
+    )
+    async def resolve_remote_address(self, address):
+        return await self._resolve_remote_address(address)
 
     async def _nonblocking_helper(self, fn, args, kwargs, wait_fn):
         # We have to reconcile two conflicting goals:
@@ -661,8 +637,8 @@ class _SocketType(SocketType):
         # off, then the socket becomes writable as a completion
         # notification. This means it isn't really cancellable... we close the
         # socket if cancelled, to avoid confusion.
+        address = await self._resolve_remote_address(address)
         async with _try_sync():
-            self._check_address(address, require_resolved=True)
             # An interesting puzzle: can a non-blocking connect() return EINTR
             # (= raise InterruptedError)? PEP 475 specifically left this as
             # the one place where it lets an InterruptedError escape instead
@@ -786,13 +762,13 @@ class _SocketType(SocketType):
 
     @_wraps(_stdlib_socket.socket.sendto, assigned=(), updated=())
     async def sendto(self, *args):
-        """Similar to :meth:`socket.socket.sendto`, but async and requiring a
-        pre-resolved address. See :meth:`resolve_remote_address`.
+        """Similar to :meth:`socket.socket.sendto`, but async.
 
         """
         # args is: data[, flags], address)
         # and kwargs are not accepted
-        self._check_address(args[-1], require_resolved=True)
+        args = list(args)
+        args[-1] = await self._resolve_remote_address(args[-1])
         return await self._nonblocking_helper(
             _stdlib_socket.socket.sendto, args, {}, _core.wait_socket_writable
         )
@@ -805,9 +781,7 @@ class _SocketType(SocketType):
 
         @_wraps(_stdlib_socket.socket.sendmsg, assigned=(), updated=())
         async def sendmsg(self, *args):
-            """Similar to :meth:`socket.socket.sendmsg`, but async and
-            requiring a pre-resolved address. See
-            :meth:`resolve_remote_address`.
+            """Similar to :meth:`socket.socket.sendmsg`, but async.
 
             Only available on platforms where :meth:`socket.socket.sendmsg` is
             available.
@@ -816,7 +790,8 @@ class _SocketType(SocketType):
             # args is: buffers[, ancdata[, flags[, address]]]
             # and kwargs are not accepted
             if len(args) == 4 and args[-1] is not None:
-                self._check_address(args[-1], require_resolved=True)
+                args = list(args)
+                args[-1] = await self._resolve_remote_address(args[-1])
             return await self._nonblocking_helper(
                 _stdlib_socket.socket.sendmsg, args, {},
                 _core.wait_socket_writable
