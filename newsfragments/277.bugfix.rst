@@ -1,0 +1,3 @@
+Fixed some corner cases in Trio socket method implicit name resolution
+to better match stdlib behavior. Example: ``sock.bind(("", port))``
+now binds to the wildcard address instead of raising an error.

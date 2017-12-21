@@ -507,6 +507,12 @@ class _SocketType(SocketType):
         else:
             await _core.checkpoint()
             return address
+        host, port, *_ = address
+        # Special cases to match the stdlib, see gh-277
+        if host == "":
+            host = None
+        if host == "<broadcast>":
+            host = "255.255.255.255"
         # Since we always pass in an explicit family here, AI_ADDRCONFIG
         # doesn't add any value -- if we have no ipv6 connectivity and are
         # working with an ipv6 socket, then things will break soon enough! And
@@ -518,7 +524,7 @@ class _SocketType(SocketType):
             if not self._sock.getsockopt(IPPROTO_IPV6, IPV6_V6ONLY):
                 flags |= AI_V4MAPPED
         gai_res = await getaddrinfo(
-            address[0], address[1], self._sock.family,
+            host, port, self._sock.family,
             real_socket_type(self._sock.type), self._sock.proto, flags
         )
         # AFAICT from the spec it's not possible for getaddrinfo to return an
