@@ -291,9 +291,8 @@ class _TaskStatus:
         for task in munged_tasks:
             task._attempt_delivery_of_any_pending_cancel()
 
-        # And finally, we cancel the old nursery's scope, so that it notices
-        # that all the children are gone and it can exit. (This is a bit of a
-        # hack.)
+        # And finally, poke the old nursery so it notices that all its
+        # children have disappeared and can exit.
         self._old_nursery._check_nursery_closed()
 
 
@@ -363,6 +362,9 @@ class Nursery:
         assert self.cancel_scope is self._cancel_stack[-1]
         self._children = set()
         self._pending_excs = []
+        # The "nested child" is how this code refers to the contents of the
+        # nursery's 'async with' block, which acts like a child Task in all
+        # the ways we can make it.
         self._nested_child_running = True
         self._parent_waiting_in_aexit = False
         self._pending_starts = 0
