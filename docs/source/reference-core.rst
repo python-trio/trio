@@ -660,28 +660,29 @@ This means that tasks form a tree: when you call :func:`run`, then
 this creates an initial task, and all your other tasks will be
 children, grandchildren, etc. of the initial task.
 
-The crucial thing about this setup is that when execution reaches the
-end of the ``async with`` block, then the nursery cleanup code
-runs. The nursery cleanup code does the following things:
+Essentially, the body of the ``async with`` block acts like an initial
+task that's running inside the nursery, and then each call to
+``nursery.start_soon`` adds another task that runs in parallel. Two
+crucial things to keep in mind:
 
-* If the body of the ``async with`` block raised an exception, then it
-  cancels all remaining child tasks and saves the exception.
+* If any task inside the nursery finishes with an unhandled exception,
+  then the nursery immediately cancels all the tasks inside the
+  nursery.
 
-* It watches for child tasks to exit. If a child task exits with an
-  exception, then it cancels all remaining child tasks and saves the
-  exception.
+* Since all of the tasks are running concurrently inside the ``async
+  with`` block, the block does not exit until *all* tasks have
+  completed. If you've used other concurrency frameworks, then you can
+  think of it as, the de-indentation at the end of the ``async with``
+  automatically "joins" (waits for) all of the tasks in the nursery.
 
-* Once all child tasks have exited:
+* Once all the tasks have finished, then:
 
-  * It marks the nursery as "closed", so no new tasks can be spawned
-    in it.
+  * The nursery is marked as "closed", meaning that no new tasks can
+    be started inside it.
 
-  * If there's just one saved exception, it re-raises it, or
-
-  * If there are multiple saved exceptions, it re-raises them as a
-    :exc:`MultiError`, or
-
-  * if there are no saved exceptions, it exits normally.
+  * Any unhandled exceptions are re-raised inside the parent task. If
+    there are multiple exceptions, then they're collected up into a
+    single :exc:`MultiError` exception.
 
 Since all tasks are descendents of the initial task, one consequence
 of this is that :func:`run` can't finish until all tasks have
@@ -745,39 +746,10 @@ and it also provides some helpful utilities like
 :exc:`MultiError`.
 
 
-How to be a good parent task
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Supervising child tasks is a full time job. If you want your program
-to do two things at once, then don't expect the parent task to do one
-while a child task does another – instead, start two children and let
-the parent focus on managing them.
-
-So, don't do this::
-
-    # bad idea!
-    async with trio.open_nursery() as nursery:
-        nursery.start_soon(walk)
-        await chew_gum()
-
-Instead, do this::
-
-    # good idea!
-    async with trio.open_nursery() as nursery:
-        nursery.start_soon(walk)
-        nursery.start_soon(chew_gum)
-        # now parent task blocks in the nursery cleanup code
-
-The difference between these is that in the first example, if ``walk``
-crashes, the parent is off distracted chewing gum, and won't
-notice. In the second example, the parent is watching both children,
-and will notice and respond appropriately if anything happens.
-
-
 Spawning tasks without becoming a parent
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Sometimes it doesn't make sense for the task that spawns a child to
+Sometimes it doesn't make sense for the task that starts a child to
 take on responsibility for watching it. For example, a server task may
 want to start a new task for each connection, but it can't listen for
 connections and supervise children at the same time.
@@ -795,13 +767,24 @@ code like this::
        async with trio.open_nursery() as nursery:
            nursery.start_soon(new_connection_listener, handler, nursery)
 
-Now ``new_connection_listener`` can focus on handling new connections,
-while its parent focuses on supervising both it and all the individual
-connection handlers.
+Notice that ``server`` opens a nursery and passes it to
+``new_connection_listener``, and then ``new_connection_listener`` is
+able to start new tasks as "siblings" of itself. Of course, in this
+case, we could just as well have written::
 
-And remember that cancel scopes are inherited from the nursery,
-**not** from the task that calls ``start_soon``. So in this example,
-the timeout does *not* apply to ``child`` (or to anything else)::
+   async def server(handler):
+       async with trio.open_nursery() as nursery:
+           while True:
+               conn = await get_new_connection()
+               nursery.start_soon(handler, conn)
+
+\...but sometimes things aren't so simple, and this trick comes in
+handy.
+
+One thing to remember, though: cancel scopes are inherited from the
+nursery, **not** from the task that calls ``start_soon``. So in this
+example, the timeout does *not* apply to ``child`` (or to anything
+else)::
 
    async def do_spawn(nursery):
        with move_on_after(TIMEOUT):  # don't do this, it has no effect
@@ -831,34 +814,33 @@ For example, here's a function that takes a list of functions, runs
 them all concurrently, and returns the result from the one that
 finishes first::
 
-   # XX this example can be simplified a little after #136 is fixed in 0.3.0
-
    async def race(*async_fns):
        if not async_fns:
            raise ValueError("must pass at least one argument")
 
-       async def racecar(results, async_fn, cancel_scope):
-           result = await async_fn()
-           results.append(result)
-           cancel_scope.cancel()
+       q = trio.Queue(1)
+
+       async def jockey(async_fn):
+           await q.put(await async_fn())
 
        async with trio.open_nursery() as nursery:
-           results = []
-           cancel_scope = nursery.cancel_scope
            for async_fn in async_fns:
-               nursery.start_soon(racecar, results, async_fn, cancel_scope)
+               nursery.start_soon(jockey, async_fn)
+           winner = await q.get()
+           nursery.cancel_scope.cancel()
+           return winner
 
-       return results[0]
+This works by starting a set of tasks which each try to run their
+function, and then report back the value it returns. The main task
+uses ``q.get()`` to wait for one to finish; as soon as the first task
+crosses the finish line, it cancels the rest, and then returns the
+winning value.
 
-This works by starting a set of racecar tasks which each try to run
-their function, report back, and then cancel all the rest. Eventually
-one suceeds, all the tasks are cancelled and exit, and then our
-nursery exits and we return the winning value. And if one or more of
-them raises an unhandled exception then Trio's normal handling kicks
-in: it cancels the others and then propagates the exception. If you
-wanted different behavior, you could do that by adding a ``try`` block
-to the ``racecar`` function to catch exceptions and handle them
-however you like.
+Here if one or more of the racing functions raises an unhandled
+exception then Trio's normal handling kicks in: it cancels the others
+and then propagates the exception. If you want different behavior, you
+can get that by adding a ``try`` block to the ``jockey`` function to
+catch exceptions and handle them however you like.
 
 
 Task-related API details

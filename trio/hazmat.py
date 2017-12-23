@@ -18,7 +18,6 @@ __all__ = [
     "checkpoint_if_cancelled",
     "spawn_system_task",
     "reschedule",
-    "current_call_soon_thread_and_signal_safe",
     "remove_instrument",
     "add_instrument",
     "current_clock",

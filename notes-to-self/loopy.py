@@ -10,8 +10,9 @@ async def loopy():
         print("KI!")
 
 async def main():
-    await trio.start_soon(loopy)
-    await trio.start_soon(loopy)
-    await trio.start_soon(loopy)
+    async with trio.open_nursery() as nursery:
+        nursery.start_soon(loopy)
+        nursery.start_soon(loopy)
+        nursery.start_soon(loopy)
 
 trio.run(main)

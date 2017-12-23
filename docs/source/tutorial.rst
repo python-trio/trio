@@ -461,16 +461,6 @@ children, and it raises an exception, then it lets us propagate that
 exception into the parent; in many other frameworks, exceptions like
 this are just discarded. Trio never discards exceptions.
 
-However – this is important! – the parent won't see the exception
-unless and until it reaches the end of the nursery's ``async wait``
-block and runs the ``__aexit__`` function. So remember: in trio,
-parenting is a full-time job! Any given piece of code manage a nursery
-– which means opening it, spawning some children, and then sitting in
-``__aexit__`` to supervise them – or it can do actual work, but you
-shouldn't try to do both at the same time in the same function. If you
-find yourself tempted to do some work in the parent, then ``start_soon``
-another child and have it do the work. In trio, children are cheap.
-
 Ok! Let's try running it and see what we get:
 
 .. code-block:: none

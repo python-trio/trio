@@ -27,7 +27,6 @@ __all__ = [
     "current_effective_deadline",
     "TASK_STATUS_IGNORED",
     "current_time",
-    "current_instruments",
     "TaskLocal",
 ]
 
