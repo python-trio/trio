@@ -261,7 +261,7 @@ class CapacityLimiter:
         """Borrow a token from the sack, blocking if necessary.
 
         Raises:
-          RuntimeError: if the current task already holds a one of this sack's
+          RuntimeError: if the current task already holds one of this sack's
               tokens.
 
         """
