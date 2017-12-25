@@ -174,10 +174,10 @@ async def test_agen_protection():
             assert not _core.currently_ki_protected()
 
     for agen_fn in [
-            agen_protected1,
-            agen_protected2,
-            agen_unprotected1,
-            agen_unprotected2,
+        agen_protected1,
+        agen_protected2,
+        agen_unprotected1,
+        agen_unprotected2,
     ]:
         async for _ in agen_fn():
             assert not _core.currently_ki_protected()

@@ -145,8 +145,9 @@ async def test_assert_checkpoints(recwarn):
     # partial yield cases
     # if you have a schedule point but not a cancel point, or vice-versa, then
     # that's not a checkpoint.
-    for partial_yield in [_core.checkpoint_if_cancelled,
-                          _core.cancel_shielded_checkpoint]:
+    for partial_yield in [
+        _core.checkpoint_if_cancelled, _core.cancel_shielded_checkpoint
+    ]:
         print(partial_yield)
         with pytest.raises(AssertionError):
             with assert_checkpoints():
@@ -169,8 +170,9 @@ async def test_assert_no_checkpoints(recwarn):
     # partial yield cases
     # if you have a schedule point but not a cancel point, or vice-versa, then
     # that doesn't make *either* version of assert_{no_,}yields happy.
-    for partial_yield in [_core.checkpoint_if_cancelled,
-                          _core.cancel_shielded_checkpoint]:
+    for partial_yield in [
+        _core.checkpoint_if_cancelled, _core.cancel_shielded_checkpoint
+    ]:
         print(partial_yield)
         with pytest.raises(AssertionError):
             with assert_no_checkpoints():

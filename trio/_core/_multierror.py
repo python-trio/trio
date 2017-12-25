@@ -265,8 +265,9 @@ if have_tproxy:
             # 'opname' that isn't __getattr__ or __getattribute__. So there's
             # no missing test we could add, and no value in coverage nagging
             # us about adding one.
-            if operation.opname in ["__getattribute__",
-                                    "__getattr__"]:  # pragma: no cover
+            if operation.opname in [
+                "__getattribute__", "__getattr__"
+            ]:  # pragma: no cover
                 if operation.args[0] == "tb_next":
                     return tb_next
             return operation.delegate()
@@ -351,15 +352,15 @@ traceback_exception_original_init = traceback.TracebackException.__init__
 
 
 def traceback_exception_init(
-        self,
-        exc_type,
-        exc_value,
-        exc_traceback,
-        *,
-        limit=None,
-        lookup_lines=True,
-        capture_locals=False,
-        _seen=None
+    self,
+    exc_type,
+    exc_value,
+    exc_traceback,
+    *,
+    limit=None,
+    lookup_lines=True,
+    capture_locals=False,
+    _seen=None
 ):
     if _seen is None:
         _seen = set()

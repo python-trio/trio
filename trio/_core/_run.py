@@ -707,7 +707,7 @@ class Runner:
         self.instrument("task_scheduled", task)
 
     def spawn_impl(
-            self, async_fn, args, nursery, name, *, ki_protection_enabled=False
+        self, async_fn, args, nursery, name, *, ki_protection_enabled=False
     ):
 
         ######
@@ -1107,11 +1107,11 @@ class Runner:
 
 
 def run(
-        async_fn,
-        *args,
-        clock=None,
-        instruments=[],
-        restrict_keyboard_interrupt_to_checkpoints=False
+    async_fn,
+    *args,
+    clock=None,
+    instruments=[],
+    restrict_keyboard_interrupt_to_checkpoints=False
 ):
     """Run a trio-flavored async function, and return the result.
 
@@ -1206,8 +1206,9 @@ def run(
     # where KeyboardInterrupt would be allowed and converted into an
     # TrioInternalError:
     try:
-        with ki_manager(runner.deliver_ki,
-                        restrict_keyboard_interrupt_to_checkpoints):
+        with ki_manager(
+            runner.deliver_ki, restrict_keyboard_interrupt_to_checkpoints
+        ):
             try:
                 with closing(runner):
                     # The main reason this is split off into its own function

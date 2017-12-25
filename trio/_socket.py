@@ -95,20 +95,20 @@ if _sys.platform == "win32":
 ################################################################
 
 for _name in [
-        "gaierror",
-        "herror",
-        "gethostname",
-        "ntohs",
-        "htonl",
-        "htons",
-        "inet_aton",
-        "inet_ntoa",
-        "inet_pton",
-        "inet_ntop",
-        "sethostname",
-        "if_nameindex",
-        "if_nametoindex",
-        "if_indextoname",
+    "gaierror",
+    "herror",
+    "gethostname",
+    "ntohs",
+    "htonl",
+    "htons",
+    "inet_aton",
+    "inet_ntoa",
+    "inet_pton",
+    "inet_ntop",
+    "sethostname",
+    "if_nameindex",
+    "if_nametoindex",
+    "if_indextoname",
 ]:
     if hasattr(_stdlib_socket, _name):
         _reexport(_name)

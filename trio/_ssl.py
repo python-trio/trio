@@ -181,26 +181,26 @@ def _reexport(name):
 # Intentionally not re-exported:
 # SSLContext
 for _name in [
-        "SSLError",
-        "SSLZeroReturnError",
-        "SSLSyscallError",
-        "SSLEOFError",
-        "CertificateError",
-        "create_default_context",
-        "match_hostname",
-        "cert_time_to_seconds",
-        "DER_cert_to_PEM_cert",
-        "PEM_cert_to_DER_cert",
-        "get_default_verify_paths",
-        "Purpose",
-        "enum_certificates",
-        "enum_crls",
-        "SSLSession",
-        "VerifyMode",
-        "VerifyFlags",
-        "Options",
-        "AlertDescription",
-        "SSLErrorNumber",
+    "SSLError",
+    "SSLZeroReturnError",
+    "SSLSyscallError",
+    "SSLEOFError",
+    "CertificateError",
+    "create_default_context",
+    "match_hostname",
+    "cert_time_to_seconds",
+    "DER_cert_to_PEM_cert",
+    "PEM_cert_to_DER_cert",
+    "get_default_verify_paths",
+    "Purpose",
+    "enum_certificates",
+    "enum_crls",
+    "SSLSession",
+    "VerifyMode",
+    "VerifyFlags",
+    "Options",
+    "AlertDescription",
+    "SSLErrorNumber",
 ]:
     _reexport(_name)
 
@@ -336,14 +336,14 @@ class SSLStream(Stream):
     # Note: any new arguments here should likely also be added to
     # SSLListener.__init__, and maybe the open_ssl_over_tcp_* helpers.
     def __init__(
-            self,
-            transport_stream,
-            ssl_context,
-            *,
-            server_hostname=None,
-            server_side=False,
-            https_compatible=False,
-            max_refill_bytes=_default_max_refill_bytes
+        self,
+        transport_stream,
+        ssl_context,
+        *,
+        server_hostname=None,
+        server_side=False,
+        https_compatible=False,
+        max_refill_bytes=_default_max_refill_bytes
     ):
         self.transport_stream = transport_stream
         self._state = _State.OK
@@ -853,12 +853,12 @@ class SSLListener(Listener):
     """
 
     def __init__(
-            self,
-            transport_listener,
-            ssl_context,
-            *,
-            https_compatible=False,
-            max_refill_bytes=_default_max_refill_bytes
+        self,
+        transport_listener,
+        ssl_context,
+        *,
+        https_compatible=False,
+        max_refill_bytes=_default_max_refill_bytes
     ):
         self.transport_listener = transport_listener
         self._ssl_context = ssl_context

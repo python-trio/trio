@@ -145,12 +145,12 @@ async def test_open_tcp_listeners_rebind():
     assert c_time_wait.socket.getpeername() == sockaddr2
 
     for resource in [
-            l1,
-            l2,
-            c_established,
-            s_established,
-            c_time_wait,
-            s_time_wait,
+        l1,
+        l2,
+        c_established,
+        s_established,
+        c_time_wait,
+        s_time_wait,
     ]:
         await resource.aclose()
 
