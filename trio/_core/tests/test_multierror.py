@@ -11,9 +11,7 @@ import subprocess
 from .tutil import slow
 
 from ..._deprecate import TrioDeprecationWarning
-from .._multierror import (
-    MultiError, concat_tb, format_exception as trio_format_exception
-)
+from .._multierror import MultiError, concat_tb
 
 
 def raiser1():
@@ -486,15 +484,6 @@ def test_format_exception():
         ],
         formatted
     )
-
-    # Deprecation
-
-    with pytest.warns(TrioDeprecationWarning) as record:
-        exc_info = einfo(make_tree())
-        assert format_exception(*exc_info) == trio_format_exception(*exc_info)
-
-    assert 'trio.format_exception is deprecated since Trio 0.2.0; ' \
-           'use traceback.format_exception instead' in record[0].message.args[0]
 
 
 def test_logging(caplog):

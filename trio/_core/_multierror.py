@@ -7,9 +7,7 @@ from contextlib import contextmanager
 
 import attr
 
-from .._deprecate import deprecated
-
-__all__ = ["MultiError", "format_exception"]
+__all__ = ["MultiError"]
 
 ################################################################
 # MultiError
@@ -348,21 +346,6 @@ def concat_tb(head, tail):
 # traceback.TracebackException to add support for handling
 # MultiErrors
 ################################################################
-
-
-@deprecated("0.2.0", issue=347, instead="traceback.format_exception")
-def format_exception(etype, value, tb, *, limit=None, chain=True):
-    """Like :func:`traceback.format_exception`, but with special support for
-    printing :exc:`MultiError` objects.
-
-    This is a pure, stateless function, and thus safe to call from any
-    thread at any time.
-
-    """
-    return traceback.format_exception(
-        etype, value, tb, limit=limit, chain=chain
-    )
-
 
 traceback_exception_original_init = traceback.TracebackException.__init__
 

@@ -21,7 +21,6 @@ __all__ = [
     "ResourceBusyError",
     "MultiError",
     "run",
-    "format_exception",
     "open_nursery",
     "open_cancel_scope",
     "current_effective_deadline",
