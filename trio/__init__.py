@@ -63,66 +63,6 @@ from . import abc
 from . import ssl
 # Not imported by default: testing
 
-# Stuff that got moved:
-_deprecate.enable_attribute_deprecations(__name__)
-
-__deprecated_attributes__ = {
-    "Task":
-        _deprecate.DeprecatedAttribute(hazmat.Task, "0.2.0", issue=136),
-    "current_task":
-        _deprecate.DeprecatedAttribute(
-            hazmat.current_task, "0.2.0", issue=136
-        ),
-    "Result":
-        _deprecate.DeprecatedAttribute(hazmat.Result, "0.2.0", issue=136),
-    "Value":
-        _deprecate.DeprecatedAttribute(hazmat.Value, "0.2.0", issue=136),
-    "Error":
-        _deprecate.DeprecatedAttribute(hazmat.Error, "0.2.0", issue=136),
-    "UnboundedQueue":
-        _deprecate.DeprecatedAttribute(
-            hazmat.UnboundedQueue, "0.2.0", issue=136
-        ),
-    "run_in_worker_thread":
-        _deprecate.DeprecatedAttribute(
-            run_sync_in_worker_thread, "0.2.0", issue=68
-        ),
-    "current_clock":
-        _deprecate.DeprecatedAttribute(
-            hazmat.current_clock, "0.2.0", issue=317
-        ),
-    "current_statistics":
-        _deprecate.DeprecatedAttribute(
-            hazmat.current_statistics, "0.2.0", issue=317
-        ),
-    # STATUS_IGNORED never made it into a release, but I think people were
-    # using while it was in the dev version, so we might as well provide an
-    # alias for a little while.
-    "STATUS_IGNORED":
-        _deprecate.DeprecatedAttribute(
-            TASK_STATUS_IGNORED, "0.2.0", issue=353
-        ),
-}
-
-_deprecate.enable_attribute_deprecations(hazmat.__name__)
-
-hazmat.__deprecated_attributes__ = {
-    "yield_briefly":
-        _deprecate.DeprecatedAttribute(hazmat.checkpoint, "0.2.0", issue=157),
-    "yield_briefly_no_cancel":
-        _deprecate.DeprecatedAttribute(
-            hazmat.cancel_shielded_checkpoint, "0.2.0", issue=157
-        ),
-    "yield_if_cancelled":
-        _deprecate.DeprecatedAttribute(
-            hazmat.checkpoint_if_cancelled, "0.2.0", issue=157
-        ),
-    "yield_indefinitely":
-        _deprecate.DeprecatedAttribute(
-            hazmat.wait_task_rescheduled, "0.2.0", issue=157
-        ),
-}
-
 # Having the public path in .__module__ attributes is important for:
 # - exception names in printed tracebacks
 # - sphinx :show-inheritance:
