@@ -463,21 +463,3 @@ async def test_run_in_worker_thread_fail_to_spawn(monkeypatch):
     assert "engines" in str(excinfo.value)
 
     assert limiter.borrowed_tokens == 0
-
-
-# can remove after deleting 0.2.0 deprecations
-async def test_deprecated_portal_API(recwarn):
-    trio_thread = threading.current_thread()
-
-    async def async_current_thread():
-        return threading.current_thread()
-
-    def worker_thread(run_in_trio_thread, await_in_trio_thread):
-        assert run_in_trio_thread(threading.current_thread) == trio_thread
-        assert await_in_trio_thread(async_current_thread) == trio_thread
-
-    run_in_trio_thread = current_run_in_trio_thread()
-    await_in_trio_thread = current_await_in_trio_thread()
-    await run_sync_in_worker_thread(
-        worker_thread, run_in_trio_thread, await_in_trio_thread
-    )
