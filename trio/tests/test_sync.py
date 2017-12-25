@@ -410,35 +410,6 @@ async def test_Queue():
     assert q.empty()
 
 
-async def test_Queue_join(recwarn):
-    q = Queue(2)
-    with assert_checkpoints():
-        await q.join()
-
-    record = []
-
-    async def do_join(q):
-        record.append("started")
-        await q.join()
-        record.append("finished")
-
-    async with _core.open_nursery() as nursery:
-        await q.put(None)
-        nursery.start_soon(do_join, q)
-        nursery.start_soon(do_join, q)
-        await wait_all_tasks_blocked()
-        assert record == ["started", "started"]
-        q.put_nowait(None)
-        q.get_nowait()
-        q.get_nowait()
-        q.task_done()
-        await wait_all_tasks_blocked()
-        assert record == ["started", "started"]
-        q.task_done()
-
-    assert record == ["started", "started", "finished", "finished"]
-
-
 async def test_Queue_iter():
     q = Queue(1)
 
@@ -459,8 +430,7 @@ async def test_Queue_iter():
         nursery.start_soon(consumer)
 
 
-# XX remove the 'recwarn' fixture after join is removed
-async def test_Queue_statistics(recwarn):
+async def test_Queue_statistics():
     q = Queue(3)
     q.put_nowait(1)
     statistics = q.statistics()
@@ -468,7 +438,6 @@ async def test_Queue_statistics(recwarn):
     assert statistics.capacity == 3
     assert statistics.tasks_waiting_put == 0
     assert statistics.tasks_waiting_get == 0
-    assert statistics.tasks_waiting_join == 0
 
     async with _core.open_nursery() as nursery:
         q.put_nowait(2)
@@ -476,14 +445,12 @@ async def test_Queue_statistics(recwarn):
         assert q.full()
         nursery.start_soon(q.put, 4)
         nursery.start_soon(q.put, 5)
-        nursery.start_soon(q.join)
         await wait_all_tasks_blocked()
         statistics = q.statistics()
         assert statistics.qsize == 3
         assert statistics.capacity == 3
         assert statistics.tasks_waiting_put == 2
         assert statistics.tasks_waiting_get == 0
-        assert statistics.tasks_waiting_join == 1
         nursery.cancel_scope.cancel()
 
     q = Queue(4)
@@ -497,7 +464,6 @@ async def test_Queue_statistics(recwarn):
         assert statistics.capacity == 4
         assert statistics.tasks_waiting_put == 0
         assert statistics.tasks_waiting_get == 3
-        assert statistics.tasks_waiting_join == 0
         nursery.cancel_scope.cancel()
 
 
