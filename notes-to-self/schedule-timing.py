@@ -19,9 +19,9 @@ async def report_loop():
     try:
         while True:
             start_count = LOOPS
-            start_time = time.time()
+            start_time = time.monotonic()
             await trio.sleep(1)
-            end_time = time.time()
+            end_time = time.monotonic()
             end_count = LOOPS
             loops = end_count - start_count
             duration = end_time - start_time

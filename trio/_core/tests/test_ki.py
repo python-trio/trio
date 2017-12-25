@@ -555,11 +555,11 @@ def test_ki_wakes_us_up():
             print("joining thread", sys.exc_info())
             thread.join()
 
-    start = time.time()
+    start = time.monotonic()
     try:
         _core.run(main)
     finally:
-        end = time.time()
+        end = time.monotonic()
         print("duration", end - start)
         print("sys.exc_info", sys.exc_info())
     assert 1.0 <= (end - start) < 2

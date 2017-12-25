@@ -267,12 +267,12 @@ this, that tries to call an async function but leaves out the
 
    async def broken_double_sleep(x):
        print("*yawn* Going to sleep")
-       start_time = time.time()
+       start_time = time.monotonic()
 
        # Whoops, we forgot the 'await'!
        trio.sleep(2 * x)
 
-       sleep_time = time.time() - start_time
+       sleep_time = time.monotonic() - start_time
        print("Woke up after {:.2f} seconds, feeling well rested!".format(sleep_time))
 
    trio.run(broken_double_sleep, 3)
