@@ -106,7 +106,15 @@ class SocketStream(HalfCloseableStream):
             raise ClosedStreamError("can't send data after sending EOF")
         with self._send_conflict_detector.sync:
             with _translate_socket_errors_to_stream_errors():
-                await self.socket._sendall(data)
+                with memoryview(data) as data:
+                    if not data:
+                        await _core.checkpoint()
+                        return
+                    total_sent = 0
+                    while total_sent < len(data):
+                        with data[total_sent:] as remaining:
+                            sent = await self.socket.send(remaining)
+                        total_sent += sent
 
     async def wait_send_all_might_not_block(self):
         async with self._send_conflict_detector:

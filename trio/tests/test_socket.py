@@ -709,62 +709,6 @@ async def test_send_recv_variants():
         assert await b.recv(10) == b"yyy"
 
 
-# XX: when we remove sendall(), then this test should be:
-# - moved to the SocketStream tests
-# - have the recwarn fixture removed (currently used to suppress the
-#   deprecation warnings that it's issuing)
-async def test_SocketType_sendall(recwarn):
-    BIG = 10000000
-
-    a, b = tsocket.socketpair()
-    with a, b:
-        # Check a sendall that has to be split into multiple parts (on most
-        # platforms... on Windows every send() either succeeds or fails as a
-        # whole)
-        async def sender():
-            data = bytearray(BIG)
-            await a.sendall(data)
-            # sendall uses memoryviews internally, which temporarily "lock"
-            # the object they view. If it doesn't clean them up properly, then
-            # some bytearray operations might raise an error afterwards, which
-            # would be a pretty weird and annoying side-effect to spring on
-            # users. So test that this doesn't happen, by forcing the
-            # bytearray's underlying buffer to be realloc'ed:
-            data += bytes(BIG)
-            # (Note: the above line of code doesn't do a very good job at
-            # testing anything, because:
-            # - on CPython, the refcount GC generally cleans up memoryviews
-            #   for us even if we're sloppy.
-            # - on PyPy3, at least as of 5.7.0, the memoryview code and the
-            #   bytearray code conspire so that resizing never fails – if
-            #   resizing forces the bytearray's internal buffer to move, then
-            #   all memoryview references are automagically updated (!!).
-            #   See:
-            #   https://gist.github.com/njsmith/0ffd38ec05ad8e34004f34a7dc492227
-            # But I'm leaving the test here in hopes that if this ever changes
-            # and we break our implementation of sendall, then we'll get some
-            # early warning...)
-
-        async def receiver():
-            # Make sure the sender fills up the kernel buffers and blocks
-            await wait_all_tasks_blocked()
-            nbytes = 0
-            while nbytes < BIG:
-                nbytes += len(await b.recv(BIG))
-            assert nbytes == BIG
-
-        async with _core.open_nursery() as nursery:
-            nursery.start_soon(sender)
-            nursery.start_soon(receiver)
-
-        # We know that we received BIG bytes of NULs so far. Make sure that
-        # was all the data in there.
-        await a.sendall(b"e")
-        assert await b.recv(10) == b"e"
-        a.shutdown(tsocket.SHUT_WR)
-        assert await b.recv(10) == b""
-
-
 async def test_idna(monkeygai):
     # This is the encoding for "faß.de", which uses one of the characters that
     # IDNA 2003 handles incorrectly:
