@@ -2,8 +2,9 @@
 
 set -ex
 
-# See https://github.com/python-trio/trio/issues/334
-YAPF_VERSION=0.17.0
+# 0.20.0 is broken (https://github.com/google/yapf/issues/484)
+# The fix has been merged so hopefully 0.21.0 will be usable again
+YAPF_VERSION=0.19.0
 
 git rev-parse HEAD
 
