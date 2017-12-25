@@ -6,11 +6,8 @@ import attr
 
 from . import _core
 from ._sync import CapacityLimiter
-from ._deprecate import deprecated
 
 __all__ = [
-    "current_await_in_trio_thread",
-    "current_run_in_trio_thread",
     "run_sync_in_worker_thread",
     "current_default_worker_thread_limiter",
     "BlockingTrioPortal",
@@ -121,16 +118,6 @@ class BlockingTrioPortal:
 
         """
         return self._do_it(self._run_sync_cb, fn, *args)
-
-
-@deprecated("0.2.0", issue=68, instead=BlockingTrioPortal.run_sync)
-def current_run_in_trio_thread():
-    return BlockingTrioPortal().run_sync
-
-
-@deprecated("0.2.0", issue=68, instead=BlockingTrioPortal.run)
-def current_await_in_trio_thread():
-    return BlockingTrioPortal().run
 
 
 ################################################################

@@ -5,7 +5,6 @@ import attr
 
 from . import _core
 from ._util import aiter_compat
-from ._deprecate import deprecated
 
 __all__ = [
     "Event",
@@ -800,7 +799,6 @@ class _QueueStats:
     capacity = attr.ib()
     tasks_waiting_put = attr.ib()
     tasks_waiting_get = attr.ib()
-    tasks_waiting_join = attr.ib()
 
 
 # Like queue.Queue, with the notable difference that the capacity argument is
@@ -841,8 +839,6 @@ class Queue:
         self._put_semaphore = Semaphore(capacity, max_value=capacity)
         self._get_semaphore = Semaphore(0, max_value=capacity)
         self._data = deque()
-        self._join_lot = _core.ParkingLot()
-        self._unprocessed = 0
 
     def __repr__(self):
         return (
@@ -879,7 +875,6 @@ class Queue:
 
     def _put_protected(self, obj):
         self._data.append(obj)
-        self._unprocessed += 1
         self._get_semaphore.release()
 
     @_core.enable_ki_protection
@@ -936,33 +931,6 @@ class Queue:
         await self._get_semaphore.acquire()
         return self._get_protected()
 
-    @deprecated("0.2.0", issue=321, instead=None)
-    @_core.enable_ki_protection
-    def task_done(self):
-        """Decrement the count of unfinished work.
-
-        Each :class:`Queue` object keeps a count of unfinished work, which
-        starts at zero and is incremented after each successful
-        :meth:`put`. This method decrements it again. When the count reaches
-        zero, any tasks blocked in :meth:`join` are woken.
-
-        """
-        self._unprocessed -= 1
-        if self._unprocessed == 0:
-            self._join_lot.unpark_all()
-
-    @deprecated("0.2.0", issue=321, instead=None)
-    async def join(self):
-        """Block until the count of unfinished work reaches zero.
-
-        See :meth:`task_done` for details.
-
-        """
-        if self._unprocessed == 0:
-            await _core.checkpoint()
-        else:
-            await self._join_lot.park()
-
     @aiter_compat
     def __aiter__(self):
         return self
@@ -988,5 +956,4 @@ class Queue:
             capacity=self.capacity,
             tasks_waiting_put=self._put_semaphore.statistics().tasks_waiting,
             tasks_waiting_get=self._get_semaphore.statistics().tasks_waiting,
-            tasks_waiting_join=self._join_lot.statistics().tasks_waiting
         )

@@ -350,6 +350,11 @@ Socket objects
    * :meth:`~socket.socket.makefile`: Python's file-like API is
      synchronous, so it can't be implemented on top of an async
      socket.
+   * :meth:`~socket.socket.sendall`: Could be supported, but you're
+     better off using the higher-level
+     :class:`~trio.SocketStream`, and specifically its
+     :meth:`~trio.SocketStream.send_all` method, which also does
+     additional error checking.
 
    In addition, the following methods are similar to the equivalents
    in :func:`socket.socket`, but have some trio-specific quirks:
@@ -374,30 +379,6 @@ Socket objects
          tl;dr: if :meth:`connect` is cancelled then the socket is
          left in an unknown state – possibly open, and possibly
          closed. The only reasonable thing to do is to close it.
-
-   .. method:: sendall(data, flags=0)
-      :async:
-
-      .. deprecated:: 0.2.0
-         Use :class:`trio.SocketStream` and its ``send_all`` method instead.
-
-      Send the data to the socket, blocking until all of it has been
-      accepted by the operating system.
-
-      ``flags`` are passed on to ``send``.
-
-      .. warning:: If two tasks call this method simultaneously on the
-         same socket, then their data may end up intermingled on the
-         wire. This is almost certainly not what you want. Use the
-         highlevel interface instead (:meth:`trio.SocketStream.send_all`);
-         it reliably detects this error.
-
-      Most low-level operations in trio provide a guarantee: if they raise
-      :exc:`trio.Cancelled`, this means that they had no effect, so the
-      system remains in a known state. This is **not true** for
-      :meth:`sendall`. If this operation raises :exc:`trio.Cancelled` (or
-      any other exception for that matter), then it may have sent some, all,
-      or none of the requested data, and there is no way to know which.
 
    .. method:: sendfile
 

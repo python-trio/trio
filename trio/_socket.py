@@ -804,29 +804,6 @@ class _SocketType(SocketType):
             )
 
     ################################################################
-    # sendall
-    ################################################################
-
-    # XX: When we remove sendall(), we should move this code (and its test)
-    # into SocketStream.send_all().
-    async def _sendall(self, data, flags=0):
-        with memoryview(data) as data:
-            if not data:
-                await _core.checkpoint()
-                return
-            total_sent = 0
-            while total_sent < len(data):
-                with data[total_sent:] as remaining:
-                    sent = await self.send(remaining, flags)
-                total_sent += sent
-
-    @deprecated(
-        "0.2.0", issue=291, instead="the high-level SocketStream interface"
-    )
-    async def sendall(self, data, flags=0):
-        return await self._sendall(data, flags)
-
-    ################################################################
     # sendfile
     ################################################################
 
@@ -835,7 +812,8 @@ class _SocketType(SocketType):
     #     XX
 
     # Intentionally omitted:
+    #   sendall
     #   makefile
-    #   setblocking
-    #   settimeout
+    #   setblocking/getblocking
+    #   settimeout/gettimeout
     #   timeout
