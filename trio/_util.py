@@ -133,8 +133,8 @@ class _AsyncGeneratorContextManager:
                 # Likewise, avoid suppressing if a StopIteration exception
                 # was passed to throw() and later wrapped into a RuntimeError
                 # (see PEP 479).
-                if isinstance(value, (StopIteration, StopAsyncIteration)
-                              ) and exc.__cause__ is value:
+                if (isinstance(value, (StopIteration, StopAsyncIteration))
+                        and exc.__cause__ is value):
                     return False
                 raise
             except:
