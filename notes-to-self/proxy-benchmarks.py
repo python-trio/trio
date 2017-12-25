@@ -145,11 +145,11 @@ else:
 while True:
     print("-------")
     for obj in objs:
-        start = time.time()
+        start = time.monotonic()
         for _ in range(COUNT):
             obj.fileno()
             #obj.fileno
-        end = time.time()
+        end = time.monotonic()
         per_usec = COUNT / (end - start) / 1e6
         print("{:7.2f} / us: {} ({})"
               .format(per_usec, obj.strategy, obj.works_for))
