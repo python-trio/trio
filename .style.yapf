@@ -130,7 +130,7 @@ split_before_dict_set_generator=True
 
 # If an argument / parameter list is going to be split, then split before
 # the first argument.
-split_before_first_argument=True
+split_before_first_argument=False
 
 # Set to True to prefer splitting before 'and' or 'or' rather than
 # after.

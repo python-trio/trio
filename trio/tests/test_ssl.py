@@ -325,8 +325,7 @@ def virtual_ssl_echo_server(**kwargs):
 
 
 def ssl_wrap_pair(
-        client_transport, server_transport, *, client_kwargs={},
-        server_kwargs={}
+    client_transport, server_transport, *, client_kwargs={}, server_kwargs={}
 ):
     client_ssl = tssl.SSLStream(
         client_transport,
@@ -654,7 +653,8 @@ async def test_renegotiation_randomized(mock_clock):
             await trio.sleep(1000)
 
     with virtual_ssl_echo_server(
-            sleeper=sleeper_with_slow_wait_writable_and_expect) as s:
+        sleeper=sleeper_with_slow_wait_writable_and_expect
+    ) as s:
         await send(b"x")
         s.transport_stream.renegotiate()
         async with _core.open_nursery() as nursery:
@@ -987,7 +987,9 @@ async def test_ssl_bad_shutdown():
 async def test_ssl_bad_shutdown_but_its_ok():
     client, server = ssl_memory_stream_pair(
         server_kwargs={"https_compatible": True},
-        client_kwargs={"https_compatible": True}
+        client_kwargs={
+            "https_compatible": True
+        }
     )
 
     async with _core.open_nursery() as nursery:
@@ -1052,7 +1054,9 @@ async def test_ssl_only_closes_stream_once():
 async def test_ssl_https_compatibility_disagreement():
     client, server = ssl_memory_stream_pair(
         server_kwargs={"https_compatible": False},
-        client_kwargs={"https_compatible": True}
+        client_kwargs={
+            "https_compatible": True
+        }
     )
 
     async with _core.open_nursery() as nursery:
@@ -1074,7 +1078,9 @@ async def test_ssl_https_compatibility_disagreement():
 async def test_https_mode_eof_before_handshake():
     client, server = ssl_memory_stream_pair(
         server_kwargs={"https_compatible": True},
-        client_kwargs={"https_compatible": True}
+        client_kwargs={
+            "https_compatible": True
+        }
     )
 
     async def server_expect_clean_eof():

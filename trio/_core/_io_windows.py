@@ -127,8 +127,9 @@ class WindowsIOManager:
         # https://msdn.microsoft.com/en-us/library/windows/desktop/aa363862(v=vs.85).aspx
         self._closed = True
         self._iocp = _check(
-            kernel32.
-            CreateIoCompletionPort(INVALID_HANDLE_VALUE, ffi.NULL, 0, 0)
+            kernel32.CreateIoCompletionPort(
+                INVALID_HANDLE_VALUE, ffi.NULL, 0, 0
+            )
         )
         self._closed = False
         self._iocp_queue = deque()

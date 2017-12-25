@@ -12,8 +12,9 @@ slow = pytest.mark.skipif(
 )
 
 try:
-    with stdlib_socket.socket(stdlib_socket.AF_INET6,
-                              stdlib_socket.SOCK_STREAM, 0) as s:
+    with stdlib_socket.socket(
+        stdlib_socket.AF_INET6, stdlib_socket.SOCK_STREAM, 0
+    ) as s:
         s.bind(('::1', 0))
     have_ipv6 = True
 except OSError:
