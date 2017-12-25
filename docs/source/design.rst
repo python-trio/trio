@@ -41,7 +41,7 @@ use case and valid definition of usability, but it's not the one we
 use: we think it's easier to build reliable and correct systems if
 exceptions propagate until handled and if the system `catches you when
 you make potentially dangerous resource handling errors
-<https://github.com/python-trio/trio/issues/23>`__, so that's what we
+<https://github.com/python-trio/trio/issues/265>`__, so that's what we
 optimize for.
 
 It's also worth saying something about speed, since it often looms
