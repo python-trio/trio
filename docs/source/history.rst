@@ -5,6 +5,60 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.3.0 (2017-12-28)
+-----------------------
+
+Features
+~~~~~~~~
+
+- **Simplified nurseries**: In Trio, the rule used to be that "parenting is a
+  full time job", meaning that after a task opened a nursery and spawned some
+  children into it, it had to immediately block in ``__aexit__`` to supervise
+  the new children, or else exception propagation wouldn't work. Also there was
+  some elaborate machinery to let you replace this supervision logic with your
+  own custom supervision logic. Thanks to new advances in task-rearing
+  technology, **parenting is no longer a full time job!** Now the supervision
+  happens automatically in the background, and essentially the body of a
+  ``async with trio.open_nursery()`` block acts just like a task running inside
+  the nursery. This is important: it makes it possible for libraries to
+  abstract over nursery creation. For example, if you have a Websocket library
+  that needs to run a background task to handle Websocket pings, you can now do
+  that with ``async with open_websocket(...) as ws: ...``, and that can run a
+  task in the background without your users having to worry about parenting it.
+  And don't worry, you can still make custom supervisors; it turned out all
+  that spiffy machinery was actually redundant and didn't provide much value.
+  (`#136 <https://github.com/python-trio/trio/issues/136>`__)
+- Trio socket methods like ``bind`` and ``connect`` no longer require
+  "pre-resolved" numeric addresses; you can now pass regular hostnames and Trio
+  will implicitly resolve them for you. (`#377
+  <https://github.com/python-trio/trio/issues/377>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Fixed some corner cases in Trio socket method implicit name resolution to
+  better match stdlib behavior. Example: ``sock.bind(("", port))`` now binds to
+  the wildcard address instead of raising an error. (`#277
+  <https://github.com/python-trio/trio/issues/277>`__)
+
+
+Deprecations and Removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Removed everything that was deprecated in 0.2.0; see the 0.2.0
+  release notes below for details.
+- As was foretold in the v0.2.0 release notes, the ``bind`` method on Trio
+  sockets is now async. Please update your calls or – better yet – switch to
+  our shiny new high-level networking API, like :func:`serve_tcp`. (`#241
+  <https://github.com/python-trio/trio/issues/241>`__)
+- The ``resolve_local_address`` and ``resolve_remote_address`` methods
+  on Trio sockets have been deprecated; these are unnecessary now that
+  you can just pass your hostnames directly to the socket methods you
+  want to use. (`#377
+  <https://github.com/python-trio/trio/issues/377>`__)
+
+
 Trio 0.2.0 (2017-12-06)
 -----------------------
 
