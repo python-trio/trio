@@ -1,3 +1,0 @@
-Trio socket methods like ``bind`` and ``connect`` no longer require
-"pre-resolved" numeric addresses; you can now pass regular hostnames
-and Trio will implicitly resolve them for you.
