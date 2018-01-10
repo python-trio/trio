@@ -9,17 +9,16 @@ import attr
 __all__ = ["cancel_shielded_checkpoint", "Abort", "wait_task_rescheduled"]
 
 
-# Decorator to turn a generator into a well-behaved async function:
-def asyncfunction(fn):
-    # Set the coroutine flag
-    fn = types.coroutine(fn)
-    # Then wrap it in an 'async def', to enable the "coroutine was not
-    # awaited" warning
-    @wraps(fn)
-    async def wrapper(*args, **kwargs):
-        return await fn(*args, **kwargs)
-
-    return wrapper
+# Helper for the bottommost 'yield'. You can't use 'yield' inside an async
+# function, but you can inside a generator, and if you decorate your generator
+# with @types.coroutine, then it's even awaitable. However, it's still not a
+# real async function: in particular, it isn't recognized by
+# inspect.iscoroutinefunction, and it doesn't trigger the unawaited coroutine
+# tracking machinery. Since our traps are public APIs, we make them real async
+# functions, and then this helper takes care of the actual yield:
+@types.coroutine
+def _async_yield(obj):
+    return (yield obj)
 
 
 # This class object is used as a singleton.
@@ -28,8 +27,7 @@ class CancelShieldedCheckpoint:
     pass
 
 
-@asyncfunction
-def cancel_shielded_checkpoint():
+async def cancel_shielded_checkpoint():
     """Introduce a schedule point, but not a cancel point.
 
     This is *not* a :ref:`checkpoint <checkpoints>`, but it is half of a
@@ -42,7 +40,7 @@ def cancel_shielded_checkpoint():
             await trio.hazmat.checkpoint()
 
     """
-    return (yield CancelShieldedCheckpoint).unwrap()
+    return (await _async_yield(CancelShieldedCheckpoint)).unwrap()
 
 
 # Return values for abort functions
@@ -65,8 +63,7 @@ class WaitTaskRescheduled:
     abort_func = attr.ib()
 
 
-@asyncfunction
-def wait_task_rescheduled(abort_func):
+async def wait_task_rescheduled(abort_func):
     """Put the current task to sleep, with cancellation support.
 
     This is the lowest-level API for blocking in trio. Every time a
@@ -159,4 +156,4 @@ def wait_task_rescheduled(abort_func):
        above about how you should use a higher-level API if at all possible?
 
     """
-    return (yield WaitTaskRescheduled(abort_func)).unwrap()
+    return (await _async_yield(WaitTaskRescheduled(abort_func))).unwrap()
