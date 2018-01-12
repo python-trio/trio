@@ -381,8 +381,8 @@ It's totally up to you whether you accept or not, and if you do
 accept, you're welcome to participate as much or as little as you
 want. We're offering the invitation because we'd love for you to join
 us in making Python concurrency more friendly and robust, but there's
-no pressure: life is to short to spend volunteer time on things that
-don't find fulfilling.
+no pressure: life is too short to spend volunteer time on things that
+you don't find fulfilling.
 
 At this point people tend to have questions.
 
