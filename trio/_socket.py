@@ -462,8 +462,10 @@ class _SocketType(SocketType):
     async def bind(self, address):
         await _core.checkpoint()
         address = await self._resolve_local_address(address)
-        if (hasattr(_stdlib_socket, "AF_UNIX") and self.family == AF_UNIX
-                and address[0]):
+        if (
+            hasattr(_stdlib_socket, "AF_UNIX") and self.family == AF_UNIX
+            and address[0]
+        ):
             # Use a thread for the filesystem traversal (unless it's an
             # abstract domain socket)
             return await run_sync_in_worker_thread(self._sock.bind, address)
@@ -504,6 +506,13 @@ class _SocketType(SocketType):
                     "address should be a (host, port, [flowinfo, [scopeid]]) "
                     "tuple"
                 )
+        elif self._sock.family == AF_UNIX:
+            await _core.checkpoint()
+            # unwrap path-likes
+            if hasattr(address, "__fspath__"):
+                return address.__fspath__()
+            return address
+
         else:
             await _core.checkpoint()
             return address

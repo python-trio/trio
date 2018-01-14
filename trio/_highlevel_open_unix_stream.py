@@ -1,0 +1,32 @@
+import trio
+from trio._highlevel_open_tcp_stream import close_on_error
+from trio.socket import socket, SOCK_STREAM, AF_UNIX
+
+__all__ = ["open_unix_socket"]
+
+
+async def open_unix_socket(filename,):
+    """Opens a connection to the specified
+    `Unix domain socket <https://en.wikipedia.org/wiki/Unix_domain_socket>`_.
+
+    You must have read/write permission on the specified file to connect.
+
+    Args:
+      filename (str or bytes): The filename to open the connection to.
+
+    Returns:
+      SocketStream: a :class:`~trio.abc.Stream` connected to the given file.
+
+    Raises:
+      OSError: If the socket file could not be connected to.
+    """
+    if filename is None:
+        raise ValueError("Filename cannot be None")
+
+    # much more simplified logic vs tcp sockets - one socket type and only one
+    # possible location to connect to
+    sock = socket(AF_UNIX, SOCK_STREAM)
+    with close_on_error(sock):
+        await sock.connect(filename)
+
+    return trio.SocketStream(sock)
