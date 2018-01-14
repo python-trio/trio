@@ -1,7 +1,14 @@
 import socket
 import tempfile
 
+import pytest
+
 from trio import open_unix_socket, Path
+
+try:
+    from socket import AF_UNIX
+except ImportError:
+    pytestmark = pytest.mark.skip("Needs unix socket support")
 
 
 async def test_open_unix_socket():
