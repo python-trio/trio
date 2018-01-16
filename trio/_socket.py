@@ -1,15 +1,14 @@
-from functools import wraps as _wraps, partial as _partial
+import os as _os
 import socket as _stdlib_socket
 import sys as _sys
-import os as _os
-from contextlib import contextmanager as _contextmanager
-import errno as _errno
+from functools import wraps as _wraps
 
 import idna as _idna
 
 from . import _core
 from ._deprecate import deprecated
 from ._threads import run_sync_in_worker_thread
+from ._util import fspath
 
 __all__ = []
 
@@ -509,9 +508,7 @@ class _SocketType(SocketType):
         elif self._sock.family == AF_UNIX:
             await _core.checkpoint()
             # unwrap path-likes
-            if hasattr(address, "__fspath__"):
-                return address.__fspath__()
-            return address
+            return fspath(address)
 
         else:
             await _core.checkpoint()

@@ -13,7 +13,7 @@ __all__ = ["open_unix_socket"]
 
 async def open_unix_socket(filename,):
     """Opens a connection to the specified
-    `Unix domain socket <https://en.wikipedia.org/wiki/Unix_domain_socket>`_.
+    `Unix domain socket <https://en.wikipedia.org/wiki/Unix_domain_socket>`__.
 
     You must have read/write permission on the specified file to connect.
 

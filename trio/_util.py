@@ -3,6 +3,7 @@
 import os
 import sys
 from functools import wraps
+import typing as t
 
 import async_generator
 
@@ -59,6 +60,7 @@ if os.name == "nt":
     # - generating synthetic signals for tests
     # and for both of those purposes, 'raise' works fine.
     import cffi
+
     _ffi = cffi.FFI()
     _ffi.cdef("int raise(int);")
     _lib = _ffi.dlopen("api-ms-win-crt-runtime-l1-1-0.dll")
@@ -134,9 +136,9 @@ class _AsyncGeneratorContextManager:
                 # was passed to throw() and later wrapped into a RuntimeError
                 # (see PEP 479).
                 if (
-                    isinstance(value,
-                               (StopIteration, StopAsyncIteration))
-                    and exc.__cause__ is value
+                        isinstance(value,
+                                   (StopIteration, StopAsyncIteration))
+                        and exc.__cause__ is value
                 ):
                     return False
                 raise
@@ -155,7 +157,7 @@ class _AsyncGeneratorContextManager:
     def __enter__(self):
         raise RuntimeError(
             "use 'async with {func_name}(...)', not 'with {func_name}(...)'".
-            format(func_name=self._func_name)
+                format(func_name=self._func_name)
         )
 
     def __exit__(self):  # pragma: no cover
@@ -256,3 +258,41 @@ def fixup_module_metadata(module_name, namespace):
     for objname in namespace["__all__"]:
         obj = namespace[objname]
         fix_one(obj)
+
+
+# This is copied from PEP 519 as the implementation of os.fspath for
+# Python 3.5. See: https://www.python.org/dev/peps/pep-0519/#os
+# The input typehint is removed as there is no os.PathLike on 3.5.
+
+def fspath(path) -> t.Union[str, bytes]:
+    """Return the string representation of the path.
+
+    If str or bytes is passed in, it is returned unchanged. If __fspath__()
+    returns something other than str or bytes then TypeError is raised. If
+    this function is given something that is not str, bytes, or os.PathLike
+    then TypeError is raised.
+    """
+    if isinstance(path, (str, bytes)):
+        return path
+
+    # Work from the object's type to match method resolution of other magic
+    # methods.
+    path_type = type(path)
+    try:
+        path = path_type.__fspath__(path)
+    except AttributeError:
+        if hasattr(path_type, '__fspath__'):
+            raise
+    else:
+        if isinstance(path, (str, bytes)):
+            return path
+        else:
+            raise TypeError("expected __fspath__() to return str or bytes, "
+                            "not " + type(path).__name__)
+
+    raise TypeError("expected str, bytes or os.PathLike object, not "
+                    + path_type.__name__)
+
+
+if sys.version_info[0:2] >= (3, 6):
+    fspath = os.fspath
