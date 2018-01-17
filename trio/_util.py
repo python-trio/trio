@@ -157,7 +157,7 @@ class _AsyncGeneratorContextManager:
     def __enter__(self):
         raise RuntimeError(
             "use 'async with {func_name}(...)', not 'with {func_name}(...)'".
-                format(func_name=self._func_name)
+            format(func_name=self._func_name)
         )
 
     def __exit__(self):  # pragma: no cover
@@ -264,6 +264,7 @@ def fixup_module_metadata(module_name, namespace):
 # Python 3.5. See: https://www.python.org/dev/peps/pep-0519/#os
 # The input typehint is removed as there is no os.PathLike on 3.5.
 
+
 def fspath(path) -> t.Union[str, bytes]:
     """Return the string representation of the path.
 
@@ -287,11 +288,14 @@ def fspath(path) -> t.Union[str, bytes]:
         if isinstance(path, (str, bytes)):
             return path
         else:
-            raise TypeError("expected __fspath__() to return str or bytes, "
-                            "not " + type(path).__name__)
+            raise TypeError(
+                "expected __fspath__() to return str or bytes, "
+                "not " + type(path).__name__
+            )
 
-    raise TypeError("expected str, bytes or os.PathLike object, not "
-                    + path_type.__name__)
+    raise TypeError(
+        "expected str, bytes or os.PathLike object, not " + path_type.__name__
+    )
 
 
 if sys.version_info[0:2] >= (3, 6):
