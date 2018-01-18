@@ -15,11 +15,8 @@ import async_generator
 from . import _core
 
 __all__ = [
-    "signal_raise",
-    "aiter_compat",
-    "acontextmanager",
-    "ConflictDetector",
-    "fixup_module_metadata",
+    "signal_raise", "aiter_compat", "acontextmanager", "ConflictDetector",
+    "fixup_module_metadata", "fspath"
 ]
 
 # Equivalent to the C function raise(), which Python doesn't wrap
@@ -298,5 +295,5 @@ def fspath(path) -> t.Union[str, bytes]:
     )
 
 
-if sys.version_info[0:2] >= (3, 6):
+if hasattr(os, "fspath"):  # pragma: no cover
     fspath = os.fspath

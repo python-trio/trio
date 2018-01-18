@@ -37,12 +37,12 @@ async def _do_test_on_sock(serv_sock, unix_socket):
     assert received == b"response"
 
 
-@pytest.mark.xfail
 async def test_open_bad_socket():
     # mktemp is marked as insecure, but that's okay, we don't want the file to
     # exist
     name = os.path.join(tempfile.gettempdir(), tempfile.mktemp())
-    await open_unix_socket(name)
+    with pytest.raises(FileNotFoundError):
+        await open_unix_socket(name)
 
 
 async def test_open_unix_socket():
