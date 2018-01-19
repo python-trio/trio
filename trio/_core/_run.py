@@ -383,8 +383,10 @@ class Nursery:
         self.cancel_scope.cancel()
 
     def _check_nursery_closed(self):
-        if (not self._nested_child_running and not self._children
-                and not self._pending_starts):
+        if (
+            not self._nested_child_running and not self._children
+            and not self._pending_starts
+        ):
             self._closed = True
             if self._parent_waiting_in_aexit:
                 self._parent_waiting_in_aexit = False
@@ -1477,8 +1479,10 @@ async def checkpoint_if_cancelled():
 
     """
     task = current_task()
-    if (task._pending_cancel_scope() is not None or
-        (task is task._runner.main_task and task._runner.ki_pending)):
+    if (
+        task._pending_cancel_scope() is not None or
+        (task is task._runner.main_task and task._runner.ki_pending)
+    ):
         await _core.checkpoint()
         assert False  # pragma: no cover
     task._cancel_points += 1

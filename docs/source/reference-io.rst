@@ -195,6 +195,8 @@ abstraction.
 
 .. autofunction:: serve_ssl_over_tcp
 
+.. autofunction:: open_unix_socket
+
 .. autoclass:: SocketStream
    :members:
    :undoc-members:

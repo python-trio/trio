@@ -66,9 +66,12 @@ TRIO_TEST_CA.configure_trust(CLIENT_CTX)
 # will hopefully be fixed soon
 import sys
 WORKAROUND_PYPY_BUG = False
-if (hasattr(sys, "pypy_version_info") and
-    ((sys.pypy_version_info < (5, 9)) or
-     (sys.pypy_version_info[:4] == (5, 9, 0, "alpha")))):
+if (
+    hasattr(sys, "pypy_version_info") and (
+        (sys.pypy_version_info < (5, 9)) or
+        (sys.pypy_version_info[:4] == (5, 9, 0, "alpha"))
+    )
+):
     WORKAROUND_PYPY_BUG = True
 
 

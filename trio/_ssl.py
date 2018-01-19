@@ -630,9 +630,11 @@ class SSLStream(Stream):
                 # For some reason, EOF before handshake sometimes raises
                 # SSLSyscallError instead of SSLEOFError (e.g. on my linux
                 # laptop, but not on appveyor). Thanks openssl.
-                if (self._https_compatible
-                        and isinstance(exc.__cause__,
-                                       (SSLEOFError, SSLSyscallError))):
+                if (
+                    self._https_compatible and
+                    isinstance(exc.__cause__,
+                               (SSLEOFError, SSLSyscallError))
+                ):
                     return b""
                 else:
                     raise
@@ -647,8 +649,10 @@ class SSLStream(Stream):
                 # BROKEN. But that's actually fine, because after getting an
                 # EOF on TLS then the only thing you can do is close the
                 # stream, and closing doesn't care about the state.
-                if (self._https_compatible
-                        and isinstance(exc.__cause__, SSLEOFError)):
+                if (
+                    self._https_compatible
+                    and isinstance(exc.__cause__, SSLEOFError)
+                ):
                     return b""
                 else:
                     raise

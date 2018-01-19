@@ -1,15 +1,14 @@
-from functools import wraps as _wraps, partial as _partial
+import os as _os
 import socket as _stdlib_socket
 import sys as _sys
-import os as _os
-from contextlib import contextmanager as _contextmanager
-import errno as _errno
+from functools import wraps as _wraps
 
 import idna as _idna
 
 from . import _core
 from ._deprecate import deprecated
 from ._threads import run_sync_in_worker_thread
+from ._util import fspath
 
 __all__ = []
 
@@ -462,8 +461,10 @@ class _SocketType(SocketType):
     async def bind(self, address):
         await _core.checkpoint()
         address = await self._resolve_local_address(address)
-        if (hasattr(_stdlib_socket, "AF_UNIX") and self.family == AF_UNIX
-                and address[0]):
+        if (
+            hasattr(_stdlib_socket, "AF_UNIX") and self.family == AF_UNIX
+            and address[0]
+        ):
             # Use a thread for the filesystem traversal (unless it's an
             # abstract domain socket)
             return await run_sync_in_worker_thread(self._sock.bind, address)
@@ -504,6 +505,11 @@ class _SocketType(SocketType):
                     "address should be a (host, port, [flowinfo, [scopeid]]) "
                     "tuple"
                 )
+        elif self._sock.family == AF_UNIX:
+            await _core.checkpoint()
+            # unwrap path-likes
+            return fspath(address)
+
         else:
             await _core.checkpoint()
             return address

@@ -176,8 +176,10 @@ disable_ki_protection.__name__ = "disable_ki_protection"
 
 @contextmanager
 def ki_manager(deliver_cb, restrict_keyboard_interrupt_to_checkpoints):
-    if (threading.current_thread() != threading.main_thread()
-            or signal.getsignal(signal.SIGINT) != signal.default_int_handler):
+    if (
+        threading.current_thread() != threading.main_thread()
+        or signal.getsignal(signal.SIGINT) != signal.default_int_handler
+    ):
         yield
         return
 
