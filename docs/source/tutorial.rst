@@ -108,8 +108,8 @@ If you get lost or confused...
 
 ...then we want to know! We have a friendly `chat channel
 <https://gitter.im/python-trio/general>`__, you can ask questions
-`using the "trio" tag on StackOverflow
-<https://stackoverflow.com/questions/ask?tags=python+trio>`__, or just
+`using the "python-trio" tag on StackOverflow
+<https://stackoverflow.com/questions/ask?tags=python+python-trio>`__, or just
 `file a bug <https://github.com/python-trio/trio/issues/new>`__ (if
 our documentation is confusing, that's our fault, and we want to fix
 it!).

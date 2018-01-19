@@ -101,7 +101,7 @@ asking for help in our `chat room
 <https://gitter.im/python-trio/general>`__, `filing a bug
 <https://github.com/python-trio/trio/issues/new>`__, or `posting a
 question on StackOverflow
-<https://stackoverflow.com/questions/ask?tags=python+trio>`__, and
+<https://stackoverflow.com/questions/ask?tags=python+python-trio>`__, and
 we'll do our best to help you out.
 
 **Trio is awesome and I want to help make it more awesome!** You're
