@@ -245,6 +245,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
     # we can't do it here. Maybe we could do a bit better with
     #     https://github.com/python-trio/trio/issues/77
     async with _ForceCloseBoth(await stream_maker()) as (s, r):
+
         async def expect_cancelled(afn, *args):
             with _assert_raises(_core.Cancelled):
                 await afn(*args)
@@ -315,6 +316,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
 
         # closing the receiver causes wait_send_all_might_not_block to return
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
+
             async def sender():
                 try:
                     with assert_checkpoints():

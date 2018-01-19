@@ -530,8 +530,8 @@ class _SocketType(SocketType):
             if not self._sock.getsockopt(IPPROTO_IPV6, IPV6_V6ONLY):
                 flags |= AI_V4MAPPED
         gai_res = await getaddrinfo(
-            host, port, self._sock.family,
-            real_socket_type(self._sock.type), self._sock.proto, flags
+            host, port, self._sock.family, real_socket_type(self._sock.type),
+            self._sock.proto, flags
         )
         # AFAICT from the spec it's not possible for getaddrinfo to return an
         # empty list.

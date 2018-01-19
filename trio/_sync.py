@@ -166,8 +166,8 @@ class CapacityLimiter:
     def __repr__(self):
         return (
             "<trio.CapacityLimiter at {:#x}, {}/{} with {} waiting>".format(
-                id(self),
-                len(self._borrowers), self._total_tokens, len(self._lot)
+                id(self), len(self._borrowers), self._total_tokens,
+                len(self._lot)
             )
         )
 
