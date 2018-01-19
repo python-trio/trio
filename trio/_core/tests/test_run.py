@@ -185,9 +185,8 @@ def test_main_and_task_both_crash():
     with pytest.raises(_core.MultiError) as excinfo:
         _core.run(main)
     print(excinfo.value)
-    assert set(type(exc) for exc in excinfo.value.exceptions) == {
-        ValueError, KeyError
-    }
+    assert set(type(exc)
+               for exc in excinfo.value.exceptions) == {ValueError, KeyError}
 
 
 def test_two_child_crashes():
@@ -201,9 +200,8 @@ def test_two_child_crashes():
 
     with pytest.raises(_core.MultiError) as excinfo:
         _core.run(main)
-    assert set(type(exc) for exc in excinfo.value.exceptions) == {
-        ValueError, KeyError
-    }
+    assert set(type(exc)
+               for exc in excinfo.value.exceptions) == {ValueError, KeyError}
 
 
 async def test_child_crash_wakes_parent():
