@@ -295,5 +295,5 @@ def fspath(path) -> t.Union[str, bytes]:
     )
 
 
-if hasattr(os, "fspath"):  # pragma: no cover
+if hasattr(os, "fspath"):
     fspath = os.fspath
