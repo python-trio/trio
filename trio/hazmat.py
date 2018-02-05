@@ -40,6 +40,7 @@ __all__ = [
     "register_with_iocp",
     "wait_overlapped",
     "monitor_completion_key",
+    "wait_for_child",
     "ReadFDStream",
     "WriteFDStream",
 ]

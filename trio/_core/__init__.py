@@ -39,6 +39,9 @@ __all__ += _unbounded_queue.__all__
 from ._local import *
 __all__ += _local.__all__
 
+from ._subprocess import *
+__all__ += _subprocess.__all__
+
 if hasattr(_run, "wait_readable"):
     import socket as _stdlib_socket
 

@@ -12,6 +12,7 @@ __all__ = [
     "SocketFactory",
     "HostnameResolver",
     "Listener",
+    "ProcessWatcher",
 ]
 
 
@@ -504,3 +505,23 @@ class Listener(AsyncResource):
         :class:`OSError` with its errno set to ``EMFILE``.
 
         """
+
+class ProcessWatcher(metaclass=ABCMeta):
+    """A standard interface for waiting for a child process.
+
+    """
+    __slots__ = ()
+
+    @abstractmethod
+    async def wait(self):
+        """Wait until the child process ends.
+
+        Returns:
+          the exit code of the process.
+          If negative, the process died with a signal: the return value is
+          the negative signal number.
+
+        Raises:
+          ChildProcessError: if the process does not exist or is not a child.
+        """
+
