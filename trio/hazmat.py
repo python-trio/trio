@@ -40,6 +40,8 @@ __all__ = [
     "register_with_iocp",
     "wait_overlapped",
     "monitor_completion_key",
+    "ReadFDStream",
+    "WriteFDStream",
 ]
 
 from . import _core

@@ -152,6 +152,14 @@ All environments provide the following functions:
        if another task is already waiting for the given socket to
        become writable.
 
+In addition, :mod:`trio.hazmat` contains low-level stream adapters for
+OS file handles. You can use them to trio-ize standard input or output. Be
+aware that there is no provision for text encoding yet, which is why
+they're in `trio.hazmat`.
+
+.. autoclass:: ReadFDStream
+
+.. autoclass:: WriteFDStream
 
 Unix-specific API
 -----------------
