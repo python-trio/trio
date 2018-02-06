@@ -6,6 +6,10 @@ import weakref
 import subprocess
 from contextlib import contextmanager
 
+_mswindows = (sys.platform == "win32")
+if _mswindows:
+    import _winapi
+
 from .. import _core
 from .. import _sync
 from . import _fd_stream
@@ -42,23 +46,22 @@ class ProcessWaiter:
     __pid = None
     __result = None
     __thread = None
+    _handle = None
 
-    def __new__(cls, *args, pid=None, **kwargs):
+    def __new__(cls, pid=None, _handle=None):
         """Grab an existing object if there is one"""
         self = None
         if pid is not None:
-            if args or kwargs:
-                raise RuntimeError("'pid' is set: No other arguments allowed")
             self = _children.get(pid, None)
         if self is None:
             self = object.__new__(cls)
         return self
 
-    def __init__(self, pid=None):
+    def __init__(self, pid=None, _handle=None):
         if self.__pid is None:
-            self._set_pid(pid)
+            self._set_pid(pid, _handle)
 
-    def _set_pid(self, pid):
+    def _set_pid(self, pid, _handle=None):
         if self.__pid is not None:
             raise RuntimeError("You can't change the pid")
         if not isinstance(pid, int):
@@ -66,6 +69,13 @@ class ProcessWaiter:
 
         self.__pid = pid
         _children[pid] = self
+
+        if _mswindows:
+            if _handle is None:
+                _handle = _winapi.OpenProcess(_winapi.PROCESS_ALL_ACCESS, True, pid)
+            self.__handle = _handle
+        elif _handle is not None:
+            raise RuntimeError("Process handles are a Windows thing.")
 
     async def wait(self):
         """Wait for this child process to end."""
@@ -94,26 +104,38 @@ class ProcessWaiter:
         self._wait_pid(blocking=True)
         self.__token.run_sync_soon(self.__event.set)
 
-    def _wait_pid(self, blocking):
-        """check up on a child process"""
-        assert self.__pid > 0
+    if _mswindows:
+        def _wait_pid(self, blocking):
+            assert self.__handle is not None
+            if blocking:
+                timeout = _winapi.INFINITE
+            else:
+                timeout = 0
+            result = _winapi.WaitForSingleObject(self.__handle, timeout)
+            if result != _winapi.WAIT_TIMEOUT:
+                self.__result = _winapi.GetExitCodeProcess(self._handle)
 
-        try:
-            pid, status = os.waitpid(self.__pid, 0 if blocking else os.WNOHANG)
-        except ChildProcessError:
-            # The child process may already be reaped
-            # (may happen if waitpid() is called elsewhere).
-            self.__result = NOT_FOUND
-        else:
-            if pid == 0:
-                # The child process is still alive.
-                return
-            del _children[pid]
-            self._handle_exitstatus(status)
+    else:
+        def _wait_pid(self, blocking):
+            """check up on a child process"""
+            assert self.__pid > 0
 
-    def _handle_exitstatus(self, sts):
-        """This overrides an internal API of subprocess.Popen"""
-        self.__result = _core.Result.capture(_compute_returncode,sts)
+            try:
+                pid, status = os.waitpid(self.__pid, 0 if blocking else os.WNOHANG)
+            except ChildProcessError:
+                # The child process may already be reaped
+                # (may happen if waitpid() is called elsewhere).
+                self.__result = NOT_FOUND
+            else:
+                if pid == 0:
+                    # The child process is still alive.
+                    return
+                del _children[pid]
+                self._handle_exitstatus(status)
+
+        def _handle_exitstatus(self, sts):
+            """This overrides an internal API of subprocess.Popen"""
+            self.__result = _core.Result.capture(_compute_returncode,sts)
 
     @property
     def returncode(self):
@@ -171,7 +193,12 @@ class Process:
             raise
 
         self.pid = self._process.pid
-        self._waiter = ProcessWaiter(self.pid)
+        if _mswindows:
+            # compromise: _handle is an internal attribute, but using just
+            # the pid might not be a good idea
+            self._waiter = ProcessWaiter(self.pid, getattr(self._process,'_handle',None))
+        else:
+            self._waiter = ProcessWaiter(self.pid)
 
         if self._kwargs.get('stdin', None) == subprocess.PIPE:
             self.stdin = _fd_stream.WriteFDStream(self._process.stdin)
