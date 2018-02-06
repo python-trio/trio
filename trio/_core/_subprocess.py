@@ -23,6 +23,7 @@ __all__ = ['run_subprocess', 'wait_for_child']
 
 _children = weakref.WeakValueDictionary()
 
+
 def _compute_returncode(status):
     if os.WIFSIGNALED(status):
         # The child process died because of a signal.
@@ -36,7 +37,9 @@ def _compute_returncode(status):
         # This shouldn't happen.
         raise UnknownStatus(pid, status)
 
+
 NOT_FOUND_VALUE = _core.Error(ChildProcessError())
+
 
 class ProcessWaiter:
     """I implement waiting for a child process."""
@@ -72,7 +75,9 @@ class ProcessWaiter:
 
         if _mswindows:
             if _handle is None:
-                _handle = _winapi.OpenProcess(_winapi.PROCESS_ALL_ACCESS, True, pid)
+                _handle = _winapi.OpenProcess(
+                    _winapi.PROCESS_ALL_ACCESS, True, pid
+                )
             self.__handle = _handle
         elif _handle is not None:
             raise RuntimeError("Process handles are a Windows thing.")
@@ -105,6 +110,7 @@ class ProcessWaiter:
         self.__token.run_sync_soon(self.__event.set)
 
     if _mswindows:
+
         def _wait_pid(self, blocking):
             assert self.__handle is not None
             if blocking:
@@ -116,12 +122,15 @@ class ProcessWaiter:
                 self.__result = _winapi.GetExitCodeProcess(self._handle)
 
     else:
+
         def _wait_pid(self, blocking):
             """check up on a child process"""
             assert self.__pid > 0
 
             try:
-                pid, status = os.waitpid(self.__pid, 0 if blocking else os.WNOHANG)
+                pid, status = os.waitpid(
+                    self.__pid, 0 if blocking else os.WNOHANG
+                )
             except ChildProcessError:
                 # The child process may already be reaped
                 # (may happen if waitpid() is called elsewhere).
@@ -135,7 +144,7 @@ class ProcessWaiter:
 
         def _handle_exitstatus(self, sts):
             """This overrides an internal API of subprocess.Popen"""
-            self.__result = _core.Result.capture(_compute_returncode,sts)
+            self.__result = _core.Result.capture(_compute_returncode, sts)
 
     @property
     def returncode(self):
@@ -148,18 +157,20 @@ async def wait_for_child(pid):
     waiter = ProcessWaiter(pid)
     return await waiter.wait()
 
+
 async def _close(fd):
     try:
         if fd is None:
             pass
-        elif isinstance(fd,int):
+        elif isinstance(fd, int):
             os.close(fd)
-        elif hasattr(fd,'aclose'):
+        elif hasattr(fd, 'aclose'):
             await fd.aclose()
         else:
             fd.close()
     except Exception:
         logger.exception("Closing stdin: %s" % repr(fd))
+
 
 class Process:
     """Start, communicate with, and wait for a subprocess.
@@ -172,15 +183,20 @@ class Process:
 
     def __init__(self, *args, **kwargs):
         if kwargs.get('universal_newlines', False):
-            raise NotImplementedError("trio doesn't yet support universal_newlines")
-        if kwargs.get('encoding', None) is not None or kwargs.get('errors', None) is not None:
-            raise NotImplementedError("trio doesn't yet support encoding stdio")
+            raise NotImplementedError(
+                "trio doesn't yet support universal_newlines"
+            )
+        if kwargs.get('encoding', None
+                      ) is not None or kwargs.get('errors', None) is not None:
+            raise NotImplementedError(
+                "trio doesn't yet support encoding stdio"
+            )
         self._args = args
         self._kwargs = kwargs
         self._process = None
         self._waiter = None
         self.pid = None
-        
+
     async def __aenter__(self):
         if self._process is not None:
             raise RuntimeError("You already started a process.")
@@ -196,7 +212,9 @@ class Process:
         if _mswindows:
             # compromise: _handle is an internal attribute, but using just
             # the pid might not be a good idea
-            self._waiter = ProcessWaiter(self.pid, getattr(self._process,'_handle',None))
+            self._waiter = ProcessWaiter(
+                self.pid, getattr(self._process, '_handle', None)
+            )
         else:
             self._waiter = ProcessWaiter(self.pid)
 
@@ -266,6 +284,7 @@ class Process:
         # everything should have happened in __aexit__
         pass
 
+
 def run_subprocess(*args, **kwargs):
     """Start a subprocess.
 
@@ -278,4 +297,3 @@ def run_subprocess(*args, **kwargs):
 
     """
     return Process(*args, **kwargs)
-    

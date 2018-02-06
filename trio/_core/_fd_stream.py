@@ -17,11 +17,12 @@ _closed_stream_errnos = {
     errno.ENOTSOCK,
 }
 
+
 class _FDStream(AsyncResource):
     def __init__(self, fd):
-        if hasattr(fd,'fileno'):
+        if hasattr(fd, 'fileno'):
             # Unwrap Python's IO buffers.
-            while hasattr(fd,'detach'):
+            while hasattr(fd, 'detach'):
                 fd = fd.detach()
             # _io.FileIO.closefd is not writeable and we don't want to hold
             # a reference to the original file descriptor, so take the easy
@@ -33,7 +34,7 @@ class _FDStream(AsyncResource):
         self._fd = fd
         self._fdflags = fcntl.fcntl(fd, fcntl.F_GETFL, 0)
         fcntl.fcntl(fd, fcntl.F_SETFL, self._fdflags | os.O_NONBLOCK)
-        
+
         self._send_conflict_detector = ConflictDetector(
             "another task is currently sending data to this ReadFDStream"
         )
@@ -100,4 +101,3 @@ class WriteFDStream(_FDStream, SendStream):
     async def wait_send_all_might_not_block(self):
         async with self._send_conflict_detector:
             await self.socket.wait_writable()
-

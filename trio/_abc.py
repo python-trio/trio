@@ -507,6 +507,7 @@ class Listener(AsyncResource):
 
         """
 
+
 class ProcessWatcher(metaclass=ABCMeta):
     """A standard interface for waiting for a child process.
 
@@ -526,6 +527,7 @@ class ProcessWatcher(metaclass=ABCMeta):
           ChildProcessError: if the process does not exist or is not a child.
         """
 
+
 class Process(ProcessWatcher):
     """A standard interface for starting a new child process.
 
@@ -540,4 +542,3 @@ class Process(ProcessWatcher):
 
         stdin/stdout/stderr are Trio streams.
         """
-
