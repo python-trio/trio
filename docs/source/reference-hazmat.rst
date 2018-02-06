@@ -405,10 +405,9 @@ create and access :class:`Result` objects from any thread you like.
 Child processes
 ===============
 
-Trio supports threads natively.
-See :ref:`Threads <threads>` for details.
+Trio supports threads and subprocesses natively.
+See :ref:`Threads <threads>` and :ref:`Subprocesses <subprocess>` for details.
 
-Subprocesses are not yet supported.
 If you did acquire a child process by some other means, use
 :func:`wait_for_child` to wait until it terminates.
 

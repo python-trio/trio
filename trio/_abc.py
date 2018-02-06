@@ -13,6 +13,7 @@ __all__ = [
     "HostnameResolver",
     "Listener",
     "ProcessWatcher",
+    "Process",
 ]
 
 
@@ -523,5 +524,20 @@ class ProcessWatcher(metaclass=ABCMeta):
 
         Raises:
           ChildProcessError: if the process does not exist or is not a child.
+        """
+
+class Process(ProcessWatcher):
+    """A standard interface for starting a new child process.
+
+    """
+    __slots__ = ()
+
+    @abstractmethod
+    async def __aenter__(self):
+        """Start a subprocess.
+
+        The arguments are set up in :meth:`__init__`.
+
+        stdin/stdout/stderr are Trio streams.
         """
 
