@@ -6,11 +6,6 @@ import weakref
 import subprocess
 from contextlib import contextmanager
 
-try:
-    import signalfd
-except ImportError:
-    signalfd = None
-
 from .. import _core
 from .. import _sync
 from . import _fd_stream
