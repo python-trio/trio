@@ -101,7 +101,11 @@ class ProcessWaiter:
         self.__event = _sync.Event()
         self.__token = _core.current_trio_token()
 
-        self.__thread = threading.Thread(target=self._wait_thread, daemon=True)
+        self.__thread = threading.Thread(
+            target=self._wait_thread,
+            name="waitpid_%d" % self.__pid,
+            daemon=True
+        )
         self.__thread.start()
 
     def _wait_thread(self):
