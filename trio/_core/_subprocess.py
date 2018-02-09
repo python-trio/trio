@@ -1,14 +1,8 @@
 import os
 import sys
-import signal
 import threading
 import weakref
 import subprocess
-from contextlib import contextmanager
-
-_mswindows = (sys.platform == "win32")
-if _mswindows:
-    import _winapi
 
 from .. import _core
 from .. import _sync
@@ -17,11 +11,19 @@ from . import _fd_stream
 import logging
 logger = logging.getLogger(__name__)
 
+_mswindows = (sys.platform == "win32")
+if _mswindows:
+    import _winapi
+
 __all__ = ['run_subprocess', 'wait_for_child']
 
 # TODO: use whatever works for Windows and MacOS/BSD
 
 _children = weakref.WeakValueDictionary()
+
+
+class UnknownStatus(ChildProcessError):
+    pass
 
 
 def _compute_returncode(status):
@@ -31,14 +33,14 @@ def _compute_returncode(status):
     elif os.WIFEXITED(status):
         # The child process exited (e.g sys.exit()).
         return os.WEXITSTATUS(status)
-    elif os.WIFSTOPPED(sts):
+    elif os.WIFSTOPPED(status):
         return -os.WSTOPSIG(status)
     else:
         # This shouldn't happen.
-        raise UnknownStatus(pid, status)
+        raise UnknownStatus(status)
 
 
-NOT_FOUND_VALUE = _core.Error(ChildProcessError())
+NOT_FOUND = _core.Error(ChildProcessError())
 
 
 class ProcessWaiter:
