@@ -1554,7 +1554,7 @@ def test_nice_error_on_bad_calls_to_run_or_spawn():
             import asyncio
 
             @asyncio.coroutine
-            def generator_based_coro():
+            def generator_based_coro():  # pragma: no cover
                 yield from asyncio.sleep(1)
 
             with pytest.raises(TypeError) as excinfo:
