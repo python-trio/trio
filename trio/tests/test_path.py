@@ -5,6 +5,7 @@ import pytest
 
 import trio
 from trio._path import AsyncAutoWrapperType as Type
+from trio._util import fspath
 from trio._file_io import AsyncIOWrapper
 
 
@@ -196,4 +197,4 @@ async def test_path_nonpath():
 
 async def test_open_file_can_open_path(path):
     async with await trio.open_file(path, 'w') as f:
-        assert f.name == path.__fspath__()
+        assert f.name == fspath(path)

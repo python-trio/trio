@@ -4,7 +4,7 @@ import types
 import pathlib
 
 import trio
-from trio._util import async_wraps
+from trio._util import async_wraps, fspath
 
 __all__ = ['Path']
 
@@ -141,11 +141,7 @@ class Path(metaclass=AsyncAutoWrapperType):
         return 'trio.Path({})'.format(repr(str(self)))
 
     def __fspath__(self):
-        try:
-            return self._wrapped.__fspath__()
-        # python3.5 compat
-        except AttributeError:  # pragma: no cover
-            return str(self)
+        return fspath(self._wrapped)
 
     @wraps(pathlib.Path.open)
     async def open(self, *args, **kwargs):

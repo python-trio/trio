@@ -5,6 +5,7 @@ import tempfile
 import pytest
 
 from trio import open_unix_socket, Path
+from trio._util import fspath
 
 try:
     from socket import AF_UNIX
@@ -20,7 +21,7 @@ async def get_server_socket():
         pass
 
     serv_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    serv_sock.bind(name.__fspath__())  # bpo-32562
+    serv_sock.bind(fspath(name))  # bpo-32562
     serv_sock.listen(1)
 
     return name, serv_sock
@@ -47,7 +48,7 @@ async def test_open_bad_socket():
 
 async def test_open_unix_socket():
     name, serv_sock = await get_server_socket()
-    unix_socket = await open_unix_socket(name.__fspath__())
+    unix_socket = await open_unix_socket(fspath(name))
     await _do_test_on_sock(serv_sock, unix_socket)
 
 

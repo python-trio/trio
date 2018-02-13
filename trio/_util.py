@@ -2,6 +2,7 @@
 
 import os
 import sys
+import pathlib
 from functools import wraps
 import typing as t
 
@@ -257,18 +258,20 @@ def fixup_module_metadata(module_name, namespace):
         fix_one(obj)
 
 
-# This is copied from PEP 519 as the implementation of os.fspath for
-# Python 3.5. See: https://www.python.org/dev/peps/pep-0519/#os
+# This is based on the PEP 519 fspath implementation.
+# The function has been adapted to work with pathlib objects on python 3.5
 # The input typehint is removed as there is no os.PathLike on 3.5.
+# See: https://www.python.org/dev/peps/pep-0519/#os
 
 
 def fspath(path) -> t.Union[str, bytes]:
     """Return the string representation of the path.
 
-    If str or bytes is passed in, it is returned unchanged. If __fspath__()
-    returns something other than str or bytes then TypeError is raised. If
-    this function is given something that is not str, bytes, or os.PathLike
-    then TypeError is raised.
+    If str or bytes is passed in, it is returned unchanged. If a pre-python 3.6
+    pathlib object is passed, its string representation is returned. If
+    __fspath__() returns something other than str or bytes then TypeError is
+    raised. If this function is given something that is not str, bytes,
+    pathlib.PurePath or os.PathLike then TypeError is raised.
     """
     if isinstance(path, (str, bytes)):
         return path
@@ -281,6 +284,10 @@ def fspath(path) -> t.Union[str, bytes]:
     except AttributeError:
         if hasattr(path_type, '__fspath__'):
             raise
+        # On python 3.5 pathlib objects don't have an __fspath__ method.
+        # but we still want to get their string representation.
+        if isinstance(path, pathlib.PurePath):
+            return str(path)
     else:
         if isinstance(path, (str, bytes)):
             return path
