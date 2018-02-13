@@ -4,7 +4,7 @@ import io
 import trio
 from . import _core
 from .abc import AsyncResource
-from ._util import aiter_compat, async_wraps
+from ._util import aiter_compat, async_wraps, fspath
 
 __all__ = ['open_file', 'wrap_file']
 
@@ -162,7 +162,7 @@ async def open_file(
     """
     # python3.5 compat
     if isinstance(file, trio.Path):
-        file = file.__fspath__()
+        file = fspath(file)
 
     _file = wrap_file(
         await trio.run_sync_in_worker_thread(
