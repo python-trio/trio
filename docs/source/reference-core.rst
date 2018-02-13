@@ -556,12 +556,6 @@ Cancel scope objects provide the following interface:
       This method is idempotent, i.e. if the scope was already
       cancelled then this method silently does nothing.
 
-   .. attribute:: cancel_called
-
-      Readonly :class:`bool`. Records whether this scope has been
-      cancelled, either by an explicit call to :meth:`cancel` or by
-      the deadline expiring.
-
    .. attribute:: cancelled_caught
 
       Readonly :class:`bool`. Records whether this scope caught a
@@ -569,6 +563,24 @@ Cancel scope objects provide the following interface:
       the ``with`` block exited with a :exc:`~trio.Cancelled`
       exception, and (2) this scope is the one that was responsible
       for triggering this :exc:`~trio.Cancelled` exception.
+
+   .. attribute:: cancel_called
+
+      Readonly :class:`bool`. Records whether cancellation has been
+      requested for this scope, either by an explicit call to
+      :meth:`cancel` or by the deadline expiring.
+
+      This attribute being True does *not* necessarily mean that
+      the code within the scope has been, or will be, affected by
+      the cancellation. For example, if :meth:`cancel` was called
+      just before the scope exits, when it's too late to deliver
+      a :exc:`~trio.Cancelled` exception, then this attribute will
+      still be True.
+
+      This attribute is mostly useful for debugging and introspection.
+      If you want to know whether or not a chunk of code was actually
+      cancelled, then :attr:`cancelled_caught` is usually more
+      appropriate.
 
 Trio also provides several convenience functions for the common
 situation of just wanting to impose a timeout on some code:
