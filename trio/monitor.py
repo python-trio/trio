@@ -12,12 +12,61 @@ import logging
 
 from .abc import Instrument 
 from ._threads import BlockingTrioPortal
+from .hazmat import current_statistics
 
 
 LOGGER = logging.getLogger("trio.monitor")
 
 MONITOR_HOST = '127.0.0.1'
 MONITOR_PORT = 48802
+
+# Telnet doesn't support unicode, so we must rely on ascii art instead :'-(
+if 0:
+    MID_PREFIX = "├─ "
+    MID_CONTINUE = "│  "
+    END_PREFIX = "└─ "
+else:
+    MID_PREFIX = "|- "
+    MID_CONTINUE = "|  "
+    END_PREFIX = "|_ "
+END_CONTINUE = " " * len(END_PREFIX)
+
+
+def _render_subtree(name, rendered_children):
+    lines = []
+    lines.append(name)
+    for child_lines in rendered_children:
+        if child_lines is rendered_children[-1]:
+            first_prefix = END_PREFIX
+            rest_prefix = END_CONTINUE
+        else:
+            first_prefix = MID_PREFIX
+            rest_prefix = MID_CONTINUE
+        lines.append(first_prefix + child_lines[0])
+        for child_line in child_lines[1:]:
+            lines.append(rest_prefix + child_line)
+    return lines
+
+
+def _rendered_nursery_children(nursery):
+    return [task_tree_lines(t) for t in nursery.child_tasks]
+
+
+def task_tree_lines(task):
+    rendered_children = []
+    nurseries = list(task.child_nurseries)
+    while nurseries:
+        nursery = nurseries.pop()
+        nursery_children = _rendered_nursery_children(nursery)
+        if rendered_children:
+            nested = _render_subtree("(nested nursery)", rendered_children)
+            nursery_children.append(nested)
+        rendered_children = nursery_children
+    return _render_subtree(task.name, rendered_children)
+
+
+def render_task_tree(task=None):
+    return '\n'.join(line for line in task_tree_lines(task)) + '\n'
 
 
 class Monitor(Instrument):
@@ -128,8 +177,14 @@ class Monitor(Instrument):
                     _, taskid_s = resp.split()
                     self.command_parents(sout, int(taskid_s))
 
+                elif resp.startswith('s'):
+                    self.command_stats(sout)
+
                 elif resp.startswith('p'):
                     self.command_ps(sout)
+
+                elif resp.startswith('t'):
+                    self.command_task_tree(sout)
 
                 elif resp.startswith('exit'):
                     self.command_exit(sout)
@@ -165,6 +220,20 @@ class Monitor(Instrument):
          quit             : Leave the monitor
 ''')
 
+    def command_stats(self, sout):
+        async def get_current_statistics():
+            return current_statistics()
+        stats = self._portal.run(get_current_statistics)
+        sout.write('''tasks_living: {s.tasks_living}
+tasks_runnable: {s.tasks_runnable}
+seconds_to_next_deadline: {s.seconds_to_next_deadline}
+run_sync_soon_queue_size: {s.run_sync_soon_queue_size}
+io_statistics:
+    tasks_waiting_read: {s.io_statistics.tasks_waiting_read}
+    tasks_waiting_write: {s.io_statistics.tasks_waiting_write}
+    backend: {s.io_statistics.backend}
+'''.format(s=stats))
+
     def command_ps(self, sout):
         headers = ('Task', 'State', 'Task')
         widths = (15, 12, 50)
@@ -181,14 +250,31 @@ class Monitor(Instrument):
                 widths[2], task.name,
             ))
 
+    def command_task_tree(self, sout):
+        root_task = next(iter(self._tasks.values()))
+        while root_task.parent_nursery is not None:
+            root_task = root_task.parent_nursery.parent_task
+        task_tree = render_task_tree(root_task)
+        sout.write(task_tree)
+
     def command_where(self, sout, taskid):
         task = self._tasks.get(taskid)
         if task:
-            # TODO: Getting stack this way only work for the currently running
-            # task. Given other tasks are put into a parking lot, we cannot
-            # retrieve there caller. Maybe this is not that of a trouble
-            # given the latter is always `trio._core._run::run_impl`...
-            tb = ''.join(traceback.format_stack(task.coro.cr_frame))
+            def walk_coro_stack(coro):
+                while coro is not None:
+                    if hasattr(coro, "cr_frame"):
+                        # A real coroutine
+                        yield coro.cr_frame, coro.cr_frame.f_lineno
+                        coro = coro.cr_await
+                    else:
+                        # A generator decorated with @types.coroutine
+                        yield coro.gi_frame, coro.gi_frame.f_lineno
+                        coro = coro.gi_yieldfrom
+
+            # tb = ''.join(traceback.format_stack(task.coro.cr_frame))
+            # TODO: not working with <init> coroutine...
+            ss = traceback.StackSummary.extract(walk_coro_stack(task.coro))
+            tb = ''.join(ss.format())
             sout.write(tb + '\n')
         else:
             sout.write('No task %d\n' % taskid)
