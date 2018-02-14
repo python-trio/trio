@@ -1,12 +1,14 @@
 import pytest
 
-import signal
+import os
 import sys
+import signal
+import pathlib
 import textwrap
 
 from async_generator import async_generator, yield_
 
-from .._util import *
+from .._util import acontextmanager, signal_raise, ConflictDetector, _fspath
 from .. import _core
 from ..testing import wait_all_tasks_blocked, assert_checkpoints
 
@@ -221,3 +223,106 @@ def test_module_metadata_is_fixed_up():
     # Also check methods
     assert trio.ssl.SSLStream.__init__.__module__ == "trio.ssl"
     assert trio.abc.Stream.send_all.__module__ == "trio.abc"
+
+
+# define a concrete class implementing the PathLike protocol
+# Since we want to have compatibility with Python 3.5 we need
+# to define the base class on runtime.
+BaseKlass = os.PathLike if hasattr(os, "PathLike") else object
+
+
+class ConcretePathLike(BaseKlass):
+    """ Class implementing the file system path protocol."""
+
+    def __init__(self, path=""):
+        self.path = path
+
+    def __str__(self):
+        return str(self.path)
+
+    def __fspath__(self):
+        return self.path
+
+    @classmethod
+    def __subclasshook__(cls, subclass):
+        return hasattr(subclass, '__fspath__')
+
+
+class BaseTestFspath(object):
+
+    # based on:
+    # https://github.com/python/cpython/blob/da6c3da6c33c6bf794f741e348b9c6d86cc43ec5/Lib/test/test_os.py#L3527-L3571
+
+    @pytest.mark.parametrize(
+        "path", (b'hello', b'goodbye', b'some/path/and/file')
+    )
+    def test_return_bytes(self, fspath, path):
+        assert path == fspath(path)
+
+    @pytest.mark.parametrize(
+        "path", ('hello', 'goodbye', 'some/path/and/file')
+    )
+    def test_return_string(self, fspath, path):
+        assert path == fspath(path)
+
+    @pytest.mark.parametrize(
+        "path", (pathlib.Path("/home"), pathlib.Path("C:\\windows"))
+    )
+    def test_handle_pathlib(self, fspath, path):
+        assert str(path) == fspath(path)
+
+    @pytest.mark.parametrize("path", ("path/like/object", b"path/like/object"))
+    def test_handle_pathlike_protocol(self, fspath, path):
+        pathlike = ConcretePathLike(path)
+        assert path == fspath(pathlike)
+        if sys.version_info > (3, 6):
+            assert issubclass(ConcretePathLike, os.PathLike)
+            assert isinstance(pathlike, os.PathLike)
+
+    def test_argument_required(self, fspath):
+        with pytest.raises(TypeError):
+            fspath()
+
+    def test_throw_error_at_multiple_arguments(self, fspath):
+        with pytest.raises(TypeError):
+            fspath(1, 2)
+
+    @pytest.mark.parametrize(
+        "klass", (23, object(), int, type, os, type("blah", (), {})())
+    )
+    def test_throw_error_at_non_pathlike(self, fspath, klass):
+        with pytest.raises(TypeError):
+            fspath(klass)
+
+    @pytest.mark.parametrize(
+        "exception, method",
+        [
+            (TypeError, 1),  # __fspath__ is not callable
+            (TypeError, lambda x: 23
+             ),  # __fspath__ returns a value other than str or bytes
+            (ZeroDivisionError,
+             lambda x: 1 / 0),  # __fspath__raises an exception
+        ]
+    )
+    def test_bad_pathlike_implementation(self, fspath, exception, method):
+        klass = type('foo', (), {})
+        klass.__fspath__ = method
+        with pytest.raises(exception):
+            fspath(klass())
+
+
+# On Python 3.6 we use os.fspath instead of our own implementation.
+# Nevertheless, in order to make sure that the two implementations
+# do the same thing, we run the test-suite with os.path too.
+class TestOwnFspath(BaseTestFspath):
+    @pytest.fixture
+    def fspath(self):
+        return _fspath
+
+
+if sys.version_info > (3, 6):
+
+    class TestStdLibFspath(BaseTestFspath):
+        @pytest.fixture
+        def fspath(self):
+            return os.fspath
