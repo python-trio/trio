@@ -267,7 +267,7 @@ def fixup_module_metadata(module_name, namespace):
 # See: https://www.python.org/dev/peps/pep-0519/#os
 
 
-def _fspath(path) -> t.Union[str, bytes]:
+def fspath(path) -> t.Union[str, bytes]:
     """Return the path representation of a path-like object.
 
     Returns
@@ -315,6 +315,4 @@ def _fspath(path) -> t.Union[str, bytes]:
 
 
 if hasattr(os, "fspath"):
-    fspath = os.fspath  # pragma: no cover
-else:
-    fspath = _fspath  # pragma: no cover
+    fspath = os.fspath

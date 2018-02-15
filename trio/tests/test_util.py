@@ -8,7 +8,7 @@ import textwrap
 
 from async_generator import async_generator, yield_
 
-from .._util import acontextmanager, signal_raise, ConflictDetector, _fspath
+from .._util import acontextmanager, signal_raise, ConflictDetector, fspath
 from .. import _core
 from ..testing import wait_all_tasks_blocked, assert_checkpoints
 
@@ -248,7 +248,7 @@ class ConcretePathLike(BaseKlass):
         return hasattr(subclass, '__fspath__')
 
 
-class BaseTestFspath(object):
+class TestFspath(object):
 
     # based on:
     # https://github.com/python/cpython/blob/da6c3da6c33c6bf794f741e348b9c6d86cc43ec5/Lib/test/test_os.py#L3527-L3571
@@ -256,41 +256,41 @@ class BaseTestFspath(object):
     @pytest.mark.parametrize(
         "path", (b'hello', b'goodbye', b'some/path/and/file')
     )
-    def test_return_bytes(self, fspath, path):
+    def test_return_bytes(self, path):
         assert path == fspath(path)
 
     @pytest.mark.parametrize(
         "path", ('hello', 'goodbye', 'some/path/and/file')
     )
-    def test_return_string(self, fspath, path):
+    def test_return_string(self, path):
         assert path == fspath(path)
 
     @pytest.mark.parametrize(
         "path", (pathlib.Path("/home"), pathlib.Path("C:\\windows"))
     )
-    def test_handle_pathlib(self, fspath, path):
+    def test_handle_pathlib(self, path):
         assert str(path) == fspath(path)
 
     @pytest.mark.parametrize("path", ("path/like/object", b"path/like/object"))
-    def test_handle_pathlike_protocol(self, fspath, path):
+    def test_handle_pathlike_protocol(self, path):
         pathlike = ConcretePathLike(path)
         assert path == fspath(pathlike)
         if sys.version_info > (3, 6):
             assert issubclass(ConcretePathLike, os.PathLike)
             assert isinstance(pathlike, os.PathLike)
 
-    def test_argument_required(self, fspath):
+    def test_argument_required(self):
         with pytest.raises(TypeError):
             fspath()
 
-    def test_throw_error_at_multiple_arguments(self, fspath):
+    def test_throw_error_at_multiple_arguments(self):
         with pytest.raises(TypeError):
             fspath(1, 2)
 
     @pytest.mark.parametrize(
         "klass", (23, object(), int, type, os, type("blah", (), {})())
     )
-    def test_throw_error_at_non_pathlike(self, fspath, klass):
+    def test_throw_error_at_non_pathlike(self, klass):
         with pytest.raises(TypeError):
             fspath(klass)
 
@@ -304,25 +304,8 @@ class BaseTestFspath(object):
              lambda x: 1 / 0),  # __fspath__raises an exception
         ]
     )
-    def test_bad_pathlike_implementation(self, fspath, exception, method):
+    def test_bad_pathlike_implementation(self, exception, method):
         klass = type('foo', (), {})
         klass.__fspath__ = method
         with pytest.raises(exception):
             fspath(klass())
-
-
-# On Python 3.6 we use os.fspath instead of our own implementation.
-# Nevertheless, in order to make sure that the two implementations
-# do the same thing, we run the test-suite with os.path too.
-class TestOwnFspath(BaseTestFspath):
-    @pytest.fixture
-    def fspath(self):
-        return _fspath
-
-
-if sys.version_info > (3, 6):
-
-    class TestStdLibFspath(BaseTestFspath):
-        @pytest.fixture
-        def fspath(self):
-            return os.fspath
