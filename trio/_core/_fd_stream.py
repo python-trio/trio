@@ -1,7 +1,12 @@
 # "High-level" networking interface
 
 import os
-import fcntl
+try:
+    import fcntl
+except ImportError:
+    _fcntl = False
+else:
+    _fcntl = True
 import errno
 
 from .. import _core
@@ -32,8 +37,9 @@ class _FDStream(AsyncResource):
             raise TypeError("ReadFDStream requires a file descriptor")
 
         self._fd = fd
-        self._fdflags = fcntl.fcntl(fd, fcntl.F_GETFL, 0)
-        fcntl.fcntl(fd, fcntl.F_SETFL, self._fdflags | os.O_NONBLOCK)
+        if _fcntl:
+            self._fdflags = fcntl.fcntl(fd, fcntl.F_GETFL, 0)
+            fcntl.fcntl(fd, fcntl.F_SETFL, self._fdflags | os.O_NONBLOCK)
 
         self._send_conflict_detector = ConflictDetector(
             "another task is currently sending data to this ReadFDStream"
