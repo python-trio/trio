@@ -97,34 +97,43 @@ def test_run_local_multiple_runs():
 def test_run_local_simultaneous_runs():
     r = _core.RunLocal()
 
-    async def main(x, q):
-        q.get()
+    result_q = queue.Queue()
+
+    async def main(x, in_q, out_q):
+        in_q.get()
         assert not hasattr(r, "attr")
         r.attr = x
         assert hasattr(r, "attr")
         assert r.attr == x
-        q.put(None)
-        q.get()
+        out_q.put(None)
+        in_q.get()
         assert r.attr == x
 
-    q1 = queue.Queue()
-    t1 = threading.Thread(target=_core.run, args=(main, 1, q1))
+    def harness(x, in_q, out_q):
+        result_q.put(_core.Result.capture(_core.run, main, x, in_q, out_q))
+
+    in_q1 = queue.Queue()
+    out_q1 = queue.Queue()
+    t1 = threading.Thread(target=harness, args=(1, in_q1, out_q1))
     t1.start()
 
-    q2 = queue.Queue()
-    t2 = threading.Thread(target=_core.run, args=(main, 2, q2))
+    in_q2 = queue.Queue()
+    out_q2 = queue.Queue()
+    t2 = threading.Thread(target=harness, args=(2, in_q2, out_q2))
     t2.start()
 
-    q1.put(None)
-    q1.get()
+    in_q1.put(None)
+    out_q1.get()
 
-    q2.put(None)
-    q2.get()
+    in_q2.put(None)
+    out_q2.get()
 
-    q1.put(None)
-    q2.put(None)
+    in_q1.put(None)
+    in_q2.put(None)
     t1.join()
     t2.join()
+    result_q.get().unwrap()
+    result_q.get().unwrap()
 
     with pytest.raises(RuntimeError):
         r.attr
