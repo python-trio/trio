@@ -46,8 +46,8 @@ chance to give feedback about any compatibility-breaking changes.
 Vital statistics:
 
 * Supported environments: Linux, MacOS, or Windows running some kind of Python
-  3.5-or-better (either CPython or PyPy3 is fine). \*BSD and illumus likely
-  work too, but are untested.
+  3.5-or-better (either CPython or PyPy3 is fine). \*BSD and
+  illumos/Solaris likely work too, but are untested.
 
 * Install: ``python3 -m pip install -U trio`` (or on Windows, maybe
   ``py -3 -m pip install -U trio``). No compiler needed.
