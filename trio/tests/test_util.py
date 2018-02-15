@@ -13,6 +13,12 @@ from .. import _core
 from ..testing import wait_all_tasks_blocked, assert_checkpoints
 
 
+def raise_(exc):
+    """ Raise provided exception.
+    Just a helper for raising exceptions from lambdas. """
+    raise exc
+
+
 def test_signal_raise():
     record = []
 
@@ -300,8 +306,10 @@ class TestFspath(object):
             (TypeError, 1),  # __fspath__ is not callable
             (TypeError, lambda x: 23
              ),  # __fspath__ returns a value other than str or bytes
-            (ZeroDivisionError,
-             lambda x: 1 / 0),  # __fspath__raises an exception
+            (Exception, lambda x: raise_(Exception)
+             ),  # __fspath__raises a random exception
+            (AttributeError, lambda x: raise_(AttributeError)
+             ),  # __fspath__ raises AttributeError
         ]
     )
     def test_bad_pathlike_implementation(self, exception, method):
