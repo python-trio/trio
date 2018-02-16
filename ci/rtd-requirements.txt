@@ -1,5 +1,4 @@
 # RTD is currently installing 1.5.3, which has a bug in :lineno-match:
-# 1.7.0 hits https://github.com/sphinx-doc/sphinx/issues/4609
-sphinx == 1.6.7
+sphinx >= 1.7.0
 sphinx_rtd_theme
 sphinxcontrib-trio
