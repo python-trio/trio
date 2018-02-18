@@ -994,7 +994,7 @@ class Runner:
         time.
 
         If there are multiple tasks blocked in :func:`wait_all_tasks_blocked`,
-        then the one with the shortest ``cushion`` is the one woken (and the
+        then the one with the shortest ``cushion`` is the one woken (and
         this task becoming unblocked resets the timers for the remaining
         tasks). If there are multiple tasks that have exactly the same
         ``cushion``, then the one with the lowest ``tiebreaker`` value is
