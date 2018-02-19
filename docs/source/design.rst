@@ -482,7 +482,7 @@ The one thing that *isn't* in ``_run.py`` is I/O handling. This is
 delegated to an ``IOManager`` class, of which there are currently
 three implementations:
 
-* ``EpollIOManager`` in ``_io_epoll.py`` (used on Linux, Illumos)
+* ``EpollIOManager`` in ``_io_epoll.py`` (used on Linux, illumos)
 
 * ``KqueueIOManager`` in ``_io_kqueue.py`` (used on MacOS, \*BSD)
 
