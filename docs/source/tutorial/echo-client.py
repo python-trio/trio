@@ -1,4 +1,4 @@
-# echo-client-low-level.py
+# echo-client.py
 
 import sys
 import trio
@@ -12,18 +12,18 @@ PORT = 12345
 # but shouldn't be too big or too small.
 BUFSIZE = 16384
 
-async def sender(client_sock):
+async def sender(client_stream):
     print("sender: started!")
     while True:
         data = b"async can sometimes be confusing, but I believe in you!"
         print("sender: sending {!r}".format(data))
-        await client_sock.sendall(data)
+        await client_stream.send_all(data)
         await trio.sleep(1)
 
-async def receiver(client_sock):
+async def receiver(client_stream):
     print("receiver: started!")
     while True:
-        data = await client_sock.recv(BUFSIZE)
+        data = await client_stream.receive_some(BUFSIZE)
         print("receiver: got data {!r}".format(data))
         if not data:
             print("receiver: connection closed")
@@ -31,13 +31,13 @@ async def receiver(client_sock):
 
 async def parent():
     print("parent: connecting to 127.0.0.1:{}".format(PORT))
-    with trio.socket.socket() as client_sock:
-        await client_sock.connect(("127.0.0.1", PORT))
+    client_stream = await trio.open_tcp_stream("127.0.0.1", PORT)
+    async with client_stream:
         async with trio.open_nursery() as nursery:
             print("parent: spawning sender...")
-            nursery.start_soon(sender, client_sock)
+            nursery.start_soon(sender, client_stream)
 
             print("parent: spawning receiver...")
-            nursery.start_soon(receiver, client_sock)
+            nursery.start_soon(receiver, client_stream)
 
 trio.run(parent)
