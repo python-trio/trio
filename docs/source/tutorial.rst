@@ -836,8 +836,8 @@ Now let's take what we've learned and use it to do some I/O, which is
 where async/await really shines.
 
 
-An echo client: low-level API
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+An echo client
+~~~~~~~~~~~~~~
 
 The traditional application for demonstrating network APIs is an "echo
 server": a program that accepts arbitrary data from a client, and then
@@ -851,7 +851,7 @@ will send some data at our echo server and get responses back:
 
 .. _tutorial-echo-client-example:
 
-.. literalinclude:: tutorial/echo-client-low-level.py
+.. literalinclude:: tutorial/echo-client.py
    :linenos:
 
 The overall structure here should be familiar, because it's just like
@@ -864,174 +864,154 @@ networking APIs.
 
 Let's look at the parent first:
 
-.. literalinclude:: tutorial/echo-client-low-level.py
+.. literalinclude:: tutorial/echo-client.py
    :linenos:
    :lineno-match:
    :pyobject: parent
 
-We're using the :mod:`trio.socket` API to access network
-functionality. (If you know the :mod:`socket` module in the standard
-library, then :mod:`trio.socket` is very similar, just asyncified.)
-First we call ``trio.socket.socket()`` to create the socket object
-we'll use to connect to the server, and we use a ``with`` block to
-make sure that it will be closed properly. (Trio is designed around
-the assumption that you'll be using ``with`` blocks to manage resource
-cleanup – highly recommended!) Then we call ``connect`` to connect to
-the echo server. ``127.0.0.1`` is a magic `IP address
+First we call :func:`trio.open_tcp_stream` to make a TCP connection to
+the server. ``127.0.0.1`` is a magic `IP address
 <https://en.wikipedia.org/wiki/IP_address>`__ meaning "the computer
-I'm running on", so ``(127.0.0.1, PORT)`` means that we want to
-connect to whatever program on the current computer is using ``PORT``
-as its contact point. And then once the connection is made, we pass
-the connected client socket into the two child tasks. (This is also a
-good example of how ``nursery.start_soon`` lets you pass positional
-arguments to the spawned function.)
+I'm running on", so this connects us to whatever program on the local
+computer is using ``PORT`` as its contact point. This function returns
+a object implementing Trio's :class:`~trio.abc.Stream` interface,
+which gives us methods to send and receive bytes, and to close the
+connection when we're done. We use an ``async with`` block to make
+sure that we do close the connection – not a big deal in a toy example
+like this, but it's a good habit to get into, and Trio is designed to
+make ``with`` and ``async with`` blocks easy to use.
+
+Finally, we start up two child tasks, and pass each of them a
+reference to the stream. (This is also a good example of how
+``nursery.start_soon`` lets you pass positional arguments to the
+spawned function.)
 
 Our first task's job is to send data to the server:
 
-.. literalinclude:: tutorial/echo-client-low-level.py
+.. literalinclude:: tutorial/echo-client.py
    :linenos:
    :lineno-match:
    :pyobject: sender
 
 It uses a loop that alternates between calling ``await
-client_sock.sendall(...)`` to send some data, and then sleeping for a
-second to avoid making the output scroll by too fast on your terminal.
+client_stream.send_all(...)`` to send some data (this is the method
+you use for sending data on any kind of Trio stream), and then
+sleeping for a second to avoid making the output scroll by too fast on
+your terminal.
 
 And the second task's job is to process the data the server sends back:
 
-.. literalinclude:: tutorial/echo-client-low-level.py
+.. literalinclude:: tutorial/echo-client.py
    :linenos:
    :lineno-match:
    :pyobject: receiver
 
-It repeatedly calls ``await client_sock.recv(...)`` to get more data
-from the server, and then checks to see if the server has closed the
-connection. ``recv`` only returns an empty bytestring if the
-connection has been closed; if there's no data available, then it
-blocks until more data arrives.
+It repeatedly calls ``await client_stream.receive_some(...)`` to get
+more data from the server (again, all Trio streams provide this
+method), and then checks to see if the server has closed the
+connection. ``receive_some`` only returns an empty bytestring if the
+connection has been closed; otherwise, it waits until some data has
+arrived, up to a maximum of ``BUFSIZE`` bytes.
 
 And now we're ready to look at the server.
 
 
 .. _tutorial-echo-server-example:
 
-An echo server: low-level API
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+An echo server
+~~~~~~~~~~~~~~
 
-The server is a little trickier. As usual, let's look at the whole
-thing, and then we'll discuss the pieces:
+As usual, let's look at the whole thing first, and then we'll discuss
+the pieces:
 
-.. literalinclude:: tutorial/echo-server-low-level.py
+.. literalinclude:: tutorial/echo-server.py
    :linenos:
 
-Let's start with ``echo_server``. As we'll see below, each time an
-echo client connects, our server will start a child task running
-``echo_server``; there might be lots of these running at once if lots
-of clients are connected. Its job is to read data from its particular
-client, and then echo it back. It should be pretty straightforward to
-understand, because it uses the same socket functions we saw in the
-last section:
+Let's start with ``main``, which is just one line long:
 
-.. literalinclude:: tutorial/echo-server-low-level.py
+.. literalinclude:: tutorial/echo-server.py
+   :linenos:
+   :lineno-match:
+   :pyobject: main
+
+What this does is call :func:`serve_tcp`, which is a convenience
+function Trio provides that runs forever (or at least until you hit
+control-C or otherwise cancel it). This function does several helpful
+things:
+
+* It creates a nursery internally, so that our server will be able to
+  handle multiple connections at the same time.
+
+* It listens for incoming TCP connections on the specified ``PORT``.
+
+* Whenever a connection arrives, it starts a new task running the
+  function we pass (in this example it's ``echo_server``), and passes
+  it a stream representing that connection.
+
+* When each task exits, it makes sure to close the corresponding
+  connection. (That's why you don't see any ``async with
+  server_stream`` in the server – :func:`serve_tcp` takes care of this
+  for us.)
+
+So :func:`serve_tcp` is pretty handy! This part works pretty much the
+same for any server, whether it's an echo server, HTTP server, SSH
+server, or whatever, so it makes sense to bundle it all up together in
+a helper function like this.
+
+Now let's look at ``echo_server``, which handles each client
+connection – so if there are multiple clients, there might be multiple
+calls to ``echo_server`` running at the same time. This is where we
+implement our server's "echo" behavior. This should be pretty
+straightforward to understand, because it uses the same stream
+functions we saw in the last section:
+
+.. literalinclude:: tutorial/echo-server.py
    :linenos:
    :lineno-match:
    :pyobject: echo_server
 
-We take a socket object that's connected to the client (so the data we
-pass to ``sendall`` on the client comes out of ``recv`` here, and
-vice-versa), plus ``ident`` which is just a unique number used to make
-the print output less confusing when there are multiple clients
-connected at the same time. Then we have our usual ``with`` block to
-make sure the socket gets closed, a ``try`` block discussed below, and
-finally the server loop which alternates between reading some data
-from the socket and then sending it back out again (unless the socket
-was closed, in which case we quit).
+The argument ``server_stream`` is provided by :func:`serve_tcp`, and
+is the other end of the connection we made in the client: so the data
+that the client passes to ``send_all`` will come out of
+``receive_some`` here, and vice-versa. Then we have a ``try`` block
+discussed below, and finally the server loop which alternates between
+reading some data from the socket and then sending it back out again
+(unless the socket was closed, in which case we quit).
 
-Remember that in trio, like Python in general, exceptions keep
-propagating until they're caught. Here we think it's plausible there
-might be unexpected exceptions, and we want to isolate that to making
-just this one task crash, without taking down the whole program. For
-example, if the client closes the connection at the wrong moment then
-it's possible this code will end up calling ``sendall`` on a closed
-connection and get an :exc:`OSError`; that's unfortunate, and in a
-more serious program we might want to handle it more explicitly, but
-it doesn't indicate a problem for any other connections. On the other
-hand, if the exception is something like a :exc:`KeyboardInterrupt`,
-we *do* want that to propagate out into the parent task and cause the
+So what's that ``try`` block for? Remember that in trio, like Python
+in general, exceptions keep propagating until they're caught. Here we
+think it's plausible there might be unexpected exceptions, and we want
+to isolate that to making just this one task crash, without taking
+down the whole program. For example, if the client closes the
+connection at the wrong moment then it's possible this code will end
+up calling ``send_all`` on a closed connection and get an
+:exc:`BrokenStreamError`; that's unfortunate, and in a more serious
+program we might want to handle it more explicitly, but it doesn't
+indicate a problem for any *other* connections. On the other hand, if
+the exception is something like a :exc:`KeyboardInterrupt`, we *do*
+want that to propagate out into the parent task and cause the whole
 program to exit. To express this, we use a ``try`` block with an
 ``except Exception:`` handler.
 
-But where do these ``echo_server`` tasks come from? An important part
-of writing a trio program is deciding how you want to organize your
-tasks. In the examples we've seen so far, this was simple, because the
-set of tasks was fixed. Here, we want to wait for clients to connect,
-and then start a new task for each one. The tricky part is that like
-we mentioned above, managing a nursery is a full time job: you don't
-want the task that has the nursery and is supervising the child tasks
-to do anything else, like listen for new connections.
-
-There's a standard trick for handling this in trio: our parent task
-creates a nursery, spawns a child task to listen for new connections,
-and then *passes the nursery object to the child task*:
-
-.. literalinclude:: tutorial/echo-server-low-level.py
-   :linenos:
-   :lineno-match:
-   :pyobject: parent
-
-Now ``echo_listener`` can start "siblings" instead of children – even
-though the ``echo_listener`` is the one spawning ``echo_server``
-tasks, we end up with a task tree that looks like:
-
-.. code-block:: none
-
-   parent
-   │
-   ├─ echo_listener
-   │
-   ├─ echo_server 1
-   │
-   ├─ echo_server 2
-   ┆
-
-This lets ``parent`` focus on supervising the children,
-``echo_listener`` focus on listening for new connections, and each
-``echo_server`` focus on handling a single client.
-
-Once we know this trick, the listener code becomes pretty
-straightforward:
-
-.. literalinclude:: tutorial/echo-server-low-level.py
-   :linenos:
-   :lineno-match:
-   :pyobject: echo_listener
-
-We create a listen socket, start it listening, and then go into an
-infinite loop, accepting connections from clients and spawning an
-``echo_server`` task to handle each one.
-
-We don't expect there to be any errors here in the listener code – if
-there are, it's probably a bug, and probably means that our whole
-program is broken (a server that doesn't accept connections isn't very
-useful!). So we don't have a catch-all ``try`` block here. In general,
-trio leaves it up to you to decide whether and how you want to handle
-exceptions.
+In general, trio leaves it up to you to decide whether and how you
+want to handle exceptions, just like Python in general.
 
 
 Try it out
 ~~~~~~~~~~
 
-Open a few terminals, run ``echo-server-low-level.py`` in one, run
-``echo-client-low-level.py`` in another, and watch the messages scroll
-by! When you get bored, you can exit by hitting control-C.
+Open a few terminals, run ``echo-server.py`` in one, run
+``echo-client.py`` in another, and watch the messages scroll by! When
+you get bored, you can exit by hitting control-C.
 
 Some things to try:
 
-* Open another terminal, and run 2 clients at the same time.
+* Open several terminals, and run multiple clients at the same time,
+  all talking to the same server.
 
-* See how the server reacts when you hit control-C on the client
+* See how the server reacts when you hit control-C on the client.
 
-* See how the client reacts when you hit control-C on the server
+* See how the client reacts when you hit control-C on the server.
 
 
 Flow control in our echo client and server
@@ -1043,25 +1023,25 @@ task that alternates between them – like the server has? For example,
 our client could use a single task like::
 
    # Can you spot the two problems with this code?
-   async def send_and_receive(client_sock):
+   async def send_and_receive(client_stream):
        while True:
            data = ...
-           await client_sock.sendall(data)
-           received = await client_sock.recv(BUFSIZE)
+           await client_stream.send_all(data)
+           received = await client_stream.receive_some(BUFSIZE)
            if not received:
                sys.exit()
            await trio.sleep(1)
 
 It turns out there are two problems with this – one minor and one
 major. Both relate to flow control. The minor problem is that when we
-call ``recv`` here we're not waiting for *all* the data to be
-available; ``recv`` returns as soon as *any* data is available. If
+call ``receive_some`` here we're not waiting for *all* the data to be
+available; ``receive_some`` returns as soon as *any* data is available. If
 ``data`` is small, then our operating systems / network / server will
 *probably* keep it all together in a single chunk, but there's no
 guarantee. If the server sends ``hello`` then we might get ``hello``,
 or ``hel`` ``lo``, or ``h`` ``e`` ``l`` ``l`` ``o``, or ... bottom
 line, any time we're expecting more than one byte of data, we have to
-be prepared to call ``recv`` multiple times.
+be prepared to call ``receive_some`` multiple times.
 
 And where this would go especially wrong is if we find ourselves in
 the situation where ``len(data) > BUFSIZE``. On each pass through the
@@ -1071,11 +1051,11 @@ more and more data backed up in the network, until eventually
 something breaks.
 
 We could fix this by keeping track of how much data we're expecting at
-each moment, and then keep calling ``recv`` until we get it all::
+each moment, and then keep calling ``receive_some`` until we get it all::
 
    expected = len(data)
    while expected > 0:
-       received = await client_sock.recv(BUFSIZE)
+       received = await client_stream.receive_some(BUFSIZE)
        if not received:
            sys.exit(1)
        expected -= len(received)
@@ -1088,69 +1068,63 @@ data, we use ``await``: this means that sending can potentially
 *block*. Why does this happen? Any data that we send goes first into
 an operating system buffer, and from there onto the network, and then
 another operating system buffer on the receiving computer, before the
-receiving program finally calls ``recv`` to take the data out of these
-buffers. If we call ``sendall`` with a small amount of data, then it
-goes into these buffers and ``sendall`` returns immediately. But if we
-send enough data fast enough, eventually the buffers fill up, and
-``sendall`` will block until the remote side calls ``recv`` and frees
-up some space.
+receiving program finally calls ``receive_some`` to take the data out
+of these buffers. If we call ``send_all`` with a small amount of data,
+then it goes into these buffers and ``send_all`` returns immediately.
+But if we send enough data fast enough, eventually the buffers fill
+up, and ``send_all`` will block until the remote side calls
+``receive_some`` and frees up some space.
 
 Now let's think about this from the server's point of view. Each time
-it calls ``recv``, it gets some data that it needs to send back. And
-until it sends it back, the data is sitting around takes up
+it calls ``receive_some``, it gets some data that it needs to send
+back. And until it sends it back, the data is sitting around takes up
 memory. Computers have finite amounts of RAM, so if our server is well
-behaved then at some point it needs to stop calling ``recv`` until
-it gets rid of some of the old data by doing its own call to
-``sendall``. So for the server, really the only viable option is to
+behaved then at some point it needs to stop calling ``receive_some``
+until it gets rid of some of the old data by doing its own call to
+``send_all``. So for the server, really the only viable option is to
 alternate between receiving and sending.
 
 But we need to remember that it's not just the client's call to
-``sendall`` that might block: the server's call to ``sendall`` can
+``send_all`` that might block: the server's call to ``send_all`` can
 also get into a situation where it blocks until the client calls
-``recv``. So if the server is waiting for ``sendall`` to finish before
-it calls ``recv``, and our client also waits for ``sendall`` to finish
-before it calls ``recv``,... we have a problem! The client won't call
-``recv`` until the server has called ``recv``, and the server won't
-call ``recv`` until the client has called ``recv``. If our client is
-written to alternate between sending and receiving, and the chunk of
-data it's trying to send is large enough (e.g. 10 megabytes will
-probably do it in most configurations), then the two processes will
-`deadlock <https://en.wikipedia.org/wiki/Deadlock>`__.
+``receive_some``. So if the server is waiting for ``send_all`` to
+finish before it calls ``receive_some``, and our client also waits for
+``send_all`` to finish before it calls ``receive_some``,... we have a
+problem! The client won't call ``receive_some`` until the server has
+called ``receive_some``, and the server won't call ``receive_some``
+until the client has called ``receive_some``. If our client is written
+to alternate between sending and receiving, and the chunk of data it's
+trying to send is large enough (e.g. 10 megabytes will probably do it
+in most configurations), then the two processes will `deadlock
+<https://en.wikipedia.org/wiki/Deadlock>`__.
 
 Moral: trio gives you powerful tools to manage sequential and
 concurrent execution. In this example we saw that the server needs
-``send`` and ``recv`` to alternate in sequence, while the client needs
-them to run concurrently, and both were straightforward to
-implement. But when you're implementing network code like this then
+``send`` and ``receive_some`` to alternate in sequence, while the
+client needs them to run concurrently, and both were straightforward
+to implement. But when you're implementing network code like this then
 it's important to think carefully about flow control and buffering,
 because it's up to you to choose the right execution mode!
 
 Other popular async libraries like `Twisted
 <https://twistedmatrix.com/>`__ and :mod:`asyncio` tend to paper over
-these kinds of issues by throwing in unbounded buffers
-everywhere. This can avoid deadlocks, but can introduce its own
-problems and in particular can make it difficult to keep `memory usage
-and latency under control
-<https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/#three-bugs>`__. While
-both approaches have their advantages, trio takes the position that
-it's better to expose the underlying problem as directly as possible
-and provide good tools to confront it head-on.
+these kinds of issues by throwing in unbounded buffers everywhere.
+This can avoid deadlocks, but can introduce its own problems and in
+particular can make it difficult to keep `memory usage and latency
+under control
+<https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/#three-bugs>`__.
+While both approaches have their advantages, trio takes the position
+that it's better to expose the underlying problem as directly as
+possible and provide good tools to confront it head-on.
 
 .. note::
 
    If you want to try and make the deadlock happen on purpose to see
    for yourself, and you're using Windows, then you might need to
-   split the ``sendall`` call up into two calls that each send half of
+   split the ``send_all`` call up into two calls that each send half of
    the data. This is because Windows has a `somewhat unusual way of
    handling buffering
    <https://stackoverflow.com/questions/28785626/what-is-the-size-of-a-socket-send-buffer-in-windows>`__.
-
-
-An echo client and server: higher-level API
--------------------------------------------
-
-TODO: `Not implemented yet!
-<https://github.com/python-trio/trio/issues/73>`__
 
 
 When things go wrong: timeouts, cancellation and exceptions in concurrent tasks
