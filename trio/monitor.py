@@ -5,10 +5,13 @@ import sys
 import signal
 
 import inspect
+from types import FunctionType
 
+from . import Queue, WouldBlock, BrokenStreamError
+from ._highlevel_serve_listeners import _run_handler
 from ._version import __version__
 from .abc import Instrument
-from .hazmat import current_task, Task
+from .hazmat import current_task, Task, UnboundedQueue
 
 # inspiration: https://github.com/python-trio/trio/blob/master/notes-to-self/print-task-tree.py
 
@@ -37,6 +40,11 @@ class Monitor(Instrument):
         self.auth_pin = ''.join(
             rand.choice(string.ascii_letters) for x in range(0, 8)
         )
+
+        self._is_monitoring = False
+        # semi-arbitrary size, because otherwise we'll be dropping events
+        # no clue how to make this better, alas.
+        self._monitoring_queue = Queue(capacity=100)
 
     @staticmethod
     def get_root_task() -> Task:
@@ -67,6 +75,39 @@ class Monitor(Instrument):
 
         return tasks
 
+    # specific overrides
+    def before_io_wait(self, timeout):
+        if timeout == 0:
+            return
+
+        self._add_to_monitoring_queue(("before_io_wait", timeout))
+
+    def after_io_wait(self, timeout):
+        if timeout == 0:
+            return
+
+        self._add_to_monitoring_queue(("after_io_wait", timeout))
+
+    def _add_to_monitoring_queue(self, item):
+        if not self._is_monitoring:
+            return
+
+        if 'task' in item[0]:
+            task = item[1]
+            # idk how to make this better.
+            if task.coro.cr_code == _run_handler.__code__:
+                if task.coro.cr_frame is not None:
+                    loc = task.coro.cr_frame.f_locals
+
+                    # if it's our own handler, skip it!
+                    if loc['handler'] == self.listen_on_stream:
+                        return
+
+        try:
+            self._monitoring_queue.put_nowait(item)
+        except WouldBlock:
+            return
+
     async def listen_on_stream(self, stream):
         """Makes the monitor server listen on a stream.
         Use this as a callback from a listener.
@@ -96,6 +137,16 @@ class Monitor(Instrument):
             if name in ["exit", "ex", "quit", "q", ":q"]:
                 return await stream.aclose()
 
+            # special handling for monitor
+            if name in ["monitor", "mon", "m", "feed"]:
+                try:
+                    self._is_monitoring = True
+                    return await self.do_monitor(stream)
+                finally:
+                    self._is_monitoring = False
+                    # empty out the queue
+                    self._monitoring_queue = Queue(capacity=100)
+
             try:
                 fn = getattr(self, "command_{}".format(name))
             except AttributeError:
@@ -121,10 +172,18 @@ class Monitor(Instrument):
                 "\n".join(lines).encode(encoding="ascii") + b"\n"
             )
 
+    # monitor feed
+    async def do_monitor(self, stream):
+        """Livefeeds information about the running program."""
+        async for item in self._monitoring_queue:
+            try:
+                await stream.send_all(str(item).encode() + b"\n")
+            except BrokenStreamError:
+                return
+
     # command definitions
     async def command_help(self):
-        """Sends help.
-        """
+        """Sends help."""
         name_rpad = 12
 
         def pred(i):
@@ -141,8 +200,7 @@ class Monitor(Instrument):
         return lines
 
     async def command_signal(self, signame: str):
-        """Sends a signal to the server process.
-        """
+        """Sends a signal to the server process."""
         signame = signame.upper()
         if not signame.startswith("SIG"):
             signame = "SIG{}".format(signame)
@@ -156,8 +214,7 @@ class Monitor(Instrument):
         return ["Signal sent successfully"]
 
     async def command_ps(self):
-        """Gets the current list of tasks.
-        """
+        """Gets the current list of tasks."""
         lines = []
         headers = ('ID', 'Name')
         widths = (15, 50)
@@ -181,6 +238,36 @@ class Monitor(Instrument):
             ]))
 
         return lines
+
+    # stub commands
+    async def command_monitor(self, *args):
+        """Starts a live monitor feed."""
+        return ["You shouldn't see this"]
+
+    async def command_exit(self, *args):
+        """Exits the monitor."""
+        return ["You shouldn't see this"]
+
+
+def _patch_monitor():
+    def pred(i):
+        return isinstance(i, FunctionType) and not i.__name__.startswith("__")
+
+    for name, _ in inspect.getmembers(Instrument, predicate=pred):
+        # 99% sure this is needed to bind the right name
+        # otherwise it always uses the last name
+        def bind(fname):
+            def magic(self, *args):
+                return self._add_to_monitoring_queue((fname, *args))
+
+            return magic
+
+        if getattr(Monitor, name) == getattr(Instrument, name):
+            setattr(Monitor, name, bind(name))
+
+
+_patch_monitor()
+del _patch_monitor
 
 
 def main():
