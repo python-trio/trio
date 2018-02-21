@@ -1453,8 +1453,8 @@ time::
            # to only allow 3 of them at a time to even compete for the
            # global thread slots.
            combined_limiter = CombinedLimiter(per_user_limiter, global_limiter)
-           USER_LIMITERS[user_id] = limiter
-           return limiter
+           USER_LIMITERS[user_id] = combined_limiter
+           return combined_limiter
 
 
    async def run_in_worker_thread_for_user(user_id, async_fn, *args, **kwargs):
