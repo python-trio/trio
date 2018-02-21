@@ -10,12 +10,12 @@ from ._version import __version__
 from .abc import Instrument
 from .hazmat import current_task, Task
 
-
 # inspiration: https://github.com/python-trio/trio/blob/master/notes-to-self/print-task-tree.py
 
 # example usage:
 # monitor = Monitor()
 # trio.
+
 
 class Monitor(Instrument):
     """Represents a monitor; a simple way of monitoring the health of your
@@ -34,8 +34,9 @@ class Monitor(Instrument):
 
         # authentication for running code in a frame
         rand = random.SystemRandom()
-        self.auth_pin = ''.join(rand.choice(string.ascii_letters) for x in
-                                range(0, 8))
+        self.auth_pin = ''.join(
+            rand.choice(string.ascii_letters) for x in range(0, 8)
+        )
 
     @staticmethod
     def get_root_task() -> Task:
@@ -77,9 +78,10 @@ class Monitor(Instrument):
         """
         # send the banner
         version = __version__
-        await stream.send_all(b"Connected to the Trio monitor, using "
-                              b"trio " + version.encode(encoding="ascii") +
-                              b"\n")
+        await stream.send_all(
+            b"Connected to the Trio monitor, using "
+            b"trio " + version.encode(encoding="ascii") + b"\n"
+        )
 
         while True:
             await stream.send_all(b"trio> ")
@@ -97,8 +99,9 @@ class Monitor(Instrument):
             try:
                 fn = getattr(self, "command_{}".format(name))
             except AttributeError:
-                await stream.send_all(b"No such command: " + name.encode() +
-                                      b"\n")
+                await stream.send_all(
+                    b"No such command: " + name.encode() + b"\n"
+                )
                 continue
 
             try:
@@ -114,14 +117,16 @@ class Monitor(Instrument):
                 await stream.send_all(b"Error: " + errormessage.encode())
                 raise
 
-            await stream.send_all("\n".join(lines).encode(encoding="ascii") +
-                                  b"\n")
+            await stream.send_all(
+                "\n".join(lines).encode(encoding="ascii") + b"\n"
+            )
 
     # command definitions
     async def command_help(self):
         """Sends help.
         """
         name_rpad = 12
+
         def pred(i):
             return hasattr(i, "__name__") \
                    and i.__name__.startswith("command_")
@@ -178,7 +183,6 @@ class Monitor(Instrument):
         return lines
 
 
-
 def main():
     import argparse
     import telnetlib
@@ -188,10 +192,15 @@ def main():
         pass
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-a", "--address", default="127.0.0.1",
-                        help="The address to connect to")
-    parser.add_argument("-p", "--port", default=14761,
-                        help="The port to connect to")
+    parser.add_argument(
+        "-a",
+        "--address",
+        default="127.0.0.1",
+        help="The address to connect to"
+    )
+    parser.add_argument(
+        "-p", "--port", default=14761, help="The port to connect to"
+    )
 
     args = parser.parse_args()
     # TODO: Potentially wrap sys.stdin
@@ -199,6 +208,7 @@ def main():
     client.interact()
 
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())
