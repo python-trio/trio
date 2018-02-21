@@ -503,7 +503,7 @@ class Task:
     _schedule_points = attr.ib(default=0)
 
     def __repr__(self):
-        return ("<Task {!r} at {:#x}>".format(self.name, id(self)))
+        return "<Task {!r} at {:#x}>".format(self.name, id(self))
 
     @property
     def parent_nursery(self):

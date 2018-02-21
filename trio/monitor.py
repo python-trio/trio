@@ -1,6 +1,8 @@
+import os
 import random
 import string
 import sys
+import signal
 
 import inspect
 
@@ -42,6 +44,27 @@ class Monitor(Instrument):
         while task.parent_nursery is not None:
             task = task.parent_nursery.parent_task
         return task
+
+    @staticmethod
+    def flatten_tasks():
+        """Gets a list of all tasks."""
+        root = Monitor.get_root_task()
+        tasks = [root]
+        for child in root.child_nurseries:
+            tasks.extend(Monitor.recursively_get_tasks(child))
+
+        return tasks
+
+    @staticmethod
+    def recursively_get_tasks(nursery):
+        """Recursively gets all tasks from a nursery."""
+        tasks = []
+        for task in nursery.child_tasks:
+            tasks.append(task)
+            for nursery in task.child_nurseries:
+                tasks.extend(Monitor.recursively_get_tasks(nursery))
+
+        return tasks
 
     async def listen_on_stream(self, stream):
         """Makes the monitor server listen on a stream.
@@ -96,8 +119,7 @@ class Monitor(Instrument):
 
     # command definitions
     async def command_help(self):
-        """
-        Sends help.
+        """Sends help.
         """
         name_rpad = 12
         def pred(i):
@@ -112,6 +134,49 @@ class Monitor(Instrument):
             lines.append(name.ljust(name_rpad) + doc)
 
         return lines
+
+    async def command_signal(self, signame: str):
+        """Sends a signal to the server process.
+        """
+        signame = signame.upper()
+        if not signame.startswith("SIG"):
+            signame = "SIG{}".format(signame)
+
+        try:
+            tosend = getattr(signal, signame)
+        except AttributeError:
+            return ["Invalid signal: {}".format(signame)]
+
+        os.kill(os.getpid(), tosend)
+        return ["Signal sent successfully"]
+
+    async def command_ps(self):
+        """Gets the current list of tasks.
+        """
+        lines = []
+        headers = ('ID', 'Name')
+        widths = (15, 50)
+        header_line = []
+
+        for name, width in zip(headers, widths):
+            header_line.append(name.ljust(width))
+
+        lines.append(' '.join(header_line))
+        lines.append("-" * sum(widths))
+
+        for task in self.flatten_tasks():
+            if len(task.name) >= 50:
+                name = task.name[:46] + "..."
+            else:
+                name = task.name
+
+            lines.append(' '.join([
+                str(id(task)).ljust(widths[0]),
+                name,
+            ]))
+
+        return lines
+
 
 
 def main():
