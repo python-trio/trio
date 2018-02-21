@@ -254,8 +254,8 @@ class Monitor(Instrument):
     async def command_ps(self):
         """Gets the current list of tasks."""
         lines = []
-        headers = ('ID', 'Name')
-        widths = (15, 50)
+        headers = ('ID', 'Name', 'Parent')
+        widths = (15, 50, 15)
         header_line = []
 
         for name, width in zip(headers, widths):
@@ -270,10 +270,14 @@ class Monitor(Instrument):
             else:
                 name = task.name
 
-            lines.append(' '.join([
-                str(id(task)).ljust(widths[0]),
-                name,
-            ]))
+            if task.parent_nursery is None:
+                parent = "N/A"
+            else:
+                parent = str(id(task.parent_nursery.parent_task))
+
+            result = [str(id(task)).ljust(widths[0]), name.ljust(49), parent]
+
+            lines.append(' '.join(result))
 
         return lines
 
