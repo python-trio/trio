@@ -175,10 +175,48 @@ class Monitor(Instrument):
     # monitor feed
     async def do_monitor(self, stream):
         """Livefeeds information about the running program."""
+        prefix = "[FEED] "
         async for item in self._monitoring_queue:
+            key = item[0]
+
+            if key == "task_spawned":
+                task = item[1]
+                message = "Task spawned: {} ({})".format(task.name, id(task))
+
+            elif key == "task_scheduled":
+                task = item[1]
+                message = "Task scheduled: {} ({})".format(task.name, id(task))
+            elif key == "task_exited":
+                task = item[1]
+                message = "Task exited: {} ({})".format(task.name, id(task))
+
+            elif key == "before_io_wait":
+                timeout = item[1]
+                message = "Waiting for IO (timeout: {:.3f})".format(timeout)
+
+            elif key == "after_io_wait":
+                timeout = item[1]
+                message = "Done waiting for IO (timeout: {:.3f})"\
+                    .format(timeout)
+
+            elif key == "before_task_step":
+                task = item[1]
+                message = "Task stepping: {} ({})".format(task.name, id(task))
+
+            elif key == "after_task_step":
+                task = item[1]
+                message = "Task finished stepping: {} ({})".format(
+                    task.name, id(task)
+                )
+
+            else:
+                message = "Unknown event: {}".format(key)
+
+            message = prefix + message
+
             try:
-                await stream.send_all(str(item).encode() + b"\n")
-            except BrokenStreamError:
+                await stream.send_all(message.encode("ascii") + b'\n')
+            except BrokenStreamError:  # client disconnected on us
                 return
 
     # command definitions
@@ -273,10 +311,6 @@ del _patch_monitor
 def main():
     import argparse
     import telnetlib
-    try:
-        import readline
-    except ImportError:
-        pass
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -290,7 +324,7 @@ def main():
     )
 
     args = parser.parse_args()
-    # TODO: Potentially wrap sys.stdin
+    # TODO: Potentially wrap sys.stdin for better readline
     client = telnetlib.Telnet(host=args.address, port=args.port)
     client.interact()
 
