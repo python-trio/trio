@@ -243,15 +243,8 @@ class ConcretePathLike(BaseKlass):
     def __init__(self, path=""):
         self.path = path
 
-    def __str__(self):
-        return str(self.path)
-
     def __fspath__(self):
         return self.path
-
-    @classmethod
-    def __subclasshook__(cls, subclass):
-        return hasattr(subclass, '__fspath__')
 
 
 class TestFspath(object):
