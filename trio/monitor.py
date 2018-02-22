@@ -1,23 +1,37 @@
+import inspect
 import os
 import random
+import signal
 import string
 import sys
-import signal
-
-import inspect
+import traceback
 from types import FunctionType
+
+from async_generator._impl import ANextIter
 
 from . import Queue, WouldBlock, BrokenStreamError
 from ._highlevel_serve_listeners import _run_handler
 from ._version import __version__
 from .abc import Instrument
-from .hazmat import current_task, Task, UnboundedQueue
+from .hazmat import current_task, Task
 
 # inspiration: https://github.com/python-trio/trio/blob/master/notes-to-self/print-task-tree.py
+# additional credit: python-trio/trio#429 (You are being ratelimited)
 
-# example usage:
-# monitor = Monitor()
-# trio.
+
+def walk_coro_stack(coro):
+    while coro is not None:
+        if hasattr(coro, "cr_frame"):
+            # A real coroutine
+            yield coro.cr_frame, coro.cr_frame.f_lineno
+            coro = coro.cr_await
+        elif isinstance(coro, ANextIter):
+            # black hole
+            return
+        else:
+            # A generator decorated with @types.coroutine
+            yield coro.gi_frame, coro.gi_frame.f_lineno
+            coro = coro.gi_yieldfrom
 
 
 class Monitor(Instrument):
@@ -74,6 +88,13 @@ class Monitor(Instrument):
                 tasks.extend(Monitor.recursively_get_tasks(nursery))
 
         return tasks
+
+    @staticmethod
+    def get_task_by_id(taskid: int):
+        """Gets a task by ID."""
+        for task in Monitor.flatten_tasks():
+            if id(task) == taskid:
+                return task
 
     # specific overrides
     def before_io_wait(self, timeout):
@@ -158,10 +179,14 @@ class Monitor(Instrument):
             try:
                 lines = await fn(*args)
             except Exception as e:
+                messages = ["takes at most", "required positional argument"]
+
                 if isinstance(e, TypeError) and \
-                        "takes at most" in ' '.join(e.args):
+                    any(x in ' '.join(e.args) for x in messages):
                     # hacky, but idk what else to do
-                    await stream.send_all(' '.join(e.args).encode("ascii"))
+                    await stream.send_all(
+                        ' '.join(e.args).encode("ascii") + b"\n"
+                    )
                     continue
 
                 errormessage = type(e).__name__ + ": " + ' '.join(e.args)
@@ -279,6 +304,22 @@ class Monitor(Instrument):
 
             lines.append(' '.join(result))
 
+        return lines
+
+    async def command_where(self, taskid):
+        """Shows the stack frames of a task."""
+        try:
+            taskid = int(taskid)
+        except ValueError:
+            return ["Invalid task ID"]
+
+        task = self.get_task_by_id(taskid)
+        if task is None:
+            return ["Invalid task ID"]
+
+        summary = traceback.StackSummary.extract(walk_coro_stack(task.coro))
+        lines = summary.format()
+        lines = [line.rstrip('\n') for line in lines]
         return lines
 
     # stub commands
