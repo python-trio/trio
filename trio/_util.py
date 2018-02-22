@@ -258,48 +258,60 @@ def fixup_module_metadata(module_name, namespace):
         fix_one(obj)
 
 
-# This is based on the PEP 519 fspath implementation.
-# The function has been adapted to work with pathlib objects on python 3.5
+# os.fspath is defined on Python 3.6+ but we need to support Python 3.5 too
+# This is why we provide our own implementation. On Python 3.6+ we use the
+# StdLib's version and on Python 3.5 our own version.
+# Our own implementation implementation is based on PEP 519 while it has also
+# been adapted to work with pathlib objects on python 3.5
 # The input typehint is removed as there is no os.PathLike on 3.5.
 # See: https://www.python.org/dev/peps/pep-0519/#os
 
 
 def fspath(path) -> t.Union[str, bytes]:
-    """Return the string representation of the path.
+    """Return the path representation of a path-like object.
 
-    If str or bytes is passed in, it is returned unchanged. If a pre-python 3.6
-    pathlib object is passed, its string representation is returned. If
-    __fspath__() returns something other than str or bytes then TypeError is
-    raised. If this function is given something that is not str, bytes,
-    pathlib.PurePath or os.PathLike then TypeError is raised.
+    Returns
+    -------
+    - If str or bytes is passed in, it is returned unchanged.
+    - If the os.PathLike interface is implemented it is used to get the path
+      representation.
+    - If the python version is 3.5 or earlier and a pathlib object is passed,
+      the object's string representation is returned.
+
+    Raises
+    ------
+    - Regardless of the input, if the path representation (e.g. the value
+      returned from __fspath__) is not str or bytes, TypeError is raised.
+    - If the provided path is not str, bytes, pathlib.PurePath or os.PathLike,
+      TypeError is raised.
     """
     if isinstance(path, (str, bytes)):
         return path
-
     # Work from the object's type to match method resolution of other magic
     # methods.
     path_type = type(path)
+    # On python 3.5, pathlib objects don't have the __fspath__ method,
+    # but we still want to get their string representation.
+    if issubclass(path_type, pathlib.PurePath):
+        return str(path)
     try:
-        path = path_type.__fspath__(path)
+        path_repr = path_type.__fspath__(path)
     except AttributeError:
         if hasattr(path_type, '__fspath__'):
             raise
-        # On python 3.5 pathlib objects don't have an __fspath__ method.
-        # but we still want to get their string representation.
-        if isinstance(path, pathlib.PurePath):
-            return str(path)
-    else:
-        if isinstance(path, (str, bytes)):
-            return path
         else:
             raise TypeError(
-                "expected __fspath__() to return str or bytes, "
-                "not " + type(path).__name__
+                "expected str, bytes or os.PathLike object, "
+                "not " + path_type.__name__
             )
-
-    raise TypeError(
-        "expected str, bytes or os.PathLike object, not " + path_type.__name__
-    )
+    if isinstance(path_repr, (str, bytes)):
+        return path_repr
+    else:
+        raise TypeError(
+            "expected {}.__fspath__() to return str or bytes, "
+            "not {}".format(path_type.__name__,
+                            type(path_repr).__name__)
+        )
 
 
 if hasattr(os, "fspath"):
