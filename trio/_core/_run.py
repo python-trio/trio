@@ -678,6 +678,15 @@ class Runner:
         """
         return self.clock
 
+    @_public
+    def current_root_task(self):
+        """Returns the current root :class:`Task`.
+        
+        This is the task that is the ultimate parent of all other tasks.
+
+        """
+        return self.init_task
+
     ################
     # Core task handling primitives
     ################
