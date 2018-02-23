@@ -1475,7 +1475,6 @@ async def test_task_tree_introspection():
 
 
 async def test_nursery_closure():
-
     async def child1(nursery):
         # We can add new tasks to the nursery even after entering __aexit__,
         # so long as there are still tasks running
