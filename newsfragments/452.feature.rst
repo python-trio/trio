@@ -1,0 +1,1 @@
+Add ``current_root_task`` to get the root task.

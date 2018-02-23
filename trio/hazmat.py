@@ -15,6 +15,7 @@ __all__ = [
     "Task",
     "checkpoint",
     "current_task",
+    "current_root_task",
     "checkpoint_if_cancelled",
     "spawn_system_task",
     "reschedule",

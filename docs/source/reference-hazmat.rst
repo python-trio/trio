@@ -510,6 +510,8 @@ this does serve to illustrate the basic structure of the
 Task API
 --------
 
+.. autofunction:: current_root_task()
+
 .. autofunction:: current_task()
 
 .. class:: Task()

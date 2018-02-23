@@ -1,25 +1,23 @@
-import threading
-import sys
-import time
-from math import inf
-import platform
 import functools
+import platform
+import sys
+import threading
+import time
 import warnings
 from contextlib import contextmanager
-import gc
+from math import inf
 
-import pytest
 import attr
+import pytest
 
 from .tutil import check_sequence_matches, gc_collect_harder
+from ... import _core
+from ..._timeouts import sleep
 from ...testing import (
     wait_all_tasks_blocked,
     Sequencer,
     assert_checkpoints,
 )
-from ..._timeouts import sleep
-
-from ... import _core
 
 
 # slightly different from _timeouts.sleep_forever because it returns the value
@@ -275,6 +273,11 @@ async def test_current_task():
 
     async with _core.open_nursery() as nursery:
         nursery.start_soon(child)
+
+
+async def test_root_task():
+    root = _core.current_root_task()
+    assert root.parent_nursery is None
 
 
 def test_out_of_context():
@@ -1472,6 +1475,7 @@ async def test_task_tree_introspection():
 
 
 async def test_nursery_closure():
+
     async def child1(nursery):
         # We can add new tasks to the nursery even after entering __aexit__,
         # so long as there are still tasks running
