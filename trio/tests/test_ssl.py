@@ -59,21 +59,6 @@ TRIO_TEST_1_CERT.configure_cert(SERVER_CTX)
 CLIENT_CTX = stdlib_ssl.create_default_context()
 TRIO_TEST_CA.configure_trust(CLIENT_CTX)
 
-# workaround for
-#   https://bitbucket.org/pypy/pypy/issues/2578/
-# (fortunately only affects our test suite, not the actual ssl.py)
-# bug is in 5.8.0-beta and at least some of the 5.9.0-alpha nightlies, but
-# will hopefully be fixed soon
-import sys
-WORKAROUND_PYPY_BUG = False
-if (
-    hasattr(sys, "pypy_version_info") and (
-        (sys.pypy_version_info < (5, 9)) or
-        (sys.pypy_version_info[:4] == (5, 9, 0, "alpha"))
-    )
-):
-    WORKAROUND_PYPY_BUG = True
-
 
 # The blocking socket server.
 def ssl_echo_serve_sync(sock, *, expect_fail=False):
@@ -93,8 +78,6 @@ def ssl_echo_serve_sync(sock, *, expect_fail=False):
                 # SSLWantWriteError here. This is a bug (bpo-32219), but it's
                 # not our bug, so ignore it.
                 exceptions += (stdlib_ssl.SSLWantWriteError,)
-                if WORKAROUND_PYPY_BUG:
-                    exceptions += (stdlib_ssl.SSLEOFError,)
                 try:
                     wrapped.unwrap()
                 except exceptions:
