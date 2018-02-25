@@ -129,11 +129,7 @@ class _ModuleWithDeprecations(ModuleType):
 
 def enable_attribute_deprecations(module_name):
     module = sys.modules[module_name]
-    try:
-        module.__class__ = _ModuleWithDeprecations
-    except TypeError:
-        # Need PyPy 5.9+ to support module __class__ assignment
-        return
+    module.__class__ = _ModuleWithDeprecations
     # Make sure that this is always defined so that
     # _ModuleWithDeprecations.__getattr__ can access it without jumping
     # through hoops or risking infinite recursion.

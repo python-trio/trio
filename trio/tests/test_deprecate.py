@@ -211,24 +211,6 @@ def test_deprecated_docstring_munging():
 """
 
 
-mod = ModuleType("mod")
-
-
-class SubMod(ModuleType):
-    pass
-
-
-try:
-    mod.__class__ = SubMod
-except TypeError:
-    have_class_assignment = False
-else:
-    have_class_assignment = True
-
-
-@pytest.mark.skipif(
-    not have_class_assignment, reason="need ModuleType.__class__ assignment"
-)
 def test_module_with_deprecations(recwarn_always):
     assert module_with_deprecations.regular == "hi"
     assert len(recwarn_always) == 0
