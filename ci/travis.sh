@@ -34,18 +34,6 @@ if [ "$USE_PYPY_NIGHTLY" = "1" ]; then
     source testenv/bin/activate
 fi
 
-if [ "$USE_PYPY_RELEASE" = "1" ]; then
-    curl -fLo pypy.tar.bz2 https://bitbucket.org/squeaky/portable-pypy/downloads/pypy3.5-5.8-beta-linux_x86_64-portable.tar.bz2
-    tar xaf pypy.tar.bz2
-    # something like "pypy3.5-5.7.1-beta-linux_x86_64-portable"
-    PYPY_DIR=$(echo pypy3.5-*)
-    PYTHON_EXE=$PYPY_DIR/bin/pypy3
-    $PYTHON_EXE -m ensurepip
-    $PYTHON_EXE -m pip install virtualenv
-    $PYTHON_EXE -m virtualenv testenv
-    source testenv/bin/activate
-fi
-
 pip install -U pip setuptools wheel
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
