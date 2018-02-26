@@ -148,8 +148,6 @@ Abstract base classes
 
 .. autoexception:: BrokenStreamError
 
-.. autoexception:: ClosedStreamError
-
 .. currentmodule:: trio.abc
 
 .. autoclass:: trio.abc.Listener
@@ -157,9 +155,6 @@ Abstract base classes
    :show-inheritance:
 
 .. currentmodule:: trio
-
-.. autoexception:: ClosedListenerError
-
 
 
 Generic stream tools

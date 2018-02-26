@@ -151,6 +151,28 @@ All environments provide the following functions:
    :raises trio.ResourceBusyError:
        if another task is already waiting for the given socket to
        become writable.
+   :raises trio.ClosedResourceError:
+       if another task calls :func:`notify_socket_close` while this
+       function is still working.
+
+
+.. function:: notify_socket_close(sock)
+
+   Notifies Trio's internal I/O machinery that you are about to close
+   a socket.
+
+   This causes any operations currently waiting for this socket to
+   immediately raise :exc:`~trio.ClosedResourceError`.
+
+   This does *not* actually close the socket. Generally when closing a
+   socket, you should first call this function, and then close the
+   socket.
+
+   The given object *must* be exactly of type :func:`socket.socket`,
+   nothing else.
+
+   :raises TypeError:
+       if the given object is not of type :func:`socket.socket`.
 
 
 Unix-specific API
@@ -174,6 +196,9 @@ Unix-like systems provide the following functions:
    :raises trio.ResourceBusyError:
        if another task is already waiting for the given fd to
        become readable.
+   :raises trio.ClosedResourceError:
+       if another task calls :func:`notify_fd_close` while this
+       function is still working.
 
 
 .. function:: wait_writable(fd)
@@ -192,6 +217,21 @@ Unix-like systems provide the following functions:
    :raises trio.ResourceBusyError:
        if another task is already waiting for the given fd to
        become writable.
+   :raises trio.ClosedResourceError:
+       if another task calls :func:`notify_fd_close` while this
+       function is still working.
+
+.. function:: notify_fd_close(fd)
+
+   Notifies Trio's internal I/O machinery that you are about to close
+   a file descriptor.
+
+   This causes any operations currently waiting for this file
+   descriptor to immediately raise :exc:`~trio.ClosedResourceError`.
+
+   This does *not* actually close the file descriptor. Generally when
+   closing a file descriptor, you should first call this function, and
+   then actually close it.
 
 
 Kqueue-specific API

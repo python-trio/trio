@@ -1546,6 +1546,8 @@ Exceptions and warnings
 
 .. autoexception:: ResourceBusyError
 
+.. autoexception:: ClosedResourceError
+
 .. autoexception:: RunFinishedError
 
 .. autoexception:: TrioInternalError

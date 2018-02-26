@@ -9,7 +9,7 @@ import pytest
 from .._core.tests.tutil import have_ipv6
 from .. import sleep
 from .. import _core
-from .._highlevel_generic import ClosedStreamError, aclose_forcefully
+from .._highlevel_generic import aclose_forcefully
 from ..testing import *
 from ..testing._check_streams import _assert_raises
 from ..testing._memory_streams import _UnboundedByteQueue
@@ -477,7 +477,7 @@ async def test__UnboundeByteQueue():
     # Closing
 
     ubq.close()
-    with pytest.raises(ClosedStreamError):
+    with pytest.raises(_core.ClosedResourceError):
         ubq.put(b"---")
 
     assert ubq.get_nowait(10) == b""
@@ -547,7 +547,7 @@ async def test_MemorySendStream():
 
     assert await mss.get_data() == b"xxx"
     assert await mss.get_data() == b""
-    with pytest.raises(ClosedStreamError):
+    with pytest.raises(_core.ClosedResourceError):
         await do_send_all(b"---")
 
     # hooks
@@ -620,7 +620,7 @@ async def test_MemoryReceiveStream():
     assert await do_receive_some(10) == b""
     assert await do_receive_some(10) == b""
 
-    with pytest.raises(ClosedStreamError):
+    with pytest.raises(_core.ClosedResourceError):
         mrs.put_data(b"---")
 
     async def receive_some_hook():
@@ -649,7 +649,7 @@ async def test_MemoryReceiveStream():
         await mrs2.aclose()
     assert record == ["closed"]
 
-    with pytest.raises(ClosedStreamError):
+    with pytest.raises(_core.ClosedResourceError):
         await mrs2.receive_some(10)
 
 
@@ -657,19 +657,19 @@ async def test_MemoryRecvStream_closing():
     mrs = MemoryReceiveStream()
     # close with no pending data
     mrs.close()
-    with pytest.raises(ClosedStreamError):
+    with pytest.raises(_core.ClosedResourceError):
         assert await mrs.receive_some(10) == b""
     # repeated closes ok
     mrs.close()
     # put_data now fails
-    with pytest.raises(ClosedStreamError):
+    with pytest.raises(_core.ClosedResourceError):
         mrs.put_data(b"123")
 
     mrs2 = MemoryReceiveStream()
     # close with pending data
     mrs2.put_data(b"xyz")
     mrs2.close()
-    with pytest.raises(ClosedStreamError):
+    with pytest.raises(_core.ClosedResourceError):
         await mrs2.receive_some(10)
 
 
@@ -706,36 +706,27 @@ async def test_memory_stream_one_way_pair():
     await s.send_all(b"123")
     assert await r.receive_some(10) == b"123"
 
-    # This fails if we pump on r.receive_some_hook; we need to pump on s.send_all_hook
-    async def sender():
-        await wait_all_tasks_blocked()
-        await s.send_all(b"abc")
-
     async def receiver(expected):
         assert await r.receive_some(10) == expected
 
+    # This fails if we pump on r.receive_some_hook; we need to pump on s.send_all_hook
     async with _core.open_nursery() as nursery:
         nursery.start_soon(receiver, b"abc")
-        nursery.start_soon(sender)
+        await wait_all_tasks_blocked()
+        await s.send_all(b"abc")
 
     # And this fails if we don't pump from close_hook
-    async def aclose_after_all_tasks_blocked():
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(receiver, b"")
         await wait_all_tasks_blocked()
         await s.aclose()
 
-    async with _core.open_nursery() as nursery:
-        nursery.start_soon(receiver, b"")
-        nursery.start_soon(aclose_after_all_tasks_blocked)
-
     s, r = memory_stream_one_way_pair()
 
-    async def close_after_all_tasks_blocked():
-        await wait_all_tasks_blocked()
-        s.close()
-
     async with _core.open_nursery() as nursery:
         nursery.start_soon(receiver, b"")
-        nursery.start_soon(close_after_all_tasks_blocked)
+        await wait_all_tasks_blocked()
+        s.close()
 
     s, r = memory_stream_one_way_pair()
 

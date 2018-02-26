@@ -8,7 +8,6 @@ from .. import _core
 from ..testing import (
     check_half_closeable_stream, wait_all_tasks_blocked, assert_checkpoints
 )
-from .._highlevel_generic import ClosedListenerError
 from .._highlevel_socket import *
 from .. import socket as tsocket
 
@@ -185,7 +184,7 @@ async def test_SocketListener():
         await listener.aclose()
 
     with assert_checkpoints():
-        with pytest.raises(ClosedListenerError):
+        with pytest.raises(_core.ClosedResourceError):
             await listener.accept()
 
     client_sock.close()
@@ -203,7 +202,7 @@ async def test_SocketListener_socket_closed_underfoot():
 
     # SocketListener gives correct error
     with assert_checkpoints():
-        with pytest.raises(ClosedListenerError):
+        with pytest.raises(_core.ClosedResourceError):
             await listener.accept()
 
 

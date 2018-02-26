@@ -1,9 +1,7 @@
 import operator
 
 from .. import _core
-from .._highlevel_generic import (
-    ClosedStreamError, BrokenStreamError, StapledStream
-)
+from .._highlevel_generic import BrokenStreamError, StapledStream
 from .. import _util
 from ..abc import SendStream, ReceiveStream
 
@@ -31,13 +29,21 @@ class _UnboundedByteQueue:
             "another task is already fetching data"
         )
 
+    # This object treats "close" as being like closing the send side of a
+    # channel: so after close(), calling put() raises ClosedResourceError, and
+    # calling the get() variants drains the buffer and then returns an empty
+    # bytearray.
     def close(self):
         self._closed = True
         self._lot.unpark_all()
 
+    def close_and_wipe(self):
+        self._data = bytearray()
+        self.close()
+
     def put(self, data):
         if self._closed:
-            raise ClosedStreamError("virtual connection closed")
+            raise _core.ClosedResourceError("virtual connection closed")
         self._data += data
         self._lot.unpark_all()
 
@@ -144,6 +150,14 @@ class MemorySendStream(SendStream):
         (if any).
 
         """
+        # XXX should this cancel any pending calls to the send_all_hook and
+        # wait_send_all_might_not_block_hook? Those are the only places where
+        # send_all and wait_send_all_might_not_block can be blocked.
+        #
+        # The way we set things up, send_all_hook is memory_stream_pump, and
+        # wait_send_all_might_not_block_hook is unset. memory_stream_pump is
+        # synchronous. So normally, send_all and wait_send_all_might_not_block
+        # cannot block at all.
         self._outgoing.close()
         if self.close_hook is not None:
             self.close_hook()
@@ -222,23 +236,25 @@ class MemoryReceiveStream(ReceiveStream):
             if max_bytes is None:
                 raise TypeError("max_bytes must not be None")
             if self._closed:
-                raise ClosedStreamError
+                raise _core.ClosedResourceError
             if self.receive_some_hook is not None:
                 await self.receive_some_hook()
-            return await self._incoming.get(max_bytes)
+            # self._incoming's closure state tracks whether we got an EOF.
+            # self._closed tracks whether we, ourselves, are closed.
+            # self.close() sends an EOF to wake us up and sets self._closed,
+            # so after we wake up we have to check self._closed again.
+            data = await self._incoming.get(max_bytes)
+            if self._closed:
+                raise _core.ClosedResourceError
+            return data
 
     def close(self):
         """Discards any pending data from the internal buffer, and marks this
         stream as closed.
 
         """
-        # discard any pending data
         self._closed = True
-        try:
-            self._incoming.get_nowait()
-        except _core.WouldBlock:
-            pass
-        self._incoming.close()
+        self._incoming.close_and_wipe()
         if self.close_hook is not None:
             self.close_hook()
 
@@ -292,7 +308,7 @@ def memory_stream_pump(
             memory_recieve_stream.put_eof()
         else:
             memory_recieve_stream.put_data(data)
-    except ClosedStreamError:
+    except _core.ClosedResourceError:
         raise BrokenStreamError("MemoryReceiveStream was closed")
     return True
 
@@ -445,12 +461,17 @@ class _LockstepByteQueue:
     def _something_happened(self):
         self._waiters.unpark_all()
 
+    # Always wakes up when one side is closed, because everyone always reacts
+    # to that.
     async def _wait_for(self, fn):
-        while not fn():
+        while True:
+            if fn():
+                break
+            if self._sender_closed or self._receiver_closed:
+                break
             await self._waiters.park()
 
     def close_sender(self):
-        # close while send_all is in progress is undefined
         self._sender_closed = True
         self._something_happened()
 
@@ -461,27 +482,27 @@ class _LockstepByteQueue:
     async def send_all(self, data):
         async with self._send_conflict_detector:
             if self._sender_closed:
-                raise ClosedStreamError
+                raise _core.ClosedResourceError
             if self._receiver_closed:
                 raise BrokenStreamError
             assert not self._data
             self._data += data
             self._something_happened()
-            await self._wait_for(
-                lambda: not self._data or self._receiver_closed
-            )
+            await self._wait_for(lambda: not self._data)
+            if self._sender_closed:
+                raise _core.ClosedResourceError
             if self._data and self._receiver_closed:
                 raise BrokenStreamError
 
     async def wait_send_all_might_not_block(self):
         async with self._send_conflict_detector:
             if self._sender_closed:
-                raise ClosedStreamError
+                raise _core.ClosedResourceError
             if self._receiver_closed:
                 return
-            await self._wait_for(
-                lambda: self._receiver_waiting or self._receiver_closed
-            )
+            await self._wait_for(lambda: self._receiver_waiting)
+            if self._sender_closed:
+                raise _core.ClosedResourceError
 
     async def receive_some(self, max_bytes):
         async with self._receive_conflict_detector:
@@ -491,14 +512,16 @@ class _LockstepByteQueue:
                 raise ValueError("max_bytes must be >= 1")
             # State validation
             if self._receiver_closed:
-                raise ClosedStreamError
+                raise _core.ClosedResourceError
             # Wake wait_send_all_might_not_block and wait for data
             self._receiver_waiting = True
             self._something_happened()
             try:
-                await self._wait_for(lambda: self._data or self._sender_closed)
+                await self._wait_for(lambda: self._data)
             finally:
                 self._receiver_waiting = False
+            if self._receiver_closed:
+                raise _core.ClosedResourceError
             # Get data, possibly waking send_all
             if self._data:
                 got = self._data[:max_bytes]

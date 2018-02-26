@@ -1,5 +1,6 @@
 import select
 import attr
+import outcome
 
 from .. import _core
 from . import _public
@@ -122,3 +123,26 @@ class EpollIOManager:
     @_public
     async def wait_writable(self, fd):
         await self._epoll_wait(fd, "write_task")
+
+    @_public
+    def notify_fd_close(self, fd):
+        if not isinstance(fd, int):
+            fd = fd.fileno()
+        if fd not in self._registered:
+            return
+
+        waiters = self._registered[fd]
+
+        def interrupt(task):
+            exc = _core.ClosedResourceError("another task closed this fd")
+            _core.reschedule(task, outcome.Error(exc))
+
+        if waiters.write_task is not None:
+            interrupt(waiters.write_task)
+            waiters.write_task = None
+
+        if waiters.read_task is not None:
+            interrupt(waiters.read_task)
+            waiters.read_task = None
+
+        self._update_registrations(fd, True)

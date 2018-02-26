@@ -260,6 +260,10 @@ class AsyncResource(metaclass=ABCMeta):
         If the resource is already closed, then this method should silently
         succeed.
 
+        Once this method completes, any other pending or future operations on
+        this resource should generally raise :exc:`~trio.ClosedResourceError`,
+        unless there's a good reason to do otherwise.
+
         See also: :func:`trio.aclose_forcefully`.
 
         """
@@ -297,7 +301,9 @@ class SendStream(AsyncResource):
               :meth:`HalfCloseableStream.send_eof` on this stream.
           trio.BrokenStreamError: if something has gone wrong, and the stream
               is broken.
-          trio.ClosedStreamError: if you already closed this stream object.
+          trio.ClosedResourceError: if you previously closed this stream
+              object, or if another task closes this stream object while
+              :meth:`send_all` is running.
 
         Most low-level operations in trio provide a guarantee: if they raise
         :exc:`trio.Cancelled`, this means that they had no effect, so the
@@ -328,7 +334,9 @@ class SendStream(AsyncResource):
               :meth:`HalfCloseableStream.send_eof` on this stream.
           trio.BrokenStreamError: if something has gone wrong, and the stream
               is broken.
-          trio.ClosedStreamError: if you already closed this stream object.
+          trio.ClosedResourceError: if you previously closed this stream
+              object, or if another task closes this stream object while
+              :meth:`wait_send_all_might_not_block` is running.
 
         Note:
 
@@ -402,7 +410,9 @@ class ReceiveStream(AsyncResource):
               :meth:`receive_some` on the same stream at the same time.
           trio.BrokenStreamError: if something has gone wrong, and the stream
               is broken.
-          trio.ClosedStreamError: if you already closed this stream object.
+          trio.ClosedResourceError: if you previously closed this stream
+              object, or if another task closes this stream object while
+              :meth:`receive_some` is running.
 
         """
 
@@ -470,7 +480,9 @@ class HalfCloseableStream(Stream):
               :meth:`send_eof` on this stream.
           trio.BrokenStreamError: if something has gone wrong, and the stream
               is broken.
-          trio.ClosedStreamError: if you already closed this stream object.
+          trio.ClosedResourceError: if you previously closed this stream
+              object, or if another task closes this stream object while
+              :meth:`send_eof` is running.
 
         """
 
@@ -494,7 +506,9 @@ class Listener(AsyncResource):
         Raises:
           trio.ResourceBusyError: if two tasks attempt to call
               :meth:`accept` on the same listener at the same time.
-          trio.ClosedListenerError: if you already closed this listener.
+          trio.ClosedResourceError: if you previously closed this listener
+              object, or if another task closes this listener object while
+              :meth:`accept` is running.
 
         Note that there is no ``BrokenListenerError``, because for listeners
         there is no general condition of "the network/remote peer broke the

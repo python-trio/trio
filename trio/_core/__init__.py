@@ -49,4 +49,11 @@ if hasattr(_run, "wait_readable"):
             raise TypeError("need a socket")
         await wait_writable(sock)
 
-    __all__ += ["wait_socket_readable", "wait_socket_writable"]
+    def notify_socket_close(sock):
+        if type(sock) != _stdlib_socket.socket:
+            raise TypeError("need a socket")
+        notify_fd_close(sock)
+
+    __all__ += [
+        "wait_socket_readable", "wait_socket_writable", "notify_socket_close"
+    ]

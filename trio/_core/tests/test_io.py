@@ -38,6 +38,7 @@ def socketpair():
 
 wait_readable_options = [_core.wait_socket_readable]
 wait_writable_options = [_core.wait_socket_writable]
+notify_close_options = [_core.notify_socket_close]
 if hasattr(_core, "wait_readable"):
     wait_readable_options.append(_core.wait_readable)
 
@@ -52,15 +53,26 @@ if hasattr(_core, "wait_writable"):
         return await _core.wait_writable(fileobj.fileno())
 
     wait_writable_options.append(wait_writable_fd)
+if hasattr(_core, "notify_fd_close"):
+    notify_close_options.append(_core.notify_fd_close)
 
-# Decorators that feed in different settings for wait_readable / wait_writable.
-# Note that if you use both decorators on the same test, it will run all
-# N**2 *combinations*
+    def notify_fd_close_rawfd(fileobj):
+        _core.notify_fd_close(fileobj.fileno())
+
+    notify_close_options.append(notify_fd_close_rawfd)
+
+# Decorators that feed in different settings for wait_readable / wait_writable
+# / notify_close.
+# Note that if you use all three decorators on the same test, it will run all
+# N**3 *combinations*
 read_socket_test = pytest.mark.parametrize(
     "wait_readable", wait_readable_options, ids=lambda fn: fn.__name__
 )
 write_socket_test = pytest.mark.parametrize(
     "wait_writable", wait_writable_options, ids=lambda fn: fn.__name__
+)
+notify_close_test = pytest.mark.parametrize(
+    "notify_close", notify_close_options, ids=lambda fn: fn.__name__
 )
 
 
@@ -177,6 +189,31 @@ async def test_double_write(socketpair, wait_writable):
             with pytest.raises(_core.ResourceBusyError):
                 await wait_writable(a)
         nursery.cancel_scope.cancel()
+
+
+@read_socket_test
+@write_socket_test
+@notify_close_test
+async def test_interrupted_by_close(
+    socketpair, wait_readable, wait_writable, notify_close
+):
+    a, b = socketpair
+
+    async def reader():
+        with pytest.raises(_core.ClosedResourceError):
+            await wait_readable(a)
+
+    async def writer():
+        with pytest.raises(_core.ClosedResourceError):
+            await wait_writable(a)
+
+    fill_socket(a)
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(reader)
+        nursery.start_soon(writer)
+        await wait_all_tasks_blocked()
+        notify_close(a)
 
 
 @read_socket_test

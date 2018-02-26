@@ -155,9 +155,7 @@ from enum import Enum as _Enum
 
 from . import _core
 from .abc import Stream, Listener
-from ._highlevel_generic import (
-    BrokenStreamError, ClosedStreamError, aclose_forcefully
-)
+from ._highlevel_generic import BrokenStreamError, aclose_forcefully
 from . import _sync
 from ._util import ConflictDetector
 
@@ -413,7 +411,7 @@ class SSLStream(Stream):
         elif self._state is _State.BROKEN:
             raise BrokenStreamError
         elif self._state is _State.CLOSED:
-            raise ClosedStreamError
+            raise _core.ClosedResourceError
         else:  # pragma: no cover
             assert False
 
@@ -774,11 +772,15 @@ class SSLStream(Stream):
             # letting that happen. But if you start seeing it, then hopefully
             # this will give you a little head start on tracking it down,
             # because whoa did this puzzle us at the 2017 PyCon sprints.
+            #
+            # Also, if someone else is blocked in send/receive, then we aren't
+            # going to be able to do a clean shutdown. If that happens, we'll
+            # just do an unclean shutdown.
             try:
                 await self._retry(
                     self._ssl_object.unwrap, ignore_want_read=True
                 )
-            except BrokenStreamError:
+            except (BrokenStreamError, _core.ResourceBusyError):
                 pass
         except:
             # Failure! Kill the stream and move on.
