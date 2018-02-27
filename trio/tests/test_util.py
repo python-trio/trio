@@ -320,7 +320,7 @@ def test_is_main_thread():
         _thread_result = is_main_thread()
 
     assert is_main_thread()
-    thread = threading.Thread(target=lambda: is_main_thread())
+    thread = threading.Thread(target=_)
     thread.start()
     thread.join()
     assert _thread_result is not None
