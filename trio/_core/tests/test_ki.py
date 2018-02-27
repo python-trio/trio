@@ -439,6 +439,27 @@ def test_ki_is_good_neighbor():
         signal.signal(signal.SIGINT, orig)
 
 
+# Regression test for #461
+def test_ki_with_broken_threads():
+    thread = threading.main_thread()
+
+    # scary!
+    original = threading._active[thread.ident]
+
+    # put this in a try finally so we don't have a chance of cascading a
+    # breakage down to everything else
+    try:
+        del threading._active[thread.ident]
+
+        @_core.enable_ki_protection
+        async def inner():
+            assert _core.currently_ki_protected()
+
+        _core.run(inner)
+    finally:
+        threading._active[thread.ident] = original
+
+
 # For details on why this test is non-trivial, see:
 #   https://github.com/python-trio/trio/issues/42
 #   https://github.com/python-trio/trio/issues/109

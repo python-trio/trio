@@ -1,6 +1,7 @@
 # Little utilities we use internally
 
 import os
+import signal
 import sys
 import pathlib
 from functools import wraps
@@ -177,6 +178,23 @@ def acontextmanager(func):
     # A hint for sphinxcontrib-trio:
     helper.__returns_acontextmanager__ = True
     return helper
+
+
+# See: #461 as to why this is needed.
+# The gist is that threading.main_thread() has the capability to lie to us
+# if somebody else edits the threading ident cache to replace the main
+# thread; causing threading.current_thread() to return a _DummyThread,
+# causing the C-c check to fail, and so on.
+# Trying to use signal out of the main thread will fail, so we can then
+# reliably check if this is the main thread without relying on a
+# potentially modified threading.
+def is_main_thread():
+    """Attempt to reliably check if we are in the main thread."""
+    try:
+        signal.signal(signal.SIGINT, signal.getsignal(signal.SIGINT))
+        return True
+    except ValueError:
+        return False
 
 
 class _ConflictDetectorSync:

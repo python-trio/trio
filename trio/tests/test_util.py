@@ -1,15 +1,15 @@
-import pytest
-
 import os
-import sys
-import signal
 import pathlib
-import textwrap
+import signal
+import sys
 
+import pytest
+import threading
 from async_generator import async_generator, yield_
 
-from .._util import acontextmanager, signal_raise, ConflictDetector, fspath
 from .. import _core
+from .._util import acontextmanager, signal_raise, ConflictDetector, fspath, \
+    is_main_thread
 from ..testing import wait_all_tasks_blocked, assert_checkpoints
 
 
@@ -310,3 +310,18 @@ class TestFspath(object):
         klass.__fspath__ = method
         with pytest.raises(exception):
             fspath(klass())
+
+
+def test_is_main_thread():
+    _thread_result = None
+
+    def _():
+        nonlocal _thread_result
+        _thread_result = is_main_thread()
+
+    assert is_main_thread()
+    thread = threading.Thread(target=lambda: is_main_thread())
+    thread.start()
+    thread.join()
+    assert _thread_result is not None
+    assert _thread_result is False

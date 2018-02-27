@@ -1,12 +1,13 @@
+import inspect
+import signal
+import sys
 import threading
 from contextlib import contextmanager
 from functools import wraps
-import signal
-import sys
-import inspect
 
-import attr
 import async_generator
+
+from .._util import is_main_thread
 
 __all__ = [
     "enable_ki_protection",
@@ -177,7 +178,7 @@ disable_ki_protection.__name__ = "disable_ki_protection"
 @contextmanager
 def ki_manager(deliver_cb, restrict_keyboard_interrupt_to_checkpoints):
     if (
-        threading.current_thread() != threading.main_thread()
+        not is_main_thread()
         or signal.getsignal(signal.SIGINT) != signal.default_int_handler
     ):
         yield
