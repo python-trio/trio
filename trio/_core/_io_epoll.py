@@ -78,12 +78,16 @@ class EpollIOManager:
             # Clever hack stolen from selectors.EpollSelector: an event
             # with EPOLLHUP or EPOLLERR flags wakes both readers and
             # writers.
-            if flags & ~select.EPOLLIN and waiters.write_task is not None:
-                _core.reschedule(waiters.write_task)
-                waiters.write_task = None
-            if flags & ~select.EPOLLOUT and waiters.read_task is not None:
+            if flags & ~(
+                select.EPOLLOUT | select.EPOLLPRI
+            ) and waiters.read_task is not None:
                 _core.reschedule(waiters.read_task)
                 waiters.read_task = None
+            if flags & ~(
+                select.EPOLLIN | select.EPOLLPRI
+            ) and waiters.write_task is not None:
+                _core.reschedule(waiters.write_task)
+                waiters.write_task = None
             if flags & select.EPOLLPRI and waiters.prio_task is not None:
                 _core.reschedule(waiters.prio_task)
                 waiters.prio_task = None
