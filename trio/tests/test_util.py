@@ -8,8 +8,9 @@ import threading
 from async_generator import async_generator, yield_
 
 from .. import _core
-from .._util import acontextmanager, signal_raise, ConflictDetector, fspath, \
-    is_main_thread
+from .._threads import run_sync_in_worker_thread
+from .._util import (acontextmanager, signal_raise, ConflictDetector, fspath,
+                     is_main_thread)
 from ..testing import wait_all_tasks_blocked, assert_checkpoints
 
 
@@ -312,16 +313,10 @@ class TestFspath(object):
             fspath(klass())
 
 
-def test_is_main_thread():
-    _thread_result = None
-
-    def _():
-        nonlocal _thread_result
-        _thread_result = is_main_thread()
-
+async def test_is_main_thread():
     assert is_main_thread()
-    thread = threading.Thread(target=_)
-    thread.start()
-    thread.join()
-    assert _thread_result is not None
-    assert _thread_result is False
+
+    async def not_main_thread():
+        assert not is_main_thread()
+
+    await run_sync_in_worker_thread(not_main_thread)

@@ -1,3 +1,0 @@
-Add :func:`trio._util.current_thread` as a safer alternative to
-:func:`threading.current_thread`, and fix KeyboardInterrupt handling when
-threading state has been modified by a 3rd-party library.

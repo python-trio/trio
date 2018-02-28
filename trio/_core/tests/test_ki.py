@@ -10,7 +10,7 @@ from async_generator import async_generator, yield_, isasyncgenfunction
 
 from ... import _core
 from ...testing import wait_all_tasks_blocked
-from ..._util import acontextmanager, signal_raise
+from ..._util import acontextmanager, signal_raise, is_main_thread
 from ..._timeouts import sleep
 from .tutil import slow
 
@@ -453,7 +453,7 @@ def test_ki_with_broken_threads():
 
         @_core.enable_ki_protection
         async def inner():
-            assert _core.currently_ki_protected()
+            assert signal.getsignal(signal.SIGINT) != signal.default_int_handler
 
         _core.run(inner)
     finally:
@@ -469,7 +469,7 @@ def test_ki_with_broken_threads():
 # the main loop... but currently that test would fail (see gh-109 again).
 @slow
 def test_ki_wakes_us_up():
-    assert threading.current_thread() == threading.main_thread()
+    assert is_main_thread()
 
     # This test is flaky due to a race condition on Windows; see:
     #   https://github.com/python-trio/trio/issues/119
