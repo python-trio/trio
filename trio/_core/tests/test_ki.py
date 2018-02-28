@@ -453,7 +453,9 @@ def test_ki_with_broken_threads():
 
         @_core.enable_ki_protection
         async def inner():
-            assert signal.getsignal(signal.SIGINT) != signal.default_int_handler
+            assert signal.getsignal(
+                signal.SIGINT
+            ) != signal.default_int_handler
 
         _core.run(inner)
     finally:

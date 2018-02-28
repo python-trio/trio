@@ -4,13 +4,13 @@ import signal
 import sys
 
 import pytest
-import threading
 from async_generator import async_generator, yield_
 
 from .. import _core
 from .._threads import run_sync_in_worker_thread
-from .._util import (acontextmanager, signal_raise, ConflictDetector, fspath,
-                     is_main_thread)
+from .._util import (
+    acontextmanager, signal_raise, ConflictDetector, fspath, is_main_thread
+)
 from ..testing import wait_all_tasks_blocked, assert_checkpoints
 
 
