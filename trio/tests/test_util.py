@@ -316,7 +316,7 @@ class TestFspath(object):
 async def test_is_main_thread():
     assert is_main_thread()
 
-    async def not_main_thread():
+    def not_main_thread():
         assert not is_main_thread()
 
     await run_sync_in_worker_thread(not_main_thread)
