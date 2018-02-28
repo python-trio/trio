@@ -22,6 +22,7 @@ __all__ = [
     "add_instrument",
     "current_clock",
     "current_statistics",
+    "wait_priority",
     "wait_writable",
     "wait_readable",
     "ParkingLot",

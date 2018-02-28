@@ -9,6 +9,7 @@ from . import _public
 class _EpollStatistics:
     tasks_waiting_read = attr.ib()
     tasks_waiting_write = attr.ib()
+    tasks_waiting_prio = attr.ib()
     backend = attr.ib(default="epoll")
 
 
@@ -16,6 +17,7 @@ class _EpollStatistics:
 class EpollWaiters:
     read_task = attr.ib(default=None)
     write_task = attr.ib(default=None)
+    prio_task = attr.ib(default=None)
 
     def flags(self):
         flags = 0
@@ -23,6 +25,8 @@ class EpollWaiters:
             flags |= select.EPOLLIN
         if self.write_task is not None:
             flags |= select.EPOLLOUT
+        if self.prio_task is not None:
+            flags |= select.EPOLLPRI
         if not flags:
             return None
         # XX not sure if EPOLLEXCLUSIVE is actually safe... I think
@@ -47,14 +51,18 @@ class EpollIOManager:
     def statistics(self):
         tasks_waiting_read = 0
         tasks_waiting_write = 0
+        tasks_waiting_prio = 0
         for waiter in self._registered.values():
             if waiter.read_task is not None:
                 tasks_waiting_read += 1
             if waiter.write_task is not None:
                 tasks_waiting_write += 1
+            if waiter.prio_task is not None:
+                tasks_waiting_prio += 1
         return _EpollStatistics(
             tasks_waiting_read=tasks_waiting_read,
             tasks_waiting_write=tasks_waiting_write,
+            tasks_waiting_prio=tasks_waiting_prio,
         )
 
     def close(self):
@@ -76,6 +84,9 @@ class EpollIOManager:
             if flags & ~select.EPOLLOUT and waiters.read_task is not None:
                 _core.reschedule(waiters.read_task)
                 waiters.read_task = None
+            if flags & select.EPOLLPRI and waiters.prio_task is not None:
+                _core.reschedule(waiters.prio_task)
+                waiters.prio_task = None
             self._update_registrations(fd, True)
 
     def _update_registrations(self, fd, currently_registered):
@@ -122,3 +133,7 @@ class EpollIOManager:
     @_public
     async def wait_writable(self, fd):
         await self._epoll_wait(fd, "write_task")
+
+    @_public
+    async def wait_priority(self, fd):
+        await self._epoll_wait(fd, "prio_task")

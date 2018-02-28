@@ -194,6 +194,30 @@ Unix-like systems provide the following functions:
        become writable.
 
 
+.. function:: wait_priority(fd)
+   :async:
+
+   Block until there is an "exceptional condition" on the given file
+   descriptor.
+
+   .. warning::
+
+      This method uses the ``POLLPRI`` flag to the ``epoll`` system call.
+      Its semantics are highly specific to the type of file descriptor
+      you're passing to it.
+
+   This test may be used to
+   * wait for changes to hardware inputs (Linux GPIO)
+   * notice changed state of a PTY slave by the master
+   * …
+
+   :arg fd:
+       integer file descriptor, or else an object with a ``fileno()`` method
+   :raises trio.ResourceBusyError:
+       if another task is already waiting for an exceptional condition on
+       the given fd.
+
+
 Kqueue-specific API
 -------------------
 
