@@ -84,7 +84,7 @@ master_doc = 'index'
 # General information about the project.
 project = 'Trio'
 year = datetime.datetime.utcnow().year
-copyright = '{}, Nathaniel J. Smith'.format(year)
+copyright = '2017–{}, Nathaniel J. Smith'.format(year)
 author = 'Nathaniel J. Smith'
 
 # The version info for the project you're documenting, acts as replacement for
