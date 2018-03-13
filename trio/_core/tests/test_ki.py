@@ -10,7 +10,7 @@ from async_generator import async_generator, yield_, isasyncgenfunction
 
 from ... import _core
 from ...testing import wait_all_tasks_blocked
-from ..._util import acontextmanager, signal_raise
+from ..._util import acontextmanager, signal_raise, is_main_thread
 from ..._timeouts import sleep
 from .tutil import slow
 
@@ -439,6 +439,29 @@ def test_ki_is_good_neighbor():
         signal.signal(signal.SIGINT, orig)
 
 
+# Regression test for #461
+def test_ki_with_broken_threads():
+    thread = threading.main_thread()
+
+    # scary!
+    original = threading._active[thread.ident]
+
+    # put this in a try finally so we don't have a chance of cascading a
+    # breakage down to everything else
+    try:
+        del threading._active[thread.ident]
+
+        @_core.enable_ki_protection
+        async def inner():
+            assert signal.getsignal(
+                signal.SIGINT
+            ) != signal.default_int_handler
+
+        _core.run(inner)
+    finally:
+        threading._active[thread.ident] = original
+
+
 # For details on why this test is non-trivial, see:
 #   https://github.com/python-trio/trio/issues/42
 #   https://github.com/python-trio/trio/issues/109
@@ -448,7 +471,7 @@ def test_ki_is_good_neighbor():
 # the main loop... but currently that test would fail (see gh-109 again).
 @slow
 def test_ki_wakes_us_up():
-    assert threading.current_thread() == threading.main_thread()
+    assert is_main_thread()
 
     # This test is flaky due to a race condition on Windows; see:
     #   https://github.com/python-trio/trio/issues/119

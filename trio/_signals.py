@@ -1,12 +1,9 @@
-import os
-import sys
 import signal
-import threading
 from contextlib import contextmanager
 
 from . import _core
-from ._util import signal_raise, aiter_compat
-from ._sync import Semaphore, Event
+from ._sync import Semaphore
+from ._util import signal_raise, aiter_compat, is_main_thread
 
 __all__ = ["catch_signals"]
 
@@ -144,7 +141,7 @@ def catch_signals(signals):
                      reload_configuration()
 
     """
-    if threading.current_thread() != threading.main_thread():
+    if not is_main_thread():
         raise RuntimeError(
             "Sorry, catch_signals is only possible when running in the "
             "Python interpreter's main thread"

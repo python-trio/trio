@@ -12,6 +12,7 @@ import attr
 from .. import _core
 from . import _public
 from ._wakeup_socketpair import WakeupSocketpair
+from .._util import is_main_thread
 
 from ._windows_cffi import (
     ffi,
@@ -148,7 +149,7 @@ class WindowsIOManager:
 
         # This is necessary to allow control-C to interrupt select().
         # https://github.com/python-trio/trio/issues/42
-        if threading.current_thread() == threading.main_thread():
+        if is_main_thread():
             fileno = self._main_thread_waker.write_sock.fileno()
             self._old_signal_wakeup_fd = signal.set_wakeup_fd(fileno)
 
@@ -168,7 +169,7 @@ class WindowsIOManager:
             if self._iocp_thread is not None:
                 self._iocp_thread.join()
             self._main_thread_waker.close()
-            if threading.current_thread() == threading.main_thread():
+            if is_main_thread():
                 signal.set_wakeup_fd(self._old_signal_wakeup_fd)
 
     def __del__(self):
