@@ -378,8 +378,6 @@ async def test_Queue():
         Queue(1.0)
     with pytest.raises(ValueError):
         Queue(-1)
-    with pytest.raises(ValueError):
-        Queue(0)
 
     q = Queue(2)
     repr(q)  # smoke test
@@ -510,6 +508,29 @@ async def test_Queue_fairness():
         with pytest.raises(_core.WouldBlock):
             q.put_nowait(3)
         assert (await q.get()) == 2
+
+
+async def test_Queue_unbuffered():
+    q = Queue(0)
+    assert q.capacity == 0
+    assert q.qsize() == 0
+    assert q.empty()
+    assert q.full()
+    with pytest.raises(_core.WouldBlock):
+        q.get_nowait()
+    with pytest.raises(_core.WouldBlock):
+        q.put_nowait(1)
+
+    async def do_put(q, v):
+        with assert_checkpoints():
+            await q.put(v)
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(do_put, q, 1)
+        with assert_checkpoints():
+            assert await q.get() == 1
+    with pytest.raises(_core.WouldBlock):
+        q.get_nowait()
 
 
 # Two ways of implementing a Lock in terms of a Queue. Used to let us put the
