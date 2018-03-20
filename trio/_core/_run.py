@@ -1,43 +1,37 @@
+import functools
 import inspect
-import enum
-from collections import deque
-import threading
-from time import monotonic
+import logging
 import os
 import random
-from contextlib import contextmanager, closing
 import select
-import sys
+import threading
+from collections import deque
+from contextlib import contextmanager, closing
+from contextvars import copy_context
 from math import inf
-import functools
-import logging
+from time import monotonic
 
 import attr
-from sortedcontainers import SortedDict
 from async_generator import async_generator, yield_
+from sortedcontainers import SortedDict
 
-from .._util import acontextmanager
-from .._deprecate import deprecated
-
-from .. import _core
-from ._exceptions import (
-    TrioInternalError, RunFinishedError, Cancelled, WouldBlock
+from . import _public
+from ._entry_queue import EntryQueue, TrioToken
+from ._exceptions import (TrioInternalError, RunFinishedError, Cancelled)
+from ._ki import (
+    LOCALS_KEY_KI_PROTECTION_ENABLED, currently_ki_protected, ki_manager,
+    enable_ki_protection
 )
 from ._multierror import MultiError
 from ._result import Result, Error, Value
 from ._traps import (
-    cancel_shielded_checkpoint,
     Abort,
     wait_task_rescheduled,
     CancelShieldedCheckpoint,
     WaitTaskRescheduled,
 )
-from ._entry_queue import EntryQueue, TrioToken
-from ._ki import (
-    LOCALS_KEY_KI_PROTECTION_ENABLED, currently_ki_protected, ki_manager,
-    enable_ki_protection
-)
-from . import _public
+from .. import _core
+from .._util import acontextmanager
 
 # At the bottom of this file there's also some "clever" code that generates
 # wrapper functions for runner and io manager methods, and adds them to
@@ -495,6 +489,8 @@ class Task:
 
     # Task-local values, see _local.py
     _locals = attr.ib(default=attr.Factory(dict))
+    # PEP 567 contextvars context
+    context = attr.ib(default=None)
 
     # these are counts of how many cancel/schedule points this task has
     # executed, for assert{_no,}_yields
@@ -822,7 +818,13 @@ class Runner:
                 name = "{}.{}".format(name.__module__, name.__qualname__)
             except AttributeError:
                 name = repr(name)
-        task = Task(coro=coro, parent_nursery=nursery, runner=self, name=name)
+        task = Task(
+            coro=coro,
+            parent_nursery=nursery,
+            runner=self,
+            name=name,
+            context=copy_context(),
+        )
         self.tasks.add(task)
         if nursery is not None:
             nursery._children.add(task)
@@ -1342,7 +1344,7 @@ def run_impl(runner, async_fn, args):
                 #   https://bugs.python.org/issue29590
                 # So now we send in the Result object and unwrap it on the
                 # other side.
-                msg = task.coro.send(next_send)
+                msg = task.context.run(task.coro.send, next_send)
             except StopIteration as stop_iteration:
                 final_result = Value(stop_iteration.value)
             except BaseException as task_exc:

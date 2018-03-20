@@ -1808,3 +1808,23 @@ async def test_nursery_start_keeps_nursery_open(autojump_clock):
             nursery1.start_soon(start_sleep_then_crash, nursery2)
             await wait_all_tasks_blocked()
         assert _core.current_time() - t0 == 7
+
+def test_contextvar_support():
+    import contextvars
+    var = contextvars.ContextVar("test")
+    var.set("before")
+
+    # sanity check
+    assert var.get() == "before"
+
+    async def inner():
+        task = _core.current_task()
+        assert task.context.get(var) == "before"
+        assert var.get() == "before"
+        var.set("after")
+        assert var.get() == "after"
+        assert var in task.context
+        assert task.context.get(var) == "after"
+
+    _core.run(inner)
+    assert var.get() == "before"
