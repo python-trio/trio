@@ -7,7 +7,7 @@ from ... import _core
 from ...testing import Sequencer
 
 
-async def test_local_smoketest():
+async def test_local_smoketest(recwarn):
     for cls in _core.TaskLocal, _core.RunLocal:
         local = cls()
 
@@ -43,7 +43,7 @@ async def test_local_smoketest():
             nursery.start_soon(child)
 
 
-async def test_local_isolation():
+async def test_local_isolation(recwarn):
     tlocal = _core.TaskLocal()
     rlocal = _core.RunLocal()
 
@@ -80,7 +80,7 @@ async def test_local_isolation():
     assert rlocal.a == "run child2"
 
 
-def test_run_local_multiple_runs():
+def test_run_local_multiple_runs(recwarn):
     r = _core.RunLocal()
 
     async def main(x):
@@ -94,7 +94,7 @@ def test_run_local_multiple_runs():
     _core.run(main, 2)
 
 
-def test_run_local_simultaneous_runs():
+def test_run_local_simultaneous_runs(recwarn):
     r = _core.RunLocal()
 
     result_q = queue.Queue()
@@ -139,7 +139,7 @@ def test_run_local_simultaneous_runs():
         r.attr
 
 
-def test_local_outside_run():
+def test_local_outside_run(recwarn):
     for cls in _core.RunLocal, _core.TaskLocal:
         local = cls()
 
@@ -150,7 +150,7 @@ def test_local_outside_run():
             dir(local)
 
 
-async def test_local_inheritance_from_spawner_not_supervisor():
+async def test_local_inheritance_from_spawner_not_supervisor(recwarn):
     t = _core.TaskLocal()
 
     t.x = "supervisor"
@@ -166,7 +166,7 @@ async def test_local_inheritance_from_spawner_not_supervisor():
         nursery.start_soon(spawner, nursery)
 
 
-async def test_local_defaults():
+async def test_local_defaults(recwarn):
     for cls in _core.TaskLocal, _core.RunLocal:
         local = cls(default1=123, default2="abc")
         assert local.default1 == 123

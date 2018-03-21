@@ -1,0 +1,2 @@
+Add support for :mod:`contextvars` natively, and deprecate
+:class:`trio.TaskLocal`.

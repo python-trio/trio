@@ -1,5 +1,5 @@
 # Task- and Run-local storage
-
+from .._deprecate import deprecated
 from . import _run
 
 __all__ = ["TaskLocal", "RunLocal"]
@@ -108,6 +108,10 @@ class TaskLocal(_LocalBase):
     """
     __slots__ = ()
     _locals_key = "task"
+
+    @deprecated("0.4.0", issue=420, instead="contextvars")
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
 
 class RunLocal(_LocalBase):
