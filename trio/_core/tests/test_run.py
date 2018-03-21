@@ -1,3 +1,4 @@
+import contextvars
 import functools
 import platform
 import sys
@@ -1809,8 +1810,8 @@ async def test_nursery_start_keeps_nursery_open(autojump_clock):
             await wait_all_tasks_blocked()
         assert _core.current_time() - t0 == 7
 
+
 def test_contextvar_support():
-    import contextvars
     var = contextvars.ContextVar("test")
     var.set("before")
 
