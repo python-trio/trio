@@ -1122,11 +1122,10 @@ work. What we need is something that's *like* a global variable, but
 that can have different values depending on which request handler is
 accessing it.
 
-That's what :class:`trio.TaskLocal` gives you:
+This is what :mod:`contextvars` provides. Trio has built-in support for
+context variables in the core.
 
-.. autoclass:: TaskLocal
-
-And here's a toy example demonstrating how to use :class:`TaskLocal`:
+Here's a toy example demonstrating how to use :mod:`contextvars`:
 
 .. literalinclude:: reference-core/tasklocal-example.py
 
@@ -1152,6 +1151,9 @@ Example output (yours may differ slightly):
    request 1: Request received finished
    request 0: Helper task b finished
    request 0: Request received finished
+
+For more information, read the
+`contextvar docs <https://docs.python.org/3.7/library/contextvars.html>`__.
 
 
 .. _synchronization:
