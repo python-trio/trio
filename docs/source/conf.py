@@ -34,8 +34,7 @@ nitpick_ignore = [
     # trio.abc is documented at random places scattered throughout the docs
     ("py:mod", "trio.abc"),
     # contextvars is added in 3.7, but the docs point to 3.6
-    # this comment is correct as of 2018-03-23, but it won't be in a
-    # few months
+    # this entry can be removed after 3.7 is released
     ("py:mod", "contextvars")
 ]
 autodoc_inherit_docstrings = False

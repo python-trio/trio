@@ -1122,8 +1122,12 @@ work. What we need is something that's *like* a global variable, but
 that can have different values depending on which request handler is
 accessing it.
 
-This is what :mod:`contextvars` provides. Trio has built-in support for
-context variables in the core.
+To solve this problem, Python 3.7 added a new module to the standard
+library: :mod:`contextvars`. And not only does Trio have built-in
+support for :mod:`contextvars`, but if you're using an earlier version
+of Python, then Trio makes sure that a backported version of
+:mod:`contextvars` is installed. So you can assume :mod:`contextvars`
+is there and works regardless of what version of Python you're using.
 
 Here's a toy example demonstrating how to use :mod:`contextvars`:
 

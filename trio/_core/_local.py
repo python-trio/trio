@@ -109,7 +109,7 @@ class TaskLocal(_LocalBase):
     __slots__ = ()
     _locals_key = "task"
 
-    @deprecated("0.4.0", issue=420, instead="contextvars")
+    @deprecated("0.4.0", issue=420, instead="contextvars.ContextVar")
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -130,7 +130,7 @@ class _RunVarToken(object):
 
 
 class RunVar(object):
-    """The run-local varient of a context variable.
+    """The run-local variant of a context variable.
 
     :class:`RunVar` objects are similar to context variable objects,
     except that they are shared across a single call to :func:`trio.run`
