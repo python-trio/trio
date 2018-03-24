@@ -1815,7 +1815,6 @@ def test_contextvar_support():
     var = contextvars.ContextVar("test")
     var.set("before")
 
-    # sanity check
     assert var.get() == "before"
 
     async def inner():
@@ -1829,3 +1828,23 @@ def test_contextvar_support():
 
     _core.run(inner)
     assert var.get() == "before"
+
+
+async def test_contextvar_multitask():
+    var = contextvars.ContextVar("test", default="hmmm")
+
+    async def t1():
+        assert var.get() == "hmmm"
+        var.set("hmmmm")
+        assert var.get() == "hmmmm"
+
+    async def t2():
+        assert var.get() == "hmmmm"
+
+    async with _core.open_nursery() as n:
+        n.start_soon(t1)
+        await wait_all_tasks_blocked()
+        assert var.get() == "hmmm"
+        var.set("hmmmm")
+        n.start_soon(t2)
+        await wait_all_tasks_blocked()
