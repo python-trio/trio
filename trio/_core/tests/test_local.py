@@ -176,15 +176,14 @@ async def test_local_defaults(recwarn):
 
 
 # scary runvar tests
-def test_runvar_sanity():
+def test_runvar_smoketest():
     t1 = _core.RunVar("test1")
     t2 = _core.RunVar("test2", default="catfish")
 
-    async def sanity_check():
+    async def first_check():
         with pytest.raises(LookupError):
             t1.get()
 
-        # sanity checks, first
         t1.set("swordfish")
         assert t1.get() == "swordfish"
         assert t2.get() == "catfish"
@@ -194,7 +193,14 @@ def test_runvar_sanity():
         assert t2.get() == "goldfish"
         assert t2.get(default="tuna") == "goldfish"
 
-    _core.run(sanity_check)
+    async def second_check():
+        with pytest.raises(LookupError):
+            t1.get()
+
+        assert t2.get() == "catfish"
+
+    _core.run(first_check)
+    _core.run(second_check)
 
 
 def test_runvar_resetting():

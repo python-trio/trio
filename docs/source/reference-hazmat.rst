@@ -259,10 +259,10 @@ working with low-level APIs like :func:`monitor_kevent`.
    :members:
 
 
-Global state: system tasks and run-local storage
-================================================
+Global state: system tasks and run-local variables
+==================================================
 
-.. autoclass:: RunLocal
+.. autoclass:: RunVar
 
 .. autofunction:: spawn_system_task
 

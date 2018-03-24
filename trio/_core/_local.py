@@ -223,5 +223,6 @@ class RunLocal(_LocalBase):
     __slots__ = ()
     _locals_key = "runner"
 
+    @deprecated("0.4.0", issue=478, instead=RunVar)
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
