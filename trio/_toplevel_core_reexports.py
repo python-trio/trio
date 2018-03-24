@@ -27,7 +27,6 @@ __all__ = [
     "TASK_STATUS_IGNORED",
     "current_time",
     "TaskLocal",
-    "RunVar",
 ]
 
 from . import _core

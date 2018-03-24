@@ -28,6 +28,7 @@ __all__ = [
     "ParkingLot",
     "UnboundedQueue",
     "RunLocal",
+    "RunVar",
     "wait_socket_readable",
     "wait_socket_writable",
     "TrioToken",
