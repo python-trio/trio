@@ -11,7 +11,7 @@
    :alt: Automated test status (Linux and MacOS)
 
 .. image:: https://ci.appveyor.com/api/projects/status/af4eyed8o8tc3t0r/branch/master?svg=true
-   :target: https://ci.appveyor.com/project/python-trio/trio/history
+   :target: https://ci.appveyor.com/project/njsmith/trio/history
    :alt: Automated test status (Windows)
 
 .. image:: https://codecov.io/gh/python-trio/trio/branch/master/graph/badge.svg
