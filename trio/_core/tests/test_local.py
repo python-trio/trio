@@ -180,6 +180,8 @@ def test_runvar_smoketest():
     t1 = _core.RunVar("test1")
     t2 = _core.RunVar("test2", default="catfish")
 
+    assert "RunVar" in repr(t1)
+
     async def first_check():
         with pytest.raises(LookupError):
             t1.get()
@@ -212,6 +214,9 @@ def test_runvar_resetting():
         token = t1.set("moonfish")
         assert t1.get() == "moonfish"
         t1.reset(token)
+
+        with pytest.raises(TypeError):
+            t1.reset(None)
 
         with pytest.raises(LookupError):
             t1.get()
@@ -262,3 +267,21 @@ def test_runvar_sync():
             assert t1.get() == "cod"
 
     _core.run(sync_check)
+
+
+def test_accessing_runvar_outside_run_call_fails():
+    t1 = _core.RunVar("test1")
+
+    with pytest.raises(RuntimeError):
+        t1.set("asdf")
+
+    with pytest.raises(RuntimeError):
+        t1.get()
+
+    async def get_token():
+        return t1.set("ok")
+
+    token = _core.run(get_token)
+
+    with pytest.raises(RuntimeError):
+        t1.reset(token)
