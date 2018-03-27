@@ -476,6 +476,9 @@ class Task:
     coro = attr.ib()
     _runner = attr.ib()
     name = attr.ib()
+    # PEP 567 contextvars context
+    context = attr.ib()
+
     # Invariant:
     # - for unscheduled tasks, _next_send is None
     # - for scheduled tasks, _next_send is a Result object
@@ -489,8 +492,6 @@ class Task:
 
     # Task-local values, see _local.py
     _locals = attr.ib(default=attr.Factory(dict))
-    # PEP 567 contextvars context
-    context = attr.ib(default=None)
 
     # these are counts of how many cancel/schedule points this task has
     # executed, for assert{_no,}_yields
