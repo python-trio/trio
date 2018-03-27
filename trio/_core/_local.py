@@ -174,11 +174,9 @@ class RunVar(object):
         else:
             token = _RunVarToken(self, old_value)
 
-        try:
-            _run.GLOBAL_RUN_CONTEXT.runner._locals[self] = value
-        except AttributeError:
-            raise RuntimeError("Cannot be used outside of a run context") \
-                from None
+        # This can't fail, because if we weren't in trio context then the
+        # get() above would have failed.
+        _run.GLOBAL_RUN_CONTEXT.runner._locals[self] = value
         return token
 
     def reset(self, token):
