@@ -1131,7 +1131,7 @@ is there and works regardless of what version of Python you're using.
 
 Here's a toy example demonstrating how to use :mod:`contextvars`:
 
-.. literalinclude:: reference-core/tasklocal-example.py
+.. literalinclude:: reference-core/contextvar-example.py
 
 Example output (yours may differ slightly):
 
