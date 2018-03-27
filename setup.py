@@ -90,7 +90,8 @@ setup(
     # also supported by pip and setuptools, as long as they're vaguely
     # recent
     extras_require={
-        ":os_name == 'nt'": ["cffi"],  # "cffi is required on windows"
+        ":os_name == 'nt'": ["cffi"],  # "cffi is required on windows",
+        ":python_version < '3.7'": ["contextvars>=2.1"]
     },
     python_requires=">=3.5",
     keywords=["async", "io", "networking", "trio"],
