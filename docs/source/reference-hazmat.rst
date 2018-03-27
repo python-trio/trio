@@ -552,6 +552,10 @@ Task API
               ss = traceback.StackSummary.extract(walk_coro_stack(task.coro))
               print("".join(ss.format()))
 
+   .. attribute:: context
+
+      This task's :class:`contextvars.Context` object.
+
    .. autoattribute:: parent_nursery
 
    .. autoattribute:: child_nurseries
