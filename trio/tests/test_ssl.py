@@ -9,7 +9,7 @@ from functools import partial
 
 from OpenSSL import SSL
 import trustme
-from async_generator import async_generator, yield_
+from async_generator import async_generator, yield_, asynccontextmanager
 
 import trio
 from .. import _core
@@ -20,7 +20,7 @@ from .._highlevel_generic import (
 from .._highlevel_open_tcp_stream import open_tcp_stream
 from .. import ssl as tssl
 from .. import socket as tsocket
-from .._util import ConflictDetector, acontextmanager
+from .._util import ConflictDetector
 
 from .._core.tests.tutil import slow
 
@@ -97,7 +97,7 @@ def ssl_echo_serve_sync(sock, *, expect_fail=False):
 # Fixture that gives a raw socket connected to a trio-test-1 echo server
 # (running in a thread). Useful for testing making connections with different
 # SSLContexts.
-@acontextmanager
+@asynccontextmanager
 @async_generator
 async def ssl_echo_server_raw(**kwargs):
     a, b = stdlib_socket.socketpair()
@@ -116,7 +116,7 @@ async def ssl_echo_server_raw(**kwargs):
 
 # Fixture that gives a properly set up SSLStream connected to a trio-test-1
 # echo server (running in a thread)
-@acontextmanager
+@asynccontextmanager
 @async_generator
 async def ssl_echo_server(**kwargs):
     async with ssl_echo_server_raw(**kwargs) as sock:

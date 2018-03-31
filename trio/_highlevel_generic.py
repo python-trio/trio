@@ -1,12 +1,7 @@
-import abc
-import contextlib
-
 import attr
-from async_generator import async_generator, yield_
 
 from . import _core
 from .abc import HalfCloseableStream
-from ._util import acontextmanager
 
 __all__ = [
     "aclose_forcefully",

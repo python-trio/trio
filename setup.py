@@ -76,7 +76,7 @@ setup(
     install_requires=[
         "attrs",
         "sortedcontainers",
-        "async_generator >= 1.6",
+        "async_generator >= 1.9",
         "idna",
         # PEP 508 style, but:
         # https://bitbucket.org/pypa/wheel/issues/181/bdist_wheel-silently-discards-pep-508

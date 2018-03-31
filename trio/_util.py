@@ -17,8 +17,11 @@ import async_generator
 from . import _core
 
 __all__ = [
-    "signal_raise", "aiter_compat", "acontextmanager", "ConflictDetector",
-    "fixup_module_metadata", "fspath"
+    "signal_raise",
+    "aiter_compat",
+    "ConflictDetector",
+    "fixup_module_metadata",
+    "fspath",
 ]
 
 # Equivalent to the C function raise(), which Python doesn't wrap

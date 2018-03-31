@@ -5,9 +5,8 @@ from functools import partial
 import attr
 
 import trio
-from trio.socket import socket, AF_INET, SOCK_STREAM, IPPROTO_TCP
+from trio.socket import AF_INET, SOCK_STREAM, IPPROTO_TCP
 import trio.testing
-from .._util import acontextmanager
 from .test_ssl import CLIENT_CTX, SERVER_CTX
 
 from .._highlevel_ssl_helpers import (

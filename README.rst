@@ -166,7 +166,7 @@ Apache 2. See `LICENSE
      (task statistics are closely related)
 
    - make sure to @ki_protection_enabled all our __(a)exit__
-     implementations. Including @acontextmanager! it's not enough to
+     implementations. Including @asynccontextmanager! it's not enough to
      protect the wrapped function. (Or is it? Or maybe we need to do
      both? I'm not sure what the call-stack looks like for a
      re-entered generator... and ki_protection for async generators is
