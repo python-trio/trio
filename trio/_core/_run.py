@@ -168,7 +168,7 @@ class CancelScope:
         self._tasks.update(tasks)
 
     def _make_exc(self):
-        exc = Cancelled()
+        exc = Cancelled._init()
         exc._scope = self
         return exc
 

@@ -1848,3 +1848,18 @@ async def test_contextvar_multitask():
         var.set("hmmmm")
         n.start_soon(t2)
         await wait_all_tasks_blocked()
+
+
+def test_Cancelled_init():
+    check_Cancelled_error = pytest.raises(
+        RuntimeError, match='should not be raised directly'
+    )
+
+    with check_Cancelled_error:
+        raise _core.Cancelled
+
+    with check_Cancelled_error:
+        _core.Cancelled()
+
+    # private constructor should not raise
+    _core.Cancelled._init()

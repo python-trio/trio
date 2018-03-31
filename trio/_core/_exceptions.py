@@ -55,6 +55,12 @@ class Cancelled(BaseException):
 
     then this *won't* catch a :exc:`Cancelled` exception.
 
+    Attempting to raise :exc:`Cancelled` yourself will cause a
+    :exc:`RuntimeError`. It would not be associated with a cancel scope and thus
+    not be caught by Trio. Use
+    :meth:`cancel_scope.cancel() <trio.The cancel scope interface.cancel>`
+    instead.
+
     .. note::
 
        In the US it's also common to see this word spelled "canceled", with
@@ -69,6 +75,23 @@ class Cancelled(BaseException):
 
     """
     _scope = None
+    __marker = object()
+
+    def __init__(self, _marker=None):
+        if _marker is not self.__marker:
+            raise RuntimeError(
+                'Cancelled should not be raised directly. Use the cancel() '
+                'method on your cancel scope.'
+            )
+        super().__init__()
+
+    @classmethod
+    def _init(cls):
+        """A private constructor so that a user-created instance of Cancelled
+        can raise an appropriate error. see `issue #342
+        <https://github.com/python-trio/trio/issues/342>`__.
+        """
+        return cls(_marker=cls.__marker)
 
 
 class ResourceBusyError(Exception):
