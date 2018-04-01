@@ -279,7 +279,7 @@ this, that tries to call an async function but leaves out the
 
 You might think that Python would raise an error here, like it does
 for other kinds of mistakes we sometimes make when calling a
-function. Like, if we forgot to pass :func:`trio.sleep` it's required
+function. Like, if we forgot to pass :func:`trio.sleep` its required
 argument, then we would get a nice :exc:`TypeError` saying so. But
 unfortunately, if you forget an ``await``, you don't get that. What
 you actually get is:
