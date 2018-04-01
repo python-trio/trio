@@ -1,7 +1,7 @@
 from collections import defaultdict
 
 import attr
-from async_generator import async_generator, yield_
+from async_generator import async_generator, yield_, asynccontextmanager
 
 from .. import _core
 from .. import _util
@@ -57,7 +57,7 @@ class Sequencer:
     _claimed = attr.ib(default=attr.Factory(set), init=False)
     _broken = attr.ib(default=False, init=False)
 
-    @_util.acontextmanager
+    @asynccontextmanager
     @async_generator
     async def __call__(self, position):
         if position in self._claimed:

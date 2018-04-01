@@ -12,7 +12,7 @@ from math import inf
 from time import monotonic
 
 import attr
-from async_generator import async_generator, yield_
+from async_generator import async_generator, yield_, asynccontextmanager
 from sortedcontainers import SortedDict
 
 from . import _public
@@ -31,7 +31,6 @@ from ._traps import (
     WaitTaskRescheduled,
 )
 from .. import _core
-from .._util import acontextmanager
 
 # At the bottom of this file there's also some "clever" code that generates
 # wrapper functions for runner and io manager methods, and adds them to
@@ -290,7 +289,7 @@ class _TaskStatus:
         self._old_nursery._check_nursery_closed()
 
 
-@acontextmanager
+@asynccontextmanager
 @async_generator
 @enable_ki_protection
 async def open_nursery():
