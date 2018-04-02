@@ -758,7 +758,7 @@ this frustrating.
 But from trio's point of view, the problem with the GIL isn't that it
 restricts parallelism. Of course it would be nice if Python had better
 options for taking advantage of multiple cores, but that's an
-extremely difficult problem to solve, and in the mean time there are
+extremely difficult problem to solve, and in the meantime there are
 lots of problems where a single core is totally adequate – or where if
 it isn't, then process- or machine-level parallelism works fine.
 
