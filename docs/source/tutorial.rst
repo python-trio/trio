@@ -841,10 +841,12 @@ An echo client
 
 The traditional application for demonstrating network APIs is an "echo
 server": a program that accepts arbitrary data from a client, and then
-sends that same data right back. Probably a more relevant example
+sends that same data right back. (Probably a more relevant example
 these days would be an application that does lots of concurrent HTTP
-requests, but trio doesn't have an HTTP library yet, so we'll stick
-with the echo server tradition.
+requests, but for that `you need an HTTP library
+<https://github.com/python-trio/trio/issues/236#issuecomment-310784001>`_
+such as `asks <https://asks.readthedocs.io>`_, so we'll stick
+with the echo server tradition.)
 
 To start with, here's an example echo *client*, i.e., the program that
 will send some data at our echo server and get responses back:
