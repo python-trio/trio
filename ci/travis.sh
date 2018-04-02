@@ -34,6 +34,11 @@ if [ "$USE_PYPY_NIGHTLY" = "1" ]; then
     source testenv/bin/activate
 fi
 
+# Fix https://github.com/python-trio/trio/issues/487
+pip --version
+curl https://bootstrap.pypa.io/get-pip.py | python
+pip --version
+
 pip install -U pip setuptools wheel
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
