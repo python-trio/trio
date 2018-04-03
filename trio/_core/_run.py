@@ -1169,8 +1169,8 @@ def run(
 
           The default behavior is nice because it means that even if you
           accidentally write an infinite loop that never executes any
-          checkpoints, then you can still break out of it using control-C. The
-          the alternative behavior is nice if you're paranoid about a
+          checkpoints, then you can still break out of it using control-C.
+          The alternative behavior is nice if you're paranoid about a
           :exc:`KeyboardInterrupt` at just the wrong place leaving your
           program in an inconsistent state, because it means that you only
           have to worry about :exc:`KeyboardInterrupt` at the exact same
