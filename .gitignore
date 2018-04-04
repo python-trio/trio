@@ -36,6 +36,7 @@ pip-log.txt
 # Unit test / coverage reports
 htmlcov/
 .tox/
+.venv/
 .coverage
 .coverage.*
 .cache
