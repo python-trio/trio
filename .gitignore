@@ -5,12 +5,13 @@ bench/results/
 bench/env/
 bench/trio/
 
-# Byte-compiled / optimized / DLL files
+# Byte-compiled / optimized / DLL files / editor temp files
 __pycache__/
 *.py[cod]
 *~
 \#*
 .#*
+*.swp
 
 # C extensions
 *.so
