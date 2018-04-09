@@ -30,6 +30,7 @@ __pycache__/
 *.egg-info/
 .installed.cfg
 *.egg
+/.pybuild
 
 # Installer logs
 pip-log.txt
