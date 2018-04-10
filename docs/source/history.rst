@@ -5,6 +5,46 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.4.0 (2018-04-10)
+-----------------------
+
+Features
+~~~~~~~~
+
+- Add unix client socket support. (`#401
+  <https://github.com/python-trio/trio/issues/401>`__)
+- Add support for :mod:`contextvars` (see :ref:`task-local storage
+  <task-local-storage>`), and add :class:`trio.hazmat.RunVar` as a similar API
+  for run-local variables. Deprecate ``trio.TaskLocal`` and
+  ``trio.hazmat.RunLocal`` in favor of these new APIs. (`#420
+  <https://github.com/python-trio/trio/issues/420>`__)
+- Add :func:`trio.hazmat.current_root_task` to get the root task. (`#452
+  <https://github.com/python-trio/trio/issues/452>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Fix KeyboardInterrupt handling when threading state has been modified by a
+  3rd-party library. (`#461
+  <https://github.com/python-trio/trio/issues/461>`__)
+
+
+Deprecations and Removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Attempting to raise :exc:`trio.Cancelled` will cause a :exc:`RuntimeError`.
+  :meth:`cancel_scope.cancel() <trio.The cancel scope interface.cancel>` should
+  be used instead. (`#342 <https://github.com/python-trio/trio/issues/342>`__)
+
+
+Miscellaneous internal changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Simplify implementation of primitive traps like wait_task_rescheduled (`#395
+  <https://github.com/python-trio/trio/issues/395>`__)
+
+
 Trio 0.3.0 (2017-12-28)
 -----------------------
 

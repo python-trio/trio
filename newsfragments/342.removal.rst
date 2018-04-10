@@ -1,3 +1,0 @@
-Attempting to raise :exc:`trio.Cancelled` will cause a :exc:`RuntimeError`.
-:meth:`cancel_scope.cancel() <trio.The cancel scope interface.cancel>` should be
-used instead.
