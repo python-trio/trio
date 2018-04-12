@@ -1,43 +1,36 @@
+import functools
 import inspect
-import enum
-from collections import deque
-import threading
-from time import monotonic
+import logging
 import os
 import random
-from contextlib import contextmanager, closing
 import select
-import sys
+import threading
+from collections import deque
+from contextlib import contextmanager, closing
+from contextvars import copy_context
 from math import inf
-import functools
-import logging
+from time import monotonic
 
 import attr
+from async_generator import async_generator, yield_, asynccontextmanager
 from sortedcontainers import SortedDict
-from async_generator import async_generator, yield_
 
-from .._util import acontextmanager
-from .._deprecate import deprecated
-
-from .. import _core
-from ._exceptions import (
-    TrioInternalError, RunFinishedError, Cancelled, WouldBlock
+from . import _public
+from ._entry_queue import EntryQueue, TrioToken
+from ._exceptions import (TrioInternalError, RunFinishedError, Cancelled)
+from ._ki import (
+    LOCALS_KEY_KI_PROTECTION_ENABLED, currently_ki_protected, ki_manager,
+    enable_ki_protection
 )
 from ._multierror import MultiError
 from ._result import Result, Error, Value
 from ._traps import (
-    cancel_shielded_checkpoint,
     Abort,
     wait_task_rescheduled,
     CancelShieldedCheckpoint,
     WaitTaskRescheduled,
 )
-from ._entry_queue import EntryQueue, TrioToken
-from ._ki import (
-    LOCALS_KEY_KI_PROTECTION_ENABLED, currently_ki_protected, ki_manager,
-    enable_ki_protection
-)
-from . import _public
+from .. import _core
 
 # At the bottom of this file there's also some "clever" code that generates
 # wrapper functions for runner and io manager methods, and adds them to
@@ -175,7 +168,7 @@ class CancelScope:
         self._tasks.update(tasks)
 
     def _make_exc(self):
-        exc = Cancelled()
+        exc = Cancelled._init()
         exc._scope = self
         return exc
 
@@ -296,7 +289,7 @@ class _TaskStatus:
         self._old_nursery._check_nursery_closed()
 
 
-@acontextmanager
+@asynccontextmanager
 @async_generator
 @enable_ki_protection
 async def open_nursery():
@@ -482,6 +475,9 @@ class Task:
     coro = attr.ib()
     _runner = attr.ib()
     name = attr.ib()
+    # PEP 567 contextvars context
+    context = attr.ib()
+
     # Invariant:
     # - for unscheduled tasks, _next_send is None
     # - for scheduled tasks, _next_send is a Result object
@@ -822,7 +818,13 @@ class Runner:
                 name = "{}.{}".format(name.__module__, name.__qualname__)
             except AttributeError:
                 name = repr(name)
-        task = Task(coro=coro, parent_nursery=nursery, runner=self, name=name)
+        task = Task(
+            coro=coro,
+            parent_nursery=nursery,
+            runner=self,
+            name=name,
+            context=copy_context(),
+        )
         self.tasks.add(task)
         if nursery is not None:
             nursery._children.add(task)
@@ -1167,8 +1169,8 @@ def run(
 
           The default behavior is nice because it means that even if you
           accidentally write an infinite loop that never executes any
-          checkpoints, then you can still break out of it using control-C. The
-          the alternative behavior is nice if you're paranoid about a
+          checkpoints, then you can still break out of it using control-C.
+          The alternative behavior is nice if you're paranoid about a
           :exc:`KeyboardInterrupt` at just the wrong place leaving your
           program in an inconsistent state, because it means that you only
           have to worry about :exc:`KeyboardInterrupt` at the exact same
@@ -1342,7 +1344,7 @@ def run_impl(runner, async_fn, args):
                 #   https://bugs.python.org/issue29590
                 # So now we send in the Result object and unwrap it on the
                 # other side.
-                msg = task.coro.send(next_send)
+                msg = task.context.run(task.coro.send, next_send)
             except StopIteration as stop_iteration:
                 final_result = Value(stop_iteration.value)
             except BaseException as task_exc:

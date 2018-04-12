@@ -220,7 +220,7 @@ class BlockingTrioPortal:
 # really the only real limit is on stack size actually *used*; how much you
 # *allocate* should be pretty much irrelevant.)
 
-_limiter_local = _core.RunLocal()
+_limiter_local = _core.RunVar("limiter")
 # I pulled this number out of the air; it isn't based on anything. Probably we
 # should make some kind of measurements to pick a good value.
 DEFAULT_LIMIT = 40
@@ -236,9 +236,10 @@ def current_default_worker_thread_limiter():
 
     """
     try:
-        limiter = _limiter_local.limiter
-    except AttributeError:
-        limiter = _limiter_local.limiter = CapacityLimiter(DEFAULT_LIMIT)
+        limiter = _limiter_local.get()
+    except LookupError:
+        limiter = CapacityLimiter(DEFAULT_LIMIT)
+        _limiter_local.set(limiter)
     return limiter
 
 

@@ -259,10 +259,10 @@ working with low-level APIs like :func:`monitor_kevent`.
    :members:
 
 
-Global state: system tasks and run-local storage
-================================================
+Global state: system tasks and run-local variables
+==================================================
 
-.. autoclass:: RunLocal
+.. autoclass:: RunVar
 
 .. autofunction:: spawn_system_task
 
@@ -551,6 +551,10 @@ Task API
           def print_stack_for_task(task):
               ss = traceback.StackSummary.extract(walk_coro_stack(task.coro))
               print("".join(ss.format()))
+
+   .. attribute:: context
+
+      This task's :class:`contextvars.Context` object.
 
    .. autoattribute:: parent_nursery
 

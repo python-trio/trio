@@ -116,7 +116,8 @@ for _name in [
 # Overrides
 ################################################################
 
-_overrides = _core.RunLocal(hostname_resolver=None, socket_factory=None)
+_resolver = _core.RunVar("hostname_resolver")
+_socket_factory = _core.RunVar("socket_factory")
 
 
 @_add_to_all
@@ -147,8 +148,8 @@ def set_custom_hostname_resolver(hostname_resolver):
       The previous hostname resolver (which may be None).
 
     """
-    old = _overrides.hostname_resolver
-    _overrides.hostname_resolver = hostname_resolver
+    old = _resolver.get(None)
+    _resolver.set(hostname_resolver)
     return old
 
 
@@ -175,8 +176,8 @@ def set_custom_socket_factory(socket_factory):
       The previous socket factory (which may be None).
 
     """
-    old = _overrides.socket_factory
-    _overrides.socket_factory = socket_factory
+    old = _socket_factory.get(None)
+    _socket_factory.set(socket_factory)
     return old
 
 
@@ -232,7 +233,7 @@ async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
             # idna.encode will error out if the hostname has Capital Letters
             # in it; with uts46=True it will lowercase them instead.
             host = _idna.encode(host, uts46=True)
-    hr = _overrides.hostname_resolver
+    hr = _resolver.get(None)
     if hr is not None:
         return await hr.getaddrinfo(host, port, family, type, proto, flags)
     else:
@@ -259,7 +260,7 @@ async def getnameinfo(sockaddr, flags):
     :func:`set_custom_hostname_resolver`.
 
     """
-    hr = _overrides.hostname_resolver
+    hr = _resolver.get(None)
     if hr is not None:
         return await hr.getnameinfo(sockaddr, flags)
     else:
@@ -335,7 +336,7 @@ def socket(family=AF_INET, type=SOCK_STREAM, proto=0, fileno=None):
 
     """
     if fileno is None:
-        sf = _overrides.socket_factory
+        sf = _socket_factory.get(None)
         if sf is not None:
             return sf.socket(family, type, proto)
     stdlib_socket = _stdlib_socket.socket(family, type, proto, fileno)

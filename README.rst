@@ -11,7 +11,7 @@
    :alt: Automated test status (Linux and MacOS)
 
 .. image:: https://ci.appveyor.com/api/projects/status/af4eyed8o8tc3t0r/branch/master?svg=true
-   :target: https://ci.appveyor.com/project/python-trio/trio/history
+   :target: https://ci.appveyor.com/project/njsmith/trio/history
    :alt: Automated test status (Windows)
 
 .. image:: https://codecov.io/gh/python-trio/trio/branch/master/graph/badge.svg
@@ -166,7 +166,7 @@ Apache 2. See `LICENSE
      (task statistics are closely related)
 
    - make sure to @ki_protection_enabled all our __(a)exit__
-     implementations. Including @acontextmanager! it's not enough to
+     implementations. Including @asynccontextmanager! it's not enough to
      protect the wrapped function. (Or is it? Or maybe we need to do
      both? I'm not sure what the call-stack looks like for a
      re-entered generator... and ki_protection for async generators is

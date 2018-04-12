@@ -1122,13 +1122,16 @@ work. What we need is something that's *like* a global variable, but
 that can have different values depending on which request handler is
 accessing it.
 
-That's what :class:`trio.TaskLocal` gives you:
+To solve this problem, Python 3.7 added a new module to the standard
+library: :mod:`contextvars`. And not only does Trio have built-in
+support for :mod:`contextvars`, but if you're using an earlier version
+of Python, then Trio makes sure that a backported version of
+:mod:`contextvars` is installed. So you can assume :mod:`contextvars`
+is there and works regardless of what version of Python you're using.
 
-.. autoclass:: TaskLocal
+Here's a toy example demonstrating how to use :mod:`contextvars`:
 
-And here's a toy example demonstrating how to use :class:`TaskLocal`:
-
-.. literalinclude:: reference-core/tasklocal-example.py
+.. literalinclude:: reference-core/contextvar-example.py
 
 Example output (yours may differ slightly):
 
@@ -1152,6 +1155,9 @@ Example output (yours may differ slightly):
    request 1: Request received finished
    request 0: Helper task b finished
    request 0: Request received finished
+
+For more information, read the
+`contextvar docs <https://docs.python.org/3.7/library/contextvars.html>`__.
 
 
 .. _synchronization:

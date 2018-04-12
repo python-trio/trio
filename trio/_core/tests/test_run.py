@@ -1,3 +1,4 @@
+import contextvars
 import functools
 import platform
 import sys
@@ -1808,3 +1809,57 @@ async def test_nursery_start_keeps_nursery_open(autojump_clock):
             nursery1.start_soon(start_sleep_then_crash, nursery2)
             await wait_all_tasks_blocked()
         assert _core.current_time() - t0 == 7
+
+
+def test_contextvar_support():
+    var = contextvars.ContextVar("test")
+    var.set("before")
+
+    assert var.get() == "before"
+
+    async def inner():
+        task = _core.current_task()
+        assert task.context.get(var) == "before"
+        assert var.get() == "before"
+        var.set("after")
+        assert var.get() == "after"
+        assert var in task.context
+        assert task.context.get(var) == "after"
+
+    _core.run(inner)
+    assert var.get() == "before"
+
+
+async def test_contextvar_multitask():
+    var = contextvars.ContextVar("test", default="hmmm")
+
+    async def t1():
+        assert var.get() == "hmmm"
+        var.set("hmmmm")
+        assert var.get() == "hmmmm"
+
+    async def t2():
+        assert var.get() == "hmmmm"
+
+    async with _core.open_nursery() as n:
+        n.start_soon(t1)
+        await wait_all_tasks_blocked()
+        assert var.get() == "hmmm"
+        var.set("hmmmm")
+        n.start_soon(t2)
+        await wait_all_tasks_blocked()
+
+
+def test_Cancelled_init():
+    check_Cancelled_error = pytest.raises(
+        RuntimeError, match='should not be raised directly'
+    )
+
+    with check_Cancelled_error:
+        raise _core.Cancelled
+
+    with check_Cancelled_error:
+        _core.Cancelled()
+
+    # private constructor should not raise
+    _core.Cancelled._init()
