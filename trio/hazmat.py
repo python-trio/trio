@@ -27,7 +27,6 @@ __all__ = [
     "wait_readable",
     "ParkingLot",
     "UnboundedQueue",
-    "RunLocal",
     "RunVar",
     "wait_socket_readable",
     "wait_socket_writable",
