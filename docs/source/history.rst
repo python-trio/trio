@@ -33,7 +33,7 @@ Bugfixes
 Deprecations and Removals
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Attempting to raise :exc:`trio.Cancelled` will cause a :exc:`RuntimeError`.
+- Attempting to explicitly raise :exc:`trio.Cancelled` will cause a :exc:`RuntimeError`.
   :meth:`cancel_scope.cancel() <trio.The cancel scope interface.cancel>` should
   be used instead. (`#342 <https://github.com/python-trio/trio/issues/342>`__)
 
@@ -41,8 +41,8 @@ Deprecations and Removals
 Miscellaneous internal changes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Simplify implementation of primitive traps like wait_task_rescheduled (`#395
-  <https://github.com/python-trio/trio/issues/395>`__)
+- Simplify implementation of primitive traps like :func:`~trio.hazmat.wait_task_rescheduled`
+  (`#395 <https://github.com/python-trio/trio/issues/395>`__)
 
 
 Trio 0.3.0 (2017-12-28)
