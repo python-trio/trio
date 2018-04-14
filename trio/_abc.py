@@ -48,7 +48,7 @@ class Clock(metaclass=ABCMeta):
         """Compute the real time until the given deadline.
 
         This is called before we enter a system-specific wait function like
-        :func:~select.select`, to get the timeout to pass.
+        :func:`select.select`, to get the timeout to pass.
 
         For a clock using wall-time, this should be something like::
 
