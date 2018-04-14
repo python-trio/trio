@@ -26,7 +26,6 @@ __all__ = [
     "current_effective_deadline",
     "TASK_STATUS_IGNORED",
     "current_time",
-    "TaskLocal",
 ]
 
 from . import _core

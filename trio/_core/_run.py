@@ -489,9 +489,6 @@ class Task:
     # For introspection and nursery.start()
     _child_nurseries = attr.ib(default=attr.Factory(list))
 
-    # Task-local values, see _local.py
-    _locals = attr.ib(default=attr.Factory(dict))
-
     # these are counts of how many cancel/schedule points this task has
     # executed, for assert{_no,}_yields
     # XX maybe these should be exposed as part of a statistics() method?
@@ -591,6 +588,8 @@ class Runner:
 
     # Run-local values, see _local.py
     _locals = attr.ib(default=attr.Factory(dict))
+    # Used for system tasks
+    _system_context = attr.ib(default=attr.Factory(copy_context))
 
     runq = attr.ib(default=attr.Factory(deque))
     tasks = attr.ib(default=attr.Factory(set))
@@ -714,7 +713,7 @@ class Runner:
         self.instrument("task_scheduled", task)
 
     def spawn_impl(
-        self, async_fn, args, nursery, name, *, ki_protection_enabled=False
+        self, async_fn, args, nursery, name, *, system_task=False,
     ):
 
         ######
@@ -818,28 +817,28 @@ class Runner:
                 name = "{}.{}".format(name.__module__, name.__qualname__)
             except AttributeError:
                 name = repr(name)
+
+        if system_task:
+            context = self._system_context
+        else:
+            context = copy_context()
+
         task = Task(
             coro=coro,
             parent_nursery=nursery,
             runner=self,
             name=name,
-            context=copy_context(),
+            context=context,
         )
         self.tasks.add(task)
+
         if nursery is not None:
             nursery._children.add(task)
             for scope in nursery._cancel_stack:
                 scope._add_task(task)
         coro.cr_frame.f_locals.setdefault(
-            LOCALS_KEY_KI_PROTECTION_ENABLED, ki_protection_enabled
+            LOCALS_KEY_KI_PROTECTION_ENABLED, system_task
         )
-        if nursery is not None:
-            # Task locals are inherited from the spawning task, not the
-            # nursery task. The 'if nursery' check is just used as a guard to
-            # make sure we don't try to do this to the root task.
-            parent_task = current_task()
-            for local, values in parent_task._locals.items():
-                task._locals[local] = dict(values)
         self.instrument("task_spawned", task)
         # Special case: normally next_send should be a Result, but for the
         # very first send we have to send a literal unboxed None.
@@ -924,7 +923,7 @@ class Runner:
             system_task_wrapper, (async_fn, args),
             self.system_nursery,
             name,
-            ki_protection_enabled=True
+            system_task=True,
         )
 
     async def init(self, async_fn, args):
