@@ -5,12 +5,13 @@ bench/results/
 bench/env/
 bench/trio/
 
-# Byte-compiled / optimized / DLL files
+# Byte-compiled / optimized / DLL files / editor temp files
 __pycache__/
 *.py[cod]
 *~
 \#*
 .#*
+*.swp
 
 # C extensions
 *.so
@@ -29,6 +30,7 @@ __pycache__/
 *.egg-info/
 .installed.cfg
 *.egg
+/.pybuild
 
 # Installer logs
 pip-log.txt
@@ -36,6 +38,7 @@ pip-log.txt
 # Unit test / coverage reports
 htmlcov/
 .tox/
+.venv/
 .coverage
 .coverage.*
 .cache

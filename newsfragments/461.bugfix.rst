@@ -1,2 +1,0 @@
-Fix KeyboardInterrupt handling when threading state has been modified by a
-3rd-party library.

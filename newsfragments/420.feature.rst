@@ -1,4 +1,0 @@
-Add support for :mod:`contextvars` (see :ref:`task-local storage
-<task-local-storage>`), and add :class:`trio.hazmat.RunVar` as a
-similar API for run-local variables. Deprecate ``trio.TaskLocal`` and
-``trio.hazmat.RunLocal`` in favor of these new APIs.
