@@ -198,3 +198,17 @@ async def test_path_nonpath():
 async def test_open_file_can_open_path(path):
     async with await trio.open_file(path, 'w') as f:
         assert f.name == fspath(path)
+
+
+async def test_iterdir(path):
+    # Populate a directory
+    await path.mkdir()
+    await (path / 'foo').mkdir()
+    await (path / 'bar.txt').write_bytes(b'')
+
+    entries = set()
+    for entry in await path.iterdir():
+        assert isinstance(entry, trio.Path)
+        entries.add(entry.name)
+
+    assert entries == {'bar.txt', 'foo'}

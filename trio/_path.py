@@ -128,6 +128,19 @@ class Path(metaclass=AsyncAutoWrapperType):
 
         self._wrapped = pathlib.Path(*args)
 
+    async def iterdir(self):
+        """
+        Almost (see below) like :meth:`iterdir.Path.iterdir`, but async.
+
+        Unlike :meth:`iterdir.Path.iterdir`, this method loads the entire
+        directory in memory once, then iter over it.
+        """
+        def _load_items():
+            return list(self._wrapped.iterdir())
+
+        items = await trio.run_sync_in_worker_thread(_load_items)
+        return (Path(item) for item in items)
+
     def __getattr__(self, name):
         if name in self._forward:
             value = getattr(self._wrapped, name)
