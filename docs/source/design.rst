@@ -458,11 +458,9 @@ of our public APIs without having to modify trio internals.
 Inside ``trio._core``
 ~~~~~~~~~~~~~~~~~~~~~
 
-There are three notable sub-modules that are largely independent of
+There are two notable sub-modules that are largely independent of
 the rest of trio, and could (possibly should?) be extracted into their
 own independent packages:
-
-* ``_result.py``: Defines :class:`~trio.hazmat.Result`.
 
 * ``_multierror.py``: Implements :class:`MultiError` and associated
   infrastructure.
