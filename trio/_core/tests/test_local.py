@@ -1,3 +1,4 @@
+import outcome
 import pytest
 
 import threading
@@ -110,7 +111,7 @@ def test_run_local_simultaneous_runs(recwarn):
         assert r.attr == x
 
     def harness(x, in_q, out_q):
-        result_q.put(_core.Result.capture(_core.run, main, x, in_q, out_q))
+        result_q.put(outcome.capture(_core.run, main, x, in_q, out_q))
 
     in_q1 = queue.Queue()
     out_q1 = queue.Queue()

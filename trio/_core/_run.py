@@ -7,6 +7,8 @@ import select
 import threading
 from collections import deque
 from contextlib import contextmanager, closing
+
+import outcome
 from contextvars import copy_context
 from math import inf
 from time import monotonic
@@ -14,6 +16,7 @@ from time import monotonic
 import attr
 from async_generator import async_generator, yield_, asynccontextmanager
 from sortedcontainers import SortedDict
+from outcome import Outcome, Error, Value
 
 from . import _public
 from ._entry_queue import EntryQueue, TrioToken
@@ -23,7 +26,6 @@ from ._ki import (
     enable_ki_protection
 )
 from ._multierror import MultiError
-from ._result import Result, Error, Value
 from ._traps import (
     Abort,
     wait_task_rescheduled,
@@ -402,7 +404,7 @@ class Nursery:
             # KeyboardInterrupt), then save that, but still wait until our
             # children finish.
             def aborted(raise_cancel):
-                self._add_exc(Result.capture(raise_cancel).error)
+                self._add_exc(outcome.capture(raise_cancel).error)
                 return Abort.FAILED
 
             self._parent_waiting_in_aexit = True
@@ -542,7 +544,7 @@ class Task:
         # whether we succeeded or failed.
         self._abort_func = None
         if success is Abort.SUCCEEDED:
-            self._runner.reschedule(self, Result.capture(raise_cancel))
+            self._runner.reschedule(self, outcome.capture(raise_cancel))
 
     def _attempt_delivery_of_any_pending_cancel(self):
         if self._abort_func is None:
@@ -690,7 +692,7 @@ class Runner:
     @_public
     def reschedule(self, task, next_send=Value(None)):
         """Reschedule the given task with the given
-        :class:`~trio.hazmat.Result`.
+        :class:`outcome.Result`.
 
         See :func:`wait_task_rescheduled` for the gory details.
 
@@ -702,7 +704,7 @@ class Runner:
         Args:
           task (trio.hazmat.Task): the task to be rescheduled. Must be blocked
             in a call to :func:`wait_task_rescheduled`.
-          next_send (trio.hazmat.Result): the value (or error) to return (or
+          next_send (outcome.Result): the value (or error) to return (or
             raise) from :func:`wait_task_rescheduled`.
 
         """

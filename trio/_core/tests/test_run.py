@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from math import inf
 
 import attr
+import outcome
 import pytest
 
 from .tutil import check_sequence_matches, gc_collect_harder
@@ -1375,7 +1376,7 @@ async def test_slow_abort_basic():
             token = _core.current_trio_token()
 
             def slow_abort(raise_cancel):
-                result = _core.Result.capture(raise_cancel)
+                result = outcome.capture(raise_cancel)
                 token.run_sync_soon(_core.reschedule, task, result)
                 return _core.Abort.FAILED
 
@@ -1391,7 +1392,7 @@ async def test_slow_abort_edge_cases():
 
         def slow_abort(raise_cancel):
             record.append("abort-called")
-            result = _core.Result.capture(raise_cancel)
+            result = outcome.capture(raise_cancel)
             token.run_sync_soon(_core.reschedule, task, result)
             return _core.Abort.FAILED
 

@@ -6,7 +6,7 @@ from ... import _core
 from ..._core._result import *
 
 
-def test_Result():
+def test_Result(recwarn):
     v = Value(1)
     assert v.value == 1
     assert v.unwrap() == 1
@@ -42,7 +42,7 @@ def test_Result():
     assert e.send(it) == "ok"
 
 
-def test_Result_eq_hash():
+def test_Result_eq_hash(recwarn):
     v1 = Value(["hello"])
     v2 = Value(["hello"])
     v3 = Value("hello")
@@ -66,14 +66,14 @@ def test_Result_eq_hash():
     assert {e1, e2, e3, e4} == {e1, e3}
 
 
-def test_Value_compare():
+def test_Value_compare(recwarn):
     assert Value(1) < Value(2)
     assert not Value(3) < Value(2)
     with pytest.raises(TypeError):
         Value(1) < Value("foo")
 
 
-def test_Result_capture():
+def test_Result_capture(recwarn):
     def return_arg(x):
         return x
 
@@ -90,7 +90,7 @@ def test_Result_capture():
     assert e.error.args == ("two",)
 
 
-async def test_Result_acapture():
+async def test_Result_acapture(recwarn):
     async def return_arg(x):
         await _core.checkpoint()
         return x
@@ -107,7 +107,7 @@ async def test_Result_acapture():
     assert e.error.args == (9,)
 
 
-async def test_Result_asend():
+async def test_Result_asend(recwarn):
     @async_generator
     async def my_agen_func():
         assert (await yield_(1)) == "value"

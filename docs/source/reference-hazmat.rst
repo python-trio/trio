@@ -358,43 +358,6 @@ These transitions are accomplished using two function decorators:
 .. autofunction:: currently_ki_protected
 
 
-Result objects
-==============
-
-Trio provides some simple classes for representing the result of a
-Python function call, so that it can be passed around. The basic rule
-is::
-
-    result = Result.capture(f, *args)
-    x = result.unwrap()
-
-is the same as::
-
-    x = f(*args)
-
-even if ``f`` raises an error. And there's also
-:meth:`Result.acapture`, which is like ``await f(*args)``.
-
-There's nothing really dangerous about this system – it's actually
-very general and quite handy! But mostly it's used for things like
-implementing :func:`trio.run_sync_in_worker_thread`, or for getting
-values to pass to :func:`reschedule`, so we put it in
-:mod:`trio.hazmat` to avoid cluttering up the main API.
-
-Since :class:`Result` objects are simple immutable data structures
-that don't otherwise interact with the trio machinery, it's safe to
-create and access :class:`Result` objects from any thread you like.
-
-.. autoclass:: Result
-   :members:
-
-.. autoclass:: Value
-   :members:
-
-.. autoclass:: Error
-   :members:
-
-
 Sleeping and waking
 ===================
 

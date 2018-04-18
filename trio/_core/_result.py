@@ -1,20 +1,24 @@
 import outcome
 
-from .._deprecate import deprecated
+from .. import _deprecate
 
 __all__ = ["Result", "Value", "Error"]
 
+_deprecate.enable_attribute_deprecations(__name__)
+
 
 class Result(outcome.Outcome):
-    @deprecated(version="0.5.0", issue=494, instead="outcome.Outcome")
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
     @classmethod
+    @_deprecate.deprecated(
+        version="0.5.0", issue=494, instead="outcome.capture"
+    )
     def capture(cls, sync_fn, *args):
         return outcome.capture(sync_fn, *args)
 
     @classmethod
+    @_deprecate.deprecated(
+        version="0.5.0", issue=494, instead="outcome.acapture"
+    )
     async def acapture(cls, async_fn, *args):
         return await outcome.acapture(async_fn, *args)
 
@@ -27,3 +31,18 @@ Error = outcome.Error
 # don't break
 Result.register(Value)
 Result.register(Error)
+
+__deprecated_attributes__ = {
+    "Result":
+        _deprecate.DeprecatedAttribute(
+            Result, "0.5.0", issue=494, instead="outcome.Outcome"
+        ),
+    "Value":
+        _deprecate.DeprecatedAttribute(
+            Value, "0.5.0", issue=494, instead="outcome.Value"
+        ),
+    "Error":
+        _deprecate.DeprecatedAttribute(
+            Error, "0.5.0", issue=494, instead="outcome.Error"
+        )
+}
