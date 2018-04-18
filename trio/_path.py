@@ -130,11 +130,12 @@ class Path(metaclass=AsyncAutoWrapperType):
 
     async def iterdir(self):
         """
-        Almost (see below) like :meth:`iterdir.Path.iterdir`, but async.
+        Almost (see below) like :meth:`pathlib.Path.iterdir`, but async.
 
-        Unlike :meth:`iterdir.Path.iterdir`, this method loads the entire
+        Unlike :meth:`pathlib.Path.iterdir`, this method loads the entire
         directory in memory once, then iter over it.
         """
+
         def _load_items():
             return list(self._wrapped.iterdir())
 
