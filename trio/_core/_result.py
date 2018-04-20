@@ -31,18 +31,3 @@ Error = outcome.Error
 # don't break
 Result.register(Value)
 Result.register(Error)
-
-__deprecated_attributes__ = {
-    "Result":
-        _deprecate.DeprecatedAttribute(
-            Result, "0.5.0", issue=494, instead="outcome.Outcome"
-        ),
-    "Value":
-        _deprecate.DeprecatedAttribute(
-            Value, "0.5.0", issue=494, instead="outcome.Value"
-        ),
-    "Error":
-        _deprecate.DeprecatedAttribute(
-            Error, "0.5.0", issue=494, instead="outcome.Error"
-        )
-}

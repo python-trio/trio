@@ -65,6 +65,22 @@ from . import socket
 from . import abc
 from . import ssl
 # Not imported by default: testing
+_deprecate.enable_attribute_deprecations(hazmat.__name__)
+
+__deprecated_attributes__ = {
+    "Result":
+        _deprecate.DeprecatedAttribute(
+            hazmat.Result, "0.5.0", issue=494, instead="outcome.Outcome"
+        ),
+    "Value":
+        _deprecate.DeprecatedAttribute(
+            hazmat.Value, "0.5.0", issue=494, instead="outcome.Value"
+        ),
+    "Error":
+        _deprecate.DeprecatedAttribute(
+            hazmat.Error, "0.5.0", issue=494, instead="outcome.Error"
+        )
+}
 
 # Having the public path in .__module__ attributes is important for:
 # - exception names in printed tracebacks
