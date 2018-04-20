@@ -694,7 +694,7 @@ class Runner:
     @_public
     def reschedule(self, task, next_send=_NO_SEND):
         """Reschedule the given task with the given
-        :class:`outcome.Result`.
+        :class:`outcome.Outcome`.
 
         See :func:`wait_task_rescheduled` for the gory details.
 
