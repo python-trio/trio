@@ -43,7 +43,7 @@ async def aclose_forcefully(resource):
 
 
 class BrokenStreamError(Exception):
-    """Raised when an attempt to use a stream a stream fails due to external
+    """Raised when an attempt to use a stream fails due to external
     circumstances.
 
     For example, you might get this if you try to send data on a stream where
