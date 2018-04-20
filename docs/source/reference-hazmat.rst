@@ -152,6 +152,14 @@ All environments provide the following functions:
        if another task is already waiting for the given socket to
        become writable.
 
+In addition, :mod:`trio.hazmat` contains low-level stream adapters for
+OS file handles. You can use them to trio-ize standard input or output. Be
+aware that there is no provision for text encoding yet, which is why
+they're in `trio.hazmat`.
+
+.. autoclass:: ReadFDStream
+
+.. autoclass:: WriteFDStream
 
 Unix-specific API
 -----------------
@@ -394,6 +402,16 @@ create and access :class:`Result` objects from any thread you like.
 .. autoclass:: Error
    :members:
 
+Child processes
+===============
+
+Trio supports threads and subprocesses natively.
+See :ref:`Threads <threads>` and :ref:`Subprocesses <subprocess>` for details.
+
+If you did acquire a child process by some other means, use
+:func:`wait_for_child` to wait until it terminates.
+
+.. autofunction:: wait_for_child
 
 Sleeping and waking
 ===================

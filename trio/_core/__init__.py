@@ -30,6 +30,9 @@ __all__ += _run.__all__
 from ._entry_queue import *
 __all__ += _entry_queue.__all__
 
+from ._fd_stream import *
+__all__ += _fd_stream.__all__
+
 from ._parking_lot import *
 __all__ += _parking_lot.__all__
 
@@ -38,6 +41,9 @@ __all__ += _unbounded_queue.__all__
 
 from ._local import *
 __all__ += _local.__all__
+
+from ._subprocess import *
+__all__ += _subprocess.__all__
 
 if hasattr(_run, "wait_readable"):
     import socket as _stdlib_socket

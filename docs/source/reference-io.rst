@@ -631,12 +631,41 @@ Asynchronous file objects
 
       The underlying synchronous file object.
 
+.. _subprocesses:
 
 Subprocesses
 ------------
 
-`Not implemented yet! <https://github.com/python-trio/trio/issues/4>`__
+Starting child processes is modelled after, and in fact largely inherited
+from, :mod:`subprocess.Popen`.
 
+A simple example::
+
+    import subprocess
+
+    async def test_talking():
+        async with trio.run_subprocess("echo", "-n", "foo","bar",
+                stdout=subprocess.PIPE) as process:
+            assert await process.stdout.receive_some(42) == b"foo bar"
+        assert process.returncode == 0
+
+Differences between :mod:`subprocess.Popen` and :mod:`trio.Process`:
+
+* In Trio, child processes run in an asynchronous context.
+
+* Leaving the context will close stdin (if it's a pipe), wait for the child process,
+  and then close stdout and stderr (if they're a pipe).
+
+* :meth:`Process.wait` is a cancellable async method.
+
+* Pipes are instances of :class:`trio.hazmat.WriteFDStream` and
+  :class:`trio.hazmat.ReadFDStream`\s. Currently, these are binary streams
+  with no buffering and no line-based input or output.
+
+* Consequently, the ``universal_newlines``, ``encoding`` and ``errors``
+  parameters cannot be used yet.
+
+Everything else should work as in :mod:`subprocess.Popen`.
 
 Signals
 -------
