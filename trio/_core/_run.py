@@ -16,7 +16,7 @@ from time import monotonic
 import attr
 from async_generator import async_generator, yield_, asynccontextmanager
 from sortedcontainers import SortedDict
-from outcome import Outcome, Error, Value
+from outcome import Error, Value
 
 from . import _public
 from ._entry_queue import EntryQueue, TrioToken
@@ -706,7 +706,7 @@ class Runner:
         Args:
           task (trio.hazmat.Task): the task to be rescheduled. Must be blocked
             in a call to :func:`wait_task_rescheduled`.
-          next_send (outcome.Result): the value (or error) to return (or
+          next_send (outcome.Outcome): the value (or error) to return (or
             raise) from :func:`wait_task_rescheduled`.
 
         """

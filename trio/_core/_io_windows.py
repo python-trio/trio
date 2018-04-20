@@ -1,5 +1,7 @@
 import math
 import itertools
+
+import outcome
 from contextlib import contextmanager
 import socket as stdlib_socket
 from select import select
@@ -124,6 +126,8 @@ class CompletionKeyEventInfo:
 
 
 class WindowsIOManager:
+    _NO_SEND = object()
+
     def __init__(self):
         # https://msdn.microsoft.com/en-us/library/windows/desktop/aa363862(v=vs.85).aspx
         self._closed = True
@@ -191,8 +195,10 @@ class WindowsIOManager:
         # If there are events queued from the IOCP thread, then the timeout is
         # implicitly reduced to 0 b/c the wakeup socket has pending data in
         # it.
+        def socket_ready(what, sock, result=self._NO_SEND):
+            if result is self._NO_SEND:
+                result = outcome.Value(None)
 
-        def socket_ready(what, sock, result=_core.Value(None)):
             task = self._socket_waiters[what].pop(sock)
             _core.reschedule(task, result)
 
@@ -200,7 +206,7 @@ class WindowsIOManager:
             try:
                 select([sock], [sock], [sock], 0)
             except OSError as exc:
-                socket_ready(what, sock, result=_core.Error(exc))
+                socket_ready(what, sock, result=outcome.Error(exc))
 
         def do_select():
             r_waiting = self._socket_waiters["read"]

@@ -337,7 +337,7 @@ def test_ki_protection_works():
         task = _core.current_task()
 
         def abort(_):
-            _core.reschedule(task, _core.Value(1))
+            _core.reschedule(task, outcome.Value(1))
             return _core.Abort.FAILED
 
         assert await _core.wait_task_rescheduled(abort) == 1

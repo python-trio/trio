@@ -1,4 +1,6 @@
 import select
+
+import outcome
 from contextlib import contextmanager
 import attr
 
@@ -56,7 +58,7 @@ class KqueueIOManager:
             if event.flags & select.KQ_EV_ONESHOT:
                 del self._registered[key]
             if type(receiver) is _core.Task:
-                _core.reschedule(receiver, _core.Value(event))
+                _core.reschedule(receiver, outcome.Value(event))
             else:
                 receiver.put_nowait(event)
 

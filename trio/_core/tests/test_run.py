@@ -226,14 +226,14 @@ async def test_reschedule():
         print("child1 woke")
         assert x == 0
         print("child1 rescheduling t2")
-        _core.reschedule(t2, _core.Error(ValueError()))
+        _core.reschedule(t2, outcome.Error(ValueError()))
         print("child1 exit")
 
     async def child2():
         nonlocal t1, t2
         print("child2 start")
         t2 = _core.current_task()
-        _core.reschedule(t1, _core.Value(0))
+        _core.reschedule(t1, outcome.Value(0))
         print("child2 sleep")
         with pytest.raises(ValueError):
             await sleep_forever()
@@ -873,7 +873,7 @@ async def test_failed_abort():
         # cancel didn't wake it up
         assert record == ["sleep"]
         # wake it up again by hand
-        _core.reschedule(stubborn_task[0], _core.Value(1))
+        _core.reschedule(stubborn_task[0], outcome.Value(1))
     assert record == ["sleep", "woke", "cancelled"]
 
 
