@@ -612,6 +612,8 @@ class Runner:
     entry_queue = attr.ib(default=attr.Factory(EntryQueue))
     trio_token = attr.ib(default=None)
 
+    _NO_SEND = object()
+
     def close(self):
         self.io_manager.close()
         self.entry_queue.close()
@@ -690,7 +692,7 @@ class Runner:
     ################
 
     @_public
-    def reschedule(self, task, next_send=Value(None)):
+    def reschedule(self, task, next_send=_NO_SEND):
         """Reschedule the given task with the given
         :class:`outcome.Result`.
 
@@ -708,6 +710,9 @@ class Runner:
             raise) from :func:`wait_task_rescheduled`.
 
         """
+        if next_send is self._NO_SEND:
+            next_send = Value(None)
+
         assert task._runner is self
         assert task._next_send is None
         task._next_send = next_send
