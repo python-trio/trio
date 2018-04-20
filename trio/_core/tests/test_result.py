@@ -24,23 +24,6 @@ def test_Result(recwarn):
     with pytest.raises(TypeError):
         Error(RuntimeError)
 
-    def expect_1():
-        assert (yield) == 1
-        yield "ok"
-
-    it = iter(expect_1())
-    next(it)
-    assert v.send(it) == "ok"
-
-    def expect_RuntimeError():
-        with pytest.raises(RuntimeError):
-            yield
-        yield "ok"
-
-    it = iter(expect_RuntimeError())
-    next(it)
-    assert e.send(it) == "ok"
-
 
 def test_Result_eq_hash(recwarn):
     v1 = Value(["hello"])
