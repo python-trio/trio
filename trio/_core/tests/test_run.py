@@ -1106,7 +1106,7 @@ async def test_exc_info_after_yield_error():
         async with _core.open_nursery() as nursery:
             nursery.start_soon(child)
             await wait_all_tasks_blocked()
-            _core.reschedule(child_task, _core.Error(ValueError()))
+            _core.reschedule(child_task, outcome.Error(ValueError()))
 
 
 # Similar to previous test -- if the ValueError() gets sent in via 'throw',
@@ -1127,7 +1127,7 @@ async def test_exception_chaining_after_yield_error():
         async with _core.open_nursery() as nursery:
             nursery.start_soon(child)
             await wait_all_tasks_blocked()
-            _core.reschedule(child_task, _core.Error(ValueError()))
+            _core.reschedule(child_task, outcome.Error(ValueError()))
 
     assert isinstance(excinfo.value.__context__, KeyError)
 
