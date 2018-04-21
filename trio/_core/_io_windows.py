@@ -126,8 +126,6 @@ class CompletionKeyEventInfo:
 
 
 class WindowsIOManager:
-    _NO_SEND = object()
-
     def __init__(self):
         # https://msdn.microsoft.com/en-us/library/windows/desktop/aa363862(v=vs.85).aspx
         self._closed = True
@@ -195,10 +193,7 @@ class WindowsIOManager:
         # If there are events queued from the IOCP thread, then the timeout is
         # implicitly reduced to 0 b/c the wakeup socket has pending data in
         # it.
-        def socket_ready(what, sock, result=self._NO_SEND):
-            if result is self._NO_SEND:
-                result = outcome.Value(None)
-
+        def socket_ready(what, sock, result):
             task = self._socket_waiters[what].pop(sock)
             _core.reschedule(task, result)
 
@@ -206,7 +201,7 @@ class WindowsIOManager:
             try:
                 select([sock], [sock], [sock], 0)
             except OSError as exc:
-                socket_ready(what, sock, result=outcome.Error(exc))
+                socket_ready(what, sock, outcome.Error(exc))
 
         def do_select():
             r_waiting = self._socket_waiters["read"]
@@ -230,9 +225,9 @@ class WindowsIOManager:
 
         for sock in r:
             if sock is not self._main_thread_waker.wakeup_sock:
-                socket_ready("read", sock)
+                socket_ready("read", sock, outcome.Value(None))
         for sock in w:
-            socket_ready("write", sock)
+            socket_ready("write", sock, outcome.Value(None))
 
         # Step 2: drain the wakeup socket.
         # This must be done before checking the IOCP queue.
