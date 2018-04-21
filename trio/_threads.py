@@ -3,6 +3,7 @@ import queue as stdlib_queue
 from itertools import count
 
 import attr
+import outcome
 
 from . import _core
 from ._sync import CapacityLimiter
@@ -58,7 +59,7 @@ class BlockingTrioPortal:
             return await afn(*args)
 
         async def await_in_trio_thread_task():
-            q.put_nowait(await _core.Result.acapture(unprotected_afn))
+            q.put_nowait(await outcome.acapture(unprotected_afn))
 
         _core.spawn_system_task(await_in_trio_thread_task, name=afn)
 
@@ -68,7 +69,7 @@ class BlockingTrioPortal:
         def unprotected_fn():
             return fn(*args)
 
-        res = _core.Result.capture(unprotected_fn)
+        res = outcome.capture(unprotected_fn)
         q.put_nowait(res)
 
     def _do_it(self, cb, fn, *args):
@@ -362,14 +363,14 @@ async def run_sync_in_worker_thread(
             finally:
                 limiter.release_on_behalf_of(placeholder)
 
-        result = _core.Result.capture(do_release_then_return_result)
+        result = outcome.capture(do_release_then_return_result)
         if task_register[0] is not None:
             _core.reschedule(task_register[0], result)
 
     # This is the function that runs in the worker thread to do the actual
     # work and then schedule the call to report_back_in_trio_thread_fn
     def worker_thread_fn():
-        result = _core.Result.capture(sync_fn, *args)
+        result = outcome.capture(sync_fn, *args)
         try:
             token.run_sync_soon(report_back_in_trio_thread_fn, result)
         except _core.RunFinishedError:

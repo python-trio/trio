@@ -127,7 +127,7 @@ async def wait_task_rescheduled(abort_func):
           # Catch the exception from raise_cancel and inject it into the task.
           # (This is what trio does automatically for you if you return
           # Abort.SUCCEEDED.)
-          trio.hazmat.reschedule(task, Result.capture(raise_cancel))
+          trio.hazmat.reschedule(task, outcome.capture(raise_cancel))
 
           # Option 2:
           # wait to be woken by "someone", and then decide whether to raise

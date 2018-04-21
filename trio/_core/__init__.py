@@ -15,9 +15,6 @@ __all__ += _exceptions.__all__
 from ._multierror import *
 __all__ += _multierror.__all__
 
-from ._result import *
-__all__ += _result.__all__
-
 from ._traps import *
 __all__ += _traps.__all__
 

@@ -1,0 +1,3 @@
+Switch to using standalone
+`Outcome <https://github.com/python-trio/outcome>`__ library for Result
+objects.

@@ -1,3 +1,4 @@
+import outcome
 import pytest
 import time
 
@@ -9,7 +10,7 @@ from .._timeouts import *
 
 async def check_takes_about(f, expected_dur):
     start = time.monotonic()
-    result = await _core.Result.acapture(f)
+    result = await outcome.acapture(f)
     dur = time.monotonic() - start
     print(dur / expected_dur)
     # 1.2 is an arbitrary fudge factor because there's always some delay

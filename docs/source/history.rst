@@ -273,9 +273,9 @@ Upcoming breaking changes with warnings (i.e., stuff that in 0.2.0
 
   * ``trio.Task`` → :class:`trio.hazmat.Task`
   * ``trio.current_task`` → :func:`trio.hazmat.current_task`
-  * ``trio.Result`` → :class:`trio.hazmat.Result`
-  * ``trio.Value`` → :class:`trio.hazmat.Value`
-  * ``trio.Error`` → :class:`trio.hazmat.Error`
+  * ``trio.Result`` → ``trio.hazmat.Result``
+  * ``trio.Value`` → ``trio.hazmat.Value``
+  * ``trio.Error`` → ``trio.hazmat.Error``
   * ``trio.UnboundedQueue`` → :class:`trio.hazmat.UnboundedQueue`
 
   In addition, several introspection attributes are being renamed:
