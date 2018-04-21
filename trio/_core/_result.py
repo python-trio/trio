@@ -4,8 +4,6 @@ from .. import _deprecate
 
 __all__ = ["Result", "Value", "Error"]
 
-_deprecate.enable_attribute_deprecations(__name__)
-
 
 class Result(outcome.Outcome):
     @classmethod
