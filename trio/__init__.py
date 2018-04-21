@@ -75,7 +75,10 @@ from ._core import _result
 hazmat.__deprecated_attributes__ = {
     "Result":
         _deprecate.DeprecatedAttribute(
-            _core._result.Result, "0.5.0", issue=494, instead="outcome.Outcome"
+            _core._result.Result,
+            "0.5.0",
+            issue=494,
+            instead="outcome.Outcome"
         ),
     "Value":
         _deprecate.DeprecatedAttribute(
