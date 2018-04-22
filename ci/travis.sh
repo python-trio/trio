@@ -39,6 +39,10 @@ pip --version
 curl https://bootstrap.pypa.io/get-pip.py | python
 pip --version
 
+# Temporary hack to debug https://github.com/python-trio/trio/issues/508
+shopt -s expand_aliases
+alias pip="pip -vvv"
+
 pip install -U pip setuptools wheel
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
