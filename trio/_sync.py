@@ -833,7 +833,7 @@ class Queue:
         if capacity < 0:
             raise ValueError("capacity must be >= 0")
         self.capacity = operator.index(capacity)
-        # {task: abort func}
+        # {task: None} ordered set
         self._get_wait = OrderedDict()
         # {task: queued value}
         self._put_wait = OrderedDict()
@@ -888,8 +888,7 @@ class Queue:
         """
         if self._get_wait:
             assert not self._data
-            task, abort_fn = self._get_wait.popitem(last=False)
-            abort_fn(None)
+            task, _ = self._get_wait.popitem(last=False)
             _core.reschedule(task, _core.Value(obj))
         elif len(self._data) < self.capacity:
             self._data.append(obj)
@@ -965,13 +964,9 @@ class Queue:
         task = _core.current_task()
 
         def abort_fn(_):
-            try:
-                del self._get_wait[task]
-            except KeyError:
-                pass
             return _core.Abort.SUCCEEDED
 
-        self._get_wait[task] = abort_fn
+        self._get_wait[task] = None
         value = await _core.wait_task_rescheduled(abort_fn)
         return value
 
