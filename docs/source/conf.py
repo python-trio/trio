@@ -17,6 +17,7 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
+import datetime
 import os
 import sys
 # For our local_customization module
@@ -89,7 +90,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'Trio'
-copyright = '2017, Nathaniel J. Smith'
+year = datetime.datetime.utcnow().year
+copyright = '2017–{}, Nathaniel J. Smith'.format(year)
 author = 'Nathaniel J. Smith'
 
 # The version info for the project you're documenting, acts as replacement for
