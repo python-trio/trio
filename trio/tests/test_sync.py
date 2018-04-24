@@ -582,8 +582,7 @@ class QueueLock3:
         self.acquired = False
 
     def acquire_nowait(self):
-        if self.acquired:
-            raise _core.WouldBlock
+        assert not self.acquired
         self.acquired = True
 
     async def acquire(self):
