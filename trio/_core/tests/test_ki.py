@@ -1,3 +1,4 @@
+import outcome
 import pytest
 import sys
 import os
@@ -336,7 +337,7 @@ def test_ki_protection_works():
         task = _core.current_task()
 
         def abort(_):
-            _core.reschedule(task, _core.Value(1))
+            _core.reschedule(task, outcome.Value(1))
             return _core.Abort.FAILED
 
         assert await _core.wait_task_rescheduled(abort) == 1
@@ -355,7 +356,7 @@ def test_ki_protection_works():
         task = _core.current_task()
 
         def abort(raise_cancel):
-            result = _core.Result.capture(raise_cancel)
+            result = outcome.capture(raise_cancel)
             _core.reschedule(task, result)
             return _core.Abort.FAILED
 

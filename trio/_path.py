@@ -128,6 +128,28 @@ class Path(metaclass=AsyncAutoWrapperType):
 
         self._wrapped = pathlib.Path(*args)
 
+    async def iterdir(self):
+        """
+        Like :meth:`pathlib.Path.iterdir`, but async.
+
+        This is an async method that returns a synchronous iterator, so you
+        use it like::
+        
+           for subpath in await mypath.iterdir():
+               ...
+               
+        Note that it actually loads the whole directory list into memory
+        immediately, during the initial call. (See `issue #501
+        <https://github.com/python-trio/trio/issues/501>`__ for discussion.)
+        
+        """
+
+        def _load_items():
+            return list(self._wrapped.iterdir())
+
+        items = await trio.run_sync_in_worker_thread(_load_items)
+        return (Path(item) for item in items)
+
     def __getattr__(self, name):
         if name in self._forward:
             value = getattr(self._wrapped, name)

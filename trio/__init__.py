@@ -66,6 +66,30 @@ from . import abc
 from . import ssl
 # Not imported by default: testing
 
+_deprecate.enable_attribute_deprecations(hazmat.__name__)
+
+# Temporary hack to make sure _result is loaded, just during the deprecation
+# period
+from ._core import _result
+
+hazmat.__deprecated_attributes__ = {
+    "Result":
+        _deprecate.DeprecatedAttribute(
+            _core._result.Result,
+            "0.5.0",
+            issue=494,
+            instead="outcome.Outcome"
+        ),
+    "Value":
+        _deprecate.DeprecatedAttribute(
+            _core._result.Value, "0.5.0", issue=494, instead="outcome.Value"
+        ),
+    "Error":
+        _deprecate.DeprecatedAttribute(
+            _core._result.Error, "0.5.0", issue=494, instead="outcome.Error"
+        )
+}
+
 # Having the public path in .__module__ attributes is important for:
 # - exception names in printed tracebacks
 # - sphinx :show-inheritance:
