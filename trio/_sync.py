@@ -2,6 +2,7 @@ import operator
 from collections import deque, OrderedDict
 
 import attr
+import outcome
 
 from . import _core
 from ._util import aiter_compat
@@ -889,7 +890,7 @@ class Queue:
         if self._get_wait:
             assert not self._data
             task, _ = self._get_wait.popitem(last=False)
-            _core.reschedule(task, _core.Value(obj))
+            _core.reschedule(task, outcome.Value(obj))
         elif len(self._data) < self.capacity:
             self._data.append(obj)
         else:
