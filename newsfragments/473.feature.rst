@@ -1,0 +1,2 @@
+Add support for :class:`trio.Queue` with `capacity=0`. Queues implementation is
+also faster now.
