@@ -1289,6 +1289,12 @@ If the queue gets too big, then it applies *backpressure*: ``put``
 blocks and forces the producers to slow down and wait until the
 consumer calls ``get``.
 
+You can also create a :class:`Queue` with size 0. In that case any
+task that calls ``put`` on the queue will wait until another task
+calls ``get`` on the same queue, and vice versa. This is similar to
+the behavior of `channels as described in the CSP model
+<https://en.wikipedia.org/wiki/Channel_(programming)>`__.
+
 .. autoclass:: Queue
    :members:
 
