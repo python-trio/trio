@@ -572,6 +572,35 @@ class QueueLock2:
         self.q.put_nowait(None)
 
 
+@async_cm
+class QueueLock3:
+    def __init__(self):
+        self.q = Queue(0)
+        # self.acquired is true when one task acquires the lock and
+        # only becomes false when it's released and no tasks are
+        # waiting to acquire.
+        self.acquired = False
+
+    def acquire_nowait(self):
+        if self.acquired:
+            raise _core.WouldBlock
+        self.acquired = True
+
+    async def acquire(self):
+        if self.acquired:
+            await self.q.put(None)
+        else:
+            self.acquired = True
+            await _core.checkpoint()
+
+    def release(self):
+        try:
+            self.q.get_nowait()
+        except _core.WouldBlock:
+            assert self.acquired
+            self.acquired = False
+
+
 lock_factories = [
     lambda: CapacityLimiter(1),
     lambda: Semaphore(1),
@@ -580,6 +609,7 @@ lock_factories = [
     lambda: QueueLock1(10),
     lambda: QueueLock1(1),
     QueueLock2,
+    QueueLock3,
 ]
 lock_factory_names = [
     "CapacityLimiter(1)",
@@ -589,6 +619,7 @@ lock_factory_names = [
     "QueueLock1(10)",
     "QueueLock1(1)",
     "QueueLock2",
+    "QueueLock3",
 ]
 
 generic_lock_test = pytest.mark.parametrize(
