@@ -211,7 +211,8 @@ async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
     # with the _NUMERIC_ONLY flags set, and then only spawn a thread if that
     # fails with EAI_NONAME:
     def numeric_only_failure(exc):
-        return isinstance(exc, gaierror) and exc.errno == EAI_NONAME
+        return (isinstance(exc, _stdlib_socket.gaierror) and
+                exc.errno == _stdlib_socketEAI_NONAME)
 
     async with _try_sync(numeric_only_failure):
         return _stdlib_socket.getaddrinfo(
@@ -328,7 +329,7 @@ def socketpair(*args, **kwargs):
 
 @_wraps(_stdlib_socket.socket, assigned=(), updated=())
 @_add_to_all
-def socket(family=AF_INET, type=SOCK_STREAM, proto=0, fileno=None):
+def socket(family=_stdlib_socket.AF_INET, type=_stdlib_socket.SOCK_STREAM, proto=0, fileno=None):
     """Create a new trio socket, like :func:`socket.socket`.
 
     This function's behavior can be customized using
