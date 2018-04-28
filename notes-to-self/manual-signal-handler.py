@@ -1,5 +1,8 @@
 # How to manually call the SIGINT handler on Windows without using raise() or
 # similar.
+import os
+import sys
+
 
 if os.name == "nt":
     import cffi
@@ -12,7 +15,6 @@ if os.name == "nt":
     PyOS_getsig_ptr = kernel32.GetProcAddress(
         ffi.cast("void*", sys.dllhandle), b"PyOS_getsig")
     PyOS_getsig = ffi.cast("PyOS_sighandler_t (*)(int)", PyOS_getsig_ptr)
-
 
     import signal
     PyOS_getsig(signal.SIGINT)(signal.SIGINT)
