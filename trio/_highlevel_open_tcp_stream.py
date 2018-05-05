@@ -162,6 +162,7 @@ async def open_tcp_stream(
     host,
     port,
     *,
+    source_addr=None,
     # No trailing comma b/c bpo-9232 (fixed in py36)
     happy_eyeballs_delay=DEFAULT_DELAY
 ):
@@ -277,6 +278,8 @@ async def open_tcp_stream(
         # Then make this invocation's attempt
         try:
             with close_on_error(socket(*socket_args)) as sock:
+                if source_addr:
+                    await sock.bind(source_addr)
                 await sock.connect(target_sockaddr)
         except OSError as exc:
             # This connection attempt failed, but the next one might
