@@ -6,6 +6,7 @@ from functools import wraps as _wraps
 import idna as _idna
 
 from . import _core
+from .abc import HostnameResolver
 from ._deprecate import deprecated
 from ._threads import run_sync_in_worker_thread
 from ._util import fspath
@@ -118,6 +119,36 @@ for _name in [
 
 _resolver = _core.RunVar("hostname_resolver")
 _socket_factory = _core.RunVar("socket_factory")
+
+
+class DefaultThreadedResolver(HostnameResolver):
+    """The default hostname resolver.
+
+    This uses a threadpool to wrap the default socket ``getaddrinfo`` and
+    ``getnameinfo``. For more information,
+    see :func:`set_custom_hostname_resolver`.
+    """
+    async def getaddrinfo(
+        self, host, port, family=0, type=0, proto=0, flags=0,
+    ):
+        return await run_sync_in_worker_thread(
+            _stdlib_socket.getaddrinfo,
+            host,
+            port,
+            family,
+            type,
+            proto,
+            flags,
+            cancellable=True
+        )
+
+    async def getnameinfo(self, sockaddr, flags):
+        return await run_sync_in_worker_thread(
+            _stdlib_socket.getnameinfo, sockaddr, flags, cancellable=True
+        )
+
+
+_default_resolver = DefaultThreadedResolver()
 
 
 @_add_to_all
@@ -237,15 +268,13 @@ async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
     if hr is not None:
         return await hr.getaddrinfo(host, port, family, type, proto, flags)
     else:
-        return await run_sync_in_worker_thread(
-            _stdlib_socket.getaddrinfo,
+        return await _default_resolver.getaddrinfo(
             host,
             port,
             family,
             type,
             proto,
             flags,
-            cancellable=True
         )
 
 
@@ -264,9 +293,7 @@ async def getnameinfo(sockaddr, flags):
     if hr is not None:
         return await hr.getnameinfo(sockaddr, flags)
     else:
-        return await run_sync_in_worker_thread(
-            _stdlib_socket.getnameinfo, sockaddr, flags, cancellable=True
-        )
+        return await _default_resolver.getnameinfo(sockaddr, flags)
 
 
 @_add_to_all
