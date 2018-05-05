@@ -27,6 +27,7 @@ async def open_ssl_over_tcp_stream(
     *,
     https_compatible=False,
     ssl_context=None,
+    source_addr=None,
     # No trailing comma b/c bpo-9232 (fixed in py36)
     happy_eyeballs_delay=DEFAULT_DELAY
 ):
@@ -60,6 +61,7 @@ async def open_ssl_over_tcp_stream(
         host,
         port,
         happy_eyeballs_delay=happy_eyeballs_delay,
+        source_addr=source_addr
     )
     if ssl_context is None:
         ssl_context = trio.ssl.create_default_context()
