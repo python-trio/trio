@@ -721,9 +721,7 @@ class Runner:
         self.runq.append(task)
         self.instrument("task_scheduled", task)
 
-    def spawn_impl(
-        self, async_fn, args, nursery, name, *, system_task=False
-    ):
+    def spawn_impl(self, async_fn, args, nursery, name, *, system_task=False):
 
         ######
         # Make sure the nursery is in working order
@@ -937,7 +935,8 @@ class Runner:
         if name is None:
             name = async_fn
         return self.spawn_impl(
-            system_task_wrapper, (async_fn, args),
+            system_task_wrapper,
+            (async_fn, args),
             self.system_nursery,
             name,
             system_task=True,
@@ -1226,7 +1225,9 @@ def run(
     instruments = list(instruments)
     io_manager = TheIOManager()
     runner = Runner(
-        clock=clock, instruments=instruments, io_manager=io_manager,
+        clock=clock,
+        instruments=instruments,
+        io_manager=io_manager,
         system_context=copy_context(),
     )
     GLOBAL_RUN_CONTEXT.runner = runner
@@ -1272,7 +1273,8 @@ def run_impl(runner, async_fn, args):
     runner.instrument("before_run")
     runner.clock.start_clock()
     runner.init_task = runner.spawn_impl(
-        runner.init, (async_fn, args),
+        runner.init,
+        (async_fn, args),
         None,
         "<init>",
         system_task=True,
