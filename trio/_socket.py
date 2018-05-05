@@ -128,8 +128,15 @@ class DefaultThreadedResolver(HostnameResolver):
     ``getnameinfo``. For more information,
     see :func:`set_custom_hostname_resolver`.
     """
+
     async def getaddrinfo(
-        self, host, port, family=0, type=0, proto=0, flags=0,
+        self,
+        host,
+        port,
+        family=0,
+        type=0,
+        proto=0,
+        flags=0,
     ):
         return await run_sync_in_worker_thread(
             _stdlib_socket.getaddrinfo,
