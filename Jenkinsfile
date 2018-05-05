@@ -52,6 +52,14 @@ def build(pyversion, label) {
                             export PATH="/usr/local/bin:\${PATH}"
                             export PATH="/Library/Frameworks/Python.framework/Versions/3.5/bin:\${PATH}"
                             export PATH="/Library/Frameworks/Python.framework/Versions/3.6/bin:\${PATH}"
+
+                            # Workaround for https://github.com/pypa/pip/issues/5345
+                            # See also:
+                            # https://github.com/python-trio/trio/issues/508
+                            # https://github.com/pypa/pip/issues/5345#issuecomment-386443351
+                            export XDG_CACHE_HOME="\${PWD}/pip-cache"
+                            echo XDG_CACHE_HOME=\$XDG_CACHE_HOME
+
                             cd trio
                             $PYVERSION -m venv .venv
                             source .venv/bin/activate
