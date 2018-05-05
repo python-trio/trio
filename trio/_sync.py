@@ -1,7 +1,8 @@
 import operator
-from collections import deque
+from collections import deque, OrderedDict
 
 import attr
+import outcome
 
 from . import _core
 from ._util import aiter_compat
@@ -823,21 +824,23 @@ class Queue:
       capacity (int): The maximum number of items allowed in the queue before
           :meth:`put` blocks. Choosing a sensible value here is important to
           ensure that backpressure is communicated promptly and avoid
-          unnecessary latency. If in doubt, use 1.
+          unnecessary latency. If in doubt, use 0.
 
     """
 
     def __init__(self, capacity):
         if not isinstance(capacity, int):
             raise TypeError("capacity must be an integer")
-        if capacity < 1:
-            raise ValueError("capacity must be >= 1")
-        # Invariants:
-        #   get_semaphore.value() == len(self._data)
-        #   put_semaphore.value() + get_semaphore.value() = capacity
+        if capacity < 0:
+            raise ValueError("capacity must be >= 0")
         self.capacity = operator.index(capacity)
-        self._put_semaphore = Semaphore(capacity, max_value=capacity)
-        self._get_semaphore = Semaphore(0, max_value=capacity)
+        # {task: None} ordered set
+        self._get_wait = OrderedDict()
+        # {task: queued value}
+        self._put_wait = OrderedDict()
+        # invariants:
+        # if len(self._data) < self.capacity, then self._put_wait is empty
+        # if len(self._data) > 0, then self._get_wait is empty
         self._data = deque()
 
     def __repr__(self):
@@ -873,10 +876,6 @@ class Queue:
         """
         return not self._data
 
-    def _put_protected(self, obj):
-        self._data.append(obj)
-        self._get_semaphore.release()
-
     @_core.enable_ki_protection
     def put_nowait(self, obj):
         """Attempt to put an object into the queue, without blocking.
@@ -888,8 +887,14 @@ class Queue:
           WouldBlock: if the queue is full.
 
         """
-        self._put_semaphore.acquire_nowait()
-        self._put_protected(obj)
+        if self._get_wait:
+            assert not self._data
+            task, _ = self._get_wait.popitem(last=False)
+            _core.reschedule(task, outcome.Value(obj))
+        elif len(self._data) < self.capacity:
+            self._data.append(obj)
+        else:
+            raise _core.WouldBlock()
 
     @_core.enable_ki_protection
     async def put(self, obj):
@@ -899,12 +904,23 @@ class Queue:
           obj (object): The object to enqueue.
 
         """
-        await self._put_semaphore.acquire()
-        self._put_protected(obj)
+        await _core.checkpoint_if_cancelled()
+        try:
+            self.put_nowait(obj)
+        except _core.WouldBlock:
+            pass
+        else:
+            await _core.cancel_shielded_checkpoint()
+            return
 
-    def _get_protected(self):
-        self._put_semaphore.release()
-        return self._data.popleft()
+        task = _core.current_task()
+        self._put_wait[task] = obj
+
+        def abort_fn(_):
+            del self._put_wait[task]
+            return _core.Abort.SUCCEEDED
+
+        await _core.wait_task_rescheduled(abort_fn)
 
     @_core.enable_ki_protection
     def get_nowait(self):
@@ -917,8 +933,16 @@ class Queue:
           WouldBlock: if the queue is empty.
 
         """
-        self._get_semaphore.acquire_nowait()
-        return self._get_protected()
+        if self._put_wait:
+            task, value = self._put_wait.popitem(last=False)
+            # No need to check max_size, b/c we'll pop an item off again right
+            # below.
+            self._data.append(value)
+            _core.reschedule(task)
+        if self._data:
+            value = self._data.popleft()
+            return value
+        raise _core.WouldBlock()
 
     @_core.enable_ki_protection
     async def get(self):
@@ -928,8 +952,24 @@ class Queue:
           object: The dequeued object.
 
         """
-        await self._get_semaphore.acquire()
-        return self._get_protected()
+        await _core.checkpoint_if_cancelled()
+        try:
+            value = self.get_nowait()
+        except _core.WouldBlock:
+            pass
+        else:
+            await _core.cancel_shielded_checkpoint()
+            return value
+
+        # Queue doesn't have anything, we must wait.
+        task = _core.current_task()
+
+        def abort_fn(_):
+            return _core.Abort.SUCCEEDED
+
+        self._get_wait[task] = None
+        value = await _core.wait_task_rescheduled(abort_fn)
+        return value
 
     @aiter_compat
     def __aiter__(self):
@@ -954,6 +994,6 @@ class Queue:
         return _QueueStats(
             qsize=len(self._data),
             capacity=self.capacity,
-            tasks_waiting_put=self._put_semaphore.statistics().tasks_waiting,
-            tasks_waiting_get=self._get_semaphore.statistics().tasks_waiting,
+            tasks_waiting_put=len(self._put_wait),
+            tasks_waiting_get=len(self._get_wait),
         )

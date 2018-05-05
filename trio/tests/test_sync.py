@@ -378,8 +378,6 @@ async def test_Queue():
         Queue(1.0)
     with pytest.raises(ValueError):
         Queue(-1)
-    with pytest.raises(ValueError):
-        Queue(0)
 
     q = Queue(2)
     repr(q)  # smoke test
@@ -512,6 +510,29 @@ async def test_Queue_fairness():
         assert (await q.get()) == 2
 
 
+async def test_Queue_unbuffered():
+    q = Queue(0)
+    assert q.capacity == 0
+    assert q.qsize() == 0
+    assert q.empty()
+    assert q.full()
+    with pytest.raises(_core.WouldBlock):
+        q.get_nowait()
+    with pytest.raises(_core.WouldBlock):
+        q.put_nowait(1)
+
+    async def do_put(q, v):
+        with assert_checkpoints():
+            await q.put(v)
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(do_put, q, 1)
+        with assert_checkpoints():
+            assert await q.get() == 1
+    with pytest.raises(_core.WouldBlock):
+        q.get_nowait()
+
+
 # Two ways of implementing a Lock in terms of a Queue. Used to let us put the
 # Queue through the generic lock tests.
 
@@ -551,6 +572,34 @@ class QueueLock2:
         self.q.put_nowait(None)
 
 
+@async_cm
+class QueueLock3:
+    def __init__(self):
+        self.q = Queue(0)
+        # self.acquired is true when one task acquires the lock and
+        # only becomes false when it's released and no tasks are
+        # waiting to acquire.
+        self.acquired = False
+
+    def acquire_nowait(self):
+        assert not self.acquired
+        self.acquired = True
+
+    async def acquire(self):
+        if self.acquired:
+            await self.q.put(None)
+        else:
+            self.acquired = True
+            await _core.checkpoint()
+
+    def release(self):
+        try:
+            self.q.get_nowait()
+        except _core.WouldBlock:
+            assert self.acquired
+            self.acquired = False
+
+
 lock_factories = [
     lambda: CapacityLimiter(1),
     lambda: Semaphore(1),
@@ -559,6 +608,7 @@ lock_factories = [
     lambda: QueueLock1(10),
     lambda: QueueLock1(1),
     QueueLock2,
+    QueueLock3,
 ]
 lock_factory_names = [
     "CapacityLimiter(1)",
@@ -568,6 +618,7 @@ lock_factory_names = [
     "QueueLock1(10)",
     "QueueLock1(1)",
     "QueueLock2",
+    "QueueLock3",
 ]
 
 generic_lock_test = pytest.mark.parametrize(
