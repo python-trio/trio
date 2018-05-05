@@ -1,1 +1,3 @@
-Make system tasks run in their own context defined at the ``trio.run`` call.
+Tasks created by :func:`~trio.hazmat.spawn_system_task` now no longer
+inherit the creator's :mod:`contextvars` context, instead using one created at
+:func:`~trio.run`.

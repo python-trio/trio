@@ -900,6 +900,8 @@ class Runner:
           *enabled*. If you want your task to be interruptible by control-C,
           then you need to use :func:`disable_ki_protection` explicitly.
 
+        * System tasks do not inherit context variables from their creator.
+
         Args:
           async_fn: An async callable.
           args: Positional arguments for ``async_fn``. If you want to pass
