@@ -1,11 +1,3 @@
-.. image:: https://img.shields.io/pypi/v/trio.svg
-   :target: https://pypi.org/project/trio
-   :alt: Latest PyPi version
-
-.. image:: https://img.shields.io/conda/vn/conda-forge/trio.svg
-   :target: https://anaconda.org/conda-forge/trio
-   :alt: Latest conda-forge version
-
 .. image:: https://img.shields.io/badge/chat-join%20now-blue.svg
    :target: https://gitter.im/python-trio/general
    :alt: Join chatroom
@@ -13,6 +5,14 @@
 .. image:: https://img.shields.io/badge/docs-read%20now-blue.svg
    :target: https://trio.readthedocs.io/en/latest/?badge=latest
    :alt: Documentation Status
+   
+.. image:: https://img.shields.io/pypi/v/trio.svg
+   :target: https://pypi.org/project/trio
+   :alt: Latest PyPi version
+
+.. image:: https://img.shields.io/conda/vn/conda-forge/trio.svg
+   :target: https://anaconda.org/conda-forge/trio
+   :alt: Latest conda-forge version   
 
 .. image:: https://travis-ci.org/python-trio/trio.svg?branch=master
    :target: https://travis-ci.org/python-trio/trio
