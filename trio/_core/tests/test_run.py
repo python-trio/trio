@@ -1851,6 +1851,26 @@ async def test_contextvar_multitask():
         await wait_all_tasks_blocked()
 
 
+def test_system_task_contexts():
+    cvar = contextvars.ContextVar('qwilfish')
+    cvar.set("water")
+
+    async def system_task():
+        assert cvar.get() == "water"
+
+    async def regular_task():
+        assert cvar.get() == "poison"
+
+    async def inner():
+        async with _core.open_nursery() as nursery:
+            cvar.set("poison")
+            nursery.start_soon(regular_task)
+            _core.spawn_system_task(system_task)
+            await wait_all_tasks_blocked()
+
+    _core.run(inner)
+
+
 def test_Cancelled_init():
     check_Cancelled_error = pytest.raises(
         RuntimeError, match='should not be raised directly'

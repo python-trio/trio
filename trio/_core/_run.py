@@ -606,6 +606,7 @@ class Runner:
     init_task = attr.ib(default=None)
     init_task_result = attr.ib(default=None)
     system_nursery = attr.ib(default=None)
+    system_context = attr.ib(default=None)
     main_task = attr.ib(default=None)
     main_task_result = attr.ib(default=None)
 
@@ -720,9 +721,7 @@ class Runner:
         self.runq.append(task)
         self.instrument("task_scheduled", task)
 
-    def spawn_impl(
-        self, async_fn, args, nursery, name, *, ki_protection_enabled=False
-    ):
+    def spawn_impl(self, async_fn, args, nursery, name, *, system_task=False):
 
         ######
         # Make sure the nursery is in working order
@@ -825,28 +824,36 @@ class Runner:
                 name = "{}.{}".format(name.__module__, name.__qualname__)
             except AttributeError:
                 name = repr(name)
+
+        if system_task:
+            context = self.system_context.copy()
+        else:
+            context = copy_context()
+
         task = Task(
             coro=coro,
             parent_nursery=nursery,
             runner=self,
             name=name,
-            context=copy_context(),
+            context=context,
         )
         self.tasks.add(task)
+        coro.cr_frame.f_locals.setdefault(
+            LOCALS_KEY_KI_PROTECTION_ENABLED, system_task
+        )
+
         if nursery is not None:
             nursery._children.add(task)
             for scope in nursery._cancel_stack:
                 scope._add_task(task)
-        coro.cr_frame.f_locals.setdefault(
-            LOCALS_KEY_KI_PROTECTION_ENABLED, ki_protection_enabled
-        )
-        if nursery is not None:
+
             # Task locals are inherited from the spawning task, not the
             # nursery task. The 'if nursery' check is just used as a guard to
             # make sure we don't try to do this to the root task.
             parent_task = current_task()
             for local, values in parent_task._locals.items():
                 task._locals[local] = dict(values)
+
         self.instrument("task_spawned", task)
         # Special case: normally next_send should be a Result, but for the
         # very first send we have to send a literal unboxed None.
@@ -893,6 +900,8 @@ class Runner:
           *enabled*. If you want your task to be interruptible by control-C,
           then you need to use :func:`disable_ki_protection` explicitly.
 
+        * System tasks do not inherit context variables from their creator.
+
         Args:
           async_fn: An async callable.
           args: Positional arguments for ``async_fn``. If you want to pass
@@ -928,10 +937,11 @@ class Runner:
         if name is None:
             name = async_fn
         return self.spawn_impl(
-            system_task_wrapper, (async_fn, args),
+            system_task_wrapper,
+            (async_fn, args),
             self.system_nursery,
             name,
-            ki_protection_enabled=True
+            system_task=True,
         )
 
     async def init(self, async_fn, args):
@@ -1217,7 +1227,10 @@ def run(
     instruments = list(instruments)
     io_manager = TheIOManager()
     runner = Runner(
-        clock=clock, instruments=instruments, io_manager=io_manager
+        clock=clock,
+        instruments=instruments,
+        io_manager=io_manager,
+        system_context=copy_context(),
     )
     GLOBAL_RUN_CONTEXT.runner = runner
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
@@ -1262,10 +1275,11 @@ def run_impl(runner, async_fn, args):
     runner.instrument("before_run")
     runner.clock.start_clock()
     runner.init_task = runner.spawn_impl(
-        runner.init, (async_fn, args),
+        runner.init,
+        (async_fn, args),
         None,
         "<init>",
-        ki_protection_enabled=True
+        system_task=True,
     )
 
     # You know how people talk about "event loops"? This 'while' loop right
