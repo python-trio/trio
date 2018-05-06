@@ -81,7 +81,9 @@ async def measure_backlog(listener, limit):
             if len(client_streams) >= limit:  # pragma: no cover
                 return "lots"
     finally:
-        for client_stream in client_streams:
+        # The need for "no cover" here is subtle: see
+        # https://github.com/python-trio/trio/issues/522
+        for client_stream in client_streams:  # pragma: no cover
             await client_stream.aclose()
 
     return len(client_streams)
