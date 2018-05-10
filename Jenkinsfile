@@ -57,8 +57,8 @@ def build(pyversion, label) {
                             # See also:
                             # https://github.com/python-trio/trio/issues/508
                             # https://github.com/pypa/pip/issues/5345#issuecomment-386443351
-                            export XDG_CACHE_HOME="\${PWD}/pip-cache"
-                            echo XDG_CACHE_HOME=\$XDG_CACHE_HOME
+                            export PIP_CACHE_DIR="\${PWD}/pip-cache"
+                            echo PIP_CACHE_DIR=\$PIP_CACHE_DIR
 
                             cd trio
                             $PYVERSION -m venv .venv
