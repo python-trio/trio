@@ -155,7 +155,7 @@ kind of issue looks like in real life, consider this function::
         data = bytearray()
         while nbytes > 0:
             # recv() reads up to 'nbytes' bytes each time
-            chunk += await sock.recv(nbytes)
+            chunk = await sock.recv(nbytes)
             if not chunk:
                 raise RuntimeError("socket unexpected closed")
             nbytes -= len(chunk)
