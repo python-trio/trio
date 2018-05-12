@@ -21,8 +21,8 @@ class BlockingTrioPortal:
 
     Most Trio functions can only be called from the Trio thread, which is
     sometimes annoying. What if you really need to call a Trio function from a
-    worker thread? That's where :class:`BlockingTrioPortal` comes in: its the
-    rare Trio object whose methods can – in fact, must! – be called from a
+    worker thread? That's where :class:`BlockingTrioPortal` comes in: it's the
+    rare Trio object whose methods can – in fact, must! – be called from
     another thread, and it allows you to call all those other functions.
 
     There is one complication: it's possible for a single Python program to
