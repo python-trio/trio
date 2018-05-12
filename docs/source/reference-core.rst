@@ -1210,7 +1210,7 @@ best choice, but for now that's how it works.
 
 As an example of what this means, here's a small program in which two
 tasks compete for a lock. Notice that the task which releases the lock
-always immedately attempts to re-acquire it, before the other task has
+always immediately attempts to re-acquire it, before the other task has
 a chance to run. (And remember that we're doing cooperative
 multi-tasking here, so it's actually *deterministic* that the task
 releasing the lock will call :meth:`~Lock.acquire` before the other
