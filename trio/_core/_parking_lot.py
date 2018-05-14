@@ -181,7 +181,7 @@ class ParkingLot:
                lot1 = trio.hazmat.ParkingLot()
                lot2 = trio.hazmat.ParkingLot()
                async with trio.open_nursery() as nursery:
-                   nursery.start_soon(lot1)
+                   nursery.start_soon(parker, lot1)
                    await trio.testing.wait_all_tasks_blocked()
                    assert len(lot1) == 1
                    assert len(lot2) == 0

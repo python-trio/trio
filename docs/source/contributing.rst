@@ -92,7 +92,7 @@ sucks" or "I can't believe anyone uses X".
 
 Please try not to make assumptions about people's gender, and in
 particular remember that we're not all dudes. If you don't have a
-any specific reason to assume otherwise, then `singular they
+specific reason to assume otherwise, then `singular they
 <https://en.wikipedia.org/wiki/Third-person_pronoun#Singular_they>`__
 makes a fine pronoun, and there are plenty of gender-neutral
 collective terms: "Hey folks", "Hi all", ...

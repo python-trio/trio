@@ -218,7 +218,7 @@ SSL / TLS support
 
 The :mod:`trio.ssl` module implements SSL/TLS support for Trio, using
 the standard library :mod:`ssl` module. It re-exports most of
-:mod:`ssl`\´s API, with the notable exception is
+:mod:`ssl`\´s API, with the notable exception of
 :class:`ssl.SSLContext`, which has unsafe defaults; if you really want
 to use :class:`ssl.SSLContext` you can import it from :mod:`ssl`, but
 normally you should create your contexts using
@@ -391,7 +391,7 @@ Socket objects
 
    .. attribute:: did_shutdown_SHUT_WR
 
-      This :class:`bool` attribute it True if you've called
+      This :class:`bool` attribute is True if you've called
       ``sock.shutdown(SHUT_WR)`` or ``sock.shutdown(SHUT_RDWR)``, and
       False otherwise.
 
@@ -457,14 +457,14 @@ Many people expect that switching to from synchronous file I/O to
 async file I/O will always make their program faster. This is not
 true! If we just look at total throughput, then async file I/O might
 be faster, slower, or about the same, and it depends in a complicated
-way on things like your exact patterns of disk access how much RAM you
-have. The main motivation for async file I/O is not to improve
+way on things like your exact patterns of disk access, or how much RAM
+you have. The main motivation for async file I/O is not to improve
 throughput, but to **reduce the frequency of latency glitches.**
 
 To understand why, you need to know two things.
 
 First, right now no mainstream operating system offers a generic,
-reliable, native API for async file for filesystem operations, so we
+reliable, native API for async file or filesystem operations, so we
 have to fake it by using threads (specifically,
 :func:`run_sync_in_worker_thread`). This is cheap but isn't free: on a
 typical PC, dispatching to a worker thread adds something like ~100 µs

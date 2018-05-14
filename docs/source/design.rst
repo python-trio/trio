@@ -470,7 +470,7 @@ own independent packages:
 
 The most important submodule, where everything is integrated, is
 ``_run.py``. (This is also by far the largest submodule; it'd be nice
-to factor bits of it out with possible, but it's tricky because the
+to factor bits of it out where possible, but it's tricky because the
 core functionality genuinely is pretty intertwined.) Notably, this is
 where cancel scopes, nurseries, and :class:`~trio.hazmat.Task` are
 defined; it's also where the scheduler state and :func:`trio.run`
