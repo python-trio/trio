@@ -5,7 +5,6 @@ from contextlib import contextmanager
 
 from . import _core
 from . import socket as tsocket
-from ._socket import real_socket_type
 from ._util import ConflictDetector
 from .abc import HalfCloseableStream, Listener
 from ._highlevel_generic import (
@@ -62,7 +61,7 @@ class SocketStream(HalfCloseableStream):
     def __init__(self, socket):
         if not isinstance(socket, tsocket.SocketType):
             raise TypeError("SocketStream requires trio socket object")
-        if real_socket_type(socket.type) != tsocket.SOCK_STREAM:
+        if socket.type != tsocket.SOCK_STREAM:
             raise ValueError("SocketStream requires a SOCK_STREAM socket")
         try:
             socket.getpeername()
@@ -339,7 +338,7 @@ class SocketListener(Listener):
     def __init__(self, socket):
         if not isinstance(socket, tsocket.SocketType):
             raise TypeError("SocketListener requires trio socket object")
-        if real_socket_type(socket.type) != tsocket.SOCK_STREAM:
+        if socket.type != tsocket.SOCK_STREAM:
             raise ValueError("SocketListener requires a SOCK_STREAM socket")
         try:
             listening = socket.getsockopt(
