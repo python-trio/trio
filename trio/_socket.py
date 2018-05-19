@@ -144,7 +144,7 @@ def set_custom_hostname_resolver(hostname_resolver):
       hostname_resolver (trio.abc.HostnameResolver or None): The new custom
           hostname resolver, or None to restore the default behavior.
 
-    Returns: 
+    Returns:
       The previous hostname resolver (which may be None).
 
     """
@@ -172,7 +172,7 @@ def set_custom_socket_factory(socket_factory):
       socket_factory (trio.abc.SocketFactory or None): The new custom
           socket factory, or None to restore the default behavior.
 
-    Returns: 
+    Returns:
       The previous socket factory (which may be None).
 
     """
@@ -362,10 +362,9 @@ _SOCK_TYPE_MASK = ~(
 
 # Note that this is *not* in __all__.
 #
-# Hopefully Python will eventually make something like this public
-# (see bpo-21327) but I don't want to make it public myself and then
-# find out they picked a different name... this is used internally in
-# this file and also elsewhere in trio.
+# This function will modify the given socket to match the behavior in python
+# 3.7. This will become unecessary and can be removed when support for versions
+# older than 3.7 is dropped.
 def real_socket_type(type_num):
     return type_num & _SOCK_TYPE_MASK
 
@@ -440,7 +439,10 @@ class _SocketType(SocketType):
 
     @property
     def type(self):
-        return self._sock.type
+        # Modify the socket type do match what is done on python 3.7. When
+        # support for versions older than 3.7 is dropped, this can be updated
+        # to just return self._sock.type
+        return real_socket_type(self._sock.type)
 
     @property
     def proto(self):
@@ -531,8 +533,7 @@ class _SocketType(SocketType):
             if not self._sock.getsockopt(IPPROTO_IPV6, IPV6_V6ONLY):
                 flags |= AI_V4MAPPED
         gai_res = await getaddrinfo(
-            host, port, self._sock.family, real_socket_type(self._sock.type),
-            self._sock.proto, flags
+            host, port, self._sock.family, self.type, self._sock.proto, flags
         )
         # AFAICT from the spec it's not possible for getaddrinfo to return an
         # empty list.

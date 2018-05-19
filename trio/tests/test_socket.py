@@ -7,6 +7,7 @@ import tempfile
 
 from .._core.tests.tutil import need_ipv6
 from .. import _core
+from .. import _socket as _tsocket
 from .. import socket as tsocket
 from .._socket import _NUMERIC_ONLY, _try_sync
 from ..testing import assert_checkpoints, wait_all_tasks_blocked
@@ -308,7 +309,7 @@ async def test_SocketType_basics():
     # type family proto
     stdlib_sock = stdlib_socket.socket()
     sock = tsocket.from_stdlib_socket(stdlib_sock)
-    assert sock.type == stdlib_sock.type
+    assert sock.type == _tsocket.real_socket_type(stdlib_sock.type)
     assert sock.family == stdlib_sock.family
     assert sock.proto == stdlib_sock.proto
     sock.close()
