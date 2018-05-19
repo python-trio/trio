@@ -74,16 +74,16 @@ else:
 
 
 # Decorator to handle the change to __aiter__ in 3.5.2
-def aiter_compat(aiter_impl):
-    if sys.version_info < (3, 5, 2):
+if sys.version_info < (3, 5, 2):
 
+    def aiter_compat(aiter_impl):
         @wraps(aiter_impl)
         async def __aiter__(*args, **kwargs):
             return aiter_impl(*args, **kwargs)
 
         return __aiter__
-    else:
-        return aiter_impl
+else:
+    aiter_compat = lambda aiter_impl: aiter_impl
 
 
 # See: #461 as to why this is needed.
