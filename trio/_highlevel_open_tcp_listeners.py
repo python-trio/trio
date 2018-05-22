@@ -63,9 +63,9 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
           passed to :func:`~socket.getaddrinfo` with the ``AI_PASSIVE`` flag
           set.
 
-          If you want to bind to bind to the wildcard address on both IPv4 and
-          IPv6, in order to accept connections on all available interfaces,
-          then pass ``None``. This is the default.
+          If you want to bind to the wildcard address on both IPv4 and IPv6,
+          in order to accept connections on all available interfaces, then
+          pass ``None``. This is the default.
 
           If you have a specific interface you want to bind to, pass its IP
           address or hostname here. If a hostname resolves to multiple IP

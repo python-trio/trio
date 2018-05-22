@@ -506,7 +506,7 @@ class Task:
     @property
     def parent_nursery(self):
         """The nursery this task is inside (or None if this is the "init"
-        take).
+        task).
 
         Example use case: drawing a visualization of the task tree in a
         debugger.
