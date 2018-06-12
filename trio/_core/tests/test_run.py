@@ -11,6 +11,7 @@ from math import inf
 import attr
 import outcome
 import pytest
+from async_generator import async_generator
 
 from .tutil import check_sequence_matches, gc_collect_harder
 from ... import _core
@@ -1589,6 +1590,15 @@ def test_nice_error_on_bad_calls_to_run_or_spawn():
             with pytest.raises(TypeError) as excinfo:
                 bad_call(len, [1, 2, 3])
             assert "appears to be synchronous" in str(excinfo.value)
+
+            @async_generator
+            async def async_gen(arg):  # pragma: no cover
+                pass
+
+            with pytest.raises(TypeError) as excinfo:
+                bad_call(async_gen, 0)
+            msg = "expected an async function but got an async generator"
+            assert msg in str(excinfo.value)
 
             # Make sure no references are kept around to keep anything alive
             del excinfo
