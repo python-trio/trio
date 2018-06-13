@@ -14,7 +14,9 @@ from math import inf
 from time import monotonic
 
 import attr
-from async_generator import async_generator, yield_, asynccontextmanager
+from async_generator import (
+    async_generator, yield_, asynccontextmanager, isasyncgen
+)
 from sortedcontainers import SortedDict
 from outcome import Error, Value
 
@@ -804,6 +806,13 @@ class Runner:
                     "That won't work without some sort of compatibility shim."
                     .format(coro)
                 )
+
+            if isasyncgen(coro):
+                raise TypeError(
+                    "start_soon expected an async function but got an async "
+                    "generator {!r}".format(coro)
+                )
+
             # Give good error for: nursery.start_soon(some_sync_fn)
             raise TypeError(
                 "trio expected an async function, but {!r} appears to be "
