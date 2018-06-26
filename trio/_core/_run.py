@@ -1149,7 +1149,7 @@ def run(
     async_fn,
     *args,
     clock=None,
-    instruments=[],
+    instruments=(),
     restrict_keyboard_interrupt_to_checkpoints=False
 ):
     """Run a trio-flavored async function, and return the result.
