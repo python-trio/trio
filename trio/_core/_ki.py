@@ -77,12 +77,10 @@ __all__ = [
 # for any Python program that's written to catch and ignore
 # KeyboardInterrupt.)
 
-
-# We use this class object as a unique key into the frame locals dictionary,
-# which in particular is guaranteed not to clash with any possible real local
-# name (I bet this will confuse some debugger at some point though...):
-class LOCALS_KEY_KI_PROTECTION_ENABLED:
-    pass
+# We use this special string as a unique key into the frame locals dictionary.
+# The @ ensures it is not a valid identifier and can't clash with any possible
+# real local name. See: https://github.com/python-trio/trio/issues/469
+LOCALS_KEY_KI_PROTECTION_ENABLED = '@TRIO_KI_PROTECTION_ENABLED'
 
 
 # NB: according to the signal.signal docs, 'frame' can be None on entry to
