@@ -451,7 +451,7 @@ time you review a PR, you want someone else to check over your work
 before you hit the merge button.
 
 For general tips on doing code reviews, the `node.js guide
-<https://github.com/nodejs/node/blob/master/CONTRIBUTING.md#reviewing-pull-requests>`__
+<https://github.com/nodejs/node/blob/master/doc/guides/contributing/pull-requests.md#reviewing-pull-requests>`__
 has some good suggestions, and `so does this blog post
 <http://verraes.net/2013/10/pre-merge-code-reviews/>`__.
 

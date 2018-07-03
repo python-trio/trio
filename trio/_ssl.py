@@ -328,8 +328,8 @@ class SSLStream(Stream):
     attributes are re-exported as methods and attributes on this class.
 
     This also means that if you register a SNI callback using
-    :meth:`~ssl.SSLContext.set_servername_callback`, then the first argument
-    your callback receives will be a :class:`ssl.SSLObject`.
+    :obj:`~ssl.SSLContext.sni_callback`, then the first argument your callback
+    receives will be a :class:`ssl.SSLObject`.
 
     """
 
