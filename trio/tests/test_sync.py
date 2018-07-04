@@ -5,6 +5,7 @@ import weakref
 from ..testing import wait_all_tasks_blocked, assert_checkpoints
 
 from .. import _core
+from .. import _timeouts
 from .._timeouts import sleep_forever
 from .._sync import *
 
@@ -406,6 +407,11 @@ async def test_Queue():
     with pytest.raises(_core.WouldBlock):
         q.get_nowait()
     assert q.empty()
+
+    with _timeouts.move_on_after(0.01) as timeout_scope:
+        await q.get()
+    assert timeout_scope.cancelled_caught
+    await q.put("Test for https://github.com/python-trio/trio/pull/553")
 
 
 async def test_Queue_iter():
