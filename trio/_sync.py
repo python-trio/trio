@@ -968,7 +968,10 @@ class Queue:
             return _core.Abort.SUCCEEDED
 
         self._get_wait[task] = None
-        value = await _core.wait_task_rescheduled(abort_fn)
+        try:
+            value = await _core.wait_task_rescheduled(abort_fn)
+        finally:
+            self._get_wait.pop(task, None)
         return value
 
     @aiter_compat
