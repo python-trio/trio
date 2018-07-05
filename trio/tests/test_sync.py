@@ -6,7 +6,7 @@ from ..testing import wait_all_tasks_blocked, assert_checkpoints
 
 from .. import _core
 from .. import _timeouts
-from .._timeouts import sleep_forever
+from .._timeouts import sleep_forever, move_on_after
 from .._sync import *
 
 
@@ -408,10 +408,13 @@ async def test_Queue():
         q.get_nowait()
     assert q.empty()
 
-    with _timeouts.move_on_after(0.01) as timeout_scope:
+
+async def test_553(autojump_clock):
+    q = Queue(1)
+    with move_on_after(10) as timeout_scope:
         await q.get()
     assert timeout_scope.cancelled_caught
-    await q.put("Test for https://github.com/python-trio/trio/pull/553")
+    await q.put("Test for PR #553")
 
 
 async def test_Queue_iter():

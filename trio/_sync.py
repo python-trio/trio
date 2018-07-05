@@ -965,13 +965,11 @@ class Queue:
         task = _core.current_task()
 
         def abort_fn(_):
+            self._get_wait.pop(task)
             return _core.Abort.SUCCEEDED
 
         self._get_wait[task] = None
-        try:
-            value = await _core.wait_task_rescheduled(abort_fn)
-        finally:
-            self._get_wait.pop(task, None)
+        value = await _core.wait_task_rescheduled(abort_fn)
         return value
 
     @aiter_compat
