@@ -3,7 +3,8 @@ import pytest
 import attr
 
 from ..abc import SendStream, ReceiveStream
-from .._highlevel_generic import StapledStream
+from .._highlevel_generic import StapledStream, IterableStream
+from ..testing import memory_stream_pair
 
 
 @attr.s
@@ -92,3 +93,14 @@ async def test_StapledStream_with_erroring_close():
 
     assert stapled.send_stream.record == ["aclose"]
     assert stapled.receive_stream.record == ["aclose"]
+
+
+async def test_IterableStream_demo():
+    sender, receiver = memory_stream_pair()
+
+    iterable_stream = IterableStream(receiver)
+
+    await sender.send_all(b'Hello World!')
+    await sender.send_eof()
+
+    assert [72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33] == [c async for c in iterable_stream]

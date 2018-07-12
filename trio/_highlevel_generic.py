@@ -165,3 +165,25 @@ class StapledStream(HalfCloseableStream):
             await self.send_stream.aclose()
         finally:
             await self.receive_stream.aclose()
+
+
+class IterableStream:
+    def __init__(self, stream, *, bufsize=16384):
+        self.stream = stream
+        self.bufsize = bufsize
+        self.data = iter(())
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        try:
+            return next(self.data)
+        except StopIteration:
+            self.data = await self.stream.receive_some(self.bufsize)
+            if not self.data:
+                raise StopAsyncIteration
+            else:
+                self.data = iter(self.data)
+
+            return next(self.data)
