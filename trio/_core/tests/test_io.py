@@ -80,7 +80,11 @@ async def test_wait_socket_type_checking(socketpair):
     a, b = socketpair
 
     # wait_socket_* accept actual socket objects, only
-    for sock_fn in [_core.wait_socket_readable, _core.wait_socket_writable]:
+    for sock_fn in [
+        _core.wait_socket_readable,
+        _core.wait_socket_writable,
+        _core.notify_socket_close,
+    ]:
         with pytest.raises(TypeError):
             await sock_fn(a.fileno())
 
