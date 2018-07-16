@@ -1,11 +1,11 @@
 import functools
-import inspect
 import logging
 import os
 import random
 import select
 import threading
 from collections import deque
+import collections.abc
 from contextlib import contextmanager, closing
 
 import outcome
@@ -745,7 +745,7 @@ class Runner:
         def _return_value_looks_like_wrong_library(value):
             # Returned by legacy @asyncio.coroutine functions, which includes
             # a surprising proportion of asyncio builtins.
-            if inspect.isgenerator(value):
+            if isinstance(value, collections.abc.Generator):
                 return True
             # The protocol for detecting an asyncio Future-like object
             if getattr(value, "_asyncio_future_blocking", None) is not None:
@@ -764,7 +764,7 @@ class Runner:
             coro = async_fn(*args)
         except TypeError:
             # Give good error for: nursery.start_soon(trio.sleep(1))
-            if inspect.iscoroutine(async_fn):
+            if isinstance(async_fn, collections.abc.Coroutine):
                 raise TypeError(
                     "trio was expecting an async function, but instead it got "
                     "a coroutine object {async_fn!r}\n"
@@ -797,7 +797,7 @@ class Runner:
         # for things like functools.partial objects wrapping an async
         # function. So we have to just call it and then check whether the
         # result is a coroutine object.
-        if not inspect.iscoroutine(coro):
+        if not isinstance(coro, collections.abc.Coroutine):
             # Give good error for: nursery.start_soon(func_returning_future)
             if _return_value_looks_like_wrong_library(coro):
                 raise TypeError(
