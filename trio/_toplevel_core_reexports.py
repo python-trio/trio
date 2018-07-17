@@ -19,6 +19,7 @@ __all__ = [
     "WouldBlock",
     "Cancelled",
     "ResourceBusyError",
+    "ClosedResourceError",
     "MultiError",
     "run",
     "open_nursery",

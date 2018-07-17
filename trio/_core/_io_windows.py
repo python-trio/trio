@@ -382,6 +382,19 @@ class WindowsIOManager:
     async def wait_socket_writable(self, sock):
         await self._wait_socket("write", sock)
 
+    @_public
+    def notify_socket_close(self, sock):
+        if type(sock) is not stdlib_socket.socket:
+            raise TypeError("need a stdlib socket")
+
+        for mode in ["read", "write"]:
+            if sock in self._socket_waiters[mode]:
+                task = self._socket_waiters[mode].pop(sock)
+                exc = _core.ClosedResourceError(
+                    "another task closed this socket"
+                )
+                _core.reschedule(task, outcome.Error(exc))
+
     # This has cffi-isms in it and is untested... but it demonstrates the
     # logic we'll want when we start actually using overlapped I/O.
     #

@@ -14,9 +14,8 @@ from async_generator import async_generator, yield_, asynccontextmanager
 import trio
 from .. import _core
 from .._highlevel_socket import SocketStream, SocketListener
-from .._highlevel_generic import (
-    BrokenStreamError, ClosedStreamError, aclose_forcefully
-)
+from .._highlevel_generic import BrokenStreamError, aclose_forcefully
+from .._core import ClosedResourceError
 from .._highlevel_open_tcp_stream import open_tcp_stream
 from .. import ssl as tssl
 from .. import socket as tsocket
@@ -853,7 +852,7 @@ async def test_closing_nice_case():
         nursery.start_soon(server_closer)
 
     # closing the SSLStream also closes its transport
-    with pytest.raises(ClosedStreamError):
+    with pytest.raises(ClosedResourceError):
         await client_transport.send_all(b"123")
 
     # once closed, it's OK to close again
@@ -864,21 +863,21 @@ async def test_closing_nice_case():
 
     # Trying to send more data does not work
     with assert_checkpoints():
-        with pytest.raises(ClosedStreamError):
+        with pytest.raises(ClosedResourceError):
             await server_ssl.send_all(b"123")
 
     # And once the connection is has been closed *locally*, then instead of
     # getting empty bytestrings we get a proper error
     with assert_checkpoints():
-        with pytest.raises(ClosedStreamError):
+        with pytest.raises(ClosedResourceError):
             await client_ssl.receive_some(10) == b""
 
     with assert_checkpoints():
-        with pytest.raises(ClosedStreamError):
+        with pytest.raises(ClosedResourceError):
             await client_ssl.unwrap()
 
     with assert_checkpoints():
-        with pytest.raises(ClosedStreamError):
+        with pytest.raises(ClosedResourceError):
             await client_ssl.do_handshake()
 
     # Check that a graceful close *before* handshaking gives a clean EOF on

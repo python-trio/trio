@@ -415,7 +415,6 @@ class _SocketType(SocketType):
         "getsockopt",
         "setsockopt",
         "listen",
-        "close",
         "share",
     }
 
@@ -460,6 +459,10 @@ class _SocketType(SocketType):
 
         """
         return _SocketType(self._sock.dup())
+
+    def close(self):
+        _core.notify_socket_close(self._sock)
+        self._sock.close()
 
     async def bind(self, address):
         await _core.checkpoint()

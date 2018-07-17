@@ -839,3 +839,33 @@ async def test_unix_domain_socket():
     except FileNotFoundError:
         # MacOS doesn't support abstract filenames with the leading NUL byte
         pass
+
+
+async def test_interrupted_by_close():
+    a_stdlib, b_stdlib = stdlib_socket.socketpair()
+    with a_stdlib, b_stdlib:
+        a_stdlib.setblocking(False)
+
+        data = b"x" * 99999
+
+        try:
+            while True:
+                a_stdlib.send(data)
+        except BlockingIOError:
+            pass
+
+        a = tsocket.from_stdlib_socket(a_stdlib)
+
+        async def sender():
+            with pytest.raises(_core.ClosedResourceError):
+                await a.send(data)
+
+        async def receiver():
+            with pytest.raises(_core.ClosedResourceError):
+                await a.recv(1)
+
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(sender)
+            nursery.start_soon(receiver)
+            await wait_all_tasks_blocked()
+            a.close()

@@ -7,9 +7,7 @@ from . import _core
 from . import socket as tsocket
 from ._util import ConflictDetector
 from .abc import HalfCloseableStream, Listener
-from ._highlevel_generic import (
-    ClosedStreamError, BrokenStreamError, ClosedListenerError
-)
+from ._highlevel_generic import BrokenStreamError
 
 __all__ = ["SocketStream", "SocketListener"]
 
@@ -27,7 +25,9 @@ def _translate_socket_errors_to_stream_errors():
         yield
     except OSError as exc:
         if exc.errno in _closed_stream_errnos:
-            raise ClosedStreamError("this socket was already closed") from None
+            raise _core.ClosedResourceError(
+                "this socket was already closed"
+            ) from None
         else:
             raise BrokenStreamError(
                 "socket connection broken: {}".format(exc)
@@ -102,7 +102,9 @@ class SocketStream(HalfCloseableStream):
     async def send_all(self, data):
         if self.socket.did_shutdown_SHUT_WR:
             await _core.checkpoint()
-            raise ClosedStreamError("can't send data after sending EOF")
+            raise _core.ClosedResourceError(
+                "can't send data after sending EOF"
+            )
         with self._send_conflict_detector.sync:
             with _translate_socket_errors_to_stream_errors():
                 with memoryview(data) as data:
@@ -118,7 +120,7 @@ class SocketStream(HalfCloseableStream):
     async def wait_send_all_might_not_block(self):
         async with self._send_conflict_detector:
             if self.socket.fileno() == -1:
-                raise ClosedStreamError
+                raise _core.ClosedResourceError
             with _translate_socket_errors_to_stream_errors():
                 await self.socket.wait_writable()
 
@@ -362,7 +364,7 @@ class SocketListener(Listener):
         Raises:
           OSError: if the underlying call to ``accept`` raises an unexpected
               error.
-          ClosedListenerError: if you already closed the socket.
+          ClosedResourceError: if you already closed the socket.
 
         This method handles routine errors like ``ECONNABORTED``, but passes
         other errors on to its caller. In particular, it does *not* make any
@@ -375,7 +377,7 @@ class SocketListener(Listener):
                 sock, _ = await self.socket.accept()
             except OSError as exc:
                 if exc.errno in _closed_stream_errnos:
-                    raise ClosedListenerError
+                    raise _core.ClosedResourceError
                 if exc.errno not in _ignorable_accept_errnos:
                     raise
             else:
