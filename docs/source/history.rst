@@ -39,8 +39,8 @@ Features
 Deprecations and Removals
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- :class:`trio.hazmat.Result`, :class:`trio.hazmat.Value` and
-  :class:`trio.hazmat.Error` have been replaced by the equivalent
+- ``trio.hazmat.Result``, ``trio.hazmat.Value`` and
+  ``trio.hazmat.Error`` have been replaced by the equivalent
   classes in the `Outcome <https://github.com/python-trio/outcome>`__ library.
 
 Trio 0.4.0 (2018-04-10)
