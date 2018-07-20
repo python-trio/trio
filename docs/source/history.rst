@@ -20,7 +20,7 @@ Features
   work, Trio needs to know when a resource has been closed. To facilitate this,
   new functions have been added: :func:`trio.hazmat.notify_fd_close` and
   :func:`trio.hazmat.notify_socket_close`. If you're using Trio's built-in
-  wrappers like :cls:`~trio.SocketStream` or :mod:`trio.socket`, then you don't
+  wrappers like :class:`~trio.SocketStream` or :mod:`trio.socket`, then you don't
   need to worry about this, but if you're using the low-level functions like
   :func:`trio.hazmat.wait_readable`, you should make sure to call these
   functions at appropriate times. (`#36
@@ -29,7 +29,7 @@ Features
   the creator's :mod:`contextvars` context, instead using one created at
   :func:`~trio.run`. (`#289
   <https://github.com/python-trio/trio/issues/289>`__)
-- Add support for :class:`trio.Queue` with `capacity=0`. Queues implementation
+- Add support for :class:`trio.Queue` with `capacity=0`. Queue's implementation
   is also faster now. (`#473
   <https://github.com/python-trio/trio/issues/473>`__)
 - Switch to using standalone `Outcome
