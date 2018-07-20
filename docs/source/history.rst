@@ -5,6 +5,38 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.5.0 (2018-07-20)
+-----------------------
+
+Features
+~~~~~~~~
+
+- Suppose one task is blocked trying to use a resource – for example, reading
+  from a socket – and while it's doing this, another task closes the resource.
+  Previously, this produced undefined behavior. Now, closing a resource causes
+  pending operations on that resource to terminate immediately with a
+  :exc:`ClosedResourceError`. ``ClosedStreamError`` and ``ClosedListenerError``
+  are now aliases for :exc:`ClosedResourceError`, and deprecated. For this to
+  work, Trio needs to know when a resource has been closed. To facilitate this,
+  new functions have been added: :func:`trio.hazmat.notify_fd_close` and
+  :func:`trio.hazmat.notify_socket_close`. If you're using Trio's built-in
+  wrappers like :cls:`~trio.SocketStream` or :mod:`trio.socket`, then you don't
+  need to worry about this, but if you're using the low-level functions like
+  :func:`trio.hazmat.wait_readable`, you should make sure to call these
+  functions at appropriate times. (`#36
+  <https://github.com/python-trio/trio/issues/36>`__)
+- Tasks created by :func:`~trio.hazmat.spawn_system_task` now no longer inherit
+  the creator's :mod:`contextvars` context, instead using one created at
+  :func:`~trio.run`. (`#289
+  <https://github.com/python-trio/trio/issues/289>`__)
+- Add support for :class:`trio.Queue` with `capacity=0`. Queues implementation
+  is also faster now. (`#473
+  <https://github.com/python-trio/trio/issues/473>`__)
+- Switch to using standalone `Outcome
+  <https://github.com/python-trio/outcome>`__ library for Result objects.
+  (`#494 <https://github.com/python-trio/trio/issues/494>`__)
+
+
 Trio 0.4.0 (2018-04-10)
 -----------------------
 

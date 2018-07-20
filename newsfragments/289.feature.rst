@@ -1,3 +1,0 @@
-Tasks created by :func:`~trio.hazmat.spawn_system_task` now no longer
-inherit the creator's :mod:`contextvars` context, instead using one created at
-:func:`~trio.run`.
