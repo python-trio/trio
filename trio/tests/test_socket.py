@@ -618,9 +618,11 @@ async def test_resolve_remote_address_exception_closes_socket():
     # Here we are testing issue 247, any cancellation will leave the socket closed
     with _core.open_cancel_scope() as cancel_scope:
         with tsocket.socket() as sock:
+
             async def _resolve_remote_address(self, *args, **kwargs):
                 cancel_scope.cancel()
                 await _core.checkpoint()
+
             sock._resolve_remote_address = _resolve_remote_address
             with assert_checkpoints():
                 with pytest.raises(_core.Cancelled):
