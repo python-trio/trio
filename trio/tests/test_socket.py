@@ -10,7 +10,6 @@ from .. import _core
 from .. import _socket as _tsocket
 from .. import socket as tsocket
 from .._socket import _NUMERIC_ONLY, _try_sync
-from .._timeouts import sleep
 from ..testing import assert_checkpoints, wait_all_tasks_blocked
 
 ################################################################
@@ -507,7 +506,6 @@ async def test_SocketType_non_blocking_paths():
         with assert_checkpoints():
             with pytest.raises(TypeError):
                 await ta.recv("haha")
-
         # block then succeed
         async def do_successful_blocking_recv():
             with assert_checkpoints():
@@ -517,7 +515,6 @@ async def test_SocketType_non_blocking_paths():
             nursery.start_soon(do_successful_blocking_recv)
             await wait_all_tasks_blocked()
             b.send(b"2")
-
         # block then cancelled
         async def do_cancelled_blocking_recv():
             with assert_checkpoints():
@@ -621,16 +618,15 @@ async def test_resolve_remote_address_exception_closes_socket():
     # Here we are testing issue 247, any cancellation will leave the socket closed
     with _core.open_cancel_scope() as cancel_scope:
         with tsocket.socket() as sock:
-
             async def _resolve_remote_address(self, *args, **kwargs):
                 cancel_scope.cancel()
-                await sleep(.001)
-
+                await _core.checkpoint()
             sock._resolve_remote_address = _resolve_remote_address
-
             with assert_checkpoints():
+
                 with pytest.raises(_core.Cancelled):
                     await sock.connect('')
+
             assert sock.fileno() == -1
 
 
