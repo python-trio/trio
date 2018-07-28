@@ -15,6 +15,7 @@ __all__ = [
     "StrictFIFOLock",
     "Condition",
     "Queue",
+    "QueueClosed",
 ]
 
 
@@ -802,6 +803,11 @@ class _QueueStats:
     tasks_waiting_get = attr.ib()
 
 
+class QueueClosed(Exception):
+    """Raised on waiters for the queue when a queue is closed.
+    """
+
+
 # Like queue.Queue, with the notable difference that the capacity argument is
 # mandatory.
 class Queue:
@@ -842,6 +848,8 @@ class Queue:
         # if len(self._data) < self.capacity, then self._put_wait is empty
         # if len(self._data) > 0, then self._get_wait is empty
         self._data = deque()
+        # closed state, prevents any more waiters or putters when this is true
+        self._closed = False
 
     def __repr__(self):
         return (
@@ -887,6 +895,9 @@ class Queue:
           WouldBlock: if the queue is full.
 
         """
+        if self._closed:
+            raise QueueClosed
+
         if self._get_wait:
             assert not self._data
             task, _ = self._get_wait.popitem(last=False)
@@ -905,6 +916,9 @@ class Queue:
 
         """
         await _core.checkpoint_if_cancelled()
+        if self._closed:
+            raise QueueClosed
+
         try:
             self.put_nowait(obj)
         except _core.WouldBlock:
@@ -933,6 +947,9 @@ class Queue:
           WouldBlock: if the queue is empty.
 
         """
+        if self._closed:
+            raise QueueClosed
+
         if self._put_wait:
             task, value = self._put_wait.popitem(last=False)
             # No need to check max_size, b/c we'll pop an item off again right
@@ -953,6 +970,9 @@ class Queue:
 
         """
         await _core.checkpoint_if_cancelled()
+        if self._closed:
+            raise QueueClosed
+
         try:
             value = self.get_nowait()
         except _core.WouldBlock:
@@ -971,6 +991,20 @@ class Queue:
         self._get_wait[task] = None
         value = await _core.wait_task_rescheduled(abort_fn)
         return value
+
+    def close(self):
+        """Closes this queue, cancelling any remaining tasks waiting to get or put, and removes
+        any buffered data.
+        """
+        self._closed = True
+
+        for task in self._get_wait.values():
+            _core.reschedule(task, outcome.Error(QueueClosed))
+
+        for task in self._put_wait.values():
+            _core.reschedule(task, outcome.Error(QueueClosed))
+
+        self._data.clear()
 
     @aiter_compat
     def __aiter__(self):
