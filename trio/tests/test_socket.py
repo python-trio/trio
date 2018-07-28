@@ -623,10 +623,8 @@ async def test_resolve_remote_address_exception_closes_socket():
                 await _core.checkpoint()
             sock._resolve_remote_address = _resolve_remote_address
             with assert_checkpoints():
-
                 with pytest.raises(_core.Cancelled):
                     await sock.connect('')
-
             assert sock.fileno() == -1
 
 
