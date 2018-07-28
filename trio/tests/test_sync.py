@@ -542,20 +542,21 @@ async def test_Queue_unbuffered():
 
 
 async def test_Queue_close():
-    queue = Queue(capacity=0)
+    q1 = Queue(capacity=1)
 
-    async def first():
-        with pytest.raises(QueueClosed):
-            await queue.get()
+    await q1.put(1)
+    q1.close_put()
+    with pytest.raises(QueueClosed):
+        await q1.put(2)
 
-    async with _core.open_nursery() as n:
-        n.start_soon(first)
-        queue.close()
+    assert (await q1.get()) == 1
+
+    q2 = Queue(capacity=1)
+    await q2.put(1)
+    q2.close_both_sides()
 
     with pytest.raises(QueueClosed):
-        await queue.put(None)
-
-    assert len(queue._get_wait) == 0
+        await q2.get()
 
 
 # Two ways of implementing a Lock in terms of a Queue. Used to let us put the

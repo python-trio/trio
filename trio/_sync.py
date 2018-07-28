@@ -848,8 +848,8 @@ class Queue:
         # if len(self._data) < self.capacity, then self._put_wait is empty
         # if len(self._data) > 0, then self._get_wait is empty
         self._data = deque()
-        # closed state, prevents any more waiters or putters when this is true
-        self._closed = False
+        # closed state, prevents any action when [0] is True, and prevents any new putters when [1]
+        self._close_state = [False, False]
 
     def __repr__(self):
         return (
@@ -895,7 +895,7 @@ class Queue:
           WouldBlock: if the queue is full.
 
         """
-        if self._closed:
+        if any(self._close_state):
             raise QueueClosed
 
         if self._get_wait:
@@ -916,7 +916,7 @@ class Queue:
 
         """
         await _core.checkpoint_if_cancelled()
-        if self._closed:
+        if any(self._close_state):
             raise QueueClosed
 
         try:
@@ -947,7 +947,7 @@ class Queue:
           WouldBlock: if the queue is empty.
 
         """
-        if self._closed:
+        if self._close_state[0]:
             raise QueueClosed
 
         if self._put_wait:
@@ -970,7 +970,7 @@ class Queue:
 
         """
         await _core.checkpoint_if_cancelled()
-        if self._closed:
+        if self._close_state[0]:
             raise QueueClosed
 
         try:
@@ -992,12 +992,22 @@ class Queue:
         value = await _core.wait_task_rescheduled(abort_fn)
         return value
 
-    def close(self):
-        """Closes this queue, cancelling any remaining tasks waiting to get or put, and removes
-        any buffered data.
-        """
-        self._closed = True
+    def close_put(self):
+        """Closes one side of this queue, preventing any putters from putting data onto the queue.
 
+        If this queue is empty, it will also cancel all getters.
+        """
+        if self.empty():
+            # pointless to let the getters wait on closed data
+            self.close_both_sides()
+        else:
+            self._close_state[1] = True
+            for task in self._put_wait.values():
+                _core.reschedule(task, outcome.Error(QueueClosed))
+
+    def close_both_sides(self):
+        """Closes both the getter and putter sides of the queue, discarding all data.
+        """
         for task in self._get_wait.values():
             _core.reschedule(task, outcome.Error(QueueClosed))
 
@@ -1011,7 +1021,10 @@ class Queue:
         return self
 
     async def __anext__(self):
-        return await self.get()
+        try:
+            return await self.get()
+        except QueueClosed:
+            raise StopAsyncIteration from None
 
     def statistics(self):
         """Returns an object containing debugging information.
