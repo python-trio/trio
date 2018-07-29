@@ -147,6 +147,21 @@ async def test_CapacityLimiter_change_total_tokens():
         assert c.statistics().tasks_waiting == 0
 
 
+# regression test for issue #548
+async def test_CapacityLimiter_memleak_548():
+    limiter = CapacityLimiter(total_tokens=1)
+    await limiter.acquire()
+
+    async with _core.open_nursery() as n:
+        n.start_soon(limiter.acquire)
+        await _core.checkpoint()  # give it a chance to run the task
+        n.cancel_scope.cancel()
+
+    # if this is 1, the acquire call (despite being killed) is still there in the task, and will
+    # leak memory all the while the limiter is active
+    assert len(limiter._pending_borrowers) == 0
+
+
 async def test_Semaphore():
     with pytest.raises(TypeError):
         Semaphore(1.0)

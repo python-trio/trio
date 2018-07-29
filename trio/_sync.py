@@ -288,7 +288,11 @@ class CapacityLimiter:
         except _core.WouldBlock:
             task = _core.current_task()
             self._pending_borrowers[task] = borrower
-            await self._lot.park()
+            try:
+                await self._lot.park()
+            except _core.Cancelled:
+                self._pending_borrowers.pop(task)
+                raise
         except:
             await _core.cancel_shielded_checkpoint()
             raise
