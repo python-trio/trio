@@ -959,6 +959,16 @@ class Queue:
         if self._data:
             value = self._data.popleft()
             return value
+        if self._close_state[1]:
+            # this confused me a bit so its bound to confuse somebody else as to why this is here
+            # 1) there's no put waiters, so we skip that branch
+            # 2) there's no data so we skip that branch
+            # that means that if there's no data at all, and the put size is closed
+            # we cannot ever have more data, so we close this side and raise QueueClosed so that
+            # any getters from here on close early
+            self._close_state[0] = True
+            raise QueueClosed
+
         raise _core.WouldBlock()
 
     @_core.enable_ki_protection
@@ -1008,6 +1018,7 @@ class Queue:
     def close_both_sides(self):
         """Closes both the getter and putter sides of the queue, discarding all data.
         """
+        self._close_state = [True, True]
         for task in self._get_wait.values():
             _core.reschedule(task, outcome.Error(QueueClosed))
 

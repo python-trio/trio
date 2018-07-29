@@ -550,6 +550,8 @@ async def test_Queue_close():
         await q1.put(2)
 
     assert (await q1.get()) == 1
+    with pytest.raises(QueueClosed):
+        await q1.get()
 
     q2 = Queue(capacity=1)
     await q2.put(1)
