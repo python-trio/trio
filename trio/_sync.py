@@ -848,8 +848,9 @@ class Queue:
         # if len(self._data) < self.capacity, then self._put_wait is empty
         # if len(self._data) > 0, then self._get_wait is empty
         self._data = deque()
-        # closed state, prevents any action when [0] is True, and prevents any new putters when [1]
-        self._close_state = [False, False]
+        # closed state
+        self._put_close = False
+        self._all_closed = False
 
     def __repr__(self):
         return (
@@ -895,7 +896,7 @@ class Queue:
           WouldBlock: if the queue is full.
 
         """
-        if any(self._close_state):
+        if self._put_close or self._all_closed:
             raise QueueClosed
 
         if self._get_wait:
@@ -916,7 +917,7 @@ class Queue:
 
         """
         await _core.checkpoint_if_cancelled()
-        if any(self._close_state):
+        if self._put_close or self._all_closed:
             raise QueueClosed
 
         try:
@@ -947,7 +948,7 @@ class Queue:
           WouldBlock: if the queue is empty.
 
         """
-        if self._close_state[0]:
+        if self._all_closed:
             raise QueueClosed
 
         if self._put_wait:
@@ -959,14 +960,14 @@ class Queue:
         if self._data:
             value = self._data.popleft()
             return value
-        if self._close_state[1]:
+        if self._put_close:
             # this confused me a bit so its bound to confuse somebody else as to why this is here
             # 1) there's no put waiters, so we skip that branch
             # 2) there's no data so we skip that branch
-            # that means that if there's no data at all, and the put size is closed
+            # that means that if there's no data at all, and the put side is closed
             # we cannot ever have more data, so we close this side and raise QueueClosed so that
             # any getters from here on close early
-            self._close_state[0] = True
+            self._all_closed = True
             raise QueueClosed
 
         raise _core.WouldBlock()
@@ -980,7 +981,7 @@ class Queue:
 
         """
         await _core.checkpoint_if_cancelled()
-        if self._close_state[0]:
+        if self._all_closed:
             raise QueueClosed
 
         try:
@@ -1011,7 +1012,7 @@ class Queue:
             # pointless to let the getters wait on closed data
             self.close_both_sides()
         else:
-            self._close_state[1] = True
+            self._put_close = True
             for task in self._put_wait.values():
                 _core.reschedule(task, outcome.Error(QueueClosed))
 
@@ -1020,7 +1021,7 @@ class Queue:
     def close_both_sides(self):
         """Closes both the getter and putter sides of the queue, discarding all data.
         """
-        self._close_state = [True, True]
+        self._put_close, self._all_closed = True, True
         for task in self._get_wait.values():
             _core.reschedule(task, outcome.Error(QueueClosed))
 
