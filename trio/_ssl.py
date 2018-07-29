@@ -839,7 +839,9 @@ class SSLStream(Stream):
 class SSLListener(Listener):
     """A :class:`~trio.abc.Listener` for SSL/TLS-encrypted servers.
 
-    :class:`SSLListener` allows you to wrap
+    :class:`SSLListener` wraps around another Listener, and converts
+    all incoming connections to encrypted connections by wrapping them
+    in a :class:`SSLStream`
 
     Args:
       transport_listener (~trio.abc.Listener): The listener whose incoming
