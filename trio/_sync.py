@@ -1015,6 +1015,8 @@ class Queue:
             for task in self._put_wait.values():
                 _core.reschedule(task, outcome.Error(QueueClosed))
 
+            self._put_wait.clear()
+
     def close_both_sides(self):
         """Closes both the getter and putter sides of the queue, discarding all data.
         """
@@ -1022,8 +1024,12 @@ class Queue:
         for task in self._get_wait.values():
             _core.reschedule(task, outcome.Error(QueueClosed))
 
+        self._get_wait.clear()
+
         for task in self._put_wait.values():
             _core.reschedule(task, outcome.Error(QueueClosed))
+
+        self._put_wait.clear()
 
         self._data.clear()
 
