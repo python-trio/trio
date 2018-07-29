@@ -12,6 +12,7 @@ import signal
 import attr
 
 from .. import _core
+from .. import _timeouts
 from . import _public
 from ._wakeup_socketpair import WakeupSocketpair
 from .._util import is_main_thread
@@ -107,6 +108,24 @@ def _handle(obj):
         return ffi.cast("HANDLE", obj)
     else:
         return obj
+
+
+async def WaitForSingleObject(handle):
+    """Async and cancelable variant of kernel32.WaitForSingleObject().
+
+    Args:
+      handle: A win32 handle.
+
+    """
+    # Wait here while the handle is not signaled. The 0 in WaitForSingleObject()
+    # means zero timeout; the function simply tells us the status of the handle.
+    # Possible values: WAIT_TIMEOUT, WAIT_OBJECT_0, WAIT_ABANDONED, WAIT_FAILED
+    # We exit in all cases except when the hadle is still unset.
+    while True:
+        await _timeouts.sleep_until(_core.current_time() + 0.01)
+        retcode = kernel32.WaitForSingleObject(handle, 0)
+        if retcode != ErrorCodes.WAIT_TIMEOUT:
+            break
 
 
 @attr.s(frozen=True)

@@ -35,6 +35,8 @@ typedef struct _OVERLAPPED {
 
 typedef OVERLAPPED WSAOVERLAPPED;
 typedef LPOVERLAPPED LPWSAOVERLAPPED;
+typedef PVOID LPSECURITY_ATTRIBUTES;
+typedef PVOID LPCSTR;
 
 typedef struct _OVERLAPPED_ENTRY {
     ULONG_PTR lpCompletionKey;
@@ -80,6 +82,34 @@ BOOL WINAPI SetConsoleCtrlHandler(
   _In_opt_ void*            HandlerRoutine,
   _In_     BOOL             Add
 );
+
+HANDLE CreateEventA(
+  LPSECURITY_ATTRIBUTES lpEventAttributes,
+  BOOL                  bManualReset,
+  BOOL                  bInitialState,
+  LPCSTR                lpName
+);
+
+BOOL SetEvent(
+  HANDLE hEvent
+);
+
+BOOL ResetEvent(
+  HANDLE hEvent
+);
+
+DWORD WaitForSingleObject(
+  HANDLE hHandle,
+  DWORD  dwMilliseconds
+);
+
+DWORD WaitForMultipleObjects(
+  DWORD        nCount,
+  HANDLE       *lpHandles,
+  BOOL         bWaitAll,
+  DWORD        dwMilliseconds
+);
+
 """
 
 # cribbed from pywincffi
@@ -116,6 +146,10 @@ def raise_winerror(winerror=None, *, filename=None, filename2=None):
 
 class ErrorCodes(enum.IntEnum):
     STATUS_TIMEOUT = 0x102
+    WAIT_TIMEOUT = 0x102
+    WAIT_ABANDONED = 0x80
+    WAIT_OBJECT_0 = 0x00  # object is signaled
+    WAIT_FAILED = 0xFFFFFFFF
     ERROR_IO_PENDING = 997
     ERROR_OPERATION_ABORTED = 995
     ERROR_ABANDONED_WAIT_0 = 735
