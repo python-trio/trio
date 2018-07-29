@@ -1,3 +1,5 @@
+import ctypes as _ctypes
+from ctypes.util import find_library as _find_library
 import os as _os
 import socket as _stdlib_socket
 import sys as _sys
@@ -298,15 +300,6 @@ def from_stdlib_socket(sock):
     return _SocketType(sock)
 
 
-@_wraps(_stdlib_socket.fromfd, assigned=(), updated=())
-@_add_to_all
-def fromfd(*args, **kwargs):
-    """Like :func:`socket.fromfd`, but returns a trio socket object.
-
-    """
-    return from_stdlib_socket(_stdlib_socket.fromfd(*args, **kwargs))
-
-
 if hasattr(_stdlib_socket, "fromshare"):
 
     @_wraps(_stdlib_socket.fromshare, assigned=(), updated=())
@@ -326,6 +319,72 @@ def socketpair(*args, **kwargs):
     return (from_stdlib_socket(left), from_stdlib_socket(right))
 
 
+# _raw_sockopt function and it's dependecies have been adapted from Christian Heimes
+# code: https://github.com/tiran/socketfromfd/blob/master/socketfromfd.py
+_libc_name = _find_library('c')
+if _libc_name is not None:
+    _libc = _ctypes.CDLL(_libc_name, use_errno=True)
+else:
+    raise OSError('libc not found')
+
+
+def _errcheck_errno(result, func, arguments):
+    """Raise OSError by errno for -1
+    """
+    if result == -1:
+        errno = _ctypes.get_errno()
+        raise OSError(errno, _os.strerror(errno))
+    return arguments
+
+
+_libc_getsockopt = _libc.getsockopt
+_libc_getsockopt.argtypes = [
+    _ctypes.c_int,  # int sockfd
+    _ctypes.c_int,  # int level
+    _ctypes.c_int,  # int optname
+    _ctypes.c_void_p,  # void *optval
+    _ctypes.POINTER(_ctypes.c_uint32)  # socklen_t *optlen
+]
+_libc_getsockopt.restype = _ctypes.c_int  # 0: ok, -1: err
+_libc_getsockopt.errcheck = _errcheck_errno
+
+
+def _raw_getsockopt(fd, optname, level=_stdlib_socket.SOL_SOCKET):
+    """Make raw getsockopt() call for int32 optval
+
+    :param fd: socket fd
+    :param level: SOL_*
+    :param optname: SO_*
+    :return: value as int
+    """
+    optval = _ctypes.c_int(0)
+    optlen = _ctypes.c_uint32(4)
+    _libc_getsockopt(
+        fd, level, optname, _ctypes.byref(optval), _ctypes.byref(optlen)
+    )
+    return optval.value
+
+
+@_wraps(_stdlib_socket.fromfd, assigned=(), updated=())
+@_add_to_all
+def fromfd(fd, family=None, type=None, proto=0):
+    """Like :func:`socket.fromfd`, but with sockopt discovery and returns a trio socket object.
+    """
+    type = type or _raw_getsockopt(fd, getattr(_stdlib_socket, 'SO_TYPE', 3))
+    try:
+        family = family or _raw_getsockopt(
+            fd, getattr(_stdlib_socket, 'SO_DOMAIN', 39)
+        )
+        proto = proto or _raw_getsockopt(
+            fd, getattr(_stdlib_socket, 'SO_PROTOCOL', 38)
+        )
+    except OSError:
+        # on Macs there SO_DOMAIN and SO_PROTOCOL are not supported
+        return from_stdlib_socket(_stdlib_socket.fromfd(fd, family=AF_INET, type=SOCK_STREAM, proto=0))
+
+    return from_stdlib_socket(_stdlib_socket.fromfd(fd, family, type, proto))
+
+
 @_wraps(_stdlib_socket.socket, assigned=(), updated=())
 @_add_to_all
 def socket(family=AF_INET, type=SOCK_STREAM, proto=0, fileno=None):
@@ -339,8 +398,13 @@ def socket(family=AF_INET, type=SOCK_STREAM, proto=0, fileno=None):
         sf = _socket_factory.get(None)
         if sf is not None:
             return sf.socket(family, type, proto)
-    stdlib_socket = _stdlib_socket.socket(family, type, proto, fileno)
-    return from_stdlib_socket(stdlib_socket)
+
+    if fileno is not None:
+        return fromfd(fileno)
+    else:
+        return from_stdlib_socket(
+            _stdlib_socket.socket(family, type, proto, fileno)
+        )
 
 
 ################################################################
