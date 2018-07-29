@@ -1,4 +1,5 @@
 import os
+from threading import Thread
 import pytest
 
 on_windows = (os.name == "nt")
@@ -9,7 +10,7 @@ from ... import _core
 from ... import _timeouts
 if on_windows:
     from .._windows_cffi import ffi, kernel32
-    from .._io_windows import WaitForSingleObject
+    from .._io_windows import WaitForSingleObject, WaitForMultipleObjects_sync
 
 
 async def test_completion_key_listen():
@@ -40,17 +41,52 @@ async def test_completion_key_listen():
             print("end loop")
 
 
+async def test_WaitForMultipleObjects_sync():
+    # One handle
+    handle1 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
+    t = Thread(target=WaitForMultipleObjects_sync, args=(handle1,))
+    t.start()
+    kernel32.SetEvent(handle1)
+    t.join()  # the test succeeds if we do not block here :)
+    kernel32.CloseHandle(handle1)
+
+    # Two handles, signal first
+    handle1 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
+    handle2 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
+    t = Thread(target=WaitForMultipleObjects_sync, args=(handle1, handle2))
+    t.start()
+    kernel32.SetEvent(handle1)
+    t.join()  # the test succeeds if we do not block here :)
+    kernel32.CloseHandle(handle1)
+    kernel32.CloseHandle(handle2)
+
+    # Two handles, signal seconds
+    handle1 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
+    handle2 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
+    t = Thread(target=WaitForMultipleObjects_sync, args=(handle1, handle2))
+    t.start()
+    kernel32.SetEvent(handle2)
+    t.join()  # the test succeeds if we do not block here :)
+    kernel32.CloseHandle(handle1)
+    kernel32.CloseHandle(handle2)
+
+    # Closing the handle will not stop the thread. Initiating a wait on a
+    # closed handle will fail/return, but closing a handle that is already
+    # being waited on will not stop whatever is waiting for it.
+
+
 async def test_WaitForSingleObject():
 
     # Set the timeout used in the tests. The resolution of WaitForSingleObject
     # is 0.01 so anything more than a magnitude larger should probably do.
     # If too large, the test become slow and we might need to mark it as @slow.
-    TIMEOUT = 0.1
+    TIMEOUT = 0.5
 
-    # Test 1, handle is SET after 1 sec in separate coroutine
     async def handle_setter(handle):
         await _timeouts.sleep(TIMEOUT)
         kernel32.SetEvent(handle)
+
+    # Test 1, handle is SET after 1 sec in separate coroutine
 
     handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     t0 = _core.current_time()
@@ -62,21 +98,11 @@ async def test_WaitForSingleObject():
     kernel32.CloseHandle(handle)
     t1 = _core.current_time()
     assert TIMEOUT <= (t1 - t0) < 1.1 * TIMEOUT
+    print('test_WaitForSingleObject test 1 OK')
 
-    # Test 2, handle is CLOSED after 1 sec
-    async def handle_closer(handle):
-        await _timeouts.sleep(TIMEOUT)
-        kernel32.CloseHandle(handle)
+    # Test 2, handle is CLOSED after 1 sec - NOPE, wont work unless we use zero timeout
 
-    handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
-    t0 = _core.current_time()
-
-    async with _core.open_nursery() as nursery:
-        nursery.start_soon(WaitForSingleObject, handle)
-        nursery.start_soon(handle_closer, handle)
-
-    t1 = _core.current_time()
-    assert TIMEOUT <= (t1 - t0) < 1.1 * TIMEOUT
+    pass
 
     # Test 3, cancelation
 
@@ -89,8 +115,9 @@ async def test_WaitForSingleObject():
     kernel32.CloseHandle(handle)
     t1 = _core.current_time()
     assert TIMEOUT <= (t1 - t0) < 1.1 * TIMEOUT
+    print('test_WaitForSingleObject test 3 OK')
 
-    # Test 4, already canceled
+    # Test 4, already cancelled
 
     handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     kernel32.SetEvent(handle)
@@ -102,6 +129,7 @@ async def test_WaitForSingleObject():
     kernel32.CloseHandle(handle)
     t1 = _core.current_time()
     assert (t1 - t0) < 0.5 * TIMEOUT
+    print('test_WaitForSingleObject test 4 OK')
 
     # Test 5, already closed
 
@@ -114,6 +142,7 @@ async def test_WaitForSingleObject():
 
     t1 = _core.current_time()
     assert (t1 - t0) < 0.5 * TIMEOUT
+    print('test_WaitForSingleObject test 5 OK')
 
 
 # XX test setting the iomanager._iocp to something weird to make sure that the
