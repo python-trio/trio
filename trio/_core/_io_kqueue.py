@@ -79,19 +79,32 @@ class KqueueIOManager:
 
     @_public
     @contextmanager
-    def monitor_kevent(self, ident, filter):
+    def monitor_kevent(self, ident, filter, fflags=0):
         key = (ident, filter)
         if key in self._registered:
             raise _core.ResourceBusyError(
                 "attempt to register multiple listeners for same "
                 "ident/filter pair"
             )
+
+        flags = select.KQ_EV_ADD
+        event = select.kevent(ident, filter, flags, fflags)
+        self._kqueue.control([event], 0)
+
         q = _core.UnboundedQueue()
         self._registered[key] = q
         try:
             yield q
         finally:
-            del self._registered[key]
+            try:
+                del self._registered[key]
+            except KeyError:
+                # was a one shot event and already got deleted?
+                pass
+            else:
+                flags = select.KQ_EV_DELETE
+                event = select.kevent(ident, filter, flags)
+                self._kqueue.control([event], 0)
 
     @_public
     async def wait_kevent(self, ident, filter, abort_func):
