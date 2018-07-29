@@ -1,0 +1,1 @@
+Fix :class:`trio.CapacityLimiter` having a memory leak if a task blocked on acquiring is cancelled.

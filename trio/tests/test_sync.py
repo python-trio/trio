@@ -154,7 +154,7 @@ async def test_CapacityLimiter_memleak_548():
 
     async with _core.open_nursery() as n:
         n.start_soon(limiter.acquire)
-        await _core.checkpoint()  # give it a chance to run the task
+        await wait_all_tasks_blocked()  # give it a chance to run the task
         n.cancel_scope.cancel()
 
     # if this is 1, the acquire call (despite being killed) is still there in the task, and will
