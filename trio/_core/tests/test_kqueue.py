@@ -1,7 +1,12 @@
 import select
 import subprocess
 
+import pytest
+
 from ... import _core
+
+use_kqueue = hasattr(select, 'kqueue')
+pytestmark = pytest.mark.skipif(not use_kqueue, reason="kqueue platforms only")
 
 
 async def test_kqueue_monitor_proc_event():
