@@ -841,7 +841,7 @@ class SSLListener(Listener):
 
     :class:`SSLListener` wraps around another Listener, and converts
     all incoming connections to encrypted connections by wrapping them
-    in a :class:`SSLStream`
+    in a :class:`SSLStream`.
 
     Args:
       transport_listener (~trio.abc.Listener): The listener whose incoming
