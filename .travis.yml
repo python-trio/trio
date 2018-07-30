@@ -9,50 +9,13 @@ matrix:
       env: MACPYTHON=3.6.0
     - os: osx
       language: generic
-      env: MACPYTHON=3.6.0
-    - os: osx
-      language: generic
-      env: MACPYTHON=3.6.1
-    - os: osx
-      language: generic
       env: MACPYTHON=3.6.1
     - os: osx
       language: generic
       env: MACPYTHON=3.6.2
     - os: osx
       language: generic
-      env: MACPYTHON=3.6.2
-    - os: osx
-      language: generic
       env: MACPYTHON=3.6.3
-    - os: osx
-      language: generic
-      env: MACPYTHON=3.6.3
-    - os: osx
-      language: generic
-      env: MACPYTHON=3.6.4
-    - os: osx
-      language: generic
-      env: MACPYTHON=3.6.4
-    - os: osx
-      language: generic
-      env: MACPYTHON=3.6.5
-    - os: osx
-      language: generic
-      env: MACPYTHON=3.6.5
-    - os: osx
-      language: generic
-      env: MACPYTHON=3.6.6
-    - os: osx
-      language: generic
-      env: MACPYTHON=3.6.6
-    - python: 3.6.0
-    - python: 3.6.1
-    - python: 3.6.2
-    - python: 3.6.3
-    - python: 3.6.4
-    - python: 3.6.5
-    - python: 3.6.6
 
 script:
   - ci/travis.sh
