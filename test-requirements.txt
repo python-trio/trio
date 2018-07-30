@@ -4,3 +4,7 @@ ipython        # for the IPython traceback integration tests
 pyOpenSSL      # for the ssl tests
 trustme        # for the ssl tests
 pytest-faulthandler
+
+# Temporary hack to work around https://github.com/MagicStack/immutables/issues/7
+# until a new version of contextvars is released
+immutables == 0.6
