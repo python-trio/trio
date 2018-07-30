@@ -153,6 +153,15 @@ class CapacityLimiter:
        tokens aren't automatically created or destroyed over time; they're
        just borrowed and then put back.
 
+    .. data:: UNLIMITED
+
+       Sometimes you might need an instance of :class:`CapacityLimiter` that
+       has infinite capacity. :data:`trio.CapacityLimiter.UNLIMITED` is just
+       such an object. (Since it has infinite capacity, you only need one of
+       them.) But note that it does track which tasks are holding its tokens,
+       so you do still want to release tokens when you're done with them to
+       avoid a memory leak.
+
     """
 
     def __init__(self, total_tokens):
@@ -352,6 +361,10 @@ class CapacityLimiter:
             borrowers=list(self._borrowers),
             tasks_waiting=len(self._lot),
         )
+
+
+CapacityLimiter.UNLIMITED = CapacityLimiter(1)
+CapacityLimiter.UNLIMITED._total_tokens = float("inf")
 
 
 @async_cm
