@@ -6,35 +6,32 @@ matrix:
   include:
     - os: osx
       language: generic
-      env: MACPYTHON=3.5.4
+      env: MACPYTHON=3.6.0
+    - os: osx
+      language: generic
+      env: MACPYTHON=3.6.1
+    - os: osx
+      language: generic
+      env: MACPYTHON=3.6.2
     - os: osx
       language: generic
       env: MACPYTHON=3.6.3
     - os: osx
       language: generic
-      env: MACPYTHON=3.6.1
-    - python: 3.6
-      env: CHECK_DOCS=1
-    - python: 3.6
-      env: CHECK_FORMATTING=1
-    # The pypy tests are slow, so we list them first
-    - python: pypy3.5
-    - language: generic
-      env: USE_PYPY_NIGHTLY=1
-    - python: 3.5.0
-    - python: 3.5.2
-    - python: 3.6
-    - python: 3.7
-      dist: xenial
-      sudo: required
-    - python: 3.5-dev
-    - python: 3.6-dev
-    - python: 3.7-dev
-      dist: xenial
-      sudo: required
-    - python: 3.8-dev
-      dist: xenial
-      sudo: required
+      env: MACPYTHON=3.6.4
+    - os: osx
+      language: generic
+      env: MACPYTHON=3.6.5
+    - os: osx
+      language: generic
+      env: MACPYTHON=3.6.6
+    - python: 3.6.0
+    - python: 3.6.1
+    - python: 3.6.2
+    - python: 3.6.3
+    - python: 3.6.4
+    - python: 3.6.5
+    - python: 3.6.6
 
 script:
   - ci/travis.sh
