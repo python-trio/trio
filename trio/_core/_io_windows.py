@@ -160,13 +160,8 @@ def WaitForMultipleObjects_sync(*handles):
     handle_arr = ffi.new("HANDLE[{}]".format(n))
     for i in range(n):
         handle_arr[i] = handles[i]
-    timeout = 1000 * 60 * 60 * 24  # todo: use INF here, whatever that is, and ditch the while
-    while True:
-        retcode = kernel32.WaitForMultipleObjects(
-            n, handle_arr, False, timeout
-        )
-        if retcode != ErrorCodes.WAIT_TIMEOUT:
-            break
+    timeout = 0xffffffff  # INFINITE
+    kernel32.WaitForMultipleObjects(n, handle_arr, False, timeout)  # blocking
 
 
 @attr.s(frozen=True)
