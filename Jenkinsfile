@@ -52,6 +52,7 @@ def build(pyversion, label) {
                             export PATH="/usr/local/bin:\${PATH}"
                             export PATH="/Library/Frameworks/Python.framework/Versions/3.5/bin:\${PATH}"
                             export PATH="/Library/Frameworks/Python.framework/Versions/3.6/bin:\${PATH}"
+                            export PATH="/Library/Frameworks/Python.framework/Versions/3.7/bin:\${PATH}"
 
                             # Workaround for https://github.com/pypa/pip/issues/5345
                             # See also:
