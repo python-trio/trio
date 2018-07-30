@@ -1,0 +1,2 @@
+New singleton object :data:`trio.CapacityLimiter.UNLIMITED`, for when
+you need a :class:`CapacityLimiter` with infinite capacity.
