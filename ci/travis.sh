@@ -96,8 +96,9 @@ else
     cd empty
 
     INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
-    lldb --batch -o run -k "bt all" -k continue -- python -m pytest -W error -ra --run-slow --faulthandler-timeout=60 ${INSTALLDIR} --cov="$INSTALLDIR" --cov-config=../.coveragerc --verbose
-    #python -m pytest -W error -ra --run-slow --faulthandler-timeout=60 ${INSTALLDIR} --cov="$INSTALLDIR" --cov-config=../.coveragerc --verbose
+    pip install immutables==0.6
+    #lldb --batch -o run -k "bt all" -k continue -- python -m pytest -W error -ra --run-slow --faulthandler-timeout=60 ${INSTALLDIR} --cov="$INSTALLDIR" --cov-config=../.coveragerc --verbose
+    python -m pytest -W error -ra --run-slow --faulthandler-timeout=60 ${INSTALLDIR} --cov="$INSTALLDIR" --cov-config=../.coveragerc --verbose
 
     coverage combine
     bash <(curl -s https://codecov.io/bash)

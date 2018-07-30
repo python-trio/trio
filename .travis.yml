@@ -15,6 +15,15 @@ matrix:
       env: MACPYTHON=3.6.2
     - os: osx
       language: generic
+      env: MACPYTHON=3.6.1
+    - os: osx
+      language: generic
+      env: MACPYTHON=3.6.2
+    - os: osx
+      language: generic
+      env: MACPYTHON=3.6.3
+    - os: osx
+      language: generic
       env: MACPYTHON=3.6.3
 
 script:
