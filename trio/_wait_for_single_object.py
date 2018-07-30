@@ -4,6 +4,14 @@ from ._threads import run_sync_in_worker_thread
 from ._core._windows_cffi import ffi, kernel32, ErrorCodes
 
 
+class StubLimiter:
+    def release_on_behalf_of(self, x):
+        pass
+
+    async def acquire_on_behalf_of(self, x):
+        pass
+
+
 async def WaitForSingleObject(handle):
     """Async and cancellable variant of kernel32.WaitForSingleObject().
 
@@ -17,13 +25,6 @@ async def WaitForSingleObject(handle):
     retcode = kernel32.WaitForSingleObject(handle, 0)
     if retcode != ErrorCodes.WAIT_TIMEOUT:
         return
-
-    class StubLimiter:
-        def release_on_behalf_of(self, x):
-            pass
-
-        async def acquire_on_behalf_of(self, x):
-            pass
 
     # Wait for a thread that waits for two handles: the handle plus a handle
     # that we can use to cancel the thread.
