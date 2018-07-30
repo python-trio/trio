@@ -84,7 +84,7 @@ else
     cd empty
 
     INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
-    pytest -W error -ra --run-slow --faulthandler-timeout=60 ${INSTALLDIR} --cov="$INSTALLDIR" --cov-config=../.coveragerc --verbose
+    gdb -q --batch --ex "handle SIGINT SIGPIPE SIGILL SIGFPE nostop pass" -ex run -ex "thread apply all backtrace" --args python -m pytest -W error -ra --run-slow --faulthandler-timeout=60 ${INSTALLDIR} --cov="$INSTALLDIR" --cov-config=../.coveragerc --verbose
 
     coverage combine
     bash <(curl -s https://codecov.io/bash)
