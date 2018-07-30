@@ -9,7 +9,16 @@ matrix:
       env: MACPYTHON=3.6.0
     - os: osx
       language: generic
+      env: MACPYTHON=3.6.0
+    - os: osx
+      language: generic
       env: MACPYTHON=3.6.1
+    - os: osx
+      language: generic
+      env: MACPYTHON=3.6.1
+    - os: osx
+      language: generic
+      env: MACPYTHON=3.6.2
     - os: osx
       language: generic
       env: MACPYTHON=3.6.2
@@ -18,10 +27,22 @@ matrix:
       env: MACPYTHON=3.6.3
     - os: osx
       language: generic
+      env: MACPYTHON=3.6.3
+    - os: osx
+      language: generic
+      env: MACPYTHON=3.6.4
+    - os: osx
+      language: generic
       env: MACPYTHON=3.6.4
     - os: osx
       language: generic
       env: MACPYTHON=3.6.5
+    - os: osx
+      language: generic
+      env: MACPYTHON=3.6.5
+    - os: osx
+      language: generic
+      env: MACPYTHON=3.6.6
     - os: osx
       language: generic
       env: MACPYTHON=3.6.6
