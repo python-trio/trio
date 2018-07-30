@@ -1,1 +1,1 @@
-Fix :class:`trio.CapacityLimiter` having a memory leak if a task blocked on acquiring is cancelled.
+Fix a memory leak in :class:`trio.CapacityLimiter`, that could occurr when ``acquire`` or ``acquire_on_behalf_of`` was cancelled.
