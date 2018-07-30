@@ -26,6 +26,15 @@ matrix:
     - python: 3.8-dev
       dist: xenial
       sudo: required
+    - os: osx
+      language: generic
+      env: MACPYTHON=3.5.4
+    - os: osx
+      language: generic
+      env: MACPYTHON=3.6.6
+    - os: osx
+      language: generic
+      env: MACPYTHON=3.7.0
 
 script:
   - ci/travis.sh

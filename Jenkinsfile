@@ -1,7 +1,8 @@
 def configs = [
     [
         label: 'sierra',
-        pyversions: ['python3.5', 'python3.6'],
+        // pyversions: ['python3.5', 'python3.6'],
+        pyversions: ['python3.5'],
     ],
 ]
 
