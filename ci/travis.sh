@@ -84,6 +84,8 @@ else
     cd empty
 
     INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
+    # I don't think this is going to work...
+    sudo /usr/sbin/DevToolsSecurity --enable
     lldb --batch -o 'b main' -o run -o "process handle -n true -p true -s false SIGINT SIGPIPE SIGILL SIGFPE" -o continue -o "bt all" -- python -m pytest -W error -ra --run-slow --faulthandler-timeout=60 ${INSTALLDIR} --cov="$INSTALLDIR" --cov-config=../.coveragerc --verbose
 
     coverage combine
