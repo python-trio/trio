@@ -874,8 +874,14 @@ class Runner:
             task._cancel_stack[-1]._remove_task(task)
         self.tasks.remove(task)
         if task._parent_nursery is None:
-            # the init task should be the last task to exit
-            assert not self.tasks
+            # the init task should be the last task to exit. If not, then
+            # something is very wrong. Probably it hit some unexpected error,
+            # in which case we re-raise the error (which will later get
+            # converted to a TrioInternalError, but at least we'll get a
+            # traceback). Otherwise, raise a new error.
+            if self.tasks:  # pragma: no cover
+                result.unwrap()
+                raise TrioInternalError
         else:
             task._parent_nursery._child_finished(task, result)
         if task is self.main_task:
