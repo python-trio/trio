@@ -157,9 +157,34 @@ async def test_CapacityLimiter_memleak_548():
         await wait_all_tasks_blocked()  # give it a chance to run the task
         n.cancel_scope.cancel()
 
-    # if this is 1, the acquire call (despite being killed) is still there in the task, and will
-    # leak memory all the while the limiter is active
+    # if this is 1, the acquire call (despite being killed) is still there in
+    # the task, and will leak memory all the while the limiter is active
     assert len(limiter._pending_borrowers) == 0
+
+
+async def test_CapacityLimiter_UNLIMITED():
+    clu = CapacityLimiter.UNLIMITED
+
+    assert clu.total_tokens == float("inf")
+    assert clu.borrowed_tokens == 0
+    assert clu.available_tokens == float("inf")
+
+    clu.acquire_on_behalf_of_nowait("a")
+    clu.acquire_on_behalf_of_nowait("b")
+
+    assert clu.borrowed_tokens == 2
+    assert clu.available_tokens == float("inf")
+
+    with pytest.raises(RuntimeError):
+        clu.acquire_on_behalf_of_nowait("a")
+
+    with pytest.raises(RuntimeError):
+        clu.release_on_behalf_of("c")
+
+    clu.release_on_behalf_of("a")
+
+    assert clu.borrowed_tokens == 1
+    assert clu.available_tokens == float("inf")
 
 
 async def test_Semaphore():
