@@ -10,6 +10,7 @@ from math import inf
 
 import attr
 import outcome
+import sniffio
 import pytest
 from async_generator import async_generator
 
@@ -1894,3 +1895,16 @@ def test_Cancelled_init():
 
     # private constructor should not raise
     _core.Cancelled._init()
+
+
+def test_sniffio_integration():
+    with pytest.raises(sniffio.AsyncLibraryNotFoundError):
+        sniffio.current_async_library()
+
+    async def check_inside_trio():
+        assert sniffio.current_async_library() == "trio"
+
+    _core.run(check_inside_trio)
+
+    with pytest.raises(sniffio.AsyncLibraryNotFoundError):
+        sniffio.current_async_library()

@@ -79,6 +79,7 @@ setup(
         "async_generator >= 1.9",
         "idna",
         "outcome",
+        "sniffio",
         # PEP 508 style, but:
         # https://bitbucket.org/pypa/wheel/issues/181/bdist_wheel-silently-discards-pep-508
         #"cffi; os_name == 'nt'",  # "cffi is required on windows"

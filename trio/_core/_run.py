@@ -13,6 +13,8 @@ from contextvars import copy_context
 from math import inf
 from time import monotonic
 
+from sniffio import current_async_library_cvar
+
 import attr
 from async_generator import (
     async_generator, yield_, asynccontextmanager, isasyncgen
@@ -1241,11 +1243,13 @@ def run(
         clock = SystemClock()
     instruments = list(instruments)
     io_manager = TheIOManager()
+    system_context = copy_context()
+    system_context.run(current_async_library_cvar.set, "trio")
     runner = Runner(
         clock=clock,
         instruments=instruments,
         io_manager=io_manager,
-        system_context=copy_context(),
+        system_context=system_context,
     )
     GLOBAL_RUN_CONTEXT.runner = runner
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
