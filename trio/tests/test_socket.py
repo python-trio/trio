@@ -424,9 +424,13 @@ async def test_SocketType_resolve():
         assert await s6res(("1::2", 80, 1)) == ("1::2", 80, 1, 0)
         assert await s6res(("1::2", 80, 1, 2)) == ("1::2", 80, 1, 2)
 
-        # V4 mapped addresses resolved if V6ONLY if False
+        # V4 mapped addresses resolved if V6ONLY is False
         sock6.setsockopt(tsocket.IPPROTO_IPV6, tsocket.IPV6_V6ONLY, False)
         assert await s6res(("1.2.3.4", "http")) == ("::ffff:1.2.3.4", 80, 0, 0)
+
+        # Check the <broadcast> special case, because why not
+        await s4res(("<broadcast>", 123)) == ("255.255.255.255", 123)
+        await s6res(("<broadcast>", 123)) == ("::ffff:255.255.255.255", 123)
 
         # But not if it's true (at least on systems where getaddrinfo works
         # correctly)
@@ -465,11 +469,6 @@ async def test_SocketType_resolve():
             await s6res(("1.2.3.4",))
         with pytest.raises(ValueError):
             await s6res(("1.2.3.4", 80, 0, 0, 0))
-
-        # The <broadcast> special case, because why not
-        await s4res(("<broadcast>", 123)) == ("255.255.255.255", 123)
-        with pytest.raises(tsocket.gaierror):
-            await s6res(("<broadcast>", 123))
 
 
 async def test_deprecated_resolver_methods(recwarn):

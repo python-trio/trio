@@ -523,7 +523,7 @@ class _SocketType(SocketType):
         # Special cases to match the stdlib, see gh-277
         if host == "":
             host = None
-        if host == "<broadcast>" and self._sock.family == AF_INET:
+        if host == "<broadcast>":
             host = "255.255.255.255"
         # Since we always pass in an explicit family here, AI_ADDRCONFIG
         # doesn't add any value -- if we have no ipv6 connectivity and are
