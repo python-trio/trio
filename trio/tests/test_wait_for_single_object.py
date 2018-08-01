@@ -1,6 +1,5 @@
 import os
 import time
-from threading import Thread
 
 import pytest
 
@@ -13,7 +12,7 @@ from .. import _core
 from .. import _timeouts
 if on_windows:
     from .._core._windows_cffi import ffi, kernel32
-    from .._wait_for_single_object import WaitForSingleObject, WaitForMultipleObjects_sync
+    from .._wait_for_single_object import WaitForSingleObject, WaitForMultipleObjects_sync, run_sync_in_worker_thread
 
 
 async def test_WaitForMultipleObjects_sync():
@@ -30,6 +29,7 @@ async def test_WaitForMultipleObjects_sync():
     kernel32.SetEvent(handle1)
     WaitForMultipleObjects_sync(handle1)
     kernel32.CloseHandle(handle1)
+    print('test_WaitForMultipleObjects_sync one OK')
 
     # Two handles, signal first
     handle1 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
@@ -38,6 +38,7 @@ async def test_WaitForMultipleObjects_sync():
     WaitForMultipleObjects_sync(handle1, handle2)
     kernel32.CloseHandle(handle1)
     kernel32.CloseHandle(handle2)
+    print('test_WaitForMultipleObjects_sync set first OK')
 
     # Two handles, signal second
     handle1 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
@@ -46,20 +47,25 @@ async def test_WaitForMultipleObjects_sync():
     WaitForMultipleObjects_sync(handle1, handle2)
     kernel32.CloseHandle(handle1)
     kernel32.CloseHandle(handle2)
+    print('test_WaitForMultipleObjects_sync set second OK')
 
     # Two handles, close first
     handle1 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     handle2 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     kernel32.CloseHandle(handle1)
-    WaitForMultipleObjects_sync(handle1, handle2)
+    with pytest.raises(OSError):
+        WaitForMultipleObjects_sync(handle1, handle2)
     kernel32.CloseHandle(handle2)
+    print('test_WaitForMultipleObjects_sync close first OK')
 
     # Two handles, close second
     handle1 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     handle2 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     kernel32.CloseHandle(handle2)
-    WaitForMultipleObjects_sync(handle1, handle2)
+    with pytest.raises(OSError):
+        WaitForMultipleObjects_sync(handle1, handle2)
     kernel32.CloseHandle(handle1)
+    print('test_WaitForMultipleObjects_sync close second OK')
 
 
 @slow
@@ -70,39 +76,46 @@ async def test_WaitForMultipleObjects_sync_slow():
     TIMEOUT = 0.3
 
     def signal_soon_sync(handle):
-        time.sleep(TIMEOUT)
+        # Using time.sleep(TIMEOUT) can somehow sleep too little when compared
+        # to a monolytic clock, thus the while loop.
+        end = time.monotonic() + TIMEOUT
+        while time.monotonic() < end:
+            time.sleep(TIMEOUT / 20)
         kernel32.SetEvent(handle)
 
     # One handle
     handle1 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     t0 = _core.current_time()
-    Thread(target=signal_soon_sync, args=(handle1,)).start()
+    await run_sync_in_worker_thread(signal_soon_sync, handle1)
     WaitForMultipleObjects_sync(handle1)
     t1 = _core.current_time()
-    assert TIMEOUT <= (t1 - t0) < 1.2 * TIMEOUT
+    assert TIMEOUT <= (t1 - t0) < 2.0 * TIMEOUT
     kernel32.CloseHandle(handle1)
+    print('test_WaitForMultipleObjects_sync_slow one OK')
 
     # Two handles, signal first
     handle1 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     handle2 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     t0 = _core.current_time()
-    Thread(target=signal_soon_sync, args=(handle1,)).start()
+    await run_sync_in_worker_thread(signal_soon_sync, handle1)
     WaitForMultipleObjects_sync(handle1, handle2)
     t1 = _core.current_time()
-    assert TIMEOUT <= (t1 - t0) < 1.2 * TIMEOUT
+    assert TIMEOUT <= (t1 - t0) < 2.0 * TIMEOUT
     kernel32.CloseHandle(handle1)
     kernel32.CloseHandle(handle2)
+    print('test_WaitForMultipleObjects_sync_slow thread-set first OK')
 
     # Two handles, signal second
     handle1 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     handle2 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     t0 = _core.current_time()
-    Thread(target=signal_soon_sync, args=(handle2,)).start()
+    await run_sync_in_worker_thread(signal_soon_sync, handle2)
     WaitForMultipleObjects_sync(handle1, handle2)
     t1 = _core.current_time()
-    assert TIMEOUT <= (t1 - t0) < 1.2 * TIMEOUT
+    assert TIMEOUT <= (t1 - t0) < 2.0 * TIMEOUT
     kernel32.CloseHandle(handle1)
     kernel32.CloseHandle(handle2)
+    print('test_WaitForMultipleObjects_sync_slow thread-set second OK')
 
 
 async def test_WaitForSingleObject():
@@ -119,8 +132,16 @@ async def test_WaitForSingleObject():
     # Test already closed
     handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     kernel32.CloseHandle(handle)
-    await WaitForSingleObject(handle)  # should return at once
+    with pytest.raises(OSError):
+        await WaitForSingleObject(handle)  # should return at once
     print('test_WaitForSingleObject already closed OK')
+
+    # Not a handle
+    with pytest.raises(TypeError):
+        await WaitForSingleObject("not a handle")  # Wrong type
+    with pytest.raises(OSError):
+        await WaitForSingleObject(99)  # Could be handle, but is invalid
+    print('test_WaitForSingleObject not a handle OK')
 
 
 @slow
@@ -147,7 +168,7 @@ async def test_WaitForSingleObject_slow():
 
     kernel32.CloseHandle(handle)
     t1 = _core.current_time()
-    assert TIMEOUT <= (t1 - t0) < 1.2 * TIMEOUT
+    assert TIMEOUT <= (t1 - t0) < 2.0 * TIMEOUT
     print('test_WaitForSingleObject_slow set from task OK')
 
     # Test handle is CLOSED after 1 sec - NOPE see comment above
@@ -164,5 +185,5 @@ async def test_WaitForSingleObject_slow():
 
     kernel32.CloseHandle(handle)
     t1 = _core.current_time()
-    assert TIMEOUT <= (t1 - t0) < 1.2 * TIMEOUT
+    assert TIMEOUT <= (t1 - t0) < 2.0 * TIMEOUT
     print('test_WaitForSingleObject_slow cancellation OK')

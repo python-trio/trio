@@ -1,7 +1,7 @@
 from . import _timeouts
 from . import _core
 from ._threads import run_sync_in_worker_thread
-from ._core._windows_cffi import ffi, kernel32, ErrorCodes
+from ._core._windows_cffi import ffi, kernel32, ErrorCodes, raise_winerror, _handle
 
 
 class StubLimiter:
@@ -12,18 +12,23 @@ class StubLimiter:
         pass
 
 
-async def WaitForSingleObject(handle):
+async def WaitForSingleObject(obj):
     """Async and cancellable variant of kernel32.WaitForSingleObject().
 
     Args:
-      handle: A win32 handle.
+      handle: A win32 handle in the form of an int or cffi HANDLE object.
 
     """
+    # Allow ints or whatever we can convert to a win handle
+    handle = _handle(obj)
+
     # Quick check; we might not even need to spawn a thread. The zero
     # means a zero timeout; this call never blocks. We also exit here
     # if the handle is already closed for some reason.
     retcode = kernel32.WaitForSingleObject(handle, 0)
-    if retcode != ErrorCodes.WAIT_TIMEOUT:
+    if retcode == ErrorCodes.WAIT_FAILED:
+        raise_winerror()
+    elif retcode != ErrorCodes.WAIT_TIMEOUT:
         return
 
     # Wait for a thread that waits for two handles: the handle plus a handle
@@ -53,4 +58,8 @@ def WaitForMultipleObjects_sync(*handles):
     for i in range(n):
         handle_arr[i] = handles[i]
     timeout = 0xffffffff  # INFINITE
-    kernel32.WaitForMultipleObjects(n, handle_arr, False, timeout)  # blocking
+    retcode = kernel32.WaitForMultipleObjects(
+        n, handle_arr, False, timeout
+    )  # blocking
+    if retcode == ErrorCodes.WAIT_FAILED:
+        raise_winerror()
