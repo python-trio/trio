@@ -18,8 +18,8 @@ if [ "$TRAVIS_OS_NAME" = "osx" ]; then
     source testenv/bin/activate
 fi
 
-if [ "$USE_PYPY_NIGHTLY" = "1" ]; then
-    curl -fLo pypy.tar.bz2 http://buildbot.pypy.org/nightly/py3.5/pypy-c-jit-latest-linux64.tar.bz2
+if [ "$PYPY_NIGHTLY_BRANCH" != "" ]; then
+    curl -fLo pypy.tar.bz2 http://buildbot.pypy.org/nightly/${PYPY_NIGHTLY_BRANCH}/pypy-c-jit-latest-linux64.tar.bz2
     if [ ! -s pypy.tar.bz2 ]; then
         # We know:
         # - curl succeeded (200 response code; -f means "exit with error if
