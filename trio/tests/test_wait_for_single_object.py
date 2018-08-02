@@ -75,19 +75,17 @@ async def test_WaitForMultipleObjects_sync_slow():
 
     TIMEOUT = 0.3
 
-    def signal_soon_sync(handle):
-        # Using time.sleep(TIMEOUT) can somehow sleep too little when compared
-        # to a monolytic clock, thus the while loop.
-        end = time.monotonic() + TIMEOUT
-        while time.monotonic() < end:
-            time.sleep(TIMEOUT / 20)
-        kernel32.SetEvent(handle)
-
     # One handle
     handle1 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     t0 = _core.current_time()
-    await run_sync_in_worker_thread(signal_soon_sync, handle1)
-    WaitForMultipleObjects_sync(handle1)
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(
+            run_sync_in_worker_thread, WaitForMultipleObjects_sync, handle1
+        )
+        await _timeouts.sleep(TIMEOUT)
+        # If we would comment the line below, the above thread will be stuck,
+        # and trio wont exit this scope
+        kernel32.SetEvent(handle1)
     t1 = _core.current_time()
     assert TIMEOUT <= (t1 - t0) < 2.0 * TIMEOUT
     kernel32.CloseHandle(handle1)
@@ -97,8 +95,13 @@ async def test_WaitForMultipleObjects_sync_slow():
     handle1 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     handle2 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     t0 = _core.current_time()
-    await run_sync_in_worker_thread(signal_soon_sync, handle1)
-    WaitForMultipleObjects_sync(handle1, handle2)
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(
+            run_sync_in_worker_thread, WaitForMultipleObjects_sync, handle1,
+            handle2
+        )
+        await _timeouts.sleep(TIMEOUT)
+        kernel32.SetEvent(handle1)
     t1 = _core.current_time()
     assert TIMEOUT <= (t1 - t0) < 2.0 * TIMEOUT
     kernel32.CloseHandle(handle1)
@@ -109,8 +112,13 @@ async def test_WaitForMultipleObjects_sync_slow():
     handle1 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     handle2 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     t0 = _core.current_time()
-    await run_sync_in_worker_thread(signal_soon_sync, handle2)
-    WaitForMultipleObjects_sync(handle1, handle2)
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(
+            run_sync_in_worker_thread, WaitForMultipleObjects_sync, handle1,
+            handle2
+        )
+        await _timeouts.sleep(TIMEOUT)
+        kernel32.SetEvent(handle2)
     t1 = _core.current_time()
     assert TIMEOUT <= (t1 - t0) < 2.0 * TIMEOUT
     kernel32.CloseHandle(handle1)
