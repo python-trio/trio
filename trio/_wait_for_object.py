@@ -3,6 +3,8 @@ from . import _core
 from ._threads import run_sync_in_worker_thread
 from ._core._windows_cffi import ffi, kernel32, ErrorCodes, raise_winerror, _handle
 
+__all__ = ["WaitForSingleObject"]
+
 
 class StubLimiter:
     def release_on_behalf_of(self, x):
@@ -13,8 +15,8 @@ class StubLimiter:
 
 
 async def WaitForSingleObject(obj):
-    """Async and cancellable variant of kernel32.WaitForSingleObject().
-
+    """Async and cancellable variant of kernel32.WaitForSingleObject(). Windows only.
+    
     Args:
       handle: A win32 handle in the form of an int or cffi HANDLE object.
 

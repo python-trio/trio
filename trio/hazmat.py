@@ -1,3 +1,11 @@
+"""
+This namespace represents low-level functionality not intended for daily use,
+but useful for extending Trio's functionality. It is the union of
+a subset of trio/_core/ and some things from trio/*.py.
+"""
+
+import sys
+
 # These are all re-exported from trio._core. See comments in trio/__init__.py
 # for details. To make static analysis easier, this lists all possible
 # symbols, and then we prune some below if they aren't available on this
@@ -56,3 +64,8 @@ for _sym in list(__all__):
         # who knows.
         remove_from_all = __all__.remove
         remove_from_all(_sym)
+
+# Import bits from trio/*.py
+if sys.platform.startswith("win"):
+    from ._wait_for_object import WaitForSingleObject
+    __all__ += ["WaitForSingleObject"]

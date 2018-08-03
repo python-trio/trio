@@ -268,6 +268,8 @@ anything real. See `#26
 .. function:: monitor_completion_key()
    :with: queue
 
+.. function:: WaitForSingleObject()
+    :async:
 
 Unbounded queues
 ================
