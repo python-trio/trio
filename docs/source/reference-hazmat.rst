@@ -253,7 +253,7 @@ anything real. See `#26
 Windows-specific API
 --------------------
 
-.. function:: WaitForSingleObject()
+.. function:: WaitForSingleObject(handle)
     :async:
     
     Async and cancellable variant of `WaitForSingleObject
