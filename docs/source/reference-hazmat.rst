@@ -256,10 +256,12 @@ Windows-specific API
 .. function:: WaitForSingleObject()
     :async:
     
-    Async and cancellable variant of kernel32.WaitForSingleObject(). Windows only.
+    Async and cancellable variant of `WaitForSingleObject
+    <https://msdn.microsoft.com/en-us/library/windows/desktop/ms687032(v=vs.85).aspx>`__.
+    Windows only.
     
     :arg handle:
-        A win32 handle in the form of an int or cffi HANDLE object.
+        A Win32 object handle, as a Python integer.
     :raises OSError:
         If the handle is invalid, e.g. when it is already closed.
 

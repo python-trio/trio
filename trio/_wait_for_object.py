@@ -15,10 +15,10 @@ class StubLimiter:
 
 
 async def WaitForSingleObject(obj):
-    """Async and cancellable variant of kernel32.WaitForSingleObject(). Windows only.
+    """Async and cancellable variant of WaitForSingleObject. Windows only.
     
     Args:
-      handle: A win32 handle in the form of an int or cffi HANDLE object.
+      handle: A Win32 handle, as a Python integer.
     
     Raises:
       OSError: If the handle is invalid, e.g. when it is already closed.
