@@ -1,15 +1,15 @@
 """
 This namespace represents low-level functionality not intended for daily use,
-but useful for extending Trio's functionality. It is the union of
-a subset of trio/_core/ and some things from trio/*.py.
+but useful for extending Trio's functionality.
 """
 
 import sys
 
-# These are all re-exported from trio._core. See comments in trio/__init__.py
-# for details. To make static analysis easier, this lists all possible
-# symbols, and then we prune some below if they aren't available on this
-# system.
+# This is the union of a subset of trio/_core/ and some things from trio/*.py.
+# See comments in trio/__init__.py for details. To make static analysis easier,
+# this lists all possible symbols from trio._core, and then we prune those that
+# aren't available on this system. After that we add some symbols from trio/*.py.
+
 __all__ = [
     "cancel_shielded_checkpoint",
     "Abort",

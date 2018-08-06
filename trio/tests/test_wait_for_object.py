@@ -137,6 +137,14 @@ async def test_WaitForSingleObject():
     kernel32.CloseHandle(handle)
     print('test_WaitForSingleObject already set OK')
 
+    # Test already set, as int
+    handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
+    handle_int = int(ffi.cast("intptr_t", handle))
+    kernel32.SetEvent(handle)
+    await WaitForSingleObject(handle_int)  # should return at once
+    kernel32.CloseHandle(handle)
+    print('test_WaitForSingleObject already set OK')
+
     # Test already closed
     handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     kernel32.CloseHandle(handle)
@@ -178,6 +186,21 @@ async def test_WaitForSingleObject_slow():
     t1 = _core.current_time()
     assert TIMEOUT <= (t1 - t0) < 2.0 * TIMEOUT
     print('test_WaitForSingleObject_slow set from task OK')
+
+    # Test handle is SET after TIMEOUT in separate coroutine, as int
+
+    handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
+    handle_int = int(ffi.cast("intptr_t", handle))
+    t0 = _core.current_time()
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(WaitForSingleObject, handle_int)
+        nursery.start_soon(signal_soon_async, handle)
+
+    kernel32.CloseHandle(handle)
+    t1 = _core.current_time()
+    assert TIMEOUT <= (t1 - t0) < 2.0 * TIMEOUT
+    print('test_WaitForSingleObject_slow set from task as int OK')
 
     # Test handle is CLOSED after 1 sec - NOPE see comment above
 

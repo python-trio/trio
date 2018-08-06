@@ -19,6 +19,9 @@ async def WaitForSingleObject(obj):
     
     Args:
       handle: A win32 handle in the form of an int or cffi HANDLE object.
+    
+    Raises:
+      OSError: If the handle is invalid, e.g. when it is already closed.
 
     """
     # Allow ints or whatever we can convert to a win handle

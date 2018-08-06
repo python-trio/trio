@@ -253,6 +253,17 @@ anything real. See `#26
 Windows-specific API
 --------------------
 
+.. function:: WaitForSingleObject()
+    :async:
+    
+    Async and cancellable variant of kernel32.WaitForSingleObject(). Windows only.
+    
+    :arg handle:
+        A win32 handle in the form of an int or cffi HANDLE object.
+    :raises OSError:
+        If the handle is invalid, e.g. when it is already closed.
+
+
 TODO: these are implemented, but are currently more of a sketch than
 anything real. See `#26
 <https://github.com/python-trio/trio/issues/26>`__ and `#52
@@ -268,8 +279,6 @@ anything real. See `#26
 .. function:: monitor_completion_key()
    :with: queue
 
-.. function:: WaitForSingleObject()
-    :async:
 
 Unbounded queues
 ================
