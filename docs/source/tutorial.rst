@@ -374,7 +374,7 @@ with :func:`time.sleep`. ``async/await`` is useless!
 
 Well, not really. Trio has one more trick up its sleeve, that makes
 async functions more powerful than regular functions: it can run
-multiple async function *at the same time*. Here's an example:
+multiple async functions *at the same time*. Here's an example:
 
 .. _tutorial-example-tasks-intro:
 
