@@ -35,6 +35,8 @@ typedef struct _OVERLAPPED {
 
 typedef OVERLAPPED WSAOVERLAPPED;
 typedef LPOVERLAPPED LPWSAOVERLAPPED;
+typedef PVOID LPSECURITY_ATTRIBUTES;
+typedef PVOID LPCSTR;
 
 typedef struct _OVERLAPPED_ENTRY {
     ULONG_PTR lpCompletionKey;
@@ -80,6 +82,34 @@ BOOL WINAPI SetConsoleCtrlHandler(
   _In_opt_ void*            HandlerRoutine,
   _In_     BOOL             Add
 );
+
+HANDLE CreateEventA(
+  LPSECURITY_ATTRIBUTES lpEventAttributes,
+  BOOL                  bManualReset,
+  BOOL                  bInitialState,
+  LPCSTR                lpName
+);
+
+BOOL SetEvent(
+  HANDLE hEvent
+);
+
+BOOL ResetEvent(
+  HANDLE hEvent
+);
+
+DWORD WaitForSingleObject(
+  HANDLE hHandle,
+  DWORD  dwMilliseconds
+);
+
+DWORD WaitForMultipleObjects(
+  DWORD        nCount,
+  HANDLE       *lpHandles,
+  BOOL         bWaitAll,
+  DWORD        dwMilliseconds
+);
+
 """
 
 # cribbed from pywincffi
@@ -104,6 +134,19 @@ kernel32 = ffi.dlopen("kernel32.dll")
 INVALID_HANDLE_VALUE = ffi.cast("HANDLE", -1)
 
 
+def _handle(obj):
+    # For now, represent handles as either cffi HANDLEs or as ints.  If you
+    # try to pass in a file descriptor instead, it's not going to work
+    # out. (For that msvcrt.get_osfhandle does the trick, but I don't know if
+    # we'll actually need that for anything...) For sockets this doesn't
+    # matter, Python never allocates an fd. So let's wait until we actually
+    # encounter the problem before worrying about it.
+    if type(obj) is int:
+        return ffi.cast("HANDLE", obj)
+    else:
+        return obj
+
+
 def raise_winerror(winerror=None, *, filename=None, filename2=None):
     if winerror is None:
         winerror, msg = ffi.getwinerror()
@@ -116,6 +159,10 @@ def raise_winerror(winerror=None, *, filename=None, filename2=None):
 
 class ErrorCodes(enum.IntEnum):
     STATUS_TIMEOUT = 0x102
+    WAIT_TIMEOUT = 0x102
+    WAIT_ABANDONED = 0x80
+    WAIT_OBJECT_0 = 0x00  # object is signaled
+    WAIT_FAILED = 0xFFFFFFFF
     ERROR_IO_PENDING = 997
     ERROR_OPERATION_ABORTED = 995
     ERROR_ABANDONED_WAIT_0 = 735

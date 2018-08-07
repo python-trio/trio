@@ -1,3 +1,10 @@
+"""
+This namespace represents the core functionality that has to be built-in
+and deal with private internal data structures. Things in this namespace
+are publicly available in either trio, trio.hazmat, or trio.testing.
+"""
+
+
 # Needs to be defined early so it can be imported:
 def _public(fn):
     # Used to mark methods on _Runner and on IOManager implementations that

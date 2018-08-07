@@ -22,6 +22,7 @@ from ._windows_cffi import (
     INVALID_HANDLE_VALUE,
     raise_winerror,
     ErrorCodes,
+    _handle,
 )
 
 # There's a lot to be said about the overall design of a Windows event
@@ -94,19 +95,6 @@ def _check(success):
     if not success:
         raise_winerror()
     return success
-
-
-def _handle(obj):
-    # For now, represent handles as either cffi HANDLEs or as ints.  If you
-    # try to pass in a file descriptor instead, it's not going to work
-    # out. (For that msvcrt.get_osfhandle does the trick, but I don't know if
-    # we'll actually need that for anything...) For sockets this doesn't
-    # matter, Python never allocates an fd. So let's wait until we actually
-    # encounter the problem before worrying about it.
-    if type(obj) is int:
-        return ffi.cast("HANDLE", obj)
-    else:
-        return obj
 
 
 @attr.s(frozen=True)
