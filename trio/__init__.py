@@ -17,8 +17,20 @@ from ._version import __version__
 
 __all__ = []
 
-from ._toplevel_core_reexports import *
-__all__ += _toplevel_core_reexports.__all__
+from ._toplevel_core_reexports import ( TrioInternalError,
+                                        RunFinishedError,
+                                        WouldBlock,
+                                        Cancelled,
+                                        ResourceBusyError,
+                                        ClosedResourceError,
+                                        MultiError,
+                                        run,
+                                        open_nursery,
+                                        open_cancel_scope,
+                                        current_effective_deadline,
+                                        TASK_STATUS_IGNORED,
+                                        current_time,
+                                        TaskLocal)
 
 from ._timeouts import *
 __all__ += _timeouts.__all__
