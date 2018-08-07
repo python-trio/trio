@@ -31,4 +31,8 @@ __all__ = [
 ]
 
 from . import _core
-globals().update({sym: getattr(_core, sym) for sym in __all__})
+
+def update_globals(globals_list):
+    globals().update({sym: getattr(_core, sym) for sym in globals_list})
+
+update_globals(__all__)
