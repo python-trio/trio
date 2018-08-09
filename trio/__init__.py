@@ -17,54 +17,38 @@ from ._version import __version__
 
 __all__ = []
 
-from ._toplevel_core_reexports import (TrioInternalError,
-                                        RunFinishedError,
-                                        WouldBlock,
-                                        Cancelled,
-                                        ResourceBusyError,
-                                        ClosedResourceError,
-                                        MultiError,
-                                        run,
-                                        open_nursery,
-                                        open_cancel_scope,
-                                        current_effective_deadline,
-                                        TASK_STATUS_IGNORED,
-                                        current_time,
-                                        TaskLocal,
-                                        __all__)
+from ._toplevel_core_reexports import (
+    TrioInternalError, RunFinishedError, WouldBlock, Cancelled,
+    ResourceBusyError, ClosedResourceError, MultiError, run, open_nursery,
+    open_cancel_scope, current_effective_deadline, TASK_STATUS_IGNORED,
+    current_time, TaskLocal, __all__
+)
 
 __all__ += _toplevel_core_reexports.__all__
 
-from ._timeouts import (move_on_at,
-                        move_on_after,
-                        sleep_forever,
-                        sleep_until,
-                        sleep,
-                        fail_at,
-                        fail_after,
-                        TooSlowError)
+from ._timeouts import (
+    move_on_at, move_on_after, sleep_forever, sleep_until, sleep, fail_at,
+    fail_after, TooSlowError
+)
 
 __all__ += _timeouts.__all__
 
-from ._sync import (Event,
-                    CapacityLimiter,
-                    Semaphore,
-                    Lock,
-                    StrictFIFOLock,
-                    Condition,
-                    Queue)
+from ._sync import (
+    Event, CapacityLimiter, Semaphore, Lock, StrictFIFOLock, Condition, Queue
+)
 
 __all__ += _sync.__all__
 
-from ._threads import (run_sync_in_worker_thread,
-                       current_default_worker_thread_limiter,
-                       BlockingTrioPortal)
+from ._threads import (
+    run_sync_in_worker_thread, current_default_worker_thread_limiter,
+    BlockingTrioPortal
+)
 
 __all__ += _threads.__all__
 
-from ._highlevel_generic import ( aclose_forcefully,
-                                  BrokenStreamError,
-                                  StapledStream)
+from ._highlevel_generic import (
+    aclose_forcefully, BrokenStreamError, StapledStream
+)
 __all__ += _highlevel_generic.__all__
 
 from ._signals import catch_signals
@@ -91,8 +75,9 @@ __all__ += _highlevel_open_tcp_listeners.__all__
 from ._highlevel_open_unix_stream import open_unix_socket
 __all__ += _highlevel_open_unix_stream.__all__
 
-from ._highlevel_ssl_helpers import (open_ssl_over_tcp_stream, open_ssl_over_tcp_listeners,
-                                     serve_ssl_over_tcp)
+from ._highlevel_ssl_helpers import (
+    open_ssl_over_tcp_stream, open_ssl_over_tcp_listeners, serve_ssl_over_tcp
+)
 __all__ += _highlevel_ssl_helpers.__all__
 
 from ._deprecate import TrioDeprecationWarning

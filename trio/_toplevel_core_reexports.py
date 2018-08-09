@@ -32,7 +32,9 @@ __all__ = [
 
 from . import _core
 
+
 def update_globals(globals_list):
     globals().update({sym: getattr(_core, sym) for sym in globals_list})
+
 
 update_globals(__all__)
