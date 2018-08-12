@@ -34,6 +34,7 @@ from ._traps import (
     CancelShieldedCheckpoint,
     WaitTaskRescheduled,
 )
+from ._watchdog import TrioWatchdog
 from .. import _core
 
 # At the bottom of this file there's also some "clever" code that generates
@@ -1156,7 +1157,8 @@ def run(
     *args,
     clock=None,
     instruments=(),
-    restrict_keyboard_interrupt_to_checkpoints=False
+    restrict_keyboard_interrupt_to_checkpoints=False,
+    use_watchdog=True
 ):
     """Run a trio-flavored async function, and return the result.
 
@@ -1213,6 +1215,11 @@ def run(
           main thread (this is a Python limitation), or if you use
           :func:`catch_signals` to catch SIGINT.
 
+      use_watchdog (bool): Enables the Trio task watchdog. This will spawn
+          a separate thread that will check if any tasks are blocked,
+          and if so will notify you and print the stack traces of all
+          threads to show exactly where the program is blocked.
+
     Returns:
       Whatever ``async_fn`` returns.
 
@@ -1252,6 +1259,11 @@ def run(
     GLOBAL_RUN_CONTEXT.runner = runner
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
 
+    if use_watchdog:
+        watchdog = TrioWatchdog()
+    else:
+        watchdog = None
+
     # KI handling goes outside the core try/except/finally to avoid a window
     # where KeyboardInterrupt would be allowed and converted into an
     # TrioInternalError:
@@ -1263,7 +1275,9 @@ def run(
                 with closing(runner):
                     # The main reason this is split off into its own function
                     # is just to get rid of this extra indentation.
-                    result = run_impl(runner, async_fn, args)
+                    result = run_impl(
+                        runner, async_fn, args, watchdog=watchdog
+                    )
             except TrioInternalError:
                 raise
             except BaseException as exc:
@@ -1271,6 +1285,8 @@ def run(
                     "internal error in trio - please file a bug!"
                 ) from exc
             finally:
+                if use_watchdog:
+                    watchdog.stop()
                 GLOBAL_RUN_CONTEXT.__dict__.clear()
             return result.unwrap()
     finally:
@@ -1286,7 +1302,7 @@ def run(
 _MAX_TIMEOUT = 24 * 60 * 60
 
 
-def run_impl(runner, async_fn, args):
+def run_impl(runner, async_fn, args, watchdog):
     __tracebackhide__ = True
 
     runner.instrument("before_run")
@@ -1298,6 +1314,8 @@ def run_impl(runner, async_fn, args):
         "<init>",
         system_task=True,
     )
+    if watchdog is not None:
+        watchdog.start()
 
     # You know how people talk about "event loops"? This 'while' loop right
     # here is our event loop:
@@ -1370,6 +1388,8 @@ def run_impl(runner, async_fn, args):
             task = batch.pop()
             GLOBAL_RUN_CONTEXT.task = task
             runner.instrument("before_task_step", task)
+            if watchdog is not None:
+                watchdog.notify_alive_before()
 
             next_send = task._next_send
             task._next_send = None
@@ -1387,6 +1407,9 @@ def run_impl(runner, async_fn, args):
                 final_result = Value(stop_iteration.value)
             except BaseException as task_exc:
                 final_result = Error(task_exc)
+
+            if watchdog is not None:
+                watchdog.notify_alive_after()
 
             if final_result is not None:
                 # We can't call this directly inside the except: blocks above,
