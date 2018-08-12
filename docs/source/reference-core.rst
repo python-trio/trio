@@ -784,7 +784,7 @@ Notice that ``server`` opens a nursery and passes it to
 able to start new tasks as "siblings" of itself. Of course, in this
 case, we could just as well have written::
 
-   async def server(handler):
+   async def new_connection_listener(handler):
        async with trio.open_nursery() as nursery:
            while True:
                conn = await get_new_connection()
