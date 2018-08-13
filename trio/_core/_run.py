@@ -1264,6 +1264,8 @@ def run(
     else:
         watchdog = None
 
+    GLOBAL_RUN_CONTEXT.watchdog = watchdog
+
     # KI handling goes outside the core try/except/finally to avoid a window
     # where KeyboardInterrupt would be allowed and converted into an
     # TrioInternalError:

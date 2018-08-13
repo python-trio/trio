@@ -1,0 +1,3 @@
+Add a watchdog for blocked tasks to Trio. This will automatically print a
+warning (and a full traceback of all threads) if a function is blocked without
+yielding for 5 seconds.
