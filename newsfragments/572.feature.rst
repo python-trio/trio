@@ -1,2 +1,0 @@
-The `sniffio <https://github.com/python-trio/sniffio>`__ library can
-now detect when Trio is running.

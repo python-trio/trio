@@ -1,1 +1,0 @@
-Make trio.socket._SocketType.connect *always* close the socket on cancellation
