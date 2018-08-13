@@ -168,8 +168,8 @@ async def serve_tcp(
             listeners = await nursery.start(serve_tcp, handler, 0)
             client_stream = await open_stream_to_socket_listener(listeners[0])
 
-            # Then send and receive data on 'client', for example:
-            await client.send_all(b"GET / HTTP/1.0\\r\\n\\r\\n")
+            # Then send and receive data on 'client_stream', for example:
+            await client_stream.send_all(b"GET / HTTP/1.0\\r\\n\\r\\n")
 
     This avoids several common pitfalls:
 
