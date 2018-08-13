@@ -6,8 +6,20 @@ YAPF_VERSION=0.20.1
 
 git rev-parse HEAD
 
-if [ "$USE_PYPY_NIGHTLY" = "1" ]; then
-    curl -fLo pypy.tar.bz2 http://buildbot.pypy.org/nightly/py3.5/pypy-c-jit-latest-linux64.tar.bz2
+if [ "$TRAVIS_OS_NAME" = "osx" ]; then
+    curl -Lo macpython.pkg https://www.python.org/ftp/python/${MACPYTHON}/python-${MACPYTHON}-macosx10.6.pkg
+    sudo installer -pkg macpython.pkg -target /
+    ls /Library/Frameworks/Python.framework/Versions/*/bin/
+    PYTHON_EXE=/Library/Frameworks/Python.framework/Versions/*/bin/python3
+    # The pip in older MacPython releases doesn't support a new enough TLS
+    curl https://bootstrap.pypa.io/get-pip.py | sudo $PYTHON_EXE
+    sudo $PYTHON_EXE -m pip install virtualenv
+    $PYTHON_EXE -m virtualenv testenv
+    source testenv/bin/activate
+fi
+
+if [ "$PYPY_NIGHTLY_BRANCH" != "" ]; then
+    curl -fLo pypy.tar.bz2 http://buildbot.pypy.org/nightly/${PYPY_NIGHTLY_BRANCH}/pypy-c-jit-latest-linux64.tar.bz2
     if [ ! -s pypy.tar.bz2 ]; then
         # We know:
         # - curl succeeded (200 response code; -f means "exit with error if

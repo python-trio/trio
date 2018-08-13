@@ -80,6 +80,7 @@ Vital statistics:
    design.rst
    history.rst
    contributing.rst
+   releasing.rst
    code-of-conduct.rst
 
 ====================

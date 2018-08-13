@@ -253,6 +253,19 @@ anything real. See `#26
 Windows-specific API
 --------------------
 
+.. function:: WaitForSingleObject(handle)
+    :async:
+    
+    Async and cancellable variant of `WaitForSingleObject
+    <https://msdn.microsoft.com/en-us/library/windows/desktop/ms687032(v=vs.85).aspx>`__.
+    Windows only.
+    
+    :arg handle:
+        A Win32 object handle, as a Python integer.
+    :raises OSError:
+        If the handle is invalid, e.g. when it is already closed.
+
+
 TODO: these are implemented, but are currently more of a sketch than
 anything real. See `#26
 <https://github.com/python-trio/trio/issues/26>`__ and `#52

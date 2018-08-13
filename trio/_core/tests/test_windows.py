@@ -1,4 +1,5 @@
 import os
+
 import pytest
 
 on_windows = (os.name == "nt")

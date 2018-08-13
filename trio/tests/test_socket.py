@@ -377,6 +377,18 @@ async def test_SocketType_simple_server(address, socket_type):
             assert await client.recv(1) == b"x"
 
 
+# On some MacOS systems, getaddrinfo likes to return V4-mapped addresses even
+# when we *don't* pass AI_V4MAPPED.
+# https://github.com/python-trio/trio/issues/580
+def gai_without_v4mapped_is_buggy():  # pragma: no cover
+    try:
+        stdlib_socket.getaddrinfo("1.2.3.4", 0, family=stdlib_socket.AF_INET6)
+    except stdlib_socket.gaierror:
+        return False
+    else:
+        return True
+
+
 # Direct thorough tests of the implicit resolver helpers
 async def test_SocketType_resolve():
     # For some reason the stdlib special-cases "" to pass NULL to getaddrinfo
@@ -412,20 +424,26 @@ async def test_SocketType_resolve():
         assert await s6res(("1::2", 80, 1)) == ("1::2", 80, 1, 0)
         assert await s6res(("1::2", 80, 1, 2)) == ("1::2", 80, 1, 2)
 
-        # V4 mapped addresses resolved if V6ONLY if False
+        # V4 mapped addresses resolved if V6ONLY is False
         sock6.setsockopt(tsocket.IPPROTO_IPV6, tsocket.IPV6_V6ONLY, False)
         assert await s6res(("1.2.3.4", "http")) == ("::ffff:1.2.3.4", 80, 0, 0)
 
-        # But not if it's true
-        sock6.setsockopt(tsocket.IPPROTO_IPV6, tsocket.IPV6_V6ONLY, True)
-        with pytest.raises(tsocket.gaierror) as excinfo:
-            await s6res(("1.2.3.4", 80))
-        # Windows, MacOS
-        expected_errnos = {tsocket.EAI_NONAME}
-        # Linux
-        if hasattr(tsocket, "EAI_ADDRFAMILY"):
-            expected_errnos.add(tsocket.EAI_ADDRFAMILY)
-        assert excinfo.value.errno in expected_errnos
+        # Check the <broadcast> special case, because why not
+        await s4res(("<broadcast>", 123)) == ("255.255.255.255", 123)
+        await s6res(("<broadcast>", 123)) == ("::ffff:255.255.255.255", 123)
+
+        # But not if it's true (at least on systems where getaddrinfo works
+        # correctly)
+        if not gai_without_v4mapped_is_buggy():  # pragma: no branch
+            sock6.setsockopt(tsocket.IPPROTO_IPV6, tsocket.IPV6_V6ONLY, True)
+            with pytest.raises(tsocket.gaierror) as excinfo:
+                await s6res(("1.2.3.4", 80))
+            # Windows, MacOS
+            expected_errnos = {tsocket.EAI_NONAME}
+            # Linux
+            if hasattr(tsocket, "EAI_ADDRFAMILY"):
+                expected_errnos.add(tsocket.EAI_ADDRFAMILY)
+            assert excinfo.value.errno in expected_errnos
 
         # A family where we know nothing about the addresses, so should just
         # pass them through. This should work on Linux, which is enough to
@@ -451,11 +469,6 @@ async def test_SocketType_resolve():
             await s6res(("1.2.3.4",))
         with pytest.raises(ValueError):
             await s6res(("1.2.3.4", 80, 0, 0, 0))
-
-        # The <broadcast> special case, because why not
-        await s4res(("<broadcast>", 123)) == ("255.255.255.255", 123)
-        with pytest.raises(tsocket.gaierror):
-            await s6res(("<broadcast>", 123))
 
 
 async def test_deprecated_resolver_methods(recwarn):
@@ -612,6 +625,22 @@ async def test_SocketType_connect_paths():
                 # address. This way fails instantly though. As long as nothing
                 # is listening on port 2.)
                 await sock.connect(("127.0.0.1", 2))
+
+
+async def test_resolve_remote_address_exception_closes_socket():
+    # Here we are testing issue 247, any cancellation will leave the socket closed
+    with _core.open_cancel_scope() as cancel_scope:
+        with tsocket.socket() as sock:
+
+            async def _resolve_remote_address(self, *args, **kwargs):
+                cancel_scope.cancel()
+                await _core.checkpoint()
+
+            sock._resolve_remote_address = _resolve_remote_address
+            with assert_checkpoints():
+                with pytest.raises(_core.Cancelled):
+                    await sock.connect('')
+            assert sock.fileno() == -1
 
 
 async def test_send_recv_variants():

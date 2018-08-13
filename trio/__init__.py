@@ -1,3 +1,6 @@
+"""Trio - Pythonic async I/O for humans and snake people.
+"""
+
 # General layout:
 #
 # trio/_core/... is the self-contained core library. It does various

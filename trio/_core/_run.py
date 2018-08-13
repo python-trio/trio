@@ -1,17 +1,19 @@
 import functools
-import inspect
 import logging
 import os
 import random
 import select
 import threading
 from collections import deque
+import collections.abc
 from contextlib import contextmanager, closing
 
 import outcome
 from contextvars import copy_context
 from math import inf
 from time import monotonic
+
+from sniffio import current_async_library_cvar
 
 import attr
 from async_generator import (
@@ -745,7 +747,7 @@ class Runner:
         def _return_value_looks_like_wrong_library(value):
             # Returned by legacy @asyncio.coroutine functions, which includes
             # a surprising proportion of asyncio builtins.
-            if inspect.isgenerator(value):
+            if isinstance(value, collections.abc.Generator):
                 return True
             # The protocol for detecting an asyncio Future-like object
             if getattr(value, "_asyncio_future_blocking", None) is not None:
@@ -764,7 +766,7 @@ class Runner:
             coro = async_fn(*args)
         except TypeError:
             # Give good error for: nursery.start_soon(trio.sleep(1))
-            if inspect.iscoroutine(async_fn):
+            if isinstance(async_fn, collections.abc.Coroutine):
                 raise TypeError(
                     "trio was expecting an async function, but instead it got "
                     "a coroutine object {async_fn!r}\n"
@@ -797,7 +799,7 @@ class Runner:
         # for things like functools.partial objects wrapping an async
         # function. So we have to just call it and then check whether the
         # result is a coroutine object.
-        if not inspect.iscoroutine(coro):
+        if not isinstance(coro, collections.abc.Coroutine):
             # Give good error for: nursery.start_soon(func_returning_future)
             if _return_value_looks_like_wrong_library(coro):
                 raise TypeError(
@@ -874,8 +876,14 @@ class Runner:
             task._cancel_stack[-1]._remove_task(task)
         self.tasks.remove(task)
         if task._parent_nursery is None:
-            # the init task should be the last task to exit
-            assert not self.tasks
+            # the init task should be the last task to exit. If not, then
+            # something is very wrong. Probably it hit some unexpected error,
+            # in which case we re-raise the error (which will later get
+            # converted to a TrioInternalError, but at least we'll get a
+            # traceback). Otherwise, raise a new error.
+            if self.tasks:  # pragma: no cover
+                result.unwrap()
+                raise TrioInternalError
         else:
             task._parent_nursery._child_finished(task, result)
         if task is self.main_task:
@@ -1235,11 +1243,13 @@ def run(
         clock = SystemClock()
     instruments = list(instruments)
     io_manager = TheIOManager()
+    system_context = copy_context()
+    system_context.run(current_async_library_cvar.set, "trio")
     runner = Runner(
         clock=clock,
         instruments=instruments,
         io_manager=io_manager,
-        system_context=copy_context(),
+        system_context=system_context,
     )
     GLOBAL_RUN_CONTEXT.runner = runner
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
