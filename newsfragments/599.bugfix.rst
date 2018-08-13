@@ -1,0 +1,1 @@
+Prevent crashes when used with Sentry (raven-python).
