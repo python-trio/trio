@@ -1,1 +1,0 @@
-Fix a memory leak in :class:`trio.CapacityLimiter`, that could occurr when ``acquire`` or ``acquire_on_behalf_of`` was cancelled.

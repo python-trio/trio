@@ -5,6 +5,34 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.6.0 (2018-08-13)
+-----------------------
+
+Features
+~~~~~~~~
+
+- Add :func:`trio.hazmat.WaitForSingleObject` async function to await Windows
+  handles. (`#233 <https://github.com/python-trio/trio/issues/233>`__)
+- The `sniffio <https://github.com/python-trio/sniffio>`__ library can now
+  detect when Trio is running. (`#572
+  <https://github.com/python-trio/trio/issues/572>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Make trio.socket._SocketType.connect *always* close the socket on
+  cancellation (`#247 <https://github.com/python-trio/trio/issues/247>`__)
+- Fix a memory leak in :class:`trio.CapacityLimiter`, that could occurr when
+  ``acquire`` or ``acquire_on_behalf_of`` was cancelled. (`#548
+  <https://github.com/python-trio/trio/issues/548>`__)
+- Some version of MacOS have a buggy ``getaddrinfo`` that was causing spurious
+  test failures; we now detect those systems and skip the relevant test when
+  found. (`#580 <https://github.com/python-trio/trio/issues/580>`__)
+- Prevent crashes when used with Sentry (raven-python). (`#599
+  <https://github.com/python-trio/trio/issues/599>`__)
+
+
 Trio 0.5.0 (2018-07-20)
 -----------------------
 

@@ -1,3 +1,0 @@
-Some version of MacOS have a buggy ``getaddrinfo`` that was causing
-spurious test failures; we now detect those systems and skip the
-relevant test when found.

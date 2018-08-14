@@ -1,1 +1,0 @@
-Add :func:`trio.hazmat.WaitForSingleObject` async function to await Windows handles.
