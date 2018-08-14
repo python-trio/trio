@@ -169,9 +169,9 @@ def test_MultiError_filter():
     assert isinstance(orig.exceptions[0].exceptions[1], KeyError)
     # get original traceback summary
     orig_extracted = (
-        extract_tb(orig.__traceback__) +
-        extract_tb(orig.exceptions[0].__traceback__) +
-        extract_tb(orig.exceptions[0].exceptions[1].__traceback__)
+        extract_tb(orig.__traceback__) + extract_tb(
+            orig.exceptions[0].__traceback__
+        ) + extract_tb(orig.exceptions[0].exceptions[1].__traceback__)
     )
 
     def p(exc):

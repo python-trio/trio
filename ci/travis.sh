@@ -2,7 +2,7 @@
 
 set -ex
 
-YAPF_VERSION=0.20.1
+YAPF_VERSION=0.22.0
 
 git rev-parse HEAD
 
