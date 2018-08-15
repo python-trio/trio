@@ -84,6 +84,7 @@ pip install dist/*.zip
 
 if [ "$CHECK_DOCS" = "1" ]; then
     pip install -Ur ci/rtd-requirements.txt
+    towncrier --yes  # catch errors in newsfragments
     cd docs
     # -n (nit-picky): warn on missing references
     # -W: turn warnings into errors
