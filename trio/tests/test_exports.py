@@ -2,9 +2,12 @@ import trio
 import trio.testing
 
 import jedi
+<<<<<<< HEAD
 import os
 import pytest
 import sys
+=======
+>>>>>>> Added tests for pylint and jedi
 
 from pylint.lint import PyLinter
 
