@@ -28,7 +28,7 @@ def test_core_is_properly_reexported():
 def test_pylint_sees_all_non_underscore_symbols_in_namespace():
     # Test pylints ast to contain the same content as dir(trio)
     linter = PyLinter()
-    ast_set = set(linter.get_ast(os.path.join('trio','__init__.py'), 'trio'))
+    ast_set = set(linter.get_ast(trio.__file__, 'trio'))
     trio_set = set([symbol for symbol in dir(trio) if symbol[0] != '_'])
     trio_set.remove('tests')
     assert trio_set - ast_set == set([])
@@ -36,7 +36,7 @@ def test_pylint_sees_all_non_underscore_symbols_in_namespace():
 
 def test_jedi_sees_all_completions():
     # Test the jedi completion library get all in dir(trio)
-    script = jedi.Script(path=os.path.join('trio','__init__.py'))
+    script = jedi.Script(path=trio.__file__)
     completions = script.completions()
     trio_set = set([symbol for symbol in dir(trio) if symbol[:2] != '__'])
     jedi_set = set([cmp.name for cmp in completions])
