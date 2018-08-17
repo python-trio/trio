@@ -6,7 +6,6 @@ import os
 import pytest
 import sys
 
-
 from pylint.lint import PyLinter
 
 from .. import _core
