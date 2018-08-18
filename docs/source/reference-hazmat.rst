@@ -129,11 +129,11 @@ All environments provide the following functions:
 
    Block until the given :func:`socket.socket` object is readable.
 
-   The given object *must* be exactly of type :func:`socket.socket`,
-   nothing else.
+   On Unix systems, sockets are fds, and this is identical to
+   :func:`wait_readable`. On Windows, ``SOCKET`` handles and fds are
+   different, and this works on ``SOCKET`` handles or Python socket
+   objects.
 
-   :raises TypeError:
-       if the given object is not of type :func:`socket.socket`.
    :raises trio.ResourceBusyError:
        if another task is already waiting for the given socket to
        become readable.
@@ -143,11 +143,11 @@ All environments provide the following functions:
 
    Block until the given :func:`socket.socket` object is writable.
 
-   The given object *must* be exactly of type :func:`socket.socket`,
-   nothing else.
+   On Unix systems, sockets are fds, and this is identical to
+   :func:`wait_writable`. On Windows, ``SOCKET`` handles and fds are
+   different, and this works on ``SOCKET`` handles or Python socket
+   objects.
 
-   :raises TypeError:
-       if the given object is not of type :func:`socket.socket`.
    :raises trio.ResourceBusyError:
        if another task is already waiting for the given socket to
        become writable.
@@ -168,11 +168,10 @@ All environments provide the following functions:
    socket, you should first call this function, and then close the
    socket.
 
-   The given object *must* be exactly of type :func:`socket.socket`,
-   nothing else.
-
-   :raises TypeError:
-       if the given object is not of type :func:`socket.socket`.
+   On Unix systems, sockets are fds, and this is identical to
+   :func:`notify_fd_close`. On Windows, ``SOCKET`` handles and fds are
+   different, and this works on ``SOCKET`` handles or Python socket
+   objects.
 
 
 Unix-specific API

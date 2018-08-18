@@ -1,0 +1,4 @@
+The low level :func:`trio.hazmat.wait_socket_readable`,
+:func:`~trio.hazmat.wait_socket_writable`, and
+:func:`~trio.hazmat.notify_socket_close` now work on bare socket
+descriptors, instead of requiring a :func:`socket.socket` object.
