@@ -13,6 +13,8 @@
 # This file pulls together the friendly public API, by re-exporting the more
 # innocuous bits of the _core API + the higher-level tools from trio/*.py.
 
+__all__ = []
+
 from ._version import __version__
 
 from ._core import (
