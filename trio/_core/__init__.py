@@ -44,23 +44,9 @@ from ._local import *
 __all__ += _local.__all__
 
 if hasattr(_run, "wait_readable"):
-    import socket as _stdlib_socket
-
-    async def wait_socket_readable(sock):
-        if type(sock) != _stdlib_socket.socket:
-            raise TypeError("need a socket")
-        await wait_readable(sock)
-
-    async def wait_socket_writable(sock):
-        if type(sock) != _stdlib_socket.socket:
-            raise TypeError("need a socket")
-        await wait_writable(sock)
-
-    def notify_socket_close(sock):
-        if type(sock) != _stdlib_socket.socket:
-            raise TypeError("need a socket")
-        notify_fd_close(sock)
-
+    wait_socket_readable = wait_readable
+    wait_socket_writable = wait_writable
+    notify_socket_close = notify_fd_close
     __all__ += [
         "wait_socket_readable", "wait_socket_writable", "notify_socket_close"
     ]

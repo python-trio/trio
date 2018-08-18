@@ -36,35 +36,37 @@ def socketpair():
         sock.close()
 
 
+def using_fileno(fn):
+    def fileno_wrapper(fileobj):
+        return fn(fileobj.fileno())
+
+    name = "<{} on fileno>".format(fn.__name__)
+    fileno_wrapper.__name__ = fileno_wrapper.__qualname__ = name
+    return fileno_wrapper
+
+
 wait_readable_options = [_core.wait_socket_readable]
 wait_writable_options = [_core.wait_socket_writable]
 notify_close_options = [_core.notify_socket_close]
+
+# We aren't testing the _fd_ versions, because they're the same as the socket
+# ones. But if they ever stop being the same we should notice and add tests!
 if hasattr(_core, "wait_readable"):
-    wait_readable_options.append(_core.wait_readable)
-
-    async def wait_readable_fd(fileobj):
-        return await _core.wait_readable(fileobj.fileno())
-
-    wait_readable_options.append(wait_readable_fd)
+    assert _core.wait_socket_readable is _core.wait_readable
 if hasattr(_core, "wait_writable"):
-    wait_writable_options.append(_core.wait_writable)
-
-    async def wait_writable_fd(fileobj):
-        return await _core.wait_writable(fileobj.fileno())
-
-    wait_writable_options.append(wait_writable_fd)
+    assert _core.wait_socket_writable is _core.wait_writable
 if hasattr(_core, "notify_fd_close"):
-    notify_close_options.append(_core.notify_fd_close)
+    assert _core.notify_socket_close is _core.notify_fd_close
 
-    def notify_fd_close_rawfd(fileobj):
-        _core.notify_fd_close(fileobj.fileno())
-
-    notify_close_options.append(notify_fd_close_rawfd)
+for options_list in [
+    wait_readable_options, wait_writable_options, notify_close_options
+]:
+    options_list += [using_fileno(f) for f in options_list]
 
 # Decorators that feed in different settings for wait_readable / wait_writable
 # / notify_close.
 # Note that if you use all three decorators on the same test, it will run all
-# N**3 *combinations*
+# N**4 *combinations*
 read_socket_test = pytest.mark.parametrize(
     "wait_readable", wait_readable_options, ids=lambda fn: fn.__name__
 )
@@ -74,26 +76,6 @@ write_socket_test = pytest.mark.parametrize(
 notify_close_test = pytest.mark.parametrize(
     "notify_close", notify_close_options, ids=lambda fn: fn.__name__
 )
-
-
-async def test_wait_socket_type_checking(socketpair):
-    a, b = socketpair
-
-    # wait_socket_* accept actual socket objects, only
-    for sock_fn in [
-        _core.wait_socket_readable,
-        _core.wait_socket_writable,
-        _core.notify_socket_close,
-    ]:
-        with pytest.raises(TypeError):
-            await sock_fn(a.fileno())
-
-        class AllegedSocket(stdlib_socket.socket):
-            pass
-
-        with AllegedSocket() as alleged_socket:
-            with pytest.raises(TypeError):
-                await sock_fn(alleged_socket)
 
 
 # XX These tests are all a bit dicey because they can't distinguish between

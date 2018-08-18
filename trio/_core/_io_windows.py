@@ -336,18 +336,8 @@ class WindowsIOManager:
             del self._completion_key_queues[key]
 
     async def _wait_socket(self, which, sock):
-        # Using socket objects rather than raw handles gives better behavior
-        # if someone closes the socket while another task is waiting on it. If
-        # we just kept the handle, it might be reassigned, and we'd be waiting
-        # on who-knows-what. The socket object won't be reassigned, and it
-        # switches its fileno() to -1, so we can detect the offending socket
-        # and wake the appropriate task. This is a pretty minor benefit (I
-        # think it can only make a difference if someone is closing random
-        # sockets in another thread? And on unix we don't handle this case at
-        # all), but hey, why not.
-        if type(sock) is not stdlib_socket.socket:
-            await _core.checkpoint()
-            raise TypeError("need a stdlib socket")
+        if not isinstance(sock, int):
+            sock = sock.fileno()
         if sock in self._socket_waiters[which]:
             await _core.checkpoint()
             raise _core.ResourceBusyError(
@@ -372,9 +362,8 @@ class WindowsIOManager:
 
     @_public
     def notify_socket_close(self, sock):
-        if type(sock) is not stdlib_socket.socket:
-            raise TypeError("need a stdlib socket")
-
+        if not isinstance(sock, int):
+            sock = sock.fileno()
         for mode in ["read", "write"]:
             if sock in self._socket_waiters[mode]:
                 task = self._socket_waiters[mode].pop(sock)
