@@ -314,6 +314,8 @@ class NurseryManager:
                     return False
                 else:
                     raise
+            else:
+                return True
         else:
             self._scope_manager.__exit__(None, None, None)
             return True
