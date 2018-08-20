@@ -611,7 +611,7 @@ Asynchronous file objects
    * Async file objects can be used as async iterators to iterate over
      the lines of the file::
 
-        async with trio.open_file(...) as f:
+        async with await trio.open_file(...) as f:
             async for line in f:
                 print(line)
 
