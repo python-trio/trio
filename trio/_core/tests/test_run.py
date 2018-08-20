@@ -1823,6 +1823,12 @@ async def test_nursery_start_keeps_nursery_open(autojump_clock):
         assert _core.current_time() - t0 == 7
 
 
+async def test_nursery_explicit_exception():
+    with pytest.raises(KeyError):
+        async with _core.open_nursery():
+            raise KeyError()
+
+
 def test_contextvar_support():
     var = contextvars.ContextVar("test")
     var.set("before")

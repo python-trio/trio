@@ -308,15 +308,16 @@ class NurseryManager:
         try:
             await self._nursery._nested_child_finished(exc)
         except BaseException as new_exc:
-            if self._scope_manager.__exit__(
-                type(new_exc), new_exc, new_exc.__traceback__
-            ):
-                return True
-            else:
-                if new_exc is exc:
+            try:
+                if self._scope_manager.__exit__(
+                    type(new_exc), new_exc, new_exc.__traceback__
+                ):
+                    return True
+            except BaseException as scope_manager_exc:
+                if scope_manager_exc == exc:
                     return False
-                else:
-                    raise
+                raise  # scope_manager_exc
+            raise  # new_exc
         else:
             self._scope_manager.__exit__(None, None, None)
             return True
