@@ -309,7 +309,8 @@ class NurseryManager:
             await self._nursery._nested_child_finished(exc)
         except BaseException as new_exc:
             if self._scope_manager.__exit__(
-                    type(new_exc), new_exc, new_exc.__traceback__):
+                type(new_exc), new_exc, new_exc.__traceback__
+            ):
                 return True
             else:
                 if new_exc is exc:
@@ -322,7 +323,8 @@ class NurseryManager:
 
     def __enter__(self):
         raise RuntimeError(
-            "use 'async with open_nursery(...)', not 'with open_nursery(...)'")
+            "use 'async with open_nursery(...)', not 'with open_nursery(...)'"
+        )
 
     def __exit__(self):  # pragma: no cover
         assert False, """Never called, but should be defined"""
