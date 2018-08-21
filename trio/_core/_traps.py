@@ -146,6 +146,12 @@ async def wait_task_rescheduled(abort_func):
        In any case it's guaranteed that we only call the ``abort_func`` at most
        once per call to :func:`wait_task_rescheduled`.
 
+    Sometimes, it's useful to be able to share some mutable sleep-related data
+    between the sleeping task, the abort function, and the waking task. You
+    can use the sleeping task's :data:`~Task.custom_sleep_data` attribute to
+    store this data, and Trio won't touch it, except to make sure that it gets
+    cleared when the task is rescheduled.
+
     .. warning::
 
        If your ``abort_func`` raises an error, or returns any value other than

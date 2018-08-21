@@ -486,11 +486,12 @@ class Task:
 
     # Invariant:
     # - for unscheduled tasks, _next_send is None
-    # - for scheduled tasks, _next_send is a Result object
+    # - for scheduled tasks, _next_send is a Result object,
+    #   and custom_sleep_data is None
     # Tasks start out unscheduled.
     _next_send = attr.ib(default=None)
-    # ParkingLot modifies this directly
     _abort_func = attr.ib(default=None)
+    custom_sleep_data = attr.ib(default=None)
 
     # For introspection and nursery.start()
     _child_nurseries = attr.ib(default=attr.Factory(list))
@@ -722,6 +723,7 @@ class Runner:
         assert task._next_send is None
         task._next_send = next_send
         task._abort_func = None
+        task.custom_sleep_data = None
         self.runq.append(task)
         self.instrument("task_scheduled", task)
 

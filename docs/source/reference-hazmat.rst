@@ -575,3 +575,10 @@ Task API
 
    .. autoattribute:: child_nurseries
 
+   .. attribute:: custom_sleep_data
+
+      Trio doesn't assign this variable any meaning, except that it
+      sets it to ``None`` whenever a task is rescheduled. It can be
+      used to share data between the different tasks involved in
+      putting a task to sleep and then waking it up again. (See
+      :func:`wait_task_rescheduled` for details.)
