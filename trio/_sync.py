@@ -54,8 +54,12 @@ class Event:
     async def wait(self):
         """Block until the internal flag value becomes True.
 
-        If it's already True, then this method is still a checkpoint, but
-        otherwise returns immediately.
+        If it's already True, then this method returns immediately (though
+        still a checkpoint).
+
+        If you would rather have the behavior where waiting tasks only
+        proceed on transitions from False to True, it can be accomplished
+        by having calls to :meth:`set` immediately followed by :meth:`clear`.
 
         """
         if self._flag:
