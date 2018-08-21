@@ -116,13 +116,6 @@ class ParkingLot:
         """
         return bool(self._parked)
 
-    def _abort_func_for(self, task):
-        def abort(_):
-            del self._parked[task]
-            return _core.Abort.SUCCEEDED
-
-        return abort
-
     # XX this currently returns None
     # if we ever add the ability to repark while one's resuming place in
     # line (for false wakeups), then we could have it return a ticket that
@@ -135,7 +128,13 @@ class ParkingLot:
         """
         task = _core.current_task()
         self._parked[task] = None
-        await _core.wait_task_rescheduled(self._abort_func_for(task))
+        task.custom_sleep_data = self
+
+        def abort_fn(_):
+            del task.custom_sleep_data._parked[task]
+            return _core.Abort.SUCCEEDED
+
+        await _core.wait_task_rescheduled(abort_fn)
 
     def _pop_several(self, count):
         for _ in range(min(count, len(self._parked))):
@@ -203,7 +202,7 @@ class ParkingLot:
             raise TypeError("new_lot must be a ParkingLot")
         for task in self._pop_several(count):
             new_lot._parked[task] = None
-            task._abort_func = new_lot._abort_func_for(task)
+            task.custom_sleep_data = new_lot
 
     def repark_all(self, new_lot):
         """Move all parked tasks from one :class:`ParkingLot` object to
