@@ -294,6 +294,13 @@ class _TaskStatus:
 
 
 class NurseryManager:
+    """Nursery context manager.
+
+    Note we explicitly avoid @asynccontextmanager and @async_generator
+    since they add a lot of extraneous stack frames to exceptions, as
+    well as cause problematic behavior with handling of StopIteration.
+
+    """
     @enable_ki_protection
     async def __aenter__(self):
         assert currently_ki_protected()

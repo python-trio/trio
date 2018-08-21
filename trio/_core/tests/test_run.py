@@ -1829,6 +1829,18 @@ async def test_nursery_explicit_exception():
             raise KeyError()
 
 
+async def test_nursery_stop_iteration():
+    async def fail():
+        raise ValueError
+
+    try:
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(fail)
+            raise StopIteration
+    except _core.MultiError as e:
+        assert tuple(map(type, e.exceptions)) == (StopIteration, ValueError)
+
+
 def test_contextvar_support():
     var = contextvars.ContextVar("test")
     var.set("before")
