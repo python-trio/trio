@@ -1908,3 +1908,12 @@ def test_sniffio_integration():
 
     with pytest.raises(sniffio.AsyncLibraryNotFoundError):
         sniffio.current_async_library()
+
+
+async def test_Task_custom_sleep_data():
+    task = _core.current_task()
+    assert task.custom_sleep_data is None
+    task.custom_sleep_data = 1
+    assert task.custom_sleep_data == 1
+    await _core.checkpoint()
+    assert task.custom_sleep_data is None
