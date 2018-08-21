@@ -298,9 +298,11 @@ class NurseryManager:
 
     Note we explicitly avoid @asynccontextmanager and @async_generator
     since they add a lot of extraneous stack frames to exceptions, as
-    well as cause problematic behavior with handling of StopIteration.
+    well as cause problematic behavior with handling of StopIteration
+    and StopAsyncIteration.
 
     """
+
     @enable_ki_protection
     async def __aenter__(self):
         assert currently_ki_protected()
