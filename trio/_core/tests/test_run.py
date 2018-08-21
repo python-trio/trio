@@ -1841,6 +1841,61 @@ async def test_nursery_stop_iteration():
         assert tuple(map(type, e.exceptions)) == (StopIteration, ValueError)
 
 
+async def test_nursery_stop_async_iteration():
+    class it(object):
+        def __init__(self, count):
+            self.count = count
+            self.val = 0
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            await sleep(0)
+            val = self.val
+            if val >= self.count:
+                raise StopAsyncIteration
+            self.val += 1
+            return val
+
+    class async_zip(object):
+        def __init__(self, *largs):
+            self.nexts = [obj.__anext__ for obj in largs]
+
+        async def _accumulate(self, f, items, i):
+            items[i] = await f()
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            nexts = self.nexts
+            items = [None, ] * len(nexts)
+            got_stop = False
+
+            def handle(exc):
+                nonlocal got_stop
+                if isinstance(exc, StopAsyncIteration):
+                    got_stop = True
+                    return None
+                else:
+                    return exc
+
+            with _core.MultiError.catch(handle):
+                async with _core.open_nursery() as nursery:
+                    for i, f in enumerate(nexts):
+                        nursery.start_soon(self._accumulate, f, items, i)
+
+            if got_stop:
+                raise StopAsyncIteration
+            return items
+
+    result = []
+    async for vals in async_zip(it(4), it(2)):
+        result.append(vals)
+    assert result == [[0, 0], [1, 1]]
+
+
 def test_contextvar_support():
     var = contextvars.ContextVar("test")
     var.set("before")
