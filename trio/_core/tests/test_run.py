@@ -1848,10 +1848,6 @@ async def test_nursery_stop_async_iteration():
             self.count = count
             self.val = 0
 
-        @aiter_compat
-        def __aiter__(self):
-            return self
-
         async def __anext__(self):
             await sleep(0)
             val = self.val
@@ -1883,7 +1879,7 @@ async def test_nursery_stop_async_iteration():
                 if isinstance(exc, StopAsyncIteration):
                     got_stop = True
                     return None
-                else:
+                else:  # pragma: no cover
                     return exc
 
             with _core.MultiError.catch(handle):
