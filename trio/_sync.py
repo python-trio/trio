@@ -25,6 +25,13 @@ class Event:
 
     An event object manages an internal boolean flag, which is initially
     False, and tasks can wait for it to become True.
+    
+    The flag is useful because it helps avoid race conditions and lost
+    wakeups: it doesn't matter whether :meth:`set` gets called just
+    before or after :meth:`wait`.
+    
+    If you want a lower-level wakeup primitive that doesn't have this
+    protection, consider :class`Condition` or :class:`trio.hazmat.ParkingLot`.
 
     """
 
@@ -54,12 +61,7 @@ class Event:
     async def wait(self):
         """Block until the internal flag value becomes True.
 
-        If it's already True, then this method returns immediately (though
-        still a checkpoint).
-
-        If you would rather have the behavior where waiting tasks only
-        proceed on transitions from False to True, it can be accomplished
-        by having calls to :meth:`set` immediately followed by :meth:`clear`.
+        If it's already True, then this method returns immediately.
 
         """
         if self._flag:
