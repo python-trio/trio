@@ -638,5 +638,5 @@ Signals
 
 .. currentmodule:: trio
 
-.. autofunction:: catch_signals
-   :with: batched_signal_aiter
+.. autofunction:: open_signal_receiver
+   :with: signal_aiter

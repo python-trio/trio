@@ -1,0 +1,1 @@
+New and improved signal catching API: :func:`open_signal_receiver`.

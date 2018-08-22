@@ -1,17 +1,16 @@
 import os
 import signal
-import threading
-import queue as stdlib_queue
 
 import pytest
 
+import trio
 from .. import _core
 from .._util import signal_raise
-from .._signals import catch_signals, _signal_handler
-from .._sync import Event
+from .._signals import catch_signals, open_signal_receiver, _signal_handler
 
 
-async def test_catch_signals():
+# Delete when catch_signals is removed
+async def test_catch_signals(recwarn):
     print = lambda *args: None
     orig = signal.getsignal(signal.SIGILL)
     print(orig)
@@ -35,23 +34,98 @@ async def test_catch_signals():
     assert signal.getsignal(signal.SIGILL) is orig
 
 
-def test_catch_signals_wrong_thread():
-    threadqueue = stdlib_queue.Queue()
+async def test_open_signal_receiver():
+    orig = signal.getsignal(signal.SIGILL)
+    with open_signal_receiver(signal.SIGILL) as receiver:
+        # Raise it a few times, to exercise signal coalescing, both at the
+        # call_soon level and at the SignalQueue level
+        signal_raise(signal.SIGILL)
+        signal_raise(signal.SIGILL)
+        await _core.wait_all_tasks_blocked()
+        signal_raise(signal.SIGILL)
+        await _core.wait_all_tasks_blocked()
+        async for signum in receiver:  # pragma: no branch
+            assert signum == signal.SIGILL
+            break
+        signal_raise(signal.SIGILL)
+        async for signum in receiver:  # pragma: no branch
+            assert signum == signal.SIGILL
+            break
+    with pytest.raises(RuntimeError):
+        await receiver.__anext__()
+    assert signal.getsignal(signal.SIGILL) is orig
 
+
+async def test_open_signal_receiver_restore_handler_after_one_bad_signal():
+    orig = signal.getsignal(signal.SIGILL)
+    with pytest.raises(ValueError):
+        with open_signal_receiver(signal.SIGILL, 1234567):
+            pass  # pragma: no cover
+    # Still restored even if we errored out
+    assert signal.getsignal(signal.SIGILL) is orig
+
+
+async def test_open_signal_receiver_restore_handler_after_duplicate_signal():
+    orig = signal.getsignal(signal.SIGILL)
+    with open_signal_receiver(signal.SIGILL, signal.SIGILL):
+        pass
+    # Still restored correctly
+    assert signal.getsignal(signal.SIGILL) is orig
+
+
+async def test_catch_signals_wrong_thread():
     async def naughty():
-        try:
-            with catch_signals([signal.SIGINT]) as _:
-                pass  # pragma: no cover
-        except Exception as exc:
-            threadqueue.put(exc)
-        else:  # pragma: no cover
-            threadqueue.put(None)
+        with open_signal_receiver(signal.SIGINT):
+            pass  # pragma: no cover
 
-    thread = threading.Thread(target=_core.run, args=(naughty,))
-    thread.start()
-    thread.join()
-    exc = threadqueue.get_nowait()
-    assert type(exc) is RuntimeError
+    with pytest.raises(RuntimeError):
+        await trio.run_sync_in_worker_thread(trio.run, naughty)
+
+
+async def test_open_signal_receiver_conflict():
+    with pytest.raises(trio.ResourceBusyError):
+        with open_signal_receiver(signal.SIGILL) as receiver:
+            async with trio.open_nursery() as nursery:
+                nursery.start_soon(receiver.__anext__)
+                nursery.start_soon(receiver.__anext__)
+
+
+# Blocks until all previous calls to run_sync_soon(idempotent=True) have been
+# processed.
+async def wait_run_sync_soon_idempotent_queue_barrier():
+    ev = trio.Event()
+    token = _core.current_trio_token()
+    token.run_sync_soon(ev.set, idempotent=True)
+    await ev.wait()
+
+
+async def test_open_signal_receiver_no_starvation():
+    # Set up a situation where there are always 2 pending signals available to
+    # report, and make sure that instead of getting the same signal reported
+    # over and over, it alternates between reporting both of them.
+    with open_signal_receiver(signal.SIGILL, signal.SIGFPE) as receiver:
+        try:
+            print(signal.getsignal(signal.SIGILL))
+            previous = None
+            for _ in range(10):
+                signal_raise(signal.SIGILL)
+                signal_raise(signal.SIGFPE)
+                await wait_run_sync_soon_idempotent_queue_barrier()
+                if previous is None:
+                    previous = await receiver.__anext__()
+                else:
+                    got = await receiver.__anext__()
+                    assert got in [signal.SIGILL, signal.SIGFPE]
+                    assert got != previous
+                    previous = got
+            # Clear out the last signal so it doesn't get redelivered
+            await receiver.__anext__()
+        except:  # pragma: no cover
+            # If there's an unhandled exception above, then exiting the
+            # open_signal_receiver block might cause the signal to be
+            # redelivered and give us a core dump instead of a traceback...
+            import traceback
+            traceback.print_exc()
 
 
 async def test_catch_signals_race_condition_on_exit():
@@ -60,20 +134,14 @@ async def test_catch_signals_race_condition_on_exit():
     def direct_handler(signo, frame):
         delivered_directly.add(signo)
 
-    async def wait_call_soon_idempotent_queue_barrier():
-        ev = Event()
-        token = _core.current_trio_token()
-        token.run_sync_soon(ev.set, idempotent=True)
-        await ev.wait()
-
     print(1)
     # Test the version where the call_soon *doesn't* have a chance to run
     # before we exit the with block:
     with _signal_handler({signal.SIGILL, signal.SIGFPE}, direct_handler):
-        with catch_signals({signal.SIGILL, signal.SIGFPE}) as queue:
+        with open_signal_receiver(signal.SIGILL, signal.SIGFPE) as receiver:
             signal_raise(signal.SIGILL)
             signal_raise(signal.SIGFPE)
-        await wait_call_soon_idempotent_queue_barrier()
+        await wait_run_sync_soon_idempotent_queue_barrier()
     assert delivered_directly == {signal.SIGILL, signal.SIGFPE}
     delivered_directly.clear()
 
@@ -81,11 +149,11 @@ async def test_catch_signals_race_condition_on_exit():
     # Test the version where the call_soon *does* have a chance to run before
     # we exit the with block:
     with _signal_handler({signal.SIGILL, signal.SIGFPE}, direct_handler):
-        with catch_signals({signal.SIGILL, signal.SIGFPE}) as queue:
+        with open_signal_receiver(signal.SIGILL, signal.SIGFPE) as receiver:
             signal_raise(signal.SIGILL)
             signal_raise(signal.SIGFPE)
-            await wait_call_soon_idempotent_queue_barrier()
-            assert len(queue._pending) == 2
+            await wait_run_sync_soon_idempotent_queue_barrier()
+            assert len(receiver._pending) == 2
     assert delivered_directly == {signal.SIGILL, signal.SIGFPE}
     delivered_directly.clear()
 
@@ -93,17 +161,17 @@ async def test_catch_signals_race_condition_on_exit():
 
     print(3)
     with _signal_handler({signal.SIGILL}, signal.SIG_IGN):
-        with catch_signals({signal.SIGILL}) as queue:
+        with open_signal_receiver(signal.SIGILL) as receiver:
             signal_raise(signal.SIGILL)
-        await wait_call_soon_idempotent_queue_barrier()
+        await wait_run_sync_soon_idempotent_queue_barrier()
     # test passes if the process reaches this point without dying
 
     print(4)
     with _signal_handler({signal.SIGILL}, signal.SIG_IGN):
-        with catch_signals({signal.SIGILL}) as queue:
+        with open_signal_receiver(signal.SIGILL) as receiver:
             signal_raise(signal.SIGILL)
-            await wait_call_soon_idempotent_queue_barrier()
-            assert len(queue._pending) == 1
+            await wait_run_sync_soon_idempotent_queue_barrier()
+            assert len(receiver._pending) == 1
     # test passes if the process reaches this point without dying
 
     # Check exception chaining if there are multiple exception-raising
@@ -113,11 +181,13 @@ async def test_catch_signals_race_condition_on_exit():
 
     with _signal_handler({signal.SIGILL, signal.SIGFPE}, raise_handler):
         with pytest.raises(RuntimeError) as excinfo:
-            with catch_signals({signal.SIGILL, signal.SIGFPE}) as queue:
+            with open_signal_receiver(
+                signal.SIGILL, signal.SIGFPE
+            ) as receiver:
                 signal_raise(signal.SIGILL)
                 signal_raise(signal.SIGFPE)
-                await wait_call_soon_idempotent_queue_barrier()
-                assert len(queue._pending) == 2
+                await wait_run_sync_soon_idempotent_queue_barrier()
+                assert len(receiver._pending) == 2
         exc = excinfo.value
         signums = {exc.args[0]}
         assert isinstance(exc.__context__, RuntimeError)
