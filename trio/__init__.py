@@ -56,6 +56,9 @@ __all__ += _highlevel_open_tcp_listeners.__all__
 from ._highlevel_open_unix_stream import *
 __all__ += _highlevel_open_unix_stream.__all__
 
+from ._highlevel_pipes import *
+__all__ += _highlevel_pipes.__all__
+
 from ._highlevel_ssl_helpers import *
 __all__ += _highlevel_ssl_helpers.__all__
 
