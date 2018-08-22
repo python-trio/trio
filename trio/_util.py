@@ -177,9 +177,9 @@ def fixup_module_metadata(module_name, namespace):
                 for attr_value in obj.__dict__.values():
                     fix_one(attr_value)
 
-    for objname in namespace["__all__"]:
-        obj = namespace[objname]
-        fix_one(obj)
+    for objname, obj in namespace.items():
+        if not objname.startswith("_"):  # ignore private attributes
+            fix_one(obj)
 
 
 # os.fspath is defined on Python 3.6+ but we need to support Python 3.5 too

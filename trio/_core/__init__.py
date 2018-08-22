@@ -14,7 +14,8 @@ def _public(fn):
     return fn
 
 
-__all__ = ["TrioInternalError",
+__all__ = [
+    "TrioInternalError",
     "RunFinishedError",
     "WouldBlock",
     "Cancelled",
@@ -28,7 +29,7 @@ __all__ = ["TrioInternalError",
     "TASK_STATUS_IGNORED",
     "current_time",
     "TaskLocal",
-    "cancel_shielded_checkpoint",]
+]
 
 from ._exceptions import *
 __all__ += _exceptions.__all__
