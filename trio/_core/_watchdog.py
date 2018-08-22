@@ -5,10 +5,11 @@ import traceback
 
 
 class TrioWatchdog(object):
-    def __init__(self):
+    def __init__(self, timeout=5):
         self._stopped = False
         self._thread = None
         self._notify_event = threading.Event()
+        self._timeout = timeout
 
         self._before_counter = 0
         self._after_counter = 0
@@ -42,7 +43,7 @@ class TrioWatchdog(object):
                 if self._stopped:
                     return
             else:
-                self._notify_event.wait(timeout=5)
+                self._notify_event.wait(timeout=self._timeout)
                 if self._stopped:
                     return
 
@@ -79,3 +80,5 @@ class TrioWatchdog(object):
 
     def stop(self):
         self._stopped = True
+        self._notify_event.set()
+        self._thread.join()

@@ -1,30 +1,30 @@
-import threading
 import time
-from io import StringIO
 
 import contextlib
+from io import StringIO
 
 from ..tests.tutil import slow
-from .. import _run
+from ... import _core
+from ..._timeouts import sleep
+
+MAGIC_TEXT = "Trio Watchdog has not received any notifications in 5 seconds, \
+main thread is blocked!"
 
 
 @slow
-async def test_watchdog():
-    watchdog = _run.GLOBAL_RUN_CONTEXT.watchdog
-    target = StringIO()
-    with contextlib.redirect_stderr(target):
-        time.sleep(7)
+def test_watchdog():
+    async def _inner_test():
+        target = StringIO()
+        with contextlib.redirect_stderr(target):
+            time.sleep(2)
 
-    assert target.getvalue().startswith(
-        "Trio Watchdog has not received any "
-        "notifications in 5 seconds, main "
-        "thread is blocked!"
-    )
+        assert target.getvalue().startswith(MAGIC_TEXT)
 
-    # checkpoint to ensure the watchdog gets a notification, sees that its
-    # dead, and winds down its thread
-    watchdog.stop()
-    await _run.checkpoint()
-    time.sleep(6)  # ensure if the watchdog is waiting for 5s, it wakes
-    await _run.checkpoint()
-    assert not watchdog._thread.is_alive()
+        target = StringIO()
+        with contextlib.redirect_stderr(target):
+            await sleep(2)
+
+        # if pytest puts garbage in stderr this won't fail
+        assert not target.getvalue().startswith(MAGIC_TEXT)
+
+    _core.run(_inner_test, use_watchdog=True, watchdog_timeout=1)

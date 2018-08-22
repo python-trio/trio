@@ -1158,7 +1158,8 @@ def run(
     clock=None,
     instruments=(),
     restrict_keyboard_interrupt_to_checkpoints=False,
-    use_watchdog=True
+    use_watchdog=True,
+    watchdog_timeout=5
 ):
     """Run a trio-flavored async function, and return the result.
 
@@ -1220,6 +1221,9 @@ def run(
           and if so will notify you and print the stack traces of all
           threads to show exactly where the program is blocked.
 
+      watchdog_timeout (int): The number of seconds the watchdog will wait
+          before notifying that the main thread is blocked.
+
     Returns:
       Whatever ``async_fn`` returns.
 
@@ -1260,7 +1264,7 @@ def run(
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
 
     if use_watchdog:
-        watchdog = TrioWatchdog()
+        watchdog = TrioWatchdog(watchdog_timeout)
     else:
         watchdog = None
 
