@@ -17,6 +17,7 @@ from async_generator import async_generator
 from .tutil import check_sequence_matches, gc_collect_harder
 from ... import _core
 from ..._timeouts import sleep
+from ..._util import aiter_compat
 from ...testing import (
     wait_all_tasks_blocked,
     Sequencer,
@@ -1821,6 +1822,79 @@ async def test_nursery_start_keeps_nursery_open(autojump_clock):
             nursery1.start_soon(start_sleep_then_crash, nursery2)
             await wait_all_tasks_blocked()
         assert _core.current_time() - t0 == 7
+
+
+async def test_nursery_explicit_exception():
+    with pytest.raises(KeyError):
+        async with _core.open_nursery():
+            raise KeyError()
+
+
+async def test_nursery_stop_iteration():
+    async def fail():
+        raise ValueError
+
+    try:
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(fail)
+            raise StopIteration
+    except _core.MultiError as e:
+        assert tuple(map(type, e.exceptions)) == (StopIteration, ValueError)
+
+
+async def test_nursery_stop_async_iteration():
+    class it(object):
+        def __init__(self, count):
+            self.count = count
+            self.val = 0
+
+        async def __anext__(self):
+            await sleep(0)
+            val = self.val
+            if val >= self.count:
+                raise StopAsyncIteration
+            self.val += 1
+            return val
+
+    class async_zip(object):
+        def __init__(self, *largs):
+            self.nexts = [obj.__anext__ for obj in largs]
+
+        async def _accumulate(self, f, items, i):
+            items[i] = await f()
+
+        @aiter_compat
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            nexts = self.nexts
+            items = [
+                None,
+            ] * len(nexts)
+            got_stop = False
+
+            def handle(exc):
+                nonlocal got_stop
+                if isinstance(exc, StopAsyncIteration):
+                    got_stop = True
+                    return None
+                else:  # pragma: no cover
+                    return exc
+
+            with _core.MultiError.catch(handle):
+                async with _core.open_nursery() as nursery:
+                    for i, f in enumerate(nexts):
+                        nursery.start_soon(self._accumulate, f, items, i)
+
+            if got_stop:
+                raise StopAsyncIteration
+            return items
+
+    result = []
+    async for vals in async_zip(it(4), it(2)):
+        result.append(vals)
+    assert result == [[0, 0], [1, 1]]
 
 
 def test_contextvar_support():
