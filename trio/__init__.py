@@ -32,7 +32,6 @@ __all__ = [
 
 from ._version import __version__
 
-
 from ._core import (
     TrioInternalError, RunFinishedError, WouldBlock, Cancelled,
     ResourceBusyError, ClosedResourceError, MultiError, run, open_nursery,
