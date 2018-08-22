@@ -32,13 +32,6 @@ __all__ = [
 
 from ._version import __version__
 
-# from ._toplevel_core_reexports import (
-#     TrioInternalError, RunFinishedError, WouldBlock, Cancelled,
-#     ResourceBusyError, ClosedResourceError, MultiError, run, open_nursery,
-#     open_cancel_scope, current_effective_deadline, TASK_STATUS_IGNORED,
-#     current_time, TaskLocal, __all__
-# )
-
 from ._core import (
     TrioInternalError, RunFinishedError, WouldBlock, Cancelled,
     ResourceBusyError, ClosedResourceError, MultiError, run, open_nursery,
