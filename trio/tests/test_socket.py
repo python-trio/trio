@@ -471,14 +471,6 @@ async def test_SocketType_resolve():
             await s6res(("1.2.3.4", 80, 0, 0, 0))
 
 
-async def test_deprecated_resolver_methods(recwarn):
-    with tsocket.socket() as sock:
-        got = await sock.resolve_local_address((None, 80))
-        assert got == ("0.0.0.0", 80)
-        got = await sock.resolve_remote_address((None, 80))
-        assert got == ("127.0.0.1", 80)
-
-
 async def test_SocketType_unresolved_names():
     with tsocket.socket() as sock:
         await sock.bind(("localhost", 0))
@@ -786,8 +778,9 @@ async def test_custom_hostname_resolver(monkeygai):
         (0, 0, 0, tsocket.AI_CANONNAME),
     ]:
         assert (
-            await tsocket.getaddrinfo("localhost", "foo", *vals) ==
-            ("custom_gai", b"localhost", "foo", *vals)
+            await tsocket.getaddrinfo(
+                "localhost", "foo", *vals
+            ) == ("custom_gai", b"localhost", "foo", *vals)
         )
 
     # IDNA encoding is handled before calling the special object
