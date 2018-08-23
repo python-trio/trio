@@ -463,7 +463,7 @@ above). Cancellable means:
   happen*. If a trio socket's ``send`` method raises :exc:`Cancelled`,
   then no data was sent. If a trio socket's ``recv`` method raises
   :exc:`Cancelled` then no data was lost – it's still sitting in the
-  socket recieve buffer waiting for you to call ``recv`` again. And so
+  socket receive buffer waiting for you to call ``recv`` again. And so
   forth.
 
 There are a few idiosyncratic cases where external constraints make it
