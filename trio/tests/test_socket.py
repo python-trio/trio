@@ -778,9 +778,8 @@ async def test_custom_hostname_resolver(monkeygai):
         (0, 0, 0, tsocket.AI_CANONNAME),
     ]:
         assert (
-            await tsocket.getaddrinfo(
-                "localhost", "foo", *vals
-            ) == ("custom_gai", b"localhost", "foo", *vals)
+            await tsocket.getaddrinfo("localhost", "foo", *vals) ==
+            ("custom_gai", b"localhost", "foo", *vals)
         )
 
     # IDNA encoding is handled before calling the special object
