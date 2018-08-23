@@ -30,7 +30,6 @@ __all__ = [
     "current_statistics",
     "ParkingLot",
     "UnboundedQueue",
-    "RunLocal",
     "RunVar",
     "wait_writable",
     "wait_readable",
