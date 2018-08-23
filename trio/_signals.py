@@ -177,7 +177,7 @@ class CompatSignalQueue:
         return self
 
     async def __anext__(self):
-        return { await self._signal_queue.__anext__()}
+        return {await self._signal_queue.__anext__()}
 
 
 @deprecated("0.7.0", issue=354, instead=open_signal_receiver)
