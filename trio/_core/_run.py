@@ -1211,7 +1211,7 @@ def run(
           This setting has no effect if your program has registered a custom
           SIGINT handler, or if :func:`run` is called from anywhere but the
           main thread (this is a Python limitation), or if you use
-          :func:`catch_signals` to catch SIGINT.
+          :func:`open_signal_receiver` to catch SIGINT.
 
     Returns:
       Whatever ``async_fn`` returns.
