@@ -27,7 +27,6 @@ __all__ = [
     "open_cancel_scope",
     "current_effective_deadline",
     "TASK_STATUS_IGNORED",
-    "current_time",
     "TaskLocal",
 ]
 
