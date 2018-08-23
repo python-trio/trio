@@ -36,14 +36,13 @@ def test_pylint_sees_all_non_underscore_symbols_in_namespace():
     assert trio_set - ast_set == set([])
 
 
-@pytest.mark.skipif(
-    sys.version_info.minor > 7 and sys.version_info.releaselevel != 'final',
-    reason="jedi test for python 3.8-dev not supported"
-)
 def test_jedi_sees_all_completions():
     # Test the jedi completion library get all in dir(trio)
-    script = jedi.Script(path=trio.__file__)
-    completions = script.completions()
-    trio_set = set([symbol for symbol in dir(trio) if symbol[:2] != '__'])
-    jedi_set = set([cmp.name for cmp in completions])
-    assert trio_set - jedi_set == set([])
+    try:
+        script = jedi.Script(path=trio.__file__)
+        completions = script.completions()
+        trio_set = set([symbol for symbol in dir(trio) if symbol[:2] != '__'])
+        jedi_set = set([cmp.name for cmp in completions])
+        assert trio_set - jedi_set == set([])
+    except NotImplementedError:
+        pytest.skip("jedi does not yet support {}".format(sys.version))
