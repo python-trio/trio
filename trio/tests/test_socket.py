@@ -144,7 +144,7 @@ async def test_getaddrinfo(monkeygai):
             await tsocket.getaddrinfo("::1", "12345", type=-1)
     # Linux, Windows
     expected_errnos = {tsocket.EAI_SOCKTYPE}
-    # MacOS
+    # macOS
     if hasattr(tsocket, "EAI_BADHINTS"):
         expected_errnos.add(tsocket.EAI_BADHINTS)
     assert excinfo.value.errno in expected_errnos
@@ -377,7 +377,7 @@ async def test_SocketType_simple_server(address, socket_type):
             assert await client.recv(1) == b"x"
 
 
-# On some MacOS systems, getaddrinfo likes to return V4-mapped addresses even
+# On some macOS systems, getaddrinfo likes to return V4-mapped addresses even
 # when we *don't* pass AI_V4MAPPED.
 # https://github.com/python-trio/trio/issues/580
 def gai_without_v4mapped_is_buggy():  # pragma: no cover
@@ -438,7 +438,7 @@ async def test_SocketType_resolve():
             sock6.setsockopt(tsocket.IPPROTO_IPV6, tsocket.IPV6_V6ONLY, True)
             with pytest.raises(tsocket.gaierror) as excinfo:
                 await s6res(("1.2.3.4", 80))
-            # Windows, MacOS
+            # Windows, macOS
             expected_errnos = {tsocket.EAI_NONAME}
             # Linux
             if hasattr(tsocket, "EAI_ADDRFAMILY"):
@@ -620,7 +620,7 @@ async def test_SocketType_connect_paths():
                 # TCP port 2 is not assigned. Pretty sure nothing will be
                 # listening there. (We used to bind a port and then *not* call
                 # listen() to ensure nothing was listening there, but it turns
-                # out on MacOS if you do this it takes 30 seconds for the
+                # out on macOS if you do this it takes 30 seconds for the
                 # connect to fail. Really. Also if you use a non-routable
                 # address. This way fails instantly though. As long as nothing
                 # is listening on port 2.)
@@ -682,7 +682,7 @@ async def test_send_recv_variants():
         # passing MSG_MORE to send_some on a connected UDP socket seems to
         # just be ignored.
         #
-        # But there's no MSG_MORE on Windows or MacOS. I guess send_some flags
+        # But there's no MSG_MORE on Windows or macOS. I guess send_some flags
         # are really not very useful, but at least this tests them a bit.
         if hasattr(tsocket, "MSG_MORE"):
             await a.sendto(b"xxx", tsocket.MSG_MORE, b.getsockname())
@@ -856,7 +856,7 @@ async def test_unix_domain_socket():
                 assert await ssock.recv(1) == b"x"
 
     # Can't use tmpdir fixture, because we can exceed the maximum AF_UNIX path
-    # length on MacOS.
+    # length on macOS.
     with tempfile.TemporaryDirectory() as tmpdir:
         path = "{}/sock".format(tmpdir)
         await check_AF_UNIX(path)
@@ -865,7 +865,7 @@ async def test_unix_domain_socket():
         cookie = os.urandom(20).hex().encode("ascii")
         await check_AF_UNIX(b"\x00trio-test-" + cookie)
     except FileNotFoundError:
-        # MacOS doesn't support abstract filenames with the leading NUL byte
+        # macOS doesn't support abstract filenames with the leading NUL byte
         pass
 
 

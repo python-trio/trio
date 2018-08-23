@@ -1353,7 +1353,7 @@ async def test_TrioToken_run_sync_soon_massive_queue():
     # There are edge cases in the wakeup fd code when the wakeup fd overflows,
     # so let's try to make that happen. This is also just a good stress test
     # in general. (With the current-as-of-2017-02-14 code using a socketpair
-    # with minimal buffer, Linux takes 6 wakeups to fill the buffer and MacOS
+    # with minimal buffer, Linux takes 6 wakeups to fill the buffer and macOS
     # takes 1 wakeup. So 1000 is overkill if anything. Windows OTOH takes
     # ~600,000 wakeups, but has the same code paths...)
     COUNT = 1000

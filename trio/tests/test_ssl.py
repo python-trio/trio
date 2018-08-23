@@ -139,7 +139,7 @@ class PyOpenSSLEchoStream:
         # renegotiations. Of course TLS 1.3 support isn't released yet, but
         # I'm told that this will work once it is. (And once it is we can
         # remove the pragma: no cover too.) Alternatively, once we drop
-        # support for CPython 3.5 on MacOS, then we could switch to using
+        # support for CPython 3.5 on macOS, then we could switch to using
         # TLSv1_2_METHOD.
         #
         # Discussion: https://github.com/pyca/pyopenssl/issues/624

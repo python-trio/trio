@@ -16,7 +16,7 @@
 
 .. image:: https://travis-ci.org/python-trio/trio.svg?branch=master
    :target: https://travis-ci.org/python-trio/trio
-   :alt: Automated test status (Linux and MacOS)
+   :alt: Automated test status (Linux and macOS)
 
 .. image:: https://ci.appveyor.com/api/projects/status/af4eyed8o8tc3t0r/branch/master?svg=true
    :target: https://ci.appveyor.com/project/njsmith/trio/history
@@ -98,7 +98,7 @@ and an `echo server
 
 **Cool, but will it work on my system?** Probably! As long as you have
 some kind of Python 3.5-or-better (CPython or the latest PyPy3 are
-both fine), and are using Linux, MacOS, or Windows, then trio should
+both fine), and are using Linux, macOS, or Windows, then trio should
 absolutely work. *BSD and illumos likely work too, but we don't have
 testing infrastructure for them. All of our dependencies are pure
 Python, except for CFFI on Windows, and that has wheels available, so

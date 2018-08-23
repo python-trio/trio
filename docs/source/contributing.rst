@@ -198,7 +198,7 @@ locally can be useful
 (``pytest --cov=PACKAGENAME --cov-report=html``), but don't be
 surprised if you get lower coverage than when looking at Codecov
 reports, because there are some lines that are only executed on
-Windows, or MacOS, or PyPy, or CPython, or... you get the idea. After
+Windows, or macOS, or PyPy, or CPython, or... you get the idea. After
 you create a PR, Codecov will automatically report back with the
 coverage, so you can check how you're really doing. (But note that the
 results can be inaccurate until all the tests are passing. If the

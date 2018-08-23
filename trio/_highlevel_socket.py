@@ -126,7 +126,7 @@ class SocketStream(HalfCloseableStream):
 
     async def send_eof(self):
         async with self._send_conflict_detector:
-            # On MacOS, calling shutdown a second time raises ENOTCONN, but
+            # On macOS, calling shutdown a second time raises ENOTCONN, but
             # send_eof needs to be idempotent.
             if self.socket.did_shutdown_SHUT_WR:
                 return
@@ -180,7 +180,7 @@ class SocketStream(HalfCloseableStream):
 # -----------------
 #
 # Here's a list of all the possible errors that accept() can return, according
-# to the POSIX spec or the Linux, FreeBSD, MacOS, and Windows docs:
+# to the POSIX spec or the Linux, FreeBSD, macOS, and Windows docs:
 #
 # Can't happen with a trio socket:
 # - EAGAIN/(WSA)EWOULDBLOCK
@@ -226,7 +226,7 @@ class SocketStream(HalfCloseableStream):
 # - ignores EPERM, with comment about Linux firewalls
 # - logs and ignores EMFILE, ENOBUFS, ENFILE, ENOMEM, ECONNABORTED
 #   Comment notes that ECONNABORTED is a BSDism and that Linux returns the
-#   socket before having it fail, and MacOS just silently discards it.
+#   socket before having it fail, and macOS just silently discards it.
 # - other errors are raised, which is logged + kills the socket
 # ref: src/twisted/internet/tcp.py, Port.doRead
 #
@@ -347,7 +347,7 @@ class SocketListener(Listener):
                 tsocket.SOL_SOCKET, tsocket.SO_ACCEPTCONN
             )
         except OSError:
-            # SO_ACCEPTCONN fails on MacOS; we just have to trust the user.
+            # SO_ACCEPTCONN fails on macOS; we just have to trust the user.
             pass
         else:
             if not listening:
