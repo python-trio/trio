@@ -3,6 +3,7 @@ import trio.testing
 
 import jedi
 import os
+import pytest
 import sys
 
 from pylint.lint import PyLinter
@@ -36,7 +37,8 @@ def test_pylint_sees_all_non_underscore_symbols_in_namespace():
 
 
 @pytest.mark.skipif(
-    sys.version[:3] == '3.8-dev', reason="jedi 3.8-dev not supported"
+    sys.version_info.minor > 7 and sys.version_info.releaselevel != 'final',
+    reason="jedi 3.8-dev not supported"
 )
 def test_jedi_sees_all_completions():
     # Test the jedi completion library get all in dir(trio)
