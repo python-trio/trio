@@ -12,7 +12,7 @@ class WakeupSocketpair:
         # for wakeups. With these settings, maximum number of 1-byte sends
         # before getting BlockingIOError:
         #   Linux 4.8: 6
-        #   MacOS (darwin 15.5): 1
+        #   macOS (darwin 15.5): 1
         #   Windows 10: 525347
         # Windows you're weird. (And on Windows setting SNDBUF to 0 makes send
         # blocking, even on non-blocking sockets, so don't do that.)

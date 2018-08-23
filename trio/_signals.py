@@ -23,7 +23,7 @@ __all__ = ["catch_signals"]
 #   impose that, and the failure mode is annoying (signals get delivered via
 #   signal handlers whether we want them to or not).
 #
-# - on MacOS/*BSD, kqueue is the natural way. Semantics: kqueue acts as an
+# - on macOS/*BSD, kqueue is the natural way. Semantics: kqueue acts as an
 #   *extra* signal delivery mechanism. Signals are delivered the normal
 #   way, *and* are delivered to kqueue. So you want to set them to SIG_IGN so
 #   that they don't end up pending forever (I guess?). I can't find any actual

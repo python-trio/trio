@@ -16,7 +16,7 @@ async def check_takes_about(f, expected_dur):
     # 1.2 is an arbitrary fudge factor because there's always some delay
     # between when we become eligible to wake up and when we actually do. We
     # used to sleep for 0.05, and regularly observed overruns of 1.6x on
-    # Appveyor, and then started seeing overruns of 2.3x on Travis's MacOS, so
+    # Appveyor, and then started seeing overruns of 2.3x on Travis's macOS, so
     # now we bumped up the sleep to 1 second, marked the tests as slow, and
     # hopefully now the proportional error will be less huge.
     #

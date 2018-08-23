@@ -154,7 +154,7 @@ async def test_SocketListener():
         excinfo.match(r".*SOCK_STREAM")
 
     # Didn't call .listen()
-    # MacOS has no way to check for this, so skip testing it there.
+    # macOS has no way to check for this, so skip testing it there.
     if sys.platform != "darwin":
         with tsocket.socket() as s:
             await s.bind(("127.0.0.1", 0))

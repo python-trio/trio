@@ -831,7 +831,7 @@ async def test_open_stream_to_socket_listener():
     if hasattr(tsocket, "AF_UNIX"):
         # Listener bound to Unix-domain socket
         sock = tsocket.socket(family=tsocket.AF_UNIX)
-        # can't use pytest's tmpdir; if we try then MacOS says "OSError:
+        # can't use pytest's tmpdir; if we try then macOS says "OSError:
         # AF_UNIX path too long"
         with tempfile.TemporaryDirectory() as tmpdir:
             path = "{}/sock".format(tmpdir)

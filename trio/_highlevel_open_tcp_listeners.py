@@ -32,7 +32,7 @@ __all__ = ["open_tcp_listeners", "serve_tcp"]
 # different operating systems. But on every system, passing in a too-large
 # backlog just causes it to be silently truncated to the configured maximum,
 # so this is unnecessary -- we can just pass in "infinity" and get the maximum
-# that way. (Verified on Windows, Linux, MacOS using
+# that way. (Verified on Windows, Linux, macOS using
 # notes-to-self/measure-listen-backlog.py)
 def _compute_backlog(backlog):
     if backlog is None:

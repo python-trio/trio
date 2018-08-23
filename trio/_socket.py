@@ -587,13 +587,13 @@ class _SocketType(SocketType):
         # - But, we also want to provide the correct semantics, and part
         #   of that means giving correct errors. So, for example, if you
         #   haven't called .listen(), then .accept() raises an error
-        #   immediately. But in this same circumstance, then on MacOS, the
+        #   immediately. But in this same circumstance, then on macOS, the
         #   socket does not register as readable. So if we block waiting
         #   for read *before* we call accept, then we'll be waiting
         #   forever instead of properly raising an error. (On Linux,
         #   interestingly, AFAICT a socket that can't possible read/write
         #   *does* count as readable/writable for select() purposes. But
-        #   not on MacOS.)
+        #   not on macOS.)
         #
         # So, we have to call the function once, with the appropriate
         # cancellation/yielding sandwich if it succeeds, and if it gives
@@ -688,7 +688,7 @@ class _SocketType(SocketType):
                 #
                 # In practice, the resolution is probably that non-blocking
                 # connect simply never returns EINTR, so the question of how to
-                # handle it is moot.  Someone spelunked MacOS/FreeBSD and
+                # handle it is moot.  Someone spelunked macOS/FreeBSD and
                 # confirmed this is true there:
                 #
                 #   https://stackoverflow.com/questions/14134440/eintr-and-non-blocking-calls

@@ -26,7 +26,7 @@ Bugfixes
 - Fix a memory leak in :class:`trio.CapacityLimiter`, that could occurr when
   ``acquire`` or ``acquire_on_behalf_of`` was cancelled. (`#548
   <https://github.com/python-trio/trio/issues/548>`__)
-- Some version of MacOS have a buggy ``getaddrinfo`` that was causing spurious
+- Some version of macOS have a buggy ``getaddrinfo`` that was causing spurious
   test failures; we now detect those systems and skip the relevant test when
   found. (`#580 <https://github.com/python-trio/trio/issues/580>`__)
 - Prevent crashes when used with Sentry (raven-python). (`#599

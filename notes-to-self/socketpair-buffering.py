@@ -11,7 +11,7 @@ import socket
 #   with both set to 1, buffers 525347
 #   except sometimes it's less intermittently (?!?)
 #
-# MacOS:
+# macOS:
 #   if bufsize = 1, can queue up 1 one-byte send
 #   with default bufsize, can queue up 8192 one-byte sends
 #   and bufsize = 0 is invalid (setsockopt errors out)
