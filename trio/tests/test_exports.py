@@ -37,6 +37,7 @@ def test_pylint_sees_all_non_underscore_symbols_in_namespace():
     trio_set.remove('tests')
     assert trio_set - ast_set == set([])
 
+
 def test_jedi_sees_all_completions():
     # Test the jedi completion library get all in dir(trio)
     try:

@@ -14,7 +14,8 @@ def _public(fn):
     return fn
 
 
-__all__ = ["TrioInternalError",
+__all__ = [
+    "TrioInternalError",
     "RunFinishedError",
     "WouldBlock",
     "Cancelled",
