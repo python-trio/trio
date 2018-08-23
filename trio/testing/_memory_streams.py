@@ -279,14 +279,14 @@ class MemoryReceiveStream(ReceiveStream):
 
 
 def memory_stream_pump(
-    memory_send_stream, memory_recieve_stream, *, max_bytes=None
+    memory_send_stream, memory_receive_stream, *, max_bytes=None
 ):
     """Take data out of the given :class:`MemorySendStream`'s internal buffer,
     and put it into the given :class:`MemoryReceiveStream`'s internal buffer.
 
     Args:
       memory_send_stream (MemorySendStream): The stream to get data from.
-      memory_recieve_stream (MemoryReceiveStream): The stream to put data into.
+      memory_receive_stream (MemoryReceiveStream): The stream to put data into.
       max_bytes (int or None): The maximum amount of data to transfer in this
           call, or None to transfer all available data.
 
@@ -305,9 +305,9 @@ def memory_stream_pump(
         return False
     try:
         if not data:
-            memory_recieve_stream.put_eof()
+            memory_receive_stream.put_eof()
         else:
-            memory_recieve_stream.put_data(data)
+            memory_receive_stream.put_data(data)
     except _core.ClosedResourceError:
         raise BrokenStreamError("MemoryReceiveStream was closed")
     return True
