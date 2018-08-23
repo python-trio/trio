@@ -94,6 +94,10 @@ class SignalReceiver:
 
         deliver_next()
 
+    # Helper for tests, not public or otherwise used
+    def _pending_signal_count(self):
+        return len(self._pending)
+
     @aiter_compat
     def __aiter__(self):
         return self

@@ -47,10 +47,12 @@ async def test_open_signal_receiver():
         async for signum in receiver:  # pragma: no branch
             assert signum == signal.SIGILL
             break
+        assert receiver._pending_signal_count() == 0
         signal_raise(signal.SIGILL)
         async for signum in receiver:  # pragma: no branch
             assert signum == signal.SIGILL
             break
+        assert receiver._pending_signal_count() == 0
     with pytest.raises(RuntimeError):
         await receiver.__anext__()
     assert signal.getsignal(signal.SIGILL) is orig
@@ -119,7 +121,8 @@ async def test_open_signal_receiver_no_starvation():
                     assert got != previous
                     previous = got
             # Clear out the last signal so it doesn't get redelivered
-            await receiver.__anext__()
+            while receiver._pending_signal_count() != 0:
+                await receiver.__anext__()
         except:  # pragma: no cover
             # If there's an unhandled exception above, then exiting the
             # open_signal_receiver block might cause the signal to be
@@ -153,7 +156,7 @@ async def test_catch_signals_race_condition_on_exit():
             signal_raise(signal.SIGILL)
             signal_raise(signal.SIGFPE)
             await wait_run_sync_soon_idempotent_queue_barrier()
-            assert len(receiver._pending) == 2
+            assert receiver._pending_signal_count() == 2
     assert delivered_directly == {signal.SIGILL, signal.SIGFPE}
     delivered_directly.clear()
 
@@ -171,7 +174,7 @@ async def test_catch_signals_race_condition_on_exit():
         with open_signal_receiver(signal.SIGILL) as receiver:
             signal_raise(signal.SIGILL)
             await wait_run_sync_soon_idempotent_queue_barrier()
-            assert len(receiver._pending) == 1
+            assert receiver._pending_signal_count() == 1
     # test passes if the process reaches this point without dying
 
     # Check exception chaining if there are multiple exception-raising
@@ -187,7 +190,7 @@ async def test_catch_signals_race_condition_on_exit():
                 signal_raise(signal.SIGILL)
                 signal_raise(signal.SIGFPE)
                 await wait_run_sync_soon_idempotent_queue_barrier()
-                assert len(receiver._pending) == 2
+                assert receiver._pending_signal_count() == 2
         exc = excinfo.value
         signums = {exc.args[0]}
         assert isinstance(exc.__context__, RuntimeError)
