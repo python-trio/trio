@@ -22,6 +22,13 @@ class _PipeMixin:
         """Gets the file descriptor for this pipe."""
         return self._pipe
 
+    def __del__(self):
+        try:
+            os.close(self._pipe)
+        except AttributeError:
+            # probably in interpreter shut down
+            pass
+
 
 class PipeSendStream(_PipeMixin, SendStream):
     """Represents a send stream over an os.pipe object."""
