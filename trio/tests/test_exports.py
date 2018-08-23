@@ -34,8 +34,10 @@ def test_pylint_sees_all_non_underscore_symbols_in_namespace():
     trio_set.remove('tests')
     assert trio_set - ast_set == set([])
 
-@pytest.mark.skipif(sys.version[:3] == '3.8-dev',
-                    reason="jedi 3.8-dev not supported")
+
+@pytest.mark.skipif(
+    sys.version[:3] == '3.8-dev', reason="jedi 3.8-dev not supported"
+)
 def test_jedi_sees_all_completions():
     # Test the jedi completion library get all in dir(trio)
     script = jedi.Script(path=trio.__file__)
