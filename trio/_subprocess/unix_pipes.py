@@ -8,7 +8,7 @@ __all__ = ["PipeSendStream", "PipeReceiveStream", "make_pipe"]
 
 
 class _PipeMixin:
-    def __init__(self, pipefd: int):
+    def __init__(self, pipefd: int, *, set_non_blocking: bool = True):
         if not isinstance(pipefd, int):
             raise TypeError(
                 "{0.__class__.__name__} needs a pipe fd".format(self)
@@ -16,6 +16,11 @@ class _PipeMixin:
 
         self._pipe = pipefd
         self._closed = False
+
+        if set_non_blocking:
+            import fcntl
+            flags = fcntl.fcntl(self._pipe, fcntl.F_GETFL)
+            fcntl.fcntl(self._pipe, fcntl.F_SETFL, flags | os.O_NONBLOCK)
 
     async def aclose(self):
         if self._closed:
@@ -110,5 +115,5 @@ class PipeReceiveStream(_PipeMixin, ReceiveStream):
 
 async def make_pipe() -> Tuple[PipeSendStream, PipeReceiveStream]:
     """Makes a new pair of pipes."""
-    (r, w) = os.pipe2(os.O_NONBLOCK)
+    (r, w) = os.pipe()
     return PipeSendStream(w), PipeReceiveStream(r)

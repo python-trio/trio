@@ -3,9 +3,7 @@ import pytest
 
 from ... import _core
 from ..unix_pipes import PipeSendStream, PipeReceiveStream, make_pipe
-from ...testing import (
-    wait_all_tasks_blocked, check_one_way_stream
-)
+from ...testing import (wait_all_tasks_blocked, check_one_way_stream)
 
 pytestmark = pytest.mark.skipif(
     not hasattr(os, "pipe2"), reason="pipes require os.pipe2()"
