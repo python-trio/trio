@@ -27,11 +27,11 @@ class Event:
     the event has happened yet. The flag is initially False, and the
     :meth:`wait` method waits until the flag is True. If the flag is
     already True, then :meth:`wait` returns immediately. (If the event has
-    already happened, there's nothing to wait for.) The :meth:set method
+    already happened, there's nothing to wait for.) The :meth:`set` method
     sets the flag to True, and wakes up any waiters.
 
     This behavior is useful because it helps avoid race conditions and
-    lost wakeups: it doesn't matter whether :meth:set gets called just
+    lost wakeups: it doesn't matter whether :meth:`set` gets called just
     before or after :meth:`wait`. If you want a lower-level wakeup
     primitive that doesn't have this protection, consider :class:`Condition`
     or :class:`trio.hazmat.ParkingLot`.
