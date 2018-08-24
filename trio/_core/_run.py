@@ -492,9 +492,6 @@ class Task:
     # For introspection and nursery.start()
     _child_nurseries = attr.ib(default=attr.Factory(list))
 
-    # Task-local values, see _local.py
-    _locals = attr.ib(default=attr.Factory(dict))
-
     # these are counts of how many cancel/schedule points this task has
     # executed, for assert{_no,}_yields
     # XX maybe these should be exposed as part of a statistics() method?
@@ -855,13 +852,6 @@ class Runner:
             nursery._children.add(task)
             for scope in nursery._cancel_stack:
                 scope._add_task(task)
-
-            # Task locals are inherited from the spawning task, not the
-            # nursery task. The 'if nursery' check is just used as a guard to
-            # make sure we don't try to do this to the root task.
-            parent_task = current_task()
-            for local, values in parent_task._locals.items():
-                task._locals[local] = dict(values)
 
         self.instrument("task_spawned", task)
         # Special case: normally next_send should be a Result, but for the
