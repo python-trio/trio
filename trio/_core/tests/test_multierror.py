@@ -132,7 +132,7 @@ def test_MultiError_filter():
 
     m = make_tree()
     assert_tree_eq(m, m)
-    assert MultiError.filter(null_handler, m) is m
+    assert MultiError.filter(null_handler, m, Exception) is m
     assert_tree_eq(m, make_tree())
 
     # Make sure we don't pick up any detritus if run in a context where
@@ -141,7 +141,7 @@ def test_MultiError_filter():
     try:
         raise ValueError
     except ValueError:
-        assert MultiError.filter(null_handler, m) is m
+        assert MultiError.filter(null_handler, m, Exception) is m
     assert_tree_eq(m, make_tree())
 
     def simple_filter(exc):
@@ -149,9 +149,11 @@ def test_MultiError_filter():
             return None
         if isinstance(exc, KeyError):
             return RuntimeError()
-        return exc
 
-    new_m = MultiError.filter(simple_filter, make_tree())
+    new_m = MultiError.filter(
+        simple_filter, make_tree(),
+        (ValueError, KeyError)
+    )
     assert isinstance(new_m, MultiError)
     assert len(new_m.exceptions) == 2
     # was: [[ValueError, KeyError], NameError]
@@ -188,12 +190,10 @@ def test_MultiError_filter():
 
     # check preserving partial tree
     def filter_NameError(exc):
-        if isinstance(exc, NameError):
-            return None
-        return exc
+        return None
 
     m = make_tree()
-    new_m = MultiError.filter(filter_NameError, m)
+    new_m = MultiError.filter(filter_NameError, m, NameError)
     # with the NameError gone, the other branch gets promoted
     assert new_m is m.exceptions[0]
 
@@ -201,19 +201,19 @@ def test_MultiError_filter():
     def filter_all(exc):
         return None
 
-    assert MultiError.filter(filter_all, make_tree()) is None
+    assert MultiError.filter(filter_all, make_tree(), Exception) is None
 
 
 def test_MultiError_catch():
     # No exception to catch
     noop = lambda _: None  # pragma: no cover
-    with MultiError.catch(noop):
+    with MultiError.catch(Exception, noop):
         pass
 
     # Simple pass-through of all exceptions
     m = make_tree()
     with pytest.raises(MultiError) as excinfo:
-        with MultiError.catch(lambda exc: exc):
+        with MultiError.catch(Exception, lambda exc: exc):
             raise m
     assert excinfo.value is m
     # Should be unchanged, except that we added a traceback frame by raising
@@ -225,7 +225,7 @@ def test_MultiError_catch():
     assert_tree_eq(m, make_tree())
 
     # Swallows everything
-    with MultiError.catch(lambda _: None):
+    with MultiError.catch(Exception, lambda _: None):
         raise make_tree()
 
     def simple_filter(exc):
@@ -233,10 +233,9 @@ def test_MultiError_catch():
             return None
         if isinstance(exc, KeyError):
             return RuntimeError()
-        return exc
 
     with pytest.raises(MultiError) as excinfo:
-        with MultiError.catch(simple_filter):
+        with MultiError.catch((ValueError, KeyError), simple_filter):
             raise make_tree()
     new_m = excinfo.value
     assert isinstance(new_m, MultiError)
@@ -254,7 +253,7 @@ def test_MultiError_catch():
     v = ValueError()
     v.__cause__ = KeyError()
     with pytest.raises(ValueError) as excinfo:
-        with MultiError.catch(lambda exc: exc):
+        with MultiError.catch(ValueError, lambda exc: exc):
             raise v
     assert isinstance(excinfo.value.__cause__, KeyError)
 
@@ -262,7 +261,7 @@ def test_MultiError_catch():
     context = KeyError()
     v.__context__ = context
     with pytest.raises(ValueError) as excinfo:
-        with MultiError.catch(lambda exc: exc):
+        with MultiError.catch(ValueError, lambda exc: exc):
             raise v
     assert excinfo.value.__context__ is context
     assert not excinfo.value.__suppress_context__
@@ -276,12 +275,9 @@ def test_MultiError_catch():
         with pytest.raises(ValueError) as excinfo:
 
             def catch_RuntimeError(exc):
-                if isinstance(exc, RuntimeError):
-                    return None
-                else:
-                    return exc
+                return None
 
-            with MultiError.catch(catch_RuntimeError):
+            with MultiError.catch(RuntimeError, catch_RuntimeError):
                 raise MultiError([v, distractor])
         assert excinfo.value.__context__ is context
         assert excinfo.value.__suppress_context__ == suppress_context

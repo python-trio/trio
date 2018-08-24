@@ -177,7 +177,7 @@ class CancelScope:
         return exc
 
     def _exc_filter(self, exc):
-        if isinstance(exc, Cancelled) and exc._scope is self:
+        if exc._scope is self:
             self.cancelled_caught = True
             return None
         return exc
@@ -196,7 +196,7 @@ def open_cancel_scope(*, deadline=inf, shield=False):
     scope.deadline = deadline
     scope.shield = shield
     try:
-        with MultiError.catch(scope._exc_filter):
+        with MultiError.catch(Cancelled, scope._exc_filter):
             yield scope
     finally:
         scope._remove_task(task)
@@ -936,7 +936,7 @@ class Runner:
                     new_exc.__cause__ = exc
                     return new_exc
 
-            with MultiError.catch(excfilter):
+            with MultiError.catch(Exception, excfilter):
                 await async_fn(*args)
 
         if name is None:

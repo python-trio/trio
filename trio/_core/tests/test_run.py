@@ -1876,13 +1876,10 @@ async def test_nursery_stop_async_iteration():
 
             def handle(exc):
                 nonlocal got_stop
-                if isinstance(exc, StopAsyncIteration):
-                    got_stop = True
-                    return None
-                else:  # pragma: no cover
-                    return exc
+                got_stop = True
+                return None
 
-            with _core.MultiError.catch(handle):
+            with _core.MultiError.catch(StopAsyncIteration, handle):
                 async with _core.open_nursery() as nursery:
                     for i, f in enumerate(nexts):
                         nursery.start_soon(self._accumulate, f, items, i)

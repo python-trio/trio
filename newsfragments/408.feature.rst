@@ -1,0 +1,1 @@
+For now :meth:`MultiError.catch` should take an exception type, And the ``handler`` function is called when the `exception` is `exception type`.
