@@ -14,7 +14,7 @@ __all__ = ["MultiError"]
 ################################################################
 
 
-def _filter_impl(handler, root_exc):
+def _filter_impl(handler, root_exc, exc_type):
     # We have a tree of MultiError's, like:
     #
     #  MultiError([
@@ -91,11 +91,15 @@ def _filter_impl(handler, root_exc):
                 preserved.add(exc)
                 return exc
         else:
-            new_exc = handler(exc)
-            # Our version of implicit exception chaining
-            if new_exc is not None and new_exc is not exc:
-                new_exc.__context__ = exc
-            return new_exc
+            # only handle for exception when it's exc_type
+            # or simplely return the exc
+            if isinstance(exc, exc_type):
+                new_exc = handler(exc)
+                # Our version of implicit exception chaining
+                if new_exc is not None and new_exc is not exc:
+                    new_exc.__context__ = exc
+                return new_exc
+            return exc
 
     def push_tb_down(tb, exc, preserved):
         if exc in preserved:
@@ -121,6 +125,7 @@ def _filter_impl(handler, root_exc):
 # frame show up in the traceback; otherwise, we leave no trace.)
 @attr.s(frozen=True)
 class MultiErrorCatcher:
+    _exc_type = attr.ib()
     _handler = attr.ib()
 
     def __enter__(self):
@@ -128,7 +133,9 @@ class MultiErrorCatcher:
 
     def __exit__(self, etype, exc, tb):
         if exc is not None:
-            filtered_exc = MultiError.filter(self._handler, exc)
+            filtered_exc = MultiError.filter(
+                self._handler, exc, self._exc_type
+            )
             if filtered_exc is exc:
                 # Let the interpreter re-raise it
                 return False
@@ -196,7 +203,7 @@ class MultiError(BaseException):
         return "<MultiError: {}>".format(self)
 
     @classmethod
-    def filter(cls, handler, root_exc):
+    def filter(cls, handler, root_exc, exc_type):
         """Apply the given ``handler`` to all the exceptions in ``root_exc``.
 
         Args:
@@ -204,6 +211,9 @@ class MultiError(BaseException):
               as input, and returns either a new exception object or None.
           root_exc: An exception, often (though not necessarily) a
               :exc:`MultiError`.
+          exc_type: An exception type or A tuple of exception type that need
+              to be handled by ``handler``.  Exceptions which doesn't belong to
+              exc_type will not be handled by ``handler``.
 
         Returns:
           A new exception object in which each component exception ``exc`` has
@@ -212,19 +222,22 @@ class MultiError(BaseException):
 
         """
 
-        return _filter_impl(handler, root_exc)
+        return _filter_impl(handler, root_exc, exc_type)
 
     @classmethod
-    def catch(cls, handler):
+    def catch(cls, exc_type, handler):
         """Return a context manager that catches and re-throws exceptions
         after running :meth:`filter` on them.
 
         Args:
-          handler: as for :meth:`filter`
+          exc_type: An exception type or A tuple of exception type that need
+              to be handled by ``handler``.  Exceptions which doesn't belong to
+              exc_type will not be handled by ``handler``.
+          handler: as for :meth:`filter`.
 
         """
 
-        return MultiErrorCatcher(handler)
+        return MultiErrorCatcher(exc_type, handler)
 
 
 # Clean up exception printing:
