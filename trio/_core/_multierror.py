@@ -92,7 +92,7 @@ def _filter_impl(handler, root_exc, exc_type):
                 return exc
         else:
             # only handle for exception when it's exc_type
-            # or simplely return the exc
+            # or simply return the exc
             if isinstance(exc, exc_type):
                 new_exc = handler(exc)
                 # Our version of implicit exception chaining
