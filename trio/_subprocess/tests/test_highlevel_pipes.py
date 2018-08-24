@@ -1,9 +1,11 @@
 import os
 import pytest
 
-from .. import _core
-from .._highlevel_pipes import PipeSendStream, PipeReceiveStream, make_pipe
-from ..testing import wait_all_tasks_blocked
+from ... import _core
+from ..unix_pipes import PipeSendStream, PipeReceiveStream, make_pipe
+from ...testing import (
+    wait_all_tasks_blocked, check_one_way_stream
+)
 
 pytestmark = pytest.mark.skipif(
     not hasattr(os, "pipe2"), reason="pipes require os.pipe2()"
@@ -33,7 +35,7 @@ async def test_receive_pipe():
 
 
 async def test_pipes_combined():
-    read, write = make_pipe()
+    write, read = await make_pipe()
     count = 2**20
 
     async def sender():
@@ -57,7 +59,7 @@ async def test_pipes_combined():
 
 
 async def test_send_on_closed_pipe():
-    read, write = make_pipe()
+    write, read = await make_pipe()
     await write.aclose()
 
     with pytest.raises(_core.ClosedResourceError):
@@ -72,3 +74,7 @@ async def test_pipe_errors():
 
     with pytest.raises(ValueError):
         await PipeReceiveStream(0).receive_some(0)
+
+
+#async def test_pipe_fully():
+#    await check_one_way_stream(make_pipe, None)
