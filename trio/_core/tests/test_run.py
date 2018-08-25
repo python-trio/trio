@@ -1,7 +1,6 @@
 import contextvars
 import functools
 import platform
-import re
 import sys
 import threading
 import time
@@ -1899,7 +1898,7 @@ async def test_nursery_stop_async_iteration():
     assert result == [[0, 0], [1, 1]]
 
 
-async def test_run_impl_traceback_frame_removal():
+async def test_traceback_frame_removal():
     async def my_child_task():
         raise KeyError()
 
@@ -1915,9 +1914,15 @@ async def test_run_impl_traceback_frame_removal():
     except _core.MultiError as exc:
         first_exc = exc.exceptions[0]
         assert isinstance(first_exc, KeyError)
-        tb_text = ''.join(traceback.format_tb(first_exc.__traceback__))
-        for r in ('/trio/_core/.* in run_impl$', '/contextvars/.* in run$'):
-            assert not re.search(r, tb_text, re.MULTILINE)
+        # The top frame in the exception traceback should be inside the child
+        # task, not trio/contextvars internals. And there's only one frame
+        # inside the child task, so this will also detect if our frame-removal
+        # is too eager.
+        #frame = first_exc.__traceback__.tb_frame
+        #assert frame.f_code is my_child_task.__code__
+        # ...but we're not there yet.  Only as far as open_cancel_scope().
+        _, _, function, _ = traceback.extract_tb(first_exc.__traceback__)[0]
+        assert function == 'open_cancel_scope'
 
 
 def test_contextvar_support():

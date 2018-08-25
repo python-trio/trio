@@ -3,8 +3,8 @@ import logging
 import os
 import random
 import select
-import sys
 import threading
+import traceback
 from collections import deque
 import collections.abc
 from contextlib import contextmanager, closing
@@ -1378,12 +1378,13 @@ def run_impl(runner, async_fn, args):
                 final_result = Value(stop_iteration.value)
             except BaseException as task_exc:
                 # Store for later, removing uninteresting top frames:
-                #   1. trio._core._run.run_impl()
-                #   2. contextvars.Context.run() (< Python 3.7 only)
-                tb_next = task_exc.__traceback__.tb_next
-                if sys.version_info < (3, 7):  # pragma: no cover
-                    tb_next = tb_next.tb_next
-                final_result = Error(task_exc.with_traceback(tb_next))
+                tb = task_exc.__traceback__
+                for path, _, _, _ in traceback.extract_tb(tb):
+                    if '/trio/_core/' in path or '/contextvars/' in path:
+                        tb = tb.tb_next
+                    else:
+                        break
+                final_result = Error(task_exc.with_traceback(tb))
 
             if final_result is not None:
                 # We can't call this directly inside the except: blocks above,
