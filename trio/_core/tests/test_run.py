@@ -1,9 +1,11 @@
 import contextvars
 import functools
 import platform
+import re
 import sys
 import threading
 import time
+import traceback
 import warnings
 from contextlib import contextmanager
 from math import inf
@@ -1895,6 +1897,27 @@ async def test_nursery_stop_async_iteration():
     async for vals in async_zip(it(4), it(2)):
         result.append(vals)
     assert result == [[0, 0], [1, 1]]
+
+
+async def test_run_impl_traceback_frame_removal():
+    async def my_child_task():
+        raise KeyError()
+
+    try:
+        # Trick: For now cancel/nursery scopes still leave a bunch of tb gunk
+        # behind. But if there's a MultiError, they leave it on the MultiError,
+        # which lets us get a clean look at the KeyError itself. Someday I
+        # guess this will always be a MultiError (#611), but for now we can
+        # force it by raising two exceptions.
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(my_child_task)
+            nursery.start_soon(my_child_task)
+    except _core.MultiError as exc:
+        first_exc = exc.exceptions[0]
+        assert isinstance(first_exc, KeyError)
+        tb_text = ''.join(traceback.format_tb(first_exc.__traceback__))
+        for r in ('/trio/_core/.* in run_impl$', '/contextvars/.* in run$'):
+            assert not re.search(r, tb_text, re.MULTILINE)
 
 
 def test_contextvar_support():
