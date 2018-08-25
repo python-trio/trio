@@ -2,11 +2,13 @@ import os
 import pytest
 
 from ... import _core
-from ..unix_pipes import PipeSendStream, PipeReceiveStream, make_pipe
+from ..._subprocess.unix_pipes import (
+    PipeSendStream, PipeReceiveStream, make_pipe
+)
 from ...testing import (wait_all_tasks_blocked, check_one_way_stream)
 
 pytestmark = pytest.mark.skipif(
-    not hasattr(os, "pipe2"), reason="pipes require os.pipe2()"
+    os.name != "posix", reason="pipes are only supported on posix"
 )
 
 
@@ -74,5 +76,5 @@ async def test_pipe_errors():
         await PipeReceiveStream(0).receive_some(0)
 
 
-#async def test_pipe_fully():
-#    await check_one_way_stream(make_pipe, None)
+async def test_pipe_fully():
+    await check_one_way_stream(make_pipe, None)

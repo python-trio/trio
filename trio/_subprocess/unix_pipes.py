@@ -8,7 +8,7 @@ __all__ = ["PipeSendStream", "PipeReceiveStream", "make_pipe"]
 
 
 class _PipeMixin:
-    def __init__(self, pipefd: int, *, set_non_blocking: bool = True):
+    def __init__(self, pipefd: int):
         if not isinstance(pipefd, int):
             raise TypeError(
                 "{0.__class__.__name__} needs a pipe fd".format(self)
@@ -17,37 +17,21 @@ class _PipeMixin:
         self._pipe = pipefd
         self._closed = False
 
-        if set_non_blocking:
-            import fcntl
-            flags = fcntl.fcntl(self._pipe, fcntl.F_GETFL)
-            fcntl.fcntl(self._pipe, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+        import fcntl
+        flags = fcntl.fcntl(self._pipe, fcntl.F_GETFL)
+        fcntl.fcntl(self._pipe, fcntl.F_SETFL, flags | os.O_NONBLOCK)
 
     async def aclose(self):
-        if self._closed:
-            return
+        if not self._closed:
+            os.close(self._pipe)
+            _core.notify_fd_close(self._pipe)
+            self._closed = True
 
-        os.close(self._pipe)
-        _core.notify_fd_close(self._pipe)
-        self._closed = True
         await _core.checkpoint()
 
     def fileno(self) -> int:
         """Gets the file descriptor for this pipe."""
         return self._pipe
-
-    def __del__(self):
-        if self._closed:
-            return
-
-        try:
-            os.close(self._pipe)
-        except AttributeError:
-            # probably in interpreter shut down
-            pass
-        except OSError as e:
-            # already closed from somewhere else
-            if e.errno != 9:
-                raise e from None
 
 
 class PipeSendStream(_PipeMixin, SendStream):
@@ -105,9 +89,13 @@ class PipeReceiveStream(_PipeMixin, ReceiveStream):
         while True:
             try:
                 data = os.read(self._pipe, max_bytes)
+                if data == b'':
+                    await self.aclose()
+                    return data
             except BlockingIOError:
                 await _core.wait_readable(self._pipe)
             else:
+                await _core.checkpoint()
                 break
 
         return data
