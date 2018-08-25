@@ -616,7 +616,8 @@ class Runner:
     def close(self):
         self.io_manager.close()
         self.entry_queue.close()
-        self.instrument("after_run")
+        if self.instruments:
+            self.instrument("after_run")
 
     # Methods marked with @_public get converted into functions exported by
     # trio.hazmat:
@@ -718,7 +719,8 @@ class Runner:
         task._abort_func = None
         task.custom_sleep_data = None
         self.runq.append(task)
-        self.instrument("task_scheduled", task)
+        if self.instruments:
+            self.instrument("task_scheduled", task)
 
     def spawn_impl(self, async_fn, args, nursery, name, *, system_task=False):
 
@@ -853,7 +855,8 @@ class Runner:
             for scope in nursery._cancel_stack:
                 scope._add_task(task)
 
-        self.instrument("task_spawned", task)
+        if self.instruments:
+            self.instrument("task_spawned", task)
         # Special case: normally next_send should be a Result, but for the
         # very first send we have to send a literal unboxed None.
         self.reschedule(task, None)
@@ -879,7 +882,9 @@ class Runner:
             self.system_nursery.cancel_scope.cancel()
         if task is self.init_task:
             self.init_task_result = result
-        self.instrument("task_exited", task)
+
+        if self.instruments:
+            self.instrument("task_exited", task)
 
     ################
     # System tasks and init
@@ -1087,6 +1092,9 @@ class Runner:
     ################
 
     def instrument(self, method_name, *args):
+        if not self.instruments:
+            return
+
         for instrument in list(self.instruments):
             try:
                 method = getattr(instrument, method_name)
@@ -1279,7 +1287,8 @@ _MAX_TIMEOUT = 24 * 60 * 60
 def run_impl(runner, async_fn, args):
     __tracebackhide__ = True
 
-    runner.instrument("before_run")
+    if runner.instruments:
+        runner.instrument("before_run")
     runner.clock.start_clock()
     runner.init_task = runner.spawn_impl(
         runner.init,
@@ -1308,9 +1317,13 @@ def run_impl(runner, async_fn, args):
                 timeout = cushion
                 idle_primed = True
 
-        runner.instrument("before_io_wait", timeout)
+        if runner.instruments:
+            runner.instrument("before_io_wait", timeout)
+
         runner.io_manager.handle_io(timeout)
-        runner.instrument("after_io_wait", timeout)
+
+        if runner.instruments:
+            runner.instrument("after_io_wait", timeout)
 
         now = runner.clock.current_time()
         # We process all timeouts in a batch and then notify tasks at the end
@@ -1359,7 +1372,9 @@ def run_impl(runner, async_fn, args):
         while batch:
             task = batch.pop()
             GLOBAL_RUN_CONTEXT.task = task
-            runner.instrument("before_task_step", task)
+
+            if runner.instruments:
+                runner.instrument("before_task_step", task)
 
             next_send = task._next_send
             task._next_send = None
@@ -1413,7 +1428,8 @@ def run_impl(runner, async_fn, args):
                     # and propagate the exception into the task's spawner.
                     runner.task_exited(task, Error(exc))
 
-            runner.instrument("after_task_step", task)
+            if runner.instruments:
+                runner.instrument("after_task_step", task)
             del GLOBAL_RUN_CONTEXT.task
 
     return runner.init_task_result
