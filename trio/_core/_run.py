@@ -3,6 +3,7 @@ import logging
 import os
 import random
 import select
+import sys
 import threading
 from collections import deque
 import collections.abc
@@ -1376,7 +1377,13 @@ def run_impl(runner, async_fn, args):
             except StopIteration as stop_iteration:
                 final_result = Value(stop_iteration.value)
             except BaseException as task_exc:
-                final_result = Error(task_exc)
+                # Store for later, removing uninteresting top frames:
+                #   1. trio._core._run.run_impl()
+                #   2. contextvars.Context.run() (< Python 3.7 only)
+                tb_next = task_exc.__traceback__.tb_next
+                if sys.version_info < (3, 7):  # pragma: no cover
+                    tb_next = tb_next.tb_next
+                final_result = Error(task_exc.with_traceback(tb_next))
 
             if final_result is not None:
                 # We can't call this directly inside the except: blocks above,
