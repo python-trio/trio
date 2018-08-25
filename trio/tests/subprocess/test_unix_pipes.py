@@ -12,8 +12,15 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+def nonblock_pipe(p: int):
+    import fcntl
+    flags = fcntl.fcntl(p, fcntl.F_GETFL)
+    fcntl.fcntl(p, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+
+
 async def test_send_pipe():
-    r, w = os.pipe2(os.O_NONBLOCK)
+    r, w = os.pipe()
+    nonblock_pipe(w)
     send = PipeSendStream(w)
     assert send.fileno() == w
     await send.send_all(b"123")
@@ -24,7 +31,8 @@ async def test_send_pipe():
 
 
 async def test_receive_pipe():
-    r, w = os.pipe2(os.O_NONBLOCK)
+    r, w = os.pipe()
+    nonblock_pipe(r)
     recv = PipeReceiveStream(r)
     assert (recv.fileno()) == r
     os.write(w, b"123")
