@@ -23,9 +23,9 @@ class _PipeMixin:
 
     async def aclose(self):
         if not self._closed:
-            os.close(self._pipe)
             _core.notify_fd_close(self._pipe)
             self._closed = True
+            os.close(self._pipe)
 
         await _core.checkpoint()
 
