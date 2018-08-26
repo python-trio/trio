@@ -132,6 +132,7 @@ def reorder_for_rfc_6555_section_5_4(targets):
 
 
 def format_host_port(host, port):
+    host = host.decode() if isinstance(host, bytes) else host
     if ":" in host:
         return "[{}]:{}".format(host, port)
     else:
