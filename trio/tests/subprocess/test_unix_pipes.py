@@ -94,7 +94,8 @@ async def make_clogged_pipe():
             # the special behavior.
             # For details, search for PIPE_BUF here:
             #   http://pubs.opengroup.org/onlinepubs/9699919799/functions/write.html
-            os.write(s.fileno(), b"x" * select.PIPE_BUF * 2)
+            buf_size = getattr(select, "PIPE_BUF", 8192)
+            os.write(s.fileno(), b"x" * buf_size * 2)
     except BlockingIOError:
         pass
     return s, r
