@@ -1,3 +1,5 @@
+import select
+
 import os
 import pytest
 
@@ -12,15 +14,8 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def nonblock_pipe(p: int):
-    import fcntl
-    flags = fcntl.fcntl(p, fcntl.F_GETFL)
-    fcntl.fcntl(p, fcntl.F_SETFL, flags | os.O_NONBLOCK)
-
-
 async def test_send_pipe():
     r, w = os.pipe()
-    nonblock_pipe(w)
     send = PipeSendStream(w)
     assert send.fileno() == w
     await send.send_all(b"123")
@@ -32,7 +27,6 @@ async def test_send_pipe():
 
 async def test_receive_pipe():
     r, w = os.pipe()
-    nonblock_pipe(r)
     recv = PipeReceiveStream(r)
     assert (recv.fileno()) == r
     os.write(w, b"123")
@@ -44,7 +38,7 @@ async def test_receive_pipe():
 
 async def test_pipes_combined():
     write, read = await make_pipe()
-    count = 2**20
+    count = 2 ** 20
 
     async def sender():
         big = bytearray(count)
@@ -84,5 +78,27 @@ async def test_pipe_errors():
         await PipeReceiveStream(0).receive_some(0)
 
 
+async def make_clogged_pipe():
+    s, r = await make_pipe()
+    try:
+        while True:
+            # We want to totally fill up the pipe buffer.
+            # This requires working around a weird feature that POSIX pipes
+            # have.
+            # If you do a write of <= PIPE_BUF bytes, then it's guaranteed
+            # to either complete entirely, or not at all. So if we tried to
+            # write PIPE_BUF bytes, and the buffer's free space is only
+            # PIPE_BUF/2, then the write will raise BlockingIOError... even
+            # though a smaller write could still succeed! To avoid this,
+            # make sure to write >PIPE_BUF bytes each time, which disables
+            # the special behavior.
+            # For details, search for PIPE_BUF here:
+            #   http://pubs.opengroup.org/onlinepubs/9699919799/functions/write.html
+            os.write(s.fileno(), b"x" * select.PIPE_BUF * 2)
+    except BlockingIOError:
+        pass
+    return s, r
+
+
 async def test_pipe_fully():
-    await check_one_way_stream(make_pipe, None)
+    await check_one_way_stream(make_pipe, make_clogged_pipe)
