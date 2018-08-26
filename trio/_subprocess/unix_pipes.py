@@ -1,3 +1,4 @@
+import fcntl
 import os
 from typing import Tuple
 
@@ -17,7 +18,6 @@ class _PipeMixin:
         self._pipe = pipefd
         self._closed = False
 
-        import fcntl
         flags = fcntl.fcntl(self._pipe, fcntl.F_GETFL)
         fcntl.fcntl(self._pipe, fcntl.F_SETFL, flags | os.O_NONBLOCK)
 

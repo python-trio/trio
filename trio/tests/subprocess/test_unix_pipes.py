@@ -4,14 +4,18 @@ import os
 import pytest
 
 from ... import _core
-from ..._subprocess.unix_pipes import (
-    PipeSendStream, PipeReceiveStream, make_pipe
-)
 from ...testing import (wait_all_tasks_blocked, check_one_way_stream)
 
+posix = os.name == "posix"
+
 pytestmark = pytest.mark.skipif(
-    os.name != "posix", reason="pipes are only supported on posix"
+    not posix, reason="pipes are only supported on posix"
 )
+
+if posix:
+    from ..._subprocess.unix_pipes import (
+        PipeSendStream, PipeReceiveStream, make_pipe
+    )
 
 
 async def test_send_pipe():
@@ -94,6 +98,9 @@ async def make_clogged_pipe():
             # the special behavior.
             # For details, search for PIPE_BUF here:
             #   http://pubs.opengroup.org/onlinepubs/9699919799/functions/write.html
+
+            # for the getattr:
+            # https://bitbucket.org/pypy/pypy/issues/2876/selectpipe_buf-is-missing-on-pypy3
             buf_size = getattr(select, "PIPE_BUF", 8192)
             os.write(s.fileno(), b"x" * buf_size * 2)
     except BlockingIOError:
