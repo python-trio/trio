@@ -38,7 +38,7 @@ async def test_receive_pipe():
 
 async def test_pipes_combined():
     write, read = await make_pipe()
-    count = 2 ** 20
+    count = 2**20
 
     async def sender():
         big = bytearray(count)
