@@ -38,12 +38,12 @@ class PipeSendStream(_PipeMixin, SendStream):
     """Represents a send stream over an os.pipe object."""
 
     async def send_all(self, data: bytes):
+        # we have to do this no matter what
+        await _core.checkpoint()
         if self._closed:
-            await _core.checkpoint()
             raise _core.ClosedResourceError("this pipe is already closed")
 
         if not data:
-            await _core.checkpoint()
             return
 
         length = len(data)
@@ -58,9 +58,7 @@ class PipeSendStream(_PipeMixin, SendStream):
                         await _core.checkpoint()
                         raise BrokenStreamError from e
                     except BlockingIOError:
-                        pass
-
-                await self.wait_send_all_might_not_block()
+                        await self.wait_send_all_might_not_block()
 
     async def wait_send_all_might_not_block(self) -> None:
         if self._closed:
