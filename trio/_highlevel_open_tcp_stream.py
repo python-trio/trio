@@ -274,22 +274,25 @@ async def open_tcp_stream(
         this_attempt_failed = trio.Event()
         nursery.start_soon(attempt_connect, nursery, this_attempt_failed)
 
-        # Then make this invocation's attempt
-        try:
-            with close_on_error(socket(*socket_args)) as sock:
-                await sock.connect(target_sockaddr)
-        except OSError as exc:
-            # This connection attempt failed, but the next one might
-            # succeed. Save the error for later so we can report it if
-            # everything fails, and tell the next attempt that it should go
-            # ahead (if it hasn't already).
-            oserrors.append(exc)
-            this_attempt_failed.set()
-        else:
-            # Success! Save the winning socket and cancel all outstanding
-            # connection attempts.
-            winning_sockets.append(sock)
-            nursery.cancel_scope.cancel()
+        # Then make this invocation's attempt, but only if the previous one
+        # didn't succeed just now (and didn't have time to cancel all
+        # outstanding connection attempts).
+        if not winning_sockets:
+            try:
+                with close_on_error(socket(*socket_args)) as sock:
+                    await sock.connect(target_sockaddr)
+            except OSError as exc:
+                # This connection attempt failed, but the next one might
+                # succeed. Save the error for later so we can report it if
+                # everything fails, and tell the next attempt that it should go
+                # ahead (if it hasn't already).
+                oserrors.append(exc)
+                this_attempt_failed.set()
+            else:
+                # Success! Save the winning socket and cancel all outstanding
+                # connection attempts.
+                winning_sockets.append(sock)
+                nursery.cancel_scope.cancel()
 
     # Kick off the chain of connection attempts.
     async with trio.open_nursery() as nursery:
