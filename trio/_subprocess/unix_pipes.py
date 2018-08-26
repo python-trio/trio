@@ -88,14 +88,12 @@ class PipeReceiveStream(_PipeMixin, ReceiveStream):
 
         while True:
             try:
+                await _core.checkpoint_if_cancelled()
                 data = os.read(self._pipe, max_bytes)
-                if data == b'':
-                    await self.aclose()
-                    return data
             except BlockingIOError:
                 await _core.wait_readable(self._pipe)
             else:
-                await _core.checkpoint()
+                await _core.cancel_shielded_checkpoint()
                 break
 
         return data
