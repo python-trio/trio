@@ -58,7 +58,15 @@ class PipeSendStream(_PipeMixin, SendStream):
                         await _core.checkpoint()
                         raise BrokenStreamError from e
                     except BlockingIOError:
-                        await self.wait_send_all_might_not_block()
+                        try:
+                            await self.wait_send_all_might_not_block()
+                        except BrokenPipeError as e:
+                            # kqueue: raises EPIPE on wait_writable instead
+                            # of sending, which is annoying
+                            # also doesn't checkpoint so we have to do that
+                            # ourselves here too
+                            await _core.checkpoint()
+                            raise BrokenStreamError from e
 
     async def wait_send_all_might_not_block(self) -> None:
         if self._closed:
