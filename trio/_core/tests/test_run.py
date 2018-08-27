@@ -1920,9 +1920,11 @@ async def test_traceback_frame_removal():
         # is too eager.
         #frame = first_exc.__traceback__.tb_frame
         #assert frame.f_code is my_child_task.__code__
-        # ...but we're not there yet.  Only as far as open_cancel_scope().
-        _, _, function, _ = traceback.extract_tb(first_exc.__traceback__)[0]
-        assert function == 'open_cancel_scope'
+        # ...but we're not there yet.  There are several frames from nursery's
+        # __aexit__, starting with _nested_child_finished().
+        frames = traceback.extract_tb(first_exc.__traceback__)
+        functions = [function for _, _, function, _ in frames]
+        assert functions[-2:] == ['_nested_child_finished', 'my_child_task']
 
 
 def test_contextvar_support():
