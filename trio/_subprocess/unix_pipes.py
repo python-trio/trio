@@ -21,17 +21,26 @@ class _PipeMixin:
         flags = fcntl.fcntl(self._pipe, fcntl.F_GETFL)
         fcntl.fcntl(self._pipe, fcntl.F_SETFL, flags | os.O_NONBLOCK)
 
-    async def aclose(self):
-        if not self._closed:
-            _core.notify_fd_close(self._pipe)
-            self._closed = True
-            os.close(self._pipe)
+    def _close(self):
+        if self._closed:
+            return
 
+        self._closed = True
+        os.close(self._pipe)
+
+    async def aclose(self):
+        # XX: This would be in _close, but this can only be used from an
+        # async context.
+        _core.notify_fd_close(self._pipe)
+        self._close()
         await _core.checkpoint()
 
     def fileno(self) -> int:
         """Gets the file descriptor for this pipe."""
         return self._pipe
+
+    def __del__(self):
+        self._close()
 
 
 class PipeSendStream(_PipeMixin, SendStream):

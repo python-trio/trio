@@ -1,8 +1,10 @@
+import errno
 import select
 
 import os
 import pytest
 
+from trio._core.tests.tutil import gc_collect_harder
 from ... import _core
 from ...testing import (wait_all_tasks_blocked, check_one_way_stream)
 
@@ -27,6 +29,7 @@ async def test_send_pipe():
 
     os.close(r)
     os.close(w)
+    send._closed = True
 
 
 async def test_receive_pipe():
@@ -38,6 +41,7 @@ async def test_receive_pipe():
 
     os.close(r)
     os.close(w)
+    recv._closed = True
 
 
 async def test_pipes_combined():
@@ -80,6 +84,38 @@ async def test_pipe_errors():
 
     with pytest.raises(ValueError):
         await PipeReceiveStream(0).receive_some(0)
+
+
+async def test_del():
+    w, r = await make_pipe()
+    f1, f2 = w.fileno(), r.fileno()
+    del w, r
+    gc_collect_harder()
+
+    with pytest.raises(OSError) as excinfo:
+        os.close(f1)
+    assert excinfo.value.errno == errno.EBADF
+
+    with pytest.raises(OSError) as excinfo:
+        os.close(f2)
+    assert excinfo.value.errno == errno.EBADF
+
+
+async def test_async_with():
+    w, r = await make_pipe()
+    async with w, r:
+        pass
+
+    assert w._closed
+    assert r._closed
+
+    with pytest.raises(OSError) as excinfo:
+        os.close(w.fileno())
+    assert excinfo.value.errno == errno.EBADF
+
+    with pytest.raises(OSError) as excinfo:
+        os.close(r.fileno())
+    assert excinfo.value.errno == errno.EBADF
 
 
 async def make_clogged_pipe():
