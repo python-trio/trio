@@ -4,9 +4,9 @@ import os
 import outcome
 from typing import Dict, Any
 
-from . import _core
-from ._sync import Event
-from ._threads import run_sync_in_worker_thread
+from .. import _core
+from .._sync import Event
+from .._threads import run_sync_in_worker_thread
 
 # type: Dict[int, WaitpidResult]
 _pending_waitpids = {}

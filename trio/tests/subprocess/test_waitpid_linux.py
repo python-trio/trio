@@ -4,8 +4,8 @@ import os
 import pytest
 import signal
 
-from .. import _core
-from .._waitpid_linux import waitpid
+from ... import _core
+from ..._subprocess.linux_waitpid import waitpid
 
 pytestmark = pytest.mark.skipif(
     sys.platform != "linux", reason="linux waitpid only works on linux"
