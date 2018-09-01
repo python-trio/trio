@@ -1924,7 +1924,7 @@ async def test_traceback_frame_removal():
         # __aexit__, starting with _nested_child_finished().
         frames = traceback.extract_tb(first_exc.__traceback__)
         functions = [function for _, _, function, _ in frames]
-        assert functions[-2:] == ['_nested_child_finished', 'my_child_task']
+        assert functions[-2:] == ['open_cancel_scope', 'my_child_task']
 
 
 def test_contextvar_support():

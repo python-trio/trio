@@ -342,9 +342,8 @@ class NurseryManager:
     @enable_ki_protection
     async def __aexit__(self, etype, exc, tb):
         assert currently_ki_protected()
-        try:
-            await self._nursery._nested_child_finished(exc)
-        except BaseException as new_exc:
+        new_exc = await self._nursery._nested_child_finished(exc)
+        if new_exc:
             try:
                 if self._scope_manager.__exit__(
                     type(new_exc), new_exc, new_exc.__traceback__
@@ -354,7 +353,7 @@ class NurseryManager:
                 if scope_manager_exc == exc:
                     return False
                 raise  # scope_manager_exc
-            raise  # new_exc
+            raise new_exc
         else:
             self._scope_manager.__exit__(None, None, None)
             return True
@@ -422,6 +421,7 @@ class Nursery:
         self._check_nursery_closed()
 
     async def _nested_child_finished(self, nested_child_exc):
+        """Returns MultiError instance if there are pending exceptions."""
         if nested_child_exc is not None:
             self._add_exc(nested_child_exc)
         self._nested_child_running = False
@@ -449,7 +449,7 @@ class Nursery:
         popped = self._parent_task._child_nurseries.pop()
         assert popped is self
         if self._pending_excs:
-            raise MultiError(self._pending_excs)
+            return MultiError(self._pending_excs)
 
     def start_soon(self, async_fn, *args, name=None):
         GLOBAL_RUN_CONTEXT.runner.spawn_impl(async_fn, args, self, name)
