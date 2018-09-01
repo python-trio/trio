@@ -3,6 +3,7 @@ import logging
 import os
 import random
 import select
+import sys
 import threading
 from collections import deque
 import collections.abc
@@ -116,6 +117,7 @@ class SystemClock:
 @attr.s(cmp=False, hash=False, repr=False)
 class CancelScope:
     _tasks = attr.ib(default=attr.Factory(set))
+    _scope_task = attr.ib(default=None)
     _effective_deadline = attr.ib(default=inf)
     _deadline = attr.ib(default=inf)
     _shield = attr.ib(default=False)
@@ -210,24 +212,48 @@ class CancelScope:
             return None
         return exc
 
+    # Note we explicitly avoid @contextmanager since it adds extraneous stack
+    # frames to exceptions.
+    @enable_ki_protection
+    def __enter__(self):
+        # Fail early if someone tries to "with CancelScope(): ...", which is not
+        # supported yet.
+        assert self._scope_task is not None
+        return self
 
-@contextmanager
-@enable_ki_protection
+    @enable_ki_protection
+    def __exit__(self, etype, exc, tb):
+        try:
+            # Copied verbatim from MultiErrorCatcher.  Python doesn't
+            # allow us to encapsulate the __context__ fixup.
+            if exc is not None:
+                filtered_exc = MultiError.filter(self._exc_filter, exc)
+                if filtered_exc is exc:
+                    return False
+                if filtered_exc is None:
+                    return True
+                old_context = filtered_exc.__context__
+                try:
+                    raise filtered_exc
+                finally:
+                    _, value, _ = sys.exc_info()
+                    assert value is filtered_exc
+                    value.__context__ = old_context
+        finally:
+            self._remove_task(self._scope_task)
+
+
 def open_cancel_scope(*, deadline=inf, shield=False):
     """Returns a context manager which creates a new cancellation scope.
 
     """
 
-    task = _core.current_task()
     scope = CancelScope()
-    scope._add_task(task)
+    scope._scope_task = _core.current_task()
+    scope._add_task(scope._scope_task)
     scope.deadline = deadline
     scope.shield = shield
-    try:
-        with MultiError.catch(scope._exc_filter):
-            yield scope
-    finally:
-        scope._remove_task(task)
+    return scope
 
 
 ################################################################
@@ -333,7 +359,6 @@ class NurseryManager:
 
     @enable_ki_protection
     async def __aenter__(self):
-        assert currently_ki_protected()
         self._scope_manager = open_cancel_scope()
         scope = self._scope_manager.__enter__()
         self._nursery = Nursery(current_task(), scope)
@@ -341,7 +366,6 @@ class NurseryManager:
 
     @enable_ki_protection
     async def __aexit__(self, etype, exc, tb):
-        assert currently_ki_protected()
         new_exc = await self._nursery._nested_child_finished(exc)
         if new_exc:
             try:

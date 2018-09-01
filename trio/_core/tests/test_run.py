@@ -4,7 +4,6 @@ import platform
 import sys
 import threading
 import time
-import traceback
 import warnings
 from contextlib import contextmanager
 from math import inf
@@ -1144,6 +1143,7 @@ async def test_nursery_exception_chaining_doesnt_make_context_loops():
         async with _core.open_nursery() as nursery:
             nursery.start_soon(crasher)
             raise ValueError
+    # the MultiError should not have the KeyError or ValueError as context
     assert excinfo.value.__context__ is None
 
 
@@ -1918,13 +1918,8 @@ async def test_traceback_frame_removal():
         # task, not trio/contextvars internals. And there's only one frame
         # inside the child task, so this will also detect if our frame-removal
         # is too eager.
-        #frame = first_exc.__traceback__.tb_frame
-        #assert frame.f_code is my_child_task.__code__
-        # ...but we're not there yet.  There are several frames from nursery's
-        # __aexit__, starting with _nested_child_finished().
-        frames = traceback.extract_tb(first_exc.__traceback__)
-        functions = [function for _, _, function, _ in frames]
-        assert functions[-2:] == ['open_cancel_scope', 'my_child_task']
+        frame = first_exc.__traceback__.tb_frame
+        assert frame.f_code is my_child_task.__code__
 
 
 def test_contextvar_support():
