@@ -3,7 +3,6 @@ import logging
 import os
 import random
 import select
-import sys
 import threading
 from collections import deque
 import collections.abc
