@@ -3,7 +3,6 @@ import logging
 import os
 import random
 import select
-import sys
 import threading
 from collections import deque
 import collections.abc
@@ -62,6 +61,34 @@ _r = random.Random()
 
 # Used to log exceptions in instruments
 INSTRUMENT_LOGGER = logging.getLogger("trio.abc.Instrument")
+
+
+# On 3.7+, Context.run() is implemented in C and doesn't show up in
+# tracebacks. On 3.6 and earlier, we use the contextvars backport, which is
+# currently implemented in Python and adds 1 frame to tracebacks. So this
+# function is a super-overkill version of "0 if sys.version_info >= (3, 7)
+# else 1". But if Context.run ever changes, we'll be ready!
+#
+# This can all be removed once we drop support for 3.6.
+def _count_context_run_tb_frames():
+    def function_with_unique_name_xyzzy():
+        1 / 0
+
+    ctx = copy_context()
+    try:
+        ctx.run(function_with_unique_name_xyzzy)
+    except ZeroDivisionError as exc:
+        tb = exc.__traceback__
+        # Skip the frame where we caught it
+        tb = tb.tb_next
+        count = 0
+        while tb.tb_frame.f_code.co_name != "function_with_unique_name_xyzzy":
+            tb = tb.tb_next
+            count += 1
+        return count
+
+
+CONTEXT_RUN_TB_FRAMES = _count_context_run_tb_frames()
 
 
 @attr.s(frozen=True)
@@ -1392,13 +1419,14 @@ def run_impl(runner, async_fn, args):
             except StopIteration as stop_iteration:
                 final_result = Value(stop_iteration.value)
             except BaseException as task_exc:
-                # Store for later, removing uninteresting top frames:
-                #   1. trio._core._run.run_impl()
-                #   2. contextvars.Context.run() (< Python 3.7 only)
-                tb_next = task_exc.__traceback__.tb_next
-                if sys.version_info < (3, 7):
-                    tb_next = tb_next.tb_next
-                final_result = Error(task_exc.with_traceback(tb_next))
+                # Store for later, removing uninteresting top frames: 1 frame
+                # we always remove, because it's this function catching it,
+                # and then in addition we remove however many more Context.run
+                # adds.
+                tb = task_exc.__traceback__.tb_next
+                for _ in range(CONTEXT_RUN_TB_FRAMES):
+                    tb = tb.tb_next
+                final_result = Error(task_exc.with_traceback(tb))
 
             if final_result is not None:
                 # We can't call this directly inside the except: blocks above,
