@@ -3,6 +3,7 @@ import logging
 import os
 import random
 import select
+import sys
 import threading
 from collections import deque
 import collections.abc
@@ -116,11 +117,22 @@ class SystemClock:
 @attr.s(cmp=False, hash=False, repr=False)
 class CancelScope:
     _tasks = attr.ib(default=attr.Factory(set))
+    _scope_task = attr.ib(default=None)
     _effective_deadline = attr.ib(default=inf)
     _deadline = attr.ib(default=inf)
     _shield = attr.ib(default=False)
     cancel_called = attr.ib(default=False)
     cancelled_caught = attr.ib(default=False)
+
+    @staticmethod
+    def _create(deadline, shield):
+        task = _core.current_task()
+        scope = CancelScope()
+        scope._scope_task = task
+        scope._add_task(task)
+        scope.deadline = deadline
+        scope.shield = shield
+        return scope
 
     def __repr__(self):
         return "<cancel scope object at {:#x}>".format(id(self))
@@ -210,24 +222,51 @@ class CancelScope:
             return None
         return exc
 
+    def _close(self, exc):
+        self._remove_task(self._scope_task)
+        if exc is not None:
+            filtered_exc = MultiError.filter(self._exc_filter, exc)
+            return filtered_exc
 
-@contextmanager
-@enable_ki_protection
+
+# We explicitly avoid @contextmanager since it adds extraneous stack frames
+# to exceptions.
+@attr.s
+class CancelScopeManager:
+
+    _deadline = attr.ib(default=inf)
+    _shield = attr.ib(default=False)
+
+    @enable_ki_protection
+    def __enter__(self):
+        self._scope = CancelScope._create(self._deadline, self._shield)
+        return self._scope
+
+    @enable_ki_protection
+    def __exit__(self, etype, exc, tb):
+        filtered_exc = self._scope._close(exc)
+        if filtered_exc is None:
+            return True
+        elif filtered_exc is exc:
+            return False
+        else:
+            # Copied verbatim from MultiErrorCatcher.  Python doesn't
+            # allow us to encapsulate this __context__ fixup.
+            old_context = filtered_exc.__context__
+            try:
+                raise filtered_exc
+            finally:
+                _, value, _ = sys.exc_info()
+                assert value is filtered_exc
+                value.__context__ = old_context
+
+
 def open_cancel_scope(*, deadline=inf, shield=False):
     """Returns a context manager which creates a new cancellation scope.
 
     """
 
-    task = _core.current_task()
-    scope = CancelScope()
-    scope._add_task(task)
-    scope.deadline = deadline
-    scope.shield = shield
-    try:
-        with MultiError.catch(scope._exc_filter):
-            yield scope
-    finally:
-        scope._remove_task(task)
+    return CancelScopeManager(deadline, shield)
 
 
 ################################################################
@@ -333,31 +372,28 @@ class NurseryManager:
 
     @enable_ki_protection
     async def __aenter__(self):
-        assert currently_ki_protected()
-        self._scope_manager = open_cancel_scope()
-        scope = self._scope_manager.__enter__()
-        self._nursery = Nursery(current_task(), scope)
+        self._scope = CancelScope._create(deadline=inf, shield=False)
+        self._nursery = Nursery(current_task(), self._scope)
         return self._nursery
 
     @enable_ki_protection
     async def __aexit__(self, etype, exc, tb):
-        assert currently_ki_protected()
-        try:
-            await self._nursery._nested_child_finished(exc)
-        except BaseException as new_exc:
-            try:
-                if self._scope_manager.__exit__(
-                    type(new_exc), new_exc, new_exc.__traceback__
-                ):
-                    return True
-            except BaseException as scope_manager_exc:
-                if scope_manager_exc == exc:
-                    return False
-                raise  # scope_manager_exc
-            raise  # new_exc
-        else:
-            self._scope_manager.__exit__(None, None, None)
+        new_exc = await self._nursery._nested_child_finished(exc)
+        scope_exc = self._scope._close(new_exc)
+        if scope_exc is None:
             return True
+        elif scope_exc is exc:
+            return False
+        else:
+            # Copied verbatim from MultiErrorCatcher.  Python doesn't
+            # allow us to encapsulate this __context__ fixup.
+            old_context = scope_exc.__context__
+            try:
+                raise scope_exc
+            finally:
+                _, value, _ = sys.exc_info()
+                assert value is scope_exc
+                value.__context__ = old_context
 
     def __enter__(self):
         raise RuntimeError(
@@ -422,6 +458,7 @@ class Nursery:
         self._check_nursery_closed()
 
     async def _nested_child_finished(self, nested_child_exc):
+        """Returns MultiError instance if there are pending exceptions."""
         if nested_child_exc is not None:
             self._add_exc(nested_child_exc)
         self._nested_child_running = False
@@ -449,7 +486,7 @@ class Nursery:
         popped = self._parent_task._child_nurseries.pop()
         assert popped is self
         if self._pending_excs:
-            raise MultiError(self._pending_excs)
+            return MultiError(self._pending_excs)
 
     def start_soon(self, async_fn, *args, name=None):
         GLOBAL_RUN_CONTEXT.runner.spawn_impl(async_fn, args, self, name)
