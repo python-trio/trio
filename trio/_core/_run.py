@@ -228,18 +228,23 @@ class CancelScope:
             filtered_exc = MultiError.filter(self._exc_filter, exc)
             return filtered_exc
 
-    # Note we explicitly avoid @contextmanager since it adds extraneous stack
-    # frames to exceptions.
+
+# We explicitly avoid @contextmanager since it adds extraneous stack frames
+# to exceptions.
+@attr.s
+class CancelScopeManager:
+
+    _deadline = attr.ib(default=inf)
+    _shield = attr.ib(default=False)
+
     @enable_ki_protection
     def __enter__(self):
-        # Fail early if someone tries to "with CancelScope(): ...", which is not
-        # supported yet.
-        assert self._scope_task is not None
-        return self
+        self._scope = CancelScope._create(self._deadline, self._shield)
+        return self._scope
 
     @enable_ki_protection
     def __exit__(self, etype, exc, tb):
-        filtered_exc = self._close(exc)
+        filtered_exc = self._scope._close(exc)
         if filtered_exc is None:
             return True
         elif filtered_exc is exc:
@@ -261,7 +266,7 @@ def open_cancel_scope(*, deadline=inf, shield=False):
 
     """
 
-    return CancelScope._create(deadline, shield)
+    return CancelScopeManager(deadline, shield)
 
 
 ################################################################
