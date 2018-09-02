@@ -960,15 +960,14 @@ def test_system_task_crash_MultiError():
         _core.spawn_system_task(system_task)
         await sleep_forever()
 
-    with pytest.raises(_core.MultiError) as excinfo:
+    with pytest.raises(_core.TrioInternalError) as excinfo:
         _core.run(main)
 
-    assert len(excinfo.value.exceptions) == 2
-    cause_types = set()
-    for exc in excinfo.value.exceptions:
-        assert type(exc) is _core.TrioInternalError
-        cause_types.add(type(exc.__cause__))
-    assert cause_types == {KeyError, ValueError}
+    me = excinfo.value.__cause__
+    assert isinstance(me, _core.MultiError)
+    assert len(me.exceptions) == 2
+    for exc in me.exceptions:
+        assert isinstance(exc, (KeyError, ValueError))
 
 
 def test_system_task_crash_plus_Cancelled():
@@ -1005,10 +1004,9 @@ def test_system_task_crash_KeyboardInterrupt():
         _core.spawn_system_task(ki)
         await sleep_forever()
 
-    # KI doesn't get wrapped with TrioInternalError
-    with pytest.raises(KeyboardInterrupt):
+    with pytest.raises(_core.TrioInternalError) as excinfo:
         _core.run(main)
-
+    assert isinstance(excinfo.value.__cause__, KeyboardInterrupt)
 
 # This used to fail because checkpoint was a yield followed by an immediate
 # reschedule. So we had:
