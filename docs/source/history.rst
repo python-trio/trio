@@ -5,6 +5,59 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.7.0 (2018-09-03)
+-----------------------
+
+Features
+~~~~~~~~
+
+- The length of typical exception traces coming from Trio has been greatly
+  reduced. This was done by eliminating many of the exception frames related to
+  details of the implementation. (`#56
+  <https://github.com/python-trio/trio/issues/56>`__)
+- New and improved signal catching API: :func:`open_signal_receiver`. (`#354
+  <https://github.com/python-trio/trio/issues/354>`__)
+- The low level :func:`trio.hazmat.wait_socket_readable`,
+  :func:`~trio.hazmat.wait_socket_writable`, and
+  :func:`~trio.hazmat.notify_socket_close` now work on bare socket descriptors,
+  instead of requiring a :func:`socket.socket` object. (`#400
+  <https://github.com/python-trio/trio/issues/400>`__)
+- If you're using :func:`trio.hazmat.wait_task_rescheduled` and other low-level
+  routines to implement a new sleeping primitive, you can now use the new
+  :data:`trio.hazmat.Task.custom_sleep_data` attribute to pass arbitrary data
+  between the sleeping task, abort function, and waking task. (`#616
+  <https://github.com/python-trio/trio/issues/616>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Prevent crashes when used with Sentry (raven-python). (`#599
+  <https://github.com/python-trio/trio/issues/599>`__)
+- The nursery context manager was rewritten to avoid use of
+  `@asynccontextmanager` and `@async_generator`. This reduces extraneous frames
+  in exception traces and addresses bugs regarding `StopIteration` and
+  `StopAsyncIteration` exceptions not propagating correctly. (`#612
+  <https://github.com/python-trio/trio/issues/612>`__)
+- Updates the formatting of exception messages raised by
+  :func:`trio.open_tcp_stream` to correctly handle a hostname passed in as
+  bytes, by converting the hostname to a string. (`#633
+  <https://github.com/python-trio/trio/issues/633>`__)
+
+
+Deprecations and Removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- ``trio.catch_signals`` has been deprecated in favor of
+  :func:`open_signal_receiver`. The main differences are: - it takes \*-args
+  now to specify the list of signals (so ``open_signal_receiver(SIGINT)``
+  instead of ``catch_signals({SIGINT})``) - the async iterator now yields
+  individual signals, instead of "batches" (`#354
+  <https://github.com/python-trio/trio/issues/354>`__)
+- Remove all the APIs deprecated in 0.3.0 and 0.4.0. (`#623
+  <https://github.com/python-trio/trio/issues/623>`__)
+
+
 Trio 0.6.0 (2018-08-13)
 -----------------------
 
