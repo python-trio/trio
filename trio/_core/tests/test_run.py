@@ -1008,6 +1008,7 @@ def test_system_task_crash_KeyboardInterrupt():
         _core.run(main)
     assert isinstance(excinfo.value.__cause__, KeyboardInterrupt)
 
+
 # This used to fail because checkpoint was a yield followed by an immediate
 # reschedule. So we had:
 # 1) this task yields

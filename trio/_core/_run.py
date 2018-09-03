@@ -9,7 +9,6 @@ from collections import deque
 import collections.abc
 from contextlib import contextmanager, closing
 
-import outcome
 from contextvars import copy_context
 from math import inf
 from time import monotonic
@@ -19,7 +18,7 @@ from sniffio import current_async_library_cvar
 import attr
 from async_generator import isasyncgen
 from sortedcontainers import SortedDict
-from outcome import Error, Value
+from outcome import Error, Value, capture
 
 from . import _public
 from ._entry_queue import EntryQueue, TrioToken
@@ -451,10 +450,10 @@ class Nursery:
                 self._parent_waiting_in_aexit = False
                 GLOBAL_RUN_CONTEXT.runner.reschedule(self._parent_task)
 
-    def _child_finished(self, task, result):
+    def _child_finished(self, task, outcome):
         self._children.remove(task)
-        if type(result) is Error:
-            self._add_exc(result.error)
+        if type(outcome) is Error:
+            self._add_exc(outcome.error)
         self._check_nursery_closed()
 
     async def _nested_child_finished(self, nested_child_exc):
@@ -469,7 +468,7 @@ class Nursery:
             # KeyboardInterrupt), then save that, but still wait until our
             # children finish.
             def aborted(raise_cancel):
-                self._add_exc(outcome.capture(raise_cancel).error)
+                self._add_exc(capture(raise_cancel).error)
                 return Abort.FAILED
 
             self._parent_waiting_in_aexit = True
@@ -547,7 +546,7 @@ class Task:
 
     # Invariant:
     # - for unscheduled tasks, _next_send is None
-    # - for scheduled tasks, _next_send is a Result object,
+    # - for scheduled tasks, _next_send is an Outcome object,
     #   and custom_sleep_data is None
     # Tasks start out unscheduled.
     _next_send = attr.ib(default=None)
@@ -607,7 +606,7 @@ class Task:
         # whether we succeeded or failed.
         self._abort_func = None
         if success is Abort.SUCCEEDED:
-            self._runner.reschedule(self, outcome.capture(raise_cancel))
+            self._runner.reschedule(self, capture(raise_cancel))
 
     def _attempt_delivery_of_any_pending_cancel(self):
         if self._abort_func is None:
@@ -670,7 +669,7 @@ class Runner:
     system_nursery = attr.ib(default=None)
     system_context = attr.ib(default=None)
     main_task = attr.ib(default=None)
-    main_task_result = attr.ib(default=None)
+    main_task_outcome = attr.ib(default=None)
 
     entry_queue = attr.ib(default=attr.Factory(EntryQueue))
     trio_token = attr.ib(default=None)
@@ -859,7 +858,7 @@ class Runner:
         # We can't check iscoroutinefunction(async_fn), because that will fail
         # for things like functools.partial objects wrapping an async
         # function. So we have to just call it and then check whether the
-        # result is a coroutine object.
+        # return value is a coroutine object.
         if not isinstance(coro, collections.abc.Coroutine):
             # Give good error for: nursery.start_soon(func_returning_future)
             if _return_value_looks_like_wrong_library(coro):
@@ -921,30 +920,30 @@ class Runner:
 
         if self.instruments:
             self.instrument("task_spawned", task)
-        # Special case: normally next_send should be a Result, but for the
+        # Special case: normally next_send should be an Outcome, but for the
         # very first send we have to send a literal unboxed None.
         self.reschedule(task, None)
         return task
 
-    def task_exited(self, task, result):
+    def task_exited(self, task, outcome):
         while task._cancel_stack:
             task._cancel_stack[-1]._remove_task(task)
         self.tasks.remove(task)
         if task is self.main_task:
-            self.main_task_result = result
+            self.main_task_outcome = outcome
             self.system_nursery.cancel_scope.cancel()
             self.system_nursery._child_finished(task, Value(None))
         elif task is self.init_task:
             # If the init task crashed, then something is very wrong and we
             # let the error propagate. (It'll eventually be wrapped in a
             # TrioInternalError.)
-            result.unwrap()
+            outcome.unwrap()
             # the init task should be the last task to exit. If not, then
             # something is very wrong.
             if self.tasks:  # pragma: no cover
                 raise TrioInternalError
         else:
-            task._parent_nursery._child_finished(task, result)
+            task._parent_nursery._child_finished(task, outcome)
 
         if self.instruments:
             self.instrument("task_exited", task)
@@ -1006,7 +1005,7 @@ class Runner:
                     async_fn, args, system_nursery, None
                 )
             except BaseException as exc:
-                self.main_task_result = Error(exc)
+                self.main_task_outcome = Error(exc)
                 system_nursery.cancel_scope.cancel()
             self.entry_queue.spawn()
 
@@ -1051,7 +1050,7 @@ class Runner:
         # the same time -- so even if KI arrives before main_task is created,
         # we won't get here until afterwards.
         assert self.main_task is not None
-        if self.main_task_result is not None:
+        if self.main_task_outcome is not None:
             # We're already in the process of exiting -- leave ki_pending set
             # and we'll check it again on our way out of run().
             return
@@ -1203,7 +1202,7 @@ def run(
     instruments=(),
     restrict_keyboard_interrupt_to_checkpoints=False
 ):
-    """Run a trio-flavored async function, and return the result.
+    """Run a trio-flavored async function, and return the outcome.
 
     Calling::
 
@@ -1317,17 +1316,17 @@ def run(
                 ) from exc
             finally:
                 GLOBAL_RUN_CONTEXT.__dict__.clear()
-            # Inlined copy of runner.main_task_result.unwrap() to avoid
+            # Inlined copy of runner.main_task_outcome.unwrap() to avoid
             # cluttering every single trio traceback with an extra frame.
-            if type(runner.main_task_result) is Value:
-                return runner.main_task_result.value
+            if type(runner.main_task_outcome) is Value:
+                return runner.main_task_outcome.value
             else:
-                raise runner.main_task_result.error
+                raise runner.main_task_outcome.error
     finally:
         # To guarantee that we never swallow a KeyboardInterrupt, we have to
         # check for pending ones once more after leaving the context manager:
         if runner.ki_pending:
-            # Implicitly chains with any exception from result.unwrap():
+            # Implicitly chains with any exception from outcome.unwrap():
             raise KeyboardInterrupt
 
 
@@ -1430,18 +1429,18 @@ def run_impl(runner, async_fn, args):
 
             next_send = task._next_send
             task._next_send = None
-            final_result = None
+            final_outcome = None
             try:
-                # We used to unwrap the Result object here and send/throw its
+                # We used to unwrap the Outcome object here and send/throw its
                 # contents in directly, but it turns out that .throw() is
                 # buggy, at least on CPython 3.6 and earlier:
                 #   https://bugs.python.org/issue29587
                 #   https://bugs.python.org/issue29590
-                # So now we send in the Result object and unwrap it on the
+                # So now we send in the Outcome object and unwrap it on the
                 # other side.
                 msg = task.context.run(task.coro.send, next_send)
             except StopIteration as stop_iteration:
-                final_result = Value(stop_iteration.value)
+                final_outcome = Value(stop_iteration.value)
             except BaseException as task_exc:
                 # Store for later, removing uninteresting top frames: 1 frame
                 # we always remove, because it's this function catching it,
@@ -1450,13 +1449,13 @@ def run_impl(runner, async_fn, args):
                 tb = task_exc.__traceback__.tb_next
                 for _ in range(CONTEXT_RUN_TB_FRAMES):
                     tb = tb.tb_next
-                final_result = Error(task_exc.with_traceback(tb))
+                final_outcome = Error(task_exc.with_traceback(tb))
 
-            if final_result is not None:
+            if final_outcome is not None:
                 # We can't call this directly inside the except: blocks above,
                 # because then the exceptions end up attaching themselves to
                 # other exceptions as __context__ in unwanted ways.
-                runner.task_exited(task, final_result)
+                runner.task_exited(task, final_outcome)
             else:
                 task._schedule_points += 1
                 if msg is CancelShieldedCheckpoint:
