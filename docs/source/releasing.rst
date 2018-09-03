@@ -33,9 +33,9 @@ Things to do for releasing:
 
    + commit
 
-* push to your personal repository, "release" branch
+* push to your personal repository
 
-* create pull request to ``python-trio/trio``'s "release" branch
+* create pull request to ``python-trio/trio``'s "master" branch
 
 * announce PR on gitter
 
@@ -61,7 +61,7 @@ Things to do for releasing:
 
    + add ``+dev`` tag to the end
 
-* prepare pull request from "release" back to "master"
+* prepare another pull request to "master"
 
    + acknowledge it
 
