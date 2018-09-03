@@ -1,3 +1,0 @@
-The length of typical exception traces coming from Trio has been
-greatly reduced.  This was done by eliminating many of the
-exception frames related to details of the implementation.

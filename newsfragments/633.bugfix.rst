@@ -1,3 +1,0 @@
-Updates the formatting of exception messages raised by :func:`trio.open_tcp_stream` 
-to correctly handle a hostname passed in as bytes, by converting the hostname to
-a string.

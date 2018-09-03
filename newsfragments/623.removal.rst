@@ -1,1 +1,0 @@
-Remove all the APIs deprecated in 0.3.0 and 0.4.0.

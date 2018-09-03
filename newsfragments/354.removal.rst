@@ -1,8 +1,0 @@
-``trio.catch_signals`` has been deprecated in favor of
-:func:`open_signal_receiver`. The main differences are:
-
-- it takes \*-args now to specify the list of signals (so
-  ``open_signal_receiver(SIGINT)`` instead of
-  ``catch_signals({SIGINT})``)
-- the async iterator now yields individual signals, instead of
-  "batches"
