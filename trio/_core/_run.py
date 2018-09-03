@@ -243,20 +243,22 @@ class CancelScopeManager:
 
     @enable_ki_protection
     def __exit__(self, etype, exc, tb):
-        filtered_exc = self._scope._close(exc)
-        if filtered_exc is None:
+        # Tracebacks show the 'raise' line below out of context, so let's give
+        # this variable a name that makes sense out of context.
+        remaining_error_after_cancel_scope = self._scope._close(exc)
+        if remaining_error_after_cancel_scope is None:
             return True
-        elif filtered_exc is exc:
+        elif remaining_error_after_cancel_scope is exc:
             return False
         else:
             # Copied verbatim from MultiErrorCatcher.  Python doesn't
             # allow us to encapsulate this __context__ fixup.
-            old_context = filtered_exc.__context__
+            old_context = remaining_error_after_cancel_scope.__context__
             try:
-                raise filtered_exc
+                raise remaining_error_after_cancel_scope
             finally:
                 _, value, _ = sys.exc_info()
-                assert value is filtered_exc
+                assert value is remaining_error_after_cancel_scope
                 value.__context__ = old_context
 
 
@@ -378,20 +380,22 @@ class NurseryManager:
     @enable_ki_protection
     async def __aexit__(self, etype, exc, tb):
         new_exc = await self._nursery._nested_child_finished(exc)
-        scope_exc = self._scope._close(new_exc)
-        if scope_exc is None:
+        # Tracebacks show the 'raise' line below out of context, so let's give
+        # this variable a name that makes sense out of context.
+        combined_error_from_nursery = self._scope._close(new_exc)
+        if combined_error_from_nursery is None:
             return True
-        elif scope_exc is exc:
+        elif combined_error_from_nursery is exc:
             return False
         else:
             # Copied verbatim from MultiErrorCatcher.  Python doesn't
             # allow us to encapsulate this __context__ fixup.
-            old_context = scope_exc.__context__
+            old_context = combined_error_from_nursery.__context__
             try:
-                raise scope_exc
+                raise combined_error_from_nursery
             finally:
                 _, value, _ = sys.exc_info()
-                assert value is scope_exc
+                assert value is combined_error_from_nursery
                 value.__context__ = old_context
 
     def __enter__(self):
