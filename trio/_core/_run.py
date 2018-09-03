@@ -1317,7 +1317,12 @@ def run(
                 ) from exc
             finally:
                 GLOBAL_RUN_CONTEXT.__dict__.clear()
-            return runner.main_task_result.unwrap()
+            # Inlined copy of runner.main_task_result.unwrap() to avoid
+            # cluttering every single trio traceback with an extra frame.
+            if type(runner.main_task_result) is Value:
+                return runner.main_task_result.value
+            else:
+                raise runner.main_task_result.error
     finally:
         # To guarantee that we never swallow a KeyboardInterrupt, we have to
         # check for pending ones once more after leaving the context manager:
