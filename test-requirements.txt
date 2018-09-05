@@ -1,5 +1,5 @@
 pytest >= 3.3  # for catchlog fixture
-pytest-cov
+pytest-cov == 2.5.1
 ipython        # for the IPython traceback integration tests
 pyOpenSSL      # for the ssl tests
 trustme        # for the ssl tests
