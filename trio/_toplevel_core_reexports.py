@@ -14,20 +14,10 @@
 # a test to make sure that every _core export does get re-exported in one of
 # these places or another.
 __all__ = [
-    "TrioInternalError",
-    "RunFinishedError",
-    "WouldBlock",
-    "Cancelled",
-    "ResourceBusyError",
-    "ClosedResourceError",
-    "MultiError",
-    "run",
-    "open_nursery",
-    "open_cancel_scope",
-    "current_effective_deadline",
-    "TASK_STATUS_IGNORED",
-    "current_time",
-    "open_signal_receiver"
+    "TrioInternalError", "RunFinishedError", "WouldBlock", "Cancelled",
+    "ResourceBusyError", "ClosedResourceError", "MultiError", "run",
+    "open_nursery", "open_cancel_scope", "current_effective_deadline",
+    "TASK_STATUS_IGNORED", "current_time", "open_signal_receiver"
 ]
 
 from . import _core
