@@ -19,7 +19,7 @@ from ._core import (
     TrioInternalError, RunFinishedError, WouldBlock, Cancelled,
     ResourceBusyError, ClosedResourceError, MultiError, run, open_nursery,
     open_cancel_scope, current_effective_deadline, TASK_STATUS_IGNORED,
-    current_time, TaskLocal
+    current_time
 )
 
 from ._timeouts import (
