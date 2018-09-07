@@ -68,8 +68,7 @@ from . import socket
 from . import abc
 from . import ssl
 # Not imported by default: testing
-TESTING = False
-if TESTING:
+if False:
     from . import testing
 
 _deprecate.enable_attribute_deprecations(__name__)

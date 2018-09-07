@@ -70,7 +70,7 @@ extensions = [
 
 intersphinx_mapping = {
     "python": ('https://docs.python.org/3', None),
-    "outcome": ('https://outcome.readthedocs.io/en/latest/', None),
+    "outcome": ('https://outcome.readthedocs.org/en/latest/', None),
 }
 
 autodoc_member_order = "bysource"

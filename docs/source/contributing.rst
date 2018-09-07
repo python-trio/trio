@@ -347,7 +347,7 @@ Documentation is stored in ``docs/source/*.rst`` and is rendered using
 `Sphinx <http://www.sphinx-doc.org/>`__ with the `sphinxcontrib-trio
 <https://sphinxcontrib-trio.readthedocs.io/en/latest/>`__ extension.
 Documentation is hosted at `Read the Docs
-<https://readthedocs.io/>`__, who take care of automatically
+<https://readthedocs.org/>`__, who take care of automatically
 rebuilding it after every commit.
 
 For docstrings, we use `the Google docstring format
