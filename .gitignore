@@ -63,6 +63,3 @@ coverage.xml
 
 # Sphinx documentation
 doc/_build/
-.vscode/
-Pipfile
-Pipfile.lock
