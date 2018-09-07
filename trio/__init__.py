@@ -40,7 +40,7 @@ from ._highlevel_generic import (
     aclose_forcefully, BrokenStreamError, StapledStream
 )
 
-from ._signals import catch_signals
+from ._signals import catch_signals, open_signal_receiver
 
 from ._highlevel_socket import SocketStream, SocketListener
 
