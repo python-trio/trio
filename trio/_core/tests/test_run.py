@@ -960,15 +960,14 @@ def test_system_task_crash_MultiError():
         _core.spawn_system_task(system_task)
         await sleep_forever()
 
-    with pytest.raises(_core.MultiError) as excinfo:
+    with pytest.raises(_core.TrioInternalError) as excinfo:
         _core.run(main)
 
-    assert len(excinfo.value.exceptions) == 2
-    cause_types = set()
-    for exc in excinfo.value.exceptions:
-        assert type(exc) is _core.TrioInternalError
-        cause_types.add(type(exc.__cause__))
-    assert cause_types == {KeyError, ValueError}
+    me = excinfo.value.__cause__
+    assert isinstance(me, _core.MultiError)
+    assert len(me.exceptions) == 2
+    for exc in me.exceptions:
+        assert isinstance(exc, (KeyError, ValueError))
 
 
 def test_system_task_crash_plus_Cancelled():
@@ -1005,9 +1004,9 @@ def test_system_task_crash_KeyboardInterrupt():
         _core.spawn_system_task(ki)
         await sleep_forever()
 
-    # KI doesn't get wrapped with TrioInternalError
-    with pytest.raises(KeyboardInterrupt):
+    with pytest.raises(_core.TrioInternalError) as excinfo:
         _core.run(main)
+    assert isinstance(excinfo.value.__cause__, KeyboardInterrupt)
 
 
 # This used to fail because checkpoint was a yield followed by an immediate
@@ -1143,6 +1142,7 @@ async def test_nursery_exception_chaining_doesnt_make_context_loops():
         async with _core.open_nursery() as nursery:
             nursery.start_soon(crasher)
             raise ValueError
+    # the MultiError should not have the KeyError or ValueError as context
     assert excinfo.value.__context__ is None
 
 
@@ -1895,6 +1895,30 @@ async def test_nursery_stop_async_iteration():
     async for vals in async_zip(it(4), it(2)):
         result.append(vals)
     assert result == [[0, 0], [1, 1]]
+
+
+async def test_traceback_frame_removal():
+    async def my_child_task():
+        raise KeyError()
+
+    try:
+        # Trick: For now cancel/nursery scopes still leave a bunch of tb gunk
+        # behind. But if there's a MultiError, they leave it on the MultiError,
+        # which lets us get a clean look at the KeyError itself. Someday I
+        # guess this will always be a MultiError (#611), but for now we can
+        # force it by raising two exceptions.
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(my_child_task)
+            nursery.start_soon(my_child_task)
+    except _core.MultiError as exc:
+        first_exc = exc.exceptions[0]
+        assert isinstance(first_exc, KeyError)
+        # The top frame in the exception traceback should be inside the child
+        # task, not trio/contextvars internals. And there's only one frame
+        # inside the child task, so this will also detect if our frame-removal
+        # is too eager.
+        frame = first_exc.__traceback__.tb_frame
+        assert frame.f_code is my_child_task.__code__
 
 
 def test_contextvar_support():

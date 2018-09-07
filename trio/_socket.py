@@ -559,25 +559,9 @@ class _SocketType(SocketType):
     async def _resolve_local_address(self, address):
         return await self._resolve_address(address, AI_PASSIVE)
 
-    @deprecated(
-        "0.3.0",
-        issue=377,
-        instead="just pass the address to the method you want to use"
-    )
-    async def resolve_local_address(self, address):
-        return await self._resolve_local_address(address)
-
     # Returns something appropriate to pass to connect()/sendto()/sendmsg()
     async def _resolve_remote_address(self, address):
         return await self._resolve_address(address, 0)
-
-    @deprecated(
-        "0.3.0",
-        issue=377,
-        instead="just pass the address to the method you want to use"
-    )
-    async def resolve_remote_address(self, address):
-        return await self._resolve_remote_address(address)
 
     async def _nonblocking_helper(self, fn, args, kwargs, wait_fn):
         # We have to reconcile two conflicting goals:

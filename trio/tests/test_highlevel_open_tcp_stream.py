@@ -64,8 +64,11 @@ def test_reorder_for_rfc_6555_section_5_4():
 
 def test_format_host_port():
     assert format_host_port("127.0.0.1", 80) == "127.0.0.1:80"
+    assert format_host_port(b"127.0.0.1", 80) == "127.0.0.1:80"
     assert format_host_port("example.com", 443) == "example.com:443"
+    assert format_host_port(b"example.com", 443) == "example.com:443"
     assert format_host_port("::1", "http") == "[::1]:http"
+    assert format_host_port(b"::1", "http") == "[::1]:http"
 
 
 # Make sure we can connect to localhost using real kernel sockets

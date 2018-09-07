@@ -23,18 +23,18 @@ class Event:
     """A waitable boolean value useful for inter-task synchronization,
     inspired by :class:`threading.Event`.
 
-    An event object with an internal boolean flag, representing whether
+    An event object has an internal boolean flag, representing whether
     the event has happened yet. The flag is initially False, and the
-    :meth:wait method waits until the flag is True. If the flag is
-    already True, then :meth:wait returns immediately. (If the event has
-    already happened, there's nothing to wait for.) The :meth:set method
+    :meth:`wait` method waits until the flag is True. If the flag is
+    already True, then :meth:`wait` returns immediately. (If the event has
+    already happened, there's nothing to wait for.) The :meth:`set` method
     sets the flag to True, and wakes up any waiters.
 
     This behavior is useful because it helps avoid race conditions and
-    lost wakeups: it doesn't matter whether :meth:set gets called just
-    before or after :meth:wait. If you want a lower-level wakeup
-    primitive that doesn't have this protection, consider :classCondition
-    or :class:trio.hazmat.ParkingLot.
+    lost wakeups: it doesn't matter whether :meth:`set` gets called just
+    before or after :meth:`wait`. If you want a lower-level wakeup
+    primitive that doesn't have this protection, consider :class:`Condition`
+    or :class:`trio.hazmat.ParkingLot`.
 
     """
 

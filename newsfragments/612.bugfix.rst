@@ -1,4 +1,0 @@
-The nursery context manager was rewritten to avoid use of
-`@asynccontextmanager` and `@async_generator`.  This reduces extraneous frames
-in exception traces and addresses bugs regarding `StopIteration` and
-`StopAsyncIteration` exceptions not propagating correctly.
