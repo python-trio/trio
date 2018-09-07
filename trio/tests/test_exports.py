@@ -41,7 +41,7 @@ def test_pylint_sees_all_non_underscore_symbols_in_namespace():
 def test_jedi_sees_all_completions():
     # Test the jedi completion library get all in dir(trio)
     try:
-        script = jedi.Script(path=trio.__file__)
+        script = jedi.Script("import trio; trio.")
         completions = script.completions()
         trio_set = set([symbol for symbol in dir(trio) if symbol[:2] != '__'])
         jedi_set = set([cmp.name for cmp in completions])
