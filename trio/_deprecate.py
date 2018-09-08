@@ -5,8 +5,6 @@ import warnings
 
 import attr
 
-__all__ = ["TrioDeprecationWarning"]
-
 
 # We want our warnings to be visible by default (at least for now), but we
 # also want it to be possible to override that using the -W switch. AFAICT
