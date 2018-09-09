@@ -14,39 +14,31 @@ def _public(fn):
     return fn
 
 
-__all__ = []
+from ._exceptions import (
+    TrioInternalError, RunFinishedError, WouldBlock, Cancelled,
+    ResourceBusyError, ClosedResourceError
+)
 
-from ._exceptions import *
-__all__ += _exceptions.__all__
+from ._multierror import MultiError
 
-from ._multierror import *
-__all__ += _multierror.__all__
+from ._traps import cancel_shielded_checkpoint, Abort, wait_task_rescheduled
 
-from ._traps import *
-__all__ += _traps.__all__
+from ._ki import (
+    enable_ki_protection, disable_ki_protection, currently_ki_protected
+)
 
-from ._ki import *
-__all__ += _ki.__all__
-
+# TODO:  make the _run namespace a lot less magical
 from ._run import *
-__all__ += _run.__all__
 
-from ._entry_queue import *
-__all__ += _entry_queue.__all__
+from ._entry_queue import TrioToken
 
-from ._parking_lot import *
-__all__ += _parking_lot.__all__
+from ._parking_lot import ParkingLot
 
-from ._unbounded_queue import *
-__all__ += _unbounded_queue.__all__
+from ._unbounded_queue import UnboundedQueue
 
-from ._local import *
-__all__ += _local.__all__
+from ._local import RunVar
 
 if hasattr(_run, "wait_readable"):
     wait_socket_readable = wait_readable
     wait_socket_writable = wait_writable
     notify_socket_close = notify_fd_close
-    __all__ += [
-        "wait_socket_readable", "wait_socket_writable", "notify_socket_close"
-    ]
