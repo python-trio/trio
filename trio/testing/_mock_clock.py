@@ -123,6 +123,15 @@ class MockClock(Clock):
     def autojump_threshold(self):
         return self._autojump_threshold
 
+    @autojump_threshold.setter
+    def autojump_threshold(self, new_autojump_threshold):
+        self._autojump_threshold = float(new_autojump_threshold)
+        self._maybe_spawn_autojump_task()
+        if self._autojump_cancel_scope is not None:
+            # Task is running and currently blocked on the old setting, wake
+            # it up so it picks up the new setting
+            self._autojump_cancel_scope.cancel()
+
     async def _autojumper(self):
         while True:
             with _core.open_cancel_scope() as cancel_scope:
@@ -160,15 +169,6 @@ class MockClock(Clock):
                 return
             if clock is self:
                 self._autojump_task = _core.spawn_system_task(self._autojumper)
-
-    @autojump_threshold.setter
-    def autojump_threshold(self, new_autojump_threshold):
-        self._autojump_threshold = float(new_autojump_threshold)
-        self._maybe_spawn_autojump_task()
-        if self._autojump_cancel_scope is not None:
-            # Task is running and currently blocked on the old setting, wake
-            # it up so it picks up the new setting
-            self._autojump_cancel_scope.cancel()
 
     def _real_to_virtual(self, real):
         real_offset = real - self._real_base
