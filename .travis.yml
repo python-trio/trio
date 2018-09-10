@@ -40,3 +40,7 @@ matrix:
 
 script:
   - ci/travis.sh
+
+branches:
+  except:
+    - /renovate/*/
