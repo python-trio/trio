@@ -196,11 +196,6 @@ class CapacityLimiter:
         """
         return self._total_tokens
 
-    def _wake_waiters(self):
-        available = self._total_tokens - len(self._borrowers)
-        for woken in self._lot.unpark(count=available):
-            self._borrowers.add(self._pending_borrowers.pop(woken))
-
     @total_tokens.setter
     def total_tokens(self, new_total_tokens):
         if not isinstance(new_total_tokens, int):
@@ -209,6 +204,11 @@ class CapacityLimiter:
             raise ValueError("total_tokens must be >= 1")
         self._total_tokens = new_total_tokens
         self._wake_waiters()
+
+    def _wake_waiters(self):
+        available = self._total_tokens - len(self._borrowers)
+        for woken in self._lot.unpark(count=available):
+            self._borrowers.add(self._pending_borrowers.pop(woken))
 
     @property
     def borrowed_tokens(self):

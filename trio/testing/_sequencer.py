@@ -7,6 +7,9 @@ from .. import _core
 from .. import _util
 from .. import Event
 
+if False:
+    from typing import DefaultDict, Set
+
 __all__ = ["Sequencer"]
 
 
@@ -53,13 +56,13 @@ class Sequencer:
 
     _sequence_points = attr.ib(
         default=attr.Factory(lambda: defaultdict(Event)), init=False
-    )
-    _claimed = attr.ib(default=attr.Factory(set), init=False)
+    )  # type: DefaultDict[int, Event]
+    _claimed = attr.ib(default=attr.Factory(set), init=False)  # type: Set[int]
     _broken = attr.ib(default=False, init=False)
 
     @asynccontextmanager
     @async_generator
-    async def __call__(self, position):
+    async def __call__(self, position: int):
         if position in self._claimed:
             raise RuntimeError(
                 "Attempted to re-use sequence point {}".format(position)
