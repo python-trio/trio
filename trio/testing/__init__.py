@@ -1,29 +1,24 @@
-__all__ = []
-
-# re-export
 from .._core import wait_all_tasks_blocked
-__all__.append("wait_all_tasks_blocked")
 
-from ._trio_test import *
-__all__ += _trio_test.__all__
+from ._trio_test import trio_test
 
-from ._mock_clock import *
-__all__ += _mock_clock.__all__
+from ._mock_clock import MockClock
 
-from ._checkpoints import *
-__all__ += _checkpoints.__all__
+from ._checkpoints import assert_checkpoints, assert_no_checkpoints
 
-from ._sequencer import *
-__all__ += _sequencer.__all__
+from ._sequencer import Sequencer
 
-from ._check_streams import *
-__all__ += _check_streams.__all__
+from ._check_streams import (
+    check_one_way_stream, check_two_way_stream, check_half_closeable_stream
+)
 
-from ._memory_streams import *
-__all__ += _memory_streams.__all__
+from ._memory_streams import (
+    MemorySendStream, MemoryReceiveStream, memory_stream_pump,
+    memory_stream_one_way_pair, memory_stream_pair,
+    lockstep_stream_one_way_pair, lockstep_stream_pair
+)
 
-from ._network import *
-__all__ += _network.__all__
+from ._network import open_stream_to_socket_listener
 
 ################################################################
 
