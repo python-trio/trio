@@ -444,9 +444,8 @@ class Nursery:
         self.cancel_scope.cancel()
 
     def _check_nursery_closed(self):
-        if (
-            not self._nested_child_running and not self._children
-            and not self._pending_starts
+        if not any(
+            [self._nested_child_running, self._children, self._pending_starts]
         ):
             self._closed = True
             if self._parent_waiting_in_aexit:

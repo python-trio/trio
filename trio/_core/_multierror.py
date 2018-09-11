@@ -184,11 +184,7 @@ class MultiError(BaseException):
             return self
 
     def __str__(self):
-        def format_child(exc):
-            #return "{}: {}".format(exc.__class__.__name__, exc)
-            return repr(exc)
-
-        return ", ".join(format_child(exc) for exc in self.exceptions)
+        return ", ".join(repr(exc) for exc in self.exceptions)
 
     def __repr__(self):
         return "<MultiError: {}>".format(self)
