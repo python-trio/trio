@@ -80,7 +80,7 @@ for _name in _stdlib_socket.__dict__.keys():
 if _sys.platform == "win32":
     # See https://github.com/python-trio/trio/issues/39
     # (you can still get it from stdlib socket, of course, if you want it)
-    del SO_REUSEADDR
+    globals().pop("SO_REUSEADDR", None)
     __all__.remove("SO_REUSEADDR")
 
     # As of at least 3.6, python on Windows is missing IPPROTO_IPV6
@@ -211,7 +211,8 @@ async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
     # with the _NUMERIC_ONLY flags set, and then only spawn a thread if that
     # fails with EAI_NONAME:
     def numeric_only_failure(exc):
-        return isinstance(exc, gaierror) and exc.errno == EAI_NONAME
+        return isinstance(exc, _stdlib_socket.gaierror) and \
+            exc.errno == _stdlib_socket.EAI_NONAME
 
     async with _try_sync(numeric_only_failure):
         return _stdlib_socket.getaddrinfo(
@@ -328,7 +329,12 @@ def socketpair(*args, **kwargs):
 
 @_wraps(_stdlib_socket.socket, assigned=(), updated=())
 @_add_to_all
-def socket(family=AF_INET, type=SOCK_STREAM, proto=0, fileno=None):
+def socket(
+    family=_stdlib_socket.AF_INET,
+    type=_stdlib_socket.SOCK_STREAM,
+    proto=0,
+    fileno=None
+):
     """Create a new trio socket, like :func:`socket.socket`.
 
     This function's behavior can be customized using
@@ -468,8 +474,8 @@ class _SocketType(SocketType):
         await _core.checkpoint()
         address = await self._resolve_local_address(address)
         if (
-            hasattr(_stdlib_socket, "AF_UNIX") and self.family == AF_UNIX
-            and address[0]
+            hasattr(_stdlib_socket, "AF_UNIX")
+            and self.family == _stdlib_socket.AF_UNIX and address[0]
         ):
             # Use a thread for the filesystem traversal (unless it's an
             # abstract domain socket)
@@ -485,7 +491,7 @@ class _SocketType(SocketType):
         # no need to worry about return value b/c always returns None:
         self._sock.shutdown(flag)
         # only do this if the call succeeded:
-        if flag in [SHUT_WR, SHUT_RDWR]:
+        if flag in [_stdlib_socket.SHUT_WR, _stdlib_socket.SHUT_RDWR]:
             self._did_shutdown_SHUT_WR = True
 
     async def wait_writable(self):
@@ -500,18 +506,18 @@ class _SocketType(SocketType):
     # etc.
     async def _resolve_address(self, address, flags):
         # Do some pre-checking (or exit early for non-IP sockets)
-        if self._sock.family == AF_INET:
+        if self._sock.family == _stdlib_socket.AF_INET:
             if not isinstance(address, tuple) or not len(address) == 2:
                 await _core.checkpoint()
                 raise ValueError("address should be a (host, port) tuple")
-        elif self._sock.family == AF_INET6:
+        elif self._sock.family == _stdlib_socket.AF_INET6:
             if not isinstance(address, tuple) or not 2 <= len(address) <= 4:
                 await _core.checkpoint()
                 raise ValueError(
                     "address should be a (host, port, [flowinfo, [scopeid]]) "
                     "tuple"
                 )
-        elif self._sock.family == AF_UNIX:
+        elif self._sock.family == _stdlib_socket.AF_UNIX:
             await _core.checkpoint()
             # unwrap path-likes
             return fspath(address)
@@ -532,9 +538,11 @@ class _SocketType(SocketType):
         # for ipv6 address resolution on travis-ci, which as of 2017-03-07 has
         # no ipv6.
         # flags |= AI_ADDRCONFIG
-        if self._sock.family == AF_INET6:
-            if not self._sock.getsockopt(IPPROTO_IPV6, IPV6_V6ONLY):
-                flags |= AI_V4MAPPED
+        if self._sock.family == _stdlib_socket.AF_INET6:
+            if not self._sock.getsockopt(
+                IPPROTO_IPV6, _stdlib_socket.IPV6_V6ONLY
+            ):
+                flags |= _stdlib_socket.AI_V4MAPPED
         gai_res = await getaddrinfo(
             host, port, self._sock.family, self.type, self._sock.proto, flags
         )
@@ -545,7 +553,7 @@ class _SocketType(SocketType):
         (*_, normed), *_ = gai_res
         # The above ignored any flowid and scopeid in the passed-in address,
         # so restore them if present:
-        if self._sock.family == AF_INET6:
+        if self._sock.family == _stdlib_socket.AF_INET6:
             normed = list(normed)
             assert len(normed) == 4
             if len(address) >= 3:
@@ -557,7 +565,7 @@ class _SocketType(SocketType):
 
     # Returns something appropriate to pass to bind()
     async def _resolve_local_address(self, address):
-        return await self._resolve_address(address, AI_PASSIVE)
+        return await self._resolve_address(address, _stdlib_socket.AI_PASSIVE)
 
     # Returns something appropriate to pass to connect()/sendto()/sendmsg()
     async def _resolve_remote_address(self, address):
@@ -699,7 +707,9 @@ class _SocketType(SocketType):
             self._sock.close()
             raise
         # Okay, the connect finished, but it might have failed:
-        err = self._sock.getsockopt(SOL_SOCKET, SO_ERROR)
+        err = self._sock.getsockopt(
+            _stdlib_socket.SOL_SOCKET, _stdlib_socket.SO_ERROR
+        )
         if err != 0:
             raise OSError(err, "Error in connect: " + _os.strerror(err))
 
