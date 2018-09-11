@@ -54,8 +54,8 @@ async def test_cmp_magic(cls_a, cls_b):
 
     # this is intentionally testing equivalence with none, due to the
     # other=sentinel logic in _forward_magic
-    assert not a == None
-    assert not b == None
+    assert not a == None  # noqa
+    assert not b == None  # noqa
 
 
 # upstream python3.5 bug: we should also test (pathlib.Path, trio.Path), but

@@ -420,7 +420,7 @@ async def test_attributes():
 
         # Forwarded attribute getting
         assert s.context is good_ctx
-        assert s.server_side == False
+        assert s.server_side == False  # noqa
         assert s.server_hostname == "trio-test-1.example.org"
         with pytest.raises(AttributeError):
             s.asfdasdfsa
@@ -1004,7 +1004,7 @@ async def test_ssl_handshake_failure_during_aclose():
         # simultaneously is allowed. But I guess when https_compatible=False
         # then it's bad if we can get through a whole connection with a peer
         # that has no valid certificate, and never raise an error.
-        with pytest.raises(BrokenStreamError) as excinfo:
+        with pytest.raises(BrokenStreamError):
             await s.aclose()
 
 

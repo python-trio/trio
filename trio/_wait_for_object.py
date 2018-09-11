@@ -16,10 +16,10 @@ class StubLimiter:
 
 async def WaitForSingleObject(obj):
     """Async and cancellable variant of WaitForSingleObject. Windows only.
-    
+
     Args:
       handle: A Win32 handle, as a Python integer.
-    
+
     Raises:
       OSError: If the handle is invalid, e.g. when it is already closed.
 
@@ -56,7 +56,7 @@ async def WaitForSingleObject(obj):
 
 def WaitForMultipleObjects_sync(*handles):
     """Wait for any of the given Windows handles to be signaled.
-    
+
     """
     n = len(handles)
     handle_arr = ffi.new("HANDLE[{}]".format(n))

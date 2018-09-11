@@ -697,7 +697,7 @@ class SSLStream(Stream):
 
         """
         async with self._outer_recv_conflict_detector, \
-                   self._outer_send_conflict_detector:
+                self._outer_send_conflict_detector:
             self._check_status()
             await self._handshook.ensure(checkpoint=False)
             await self._retry(self._ssl_object.unwrap)

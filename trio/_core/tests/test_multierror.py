@@ -206,7 +206,10 @@ def test_MultiError_filter():
 
 def test_MultiError_catch():
     # No exception to catch
-    noop = lambda _: None  # pragma: no cover
+
+    def noop(_):
+        pass  # pragma: no cover
+
     with MultiError.catch(noop):
         pass
 
