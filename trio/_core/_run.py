@@ -24,8 +24,7 @@ from . import _public
 from ._entry_queue import EntryQueue, TrioToken
 from ._exceptions import (TrioInternalError, RunFinishedError, Cancelled)
 from ._ki import (
-    LOCALS_KEY_KI_PROTECTION_ENABLED, currently_ki_protected, ki_manager,
-    enable_ki_protection
+    LOCALS_KEY_KI_PROTECTION_ENABLED, ki_manager, enable_ki_protection
 )
 from ._multierror import MultiError
 from ._traps import (

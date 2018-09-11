@@ -1,6 +1,5 @@
 import pytest
 
-from pathlib import Path
 import threading
 import socket as stdlib_socket
 import ssl as stdlib_ssl

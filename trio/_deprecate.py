@@ -1,5 +1,5 @@
 import sys
-from functools import wraps, partial
+from functools import wraps
 from types import ModuleType
 import warnings
 

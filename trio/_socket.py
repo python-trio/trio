@@ -6,7 +6,6 @@ from functools import wraps as _wraps
 import idna as _idna
 
 from . import _core
-from ._deprecate import deprecated
 from ._threads import run_sync_in_worker_thread
 from ._util import fspath
 

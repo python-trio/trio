@@ -2,8 +2,6 @@ import sys
 import traceback
 import textwrap
 import warnings
-import types
-from contextlib import contextmanager
 
 import attr
 

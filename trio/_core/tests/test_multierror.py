@@ -11,7 +11,6 @@ import warnings
 
 from .tutil import slow
 
-from ..._deprecate import TrioDeprecationWarning
 from .._multierror import MultiError, concat_tb
 
 
