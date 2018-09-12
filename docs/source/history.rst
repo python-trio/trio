@@ -11,10 +11,12 @@ Trio 0.7.0 (2018-09-03)
 Features
 ~~~~~~~~
 
-- The length of typical exception traces coming from Trio has been greatly
-  reduced. This was done by eliminating many of the exception frames related to
-  details of the implementation. (`#56
-  <https://github.com/python-trio/trio/issues/56>`__)
+- The length of typical exception traces coming from Trio has been
+  greatly reduced. This was done by eliminating many of the exception
+  frames related to details of the implementation. For examples, see
+  the `blog post
+  <https://vorpus.org/blog/beautiful-tracebacks-in-trio-v070/>`__.
+  (`#56 <https://github.com/python-trio/trio/issues/56>`__)
 - New and improved signal catching API: :func:`open_signal_receiver`. (`#354
   <https://github.com/python-trio/trio/issues/354>`__)
 - The low level :func:`trio.hazmat.wait_socket_readable`,
@@ -49,9 +51,10 @@ Deprecations and Removals
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - ``trio.catch_signals`` has been deprecated in favor of
-  :func:`open_signal_receiver`. The main differences are: - it takes \*-args
-  now to specify the list of signals (so ``open_signal_receiver(SIGINT)``
-  instead of ``catch_signals({SIGINT})``) - the async iterator now yields
+  :func:`open_signal_receiver`. The main differences are: it takes
+  \*-args now to specify the list of signals (so
+  ``open_signal_receiver(SIGINT)`` instead of
+  ``catch_signals({SIGINT})``), and, the async iterator now yields
   individual signals, instead of "batches" (`#354
   <https://github.com/python-trio/trio/issues/354>`__)
 - Remove all the APIs deprecated in 0.3.0 and 0.4.0. (`#623
