@@ -1,7 +1,6 @@
 from contextlib import contextmanager
 
 from .. import _core
-from .._deprecate import deprecated
 
 __all__ = ["assert_checkpoints", "assert_no_checkpoints"]
 

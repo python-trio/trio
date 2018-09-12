@@ -24,8 +24,7 @@ from . import _public
 from ._entry_queue import EntryQueue, TrioToken
 from ._exceptions import (TrioInternalError, RunFinishedError, Cancelled)
 from ._ki import (
-    LOCALS_KEY_KI_PROTECTION_ENABLED, currently_ki_protected, ki_manager,
-    enable_ki_protection
+    LOCALS_KEY_KI_PROTECTION_ENABLED, ki_manager, enable_ki_protection
 )
 from ._multierror import MultiError
 from ._traps import (
@@ -445,9 +444,8 @@ class Nursery:
         self.cancel_scope.cancel()
 
     def _check_nursery_closed(self):
-        if (
-            not self._nested_child_running and not self._children
-            and not self._pending_starts
+        if not any(
+            [self._nested_child_running, self._children, self._pending_starts]
         ):
             self._closed = True
             if self._parent_waiting_in_aexit:

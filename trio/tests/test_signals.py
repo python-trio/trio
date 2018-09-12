@@ -1,4 +1,3 @@
-import os
 import signal
 
 import pytest
@@ -11,9 +10,7 @@ from .._signals import catch_signals, open_signal_receiver, _signal_handler
 
 # Delete when catch_signals is removed
 async def test_catch_signals(recwarn):
-    print = lambda *args: None
     orig = signal.getsignal(signal.SIGILL)
-    print(orig)
     with catch_signals([signal.SIGILL]) as queue:
         # Raise it a few times, to exercise signal coalescing, both at the
         # call_soon level and at the SignalQueue level

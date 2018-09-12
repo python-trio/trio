@@ -1,7 +1,6 @@
 import inspect
 import signal
 import sys
-import threading
 from contextlib import contextmanager
 from functools import wraps
 

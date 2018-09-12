@@ -455,7 +455,9 @@ class SSLStream(Stream):
                     ret = fn(*args)
                 except _stdlib_ssl.SSLWantReadError:
                     want_read = True
-                except (SSLError, CertificateError) as exc:
+                except (
+                    _stdlib_ssl.SSLError, _stdlib_ssl.CertificateError
+                ) as exc:
                     self._state = _State.BROKEN
                     raise BrokenStreamError from exc
                 else:
@@ -629,9 +631,10 @@ class SSLStream(Stream):
                 # SSLSyscallError instead of SSLEOFError (e.g. on my linux
                 # laptop, but not on appveyor). Thanks openssl.
                 if (
-                    self._https_compatible and
-                    isinstance(exc.__cause__,
-                               (SSLEOFError, SSLSyscallError))
+                    self._https_compatible and isinstance(
+                        exc.__cause__,
+                        (_stdlib_ssl.SSLEOFError, _stdlib_ssl.SSLSyscallError)
+                    )
                 ):
                     return b""
                 else:
