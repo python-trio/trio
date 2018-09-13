@@ -1,11 +1,16 @@
+# For tests
 pytest >= 3.3  # for catchlog fixture
 pytest-cov >= 2.6.0
 ipython        # for the IPython traceback integration tests
 pyOpenSSL      # for the ssl tests
 trustme        # for the ssl tests
 pytest-faulthandler
+pylint         # for pylint finding all symbols tests
+jedi           # for jedi code completion tests
+
+# Tools
+yapf == 0.22.0
+flake8
 
 # https://github.com/python-trio/trio/pull/654#issuecomment-420518745
 typed_ast;python_version<"3.7" and implementation_name=="cpython"
-pylint         # for pylint finding all symbols tests
-jedi           # for jedi code completion tests
