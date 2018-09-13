@@ -231,7 +231,7 @@ async def test_Semaphore_bounded():
     "lockcls", [Lock, StrictFIFOLock], ids=lambda fn: fn.__name__
 )
 async def test_Lock_and_StrictFIFOLock(lockcls):
-    l = lockcls()
+    l = lockcls()  # noqa
     assert not l.locked()
 
     # make sure locks can be weakref'ed (gh-331)
@@ -310,7 +310,7 @@ async def test_Condition():
         Condition(Semaphore(1))
     with pytest.raises(TypeError):
         Condition(StrictFIFOLock)
-    l = Lock()
+    l = Lock()  # noqa
     c = Condition(l)
     assert not l.locked()
     assert not c.locked()

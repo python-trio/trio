@@ -512,6 +512,7 @@ async def test_SocketType_non_blocking_paths():
             with pytest.raises(TypeError):
                 await ta.recv("haha")
         # block then succeed
+
         async def do_successful_blocking_recv():
             with assert_checkpoints():
                 assert await ta.recv(10) == b"2"
@@ -521,6 +522,7 @@ async def test_SocketType_non_blocking_paths():
             await wait_all_tasks_blocked()
             b.send(b"2")
         # block then cancelled
+
         async def do_cancelled_blocking_recv():
             with assert_checkpoints():
                 with pytest.raises(_core.Cancelled):

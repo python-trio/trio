@@ -97,7 +97,7 @@ def test_run_nesting():
 async def test_nursery_warn_use_async_with():
     with pytest.raises(RuntimeError) as excinfo:
         on = _core.open_nursery()
-        with on as nursery:
+        with on:
             pass  # pragma: no cover
     excinfo.match(
         r"use 'async with open_nursery\(...\)', not 'with open_nursery\(...\)'"
@@ -112,7 +112,7 @@ async def test_nursery_main_block_error_basic():
     exc = ValueError("whoops")
 
     with pytest.raises(ValueError) as excinfo:
-        async with _core.open_nursery() as nursery:
+        async with _core.open_nursery():
             raise exc
     assert excinfo.value is exc
 
@@ -182,7 +182,7 @@ def test_main_and_task_both_crash():
 
     async def main():
         async with _core.open_nursery() as nursery:
-            crasher_task = nursery.start_soon(crasher)
+            nursery.start_soon(crasher)
             raise KeyError
 
     with pytest.raises(_core.MultiError) as excinfo:
@@ -335,7 +335,7 @@ async def test_current_statistics(mock_clock):
     await _core.checkpoint()
     await _core.checkpoint()
 
-    with _core.open_cancel_scope(deadline=_core.current_time() + 5) as scope:
+    with _core.open_cancel_scope(deadline=_core.current_time() + 5):
         stats = _core.current_statistics()
         print(stats)
         assert stats.seconds_to_next_deadline == 5
@@ -1019,7 +1019,7 @@ def test_system_task_crash_KeyboardInterrupt():
 # 5) ...but it's on the run queue, so the timeout is queued to be delivered
 #    the next time that it's blocked.
 async def test_yield_briefly_checks_for_timeout(mock_clock):
-    with _core.open_cancel_scope(deadline=_core.current_time() + 5) as scope:
+    with _core.open_cancel_scope(deadline=_core.current_time() + 5):
         await _core.checkpoint()
         with pytest.raises(_core.Cancelled):
             mock_clock.jump(10)

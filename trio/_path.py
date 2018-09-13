@@ -134,14 +134,14 @@ class Path(metaclass=AsyncAutoWrapperType):
 
         This is an async method that returns a synchronous iterator, so you
         use it like::
-        
+
            for subpath in await mypath.iterdir():
                ...
-               
+
         Note that it actually loads the whole directory list into memory
         immediately, during the initial call. (See `issue #501
         <https://github.com/python-trio/trio/issues/501>`__ for discussion.)
-        
+
         """
 
         def _load_items():

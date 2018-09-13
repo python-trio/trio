@@ -93,7 +93,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             nursery.start_soon(send_empty_then_y)
             nursery.start_soon(checked_receive_1, b"y")
 
-        ### Checking various argument types
+        # ---- Checking various argument types ----
 
         # send_all accepts bytearray and memoryview
         async with _core.open_nursery() as nursery:

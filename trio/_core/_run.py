@@ -746,7 +746,7 @@ class Runner:
     @_public
     def current_root_task(self):
         """Returns the current root :class:`Task`.
-        
+
         This is the task that is the ultimate parent of all other tasks.
 
         """
@@ -1572,7 +1572,7 @@ async def checkpoint():
     :func:`checkpoint`.)
 
     """
-    with open_cancel_scope(deadline=-inf) as scope:
+    with open_cancel_scope(deadline=-inf):
         await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
 
 

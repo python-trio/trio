@@ -182,7 +182,7 @@ async def test_agen_protection():
         agen_unprotected1,
         agen_unprotected2,
     ]:
-        async for _ in agen_fn():
+        async for _ in agen_fn():  # noqa
             assert not _core.currently_ki_protected()
 
         # asynccontextmanager insists that the function passed must itself be an

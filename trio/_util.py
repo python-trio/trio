@@ -83,7 +83,9 @@ if sys.version_info < (3, 5, 2):
 
         return __aiter__
 else:
-    aiter_compat = lambda aiter_impl: aiter_impl
+
+    def aiter_compat(aiter_impl):
+        return aiter_impl
 
 
 # See: #461 as to why this is needed.
@@ -239,4 +241,4 @@ def fspath(path) -> t.Union[str, bytes]:
 
 
 if hasattr(os, "fspath"):
-    fspath = os.fspath
+    fspath = os.fspath  # noqa
