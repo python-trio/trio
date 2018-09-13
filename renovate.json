@@ -2,5 +2,9 @@
   "extends": [
     "config:base"
   ],
-  "automerge": true
+  "automerge": true,
+  "packageRules": [{
+    "packageNames": ["yapf"],
+    "allowedVersions": "==0.22.0"
+  }]
 }
