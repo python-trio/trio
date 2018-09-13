@@ -10,11 +10,14 @@ astroid==2.0.4            # via pylint
 atomicwrites==1.2.1       # via pytest
 attrs==18.2.0             # via pytest
 backcall==0.1.0           # via ipython
+bandit==1.5.1
 cffi==1.11.5              # via cryptography
 coverage==4.5.1           # via pytest-cov
 cryptography==2.3.1       # via pyopenssl, trustme
 decorator==4.3.0          # via ipython, traitlets
 flake8==3.5.0
+gitdb2==2.0.4             # via gitpython
+gitpython==2.1.11         # via bandit
 idna==2.7                 # via cryptography, trustme
 ipython-genutils==0.2.0   # via traitlets
 ipython==6.5.0
@@ -26,6 +29,7 @@ more-itertools==4.3.0     # via pytest
 parso==0.3.1              # via jedi
 pathlib2==2.3.2           # via pytest
 pexpect==4.6.0            # via ipython
+pbr==4.2.0                # via stevedore
 pickleshare==0.7.4        # via ipython
 pluggy==0.7.1             # via pytest
 prompt-toolkit==1.0.15    # via ipython
@@ -40,8 +44,11 @@ pyopenssl==18.0.0
 pytest-cov==2.6.0
 pytest-faulthandler==1.5.0
 pytest==3.8.1
+pyyaml==3.13              # via bandit
 simplegeneric==0.8.1      # via ipython
-six==1.11.0               # via astroid, cryptography, more-itertools, pathlib2, prompt-toolkit, pyopenssl, pytest, traitlets
+six==1.11.0               # via astroid, bandit, cryptography, more-itertools, pathlib2, prompt-toolkit, pyopenssl, pytest, stevedore, traitlets
+smmap2==2.0.4             # via gitdb2
+stevedore==1.29.0         # via bandit
 traitlets==4.3.2          # via ipython
 trustme==0.4.0
 typed-ast==1.1.0 ; python_version < "3.7" and implementation_name == "cpython"

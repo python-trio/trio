@@ -13,6 +13,10 @@ flake8 trio/ \
     --ignore=D,E201,E402,E501,E722,E741,F401,F403,F405,F821,F822,W503 \
     || EXIT_STATUS=$?
 
+# Bandit is a security-oriented linter
+bandit --recursive --exclude=trio/tests --skip=B101,B311,B404 trio/ \
+    || EXIT_STATUS=$?
+
 # Finally, leave a really clear warning of any issues and exit
 if [ $EXIT_STATUS -ne 0 ]; then
     cat <<EOF

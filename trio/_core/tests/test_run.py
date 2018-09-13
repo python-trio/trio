@@ -1100,7 +1100,7 @@ async def test_exc_info_after_yield_error():
         except Exception:
             try:
                 await sleep_forever()
-            except Exception:
+            except Exception:  # nosec
                 pass
             raise
 

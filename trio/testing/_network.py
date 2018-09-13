@@ -1,5 +1,5 @@
 from .. import socket as tsocket
-from .._highlevel_socket import SocketListener, SocketStream
+from .._highlevel_socket import SocketStream
 
 __all__ = ["open_stream_to_socket_listener"]
 
@@ -25,7 +25,7 @@ async def open_stream_to_socket_listener(socket_listener):
     sockaddr = socket_listener.socket.getsockname()
     if family in (tsocket.AF_INET, tsocket.AF_INET6):
         sockaddr = list(sockaddr)
-        if sockaddr[0] == "0.0.0.0":
+        if sockaddr[0] == "0.0.0.0":  # nosec
             sockaddr[0] = "127.0.0.1"
         if sockaddr[0] == "::":
             sockaddr[0] = "::1"

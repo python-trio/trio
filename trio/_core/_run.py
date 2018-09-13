@@ -1632,7 +1632,8 @@ def _generate_method_wrappers(cls, path_to_instance):
                 "LOCALS_KEY_KI_PROTECTION_ENABLED":
                     LOCALS_KEY_KI_PROTECTION_ENABLED
             }
-            exec(_WRAPPER_TEMPLATE.format(path_to_instance, methname), ns)
+            code = _WRAPPER_TEMPLATE.format(path_to_instance, methname)
+            exec(code, ns)  # nosec
             wrapper = ns["wrapper"]
             # 'fn' is the *unbound* version of the method, but our exported
             # function has the same API as the *bound* version of the
