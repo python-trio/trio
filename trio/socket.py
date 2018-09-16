@@ -5,6 +5,7 @@
 # implementation in an underscored module, and then re-export the public parts
 # here.
 import importlib
+import socket
 
 #from ._socket import *
 #from ._socket import __all__
@@ -14,3 +15,6 @@ from ._socket import (gaierror, herror, gethostname, ntohs, htonl, htons, inet_a
 _sock_module = importlib.import_module('_socket')
 print(_sock_module.__dict__)
 globals().update({_name: getattr(_sock_module, _name) for _name in [_uname for _uname in _sock_module.__dict__ if _uname.isupper()]})
+
+AF_APPLETALK = socket.AF_APPLETALK
+
