@@ -1,5 +1,7 @@
+import importlib
 import os as _os
-import socket as _stdlib_socket
+#import socket as _stdlib_socket
+_stdlib_socket = importlib.import_module('socket')
 import sys as _sys
 from functools import wraps as _wraps
 
@@ -16,9 +18,9 @@ __all__ = []
 ################################################################
 
 
-def _reexport(name):
-    globals()[name] = getattr(_stdlib_socket, name)
-    __all__.append(name)
+def _reexport(names):
+    globals().update(names)
+    __all__.extend(names)
 
 
 def _add_to_all(obj):
@@ -72,9 +74,12 @@ if not hasattr(_stdlib_socket, "TCP_NOTSENT_LOWAT"):  # pragma: no branch
         TCP_NOTSENT_LOWAT = 25
         __all__.append("TCP_NOTSENT_LOWAT")
 
-for _name in _stdlib_socket.__dict__.keys():
-    if _name == _name.upper():
-        _reexport(_name)
+_reexport(
+    {
+        _name: getattr(_stdlib_socket, _name)
+        for _name in _stdlib_socket.__dict__.keys() if _name.isupper()
+    }
+)
 
 if _sys.platform == "win32":
     # See https://github.com/python-trio/trio/issues/39
@@ -92,7 +97,7 @@ if _sys.platform == "win32":
 # Simple re-exports
 ################################################################
 
-for _name in [
+_names = [
     "gaierror",
     "herror",
     "gethostname",
@@ -107,9 +112,33 @@ for _name in [
     "if_nameindex",
     "if_nametoindex",
     "if_indextoname",
-]:
-    if hasattr(_stdlib_socket, _name):
-        _reexport(_name)
+]
+
+_reexport(
+    {
+        _name: getattr(_stdlib_socket, _name)
+        for _name in _names if hasattr(_stdlib_socket, _name)
+    }
+)
+
+# for _name in [
+#     "gaierror",
+#     "herror",
+#     "gethostname",
+#     "ntohs",
+#     "htonl",
+#     "htons",
+#     "inet_aton",
+#     "inet_ntoa",
+#     "inet_pton",
+#     "inet_ntop",
+#     "sethostname",
+#     "if_nameindex",
+#     "if_nametoindex",
+#     "if_indextoname",
+# ]:
+#     if hasattr(_stdlib_socket, _name):
+#        _reexport(_name)
 
 ################################################################
 # Overrides
@@ -389,8 +418,9 @@ class _SocketType(SocketType):
             # For example, ssl.SSLSocket subclasses socket.socket, but we
             # certainly don't want to blindly wrap one of those.
             raise TypeError(
-                "expected object of type 'socket.socket', not '{}"
-                .format(type(sock).__name__)
+                "expected object of type 'socket.socket', not '{}".format(
+                    type(sock).__name__
+                )
             )
         self._sock = sock
         self._sock.setblocking(False)

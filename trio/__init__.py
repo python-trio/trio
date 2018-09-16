@@ -65,8 +65,9 @@ from ._deprecate import TrioDeprecationWarning
 # Imported by default
 from . import hazmat
 from . import socket
-#from . import _socket as socket
-print(dir(socket))
+# print(f'Final Attributes: {socket.__dict__.keys()}')
+from .socket import TrioSocket
+
 from . import abc
 from . import ssl
 # Not imported by default: testing
