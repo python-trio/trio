@@ -64,8 +64,8 @@ from ._deprecate import TrioDeprecationWarning
 
 # Imported by default
 from . import hazmat
-#from . import socket
-from . import _socket as socket
+from . import socket
+#from . import _socket as socket
 print(dir(socket))
 from . import abc
 from . import ssl
