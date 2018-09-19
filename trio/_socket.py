@@ -1,63 +1,5 @@
 import os as _os
 import socket as _stdlib_socket
-
-try:
-    from socket import (SOCK_STREAM)
-except ImportError:
-    pass
-
-try:
-    from socket import (
-        gaierror, herror, gethostname, ntohs, htonl, htons, inet_aton,
-        inet_ntoa, inet_pton, inet_ntop, if_nametoindex, if_indextoname,
-        CMSG_LEN, CMSG_SPACE, CAPI, AF_UNSPEC, AF_INET, AF_UNIX, AF_IPX,
-        AF_APPLETALK, AF_INET6, AF_ROUTE, AF_SNA, SOCK_DGRAM, SOCK_RAW,
-        SOCK_SEQPACKET, SOCK_RDM, SO_DEBUG, SO_ACCEPTCONN, SO_REUSEADDR,
-        SO_KEEPALIVE, SO_DONTROUTE, SO_BROADCAST, SO_LINGER, SO_OOBINLINE,
-        SO_REUSEPORT, SO_SNDBUF, SO_RCVBUF, SO_SNDLOWAT, SO_RCVLOWAT,
-        SO_SNDTIMEO, SO_RCVTIMEO, SO_ERROR, SO_TYPE, SOMAXCONN, SCM_RIGHTS,
-        SCM_CREDS, MSG_OOB, MSG_PEEK, MSG_DONTROUTE, MSG_DONTWAIT, MSG_EOR,
-        MSG_TRUNC, MSG_CTRUNC, MSG_WAITALL, MSG_EOF, SOL_SOCKET, SOL_IP,
-        SOL_TCP, SOL_UDP, IPPROTO_IP, IPPROTO_HOPOPTS, IPPROTO_ICMP,
-        IPPROTO_IGMP, IPPROTO_GGP, IPPROTO_IPV4, IPPROTO_IPIP, IPPROTO_TCP,
-        IPPROTO_EGP, IPPROTO_PUP, IPPROTO_UDP, IPPROTO_IDP, IPPROTO_HELLO,
-        IPPROTO_ND, IPPROTO_TP, IPPROTO_ROUTING, IPPROTO_FRAGMENT,
-        IPPROTO_RSVP, IPPROTO_GRE, IPPROTO_ESP, IPPROTO_AH, IPPROTO_ICMPV6,
-        IPPROTO_NONE, IPPROTO_DSTOPTS, IPPROTO_XTP, IPPROTO_EON, IPPROTO_PIM,
-        IPPROTO_IPCOMP, IPPROTO_RAW, IPPROTO_MAX, SYSPROTO_CONTROL,
-        IPPORT_RESERVED, IPPORT_USERRESERVED, INADDR_ANY, INADDR_BROADCAST,
-        INADDR_LOOPBACK, INADDR_UNSPEC_GROUP, INADDR_ALLHOSTS_GROUP,
-        INADDR_MAX_LOCAL_GROUP, INADDR_NONE, IP_OPTIONS, IP_HDRINCL, IP_TOS,
-        IP_TTL, IP_RECVOPTS, IP_RECVRETOPTS, IP_RECVDSTADDR, IP_RETOPTS,
-        IP_MULTICAST_IF, IP_MULTICAST_TTL, IP_MULTICAST_LOOP,
-        IP_ADD_MEMBERSHIP, IP_DROP_MEMBERSHIP, IP_DEFAULT_MULTICAST_TTL,
-        IP_DEFAULT_MULTICAST_LOOP, IP_MAX_MEMBERSHIPS, IPV6_JOIN_GROUP,
-        IPV6_LEAVE_GROUP, IPV6_MULTICAST_HOPS, IPV6_MULTICAST_IF,
-        IPV6_MULTICAST_LOOP, IPV6_UNICAST_HOPS, IPV6_V6ONLY, IPV6_CHECKSUM,
-        IPV6_RECVTCLASS, IPV6_RTHDR_TYPE_0, IPV6_TCLASS, TCP_NODELAY,
-        TCP_MAXSEG, EAI_ADDRFAMILY, EAI_AGAIN, EAI_BADFLAGS, EAI_FAIL,
-        EAI_FAMILY, EAI_MEMORY, EAI_NODATA, EAI_NONAME, EAI_OVERFLOW,
-        EAI_SERVICE, EAI_SOCKTYPE, EAI_SYSTEM, EAI_BADHINTS, EAI_PROTOCOL,
-        EAI_MAX, AI_PASSIVE, AI_CANONNAME, AI_NUMERICHOST, AI_NUMERICSERV,
-        AI_MASK, AI_ALL, AI_V4MAPPED_CFG, AI_ADDRCONFIG, AI_V4MAPPED,
-        AI_DEFAULT, NI_MAXHOST, NI_MAXSERV, NI_NOFQDN, NI_NUMERICHOST,
-        NI_NAMEREQD, NI_NUMERICSERV, NI_DGRAM, SHUT_RD, SHUT_WR, SHUT_RDWR,
-        EBADF, EAGAIN, EWOULDBLOCK, _LOCALHOST, _LOCALHOST_V6,
-        _GLOBAL_DEFAULT_TIMEOUT, if_nameindex, sethostname, AF_LINK, AF_SYSTEM,
-        IPPROTO_SCTP, LOCAL_PEERCRED, PF_SYSTEM, SO_USELOOPBACK, TCP_KEEPINTVL,
-        TCP_KEEPCNT, TCP_FASTOPEN
-    )
-
-except ImportError:
-    pass
-
-# try:
-#     from socket import (
-#         if_nameindex, sethostname, AF_LINK, AF_SYSTEM, IPPROTO_IPV6,
-#         IPPROTO_SCTP, LOCAL_PEERCRED, PF_SYSTEM, SO_USELOOPBACK, TCP_NOTSENT_LOWAT,
-#         TCP_KEEPINTVL, TCP_KEEPCNT, TCP_FASTOPEN
-#     )
-
 import sys as _sys
 from functools import wraps as _wraps
 
@@ -96,9 +38,70 @@ class _try_sync:
 # CONSTANTS
 ################################################################
 
-# Hopefully will show up in 3.7:
-#   https://github.com/python/cpython/pull/477
-if not hasattr(_stdlib_socket, "TCP_NOTSENT_LOWAT"):  # pragma: no branch
+try:
+    from socket import (SOCK_STREAM)
+except ImportError:
+    pass
+
+try:
+    from socket import (
+        gaierror, herror, gethostname, ntohs, htonl, htons, inet_aton,
+        inet_ntoa, inet_pton, inet_ntop, if_nametoindex, if_indextoname,
+        CMSG_LEN, CMSG_SPACE, CAPI, AF_UNSPEC, AF_INET, AF_UNIX, AF_IPX,
+        AF_APPLETALK, AF_INET6, AF_ROUTE, AF_SNA, SOCK_DGRAM, SOCK_RAW,
+        SOCK_SEQPACKET, SOCK_RDM, SO_DEBUG, SO_ACCEPTCONN,
+        SO_KEEPALIVE, SO_DONTROUTE, SO_BROADCAST, SO_LINGER, SO_OOBINLINE,
+        SO_REUSEPORT, SO_SNDBUF, SO_RCVBUF, SO_SNDLOWAT, SO_RCVLOWAT,
+        SO_SNDTIMEO, SO_RCVTIMEO, SO_ERROR, SO_TYPE, SOMAXCONN, SCM_RIGHTS,
+        SCM_CREDS, MSG_OOB, MSG_PEEK, MSG_DONTROUTE, MSG_DONTWAIT, MSG_EOR,
+        MSG_TRUNC, MSG_CTRUNC, MSG_WAITALL, MSG_EOF, SOL_SOCKET, SOL_IP,
+        SOL_TCP, SOL_UDP, IPPROTO_IP, IPPROTO_HOPOPTS, IPPROTO_ICMP,
+        IPPROTO_IGMP, IPPROTO_GGP, IPPROTO_IPV4, IPPROTO_IPIP, IPPROTO_TCP,
+        IPPROTO_EGP, IPPROTO_PUP, IPPROTO_UDP, IPPROTO_IDP, IPPROTO_HELLO,
+        IPPROTO_ND, IPPROTO_TP, IPPROTO_ROUTING, IPPROTO_FRAGMENT,
+        IPPROTO_RSVP, IPPROTO_GRE, IPPROTO_ESP, IPPROTO_AH, IPPROTO_ICMPV6,
+        IPPROTO_NONE, IPPROTO_DSTOPTS, IPPROTO_XTP, IPPROTO_EON, IPPROTO_PIM,
+        IPPROTO_IPCOMP, IPPROTO_RAW, IPPROTO_MAX, SYSPROTO_CONTROL,
+        IPPORT_RESERVED, IPPORT_USERRESERVED, INADDR_ANY, INADDR_BROADCAST,
+        INADDR_LOOPBACK, INADDR_UNSPEC_GROUP, INADDR_ALLHOSTS_GROUP,
+        INADDR_MAX_LOCAL_GROUP, INADDR_NONE, IP_OPTIONS, IP_HDRINCL, IP_TOS,
+        IP_TTL, IP_RECVOPTS, IP_RECVRETOPTS, IP_RECVDSTADDR, IP_RETOPTS,
+        IP_MULTICAST_IF, IP_MULTICAST_TTL, IP_MULTICAST_LOOP,
+        IP_ADD_MEMBERSHIP, IP_DROP_MEMBERSHIP, IP_DEFAULT_MULTICAST_TTL,
+        IP_DEFAULT_MULTICAST_LOOP, IP_MAX_MEMBERSHIPS, IPV6_JOIN_GROUP,
+        IPV6_LEAVE_GROUP, IPV6_MULTICAST_HOPS, IPV6_MULTICAST_IF,
+        IPV6_MULTICAST_LOOP, IPV6_UNICAST_HOPS, IPV6_V6ONLY, IPV6_CHECKSUM,
+        IPV6_RECVTCLASS, IPV6_RTHDR_TYPE_0, IPV6_TCLASS, TCP_NODELAY,
+        TCP_MAXSEG, EAI_ADDRFAMILY, EAI_AGAIN, EAI_BADFLAGS, EAI_FAIL,
+        EAI_FAMILY, EAI_MEMORY, EAI_NODATA, EAI_NONAME, EAI_OVERFLOW,
+        EAI_SERVICE, EAI_SOCKTYPE, EAI_SYSTEM, EAI_BADHINTS, EAI_PROTOCOL,
+        EAI_MAX, AI_PASSIVE, AI_CANONNAME, AI_NUMERICHOST, AI_NUMERICSERV,
+        AI_MASK, AI_ALL, AI_V4MAPPED_CFG, AI_ADDRCONFIG, AI_V4MAPPED,
+        AI_DEFAULT, NI_MAXHOST, NI_MAXSERV, NI_NOFQDN, NI_NUMERICHOST,
+        NI_NAMEREQD, NI_NUMERICSERV, NI_DGRAM, SHUT_RD, SHUT_WR, SHUT_RDWR,
+        EBADF, EAGAIN, EWOULDBLOCK, _LOCALHOST, _LOCALHOST_V6,
+        _GLOBAL_DEFAULT_TIMEOUT, if_nameindex, sethostname, AF_LINK, AF_SYSTEM,
+        IPPROTO_SCTP, LOCAL_PEERCRED, PF_SYSTEM, SO_USELOOPBACK, TCP_KEEPINTVL,
+        TCP_KEEPCNT, TCP_FASTOPEN
+    )
+
+except ImportError as exp:
+    print(exp)
+
+try:
+    from socket import IPPROTO_IPV6
+except ImportError:
+    # As of at least 3.6, python on Windows is missing IPPROTO_IPV6
+    # https://bugs.python.org/issue29515
+    if _sys.platform == "win32": # pragma: no branch
+        IPPROTO_IPV6 = 41
+        globals()['IPPROTO_IPV6'] = IPPROTO_IPV6
+
+try:
+    from socket import TCP_NOTSENT_LOWAT
+except ImportError:
+    # Hopefully will show up in 3.7:
+    #   https://github.com/python/cpython/pull/477
     if _sys.platform == "darwin":
         TCP_NOTSENT_LOWAT = 0x201
         globals()['TCP_NOTSENT_LOWAT'] = TCP_NOTSENT_LOWAT
@@ -106,16 +109,23 @@ if not hasattr(_stdlib_socket, "TCP_NOTSENT_LOWAT"):  # pragma: no branch
         TCP_NOTSENT_LOWAT = 25
         globals()['TCP_NOTSENT_LOWAT'] = TCP_NOTSENT_LOWAT
 
-if _sys.platform == "win32":
+if _sys.platform != "win32":
     # See https://github.com/python-trio/trio/issues/39
+    # Do not import for windows platform
     # (you can still get it from stdlib socket, of course, if you want it)
-    del SO_REUSEADDR
+    try:
+        from socket import SO_REUSEADDR
+    except ImportError:
+        pass
 
-    # As of at least 3.6, python on Windows is missing IPPROTO_IPV6
-    # https://bugs.python.org/issue29515
-    if not hasattr(_stdlib_socket, "IPPROTO_IPV6"):  # pragma: no branch
-        IPPROTO_IPV6 = 41
-        globals()['IPPROTO_IPV6'] = IPPROTO_IPV6
+# try:
+#     from socket import (
+#         if_nameindex, sethostname, AF_LINK, AF_SYSTEM, IPPROTO_IPV6,
+#         IPPROTO_SCTP, LOCAL_PEERCRED, PF_SYSTEM, SO_USELOOPBACK, TCP_NOTSENT_LOWAT,
+#         TCP_KEEPINTVL, TCP_KEEPCNT, TCP_FASTOPEN
+#     )
+
+
 
 ################################################################
 # Overrides
