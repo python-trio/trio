@@ -115,7 +115,7 @@ if _sys.platform == "win32":
     # https://bugs.python.org/issue29515
     if not hasattr(_stdlib_socket, "IPPROTO_IPV6"):  # pragma: no branch
         IPPROTO_IPV6 = 41
-        globals()['IPPPROTO_IPV6'] = IPPROTO_IPV6
+        globals()['IPPROTO_IPV6'] = IPPROTO_IPV6
 
 ################################################################
 # Overrides
