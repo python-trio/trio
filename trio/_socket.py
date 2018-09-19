@@ -72,11 +72,8 @@ if _sys.platform != "win32":
     # See https://github.com/python-trio/trio/issues/39
     # Do not import for windows platform
     # (you can still get it from stdlib socket, of course, if you want it)
-    try:
-        from socket import SO_REUSEADDR
-    except ImportError:
-        pass
-
+    from socket import SO_REUSEADDR
+    
 # try:
 #     from socket import (
 #         if_nameindex, sethostname, AF_LINK, AF_SYSTEM, IPPROTO_IPV6,
