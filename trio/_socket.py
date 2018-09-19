@@ -2,9 +2,9 @@ import os as _os
 import socket as _stdlib_socket
 from socket import (
     gaierror, herror, gethostname, ntohs, htonl, htons, inet_aton, inet_ntoa,
-    inet_pton, inet_ntop, sethostname, if_nameindex, if_nametoindex,
-    if_indextoname, CMSG_LEN, CMSG_SPACE, CAPI, AF_UNSPEC, AF_INET, AF_UNIX,
-    AF_IPX, AF_APPLETALK, AF_INET6, AF_ROUTE, AF_SNA, PF_SYSTEM, AF_SYSTEM,
+    inet_pton, inet_ntop, if_nameindex, if_nametoindex, if_indextoname,
+    CMSG_LEN, CMSG_SPACE, CAPI, AF_UNSPEC, AF_INET, AF_UNIX, AF_IPX,
+    AF_APPLETALK, AF_INET6, AF_ROUTE, AF_SNA, PF_SYSTEM, AF_SYSTEM,
     SOCK_STREAM, SOCK_DGRAM, SOCK_RAW, SOCK_SEQPACKET, SOCK_RDM, SO_DEBUG,
     SO_ACCEPTCONN, SO_REUSEADDR, SO_KEEPALIVE, SO_DONTROUTE, SO_BROADCAST,
     SO_USELOOPBACK, SO_LINGER, SO_OOBINLINE, SO_REUSEPORT, SO_SNDBUF,
@@ -38,8 +38,8 @@ from socket import (
 )
 try:
     from socket import (
-        AF_LINK, IPPROTO_IPV6, IPPROTO_SCTP, TCP_NOTSENT_LOWAT, TCP_KEEPINTVL,
-        TCP_KEEPCNT, TCP_FASTOPEN
+        sethostname, AF_LINK, IPPROTO_IPV6, IPPROTO_SCTP, TCP_NOTSENT_LOWAT,
+        TCP_KEEPINTVL, TCP_KEEPCNT, TCP_FASTOPEN
     )
 except ImportError:
     pass
