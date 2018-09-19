@@ -1,7 +1,47 @@
-import importlib
 import os as _os
-#import socket as _stdlib_socket
-_stdlib_socket = importlib.import_module('socket')
+import socket as _stdlib_socket
+from socket import (
+    gaierror, herror, gethostname, ntohs, htonl, htons, inet_aton, inet_ntoa,
+    inet_pton, inet_ntop, sethostname, if_nameindex, if_nametoindex,
+    if_indextoname, CMSG_LEN, CMSG_SPACE, CAPI, AF_UNSPEC, AF_INET, AF_UNIX,
+    AF_IPX, AF_APPLETALK, AF_INET6, AF_ROUTE, AF_LINK, AF_SNA, PF_SYSTEM,
+    AF_SYSTEM, SOCK_STREAM, SOCK_DGRAM, SOCK_RAW, SOCK_SEQPACKET, SOCK_RDM,
+    SO_DEBUG, SO_ACCEPTCONN, SO_REUSEADDR, SO_KEEPALIVE, SO_DONTROUTE,
+    SO_BROADCAST, SO_USELOOPBACK, SO_LINGER, SO_OOBINLINE, SO_REUSEPORT,
+    SO_SNDBUF, SO_RCVBUF, SO_SNDLOWAT, SO_RCVLOWAT, SO_SNDTIMEO, SO_RCVTIMEO,
+    SO_ERROR, SO_TYPE, LOCAL_PEERCRED, SOMAXCONN, SCM_RIGHTS, SCM_CREDS,
+    MSG_OOB, MSG_PEEK, MSG_DONTROUTE, MSG_DONTWAIT, MSG_EOR, MSG_TRUNC,
+    MSG_CTRUNC, MSG_WAITALL, MSG_EOF, SOL_SOCKET, SOL_IP, SOL_TCP, SOL_UDP,
+    IPPROTO_IP, IPPROTO_HOPOPTS, IPPROTO_ICMP, IPPROTO_IGMP, IPPROTO_GGP,
+    IPPROTO_IPV4, IPPROTO_IPIP, IPPROTO_TCP, IPPROTO_EGP, IPPROTO_PUP,
+    IPPROTO_UDP, IPPROTO_IDP, IPPROTO_HELLO, IPPROTO_ND, IPPROTO_TP,
+    IPPROTO_ROUTING, IPPROTO_FRAGMENT, IPPROTO_RSVP, IPPROTO_GRE, IPPROTO_ESP,
+    IPPROTO_AH, IPPROTO_ICMPV6, IPPROTO_NONE, IPPROTO_DSTOPTS, IPPROTO_XTP,
+    IPPROTO_EON, IPPROTO_PIM, IPPROTO_IPCOMP, IPPROTO_SCTP, IPPROTO_RAW,
+    IPPROTO_MAX, SYSPROTO_CONTROL, IPPORT_RESERVED, IPPORT_USERRESERVED,
+    INADDR_ANY, INADDR_BROADCAST, INADDR_LOOPBACK, INADDR_UNSPEC_GROUP,
+    INADDR_ALLHOSTS_GROUP, INADDR_MAX_LOCAL_GROUP, INADDR_NONE, IP_OPTIONS,
+    IP_HDRINCL, IP_TOS, IP_TTL, IP_RECVOPTS, IP_RECVRETOPTS, IP_RECVDSTADDR,
+    IP_RETOPTS, IP_MULTICAST_IF, IP_MULTICAST_TTL, IP_MULTICAST_LOOP,
+    IP_ADD_MEMBERSHIP, IP_DROP_MEMBERSHIP, IP_DEFAULT_MULTICAST_TTL,
+    IP_DEFAULT_MULTICAST_LOOP, IP_MAX_MEMBERSHIPS, IPV6_JOIN_GROUP,
+    IPV6_LEAVE_GROUP, IPV6_MULTICAST_HOPS, IPV6_MULTICAST_IF,
+    IPV6_MULTICAST_LOOP, IPV6_UNICAST_HOPS, IPV6_V6ONLY, IPV6_CHECKSUM,
+    IPV6_RECVTCLASS, IPV6_RTHDR_TYPE_0, IPV6_TCLASS, TCP_NODELAY, TCP_MAXSEG,
+    TCP_KEEPINTVL, TCP_KEEPCNT, TCP_FASTOPEN, EAI_ADDRFAMILY, EAI_AGAIN,
+    EAI_BADFLAGS, EAI_FAIL, EAI_FAMILY, EAI_MEMORY, EAI_NODATA, EAI_NONAME,
+    EAI_OVERFLOW, EAI_SERVICE, EAI_SOCKTYPE, EAI_SYSTEM, EAI_BADHINTS,
+    EAI_PROTOCOL, EAI_MAX, AI_PASSIVE, AI_CANONNAME, AI_NUMERICHOST,
+    AI_NUMERICSERV, AI_MASK, AI_ALL, AI_V4MAPPED_CFG, AI_ADDRCONFIG,
+    AI_V4MAPPED, AI_DEFAULT, NI_MAXHOST, NI_MAXSERV, NI_NOFQDN, NI_NUMERICHOST,
+    NI_NAMEREQD, NI_NUMERICSERV, NI_DGRAM, SHUT_RD, SHUT_WR, SHUT_RDWR, EBADF,
+    EAGAIN, EWOULDBLOCK, _LOCALHOST, _LOCALHOST_V6, _GLOBAL_DEFAULT_TIMEOUT
+)
+try:
+    from socket import IPPROTO_IPV6, TCP_NOTSENT_LOWAT
+except ImportError:
+    pass
+
 import sys as _sys
 from functools import wraps as _wraps
 
@@ -11,31 +51,7 @@ from . import _core
 from ._threads import run_sync_in_worker_thread
 from ._util import fspath
 
-__all__ = []
 
-################################################################
-# misc utilities
-################################################################
-
-
-def _reexport(names):
-    globals().update(names)
-    __all__.extend(names)
-
-
-def _add_to_all(obj):
-    __all__.append(obj.__name__)
-    return obj
-
-
-# Usage:
-#
-#   async with _try_sync():
-#       return sync_call_that_might_fail_with_exception()
-#   # we only get here if the sync call in fact did fail with a
-#   # BlockingIOError
-#   return await do_it_properly_with_a_check_point()
-#
 class _try_sync:
     def __init__(self, blocking_exc_override=None):
         self._blocking_exc_override = blocking_exc_override
@@ -69,76 +85,21 @@ class _try_sync:
 if not hasattr(_stdlib_socket, "TCP_NOTSENT_LOWAT"):  # pragma: no branch
     if _sys.platform == "darwin":
         TCP_NOTSENT_LOWAT = 0x201
-        __all__.append("TCP_NOTSENT_LOWAT")
+        globals()['TCP_NOTSENT_LOWAT'] = TCP_NOTSENT_LOWAT
     elif _sys.platform == "linux":
         TCP_NOTSENT_LOWAT = 25
-        __all__.append("TCP_NOTSENT_LOWAT")
-
-_reexport(
-    {
-        _name: getattr(_stdlib_socket, _name)
-        for _name in _stdlib_socket.__dict__.keys() if _name.isupper()
-    }
-)
+        globals()['TCP_NOTSENT_LOWAT'] = TCP_NOTSENT_LOWAT
 
 if _sys.platform == "win32":
     # See https://github.com/python-trio/trio/issues/39
     # (you can still get it from stdlib socket, of course, if you want it)
-    globals().pop("SO_REUSEADDR", None)
-    __all__.remove("SO_REUSEADDR")
+    del SO_REUSEADDR
 
     # As of at least 3.6, python on Windows is missing IPPROTO_IPV6
     # https://bugs.python.org/issue29515
     if not hasattr(_stdlib_socket, "IPPROTO_IPV6"):  # pragma: no branch
         IPPROTO_IPV6 = 41
-        __all__.append("IPPROTO_IPV6")
-
-################################################################
-# Simple re-exports
-################################################################
-
-_names = [
-    "gaierror",
-    "herror",
-    "gethostname",
-    "ntohs",
-    "htonl",
-    "htons",
-    "inet_aton",
-    "inet_ntoa",
-    "inet_pton",
-    "inet_ntop",
-    "sethostname",
-    "if_nameindex",
-    "if_nametoindex",
-    "if_indextoname",
-]
-
-_reexport(
-    {
-        _name: getattr(_stdlib_socket, _name)
-        for _name in _names if hasattr(_stdlib_socket, _name)
-    }
-)
-
-# for _name in [
-#     "gaierror",
-#     "herror",
-#     "gethostname",
-#     "ntohs",
-#     "htonl",
-#     "htons",
-#     "inet_aton",
-#     "inet_ntoa",
-#     "inet_pton",
-#     "inet_ntop",
-#     "sethostname",
-#     "if_nameindex",
-#     "if_nametoindex",
-#     "if_indextoname",
-# ]:
-#     if hasattr(_stdlib_socket, _name):
-#        _reexport(_name)
+        globals()['IPPPROTO_IPV6'] = IPPROTO_IPV6
 
 ################################################################
 # Overrides
@@ -148,7 +109,6 @@ _resolver = _core.RunVar("hostname_resolver")
 _socket_factory = _core.RunVar("socket_factory")
 
 
-@_add_to_all
 def set_custom_hostname_resolver(hostname_resolver):
     """Set a custom hostname resolver.
 
@@ -181,7 +141,6 @@ def set_custom_hostname_resolver(hostname_resolver):
     return old
 
 
-@_add_to_all
 def set_custom_socket_factory(socket_factory):
     """Set a custom socket object factory.
 
@@ -216,7 +175,6 @@ def set_custom_socket_factory(socket_factory):
 _NUMERIC_ONLY = _stdlib_socket.AI_NUMERICHOST | _stdlib_socket.AI_NUMERICSERV
 
 
-@_add_to_all
 async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
     """Look up a numeric address given a name.
 
@@ -278,7 +236,6 @@ async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
         )
 
 
-@_add_to_all
 async def getnameinfo(sockaddr, flags):
     """Look up a name given a numeric address.
 
@@ -298,7 +255,6 @@ async def getnameinfo(sockaddr, flags):
         )
 
 
-@_add_to_all
 async def getprotobyname(name):
     """Look up a protocol number by name. (Rarely used.)
 
@@ -318,7 +274,6 @@ async def getprotobyname(name):
 ################################################################
 
 
-@_add_to_all
 def from_stdlib_socket(sock):
     """Convert a standard library :func:`socket.socket` object into a trio
     socket object.
@@ -328,7 +283,6 @@ def from_stdlib_socket(sock):
 
 
 @_wraps(_stdlib_socket.fromfd, assigned=(), updated=())
-@_add_to_all
 def fromfd(*args, **kwargs):
     """Like :func:`socket.fromfd`, but returns a trio socket object.
 
@@ -339,13 +293,12 @@ def fromfd(*args, **kwargs):
 if hasattr(_stdlib_socket, "fromshare"):
 
     @_wraps(_stdlib_socket.fromshare, assigned=(), updated=())
-    @_add_to_all
+    # @_add_to_all
     def fromshare(*args, **kwargs):
         return from_stdlib_socket(_stdlib_socket.fromshare(*args, **kwargs))
 
 
 @_wraps(_stdlib_socket.socketpair, assigned=(), updated=())
-@_add_to_all
 def socketpair(*args, **kwargs):
     """Like :func:`socket.socketpair`, but returns a pair of trio socket
     objects.
@@ -356,7 +309,6 @@ def socketpair(*args, **kwargs):
 
 
 @_wraps(_stdlib_socket.socket, assigned=(), updated=())
-@_add_to_all
 def socket(
     family=_stdlib_socket.AF_INET,
     type=_stdlib_socket.SOCK_STREAM,
@@ -403,7 +355,7 @@ def real_socket_type(type_num):
     return type_num & _SOCK_TYPE_MASK
 
 
-@_add_to_all
+# @_add_to_all
 class SocketType:
     def __init__(self):
         raise TypeError(
