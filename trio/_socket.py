@@ -38,7 +38,7 @@ from socket import (
     EAGAIN, EWOULDBLOCK, _LOCALHOST, _LOCALHOST_V6, _GLOBAL_DEFAULT_TIMEOUT
 )
 try:
-    from socket import (IPPROTO_IPV6, TCP_NOTSENT_LOWAT)
+    from socket import (IPPROTO_IPV6, IPPROTO_SCTP, TCP_NOTSENT_LOWAT)
 except ImportError:
     pass
 
