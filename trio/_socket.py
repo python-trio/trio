@@ -38,8 +38,6 @@ class _try_sync:
 # CONSTANTS
 ################################################################
 
-from socket import *
-
 try:
     from socket import IPPROTO_SCTP
 except ImportError:

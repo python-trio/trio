@@ -4,4 +4,6 @@
 # temporaries, imports, etc. when implementing the module. So we put the
 # implementation in an underscored module, and then re-export the public parts
 # here.
+import sys as _sys
+from socket import *
 from ._socket import *
