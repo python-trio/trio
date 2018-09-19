@@ -73,7 +73,7 @@ if _sys.platform != "win32":
     # Do not import for windows platform
     # (you can still get it from stdlib socket, of course, if you want it)
     from socket import SO_REUSEADDR
-    
+
 # try:
 #     from socket import (
 #         if_nameindex, sethostname, AF_LINK, AF_SYSTEM, IPPROTO_IPV6,
