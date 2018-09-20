@@ -4,6 +4,9 @@
 # temporaries, imports, etc. when implementing the module. So we put the
 # implementation in an underscored module, and then re-export the public parts
 # here.
+import importlib
+
+_smod = importlib.import_module('._socket', 'trio')
 
 from ._socket import (
     fromfd, from_stdlib_socket, getprotobyname, socketpair, getnameinfo,
@@ -34,16 +37,9 @@ from ._socket import (
     if_indextoname,
 )
 
-from ._socket import (
-    SO_REUSEADDR, IPPROTO_SCTP, IPPROTO_IPV6, TCP_NOTSENT_LOWAT
+globals().update(
+    {
+        _name: getattr(_smod, _name)
+        for _name in _smod.__dict__ if _name.isupper()
+    }
 )
-#from ._socket import *
-
-from ._socket import (
-    AF_INET, AF_INET6, IPPROTO_TCP, SOCK_STREAM, SOL_SOCKET, TCP_NODELAY,
-    AI_CANONNAME, MSG_PEEK, IPV6_V6ONLY, SHUT_WR, SOCK_DGRAM, NI_NUMERICHOST,
-    AI_PASSIVE, SO_ACCEPTCONN, AF_UNSPEC, SHUT_RD, NI_NUMERICSERV, IPPROTO_UDP,
-    SHUT_RDWR, EAI_SOCKTYPE, EAI_BADHINTS, AF_UNIX
-)
-
-# from socket import *

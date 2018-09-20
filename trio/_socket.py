@@ -1,7 +1,9 @@
 import os as _os
-import socket as _stdlib_socket
 import sys as _sys
+import importlib as _importlib
 from functools import wraps as _wraps
+
+_stdlib_socket = _importlib.import_module('socket')
 
 import idna as _idna
 
@@ -55,11 +57,11 @@ class _try_sync:
 # CONSTANTS
 ################################################################
 
-from socket import (
-    AF_INET, AF_INET6, IPPROTO_TCP, SOCK_STREAM, SOL_SOCKET, TCP_NODELAY,
-    AI_CANONNAME, MSG_PEEK, IPV6_V6ONLY, SHUT_WR, SOCK_DGRAM, NI_NUMERICHOST,
-    AI_PASSIVE, SO_ACCEPTCONN, AF_UNSPEC, SHUT_RD, NI_NUMERICSERV, IPPROTO_UDP,
-    SHUT_RDWR, EAI_SOCKTYPE, EAI_BADHINTS, AF_UNIX
+globals().update(
+    {
+        _name: getattr(_stdlib_socket, _name)
+        for _name in _stdlib_socket.__dict__ if _name.isupper()
+    }
 )
 
 try:
@@ -95,13 +97,6 @@ if _sys.platform != "win32":
     # Do not import for windows platform
     # (you can still get it from stdlib socket, of course, if you want it)
     from socket import SO_REUSEADDR
-
-# try:
-#     from socket import (
-#         if_nameindex, sethostname, AF_LINK, AF_SYSTEM, IPPROTO_IPV6,
-#         IPPROTO_SCTP, LOCAL_PEERCRED, PF_SYSTEM, SO_USELOOPBACK, TCP_NOTSENT_LOWAT,
-#         TCP_KEEPINTVL, TCP_KEEPCNT, TCP_FASTOPEN
-#     )
 
 ################################################################
 # Overrides
