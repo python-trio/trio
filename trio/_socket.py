@@ -9,6 +9,23 @@ from . import _core
 from ._threads import run_sync_in_worker_thread
 from ._util import fspath
 
+from socket import (
+    gaierror,
+    herror,
+    gethostname,
+    ntohs,
+    htonl,
+    htons,
+    inet_aton,
+    inet_ntoa,
+    inet_pton,
+    inet_ntop,
+    sethostname,
+    if_nameindex,
+    if_nametoindex,
+    if_indextoname,
+)
+
 
 class _try_sync:
     def __init__(self, blocking_exc_override=None):
@@ -38,7 +55,12 @@ class _try_sync:
 # CONSTANTS
 ################################################################
 
-
+from socket import (
+    AF_INET, AF_INET6, IPPROTO_TCP, SOCK_STREAM, SOL_SOCKET, TCP_NODELAY,
+    AI_CANONNAME, MSG_PEEK, IPV6_V6ONLY, SHUT_WR, SOCK_DGRAM, NI_NUMERICHOST,
+    AI_PASSIVE, SO_ACCEPTCONN, AF_UNSPEC, SHUT_RD, NI_NUMERICSERV, IPPROTO_UDP,
+    SHUT_RDWR, EAI_SOCKTYPE, EAI_BADHINTS, AF_UNIX
+)
 
 try:
     from socket import IPPROTO_SCTP
@@ -335,7 +357,26 @@ def real_socket_type(type_num):
     return type_num & _SOCK_TYPE_MASK
 
 
-# @_add_to_all
+def _make_simple_sock_method_wrapper(methname, wait_fn, maybe_avail=False):
+    fn = getattr(_stdlib_socket.socket, methname)
+
+    @_wraps(fn, assigned=("__name__",), updated=())
+    async def wrapper(self, *args, **kwargs):
+        return await self._nonblocking_helper(fn, args, kwargs, wait_fn)
+
+    wrapper.__doc__ = (
+        """Like :meth:`socket.socket.{}`, but async.
+
+            """.format(methname)
+    )
+    if maybe_avail:
+        wrapper.__doc__ += (
+            "Only available on platforms where :meth:`socket.socket.{}` "
+            "is available.".format(methname)
+        )
+    return wrapper
+
+
 class SocketType:
     def __init__(self):
         raise TypeError(
@@ -563,25 +604,6 @@ class _SocketType(SocketType):
                 return fn(self._sock, *args, **kwargs)
             except BlockingIOError:
                 pass
-
-    def _make_simple_sock_method_wrapper(methname, wait_fn, maybe_avail=False):
-        fn = getattr(_stdlib_socket.socket, methname)
-
-        @_wraps(fn, assigned=("__name__",), updated=())
-        async def wrapper(self, *args, **kwargs):
-            return await self._nonblocking_helper(fn, args, kwargs, wait_fn)
-
-        wrapper.__doc__ = (
-            """Like :meth:`socket.socket.{}`, but async.
-
-            """.format(methname)
-        )
-        if maybe_avail:
-            wrapper.__doc__ += (
-                "Only available on platforms where :meth:`socket.socket.{}` "
-                "is available.".format(methname)
-            )
-        return wrapper
 
     ################################################################
     # accept
