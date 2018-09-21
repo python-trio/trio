@@ -31,19 +31,18 @@ from ._socket import (
     inet_ntoa,
     inet_pton,
     inet_ntop,
-    if_nameindex,
     if_nametoindex,
     if_indextoname,
 )
 
 try:
-    from socket import sethostname
+    from ._socket import sethostname
 except ImportError:
     pass
 
-globals().update(
-    {
-        _name: getattr(_smod, _name)
-        for _name in _smod.__dict__ if _name.isupper()
-    }
-)
+try:
+    from ._socket import if_nameindex
+except ImportError:
+    pass
+
+globals().update({_name: getattr(_smod, _name) for _name in _smod.__dict__})
