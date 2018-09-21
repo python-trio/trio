@@ -31,17 +31,12 @@ from ._socket import (
     inet_ntoa,
     inet_pton,
     inet_ntop,
-    if_nametoindex,
-    if_indextoname,
 )
 
 try:
-    from ._socket import sethostname
-except ImportError:
-    pass
-
-try:
-    from ._socket import if_nameindex
+    from ._socket import (
+        sethostname, if_nameindexif_nametoindex, if_indextoname
+    )
 except ImportError:
     pass
 

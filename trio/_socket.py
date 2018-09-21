@@ -22,17 +22,12 @@ from socket import (
     inet_ntoa,
     inet_pton,
     inet_ntop,
-    if_nametoindex,
-    if_indextoname,
 )
 
 try:
-    from socket import sethostname
-except ImportError:
-    pass
-
-try:
-    from socket import if_nameindex
+    from socket import (
+        if_nameindexif_nametoindex, if_indextoname, sethostname
+    )
 except ImportError:
     pass
 
