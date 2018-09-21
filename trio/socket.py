@@ -35,7 +35,7 @@ from ._socket import (
 
 try:
     from ._socket import (
-        sethostname, if_nameindexif_nametoindex, if_indextoname
+        sethostname, if_nameindex, if_nametoindex, if_indextoname
     )
 except ImportError:
     pass
