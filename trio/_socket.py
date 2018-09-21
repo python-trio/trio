@@ -22,11 +22,15 @@ from socket import (
     inet_ntoa,
     inet_pton,
     inet_ntop,
-    sethostname,
     if_nameindex,
     if_nametoindex,
     if_indextoname,
 )
+
+try:
+    from socket import sethostname
+except ImportError:
+    pass
 
 
 class _try_sync:
@@ -547,6 +551,7 @@ class _SocketType(SocketType):
         # empty list.
         assert len(gai_res) >= 1
         # Address is the last item in the first entry
+        # normed = gai_res[0][-1]
         (*_, normed), *_ = gai_res
         # The above ignored any flowid and scopeid in the passed-in address,
         # so restore them if present:

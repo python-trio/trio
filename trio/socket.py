@@ -31,11 +31,15 @@ from ._socket import (
     inet_ntoa,
     inet_pton,
     inet_ntop,
-    sethostname,
     if_nameindex,
     if_nametoindex,
     if_indextoname,
 )
+
+try:
+    from socket import sethostname
+except ImportError:
+    pass
 
 globals().update(
     {
