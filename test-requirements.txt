@@ -39,7 +39,7 @@ pylint==2.1.1
 pyopenssl==18.0.0
 pytest-cov==2.6.0
 pytest-faulthandler==1.5.0
-pytest==3.8.0
+pytest==3.8.1
 simplegeneric==0.8.1      # via ipython
 six==1.11.0               # via astroid, cryptography, more-itertools, pathlib2, prompt-toolkit, pyopenssl, pytest, traitlets
 traitlets==4.3.2          # via ipython
