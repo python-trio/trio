@@ -537,7 +537,7 @@ def run_script(name, use_ipython=False):
     else:
         cmd = [sys.executable, "-u", str(script_path)]
     print("running:", cmd)
-    completed = subprocess.run(
+    completed = subprocess.run(  # nosec
         cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
     )
     print("process output:")
