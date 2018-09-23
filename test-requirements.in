@@ -9,7 +9,7 @@ pylint         # for pylint finding all symbols tests
 jedi           # for jedi code completion tests
 
 # Tools
-yapf == 0.22.0
+yapf == 0.22.0  # formatting; also pinned in renovate.json
 flake8
 
 # https://github.com/python-trio/trio/pull/654#issuecomment-420518745

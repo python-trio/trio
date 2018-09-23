@@ -652,7 +652,7 @@ class SSLStream(Stream):
                 # stream, and closing doesn't care about the state.
                 if (
                     self._https_compatible
-                    and isinstance(exc.__cause__, SSLEOFError)
+                    and isinstance(exc.__cause__, _stdlib_ssl.SSLEOFError)
                 ):
                     return b""
                 else:
