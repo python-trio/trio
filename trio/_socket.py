@@ -1,9 +1,7 @@
 import os as _os
 import sys as _sys
-import importlib as _importlib
+import socket as _stdlib_socket
 from functools import wraps as _wraps
-
-_stdlib_socket = _importlib.import_module('socket')
 
 import idna as _idna
 
@@ -11,27 +9,11 @@ from . import _core
 from ._threads import run_sync_in_worker_thread
 from ._util import fspath
 
-from socket import (
-    gaierror,
-    herror,
-    gethostname,
-    ntohs,
-    htonl,
-    htons,
-    inet_aton,
-    inet_ntoa,
-    inet_pton,
-    inet_ntop,
-)
 
-try:
-    from socket import (
-        if_nameindexif_nametoindex, if_indextoname, sethostname
-    )
-except ImportError:
-    pass
-
-
+#   # we only get here if the sync call in fact did fail with a
+#   # BlockingIOError
+#   return await do_it_properly_with_a_check_point()
+#
 class _try_sync:
     def __init__(self, blocking_exc_override=None):
         self._blocking_exc_override = blocking_exc_override
@@ -60,20 +42,6 @@ class _try_sync:
 # CONSTANTS
 ################################################################
 
-globals().update(
-    {
-        _name: getattr(_stdlib_socket, _name)
-        for _name in _stdlib_socket.__dict__ if _name.isupper()
-    }
-)
-
-try:
-    from socket import IPPROTO_SCTP
-except ImportError:
-    if _sys.platform == "darwin":
-        IPPROTO_SCTP = 132
-        globals()['IPPROTO_SCTP'] = IPPROTO_SCTP
-
 try:
     from socket import IPPROTO_IPV6
 except ImportError:
@@ -81,7 +49,6 @@ except ImportError:
     # https://bugs.python.org/issue29515
     if _sys.platform == "win32":  # pragma: no branch
         IPPROTO_IPV6 = 41
-        globals()['IPPROTO_IPV6'] = IPPROTO_IPV6
 
 try:
     from socket import TCP_NOTSENT_LOWAT
@@ -90,16 +57,8 @@ except ImportError:
     #   https://github.com/python/cpython/pull/477
     if _sys.platform == "darwin":
         TCP_NOTSENT_LOWAT = 0x201
-        globals()['TCP_NOTSENT_LOWAT'] = TCP_NOTSENT_LOWAT
     elif _sys.platform == "linux":
         TCP_NOTSENT_LOWAT = 25
-        globals()['TCP_NOTSENT_LOWAT'] = TCP_NOTSENT_LOWAT
-
-if _sys.platform != "win32":
-    # See https://github.com/python-trio/trio/issues/39
-    # Do not import for windows platform
-    # (you can still get it from stdlib socket, of course, if you want it)
-    from socket import SO_REUSEADDR
 
 ################################################################
 # Overrides
@@ -293,7 +252,6 @@ def fromfd(*args, **kwargs):
 if hasattr(_stdlib_socket, "fromshare"):
 
     @_wraps(_stdlib_socket.fromshare, assigned=(), updated=())
-    # @_add_to_all
     def fromshare(*args, **kwargs):
         return from_stdlib_socket(_stdlib_socket.fromshare(*args, **kwargs))
 
@@ -550,7 +508,6 @@ class _SocketType(SocketType):
         # empty list.
         assert len(gai_res) >= 1
         # Address is the last item in the first entry
-        # normed = gai_res[0][-1]
         (*_, normed), *_ = gai_res
         # The above ignored any flowid and scopeid in the passed-in address,
         # so restore them if present:
