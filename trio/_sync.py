@@ -607,7 +607,7 @@ class Lock:
 
 
 class StrictFIFOLock(Lock):
-    """A variant of :class:`Lock` where tasks are guaranteed to acquire the
+    r"""A variant of :class:`Lock` where tasks are guaranteed to acquire the
     lock in strict first-come-first-served order.
 
     An example of when this is useful is if you're implementing something like
@@ -791,7 +791,7 @@ class Condition:
         self._lot.repark_all(self._lock._lot)
 
     def statistics(self):
-        """Return an object containing debugging information.
+        r"""Return an object containing debugging information.
 
         Currently the following fields are defined:
 
