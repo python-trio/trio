@@ -407,6 +407,13 @@ class NurseryManager:
 
 
 def open_nursery():
+    """Returns an async context manager which must be used to create a
+    new ``Nursery``.
+
+    It does not block on entry; on exit it blocks until all child tasks
+    have exited.
+
+    """
     return NurseryManager()
 
 
