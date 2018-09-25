@@ -11,7 +11,7 @@ from contextlib import contextmanager, closing
 
 from contextvars import copy_context
 from math import inf
-from time import monotonic
+from time import perf_counter
 
 from sniffio import current_async_library_cvar
 
@@ -101,7 +101,7 @@ class SystemClock:
         pass
 
     def current_time(self):
-        return self.offset + monotonic()
+        return self.offset + perf_counter()
 
     def deadline_to_sleep_time(self, deadline):
         return deadline - self.current_time()
