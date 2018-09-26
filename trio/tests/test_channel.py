@@ -4,6 +4,7 @@ from ..testing import wait_all_tasks_blocked, assert_checkpoints
 import trio
 from trio import open_channel, EndOfChannel, BrokenChannelError
 
+
 async def test_channel():
     with pytest.raises(TypeError):
         open_channel(1.0)
