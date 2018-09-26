@@ -1609,7 +1609,7 @@ def test_nice_error_on_bad_calls_to_run_or_spawn():
 def test_calling_asyncio_function_gives_nice_error():
     async def misguided():
         import asyncio
-        await asyncio.sleep(1)
+        await asyncio.Future()
 
     with pytest.raises(TypeError) as excinfo:
         _core.run(misguided)
