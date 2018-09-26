@@ -12,17 +12,8 @@ from ._util import aiter_compat
 #   - statistics
 #   - capacity, usage
 #   - repr
-# - BrokenResourceError?
 # - tests
 # - docs
-# - should there be a put_back method that inserts an item at the front of the
-#   queue, while ignoring length limits? (the idea being that you call this
-#   from a task that is also doing get(), and making get() block on put() is
-#   a ticket to deadlock city) Example use case: depth-first traversal of a
-#   directory tree. (Well... does this work? If you start out 10-wide then you
-#   won't converge on a single DFS quickly, or maybe at all... is that still
-#   good? do you actually want a priority queue that sorts by depth? maybe
-#   that is what you want. Huh.)
 
 
 class EndOfChannel(Exception):
