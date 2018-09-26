@@ -70,4 +70,5 @@ except NameError:
 try:
     TCP_NOTSENT_LOWAT
 except NameError:
-    from ._socket import TCP_NOTSENT_LOWAT
+    if _sys.platform != 'win32':
+        from ._socket import TCP_NOTSENT_LOWAT
