@@ -13,7 +13,7 @@ import sys as _sys
 from ._socket import (
     fromfd, from_stdlib_socket, getprotobyname, socketpair, getnameinfo,
     socket, getaddrinfo, set_custom_hostname_resolver,
-    set_custom_socket_factory, SocketType, _stdlib_socket
+    set_custom_socket_factory, SocketType
 )
 
 # not always available so expose only if
@@ -45,6 +45,8 @@ except ImportError:
     pass
 
 # expose all uppercase names from standardlib socket to trio.socket
+import socket as _stdlib_socket
+
 globals().update(
     {
         _name: getattr(_stdlib_socket, _name)
@@ -56,19 +58,18 @@ if _sys.platform == 'win32':
     # See https://github.com/python-trio/trio/issues/39
     # Do not import for windows platform
     # (you can still get it from stdlib socket, of course, if you want it)
-    try:
-        del SO_REUSEADDR
-    except NameError:
-        pass
+    del SO_REUSEADDR
 
-# get names used by trio that might not be available in all versions
-try:
-    IPPROTO_IPV6
-except NameError:
-    from ._socket import IPPROTO_IPV6
+# get names used by trio that we define on our own
+from ._socket import IPPROTO_IPV6
 
+# Not defined in all python versions and platforms but sometimes needed
 try:
     TCP_NOTSENT_LOWAT
 except NameError:
-    if _sys.platform != 'win32':
-        from ._socket import TCP_NOTSENT_LOWAT
+    # Hopefully will show up in 3.7:
+    #   https://github.com/python/cpython/pull/477
+    if _sys.platform == "darwin":
+        TCP_NOTSENT_LOWAT = 0x201
+    elif _sys.platform == "linux":
+        TCP_NOTSENT_LOWAT = 25

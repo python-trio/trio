@@ -10,6 +10,10 @@ from ._threads import run_sync_in_worker_thread
 from ._util import fspath
 
 
+# Usage:
+#
+#   async with _try_sync():
+#       return sync_call_that_might_fail_with_exception()
 #   # we only get here if the sync call in fact did fail with a
 #   # BlockingIOError
 #   return await do_it_properly_with_a_check_point()
@@ -49,16 +53,6 @@ except ImportError:
     # https://bugs.python.org/issue29515
     if _sys.platform == "win32":  # pragma: no branch
         IPPROTO_IPV6 = 41
-
-try:
-    from socket import TCP_NOTSENT_LOWAT
-except ImportError:
-    # Hopefully will show up in 3.7:
-    #   https://github.com/python/cpython/pull/477
-    if _sys.platform == "darwin":
-        TCP_NOTSENT_LOWAT = 0x201
-    elif _sys.platform == "linux":
-        TCP_NOTSENT_LOWAT = 25
 
 ################################################################
 # Overrides
