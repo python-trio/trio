@@ -26,7 +26,7 @@ more-itertools==4.3.0     # via pytest
 parso==0.3.1              # via jedi
 pathlib2==2.3.2           # via pytest
 pexpect==4.6.0            # via ipython
-pickleshare==0.7.4        # via ipython
+pickleshare==0.7.5        # via ipython
 pluggy==0.7.1             # via pytest
 prompt-toolkit==1.0.15    # via ipython
 ptyprocess==0.6.0         # via pexpect
