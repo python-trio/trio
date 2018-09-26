@@ -29,47 +29,34 @@ def open_channel(capacity):
         raise TypeError("capacity must be an integer or math.inf")
     if capacity < 0:
         raise ValueError("capacity must be >= 0")
-    buf = ChannelBuf(capacity)
-    return PutChannel(buf), GetChannel(buf)
-
-
-@attr.s(cmp=False, hash=False)
-class ChannelBuf:
-    capacity = attr.ib()
-    data = attr.ib(default=attr.Factory(deque))
-    # counts
-    put_channels = attr.ib(default=0)
-    get_channels = attr.ib(default=0)
-    # {task: value}
-    put_tasks = attr.ib(default=attr.Factory(OrderedDict))
-    # {task: None}
-    get_tasks = attr.ib(default=attr.Factory(OrderedDict))
+    get_channel = GetChannel(capacity)
+    put_channel = PutChannel(get_channel)
+    return put_channel, get_channel
 
 
 class PutChannel:
-    def __init__(self, buf):
-        self._buf = buf
+    def __init__(self, get_channel):
+        self._gc = get_channel
         self.closed = False
         self._tasks = set()
-        self._buf.put_channels += 1
+        self._gc._open_put_channels += 1
 
-    @_core.disable_ki_protection
+    @_core.enable_ki_protection
     def put_nowait(self, value):
         if self.closed:
             raise _core.ClosedResourceError
-        if not self._buf.get_channels:
+        if self._gc.closed:
             raise BrokenChannelError
-        if self._buf.get_tasks:
-            assert not self._buf.data
-            task, _ = self._buf.get_tasks.popitem(last=False)
-            task.custom_sleep_data._tasks.remove(task)
+        if self._gc._get_tasks:
+            assert not self._gc._data
+            task, _ = self._gc._get_tasks.popitem(last=False)
             _core.reschedule(task, Value(value))
-        elif len(self._buf.data) < self._buf.capacity:
-            self._buf.data.append(value)
+        elif len(self._gc._data) < self._gc._capacity:
+            self._gc._data.append(value)
         else:
             raise _core.WouldBlock
 
-    @_core.disable_ki_protection
+    @_core.enable_ki_protection
     async def put(self, value):
         await _core.checkpoint_if_cancelled()
         try:
@@ -82,34 +69,36 @@ class PutChannel:
 
         task = _core.current_task()
         self._tasks.add(task)
-        self._buf.put_tasks[task] = value
+        self._gc._put_tasks[task] = value
         task.custom_sleep_data = self
 
         def abort_fn(_):
             self._tasks.remove(task)
-            del self._buf.put_tasks[task]
+            del self._gc._put_tasks[task]
             return _core.Abort.SUCCEEDED
 
         await _core.wait_task_rescheduled(abort_fn)
 
-    @_core.disable_ki_protection
+    @_core.enable_ki_protection
     def clone(self):
         if self.closed:
             raise _core.ClosedResourceError
-        return PutChannel(self._buf)
+        return PutChannel(self._gc)
 
-    @_core.disable_ki_protection
+    @_core.enable_ki_protection
     def close(self):
         if self.closed:
             return
         self.closed = True
-        for task in list(self._tasks):
+        for task in self._tasks:
             _core.reschedule(task, Error(ClosedResourceError()))
-        self._buf.put_channels -= 1
-        if self._buf.put_channels == 0:
-            assert not self._buf.put_tasks
-            for task in list(self._buf.get_tasks):
+        self._tasks.clear()
+        self._gc._open_put_channels -= 1
+        if self._gc._open_put_channels == 0:
+            assert not self._gc._put_tasks
+            for task in self._gc._get_tasks:
                 _core.reschedule(task, Error(EndOfChannel()))
+            self._gc._get_tasks.clear()
 
     def __enter__(self):
         return self
@@ -118,31 +107,35 @@ class PutChannel:
         self.close()
 
 
+@attr.s(cmp=False, hash=False, repr=False)
 class GetChannel:
-    def __init__(self, buf):
-        self._buf = buf
-        self.closed = False
-        self._tasks = set()
-        self._buf.get_channels += 1
+    _capacity = attr.ib()
+    _data = attr.ib(default=attr.Factory(deque))
+    closed = attr.ib(default=False)
+    # count of open put channels
+    _open_put_channels = attr.ib(default=0)
+    # {task: value}
+    _put_tasks = attr.ib(default=attr.Factory(OrderedDict))
+    # {task: None}
+    _get_tasks = attr.ib(default=attr.Factory(OrderedDict))
 
-    @_core.disable_ki_protection
+    @_core.enable_ki_protection
     def get_nowait(self):
         if self.closed:
             raise _core.ClosedResourceError
-        buf = self._buf
-        if buf.put_tasks:
-            task, value = buf.put_tasks.popitem(last=False)
+        if self._put_tasks:
+            task, value = self._put_tasks.popitem(last=False)
             task.custom_sleep_data._tasks.remove(task)
             _core.reschedule(task)
-            buf.data.append(value)
+            self._data.append(value)
             # Fall through
-        if buf.data:
-            return buf.data.popleft()
-        if not buf.put_channels:
+        if self._data:
+            return self._data.popleft()
+        if not self._open_put_channels:
             raise EndOfChannel
         raise _core.WouldBlock
 
-    @_core.disable_ki_protection
+    @_core.enable_ki_protection
     async def get(self):
         await _core.checkpoint_if_cancelled()
         try:
@@ -154,32 +147,28 @@ class GetChannel:
             return value
 
         task = _core.current_task()
-        self._tasks.add(task)
-        self._buf.get_tasks[task] = None
-        task.custom_sleep_data = self
+        self._get_tasks[task] = None
 
         def abort_fn(_):
-            self._tasks.remove(task)
-            del self._buf.get_tasks[task]
+            del self._get_tasks[task]
             return _core.Abort.SUCCEEDED
 
         return await _core.wait_task_rescheduled(abort_fn)
 
-    @_core.disable_ki_protection
+    @_core.enable_ki_protection
     def close(self):
         if self.closed:
             return
         self.closed = True
-        for task in list(self._tasks):
+        for task in self._get_tasks:
             _core.reschedule(task, Error(ClosedResourceError()))
-        self._buf.get_channels -= 1
-        if self._buf.get_channels == 0:
-            assert not self._buf.get_tasks
-            for task in list(self._buf.put_tasks):
-                _core.reschedule(task, Error(BrokenChannelError()))
-            # XX: or if we're losing data, maybe we should raise a
-            # BrokenChannelError here?
-            self._buf.data.clear()
+        self._get_tasks.clear()
+        for task in self._put_tasks:
+            _core.reschedule(task, Error(BrokenChannelError()))
+        self._put_tasks.clear()
+        # XX: or if we're losing data, maybe we should raise a
+        # BrokenChannelError here?
+        self._data.clear()
 
     @aiter_compat
     def __aiter__(self):
