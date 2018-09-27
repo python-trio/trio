@@ -235,7 +235,7 @@ _default_max_refill_bytes = 32 * 1024
 
 
 class SSLStream(Stream):
-    """Encrypted communication using SSL/TLS.
+    r"""Encrypted communication using SSL/TLS.
 
     :class:`SSLStream` wraps an arbitrary :class:`~trio.abc.Stream`, and
     allows you to perform encrypted communication over it using the usual
