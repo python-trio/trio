@@ -74,7 +74,7 @@ setup(
     license="MIT -or- Apache License 2.0",
     packages=find_packages(),
     install_requires=[
-        "attrs",
+        "attrs >= 18.1.0",  # for attr.ib(factory=...)
         "sortedcontainers",
         "async_generator >= 1.9",
         "idna",

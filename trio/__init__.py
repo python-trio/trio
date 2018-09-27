@@ -38,7 +38,7 @@ from ._threads import (
 
 from ._highlevel_generic import aclose_forcefully, StapledStream
 
-from ._channel import open_channel, EndOfChannel, BrokenChannelError
+from ._channel import open_channel, EndOfChannel
 
 from ._signals import catch_signals, open_signal_receiver
 
