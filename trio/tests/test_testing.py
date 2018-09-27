@@ -310,7 +310,7 @@ async def test_mock_clock_autojump(mock_clock):
     mock_clock.autojump_threshold = 0
     assert mock_clock.autojump_threshold == 0
 
-    real_start = time.monotonic()
+    real_start = time.perf_counter()
 
     virtual_start = _core.current_time()
     for i in range(10):
@@ -320,7 +320,7 @@ async def test_mock_clock_autojump(mock_clock):
         assert virtual_start + 10 * i == _core.current_time()
         virtual_start = _core.current_time()
 
-    real_duration = time.monotonic() - real_start
+    real_duration = time.perf_counter() - real_start
     print(
         "Slept {} seconds in {} seconds"
         .format(10 * sum(range(10)), real_duration)
@@ -378,9 +378,9 @@ def test_mock_clock_autojump_preset():
     # actually in use, and it gets picked up
     mock_clock = MockClock(autojump_threshold=0.1)
     mock_clock.autojump_threshold = 0.01
-    real_start = time.monotonic()
+    real_start = time.perf_counter()
     _core.run(sleep, 10000, clock=mock_clock)
-    assert time.monotonic() - real_start < 1
+    assert time.perf_counter() - real_start < 1
 
 
 async def test_mock_clock_autojump_0_and_wait_all_tasks_blocked(mock_clock):

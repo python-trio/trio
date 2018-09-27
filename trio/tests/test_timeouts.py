@@ -9,9 +9,9 @@ from .._timeouts import *
 
 
 async def check_takes_about(f, expected_dur):
-    start = time.monotonic()
+    start = time.perf_counter()
     result = await outcome.acapture(f)
-    dur = time.monotonic() - start
+    dur = time.perf_counter() - start
     print(dur / expected_dur)
     # 1.2 is an arbitrary fudge factor because there's always some delay
     # between when we become eligible to wake up and when we actually do. We

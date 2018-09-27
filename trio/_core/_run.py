@@ -93,13 +93,16 @@ CONTEXT_RUN_TB_FRAMES = _count_context_run_tb_frames()
 @attr.s(frozen=True)
 class SystemClock:
     # Add a large random offset to our clock to ensure that if people
-    # accidentally call time.monotonic() directly or start comparing clocks
+    # accidentally call time.perf_counter() directly or start comparing clocks
     # between different runs, then they'll notice the bug quickly:
     offset = attr.ib(default=attr.Factory(lambda: _r.uniform(10000, 200000)))
 
     def start_clock(self):
         pass
 
+    # In cPython 3, on every platform except Windows, perf_counter is
+    # exactly the same as time.monotonic; and on Windows, it uses
+    # QueryPerformanceCounter instead of GetTickCount64.
     def current_time(self):
         return self.offset + perf_counter()
 
@@ -1233,7 +1236,7 @@ def run(
       args: Positional arguments to be passed to *async_fn*. If you need to
           pass keyword arguments, then use :func:`functools.partial`.
 
-      clock: ``None`` to use the default system-specific monotonic clock;
+      clock: ``None`` to use the default system-specific perf_counter clock;
           otherwise, an object implementing the :class:`trio.abc.Clock`
           interface, like (for example) a :class:`trio.testing.MockClock`
           instance.

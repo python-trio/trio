@@ -1,0 +1,1 @@
+The Trio main loop now uses a higher-precision clock by default.

@@ -198,7 +198,7 @@ Time and clocks
 
 Every call to :func:`run` has an associated clock.
 
-By default, trio uses an unspecified monotonic clock, but this can be
+By default, trio uses the `time.perf_counter` clock, but this can be
 changed by passing a custom clock object to :func:`run` (e.g. for
 testing).
 
@@ -206,9 +206,9 @@ You should not assume that trio's internal clock matches any other
 clock you have access to, including the clocks of simultaneous calls
 to :func:`trio.run` happening in other processes or threads!
 
-The default clock is currently implemented as :func:`time.monotonic`
+The default clock is currently implemented as :func:`time.perf_counter`
 plus a large random offset. The idea here is to catch code that
-accidentally uses :func:`time.monotonic` early, which should help keep
+accidentally uses :func:`time.perf_counter` early, which should help keep
 our options open for `changing the clock implementation later
 <https://github.com/python-trio/trio/issues/33>`__, and (more importantly)
 make sure you can be confident that custom clocks like
