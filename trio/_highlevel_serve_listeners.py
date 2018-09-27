@@ -57,7 +57,7 @@ async def serve_listeners(
     handler_nursery=None,
     task_status=trio.TASK_STATUS_IGNORED
 ):
-    """Listen for incoming connections on ``listeners``, and for each one
+    r"""Listen for incoming connections on ``listeners``, and for each one
     start a task running ``handler(stream)``.
 
     .. warning::

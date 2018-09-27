@@ -97,7 +97,7 @@ def ki_protection_enabled(frame):
 
 
 def currently_ki_protected():
-    """Check whether the calling code has :exc:`KeyboardInterrupt` protection
+    r"""Check whether the calling code has :exc:`KeyboardInterrupt` protection
     enabled.
 
     It's surprisingly easy to think that one's :exc:`KeyboardInterrupt`
