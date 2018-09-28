@@ -198,7 +198,7 @@ Time and clocks
 
 Every call to :func:`run` has an associated clock.
 
-By default, trio uses the `time.perf_counter` clock, but this can be
+By default, trio uses an unspecified monotonic clock, but this can be
 changed by passing a custom clock object to :func:`run` (e.g. for
 testing).
 

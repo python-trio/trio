@@ -1,1 +1,1 @@
-The Trio main loop now uses a higher-precision clock by default.
+The Trio main loop clock now requests a performance counter, resulting in higher precision on Windows.

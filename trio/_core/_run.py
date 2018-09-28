@@ -1236,7 +1236,7 @@ def run(
       args: Positional arguments to be passed to *async_fn*. If you need to
           pass keyword arguments, then use :func:`functools.partial`.
 
-      clock: ``None`` to use the default system-specific perf_counter clock;
+      clock: ``None`` to use the default system-specific monotonic clock;
           otherwise, an object implementing the :class:`trio.abc.Clock`
           interface, like (for example) a :class:`trio.testing.MockClock`
           instance.
