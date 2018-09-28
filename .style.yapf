@@ -178,3 +178,8 @@ split_penalty_logical_operator=0
 # Use the Tab character for indentation.
 use_tabs=False
 
+# Without this, yapf likes to write things like
+#   "foo bar {}".
+#   format(...)
+# which is just awful.
+split_before_dot=True

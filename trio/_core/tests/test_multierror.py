@@ -583,21 +583,6 @@ def test_custom_excepthook():
     )
 
 
-# Before importing IPython, filter out a warning that happens in IPython 6.5.0
-# (at least), and that pytest will complain about otherwise:
-#
-#   .../IPython/lib/pretty.py:91: DeprecationWarning: IPython.utils.signatures backport for Python 2 is deprecated in IPython 6, which only supports Python 3
-warnings.filterwarnings(
-    "ignore", category=DeprecationWarning, module="IPython.lib.pretty"
-)
-# And another from prompt_toolkit 1.11.0:
-#
-#  .../prompt_toolkit/styles/from_dict.py:9: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated, and in 3.8 it will stop working
-warnings.filterwarnings(
-    "ignore",
-    category=DeprecationWarning,
-    module="prompt_toolkit.styles.from_dict"
-)
 try:
     import IPython
 except ImportError:  # pragma: no cover
