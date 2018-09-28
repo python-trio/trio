@@ -341,8 +341,8 @@ class WindowsIOManager:
         if sock in self._socket_waiters[which]:
             await _core.checkpoint()
             raise _core.ResourceBusyError(
-                "another task is already waiting to {} this socket".
-                format(which)
+                "another task is already waiting to {} this socket"
+                .format(which)
             )
         self._socket_waiters[which][sock] = _core.current_task()
 
