@@ -887,8 +887,9 @@ class Runner:
             # Give good error for: nursery.start_soon(some_sync_fn)
             raise TypeError(
                 "trio expected an async function, but {!r} appears to be "
-                "synchronous"
-                .format(getattr(async_fn, "__qualname__", async_fn))
+                "synchronous".format(
+                    getattr(async_fn, "__qualname__", async_fn)
+                )
             )
 
         ######

@@ -415,8 +415,9 @@ class Semaphore:
         else:
             max_value_str = ", max_value={}".format(self._max_value)
         return (
-            "<trio.Semaphore({}{}) at {:#x}>"
-            .format(self._value, max_value_str, id(self))
+            "<trio.Semaphore({}{}) at {:#x}>".format(
+                self._value, max_value_str, id(self)
+            )
         )
 
     @property
@@ -524,8 +525,9 @@ class Lock:
             s1 = "unlocked"
             s2 = ""
         return (
-            "<{} {} object at {:#x}{}>"
-            .format(s1, self.__class__.__name__, id(self), s2)
+            "<{} {} object at {:#x}{}>".format(
+                s1, self.__class__.__name__, id(self), s2
+            )
         )
 
     def locked(self):
@@ -858,8 +860,9 @@ class Queue:
 
     def __repr__(self):
         return (
-            "<Queue({}) at {:#x} holding {} items>"
-            .format(self.capacity, id(self), len(self._data))
+            "<Queue({}) at {:#x} holding {} items>".format(
+                self.capacity, id(self), len(self._data)
+            )
         )
 
     def qsize(self):
