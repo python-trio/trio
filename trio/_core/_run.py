@@ -858,8 +858,8 @@ class Runner:
                     "trio was expecting an async function, but instead it got "
                     "{!r} – are you trying to use a library written for "
                     "asyncio/twisted/tornado or similar? That won't work "
-                    "without some sort of compatibility shim."
-                    .format(async_fn)
+                    "without some sort of compatibility shim.".
+                    format(async_fn)
                 ) from None
 
             raise
@@ -874,8 +874,8 @@ class Runner:
                 raise TypeError(
                     "start_soon got unexpected {!r} – are you trying to use a "
                     "library written for asyncio/twisted/tornado or similar? "
-                    "That won't work without some sort of compatibility shim."
-                    .format(coro)
+                    "That won't work without some sort of compatibility shim.".
+                    format(coro)
                 )
 
             if isasyncgen(coro):
@@ -887,8 +887,9 @@ class Runner:
             # Give good error for: nursery.start_soon(some_sync_fn)
             raise TypeError(
                 "trio expected an async function, but {!r} appears to be "
-                "synchronous"
-                .format(getattr(async_fn, "__qualname__", async_fn))
+                "synchronous".format(
+                    getattr(async_fn, "__qualname__", async_fn)
+                )
             )
 
         ######

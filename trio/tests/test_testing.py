@@ -322,8 +322,9 @@ async def test_mock_clock_autojump(mock_clock):
 
     real_duration = time.monotonic() - real_start
     print(
-        "Slept {} seconds in {} seconds"
-        .format(10 * sum(range(10)), real_duration)
+        "Slept {} seconds in {} seconds".format(
+            10 * sum(range(10)), real_duration
+        )
     )
     assert real_duration < 1
 

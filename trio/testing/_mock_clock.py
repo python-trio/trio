@@ -100,8 +100,9 @@ class MockClock(Clock):
 
     def __repr__(self):
         return (
-            "<MockClock, time={:.7f}, rate={} @ {:#x}>"
-            .format(self.current_time(), self._rate, id(self))
+            "<MockClock, time={:.7f}, rate={} @ {:#x}>".format(
+                self.current_time(), self._rate, id(self)
+            )
         )
 
     @property
