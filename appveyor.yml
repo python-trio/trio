@@ -31,4 +31,5 @@ test_script:
 
 branches:
   except:
-    - /renovate/*/
+    - /pyup-.*/
+    - /dependabot/.*/
