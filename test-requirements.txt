@@ -4,7 +4,6 @@
 #
 #    pip-compile --output-file test-requirements.txt test-requirements.in
 #
-appnope==0.1.0            # via ipython
 asn1crypto==0.24.0        # via cryptography
 astroid==2.0.4            # via pylint
 atomicwrites==1.2.1       # via pytest
@@ -17,18 +16,17 @@ decorator==4.3.0          # via ipython, traitlets
 flake8==3.5.0
 idna==2.7                 # via cryptography, trustme
 ipython-genutils==0.2.0   # via traitlets
-ipython==6.5.0
+ipython==7.0.1
 isort==4.3.4              # via pylint
 jedi==0.12.1
 lazy-object-proxy==1.3.1  # via astroid
 mccabe==0.6.1             # via flake8, pylint
 more-itertools==4.3.0     # via pytest
 parso==0.3.1              # via jedi
-pathlib2==2.3.2           # via pytest
 pexpect==4.6.0            # via ipython
 pickleshare==0.7.5        # via ipython
 pluggy==0.7.1             # via pytest
-prompt-toolkit==1.0.15    # via ipython
+prompt-toolkit==2.0.4     # via ipython
 ptyprocess==0.6.0         # via pexpect
 py==1.6.0                 # via pytest
 pycodestyle==2.3.1        # via flake8
@@ -41,7 +39,7 @@ pytest-cov==2.6.0
 pytest-faulthandler==1.5.0
 pytest==3.8.1
 simplegeneric==0.8.1      # via ipython
-six==1.11.0               # via astroid, cryptography, more-itertools, pathlib2, prompt-toolkit, pyopenssl, pytest, traitlets
+six==1.11.0               # via astroid, cryptography, more-itertools, prompt-toolkit, pyopenssl, pytest, traitlets
 traitlets==4.3.2          # via ipython
 trustme==0.4.0
 typed-ast==1.1.0 ; python_version < "3.7" and implementation_name == "cpython"
