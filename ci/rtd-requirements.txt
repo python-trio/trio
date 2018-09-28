@@ -8,16 +8,16 @@ alabaster==0.7.11         # via sphinx
 babel==2.6.0              # via sphinx
 certifi==2018.8.24        # via requests
 chardet==3.0.4            # via requests
-click==6.7                # via towncrier
+click==7.0                # via towncrier
 docutils==0.14            # via sphinx
 idna==2.7                 # via requests
 imagesize==1.1.0          # via sphinx
 incremental==17.5.0       # via towncrier
 jinja2==2.10              # via sphinx, towncrier
 markupsafe==1.0           # via jinja2
-packaging==17.1           # via sphinx
+packaging==18.0           # via sphinx
 pygments==2.2.0           # via sphinx
-pyparsing==2.2.0          # via packaging
+pyparsing==2.2.1          # via packaging
 pytz==2018.5              # via babel
 requests==2.19.1          # via sphinx
 six==1.11.0               # via packaging, sphinx
