@@ -92,7 +92,7 @@ class MockClock(Clock):
         self._autojump_task = None
         self._autojump_cancel_scope = None
         # kept as an attribute so that our tests can monkeypatch it
-        self._real_clock = time.monotonic
+        self._real_clock = time.perf_counter
 
         # use the property update logic to set initial values
         self.rate = rate

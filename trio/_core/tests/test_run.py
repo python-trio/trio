@@ -253,7 +253,7 @@ async def test_current_time():
     t1 = _core.current_time()
     # Windows clock is pretty low-resolution -- appveyor tests fail unless we
     # sleep for a bit here.
-    time.sleep(time.get_clock_info("monotonic").resolution)
+    time.sleep(time.get_clock_info("perf_counter").resolution)
     t2 = _core.current_time()
     assert t1 < t2
 
@@ -834,15 +834,15 @@ async def test_timekeeping():
     TARGET = 0.1
     # give it a few tries in case of random CI server flakiness
     for _ in range(4):
-        real_start = time.monotonic()
+        real_start = time.perf_counter()
         with _core.open_cancel_scope() as scope:
             scope.deadline = _core.current_time() + TARGET
             await sleep_forever()
-        real_duration = time.monotonic() - real_start
+        real_duration = time.perf_counter() - real_start
         accuracy = real_duration / TARGET
         print(accuracy)
         # Actual time elapsed should always be >= target time
-        # (== is possible because time.monotonic on Windows is really low res)
+        # (== is possible depending on system behavior for time.perf_counter resolution
         if 1.0 <= accuracy < 2:  # pragma: no branch
             break
     else:  # pragma: no cover

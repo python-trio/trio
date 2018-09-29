@@ -11,14 +11,14 @@ COUNT = 1000000
 f = open("/etc/passwd", "rb")#, buffering=0)
 
 while True:
-    start = time.monotonic()
+    start = time.perf_counter()
     for _ in range(COUNT):
         f.seek(0)
         f.read(1)
-    between = time.monotonic()
+    between = time.perf_counter()
     for _ in range(COUNT):
         f.seek(0)
-    end = time.monotonic()
+    end = time.perf_counter()
 
     both = (between - start) / COUNT * 1e9
     seek = (end - between) / COUNT * 1e9

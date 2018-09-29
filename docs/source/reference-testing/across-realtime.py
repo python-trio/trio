@@ -45,9 +45,9 @@ async def main():
         nursery.start_soon(task2)
 
 def run_example(clock):
-    real_start = time.monotonic()
+    real_start = time.perf_counter()
     trio.run(main, clock=clock)
-    real_duration = time.monotonic() - real_start
+    real_duration = time.perf_counter() - real_start
     print("Total real time elapsed: {} seconds".format(real_duration))
 
 print("Clock where time passes at 100 years per second:\n")

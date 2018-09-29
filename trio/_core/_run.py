@@ -11,7 +11,7 @@ from contextlib import contextmanager, closing
 
 from contextvars import copy_context
 from math import inf
-from time import monotonic
+from time import perf_counter
 
 from sniffio import current_async_library_cvar
 
@@ -93,15 +93,18 @@ CONTEXT_RUN_TB_FRAMES = _count_context_run_tb_frames()
 @attr.s(frozen=True)
 class SystemClock:
     # Add a large random offset to our clock to ensure that if people
-    # accidentally call time.monotonic() directly or start comparing clocks
+    # accidentally call time.perf_counter() directly or start comparing clocks
     # between different runs, then they'll notice the bug quickly:
     offset = attr.ib(default=attr.Factory(lambda: _r.uniform(10000, 200000)))
 
     def start_clock(self):
         pass
 
+    # In cPython 3, on every platform except Windows, perf_counter is
+    # exactly the same as time.monotonic; and on Windows, it uses
+    # QueryPerformanceCounter instead of GetTickCount64.
     def current_time(self):
-        return self.offset + monotonic()
+        return self.offset + perf_counter()
 
     def deadline_to_sleep_time(self, deadline):
         return deadline - self.current_time()
