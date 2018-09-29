@@ -1,1 +1,1 @@
-* Reworked :mod:`trio` namespace construction, making it more understandable by static analysis tools. This should improve tab completion in editors, reduce false positives from pylint, and is a first step towards providing type hints.
+Reworked :mod:`trio`, :mod:`trio.testing`, and :mod:`trio.socket` namespace construction, making them more understandable by static analysis tools. This should improve tab completion in editors, reduce false positives from pylint, and is a first step towards providing type hints.
