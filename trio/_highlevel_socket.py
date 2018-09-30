@@ -7,7 +7,6 @@ from . import _core
 from . import socket as tsocket
 from ._util import ConflictDetector
 from .abc import HalfCloseableStream, Listener
-from ._highlevel_generic import BrokenStreamError
 
 __all__ = ["SocketStream", "SocketListener"]
 
@@ -29,7 +28,7 @@ def _translate_socket_errors_to_stream_errors():
                 "this socket was already closed"
             ) from None
         else:
-            raise BrokenStreamError(
+            raise _core.BrokenResourceError(
                 "socket connection broken: {}".format(exc)
             ) from exc
 

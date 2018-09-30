@@ -22,7 +22,7 @@ async def echo_handler(stream):
                 if not data:
                     break
                 await stream.send_all(data)
-        except trio.BrokenStreamError:
+        except trio.BrokenResourceError:
             pass
 
 
@@ -58,7 +58,7 @@ async def test_open_ssl_over_tcp_stream_and_everything_else():
         # We don't have the right trust set up
         # (checks that ssl_context=None is doing some validation)
         stream = await open_ssl_over_tcp_stream("trio-test-1.example.org", 80)
-        with pytest.raises(trio.BrokenStreamError):
+        with pytest.raises(trio.BrokenResourceError):
             await stream.do_handshake()
 
         # We have the trust but not the hostname
@@ -68,7 +68,7 @@ async def test_open_ssl_over_tcp_stream_and_everything_else():
             80,
             ssl_context=CLIENT_CTX,
         )
-        with pytest.raises(trio.BrokenStreamError):
+        with pytest.raises(trio.BrokenResourceError):
             await stream.do_handshake()
 
         # This one should work!

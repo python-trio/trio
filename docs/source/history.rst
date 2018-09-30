@@ -471,7 +471,7 @@ Other changes
 
 * New class :class:`StrictFIFOLock`
 
-* New exception :exc:`ResourceBusyError`
+* New exception ``ResourceBusyError``
 
 * The :class:`trio.hazmat.ParkingLot` class (which is used to
   implement many of Trio's synchronization primitives) was rewritten

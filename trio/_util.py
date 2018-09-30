@@ -112,7 +112,7 @@ class _ConflictDetectorSync:
 
     def __enter__(self):
         if self._held:
-            raise _core.ResourceBusyError(self._msg)
+            raise _core.BusyResourceError(self._msg)
         else:
             self._held = True
 

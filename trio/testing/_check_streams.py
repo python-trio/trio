@@ -4,7 +4,7 @@ from contextlib import contextmanager
 import random
 
 from .. import _core
-from .._highlevel_generic import BrokenStreamError, aclose_forcefully
+from .._highlevel_generic import aclose_forcefully
 from .._abc import SendStream, ReceiveStream, Stream, HalfCloseableStream
 from ._checkpoints import assert_checkpoints
 
@@ -112,7 +112,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
         with _assert_raises(TypeError):
             await r.receive_some(1.5)
 
-        with _assert_raises(_core.ResourceBusyError):
+        with _assert_raises(_core.BusyResourceError):
             async with _core.open_nursery() as nursery:
                 nursery.start_soon(do_receive_some, 1)
                 nursery.start_soon(do_receive_some, 1)
@@ -134,10 +134,10 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             )
             nursery.start_soon(do_receive_some, 1)
 
-        # closing the r side leads to BrokenStreamError on the s side
+        # closing the r side leads to BrokenResourceError on the s side
         # (eventually)
         async def expect_broken_stream_on_send():
-            with _assert_raises(BrokenStreamError):
+            with _assert_raises(_core.BrokenResourceError):
                 while True:
                     await do_send_all(b"x" * 100)
 
@@ -146,7 +146,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             nursery.start_soon(do_aclose, r)
 
         # once detected, the stream stays broken
-        with _assert_raises(BrokenStreamError):
+        with _assert_raises(_core.BrokenResourceError):
             await do_send_all(b"x" * 100)
 
         # r closed -> ClosedResourceError on the receive side
@@ -196,7 +196,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
     async with _ForceCloseBoth(await stream_maker()) as (s, r):
         await aclose_forcefully(r)
 
-        with _assert_raises(BrokenStreamError):
+        with _assert_raises(_core.BrokenResourceError):
             while True:
                 await do_send_all(b"x" * 100)
 
@@ -210,11 +210,11 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             await do_send_all(b"123")
 
         # after the sender does a forceful close, the receiver might either
-        # get BrokenStreamError or a clean b""; either is OK. Not OK would be
+        # get BrokenResourceError or a clean b""; either is OK. Not OK would be
         # if it freezes, or returns data.
         try:
             await checked_receive_1(b"")
-        except BrokenStreamError:
+        except _core.BrokenResourceError:
             pass
 
     # cancelled aclose still closes
@@ -303,7 +303,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
 
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
             # simultaneous wait_send_all_might_not_block fails
-            with _assert_raises(_core.ResourceBusyError):
+            with _assert_raises(_core.BusyResourceError):
                 async with _core.open_nursery() as nursery:
                     nursery.start_soon(s.wait_send_all_might_not_block)
                     nursery.start_soon(s.wait_send_all_might_not_block)
@@ -312,7 +312,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             # this test might destroy the stream b/c we end up cancelling
             # send_all and e.g. SSLStream can't handle that, so we have to
             # recreate afterwards)
-            with _assert_raises(_core.ResourceBusyError):
+            with _assert_raises(_core.BusyResourceError):
                 async with _core.open_nursery() as nursery:
                     nursery.start_soon(s.wait_send_all_might_not_block)
                     nursery.start_soon(s.send_all, b"123")
@@ -320,7 +320,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
             # send_all and send_all blocked simultaneously should also raise
             # (but again this might destroy the stream)
-            with _assert_raises(_core.ResourceBusyError):
+            with _assert_raises(_core.BusyResourceError):
                 async with _core.open_nursery() as nursery:
                     nursery.start_soon(s.send_all, b"123")
                     nursery.start_soon(s.send_all, b"123")
@@ -332,7 +332,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
                 try:
                     with assert_checkpoints():
                         await s.wait_send_all_might_not_block()
-                except BrokenStreamError:
+                except _core.BrokenResourceError:
                     pass
 
             async def receiver():
@@ -349,7 +349,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             try:
                 with assert_checkpoints():
                     await s.wait_send_all_might_not_block()
-            except BrokenStreamError:
+            except _core.BrokenResourceError:
                 pass
 
         # Check that if a task is blocked in a send-side method, then closing
@@ -492,7 +492,7 @@ async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
     if clogged_stream_maker is not None:
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s1, s2):
             # send_all and send_eof simultaneously is not ok
-            with _assert_raises(_core.ResourceBusyError):
+            with _assert_raises(_core.BusyResourceError):
                 async with _core.open_nursery() as nursery:
                     nursery.start_soon(s1.send_all, b"x")
                     await _core.wait_all_tasks_blocked()
@@ -501,7 +501,7 @@ async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s1, s2):
             # wait_send_all_might_not_block and send_eof simultaneously is not
             # ok either
-            with _assert_raises(_core.ResourceBusyError):
+            with _assert_raises(_core.BusyResourceError):
                 async with _core.open_nursery() as nursery:
                     nursery.start_soon(s1.wait_send_all_might_not_block)
                     await _core.wait_all_tasks_blocked()

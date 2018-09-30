@@ -2,7 +2,7 @@ import fcntl
 import os
 from typing import Tuple
 
-from .. import _core, BrokenStreamError
+from .. import _core, BrokenResourceError
 from .._abc import SendStream, ReceiveStream
 
 __all__ = ["PipeSendStream", "PipeReceiveStream", "make_pipe"]
@@ -65,7 +65,7 @@ class PipeSendStream(_PipeMixin, SendStream):
                         total_sent += os.write(self._pipe, remaining)
                     except BrokenPipeError as e:
                         await _core.checkpoint()
-                        raise BrokenStreamError from e
+                        raise BrokenResourceError from e
                     except BlockingIOError:
                         await self.wait_send_all_might_not_block()
 
@@ -82,7 +82,7 @@ class PipeSendStream(_PipeMixin, SendStream):
             # also doesn't checkpoint so we have to do that
             # ourselves here too
             await _core.checkpoint()
-            raise BrokenStreamError from e
+            raise BrokenResourceError from e
 
 
 class PipeReceiveStream(_PipeMixin, ReceiveStream):

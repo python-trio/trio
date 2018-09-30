@@ -157,7 +157,7 @@ async def test_double_read(socketpair, wait_readable):
         nursery.start_soon(wait_readable, a)
         await wait_all_tasks_blocked()
         with assert_checkpoints():
-            with pytest.raises(_core.ResourceBusyError):
+            with pytest.raises(_core.BusyResourceError):
                 await wait_readable(a)
         nursery.cancel_scope.cancel()
 
@@ -172,7 +172,7 @@ async def test_double_write(socketpair, wait_writable):
         nursery.start_soon(wait_writable, a)
         await wait_all_tasks_blocked()
         with assert_checkpoints():
-            with pytest.raises(_core.ResourceBusyError):
+            with pytest.raises(_core.BusyResourceError):
                 await wait_writable(a)
         nursery.cancel_scope.cancel()
 

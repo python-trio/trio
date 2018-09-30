@@ -17,9 +17,9 @@ from ._version import __version__
 
 from ._core import (
     TrioInternalError, RunFinishedError, WouldBlock, Cancelled,
-    ResourceBusyError, ClosedResourceError, MultiError, run, open_nursery,
+    BusyResourceError, ClosedResourceError, MultiError, run, open_nursery,
     open_cancel_scope, current_effective_deadline, TASK_STATUS_IGNORED,
-    current_time
+    current_time, BrokenResourceError
 )
 
 from ._timeouts import (
@@ -36,9 +36,7 @@ from ._threads import (
     BlockingTrioPortal
 )
 
-from ._highlevel_generic import (
-    aclose_forcefully, BrokenStreamError, StapledStream
-)
+from ._highlevel_generic import aclose_forcefully, StapledStream
 
 from ._signals import catch_signals, open_signal_receiver
 
@@ -86,6 +84,17 @@ __deprecated_attributes__ = {
             "0.5.0",
             issue=36,
             instead=ClosedResourceError
+        ),
+    "BrokenStreamError":
+        _deprecate.DeprecatedAttribute(
+            BrokenResourceError,
+            "0.8.0",
+            issue=620,
+            instead=BrokenResourceError
+        ),
+    "ResourceBusyError":
+        _deprecate.DeprecatedAttribute(
+            BusyResourceError, "0.8.0", issue=620, instead=BusyResourceError
         ),
 }
 

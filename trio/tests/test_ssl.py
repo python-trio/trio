@@ -13,8 +13,8 @@ from async_generator import async_generator, yield_, asynccontextmanager
 import trio
 from .. import _core
 from .._highlevel_socket import SocketStream, SocketListener
-from .._highlevel_generic import BrokenStreamError, aclose_forcefully
-from .._core import ClosedResourceError
+from .._highlevel_generic import aclose_forcefully
+from .._core import ClosedResourceError, BrokenResourceError
 from .._highlevel_open_tcp_stream import open_tcp_stream
 from .. import ssl as tssl
 from .. import socket as tsocket
@@ -272,28 +272,28 @@ async def test_PyOpenSSLEchoStream_gives_resource_busy_errors():
     # PyOpenSSLEchoStream will notice and complain.
 
     s = PyOpenSSLEchoStream()
-    with pytest.raises(_core.ResourceBusyError) as excinfo:
+    with pytest.raises(_core.BusyResourceError) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(s.send_all, b"x")
             nursery.start_soon(s.send_all, b"x")
     assert "simultaneous" in str(excinfo.value)
 
     s = PyOpenSSLEchoStream()
-    with pytest.raises(_core.ResourceBusyError) as excinfo:
+    with pytest.raises(_core.BusyResourceError) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(s.send_all, b"x")
             nursery.start_soon(s.wait_send_all_might_not_block)
     assert "simultaneous" in str(excinfo.value)
 
     s = PyOpenSSLEchoStream()
-    with pytest.raises(_core.ResourceBusyError) as excinfo:
+    with pytest.raises(_core.BusyResourceError) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(s.wait_send_all_might_not_block)
             nursery.start_soon(s.wait_send_all_might_not_block)
     assert "simultaneous" in str(excinfo.value)
 
     s = PyOpenSSLEchoStream()
-    with pytest.raises(_core.ResourceBusyError) as excinfo:
+    with pytest.raises(_core.BusyResourceError) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(s.receive_some, 1)
             nursery.start_soon(s.receive_some, 1)
@@ -363,7 +363,7 @@ async def test_ssl_client_basics():
             sock, client_ctx, server_hostname="trio-test-1.example.org"
         )
         assert not s.server_side
-        with pytest.raises(BrokenStreamError) as excinfo:
+        with pytest.raises(BrokenResourceError) as excinfo:
             await s.send_all(b"x")
         assert isinstance(excinfo.value.__cause__, tssl.SSLError)
 
@@ -373,7 +373,7 @@ async def test_ssl_client_basics():
             sock, CLIENT_CTX, server_hostname="trio-test-2.example.org"
         )
         assert not s.server_side
-        with pytest.raises(BrokenStreamError) as excinfo:
+        with pytest.raises(BrokenResourceError) as excinfo:
             await s.send_all(b"x")
         assert isinstance(excinfo.value.__cause__, tssl.CertificateError)
 
@@ -442,7 +442,7 @@ async def test_attributes():
         # fails:
         s.context = bad_ctx
         assert s.context is bad_ctx
-        with pytest.raises(BrokenStreamError) as excinfo:
+        with pytest.raises(BrokenResourceError) as excinfo:
             await s.do_handshake()
         assert isinstance(excinfo.value.__cause__, tssl.SSLError)
 
@@ -664,28 +664,28 @@ async def test_resource_busy_errors():
             await s.wait_send_all_might_not_block()
 
     s, _ = ssl_lockstep_stream_pair()
-    with pytest.raises(_core.ResourceBusyError) as excinfo:
+    with pytest.raises(_core.BusyResourceError) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(do_send_all)
             nursery.start_soon(do_send_all)
     assert "another task" in str(excinfo.value)
 
     s, _ = ssl_lockstep_stream_pair()
-    with pytest.raises(_core.ResourceBusyError) as excinfo:
+    with pytest.raises(_core.BusyResourceError) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(do_receive_some)
             nursery.start_soon(do_receive_some)
     assert "another task" in str(excinfo.value)
 
     s, _ = ssl_lockstep_stream_pair()
-    with pytest.raises(_core.ResourceBusyError) as excinfo:
+    with pytest.raises(_core.BusyResourceError) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(do_send_all)
             nursery.start_soon(do_wait_send_all_might_not_block)
     assert "another task" in str(excinfo.value)
 
     s, _ = ssl_lockstep_stream_pair()
-    with pytest.raises(_core.ResourceBusyError) as excinfo:
+    with pytest.raises(_core.BusyResourceError) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(do_wait_send_all_might_not_block)
             nursery.start_soon(do_wait_send_all_might_not_block)
@@ -909,7 +909,7 @@ async def test_send_all_fails_in_the_middle():
     with pytest.raises(KeyError):
         await client.send_all(b"x")
 
-    with pytest.raises(BrokenStreamError):
+    with pytest.raises(BrokenResourceError):
         await client.wait_send_all_might_not_block()
 
     closed = 0
@@ -960,9 +960,9 @@ async def test_ssl_bad_shutdown():
 
     await trio.aclose_forcefully(client)
     # now the server sees a broken stream
-    with pytest.raises(BrokenStreamError):
+    with pytest.raises(BrokenResourceError):
         await server.receive_some(10)
-    with pytest.raises(BrokenStreamError):
+    with pytest.raises(BrokenResourceError):
         await server.send_all(b"x" * 10)
 
     await server.aclose()
@@ -981,7 +981,7 @@ async def test_ssl_bad_shutdown_but_its_ok():
     await trio.aclose_forcefully(client)
     # the server sees that as a clean shutdown
     assert await server.receive_some(10) == b""
-    with pytest.raises(BrokenStreamError):
+    with pytest.raises(BrokenResourceError):
         await server.send_all(b"x" * 10)
 
     await server.aclose()
@@ -1004,7 +1004,7 @@ async def test_ssl_handshake_failure_during_aclose():
         # simultaneously is allowed. But I guess when https_compatible=False
         # then it's bad if we can get through a whole connection with a peer
         # that has no valid certificate, and never raise an error.
-        with pytest.raises(BrokenStreamError):
+        with pytest.raises(BrokenResourceError):
             await s.aclose()
 
 
@@ -1046,7 +1046,7 @@ async def test_ssl_https_compatibility_disagreement():
     # client is in HTTPS-mode, server is not
     # so client doing graceful_shutdown causes an error on server
     async def receive_and_expect_error():
-        with pytest.raises(BrokenStreamError) as excinfo:
+        with pytest.raises(BrokenResourceError) as excinfo:
             await server.receive_some(10)
         assert isinstance(excinfo.value.__cause__, tssl.SSLEOFError)
 
@@ -1081,7 +1081,7 @@ async def test_send_error_during_handshake():
         with assert_checkpoints():
             await client.do_handshake()
 
-    with pytest.raises(BrokenStreamError):
+    with pytest.raises(BrokenResourceError):
         with assert_checkpoints():
             await client.do_handshake()
 
@@ -1104,7 +1104,7 @@ async def test_receive_error_during_handshake():
         nursery.start_soon(client_side, nursery.cancel_scope)
         nursery.start_soon(server.do_handshake)
 
-    with pytest.raises(BrokenStreamError):
+    with pytest.raises(BrokenResourceError):
         with assert_checkpoints():
             await client.do_handshake()
 

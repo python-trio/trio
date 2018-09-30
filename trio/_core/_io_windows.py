@@ -299,7 +299,7 @@ class WindowsIOManager:
         if isinstance(lpOverlapped, int):
             lpOverlapped = ffi.cast("LPOVERLAPPED", lpOverlapped)
         if lpOverlapped in self._overlapped_waiters:
-            raise _core.ResourceBusyError(
+            raise _core.BusyResourceError(
                 "another task is already waiting on that lpOverlapped"
             )
         task = _core.current_task()
@@ -340,7 +340,7 @@ class WindowsIOManager:
             sock = sock.fileno()
         if sock in self._socket_waiters[which]:
             await _core.checkpoint()
-            raise _core.ResourceBusyError(
+            raise _core.BusyResourceError(
                 "another task is already waiting to {} this socket"
                 .format(which)
             )
