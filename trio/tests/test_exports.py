@@ -6,8 +6,6 @@ import os
 import pytest
 import sys
 
-from pylint.lint import PyLinter
-
 from .. import _core
 
 
@@ -29,8 +27,13 @@ def test_core_is_properly_reexported():
         assert found == 1
 
 
+@pytest.mark.skipif(
+    sys.version_info.releaselevel == "alpha",
+    reason="skip pylint on in-development Python",
+)
 def test_pylint_sees_all_non_underscore_symbols_in_namespace():
     # Test pylints ast to contain the same content as dir(trio)
+    from pylint.lint import PyLinter
     linter = PyLinter()
     ast_set = set(linter.get_ast(trio.__file__, 'trio'))
     trio_set = set([symbol for symbol in dir(trio) if symbol[0] != '_'])
