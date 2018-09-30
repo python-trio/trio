@@ -987,7 +987,7 @@ to isolate that to making just this one task crash, without taking
 down the whole program. For example, if the client closes the
 connection at the wrong moment then it's possible this code will end
 up calling ``send_all`` on a closed connection and get an
-:exc:`BrokenStreamError`; that's unfortunate, and in a more serious
+:exc:`BrokenResourceError`; that's unfortunate, and in a more serious
 program we might want to handle it more explicitly, but it doesn't
 indicate a problem for any *other* connections. On the other hand, if
 the exception is something like a :exc:`KeyboardInterrupt`, we *do*

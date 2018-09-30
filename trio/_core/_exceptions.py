@@ -1,15 +1,5 @@
 import attr
 
-# Re-exported
-__all__ = [
-    "TrioInternalError",
-    "RunFinishedError",
-    "WouldBlock",
-    "Cancelled",
-    "ResourceBusyError",
-    "ClosedResourceError",
-]
-
 
 class TrioInternalError(Exception):
     """Raised by :func:`run` if we encounter a bug in trio, or (possibly) a
@@ -95,12 +85,12 @@ class Cancelled(BaseException):
         return cls(_marker=cls.__marker)
 
 
-class ResourceBusyError(Exception):
+class BusyResourceError(Exception):
     """Raised when a task attempts to use a resource that some other task is
     already using, and this would lead to bugs and nonsense.
 
     For example, if two tasks try to send data through the same socket at the
-    same time, trio will raise :class:`ResourceBusyError` instead of letting
+    same time, trio will raise :class:`BusyResourceError` instead of letting
     the data get scrambled.
 
     """
@@ -114,6 +104,22 @@ class ClosedResourceError(Exception):
     by exiting a context manager. If a problem arises elsewhere – for example,
     because of a network failure, or because a remote peer closed their end of
     a connection – then that should be indicated by a different exception
-    class, like :exc:`BrokenStreamError` or an :exc:`OSError` subclass.
+    class, like :exc:`BrokenResourceError` or an :exc:`OSError` subclass.
+
+    """
+
+
+class BrokenResourceError(Exception):
+    """Raised when an attempt to use a resource fails due to external
+    circumstances.
+
+    For example, you might get this if you try to send data on a stream where
+    the remote side has already closed the connection.
+
+    You *don't* get this error if *you* closed the resource – in that case you
+    get :class:`ClosedResourceError`.
+
+    This exception's ``__cause__`` attribute will often contain more
+    information about the underlying error.
 
     """

@@ -3,12 +3,6 @@ import attr
 from . import _core
 from .abc import HalfCloseableStream
 
-__all__ = [
-    "aclose_forcefully",
-    "BrokenStreamError",
-    "StapledStream",
-]
-
 
 async def aclose_forcefully(resource):
     """Close an async resource or async generator immediately, without
@@ -38,23 +32,6 @@ async def aclose_forcefully(resource):
     with _core.open_cancel_scope() as cs:
         cs.cancel()
         await resource.aclose()
-
-
-class BrokenStreamError(Exception):
-    """Raised when an attempt to use a stream fails due to external
-    circumstances.
-
-    For example, you might get this if you try to send data on a stream where
-    the remote side has already closed the connection.
-
-    You *don't* get this error if *you* closed the stream – in that case you
-    get :class:`ClosedResourceError`.
-
-    This exception's ``__cause__`` attribute will often contain more
-    information about the underlying error.
-
-    """
-    pass
 
 
 @attr.s(cmp=False, hash=False)

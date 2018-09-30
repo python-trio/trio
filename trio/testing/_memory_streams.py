@@ -1,7 +1,7 @@
 import operator
 
 from .. import _core
-from .._highlevel_generic import BrokenStreamError, StapledStream
+from .._highlevel_generic import StapledStream
 from .. import _util
 from ..abc import SendStream, ReceiveStream
 
@@ -309,7 +309,7 @@ def memory_stream_pump(
         else:
             memory_receive_stream.put_data(data)
     except _core.ClosedResourceError:
-        raise BrokenStreamError("MemoryReceiveStream was closed")
+        raise _core.BrokenResourceError("MemoryReceiveStream was closed")
     return True
 
 
@@ -484,7 +484,7 @@ class _LockstepByteQueue:
             if self._sender_closed:
                 raise _core.ClosedResourceError
             if self._receiver_closed:
-                raise BrokenStreamError
+                raise _core.BrokenResourceError
             assert not self._data
             self._data += data
             self._something_happened()
@@ -492,7 +492,7 @@ class _LockstepByteQueue:
             if self._sender_closed:
                 raise _core.ClosedResourceError
             if self._data and self._receiver_closed:
-                raise BrokenStreamError
+                raise _core.BrokenResourceError
 
     async def wait_send_all_might_not_block(self):
         async with self._send_conflict_detector:

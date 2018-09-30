@@ -82,7 +82,7 @@ class KqueueIOManager:
     def monitor_kevent(self, ident, filter):
         key = (ident, filter)
         if key in self._registered:
-            raise _core.ResourceBusyError(
+            raise _core.BusyResourceError(
                 "attempt to register multiple listeners for same "
                 "ident/filter pair"
             )
@@ -98,7 +98,7 @@ class KqueueIOManager:
         key = (ident, filter)
         if key in self._registered:
             await _core.checkpoint()
-            raise _core.ResourceBusyError(
+            raise _core.BusyResourceError(
                 "attempt to register multiple listeners for same "
                 "ident/filter pair"
             )

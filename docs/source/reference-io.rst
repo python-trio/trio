@@ -144,10 +144,6 @@ Abstract base classes
    :members:
    :show-inheritance:
 
-.. currentmodule:: trio
-
-.. autoexception:: BrokenStreamError
-
 .. currentmodule:: trio.abc
 
 .. autoclass:: trio.abc.Listener

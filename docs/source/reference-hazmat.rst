@@ -134,7 +134,7 @@ All environments provide the following functions:
    different, and this works on ``SOCKET`` handles or Python socket
    objects.
 
-   :raises trio.ResourceBusyError:
+   :raises trio.BusyResourceError:
        if another task is already waiting for the given socket to
        become readable.
 
@@ -148,7 +148,7 @@ All environments provide the following functions:
    different, and this works on ``SOCKET`` handles or Python socket
    objects.
 
-   :raises trio.ResourceBusyError:
+   :raises trio.BusyResourceError:
        if another task is already waiting for the given socket to
        become writable.
    :raises trio.ClosedResourceError:
@@ -192,7 +192,7 @@ Unix-like systems provide the following functions:
 
    :arg fd:
        integer file descriptor, or else an object with a ``fileno()`` method
-   :raises trio.ResourceBusyError:
+   :raises trio.BusyResourceError:
        if another task is already waiting for the given fd to
        become readable.
    :raises trio.ClosedResourceError:
@@ -213,7 +213,7 @@ Unix-like systems provide the following functions:
 
    :arg fd:
        integer file descriptor, or else an object with a ``fileno()`` method
-   :raises trio.ResourceBusyError:
+   :raises trio.BusyResourceError:
        if another task is already waiting for the given fd to
        become writable.
    :raises trio.ClosedResourceError:

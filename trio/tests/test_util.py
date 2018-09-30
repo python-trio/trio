@@ -40,7 +40,7 @@ async def test_ConflictDetector():
             async with ul2:
                 print("ok")
 
-    with pytest.raises(_core.ResourceBusyError) as excinfo:
+    with pytest.raises(_core.BusyResourceError) as excinfo:
         async with ul1:
             with assert_checkpoints():
                 async with ul1:
@@ -51,14 +51,14 @@ async def test_ConflictDetector():
         async with ul1:
             await wait_all_tasks_blocked()
 
-    with pytest.raises(_core.ResourceBusyError) as excinfo:
+    with pytest.raises(_core.BusyResourceError) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(wait_with_ul1)
             nursery.start_soon(wait_with_ul1)
     assert "ul1" in str(excinfo.value)
 
     # mixing sync and async entry
-    with pytest.raises(_core.ResourceBusyError) as excinfo:
+    with pytest.raises(_core.BusyResourceError) as excinfo:
         with ul1.sync:
             with assert_checkpoints():
                 async with ul1:

@@ -296,10 +296,10 @@ class SendStream(AsyncResource):
           data (bytes, bytearray, or memoryview): The data to send.
 
         Raises:
-          trio.ResourceBusyError: if another task is already executing a
+          trio.BusyResourceError: if another task is already executing a
               :meth:`send_all`, :meth:`wait_send_all_might_not_block`, or
               :meth:`HalfCloseableStream.send_eof` on this stream.
-          trio.BrokenStreamError: if something has gone wrong, and the stream
+          trio.BrokenResourceError: if something has gone wrong, and the stream
               is broken.
           trio.ClosedResourceError: if you previously closed this stream
               object, or if another task closes this stream object while
@@ -329,10 +329,10 @@ class SendStream(AsyncResource):
         return. When implementing it, err on the side of returning early.
 
         Raises:
-          trio.ResourceBusyError: if another task is already executing a
+          trio.BusyResourceError: if another task is already executing a
               :meth:`send_all`, :meth:`wait_send_all_might_not_block`, or
               :meth:`HalfCloseableStream.send_eof` on this stream.
-          trio.BrokenStreamError: if something has gone wrong, and the stream
+          trio.BrokenResourceError: if something has gone wrong, and the stream
               is broken.
           trio.ClosedResourceError: if you previously closed this stream
               object, or if another task closes this stream object while
@@ -406,9 +406,9 @@ class ReceiveStream(AsyncResource):
           bytes or bytearray: The data received.
 
         Raises:
-          trio.ResourceBusyError: if two tasks attempt to call
+          trio.BusyResourceError: if two tasks attempt to call
               :meth:`receive_some` on the same stream at the same time.
-          trio.BrokenStreamError: if something has gone wrong, and the stream
+          trio.BrokenResourceError: if something has gone wrong, and the stream
               is broken.
           trio.ClosedResourceError: if you previously closed this stream
               object, or if another task closes this stream object while
@@ -474,11 +474,11 @@ class HalfCloseableStream(Stream):
         succeed.
 
         Raises:
-          trio.ResourceBusyError: if another task is already executing a
+          trio.BusyResourceError: if another task is already executing a
               :meth:`~SendStream.send_all`,
               :meth:`~SendStream.wait_send_all_might_not_block`, or
               :meth:`send_eof` on this stream.
-          trio.BrokenStreamError: if something has gone wrong, and the stream
+          trio.BrokenResourceError: if something has gone wrong, and the stream
               is broken.
           trio.ClosedResourceError: if you previously closed this stream
               object, or if another task closes this stream object while
@@ -504,7 +504,7 @@ class Listener(AsyncResource):
           SOCK_SEQPACKET sockets or similar.
 
         Raises:
-          trio.ResourceBusyError: if two tasks attempt to call
+          trio.BusyResourceError: if two tasks attempt to call
               :meth:`accept` on the same listener at the same time.
           trio.ClosedResourceError: if you previously closed this listener
               object, or if another task closes this listener object while

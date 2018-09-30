@@ -1544,9 +1544,11 @@ Exceptions and warnings
 
 .. autoexception:: WouldBlock
 
-.. autoexception:: ResourceBusyError
+.. autoexception:: BusyResourceError
 
 .. autoexception:: ClosedResourceError
+
+.. autoexception:: BrokenResourceError
 
 .. autoexception:: RunFinishedError
 

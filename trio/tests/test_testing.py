@@ -469,8 +469,8 @@ async def test__UnboundeByteQueue():
         nursery.start_soon(getter, b"xyz")
         nursery.start_soon(putter, b"xyz")
 
-    # Two gets at the same time -> ResourceBusyError
-    with pytest.raises(_core.ResourceBusyError):
+    # Two gets at the same time -> BusyResourceError
+    with pytest.raises(_core.BusyResourceError):
         async with _core.open_nursery() as nursery:
             nursery.start_soon(getter, b"asdf")
             nursery.start_soon(getter, b"asdf")
@@ -524,7 +524,7 @@ async def test_MemorySendStream():
     with assert_checkpoints():
         assert await mss.get_data() == b"456"
 
-    # Call send_all twice at once; one should get ResourceBusyError and one
+    # Call send_all twice at once; one should get BusyResourceError and one
     # should succeed. But we can't let the error propagate, because it might
     # cause the other to be cancelled before it can finish doing its thing,
     # and we don't know which one will get the error.
@@ -534,7 +534,7 @@ async def test_MemorySendStream():
         nonlocal resource_busy_count
         try:
             await do_send_all(b"xxx")
-        except _core.ResourceBusyError:
+        except _core.BusyResourceError:
             resource_busy_count += 1
 
     async with _core.open_nursery() as nursery:
@@ -606,7 +606,7 @@ async def test_MemoryReceiveStream():
     with pytest.raises(TypeError):
         await do_receive_some(None)
 
-    with pytest.raises(_core.ResourceBusyError):
+    with pytest.raises(_core.BusyResourceError):
         async with _core.open_nursery() as nursery:
             nursery.start_soon(do_receive_some, 10)
             nursery.start_soon(do_receive_some, 10)
