@@ -108,7 +108,7 @@ class SendChannel(AsyncResource):
         if self._closed:
             raise _core.ClosedResourceError
         if self._rc._closed:
-            raise _core.BrokenChannelError
+            raise _core.BrokenResourceError
         if self._rc._receive_tasks:
             assert not self._rc._data
             task, _ = self._rc._receive_tasks.popitem(last=False)
@@ -256,7 +256,8 @@ class ReceiveChannel(AsyncResource):
             _core.reschedule(task, Error(_core.ClosedResourceError()))
         self._receive_tasks.clear()
         for task in self._send_tasks:
-            _core.reschedule(task, Error(_core.BrokenChannelError()))
+            task.custom_sleep_data._tasks.remove(task)
+            _core.reschedule(task, Error(_core.BrokenResourceError()))
         self._send_tasks.clear()
         # XX: or if we're losing data, maybe we should raise a
         # BrokenChannelError here?
