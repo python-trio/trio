@@ -9,7 +9,6 @@ from ._util import aiter_compat
 from .abc import AsyncResource
 
 # TODO:
-# - tests
 # - docs
 
 # is there a better name for 'clone'? People seem to be having trouble with
@@ -31,6 +30,7 @@ from .abc import AsyncResource
 #   lost? This isn't how ReceiveStream works. And it might not be doable for a
 #   channel that reaches between processes (e.g. data could be in flight but
 #   we don't know it yet)
+
 
 class EndOfChannel(Exception):
     pass

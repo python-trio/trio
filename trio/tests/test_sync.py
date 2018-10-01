@@ -9,6 +9,10 @@ from .. import _timeouts
 from .._timeouts import sleep_forever, move_on_after
 from .._sync import *
 
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:.*trio.Queue:trio.TrioDeprecationWarning"
+)
+
 
 async def test_Event():
     e = Event()
@@ -561,9 +565,9 @@ async def test_Queue_unbuffered():
 from .._sync import async_cm
 from .._channel import open_channel
 
-
 # Three ways of implementing a Lock in terms of a channel. Used to let us put
 # the channel through the generic lock tests.
+
 
 @async_cm
 class ChannelLock1:
@@ -628,6 +632,7 @@ class ChannelLock3:
 
 # Three ways of implementing a Lock in terms of a Queue. Used to let us put
 # the Queue through the generic lock tests.
+
 
 @async_cm
 class QueueLock1:

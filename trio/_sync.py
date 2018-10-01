@@ -6,6 +6,7 @@ import outcome
 
 from . import _core
 from ._util import aiter_compat
+from ._deprecate import deprecated
 
 __all__ = [
     "Event",
@@ -843,6 +844,9 @@ class Queue:
 
     """
 
+    @deprecated(
+        "0.9.0", issue=497, thing="trio.Queue", instead="trio.open_channel"
+    )
     def __init__(self, capacity):
         if not isinstance(capacity, int):
             raise TypeError("capacity must be an integer")

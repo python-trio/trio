@@ -830,23 +830,23 @@ finishes first::
        if not async_fns:
            raise ValueError("must pass at least one argument")
 
-       q = trio.Queue(1)
+       send_channel, receive_channel = trio.open_channel(0)
 
        async def jockey(async_fn):
-           await q.put(await async_fn())
+           await send_channel.send(await async_fn())
 
        async with trio.open_nursery() as nursery:
            for async_fn in async_fns:
                nursery.start_soon(jockey, async_fn)
-           winner = await q.get()
+           winner = await receive_channel.receive()
            nursery.cancel_scope.cancel()
            return winner
 
 This works by starting a set of tasks which each try to run their
 function, and then report back the value it returns. The main task
-uses ``q.get()`` to wait for one to finish; as soon as the first task
-crosses the finish line, it cancels the rest, and then returns the
-winning value.
+uses ``receive_channel.receive`` to wait for one to finish; as soon as
+the first task crosses the finish line, it cancels the rest, and then
+returns the winning value.
 
 Here if one or more of the racing functions raises an unhandled
 exception then Trio's normal handling kicks in: it cancels the others
@@ -1191,11 +1191,11 @@ In trio, we standardize on the following conventions:
   :mod:`threading`.) We like this approach because it allows us to
   make the blocking version async and the non-blocking version sync.
 
-* When a non-blocking method cannot succeed (the queue is empty, the
-  lock is already held, etc.), then it raises
-  :exc:`trio.WouldBlock`. There's no equivalent to the
-  :exc:`queue.Empty` versus :exc:`queue.Full` distinction – we just
-  have the one exception that we use consistently.
+* When a non-blocking method cannot succeed (the channel is empty, the
+  lock is already held, etc.), then it raises :exc:`trio.WouldBlock`.
+  There's no equivalent to the :exc:`queue.Empty` versus
+  :exc:`queue.Full` distinction – we just have the one exception that
+  we use consistently.
 
 
 Fairness
@@ -1245,58 +1245,77 @@ Broadcasting an event with :class:`Event`
    :members:
 
 
-.. _queue:
+.. _channels:
 
-Passing messages with :class:`Queue`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Passing messages through channels
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-You can use :class:`Queue` objects to safely pass objects between
-tasks. Trio :class:`Queue` objects always have a bounded size. Here's
-a toy example to demonstrate why this is important. Suppose we have a
-queue with two producers and one consumer::
+A *channel* allows you to safely and conveniently send objects between
+different tasks.
 
-   async def producer(queue):
+.. autofunction:: open_channel
+
+
+Closing and cloning
++++++++++++++++++++
+
+example demonstrating close, simple async with on each side
+result if either side exits
+
+example demonstrating how fan-in makes it hard
+
+example demonstrating how clone solves this
+
+
+Buffering in channels
++++++++++++++++++++++
+
+When you create a channel, Trio forces you to choose how many objects
+you can send without receiving, before send starts to block. You can
+make this unbounded if you want, but this is risky. Here's a toy
+example to demonstrate why. Suppose we have a channel with two
+producers and one consumer::
+
+   async def producer(send_channel):
        while True:
-           await queue.put(1)
+           await send_channel.send(1)
 
-   async def consumer(queue):
+   async def consumer(receive_channel):
        while True:
-           print(await queue.get())
+           print(await receive_channel.receive())
 
    async def main():
-       # This example won't work with Trio's actual Queue class, so
-       # imagine we have some sort of platonic ideal of an unbounded
-       # queue here:
-       queue = trio.HypotheticalQueue()
+       send_channel, receive_channel = trio.open_channel(math.inf)
        async with trio.open_nursery() as nursery:
            # Two producers
-           nursery.start_soon(producer, queue)
-           nursery.start_soon(producer, queue)
+           nursery.start_soon(producer, send_channel)
+           nursery.start_soon(producer, send_channel)
            # One consumer
-           nursery.start_soon(consumer, queue)
+           nursery.start_soon(consumer, receive_channel)
 
    trio.run(main)
 
 If we naively cycle between these three tasks in round-robin style,
-then we put an item, then put an item, then get an item, then put an
-item, then put an item, then get an item, ... and since on each cycle
-we add two items to the queue but only remove one, then over time the
-queue size grows arbitrarily large, our latency is terrible, we run
-out of memory, it's just generally bad news all around.
+then we send an item, then send an item, then receive an item, then
+send an item, then send an item, then receive an item, ... On each
+cycle we send two items but only receive one, which means the extra
+item has to be buffered inside the channel. And over time, this means
+the buffer will keep growing and growing, our latency is terrible
+(since each new item has to wait in line behind all the others in the
+buffer), we run out of memory, it's just generally bad news all
+around.
 
-By placing an upper bound on our queue's size, we avoid this problem.
-If the queue gets too big, then it applies *backpressure*: ``put``
+By placing an upper bound on our buffer size, we avoid this problem.
+If the buffer gets too big, then it applies *backpressure*: ``send``
 blocks and forces the producers to slow down and wait until the
-consumer calls ``get``.
+consumer calls ``receive``.
 
-You can also create a :class:`Queue` with size 0. In that case any
-task that calls ``put`` on the queue will wait until another task
-calls ``get`` on the same queue, and vice versa. This is similar to
-the behavior of `channels as described in the CSP model
+You can also create a channel without a buffer, by doing
+``open_channel(0)``. In that case any task that calls ``send`` on the
+channel will wait until another task calls ``receive`` on the same
+channel, and vice versa. This is similar to how channels work in the
+`classic Communicating Sequential Processes model
 <https://en.wikipedia.org/wiki/Channel_(programming)>`__.
-
-.. autoclass:: Queue
-   :members:
 
 
 Lower-level synchronization primitives
