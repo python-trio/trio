@@ -1,3 +1,0 @@
-``ResourceBusyError`` is now a deprecated alias for the new
-:exc:`BusyResourceError`, and ``BrokenStreamError`` is a deprecated
-alias for the new :exc:`BrokenResourceError`.

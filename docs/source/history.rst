@@ -5,6 +5,32 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.8.0 (2018-10-01)
+-----------------------
+
+Features
+~~~~~~~~
+
+- Trio's default internal clock is now based on :func:`time.perf_counter`
+  instead of :func:`time.monotonic`. This makes time-keeping more precise on
+  Windows, and has no effect on other platforms. (`#33
+  <https://github.com/python-trio/trio/issues/33>`__)
+- Reworked :mod:`trio`, :mod:`trio.testing`, and :mod:`trio.socket` namespace
+  construction, making them more understandable by static analysis tools. This
+  should improve tab completion in editors, reduce false positives from pylint,
+  and is a first step towards providing type hints. (`#542
+  <https://github.com/python-trio/trio/issues/542>`__)
+
+
+Deprecations and Removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- ``ResourceBusyError`` is now a deprecated alias for the new
+  :exc:`BusyResourceError`, and ``BrokenStreamError`` is a deprecated alias for
+  the new :exc:`BrokenResourceError`. (`#620
+  <https://github.com/python-trio/trio/issues/620>`__)
+
+
 Trio 0.7.0 (2018-09-03)
 -----------------------
 
