@@ -31,10 +31,21 @@ async def test_channel():
     await s.aclose()
     with pytest.raises(trio.ClosedResourceError):
         await s.send("too late")
+    with pytest.raises(trio.ClosedResourceError):
+        s.send_nowait("too late")
+    with pytest.raises(trio.ClosedResourceError):
+        s.clone()
+    await s.aclose()
 
     assert r.receive_nowait() == "last"
     with pytest.raises(EndOfChannel):
         await r.receive()
+    await r.aclose()
+    with pytest.raises(trio.ClosedResourceError):
+        await r.receive()
+    with pytest.raises(trio.ClosedResourceError):
+        await r.receive_nowait()
+    await r.aclose()
 
 
 async def test_553(autojump_clock):
