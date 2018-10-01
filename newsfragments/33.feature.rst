@@ -1,2 +1,0 @@
-Trio's default internal clock is now based on :func:`time.perf_counter` instead of :func:`time.monotonic`.
-This makes time-keeping more precise on Windows, and has no effect on other platforms.
