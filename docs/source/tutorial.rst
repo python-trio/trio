@@ -288,7 +288,7 @@ you actually get is:
 
    >>> trio.run(broken_double_sleep, 3)
    *yawn* Going to sleep
-   Woke up again after 0.00 seconds, feeling well rested!
+   Woke up after 0.00 seconds, feeling well rested!
    __main__:4: RuntimeWarning: coroutine 'sleep' was never awaited
    >>>
 
@@ -306,7 +306,7 @@ runs:
    # On PyPy:
    >>>> trio.run(broken_double_sleep, 3)
    *yawn* Going to sleep
-   Woke up again after 0.00 seconds, feeling well rested!
+   Woke up after 0.00 seconds, feeling well rested!
    >>>> # what the ... ?? not even a warning!
 
    >>>> # but forcing a garbage collection gives us a warning:
