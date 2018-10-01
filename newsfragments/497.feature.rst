@@ -1,0 +1,10 @@
+New and improved APIs for inter-task communication:
+:func:`trio.open_channel` (replacing ``trio.Queue``). This interface
+uses separate "send" and "receive" objects, for consistency with other
+communication interfaces like :class:`trio.Stream`. Also, the two
+objects can now be closed individually, making it much easier to
+gracefully shut down a channel. Also, there's a cool ``clone``
+API to manage fan-in scenarios. Also, the API has been written to
+allow for future channel-like objects that send objects across process
+boundaries. Also, help I can't stop writing also. See
+:func:`trio.open_channel` for more details.

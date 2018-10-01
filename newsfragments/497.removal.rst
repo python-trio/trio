@@ -1,0 +1,2 @@
+``trio.Queue`` has been deprecated, in favor of
+:func:`trio.open_channel`.
