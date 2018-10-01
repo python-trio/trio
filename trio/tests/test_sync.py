@@ -558,11 +558,76 @@ async def test_Queue_unbuffered():
         q.get_nowait()
 
 
-# Two ways of implementing a Lock in terms of a Queue. Used to let us put the
-# Queue through the generic lock tests.
-
 from .._sync import async_cm
+from .._channel import open_channel
 
+
+# Three ways of implementing a Lock in terms of a channel. Used to let us put
+# the channel through the generic lock tests.
+
+@async_cm
+class ChannelLock1:
+    def __init__(self, capacity):
+        self.s, self.r = open_channel(capacity)
+        for _ in range(capacity - 1):
+            self.s.send_nowait(None)
+
+    def acquire_nowait(self):
+        self.s.send_nowait(None)
+
+    async def acquire(self):
+        await self.s.send(None)
+
+    def release(self):
+        self.r.receive_nowait()
+
+
+@async_cm
+class ChannelLock2:
+    def __init__(self):
+        self.s, self.r = open_channel(10)
+        self.s.send_nowait(None)
+
+    def acquire_nowait(self):
+        self.r.receive_nowait()
+
+    async def acquire(self):
+        await self.r.receive()
+
+    def release(self):
+        self.s.send_nowait(None)
+
+
+@async_cm
+class ChannelLock3:
+    def __init__(self):
+        self.s, self.r = open_channel(0)
+        # self.acquired is true when one task acquires the lock and
+        # only becomes false when it's released and no tasks are
+        # waiting to acquire.
+        self.acquired = False
+
+    def acquire_nowait(self):
+        assert not self.acquired
+        self.acquired = True
+
+    async def acquire(self):
+        if self.acquired:
+            await self.s.send(None)
+        else:
+            self.acquired = True
+            await _core.checkpoint()
+
+    def release(self):
+        try:
+            self.r.receive_nowait()
+        except _core.WouldBlock:
+            assert self.acquired
+            self.acquired = False
+
+
+# Three ways of implementing a Lock in terms of a Queue. Used to let us put
+# the Queue through the generic lock tests.
 
 @async_cm
 class QueueLock1:
@@ -630,6 +695,10 @@ lock_factories = [
     lambda: Semaphore(1),
     Lock,
     StrictFIFOLock,
+    lambda: ChannelLock1(10),
+    lambda: ChannelLock1(1),
+    ChannelLock2,
+    ChannelLock3,
     lambda: QueueLock1(10),
     lambda: QueueLock1(1),
     QueueLock2,
@@ -640,6 +709,10 @@ lock_factory_names = [
     "Semaphore(1)",
     "Lock",
     "StrictFIFOLock",
+    "ChannelLock1(10)",
+    "ChannelLock1(1)",
+    "ChannelLock2",
+    "ChannelLock3",
     "QueueLock1(10)",
     "QueueLock1(1)",
     "QueueLock2",
