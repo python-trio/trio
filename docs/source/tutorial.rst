@@ -760,7 +760,7 @@ restricts parallelism. Of course it would be nice if Python had better
 options for taking advantage of multiple cores, but that's an
 extremely difficult problem to solve, and in the meantime there are
 lots of problems where a single core is totally adequate – or where if
-it isn't, then process or machine-level parallelism works fine.
+it isn't, then process-level or machine-level parallelism works fine.
 
 No, the problem with the GIL is that it's a *lousy deal*: we give up
 on using multiple cores, and in exchange we get... almost all the same
