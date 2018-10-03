@@ -4,7 +4,7 @@
 #
 #    pip-compile --output-file rtd-requirements.txt rtd-requirements.in
 #
-alabaster==0.7.11         # via sphinx
+alabaster==0.7.12         # via sphinx
 babel==2.6.0              # via sphinx
 certifi==2018.8.24        # via requests
 chardet==3.0.4            # via requests
