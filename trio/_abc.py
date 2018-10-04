@@ -601,7 +601,7 @@ class SendChannel(AsyncResource):
         each producer its own clone of the :class:`SendChannel`, and make sure
         to close each :class:`SendChannel` when it's finished, then receivers
         will automatically get notified when all producers are finished. See
-        :ref:`channels-fan-in-fan-out`.
+        :ref:`channel-fan-in-fan-out`.
 
         Raises:
           trio.ClosedResourceError: if you already closed this
@@ -686,7 +686,7 @@ class ReceiveChannel(AsyncResource):
 
         This is useful for fan-out communication patterns, with multiple
         consumers all receiving objects from the same underlying channel. See
-        :ref:`channels-fan-in-fan-out`.
+        :ref:`channel-fan-in-fan-out`.
 
         Raises:
           trio.ClosedResourceError: if you already closed this

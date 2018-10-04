@@ -1,17 +1,16 @@
-# This example usually crashes!
-
 import trio
 import random
 
 async def main():
     async with trio.open_nursery() as nursery:
         send_channel, receive_channel = trio.open_memory_channel(0)
-        # Start two producers
-        nursery.start_soon(producer, "A", send_channel)
-        nursery.start_soon(producer, "B", send_channel)
-        # And two consumers
-        nursery.start_soon(consumer, "X", receive_channel)
-        nursery.start_soon(consumer, "Y", receive_channel)
+        async with send_channel, receive_channel:
+            # Start two producers, giving each its own private clone
+            nursery.start_soon(producer, "A", send_channel.clone())
+            nursery.start_soon(producer, "B", send_channel.clone())
+            # And two consumers, giving each its own private clone
+            nursery.start_soon(consumer, "X", receive_channel.clone())
+            nursery.start_soon(consumer, "Y", receive_channel.clone())
 
 async def producer(name, send_channel):
     async with send_channel:

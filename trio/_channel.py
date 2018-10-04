@@ -121,8 +121,9 @@ class MemorySendChannel(SendChannel):
 
     def __repr__(self):
         return (
-            "<send channel at {:#x}, using buffer at {:#x}>"
-            .format(id(self), id(self._state))
+            "<send channel at {:#x}, using buffer at {:#x}>".format(
+                id(self), id(self._state)
+            )
         )
 
     def statistics(self):
