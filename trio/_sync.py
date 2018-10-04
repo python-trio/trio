@@ -15,6 +15,7 @@ __all__ = [
     "StrictFIFOLock",
     "Condition",
     "Queue",
+    "QueueClosed",
 ]
 
 
@@ -817,6 +818,11 @@ class _QueueStats:
     tasks_waiting_get = attr.ib()
 
 
+class QueueClosed(Exception):
+    """Raised on waiters for the queue when a queue is closed.
+    """
+
+
 # Like queue.Queue, with the notable difference that the capacity argument is
 # mandatory.
 class Queue:
@@ -857,6 +863,9 @@ class Queue:
         # if len(self._data) < self.capacity, then self._put_wait is empty
         # if len(self._data) > 0, then self._get_wait is empty
         self._data = deque()
+        # closed state
+        self._put_close = False
+        self._all_closed = False
 
     def __repr__(self):
         return (
@@ -903,6 +912,9 @@ class Queue:
           WouldBlock: if the queue is full.
 
         """
+        if self._put_close or self._all_closed:
+            raise QueueClosed
+
         if self._get_wait:
             assert not self._data
             task, _ = self._get_wait.popitem(last=False)
@@ -921,6 +933,9 @@ class Queue:
 
         """
         await _core.checkpoint_if_cancelled()
+        if self._put_close or self._all_closed:
+            raise QueueClosed
+
         try:
             self.put_nowait(obj)
         except _core.WouldBlock:
@@ -949,6 +964,9 @@ class Queue:
           WouldBlock: if the queue is empty.
 
         """
+        if self._all_closed:
+            raise QueueClosed
+
         if self._put_wait:
             task, value = self._put_wait.popitem(last=False)
             # No need to check max_size, b/c we'll pop an item off again right
@@ -958,6 +976,16 @@ class Queue:
         if self._data:
             value = self._data.popleft()
             return value
+        if self._put_close:
+            # this confused me a bit so its bound to confuse somebody else as to why this is here
+            # 1) there's no put waiters, so we skip that branch
+            # 2) there's no data so we skip that branch
+            # that means that if there's no data at all, and the put side is closed
+            # we cannot ever have more data, so we close this side and raise QueueClosed so that
+            # any getters from here on close early
+            self._all_closed = True
+            raise QueueClosed
+
         raise _core.WouldBlock()
 
     @_core.enable_ki_protection
@@ -969,6 +997,9 @@ class Queue:
 
         """
         await _core.checkpoint_if_cancelled()
+        if self._all_closed:
+            raise QueueClosed
+
         try:
             value = self.get_nowait()
         except _core.WouldBlock:
@@ -988,12 +1019,46 @@ class Queue:
         value = await _core.wait_task_rescheduled(abort_fn)
         return value
 
+    def close_put(self):
+        """Closes one side of this queue, preventing any putters from putting data onto the queue.
+
+        If this queue is empty, it will also cancel all getters.
+        """
+        if self.empty():
+            # pointless to let the getters wait on closed data
+            self.close_both_sides()
+        else:
+            self._put_close = True
+            for task in self._put_wait.values():
+                _core.reschedule(task, outcome.Error(QueueClosed))
+
+            self._put_wait.clear()
+
+    def close_both_sides(self):
+        """Closes both the getter and putter sides of the queue, discarding all data.
+        """
+        self._put_close, self._all_closed = True, True
+        for task in self._get_wait.values():
+            _core.reschedule(task, outcome.Error(QueueClosed))
+
+        self._get_wait.clear()
+
+        for task in self._put_wait.values():
+            _core.reschedule(task, outcome.Error(QueueClosed))
+
+        self._put_wait.clear()
+
+        self._data.clear()
+
     @aiter_compat
     def __aiter__(self):
         return self
 
     async def __anext__(self):
-        return await self.get()
+        try:
+            return await self.get()
+        except QueueClosed:
+            raise StopAsyncIteration from None
 
     def statistics(self):
         """Returns an object containing debugging information.

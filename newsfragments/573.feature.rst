@@ -1,0 +1,2 @@
+Add the ability to close a :class:`trio.Queue`, cancelling all waiting getters and putters, and
+preventing anyone else from getting or putting onto it.

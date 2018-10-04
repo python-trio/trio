@@ -5,7 +5,6 @@ import weakref
 from ..testing import wait_all_tasks_blocked, assert_checkpoints
 
 from .. import _core
-from .. import _timeouts
 from .._timeouts import sleep_forever, move_on_after
 from .._sync import *
 
@@ -556,6 +555,26 @@ async def test_Queue_unbuffered():
             assert await q.get() == 1
     with pytest.raises(_core.WouldBlock):
         q.get_nowait()
+
+
+async def test_Queue_close():
+    q1 = Queue(capacity=1)
+
+    await q1.put(1)
+    q1.close_put()
+    with pytest.raises(QueueClosed):
+        await q1.put(2)
+
+    assert (await q1.get()) == 1
+    with pytest.raises(QueueClosed):
+        await q1.get()
+
+    q2 = Queue(capacity=1)
+    await q2.put(1)
+    q2.close_both_sides()
+
+    with pytest.raises(QueueClosed):
+        await q2.get()
 
 
 # Two ways of implementing a Lock in terms of a Queue. Used to let us put the
