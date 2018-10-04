@@ -75,5 +75,10 @@ else
     INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
     pytest -W error -ra --run-slow --faulthandler-timeout=60 ${INSTALLDIR} --cov="$INSTALLDIR" --cov-config=../.coveragerc --verbose
 
-    bash <(curl -s https://codecov.io/bash)
+    # Disable coverage on 3.8-dev, at least until it's fixed (or a1 comes out):
+    #   https://github.com/python-trio/trio/issues/711
+    #   https://github.com/nedbat/coveragepy/issues/707#issuecomment-426455490
+    if [ "$(python -V)" != "Python 3.8.0a0" ]; then
+        bash <(curl -s https://codecov.io/bash)
+    fi
 fi
