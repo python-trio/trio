@@ -40,6 +40,7 @@ from .abc import SendChannel, ReceiveChannel
 # - is their a better/more evocative name for "clone"? People seem to be
 #   having trouble with it, but I'm not sure whether it's just because of
 #   missing docs.
+# - trio.testing.check_channel?
 
 
 def open_memory_channel(max_buffer_size):
