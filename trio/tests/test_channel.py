@@ -134,6 +134,33 @@ async def test_close_basics():
         await r.receive()
 
 
+async def test_receive_channel_clone_and_close():
+    s, r = open_memory_channel(10)
+
+    r2 = r.clone()
+    r3 = r.clone()
+
+    s.send_nowait(None)
+    await r.aclose()
+    async with r2:
+        pass
+
+    with pytest.raises(trio.ClosedResourceError):
+        r.clone()
+
+    with pytest.raises(trio.ClosedResourceError):
+        r2.clone()
+
+    # Can still send, r3 is still open
+    s.send_nowait(None)
+
+    await r3.aclose()
+
+    # But now the receiver is really closed
+    with pytest.raises(trio.BrokenResourceError):
+        s.send_nowait(None)
+
+
 async def test_close_multiple_send_handles():
     # With multiple send handles, closing one handle only wakes senders on
     # that handle, but others can continue just fine
@@ -153,6 +180,27 @@ async def test_close_multiple_send_handles():
         await wait_all_tasks_blocked()
         await s1.aclose()
         assert await r.receive() == "ok"
+
+
+async def test_close_multiple_receive_handles():
+    # With multiple receive handles, closing one handle only wakes receivers on
+    # that handle, but others can continue just fine
+    s, r1 = open_memory_channel(0)
+    r2 = r1.clone()
+
+    async def receive_will_close():
+        with pytest.raises(trio.ClosedResourceError):
+            await r1.receive()
+
+    async def receive_will_succeed():
+        assert await r2.receive() == "ok"
+
+    async with trio.open_nursery() as nursery:
+        nursery.start_soon(receive_will_close)
+        nursery.start_soon(receive_will_succeed)
+        await wait_all_tasks_blocked()
+        await r1.aclose()
+        await s.send("ok")
 
 
 async def test_inf_capacity():
