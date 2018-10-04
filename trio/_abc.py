@@ -600,7 +600,8 @@ class SendChannel(AsyncResource):
         producers all sending objects to the same destination. If you give
         each producer its own clone of the :class:`SendChannel`, and make sure
         to close each :class:`SendChannel` when it's finished, then receivers
-        will automatically get notified when all producers are finished.
+        will automatically get notified when all producers are finished. See
+        :ref:`channels-fan-in-fan-out`.
 
         Raises:
           trio.ClosedResourceError: if you already closed this
@@ -668,6 +669,28 @@ class ReceiveChannel(AsyncResource):
               :class:`ReceiveChannel` object.
           trio.BrokenResourceError: if something has gone wrong, and the
               channel is broken.
+
+        """
+
+    @abstractmethod
+    def clone(self):
+        """Clone this receive channel object.
+
+        This returns a new :class:`ReceiveChannel` object, which acts as a
+        duplicate of the original: receiving on the new object does exactly
+        the same thing as receiving on the old object. They share an
+        underlying buffer.
+
+        However, closing one of the objects does not close the other, and the
+        underlying channel is not closed until all clones are closed.
+
+        This is useful for fan-out communication patterns, with multiple
+        consumers all receiving objects from the same underlying channel. See
+        :ref:`channels-fan-in-fan-out`.
+
+        Raises:
+          trio.ClosedResourceError: if you already closed this
+              :class:`SendChannel` object.
 
         """
 
