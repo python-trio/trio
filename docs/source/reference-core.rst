@@ -830,7 +830,7 @@ finishes first::
        if not async_fns:
            raise ValueError("must pass at least one argument")
 
-       send_channel, receive_channel = trio.open_channel(0)
+       send_channel, receive_channel = trio.open_memory_channel(0)
 
        async def jockey(async_fn):
            await send_channel.send(await async_fn())
@@ -1247,75 +1247,236 @@ Broadcasting an event with :class:`Event`
 
 .. _channels:
 
-Passing messages through channels
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Passing value through channels
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A *channel* allows you to safely and conveniently send objects between
-different tasks.
+*Channels* allow you to safely and conveniently send objects between
+different tasks. They're useful implementing producer/consumer
+patterns, including fan-in and fan-out.
 
-.. autofunction:: open_channel
+The channel API is defined by the abstract base classes
+:class:`trio.abc.SendChannel` and :class:`trio.abc.ReceiveChannel`.
+You can use these to implement your own custom channels, that do
+things like pass objects between processes or over the network. But in
+many cases, you just want to pass objects between different tasks
+inside a single process.
+
+.. autofunction:: open_memory_channel
+
+.. note:: If you've the :mod:`threading` or :mod:`asyncio` modules,
+   you may be familiar with :class:`queue.Queue` or
+   :class:`asyncio.Queue`. In Trio, :func:`open_memory_channel` is
+   what you use when you're looking for a queue. The main difference
+   is that Trio splits the classic queue interface up into two
+   objects. The advantage of this is that it makes it possible to put
+   the two ends in different processes, and that we can close the two
+   sides separately
 
 
-Closing and cloning
-+++++++++++++++++++
+A simple channel example
+++++++++++++++++++++++++
 
-example demonstrating close, simple async with on each side
-result if either side exits
+Here's a simple example of how to use channels:
 
-example demonstrating how fan-in makes it hard
+.. literalinclude:: reference-core/channels-simple.py
 
-example demonstrating how clone solves this
+If you run this, it prints:
 
+.. code-block:: none
+
+   got value "message 0"
+   got value "message 1"
+   got value "message 2"
+
+And then it hangs forever. (Use control-C to quit.)
+
+
+.. _channel-shutdown:
+
+Clean shutdown with channels
+++++++++++++++++++++++++++++
+
+Of course we don't generally like it when programs hang. What
+happened? The problem is that the producer sent 3 messages and then
+exited, but the consumer has no way to tell that the producer is gone:
+for all it knows, another message might be coming along any moment. So
+it hangs forever waiting for the 4th message.
+
+Here's a new version that fixes this: it produces the same output as
+the previous version, and then exits cleanly. The only change is the
+addition of ``async with`` blocks inside the producer and consumer:
+
+.. literalinclude:: reference-core/channels-shutdown.py
+   :emphasize-lines: 10,15
+
+The really important thing here is the producer's ``async with`` .
+When the producer exits, this closes the ``send_channel``, and that
+tells the consumer that no more messages are coming, so it can cleanly
+exit its ``async for`` loop, and the program shuts down because both
+tasks have exited.
+
+We also put an ``async for`` inside the consumer. This isn't as
+important, but can it help us catch mistakes or other problems. For
+example, suppose that the consumer exited early for some reason –
+maybe because of a bug. Then the producer would be sending messages
+into the void, and might get stuck indefinitely. But, if the consumer
+closes its ``receive_channel``, then the producer will get a
+:exc:`BrokenResourceError` to alert it that it should stop sending
+messages because no-one is listening.
+
+If you want to see the effect of the consumer exiting early, try
+adding a ``break`` statement to the ``async for`` loop – you should
+see a :exc:`BrokenResourceError` from the producer.
+
+
+.. _channel-fan-in-fan-out:
+
+Fan-in and fan-out
+++++++++++++++++++
+
+You can also have multiple producers, and multiple consumers, all
+sharing the same channel. However, this makes shutdown a little more
+complicated.
+
+For example, consider this naive extension of our previous example,
+now with two producers and two consumers:
+
+.. literalinclude:: reference-core/channels-fan-in-fan-out-broken.py
+
+
+
+.. _channel-fan-in:
+
+Fan-in
+++++++
+
+
+.. _channel-buffering:
 
 Buffering in channels
 +++++++++++++++++++++
 
-When you create a channel, Trio forces you to choose how many objects
-you can send without receiving, before send starts to block. You can
-make this unbounded if you want, but this is risky. Here's a toy
-example to demonstrate why. Suppose we have a channel with two
-producers and one consumer::
+When you call :func:`open_memory_channel`, you have to specify how
+many values can be buffered internally in the channel. If the buffer
+is full, then any task that calls :meth:`~trio.abc.SendChannel.send`
+will stop and wait for another task to call
+:meth:`~trio.abc.ReceiveChannel.receive`. This is useful because it
+produces *backpressure*: if the channel producers are running faster
+than the consumers, then it forces the producers to slow down.
+
+You can disable buffering entirely, by doing
+``open_memory_channel(0)``. In that case any task calls
+:meth:`~trio.abc.SendChannel.send` will wait until another task calls
+`~trio.abc.SendChannel.receive`, and vice versa. This is similar to
+how channels work in the `classic Communicating Sequential Processes
+model <https://en.wikipedia.org/wiki/Channel_(programming)>`__, and is
+a reasonable default if you aren't sure what size buffer to use.
+(That's why we used it in the examples above.)
+
+At the other extreme, you can make the buffer unbounded by using
+``open_memory_channel(math.inf)``. In this case,
+:meth:`~trio.abc.SendChannel.send` *always* returns immediately.
+Normally, this is a bad idea. To see why, consider a program where the
+producer runs more quickly than the consumer::
+
+   # Simulate a producer that generates values 10x faster than the
+   # consumer can handle them.
+
+   import trio
+   import math
 
    async def producer(send_channel):
+       count = 0
        while True:
-           await send_channel.send(1)
+           await send_channel.send(count)
+           print("Sent message:", count)
+           count += 1
+           await trio.sleep(0.1)
 
    async def consumer(receive_channel):
-       while True:
-           print(await receive_channel.receive())
+       async for value in receive_channel:
+           print("Received message:", value)
+           await trio.sleep(1)
 
    async def main():
-       send_channel, receive_channel = trio.open_channel(math.inf)
+       send_channel, receive_channel = trio.open_memory_channel(math.inf)
        async with trio.open_nursery() as nursery:
-           # Two producers
            nursery.start_soon(producer, send_channel)
-           nursery.start_soon(producer, send_channel)
-           # One consumer
            nursery.start_soon(consumer, receive_channel)
 
    trio.run(main)
 
-If we naively cycle between these three tasks in round-robin style,
-then we send an item, then send an item, then receive an item, then
-send an item, then send an item, then receive an item, ... On each
-cycle we send two items but only receive one, which means the extra
-item has to be buffered inside the channel. And over time, this means
-the buffer will keep growing and growing, our latency is terrible
-(since each new item has to wait in line behind all the others in the
-buffer), we run out of memory, it's just generally bad news all
-around.
+If you run this program, you'll see output like:
 
-By placing an upper bound on our buffer size, we avoid this problem.
-If the buffer gets too big, then it applies *backpressure*: ``send``
-blocks and forces the producers to slow down and wait until the
-consumer calls ``receive``.
+.. code-block:: none
 
-You can also create a channel without a buffer, by doing
-``open_channel(0)``. In that case any task that calls ``send`` on the
-channel will wait until another task calls ``receive`` on the same
-channel, and vice versa. This is similar to how channels work in the
-`classic Communicating Sequential Processes model
-<https://en.wikipedia.org/wiki/Channel_(programming)>`__.
+   Received message: 0
+   Sent message: 0
+   Sent message: 1
+   Sent message: 2
+   Sent message: 3
+   Sent message: 4
+   Sent message: 5
+   Sent message: 6
+   Sent message: 7
+   Sent message: 8
+   Sent message: 9
+   Received message: 1
+   Sent message: 10
+   Sent message: 11
+   Sent message: 12
+   ...
+
+On average, the producer sends ten messages per second, and the
+consumer only receives a message once per second. After each second
+the channel's internal buffer has to hold another nine items. After a
+minute, the buffer will have ~540 items in it; after an hour, that
+grows to ~32,400. Eventually, the program will run out of memory. And
+well before we run out of memory, our latency on handling individual
+messages will become terrible. For example, at the one minute mark,
+the producer is sending message ~600, but the producer is still
+processing message ~60. Message 600 will have to sit in the channel
+for ~9 minutes before the consumer catches up and processes
+it.
+
+Now try replacing ``open_memory_channel(math.inf)`` with
+``open_memory_channel(0)``, and run it again. We get output like:
+
+.. code-block:: none
+
+   Sent message: 0
+   Received message: 0
+   Received message: 1
+   Sent message: 1
+   Received message: 2
+   Sent message: 2
+   Sent message: 3
+   Received message: 3
+
+Now the ``send`` calls wait for the ``receive`` calls to finish, which
+forces the producer to slow down to match the consumer's speed. (It
+might look strange that some values are reported as "Received" before
+they're reported as "Sent"; this happens because the actual
+send/receive happen at the same time, so which line gets printed first
+is random.)
+
+Now, try setting the buffer size to 10 – what do you think will happen?
+
+
+So hopefully that makes clear why you generally
+
+, there are times when you actually do need an unbounded
+buffer. For example, consider a web crawler that uses a channel to
+keep track of all the URLs it still wants to crawl. Each crawler runs
+a loop where it takes a URL from the channel, fetches it, checks the
+HTML for outgoing links, and then adds the new URLs to the channel.
+This creates a *circular flow*, where each consumer is also a
+producer. In this case, if your channel buffer gets full, then the
+crawlers will block when they try to add new URLs to the channel, and
+if all the crawlers got blocked, then they aren't taking any URLs out
+of the channel, so they're stuck forever in a deadlock. Using an
+unbounded channel avoids this, because it means that
+:meth:`~trio.abc.SendChannel.send` never blocks.
 
 
 Lower-level synchronization primitives
@@ -1509,8 +1670,8 @@ Getting back into the trio thread from another thread
    :members:
 
 This will probably be clearer with an example. Here we demonstrate how
-to spawn a child thread, and then use a :class:`trio.Queue` to send
-messages between the thread and a trio task::
+to spawn a child thread, and then use a :ref:`memory channel
+<channels>` to send messages between the thread and a trio task::
 
    import trio
    import threading
@@ -1562,6 +1723,8 @@ Exceptions and warnings
 .. autoexception:: TooSlowError
 
 .. autoexception:: WouldBlock
+
+.. autoexception:: EndOfChannel
 
 .. autoexception:: BusyResourceError
 

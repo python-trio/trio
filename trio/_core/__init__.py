@@ -16,7 +16,7 @@ def _public(fn):
 
 from ._exceptions import (
     TrioInternalError, RunFinishedError, WouldBlock, Cancelled,
-    BusyResourceError, ClosedResourceError, BrokenResourceError
+    BusyResourceError, ClosedResourceError, BrokenResourceError, EndOfChannel
 )
 
 from ._multierror import MultiError

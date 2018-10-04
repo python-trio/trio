@@ -139,7 +139,7 @@ Features
   the creator's :mod:`contextvars` context, instead using one created at
   :func:`~trio.run`. (`#289
   <https://github.com/python-trio/trio/issues/289>`__)
-- Add support for :class:`trio.Queue` with `capacity=0`. Queue's implementation
+- Add support for ``trio.Queue`` with ``capacity=0``. Queue's implementation
   is also faster now. (`#473
   <https://github.com/python-trio/trio/issues/473>`__)
 - Switch to using standalone `Outcome
@@ -397,7 +397,7 @@ Upcoming breaking changes with warnings (i.e., stuff that in 0.2.0
   See `#68 <https://github.com/python-trio/trio/issues/68>`__ for
   details.
 
-* :class:`trio.Queue`\'s ``join`` and ``task_done`` methods are
+* ``trio.Queue``\'s ``join`` and ``task_done`` methods are
   deprecated without replacement (`#321
   <https://github.com/python-trio/trio/issues/321>`__)
 
@@ -424,7 +424,7 @@ Upcoming breaking changes with warnings (i.e., stuff that in 0.2.0
   * ``trio.Result`` → ``trio.hazmat.Result``
   * ``trio.Value`` → ``trio.hazmat.Value``
   * ``trio.Error`` → ``trio.hazmat.Error``
-  * ``trio.UnboundedQueue`` → :class:`trio.hazmat.UnboundedQueue`
+  * ``trio.UnboundedQueue`` → ``trio.hazmat.UnboundedQueue``
 
   In addition, several introspection attributes are being renamed:
 

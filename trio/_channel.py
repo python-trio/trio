@@ -5,14 +5,7 @@ import attr
 from outcome import Error, Value
 
 from . import _core
-from ._util import aiter_compat
-from .abc import AsyncResource
-
-# TODO:
-# - docs
-
-# is there a better name for 'clone'? People seem to be having trouble with
-# it.
+from .abc import SendChannel, ReceiveChannel
 
 # rename SendChannel/ReceiveChannel to SendHandle/ReceiveHandle?
 # eh, maybe not -- SendStream/ReceiveStream don't work like that.
@@ -25,57 +18,81 @@ from .abc import AsyncResource
 # underlying stream when all SendChannels are closed.
 
 # to think about later:
-# - buffer_max=0 default?
+# - max_buffer_size=0 default?
 # - should we make ReceiveChannel.close() raise BrokenChannelError if data gets
 #   lost? This isn't how ReceiveStream works. And it might not be doable for a
 #   channel that reaches between processes (e.g. data could be in flight but
-#   we don't know it yet)
+#   we don't know it yet). (Well, we could make it raise if it hasn't gotten a
+#   clean goodbye message.) OTOH, ReceiveStream has the assumption that you're
+#   going to spend significant effort on engineering some protocol on top of
+#   it, while Channel is supposed to be useful out-of-the-box.
+#   Practically speaking, if a consumer crashes and then its __aexit__
+#   replaces the actual exception with BrokenChannelError, that's kind of
+#   annoying.
+#   But lost messages are bad too... maybe the *sender* aclose() should raise
+#   if it lost a message? I guess that has the same issue...
+# - should we have a ChannelPair object, instead of returning a tuple?
+#   upside: no need to worry about order
+#   could have shorthand send/receive methods
+#   downside: pretty annoying to type out channel_pair.send_channel like...
+#   ever. can't deconstruct on assignment. (Or, well you could by making it
+#   implement __iter__, but then that's yet another quirky way to do it.)
+# - is their a better/more evocative name for "clone"? People seem to be
+#   having trouble with it, but I'm not sure whether it's just because of
+#   missing docs.
 
 
-class EndOfChannel(Exception):
-    pass
+def open_memory_channel(max_buffer_size):
+    """Open a channel for passing objects between tasks within a process.
 
+    This channel is lightweight and entirely in-memory; it doesn't involve any
+    operating-system resources.
 
-def open_channel(buffer_max):
-    """Open a channel for communicating between tasks.
-
-    A channel is represented by two objects
+    The channel objects are only closed if you explicitly call
+    :meth:`~trio.abc.AsyncResource.aclose` or use ``async with``. In
+    particular, they are *not* automatically closed when garbage collected.
+    Closing in-memory channel objects is not mandatory, but it's generally a
+    good idea, because it helps avoid situations where tasks get stuck
+    waiting on a channel when there's no-one on the other side.
 
     Args:
-      buffer_max (int or math.inf): The maximum number of items that can be
-        buffered in the channel before :meth:`SendChannel.send` blocks.
-        Choosing a sensible value here is important to ensure that
-        backpressure is communicated promptly and avoid unnecessary latency.
-        If in doubt, use 0, which means that sends always block until another
-        task calls receive.
+      max_buffer_size (int or math.inf): The maximum number of items that can
+        be buffered in the channel before :meth:`~trio.abc.SendChannel.send`
+        blocks. Choosing a sensible value here is important to ensure that
+        backpressure is communicated promptly and avoid unnecessary latency;
+        see :ref:`channel-buffering` for more details. If in doubt, use 0.
 
     Returns:
-      A pair (:class:`SendChannel`, :class:`ReceiveChannel`). Remember: data
-      flows from left to right.
+      A pair ``(send_channel, receive_channel)``. If you have
+      trouble remembering which order these go in, remember: data
+      flows from left → right.
 
     """
-    if buffer_max != inf and not isinstance(buffer_max, int):
-        raise TypeError("buffer_max must be an integer or math.inf")
-    if buffer_max < 0:
-        raise ValueError("buffer_max must be >= 0")
-    receive_channel = ReceiveChannel(buffer_max)
-    send_channel = SendChannel(receive_channel)
+    if max_buffer_size != inf and not isinstance(max_buffer_size, int):
+        raise TypeError("max_buffer_size must be an integer or math.inf")
+    if max_buffer_size < 0:
+        raise ValueError("max_buffer_size must be >= 0")
+    receive_channel = MemoryReceiveChannel(max_buffer_size)
+    send_channel = MemorySendChannel(receive_channel)
     return send_channel, receive_channel
 
 
 @attr.s(frozen=True)
 class ChannelStats:
-    buffer_used = attr.ib()
-    buffer_max = attr.ib()
+    current_buffer_used = attr.ib()
+    max_buffer_size = attr.ib()
     open_send_channels = attr.ib()
     tasks_waiting_send = attr.ib()
     tasks_waiting_receive = attr.ib()
 
 
-class SendChannel(AsyncResource):
+class MemorySendChannel(SendChannel):
     def __init__(self, receive_channel):
         self._rc = receive_channel
         self._closed = False
+        # This is just the tasks waiting on *this* object. As compared to
+        # self._rc._send_tasks, which includes tasks from this object and all
+        # clones.
         self._tasks = set()
         self._rc._open_send_channels += 1
 
@@ -92,19 +109,6 @@ class SendChannel(AsyncResource):
 
     @_core.enable_ki_protection
     def send_nowait(self, value):
-        """Attempt to send an object into the channel, without blocking.
-
-        Args:
-          value (object): The object to send.
-
-        Raises:
-          WouldBlock: if the channel is full.
-          ClosedResourceError: if this :class:`SendHandle` object has already
-              been _closed.
-          BrokenChannelError: if the receiving :class:`ReceiveHandle` object
-              has already been _closed.
-
-        """
         if self._closed:
             raise _core.ClosedResourceError
         if self._rc._closed:
@@ -120,18 +124,6 @@ class SendChannel(AsyncResource):
 
     @_core.enable_ki_protection
     async def send(self, value):
-        """Attempt to send an object into the channel, blocking if necessary.
-
-        Args:
-          value (object): The object to send.
-
-        Raises:
-          ClosedResourceError: if this :class:`SendChannel` object has already
-              been _closed.
-          BrokenChannelError: if the receiving :class:`ReceiveHandle` object
-              has already been _closed.
-
-        """
         await _core.checkpoint_if_cancelled()
         try:
             self.send_nowait(value)
@@ -155,15 +147,9 @@ class SendChannel(AsyncResource):
 
     @_core.enable_ki_protection
     def clone(self):
-        """Clone this send channel.
-
-        Raises:
-          ClosedResourceError: if this :class:`SendChannel` object has already
-              been _closed.
-        """
         if self._closed:
             raise _core.ClosedResourceError
-        return SendChannel(self._rc)
+        return MemorySendChannel(self._rc)
 
     @_core.enable_ki_protection
     async def aclose(self):
@@ -179,13 +165,13 @@ class SendChannel(AsyncResource):
         if self._rc._open_send_channels == 0:
             assert not self._rc._send_tasks
             for task in self._rc._receive_tasks:
-                _core.reschedule(task, Error(EndOfChannel()))
+                _core.reschedule(task, Error(_core.EndOfChannel()))
             self._rc._receive_tasks.clear()
         await _core.checkpoint()
 
 
 @attr.s(cmp=False, hash=False, repr=False)
-class ReceiveChannel(AsyncResource):
+class MemoryReceiveChannel(ReceiveChannel):
     _capacity = attr.ib()
     _data = attr.ib(factory=deque)
     _closed = attr.ib(default=False)
@@ -198,8 +184,8 @@ class ReceiveChannel(AsyncResource):
 
     def statistics(self):
         return ChannelStats(
-            buffer_used=len(self._data),
-            buffer_max=self._capacity,
+            current_buffer_used=len(self._data),
+            max_buffer_size=self._capacity,
             open_send_channels=self._open_send_channels,
             tasks_waiting_send=len(self._send_tasks),
             tasks_waiting_receive=len(self._receive_tasks),
@@ -223,7 +209,7 @@ class ReceiveChannel(AsyncResource):
         if self._data:
             return self._data.popleft()
         if not self._open_send_channels:
-            raise EndOfChannel
+            raise _core.EndOfChannel
         raise _core.WouldBlock
 
     @_core.enable_ki_protection
@@ -259,17 +245,5 @@ class ReceiveChannel(AsyncResource):
             task.custom_sleep_data._tasks.remove(task)
             _core.reschedule(task, Error(_core.BrokenResourceError()))
         self._send_tasks.clear()
-        # XX: or if we're losing data, maybe we should raise a
-        # BrokenChannelError here?
         self._data.clear()
         await _core.checkpoint()
-
-    @aiter_compat
-    def __aiter__(self):
-        return self
-
-    async def __anext__(self):
-        try:
-            return await self.receive()
-        except EndOfChannel:
-            raise StopAsyncIteration

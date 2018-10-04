@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+from ._util import aiter_compat
 from . import _core
 
 __all__ = [
@@ -12,6 +13,8 @@ __all__ = [
     "SocketFactory",
     "HostnameResolver",
     "Listener",
+    "SendChannel",
+    "ReceiveChannel",
 ]
 
 
@@ -282,8 +285,12 @@ class SendStream(AsyncResource):
     bidirectional, then you probably want to also implement
     :class:`ReceiveStream`, which makes your object a :class:`Stream`.
 
-    Every :class:`SendStream` also implements the :class:`AsyncResource`
-    interface.
+    :class:`SendStream` objects also implement the :class:`AsyncResource`
+    interface, so they can be closed by calling :meth:`~AsyncResource.aclose`
+    or using an ``async with`` block.
+
+    If you want to send Python objects rather than raw bytes, see
+    :class:`SendChannel`.
 
     """
     __slots__ = ()
@@ -378,8 +385,12 @@ class ReceiveStream(AsyncResource):
     bidirectional, then you probably want to also implement
     :class:`SendStream`, which makes your object a :class:`Stream`.
 
-    Every :class:`ReceiveStream` also implements the :class:`AsyncResource`
-    interface.
+    :class:`ReceiveStream` objects also implement the :class:`AsyncResource`
+    interface, so they can be closed by calling :meth:`~AsyncResource.aclose`
+    or using an ``async with`` block.
+
+    If you want to receive Python objects rather than raw bytes, see
+    :class:`ReceiveChannel`.
 
     """
     __slots__ = ()
@@ -490,6 +501,10 @@ class HalfCloseableStream(Stream):
 class Listener(AsyncResource):
     """A standard interface for listening for incoming connections.
 
+    :class:`Listener` objects also implement the :class:`AsyncResource`
+    interface, so they can be closed by calling :meth:`~AsyncResource.aclose`
+    or using an ``async with`` block.
+
     """
     __slots__ = ()
 
@@ -499,9 +514,9 @@ class Listener(AsyncResource):
 
         Returns:
           AsyncResource: An object representing the incoming connection. In
-          practice this is almost always some variety of :class:`Stream`,
-          though in principle you could also use this interface with, say,
-          SOCK_SEQPACKET sockets or similar.
+          practice this is generally some kind of :class:`Stream`,
+          but in principle you could also define a :class:`Listener` that
+          returned, say, channel objects.
 
         Raises:
           trio.BusyResourceError: if two tasks attempt to call
@@ -510,11 +525,158 @@ class Listener(AsyncResource):
               object, or if another task closes this listener object while
               :meth:`accept` is running.
 
-        Note that there is no ``BrokenListenerError``, because for listeners
-        there is no general condition of "the network/remote peer broke the
-        connection" that can be handled in a generic way, like there is for
-        streams. Other errors *can* occur and be raised from :meth:`accept` –
-        for example, if you run out of file descriptors then you might get an
-        :class:`OSError` with its errno set to ``EMFILE``.
+        Listeners don't generally raise :exc:`~trio.BrokenResourceError`,
+        because for listeners there is no general condition of "the
+        network/remote peer broke the connection" that can be handled in a
+        generic way, like there is for streams. Other errors *can* occur and
+        be raised from :meth:`accept` – for example, if you run out of file
+        descriptors then you might get an :class:`OSError` with its errno set
+        to ``EMFILE``.
 
         """
+
+
+class SendChannel(AsyncResource):
+    """A standard interface for sending Python objects to some receiver.
+
+    :class:`SendChannel` objects also implement the :class:`AsyncResource`
+    interface, so they can be closed by calling :meth:`~AsyncResource.aclose`
+    or using an ``async with`` block.
+
+    If you want to send raw bytes rather than Python objects, see
+    :class:`ReceiveStream`.
+
+    """
+    __slots__ = ()
+
+    @abstractmethod
+    async def send_nowait(self, value):
+        """Attempt to send an object through the channel, without blocking.
+
+        Args:
+          value (object): The object to send.
+
+        Raises:
+          trio.WouldBlock: if the operation cannot be completed immediately
+              (for example, because the channel's internal buffer is full).
+          trio.BrokenResourceError: if something has gone wrong, and the
+              channel is broken. For example, you may get this if the receiver
+              has already been closed.
+          trio.ClosedResourceError: if you previously closed this
+              :class:`SendChannel` object.
+
+        """
+
+    @abstractmethod
+    async def send(self, value):
+        """Attempt to send an object through the channel, blocking if necessary.
+
+        Args:
+          value (object): The object to send.
+
+        Raises:
+          trio.BrokenResourceError: if something has gone wrong, and the
+              channel is broken. For example, you may get this if the receiver
+              has already been closed.
+          trio.ClosedResourceError: if you previously closed this
+              :class:`SendChannel` object, or if another task closes it while
+              :meth:`send` is running.
+
+        """
+
+    @abstractmethod
+    def clone(self):
+        """Clone this send channel object.
+
+        This returns a new :class:`SendChannel` object, which acts as a
+        duplicate of the original: sending on the new object does exactly the
+        same thing as sending on the old object.
+
+        However, closing one of the objects does not close the other, and
+        receivers don't get :exc:`~trio.EndOfChannel` until *all* clones have
+        been closed.
+
+        This is useful for fan-in communication patterns, with multiple
+        producers all sending objects to the same destination. If you give
+        each producer its own clone of the :class:`SendChannel`, and make sure
+        to close each :class:`SendChannel` when it's finished, then receivers
+        will automatically get notified when all producers are finished.
+
+        Raises:
+          trio.ClosedResourceError: if you already closed this
+              :class:`SendChannel` object.
+
+        """
+
+
+class ReceiveChannel(AsyncResource):
+    """A standard interface for receiving Python objects from some sender.
+
+    You can iterate over a :class:`ReceiveChannel` using an ``async for``
+    loop::
+
+       async for value in receive_channel:
+           ...
+
+    This is equivalent to calling :meth:`receive` repeatedly. The loop exits
+    without error when :meth:`receive` raises :exc:`~trio.EndOfChannel`.
+
+    :class:`ReceiveChannel` objects also implement the :class:`AsyncResource`
+    interface, so they can be closed by calling :meth:`~AsyncResource.aclose`
+    or using an ``async with`` block.
+
+    If you want to receive raw bytes rather than Python objects, see
+    :class:`ReceiveStream`.
+
+    """
+    __slots__ = ()
+
+    @abstractmethod
+    async def receive_nowait(self):
+        """Attempt to receive an incoming object, without blocking.
+
+        Returns:
+          object: Whatever object was received.
+
+        Raises:
+          trio.WouldBlock: if the operation cannot be completed immediately
+              (for example, because no object has been sent yet).
+          trio.EndOfChannel: if the sender has been closed cleanly, and no
+              more objects are coming. This is not an error condition.
+          trio.ClosedResourceError: if you previously closed this
+              :class:`ReceiveChannel` object.
+          trio.BrokenResourceError: if something has gone wrong, and the
+              channel is broken.
+
+        """
+
+    @abstractmethod
+    async def receive(self):
+        """Attempt to receive an incoming object, blocking if necessary.
+
+        It's legal for multiple tasks to call :meth:`receive` at the same
+        time. If this happens, then one task receives the first value sent,
+        another task receives the next value sent, and so on.
+
+        Returns:
+          object: Whatever object was received.
+
+        Raises:
+          trio.EndOfChannel: if the sender has been closed cleanly, and no
+              more objects are coming. This is not an error condition.
+          trio.ClosedResourceError: if you previously closed this
+              :class:`ReceiveChannel` object.
+          trio.BrokenResourceError: if something has gone wrong, and the
+              channel is broken.
+
+        """
+
+    @aiter_compat
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        try:
+            return await self.receive()
+        except _core.EndOfChannel:
+            raise StopAsyncIteration

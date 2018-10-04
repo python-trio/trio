@@ -563,7 +563,7 @@ async def test_Queue_unbuffered():
 
 
 from .._sync import async_cm
-from .._channel import open_channel
+from .._channel import open_memory_channel
 
 # Three ways of implementing a Lock in terms of a channel. Used to let us put
 # the channel through the generic lock tests.
@@ -572,7 +572,7 @@ from .._channel import open_channel
 @async_cm
 class ChannelLock1:
     def __init__(self, capacity):
-        self.s, self.r = open_channel(capacity)
+        self.s, self.r = open_memory_channel(capacity)
         for _ in range(capacity - 1):
             self.s.send_nowait(None)
 
@@ -589,7 +589,7 @@ class ChannelLock1:
 @async_cm
 class ChannelLock2:
     def __init__(self):
-        self.s, self.r = open_channel(10)
+        self.s, self.r = open_memory_channel(10)
         self.s.send_nowait(None)
 
     def acquire_nowait(self):
@@ -605,7 +605,7 @@ class ChannelLock2:
 @async_cm
 class ChannelLock3:
     def __init__(self):
-        self.s, self.r = open_channel(0)
+        self.s, self.r = open_memory_channel(0)
         # self.acquired is true when one task acquires the lock and
         # only becomes false when it's released and no tasks are
         # waiting to acquire.
