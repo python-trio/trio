@@ -7,44 +7,6 @@ from outcome import Error, Value
 from . import _core
 from .abc import SendChannel, ReceiveChannel
 
-# rename SendChannel/ReceiveChannel to SendHandle/ReceiveHandle?
-# eh, maybe not -- SendStream/ReceiveStream don't work like that.
-
-# send or send_object? eh just send is good enough
-
-# implementing this interface on top of a stream is very natural... just
-# pickle/unpickle (+ some framing). Actually, even clone() is not bad at
-# all... you just need a shared counter of open handles, and then close the
-# underlying stream when all SendChannels are closed.
-
-# to think about later:
-# - max_buffer_size=0 default?
-# - should we make ReceiveChannel.close() raise BrokenChannelError if data gets
-#   lost? This isn't how ReceiveStream works. And it might not be doable for a
-#   channel that reaches between processes (e.g. data could be in flight but
-#   we don't know it yet). (Well, we could make it raise if it hasn't gotten a
-#   clean goodbye message.) OTOH, ReceiveStream has the assumption that you're
-#   going to spend significant effort on engineering some protocol on top of
-#   it, while Channel is supposed to be useful out-of-the-box.
-#   Practically speaking, if a consumer crashes and then its __aexit__
-#   replaces the actual exception with BrokenChannelError, that's kind of
-#   annoying.
-#   But lost messages are bad too... maybe the *sender* aclose() should raise
-#   if it lost a message? I guess that has the same issue...
-# - should we have a ChannelPair object, instead of returning a tuple?
-#   upside: no need to worry about order
-#   could have shorthand send/receive methods
-#   downside: pretty annoying to type out channel_pair.send_channel like...
-#   ever. can't deconstruct on assignment. (Or, well you could by making it
-#   implement __iter__, but then that's yet another quirky way to do it.)
-# - is their a better/more evocative name for "clone"? People seem to be
-#   having trouble with it, but I'm not sure whether it's just because of
-#   missing docs.
-# - and btw, any better names than Channel (in particular vs. Stream?)
-# - should the *_nowait methods be in the ABC? (e.g. doesn't really make sense
-#   for something like websockets...)
-# - trio.testing.check_channel?
-
 
 def open_memory_channel(max_buffer_size):
     """Open a channel for passing objects between tasks within a process.
