@@ -101,6 +101,7 @@ async def test_channel_multiple_consumers():
     assert len(received) == 10
     assert set(received) == set(range(10))
 
+
 async def test_close_basics():
     async def send_block(s, expect):
         with pytest.raises(expect):
