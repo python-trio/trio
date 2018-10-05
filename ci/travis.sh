@@ -79,6 +79,9 @@ else
     #   https://github.com/python-trio/trio/issues/711
     #   https://github.com/nedbat/coveragepy/issues/707#issuecomment-426455490
     if [ "$(python -V)" != "Python 3.8.0a0" ]; then
-        bash <(curl -s https://codecov.io/bash)
+        ls -l .coverage*
+        rm -f .coverage
+        ls -l .coverage*
     fi
+    bash <(curl -s https://codecov.io/bash)
 fi
