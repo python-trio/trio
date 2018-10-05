@@ -1564,7 +1564,7 @@ that :meth:`~trio.abc.SendChannel.send` never blocks.
 Lower-level synchronization primitives
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Personally, I find that events and queues are usually enough to
+Personally, I find that events and channels are usually enough to
 implement most things I care about, and lead to easier to read code
 than the lower-level primitives discussed in this section. But if you
 need them, they're here. (If you find yourself reaching for these
