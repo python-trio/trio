@@ -48,7 +48,7 @@ class UnboundedQueue:
         "0.9.0",
         issue=497,
         thing="trio.hazmat.UnboundedQueue",
-        instead="trio.open_channel"
+        instead="trio.open_memory_channel(math.inf)"
     )
     def __init__(self):
         self._lot = _core.ParkingLot()

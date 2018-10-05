@@ -1251,26 +1251,27 @@ Using channels to pass values between tasks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 *Channels* allow you to safely and conveniently send objects between
-different tasks. They're useful implementing producer/consumer
-patterns, including fan-in and fan-out.
+different tasks. They're particularly useful for implementing
+producer/consumer patterns.
 
 The channel API is defined by the abstract base classes
 :class:`trio.abc.SendChannel` and :class:`trio.abc.ReceiveChannel`.
 You can use these to implement your own custom channels, that do
 things like pass objects between processes or over the network. But in
 many cases, you just want to pass objects between different tasks
-inside a single process.
+inside a single process, and for that you can use
+:func:`trio.open_memory_channel`:
 
 .. autofunction:: open_memory_channel
 
-.. note:: If you've the :mod:`threading` or :mod:`asyncio` modules,
-   you may be familiar with :class:`queue.Queue` or
+.. note:: If you've used the :mod:`threading` or :mod:`asyncio`
+   modules, you may be familiar with :class:`queue.Queue` or
    :class:`asyncio.Queue`. In Trio, :func:`open_memory_channel` is
    what you use when you're looking for a queue. The main difference
    is that Trio splits the classic queue interface up into two
    objects. The advantage of this is that it makes it possible to put
    the two ends in different processes, and that we can close the two
-   sides separately
+   sides separately.
 
 
 A simple channel example
@@ -1312,10 +1313,10 @@ addition of ``async with`` blocks inside the producer and consumer:
 The really important thing here is the producer's ``async with`` .
 When the producer exits, this closes the ``send_channel``, and that
 tells the consumer that no more messages are coming, so it can cleanly
-exit its ``async for`` loop, and the program shuts down because both
+exit its ``async for`` loop. Then the program shuts down because both
 tasks have exited.
 
-We also put an ``async for`` inside the consumer. This isn't as
+We also added an ``async with`` to the consumer. This isn't as
 important, but can it help us catch mistakes or other problems. For
 example, suppose that the consumer exited early for some reason –
 maybe because of a bug. Then the producer would be sending messages
@@ -1329,10 +1330,10 @@ adding a ``break`` statement to the ``async for`` loop – you should
 see a :exc:`BrokenResourceError` from the producer.
 
 
-.. _channel-fan-in-fan-out:
+.. _channel-mpmc:
 
-Fan-in and fan-out
-++++++++++++++++++
+Managing multiple producers and/or multiple consumers
++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 You can also have multiple producers, and multiple consumers, all
 sharing the same channel. However, this makes shutdown a little more
@@ -1341,7 +1342,7 @@ complicated.
 For example, consider this naive extension of our previous example,
 now with two producers and two consumers:
 
-.. literalinclude:: reference-core/channels-fan-in-fan-out-broken.py
+.. literalinclude:: reference-core/channels-mpmc-broken.py
 
 The two producers, A and B, send 3 messages apiece. These are then
 randomly distributed between the two producers, X and Y. So we're
@@ -1365,8 +1366,8 @@ some runs it doesn't crash at all.
 
 Here's what's happening: suppose that producer A finishes first. It
 exits, and its ``async with`` block closes the ``send_channel``. But
-wait! Producer B was still using that ``send_channel``... so when it
-calls ``send``, it gets a :exc:`ClosedResourceError`.
+wait! Producer B was still using that ``send_channel``... so the next
+time B calls ``send``, it gets a :exc:`ClosedResourceError`.
 
 Sometimes, though if we're lucky, the two producers might finish at
 the same time (or close enough), so they both make their last ``send``
@@ -1385,24 +1386,23 @@ channel endpoints... but that would be tiresome and fragile.
 Fortunately, there's a better way! Here's a fixed version of our
 program above:
 
-.. literalinclude:: reference-core/channels-fan-in-fan-out-fixed.py
+.. literalinclude:: reference-core/channels-mpmc-fixed.py
    :emphasize-lines: 7, 9, 10, 12, 13
 
-What we're doing here is taking advantage of the
-:meth:`SendChannel.clone <trio.abc.SendChannel.clone>` and
-:meth:`ReceiveChannel.clone <trio.abc.ReceiveChannel.clone>` methods.
-What these do is create copies of our endpoints, that act just like
-the original – except that they can be closed independently. And the
-underlying channel is only closed after *all* the clones have been
-closed. So this completely solves our problem with shutdown, and if
-you run this program, you'll see it print its six lines of output and
-then exits cleanly.
+This example demonstrates using the :meth:`SendChannel.clone
+<trio.abc.SendChannel.clone>` and :meth:`ReceiveChannel.clone
+<trio.abc.ReceiveChannel.clone>` methods. What these do is create
+copies of our endpoints, that act just like the original – except that
+they can be closed independently. And the underlying channel is only
+closed after *all* the clones have been closed. So this completely
+solves our problem with shutdown, and if you run this program, you'll
+see it print its six lines of output and then exits cleanly.
 
-Notice a small trick we use: the code in ``main`` that sets up the
-channels in the first place uses an ``async with`` block to close the
-original objects after passing on clones to all the tasks. We could
-alternatively have passed on the original objects into the tasks,
-like::
+Notice a small trick we use: the code in ``main`` creates clone
+objects to pass into all the child tasks, and then closes the original
+objects using ``async with``. Another option is to pass clones into
+all-but-one of the child tasks, and then pass the original object into
+the last task, like::
 
    # Also works, but is more finicky:
    send_channel, receive_channel = trio.open_memory_channel(0)
@@ -1411,8 +1411,8 @@ like::
    nursery.start_soon(consumer, "X", receive_channel.clone())
    nursery.start_soon(consumer, "Y", receive_channel)
 
-But this is more error-prone, especially if in more complex code that
-might use a loop to spawn the producers/consumers.
+But this is more error-prone, especially if you use a loop to spawn
+the producers/consumers.
 
 Just make sure that you don't write::
 
@@ -1480,8 +1480,8 @@ If you run this program, you'll see output like:
    Sent message: 12
    ...
 
-On average, the producer sends ten messages per second, and the
-consumer only receives a message once per second. That means that each
+On average, the producer sends ten messages per second, but the
+consumer only calls ``receive`` once per second. That means that each
 second, the channel's internal buffer has to grow to hold an extra
 nine items. After a minute, the buffer will have ~540 items in it;
 after an hour, that grows to ~32,400. Eventually, the program will run
@@ -1755,46 +1755,7 @@ This will probably be clearer with an example. Here we demonstrate how
 to spawn a child thread, and then use a :ref:`memory channel
 <channels>` to send messages between the thread and a trio task::
 
-   import trio
-   import threading
-
-   def thread_fn(portal, request_queue, response_queue):
-       while True:
-           # Since we're in a thread, we can't call trio.Queue methods
-           # directly -- so we use our portal to call them.
-           request = portal.run(request_queue.get)
-           # We use 'None' as a request to quit
-           if request is not None:
-               response = request + 1
-               portal.run(response_queue.put, response)
-           else:
-               # acknowledge that we're shutting down, and then do it
-               portal.run(response_queue.put, None)
-               return
-
-   async def main():
-       portal = trio.BlockingTrioPortal()
-       request_queue = trio.Queue(1)
-       response_queue = trio.Queue(1)
-       thread = threading.Thread(
-           target=thread_fn,
-           args=(portal, request_queue, response_queue))
-       thread.start()
-
-       # prints "1"
-       await request_queue.put(0)
-       print(await response_queue.get())
-
-       # prints "2"
-       await request_queue.put(1)
-       print(await response_queue.get())
-
-       # prints "None"
-       await request_queue.put(None)
-       print(await response_queue.get())
-       thread.join()
-
-   trio.run(main)
+.. literalinclude:: reference-core/blocking-trio-portal-example.py
 
 
 Exceptions and warnings

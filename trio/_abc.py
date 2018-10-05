@@ -550,7 +550,7 @@ class SendChannel(AsyncResource):
     __slots__ = ()
 
     @abstractmethod
-    async def send_nowait(self, value):
+    def send_nowait(self, value):
         """Attempt to send an object through the channel, without blocking.
 
         Args:
@@ -596,12 +596,12 @@ class SendChannel(AsyncResource):
         receivers don't get :exc:`~trio.EndOfChannel` until *all* clones have
         been closed.
 
-        This is useful for fan-in communication patterns, with multiple
+        This is useful for communication patterns that involve multiple
         producers all sending objects to the same destination. If you give
-        each producer its own clone of the :class:`SendChannel`, and make sure
-        to close each :class:`SendChannel` when it's finished, then receivers
+        each producer its own clone of the :class:`SendChannel`, and then make
+        sure to close each :class:`SendChannel` when it's finished, receivers
         will automatically get notified when all producers are finished. See
-        :ref:`channel-fan-in-fan-out`.
+        :ref:`channel-mpmc` for examples.
 
         Raises:
           trio.ClosedResourceError: if you already closed this
@@ -633,7 +633,7 @@ class ReceiveChannel(AsyncResource):
     __slots__ = ()
 
     @abstractmethod
-    async def receive_nowait(self):
+    def receive_nowait(self):
         """Attempt to receive an incoming object, without blocking.
 
         Returns:
@@ -678,15 +678,21 @@ class ReceiveChannel(AsyncResource):
 
         This returns a new :class:`ReceiveChannel` object, which acts as a
         duplicate of the original: receiving on the new object does exactly
-        the same thing as receiving on the old object. They share an
-        underlying buffer.
+        the same thing as receiving on the old object.
 
         However, closing one of the objects does not close the other, and the
         underlying channel is not closed until all clones are closed.
 
-        This is useful for fan-out communication patterns, with multiple
-        consumers all receiving objects from the same underlying channel. See
-        :ref:`channel-fan-in-fan-out`.
+        This is useful for communication patterns involving multiple consumers
+        all receiving objects from the same underlying channel. See
+        :ref:`channel-mpmc` for examples.
+
+        .. warning:: The clones all share the same underlying channel.
+           Whenever a clone :meth:`receive`\s a value, it is removed from the
+           channel and the other clones do *not* receive that value. If you
+           want to send multiple copies of the same stream of values to
+           multiple destinations, like :func:`itertools.tee`, then you need to
+           find some other solution; this method does *not* do that.
 
         Raises:
           trio.ClosedResourceError: if you already closed this

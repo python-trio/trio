@@ -40,6 +40,9 @@ from .abc import SendChannel, ReceiveChannel
 # - is their a better/more evocative name for "clone"? People seem to be
 #   having trouble with it, but I'm not sure whether it's just because of
 #   missing docs.
+# - and btw, any better names than Channel (in particular vs. Stream?)
+# - should the *_nowait methods be in the ABC? (e.g. doesn't really make sense
+#   for something like websockets...)
 # - trio.testing.check_channel?
 
 

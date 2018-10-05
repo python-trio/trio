@@ -56,7 +56,7 @@ async def test_553(autojump_clock):
     await s.send("Test for PR #553")
 
 
-async def test_channel_fan_in():
+async def test_channel_multiple_producers():
     async def producer(send_channel, i):
         # We close our handle when we're done with it
         async with send_channel:
@@ -79,6 +79,28 @@ async def test_channel_fan_in():
         assert got == list(range(30))
 
 
+async def test_channel_multiple_consumers():
+    successful_receivers = set()
+    received = []
+
+    async def consumer(receive_channel, i):
+        async for value in receive_channel:
+            successful_receivers.add(i)
+            received.append(value)
+
+    async with trio.open_nursery() as nursery:
+        send_channel, receive_channel = trio.open_memory_channel(1)
+        async with send_channel:
+            for i in range(5):
+                nursery.start_soon(consumer, receive_channel, i)
+            await wait_all_tasks_blocked()
+            for i in range(10):
+                await send_channel.send(i)
+
+    assert successful_receivers == set(range(5))
+    assert len(received) == 10
+    assert set(received) == set(range(10))
+
 async def test_close_basics():
     async def send_block(s, expect):
         with pytest.raises(expect):
@@ -97,7 +119,7 @@ async def test_close_basics():
     with pytest.raises(trio.ClosedResourceError):
         await s.send(None)
 
-    # and receive is notified, of course
+    # and receive gets EndOfChannel
     with pytest.raises(EndOfChannel):
         r.receive_nowait()
     with pytest.raises(EndOfChannel):

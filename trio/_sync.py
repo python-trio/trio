@@ -845,7 +845,10 @@ class Queue:
     """
 
     @deprecated(
-        "0.9.0", issue=497, thing="trio.Queue", instead="trio.open_channel"
+        "0.9.0",
+        issue=497,
+        thing="trio.Queue",
+        instead="trio.open_memory_channel"
     )
     def __init__(self, capacity):
         if not isinstance(capacity, int):
