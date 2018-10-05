@@ -248,6 +248,7 @@ async def test_statistics():
     assert stats.current_buffer_used == 0
     assert stats.max_buffer_size == 2
     assert stats.open_send_channels == 1
+    assert stats.open_receive_channels == 1
     assert stats.tasks_waiting_send == 0
     assert stats.tasks_waiting_receive == 0
 
@@ -258,6 +259,11 @@ async def test_statistics():
     assert s.statistics().open_send_channels == 2
     await s.aclose()
     assert s2.statistics().open_send_channels == 1
+
+    r2 = r.clone()
+    assert s2.statistics().open_receive_channels == 2
+    await r2.aclose()
+    assert s2.statistics().open_receive_channels == 1
 
     async with trio.open_nursery() as nursery:
         s2.send_nowait(None)  # fill up the buffer

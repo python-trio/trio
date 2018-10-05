@@ -33,6 +33,25 @@ def open_memory_channel(max_buffer_size):
       trouble remembering which order these go in, remember: data
       flows from left → right.
 
+    In addition to the regular channel interfaces, all memory channel
+    endpoints provide a ``statistics()`` method, which returns an object with
+    the following fields:
+
+    * ``current_buffer_used``: The number of items currently stored in the
+      channel buffer.
+    * ``max_buffer_size``: The maximum number of items allowed in the buffer,
+      as passed to :func:`open_memory_channel`.
+    * ``open_send_channels``: The number of open
+      :class:`~trio.abc.SendChannel` endpoints pointing to this channel.
+      Initially 1, but can be increased by
+      :meth:`~trio.abc.SendChannel.clone`.
+    * ``open_receive_channels``: Likewise, but for open
+      :class:`~trio.abc.ReceiveChannel` endpoints.
+    * ``tasks_waiting_send``: The number of tasks blocked in ``send`` on this
+      channel (summing over all clones).
+    * ``tasks_waiting_receive``: The number of tasks blocked in ``receive`` on
+      this channel (summing over all clones).
+
     """
     if max_buffer_size != inf and not isinstance(max_buffer_size, int):
         raise TypeError("max_buffer_size must be an integer or math.inf")
@@ -47,6 +66,7 @@ class ChannelStats:
     current_buffer_used = attr.ib()
     max_buffer_size = attr.ib()
     open_send_channels = attr.ib()
+    open_receive_channels = attr.ib()
     tasks_waiting_send = attr.ib()
     tasks_waiting_receive = attr.ib()
 
@@ -68,6 +88,7 @@ class MemoryChannelState:
             current_buffer_used=len(self.data),
             max_buffer_size=self.max_buffer_size,
             open_send_channels=self.open_send_channels,
+            open_receive_channels=self.open_receive_channels,
             tasks_waiting_send=len(self.send_tasks),
             tasks_waiting_receive=len(self.receive_tasks),
         )
