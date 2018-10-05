@@ -11,15 +11,17 @@ from .abc import SendChannel, ReceiveChannel
 def open_memory_channel(max_buffer_size):
     """Open a channel for passing objects between tasks within a process.
 
-    This channel is lightweight and entirely in-memory; it doesn't involve any
-    operating-system resources.
+    Memory channels are lightweight, cheap to allocate, and entirely
+    in-memory. They don't involve any operating-system resources, or any kind
+    of serialization. They just pass Python objects directly between tasks
+    (with a possible stop in an internal buffer along the way).
 
-    The channel objects are only closed if you explicitly call
-    :meth:`~trio.abc.AsyncResource.aclose` or use ``async with``. In
-    particular, they are *not* automatically closed when garbage collected.
-    Closing in-memory channel objects is not mandatory, but it's generally a
-    good idea, because it helps avoid situations where tasks get stuck
-    waiting on a channel when there's no-one on the other side.
+    Channel objects can be closed by calling
+    :meth:`~trio.abc.AsyncResource.aclose` or using ``async with``. They are
+    *not* automatically closed when garbage collected. Closing memory channels
+    isn't mandatory, but it is generally a good idea, because it helps avoid
+    situations where tasks get stuck waiting on a channel when there's no-one
+    on the other side. See :ref:`channel-shutdown` for details.
 
     Args:
       max_buffer_size (int or math.inf): The maximum number of items that can
@@ -33,9 +35,9 @@ def open_memory_channel(max_buffer_size):
       trouble remembering which order these go in, remember: data
       flows from left → right.
 
-    In addition to the regular channel interfaces, all memory channel
-    endpoints provide a ``statistics()`` method, which returns an object with
-    the following fields:
+    In addition to the standard channel methods, all memory channel objects
+    provide a ``statistics()`` method, which returns an object with the
+    following fields:
 
     * ``current_buffer_used``: The number of items currently stored in the
       channel buffer.
