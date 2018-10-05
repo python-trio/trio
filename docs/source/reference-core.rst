@@ -1445,7 +1445,7 @@ than the consumers, then it forces the producers to slow down.
 You can disable buffering entirely, by doing
 ``open_memory_channel(0)``. In that case any task calls
 :meth:`~trio.abc.SendChannel.send` will wait until another task calls
-`~trio.abc.SendChannel.receive`, and vice versa. This is similar to
+:meth:`~trio.abc.ReceiveChannel.receive`, and vice versa. This is similar to
 how channels work in the `classic Communicating Sequential Processes
 model <https://en.wikipedia.org/wiki/Channel_(programming)>`__, and is
 a reasonable default if you aren't sure what size buffer to use.
@@ -1455,7 +1455,7 @@ At the other extreme, you can make the buffer unbounded by using
 ``open_memory_channel(math.inf)``. In this case,
 :meth:`~trio.abc.SendChannel.send` *always* returns immediately.
 Normally, this is a bad idea. To see why, consider a program where the
-producer runs more quickly than the consumer::
+producer runs more quickly than the consumer:
 
 .. literalinclude:: reference-core/channels-backpressure.py
 
@@ -1753,7 +1753,7 @@ Getting back into the trio thread from another thread
 
 This will probably be clearer with an example. Here we demonstrate how
 to spawn a child thread, and then use a :ref:`memory channel
-<channels>` to send messages between the thread and a trio task::
+<channels>` to send messages between the thread and a trio task:
 
 .. literalinclude:: reference-core/blocking-trio-portal-example.py
 
