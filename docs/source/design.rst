@@ -413,11 +413,6 @@ Specific style guidelines
 
   and the ``nowait`` version raises :exc:`trio.WouldBlock` if it would block.
 
-* The word ``monitor`` is used for APIs that involve an
-  :class:`trio.hazmat.UnboundedQueue` receiving some kind of events.
-  (Examples: nursery ``.monitor`` attribute, some of the low-level I/O
-  functions in :mod:`trio.hazmat`.)
-
 * ...we should, but currently don't, have a solid convention to
   distinguish between functions that take an async callable and those
   that take a sync callable. See `issue #68
@@ -447,7 +442,7 @@ strategy is to make sure that it's possible for independent packages
 to add new features on top of trio. Enforcing the ``trio`` vs
 ``trio._core`` split is a way of `eating our own dogfood
 <https://en.wikipedia.org/wiki/Eating_your_own_dog_food>`__: basic
-functionality like :class:`trio.Queue` and :mod:`trio.socket` is
+functionality like :class:`trio.Lock` and :mod:`trio.socket` is
 actually implemented solely in terms of public APIs. And the hope is
 that by doing this, we increase the chances that someone who comes up
 with a better kind of queue or wants to add some new functionality

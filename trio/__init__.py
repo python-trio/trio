@@ -19,7 +19,7 @@ from ._core import (
     TrioInternalError, RunFinishedError, WouldBlock, Cancelled,
     BusyResourceError, ClosedResourceError, MultiError, run, open_nursery,
     open_cancel_scope, current_effective_deadline, TASK_STATUS_IGNORED,
-    current_time, BrokenResourceError
+    current_time, BrokenResourceError, EndOfChannel
 )
 
 from ._timeouts import (
@@ -37,6 +37,8 @@ from ._threads import (
 )
 
 from ._highlevel_generic import aclose_forcefully, StapledStream
+
+from ._channel import open_memory_channel
 
 from ._signals import catch_signals, open_signal_receiver
 
