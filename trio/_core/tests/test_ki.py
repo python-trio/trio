@@ -538,7 +538,7 @@ def test_ki_wakes_us_up():
         # the IO manager blocking primitive. There really is no way to
         # deterministically interlock with that, so we have to use sleep and
         # hope it's long enough.
-        time.sleep(1)
+        time.sleep(1.1)
         with lock:
             print("thread doing ki_self()")
             ki_self()
