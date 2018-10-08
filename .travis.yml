@@ -43,5 +43,4 @@ script:
 
 branches:
   except:
-    - /^pyup-.*/
     - /^dependabot/.*/
