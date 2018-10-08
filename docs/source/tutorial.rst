@@ -477,13 +477,13 @@ Ok! Let's try running it and see what we get:
    parent: all done!
 
 (Your output might have the order of the "started" and/or "exiting"
-lines swapped compared to to mine.)
+lines swapped compared to mine.)
 
 Notice that ``child1`` and ``child2`` both start together and then
-both exit together, and that the whole program only takes 1 second to
-run, even though we made two calls to ``trio.sleep(1)``, which should
-take two seconds in total. So it looks like ``child1`` and ``child2``
-really are running at the same time!
+both exit together. And, even though we made two calls to
+``trio.sleep(1)``, the program finished in just one second total.
+So it looks like ``child1`` and ``child2`` really are running at the
+same time!
 
 Now, if you're familiar with programming using threads, this might
 look familiar – and that's intentional. But it's important to realize
@@ -600,7 +600,7 @@ suddenly we're back in :func:`trio.run` deciding what to run next. How
 does this happen? The secret is that :func:`trio.run` and
 :func:`trio.sleep` work together to make it happen: :func:`trio.sleep`
 has access to some special magic that lets it pause its entire
-callstack, so it sends a note to :func:`trio.run` requesting to be
+call stack, so it sends a note to :func:`trio.run` requesting to be
 woken again after 1 second, and then suspends the task. And once the
 task is suspended, Python gives control back to :func:`trio.run`,
 which decides what to do next. (If this sounds similar to the way that
@@ -760,11 +760,11 @@ restricts parallelism. Of course it would be nice if Python had better
 options for taking advantage of multiple cores, but that's an
 extremely difficult problem to solve, and in the meantime there are
 lots of problems where a single core is totally adequate – or where if
-it isn't, then process- or machine-level parallelism works fine.
+it isn't, then process-level or machine-level parallelism works fine.
 
 No, the problem with the GIL is that it's a *lousy deal*: we give up
 on using multiple cores, and in exchange we get... almost all the same
-challenges and mind bending bugs that come with real parallel
+challenges and mind-bending bugs that come with real parallel
 programming, and – to add insult to injury – `pretty poor scalability
 <https://twitter.com/hynek/status/771790449057132544>`__. Threads in
 Python just aren't that appealing.
@@ -876,7 +876,7 @@ the server. ``127.0.0.1`` is a magic `IP address
 <https://en.wikipedia.org/wiki/IP_address>`__ meaning "the computer
 I'm running on", so this connects us to whatever program on the local
 computer is using ``PORT`` as its contact point. This function returns
-a object implementing Trio's :class:`~trio.abc.Stream` interface,
+an object implementing Trio's :class:`~trio.abc.Stream` interface,
 which gives us methods to send and receive bytes, and to close the
 connection when we're done. We use an ``async with`` block to make
 sure that we do close the connection – not a big deal in a toy example
@@ -986,7 +986,7 @@ think it's plausible there might be unexpected exceptions, and we want
 to isolate that to making just this one task crash, without taking
 down the whole program. For example, if the client closes the
 connection at the wrong moment then it's possible this code will end
-up calling ``send_all`` on a closed connection and get an
+up calling ``send_all`` on a closed connection and get a
 :exc:`BrokenResourceError`; that's unfortunate, and in a more serious
 program we might want to handle it more explicitly, but it doesn't
 indicate a problem for any *other* connections. On the other hand, if
