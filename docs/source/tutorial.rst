@@ -480,10 +480,10 @@ Ok! Let's try running it and see what we get:
 lines swapped compared to mine.)
 
 Notice that ``child1`` and ``child2`` both start together and then
-both exit together and that the whole program only takes 1 second to
-run, even though we made two calls to ``trio.sleep(1)``, which should
-take two seconds in total. So it looks like ``child1`` and ``child2``
-really are running at the same time!
+both exit together. And, even though we made two calls to
+``trio.sleep(1)``, the program finished in just one second total.
+So it looks like ``child1`` and ``child2`` really are running at the
+same time!
 
 Now, if you're familiar with programming using threads, this might
 look familiar – and that's intentional. But it's important to realize
