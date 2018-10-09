@@ -157,6 +157,7 @@ html_theme_options = {
     # versions/settings...
     "navigation_depth": 4,
     "logo_only": True,
+    'prev_next_buttons_location': 'both'
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
