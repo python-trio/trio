@@ -1,5 +1,6 @@
 import operator
 from collections import deque, OrderedDict
+import math
 
 import attr
 import outcome
@@ -199,8 +200,8 @@ class CapacityLimiter:
 
     @total_tokens.setter
     def total_tokens(self, new_total_tokens):
-        if not isinstance(new_total_tokens, int):
-            raise TypeError("total_tokens must be an int")
+        if not isinstance(new_total_tokens, int) and new_total_tokens != math.inf:
+            raise TypeError("total_tokens must be an int or math.inf")
         if new_total_tokens < 1:
             raise ValueError("total_tokens must be >= 1")
         self._total_tokens = new_total_tokens
