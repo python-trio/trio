@@ -17,7 +17,7 @@ try:
 except ImportError:
     TYPE_CHECKING = True  # Not precise but only for python 3.5.0
 if TYPE_CHECKING:
-    from _stdlib_socket import (
+    from socket import (
         CMSG_LEN, CMSG_SPACE, CAPI, AF_UNSPEC, AF_INET, AF_UNIX, AF_IPX,
         AF_APPLETALK, AF_INET6, AF_ROUTE, AF_LINK, AF_SNA, PF_SYSTEM,
         AF_SYSTEM, SOCK_STREAM, SOCK_DGRAM, SOCK_RAW, SOCK_SEQPACKET, SOCK_RDM,
