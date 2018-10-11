@@ -12,7 +12,10 @@ import sys as _sys
 # expose all uppercase names from standardlib socket to trio.socket
 import socket as _stdlib_socket
 
-from typing import TYPE_CHECKING
+try:
+    from typing import TYPE_CHECKING
+except ImportError:
+    TYPE_CHECKING = True  # Not precise but only for python 3.5.0
 if TYPE_CHECKING:
     from _stdlib_socket import (
         CMSG_LEN, CMSG_SPACE, CAPI, AF_UNSPEC, AF_INET, AF_UNIX, AF_IPX,
@@ -104,7 +107,9 @@ if _sys.platform == 'win32':
     del SO_REUSEADDR
 
 # get names used by trio that we define on our own
-if not IPPROTO_IPV6:
+try:
+    IPPROTO_IPV6
+except NameError:
     from ._socket import IPPROTO_IPV6
 
 # Not defined in all python versions and platforms but sometimes needed
