@@ -15,7 +15,14 @@ import socket as _stdlib_socket
 try:
     from typing import TYPE_CHECKING
 except ImportError:
-    TYPE_CHECKING = True  # Not precise but only for python 3.5.0
+    TYPE_CHECKING = True  # Workaround for TYPE_CHECKING missing in python 3.5.0
+    from typing import Text
+    try:
+        Text
+        TYPE_CHECKING = False
+        del Text
+    except NameError:
+        pass
 if TYPE_CHECKING:
     from socket import (
         CMSG_LEN, CMSG_SPACE, CAPI, AF_UNSPEC, AF_INET, AF_UNIX, AF_IPX,
