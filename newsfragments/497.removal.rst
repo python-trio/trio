@@ -1,2 +1,0 @@
-``trio.Queue`` and ``trio.hazmat.UnboundedQueue`` have been
-deprecated, in favor of :func:`trio.open_memory_channel`.
