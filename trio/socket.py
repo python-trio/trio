@@ -9,13 +9,11 @@
 from . import _socket
 import sys as _sys
 
-# expose all uppercase names from standardlib socket to trio.socket
-import socket as _stdlib_socket
-
 try:
     from typing import TYPE_CHECKING
 except ImportError:
-    TYPE_CHECKING = True  # Workaround for TYPE_CHECKING missing in python 3.5.0
+    # Workaround for TYPE_CHECKING missing in python 3.5.0
+    TYPE_CHECKING = True  # pragma: no cover
     from typing import _G_base
     try:
         _G_base
@@ -59,16 +57,18 @@ if TYPE_CHECKING:
         AI_NUMERICHOST, AI_NUMERICSERV, AI_MASK, AI_ALL, AI_V4MAPPED_CFG,
         AI_ADDRCONFIG, AI_V4MAPPED, AI_DEFAULT, NI_MAXHOST, NI_MAXSERV,
         NI_NOFQDN, NI_NUMERICHOST, NI_NAMEREQD, NI_NUMERICSERV, NI_DGRAM,
-        SHUT_RD, SHUT_WR, SHUT_RDWR, EBADF, EAGAIN, EWOULDBLOCK, _LOCALHOST,
-        _LOCALHOST_V6, _GLOBAL_DEFAULT_TIMEOUT
+        SHUT_RD, SHUT_WR, SHUT_RDWR, EBADF, EAGAIN, EWOULDBLOCK
     )
 del TYPE_CHECKING
+
+# expose all uppercase names from standardlib socket to trio.socket
+import socket as _stdlib_socket
 
 globals().update(
     {
         _name: _value
         for (_name, _value) in _stdlib_socket.__dict__.items()
-        if _name.isupper()
+        if _name.isupper() and not _name.startswith('_')
     }
 )
 
