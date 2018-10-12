@@ -16,11 +16,11 @@ try:
     from typing import TYPE_CHECKING
 except ImportError:
     TYPE_CHECKING = True  # Workaround for TYPE_CHECKING missing in python 3.5.0
-    from typing import Text
+    from typing import _G_base
     try:
-        Text
+        _G_base
         TYPE_CHECKING = False
-        del Text
+        del _G_base
     except NameError:
         pass
 if TYPE_CHECKING:
