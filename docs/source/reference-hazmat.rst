@@ -552,3 +552,40 @@ Task API
       used to share data between the different tasks involved in
       putting a task to sleep and then waking it up again. (See
       :func:`wait_task_rescheduled` for details.)
+
+
+.. live-coroutine-handoff::
+
+Handing off live coroutine objects between coroutine runners
+------------------------------------------------------------
+
+Internally, Python's async/await syntax is built around the idea of
+"coroutine objects" and "coroutine runners". A coroutine object
+represents the state of an async callstack. To actually run this
+callstack, a coroutine runner has to advance the coroutine object.
+Every Trio task has an associated coroutine object (see
+:data:`Task.coro`), and the Trio scheduler acts as a coroutine runner
+for them.
+
+But of course, Trio isn't the only coroutine runner in Python –
+:mod:`asyncio` has one, other event loops have them, you can even
+define your own.
+
+And in some very, very unusual circumstances, it even makes sense to
+transfer a single coroutine object back and forth between different
+coroutine runners. That's what this section is about. This is an
+*extremely* exotic use case, and assumes a lot of expertise in how
+Python async/await works internally. For motivating examples, see
+`trio-asyncio issue #42
+<https://github.com/python-trio/trio-asyncio/issues/42>`__, and `trio
+issue #649 <https://github.com/python-trio/trio/issues/649>`__. For
+more details on how coroutines work, we recommend André Caron's `A
+tale of event loops
+<https://github.com/AndreLouisCaron/a-tale-of-event-loops>`__, or
+going
+
+.. autofunction:: permanently_detach_coroutine_object
+
+.. autofunction:: temporarily_detach_coroutine_object
+
+.. autofunction:: reattach_detached_coroutine_object
