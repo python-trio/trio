@@ -5,6 +5,34 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.9.0 (2018-10-12)
+-----------------------
+
+Features
+~~~~~~~~
+
+- New and improved APIs for inter-task communication:
+  :class:`trio.abc.SendChannel`, :class:`trio.abc.ReceiveChannel`, and
+  :func:`trio.open_memory_channel` (which replaces ``trio.Queue``). This
+  interface uses separate "send" and "receive" methods, for consistency with
+  other communication interfaces like :class:`~trio.abc.Stream`. Also, the two
+  objects can now be closed individually, making it much easier to gracefully
+  shut down a channel. Also, check out the nifty ``clone`` API to make it easy
+  to manage fan-in scenarios. Also, the API has been written to allow for
+  future channel-like objects that send objects across process boundaries.
+  Also, it supports unbounded buffering if you really need it. Also, help I
+  can't stop writing also. See :ref:`channels` for more details. (`#497
+  <https://github.com/python-trio/trio/issues/497>`__)
+
+
+Deprecations and Removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- ``trio.Queue`` and ``trio.hazmat.UnboundedQueue`` have been deprecated, in
+  favor of :func:`trio.open_memory_channel`. (`#497
+  <https://github.com/python-trio/trio/issues/497>`__)
+
+
 Trio 0.8.0 (2018-10-01)
 -----------------------
 
