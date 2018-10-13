@@ -561,11 +561,11 @@ Handing off live coroutine objects between coroutine runners
 
 Internally, Python's async/await syntax is built around the idea of
 "coroutine objects" and "coroutine runners". A coroutine object
-represents the state of an async callstack. To actually run this
-callstack, a coroutine runner has to advance the coroutine object.
-Every Trio task has an associated coroutine object (see
-:data:`Task.coro`), and the Trio scheduler acts as a coroutine runner
-for them.
+represents the state of an async callstack. But by itself, this is
+just a static object that sits there. If you want it to do anything,
+you need a coroutine runner to push it forward. Every Trio task has an
+associated coroutine object (see :data:`Task.coro`), and the Trio
+scheduler acts as their coroutine runner.
 
 But of course, Trio isn't the only coroutine runner in Python –
 :mod:`asyncio` has one, other event loops have them, you can even
@@ -582,7 +582,8 @@ issue #649 <https://github.com/python-trio/trio/issues/649>`__. For
 more details on how coroutines work, we recommend André Caron's `A
 tale of event loops
 <https://github.com/AndreLouisCaron/a-tale-of-event-loops>`__, or
-going
+going straight to `PEP 492
+<https://www.python.org/dev/peps/pep-0492/>`__ for the full details.
 
 .. autofunction:: permanently_detach_coroutine_object
 
