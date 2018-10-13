@@ -13,14 +13,7 @@ try:
     from typing import TYPE_CHECKING
 except ImportError:
     # Workaround for TYPE_CHECKING missing in python 3.5.0
-    TYPE_CHECKING = True  # pragma: no cover
-    from typing import _G_base
-    try:
-        _G_base
-        TYPE_CHECKING = False
-        del _G_base
-    except NameError:
-        pass
+    TYPE_CHECKING = False  # pragma: no cover
 if TYPE_CHECKING:
     from socket import (
         CMSG_LEN, CMSG_SPACE, CAPI, AF_UNSPEC, AF_INET, AF_UNIX, AF_IPX,
