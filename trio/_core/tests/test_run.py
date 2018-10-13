@@ -2064,7 +2064,7 @@ async def test_permanently_detach_coroutine_object():
         task.coro.send(None)
 
     async def bad_detach():
-        async with _core.open_nursery() as nursery:
+        async with _core.open_nursery():
             with pytest.raises(RuntimeError) as excinfo:
                 await _core.permanently_detach_coroutine_object(
                     outcome.Value(None)
