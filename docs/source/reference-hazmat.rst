@@ -554,7 +554,7 @@ Task API
       :func:`wait_task_rescheduled` for details.)
 
 
-.. live-coroutine-handoff::
+.. _live-coroutine-handoff:
 
 Handing off live coroutine objects between coroutine runners
 ------------------------------------------------------------
