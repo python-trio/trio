@@ -14,14 +14,16 @@ Features
 - New and improved APIs for inter-task communication:
   :class:`trio.abc.SendChannel`, :class:`trio.abc.ReceiveChannel`, and
   :func:`trio.open_memory_channel` (which replaces ``trio.Queue``). This
-  interface uses separate "send" and "receive" methods, for consistency with
-  other communication interfaces like :class:`~trio.abc.Stream`. Also, the two
-  objects can now be closed individually, making it much easier to gracefully
-  shut down a channel. Also, check out the nifty ``clone`` API to make it easy
-  to manage fan-in scenarios. Also, the API has been written to allow for
-  future channel-like objects that send objects across process boundaries.
-  Also, it supports unbounded buffering if you really need it. Also, help I
-  can't stop writing also. See :ref:`channels` for more details. (`#497
+  interface uses separate "sender" and "receiver" objects, for
+  consistency with other communication interfaces like
+  :class:`~trio.abc.Stream`. Also, the two objects can now be closed
+  individually, making it much easier to gracefully shut down a channel.
+  Also, check out the nifty ``clone`` API to make it easy to manage
+  shutdown in multiple-producer/multiple-consumer scenarios. Also, the
+  API has been written to allow for future channel implementations that
+  send objects across process boundaries. Also, it supports unbounded
+  buffering if you really need it. Also, help I can't stop writing also.
+  See :ref:`channels` for more details. (`#497
   <https://github.com/python-trio/trio/issues/497>`__)
 
 
