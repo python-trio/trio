@@ -102,6 +102,15 @@ try:
     )
 except ImportError:
     pass
+
+try:
+    from socket import (
+        MSG_BCAST, MSG_MCAST, RCVALL_MAX, RCVALL_OFF, RCVALL_ON,
+        RCVALL_SOCKETLEVELONLY, SIO_KEEPALIVE_VALS, SIO_LOOPBACK_FAST_PATH,
+        SIO_RCVALL, SO_EXCLUSIVEADDRUSE
+    )
+except ImportError:
+    pass
 # expose all uppercase names from standardlib socket to trio.socket
 import socket as _stdlib_socket
 

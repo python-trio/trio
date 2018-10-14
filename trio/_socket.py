@@ -148,6 +148,15 @@ if TYPE_CHECKING:  # pragma: no cover
         )
     except ImportError:
         pass
+
+    try:
+        from socket import (
+            MSG_BCAST, MSG_MCAST, RCVALL_MAX, RCVALL_OFF, RCVALL_ON,
+            RCVALL_SOCKETLEVELONLY, SIO_KEEPALIVE_VALS, SIO_LOOPBACK_FAST_PATH,
+            SIO_RCVALL, SO_EXCLUSIVEADDRUSE
+        )
+    except ImportError:
+        pass
 del TYPE_CHECKING
 
 try:
