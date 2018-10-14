@@ -10,12 +10,7 @@ from . import _socket
 import sys as _sys
 
 try:
-    from typing import TYPE_CHECKING
-except ImportError:
-    # Workaround for TYPE_CHECKING missing in python 3.5.0
-    TYPE_CHECKING = False
-if TYPE_CHECKING:  # pragma: no cover
-    from socket import (
+        from ._socket import (
         CMSG_LEN, CMSG_SPACE, CAPI, AF_UNSPEC, AF_INET, AF_UNIX, AF_IPX,
         AF_APPLETALK, AF_INET6, AF_ROUTE, AF_LINK, AF_SNA, PF_SYSTEM,
         AF_SYSTEM, SOCK_STREAM, SOCK_DGRAM, SOCK_RAW, SOCK_SEQPACKET, SOCK_RDM,
@@ -51,8 +46,9 @@ if TYPE_CHECKING:  # pragma: no cover
         AI_ADDRCONFIG, AI_V4MAPPED, AI_DEFAULT, NI_MAXHOST, NI_MAXSERV,
         NI_NOFQDN, NI_NUMERICHOST, NI_NAMEREQD, NI_NUMERICSERV, NI_DGRAM,
         SHUT_RD, SHUT_WR, SHUT_RDWR, EBADF, EAGAIN, EWOULDBLOCK
-    )
-del TYPE_CHECKING
+        )
+except ImportError:
+    pass
 
 # expose all uppercase names from standardlib socket to trio.socket
 import socket as _stdlib_socket

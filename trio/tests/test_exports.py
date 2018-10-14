@@ -41,12 +41,24 @@ def test_pylint_sees_all_non_underscore_symbols_in_namespace():
     assert trio_set - ast_set == set([])
 
 
-def test_jedi_sees_all_completions():
+def test_jedi_sees_all_trio_completions():
     # Test the jedi completion library get all in dir(trio)
     try:
         script = jedi.Script("import trio; trio.")
         completions = script.completions()
         trio_set = set([symbol for symbol in dir(trio) if symbol[:2] != '__'])
+        jedi_set = set([cmp.name for cmp in completions])
+        assert trio_set - jedi_set == set([])
+    except NotImplementedError:
+        pytest.skip("jedi does not yet support {}".format(sys.version))
+
+
+def test_jedi_sees_all_trio_socket_completions():
+    # Test the jedi completion library get all in dir(trio)
+    try:
+        script = jedi.Script("import trio.socket; trio.socket.")
+        completions = script.completions()
+        trio_set = set([symbol for symbol in dir(trio.socket) if symbol[:2] != '__'])
         jedi_set = set([cmp.name for cmp in completions])
         assert trio_set - jedi_set == set([])
     except NotImplementedError:
