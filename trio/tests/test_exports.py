@@ -58,7 +58,9 @@ def test_jedi_sees_all_trio_socket_completions():
     try:
         script = jedi.Script("import trio.socket; trio.socket.")
         completions = script.completions()
-        trio_set = set([symbol for symbol in dir(trio.socket) if symbol[:2] != '__'])
+        trio_set = set(
+            [symbol for symbol in dir(trio.socket) if symbol[:2] != '__']
+        )
         jedi_set = set([cmp.name for cmp in completions])
         assert trio_set - jedi_set == set([])
     except NotImplementedError:
