@@ -62,7 +62,7 @@ def test_jedi_sees_all_trio_completions():
         trio_set = set([symbol for symbol in dir(trio) if symbol[:2] != '__'])
         jedi_set = set([cmp.name for cmp in completions])
         assert trio_set - jedi_set == set([])
-    except NotImplementedError:  # pragma : no cover
+    except NotImplementedError:  # pragma: no cover
         pytest.skip("jedi does not yet support {}".format(sys.version))
 
 
@@ -76,5 +76,5 @@ def test_jedi_sees_all_trio_socket_completions():
         )
         jedi_set = set([cmp.name for cmp in completions])
         assert trio_set - jedi_set == set([])
-    except NotImplementedError:  # pragma : no cover
+    except NotImplementedError:  # pragma: no cover
         pytest.skip("jedi does not yet support {}".format(sys.version))
