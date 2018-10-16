@@ -4,6 +4,7 @@ import platform
 import sys
 import threading
 import time
+import types
 import warnings
 from contextlib import contextmanager
 from math import inf
@@ -2015,3 +2016,138 @@ async def test_Task_custom_sleep_data():
     assert task.custom_sleep_data == 1
     await _core.checkpoint()
     assert task.custom_sleep_data is None
+
+
+@types.coroutine
+def async_yield(value):
+    yield value
+
+
+async def test_permanently_detach_coroutine_object():
+    task = None
+    pdco_outcome = None
+
+    async def detachable_coroutine(task_outcome, yield_value):
+        await sleep(0)
+        nonlocal task, pdco_outcome
+        task = _core.current_task()
+        pdco_outcome = await outcome.acapture(
+            _core.permanently_detach_coroutine_object, task_outcome
+        )
+        await async_yield(yield_value)
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(
+            detachable_coroutine, outcome.Value(None), "I'm free!"
+        )
+
+    # If we get here then Trio thinks the task has exited... but the coroutine
+    # is still iterable
+    assert pdco_outcome is None
+    assert task.coro.send("be free!") == "I'm free!"
+    assert pdco_outcome == outcome.Value("be free!")
+    with pytest.raises(StopIteration):
+        task.coro.send(None)
+
+    # Check the exception paths too
+    task = None
+    pdco_outcome = None
+    with pytest.raises(KeyError):
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(
+                detachable_coroutine, outcome.Error(KeyError()), "uh oh"
+            )
+    throw_in = ValueError()
+    assert task.coro.throw(throw_in) == "uh oh"
+    assert pdco_outcome == outcome.Error(throw_in)
+    with pytest.raises(StopIteration):
+        task.coro.send(None)
+
+    async def bad_detach():
+        async with _core.open_nursery():
+            with pytest.raises(RuntimeError) as excinfo:
+                await _core.permanently_detach_coroutine_object(
+                    outcome.Value(None)
+                )
+            assert "open nurser" in str(excinfo.value)
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(bad_detach)
+
+
+async def test_detach_and_reattach_coroutine_object():
+    unrelated_task = None
+    task = None
+
+    async def unrelated_coroutine():
+        nonlocal unrelated_task
+        unrelated_task = _core.current_task()
+
+    async def reattachable_coroutine():
+        await sleep(0)
+
+        nonlocal task
+        task = _core.current_task()
+
+        def abort_fn(_):  # pragma: no cover
+            return _core.Abort.FAILED
+
+        got = await _core.temporarily_detach_coroutine_object(abort_fn)
+        assert got == "not trio!"
+
+        await async_yield(1)
+        await async_yield(2)
+
+        with pytest.raises(RuntimeError) as excinfo:
+            await _core.reattach_detached_coroutine_object(
+                unrelated_task, None
+            )
+        assert "does not match" in str(excinfo.value)
+
+        await _core.reattach_detached_coroutine_object(task, "byebye")
+
+        await sleep(0)
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(unrelated_coroutine)
+        nursery.start_soon(reattachable_coroutine)
+        await wait_all_tasks_blocked()
+        assert unrelated_task is not None
+        assert task is not None
+
+        # Okay, it's detached. Here's our coroutine runner:
+        assert task.coro.send("not trio!") == 1
+        assert task.coro.send(None) == 2
+        assert task.coro.send(None) == "byebye"
+
+        # Now it's been reattached, and we can leave the nursery
+
+
+async def test_detached_coroutine_cancellation():
+    abort_fn_called = False
+    task = None
+
+    async def reattachable_coroutine():
+        await sleep(0)
+
+        nonlocal task
+        task = _core.current_task()
+
+        def abort_fn(_):
+            nonlocal abort_fn_called
+            abort_fn_called = True
+            return _core.Abort.FAILED
+
+        await _core.temporarily_detach_coroutine_object(abort_fn)
+        await _core.reattach_detached_coroutine_object(task, None)
+        with pytest.raises(_core.Cancelled):
+            await sleep(0)
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(reattachable_coroutine)
+        await wait_all_tasks_blocked()
+        assert task is not None
+        nursery.cancel_scope.cancel()
+        task.coro.send(None)
+
+    assert abort_fn_called

@@ -39,6 +39,9 @@ __all__ = [
     "notify_socket_close",
     "TrioToken",
     "current_trio_token",
+    "temporarily_detach_coroutine_object",
+    "permanently_detach_coroutine_object",
+    "reattach_detached_coroutine_object",
     # kqueue symbols
     "current_kqueue",
     "monitor_kevent",

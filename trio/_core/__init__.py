@@ -21,14 +21,19 @@ from ._exceptions import (
 
 from ._multierror import MultiError
 
-from ._traps import cancel_shielded_checkpoint, Abort, wait_task_rescheduled
-
 from ._ki import (
     enable_ki_protection, disable_ki_protection, currently_ki_protected
 )
 
 # TODO:  make the _run namespace a lot less magical
 from ._run import *
+
+# Has to come after _run to resolve a circular import
+from ._traps import (
+    cancel_shielded_checkpoint, Abort, wait_task_rescheduled,
+    temporarily_detach_coroutine_object, permanently_detach_coroutine_object,
+    reattach_detached_coroutine_object
+)
 
 from ._entry_queue import TrioToken
 

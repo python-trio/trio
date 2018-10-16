@@ -31,6 +31,7 @@ from ._traps import (
     Abort,
     wait_task_rescheduled,
     CancelShieldedCheckpoint,
+    PermanentlyDetachCoroutineObject,
     WaitTaskRescheduled,
 )
 from .. import _core
@@ -1481,6 +1482,9 @@ def run_impl(runner, async_fn, args):
                     if runner.ki_pending and task is runner.main_task:
                         task._attempt_delivery_of_pending_ki()
                     task._attempt_delivery_of_any_pending_cancel()
+                elif type(msg) is PermanentlyDetachCoroutineObject:
+                    # Pretend the task just exited with the given outcome
+                    runner.task_exited(task, msg.final_outcome)
                 else:
                     exc = TypeError(
                         "trio.run received unrecognized yield message {!r}. "

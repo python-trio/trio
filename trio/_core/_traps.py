@@ -1,12 +1,13 @@
-# These are the only 2 functions that ever yield back to the task runner.
+# These are the only functions that ever yield back to the task runner.
 
 import types
 import enum
 from functools import wraps
 
 import attr
+import outcome
 
-__all__ = ["cancel_shielded_checkpoint", "Abort", "wait_task_rescheduled"]
+from . import _run
 
 
 # Helper for the bottommost 'yield'. You can't use 'yield' inside an async
@@ -163,3 +164,107 @@ async def wait_task_rescheduled(abort_func):
 
     """
     return (await _async_yield(WaitTaskRescheduled(abort_func))).unwrap()
+
+
+# Not exported in the trio._core namespace, but imported directly by _run.
+@attr.s(frozen=True)
+class PermanentlyDetachCoroutineObject:
+    final_outcome = attr.ib()
+
+
+async def permanently_detach_coroutine_object(final_outcome):
+    """Permanently detach the current task from the Trio scheduler.
+
+    Normally, a Trio task doesn't exit until its coroutine object exits. When
+    you call this function, Trio acts like the coroutine object just exited
+    and the task terminates with the given outcome. This is useful if you want
+    to permanently switch the coroutine object over to a different coroutine
+    runner.
+
+    When the calling coroutine enters this function it's running under Trio,
+    and when the function returns it's running under the foreign coroutine
+    runner.
+
+    You should make sure that the coroutine object has released any
+    Trio-specific resources it has acquired (e.g. nurseries).
+
+    Args:
+      final_outcome (outcome.Outcome): Trio acts as if the current task exited
+          with the given return value or exception.
+
+    Returns or raises whatever value or exception the new coroutine runner
+    uses to resume the coroutine.
+
+    """
+    if _run.current_task().child_nurseries:
+        raise RuntimeError(
+            "can't permanently detach a coroutine object with open nurseries"
+        )
+    return await _async_yield(PermanentlyDetachCoroutineObject(final_outcome))
+
+
+async def temporarily_detach_coroutine_object(abort_func):
+    """Temporarily detach the current coroutine object from the Trio
+    scheduler.
+
+    When the calling coroutine enters this function it's running under Trio,
+    and when the function returns it's running under the foreign coroutine
+    runner.
+
+    The Trio :class:`Task` will continue to exist, but will be suspended until
+    you use :func:`reattach_detached_coroutine_object` to resume it. In the
+    mean time, you can use another coroutine runner to schedule the coroutine
+    object. In fact, you have to – the function doesn't return until the
+    coroutine is advanced from outside.
+
+    Note that you'll need to save the current :class:`Task` object to later
+    resume; you can retrieve it with :func:`current_task`. You can also use
+    this :class:`Task` object to retrieve the coroutine object – see
+    :data:`Task.coro`.
+
+    Args:
+      abort_func: Same as for :func:`wait_task_rescheduled`, except that it
+          must return :data:`Abort.FAILED`. (If it returned
+          :data:`Abort.SUCCEEDED`, then Trio would attempt to reschedule the
+          detached task directly without going through
+          :func:`reattach_detached_coroutine_object`, which would be bad.)
+          Your ``abort_func`` should still arrange for whatever the coroutine
+          object is doing to be cancelled, and then reattach to Trio and call
+          the ``raise_cancel`` callback, if possible.
+
+    Returns or raises whatever value or exception the new coroutine runner
+    uses to resume the coroutine.
+
+    """
+    return await _async_yield(WaitTaskRescheduled(abort_func))
+
+
+async def reattach_detached_coroutine_object(task, yield_value):
+    """Reattach a coroutine object that was detached using
+    :func:`temporarily_detach_coroutine_object`.
+
+    When the calling coroutine enters this function it's running under the
+    foreign coroutine runner, and when the function returns it's running under
+    Trio.
+
+    This must be called from inside the coroutine being resumed, and yields
+    whatever value you pass in. (Presumably you'll pass a value that will
+    cause the current coroutine runner to stop scheduling this task.) Then the
+    coroutine is resumed by the Trio scheduler at the next opportunity.
+
+    Args:
+      task (Task): The Trio task object that the current coroutine was
+          detached from.
+      yield_value (object): The object to yield to the current coroutine
+          runner.
+
+    """
+    # This is a kind of crude check – in particular, it can fail if the
+    # passed-in task is where the coroutine *runner* is running. But this is
+    # an experts-only interface, and there's no easy way to do a more accurate
+    # check, so I guess that's OK.
+    if not task.coro.cr_running:
+        raise RuntimeError("given task does not match calling coroutine")
+    _run.reschedule(task, outcome.Value("reattaching"))
+    value = await _async_yield(yield_value)
+    assert value == outcome.Value("reattaching")
