@@ -2075,7 +2075,7 @@ async def test_permanently_detach_coroutine_object():
         nursery.start_soon(bad_detach)
 
 
-async def test_attach_and_reattach_coroutine_object():
+async def test_detach_and_reattach_coroutine_object():
     unrelated_task = None
     task = None
 
@@ -2121,3 +2121,33 @@ async def test_attach_and_reattach_coroutine_object():
         assert task.coro.send(None) == "byebye"
 
         # Now it's been reattached, and we can leave the nursery
+
+
+async def test_detached_coroutine_cancellation():
+    abort_fn_called = False
+    task = None
+
+    async def reattachable_coroutine():
+        await sleep(0)
+
+        nonlocal task
+        task = _core.current_task()
+
+        def abort_fn(_):
+            nonlocal abort_fn_called
+            abort_fn_called = True
+            return _core.Abort.FAILED
+
+        await _core.temporarily_detach_coroutine_object(abort_fn)
+        await _core.reattach_detached_coroutine_object(task, None)
+        with pytest.raises(_core.Cancelled):
+            await sleep(0)
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(reattachable_coroutine)
+        await wait_all_tasks_blocked()
+        assert task is not None
+        nursery.cancel_scope.cancel()
+        task.coro.send(None)
+
+    assert abort_fn_called
