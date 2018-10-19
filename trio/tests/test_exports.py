@@ -41,7 +41,20 @@ def test_pylint_sees_all_non_underscore_symbols_in_namespace():
     assert trio_set - ast_set == set([])
 
 
-def test_jedi_sees_all_completions():
+@pytest.mark.skipif(
+    sys.version_info.releaselevel == "alpha",
+    reason="skip pylint on in-development Python",
+)
+def test_pylint_sees_all_non_underscore_symbols_for_trio_socket_in_namespace():
+    # Test pylints ast to contain the same content as dir(trio)
+    from pylint.lint import PyLinter
+    linter = PyLinter()
+    ast_set = set(linter.get_ast(trio.socket.__file__, 'trio.socket'))
+    trio_set = set([symbol for symbol in dir(trio.socket) if symbol[0] != '_'])
+    assert trio_set - ast_set == set([])
+
+
+def test_jedi_sees_all_trio_completions():
     # Test the jedi completion library get all in dir(trio)
     try:
         script = jedi.Script("import trio; trio.")
@@ -49,5 +62,19 @@ def test_jedi_sees_all_completions():
         trio_set = set([symbol for symbol in dir(trio) if symbol[:2] != '__'])
         jedi_set = set([cmp.name for cmp in completions])
         assert trio_set - jedi_set == set([])
-    except NotImplementedError:
+    except NotImplementedError:  # pragma: no cover
+        pytest.skip("jedi does not yet support {}".format(sys.version))
+
+
+def test_jedi_sees_all_trio_socket_completions():
+    # Test the jedi completion library get all in dir(trio)
+    try:
+        script = jedi.Script("import trio.socket; trio.socket.")
+        completions = script.completions()
+        trio_set = set(
+            [symbol for symbol in dir(trio.socket) if symbol[:2] != '__']
+        )
+        jedi_set = set([cmp.name for cmp in completions])
+        assert trio_set - jedi_set == set([])
+    except NotImplementedError:  # pragma: no cover
         pytest.skip("jedi does not yet support {}".format(sys.version))
