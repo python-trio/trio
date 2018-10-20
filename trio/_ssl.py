@@ -228,6 +228,10 @@ class _Once:
         else:
             await self._done.wait()
 
+    @property
+    def done(self):
+        return self._done.is_set()
+
 
 _State = _Enum("_State", ["OK", "BROKEN", "CLOSED"])
 
@@ -390,8 +394,21 @@ class SSLStream(Stream):
         "version",
     }
 
+    _after_handshake = {
+        "get_channel_binding",
+        "selected_npn_protocol",
+        "selected_alpn_protocol",
+    }
+
     def __getattr__(self, name):
         if name in self._forwarded:
+            if name in self._after_handshake:
+                if not self._handshook.done:
+                    # TODO descrpitive error
+                    raise _core.NoHandshakeError('name', name, "state", self._state,\
+                    "handshake started", self._handshook.started, "handshake done", self._handshook.done)
+                    # if not self._handshook.done():
+                    #     raise _core.NoHandshakeError
             return getattr(self._ssl_object, name)
         else:
             raise AttributeError(name)
@@ -411,7 +428,7 @@ class SSLStream(Stream):
         elif self._state is _State.BROKEN:
             raise _core.BrokenResourceError
         elif self._state is _State.CLOSED:
-            raise _core.ClosedResourceError
+            raise _core.ClosedResourceError 
         else:  # pragma: no cover
             assert False
 

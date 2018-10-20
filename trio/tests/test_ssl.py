@@ -14,7 +14,7 @@ import trio
 from .. import _core
 from .._highlevel_socket import SocketStream, SocketListener
 from .._highlevel_generic import aclose_forcefully
-from .._core import ClosedResourceError, BrokenResourceError
+from .._core import ClosedResourceError, BrokenResourceError, NoHandshakeError
 from .._highlevel_open_tcp_stream import open_tcp_stream
 from .. import ssl as tssl
 from .. import socket as tsocket
@@ -1107,6 +1107,76 @@ async def test_receive_error_during_handshake():
     with pytest.raises(BrokenResourceError):
         with assert_checkpoints():
             await client.do_handshake()
+
+
+async def test_selected_alpn_protocol_before_handshake():
+    client, server = ssl_memory_stream_pair()
+
+    with pytest.raises(NoHandshakeError):
+        client.selected_alpn_protocol()
+        server.selected_alpn_protocol()
+
+
+async def test_selected_alpn_protocol_when_not_set():
+    # ALPN protocol still returns None when it's not ser,
+    # instead of raising an exception
+    client, server = ssl_memory_stream_pair()
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(client.do_handshake)
+        nursery.start_soon(server.do_handshake)
+
+    assert client.selected_alpn_protocol() is None
+    assert server.selected_alpn_protocol() is None
+
+    assert client.selected_alpn_protocol() == \
+        server.selected_alpn_protocol()
+
+
+async def test_selected_npn_protocol_before_handshake():
+    client, server = ssl_memory_stream_pair()
+
+    with pytest.raises(NoHandshakeError):
+        client.selected_npn_protocol()
+        server.selected_npn_protocol()
+
+
+async def test_selected_npn_protocol_when_not_set():
+    # NPN protocol still returns None when it's not ser,
+    # instead of raising an exception
+    client, server = ssl_memory_stream_pair()
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(client.do_handshake)
+        nursery.start_soon(server.do_handshake)
+
+    assert client.selected_npn_protocol() is None
+    assert server.selected_npn_protocol() is None
+
+    assert client.selected_npn_protocol() == \
+        server.selected_npn_protocol()
+
+
+async def test_get_channel_binding_before_handshake():
+    client, server = ssl_memory_stream_pair()
+
+    with pytest.raises(NoHandshakeError):
+        client.get_channel_binding()
+        server.get_channel_binding()
+
+
+async def test_get_channel_binding_after_handshake():
+    client, server = ssl_memory_stream_pair()
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(client.do_handshake)
+        nursery.start_soon(server.do_handshake)
+
+    assert client.get_channel_binding() is not None
+    assert server.get_channel_binding() is not None
+
+    assert client.get_channel_binding() == \
+        server.get_channel_binding()
 
 
 async def test_getpeercert():
