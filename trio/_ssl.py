@@ -402,13 +402,9 @@ class SSLStream(Stream):
 
     def __getattr__(self, name):
         if name in self._forwarded:
-            if name in self._after_handshake:
-                if not self._handshook.done:
-                    # TODO descrpitive error
-                    raise _core.NoHandshakeError('name', name, "state", self._state,\
-                    "handshake started", self._handshook.started, "handshake done", self._handshook.done)
-                    # if not self._handshook.done():
-                    #     raise _core.NoHandshakeError
+            if name in self._after_handshake and not self._handshook.done:
+                raise _core.NoHandshakeError
+
             return getattr(self._ssl_object, name)
         else:
             raise AttributeError(name)
