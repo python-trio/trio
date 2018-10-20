@@ -139,7 +139,7 @@ class NoHandshakeError(Exception):
     - ``selected_npn_protocol``: https://docs.python.org/3/library/ssl.html#ssl.SSLSocket.selected_npn_protocol
 
     Note that these methods might also return ``None```in other cases.
-    `
+
     In case of calling `selected_alpn_protocol`` and ``selected_npn_protocol``
     other cases of returning ``None`` are:
 
@@ -149,6 +149,7 @@ class NoHandshakeError(Exception):
     and in the case of ``get_channel_binding``:
 
     - If not connected.
+
     """
 
 

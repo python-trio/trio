@@ -424,7 +424,7 @@ class SSLStream(Stream):
         elif self._state is _State.BROKEN:
             raise _core.BrokenResourceError
         elif self._state is _State.CLOSED:
-            raise _core.ClosedResourceError 
+            raise _core.ClosedResourceError
         else:  # pragma: no cover
             assert False
 
