@@ -1,0 +1,5 @@
+This removes a check in the ``SocketStream`` constructor which was 
+making a call to ``getpeername`` method off of the trio socket object.
+This check was throwing an error in OSX due to an 
+`unreliable API <https://github.com/python-trio/trio/issues/609#issuecomment-414023026>`_
+in that platform. 
