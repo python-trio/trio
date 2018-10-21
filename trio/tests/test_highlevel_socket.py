@@ -24,11 +24,6 @@ async def test_SocketStream_basics():
         with pytest.raises(ValueError):
             SocketStream(sock)
 
-    # disconnected socket bad
-    with tsocket.socket() as sock:
-        with pytest.raises(ValueError):
-            SocketStream(sock)
-
     a, b = tsocket.socketpair()
     with a, b:
         s = SocketStream(a)
