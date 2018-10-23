@@ -1114,6 +1114,8 @@ async def test_selected_alpn_protocol_before_handshake():
 
     with pytest.raises(NoHandshakeError):
         client.selected_alpn_protocol()
+
+    with pytest.raises(NoHandshakeError):
         server.selected_alpn_protocol()
 
 
@@ -1138,6 +1140,8 @@ async def test_selected_npn_protocol_before_handshake():
 
     with pytest.raises(NoHandshakeError):
         client.selected_npn_protocol()
+
+    with pytest.raises(NoHandshakeError):
         server.selected_npn_protocol()
 
 
@@ -1162,6 +1166,8 @@ async def test_get_channel_binding_before_handshake():
 
     with pytest.raises(NoHandshakeError):
         client.get_channel_binding()
+
+    with pytest.raises(NoHandshakeError):
         server.get_channel_binding()
 
 
