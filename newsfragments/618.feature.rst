@@ -1,0 +1,1 @@
+Support unbounded CapacityLimiter when initializing with math.inf
