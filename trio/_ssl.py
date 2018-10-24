@@ -252,7 +252,15 @@ class SSLStream(Stream):
     You should read the standard library's :mod:`ssl` documentation carefully
     before attempting to use this class, and probably other general
     documentation on SSL/TLS as well. SSL/TLS is subtle and quick to
-    anger. Really. I'm not kidding.
+    anger. Really. I'm not kidding. 
+    
+    To illustrate the point with an example, some of the methods of the
+    :class:`~ssl.SSLContext` return ``None`` when no handshake is established.
+    To make it behave more explicitly, we decided to raise :exc:`trio.NoHandshakeError`
+    in the :meth:`get_channel_binding`, :meth:`selected_npn_protocol`
+    and :meth:`selected_alpn_protocol`, in case no handshake is established.
+    Note that these methods still return ``None`` in other cases, as detailed
+    in :exc:`trio.NoHandshakeError`.
 
     Args:
       transport_stream (~trio.abc.Stream): The stream used to transport
@@ -268,7 +276,7 @@ class SSLStream(Stream):
           <https://en.wikipedia.org/wiki/Server_Name_Indication>`__ and for
           validating the server's certificate (if hostname checking is
           enabled). This is effectively mandatory for clients, and actually
-          mandatory if ``ssl_context.check_hostname`` is True.
+          mandatory if ``ssl_context.check_hostname`` is ``True``.
 
       server_side (bool): Whether this stream is acting as a client or
           server. Defaults to False, i.e. client mode.
