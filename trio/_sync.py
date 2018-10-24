@@ -200,7 +200,9 @@ class CapacityLimiter:
 
     @total_tokens.setter
     def total_tokens(self, new_total_tokens):
-        if not isinstance(new_total_tokens, int) and new_total_tokens != math.inf:
+        if not isinstance(
+            new_total_tokens, int
+        ) and new_total_tokens != math.inf:
             raise TypeError("total_tokens must be an int or math.inf")
         if new_total_tokens < 1:
             raise ValueError("total_tokens must be >= 1")
