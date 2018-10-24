@@ -114,6 +114,7 @@ async def test_CapacityLimiter():
     c.release_on_behalf_of("value 3")
     c.release_on_behalf_of("value 1")
 
+
 async def test_CapacityLimiter_inf():
     from math import inf
     c = CapacityLimiter(inf)
@@ -127,6 +128,7 @@ async def test_CapacityLimiter_inf():
     c.acquire_nowait()
     assert c.borrowed_tokens == 1
     assert c.available_tokens == inf
+
 
 async def test_CapacityLimiter_change_total_tokens():
     c = CapacityLimiter(2)
