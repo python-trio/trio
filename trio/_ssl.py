@@ -259,7 +259,7 @@ class SSLStream(Stream):
     To make it behave more explicitly, we decided to raise `trio.core.NoHandshakeError`
     in the ``ssl.SSLStream.get_channel_binding``, ``ssl.SSLStream.selected_npn_protocol``
     and ``ssl.SSLStream.selected_alpn_protocol``, in case no handshake is established.
-    
+
     Note that these methods still return ``None`` in other cases, as detailed
     in ``trio.core.NoHandshakeError``.
 
