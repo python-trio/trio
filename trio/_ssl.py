@@ -257,8 +257,8 @@ class SSLStream(Stream):
     To illustrate the point with an example, some of the methods of the
     :class:`~ssl.SSLContext` return ``None`` when no handshake is established.
     To make it behave more explicitly, we decided to raise `trio.core.NoHandshakeError`
-    in the ``ssl.SSLStream.get_channel_binding``, ``ssl.SSLStream.selected_npn_protocol``
-    and ``ssl.SSLStream.selected_alpn_protocol``, in case no handshake is established.
+    in the :mod:`ssl` methods defined in ``_after_handshake``,
+    in case no handshake is established.
 
     Note that these methods still return ``None`` in other cases, as detailed
     in ``trio.core.NoHandshakeError``.
