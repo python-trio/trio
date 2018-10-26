@@ -10,7 +10,7 @@ yapf -rpd setup.py trio \
 
 # Run flake8 with lots of ignores (mostly import-related)
 flake8 trio/ \
-    --ignore=D,E201,E402,E501,E722,E741,F401,F403,F405,F821,F822,W503,W504 \
+    --ignore=D,E201,E402,E501,E722,E741,F401,F403,F405,F821,F822,W503 \
     || EXIT_STATUS=$?
 
 # Finally, leave a really clear warning of any issues and exit

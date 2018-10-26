@@ -674,7 +674,7 @@ class ReceiveChannel(AsyncResource):
 
     @abstractmethod
     def clone(self):
-        r"""Clone this receive channel object.
+        """Clone this receive channel object.
 
         This returns a new :class:`ReceiveChannel` object, which acts as a
         duplicate of the original: receiving on the new object does exactly
