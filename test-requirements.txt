@@ -13,7 +13,7 @@ cffi==1.11.5              # via cryptography
 coverage==4.5.1           # via pytest-cov
 cryptography==2.3.1       # via pyopenssl, trustme
 decorator==4.3.0          # via ipython, traitlets
-flake8==3.5.0
+flake8==3.6.0
 idna==2.7                 # via cryptography, trustme
 ipython-genutils==0.2.0   # via traitlets
 ipython==7.0.1
@@ -29,9 +29,9 @@ pluggy==0.8.0             # via pytest
 prompt-toolkit==2.0.6     # via ipython
 ptyprocess==0.6.0         # via pexpect
 py==1.7.0                 # via pytest
-pycodestyle==2.3.1        # via flake8
+pycodestyle==2.4.0        # via flake8
 pycparser==2.19           # via cffi
-pyflakes==1.6.0           # via flake8
+pyflakes==2.0.0           # via flake8
 pygments==2.2.0           # via ipython
 pylint==2.1.1
 pyopenssl==18.0.0
