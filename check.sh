@@ -8,9 +8,9 @@ EXIT_STATUS=0
 yapf -rpd setup.py trio \
     || EXIT_STATUS=$?
 
-# Run flake8 with lots of ignores (mostly import-related)
+# Run flake8 without pycodestyle and import-related errors
 flake8 trio/ \
-    --ignore=D,E201,E402,E501,E722,E741,F401,F403,F405,F821,F822,W503 \
+    --ignore=D,E,W,F401,F403,F405,F821,F822\
     || EXIT_STATUS=$?
 
 # Finally, leave a really clear warning of any issues and exit
