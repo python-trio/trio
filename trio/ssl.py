@@ -9,7 +9,7 @@ from ._ssl import (SSLStream, SSLListener, aclose_forcefully, ConflictDetector)
 
 # Fake import to enable static analysis tools to catch the names
 try:
-    from ._ssl import (
+    from ssl import (
         SSLError, SSLZeroReturnError, SSLSyscallError, SSLEOFError,
         CertificateError, create_default_context, match_hostname,
         cert_time_to_seconds, DER_cert_to_PEM_cert, PEM_cert_to_DER_cert,
