@@ -63,7 +63,7 @@ def test_pylint_sees_all_non_underscore_symbols_in_hazmat_namespace():
     from pylint.lint import PyLinter
     linter = PyLinter()
     ast_set = set(linter.get_ast(trio.hazmat.__file__, 'trio.hazmat'))
-    trio_set = set([symbol for symbol in dir(trio) if symbol[0] != '_'])
+    trio_set = set([symbol for symbol in dir(trio.hazmat) if symbol[0] != '_'])
     assert trio_set - ast_set == set([])
 
 
@@ -96,7 +96,7 @@ def test_jedi_sees_all_trio_socket_completions():
 def test_jedi_sees_all_trio_hazmat_completions():
     # Test the jedi completion library get all in dir(trio.hazmat)
     try:
-        script = jedi.Script("import trio.hazmat; trio.socket.hazmat")
+        script = jedi.Script("import trio.hazmat; trio.hazmat.")
         completions = script.completions()
         trio_set = set(
             [symbol for symbol in dir(trio.hazmat) if symbol[:2] != '__']
