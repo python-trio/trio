@@ -14,8 +14,8 @@ from ._core import (
     cancel_shielded_checkpoint, Abort, wait_task_rescheduled,
     enable_ki_protection, disable_ki_protection, currently_ki_protected, Task,
     checkpoint, current_task, ParkingLot, UnboundedQueue, RunVar,
-    wait_writable, wait_readable, notify_fd_close, wait_socket_readable,
-    wait_socket_writable, notify_socket_close, TrioToken, current_trio_token,
+    notify_fd_close, wait_socket_readable, wait_socket_writable,
+    notify_socket_close, TrioToken, current_trio_token,
     temporarily_detach_coroutine_object, permanently_detach_coroutine_object,
     reattach_detached_coroutine_object, current_statistics, reschedule,
     remove_instrument, add_instrument, current_clock, current_root_task,
@@ -32,7 +32,10 @@ try:
         current_iocp,
         register_with_iocp,
         wait_overlapped,
-        monitor_completion_key
+        monitor_completion_key,
+        # non windows symbols
+        wait_writable,
+        wait_readable,
     )
 except ImportError:
     pass
