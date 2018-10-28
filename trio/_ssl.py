@@ -159,7 +159,7 @@ from ._highlevel_generic import aclose_forcefully
 from . import _sync
 from ._util import ConflictDetector
 
-__all__ = ["SSLStream", "SSLListener"]
+#__all__ = ["SSLStream", "SSLListener"]
 
 ################################################################
 # Faking the stdlib ssl API
@@ -173,38 +173,38 @@ def _reexport(name):
         pass
     else:
         globals()[name] = value
-        __all__.append(name)
+        #__all__.append(name)
 
 
 # Intentionally not re-exported:
 # SSLContext
-for _name in [
-    "SSLError",
-    "SSLZeroReturnError",
-    "SSLSyscallError",
-    "SSLEOFError",
-    "CertificateError",
-    "create_default_context",
-    "match_hostname",
-    "cert_time_to_seconds",
-    "DER_cert_to_PEM_cert",
-    "PEM_cert_to_DER_cert",
-    "get_default_verify_paths",
-    "Purpose",
-    "enum_certificates",
-    "enum_crls",
-    "SSLSession",
-    "VerifyMode",
-    "VerifyFlags",
-    "Options",
-    "AlertDescription",
-    "SSLErrorNumber",
-]:
-    _reexport(_name)
+# for _name in [
+#     "SSLError",
+#     "SSLZeroReturnError",
+#     "SSLSyscallError",
+#     "SSLEOFError",
+#     "CertificateError",
+#     "create_default_context",
+#     "match_hostname",
+#     "cert_time_to_seconds",
+#     "DER_cert_to_PEM_cert",
+#     "PEM_cert_to_DER_cert",
+#     "get_default_verify_paths",
+#     "Purpose",
+#     "enum_certificates",
+#     "enum_crls",
+#     "SSLSession",
+#     "VerifyMode",
+#     "VerifyFlags",
+#     "Options",
+#     "AlertDescription",
+#     "SSLErrorNumber",
+# ]:
+#     _reexport(_name)
 
-for _name in _stdlib_ssl.__dict__.keys():
-    if _name == _name.upper():
-        _reexport(_name)
+# for _name in _stdlib_ssl.__dict__.keys():
+#     if _name == _name.upper():
+#         _reexport(_name)
 
 ################################################################
 # SSLStream
