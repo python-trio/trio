@@ -31,7 +31,7 @@ def test_core_is_properly_reexported():
     sys.version_info.releaselevel == "alpha",
     reason="skip pylint on in-development Python",
 )
-def test_pylint_sees_all_non_underscore_symbols_in_namespace():
+def test_pylint_sees_all_non_underscore_symbols_in_trio_namespace():
     # Test pylints ast to contain the same content as dir(trio)
     from pylint.lint import PyLinter
     linter = PyLinter()
@@ -54,6 +54,19 @@ def test_pylint_sees_all_non_underscore_symbols_for_trio_socket_in_namespace():
     assert trio_set - ast_set == set([])
 
 
+@pytest.mark.skipif(
+    sys.version_info.releaselevel == "alpha",
+    reason="skip pylint on in-development Python",
+)
+def test_pylint_sees_all_non_underscore_symbols_in_hazmat_namespace():
+    # Test pylints ast to contain the same content as dir(trio)
+    from pylint.lint import PyLinter
+    linter = PyLinter()
+    ast_set = set(linter.get_ast(trio.hazmat.__file__, 'trio.hazmat'))
+    trio_set = set([symbol for symbol in dir(trio) if symbol[0] != '_'])
+    assert trio_set - ast_set == set([])
+
+
 def test_jedi_sees_all_trio_completions():
     # Test the jedi completion library get all in dir(trio)
     try:
@@ -67,12 +80,26 @@ def test_jedi_sees_all_trio_completions():
 
 
 def test_jedi_sees_all_trio_socket_completions():
-    # Test the jedi completion library get all in dir(trio)
+    # Test the jedi completion library get all in dir(trio.socket)
     try:
         script = jedi.Script("import trio.socket; trio.socket.")
         completions = script.completions()
         trio_set = set(
             [symbol for symbol in dir(trio.socket) if symbol[:2] != '__']
+        )
+        jedi_set = set([cmp.name for cmp in completions])
+        assert trio_set - jedi_set == set([])
+    except NotImplementedError:  # pragma: no cover
+        pytest.skip("jedi does not yet support {}".format(sys.version))
+
+
+def test_jedi_sees_all_trio_hazmat_completions():
+    # Test the jedi completion library get all in dir(trio.hazmat)
+    try:
+        script = jedi.Script("import trio.hazmat; trio.socket.hazmat")
+        completions = script.completions()
+        trio_set = set(
+            [symbol for symbol in dir(trio.hazmat) if symbol[:2] != '__']
         )
         jedi_set = set([cmp.name for cmp in completions])
         assert trio_set - jedi_set == set([])
