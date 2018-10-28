@@ -7,6 +7,7 @@
 
 from ._ssl import (SSLStream, SSLListener, aclose_forcefully, ConflictDetector)
 
+# Fake import to enable static analysis tools to catch the names
 try:
     from ._ssl import (
         SSLError, SSLZeroReturnError, SSLSyscallError, SSLEOFError,
@@ -19,6 +20,8 @@ try:
 except ImportError:
     pass
 
+# We reexport certain names from the ssl module
+# SSLContext is excluded intentionally
 import ssl as _stdlib_ssl
 
 globals().update(
