@@ -24,9 +24,13 @@ import ssl as _stdlib_ssl
 globals().update(
     {
         _name: _value
-        for (_name, _value) in _stdlib_ssl.__dict__.items() if _name not in [
-            "SSLContext", "SSLStream", "SSLListener", "aclose_forcefully",
-            "ConflictDetector"
+        for (_name, _value) in _stdlib_ssl.__dict__.items() if _name in [
+            "SSLError", "SSLZeroReturnError", "SSLSyscallError", "SSLEOFError",
+            "CertificateError", "create_default_context", "match_hostname",
+            "cert_time_to_seconds", "DER_cert_to_PEM_cert",
+            "PEM_cert_to_DER_cert", "get_default_verify_paths", "Purpose",
+            "enum_certificates", "enum_crls", "SSLSession", "VerifyMode",
+            "VerifyFlags", "Options", "AlertDescription", "SSLErrorNumber"
         ]
     }
 )
