@@ -17,14 +17,17 @@ from ._core import (
     wait_writable, wait_readable, notify_fd_close, wait_socket_readable,
     wait_socket_writable, notify_socket_close, TrioToken, current_trio_token,
     temporarily_detach_coroutine_object, permanently_detach_coroutine_object,
-    reattach_detached_coroutine_object, current_kqueue, monitor_kevent,
-    wait_kevent, current_statistics, reschedule, remove_instrument,
-    add_instrument, current_clock, current_root_task, checkpoint_if_cancelled,
-    spawn_system_task
+    reattach_detached_coroutine_object, current_statistics, reschedule,
+    remove_instrument, add_instrument, current_clock, current_root_task,
+    checkpoint_if_cancelled, spawn_system_task
 )
 
 try:
     from ._core import (
+        # kqueue symbols
+        current_kqueue,
+        monitor_kevent,
+        wait_kevent,
         # windows symbols
         current_iocp,
         register_with_iocp,
