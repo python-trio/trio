@@ -1,1 +1,1 @@
-Support unbounded CapacityLimiter when initializing with math.inf
+You can now create an unbounded :class:`CapacityLimiter` by initializing with :obj:`math.inf`
