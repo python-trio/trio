@@ -115,6 +115,21 @@ async def test_CapacityLimiter():
     c.release_on_behalf_of("value 1")
 
 
+async def test_CapacityLimiter_inf():
+    from math import inf
+    c = CapacityLimiter(inf)
+    repr(c)  # smoke test
+    assert c.total_tokens == inf
+    assert c.borrowed_tokens == 0
+    assert c.available_tokens == inf
+    with pytest.raises(RuntimeError):
+        c.release()
+    assert c.borrowed_tokens == 0
+    c.acquire_nowait()
+    assert c.borrowed_tokens == 1
+    assert c.available_tokens == inf
+
+
 async def test_CapacityLimiter_change_total_tokens():
     c = CapacityLimiter(2)
 
