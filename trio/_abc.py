@@ -2,21 +2,6 @@ from abc import ABCMeta, abstractmethod
 from ._util import aiter_compat
 from . import _core
 
-__all__ = [
-    "Clock",
-    "Instrument",
-    "AsyncResource",
-    "SendStream",
-    "ReceiveStream",
-    "Stream",
-    "HalfCloseableStream",
-    "SocketFactory",
-    "HostnameResolver",
-    "Listener",
-    "SendChannel",
-    "ReceiveChannel",
-]
-
 
 # We use ABCMeta instead of ABC, plus set __slots__=(), so as not to force a
 # __dict__ onto subclasses.
