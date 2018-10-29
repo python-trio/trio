@@ -9,6 +9,16 @@
 from . import _socket
 import sys as _sys
 
+# The socket module exports a bunch of platform-specific constants. We want to
+# re-export them. Since the exact set of constants varies depending on Python
+# version, platform, the libc installed on the system where Python was built,
+# etc., we figure out which constants to re-export dynamically at runtime (see
+# below). But that confuses static analysis tools like jedi and mypy. So this
+# import statement statically lists every constant that *could* be
+# exported. It always fails at runtime, since no single Python build exports
+# all these constants, but it lets static analysis tools understand what's
+# going on. There's a test in test_exports.py to make sure that the list is
+# kept up to date.
 try:
     from socket import (
         CMSG_LEN, CMSG_SPACE, CAPI, AF_UNSPEC, AF_INET, AF_UNIX, AF_IPX,
@@ -88,18 +98,21 @@ try:
         VMADDR_CID_ANY, VMADDR_CID_HOST, VMADDR_PORT_ANY,
         VM_SOCKETS_INVALID_VERSION, MSG_BCAST, MSG_MCAST, RCVALL_MAX,
         RCVALL_OFF, RCVALL_ON, RCVALL_SOCKETLEVELONLY, SIO_KEEPALIVE_VALS,
-        SIO_LOOPBACK_FAST_PATH, SIO_RCVALL, SO_EXCLUSIVEADDRUSE
+        SIO_LOOPBACK_FAST_PATH, SIO_RCVALL, SO_EXCLUSIVEADDRUSE, HCI_FILTER,
+        BTPROTO_SCO, BTPROTO_HCI, HCI_TIME_STAMP, SOL_RDS, BTPROTO_L2CAP,
+        BTPROTO_RFCOMM, HCI_DATA_DIR, SOL_HCI
     )
 except ImportError:
     pass
-# expose all uppercase names from standardlib socket to trio.socket
+
+# Dynamically re-export whatever constants this particular Python happens to
+# have:
 import socket as _stdlib_socket
 
 globals().update(
     {
-        _name: _value
-        for (_name, _value) in _stdlib_socket.__dict__.items()
-        if _name.isupper() and not _name.startswith('_')
+        _name: getattr(_stdlib_socket, _name)
+        for _name in _stdlib_socket.__all__ if _name.isupper()
     }
 )
 
