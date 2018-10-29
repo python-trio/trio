@@ -4,5 +4,8 @@
 # temporaries, imports, etc. when implementing the module. So we put the
 # implementation in an underscored module, and then re-export the public parts
 # here.
-from ._abc import *
-from ._abc import __all__
+from ._abc import (
+    Clock, Instrument, AsyncResource, SendStream, ReceiveStream, Stream,
+    HalfCloseableStream, SocketFactory, HostnameResolver, Listener,
+    SendChannel, ReceiveChannel
+)
