@@ -125,6 +125,34 @@ class BrokenResourceError(Exception):
     """
 
 
+class NoHandshakeError(Exception):
+    """Raised when a method like ``select_alpn_protocol`` is called
+    before the handshake is established.
+
+    Some methods defined in the :class:`ssl.SSLSocket` from the stdlib
+    return ``None`` if the handshake hasn't happened yet.
+
+    These are:
+
+    - ``get_channel_binding``: https://docs.python.org/3/library/ssl.html#ssl.SSLSocket.get_channel_binding
+    - ``selected_alpn_protocol``: https://docs.python.org/3/library/ssl.html#ssl.SSLSocket.selected_alpn_protocol
+    - ``selected_npn_protocol``: https://docs.python.org/3/library/ssl.html#ssl.SSLSocket.selected_npn_protocol
+
+    Note that these methods might also return ``None```in other cases.
+
+    In case of calling `selected_alpn_protocol`` and ``selected_npn_protocol``
+    other cases of returning ``None`` are:
+
+    - If the other party does not support ALPN/NPN.
+    - If ``SSLContext.set_alpn_protocols()`` or ``SSLContext.set_npn_protocols()`` was not called.
+
+    and in the case of ``get_channel_binding``:
+
+    - If not connected.
+
+    """
+
+
 class EndOfChannel(Exception):
     """Raised when trying to receive from a :class:`trio.abc.ReceiveChannel`
     that has no more data to receive.
