@@ -1,11 +1,12 @@
 import attr
 import functools
+import math
 import os
 import outcome
 from typing import Any
 
 from .. import _core
-from .._sync import Event
+from .._sync import CapacityLimiter, Event
 from .._threads import run_sync_in_worker_thread
 
 
@@ -16,16 +17,7 @@ class WaitpidState:
     outcome = attr.ib(default=None)
 
 
-# https://github.com/python-trio/trio/issues/618
-class StubLimiter:
-    def release_on_behalf_of(self, x):
-        pass
-
-    async def acquire_on_behalf_of(self, x):
-        pass
-
-
-waitpid_limiter = StubLimiter()
+waitpid_limiter = CapacityLimiter(math.inf)
 
 
 # adapted from
