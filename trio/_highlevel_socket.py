@@ -62,11 +62,6 @@ class SocketStream(HalfCloseableStream):
             raise TypeError("SocketStream requires trio socket object")
         if socket.type != tsocket.SOCK_STREAM:
             raise ValueError("SocketStream requires a SOCK_STREAM socket")
-        try:
-            socket.getpeername()
-        except OSError:
-            err = ValueError("SocketStream requires a connected socket")
-            raise err from None
 
         self.socket = socket
         self._send_conflict_detector = ConflictDetector(

@@ -128,9 +128,6 @@ class FakeSocket(trio.socket.SocketType):
     def setsockopt(self, *args, **kwargs):
         pass
 
-    def getpeername(self):
-        return (self.ip, self.port)
-
 
 class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
     def __init__(self, port, ip_list, ipv6_supported):
