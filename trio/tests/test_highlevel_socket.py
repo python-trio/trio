@@ -215,10 +215,6 @@ async def test_SocketListener_accept_errors():
         def setsockopt(self, level, opt, value):
             pass
 
-        # Fool the check for connection in SocketStream.__init__
-        def getpeername(self):
-            pass
-
         async def accept(self):
             await _core.checkpoint()
             event = next(self._events)
