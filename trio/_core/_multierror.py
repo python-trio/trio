@@ -86,7 +86,7 @@ def _filter_impl(handler, root_exc):
             elif changed:
                 return MultiError(new_exceptions)
             else:
-                preserved.add(exc)
+                preserved.add(id(exc))
                 return exc
         else:
             new_exc = handler(exc)
@@ -96,7 +96,7 @@ def _filter_impl(handler, root_exc):
             return new_exc
 
     def push_tb_down(tb, exc, preserved):
-        if exc in preserved:
+        if id(exc) in preserved:
             return
         new_tb = concat_tb(tb, exc.__traceback__)
         if isinstance(exc, MultiError):
