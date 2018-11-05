@@ -106,7 +106,7 @@ async def ssl_echo_server_raw(**kwargs):
         with a, b:
             nursery.start_soon(
                 trio.run_sync_in_worker_thread,
-                partial(ssl_echo_serve_sync, b, **kwargs)
+                partial(ssl_echo_serve_sync, b, **kwargs),
             )
 
             await yield_(SocketStream(tsocket.from_stdlib_socket(a)))
@@ -119,9 +119,7 @@ async def ssl_echo_server_raw(**kwargs):
 async def ssl_echo_server(**kwargs):
     async with ssl_echo_server_raw(**kwargs) as sock:
         await yield_(
-            tssl.SSLStream(
-                sock, CLIENT_CTX, server_hostname="trio-test-1.example.org"
-            )
+            tssl.SSLStream(sock, CLIENT_CTX, server_hostname="trio-test-1.example.org")
         )
 
 
@@ -359,9 +357,7 @@ async def test_ssl_client_basics():
     # Didn't configure the CA file, should fail
     async with ssl_echo_server_raw(expect_fail=True) as sock:
         client_ctx = stdlib_ssl.create_default_context()
-        s = tssl.SSLStream(
-            sock, client_ctx, server_hostname="trio-test-1.example.org"
-        )
+        s = tssl.SSLStream(sock, client_ctx, server_hostname="trio-test-1.example.org")
         assert not s.server_side
         with pytest.raises(BrokenResourceError) as excinfo:
             await s.send_all(b"x")
@@ -369,9 +365,7 @@ async def test_ssl_client_basics():
 
     # Trusted CA, but wrong host name
     async with ssl_echo_server_raw(expect_fail=True) as sock:
-        s = tssl.SSLStream(
-            sock, CLIENT_CTX, server_hostname="trio-test-2.example.org"
-        )
+        s = tssl.SSLStream(sock, CLIENT_CTX, server_hostname="trio-test-2.example.org")
         assert not s.server_side
         with pytest.raises(BrokenResourceError) as excinfo:
             await s.send_all(b"x")
@@ -412,9 +406,7 @@ async def test_attributes():
     async with ssl_echo_server_raw(expect_fail=True) as sock:
         good_ctx = CLIENT_CTX
         bad_ctx = stdlib_ssl.create_default_context()
-        s = tssl.SSLStream(
-            sock, good_ctx, server_hostname="trio-test-1.example.org"
-        )
+        s = tssl.SSLStream(sock, good_ctx, server_hostname="trio-test-1.example.org")
 
         assert s.transport_stream is sock
 
@@ -541,6 +533,7 @@ async def test_renegotiation_randomized(mock_clock):
     mock_clock.autojump_threshold = 0
 
     import random
+
     r = random.Random(0)
 
     async def sleeper(_):
@@ -577,8 +570,8 @@ async def test_renegotiation_randomized(mock_clock):
         await clear()
 
         for i in range(100):
-            b1 = bytes([i % 0xff])
-            b2 = bytes([(2 * i) % 0xff])
+            b1 = bytes([i % 0xFF])
+            b2 = bytes([(2 * i) % 0xFF])
             s.transport_stream.renegotiate()
             async with _core.open_nursery() as nursery:
                 nursery.start_soon(send, b1)
@@ -589,8 +582,8 @@ async def test_renegotiation_randomized(mock_clock):
             await clear()
 
         for i in range(100):
-            b1 = bytes([i % 0xff])
-            b2 = bytes([(2 * i) % 0xff])
+            b1 = bytes([i % 0xFF])
+            b2 = bytes([(2 * i) % 0xFF])
             await send(b1)
             s.transport_stream.renegotiate()
             await expect(b1)
@@ -971,7 +964,7 @@ async def test_ssl_bad_shutdown():
 async def test_ssl_bad_shutdown_but_its_ok():
     client, server = ssl_memory_stream_pair(
         server_kwargs={"https_compatible": True},
-        client_kwargs={"https_compatible": True}
+        client_kwargs={"https_compatible": True},
     )
 
     async with _core.open_nursery() as nursery:
@@ -995,9 +988,7 @@ async def test_ssl_handshake_failure_during_aclose():
     async with ssl_echo_server_raw(expect_fail=True) as sock:
         # Don't configure trust correctly
         client_ctx = stdlib_ssl.create_default_context()
-        s = tssl.SSLStream(
-            sock, client_ctx, server_hostname="trio-test-1.example.org"
-        )
+        s = tssl.SSLStream(sock, client_ctx, server_hostname="trio-test-1.example.org")
         # It's a little unclear here whether aclose should swallow the error
         # or let it escape. We *do* swallow the error if it arrives when we're
         # sending close_notify, because both sides closing the connection
@@ -1036,7 +1027,7 @@ async def test_ssl_only_closes_stream_once():
 async def test_ssl_https_compatibility_disagreement():
     client, server = ssl_memory_stream_pair(
         server_kwargs={"https_compatible": False},
-        client_kwargs={"https_compatible": True}
+        client_kwargs={"https_compatible": True},
     )
 
     async with _core.open_nursery() as nursery:
@@ -1058,7 +1049,7 @@ async def test_ssl_https_compatibility_disagreement():
 async def test_https_mode_eof_before_handshake():
     client, server = ssl_memory_stream_pair(
         server_kwargs={"https_compatible": True},
-        client_kwargs={"https_compatible": True}
+        client_kwargs={"https_compatible": True},
     )
 
     async def server_expect_clean_eof():
@@ -1131,8 +1122,7 @@ async def test_selected_alpn_protocol_when_not_set():
     assert client.selected_alpn_protocol() is None
     assert server.selected_alpn_protocol() is None
 
-    assert client.selected_alpn_protocol() == \
-        server.selected_alpn_protocol()
+    assert client.selected_alpn_protocol() == server.selected_alpn_protocol()
 
 
 async def test_selected_npn_protocol_before_handshake():
@@ -1157,8 +1147,7 @@ async def test_selected_npn_protocol_when_not_set():
     assert client.selected_npn_protocol() is None
     assert server.selected_npn_protocol() is None
 
-    assert client.selected_npn_protocol() == \
-        server.selected_npn_protocol()
+    assert client.selected_npn_protocol() == server.selected_npn_protocol()
 
 
 async def test_get_channel_binding_before_handshake():
@@ -1181,8 +1170,7 @@ async def test_get_channel_binding_after_handshake():
     assert client.get_channel_binding() is not None
     assert server.get_channel_binding() is not None
 
-    assert client.get_channel_binding() == \
-        server.get_channel_binding()
+    assert client.get_channel_binding() == server.get_channel_binding()
 
 
 async def test_getpeercert():
@@ -1195,10 +1183,7 @@ async def test_getpeercert():
 
     assert server.getpeercert() is None
     print(client.getpeercert())
-    assert (
-        ("DNS",
-         "trio-test-1.example.org") in client.getpeercert()["subjectAltName"]
-    )
+    assert ("DNS", "trio-test-1.example.org") in client.getpeercert()["subjectAltName"]
 
 
 async def test_SSLListener():
@@ -1211,9 +1196,7 @@ async def test_SSLListener():
 
         transport_client = await open_tcp_stream(*listen_sock.getsockname())
         ssl_client = tssl.SSLStream(
-            transport_client,
-            CLIENT_CTX,
-            server_hostname="trio-test-1.example.org"
+            transport_client, CLIENT_CTX, server_hostname="trio-test-1.example.org"
         )
         return listen_sock, ssl_listener, ssl_client
 
@@ -1238,8 +1221,7 @@ async def test_SSLListener():
 
     # Test https_compatible and max_refill_bytes
     _, ssl_listener, ssl_client = await setup(
-        https_compatible=True,
-        max_refill_bytes=100,
+        https_compatible=True, max_refill_bytes=100
     )
 
     ssl_server = await ssl_listener.accept()

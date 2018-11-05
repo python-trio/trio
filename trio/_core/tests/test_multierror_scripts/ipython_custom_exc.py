@@ -14,6 +14,7 @@ def custom_excepthook(*args):
 sys.excepthook = custom_excepthook
 
 import IPython
+
 ip = IPython.get_ipython()
 
 

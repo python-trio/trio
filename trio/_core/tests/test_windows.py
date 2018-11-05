@@ -2,11 +2,12 @@ import os
 
 import pytest
 
-on_windows = (os.name == "nt")
+on_windows = os.name == "nt"
 # Mark all the tests in this file as being windows-only
 pytestmark = pytest.mark.skipif(not on_windows, reason="windows only")
 
 from ... import _core
+
 if on_windows:
     from .._windows_cffi import ffi, kernel32
 
@@ -14,9 +15,7 @@ if on_windows:
 # The undocumented API that this is testing should be changed to stop using
 # UnboundedQueue (or just removed until we have time to redo it), but until
 # then we filter out the warning.
-@pytest.mark.filterwarnings(
-    "ignore:.*UnboundedQueue:trio.TrioDeprecationWarning"
-)
+@pytest.mark.filterwarnings("ignore:.*UnboundedQueue:trio.TrioDeprecationWarning")
 async def test_completion_key_listen():
     async def post(key):
         iocp = ffi.cast("HANDLE", _core.current_iocp())
@@ -24,9 +23,7 @@ async def test_completion_key_listen():
             print("post", i)
             if i % 3 == 0:
                 await _core.checkpoint()
-            success = kernel32.PostQueuedCompletionStatus(
-                iocp, i, key, ffi.NULL
-            )
+            success = kernel32.PostQueuedCompletionStatus(iocp, i, key, ffi.NULL)
             assert success
 
     with _core.monitor_completion_key() as (key, queue):

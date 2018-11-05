@@ -6,47 +6,47 @@ from . import _core
 from .abc import AsyncResource
 from ._util import aiter_compat, async_wraps, fspath
 
-__all__ = ['open_file', 'wrap_file']
+__all__ = ["open_file", "wrap_file"]
 
 # This list is also in the docs, make sure to keep them in sync
 _FILE_SYNC_ATTRS = {
-    'closed',
-    'encoding',
-    'errors',
-    'fileno',
-    'isatty',
-    'newlines',
-    'readable',
-    'seekable',
-    'writable',
+    "closed",
+    "encoding",
+    "errors",
+    "fileno",
+    "isatty",
+    "newlines",
+    "readable",
+    "seekable",
+    "writable",
     # not defined in *IOBase:
-    'buffer',
-    'raw',
-    'line_buffering',
-    'closefd',
-    'name',
-    'mode',
-    'getvalue',
-    'getbuffer',
+    "buffer",
+    "raw",
+    "line_buffering",
+    "closefd",
+    "name",
+    "mode",
+    "getvalue",
+    "getbuffer",
 }
 
 # This list is also in the docs, make sure to keep them in sync
 _FILE_ASYNC_METHODS = {
-    'flush',
-    'read',
-    'read1',
-    'readall',
-    'readinto',
-    'readline',
-    'readlines',
-    'seek',
-    'tell',
-    'truncate',
-    'write',
-    'writelines',
+    "flush",
+    "read",
+    "read1",
+    "readall",
+    "readinto",
+    "readline",
+    "readlines",
+    "seek",
+    "tell",
+    "truncate",
+    "write",
+    "writelines",
     # not defined in *IOBase:
-    'readinto1',
-    'peek',
+    "readinto1",
+    "peek",
 }
 
 
@@ -91,9 +91,7 @@ class AsyncIOWrapper(AsyncResource):
     def __dir__(self):
         attrs = set(super().__dir__())
         attrs.update(a for a in _FILE_SYNC_ATTRS if hasattr(self.wrapped, a))
-        attrs.update(
-            a for a in _FILE_ASYNC_METHODS if hasattr(self.wrapped, a)
-        )
+        attrs.update(a for a in _FILE_ASYNC_METHODS if hasattr(self.wrapped, a))
         return attrs
 
     @aiter_compat
@@ -135,13 +133,13 @@ class AsyncIOWrapper(AsyncResource):
 
 async def open_file(
     file,
-    mode='r',
+    mode="r",
     buffering=-1,
     encoding=None,
     errors=None,
     newline=None,
     closefd=True,
-    opener=None
+    opener=None,
 ):
     """Asynchronous version of :func:`io.open`.
 
@@ -166,8 +164,7 @@ async def open_file(
 
     _file = wrap_file(
         await trio.run_sync_in_worker_thread(
-            io.open, file, mode, buffering, encoding, errors, newline, closefd,
-            opener
+            io.open, file, mode, buffering, encoding, errors, newline, closefd, opener
         )
     )
     return _file
@@ -194,10 +191,10 @@ def wrap_file(file):
     def has(attr):
         return hasattr(file, attr) and callable(getattr(file, attr))
 
-    if not (has('close') and (has('read') or has('write'))):
+    if not (has("close") and (has("read") or has("write"))):
         raise TypeError(
-            '{} does not implement required duck-file methods: '
-            'close and (read or write)'.format(file)
+            "{} does not implement required duck-file methods: "
+            "close and (read or write)".format(file)
         )
 
     return AsyncIOWrapper(file)

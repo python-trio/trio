@@ -6,7 +6,7 @@ import pathlib
 import trio
 from trio._util import async_wraps, fspath
 
-__all__ = ['Path']
+__all__ = ["Path"]
 
 
 # python3.5 compat: __fspath__ does not exist in 3.5, so unwrap any trio.Path
@@ -77,7 +77,7 @@ class AsyncAutoWrapperType(type):
     def generate_forwards(cls, attrs):
         # forward functions of _forwards
         for attr_name, attr in cls._forwards.__dict__.items():
-            if attr_name.startswith('_') or attr_name in attrs:
+            if attr_name.startswith("_") or attr_name in attrs:
                 continue
 
             if isinstance(attr, property):
@@ -91,7 +91,7 @@ class AsyncAutoWrapperType(type):
     def generate_wraps(cls, attrs):
         # generate wrappers for functions of _wraps
         for attr_name, attr in cls._wraps.__dict__.items():
-            if attr_name.startswith('_') or attr_name in attrs:
+            if attr_name.startswith("_") or attr_name in attrs:
                 continue
 
             if isinstance(attr, classmethod):
@@ -119,8 +119,15 @@ class Path(metaclass=AsyncAutoWrapperType):
     _wraps = pathlib.Path
     _forwards = pathlib.PurePath
     _forward_magic = [
-        '__str__', '__bytes__', '__truediv__', '__rtruediv__', '__eq__',
-        '__lt__', '__le__', '__gt__', '__ge__'
+        "__str__",
+        "__bytes__",
+        "__truediv__",
+        "__rtruediv__",
+        "__eq__",
+        "__lt__",
+        "__le__",
+        "__gt__",
+        "__ge__",
     ]
 
     def __init__(self, *args):
@@ -160,7 +167,7 @@ class Path(metaclass=AsyncAutoWrapperType):
         return super().__dir__() + self._forward
 
     def __repr__(self):
-        return 'trio.Path({})'.format(repr(str(self)))
+        return "trio.Path({})".format(repr(str(self)))
 
     def __fspath__(self):
         return fspath(self._wrapped)
@@ -183,5 +190,5 @@ class Path(metaclass=AsyncAutoWrapperType):
 del Path.absolute.__doc__
 
 # python3.5 compat
-if hasattr(os, 'PathLike'):
+if hasattr(os, "PathLike"):
     os.PathLike.register(Path)

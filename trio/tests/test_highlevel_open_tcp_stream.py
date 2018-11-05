@@ -31,9 +31,7 @@ def test_close_on_error():
 
 def test_reorder_for_rfc_6555_section_5_4():
     def fake4(i):
-        return (
-            AF_INET, SOCK_STREAM, IPPROTO_TCP, "", ("10.0.0.{}".format(i), 80)
-        )
+        return (AF_INET, SOCK_STREAM, IPPROTO_TCP, "", ("10.0.0.{}".format(i), 80))
 
     def fake6(i):
         return (AF_INET6, SOCK_STREAM, IPPROTO_TCP, "", ("::{}".format(i), 80))
@@ -262,11 +260,7 @@ async def test_basic_fallthrough(autojump_clock):
     )
     assert sock.ip == "3.3.3.3"
     assert trio.current_time() == (0.300 + 0.300 + 0.2)
-    assert scenario.connect_times == {
-        "1.1.1.1": 0,
-        "2.2.2.2": 0.300,
-        "3.3.3.3": 0.600,
-    }
+    assert scenario.connect_times == {"1.1.1.1": 0, "2.2.2.2": 0.300, "3.3.3.3": 0.600}
 
 
 async def test_early_success(autojump_clock):
@@ -300,11 +294,7 @@ async def test_custom_delay(autojump_clock):
     )
     assert sock.ip == "1.1.1.1"
     assert trio.current_time() == 1
-    assert scenario.connect_times == {
-        "1.1.1.1": 0,
-        "2.2.2.2": 0.450,
-        "3.3.3.3": 0.900,
-    }
+    assert scenario.connect_times == {"1.1.1.1": 0, "2.2.2.2": 0.450, "3.3.3.3": 0.900}
 
 
 async def test_custom_errors_expedite(autojump_clock):
@@ -392,10 +382,7 @@ async def test_does_reorder(autojump_clock):
     )
     assert sock.ip == "::3"
     assert trio.current_time() == 1 + 0.5
-    assert scenario.connect_times == {
-        "1.1.1.1": 0,
-        "::3": 1,
-    }
+    assert scenario.connect_times == {"1.1.1.1": 0, "::3": 1}
 
 
 async def test_handles_no_ipv6(autojump_clock):
@@ -414,10 +401,7 @@ async def test_handles_no_ipv6(autojump_clock):
     )
     assert sock.ip == "4.4.4.4"
     assert trio.current_time() == 1 + 0.1
-    assert scenario.connect_times == {
-        "2.2.2.2": 0,
-        "4.4.4.4": 1.0,
-    }
+    assert scenario.connect_times == {"2.2.2.2": 0, "4.4.4.4": 1.0}
 
 
 async def test_no_hosts(autojump_clock):

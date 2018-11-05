@@ -191,6 +191,4 @@ class TrioToken:
               exits.)
 
         """
-        self._reentry_queue.run_sync_soon(
-            sync_fn, *args, idempotent=idempotent
-        )
+        self._reentry_queue.run_sync_soon(sync_fn, *args, idempotent=idempotent)

@@ -13,6 +13,7 @@ class TrioInternalError(Exception):
     tasks.) Again, though, this shouldn't happen.
 
     """
+
     pass
 
 
@@ -21,6 +22,7 @@ class RunFinishedError(RuntimeError):
     corresponding call to :func:`trio.run` has already finished.
 
     """
+
     pass
 
 
@@ -28,6 +30,7 @@ class WouldBlock(Exception):
     """Raised by ``X_nowait`` functions if ``X`` would block.
 
     """
+
     pass
 
 
@@ -65,14 +68,15 @@ class Cancelled(BaseException):
        everywhere.
 
     """
+
     _scope = None
     __marker = object()
 
     def __init__(self, _marker=None):
         if _marker is not self.__marker:
             raise RuntimeError(
-                'Cancelled should not be raised directly. Use the cancel() '
-                'method on your cancel scope.'
+                "Cancelled should not be raised directly. Use the cancel() "
+                "method on your cancel scope."
             )
         super().__init__()
 

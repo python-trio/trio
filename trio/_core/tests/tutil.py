@@ -15,7 +15,7 @@ try:
     with stdlib_socket.socket(
         stdlib_socket.AF_INET6, stdlib_socket.SOCK_STREAM, 0
     ) as s:
-        s.bind(('::1', 0))
+        s.bind(("::1", 0))
     have_ipv6 = True
 except OSError:
     have_ipv6 = False
@@ -44,6 +44,6 @@ def check_sequence_matches(seq, template):
     for pattern in template:
         if not isinstance(pattern, set):
             pattern = {pattern}
-        got = set(seq[i:i + len(pattern)])
+        got = set(seq[i : i + len(pattern)])
         assert got == pattern
         i += len(got)

@@ -68,12 +68,14 @@ async def test_ConflictDetector():
 
 def test_module_metadata_is_fixed_up():
     import trio
+
     assert trio.Cancelled.__module__ == "trio"
     assert trio.open_cancel_scope.__module__ == "trio"
     assert trio.ssl.SSLStream.__module__ == "trio.ssl"
     assert trio.abc.Stream.__module__ == "trio.abc"
     assert trio.hazmat.wait_task_rescheduled.__module__ == "trio.hazmat"
     import trio.testing
+
     assert trio.testing.trio_test.__module__ == "trio.testing"
 
     # Also check methods
@@ -102,15 +104,11 @@ class TestFspath(object):
     # based on:
     # https://github.com/python/cpython/blob/da6c3da6c33c6bf794f741e348b9c6d86cc43ec5/Lib/test/test_os.py#L3527-L3571
 
-    @pytest.mark.parametrize(
-        "path", (b'hello', b'goodbye', b'some/path/and/file')
-    )
+    @pytest.mark.parametrize("path", (b"hello", b"goodbye", b"some/path/and/file"))
     def test_return_bytes(self, path):
         assert path == fspath(path)
 
-    @pytest.mark.parametrize(
-        "path", ('hello', 'goodbye', 'some/path/and/file')
-    )
+    @pytest.mark.parametrize("path", ("hello", "goodbye", "some/path/and/file"))
     def test_return_string(self, path):
         assert path == fspath(path)
 
@@ -147,16 +145,22 @@ class TestFspath(object):
         "exception, method",
         [
             (TypeError, 1),  # __fspath__ is not callable
-            (TypeError, lambda x: 23
-             ),  # __fspath__ returns a value other than str or bytes
-            (Exception, lambda x: raise_(Exception)
-             ),  # __fspath__raises a random exception
-            (AttributeError, lambda x: raise_(AttributeError)
-             ),  # __fspath__ raises AttributeError
-        ]
+            (
+                TypeError,
+                lambda x: 23,
+            ),  # __fspath__ returns a value other than str or bytes
+            (
+                Exception,
+                lambda x: raise_(Exception),
+            ),  # __fspath__raises a random exception
+            (
+                AttributeError,
+                lambda x: raise_(AttributeError),
+            ),  # __fspath__ raises AttributeError
+        ],
     )
     def test_bad_pathlike_implementation(self, exception, method):
-        klass = type('foo', (), {})
+        klass = type("foo", (), {})
         klass.__fspath__ = method
         with pytest.raises(exception):
             fspath(klass())

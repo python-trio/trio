@@ -98,7 +98,7 @@ class EpollIOManager:
     async def _epoll_wait(self, fd, attr_name):
         if not isinstance(fd, int):
             fd = fd.fileno()
-        currently_registered = (fd in self._registered)
+        currently_registered = fd in self._registered
         if not currently_registered:
             self._registered[fd] = EpollWaiters()
         waiters = self._registered[fd]

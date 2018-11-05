@@ -13,7 +13,7 @@ from trio._file_io import AsyncIOWrapper, _FILE_SYNC_ATTRS, _FILE_ASYNC_METHODS
 
 @pytest.fixture
 def path(tmpdir):
-    return fspath(tmpdir.join('test'))
+    return fspath(tmpdir.join("test"))
 
 
 @pytest.fixture
@@ -59,9 +59,7 @@ def test_dir_matches_wrapped(async_file, wrapped):
     attrs = _FILE_SYNC_ATTRS.union(_FILE_ASYNC_METHODS)
 
     # all supported attrs in wrapped should be available in async_file
-    assert all(
-        attr in dir(async_file) for attr in attrs if attr in dir(wrapped)
-    )
+    assert all(attr in dir(async_file) for attr in attrs if attr in dir(wrapped))
     # all supported attrs not in wrapped should not be available in async_file
     assert not any(
         attr in dir(async_file) for attr in attrs if attr not in dir(wrapped)
@@ -75,10 +73,10 @@ def test_unsupported_not_forwarded():
 
     async_file = trio.wrap_file(FakeFile())
 
-    assert hasattr(async_file.wrapped, 'unsupported_attr')
+    assert hasattr(async_file.wrapped, "unsupported_attr")
 
     with pytest.raises(AttributeError):
-        getattr(async_file, 'unsupported_attr')
+        getattr(async_file, "unsupported_attr")
 
 
 def test_sync_attrs_forwarded(async_file, wrapped):
@@ -111,10 +109,10 @@ def test_async_methods_generated_once(async_file):
 
 def test_async_methods_signature(async_file):
     # use read as a representative of all async methods
-    assert async_file.read.__name__ == 'read'
-    assert async_file.read.__qualname__ == 'AsyncIOWrapper.read'
+    assert async_file.read.__name__ == "read"
+    assert async_file.read.__qualname__ == "AsyncIOWrapper.read"
 
-    assert 'io.StringIO.read' in async_file.read.__doc__
+    assert "io.StringIO.read" in async_file.read.__doc__
 
 
 async def test_async_methods_wrap(async_file, wrapped):
@@ -148,7 +146,7 @@ async def test_async_methods_match_wrapper(async_file, wrapped):
 
 
 async def test_open(path):
-    f = await trio.open_file(path, 'w')
+    f = await trio.open_file(path, "w")
 
     assert isinstance(f, AsyncIOWrapper)
 
@@ -156,7 +154,7 @@ async def test_open(path):
 
 
 async def test_open_context_manager(path):
-    async with await trio.open_file(path, 'w') as f:
+    async with await trio.open_file(path, "w") as f:
         assert isinstance(f, AsyncIOWrapper)
         assert not f.closed
 
@@ -164,7 +162,7 @@ async def test_open_context_manager(path):
 
 
 async def test_async_iter():
-    async_file = trio.wrap_file(io.StringIO('test\nfoo\nbar'))
+    async_file = trio.wrap_file(io.StringIO("test\nfoo\nbar"))
     expected = list(async_file.wrapped)
     result = []
     async_file.wrapped.seek(0)
@@ -177,11 +175,11 @@ async def test_async_iter():
 
 async def test_aclose_cancelled(path):
     with _core.open_cancel_scope() as cscope:
-        f = await trio.open_file(path, 'w')
+        f = await trio.open_file(path, "w")
         cscope.cancel()
 
         with pytest.raises(_core.Cancelled):
-            await f.write('a')
+            await f.write("a")
 
         with pytest.raises(_core.Cancelled):
             await f.aclose()

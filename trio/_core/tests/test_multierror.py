@@ -169,9 +169,9 @@ def test_MultiError_filter():
     assert isinstance(orig.exceptions[0].exceptions[1], KeyError)
     # get original traceback summary
     orig_extracted = (
-        extract_tb(orig.__traceback__) + extract_tb(
-            orig.exceptions[0].__traceback__
-        ) + extract_tb(orig.exceptions[0].exceptions[1].__traceback__)
+        extract_tb(orig.__traceback__)
+        + extract_tb(orig.exceptions[0].__traceback__)
+        + extract_tb(orig.exceptions[0].exceptions[1].__traceback__)
     )
 
     def p(exc):
@@ -424,7 +424,7 @@ def test_format_exception():
             r"in raiser3",
             r"NameError",
         ],
-        formatted
+        formatted,
     )
 
     # Prints duplicate exceptions in sub-exceptions
@@ -485,7 +485,7 @@ def test_format_exception():
             r"in raise2_raiser1",
             r"  KeyError: 'bar'",
         ],
-        formatted
+        formatted,
     )
 
 
@@ -501,15 +501,14 @@ def test_logging(caplog):
     except MultiError as exc:
         logging.getLogger().exception(message)
         # Join lines together
-        formatted = "".join(
-            format_exception(type(exc), exc, exc.__traceback__)
-        )
+        formatted = "".join(format_exception(type(exc), exc, exc.__traceback__))
         assert message in caplog.text
         assert formatted in caplog.text
 
 
 def run_script(name, use_ipython=False):
     import trio
+
     trio_path = Path(trio.__file__).parent.parent
     script_path = Path(__file__).parent / "test_multierror_scripts" / name
 
@@ -532,7 +531,7 @@ def run_script(name, use_ipython=False):
             "IPython",
             # no startup files
             "--quick",
-            "--TerminalIPythonApp.code_to_run=" + '\n'.join(lines),
+            "--TerminalIPythonApp.code_to_run=" + "\n".join(lines),
         ]
     else:
         cmd = [sys.executable, "-u", str(script_path)]
@@ -556,7 +555,8 @@ def check_simple_excepthook(completed):
             "Details of embedded exception 2",
             "in exc2_fn",
             "KeyError",
-        ], completed.stdout.decode("utf-8")
+        ],
+        completed.stdout.decode("utf-8"),
     )
 
 
@@ -579,7 +579,7 @@ def test_custom_excepthook():
             # The MultiError
             "MultiError:",
         ],
-        completed.stdout.decode("utf-8")
+        completed.stdout.decode("utf-8"),
     )
 
 
@@ -624,7 +624,7 @@ def test_ipython_custom_exc_handler():
             "ValueError",
             "KeyError",
         ],
-        completed.stdout.decode("utf-8")
+        completed.stdout.decode("utf-8"),
     )
     # Make sure our other warning doesn't show up
     assert "custom sys.excepthook" not in completed.stdout.decode("utf-8")

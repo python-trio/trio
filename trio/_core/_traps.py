@@ -54,6 +54,7 @@ class Abort(enum.Enum):
               FAILED
 
     """
+
     SUCCEEDED = 1
     FAILED = 2
 

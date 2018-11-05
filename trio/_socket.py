@@ -150,8 +150,10 @@ async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
     # with the _NUMERIC_ONLY flags set, and then only spawn a thread if that
     # fails with EAI_NONAME:
     def numeric_only_failure(exc):
-        return isinstance(exc, _stdlib_socket.gaierror) and \
-            exc.errno == _stdlib_socket.EAI_NONAME
+        return (
+            isinstance(exc, _stdlib_socket.gaierror)
+            and exc.errno == _stdlib_socket.EAI_NONAME
+        )
 
     async with _try_sync(numeric_only_failure):
         return _stdlib_socket.getaddrinfo(
@@ -185,7 +187,7 @@ async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
             type,
             proto,
             flags,
-            cancellable=True
+            cancellable=True,
         )
 
 
@@ -262,10 +264,7 @@ def socketpair(*args, **kwargs):
 
 @_wraps(_stdlib_socket.socket, assigned=(), updated=())
 def socket(
-    family=_stdlib_socket.AF_INET,
-    type=_stdlib_socket.SOCK_STREAM,
-    proto=0,
-    fileno=None
+    family=_stdlib_socket.AF_INET, type=_stdlib_socket.SOCK_STREAM, proto=0, fileno=None
 ):
     """Create a new trio socket, like :func:`socket.socket`.
 
@@ -314,10 +313,10 @@ def _make_simple_sock_method_wrapper(methname, wait_fn, maybe_avail=False):
     async def wrapper(self, *args, **kwargs):
         return await self._nonblocking_helper(fn, args, kwargs, wait_fn)
 
-    wrapper.__doc__ = (
-        """Like :meth:`socket.socket.{}`, but async.
+    wrapper.__doc__ = """Like :meth:`socket.socket.{}`, but async.
 
-            """.format(methname)
+            """.format(
+        methname
     )
     if maybe_avail:
         wrapper.__doc__ += (
@@ -427,7 +426,8 @@ class _SocketType(SocketType):
         address = await self._resolve_local_address(address)
         if (
             hasattr(_stdlib_socket, "AF_UNIX")
-            and self.family == _stdlib_socket.AF_UNIX and address[0]
+            and self.family == _stdlib_socket.AF_UNIX
+            and address[0]
         ):
             # Use a thread for the filesystem traversal (unless it's an
             # abstract domain socket)
@@ -466,8 +466,7 @@ class _SocketType(SocketType):
             if not isinstance(address, tuple) or not 2 <= len(address) <= 4:
                 await _core.checkpoint()
                 raise ValueError(
-                    "address should be a (host, port, [flowinfo, [scopeid]]) "
-                    "tuple"
+                    "address should be a (host, port, [flowinfo, [scopeid]]) " "tuple"
                 )
         elif self._sock.family == _stdlib_socket.AF_UNIX:
             await _core.checkpoint()
@@ -491,9 +490,7 @@ class _SocketType(SocketType):
         # no ipv6.
         # flags |= AI_ADDRCONFIG
         if self._sock.family == _stdlib_socket.AF_INET6:
-            if not self._sock.getsockopt(
-                IPPROTO_IPV6, _stdlib_socket.IPV6_V6ONLY
-            ):
+            if not self._sock.getsockopt(IPPROTO_IPV6, _stdlib_socket.IPV6_V6ONLY):
                 flags |= _stdlib_socket.AI_V4MAPPED
         gai_res = await getaddrinfo(
             host, port, self._sock.family, self.type, self._sock.proto, flags
@@ -559,9 +556,7 @@ class _SocketType(SocketType):
     # accept
     ################################################################
 
-    _accept = _make_simple_sock_method_wrapper(
-        "accept", _core.wait_socket_readable
-    )
+    _accept = _make_simple_sock_method_wrapper("accept", _core.wait_socket_readable)
 
     async def accept(self):
         """Like :meth:`socket.socket.accept`, but async.
@@ -640,9 +635,7 @@ class _SocketType(SocketType):
             self._sock.close()
             raise
         # Okay, the connect finished, but it might have failed:
-        err = self._sock.getsockopt(
-            _stdlib_socket.SOL_SOCKET, _stdlib_socket.SO_ERROR
-        )
+        err = self._sock.getsockopt(_stdlib_socket.SOL_SOCKET, _stdlib_socket.SO_ERROR)
         if err != 0:
             raise OSError(err, "Error in connect: " + _os.strerror(err))
 
@@ -664,9 +657,7 @@ class _SocketType(SocketType):
     # recvfrom
     ################################################################
 
-    recvfrom = _make_simple_sock_method_wrapper(
-        "recvfrom", _core.wait_socket_readable
-    )
+    recvfrom = _make_simple_sock_method_wrapper("recvfrom", _core.wait_socket_readable)
 
     ################################################################
     # recvfrom_into
@@ -737,8 +728,7 @@ class _SocketType(SocketType):
                 args = list(args)
                 args[-1] = await self._resolve_remote_address(args[-1])
             return await self._nonblocking_helper(
-                _stdlib_socket.socket.sendmsg, args, {},
-                _core.wait_socket_writable
+                _stdlib_socket.socket.sendmsg, args, {}, _core.wait_socket_writable
             )
 
     ################################################################

@@ -43,9 +43,7 @@ class MonkeypatchedGAI:
         elif bound[-1] & stdlib_socket.AI_NUMERICHOST:
             return self._orig_getaddrinfo(*args, **kwargs)
         else:
-            raise RuntimeError(
-                "gai called with unexpected arguments {}".format(bound)
-            )
+            raise RuntimeError("gai called with unexpected arguments {}".format(bound))
 
 
 @pytest.fixture
@@ -108,29 +106,35 @@ async def test_getaddrinfo(monkeygai):
 
     # Simple non-blocking non-error cases, ipv4 and ipv6:
     with assert_checkpoints():
-        res = await tsocket.getaddrinfo(
-            "127.0.0.1", "12345", type=tsocket.SOCK_STREAM
-        )
+        res = await tsocket.getaddrinfo("127.0.0.1", "12345", type=tsocket.SOCK_STREAM)
 
-    check(res, [
-        (tsocket.AF_INET,  # 127.0.0.1 is ipv4
-         tsocket.SOCK_STREAM,
-         tsocket.IPPROTO_TCP,
-         "",
-         ("127.0.0.1", 12345)),
-    ])
+    check(
+        res,
+        [
+            (
+                tsocket.AF_INET,  # 127.0.0.1 is ipv4
+                tsocket.SOCK_STREAM,
+                tsocket.IPPROTO_TCP,
+                "",
+                ("127.0.0.1", 12345),
+            )
+        ],
+    )
 
     with assert_checkpoints():
-        res = await tsocket.getaddrinfo(
-            "::1", "12345", type=tsocket.SOCK_DGRAM
-        )
-    check(res, [
-        (tsocket.AF_INET6,
-         tsocket.SOCK_DGRAM,
-         tsocket.IPPROTO_UDP,
-         "",
-         ("::1", 12345, 0, 0)),
-    ])
+        res = await tsocket.getaddrinfo("::1", "12345", type=tsocket.SOCK_DGRAM)
+    check(
+        res,
+        [
+            (
+                tsocket.AF_INET6,
+                tsocket.SOCK_DGRAM,
+                tsocket.IPPROTO_UDP,
+                "",
+                ("::1", 12345, 0, 0),
+            )
+        ],
+    )
 
     monkeygai.set("x", b"host", "port", family=0, type=0, proto=0, flags=0)
     with assert_checkpoints():
@@ -355,10 +359,11 @@ async def test_SocketType_shutdown():
 
 
 @pytest.mark.parametrize(
-    "address, socket_type", [
-        ('127.0.0.1', tsocket.AF_INET),
-        pytest.param('::1', tsocket.AF_INET6, marks=need_ipv6)
-    ]
+    "address, socket_type",
+    [
+        ("127.0.0.1", tsocket.AF_INET),
+        pytest.param("::1", tsocket.AF_INET6, marks=need_ipv6),
+    ],
 )
 async def test_SocketType_simple_server(address, socket_type):
     # listen, bind, accept, connect, getpeername, getsockname
@@ -633,7 +638,7 @@ async def test_resolve_remote_address_exception_closes_socket():
             sock._resolve_remote_address = _resolve_remote_address
             with assert_checkpoints():
                 with pytest.raises(_core.Cancelled):
-                    await sock.connect('')
+                    await sock.connect("")
             assert sock.fileno() == -1
 
 
@@ -779,9 +784,11 @@ async def test_custom_hostname_resolver(monkeygai):
         (0, 0, tsocket.IPPROTO_TCP, 0),
         (0, 0, 0, tsocket.AI_CANONNAME),
     ]:
-        assert (
-            await tsocket.getaddrinfo("localhost", "foo", *vals) ==
-            ("custom_gai", b"localhost", "foo", *vals)
+        assert await tsocket.getaddrinfo("localhost", "foo", *vals) == (
+            "custom_gai",
+            b"localhost",
+            "foo",
+            *vals,
         )
 
     # IDNA encoding is handled before calling the special object
@@ -789,7 +796,7 @@ async def test_custom_hostname_resolver(monkeygai):
     expected = ("custom_gai", b"xn--f-1gaa", "foo", 0, 0, 0, 0)
     assert got == expected
 
-    assert (await tsocket.getnameinfo("a", 0) == ("custom_gni", "a", 0))
+    assert await tsocket.getnameinfo("a", 0) == ("custom_gni", "a", 0)
 
     # We can set it back to None
     assert tsocket.set_custom_hostname_resolver(None) is cr
@@ -832,9 +839,7 @@ async def test_SocketType_is_abstract():
         tsocket.SocketType()
 
 
-@pytest.mark.skipif(
-    not hasattr(tsocket, "AF_UNIX"), reason="no unix domain sockets"
-)
+@pytest.mark.skipif(not hasattr(tsocket, "AF_UNIX"), reason="no unix domain sockets")
 async def test_unix_domain_socket():
     # Bind has a special branch to use a thread, since it has to do filesystem
     # traversal. Maybe connect should too? Not sure.

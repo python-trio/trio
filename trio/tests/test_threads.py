@@ -36,10 +36,7 @@ async def test_do_in_trio_thread():
         while child_thread.is_alive():
             print("yawn")
             await sleep(0.01)
-        assert record == [
-            ("start", child_thread),
-            ("f", trio_thread), expected
-        ]
+        assert record == [("start", child_thread), ("f", trio_thread), expected]
 
     portal = BlockingTrioPortal()
 
@@ -116,6 +113,7 @@ def test_run_in_trio_thread_ki():
                 ki_self()
             finally:
                 import sys
+
                 print("finally", sys.exc_info())
 
         async def trio_thread_afn():
@@ -206,9 +204,7 @@ async def test_run_in_worker_thread_cancellation():
     async def child(q, cancellable):
         record.append("start")
         try:
-            return await run_sync_in_worker_thread(
-                f, q, cancellable=cancellable
-            )
+            return await run_sync_in_worker_thread(f, q, cancellable=cancellable)
         finally:
             record.append("exit")
 
@@ -349,15 +345,9 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
         async def run_thread(event):
             with _core.open_cancel_scope() as cancel_scope:
                 await run_sync_in_worker_thread(
-                    thread_fn,
-                    cancel_scope,
-                    limiter=limiter_arg,
-                    cancellable=cancel
+                    thread_fn, cancel_scope, limiter=limiter_arg, cancellable=cancel
                 )
-            print(
-                "run_thread finished, cancelled:",
-                cancel_scope.cancelled_caught
-            )
+            print("run_thread finished, cancelled:", cancel_scope.cancelled_caught)
             event.set()
 
         async with _core.open_nursery() as nursery:

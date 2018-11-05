@@ -82,6 +82,8 @@ if sys.version_info < (3, 5, 2):
             return aiter_impl(*args, **kwargs)
 
         return __aiter__
+
+
 else:
 
     def aiter_compat(aiter_impl):
@@ -157,7 +159,7 @@ def async_wraps(cls, wrapped_cls, attr_name):
 
     def decorator(func):
         func.__name__ = attr_name
-        func.__qualname__ = '.'.join((cls.__qualname__, attr_name))
+        func.__qualname__ = ".".join((cls.__qualname__, attr_name))
 
         func.__doc__ = """Like :meth:`~{}.{}.{}`, but async.
 
@@ -223,7 +225,7 @@ def fspath(path) -> t.Union[str, bytes]:
     try:
         path_repr = path_type.__fspath__(path)
     except AttributeError:
-        if hasattr(path_type, '__fspath__'):
+        if hasattr(path_type, "__fspath__"):
             raise
         else:
             raise TypeError(
@@ -235,8 +237,7 @@ def fspath(path) -> t.Union[str, bytes]:
     else:
         raise TypeError(
             "expected {}.__fspath__() to return str or bytes, "
-            "not {}".format(path_type.__name__,
-                            type(path_repr).__name__)
+            "not {}".format(path_type.__name__, type(path_repr).__name__)
         )
 
 

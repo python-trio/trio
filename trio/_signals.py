@@ -4,9 +4,7 @@ from collections import OrderedDict
 
 from . import _core
 from ._sync import Event
-from ._util import (
-    signal_raise, aiter_compat, is_main_thread, ConflictDetector
-)
+from ._util import signal_raise, aiter_compat, is_main_thread, ConflictDetector
 from ._deprecate import deprecated
 
 __all__ = ["open_signal_receiver", "catch_signals"]
@@ -177,7 +175,7 @@ class CompatSignalQueue:
         return self
 
     async def __anext__(self):
-        return { await self._signal_queue.__anext__()}
+        return {await self._signal_queue.__anext__()}
 
 
 @deprecated("0.7.0", issue=354, instead=open_signal_receiver)

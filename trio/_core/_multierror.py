@@ -173,9 +173,7 @@ class MultiError(BaseException):
         exceptions = list(exceptions)
         for exc in exceptions:
             if not isinstance(exc, BaseException):
-                raise TypeError(
-                    "Expected an exception object, not {!r}".format(exc)
-                )
+                raise TypeError("Expected an exception object, not {!r}".format(exc))
         if len(exceptions) == 1:
             return exceptions[0]
         else:
@@ -260,16 +258,20 @@ if have_tproxy:
             # no missing test we could add, and no value in coverage nagging
             # us about adding one.
             if operation.opname in [
-                "__getattribute__", "__getattr__"
+                "__getattribute__",
+                "__getattr__",
             ]:  # pragma: no cover
                 if operation.args[0] == "tb_next":
                     return tb_next
             return operation.delegate()
 
         return tputil.make_proxy(controller, type(base_tb), base_tb)
+
+
 else:
     # ctypes it is
     import ctypes
+
     # How to handle refcounting? I don't want to use ctypes.py_object because
     # I don't understand or trust it, and I don't want to use
     # ctypes.pythonapi.Py_{Inc,Dec}Ref because we might clash with user code
@@ -368,7 +370,7 @@ def traceback_exception_init(
         limit=limit,
         lookup_lines=lookup_lines,
         capture_locals=capture_locals,
-        _seen=_seen
+        _seen=_seen,
     )
 
     # Capture each of the exceptions in the MultiError along with each of their causes and contexts
@@ -384,7 +386,7 @@ def traceback_exception_init(
                         capture_locals=capture_locals,
                         # copy the set of _seen exceptions so that duplicates
                         # shared between sub-exceptions are not omitted
-                        _seen=set(_seen)
+                        _seen=set(_seen),
                     )
                 )
         self.embedded = embedded
@@ -401,9 +403,7 @@ def traceback_exception_format(self, *, chain=True):
 
     for i, exc in enumerate(self.embedded):
         yield "\nDetails of embedded exception {}:\n\n".format(i + 1)
-        yield from (
-            textwrap.indent(line, " " * 2) for line in exc.format(chain=chain)
-        )
+        yield from (textwrap.indent(line, " " * 2) for line in exc.format(chain=chain))
 
 
 traceback.TracebackException.format = traceback_exception_format
@@ -418,6 +418,7 @@ IPython_handler_installed = False
 warning_given = False
 if "IPython" in sys.modules:
     import IPython
+
     ip = IPython.get_ipython()
     if ip is not None:
         if ip.custom_exceptions != ():
@@ -426,7 +427,7 @@ if "IPython" in sys.modules:
                 "handler installed. I'll skip installing trio's custom "
                 "handler, but this means MultiErrors will not show full "
                 "tracebacks.",
-                category=RuntimeWarning
+                category=RuntimeWarning,
             )
             warning_given = True
         else:
@@ -447,5 +448,5 @@ else:
             "You seem to already have a custom sys.excepthook handler "
             "installed. I'll skip installing trio's custom handler, but this "
             "means MultiErrors will not show full tracebacks.",
-            category=RuntimeWarning
+            category=RuntimeWarning,
         )

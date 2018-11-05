@@ -6,18 +6,14 @@ import pytest
 
 from trio._core.tests.tutil import gc_collect_harder
 from ... import _core
-from ...testing import (wait_all_tasks_blocked, check_one_way_stream)
+from ...testing import wait_all_tasks_blocked, check_one_way_stream
 
 posix = os.name == "posix"
 
-pytestmark = pytest.mark.skipif(
-    not posix, reason="pipes are only supported on posix"
-)
+pytestmark = pytest.mark.skipif(not posix, reason="pipes are only supported on posix")
 
 if posix:
-    from ..._subprocess.unix_pipes import (
-        PipeSendStream, PipeReceiveStream, make_pipe
-    )
+    from ..._subprocess.unix_pipes import PipeSendStream, PipeReceiveStream, make_pipe
 
 
 async def test_send_pipe():
@@ -46,7 +42,7 @@ async def test_receive_pipe():
 
 async def test_pipes_combined():
     write, read = await make_pipe()
-    count = 2**20
+    count = 2 ** 20
 
     async def sender():
         big = bytearray(count)

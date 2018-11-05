@@ -16,13 +16,12 @@ def test_core_is_properly_reexported():
     # three modules:
     sources = [trio, trio.hazmat, trio.testing]
     for symbol in dir(_core):
-        if symbol.startswith('_') or symbol == 'tests':
+        if symbol.startswith("_") or symbol == "tests":
             continue
         found = 0
         for source in sources:
-            if (
-                symbol in dir(source)
-                and getattr(source, symbol) is getattr(_core, symbol)
+            if symbol in dir(source) and getattr(source, symbol) is getattr(
+                _core, symbol
             ):
                 found += 1
         print(symbol, found)
@@ -77,11 +76,13 @@ def test_static_tool_sees_all_symbols(tool, modname):
 
     if tool == "pylint":
         from pylint.lint import PyLinter
+
         linter = PyLinter()
         ast = linter.get_ast(module.__file__, modname)
         static_names = no_underscores(ast)
     elif tool == "jedi":
         import jedi
+
         # Simulate typing "import trio; trio.<TAB>"
         script = jedi.Script("import {}; {}.".format(modname, modname))
         completions = script.completions()

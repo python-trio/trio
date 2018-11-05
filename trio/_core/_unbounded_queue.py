@@ -48,7 +48,7 @@ class UnboundedQueue:
         "0.9.0",
         issue=497,
         thing="trio.hazmat.UnboundedQueue",
-        instead="trio.open_memory_channel(math.inf)"
+        instead="trio.open_memory_channel(math.inf)",
     )
     def __init__(self):
         self._lot = _core.ParkingLot()
@@ -144,8 +144,7 @@ class UnboundedQueue:
 
         """
         return _UnboundedQueueStats(
-            qsize=len(self._data),
-            tasks_waiting=self._lot.statistics().tasks_waiting
+            qsize=len(self._data), tasks_waiting=self._lot.statistics().tasks_waiting
         )
 
     @aiter_compat

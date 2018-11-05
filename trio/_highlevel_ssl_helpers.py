@@ -3,8 +3,9 @@ import trio
 from ._highlevel_open_tcp_stream import DEFAULT_DELAY
 
 __all__ = [
-    "open_ssl_over_tcp_stream", "open_ssl_over_tcp_listeners",
-    "serve_ssl_over_tcp"
+    "open_ssl_over_tcp_stream",
+    "open_ssl_over_tcp_listeners",
+    "serve_ssl_over_tcp",
 ]
 
 
@@ -57,17 +58,12 @@ async def open_ssl_over_tcp_stream(
 
     """
     tcp_stream = await trio.open_tcp_stream(
-        host,
-        port,
-        happy_eyeballs_delay=happy_eyeballs_delay,
+        host, port, happy_eyeballs_delay=happy_eyeballs_delay
     )
     if ssl_context is None:
         ssl_context = trio.ssl.create_default_context()
     return trio.ssl.SSLStream(
-        tcp_stream,
-        ssl_context,
-        server_hostname=host,
-        https_compatible=https_compatible,
+        tcp_stream, ssl_context, server_hostname=host, https_compatible=https_compatible
     )
 
 
@@ -86,15 +82,12 @@ async def open_ssl_over_tcp_listeners(
       backlog (int or None): See :class:`~trio.ssl.SSLStream` for details.
 
     """
-    tcp_listeners = await trio.open_tcp_listeners(
-        port, host=host, backlog=backlog
-    )
+    tcp_listeners = await trio.open_tcp_listeners(port, host=host, backlog=backlog)
     ssl_listeners = [
         trio.ssl.SSLListener(
-            tcp_listener,
-            ssl_context,
-            https_compatible=https_compatible,
-        ) for tcp_listener in tcp_listeners
+            tcp_listener, ssl_context, https_compatible=https_compatible
+        )
+        for tcp_listener in tcp_listeners
     ]
     return ssl_listeners
 
@@ -158,15 +151,8 @@ async def serve_ssl_over_tcp(
 
     """
     listeners = await trio.open_ssl_over_tcp_listeners(
-        port,
-        ssl_context,
-        host=host,
-        https_compatible=https_compatible,
-        backlog=backlog
+        port, ssl_context, host=host, https_compatible=https_compatible, backlog=backlog
     )
     await trio.serve_listeners(
-        handler,
-        listeners,
-        handler_nursery=handler_nursery,
-        task_status=task_status
+        handler, listeners, handler_nursery=handler_nursery, task_status=task_status
     )

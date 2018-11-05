@@ -5,9 +5,7 @@ import socket as stdlib_socket
 import attr
 
 import trio
-from trio import (
-    open_tcp_listeners, serve_tcp, SocketListener, open_tcp_stream
-)
+from trio import open_tcp_listeners, serve_tcp, SocketListener, open_tcp_stream
 from trio.testing import open_stream_to_socket_listener
 from .. import socket as tsocket
 from .._core.tests.tutil import slow, need_ipv6
@@ -146,14 +144,7 @@ async def test_open_tcp_listeners_rebind():
     assert s_established.socket.getsockname() == sockaddr2
     assert c_time_wait.socket.getpeername() == sockaddr2
 
-    for resource in [
-        l1,
-        l2,
-        c_established,
-        s_established,
-        c_time_wait,
-        s_time_wait,
-    ]:
+    for resource in [l1, l2, c_established, s_established, c_time_wait, s_time_wait]:
         await resource.aclose()
 
 

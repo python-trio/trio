@@ -26,9 +26,7 @@ async def _task(state: WaitpidState) -> None:
     """The waitpid thread runner task. This must be spawned as a system
     task."""
     partial = functools.partial(
-        os.waitpid,  # function
-        state.pid,  # pid
-        0  # no options
+        os.waitpid, state.pid, 0  # function  # pid  # no options
     )
 
     tresult = await run_sync_in_worker_thread(

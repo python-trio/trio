@@ -32,10 +32,7 @@ async def test_parking_lot_basic():
         assert len(record) == 6
 
     check_sequence_matches(
-        record, [
-            {"sleep 0", "sleep 1", "sleep 2"},
-            {"wake 0", "wake 1", "wake 2"},
-        ]
+        record, [{"sleep 0", "sleep 1", "sleep 2"}, {"wake 0", "wake 1", "wake 2"}]
     )
 
     async with _core.open_nursery() as nursery:
@@ -48,14 +45,7 @@ async def test_parking_lot_basic():
             lot.unpark()
             await wait_all_tasks_blocked()
         # 1-by-1 wakeups are strict FIFO
-        assert record == [
-            "sleep 0",
-            "sleep 1",
-            "sleep 2",
-            "wake 0",
-            "wake 1",
-            "wake 2",
-        ]
+        assert record == ["sleep 0", "sleep 1", "sleep 2", "wake 0", "wake 1", "wake 2"]
 
     # It's legal (but a no-op) to try and unpark while there's nothing parked
     lot.unpark()
@@ -71,12 +61,7 @@ async def test_parking_lot_basic():
         lot.unpark(count=2)
         await wait_all_tasks_blocked()
         check_sequence_matches(
-            record, [
-                "sleep 0",
-                "sleep 1",
-                "sleep 2",
-                {"wake 0", "wake 1"},
-            ]
+            record, ["sleep 0", "sleep 1", "sleep 2", {"wake 0", "wake 1"}]
         )
         lot.unpark_all()
 
@@ -115,13 +100,7 @@ async def test_parking_lot_cancel():
         assert len(record) == 6
 
     check_sequence_matches(
-        record, [
-            "sleep 1",
-            "sleep 2",
-            "sleep 3",
-            "cancelled 2",
-            {"wake 1", "wake 3"},
-        ]
+        record, ["sleep 1", "sleep 2", "sleep 3", "cancelled 2", {"wake 1", "wake 3"}]
     )
 
 
@@ -159,14 +138,17 @@ async def test_parking_lot_repark():
         scopes[2].cancel()
         await wait_all_tasks_blocked()
         assert len(lot2) == 1
-        assert record == [
-            "sleep 1", "sleep 2", "sleep 3", "wake 1", "cancelled 2"
-        ]
+        assert record == ["sleep 1", "sleep 2", "sleep 3", "wake 1", "cancelled 2"]
 
         lot2.unpark_all()
         await wait_all_tasks_blocked()
         assert record == [
-            "sleep 1", "sleep 2", "sleep 3", "wake 1", "cancelled 2", "wake 3"
+            "sleep 1",
+            "sleep 2",
+            "sleep 3",
+            "wake 1",
+            "cancelled 2",
+            "wake 3",
         ]
 
 
@@ -192,11 +174,5 @@ async def test_parking_lot_repark_with_count():
         while lot2:
             lot2.unpark()
             await wait_all_tasks_blocked()
-        assert record == [
-            "sleep 1",
-            "sleep 2",
-            "sleep 3",
-            "wake 1",
-            "wake 2",
-        ]
+        assert record == ["sleep 1", "sleep 2", "sleep 3", "wake 1", "wake 2"]
         lot1.unpark_all()

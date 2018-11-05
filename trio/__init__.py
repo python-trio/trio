@@ -16,24 +16,49 @@
 from ._version import __version__
 
 from ._core import (
-    TrioInternalError, RunFinishedError, WouldBlock, Cancelled,
-    BusyResourceError, ClosedResourceError, MultiError, run, open_nursery,
-    open_cancel_scope, current_effective_deadline, TASK_STATUS_IGNORED,
-    current_time, BrokenResourceError, EndOfChannel, NoHandshakeError
+    TrioInternalError,
+    RunFinishedError,
+    WouldBlock,
+    Cancelled,
+    BusyResourceError,
+    ClosedResourceError,
+    MultiError,
+    run,
+    open_nursery,
+    open_cancel_scope,
+    current_effective_deadline,
+    TASK_STATUS_IGNORED,
+    current_time,
+    BrokenResourceError,
+    EndOfChannel,
+    NoHandshakeError,
 )
 
 from ._timeouts import (
-    move_on_at, move_on_after, sleep_forever, sleep_until, sleep, fail_at,
-    fail_after, TooSlowError
+    move_on_at,
+    move_on_after,
+    sleep_forever,
+    sleep_until,
+    sleep,
+    fail_at,
+    fail_after,
+    TooSlowError,
 )
 
 from ._sync import (
-    Event, CapacityLimiter, Semaphore, Lock, StrictFIFOLock, Condition, Queue
+    Event,
+    CapacityLimiter,
+    Semaphore,
+    Lock,
+    StrictFIFOLock,
+    Condition,
+    Queue,
 )
 
 from ._threads import (
-    run_sync_in_worker_thread, current_default_worker_thread_limiter,
-    BlockingTrioPortal
+    run_sync_in_worker_thread,
+    current_default_worker_thread_limiter,
+    BlockingTrioPortal,
 )
 
 from ._highlevel_generic import aclose_forcefully, StapledStream
@@ -57,7 +82,9 @@ from ._highlevel_open_tcp_listeners import open_tcp_listeners, serve_tcp
 from ._highlevel_open_unix_stream import open_unix_socket
 
 from ._highlevel_ssl_helpers import (
-    open_ssl_over_tcp_stream, open_ssl_over_tcp_listeners, serve_ssl_over_tcp
+    open_ssl_over_tcp_stream,
+    open_ssl_over_tcp_listeners,
+    serve_ssl_over_tcp,
 )
 
 from ._deprecate import TrioDeprecationWarning
@@ -67,37 +94,25 @@ from . import hazmat
 from . import socket
 from . import abc
 from . import ssl
+
 # Not imported by default: testing
 if False:
     from . import testing
 
 _deprecate.enable_attribute_deprecations(__name__)
 __deprecated_attributes__ = {
-    "ClosedStreamError":
-        _deprecate.DeprecatedAttribute(
-            ClosedResourceError,
-            "0.5.0",
-            issue=36,
-            instead=ClosedResourceError
-        ),
-    "ClosedListenerError":
-        _deprecate.DeprecatedAttribute(
-            ClosedResourceError,
-            "0.5.0",
-            issue=36,
-            instead=ClosedResourceError
-        ),
-    "BrokenStreamError":
-        _deprecate.DeprecatedAttribute(
-            BrokenResourceError,
-            "0.8.0",
-            issue=620,
-            instead=BrokenResourceError
-        ),
-    "ResourceBusyError":
-        _deprecate.DeprecatedAttribute(
-            BusyResourceError, "0.8.0", issue=620, instead=BusyResourceError
-        ),
+    "ClosedStreamError": _deprecate.DeprecatedAttribute(
+        ClosedResourceError, "0.5.0", issue=36, instead=ClosedResourceError
+    ),
+    "ClosedListenerError": _deprecate.DeprecatedAttribute(
+        ClosedResourceError, "0.5.0", issue=36, instead=ClosedResourceError
+    ),
+    "BrokenStreamError": _deprecate.DeprecatedAttribute(
+        BrokenResourceError, "0.8.0", issue=620, instead=BrokenResourceError
+    ),
+    "ResourceBusyError": _deprecate.DeprecatedAttribute(
+        BusyResourceError, "0.8.0", issue=620, instead=BusyResourceError
+    ),
 }
 
 _deprecate.enable_attribute_deprecations(hazmat.__name__)
@@ -107,21 +122,15 @@ _deprecate.enable_attribute_deprecations(hazmat.__name__)
 from ._core import _result
 
 hazmat.__deprecated_attributes__ = {
-    "Result":
-        _deprecate.DeprecatedAttribute(
-            _core._result.Result,
-            "0.5.0",
-            issue=494,
-            instead="outcome.Outcome"
-        ),
-    "Value":
-        _deprecate.DeprecatedAttribute(
-            _core._result.Value, "0.5.0", issue=494, instead="outcome.Value"
-        ),
-    "Error":
-        _deprecate.DeprecatedAttribute(
-            _core._result.Error, "0.5.0", issue=494, instead="outcome.Error"
-        )
+    "Result": _deprecate.DeprecatedAttribute(
+        _core._result.Result, "0.5.0", issue=494, instead="outcome.Outcome"
+    ),
+    "Value": _deprecate.DeprecatedAttribute(
+        _core._result.Value, "0.5.0", issue=494, instead="outcome.Value"
+    ),
+    "Error": _deprecate.DeprecatedAttribute(
+        _core._result.Error, "0.5.0", issue=494, instead="outcome.Error"
+    ),
 }
 
 # Having the public path in .__module__ attributes is important for:
@@ -131,6 +140,7 @@ hazmat.__deprecated_attributes__ = {
 # - pickle
 # - probably other stuff
 from ._util import fixup_module_metadata
+
 fixup_module_metadata(__name__, globals())
 fixup_module_metadata(hazmat.__name__, hazmat.__dict__)
 fixup_module_metadata(socket.__name__, socket.__dict__)

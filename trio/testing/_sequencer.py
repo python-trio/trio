@@ -64,9 +64,7 @@ class Sequencer:
     @async_generator
     async def __call__(self, position: int):
         if position in self._claimed:
-            raise RuntimeError(
-                "Attempted to re-use sequence point {}".format(position)
-            )
+            raise RuntimeError("Attempted to re-use sequence point {}".format(position))
         if self._broken:
             raise RuntimeError("sequence broken!")
         self._claimed.add(position)
@@ -77,9 +75,7 @@ class Sequencer:
                 self._broken = True
                 for event in self._sequence_points.values():
                     event.set()
-                raise RuntimeError(
-                    "Sequencer wait cancelled -- sequence broken"
-                )
+                raise RuntimeError("Sequencer wait cancelled -- sequence broken")
             else:
                 if self._broken:
                     raise RuntimeError("sequence broken!")

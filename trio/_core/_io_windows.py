@@ -118,9 +118,7 @@ class WindowsIOManager:
         # https://msdn.microsoft.com/en-us/library/windows/desktop/aa363862(v=vs.85).aspx
         self._closed = True
         self._iocp = _check(
-            kernel32.CreateIoCompletionPort(
-                INVALID_HANDLE_VALUE, ffi.NULL, 0, 0
-            )
+            kernel32.CreateIoCompletionPort(INVALID_HANDLE_VALUE, ffi.NULL, 0, 0)
         )
         self._closed = False
         self._iocp_queue = deque()
@@ -244,8 +242,7 @@ class WindowsIOManager:
                     overlapped = int(ffi.cast("uintptr_t", entry.lpOverlapped))
                     transferred = entry.dwNumberOfBytesTransferred
                     info = CompletionKeyEventInfo(
-                        lpOverlapped=overlapped,
-                        dwNumberOfBytesTransferred=transferred,
+                        lpOverlapped=overlapped, dwNumberOfBytesTransferred=transferred
                     )
                     queue.put_nowait(info)
 
@@ -270,7 +267,7 @@ class WindowsIOManager:
             try:
                 _check(
                     kernel32.GetQueuedCompletionStatusEx(
-                        self._iocp, batch, max_events, received, 0xffffffff, 0
+                        self._iocp, batch, max_events, received, 0xFFFFFFFF, 0
                     )
                 )
             except OSError as exc:
@@ -341,8 +338,7 @@ class WindowsIOManager:
         if sock in self._socket_waiters[which]:
             await _core.checkpoint()
             raise _core.BusyResourceError(
-                "another task is already waiting to {} this socket"
-                .format(which)
+                "another task is already waiting to {} this socket".format(which)
             )
         self._socket_waiters[which][sock] = _core.current_task()
 
@@ -367,9 +363,7 @@ class WindowsIOManager:
         for mode in ["read", "write"]:
             if sock in self._socket_waiters[mode]:
                 task = self._socket_waiters[mode].pop(sock)
-                exc = _core.ClosedResourceError(
-                    "another task closed this socket"
-                )
+                exc = _core.ClosedResourceError("another task closed this socket")
                 _core.reschedule(task, outcome.Error(exc))
 
     # This has cffi-isms in it and is untested... but it demonstrates the

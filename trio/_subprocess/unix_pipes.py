@@ -11,9 +11,7 @@ __all__ = ["PipeSendStream", "PipeReceiveStream", "make_pipe"]
 class _PipeMixin:
     def __init__(self, pipefd: int) -> None:
         if not isinstance(pipefd, int):
-            raise TypeError(
-                "{0.__class__.__name__} needs a pipe fd".format(self)
-            )
+            raise TypeError("{0.__class__.__name__} needs a pipe fd".format(self))
 
         self._pipe = pipefd
         self._closed = False

@@ -7,16 +7,12 @@ __all__ = ["Result", "Value", "Error"]
 
 class Result(outcome.Outcome):
     @classmethod
-    @_deprecate.deprecated(
-        version="0.5.0", issue=494, instead="outcome.capture"
-    )
+    @_deprecate.deprecated(version="0.5.0", issue=494, instead="outcome.capture")
     def capture(cls, sync_fn, *args):
         return outcome.capture(sync_fn, *args)
 
     @classmethod
-    @_deprecate.deprecated(
-        version="0.5.0", issue=494, instead="outcome.acapture"
-    )
+    @_deprecate.deprecated(version="0.5.0", issue=494, instead="outcome.acapture")
     async def acapture(cls, async_fn, *args):
         return await outcome.acapture(async_fn, *args)
 

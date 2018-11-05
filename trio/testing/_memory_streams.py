@@ -106,7 +106,7 @@ class MemorySendStream(SendStream):
         self,
         send_all_hook=None,
         wait_send_all_might_not_block_hook=None,
-        close_hook=None
+        close_hook=None,
     ):
         self._conflict_detector = _util.ConflictDetector(
             "another task is using this stream"
@@ -278,9 +278,7 @@ class MemoryReceiveStream(ReceiveStream):
         self._incoming.close()
 
 
-def memory_stream_pump(
-    memory_send_stream, memory_receive_stream, *, max_bytes=None
-):
+def memory_stream_pump(memory_send_stream, memory_receive_stream, *, max_bytes=None):
     """Take data out of the given :class:`MemorySendStream`'s internal buffer,
     and put it into the given :class:`MemoryReceiveStream`'s internal buffer.
 

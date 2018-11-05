@@ -54,6 +54,7 @@ __all__ = [
 ]
 
 from . import _core
+
 # Some hazmat symbols are platform specific
 for _sym in list(__all__):
     if hasattr(_core, _sym):
@@ -70,4 +71,5 @@ for _sym in list(__all__):
 # Import bits from trio/*.py
 if sys.platform.startswith("win"):
     from ._wait_for_object import WaitForSingleObject
+
     __all__ += ["WaitForSingleObject"]

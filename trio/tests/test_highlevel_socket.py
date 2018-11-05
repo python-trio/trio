@@ -6,7 +6,9 @@ import errno
 
 from .. import _core
 from ..testing import (
-    check_half_closeable_stream, wait_all_tasks_blocked, assert_checkpoints
+    check_half_closeable_stream,
+    wait_all_tasks_blocked,
+    assert_checkpoints,
 )
 from .._highlevel_socket import *
 from .. import socket as tsocket

@@ -366,7 +366,7 @@ class SSLStream(Stream):
             self._incoming,
             self._outgoing,
             server_side=server_side,
-            server_hostname=server_hostname
+            server_hostname=server_hostname,
         )
         # Tracks whether we've already done the initial handshake
         self._handshook = _Once(self._do_handshake)
@@ -477,9 +477,7 @@ class SSLStream(Stream):
                     ret = fn(*args)
                 except _stdlib_ssl.SSLWantReadError:
                     want_read = True
-                except (
-                    _stdlib_ssl.SSLError, _stdlib_ssl.CertificateError
-                ) as exc:
+                except (_stdlib_ssl.SSLError, _stdlib_ssl.CertificateError) as exc:
                     self._state = _State.BROKEN
                     raise _core.BrokenResourceError from exc
                 else:
@@ -652,11 +650,9 @@ class SSLStream(Stream):
                 # For some reason, EOF before handshake sometimes raises
                 # SSLSyscallError instead of SSLEOFError (e.g. on my linux
                 # laptop, but not on appveyor). Thanks openssl.
-                if (
-                    self._https_compatible and isinstance(
-                        exc.__cause__,
-                        (_stdlib_ssl.SSLEOFError, _stdlib_ssl.SSLSyscallError)
-                    )
+                if self._https_compatible and isinstance(
+                    exc.__cause__,
+                    (_stdlib_ssl.SSLEOFError, _stdlib_ssl.SSLSyscallError),
                 ):
                     return b""
                 else:
@@ -672,9 +668,8 @@ class SSLStream(Stream):
                 # BROKEN. But that's actually fine, because after getting an
                 # EOF on TLS then the only thing you can do is close the
                 # stream, and closing doesn't care about the state.
-                if (
-                    self._https_compatible
-                    and isinstance(exc.__cause__, _stdlib_ssl.SSLEOFError)
+                if self._https_compatible and isinstance(
+                    exc.__cause__, _stdlib_ssl.SSLEOFError
                 ):
                     return b""
                 else:
@@ -718,8 +713,7 @@ class SSLStream(Stream):
           ``transport_stream.receive_some(...)``.
 
         """
-        async with self._outer_recv_conflict_detector, \
-                self._outer_send_conflict_detector:
+        async with self._outer_recv_conflict_detector, self._outer_send_conflict_detector:
             self._check_status()
             await self._handshook.ensure(checkpoint=False)
             await self._retry(self._ssl_object.unwrap)
@@ -802,9 +796,7 @@ class SSLStream(Stream):
             # going to be able to do a clean shutdown. If that happens, we'll
             # just do an unclean shutdown.
             try:
-                await self._retry(
-                    self._ssl_object.unwrap, ignore_want_read=True
-                )
+                await self._retry(self._ssl_object.unwrap, ignore_want_read=True)
             except (_core.BrokenResourceError, _core.BusyResourceError):
                 pass
         except:

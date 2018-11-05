@@ -22,10 +22,8 @@ from outcome import Error, Value, capture
 
 from . import _public
 from ._entry_queue import EntryQueue, TrioToken
-from ._exceptions import (TrioInternalError, RunFinishedError, Cancelled)
-from ._ki import (
-    LOCALS_KEY_KI_PROTECTION_ENABLED, ki_manager, enable_ki_protection
-)
+from ._exceptions import TrioInternalError, RunFinishedError, Cancelled
+from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED, ki_manager, enable_ki_protection
 from ._multierror import MultiError
 from ._traps import (
     Abort,
@@ -41,9 +39,15 @@ from .. import _core
 # __all__. These are all re-exported as part of the 'trio' or 'trio.hazmat'
 # namespaces.
 __all__ = [
-    "Task", "run", "open_nursery", "open_cancel_scope", "checkpoint",
-    "current_task", "current_effective_deadline", "checkpoint_if_cancelled",
-    "TASK_STATUS_IGNORED"
+    "Task",
+    "run",
+    "open_nursery",
+    "open_cancel_scope",
+    "checkpoint",
+    "current_task",
+    "current_effective_deadline",
+    "checkpoint_if_cancelled",
+    "TASK_STATUS_IGNORED",
 ]
 
 GLOBAL_RUN_CONTEXT = threading.local()
@@ -292,9 +296,7 @@ class _TaskStatus:
 
     def started(self, value=None):
         if self._called_started:
-            raise RuntimeError(
-                "called 'started' twice on the same task status"
-            )
+            raise RuntimeError("called 'started' twice on the same task status")
         self._called_started = True
         self._value = value
 
@@ -329,12 +331,12 @@ class _TaskStatus:
                 task._parent_nursery = self._new_nursery
                 self._new_nursery._children.add(task)
             # Everyone needs their cancel scopes fixed up...
-            assert task._cancel_stack[:len(old_stack)] == old_stack
-            task._cancel_stack[:len(old_stack)] = new_stack
+            assert task._cancel_stack[: len(old_stack)] == old_stack
+            task._cancel_stack[: len(old_stack)] = new_stack
             # ...and their nurseries' cancel scopes fixed up.
             for nursery in task._child_nurseries:
-                assert nursery._cancel_stack[:len(old_stack)] == old_stack
-                nursery._cancel_stack[:len(old_stack)] = new_stack
+                assert nursery._cancel_stack[: len(old_stack)] == old_stack
+                nursery._cancel_stack[: len(old_stack)] = new_stack
                 # And then add all the nursery's children to our todo list
                 todo.extend(nursery._children)
             # And make a note to check for cancellation later
@@ -455,9 +457,7 @@ class Nursery:
         self.cancel_scope.cancel()
 
     def _check_nursery_closed(self):
-        if not any(
-            [self._nested_child_running, self._children, self._pending_starts]
-        ):
+        if not any([self._nested_child_running, self._children, self._pending_starts]):
             self._closed = True
             if self._parent_waiting_in_aexit:
                 self._parent_waiting_in_aexit = False
@@ -518,9 +518,7 @@ class Nursery:
             # normally. The complicated logic is all in _TaskStatus.started().
             # (Any exceptions propagate directly out of the above.)
             if not task_status._called_started:
-                raise RuntimeError(
-                    "child exited without calling task_status.started()"
-                )
+                raise RuntimeError("child exited without calling task_status.started()")
             return task_status._value
         finally:
             self._pending_starts -= 1
@@ -576,7 +574,7 @@ class Task:
     _schedule_points = attr.ib(default=0)
 
     def __repr__(self):
-        return ("<Task {!r} at {:#x}>".format(self.name, id(self)))
+        return "<Task {!r} at {:#x}>".format(self.name, id(self))
 
     @property
     def parent_nursery(self):
@@ -852,8 +850,9 @@ class Runner:
                     "Instead, you want (notice the parentheses!):\n"
                     "\n"
                     "  trio.run({async_fn.__name__}, ...)            # correct!\n"
-                    "  nursery.start_soon({async_fn.__name__}, ...)  # correct!"
-                    .format(async_fn=async_fn)
+                    "  nursery.start_soon({async_fn.__name__}, ...)  # correct!".format(
+                        async_fn=async_fn
+                    )
                 ) from None
 
             # Give good error for: nursery.start_soon(future)
@@ -862,8 +861,7 @@ class Runner:
                     "trio was expecting an async function, but instead it got "
                     "{!r} – are you trying to use a library written for "
                     "asyncio/twisted/tornado or similar? That won't work "
-                    "without some sort of compatibility shim."
-                    .format(async_fn)
+                    "without some sort of compatibility shim.".format(async_fn)
                 ) from None
 
             raise
@@ -878,8 +876,9 @@ class Runner:
                 raise TypeError(
                     "start_soon got unexpected {!r} – are you trying to use a "
                     "library written for asyncio/twisted/tornado or similar? "
-                    "That won't work without some sort of compatibility shim."
-                    .format(coro)
+                    "That won't work without some sort of compatibility shim.".format(
+                        coro
+                    )
                 )
 
             if isasyncgen(coro):
@@ -891,9 +890,7 @@ class Runner:
             # Give good error for: nursery.start_soon(some_sync_fn)
             raise TypeError(
                 "trio expected an async function, but {!r} appears to be "
-                "synchronous".format(
-                    getattr(async_fn, "__qualname__", async_fn)
-                )
+                "synchronous".format(getattr(async_fn, "__qualname__", async_fn))
             )
 
         ######
@@ -916,16 +913,10 @@ class Runner:
             context = copy_context()
 
         task = Task(
-            coro=coro,
-            parent_nursery=nursery,
-            runner=self,
-            name=name,
-            context=context,
+            coro=coro, parent_nursery=nursery, runner=self, name=name, context=context
         )
         self.tasks.add(task)
-        coro.cr_frame.f_locals.setdefault(
-            LOCALS_KEY_KI_PROTECTION_ENABLED, system_task
-        )
+        coro.cr_frame.f_locals.setdefault(LOCALS_KEY_KI_PROTECTION_ENABLED, system_task)
 
         if nursery is not None:
             nursery._children.add(task)
@@ -1015,9 +1006,7 @@ class Runner:
         async with open_nursery() as system_nursery:
             self.system_nursery = system_nursery
             try:
-                self.main_task = self.spawn_impl(
-                    async_fn, args, system_nursery, None
-                )
+                self.main_task = self.spawn_impl(async_fn, args, system_nursery, None)
             except BaseException as exc:
                 self.main_task_outcome = Error(exc)
                 system_nursery.cancel_scope.cancel()
@@ -1166,7 +1155,9 @@ class Runner:
                 self.instruments.remove(instrument)
                 INSTRUMENT_LOGGER.exception(
                     "Exception raised when calling %r on instrument %r. "
-                    "Instrument has been disabled.", method_name, instrument
+                    "Instrument has been disabled.",
+                    method_name,
+                    instrument,
                 )
 
     @_public
@@ -1314,9 +1305,7 @@ def run(
     # where KeyboardInterrupt would be allowed and converted into an
     # TrioInternalError:
     try:
-        with ki_manager(
-            runner.deliver_ki, restrict_keyboard_interrupt_to_checkpoints
-        ):
+        with ki_manager(runner.deliver_ki, restrict_keyboard_interrupt_to_checkpoints):
             try:
                 with closing(runner):
                     # The main reason this is split off into its own function
@@ -1356,11 +1345,7 @@ def run_impl(runner, async_fn, args):
         runner.instrument("before_run")
     runner.clock.start_clock()
     runner.init_task = runner.spawn_impl(
-        runner.init,
-        (async_fn, args),
-        None,
-        "<init>",
-        system_task=True,
+        runner.init, (async_fn, args), None, "<init>", system_task=True
     )
 
     # You know how people talk about "event loops"? This 'while' loop right
@@ -1607,9 +1592,8 @@ async def checkpoint_if_cancelled():
 
     """
     task = current_task()
-    if (
-        task._pending_cancel_scope() is not None or
-        (task is task._runner.main_task and task._runner.ki_pending)
+    if task._pending_cancel_scope() is not None or (
+        task is task._runner.main_task and task._runner.ki_pending
     ):
         await _core.checkpoint()
         assert False  # pragma: no cover
@@ -1635,10 +1619,8 @@ def _generate_method_wrappers(cls, path_to_instance):
             # it. exec() is a bit ugly but the resulting code is faster and
             # simpler than doing some loop over getattr.
             ns = {
-                "GLOBAL_RUN_CONTEXT":
-                    GLOBAL_RUN_CONTEXT,
-                "LOCALS_KEY_KI_PROTECTION_ENABLED":
-                    LOCALS_KEY_KI_PROTECTION_ENABLED
+                "GLOBAL_RUN_CONTEXT": GLOBAL_RUN_CONTEXT,
+                "LOCALS_KEY_KI_PROTECTION_ENABLED": LOCALS_KEY_KI_PROTECTION_ENABLED,
             }
             exec(_WRAPPER_TEMPLATE.format(path_to_instance, methname), ns)
             wrapper = ns["wrapper"]
@@ -1646,9 +1628,11 @@ def _generate_method_wrappers(cls, path_to_instance):
             # function has the same API as the *bound* version of the
             # method. So create a dummy bound method object:
             from types import MethodType
+
             bound_fn = MethodType(fn, object())
             # Then set exported function's metadata to match it:
             from functools import update_wrapper
+
             update_wrapper(wrapper, bound_fn)
             # And finally export it:
             globals()[methname] = wrapper

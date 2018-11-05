@@ -59,7 +59,9 @@ if hasattr(_core, "notify_fd_close"):
     assert _core.notify_socket_close is _core.notify_fd_close
 
 for options_list in [
-    wait_readable_options, wait_writable_options, notify_close_options
+    wait_readable_options,
+    wait_writable_options,
+    notify_close_options,
 ]:
     options_list += [using_fileno(f) for f in options_list]
 
@@ -204,9 +206,7 @@ async def test_interrupted_by_close(
 
 @read_socket_test
 @write_socket_test
-async def test_socket_simultaneous_read_write(
-    socketpair, wait_readable, wait_writable
-):
+async def test_socket_simultaneous_read_write(socketpair, wait_readable, wait_writable):
     record = []
 
     async def r_task(sock):
@@ -234,9 +234,7 @@ async def test_socket_simultaneous_read_write(
 
 @read_socket_test
 @write_socket_test
-async def test_socket_actual_streaming(
-    socketpair, wait_readable, wait_writable
-):
+async def test_socket_actual_streaming(socketpair, wait_readable, wait_writable):
     a, b = socketpair
 
     # Use a small send buffer on one of the sockets to increase the chance of

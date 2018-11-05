@@ -29,10 +29,7 @@ class KqueueIOManager:
                 tasks_waiting += 1
             else:
                 monitors += 1
-        return _KqueueStatistics(
-            tasks_waiting=tasks_waiting,
-            monitors=monitors,
-        )
+        return _KqueueStatistics(tasks_waiting=tasks_waiting, monitors=monitors)
 
     def close(self):
         self._kqueue.close()
@@ -83,8 +80,7 @@ class KqueueIOManager:
         key = (ident, filter)
         if key in self._registered:
             raise _core.BusyResourceError(
-                "attempt to register multiple listeners for same "
-                "ident/filter pair"
+                "attempt to register multiple listeners for same " "ident/filter pair"
             )
         q = _core.UnboundedQueue()
         self._registered[key] = q
@@ -99,8 +95,7 @@ class KqueueIOManager:
         if key in self._registered:
             await _core.checkpoint()
             raise _core.BusyResourceError(
-                "attempt to register multiple listeners for same "
-                "ident/filter pair"
+                "attempt to register multiple listeners for same " "ident/filter pair"
             )
         self._registered[key] = _core.current_task()
 

@@ -69,6 +69,7 @@ class StapledStream(HalfCloseableStream):
        is delegated to this object.
 
     """
+
     send_stream = attr.ib()
     receive_stream = attr.ib()
 

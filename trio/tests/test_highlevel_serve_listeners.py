@@ -139,7 +139,7 @@ async def test_serve_listeners_connection_nursery(autojump_clock):
                     trio.serve_listeners,
                     handler,
                     [listener],
-                    handler_nursery=handler_nursery
+                    handler_nursery=handler_nursery,
                 )
             )
             for _ in range(10):

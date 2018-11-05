@@ -117,9 +117,7 @@ class _ModuleWithDeprecations(ModuleType):
             if instead is DeprecatedAttribute._not_set:
                 instead = info.value
             thing = "{}.{}".format(self.__name__, name)
-            warn_deprecated(
-                thing, info.version, issue=info.issue, instead=instead
-            )
+            warn_deprecated(thing, info.version, issue=info.issue, instead=instead)
             return info.value
 
         raise AttributeError(name)

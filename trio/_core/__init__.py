@@ -15,25 +15,32 @@ def _public(fn):
 
 
 from ._exceptions import (
-    TrioInternalError, RunFinishedError, WouldBlock, Cancelled,
-    BusyResourceError, ClosedResourceError, BrokenResourceError, EndOfChannel,
-    NoHandshakeError
+    TrioInternalError,
+    RunFinishedError,
+    WouldBlock,
+    Cancelled,
+    BusyResourceError,
+    ClosedResourceError,
+    BrokenResourceError,
+    EndOfChannel,
+    NoHandshakeError,
 )
 
 from ._multierror import MultiError
 
-from ._ki import (
-    enable_ki_protection, disable_ki_protection, currently_ki_protected
-)
+from ._ki import enable_ki_protection, disable_ki_protection, currently_ki_protected
 
 # TODO:  make the _run namespace a lot less magical
 from ._run import *
 
 # Has to come after _run to resolve a circular import
 from ._traps import (
-    cancel_shielded_checkpoint, Abort, wait_task_rescheduled,
-    temporarily_detach_coroutine_object, permanently_detach_coroutine_object,
-    reattach_detached_coroutine_object
+    cancel_shielded_checkpoint,
+    Abort,
+    wait_task_rescheduled,
+    temporarily_detach_coroutine_object,
+    permanently_detach_coroutine_object,
+    reattach_detached_coroutine_object,
 )
 
 from ._entry_queue import TrioToken

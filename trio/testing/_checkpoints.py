@@ -14,18 +14,12 @@ def _assert_yields_or_not(expected):
     try:
         yield
     finally:
-        if (
-            expected and (
-                task._cancel_points == orig_cancel
-                or task._schedule_points == orig_schedule
-            )
+        if expected and (
+            task._cancel_points == orig_cancel or task._schedule_points == orig_schedule
         ):
             raise AssertionError("assert_checkpoints block did not yield!")
-        elif (
-            not expected and (
-                task._cancel_points != orig_cancel
-                or task._schedule_points != orig_schedule
-            )
+        elif not expected and (
+            task._cancel_points != orig_cancel or task._schedule_points != orig_schedule
         ):
             raise AssertionError("assert_no_yields block yielded!")
 

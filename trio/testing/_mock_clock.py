@@ -99,10 +99,8 @@ class MockClock(Clock):
         self.autojump_threshold = autojump_threshold
 
     def __repr__(self):
-        return (
-            "<MockClock, time={:.7f}, rate={} @ {:#x}>".format(
-                self.current_time(), self._rate, id(self)
-            )
+        return "<MockClock, time={:.7f}, rate={} @ {:#x}>".format(
+            self.current_time(), self._rate, id(self)
         )
 
     @property
@@ -143,9 +141,7 @@ class MockClock(Clock):
                     # to raise Cancelled, which is absorbed by the cancel
                     # scope above, and effectively just causes us to skip back
                     # to the start the loop, like a 'continue'.
-                    await _core.wait_all_tasks_blocked(
-                        self._autojump_threshold, inf
-                    )
+                    await _core.wait_all_tasks_blocked(self._autojump_threshold, inf)
                     statistics = _core.current_statistics()
                     jump = statistics.seconds_to_next_deadline
                     if jump < inf:

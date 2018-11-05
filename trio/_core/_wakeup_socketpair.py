@@ -21,9 +21,7 @@ class WakeupSocketpair:
         # On Windows this is a TCP socket so this might matter. On other
         # platforms this fails b/c AF_UNIX sockets aren't actually TCP.
         try:
-            self.write_sock.setsockopt(
-                socket.IPPROTO_TCP, socket.TCP_NODELAY, 1
-            )
+            self.write_sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         except OSError:
             pass
 
@@ -40,7 +38,7 @@ class WakeupSocketpair:
     def drain(self):
         try:
             while True:
-                self.wakeup_sock.recv(2**16)
+                self.wakeup_sock.recv(2 ** 16)
         except BlockingIOError:
             pass
 

@@ -41,10 +41,7 @@ async def test_StapledStream():
 
     await stapled.send_all(b"foo")
     await stapled.wait_send_all_might_not_block()
-    assert send_stream.record == [
-        ("send_all", b"foo"),
-        "wait_send_all_might_not_block",
-    ]
+    assert send_stream.record == [("send_all", b"foo"), "wait_send_all_might_not_block"]
     send_stream.record.clear()
 
     await stapled.send_eof()

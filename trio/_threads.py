@@ -78,9 +78,7 @@ class BlockingTrioPortal:
         except RuntimeError:
             pass
         else:
-            raise RuntimeError(
-                "this is a blocking function; call it from a thread"
-            )
+            raise RuntimeError("this is a blocking function; call it from a thread")
         q = stdlib_queue.Queue()
         self._trio_token.run_sync_soon(cb, q, fn, args)
         return q.get().unwrap()
@@ -254,9 +252,7 @@ class ThreadPlaceholder:
 
 
 @_core.enable_ki_protection
-async def run_sync_in_worker_thread(
-    sync_fn, *args, cancellable=False, limiter=None
-):
+async def run_sync_in_worker_thread(sync_fn, *args, cancellable=False, limiter=None):
     """Convert a blocking operation into an async operation using a thread.
 
     These two lines are equivalent::
@@ -382,9 +378,7 @@ async def run_sync_in_worker_thread(
     try:
         # daemon=True because it might get left behind if we cancel, and in
         # this case shouldn't block process exit.
-        thread = threading.Thread(
-            target=worker_thread_fn, name=name, daemon=True
-        )
+        thread = threading.Thread(target=worker_thread_fn, name=name, daemon=True)
         thread.start()
     except:
         limiter.release_on_behalf_of(placeholder)

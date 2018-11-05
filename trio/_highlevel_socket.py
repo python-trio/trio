@@ -24,9 +24,7 @@ def _translate_socket_errors_to_stream_errors():
         yield
     except OSError as exc:
         if exc.errno in _closed_stream_errnos:
-            raise _core.ClosedResourceError(
-                "this socket was already closed"
-            ) from None
+            raise _core.ClosedResourceError("this socket was already closed") from None
         else:
             raise _core.BrokenResourceError(
                 "socket connection broken: {}".format(exc)
@@ -87,18 +85,14 @@ class SocketStream(HalfCloseableStream):
                 # http://devstreaming.apple.com/videos/wwdc/2015/719ui2k57m/719/719_your_app_and_next_generation_networks.pdf?dl=1
                 # ). The theory is that you want it to be bandwidth *
                 # rescheduling interval.
-                self.setsockopt(
-                    tsocket.IPPROTO_TCP, tsocket.TCP_NOTSENT_LOWAT, 2**14
-                )
+                self.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NOTSENT_LOWAT, 2 ** 14)
             except OSError:
                 pass
 
     async def send_all(self, data):
         if self.socket.did_shutdown_SHUT_WR:
             await _core.checkpoint()
-            raise _core.ClosedResourceError(
-                "can't send data after sending EOF"
-            )
+            raise _core.ClosedResourceError("can't send data after sending EOF")
         with self._send_conflict_detector.sync:
             with _translate_socket_errors_to_stream_errors():
                 with memoryview(data) as data:
@@ -337,9 +331,7 @@ class SocketListener(Listener):
         if socket.type != tsocket.SOCK_STREAM:
             raise ValueError("SocketListener requires a SOCK_STREAM socket")
         try:
-            listening = socket.getsockopt(
-                tsocket.SOL_SOCKET, tsocket.SO_ACCEPTCONN
-            )
+            listening = socket.getsockopt(tsocket.SOL_SOCKET, tsocket.SO_ACCEPTCONN)
         except OSError:
             # SO_ACCEPTCONN fails on macOS; we just have to trust the user.
             pass
