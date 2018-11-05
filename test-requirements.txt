@@ -11,7 +11,7 @@ astroid==2.0.4            # via pylint
 atomicwrites==1.2.1       # via pytest
 attrs==18.2.0             # via black, pytest
 backcall==0.1.0           # via ipython
-black==18.9b0
+black==18.9b0 ; python_version >= "3.6"
 cffi==1.11.5              # via cryptography
 click==7.0                # via black
 coverage==4.5.1           # via pytest-cov
