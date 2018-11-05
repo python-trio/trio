@@ -5,7 +5,7 @@ set -ex
 EXIT_STATUS=0
 
 # Autoformatter *first*, to avoid double-reporting errors
-yapf -rpd setup.py trio \
+black --diff setup.py trio \
     || EXIT_STATUS=$?
 
 # Run flake8 without pycodestyle and import-related errors
@@ -23,7 +23,7 @@ Problems were found by static analysis (listed above).
 To fix formatting and see remaining errors, run
 
     pip install -r test-requirements.txt
-    yapf -rpi setup.py trio
+    black setup.py trio
     ./check.sh
 
 in your local checkout.

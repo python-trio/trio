@@ -118,7 +118,7 @@ async def test_getaddrinfo(monkeygai):
          tsocket.IPPROTO_TCP,
          "",
          ("127.0.0.1", 12345)),
-    ])  # yapf: disable
+    ])
 
     with assert_checkpoints():
         res = await tsocket.getaddrinfo(
@@ -130,7 +130,7 @@ async def test_getaddrinfo(monkeygai):
          tsocket.IPPROTO_UDP,
          "",
          ("::1", 12345, 0, 0)),
-    ])  # yapf: disable
+    ])
 
     monkeygai.set("x", b"host", "port", family=0, type=0, proto=0, flags=0)
     with assert_checkpoints():

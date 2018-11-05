@@ -130,7 +130,7 @@ in separate sections below:
   adding a test to make sure it stays fixed.
 
 * :ref:`pull-request-formatting`: If you changed Python code, then did
-  you run ``yapf -rpi setup.py trio``? (Or for other packages, replace
+  you run ``black setup.py trio``? (Or for other packages, replace
   ``trio`` with the package name.)
 
 * :ref:`pull-request-release-notes`: If your change affects
@@ -273,31 +273,27 @@ of eyes can be helpful when trying to come up with devious tricks.
 Code formatting
 ~~~~~~~~~~~~~~~
 
-Instead of wasting time arguing about code formatting, we use `yapf
-<https://github.com/google/yapf>`__ to automatically format all our
+Instead of wasting time arguing about code formatting, we use black`
+<https://github.com/ambv/black>`__ to automatically format all our
 code to a standard style. While you're editing code you can be as
 sloppy as you like about whitespace; and then before you commit, just
 run::
 
-    pip install -U yapf
-    yapf -rpi setup.py trio
+    pip install -U black
+    black setup.py trio
 
 to fix it up. (And don't worry if you forget – when you submit a pull
 request then we'll automatically check and remind you.) Hopefully this
 will let you focus on more important style issues like choosing good
 names, writing useful comments, and making sure your docstrings are
-nicely formatted. (Yapf doesn't reformat comments or docstrings.)
+nicely formatted. (black doesn't reformat comments or docstrings.)
 
-Very occasionally, yapf will generate really ugly and unreadable
-formatting (usually for large literal structures like dicts nested
-inside dicts). In these cases, you can add a ``# yapf: disable``
-comment to tell it to leave that particular statement alone.
+If you want to see what changes black will make, you can use::
 
-If you want to see what changes yapf will make, you can use::
+  black --diff setup.py trio
 
-  yapf -rpd setup.py trio
-
-(``-d`` displays a diff, versus ``-i`` which fixes files in-place.)
+(``--diff`` displays a diff, versus the default mode which fixes files
+in-place.)
 
 
 .. _pull-request-release-notes:
