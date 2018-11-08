@@ -1,10 +1,12 @@
+import os
+import sys
+import importlib
+import types
+
+import pytest
+
 import trio
 import trio.testing
-
-import jedi
-import os
-import pytest
-import sys
 
 from .. import _core
 
@@ -27,81 +29,76 @@ def test_core_is_properly_reexported():
         assert found == 1
 
 
+def public_namespaces(module):
+    yield module.__name__
+    for name, value in module.__dict__.items():
+        if name.startswith("_"):
+            continue
+        if not isinstance(value, types.ModuleType):
+            continue
+        if not value.__name__.startswith(module.__name__):
+            continue
+        if value is module:
+            continue
+        # We should rename the trio.tests module (#274), but until then we use
+        # a special-case hack:
+        if value.__name__ == "trio.tests":
+            continue
+        yield from public_namespaces(value)
+
+
+NAMESPACES = list(public_namespaces(trio))
+
+# Not yet set up for static analysis:
+NAMESPACES.remove("trio.hazmat")
+NAMESPACES.remove("trio.ssl")
+
+
+# pylint/jedi often have trouble with alpha releases, where Python's internals
+# are in flux, grammar may not have settled down, etc.
 @pytest.mark.skipif(
     sys.version_info.releaselevel == "alpha",
-    reason="skip pylint on in-development Python",
+    reason="skip static introspection tools on Python dev/alpha releases",
 )
-def test_pylint_sees_all_non_underscore_symbols_in_namespace():
-    # Test pylints ast to contain the same content as dir(trio)
-    from pylint.lint import PyLinter
-    linter = PyLinter()
-    ast_set = set(linter.get_ast(trio.__file__, 'trio'))
-    trio_set = set([symbol for symbol in dir(trio) if symbol[0] != '_'])
-    trio_set.remove('tests')
-    assert trio_set - ast_set == set([])
+@pytest.mark.parametrize("modname", NAMESPACES)
+@pytest.mark.parametrize("tool", ["pylint", "jedi"])
+def test_static_tool_sees_all_symbols(tool, modname):
+    module = importlib.import_module(modname)
 
+    def no_underscores(symbols):
+        return {symbol for symbol in symbols if not symbol.startswith("_")}
 
-@pytest.mark.skipif(
-    sys.version_info.releaselevel == "alpha",
-    reason="skip pylint on in-development Python",
-)
-def test_pylint_sees_all_non_underscore_symbols_for_trio_socket_in_namespace():
-    # Test pylints ast to contain the same content as dir(trio)
-    from pylint.lint import PyLinter
-    linter = PyLinter()
-    ast_set = set(linter.get_ast(trio.socket.__file__, 'trio.socket'))
-    trio_set = set([symbol for symbol in dir(trio.socket) if symbol[0] != '_'])
-    assert trio_set - ast_set == set([])
+    runtime_names = no_underscores(dir(module))
 
+    # We should rename the trio.tests module (#274), but until then we use a
+    # special-case hack:
+    if modname == "trio":
+        runtime_names.remove("tests")
 
-@pytest.mark.skipif(
-    sys.version_info.releaselevel == "alpha",
-    reason="skip pylint on in-development Python",
-)
-def test_pylint_sees_all_non_underscore_symbols_for_trio_ssl_in_namespace():
-    # Test pylints ast to contain the same content as dir(trio)
-    from pylint.lint import PyLinter
-    linter = PyLinter()
-    ast_set = set(linter.get_ast(trio.socket.__file__, 'trio.ssl'))
-    trio_set = set([symbol for symbol in dir(trio.socket) if symbol[0] != '_'])
-    assert trio_set - ast_set == set([])
-
-
-def test_jedi_sees_all_trio_completions():
-    # Test the jedi completion library get all in dir(trio)
-    try:
-        script = jedi.Script("import trio; trio.")
+    if tool == "pylint":
+        from pylint.lint import PyLinter
+        linter = PyLinter()
+        ast = linter.get_ast(module.__file__, modname)
+        static_names = no_underscores(ast)
+    elif tool == "jedi":
+        import jedi
+        # Simulate typing "import trio; trio.<TAB>"
+        script = jedi.Script("import {}; {}.".format(modname, modname))
         completions = script.completions()
-        trio_set = set([symbol for symbol in dir(trio) if symbol[:2] != '__'])
-        jedi_set = set([cmp.name for cmp in completions])
-        assert trio_set - jedi_set == set([])
-    except NotImplementedError:  # pragma: no cover
-        pytest.skip("jedi does not yet support {}".format(sys.version))
+        static_names = no_underscores(c.name for c in completions)
+    else:  # pragma: no cover
+        assert False
 
-
-def test_jedi_sees_all_trio_socket_completions():
-    # Test the jedi completion library get all in dir(trio)
-    try:
-        script = jedi.Script("import trio.socket; trio.socket.")
-        completions = script.completions()
-        trio_set = set(
-            [symbol for symbol in dir(trio.socket) if symbol[:2] != '__']
-        )
-        jedi_set = set([cmp.name for cmp in completions])
-        assert trio_set - jedi_set == set([])
-    except NotImplementedError:  # pragma: no cover
-        pytest.skip("jedi does not yet support {}".format(sys.version))
-
-
-def test_jedi_sees_all_trio_ssl_completions():
-    # Test the jedi completion library get all in dir(trio.ssl)
-    try:
-        script = jedi.Script("import trio.ssl; trio.ssl.")
-        completions = script.completions()
-        trio_set = set(
-            [symbol for symbol in dir(trio.ssl) if symbol[:2] != '__']
-        )
-        jedi_set = set([cmp.name for cmp in completions])
-        assert trio_set - jedi_set == set([])
-    except NotImplementedError:  # pragma: no cover
-        pytest.skip("jedi does not yet support {}".format(sys.version))
+    # It's expected that the static set will contain more names than the
+    # runtime set:
+    # - static tools are sometimes sloppy and include deleted names
+    # - some symbols are platform-specific at runtime, but always show up in
+    #   static analysis (e.g. in trio.socket or trio.hazmat)
+    # So we check that the runtime names are a subset of the static names.
+    missing_names = runtime_names - static_names
+    if missing_names:  # pragma: no cover
+        print("{} can't see the following names in {}:".format(tool, modname))
+        print()
+        for name in sorted(missing_names):
+            print("    {}".format(name))
+        assert False

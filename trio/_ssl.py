@@ -181,6 +181,10 @@ class _Once:
         else:
             await self._done.wait()
 
+    @property
+    def done(self):
+        return self._done.is_set()
+
 
 _State = _Enum("_State", ["OK", "BROKEN", "CLOSED"])
 
@@ -203,6 +207,15 @@ class SSLStream(Stream):
     documentation on SSL/TLS as well. SSL/TLS is subtle and quick to
     anger. Really. I'm not kidding.
 
+    To illustrate the point with an example, some of the methods of the
+    :class:`~ssl.SSLContext` return ``None`` when no handshake is established.
+    To make it behave more explicitly, we decided to raise `trio.core.NoHandshakeError`
+    in the :mod:`ssl` methods defined in ``_after_handshake``,
+    in case no handshake is established.
+
+    Note that these methods still return ``None`` in other cases, as detailed
+    in ``trio.core.NoHandshakeError``.
+
     Args:
       transport_stream (~trio.abc.Stream): The stream used to transport
           encrypted data. Required.
@@ -217,7 +230,7 @@ class SSLStream(Stream):
           <https://en.wikipedia.org/wiki/Server_Name_Indication>`__ and for
           validating the server's certificate (if hostname checking is
           enabled). This is effectively mandatory for clients, and actually
-          mandatory if ``ssl_context.check_hostname`` is True.
+          mandatory if ``ssl_context.check_hostname`` is ``True``.
 
       server_side (bool): Whether this stream is acting as a client or
           server. Defaults to False, i.e. client mode.
@@ -343,8 +356,17 @@ class SSLStream(Stream):
         "version",
     }
 
+    _after_handshake = {
+        "get_channel_binding",
+        "selected_npn_protocol",
+        "selected_alpn_protocol",
+    }
+
     def __getattr__(self, name):
         if name in self._forwarded:
+            if name in self._after_handshake and not self._handshook.done:
+                raise _core.NoHandshakeError
+
             return getattr(self._ssl_object, name)
         else:
             raise AttributeError(name)
