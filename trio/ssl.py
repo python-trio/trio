@@ -5,17 +5,20 @@
 # implementation in an underscored module, and then re-export the public parts
 # here.
 
-from ._ssl import (SSLStream, SSLListener, aclose_forcefully, ConflictDetector)
+from ._ssl import (SSLStream, SSLListener)
 
 # Fake import to enable static analysis tools to catch the names
+from ssl import (
+    SSLError, SSLZeroReturnError, SSLSyscallError, SSLEOFError,
+    CertificateError, create_default_context, match_hostname,
+    cert_time_to_seconds, DER_cert_to_PEM_cert, PEM_cert_to_DER_cert,
+    get_default_verify_paths, Purpose, SSLSession
+)
+
 try:
     from ssl import (
-        SSLError, SSLZeroReturnError, SSLSyscallError, SSLEOFError,
-        CertificateError, create_default_context, match_hostname,
-        cert_time_to_seconds, DER_cert_to_PEM_cert, PEM_cert_to_DER_cert,
-        get_default_verify_paths, Purpose, enum_certificates, enum_crls,
-        SSLSession, VerifyMode, VerifyFlags, Options, AlertDescription,
-        SSLErrorNumber
+        VerifyMode, VerifyFlags, Options, AlertDescription, SSLErrorNumber,
+        enum_certificates, enum_crls
     )
 except ImportError:
     pass
@@ -28,12 +31,8 @@ globals().update(
     {
         _name: _value
         for (_name, _value) in _stdlib_ssl.__dict__.items() if _name in [
-            "SSLError", "SSLZeroReturnError", "SSLSyscallError", "SSLEOFError",
-            "CertificateError", "create_default_context", "match_hostname",
-            "cert_time_to_seconds", "DER_cert_to_PEM_cert",
-            "PEM_cert_to_DER_cert", "get_default_verify_paths", "Purpose",
-            "enum_certificates", "enum_crls", "SSLSession", "VerifyMode",
-            "VerifyFlags", "Options", "AlertDescription", "SSLErrorNumber"
+            "enum_certificates", "enum_crls", "VerifyMode", "VerifyFlags",
+            "Options", "AlertDescription", "SSLErrorNumber"
         ]
     }
 )
