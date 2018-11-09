@@ -19,7 +19,7 @@ packaging==18.0           # via sphinx
 pygments==2.2.0           # via sphinx
 pyparsing==2.3.0          # via packaging
 pytz==2018.7              # via babel
-requests==2.20.0          # via sphinx
+requests==2.20.1          # via sphinx
 six==1.11.0               # via packaging, sphinx
 snowballstemmer==1.2.1    # via sphinx
 sphinx-rtd-theme==0.4.2
