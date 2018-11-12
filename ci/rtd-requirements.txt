@@ -23,7 +23,7 @@ requests==2.20.1          # via sphinx
 six==1.11.0               # via packaging, sphinx
 snowballstemmer==1.2.1    # via sphinx
 sphinx-rtd-theme==0.4.2
-sphinx==1.8.1
+sphinx==1.8.2
 sphinxcontrib-trio==1.0.1
 sphinxcontrib-websupport==1.1.0  # via sphinx
 toml==0.10.0              # via towncrier
