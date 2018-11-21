@@ -1,6 +1,5 @@
 language: python
-sudo: false
-dist: trusty
+dist: xenial
 
 matrix:
   include:
@@ -18,16 +17,10 @@ matrix:
     - python: 3.5.2
     - python: 3.6
     - python: 3.7
-      dist: xenial
-      sudo: required
     - python: 3.5-dev
     - python: 3.6-dev
     - python: 3.7-dev
-      dist: xenial
-      sudo: required
     - python: 3.8-dev
-      dist: xenial
-      sudo: required
     - os: osx
       language: generic
       env: MACPYTHON=3.5.4
