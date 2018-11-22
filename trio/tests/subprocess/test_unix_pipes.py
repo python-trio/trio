@@ -158,7 +158,7 @@ async def test_pipe_send_some(autojump_clock):
     async def sender():
         nonlocal next_send_offset
         with move_on_after(2.0):
-            while next_send_offset < len(data):
+            while next_send_offset < len(data):  # pragma: no branch
                 next_send_offset = await write.send_some(
                     data, next_send_offset
                 )
