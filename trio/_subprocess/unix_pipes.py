@@ -46,28 +46,63 @@ class _PipeMixin:
 class PipeSendStream(_PipeMixin, SendStream):
     """Represents a send stream over an os.pipe object."""
 
-    async def send_all(self, data: bytes):
-        # we have to do this no matter what
-        await _core.checkpoint()
+    async def send_some(self, data: bytes, next_offset: int) -> int:
+        """Write data from ``data`` beginning at offset ``next_offset``
+        to the pipe until all data is written or an exception occurs.
+        This will block until some data can be written, but will return
+        a short write rather than blocking again after a previous
+        successful write.
+
+        Returns:
+          If some data is written, returns the index of the first byte in
+          ``data`` that was not written, or ``len(data)`` if all bytes
+          were written.
+
+        Raises:
+          If no data is written, raises the exception that caused the first
+          write to fail: :exc:`Cancelled`, :exc:`BrokenResourceError`, or
+          :exc:`OSError`.
+
+        """
+
         if self._closed:
+            await _core.checkpoint()
             raise _core.ClosedResourceError("this pipe is already closed")
 
         if not data:
-            return
+            await _core.checkpoint()
+            return 0
 
-        length = len(data)
+        await _core.checkpoint_if_cancelled()
+
         # adapted from the SocketStream code
         with memoryview(data) as view:
-            total_sent = 0
-            while total_sent < length:
-                with view[total_sent:] as remaining:
+            # First write: block and raise exceptions
+            with view[next_offset:] as remaining:
+                try:
+                    next_offset += os.write(self._pipe, remaining)
+                except BrokenPipeError as e:
+                    await _core.cancel_shielded_checkpoint()
+                    raise BrokenResourceError from e
+                except BlockingIOError:
+                    await self.wait_send_all_might_not_block()
+                else:
+                    await _core.cancel_shielded_checkpoint()
+
+            # Later writes: return a short write instead
+            while next_offset < len(data):
+                with view[next_offset:] as remaining:
                     try:
-                        total_sent += os.write(self._pipe, remaining)
-                    except BrokenPipeError as e:
-                        await _core.checkpoint()
-                        raise BrokenResourceError from e
-                    except BlockingIOError:
-                        await self.wait_send_all_might_not_block()
+                        next_offset += os.write(self._pipe, remaining)
+                    except OSError:  # includes BlockingIOError
+                        break
+
+        return next_offset
+
+    async def send_all(self, data: bytes) -> None:
+        next_offset = await self.send_some(data, 0)
+        while next_offset < len(data):
+            next_offset = await self.send_some(data, next_offset)
 
     async def wait_send_all_might_not_block(self) -> None:
         if self._closed:

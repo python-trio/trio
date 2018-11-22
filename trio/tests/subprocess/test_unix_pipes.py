@@ -1,11 +1,12 @@
 import errno
 import select
+import random
 
 import os
 import pytest
 
 from trio._core.tests.tutil import gc_collect_harder
-from ... import _core
+from ... import _core, move_on_after, sleep, BrokenResourceError
 from ...testing import (wait_all_tasks_blocked, check_one_way_stream)
 
 posix = os.name == "posix"
@@ -146,3 +147,43 @@ async def make_clogged_pipe():
 
 async def test_pipe_fully():
     await check_one_way_stream(make_pipe, make_clogged_pipe)
+
+
+async def test_pipe_send_some(autojump_clock):
+    write, read = await make_pipe()
+    data = bytearray(random.randint(0, 255) for _ in range(2**18))
+    next_send_offset = 0
+    received = bytearray()
+
+    async def sender():
+        nonlocal next_send_offset
+        with move_on_after(2.0):
+            while next_send_offset < len(data):
+                next_send_offset = await write.send_some(
+                    data, next_send_offset
+                )
+        await write.aclose()
+
+    async def reader():
+        nonlocal received
+        await wait_all_tasks_blocked()
+        while True:
+            await sleep(0.1)
+            chunk = await read.receive_some(4096)
+            if chunk == b"":
+                break
+            received.extend(chunk)
+
+    async with _core.open_nursery() as n:
+        n.start_soon(sender)
+        n.start_soon(reader)
+
+    assert received == data[:next_send_offset]
+
+    await read.aclose()
+
+    write, read = await make_pipe()
+    await read.aclose()
+    with pytest.raises(BrokenResourceError):
+        await write.send_some(data, next_send_offset)
+    await write.aclose()
