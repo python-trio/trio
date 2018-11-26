@@ -5,7 +5,7 @@
 #    pip-compile --output-file test-requirements.txt test-requirements.in
 #
 asn1crypto==0.24.0        # via cryptography
-astroid==2.0.4            # via pylint
+astroid==2.1.0            # via pylint
 atomicwrites==1.2.1       # via pytest
 attrs==18.2.0             # via pytest
 backcall==0.1.0           # via ipython
