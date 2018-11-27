@@ -15,3 +15,4 @@ precision = 1
 exclude_lines =
   pragma: no cover
   abc.abstractmethod
+show_missing = True
