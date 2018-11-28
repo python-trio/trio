@@ -53,15 +53,22 @@ if os.name == "posix":
 
         async def wait_reapable(pid):
             kqueue = _core.current_kqueue()
-            event = select.kevent(
+            try:
+                from select import KQ_NOTE_EXIT
+            except ImportError:
+                # pypy doesn't define KQ_NOTE_EXIT
+                KQ_NOTE_EXIT = 0x80000000
+            make_event = lambda flags: select.kevent(
                 pid,
                 filter=select.KQ_FILTER_PROC,
-                flags=select.KQ_EV_ADD | select.KQ_EV_ONESHOT,
-                fflags=select.KQ_NOTE_EXIT
+                flags=flags,
+                fflags=KQ_NOTE_EXIT
             )
 
             try:
-                kqueue.control([event], 0)
+                kqueue.control(
+                    [make_event(select.KQ_EV_ADD | select.KQ_EV_ONESHOT)], 0
+                )
             except ProcessLookupError:
                 # This can happen if the process has already exited.
                 # Frustratingly, it does _not_ synchronize with calls
@@ -75,29 +82,63 @@ if os.name == "posix":
                 return
 
             def abort(_):
-                event.flags = select.KQ_EV_DELETE
-                kqueue.control([event], 0)
+                kqueue.control([make_event(select.KQ_EV_DELETE)], 0)
                 return _core.Abort.SUCCEEDED
 
             await _core.wait_kevent(pid, select.KQ_FILTER_PROC, abort)
 
-    elif hasattr(os, "waitid"):
+    else:
         wait_limiter = CapacityLimiter(math.inf)
+
+        try:
+            from os import waitid
+
+            def sync_wait_reapable(pid):
+                waitid(os.P_PID, pid, os.WEXITED | os.WNOWAIT)
+        except ImportError:
+            # pypy doesn't define os.waitid so we need to pull it
+            # out ourselves using cffi
+            import cffi
+            waitid_ffi = cffi.FFI()
+            waitid_ffi.cdef(
+                """
+typedef struct siginfo_s {
+    int si_signo;
+    int si_errno;
+    int si_code;
+    int si_pid;
+    int si_uid;
+    int si_status;
+    int pad[26];
+} siginfo_t;
+int waitid(int idtype, int id, siginfo_t* result, int options);
+"""
+            )
+            waitid = waitid_ffi.dlopen(None).waitid
+
+            def sync_wait_reapable(pid):
+                P_PID = 1
+                WEXITED = 0x00000004
+                if sys.platform == 'darwin':
+                    # waitid() is not exposed on Python on Darwin but does
+                    # work through CFFI; note that we typically won't get
+                    # here since Darwin also defines kqueue
+                    WNOWAIT = 0x00000020
+                else:
+                    WNOWAIT = 0x01000000
+                result = waitid_ffi.new("siginfo_t *")
+                rc = waitid(P_PID, pid, result, WEXITED | WNOWAIT)
+                if rc < 0:
+                    errno = waitid_ffi.errno
+                    raise OSError(errno, os.strerror(errno))
 
         async def wait_reapable(pid):
             await run_sync_in_worker_thread(
-                os.waitid,
-                os.P_PID,
+                sync_wait_reapable,
                 pid,
-                os.WEXITED | os.WNOWAIT,
                 cancellable=True,
                 limiter=wait_limiter
             )
-
-    else:  # pragma: no cover
-        raise NotImplementedError(
-            "subprocess reaping on UNIX requires select.kqueue or os.waitid"
-        )
 
 elif os.name == "nt":
     import msvcrt
