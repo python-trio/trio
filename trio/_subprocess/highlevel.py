@@ -57,7 +57,9 @@ if os.name == "posix":
             try:
                 from select import KQ_NOTE_EXIT
             except ImportError:
-                # pypy doesn't define KQ_NOTE_EXIT
+                # pypy doesn't define KQ_NOTE_EXIT:
+                # https://bitbucket.org/pypy/pypy/issues/2921/
+                # I verified this value against both Darwin and FreeBSD
                 KQ_NOTE_EXIT = 0x80000000
             make_event = lambda flags: select.kevent(
                 pid,
@@ -97,8 +99,8 @@ if os.name == "posix":
             def sync_wait_reapable(pid):
                 waitid(os.P_PID, pid, os.WEXITED | os.WNOWAIT)
         except ImportError:
-            # pypy doesn't define os.waitid so we need to pull it
-            # out ourselves using cffi
+            # pypy doesn't define os.waitid so we need to pull it out ourselves
+            # using cffi: https://bitbucket.org/pypy/pypy/issues/2922/
             import cffi
             waitid_ffi = cffi.FFI()
             waitid_ffi.cdef(
