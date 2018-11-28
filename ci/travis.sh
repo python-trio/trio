@@ -69,6 +69,9 @@ else
         source check.sh
     fi
 
+    # Temporary hack to test coverage.py master
+    pip install -U https://github.com/nedbat/coveragepy/archive/master.zip
+
     mkdir empty
     cd empty
 
