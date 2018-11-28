@@ -10,43 +10,33 @@ from .._threads import run_sync_in_worker_thread
 __all__ = ["Process", "run"]
 
 # OS-specific hooks:
-
-
-def create_pipe_to_child_stdin():
-    """Create a new pipe suitable for sending data from this
-    process to the standard input of a child we're about to spawn.
-
-    Returns:
-      A pair ``(trio_end, subprocess_end)`` where ``trio_end`` is
-      something suitable for constructing a PipeSendStream around
-      and ``subprocess_end`` is something suitable for passing as
-      the ``stdin`` argument of :class:`subprocess.Popen`.
-    """
-    raise NotImplementedError  # pragma: no cover
-
-
-def create_pipe_from_child_output():
-    """Create a new pipe suitable for receiving data into this
-    process from the standard output or error stream of a child
-    we're about to spawn.
-
-    Returns:
-      A pair ``(trio_end, subprocess_end)`` where ``trio_end`` is
-      something suitable for constructing a PipeReceiveStream around
-      and ``subprocess_end`` is something suitable for passing as
-      the ``stdout`` or ``stderr`` argument of :class:`subprocess.Popen`.
-    """
-    raise NotImplementedError  # pragma: no cover
-
-
-async def wait_reapable(pid):
-    """Block until a subprocess.Popen.wait() for the given PID would
-    complete immediately, without consuming the process's exit
-    code. Only one call for the same process may be active
-    simultaneously; this is not verified.
-    """
-    raise NotImplementedError  # pragma: no cover
-
+#
+# create_pipe_to_child_stdin() -> (int, int):
+#    Create a new pipe suitable for sending data from this
+#    process to the standard input of a child we're about to spawn.
+#
+#    Returns:
+#      A pair ``(trio_end, subprocess_end)`` where ``trio_end`` is
+#      something suitable for constructing a PipeSendStream around
+#      and ``subprocess_end`` is something suitable for passing as
+#      the ``stdin`` argument of :class:`subprocess.Popen`.
+#
+# create_pipe_from_child_output() -> (int, int):
+#    Create a new pipe suitable for receiving data into this
+#    process from the standard output or error stream of a child
+#    we're about to spawn.
+#
+#    Returns:
+#      A pair ``(trio_end, subprocess_end)`` where ``trio_end`` is
+#      something suitable for constructing a PipeReceiveStream around
+#      and ``subprocess_end`` is something suitable for passing as
+#      the ``stdout`` or ``stderr`` argument of :class:`subprocess.Popen`.
+#
+# wait_reapable(pid: int) -> None:
+#    Block until a subprocess.Popen.wait() for the given PID would
+#    complete immediately, without consuming the process's exit
+#    code. Only one call for the same process may be active
+#    simultaneously; this is not verified.
 
 if os.name == "posix":
     from .unix_pipes import PipeSendStream, PipeReceiveStream
