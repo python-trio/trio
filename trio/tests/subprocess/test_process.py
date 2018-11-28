@@ -2,6 +2,7 @@ import math
 import os
 import random
 import signal
+import sys
 import pytest
 
 from ... import _core, move_on_after, sleep, BrokenResourceError, subprocess
@@ -37,10 +38,10 @@ async def test_kill_when_context_cancelled():
 
 
 COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR = [
-    "python", "-c", "import sys\n"
-    "data = sys.stdin.read()\n"
-    "sys.stdout.write(data)\n"
-    "sys.stderr.write(data[::-1])"
+    sys.executable, "-c", "import sys\n"
+    "data = sys.stdin.buffer.read()\n"
+    "sys.stdout.buffer.write(data)\n"
+    "sys.stderr.buffer.write(data[::-1])"
 ]
 
 
@@ -122,19 +123,19 @@ async def test_run_timeout():
     data = b"1" * 65536 + b"2" * 65536 + b"3" * 65536
     child_script = """
 import sys, time
-sys.stdout.write(sys.stdin.read(32768))
+sys.stdout.buffer.write(sys.stdin.buffer.read(32768))
 time.sleep(10)
-sys.stdout.write(sys.stdin.read())
+sys.stdout.buffer.write(sys.stdin.buffer.read())
 """
 
     with pytest.raises(subprocess.TimeoutExpired) as excinfo:
         await subprocess.run(
-            ["python", "-c", child_script],
+            [sys.executable, "-c", child_script],
             input=data,
             stdout=subprocess.PIPE,
             timeout=0.5,
         )
-    assert excinfo.value.cmd == ["python", "-c", child_script]
+    assert excinfo.value.cmd == [sys.executable, "-c", child_script]
     assert excinfo.value.timeout == 0.5
     assert excinfo.value.stdout == data[:32768]
     assert excinfo.value.stderr is None
@@ -156,7 +157,7 @@ async def test_run_check():
 
 async def test_run_with_broken_pipe():
     result = await subprocess.run(
-        ["python", "-c", "import sys; sys.stdin.close()"],
+        [sys.executable, "-c", "import sys; sys.stdin.close()"],
         input=b"x" * 131072,
         stdout=subprocess.PIPE,
     )
@@ -182,7 +183,7 @@ async def test_stderr_stdout():
         stderr=subprocess.STDOUT,
     )
     assert result.returncode == 0
-    assert result.stdout == b"43211234"
+    assert result.stdout == b"12344321"
     assert result.stderr is None
 
     try:
@@ -200,7 +201,7 @@ async def test_stderr_stdout():
             await proc.stdin.send_all(b"1234")
             await proc.stdin.aclose()
             assert await proc.wait() == 0
-            assert os.read(r, 4096) == b"43211234"
+            assert os.read(r, 4096) == b"12344321"
             assert os.read(r, 4096) == b""
     finally:
         os.close(r)
