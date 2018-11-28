@@ -67,6 +67,7 @@ from . import hazmat
 from . import socket
 from . import abc
 from . import ssl
+from . import subprocess
 # Not imported by default: testing
 if False:
     from . import testing

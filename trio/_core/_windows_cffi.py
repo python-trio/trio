@@ -110,6 +110,12 @@ DWORD WaitForMultipleObjects(
   DWORD        dwMilliseconds
 );
 
+HANDLE OpenProcess(
+  DWORD dwDesiredAccess,
+  BOOL  bInheritHandle,
+  DWORD dwProcessId
+);
+
 """
 
 # cribbed from pywincffi
