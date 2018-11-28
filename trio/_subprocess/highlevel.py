@@ -1,7 +1,8 @@
 import math
 import os
-import subprocess
 import select
+import subprocess
+import sys
 
 from .. import _core, BrokenResourceError
 from .._sync import CapacityLimiter, Lock
