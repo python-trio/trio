@@ -103,6 +103,11 @@ if os.name == "posix":
             # using cffi: https://bitbucket.org/pypy/pypy/issues/2922/
             import cffi
             waitid_ffi = cffi.FFI()
+            # Believe it or not, siginfo_t starts with fields in the
+            # same layout on both Linux and Darwin. The Linux structure
+            # is bigger so that's what we use to size `pad`; while
+            # there are a few extra fields in there, most of it is
+            # true padding which would not be written by the syscall.
             waitid_ffi.cdef(
                 """
 typedef struct siginfo_s {
