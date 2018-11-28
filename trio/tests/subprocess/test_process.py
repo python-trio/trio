@@ -128,17 +128,46 @@ time.sleep(10)
 sys.stdout.buffer.write(sys.stdin.buffer.read())
 """
 
-    with pytest.raises(subprocess.TimeoutExpired) as excinfo:
-        await subprocess.run(
-            [sys.executable, "-c", child_script],
-            input=data,
-            stdout=subprocess.PIPE,
-            timeout=0.5,
-        )
-    assert excinfo.value.cmd == [sys.executable, "-c", child_script]
-    assert excinfo.value.timeout == 0.5
-    assert excinfo.value.stdout == data[:32768]
-    assert excinfo.value.stderr is None
+    for make_timeout_arg in (
+        lambda: {"timeout": 0.25},
+        lambda: {"deadline": _core.current_time() + 0.25}
+    ):
+        with pytest.raises(subprocess.TimeoutExpired) as excinfo:
+            await subprocess.run(
+                [sys.executable, "-c", child_script],
+                input=data,
+                stdout=subprocess.PIPE,
+                **make_timeout_arg()
+            )
+        assert excinfo.value.cmd == [sys.executable, "-c", child_script]
+        if "timeout" in make_timeout_arg():
+            assert excinfo.value.timeout == 0.25
+        else:
+            assert 0.2 < excinfo.value.timeout < 0.3
+        assert excinfo.value.stdout == data[:32768]
+        assert excinfo.value.stderr is None
+
+
+async def test_call_and_check():
+    assert await subprocess.call(["true"]) == 0
+    assert await subprocess.call(["false"]) == 1
+
+    assert await subprocess.check_call(["true"]) == 0
+    with pytest.raises(subprocess.CalledProcessError) as excinfo:
+        await subprocess.check_call(["false"])
+    assert excinfo.value.returncode == 1
+    assert excinfo.value.cmd == ["false"]
+    assert excinfo.value.output is None
+
+    assert await subprocess.check_output(["echo", "hi"]) == b"hi\n"
+    with pytest.raises(subprocess.CalledProcessError) as excinfo:
+        await subprocess.check_output("echo lo; false", shell=True)
+    assert excinfo.value.returncode == 1
+    assert excinfo.value.cmd == "echo lo; false"
+    assert excinfo.value.output == b"lo\n"
+
+    with pytest.raises(ValueError):
+        await subprocess.check_output(["true"], stdout=subprocess.DEVNULL)
 
 
 async def test_run_check():
@@ -184,6 +213,15 @@ async def test_stderr_stdout():
     )
     assert result.returncode == 0
     assert result.stdout == b"12344321"
+    assert result.stderr is None
+
+    # this one hits the branch where stderr=STDOUT but stdout
+    # is not redirected
+    result = await subprocess.run(
+        ["cat"], input=b"", stderr=subprocess.STDOUT
+    )
+    assert result.returncode == 0
+    assert result.stdout is None
     assert result.stderr is None
 
     try:

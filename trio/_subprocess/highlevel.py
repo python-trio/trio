@@ -122,7 +122,7 @@ int waitid(int idtype, int id, siginfo_t* result, int options);
             def sync_wait_reapable(pid):
                 P_PID = 1
                 WEXITED = 0x00000004
-                if sys.platform == 'darwin':
+                if sys.platform == 'darwin':  # pragma: no cover
                     # waitid() is not exposed on Python on Darwin but does
                     # work through CFFI; note that we typically won't get
                     # here since Darwin also defines kqueue
@@ -407,7 +407,9 @@ async def run(
     one keeps the ``timeout`` parameter, so that it can provide you
     with the process's partial output if it is killed due to a
     timeout. It also adds ``deadline`` as an option if you prefer to
-    express your timeout absolutely.
+    express your timeout absolutely. If you don't care about preserving
+    partial output on a timeout, you can of course also nest run()
+    inside a normal Trio cancel scope.
 
     Returns:
       A :class:`subprocess.CompletedProcess` instance describing the
@@ -491,3 +493,42 @@ async def run(
     return subprocess.CompletedProcess(
         proc.args, proc.returncode, stdout, stderr
     )
+
+
+async def call(*popenargs, **kwargs):
+    """Like :func:`subprocess.call`, but async."""
+    async with Process(*popenargs, **kwargs) as proc:
+        return await proc.wait()
+
+
+async def check_call(*popenargs, **kwargs):
+    """Like :func:`subprocess.check_call`, but async."""
+    async with Process(*popenargs, **kwargs) as proc:
+        retcode = await proc.wait()
+        if retcode:
+            raise subprocess.CalledProcessError(retcode, proc.args)
+    return 0
+
+
+async def check_output(*popenargs, timeout=None, deadline=None, **kwargs):
+    """Like :func:`subprocess.check_output`, but async.
+
+    Like :func:`run`, this takes an optional ``timeout`` or ``deadline``
+    argument; if the timeout expires or deadline passes, the child process
+    will be killed and its partial output wrapped up in a
+    :exc:`subprocess.TimeoutExpired` exception. You can also nest
+    :func:`check_output` in a normal Trio cancel scope to impose
+    a timeout without capturing partial output.
+    """
+    if 'stdout' in kwargs:
+        raise ValueError("stdout argument not allowed, it will be overridden.")
+
+    result = await run(
+        *popenargs,
+        stdout=subprocess.PIPE,
+        timeout=timeout,
+        deadline=deadline,
+        check=True,
+        **kwargs
+    )
+    return result.stdout
