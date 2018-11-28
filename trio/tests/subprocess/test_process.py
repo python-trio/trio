@@ -217,9 +217,7 @@ async def test_stderr_stdout():
 
     # this one hits the branch where stderr=STDOUT but stdout
     # is not redirected
-    result = await subprocess.run(
-        ["cat"], input=b"", stderr=subprocess.STDOUT
-    )
+    result = await subprocess.run(["cat"], input=b"", stderr=subprocess.STDOUT)
     assert result.returncode == 0
     assert result.stdout is None
     assert result.stderr is None
