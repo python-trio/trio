@@ -45,14 +45,40 @@ try:
         VERIFY_X509_STRICT, VERIFY_X509_TRUSTED_FIRST
     )
 
-    from ssl import (
-        AlertDescription, cert_time_to_seconds, CertificateError,
-        create_default_context, DER_cert_to_PEM_cert, enum_certificates,
-        enum_crls, get_default_verify_paths, match_hostname, Options,
-        PEM_cert_to_DER_cert, Purpose, SSLEOFError, SSLError, SSLErrorNumber,
-        SSLSession, SSLSyscallError, SSLZeroReturnError, VerifyFlags,
-        VerifyMode
-    )
+    # from ssl import (
+    #     AlertDescription, cert_time_to_seconds, CertificateError,
+    #     create_default_context, DER_cert_to_PEM_cert, enum_certificates,
+    #     enum_crls, get_default_verify_paths, match_hostname, Options,
+    #     PEM_cert_to_DER_cert, Purpose, SSLEOFError, SSLError, SSLErrorNumber,
+    #     SSLSession, SSLSyscallError, SSLZeroReturnError, VerifyFlags,
+    #     VerifyMode
+    # )
+except ImportError:
+    pass
+
+# Always available
+from ssl import (
+    cert_time_to_seconds, CertificateError, create_default_context,
+    DER_cert_to_PEM_cert, get_default_verify_paths, match_hostname,
+    PEM_cert_to_DER_cert, Purpose, SSLEOFError, SSLError, SSLSyscallError,
+    SSLZeroReturnError
+)
+
+# Added in python 3.6
+try:
+    from ssl import AlertDescription, SSLErrorNumber, SSLSession, VerifyFlags, VerifyMode, Options
+except ImportError:
+    pass
+
+# Added in python 3.7
+try:
+    from ssl import SSLCertVerificationError, TLSVersion
+except ImportError:
+    pass
+
+# Windows-only
+try:
+    from ssl import enum_certificates, enum_crls
 except ImportError:
     pass
 
@@ -70,7 +96,7 @@ globals().update(
             "match_hostname", "Options", "PEM_cert_to_DER_cert", "Purpose",
             "SSLEOFError", "SSLError", "SSLErrorNumber", "SSLSession",
             "SSLSyscallError", "SSLZeroReturnError", "VerifyFlags",
-            "VerifyMode"
+            "VerifyMode", "SSLCertVerificationError", "TLSVersion"
         ]
     }
 )
