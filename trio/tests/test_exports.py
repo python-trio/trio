@@ -50,7 +50,6 @@ def public_namespaces(module):
 NAMESPACES = list(public_namespaces(trio))
 
 # Not yet set up for static analysis:
-NAMESPACES.remove("trio.hazmat")
 NAMESPACES.remove("trio.ssl")
 
 
