@@ -876,12 +876,15 @@ Nursery objects provide the following interface:
       This and :meth:`start` are the two fundamental methods for
       creating concurrent tasks in trio.
 
-      Note that this is a synchronous function: it sets up the new
-      task, but then returns immediately, *before* it has a chance to
-      run. It won't actually run until some later point when you
-      execute a checkpoint and the scheduler decides to run it. If you
-      need to wait for the task to initialize itself before
-      continuing, see :meth:`start`.
+      Note that this is *not* an async function and you don't use await
+      when calling it. It sets up the new task, but then returns
+      immediately, *before* it has a chance to run. The new task won’t
+      actually get a chance to do anything until some later point when
+      you execute a checkpoint and the scheduler decides to run it.
+      If you want to run a function and immediately wait for its result,
+      then you don't need a nursery; just use ``await async_fn(*args)``.
+      If you want to wait for the task to initialize itself before 
+      continuing, see :meth:`start()`.
 
       It's possible to pass a nursery object into another task, which
       allows that task to start new child tasks in the first task's

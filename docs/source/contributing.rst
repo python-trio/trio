@@ -428,11 +428,7 @@ Short answer: whatever you feel comfortable with.
 
 We do have one rule, which is the same one most F/OSS projects use:
 don't merge your own PRs. We find that having another person look at
-each PR leads to better quality. (Exception: you may see `@njsmith
-<https://github.com/njsmith>`__ merging his own PRs. This happens
-because he is lonely and has no-one to review them for him. It would
-make him happy if you reviewed and – if they look good – merged his
-PRs.)
+each PR leads to better quality.
 
 Beyond that, it all comes down to what you feel up to. If you don't
 feel like you know enough to review a complex code change, then you

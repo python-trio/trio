@@ -6,7 +6,7 @@
 #
 alabaster==0.7.12         # via sphinx
 babel==2.6.0              # via sphinx
-certifi==2018.10.15       # via requests
+certifi==2018.11.29       # via requests
 chardet==3.0.4            # via requests
 click==7.0                # via towncrier
 docutils==0.14            # via sphinx
@@ -16,14 +16,14 @@ incremental==17.5.0       # via towncrier
 jinja2==2.10              # via sphinx, towncrier
 markupsafe==1.1.0         # via jinja2
 packaging==18.0           # via sphinx
-pygments==2.2.0           # via sphinx
+pygments==2.3.0           # via sphinx
 pyparsing==2.3.0          # via packaging
 pytz==2018.7              # via babel
-requests==2.20.0          # via sphinx
+requests==2.20.1          # via sphinx
 six==1.11.0               # via packaging, sphinx
 snowballstemmer==1.2.1    # via sphinx
 sphinx-rtd-theme==0.4.2
-sphinx==1.8.1
+sphinx==1.8.2
 sphinxcontrib-trio==1.0.1
 sphinxcontrib-websupport==1.1.0  # via sphinx
 toml==0.10.0              # via towncrier

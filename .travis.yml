@@ -1,6 +1,5 @@
 language: python
-sudo: false
-dist: trusty
+dist: xenial
 
 matrix:
   include:
@@ -14,20 +13,18 @@ matrix:
       env: PYPY_NIGHTLY_BRANCH=py3.5
     - language: generic
       env: PYPY_NIGHTLY_BRANCH=py3.6
+    # 3.5.0 and 3.5.1 have different __aiter__ semantics than all
+    # other versions, so we need to test them specially. Travis's
+    # xenial dist only provides 3.5.2+.
     - python: 3.5.0
-    - python: 3.5.2
+      dist: trusty
+    - python: 3.5
     - python: 3.6
     - python: 3.7
-      dist: xenial
-      sudo: required
     - python: 3.5-dev
     - python: 3.6-dev
     - python: 3.7-dev
-      dist: xenial
-      sudo: required
     - python: 3.8-dev
-      dist: xenial
-      sudo: required
     - os: osx
       language: generic
       env: MACPYTHON=3.5.4
