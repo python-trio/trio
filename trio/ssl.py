@@ -89,6 +89,7 @@ except ImportError:
 
 # Dynamically re-export whatever constants this particular Python happens to
 # have:
+import ssl as _stdlib_ssl
 globals().update(
     {
         _name: getattr(_stdlib_ssl, _name)
