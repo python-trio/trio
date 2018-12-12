@@ -5,9 +5,39 @@
 # implementation in an underscored module, and then re-export the public parts
 # here.
 
+# Trio-specific symbols:
 from ._ssl import (SSLStream, SSLListener)
 
+# Symbols re-exported from the stdlib ssl module:
+
+# Always available
+from ssl import (
+    cert_time_to_seconds, CertificateError, create_default_context,
+    DER_cert_to_PEM_cert, get_default_verify_paths, match_hostname,
+    PEM_cert_to_DER_cert, Purpose, SSLEOFError, SSLError, SSLSyscallError,
+    SSLZeroReturnError
+)
+
+# Added in python 3.6
+try:
+    from ssl import AlertDescription, SSLErrorNumber, SSLSession, VerifyFlags, VerifyMode, Options
+except ImportError:
+    pass
+
+# Added in python 3.7
+try:
+    from ssl import SSLCertVerificationError, TLSVersion
+except ImportError:
+    pass
+
+# Windows-only
+try:
+    from ssl import enum_certificates, enum_crls
+except ImportError:
+    pass
+
 # Fake import to enable static analysis tools to catch the names
+# (Real import is below)
 try:
     from ssl import (
         AF_INET, ALERT_DESCRIPTION_ACCESS_DENIED,
@@ -54,62 +84,8 @@ try:
         SSL_ERROR_ZERO_RETURN, VERIFY_CRL_CHECK_CHAIN, VERIFY_CRL_CHECK_LEAF,
         VERIFY_DEFAULT, VERIFY_X509_STRICT, VERIFY_X509_TRUSTED_FIRST
     )
-
-    # from ssl import (
-    #     AlertDescription, cert_time_to_seconds, CertificateError,
-    #     create_default_context, DER_cert_to_PEM_cert, enum_certificates,
-    #     enum_crls, get_default_verify_paths, match_hostname, Options,
-    #     PEM_cert_to_DER_cert, Purpose, SSLEOFError, SSLError, SSLErrorNumber,
-    #     SSLSession, SSLSyscallError, SSLZeroReturnError, VerifyFlags,
-    #     VerifyMode
-    # )
 except ImportError:
     pass
-
-# Always available
-from ssl import (
-    cert_time_to_seconds, CertificateError, create_default_context,
-    DER_cert_to_PEM_cert, get_default_verify_paths, match_hostname,
-    PEM_cert_to_DER_cert, Purpose, SSLEOFError, SSLError, SSLSyscallError,
-    SSLZeroReturnError
-)
-
-# Added in python 3.6
-try:
-    from ssl import AlertDescription, SSLErrorNumber, SSLSession, VerifyFlags, VerifyMode, Options
-except ImportError:
-    pass
-
-# Added in python 3.7
-try:
-    from ssl import SSLCertVerificationError, TLSVersion
-except ImportError:
-    pass
-
-# Windows-only
-try:
-    from ssl import enum_certificates, enum_crls
-except ImportError:
-    pass
-
-# We reexport certain names from the ssl module
-# SSLContext is excluded intentionally
-import ssl as _stdlib_ssl
-
-globals().update(
-    {
-        _name: _value
-        for (_name, _value) in _stdlib_ssl.__dict__.items() if _name in [
-            "AlertDescription", "cert_time_to_seconds", "CertificateError",
-            "create_default_context", "DER_cert_to_PEM_cert",
-            "enum_certificates", "enum_crls", "get_default_verify_paths",
-            "match_hostname", "Options", "PEM_cert_to_DER_cert", "Purpose",
-            "SSLEOFError", "SSLError", "SSLErrorNumber", "SSLSession",
-            "SSLSyscallError", "SSLZeroReturnError", "VerifyFlags",
-            "VerifyMode", "SSLCertVerificationError", "TLSVersion"
-        ]
-    }
-)
 
 # Dynamically re-export whatever constants this particular Python happens to
 # have:
