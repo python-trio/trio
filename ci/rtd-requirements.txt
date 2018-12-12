@@ -10,7 +10,7 @@ certifi==2018.11.29       # via requests
 chardet==3.0.4            # via requests
 click==7.0                # via towncrier
 docutils==0.14            # via sphinx
-idna==2.7                 # via requests
+idna==2.8                 # via requests
 imagesize==1.1.0          # via sphinx
 incremental==17.5.0       # via towncrier
 jinja2==2.10              # via sphinx, towncrier

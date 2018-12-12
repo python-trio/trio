@@ -14,7 +14,7 @@ coverage==4.5.2           # via pytest-cov
 cryptography==2.4.2       # via pyopenssl, trustme
 decorator==4.3.0          # via ipython, traitlets
 flake8==3.6.0
-idna==2.7                 # via cryptography, trustme
+idna==2.8                 # via cryptography, trustme
 ipython-genutils==0.2.0   # via traitlets
 ipython==7.2.0
 isort==4.3.4              # via pylint
