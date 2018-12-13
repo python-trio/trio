@@ -218,9 +218,19 @@ class Process(AsyncResource):
         return self._proc.returncode
 
     async def aclose(self):
-        if self.stdin is not None:
-            with _core.open_cancel_scope(shield=True):
+        """Close any pipes we have to the process (both input and output)
+        and wait for it to exit.
+
+        If cancelled, kills the process and waits for it to finish
+        exiting before propagating the cancellation.
+        """
+        with _core.open_cancel_scope(shield=True):
+            if self.stdin is not None:
                 await self.stdin.aclose()
+            if self.stdout is not None:
+                await self.stdout.aclose()
+            if self.stderr is not None:
+                await self.stderr.aclose()
         try:
             await self.wait()
         finally:
