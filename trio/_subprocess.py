@@ -5,6 +5,7 @@ import subprocess
 import sys
 
 from . import _core
+from ._abc import AsyncResource
 from ._sync import CapacityLimiter, Lock
 from ._threads import run_sync_in_worker_thread
 from ._platform import wait_child_exiting
@@ -116,7 +117,7 @@ def wrap_process_stream(child_fd, given_value):
     return None, given_value
 
 
-class Process:
+class Process(AsyncResource):
     """Like :class:`subprocess.Popen`, but async.
 
     :class:`Process` has a public API identical to that of
@@ -141,21 +142,18 @@ class Process:
       instead, or interact with :attr:`stdin` / :attr:`stdout` / :attr:`stderr`
       directly.
 
-    * Behavior when used as a context manager is different, as described
-      below.
-
-    :class:`Process` can be used as an async context manager. It does
-    not block on entry; on exit it closes any pipe to the subprocess's
-    standard input, then blocks until the process exits. If the
-    blocking exit is cancelled, it kills the process and still waits
-    for termination before exiting the context. This is useful for
-    scoping the lifetime of a simple subprocess that doesn't spawn any
-    children of its own. (For subprocesses that do in turn spawn their
-    own subprocesses, there is not currently any way to clean up the
-    whole tree; moreover, using the :class:`Process` context manager
-    in such cases is likely to be counterproductive as killing the
-    top-level subprocess leaves it no chance to do any cleanup of its
-    children that might be desired.)
+    * :meth:`aclose` (and thus also ``__aexit__``) behave like the
+      standard :class:`Popen` context manager exit (close pipes to the
+      process, then wait for it to exit), but add additional behavior
+      if cancelled: kill the process and wait for it to finish
+      terminating.  This is useful for scoping the lifetime of a
+      simple subprocess that doesn't spawn any children of its
+      own. (For subprocesses that do in turn spawn their own
+      subprocesses, there is not currently any way to clean up the
+      whole tree; moreover, using the :class:`Process` context manager
+      in such cases is likely to be counterproductive as killing the
+      top-level subprocess leaves it no chance to do any cleanup of
+      its children that might be desired.)
 
     """
 
@@ -219,10 +217,7 @@ class Process:
         """
         return self._proc.returncode
 
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, *exc):
+    async def aclose(self):
         if self.stdin is not None:
             with _core.open_cancel_scope(shield=True):
                 await self.stdin.aclose()

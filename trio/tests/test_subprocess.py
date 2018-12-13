@@ -5,7 +5,7 @@ import signal
 import sys
 import pytest
 
-from .. import _core, move_on_after, sleep, subprocess
+from .. import _core, move_on_after, sleep_forever, subprocess
 from ..testing import wait_all_tasks_blocked
 
 posix = os.name == "posix"
@@ -20,18 +20,12 @@ async def test_basic():
 
 
 async def test_kill_when_context_cancelled():
-    with _core.open_cancel_scope() as scope:
+    with move_on_after(0) as scope:
         async with subprocess.Process(["sleep", "10"]) as proc:
-            while True:
-                await sleep(0.01)
-                assert proc.poll() is None
-
-                # Don't set the deadline until we've done at least
-                # one poll, to avoid coverage flapping if starting
-                # the process takes a long time
-                if scope.deadline == +math.inf:
-                    scope.deadline = _core.current_time() + 0.2
-
+            assert proc.poll() is None
+            # Process context entry is synchronous, so this is the
+            # only checkpoint:
+            await trio.sleep_forever()
     assert scope.cancelled_caught
     assert proc.returncode == -signal.SIGKILL
 
