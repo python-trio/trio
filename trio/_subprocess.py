@@ -7,6 +7,7 @@ import sys
 from . import _core
 from ._sync import CapacityLimiter, Lock
 from ._threads import run_sync_in_worker_thread
+from ._platform import wait_child_exiting
 
 __all__ = ["Process", "run"]
 
@@ -32,12 +33,6 @@ __all__ = ["Process", "run"]
 #      something suitable for constructing a PipeReceiveStream around
 #      and ``subprocess_end`` is something suitable for passing as
 #      the ``stdout`` or ``stderr`` argument of :class:`subprocess.Popen`.
-#
-# wait_reapable(pid: int) -> None:
-#    Block until a subprocess.Popen.wait() for the given PID would
-#    complete immediately, without consuming the process's exit
-#    code. Only one call for the same process may be active
-#    simultaneously; this is not verified.
 
 if os.name == "posix":
     from ._unix_pipes import PipeSendStream, PipeReceiveStream
@@ -49,104 +44,6 @@ if os.name == "posix":
     def create_pipe_from_child_output():
         rfd, wfd = os.pipe()
         return rfd, wfd
-
-    if hasattr(_core, "wait_kevent"):
-
-        async def wait_reapable(pid):
-            kqueue = _core.current_kqueue()
-            try:
-                from select import KQ_NOTE_EXIT
-            except ImportError:
-                # pypy doesn't define KQ_NOTE_EXIT:
-                # https://bitbucket.org/pypy/pypy/issues/2921/
-                # I verified this value against both Darwin and FreeBSD
-                KQ_NOTE_EXIT = 0x80000000
-            make_event = lambda flags: select.kevent(
-                pid,
-                filter=select.KQ_FILTER_PROC,
-                flags=flags,
-                fflags=KQ_NOTE_EXIT
-            )
-
-            try:
-                kqueue.control(
-                    [make_event(select.KQ_EV_ADD | select.KQ_EV_ONESHOT)], 0
-                )
-            except ProcessLookupError:
-                # This can happen if the process has already exited.
-                # Frustratingly, it does _not_ synchronize with calls
-                # to wait() and friends -- it's possible for kevent to
-                # return ESRCH but waitpid(..., WNOHANG) still returns
-                # nothing. And OS X doesn't support waitid() so we
-                # can't fall back to the Linux-style approach. So
-                # we'll just suppress the error, and not wait.
-                # Process.wait() calls us in a loop so the worst case
-                # is we busy-wait for a few iterations.
-                return
-
-            def abort(_):
-                kqueue.control([make_event(select.KQ_EV_DELETE)], 0)
-                return _core.Abort.SUCCEEDED
-
-            await _core.wait_kevent(pid, select.KQ_FILTER_PROC, abort)
-
-    else:
-        wait_limiter = CapacityLimiter(math.inf)
-
-        try:
-            from os import waitid
-
-            def sync_wait_reapable(pid):
-                waitid(os.P_PID, pid, os.WEXITED | os.WNOWAIT)
-        except ImportError:
-            # pypy doesn't define os.waitid so we need to pull it out ourselves
-            # using cffi: https://bitbucket.org/pypy/pypy/issues/2922/
-            import cffi
-            waitid_ffi = cffi.FFI()
-            # Believe it or not, siginfo_t starts with fields in the
-            # same layout on both Linux and Darwin. The Linux structure
-            # is bigger so that's what we use to size `pad`; while
-            # there are a few extra fields in there, most of it is
-            # true padding which would not be written by the syscall.
-            waitid_ffi.cdef(
-                """
-typedef struct siginfo_s {
-    int si_signo;
-    int si_errno;
-    int si_code;
-    int si_pid;
-    int si_uid;
-    int si_status;
-    int pad[26];
-} siginfo_t;
-int waitid(int idtype, int id, siginfo_t* result, int options);
-"""
-            )
-            waitid = waitid_ffi.dlopen(None).waitid
-
-            def sync_wait_reapable(pid):
-                P_PID = 1
-                WEXITED = 0x00000004
-                if sys.platform == 'darwin':  # pragma: no cover
-                    # waitid() is not exposed on Python on Darwin but does
-                    # work through CFFI; note that we typically won't get
-                    # here since Darwin also defines kqueue
-                    WNOWAIT = 0x00000020
-                else:
-                    WNOWAIT = 0x01000000
-                result = waitid_ffi.new("siginfo_t *")
-                rc = waitid(P_PID, pid, result, WEXITED | WNOWAIT)
-                if rc < 0:
-                    errno = waitid_ffi.errno
-                    raise OSError(errno, os.strerror(errno))
-
-        async def wait_reapable(pid):
-            await run_sync_in_worker_thread(
-                sync_wait_reapable,
-                pid,
-                cancellable=True,
-                limiter=wait_limiter
-            )
 
 elif os.name == "nt":
     import msvcrt
@@ -175,19 +72,6 @@ elif os.name == "nt":
         # for stdout/err, it's the read end that's overlapped
         rh, wh = windows_pipe(overlapped=(True, False))
         return rh, msvcrt.open_osfhandle(wh, 0)
-
-    async def wait_reapable(pid):
-        from .._wait_for_object import WaitForSingleObject
-        from .._core._windows_cffi import kernel32, raise_winerror
-        SYNCHRONIZE = 0x00100000  # dwDesiredAccess value
-        handle = kernel32.OpenProcess(SYNCHRONIZE, False, pid)
-        if not handle:
-            await _core.checkpoint()
-            raise_winerror()
-        try:
-            await WaitForSingleObject(handle)
-        finally:
-            kernel32.CloseHandle(handle)
 
 else:  # pragma: no cover
     raise NotImplementedError("unsupported os.name {!r}".format(os.name))
@@ -323,9 +207,6 @@ class Process:
 
         self.args = self._proc.args
         self.pid = self._proc.pid
-        # Lock to ensure at most one task is blocked in
-        # wait_reapable() for this pid at a time
-        self._wait_lock = Lock()
 
     @property
     def returncode(self):
@@ -363,28 +244,10 @@ class Process:
           as the negative of that signal number, e.g., -11 for ``SIGSEGV``.
         """
         while True:
-            async with self._wait_lock:
-                if self.poll() is not None:
-                    await _core.checkpoint()
-                    return self.returncode
-                try:
-                    await wait_reapable(self.pid)
-                except OSError:
-                    # If the child is dead, suppress the exception we
-                    # encountered waiting for it to die; maybe SIGCHLD
-                    # is ignored so all waits fail with ECHILD, for example.
-                    if self.poll() is not None:
-                        return self.returncode
-
-                    # wait(2) and friends are documented as raising the errors:
-                    # - ECHILD (always converted into a returncode of 0 by
-                    #   stdlib subprocess module)
-                    # - EINTR (always converted into a retry by Python)
-                    # - EINVAL (can't get unless we pass invalid flags)
-                    # So it shouldn't actually be possible to get a failure
-                    # here that's not swallowed by Popen.poll(). But if we
-                    # somehow get one, we'll propagate it, I guess...
-                    raise  # pragma: no cover
+            if self.poll() is not None:
+                await _core.checkpoint()
+                return self.returncode
+            await wait_child_exiting(self.pid)
 
     def poll(self):
         """Forwards to :meth:`subprocess.Popen.poll`."""
