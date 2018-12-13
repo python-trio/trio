@@ -4,9 +4,9 @@ import select
 import subprocess
 import sys
 
-from .. import _core, BrokenResourceError
-from .._sync import CapacityLimiter, Lock
-from .._threads import run_sync_in_worker_thread
+from . import _core
+from ._sync import CapacityLimiter, Lock
+from ._threads import run_sync_in_worker_thread
 
 __all__ = ["Process", "run"]
 
@@ -40,7 +40,7 @@ __all__ = ["Process", "run"]
 #    simultaneously; this is not verified.
 
 if os.name == "posix":
-    from .unix_pipes import PipeSendStream, PipeReceiveStream
+    from ._unix_pipes import PipeSendStream, PipeReceiveStream
 
     def create_pipe_to_child_stdin():
         rfd, wfd = os.pipe()
@@ -446,7 +446,7 @@ async def run(
             if input:
                 try:
                     await proc.stdin.send_all(input)
-                except BrokenResourceError:
+                except _core.BrokenResourceError:
                     pass
                 except OSError as e:  # pragma: no cover
                     # According to the stdlib subprocess module, EINVAL can

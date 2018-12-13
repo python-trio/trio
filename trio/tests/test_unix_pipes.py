@@ -4,9 +4,9 @@ import select
 import os
 import pytest
 
-from trio._core.tests.tutil import gc_collect_harder
-from ... import _core
-from ...testing import (wait_all_tasks_blocked, check_one_way_stream)
+from .._core.tests.tutil import gc_collect_harder
+from .. import _core
+from ..testing import wait_all_tasks_blocked, check_one_way_stream
 
 posix = os.name == "posix"
 
@@ -15,9 +15,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 if posix:
-    from ..._subprocess.unix_pipes import (
-        PipeSendStream, PipeReceiveStream, make_pipe
-    )
+    from .._unix_pipes import PipeSendStream, PipeReceiveStream, make_pipe
 
 
 async def test_send_pipe():

@@ -5,9 +5,8 @@ import signal
 import sys
 import pytest
 
-from ... import _core, move_on_after, sleep, BrokenResourceError, subprocess
-from ...testing import wait_all_tasks_blocked
-from ..._core.tests.tutil import slow
+from .. import _core, move_on_after, sleep, subprocess
+from ..testing import wait_all_tasks_blocked
 
 posix = os.name == "posix"
 
