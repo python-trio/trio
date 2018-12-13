@@ -336,10 +336,10 @@ def ssl_lockstep_stream_pair(**kwargs):
 def test_exports():
     # Just a quick check to make sure _reexport isn't totally broken
     assert hasattr(tssl, "SSLError")
-    assert "SSLError" in tssl.__all__
+    assert "SSLError" in tssl.__dict__.keys()
 
     assert hasattr(tssl, "Purpose")
-    assert "Purpose" in tssl.__all__
+    assert "Purpose" in tssl.__dict__.keys()
 
     # Intentionally omitted
     assert not hasattr(tssl, "SSLContext")

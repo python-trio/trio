@@ -1,0 +1,2 @@
+Fixed a race condition on macOS, where Trio's TCP listener would crash if an
+incoming TCP connection was closed before the listener had a chance to accept it.
