@@ -10,6 +10,7 @@ import sys
 # this lists all possible symbols from trio._core, and then we prune those that
 # aren't available on this system. After that we add some symbols from trio/*.py.
 
+# Generally available symbols
 from ._core import (
     cancel_shielded_checkpoint, Abort, wait_task_rescheduled,
     enable_ki_protection, disable_ki_protection, currently_ki_protected, Task,
@@ -18,81 +19,40 @@ from ._core import (
     permanently_detach_coroutine_object, reattach_detached_coroutine_object,
     current_statistics, reschedule, remove_instrument, add_instrument,
     current_clock, current_root_task, checkpoint_if_cancelled,
-    spawn_system_task
+    spawn_system_task, wait_socket_readable, wait_socket_writable,
+    notify_socket_close
 )
 
+# Unix-specific symbols
 try:
     from ._core import (
-        # kqueue symbols
-        current_kqueue,
-        monitor_kevent,
-        wait_kevent,
-        # windows symbols
-        current_iocp,
-        register_with_iocp,
-        wait_overlapped,
-        monitor_completion_key,
-        # non windows symbols
         wait_writable,
         wait_readable,
         notify_fd_close,
-        wait_socket_readable,
-        wait_socket_writable,
-        notify_socket_close
+    )
+except ImportError:
+    pass
+
+# Kqueue-specific symbols
+try:
+    from ._core import (
+        current_kqueue,
+        monitor_kevent,
+        wait_kevent,
+    )
+except ImportError:
+    pass
+
+# Windows symbols
+try:
+    from ._core import (
+        current_iocp, register_with_iocp, wait_overlapped,
+        monitor_completion_key
     )
 except ImportError:
     pass
 
 from . import _core
-
-# Some hazmat symbols are platform specific
-globals().update(
-    {
-        _name: _value
-        for (_name, _value) in _core.__dict__.items() if _name in [
-            "cancel_shielded_checkpoint",
-            "Abort",
-            "wait_task_rescheduled",
-            "enable_ki_protection",
-            "disable_ki_protection",
-            "currently_ki_protected",
-            "Task",
-            "checkpoint",
-            "current_task",
-            "current_root_task",
-            "checkpoint_if_cancelled",
-            "spawn_system_task",
-            "reschedule",
-            "remove_instrument",
-            "add_instrument",
-            "current_clock",
-            "current_statistics",
-            "ParkingLot",
-            "UnboundedQueue",
-            "RunVar",
-            "wait_writable",
-            "wait_readable",
-            "notify_fd_close",
-            "wait_socket_readable",
-            "wait_socket_writable",
-            "notify_socket_close",
-            "TrioToken",
-            "current_trio_token",
-            "temporarily_detach_coroutine_object",
-            "permanently_detach_coroutine_object",
-            "reattach_detached_coroutine_object",
-            # kqueue symbols
-            "current_kqueue",
-            "monitor_kevent",
-            "wait_kevent",
-            # windows symbols
-            "current_iocp",
-            "register_with_iocp",
-            "wait_overlapped",
-            "monitor_completion_key",
-        ]
-    }
-)
 
 # Import bits from trio/*.py
 if sys.platform.startswith("win"):
