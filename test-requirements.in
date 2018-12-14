@@ -14,3 +14,13 @@ flake8
 
 # https://github.com/python-trio/trio/pull/654#issuecomment-420518745
 typed_ast;python_version<"3.7" and implementation_name=="cpython"
+
+# Trio's own dependencies
+cffi; os_name == "nt"
+contextvars; python_version < "3.7"
+attrs >= 18.1.0
+sortedcontainers
+async_generator >= 1.9
+idna
+outcome
+sniffio

@@ -6,15 +6,18 @@
 #
 asn1crypto==0.24.0        # via cryptography
 astroid==2.1.0            # via pylint
+async-generator==1.10
 atomicwrites==1.2.1       # via pytest
-attrs==18.2.0             # via pytest
+attrs==18.2.0
 backcall==0.1.0           # via ipython
 cffi==1.11.5              # via cryptography
+contextvars==2.3 ; python_version < "3.7"
 coverage==4.5.2           # via pytest-cov
 cryptography==2.4.2       # via pyopenssl, trustme
 decorator==4.3.0          # via ipython, traitlets
 flake8==3.6.0
-idna==2.8                 # via cryptography, trustme
+idna==2.8
+immutables==0.6           # via contextvars
 ipython-genutils==0.2.0   # via traitlets
 ipython==7.2.0
 isort==4.3.4              # via pylint
@@ -22,6 +25,7 @@ jedi==0.13.1
 lazy-object-proxy==1.3.1  # via astroid
 mccabe==0.6.1             # via flake8, pylint
 more-itertools==4.3.0     # via pytest
+outcome==1.0.0
 parso==0.3.1              # via jedi
 pexpect==4.6.0            # via ipython
 pickleshare==0.7.5        # via ipython
@@ -39,6 +43,8 @@ pytest-cov==2.6.0
 pytest-faulthandler==1.5.0
 pytest==4.0.1
 six==1.12.0               # via astroid, cryptography, more-itertools, prompt-toolkit, pyopenssl, pytest, traitlets
+sniffio==1.0.0
+sortedcontainers==2.1.0
 traitlets==4.3.2          # via ipython
 trustme==0.4.0
 typed-ast==1.1.0 ; python_version < "3.7" and implementation_name == "cpython"
