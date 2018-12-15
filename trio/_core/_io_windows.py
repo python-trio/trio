@@ -292,7 +292,8 @@ class WindowsIOManager:
     def register_with_iocp(self, handle):
         handle = _handle(handle)
         # https://msdn.microsoft.com/en-us/library/windows/desktop/aa363862(v=vs.85).aspx
-        # INVALID_PARAMETER seems to mean "already registered"
+        # INVALID_PARAMETER seems to be used for both "can't register
+        # because not opened in OVERLAPPED mode" and "already registered"
         _check(kernel32.CreateIoCompletionPort(handle, self._iocp, 0, 0))
 
     @_public
@@ -317,7 +318,7 @@ class WindowsIOManager:
             raise_cancel = raise_cancel_
             try:
                 _check(kernel32.CancelIoEx(handle, lpOverlapped))
-            except OSError as exc:
+            except OSError as exc:  # pragma: no cover
                 if exc.winerror == ErrorCodes.ERROR_NOT_FOUND:
                     # Too late to cancel. Presumably the completion will
                     # be coming in soon. (Unfortunately, if you make an
@@ -338,8 +339,15 @@ class WindowsIOManager:
             # it will produce the right sorts of exceptions
             code = ntdll.RtlNtStatusToDosError(lpOverlapped.Internal)
             if code == ErrorCodes.ERROR_OPERATION_ABORTED:
-                assert raise_cancel is not None
-                raise_cancel()
+                if raise_cancel is not None:
+                    raise_cancel()
+                else:
+                    # We didn't request this cancellation, so assume
+                    # it happened due to the underlying handle being
+                    # closed before the operation could complete.
+                    raise _core.ClosedResourceError(
+                        "another task closed this resource"
+                    )
             else:
                 raise_winerror(code)
 

@@ -103,9 +103,6 @@ async def wait_child_exiting(process: subprocess.Popen) -> None:
     #   create an arbitrary number of threads waiting on the same
     #   process.
 
-    if process.returncode is not None:
-        return
-
     ATTR = "@trio_wait_event"  # an unlikely attribute name, to be sure
     try:
         event = getattr(process, ATTR)

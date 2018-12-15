@@ -16,6 +16,7 @@ typedef unsigned long u_long;
 typedef ULONG *PULONG;
 typedef const void *LPCVOID;
 typedef void *LPVOID;
+typedef const wchar_t *LPCWSTR;
 
 typedef uintptr_t ULONG_PTR;
 typedef uintptr_t UINT_PTR;
@@ -54,6 +55,16 @@ HANDLE WINAPI CreateIoCompletionPort(
   _In_opt_ HANDLE    ExistingCompletionPort,
   _In_     ULONG_PTR CompletionKey,
   _In_     DWORD     NumberOfConcurrentThreads
+);
+
+HANDLE CreateFileW(
+  LPCWSTR               lpFileName,
+  DWORD                 dwDesiredAccess,
+  DWORD                 dwShareMode,
+  LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+  DWORD                 dwCreationDisposition,
+  DWORD                 dwFlagsAndAttributes,
+  HANDLE                hTemplateFile
 );
 
 BOOL WINAPI CloseHandle(

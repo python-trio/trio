@@ -4,7 +4,7 @@ set -ex
 
 git rev-parse HEAD
 
-if [ "$TRAVIS_OS_NAME" = "osx" ]; then
+if [ "$TRAVIS_OS_NAME" = "osx" -a "$PYPY_NIGHTLY_BRANCH" = "" ]; then
     curl -Lo macpython.pkg https://www.python.org/ftp/python/${MACPYTHON}/python-${MACPYTHON}-macosx10.6.pkg
     sudo installer -pkg macpython.pkg -target /
     ls /Library/Frameworks/Python.framework/Versions/*/bin/
@@ -17,7 +17,7 @@ if [ "$TRAVIS_OS_NAME" = "osx" ]; then
 fi
 
 if [ "$PYPY_NIGHTLY_BRANCH" != "" ]; then
-    curl -fLo pypy.tar.bz2 http://buildbot.pypy.org/nightly/${PYPY_NIGHTLY_BRANCH}/pypy-c-jit-latest-linux64.tar.bz2
+    curl -fLo pypy.tar.bz2 http://buildbot.pypy.org/nightly/${PYPY_NIGHTLY_BRANCH}/pypy-c-jit-latest-${TRAVIS_OS_NAME}64.tar.bz2
     if [ ! -s pypy.tar.bz2 ]; then
         # We know:
         # - curl succeeded (200 response code; -f means "exit with error if

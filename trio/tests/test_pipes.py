@@ -8,22 +8,18 @@ from .._core.tests.tutil import gc_collect_harder
 from .. import _core, move_on_after
 from ..testing import wait_all_tasks_blocked, check_one_way_stream
 
-posix = False
-if os.name == "posix":
+posix = os.name == "posix"
+if posix:
     from .._unix_pipes import PipeSendStream, PipeReceiveStream, make_pipe
-    posix = True
-elif os.name == "nt":
-    from .._windows_pipes import PipeSendStream, PipeReceiveStream, make_pipe
 else:
-    pytestmark = pytest.mark.skip("pipes not supported on this OS")
+    from .._windows_pipes import PipeSendStream, PipeReceiveStream, make_pipe
 
 
 @pytest.mark.skipif(not posix, reason="uses posix file descriptors")
 async def test_send_pipe():
     r, w = os.pipe()
     send = PipeSendStream(w)
-    if posix:
-        assert send.fileno() == w
+    assert send.fileno() == w
     await send.send_all(b"123")
     assert (os.read(r, 8)) == b"123"
 
@@ -121,6 +117,28 @@ async def test_async_with():
         with pytest.raises(OSError) as excinfo:
             os.close(r.fileno())
         assert excinfo.value.errno == errno.EBADF
+
+    else:
+        # test failue-to-close on Windows
+        w._closed = False
+        with pytest.raises(OSError) as excinfo:
+            await w.aclose()
+
+
+async def test_close_during_write():
+    w, r = await make_pipe()
+    async with _core.open_nursery() as nursery:
+
+        async def write_forever():
+            with pytest.raises(_core.ClosedResourceError) as excinfo:
+                while True:
+                    await w.send_all(b"x" * 4096)
+                assert excinfo.value
+            assert "another task" in str(excinfo)
+
+        nursery.start_soon(write_forever)
+        await wait_all_tasks_blocked(0.1)
+        await w.aclose()
 
 
 async def make_clogged_pipe():

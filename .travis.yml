@@ -34,6 +34,9 @@ matrix:
     - os: osx
       language: generic
       env: MACPYTHON=3.7.1
+    - os: osx
+      language: generic
+      env: PYPY_NIGHTLY_BRANCH=py3.6
 
 script:
   - ci/travis.sh

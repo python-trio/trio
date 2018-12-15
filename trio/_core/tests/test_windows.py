@@ -1,4 +1,5 @@
 import os
+import tempfile
 
 import pytest
 
@@ -43,6 +44,47 @@ async def test_completion_key_listen():
                 if i == 10:
                     break
             print("end loop")
+
+
+async def test_readinto_overlapped():
+    data = b"1" * 1024 + b"2" * 1024 + b"3" * 1024 + b"4" * 1024
+    buffer = bytearray(len(data))
+
+    with tempfile.TemporaryDirectory() as tdir:
+        tfile = os.path.join(tdir, "numbers.txt")
+        with open(tfile, "wb") as fp:
+            fp.write(data)
+            fp.flush()
+
+        rawname = tfile.encode("utf-16le")
+        handle = kernel32.CreateFileW(
+            ffi.cast("LPCWSTR", ffi.from_buffer(rawname)),
+            0x80000000,  # GENERIC_READ
+            0,  # no sharing
+            ffi.NULL,  # no security attributes
+            3,  # OPEN_EXISTING
+            0x40000000,  # FILE_FLAG_OVERLAPPED
+            ffi.NULL,  # no template file
+        )
+        _core.register_with_iocp(handle)
+
+        async def read_region(start, end):
+            await _core.readinto_overlapped(
+                handle,
+                memoryview(buffer)[start:end], start
+            )
+
+        try:
+            async with _core.open_nursery() as nursery:
+                for start in range(0, 4096, 512):
+                    nursery.start_soon(read_region, start, start + 512)
+
+            assert buffer == data
+
+            with pytest.raises(TypeError):
+                await _core.readinto_overlapped(handle, b"immutable")
+        finally:
+            kernel32.CloseHandle(handle)
 
 
 # XX test setting the iomanager._iocp to something weird to make sure that the

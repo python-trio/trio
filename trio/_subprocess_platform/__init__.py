@@ -14,13 +14,16 @@ from .._abc import SendStream, ReceiveStream
 async def wait_child_exiting(process: subprocess.Popen) -> None:
     """Block until the child process managed by ``process`` is exiting.
 
+    It is invalid to call this function if the process has already
+    been waited on; that is, ``process.returncode`` must be None.
+
     When this function returns, it indicates that a call to
     :meth:`subprocess.Popen.wait` will immediately be able to
     return the process's exit status. The actual exit status is not
     consumed by this call, since :class:`~subprocess.Popen` wants
-    to be able to do that.
+    to be able to do that itself.
     """
-    raise NotImplementedError from wait_child_exiting._error
+    raise NotImplementedError from wait_child_exiting._error  # pragma: no cover
 
 
 async def create_pipe_to_child_stdin() -> Tuple[SendStream, int]:
@@ -33,6 +36,7 @@ async def create_pipe_to_child_stdin() -> Tuple[SendStream, int]:
       something suitable for passing as the ``stdin`` argument of
       :class:`subprocess.Popen`.
     """
+    # pragma: no cover
     raise NotImplementedError from create_pipe_to_child_stdin._error
 
 
@@ -47,6 +51,7 @@ async def create_pipe_from_child_output() -> Tuple[ReceiveStream, int]:
       something suitable for passing as the ``stdin`` argument of
       :class:`subprocess.Popen`.
     """
+    # pragma: no cover
     raise NotImplementedError from create_pipe_to_child_stdin._error
 
 
@@ -57,7 +62,7 @@ try:
         from .kqueue import wait_child_exiting  # noqa: F811
     else:
         from .waitid import wait_child_exiting  # noqa: F811
-except ImportError as ex:
+except ImportError as ex:  # pragma: no cover
     wait_child_exiting._error = ex
 
 try:
@@ -94,9 +99,9 @@ try:
             rh, wh = windows_pipe(overlapped=(True, False))
             return PipeReceiveStream(rh), msvcrt.open_osfhandle(wh, 0)
 
-    else:
+    else:  # pragma: no cover
         raise ImportError("pipes not implemented on this platform")
 
-except ImportError as ex:
+except ImportError as ex:  # pragma: no cover
     create_pipe_to_child_stdin._error = ex
     create_pipe_from_child_output._error = ex

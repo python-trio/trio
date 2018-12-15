@@ -64,15 +64,7 @@ class PipeSendStream(_PipeMixin, SendStream):
                                 self._pipe, chunk
                             )
                         except BrokenPipeError:
-                            # BrokenPipeError seems to be used to deliver
-                            # "your side of the pipe got closed by someone
-                            # else" too
-                            if self._closed:
-                                raise _core.ClosedResourceError(
-                                    "another task closed this pipe"
-                                ) from None
-                            else:
-                                raise _core.BrokenResourceError from None
+                            raise _core.BrokenResourceError from None
 
     async def wait_send_all_might_not_block(self) -> None:
         async with self._conflict_detector:

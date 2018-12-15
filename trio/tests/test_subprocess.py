@@ -5,7 +5,7 @@ import signal
 import sys
 import pytest
 
-from .. import _core, move_on_after, sleep_forever, subprocess
+from .. import _core, move_on_after, sleep, sleep_forever, subprocess
 from .._core.tests.tutil import slow
 from ..testing import wait_all_tasks_blocked
 
@@ -52,7 +52,7 @@ async def test_kill_when_context_cancelled():
             assert proc.poll() is None
             # Process context entry is synchronous, so this is the
             # only checkpoint:
-            await trio.sleep_forever()
+            await sleep_forever()
     assert scope.cancelled_caught
     assert got_signal(proc, SIGKILL)
 
@@ -287,3 +287,44 @@ async def test_wait_reapable_fails():
             assert proc.returncode == 0  # exit status unknowable, so...
     finally:
         signal.signal(signal.SIGCHLD, old_sigchld)
+
+
+@pytest.mark.skipif(not posix, reason="POSIX specific")
+@slow
+async def test_wait_reapable_eintr():
+    # This only matters on PyPy (where we're coding EINTR handling
+    # ourselves) but the test works on all waitid platforms. It does
+    # depend on having a second thread to interrupt a blocking call in,
+    # so we skip it elsewhere.
+
+    got_alarm = False
+
+    def on_alarm(sig, frame):
+        nonlocal got_alarm
+        got_alarm = True
+
+    # make sure SIGALRM gets delivered to the waitid thread, not ours
+    old_sigalrm = signal.signal(signal.SIGALRM, on_alarm)
+    old_mask = signal.pthread_sigmask(signal.SIG_UNBLOCK, [signal.SIGALRM])
+    try:
+        async with subprocess.Process(SLEEP(3600)) as proc:
+            async with _core.open_nursery() as nursery:
+                nursery.start_soon(proc.wait)
+                await wait_all_tasks_blocked()
+
+                # waitid platforms only
+                if hasattr(proc._proc, "@trio_wait_event"):
+                    # thread has been created at this point, so we can
+                    # mask the signal for us without affecting them
+                    signal.pthread_sigmask(signal.SIG_BLOCK, [signal.SIGALRM])
+                    signal.alarm(1)
+                    await sleep(1.5)
+                    assert got_alarm
+
+                proc.kill()
+                nursery.cancel_scope.deadline = _core.current_time() + 1.0
+            assert not nursery.cancel_scope.cancelled_caught
+            assert proc.returncode == -signal.SIGKILL
+    finally:
+        signal.pthread_sigmask(signal.SIG_SETMASK, old_mask)
+        signal.signal(signal.SIGALRM, old_sigalrm)
