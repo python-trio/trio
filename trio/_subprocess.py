@@ -9,7 +9,8 @@ from ._abc import AsyncResource
 from ._sync import CapacityLimiter, Lock
 from ._threads import run_sync_in_worker_thread
 from ._subprocess_platform import (
-    wait_child_exiting, create_pipe_to_child_stdin, create_pipe_from_child_output
+    wait_child_exiting, create_pipe_to_child_stdin,
+    create_pipe_from_child_output
 )
 
 __all__ = ["Process", "run"]

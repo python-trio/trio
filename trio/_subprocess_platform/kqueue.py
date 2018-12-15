@@ -2,6 +2,7 @@ import select
 import subprocess
 from .. import _core
 
+
 async def wait_child_exiting(process: subprocess.Popen) -> None:
     if process.returncode is not None:
         return

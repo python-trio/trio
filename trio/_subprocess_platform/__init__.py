@@ -11,7 +11,6 @@ from .._abc import SendStream, ReceiveStream
 
 # Fallback versions of the functions provided -- implementations
 # per OS are imported atop these at the bottom of the module.
-
 async def wait_child_exiting(process: subprocess.Popen) -> None:
     """Block until the child process managed by ``process`` is exiting.
 
