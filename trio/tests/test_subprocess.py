@@ -21,13 +21,15 @@ def cmd_switch(posix_option, windows_pycode):
         sys.executable, "-c", "import sys; " + windows_pycode
     ]
 
+
 EXIT_TRUE = cmd_switch(["true"], "sys.exit(0)")
 EXIT_FALSE = cmd_switch(["false"], "sys.exit(1)")
 CAT = cmd_switch(["cat"], "sys.stdout.buffer.write(sys.stdin.buffer.read())")
+
+
 def SLEEP(seconds):
     return cmd_switch(
-        ["sleep", str(seconds)],
-        "import time; time.sleep({})".format(seconds)
+        ["sleep", str(seconds)], "import time; time.sleep({})".format(seconds)
     )
 
 
@@ -126,9 +128,7 @@ async def test_run():
 
     with pytest.raises(ValueError):
         # can't use both input and stdin
-        await subprocess.run(
-            CAT, input=b"la di dah", stdin=subprocess.PIPE
-        )
+        await subprocess.run(CAT, input=b"la di dah", stdin=subprocess.PIPE)
 
     with pytest.raises(ValueError):
         # can't use both timeout and deadline

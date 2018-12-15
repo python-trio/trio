@@ -424,6 +424,7 @@ class WindowsIOManager:
                     lpOverlapped,
                 )
             )
+
         lpOverlapped = await self.perform_overlapped(handle, submit_write)
         # this is "number of bytes transferred"
         return lpOverlapped.InternalHigh
@@ -448,5 +449,6 @@ class WindowsIOManager:
                     lpOverlapped,
                 )
             )
+
         lpOverlapped = await self.perform_overlapped(handle, submit_read)
         return lpOverlapped.InternalHigh
