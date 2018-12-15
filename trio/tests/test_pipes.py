@@ -146,6 +146,7 @@ async def make_clogged_pipe():
             os.write(s.fileno(), b"x" * buf_size * 2)
     except BlockingIOError:
         pass
+    return s, r
 
 
 async def test_pipe_fully():
