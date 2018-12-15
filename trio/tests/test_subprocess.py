@@ -10,25 +10,49 @@ from .._core.tests.tutil import slow
 from ..testing import wait_all_tasks_blocked
 
 posix = os.name == "posix"
+if posix:
+    from signal import SIGKILL, SIGTERM, SIGINT
+else:
+    SIGKILL, SIGTERM, SIGINT = None, None, None
 
-pytestmark = pytest.mark.skipif(not posix, reason="no windows support yet")
+
+def cmd_switch(posix_option, windows_pycode):
+    return posix_option if posix else [
+        sys.executable, "-c", "import sys; " + windows_pycode
+    ]
+
+EXIT_TRUE = cmd_switch(["true"], "sys.exit(0)")
+EXIT_FALSE = cmd_switch(["false"], "sys.exit(1)")
+CAT = cmd_switch(["cat"], "sys.stdout.buffer.write(sys.stdin.buffer.read())")
+def SLEEP(seconds):
+    return cmd_switch(
+        ["sleep", str(seconds)],
+        "import time; time.sleep({})".format(seconds)
+    )
+
+
+def got_signal(proc, sig):
+    if posix:
+        return proc.returncode == -sig
+    else:
+        return proc.returncode != 0
 
 
 async def test_basic():
-    async with subprocess.Process(["true"]) as proc:
+    async with subprocess.Process(EXIT_TRUE) as proc:
         assert proc.returncode is None
     assert proc.returncode == 0
 
 
 async def test_kill_when_context_cancelled():
     with move_on_after(0) as scope:
-        async with subprocess.Process(["sleep", "10"]) as proc:
+        async with subprocess.Process(SLEEP(10)) as proc:
             assert proc.poll() is None
             # Process context entry is synchronous, so this is the
             # only checkpoint:
             await trio.sleep_forever()
     assert scope.cancelled_caught
-    assert proc.returncode == -signal.SIGKILL
+    assert got_signal(proc, SIGKILL)
 
 
 COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR = [
@@ -75,16 +99,16 @@ async def test_pipes():
 async def test_run():
     data = bytes(random.randint(0, 255) for _ in range(2**18))
 
-    result = await subprocess.run(["cat"], input=data, stdout=subprocess.PIPE)
-    assert result.args == ["cat"]
+    result = await subprocess.run(CAT, input=data, stdout=subprocess.PIPE)
+    assert result.args == CAT
     assert result.returncode == 0
     assert result.stdout == data
     assert result.stderr is None
 
     result = await subprocess.run(
-        ["cat"], stdin=subprocess.PIPE, stdout=subprocess.PIPE
+        CAT, stdin=subprocess.PIPE, stdout=subprocess.PIPE
     )
-    assert result.args == ["cat"]
+    assert result.args == CAT
     assert result.returncode == 0
     assert result.stdout == b""
     assert result.stderr is None
@@ -103,13 +127,13 @@ async def test_run():
     with pytest.raises(ValueError):
         # can't use both input and stdin
         await subprocess.run(
-            ["cat"], input=b"la di dah", stdin=subprocess.PIPE
+            CAT, input=b"la di dah", stdin=subprocess.PIPE
         )
 
     with pytest.raises(ValueError):
         # can't use both timeout and deadline
         await subprocess.run(
-            ["true"], timeout=1, deadline=_core.current_time()
+            EXIT_TRUE, timeout=1, deadline=_core.current_time()
         )
 
 
@@ -144,14 +168,19 @@ sys.stdout.buffer.write(sys.stdin.buffer.read())
 
 
 async def test_run_check():
+    cmd = cmd_switch(
+        "echo test >&2; false",
+        "sys.stderr.buffer.write(b'test\\n'); sys.exit(1)",
+    )
+
     with pytest.raises(subprocess.CalledProcessError) as excinfo:
         await subprocess.run(
-            "echo test >&2; false",
-            shell=True,
+            cmd,
+            shell=posix,
             stderr=subprocess.PIPE,
             check=True,
         )
-    assert excinfo.value.cmd == "echo test >&2; false"
+    assert excinfo.value.cmd == cmd
     assert excinfo.value.returncode == 1
     assert excinfo.value.stderr == b"test\n"
     assert excinfo.value.stdout is None
@@ -190,30 +219,31 @@ async def test_stderr_stdout():
 
     # this one hits the branch where stderr=STDOUT but stdout
     # is not redirected
-    result = await subprocess.run(["cat"], input=b"", stderr=subprocess.STDOUT)
+    result = await subprocess.run(CAT, input=b"", stderr=subprocess.STDOUT)
     assert result.returncode == 0
     assert result.stdout is None
     assert result.stderr is None
 
-    try:
-        r, w = os.pipe()
+    if posix:
+        try:
+            r, w = os.pipe()
 
-        async with subprocess.Process(
-            COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR,
-            stdin=subprocess.PIPE,
-            stdout=w,
-            stderr=subprocess.STDOUT,
-        ) as proc:
-            os.close(w)
-            assert proc.stdout is None
-            assert proc.stderr is None
-            await proc.stdin.send_all(b"1234")
-            await proc.stdin.aclose()
-            assert await proc.wait() == 0
-            assert os.read(r, 4096) == b"12344321"
-            assert os.read(r, 4096) == b""
-    finally:
-        os.close(r)
+            async with subprocess.Process(
+                COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR,
+                stdin=subprocess.PIPE,
+                stdout=w,
+                stderr=subprocess.STDOUT,
+            ) as proc:
+                os.close(w)
+                assert proc.stdout is None
+                assert proc.stderr is None
+                await proc.stdin.send_all(b"1234")
+                await proc.stdin.aclose()
+                assert await proc.wait() == 0
+                assert os.read(r, 4096) == b"12344321"
+                assert os.read(r, 4096) == b""
+        finally:
+            os.close(r)
 
 
 async def test_errors():
@@ -226,25 +256,28 @@ async def test_errors():
 async def test_signals():
     async def test_one_signal(send_it, signum):
         with move_on_after(1.0) as scope:
-            async with subprocess.Process(["sleep", "3600"]) as proc:
+            async with subprocess.Process(SLEEP(3600)) as proc:
                 send_it(proc)
         assert not scope.cancelled_caught
-        assert proc.returncode == -signum
+        if posix:
+            assert proc.returncode == -signum
+        else:
+            assert proc.returncode != 0
 
-    await test_one_signal(subprocess.Process.kill, signal.SIGKILL)
-    await test_one_signal(subprocess.Process.terminate, signal.SIGTERM)
-    await test_one_signal(
-        lambda proc: proc.send_signal(signal.SIGINT), signal.SIGINT
-    )
+    await test_one_signal(subprocess.Process.kill, SIGKILL)
+    await test_one_signal(subprocess.Process.terminate, SIGTERM)
+    if posix:
+        await test_one_signal(lambda proc: proc.send_signal(SIGINT), SIGINT)
 
 
+@pytest.mark.skipif(not posix, reason="POSIX specific")
 async def test_wait_reapable_fails():
     old_sigchld = signal.signal(signal.SIGCHLD, signal.SIG_IGN)
     try:
         # With SIGCHLD disabled, the wait() syscall will wait for the
         # process to exit but then fail with ECHILD. Make sure we
         # support this case as the stdlib subprocess module does.
-        async with subprocess.Process(["sleep", "3600"]) as proc:
+        async with subprocess.Process(SLEEP(3600)) as proc:
             async with _core.open_nursery() as nursery:
                 nursery.start_soon(proc.wait)
                 await wait_all_tasks_blocked()

@@ -19,6 +19,7 @@ from .._util import is_main_thread
 from ._windows_cffi import (
     ffi,
     kernel32,
+    ntdll,
     INVALID_HANDLE_VALUE,
     raise_winerror,
     ErrorCodes,
@@ -289,13 +290,14 @@ class WindowsIOManager:
 
     @_public
     def register_with_iocp(self, handle):
-        handle = _handle(obj)
+        handle = _handle(handle)
         # https://msdn.microsoft.com/en-us/library/windows/desktop/aa363862(v=vs.85).aspx
+        # INVALID_PARAMETER seems to mean "already registered"
         _check(kernel32.CreateIoCompletionPort(handle, self._iocp, 0, 0))
 
     @_public
     async def wait_overlapped(self, handle, lpOverlapped):
-        handle = _handle(obj)
+        handle = _handle(handle)
         if isinstance(lpOverlapped, int):
             lpOverlapped = ffi.cast("LPOVERLAPPED", lpOverlapped)
         if lpOverlapped in self._overlapped_waiters:
@@ -313,16 +315,33 @@ class WindowsIOManager:
             # possible -- the docs are pretty unclear.
             nonlocal raise_cancel
             raise_cancel = raise_cancel_
-            _check(kernel32.CancelIoEx(handle, lpOverlapped))
+            try:
+                _check(kernel32.CancelIoEx(handle, lpOverlapped))
+            except OSError as exc:
+                if exc.winerror == ErrorCodes.ERROR_NOT_FOUND:
+                    # Too late to cancel. Presumably the completion will
+                    # be coming in soon. (Unfortunately, if you make an
+                    # overlapped request through this IOManager on a
+                    # handle not registered with our IOCP, you wind up
+                    # hanging here when you try to cancel it.)
+                    pass
+                else:
+                    raise TrioInternalError(
+                        "CancelIoEx failed with unexpected error"
+                    ) from exc
             return _core.Abort.FAILED
 
         await _core.wait_task_rescheduled(abort)
         if lpOverlapped.Internal != 0:
-            if lpOverlapped.Internal == ErrorCodes.ERROR_OPERATION_ABORTED:
+            # the lpOverlapped reports the error as an NT status code,
+            # which we must convert back to a Win32 error code before
+            # it will produce the right sorts of exceptions
+            code = ntdll.RtlNtStatusToDosError(lpOverlapped.Internal)
+            if code == ErrorCodes.ERROR_OPERATION_ABORTED:
                 assert raise_cancel is not None
                 raise_cancel()
             else:
-                raise_winerror(lpOverlapped.Internal)
+                raise_winerror(code)
 
     @_public
     @contextmanager
@@ -372,21 +391,62 @@ class WindowsIOManager:
                 )
                 _core.reschedule(task, outcome.Error(exc))
 
-    # This has cffi-isms in it and is untested... but it demonstrates the
-    # logic we'll want when we start actually using overlapped I/O.
-    #
-    # @_public
-    # async def perform_overlapped(self, handle, submit_fn):
-    #     # submit_fn(lpOverlapped) submits some I/O
-    #     # it may raise an OSError with ERROR_IO_PENDING
-    #     await _core.checkpoint_if_cancelled()
-    #     self.register_with_iocp(handle)
-    #     lpOverlapped = ffi.new("LPOVERLAPPED")
-    #     try:
-    #         submit_fn(lpOverlapped)
-    #     except OSError as exc:
-    #         if exc.winerror != Error.ERROR_IO_PENDING:
-    #             await _core.cancel_shielded_checkpoint()
-    #             raise
-    #     await self.wait_overlapped(handle, lpOverlapped)
-    #     return lpOverlapped
+    @_public
+    async def perform_overlapped(self, handle, submit_fn):
+        # submit_fn(lpOverlapped) submits some I/O
+        # it may raise an OSError with ERROR_IO_PENDING
+        # the handle must already be registered using
+        # register_with_iocp(handle)
+        await _core.checkpoint_if_cancelled()
+        lpOverlapped = ffi.new("LPOVERLAPPED")
+        try:
+            submit_fn(lpOverlapped)
+        except OSError as exc:
+            if exc.winerror != ErrorCodes.ERROR_IO_PENDING:
+                await _core.cancel_shielded_checkpoint()
+                raise
+        await self.wait_overlapped(handle, lpOverlapped)
+        return lpOverlapped
+
+    @_public
+    async def write_overlapped(self, handle, data, file_offset=0):
+        def submit_write(lpOverlapped):
+            # yes, these are the real documented names
+            offset_fields = lpOverlapped.DUMMYUNIONNAME.DUMMYSTRUCTNAME
+            offset_fields.Offset = file_offset & 0xffffffff
+            offset_fields.OffsetHigh = file_offset >> 32
+            _check(
+                kernel32.WriteFile(
+                    _handle(handle),
+                    ffi.cast("LPCVOID", ffi.from_buffer(data)),
+                    len(data),
+                    ffi.NULL,
+                    lpOverlapped,
+                )
+            )
+        lpOverlapped = await self.perform_overlapped(handle, submit_write)
+        # this is "number of bytes transferred"
+        return lpOverlapped.InternalHigh
+
+    @_public
+    async def readinto_overlapped(self, handle, buffer, file_offset=0):
+        if memoryview(buffer).readonly:
+            raise TypeError(
+                "you must pass a mutable buffer such as a bytearray, not bytes"
+            )
+
+        def submit_read(lpOverlapped):
+            offset_fields = lpOverlapped.DUMMYUNIONNAME.DUMMYSTRUCTNAME
+            offset_fields.Offset = file_offset & 0xffffffff
+            offset_fields.OffsetHigh = file_offset >> 32
+            _check(
+                kernel32.ReadFile(
+                    _handle(handle),
+                    ffi.cast("LPVOID", ffi.from_buffer(buffer)),
+                    len(buffer),
+                    ffi.NULL,
+                    lpOverlapped,
+                )
+            )
+        lpOverlapped = await self.perform_overlapped(handle, submit_read)
+        return lpOverlapped.InternalHigh

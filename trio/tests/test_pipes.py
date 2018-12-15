@@ -5,23 +5,25 @@ import os
 import pytest
 
 from .._core.tests.tutil import gc_collect_harder
-from .. import _core
+from .. import _core, move_on_after
 from ..testing import wait_all_tasks_blocked, check_one_way_stream
 
-posix = os.name == "posix"
-
-pytestmark = pytest.mark.skipif(
-    not posix, reason="pipes are only supported on posix"
-)
-
-if posix:
+posix = False
+if os.name == "posix":
     from .._unix_pipes import PipeSendStream, PipeReceiveStream, make_pipe
+    posix = True
+elif os.name == "nt":
+    from .._windows_pipes import PipeSendStream, PipeReceiveStream, make_pipe
+else:
+    pytestmark = pytest.mark.skip("pipes not supported on this OS")
 
 
+@pytest.mark.skipif(not posix, reason="uses posix file descriptors")
 async def test_send_pipe():
     r, w = os.pipe()
     send = PipeSendStream(w)
-    assert send.fileno() == w
+    if posix:
+        assert send.fileno() == w
     await send.send_all(b"123")
     assert (os.read(r, 8)) == b"123"
 
@@ -30,6 +32,7 @@ async def test_send_pipe():
     send._closed = True
 
 
+@pytest.mark.skipif(not posix, reason="uses posix file descriptors")
 async def test_receive_pipe():
     r, w = os.pipe()
     recv = PipeReceiveStream(r)
@@ -80,10 +83,13 @@ async def test_pipe_errors():
     with pytest.raises(TypeError):
         PipeReceiveStream(None)
 
-    with pytest.raises(ValueError):
-        await PipeReceiveStream(0).receive_some(0)
+    if posix:
+        # can only construct with invalid fd on posix
+        with pytest.raises(ValueError):
+            await PipeReceiveStream(0).receive_some(0)
 
 
+@pytest.mark.skipif(not posix, reason="uses posix file descriptors")
 async def test_del():
     w, r = await make_pipe()
     f1, f2 = w.fileno(), r.fileno()
@@ -107,13 +113,14 @@ async def test_async_with():
     assert w._closed
     assert r._closed
 
-    with pytest.raises(OSError) as excinfo:
-        os.close(w.fileno())
-    assert excinfo.value.errno == errno.EBADF
+    if posix:
+        with pytest.raises(OSError) as excinfo:
+            os.close(w.fileno())
+        assert excinfo.value.errno == errno.EBADF
 
-    with pytest.raises(OSError) as excinfo:
-        os.close(r.fileno())
-    assert excinfo.value.errno == errno.EBADF
+        with pytest.raises(OSError) as excinfo:
+            os.close(r.fileno())
+        assert excinfo.value.errno == errno.EBADF
 
 
 async def make_clogged_pipe():
@@ -139,8 +146,9 @@ async def make_clogged_pipe():
             os.write(s.fileno(), b"x" * buf_size * 2)
     except BlockingIOError:
         pass
-    return s, r
 
 
 async def test_pipe_fully():
-    await check_one_way_stream(make_pipe, make_clogged_pipe)
+    # passing make_clogged_pipe tests wait_send_all_might_not_block, and we
+    # can't implement that on Windows
+    await check_one_way_stream(make_pipe, make_clogged_pipe if posix else None)

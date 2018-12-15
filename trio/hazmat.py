@@ -51,6 +51,9 @@ __all__ = [
     "register_with_iocp",
     "wait_overlapped",
     "monitor_completion_key",
+    "perform_overlapped",
+    "write_overlapped",
+    "readinto_overlapped",
 ]
 
 from . import _core

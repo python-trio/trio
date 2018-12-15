@@ -11,8 +11,11 @@ typedef void* PVOID;
 typedef PVOID HANDLE;
 typedef unsigned long DWORD;
 typedef unsigned long ULONG;
+typedef unsigned int NTSTATUS;
 typedef unsigned long u_long;
 typedef ULONG *PULONG;
+typedef const void *LPCVOID;
+typedef void *LPVOID;
 
 typedef uintptr_t ULONG_PTR;
 typedef uintptr_t UINT_PTR;
@@ -78,6 +81,22 @@ BOOL WINAPI CancelIoEx(
   _In_opt_ LPOVERLAPPED lpOverlapped
 );
 
+BOOL WriteFile(
+  HANDLE       hFile,
+  LPCVOID      lpBuffer,
+  DWORD        nNumberOfBytesToWrite,
+  LPDWORD      lpNumberOfBytesWritten,
+  LPOVERLAPPED lpOverlapped
+);
+
+BOOL ReadFile(
+  HANDLE       hFile,
+  LPVOID       lpBuffer,
+  DWORD        nNumberOfBytesToRead,
+  LPDWORD      lpNumberOfBytesRead,
+  LPOVERLAPPED lpOverlapped
+);
+
 BOOL WINAPI SetConsoleCtrlHandler(
   _In_opt_ void*            HandlerRoutine,
   _In_     BOOL             Add
@@ -110,10 +129,8 @@ DWORD WaitForMultipleObjects(
   DWORD        dwMilliseconds
 );
 
-HANDLE OpenProcess(
-  DWORD dwDesiredAccess,
-  BOOL  bInheritHandle,
-  DWORD dwProcessId
+ULONG RtlNtStatusToDosError(
+  NTSTATUS Status
 );
 
 """
@@ -136,6 +153,7 @@ ffi = cffi.FFI()
 ffi.cdef(LIB)
 
 kernel32 = ffi.dlopen("kernel32.dll")
+ntdll = ffi.dlopen("ntdll.dll")
 
 INVALID_HANDLE_VALUE = ffi.cast("HANDLE", -1)
 
@@ -173,3 +191,5 @@ class ErrorCodes(enum.IntEnum):
     ERROR_OPERATION_ABORTED = 995
     ERROR_ABANDONED_WAIT_0 = 735
     ERROR_INVALID_HANDLE = 6
+    ERROR_INVALID_PARMETER = 87
+    ERROR_NOT_FOUND = 1168
