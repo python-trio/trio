@@ -18,7 +18,7 @@ fi
 
 if [ "$PYPY_NIGHTLY_BRANCH" != "" ]; then
     if [ "$TRAVIS_OS_NAME" = "osx" ]; then
-        sudo brew install openssl
+        brew install openssl
     fi
     curl -fLo pypy.tar.bz2 http://buildbot.pypy.org/nightly/${PYPY_NIGHTLY_BRANCH}/pypy-c-jit-latest-${TRAVIS_OS_NAME}64.tar.bz2
     if [ ! -s pypy.tar.bz2 ]; then
