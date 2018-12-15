@@ -6,6 +6,7 @@ import sys
 import pytest
 
 from .. import _core, move_on_after, sleep_forever, subprocess
+from .._core.tests.tutil import slow
 from ..testing import wait_all_tasks_blocked
 
 posix = os.name == "posix"
@@ -112,6 +113,7 @@ async def test_run():
         )
 
 
+@slow
 async def test_run_timeout():
     data = b"1" * 65536 + b"2" * 65536 + b"3" * 65536
     child_script = """
@@ -122,8 +124,8 @@ sys.stdout.buffer.write(sys.stdin.buffer.read())
 """
 
     for make_timeout_arg in (
-        lambda: {"timeout": 0.25},
-        lambda: {"deadline": _core.current_time() + 0.25}
+        lambda: {"timeout": 1.0},
+        lambda: {"deadline": _core.current_time() + 1.0}
     ):
         with pytest.raises(subprocess.TimeoutExpired) as excinfo:
             await subprocess.run(
@@ -134,9 +136,9 @@ sys.stdout.buffer.write(sys.stdin.buffer.read())
             )
         assert excinfo.value.cmd == [sys.executable, "-c", child_script]
         if "timeout" in make_timeout_arg():
-            assert excinfo.value.timeout == 0.25
+            assert excinfo.value.timeout == 1.0
         else:
-            assert 0.2 < excinfo.value.timeout < 0.3
+            assert 0.9 < excinfo.value.timeout < 1.1
         assert excinfo.value.stdout == data[:32768]
         assert excinfo.value.stderr is None
 
