@@ -263,6 +263,35 @@ async def test_socket_v6():
         assert s.family == tsocket.AF_INET6
 
 
+async def test_sniff_sockopts():
+    # iterate over the combinations of families/types we're testing:
+    for family_type in ['ipv4_tcp', 'ipv4_udp', 'ipv6_tcp', 'ipv6_udp']:
+        family, type = family_type.split('_')
+        family = stdlib_socket.AF_INET if family == 'ipv4' else stdlib_socket.AF_INET6
+        type = stdlib_socket.SOCK_STREAM if type == 'tcp' else stdlib_socket.SOCK_DGRAM
+
+        # socket with family and type as set by us
+        original_socket = stdlib_socket.socket(family=family, type=type)
+
+        # recreated socket using the fd from the original (with possibly bad sockopts)
+        bad_socket = stdlib_socket.socket(fileno=original_socket.fileno())
+
+        # regular socket constructor
+        tsocket_socket = tsocket.socket(fileno=bad_socket.fileno())
+
+        # check family / type for correctness:
+        assert tsocket_socket.family == family
+        assert tsocket_socket.type == type
+
+        # fromfd constructor
+        tsocket_from_fd = tsocket.fromfd(
+            bad_socket.fileno(), bad_socket.family, bad_socket.type
+        )
+        # check family / type for correctness:
+        assert tsocket_from_fd.family == family
+        assert tsocket_from_fd.type == type
+
+
 ################################################################
 # _SocketType
 ################################################################

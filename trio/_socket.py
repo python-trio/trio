@@ -236,11 +236,12 @@ def from_stdlib_socket(sock):
 
 
 @_wraps(_stdlib_socket.fromfd, assigned=(), updated=())
-def fromfd(*args, **kwargs):
+def fromfd(fd, family, type, proto=0):
     """Like :func:`socket.fromfd`, but returns a trio socket object.
 
     """
-    return from_stdlib_socket(_stdlib_socket.fromfd(*args, **kwargs))
+    family, type, proto = _sniff_sockopts_for_fileno(family, type, proto, fd)
+    return from_stdlib_socket(_stdlib_socket.fromfd(fd, family, type, proto))
 
 
 if hasattr(_stdlib_socket, "fromshare"):
@@ -277,8 +278,40 @@ def socket(
         sf = _socket_factory.get(None)
         if sf is not None:
             return sf.socket(family, type, proto)
+    else:
+        family, type, proto = _sniff_sockopts_for_fileno(
+            family, type, proto, fileno
+        )
     stdlib_socket = _stdlib_socket.socket(family, type, proto, fileno)
     return from_stdlib_socket(stdlib_socket)
+
+
+def _sniff_sockopts_for_fileno(family, type, proto, fileno):
+    """Correct SOCKOPTS for given fileno, falling back to provieded values.
+
+    """
+    # Wrap the raw fileno into a Python socket object
+    # This object might have the wrong metadata, but it lets us easily call getsockopt
+    # and then we'll throw it away and construct a new one with the correct metadata.
+    # source: https://github.com/python-trio/trio/pull/577#issuecomment-408763906
+    sockobj = _stdlib_socket.socket(fileno=fileno)
+    try:
+        if hasattr(socket, "SO_DOMAIN"):
+            family = sockobj.getsockopt(
+                _stdlib_socket.SOL_SOCKET, _stdlib_socket.SO_DOMAIN
+            )
+        if hasattr(socket, "SO_TYPE"):
+            type = sockobj.getsockopt(
+                _stdlib_socket.SOL_SOCKET, _stdlib_socket.SO_TYPE
+            )
+        if hasattr(socket, "SO_PROTOCOL"):
+            proto = sockobj.getsockopt(
+                _stdlib_socket.SOL_SOCKET, _stdlib_socket.SO_PROTOCOL
+            )
+    finally:
+        # Unwrap it again, so that sockobj.__del__ doesn't try to close our socket
+        sockobj.detach()
+    return family, type, proto
 
 
 ################################################################
