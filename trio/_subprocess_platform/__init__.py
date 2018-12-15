@@ -52,11 +52,11 @@ async def create_pipe_from_child_output() -> Tuple[ReceiveStream, int]:
 
 try:
     if os.name == "nt":
-        from .windows import wait_child_exiting
+        from .windows import wait_child_exiting  # noqa: F811
     elif hasattr(_core, "wait_kevent"):
-        from .kqueue import wait_child_exiting
+        from .kqueue import wait_child_exiting  # noqa: F811
     else:
-        from .waitid import wait_child_exiting
+        from .waitid import wait_child_exiting  # noqa: F811
 except ImportError as ex:
     wait_child_exiting._error = ex
 
@@ -64,11 +64,11 @@ try:
     if os.name == "posix":
         from .._unix_pipes import PipeSendStream, PipeReceiveStream
 
-        def create_pipe_to_child_stdin():
+        def create_pipe_to_child_stdin():  # noqa: F811
             rfd, wfd = os.pipe()
             return PipeSendStream(wfd), rfd
 
-        def create_pipe_from_child_output():
+        def create_pipe_from_child_output():  # noqa: F811
             rfd, wfd = os.pipe()
             return PipeReceiveStream(rfd), wfd
 
@@ -84,12 +84,12 @@ try:
         from asyncio.windows_utils import pipe as windows_pipe
         import msvcrt
 
-        def create_pipe_to_child_stdin():
+        def create_pipe_to_child_stdin():  # noqa: F811
             # for stdin, we want the write end (our end) to use overlapped I/O
             rh, wh = windows_pipe(overlapped=(False, True))
             return PipeSendStream(wh), msvcrt.open_osfhandle(rh, os.O_RDONLY)
 
-        def create_pipe_from_child_output():
+        def create_pipe_from_child_output():  # noqa: F811
             # for stdout/err, it's the read end that's overlapped
             rh, wh = windows_pipe(overlapped=(True, False))
             return PipeReceiveStream(rh), msvcrt.open_osfhandle(wh, 0)
