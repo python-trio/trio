@@ -49,10 +49,6 @@ def public_namespaces(module):
 
 NAMESPACES = list(public_namespaces(trio))
 
-# Not yet set up for static analysis:
-NAMESPACES.remove("trio.hazmat")
-NAMESPACES.remove("trio.ssl")
-
 
 # pylint/jedi often have trouble with alpha releases, where Python's internals
 # are in flux, grammar may not have settled down, etc.

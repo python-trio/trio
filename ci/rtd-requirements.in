@@ -3,3 +3,13 @@ sphinx >= 1.7.0
 sphinx_rtd_theme
 sphinxcontrib-trio
 towncrier
+
+# Trio's own dependencies
+cffi; os_name == "nt"
+contextvars; python_version < "3.7"
+attrs >= 18.1.0
+sortedcontainers
+async_generator >= 1.9
+idna
+outcome
+sniffio
