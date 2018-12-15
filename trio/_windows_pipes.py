@@ -63,7 +63,7 @@ class PipeSendStream(_PipeMixin, SendStream):
                             total_sent += await _core.write_overlapped(
                                 self._pipe, chunk
                             )
-                        except BrokenPipeError as ex:
+                        except BrokenPipeError:
                             # BrokenPipeError seems to be used to deliver
                             # "your side of the pipe got closed by someone
                             # else" too
