@@ -8,113 +8,11 @@ from . import _core
 from ._abc import AsyncResource
 from ._sync import CapacityLimiter, Lock
 from ._threads import run_sync_in_worker_thread
-from ._platform import wait_child_exiting
+from ._subprocess_platform import (
+    wait_child_exiting, create_pipe_to_child_stdin, create_pipe_from_child_output
+)
 
 __all__ = ["Process", "run"]
-
-# OS-specific hooks:
-#
-# create_pipe_to_child_stdin() -> (int, int):
-#    Create a new pipe suitable for sending data from this
-#    process to the standard input of a child we're about to spawn.
-#
-#    Returns:
-#      A pair ``(trio_end, subprocess_end)`` where ``trio_end`` is
-#      something suitable for constructing a PipeSendStream around
-#      and ``subprocess_end`` is something suitable for passing as
-#      the ``stdin`` argument of :class:`subprocess.Popen`.
-#
-# create_pipe_from_child_output() -> (int, int):
-#    Create a new pipe suitable for receiving data into this
-#    process from the standard output or error stream of a child
-#    we're about to spawn.
-#
-#    Returns:
-#      A pair ``(trio_end, subprocess_end)`` where ``trio_end`` is
-#      something suitable for constructing a PipeReceiveStream around
-#      and ``subprocess_end`` is something suitable for passing as
-#      the ``stdout`` or ``stderr`` argument of :class:`subprocess.Popen`.
-
-if os.name == "posix":
-    from ._unix_pipes import PipeSendStream, PipeReceiveStream
-
-    def create_pipe_to_child_stdin():
-        rfd, wfd = os.pipe()
-        return wfd, rfd
-
-    def create_pipe_from_child_output():
-        rfd, wfd = os.pipe()
-        return rfd, wfd
-
-elif os.name == "nt":
-    import msvcrt
-
-    # TODO: implement the pipes
-    class PipeSendStream:
-        def __init__(self, handle):
-            raise NotImplementedError
-
-    PipeReceiveStream = PipeSendStream
-
-    # This isn't exported or documented, but it's also not
-    # underscore-prefixed, and seems kosher to use. The asyncio docs
-    # for 3.5 included an example that imported socketpair from
-    # windows_utils (before socket.socketpair existed on Windows), and
-    # when asyncio.windows_utils.socketpair was removed in 3.7, the
-    # removal was mentioned in the release notes.
-    from asyncio.windows_utils import pipe as windows_pipe
-
-    def create_pipe_to_child_stdin():
-        # for stdin, we want the write end (our end) to use overlapped I/O
-        rh, wh = windows_pipe(overlapped=(False, True))
-        return wh, msvcrt.open_osfhandle(rh, os.O_RDONLY)
-
-    def create_pipe_from_child_output():
-        # for stdout/err, it's the read end that's overlapped
-        rh, wh = windows_pipe(overlapped=(True, False))
-        return rh, msvcrt.open_osfhandle(wh, 0)
-
-else:  # pragma: no cover
-    raise NotImplementedError("unsupported os.name {!r}".format(os.name))
-
-
-def wrap_process_stream(child_fd, given_value):
-    """Perform any wrapping necessary to be able to use async operations
-    to interact with a subprocess stream.
-
-    Args:
-      child_fd (0, 1, or 2): The file descriptor in the child that this
-          stream will be used to communicate with.
-      given_value (int or None): Anything accepted by the ``stdin``,
-          ``stdout``, or ``stderr`` kwargs to :class:`subprocess.Popen`.
-          For example, this could be ``None``, a file descriptor,
-          :data:`subprocess.PIPE`, :data:`subprocess.STDOUT`, or
-          :data:`subprocess.DEVNULL`.
-
-    Returns:
-      A pair ``(trio_stream, subprocess_value)`` where ``trio_stream``
-      is a :class:`trio.abc.SendStream` (for stdin) or
-      :class:`trio.abc.ReceiveStream` (for stdout/stderr) that can be
-      used to communicate with the child process, and
-      ``subprocess_value`` is the value that should be passed as the
-      ``stdin``, ``stdout``, or ``stderr`` argument of
-      :class:`subprocess.Popen` in order to set up the child end
-      appropriately. If ``given_value`` was not :data:`subprocess.PIPE`,
-      ``trio_stream`` will be ``None`` and ``subprocess_value`` will
-      equal ``given_value``.
-    """
-
-    if given_value == subprocess.PIPE:
-        maker, stream_cls = {
-            0: (create_pipe_to_child_stdin, PipeSendStream),
-            1: (create_pipe_from_child_output, PipeReceiveStream),
-            2: (create_pipe_from_child_output, PipeReceiveStream),
-        }[child_fd]
-
-        trio_end, subprocess_end = maker()
-        return stream_cls(trio_end), subprocess_end
-
-    return None, given_value
 
 
 class Process(AsyncResource):
@@ -172,8 +70,14 @@ class Process(AsyncResource):
         if kwds.get('bufsize', -1) != -1:
             raise ValueError("bufsize does not make sense for trio subprocess")
 
-        self.stdin, stdin = wrap_process_stream(0, stdin)
-        self.stdout, stdout = wrap_process_stream(1, stdout)
+        self.stdin = None
+        self.stdout = None
+        self.stderr = None
+
+        if stdin == subprocess.PIPE:
+            self.stdin, stdin = create_pipe_to_child_stdin()
+        if stdout == subprocess.PIPE:
+            self.stdout, stdout = create_pipe_from_child_output()
         if stderr == subprocess.STDOUT:
             # If we created a pipe for stdout, pass the same pipe for
             # stderr.  If stdout was some non-pipe thing (DEVNULL or a
@@ -184,9 +88,8 @@ class Process(AsyncResource):
             # is piped, stderr will be intermixed on the stdout stream.
             if stdout is not None:
                 stderr = stdout
-            self.stderr = None
-        else:
-            self.stderr, stderr = wrap_process_stream(2, stderr)
+        elif stderr == subprocess.PIPE:
+            self.stderr, stderr = create_pipe_from_child_output()
 
         try:
             self._proc = subprocess.Popen(
@@ -248,11 +151,12 @@ class Process(AsyncResource):
           that exits due to a signal will have its exit status reported
           as the negative of that signal number, e.g., -11 for ``SIGSEGV``.
         """
-        while True:
-            if self.poll() is not None:
-                await _core.checkpoint()
-                return self.returncode
-            await wait_child_exiting(self.pid)
+        if self.poll() is None:
+            await wait_child_exiting(self._proc)
+            self._proc.wait()
+        else:
+            await _core.checkpoint()
+        return self.returncode
 
     def poll(self):
         """Forwards to :meth:`subprocess.Popen.poll`."""
@@ -366,42 +270,3 @@ async def run(
     return subprocess.CompletedProcess(
         proc.args, proc.returncode, stdout, stderr
     )
-
-
-async def call(*popenargs, **kwargs):
-    """Like :func:`subprocess.call`, but async."""
-    async with Process(*popenargs, **kwargs) as proc:
-        return await proc.wait()
-
-
-async def check_call(*popenargs, **kwargs):
-    """Like :func:`subprocess.check_call`, but async."""
-    async with Process(*popenargs, **kwargs) as proc:
-        retcode = await proc.wait()
-        if retcode:
-            raise subprocess.CalledProcessError(retcode, proc.args)
-    return 0
-
-
-async def check_output(*popenargs, timeout=None, deadline=None, **kwargs):
-    """Like :func:`subprocess.check_output`, but async.
-
-    Like :func:`run`, this takes an optional ``timeout`` or ``deadline``
-    argument; if the timeout expires or deadline passes, the child process
-    will be killed and its partial output wrapped up in a
-    :exc:`subprocess.TimeoutExpired` exception. You can also nest
-    :func:`check_output` in a normal Trio cancel scope to impose
-    a timeout without capturing partial output.
-    """
-    if 'stdout' in kwargs:
-        raise ValueError("stdout argument not allowed, it will be overridden.")
-
-    result = await run(
-        *popenargs,
-        stdout=subprocess.PIPE,
-        timeout=timeout,
-        deadline=deadline,
-        check=True,
-        **kwargs
-    )
-    return result.stdout

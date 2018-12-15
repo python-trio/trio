@@ -1,5 +1,8 @@
+import errno
 import math
 import os
+import subprocess
+import sys
 
 from .. import _core
 from .._sync import CapacityLimiter, Event
@@ -49,12 +52,11 @@ int waitid(int idtype, int id, siginfo_t* result, int options);
         else:
             WNOWAIT = 0x01000000
         result = waitid_ffi.new("siginfo_t *")
-        while True:
-            if waitid(P_PID, pid, result, WEXITED | WNOWAIT) < 0:
-                got_errno = waitid_ffi.errno
-                if got_errno == errno.EINTR:
-                    continue
-                raise OSError(got_errno, os.strerror(got_errno))
+        while waitid(P_PID, pid, result, WEXITED | WNOWAIT) < 0:
+            got_errno = waitid_ffi.errno
+            if got_errno == errno.EINTR:
+                continue
+            raise OSError(got_errno, os.strerror(got_errno))
 
 
 # adapted from
@@ -62,27 +64,23 @@ int waitid(int idtype, int id, siginfo_t* result, int options);
 
 waitid_limiter = CapacityLimiter(math.inf)
 
-# RunVar mapping pid => Event to set when it completes
-waitid_thread_results = _core.RunVar("waitid_thread_results")
-
-async def _waitid_system_task(pid: int) -> None:
+async def _waitid_system_task(pid: int, event: Event) -> None:
     """Spawn a thread that waits for ``pid`` to exit, then wake any tasks
     that were waiting on it.
     """
     # cancellable=True: if this task is cancelled, then we abandon the
     # thread to keep running waitpid in the background. Since this is
     # always run as a system task, this will only happen if the whole
-    # call to trio.run is shutting down, in which case the waitid_threads
-    # dictionary is too -- so, nothing to clean up.
+    # call to trio.run is shutting down.
 
     try:
         await run_sync_in_worker_thread(
             sync_wait_reapable,
             pid,
             cancellable=True,
-            limiter=waitid_limiter
+            limiter=waitid_limiter,
         )
-    except Exception:
+    except OSError:
         # If waitid fails, waitpid will fail too, so it still makes
         # sense to wake up the callers of wait_process_exiting(). The
         # most likely reason for this error in practice is a child
@@ -90,17 +88,31 @@ async def _waitid_system_task(pid: int) -> None:
         # ignored.
         pass
     finally:
-        waitid_thread_results.get().pop(pid).set()
+        event.set()
 
 
-async def wait_child_exiting(pid: int) -> None:
+async def wait_child_exiting(process: subprocess.Popen) -> None:
+    # Logic of this function:
+    # - The first time we get called, we create an Event and start
+    #   an instance of _waitid_system_task that will set the Event
+    #   when waitid() completes. If that Event is set before
+    #   we get cancelled, we're good.
+    # - Otherwise, a following call after the cancellation must
+    #   reuse the Event created during the first call, lest we
+    #   create an arbitrary number of threads waiting on the same
+    #   process.
+
+    if process.returncode is not None:
+        return
+
+    ATTR = "@trio_wait_event"  # an unlikely attribute name, to be sure
     try:
-        return await waitid_thread_results.get()[pid].wait()
-    except LookupError:
-        waitid_thread_results.set({})
-    except KeyError:
-        pass
-    finished = Event()
-    waitid_thread_results.get()[pid] = finished
-    _core.spawn_system_task(_waitid_system_task, pid)
-    await finished.wait()
+        event = getattr(process, ATTR)
+    except AttributeError:
+        event = Event()
+        setattr(process, ATTR, event)
+        _core.spawn_system_task(_waitid_system_task, process.pid, event)
+
+    await event.wait()
+    # If not cancelled, there's no need to keep the event around anymore:
+    delattr(process, ATTR)

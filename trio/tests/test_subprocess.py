@@ -141,28 +141,6 @@ sys.stdout.buffer.write(sys.stdin.buffer.read())
         assert excinfo.value.stderr is None
 
 
-async def test_call_and_check():
-    assert await subprocess.call(["true"]) == 0
-    assert await subprocess.call(["false"]) == 1
-
-    assert await subprocess.check_call(["true"]) == 0
-    with pytest.raises(subprocess.CalledProcessError) as excinfo:
-        await subprocess.check_call(["false"])
-    assert excinfo.value.returncode == 1
-    assert excinfo.value.cmd == ["false"]
-    assert excinfo.value.output is None
-
-    assert await subprocess.check_output(["echo", "hi"]) == b"hi\n"
-    with pytest.raises(subprocess.CalledProcessError) as excinfo:
-        await subprocess.check_output("echo lo; false", shell=True)
-    assert excinfo.value.returncode == 1
-    assert excinfo.value.cmd == "echo lo; false"
-    assert excinfo.value.output == b"lo\n"
-
-    with pytest.raises(ValueError):
-        await subprocess.check_output(["true"], stdout=subprocess.DEVNULL)
-
-
 async def test_run_check():
     with pytest.raises(subprocess.CalledProcessError) as excinfo:
         await subprocess.run(
@@ -262,9 +240,8 @@ async def test_wait_reapable_fails():
     old_sigchld = signal.signal(signal.SIGCHLD, signal.SIG_IGN)
     try:
         # With SIGCHLD disabled, the wait() syscall will wait for the
-        # process to exit but then fail with ECHILD. Process.wait()
-        # has logic that suppresses wait() errors if the process has
-        # in fact exited; this test tries to exercise that logic.
+        # process to exit but then fail with ECHILD. Make sure we
+        # support this case as the stdlib subprocess module does.
         async with subprocess.Process(["sleep", "3600"]) as proc:
             async with _core.open_nursery() as nursery:
                 nursery.start_soon(proc.wait)

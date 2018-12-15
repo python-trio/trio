@@ -1,7 +1,11 @@
 import select
+import subprocess
 from .. import _core
 
-async def wait_child_exiting(pid):
+async def wait_child_exiting(process: subprocess.Popen) -> None:
+    if process.returncode is not None:
+        return
+
     kqueue = _core.current_kqueue()
     try:
         from select import KQ_NOTE_EXIT
@@ -12,7 +16,7 @@ async def wait_child_exiting(pid):
         KQ_NOTE_EXIT = 0x80000000
 
     make_event = lambda flags: select.kevent(
-        pid,
+        process.pid,
         filter=select.KQ_FILTER_PROC,
         flags=flags,
         fflags=KQ_NOTE_EXIT
@@ -37,4 +41,4 @@ async def wait_child_exiting(pid):
         kqueue.control([make_event(select.KQ_EV_DELETE)], 0)
         return _core.Abort.SUCCEEDED
 
-    await _core.wait_kevent(pid, select.KQ_FILTER_PROC, abort)
+    await _core.wait_kevent(process.pid, select.KQ_FILTER_PROC, abort)
