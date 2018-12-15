@@ -30,7 +30,7 @@ if [ "$PYPY_NIGHTLY_BRANCH" != "" ]; then
         echo "Skipping testing against the nightly build for right now."
         exit 0
     fi
-    tar xaf pypy.tar.bz2
+    tar xjf pypy.tar.bz2
     # something like "pypy-c-jit-89963-748aa3022295-linux64"
     PYPY_DIR=$(echo pypy-c-jit-*)
     PYTHON_EXE=$PYPY_DIR/bin/pypy3

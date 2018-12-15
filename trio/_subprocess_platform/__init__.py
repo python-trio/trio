@@ -36,8 +36,9 @@ async def create_pipe_to_child_stdin() -> Tuple[SendStream, int]:
       something suitable for passing as the ``stdin`` argument of
       :class:`subprocess.Popen`.
     """
-    # pragma: no cover
-    raise NotImplementedError from create_pipe_to_child_stdin._error
+    raise NotImplementedError from (  # pragma: no cover
+        create_pipe_to_child_stdin._error
+    )
 
 
 async def create_pipe_from_child_output() -> Tuple[ReceiveStream, int]:
@@ -51,8 +52,9 @@ async def create_pipe_from_child_output() -> Tuple[ReceiveStream, int]:
       something suitable for passing as the ``stdin`` argument of
       :class:`subprocess.Popen`.
     """
-    # pragma: no cover
-    raise NotImplementedError from create_pipe_to_child_stdin._error
+    raise NotImplementedError from (  # pragma: no cover
+        create_pipe_to_child_stdin._error
+    )
 
 
 try:
