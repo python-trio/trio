@@ -4,7 +4,7 @@ set -ex
 
 git rev-parse HEAD
 
-if [ "$TRAVIS_OS_NAME" = "osx" -a "$PYPY_NIGHTLY_BRANCH" = "" ]; then
+if [ "$TRAVIS_OS_NAME" = "osx" ]; then
     curl -Lo macpython.pkg https://www.python.org/ftp/python/${MACPYTHON}/python-${MACPYTHON}-macosx10.6.pkg
     sudo installer -pkg macpython.pkg -target /
     ls /Library/Frameworks/Python.framework/Versions/*/bin/
@@ -17,10 +17,7 @@ if [ "$TRAVIS_OS_NAME" = "osx" -a "$PYPY_NIGHTLY_BRANCH" = "" ]; then
 fi
 
 if [ "$PYPY_NIGHTLY_BRANCH" != "" ]; then
-    if [ "$TRAVIS_OS_NAME" = "osx" ]; then
-        brew install openssl
-    fi
-    curl -fLo pypy.tar.bz2 http://buildbot.pypy.org/nightly/${PYPY_NIGHTLY_BRANCH}/pypy-c-jit-latest-${TRAVIS_OS_NAME}64.tar.bz2
+    curl -fLo pypy.tar.bz2 http://buildbot.pypy.org/nightly/${PYPY_NIGHTLY_BRANCH}/pypy-c-jit-latest-linux64.tar.bz2
     if [ ! -s pypy.tar.bz2 ]; then
         # We know:
         # - curl succeeded (200 response code; -f means "exit with error if
@@ -33,7 +30,7 @@ if [ "$PYPY_NIGHTLY_BRANCH" != "" ]; then
         echo "Skipping testing against the nightly build for right now."
         exit 0
     fi
-    tar xjf pypy.tar.bz2
+    tar xaf pypy.tar.bz2
     # something like "pypy-c-jit-89963-748aa3022295-linux64"
     PYPY_DIR=$(echo pypy-c-jit-*)
     PYTHON_EXE=$PYPY_DIR/bin/pypy3
