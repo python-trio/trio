@@ -58,3 +58,10 @@ try:
     notify_socket_close = notify_fd_close
 except ImportError:
     pass
+
+try:
+    from ._run import (
+        wait_socket_readable, wait_socket_writable, notify_socket_close
+    )
+except ImportError:
+    pass
