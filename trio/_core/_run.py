@@ -50,8 +50,42 @@ GLOBAL_RUN_CONTEXT = threading.local()
 
 if os.name == "nt":
     from ._io_windows import WindowsIOManager as TheIOManager
+
+    def current_iocp(self):
+        return sync_wrapper('runner.io_manager', 'current_iocp')
+
+    def register_with_iocp(self, handle):
+        return sync_wrapper('runner.io_manager', 'register_with_iocp', handle)
+
+    def wait_overlapped(self, handle, lpOverlapped):
+        return sync_wrapper(
+            'runner.io_manager', 'wait_overlapped', handle, lpOverlapped
+        )
+
+    def monitor_completion_key(self):
+        return sync_wrapper('runner.io_manager', 'monitor_completion_key')
+
+    def wait_socket_readable(self, sock):
+        return sync_wrapper('runner.io_manager', 'wait_socket_readable', sock)
+
+    def wait_socket_writable(self, sock):
+        return sync_wrapper('runner.io_manager', 'wait_socket_writable', sock)
+
+    def notify_socket_close(self, sock):
+        return sync_wrapper('runner.io_manager', 'notify_socket_close', sock)
+
 elif hasattr(select, "epoll"):
     from ._io_epoll import EpollIOManager as TheIOManager
+
+    def wait_readable(fd):
+        return sync_wrapper('runner.io_manager', 'wait_readable', fd)
+
+    def wait_writable(fd):
+        return sync_wrapper('runner.io_manager', 'wait_writable', fd)
+
+    def notify_fd_close(fd):
+        return sync_wrapper('runner.io_manager', 'notify_fd_close', fd)
+
 elif hasattr(select, "kqueue"):
     from ._io_kqueue import KqueueIOManager as TheIOManager
 
@@ -59,10 +93,14 @@ elif hasattr(select, "kqueue"):
         return sync_wrapper('runner.io_manager', 'current_kqueue')
 
     def monitor_kevent(ident, filter):
-        return sync_wrapper('runner.io_manager', 'monitor_kevent', ident, filter)
-        
+        return sync_wrapper(
+            'runner.io_manager', 'monitor_kevent', ident, filter
+        )
+
     def wait_kevent(ident, filter, abort_func):
-        return sync_wrapper('runner.io_manager', 'wait_kevent', ident, filter, abort_func)
+        return sync_wrapper(
+            'runner.io_manager', 'wait_kevent', ident, filter, abort_func
+        )
 
     def wait_readable(fd):
         return sync_wrapper('runner.io_manager', 'wait_readable', fd)
@@ -668,6 +706,7 @@ class Task:
 ################################################################
 # The central Runner object
 ################################################################
+
 
 @attr.s(frozen=True)
 class _RunStatistics:
@@ -1655,7 +1694,7 @@ async def checkpoint_if_cancelled():
 #     rm('wait_kevent')
 #     rm('wait_readable')
 #     #rm('wait_writable')
-    
+
 #     for methname, fn in cls_dict.items():
 #         if callable(fn) and getattr(fn, "_public", False):
 #             # Create a wrapper function that looks up this method in the
@@ -1682,6 +1721,7 @@ async def checkpoint_if_cancelled():
 #             globals()[methname] = wrapper
 #             __all__.append(methname)
 
+
 # wrapper to call methods that are publicly available
 def sync_wrapper(ctx_name, meth_name, *args, **kwargs):
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
@@ -1693,7 +1733,9 @@ def sync_wrapper(ctx_name, meth_name, *args, **kwargs):
             context = getattr(context, attr_name)
         meth = getattr(context, meth_name)
     except AttributeError:
-        raise RuntimeError("must be called from async context "+attr_name) from None
+        raise RuntimeError(
+            "must be called from async context " + attr_name
+        ) from None
     return meth(*args, **kwargs)
 
 
@@ -1716,35 +1758,55 @@ def sync_wrapper(ctx_name, meth_name, *args, **kwargs):
 # methname: wait_writable, fn: <function KqueueIOManager.wait_writable at 0x10cba8ea0>
 # methname: notify_fd_close, fn: <function KqueueIOManager.notify_fd_close at 0x10cba8f28>
 
+
 def current_statistics():
     return sync_wrapper('runner', 'current_statistics')
+
 
 def current_time():
     return sync_wrapper('runner', 'current_time')
 
+
 def current_clock():
     return sync_wrapper('runner', 'current_clock')
+
 
 def current_root_task():
     return sync_wrapper('runner', 'current_root_task')
 
-def reschedule(task, next_send=Runner._NO_SEND , *args, **kwargs):
-    return sync_wrapper('runner', 'reschedule', task, next_send=next_send, *args, **kwargs)
+
+def reschedule(task, next_send=Runner._NO_SEND, *args, **kwargs):
+    return sync_wrapper(
+        'runner', 'reschedule', task, next_send=next_send, *args, **kwargs
+    )
+
 
 def spawn_system_task(async_fn, *args, name=None, **kwargs):
-    return sync_wrapper('runner', 'spawn_system_task', async_fn, *args, name=name, **kwargs)
+    return sync_wrapper(
+        'runner', 'spawn_system_task', async_fn, *args, name=name, **kwargs
+    )
+
 
 def current_trio_token():
     return sync_wrapper('runner', 'current_trio_token')
 
+
 def wait_all_tasks_blocked(cushion=0.0, tiebreaker=0):
-    return sync_wrapper('runner', 'wait_all_tasks_blocked', cushion=cushion, tiebreaker=tiebreaker)
+    return sync_wrapper(
+        'runner',
+        'wait_all_tasks_blocked',
+        cushion=cushion,
+        tiebreaker=tiebreaker
+    )
+
 
 def add_instrument(instrument):
     return sync_wrapper('runner', 'add_instrument', instrument)
 
+
 def remove_instrument(instrument):
     return sync_wrapper('runner', 'remove_instrument', instrument)
+
 
 #_generate_method_wrappers(Runner, "runner")
 #_generate_method_wrappers(TheIOManager, "runner.io_manager")
