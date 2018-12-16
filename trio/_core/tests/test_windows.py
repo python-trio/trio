@@ -9,7 +9,9 @@ pytestmark = pytest.mark.skipif(not on_windows, reason="windows only")
 
 from ... import _core
 if on_windows:
-    from .._windows_cffi import ffi, kernel32
+    from .._windows_cffi import (
+        ffi, kernel32, INVALID_HANDLE_VALUE, raise_winerror
+    )
 
 
 # The undocumented API that this is testing should be changed to stop using
@@ -56,6 +58,7 @@ async def test_readinto_overlapped():
             fp.write(data)
             fp.flush()
 
+        await trio.sleep(0.5)
         rawname = tfile.encode("utf-16le")
         handle = kernel32.CreateFileW(
             ffi.cast("LPCWSTR", ffi.from_buffer(rawname)),
@@ -66,6 +69,8 @@ async def test_readinto_overlapped():
             0x40000000,  # FILE_FLAG_OVERLAPPED
             ffi.NULL,  # no template file
         )
+        if handle == INVALID_HANDLE_VALUE:  # pragma: no cover
+            raise_winerror()
         _core.register_with_iocp(handle)
 
         async def read_region(start, end):

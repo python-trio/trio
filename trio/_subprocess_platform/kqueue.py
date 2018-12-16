@@ -7,7 +7,7 @@ async def wait_child_exiting(process: subprocess.Popen) -> None:
     kqueue = _core.current_kqueue()
     try:
         from select import KQ_NOTE_EXIT
-    except ImportError:
+    except ImportError:  # pragma: no cover
         # pypy doesn't define KQ_NOTE_EXIT:
         # https://bitbucket.org/pypy/pypy/issues/2921/
         # I verified this value against both Darwin and FreeBSD
