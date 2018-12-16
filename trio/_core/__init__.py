@@ -27,7 +27,13 @@ from ._ki import (
 )
 
 # TODO:  make the _run namespace a lot less magical
-from ._run import *
+from ._run import (
+    Task, run, open_nursery, open_cancel_scope, checkpoint, current_task,
+    current_effective_deadline, checkpoint_if_cancelled, TASK_STATUS_IGNORED,
+    current_statistics, current_trio_token, reschedule, remove_instrument,
+    add_instrument, current_clock, current_root_task, spawn_system_task,
+    current_time, wait_all_tasks_blocked
+)
 
 # Has to come after _run to resolve a circular import
 from ._traps import (
@@ -44,7 +50,11 @@ from ._unbounded_queue import UnboundedQueue
 
 from ._local import RunVar
 
-if hasattr(_run, "wait_readable"):
+try:
+    from ._run import (wait_readable, wait_writable, notify_fd_close)
+
     wait_socket_readable = wait_readable
     wait_socket_writable = wait_writable
     notify_socket_close = notify_fd_close
+except ImportError:
+    pass

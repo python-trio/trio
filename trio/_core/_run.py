@@ -40,11 +40,11 @@ from .. import _core
 # wrapper functions for runner and io manager methods, and adds them to
 # __all__. These are all re-exported as part of the 'trio' or 'trio.hazmat'
 # namespaces.
-__all__ = [
-    "Task", "run", "open_nursery", "open_cancel_scope", "checkpoint",
-    "current_task", "current_effective_deadline", "checkpoint_if_cancelled",
-    "TASK_STATUS_IGNORED"
-]
+# __all__ = [
+#     "Task", "run", "open_nursery", "open_cancel_scope", "checkpoint",
+#     "current_task", "current_effective_deadline", "checkpoint_if_cancelled",
+#     "TASK_STATUS_IGNORED"
+# ]
 
 GLOBAL_RUN_CONTEXT = threading.local()
 
@@ -54,6 +54,25 @@ elif hasattr(select, "epoll"):
     from ._io_epoll import EpollIOManager as TheIOManager
 elif hasattr(select, "kqueue"):
     from ._io_kqueue import KqueueIOManager as TheIOManager
+
+    def current_kqueue():
+        return sync_wrapper('runner.io_manager', 'current_kqueue')
+
+    def monitor_kevent(ident, filter):
+        return sync_wrapper('runner.io_manager', 'monitor_kevent', ident, filter)
+        
+    def wait_kevent(ident, filter, abort_func):
+        return sync_wrapper('runner.io_manager', 'wait_kevent', ident, filter, abort_func)
+
+    def wait_readable(fd):
+        return sync_wrapper('runner.io_manager', 'wait_readable', fd)
+
+    def wait_writable(fd):
+        return sync_wrapper('runner.io_manager', 'wait_writable', fd)
+
+    def notify_fd_close(fd):
+        return sync_wrapper('runner.io_manager', 'notify_fd_close', fd)
+
 else:  # pragma: no cover
     raise NotImplementedError("unsupported platform")
 
@@ -649,7 +668,6 @@ class Task:
 ################################################################
 # The central Runner object
 ################################################################
-
 
 @attr.s(frozen=True)
 class _RunStatistics:
@@ -1616,44 +1634,117 @@ async def checkpoint_if_cancelled():
     task._cancel_points += 1
 
 
-_WRAPPER_TEMPLATE = """
-def wrapper(*args, **kwargs):
+# _WRAPPER_TEMPLATE = """
+# def wrapper(*args, **kwargs):
+#     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+#     try:
+#         meth = GLOBAL_RUN_CONTEXT.{}.{}
+#     except AttributeError:
+#         raise RuntimeError("must be called from async context") from None
+#     return meth(*args, **kwargs)
+# """
+
+# def _generate_method_wrappers(cls, path_to_instance):
+#     cls_dict = dict(cls.__dict__)
+#     def rm(key):
+#         if key in cls_dict:
+#             del cls_dict[key]
+
+#     rm('current_kqueue')
+#     rm('monitor_kevent')
+#     rm('wait_kevent')
+#     rm('wait_readable')
+#     #rm('wait_writable')
+    
+#     for methname, fn in cls_dict.items():
+#         if callable(fn) and getattr(fn, "_public", False):
+#             # Create a wrapper function that looks up this method in the
+#             # current thread-local context version of this object, and calls
+#             # it. exec() is a bit ugly but the resulting code is faster and
+#             # simpler than doing some loop over getattr.
+#             ns = {
+#                 "GLOBAL_RUN_CONTEXT":
+#                     GLOBAL_RUN_CONTEXT,
+#                 "LOCALS_KEY_KI_PROTECTION_ENABLED":
+#                     LOCALS_KEY_KI_PROTECTION_ENABLED
+#             }
+#             exec(_WRAPPER_TEMPLATE.format(path_to_instance, methname), ns)
+#             wrapper = ns["wrapper"]
+#             # 'fn' is the *unbound* version of the method, but our exported
+#             # function has the same API as the *bound* version of the
+#             # method. So create a dummy bound method object:
+#             from types import MethodType
+#             bound_fn = MethodType(fn, object())
+#             # Then set exported function's metadata to match it:
+#             from functools import update_wrapper
+#             update_wrapper(wrapper, bound_fn)
+#             # And finally export it:
+#             globals()[methname] = wrapper
+#             __all__.append(methname)
+
+# wrapper to call methods that are publicly available
+def sync_wrapper(ctx_name, meth_name, *args, **kwargs):
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        meth = GLOBAL_RUN_CONTEXT.{}.{}
+        context = GLOBAL_RUN_CONTEXT
+        ctx = ctx_name.split('.')
+        while (len(ctx) > 0):
+            attr_name = ctx.pop(0)
+            context = getattr(context, attr_name)
+        meth = getattr(context, meth_name)
     except AttributeError:
-        raise RuntimeError("must be called from async context") from None
+        raise RuntimeError("must be called from async context "+attr_name) from None
     return meth(*args, **kwargs)
-"""
 
 
-def _generate_method_wrappers(cls, path_to_instance):
-    for methname, fn in cls.__dict__.items():
-        if callable(fn) and getattr(fn, "_public", False):
-            # Create a wrapper function that looks up this method in the
-            # current thread-local context version of this object, and calls
-            # it. exec() is a bit ugly but the resulting code is faster and
-            # simpler than doing some loop over getattr.
-            ns = {
-                "GLOBAL_RUN_CONTEXT":
-                    GLOBAL_RUN_CONTEXT,
-                "LOCALS_KEY_KI_PROTECTION_ENABLED":
-                    LOCALS_KEY_KI_PROTECTION_ENABLED
-            }
-            exec(_WRAPPER_TEMPLATE.format(path_to_instance, methname), ns)
-            wrapper = ns["wrapper"]
-            # 'fn' is the *unbound* version of the method, but our exported
-            # function has the same API as the *bound* version of the
-            # method. So create a dummy bound method object:
-            from types import MethodType
-            bound_fn = MethodType(fn, object())
-            # Then set exported function's metadata to match it:
-            from functools import update_wrapper
-            update_wrapper(wrapper, bound_fn)
-            # And finally export it:
-            globals()[methname] = wrapper
-            __all__.append(methname)
+# methods exposed public on osx
 
+# methname: current_statistics, fn: <function Runner.current_statistics at 0x10cb481e0>
+# methname: current_time, fn: <function Runner.current_time at 0x10cb48268>
+# methname: current_clock, fn: <function Runner.current_clock at 0x10cb482f0>
+# methname: current_root_task, fn: <function Runner.current_root_task at 0x10cb48378>
+# methname: reschedule, fn: <function Runner.reschedule at 0x10cb48400>
+# methname: spawn_system_task, fn: <function Runner.spawn_system_task at 0x10cb48598>
+# methname: current_trio_token, fn: <function Runner.current_trio_token at 0x10cb486a8>
+# methname: wait_all_tasks_blocked, fn: <function Runner.wait_all_tasks_blocked at 0x10cb48840>
+# methname: add_instrument, fn: <function Runner.add_instrument at 0x10cb48950>
+# methname: remove_instrument, fn: <function Runner.remove_instrument at 0x10cb489d8>
+# methname: current_kqueue, fn: <function KqueueIOManager.current_kqueue at 0x10cba8b70>
+# methname: monitor_kevent, fn: <function KqueueIOManager.monitor_kevent at 0x10cba8c80>
+# methname: wait_kevent, fn: <function KqueueIOManager.wait_kevent at 0x10cba8d08>
+# methname: wait_readable, fn: <function KqueueIOManager.wait_readable at 0x10cba8e18>
+# methname: wait_writable, fn: <function KqueueIOManager.wait_writable at 0x10cba8ea0>
+# methname: notify_fd_close, fn: <function KqueueIOManager.notify_fd_close at 0x10cba8f28>
 
-_generate_method_wrappers(Runner, "runner")
-_generate_method_wrappers(TheIOManager, "runner.io_manager")
+def current_statistics():
+    return sync_wrapper('runner', 'current_statistics')
+
+def current_time():
+    return sync_wrapper('runner', 'current_time')
+
+def current_clock():
+    return sync_wrapper('runner', 'current_clock')
+
+def current_root_task():
+    return sync_wrapper('runner', 'current_root_task')
+
+def reschedule(task, next_send=Runner._NO_SEND , *args, **kwargs):
+    return sync_wrapper('runner', 'reschedule', task, next_send=next_send, *args, **kwargs)
+
+def spawn_system_task(async_fn, *args, name=None, **kwargs):
+    return sync_wrapper('runner', 'spawn_system_task', async_fn, *args, name=name, **kwargs)
+
+def current_trio_token():
+    return sync_wrapper('runner', 'current_trio_token')
+
+def wait_all_tasks_blocked(cushion=0.0, tiebreaker=0):
+    return sync_wrapper('runner', 'wait_all_tasks_blocked', cushion=cushion, tiebreaker=tiebreaker)
+
+def add_instrument(instrument):
+    return sync_wrapper('runner', 'add_instrument', instrument)
+
+def remove_instrument(instrument):
+    return sync_wrapper('runner', 'remove_instrument', instrument)
+
+#_generate_method_wrappers(Runner, "runner")
+#_generate_method_wrappers(TheIOManager, "runner.io_manager")
