@@ -7,7 +7,7 @@ on_windows = (os.name == "nt")
 # Mark all the tests in this file as being windows-only
 pytestmark = pytest.mark.skipif(not on_windows, reason="windows only")
 
-from ... import _core
+from ... import _core, sleep
 if on_windows:
     from .._windows_cffi import (
         ffi, kernel32, INVALID_HANDLE_VALUE, raise_winerror
@@ -58,7 +58,7 @@ async def test_readinto_overlapped():
             fp.write(data)
             fp.flush()
 
-        await trio.sleep(0.5)
+        await sleep(0.5)
         rawname = tfile.encode("utf-16le")
         handle = kernel32.CreateFileW(
             ffi.cast("LPCWSTR", ffi.from_buffer(rawname)),
