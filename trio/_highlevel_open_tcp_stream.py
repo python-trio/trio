@@ -242,71 +242,72 @@ async def open_tcp_stream(
 
     reorder_for_rfc_6555_section_5_4(targets)
 
-    targets_iter = iter(targets)
-
     # This list records all the connection failures that we ignored.
     oserrors = []
 
-    # It's possible for multiple connection attempts to succeed at the ~same
-    # time; this list records all successful connections.
-    winning_sockets = []
+    # list of all open sockets we need to clean up before returning
+    open_sockets = []
+
+    # the socket that we're going to complete with, we need to make
+    # sure this is excluded from any cleanup
+    winning_socket = None
 
     # Sleep for the given amount of time, then kick off the next task and
     # start a connection attempt. On failure, expedite the next task; on
     # success, kill everything. Possible outcomes:
     # - records a failure in oserrors, returns None
-    # - records a connected socket in winning_sockets, returns None
+    # - records a connected socket in winning_socket, returns None
     # - crash (raises an unexpected exception)
-    async def attempt_connect(nursery, previous_attempt_failed):
-        # Wait until either the previous attempt failed, or the timeout
-        # expires (unless this is the first invocation, in which case we just
-        # go ahead).
-        if previous_attempt_failed is not None:
-            with trio.move_on_after(happy_eyeballs_delay):
-                await previous_attempt_failed.wait()
+    async def attempt_connect(socket_args, sockaddr, attempt_failed):
+        nonlocal winning_socket
 
-        # Claim our target.
         try:
-            *socket_args, _, target_sockaddr = next(targets_iter)
-        except StopIteration:
-            return
+            sock = socket(*socket_args)
+            open_sockets.append(sock)
 
-        # Then kick off the next attempt.
-        this_attempt_failed = trio.Event()
-        nursery.start_soon(attempt_connect, nursery, this_attempt_failed)
+            await sock.connect(sockaddr)
 
-        # Then make this invocation's attempt
-        try:
-            with close_on_error(socket(*socket_args)) as sock:
-                await sock.connect(target_sockaddr)
+            # Success! Save the winning socket and cancel all outstanding
+            # connection attempts.
+            winning_socket = sock
+            nursery.cancel_scope.cancel()
         except OSError as exc:
             # This connection attempt failed, but the next one might
             # succeed. Save the error for later so we can report it if
             # everything fails, and tell the next attempt that it should go
             # ahead (if it hasn't already).
             oserrors.append(exc)
-            this_attempt_failed.set()
+            attempt_failed.set()
+
+    try:
+        # Kick off the chain of connection attempts.
+        async with trio.open_nursery() as nursery:
+            for *sa, _, addr in targets:
+                attempt_failed = trio.Event()
+
+                nursery.start_soon(attempt_connect, sa, addr, attempt_failed)
+
+                # give this connection attempt some time.  if it
+                # succeeds the nursery will be torn down, if it fails
+                # before the delay we can start the next attempt early
+                with trio.move_on_after(happy_eyeballs_delay):
+                    await attempt_failed.wait()
+
+        # nothing succeeded
+        if winning_socket is None:
+            assert len(oserrors) == len(targets)
+            msg = "all attempts to connect to {} failed".format(
+                format_host_port(host, port)
+            )
+            raise OSError(msg) from trio.MultiError(oserrors)
         else:
-            # Success! Save the winning socket and cancel all outstanding
-            # connection attempts.
-            winning_sockets.append(sock)
-            nursery.cancel_scope.cancel()
-
-    # Kick off the chain of connection attempts.
-    async with trio.open_nursery() as nursery:
-        nursery.start_soon(attempt_connect, nursery, None)
-
-    # All connection attempts complete, and no unexpected errors escaped. So
-    # at this point the oserrors and winning_sockets lists are filled in.
-
-    if winning_sockets:
-        first_prize = winning_sockets.pop(0)
-        for sock in winning_sockets:
-            sock.close()
-        return trio.SocketStream(first_prize)
-    else:
-        assert len(oserrors) == len(targets)
-        msg = "all attempts to connect to {} failed".format(
-            format_host_port(host, port)
-        )
-        raise OSError(msg) from trio.MultiError(oserrors)
+            return trio.SocketStream(winning_socket)
+    except:
+        # make sure we also close the winning_socket on failure
+        winning_socket = None
+        raise
+    finally:
+        # close all open sockets appropriately
+        for sock in open_sockets:
+            if sock is not winning_socket:
+                sock.close()
