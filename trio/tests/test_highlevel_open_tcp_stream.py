@@ -6,9 +6,30 @@ import trio
 from trio.socket import AF_INET, AF_INET6, SOCK_STREAM, IPPROTO_TCP
 from trio._highlevel_open_tcp_stream import (
     reorder_for_rfc_6555_section_5_4,
+    close_all,
     open_tcp_stream,
     format_host_port,
 )
+
+
+def test_close_all():
+    class CloseMe:
+        closed = False
+
+        def close(self):
+            self.closed = True
+
+    c = CloseMe()
+    with close_all() as to_close:
+        to_close.add(c)
+    assert c.closed
+
+    c = CloseMe()
+    with pytest.raises(RuntimeError):
+        with close_all() as to_close:
+            to_close.add(c)
+            raise RuntimeError
+    assert c.closed
 
 
 def test_reorder_for_rfc_6555_section_5_4():
