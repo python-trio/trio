@@ -73,20 +73,6 @@ if False:
 
 _deprecate.enable_attribute_deprecations(__name__)
 __deprecated_attributes__ = {
-    "ClosedStreamError":
-        _deprecate.DeprecatedAttribute(
-            ClosedResourceError,
-            "0.5.0",
-            issue=36,
-            instead=ClosedResourceError
-        ),
-    "ClosedListenerError":
-        _deprecate.DeprecatedAttribute(
-            ClosedResourceError,
-            "0.5.0",
-            issue=36,
-            instead=ClosedResourceError
-        ),
     "BrokenStreamError":
         _deprecate.DeprecatedAttribute(
             BrokenResourceError,
@@ -98,30 +84,6 @@ __deprecated_attributes__ = {
         _deprecate.DeprecatedAttribute(
             BusyResourceError, "0.8.0", issue=620, instead=BusyResourceError
         ),
-}
-
-_deprecate.enable_attribute_deprecations(hazmat.__name__)
-
-# Temporary hack to make sure _result is loaded, just during the deprecation
-# period
-from ._core import _result
-
-hazmat.__deprecated_attributes__ = {
-    "Result":
-        _deprecate.DeprecatedAttribute(
-            _core._result.Result,
-            "0.5.0",
-            issue=494,
-            instead="outcome.Outcome"
-        ),
-    "Value":
-        _deprecate.DeprecatedAttribute(
-            _core._result.Value, "0.5.0", issue=494, instead="outcome.Value"
-        ),
-    "Error":
-        _deprecate.DeprecatedAttribute(
-            _core._result.Error, "0.5.0", issue=494, instead="outcome.Error"
-        )
 }
 
 # Having the public path in .__module__ attributes is important for:
