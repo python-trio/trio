@@ -113,6 +113,16 @@ def close_on_error(obj):
         raise
 
 
+@contextmanager
+def close_all():
+    sockets_to_close = set()
+    try:
+        yield sockets_to_close
+    finally:
+        for sock in sockets_to_close:
+            sock.close()
+
+
 def reorder_for_rfc_6555_section_5_4(targets):
     # RFC 6555 section 5.4 says that if getaddrinfo returns multiple address
     # families (e.g. IPv4 and IPv6), then you should make sure that your first
@@ -245,9 +255,6 @@ async def open_tcp_stream(
     # This list records all the connection failures that we ignored.
     oserrors = []
 
-    # list of all open sockets we need to clean up before returning
-    open_sockets = []
-
     # the socket that we're going to complete with, we need to make
     # sure this is excluded from any cleanup
     winning_socket = None
@@ -263,7 +270,7 @@ async def open_tcp_stream(
 
         try:
             sock = socket(*socket_args)
-            open_sockets.append(sock)
+            open_sockets.add(sock)
 
             await sock.connect(sockaddr)
 
@@ -279,7 +286,7 @@ async def open_tcp_stream(
             oserrors.append(exc)
             attempt_failed.set()
 
-    try:
+    with close_all() as open_sockets:
         # Kick off the chain of connection attempts.
         async with trio.open_nursery() as nursery:
             for *sa, _, addr in targets:
@@ -301,13 +308,6 @@ async def open_tcp_stream(
             )
             raise OSError(msg) from trio.MultiError(oserrors)
         else:
-            return trio.SocketStream(winning_socket)
-    except:
-        # make sure we also close the winning_socket on failure
-        winning_socket = None
-        raise
-    finally:
-        # close all open sockets appropriately
-        for sock in open_sockets:
-            if sock is not winning_socket:
-                sock.close()
+            stream = trio.SocketStream(winning_socket)
+            open_sockets.remove(winning_socket)
+            return stream
