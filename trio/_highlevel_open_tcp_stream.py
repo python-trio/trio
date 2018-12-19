@@ -105,15 +105,6 @@ DEFAULT_DELAY = 0.300
 
 
 @contextmanager
-def close_on_error(obj):
-    try:
-        yield obj
-    except:
-        obj.close()
-        raise
-
-
-@contextmanager
 def close_all():
     sockets_to_close = set()
     try:
