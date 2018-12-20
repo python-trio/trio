@@ -371,7 +371,9 @@ def test_waitid_eintr():
         sync_wait_reapable(sleeper.pid)
         assert sleeper.wait(timeout=1) == -9
     finally:
-        if sleeper.returncode is None:
+        if sleeper.returncode is None:  # pragma: no cover
+            # We only get here if something fails in the above;
+            # if the test passes, wait() will reap the process
             sleeper.kill()
             sleeper.wait()
         signal.signal(signal.SIGALRM, old_sigalrm)
