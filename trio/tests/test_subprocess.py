@@ -371,7 +371,7 @@ def test_waitid_eintr():
         sync_wait_reapable(sleeper.pid)
         assert sleeper.wait(timeout=1) == -9
     finally:
-        if sleeper.returncode is not None:
+        if sleeper.returncode is None:
             sleeper.kill()
             sleeper.wait()
         signal.signal(signal.SIGALRM, old_sigalrm)
