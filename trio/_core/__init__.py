@@ -62,7 +62,8 @@ except ImportError:
 try:
     from ._run import (
         wait_socket_readable, wait_socket_writable, notify_socket_close,
-        monitor_completion_key, current_iocp, register_with_iocp, wait_overlapped
+        monitor_completion_key, current_iocp, register_with_iocp,
+        wait_overlapped
     )
 except ImportError:
     pass
