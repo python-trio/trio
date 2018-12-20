@@ -29,6 +29,13 @@ def test_close_all():
     assert c.closed
 
     c = CloseMe()
+    with pytest.raises(RuntimeError):
+        with close_all() as to_close:
+            to_close.add(c)
+            raise RuntimeError
+    assert c.closed
+
+    c = CloseMe()
     with pytest.raises(OSError):
         with close_all() as to_close:
             to_close.add(CloseKiller())
