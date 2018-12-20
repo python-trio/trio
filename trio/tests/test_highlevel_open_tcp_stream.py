@@ -19,16 +19,20 @@ def test_close_all():
         def close(self):
             self.closed = True
 
+    class CloseKiller:
+        def close(self):
+            raise OSError
+
     c = CloseMe()
     with close_all() as to_close:
         to_close.add(c)
     assert c.closed
 
     c = CloseMe()
-    with pytest.raises(RuntimeError):
+    with pytest.raises(OSError):
         with close_all() as to_close:
+            to_close.add(CloseKiller())
             to_close.add(c)
-            raise RuntimeError
     assert c.closed
 
 

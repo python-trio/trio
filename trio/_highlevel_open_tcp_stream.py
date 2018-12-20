@@ -110,8 +110,14 @@ def close_all():
     try:
         yield sockets_to_close
     finally:
+        errs = []
         for sock in sockets_to_close:
-            sock.close()
+            try:
+                sock.close()
+            except BaseException as exc:
+                errs.append(exc)
+        if errs:
+            raise trio.MultiError(errs)
 
 
 def reorder_for_rfc_6555_section_5_4(targets):
