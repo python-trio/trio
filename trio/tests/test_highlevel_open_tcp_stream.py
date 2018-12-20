@@ -111,6 +111,7 @@ class FakeSocket(trio.socket.SocketType):
     port = attr.ib(default=None)
     succeeded = attr.ib(default=False)
     closed = attr.ib(default=False)
+    failing = attr.ib(default=False)
 
     async def connect(self, sockaddr):
         self.ip = sockaddr[0]
@@ -122,14 +123,19 @@ class FakeSocket(trio.socket.SocketType):
         await trio.sleep(delay)
         if result == "error":
             raise OSError("sorry")
+        if result == "postconnect_fail":
+            self.failing = True
         self.succeeded = True
 
     def close(self):
         self.closed = True
 
-    # Some stubs to stop SocketStream from complaining:
+    # called when SocketStream is constructed
     def setsockopt(self, *args, **kwargs):
-        pass
+        if self.failing:
+            # raise something that isn't OSError as SocketStream
+            # ignores those
+            raise KeyboardInterrupt
 
 
 class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
@@ -140,7 +146,7 @@ class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
         ip_dict = {}
         for ip, delay, result in ip_list:
             assert 0 <= delay
-            assert result in ["error", "success"]
+            assert result in ["error", "success", "postconnect_fail"]
             ip_dict[ip] = (delay, result)
 
         self.port = port
@@ -257,6 +263,13 @@ async def test_one_host_slow_fail(autojump_clock):
     )
     assert isinstance(exc, OSError)
     assert trio.current_time() == 100
+
+
+async def test_one_host_failed_after_connect(autojump_clock):
+    exc, scenario = await run_scenario(
+        83, [("1.2.3.4", 1, "postconnect_fail")], expect_error=KeyboardInterrupt
+    )
+    assert isinstance(exc, KeyboardInterrupt)
 
 
 # With the default 0.300 second delay, the third attempt will win
