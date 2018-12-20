@@ -133,7 +133,7 @@ class FakeSocket(trio.socket.SocketType):
 
 
 class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
-    def __init__(self, port, ip_list, ipv6_supported):
+    def __init__(self, port, ip_list, supported_families):
         # ip_list have to be unique
         ip_order = [ip for (ip, _, _) in ip_list]
         assert len(set(ip_order)) == len(ip_list)
@@ -146,14 +146,14 @@ class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
         self.port = port
         self.ip_order = ip_order
         self.ip_dict = ip_dict
-        self.ipv6_supported = ipv6_supported
+        self.supported_families = supported_families
         self.socket_count = 0
         self.sockets = {}
         self.connect_times = {}
 
     def socket(self, family, type, proto):
-        if not self.ipv6_supported and family == trio.socket.AF_INET6:
-            raise OSError("pretending not to support ipv6")
+        if family not in self.supported_families:
+            raise OSError("pretending not to support this family")
         self.socket_count += 1
         return FakeSocket(self, family, type, proto)
 
@@ -200,8 +200,9 @@ async def run_scenario(
     # connect() calls to them will have the given result.
     ip_list,
     *,
-    # If False, AF_INET6 sockets error out on creation, before connect is
+    # If False, AF_INET4/6 sockets error out on creation, before connect is
     # even called.
+    ipv4_supported=True,
     ipv6_supported=True,
     # Normally, we return (winning_sock, scenario object)
     # If this is True, we require there to be an exception, and return
@@ -209,7 +210,12 @@ async def run_scenario(
     expect_error=(),
     **kwargs
 ):
-    scenario = Scenario(port, ip_list, ipv6_supported)
+    supported_families = set()
+    if ipv4_supported:
+        supported_families.add(trio.socket.AF_INET)
+    if ipv6_supported:
+        supported_families.add(trio.socket.AF_INET6)
+    scenario = Scenario(port, ip_list, supported_families)
     trio.socket.set_custom_hostname_resolver(scenario)
     trio.socket.set_custom_socket_factory(scenario)
 
@@ -398,6 +404,28 @@ async def test_does_reorder(autojump_clock):
     assert scenario.connect_times == {
         "1.1.1.1": 0,
         "::3": 1,
+    }
+
+
+async def test_handles_no_ipv4(autojump_clock):
+    sock, scenario = await run_scenario(
+        80,
+        # Here the ipv6 addresses fail at socket creation time, so the connect
+        # configuration doesn't matter
+        [
+            ("::1", 10, "success"),
+            ("2.2.2.2", 0, "success"),
+            ("::3", 0.1, "success"),
+            ("4.4.4.4", 0, "success"),
+        ],
+        happy_eyeballs_delay=1,
+        ipv4_supported=False,
+    )
+    assert sock.ip == "::3"
+    assert trio.current_time() == 1 + 0.1
+    assert scenario.connect_times == {
+        "::1": 0,
+        "::3": 1.0,
     }
 
 
