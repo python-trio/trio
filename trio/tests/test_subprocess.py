@@ -347,44 +347,33 @@ async def test_wait_reapable_fails():
         signal.signal(signal.SIGCHLD, old_sigchld)
 
 
-@pytest.mark.skipif(not posix, reason="POSIX specific")
 @slow
-async def test_wait_reapable_eintr():
+def test_waitid_eintr():
     # This only matters on PyPy (where we're coding EINTR handling
-    # ourselves) but the test works on all waitid platforms. It does
-    # depend on having a second thread to interrupt a blocking call in,
-    # so we skip it elsewhere.
+    # ourselves) but the test works on all waitid platforms.
+    from .._subprocess_platform import wait_child_exiting
+    if not wait_child_exiting.__module__.endswith("waitid"):
+        pytest.skip("waitid only")
+    from .._subprocess_platform.waitid import sync_wait_reapable
+    import subprocess as stdlib_subprocess
 
     got_alarm = False
+    sleeper = stdlib_subprocess.Popen(["sleep", "3600"])
 
     def on_alarm(sig, frame):
         nonlocal got_alarm
         got_alarm = True
+        sleeper.kill()
 
-    # make sure SIGALRM gets delivered to the waitid thread, not ours
     old_sigalrm = signal.signal(signal.SIGALRM, on_alarm)
-    old_mask = signal.pthread_sigmask(signal.SIG_UNBLOCK, [signal.SIGALRM])
     try:
-        async with subprocess.Process(SLEEP(3600)) as proc:
-            async with _core.open_nursery() as nursery:
-                nursery.start_soon(proc.wait)
-                await wait_all_tasks_blocked()
-
-                # waitid platforms only
-                if hasattr(proc._proc, "@trio_wait_event"):
-                    # thread has been created at this point, so we can
-                    # mask the signal for us without affecting them
-                    signal.pthread_sigmask(signal.SIG_BLOCK, [signal.SIGALRM])
-                    signal.alarm(1)
-                    await sleep(1.5)
-                    assert got_alarm
-
-                proc.kill()
-                nursery.cancel_scope.deadline = _core.current_time() + 1.0
-            assert not nursery.cancel_scope.cancelled_caught
-            assert proc.returncode == -signal.SIGKILL
+        signal.alarm(1)
+        sync_wait_reapable(sleeper.pid)
+        assert sleeper.wait(timeout=1) == -9
     finally:
-        signal.pthread_sigmask(signal.SIG_SETMASK, old_mask)
+        if sleeper.returncode is not None:
+            sleeper.kill()
+            sleeper.wait()
         signal.signal(signal.SIGALRM, old_sigalrm)
 
 
