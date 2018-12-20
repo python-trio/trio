@@ -17,42 +17,79 @@ __all__ = ["Process", "run"]
 
 
 class Process(AsyncResource):
-    """Like :class:`subprocess.Popen`, but async.
+    """Execute a child program in a new process.
 
-    :class:`Process` has a public API identical to that of
-    :class:`subprocess.Popen`, except for the following differences:
+    Like :class:`subprocess.Popen`, but async.
 
-    * All constructor arguments except the command to execute
-      must be passed as keyword arguments.
+    Constructing a :class:`Process` immediately spawns the child
+    process, or throws an :exc:`OSError` if the spawning fails (for
+    example, if the specified command could not be found).
+    After construction, you can interact with the child process
+    by writing data to its :attr:`stdin` stream (a
+    :class:`~trio.abc.SendStream`), reading data from its :attr:`stdout`
+    and/or :attr:`stderr` streams (both :class:`~trio.abc.ReceiveStream`\s),
+    sending it signals using :meth:`terminate`, :meth:`kill`, or
+    :meth:`send_signal`, and waiting for it to exit using :meth:`wait`.
 
-    * Text I/O is not supported: you may not use the constructor
-      arguments ``universal_newlines``, ``encoding``, or ``errors``.
+    Each standard stream is only available if it was specified at
+    :class:`Process` construction time that a pipe should be created for it:
+    if you constructed with ``stdin=subprocess.PIPE``, you can write to
+    the :attr:`stdin` stream, else :attr:`stdin` will be ``None``.
 
-    * :attr:`stdin` is a :class:`~trio.abc.SendStream` and
-      :attr:`stdout` and :attr:`stderr` are :class:`~trio.abc.ReceiveStream`s,
-      rather than file objects. The constructor argument ``bufsize`` is
-      not supported since there would be no file object to pass it to.
+    :class:`Process` implements :class:`~trio.abc.AsyncResource`,
+    so you can use it as an async context manager or call its
+    :meth:`aclose` method directly. "Closing" a :class:`Process`
+    will close any pipes to the child and wait for it to exit;
+    if cancelled, the child will be forcibly killed and we will
+    ensure it has finished exiting before allowing the cancellation
+    to propagate. It is *strongly recommended* that process lifetime
+    be scoped using an ``async with`` block wherever possible, to
+    avoid winding up with processes hanging around longer than you
+    were planning on.
 
-    * :meth:`wait` is an async function that does not take a ``timeout``
-      argument; combine it with :func:`~trio.fail_after` if you want a timeout.
+    Args:
+      command (str or list): The command to run. Typically this is a
+          list of strings such as ``['ls', '-l', 'directory with spaces']``,
+          where the first element names the executable to invoke and the other
+          elements specify its arguments. If ``shell=True`` is given as
+          an option, ``command`` should be a single string like
+          ``"ls -l 'directory with spaces'"``, which will
+          split into words following the shell's quoting rules.
+      stdin: Specifies what the child process's standard input
+          stream should connect to: output written by the parent
+          (``subprocess.PIPE``), nothing (``subprocess.DEVNULL``),
+          or an open file (pass a file descriptor or something whose
+          ``fileno`` method returns one). If ``stdin`` is unspecified,
+          the child process will have the same standard input stream
+          as its parent.
+      stdout: Like ``stdin``, but for the child process's standard output
+          stream.
+      stderr: Like ``stdin``, but for the child process's standard error
+          stream. An additional value ``subprocess.STDOUT`` is supported,
+          which causes the child's standard output and standard error
+          messages to be intermixed on a single standard output stream,
+          attached to whatever the ``stdout`` option says to attach it to.
+      **options: Other :ref:`general subprocess options <subprocess-options>`
+          are also accepted.
 
-    * :meth:`~subprocess.Popen.communicate` does not exist due to the confusing
-      cancellation behavior exhibited by the stdlib version. Use :func:`run`
-      instead, or interact with :attr:`stdin` / :attr:`stdout` / :attr:`stderr`
-      directly.
-
-    * :meth:`aclose` (and thus also ``__aexit__``) behave like the
-      standard :class:`Popen` context manager exit (close pipes to the
-      process, then wait for it to exit), but add additional behavior
-      if cancelled: kill the process and wait for it to finish
-      terminating.  This is useful for scoping the lifetime of a
-      simple subprocess that doesn't spawn any children of its
-      own. (For subprocesses that do in turn spawn their own
-      subprocesses, there is not currently any way to clean up the
-      whole tree; moreover, using the :class:`Process` context manager
-      in such cases is likely to be counterproductive as killing the
-      top-level subprocess leaves it no chance to do any cleanup of
-      its children that might be desired.)
+    Attributes:
+      args (string or list): The ``command`` passed at construction time,
+          speifying the process to execute and its arguments.
+      pid (int): The process ID of the child process managed by this object.
+      stdin (trio.abc.SendStream or None): A stream connected to the child's
+          standard input stream: when you write bytes here, they become available
+          for the child to read. Only available if the :class:`Process`
+          was constructed using ``stdin=PIPE``; otherwise this will be None.
+      stdout (trio.abc.ReceiveStream or None): A stream connected to
+          the child's standard output stream: when the child writes to
+          standard output, the written bytes become available for you
+          to read here. Only available if the :class:`Process` was
+          constructed using ``stdout=PIPE``; otherwise this will be None.
+      stderr (trio.abc.ReceiveStream or None): A stream connected to
+          the child's standard error stream: when the child writes to
+          standard error, the written bytes become available for you
+          to read here. Only available if the :class:`Process` was
+          constructed using ``stderr=PIPE``; otherwise this will be None.
 
     """
 
@@ -60,15 +97,17 @@ class Process(AsyncResource):
     encoding = None
     errors = None
 
-    def __init__(self, args, *, stdin=None, stdout=None, stderr=None, **kwds):
+    def __init__(self, args, *, stdin=None, stdout=None, stderr=None, **options):
         if any(
-            kwds.get(key)
-            for key in ('universal_newlines', 'encoding', 'errors')
+            options.get(key)
+            for key in ('universal_newlines', "text", 'encoding', 'errors')
         ):
-            raise NotImplementedError(
-                "trio.Process does not support text I/O yet"
+            raise ValueError(
+                "trio.subprocess.Process only supports communicating over "
+                "unbuffered byte streams; text encoding and newline "
+                "translation must be supplied separately"
             )
-        if kwds.get('bufsize', -1) != -1:
+        if options.get('bufsize', -1) != -1:
             raise ValueError("bufsize does not make sense for trio subprocess")
 
         self.stdin = None
@@ -94,7 +133,7 @@ class Process(AsyncResource):
 
         try:
             self._proc = subprocess.Popen(
-                args, stdin=stdin, stdout=stdout, stderr=stderr, **kwds
+                args, stdin=stdin, stdout=stdout, stderr=stderr, **options
             )
         finally:
             # Close the parent's handle for each child side of a pipe;
@@ -177,9 +216,13 @@ class Process(AsyncResource):
 
 
 async def run(
-    *popenargs, input=None, timeout=None, deadline=None, check=False, **kwargs
+    command, *, input=None, capture_output=False, check=False, timeout=None, deadline=None, **options
 ):
-    """Like :func:`subprocess.run`, but async.
+    """Run ``command`` in a subprocess, wait for it to complete, and
+    return a :class:`subprocess.CompletedProcess` instance describing
+    the results.
+
+    Like :func:`subprocess.run`, but async.
 
     Unlike most Trio adaptations of standard library functions, this
     one keeps the ``timeout`` parameter, so that it can provide you
@@ -188,6 +231,52 @@ async def run(
     express your timeout absolutely. If you don't care about preserving
     partial output on a timeout, you can of course also nest run()
     inside a normal Trio cancel scope.
+
+    Args:
+      command (str or list): The command to run. Typically this is a
+          list of strings such as ``['ls', '-l', 'directory with spaces']``,
+          where the first element names the executable to invoke and the other
+          elements specify its arguments. If ``shell=True`` is given as
+          an option, ``command`` should be a single string like
+          ``"ls -l 'directory with spaces'"``, which will
+          split into words following the shell's quoting rules.
+      input (bytes): If specified, set up the subprocess to
+          read its standard input stream from a pipe, and feed that
+          pipe with the given bytes while the subprocess is running.
+          Once the supplied input is exhausted, the pipe will be
+          closed so that the subprocess receives an end-of-file
+          indication. Note that ``input=b""`` and ``input=None``
+          behave differently: ``input=b""`` sets up the subprocess
+          to read its input from a pipe with no data in it, while
+          ``input=None`` performs no input redirection at all, so
+          that the subprocess's standard input stream is the same
+          as the parent process's.
+      capture_output (bool): If true, set up the subprocess to write
+          its standard output and standard error streams to pipes,
+          the contents of which will be consumed in the parent process
+          and ultimately rendered as the ``stdout`` and ``stderr``
+          attributes of the returned :class:`~subprocess.CompletedProcess`
+          object. (This argument is supported by Trio on all
+          Python versions, but was only added to the standard library
+          in 3.7.)
+      check (bool): If true, validate that the subprocess returns an exit
+          status of zero (success). Any nonzero exit status will be
+          converted into a :exc:`subprocess.CalledProcessError`
+          exception.
+      timeout (float): If specified, do not allow the process to run for
+          longer than ``timeout`` seconds; if the timeout is reached,
+          kill the subprocess and raise a :exc:`subprocess.TimeoutExpired`
+          exception containing the output that was provided thus far.
+      deadline (float): Like ``timeout``, but specified in terms of an
+          absolute time on the current :ref:`clock <time-and-clocks>`
+          at which to kill the process. It is an error to specify both
+          ``timeout`` and ``deadline``.
+      **options: :func:`run` also accepts any :ref:`general subprocess
+          options <subprocess-options>` and passes them onto the
+          :class:`~trio.subprocess.Process` constructor. It is an
+          error to specify ``stdin`` if ``input`` was also specified,
+          or to specify ``stdout`` or ``stderr`` if ``capture_output``
+          was also specified.
 
     Returns:
       A :class:`subprocess.CompletedProcess` instance describing the
@@ -203,9 +292,16 @@ async def run(
 
     """
     if input is not None:
-        if 'stdin' in kwargs:
+        if 'stdin' in options:
             raise ValueError('stdin and input arguments may not both be used')
-        kwargs['stdin'] = subprocess.PIPE
+        options['stdin'] = subprocess.PIPE
+
+    if capture_output:
+        if 'stdout' in options or 'stderr' in options:
+            raise ValueError(
+                'capture_output and stdout/stderr arguments may not both be used'
+            )
+        options['stdout'] = options['stderr'] = subprocess.PIPE
 
     if timeout is not None and deadline is not None:
         raise ValueError('timeout and deadline arguments may not both be used')
@@ -213,7 +309,7 @@ async def run(
     stdout_chunks = []
     stderr_chunks = []
 
-    async with Process(*popenargs, **kwargs) as proc:
+    async with Process(command, **options) as proc:
 
         async def feed_input():
             if input:

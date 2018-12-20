@@ -185,8 +185,7 @@ async def test_run():
     result = await subprocess.run(
         COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR,
         input=data,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
     )
     assert result.args == COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR
     assert result.returncode == 0
@@ -196,6 +195,12 @@ async def test_run():
     with pytest.raises(ValueError):
         # can't use both input and stdin
         await subprocess.run(CAT, input=b"la di dah", stdin=subprocess.PIPE)
+
+    with pytest.raises(ValueError):
+        # can't use both capture_output and stdout
+        await subprocess.run(
+            CAT, input=b"la di dah", capture_output=True, stdout=subprocess.PIPE
+        )
 
     with pytest.raises(ValueError):
         # can't use both timeout and deadline
@@ -305,7 +310,7 @@ async def test_stderr_stdout():
 
 
 async def test_errors():
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(ValueError):
         subprocess.Process(["ls"], universal_newlines=True)
     with pytest.raises(ValueError):
         subprocess.Process(["ls"], bufsize=4096)
