@@ -199,7 +199,10 @@ async def test_run():
     with pytest.raises(ValueError):
         # can't use both capture_output and stdout
         await subprocess.run(
-            CAT, input=b"la di dah", capture_output=True, stdout=subprocess.PIPE
+            CAT,
+            input=b"la di dah",
+            capture_output=True,
+            stdout=subprocess.PIPE
         )
 
     with pytest.raises(ValueError):

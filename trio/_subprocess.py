@@ -97,7 +97,9 @@ class Process(AsyncResource):
     encoding = None
     errors = None
 
-    def __init__(self, args, *, stdin=None, stdout=None, stderr=None, **options):
+    def __init__(
+        self, args, *, stdin=None, stdout=None, stderr=None, **options
+    ):
         if any(
             options.get(key)
             for key in ('universal_newlines', "text", 'encoding', 'errors')
@@ -216,7 +218,14 @@ class Process(AsyncResource):
 
 
 async def run(
-    command, *, input=None, capture_output=False, check=False, timeout=None, deadline=None, **options
+    command,
+    *,
+    input=None,
+    capture_output=False,
+    check=False,
+    timeout=None,
+    deadline=None,
+    **options
 ):
     """Run ``command`` in a subprocess, wait for it to complete, and
     return a :class:`subprocess.CompletedProcess` instance describing
