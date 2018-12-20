@@ -51,27 +51,27 @@ GLOBAL_RUN_CONTEXT = threading.local()
 if os.name == "nt":
     from ._io_windows import WindowsIOManager as TheIOManager
 
-    def current_iocp(self):
+    def current_iocp():
         return sync_wrapper('runner.io_manager', 'current_iocp')
 
-    def register_with_iocp(self, handle):
+    def register_with_iocp(handle):
         return sync_wrapper('runner.io_manager', 'register_with_iocp', handle)
 
-    def wait_overlapped(self, handle, lpOverlapped):
+    def wait_overlapped(handle, lpOverlapped):
         return sync_wrapper(
             'runner.io_manager', 'wait_overlapped', handle, lpOverlapped
         )
 
-    def monitor_completion_key(self):
+    def monitor_completion_key():
         return sync_wrapper('runner.io_manager', 'monitor_completion_key')
 
-    def wait_socket_readable(self, sock):
+    def wait_socket_readable(sock):
         return sync_wrapper('runner.io_manager', 'wait_socket_readable', sock)
 
-    def wait_socket_writable(self, sock):
+    def wait_socket_writable(sock):
         return sync_wrapper('runner.io_manager', 'wait_socket_writable', sock)
 
-    def notify_socket_close(self, sock):
+    def notify_socket_close(sock):
         return sync_wrapper('runner.io_manager', 'notify_socket_close', sock)
 
 elif hasattr(select, "epoll"):
@@ -1736,6 +1736,17 @@ def sync_wrapper(ctx_name, meth_name, *args, **kwargs):
         raise RuntimeError(
             "must be called from async context " + attr_name
         ) from None
+    # wrapper = globals()["sync_wrapper"]
+    # # 'fn' is the *unbound* version of the method, but our exported
+    # # function has the same API as the *bound* version of the
+    # # method. So create a dummy bound method object:
+    # from types import MethodType
+    # bound_fn = MethodType(meth, object())
+    # # Then set exported function's metadata to match it:
+    # from functools import update_wrapper
+    # update_wrapper(wrapper, bound_fn)
+    # # And finally export it:
+    # globals()[meth_name] = wrapper
     return meth(*args, **kwargs)
 
 
