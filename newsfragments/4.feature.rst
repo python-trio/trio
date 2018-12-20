@@ -1,0 +1,17 @@
+Subprocess support! Add :mod:`trio.subprocess`, an async wrapper around the
+stdlib :mod:`subprocess` module with a similar interface:
+:class:`~trio.subprocess.Process` (renamed from :class:`~subprocess.Popen`)
+to create a process and interact with it at your leisure,
+:func`~trio.subprocess.run` to run a process to completion and report the
+results, and reexports of all the stdlib :mod:`subprocess` exceptions and
+constants. There is a :class:`subprocess.Popen` object hiding inside each
+:class:`trio.subprocess.Process`, so all the stdlib options for starting
+processes in various wacky ways work unmodified. (Currently we only
+support unbuffered byte streams for communicating with subprocess
+pipes, so the ``universal_newlines``, ``encoding``, ``errors``, and
+``bufsize`` arguments to :class:`subprocess.Popen` are not supported by the
+Trio version.) Instead of file objects, the ``stdin``, ``stdout``, and
+``stderr`` attributes of a :class:`trio.subprocess.Process` are Trio
+streams. There is no :meth:`trio.subprocess.Process.communicate` because the
+stdlib version has confusing cancellation semantics - use
+:func:`trio.subprocess.run` or interact with the pipe streams directly.
