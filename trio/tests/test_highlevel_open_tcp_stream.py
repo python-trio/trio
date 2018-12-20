@@ -278,7 +278,8 @@ async def test_one_host_slow_fail(autojump_clock):
 
 async def test_one_host_failed_after_connect(autojump_clock):
     exc, scenario = await run_scenario(
-        83, [("1.2.3.4", 1, "postconnect_fail")], expect_error=KeyboardInterrupt
+        83, [("1.2.3.4", 1, "postconnect_fail")],
+        expect_error=KeyboardInterrupt
     )
     assert isinstance(exc, KeyboardInterrupt)
 
