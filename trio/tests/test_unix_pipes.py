@@ -9,13 +9,11 @@ from .. import _core, move_on_after
 from ..testing import wait_all_tasks_blocked, check_one_way_stream
 
 posix = os.name == "posix"
+pytestmark = pytest.mark.skipif(not posix, reason="posix only")
 if posix:
     from .._unix_pipes import PipeSendStream, PipeReceiveStream, make_pipe
-else:
-    from .._windows_pipes import PipeSendStream, PipeReceiveStream, make_pipe
 
 
-@pytest.mark.skipif(not posix, reason="uses posix file descriptors")
 async def test_send_pipe():
     r, w = os.pipe()
     send = PipeSendStream(w)
@@ -28,7 +26,6 @@ async def test_send_pipe():
     send._closed = True
 
 
-@pytest.mark.skipif(not posix, reason="uses posix file descriptors")
 async def test_receive_pipe():
     r, w = os.pipe()
     recv = PipeReceiveStream(r)
@@ -79,13 +76,10 @@ async def test_pipe_errors():
     with pytest.raises(TypeError):
         PipeReceiveStream(None)
 
-    if posix:
-        # can only construct with invalid fd on posix
-        with pytest.raises(ValueError):
-            await PipeReceiveStream(0).receive_some(0)
+    with pytest.raises(ValueError):
+        await PipeReceiveStream(0).receive_some(0)
 
 
-@pytest.mark.skipif(not posix, reason="uses posix file descriptors")
 async def test_del():
     w, r = await make_pipe()
     f1, f2 = w.fileno(), r.fileno()
@@ -109,20 +103,13 @@ async def test_async_with():
     assert w._closed
     assert r._closed
 
-    if posix:
-        with pytest.raises(OSError) as excinfo:
-            os.close(w.fileno())
-        assert excinfo.value.errno == errno.EBADF
+    with pytest.raises(OSError) as excinfo:
+        os.close(w.fileno())
+    assert excinfo.value.errno == errno.EBADF
 
-        with pytest.raises(OSError) as excinfo:
-            os.close(r.fileno())
-        assert excinfo.value.errno == errno.EBADF
-
-    else:
-        # test failue-to-close on Windows
-        w._closed = False
-        with pytest.raises(OSError) as excinfo:
-            await w.aclose()
+    with pytest.raises(OSError) as excinfo:
+        os.close(r.fileno())
+    assert excinfo.value.errno == errno.EBADF
 
 
 async def test_close_during_write():
@@ -167,6 +154,4 @@ async def make_clogged_pipe():
 
 
 async def test_pipe_fully():
-    # passing make_clogged_pipe tests wait_send_all_might_not_block, and we
-    # can't implement that on Windows
-    await check_one_way_stream(make_pipe, make_clogged_pipe if posix else None)
+    await check_one_way_stream(make_pipe, make_clogged_pipe)

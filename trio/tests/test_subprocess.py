@@ -5,7 +5,9 @@ import signal
 import sys
 import pytest
 
-from .. import _core, move_on_after, sleep, sleep_forever, subprocess
+from .. import (
+    _core, move_on_after, fail_after, sleep, sleep_forever, subprocess
+)
 from .._core.tests.tutil import slow
 from ..testing import wait_all_tasks_blocked
 
@@ -16,21 +18,17 @@ else:
     SIGKILL, SIGTERM, SIGINT = None, None, None
 
 
-def cmd_switch(posix_option, windows_pycode):
-    return posix_option if posix else [
-        sys.executable, "-c", "import sys; " + windows_pycode
-    ]
+# Since Windows has very few command-line utilities generally available,
+# all of our subprocesses are Python processes running short bits of
+# (mostly) cross-platform code.
+def python(code):
+    return [sys.executable, "-u", "-c", "import sys; " + code]
 
 
-EXIT_TRUE = cmd_switch(["true"], "sys.exit(0)")
-EXIT_FALSE = cmd_switch(["false"], "sys.exit(1)")
-CAT = cmd_switch(["cat"], "sys.stdout.buffer.write(sys.stdin.buffer.read())")
-
-
-def SLEEP(seconds):
-    return cmd_switch(
-        ["sleep", str(seconds)], "import time; time.sleep({})".format(seconds)
-    )
+EXIT_TRUE = python("sys.exit(0)")
+EXIT_FALSE = python("sys.exit(1)")
+CAT = python("sys.stdout.buffer.write(sys.stdin.buffer.read())")
+SLEEP = lambda seconds: python("import time; time.sleep({})".format(seconds))
 
 
 def got_signal(proc, sig):
@@ -57,12 +55,11 @@ async def test_kill_when_context_cancelled():
     assert got_signal(proc, SIGKILL)
 
 
-COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR = [
-    sys.executable, "-c", "import sys\n"
-    "data = sys.stdin.buffer.read()\n"
-    "sys.stdout.buffer.write(data)\n"
+COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR = python(
+    "data = sys.stdin.buffer.read(); "
+    "sys.stdout.buffer.write(data); "
     "sys.stderr.buffer.write(data[::-1])"
-]
+)
 
 
 async def test_pipes():
@@ -96,6 +93,76 @@ async def test_pipes():
 
         assert not nursery.cancel_scope.cancelled_caught
         assert 0 == await proc.wait()
+
+
+async def test_interactive():
+    # Test some back-and-forth with a subprocess. This one works like so:
+    # in: 32\n
+    # out: 0000...0000\n (32 zeroes)
+    # err: 1111...1111\n (64 ones)
+    # in: 10\n
+    # out: 2222222222\n (10 twos)
+    # err: 3333....3333\n (20 threes)
+    # in: EOF
+    # out: EOF
+    # err: EOF
+
+    async with subprocess.Process(
+        python(
+            "idx = 0\n"
+            "while True:\n"
+            "    line = sys.stdin.readline()\n"
+            "    if line == '': break\n"
+            "    request = int(line.strip())\n"
+            "    print(str(idx * 2) * request)\n"
+            "    print(str(idx * 2 + 1) * request * 2, file=sys.stderr)\n"
+            "    idx += 1\n"
+        ),
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    ) as proc:
+
+        newline = b"\n" if posix else b"\r\n"
+
+        async def expect(idx, request):
+            async with _core.open_nursery() as nursery:
+
+                async def drain_one(stream, count, digit):
+                    while count > 0:
+                        result = await stream.receive_some(count)
+                        assert result == (
+                            "{}".format(digit).encode("utf-8") * len(result)
+                        )
+                        count -= len(result)
+                    assert count == 0
+                    assert await stream.receive_some(len(newline)) == newline
+
+                nursery.start_soon(drain_one, proc.stdout, request, idx * 2)
+                nursery.start_soon(
+                    drain_one, proc.stderr, request * 2, idx * 2 + 1
+                )
+
+        with fail_after(5):
+            await proc.stdin.send_all(b"12")
+            await sleep(0.1)
+            await proc.stdin.send_all(b"345" + newline)
+            await expect(0, 12345)
+            await proc.stdin.send_all(b"100" + newline + b"200" + newline)
+            await expect(1, 100)
+            await expect(2, 200)
+            await proc.stdin.send_all(b"0" + newline)
+            await expect(3, 0)
+            await proc.stdin.send_all(b"999999")
+            with move_on_after(0.1) as scope:
+                await expect(4, 0)
+            assert scope.cancelled_caught
+            await proc.stdin.send_all(newline)
+            await expect(4, 999999)
+            await proc.stdin.aclose()
+            assert await proc.stdout.receive_some(1) == b""
+            assert await proc.stderr.receive_some(1) == b""
+    assert proc.returncode == 0
 
 
 async def test_run():
@@ -168,18 +235,9 @@ sys.stdout.buffer.write(sys.stdin.buffer.read())
 
 
 async def test_run_check():
-    cmd = cmd_switch(
-        "echo test >&2; false",
-        "sys.stderr.buffer.write(b'test\\n'); sys.exit(1)",
-    )
-
+    cmd = python("sys.stderr.buffer.write(b'test\\n'); sys.exit(1)")
     with pytest.raises(subprocess.CalledProcessError) as excinfo:
-        await subprocess.run(
-            cmd,
-            shell=posix,
-            stderr=subprocess.PIPE,
-            check=True,
-        )
+        await subprocess.run(cmd, stderr=subprocess.PIPE, check=True)
     assert excinfo.value.cmd == cmd
     assert excinfo.value.returncode == 1
     assert excinfo.value.stderr == b"test\n"
@@ -328,3 +386,13 @@ async def test_wait_reapable_eintr():
     finally:
         signal.pthread_sigmask(signal.SIG_SETMASK, old_mask)
         signal.signal(signal.SIGALRM, old_sigalrm)
+
+
+def test_all_constants_reexported():
+    trio_subprocess_exports = set(dir(subprocess))
+    import subprocess as stdlib_subprocess
+
+    for name in dir(stdlib_subprocess):
+        if name.isupper() and name[0] != "_":
+            stdlib_constant = name
+            assert stdlib_constant in trio_subprocess_exports

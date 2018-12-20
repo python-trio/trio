@@ -221,12 +221,6 @@ async def run(
                     await proc.stdin.send_all(input)
                 except _core.BrokenResourceError:
                     pass
-                except OSError as e:  # pragma: no cover
-                    # According to the stdlib subprocess module, EINVAL can
-                    # occur on Windows if the child closes its end of the
-                    # pipe, and must be ignored.
-                    if e.errno != errno.EINVAL:
-                        raise
             await proc.stdin.aclose()
 
         async def read_output(stream, chunks):

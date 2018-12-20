@@ -63,8 +63,8 @@ class PipeSendStream(_PipeMixin, SendStream):
                             total_sent += await _core.write_overlapped(
                                 self._pipe, chunk
                             )
-                        except BrokenPipeError:
-                            raise _core.BrokenResourceError from None
+                        except BrokenPipeError as ex:
+                            raise _core.BrokenResourceError from ex
 
     async def wait_send_all_might_not_block(self) -> None:
         async with self._conflict_detector:

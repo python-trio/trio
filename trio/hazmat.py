@@ -50,7 +50,6 @@ try:
         register_with_iocp,
         wait_overlapped,
         monitor_completion_key,
-        perform_overlapped,
         readinto_overlapped,
         write_overlapped,
     )
