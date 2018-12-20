@@ -645,7 +645,7 @@ Spawning subprocesses with :mod:`trio.subprocess`
 -------------------------------------------------
 
 The :mod:`trio.subprocess` module provides support for spawning
-other programs, communicating with them via pipes, senading them signals,
+other programs, communicating with them via pipes, sending them signals,
 and waiting for them to exit. Its interface is based on the
 :mod:`subprocess` module in the standard library; differences
 are noted below.

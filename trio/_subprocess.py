@@ -73,7 +73,7 @@ class Process(AsyncResource):
           are also accepted.
 
     Attributes:
-      args (string or list): The ``command`` passed at construction time,
+      args (str or list): The ``command`` passed at construction time,
           speifying the process to execute and its arguments.
       pid (int): The process ID of the child process managed by this object.
       stdin (trio.abc.SendStream or None): A stream connected to the child's
