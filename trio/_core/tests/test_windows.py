@@ -119,7 +119,7 @@ def test_forgot_to_register_with_iocp():
         async def main():
             target = bytearray(1)
             try:
-                with move_on_after(0):
+                with move_on_after(0.5):
                     await _core.readinto_overlapped(read_handle, target)
             finally:
                 # Run loop is exited without unwinding running tasks, so
