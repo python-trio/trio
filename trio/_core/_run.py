@@ -36,84 +36,6 @@ from ._traps import (
 )
 from .. import _core
 
-# At the bottom of this file there's also some "clever" code that generates
-# wrapper functions for runner and io manager methods, and adds them to
-# __all__. These are all re-exported as part of the 'trio' or 'trio.hazmat'
-# namespaces.
-# __all__ = [
-#     "Task", "run", "open_nursery", "open_cancel_scope", "checkpoint",
-#     "current_task", "current_effective_deadline", "checkpoint_if_cancelled",
-#     "TASK_STATUS_IGNORED"
-# ]
-
-GLOBAL_RUN_CONTEXT = threading.local()
-
-if os.name == "nt":
-    from ._io_windows import WindowsIOManager as TheIOManager
-
-    def current_iocp():
-        return sync_wrapper('runner.io_manager', 'current_iocp')
-
-    def register_with_iocp(handle):
-        return sync_wrapper('runner.io_manager', 'register_with_iocp', handle)
-
-    def wait_overlapped(handle, lpOverlapped):
-        return sync_wrapper(
-            'runner.io_manager', 'wait_overlapped', handle, lpOverlapped
-        )
-
-    def monitor_completion_key():
-        return sync_wrapper('runner.io_manager', 'monitor_completion_key')
-
-    def wait_socket_readable(sock):
-        return sync_wrapper('runner.io_manager', 'wait_socket_readable', sock)
-
-    def wait_socket_writable(sock):
-        return sync_wrapper('runner.io_manager', 'wait_socket_writable', sock)
-
-    def notify_socket_close(sock):
-        return sync_wrapper('runner.io_manager', 'notify_socket_close', sock)
-
-elif hasattr(select, "epoll"):
-    from ._io_epoll import EpollIOManager as TheIOManager
-
-    def wait_readable(fd):
-        return sync_wrapper('runner.io_manager', 'wait_readable', fd)
-
-    def wait_writable(fd):
-        return sync_wrapper('runner.io_manager', 'wait_writable', fd)
-
-    def notify_fd_close(fd):
-        return sync_wrapper('runner.io_manager', 'notify_fd_close', fd)
-
-elif hasattr(select, "kqueue"):
-    from ._io_kqueue import KqueueIOManager as TheIOManager
-
-    def current_kqueue():
-        return sync_wrapper('runner.io_manager', 'current_kqueue')
-
-    def monitor_kevent(ident, filter):
-        return sync_wrapper(
-            'runner.io_manager', 'monitor_kevent', ident, filter
-        )
-
-    def wait_kevent(ident, filter, abort_func):
-        return sync_wrapper(
-            'runner.io_manager', 'wait_kevent', ident, filter, abort_func
-        )
-
-    def wait_readable(fd):
-        return sync_wrapper('runner.io_manager', 'wait_readable', fd)
-
-    def wait_writable(fd):
-        return sync_wrapper('runner.io_manager', 'wait_writable', fd)
-
-    def notify_fd_close(fd):
-        return sync_wrapper('runner.io_manager', 'notify_fd_close', fd)
-
-else:  # pragma: no cover
-    raise NotImplementedError("unsupported platform")
-
 _r = random.Random()
 
 # Used to log exceptions in instruments
@@ -1673,56 +1595,14 @@ async def checkpoint_if_cancelled():
     task._cancel_points += 1
 
 
-# _WRAPPER_TEMPLATE = """
-# def wrapper(*args, **kwargs):
-#     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
-#     try:
-#         meth = GLOBAL_RUN_CONTEXT.{}.{}
-#     except AttributeError:
-#         raise RuntimeError("must be called from async context") from None
-#     return meth(*args, **kwargs)
-# """
-
-# def _generate_method_wrappers(cls, path_to_instance):
-#     cls_dict = dict(cls.__dict__)
-#     def rm(key):
-#         if key in cls_dict:
-#             del cls_dict[key]
-
-#     rm('current_kqueue')
-#     rm('monitor_kevent')
-#     rm('wait_kevent')
-#     rm('wait_readable')
-#     #rm('wait_writable')
-
-#     for methname, fn in cls_dict.items():
-#         if callable(fn) and getattr(fn, "_public", False):
-#             # Create a wrapper function that looks up this method in the
-#             # current thread-local context version of this object, and calls
-#             # it. exec() is a bit ugly but the resulting code is faster and
-#             # simpler than doing some loop over getattr.
-#             ns = {
-#                 "GLOBAL_RUN_CONTEXT":
-#                     GLOBAL_RUN_CONTEXT,
-#                 "LOCALS_KEY_KI_PROTECTION_ENABLED":
-#                     LOCALS_KEY_KI_PROTECTION_ENABLED
-#             }
-#             exec(_WRAPPER_TEMPLATE.format(path_to_instance, methname), ns)
-#             wrapper = ns["wrapper"]
-#             # 'fn' is the *unbound* version of the method, but our exported
-#             # function has the same API as the *bound* version of the
-#             # method. So create a dummy bound method object:
-#             from types import MethodType
-#             bound_fn = MethodType(fn, object())
-#             # Then set exported function's metadata to match it:
-#             from functools import update_wrapper
-#             update_wrapper(wrapper, bound_fn)
-#             # And finally export it:
-#             globals()[methname] = wrapper
-#             __all__.append(methname)
-
-
+# All of the following functions are exported as part of the trio or trio.hazmat
+# namespaces. The wrapper is called as common code to call the methods as
+# functions
 # wrapper to call methods that are publicly available
+
+GLOBAL_RUN_CONTEXT = threading.local()
+
+
 def sync_wrapper(ctx_name, meth_name, *args, **kwargs):
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
@@ -1736,40 +1616,81 @@ def sync_wrapper(ctx_name, meth_name, *args, **kwargs):
         raise RuntimeError(
             "must be called from async context " + attr_name
         ) from None
-    # wrapper = globals()["sync_wrapper"]
-    # # 'fn' is the *unbound* version of the method, but our exported
-    # # function has the same API as the *bound* version of the
-    # # method. So create a dummy bound method object:
-    # from types import MethodType
-    # bound_fn = MethodType(meth, object())
-    # # Then set exported function's metadata to match it:
-    # from functools import update_wrapper
-    # update_wrapper(wrapper, bound_fn)
-    # # And finally export it:
-    # globals()[meth_name] = wrapper
     return meth(*args, **kwargs)
 
 
-# methods exposed public on osx
+# Exported functions dependent on os
+# Windows
+if os.name == "nt":
+    from ._io_windows import WindowsIOManager as TheIOManager
 
-# methname: current_statistics, fn: <function Runner.current_statistics at 0x10cb481e0>
-# methname: current_time, fn: <function Runner.current_time at 0x10cb48268>
-# methname: current_clock, fn: <function Runner.current_clock at 0x10cb482f0>
-# methname: current_root_task, fn: <function Runner.current_root_task at 0x10cb48378>
-# methname: reschedule, fn: <function Runner.reschedule at 0x10cb48400>
-# methname: spawn_system_task, fn: <function Runner.spawn_system_task at 0x10cb48598>
-# methname: current_trio_token, fn: <function Runner.current_trio_token at 0x10cb486a8>
-# methname: wait_all_tasks_blocked, fn: <function Runner.wait_all_tasks_blocked at 0x10cb48840>
-# methname: add_instrument, fn: <function Runner.add_instrument at 0x10cb48950>
-# methname: remove_instrument, fn: <function Runner.remove_instrument at 0x10cb489d8>
-# methname: current_kqueue, fn: <function KqueueIOManager.current_kqueue at 0x10cba8b70>
-# methname: monitor_kevent, fn: <function KqueueIOManager.monitor_kevent at 0x10cba8c80>
-# methname: wait_kevent, fn: <function KqueueIOManager.wait_kevent at 0x10cba8d08>
-# methname: wait_readable, fn: <function KqueueIOManager.wait_readable at 0x10cba8e18>
-# methname: wait_writable, fn: <function KqueueIOManager.wait_writable at 0x10cba8ea0>
-# methname: notify_fd_close, fn: <function KqueueIOManager.notify_fd_close at 0x10cba8f28>
+    def current_iocp():
+        return sync_wrapper('runner.io_manager', 'current_iocp')
+
+    def register_with_iocp(handle):
+        return sync_wrapper('runner.io_manager', 'register_with_iocp', handle)
+
+    def wait_overlapped(handle, lpOverlapped):
+        return sync_wrapper(
+            'runner.io_manager', 'wait_overlapped', handle, lpOverlapped
+        )
+
+    def monitor_completion_key():
+        return sync_wrapper('runner.io_manager', 'monitor_completion_key')
+
+    def wait_socket_readable(sock):
+        return sync_wrapper('runner.io_manager', 'wait_socket_readable', sock)
+
+    def wait_socket_writable(sock):
+        return sync_wrapper('runner.io_manager', 'wait_socket_writable', sock)
+
+    def notify_socket_close(sock):
+        return sync_wrapper('runner.io_manager', 'notify_socket_close', sock)
+
+# OSX
+elif hasattr(select, "epoll"):
+    from ._io_epoll import EpollIOManager as TheIOManager
+
+    def wait_readable(fd):
+        return sync_wrapper('runner.io_manager', 'wait_readable', fd)
+
+    def wait_writable(fd):
+        return sync_wrapper('runner.io_manager', 'wait_writable', fd)
+
+    def notify_fd_close(fd):
+        return sync_wrapper('runner.io_manager', 'notify_fd_close', fd)
+
+# Linux
+elif hasattr(select, "kqueue"):
+    from ._io_kqueue import KqueueIOManager as TheIOManager
+
+    def current_kqueue():
+        return sync_wrapper('runner.io_manager', 'current_kqueue')
+
+    def monitor_kevent(ident, filter):
+        return sync_wrapper(
+            'runner.io_manager', 'monitor_kevent', ident, filter
+        )
+
+    def wait_kevent(ident, filter, abort_func):
+        return sync_wrapper(
+            'runner.io_manager', 'wait_kevent', ident, filter, abort_func
+        )
+
+    def wait_readable(fd):
+        return sync_wrapper('runner.io_manager', 'wait_readable', fd)
+
+    def wait_writable(fd):
+        return sync_wrapper('runner.io_manager', 'wait_writable', fd)
+
+    def notify_fd_close(fd):
+        return sync_wrapper('runner.io_manager', 'notify_fd_close', fd)
+
+else:  # pragma: no cover
+    raise NotImplementedError("unsupported platform")
 
 
+# Always available independent of os
 def current_statistics():
     return sync_wrapper('runner', 'current_statistics')
 
@@ -1817,7 +1738,3 @@ def add_instrument(instrument):
 
 def remove_instrument(instrument):
     return sync_wrapper('runner', 'remove_instrument', instrument)
-
-
-#_generate_method_wrappers(Runner, "runner")
-#_generate_method_wrappers(TheIOManager, "runner.io_manager")

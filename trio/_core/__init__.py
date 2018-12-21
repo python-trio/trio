@@ -26,7 +26,7 @@ from ._ki import (
     enable_ki_protection, disable_ki_protection, currently_ki_protected
 )
 
-# TODO:  make the _run namespace a lot less magical
+# Discrete imports
 from ._run import (
     Task, run, open_nursery, open_cancel_scope, checkpoint, current_task,
     current_effective_deadline, checkpoint_if_cancelled, TASK_STATUS_IGNORED,
@@ -50,6 +50,7 @@ from ._unbounded_queue import UnboundedQueue
 
 from ._local import RunVar
 
+# Linux and OSX imports
 try:
     from ._run import (wait_readable, wait_writable, notify_fd_close)
 
@@ -59,6 +60,7 @@ try:
 except ImportError:
     pass
 
+# Windows imports
 try:
     from ._run import (
         wait_socket_readable, wait_socket_writable, notify_socket_close,
