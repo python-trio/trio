@@ -84,17 +84,7 @@ async def test_readinto_overlapped():
                         start,
                     )
 
-                # Make sure reading before the handle is registered
-                # fails rather than hanging forever
-                with pytest.raises(_core.TrioInternalError) as exc_info:
-                    with move_on_after(0.5):
-                        await read_region(0, 512)
-                assert "Did you forget to call register_with_iocp()?" in str(
-                    exc_info.value
-                )
-
                 _core.register_with_iocp(handle)
-
                 async with _core.open_nursery() as nursery:
                     for start in range(0, 4096, 512):
                         nursery.start_soon(read_region, start, start + 512)
@@ -113,7 +103,6 @@ def pipe_with_overlapped_read():
     import msvcrt
 
     read_handle, write_handle = pipe(overlapped=(True, False))
-    _core.register_with_iocp(read_handle)
     try:
         write_fd = msvcrt.open_osfhandle(write_handle, 0)
         yield os.fdopen(write_fd, "wb", closefd=False), read_handle
@@ -122,10 +111,33 @@ def pipe_with_overlapped_read():
         kernel32.CloseHandle(ffi.cast("HANDLE", write_handle))
 
 
+def test_forgot_to_register_with_iocp():
+    with pipe_with_overlapped_read() as (write_fp, read_handle):
+        write_fp.close()
+        left_run_yet = False
+
+        async def main():
+            target = bytearray(1)
+            try:
+                with move_on_after(0):
+                    await _core.readinto_overlapped(read_handle, target)
+            finally:
+                # Run loop is exited without unwinding running tasks, so
+                # we don't get here until the main() coroutine is GC'ed
+                assert left_run_yet
+
+        with pytest.raises(_core.TrioInternalError) as exc_info:
+            _core.run(main)
+        left_run_yet = True
+        assert "Failed to cancel overlapped I/O in main" in str(exc_info.value)
+        assert "forget to call register_with_iocp()?" in str(exc_info.value)
+
+
 async def test_too_late_to_cancel():
     import time
 
     with pipe_with_overlapped_read() as (write_fp, read_handle):
+        _core.register_with_iocp(read_handle)
         target = bytearray(6)
         async with _core.open_nursery() as nursery:
             # Start an async read in the background
