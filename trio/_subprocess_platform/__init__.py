@@ -1,17 +1,16 @@
 # Platform-specific subprocess bits'n'pieces.
 
 import os
-import subprocess
 import sys
 from typing import Tuple
 
-from .. import _core
+from .. import _core, _subprocess
 from .._abc import SendStream, ReceiveStream
 
 
 # Fallback versions of the functions provided -- implementations
 # per OS are imported atop these at the bottom of the module.
-async def wait_child_exiting(process: subprocess.Popen) -> None:
+async def wait_child_exiting(process: "_subprocess.Process") -> None:
     """Block until the child process managed by ``process`` is exiting.
 
     It is invalid to call this function if the process has already

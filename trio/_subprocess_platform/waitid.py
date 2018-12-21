@@ -1,10 +1,9 @@
 import errno
 import math
 import os
-import subprocess
 import sys
 
-from .. import _core
+from .. import _core, _subprocess
 from .._sync import CapacityLimiter, Event
 from .._threads import run_sync_in_worker_thread
 
@@ -92,7 +91,7 @@ async def _waitid_system_task(pid: int, event: Event) -> None:
         event.set()
 
 
-async def wait_child_exiting(process: subprocess.Popen) -> None:
+async def wait_child_exiting(process: "_subprocess.Process") -> None:
     # Logic of this function:
     # - The first time we get called, we create an Event and start
     #   an instance of _waitid_system_task that will set the Event
@@ -103,14 +102,7 @@ async def wait_child_exiting(process: subprocess.Popen) -> None:
     #   create an arbitrary number of threads waiting on the same
     #   process.
 
-    ATTR = "@trio_wait_event"  # an unlikely attribute name, to be sure
-    try:
-        event = getattr(process, ATTR)
-    except AttributeError:
-        event = Event()
-        setattr(process, ATTR, event)
+    if process._wait_for_exit_data is None:
+        process._wait_for_exit_data = event = Event()
         _core.spawn_system_task(_waitid_system_task, process.pid, event)
-
-    await event.wait()
-    # If not cancelled, there's no need to keep the event around anymore:
-    delattr(process, ATTR)
+    await process._wait_for_exit_data.wait()

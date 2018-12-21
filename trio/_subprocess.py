@@ -97,6 +97,11 @@ class Process(AsyncResource):
     encoding = None
     errors = None
 
+    # Available for the per-platform wait_child_exiting() implementations
+    # to stash some state; waitid platforms use this to avoid spawning
+    # arbitrarily many threads if wait() keeps getting cancelled.
+    _wait_for_exit_data = None
+
     def __init__(
         self, args, *, stdin=None, stdout=None, stderr=None, **options
     ):
@@ -194,7 +199,7 @@ class Process(AsyncResource):
           as the negative of that signal number, e.g., -11 for ``SIGSEGV``.
         """
         if self.poll() is None:
-            await wait_child_exiting(self._proc)
+            await wait_child_exiting(self)
             self._proc.wait()
         else:
             await _core.checkpoint()

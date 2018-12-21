@@ -1,9 +1,8 @@
 import select
-import subprocess
-from .. import _core
+from .. import _core, _subprocess
 
 
-async def wait_child_exiting(process: subprocess.Popen) -> None:
+async def wait_child_exiting(process: "_subprocess.Process") -> None:
     kqueue = _core.current_kqueue()
     try:
         from select import KQ_NOTE_EXIT
