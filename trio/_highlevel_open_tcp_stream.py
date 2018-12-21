@@ -252,16 +252,17 @@ async def open_tcp_stream(
     # This list records all the connection failures that we ignored.
     oserrors = []
 
-    # the socket that we're going to complete with, we need to make
-    # sure this is excluded from any cleanup
+    # Keeps track of the socket that we're going to complete with,
+    # need to make sure this isn't automatically closed
     winning_socket = None
 
-    # Sleep for the given amount of time, then kick off the next task and
-    # start a connection attempt. On failure, expedite the next task; on
-    # success, kill everything. Possible outcomes:
-    # - records a failure in oserrors, returns None
-    # - records a connected socket in winning_socket, returns None
-    # - crash (raises an unexpected exception)
+    # Try connecting to the specified address. Possible outcomes:
+    # - success: record connected socket in winning_socket and cancel
+    #   concurrent attempts
+    # - failure: record exception in oserrors, set attempt_failed allowing
+    #   the next connection attempt to start early
+    # code needs to ensure sockets can be closed appropriately in the
+    # face of crash or cancellation
     async def attempt_connect(socket_args, sockaddr, attempt_failed):
         nonlocal winning_socket
 
@@ -284,16 +285,17 @@ async def open_tcp_stream(
             attempt_failed.set()
 
     with close_all() as open_sockets:
-        # Kick off the chain of connection attempts.
+        # nursery spawns a task for each connection attempt, will be
+        # cancelled by the task that gets a successful connection
         async with trio.open_nursery() as nursery:
             for *sa, _, addr in targets:
+                # create an event to indicate connection failure,
+                # allowing the next target to be tried early
                 attempt_failed = trio.Event()
 
                 nursery.start_soon(attempt_connect, sa, addr, attempt_failed)
 
-                # give this connection attempt some time.  if it
-                # succeeds the nursery will be torn down, if it fails
-                # before the delay we can start the next attempt early
+                # give this attempt at most this time before moving on
                 with trio.move_on_after(happy_eyeballs_delay):
                     await attempt_failed.wait()
 
