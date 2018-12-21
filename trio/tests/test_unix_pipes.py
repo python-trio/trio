@@ -62,16 +62,6 @@ async def test_pipes_combined():
     await write.aclose()
 
 
-async def test_send_on_closed_pipe():
-    write, read = await make_pipe()
-    await write.aclose()
-
-    with pytest.raises(_core.ClosedResourceError):
-        await write.send_all(b"123")
-
-    await read.aclose()
-
-
 async def test_pipe_errors():
     with pytest.raises(TypeError):
         PipeReceiveStream(None)
@@ -110,21 +100,6 @@ async def test_async_with():
     with pytest.raises(OSError) as excinfo:
         os.close(r.fileno())
     assert excinfo.value.errno == errno.EBADF
-
-
-async def test_close_during_write():
-    w, r = await make_pipe()
-    async with _core.open_nursery() as nursery:
-
-        async def write_forever():
-            with pytest.raises(_core.ClosedResourceError) as excinfo:
-                while True:
-                    await w.send_all(b"x" * 4096)
-            assert "another task" in str(excinfo)
-
-        nursery.start_soon(write_forever)
-        await wait_all_tasks_blocked(0.1)
-        await w.aclose()
 
 
 async def make_clogged_pipe():

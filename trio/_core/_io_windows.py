@@ -269,18 +269,23 @@ class WindowsIOManager:
                         # the IOCP thread somehow. Nothing more to do.
                         pass
                     else:
-                        _core.reschedule(
-                            waiter,
-                            outcome.Error(
-                                _core.TrioInternalError(
-                                    "Failed to cancel overlapped I/O and "
-                                    "didn't receive the completion either. Did "
-                                    "you forget to call register_with_iocp()? "
-                                    "The operation may or may not have "
-                                    "succeeded; we can't tell."
-                                )
-                            )
+                        exc = _core.TrioInternalError(
+                            "Failed to cancel overlapped I/O in {} and didn't "
+                            "receive the completion either. Did you forget to "
+                            "call register_with_iocp()?".format(waiter.name)
                         )
+                        # Raising this out of handle_io ensures that
+                        # the user will see our message even if some
+                        # other task is in an uncancellable wait due
+                        # to the same underlying forgot-to-register
+                        # issue (if their CancelIoEx succeeds, we
+                        # have no way of noticing that their completion
+                        # won't arrive). Unfortunately it loses the
+                        # task traceback. If you're debugging this
+                        # error and can't tell where it's coming from,
+                        # try changing this line to
+                        # _core.reschedule(waiter, outcome.Error(exc))
+                        raise exc
                 else:
                     # dispatch on lpCompletionKey
                     queue = self._completion_key_queues[entry.lpCompletionKey]
@@ -483,7 +488,7 @@ class WindowsIOManager:
         # For typical types of `data` (bytes, bytearray) the memory we
         # pass is part of the existing allocation, but the buffer protocol
         # allows for other possibilities.
-        cbuf_register = [ffi.from_buffer(data)]
+        cbuf = ffi.from_buffer(data)
 
         def submit_write(lpOverlapped):
             # yes, these are the real documented names
@@ -493,8 +498,8 @@ class WindowsIOManager:
             _check(
                 kernel32.WriteFile(
                     _handle(handle),
-                    ffi.cast("LPCVOID", cbuf_register[0]),
-                    len(cbuf_register[0]),
+                    ffi.cast("LPCVOID", cbuf),
+                    len(cbuf),
                     ffi.NULL,
                     lpOverlapped,
                 )
@@ -524,7 +529,9 @@ class WindowsIOManager:
             # we get a BufferError.
             #
             # Unfortunately, there seems to be no way to drop that
-            # reference without destroying the FFI buffer object.
+            # reference without destroying the FFI buffer object,
+            # alhough one might be coming soon.
+            #   (https://bitbucket.org/cffi/cffi/issues/395/)
             # We can't even call __del__, because there's no __del__
             # exposed. On CPython, when we return normally, the frame
             # and its locals are destroyed, but when we throw an
@@ -532,10 +539,12 @@ class WindowsIOManager:
             # So, we need to drop the reference to the FFI buffer
             # explicitly when unwinding.
             #
-            # This probably doesn't help on PyPy, but we don't really
-            # support PyPy on Windows anyway, so...
+            # This doesn't help with destruction on PyPy, but PyPy
+            # doesn't currently track buffer references in the same
+            # way as CPython does, so there's no need for a workaround
+            # there.
             #
-            del cbuf_register[:]
+            del cbuf
 
     @_public
     async def readinto_overlapped(self, handle, buffer, file_offset=0):
@@ -544,11 +553,12 @@ class WindowsIOManager:
         # operation otherwise. A future release of CFFI will support
         # ffi.from_buffer(foo, require_writable=True) to do the same
         # thing less circumlocutiously.
+        #   (https://bitbucket.org/cffi/cffi/issues/394/)
         ffi.memmove(buffer, b"", 0)
 
         # As in write_overlapped, we want to ensure the buffer stays
         # alive for the duration of the I/O.
-        cbuf_register = [ffi.from_buffer(buffer)]
+        cbuf = ffi.from_buffer(buffer)
 
         def submit_read(lpOverlapped):
             offset_fields = lpOverlapped.DUMMYUNIONNAME.DUMMYSTRUCTNAME
@@ -557,8 +567,8 @@ class WindowsIOManager:
             _check(
                 kernel32.ReadFile(
                     _handle(handle),
-                    ffi.cast("LPVOID", cbuf_register[0]),
-                    len(cbuf_register[0]),
+                    ffi.cast("LPVOID", cbuf),
+                    len(cbuf),
                     ffi.NULL,
                     lpOverlapped,
                 )
@@ -569,4 +579,4 @@ class WindowsIOManager:
             return lpOverlapped.InternalHigh
         finally:
             # See discussion in write_overlapped()
-            del cbuf_register[:]
+            del cbuf

@@ -690,7 +690,7 @@ exit before returning, so there's no need to worry about leaving
 a process running by mistake after you've gone on to do other things.
 :func:`~trio.subprocess.run` can supply input or read output from
 the subprocess, and can optionally throw an exception if the subprocess
-runs for too long or exits with a failure indication.
+exits with a failure indication.
 
 .. autofunction:: trio.subprocess.run
 
@@ -756,7 +756,8 @@ Differences from the standard library
   tree; moreover, using the :class:`Process` context manager in such
   cases is likely to be counterproductive as killing the top-level
   subprocess leaves it no chance to do any cleanup of its children
-  that might be desired. A better solution for this is in the works.)
+  that might be desired. You'll probably want to write your own
+  supervision logic in that case.)
 
 
 Signals

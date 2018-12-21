@@ -38,16 +38,6 @@ async def test_pipes_combined():
     await write.aclose()
 
 
-async def test_send_on_closed_pipe():
-    write, read = await make_pipe()
-    await write.aclose()
-
-    with pytest.raises(_core.ClosedResourceError):
-        await write.send_all(b"123")
-
-    await read.aclose()
-
-
 async def test_pipe_errors():
     with pytest.raises(TypeError):
         PipeReceiveStream(None)

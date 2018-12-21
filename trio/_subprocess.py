@@ -105,17 +105,15 @@ class Process(AsyncResource):
     def __init__(
         self, args, *, stdin=None, stdout=None, stderr=None, **options
     ):
-        if any(
-            options.get(key)
-            for key in ('universal_newlines', "text", 'encoding', 'errors')
+        for key in (
+            'universal_newlines', 'text', 'encoding', 'errors', 'bufsize'
         ):
-            raise ValueError(
-                "trio.subprocess.Process only supports communicating over "
-                "unbuffered byte streams; text encoding and newline "
-                "translation must be supplied separately"
-            )
-        if options.get('bufsize', -1) != -1:
-            raise ValueError("bufsize does not make sense for trio subprocess")
+            if options.get(key):
+                raise TypeError(
+                    "trio.subprocess.Process only supports communicating over "
+                    "unbuffered byte streams; the '{}' option is not supported"
+                    .format(key)
+                )
 
         self.stdin = None
         self.stdout = None
@@ -238,13 +236,10 @@ async def run(
 
     Like :func:`subprocess.run`, but async.
 
-    Unlike most Trio adaptations of standard library functions, this
-    one keeps the ``timeout`` parameter, so that it can provide you
-    with the process's partial output if it is killed due to a
-    timeout. It also adds ``deadline`` as an option if you prefer to
-    express your timeout absolutely. If you don't care about preserving
-    partial output on a timeout, you can of course also nest run()
-    inside a normal Trio cancel scope.
+    If cancelled, :func:`run` kills the subprocess and waits for it
+    to exit before propagating the cancellation, like :meth:`Process.aclose`.
+    If you need to be able to tell what partial output the process produced
+    before a timeout, see the ``timeout`` and ``deadline`` arguments.
 
     Args:
       command (str or list): The command to run. Typically this is a
@@ -326,19 +321,20 @@ async def run(
     async with Process(command, **options) as proc:
 
         async def feed_input():
-            if input:
-                try:
-                    await proc.stdin.send_all(input)
-                except _core.BrokenResourceError:
-                    pass
-            await proc.stdin.aclose()
+            async with proc.stdin:
+                if input:
+                    try:
+                        await proc.stdin.send_all(input)
+                    except _core.BrokenResourceError:
+                        pass
 
         async def read_output(stream, chunks):
-            while True:
-                chunk = await stream.receive_some(32768)
-                if not chunk:
-                    break
-                chunks.append(chunk)
+            async with stream:
+                while True:
+                    chunk = await stream.receive_some(32768)
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
 
         async with _core.open_nursery() as nursery:
             if proc.stdin is not None:

@@ -1,7 +1,5 @@
 from ._subprocess import Process, run
 
-Popen = Process
-
 # Reexport constants and exceptions from the stdlib subprocess module
 from subprocess import (
     PIPE, STDOUT, DEVNULL, CalledProcessError, SubprocessError, TimeoutExpired,

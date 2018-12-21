@@ -313,10 +313,10 @@ async def test_stderr_stdout():
 
 
 async def test_errors():
-    with pytest.raises(ValueError):
-        subprocess.Process(["ls"], universal_newlines=True)
-    with pytest.raises(ValueError):
-        subprocess.Process(["ls"], bufsize=4096)
+    with pytest.raises(TypeError) as excinfo:
+        subprocess.Process(["ls"], encoding="utf-8")
+    assert "unbuffered byte streams" in str(excinfo.value)
+    assert "the 'encoding' option is not supported" in str(excinfo.value)
 
 
 async def test_signals():
