@@ -605,7 +605,9 @@ class SSLStream(Stream):
                 # For some reason, EOF before handshake sometimes raises
                 # SSLSyscallError instead of SSLEOFError (e.g. on my linux
                 # laptop, but not on appveyor). Thanks openssl.
-                if (
+                if isinstance(exc.__cause__, _stdlib_ssl.SSLZeroReturnError):
+                    return b""
+                elif (
                     self._https_compatible and isinstance(
                         exc.__cause__,
                         (_stdlib_ssl.SSLEOFError, _stdlib_ssl.SSLSyscallError)
@@ -625,9 +627,18 @@ class SSLStream(Stream):
                 # BROKEN. But that's actually fine, because after getting an
                 # EOF on TLS then the only thing you can do is close the
                 # stream, and closing doesn't care about the state.
+                #
+                # SSLZeroReturnError means the TLS layer shut down cleanly, so
+                # that's always an application-level EOF.
+                # SSLEOFError means that the transport closed without the TLS
+                # layer shutting down cleanly, so that's an application-level
+                # EOF iff we're in https-compatible mode.
                 if (
-                    self._https_compatible
-                    and isinstance(exc.__cause__, _stdlib_ssl.SSLEOFError)
+                    isinstance(exc.__cause__, _stdlib_ssl.SSLZeroReturnError)
+                    or (
+                        self._https_compatible
+                        and isinstance(exc.__cause__, _stdlib_ssl.SSLEOFError)
+                    )
                 ):
                     return b""
                 else:

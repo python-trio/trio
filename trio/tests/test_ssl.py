@@ -71,7 +71,7 @@ def ssl_echo_serve_sync(sock, *, expect_fail=False):
                 # other side has initiated a graceful shutdown; we try to
                 # respond in kind but it's legal for them to have already gone
                 # away.
-                exceptions = (BrokenPipeError,)
+                exceptions = (BrokenPipeError, stdlib_ssl.SSLZeroReturnError)
                 # Under unclear conditions, CPython sometimes raises
                 # SSLWantWriteError here. This is a bug (bpo-32219), but it's
                 # not our bug, so ignore it.
@@ -86,6 +86,7 @@ def ssl_echo_serve_sync(sock, *, expect_fail=False):
         if expect_fail:
             print("ssl_echo_serve_sync got error as expected:", exc)
         else:  # pragma: no cover
+            print("ssl_echo_serve_sync got unexpected error:", exc)
             raise
     else:
         if expect_fail:  # pragma: no cover
@@ -760,16 +761,33 @@ async def test_SSLStream_generic(https_compatible):
 
     async def clogged_stream_maker():
         client, server = ssl_lockstep_stream_pair()
+
         # If we don't do handshakes up front, then we run into a problem in
         # the following situation:
         # - server does wait_send_all_might_not_block
         # - client does receive_some to unclog it
         # Then the client's receive_some will actually send some data to start
         # the handshake, and itself get stuck.
+        #
+        # And then we push a bit of application-level data from the
+        # server->client, in order to clear out any TLS 1.3 session tickets
+        # that could otherwise cause things to hang:
+        #   https://github.com/python-trio/trio/issues/819
+        async def client_handshake():
+            await client.do_handshake()
+            assert await client.receive_some(1) == b"x"
+
+        async def server_handshake():
+            await server.do_handshake()
+            await server.send_all(b"x")
+
         async with _core.open_nursery() as nursery:
-            nursery.start_soon(client.do_handshake)
-            nursery.start_soon(server.do_handshake)
+            nursery.start_soon(client_handshake)
+            nursery.start_soon(server_handshake)
         return client, server
+
+    with trio.fail_after(2):
+        await clogged_stream_maker()
 
     await check_two_way_stream(stream_maker, clogged_stream_maker)
 
@@ -880,18 +898,22 @@ async def test_closing_nice_case():
             await client_ssl.do_handshake()
 
     # Check that a graceful close *before* handshaking gives a clean EOF on
-    # the other side
+    # the other side.
+    # Unfortunately with openssl 1.1.1 this can't work reliably if the client
+    # calls aclose() and the server calls receive_some():
+    #   https://github.com/python-trio/trio/issues/819
+    # so, we do it the other way around.
     client_ssl, server_ssl = ssl_memory_stream_pair()
 
-    async def expect_eof_server():
+    async def expect_eof_client():
         with assert_checkpoints():
-            assert await server_ssl.receive_some(10) == b""
+            assert await client_ssl.receive_some(10) == b""
         with assert_checkpoints():
-            await server_ssl.aclose()
+            await client_ssl.aclose()
 
     async with _core.open_nursery() as nursery:
-        nursery.start_soon(client_ssl.aclose)
-        nursery.start_soon(expect_eof_server)
+        nursery.start_soon(server_ssl.aclose)
+        nursery.start_soon(expect_eof_client)
 
 
 async def test_send_all_fails_in_the_middle():
