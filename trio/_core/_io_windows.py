@@ -12,7 +12,7 @@ import signal
 import attr
 
 from .. import _core
-from . import _public
+from ._run import _public
 from ._wakeup_socketpair import WakeupSocketpair
 from .._util import is_main_thread
 

@@ -20,7 +20,6 @@ from async_generator import isasyncgen
 from sortedcontainers import SortedDict
 from outcome import Error, Value, capture
 
-from . import _public
 from ._entry_queue import EntryQueue, TrioToken
 from ._exceptions import (TrioInternalError, RunFinishedError, Cancelled)
 from ._ki import (
@@ -214,7 +213,6 @@ class CancelScope:
 # to exceptions.
 @attr.s
 class CancelScopeManager:
-
     _deadline = attr.ib(default=inf)
     _shield = attr.ib(default=False)
 
@@ -628,6 +626,24 @@ class Task:
 ################################################################
 # The central Runner object
 ################################################################
+
+GLOBAL_RUN_CONTEXT = threading.local()
+
+
+# Decorator function to export a method to the module
+def _public(fn):
+    cls_name, fn_name = fn.__qualname__.split('.')
+
+    def wrapper(*args, **kwargs):
+        locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+        try:
+            cls = getattr(GLOBAL_RUN_CONTEXT, cls_name)
+        except ImportError:
+            raise RuntimeError('Must be called from async context')
+        return fn(cls, *args, **kwargs)
+
+    globals()[fn_name] = wrapper
+    return fn
 
 
 @attr.s(frozen=True)
@@ -1599,8 +1615,6 @@ async def checkpoint_if_cancelled():
 # namespaces. The wrapper is called as common code to call the methods as
 # functions
 # wrapper to call methods that are publicly available
-
-GLOBAL_RUN_CONTEXT = threading.local()
 
 
 def sync_wrapper(ctx_name, meth_name, *args, **kwargs):

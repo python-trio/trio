@@ -3,7 +3,7 @@ import attr
 import outcome
 
 from .. import _core
-from . import _public
+from ._run import _public
 
 
 @attr.s(frozen=True)
