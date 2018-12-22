@@ -6,7 +6,7 @@
 # here.
 
 # Trio-specific symbols:
-from ._ssl import (SSLStream, SSLListener)
+from ._ssl import SSLStream, SSLListener, NeedHandshakeError
 
 # Symbols re-exported from the stdlib ssl module:
 

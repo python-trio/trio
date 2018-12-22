@@ -246,6 +246,11 @@ And if you're implementing a server, you can use :class:`SSLListener`:
    :show-inheritance:
    :members:
 
+Some methods on :class:`SSLStream` raise :exc:`NeedHandshakeError` if
+you call them before the handshake completes:
+
+.. autoexception:: NeedHandshakeError
+
 
 .. module:: trio.socket
 
