@@ -6,26 +6,40 @@ import trio
 from trio.socket import AF_INET, AF_INET6, SOCK_STREAM, IPPROTO_TCP
 from trio._highlevel_open_tcp_stream import (
     reorder_for_rfc_6555_section_5_4,
-    close_on_error,
+    close_all,
     open_tcp_stream,
     format_host_port,
 )
 
 
-def test_close_on_error():
+def test_close_all():
     class CloseMe:
         closed = False
 
         def close(self):
             self.closed = True
 
-    with close_on_error(CloseMe()) as c:
-        pass
-    assert not c.closed
+    class CloseKiller:
+        def close(self):
+            raise OSError
 
+    c = CloseMe()
+    with close_all() as to_close:
+        to_close.add(c)
+    assert c.closed
+
+    c = CloseMe()
     with pytest.raises(RuntimeError):
-        with close_on_error(CloseMe()) as c:
+        with close_all() as to_close:
+            to_close.add(c)
             raise RuntimeError
+    assert c.closed
+
+    c = CloseMe()
+    with pytest.raises(OSError):
+        with close_all() as to_close:
+            to_close.add(CloseKiller())
+            to_close.add(c)
     assert c.closed
 
 
@@ -97,7 +111,7 @@ async def test_open_tcp_stream_input_validation():
 # Now, thorough tests using fake sockets
 
 
-@attr.s
+@attr.s(cmp=False)
 class FakeSocket(trio.socket.SocketType):
     scenario = attr.ib()
     family = attr.ib()
@@ -108,6 +122,7 @@ class FakeSocket(trio.socket.SocketType):
     port = attr.ib(default=None)
     succeeded = attr.ib(default=False)
     closed = attr.ib(default=False)
+    failing = attr.ib(default=False)
 
     async def connect(self, sockaddr):
         self.ip = sockaddr[0]
@@ -119,38 +134,43 @@ class FakeSocket(trio.socket.SocketType):
         await trio.sleep(delay)
         if result == "error":
             raise OSError("sorry")
+        if result == "postconnect_fail":
+            self.failing = True
         self.succeeded = True
 
     def close(self):
         self.closed = True
 
-    # Some stubs to stop SocketStream from complaining:
+    # called when SocketStream is constructed
     def setsockopt(self, *args, **kwargs):
-        pass
+        if self.failing:
+            # raise something that isn't OSError as SocketStream
+            # ignores those
+            raise KeyboardInterrupt
 
 
 class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
-    def __init__(self, port, ip_list, ipv6_supported):
+    def __init__(self, port, ip_list, supported_families):
         # ip_list have to be unique
         ip_order = [ip for (ip, _, _) in ip_list]
         assert len(set(ip_order)) == len(ip_list)
         ip_dict = {}
         for ip, delay, result in ip_list:
             assert 0 <= delay
-            assert result in ["error", "success"]
+            assert result in ["error", "success", "postconnect_fail"]
             ip_dict[ip] = (delay, result)
 
         self.port = port
         self.ip_order = ip_order
         self.ip_dict = ip_dict
-        self.ipv6_supported = ipv6_supported
+        self.supported_families = supported_families
         self.socket_count = 0
         self.sockets = {}
         self.connect_times = {}
 
     def socket(self, family, type, proto):
-        if not self.ipv6_supported and family == trio.socket.AF_INET6:
-            raise OSError("pretending not to support ipv6")
+        if family not in self.supported_families:
+            raise OSError("pretending not to support this family")
         self.socket_count += 1
         return FakeSocket(self, family, type, proto)
 
@@ -197,8 +217,9 @@ async def run_scenario(
     # connect() calls to them will have the given result.
     ip_list,
     *,
-    # If False, AF_INET6 sockets error out on creation, before connect is
+    # If False, AF_INET4/6 sockets error out on creation, before connect is
     # even called.
+    ipv4_supported=True,
     ipv6_supported=True,
     # Normally, we return (winning_sock, scenario object)
     # If this is True, we require there to be an exception, and return
@@ -206,7 +227,12 @@ async def run_scenario(
     expect_error=(),
     **kwargs
 ):
-    scenario = Scenario(port, ip_list, ipv6_supported)
+    supported_families = set()
+    if ipv4_supported:
+        supported_families.add(trio.socket.AF_INET)
+    if ipv6_supported:
+        supported_families.add(trio.socket.AF_INET6)
+    scenario = Scenario(port, ip_list, supported_families)
     trio.socket.set_custom_hostname_resolver(scenario)
     trio.socket.set_custom_socket_factory(scenario)
 
@@ -248,6 +274,14 @@ async def test_one_host_slow_fail(autojump_clock):
     )
     assert isinstance(exc, OSError)
     assert trio.current_time() == 100
+
+
+async def test_one_host_failed_after_connect(autojump_clock):
+    exc, scenario = await run_scenario(
+        83, [("1.2.3.4", 1, "postconnect_fail")],
+        expect_error=KeyboardInterrupt
+    )
+    assert isinstance(exc, KeyboardInterrupt)
 
 
 # With the default 0.300 second delay, the third attempt will win
@@ -395,6 +429,28 @@ async def test_does_reorder(autojump_clock):
     assert scenario.connect_times == {
         "1.1.1.1": 0,
         "::3": 1,
+    }
+
+
+async def test_handles_no_ipv4(autojump_clock):
+    sock, scenario = await run_scenario(
+        80,
+        # Here the ipv6 addresses fail at socket creation time, so the connect
+        # configuration doesn't matter
+        [
+            ("::1", 10, "success"),
+            ("2.2.2.2", 0, "success"),
+            ("::3", 0.1, "success"),
+            ("4.4.4.4", 0, "success"),
+        ],
+        happy_eyeballs_delay=1,
+        ipv4_supported=False,
+    )
+    assert sock.ip == "::3"
+    assert trio.current_time() == 1 + 0.1
+    assert scenario.connect_times == {
+        "::1": 0,
+        "::3": 1.0,
     }
 
 

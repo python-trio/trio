@@ -5,11 +5,31 @@ import tempfile
 import pytest
 
 from trio import open_unix_socket, Path
+from trio._highlevel_open_unix_stream import (
+    close_on_error,
+)
 
 try:
     from socket import AF_UNIX
 except ImportError:
     pytestmark = pytest.mark.skip("Needs unix socket support")
+
+
+def test_close_on_error():
+    class CloseMe:
+        closed = False
+
+        def close(self):
+            self.closed = True
+
+    with close_on_error(CloseMe()) as c:
+        pass
+    assert not c.closed
+
+    with pytest.raises(RuntimeError):
+        with close_on_error(CloseMe()) as c:
+            raise RuntimeError
+    assert c.closed
 
 
 async def test_open_bad_socket():
