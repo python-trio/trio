@@ -35,15 +35,6 @@ from ._traps import (
 )
 from .. import _core
 
-if os.name == "nt":
-    from ._io_windows import WindowsIOManager as TheIOManager
-elif hasattr(select, "epoll"):
-    from ._io_epoll import EpollIOManager as TheIOManager
-elif hasattr(select, "kqueue"):
-    from ._io_kqueue import KqueueIOManager as TheIOManager
-else:  # pragma: no cover
-    raise NotImplementedError("unsupported platform")
-
 _r = random.Random()
 
 # Used to log exceptions in instruments
@@ -1616,6 +1607,8 @@ async def checkpoint_if_cancelled():
 # Windows
 if os.name == "nt":
 
+    from ._io_windows import WindowsIOManager as TheIOManager
+
     def current_iocp():
         locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
         try:
@@ -1679,6 +1672,8 @@ if os.name == "nt":
 # OSX
 elif hasattr(select, "epoll"):
 
+    from ._io_epoll import EpollIOManager as TheIOManager
+
     def wait_readable(fd):
         locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
         try:
@@ -1702,6 +1697,8 @@ elif hasattr(select, "epoll"):
 
 # Linux
 elif hasattr(select, "kqueue"):
+
+    from ._io_kqueue import KqueueIOManager as TheIOManager
 
     def current_kqueue():
         locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
