@@ -8,6 +8,7 @@ on_windows = (os.name == "nt")
 # Mark all the tests in this file as being windows-only
 pytestmark = pytest.mark.skipif(not on_windows, reason="windows only")
 
+from .tutil import slow
 from ... import _core, sleep, move_on_after
 from ...testing import wait_all_tasks_blocked
 if on_windows:
@@ -113,14 +114,22 @@ def pipe_with_overlapped_read():
 
 def test_forgot_to_register_with_iocp():
     with pipe_with_overlapped_read() as (write_fp, read_handle):
-        write_fp.close()
+        with write_fp:
+            write_fp.write(b"test\n")
+
         left_run_yet = False
+        nursery = None
 
         async def main():
+            nonlocal nursery
             target = bytearray(1)
             try:
-                with move_on_after(0.5):
-                    await _core.readinto_overlapped(read_handle, target)
+                async with _core.open_nursery() as nursery:
+                    nursery.start_soon(
+                        _core.readinto_overlapped, read_handle, target, name="_"
+                    )
+                    await wait_all_tasks_blocked()
+                    nursery.cancel_scope.cancel()
             finally:
                 # Run loop is exited without unwinding running tasks, so
                 # we don't get here until the main() coroutine is GC'ed
@@ -129,10 +138,16 @@ def test_forgot_to_register_with_iocp():
         with pytest.raises(_core.TrioInternalError) as exc_info:
             _core.run(main)
         left_run_yet = True
-        assert "Failed to cancel overlapped I/O in main" in str(exc_info.value)
+        assert "Failed to cancel overlapped I/O in _ " in str(exc_info.value)
         assert "forget to call register_with_iocp()?" in str(exc_info.value)
 
+        # Suppress the Nursery.__del__ assertion about dangling children,
+        # for both the nursery we created and the system nursery
+        nursery._children.clear()
+        nursery.parent_task.parent_nursery._children.clear()
 
+
+@slow
 async def test_too_late_to_cancel():
     import time
 
