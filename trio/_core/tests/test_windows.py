@@ -126,7 +126,10 @@ def test_forgot_to_register_with_iocp():
             try:
                 async with _core.open_nursery() as nursery:
                     nursery.start_soon(
-                        _core.readinto_overlapped, read_handle, target, name="_"
+                        _core.readinto_overlapped,
+                        read_handle,
+                        target,
+                        name="xyz"
                     )
                     await wait_all_tasks_blocked()
                     nursery.cancel_scope.cancel()
@@ -138,7 +141,7 @@ def test_forgot_to_register_with_iocp():
         with pytest.raises(_core.TrioInternalError) as exc_info:
             _core.run(main)
         left_run_yet = True
-        assert "Failed to cancel overlapped I/O in _ " in str(exc_info.value)
+        assert "Failed to cancel overlapped I/O in xyz " in str(exc_info.value)
         assert "forget to call register_with_iocp()?" in str(exc_info.value)
 
         # Suppress the Nursery.__del__ assertion about dangling children,
