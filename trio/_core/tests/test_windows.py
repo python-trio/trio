@@ -8,7 +8,7 @@ on_windows = (os.name == "nt")
 # Mark all the tests in this file as being windows-only
 pytestmark = pytest.mark.skipif(not on_windows, reason="windows only")
 
-from .tutil import slow
+from .tutil import slow, gc_collect_harder
 from ... import _core, sleep, move_on_after
 from ...testing import wait_all_tasks_blocked
 if on_windows:
@@ -118,10 +118,8 @@ def test_forgot_to_register_with_iocp():
             write_fp.write(b"test\n")
 
         left_run_yet = False
-        nursery = None
 
         async def main():
-            nonlocal nursery
             target = bytearray(1)
             try:
                 async with _core.open_nursery() as nursery:
@@ -144,10 +142,10 @@ def test_forgot_to_register_with_iocp():
         assert "Failed to cancel overlapped I/O in xyz " in str(exc_info.value)
         assert "forget to call register_with_iocp()?" in str(exc_info.value)
 
-        # Suppress the Nursery.__del__ assertion about dangling children,
-        # for both the nursery we created and the system nursery
-        nursery._children.clear()
-        nursery.parent_task.parent_nursery._children.clear()
+        # Make sure the Nursery.__del__ assertion about dangling children
+        # gets put with the correct test
+        del exc_info
+        gc_collect_harder()
 
 
 @slow
