@@ -674,9 +674,10 @@ class Runner:
         if self.instruments:
             self.instrument("after_run")
 
-    # Add methods to be converted into functions and exported to trio.hazmat
+    # Add methods with _public = True attribute are to be converted
+    # into functions and exported to trio.hazmat
     # to the _public export list
-    #public
+
     def current_statistics(self):
         """Returns an object containing run-loop-level debugging information.
 
@@ -700,6 +701,7 @@ class Runner:
           other attributes vary between backends.
 
         """
+        _public = True
         if self.deadlines:
             next_deadline, _ = self.deadlines.keys()[0]
             seconds_to_next_deadline = next_deadline - self.current_time()
@@ -713,7 +715,6 @@ class Runner:
             run_sync_soon_queue_size=self.entry_queue.size(),
         )
 
-    #public
     def current_time(self):
         """Returns the current time according to trio's internal clock.
 
@@ -724,29 +725,29 @@ class Runner:
             RuntimeError: if not inside a call to :func:`trio.run`.
 
         """
+        _public = True
         return self.clock.current_time()
 
-    #public
     def current_clock(self):
         """Returns the current :class:`~trio.abc.Clock`.
 
         """
+        _public = True
         return self.clock
 
-    #public
     def current_root_task(self):
         """Returns the current root :class:`Task`.
 
         This is the task that is the ultimate parent of all other tasks.
 
         """
+        _public = True
         return self.init_task
 
     ################
     # Core task handling primitives
     ################
 
-    #public
     def reschedule(self, task, next_send=_NO_SEND):
         """Reschedule the given task with the given
         :class:`outcome.Outcome`.
@@ -765,6 +766,7 @@ class Runner:
             raise) from :func:`wait_task_rescheduled`.
 
         """
+        _public = True
         if next_send is self._NO_SEND:
             next_send = Value(None)
 
@@ -945,7 +947,6 @@ class Runner:
     # System tasks and init
     ################
 
-    #public
     def spawn_system_task(self, async_fn, *args, name=None):
         """Spawn a "system" task.
 
@@ -985,7 +986,7 @@ class Runner:
           Task: the newly spawned task
 
         """
-
+        _public = True
         return self.spawn_impl(
             async_fn, args, self.system_nursery, name, system_task=True
         )
@@ -1006,12 +1007,12 @@ class Runner:
     # Outside context problems
     ################
 
-    #public
     def current_trio_token(self):
         """Retrieve the :class:`TrioToken` for the current call to
         :func:`trio.run`.
 
         """
+        _public = True
         if self.trio_token is None:
             self.trio_token = TrioToken(self.entry_queue)
         return self.trio_token
@@ -1055,7 +1056,6 @@ class Runner:
 
     waiting_for_idle = attr.ib(default=attr.Factory(SortedDict))
 
-    #public
     async def wait_all_tasks_blocked(self, cushion=0.0, tiebreaker=0):
         """Block until there are no runnable tasks.
 
@@ -1116,6 +1116,7 @@ class Runner:
                          print("FAIL")
 
         """
+        _public = True
         task = current_task()
         key = (cushion, tiebreaker, id(task))
         self.waiting_for_idle[key] = task
@@ -1148,7 +1149,6 @@ class Runner:
                     "Instrument has been disabled.", method_name, instrument
                 )
 
-    #public
     def add_instrument(self, instrument):
         """Start instrumenting the current run loop with the given instrument.
 
@@ -1158,10 +1158,10 @@ class Runner:
         If ``instrument`` is already active, does nothing.
 
         """
+        _public = True
         if instrument not in self.instruments:
             self.instruments.append(instrument)
 
-    #public
     def remove_instrument(self, instrument):
         """Stop instrumenting the current run loop with the given instrument.
 
@@ -1175,6 +1175,7 @@ class Runner:
               deactivated.
 
         """
+        _public = True
         # We're moving 'instruments' to being a set, so raise KeyError like
         # set.remove does.
         try:
@@ -1596,8 +1597,10 @@ async def checkpoint_if_cancelled():
 
 
 # ****************************************************************************
-# DO NOT EDIT PAST THIS POINT. ALL CHANGES MADE HERE WILL BE LOST AS GENERATED
+# DO NOT EDIT PAST THIS POINT. ALL CHANGES MADE HERE WILL BE LOST
+# AS THIS PART IS GENERATED
 # ****************************************************************************
+# yapf: disable
 
 # All of the following functions are exported as part of the trio or trio.hazmat
 # namespaces. The wrapper is called as common code to call the methods as

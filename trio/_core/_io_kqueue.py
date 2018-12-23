@@ -72,13 +72,13 @@ class KqueueIOManager:
     # about e.g. KeyboardInterrupt. Possibly this API could be improved to
     # be more ergonomic...
 
-    #@_public
     def current_kqueue(self):
+        _public = True
         return self._kqueue
 
-    #@_public
     @contextmanager
     def monitor_kevent(self, ident, filter):
+        _public = True
         key = (ident, filter)
         if key in self._registered:
             raise _core.BusyResourceError(
@@ -92,8 +92,8 @@ class KqueueIOManager:
         finally:
             del self._registered[key]
 
-    #@_public
     async def wait_kevent(self, ident, filter, abort_func):
+        _public = True
         key = (ident, filter)
         if key in self._registered:
             await _core.checkpoint()
@@ -125,16 +125,16 @@ class KqueueIOManager:
 
         await self.wait_kevent(fd, filter, abort)
 
-    #@_public
     async def wait_readable(self, fd):
+        _public = True
         await self._wait_common(fd, select.KQ_FILTER_READ)
 
-    #@_public
     async def wait_writable(self, fd):
+        _public = True
         await self._wait_common(fd, select.KQ_FILTER_WRITE)
 
-    #@_public
     def notify_fd_close(self, fd):
+        _public = True
         if not isinstance(fd, int):
             fd = fd.fileno()
 

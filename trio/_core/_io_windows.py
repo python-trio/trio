@@ -283,18 +283,18 @@ class WindowsIOManager:
             self._iocp_queue.append((batch, received[0]))
             self._main_thread_waker.wakeup_thread_and_signal_safe()
 
-    #@_public
     def current_iocp(self):
+        _public = True
         return int(ffi.cast("uintptr_t", self._iocp))
 
-    #@_public
     def register_with_iocp(self, handle):
+        _public = True
         handle = _handle(obj)
         # https://msdn.microsoft.com/en-us/library/windows/desktop/aa363862(v=vs.85).aspx
         _check(kernel32.CreateIoCompletionPort(handle, self._iocp, 0, 0))
 
-    #@_public
     async def wait_overlapped(self, handle, lpOverlapped):
+        _public = True
         handle = _handle(obj)
         if isinstance(lpOverlapped, int):
             lpOverlapped = ffi.cast("LPOVERLAPPED", lpOverlapped)
@@ -324,9 +324,9 @@ class WindowsIOManager:
             else:
                 raise_winerror(lpOverlapped.Internal)
 
-    #@_public
     @contextmanager
     def monitor_completion_key(self):
+        _public = True
         key = next(self._completion_key_counter)
         queue = _core.UnboundedQueue()
         self._completion_key_queues[key] = queue
@@ -352,16 +352,16 @@ class WindowsIOManager:
 
         await _core.wait_task_rescheduled(abort)
 
-    #@_public
     async def wait_socket_readable(self, sock):
+        _public = True
         await self._wait_socket("read", sock)
 
-    #@_public
     async def wait_socket_writable(self, sock):
+        _public = True
         await self._wait_socket("write", sock)
 
-    #@_public
     def notify_socket_close(self, sock):
+        _public = True
         if not isinstance(sock, int):
             sock = sock.fileno()
         for mode in ["read", "write"]:
@@ -375,10 +375,10 @@ class WindowsIOManager:
     # This has cffi-isms in it and is untested... but it demonstrates the
     # logic we'll want when we start actually using overlapped I/O.
     #
-    # #@_public
     # async def perform_overlapped(self, handle, submit_fn):
     #     # submit_fn(lpOverlapped) submits some I/O
     #     # it may raise an OSError with ERROR_IO_PENDING
+    #     _public = True
     #     await _core.checkpoint_if_cancelled()
     #     self.register_with_iocp(handle)
     #     lpOverlapped = ffi.new("LPOVERLAPPED")
