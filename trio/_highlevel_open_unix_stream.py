@@ -1,5 +1,6 @@
+from contextlib import contextmanager
+
 import trio
-from trio._highlevel_open_tcp_stream import close_on_error
 from trio.socket import socket, SOCK_STREAM
 
 try:
@@ -9,6 +10,15 @@ except ImportError:
     has_unix = False
 
 __all__ = ["open_unix_socket"]
+
+
+@contextmanager
+def close_on_error(obj):
+    try:
+        yield obj
+    except:
+        obj.close()
+        raise
 
 
 async def open_unix_socket(filename,):
