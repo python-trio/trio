@@ -1,5 +1,6 @@
 import ast
 import astor
+import os
 
 RUN_MODULE_FILE = './trio/_core/_run.py'
 WINDOWS_MODULE_FILE = './trio/_core/_io_windows.py'
@@ -37,6 +38,16 @@ def add_public_function(tree, func):
     """
 
 
+def is_function(node):
+    """ Check if an ast node is a function
+    or async function
+    """
+    if isinstance(node, ast.FunctionDef) or \
+       isinstance(node, ast.AsyncFunctionDef):
+        return True
+    return False
+
+
 def get_public_methods(tree):
     """ Return a list of tuples of methods and parents
     marked as public.
@@ -48,13 +59,8 @@ def get_public_methods(tree):
     exported.
     """
     methods = [
-        (parent, child) for parent in ast.walk(tree)
-        for child in ast.iter_child_nodes(parent) if (
-            isinstance(parent, ast.FunctionDef)
-            or isinstance(parent, ast.AsyncFunctionDef)
-        ) and isinstance(child, ast.Assign)
-        and hasattr(child.targets[0], 'id')
-        and child.targets[0].id == '_public' and child.value.value == True
+        node for node in ast.walk(tree)
+        if is_function(node) and get_doc_string(node).startswith('"""PUBLIC')
     ]
     return methods
 
@@ -90,32 +96,37 @@ def get_public_functions(tree):
     takes place as the generated tree does not 
     contain any other functions or methods.
     """
-    funcs = [
-        func for func in ast.walk(tree) if isinstance(func, ast.FunctionDef)
-        or isinstance(func, ast.AsyncFunctionDef)
-    ]
-    return funcs
+    return [func for func in ast.walk(tree) if is_function(func)]
 
 
-def get_module_trees(module_files):
+def get_module_trees_from_list(module_files):
     """ Converts a list of modules into ast module objects
     """
-    # module_files = [
-    #     mod for mod in astor.code_to_ast.find_py_files(SOURCE_TREE)
-    # ]
     module_trees = [
         astor.parse_file(module_file) for module_file in module_files
     ]
     return module_trees
 
 
+def get_module_trees_by_dir(source_dir):
+    """ Converts a list of modules into ast module objects
+    """
+    return [
+        astor.code_to_ast.parse_file(os.path.join(*mod_file))
+        for mod_file in astor.code_to_ast.find_py_files(source_dir)
+    ]
+
+
 def get_doc_string(func):
     """ Returns the doc string of a function
-    or None if none
+    or an empty sting if none
     """
+    if not is_function(func):
+        raise TypeError("Docstring can only be retrieved for a function")
     doc = func.body[0]
-    if isinstance(doc, ast.Expr):
+    if isinstance(doc, ast.Expr) and hasattr(doc.value, 's'):
         return doc.value.s
+    return ""
 
 
 def gen_general_exports():
@@ -143,7 +154,7 @@ def gen_exports():
     of exported functions imported from _public
     """
     # Get all trees we have classes with methods to export in
-    trees = [tree for tree in get_module_trees(EXPORT_MODULE_FILES)]
+    trees = [tree for tree in get_module_trees_from_list(EXPORT_MODULE_FILES)]
 
     # Get all methods we want to export
     methods = [meth[0] for tree in trees for meth in get_public_methods(tree)]
@@ -160,6 +171,7 @@ def gen_exports():
     print([f.name for f in functions])
     # print([get_doc_string(f) for f in methods])
     print(split_gen_tree(gen_tree))
+    print(get_module_trees_by_dir(SOURCE_TREE))
 
 
 if __name__ == '__main__':
