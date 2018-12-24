@@ -246,6 +246,7 @@ def reschedule(task, next_send=Runner._NO_SEND):
     Args:
         task (trio.hazmat.Task): the task to be rescheduled. Must be blocked
         in a call to :func:`wait_task_rescheduled`.
+
         next_send (outcome.Outcome): the value (or error) to return (or
         raise) from :func:`wait_task_rescheduled`.
 
