@@ -1,21 +1,15 @@
 import ast
 import astor
-import os
-import select
 
 RUN_MODULE_FILE = './trio/_core/_run.py'
 WINDOWS_MODULE_FILE = './trio/_core/_io_windows.py'
 EPOLL_MODULE_FILE = './trio/_core/_io_epoll.py'
 KQUEUE_MODULE_FILE = './trio/_core/_io_kqueue.py'
 SOURCE_TREE = './trio/_core'
-
 EXPORT_MODULE_FILES = [
     './trio/_core/_run.py', './trio/_core/_io_windows.py',
     './trio/_core/_io_epoll.py', './trio/_core/_io_kqueue.py'
 ]
-
-# Both types are needed
-FUNCTIONS = [ast.FunctionDef, ast.AsyncFunctionDef]
 
 
 def check_obsolete_functions(funcs, meths):
@@ -79,12 +73,16 @@ def get_gen_tree(module_file):
 def split_gen_tree(tree):
     """ Split the tree into four
     sections:
-    - Functions general available
     - Functions available for Windows
     - Functions available for Epoll
     - Functions available for Kqueue
+    - Functions general available
     """
-    
+    # Get the if blocks which represent Windows, Epoll Kqueue
+    ifs = [node for node in ast.walk(tree) if isinstance(node, ast.If)]
+
+    return ifs
+
 
 def get_public_functions(tree):
     """ Get all exported functions
@@ -148,9 +146,7 @@ def gen_exports():
     trees = [tree for tree in get_module_trees(EXPORT_MODULE_FILES)]
 
     # Get all methods we want to export
-    methods = [
-        meth[0] for tree in trees for meth in get_public_methods(tree)
-    ]
+    methods = [meth[0] for tree in trees for meth in get_public_methods(tree)]
 
     # Generate an ast tree for the generated part of the file
     gen_tree = get_gen_tree(RUN_MODULE_FILE)
@@ -160,9 +156,10 @@ def gen_exports():
 
     # Check for obsolete functions
 
-    print([m.name for m in methods])
-    print([f.name for f in functions])
-    print([get_doc_string(f) for f in methods])
+    # print([m.name for m in methods])
+    # print([f.name for f in functions])
+    # print([get_doc_string(f) for f in methods])
+    print(split_gen_tree(gen_tree))
 
 
 if __name__ == '__main__':

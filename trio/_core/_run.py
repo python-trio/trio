@@ -1749,6 +1749,8 @@ elif hasattr(select, "kqueue"):
         except AttributeError:
             raise RuntimeError("must be called from async context")
 
+else:  # pragma: no cover
+    raise NotImplementedError("unsupported platform")
 
 # Always available independent of os
 def current_statistics():
