@@ -73,12 +73,14 @@ class KqueueIOManager:
     # be more ergonomic...
 
     def current_kqueue(self):
-        _public = True
+        """PUBLIC
+        """
         return self._kqueue
 
     @contextmanager
     def monitor_kevent(self, ident, filter):
-        _public = True
+        """PUBLIC
+        """
         key = (ident, filter)
         if key in self._registered:
             raise _core.BusyResourceError(
@@ -93,7 +95,8 @@ class KqueueIOManager:
             del self._registered[key]
 
     async def wait_kevent(self, ident, filter, abort_func):
-        _public = True
+        """PUBLIC
+        """
         key = (ident, filter)
         if key in self._registered:
             await _core.checkpoint()
@@ -126,15 +129,18 @@ class KqueueIOManager:
         await self.wait_kevent(fd, filter, abort)
 
     async def wait_readable(self, fd):
-        _public = True
+        """PUBLIC
+        """
         await self._wait_common(fd, select.KQ_FILTER_READ)
 
     async def wait_writable(self, fd):
-        _public = True
+        """PUBLIC
+        """
         await self._wait_common(fd, select.KQ_FILTER_WRITE)
 
     def notify_fd_close(self, fd):
-        _public = True
+        """PUBLIC
+        """
         if not isinstance(fd, int):
             fd = fd.fileno()
 

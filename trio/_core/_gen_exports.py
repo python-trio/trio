@@ -156,8 +156,8 @@ def gen_exports():
 
     # Check for obsolete functions
 
-    # print([m.name for m in methods])
-    # print([f.name for f in functions])
+    print([m.name for m in methods])
+    print([f.name for f in functions])
     # print([get_doc_string(f) for f in methods])
     print(split_gen_tree(gen_tree))
 

@@ -117,15 +117,18 @@ class EpollIOManager:
         await _core.wait_task_rescheduled(abort)
 
     async def wait_readable(self, fd):
-        _public = True
+        """PUBLIC
+        """
         await self._epoll_wait(fd, "read_task")
 
     async def wait_writable(self, fd):
-        _public = True
+        """PUBLIC
+        """
         await self._epoll_wait(fd, "write_task")
 
     def notify_fd_close(self, fd):
-        _public = True
+        """PUBLIC
+        """
         if not isinstance(fd, int):
             fd = fd.fileno()
         if fd not in self._registered:

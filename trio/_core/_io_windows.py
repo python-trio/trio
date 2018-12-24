@@ -284,17 +284,20 @@ class WindowsIOManager:
             self._main_thread_waker.wakeup_thread_and_signal_safe()
 
     def current_iocp(self):
-        _public = True
+        """PUBLIC
+        """
         return int(ffi.cast("uintptr_t", self._iocp))
 
     def register_with_iocp(self, handle):
-        _public = True
+        """PUBLIC
+        """
         handle = _handle(obj)
         # https://msdn.microsoft.com/en-us/library/windows/desktop/aa363862(v=vs.85).aspx
         _check(kernel32.CreateIoCompletionPort(handle, self._iocp, 0, 0))
 
     async def wait_overlapped(self, handle, lpOverlapped):
-        _public = True
+        """PUBLIC
+        """
         handle = _handle(obj)
         if isinstance(lpOverlapped, int):
             lpOverlapped = ffi.cast("LPOVERLAPPED", lpOverlapped)
@@ -326,7 +329,8 @@ class WindowsIOManager:
 
     @contextmanager
     def monitor_completion_key(self):
-        _public = True
+        """PUBLIC
+        """
         key = next(self._completion_key_counter)
         queue = _core.UnboundedQueue()
         self._completion_key_queues[key] = queue
@@ -353,15 +357,18 @@ class WindowsIOManager:
         await _core.wait_task_rescheduled(abort)
 
     async def wait_socket_readable(self, sock):
-        _public = True
+        """PUBLIC
+        """
         await self._wait_socket("read", sock)
 
     async def wait_socket_writable(self, sock):
-        _public = True
+        """PUBLIC
+        """
         await self._wait_socket("write", sock)
 
     def notify_socket_close(self, sock):
-        _public = True
+        """PUBLIC
+        """
         if not isinstance(sock, int):
             sock = sock.fileno()
         for mode in ["read", "write"]:
@@ -378,7 +385,6 @@ class WindowsIOManager:
     # async def perform_overlapped(self, handle, submit_fn):
     #     # submit_fn(lpOverlapped) submits some I/O
     #     # it may raise an OSError with ERROR_IO_PENDING
-    #     _public = True
     #     await _core.checkpoint_if_cancelled()
     #     self.register_with_iocp(handle)
     #     lpOverlapped = ffi.new("LPOVERLAPPED")

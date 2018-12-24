@@ -674,12 +674,13 @@ class Runner:
         if self.instruments:
             self.instrument("after_run")
 
-    # Add methods with _public = True attribute are to be converted
-    # into functions and exported to trio.hazmat
-    # to the _public export list
-
+    # Add methods by adding "PUBLIC" (without quotes) to the first
+    # line of the docs. Methods with this line are to be converted
+    # into functions and exported to trio.hazmat. The PUBLIC keyword
+    # will be stripped from  the docstring in the function
     def current_statistics(self):
-        """Returns an object containing run-loop-level debugging information.
+        """PUBLIC
+        Returns an object containing run-loop-level debugging information.
 
         Currently the following fields are defined:
 
@@ -701,7 +702,6 @@ class Runner:
           other attributes vary between backends.
 
         """
-        _public = True
         if self.deadlines:
             next_deadline, _ = self.deadlines.keys()[0]
             seconds_to_next_deadline = next_deadline - self.current_time()
@@ -716,7 +716,8 @@ class Runner:
         )
 
     def current_time(self):
-        """Returns the current time according to trio's internal clock.
+        """PUBLIC
+        Returns the current time according to trio's internal clock.
 
         Returns:
             float: The current time.
@@ -725,23 +726,22 @@ class Runner:
             RuntimeError: if not inside a call to :func:`trio.run`.
 
         """
-        _public = True
         return self.clock.current_time()
 
     def current_clock(self):
-        """Returns the current :class:`~trio.abc.Clock`.
+        """PUBLIC
+        Returns the current :class:`~trio.abc.Clock`.
 
         """
-        _public = True
         return self.clock
 
     def current_root_task(self):
-        """Returns the current root :class:`Task`.
+        """PUBLIC
+        Returns the current root :class:`Task`.
 
         This is the task that is the ultimate parent of all other tasks.
 
         """
-        _public = True
         return self.init_task
 
     ################
@@ -749,7 +749,8 @@ class Runner:
     ################
 
     def reschedule(self, task, next_send=_NO_SEND):
-        """Reschedule the given task with the given
+        """PUBLIC
+        Reschedule the given task with the given
         :class:`outcome.Outcome`.
 
         See :func:`wait_task_rescheduled` for the gory details.
@@ -766,7 +767,6 @@ class Runner:
             raise) from :func:`wait_task_rescheduled`.
 
         """
-        _public = True
         if next_send is self._NO_SEND:
             next_send = Value(None)
 
@@ -948,7 +948,8 @@ class Runner:
     ################
 
     def spawn_system_task(self, async_fn, *args, name=None):
-        """Spawn a "system" task.
+        """PUBLIC
+        Spawn a "system" task.
 
         System tasks have a few differences from regular tasks:
 
@@ -986,7 +987,6 @@ class Runner:
           Task: the newly spawned task
 
         """
-        _public = True
         return self.spawn_impl(
             async_fn, args, self.system_nursery, name, system_task=True
         )
@@ -1012,7 +1012,6 @@ class Runner:
         :func:`trio.run`.
 
         """
-        _public = True
         if self.trio_token is None:
             self.trio_token = TrioToken(self.entry_queue)
         return self.trio_token
@@ -1057,7 +1056,8 @@ class Runner:
     waiting_for_idle = attr.ib(default=attr.Factory(SortedDict))
 
     async def wait_all_tasks_blocked(self, cushion=0.0, tiebreaker=0):
-        """Block until there are no runnable tasks.
+        """PUBLIC
+        Block until there are no runnable tasks.
 
         This is useful in testing code when you want to give other tasks a
         chance to "settle down". The calling task is blocked, and doesn't wake
@@ -1116,7 +1116,6 @@ class Runner:
                          print("FAIL")
 
         """
-        _public = True
         task = current_task()
         key = (cushion, tiebreaker, id(task))
         self.waiting_for_idle[key] = task
@@ -1150,7 +1149,8 @@ class Runner:
                 )
 
     def add_instrument(self, instrument):
-        """Start instrumenting the current run loop with the given instrument.
+        """PUBLIC
+        Start instrumenting the current run loop with the given instrument.
 
         Args:
           instrument (trio.abc.Instrument): The instrument to activate.
@@ -1158,12 +1158,12 @@ class Runner:
         If ``instrument`` is already active, does nothing.
 
         """
-        _public = True
         if instrument not in self.instruments:
             self.instruments.append(instrument)
 
     def remove_instrument(self, instrument):
-        """Stop instrumenting the current run loop with the given instrument.
+        """PUBLIC
+        Stop instrumenting the current run loop with the given instrument.
 
         Args:
           instrument (trio.abc.Instrument): The instrument to de-activate.
@@ -1175,7 +1175,6 @@ class Runner:
               deactivated.
 
         """
-        _public = True
         # We're moving 'instruments' to being a set, so raise KeyError like
         # set.remove does.
         try:
