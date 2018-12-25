@@ -1216,7 +1216,7 @@ def run(
     instruments=(),
     restrict_keyboard_interrupt_to_checkpoints=False
 ):
-    """Run a trio-flavored async function, and return the outcome.
+    """Run a trio-flavored async function, and return the result.
 
     Calling::
 
