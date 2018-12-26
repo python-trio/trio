@@ -88,6 +88,14 @@ class PipeSendStream(_PipeMixin, SendStream):
 class PipeReceiveStream(_PipeMixin, ReceiveStream):
     """Represents a receive stream over an os.pipe object."""
 
+    did_receive_eof = False
+    did_close_before_receiving_eof = False
+
+    async def aclose(self) -> None:
+        if not self._closed:
+            self.did_close_before_receiving_eof = not self.did_receive_eof
+        await _PipeMixin.aclose(self)
+
     async def receive_some(self, max_bytes: int) -> bytes:
         if self._closed:
             await _core.checkpoint()
@@ -111,6 +119,8 @@ class PipeReceiveStream(_PipeMixin, ReceiveStream):
                 await _core.cancel_shielded_checkpoint()
                 break
 
+        if data == b"":
+            self.did_receive_eof = True
         return data
 
 

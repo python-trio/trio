@@ -78,6 +78,14 @@ class PipeSendStream(_PipeMixin, SendStream):
 class PipeReceiveStream(_PipeMixin, ReceiveStream):
     """Represents a receive stream over an os.pipe object."""
 
+    did_receive_eof = False
+    did_close_before_receiving_eof = False
+
+    async def aclose(self) -> None:
+        if not self._closed:
+            self.did_close_before_receiving_eof = not self.did_receive_eof
+        await _PipeMixin.aclose(self)
+
     async def receive_some(self, max_bytes: int) -> bytes:
         async with self._conflict_detector:
             if self._closed:
@@ -102,6 +110,7 @@ class PipeReceiveStream(_PipeMixin, ReceiveStream):
                 # whenever the other end closes, regardless of direction.
                 # Convert this to the Unix behavior of returning EOF to the
                 # reader when the writer closes.
+                self.did_receive_eof = True
                 return b""
             else:
                 del buffer[size:]

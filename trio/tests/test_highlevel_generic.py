@@ -2,8 +2,10 @@ import pytest
 
 import attr
 
+from .. import _core
 from ..abc import SendStream, ReceiveStream
-from .._highlevel_generic import StapledStream
+from ..testing import assert_checkpoints
+from .._highlevel_generic import StapledStream, NullStream, aclose_forcefully
 
 
 @attr.s
@@ -92,3 +94,49 @@ async def test_StapledStream_with_erroring_close():
 
     assert stapled.send_stream.record == ["aclose"]
     assert stapled.receive_stream.record == ["aclose"]
+
+
+async def test_NullStream():
+    stream = NullStream()
+
+    # read returns EOF
+    with assert_checkpoints():
+        assert b"" == await stream.receive_some(32768)
+
+    # write discards the data
+    with assert_checkpoints():
+        await stream.send_all(b"into the bit bucket")
+
+    # wait_send_all_might_not_block is a noop
+    with assert_checkpoints():
+        await stream.wait_send_all_might_not_block()
+
+    # send_eof closes the write side
+    with assert_checkpoints():
+        await stream.send_eof()
+
+    # can't write after send_eof
+    with assert_checkpoints(), pytest.raises(_core.ClosedResourceError):
+        await stream.send_all(b"stuff")
+    with assert_checkpoints(), pytest.raises(_core.ClosedResourceError):
+        await stream.send_eof()
+    with assert_checkpoints(), pytest.raises(_core.ClosedResourceError):
+        await stream.wait_send_all_might_not_block()
+
+    # but can still read
+    with assert_checkpoints():
+        assert b"" == await stream.receive_some(32768)
+
+    # close works even if cancelled
+    with assert_checkpoints():
+        await aclose_forcefully(stream)
+
+    # can't read or write after close
+    with assert_checkpoints(), pytest.raises(_core.ClosedResourceError):
+        await stream.receive_some(32768)
+    with assert_checkpoints(), pytest.raises(_core.ClosedResourceError):
+        await stream.send_all(b"more stuff")
+
+    # but can still close
+    with assert_checkpoints():
+        await stream.aclose()

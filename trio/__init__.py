@@ -36,7 +36,7 @@ from ._threads import (
     BlockingTrioPortal
 )
 
-from ._highlevel_generic import aclose_forcefully, StapledStream
+from ._highlevel_generic import aclose_forcefully, StapledStream, NullStream
 
 from ._channel import open_memory_channel
 
@@ -60,14 +60,23 @@ from ._highlevel_ssl_helpers import (
     open_ssl_over_tcp_stream, open_ssl_over_tcp_listeners, serve_ssl_over_tcp
 )
 
+from ._subprocess import (
+    Process,
+    ProcessStream,
+    CompletedProcess,
+    open_process,
+    run_process,
+    delegate_to_process,
+)
+
 from ._deprecate import TrioDeprecationWarning
 
 # Imported by default
 from . import hazmat
 from . import socket
 from . import abc
-from . import ssl
 from . import subprocess
+from . import ssl
 # Not imported by default: testing
 if False:
     from . import testing

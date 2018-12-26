@@ -173,7 +173,7 @@ Generic stream tools
 
 Trio currently provides a generic helper for writing servers that
 listen for connections using one or more
-:class:`~trio.abc.Listener`\s, and a generic utility class for working
+:class:`~trio.abc.Listener`\s, and two generic utility classes for working
 with streams. And if you want to test code that's written against the
 streams interface, you should also check out :ref:`testing-streams` in
 :mod:`trio.testing`.
@@ -182,6 +182,9 @@ streams interface, you should also check out :ref:`testing-streams` in
 
 .. autoclass:: StapledStream
    :members:
+   :show-inheritance:
+
+.. autoclass:: NullStream
    :show-inheritance:
 
 
@@ -638,24 +641,61 @@ Asynchronous file objects
       The underlying synchronous file object.
 
 
-.. module:: trio.subprocess
 .. _subprocess:
 
-Spawning subprocesses with :mod:`trio.subprocess`
--------------------------------------------------
+Spawning subprocesses
+---------------------
 
-The :mod:`trio.subprocess` module provides support for spawning
-other programs, communicating with them via pipes, sending them signals,
-and waiting for them to exit. Its interface is based on the
-:mod:`subprocess` module in the standard library; differences
-are noted below.
+Trio provides support for spawning other programs as subprocesses,
+communicating with them via pipes, sending them signals, and waiting
+for them to exit. The interface for doing so consists of multiple layers:
 
-The constants and exceptions from the standard :mod:`subprocess`
-module are re-exported by :mod:`trio.subprocess` unchanged.
-So, if you like, you can say ``from trio import subprocess``
-and continue referring to ``subprocess.PIPE``,
-:exc:`subprocess.CalledProcessError`, and so on, in the same
-way you would in synchronous code.
+* At the bottom, the :class:`~trio.Process` class provides an interface
+  that mirrors the standard :class:`subprocess.Popen`, with async methods
+  and with Trio stream wrappers for the process's input and output, plus
+  a few extra features that are used by the higher layers.
+  :class:`~trio.Process` is the only interface that permits spawning
+  processes whose lifetime is not bound by a specific scope in the
+  parent. You should generally prefer one of the higher-level interfaces
+  if it suits your needs.
+
+* In the middle, :func:`~trio.open_process` provides a context manager
+  for interacting with a process. It wraps :class:`~trio.Process`,
+  adding error checking (throwing :exc:`subprocess.CalledProcessError`
+  if the process exits with a failure indication) and providing a
+  single :class:`~trio.ProcessStream` (an implementation of
+  :class:`~trio.abc.HalfCloseableStream`) for getting bytes into
+  and out of the process. This is usually what you should reach for
+  if you want back-and-forth communication with a subprocess, or
+  if you want to consume a large output in streaming fashion.
+
+* At the top, :func:`~trio.run_process` runs a process from start to
+  finish and returns a :class:`CompletedProcess` object describing its
+  outputs and return value. This is what you should reach for if you
+  want to maybe send some input, maybe receive the output (all at once),
+  but don't need incrementality or back-and-forth. It is modelled after
+  the standard :func:`subprocess.run` with some additional features
+  and saner defaults.
+
+In all of these interfaces, the command to run and its arguments are
+specified as the sole positional argument (usually as a sequence of
+strings, but see the discussion of :ref:`quoting <subprocess-quoting>`
+below).  Keyword :ref:`options <subprocess-options>` determine how the
+subprocess's inputs and outputs will be set up and other aspects of
+the environment in which it will run.  Almost all of the keyword
+arguments accepted by the standard library :class:`subprocess.Popen`
+class are supported with their usual semantics, and can be passed
+wherever you see ``**options`` in the API documentation.
+
+Trio's subprocess API makes use of many of the constants and exceptions
+defined by the :mod:`subprocess` module in the standard library.
+It reexports these, minus the non-async-friendly code, as the
+submodule ``trio.subprocess``. So, if you'd like, you can say
+``from trio import subprocess`` and then refer to ``subprocess.PIPE``,
+:exc:`subprocess.CalledProcessError`, and so forth, without worrying
+about errant calls to synchronous functions like :func:`subprocess.run`.
+``trio.subprocess`` contains nothing but standard :mod:`subprocess`
+reexports; the actual API is all in the top-level ``trio`` package.
 
 
 .. _subprocess-options:
@@ -680,127 +720,228 @@ so these options don't make sense. Text I/O should use a layer
 on top of the raw byte streams, just as it does with sockets.
 [This layer does not yet exist, but is in the works.]
 
+Trio also provides support for two Trio-specific options,
+``shutdown_signal`` and ``shutdown_timeout``, which control how the
+subprocess will be terminated if its surrounding scope becomes
+cancelled. (The low-level :class:`~trio.Process` doesn't necessarily
+have a surrounding scope per se, but the same logic applies to calls
+to its :meth:`~trio.Process.aclose` and :meth:`~trio.Process.join`
+methods, which guarantee that the subprocess will have exited
+one way or another by the time they return.)
+
+* The default behavior, if you specify neither argument, is to
+  forcibly kill the subprocess using ``SIGKILL`` (UNIX) or
+  ``TerminateProcess`` (Windows). This cannot be caught by the
+  child process, so it works regardless of potential bugs in the
+  child, but doesn't give the child a chance to clean up its own
+  resources (such as its own subprocesses).
+
+* If you specify just a ``shutdown_timeout``, Trio will follow
+  the standard UNIX convention: send ``SIGTERM``, wait up to
+  ``shutdown_timeout`` seconds for the process to exit,
+  send ``SIGKILL`` if it's still running after the timeout
+  expires. If you also specify a ``shutdown_signal``, Trio will
+  send that signal instead of ``SIGTERM``.
+
+* If you specify a ``shutdown_signal`` but no ``shutdown_timeout``,
+  Trio will send the ``shutdown_signal`` and then wait as long
+  as it takes for the subprocess to exit in response. Use this
+  with caution, as it's easy to wind up with an uncancellable
+  Trio program if the subprocess doesn't respond how you're
+  expecting it to.
+
+* A ``shutdown_signal`` of zero means "close all pipes to and from the
+  process if you want to signal that it should exit".  This is
+  unlikely to work unless the process is expecting it, but is
+  unfortunately pretty much the only "signal" we can send reliably on
+  Windows that's not immediately fatal.
+
 
 Running a process and waiting for it to finish
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-We're `working on <https://github.com/python-trio/trio/pull/791>`
-figuring out the best API for common higher-level subprocess operations.
-In the meantime, you can implement something like the standard library
-:func:`subprocess.run` in terms of :class:`trio.subprocess.Process`
-as follows::
+The basic interface for running a subprocess start-to-finish is
+:func:`trio.run_process`.  It always waits for the subprocess to exit
+before returning, so there's no need to worry about leaving a process
+running by mistake after you've gone on to do other things.
+:func:`~trio.run_process` is similar to the standard library
+:func:`subprocess.run` function, but tries to have safer defaults:
+with no options, the subprocess's input is provided and its outputs
+are captured by the parent Trio process rather than connecting them
+to the user's terminal, and a failure in the subprocess will be propagated
+as a :exc:`subprocess.CalledProcessError` exception. Of course, these
+defaults can be changed where necessary.
 
-    async def run(
-        command, *, input=None, capture_output=False, **options
-    ):
-        if input is not None:
-            options['stdin'] = subprocess.PIPE
-        if capture_output:
-            options['stdout'] = options['stderr'] = subprocess.PIPE
+.. autofunction:: trio.run_process
 
-        stdout_chunks = []
-        stderr_chunks = []
+:func:`run_process` returns an object similar to
+:class:`subprocess.CompletedProcess`, with a couple of Trio-specific
+additions:
 
-        async with trio.subprocess.Process(command, **options) as proc:
+.. autoclass:: trio.CompletedProcess
+   :members:
 
-            async def feed_input():
-                async with proc.stdin:
-                    if input:
-                        try:
-                            await proc.stdin.send_all(input)
-                        except trio.BrokenResourceError:
-                            pass
+If a subprocess's input and output are to come from an interactive user
+-- on the console used to start the parent Trio process, for example --
+:func:`~trio.run_process`'s defaults can be slightly cumbersome. Trio
+provides :func:`~trio.delegate_to_process` to cover this case.
 
-            async def read_output(stream, chunks):
-                async with stream:
-                    while True:
-                        chunk = await stream.receive_some(32768)
-                        if not chunk:
-                            break
-                        chunks.append(chunk)
-
-            async with trio.open_nursery() as nursery:
-                if proc.stdin is not None:
-                    nursery.start_soon(feed_input)
-                if proc.stdout is not None:
-                    nursery.start_soon(read_output, proc.stdout, stdout_chunks)
-                if proc.stderr is not None:
-                    nursery.start_soon(read_output, proc.stderr, stderr_chunks)
-                await proc.wait()
-
-        stdout = b"".join(stdout_chunks) if proc.stdout is not None else None
-        stderr = b"".join(stderr_chunks) if proc.stderr is not None else None
-
-        if proc.returncode:
-            raise subprocess.CalledProcessError(
-                proc.returncode, proc.args, output=stdout, stderr=stderr
-            )
-        else:
-            return subprocess.CompletedProcess(
-                proc.args, proc.returncode, stdout, stderr
-            )
+.. autofunction:: trio.delegate_to_process
 
 
 Interacting with a process as it runs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-You can spawn a subprocess by creating an instance of
-:class:`trio.subprocess.Process` and then interact with it using its
-:attr:`~trio.subprocess.Process.stdin`,
-:attr:`~trio.subprocess.Process.stdout`, and/or
-:attr:`~trio.subprocess.Process.stderr` streams.
+:func:`open_process` spawns a subprocess and returns an async context
+manager in which the caller can interact with the subprocess's
+standard input and output using a Trio stream. The lifetime of the
+process is scoped within the ``async with`` block: the flow of
+execution won't exit the block until the subprocess exits, and a
+cancellation of the block will terminate the subprocess. The effect is
+much like :func:`run_process`, but with user code inserted in the
+middle. (In fact, :func:`run_process` is implemented in terms of
+:func:`open_process` plus I/O logic in the middle.)
 
-.. autoclass:: trio.subprocess.Process
+.. autofunction:: trio.open_process
+   :async-with: stream
+
+The specific :class:`~trio.abc.HalfCloseableStream` type provided by
+:func:`~trio.open_process` is also available for users that
+wish to wrap a :class:`~trio.Process` object directly:
+
+.. autoclass:: trio.ProcessStream
+   :show-inheritance:
    :members:
 
 
-Differences from the standard library
+The low-level Process API
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+All of the high-level subprocess functions described above are implemented
+in terms of the :class:`trio.Process` class, which provides an interface
+similar to the standard library's :class:`subprocess.Popen`.
+
+.. autoclass:: trio.Process
+
+   .. autoattribute:: returncode
+
+   .. autoattribute:: failed
+
+   .. automethod:: aclose
+
+   .. automethod:: join
+
+   .. automethod:: shutdown
+
+   .. automethod:: wait
+
+   .. automethod:: poll
+
+   .. automethod:: kill
+
+   .. automethod:: terminate
+
+   .. automethod:: send_signal
+
+   .. note:: :meth:`~subprocess.Popen.communicate` is not provided as a
+      method on :class:`~trio.Process` objects; use :func:`~trio.run_process`
+      instead, or write the loop yourself if you have unusual
+      needs. :meth:`~subprocess.Popen.communicate` has quite unusual
+      cancellation behavior in the standard library (on some platforms it
+      spawns a background thread which continues to read from the child
+      process even after the timeout has expired) and we wanted to
+      provide an interface with fewer surprises.
+
+
+.. _subprocess-quoting:
+
+Quoting: more than you wanted to know
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-* All arguments to the constructor of
-  :class:`~trio.subprocess.Process`, except the command to run, must be
-  passed using keywords.
+The command to run and its arguments usually must be passed to Trio's
+subprocess APIs as a sequence of strings, where the first element in
+the sequence specifies the command to run and the remaining elements
+specify its arguments, one argument per element. This form is used
+because it avoids potential quoting pitfalls; for example, you can run
+``["cp", "-f", source_file, dest_file]`` without worrying about
+whether ``source_file`` or ``dest_file`` contains spaces.
 
-* :func:`~subprocess.call`, :func:`~subprocess.check_call`, and
-  :func:`~subprocess.check_output` are not provided.
+If you only run subprocesses without ``shell=True`` and on UNIX,
+that's all you need to know about specifying the command. If you use
+``shell=True`` or run on Windows, you probably should read the
+rest of this section to be aware of potential pitfalls.
 
-* :meth:`~subprocess.Popen.communicate` is not provided as a method on
-  :class:`~trio.subprocess.Process` objects; use a higher-level
-  function instead, or write the loop yourself if
-  you have unusual needs. :meth:`~subprocess.Popen.communicate` has
-  quite unusual cancellation behavior in the standard library (on some
-  platforms it spawns a background thread which continues to read from
-  the child process even after the timeout has expired) and we wanted
-  to provide an interface with fewer surprises.
+With ``shell=True`` on UNIX, you *must* specify the command as a
+single string, which will be passed to the shell as if you'd
+entered it at an interactive prompt. That means any argument that
+might contain spaces, quotes, or other shell metacharacters should
+be wrapped in :func:`shlex.quote` or something similar. The standard
+:mod:`subprocess` module supports sequences of arguments with
+``shell=True`` on UNIX, but their behavior is confusing, so
+Trio forbids them. (``subprocess.run(["echo $2 is $1", "weird", "this"],
+shell=True)`` prints ``this is weird``.)
 
-* :meth:`~trio.subprocess.Process.wait` is an async function that does
-  not take a ``timeout`` argument; combine it with
-  :func:`~trio.fail_after` if you want a timeout.
+On Windows, the fundamental API for process spawning (the
+``CreateProcess()`` system call) takes a string, not a list, and it's
+actually up to the child process to decide how it wants to split that
+string into individual arguments. Since the C language specifies that
+``main()`` should take a list of arguments, *most* programs you
+encounter will follow the rules used by the Microsoft C/C++ runtime.
+:class:`subprocess.Popen`, and thus also Trio, uses these rules
+when it converts an argument sequence to a string, and they
+are `documented
+<https://docs.python.org/3/library/subprocess.html#converting-argument-sequence>`__
+alongside the :mod:`subprocess` module. There is no documented
+Python standard library function that can directly perform that
+conversion, so even on Windows, you almost always want to pass an
+argument sequence rather than a string. But if the program you're
+spawning doesn't split its command line back into individual arguments
+in the standard way, you might need to pass a string to work around this.
+(Or you might just be out of luck: as far as I can tell, there's simply
+no way to pass an argument containing a double-quote to a Windows
+batch file.)
 
-* Text I/O is not supported: you may not use the
-  :class:`~trio.subprocess.Process` constructor arguments
-  ``universal_newlines`` (or its 3.7+ alias ``text``), ``encoding``,
-  or ``errors``.
+On Windows with ``shell=True``, things get even more chaotic. Now
+there are two separate sets of quoting rules applied, one by the
+Windows command shell ``CMD.EXE`` and one by the process being
+spawned, and they're *different*. Most special characters interpreted
+by the shell ``&<>()^|`` are not treated as special if the shell
+thinks they're inside double quotes, but ``%FOO%`` environment
+variable substitutions still are, and the shell doesn't provide any
+way to write a double quote inside a double-quoted string. Outside
+double quotes, any character (including a double quote) can be escaped
+using a leading ``^``.  But since a pipeline is processed by running
+each command in the pipeline in a subshell, multiple layers of
+escaping can be needed::
 
-* :attr:`~trio.subprocess.Process.stdin` is a :class:`~trio.abc.SendStream` and
-  :attr:`~trio.subprocess.Process.stdout` and :attr:`~trio.subprocess.Process.stderr`
-  are :class:`~trio.abc.ReceiveStream`\s, rather than file objects. The
-  :class:`~trio.subprocess.Process` constructor argument ``bufsize`` is
-  not supported since there would be no file object to pass it to.
+    echo ^^^&x | find "x" | find "x"          # prints: &x
 
-* :meth:`~trio.subprocess.Process.aclose` (and thus also
-  ``__aexit__``) behave like the standard :class:`~subprocess.Popen`
-  context manager exit (close pipes to the process, then wait for it
-  to exit), but add additional behavior if cancelled: kill the process
-  and wait for it to finish terminating.  This is useful for scoping
-  the lifetime of a simple subprocess that doesn't spawn any children
-  of its own. (For subprocesses that do in turn spawn their own
-  subprocesses, there is not currently any way to clean up the whole
-  tree; moreover, using the :class:`Process` context manager in such
-  cases is likely to be counterproductive as killing the top-level
-  subprocess leaves it no chance to do any cleanup of its children
-  that might be desired. You'll probably want to write your own
-  supervision logic in that case.)
+And if you combine pipelines with () grouping, you can need even more
+levels of escaping::
+
+    (echo ^^^^^^^&x | find "x") | find "x"    # prints: &x
+
+Since process creation takes a single arguments string, ``CMD.EXE``\'s
+quoting does not influence word splitting, and double quotes are not
+removed during CMD.EXE's expansion pass. Double quotes are troublesome
+because CMD.EXE handles them differently from the MSVC runtime rules; in::
+
+    prog.exe "foo \"bar\" baz"
+
+the program will see one argument ``foo "bar" baz`` but CMD.EXE thinks
+``bar\`` is not quoted while ``foo \`` and ``baz`` are. All of this
+makes it a formidable task to reliably interpolate anything into a
+``shell=True`` command line on Windows, and Trio falls back on the
+:mod:`subprocess` behavior: If you pass a sequence with
+``shell=True``, it's quoted in the same way as a sequence with
+``shell=False``, and had better not contain any shell metacharacters
+you weren't planning on.
+
+Further reading:
+
+* https://stackoverflow.com/questions/30620876/how-to-properly-escape-filenames-in-windows-cmd-exe
+
+* https://stackoverflow.com/questions/4094699/how-does-the-windows-command-interpreter-cmd-exe-parse-scripts
 
 
 Signals

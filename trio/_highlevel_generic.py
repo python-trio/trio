@@ -110,3 +110,62 @@ class StapledStream(HalfCloseableStream):
             await self.send_stream.aclose()
         finally:
             await self.receive_stream.aclose()
+
+
+class NullStream(HalfCloseableStream):
+    """A :class:`~trio.abc.HalfCloseableStream` in which any data sent is
+    immediately discarded and receives always return end-of-file.
+
+    This is useful for similar reasons as ``/dev/null`` on Unix; for example,
+    in a function defined to return a stream of data, it reduces special-casing
+    if there's no data that needs to be provided.
+
+    Trying to read after closing, or write after closing or
+    :meth:`~trio.abc.HalfCloseableStream.send_eof`, will raise
+    :exc:`ClosedResourceError`, even though those operations are
+    otherwise no-ops.
+
+    A synchronous ``close()`` is provided in addition to the usual ``aclose()``.
+    """
+
+    def __init__(self) -> None:
+        self._read_closed = False
+        self._write_closed = True
+
+    def __repr__(self) -> str:
+        if self._read_closed:
+            closed = "closed"
+        elif self._write_closed:
+            closed = "sent EOF"
+        else:
+            closed = "open"
+        return "<trio.NullStream: {}>".format(closed)
+
+    def close(self) -> None:
+        self._read_closed = self._write_closed = True
+
+    async def aclose(self) -> None:
+        self.close()
+        await _core.checkpoint()
+
+    async def receive_some(self, max_bytes: int) -> bytes:
+        await _core.checkpoint()
+        if self._read_closed:
+            raise _core.ClosedResourceError
+        return b""
+
+    async def send_all(self, data: bytes) -> None:
+        await _core.checkpoint()
+        if self._write_closed:
+            raise _core.ClosedResourceError
+
+    async def wait_send_all_might_not_block(self) -> None:
+        await _core.checkpoint()
+        if self._write_closed:
+            raise _core.ClosedResourceError
+
+    async def send_eof(self) -> None:
+        await _core.checkpoint()
+        if self._read_closed:
+            raise _core.ClosedResourceError
+        self._write_closed = True
