@@ -165,104 +165,6 @@ async def test_interactive():
     assert proc.returncode == 0
 
 
-async def test_run():
-    data = bytes(random.randint(0, 255) for _ in range(2**18))
-
-    result = await subprocess.run(CAT, input=data, stdout=subprocess.PIPE)
-    assert result.args == CAT
-    assert result.returncode == 0
-    assert result.stdout == data
-    assert result.stderr is None
-
-    result = await subprocess.run(
-        CAT, stdin=subprocess.PIPE, stdout=subprocess.PIPE
-    )
-    assert result.args == CAT
-    assert result.returncode == 0
-    assert result.stdout == b""
-    assert result.stderr is None
-
-    result = await subprocess.run(
-        COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR,
-        input=data,
-        capture_output=True,
-    )
-    assert result.args == COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR
-    assert result.returncode == 0
-    assert result.stdout == data
-    assert result.stderr == data[::-1]
-
-    with pytest.raises(ValueError):
-        # can't use both input and stdin
-        await subprocess.run(CAT, input=b"la di dah", stdin=subprocess.PIPE)
-
-    with pytest.raises(ValueError):
-        # can't use both capture_output and stdout
-        await subprocess.run(
-            CAT,
-            input=b"la di dah",
-            capture_output=True,
-            stdout=subprocess.PIPE
-        )
-
-    with pytest.raises(ValueError):
-        # can't use both timeout and deadline
-        await subprocess.run(
-            EXIT_TRUE, timeout=1, deadline=_core.current_time()
-        )
-
-
-@slow
-async def test_run_timeout():
-    data = b"1" * 65536 + b"2" * 65536 + b"3" * 65536
-    child_script = """
-import sys, time
-sys.stdout.buffer.write(sys.stdin.buffer.read(32768))
-time.sleep(10)
-sys.stdout.buffer.write(sys.stdin.buffer.read())
-"""
-
-    for make_timeout_arg in (
-        lambda: {"timeout": 1.0},
-        lambda: {"deadline": _core.current_time() + 1.0}
-    ):
-        with pytest.raises(subprocess.TimeoutExpired) as excinfo:
-            await subprocess.run(
-                [sys.executable, "-c", child_script],
-                input=data,
-                stdout=subprocess.PIPE,
-                **make_timeout_arg()
-            )
-        assert excinfo.value.cmd == [sys.executable, "-c", child_script]
-        if "timeout" in make_timeout_arg():
-            assert excinfo.value.timeout == 1.0
-        else:
-            assert 0.9 < excinfo.value.timeout < 1.1
-        assert excinfo.value.stdout == data[:32768]
-        assert excinfo.value.stderr is None
-
-
-async def test_run_check():
-    cmd = python("sys.stderr.buffer.write(b'test\\n'); sys.exit(1)")
-    with pytest.raises(subprocess.CalledProcessError) as excinfo:
-        await subprocess.run(cmd, stderr=subprocess.PIPE, check=True)
-    assert excinfo.value.cmd == cmd
-    assert excinfo.value.returncode == 1
-    assert excinfo.value.stderr == b"test\n"
-    assert excinfo.value.stdout is None
-
-
-async def test_run_with_broken_pipe():
-    result = await subprocess.run(
-        [sys.executable, "-c", "import sys; sys.stdin.close()"],
-        input=b"x" * 131072,
-        stdout=subprocess.PIPE,
-    )
-    assert result.returncode == 0
-    assert result.stdout == b""
-    assert result.stderr is None
-
-
 async def test_stderr_stdout():
     async with subprocess.Process(
         COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR,
@@ -272,23 +174,27 @@ async def test_stderr_stdout():
     ) as proc:
         assert proc.stdout is not None
         assert proc.stderr is None
+        await proc.stdin.send_all(b"1234")
+        await proc.stdin.aclose()
 
-    result = await subprocess.run(
-        COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR,
-        input=b"1234",
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-    )
-    assert result.returncode == 0
-    assert result.stdout == b"12344321"
-    assert result.stderr is None
+        output = []
+        while True:
+            chunk = await proc.stdout.receive_some(16)
+            if chunk == b"":
+                break
+            output.append(chunk)
+        assert b"".join(output) == b"12344321"
+    assert proc.returncode == 0
 
     # this one hits the branch where stderr=STDOUT but stdout
     # is not redirected
-    result = await subprocess.run(CAT, input=b"", stderr=subprocess.STDOUT)
-    assert result.returncode == 0
-    assert result.stdout is None
-    assert result.stderr is None
+    async with subprocess.Process(
+        CAT, stdin=subprocess.PIPE, stderr=subprocess.STDOUT
+    ) as proc:
+        assert proc.stdout is None
+        assert proc.stderr is None
+        await proc.stdin.aclose()
+    assert proc.returncode == 0
 
     if posix:
         try:

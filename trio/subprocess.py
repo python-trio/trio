@@ -1,4 +1,4 @@
-from ._subprocess import Process, run
+from ._subprocess import Process
 
 # Reexport constants and exceptions from the stdlib subprocess module
 from subprocess import (

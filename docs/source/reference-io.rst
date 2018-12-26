@@ -684,23 +684,69 @@ on top of the raw byte streams, just as it does with sockets.
 Running a process and waiting for it to finish
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The basic interface for running a subprocess start-to-finish is
-:func:`trio.subprocess.run`.  It always waits for the subprocess to
-exit before returning, so there's no need to worry about leaving
-a process running by mistake after you've gone on to do other things.
-:func:`~trio.subprocess.run` can supply input or read output from
-the subprocess, and can optionally throw an exception if the subprocess
-exits with a failure indication.
+We're `working on <https://github.com/python-trio/trio/pull/791>`
+figuring out the best API for common higher-level subprocess operations.
+In the meantime, you can implement something like the standard library
+:func:`subprocess.run` in terms of :class:`trio.subprocess.Process`
+as follows::
 
-.. autofunction:: trio.subprocess.run
+    async def run(
+        command, *, input=None, capture_output=False, **options
+    ):
+        if input is not None:
+            options['stdin'] = subprocess.PIPE
+        if capture_output:
+            options['stdout'] = options['stderr'] = subprocess.PIPE
+
+        stdout_chunks = []
+        stderr_chunks = []
+
+        async with trio.subprocess.Process(command, **options) as proc:
+
+            async def feed_input():
+                async with proc.stdin:
+                    if input:
+                        try:
+                            await proc.stdin.send_all(input)
+                        except trio.BrokenResourceError:
+                            pass
+
+            async def read_output(stream, chunks):
+                async with stream:
+                    while True:
+                        chunk = await stream.receive_some(32768)
+                        if not chunk:
+                            break
+                        chunks.append(chunk)
+
+            async with trio.open_nursery() as nursery:
+                if proc.stdin is not None:
+                    nursery.start_soon(feed_input)
+                if proc.stdout is not None:
+                    nursery.start_soon(read_output, proc.stdout, stdout_chunks)
+                if proc.stderr is not None:
+                    nursery.start_soon(read_output, proc.stderr, stderr_chunks)
+                await proc.wait()
+
+        stdout = b"".join(stdout_chunks) if proc.stdout is not None else None
+        stderr = b"".join(stderr_chunks) if proc.stderr is not None else None
+
+        if proc.returncode:
+            raise subprocess.CalledProcessError(
+                proc.returncode, proc.args, output=stdout, stderr=stderr
+            )
+        else:
+            return subprocess.CompletedProcess(
+                proc.args, proc.returncode, stdout, stderr
+            )
 
 
 Interacting with a process as it runs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If :func:`~trio.subprocess.run` doesn't suit your needs, you can spawn
-a subprocess by creating an instance of :class:`trio.subprocess.Process`
-and then interact with it using its :attr:`~trio.subprocess.Process.stdin`,
+You can spawn a subprocess by creating an instance of
+:class:`trio.subprocess.Process` and then interact with it using its
+:attr:`~trio.subprocess.Process.stdin`,
 :attr:`~trio.subprocess.Process.stdout`, and/or
 :attr:`~trio.subprocess.Process.stderr` streams.
 
@@ -711,20 +757,17 @@ and then interact with it using its :attr:`~trio.subprocess.Process.stdin`,
 Differences from the standard library
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-* All arguments to :class:`~trio.subprocess.run` and the constructor of
+* All arguments to the constructor of
   :class:`~trio.subprocess.Process`, except the command to run, must be
   passed using keywords.
 
 * :func:`~subprocess.call`, :func:`~subprocess.check_call`, and
-  :func:`~subprocess.check_output` are not provided; use
-  :func:`~trio.subprocess.run` instead.
+  :func:`~subprocess.check_output` are not provided.
 
 * :meth:`~subprocess.Popen.communicate` is not provided as a method on
-  :class:`~trio.subprocess.Process` objects; use
-  :func:`~trio.subprocess.run` instead, or write the loop yourself if
-  you have unusual needs (the implementation of
-  :func:`~trio.subprocess.run` is fairly straightforward given trio's
-  concurrency primitives). :meth:`~subprocess.Popen.communicate` has
+  :class:`~trio.subprocess.Process` objects; use a higher-level
+  function instead, or write the loop yourself if
+  you have unusual needs. :meth:`~subprocess.Popen.communicate` has
   quite unusual cancellation behavior in the standard library (on some
   platforms it spawns a background thread which continues to read from
   the child process even after the timeout has expired) and we wanted

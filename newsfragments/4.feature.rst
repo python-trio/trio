@@ -1,9 +1,6 @@
-:ref:`Subprocess support! <subprocess>` Add :mod:`trio.subprocess`, an
-async wrapper around the stdlib :mod:`subprocess` module with a
-similar interface: :class:`~trio.subprocess.Process` (renamed from
-:class:`~subprocess.Popen`) to create a process and interact with it
-at your leisure, :func`~trio.subprocess.run` to run a process to
-completion and report the results, and reexports of all the stdlib
-:mod:`subprocess` exceptions and constants. Instead of file objects,
-the ``stdin``, ``stdout``, and ``stderr`` attributes of a
-:class:`trio.subprocess.Process` are Trio streams.
+Initial :ref:`subprocess support <subprocess>`.
+Add :class:`trio.subprocess.Process`, an async wrapper around the stdlib
+:mod:`subprocess.Popen` class, which permits spawning subprocesses
+and communicating with them over standard Trio streams.
+:mod:`trio.subprocess` also reexports all the stdlib :mod:`subprocess`
+exceptions and constants for convenience.

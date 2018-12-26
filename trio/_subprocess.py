@@ -13,7 +13,7 @@ from ._subprocess_platform import (
     create_pipe_from_child_output
 )
 
-__all__ = ["Process", "run"]
+__all__ = ["Process"]
 
 
 class Process(AsyncResource):
@@ -32,9 +32,10 @@ class Process(AsyncResource):
     :meth:`send_signal`, and waiting for it to exit using :meth:`wait`.
 
     Each standard stream is only available if it was specified at
-    :class:`Process` construction time that a pipe should be created for it:
-    if you constructed with ``stdin=subprocess.PIPE``, you can write to
-    the :attr:`stdin` stream, else :attr:`stdin` will be ``None``.
+    :class:`Process` construction time that a pipe should be created
+    for it.  For example, if you constructed with
+    ``stdin=subprocess.PIPE``, you can write to the :attr:`stdin`
+    stream, else :attr:`stdin` will be ``None``.
 
     :class:`Process` implements :class:`~trio.abc.AsyncResource`,
     so you can use it as an async context manager or call its
@@ -218,156 +219,3 @@ class Process(AsyncResource):
     def kill(self):
         """Forwards to :meth:`subprocess.Popen.kill`."""
         self._proc.kill()
-
-
-async def run(
-    command,
-    *,
-    input=None,
-    capture_output=False,
-    check=False,
-    timeout=None,
-    deadline=None,
-    **options
-):
-    """Run ``command`` in a subprocess, wait for it to complete, and
-    return a :class:`subprocess.CompletedProcess` instance describing
-    the results.
-
-    Like :func:`subprocess.run`, but async.
-
-    If cancelled, :func:`run` kills the subprocess and waits for it
-    to exit before propagating the cancellation, like :meth:`Process.aclose`.
-    If you need to be able to tell what partial output the process produced
-    before a timeout, see the ``timeout`` and ``deadline`` arguments.
-
-    Args:
-      command (str or list): The command to run. Typically this is a
-          list of strings such as ``['ls', '-l', 'directory with spaces']``,
-          where the first element names the executable to invoke and the other
-          elements specify its arguments. If ``shell=True`` is given as
-          an option, ``command`` should be a single string like
-          ``"ls -l 'directory with spaces'"``, which will
-          split into words following the shell's quoting rules.
-      input (bytes): If specified, set up the subprocess to
-          read its standard input stream from a pipe, and feed that
-          pipe with the given bytes while the subprocess is running.
-          Once the supplied input is exhausted, the pipe will be
-          closed so that the subprocess receives an end-of-file
-          indication. Note that ``input=b""`` and ``input=None``
-          behave differently: ``input=b""`` sets up the subprocess
-          to read its input from a pipe with no data in it, while
-          ``input=None`` performs no input redirection at all, so
-          that the subprocess's standard input stream is the same
-          as the parent process's.
-      capture_output (bool): If true, set up the subprocess to write
-          its standard output and standard error streams to pipes,
-          the contents of which will be consumed in the parent process
-          and ultimately rendered as the ``stdout`` and ``stderr``
-          attributes of the returned :class:`~subprocess.CompletedProcess`
-          object. (This argument is supported by Trio on all
-          Python versions, but was only added to the standard library
-          in 3.7.)
-      check (bool): If true, validate that the subprocess returns an exit
-          status of zero (success). Any nonzero exit status will be
-          converted into a :exc:`subprocess.CalledProcessError`
-          exception.
-      timeout (float): If specified, do not allow the process to run for
-          longer than ``timeout`` seconds; if the timeout is reached,
-          kill the subprocess and raise a :exc:`subprocess.TimeoutExpired`
-          exception containing the output that was provided thus far.
-      deadline (float): Like ``timeout``, but specified in terms of an
-          absolute time on the current :ref:`clock <time-and-clocks>`
-          at which to kill the process. It is an error to specify both
-          ``timeout`` and ``deadline``.
-      **options: :func:`run` also accepts any :ref:`general subprocess
-          options <subprocess-options>` and passes them onto the
-          :class:`~trio.subprocess.Process` constructor. It is an
-          error to specify ``stdin`` if ``input`` was also specified,
-          or to specify ``stdout`` or ``stderr`` if ``capture_output``
-          was also specified.
-
-    Returns:
-      A :class:`subprocess.CompletedProcess` instance describing the
-      return code and outputs.
-
-    Raises:
-      subprocess.TimeoutExpired: if the process is killed due to timeout
-          expiry
-      subprocess.CalledProcessError: if check=True is passed and the process
-          exits with a nonzero exit status
-      OSError: if an error is encountered starting or communicating with
-          the process
-
-    """
-    if input is not None:
-        if 'stdin' in options:
-            raise ValueError('stdin and input arguments may not both be used')
-        options['stdin'] = subprocess.PIPE
-
-    if capture_output:
-        if 'stdout' in options or 'stderr' in options:
-            raise ValueError(
-                'capture_output and stdout/stderr arguments may not both be used'
-            )
-        options['stdout'] = options['stderr'] = subprocess.PIPE
-
-    if timeout is not None and deadline is not None:
-        raise ValueError('timeout and deadline arguments may not both be used')
-
-    stdout_chunks = []
-    stderr_chunks = []
-
-    async with Process(command, **options) as proc:
-
-        async def feed_input():
-            async with proc.stdin:
-                if input:
-                    try:
-                        await proc.stdin.send_all(input)
-                    except _core.BrokenResourceError:
-                        pass
-
-        async def read_output(stream, chunks):
-            async with stream:
-                while True:
-                    chunk = await stream.receive_some(32768)
-                    if not chunk:
-                        break
-                    chunks.append(chunk)
-
-        async with _core.open_nursery() as nursery:
-            if proc.stdin is not None:
-                nursery.start_soon(feed_input)
-            if proc.stdout is not None:
-                nursery.start_soon(read_output, proc.stdout, stdout_chunks)
-            if proc.stderr is not None:
-                nursery.start_soon(read_output, proc.stderr, stderr_chunks)
-
-            with _core.open_cancel_scope() as wait_scope:
-                if timeout is not None:
-                    wait_scope.deadline = _core.current_time() + timeout
-                if deadline is not None:
-                    wait_scope.deadline = deadline
-                    timeout = deadline - _core.current_time()
-                await proc.wait()
-
-            if wait_scope.cancelled_caught:
-                proc.kill()
-                nursery.cancel_scope.cancel()
-
-    stdout = b"".join(stdout_chunks) if proc.stdout is not None else None
-    stderr = b"".join(stderr_chunks) if proc.stderr is not None else None
-
-    if wait_scope.cancelled_caught:
-        raise subprocess.TimeoutExpired(
-            proc.args, timeout, output=stdout, stderr=stderr
-        )
-    if check and proc.returncode:
-        raise subprocess.CalledProcessError(
-            proc.returncode, proc.args, output=stdout, stderr=stderr
-        )
-
-    return subprocess.CompletedProcess(
-        proc.args, proc.returncode, stdout, stderr
-    )
