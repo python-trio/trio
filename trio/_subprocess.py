@@ -1,73 +1,221 @@
-# subprocesses are a huge hassle
-# on Linux there is simply no way to async wait for a child to exit except by
-# messing with SIGCHLD and that is ... *such* a mess. Not really
-# tenable. We're better off trying os.waitpid(..., os.WNOHANG), and if that
-# says the process is still going then spawn a thread to sit in waitpid.
-# ......though that waitpid is non-cancellable so ugh. this is a problem,
-# becaues it's also mutating -- you only get to waitpid() once, and you have
-# to do it, because zombies. I guess we could make sure the waitpid thread is
-# daemonic and either it gets back to us eventually (even if our first call to
-# 'await wait()' is cancelled, maybe another one won't be), or else we go away
-# and don't care anymore.
-# I guess simplest is just to spawn a thread at the same time as we spawn the
-# process, with more reasonable notification semantics.
-# or we can poll every 100 ms or something, sigh.
+import math
+import os
+import select
+import subprocess
+import sys
 
-# on Mac/*BSD then kqueue works, go them. (maybe have WNOHANG after turning it
-# on to avoid a race condition I guess)
+from . import _core
+from ._abc import AsyncResource
+from ._sync import CapacityLimiter, Lock
+from ._threads import run_sync_in_worker_thread
+from ._subprocess_platform import (
+    wait_child_exiting, create_pipe_to_child_stdin,
+    create_pipe_from_child_output
+)
 
-# on Windows, you can either do the thread thing, or something involving
-# WaitForMultipleObjects, or the Job Object API:
-# https://stackoverflow.com/questions/17724859/detecting-exit-failure-of-child-processes-using-iocp-c-windows
-# (see also the comments here about using the Job Object API:
-# https://stackoverflow.com/questions/23434842/python-how-to-kill-child-processes-when-parent-dies/23587108#23587108)
-# however the docs say:
-# "Note that, with the exception of limits set with the
-# JobObjectNotificationLimitInformation information class, delivery of
-# messages to the completion port is not guaranteed; failure of a message to
-# arrive does not necessarily mean that the event did not occur"
-#
-# oh windows wtf
+__all__ = ["Process"]
 
-# We'll probably want to mess with the job API anyway for worker processes
-# (b/c that's the reliable way to make sure we never leave residual worker
-# processes around after exiting, see that stackoverflow question again), so
-# maybe this isn't too big a hassle? waitpid is probably easiest for the
-# first-pass implementation though.
 
-# the handle version has the same issues as waitpid on Linux, except I guess
-# that on windows the waitpid equivalent doesn't consume the handle.
-# -- wait no, the windows equivalent takes a timeout! and we know our
-# cancellation deadline going in, so that's actually okay. (Still need to use
-# a thread but whatever.)
+class Process(AsyncResource):
+    """Execute a child program in a new process.
 
-# asyncio does RegisterWaitForSingleObject with a callback that does
-# PostQueuedCompletionStatus.
-# this is just a thread pool in disguise (and in principle could have weird
-# problems if you have enough children and run out of threads)
-# it's possible we could do something with a thread that just sits in
-# an alertable state and handle callbacks...? though hmm, maybe the set of
-# events that can notify via callbacks is equivalent to the set that can
-# notify via IOCP.
-# there's WaitForMultipleObjects to let multiple waits share a thread I
-# guess.
-# you can wake up a WaitForMultipleObjectsEx on-demand by using QueueUserAPC
-# to send a no-op APC to its thread.
-# this is also a way to cancel a WaitForSingleObjectEx, actually. So it
-# actually is possible to cancel the equivalent of a waitpid on Windows.
+    Like :class:`subprocess.Popen`, but async.
 
-# Potentially useful observation: you *can* use a socket as the
-# stdin/stdout/stderr for a child, iff you create that socket *without*
-# WSA_FLAG_OVERLAPPED:
-#   http://stackoverflow.com/a/5725609
-# Here's ncm's Windows implementation of socketpair, which has a flag to
-# control whether one of the sockets has WSA_FLAG_OVERLAPPED set:
-#   https://github.com/ncm/selectable-socketpair/blob/master/socketpair.c
-# (it also uses listen(1) so it's robust against someone intercepting things,
-# unlike the version in socket.py... not sure anyone really cares, but
-# hey. OTOH it only supports AF_INET, while socket.py supports AF_INET6,
-# fancy.)
-# (or it would be trivial to (re)implement in python, using either
-# socket.socketpair or ncm's version as a model, given a cffi function to
-# create the non-overlapped socket in the first place then just pass it into
-# the socket.socket constructor (avoiding the dup() that fromfd does).)
+    Constructing a :class:`Process` immediately spawns the child
+    process, or throws an :exc:`OSError` if the spawning fails (for
+    example, if the specified command could not be found).
+    After construction, you can interact with the child process
+    by writing data to its :attr:`stdin` stream (a
+    :class:`~trio.abc.SendStream`), reading data from its :attr:`stdout`
+    and/or :attr:`stderr` streams (both :class:`~trio.abc.ReceiveStream`\s),
+    sending it signals using :meth:`terminate`, :meth:`kill`, or
+    :meth:`send_signal`, and waiting for it to exit using :meth:`wait`.
+
+    Each standard stream is only available if it was specified at
+    :class:`Process` construction time that a pipe should be created
+    for it.  For example, if you constructed with
+    ``stdin=subprocess.PIPE``, you can write to the :attr:`stdin`
+    stream, else :attr:`stdin` will be ``None``.
+
+    :class:`Process` implements :class:`~trio.abc.AsyncResource`,
+    so you can use it as an async context manager or call its
+    :meth:`aclose` method directly. "Closing" a :class:`Process`
+    will close any pipes to the child and wait for it to exit;
+    if cancelled, the child will be forcibly killed and we will
+    ensure it has finished exiting before allowing the cancellation
+    to propagate. It is *strongly recommended* that process lifetime
+    be scoped using an ``async with`` block wherever possible, to
+    avoid winding up with processes hanging around longer than you
+    were planning on.
+
+    Args:
+      command (str or list): The command to run. Typically this is a
+          list of strings such as ``['ls', '-l', 'directory with spaces']``,
+          where the first element names the executable to invoke and the other
+          elements specify its arguments. If ``shell=True`` is given as
+          an option, ``command`` should be a single string like
+          ``"ls -l 'directory with spaces'"``, which will
+          split into words following the shell's quoting rules.
+      stdin: Specifies what the child process's standard input
+          stream should connect to: output written by the parent
+          (``subprocess.PIPE``), nothing (``subprocess.DEVNULL``),
+          or an open file (pass a file descriptor or something whose
+          ``fileno`` method returns one). If ``stdin`` is unspecified,
+          the child process will have the same standard input stream
+          as its parent.
+      stdout: Like ``stdin``, but for the child process's standard output
+          stream.
+      stderr: Like ``stdin``, but for the child process's standard error
+          stream. An additional value ``subprocess.STDOUT`` is supported,
+          which causes the child's standard output and standard error
+          messages to be intermixed on a single standard output stream,
+          attached to whatever the ``stdout`` option says to attach it to.
+      **options: Other :ref:`general subprocess options <subprocess-options>`
+          are also accepted.
+
+    Attributes:
+      args (str or list): The ``command`` passed at construction time,
+          speifying the process to execute and its arguments.
+      pid (int): The process ID of the child process managed by this object.
+      stdin (trio.abc.SendStream or None): A stream connected to the child's
+          standard input stream: when you write bytes here, they become available
+          for the child to read. Only available if the :class:`Process`
+          was constructed using ``stdin=PIPE``; otherwise this will be None.
+      stdout (trio.abc.ReceiveStream or None): A stream connected to
+          the child's standard output stream: when the child writes to
+          standard output, the written bytes become available for you
+          to read here. Only available if the :class:`Process` was
+          constructed using ``stdout=PIPE``; otherwise this will be None.
+      stderr (trio.abc.ReceiveStream or None): A stream connected to
+          the child's standard error stream: when the child writes to
+          standard error, the written bytes become available for you
+          to read here. Only available if the :class:`Process` was
+          constructed using ``stderr=PIPE``; otherwise this will be None.
+
+    """
+
+    universal_newlines = False
+    encoding = None
+    errors = None
+
+    # Available for the per-platform wait_child_exiting() implementations
+    # to stash some state; waitid platforms use this to avoid spawning
+    # arbitrarily many threads if wait() keeps getting cancelled.
+    _wait_for_exit_data = None
+
+    def __init__(
+        self, args, *, stdin=None, stdout=None, stderr=None, **options
+    ):
+        for key in (
+            'universal_newlines', 'text', 'encoding', 'errors', 'bufsize'
+        ):
+            if options.get(key):
+                raise TypeError(
+                    "trio.subprocess.Process only supports communicating over "
+                    "unbuffered byte streams; the '{}' option is not supported"
+                    .format(key)
+                )
+
+        self.stdin = None
+        self.stdout = None
+        self.stderr = None
+
+        if stdin == subprocess.PIPE:
+            self.stdin, stdin = create_pipe_to_child_stdin()
+        if stdout == subprocess.PIPE:
+            self.stdout, stdout = create_pipe_from_child_output()
+        if stderr == subprocess.STDOUT:
+            # If we created a pipe for stdout, pass the same pipe for
+            # stderr.  If stdout was some non-pipe thing (DEVNULL or a
+            # given FD), pass the same thing. If stdout was passed as
+            # None, keep stderr as STDOUT to allow subprocess to dup
+            # our stdout. Regardless of which of these is applicable,
+            # don't create a new trio stream for stderr -- if stdout
+            # is piped, stderr will be intermixed on the stdout stream.
+            if stdout is not None:
+                stderr = stdout
+        elif stderr == subprocess.PIPE:
+            self.stderr, stderr = create_pipe_from_child_output()
+
+        try:
+            self._proc = subprocess.Popen(
+                args, stdin=stdin, stdout=stdout, stderr=stderr, **options
+            )
+        finally:
+            # Close the parent's handle for each child side of a pipe;
+            # we want the child to have the only copy, so that when
+            # it exits we can read EOF on our side.
+            if self.stdin is not None:
+                os.close(stdin)
+            if self.stdout is not None:
+                os.close(stdout)
+            if self.stderr is not None:
+                os.close(stderr)
+
+        self.args = self._proc.args
+        self.pid = self._proc.pid
+
+    @property
+    def returncode(self):
+        """The exit status of the process (an integer), or ``None`` if it has
+        not exited.
+
+        Negative values indicate termination due to a signal (on UNIX only).
+        Like :attr:`subprocess.Popen.returncode`, this is not updated outside
+        of a call to :meth:`wait` or :meth:`poll`.
+        """
+        return self._proc.returncode
+
+    async def aclose(self):
+        """Close any pipes we have to the process (both input and output)
+        and wait for it to exit.
+
+        If cancelled, kills the process and waits for it to finish
+        exiting before propagating the cancellation.
+        """
+        with _core.open_cancel_scope(shield=True):
+            if self.stdin is not None:
+                await self.stdin.aclose()
+            if self.stdout is not None:
+                await self.stdout.aclose()
+            if self.stderr is not None:
+                await self.stderr.aclose()
+        try:
+            await self.wait()
+        finally:
+            if self.returncode is None:
+                self.kill()
+                with _core.open_cancel_scope(shield=True):
+                    await self.wait()
+
+    async def wait(self):
+        """Block until the process exits.
+
+        Returns:
+          The exit status of the process (a nonnegative integer, with
+          zero usually indicating success). On UNIX systems, a process
+          that exits due to a signal will have its exit status reported
+          as the negative of that signal number, e.g., -11 for ``SIGSEGV``.
+        """
+        if self.poll() is None:
+            await wait_child_exiting(self)
+            self._proc.wait()
+        else:
+            await _core.checkpoint()
+        return self.returncode
+
+    def poll(self):
+        """Forwards to :meth:`subprocess.Popen.poll`."""
+        return self._proc.poll()
+
+    def send_signal(self, sig):
+        """Forwards to :meth:`subprocess.Popen.send_signal`."""
+        self._proc.send_signal(sig)
+
+    def terminate(self):
+        """Forwards to :meth:`subprocess.Popen.terminate`."""
+        self._proc.terminate()
+
+    def kill(self):
+        """Forwards to :meth:`subprocess.Popen.kill`."""
+        self._proc.kill()

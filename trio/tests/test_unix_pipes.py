@@ -4,20 +4,14 @@ import select
 import os
 import pytest
 
-from trio._core.tests.tutil import gc_collect_harder
-from ... import _core
-from ...testing import (wait_all_tasks_blocked, check_one_way_stream)
+from .._core.tests.tutil import gc_collect_harder
+from .. import _core, move_on_after
+from ..testing import wait_all_tasks_blocked, check_one_way_stream
 
 posix = os.name == "posix"
-
-pytestmark = pytest.mark.skipif(
-    not posix, reason="pipes are only supported on posix"
-)
-
+pytestmark = pytest.mark.skipif(not posix, reason="posix only")
 if posix:
-    from ..._subprocess.unix_pipes import (
-        PipeSendStream, PipeReceiveStream, make_pipe
-    )
+    from .._unix_pipes import PipeSendStream, PipeReceiveStream, make_pipe
 
 
 async def test_send_pipe():
@@ -66,16 +60,6 @@ async def test_pipes_combined():
 
     await read.aclose()
     await write.aclose()
-
-
-async def test_send_on_closed_pipe():
-    write, read = await make_pipe()
-    await write.aclose()
-
-    with pytest.raises(_core.ClosedResourceError):
-        await write.send_all(b"123")
-
-    await read.aclose()
 
 
 async def test_pipe_errors():
