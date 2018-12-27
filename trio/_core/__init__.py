@@ -22,7 +22,7 @@ from ._run import (
     current_effective_deadline, checkpoint_if_cancelled, TASK_STATUS_IGNORED,
     current_statistics, current_trio_token, reschedule, remove_instrument,
     add_instrument, current_clock, current_root_task, spawn_system_task,
-    current_time, wait_all_tasks_blocked
+    current_time, wait_all_tasks_blocked, write_overlapped, readinto_overlapped
 )
 
 # Has to come after _run to resolve a circular import
