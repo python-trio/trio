@@ -46,8 +46,12 @@ except ImportError:
 # Windows symbols
 try:
     from ._core import (
-        current_iocp, register_with_iocp, wait_overlapped,
-        monitor_completion_key
+        current_iocp,
+        register_with_iocp,
+        wait_overlapped,
+        monitor_completion_key,
+        readinto_overlapped,
+        write_overlapped,
     )
 except ImportError:
     pass

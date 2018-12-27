@@ -19,6 +19,7 @@ from .._util import is_main_thread
 from ._windows_cffi import (
     ffi,
     kernel32,
+    ntdll,
     INVALID_HANDLE_VALUE,
     raise_winerror,
     ErrorCodes,
@@ -64,7 +65,12 @@ from ._windows_cffi import (
 # - when binding handles to the IOCP, we always set the completion key to 0.
 #   when dispatching received events, when the completion key is 0 we dispatch
 #   based on lpOverlapped
-# - thread-safe wakeup uses completion key 1
+# - when we try to cancel an I/O operation and the cancellation fails,
+#   we post a completion with completion key 1; if this arrives before the
+#   real completion (with completion key 0) we assume the user forgot to
+#   call register_with_iocp on their handle, and raise an error accordingly
+#   (without this logic we'd hang forever uninterruptibly waiting for the
+#   completion that never arrives)
 # - other completion keys are available for user use
 
 # handles:
@@ -126,9 +132,13 @@ class WindowsIOManager:
         self._iocp_queue = deque()
         self._iocp_thread = None
         self._overlapped_waiters = {}
+        self._posted_too_late_to_cancel = set()
         self._completion_key_queues = {}
-        # Completion key 0 is reserved for regular IO events
-        self._completion_key_counter = itertools.count(1)
+        # Completion key 0 is reserved for regular IO events.
+        # Completion key 1 is used by the fallback post from a regular
+        # IO event's abort_fn to catch the user forgetting to call
+        # register_wiht_iocp.
+        self._completion_key_counter = itertools.count(2)
 
         # {stdlib socket object: task}
         # except that wakeup socket is mapped to None
@@ -238,6 +248,44 @@ class WindowsIOManager:
                     # Regular I/O event, dispatch on lpOverlapped
                     waiter = self._overlapped_waiters.pop(entry.lpOverlapped)
                     _core.reschedule(waiter)
+                elif entry.lpCompletionKey == 1:
+                    # Post made by a regular I/O event's abort_fn
+                    # after it failed to cancel the I/O. If we still
+                    # have a waiter with this lpOverlapped, we didn't
+                    # get the regular I/O completion and almost
+                    # certainly the user forgot to call
+                    # register_with_iocp.
+                    self._posted_too_late_to_cancel.remove(entry.lpOverlapped)
+                    try:
+                        waiter = self._overlapped_waiters.pop(
+                            entry.lpOverlapped
+                        )
+                    except KeyError:
+                        # Looks like the actual completion got here
+                        # before this fallback post did -- we're in
+                        # the "expected" case of too-late-to-cancel,
+                        # where the user did nothing wrong and the
+                        # main thread just got backlogged relative to
+                        # the IOCP thread somehow. Nothing more to do.
+                        pass
+                    else:
+                        exc = _core.TrioInternalError(
+                            "Failed to cancel overlapped I/O in {} and didn't "
+                            "receive the completion either. Did you forget to "
+                            "call register_with_iocp()?".format(waiter.name)
+                        )
+                        # Raising this out of handle_io ensures that
+                        # the user will see our message even if some
+                        # other task is in an uncancellable wait due
+                        # to the same underlying forgot-to-register
+                        # issue (if their CancelIoEx succeeds, we
+                        # have no way of noticing that their completion
+                        # won't arrive). Unfortunately it loses the
+                        # task traceback. If you're debugging this
+                        # error and can't tell where it's coming from,
+                        # try changing this line to
+                        # _core.reschedule(waiter, outcome.Error(exc))
+                        raise exc
                 else:
                     # dispatch on lpCompletionKey
                     queue = self._completion_key_queues[entry.lpCompletionKey]
@@ -289,13 +337,15 @@ class WindowsIOManager:
 
     @_public
     def register_with_iocp(self, handle):
-        handle = _handle(obj)
+        handle = _handle(handle)
         # https://msdn.microsoft.com/en-us/library/windows/desktop/aa363862(v=vs.85).aspx
+        # INVALID_PARAMETER seems to be used for both "can't register
+        # because not opened in OVERLAPPED mode" and "already registered"
         _check(kernel32.CreateIoCompletionPort(handle, self._iocp, 0, 0))
 
     @_public
     async def wait_overlapped(self, handle, lpOverlapped):
-        handle = _handle(obj)
+        handle = _handle(handle)
         if isinstance(lpOverlapped, int):
             lpOverlapped = ffi.cast("LPOVERLAPPED", lpOverlapped)
         if lpOverlapped in self._overlapped_waiters:
@@ -313,16 +363,60 @@ class WindowsIOManager:
             # possible -- the docs are pretty unclear.
             nonlocal raise_cancel
             raise_cancel = raise_cancel_
-            _check(kernel32.CancelIoEx(handle, lpOverlapped))
+            try:
+                _check(kernel32.CancelIoEx(handle, lpOverlapped))
+            except OSError as exc:
+                if exc.winerror == ErrorCodes.ERROR_NOT_FOUND:
+                    # Too late to cancel. If this happens because the
+                    # operation is already completed, we don't need to
+                    # do anything; presumably the IOCP thread will be
+                    # reporting back about that completion soon. But
+                    # another possibility is that the operation was
+                    # performed on a handle that wasn't registered
+                    # with our IOCP (ie, the user forgot to call
+                    # register_with_iocp), in which case we're just
+                    # never going to see the completion. To avoid an
+                    # uncancellable infinite sleep in the latter case,
+                    # we'll PostQueuedCompletionStatus here, and if
+                    # our post arrives before the original completion
+                    # does, we'll assume the handle wasn't registered.
+                    _check(
+                        kernel32.PostQueuedCompletionStatus(
+                            self._iocp, 0, 1, lpOverlapped
+                        )
+                    )
+
+                    # Keep the lpOverlapped referenced so its address
+                    # doesn't get reused until our posted completion
+                    # status has been processed. Otherwise, we can
+                    # get confused about which completion goes with
+                    # which I/O.
+                    self._posted_too_late_to_cancel.add(lpOverlapped)
+
+                else:  # pragma: no cover
+                    raise TrioInternalError(
+                        "CancelIoEx failed with unexpected error"
+                    ) from exc
             return _core.Abort.FAILED
 
         await _core.wait_task_rescheduled(abort)
         if lpOverlapped.Internal != 0:
-            if lpOverlapped.Internal == ErrorCodes.ERROR_OPERATION_ABORTED:
-                assert raise_cancel is not None
-                raise_cancel()
+            # the lpOverlapped reports the error as an NT status code,
+            # which we must convert back to a Win32 error code before
+            # it will produce the right sorts of exceptions
+            code = ntdll.RtlNtStatusToDosError(lpOverlapped.Internal)
+            if code == ErrorCodes.ERROR_OPERATION_ABORTED:
+                if raise_cancel is not None:
+                    raise_cancel()
+                else:
+                    # We didn't request this cancellation, so assume
+                    # it happened due to the underlying handle being
+                    # closed before the operation could complete.
+                    raise _core.ClosedResourceError(
+                        "another task closed this resource"
+                    )
             else:
-                raise_winerror(lpOverlapped.Internal)
+                raise_winerror(code)
 
     @_public
     @contextmanager
@@ -372,21 +466,117 @@ class WindowsIOManager:
                 )
                 _core.reschedule(task, outcome.Error(exc))
 
-    # This has cffi-isms in it and is untested... but it demonstrates the
-    # logic we'll want when we start actually using overlapped I/O.
-    #
-    # @_public
-    # async def perform_overlapped(self, handle, submit_fn):
-    #     # submit_fn(lpOverlapped) submits some I/O
-    #     # it may raise an OSError with ERROR_IO_PENDING
-    #     await _core.checkpoint_if_cancelled()
-    #     self.register_with_iocp(handle)
-    #     lpOverlapped = ffi.new("LPOVERLAPPED")
-    #     try:
-    #         submit_fn(lpOverlapped)
-    #     except OSError as exc:
-    #         if exc.winerror != Error.ERROR_IO_PENDING:
-    #             await _core.cancel_shielded_checkpoint()
-    #             raise
-    #     await self.wait_overlapped(handle, lpOverlapped)
-    #     return lpOverlapped
+    async def _perform_overlapped(self, handle, submit_fn):
+        # submit_fn(lpOverlapped) submits some I/O
+        # it may raise an OSError with ERROR_IO_PENDING
+        # the handle must already be registered using
+        # register_with_iocp(handle)
+        await _core.checkpoint_if_cancelled()
+        lpOverlapped = ffi.new("LPOVERLAPPED")
+        try:
+            submit_fn(lpOverlapped)
+        except OSError as exc:
+            if exc.winerror != ErrorCodes.ERROR_IO_PENDING:
+                await _core.cancel_shielded_checkpoint()
+                raise
+        await self.wait_overlapped(handle, lpOverlapped)
+        return lpOverlapped
+
+    @_public
+    async def write_overlapped(self, handle, data, file_offset=0):
+        # Make sure we keep our buffer referenced until the I/O completes.
+        # For typical types of `data` (bytes, bytearray) the memory we
+        # pass is part of the existing allocation, but the buffer protocol
+        # allows for other possibilities.
+        cbuf = ffi.from_buffer(data)
+
+        def submit_write(lpOverlapped):
+            # yes, these are the real documented names
+            offset_fields = lpOverlapped.DUMMYUNIONNAME.DUMMYSTRUCTNAME
+            offset_fields.Offset = file_offset & 0xffffffff
+            offset_fields.OffsetHigh = file_offset >> 32
+            _check(
+                kernel32.WriteFile(
+                    _handle(handle),
+                    ffi.cast("LPCVOID", cbuf),
+                    len(cbuf),
+                    ffi.NULL,
+                    lpOverlapped,
+                )
+            )
+
+        try:
+            lpOverlapped = await self._perform_overlapped(handle, submit_write)
+            # this is "number of bytes transferred"
+            return lpOverlapped.InternalHigh
+        finally:
+            # There's a trap here. Let's say the incoming `data` is a
+            # memoryview, and our caller is bounding its lifetime with
+            # a context manager, maybe because they want to break a
+            # larger buffer into multiple writes without copying:
+            #
+            #     with memoryview(big_buffer) as view:
+            #         total_sent = 0
+            #         while total_sent < len(view):
+            #             total_sent += await write_overlapped(
+            #                 handle, big_buffer[total_sent : total_sent + 8192]
+            #             )
+            #
+            # Our FFI buffer object holds a reference to the memoryview's
+            # buffer, and the memoryview knows about this. If the
+            # memoryview context is exited (equivalent to calling
+            # memoryview.release()) while that reference is still held,
+            # we get a BufferError.
+            #
+            # Unfortunately, there seems to be no way to drop that
+            # reference without destroying the FFI buffer object,
+            # alhough one might be coming soon.
+            #   (https://bitbucket.org/cffi/cffi/issues/395/)
+            # We can't even call __del__, because there's no __del__
+            # exposed. On CPython, when we return normally, the frame
+            # and its locals are destroyed, but when we throw an
+            # exception, they remain referenced by the traceback.
+            # So, we need to drop the reference to the FFI buffer
+            # explicitly when unwinding.
+            #
+            # This doesn't help with destruction on PyPy, but PyPy
+            # doesn't currently track buffer references in the same
+            # way as CPython does, so there's no need for a workaround
+            # there.
+            #
+            del cbuf
+
+    @_public
+    async def readinto_overlapped(self, handle, buffer, file_offset=0):
+        # This will throw a reasonable error if `buffer` is read-only
+        # or doesn't support the buffer protocol, and perform no
+        # operation otherwise. A future release of CFFI will support
+        # ffi.from_buffer(foo, require_writable=True) to do the same
+        # thing less circumlocutiously.
+        #   (https://bitbucket.org/cffi/cffi/issues/394/)
+        ffi.memmove(buffer, b"", 0)
+
+        # As in write_overlapped, we want to ensure the buffer stays
+        # alive for the duration of the I/O.
+        cbuf = ffi.from_buffer(buffer)
+
+        def submit_read(lpOverlapped):
+            offset_fields = lpOverlapped.DUMMYUNIONNAME.DUMMYSTRUCTNAME
+            offset_fields.Offset = file_offset & 0xffffffff
+            offset_fields.OffsetHigh = file_offset >> 32
+            _check(
+                kernel32.ReadFile(
+                    _handle(handle),
+                    ffi.cast("LPVOID", cbuf),
+                    len(cbuf),
+                    ffi.NULL,
+                    lpOverlapped,
+                )
+            )
+
+        try:
+            lpOverlapped = await self._perform_overlapped(handle, submit_read)
+            return lpOverlapped.InternalHigh
+        finally:
+            # See discussion in write_overlapped()
+            del cbuf
