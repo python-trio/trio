@@ -139,8 +139,9 @@ def spawn_system_task(async_fn, *args, name=None):
         """
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        return GLOBAL_RUN_CONTEXT.runner.spawn_system_task(async_fn, *args,
-            name=name)
+        return GLOBAL_RUN_CONTEXT.runner.spawn_system_task(
+            async_fn, *args, name=name
+        )
     except AttributeError:
         raise RuntimeError('must be called from context')
 
@@ -219,8 +220,9 @@ def wait_all_tasks_blocked(cushion=0.0, tiebreaker=0):
         """
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        return GLOBAL_RUN_CONTEXT.runner.wait_all_tasks_blocked(cushion=
-            cushion, tiebreaker=tiebreaker)
+        return GLOBAL_RUN_CONTEXT.runner.wait_all_tasks_blocked(
+            cushion=cushion, tiebreaker=tiebreaker
+        )
     except AttributeError:
         raise RuntimeError('must be called from context')
 
@@ -259,5 +261,3 @@ def remove_instrument(instrument):
         return GLOBAL_RUN_CONTEXT.runner.remove_instrument(instrument)
     except AttributeError:
         raise RuntimeError('must be called from context')
-
-
