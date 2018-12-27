@@ -1,6 +1,7 @@
 import ast
 import astor
 import os
+import textwrap
 
 SOURCE_TREE = './trio/_core'
 
@@ -121,7 +122,8 @@ from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
                 new_arg_list.append(arg.strip())
         new_args = ', '.join(new_arg_list)
         # Strip PUBLIC keyword from docs
-        m.body[0].value.s = m.body[0].value.s.replace('PUBLIC ', '')
+        doc_string = m.body[0].value.s.replace('PUBLIC ', '')
+        m.body[0].value.s = doc_string
         # Remove function body
         del m.body[1:]
         # Create new function body

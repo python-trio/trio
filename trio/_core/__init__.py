@@ -22,7 +22,7 @@ from ._run import (
     current_effective_deadline, checkpoint_if_cancelled, TASK_STATUS_IGNORED,
     current_statistics, current_trio_token, reschedule, remove_instrument,
     add_instrument, current_clock, current_root_task, spawn_system_task,
-    current_time, wait_all_tasks_blocked, write_overlapped, readinto_overlapped
+    current_time, wait_all_tasks_blocked
 )
 
 # Has to come after _run to resolve a circular import
@@ -55,7 +55,7 @@ try:
     from ._run import (
         wait_socket_readable, wait_socket_writable, notify_socket_close,
         monitor_completion_key, current_iocp, register_with_iocp,
-        wait_overlapped
+        wait_overlapped, write_overlapped, readinto_overlapped
     )
 except ImportError:
     pass
