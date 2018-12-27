@@ -674,13 +674,12 @@ class Runner:
         if self.instruments:
             self.instrument("after_run")
 
-    # Add methods by adding "PUBLIC" (without quotes) to the first
+    # Export methods by adding "PUBLIC " (without quotes and one space after) to the first
     # line of the docs. Methods with this line are to be converted
     # into functions and exported to trio.hazmat. The PUBLIC keyword
-    # will be stripped from  the docstring in the function
+    # will be stripped from the docstring in the exported function
     def current_statistics(self):
-        """PUBLIC
-        Returns an object containing run-loop-level debugging information.
+        """PUBLIC Returns an object containing run-loop-level debugging information.
 
         Currently the following fields are defined:
 
@@ -716,8 +715,7 @@ class Runner:
         )
 
     def current_time(self):
-        """PUBLIC
-        Returns the current time according to trio's internal clock.
+        """PUBLIC Returns the current time according to trio's internal clock.
 
         Returns:
             float: The current time.
@@ -729,15 +727,13 @@ class Runner:
         return self.clock.current_time()
 
     def current_clock(self):
-        """PUBLIC
-        Returns the current :class:`~trio.abc.Clock`.
+        """PUBLIC Returns the current :class:`~trio.abc.Clock`.
 
         """
         return self.clock
 
     def current_root_task(self):
-        """PUBLIC
-        Returns the current root :class:`Task`.
+        """PUBLIC Returns the current root :class:`Task`.
 
         This is the task that is the ultimate parent of all other tasks.
 
@@ -749,8 +745,7 @@ class Runner:
     ################
 
     def reschedule(self, task, next_send=_NO_SEND):
-        """PUBLIC
-        Reschedule the given task with the given
+        """PUBLIC Reschedule the given task with the given
         :class:`outcome.Outcome`.
 
         See :func:`wait_task_rescheduled` for the gory details.
@@ -948,8 +943,7 @@ class Runner:
     ################
 
     def spawn_system_task(self, async_fn, *args, name=None):
-        """PUBLIC
-        Spawn a "system" task.
+        """PUBLIC Spawn a "system" task.
 
         System tasks have a few differences from regular tasks:
 
@@ -1008,8 +1002,7 @@ class Runner:
     ################
 
     def current_trio_token(self):
-        """PUBLIC
-        Retrieve the :class:`TrioToken` for the current call to
+        """PUBLIC Retrieve the :class:`TrioToken` for the current call to
         :func:`trio.run`.
 
         """
@@ -1057,8 +1050,7 @@ class Runner:
     waiting_for_idle = attr.ib(default=attr.Factory(SortedDict))
 
     async def wait_all_tasks_blocked(self, cushion=0.0, tiebreaker=0):
-        """PUBLIC
-        Block until there are no runnable tasks.
+        """PUBLIC Block until there are no runnable tasks.
 
         This is useful in testing code when you want to give other tasks a
         chance to "settle down". The calling task is blocked, and doesn't wake
@@ -1150,8 +1142,7 @@ class Runner:
                 )
 
     def add_instrument(self, instrument):
-        """PUBLIC
-        Start instrumenting the current run loop with the given instrument.
+        """PUBLIC Start instrumenting the current run loop with the given instrument.
 
         Args:
           instrument (trio.abc.Instrument): The instrument to activate.
@@ -1163,8 +1154,7 @@ class Runner:
             self.instruments.append(instrument)
 
     def remove_instrument(self, instrument):
-        """PUBLIC
-        Stop instrumenting the current run loop with the given instrument.
+        """PUBLIC Stop instrumenting the current run loop with the given instrument.
 
         Args:
           instrument (trio.abc.Instrument): The instrument to de-activate.
@@ -1598,14 +1588,14 @@ async def checkpoint_if_cancelled():
 
 if os.name == "nt":
     from ._io_windows import WindowsIOManager as TheIOManager
-    from ._export_io_windows import *
+    from ._public_io_windows import *
 elif hasattr(select, "epoll"):
     from ._io_epoll import EpollIOManager as TheIOManager
-    from ._export_io_epoll import *
+    from ._public_io_epoll import *
 elif hasattr(select, "kqueue"):
     from ._io_kqueue import KqueueIOManager as TheIOManager
-    from ._export_io_kqueue import *
+    from ._public_io_kqueue import *
 else:  # pragma: no cover
     raise NotImplementedError("unsupported platform")
 
-from ._export_run import *
+from ._public_run import *

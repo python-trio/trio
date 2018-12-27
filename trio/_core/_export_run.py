@@ -2,7 +2,6 @@ from ._run import GLOBAL_RUN_CONTEXT, Runner
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 
 
-# Always available independent of os
 def current_statistics():
     """Returns an object containing run-loop-level debugging information.
 
@@ -30,7 +29,7 @@ def current_statistics():
     try:
         return GLOBAL_RUN_CONTEXT.runner.current_statistics()
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError('must be called from async context')
 
 
 def current_time():
@@ -47,7 +46,7 @@ def current_time():
     try:
         return GLOBAL_RUN_CONTEXT.runner.current_time()
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError('must be called from async context')
 
 
 def current_clock():
@@ -58,7 +57,7 @@ def current_clock():
     try:
         return GLOBAL_RUN_CONTEXT.runner.current_clock()
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError('must be called from async context')
 
 
 def current_root_task():
@@ -71,7 +70,7 @@ def current_root_task():
     try:
         return GLOBAL_RUN_CONTEXT.runner.current_root_task()
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError('must be called from async context')
 
 
 def reschedule(task, next_send=Runner._NO_SEND):
@@ -96,10 +95,10 @@ def reschedule(task, next_send=Runner._NO_SEND):
     try:
         return GLOBAL_RUN_CONTEXT.runner.reschedule(task, next_send=next_send)
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError('must be called from async context')
 
 
-def spawn_system_task(async_fn, *args, name=None, **kwargs):
+def spawn_system_task(async_fn, *args, name=None):
     """Spawn a "system" task.
 
     System tasks have a few differences from regular tasks:
@@ -141,10 +140,10 @@ def spawn_system_task(async_fn, *args, name=None, **kwargs):
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.spawn_system_task(
-            async_fn, *args, name=name, **kwargs
+            async_fn, *args, name=name
         )
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError('must be called from async context')
 
 
 def current_trio_token():
@@ -156,7 +155,7 @@ def current_trio_token():
     try:
         return GLOBAL_RUN_CONTEXT.runner.current_trio_token()
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError('must be called from async context')
 
 
 def wait_all_tasks_blocked(cushion=0.0, tiebreaker=0):
@@ -225,7 +224,7 @@ def wait_all_tasks_blocked(cushion=0.0, tiebreaker=0):
             cushion=cushion, tiebreaker=tiebreaker
         )
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError('must be called from async context')
 
 
 def add_instrument(instrument):
@@ -241,7 +240,7 @@ def add_instrument(instrument):
     try:
         return GLOBAL_RUN_CONTEXT.runner.add_instrument(instrument)
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError('must be called from async context')
 
 
 def remove_instrument(instrument):
@@ -261,4 +260,4 @@ def remove_instrument(instrument):
     try:
         return GLOBAL_RUN_CONTEXT.runner.remove_instrument(instrument)
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError('must be called from async context')
