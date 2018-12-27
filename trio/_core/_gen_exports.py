@@ -66,8 +66,7 @@ def gen_exports():
     of exported functions imported from _public
     """
 
-    imports = """# yapf: disable
-from ._run import GLOBAL_RUN_CONTEXT, Runner
+    imports = """from ._run import GLOBAL_RUN_CONTEXT, Runner
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 
 
