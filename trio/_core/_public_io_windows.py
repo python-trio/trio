@@ -67,3 +67,23 @@ def notify_socket_close(sock):
         raise RuntimeError('must be called from context')
 
 
+def write_overlapped(handle, data, file_offset=0):
+    """"""
+    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    try:
+        return GLOBAL_RUN_CONTEXT.runner.io_manager.write_overlapped(handle,
+            data, file_offset=file_offset)
+    except AttributeError:
+        raise RuntimeError('must be called from context')
+
+
+def readinto_overlapped(handle, buffer, file_offset=0):
+    """"""
+    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    try:
+        return GLOBAL_RUN_CONTEXT.runner.io_manager.readinto_overlapped(handle,
+            buffer, file_offset=file_offset)
+    except AttributeError:
+        raise RuntimeError('must be called from context')
+
+

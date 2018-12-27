@@ -482,8 +482,8 @@ class WindowsIOManager:
         await self.wait_overlapped(handle, lpOverlapped)
         return lpOverlapped
 
-    @_public
     async def write_overlapped(self, handle, data, file_offset=0):
+        """PUBLIC """
         # Make sure we keep our buffer referenced until the I/O completes.
         # For typical types of `data` (bytes, bytearray) the memory we
         # pass is part of the existing allocation, but the buffer protocol
@@ -546,8 +546,8 @@ class WindowsIOManager:
             #
             del cbuf
 
-    @_public
     async def readinto_overlapped(self, handle, buffer, file_offset=0):
+        """PUBLIC """
         # This will throw a reasonable error if `buffer` is read-only
         # or doesn't support the buffer protocol, and perform no
         # operation otherwise. A future release of CFFI will support
