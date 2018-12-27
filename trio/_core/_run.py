@@ -756,10 +756,10 @@ class Runner:
         to calling :func:`reschedule` once.)
 
         Args:
-            task (trio.hazmat.Task): the task to be rescheduled. Must be blocked
-            in a call to :func:`wait_task_rescheduled`.
+          task (trio.hazmat.Task): the task to be rescheduled. Must be blocked
+              in a call to :func:`wait_task_rescheduled`.
           next_send (outcome.Outcome): the value (or error) to return (or
-            raise) from :func:`wait_task_rescheduled`.
+              raise) from :func:`wait_task_rescheduled`.
 
         """
         if next_send is self._NO_SEND:
