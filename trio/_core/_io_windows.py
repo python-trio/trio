@@ -466,25 +466,6 @@ class WindowsIOManager:
                 )
                 _core.reschedule(task, outcome.Error(exc))
 
-<<<<<<< HEAD
-    # This has cffi-isms in it and is untested... but it demonstrates the
-    # logic we'll want when we start actually using overlapped I/O.
-    #
-    # async def perform_overlapped(self, handle, submit_fn):
-    #     # submit_fn(lpOverlapped) submits some I/O
-    #     # it may raise an OSError with ERROR_IO_PENDING
-    #     await _core.checkpoint_if_cancelled()
-    #     self.register_with_iocp(handle)
-    #     lpOverlapped = ffi.new("LPOVERLAPPED")
-    #     try:
-    #         submit_fn(lpOverlapped)
-    #     except OSError as exc:
-    #         if exc.winerror != Error.ERROR_IO_PENDING:
-    #             await _core.cancel_shielded_checkpoint()
-    #             raise
-    #     await self.wait_overlapped(handle, lpOverlapped)
-    #     return lpOverlapped
-=======
     async def _perform_overlapped(self, handle, submit_fn):
         # submit_fn(lpOverlapped) submits some I/O
         # it may raise an OSError with ERROR_IO_PENDING
@@ -599,4 +580,3 @@ class WindowsIOManager:
         finally:
             # See discussion in write_overlapped()
             del cbuf
->>>>>>> master
