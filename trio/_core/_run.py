@@ -1008,7 +1008,8 @@ class Runner:
     ################
 
     def current_trio_token(self):
-        """Retrieve the :class:`TrioToken` for the current call to
+        """PUBLIC
+        Retrieve the :class:`TrioToken` for the current call to
         :func:`trio.run`.
 
         """
@@ -1595,4 +1596,16 @@ async def checkpoint_if_cancelled():
     task._cancel_points += 1
 
 
-from ._public import *
+if os.name == "nt":
+    from ._io_windows import WindowsIOManager as TheIOManager
+    from ._export_io_windows import *
+elif hasattr(select, "epoll"):
+    from ._io_epoll import EpollIOManager as TheIOManager
+    from ._export_io_epoll import *
+elif hasattr(select, "kqueue"):
+    from ._io_kqueue import KqueueIOManager as TheIOManager
+    from ._export_io_kqueue import *
+else:  # pragma: no cover
+    raise NotImplementedError("unsupported platform")
+
+from ._export_run import *

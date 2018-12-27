@@ -13,31 +13,6 @@ EXPORT_MODULE_FILES = [
 ]
 
 
-def check_obsolete_functions(funcs, meths):
-    """ Check if there are functions that are
-    not public anymore.
-    Return any functions that are not in methods
-    """
-    return [func for func in funcs if func not in meths]
-
-
-def check_new_methods(meths, funcs):
-    """ Check if there are new methods that are
-    public but haven't been exported yet.
-    """
-    return [meth for meth in meths if meth not in funcs]
-
-
-def remove_public_function(tree, func):
-    """ Remove a public function from a module
-    """
-
-
-def add_public_function(tree, func):
-    """ Add a public function from a module
-    """
-
-
 def is_function(node):
     """ Check if an ast node is a function
     or async function
@@ -51,29 +26,15 @@ def is_function(node):
 def get_public_methods(tree):
     """ Return a list of tuples of methods and parents
     marked as public.
-    The function walks the given tree and extracs
-    all objects that are functions and have an
-    attribute of _public set to True.
-    Having the attribute is the only criteria,
-    so any function having this attribute will be
-    exported.
+    The function walks the given tree and extracts
+    all objects that are functions and have a
+    doc string that starts with PUBLIC
     """
     methods = [
         node for node in ast.walk(tree)
-        if is_function(node) and get_doc_string(node).startswith('"""PUBLIC')
+        if is_function(node) and get_doc_string(node).startswith('PUBLIC')
     ]
     return methods
-
-
-def get_gen_tree(module_file):
-    """ The function splits the run.py file into
-    two parts and returns the ast tree
-    of the genereated second part
-    """
-    with open(RUN_MODULE_FILE, 'r') as module_file:
-        module_code = module_file.read()
-        gen_code = module_code.split('# yapf: disable')[-1]
-    return ast.parse(gen_code)
 
 
 def split_gen_tree(tree):
@@ -88,15 +49,6 @@ def split_gen_tree(tree):
     ifs = [node for node in ast.walk(tree) if isinstance(node, ast.If)]
 
     return ifs
-
-
-def get_public_functions(tree):
-    """ Get all exported functions
-    of the genereated tree. No checking
-    takes place as the generated tree does not 
-    contain any other functions or methods.
-    """
-    return [func for func in ast.walk(tree) if is_function(func)]
 
 
 def get_module_trees_from_list(module_files):
@@ -124,8 +76,10 @@ def get_doc_string(func):
     if not is_function(func):
         raise TypeError("Docstring can only be retrieved for a function")
     doc = func.body[0]
-    if isinstance(doc, ast.Expr) and hasattr(doc.value, 's'):
-        return doc.value.s
+    if isinstance(doc, ast.Expr):
+        if hasattr(doc, 'value'):
+            if hasattr(doc.value, 's'):
+                return doc.value.s
     return ""
 
 
@@ -157,21 +111,13 @@ def gen_exports():
     trees = [tree for tree in get_module_trees_from_list(EXPORT_MODULE_FILES)]
 
     # Get all methods we want to export
-    methods = [meth[0] for tree in trees for meth in get_public_methods(tree)]
+    methods = [meth for tree in trees for meth in get_public_methods(tree)]
 
-    # Generate an ast tree for the generated part of the file
-    gen_tree = get_gen_tree(RUN_MODULE_FILE)
-
-    # Get all currently exported functions
-    functions = [f for f in get_public_functions(gen_tree)]
-
-    # Check for obsolete functions
-
-    print([m.name for m in methods])
-    print([f.name for f in functions])
+    # print(len(methods))
+    [print(m.name, m.args.defaults, m.args.kw_defaults) for m in methods]
+    # [print(astor.to_source(m)) for m in methods]
     # print([get_doc_string(f) for f in methods])
-    print(split_gen_tree(gen_tree))
-    print(get_module_trees_by_dir(SOURCE_TREE))
+    # print(get_module_trees_by_dir(SOURCE_TREE))
 
 
 if __name__ == '__main__':
