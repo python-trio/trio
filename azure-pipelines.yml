@@ -37,7 +37,7 @@ jobs:
   - task: UsePythonVersion@0
     inputs:
       versionSpec: '$(python.version)'
-      architecture: 'x64'
+      architecture: '$(python.arch)'
 
   - script: python -m pip install --upgrade pip && pip install -r test-requirements.txt
     displayName: 'Install dependencies'
@@ -49,5 +49,5 @@ jobs:
   - task: PublishTestResults@2
     inputs:
       testResultsFiles: '**/test-results.xml'
-      testRunTitle: 'Python $(python.version)'
+      testRunTitle: 'Windows Python $(python.version)-$(python.arch)'
     condition: succeededOrFailed()
