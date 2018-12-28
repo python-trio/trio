@@ -64,8 +64,6 @@ except ImportError:
     else:
         SO_PROTOCOL = None
         SO_DOMAIN = None
-    # SO_TYPE is available on all supported python versions:
-    from socket import SO_TYPE
 
 ################################################################
 # Overrides
@@ -307,7 +305,7 @@ def _sniff_sockopts_for_fileno(family, type, proto, fileno):
     # This object might have the wrong metadata, but it lets us easily call getsockopt
     # and then we'll throw it away and construct a new one with the correct metadata.
     sockobj = _stdlib_socket.socket(fileno=fileno)
-    from socket import SOL_SOCKET
+    from socket import SOL_SOCKET, SO_TYPE
     try:
         if SO_DOMAIN is not None:
             family = sockobj.getsockopt(SOL_SOCKET, SO_DOMAIN)
