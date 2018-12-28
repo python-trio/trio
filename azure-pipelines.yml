@@ -50,7 +50,7 @@ jobs:
   strategy:
     matrix:
       "Python 3.5":
-        python.version: '3.5.5'
+        python.version: '3.5'
       #"Python 3.5, 64 bit:
       #   python.version: '3.5'
       #   python.arch: 'x64'
@@ -72,7 +72,6 @@ jobs:
   - task: UsePythonVersion@0
     inputs:
       versionSpec: '$(python.version)'
-      architecture: '$(python.arch)'
 
   - bash: ci/ci.sh
 
@@ -87,7 +86,7 @@ jobs:
   strategy:
     matrix:
       "Python 3.5":
-        python.version: '3.5.5'
+        python.version: '3.5'
       #"Python 3.5, 64 bit:
       #   python.version: '3.5'
       #   python.arch: 'x64'
@@ -109,7 +108,6 @@ jobs:
   - task: UsePythonVersion@0
     inputs:
       versionSpec: '$(python.version)'
-      architecture: '$(python.arch)'
 
   - bash: ci/ci.sh
 
