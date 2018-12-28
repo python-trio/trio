@@ -10,7 +10,7 @@ which pip
 
 pip --version
 
-pip install -U pip setuptools wheel
+python -m pip install -U pip setuptools wheel
 
 python setup.py sdist --formats=zip
 pip install dist/*.zip
