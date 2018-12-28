@@ -50,7 +50,7 @@ jobs:
   strategy:
     matrix:
       "Python 3.5":
-        python.version: '3.5'
+        python.version: '3.5.5'
       #"Python 3.5, 64 bit:
       #   python.version: '3.5'
       #   python.arch: 'x64'
@@ -87,7 +87,7 @@ jobs:
   strategy:
     matrix:
       "Python 3.5":
-        python.version: '3.5'
+        python.version: '3.5.5'
       #"Python 3.5, 64 bit:
       #   python.version: '3.5'
       #   python.arch: 'x64'
