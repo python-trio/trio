@@ -40,16 +40,19 @@ from ._unbounded_queue import UnboundedQueue
 
 from ._local import RunVar
 
-# Linux and OSX imports
+# Epoll imports
 try:
-    from ._run import (
-        wait_readable, wait_writable, notify_fd_close, current_kqueue,
-        monitor_kevent, wait_kevent
-    )
+    from ._run import (wait_readable, wait_writable, notify_fd_close)
 
     wait_socket_readable = wait_readable
     wait_socket_writable = wait_writable
     notify_socket_close = notify_fd_close
+except ImportError:
+    pass
+
+# Kqueue imports
+try:
+    from ._run import (current_kqueue, monitor_kevent, wait_kevent)
 except ImportError:
     pass
 
