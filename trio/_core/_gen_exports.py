@@ -137,9 +137,8 @@ except AttributeError:
         ast_method = ast.parse(template)
         m.body.extend(ast_method.body)
         source = astor.to_source(m).replace('async ', '') + '\n\n'
-        with open(
-            os.path.join(m.module_path, '_public' + m.module_file), 'a'
-        ) as pub_file:
+        with open(os.path.join(m.module_path, '_public' + m.module_file),
+                  'a') as pub_file:
             pub_file.writelines(source)
 
 

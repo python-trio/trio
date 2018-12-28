@@ -42,7 +42,10 @@ from ._local import RunVar
 
 # Linux and OSX imports
 try:
-    from ._run import (wait_readable, wait_writable, notify_fd_close)
+    from ._run import (
+        wait_readable, wait_writable, notify_fd_close, current_kqueue,
+        monitor_kevent, wait_kevent
+    )
 
     wait_socket_readable = wait_readable
     wait_socket_writable = wait_writable
