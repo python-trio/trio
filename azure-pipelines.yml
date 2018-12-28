@@ -16,21 +16,21 @@ jobs:
       Python35-32:
         python.version: '3.5'
         python.arch: 'x86'
-      Python35-64:
-        python.version: '3.5'
-        python.arch: 'x64'
-      Python36-32:
-        python.version: '3.6'
-        python.arch: 'x86'
-      Python36-64:
-        python.version: '3.6'
-        python.arch: 'x64'
-      Python37-32:
-        python.version: '3.7'
-        python.arch: 'x86'
-      Python37-64:
-        python.version: '3.7'
-        python.arch: 'x64'
+      # Python35-64:
+      #   python.version: '3.5'
+      #   python.arch: 'x64'
+      # Python36-32:
+      #   python.version: '3.6'
+      #   python.arch: 'x86'
+      # Python36-64:
+      #   python.version: '3.6'
+      #   python.arch: 'x64'
+      # Python37-32:
+      #   python.version: '3.7'
+      #   python.arch: 'x86'
+      # Python37-64:
+      #   python.version: '3.7'
+      #   python.arch: 'x64'
     maxParallel: 6
 
   steps:
@@ -39,8 +39,7 @@ jobs:
       versionSpec: '$(python.version)'
       architecture: '$(python.arch)'
 
-  - script: python -m pip install --upgrade pip && pip install -r test-requirements.txt
-    displayName: 'Install dependencies'
+  - bash: ci/ci.sh
 
   - script:
       pytest trio --junitxml=junit/test-results.xml
@@ -48,6 +47,6 @@ jobs:
 
   - task: PublishTestResults@2
     inputs:
-      testResultsFiles: '**/test-results.xml'
+      testResultsFiles: 'test-results.xml'
       testRunTitle: 'Windows Python $(python.version)-$(python.arch)'
     condition: succeededOrFailed()
