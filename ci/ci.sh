@@ -4,13 +4,11 @@ set -ex -o pipefail
 
 git rev-parse HEAD
 
-echo $PATH
-which python
-which pip
-
-pip --version
+python --version
+python -c "import struct; print('bits:', struct.calcsize('P') * 8)"
 
 python -m pip install -U pip setuptools wheel
+pip --version
 
 python setup.py sdist --formats=zip
 pip install dist/*.zip

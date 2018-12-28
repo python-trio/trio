@@ -10,22 +10,22 @@ jobs:
     vmImage: 'vs2017-win2016'
   strategy:
     matrix:
-      Python35-32:
+      "Python 3.5, 32 bit":
         python.version: '3.5'
         python.arch: 'x86'
-      # Python35-64:
+      #"Python 3.5, 64 bit:
       #   python.version: '3.5'
       #   python.arch: 'x64'
-      # Python36-32:
+      #"Python 3.6, 32 bit":
       #   python.version: '3.6'
       #   python.arch: 'x86'
-      # Python36-64:
+      # "Python 3.6, 64 bit":
       #   python.version: '3.6'
       #   python.arch: 'x64'
-      # Python37-32:
+      # "Python 3.7, 32 bit":
       #   python.version: '3.7'
       #   python.arch: 'x86'
-      # Python37-64:
+      # "Python 3.7, 64 bit":
       #   python.version: '3.7'
       #   python.arch: 'x64'
     maxParallel: 6
@@ -36,15 +36,84 @@ jobs:
       versionSpec: '$(python.version)'
       architecture: '$(python.arch)'
 
-  - script: echo %PATH%
   - bash: ci/ci.sh
-
-  - script:
-      pytest trio --junitxml=junit/test-results.xml
-    displayName: 'pytest'
 
   - task: PublishTestResults@2
     inputs:
       testResultsFiles: 'test-results.xml'
       testRunTitle: 'Windows Python $(python.version)-$(python.arch)'
+    condition: succeededOrFailed()
+
+- job: 'Linux'
+  pool:
+    vmImage: 'ubuntu-16.04'
+  strategy:
+    matrix:
+      "Python 3.5":
+        python.version: '3.5'
+      #"Python 3.5, 64 bit:
+      #   python.version: '3.5'
+      #   python.arch: 'x64'
+      #"Python 3.6, 32 bit":
+      #   python.version: '3.6'
+      #   python.arch: 'x86'
+      # "Python 3.6, 64 bit":
+      #   python.version: '3.6'
+      #   python.arch: 'x64'
+      # "Python 3.7, 32 bit":
+      #   python.version: '3.7'
+      #   python.arch: 'x86'
+      # "Python 3.7, 64 bit":
+      #   python.version: '3.7'
+      #   python.arch: 'x64'
+    maxParallel: 6
+
+  steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '$(python.version)'
+      architecture: '$(python.arch)'
+
+  - bash: ci/ci.sh
+
+  - task: PublishTestResults@2
+    inputs:
+      testResultsFiles: 'test-results.xml'
+    condition: succeededOrFailed()
+
+- job: 'macOS'
+  pool:
+    vmImage: 'macOS-10.13'
+  strategy:
+    matrix:
+      "Python 3.5":
+        python.version: '3.5'
+      #"Python 3.5, 64 bit:
+      #   python.version: '3.5'
+      #   python.arch: 'x64'
+      #"Python 3.6, 32 bit":
+      #   python.version: '3.6'
+      #   python.arch: 'x86'
+      # "Python 3.6, 64 bit":
+      #   python.version: '3.6'
+      #   python.arch: 'x64'
+      # "Python 3.7, 32 bit":
+      #   python.version: '3.7'
+      #   python.arch: 'x86'
+      # "Python 3.7, 64 bit":
+      #   python.version: '3.7'
+      #   python.arch: 'x64'
+    maxParallel: 6
+
+  steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '$(python.version)'
+      architecture: '$(python.arch)'
+
+  - bash: ci/ci.sh
+
+  - task: PublishTestResults@2
+    inputs:
+      testResultsFiles: 'test-results.xml'
     condition: succeededOrFailed()
