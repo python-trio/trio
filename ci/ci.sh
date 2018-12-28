@@ -4,6 +4,12 @@ set -ex -o pipefail
 
 git rev-parse HEAD
 
+echo $PATH
+which python
+which pip
+
+pip --version
+
 pip install -U pip setuptools wheel
 
 python setup.py sdist --formats=zip
