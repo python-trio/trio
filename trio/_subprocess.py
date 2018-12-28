@@ -17,7 +17,7 @@ __all__ = ["Process"]
 
 
 class Process(AsyncResource):
-    """Execute a child program in a new process.
+    r"""Execute a child program in a new process.
 
     Like :class:`subprocess.Popen`, but async.
 
