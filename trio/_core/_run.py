@@ -1586,6 +1586,8 @@ async def checkpoint_if_cancelled():
     task._cancel_points += 1
 
 
+_NO_SEND = Runner._NO_SEND
+
 if os.name == "nt":
     from ._io_windows import WindowsIOManager as TheIOManager
     from ._public_io_windows import *
