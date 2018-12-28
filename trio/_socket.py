@@ -54,6 +54,19 @@ except ImportError:
     if _sys.platform == "win32":
         IPPROTO_IPV6 = 41
 
+try:
+    from socket import SO_DOMAIN, SO_PROTOCOL
+except ImportError:
+    # Only available on 3.6 and above:
+    if _sys.platform == "linux":
+        SO_PROTOCOL = 38
+        SO_DOMAIN = 39
+    else:
+        SO_PROTOCOL = None
+        SO_DOMAIN = None
+    # SO_TYPE is available on all supported python versions:
+    from socket import SO_TYPE
+
 ################################################################
 # Overrides
 ################################################################
@@ -287,27 +300,20 @@ def socket(
 
 
 def _sniff_sockopts_for_fileno(family, type, proto, fileno):
-    """Correct SOCKOPTS for given fileno, falling back to provieded values.
+    """Correct SOCKOPTS for given fileno, falling back to provided values.
 
     """
     # Wrap the raw fileno into a Python socket object
     # This object might have the wrong metadata, but it lets us easily call getsockopt
     # and then we'll throw it away and construct a new one with the correct metadata.
-    # source: https://github.com/python-trio/trio/pull/577#issuecomment-408763906
     sockobj = _stdlib_socket.socket(fileno=fileno)
+    from socket import SOL_SOCKET
     try:
-        if hasattr(socket, "SO_DOMAIN"):
-            family = sockobj.getsockopt(
-                _stdlib_socket.SOL_SOCKET, _stdlib_socket.SO_DOMAIN
-            )
-        if hasattr(socket, "SO_TYPE"):
-            type = sockobj.getsockopt(
-                _stdlib_socket.SOL_SOCKET, _stdlib_socket.SO_TYPE
-            )
-        if hasattr(socket, "SO_PROTOCOL"):
-            proto = sockobj.getsockopt(
-                _stdlib_socket.SOL_SOCKET, _stdlib_socket.SO_PROTOCOL
-            )
+        if SO_DOMAIN is not None:
+            family = sockobj.getsockopt(SOL_SOCKET, SO_DOMAIN)
+        if SO_PROTOCOL is not None:
+            proto = sockobj.getsockopt(SOL_SOCKET, SO_PROTOCOL)
+        type = sockobj.getsockopt(SOL_SOCKET, SO_TYPE)
     finally:
         # Unwrap it again, so that sockobj.__del__ doesn't try to close our socket
         sockobj.detach()
