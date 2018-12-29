@@ -24,7 +24,7 @@ class MemoryListener(trio.abc.Listener):
         return client
 
     async def accept(self):
-        await trio.hazmat.checkpoint()
+        await trio.powertools.checkpoint()
         assert not self.closed
         if self.accept_hook is not None:
             await self.accept_hook()
@@ -34,7 +34,7 @@ class MemoryListener(trio.abc.Listener):
 
     async def aclose(self):
         self.closed = True
-        await trio.hazmat.checkpoint()
+        await trio.powertools.checkpoint()
 
 
 async def test_serve_listeners_basic():

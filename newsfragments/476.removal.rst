@@ -1,0 +1,2 @@
+It turns out that almost no-one understood the name ``trio.hazmat``.
+So we renamed it to :mod:`trio.powertools`.

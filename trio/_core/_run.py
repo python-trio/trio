@@ -38,7 +38,7 @@ from .. import _core
 
 # At the bottom of this file there's also some "clever" code that generates
 # wrapper functions for runner and io manager methods, and adds them to
-# __all__. These are all re-exported as part of the 'trio' or 'trio.hazmat'
+# __all__. These are all re-exported as part of the 'trio' or 'trio.powertools'
 # namespaces.
 __all__ = [
     "Task", "run", "open_nursery", "open_cancel_scope", "checkpoint",
@@ -696,7 +696,7 @@ class Runner:
             self.instrument("after_run")
 
     # Methods marked with @_public get converted into functions exported by
-    # trio.hazmat:
+    # trio.powertools:
     @_public
     def current_statistics(self):
         """Returns an object containing run-loop-level debugging information.
@@ -714,7 +714,7 @@ class Runner:
           :data:`~math.inf` if there are no pending deadlines.
         * ``run_sync_soon_queue_size`` (int): The number of
           unprocessed callbacks queued via
-          :meth:`trio.hazmat.TrioToken.run_sync_soon`.
+          :meth:`trio.powertools.TrioToken.run_sync_soon`.
         * ``io_statistics`` (object): Some statistics from trio's I/O
           backend. This always has an attribute ``backend`` which is a string
           naming which operating-system-specific I/O backend is in use; the
@@ -780,7 +780,7 @@ class Runner:
         to calling :func:`reschedule` once.)
 
         Args:
-          task (trio.hazmat.Task): the task to be rescheduled. Must be blocked
+          task (trio.powertools.Task): the task to be rescheduled. Must be blocked
             in a call to :func:`wait_task_rescheduled`.
           next_send (outcome.Outcome): the value (or error) to return (or
             raise) from :func:`wait_task_rescheduled`.
@@ -1598,7 +1598,7 @@ async def checkpoint_if_cancelled():
     Equivalent to (but potentially more efficient than)::
 
         if trio.current_deadline() == -inf:
-            await trio.hazmat.checkpoint()
+            await trio.powertools.checkpoint()
 
     This is either a no-op, or else it allow other tasks to be scheduled and
     then raises :exc:`trio.Cancelled`.

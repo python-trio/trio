@@ -47,7 +47,7 @@ class UnboundedQueue:
     @deprecated(
         "0.9.0",
         issue=497,
-        thing="trio.hazmat.UnboundedQueue",
+        thing="trio.powertools.UnboundedQueue",
         instead="trio.open_memory_channel(math.inf)"
     )
     def __init__(self):

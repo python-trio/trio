@@ -963,12 +963,12 @@ Nursery objects provide the following interface:
 
    .. attribute:: parent_task
 
-      The :class:`~trio.hazmat.Task` that opened this nursery.
+      The :class:`~trio.powertools.Task` that opened this nursery.
 
    .. attribute:: child_tasks
 
       A :class:`frozenset` containing all the child
-      :class:`~trio.hazmat.Task` objects which are still running.
+      :class:`~trio.powertools.Task` objects which are still running.
 
 
 .. attribute:: TASK_STATUS_IGNORED
@@ -1573,9 +1573,9 @@ than the lower-level primitives discussed in this section. But if you
 need them, they're here. (If you find yourself reaching for these
 because you're trying to implement a new higher-level synchronization
 primitive, then you might also want to check out the facilities in
-:mod:`trio.hazmat` for a more direct exposure of trio's underlying
+:mod:`trio.powertools` for a more direct exposure of trio's underlying
 synchronization logic. All of classes discussed in this section are
-implemented on top of the public APIs in :mod:`trio.hazmat`; they
+implemented on top of the public APIs in :mod:`trio.powertools`; they
 don't have any special access to trio's internals.)
 
 .. autoclass:: CapacityLimiter

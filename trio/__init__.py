@@ -63,7 +63,7 @@ from ._highlevel_ssl_helpers import (
 from ._deprecate import TrioDeprecationWarning
 
 # Imported by default
-from . import hazmat
+from . import powertools
 from . import socket
 from . import abc
 from . import ssl
@@ -74,6 +74,13 @@ if False:
 
 _deprecate.enable_attribute_deprecations(__name__)
 __deprecated_attributes__ = {
+    "hazmat":
+        _deprecate.DeprecatedAttribute(
+            powertools,
+            "0.10.0",
+            issue=476,
+            instead="trio.powertools"
+        ),
     "BrokenStreamError":
         _deprecate.DeprecatedAttribute(
             BrokenResourceError,
@@ -95,7 +102,7 @@ __deprecated_attributes__ = {
 # - probably other stuff
 from ._util import fixup_module_metadata
 fixup_module_metadata(__name__, globals())
-fixup_module_metadata(hazmat.__name__, hazmat.__dict__)
+fixup_module_metadata(powertools.__name__, powertools.__dict__)
 fixup_module_metadata(socket.__name__, socket.__dict__)
 fixup_module_metadata(abc.__name__, abc.__dict__)
 fixup_module_metadata(ssl.__name__, ssl.__dict__)

@@ -31,8 +31,6 @@ nitpick_ignore = [
     ("py:class", "CapacityLimiter-like object"),
     ("py:class", "bytes-like"),
     ("py:class", "None"),
-    # Was removed but still shows up in changelog
-    ("py:class", "trio.hazmat.RunLocal"),
     # trio.abc is documented at random places scattered throughout the docs
     ("py:mod", "trio.abc"),
     ("py:class", "math.inf"),

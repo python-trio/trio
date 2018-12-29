@@ -30,8 +30,8 @@ Features
 Deprecations and Removals
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- ``trio.Queue`` and ``trio.hazmat.UnboundedQueue`` have been deprecated, in
-  favor of :func:`trio.open_memory_channel`. (`#497
+- ``trio.Queue`` and ``trio.hazmat.UnboundedQueue`` have been
+  deprecated, in favor of :func:`trio.open_memory_channel`. (`#497
   <https://github.com/python-trio/trio/issues/497>`__)
 
 
@@ -75,14 +75,14 @@ Features
   (`#56 <https://github.com/python-trio/trio/issues/56>`__)
 - New and improved signal catching API: :func:`open_signal_receiver`. (`#354
   <https://github.com/python-trio/trio/issues/354>`__)
-- The low level :func:`trio.hazmat.wait_socket_readable`,
-  :func:`~trio.hazmat.wait_socket_writable`, and
-  :func:`~trio.hazmat.notify_socket_close` now work on bare socket descriptors,
+- The low level :func:`trio.powertools.wait_socket_readable`,
+  :func:`~trio.powertools.wait_socket_writable`, and
+  :func:`~trio.powertools.notify_socket_close` now work on bare socket descriptors,
   instead of requiring a :func:`socket.socket` object. (`#400
   <https://github.com/python-trio/trio/issues/400>`__)
-- If you're using :func:`trio.hazmat.wait_task_rescheduled` and other low-level
+- If you're using :func:`trio.powertools.wait_task_rescheduled` and other low-level
   routines to implement a new sleeping primitive, you can now use the new
-  :data:`trio.hazmat.Task.custom_sleep_data` attribute to pass arbitrary data
+  :data:`trio.powertools.Task.custom_sleep_data` attribute to pass arbitrary data
   between the sleeping task, abort function, and waking task. (`#616
   <https://github.com/python-trio/trio/issues/616>`__)
 
@@ -123,7 +123,7 @@ Trio 0.6.0 (2018-08-13)
 Features
 ~~~~~~~~
 
-- Add :func:`trio.hazmat.WaitForSingleObject` async function to await Windows
+- Add :func:`trio.powertools.WaitForSingleObject` async function to await Windows
   handles. (`#233 <https://github.com/python-trio/trio/issues/233>`__)
 - The `sniffio <https://github.com/python-trio/sniffio>`__ library can now
   detect when Trio is running. (`#572
@@ -158,14 +158,14 @@ Features
   :exc:`ClosedResourceError`. ``ClosedStreamError`` and ``ClosedListenerError``
   are now aliases for :exc:`ClosedResourceError`, and deprecated. For this to
   work, Trio needs to know when a resource has been closed. To facilitate this,
-  new functions have been added: :func:`trio.hazmat.notify_fd_close` and
-  :func:`trio.hazmat.notify_socket_close`. If you're using Trio's built-in
+  new functions have been added: :func:`trio.powertools.notify_fd_close` and
+  :func:`trio.powertools.notify_socket_close`. If you're using Trio's built-in
   wrappers like :class:`~trio.SocketStream` or :mod:`trio.socket`, then you don't
   need to worry about this, but if you're using the low-level functions like
-  :func:`trio.hazmat.wait_readable`, you should make sure to call these
+  :func:`trio.powertools.wait_readable`, you should make sure to call these
   functions at appropriate times. (`#36
   <https://github.com/python-trio/trio/issues/36>`__)
-- Tasks created by :func:`~trio.hazmat.spawn_system_task` now no longer inherit
+- Tasks created by :func:`~trio.powertools.spawn_system_task` now no longer inherit
   the creator's :mod:`contextvars` context, instead using one created at
   :func:`~trio.run`. (`#289
   <https://github.com/python-trio/trio/issues/289>`__)
@@ -192,11 +192,11 @@ Features
 - Add unix client socket support. (`#401
   <https://github.com/python-trio/trio/issues/401>`__)
 - Add support for :mod:`contextvars` (see :ref:`task-local storage
-  <task-local-storage>`), and add :class:`trio.hazmat.RunVar` as a similar API
-  for run-local variables. Deprecate ``trio.TaskLocal`` and
-  ``trio.hazmat.RunLocal`` in favor of these new APIs. (`#420
+  <task-local-storage>`), and add :class:`~trio.powertools.RunVar` as a
+  similar API for run-local variables. Deprecate ``trio.TaskLocal``
+  and ``trio.hazmat.RunLocal`` in favor of these new APIs. (`#420
   <https://github.com/python-trio/trio/issues/420>`__)
-- Add :func:`trio.hazmat.current_root_task` to get the root task. (`#452
+- Add :func:`trio.powertools.current_root_task` to get the root task. (`#452
   <https://github.com/python-trio/trio/issues/452>`__)
 
 
@@ -219,7 +219,7 @@ Deprecations and Removals
 Miscellaneous internal changes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Simplify implementation of primitive traps like :func:`~trio.hazmat.wait_task_rescheduled`
+- Simplify implementation of primitive traps like :func:`~trio.powertools.wait_task_rescheduled`
   (`#395 <https://github.com/python-trio/trio/issues/395>`__)
 
 
@@ -341,7 +341,7 @@ Highlights
 * You know thread-local storage? Well, Trio now has an equivalent:
   :ref:`task-local storage <task-local-storage>`. There's also the
   related, but more obscure, run-local storage; see
-  :class:`~trio.hazmat.RunLocal`. (`#2
+  ``RunLocal``. (`#2
   <https://github.com/python-trio/trio/pull/2>`__)
 
 * Added a new :ref:`guide to for contributors <contributing>`.
@@ -422,7 +422,7 @@ Upcoming breaking changes with warnings (i.e., stuff that in 0.2.0
     :class:`trio.BlockingTrioPortal`
 
   * The hazmat function ``current_call_soon_thread_and_signal_safe``
-    is being replaced by :class:`trio.hazmat.TrioToken`
+    is being replaced by :class:`~trio.powertools.TrioToken`
 
   See `#68 <https://github.com/python-trio/trio/issues/68>`__ for
   details.
@@ -447,10 +447,10 @@ Upcoming breaking changes with warnings (i.e., stuff that in 0.2.0
   * ``task.wait``
 
   This also lets us move a number of lower-level features out of the
-  main :mod:`trio` namespace and into :mod:`trio.hazmat`:
+  main :mod:`trio` namespace and into ``trio.hazmat``:
 
-  * ``trio.Task`` → :class:`trio.hazmat.Task`
-  * ``trio.current_task`` → :func:`trio.hazmat.current_task`
+  * ``trio.Task`` → ``trio.hazmat.Task``
+  * ``trio.current_task`` → ``trio.hazmat.current_task``
   * ``trio.Result`` → ``trio.hazmat.Result``
   * ``trio.Value`` → ``trio.hazmat.Value``
   * ``trio.Error`` → ``trio.hazmat.Error``
@@ -464,24 +464,24 @@ Upcoming breaking changes with warnings (i.e., stuff that in 0.2.0
   See `#136 <https://github.com/python-trio/trio/issues/136>`__ for
   more details.
 
-* To consolidate introspection functionality in :mod:`trio.hazmat`,
+* To consolidate introspection functionality in ``trio.hazmat``,
   the following functions are moving:
 
-  * ``trio.current_clock`` → :func:`trio.hazmat.current_clock`
-  * ``trio.current_statistics`` → :func:`trio.hazmat.current_statistics`
+  * ``trio.current_clock`` → ``trio.hazmat.current_clock``
+  * ``trio.current_statistics`` → ``trio.hazmat.current_statistics``
 
   See `#317 <https://github.com/python-trio/trio/issues/317>`__ for
   more details.
 
 * It was decided that 0.1.0's "yield point" terminology was confusing;
   we now use :ref:`"checkpoint" <checkpoints>` instead. As part of
-  this, the following functions in :mod:`trio.hazmat` are changing
+  this, the following functions in ``trio.hazmat`` are changing
   names:
 
-  * ``yield_briefly`` → :func:`~trio.hazmat.checkpoint`
-  * ``yield_briefly_no_cancel`` → :func:`~trio.hazmat.cancel_shielded_checkpoint`
-  * ``yield_if_cancelled`` → :func:`~trio.hazmat.checkpoint_if_cancelled`
-  * ``yield_indefinitely`` → :func:`~trio.hazmat.wait_task_rescheduled`
+  * ``yield_briefly`` → :func:`~trio.powertools.checkpoint`
+  * ``yield_briefly_no_cancel`` → :func:`~trio.powertools.cancel_shielded_checkpoint`
+  * ``yield_if_cancelled`` → :func:`~trio.powertools.checkpoint_if_cancelled`
+  * ``yield_indefinitely`` → :func:`~trio.powertools.wait_task_rescheduled`
 
   In addition, the following functions in :mod:`trio.testing` are
   changing names:
@@ -497,8 +497,8 @@ Upcoming breaking changes with warnings (i.e., stuff that in 0.2.0
   <https://github.com/python-trio/trio/pull/347>`__).
 
 * ``trio.current_instruments`` is deprecated. For adding or removing
-  instrumentation at run-time, see :func:`trio.hazmat.add_instrument`
-  and :func:`trio.hazmat.remove_instrument` (`#257
+  instrumentation at run-time, see :func:`~trio.powertools.add_instrument`
+  and :func:`~trio.powertools.remove_instrument` (`#257
   <https://github.com/python-trio/trio/issues/257>`__)
 
 Unfortunately, a limitation in PyPy3 5.8 breaks our deprecation
@@ -529,7 +529,7 @@ Other changes
 
 * New exception ``ResourceBusyError``
 
-* The :class:`trio.hazmat.ParkingLot` class (which is used to
+* The :class:`~trio.powertools.ParkingLot` class (which is used to
   implement many of Trio's synchronization primitives) was rewritten
   to be simpler and faster (`#272
   <https://github.com/python-trio/trio/issues/272>`__, `#287
@@ -596,7 +596,7 @@ Other changes
   <https://github.com/python-trio/trio/issues/164>`__)
 
 * PyCharm (and hopefully other IDEs) can now offer better completions
-  for the :mod:`trio` and :mod:`trio.hazmat` modules (`#314
+  for the :mod:`trio` and ``trio.hazmat`` modules (`#314
   <https://github.com/python-trio/trio/issues/314>`__)
 
 * Trio now uses `yapf <https://github.com/google/yapf>`__ to

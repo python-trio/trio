@@ -10,7 +10,7 @@ async def reschedule_loop(depth):
         while RUNNING:
             LOOPS += 1
             await trio.sleep(0)
-            #await trio.hazmat.cancel_shielded_checkpoint()
+            #await trio.powertools.cancel_shielded_checkpoint()
     else:
         await reschedule_loop(depth - 1)
 

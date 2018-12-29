@@ -42,8 +42,8 @@ class BlockingTrioPortal:
            portal = trio.BlockingTrioPortal()
            await trio.run_sync_in_worker_thread(sync_fn, portal)
 
-    Alternatively, you can pass an explicit :class:`trio.hazmat.TrioToken` to
-    specify the :func:`trio.run` that you want your portal to connect to.
+    Alternatively, you can pass an explicit :class:`trio.powertools.TrioToken`
+    to specify the :func:`trio.run` that you want your portal to connect to.
 
     """
 

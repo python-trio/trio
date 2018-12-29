@@ -93,7 +93,7 @@ class EpollIOManager:
             else:
                 self._epoll.register(fd, flags)
 
-    # Public (hazmat) API:
+    # Public (powertools) API:
 
     async def _epoll_wait(self, fd, attr_name):
         if not isinstance(fd, int):

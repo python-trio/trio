@@ -36,7 +36,7 @@ class Event:
     lost wakeups: it doesn't matter whether :meth:`set` gets called just
     before or after :meth:`wait`. If you want a lower-level wakeup
     primitive that doesn't have this protection, consider :class:`Condition`
-    or :class:`trio.hazmat.ParkingLot`.
+    or :class:`trio.powertools.ParkingLot`.
 
     """
 
@@ -246,7 +246,7 @@ class CapacityLimiter:
         blocking.
 
         Args:
-          borrower: A :class:`trio.hazmat.Task` or arbitrary opaque object
+          borrower: A :class:`trio.powertools.Task` or arbitrary opaque object
              used to record who is borrowing this token. This is used by
              :func:`run_sync_in_worker_thread` to allow threads to "hold
              tokens", with the intention in the future of using it to `allow
@@ -286,7 +286,7 @@ class CapacityLimiter:
         necessary.
 
         Args:
-          borrower: A :class:`trio.hazmat.Task` or arbitrary opaque object
+          borrower: A :class:`trio.powertools.Task` or arbitrary opaque object
              used to record who is borrowing this token; see
              :meth:`acquire_on_behalf_of_nowait` for details.
 
@@ -599,7 +599,7 @@ class Lock:
         Currently the following fields are defined:
 
         * ``locked``: boolean indicating whether the lock is held.
-        * ``owner``: the :class:`trio.hazmat.Task` currently holding the lock,
+        * ``owner``: the :class:`trio.powertools.Task` currently holding the lock,
           or None if the lock is not held.
         * ``tasks_waiting``: The number of tasks blocked on this lock's
           :meth:`acquire` method.

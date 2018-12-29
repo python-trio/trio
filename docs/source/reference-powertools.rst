@@ -1,17 +1,21 @@
-=======================================================
- Introspecting and extending Trio with ``trio.hazmat``
-=======================================================
+===========================================================
+ Introspecting and extending Trio with ``trio.powertools``
+===========================================================
 
-.. module:: trio.hazmat
+.. module:: trio.powertools
 
-.. warning::
-   You probably don't want to use this module.
+.. public domain image from https://www.navy.mil/view_image.asp?id=18169
 
-:mod:`trio.hazmat` is Trio's "hazardous materials" layer: it contains
-APIs useful for introspecting and extending Trio. If you're writing
-ordinary, everyday code, then you can ignore this module completely.
-But sometimes you need something a bit lower level. Here are some
-examples of situations where you should reach for :mod:`trio.hazmat`:
+.. image:: powertools.jpg
+   :width: 50%
+   :align: right
+   :alt:
+
+:mod:`trio.powertools` contains APIs for introspecting and extending
+Trio. **If you're writing ordinary, everyday code, then you can ignore
+this module completely.** But sometimes you need something a bit lower
+level. Here are some examples of situations where you should reach for
+:mod:`trio.powertools`:
 
 * You want to implement a new :ref:`synchronization primitive
   <synchronization>` that Trio doesn't (yet) provide, like a
@@ -27,18 +31,14 @@ examples of situations where you should reach for :mod:`trio.hazmat`:
 * You need to interoperate with a C library whose API exposes raw file
   descriptors.
 
-Using :mod:`trio.hazmat` isn't really *that* hazardous; in fact you're
-already using it – it's how most of the functionality described in
-previous chapters is implemented. The APIs described here have
-strictly defined and carefully documented semantics, and are perfectly
-safe – *if* you read carefully and take proper precautions. Some of
-those strict semantics have `nasty big pointy teeth
-<https://en.wikipedia.org/wiki/Rabbit_of_Caerbannog>`__. If you make a
-mistake, Trio may not be able to handle it gracefully; conventions and
-guarantees that are followed strictly in the rest of Trio do not
-always apply. Using this module makes it your responsibility to think
-through and handle the nasty cases to expose a friendly Trio-style API
-to your users.
+The tools in this module are powerful, precision instruments, and
+they're perfectly safe to use – *if* you read carefully and take
+proper precautions. With great power comes great responsibility. If
+you make a mistake in using this module, Trio may not be able to
+handle it gracefully; conventions and guarantees that are followed
+strictly in the rest of Trio do not always apply. Using this module
+makes it your responsibility to think through and handle the nasty
+cases so you can expose a friendly Trio-style API to your users.
 
 
 Debugging and instrumentation
@@ -113,7 +113,7 @@ Low-level I/O primitives
 ========================
 
 Different environments expose different low-level APIs for performing
-async I/O. :mod:`trio.hazmat` exposes these APIs in a relatively
+async I/O. :mod:`trio.powertools` exposes these APIs in a relatively
 direct way, so as to allow maximum power and flexibility for higher
 level code. However, this means that the exact API provided may vary
 depending on what system trio is running on.
@@ -481,15 +481,15 @@ this does serve to illustrate the basic structure of the
                self._blocked_tasks.append(task)
                def abort_fn(_):
                    self._blocked_tasks.remove(task)
-                   return trio.hazmat.Abort.SUCCEEDED
-               await trio.hazmat.wait_task_rescheduled(abort_fn)
+                   return trio.powertools.Abort.SUCCEEDED
+               await trio.powertools.wait_task_rescheduled(abort_fn)
            self._held = True
 
        def release(self):
            self._held = False
            if self._blocked_tasks:
                woken_task = self._blocked_tasks.popleft()
-               trio.hazmat.reschedule(woken_task)
+               trio.powertools.reschedule(woken_task)
 
 
 Task API

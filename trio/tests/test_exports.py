@@ -14,7 +14,7 @@ from .. import _core
 def test_core_is_properly_reexported():
     # Each export from _core should be re-exported by exactly one of these
     # three modules:
-    sources = [trio, trio.hazmat, trio.testing]
+    sources = [trio, trio.powertools, trio.testing]
     for symbol in dir(_core):
         if symbol.startswith('_') or symbol == 'tests':
             continue
@@ -89,7 +89,7 @@ def test_static_tool_sees_all_symbols(tool, modname):
     # runtime set:
     # - static tools are sometimes sloppy and include deleted names
     # - some symbols are platform-specific at runtime, but always show up in
-    #   static analysis (e.g. in trio.socket or trio.hazmat)
+    #   static analysis (e.g. in trio.socket or trio.powertools)
     # So we check that the runtime names are a subset of the static names.
     missing_names = runtime_names - static_names
     if missing_names:  # pragma: no cover
