@@ -3,6 +3,7 @@ import attr
 import outcome
 
 from .. import _core
+from ._run import _public
 
 
 @attr.s(frozen=True)
@@ -116,16 +117,19 @@ class EpollIOManager:
 
         await _core.wait_task_rescheduled(abort)
 
+    @_public
     async def wait_readable(self, fd):
-        """PUBLIC """
+        """"""
         await self._epoll_wait(fd, "read_task")
 
+    @_public
     async def wait_writable(self, fd):
-        """PUBLIC """
+        """"""
         await self._epoll_wait(fd, "write_task")
 
+    @_public
     def notify_fd_close(self, fd):
-        """PUBLIC """
+        """"""
         if not isinstance(fd, int):
             fd = fd.fileno()
         if fd not in self._registered:

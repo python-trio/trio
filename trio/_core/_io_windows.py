@@ -12,6 +12,7 @@ import signal
 import attr
 
 from .. import _core
+from ._run import _public
 
 from ._wakeup_socketpair import WakeupSocketpair
 from .._util import is_main_thread
@@ -331,20 +332,23 @@ class WindowsIOManager:
             self._iocp_queue.append((batch, received[0]))
             self._main_thread_waker.wakeup_thread_and_signal_safe()
 
+    @_public
     def current_iocp(self):
-        """PUBLIC """
+        """"""
         return int(ffi.cast("uintptr_t", self._iocp))
 
+    @_public
     def register_with_iocp(self, handle):
-        """PUBLIC """
+        """"""
         handle = _handle(handle)
         # https://msdn.microsoft.com/en-us/library/windows/desktop/aa363862(v=vs.85).aspx
         # INVALID_PARAMETER seems to be used for both "can't register
         # because not opened in OVERLAPPED mode" and "already registered"
         _check(kernel32.CreateIoCompletionPort(handle, self._iocp, 0, 0))
 
+    @_public
     async def wait_overlapped(self, handle, lpOverlapped):
-        """PUBLIC """
+        """"""
         handle = _handle(handle)
         if isinstance(lpOverlapped, int):
             lpOverlapped = ffi.cast("LPOVERLAPPED", lpOverlapped)
@@ -419,8 +423,9 @@ class WindowsIOManager:
                 raise_winerror(code)
 
     @contextmanager
+    @_public
     def monitor_completion_key(self):
-        """PUBLIC """
+        """"""
         key = next(self._completion_key_counter)
         queue = _core.UnboundedQueue()
         self._completion_key_queues[key] = queue
@@ -446,16 +451,19 @@ class WindowsIOManager:
 
         await _core.wait_task_rescheduled(abort)
 
+    @_public
     async def wait_socket_readable(self, sock):
-        """PUBLIC """
+        """"""
         await self._wait_socket("read", sock)
 
+    @_public
     async def wait_socket_writable(self, sock):
-        """PUBLIC """
+        """"""
         await self._wait_socket("write", sock)
 
+    @_public
     def notify_socket_close(self, sock):
-        """PUBLIC """
+        """"""
         if not isinstance(sock, int):
             sock = sock.fileno()
         for mode in ["read", "write"]:
@@ -482,8 +490,9 @@ class WindowsIOManager:
         await self.wait_overlapped(handle, lpOverlapped)
         return lpOverlapped
 
+    @_public
     async def write_overlapped(self, handle, data, file_offset=0):
-        """PUBLIC """
+        """"""
         # Make sure we keep our buffer referenced until the I/O completes.
         # For typical types of `data` (bytes, bytearray) the memory we
         # pass is part of the existing allocation, but the buffer protocol
@@ -546,8 +555,9 @@ class WindowsIOManager:
             #
             del cbuf
 
+    @_public
     async def readinto_overlapped(self, handle, buffer, file_offset=0):
-        """PUBLIC """
+        """"""
         # This will throw a reasonable error if `buffer` is read-only
         # or doesn't support the buffer protocol, and perform no
         # operation otherwise. A future release of CFFI will support

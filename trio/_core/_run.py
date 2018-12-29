@@ -37,6 +37,12 @@ from .. import _core
 
 _r = random.Random()
 
+
+# Decorator to mark methods public
+def _public(fn):
+    return fn
+
+
 # Used to log exceptions in instruments
 INSTRUMENT_LOGGER = logging.getLogger("trio.abc.Instrument")
 
@@ -674,12 +680,10 @@ class Runner:
         if self.instruments:
             self.instrument("after_run")
 
-    # Export methods by adding "PUBLIC " (without quotes and one space after) to the first
-    # line of the docs. Methods with this line are to be converted
-    # into functions and exported to trio.hazmat. The PUBLIC keyword
-    # will be stripped from the docstring in the exported function
+    # Export methods by adding the @_public decorator
+    @_public
     def current_statistics(self):
-        """PUBLIC Returns an object containing run-loop-level debugging information.
+        """Returns an object containing run-loop-level debugging information.
 
         Currently the following fields are defined:
 
@@ -714,8 +718,9 @@ class Runner:
             run_sync_soon_queue_size=self.entry_queue.size(),
         )
 
+    @_public
     def current_time(self):
-        """PUBLIC Returns the current time according to trio's internal clock.
+        """Returns the current time according to trio's internal clock.
 
         Returns:
             float: The current time.
@@ -726,14 +731,16 @@ class Runner:
         """
         return self.clock.current_time()
 
+    @_public
     def current_clock(self):
-        """PUBLIC Returns the current :class:`~trio.abc.Clock`.
+        """Returns the current :class:`~trio.abc.Clock`.
 
         """
         return self.clock
 
+    @_public
     def current_root_task(self):
-        """PUBLIC Returns the current root :class:`Task`.
+        """Returns the current root :class:`Task`.
 
         This is the task that is the ultimate parent of all other tasks.
 
@@ -744,8 +751,9 @@ class Runner:
     # Core task handling primitives
     ################
 
+    @_public
     def reschedule(self, task, next_send=_NO_SEND):
-        """PUBLIC Reschedule the given task with the given
+        """Reschedule the given task with the given
         :class:`outcome.Outcome`.
 
         See :func:`wait_task_rescheduled` for the gory details.
@@ -942,8 +950,9 @@ class Runner:
     # System tasks and init
     ################
 
+    @_public
     def spawn_system_task(self, async_fn, *args, name=None):
-        """PUBLIC Spawn a "system" task.
+        """Spawn a "system" task.
 
         System tasks have a few differences from regular tasks:
 
@@ -1001,8 +1010,9 @@ class Runner:
     # Outside context problems
     ################
 
+    @_public
     def current_trio_token(self):
-        """PUBLIC Retrieve the :class:`TrioToken` for the current call to
+        """Retrieve the :class:`TrioToken` for the current call to
         :func:`trio.run`.
 
         """
@@ -1049,8 +1059,9 @@ class Runner:
 
     waiting_for_idle = attr.ib(default=attr.Factory(SortedDict))
 
+    @_public
     async def wait_all_tasks_blocked(self, cushion=0.0, tiebreaker=0):
-        """PUBLIC Block until there are no runnable tasks.
+        """Block until there are no runnable tasks.
 
         This is useful in testing code when you want to give other tasks a
         chance to "settle down". The calling task is blocked, and doesn't wake
@@ -1141,8 +1152,9 @@ class Runner:
                     "Instrument has been disabled.", method_name, instrument
                 )
 
+    @_public
     def add_instrument(self, instrument):
-        """PUBLIC Start instrumenting the current run loop with the given instrument.
+        """Start instrumenting the current run loop with the given instrument.
 
         Args:
           instrument (trio.abc.Instrument): The instrument to activate.
@@ -1153,8 +1165,9 @@ class Runner:
         if instrument not in self.instruments:
             self.instruments.append(instrument)
 
+    @_public
     def remove_instrument(self, instrument):
-        """PUBLIC Stop instrumenting the current run loop with the given instrument.
+        """Stop instrumenting the current run loop with the given instrument.
 
         Args:
           instrument (trio.abc.Instrument): The instrument to de-activate.
