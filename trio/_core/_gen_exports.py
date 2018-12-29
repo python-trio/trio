@@ -155,14 +155,18 @@ except AttributeError:
         ast_method = ast.parse(template)
         method.body.extend(ast_method.body)
         source = astor.to_source(method).replace('async ', '') + '\n\n'
-        pub_file_path = os.path.join(method.module_path, '_public' + method.module_file)
+        pub_file_path = os.path.join(
+            method.module_path, '_public' + method.module_file
+        )
         pub_module_files.add(pub_file_path)
         with open(pub_file_path, 'a', encoding='utf-8') as pub_file:
             pub_file.writelines(source)
 
     # Fix formatting so yapf won't complain
     for pub_file in pub_module_files:
-        formatter.FormatFile(pub_file, in_place=True, style_config='./.style.yapf')
+        formatter.FormatFile(
+            pub_file, in_place=True, style_config='./.style.yapf'
+        )
 
 
 if __name__ == '__main__':
