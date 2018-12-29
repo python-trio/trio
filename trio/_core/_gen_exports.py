@@ -1,9 +1,21 @@
 import ast
 import astor
 import os
-import textwrap
+import yapf.yapflib.yapf_api as formatter
 
 SOURCE_TREE = './trio/_core'
+
+
+def is_function(node):
+    return isinstance(node, ast.FunctionDef) \
+           or isinstance(node, ast.AsyncFunctionDef)
+
+
+def is_public(node):
+    return is_function(node) \
+           and node.decorator_list \
+           and isinstance(node.decorator_list[-1], ast.Name) \
+           and node.decorator_list[-1].id == '_public'
 
 
 def get_public_methods(tree):
@@ -15,9 +27,7 @@ def get_public_methods(tree):
     methods = []
     for node in ast.walk(tree):
         for child in ast.iter_child_nodes(node):
-            if (isinstance(child, ast.FunctionDef) or
-               isinstance(child, ast.AsyncFunctionDef)) and \
-               get_doc_string(child).startswith('PUBLIC '):
+            if is_public(child):
                 child.parent = node
                 child.module_file = tree.module_file
                 child.module_path = tree.module_path
@@ -93,7 +103,7 @@ from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 
 
 """
-
+    pub_module_files = set([])
     for module in get_export_modules_by_dir(SOURCE_TREE):
         full_path = os.path.join(
             module.module_path, '_public' + module.module_file
@@ -102,7 +112,7 @@ from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
             os.remove(full_path)
         except FileNotFoundError:
             pass
-        with open(full_path, 'w') as pub_file:
+        with open(full_path, 'w', encoding='utf-8') as pub_file:
             pub_file.writelines(imports)
 
     # Get all modules we have classes with methods to export in the directory path
@@ -145,11 +155,14 @@ except AttributeError:
         ast_method = ast.parse(template)
         method.body.extend(ast_method.body)
         source = astor.to_source(method).replace('async ', '') + '\n\n'
-        with open(
-            os.path.join(method.module_path, '_public' + method.module_file),
-            'a'
-        ) as pub_file:
+        pub_file_path = os.path.join(method.module_path, '_public' + method.module_file)
+        pub_module_files.add(pub_file_path)
+        with open(pub_file_path, 'a', encoding='utf-8') as pub_file:
             pub_file.writelines(source)
+
+    # Fix formatting so yapf won't complain
+    for pub_file in pub_module_files:
+        formatter.FormatFile(pub_file, in_place=True, style_config='./.style.yapf')
 
 
 if __name__ == '__main__':
