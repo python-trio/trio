@@ -76,10 +76,7 @@ _deprecate.enable_attribute_deprecations(__name__)
 __deprecated_attributes__ = {
     "hazmat":
         _deprecate.DeprecatedAttribute(
-            powertools,
-            "0.10.0",
-            issue=476,
-            instead="trio.powertools"
+            powertools, "0.10.0", issue=476, instead="trio.powertools"
         ),
     "BrokenStreamError":
         _deprecate.DeprecatedAttribute(
