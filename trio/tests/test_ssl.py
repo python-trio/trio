@@ -14,7 +14,7 @@ import trio
 from .. import _core
 from .._highlevel_socket import SocketStream, SocketListener
 from .._highlevel_generic import aclose_forcefully
-from .._core import ClosedResourceError, BrokenResourceError, NoHandshakeError
+from .._core import ClosedResourceError, BrokenResourceError
 from .._highlevel_open_tcp_stream import open_tcp_stream
 from .. import ssl as tssl
 from .. import socket as tsocket
@@ -1112,10 +1112,10 @@ async def test_receive_error_during_handshake():
 async def test_selected_alpn_protocol_before_handshake():
     client, server = ssl_memory_stream_pair()
 
-    with pytest.raises(NoHandshakeError):
+    with pytest.raises(tssl.NeedHandshakeError):
         client.selected_alpn_protocol()
 
-    with pytest.raises(NoHandshakeError):
+    with pytest.raises(tssl.NeedHandshakeError):
         server.selected_alpn_protocol()
 
 
@@ -1138,10 +1138,10 @@ async def test_selected_alpn_protocol_when_not_set():
 async def test_selected_npn_protocol_before_handshake():
     client, server = ssl_memory_stream_pair()
 
-    with pytest.raises(NoHandshakeError):
+    with pytest.raises(tssl.NeedHandshakeError):
         client.selected_npn_protocol()
 
-    with pytest.raises(NoHandshakeError):
+    with pytest.raises(tssl.NeedHandshakeError):
         server.selected_npn_protocol()
 
 
@@ -1164,10 +1164,10 @@ async def test_selected_npn_protocol_when_not_set():
 async def test_get_channel_binding_before_handshake():
     client, server = ssl_memory_stream_pair()
 
-    with pytest.raises(NoHandshakeError):
+    with pytest.raises(tssl.NeedHandshakeError):
         client.get_channel_binding()
 
-    with pytest.raises(NoHandshakeError):
+    with pytest.raises(tssl.NeedHandshakeError):
         server.get_channel_binding()
 
 

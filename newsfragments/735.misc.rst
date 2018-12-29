@@ -1,0 +1,7 @@
+There are a number of methods on :class:`trio.ssl.SSLStream` that
+report information about the negotiated TLS connection, like
+``selected_alpn_protocol``, and thus cannot succeed until after the
+handshake has been performed. Previously, we returned None from these
+methods, like the stdlib :mod:`ssl` module does, but this is
+confusing, because that can also be a valid return value. Now we raise
+:exc:`trio.ssl.NeedHandshakeError` instead.

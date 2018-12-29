@@ -164,6 +164,14 @@ from ._util import ConflictDetector
 ################################################################
 
 
+class NeedHandshakeError(Exception):
+    """Some :class:`SSLStream` methods can't return any meaningful data until
+    after the handshake. If you call them before the handshake, they raise
+    this error.
+
+    """
+
+
 class _Once:
     def __init__(self, afn, *args):
         self._afn = afn
@@ -206,15 +214,6 @@ class SSLStream(Stream):
     before attempting to use this class, and probably other general
     documentation on SSL/TLS as well. SSL/TLS is subtle and quick to
     anger. Really. I'm not kidding.
-
-    To illustrate the point with an example, some of the methods of the
-    :class:`~ssl.SSLContext` return ``None`` when no handshake is established.
-    To make it behave more explicitly, we decided to raise `trio.core.NoHandshakeError`
-    in the :mod:`ssl` methods defined in ``_after_handshake``,
-    in case no handshake is established.
-
-    Note that these methods still return ``None`` in other cases, as detailed
-    in ``trio.core.NoHandshakeError``.
 
     Args:
       transport_stream (~trio.abc.Stream): The stream used to transport
@@ -290,6 +289,13 @@ class SSLStream(Stream):
     Internally, this class is implemented using an instance of
     :class:`ssl.SSLObject`, and all of :class:`~ssl.SSLObject`'s methods and
     attributes are re-exported as methods and attributes on this class.
+    However, there is one difference: :class:`~ssl.SSLObject` has several
+    methods that return information about the encrypted connection, like
+    :meth:`~ssl.SSLSocket.cipher` or
+    :meth:`~ssl.SSLSocket.selected_alpn_protocol`. If you call them before the
+    handshake, when they can't possibly return useful data, then
+    :class:`ssl.SSLObject` returns None, but :class:`trio.ssl.SSLStream`
+    raises :exc:`NeedHandshakeError`.
 
     This also means that if you register a SNI callback using
     :obj:`~ssl.SSLContext.sni_callback`, then the first argument your callback
@@ -357,15 +363,23 @@ class SSLStream(Stream):
     }
 
     _after_handshake = {
-        "get_channel_binding",
+        "session_reused",
+        "getpeercert",
         "selected_npn_protocol",
+        "cipher",
+        "shared_ciphers",
+        "compression",
+        "get_channel_binding",
         "selected_alpn_protocol",
+        "version",
     }
 
     def __getattr__(self, name):
         if name in self._forwarded:
             if name in self._after_handshake and not self._handshook.done:
-                raise _core.NoHandshakeError
+                raise NeedHandshakeError(
+                    "call do_handshake() before calling {!r}".format(name)
+                )
 
             return getattr(self._ssl_object, name)
         else:
