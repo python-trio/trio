@@ -6,8 +6,7 @@ are publicly available in either trio, trio.hazmat, or trio.testing.
 
 from ._exceptions import (
     TrioInternalError, RunFinishedError, WouldBlock, Cancelled,
-    BusyResourceError, ClosedResourceError, BrokenResourceError, EndOfChannel,
-    NoHandshakeError
+    BusyResourceError, ClosedResourceError, BrokenResourceError, EndOfChannel
 )
 
 from ._multierror import MultiError
