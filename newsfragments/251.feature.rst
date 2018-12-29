@@ -1,0 +1,2 @@
+Add :meth:`trio._socket._sniff_sockopts_for_fileno`, for auto detecting socket
+family, type and protocol under linux.
