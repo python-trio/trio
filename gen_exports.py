@@ -190,7 +190,8 @@ if __name__ == '__main__':
         description='Generate python code for public api wrappers'
     )
     parser.add_argument(
-        '--path', '-p',
+        '--path',
+        '-p',
         default=SOURCE_TREE,
         type=str,
         const=SOURCE_TREE,
@@ -198,7 +199,10 @@ if __name__ == '__main__':
         help='create new code at the path (default: {}'.format(SOURCE_TREE)
     )
     parser.add_argument(
-        '--test', '-t', action='store_true', help='test if code is still up to date'
+        '--test',
+        '-t',
+        action='store_true',
+        help='test if code is still up to date'
     )
 
     args = parser.parse_args()
