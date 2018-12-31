@@ -1,4 +1,4 @@
-# ! /usr/bin/env python3
+#! /usr/bin/env python3
 # -*- coding: utf-8 -`-
 """
 Code generation script for class methods
@@ -177,7 +177,7 @@ def gen_source():
     formatted_source = dict()
     # Fix formatting so yapf won't complain
     for pub_file in source.keys():
-        formatted_source[pub_file] = formatter.FormatCode(
+        formatted_source[pub_file], _ = formatter.FormatCode(
             '\n'.join(source[pub_file]), style_config=YAPF_STYLE
         )
     return formatted_source
@@ -196,7 +196,7 @@ if __name__ == '__main__':
         type=str,
         const=SOURCE_TREE,
         nargs='?',
-        help='create new code at the path (default: {}'.format(SOURCE_TREE)
+        help='create new code at the path (default: {})'.format(SOURCE_TREE)
     )
     parser.add_argument(
         '--test',
@@ -207,8 +207,17 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     if args.test:
-        print(args.test)
-    if args.path:
-        print(args.path)
-    else:
-        print(parser.usage)
+        for src in sources:
+            pub_file_path = os.path.join(args.path, '_public' + src)
+            if not os.path.exists(pub_file_path):
+                assert sources[src] == ''
+            with open(pub_file_path, 'r') as pub_file:
+                old_src = ''.join(pub_file.readlines())
+            assert sources[src] == old_src 
+    elif args.path:
+        if not os.path.exists(args.path):
+            raise OSError("""Path {} does not exist""".format(args.path))
+        for src in sources:
+            pub_file_path = os.path.join(args.path, '_public' + src)
+            with open(pub_file_path, 'w', encoding='utf-8') as pub_file:
+                pub_file.writelines(sources[src])
