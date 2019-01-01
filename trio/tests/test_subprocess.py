@@ -562,7 +562,7 @@ async def test_run_in_background():
 async def test_shutdown():
     # test some normal non-shutdown cases with a shutdown configured,
     # to make sure it doesn't interfere when not used
-    with fail_after(1):
+    with fail_after(2):
         await run_process(EXIT_TRUE, shutdown_timeout=1)
         with pytest.raises(subprocess.CalledProcessError):
             await run_process(EXIT_FALSE, shutdown_timeout=1)
