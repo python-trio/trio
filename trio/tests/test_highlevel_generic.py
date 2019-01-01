@@ -119,13 +119,15 @@ async def test_NullStream():
     with assert_checkpoints(), pytest.raises(_core.ClosedResourceError):
         await stream.send_all(b"stuff")
     with assert_checkpoints(), pytest.raises(_core.ClosedResourceError):
-        await stream.send_eof()
-    with assert_checkpoints(), pytest.raises(_core.ClosedResourceError):
         await stream.wait_send_all_might_not_block()
 
     # but can still read
     with assert_checkpoints():
         assert b"" == await stream.receive_some(32768)
+
+    # and send_eof is idempotent
+    with assert_checkpoints():
+        await stream.send_eof()
 
     # close works even if cancelled
     with assert_checkpoints():

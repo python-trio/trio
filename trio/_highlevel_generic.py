@@ -130,7 +130,7 @@ class NullStream(HalfCloseableStream):
 
     def __init__(self) -> None:
         self._read_closed = False
-        self._write_closed = True
+        self._write_closed = False
 
     def __repr__(self) -> str:
         if self._read_closed:
