@@ -603,11 +603,12 @@ except KeyboardInterrupt:
         assert result.returncode == 0
         output = result.stdout.split(b"\n")
 
-        # we set a timeout of 1 sec, so allow anywhere between
-        # 8 and 12 lines of every-0.1-sec output
+        # we set a timeout of 1 sec; allow anywhere between 5 and 12
+        # lines of every-0.1-sec output to account for possible slow
+        # startup
         assert output.pop() == b""
         assert output.pop() == b"exiting"
-        assert 8 <= len(output) <= 12
+        assert 5 <= len(output) <= 12
         assert all(line == b"%d" % idx for idx, line in enumerate(output))
 
         # test a manual shutdown
