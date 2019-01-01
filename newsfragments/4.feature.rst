@@ -4,5 +4,5 @@ Add :class:`trio.Process`, an async wrapper around the stdlib
 and communicating with them over standard Trio streams.
 Add higher-level functions :func:`trio.open_process`, :func:`trio.run_process`,
 :func:`trio.delegate_to_process`.
-:mod:`trio.subprocess` reexports all the stdlib :mod:`subprocess`
+New submodule ``trio.subprocess`` reexports all the stdlib :mod:`subprocess`
 exceptions and constants for convenience.
