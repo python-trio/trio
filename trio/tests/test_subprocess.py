@@ -394,12 +394,14 @@ async def test_not_a_failure_if_we_signal():
     ):
         code = []
         if wait_for_signal and exit_status is not None:
-            code.extend([
-                "import signal",
-                "def handle(sig, frame):",
-                "    sys.exit({})".format(exit_status),
-                "signal.signal({}, handle)".format(which_signal),
-            ])
+            code.extend(
+                [
+                    "import signal",
+                    "def handle(sig, frame):",
+                    "    sys.exit({})".format(exit_status),
+                    "signal.signal({}, handle)".format(which_signal),
+                ]
+            )
         code.extend([
             "import sys",
             "sys.stdout.buffer.write(b'.')",
