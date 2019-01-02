@@ -179,11 +179,14 @@ class CancelScope:
     _tasks = attr.ib(factory=set, init=False)
     _scope_task = attr.ib(default=None, init=False)
     _effective_deadline = attr.ib(default=inf, init=False)
-    _branches = attr.ib(default=(), init=False)
     cancel_called = attr.ib(default=False, init=False)
     cancelled_caught = attr.ib(default=False, init=False)
     _deadline = attr.ib(default=inf, kw_only=True)
     _shield = attr.ib(default=False, kw_only=True)
+
+    # Most cancel scopes don't have branches; those that do will shadow
+    # this class-level empty tuple with an instance-level WeakSet
+    _branches = ()
 
     @enable_ki_protection
     def __enter__(self):
@@ -228,11 +231,12 @@ class CancelScope:
                 value.__context__ = old_context
 
     def open_branch(self, *, deadline=inf, shield=None):
-        if not hasattr(self._branches, "add"):
+        if self._branches == ():
             # We keep _branches as an empty tuple until the first branch
             # is created, to avoid creating a fairly heavyweight
             # WeakSet on every cancel scope object
-            self._branches = weakref.WeakSet()
+            with self._might_change_effective_deadline():
+                self._branches = weakref.WeakSet()
 
         if shield is None:
             shield = self._shield
@@ -283,7 +287,10 @@ class CancelScope:
             yield
         finally:
             old = self._effective_deadline
-            if self.cancel_called or not self._tasks:
+            ever_had_branches = self._branches != ()
+            if self.cancel_called or (
+                not self._tasks and not ever_had_branches
+            ):
                 new = inf
             else:
                 new = self._deadline
@@ -333,22 +340,18 @@ class CancelScope:
         if not self.cancel_called:
             with self._might_change_effective_deadline():
                 self.cancel_called = True
-            return self._tasks
+            affected_tasks = self._tasks
+            if self._branches:
+                affected_tasks = set(affected_tasks)
+                for branch in self._branches:
+                    affected_tasks.update(branch._cancel_no_notify())
+            return affected_tasks
         else:
             return set()
 
     @enable_ki_protection
     def cancel(self):
-        # Set cancel_called and collect affected tasks for us and all
-        # branches, then check cancellations for each affected task.
-        # This ordering ensures that each task receives the
-        # cancellation for its outermost cancelled scope.
-        affected_tasks = self._cancel_no_notify()
-        if self._branches:
-            affected_tasks = set(affected_tasks)
-            for branch in self.branches:
-                affected_tasks.update(branch._cancel_no_notify())
-        for task in affected_tasks:
+        for task in self._cancel_no_notify():
             task._attempt_delivery_of_any_pending_cancel()
 
     def _add_task(self, task):

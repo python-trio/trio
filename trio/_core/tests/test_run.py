@@ -934,6 +934,25 @@ async def test_cancel_branches(autojump_clock):
     assert not any(branch.cancelled_caught for branch in all_branches)
     assert all(branch.cancel_called for branch in all_branches)
 
+    # Test cancellation of branches via deadline expiry, and with the
+    # top-level scope not itself bound to any work
+    root = _core.CancelScope(deadline=_core.current_time() + 0.5)
+    with fail_after(1):
+        async with _core.open_nursery() as nursery:
+            toplevel_branches = []
+            for _ in range(3):
+                toplevel_branches.append(root.open_branch())
+                nursery.start_soon(worker, 2, toplevel_branches[-1])
+            await wait_all_tasks_blocked()
+            all_branches = list(root.branches)
+    assert root.cancel_called
+    assert not root.cancelled_caught
+    assert all(branch.cancel_called for branch in all_branches)
+    assert all(
+        branch.cancelled_caught == (branch in toplevel_branches)
+        for branch in all_branches
+    )
+
     # Branches can have their own deadline
     with _core.CancelScope(deadline=_core.current_time() + 2) as root:
         with root.open_branch() as branch:
