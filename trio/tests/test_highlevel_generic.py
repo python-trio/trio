@@ -98,6 +98,7 @@ async def test_StapledStream_with_erroring_close():
 
 async def test_NullStream():
     stream = NullStream()
+    assert repr(stream) == "<trio.NullStream: open>"
 
     # read returns EOF
     with assert_checkpoints():
@@ -114,6 +115,8 @@ async def test_NullStream():
     # send_eof closes the write side
     with assert_checkpoints():
         await stream.send_eof()
+
+    assert repr(stream) == "<trio.NullStream: sent EOF>"
 
     # can't write after send_eof
     with assert_checkpoints(), pytest.raises(_core.ClosedResourceError):
@@ -133,11 +136,15 @@ async def test_NullStream():
     with assert_checkpoints():
         await aclose_forcefully(stream)
 
+    assert repr(stream) == "<trio.NullStream: closed>"
+
     # can't read or write after close
     with assert_checkpoints(), pytest.raises(_core.ClosedResourceError):
         await stream.receive_some(32768)
     with assert_checkpoints(), pytest.raises(_core.ClosedResourceError):
         await stream.send_all(b"more stuff")
+    with assert_checkpoints(), pytest.raises(_core.ClosedResourceError):
+        await stream.send_eof()
 
     # but can still close
     with assert_checkpoints():

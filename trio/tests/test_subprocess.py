@@ -394,18 +394,12 @@ async def test_not_a_failure_if_we_signal():
     ):
         code = []
         if wait_for_signal and exit_status is not None:
-            if not posix or which_signal == signal.SIGKILL:
-                # can't handle this signal, so don't try
-                exit_status = None
-            else:
-                code.extend(
-                    [
-                        "import signal",
-                        "def handle(sig, frame):",
-                        "    sys.exit({})".format(exit_status),
-                        "signal.signal({}, handle)".format(which_signal),
-                    ]
-                )
+            code.extend([
+                "import signal",
+                "def handle(sig, frame):",
+                "    sys.exit({})".format(exit_status),
+                "signal.signal({}, handle)".format(which_signal),
+            ])
         code.extend([
             "import sys",
             "sys.stdout.buffer.write(b'.')",
@@ -498,11 +492,13 @@ async def test_not_a_failure_if_we_break_their_pipe():
 
     # ... and we noticed via poll()
     async with Process(
-        EXIT_FALSE, stdout=subprocess.PIPE
+        python("sys.stdin.buffer.read(); sys.exit(1)"),
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
     ) as proc:
-        while proc.poll() is not None:
-            pass
         await proc.stdout.aclose()
+        while proc.poll() is None:
+            await proc.stdin.aclose()
     assert proc.returncode == 1
     assert not proc.failed
 
