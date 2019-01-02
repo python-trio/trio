@@ -234,7 +234,7 @@ async def test_Sequencer_cancel():
     seq = Sequencer()
 
     async def child(i):
-        with _core.open_cancel_scope() as scope:
+        with _core.CancelScope() as scope:
             if i == 1:
                 scope.cancel()
             try:

@@ -18,8 +18,8 @@ from ._version import __version__
 from ._core import (
     TrioInternalError, RunFinishedError, WouldBlock, Cancelled,
     BusyResourceError, ClosedResourceError, MultiError, run, open_nursery,
-    open_cancel_scope, current_effective_deadline, TASK_STATUS_IGNORED,
-    current_time, BrokenResourceError, EndOfChannel
+    CancelScope, open_cancel_scope, current_effective_deadline,
+    TASK_STATUS_IGNORED, current_time, BrokenResourceError, EndOfChannel
 )
 
 from ._timeouts import (

@@ -767,7 +767,7 @@ class Condition:
         try:
             await self._lot.park()
         except:
-            with _core.open_cancel_scope(shield=True):
+            with _core.CancelScope(shield=True):
                 await self.acquire()
             raise
 

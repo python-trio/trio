@@ -1,0 +1,6 @@
+Add support for "unbound cancel scopes": you can now construct a
+:class:`trio.CancelScope` without entering its context, e.g. so you
+can pass it to another task which will use it to wrap some work that
+you want to be able to cancel from afar. Add the ability to create a
+derived :class:`~trio.CancelScope` that will become cancelled when its
+parent does, using :meth:`~trio.CancelScope.open_branch`.

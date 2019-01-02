@@ -37,7 +37,7 @@ async def cancel_shielded_checkpoint():
 
     Equivalent to (but potentially more efficient than)::
 
-        with trio.open_cancel_scope(shield=True):
+        with trio.CancelScope(shield=True):
             await trio.hazmat.checkpoint()
 
     """

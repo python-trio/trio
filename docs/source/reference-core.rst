@@ -380,7 +380,7 @@ whether this scope caught a :exc:`Cancelled` exception::
 The ``cancel_scope`` object also allows you to check or adjust this
 scope's deadline, explicitly trigger a cancellation without waiting
 for the deadline, check if the scope has already been cancelled, and
-so forth – see :func:`open_cancel_scope` below for the full details.
+so forth – see :class:`CancelScope` below for the full details.
 
 .. _blocking-cleanup-example:
 
@@ -415,7 +415,7 @@ Of course, if you really want to make another blocking call in your
 cleanup handler, trio will let you; it's trying to prevent you from
 accidentally shooting yourself in the foot. Intentional foot-shooting
 is no problem (or at least – it's not trio's problem). To do this,
-create a new scope, and set its :attr:`~The cancel scope interface.shield`
+create a new scope, and set its :attr:`~CancelScope.shield`
 attribute to :data:`True`::
 
    with trio.move_on_after(TIMEOUT):
@@ -494,14 +494,11 @@ but *will* still close the underlying socket before raising
 Cancellation API details
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-The primitive operation for creating a new cancellation scope is:
+:func:`move_on_after` and all the other cancellation facilities provided
+by Trio are ultimately implemented in terms of :class:`CancelScope`
+objects.
 
-.. autofunction:: open_cancel_scope
-   :with: cancel_scope
-
-Cancel scope objects provide the following interface:
-
-.. interface:: The cancel scope interface
+.. autoclass:: trio.CancelScope
 
    .. attribute:: deadline
 
@@ -525,7 +522,7 @@ Cancel scope objects provide the following interface:
 
       Defaults to :data:`math.inf`, which means "no deadline", though
       this can be overridden by the ``deadline=`` argument to
-      :func:`~trio.open_cancel_scope`.
+      the :class:`~trio.CancelScope` constructor.
 
    .. attribute:: shield
 
@@ -536,7 +533,7 @@ Cancel scope objects provide the following interface:
       :exc:`~trio.Cancelled` exceptions from (1) this scope, or (2)
       scopes inside this scope. You can modify this attribute::
 
-         with trio.open_cancel_scope() as cancel_scope:
+         with trio.CancelScope() as cancel_scope:
              cancel_scope.shield = True
              # This cannot be interrupted by any means short of
              # killing the process:
@@ -547,7 +544,7 @@ Cancel scope objects provide the following interface:
              await sleep(10)
 
       Defaults to :data:`False`, though this can be overridden by the
-      ``shield=`` argument to :func:`~trio.open_cancel_scope`.
+      ``shield=`` argument to the :class:`~trio.CancelScope` constructor.
 
    .. method:: cancel()
 
@@ -564,23 +561,64 @@ Cancel scope objects provide the following interface:
       exception, and (2) this scope is the one that was responsible
       for triggering this :exc:`~trio.Cancelled` exception.
 
+      If the same :class:`CancelScope` is reused for multiple ``with``
+      blocks, the :attr:`cancelled_caught` attribute applies to the
+      most recent ``with`` block. (It is reset to :data:`False` each
+      time a new ``with`` block is entered.)
+
    .. attribute:: cancel_called
 
       Readonly :class:`bool`. Records whether cancellation has been
       requested for this scope, either by an explicit call to
       :meth:`cancel` or by the deadline expiring.
 
-      This attribute being True does *not* necessarily mean that
-      the code within the scope has been, or will be, affected by
-      the cancellation. For example, if :meth:`cancel` was called
-      just before the scope exits, when it's too late to deliver
-      a :exc:`~trio.Cancelled` exception, then this attribute will
-      still be True.
+      This attribute being True does *not* necessarily mean that the
+      code within the scope has been, or will be, affected by the
+      cancellation. For example, if :meth:`cancel` was called after
+      the last checkpoint in the ``with`` block, when it's too late to
+      deliver a :exc:`~trio.Cancelled` exception, then this attribute
+      will still be True.
 
       This attribute is mostly useful for debugging and introspection.
       If you want to know whether or not a chunk of code was actually
       cancelled, then :attr:`cancelled_caught` is usually more
       appropriate.
+
+   .. method:: open_branch(*, deadline=math.inf, shield=None)
+
+      Return another :class:`CancelScope` object that automatically
+      becomes cancelled when this one does. We say that the returned
+      cancel scope is a "branch" of this "source" cancel scope.
+
+      The relationship between the source cancel scope and the new
+      branch is one-way: if the source cancel scope becomes cancelled,
+      all of its branches do too, but any of the branches can
+      independently become cancelled without affecting the
+      source. Each branch has its own :attr:`deadline`, which is
+      :data:`math.inf` (not inherited from the source scope) if the
+      ``deadline`` argument is unspecified; the expiry of a branch's
+      deadline cancels that branch only.
+
+      The new branch inherits its initial :attr:`shield` attribute
+      from the source, unless overridden via the ``shield`` argument.
+      The branch :attr:`shield` may be changed without affecting the
+      source, but changes to the source :attr:`shield` will be
+      propagated to all branches, overriding any local :attr:`shield`
+      value they've previously set.
+
+      Multiple layers of cancel scope linkage are supported.  The
+      cancellation of any source scope affects all its branches, all
+      their branches, and so on.
+
+   .. attribute:: branches
+
+      An iterable yielding all the other cancel scopes that will
+      become cancelled when this one does. That includes all the
+      branches of this cancel scope and all of their branches, recursively.
+      Cancel scopes track their branches by weak reference, so a scope
+      may no longer be reflected in :attr:`branches` once it has no other
+      references active.
+
 
 Trio also provides several convenience functions for the common
 situation of just wanting to impose a timeout on some code:

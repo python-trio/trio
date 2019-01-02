@@ -173,7 +173,7 @@ class Process(AsyncResource):
         If cancelled, kills the process and waits for it to finish
         exiting before propagating the cancellation.
         """
-        with _core.open_cancel_scope(shield=True):
+        with _core.CancelScope(shield=True):
             if self.stdin is not None:
                 await self.stdin.aclose()
             if self.stdout is not None:
@@ -185,7 +185,7 @@ class Process(AsyncResource):
         finally:
             if self.returncode is None:
                 self.kill()
-                with _core.open_cancel_scope(shield=True):
+                with _core.CancelScope(shield=True):
                     await self.wait()
 
     async def wait(self):

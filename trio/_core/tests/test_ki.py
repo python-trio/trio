@@ -410,7 +410,7 @@ def test_ki_protection_works():
     @_core.enable_ki_protection
     async def main():
         assert _core.currently_ki_protected()
-        with _core.open_cancel_scope() as cancel_scope:
+        with _core.CancelScope() as cancel_scope:
             cancel_scope.cancel()
             with pytest.raises(_core.Cancelled):
                 await _core.checkpoint()

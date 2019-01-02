@@ -1,6 +1,7 @@
 import contextvars
 import functools
 import platform
+import re
 import sys
 import threading
 import time
@@ -17,7 +18,7 @@ from async_generator import async_generator
 
 from .tutil import check_sequence_matches, gc_collect_harder
 from ... import _core
-from ..._timeouts import sleep
+from ..._timeouts import sleep, fail_after
 from ..._util import aiter_compat
 from ...testing import (
     wait_all_tasks_blocked,
@@ -336,7 +337,7 @@ async def test_current_statistics(mock_clock):
     await _core.checkpoint()
     await _core.checkpoint()
 
-    with _core.open_cancel_scope(deadline=_core.current_time() + 5):
+    with _core.CancelScope(deadline=_core.current_time() + 5):
         stats = _core.current_statistics()
         print(stats)
         assert stats.seconds_to_next_deadline == 5
@@ -540,15 +541,28 @@ def test_instruments_crash(caplog):
     assert "Instrument has been disabled" in caplog.records[0].message
 
 
-async def test_cancel_scope_repr():
-    # Trivial smoke test
-    with _core.open_cancel_scope() as scope:
-        assert repr(scope).startswith("<cancel scope object")
+async def test_cancel_scope_repr(autojump_clock):
+    scope = _core.CancelScope()
+    assert "unbound" in repr(scope)
+    with scope:
+        assert "bound to {!r}".format(_core.current_task().name) in repr(scope)
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(sleep, 10)
+            assert "and its 1 children" in repr(scope)
+            nursery.cancel_scope.cancel()
+        scope.deadline = _core.current_time() + 10
+        assert "cancel in 10.00sec" in repr(scope)
+        scope.deadline = _core.current_time() - 1
+        assert "cancel soon" in repr(scope)
+        scope.cancel()
+        assert "cancelled" in repr(scope)
+        with scope.open_branch():
+            assert ", 1 branches" in repr(scope)
 
 
 def test_cancel_points():
     async def main1():
-        with _core.open_cancel_scope() as scope:
+        with _core.CancelScope() as scope:
             await _core.checkpoint_if_cancelled()
             scope.cancel()
             with pytest.raises(_core.Cancelled):
@@ -557,7 +571,7 @@ def test_cancel_points():
     _core.run(main1)
 
     async def main2():
-        with _core.open_cancel_scope() as scope:
+        with _core.CancelScope() as scope:
             await _core.checkpoint()
             scope.cancel()
             with pytest.raises(_core.Cancelled):
@@ -566,7 +580,7 @@ def test_cancel_points():
     _core.run(main2)
 
     async def main3():
-        with _core.open_cancel_scope() as scope:
+        with _core.CancelScope() as scope:
             scope.cancel()
             with pytest.raises(_core.Cancelled):
                 await sleep_forever()
@@ -574,7 +588,7 @@ def test_cancel_points():
     _core.run(main3)
 
     async def main4():
-        with _core.open_cancel_scope() as scope:
+        with _core.CancelScope() as scope:
             scope.cancel()
             await _core.cancel_shielded_checkpoint()
             await _core.cancel_shielded_checkpoint()
@@ -585,7 +599,7 @@ def test_cancel_points():
 
 
 async def test_cancel_edge_cases():
-    with _core.open_cancel_scope() as scope:
+    with _core.CancelScope() as scope:
         # Two cancels in a row -- idempotent
         scope.cancel()
         scope.cancel()
@@ -593,7 +607,7 @@ async def test_cancel_edge_cases():
     assert scope.cancel_called
     assert scope.cancelled_caught
 
-    with _core.open_cancel_scope() as scope:
+    with _core.CancelScope() as scope:
         # Check level-triggering
         scope.cancel()
         with pytest.raises(_core.Cancelled):
@@ -607,14 +621,14 @@ async def test_cancel_scope_multierror_filtering():
         raise KeyError
 
     try:
-        with _core.open_cancel_scope() as outer:
+        with _core.CancelScope() as outer:
             try:
                 async with _core.open_nursery() as nursery:
                     # Two children that get cancelled by the nursery scope
                     nursery.start_soon(sleep_forever)  # t1
                     nursery.start_soon(sleep_forever)  # t2
                     nursery.cancel_scope.cancel()
-                    with _core.open_cancel_scope(shield=True):
+                    with _core.CancelScope(shield=True):
                         await wait_all_tasks_blocked()
                     # One child that gets cancelled by the outer scope
                     nursery.start_soon(sleep_forever)  # t3
@@ -662,8 +676,8 @@ async def test_precancelled_task():
 
 
 async def test_cancel_shielding():
-    with _core.open_cancel_scope() as outer:
-        with _core.open_cancel_scope() as inner:
+    with _core.CancelScope() as outer:
+        with _core.CancelScope() as inner:
             await _core.checkpoint()
             outer.cancel()
             with pytest.raises(_core.Cancelled):
@@ -679,7 +693,7 @@ async def test_cancel_shielding():
             # shield protects us from 'outer'
             await _core.checkpoint()
 
-            with _core.open_cancel_scope() as innerest:
+            with _core.CancelScope() as innerest:
                 innerest.cancel()
                 # but it doesn't protect us from scope inside inner
                 with pytest.raises(_core.Cancelled):
@@ -725,7 +739,7 @@ async def test_cancel_inheritance():
 
 
 async def test_cancel_shield_abort():
-    with _core.open_cancel_scope() as outer:
+    with _core.CancelScope() as outer:
         async with _core.open_nursery() as nursery:
             outer.cancel()
             nursery.cancel_scope.shield = True
@@ -750,14 +764,14 @@ async def test_cancel_shield_abort():
             # this worked by cancelling the nursery scope. (When originally
             # written, without these last few lines, the test spuriously
             # passed, even though shield assignment was buggy.)
-            with _core.open_cancel_scope(shield=True):
+            with _core.CancelScope(shield=True):
                 await wait_all_tasks_blocked()
                 assert record == ["sleeping", "cancelled"]
 
 
 async def test_basic_timeout(mock_clock):
     start = _core.current_time()
-    with _core.open_cancel_scope() as scope:
+    with _core.CancelScope() as scope:
         assert scope.deadline == inf
         scope.deadline = start + 1
         assert scope.deadline == start + 1
@@ -769,7 +783,7 @@ async def test_basic_timeout(mock_clock):
     assert not scope.cancel_called
 
     start = _core.current_time()
-    with _core.open_cancel_scope(deadline=start + 1) as scope:
+    with _core.CancelScope(deadline=start + 1) as scope:
         mock_clock.jump(2)
         await sleep_forever()
     # But then the scope swallowed the exception... but we can still see it
@@ -779,7 +793,7 @@ async def test_basic_timeout(mock_clock):
 
     # changing deadline
     start = _core.current_time()
-    with _core.open_cancel_scope() as scope:
+    with _core.CancelScope() as scope:
         await _core.checkpoint()
         scope.deadline = start + 10
         await _core.checkpoint()
@@ -792,11 +806,18 @@ async def test_basic_timeout(mock_clock):
             await _core.checkpoint()
 
 
+@pytest.mark.filterwarnings(
+    "ignore:.*trio.open_cancel_scope:trio.TrioDeprecationWarning"
+)
+async def test_cancel_scope_deprecated(recwarn):
+    assert isinstance(_core.open_cancel_scope(), _core.CancelScope)
+
+
 async def test_cancel_scope_nesting():
     # Nested scopes: if two triggering at once, the outer one wins
-    with _core.open_cancel_scope() as scope1:
-        with _core.open_cancel_scope() as scope2:
-            with _core.open_cancel_scope() as scope3:
+    with _core.CancelScope() as scope1:
+        with _core.CancelScope() as scope2:
+            with _core.CancelScope() as scope3:
                 scope3.cancel()
                 scope2.cancel()
                 await sleep_forever()
@@ -808,8 +829,8 @@ async def test_cancel_scope_nesting():
     assert not scope1.cancelled_caught
 
     # shielding
-    with _core.open_cancel_scope() as scope1:
-        with _core.open_cancel_scope() as scope2:
+    with _core.CancelScope() as scope1:
+        with _core.CancelScope() as scope2:
             scope1.cancel()
             with pytest.raises(_core.Cancelled):
                 await _core.checkpoint()
@@ -823,11 +844,159 @@ async def test_cancel_scope_nesting():
 
     # if a scope is pending, but then gets popped off the stack, then it
     # isn't delivered
-    with _core.open_cancel_scope() as scope:
+    with _core.CancelScope() as scope:
         scope.cancel()
         await _core.cancel_shielded_checkpoint()
     await _core.checkpoint()
     assert not scope.cancelled_caught
+
+
+async def test_cancel_unbound():
+    async def sleep_until_cancelled(scope):
+        with scope, fail_after(1):
+            await sleep_forever()
+
+    # Cancel before entry
+    scope = _core.CancelScope()
+    scope.cancel()
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(sleep_until_cancelled, scope)
+
+    # Cancel after entry
+    scope = _core.CancelScope()
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(sleep_until_cancelled, scope)
+        await wait_all_tasks_blocked()
+        scope.cancel()
+
+    # Cancel after exit, then reuse
+    with _core.CancelScope() as scope:
+        await _core.checkpoint()
+    scope.cancel()
+    await _core.checkpoint()
+    assert scope.cancel_called
+    assert not scope.cancelled_caught
+    with scope:
+        await _core.checkpoint()
+    assert scope.cancelled_caught
+    with scope:
+        assert not scope.cancelled_caught
+        await _core.checkpoint()
+    assert scope.cancelled_caught
+
+    # Attempts to reenter throw an error
+    with _core.CancelScope() as scope:
+        with pytest.raises(RuntimeError) as exc_info:
+            with scope:
+                pass
+        assert "may not be entered while it is already active; try" in str(
+            exc_info.value
+        )
+        async with _core.open_nursery() as nursery:
+
+            async def try_in_other_task():
+                with pytest.raises(RuntimeError) as exc_info:
+                    with scope:
+                        pass
+                assert "while it is already active in another task" in str(
+                    exc_info.value
+                )
+
+            nursery.start_soon(try_in_other_task)
+
+
+async def test_cancel_branches(autojump_clock):
+
+    async def worker(depth, branch):
+        with branch:
+            if depth == 0:
+                await sleep_forever()
+            else:
+                async with _core.open_nursery() as nursery:
+                    nursery.start_soon(worker, depth - 1, branch.open_branch())
+                    nursery.start_soon(worker, depth - 1, branch.open_branch())
+                    await worker(depth - 1, branch.open_branch())
+
+    with _core.CancelScope() as root, fail_after(1):
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(worker, 3, root.open_branch())
+            await wait_all_tasks_blocked()
+            all_branches = list(root.branches)
+            # One branch created from the open_branch() call in this block
+            # Three from the single worker(3)
+            # Three from each of three worker(2) = 9 total
+            # Three from each of nine worker(1) = 27 total
+            assert len(all_branches) == 1 + 3 + 9 + 27
+            root.cancel()
+
+    # Test the logic to delay notifying any tasks affected by a cancel()
+    # until all cancel_called members are updated
+    assert root.cancelled_caught and root.cancel_called
+    assert not any(branch.cancelled_caught for branch in all_branches)
+    assert all(branch.cancel_called for branch in all_branches)
+
+    # Branches can have their own deadline
+    with _core.CancelScope(deadline=_core.current_time() + 2) as root:
+        with root.open_branch() as branch:
+            branch.deadline = _core.current_time() + 1
+            assert root.deadline == pytest.approx(branch.deadline + 1)
+            await sleep_forever()
+    assert branch.cancel_called and branch.cancelled_caught
+    assert not root.cancel_called and not root.cancelled_caught
+
+    # Branches inherit shielding from the parent, can change independently
+    # but parent's later changes will override
+    with _core.CancelScope() as root:
+        with root.open_branch() as branch:
+            assert not root.shield and not branch.shield
+            assert root.open_branch(shield=True).shield
+            branch.shield = True
+            assert not root.shield and branch.shield
+            root.shield = False
+            assert not root.shield and not branch.shield
+            root.shield = True
+            assert root.shield and branch.shield
+            branch.shield = False
+            assert root.shield and not branch.shield
+            assert root.open_branch().shield
+            assert not root.open_branch(shield=False).shield
+
+    # Unshielding occurs simultaneously for all branches affected by the
+    # .shield = False operation
+
+    shielded = _core.CancelScope(shield=True)
+    cancelled = _core.CancelScope()
+    cancelled.cancel()
+
+    async def do_shield_order_test(outer_shield, inner_shield):
+        with cancelled.open_branch() as outer_cancelled:
+            with outer_shield.open_branch():
+                with cancelled.open_branch() as inner_cancelled:
+                    with inner_shield.open_branch():
+                        await sleep_forever()
+        assert outer_cancelled.cancelled_caught
+        assert not inner_cancelled.cancelled_caught
+
+    shield1 = shielded.open_branch()
+    shield2 = shielded.open_branch()
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(do_shield_order_test, shield1, shield2)
+        nursery.start_soon(do_shield_order_test, shield2, shield1)
+        await wait_all_tasks_blocked()
+        shielded.shield = False
+
+    # How it works: If unshielding didn't occur simultaneously, then
+    # either shield1 would be unshielded before shield2 or vice versa.
+    # That would mean one of the do_shield_order_test tasks would
+    # momentarily have a cancel stack like:
+    #   outer_cancelled: cancelled
+    #     outer_shield: shielded
+    #       inner_cancelled: cancelled
+    #         inner_shield: not shielded
+    # and it would be delivered a cancellation for inner_cancelled.
+    # We assert that both tasks receive cancellations for outer_cancelled,
+    # which could only happen if the unshielding happens simultaneously.
 
 
 async def test_timekeeping():
@@ -836,7 +1005,7 @@ async def test_timekeeping():
     # give it a few tries in case of random CI server flakiness
     for _ in range(4):
         real_start = time.perf_counter()
-        with _core.open_cancel_scope() as scope:
+        with _core.CancelScope() as scope:
             scope.deadline = _core.current_time() + TARGET
             await sleep_forever()
         real_duration = time.perf_counter() - real_start
@@ -857,7 +1026,7 @@ async def test_failed_abort():
 
     async def stubborn_sleeper():
         stubborn_task[0] = _core.current_task()
-        with _core.open_cancel_scope() as scope:
+        with _core.CancelScope() as scope:
             stubborn_scope[0] = scope
             record.append("sleep")
             x = await _core.wait_task_rescheduled(lambda _: _core.Abort.FAILED)
@@ -893,7 +1062,7 @@ def test_broken_abort():
         # avoid the warning.
         await _core.checkpoint()
         await _core.checkpoint()
-        with _core.open_cancel_scope() as scope:
+        with _core.CancelScope() as scope:
             scope.cancel()
             # None is not a legal return value here
             await _core.wait_task_rescheduled(lambda _: None)
@@ -1020,7 +1189,7 @@ def test_system_task_crash_KeyboardInterrupt():
 # 5) ...but it's on the run queue, so the timeout is queued to be delivered
 #    the next time that it's blocked.
 async def test_yield_briefly_checks_for_timeout(mock_clock):
-    with _core.open_cancel_scope(deadline=_core.current_time() + 5):
+    with _core.CancelScope(deadline=_core.current_time() + 5):
         await _core.checkpoint()
         with pytest.raises(_core.Cancelled):
             mock_clock.jump(10)
@@ -1373,7 +1542,7 @@ async def test_TrioToken_run_sync_soon_massive_queue():
 
 
 async def test_slow_abort_basic():
-    with _core.open_cancel_scope() as scope:
+    with _core.CancelScope() as scope:
         scope.cancel()
         with pytest.raises(_core.Cancelled):
             task = _core.current_task()
@@ -1408,8 +1577,8 @@ async def test_slow_abort_edge_cases():
         await _core.checkpoint()
         record.append("done")
 
-    with _core.open_cancel_scope() as outer1:
-        with _core.open_cancel_scope() as outer2:
+    with _core.CancelScope() as outer1:
+        with _core.CancelScope() as outer2:
             async with _core.open_nursery() as nursery:
                 # So we have a task blocked on an operation that can't be
                 # aborted immediately
@@ -1517,8 +1686,8 @@ async def test_spawn_name():
 async def test_current_effective_deadline(mock_clock):
     assert _core.current_effective_deadline() == inf
 
-    with _core.open_cancel_scope(deadline=5) as scope1:
-        with _core.open_cancel_scope(deadline=10) as scope2:
+    with _core.CancelScope(deadline=5) as scope1:
+        with _core.CancelScope(deadline=10) as scope2:
             assert _core.current_effective_deadline() == 5
             scope2.deadline = 3
             assert _core.current_effective_deadline() == 3
@@ -1630,7 +1799,7 @@ async def test_trivial_yields():
         async with _core.open_nursery():
             pass
 
-    with _core.open_cancel_scope() as cancel_scope:
+    with _core.CancelScope() as cancel_scope:
         cancel_scope.cancel()
         with pytest.raises(_core.MultiError) as excinfo:
             async with _core.open_nursery():
@@ -1709,7 +1878,7 @@ async def test_nursery_start(autojump_clock):
         task_status.started("hi")
 
     async with _core.open_nursery() as nursery:
-        with _core.open_cancel_scope() as cs:
+        with _core.CancelScope() as cs:
             cs.cancel()
             with pytest.raises(_core.Cancelled):
                 await nursery.start(just_started)
@@ -1723,7 +1892,7 @@ async def test_nursery_start(autojump_clock):
         raise KeyError("whoopsiedaisy")
 
     async with _core.open_nursery() as nursery:
-        with _core.open_cancel_scope() as cs:
+        with _core.CancelScope() as cs:
             cs.cancel()
             with pytest.raises(_core.MultiError) as excinfo:
                 await nursery.start(raise_keyerror_after_started)

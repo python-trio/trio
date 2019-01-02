@@ -3,28 +3,17 @@ import trio
 
 class GracefulShutdownManager:
     def __init__(self):
-        self._shutting_down = False
-        self._cancel_scopes = set()
+        self._root_scope = trio.CancelScope()
 
     def start_shutdown(self):
-        self._shutting_down = True
-        for cancel_scope in self._cancel_scopes:
-            cancel_scope.cancel()
+        self._root_scope.cancel()
 
-    @contextmanager
     def cancel_on_graceful_shutdown(self):
-        with trio.open_cancel_scope() as cancel_scope:
-            self._cancel_scopes.add(cancel_scope)
-            if self._shutting_down:
-                cancel_scope.cancel()
-            try:
-                yield
-            finally:
-                self._cancel_scopes.remove(cancel_scope)
+        return self._root_scope.open_branch()
 
     @property
     def shutting_down(self):
-        return self._shutting_down
+        return self._root_scope.cancel_called
 
 # Code can check gsm.shutting_down occasionally at appropriate points to see
 # if it should exit.

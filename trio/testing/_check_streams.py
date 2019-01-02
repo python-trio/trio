@@ -219,11 +219,11 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
 
     # cancelled aclose still closes
     async with _ForceCloseBoth(await stream_maker()) as (s, r):
-        with _core.open_cancel_scope() as scope:
+        with _core.CancelScope() as scope:
             scope.cancel()
             await r.aclose()
 
-        with _core.open_cancel_scope() as scope:
+        with _core.CancelScope() as scope:
             scope.cancel()
             await s.aclose()
 
@@ -248,7 +248,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             with _assert_raises(_core.Cancelled):
                 await afn(*args)
 
-        with _core.open_cancel_scope() as scope:
+        with _core.CancelScope() as scope:
             scope.cancel()
             async with _core.open_nursery() as nursery:
                 nursery.start_soon(expect_cancelled, do_send_all, b"x")

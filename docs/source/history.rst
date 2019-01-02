@@ -212,7 +212,7 @@ Deprecations and Removals
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - Attempting to explicitly raise :exc:`trio.Cancelled` will cause a :exc:`RuntimeError`.
-  :meth:`cancel_scope.cancel() <trio.The cancel scope interface.cancel>` should
+  :meth:`cancel_scope.cancel() <trio.CancelScope.cancel>` should
   be used instead. (`#342 <https://github.com/python-trio/trio/issues/342>`__)
 
 
