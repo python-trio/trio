@@ -888,7 +888,7 @@ async def test_cancel_unbound():
     with _core.CancelScope() as scope:
         with pytest.raises(RuntimeError) as exc_info:
             with scope:
-                pass
+                pass  # pragma: no cover
         assert "may not be entered while it is already active; try" in str(
             exc_info.value
         )
@@ -897,7 +897,7 @@ async def test_cancel_unbound():
             async def try_in_other_task():
                 with pytest.raises(RuntimeError) as exc_info:
                     with scope:
-                        pass
+                        pass  # pragma: no cover
                 assert "while it is already active in another task" in str(
                     exc_info.value
                 )
