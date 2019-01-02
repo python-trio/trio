@@ -1348,7 +1348,7 @@ now with two producers and two consumers:
 .. literalinclude:: reference-core/channels-mpmc-broken.py
 
 The two producers, A and B, send 3 messages apiece. These are then
-randomly distributed between the two producers, X and Y. So we're
+randomly distributed between the two consumers, X and Y. So we're
 hoping to see some output like:
 
 .. code-block:: none
