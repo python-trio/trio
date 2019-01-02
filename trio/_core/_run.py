@@ -800,7 +800,8 @@ class Runner:
 
     # {(deadline, id(CancelScope)): CancelScope}
     # only contains scopes with non-infinite deadlines that are currently
-    # attached to at least one task
+    # attached to at least one task or also control the cancellation of other
+    # scopes
     deadlines = attr.ib(default=attr.Factory(SortedDict))
 
     init_task = attr.ib(default=None)
