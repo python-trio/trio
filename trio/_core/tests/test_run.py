@@ -906,7 +906,6 @@ async def test_cancel_unbound():
 
 
 async def test_cancel_branches(autojump_clock):
-
     async def worker(depth, branch):
         with branch:
             if depth == 0:
