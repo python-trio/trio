@@ -948,10 +948,8 @@ async def test_cancel_branches(autojump_clock):
     assert root.cancel_called
     assert not root.cancelled_caught
     assert all(branch.cancel_called for branch in all_branches)
-    assert all(
-        branch.cancelled_caught == (branch in toplevel_branches)
-        for branch in all_branches
-    )
+    for branch in all_branches:
+        assert branch.cancelled_caught == (branch in toplevel_branches)
 
     # Branches can have their own deadline
     with _core.CancelScope(deadline=_core.current_time() + 2) as root:
