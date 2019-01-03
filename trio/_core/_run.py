@@ -118,7 +118,7 @@ class SystemClock:
 ################################################################
 
 
-@attr.s(cmp=False, repr=False)
+@attr.s(cmp=False, repr=False, slots=True)
 class CancelScope:
     """A *cancellation scope*: the link between a unit of cancellable
     work and Trio's cancellation system.
@@ -167,7 +167,7 @@ class CancelScope:
     one is still active. (You'll get a :exc:`RuntimeError` if you
     try.)  If you want multiple blocks of work to be cancelled with
     the same call to :meth:`cancel` or at the expiry of the same
-    deadline, see the :meth:`open_branch` method.
+    deadline, see the :meth:`linked_child` method.
 
     The :class:`CancelScope` constructor takes initial values for the
     cancel scope's :attr:`deadline` and :attr:`shield` attributes; these
@@ -181,12 +181,14 @@ class CancelScope:
     _effective_deadline = attr.ib(default=inf, init=False)
     cancel_called = attr.ib(default=False, init=False)
     cancelled_caught = attr.ib(default=False, init=False)
+
+    # Most cancel scopes don't have linked children; those that do
+    # will replace this empty tuple with a WeakSet
+    _linked_children = attr.ib(default=(), init=False)
+
+    # Constructor arguments:
     _deadline = attr.ib(default=inf, kw_only=True)
     _shield = attr.ib(default=False, kw_only=True)
-
-    # Most cancel scopes don't have branches; those that do will shadow
-    # this class-level empty tuple with an instance-level WeakSet
-    _branches = ()
 
     @enable_ki_protection
     def __enter__(self):
@@ -194,8 +196,8 @@ class CancelScope:
         if self._scope_task is not None:
             raise RuntimeError(
                 "cancel scope may not be entered while it is already "
-                "active{}; try `with cancel_scope.branch() as new_scope:` "
-                "instead".format(
+                "active{}; try `with cancel_scope.linked_child() as "
+                "new_scope:` instead".format(
                     "" if self._scope_task is task else
                     " in another task ({!r})".format(self._scope_task.name)
                 )
@@ -230,27 +232,27 @@ class CancelScope:
                 assert value is remaining_error_after_cancel_scope
                 value.__context__ = old_context
 
-    def open_branch(self, *, deadline=inf, shield=None):
-        if self._branches == ():
-            # We keep _branches as an empty tuple until the first branch
-            # is created, to avoid creating a fairly heavyweight
-            # WeakSet on every cancel scope object
+    def linked_child(self, *, deadline=inf, shield=None):
+        if self._linked_children == ():
+            # We keep _linked_children as an empty tuple until the
+            # first linked_child is created, to avoid creating a
+            # fairly heavyweight WeakSet on every cancel scope object
             with self._might_change_effective_deadline():
-                self._branches = weakref.WeakSet()
+                self._linked_children = weakref.WeakSet()
 
         if shield is None:
             shield = self._shield
         child = CancelScope(deadline=deadline, shield=shield)
         if self.cancel_called:
             child.cancel()
-        self._branches.add(child)
+        self._linked_children.add(child)
         return child
 
     @property
-    def branches(self):
-        for branch in self._branches:
-            yield branch
-            yield from branch.branches
+    def linked_children(self):
+        for child in self._linked_children:
+            yield child
+            yield from child.linked_children
 
     def __repr__(self):
         if self._scope_task is None:
@@ -271,13 +273,16 @@ class CancelScope:
             else:
                 state = ", cancel in {:.2f}sec".format(self.deadline - now)
 
-        if self._branches:
-            branches = ", {} branches".format(sum(1 for _ in self.branches))
+        if self._linked_children:
+            count = sum(1 for _ in self.linked_children)
+            linked_children = ", {} linked child{}".format(
+                count, "ren" if count > 1 else ""
+            )
         else:
-            branches = ""
+            linked_children = ""
 
         return "<trio.CancelScope at {:#x}, {}{}{}>".format(
-            id(self), binding, state, branches
+            id(self), binding, state, linked_children
         )
 
     @contextmanager
@@ -287,9 +292,9 @@ class CancelScope:
             yield
         finally:
             old = self._effective_deadline
-            ever_had_branches = self._branches != ()
+            ever_had_linked_children = self._linked_children != ()
             if self.cancel_called or (
-                not self._tasks and not ever_had_branches
+                not self._tasks and not ever_had_linked_children
             ):
                 new = inf
             else:
@@ -321,18 +326,18 @@ class CancelScope:
         if not isinstance(new_value, bool):
             raise TypeError("shield must be a bool")
 
-        # Set shielding for us and all branches, then check cancellations
-        # for us and all branches if shielding was turned off. This ordering
-        # ensures that each task receives the cancellation for its
-        # outermost cancelled scope.
+        # Set shielding for us and all linked children, then check
+        # cancellations for us and all linked children if shielding
+        # was turned off. This ordering ensures that each task
+        # receives the cancellation for its outermost cancelled scope.
         self._shield = new_value
-        for branch in self.branches:
-            branch._shield = new_value
+        for child in self.linked_children:
+            child._shield = new_value
         if not self._shield:
             for task in self._tasks:
                 task._attempt_delivery_of_any_pending_cancel()
-            for branch in self.branches:
-                for task in branch._tasks:
+            for child in self.linked_children:
+                for task in child._tasks:
                     task._attempt_delivery_of_any_pending_cancel()
 
     def _cancel_no_notify(self):
@@ -341,10 +346,10 @@ class CancelScope:
             with self._might_change_effective_deadline():
                 self.cancel_called = True
             affected_tasks = self._tasks
-            if self._branches:
+            if self._linked_children:
                 affected_tasks = set(affected_tasks)
-                for branch in self._branches:
-                    affected_tasks.update(branch._cancel_no_notify())
+                for child in self._linked_children:
+                    affected_tasks.update(child._cancel_no_notify())
             return affected_tasks
         else:
             return set()

@@ -556,8 +556,8 @@ async def test_cancel_scope_repr(autojump_clock):
         assert "cancel soon" in repr(scope)
         scope.cancel()
         assert "cancelled" in repr(scope)
-        with scope.open_branch():
-            assert ", 1 branches" in repr(scope)
+        with scope.linked_child():
+            assert ", 1 linked child" in repr(scope)
 
 
 def test_cancel_points():
@@ -905,96 +905,96 @@ async def test_cancel_unbound():
             nursery.start_soon(try_in_other_task)
 
 
-async def test_cancel_branches(autojump_clock):
-    async def worker(depth, branch):
-        with branch:
+async def test_cancel_linked_children(autojump_clock):
+    async def worker(depth, child):
+        with child:
             if depth == 0:
                 await sleep_forever()
             else:
                 async with _core.open_nursery() as nursery:
-                    nursery.start_soon(worker, depth - 1, branch.open_branch())
-                    nursery.start_soon(worker, depth - 1, branch.open_branch())
-                    await worker(depth - 1, branch.open_branch())
+                    nursery.start_soon(worker, depth - 1, child.linked_child())
+                    nursery.start_soon(worker, depth - 1, child.linked_child())
+                    await worker(depth - 1, child.linked_child())
 
     with _core.CancelScope() as root, fail_after(1):
         async with _core.open_nursery() as nursery:
-            nursery.start_soon(worker, 3, root.open_branch())
+            nursery.start_soon(worker, 3, root.linked_child())
             await wait_all_tasks_blocked()
-            all_branches = list(root.branches)
-            # One branch created from the open_branch() call in this block
+            all_children = list(root.linked_children)
+            # One child created from the linked_child() call in this block
             # Three from the single worker(3)
             # Three from each of three worker(2) = 9 total
             # Three from each of nine worker(1) = 27 total
-            assert len(all_branches) == 1 + 3 + 9 + 27
+            assert len(all_children) == 1 + 3 + 9 + 27
             root.cancel()
 
     # Test the logic to delay notifying any tasks affected by a cancel()
     # until all cancel_called members are updated
     assert root.cancelled_caught and root.cancel_called
-    assert not any(branch.cancelled_caught for branch in all_branches)
-    assert all(branch.cancel_called for branch in all_branches)
+    assert not any(child.cancelled_caught for child in all_children)
+    assert all(child.cancel_called for child in all_children)
 
-    # Test cancellation of branches via deadline expiry, and with the
-    # top-level scope not itself bound to any work
+    # Test cancellation of linked children via deadline expiry, and
+    # with the top-level scope not itself bound to any work
     root = _core.CancelScope(deadline=_core.current_time() + 0.5)
     with fail_after(1):
         async with _core.open_nursery() as nursery:
-            toplevel_branches = []
+            toplevel_children = []
             for _ in range(3):
-                toplevel_branches.append(root.open_branch())
-                nursery.start_soon(worker, 2, toplevel_branches[-1])
+                toplevel_children.append(root.linked_child())
+                nursery.start_soon(worker, 2, toplevel_children[-1])
             await wait_all_tasks_blocked()
-            all_branches = list(root.branches)
+            all_children = list(root.linked_children)
     assert root.cancel_called
     assert not root.cancelled_caught
-    assert all(branch.cancel_called for branch in all_branches)
-    for branch in all_branches:
-        assert branch.cancelled_caught == (branch in toplevel_branches)
+    assert all(child.cancel_called for child in all_children)
+    for child in all_children:
+        assert child.cancelled_caught == (child in toplevel_children)
 
-    # Branches can have their own deadline
+    # Childes can have their own deadline
     with _core.CancelScope(deadline=_core.current_time() + 2) as root:
-        with root.open_branch() as branch:
-            branch.deadline = _core.current_time() + 1
-            assert root.deadline == pytest.approx(branch.deadline + 1)
+        with root.linked_child() as child:
+            child.deadline = _core.current_time() + 1
+            assert root.deadline == pytest.approx(child.deadline + 1)
             await sleep_forever()
-    assert branch.cancel_called and branch.cancelled_caught
+    assert child.cancel_called and child.cancelled_caught
     assert not root.cancel_called and not root.cancelled_caught
 
-    # Branches inherit shielding from the parent, can change independently
-    # but parent's later changes will override
+    # Linked children inherit shielding from the parent, can change
+    # independently but parent's later changes will override
     with _core.CancelScope() as root:
-        with root.open_branch() as branch:
-            assert not root.shield and not branch.shield
-            assert root.open_branch(shield=True).shield
-            branch.shield = True
-            assert not root.shield and branch.shield
+        with root.linked_child() as child:
+            assert not root.shield and not child.shield
+            assert root.linked_child(shield=True).shield
+            child.shield = True
+            assert not root.shield and child.shield
             root.shield = False
-            assert not root.shield and not branch.shield
+            assert not root.shield and not child.shield
             root.shield = True
-            assert root.shield and branch.shield
-            branch.shield = False
-            assert root.shield and not branch.shield
-            assert root.open_branch().shield
-            assert not root.open_branch(shield=False).shield
+            assert root.shield and child.shield
+            child.shield = False
+            assert root.shield and not child.shield
+            assert root.linked_child().shield
+            assert not root.linked_child(shield=False).shield
 
-    # Unshielding occurs simultaneously for all branches affected by the
-    # .shield = False operation
+    # Unshielding occurs simultaneously for all linked children
+    # affected by the .shield = False operation
 
     shielded = _core.CancelScope(shield=True)
     cancelled = _core.CancelScope()
     cancelled.cancel()
 
     async def do_shield_order_test(outer_shield, inner_shield):
-        with cancelled.open_branch() as outer_cancelled:
-            with outer_shield.open_branch():
-                with cancelled.open_branch() as inner_cancelled:
-                    with inner_shield.open_branch():
+        with cancelled.linked_child() as outer_cancelled:
+            with outer_shield.linked_child():
+                with cancelled.linked_child() as inner_cancelled:
+                    with inner_shield.linked_child():
                         await sleep_forever()
         assert outer_cancelled.cancelled_caught
         assert not inner_cancelled.cancelled_caught
 
-    shield1 = shielded.open_branch()
-    shield2 = shielded.open_branch()
+    shield1 = shielded.linked_child()
+    shield2 = shielded.linked_child()
 
     async with _core.open_nursery() as nursery:
         nursery.start_soon(do_shield_order_test, shield1, shield2)
