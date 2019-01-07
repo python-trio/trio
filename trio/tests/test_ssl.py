@@ -57,6 +57,14 @@ TRIO_TEST_1_CERT.configure_cert(SERVER_CTX)
 CLIENT_CTX = stdlib_ssl.create_default_context()
 TRIO_TEST_CA.configure_trust(CLIENT_CTX)
 
+# Temporarily disable TLSv1.3, until the issue with openssl's session
+# ticket handling is sorted out one way or another:
+#     https://github.com/python-trio/trio/issues/819
+#     https://github.com/openssl/openssl/issues/7948
+#     https://github.com/openssl/openssl/issues/7967
+if hasattr(stdlib_ssl, "OP_NO_TLSv1_3"):
+    CLIENT_CTX.options |= stdlib_ssl.OP_NO_TLSv1_3
+
 
 # The blocking socket server.
 def ssl_echo_serve_sync(sock, *, expect_fail=False):
@@ -142,7 +150,7 @@ class PyOpenSSLEchoStream:
         # TLSv1_2_METHOD.
         #
         # Discussion: https://github.com/pyca/pyopenssl/issues/624
-        if hasattr(SSL, "OP_NO_TLSv1_3"):  # pragma: no cover
+        if hasattr(SSL, "OP_NO_TLSv1_3"):
             ctx.set_options(SSL.OP_NO_TLSv1_3)
         # Unfortunately there's currently no way to say "use 1.3 or worse", we
         # can only disable specific versions. And if the two sides start
