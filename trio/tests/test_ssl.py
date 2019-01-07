@@ -79,7 +79,7 @@ def ssl_echo_serve_sync(sock, *, expect_fail=False):
                 # other side has initiated a graceful shutdown; we try to
                 # respond in kind but it's legal for them to have already gone
                 # away.
-                exceptions = (BrokenPipeError,)
+                exceptions = (BrokenPipeError, stdlib_ssl.SSLZeroReturnError)
                 # Under unclear conditions, CPython sometimes raises
                 # SSLWantWriteError here. This is a bug (bpo-32219), but it's
                 # not our bug, so ignore it.
@@ -94,6 +94,7 @@ def ssl_echo_serve_sync(sock, *, expect_fail=False):
         if expect_fail:
             print("ssl_echo_serve_sync got error as expected:", exc)
         else:  # pragma: no cover
+            print("ssl_echo_serve_sync got unexpected error:", exc)
             raise
     else:
         if expect_fail:  # pragma: no cover
