@@ -689,7 +689,7 @@ on top of the raw byte streams, just as it does with sockets.
 Running a process and waiting for it to finish
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-We're `working on <https://github.com/python-trio/trio/pull/791>`
+We're `working on <https://github.com/python-trio/trio/pull/791>`__
 figuring out the best API for common higher-level subprocess operations.
 In the meantime, you can implement something like the standard library
 :func:`subprocess.run` in terms of :class:`trio.subprocess.Process`
