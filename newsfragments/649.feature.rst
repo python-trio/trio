@@ -1,6 +1,0 @@
-New :mod:`trio.hazmat` features to allow cleanly switching live
-coroutine objects between Trio and other coroutine runners. Frankly,
-we're not even sure this is a good idea, but we want to `try it out in
-trio-asyncio
-<https://github.com/python-trio/trio-asyncio/issues/42>`__, so here we
-are. For details see :ref:`live-coroutine-handoff`.
