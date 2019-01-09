@@ -9,10 +9,13 @@ jobs:
   pool:
     vmImage: 'vs2017-win2016'
   strategy:
+    # Python version list:
+    #   64-bit: https://www.nuget.org/packages/python/
+    #   32-bit: https://www.nuget.org/packages/pythonx86/
     matrix:
       "Python 3.5, 32 bit":
-        python.version: '3.5'
-        python.arch: 'x86'
+        python.version: '3.5.4'
+        python.pkg: 'pythonx86'
       #"Python 3.5, 64 bit:
       #   python.version: '3.5'
       #   python.arch: 'x64'
@@ -31,17 +34,14 @@ jobs:
     maxParallel: 6
 
   steps:
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: '$(python.version)'
-      architecture: '$(python.arch)'
+  - task: NuGetToolInstaller@0
 
   - bash: ci/ci.sh
 
   - task: PublishTestResults@2
     inputs:
       testResultsFiles: 'test-results.xml'
-      testRunTitle: 'Windows Python $(python.version)-$(python.arch)'
+      testRunTitle: 'Windows $(python.pkg) $(python.version)'
     condition: succeededOrFailed()
 
 - job: 'Linux'

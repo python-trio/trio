@@ -2,7 +2,11 @@
 
 set -ex -o pipefail
 
-git rev-parse HEAD
+# On azure pipeline's windows VMs, we need to jump through hoops to avoid
+# touching the C:\ drive as much as possible
+if [ $AGENT_OS = "Windows_NT" ]; then
+    env
+fi
 
 python --version
 python -c "import struct; print('bits:', struct.calcsize('P') * 8)"
