@@ -5,20 +5,32 @@ set -ex -o pipefail
 # On azure pipeline's windows VMs, we need to jump through hoops to avoid
 # touching the C:\ drive as much as possible
 if [ $AGENT_OS = "Windows_NT" ]; then
-    env
+    env | sort
+    cygpath -w /tmp
+    export TEMP=${AGENT_TEMPDIRECTORY}
+    export PIP_CACHE_DIR=${AGENT_TEMPDIRECTORY}\\pip-cache
+
+    nuget install ${PYTHON_PKG} -Version ${PYTHON_VERSION} \
+          -OutputDirectory $PWD/pyinstall -ExcludeVersion \
+          -Source "https://api.nuget.org/v3/index.json" \
+          -Verbosity detailed -DirectDownload -NonInteractive
+
+    pydir=$PWD/pyinstall/${PYTHON_PKG}
+
+    export PATH="${pydir}/tools:${pydir}/tools/scripts:$PATH"
 fi
 
 python --version
 python -c "import struct; print('bits:', struct.calcsize('P') * 8)"
 
 python -m pip install -U pip setuptools wheel
-pip --version
+python -m pip --version
 
 python setup.py sdist --formats=zip
-pip install dist/*.zip
+python -m pip install dist/*.zip
 
 if [ "$CHECK_DOCS" = "1" ]; then
-    pip install -r ci/rtd-requirements.txt
+    python -m pip install -r ci/rtd-requirements.txt
     towncrier --yes  # catch errors in newsfragments
     cd docs
     # -n (nit-picky): warn on missing references
@@ -26,7 +38,7 @@ if [ "$CHECK_DOCS" = "1" ]; then
     sphinx-build -nW  -b html source build
 else
     # Actual tests
-    pip install -r test-requirements.txt
+    python -m pip install -r test-requirements.txt
 
     if [ "$CHECK_FORMATTING" = "1" ]; then
         source check.sh
