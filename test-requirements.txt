@@ -49,5 +49,5 @@ traitlets==4.3.2          # via ipython
 trustme==0.4.0
 typed-ast==1.1.0 ; python_version < "3.7" and implementation_name == "cpython"
 wcwidth==0.1.7            # via prompt-toolkit
-wrapt==1.10.11            # via astroid
+wrapt==1.11.0             # via astroid
 yapf==0.25.0
