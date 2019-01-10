@@ -124,6 +124,11 @@ Abstract base classes
      - :class:`AsyncResource`
      - :meth:`~ReceiveChannel.receive`, :meth:`~ReceiveChannel.receive_nowait`
      - ``__aiter__``, ``__anext__``
+     -
+   * - :class:`SendChannelWithPoison`
+     - :class:`SendChannel`
+     - :meth:`~SendChannelWithPoison.poison`
+     - :meth:`~SendChannelWithPoison.propagate_errors`
      - :func:`~trio.open_memory_channel`
 
 .. autoclass:: trio.abc.AsyncResource
@@ -162,6 +167,10 @@ Abstract base classes
    :show-inheritance:
 
 .. autoclass:: trio.abc.ReceiveChannel
+   :members:
+   :show-inheritance:
+
+.. autoclass:: trio.abc.SendChannelWithPoison
    :members:
    :show-inheritance:
 

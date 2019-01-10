@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+import attr
 from ._util import aiter_compat
 from . import _core
 
@@ -529,7 +530,7 @@ class SendChannel(AsyncResource):
     or using an ``async with`` block.
 
     If you want to send raw bytes rather than Python objects, see
-    :class:`ReceiveStream`.
+    :class:`SendStream`.
 
     """
     __slots__ = ()
@@ -593,6 +594,86 @@ class SendChannel(AsyncResource):
               :class:`SendChannel` object.
 
         """
+
+
+@attr.s(frozen=True)
+class PoisonOnError:
+    resource = attr.ib()
+
+    async def __aenter__(self):
+        return self.resource
+
+    async def __aexit__(self, type, value, traceback):
+        try:
+            if value is not None:
+                await self.resource.poison(value)
+        finally:
+            await self.resource.aclose()
+
+
+class SendChannelWithPoison(SendChannel):
+    """A :class:`SendChannel` that adds a "poison" operation, used to
+    propagate errors from senders to receivers.
+
+    Sending on any clone of a poisoned send channel will raise
+    :exc:`~trio.BrokenResourceError`. Receiving on a channel whose send
+    side has been poisoned will raise :exc:`~trio.BrokenResourceError`
+    once the data that was sent before the poison has been consumed.
+    A poisoned channel can be cloned, but the clones will be poisoned
+    too. A poisoned channel can be closed without error, and operations
+    on the closed object will raise :exc:`~trio.ClosedResourceError`,
+    not :exc:`~trio.BrokenResourceError`.
+
+    Poisoning a channel when its sender exits abnormally provides an
+    alternative to having the receivers hang (if the sender didn't use
+    an ``async with:`` block) or receive normal :exc:`~trio.EndOfChannel`
+    notifications (if it did).
+
+    :class:`SendChannelWithPoison` objects support an additional form
+    of async context manager which turns exceptions into poison::
+
+        async with send_channel.propagate_errors():
+            ...
+
+    Just like ``async with send_channel:``, the send channel object
+    will be closed upon exiting the context; but if the context
+    exits with an exception, the channel will be poisoned as well.
+
+    """
+
+    @abstractmethod
+    async def poison(self, error):
+        """Prevent any more data from flowing through this channel.
+
+        If any tasks are blocked waiting to send or receive on this channel
+        or any of its clones, they will be immediately woken up with
+        a :exc:`~trio.BrokenResourceError`.
+
+        If constraints of any underlying protocol don't prevent it,
+        this method should poison the channel even if executed in a
+        cancelled scope.
+
+        Args:
+          error (object): A description of what went wrong, whose ``repr``
+              will be included in exceptions raised due to this poisoning
+              on a best-effort basis. (Some channel implementations might
+              not support communicating the reason for a poisoning to
+              a remote peer.) If ``error`` is an exception, it will be
+              reported as the ``__cause__`` of the poisoning error if
+              possible.
+
+        Raises:
+          trio.ClosedResourceError: if you already closed this
+              channel object.
+
+        """
+
+    def propagate_errors(self):
+        """Returns an async context manager that closes this send channel
+        when exited (like ``async with send_channel:``), and additionally
+        poisons the channel if the context exits due to an exception.
+        """
+        return PoisonOnError(self)
 
 
 class ReceiveChannel(AsyncResource):

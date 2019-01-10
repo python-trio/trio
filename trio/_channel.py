@@ -1,11 +1,12 @@
 from collections import deque, OrderedDict
+from contextlib import suppress
 from math import inf
 
 import attr
-from outcome import Error, Value
+from outcome import Error, Value, capture
 
 from . import _core
-from .abc import SendChannel, ReceiveChannel
+from .abc import SendChannelWithPoison, ReceiveChannel
 
 
 def open_memory_channel(max_buffer_size):
@@ -22,6 +23,9 @@ def open_memory_channel(max_buffer_size):
     isn't mandatory, but it is generally a good idea, because it helps avoid
     situations where tasks get stuck waiting on a channel when there's no-one
     on the other side. See :ref:`channel-shutdown` for details.
+
+    Memory send channel objects support poisoning; see
+    :class:`~trio.abc.SendChannelWithPoison` for more details.
 
     Args:
       max_buffer_size (int or math.inf): The maximum number of items that can
@@ -84,6 +88,7 @@ class MemoryChannelState:
     send_tasks = attr.ib(factory=OrderedDict)
     # {task: None}
     receive_tasks = attr.ib(factory=OrderedDict)
+    poison = attr.ib(factory=list)
 
     def statistics(self):
         return ChannelStats(
@@ -95,9 +100,41 @@ class MemoryChannelState:
             tasks_waiting_receive=len(self.receive_tasks),
         )
 
+    def add_poison(self, error):
+        if isinstance(error, _core.BrokenResourceError):
+            # Don't let poisoning cause more poisoning on the same
+            # channel -- it obscures the original problem.
+            with suppress(AttributeError):
+                if error.__origin is self:
+                    return
+        self.poison.append(error)
+
+        for task in self.receive_tasks:
+            task.custom_sleep_data._tasks.remove(task)
+            _core.reschedule(task, capture(self.throw_poisoned))
+        for task in self.send_tasks:
+            task.custom_sleep_data._tasks.remove(task)
+            _core.reschedule(task, capture(self.throw_poisoned))
+        self.receive_tasks.clear()
+        self.send_tasks.clear()
+
+    def throw_poisoned(self):
+        assert self.poison
+
+        exceptions = [
+            err for err in self.poison if isinstance(err, BaseException)
+        ]
+        poisoned_error = _core.BrokenResourceError(
+            "channel is poisoned: " + repr(self.poison)
+        )
+        poisoned_error.__origin = self
+        if exceptions:
+            poisoned_error.__cause__ = _core.MultiError(exceptions)
+        raise poisoned_error
+
 
 @attr.s(cmp=False, repr=False)
-class MemorySendChannel(SendChannel):
+class MemorySendChannel(SendChannelWithPoison):
     _state = attr.ib()
     _closed = attr.ib(default=False)
     # This is just the tasks waiting on *this* object. As compared to
@@ -125,6 +162,8 @@ class MemorySendChannel(SendChannel):
             raise _core.ClosedResourceError
         if self._state.open_receive_channels == 0:
             raise _core.BrokenResourceError
+        if self._state.poison:
+            self._state.throw_poisoned()
         if self._state.receive_tasks:
             assert not self._state.data
             task, _ = self._state.receive_tasks.popitem(last=False)
@@ -163,6 +202,14 @@ class MemorySendChannel(SendChannel):
         if self._closed:
             raise _core.ClosedResourceError
         return MemorySendChannel(self._state)
+
+    @_core.enable_ki_protection
+    async def poison(self, error):
+        if self._closed:
+            await _core.checkpoint()
+            raise _core.ClosedResourceError
+        self._state.add_poison(error)
+        await _core.checkpoint()
 
     @_core.enable_ki_protection
     async def aclose(self):
@@ -213,6 +260,8 @@ class MemoryReceiveChannel(ReceiveChannel):
             # Fall through
         if self._state.data:
             return self._state.data.popleft()
+        if self._state.poison:
+            self._state.throw_poisoned()
         if not self._state.open_send_channels:
             raise _core.EndOfChannel
         raise _core.WouldBlock

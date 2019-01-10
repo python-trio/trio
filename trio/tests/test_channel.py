@@ -350,3 +350,130 @@ async def test_unbuffered():
             assert await r.receive() == 1
     with pytest.raises(trio.WouldBlock):
         r.receive_nowait()
+
+
+async def test_poison():
+    s, r = open_memory_channel(0)
+
+    # Tasks blocked when the poisoning occurs get woken up immediately
+    async def expect_poison(fn, *args):
+        with pytest.raises(trio.BrokenResourceError) as exc_info:
+            await fn(*args)
+        assert str(exc_info.value).startswith("channel is poisoned:")
+
+    async def run_sync(fn, *args):
+        fn(*args)
+
+    async with r.clone() as r2, trio.open_nursery() as nursery:
+        nursery.start_soon(expect_poison, r.receive)
+        nursery.start_soon(expect_poison, r.receive)
+        nursery.start_soon(expect_poison, r2.receive)
+        nursery.start_soon(expect_poison, r2.receive)
+        await wait_all_tasks_blocked()
+        with assert_checkpoints():
+            await s.poison("hi")
+
+    # Further sending and receiving fails fast
+    await expect_poison(s.send, "foo")
+    await expect_poison(run_sync, s.send_nowait, "bar")
+    await expect_poison(run_sync, r.receive_nowait)
+
+    # Can poison multiple times and all are reported
+    # Can poison while cancelled
+    with trio.open_cancel_scope() as scope:
+        scope.cancel()
+        with assert_checkpoints():
+            await s.poison("there")
+    assert scope.cancelled_caught
+
+    with pytest.raises(trio.BrokenResourceError) as exc_info:
+        await r.receive()
+    assert str(exc_info.value) == "channel is poisoned: ['hi', 'there']"
+
+    # Clones can be made, but they're poisoned too
+    async with s.clone() as s2, r.clone() as r2:
+        await expect_poison(s2.send, "baz")
+        await expect_poison(r2.receive)
+
+    # Can close a poisoned channel
+    with assert_checkpoints():
+        await s.aclose()
+
+    # Receivers are poisoned even if all senders are closed
+    assert r.statistics().open_send_channels == 0
+    await expect_poison(r.receive)
+
+    # Can't poison a closed channel
+    with assert_checkpoints(), pytest.raises(trio.ClosedResourceError):
+        await s.poison("again")
+
+    # Poisoning attempted after closure does not affect the state
+    with pytest.raises(trio.BrokenResourceError) as exc_info:
+        await r.receive()
+    assert str(exc_info.value) == "channel is poisoned: ['hi', 'there']"
+
+    # Test that poisoning wakes up senders too
+    s, r = open_memory_channel(1)
+    s.send_nowait("one")
+
+    async with s.clone() as s2, trio.open_nursery() as nursery:
+        nursery.start_soon(expect_poison, s.send, "two")
+        nursery.start_soon(expect_poison, s2.send, "three")
+        await wait_all_tasks_blocked()
+        with assert_checkpoints():
+            await s.poison("hi")
+
+    # Receivers can receive values that were sent before the poisoning
+    assert r.receive_nowait() == "one"
+    await expect_poison(run_sync, r.receive_nowait)
+
+    # Test exception propagation
+    s, r = open_memory_channel(0)
+
+    async def poison_when_fails(send_channel, fn, *args):
+        with pytest.raises(Exception):
+            async with send_channel.propagate_errors():
+                await fn(*args)
+
+    async def raise_(exc_type):
+        raise exc_type
+
+    async with trio.open_nursery() as nursery:
+        nursery.start_soon(poison_when_fails, s, raise_, KeyError)
+
+        with pytest.raises(trio.BrokenResourceError) as exc_info:
+            await r.receive()
+        assert type(exc_info.value.__cause__) is KeyError
+
+    import traceback
+    frames = traceback.extract_tb(exc_info.value.__cause__.__traceback__)
+    functions = [function for _, _, function, _ in frames]
+    assert functions[-2:] == ['poison_when_fails', 'raise_']
+
+    with pytest.raises(trio.ClosedResourceError):
+        await s.send("yo")
+
+    # ... with multiple exceptions
+    s, r = open_memory_channel(0)
+
+    async with trio.open_nursery() as nursery:
+        nursery.start_soon(poison_when_fails, s, raise_, KeyError)
+        nursery.start_soon(poison_when_fails, s, raise_, ValueError)
+
+    with pytest.raises(trio.BrokenResourceError) as exc_info:
+        await r.receive()
+    assert type(exc_info.value.__cause__) is trio.MultiError
+    assert {KeyError, ValueError} == {
+        type(exc) for exc in exc_info.value.__cause__.exceptions
+    }
+
+    # Exceptions that were caused by the poisoning shouldn't be reported
+    # as having caused it
+    s, r = open_memory_channel(0)
+    s2 = s.clone()
+    await poison_when_fails(s, raise_, trio.BrokenResourceError)
+    await poison_when_fails(s2, s2.send, "yo")
+    with pytest.raises(trio.BrokenResourceError) as exc_info:
+        await r.receive()
+    assert type(exc_info.value.__cause__) is trio.BrokenResourceError
+    assert "poison" not in str(exc_info.value.__cause__)
