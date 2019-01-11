@@ -464,7 +464,8 @@ async def test_poison():
         await r.receive()
     assert type(exc_info.value.__cause__) is trio.MultiError
     assert {KeyError, ValueError} == {
-        type(exc) for exc in exc_info.value.__cause__.exceptions
+        type(exc)
+        for exc in exc_info.value.__cause__.exceptions
     }
 
     # Exceptions that were caused by the poisoning shouldn't be reported
