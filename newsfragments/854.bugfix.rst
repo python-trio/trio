@@ -1,2 +1,2 @@
-Fixed support for multiple tasks calling :meth:`trio.Process.wait`
+Fixed support for multiple tasks calling :meth:`trio.subprocess.Process.wait`
 simultaneously; on kqueue platforms it would previously raise an exception.
