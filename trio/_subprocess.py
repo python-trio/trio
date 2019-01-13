@@ -6,8 +6,7 @@ import sys
 
 from . import _core
 from ._abc import AsyncResource
-from ._sync import CapacityLimiter, Lock
-from ._threads import run_sync_in_worker_thread
+from ._sync import Lock
 from ._subprocess_platform import (
     wait_child_exiting, create_pipe_to_child_stdin,
     create_pipe_from_child_output
@@ -120,6 +119,8 @@ class Process(AsyncResource):
         self.stdout = None
         self.stderr = None
 
+        self._wait_lock = Lock()
+
         if stdin == subprocess.PIPE:
             self.stdin, stdin = create_pipe_to_child_stdin()
         if stdout == subprocess.PIPE:
@@ -198,8 +199,10 @@ class Process(AsyncResource):
           as the negative of that signal number, e.g., -11 for ``SIGSEGV``.
         """
         if self.poll() is None:
-            await wait_child_exiting(self)
-            self._proc.wait()
+            async with self._wait_lock:
+                if self.poll() is None:
+                    await wait_child_exiting(self)
+                    self._proc.wait()
         else:
             await _core.checkpoint()
         return self.returncode
