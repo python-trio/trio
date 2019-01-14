@@ -1,3 +1,4 @@
+import errno
 import sys
 from math import inf
 
@@ -100,9 +101,23 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
     )
 
     listeners = []
+    unsupported_address_families = []
     try:
         for family, type, proto, _, sockaddr in addresses:
-            sock = tsocket.socket(family, type, proto)
+            try:
+                sock = tsocket.socket(family, type, proto)
+            except OSError as ex:
+                if ex.errno == errno.EAFNOSUPPORT:
+                    # If a system only supports IPv4, or only IPv6, it
+                    # is still likely that getaddrinfo will return
+                    # both an IPv4 and an IPv6 address. As long as at
+                    # least one of the returned addresses can be
+                    # turned into a socket, we won't complain about a
+                    # failure to create the other.
+                    unsupported_address_families.append(ex)
+                    continue
+                else:
+                    raise
             try:
                 # See https://github.com/python-trio/trio/issues/39
                 if sys.platform == "win32":
@@ -130,6 +145,16 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
         for listener in listeners:
             listener.socket.close()
         raise
+
+    if unsupported_address_families and not listeners:
+        if len(unsupported_address_families) == 1:
+            raise unsupported_address_families[0]
+        else:
+            raise OSError(
+                errno.EAFNOSUPPORT,
+                "This system doesn't support any of the kinds of "
+                "socket that that address could use"
+            ) from trio.MultiError(unsupported_address_families)
 
     return listeners
 

@@ -1,0 +1,4 @@
+Allow :func:`trio.open_tcp_listeners` to ignore socket creation errors with
+errno ``EAFNOSUPPORT`` ("Address family not supported"), which can occur
+on systems which have either IPv4 or IPv6 administratively disabled, as long
+as at least one listener gets created successfully.

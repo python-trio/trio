@@ -1,6 +1,7 @@
 import pytest
 
 import socket as stdlib_socket
+import errno
 
 import attr
 
@@ -192,9 +193,12 @@ class FakeSocket(tsocket.SocketType):
 @attr.s
 class FakeSocketFactory:
     poison_after = attr.ib()
-    sockets = attr.ib(default=attr.Factory(list))
+    sockets = attr.ib(factory=list)
+    raise_on_family = attr.ib(factory=dict)  # family => errno
 
     def socket(self, family, type, proto):
+        if family in self.raise_on_family:
+            raise OSError(self.raise_on_family[family], "nope")
         sock = FakeSocket(family, type, proto)
         self.poison_after -= 1
         if self.poison_after == 0:
@@ -203,13 +207,14 @@ class FakeSocketFactory:
         return sock
 
 
+@attr.s
 class FakeHostnameResolver:
+    family_addr_pairs = attr.ib()
+
     async def getaddrinfo(self, host, port, family, type, proto, flags):
-        common = (tsocket.AF_INET, tsocket.SOCK_STREAM, 0, "")
         return [
-            common + (("1.1.1.1", port),),
-            common + (("2.2.2.2", port),),
-            common + (("3.3.3.3", port),),
+            (family, tsocket.SOCK_STREAM, 0, "",
+             (addr, port)) for family, addr in self.family_addr_pairs
         ]
 
 
@@ -218,7 +223,15 @@ async def test_open_tcp_listeners_multiple_host_cleanup_on_error():
     # call get cleaned up before returning
     fsf = FakeSocketFactory(3)
     tsocket.set_custom_socket_factory(fsf)
-    tsocket.set_custom_hostname_resolver(FakeHostnameResolver())
+    tsocket.set_custom_hostname_resolver(
+        FakeHostnameResolver(
+            [
+                (tsocket.AF_INET, "1.1.1.1"),
+                (tsocket.AF_INET, "2.2.2.2"),
+                (tsocket.AF_INET, "3.3.3.3"),
+            ]
+        )
+    )
 
     with pytest.raises(FakeOSError):
         await open_tcp_listeners(80, host="example.org")
@@ -248,3 +261,75 @@ async def test_serve_tcp():
         async with stream:
             await stream.receive_some(1) == b"x"
             nursery.cancel_scope.cancel()
+
+
+@pytest.mark.parametrize(
+    "try_families", [
+        {tsocket.AF_INET},
+        {tsocket.AF_INET6},
+        {tsocket.AF_INET, tsocket.AF_INET6},
+    ]
+)
+@pytest.mark.parametrize(
+    "fail_families", [
+        {tsocket.AF_INET},
+        {tsocket.AF_INET6},
+        {tsocket.AF_INET, tsocket.AF_INET6},
+    ]
+)
+async def test_open_tcp_listeners_some_address_families_unavailable(
+    try_families, fail_families
+):
+    fsf = FakeSocketFactory(
+        10,
+        raise_on_family={
+            family: errno.EAFNOSUPPORT
+            for family in fail_families
+        }
+    )
+    tsocket.set_custom_socket_factory(fsf)
+    tsocket.set_custom_hostname_resolver(
+        FakeHostnameResolver([(family, "foo") for family in try_families])
+    )
+
+    should_succeed = try_families - fail_families
+
+    if not should_succeed:
+        with pytest.raises(OSError) as exc_info:
+            await open_tcp_listeners(80, host="example.org")
+
+        if len(try_families & fail_families) == 1:
+            assert "nope" in str(exc_info.value)
+            assert exc_info.value.__cause__ is None
+        else:
+            assert "This system doesn't support" in str(exc_info.value)
+            assert isinstance(exc_info.value.__cause__, trio.MultiError)
+            for subexc in exc_info.value.__cause__.exceptions:
+                assert "nope" in str(subexc)
+    else:
+        listeners = await open_tcp_listeners(80)
+        for listener in listeners:
+            should_succeed.remove(listener.socket.family)
+        assert not should_succeed
+
+
+async def test_open_tcp_listeners_socket_fails_not_afnosupport():
+    fsf = FakeSocketFactory(
+        10,
+        raise_on_family={
+            tsocket.AF_INET: errno.EAFNOSUPPORT,
+            tsocket.AF_INET6: errno.EINVAL,
+        }
+    )
+    tsocket.set_custom_socket_factory(fsf)
+    tsocket.set_custom_hostname_resolver(
+        FakeHostnameResolver(
+            [(tsocket.AF_INET, "foo"), (tsocket.AF_INET6, "bar")]
+        )
+    )
+
+    with pytest.raises(OSError) as exc_info:
+        await open_tcp_listeners(80, host="example.org")
+    assert exc_info.value.errno == errno.EINVAL
+    assert exc_info.value.__cause__ is None
+    assert "nope" in str(exc_info.value)

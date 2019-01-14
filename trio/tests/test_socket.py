@@ -1,4 +1,5 @@
 import pytest
+import attr
 
 import os
 import socket as stdlib_socket
@@ -254,6 +255,9 @@ async def test_socket():
         assert isinstance(s, tsocket.SocketType)
         assert s.family == tsocket.AF_INET
 
+
+@need_ipv6
+async def test_socket_v6():
     with tsocket.socket(tsocket.AF_INET6, tsocket.SOCK_DGRAM) as s:
         assert isinstance(s, tsocket.SocketType)
         assert s.family == tsocket.AF_INET6
@@ -389,55 +393,77 @@ def gai_without_v4mapped_is_buggy():  # pragma: no cover
         return True
 
 
+@attr.s
+class Addresses:
+    bind_all = attr.ib()
+    localhost = attr.ib()
+    arbitrary = attr.ib()
+    broadcast = attr.ib()
+
+
 # Direct thorough tests of the implicit resolver helpers
-async def test_SocketType_resolve():
+@pytest.mark.parametrize(
+    "socket_type, addrs", [
+        (
+            tsocket.AF_INET,
+            Addresses(
+                bind_all="0.0.0.0",
+                localhost="127.0.0.1",
+                arbitrary="1.2.3.4",
+                broadcast="255.255.255.255",
+            ),
+        ),
+        pytest.param(
+            tsocket.AF_INET6,
+            Addresses(
+                bind_all="::",
+                localhost="::1",
+                arbitrary="1::2",
+                broadcast="::ffff:255.255.255.255",
+            ),
+            marks=need_ipv6,
+        ),
+    ]
+)
+async def test_SocketType_resolve(socket_type, addrs):
+    v6 = (socket_type == tsocket.AF_INET6)
+
     # For some reason the stdlib special-cases "" to pass NULL to getaddrinfo
     # They also error out on None, but whatever, None is much more consistent,
     # so we accept it too.
     for null in [None, ""]:
-        sock4 = tsocket.socket(family=tsocket.AF_INET)
-        got = await sock4._resolve_local_address((null, 80))
-        assert got == ("0.0.0.0", 80)
-        got = await sock4._resolve_remote_address((null, 80))
-        assert got == ("127.0.0.1", 80)
-
-        sock6 = tsocket.socket(family=tsocket.AF_INET6)
-        got = await sock6._resolve_local_address((null, 80))
-        assert got == ("::", 80, 0, 0)
-
-        got = await sock6._resolve_remote_address((null, 80))
-        assert got == ("::1", 80, 0, 0)
+        sock = tsocket.socket(family=socket_type)
+        got = await sock._resolve_local_address((null, 80))
+        assert got == (addrs.bind_all, 80)
+        got = await sock._resolve_remote_address((null, 80))
+        assert got == (addrs.localhost, 80)
 
     # AI_PASSIVE only affects the wildcard address, so for everything else
     # _resolve_local_address and _resolve_remote_address should work the same:
-    for res in ["_resolve_local_address", "_resolve_remote_address"]:
+    for resolver in ["_resolve_local_address", "_resolve_remote_address"]:
 
-        async def s4res(*args):
-            return await getattr(sock4, res)(*args)
+        async def res(*args):
+            return await getattr(sock, resolver)(*args)
 
-        async def s6res(*args):
-            return await getattr(sock6, res)(*args)
+        assert await res((addrs.arbitrary, "http")) == (addrs.arbitrary, 80)
+        if v6:
+            assert await res(("1::2", 80, 1)) == ("1::2", 80, 1, 0)
+            assert await res(("1::2", 80, 1, 2)) == ("1::2", 80, 1, 2)
 
-        assert await s4res(("1.2.3.4", "http")) == ("1.2.3.4", 80)
-        assert await s6res(("1::2", "http")) == ("1::2", 80, 0, 0)
-
-        assert await s6res(("1::2", 80, 1)) == ("1::2", 80, 1, 0)
-        assert await s6res(("1::2", 80, 1, 2)) == ("1::2", 80, 1, 2)
-
-        # V4 mapped addresses resolved if V6ONLY is False
-        sock6.setsockopt(tsocket.IPPROTO_IPV6, tsocket.IPV6_V6ONLY, False)
-        assert await s6res(("1.2.3.4", "http")) == ("::ffff:1.2.3.4", 80, 0, 0)
+            # V4 mapped addresses resolved if V6ONLY is False
+            sock6.setsockopt(tsocket.IPPROTO_IPV6, tsocket.IPV6_V6ONLY, False)
+            assert await res(("1.2.3.4",
+                              "http")) == ("::ffff:1.2.3.4", 80, 0, 0)
 
         # Check the <broadcast> special case, because why not
-        await s4res(("<broadcast>", 123)) == ("255.255.255.255", 123)
-        await s6res(("<broadcast>", 123)) == ("::ffff:255.255.255.255", 123)
+        assert await res(("<broadcast>", 123)) == (addrs.broadcast, 123)
 
         # But not if it's true (at least on systems where getaddrinfo works
         # correctly)
-        if not gai_without_v4mapped_is_buggy():  # pragma: no branch
-            sock6.setsockopt(tsocket.IPPROTO_IPV6, tsocket.IPV6_V6ONLY, True)
+        if v6 and not gai_without_v4mapped_is_buggy():
+            sock.setsockopt(tsocket.IPPROTO_IPV6, tsocket.IPV6_V6ONLY, True)
             with pytest.raises(tsocket.gaierror) as excinfo:
-                await s6res(("1.2.3.4", 80))
+                await res(("1.2.3.4", 80))
             # Windows, macOS
             expected_errnos = {tsocket.EAI_NONAME}
             # Linux
@@ -455,20 +481,17 @@ async def test_SocketType_resolve():
         except (AttributeError, OSError):
             pass
         else:
-            assert await getattr(netlink_sock, res)("asdf") == "asdf"
+            assert await getattr(netlink_sock, resolver)("asdf") == "asdf"
 
         with pytest.raises(ValueError):
-            await s4res("1.2.3.4")
+            await res("1.2.3.4")
         with pytest.raises(ValueError):
-            await s4res(("1.2.3.4",))
+            await res(("1.2.3.4",))
         with pytest.raises(ValueError):
-            await s4res(("1.2.3.4", 80, 0, 0))
-        with pytest.raises(ValueError):
-            await s6res("1.2.3.4")
-        with pytest.raises(ValueError):
-            await s6res(("1.2.3.4",))
-        with pytest.raises(ValueError):
-            await s6res(("1.2.3.4", 80, 0, 0, 0))
+            if v6:
+                await res(("1.2.3.4", 80, 0, 0, 0))
+            else:
+                await res(("1.2.3.4", 80, 0, 0))
 
 
 async def test_SocketType_unresolved_names():
