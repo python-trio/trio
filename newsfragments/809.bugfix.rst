@@ -1,2 +1,0 @@
-:func:`trio.open_tcp_stream()` has been refactored to clean up
-unsuccessful connection attempts more reliably.

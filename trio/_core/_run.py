@@ -656,7 +656,6 @@ class Runner:
 
     runq = attr.ib(default=attr.Factory(deque))
     tasks = attr.ib(default=attr.Factory(set))
-    r = attr.ib(default=attr.Factory(random.Random))
 
     # {(deadline, id(CancelScope)): CancelScope}
     # only contains scopes with non-infinite deadlines that are currently
@@ -1416,7 +1415,7 @@ def run_impl(runner, async_fn, args):
         # ordering of task._notify_queues.)
         batch = list(runner.runq)
         runner.runq.clear()
-        runner.r.shuffle(batch)
+        _r.shuffle(batch)
         while batch:
             task = batch.pop()
             GLOBAL_RUN_CONTEXT.task = task

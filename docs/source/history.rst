@@ -5,6 +5,59 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.10.0 (2019-01-07)
+------------------------
+
+Features
+~~~~~~~~
+
+- Initial :ref:`subprocess support <subprocess>`. Add
+  :class:`trio.subprocess.Process`, an async wrapper around the stdlib
+  :class:`subprocess.Popen` class, which permits spawning subprocesses and
+  communicating with them over standard Trio streams. :mod:`trio.subprocess`
+  also reexports all the stdlib :mod:`subprocess` exceptions and constants for
+  convenience. (`#4 <https://github.com/python-trio/trio/issues/4>`__)
+- You can now create an unbounded :class:`CapacityLimiter` by initializing with
+  :obj:`math.inf` (`#618 <https://github.com/python-trio/trio/issues/618>`__)
+- New :mod:`trio.hazmat` features to allow cleanly switching live coroutine
+  objects between Trio and other coroutine runners. Frankly, we're not even
+  sure this is a good idea, but we want to `try it out in trio-asyncio
+  <https://github.com/python-trio/trio-asyncio/issues/42>`__, so here we are.
+  For details see :ref:`live-coroutine-handoff`. (`#649
+  <https://github.com/python-trio/trio/issues/649>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Fixed a race condition on macOS, where Trio's TCP listener would crash if an
+  incoming TCP connection was closed before the listener had a chance to accept
+  it. (`#609 <https://github.com/python-trio/trio/issues/609>`__)
+- :func:`trio.open_tcp_stream()` has been refactored to clean up unsuccessful
+  connection attempts more reliably. (`#809
+  <https://github.com/python-trio/trio/issues/809>`__)
+
+
+Deprecations and Removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Remove the APIs deprecated in 0.5.0. (``ClosedStreamError``,
+  ``ClosedListenerError``, ``Result``) (`#812
+  <https://github.com/python-trio/trio/issues/812>`__)
+
+
+Miscellaneous internal changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- There are a number of methods on :class:`trio.ssl.SSLStream` that report
+  information about the negotiated TLS connection, like
+  ``selected_alpn_protocol``, and thus cannot succeed until after the handshake
+  has been performed. Previously, we returned None from these methods, like the
+  stdlib :mod:`ssl` module does, but this is confusing, because that can also
+  be a valid return value. Now we raise :exc:`trio.ssl.NeedHandshakeError`
+  instead. (`#735 <https://github.com/python-trio/trio/issues/735>`__)
+
+
 Trio 0.9.0 (2018-10-12)
 -----------------------
 
