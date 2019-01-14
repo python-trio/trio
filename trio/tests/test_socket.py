@@ -461,7 +461,7 @@ async def test_SocketType_resolve(socket_type, addrs):
 
         # Check the <broadcast> special case, because why not
         assert await res(("<broadcast>",
-                          123)) == (addrs.broadcast, 123, *extra)
+                          123)) == (addrs.broadcast, 123, *addrs.extra)
 
         # But not if it's true (at least on systems where getaddrinfo works
         # correctly)
