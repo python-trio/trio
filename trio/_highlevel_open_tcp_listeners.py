@@ -147,14 +147,11 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
         raise
 
     if unsupported_address_families and not listeners:
-        if len(unsupported_address_families) == 1:
-            raise unsupported_address_families[0]
-        else:
-            raise OSError(
-                errno.EAFNOSUPPORT,
-                "This system doesn't support any of the kinds of "
-                "socket that that address could use"
-            ) from trio.MultiError(unsupported_address_families)
+        raise OSError(
+            errno.EAFNOSUPPORT,
+            "This system doesn't support any of the kinds of "
+            "socket that that address could use"
+        ) from trio.MultiError(unsupported_address_families)
 
     return listeners
 

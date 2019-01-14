@@ -12,15 +12,24 @@ slow = pytest.mark.skipif(
 )
 
 try:
-    with stdlib_socket.socket(
+    s = stdlib_socket.socket(
         stdlib_socket.AF_INET6, stdlib_socket.SOCK_STREAM, 0
-    ) as s:
-        s.bind(('::1', 0))
-    have_ipv6 = True
+    )
 except OSError:
-    have_ipv6 = False
+    can_create_ipv6 = False
+    can_bind_ipv6 = False
+else:
+    can_create_ipv6 = True
+    with s:
+        try:
+            s.bind(('::1', 0))
+        except OSError:
+            can_bind_ipv6 = False
+        else:
+            can_bind_ipv6 = True
 
-need_ipv6 = pytest.mark.skipif(not have_ipv6, reason="need IPv6")
+creates_ipv6 = pytest.mark.skipif(not can_create_ipv6, reason="need IPv6")
+binds_ipv6 = pytest.mark.skipif(not can_bind_ipv6, reason="need IPv6")
 
 
 def gc_collect_harder():

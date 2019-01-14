@@ -11,7 +11,7 @@ from trio import (
 )
 from trio.testing import open_stream_to_socket_listener
 from .. import socket as tsocket
-from .._core.tests.tutil import slow, need_ipv6
+from .._core.tests.tutil import slow, creates_ipv6, binds_ipv6
 
 
 async def test_open_tcp_listeners_basic():
@@ -107,7 +107,7 @@ async def test_open_tcp_listeners_backlog():
     await check_backlog(nominal=11, required_min=11, required_max=20)
 
 
-@need_ipv6
+@binds_ipv6
 async def test_open_tcp_listeners_ipv6_v6only():
     # Check IPV6_V6ONLY is working properly
     (ipv6_listener,) = await open_tcp_listeners(0, host="::1")
@@ -298,14 +298,13 @@ async def test_open_tcp_listeners_some_address_families_unavailable(
         with pytest.raises(OSError) as exc_info:
             await open_tcp_listeners(80, host="example.org")
 
-        if len(try_families & fail_families) == 1:
-            assert "nope" in str(exc_info.value)
-            assert exc_info.value.__cause__ is None
-        else:
-            assert "This system doesn't support" in str(exc_info.value)
-            assert isinstance(exc_info.value.__cause__, trio.MultiError)
+        assert "This system doesn't support" in str(exc_info.value)
+        if isinstance(exc_info.value.__cause__, trio.MultiError):
             for subexc in exc_info.value.__cause__.exceptions:
                 assert "nope" in str(subexc)
+        else:
+            assert isinstance(exc_info.value.__cause__, OSError)
+            assert "nope" in str(exc_info.value.__cause__)
     else:
         listeners = await open_tcp_listeners(80)
         for listener in listeners:

@@ -6,7 +6,7 @@ import socket as stdlib_socket
 import inspect
 import tempfile
 
-from .._core.tests.tutil import need_ipv6
+from .._core.tests.tutil import creates_ipv6, binds_ipv6
 from .. import _core
 from .. import _socket as _tsocket
 from .. import socket as tsocket
@@ -256,7 +256,7 @@ async def test_socket():
         assert s.family == tsocket.AF_INET
 
 
-@need_ipv6
+@creates_ipv6
 async def test_socket_v6():
     with tsocket.socket(tsocket.AF_INET6, tsocket.SOCK_DGRAM) as s:
         assert isinstance(s, tsocket.SocketType)
@@ -361,7 +361,7 @@ async def test_SocketType_shutdown():
 @pytest.mark.parametrize(
     "address, socket_type", [
         ('127.0.0.1', tsocket.AF_INET),
-        pytest.param('::1', tsocket.AF_INET6, marks=need_ipv6)
+        pytest.param('::1', tsocket.AF_INET6, marks=binds_ipv6)
     ]
 )
 async def test_SocketType_simple_server(address, socket_type):
@@ -424,7 +424,7 @@ class Addresses:
                 broadcast="::ffff:255.255.255.255",
                 extra=(0, 0),
             ),
-            marks=need_ipv6,
+            marks=creates_ipv6,
         ),
     ]
 )
