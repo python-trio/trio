@@ -15,7 +15,11 @@ try:
     s = stdlib_socket.socket(
         stdlib_socket.AF_INET6, stdlib_socket.SOCK_STREAM, 0
     )
-except OSError:
+except OSError:  # pragma: no cover
+    # Some systems don't even support creating an IPv6 socket, let alone
+    # binding it. (ex: Linux with 'ipv6.disable=1' in the kernel command line)
+    # We don't have any of those in our CI, and there's nothing that gets
+    # tested _only_ if can_create_ipv6 = False, so we'll just no-cover this.
     can_create_ipv6 = False
     can_bind_ipv6 = False
 else:
