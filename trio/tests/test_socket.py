@@ -455,7 +455,7 @@ async def test_SocketType_resolve(socket_type, addrs):
             assert await res(("1::2", 80, 1, 2)) == ("1::2", 80, 1, 2)
 
             # V4 mapped addresses resolved if V6ONLY is False
-            sock6.setsockopt(tsocket.IPPROTO_IPV6, tsocket.IPV6_V6ONLY, False)
+            sock.setsockopt(tsocket.IPPROTO_IPV6, tsocket.IPV6_V6ONLY, False)
             assert await res(("1.2.3.4",
                               "http")) == ("::ffff:1.2.3.4", 80, 0, 0)
 
