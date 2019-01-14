@@ -399,6 +399,7 @@ class Addresses:
     localhost = attr.ib()
     arbitrary = attr.ib()
     broadcast = attr.ib()
+    extra = attr.ib()
 
 
 # Direct thorough tests of the implicit resolver helpers
@@ -411,6 +412,7 @@ class Addresses:
                 localhost="127.0.0.1",
                 arbitrary="1.2.3.4",
                 broadcast="255.255.255.255",
+                extra=(),
             ),
         ),
         pytest.param(
@@ -420,6 +422,7 @@ class Addresses:
                 localhost="::1",
                 arbitrary="1::2",
                 broadcast="::ffff:255.255.255.255",
+                extra=(0, 0),
             ),
             marks=need_ipv6,
         ),
@@ -434,9 +437,9 @@ async def test_SocketType_resolve(socket_type, addrs):
     for null in [None, ""]:
         sock = tsocket.socket(family=socket_type)
         got = await sock._resolve_local_address((null, 80))
-        assert got == (addrs.bind_all, 80)
+        assert got == (addrs.bind_all, 80, *addrs.extra)
         got = await sock._resolve_remote_address((null, 80))
-        assert got == (addrs.localhost, 80)
+        assert got == (addrs.localhost, 80, *addrs.extra)
 
     # AI_PASSIVE only affects the wildcard address, so for everything else
     # _resolve_local_address and _resolve_remote_address should work the same:
@@ -445,7 +448,8 @@ async def test_SocketType_resolve(socket_type, addrs):
         async def res(*args):
             return await getattr(sock, resolver)(*args)
 
-        assert await res((addrs.arbitrary, "http")) == (addrs.arbitrary, 80)
+        assert await res((addrs.arbitrary,
+                          "http")) == (addrs.arbitrary, 80, *addrs.extra)
         if v6:
             assert await res(("1::2", 80, 1)) == ("1::2", 80, 1, 0)
             assert await res(("1::2", 80, 1, 2)) == ("1::2", 80, 1, 2)
@@ -456,7 +460,8 @@ async def test_SocketType_resolve(socket_type, addrs):
                               "http")) == ("::ffff:1.2.3.4", 80, 0, 0)
 
         # Check the <broadcast> special case, because why not
-        assert await res(("<broadcast>", 123)) == (addrs.broadcast, 123)
+        assert await res(("<broadcast>",
+                          123)) == (addrs.broadcast, 123, *extra)
 
         # But not if it's true (at least on systems where getaddrinfo works
         # correctly)
