@@ -254,7 +254,7 @@ Some rules for writing good tests:
     <https://codewithoutrules.com/2016/07/31/verified-fakes/>`__
 
   Most major features have both real tests and tests using fakes or
-  stubs. For example, :class:`~trio.ssl.SSLStream` has some tests that
+  stubs. For example, :class:`~trio.SSLStream` has some tests that
   use Trio to make a real socket connection to real SSL server
   implemented using blocking I/O, because it sure would be
   embarrassing if that didn't work. And then there are also a bunch of

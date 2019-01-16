@@ -1,4 +1,5 @@
 import trio
+import ssl
 
 from ._highlevel_open_tcp_stream import DEFAULT_DELAY
 
@@ -33,10 +34,10 @@ async def open_ssl_over_tcp_stream(
     """Make a TLS-encrypted Connection to the given host and port over TCP.
 
     This is a convenience wrapper that calls :func:`open_tcp_stream` and
-    wraps the result in an :class:`~trio.ssl.SSLStream`.
+    wraps the result in an :class:`~trio.SSLStream`.
 
     This function does not perform the TLS handshake; you can do it
-    manually by calling :meth:`~trio.ssl.SSLStream.do_handshake`, or else
+    manually by calling :meth:`~trio.SSLStream.do_handshake`, or else
     it will be performed automatically the first time you send or receive
     data.
 
@@ -45,7 +46,7 @@ async def open_ssl_over_tcp_stream(
           to have a TLS certificate valid for this hostname.
       port (int): The port to connect to.
       https_compatible (bool): Set this to True if you're connecting to a web
-          server. See :class:`~trio.ssl.SSLStream` for details. Default:
+          server. See :class:`~trio.SSLStream` for details. Default:
           False.
       ssl_context (:class:`~ssl.SSLContext` or None): The SSL context to
           use. If None (the default), :func:`ssl.create_default_context`
@@ -53,7 +54,7 @@ async def open_ssl_over_tcp_stream(
       happy_eyeballs_delay (float): See :func:`open_tcp_stream`.
 
     Returns:
-      trio.ssl.SSLStream: the encrypted connection to the server.
+      trio.SSLStream: the encrypted connection to the server.
 
     """
     tcp_stream = await trio.open_tcp_stream(
@@ -62,8 +63,8 @@ async def open_ssl_over_tcp_stream(
         happy_eyeballs_delay=happy_eyeballs_delay,
     )
     if ssl_context is None:
-        ssl_context = trio.ssl.create_default_context()
-    return trio.ssl.SSLStream(
+        ssl_context = ssl.create_default_context()
+    return trio.SSLStream(
         tcp_stream,
         ssl_context,
         server_hostname=host,
@@ -82,15 +83,15 @@ async def open_ssl_over_tcp_listeners(
           connections.
       host (str, bytes, or None): The address to bind to; use ``None`` to bind
           to the wildcard address. See :func:`open_tcp_listeners`.
-      https_compatible (bool): See :class:`~trio.ssl.SSLStream` for details.
-      backlog (int or None): See :class:`~trio.ssl.SSLStream` for details.
+      https_compatible (bool): See :class:`~trio.SSLStream` for details.
+      backlog (int or None): See :class:`~trio.SSLStream` for details.
 
     """
     tcp_listeners = await trio.open_tcp_listeners(
         port, host=host, backlog=backlog
     )
     ssl_listeners = [
-        trio.ssl.SSLListener(
+        trio.SSLListener(
             tcp_listener,
             ssl_context,
             https_compatible=https_compatible,
@@ -144,9 +145,9 @@ async def serve_ssl_over_tcp(
           :func:`open_tcp_listeners`.
 
       https_compatible (bool): Set this to True if you want to use
-          "HTTPS-style" TLS. See :class:`~trio.ssl.SSLStream` for details.
+          "HTTPS-style" TLS. See :class:`~trio.SSLStream` for details.
 
-      backlog (int or None): See :class:`~trio.ssl.SSLStream` for details.
+      backlog (int or None): See :class:`~trio.SSLStream` for details.
 
       handler_nursery: The nursery to start handlers in, or None to use an
           internal nursery. Passed to :func:`serve_listeners`.

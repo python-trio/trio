@@ -1,0 +1,6 @@
+The submodules ``trio.ssl`` and ``trio.subprocess`` are now deprecated.
+Their nontrivial contents (:class:`~trio.Process`, :class:`~trio.SSLStream`,
+and :class:`~trio.SSLListener`) have been moved to the main :mod:`trio`
+namespace. For the numerous constants, exceptions, and other helpers
+that were previously reexported from the standard :mod:`ssl` and
+:mod:`subprocess` modules, you should now use those modules directly.
