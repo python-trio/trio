@@ -31,7 +31,6 @@ jobs:
       # "Python 3.7, 64 bit":
       #   python.version: '3.7'
       #   python.arch: 'x64'
-    maxParallel: 6
 
   steps:
   - task: NuGetToolInstaller@0
@@ -66,7 +65,6 @@ jobs:
       # "Python 3.7, 64 bit":
       #   python.version: '3.7'
       #   python.arch: 'x64'
-    maxParallel: 6
 
   steps:
   - task: UsePythonVersion@0
@@ -102,7 +100,6 @@ jobs:
       # "Python 3.7, 64 bit":
       #   python.version: '3.7'
       #   python.arch: 'x64'
-    maxParallel: 6
 
   steps:
   - task: UsePythonVersion@0
