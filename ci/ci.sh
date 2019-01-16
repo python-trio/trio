@@ -2,8 +2,8 @@
 
 set -ex -o pipefail
 
-# On azure pipeline's windows VMs, we need to jump through hoops to avoid
-# touching the C:\ drive as much as possible.
+# On azure pipeline's windows VMs, to get reasonable performance, we need to
+# jump through hoops to avoid touching the C:\ drive as much as possible.
 if [ $AGENT_OS = "Windows_NT" ]; then
     env | sort
     # By default temp and cache directories are on C:\. Fix that.
@@ -24,7 +24,7 @@ if [ $AGENT_OS = "Windows_NT" ]; then
     export PATH="${pydir}/tools:${pydir}/tools/scripts:$PATH"
 fi
 
-python -c "import sys, struct, ssl; print('python:', sys.version); print('bits:', struct.calcsize('P') * 8); print('openssl:', ssl.OPENSSL_VERSION, ssl.OPENSSL_VERSION_INFO)"
+python -c "import sys, struct, ssl; print('#' * 70); print('python:', sys.version); print('bits:', struct.calcsize('P') * 8); print('openssl:', ssl.OPENSSL_VERSION, ssl.OPENSSL_VERSION_INFO); print('#' * 70)"
 
 python -m pip install -U pip setuptools wheel
 python -m pip --version
