@@ -2,7 +2,7 @@ import outcome
 import pytest
 import time
 
-from .._core.tests.tutil import slow
+from .._core.tests.tutil import skip_slow
 from .. import _core
 from ..testing import assert_checkpoints
 from .._timeouts import *
@@ -41,8 +41,9 @@ async def check_takes_about(f, expected_dur):
 TARGET = 1.0
 
 
-@slow
-async def test_sleep():
+async def test_sleep(request):
+    skip_slow(request)
+
     async def sleep_1():
         await sleep_until(_core.current_time() + TARGET)
 
@@ -64,8 +65,8 @@ async def test_sleep():
             await sleep(0)
 
 
-@slow
-async def test_move_on_after():
+async def test_move_on_after(request):
+    skip_slow(request)
     with pytest.raises(ValueError):
         with move_on_after(-1):
             pass  # pragma: no cover
@@ -77,8 +78,9 @@ async def test_move_on_after():
     await check_takes_about(sleep_3, TARGET)
 
 
-@slow
-async def test_fail():
+async def test_fail(request):
+    skip_slow(request)
+
     async def sleep_4():
         with fail_at(_core.current_time() + TARGET):
             await sleep(100)

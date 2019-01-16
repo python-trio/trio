@@ -20,7 +20,7 @@ from .. import socket as tsocket
 from .._ssl import SSLStream, SSLListener, NeedHandshakeError
 from .._util import ConflictDetector
 
-from .._core.tests.tutil import slow
+from .._core.tests.tutil import skip_slow
 
 from ..testing import (
     assert_checkpoints,
@@ -522,10 +522,10 @@ async def test_renegotiation_simple():
         await s.aclose()
 
 
-@slow
-async def test_renegotiation_randomized(mock_clock):
+async def test_renegotiation_randomized(mock_clock, request):
     # The only blocking things in this function are our random sleeps, so 0 is
     # a good threshold.
+    skip_slow(request)
     mock_clock.autojump_threshold = 0
 
     import random

@@ -5,11 +5,12 @@ import pytest
 
 import gc
 
+
 # See trio/tests/conftest.py for the other half of this
-slow = pytest.mark.skipif(
-    not pytest.config.getoption("--run-slow", True),
-    reason="use --run-slow to run slow tests",
-)
+def skip_slow(request):
+    if not request.config.getoption("--run-slow", True):
+        pytest.skip("use --run-slow to run slow tests")
+
 
 try:
     s = stdlib_socket.socket(

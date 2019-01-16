@@ -7,7 +7,7 @@ on_windows = (os.name == "nt")
 # Mark all the tests in this file as being windows-only
 pytestmark = pytest.mark.skipif(not on_windows, reason="windows only")
 
-from .._core.tests.tutil import slow
+from .._core.tests.tutil import skip_slow
 from .. import _core
 from .. import _timeouts
 if on_windows:
@@ -68,10 +68,10 @@ async def test_WaitForMultipleObjects_sync():
     print('test_WaitForMultipleObjects_sync close second OK')
 
 
-@slow
-async def test_WaitForMultipleObjects_sync_slow():
+async def test_WaitForMultipleObjects_sync_slow(request):
     # This does a series of test in which the main thread sync-waits for
     # handles, while we spawn a thread to set the handles after a short while.
+    skip_slow(request)
 
     TIMEOUT = 0.3
 
@@ -160,10 +160,10 @@ async def test_WaitForSingleObject():
     print('test_WaitForSingleObject not a handle OK')
 
 
-@slow
-async def test_WaitForSingleObject_slow():
+async def test_WaitForSingleObject_slow(request):
     # This does a series of test for setting the handle in another task,
     # and cancelling the wait task.
+    skip_slow(request)
 
     # Set the timeout used in the tests. We test the waiting time against
     # the timeout with a certain margin.

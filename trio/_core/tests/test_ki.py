@@ -15,7 +15,7 @@ from ... import _core
 from ...testing import wait_all_tasks_blocked
 from ..._util import signal_raise, is_main_thread
 from ..._timeouts import sleep
-from .tutil import slow
+from .tutil import skip_slow
 
 
 def ki_self():
@@ -472,8 +472,8 @@ def test_ki_with_broken_threads():
 #   pthread_kill(pthread_self, SIGINT)
 # in the child thread, to make sure signals in non-main threads also wake up
 # the main loop... but currently that test would fail (see gh-109 again).
-@slow
-def test_ki_wakes_us_up():
+def test_ki_wakes_us_up(request):
+    skip_slow(request)
     assert is_main_thread()
 
     # This test is flaky due to a race condition on Windows; see:

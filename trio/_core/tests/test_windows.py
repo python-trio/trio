@@ -8,7 +8,7 @@ on_windows = (os.name == "nt")
 # Mark all the tests in this file as being windows-only
 pytestmark = pytest.mark.skipif(not on_windows, reason="windows only")
 
-from .tutil import slow, gc_collect_harder
+from .tutil import skip_slow, gc_collect_harder
 from ... import _core, sleep, move_on_after
 from ...testing import wait_all_tasks_blocked
 if on_windows:
@@ -148,8 +148,8 @@ def test_forgot_to_register_with_iocp():
         gc_collect_harder()
 
 
-@slow
-async def test_too_late_to_cancel():
+async def test_too_late_to_cancel(request):
+    skip_slow(request)
     import time
 
     with pipe_with_overlapped_read() as (write_fp, read_handle):

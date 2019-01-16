@@ -13,7 +13,6 @@ from ..testing import wait_all_tasks_blocked
 from .._threads import *
 
 from .._core.tests.test_ki import ki_self
-from .._core.tests.tutil import slow
 
 
 async def test_do_in_trio_thread():

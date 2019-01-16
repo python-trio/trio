@@ -11,7 +11,7 @@ from trio import (
 )
 from trio.testing import open_stream_to_socket_listener
 from .. import socket as tsocket
-from .._core.tests.tutil import slow, creates_ipv6, binds_ipv6
+from .._core.tests.tutil import skip_slow, creates_ipv6, binds_ipv6
 
 
 async def test_open_tcp_listeners_basic():
@@ -90,8 +90,9 @@ async def measure_backlog(listener, limit):
     return len(client_streams)
 
 
-@slow
-async def test_open_tcp_listeners_backlog():
+async def test_open_tcp_listeners_backlog(request):
+    skip_slow(request)
+
     # Operating systems don't necessarily use the exact backlog you pass
     async def check_backlog(nominal, required_min, required_max):
         listeners = await open_tcp_listeners(0, backlog=nominal)

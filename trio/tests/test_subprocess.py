@@ -9,7 +9,7 @@ import pytest
 from .. import (
     _core, move_on_after, fail_after, sleep, sleep_forever, Process
 )
-from .._core.tests.tutil import slow
+from .._core.tests.tutil import skip_slow
 from ..testing import wait_all_tasks_blocked
 
 posix = os.name == "posix"
@@ -262,8 +262,8 @@ async def test_wait_reapable_fails():
         signal.signal(signal.SIGCHLD, old_sigchld)
 
 
-@slow
-def test_waitid_eintr():
+def test_waitid_eintr(request):
+    skip_slow(request)
     # This only matters on PyPy (where we're coding EINTR handling
     # ourselves) but the test works on all waitid platforms.
     from .._subprocess_platform import wait_child_exiting
