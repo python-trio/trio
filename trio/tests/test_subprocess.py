@@ -47,7 +47,7 @@ async def test_basic():
 async def test_multi_wait():
     async with subprocess.Process(SLEEP(10)) as proc:
         async with _core.open_nursery() as nursery:
-            with move_on_after(0.1) as scope:
+            with move_on_after(0.1):
                 await proc.wait()
 
             nursery.start_soon(proc.wait)
