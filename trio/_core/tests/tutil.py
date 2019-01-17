@@ -6,8 +6,9 @@ import pytest
 import gc
 
 # See trio/tests/conftest.py for the other half of this
+from trio.tests.conftest import RUN_SLOW
 slow = pytest.mark.skipif(
-    not pytest.config.getoption("--run-slow", True),
+    not RUN_SLOW,
     reason="use --run-slow to run slow tests",
 )
 
