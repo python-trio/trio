@@ -42,6 +42,8 @@ from ._channel import open_memory_channel
 
 from ._signals import catch_signals, open_signal_receiver
 
+from ._highlevel_memory import memory_connect, MemoryStream, MemoryListener
+
 from ._highlevel_socket import SocketStream, SocketListener
 
 from ._file_io import open_file, wrap_file
@@ -54,7 +56,7 @@ from ._ssl import SSLStream, SSLListener, NeedHandshakeError
 
 from ._highlevel_serve_listeners import serve_listeners
 
-from ._highlevel_open_tcp_stream import open_tcp_stream
+from ._highlevel_open_tcp_stream import open_tcp_stream, format_host_port
 
 from ._highlevel_open_tcp_listeners import open_tcp_listeners, serve_tcp
 

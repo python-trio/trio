@@ -2,8 +2,9 @@ from contextlib import contextmanager
 
 import trio
 from trio.socket import getaddrinfo, SOCK_STREAM, socket
+from trio._highlevel_memory import memory_connect
 
-__all__ = ["open_tcp_stream"]
+__all__ = ["open_tcp_stream", "format_host_port"]
 
 # Implementation of RFC 6555 "Happy eyeballs"
 # https://tools.ietf.org/html/rfc6555
@@ -170,6 +171,7 @@ async def open_tcp_stream(
     host,
     port,
     *,
+    testing=False,  # might be nicer to implement as part of the procotol to connect (like zmq's inproc://)
     # No trailing comma b/c bpo-9232 (fixed in py36)
     happy_eyeballs_delay=DEFAULT_DELAY
 ):
@@ -235,6 +237,10 @@ async def open_tcp_stream(
 
     if happy_eyeballs_delay is None:
         happy_eyeballs_delay = DEFAULT_DELAY
+
+    # Early return for testing usecase
+    if testing:
+        return memory_connect(format_host_port(host, port))
 
     targets = await getaddrinfo(host, port, type=SOCK_STREAM)
 

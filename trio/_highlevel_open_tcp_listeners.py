@@ -4,6 +4,7 @@ from math import inf
 
 import trio
 from . import socket as tsocket
+from ._highlevel_open_tcp_stream import format_host_port
 
 __all__ = ["open_tcp_listeners", "serve_tcp"]
 
@@ -42,6 +43,15 @@ def _compute_backlog(backlog):
     # missing overflow protection, so we apply our own overflow protection.
     # https://github.com/golang/go/issues/5030
     return min(backlog, 0xffff)
+
+
+async def open_memory_listeners(endpoint):
+    """
+    SAME API as open_tcp_listeners
+    :param endpoint
+    :return:
+    """
+    return [trio.MemoryListener(endpoint)]
 
 
 async def open_tcp_listeners(port, *, host=None, backlog=None):
@@ -162,6 +172,7 @@ async def serve_tcp(
     *,
     host=None,
     backlog=None,
+    testing=False,
     handler_nursery=None,
     task_status=trio.TASK_STATUS_IGNORED
 ):
@@ -228,7 +239,10 @@ async def serve_tcp(
       This function only returns when cancelled.
 
     """
-    listeners = await trio.open_tcp_listeners(port, host=host, backlog=backlog)
+    if testing:
+        listeners = await trio.open_memory_listeners(format_host_port(host, port))
+    else:
+        listeners = await trio.open_tcp_listeners(port, host=host, backlog=backlog)
     await trio.serve_listeners(
         handler,
         listeners,
