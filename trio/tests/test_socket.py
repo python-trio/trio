@@ -5,7 +5,7 @@ import os
 import socket as stdlib_socket
 import inspect
 import tempfile
-
+import sys as _sys
 from .._core.tests.tutil import creates_ipv6, binds_ipv6
 from .. import _core
 from .. import _socket as _tsocket
@@ -263,7 +263,7 @@ async def test_socket_v6():
         assert s.family == tsocket.AF_INET6
 
 
-@pytest.mark.skipif(_tsocket.SO_DOMAIN is None, reason="linux only")
+@pytest.mark.skipif(not _sys.platform == "linux", reason="linux only")
 async def test_sniff_sockopts():
     from socket import AF_INET, AF_INET6, SOCK_DGRAM, SOCK_STREAM
     # generate the combinations of families/types we're testing:
