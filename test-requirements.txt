@@ -39,7 +39,7 @@ pylint==2.2.2
 pyopenssl==18.0.0
 pytest-cov==2.6.1
 pytest-faulthandler==1.5.0
-pytest==4.0.2
+pytest==4.1.1
 six==1.12.0               # via astroid, cryptography, more-itertools, prompt-toolkit, pyopenssl, pytest, traitlets
 sniffio==1.0.0
 sortedcontainers==2.1.0

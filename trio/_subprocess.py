@@ -111,7 +111,7 @@ class Process(AsyncResource):
         ):
             if options.get(key):
                 raise TypeError(
-                    "trio.subprocess.Process only supports communicating over "
+                    "trio.Process only supports communicating over "
                     "unbuffered byte streams; the '{}' option is not supported"
                     .format(key)
                 )
