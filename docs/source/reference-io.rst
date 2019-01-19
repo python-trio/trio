@@ -18,11 +18,11 @@ create complex transport configurations. Here's some examples:
 * :class:`trio.SocketStream` wraps a raw socket (like a TCP connection
   over the network), and converts it to the standard stream interface.
 
-* :class:`trio.ssl.SSLStream` is a "stream adapter" that can take any
+* :class:`trio.SSLStream` is a "stream adapter" that can take any
   object that implements the :class:`trio.abc.Stream` interface, and
   convert it into an encrypted stream. In trio the standard way to
   speak SSL over the network is to wrap an
-  :class:`~trio.ssl.SSLStream` around a :class:`~trio.SocketStream`.
+  :class:`~trio.SSLStream` around a :class:`~trio.SocketStream`.
 
 * If you spawn a :ref:`subprocess`, you can get a
   :class:`~trio.abc.SendStream` that lets you write to its stdin, and
@@ -30,9 +30,9 @@ create complex transport configurations. Here's some examples:
   stdout. If for some reason you wanted to speak SSL to a subprocess,
   you could use a :class:`StapledStream` to combine its stdin/stdout
   into a single bidirectional :class:`~trio.abc.Stream`, and then wrap
-  that in an :class:`~trio.ssl.SSLStream`::
+  that in an :class:`~trio.SSLStream`::
 
-     ssl_context = trio.ssl.create_default_context()
+     ssl_context = ssl.create_default_context()
      ssl_context.check_hostname = False
      s = SSLStream(StapledStream(process.stdin, process.stdout), ssl_context)
 
@@ -41,8 +41,8 @@ create complex transport configurations. Here's some examples:
   HTTPS. So you end up having to do `SSL-on-top-of-SSL
   <https://daniel.haxx.se/blog/2016/11/26/https-proxy-with-curl/>`__. In
   trio this is trivial – just wrap your first
-  :class:`~trio.ssl.SSLStream` in a second
-  :class:`~trio.ssl.SSLStream`::
+  :class:`~trio.SSLStream` in a second
+  :class:`~trio.SSLStream`::
 
      # Get a raw SocketStream connection to the proxy:
      s0 = await open_tcp_stream("proxy", 443)
@@ -104,7 +104,7 @@ Abstract base classes
      - :class:`SendStream`, :class:`ReceiveStream`
      -
      -
-     - :class:`~trio.ssl.SSLStream`
+     - :class:`~trio.SSLStream`
    * - :class:`HalfCloseableStream`
      - :class:`Stream`
      - :meth:`~HalfCloseableStream.send_eof`
@@ -114,7 +114,7 @@ Abstract base classes
      - :class:`AsyncResource`
      - :meth:`~Listener.accept`
      -
-     - :class:`~trio.SocketListener`, :class:`~trio.ssl.SSLListener`
+     - :class:`~trio.SocketListener`, :class:`~trio.SSLListener`
    * - :class:`SendChannel`
      - :class:`AsyncResource`
      - :meth:`~SendChannel.send`, :meth:`~SendChannel.send_nowait`
@@ -220,17 +220,18 @@ abstraction.
 SSL / TLS support
 ~~~~~~~~~~~~~~~~~
 
-.. module:: trio.ssl
+Trio provides SSL/TLS support based on the standard library :mod:`ssl`
+module. Trio's :class:`SSLStream` and :class:`SSLListener` take their
+configuration from a :class:`ssl.SSLContext`, which you can create
+using :func:`ssl.create_default_context` and customize using the
+other constants and functions in the :mod:`ssl` module.
 
-The :mod:`trio.ssl` module implements SSL/TLS support for Trio, using
-the standard library :mod:`ssl` module. It re-exports most of
-:mod:`ssl`\´s API, with the notable exception of
-:class:`ssl.SSLContext`, which has unsafe defaults; if you really want
-to use :class:`ssl.SSLContext` you can import it from :mod:`ssl`, but
-normally you should create your contexts using
-:func:`trio.ssl.create_default_context <ssl.create_default_context>`.
+.. warning:: Avoid instantiating :class:`ssl.SSLContext` directly.
+   A newly constructed :class:`~ssl.SSLContext` has less secure
+   defaults than one returned by :func:`ssl.create_default_context`,
+   dramatically so before Python 3.6.
 
-Instead of using :meth:`ssl.SSLContext.wrap_socket`, though, you
+Instead of using :meth:`ssl.SSLContext.wrap_socket`, you
 create a :class:`SSLStream`:
 
 .. autoclass:: SSLStream
@@ -643,24 +644,16 @@ Asynchronous file objects
       The underlying synchronous file object.
 
 
-.. module:: trio.subprocess
 .. _subprocess:
 
-Spawning subprocesses with :mod:`trio.subprocess`
--------------------------------------------------
+Spawning subprocesses
+---------------------
 
-The :mod:`trio.subprocess` module provides support for spawning
-other programs, communicating with them via pipes, sending them signals,
-and waiting for them to exit. Its interface is based on the
-:mod:`subprocess` module in the standard library; differences
-are noted below.
-
-The constants and exceptions from the standard :mod:`subprocess`
-module are re-exported by :mod:`trio.subprocess` unchanged.
-So, if you like, you can say ``from trio import subprocess``
-and continue referring to ``subprocess.PIPE``,
-:exc:`subprocess.CalledProcessError`, and so on, in the same
-way you would in synchronous code.
+Trio provides support for spawning other programs as subprocesses,
+communicating with them via pipes, sending them signals, and waiting
+for them to exit. Currently this interface consists of the
+:class:`trio.Process` class, which is modelled after :class:`subprocess.Popen`
+in the standard library.
 
 
 .. _subprocess-options:
@@ -676,23 +669,25 @@ overwhelming, you're not alone; you might prefer to start with
 just the `frequently used ones
 <https://docs.python.org/3/library/subprocess.html#frequently-used-arguments>`__.)
 
-Trio makes use of the :mod:`subprocess` module's logic for spawning processes,
-so almost all of these options can be used with their same semantics when
-starting subprocesses under Trio. The exceptions are ``encoding``, ``errors``,
+Trio makes use of the :mod:`subprocess` module's logic for spawning
+processes, so almost all of these options can be used with their same
+semantics when starting subprocesses under Trio. (You may need to
+``import subprocess`` in order to access constants such as ``PIPE`` or
+``DEVNULL``.)  The exceptions are ``encoding``, ``errors``,
 ``universal_newlines`` (and its 3.7+ alias ``text``), and ``bufsize``;
-Trio always uses unbuffered byte streams for communicating with a process,
-so these options don't make sense. Text I/O should use a layer
-on top of the raw byte streams, just as it does with sockets.
+Trio always uses unbuffered byte streams for communicating with a
+process, so these options don't make sense. Text I/O should use a
+layer on top of the raw byte streams, just as it does with sockets.
 [This layer does not yet exist, but is in the works.]
 
 
 Running a process and waiting for it to finish
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-We're `working on <https://github.com/python-trio/trio/pull/791>`
+We're `working on <https://github.com/python-trio/trio/pull/791>`__
 figuring out the best API for common higher-level subprocess operations.
 In the meantime, you can implement something like the standard library
-:func:`subprocess.run` in terms of :class:`trio.subprocess.Process`
+:func:`subprocess.run` in terms of :class:`trio.Process`
 as follows::
 
     async def run(
@@ -706,7 +701,7 @@ as follows::
         stdout_chunks = []
         stderr_chunks = []
 
-        async with trio.subprocess.Process(command, **options) as proc:
+        async with trio.Process(command, **options) as proc:
 
             async def feed_input():
                 async with proc.stdin:
@@ -750,27 +745,24 @@ Interacting with a process as it runs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 You can spawn a subprocess by creating an instance of
-:class:`trio.subprocess.Process` and then interact with it using its
-:attr:`~trio.subprocess.Process.stdin`,
-:attr:`~trio.subprocess.Process.stdout`, and/or
-:attr:`~trio.subprocess.Process.stderr` streams.
+:class:`trio.Process` and then interact with it using its
+:attr:`~trio.Process.stdin`,
+:attr:`~trio.Process.stdout`, and/or
+:attr:`~trio.Process.stderr` streams.
 
-.. autoclass:: trio.subprocess.Process
+.. autoclass:: trio.Process
    :members:
 
 
-Differences from the standard library
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Differences from :class:`subprocess.Popen`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * All arguments to the constructor of
-  :class:`~trio.subprocess.Process`, except the command to run, must be
+  :class:`~trio.Process`, except the command to run, must be
   passed using keywords.
 
-* :func:`~subprocess.call`, :func:`~subprocess.check_call`, and
-  :func:`~subprocess.check_output` are not provided.
-
 * :meth:`~subprocess.Popen.communicate` is not provided as a method on
-  :class:`~trio.subprocess.Process` objects; use a higher-level
+  :class:`~trio.Process` objects; use a higher-level
   function instead, or write the loop yourself if
   you have unusual needs. :meth:`~subprocess.Popen.communicate` has
   quite unusual cancellation behavior in the standard library (on some
@@ -778,22 +770,22 @@ Differences from the standard library
   the child process even after the timeout has expired) and we wanted
   to provide an interface with fewer surprises.
 
-* :meth:`~trio.subprocess.Process.wait` is an async function that does
+* :meth:`~trio.Process.wait` is an async function that does
   not take a ``timeout`` argument; combine it with
   :func:`~trio.fail_after` if you want a timeout.
 
 * Text I/O is not supported: you may not use the
-  :class:`~trio.subprocess.Process` constructor arguments
+  :class:`~trio.Process` constructor arguments
   ``universal_newlines`` (or its 3.7+ alias ``text``), ``encoding``,
   or ``errors``.
 
-* :attr:`~trio.subprocess.Process.stdin` is a :class:`~trio.abc.SendStream` and
-  :attr:`~trio.subprocess.Process.stdout` and :attr:`~trio.subprocess.Process.stderr`
+* :attr:`~trio.Process.stdin` is a :class:`~trio.abc.SendStream` and
+  :attr:`~trio.Process.stdout` and :attr:`~trio.Process.stderr`
   are :class:`~trio.abc.ReceiveStream`\s, rather than file objects. The
-  :class:`~trio.subprocess.Process` constructor argument ``bufsize`` is
+  :class:`~trio.Process` constructor argument ``bufsize`` is
   not supported since there would be no file object to pass it to.
 
-* :meth:`~trio.subprocess.Process.aclose` (and thus also
+* :meth:`~trio.Process.aclose` (and thus also
   ``__aexit__``) behave like the standard :class:`~subprocess.Popen`
   context manager exit (close pipes to the process, then wait for it
   to exit), but add additional behavior if cancelled: kill the process

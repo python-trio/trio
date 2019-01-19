@@ -2,7 +2,7 @@ import pytest
 
 import threading
 import socket as stdlib_socket
-import ssl as stdlib_ssl
+import ssl
 from contextlib import contextmanager
 from functools import partial
 
@@ -16,8 +16,8 @@ from .._highlevel_socket import SocketStream, SocketListener
 from .._highlevel_generic import aclose_forcefully
 from .._core import ClosedResourceError, BrokenResourceError
 from .._highlevel_open_tcp_stream import open_tcp_stream
-from .. import ssl as tssl
 from .. import socket as tsocket
+from .._ssl import SSLStream, SSLListener, NeedHandshakeError
 from .._util import ConflictDetector
 
 from .._core.tests.tutil import slow
@@ -51,10 +51,10 @@ from ..testing import (
 TRIO_TEST_CA = trustme.CA()
 TRIO_TEST_1_CERT = TRIO_TEST_CA.issue_server_cert("trio-test-1.example.org")
 
-SERVER_CTX = stdlib_ssl.create_default_context(stdlib_ssl.Purpose.CLIENT_AUTH)
+SERVER_CTX = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
 TRIO_TEST_1_CERT.configure_cert(SERVER_CTX)
 
-CLIENT_CTX = stdlib_ssl.create_default_context()
+CLIENT_CTX = ssl.create_default_context()
 TRIO_TEST_CA.configure_trust(CLIENT_CTX)
 
 
@@ -75,7 +75,7 @@ def ssl_echo_serve_sync(sock, *, expect_fail=False):
                 # Under unclear conditions, CPython sometimes raises
                 # SSLWantWriteError here. This is a bug (bpo-32219), but it's
                 # not our bug, so ignore it.
-                exceptions += (stdlib_ssl.SSLWantWriteError,)
+                exceptions += (ssl.SSLWantWriteError,)
                 try:
                     wrapped.unwrap()
                 except exceptions:
@@ -119,7 +119,7 @@ async def ssl_echo_server_raw(**kwargs):
 async def ssl_echo_server(**kwargs):
     async with ssl_echo_server_raw(**kwargs) as sock:
         await yield_(
-            tssl.SSLStream(
+            SSLStream(
                 sock, CLIENT_CTX, server_hostname="trio-test-1.example.org"
             )
         )
@@ -303,7 +303,7 @@ async def test_PyOpenSSLEchoStream_gives_resource_busy_errors():
 @contextmanager
 def virtual_ssl_echo_server(**kwargs):
     fakesock = PyOpenSSLEchoStream(**kwargs)
-    yield tssl.SSLStream(
+    yield SSLStream(
         fakesock, CLIENT_CTX, server_hostname="trio-test-1.example.org"
     )
 
@@ -311,13 +311,13 @@ def virtual_ssl_echo_server(**kwargs):
 def ssl_wrap_pair(
     client_transport, server_transport, *, client_kwargs={}, server_kwargs={}
 ):
-    client_ssl = tssl.SSLStream(
+    client_ssl = SSLStream(
         client_transport,
         CLIENT_CTX,
         server_hostname="trio-test-1.example.org",
         **client_kwargs
     )
-    server_ssl = tssl.SSLStream(
+    server_ssl = SSLStream(
         server_transport, SERVER_CTX, server_side=True, **server_kwargs
     )
     return client_ssl, server_ssl
@@ -333,18 +333,6 @@ def ssl_lockstep_stream_pair(**kwargs):
     return ssl_wrap_pair(client_transport, server_transport, **kwargs)
 
 
-def test_exports():
-    # Just a quick check to make sure _reexport isn't totally broken
-    assert hasattr(tssl, "SSLError")
-    assert "SSLError" in tssl.__dict__.keys()
-
-    assert hasattr(tssl, "Purpose")
-    assert "Purpose" in tssl.__dict__.keys()
-
-    # Intentionally omitted
-    assert not hasattr(tssl, "SSLContext")
-
-
 # Simple smoke test for handshake/send/receive/shutdown talking to a
 # synchronous server, plus make sure that we do the bare minimum of
 # certificate checking (even though this is really Python's responsibility)
@@ -358,31 +346,31 @@ async def test_ssl_client_basics():
 
     # Didn't configure the CA file, should fail
     async with ssl_echo_server_raw(expect_fail=True) as sock:
-        client_ctx = stdlib_ssl.create_default_context()
-        s = tssl.SSLStream(
+        client_ctx = ssl.create_default_context()
+        s = SSLStream(
             sock, client_ctx, server_hostname="trio-test-1.example.org"
         )
         assert not s.server_side
         with pytest.raises(BrokenResourceError) as excinfo:
             await s.send_all(b"x")
-        assert isinstance(excinfo.value.__cause__, tssl.SSLError)
+        assert isinstance(excinfo.value.__cause__, ssl.SSLError)
 
     # Trusted CA, but wrong host name
     async with ssl_echo_server_raw(expect_fail=True) as sock:
-        s = tssl.SSLStream(
+        s = SSLStream(
             sock, CLIENT_CTX, server_hostname="trio-test-2.example.org"
         )
         assert not s.server_side
         with pytest.raises(BrokenResourceError) as excinfo:
             await s.send_all(b"x")
-        assert isinstance(excinfo.value.__cause__, tssl.CertificateError)
+        assert isinstance(excinfo.value.__cause__, ssl.CertificateError)
 
 
 async def test_ssl_server_basics():
     a, b = stdlib_socket.socketpair()
     with a, b:
         server_sock = tsocket.from_stdlib_socket(b)
-        server_transport = tssl.SSLStream(
+        server_transport = SSLStream(
             SocketStream(server_sock), SERVER_CTX, server_side=True
         )
         assert server_transport.server_side
@@ -411,8 +399,8 @@ async def test_ssl_server_basics():
 async def test_attributes():
     async with ssl_echo_server_raw(expect_fail=True) as sock:
         good_ctx = CLIENT_CTX
-        bad_ctx = stdlib_ssl.create_default_context()
-        s = tssl.SSLStream(
+        bad_ctx = ssl.create_default_context()
+        s = SSLStream(
             sock, good_ctx, server_hostname="trio-test-1.example.org"
         )
 
@@ -444,7 +432,7 @@ async def test_attributes():
         assert s.context is bad_ctx
         with pytest.raises(BrokenResourceError) as excinfo:
             await s.do_handshake()
-        assert isinstance(excinfo.value.__cause__, tssl.SSLError)
+        assert isinstance(excinfo.value.__cause__, ssl.SSLError)
 
 
 # Note: this test fails horribly if we force TLS 1.2 and trigger a
@@ -699,8 +687,8 @@ async def test_wait_writable_calls_underlying_wait_writable():
         async def wait_send_all_might_not_block(self):
             record.append("ok")
 
-    ctx = stdlib_ssl.create_default_context()
-    s = tssl.SSLStream(NotAStream(), ctx, server_hostname="x")
+    ctx = ssl.create_default_context()
+    s = SSLStream(NotAStream(), ctx, server_hostname="x")
     await s.wait_send_all_might_not_block()
     assert record == ["ok"]
 
@@ -928,15 +916,15 @@ async def test_send_all_fails_in_the_middle():
 async def test_ssl_over_ssl():
     client_0, server_0 = memory_stream_pair()
 
-    client_1 = tssl.SSLStream(
+    client_1 = SSLStream(
         client_0, CLIENT_CTX, server_hostname="trio-test-1.example.org"
     )
-    server_1 = tssl.SSLStream(server_0, SERVER_CTX, server_side=True)
+    server_1 = SSLStream(server_0, SERVER_CTX, server_side=True)
 
-    client_2 = tssl.SSLStream(
+    client_2 = SSLStream(
         client_1, CLIENT_CTX, server_hostname="trio-test-1.example.org"
     )
-    server_2 = tssl.SSLStream(server_1, SERVER_CTX, server_side=True)
+    server_2 = SSLStream(server_1, SERVER_CTX, server_side=True)
 
     async def client():
         await client_2.send_all(b"hi")
@@ -994,8 +982,8 @@ async def test_ssl_handshake_failure_during_aclose():
     # the underlying transport.
     async with ssl_echo_server_raw(expect_fail=True) as sock:
         # Don't configure trust correctly
-        client_ctx = stdlib_ssl.create_default_context()
-        s = tssl.SSLStream(
+        client_ctx = ssl.create_default_context()
+        s = SSLStream(
             sock, client_ctx, server_hostname="trio-test-1.example.org"
         )
         # It's a little unclear here whether aclose should swallow the error
@@ -1048,7 +1036,7 @@ async def test_ssl_https_compatibility_disagreement():
     async def receive_and_expect_error():
         with pytest.raises(BrokenResourceError) as excinfo:
             await server.receive_some(10)
-        assert isinstance(excinfo.value.__cause__, tssl.SSLEOFError)
+        assert isinstance(excinfo.value.__cause__, ssl.SSLEOFError)
 
     async with _core.open_nursery() as nursery:
         nursery.start_soon(client.aclose)
@@ -1112,10 +1100,10 @@ async def test_receive_error_during_handshake():
 async def test_selected_alpn_protocol_before_handshake():
     client, server = ssl_memory_stream_pair()
 
-    with pytest.raises(tssl.NeedHandshakeError):
+    with pytest.raises(NeedHandshakeError):
         client.selected_alpn_protocol()
 
-    with pytest.raises(tssl.NeedHandshakeError):
+    with pytest.raises(NeedHandshakeError):
         server.selected_alpn_protocol()
 
 
@@ -1138,10 +1126,10 @@ async def test_selected_alpn_protocol_when_not_set():
 async def test_selected_npn_protocol_before_handshake():
     client, server = ssl_memory_stream_pair()
 
-    with pytest.raises(tssl.NeedHandshakeError):
+    with pytest.raises(NeedHandshakeError):
         client.selected_npn_protocol()
 
-    with pytest.raises(tssl.NeedHandshakeError):
+    with pytest.raises(NeedHandshakeError):
         server.selected_npn_protocol()
 
 
@@ -1164,10 +1152,10 @@ async def test_selected_npn_protocol_when_not_set():
 async def test_get_channel_binding_before_handshake():
     client, server = ssl_memory_stream_pair()
 
-    with pytest.raises(tssl.NeedHandshakeError):
+    with pytest.raises(NeedHandshakeError):
         client.get_channel_binding()
 
-    with pytest.raises(tssl.NeedHandshakeError):
+    with pytest.raises(NeedHandshakeError):
         server.get_channel_binding()
 
 
@@ -1207,10 +1195,10 @@ async def test_SSLListener():
         await listen_sock.bind(("127.0.0.1", 0))
         listen_sock.listen(1)
         socket_listener = SocketListener(listen_sock)
-        ssl_listener = tssl.SSLListener(socket_listener, SERVER_CTX, **kwargs)
+        ssl_listener = SSLListener(socket_listener, SERVER_CTX, **kwargs)
 
         transport_client = await open_tcp_stream(*listen_sock.getsockname())
-        ssl_client = tssl.SSLStream(
+        ssl_client = SSLStream(
             transport_client,
             CLIENT_CTX,
             server_hostname="trio-test-1.example.org"

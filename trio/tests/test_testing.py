@@ -6,7 +6,7 @@ import tempfile
 
 import pytest
 
-from .._core.tests.tutil import have_ipv6
+from .._core.tests.tutil import can_bind_ipv6
 from .. import sleep
 from .. import _core
 from .._highlevel_generic import aclose_forcefully
@@ -822,7 +822,7 @@ async def test_open_stream_to_socket_listener():
     sock.listen(10)
     await check(SocketListener(sock))
 
-    if have_ipv6:
+    if can_bind_ipv6:
         # Listener bound to IPv6 wildcard (needs special handling)
         sock = tsocket.socket(family=tsocket.AF_INET6)
         await sock.bind(("::", 0))

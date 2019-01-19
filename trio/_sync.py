@@ -617,7 +617,7 @@ class StrictFIFOLock(Lock):
     lock in strict first-come-first-served order.
 
     An example of when this is useful is if you're implementing something like
-    :class:`trio.ssl.SSLStream` or an HTTP/2 server using `h2
+    :class:`trio.SSLStream` or an HTTP/2 server using `h2
     <https://hyper-h2.readthedocs.io/>`__, where you have multiple concurrent
     tasks that are interacting with a shared state machine, and at
     unpredictable moments the state machine requests that a chunk of data be

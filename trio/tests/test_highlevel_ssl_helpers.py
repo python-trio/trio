@@ -77,7 +77,7 @@ async def test_open_ssl_over_tcp_stream_and_everything_else():
             80,
             ssl_context=CLIENT_CTX,
         )
-        assert isinstance(stream, trio.ssl.SSLStream)
+        assert isinstance(stream, trio.SSLStream)
         assert stream.server_hostname == "trio-test-1.example.org"
         await stream.send_all(b"x")
         assert await stream.receive_some(1) == b"x"
@@ -104,7 +104,7 @@ async def test_open_ssl_over_tcp_listeners():
         0, SERVER_CTX, host="127.0.0.1"
     )
     async with listener:
-        assert isinstance(listener, trio.ssl.SSLListener)
+        assert isinstance(listener, trio.SSLListener)
         tl = listener.transport_listener
         assert isinstance(tl, trio.SocketListener)
         assert tl.socket.getsockname()[0] == "127.0.0.1"
