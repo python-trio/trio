@@ -2,11 +2,12 @@ import math
 import os
 import random
 import signal
+import subprocess
 import sys
 import pytest
 
 from .. import (
-    _core, move_on_after, fail_after, sleep, sleep_forever, subprocess
+    _core, move_on_after, fail_after, sleep, sleep_forever, Process
 )
 from .._core.tests.tutil import slow
 from ..testing import wait_all_tasks_blocked
@@ -39,7 +40,7 @@ def got_signal(proc, sig):
 
 
 async def test_basic():
-    async with subprocess.Process(EXIT_TRUE) as proc:
+    async with Process(EXIT_TRUE) as proc:
         assert proc.returncode is None
     assert proc.returncode == 0
 
@@ -59,7 +60,7 @@ async def test_multi_wait():
 
 async def test_kill_when_context_cancelled():
     with move_on_after(0) as scope:
-        async with subprocess.Process(SLEEP(10)) as proc:
+        async with Process(SLEEP(10)) as proc:
             assert proc.poll() is None
             # Process context entry is synchronous, so this is the
             # only checkpoint:
@@ -76,7 +77,7 @@ COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR = python(
 
 
 async def test_pipes():
-    async with subprocess.Process(
+    async with Process(
         COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
@@ -120,7 +121,7 @@ async def test_interactive():
     # out: EOF
     # err: EOF
 
-    async with subprocess.Process(
+    async with Process(
         python(
             "idx = 0\n"
             "while True:\n"
@@ -179,7 +180,7 @@ async def test_interactive():
 
 
 async def test_stderr_stdout():
-    async with subprocess.Process(
+    async with Process(
         COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
@@ -201,7 +202,7 @@ async def test_stderr_stdout():
 
     # this one hits the branch where stderr=STDOUT but stdout
     # is not redirected
-    async with subprocess.Process(
+    async with Process(
         CAT, stdin=subprocess.PIPE, stderr=subprocess.STDOUT
     ) as proc:
         assert proc.stdout is None
@@ -213,7 +214,7 @@ async def test_stderr_stdout():
         try:
             r, w = os.pipe()
 
-            async with subprocess.Process(
+            async with Process(
                 COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR,
                 stdin=subprocess.PIPE,
                 stdout=w,
@@ -233,7 +234,7 @@ async def test_stderr_stdout():
 
 async def test_errors():
     with pytest.raises(TypeError) as excinfo:
-        subprocess.Process(["ls"], encoding="utf-8")
+        Process(["ls"], encoding="utf-8")
     assert "unbuffered byte streams" in str(excinfo.value)
     assert "the 'encoding' option is not supported" in str(excinfo.value)
 
@@ -241,7 +242,7 @@ async def test_errors():
 async def test_signals():
     async def test_one_signal(send_it, signum):
         with move_on_after(1.0) as scope:
-            async with subprocess.Process(SLEEP(3600)) as proc:
+            async with Process(SLEEP(3600)) as proc:
                 send_it(proc)
         assert not scope.cancelled_caught
         if posix:
@@ -249,8 +250,8 @@ async def test_signals():
         else:
             assert proc.returncode != 0
 
-    await test_one_signal(subprocess.Process.kill, SIGKILL)
-    await test_one_signal(subprocess.Process.terminate, SIGTERM)
+    await test_one_signal(Process.kill, SIGKILL)
+    await test_one_signal(Process.terminate, SIGTERM)
     if posix:
         await test_one_signal(lambda proc: proc.send_signal(SIGINT), SIGINT)
 
@@ -262,7 +263,7 @@ async def test_wait_reapable_fails():
         # With SIGCHLD disabled, the wait() syscall will wait for the
         # process to exit but then fail with ECHILD. Make sure we
         # support this case as the stdlib subprocess module does.
-        async with subprocess.Process(SLEEP(3600)) as proc:
+        async with Process(SLEEP(3600)) as proc:
             async with _core.open_nursery() as nursery:
                 nursery.start_soon(proc.wait)
                 await wait_all_tasks_blocked()
@@ -282,10 +283,9 @@ def test_waitid_eintr():
     if not wait_child_exiting.__module__.endswith("waitid"):
         pytest.skip("waitid only")
     from .._subprocess_platform.waitid import sync_wait_reapable
-    import subprocess as stdlib_subprocess
 
     got_alarm = False
-    sleeper = stdlib_subprocess.Popen(["sleep", "3600"])
+    sleeper = subprocess.Popen(["sleep", "3600"])
 
     def on_alarm(sig, frame):
         nonlocal got_alarm
@@ -304,13 +304,3 @@ def test_waitid_eintr():
             sleeper.kill()
             sleeper.wait()
         signal.signal(signal.SIGALRM, old_sigalrm)
-
-
-def test_all_constants_reexported():
-    trio_subprocess_exports = set(dir(subprocess))
-    import subprocess as stdlib_subprocess
-
-    for name in dir(stdlib_subprocess):
-        if name.isupper() and name[0] != "_":
-            stdlib_constant = name
-            assert stdlib_constant in trio_subprocess_exports

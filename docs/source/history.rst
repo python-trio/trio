@@ -12,9 +12,9 @@ Features
 ~~~~~~~~
 
 - Initial :ref:`subprocess support <subprocess>`. Add
-  :class:`trio.subprocess.Process`, an async wrapper around the stdlib
+  :class:`trio.subprocess.Process <trio.Process>`, an async wrapper around the stdlib
   :class:`subprocess.Popen` class, which permits spawning subprocesses and
-  communicating with them over standard Trio streams. :mod:`trio.subprocess`
+  communicating with them over standard Trio streams. ``trio.subprocess``
   also reexports all the stdlib :mod:`subprocess` exceptions and constants for
   convenience. (`#4 <https://github.com/python-trio/trio/issues/4>`__)
 - You can now create an unbounded :class:`CapacityLimiter` by initializing with
@@ -49,12 +49,13 @@ Deprecations and Removals
 Miscellaneous internal changes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- There are a number of methods on :class:`trio.ssl.SSLStream` that report
-  information about the negotiated TLS connection, like
+- There are a number of methods on :class:`trio.ssl.SSLStream <trio.SSLStream>`
+  that report information about the negotiated TLS connection, like
   ``selected_alpn_protocol``, and thus cannot succeed until after the handshake
   has been performed. Previously, we returned None from these methods, like the
   stdlib :mod:`ssl` module does, but this is confusing, because that can also
-  be a valid return value. Now we raise :exc:`trio.ssl.NeedHandshakeError`
+  be a valid return value. Now we raise :exc:`trio.ssl.NeedHandshakeError
+  <trio.NeedHandshakeError>`
   instead. (`#735 <https://github.com/python-trio/trio/issues/735>`__)
 
 
@@ -384,11 +385,11 @@ Highlights
   <https://daniel.haxx.se/blog/2016/11/26/https-proxy-with-curl/>`__.
   See: :func:`trio.open_ssl_over_tcp_stream`,
   :func:`trio.serve_ssl_over_tcp`,
-  :func:`trio.open_ssl_over_tcp_listeners`, and :mod:`trio.ssl`.
+  :func:`trio.open_ssl_over_tcp_listeners`, and ``trio.ssl``.
 
-  Interesting fact: the test suite for :mod:`trio.ssl` has so far
+  Interesting fact: the test suite for ``trio.ssl`` has so far
   found bugs in CPython's ssl module, PyPy's ssl module, PyOpenSSL,
-  and OpenSSL. (:mod:`trio.ssl` doesn't use PyOpenSSL.) Trio's test
+  and OpenSSL. (``trio.ssl`` doesn't use PyOpenSSL.) Trio's test
   suite is fairly thorough.
 
 * You know thread-local storage? Well, Trio now has an equivalent:
@@ -436,7 +437,7 @@ that worked on 0.1.0):
 * When a socket ``sendall`` call was cancelled, it used to attach some
   metadata to the exception reporting how much data was actually sent.
   It no longer does this, because in common configurations like an
-  :class:`~trio.ssl.SSLStream` wrapped around a
+  :class:`~trio.SSLStream` wrapped around a
   :class:`~trio.SocketStream` it becomes ambiguous which "level" the
   partial metadata applies to, leading to confusion and bugs. There is
   no longer any way to tell how much data was sent after a ``sendall``
