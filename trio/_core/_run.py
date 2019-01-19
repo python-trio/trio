@@ -230,18 +230,24 @@ class CancelScope:
         else:
             binding = "bound to {!r}".format(self._scope_task.name)
             if len(self._tasks) > 1:
-                binding += " and its {} children".format(len(self._tasks) - 1)
+                binding += " and its {} descendant{}".format(
+                    len(self._tasks) - 1, "s" if len(self._tasks) > 2 else ""
+                )
 
         if self.cancel_called:
             state = ", cancelled"
         elif self.deadline == inf:
             state = ""
         else:
-            now = current_time()
-            if now >= self.deadline:
-                state = ", cancel soon"
+            try:
+                now = current_time()
+            except RuntimeError:  # must be called from async context
+                state = ""
             else:
-                state = ", cancel in {:.2f}sec".format(self.deadline - now)
+                state = ", deadline is {:.2f} seconds {}".format(
+                    abs(self.deadline - now),
+                    "from now" if self.deadline >= now else "ago"
+                )
 
         return "<trio.CancelScope at {:#x}, {}{}>".format(
             id(self), binding, state
@@ -450,7 +456,8 @@ class NurseryManager:
 
     @enable_ki_protection
     async def __aenter__(self):
-        self._scope = CancelScope().__enter__()
+        self._scope = CancelScope()
+        self._scope.__enter__()
         self._nursery = Nursery(current_task(), self._scope)
         return self._nursery
 

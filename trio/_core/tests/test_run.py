@@ -18,6 +18,7 @@ from async_generator import async_generator
 
 from .tutil import check_sequence_matches, gc_collect_harder
 from ... import _core
+from ..._threads import run_sync_in_worker_thread
 from ..._timeouts import sleep, fail_after
 from ..._util import aiter_compat
 from ...testing import (
@@ -541,19 +542,21 @@ def test_instruments_crash(caplog):
     assert "Instrument has been disabled" in caplog.records[0].message
 
 
-async def test_cancel_scope_repr(autojump_clock):
+async def test_cancel_scope_repr(mock_clock):
     scope = _core.CancelScope()
     assert "unbound" in repr(scope)
     with scope:
         assert "bound to {!r}".format(_core.current_task().name) in repr(scope)
         async with _core.open_nursery() as nursery:
             nursery.start_soon(sleep, 10)
-            assert "and its 1 children" in repr(scope)
+            assert "and its 1 descendant" in repr(scope)
             nursery.cancel_scope.cancel()
-        scope.deadline = _core.current_time() + 10
-        assert "cancel in 10.00sec" in repr(scope)
         scope.deadline = _core.current_time() - 1
-        assert "cancel soon" in repr(scope)
+        assert "deadline is 1.00 seconds ago" in repr(scope)
+        scope.deadline = _core.current_time() + 10
+        assert "deadline is 10.00 seconds from now" in repr(scope)
+        # when not in async context, can't get the current time
+        assert "deadline" not in await run_sync_in_worker_thread(repr, scope)
         scope.cancel()
         assert "cancelled" in repr(scope)
 
