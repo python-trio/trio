@@ -584,44 +584,6 @@ objects.
       cancelled, then :attr:`cancelled_caught` is usually more
       appropriate.
 
-   .. method:: linked_child(*, deadline=math.inf, shield=None)
-
-      Return another :class:`CancelScope` object that automatically
-      becomes cancelled when this one does. We say that the returned
-      cancel scope is a "linked child" of this "parent" cancel scope.
-      Note that this relationship has nothing to do with lexical
-      nesting of ``with`` blocks.
-
-      The relationship between the parent cancel scope and its new
-      linked child is one-way: if the parent cancel scope becomes
-      cancelled, all of its linked children do too, but any of the
-      children can independently become cancelled without affecting
-      the source. Each child has its own :attr:`deadline`, which is
-      :data:`math.inf` (not inherited from the parent scope) if the
-      ``deadline`` argument is unspecified; the expiry of a linked
-      child's deadline cancels that child only.
-
-      The new linked child inherits its initial :attr:`shield` attribute
-      from the parent, unless overridden via the ``shield`` argument.
-      The child :attr:`shield` may be changed without affecting the
-      parent, but changes to the parent :attr:`shield` will be
-      propagated to all children, overriding any local :attr:`shield`
-      value they've previously set.
-
-      Multiple layers of cancel scope linkage are supported.  The
-      cancellation of any parent scope affects all its linked
-      children, all their linked children, and so on.
-
-   .. attribute:: linked_children
-
-      An iterable yielding all the other cancel scopes that will
-      become cancelled when this one does. That includes all the
-      cancel scopes created by calls to :meth:`linked_child` on this
-      cancel scope and all of its children, recursively.  Cancel
-      scopes track their linked children by weak reference, so a scope
-      may no longer be reflected in :attr:`linked_children` once it
-      has no other references active.
-
 
 Trio also provides several convenience functions for the common
 situation of just wanting to impose a timeout on some code:
