@@ -11,7 +11,7 @@ def current_kqueue():
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.current_kqueue()
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')
 
 
 def monitor_kevent(ident, filter):
@@ -22,36 +22,36 @@ def monitor_kevent(ident, filter):
             ident, filter
         )
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')
 
 
-def wait_kevent(ident, filter, abort_func):
+async def wait_kevent(ident, filter, abort_func):
     """"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        return GLOBAL_RUN_CONTEXT.runner.io_manager.wait_kevent(
+        return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_kevent(
             ident, filter, abort_func
         )
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')
 
 
-def wait_readable(fd):
+async def wait_readable(fd):
     """"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        return GLOBAL_RUN_CONTEXT.runner.io_manager.wait_readable(fd)
+        return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_readable(fd)
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')
 
 
-def wait_writable(fd):
+async def wait_writable(fd):
     """"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        return GLOBAL_RUN_CONTEXT.runner.io_manager.wait_writable(fd)
+        return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_writable(fd)
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')
 
 
 def notify_fd_close(fd):
@@ -60,4 +60,4 @@ def notify_fd_close(fd):
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.notify_fd_close(fd)
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')

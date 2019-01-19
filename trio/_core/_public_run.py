@@ -32,7 +32,7 @@ def current_statistics():
     try:
         return GLOBAL_RUN_CONTEXT.runner.current_statistics()
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')
 
 
 def current_time():
@@ -49,7 +49,7 @@ def current_time():
     try:
         return GLOBAL_RUN_CONTEXT.runner.current_time()
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')
 
 
 def current_clock():
@@ -60,7 +60,7 @@ def current_clock():
     try:
         return GLOBAL_RUN_CONTEXT.runner.current_clock()
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')
 
 
 def current_root_task():
@@ -73,7 +73,7 @@ def current_root_task():
     try:
         return GLOBAL_RUN_CONTEXT.runner.current_root_task()
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')
 
 
 def reschedule(task, next_send=_NO_SEND):
@@ -96,9 +96,9 @@ def reschedule(task, next_send=_NO_SEND):
         """
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        return GLOBAL_RUN_CONTEXT.runner.reschedule(task, next_send=next_send)
+        return GLOBAL_RUN_CONTEXT.runner.reschedule(task, next_send)
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')
 
 
 def spawn_system_task(async_fn, *args, name=None):
@@ -126,7 +126,7 @@ def spawn_system_task(async_fn, *args, name=None):
         * System tasks do not inherit context variables from their creator.
 
         Args:
-          async_fn: An callable.
+          async_fn: An async callable.
           args: Positional arguments for ``async_fn``. If you want to pass
               keyword arguments, use :func:`functools.partial`.
           name: The name for this task. Only used for debugging/introspection
@@ -146,7 +146,7 @@ def spawn_system_task(async_fn, *args, name=None):
             async_fn, *args, name=name
         )
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')
 
 
 def current_trio_token():
@@ -158,10 +158,10 @@ def current_trio_token():
     try:
         return GLOBAL_RUN_CONTEXT.runner.current_trio_token()
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')
 
 
-def wait_all_tasks_blocked(cushion=0.0, tiebreaker=0):
+async def wait_all_tasks_blocked(cushion=0.0, tiebreaker=0):
     """Block until there are no runnable tasks.
 
         This is useful in testing code when you want to give other tasks a
@@ -193,14 +193,14 @@ def wait_all_tasks_blocked(cushion=0.0, tiebreaker=0):
           blocked waiting for the lock (!), and then check that we can't
           release and immediately re-acquire the lock::
 
-             def lock_taker(lock):
+             async def lock_taker(lock):
                  await lock.acquire()
                  lock.release()
 
-             def test_lock_fairness():
+             async def test_lock_fairness():
                  lock = trio.Lock()
                  await lock.acquire()
-                 with trio.open_nursery() as nursery:
+                 async with trio.open_nursery() as nursery:
                      child = nursery.start_soon(lock_taker, lock)
                      # child hasn't run yet, we have the lock
                      assert lock.locked()
@@ -223,11 +223,11 @@ def wait_all_tasks_blocked(cushion=0.0, tiebreaker=0):
         """
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        return GLOBAL_RUN_CONTEXT.runner.wait_all_tasks_blocked(
-            tiebreaker=tiebreaker, cushion=cushion
+        return await GLOBAL_RUN_CONTEXT.runner.wait_all_tasks_blocked(
+            cushion, tiebreaker
         )
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')
 
 
 def add_instrument(instrument):
@@ -243,7 +243,7 @@ def add_instrument(instrument):
     try:
         return GLOBAL_RUN_CONTEXT.runner.add_instrument(instrument)
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')
 
 
 def remove_instrument(instrument):
@@ -263,4 +263,4 @@ def remove_instrument(instrument):
     try:
         return GLOBAL_RUN_CONTEXT.runner.remove_instrument(instrument)
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')

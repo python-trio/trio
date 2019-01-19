@@ -9,6 +9,7 @@ import ast
 import astor
 import difflib
 import os
+import sys
 import yapf.yapflib.yapf_api as formatter
 
 SOURCE_TREE = './trio/_core'
@@ -25,7 +26,7 @@ from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 
 TEMPLATE = """locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
 try:
-    return GLOBAL_RUN_CONTEXT.{}.{}
+    return {} GLOBAL_RUN_CONTEXT.{}.{}
 except AttributeError:
     raise RuntimeError('must be called from async context')
 """
@@ -35,24 +36,27 @@ def is_function(node):
     """Check if the AST node is either a function
     or an async function
     """
-    return isinstance(node, ast.FunctionDef) \
-           or isinstance(node, ast.AsyncFunctionDef)
+    return (
+        isinstance(node, ast.FunctionDef)
+        or isinstance(node, ast.AsyncFunctionDef)
+    )
 
 
 def is_public(node):
     """Check if the AST node has a _public decorator
     """
-    return is_function(node) \
-           and node.decorator_list \
-           and isinstance(node.decorator_list[-1], ast.Name) \
-           and node.decorator_list[-1].id == '_public'
+    return (
+        is_function(node) and node.decorator_list
+        and isinstance(node.decorator_list[-1], ast.Name)
+        and node.decorator_list[-1].id == '_public'
+    )
 
 
 def get_public_methods(tree):
     """ Return a list of methods marked as public.
     The function walks the given tree and extracts
-    all objects that are functions and have a
-    doc string that starts with PUBLIC
+    all objects that are functions which are marked
+    public.
     """
     methods = []
     for node in ast.walk(tree):
@@ -115,9 +119,6 @@ def create_passthrough_args(funcdef):
     call_args = []
     for arg in funcdef.args.args:
         call_args.append(arg.arg)
-    for _, arg in zip(funcdef.args.defaults[::-1], funcdef.args.args[::-1]):
-        call_args.remove(arg.arg)
-        call_args.append(arg.arg + "=" + arg.arg)
     if funcdef.args.vararg:
         call_args.append("*" + funcdef.args.vararg.arg)
     for arg in funcdef.args.kwonlyargs:
@@ -164,12 +165,15 @@ def gen_source():
         del method.body[1:]
 
         # Create export function body
-        template = TEMPLATE.format(ctx, method.name + new_args)
+        template = TEMPLATE.format(
+            'await' if isinstance(method, ast.AsyncFunctionDef) else '', ctx,
+            method.name + new_args
+        )
 
         # Assemble function definition arguments and body
         ast_method = ast.parse(template)
         method.body.extend(ast_method.body)
-        snippet = astor.to_source(method).replace('async ', '')
+        snippet = astor.to_source(method)
 
         # Append the snippet to the corresponding module
         source[method.module_file].append(snippet)
@@ -213,7 +217,11 @@ if __name__ == '__main__':
                 assert sources[src] == ''
             with open(pub_file_path, 'r') as pub_file:
                 old_src = ''.join(pub_file.readlines())
-            assert sources[src] == old_src 
+            try:
+                assert sources[src] == old_src
+            except AssertionError:
+                print('Source is outdated. Please regenerate.')
+                sys.exit(-1)
     elif args.path:
         if not os.path.exists(args.path):
             raise OSError("""Path {} does not exist""".format(args.path))

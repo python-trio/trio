@@ -4,6 +4,10 @@ set -ex
 
 EXIT_STATUS=0
 
+# Test if the generated code is still up to date
+python ./gen_exports.py --test \
+    || EXIT_STATUS=$?
+
 # Autoformatter *first*, to avoid double-reporting errors
 yapf -rpd setup.py trio \
     || EXIT_STATUS=$?

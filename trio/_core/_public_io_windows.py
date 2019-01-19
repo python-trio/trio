@@ -11,7 +11,7 @@ def current_iocp():
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.current_iocp()
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')
 
 
 def register_with_iocp(handle):
@@ -20,18 +20,18 @@ def register_with_iocp(handle):
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.register_with_iocp(handle)
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')
 
 
-def wait_overlapped(handle, lpOverlapped):
+async def wait_overlapped(handle, lpOverlapped):
     """"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        return GLOBAL_RUN_CONTEXT.runner.io_manager.wait_overlapped(
+        return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_overlapped(
             handle, lpOverlapped
         )
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')
 
 
 def monitor_completion_key():
@@ -40,25 +40,29 @@ def monitor_completion_key():
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.monitor_completion_key()
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')
 
 
-def wait_socket_readable(sock):
+async def wait_socket_readable(sock):
     """"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        return GLOBAL_RUN_CONTEXT.runner.io_manager.wait_socket_readable(sock)
+        return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_socket_readable(
+            sock
+        )
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')
 
 
-def wait_socket_writable(sock):
+async def wait_socket_writable(sock):
     """"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        return GLOBAL_RUN_CONTEXT.runner.io_manager.wait_socket_writable(sock)
+        return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_socket_writable(
+            sock
+        )
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')
 
 
 def notify_socket_close(sock):
@@ -67,26 +71,26 @@ def notify_socket_close(sock):
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.notify_socket_close(sock)
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')
 
 
-def write_overlapped(handle, data, file_offset=0):
+async def write_overlapped(handle, data, file_offset=0):
     """"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        return GLOBAL_RUN_CONTEXT.runner.io_manager.write_overlapped(
-            handle, data, file_offset=file_offset
+        return await GLOBAL_RUN_CONTEXT.runner.io_manager.write_overlapped(
+            handle, data, file_offset
         )
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')
 
 
-def readinto_overlapped(handle, buffer, file_offset=0):
+async def readinto_overlapped(handle, buffer, file_offset=0):
     """"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        return GLOBAL_RUN_CONTEXT.runner.io_manager.readinto_overlapped(
-            handle, buffer, file_offset=file_offset
+        return await GLOBAL_RUN_CONTEXT.runner.io_manager.readinto_overlapped(
+            handle, buffer, file_offset
         )
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')

@@ -5,22 +5,22 @@ from ._run import GLOBAL_RUN_CONTEXT, _NO_SEND
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 
 
-def wait_readable(fd):
+async def wait_readable(fd):
     """"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        return GLOBAL_RUN_CONTEXT.runner.io_manager.wait_readable(fd)
+        return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_readable(fd)
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')
 
 
-def wait_writable(fd):
+async def wait_writable(fd):
     """"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        return GLOBAL_RUN_CONTEXT.runner.io_manager.wait_writable(fd)
+        return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_writable(fd)
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')
 
 
 def notify_fd_close(fd):
@@ -29,4 +29,4 @@ def notify_fd_close(fd):
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.notify_fd_close(fd)
     except AttributeError:
-        raise RuntimeError('must be called from context')
+        raise RuntimeError('must be called from async context')
