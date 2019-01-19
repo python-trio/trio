@@ -46,11 +46,17 @@ async def test_basic():
 
 
 async def test_multi_wait():
-    async with subprocess.Process(SLEEP(10)) as proc:
+    async with Process(SLEEP(10)) as proc:
+        # Check that wait (including multi-wait) tolerates being cancelled
         async with _core.open_nursery() as nursery:
-            with move_on_after(0.1):
-                await proc.wait()
+            nursery.start_soon(proc.wait)
+            nursery.start_soon(proc.wait)
+            nursery.start_soon(proc.wait)
+            await wait_all_tasks_blocked()
+            nursery.cancel_scope.cancel()
 
+        # Now try waiting for real
+        async with _core.open_nursery() as nursery:
             nursery.start_soon(proc.wait)
             nursery.start_soon(proc.wait)
             nursery.start_soon(proc.wait)
