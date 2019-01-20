@@ -31,7 +31,7 @@ class Test:
 
     @_public
     def public_func():
-        """"""
+        """With doc string"""
 
     @_public
     async def public_async_func():
@@ -58,7 +58,7 @@ class Test:
         """"""
 
     def non_pub_func():
-        """With doc string"""
+        """"""
 '''
     return non_pub_source
 
@@ -120,5 +120,10 @@ def test_get_public_methods(mod_path):
     assert methods[1].name == 'public_async_func'
 
 
-def test_get_doc_string():
-    pass
+def test_get_doc_string(module):
+    for node in ast.walk(module):
+        if is_function(node):
+            if node.name == 'public_func':
+                assert get_doc_string(node) == 'With doc string'
+            if node.name == 'public_async_func':
+                assert get_doc_string(node) == ''
