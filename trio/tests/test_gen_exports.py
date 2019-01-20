@@ -3,7 +3,7 @@ import astor
 import pytest
 import os
 
-from gen_exports import (
+from .._utils.gen_exports import (
     is_function, is_public, get_public_methods, get_export_modules_by_dir,
     get_module_trees_by_dir, get_doc_string
 )
@@ -58,7 +58,7 @@ class Test:
         """"""
 
     def non_pub_func():
-        """"""
+        """With doc string"""
 '''
     return non_pub_source
 
@@ -110,3 +110,15 @@ def test_get_export_modules_by_dir(mod_path, source):
     modules = get_export_modules_by_dir(mod_path)
     assert len(modules) == 1
     assert source in astor.to_source(modules[0])
+
+
+def test_get_public_methods(mod_path):
+    modules = get_export_modules_by_dir(mod_path)
+    methods = get_public_methods(modules[0])
+    assert len(methods) == 2
+    assert methods[0].name == 'public_func'
+    assert methods[1].name == 'public_async_func'
+
+
+def test_get_doc_string():
+    pass
