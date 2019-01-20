@@ -38,20 +38,20 @@ def is_function(node):
     """Check if the AST node is either a function
     or an async function
     """
-    return (
-        isinstance(node, ast.FunctionDef)
-        or isinstance(node, ast.AsyncFunctionDef)
-    )
+    if isinstance(node, ast.FunctionDef) or \
+       isinstance(node, ast.AsyncFunctionDef):
+        return True
+    return False
 
 
 def is_public(node):
     """Check if the AST node has a _public decorator
     """
-    return (
-        is_function(node) and node.decorator_list
-        and isinstance(node.decorator_list[-1], ast.Name)
-        and node.decorator_list[-1].id == '_public'
-    )
+    if is_function(node) and node.decorator_list and \
+       isinstance(node.decorator_list[-1], ast.Name) and \
+       node.decorator_list[-1].id == '_public':
+        return True
+    return False
 
 
 def get_public_methods(tree):
@@ -176,7 +176,7 @@ def gen_source():
         )
 
         # Assemble function definition arguments and body
-        snippet = func + indent(template, ' '*4)
+        snippet = func + indent(template, ' ' * 4)
 
         # Append the snippet to the corresponding module
         source[method.module_file].append(snippet)
