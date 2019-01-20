@@ -166,7 +166,7 @@ def gen_source():
         # Remove method body
         del method.body[1:]
 
-        func = astor.to_source(method)
+        func = astor.to_source(method, indent_with=' ' * 4)
 
         # Create export function body
         template = TEMPLATE.format(
