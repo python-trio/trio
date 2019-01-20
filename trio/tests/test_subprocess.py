@@ -175,12 +175,12 @@ async def test_stderr_stdout():
     ) as proc:
         assert proc.stdout is not None
         assert proc.stderr is None
-        await proc.stdin.send_all(b"1234")
-        await proc.stdin.aclose()
+        await proc.stdio.send_all(b"1234")
+        await proc.stdio.send_eof()
 
         output = []
         while True:
-            chunk = await proc.stdout.receive_some(16)
+            chunk = await proc.stdio.receive_some(16)
             if chunk == b"":
                 break
             output.append(chunk)
@@ -208,6 +208,7 @@ async def test_stderr_stdout():
                 stderr=subprocess.STDOUT,
             ) as proc:
                 os.close(w)
+                assert proc.stdio is None
                 assert proc.stdout is None
                 assert proc.stderr is None
                 await proc.stdin.send_all(b"1234")
