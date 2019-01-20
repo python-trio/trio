@@ -1,4 +1,3 @@
-
 import ast
 import pytest
 import trio
@@ -6,6 +5,7 @@ import trio
 from trio import _core
 
 from gen_exports import is_function, is_public
+
 
 @pytest.fixture
 def setup_ast():
@@ -39,14 +39,16 @@ class Test():
 
     return module
 
+
 def test_is_function(setup_ast):
     module = setup_ast
     for node in ast.walk(module):
         if isinstance(node, ast.FunctionDef):
-           assert is_function(node) is True
+            assert is_function(node) is True
         if isinstance(node, ast.AsyncFunctionDef):
             assert is_function(node) is True
     assert is_function(module) is False
+
 
 def test_is_public(setup_ast):
     module = setup_ast
