@@ -671,7 +671,8 @@ just the `frequently used ones
 
 Trio makes use of the :mod:`subprocess` module's logic for spawning
 processes, so almost all of these options can be used with their same
-semantics when starting subprocesses under Trio. (You may need to
+semantics when starting subprocesses under Trio; pass them wherever you see
+``**options`` in the API documentation below. (You may need to
 ``import subprocess`` in order to access constants such as ``PIPE`` or
 ``DEVNULL``.)  The exceptions are ``encoding``, ``errors``,
 ``universal_newlines`` (and its 3.7+ alias ``text``), and ``bufsize``;
@@ -752,6 +753,97 @@ You can spawn a subprocess by creating an instance of
 
 .. autoclass:: trio.Process
    :members:
+
+
+.. _subprocess-quoting:
+
+Quoting: more than you wanted to know
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The command to run and its arguments usually must be passed to Trio's
+subprocess APIs as a sequence of strings, where the first element in
+the sequence specifies the command to run and the remaining elements
+specify its arguments, one argument per element. This form is used
+because it avoids potential quoting pitfalls; for example, you can run
+``["cp", "-f", source_file, dest_file]`` without worrying about
+whether ``source_file`` or ``dest_file`` contains spaces.
+
+If you only run subprocesses without ``shell=True`` and on UNIX,
+that's all you need to know about specifying the command. If you use
+``shell=True`` or run on Windows, you probably should read the
+rest of this section to be aware of potential pitfalls.
+
+With ``shell=True`` on UNIX, you *must* specify the command as a
+single string, which will be passed to the shell as if you'd
+entered it at an interactive prompt. That means any argument that
+might contain spaces, quotes, or other shell metacharacters should
+be wrapped in :func:`shlex.quote` or something similar. The standard
+:mod:`subprocess` module supports sequences of arguments with
+``shell=True`` on UNIX, but their behavior is confusing, so
+Trio forbids them. (``subprocess.run(["echo $2 is $1", "weird", "this"],
+shell=True)`` prints ``this is weird``.)
+
+On Windows, the fundamental API for process spawning (the
+``CreateProcess()`` system call) takes a string, not a list, and it's
+actually up to the child process to decide how it wants to split that
+string into individual arguments. Since the C language specifies that
+``main()`` should take a list of arguments, *most* programs you
+encounter will follow the rules used by the Microsoft C/C++ runtime.
+:class:`subprocess.Popen`, and thus also Trio, uses these rules
+when it converts an argument sequence to a string, and they
+are `documented
+<https://docs.python.org/3/library/subprocess.html#converting-argument-sequence>`__
+alongside the :mod:`subprocess` module. There is no documented
+Python standard library function that can directly perform that
+conversion, so even on Windows, you almost always want to pass an
+argument sequence rather than a string. But if the program you're
+spawning doesn't split its command line back into individual arguments
+in the standard way, you might need to pass a string to work around this.
+(Or you might just be out of luck: as far as I can tell, there's simply
+no way to pass an argument containing a double-quote to a Windows
+batch file.)
+
+On Windows with ``shell=True``, things get even more chaotic. Now
+there are two separate sets of quoting rules applied, one by the
+Windows command shell ``CMD.EXE`` and one by the process being
+spawned, and they're *different*. Most special characters interpreted
+by the shell ``&<>()^|`` are not treated as special if the shell
+thinks they're inside double quotes, but ``%FOO%`` environment
+variable substitutions still are, and the shell doesn't provide any
+way to write a double quote inside a double-quoted string. Outside
+double quotes, any character (including a double quote) can be escaped
+using a leading ``^``.  But since a pipeline is processed by running
+each command in the pipeline in a subshell, multiple layers of
+escaping can be needed::
+
+    echo ^^^&x | find "x" | find "x"          # prints: &x
+
+And if you combine pipelines with () grouping, you can need even more
+levels of escaping::
+
+    (echo ^^^^^^^&x | find "x") | find "x"    # prints: &x
+
+Since process creation takes a single arguments string, ``CMD.EXE``\'s
+quoting does not influence word splitting, and double quotes are not
+removed during CMD.EXE's expansion pass. Double quotes are troublesome
+because CMD.EXE handles them differently from the MSVC runtime rules; in::
+
+    prog.exe "foo \"bar\" baz"
+
+the program will see one argument ``foo "bar" baz`` but CMD.EXE thinks
+``bar\`` is not quoted while ``foo \`` and ``baz`` are. All of this
+makes it a formidable task to reliably interpolate anything into a
+``shell=True`` command line on Windows, and Trio falls back on the
+:mod:`subprocess` behavior: If you pass a sequence with
+``shell=True``, it's quoted in the same way as a sequence with
+``shell=False``, and had better not contain any shell metacharacters
+you weren't planning on.
+
+Further reading:
+
+* https://stackoverflow.com/questions/30620876/how-to-properly-escape-filenames-in-windows-cmd-exe
+
+* https://stackoverflow.com/questions/4094699/how-does-the-windows-command-interpreter-cmd-exe-parse-scripts
 
 
 Differences from :class:`subprocess.Popen`
