@@ -18,11 +18,11 @@ create complex transport configurations. Here's some examples:
 * :class:`trio.SocketStream` wraps a raw socket (like a TCP connection
   over the network), and converts it to the standard stream interface.
 
-* :class:`trio.ssl.SSLStream` is a "stream adapter" that can take any
+* :class:`trio.SSLStream` is a "stream adapter" that can take any
   object that implements the :class:`trio.abc.Stream` interface, and
   convert it into an encrypted stream. In trio the standard way to
   speak SSL over the network is to wrap an
-  :class:`~trio.ssl.SSLStream` around a :class:`~trio.SocketStream`.
+  :class:`~trio.SSLStream` around a :class:`~trio.SocketStream`.
 
 * If you spawn a :ref:`subprocess`, you can get a
   :class:`~trio.abc.SendStream` that lets you write to its stdin, and
@@ -30,9 +30,9 @@ create complex transport configurations. Here's some examples:
   stdout. If for some reason you wanted to speak SSL to a subprocess,
   you could use a :class:`StapledStream` to combine its stdin/stdout
   into a single bidirectional :class:`~trio.abc.Stream`, and then wrap
-  that in an :class:`~trio.ssl.SSLStream`::
+  that in an :class:`~trio.SSLStream`::
 
-     ssl_context = trio.ssl.create_default_context()
+     ssl_context = ssl.create_default_context()
      ssl_context.check_hostname = False
      s = SSLStream(StapledStream(process.stdin, process.stdout), ssl_context)
 
@@ -41,8 +41,8 @@ create complex transport configurations. Here's some examples:
   HTTPS. So you end up having to do `SSL-on-top-of-SSL
   <https://daniel.haxx.se/blog/2016/11/26/https-proxy-with-curl/>`__. In
   trio this is trivial – just wrap your first
-  :class:`~trio.ssl.SSLStream` in a second
-  :class:`~trio.ssl.SSLStream`::
+  :class:`~trio.SSLStream` in a second
+  :class:`~trio.SSLStream`::
 
      # Get a raw SocketStream connection to the proxy:
      s0 = await open_tcp_stream("proxy", 443)
@@ -104,7 +104,7 @@ Abstract base classes
      - :class:`SendStream`, :class:`ReceiveStream`
      -
      -
-     - :class:`~trio.ssl.SSLStream`
+     - :class:`~trio.SSLStream`
    * - :class:`HalfCloseableStream`
      - :class:`Stream`
      - :meth:`~HalfCloseableStream.send_eof`
@@ -114,7 +114,7 @@ Abstract base classes
      - :class:`AsyncResource`
      - :meth:`~Listener.accept`
      -
-     - :class:`~trio.SocketListener`, :class:`~trio.ssl.SSLListener`
+     - :class:`~trio.SocketListener`, :class:`~trio.SSLListener`
    * - :class:`SendChannel`
      - :class:`AsyncResource`
      - :meth:`~SendChannel.send`, :meth:`~SendChannel.send_nowait`
@@ -223,17 +223,18 @@ abstraction.
 SSL / TLS support
 ~~~~~~~~~~~~~~~~~
 
-.. module:: trio.ssl
+Trio provides SSL/TLS support based on the standard library :mod:`ssl`
+module. Trio's :class:`SSLStream` and :class:`SSLListener` take their
+configuration from a :class:`ssl.SSLContext`, which you can create
+using :func:`ssl.create_default_context` and customize using the
+other constants and functions in the :mod:`ssl` module.
 
-The :mod:`trio.ssl` module implements SSL/TLS support for Trio, using
-the standard library :mod:`ssl` module. It re-exports most of
-:mod:`ssl`\´s API, with the notable exception of
-:class:`ssl.SSLContext`, which has unsafe defaults; if you really want
-to use :class:`ssl.SSLContext` you can import it from :mod:`ssl`, but
-normally you should create your contexts using
-:func:`trio.ssl.create_default_context <ssl.create_default_context>`.
+.. warning:: Avoid instantiating :class:`ssl.SSLContext` directly.
+   A newly constructed :class:`~ssl.SSLContext` has less secure
+   defaults than one returned by :func:`ssl.create_default_context`,
+   dramatically so before Python 3.6.
 
-Instead of using :meth:`ssl.SSLContext.wrap_socket`, though, you
+Instead of using :meth:`ssl.SSLContext.wrap_socket`, you
 create a :class:`SSLStream`:
 
 .. autoclass:: SSLStream
@@ -245,6 +246,11 @@ And if you're implementing a server, you can use :class:`SSLListener`:
 .. autoclass:: SSLListener
    :show-inheritance:
    :members:
+
+Some methods on :class:`SSLStream` raise :exc:`NeedHandshakeError` if
+you call them before the handshake completes:
+
+.. autoexception:: NeedHandshakeError
 
 
 .. module:: trio.socket
@@ -687,16 +693,6 @@ arguments accepted by the standard library :class:`subprocess.Popen`
 class are supported with their usual semantics, and can be passed
 wherever you see ``**options`` in the API documentation.
 
-Trio's subprocess API makes use of many of the constants and exceptions
-defined by the :mod:`subprocess` module in the standard library.
-It reexports these, minus the non-async-friendly code, as the
-submodule ``trio.subprocess``. So, if you'd like, you can say
-``from trio import subprocess`` and then refer to ``subprocess.PIPE``,
-:exc:`subprocess.CalledProcessError`, and so forth, without worrying
-about errant calls to synchronous functions like :func:`subprocess.run`.
-``trio.subprocess`` contains nothing but standard :mod:`subprocess`
-reexports; the actual API is all in the top-level ``trio`` package.
-
 
 .. _subprocess-options:
 
@@ -711,13 +707,15 @@ overwhelming, you're not alone; you might prefer to start with
 just the `frequently used ones
 <https://docs.python.org/3/library/subprocess.html#frequently-used-arguments>`__.)
 
-Trio makes use of the :mod:`subprocess` module's logic for spawning processes,
-so almost all of these options can be used with their same semantics when
-starting subprocesses under Trio. The exceptions are ``encoding``, ``errors``,
+Trio makes use of the :mod:`subprocess` module's logic for spawning
+processes, so almost all of these options can be used with their same
+semantics when starting subprocesses under Trio. (You may need to
+``import subprocess`` in order to access constants such as ``PIPE`` or
+``DEVNULL``.)  The exceptions are ``encoding``, ``errors``,
 ``universal_newlines`` (and its 3.7+ alias ``text``), and ``bufsize``;
-Trio always uses unbuffered byte streams for communicating with a process,
-so these options don't make sense. Text I/O should use a layer
-on top of the raw byte streams, just as it does with sockets.
+Trio always uses unbuffered byte streams for communicating with a
+process, so these options don't make sense. Text I/O should use a
+layer on top of the raw byte streams, just as it does with sockets.
 [This layer does not yet exist, but is in the works.]
 
 Trio also provides support for two Trio-specific options,
@@ -820,6 +818,12 @@ The low-level Process API
 All of the high-level subprocess functions described above are implemented
 in terms of the :class:`trio.Process` class, which provides an interface
 similar to the standard library's :class:`subprocess.Popen`.
+
+You can spawn a subprocess by creating an instance of
+:class:`trio.Process` and then interact with it using its
+:attr:`~trio.Process.stdin`,
+:attr:`~trio.Process.stdout`, and/or
+:attr:`~trio.Process.stderr` streams.
 
 .. autoclass:: trio.Process
 

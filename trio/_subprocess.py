@@ -29,7 +29,7 @@ __all__ = [
 
 
 class Process(AsyncResource):
-    """Execute a child program in a new process.
+    r"""Execute a child program in a new process.
 
     Like :class:`subprocess.Popen`, but async.
 
@@ -118,7 +118,7 @@ class Process(AsyncResource):
 
     Attributes:
       args (str or list): The ``command`` passed at construction time,
-          speifying the process to execute and its arguments.
+          specifying the process to execute and its arguments.
       pid (int): The process ID of the child process managed by this object.
       stdin (trio.abc.SendStream or None): A stream connected to the child's
           standard input stream: when you write bytes here, they become available

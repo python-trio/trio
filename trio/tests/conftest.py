@@ -9,9 +9,16 @@ import inspect
 
 from ..testing import trio_test, MockClock
 
+RUN_SLOW = True
+
 
 def pytest_addoption(parser):
     parser.addoption("--run-slow", action="store_true", help="run slow tests")
+
+
+def pytest_configure(config):
+    global RUN_SLOW
+    RUN_SLOW = config.getoption("--run-slow", True)
 
 
 @pytest.fixture

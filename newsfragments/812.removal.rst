@@ -1,1 +1,0 @@
-Remove the APIs deprecated in 0.5.0. (``ClosedStreamError``, ``ClosedListenerError``, ``Result``)

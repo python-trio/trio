@@ -4,7 +4,7 @@ import os
 import random
 import shlex
 import signal
-import subprocess as stdlib_subprocess
+import subprocess
 import sys
 import tempfile
 import pytest
@@ -18,7 +18,6 @@ from .. import (
     sleep_forever,
     Process,
     ProcessStream,
-    subprocess,
     open_process,
     run_process,
     delegate_to_process,
@@ -161,8 +160,6 @@ INTERACTIVE_DEMO = python(
 
 
 async def test_interactive():
-    # Test some back-and-forth with a subprocess. This one works like so:
-
     async with Process(
         INTERACTIVE_DEMO,
         stdin=subprocess.PIPE,
@@ -741,7 +738,7 @@ def test_waitid_eintr():
     from .._subprocess_platform.waitid import sync_wait_reapable
 
     got_alarm = False
-    sleeper = stdlib_subprocess.Popen(["sleep", "3600"])
+    sleeper = subprocess.Popen(["sleep", "3600"])
 
     def on_alarm(sig, frame):
         nonlocal got_alarm
@@ -760,13 +757,3 @@ def test_waitid_eintr():
             sleeper.kill()
             sleeper.wait()
         signal.signal(signal.SIGALRM, old_sigalrm)
-
-
-def test_all_constants_reexported():
-    trio_subprocess_exports = set(dir(subprocess))
-    import subprocess as stdlib_subprocess
-
-    for name in dir(stdlib_subprocess):
-        if name.isupper() and name[0] != "_":
-            stdlib_constant = name
-            assert stdlib_constant in trio_subprocess_exports

@@ -70,14 +70,13 @@ def test_module_metadata_is_fixed_up():
     import trio
     assert trio.Cancelled.__module__ == "trio"
     assert trio.open_cancel_scope.__module__ == "trio"
-    assert trio.ssl.SSLStream.__module__ == "trio.ssl"
     assert trio.abc.Stream.__module__ == "trio.abc"
     assert trio.hazmat.wait_task_rescheduled.__module__ == "trio.hazmat"
     import trio.testing
     assert trio.testing.trio_test.__module__ == "trio.testing"
 
     # Also check methods
-    assert trio.ssl.SSLStream.__init__.__module__ == "trio.ssl"
+    assert trio.hazmat.ParkingLot.__init__.__module__ == "trio.hazmat"
     assert trio.abc.Stream.send_all.__module__ == "trio.abc"
 
 

@@ -1,0 +1,2 @@
+High-level subprocess support: :func:`trio.open_process`, :func:`trio.run_process`,
+:func:`trio.delegate_to_process`.
