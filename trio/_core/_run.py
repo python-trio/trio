@@ -5,7 +5,6 @@ import random
 import select
 import sys
 import threading
-import weakref
 from collections import deque
 import collections.abc
 from contextlib import contextmanager, closing
@@ -755,8 +754,7 @@ class Runner:
 
     # {(deadline, id(CancelScope)): CancelScope}
     # only contains scopes with non-infinite deadlines that are currently
-    # attached to at least one task or also control the cancellation of other
-    # scopes
+    # attached to at least one task
     deadlines = attr.ib(default=attr.Factory(SortedDict))
 
     init_task = attr.ib(default=None)

@@ -1,7 +1,6 @@
 import contextvars
 import functools
 import platform
-import re
 import sys
 import threading
 import time
