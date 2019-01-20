@@ -12,6 +12,8 @@ import os
 import sys
 import yapf.yapflib.yapf_api as formatter
 
+from textwrap import indent
+
 SOURCE_TREE = './trio/_core'
 YAPF_STYLE = './.style.yapf'
 
@@ -164,6 +166,8 @@ def gen_source():
         # Remove method body
         del method.body[1:]
 
+        func = astor.to_source(method)
+
         # Create export function body
         template = TEMPLATE.format(
             'await' if isinstance(method, ast.AsyncFunctionDef) else '', ctx,
@@ -171,9 +175,7 @@ def gen_source():
         )
 
         # Assemble function definition arguments and body
-        ast_method = ast.parse(template)
-        method.body.extend(ast_method.body)
-        snippet = astor.to_source(method)
+        snippet = func + indent(template, ' '*4)
 
         # Append the snippet to the corresponding module
         source[method.module_file].append(snippet)
