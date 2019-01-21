@@ -45,6 +45,25 @@ async def test_basic():
     assert proc.returncode == 0
 
 
+async def test_multi_wait():
+    async with Process(SLEEP(10)) as proc:
+        # Check that wait (including multi-wait) tolerates being cancelled
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(proc.wait)
+            nursery.start_soon(proc.wait)
+            nursery.start_soon(proc.wait)
+            await wait_all_tasks_blocked()
+            nursery.cancel_scope.cancel()
+
+        # Now try waiting for real
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(proc.wait)
+            nursery.start_soon(proc.wait)
+            nursery.start_soon(proc.wait)
+            await wait_all_tasks_blocked()
+            proc.kill()
+
+
 async def test_kill_when_context_cancelled():
     with move_on_after(0) as scope:
         async with Process(SLEEP(10)) as proc:
