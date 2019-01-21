@@ -6,6 +6,7 @@ import sys
 
 from . import _core
 from ._abc import AsyncResource
+from ._highlevel_generic import StapledStream
 from ._sync import Lock
 from ._subprocess_platform import (
     wait_child_exiting, create_pipe_to_child_stdin,
@@ -90,6 +91,10 @@ class Process(AsyncResource):
           standard error, the written bytes become available for you
           to read here. Only available if the :class:`Process` was
           constructed using ``stderr=PIPE``; otherwise this will be None.
+      stdio (trio.StapledStream or None): A stream that sends data to
+          the child's standard input and receives from the child's standard
+          output. Only available if both :attr:`stdin` and :attr:`stdout` are
+          available; otherwise this will be None.
 
     """
 
@@ -152,6 +157,11 @@ class Process(AsyncResource):
                 os.close(stdout)
             if self.stderr is not None:
                 os.close(stderr)
+
+        if self.stdin is not None and self.stdout is not None:
+            self.stdio = StapledStream(self.stdin, self.stdout)
+        else:
+            self.stdio = None
 
         self.args = self._proc.args
         self.pid = self._proc.pid
