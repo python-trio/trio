@@ -1,9 +1,8 @@
 import ast
 import astor
 import pytest
-import os
 
-from .._utils.gen_exports import (
+from tools.gen_exports import (
     is_function, is_public, get_public_methods, get_export_modules_by_dir,
     get_module_trees_by_dir, get_doc_string
 )
@@ -72,10 +71,10 @@ def module(source):
 
 @pytest.fixture
 def mod_path(tmp_path, source, non_pub_source):
-    mod_path = os.path.join(tmp_path, 'public_module.py')
+    mod_path = str(tmp_path.joinpath('public_module.py'))
     with open(mod_path, 'w') as mod_file:
         mod_file.write(source)
-    non_pub_mod_path = os.path.join(tmp_path, 'non_public_module.py')
+    non_pub_mod_path = str(tmp_path.joinpath('non_public_module.py'))
     with open(non_pub_mod_path, 'w') as mod_file:
         mod_file.write(non_pub_source)
     return tmp_path
