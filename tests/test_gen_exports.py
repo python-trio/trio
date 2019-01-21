@@ -145,16 +145,26 @@ def test_get_doc_string(module):
             if node.name == 'public_async_func':
                 assert get_doc_string(node) == ''
 
+
 def test_create_pass_through_args(module):
-    test_args = {'one_arg_func' : 'one',
-                 'two_args_func' : 'one, two',
-                  'var_arg_func' : 'one, *varargs',
-                  'kwonly_arg_func' : "one, *varargs, kwarg=kwarg",
-                  'kwvar_arg_func' : 'one, **varkwargs',
-                  'all_args_func' : "one, two, *args, kwargone=kwargone, kwargtwo=kwargtwo, **kwargs"
-                }
+    test_args = {
+        'one_arg_func':
+            'one',
+        'two_args_func':
+            'one, two',
+        'var_arg_func':
+            'one, *varargs',
+        'kwonly_arg_func':
+            "one, *varargs, kwarg=kwarg",
+        'kwvar_arg_func':
+            'one, **varkwargs',
+        'all_args_func':
+            "one, two, *args, kwargone=kwargone, kwargtwo=kwargtwo, **kwargs"
+    }
     for node in ast.walk(module):
         if is_function(node):
             for fnc in test_args.keys():
                 if node.name == fnc:
-                    assert create_passthrough_args(node) == '({})'.format(test_args[fnc])
+                    assert create_passthrough_args(node) == '({})'.format(
+                        test_args[fnc]
+                    )
