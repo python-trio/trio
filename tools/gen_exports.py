@@ -114,9 +114,7 @@ def get_doc_string(func):
 
 def create_passthrough_args(funcdef):
     """ Create a pass through argument list
-    Every default argument value is
-    replaced by its argument corresponding
-    argument name
+    so no arguements are lost
     """
     call_args = []
     for arg in funcdef.args.args:

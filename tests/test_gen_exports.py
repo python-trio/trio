@@ -4,7 +4,7 @@ import pytest
 
 from tools.gen_exports import (
     is_function, is_public, get_public_methods, get_export_modules_by_dir,
-    get_module_trees_by_dir, get_doc_string
+    get_module_trees_by_dir, get_doc_string, create_passthrough_args
 )
 
 
@@ -26,6 +26,24 @@ async def async_func():
 class Test:
 
     def non_public_func():
+        """"""
+
+    def one_arg_func(one):
+        """"""
+
+    def two_args_func(one, two):
+        """"""
+
+    def var_arg_func(one, *varargs):
+        """"""
+
+    def kwonly_arg_func(one, *varargs, kwarg=''):
+        """"""
+
+    def kwvar_arg_func(one, **varkwargs):
+        """"""
+
+    def all_args_func(one, two, *args, kwargone='', kwargtwo=10, **kwargs):
         """"""
 
     @_public
@@ -126,3 +144,17 @@ def test_get_doc_string(module):
                 assert get_doc_string(node) == 'With doc string'
             if node.name == 'public_async_func':
                 assert get_doc_string(node) == ''
+
+def test_create_pass_through_args(module):
+    test_args = {'one_arg_func' : 'one',
+                 'two_args_func' : 'one, two',
+                  'var_arg_func' : 'one, *varargs',
+                  'kwonly_arg_func' : "one, *varargs, kwarg=kwarg",
+                  'kwvar_arg_func' : 'one, **varkwargs',
+                  'all_args_func' : "one, two, *args, kwargone=kwargone, kwargtwo=kwargtwo, **kwargs"
+                }
+    for node in ast.walk(module):
+        if is_function(node):
+            for fnc in test_args.keys():
+                if node.name == fnc:
+                    assert create_passthrough_args(node) == '({})'.format(test_args[fnc])
