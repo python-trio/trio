@@ -6,6 +6,8 @@ source=trio
 omit=
   setup.py
   */ipython_custom_exc.py
+# Omit the generated files in trio/_core starting with _public_
+  trio/_core/_public_*
 # The test suite spawns subprocesses to test some stuff, so make sure
 # this doesn't corrupt the coverage files
 parallel=True
