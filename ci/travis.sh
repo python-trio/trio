@@ -85,6 +85,10 @@ else
     #   https://github.com/python-trio/trio/issues/711
     #   https://github.com/nedbat/coveragepy/issues/707#issuecomment-426455490
     if [ "$(python -V)" != "Python 3.8.0a0" ]; then
-        bash <(curl -s https://codecov.io/bash) -F "${CODECOV_FLAG}"
+        # Disable coverage on pypy py3.6 nightly for now:
+        # https://bitbucket.org/pypy/pypy/issues/2943/
+        if [ "$PYPY_NIGHTLY_BRANCH" != "py3.6" ]; then
+            bash <(curl -s https://codecov.io/bash) -F "${CODECOV_FLAG}"
+        fi
     fi
 fi
