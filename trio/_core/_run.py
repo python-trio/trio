@@ -1602,14 +1602,14 @@ _NO_SEND = Runner._NO_SEND
 
 if os.name == "nt":
     from ._io_windows import WindowsIOManager as TheIOManager
-    from ._public_io_windows import *
+    from ._generated_io_windows import *
 elif hasattr(select, "epoll"):
     from ._io_epoll import EpollIOManager as TheIOManager
-    from ._public_io_epoll import *
+    from ._generated_io_epoll import *
 elif hasattr(select, "kqueue"):
     from ._io_kqueue import KqueueIOManager as TheIOManager
-    from ._public_io_kqueue import *
+    from ._generated_io_kqueue import *
 else:  # pragma: no cover
     raise NotImplementedError("unsupported platform")
 
-from ._public_run import *
+from ._generated_run import *
