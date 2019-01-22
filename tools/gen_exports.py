@@ -104,12 +104,10 @@ def get_doc_string(func):
     """ Returns the doc string of a function
     or an empty sting if none
     """
-    doc = func.body[0]
-    if isinstance(doc, ast.Expr):
-        if hasattr(doc, 'value'):
-            if hasattr(doc.value, 's'):
-                return doc.value.s
-    return ""
+    try:
+        return ast.get_docstring(func)
+    except TypeError:
+        return
 
 
 def create_passthrough_args(funcdef):
@@ -161,8 +159,12 @@ def gen_source():
         # Create pass through arguments
         new_args = create_passthrough_args(method)
 
-        # Remove method body
-        del method.body[1:]
+        # Remove method body without the docstring
+        if get_doc_string(method) is None:
+            del method.body[:]
+        else:
+            # The first entry is always the docstring
+            del method.body[1:]
 
         # Create the function definition including the body
         func = astor.to_source(method, indent_with=' ' * 4)

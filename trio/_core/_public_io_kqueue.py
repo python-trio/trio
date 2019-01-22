@@ -6,7 +6,6 @@ from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 
 
 def current_kqueue():
-    """"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.current_kqueue()
@@ -15,7 +14,6 @@ def current_kqueue():
 
 
 def monitor_kevent(ident, filter):
-    """"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.monitor_kevent(
@@ -26,7 +24,6 @@ def monitor_kevent(ident, filter):
 
 
 async def wait_kevent(ident, filter, abort_func):
-    """"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_kevent(
@@ -37,7 +34,6 @@ async def wait_kevent(ident, filter, abort_func):
 
 
 async def wait_readable(fd):
-    """"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_readable(fd)
@@ -46,7 +42,6 @@ async def wait_readable(fd):
 
 
 async def wait_writable(fd):
-    """"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_writable(fd)
@@ -55,7 +50,6 @@ async def wait_writable(fd):
 
 
 def notify_fd_close(fd):
-    """"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.notify_fd_close(fd)

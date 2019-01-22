@@ -6,7 +6,6 @@ from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 
 
 def current_iocp():
-    """"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.current_iocp()
@@ -15,7 +14,6 @@ def current_iocp():
 
 
 def register_with_iocp(handle):
-    """"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.register_with_iocp(handle)
@@ -24,7 +22,6 @@ def register_with_iocp(handle):
 
 
 async def wait_overlapped(handle, lpOverlapped):
-    """"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_overlapped(
@@ -35,7 +32,6 @@ async def wait_overlapped(handle, lpOverlapped):
 
 
 def monitor_completion_key():
-    """"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.monitor_completion_key()
@@ -44,7 +40,6 @@ def monitor_completion_key():
 
 
 async def wait_socket_readable(sock):
-    """"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_socket_readable(
@@ -55,7 +50,6 @@ async def wait_socket_readable(sock):
 
 
 async def wait_socket_writable(sock):
-    """"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_socket_writable(
@@ -66,7 +60,6 @@ async def wait_socket_writable(sock):
 
 
 def notify_socket_close(sock):
-    """"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.notify_socket_close(sock)
@@ -75,7 +68,6 @@ def notify_socket_close(sock):
 
 
 async def write_overlapped(handle, data, file_offset=0):
-    """"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.write_overlapped(
@@ -86,7 +78,6 @@ async def write_overlapped(handle, data, file_offset=0):
 
 
 async def readinto_overlapped(handle, buffer, file_offset=0):
-    """"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.readinto_overlapped(

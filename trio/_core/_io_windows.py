@@ -334,12 +334,10 @@ class WindowsIOManager:
 
     @_public
     def current_iocp(self):
-        """"""
         return int(ffi.cast("uintptr_t", self._iocp))
 
     @_public
     def register_with_iocp(self, handle):
-        """"""
         handle = _handle(handle)
         # https://msdn.microsoft.com/en-us/library/windows/desktop/aa363862(v=vs.85).aspx
         # INVALID_PARAMETER seems to be used for both "can't register
@@ -348,7 +346,6 @@ class WindowsIOManager:
 
     @_public
     async def wait_overlapped(self, handle, lpOverlapped):
-        """"""
         handle = _handle(handle)
         if isinstance(lpOverlapped, int):
             lpOverlapped = ffi.cast("LPOVERLAPPED", lpOverlapped)
@@ -425,7 +422,6 @@ class WindowsIOManager:
     @contextmanager
     @_public
     def monitor_completion_key(self):
-        """"""
         key = next(self._completion_key_counter)
         queue = _core.UnboundedQueue()
         self._completion_key_queues[key] = queue
@@ -453,17 +449,14 @@ class WindowsIOManager:
 
     @_public
     async def wait_socket_readable(self, sock):
-        """"""
         await self._wait_socket("read", sock)
 
     @_public
     async def wait_socket_writable(self, sock):
-        """"""
         await self._wait_socket("write", sock)
 
     @_public
     def notify_socket_close(self, sock):
-        """"""
         if not isinstance(sock, int):
             sock = sock.fileno()
         for mode in ["read", "write"]:
@@ -492,7 +485,6 @@ class WindowsIOManager:
 
     @_public
     async def write_overlapped(self, handle, data, file_offset=0):
-        """"""
         # Make sure we keep our buffer referenced until the I/O completes.
         # For typical types of `data` (bytes, bytearray) the memory we
         # pass is part of the existing allocation, but the buffer protocol
@@ -557,7 +549,6 @@ class WindowsIOManager:
 
     @_public
     async def readinto_overlapped(self, handle, buffer, file_offset=0):
-        """"""
         # This will throw a reasonable error if `buffer` is read-only
         # or doesn't support the buffer protocol, and perform no
         # operation otherwise. A future release of CFFI will support

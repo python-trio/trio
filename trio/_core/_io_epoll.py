@@ -119,17 +119,14 @@ class EpollIOManager:
 
     @_public
     async def wait_readable(self, fd):
-        """"""
         await self._epoll_wait(fd, "read_task")
 
     @_public
     async def wait_writable(self, fd):
-        """"""
         await self._epoll_wait(fd, "write_task")
 
     @_public
     def notify_fd_close(self, fd):
-        """"""
         if not isinstance(fd, int):
             fd = fd.fileno()
         if fd not in self._registered:
