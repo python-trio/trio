@@ -216,7 +216,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     if args.test:
         for src in sources:
-            pub_file_path = os.path.join(args.path, '_public' + src)
+            pub_file_path = os.path.join(args.path, PREFIX + src)
             if not os.path.exists(pub_file_path):
                 assert sources[src] == ''
             with open(pub_file_path, 'r') as pub_file:
