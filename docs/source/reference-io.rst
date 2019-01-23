@@ -773,15 +773,17 @@ that's all you need to know about specifying the command. If you use
 ``shell=True`` or run on Windows, you probably should read the
 rest of this section to be aware of potential pitfalls.
 
-With ``shell=True`` on UNIX, you *must* specify the command as a
-single string, which will be passed to the shell as if you'd
-entered it at an interactive prompt. That means any argument that
-might contain spaces, quotes, or other shell metacharacters should
-be wrapped in :func:`shlex.quote` or something similar. The standard
-:mod:`subprocess` module supports sequences of arguments with
-``shell=True`` on UNIX, but their behavior is confusing, so
-Trio forbids them. (``subprocess.run(["echo $2 is $1", "weird", "this"],
-shell=True)`` prints ``this is weird``.)
+With ``shell=True`` on UNIX, you must specify the command as a single
+string, which will be passed to the shell as if you'd entered it at an
+interactive prompt. The advantage of this option is that it lets you
+use shell features like pipes and redirection without writing code to
+handle them. For example, you can write ``Process("ls | grep
+some_string", shell=True)``.  The disadvantage is that you must
+account for the shell's quoting rules, generally by wrapping in
+:func:`shlex.quote` any argument that might contain spaces, quotes, or
+other shell metacharacters.  If you don't do that, your safe-looking
+``f"ls | grep {some_string}"`` might end in disaster when invoked with
+``some_string = "foo; rm -rf /"``.
 
 On Windows, the fundamental API for process spawning (the
 ``CreateProcess()`` system call) takes a string, not a list, and it's
@@ -806,15 +808,16 @@ batch file.)
 On Windows with ``shell=True``, things get even more chaotic. Now
 there are two separate sets of quoting rules applied, one by the
 Windows command shell ``CMD.EXE`` and one by the process being
-spawned, and they're *different*. Most special characters interpreted
-by the shell ``&<>()^|`` are not treated as special if the shell
-thinks they're inside double quotes, but ``%FOO%`` environment
-variable substitutions still are, and the shell doesn't provide any
-way to write a double quote inside a double-quoted string. Outside
-double quotes, any character (including a double quote) can be escaped
-using a leading ``^``.  But since a pipeline is processed by running
-each command in the pipeline in a subshell, multiple layers of
-escaping can be needed::
+spawned, and they're *different*. (And there's no :func:`shlex.quote`
+to save you: it uses UNIX-style quoting rules, even on Windows.)  Most
+special characters interpreted by the shell ``&<>()^|`` are not
+treated as special if the shell thinks they're inside double quotes,
+but ``%FOO%`` environment variable substitutions still are, and the
+shell doesn't provide any way to write a double quote inside a
+double-quoted string. Outside double quotes, any character (including
+a double quote) can be escaped using a leading ``^``.  But since a
+pipeline is processed by running each command in the pipeline in a
+subshell, multiple layers of escaping can be needed::
 
     echo ^^^&x | find "x" | find "x"          # prints: &x
 
