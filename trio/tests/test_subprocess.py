@@ -7,7 +7,8 @@ import sys
 import pytest
 
 from .. import (
-    _core, move_on_after, fail_after, sleep, sleep_forever, Process, run_process
+    _core, move_on_after, fail_after, sleep, sleep_forever, Process,
+    run_process
 )
 from .._core.tests.tutil import slow
 from ..testing import wait_all_tasks_blocked
@@ -86,8 +87,7 @@ async def test_kill_when_context_cancelled():
     assert scope.cancelled_caught
     assert got_signal(proc, SIGKILL)
     assert repr(proc) == "<trio.Process {!r}: {}>".format(
-        SLEEP(10), "exited with signal 9"
-        if posix else "exited with status 1"
+        SLEEP(10), "exited with signal 9" if posix else "exited with status 1"
     )
 
 
