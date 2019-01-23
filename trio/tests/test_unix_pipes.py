@@ -16,26 +16,22 @@ if posix:
 
 async def test_send_pipe():
     r, w = os.pipe()
-    send = PipeSendStream(w)
-    assert send.fileno() == w
-    await send.send_all(b"123")
-    assert (os.read(r, 8)) == b"123"
+    async with PipeSendStream(w) as send:
+        assert send.fileno() == w
+        await send.send_all(b"123")
+        assert (os.read(r, 8)) == b"123"
 
-    os.close(r)
-    os.close(w)
-    send._closed = True
+        os.close(r)
 
 
 async def test_receive_pipe():
     r, w = os.pipe()
-    recv = PipeReceiveStream(r)
-    assert (recv.fileno()) == r
-    os.write(w, b"123")
-    assert (await recv.receive_some(8)) == b"123"
+    async with PipeReceiveStream(r) as recv:
+        assert (recv.fileno()) == r
+        os.write(w, b"123")
+        assert (await recv.receive_some(8)) == b"123"
 
-    os.close(r)
-    os.close(w)
-    recv._closed = True
+        os.close(w)
 
 
 async def test_pipes_combined():
@@ -90,8 +86,8 @@ async def test_async_with():
     async with w, r:
         pass
 
-    assert w._closed
-    assert r._closed
+    assert w.fileno() == -1
+    assert r.fileno() == -1
 
     with pytest.raises(OSError) as excinfo:
         os.close(w.fileno())

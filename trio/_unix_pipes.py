@@ -1,117 +1,161 @@
 import fcntl
 import os
 from typing import Tuple
+import errno
 
 from . import _core
 from ._abc import SendStream, ReceiveStream
+from ._util import ConflictDetector
 
 __all__ = ["PipeSendStream", "PipeReceiveStream", "make_pipe"]
 
 
-class _PipeMixin:
-    def __init__(self, pipefd: int) -> None:
-        if not isinstance(pipefd, int):
-            raise TypeError(
-                "{0.__class__.__name__} needs a pipe fd".format(self)
-            )
+class _FdHolder:
+    # This class holds onto a raw file descriptor, in non-blocking mode, and
+    # is responsible for managing its lifecycle. In particular, it's
+    # responsible for making sure it gets closed, and also for tracking
+    # whether it's been closed.
+    #
+    # The way we track closure is to set the .fd field to -1, discarding the
+    # original value. You might think that this is a strange idea, since it
+    # overloads the same field to do two different things. Wouldn't it be more
+    # natural to have a dedicated .closed field? But that would be more
+    # error-prone. Fds are represented by small integers, and once an fd is
+    # closed, its integer value may be reused immediately. If we accidentally
+    # used the old fd after being closed, we might end up doing something to
+    # another unrelated fd that happened to get assigned the same integer
+    # value. By throwing away the integer value immediately, it becomes
+    # impossible to make this mistake – we'll just get an EBADF.
+    #
+    # (This trick was copied from the stdlib socket module.)
+    def __init__(self, fd: int):
+        if not isinstance(fd, int):
+            raise TypeError("file descriptor must be an int")
+        self.fd = fd
+        # Flip the fd to non-blocking mode
+        flags = fcntl.fcntl(self.fd, fcntl.F_GETFL)
+        fcntl.fcntl(self.fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
 
-        self._pipe = pipefd
-        self._closed = False
+    @property
+    def closed(self):
+        return self.fd == -1
 
-        flags = fcntl.fcntl(self._pipe, fcntl.F_GETFL)
-        fcntl.fcntl(self._pipe, fcntl.F_SETFL, flags | os.O_NONBLOCK)
-
-    def _close(self):
-        if self._closed:
+    def _raw_close(self):
+        # This doesn't assume it's in a trio context, so it can be called from
+        # __del__. You should never call it from Trio context, because it
+        # skips calling notify_fd_close. But from __del__, skipping that is
+        # OK, because notify_fd_close just wakes up other tasks that are
+        # waiting on this fd, and those tasks hold a reference to this object.
+        # So if __del__ is being called, we know there aren't any tasks that
+        # need to be woken.
+        if self.closed:
             return
-
-        self._closed = True
-        os.close(self._pipe)
-
-    async def aclose(self):
-        # XX: This would be in _close, but this can only be used from an
-        # async context.
-        _core.notify_fd_close(self._pipe)
-        self._close()
-        await _core.checkpoint()
-
-    def fileno(self) -> int:
-        """Gets the file descriptor for this pipe."""
-        return self._pipe
+        fd = self.fd
+        self.fd = -1
+        os.close(fd)
 
     def __del__(self):
-        self._close()
+        self._raw_close()
+
+    async def aclose(self):
+        if not self.closed:
+            _core.notify_fd_close(self.fd)
+            self._raw_close()
+        await _core.checkpoint()
 
 
-class PipeSendStream(_PipeMixin, SendStream):
+class PipeSendStream(SendStream):
     """Represents a send stream over an os.pipe object."""
 
+    def __init__(self, fd: int):
+        self._fd_holder = _FdHolder(fd)
+        self._conflict_detector = ConflictDetector(
+            "another task is using this pipe"
+        )
+
     async def send_all(self, data: bytes):
-        # we have to do this no matter what
-        await _core.checkpoint()
-        if self._closed:
-            raise _core.ClosedResourceError("this pipe is already closed")
+        async with self._conflict_detector:
+            # have to check up front, because send_all(b"") on a closed pipe
+            # should raise
+            if self._fd_holder.closed:
+                raise _core.ClosedResourceError("this pipe was already closed")
 
-        if not data:
-            return
-
-        length = len(data)
-        # adapted from the SocketStream code
-        with memoryview(data) as view:
-            total_sent = 0
-            while total_sent < length:
-                with view[total_sent:] as remaining:
-                    try:
-                        total_sent += os.write(self._pipe, remaining)
-                    except BrokenPipeError as e:
-                        await _core.checkpoint()
-                        raise _core.BrokenResourceError from e
-                    except BlockingIOError:
-                        await self.wait_send_all_might_not_block()
+            length = len(data)
+            # adapted from the SocketStream code
+            with memoryview(data) as view:
+                sent = 0
+                while sent < length:
+                    with view[sent:] as remaining:
+                        try:
+                            sent += os.write(self._fd_holder.fd, remaining)
+                        except BlockingIOError:
+                            await _core.wait_writable(self._fd_holder.fd)
+                        except OSError as e:
+                            if e.errno == errno.EBADF:
+                                raise _core.ClosedResourceError(
+                                    "this pipe was closed"
+                                ) from None
+                            else:
+                                raise _core.BrokenResourceError from e
 
     async def wait_send_all_might_not_block(self) -> None:
-        if self._closed:
-            await _core.checkpoint()
-            raise _core.ClosedResourceError("This pipe is already closed")
+        async with self._conflict_detector:
+            if self._fd_holder.closed:
+                raise _core.ClosedResourceError("this pipe was already closed")
+            try:
+                await _core.wait_writable(self._fd_holder.fd)
+            except BrokenPipeError as e:
+                # kqueue: raises EPIPE on wait_writable instead
+                # of sending, which is annoying
+                raise _core.BrokenResourceError from e
 
-        try:
-            await _core.wait_writable(self._pipe)
-        except BrokenPipeError as e:
-            # kqueue: raises EPIPE on wait_writable instead
-            # of sending, which is annoying
-            # also doesn't checkpoint so we have to do that
-            # ourselves here too
-            await _core.checkpoint()
-            raise _core.BrokenResourceError from e
+    async def aclose(self):
+        await self._fd_holder.aclose()
+
+    def fileno(self):
+        return self._fd_holder.fd
 
 
-class PipeReceiveStream(_PipeMixin, ReceiveStream):
+class PipeReceiveStream(ReceiveStream):
     """Represents a receive stream over an os.pipe object."""
 
+    def __init__(self, fd: int):
+        self._fd_holder = _FdHolder(fd)
+        self._conflict_detector = ConflictDetector(
+            "another task is using this pipe"
+        )
+
     async def receive_some(self, max_bytes: int) -> bytes:
-        if self._closed:
-            await _core.checkpoint()
-            raise _core.ClosedResourceError("this pipe is already closed")
+        async with self._conflict_detector:
+            if not isinstance(max_bytes, int):
+                raise TypeError("max_bytes must be integer >= 1")
 
-        if not isinstance(max_bytes, int):
-            await _core.checkpoint()
-            raise TypeError("max_bytes must be integer >= 1")
+            if max_bytes < 1:
+                raise ValueError("max_bytes must be integer >= 1")
 
-        if max_bytes < 1:
-            await _core.checkpoint()
-            raise ValueError("max_bytes must be integer >= 1")
+            while True:
+                try:
+                    data = os.read(self._fd_holder.fd, max_bytes)
+                except BlockingIOError:
+                    await _core.wait_readable(self._fd_holder.fd)
+                except OSError as e:
+                    await _core.cancel_shielded_checkpoint()
+                    if e.errno == errno.EBADF:
+                        raise _core.ClosedResourceError(
+                            "this pipe was closed"
+                        ) from None
+                    else:
+                        raise _core.BrokenResourceError from e
+                else:
+                    break
 
-        while True:
-            try:
-                await _core.checkpoint_if_cancelled()
-                data = os.read(self._pipe, max_bytes)
-            except BlockingIOError:
-                await _core.wait_readable(self._pipe)
-            else:
-                await _core.cancel_shielded_checkpoint()
-                break
+            return data
 
-        return data
+    async def aclose(self):
+        await self._fd_holder.aclose()
+
+    def fileno(self):
+        return self._fd_holder.fd
 
 
 async def make_pipe() -> Tuple[PipeSendStream, PipeReceiveStream]:

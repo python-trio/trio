@@ -1,0 +1,3 @@
+Fixed several bugs in the new subprocess pipe support, where
+operations on a closed pipe could accidentally affect another
+unrelated pipe due to internal file-descriptor reuse.
