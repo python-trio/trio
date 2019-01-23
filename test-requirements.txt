@@ -38,7 +38,7 @@ pycparser==2.19           # via cffi
 pyflakes==2.0.0           # via flake8
 pygments==2.3.1           # via ipython
 pylint==2.2.2
-pyopenssl==18.0.0
+pyopenssl==19.0.0
 pytest-cov==2.6.1
 pytest-faulthandler==1.5.0
 pytest==4.1.1
@@ -46,8 +46,8 @@ six==1.12.0               # via astroid, cryptography, more-itertools, prompt-to
 sniffio==1.0.0
 sortedcontainers==2.1.0
 traitlets==4.3.2          # via ipython
-trustme==0.4.0
+trustme==0.5.0
 typed-ast==1.1.0 ; python_version < "3.7" and implementation_name == "cpython"
 wcwidth==0.1.7            # via prompt-toolkit
-wrapt==1.11.0             # via astroid
+wrapt==1.11.1             # via astroid
 yapf==0.25.0
