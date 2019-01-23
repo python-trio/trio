@@ -48,7 +48,7 @@ from ._file_io import open_file, wrap_file
 
 from ._path import Path
 
-from ._subprocess import Process
+from ._subprocess import Process, run_process
 
 from ._ssl import SSLStream, SSLListener, NeedHandshakeError
 

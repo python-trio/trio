@@ -13,7 +13,7 @@ from ._subprocess_platform import (
     create_pipe_from_child_output
 )
 
-__all__ = ["Process"]
+__all__ = ["Process", "run_process"]
 
 
 class Process(AsyncResource):
@@ -166,14 +166,29 @@ class Process(AsyncResource):
         self.args = self._proc.args
         self.pid = self._proc.pid
 
+    def __repr__(self):
+        if self.returncode is None:
+            status = "running with PID {}".format(self.pid)
+        else:
+            if self.returncode < 0:
+                status = "exited with signal {}".format(-self.returncode)
+            else:
+                status = "exited with status {}".format(self.returncode)
+        return "<trio.Process {!r}: {}>".format(self.args, status)
+
     @property
     def returncode(self):
-        """The exit status of the process (an integer), or ``None`` if it has
-        not exited.
+        """The exit status of the process (an integer), or ``None`` if it is
+        not yet known to have exited.
 
-        Negative values indicate termination due to a signal (on UNIX only).
-        Like :attr:`subprocess.Popen.returncode`, this is not updated outside
-        of a call to :meth:`wait` or :meth:`poll`.
+        By convention, a return code of zero indicates success.  On
+        UNIX, negative values indicate termination due to a signal,
+        e.g., -11 if terminated by signal 11 (``SIGSEGV``).  On
+        Windows, a process that exits due to a call to
+        :meth:`Process.terminate` will have an exit status of 1.
+
+        Accessing this attribute does not check for termination;
+        use :meth:`poll` or :meth:`wait` for that.
         """
         return self._proc.returncode
 
@@ -203,10 +218,7 @@ class Process(AsyncResource):
         """Block until the process exits.
 
         Returns:
-          The exit status of the process (a nonnegative integer, with
-          zero usually indicating success). On UNIX systems, a process
-          that exits due to a signal will have its exit status reported
-          as the negative of that signal number, e.g., -11 for ``SIGSEGV``.
+          The exit status of the process; see :attr:`returncode`.
         """
         if self.poll() is None:
             async with self._wait_lock:
@@ -218,17 +230,187 @@ class Process(AsyncResource):
         return self.returncode
 
     def poll(self):
-        """Forwards to :meth:`subprocess.Popen.poll`."""
+        """Check if the process has exited yet.
+
+        Returns:
+          The exit status of the process, or ``None`` if it is still
+          running; see :attr:`returncode`.
+        """
         return self._proc.poll()
 
     def send_signal(self, sig):
-        """Forwards to :meth:`subprocess.Popen.send_signal`."""
+        """Send signal ``sig`` to the process.
+
+        On UNIX, ``sig`` may be any signal defined in the
+        :mod:`signal` module, such as ``signal.SIGINT`` or
+        ``signal.SIGTERM``. On Windows, it may be anything accepted by
+        the standard library :meth:`subprocess.Popen.send_signal`.
+        """
         self._proc.send_signal(sig)
 
     def terminate(self):
-        """Forwards to :meth:`subprocess.Popen.terminate`."""
+        """Terminate the process, politely if possible.
+
+        On UNIX, this is equivalent to
+        ``send_signal(signal.SIGTERM)``; by convention this requests
+        graceful termination, but a misbehaving or buggy process might
+        ignore it. On Windows, :meth:`terminate` forcibly terminates the
+        process in the same manner as :meth:`kill`.
+        """
         self._proc.terminate()
 
     def kill(self):
-        """Forwards to :meth:`subprocess.Popen.kill`."""
+        """Immediately terminate the process.
+
+        On UNIX, this is equivalent to
+        ``send_signal(signal.SIGKILL)``.  On Windows, it calls
+        ``TerminateProcess``. In both cases, the process cannot
+        prevent itself from being killed, but the termination will be
+        delivered asynchronously; use :meth:`wait` if you want to
+        ensure the process is actually dead before proceeding.
+        """
         self._proc.kill()
+
+
+async def run_process(
+    command,
+    *,
+    input=None,
+    check=True,
+    task_status=_core.TASK_STATUS_IGNORED,
+    **options
+):
+    """Run ``command`` in a subprocess, wait for it to complete, and
+    return a :class:`subprocess.CompletedProcess` instance describing
+    the results.
+
+    If cancelled, :func:`run_process` terminates the subprocess and
+    waits for it to exit before propagating the cancellation, like
+    :meth:`Process.aclose`.
+
+    The default behavior of :func:`run_process` is designed to isolate
+    the subprocess from potential impacts on the parent Trio process, and to
+    reduce opportunities for errors to pass silently. Specifically:
+
+    * The subprocess's standard input stream is set up to receive the
+      bytes provided as ``input``.  Once the given input has been
+      fully delivered, or if none is provided, the subprocess will
+      receive end-of-file when reading from its standard input.
+
+    * The subprocess's standard output and standard error streams are
+      individually captured and returned as bytestrings from
+      :func:`run_process`.
+
+    * If the subprocess exits with a nonzero status code, indicating failure,
+      :func:`run_process` raises a :exc:`subprocess.CalledProcessError`
+      exception rather than returning normally. The captured outputs
+      are still available as the ``stdout`` and ``stderr`` attributes
+      of that exception.
+
+    To suppress the :exc:`~subprocess.CalledProcessError` on failure,
+    pass ``check=False``. To obtain different I/O behavior, use the
+    lower-level standard stream :ref:`redirection options <subprocess-options>`
+    ``stdin``, ``stdout``, and/or ``stderr``. (If you want one of the
+    subprocess's standard streams to go to the same place the parent
+    Trio process's corresponding stream goes, pass an explicit ``None``.)
+
+    It is an error to specify ``input`` if ``stdin`` is specified. If
+    ``stdout`` or ``stderr`` is specified (as something other than
+    ``subprocess.PIPE``), the corresponding attribute of the returned
+    :class:`~subprocess.CompletedProcess` object will be ``None``.
+
+    Args:
+      command (list or str): The command to run. Typically this is a
+          sequence of strings such as ``['ls', '-l', 'directory with spaces']``,
+          where the first element names the executable to invoke and the other
+          elements specify its arguments. With ``shell=True`` in the
+          ``**options``, or on Windows, ``command`` may alternatively
+          be a string, which will be parsed following platform-dependent
+          quoting rules.
+      input (bytes): The input to provide to the subprocess on its
+          standard input stream. If you want the subprocess's input
+          to come from something other than data specified at the time
+          of the :func:`run_process` call, you can specify a redirection
+          using the lower-level ``stdin`` option; then ``input`` must
+          be unspecified or None.
+      check (bool): If false, don't validate that the subprocess exits
+          successfully. You should be sure to check the
+          ``returncode`` attribute of the returned object if you pass
+          ``check=False``, so that errors don't pass silently.
+      task_status: This function can be used with ``nursery.start``.
+          If it is, it returns the :class:`Process` object, so that other tasks
+          can send signals to the subprocess or wait for it to exit.
+          They shouldn't try to send or receive on the subprocess's
+          input and output streams, because :func:`run_process` is
+          already doing that. Note that signals which terminate a
+          subprocess often result in a nonzero return code; you
+          probably want to pass ``check=False`` and do your own
+          more specific error check if you're planning on sending any.
+      **options: :func:`run_process` also accepts any :ref:`general subprocess
+          options <subprocess-options>` and passes them on to the
+          :class:`~trio.Process` constructor.
+
+    Returns:
+      A :class:`subprocess.CompletedProcess` instance describing the
+      return code and outputs.
+
+    Raises:
+      subprocess.CalledProcessError: if ``check=False`` is not passed
+          and the process exits with a nonzero exit status
+      OSError: if an error is encountered starting or communicating with
+          the process
+
+    """
+    if input is not None and "stdin" in options:
+        raise ValueError(
+            "can't provide input to a process whose stdin is redirected"
+        )
+
+    options.setdefault("stdin", subprocess.PIPE)
+    options.setdefault("stdout", subprocess.PIPE)
+    options.setdefault("stderr", subprocess.PIPE)
+
+    if options["stdin"] == subprocess.PIPE and not input:
+        options["stdin"] = subprocess.DEVNULL
+
+    stdout_chunks = []
+    stderr_chunks = []
+
+    async with Process(command, **options) as proc:
+        task_status.started(proc)
+
+        async def feed_input():
+            async with proc.stdin:
+                try:
+                    await proc.stdin.send_all(input)
+                except _core.BrokenResourceError:
+                    pass
+
+        async def read_output(stream, chunks):
+            async with stream:
+                while True:
+                    chunk = await stream.receive_some(32768)
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+
+        async with _core.open_nursery() as nursery:
+            if proc.stdin is not None:
+                nursery.start_soon(feed_input)
+            if proc.stdout is not None:
+                nursery.start_soon(read_output, proc.stdout, stdout_chunks)
+            if proc.stderr is not None:
+                nursery.start_soon(read_output, proc.stderr, stderr_chunks)
+            await proc.wait()
+
+    stdout = b"".join(stdout_chunks) if proc.stdout is not None else None
+    stderr = b"".join(stderr_chunks) if proc.stderr is not None else None
+
+    if proc.returncode and check:
+        raise subprocess.CalledProcessError(
+            proc.returncode, proc.args, output=stdout, stderr=stderr
+        )
+    else:
+        return subprocess.CompletedProcess(
+            proc.args, proc.returncode, stdout, stderr
+        )

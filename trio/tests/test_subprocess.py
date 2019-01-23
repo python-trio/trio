@@ -7,7 +7,7 @@ import sys
 import pytest
 
 from .. import (
-    _core, move_on_after, fail_after, sleep, sleep_forever, Process
+    _core, move_on_after, fail_after, sleep, sleep_forever, Process, run_process
 )
 from .._core.tests.tutil import slow
 from ..testing import wait_all_tasks_blocked
@@ -40,9 +40,21 @@ def got_signal(proc, sig):
 
 
 async def test_basic():
+    repr_template = "<trio.Process {!r}: {{}}>".format(EXIT_TRUE)
     async with Process(EXIT_TRUE) as proc:
         assert proc.returncode is None
+        assert repr(proc) == repr_template.format(
+            "running with PID {}".format(proc.pid)
+        )
     assert proc.returncode == 0
+    assert repr(proc) == repr_template.format("exited with status 0")
+
+    async with Process(EXIT_FALSE) as proc:
+        pass
+    assert proc.returncode == 1
+    assert repr(proc) == "<trio.Process {!r}: {}>".format(
+        EXIT_FALSE, "exited with status 1"
+    )
 
 
 async def test_multi_wait():
@@ -73,6 +85,10 @@ async def test_kill_when_context_cancelled():
             await sleep_forever()
     assert scope.cancelled_caught
     assert got_signal(proc, SIGKILL)
+    assert repr(proc) == "<trio.Process {!r}: {}>".format(
+        SLEEP(10), "exited with signal 9"
+        if posix else "exited with status 1"
+    )
 
 
 COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR = python(
@@ -185,6 +201,59 @@ async def test_interactive():
     assert proc.returncode == 0
 
 
+async def test_run():
+    data = bytes(random.randint(0, 255) for _ in range(2**18))
+
+    result = await run_process(CAT, input=data)
+    assert result.args == CAT
+    assert result.returncode == 0
+    assert result.stdout == data
+    assert result.stderr == b""
+
+    result = await run_process(CAT, stderr=None)
+    assert result.args == CAT
+    assert result.returncode == 0
+    assert result.stdout == b""
+    assert result.stderr is None
+
+    result = await run_process(
+        COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR, input=data
+    )
+    assert result.args == COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR
+    assert result.returncode == 0
+    assert result.stdout == data
+    assert result.stderr == data[::-1]
+
+    with pytest.raises(ValueError):
+        # can't use both input and stdin
+        await run_process(CAT, input=b"la di dah", stdin=subprocess.PIPE)
+
+
+async def test_run_check():
+    cmd = python("sys.stderr.buffer.write(b'test\\n'); sys.exit(1)")
+    with pytest.raises(subprocess.CalledProcessError) as excinfo:
+        await run_process(cmd, stdout=None)
+    assert excinfo.value.cmd == cmd
+    assert excinfo.value.returncode == 1
+    assert excinfo.value.stderr == b"test\n"
+    assert excinfo.value.stdout is None
+
+    result = await run_process(cmd, check=False)
+    assert result.args == cmd
+    assert result.stdout == b""
+    assert result.stderr == b"test\n"
+    assert result.returncode == 1
+
+
+async def test_run_with_broken_pipe():
+    result = await run_process(
+        [sys.executable, "-c", "import sys; sys.stdin.close()"],
+        input=b"x" * 131072
+    )
+    assert result.returncode == 0
+    assert result.stdout == result.stderr == b""
+
+
 async def test_stderr_stdout():
     async with Process(
         COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR,
@@ -205,6 +274,16 @@ async def test_stderr_stdout():
             output.append(chunk)
         assert b"".join(output) == b"12344321"
     assert proc.returncode == 0
+
+    # equivalent test with run_process()
+    result = await run_process(
+        COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR,
+        input=b"1234",
+        stderr=subprocess.STDOUT,
+    )
+    assert result.returncode == 0
+    assert result.stdout == b"12344321"
+    assert result.stderr is None
 
     # this one hits the branch where stderr=STDOUT but stdout
     # is not redirected
@@ -261,6 +340,22 @@ async def test_signals():
     await test_one_signal(Process.terminate, SIGTERM)
     if posix:
         await test_one_signal(lambda proc: proc.send_signal(SIGINT), SIGINT)
+
+
+async def test_run_in_background():
+    # Test signaling a background process
+    async with _core.open_nursery() as nursery:
+        proc = await nursery.start(
+            run_process, python("import time; time.sleep(5)")
+        )
+        assert proc.returncode is None
+        nursery.cancel_scope.cancel()
+    assert got_signal(proc, SIGKILL)
+
+    # Test a background process failing
+    with pytest.raises(subprocess.CalledProcessError):
+        async with _core.open_nursery() as nursery:
+            await nursery.start(run_process, EXIT_FALSE)
 
 
 @pytest.mark.skipif(not posix, reason="POSIX specific")
