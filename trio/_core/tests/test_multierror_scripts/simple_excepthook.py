@@ -1,5 +1,7 @@
 import sys
+import os
 print("inside simple_excepthook.py, sys.path is", sys.path)
+print("inside simple_excepthook.py, PYTHONPATH is", os.environ["PYTHONPATH"])
 
 import _common
 
