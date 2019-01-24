@@ -6,8 +6,8 @@ import sys
 
 from . import _core
 from ._abc import AsyncResource
-from ._sync import CapacityLimiter, Lock
-from ._threads import run_sync_in_worker_thread
+from ._highlevel_generic import StapledStream
+from ._sync import Lock
 from ._subprocess_platform import (
     wait_child_exiting, create_pipe_to_child_stdin,
     create_pipe_from_child_output
@@ -75,7 +75,7 @@ class Process(AsyncResource):
 
     Attributes:
       args (str or list): The ``command`` passed at construction time,
-          speifying the process to execute and its arguments.
+          specifying the process to execute and its arguments.
       pid (int): The process ID of the child process managed by this object.
       stdin (trio.abc.SendStream or None): A stream connected to the child's
           standard input stream: when you write bytes here, they become available
@@ -91,6 +91,10 @@ class Process(AsyncResource):
           standard error, the written bytes become available for you
           to read here. Only available if the :class:`Process` was
           constructed using ``stderr=PIPE``; otherwise this will be None.
+      stdio (trio.StapledStream or None): A stream that sends data to
+          the child's standard input and receives from the child's standard
+          output. Only available if both :attr:`stdin` and :attr:`stdout` are
+          available; otherwise this will be None.
 
     """
 
@@ -111,7 +115,7 @@ class Process(AsyncResource):
         ):
             if options.get(key):
                 raise TypeError(
-                    "trio.subprocess.Process only supports communicating over "
+                    "trio.Process only supports communicating over "
                     "unbuffered byte streams; the '{}' option is not supported"
                     .format(key)
                 )
@@ -119,6 +123,8 @@ class Process(AsyncResource):
         self.stdin = None
         self.stdout = None
         self.stderr = None
+
+        self._wait_lock = Lock()
 
         if stdin == subprocess.PIPE:
             self.stdin, stdin = create_pipe_to_child_stdin()
@@ -151,6 +157,11 @@ class Process(AsyncResource):
                 os.close(stdout)
             if self.stderr is not None:
                 os.close(stderr)
+
+        if self.stdin is not None and self.stdout is not None:
+            self.stdio = StapledStream(self.stdin, self.stdout)
+        else:
+            self.stdio = None
 
         self.args = self._proc.args
         self.pid = self._proc.pid
@@ -198,8 +209,10 @@ class Process(AsyncResource):
           as the negative of that signal number, e.g., -11 for ``SIGSEGV``.
         """
         if self.poll() is None:
-            await wait_child_exiting(self)
-            self._proc.wait()
+            async with self._wait_lock:
+                if self.poll() is None:
+                    await wait_child_exiting(self)
+                    self._proc.wait()
         else:
             await _core.checkpoint()
         return self.returncode

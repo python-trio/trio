@@ -221,8 +221,7 @@ class SSLStream(Stream):
 
       ssl_context (~ssl.SSLContext): The :class:`~ssl.SSLContext` used for
           this connection. Required. Usually created by calling
-          :func:`trio.ssl.create_default_context()
-          <ssl.create_default_context>`.
+          :func:`ssl.create_default_context`.
 
       server_hostname (str or None): The name of the server being connected
           to. Used for `SNI
@@ -294,7 +293,7 @@ class SSLStream(Stream):
     :meth:`~ssl.SSLSocket.cipher` or
     :meth:`~ssl.SSLSocket.selected_alpn_protocol`. If you call them before the
     handshake, when they can't possibly return useful data, then
-    :class:`ssl.SSLObject` returns None, but :class:`trio.ssl.SSLStream`
+    :class:`ssl.SSLObject` returns None, but :class:`trio.SSLStream`
     raises :exc:`NeedHandshakeError`.
 
     This also means that if you register a SNI callback using

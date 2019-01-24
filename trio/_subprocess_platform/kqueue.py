@@ -23,15 +23,16 @@ async def wait_child_exiting(process: "_subprocess.Process") -> None:
         kqueue.control(
             [make_event(select.KQ_EV_ADD | select.KQ_EV_ONESHOT)], 0
         )
-    except ProcessLookupError:
-        # This can happen if the process has already exited.
-        # Frustratingly, it does _not_ synchronize with calls
-        # to wait() and friends -- it's possible for kevent to
-        # return ESRCH but waitpid(..., WNOHANG) still returns
-        # nothing. And OS X doesn't support waitid() so we
-        # can't fall back to the Linux-style approach. So
-        # we'll just suppress the error, and let the caller
-        # assume their wait won't block for long.
+    except ProcessLookupError:  # pragma: no cover
+        # This can supposedly happen if the process is in the process
+        # of exiting, and it can even be the case that kqueue says the
+        # process doesn't exist before waitpid(WNOHANG) says it hasn't
+        # exited yet. See the discussion in https://chromium.googlesource.com/
+        # chromium/src/base/+/master/process/kill_mac.cc .
+        # We haven't actually seen this error occur since we added
+        # locking to prevent multiple calls to wait_child_exiting()
+        # for the same process simultaneously, but given the explanation
+        # in Chromium it seems we should still keep the check.
         return
 
     def abort(_):
