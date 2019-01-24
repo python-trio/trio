@@ -6,7 +6,7 @@
 # here.
 
 # Trio-specific symbols:
-from ._ssl import (SSLStream, SSLListener)
+from ._ssl import SSLStream, SSLListener, NeedHandshakeError
 
 # Symbols re-exported from the stdlib ssl module:
 
@@ -82,7 +82,8 @@ try:
         SSL_ERROR_SYSCALL, SSL_ERROR_WANT_CONNECT, SSL_ERROR_WANT_READ,
         SSL_ERROR_WANT_WRITE, SSL_ERROR_WANT_X509_LOOKUP,
         SSL_ERROR_ZERO_RETURN, VERIFY_CRL_CHECK_CHAIN, VERIFY_CRL_CHECK_LEAF,
-        VERIFY_DEFAULT, VERIFY_X509_STRICT, VERIFY_X509_TRUSTED_FIRST
+        VERIFY_DEFAULT, VERIFY_X509_STRICT, VERIFY_X509_TRUSTED_FIRST,
+        OP_ENABLE_MIDDLEBOX_COMPAT
     )
 except ImportError:
     pass

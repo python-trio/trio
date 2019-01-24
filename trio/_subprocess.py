@@ -6,8 +6,8 @@ import sys
 
 from . import _core
 from ._abc import AsyncResource
-from ._sync import CapacityLimiter, Lock
-from ._threads import run_sync_in_worker_thread
+from ._highlevel_generic import StapledStream
+from ._sync import Lock
 from ._subprocess_platform import (
     wait_child_exiting, create_pipe_to_child_stdin,
     create_pipe_from_child_output
@@ -17,7 +17,7 @@ __all__ = ["Process"]
 
 
 class Process(AsyncResource):
-    """Execute a child program in a new process.
+    r"""Execute a child program in a new process.
 
     Like :class:`subprocess.Popen`, but async.
 
@@ -49,13 +49,13 @@ class Process(AsyncResource):
     were planning on.
 
     Args:
-      command (str or list): The command to run. Typically this is a
-          list of strings such as ``['ls', '-l', 'directory with spaces']``,
+      command (list or str): The command to run. Typically this is a
+          sequence of strings such as ``['ls', '-l', 'directory with spaces']``,
           where the first element names the executable to invoke and the other
-          elements specify its arguments. If ``shell=True`` is given as
-          an option, ``command`` should be a single string like
-          ``"ls -l 'directory with spaces'"``, which will
-          split into words following the shell's quoting rules.
+          elements specify its arguments. With ``shell=True`` in the
+          ``**options``, or on Windows, ``command`` may alternatively
+          be a string, which will be parsed following platform-dependent
+          :ref:`quoting rules <subprocess-quoting>`.
       stdin: Specifies what the child process's standard input
           stream should connect to: output written by the parent
           (``subprocess.PIPE``), nothing (``subprocess.DEVNULL``),
@@ -75,7 +75,7 @@ class Process(AsyncResource):
 
     Attributes:
       args (str or list): The ``command`` passed at construction time,
-          speifying the process to execute and its arguments.
+          specifying the process to execute and its arguments.
       pid (int): The process ID of the child process managed by this object.
       stdin (trio.abc.SendStream or None): A stream connected to the child's
           standard input stream: when you write bytes here, they become available
@@ -91,6 +91,10 @@ class Process(AsyncResource):
           standard error, the written bytes become available for you
           to read here. Only available if the :class:`Process` was
           constructed using ``stderr=PIPE``; otherwise this will be None.
+      stdio (trio.StapledStream or None): A stream that sends data to
+          the child's standard input and receives from the child's standard
+          output. Only available if both :attr:`stdin` and :attr:`stdout` are
+          available; otherwise this will be None.
 
     """
 
@@ -104,14 +108,14 @@ class Process(AsyncResource):
     _wait_for_exit_data = None
 
     def __init__(
-        self, args, *, stdin=None, stdout=None, stderr=None, **options
+        self, command, *, stdin=None, stdout=None, stderr=None, **options
     ):
         for key in (
             'universal_newlines', 'text', 'encoding', 'errors', 'bufsize'
         ):
             if options.get(key):
                 raise TypeError(
-                    "trio.subprocess.Process only supports communicating over "
+                    "trio.Process only supports communicating over "
                     "unbuffered byte streams; the '{}' option is not supported"
                     .format(key)
                 )
@@ -119,6 +123,20 @@ class Process(AsyncResource):
         self.stdin = None
         self.stdout = None
         self.stderr = None
+
+        if os.name == "posix":
+            if isinstance(command, str) and not options.get("shell"):
+                raise TypeError(
+                    "command must be a sequence (not a string) if shell=False "
+                    "on UNIX systems"
+                )
+            if not isinstance(command, str) and options.get("shell"):
+                raise TypeError(
+                    "command must be a string (not a sequence) if shell=True "
+                    "on UNIX systems"
+                )
+
+        self._wait_lock = Lock()
 
         if stdin == subprocess.PIPE:
             self.stdin, stdin = create_pipe_to_child_stdin()
@@ -139,7 +157,7 @@ class Process(AsyncResource):
 
         try:
             self._proc = subprocess.Popen(
-                args, stdin=stdin, stdout=stdout, stderr=stderr, **options
+                command, stdin=stdin, stdout=stdout, stderr=stderr, **options
             )
         finally:
             # Close the parent's handle for each child side of a pipe;
@@ -151,6 +169,11 @@ class Process(AsyncResource):
                 os.close(stdout)
             if self.stderr is not None:
                 os.close(stderr)
+
+        if self.stdin is not None and self.stdout is not None:
+            self.stdio = StapledStream(self.stdin, self.stdout)
+        else:
+            self.stdio = None
 
         self.args = self._proc.args
         self.pid = self._proc.pid
@@ -198,8 +221,10 @@ class Process(AsyncResource):
           as the negative of that signal number, e.g., -11 for ``SIGSEGV``.
         """
         if self.poll() is None:
-            await wait_child_exiting(self)
-            self._proc.wait()
+            async with self._wait_lock:
+                if self.poll() is None:
+                    await wait_child_exiting(self)
+                    self._proc.wait()
         else:
             await _core.checkpoint()
         return self.returncode

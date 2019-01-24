@@ -1105,7 +1105,7 @@ identifier, and then include this identifier in each log message:
 
 This way we can see that request 1 was slow: it started before request
 2 but finished afterwards. (You can also get `much fancier
-<http://opentracing.io/documentation/>`__, but this is enough for an
+<https://opentracing.io/docs/>`__, but this is enough for an
 example.)
 
 Now, here's the problem: how does the logging code know what the
@@ -1348,7 +1348,7 @@ now with two producers and two consumers:
 .. literalinclude:: reference-core/channels-mpmc-broken.py
 
 The two producers, A and B, send 3 messages apiece. These are then
-randomly distributed between the two producers, X and Y. So we're
+randomly distributed between the two consumers, X and Y. So we're
 hoping to see some output like:
 
 .. code-block:: none

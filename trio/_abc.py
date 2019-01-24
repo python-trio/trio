@@ -241,7 +241,7 @@ class AsyncResource(metaclass=ABCMeta):
         connection. This requires sending a "goodbye" message; but if the peer
         has become non-responsive, then our attempt to send this message might
         block forever, and eventually time out and be cancelled. In this case
-        the :meth:`aclose` method on :class:`~trio.ssl.SSLStream` will
+        the :meth:`aclose` method on :class:`~trio.SSLStream` will
         immediately close the underlying transport stream using
         :func:`trio.aclose_forcefully` before raising :exc:`~trio.Cancelled`.
 
@@ -463,7 +463,7 @@ class HalfCloseableStream(Stream):
 
         * On an SSL/TLS-encrypted connection, the protocol doesn't provide any
           way to do a unidirectional shutdown without closing the connection
-          entirely, so :class:`~trio.ssl.SSLStream` implements
+          entirely, so :class:`~trio.SSLStream` implements
           :class:`Stream`, not :class:`HalfCloseableStream`.
 
         If an EOF has already been sent, then this method should silently
