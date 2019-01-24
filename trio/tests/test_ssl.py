@@ -62,8 +62,8 @@ TRIO_TEST_CA.configure_trust(CLIENT_CTX)
 #     https://github.com/python-trio/trio/issues/819
 #     https://github.com/openssl/openssl/issues/7948
 #     https://github.com/openssl/openssl/issues/7967
-if hasattr(stdlib_ssl, "OP_NO_TLSv1_3"):
-    CLIENT_CTX.options |= stdlib_ssl.OP_NO_TLSv1_3
+if hasattr(ssl, "OP_NO_TLSv1_3"):
+    CLIENT_CTX.options |= ssl.OP_NO_TLSv1_3
 
 
 # The blocking socket server.
@@ -79,7 +79,7 @@ def ssl_echo_serve_sync(sock, *, expect_fail=False):
                 # other side has initiated a graceful shutdown; we try to
                 # respond in kind but it's legal for them to have already gone
                 # away.
-                exceptions = (BrokenPipeError, stdlib_ssl.SSLZeroReturnError)
+                exceptions = (BrokenPipeError, ssl.SSLZeroReturnError)
                 # Under unclear conditions, CPython sometimes raises
                 # SSLWantWriteError here. This is a bug (bpo-32219), but it's
                 # not our bug, so ignore it.
