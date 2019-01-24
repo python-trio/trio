@@ -1,0 +1,6 @@
+:class:`trio.Process` on POSIX systems no longer accepts the error-prone
+combination of ``shell=False`` with a ``command`` that's a single string,
+or ``shell=True`` with a ``command`` that's a sequence of strings.
+These forms are accepted by the underlying :class:`subprocess.Popen`
+constructor but don't do what most users expect. Also, added an explanation
+of :ref:`quoting <subprocess-quoting>` to the documentation.
