@@ -78,6 +78,7 @@ jobs:
 - job: 'Linux'
   pool:
     vmImage: 'ubuntu-16.04'
+  timeoutInMinutes: 10
   strategy:
     matrix:
       "Python 3.5":
@@ -103,6 +104,7 @@ jobs:
 - job: 'macOS'
   pool:
     vmImage: 'macOS-10.13'
+  timeoutInMinutes: 10
   strategy:
     matrix:
       "Python 3.5":
