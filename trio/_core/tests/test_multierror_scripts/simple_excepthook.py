@@ -1,3 +1,6 @@
+import sys
+print("inside simple_excepthook.py, sys.path is", sys.path)
+
 import _common
 
 import trio
