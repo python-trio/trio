@@ -14,7 +14,7 @@ cffi==1.11.5              # via cryptography
 contextvars==2.3 ; python_version < "3.7"
 coverage==4.5.2           # via pytest-cov
 cryptography==2.5         # via pyopenssl, trustme
-decorator==4.3.0          # via ipython, traitlets
+decorator==4.3.2          # via ipython, traitlets
 flake8==3.6.0
 idna==2.8
 immutables==0.6           # via contextvars
