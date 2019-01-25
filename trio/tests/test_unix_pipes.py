@@ -98,6 +98,44 @@ async def test_async_with():
     assert excinfo.value.errno == errno.EBADF
 
 
+async def test_misdirected_aclose_regression():
+    # https://github.com/python-trio/trio/issues/661#issuecomment-456582356
+    w, r = await make_pipe()
+    old_r_fd = r.fileno()
+
+    # Close the original objects
+    await w.aclose()
+    await r.aclose()
+
+    # Do a little dance to get a new pipe whose receive handle matches the old
+    # receive handle.
+    r2_fd, w2_fd = os.pipe()
+    if r2_fd != old_r_fd:  # pragma: no cover
+        os.dup2(r2_fd, old_r_fd)
+        os.close(r2_fd)
+    async with PipeReceiveStream(old_r_fd) as r2:
+        assert r2.fileno() == old_r_fd
+
+        # And now set up a background task that's working on the new receive
+        # handle
+        async def expect_eof():
+            assert await r2.receive_some(10) == b""
+
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(expect_eof)
+            await wait_all_tasks_blocked()
+
+            # Here's the key test: does calling aclose() again on the *old*
+            # handle, cause the task blocked on the *new* handle to raise
+            # ClosedResourceError?
+            await r.aclose()
+            await wait_all_tasks_blocked()
+
+            # Guess we survived! Close the new write handle so that the task
+            # gets an EOF and can exit cleanly.
+            os.close(w2_fd)
+
+
 async def make_clogged_pipe():
     s, r = await make_pipe()
     try:
