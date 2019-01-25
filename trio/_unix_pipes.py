@@ -1,13 +1,10 @@
 import fcntl
 import os
-from typing import Tuple
 import errno
 
 from . import _core
 from ._abc import SendStream, ReceiveStream
 from ._util import ConflictDetector
-
-__all__ = ["PipeSendStream", "PipeReceiveStream", "make_pipe"]
 
 
 class _FdHolder:
@@ -156,9 +153,3 @@ class PipeReceiveStream(ReceiveStream):
 
     def fileno(self):
         return self._fd_holder.fd
-
-
-async def make_pipe() -> Tuple[PipeSendStream, PipeReceiveStream]:
-    """Makes a new pair of pipes."""
-    (r, w) = os.pipe()
-    return PipeSendStream(w), PipeReceiveStream(r)

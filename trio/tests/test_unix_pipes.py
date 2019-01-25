@@ -1,7 +1,8 @@
 import errno
 import select
-
+from typing import Tuple
 import os
+
 import pytest
 
 from .._core.tests.tutil import gc_collect_harder
@@ -11,7 +12,13 @@ from ..testing import wait_all_tasks_blocked, check_one_way_stream
 posix = os.name == "posix"
 pytestmark = pytest.mark.skipif(not posix, reason="posix only")
 if posix:
-    from .._unix_pipes import PipeSendStream, PipeReceiveStream, make_pipe
+    from .._unix_pipes import PipeSendStream, PipeReceiveStream
+
+
+async def make_pipe() -> Tuple[PipeSendStream, PipeReceiveStream]:
+    """Makes a new pair of pipes."""
+    (r, w) = os.pipe()
+    return PipeSendStream(w), PipeReceiveStream(r)
 
 
 async def test_send_pipe():
