@@ -4,9 +4,9 @@ set -ex
 
 git rev-parse HEAD
 
-if [ "$AGENT_JOBNAME" != "" ]; then
-   # azure pipelines
-   CODECOV_NAME="$AGENT_JOBNAME"
+if [ "$SYSTEM_JOBIDENTIFIER" != "" ]; then
+    # azure pipelines
+    CODECOV_NAME="$SYSTEM_JOBIDENTIFIER"
 else
     CODECOV_NAME="${TRAVIS_OS_NAME}_${TRAVIS_PYTHON_VERSION:-unknown}"
 fi
