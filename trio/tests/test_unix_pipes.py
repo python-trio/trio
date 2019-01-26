@@ -229,5 +229,24 @@ async def test_close_at_bad_time_for_send_all(monkeypatch):
             await r.receive_some(10000)
 
 
+async def test_bizarro_OSError_from_receive():
+    # Make sure that if the read syscall returns some bizarro error, then we
+    # get a BrokenResourceError. This is incredibly unlikely; there's almost
+    # no way to trigger a failure here intentionally (except for EBADF, but we
+    # exploit that to detect file closure, so it takes a different path). So
+    # we set up a strange scenario where the pipe fd somehow transmutes into a
+    # directory fd, causing os.read to raise IsADirectoryError (yes, that's a
+    # real built-in exception type).
+    s, r = make_pipe()
+    async with s, r:
+        dir_fd = os.open("/", os.O_DIRECTORY, 0)
+        try:
+            os.dup2(dir_fd, r.fileno())
+            with pytest.raises(_core.BrokenResourceError):
+                await r.receive_some(10)
+        finally:
+            os.close(dir_fd)
+
+
 async def test_pipe_fully():
     await check_one_way_stream(make_pipe, make_clogged_pipe)
