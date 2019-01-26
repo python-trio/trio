@@ -164,6 +164,10 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
         with _assert_raises(_core.ClosedResourceError):
             await do_send_all(b"x" * 100)
 
+        # even if it's an empty send
+        with _assert_raises(_core.ClosedResourceError):
+            await do_send_all(b"")
+
         # ditto for wait_send_all_might_not_block
         with _assert_raises(_core.ClosedResourceError):
             with assert_checkpoints():
