@@ -2,11 +2,11 @@
 
 set -ex -o pipefail
 
+env | sort
+
 # On azure pipeline's windows VMs, to get reasonable performance, we need to
 # jump through hoops to avoid touching the C:\ drive as much as possible.
 if [ $AGENT_OS = "Windows_NT" ]; then
-    # Print the env so we can see anything pointing at temp dirs or whatever
-    env | sort
     # By default temp and cache directories are on C:\. Fix that.
     export TEMP=${AGENT_TEMPDIRECTORY}
     export TMP=${AGENT_TEMPDIRECTORY}
