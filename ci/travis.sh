@@ -4,7 +4,12 @@ set -ex
 
 git rev-parse HEAD
 
-CODECOV_NAME="${TRAVIS_OS_NAME}_${TRAVIS_PYTHON_VERSION:-unknown}"
+if [ "$AGENT_JOBNAME" != "" ]; then
+   # azure pipelines
+   CODECOV_NAME="$AGENT_JOBNAME"
+else
+    CODECOV_NAME="${TRAVIS_OS_NAME}_${TRAVIS_PYTHON_VERSION:-unknown}"
+fi
 
 if [ "$TRAVIS_OS_NAME" = "osx" ]; then
     CODECOV_NAME="osx_${MACPYTHON}"
