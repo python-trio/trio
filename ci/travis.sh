@@ -4,10 +4,15 @@ set -ex
 
 git rev-parse HEAD
 
-CODECOV_FLAG="${TRAVIS_OS_NAME}_${TRAVIS_PYTHON_VERSION:-unknown}"
+if [ "$SYSTEM_JOBIDENTIFIER" != "" ]; then
+    # azure pipelines
+    CODECOV_NAME="$SYSTEM_JOBIDENTIFIER"
+else
+    CODECOV_NAME="${TRAVIS_OS_NAME}_${TRAVIS_PYTHON_VERSION:-unknown}"
+fi
 
 if [ "$TRAVIS_OS_NAME" = "osx" ]; then
-    CODECOV_FLAG="osx_${MACPYTHON}"
+    CODECOV_NAME="osx_${MACPYTHON}"
     curl -Lo macpython.pkg https://www.python.org/ftp/python/${MACPYTHON}/python-${MACPYTHON}-macosx10.6.pkg
     sudo installer -pkg macpython.pkg -target /
     ls /Library/Frameworks/Python.framework/Versions/*/bin/
@@ -20,7 +25,7 @@ if [ "$TRAVIS_OS_NAME" = "osx" ]; then
 fi
 
 if [ "$PYPY_NIGHTLY_BRANCH" != "" ]; then
-    CODECOV_FLAG="pypy_nightly_${PYPY_NIGHTLY_BRANCH}"
+    CODECOV_NAME="pypy_nightly_${PYPY_NIGHTLY_BRANCH}"
     curl -fLo pypy.tar.bz2 http://buildbot.pypy.org/nightly/${PYPY_NIGHTLY_BRANCH}/pypy-c-jit-latest-linux64.tar.bz2
     if [ ! -s pypy.tar.bz2 ]; then
         # We know:
@@ -58,8 +63,6 @@ pip install -U pip setuptools wheel
 python setup.py sdist --formats=zip
 pip install dist/*.zip
 
-CODECOV_FLAG=$(echo -n "$CODECOV_FLAG" | tr -c a-z0-9 _)
-
 if [ "$CHECK_DOCS" = "1" ]; then
     pip install -r ci/rtd-requirements.txt
     towncrier --yes  # catch errors in newsfragments
@@ -88,7 +91,7 @@ else
         # Disable coverage on pypy py3.6 nightly for now:
         # https://bitbucket.org/pypy/pypy/issues/2943/
         if [ "$PYPY_NIGHTLY_BRANCH" != "py3.6" ]; then
-            bash <(curl -s https://codecov.io/bash) -F "${CODECOV_FLAG}"
+            bash <(curl -s https://codecov.io/bash) -n "${CODECOV_NAME}"
         fi
     fi
 fi
