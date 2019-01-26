@@ -21,6 +21,32 @@ async def make_pipe() -> Tuple[PipeSendStream, PipeReceiveStream]:
     return PipeSendStream(w), PipeReceiveStream(r)
 
 
+async def make_clogged_pipe():
+    s, r = await make_pipe()
+    try:
+        while True:
+            # We want to totally fill up the pipe buffer.
+            # This requires working around a weird feature that POSIX pipes
+            # have.
+            # If you do a write of <= PIPE_BUF bytes, then it's guaranteed
+            # to either complete entirely, or not at all. So if we tried to
+            # write PIPE_BUF bytes, and the buffer's free space is only
+            # PIPE_BUF/2, then the write will raise BlockingIOError... even
+            # though a smaller write could still succeed! To avoid this,
+            # make sure to write >PIPE_BUF bytes each time, which disables
+            # the special behavior.
+            # For details, search for PIPE_BUF here:
+            #   http://pubs.opengroup.org/onlinepubs/9699919799/functions/write.html
+
+            # for the getattr:
+            # https://bitbucket.org/pypy/pypy/issues/2876/selectpipe_buf-is-missing-on-pypy3
+            buf_size = getattr(select, "PIPE_BUF", 8192)
+            os.write(s.fileno(), b"x" * buf_size * 2)
+    except BlockingIOError:
+        pass
+    return s, r
+
+
 async def test_send_pipe():
     r, w = os.pipe()
     async with PipeSendStream(w) as send:
@@ -143,30 +169,64 @@ async def test_misdirected_aclose_regression():
             os.close(w2_fd)
 
 
-async def make_clogged_pipe():
-    s, r = await make_pipe()
-    try:
-        while True:
-            # We want to totally fill up the pipe buffer.
-            # This requires working around a weird feature that POSIX pipes
-            # have.
-            # If you do a write of <= PIPE_BUF bytes, then it's guaranteed
-            # to either complete entirely, or not at all. So if we tried to
-            # write PIPE_BUF bytes, and the buffer's free space is only
-            # PIPE_BUF/2, then the write will raise BlockingIOError... even
-            # though a smaller write could still succeed! To avoid this,
-            # make sure to write >PIPE_BUF bytes each time, which disables
-            # the special behavior.
-            # For details, search for PIPE_BUF here:
-            #   http://pubs.opengroup.org/onlinepubs/9699919799/functions/write.html
+async def test_close_at_bad_time_for_receive_some(monkeypatch):
+    # We used to have race conditions where if one task was using the pipe,
+    # and another closed it at *just* the wrong moment, it would give an
+    # unexpected error instead of ClosedResourceError:
+    # https://github.com/python-trio/trio/issues/661
+    #
+    # This tests what happens if the pipe gets closed in the moment *between*
+    # when receive_some wakes up, and when it tries to call os.read
+    async def expect_closedresourceerror():
+        with pytest.raises(_core.ClosedResourceError):
+            await r.receive_some(10)
 
-            # for the getattr:
-            # https://bitbucket.org/pypy/pypy/issues/2876/selectpipe_buf-is-missing-on-pypy3
-            buf_size = getattr(select, "PIPE_BUF", 8192)
-            os.write(s.fileno(), b"x" * buf_size * 2)
-    except BlockingIOError:
-        pass
-    return s, r
+    orig_wait_readable = _core._run.TheIOManager.wait_readable
+
+    async def patched_wait_readable(*args, **kwargs):
+        await orig_wait_readable(*args, **kwargs)
+        await r.aclose()
+
+    monkeypatch.setattr(
+        _core._run.TheIOManager, "wait_readable", patched_wait_readable
+    )
+    s, r = await make_pipe()
+    async with s, r:
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(expect_closedresourceerror)
+            await wait_all_tasks_blocked()
+            # Trigger everything by waking up the receiver
+            await s.send_all(b"x")
+
+
+async def test_close_at_bad_time_for_send_all(monkeypatch):
+    # We used to have race conditions where if one task was using the pipe,
+    # and another closed it at *just* the wrong moment, it would give an
+    # unexpected error instead of ClosedResourceError:
+    # https://github.com/python-trio/trio/issues/661
+    #
+    # This tests what happens if the pipe gets closed in the moment *between*
+    # when send_all wakes up, and when it tries to call os.write
+    async def expect_closedresourceerror():
+        with pytest.raises(_core.ClosedResourceError):
+            await s.send_all(b"x" * 100)
+
+    orig_wait_writable = _core._run.TheIOManager.wait_writable
+
+    async def patched_wait_writable(*args, **kwargs):
+        await orig_wait_writable(*args, **kwargs)
+        await s.aclose()
+
+    monkeypatch.setattr(
+        _core._run.TheIOManager, "wait_writable", patched_wait_writable
+    )
+    s, r = await make_clogged_pipe()
+    async with s, r:
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(expect_closedresourceerror)
+            await wait_all_tasks_blocked()
+            # Trigger everything by waking up the sender
+            await r.receive_some(10000)
 
 
 async def test_pipe_fully():
