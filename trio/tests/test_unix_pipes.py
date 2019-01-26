@@ -237,7 +237,7 @@ async def test_bizarro_OSError_from_receive():
     # we set up a strange scenario where the pipe fd somehow transmutes into a
     # directory fd, causing os.read to raise IsADirectoryError (yes, that's a
     # real built-in exception type).
-    s, r = make_pipe()
+    s, r = await make_pipe()
     async with s, r:
         dir_fd = os.open("/", os.O_DIRECTORY, 0)
         try:
