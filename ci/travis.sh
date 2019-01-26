@@ -64,7 +64,7 @@ python setup.py sdist --formats=zip
 pip install dist/*.zip
 
 # flags have a restricted set of characters, maybe names are the same?
-CODECOV_NAME=$(echo -n "$CODECOV_NAME" | tr -c a-z0-9 _)
+CODECOV_NAME=$(echo -n "$CODECOV_NAME" | tr -c a-zA-Z0-9 _)
 
 if [ "$CHECK_DOCS" = "1" ]; then
     pip install -r ci/rtd-requirements.txt
