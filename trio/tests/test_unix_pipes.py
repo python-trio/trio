@@ -1,6 +1,5 @@
 import errno
 import select
-from typing import Tuple
 import os
 
 import pytest
@@ -15,7 +14,8 @@ if posix:
     from .._unix_pipes import PipeSendStream, PipeReceiveStream
 
 
-async def make_pipe() -> Tuple[PipeSendStream, PipeReceiveStream]:
+# Have to use quoted types so import doesn't crash on windows
+async def make_pipe() -> "Tuple[PipeSendStream, PipeReceiveStream]":
     """Makes a new pair of pipes."""
     (r, w) = os.pipe()
     return PipeSendStream(w), PipeReceiveStream(r)
