@@ -26,6 +26,9 @@ class _FdHolder:
     #
     # (This trick was copied from the stdlib socket module.)
     def __init__(self, fd: int):
+        # make sure self.fd is always initialized to *something*, because even
+        # if we error out here then __del__ will run and access it.
+        self.fd = -1
         if not isinstance(fd, int):
             raise TypeError("file descriptor must be an int")
         self.fd = fd
