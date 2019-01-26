@@ -139,7 +139,6 @@ class PipeReceiveStream(ReceiveStream):
                 except BlockingIOError:
                     await _core.wait_readable(self._fd_holder.fd)
                 except OSError as e:
-                    await _core.cancel_shielded_checkpoint()
                     if e.errno == errno.EBADF:
                         raise _core.ClosedResourceError(
                             "this pipe was closed"
