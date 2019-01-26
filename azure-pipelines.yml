@@ -32,5 +32,5 @@ jobs:
       # malicious hackers.
       - bash: |
           set -ex
-          echo $AGENT_JOBNAME
+          env | sort
           sudo docker run -e AGENT_JOBNAME="$AGENT_JOBNAME" -e CODECOV_TOKEN="$CODECOV_TOKEN" -v "$PWD:/t" ubuntu:rolling /bin/bash -c "set -ex; cd /t; apt update; apt install -y python3.7-dev python3-virtualenv git build-essential curl; python3.7 -m virtualenv -p python3.7 venv; source venv/bin/activate; source ci/travis.sh"
