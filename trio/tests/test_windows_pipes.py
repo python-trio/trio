@@ -1,6 +1,5 @@
 import errno
 import select
-from asyncio.windows_utils import pipe
 
 import os
 import pytest
@@ -8,12 +7,13 @@ import pytest
 from .._core.tests.tutil import gc_collect_harder
 from .. import _core, move_on_after
 from ..testing import wait_all_tasks_blocked, check_one_way_stream
-from .._core._windows_cffi import _handle, kernel32
 
 windows = os.name == "nt"
 pytestmark = pytest.mark.skipif(not windows, reason="windows only")
 if windows:
     from .._windows_pipes import PipeSendStream, PipeReceiveStream
+    from .._core._windows_cffi import _handle, kernel32
+    from asyncio.windows_utils import pipe
 
 
 async def make_pipe() -> "Tuple[PipeSendStream, PipeReceiveStream]":
