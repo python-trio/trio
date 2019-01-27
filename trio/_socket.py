@@ -54,6 +54,14 @@ except ImportError:
     if _sys.platform == "win32":
         IPPROTO_IPV6 = 41
 
+try:
+    from socket import SO_DOMAIN, SO_PROTOCOL
+except ImportError:
+    if _sys.platform == "linux":
+        # Only available on 3.6 and above:
+        SO_PROTOCOL = 38
+        SO_DOMAIN = 39
+
 ################################################################
 # Overrides
 ################################################################
@@ -293,22 +301,12 @@ def _sniff_sockopts_for_fileno(family, type, proto, fileno):
     # Wrap the raw fileno into a Python socket object
     # This object might have the wrong metadata, but it lets us easily call getsockopt
     # and then we'll throw it away and construct a new one with the correct metadata.
-
-    if not _sys.platform == "linux":
-        return family, type, proto
-    try:
-        from socket import SO_DOMAIN, SO_PROTOCOL
-    except ImportError:
-        # Only available on 3.6 and above:
-        SO_PROTOCOL = 38
-        SO_DOMAIN = 39
-
-    sockobj = _stdlib_socket.socket(fileno=fileno)
+    sockobj = _stdlib_socket.socket(family, type, proto, fileno=fileno)
     from socket import SOL_SOCKET, SO_TYPE
     try:
-        if SO_DOMAIN is not None:
+        if hasattr(globals(), 'SO_DOMAIN'):
             family = sockobj.getsockopt(SOL_SOCKET, SO_DOMAIN)
-        if SO_PROTOCOL is not None:
+        if hasattr(globals(), 'SO_PROTOCOL'):
             proto = sockobj.getsockopt(SOL_SOCKET, SO_PROTOCOL)
         type = sockobj.getsockopt(SOL_SOCKET, SO_TYPE)
     finally:
