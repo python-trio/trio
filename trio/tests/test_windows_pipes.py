@@ -17,18 +17,21 @@ if windows:
 async def test_pipes_combined():
     write, read = await make_pipe()
     count = 2**20
+    replicas = 3
 
     async def sender():
         big = bytearray(count)
-        await write.send_all(big)
+        for _ in range(replicas):
+            await write.send_all(big)
 
     async def reader():
         await wait_all_tasks_blocked()
         received = 0
         while received < count:
-            received += len(await read.receive_some(4096))
+            # 5000 is chosen because it doesn't evenly divide 2**20
+            received += len(await read.receive_some(5000))
 
-        assert received == count
+        assert received == count * replicas
 
     async with _core.open_nursery() as n:
         n.start_soon(sender)

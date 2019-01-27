@@ -50,9 +50,15 @@ class PipeSendStream(_PipeMixin, SendStream):
                 return
 
             try:
-                total_sent += await _core.write_overlapped(self._pipe, data)
+                written = await _core.write_overlapped(
+                    self._handle_holder.handle, data
+                )
             except BrokenPipeError as ex:
                 raise _core.BrokenResourceError from ex
+            # By my reading of MSDN, this assert is guaranteed to pass so long
+            # as the pipe isn't in nonblocking mode, but... let's just
+            # double-check.
+            assert written == len(data)
 
     async def wait_send_all_might_not_block(self) -> None:
         async with self._conflict_detector:
