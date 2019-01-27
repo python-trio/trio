@@ -6,26 +6,27 @@ from ._abc import SendStream, ReceiveStream
 from ._util import ConflictDetector
 from ._core._windows_cffi import _handle, raise_winerror, kernel32, ffi
 
-__all__ = ["PipeSendStream", "PipeReceiveStream", "make_pipe"]
 
+# See the comments on _unix_pipes._FdHolder for discussion of why we set the
+# handle to -1 when it's closed.
+class _HandleHolder:
+    def __init__(self, handle: int) -> None:
+        self.handle = -1
+        if not isinstance(handle, int):
+            raise TypeError("handle must be an int")
+        self.handle = handle
+        _core.register_with_iocp(self.handle)
 
-class _PipeMixin:
-    def __init__(self, pipe_handle: int) -> None:
-        self._pipe = _handle(pipe_handle)
-        _core.register_with_iocp(self._pipe)
-        self._closed = False
-        self._conflict_detector = ConflictDetector(
-            "another task is currently {}ing data on this pipe".format(
-                type(self).__name__[4:-5].lower()  # "send" or "receive"
-            )
-        )
+    @property
+    def closed(self):
+        return self.handle == -1
 
     def _close(self):
-        if self._closed:
+        if self.closed:
             return
-
-        self._closed = True
-        if not kernel32.CloseHandle(self._pipe):
+        handle = self.handle
+        self.handle = -1
+        if not kernel32.CloseHandle(_handle(handle)):
             raise_winerror()
 
     async def aclose(self):
@@ -36,14 +37,20 @@ class _PipeMixin:
         self._close()
 
 
-class PipeSendStream(_PipeMixin, SendStream):
+class PipeSendStream(SendStream):
     """Represents a send stream over a Windows named pipe that has been
     opened in OVERLAPPED mode.
     """
 
+    def __init__(self, handle: int) -> None:
+        self._handle_holder = _HandleHolder(handle)
+        self._conflict_detector = ConflictDetector(
+            "another task is currently using this pipe"
+        )
+
     async def send_all(self, data: bytes):
         async with self._conflict_detector:
-            if self._closed:
+            if self._handle_holder.closed:
                 raise _core.ClosedResourceError("this pipe is already closed")
 
             if not data:
@@ -62,19 +69,28 @@ class PipeSendStream(_PipeMixin, SendStream):
 
     async def wait_send_all_might_not_block(self) -> None:
         async with self._conflict_detector:
-            if self._closed:
+            if self._handle_holder.closed:
                 raise _core.ClosedResourceError("This pipe is already closed")
 
             # not implemented yet, and probably not needed
             pass
 
+    async def aclose(self):
+        await self._handle_holder.aclose()
 
-class PipeReceiveStream(_PipeMixin, ReceiveStream):
+
+class PipeReceiveStream(ReceiveStream):
     """Represents a receive stream over an os.pipe object."""
+
+    def __init__(self, handle: int) -> None:
+        self._handle_holder = _HandleHolder(handle)
+        self._conflict_detector = ConflictDetector(
+            "another task is currently using this pipe"
+        )
 
     async def receive_some(self, max_bytes: int) -> bytes:
         async with self._conflict_detector:
-            if self._closed:
+            if self._handle_holder.closed:
                 raise _core.ClosedResourceError("this pipe is already closed")
 
             if not isinstance(max_bytes, int):
@@ -85,9 +101,11 @@ class PipeReceiveStream(_PipeMixin, ReceiveStream):
 
             buffer = bytearray(max_bytes)
             try:
-                size = await _core.readinto_overlapped(self._pipe, buffer)
+                size = await _core.readinto_overlapped(
+                    self._handle_holder.handle, buffer
+                )
             except BrokenPipeError:
-                if self._closed:
+                if self._handle_holder.closed:
                     raise _core.ClosedResourceError(
                         "another task closed this pipe"
                     ) from None
@@ -101,9 +119,5 @@ class PipeReceiveStream(_PipeMixin, ReceiveStream):
                 del buffer[size:]
                 return buffer
 
-
-async def make_pipe() -> Tuple[PipeSendStream, PipeReceiveStream]:
-    """Makes a new pair of pipes."""
-    from asyncio.windows_utils import pipe
-    (r, w) = pipe()
-    return PipeSendStream(w), PipeReceiveStream(r)
+    async def aclose(self):
+        await self._handle_holder.aclose()
