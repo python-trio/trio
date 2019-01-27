@@ -1,4 +1,4 @@
-Fixed several bugs in the new subprocess pipe support on Unix, where
+Fixed several bugs in the new Unix subprocess pipe support, where
 (a) operations on a closed pipe could accidentally affect another
 unrelated pipe due to internal file-descriptor reuse, (b) in very rare
 circumstances, two tasks calling ``send_all`` on the same pipe at the

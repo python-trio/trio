@@ -42,7 +42,6 @@ class PipeSendStream(_PipeMixin, SendStream):
     """
 
     async def send_all(self, data: bytes):
-        # adapted from the SocketStream code
         async with self._conflict_detector:
             if self._closed:
                 raise _core.ClosedResourceError("this pipe is already closed")
@@ -50,21 +49,10 @@ class PipeSendStream(_PipeMixin, SendStream):
             if not data:
                 return
 
-            # adapted from the SocketStream code
-            length = len(data)
-            with memoryview(data) as view:
-                total_sent = 0
-                while total_sent < length:
-                    # Only send 64K at a time. IOCP buffers can sometimes
-                    # get pinned in kernel memory and we don't want to use
-                    # an arbitrary amount.
-                    with view[total_sent:total_sent + 65536] as chunk:
-                        try:
-                            total_sent += await _core.write_overlapped(
-                                self._pipe, chunk
-                            )
-                        except BrokenPipeError as ex:
-                            raise _core.BrokenResourceError from ex
+            try:
+                total_sent += await _core.write_overlapped(self._pipe, data)
+            except BrokenPipeError as ex:
+                raise _core.BrokenResourceError from ex
 
     async def wait_send_all_might_not_block(self) -> None:
         async with self._conflict_detector:
