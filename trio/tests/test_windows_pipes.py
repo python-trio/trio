@@ -1,5 +1,6 @@
 import errno
 import select
+from asyncio.windows_utils import pipe
 
 import os
 import pytest
@@ -7,6 +8,7 @@ import pytest
 from .._core.tests.tutil import gc_collect_harder
 from .. import _core, move_on_after
 from ..testing import wait_all_tasks_blocked, check_one_way_stream
+from .._core._windows_cffi import _handle, kernel32
 
 windows = os.name == "nt"
 pytestmark = pytest.mark.skipif(not windows, reason="windows only")
@@ -16,7 +18,6 @@ if windows:
 
 async def make_pipe() -> "Tuple[PipeSendStream, PipeReceiveStream]":
     """Makes a new pair of pipes."""
-    from asyncio.windows_utils import pipe
     (r, w) = pipe()
     return PipeSendStream(w), PipeReceiveStream(r)
 
@@ -25,7 +26,23 @@ async def test_pipe_typecheck():
     with pytest.raises(TypeError):
         PipeSendStream(1.0)
     with pytest.raises(TypeError):
-        PipeReceiveStream("nope")
+        PipeReceiveStream(None)
+
+
+async def test_pipe_error_on_close():
+    # Make sure we correctly handle a failure from kernel32.CloseHandle
+    r, w = pipe()
+
+    send_stream = PipeSendStream(w)
+    receive_stream = PipeReceiveStream(r)
+
+    assert kernel32.CloseHandle(_handle(r))
+    assert kernel32.CloseHandle(_handle(w))
+
+    with pytest.raises(OSError):
+        await send_stream.aclose()
+    with pytest.raises(OSError):
+        await receive_stream.aclose()
 
 
 async def test_pipes_combined():
@@ -55,11 +72,6 @@ async def test_pipes_combined():
     async with _core.open_nursery() as n:
         n.start_soon(sender)
         n.start_soon(reader)
-
-
-async def test_pipe_errors():
-    with pytest.raises(TypeError):
-        PipeReceiveStream(None)
 
 
 async def test_async_with():
