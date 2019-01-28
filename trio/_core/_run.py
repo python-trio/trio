@@ -169,7 +169,6 @@ class CancelScope:
     cancel scope's :attr:`deadline` and :attr:`shield` attributes; these
     may be freely modified after construction, whether or not the scope
     has been entered yet, and changes take immediate effect.
-
     """
 
     _tasks = attr.ib(factory=set, init=False)
@@ -273,6 +272,28 @@ class CancelScope:
 
     @property
     def deadline(self):
+        """Read-write, :class:`float`. An absolute time on the current
+        run's clock at which this scope will automatically become
+        cancelled. You can adjust the deadline by modifying this
+        attribute, e.g.::
+
+           # I need a little more time!
+           cancel_scope.deadline += 30
+
+        Note that for efficiency, the core run loop only checks for
+        expired deadlines every once in a while. This means that in
+        certain cases there may be a short delay between when the clock
+        says the deadline should have expired, and when checkpoints
+        start raising :exc:`~trio.Cancelled`. This is a very obscure
+        corner case that you're unlikely to notice, but we document it
+        for completeness. (If this *does* cause problems for you, of
+        course, then `we want to know!
+        <https://github.com/python-trio/trio/issues>`__)
+
+        Defaults to :data:`math.inf`, which means "no deadline", though
+        this can be overridden by the ``deadline=`` argument to
+        the :class:`~trio.CancelScope` constructor.
+        """
         return self._deadline
 
     @deadline.setter
@@ -282,6 +303,26 @@ class CancelScope:
 
     @property
     def shield(self):
+        """Read-write, :class:`bool`, default :data:`False`. So long as
+        this is set to :data:`True`, then the code inside this scope
+        will not receive :exc:`~trio.Cancelled` exceptions from scopes
+        that are outside this scope. They can still receive
+        :exc:`~trio.Cancelled` exceptions from (1) this scope, or (2)
+        scopes inside this scope. You can modify this attribute::
+
+           with trio.CancelScope() as cancel_scope:
+               cancel_scope.shield = True
+               # This cannot be interrupted by any means short of
+               # killing the process:
+               await sleep(10)
+
+               cancel_scope.shield = False
+               # Now this can be cancelled normally:
+               await sleep(10)
+
+        Defaults to :data:`False`, though this can be overridden by the
+        ``shield=`` argument to the :class:`~trio.CancelScope` constructor.
+        """
         return self._shield
 
     @shield.setter
@@ -305,6 +346,11 @@ class CancelScope:
 
     @enable_ki_protection
     def cancel(self):
+        """Cancels this scope immediately.
+
+        This method is idempotent, i.e., if the scope was already
+        cancelled then this method silently does nothing.
+        """
         for task in self._cancel_no_notify():
             task._attempt_delivery_of_any_pending_cancel()
 

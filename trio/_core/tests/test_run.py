@@ -892,17 +892,23 @@ async def test_cancel_unbound():
         assert "may not be entered while it is already active" in str(
             exc_info.value
         )
-        async with _core.open_nursery() as nursery:
 
-            async def try_in_other_task():
-                with pytest.raises(RuntimeError) as exc_info:
-                    with scope:
-                        pass  # pragma: no cover
-                assert "while it is already active in another task" in str(
-                    exc_info.value
-                )
+    # Attempts to enter from two tasks simultaneously throw an error
+    async def enter_scope():
+        with scope:
+            await sleep_forever()
 
-            nursery.start_soon(try_in_other_task)
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(enter_scope)
+        await wait_all_tasks_blocked()
+
+        with pytest.raises(RuntimeError) as exc_info:
+            with scope:
+                pass  # pragma: no cover
+        assert "while it is already active in another task" in str(
+            exc_info.value
+        )
+        nursery.cancel_scope.cancel()
 
 
 async def test_timekeeping():
