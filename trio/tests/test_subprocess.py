@@ -224,9 +224,11 @@ async def test_run():
     assert result.stdout == data
     assert result.stderr == data[::-1]
 
+    # can't use both input and stdin
     with pytest.raises(ValueError):
-        # can't use both input and stdin
-        await run_process(CAT, input=b"la di dah", stdin=subprocess.PIPE)
+        await run_process(CAT, input=b"la di dah", stdin=subprocess.DEVNULL)
+    with pytest.raises(ValueError):
+        await run_process(CAT, input=b"la di dah", passthrough=True)
 
 
 async def test_run_check():
