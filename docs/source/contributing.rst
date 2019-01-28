@@ -446,9 +446,12 @@ posting Github comment). For example, it's *totally OK* if the first
 time you review a PR, you want someone else to check over your work
 before you hit the merge button.
 
-For general tips on doing code reviews, the `node.js guide
+The best essay I know about reviewing pull request's is Sage Sharp's
+`The gentle art of patch review
+<http://sage.thesharps.us/2014/09/01/the-gentle-art-of-patch-review/>`__.
+The `node.js guide
 <https://github.com/nodejs/node/blob/master/doc/guides/contributing/pull-requests.md#reviewing-pull-requests>`__
-has some good suggestions, and `so does this blog post
+also has some good suggestions, and `so does this blog post
 <http://verraes.net/2013/10/pre-merge-code-reviews/>`__.
 
 
