@@ -1,0 +1,36 @@
+# Will want to adjust this if we ever start having non-master branches
+# in the main repo:
+#   https://docs.microsoft.com/en-us/azure/devops/pipelines/build/triggers
+trigger:
+  - master
+
+# Special job that uses a container to check we work on the latest
+# tippy-tip. The main thing this adds is openssl 1.1.1/TLS 1.3.
+#
+# Azure has fancy stuff to let you run directly inside a container:
+#
+#   https://docs.microsoft.com/en-us/azure/devops/pipelines/process/container-phases
+#
+# Unfortunately it's useless for us. Azure carefully sets everything
+# up so that you run as a non-root user, but can sudo to get root. But
+# the standard images that docker maintains like 'ubuntu' or 'debian'
+# don't have sudo installed, which means that if you use 'container:
+# ubuntu:rolling' then you simply cannot get root. And it's definitely
+# not worth maintaining our own container image just so we can
+# preinstall sudo:
+#
+#   https://github.com/MicrosoftDocs/vsts-docs/issues/2939
+jobs:
+  - job: "py37_latest_ubuntu"
+    pool:
+      vmImage: "ubuntu-16.04"
+    timeoutInMinutes: 10
+    steps:
+      # This actually reveals the CODECOV_TOKEN in the logs, but
+      # AFAICT the only thing the token lets you do is upload coverage
+      # reports, which doesn't seem like a very tempting target for
+      # malicious hackers.
+      - bash: |
+          set -ex
+          env | sort
+          sudo docker run -e SYSTEM_JOBIDENTIFIER="$SYSTEM_JOBIDENTIFIER" -e CODECOV_TOKEN="$CODECOV_TOKEN" -v "$PWD:/t" ubuntu:rolling /bin/bash -c "set -ex; cd /t; apt update; apt install -y python3.7-dev python3-virtualenv git build-essential curl; python3.7 -m virtualenv -p python3.7 venv; source venv/bin/activate; source ci/travis.sh"
