@@ -400,7 +400,7 @@ async def test_Condition():
 
     # After being cancelled still hold the lock (!)
     # (Note that c.__aexit__ checks that we hold the lock as well)
-    with _core.open_cancel_scope() as scope:
+    with _core.CancelScope() as scope:
         async with c:
             scope.cancel()
             try:

@@ -526,7 +526,7 @@ async def test_SocketType_non_blocking_paths():
 
         # cancel before even calling
         b.send(b"1")
-        with _core.open_cancel_scope() as cscope:
+        with _core.CancelScope() as cscope:
             cscope.cancel()
             with assert_checkpoints():
                 with pytest.raises(_core.Cancelled):
@@ -603,13 +603,13 @@ async def test_SocketType_connect_paths():
     # cancelled before we start
     with tsocket.socket() as sock:
         with assert_checkpoints():
-            with _core.open_cancel_scope() as cancel_scope:
+            with _core.CancelScope() as cancel_scope:
                 cancel_scope.cancel()
                 with pytest.raises(_core.Cancelled):
                     await sock.connect(("127.0.0.1", 80))
 
     # Cancelled in between the connect() call and the connect completing
-    with _core.open_cancel_scope() as cancel_scope:
+    with _core.CancelScope() as cancel_scope:
         with tsocket.socket() as sock, tsocket.socket() as listener:
             await listener.bind(("127.0.0.1", 0))
             listener.listen()
@@ -651,7 +651,7 @@ async def test_SocketType_connect_paths():
 
 async def test_resolve_remote_address_exception_closes_socket():
     # Here we are testing issue 247, any cancellation will leave the socket closed
-    with _core.open_cancel_scope() as cancel_scope:
+    with _core.CancelScope() as cancel_scope:
         with tsocket.socket() as sock:
 
             async def _resolve_remote_address(self, *args, **kwargs):

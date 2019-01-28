@@ -1,0 +1,4 @@
+Add support for "unbound cancel scopes": you can now construct a
+:class:`trio.CancelScope` without entering its context, e.g., so you
+can pass it to another task which will use it to wrap some work that
+you want to be able to cancel from afar.
