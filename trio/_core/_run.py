@@ -1,4 +1,5 @@
 import functools
+import itertools
 import logging
 import os
 import random
@@ -58,6 +59,12 @@ elif hasattr(select, "kqueue"):
 else:  # pragma: no cover
     raise NotImplementedError("unsupported platform")
 
+# When running under Hypothesis, we want examples to be reproducible and
+# shrinkable.  pytest-trio's Hypothesis integration monkeypatches this
+# variable to True, and registers the Random instance _r for Hypothesis
+# to manage for each test case, which together should make Trio's task
+# scheduling loop deterministic.  We have a test for that, of course.
+_ALLOW_DETERMINISTIC_SCHEDULING = False
 _r = random.Random()
 
 # Used to log exceptions in instruments
@@ -682,6 +689,7 @@ class Task:
     name = attr.ib()
     # PEP 567 contextvars context
     context = attr.ib()
+    _counter = attr.ib(init=False, factory=itertools.count().__next__)
 
     # Invariant:
     # - for unscheduled tasks, _next_send is None
@@ -1557,6 +1565,12 @@ def run_impl(runner, async_fn, args):
         # change too, like the deadlines tie-breaker and the non-deterministic
         # ordering of task._notify_queues.)
         batch = list(runner.runq)
+        if _ALLOW_DETERMINISTIC_SCHEDULING:
+            # We're running under Hypothesis, and pytest-trio has patched this
+            # in to make the scheduler deterministic and avoid flaky tests.
+            # It's not worth the (small) performance cost in normal operation,
+            # since we'll shuffle the list and _r is only seeded for tests.
+            batch.sort(key=lambda t: t._counter)
         runner.runq.clear()
         _r.shuffle(batch)
         while batch:
