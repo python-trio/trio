@@ -23,6 +23,10 @@ if [ $AGENT_OS = "Windows_NT" ]; then
 
     pydir=$PWD/pyinstall/${PYTHON_PKG}
     export PATH="${pydir}/tools:${pydir}/tools/scripts:$PATH"
+    # Fix an issue with the nuget python 3.5 packages
+    # https://github.com/python-trio/trio/pull/827#issuecomment-457433940
+    ls "${pydir}/tools"
+    rm -f "${pydir}/tools/pyvenv.cfg" || true
 fi
 
 python -c "import sys, struct, ssl; print('#' * 70); print('python:', sys.version); print('version_info:', sys.version_info); print('bits:', struct.calcsize('P') * 8); print('openssl:', ssl.OPENSSL_VERSION, ssl.OPENSSL_VERSION_INFO); print('#' * 70)"
