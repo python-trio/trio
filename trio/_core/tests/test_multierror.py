@@ -514,7 +514,7 @@ def run_script(name, use_ipython=False):
     script_path = Path(__file__).parent / "test_multierror_scripts" / name
 
     env = dict(os.environ)
-    print("PYTHONPATH was:", env.get("PYTHONPATH"))
+    print("parent PYTHONPATH:", env.get("PYTHONPATH"))
     if "PYTHONPATH" in env:  # pragma: no cover
         pp = env["PYTHONPATH"].split(os.pathsep)
     else:
@@ -522,7 +522,7 @@ def run_script(name, use_ipython=False):
     pp.insert(0, str(trio_path))
     pp.insert(0, str(script_path.parent))
     env["PYTHONPATH"] = os.pathsep.join(pp)
-    print("PYTHONPATH now:", env.get("PYTHONPATH"))
+    print("subprocess PYTHONPATH:", env.get("PYTHONPATH"))
 
     if use_ipython:
         lines = [script_path.open().read(), "exit()"]
