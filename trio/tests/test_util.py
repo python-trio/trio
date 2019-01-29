@@ -69,7 +69,7 @@ async def test_ConflictDetector():
 def test_module_metadata_is_fixed_up():
     import trio
     assert trio.Cancelled.__module__ == "trio"
-    assert trio.open_cancel_scope.__module__ == "trio"
+    assert trio.open_nursery.__module__ == "trio"
     assert trio.abc.Stream.__module__ == "trio.abc"
     assert trio.hazmat.wait_task_rescheduled.__module__ == "trio.hazmat"
     import trio.testing

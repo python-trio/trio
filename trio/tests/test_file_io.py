@@ -176,7 +176,7 @@ async def test_async_iter():
 
 
 async def test_aclose_cancelled(path):
-    with _core.open_cancel_scope() as cscope:
+    with _core.CancelScope() as cscope:
         f = await trio.open_file(path, 'w')
         cscope.cancel()
 

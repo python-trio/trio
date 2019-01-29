@@ -49,7 +49,7 @@ class Cancelled(BaseException):
     Attempting to raise :exc:`Cancelled` yourself will cause a
     :exc:`RuntimeError`. It would not be associated with a cancel scope and thus
     not be caught by Trio. Use
-    :meth:`cancel_scope.cancel() <trio.The cancel scope interface.cancel>`
+    :meth:`cancel_scope.cancel() <trio.CancelScope.cancel>`
     instead.
 
     .. note::

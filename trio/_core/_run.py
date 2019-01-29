@@ -35,15 +35,16 @@ from ._traps import (
     WaitTaskRescheduled,
 )
 from .. import _core
+from .._deprecate import deprecated
 
 # At the bottom of this file there's also some "clever" code that generates
 # wrapper functions for runner and io manager methods, and adds them to
 # __all__. These are all re-exported as part of the 'trio' or 'trio.hazmat'
 # namespaces.
 __all__ = [
-    "Task", "run", "open_nursery", "open_cancel_scope", "checkpoint",
-    "current_task", "current_effective_deadline", "checkpoint_if_cancelled",
-    "TASK_STATUS_IGNORED"
+    "Task", "run", "open_nursery", "open_cancel_scope", "CancelScope",
+    "checkpoint", "current_task", "current_effective_deadline",
+    "checkpoint_if_cancelled", "TASK_STATUS_IGNORED"
 ]
 
 GLOBAL_RUN_CONTEXT = threading.local()
@@ -116,28 +117,139 @@ class SystemClock:
 ################################################################
 
 
-@attr.s(cmp=False, hash=False, repr=False)
+@attr.s(cmp=False, repr=False, slots=True)
 class CancelScope:
-    _tasks = attr.ib(default=attr.Factory(set))
-    _scope_task = attr.ib(default=None)
-    _effective_deadline = attr.ib(default=inf)
-    _deadline = attr.ib(default=inf)
-    _shield = attr.ib(default=False)
-    cancel_called = attr.ib(default=False)
-    cancelled_caught = attr.ib(default=False)
+    """A *cancellation scope*: the link between a unit of cancellable
+    work and Trio's cancellation system.
 
-    @staticmethod
-    def _create(deadline, shield):
+    A :class:`CancelScope` becomes associated with some cancellable work
+    when it is used as a context manager surrounding that work::
+
+        cancel_scope = trio.CancelScope()
+        ...
+        with cancel_scope:
+            await long_running_operation()
+
+    Inside the ``with`` block, a cancellation of ``cancel_scope`` (via
+    a call to its :meth:`cancel` method or via the expiry of its
+    :attr:`deadline`) will immediately interrupt the
+    ``long_running_operation()`` by raising :exc:`Cancelled` at its
+    next :ref:`checkpoint <checkpoints>`.
+
+    The context manager ``__enter__`` returns the :class:`CancelScope`
+    object itself, so you can also write ``with trio.CancelScope() as
+    cancel_scope:``.
+
+    If a cancel scope becomes cancelled before entering its ``with`` block,
+    the :exc:`Cancelled` exception will be raised at the first
+    checkpoint inside the ``with`` block. This allows a
+    :class:`CancelScope` to be created in one :ref:`task <tasks>` and
+    passed to another, so that the first task can later cancel some work
+    inside the second.
+
+    Cancel scopes are reusable: once you exit the ``with`` block, you
+    can use the same :class:`CancelScope` object to wrap another chunk
+    of work.  (The cancellation state doesn't change; once a cancel
+    scope becomes cancelled, it stays cancelled.)  This can be useful
+    if you want a cancellation to be able to interrupt some operations
+    in a loop but not others::
+
+        cancel_scope = trio.CancelScope(deadline=...)
+        while True:
+            with cancel_scope:
+                request = await get_next_request()
+                response = await handle_request(request)
+            await send_response(response)
+
+    Cancel scopes are *not* reentrant: you can't enter a second
+    ``with`` block using the same :class:`CancelScope` while the first
+    one is still active. (You'll get a :exc:`RuntimeError` if you try.)
+
+    The :class:`CancelScope` constructor takes initial values for the
+    cancel scope's :attr:`deadline` and :attr:`shield` attributes; these
+    may be freely modified after construction, whether or not the scope
+    has been entered yet, and changes take immediate effect.
+    """
+
+    _tasks = attr.ib(factory=set, init=False)
+    _scope_task = attr.ib(default=None, init=False)
+    _effective_deadline = attr.ib(default=inf, init=False)
+    cancel_called = attr.ib(default=False, init=False)
+    cancelled_caught = attr.ib(default=False, init=False)
+
+    # Constructor arguments:
+    _deadline = attr.ib(default=inf, kw_only=True)
+    _shield = attr.ib(default=False, kw_only=True)
+
+    @enable_ki_protection
+    def __enter__(self):
         task = _core.current_task()
-        scope = CancelScope()
-        scope._scope_task = task
-        scope._add_task(task)
-        scope.deadline = deadline
-        scope.shield = shield
-        return scope
+        if self._scope_task is not None:
+            raise RuntimeError(
+                "cancel scope may not be entered while it is already "
+                "active{}".format(
+                    "" if self._scope_task is task else
+                    " in another task ({!r})".format(self._scope_task.name)
+                )
+            )
+        self._scope_task = task
+        self.cancelled_caught = False
+        with self._might_change_effective_deadline():
+            self._add_task(task)
+        return self
+
+    @enable_ki_protection
+    def __exit__(self, etype, exc, tb):
+        # NB: NurseryManager calls _close() directly rather than __exit__(),
+        # so __exit__() must be just _close() plus this logic for adapting
+        # the exception-filtering result to the context manager API.
+
+        # Tracebacks show the 'raise' line below out of context, so let's give
+        # this variable a name that makes sense out of context.
+        remaining_error_after_cancel_scope = self._close(exc)
+        if remaining_error_after_cancel_scope is None:
+            return True
+        elif remaining_error_after_cancel_scope is exc:
+            return False
+        else:
+            # Copied verbatim from MultiErrorCatcher.  Python doesn't
+            # allow us to encapsulate this __context__ fixup.
+            old_context = remaining_error_after_cancel_scope.__context__
+            try:
+                raise remaining_error_after_cancel_scope
+            finally:
+                _, value, _ = sys.exc_info()
+                assert value is remaining_error_after_cancel_scope
+                value.__context__ = old_context
 
     def __repr__(self):
-        return "<cancel scope object at {:#x}>".format(id(self))
+        if self._scope_task is None:
+            binding = "unbound"
+        else:
+            binding = "bound to {!r}".format(self._scope_task.name)
+            if len(self._tasks) > 1:
+                binding += " and its {} descendant{}".format(
+                    len(self._tasks) - 1, "s" if len(self._tasks) > 2 else ""
+                )
+
+        if self.cancel_called:
+            state = ", cancelled"
+        elif self.deadline == inf:
+            state = ""
+        else:
+            try:
+                now = current_time()
+            except RuntimeError:  # must be called from async context
+                state = ""
+            else:
+                state = ", deadline is {:.2f} seconds {}".format(
+                    abs(self.deadline - now),
+                    "from now" if self.deadline >= now else "ago"
+                )
+
+        return "<trio.CancelScope at {:#x}, {}{}>".format(
+            id(self), binding, state
+        )
 
     @contextmanager
     @enable_ki_protection
@@ -160,6 +272,28 @@ class CancelScope:
 
     @property
     def deadline(self):
+        """Read-write, :class:`float`. An absolute time on the current
+        run's clock at which this scope will automatically become
+        cancelled. You can adjust the deadline by modifying this
+        attribute, e.g.::
+
+           # I need a little more time!
+           cancel_scope.deadline += 30
+
+        Note that for efficiency, the core run loop only checks for
+        expired deadlines every once in a while. This means that in
+        certain cases there may be a short delay between when the clock
+        says the deadline should have expired, and when checkpoints
+        start raising :exc:`~trio.Cancelled`. This is a very obscure
+        corner case that you're unlikely to notice, but we document it
+        for completeness. (If this *does* cause problems for you, of
+        course, then `we want to know!
+        <https://github.com/python-trio/trio/issues>`__)
+
+        Defaults to :data:`math.inf`, which means "no deadline", though
+        this can be overridden by the ``deadline=`` argument to
+        the :class:`~trio.CancelScope` constructor.
+        """
         return self._deadline
 
     @deadline.setter
@@ -169,9 +303,30 @@ class CancelScope:
 
     @property
     def shield(self):
+        """Read-write, :class:`bool`, default :data:`False`. So long as
+        this is set to :data:`True`, then the code inside this scope
+        will not receive :exc:`~trio.Cancelled` exceptions from scopes
+        that are outside this scope. They can still receive
+        :exc:`~trio.Cancelled` exceptions from (1) this scope, or (2)
+        scopes inside this scope. You can modify this attribute::
+
+           with trio.CancelScope() as cancel_scope:
+               cancel_scope.shield = True
+               # This cannot be interrupted by any means short of
+               # killing the process:
+               await sleep(10)
+
+               cancel_scope.shield = False
+               # Now this can be cancelled normally:
+               await sleep(10)
+
+        Defaults to :data:`False`, though this can be overridden by the
+        ``shield=`` argument to the :class:`~trio.CancelScope` constructor.
+        """
         return self._shield
 
     @shield.setter
+    @enable_ki_protection
     def shield(self, new_value):
         if not isinstance(new_value, bool):
             raise TypeError("shield must be a bool")
@@ -191,6 +346,11 @@ class CancelScope:
 
     @enable_ki_protection
     def cancel(self):
+        """Cancels this scope immediately.
+
+        This method is idempotent, i.e., if the scope was already
+        cancelled then this method silently does nothing.
+        """
         for task in self._cancel_no_notify():
             task._attempt_delivery_of_any_pending_cancel()
 
@@ -199,8 +359,7 @@ class CancelScope:
         task._cancel_stack.append(self)
 
     def _remove_task(self, task):
-        with self._might_change_effective_deadline():
-            self._tasks.remove(task)
+        self._tasks.remove(task)
         assert task._cancel_stack[-1] is self
         task._cancel_stack.pop()
 
@@ -225,52 +384,18 @@ class CancelScope:
         return exc
 
     def _close(self, exc):
-        self._remove_task(self._scope_task)
+        with self._might_change_effective_deadline():
+            self._remove_task(self._scope_task)
+        self._scope_task = None
         if exc is not None:
-            filtered_exc = MultiError.filter(self._exc_filter, exc)
-            return filtered_exc
+            return MultiError.filter(self._exc_filter, exc)
+        return None
 
 
-# We explicitly avoid @contextmanager since it adds extraneous stack frames
-# to exceptions.
-@attr.s
-class CancelScopeManager:
-
-    _deadline = attr.ib(default=inf)
-    _shield = attr.ib(default=False)
-
-    @enable_ki_protection
-    def __enter__(self):
-        self._scope = CancelScope._create(self._deadline, self._shield)
-        return self._scope
-
-    @enable_ki_protection
-    def __exit__(self, etype, exc, tb):
-        # Tracebacks show the 'raise' line below out of context, so let's give
-        # this variable a name that makes sense out of context.
-        remaining_error_after_cancel_scope = self._scope._close(exc)
-        if remaining_error_after_cancel_scope is None:
-            return True
-        elif remaining_error_after_cancel_scope is exc:
-            return False
-        else:
-            # Copied verbatim from MultiErrorCatcher.  Python doesn't
-            # allow us to encapsulate this __context__ fixup.
-            old_context = remaining_error_after_cancel_scope.__context__
-            try:
-                raise remaining_error_after_cancel_scope
-            finally:
-                _, value, _ = sys.exc_info()
-                assert value is remaining_error_after_cancel_scope
-                value.__context__ = old_context
-
-
+@deprecated("0.10.0", issue=607, instead="trio.CancelScope")
 def open_cancel_scope(*, deadline=inf, shield=False):
-    """Returns a context manager which creates a new cancellation scope.
-
-    """
-
-    return CancelScopeManager(deadline, shield)
+    """Returns a context manager which creates a new cancellation scope."""
+    return CancelScope(deadline=deadline, shield=shield)
 
 
 ################################################################
@@ -376,7 +501,8 @@ class NurseryManager:
 
     @enable_ki_protection
     async def __aenter__(self):
-        self._scope = CancelScope._create(deadline=inf, shield=False)
+        self._scope = CancelScope()
+        self._scope.__enter__()
         self._nursery = Nursery(current_task(), self._scope)
         return self._nursery
 
@@ -1586,7 +1712,7 @@ async def checkpoint():
     :func:`checkpoint`.)
 
     """
-    with open_cancel_scope(deadline=-inf):
+    with CancelScope(deadline=-inf):
         await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
 
 

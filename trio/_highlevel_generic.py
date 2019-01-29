@@ -29,7 +29,7 @@ async def aclose_forcefully(resource):
     assuming the underlying resource object is correctly implemented).
 
     """
-    with _core.open_cancel_scope() as cs:
+    with _core.CancelScope() as cs:
         cs.cancel()
         await resource.aclose()
 
