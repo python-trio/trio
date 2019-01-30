@@ -15,7 +15,8 @@ contextvars==2.3 ; python_version < "3.7"
 coverage==4.5.2           # via pytest-cov
 cryptography==2.5         # via pyopenssl, trustme
 decorator==4.3.2          # via ipython, traitlets
-flake8==3.6.0
+entrypoints==0.3          # via flake8
+flake8==3.7.0
 idna==2.8
 immutables==0.6           # via contextvars
 ipython-genutils==0.2.0   # via traitlets
@@ -33,9 +34,9 @@ pluggy==0.8.1             # via pytest
 prompt-toolkit==2.0.8     # via ipython
 ptyprocess==0.6.0         # via pexpect
 py==1.7.0                 # via pytest
-pycodestyle==2.4.0        # via flake8
+pycodestyle==2.5.0        # via flake8
 pycparser==2.19           # via cffi
-pyflakes==2.0.0           # via flake8
+pyflakes==2.1.0           # via flake8
 pygments==2.3.1           # via ipython
 pylint==2.2.2
 pyopenssl==19.0.0
