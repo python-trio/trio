@@ -16,7 +16,7 @@ coverage==4.5.2           # via pytest-cov
 cryptography==2.5         # via pyopenssl, trustme
 decorator==4.3.2          # via ipython, traitlets
 entrypoints==0.3          # via flake8
-flake8==3.7.3
+flake8==3.7.4
 idna==2.8
 immutables==0.6           # via contextvars
 ipython-genutils==0.2.0   # via traitlets
