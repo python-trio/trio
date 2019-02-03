@@ -1,0 +1,3 @@
+Added an internal mechanism for pytest-trio's
+`Hypothesis <https://hypothesis.readthedocs.io>`__ integration
+to make the task scheduler reproducible and avoid flaky tests.
