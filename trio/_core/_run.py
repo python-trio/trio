@@ -342,15 +342,6 @@ class CancelScope:
             for task in self._tasks:
                 task._attempt_delivery_of_any_pending_cancel()
 
-    def _cancel_no_notify(self):
-        # returns the affected tasks
-        if not self.cancel_called:
-            with self._might_change_effective_deadline():
-                self.cancel_called = True
-            return self._tasks
-        else:
-            return set()
-
     @enable_ki_protection
     def cancel(self):
         """Cancels this scope immediately.
@@ -358,7 +349,11 @@ class CancelScope:
         This method is idempotent, i.e., if the scope was already
         cancelled then this method silently does nothing.
         """
-        for task in self._cancel_no_notify():
+        if self.cancel_called:
+            return
+        with self._might_change_effective_deadline():
+            self.cancel_called = True
+        for task in self._tasks:
             task._attempt_delivery_of_any_pending_cancel()
 
     def _add_task(self, task):
@@ -756,6 +751,9 @@ class Task:
             self._runner.reschedule(self, capture(raise_cancel))
 
     def _attempt_delivery_of_any_pending_cancel(self):
+        if self._runner.cancel_batch is not None:
+            self._runner.cancel_batch.add(self)
+            return
         if self._abort_func is None:
             return
         pending_scope = self._pending_cancel_scope()
@@ -810,6 +808,10 @@ class Runner:
     # only contains scopes with non-infinite deadlines that are currently
     # attached to at least one task
     deadlines = attr.ib(default=attr.Factory(SortedDict))
+
+    # If not None, we're in a batch_cancellations() scope and this
+    # collects all the tasks that become cancelled
+    cancel_batch = attr.ib(default=None)
 
     init_task = attr.ib(default=None)
     system_nursery = attr.ib(default=None)
@@ -1155,6 +1157,88 @@ class Runner:
                 self.main_task_outcome = Error(exc)
                 system_nursery.cancel_scope.cancel()
             self.entry_queue.spawn()
+
+    ################
+    # Cancellation
+    ################
+
+    @_public
+    @contextmanager
+    def batch_cancellations(self):
+        """A context manager which defers all cancellation delivery
+        until the context is exited.
+
+        Suppose some task is sleeping within multiple cancel scopes::
+
+            async def some_task(*, task_status):
+                with trio.CancelScope() as outer:
+                    with trio.CancelScope() as inner:
+                        task_status.started((outer, inner))
+                        await trio.sleep_forever()
+                    print("inner scope cancelled")
+                    return
+                print("outer scope cancelled")
+
+        If ``outer`` and ``inner`` both become cancelled "simultaneously",
+        there's a question of which one the cancellation should propagate to.
+        If the cancellations occur due to deadline expiry, the outer scope
+        wins::
+
+            async with trio.open_nursery() as nursery:
+                outer, inner = await nursery.start(some_task)
+                now = trio.current_time()
+                inner.deadline = now - 0.1
+                outer.deadline = now
+                # prints: outer scope cancelled
+
+        But if the cancellations occur due to explicit calls to
+        :meth:`trio.CancelScope.cancel`, whichever one was called first wins::
+
+            async with trio.open_nursery() as nursery:
+                outer, inner = await nursery.start(some_task)
+                inner.cancel()
+                outer.cancel()
+                # prints: inner scope cancelled
+
+        This is because Trio doesn't know that you'll also be calling
+        ``outer.cancel()`` when it wakes up ``some_task`` as a result of
+        your call to ``inner.cancel()``.
+
+        If you use :func:`batch_cancellations`, all
+        cancellation-related task wakeups made within the
+        :func:`batch_cancellations` context get buffered up and
+        applied as a unit once the context is exited, with outer
+        scopes once again taking precedence over inner ones.
+
+        ::
+
+            async with trio.open_nursery() as nursery:
+                outer, inner = await nursery.start(some_task)
+                with trio.hazmat.batch_cancellations():
+                    inner.cancel()
+                    outer.cancel()
+                # prints: outer scope cancelled
+
+        .. warning:: This is a low-level interface intended to aid in the
+           creation of higher-level cancellation utilities. Nesting of
+           :meth:`batch_cancellations` contexts is not supported, and
+           executing any checkpoints within a :meth:`batch_cancellations`
+           context is liable to crash or deadlock your program.
+
+        """
+        if self.cancel_batch is not None:
+            raise RuntimeError(
+                "can't nest calls to batch_cancellations() -- did you "
+                "execute a checkpoint within one?"
+            )
+        self.cancel_batch = set()
+        try:
+            yield
+        finally:
+            tasks = self.cancel_batch
+            self.cancel_batch = None
+            for task in tasks:
+                task._attempt_delivery_of_any_pending_cancel()
 
     ################
     # Outside context problems
@@ -1527,17 +1611,15 @@ def run_impl(runner, async_fn, args):
         # We process all timeouts in a batch and then notify tasks at the end
         # to ensure that if multiple timeouts occur at once, then it's the
         # outermost one that gets delivered.
-        cancelled_tasks = set()
-        while runner.deadlines:
-            (deadline, _), cancel_scope = runner.deadlines.peekitem(0)
-            if deadline <= now:
-                # This removes the given scope from runner.deadlines:
-                cancelled_tasks.update(cancel_scope._cancel_no_notify())
-                idle_primed = False
-            else:
-                break
-        for task in cancelled_tasks:
-            task._attempt_delivery_of_any_pending_cancel()
+        with runner.batch_cancellations():
+            while runner.deadlines:
+                (deadline, _), cancel_scope = runner.deadlines.peekitem(0)
+                if deadline <= now:
+                    # This removes the given scope from runner.deadlines:
+                    cancel_scope.cancel()
+                    idle_primed = False
+                else:
+                    break
 
         if not runner.runq and idle_primed:
             while runner.waiting_for_idle:

@@ -769,6 +769,57 @@ async def test_cancel_shield_abort():
                 assert record == ["sleeping", "cancelled"]
 
 
+async def test_batch_cancellations():
+    record = []
+
+    async def some_task(*, task_status):
+        with _core.CancelScope() as outer:
+            with _core.CancelScope() as inner:
+                task_status.started((outer, inner))
+                await sleep_forever()
+            record.append("inner")
+            return
+        record.append("outer")
+
+    async with _core.open_nursery() as nursery:
+        outer, inner = await nursery.start(some_task)
+        now = _core.current_time()
+        inner.deadline = now - 0.1
+        outer.deadline = now
+    assert record[-1] == "outer"
+
+    async with _core.open_nursery() as nursery:
+        outer, inner = await nursery.start(some_task)
+        inner.cancel()
+        outer.cancel()
+    assert record[-1] == "inner"
+
+    async with _core.open_nursery() as nursery:
+        outer, inner = await nursery.start(some_task)
+        with _core.batch_cancellations():
+            inner.cancel()
+            outer.cancel()
+    assert record[-1] == "outer"
+
+    with _core.batch_cancellations():
+        with pytest.raises(RuntimeError):
+            with _core.batch_cancellations():
+                pass  # pragma: no cover
+
+
+def test_batch_cancellations_with_improper_yield():
+    async def evil():
+        with _core.batch_cancellations():
+            await _core.checkpoint()
+
+    with pytest.raises(_core.TrioInternalError) as exc_info:
+        _core.run(evil)
+    message = str(exc_info.value.__cause__)
+    assert "batch_cancellations" in message and "checkpoint" in message
+
+    gc_collect_harder()
+
+
 async def test_basic_timeout(mock_clock):
     start = _core.current_time()
     with _core.CancelScope() as scope:

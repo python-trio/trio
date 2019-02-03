@@ -1,0 +1,4 @@
+Added :func:`trio.hazmat.batch_cancellations`, allowing user-defined
+cancellation abstractions to cancel multiple cancel scopes "at the
+same time" with the same semantics (outermost one wins) as when
+Trio does this itself.

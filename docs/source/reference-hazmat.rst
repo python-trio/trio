@@ -492,6 +492,13 @@ this does serve to illustrate the basic structure of the
                trio.hazmat.reschedule(woken_task)
 
 
+Low-level cancellation control
+------------------------------
+
+.. autofunction:: batch_cancellations()
+   :with:
+
+
 Task API
 --------
 
