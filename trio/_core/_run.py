@@ -376,8 +376,7 @@ class CancelScope:
 
     def _exc_filter(self, exc):
         if (
-            isinstance(exc, Cancelled)
-            and self.cancel_called
+            isinstance(exc, Cancelled) and self.cancel_called
             and self._scope_task._pending_cancel_scope() is self
         ):
             self.cancelled_caught = True
