@@ -342,15 +342,6 @@ class CancelScope:
             for task in self._tasks:
                 task._attempt_delivery_of_any_pending_cancel()
 
-    def _cancel_no_notify(self):
-        # returns the affected tasks
-        if not self.cancel_called:
-            with self._might_change_effective_deadline():
-                self.cancel_called = True
-            return self._tasks
-        else:
-            return set()
-
     @enable_ki_protection
     def cancel(self):
         """Cancels this scope immediately.
@@ -358,7 +349,11 @@ class CancelScope:
         This method is idempotent, i.e., if the scope was already
         cancelled then this method silently does nothing.
         """
-        for task in self._cancel_no_notify():
+        if self.cancel_called:
+            return
+        with self._might_change_effective_deadline():
+            self.cancel_called = True
+        for task in self._tasks:
             task._attempt_delivery_of_any_pending_cancel()
 
     def _add_task(self, task):
@@ -379,24 +374,23 @@ class CancelScope:
     def _tasks_added_by_adoption(self, tasks):
         self._tasks.update(tasks)
 
-    def _make_exc(self):
-        exc = Cancelled._init()
-        exc._scope = self
-        return exc
-
     def _exc_filter(self, exc):
-        if isinstance(exc, Cancelled) and exc._scope is self:
+        if (
+            isinstance(exc, Cancelled)
+            and self.cancel_called
+            and self._scope_task._pending_cancel_scope() is self
+        ):
             self.cancelled_caught = True
             return None
         return exc
 
     def _close(self, exc):
+        if exc is not None:
+            exc = MultiError.filter(self._exc_filter, exc)
         with self._might_change_effective_deadline():
             self._remove_task(self._scope_task)
         self._scope_task = None
-        if exc is not None:
-            return MultiError.filter(self._exc_filter, exc)
-        return None
+        return exc
 
 
 @deprecated("0.10.0", issue=607, instead="trio.CancelScope")
@@ -432,9 +426,8 @@ class _TaskStatus:
 
         # If the old nursery is cancelled, then quietly quit now; the child
         # will eventually exit on its own, and we don't want to risk moving
-        # the children into a different scope while they might have
-        # propagating Cancelled exceptions that assume they're under the old
-        # scope.
+        # children that might have propagating Cancelled exceptions into
+        # a place with no cancelled cancel scopes to catch them.
         if _pending_cancel_scope(self._old_nursery._cancel_stack) is not None:
             return
 
@@ -758,13 +751,11 @@ class Task:
     def _attempt_delivery_of_any_pending_cancel(self):
         if self._abort_func is None:
             return
-        pending_scope = self._pending_cancel_scope()
-        if pending_scope is None:
+        if self._pending_cancel_scope() is None:
             return
-        exc = pending_scope._make_exc()
 
         def raise_cancel():
-            raise exc
+            raise Cancelled._init()
 
         self._attempt_abort(raise_cancel)
 
@@ -1523,21 +1514,16 @@ def run_impl(runner, async_fn, args):
         if runner.instruments:
             runner.instrument("after_io_wait", timeout)
 
+        # Process cancellations due to deadline expiry
         now = runner.clock.current_time()
-        # We process all timeouts in a batch and then notify tasks at the end
-        # to ensure that if multiple timeouts occur at once, then it's the
-        # outermost one that gets delivered.
-        cancelled_tasks = set()
         while runner.deadlines:
             (deadline, _), cancel_scope = runner.deadlines.peekitem(0)
             if deadline <= now:
                 # This removes the given scope from runner.deadlines:
-                cancelled_tasks.update(cancel_scope._cancel_no_notify())
+                cancel_scope.cancel()
                 idle_primed = False
             else:
                 break
-        for task in cancelled_tasks:
-            task._attempt_delivery_of_any_pending_cancel()
 
         if not runner.runq and idle_primed:
             while runner.waiting_for_idle:

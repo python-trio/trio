@@ -637,21 +637,21 @@ async def test_cancel_scope_multierror_filtering():
                     nursery.start_soon(crasher)  # t4
                 # and then our __aexit__ also receives an outer Cancelled
             except _core.MultiError as multi_exc:
-                # This is outside the nursery scope but inside the outer
-                # scope, so the nursery should have absorbed t1 and t2's
-                # exceptions but t3 and t4 should remain, plus the Cancelled
-                # from 'outer'
-                assert len(multi_exc.exceptions) == 3
+                # Since the outer scope became cancelled before the
+                # nursery block exited, all cancellations inside the
+                # nursery block continue propagating to reach the
+                # outer scope.
+                assert len(multi_exc.exceptions) == 5
                 summary = {}
                 for exc in multi_exc.exceptions:
                     summary.setdefault(type(exc), 0)
                     summary[type(exc)] += 1
-                assert summary == {_core.Cancelled: 2, KeyError: 1}
+                assert summary == {_core.Cancelled: 4, KeyError: 1}
                 raise
     except AssertionError:  # pragma: no cover
         raise
     except BaseException as exc:
-        # This is ouside the outer scope, so the two outer Cancelled
+        # This is ouside the outer scope, so all the Cancelled
         # exceptions should have been absorbed, leaving just a regular
         # KeyError from crasher()
         assert type(exc) is KeyError
@@ -1400,7 +1400,7 @@ def test_TrioToken_run_sync_soon_starvation_resistance():
     assert len(record) == 2
     assert record[0] == "starting"
     assert record[1][0] == "run finished"
-    assert record[1][1] >= 20
+    assert record[1][1] >= 19
 
 
 def test_TrioToken_run_sync_soon_threaded_stress_test():
