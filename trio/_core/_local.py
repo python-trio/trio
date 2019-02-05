@@ -31,10 +31,10 @@ class RunVar(Generic[T]):
     """
 
     _NO_DEFAULT = object()
-    __slots__ = ("_name", "_default")
+    __slots__ = ("_varname", "_default")
 
     def __init__(self, name, default=_NO_DEFAULT):
-        self._name = name
+        self._varname = name
         self._default = default
 
     def get(self, default=_NO_DEFAULT):
@@ -97,4 +97,4 @@ class RunVar(Generic[T]):
         token.redeemed = True
 
     def __repr__(self):
-        return ("<RunVar name={!r}>".format(self._name))
+        return ("<RunVar name={!r}>".format(self._varname))
