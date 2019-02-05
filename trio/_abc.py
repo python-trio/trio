@@ -484,9 +484,18 @@ class HalfCloseableStream(Stream):
         """
 
 
-T = TypeVar("T")
+# The type of object produced by a ReceiveChannel (covariant because
+# ReceiveChannel[Derived] can be passed to someone expecting
+# ReceiveChannel[Base])
 T_co = TypeVar("T_co", covariant=True)
+
+# The type of object accepted by a SendChannel (contravariant because
+# SendChannel[Base] can be passed to someone expecting
+# SendChannel[Derived])
 T_contra = TypeVar("T_contra", contravariant=True)
+
+# The type of object produced by a Listener (covariant plus must be
+# an AsyncResource)
 T_resource = TypeVar("T_resource", bound=AsyncResource, covariant=True)
 
 
@@ -501,7 +510,7 @@ class Listener(AsyncResource, Generic[T_resource]):
     __slots__ = ()
 
     @abstractmethod
-    async def accept(self) -> T_resource:
+    async def accept(self):
         """Wait until an incoming connection arrives, and then return it.
 
         Returns:
@@ -542,7 +551,7 @@ class SendChannel(AsyncResource, Generic[T_contra]):
     __slots__ = ()
 
     @abstractmethod
-    def send_nowait(self, value: T_contra) -> None:
+    def send_nowait(self, value):
         """Attempt to send an object through the channel, without blocking.
 
         Args:
@@ -560,7 +569,7 @@ class SendChannel(AsyncResource, Generic[T_contra]):
         """
 
     @abstractmethod
-    async def send(self, value: T_contra) -> None:
+    async def send(self, value):
         """Attempt to send an object through the channel, blocking if necessary.
 
         Args:
@@ -577,7 +586,7 @@ class SendChannel(AsyncResource, Generic[T_contra]):
         """
 
     @abstractmethod
-    def clone(self: T) -> T:
+    def clone(self):
         """Clone this send channel object.
 
         This returns a new :class:`SendChannel` object, which acts as a
@@ -625,7 +634,7 @@ class ReceiveChannel(AsyncResource, Generic[T_co]):
     __slots__ = ()
 
     @abstractmethod
-    def receive_nowait(self) -> T_co:
+    def receive_nowait(self):
         """Attempt to receive an incoming object, without blocking.
 
         Returns:
@@ -644,7 +653,7 @@ class ReceiveChannel(AsyncResource, Generic[T_co]):
         """
 
     @abstractmethod
-    async def receive(self) -> T_co:
+    async def receive(self):
         """Attempt to receive an incoming object, blocking if necessary.
 
         It's legal for multiple tasks to call :meth:`receive` at the same
@@ -665,7 +674,7 @@ class ReceiveChannel(AsyncResource, Generic[T_co]):
         """
 
     @abstractmethod
-    def clone(self: T) -> T:
+    def clone(self):
         """Clone this receive channel object.
 
         This returns a new :class:`ReceiveChannel` object, which acts as a
