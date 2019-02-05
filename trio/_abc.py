@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+from typing import Generic, TypeVar
 from ._util import aiter_compat
 from . import _core
 
@@ -483,7 +484,13 @@ class HalfCloseableStream(Stream):
         """
 
 
-class Listener(AsyncResource):
+T = TypeVar("T")
+T_co = TypeVar("T_co", covariant=True)
+T_contra = TypeVar("T_contra", contravariant=True)
+T_resource = TypeVar("T_resource", bound=AsyncResource, covariant=True)
+
+
+class Listener(AsyncResource, Generic[T_resource]):
     """A standard interface for listening for incoming connections.
 
     :class:`Listener` objects also implement the :class:`AsyncResource`
@@ -494,7 +501,7 @@ class Listener(AsyncResource):
     __slots__ = ()
 
     @abstractmethod
-    async def accept(self):
+    async def accept(self) -> T_resource:
         """Wait until an incoming connection arrives, and then return it.
 
         Returns:
@@ -521,7 +528,7 @@ class Listener(AsyncResource):
         """
 
 
-class SendChannel(AsyncResource):
+class SendChannel(AsyncResource, Generic[T_contra]):
     """A standard interface for sending Python objects to some receiver.
 
     :class:`SendChannel` objects also implement the :class:`AsyncResource`
@@ -535,7 +542,7 @@ class SendChannel(AsyncResource):
     __slots__ = ()
 
     @abstractmethod
-    def send_nowait(self, value):
+    def send_nowait(self, value: T_contra) -> None:
         """Attempt to send an object through the channel, without blocking.
 
         Args:
@@ -553,7 +560,7 @@ class SendChannel(AsyncResource):
         """
 
     @abstractmethod
-    async def send(self, value):
+    async def send(self, value: T_contra) -> None:
         """Attempt to send an object through the channel, blocking if necessary.
 
         Args:
@@ -570,7 +577,7 @@ class SendChannel(AsyncResource):
         """
 
     @abstractmethod
-    def clone(self):
+    def clone(self: T) -> T:
         """Clone this send channel object.
 
         This returns a new :class:`SendChannel` object, which acts as a
@@ -595,7 +602,7 @@ class SendChannel(AsyncResource):
         """
 
 
-class ReceiveChannel(AsyncResource):
+class ReceiveChannel(AsyncResource, Generic[T_co]):
     """A standard interface for receiving Python objects from some sender.
 
     You can iterate over a :class:`ReceiveChannel` using an ``async for``
@@ -618,7 +625,7 @@ class ReceiveChannel(AsyncResource):
     __slots__ = ()
 
     @abstractmethod
-    def receive_nowait(self):
+    def receive_nowait(self) -> T_co:
         """Attempt to receive an incoming object, without blocking.
 
         Returns:
@@ -637,7 +644,7 @@ class ReceiveChannel(AsyncResource):
         """
 
     @abstractmethod
-    async def receive(self):
+    async def receive(self) -> T_co:
         """Attempt to receive an incoming object, blocking if necessary.
 
         It's legal for multiple tasks to call :meth:`receive` at the same
@@ -658,7 +665,7 @@ class ReceiveChannel(AsyncResource):
         """
 
     @abstractmethod
-    def clone(self):
+    def clone(self: T) -> T:
         """Clone this receive channel object.
 
         This returns a new :class:`ReceiveChannel` object, which acts as a

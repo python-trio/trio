@@ -6,7 +6,7 @@ from ... import _core
 # scary runvar tests
 def test_runvar_smoketest():
     t1 = _core.RunVar("test1")
-    t2 = _core.RunVar("test2", default="catfish")
+    t2 = _core.RunVar[str]("test2", default="catfish")
 
     assert "RunVar" in repr(t1)
 

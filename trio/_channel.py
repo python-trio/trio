@@ -6,8 +6,10 @@ from outcome import Error, Value
 
 from . import _core
 from .abc import SendChannel, ReceiveChannel
+from ._util import generic_function
 
 
+@generic_function
 def open_memory_channel(max_buffer_size):
     """Open a channel for passing objects between tasks within a process.
 

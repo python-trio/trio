@@ -4,7 +4,7 @@ import os
 import signal
 import sys
 import pathlib
-from functools import wraps
+from functools import wraps, update_wrapper
 import typing as t
 
 import async_generator
@@ -22,6 +22,7 @@ __all__ = [
     "ConflictDetector",
     "fixup_module_metadata",
     "fspath",
+    "indexable_function",
 ]
 
 # Equivalent to the C function raise(), which Python doesn't wrap
@@ -177,7 +178,9 @@ def fixup_module_metadata(module_name, namespace):
             obj.__module__ = module_name
             if isinstance(obj, type):
                 for attr_value in obj.__dict__.values():
-                    fix_one(attr_value)
+                    # avoid infinite recursion when using typing.Generic
+                    if attr_value is not obj:
+                        fix_one(attr_value)
 
     for objname, obj in namespace.items():
         if not objname.startswith("_"):  # ignore private attributes
@@ -242,3 +245,31 @@ def fspath(path) -> t.Union[str, bytes]:
 
 if hasattr(os, "fspath"):
     fspath = os.fspath  # noqa
+
+
+class generic_function:
+    """Decorator that makes a function indexable, to communicate
+    non-inferrable generic type parameters to a static type checker.
+
+    If you write::
+
+        @generic_function
+        def open_memory_channel(max_buffer_size: int) -> Tuple[
+            SendChannel[T], ReceiveChannel[T]
+        ]: ...
+
+    it is valid at runtime to say ``open_memory_channel[bytes](5)``.
+    This behaves identically to ``open_memory_channel(5)`` at runtime,
+    and currently won't type-check without a mypy plugin or clever stubs,
+    but at least it becomes possible to write those.
+    """
+
+    def __init__(self, fn):
+        update_wrapper(self, fn)
+        self._fn = fn
+
+    def __call__(self, *args, **kwargs):
+        return self._fn(*args, **kwargs)
+
+    def __getitem__(self, _):
+        return self
