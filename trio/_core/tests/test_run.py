@@ -407,12 +407,13 @@ def test_instruments(recwarn):
 
     _core.run(main, instruments=[r1, r2])
 
-    # It sleeps 5 times, so it runs 6 times
+    # It sleeps 5 times, so it runs 6 times.  Note that checkpoint()
+    # reschedules the task immediately upon yielding, before the
+    # after_task_step event fires.
     expected = (
-        [("before_run",)] +
-        6 * [("schedule", task),
-             ("before", task),
-             ("after", task)] + [("after_run",)]
+        [("before_run",), ("schedule", task)] +
+        [("before", task), ("schedule", task), ("after", task)] * 5 +
+        [("before", task), ("after", task), ("after_run",)]
     )
     assert len(r1.record) > len(r2.record) > len(r3.record)
     assert r1.record == r2.record + r3.record
@@ -444,15 +445,15 @@ def test_instruments_interleave():
         ("schedule", tasks["t2"]),
         {
             ("before", tasks["t1"]),
+            ("schedule", tasks["t1"]),
             ("after", tasks["t1"]),
             ("before", tasks["t2"]),
+            ("schedule", tasks["t2"]),
             ("after", tasks["t2"])
         },
         {
-            ("schedule", tasks["t1"]),
             ("before", tasks["t1"]),
             ("after", tasks["t1"]),
-            ("schedule", tasks["t2"]),
             ("before", tasks["t2"]),
             ("after", tasks["t2"])
         },
