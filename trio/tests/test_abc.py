@@ -22,12 +22,13 @@ async def test_AsyncResource_defaults():
 
 
 def test_abc_generics():
-    class SomeChannel(tabc.SendChannel[tabc.Stream]):
+    class SlottedChannel(tabc.SendChannel[tabc.Stream]):
+        __slots__ = ()
         def send_nowait(self, value): raise RuntimeError
         async def send(self, value): raise RuntimeError
         def clone(self): raise RuntimeError
         async def aclose(self): pass
 
-    channel = SomeChannel()
+    channel = SlottedChannel()
     with pytest.raises(RuntimeError):
         channel.send_nowait(None)
