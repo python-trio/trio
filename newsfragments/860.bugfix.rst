@@ -1,0 +1,4 @@
+:exc:`trio.Cancelled` exceptions now always propagate until they reach
+the outermost unshielded cancelled scope, even if more cancellations
+occur or shielding is changed between when the :exc:`~trio.Cancelled`
+is delivered and when it is caught.
