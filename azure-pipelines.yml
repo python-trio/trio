@@ -25,7 +25,12 @@ jobs:
 - job: "py37_latest_ubuntu"
   pool:
     vmImage: "ubuntu-16.04"
-  timeoutInMinutes: 10
+  # This used to take 2 min to run and we had a 10 min timeout. Then
+  # on 2018-02-04 it suddenly started taking >10 min to run, because
+  # the Azure VM's download speed dropped from ~15 MB/sec to ~0.3
+  # MB/sec. Hopefully this gets sorted out soon, but for now we'll
+  # bump up the timeout...
+  timeoutInMinutes: 20
   steps:
     # This actually reveals the CODECOV_TOKEN in the logs, but
     # AFAICT the only thing the token lets you do is upload coverage
