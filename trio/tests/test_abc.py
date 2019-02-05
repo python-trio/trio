@@ -23,19 +23,19 @@ async def test_AsyncResource_defaults():
 
 def test_abc_generics():
     class SlottedChannel(tabc.SendChannel[tabc.Stream]):
-        __slots__ = ()
+        __slots__ = ("x",)
 
         def send_nowait(self, value):
             raise RuntimeError
 
         async def send(self, value):
-            raise RuntimeError
+            raise RuntimeError  # pragma: no cover
 
         def clone(self):
-            raise RuntimeError
+            raise RuntimeError  # pragma: no cover
 
         async def aclose(self):
-            pass
+            pass  # pragma: no cover
 
     channel = SlottedChannel()
     with pytest.raises(RuntimeError):
