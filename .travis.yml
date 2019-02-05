@@ -34,6 +34,8 @@ matrix:
     - os: osx
       language: generic
       env: MACPYTHON=3.7.1
+  allow_failures:
+    - python: 3.8-dev
 
 script:
   - ci/ci.sh
