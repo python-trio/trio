@@ -1,12 +1,10 @@
 # Runvar implementations
-from typing import Generic, TypeVar
 from . import _run
 
 __all__ = ["RunVar"]
-T = TypeVar("T")
 
 
-class _RunVarToken:
+class _RunVarToken(object):
     _no_value = object()
 
     __slots__ = ("_var", "previous_value", "redeemed")
@@ -21,7 +19,7 @@ class _RunVarToken:
         self.redeemed = False
 
 
-class RunVar(Generic[T]):
+class RunVar(object):
     """The run-local variant of a context variable.
 
     :class:`RunVar` objects are similar to context variable objects,
@@ -31,10 +29,10 @@ class RunVar(Generic[T]):
     """
 
     _NO_DEFAULT = object()
-    __slots__ = ("_varname", "_default")
+    __slots__ = ("_name", "_default")
 
     def __init__(self, name, default=_NO_DEFAULT):
-        self._varname = name
+        self._name = name
         self._default = default
 
     def get(self, default=_NO_DEFAULT):
@@ -97,4 +95,4 @@ class RunVar(Generic[T]):
         token.redeemed = True
 
     def __repr__(self):
-        return ("<RunVar name={!r}>".format(self._varname))
+        return ("<RunVar name={!r}>".format(self._name))
