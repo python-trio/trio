@@ -11,36 +11,67 @@ from ..testing import wait_all_tasks_blocked, check_one_way_stream
 windows = os.name == "nt"
 pytestmark = pytest.mark.skipif(not windows, reason="windows only")
 if windows:
-    from .._windows_pipes import PipeSendStream, PipeReceiveStream, make_pipe
+    from .._windows_pipes import PipeSendStream, PipeReceiveStream
+    from .._core._windows_cffi import _handle, kernel32
+    from asyncio.windows_utils import pipe
+
+
+async def make_pipe() -> "Tuple[PipeSendStream, PipeReceiveStream]":
+    """Makes a new pair of pipes."""
+    (r, w) = pipe()
+    return PipeSendStream(w), PipeReceiveStream(r)
+
+
+async def test_pipe_typecheck():
+    with pytest.raises(TypeError):
+        PipeSendStream(1.0)
+    with pytest.raises(TypeError):
+        PipeReceiveStream(None)
+
+
+async def test_pipe_error_on_close():
+    # Make sure we correctly handle a failure from kernel32.CloseHandle
+    r, w = pipe()
+
+    send_stream = PipeSendStream(w)
+    receive_stream = PipeReceiveStream(r)
+
+    assert kernel32.CloseHandle(_handle(r))
+    assert kernel32.CloseHandle(_handle(w))
+
+    with pytest.raises(OSError):
+        await send_stream.aclose()
+    with pytest.raises(OSError):
+        await receive_stream.aclose()
 
 
 async def test_pipes_combined():
     write, read = await make_pipe()
     count = 2**20
+    replicas = 3
 
     async def sender():
-        big = bytearray(count)
-        await write.send_all(big)
+        async with write:
+            big = bytearray(count)
+            for _ in range(replicas):
+                await write.send_all(big)
 
     async def reader():
-        await wait_all_tasks_blocked()
-        received = 0
-        while received < count:
-            received += len(await read.receive_some(4096))
+        async with read:
+            await wait_all_tasks_blocked()
+            total_received = 0
+            while True:
+                # 5000 is chosen because it doesn't evenly divide 2**20
+                received = len(await read.receive_some(5000))
+                if not received:
+                    break
+                total_received += received
 
-        assert received == count
+            assert total_received == count * replicas
 
     async with _core.open_nursery() as n:
         n.start_soon(sender)
         n.start_soon(reader)
-
-    await read.aclose()
-    await write.aclose()
-
-
-async def test_pipe_errors():
-    with pytest.raises(TypeError):
-        PipeReceiveStream(None)
 
 
 async def test_async_with():
@@ -48,13 +79,10 @@ async def test_async_with():
     async with w, r:
         pass
 
-    assert w._closed
-    assert r._closed
-
-    # test failue-to-close
-    w._closed = False
-    with pytest.raises(OSError):
-        await w.aclose()
+    with pytest.raises(_core.ClosedResourceError):
+        await w.send_all(b"")
+    with pytest.raises(_core.ClosedResourceError):
+        await r.receive_some(10)
 
 
 async def test_close_during_write():

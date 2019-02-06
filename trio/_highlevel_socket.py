@@ -104,6 +104,10 @@ class SocketStream(HalfCloseableStream):
                 with memoryview(data) as data:
                     if not data:
                         await _core.checkpoint()
+                        if self.socket.fileno() == -1:
+                            raise _core.ClosedResourceError(
+                                "socket was already closed"
+                            )
                         return
                     total_sent = 0
                     while total_sent < len(data):

@@ -49,13 +49,13 @@ class Process(AsyncResource):
     were planning on.
 
     Args:
-      command (str or list): The command to run. Typically this is a
-          list of strings such as ``['ls', '-l', 'directory with spaces']``,
+      command (list or str): The command to run. Typically this is a
+          sequence of strings such as ``['ls', '-l', 'directory with spaces']``,
           where the first element names the executable to invoke and the other
-          elements specify its arguments. If ``shell=True`` is given as
-          an option, ``command`` should be a single string like
-          ``"ls -l 'directory with spaces'"``, which will
-          split into words following the shell's quoting rules.
+          elements specify its arguments. With ``shell=True`` in the
+          ``**options``, or on Windows, ``command`` may alternatively
+          be a string, which will be parsed following platform-dependent
+          :ref:`quoting rules <subprocess-quoting>`.
       stdin: Specifies what the child process's standard input
           stream should connect to: output written by the parent
           (``subprocess.PIPE``), nothing (``subprocess.DEVNULL``),
@@ -108,7 +108,7 @@ class Process(AsyncResource):
     _wait_for_exit_data = None
 
     def __init__(
-        self, args, *, stdin=None, stdout=None, stderr=None, **options
+        self, command, *, stdin=None, stdout=None, stderr=None, **options
     ):
         for key in (
             'universal_newlines', 'text', 'encoding', 'errors', 'bufsize'
@@ -123,6 +123,18 @@ class Process(AsyncResource):
         self.stdin = None
         self.stdout = None
         self.stderr = None
+
+        if os.name == "posix":
+            if isinstance(command, str) and not options.get("shell"):
+                raise TypeError(
+                    "command must be a sequence (not a string) if shell=False "
+                    "on UNIX systems"
+                )
+            if not isinstance(command, str) and options.get("shell"):
+                raise TypeError(
+                    "command must be a string (not a sequence) if shell=True "
+                    "on UNIX systems"
+                )
 
         self._wait_lock = Lock()
 
@@ -145,7 +157,7 @@ class Process(AsyncResource):
 
         try:
             self._proc = subprocess.Popen(
-                args, stdin=stdin, stdout=stdout, stderr=stderr, **options
+                command, stdin=stdin, stdout=stdout, stderr=stderr, **options
             )
         finally:
             # Close the parent's handle for each child side of a pipe;
@@ -199,7 +211,7 @@ class Process(AsyncResource):
         If cancelled, kills the process and waits for it to finish
         exiting before propagating the cancellation.
         """
-        with _core.open_cancel_scope(shield=True):
+        with _core.CancelScope(shield=True):
             if self.stdin is not None:
                 await self.stdin.aclose()
             if self.stdout is not None:
@@ -211,7 +223,7 @@ class Process(AsyncResource):
         finally:
             if self.returncode is None:
                 self.kill()
-                with _core.open_cancel_scope(shield=True):
+                with _core.CancelScope(shield=True):
                     await self.wait()
 
     async def wait(self):
@@ -277,7 +289,6 @@ async def run_process(
     *,
     input=None,
     check=True,
-    task_status=_core.TASK_STATUS_IGNORED,
     **options
 ):
     """Run ``command`` in a subprocess, wait for it to complete, and

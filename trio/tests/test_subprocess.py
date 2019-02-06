@@ -324,6 +324,12 @@ async def test_errors():
     assert "unbuffered byte streams" in str(excinfo.value)
     assert "the 'encoding' option is not supported" in str(excinfo.value)
 
+    if posix:
+        with pytest.raises(TypeError) as excinfo:
+            Process(["ls"], shell=True)
+        with pytest.raises(TypeError) as excinfo:
+            Process("ls", shell=False)
+
 
 async def test_signals():
     async def test_one_signal(send_it, signum):

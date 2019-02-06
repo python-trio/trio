@@ -82,7 +82,7 @@ async def test_parking_lot_basic():
 
 
 async def cancellable_waiter(name, lot, scopes, record):
-    with _core.open_cancel_scope() as scope:
+    with _core.CancelScope() as scope:
         scopes[name] = scope
         record.append("sleep {}".format(name))
         try:

@@ -127,7 +127,7 @@ class AsyncIOWrapper(AsyncResource):
         """
 
         # ensure the underling file is closed during cancellation
-        with _core.open_cancel_scope(shield=True):
+        with _core.CancelScope(shield=True):
             await trio.run_sync_in_worker_thread(self._wrapped.close)
 
         await _core.checkpoint_if_cancelled()
