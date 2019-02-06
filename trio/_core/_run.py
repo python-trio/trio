@@ -201,6 +201,8 @@ class CancelScope:
             )
         self._scope_task = task
         self.cancelled_caught = False
+        if current_time() >= self._deadline:
+            self.cancel_called = True
         with self._might_change_effective_deadline():
             self._add_task(task)
         return self
