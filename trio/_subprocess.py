@@ -285,12 +285,7 @@ class Process(AsyncResource):
 
 
 async def run_process(
-    command,
-    *,
-    input=None,
-    check=True,
-    passthrough=False,
-    **options
+    command, *, input=None, check=True, passthrough=False, **options
 ):
     """Run ``command`` in a subprocess, wait for it to complete, and
     return a :class:`subprocess.CompletedProcess` instance describing
@@ -396,6 +391,7 @@ async def run_process(
     stderr_chunks = []
 
     async with Process(command, **options) as proc:
+
         async def feed_input():
             async with proc.stdin:
                 try:
