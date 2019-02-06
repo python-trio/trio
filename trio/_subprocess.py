@@ -358,15 +358,6 @@ async def run_process(
           one call to :func:`run_process` should be active at a time with
           ``passthrough=True``, to avoid different processes' I/O being
           unpredictably interleaved.
-      task_status: This function can be used with ``nursery.start``.
-          If it is, it returns the :class:`Process` object, so that other tasks
-          can send signals to the subprocess or wait for it to exit.
-          They shouldn't try to send or receive on the subprocess's
-          input and output streams, because :func:`run_process` is
-          already doing that. Note that signals which terminate a
-          subprocess often result in a nonzero return code; you
-          probably want to pass ``check=False`` and do your own
-          more specific error check if you're planning on sending any.
       **options: :func:`run_process` also accepts any :ref:`general subprocess
           options <subprocess-options>` and passes them on to the
           :class:`~trio.Process` constructor.
@@ -405,8 +396,6 @@ async def run_process(
     stderr_chunks = []
 
     async with Process(command, **options) as proc:
-        task_status.started(proc)
-
         async def feed_input():
             async with proc.stdin:
                 try:

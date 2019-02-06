@@ -350,22 +350,6 @@ async def test_signals():
         await test_one_signal(lambda proc: proc.send_signal(SIGINT), SIGINT)
 
 
-async def test_run_in_background():
-    # Test signaling a background process
-    async with _core.open_nursery() as nursery:
-        proc = await nursery.start(
-            run_process, python("import time; time.sleep(5)")
-        )
-        assert proc.returncode is None
-        nursery.cancel_scope.cancel()
-    assert got_signal(proc, SIGKILL)
-
-    # Test a background process failing
-    with pytest.raises(subprocess.CalledProcessError):
-        async with _core.open_nursery() as nursery:
-            await nursery.start(run_process, EXIT_FALSE)
-
-
 @pytest.mark.skipif(not posix, reason="POSIX specific")
 async def test_wait_reapable_fails():
     old_sigchld = signal.signal(signal.SIGCHLD, signal.SIG_IGN)
