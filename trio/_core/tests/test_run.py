@@ -549,21 +549,27 @@ def test_instruments_crash(caplog):
 
 async def test_cancel_scope_repr(mock_clock):
     scope = _core.CancelScope()
-    assert "unbound" in repr(scope)
-    with scope:
-        assert "bound to {!r}".format(_core.current_task().name) in repr(scope)
-        async with _core.open_nursery() as nursery:
-            nursery.start_soon(sleep, 10)
-            assert "and its 1 descendant" in repr(scope)
-            nursery.cancel_scope.cancel()
+    assert repr(scope) == "CancelScope(deadline=inf, shield=False)"
+    binding = scope.bind()
+    assert "unbound" in repr(binding)
+    with binding:
+        assert "active" in repr(binding)
+        with _core.CancelScope() as inner:
+            assert "shadowed" in repr(binding) and "active" in repr(inner)
+        assert "active" in repr(binding) and "unbound" in repr(inner)
         scope.deadline = _core.current_time() - 1
-        assert "deadline is 1.00 seconds ago" in repr(scope)
+        assert "cancel requested 1.00sec ago" in repr(binding)
         scope.deadline = _core.current_time() + 10
-        assert "deadline is 10.00 seconds from now" in repr(scope)
+        assert "cancel in 10.00sec" in repr(binding)
         # when not in async context, can't get the current time
-        assert "deadline" not in await run_sync_in_worker_thread(repr, scope)
+        assert "deadline unknown outside trio thread" in (
+            await run_sync_in_worker_thread(repr, binding)
+        )
         scope.cancel()
-        assert "cancelled" in repr(scope)
+        assert "cancel requested infsec ago" in repr(binding)
+        await _core.checkpoint()
+    assert binding.cancelled_caught
+    assert "cancelled" in repr(binding)
 
 
 def test_cancel_points():
