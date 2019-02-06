@@ -22,6 +22,13 @@ async def test_AsyncResource_defaults():
 
 
 def test_abc_generics():
+    # Pythons below 3.5.2 had a typing.Generic that would throw
+    # errors when instantiating or subclassing a parameterized
+    # version of a class with any __slots__. This is why RunVar
+    # (which has slots) is not generic. This tests that
+    # the generic ABCs are fine, because while they are slotted
+    # they don't actually define any slots.
+
     class SlottedChannel(tabc.SendChannel[tabc.Stream]):
         __slots__ = ("x",)
 

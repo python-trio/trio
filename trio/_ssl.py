@@ -827,7 +827,7 @@ class SSLStream(Stream):
                 await self.transport_stream.wait_send_all_might_not_block()
 
 
-class SSLListener(Listener):
+class SSLListener(Listener[SSLStream]):
     """A :class:`~trio.abc.Listener` for SSL/TLS-encrypted servers.
 
     :class:`SSLListener` wraps around another Listener, and converts

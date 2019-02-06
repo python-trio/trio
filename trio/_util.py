@@ -22,7 +22,7 @@ __all__ = [
     "ConflictDetector",
     "fixup_module_metadata",
     "fspath",
-    "indexable_function",
+    "generic_function",
 ]
 
 # Equivalent to the C function raise(), which Python doesn't wrap
@@ -172,15 +172,21 @@ def async_wraps(cls, wrapped_cls, attr_name):
 
 
 def fixup_module_metadata(module_name, namespace):
+    seen_ids = set()
+
     def fix_one(obj):
+        # avoid infinite recursion (relevant when using
+        # typing.Generic, for example)
+        if id(obj) in seen_ids:
+            return
+        seen_ids.add(id(obj))
+
         mod = getattr(obj, "__module__", None)
         if mod is not None and mod.startswith("trio."):
             obj.__module__ = module_name
             if isinstance(obj, type):
                 for attr_value in obj.__dict__.values():
-                    # avoid infinite recursion when using typing.Generic
-                    if attr_value is not obj:
-                        fix_one(attr_value)
+                    fix_one(attr_value)
 
     for objname, obj in namespace.items():
         if not objname.startswith("_"):  # ignore private attributes
