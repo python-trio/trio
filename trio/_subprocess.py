@@ -289,6 +289,7 @@ async def run_process(
     *,
     input=None,
     check=True,
+    passthrough=False,
     **options
 ):
     """Run ``command`` in a subprocess, wait for it to complete, and
@@ -319,15 +320,17 @@ async def run_process(
       of that exception.
 
     To suppress the :exc:`~subprocess.CalledProcessError` on failure,
-    pass ``check=False``. To obtain different I/O behavior, use the
-    lower-level standard stream :ref:`redirection options <subprocess-options>`
-    ``stdin``, ``stdout``, and/or ``stderr``. (If you want one of the
-    subprocess's standard streams to go to the same place the parent
-    Trio process's corresponding stream goes, pass an explicit ``None``.)
+    pass ``check=False``. To run the subprocess without I/O capturing,
+    pass ``passthrough=True``. To redirect some standard streams
+    differently than others, use the lower-level ``stdin``,
+    ``stdout``, and/or ``stderr`` :ref:`options <subprocess-options>`.
 
-    It is an error to specify ``input`` if ``stdin`` is specified. If
-    ``stdout`` or ``stderr`` is specified (as something other than
-    ``subprocess.PIPE``), the corresponding attribute of the returned
+    If you specify ``passthrough=True`` or a value for ``stdin`` other
+    than ``PIPE``, you can't specify ``input`` (because we'd have no
+    way to send it). If you specify ``passthrough=True`` or a value
+    for ``stdout`` or ``stderr`` other than ``PIPE``, you can't
+    observe the subprocess's output or errors; the corresponding
+    attributes of the returned returned
     :class:`~subprocess.CompletedProcess` object will be ``None``.
 
     Args:
@@ -348,6 +351,13 @@ async def run_process(
           successfully. You should be sure to check the
           ``returncode`` attribute of the returned object if you pass
           ``check=False``, so that errors don't pass silently.
+      passthrough (bool): If true, set up the subprocess to inherit the
+          parent Trio process's standard streams; for example, if the parent
+          Trio process is running in an interactive console, the subprocess
+          will be able to interact with the user via that console. Only
+          one call to :func:`run_process` should be active at a time with
+          ``passthrough=True``, to avoid different processes' I/O being
+          unpredictably interleaved.
       task_status: This function can be used with ``nursery.start``.
           If it is, it returns the :class:`Process` object, so that other tasks
           can send signals to the subprocess or wait for it to exit.
@@ -371,15 +381,22 @@ async def run_process(
       OSError: if an error is encountered starting or communicating with
           the process
 
+    .. note:: The child process runs in the same process group as the parent
+       Trio process, so a Ctrl+C will be delivered simultaneously to both
+       parent and child. If you don't want this behavior, consult your
+       platform's documentation for starting child processes in a different
+       process group.
+
     """
-    if input is not None and "stdin" in options:
+    default_redirect = None if passthrough else subprocess.PIPE
+    options.setdefault("stdin", default_redirect)
+    options.setdefault("stdout", default_redirect)
+    options.setdefault("stderr", default_redirect)
+
+    if input is not None and options["stdin"] != subprocess.PIPE:
         raise ValueError(
             "can't provide input to a process whose stdin is redirected"
         )
-
-    options.setdefault("stdin", subprocess.PIPE)
-    options.setdefault("stdout", subprocess.PIPE)
-    options.setdefault("stderr", subprocess.PIPE)
 
     if options["stdin"] == subprocess.PIPE and not input:
         options["stdin"] = subprocess.DEVNULL

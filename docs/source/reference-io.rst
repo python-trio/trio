@@ -656,10 +656,10 @@ for them to exit. The interface for doing so consists of two layers:
 * :func:`trio.run_process` runs a process from start to
   finish and returns a :class:`~subprocess.CompletedProcess` object describing
   its outputs and return value. This is what you should reach for if you
-  want to maybe send some input, maybe receive the output (all at once),
-  but don't need incrementality or back-and-forth. It is modelled after
+  want to run a process to completion before continuing, while possibly
+  sending it some input or capturing its output. It is modelled after
   the standard :func:`subprocess.run` with some additional features
-  and saner defaults.
+  and safer defaults.
 
 * :class:`trio.Process` starts a process in the background and optionally
   provides Trio streams for interacting with it (sending input,
@@ -708,15 +708,6 @@ as a :exc:`subprocess.CalledProcessError` exception. Of course, these
 defaults can be changed where necessary.
 
 .. autofunction:: trio.run_process
-
-If you want to run a process with no standard stream redirections
-(i.e., taking input from the user and showing output and errors to the user),
-you can use ``trio.run_process(..., stdin=None, stdout=None, stderr=None)``.
-This runs the child in the same process group as the parent Trio process,
-so a Ctrl+C will be delivered to both the child process and the parent Trio
-process simultaneously. If that's not what you want, you'll need to delve
-into platform-specific APIs like (on UNIX) :func:`os.setpgrp` and
-:func:`os.tcsetpgrp`.
 
 
 Interacting with a process as it runs
