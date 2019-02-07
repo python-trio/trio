@@ -896,6 +896,7 @@ async def test_cancel_unbound():
 
     # Can't enter from multiple tasks simultaneously
     scope = _core.CancelScope()
+
     async def enter_scope():
         with scope:
             await sleep_forever()
