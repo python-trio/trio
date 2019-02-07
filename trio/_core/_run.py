@@ -164,8 +164,9 @@ class CancelScope:
     has been entered yet, and changes take immediate effect.
     """
 
-    _tasks = attr.ib(factory=set, init=False)
-    _scope_task = attr.ib(default=None, init=False)
+    # _tasks is None before we enter the cancel scope, and the set of
+    # tasks with this scope on their cancel stacks afterward
+    _tasks = attr.ib(default=None, init=False)
     _effective_deadline = attr.ib(default=inf, init=False)
     cancel_called = attr.ib(default=False, init=False)
     cancelled_caught = attr.ib(default=False, init=False)
@@ -177,12 +178,11 @@ class CancelScope:
     @enable_ki_protection
     def __enter__(self):
         task = _core.current_task()
-        if self._scope_task is not None:
+        if self._tasks is not None:
             raise RuntimeError(
-                "cancel scopes may not be reused or reentered "
-                "(first used in task {!r})".format(self._scope_task.name)
+                "Each CancelScope may only be used for a single 'with' block"
             )
-        self._scope_task = task
+        self._tasks = set()
         if current_time() >= self._deadline:
             self.cancel_called = True
         with self._might_change_effective_deadline():
@@ -214,14 +214,14 @@ class CancelScope:
                 value.__context__ = old_context
 
     def __repr__(self):
-        if self._scope_task is None:
+        if self._tasks is None:
             binding = "unbound"
+        elif not self._tasks:
+            binding = "exited"
         else:
-            binding = "bound to {!r}".format(self._scope_task.name)
-            if len(self._tasks) > 1:
-                binding += " and its {} descendant{}".format(
-                    len(self._tasks) - 1, "s" if len(self._tasks) > 2 else ""
-                )
+            binding = "bound to {} task{}".format(
+                len(self._tasks), "s" if len(self._tasks) > 1 else ""
+            )
 
         if self.cancel_called:
             state = ", cancelled"
@@ -322,7 +322,7 @@ class CancelScope:
         if not isinstance(new_value, bool):
             raise TypeError("shield must be a bool")
         self._shield = new_value
-        if not self._shield:
+        if self._tasks and not self._shield:
             for task in self._tasks:
                 task._attempt_delivery_of_any_pending_cancel()
 
@@ -337,8 +337,9 @@ class CancelScope:
             return
         with self._might_change_effective_deadline():
             self.cancel_called = True
-        for task in self._tasks:
-            task._attempt_delivery_of_any_pending_cancel()
+        if self._tasks:
+            for task in self._tasks:
+                task._attempt_delivery_of_any_pending_cancel()
 
     def _add_task(self, task):
         self._tasks.add(task)
@@ -359,19 +360,20 @@ class CancelScope:
         self._tasks.update(tasks)
 
     def _exc_filter(self, exc):
-        if (
-            isinstance(exc, Cancelled) and self.cancel_called
-            and self._scope_task._pending_cancel_scope() is self
-        ):
+        if isinstance(exc, Cancelled):
             self.cancelled_caught = True
             return None
         return exc
 
     def _close(self, exc):
-        if exc is not None:
+        scope_task = current_task()
+        if (
+            exc is not None and self.cancel_called
+            and scope_task._pending_cancel_scope() is self
+        ):
             exc = MultiError.filter(self._exc_filter, exc)
         with self._might_change_effective_deadline():
-            self._remove_task(self._scope_task)
+            self._remove_task(scope_task)
         return exc
 
 
