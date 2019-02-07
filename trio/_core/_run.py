@@ -164,9 +164,8 @@ class CancelScope:
     has been entered yet, and changes take immediate effect.
     """
 
-    # _tasks is None before we enter the cancel scope, and the set of
-    # tasks with this scope on their cancel stacks afterward
-    _tasks = attr.ib(default=None, init=False)
+    _tasks = attr.ib(factory=set, init=False)
+    _has_been_entered = attr.ib(default=False, init=False)
     _effective_deadline = attr.ib(default=inf, init=False)
     cancel_called = attr.ib(default=False, init=False)
     cancelled_caught = attr.ib(default=False, init=False)
@@ -178,11 +177,11 @@ class CancelScope:
     @enable_ki_protection
     def __enter__(self):
         task = _core.current_task()
-        if self._tasks is not None:
+        if self._has_been_entered:
             raise RuntimeError(
                 "Each CancelScope may only be used for a single 'with' block"
             )
-        self._tasks = set()
+        self._has_been_entered = True
         if current_time() >= self._deadline:
             self.cancel_called = True
         with self._might_change_effective_deadline():
@@ -214,14 +213,14 @@ class CancelScope:
                 value.__context__ = old_context
 
     def __repr__(self):
-        if self._tasks is None:
-            binding = "unbound"
-        elif not self._tasks:
-            binding = "exited"
-        else:
+        if self._tasks:
             binding = "bound to {} task{}".format(
                 len(self._tasks), "s" if len(self._tasks) > 1 else ""
             )
+        elif self._has_been_entered:
+            binding = "exited"
+        else:
+            binding = "unbound"
 
         if self.cancel_called:
             state = ", cancelled"
@@ -322,7 +321,7 @@ class CancelScope:
         if not isinstance(new_value, bool):
             raise TypeError("shield must be a bool")
         self._shield = new_value
-        if self._tasks and not self._shield:
+        if not self._shield:
             for task in self._tasks:
                 task._attempt_delivery_of_any_pending_cancel()
 
@@ -337,9 +336,8 @@ class CancelScope:
             return
         with self._might_change_effective_deadline():
             self.cancel_called = True
-        if self._tasks:
-            for task in self._tasks:
-                task._attempt_delivery_of_any_pending_cancel()
+        for task in self._tasks:
+            task._attempt_delivery_of_any_pending_cancel()
 
     def _add_task(self, task):
         self._tasks.add(task)
