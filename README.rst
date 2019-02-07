@@ -130,9 +130,9 @@ for contributors
 <https://trio.readthedocs.io/en/latest/contributing.html>`__!
 
 **I don't have any immediate plans to use it, but I love geeking out
-about I/O library design!** That's a little weird? But tbh you'll fit
-in great around here. We have a `whole sub-forum for discussing
-structured concurrency
+about I/O library design!** That's a little weird? But let's be
+honest, you'll fit in great around here. We have a `whole sub-forum
+for discussing structured concurrency
 <https://trio.discourse.group/c/structured-concurrency>`__ (developers
 of other systems welcome!). Or check out our `discussion of design
 choices
