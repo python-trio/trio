@@ -3,9 +3,9 @@ dist: xenial
 
 matrix:
   include:
-    - python: 3.7
+    - python: 3.6
       env: CHECK_DOCS=1
-    - python: 3.7
+    - python: 3.6
       env: CHECK_FORMATTING=1
     # The pypy tests are slow, so we list them first
     - python: pypy3.5
