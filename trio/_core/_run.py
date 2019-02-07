@@ -154,23 +154,9 @@ class CancelScope:
     passed to another, so that the first task can later cancel some work
     inside the second.
 
-    Cancel scopes are reusable: once you exit the ``with`` block, you
-    can use the same :class:`CancelScope` object to wrap another chunk
-    of work.  (The cancellation state doesn't change; once a cancel
-    scope becomes cancelled, it stays cancelled.)  This can be useful
-    if you want a cancellation to be able to interrupt some operations
-    in a loop but not others::
-
-        cancel_scope = trio.CancelScope(deadline=...)
-        while True:
-            with cancel_scope:
-                request = await get_next_request()
-                response = await handle_request(request)
-            await send_response(response)
-
-    Cancel scopes are *not* reentrant: you can't enter a second
-    ``with`` block using the same :class:`CancelScope` while the first
-    one is still active. (You'll get a :exc:`RuntimeError` if you try.)
+    Cancel scopes are not reusable or reentrant; that is, each cancel
+    scope can be used for at most one ``with`` block.  (You'll get a
+    :exc:`RuntimeError` if you violate this rule.)
 
     The :class:`CancelScope` constructor takes initial values for the
     cancel scope's :attr:`deadline` and :attr:`shield` attributes; these
@@ -193,14 +179,10 @@ class CancelScope:
         task = _core.current_task()
         if self._scope_task is not None:
             raise RuntimeError(
-                "cancel scope may not be entered while it is already "
-                "active{}".format(
-                    "" if self._scope_task is task else
-                    " in another task ({!r})".format(self._scope_task.name)
-                )
+                "cancel scopes may not be reused or reentered "
+                "(first used in task {!r})".format(self._scope_task.name)
             )
         self._scope_task = task
-        self.cancelled_caught = False
         if current_time() >= self._deadline:
             self.cancel_called = True
         with self._might_change_effective_deadline():
@@ -390,7 +372,6 @@ class CancelScope:
             exc = MultiError.filter(self._exc_filter, exc)
         with self._might_change_effective_deadline():
             self._remove_task(self._scope_task)
-        self._scope_task = None
         return exc
 
 
