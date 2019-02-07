@@ -154,23 +154,9 @@ class CancelScope:
     passed to another, so that the first task can later cancel some work
     inside the second.
 
-    Cancel scopes are reusable: once you exit the ``with`` block, you
-    can use the same :class:`CancelScope` object to wrap another chunk
-    of work.  (The cancellation state doesn't change; once a cancel
-    scope becomes cancelled, it stays cancelled.)  This can be useful
-    if you want a cancellation to be able to interrupt some operations
-    in a loop but not others::
-
-        cancel_scope = trio.CancelScope(deadline=...)
-        while True:
-            with cancel_scope:
-                request = await get_next_request()
-                response = await handle_request(request)
-            await send_response(response)
-
-    Cancel scopes are *not* reentrant: you can't enter a second
-    ``with`` block using the same :class:`CancelScope` while the first
-    one is still active. (You'll get a :exc:`RuntimeError` if you try.)
+    Cancel scopes are not reusable or reentrant; that is, each cancel
+    scope can be used for at most one ``with`` block.  (You'll get a
+    :exc:`RuntimeError` if you violate this rule.)
 
     The :class:`CancelScope` constructor takes initial values for the
     cancel scope's :attr:`deadline` and :attr:`shield` attributes; these
@@ -179,7 +165,7 @@ class CancelScope:
     """
 
     _tasks = attr.ib(factory=set, init=False)
-    _scope_task = attr.ib(default=None, init=False)
+    _has_been_entered = attr.ib(default=False, init=False)
     _effective_deadline = attr.ib(default=inf, init=False)
     cancel_called = attr.ib(default=False, init=False)
     cancelled_caught = attr.ib(default=False, init=False)
@@ -191,16 +177,11 @@ class CancelScope:
     @enable_ki_protection
     def __enter__(self):
         task = _core.current_task()
-        if self._scope_task is not None:
+        if self._has_been_entered:
             raise RuntimeError(
-                "cancel scope may not be entered while it is already "
-                "active{}".format(
-                    "" if self._scope_task is task else
-                    " in another task ({!r})".format(self._scope_task.name)
-                )
+                "Each CancelScope may only be used for a single 'with' block"
             )
-        self._scope_task = task
-        self.cancelled_caught = False
+        self._has_been_entered = True
         if current_time() >= self._deadline:
             self.cancel_called = True
         with self._might_change_effective_deadline():
@@ -232,14 +213,14 @@ class CancelScope:
                 value.__context__ = old_context
 
     def __repr__(self):
-        if self._scope_task is None:
-            binding = "unbound"
+        if self._tasks:
+            binding = "bound to {} task{}".format(
+                len(self._tasks), "s" if len(self._tasks) > 1 else ""
+            )
+        elif self._has_been_entered:
+            binding = "exited"
         else:
-            binding = "bound to {!r}".format(self._scope_task.name)
-            if len(self._tasks) > 1:
-                binding += " and its {} descendant{}".format(
-                    len(self._tasks) - 1, "s" if len(self._tasks) > 2 else ""
-                )
+            binding = "unbound"
 
         if self.cancel_called:
             state = ", cancelled"
@@ -377,20 +358,20 @@ class CancelScope:
         self._tasks.update(tasks)
 
     def _exc_filter(self, exc):
-        if (
-            isinstance(exc, Cancelled) and self.cancel_called
-            and self._scope_task._pending_cancel_scope() is self
-        ):
+        if isinstance(exc, Cancelled):
             self.cancelled_caught = True
             return None
         return exc
 
     def _close(self, exc):
-        if exc is not None:
+        scope_task = current_task()
+        if (
+            exc is not None and self.cancel_called
+            and scope_task._pending_cancel_scope() is self
+        ):
             exc = MultiError.filter(self._exc_filter, exc)
         with self._might_change_effective_deadline():
-            self._remove_task(self._scope_task)
-        self._scope_task = None
+            self._remove_task(scope_task)
         return exc
 
 

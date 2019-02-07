@@ -551,10 +551,10 @@ async def test_cancel_scope_repr(mock_clock):
     scope = _core.CancelScope()
     assert "unbound" in repr(scope)
     with scope:
-        assert "bound to {!r}".format(_core.current_task().name) in repr(scope)
+        assert "bound to 1 task" in repr(scope)
         async with _core.open_nursery() as nursery:
             nursery.start_soon(sleep, 10)
-            assert "and its 1 descendant" in repr(scope)
+            assert "bound to 2 tasks" in repr(scope)
             nursery.cancel_scope.cancel()
         scope.deadline = _core.current_time() - 1
         assert "deadline is 1.00 seconds ago" in repr(scope)
@@ -564,6 +564,7 @@ async def test_cancel_scope_repr(mock_clock):
         assert "deadline" not in await run_sync_in_worker_thread(repr, scope)
         scope.cancel()
         assert "cancelled" in repr(scope)
+    assert "exited" in repr(scope)
 
 
 def test_cancel_points():
@@ -875,45 +876,40 @@ async def test_cancel_unbound():
         await wait_all_tasks_blocked()
         scope.cancel()
 
-    # Cancel after exit, then reuse
+    # Can't reuse
     with _core.CancelScope() as scope:
         await _core.checkpoint()
     scope.cancel()
     await _core.checkpoint()
     assert scope.cancel_called
     assert not scope.cancelled_caught
-    with scope:
-        await _core.checkpoint()
-    assert scope.cancelled_caught
-    with scope:
-        assert not scope.cancelled_caught
-        await _core.checkpoint()
-    assert scope.cancelled_caught
+    with pytest.raises(RuntimeError) as exc_info:
+        with scope:
+            pass  # pragma: no cover
+    assert "single 'with' block" in str(exc_info.value)
 
-    # Attempts to reenter throw an error
+    # Can't reenter
     with _core.CancelScope() as scope:
         with pytest.raises(RuntimeError) as exc_info:
             with scope:
                 pass  # pragma: no cover
-        assert "may not be entered while it is already active" in str(
-            exc_info.value
-        )
+        assert "single 'with' block" in str(exc_info.value)
 
-    # Attempts to enter from two tasks simultaneously throw an error
+    # Can't enter from multiple tasks simultaneously
+    scope = _core.CancelScope()
+
     async def enter_scope():
         with scope:
             await sleep_forever()
 
     async with _core.open_nursery() as nursery:
-        nursery.start_soon(enter_scope)
+        nursery.start_soon(enter_scope, name="this one")
         await wait_all_tasks_blocked()
 
         with pytest.raises(RuntimeError) as exc_info:
             with scope:
                 pass  # pragma: no cover
-        assert "while it is already active in another task" in str(
-            exc_info.value
-        )
+        assert "single 'with' block" in str(exc_info.value)
         nursery.cancel_scope.cancel()
 
 
