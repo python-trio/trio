@@ -165,15 +165,3 @@ def open_signal_receiver(*signals):
             yield queue
     finally:
         queue._redeliver_remaining()
-
-
-class CompatSignalQueue:
-    def __init__(self, signal_queue):
-        self._signal_queue = signal_queue
-
-    @aiter_compat
-    def __aiter__(self):
-        return self
-
-    async def __anext__(self):
-        return { await self._signal_queue.__anext__()}
