@@ -5,30 +5,7 @@ import pytest
 import trio
 from .. import _core
 from .._util import signal_raise
-from .._signals import catch_signals, open_signal_receiver, _signal_handler
-
-
-# Delete when catch_signals is removed
-async def test_catch_signals(recwarn):
-    orig = signal.getsignal(signal.SIGILL)
-    with catch_signals([signal.SIGILL]) as queue:
-        # Raise it a few times, to exercise signal coalescing, both at the
-        # call_soon level and at the SignalQueue level
-        signal_raise(signal.SIGILL)
-        signal_raise(signal.SIGILL)
-        await _core.wait_all_tasks_blocked()
-        signal_raise(signal.SIGILL)
-        await _core.wait_all_tasks_blocked()
-        async for batch in queue:  # pragma: no branch
-            assert batch == {signal.SIGILL}
-            break
-        signal_raise(signal.SIGILL)
-        async for batch in queue:  # pragma: no branch
-            assert batch == {signal.SIGILL}
-            break
-    with pytest.raises(RuntimeError):
-        await queue.__anext__()
-    assert signal.getsignal(signal.SIGILL) is orig
+from .._signals import open_signal_receiver, _signal_handler
 
 
 async def test_open_signal_receiver():
