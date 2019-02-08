@@ -1221,7 +1221,7 @@ many cases, you just want to pass objects between different tasks
 inside a single process, and for that you can use
 :func:`trio.open_memory_channel`:
 
-.. autofunction:: open_memory_channel
+.. autofunction:: open_memory_channel(max_buffer_size)
 
 .. note:: If you've used the :mod:`threading` or :mod:`asyncio`
    modules, you may be familiar with :class:`queue.Queue` or

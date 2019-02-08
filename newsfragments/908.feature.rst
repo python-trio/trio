@@ -1,0 +1,7 @@
+:class:`~trio.abc.SendChannel`, :class:`~trio.abc.ReceiveChannel`, :class:`~trio.abc.Listener`,
+and :func:`~trio.open_memory_channel` can now be referenced using a generic type parameter
+(the type of object sent over the channel or produced by the listener) using PEP 484 syntax:
+``trio.abc.SendChannel[bytes]``, ``trio.abc.Listener[trio.SocketStream]``,
+``trio.open_memory_channel[MyMessage](5)``, etc. The added type information does not change
+the runtime semantics, but permits better integration with external static type checkers.
+
