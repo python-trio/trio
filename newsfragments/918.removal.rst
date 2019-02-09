@@ -1,0 +1,5 @@
+Remove all the APIs deprecated in 0.9.0 or earlier (``trio.Queue``,
+``trio.catch_signals()``, ``trio.BrokenStreamError``, and
+``trio.ResourceBusyError``), except for ``trio.hazmat.UnboundedQueue``,
+which stays for now since it is used by the obscure hazmat functions
+``monitor_completion_queue()`` and ``monitor_kevent()``.
