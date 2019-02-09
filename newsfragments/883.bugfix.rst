@@ -1,4 +1,0 @@
-Simplified the Windows subprocess pipe ``send_all`` code, and in the
-process fixed a theoretical bug where closing a pipe at just the wrong
-time could produce errors or cause data to be redirected to the wrong
-pipe.

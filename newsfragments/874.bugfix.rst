@@ -1,3 +1,0 @@
-If you have a :class:`SocketStream` that's already been closed, then
-``await socket_stream.send_all(b"")`` will now correctly raise
-:exc:`ClosedResourceError`.

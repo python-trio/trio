@@ -1,4 +1,0 @@
-Add :attr:`trio.Process.stdio`, which is a :class:`~trio.StapledStream` of
-:attr:`~trio.Process.stdin` and :attr:`~trio.Process.stdout` if both of those
-are available, and ``None`` otherwise. This is intended to make it more
-ergonomic to speak a back-and-forth protocol with a subprocess.
