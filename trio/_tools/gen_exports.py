@@ -190,9 +190,10 @@ def gen_source():
     return formatted_source
 
 
-def parse_arguments(sources):
+def process_sources(sources):
     ''' Parse the arguments and loop over all sources
-    for each given argument
+    for each given argument comparing and regenerating
+    depending on arguments
     '''
 
     parser = argparse.ArgumentParser(
@@ -242,4 +243,4 @@ def parse_arguments(sources):
 
 if __name__ == '__main__':
     sources = gen_source()
-    parse_arguments(sources)
+    process_sources(sources)
