@@ -190,8 +190,8 @@ def test_gen_sources_startswith_imports(mod_path):
         assert source[0].startswith(IMPORTS)
 
 
-def test_formatted_source():
-    sources = gen_sources()
+def test_formatted_source(mod_path):
+    sources = gen_sources(mod_path)
     formatted_sources = gen_formatted_sources(sources)
     for source, formatted_source in zip(sources, formatted_sources):
         assert source[0].count('def') == formatted_source[0].count('def')
