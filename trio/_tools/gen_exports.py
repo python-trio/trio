@@ -127,16 +127,18 @@ def create_passthrough_args(funcdef):
     return "({})".format(", ".join(call_args))
 
 
-def gen_source():
+def gen_sources():
     """ Create a source file for each module that contains
     a method that is exported as public API. For each method
     a wrapper is created and added to its corresponding module.
     """
 
-    source = dict()
-    # Create a module for each os and the common code
+    sources = dict()
+    # Start each module with a common import code
+    # and a warning that is is generated code and will be overwritten
+    # on regeneration
     for module in get_export_modules_by_dir(SOURCE_TREE):
-        source[module.module_file] = [IMPORTS]
+        sources[module.module_file] = [IMPORTS]
 
     # Get all modules we have classes with methods to export in the directory path
     trees = get_export_modules_by_dir(SOURCE_TREE)
@@ -179,23 +181,21 @@ def gen_source():
         snippet = func + indent(template, ' ' * 4)
 
         # Append the snippet to the corresponding module
-        source[method.module_file].append(snippet)
+        sources[method.module_file].append(snippet)
+    return sources
 
-    formatted_source = dict()
+
+def gen_formatted_sources(sources):
+    formatted_sources = dict()
     # Fix formatting so yapf won't complain
-    for pub_file in source.keys():
-        formatted_source[pub_file], _ = formatter.FormatCode(
-            '\n'.join(source[pub_file]), style_config=YAPF_STYLE
+    for pub_file in sources.keys():
+        formatted_sources[pub_file], _ = formatter.FormatCode(
+            '\n'.join(sources[pub_file]), style_config=YAPF_STYLE
         )
-    return formatted_source
+    return formatted_sources
 
 
-def process_sources(sources):
-    ''' Parse the arguments and loop over all sources
-    for each given argument comparing and regenerating
-    depending on arguments
-    '''
-
+def parse_args(args):
     parser = argparse.ArgumentParser(
         description='Generate python code for public api wrappers'
     )
@@ -215,32 +215,49 @@ def process_sources(sources):
         help='test if code is still up to date'
     )
 
-    args = parser.parse_args()
+    parsed_args = parser.parse_args(args)
+    return parsed_args
+
+
+def process_sources(sources, args):
+    ''' Parse the arguments and loop over all sources
+    for each given argument comparing and regenerating
+    depending on arguments
+    '''
+
     # Loop over all sources and test if the current generated source
     # is still up to date
     if args.test:
         for src in sources:
             pub_file_path = os.path.join(args.path, PREFIX + src)
-            if not os.path.exists(pub_file_path):
-                assert sources[src] == ''
-            with open(pub_file_path, 'r') as pub_file:
-                old_src = ''.join(pub_file.readlines())
+
             try:
+                if not os.path.exists(pub_file_path):
+                    assert False
+                with open(pub_file_path, 'r') as pub_file:
+                    old_src = ''.join(pub_file.readlines())
                 assert sources[src] == old_src
             except AssertionError:
                 print('Source is outdated. Please regenerate.')
                 sys.exit(-1)
+        else:
+            print('Source is still up to date')
+            return
+
     # Test if the given path actually exists and then loop over
     # all sources and generate a new source
-    elif args.path:
+    if args.path:
         if not os.path.exists(args.path):
             raise OSError("""Path {} does not exist""".format(args.path))
         for src in sources:
             pub_file_path = os.path.join(args.path, PREFIX + src)
             with open(pub_file_path, 'w', encoding='utf-8') as pub_file:
                 pub_file.writelines(sources[src])
+        print('Sucessfully generated source files at {}'.format(args.path))
 
 
 if __name__ == '__main__':
-    sources = gen_source()
-    process_sources(sources)
+    sources = gen_sources()
+    formatted_sources = gen_formatted_sources(sources)
+    args = parse_args(sys.argv[1:])
+    process_sources(formatted_sources, args)

@@ -4,7 +4,8 @@ import pytest
 
 from trio._tools.gen_exports import (
     is_function, is_public, get_public_methods, get_export_modules_by_dir,
-    get_module_trees_by_dir, get_doc_string, create_passthrough_args
+    get_module_trees_by_dir, get_doc_string, create_passthrough_args,
+    gen_sources, gen_formatted_sources, process_sources, parse_args, IMPORTS
 )
 
 
@@ -168,3 +169,54 @@ def test_create_pass_through_args(module):
                     assert create_passthrough_args(node) == '({})'.format(
                         test_args[fnc]
                     )
+
+
+def test_gen_sources_startswith_imports():
+    sources = gen_sources()
+    for source in sources.values():
+        assert source[0].startswith(IMPORTS)
+
+
+def test_formatted_source():
+    sources = gen_sources()
+    formatted_sources = gen_formatted_sources(sources)
+    for source, formatted_source in zip(sources, formatted_sources):
+        assert source[0].count('def') == formatted_source[0].count('def')
+
+
+def test_parse_args():
+    parser = parse_args(['-t'])
+    assert parser.test is True
+    parser = parse_args(['-p'])
+    assert parser.path == './trio/_core'
+    parser = parse_args([])
+    assert parser.test is False and parser.path == './trio/_core'
+    parser = parse_args(['-p/tmp'])
+    assert parser.path == '/tmp'
+
+
+def test_process_sources_when_outdated(capsys, tmp_path):
+    sources = gen_sources()
+    formatted_sources = gen_formatted_sources(sources)
+    args = parse_args(['-t', '-p {}'.format(tmp_path)])
+    with pytest.raises(SystemExit) as pytest_wrapped_e:
+        process_sources(formatted_sources, args)
+    assert pytest_wrapped_e.type == SystemExit
+    assert pytest_wrapped_e.value.code == -1
+    capture = capsys.readouterr()
+    assert capture.out == 'Source is outdated. Please regenerate.\n'
+
+
+def test_process_sources_when_new_and_up_to_date(capsys, tmpdir):
+    sources = gen_sources()
+    formatted_sources = gen_formatted_sources(sources)
+    args = parse_args(['-p{}'.format(tmpdir)])
+    process_sources(formatted_sources, args)
+    capture = capsys.readouterr()
+    assert capture.out == 'Sucessfully generated source files at {}\n'.format(
+        tmpdir
+    )
+    args = parse_args(['-t', '-p{}'.format(tmpdir)])
+    process_sources(formatted_sources, args)
+    capture = capsys.readouterr()
+    assert capture.out == 'Source is still up to date\n'
