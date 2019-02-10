@@ -2,7 +2,7 @@ import ast
 import astor
 import pytest
 
-from tools.gen_exports import (
+from trio._tools.gen_exports import (
     is_function, is_public, get_public_methods, get_export_modules_by_dir,
     get_module_trees_by_dir, get_doc_string, create_passthrough_args
 )
