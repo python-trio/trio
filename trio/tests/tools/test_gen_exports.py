@@ -12,49 +12,53 @@ from trio._tools.gen_exports import (
 
 
 @pytest.fixture
+def pass_through_source():
+
+    source = '''def func():
+    """"""
+
+async def async_func():
+    """"""
+
+def non_public_func():
+    """"""
+
+def one_arg_func(one):
+    """"""
+
+def two_args_func(one, two):
+    """"""
+
+def var_arg_func(one, *varargs):
+    """"""
+
+def kwonly_arg_func(one, *varargs, kwarg=''):
+    """"""
+
+def kwvar_arg_func(one, **varkwargs):
+    """"""
+
+def all_args_func(one, two, *args, kwargone='', kwargtwo=10, **kwargs):
+    """"""
+'''
+    return source
+
+
+@pytest.fixture
 def source():
     """ Create a function and async function compiled code 
     """
     source = '''from _run import _public
 
 
-def func():
-    """"""
-
-
-async def async_func():
-    """"""
-
-
 class Test:
 
-    def non_public_func():
-        """"""
-
-    def one_arg_func(one):
-        """"""
-
-    def two_args_func(one, two):
-        """"""
-
-    def var_arg_func(one, *varargs):
-        """"""
-
-    def kwonly_arg_func(one, *varargs, kwarg=''):
-        """"""
-
-    def kwvar_arg_func(one, **varkwargs):
-        """"""
-
-    def all_args_func(one, two, *args, kwargone='', kwargtwo=10, **kwargs):
-        """"""
-
     @_public
-    def public_func():
+    def public_func(self):
         """With doc string"""
 
     @_public
-    async def public_async_func():
+    async def public_async_func(self):
         """"""
 '''
     return source
@@ -88,6 +92,13 @@ def module(source):
     """Compile the source into an ast module
     """
     return ast.parse(source)
+
+
+@pytest.fixture
+def pass_through_module(pass_through_source):
+    """Compile the source into an ast module
+    """
+    return ast.parse(pass_through_source)
 
 
 @pytest.fixture
@@ -149,7 +160,7 @@ def test_get_doc_string(module):
                 assert get_doc_string(node) == ''
 
 
-def test_create_pass_through_args(module):
+def test_create_pass_through_args(pass_through_module):
     test_args = {
         'one_arg_func':
             'one',
@@ -164,7 +175,7 @@ def test_create_pass_through_args(module):
         'all_args_func':
             "one, two, *args, kwargone=kwargone, kwargtwo=kwargtwo, **kwargs"
     }
-    for node in ast.walk(module):
+    for node in ast.walk(pass_through_module):
         if is_function(node):
             for fnc in test_args.keys():
                 if node.name == fnc:
@@ -173,8 +184,8 @@ def test_create_pass_through_args(module):
                     )
 
 
-def test_gen_sources_startswith_imports():
-    sources = gen_sources()
+def test_gen_sources_startswith_imports(mod_path):
+    sources = gen_sources(mod_path)
     for source in sources.values():
         assert source[0].startswith(IMPORTS)
 
