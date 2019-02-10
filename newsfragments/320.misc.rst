@@ -1,4 +1,0 @@
-Entering a cancel scope whose deadline is in the past now immediately
-cancels it, so :exc:`~trio.Cancelled` will be raised by the first
-checkpoint in the cancel scope rather than the second one.
-This also affects constructs like ``with trio.move_on_after(0):``.

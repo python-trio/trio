@@ -1,3 +1,0 @@
-Deprecate ``trio.open_cancel_scope`` in favor of :class:`trio.CancelScope`,
-which more clearly reflects that creating a cancel scope is just an ordinary
-object construction and does not need to be immediately paired with entering it.
