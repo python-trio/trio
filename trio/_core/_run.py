@@ -37,7 +37,7 @@ from ._traps import (
 from .. import _core
 from .._deprecate import deprecated
 
-_r = random.Random()
+_NO_SEND = object()
 
 
 # Decorator to mark methods public
@@ -781,8 +781,6 @@ class Runner:
     entry_queue = attr.ib(default=attr.Factory(EntryQueue))
     trio_token = attr.ib(default=None)
 
-    _NO_SEND = object()
-
     def close(self):
         self.io_manager.close()
         self.entry_queue.close()
@@ -879,7 +877,7 @@ class Runner:
               raise) from :func:`wait_task_rescheduled`.
 
         """
-        if next_send is self._NO_SEND:
+        if next_send is _NO_SEND:
             next_send = Value(None)
 
         assert task._runner is self
@@ -1708,8 +1706,6 @@ async def checkpoint_if_cancelled():
         assert False  # pragma: no cover
     task._cancel_points += 1
 
-
-_NO_SEND = Runner._NO_SEND
 
 if os.name == "nt":
     from ._io_windows import WindowsIOManager as TheIOManager
