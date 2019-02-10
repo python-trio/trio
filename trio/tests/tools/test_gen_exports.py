@@ -7,7 +7,8 @@ from shutil import copyfile
 from trio._tools.gen_exports import (
     is_function, is_public, get_public_methods, get_export_modules_by_dir,
     get_module_trees_by_dir, get_doc_string, create_passthrough_args,
-    gen_sources, gen_formatted_sources, process_sources, parse_args, IMPORTS
+    gen_sources, gen_formatted_sources, process_sources, parse_args, IMPORTS,
+    YAPF_STYLE
 )
 
 
@@ -192,7 +193,7 @@ def test_gen_sources_startswith_imports(mod_path):
 
 def test_formatted_source(mod_path):
     sources = gen_sources(mod_path)
-    formatted_sources = gen_formatted_sources(sources)
+    formatted_sources = gen_formatted_sources(sources, YAPF_STYLE)
     for source, formatted_source in zip(sources, formatted_sources):
         assert source[0].count('def') == formatted_source[0].count('def')
 

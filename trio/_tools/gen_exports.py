@@ -187,12 +187,12 @@ def gen_sources(source_tree=None):
     return sources
 
 
-def gen_formatted_sources(sources):
+def gen_formatted_sources(sources, style_config=YAPF_STYLE):
     formatted_sources = dict()
     # Fix formatting so yapf won't complain
     for pub_file in sources.keys():
         formatted_sources[pub_file], _ = formatter.FormatCode(
-            '\n'.join(sources[pub_file]), style_config=YAPF_STYLE
+            '\n'.join(sources[pub_file]), style_config=style_config
         )
     return formatted_sources
 
