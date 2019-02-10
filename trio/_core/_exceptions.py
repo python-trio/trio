@@ -46,11 +46,9 @@ class Cancelled(BaseException):
 
     then this *won't* catch a :exc:`Cancelled` exception.
 
-    Attempting to raise :exc:`Cancelled` yourself will cause a
-    :exc:`RuntimeError`. It would not be associated with a cancel scope and thus
-    not be caught by Trio. Use
-    :meth:`cancel_scope.cancel() <trio.The cancel scope interface.cancel>`
-    instead.
+    You cannot raise :exc:`Cancelled` yourself. Attempting to do so
+    will produce a :exc:`RuntimeError`. Use :meth:`cancel_scope.cancel()
+    <trio.CancelScope.cancel>` instead.
 
     .. note::
 
@@ -65,7 +63,6 @@ class Cancelled(BaseException):
        everywhere.
 
     """
-    _scope = None
     __marker = object()
 
     def __init__(self, _marker=None):

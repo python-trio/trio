@@ -58,6 +58,8 @@ Vital statistics:
 
 * Real-time chat: https://gitter.im/python-trio/general
 
+* Discussion forum: https://trio.discourse.group
+
 * License: MIT or Apache 2, your choice
 
 * Contributor guide: https://trio.readthedocs.io/en/latest/contributing.html

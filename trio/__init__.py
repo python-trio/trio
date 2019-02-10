@@ -18,8 +18,8 @@ from ._version import __version__
 from ._core import (
     TrioInternalError, RunFinishedError, WouldBlock, Cancelled,
     BusyResourceError, ClosedResourceError, MultiError, run, open_nursery,
-    open_cancel_scope, current_effective_deadline, TASK_STATUS_IGNORED,
-    current_time, BrokenResourceError, EndOfChannel
+    CancelScope, open_cancel_scope, current_effective_deadline,
+    TASK_STATUS_IGNORED, current_time, BrokenResourceError, EndOfChannel
 )
 
 from ._timeouts import (
@@ -28,7 +28,7 @@ from ._timeouts import (
 )
 
 from ._sync import (
-    Event, CapacityLimiter, Semaphore, Lock, StrictFIFOLock, Condition, Queue
+    Event, CapacityLimiter, Semaphore, Lock, StrictFIFOLock, Condition
 )
 
 from ._threads import (
@@ -40,7 +40,7 @@ from ._highlevel_generic import aclose_forcefully, StapledStream
 
 from ._channel import open_memory_channel
 
-from ._signals import catch_signals, open_signal_receiver
+from ._signals import open_signal_receiver
 
 from ._highlevel_socket import SocketStream, SocketListener
 
@@ -79,17 +79,6 @@ from . import _deprecated_subprocess_reexports
 
 _deprecate.enable_attribute_deprecations(__name__)
 __deprecated_attributes__ = {
-    "BrokenStreamError":
-        _deprecate.DeprecatedAttribute(
-            BrokenResourceError,
-            "0.8.0",
-            issue=620,
-            instead=BrokenResourceError
-        ),
-    "ResourceBusyError":
-        _deprecate.DeprecatedAttribute(
-            BusyResourceError, "0.8.0", issue=620, instead=BusyResourceError
-        ),
     "ssl":
         _deprecate.DeprecatedAttribute(
             _deprecated_ssl_reexports,

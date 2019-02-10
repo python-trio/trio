@@ -9,10 +9,6 @@ from .. import _timeouts
 from .._timeouts import sleep_forever, move_on_after
 from .._sync import *
 
-pytestmark = pytest.mark.filterwarnings(
-    "ignore:.*trio.Queue:trio.TrioDeprecationWarning"
-)
-
 
 async def test_Event():
     e = Event()
@@ -400,181 +396,13 @@ async def test_Condition():
 
     # After being cancelled still hold the lock (!)
     # (Note that c.__aexit__ checks that we hold the lock as well)
-    with _core.open_cancel_scope() as scope:
+    with _core.CancelScope() as scope:
         async with c:
             scope.cancel()
             try:
                 await c.wait()
             finally:
                 assert c.locked()
-
-
-async def test_Queue():
-    with pytest.raises(TypeError):
-        Queue(1.0)
-    with pytest.raises(ValueError):
-        Queue(-1)
-
-    q = Queue(2)
-    repr(q)  # smoke test
-    assert q.capacity == 2
-    assert q.qsize() == 0
-    assert q.empty()
-    assert not q.full()
-
-    q.put_nowait(1)
-    assert q.qsize() == 1
-    assert not q.empty()
-    assert not q.full()
-
-    with assert_checkpoints():
-        await q.put(2)
-    assert q.qsize() == 2
-    with pytest.raises(_core.WouldBlock):
-        q.put_nowait(None)
-    assert q.qsize() == 2
-    assert not q.empty()
-    assert q.full()
-
-    with assert_checkpoints():
-        assert await q.get() == 1
-    assert q.get_nowait() == 2
-    with pytest.raises(_core.WouldBlock):
-        q.get_nowait()
-    assert q.empty()
-
-
-async def test_553(autojump_clock):
-    q = Queue(1)
-    with move_on_after(10) as timeout_scope:
-        await q.get()
-    assert timeout_scope.cancelled_caught
-    await q.put("Test for PR #553")
-
-
-async def test_Queue_iter():
-    q = Queue(1)
-
-    async def producer():
-        for i in range(10):
-            await q.put(i)
-        await q.put(None)
-
-    async def consumer():
-        expected = iter(range(10))
-        async for item in q:
-            if item is None:
-                break
-            assert item == next(expected)
-
-    async with _core.open_nursery() as nursery:
-        nursery.start_soon(producer)
-        nursery.start_soon(consumer)
-
-
-async def test_Queue_statistics():
-    q = Queue(3)
-    q.put_nowait(1)
-    statistics = q.statistics()
-    assert statistics.qsize == 1
-    assert statistics.capacity == 3
-    assert statistics.tasks_waiting_put == 0
-    assert statistics.tasks_waiting_get == 0
-
-    async with _core.open_nursery() as nursery:
-        q.put_nowait(2)
-        q.put_nowait(3)
-        assert q.full()
-        nursery.start_soon(q.put, 4)
-        nursery.start_soon(q.put, 5)
-        await wait_all_tasks_blocked()
-        statistics = q.statistics()
-        assert statistics.qsize == 3
-        assert statistics.capacity == 3
-        assert statistics.tasks_waiting_put == 2
-        assert statistics.tasks_waiting_get == 0
-        nursery.cancel_scope.cancel()
-
-    q = Queue(4)
-    async with _core.open_nursery() as nursery:
-        nursery.start_soon(q.get)
-        nursery.start_soon(q.get)
-        nursery.start_soon(q.get)
-        await wait_all_tasks_blocked()
-        statistics = q.statistics()
-        assert statistics.qsize == 0
-        assert statistics.capacity == 4
-        assert statistics.tasks_waiting_put == 0
-        assert statistics.tasks_waiting_get == 3
-        nursery.cancel_scope.cancel()
-
-
-async def test_Queue_fairness():
-
-    # We can remove an item we just put, and put an item back in after, if
-    # no-one else is waiting.
-    q = Queue(1)
-    q.put_nowait(1)
-    assert q.get_nowait() == 1
-    q.put_nowait(2)
-    assert q.get_nowait() == 2
-
-    # But if someone else is waiting to get, then they "own" the item we put,
-    # so we can't get it (even though we run first):
-    q = Queue(1)
-
-    result = None
-
-    async def do_get(q):
-        nonlocal result
-        result = await q.get()
-
-    async with _core.open_nursery() as nursery:
-        nursery.start_soon(do_get, q)
-        await wait_all_tasks_blocked()
-        q.put_nowait(2)
-        with pytest.raises(_core.WouldBlock):
-            q.get_nowait()
-    assert result == 2
-
-    # And the analogous situation for put: if we free up a space, we can't
-    # immediately put something in it if someone is already waiting to do that
-    q = Queue(1)
-    q.put_nowait(1)
-    with pytest.raises(_core.WouldBlock):
-        q.put_nowait(None)
-    assert q.qsize() == 1
-    async with _core.open_nursery() as nursery:
-        nursery.start_soon(q.put, 2)
-        await wait_all_tasks_blocked()
-        assert q.qsize() == 1
-        assert q.get_nowait() == 1
-        with pytest.raises(_core.WouldBlock):
-            q.put_nowait(3)
-        assert (await q.get()) == 2
-
-
-async def test_Queue_unbuffered():
-    q = Queue(0)
-    assert q.capacity == 0
-    assert q.qsize() == 0
-    assert q.empty()
-    assert q.full()
-    with pytest.raises(_core.WouldBlock):
-        q.get_nowait()
-    with pytest.raises(_core.WouldBlock):
-        q.put_nowait(1)
-
-    async def do_put(q, v):
-        with assert_checkpoints():
-            await q.put(v)
-
-    async with _core.open_nursery() as nursery:
-        nursery.start_soon(do_put, q, 1)
-        with assert_checkpoints():
-            assert await q.get() == 1
-    with pytest.raises(_core.WouldBlock):
-        q.get_nowait()
 
 
 from .._sync import async_cm
@@ -645,71 +473,6 @@ class ChannelLock3:
             self.acquired = False
 
 
-# Three ways of implementing a Lock in terms of a Queue. Used to let us put
-# the Queue through the generic lock tests.
-
-
-@async_cm
-class QueueLock1:
-    def __init__(self, capacity):
-        self.q = Queue(capacity)
-        for _ in range(capacity - 1):
-            self.q.put_nowait(None)
-
-    def acquire_nowait(self):
-        self.q.put_nowait(None)
-
-    async def acquire(self):
-        await self.q.put(None)
-
-    def release(self):
-        self.q.get_nowait()
-
-
-@async_cm
-class QueueLock2:
-    def __init__(self):
-        self.q = Queue(10)
-        self.q.put_nowait(None)
-
-    def acquire_nowait(self):
-        self.q.get_nowait()
-
-    async def acquire(self):
-        await self.q.get()
-
-    def release(self):
-        self.q.put_nowait(None)
-
-
-@async_cm
-class QueueLock3:
-    def __init__(self):
-        self.q = Queue(0)
-        # self.acquired is true when one task acquires the lock and
-        # only becomes false when it's released and no tasks are
-        # waiting to acquire.
-        self.acquired = False
-
-    def acquire_nowait(self):
-        assert not self.acquired
-        self.acquired = True
-
-    async def acquire(self):
-        if self.acquired:
-            await self.q.put(None)
-        else:
-            self.acquired = True
-            await _core.checkpoint()
-
-    def release(self):
-        try:
-            self.q.get_nowait()
-        except _core.WouldBlock:
-            assert self.acquired
-            self.acquired = False
-
-
 lock_factories = [
     lambda: CapacityLimiter(1),
     lambda: Semaphore(1),
@@ -719,10 +482,6 @@ lock_factories = [
     lambda: ChannelLock1(1),
     ChannelLock2,
     ChannelLock3,
-    lambda: QueueLock1(10),
-    lambda: QueueLock1(1),
-    QueueLock2,
-    QueueLock3,
 ]
 lock_factory_names = [
     "CapacityLimiter(1)",
@@ -733,10 +492,6 @@ lock_factory_names = [
     "ChannelLock1(1)",
     "ChannelLock2",
     "ChannelLock3",
-    "QueueLock1(10)",
-    "QueueLock1(1)",
-    "QueueLock2",
-    "QueueLock3",
 ]
 
 generic_lock_test = pytest.mark.parametrize(

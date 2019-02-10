@@ -1,2 +1,0 @@
-Stop :func:`trio.open_tcp_listeners` from crashing on systems that have
-disabled IPv6.

@@ -104,6 +104,10 @@ class SocketStream(HalfCloseableStream):
                 with memoryview(data) as data:
                     if not data:
                         await _core.checkpoint()
+                        if self.socket.fileno() == -1:
+                            raise _core.ClosedResourceError(
+                                "socket was already closed"
+                            )
                         return
                     total_sent = 0
                     while total_sent < len(data):
@@ -314,7 +318,7 @@ for name in _ignorable_accept_errno_names:
         pass
 
 
-class SocketListener(Listener):
+class SocketListener(Listener[SocketStream]):
     """A :class:`~trio.abc.Listener` that uses a listening socket to accept
     incoming connections as :class:`SocketStream` objects.
 
