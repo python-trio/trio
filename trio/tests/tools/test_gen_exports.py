@@ -101,6 +101,11 @@ def mod_path(tmp_path, source, non_pub_source):
     return tmp_path
 
 
+@pytest.fixture
+def real_path():
+    return os.path.join(os.getcwd(), 'trio/_core')
+
+
 def test_is_function(module):
     for node in ast.walk(module):
         if isinstance(node, ast.FunctionDef):
@@ -173,14 +178,14 @@ def test_create_pass_through_args(module):
                     )
 
 
-def test_gen_sources_startswith_imports():
-    sources = gen_sources('trio/_core')
+def test_gen_sources_startswith_imports(real_path):
+    sources = gen_sources(real_path)
     for source in sources.values():
         assert source[0].startswith(IMPORTS)
 
 
-def test_formatted_source():
-    sources = gen_sources('trio/_core')
+def test_formatted_source(real_path):
+    sources = gen_sources(real_path)
     formatted_sources = gen_formatted_sources(sources)
     for source, formatted_source in zip(sources, formatted_sources):
         assert source[0].count('def') == formatted_source[0].count('def')
@@ -197,8 +202,8 @@ def test_parse_args():
     assert parser.path == '/tmp'
 
 
-def test_process_sources_when_outdated(capsys, tmp_path):
-    sources = gen_sources('trio/_core')
+def test_process_sources_when_outdated(capsys, real_path, tmp_path):
+    sources = gen_sources(real_path)
     formatted_sources = gen_formatted_sources(sources)
     args = parse_args(['-t', '-p {}'.format(tmp_path)])
     with pytest.raises(SystemExit) as pytest_wrapped_e:
@@ -209,8 +214,8 @@ def test_process_sources_when_outdated(capsys, tmp_path):
     assert capture.out == 'Source is outdated. Please regenerate.\n'
 
 
-def test_process_sources_when_new_and_up_to_date(capsys, mod_path, tmpdir):
-    sources = gen_sources('trio/_core')
+def test_process_sources_when_new_and_up_to_date(capsys, real_path, tmpdir):
+    sources = gen_sources(real_path)
     formatted_sources = gen_formatted_sources(sources)
     args = parse_args(['-p{}'.format(tmpdir)])
     process_sources(formatted_sources, args)
