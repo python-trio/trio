@@ -208,7 +208,6 @@ def test_parse_args():
 #     capture = capsys.readouterr()
 #     assert capture.out == 'Source is outdated. Please regenerate.\n'
 
-
 # def test_process_sources_when_new_and_up_to_date(capsys, real_path, tmpdir):
 #     sources = gen_sources(real_path)
 #     formatted_sources = gen_formatted_sources(sources)
