@@ -201,9 +201,11 @@ def test_parse_args():
     parser = parse_args(['-t'])
     assert parser.test is True
     parser = parse_args(['-p'])
-    assert parser.path == './trio/_core'
+    assert parser.path == os.path.join(os.getcwd(), 'trio/_core')
     parser = parse_args([])
-    assert parser.test is False and parser.path == './trio/_core'
+    assert parser.test is False and parser.path == os.path.join(
+        os.getcwd(), 'trio/_core'
+    )
     parser = parse_args(['-p/tmp'])
     assert parser.path == '/tmp'
 

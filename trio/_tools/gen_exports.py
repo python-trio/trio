@@ -14,8 +14,8 @@ import yapf.yapflib.yapf_api as formatter
 
 from textwrap import indent
 
-SOURCE_TREE = './trio/_core'
-YAPF_STYLE = './.style.yapf'
+SOURCE_TREE = os.path.join(os.getcwd(), 'trio/_core')
+YAPF_STYLE = os.path.join(os.getcwd(), '.style.yapf')
 PREFIX = '_generated'
 
 IMPORTS = """# ***********************************************************
