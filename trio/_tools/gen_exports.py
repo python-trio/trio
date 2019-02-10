@@ -127,21 +127,23 @@ def create_passthrough_args(funcdef):
     return "({})".format(", ".join(call_args))
 
 
-def gen_sources():
+def gen_sources(source_tree=None):
     """ Create a source file for each module that contains
     a method that is exported as public API. For each method
     a wrapper is created and added to its corresponding module.
     """
+    if source_tree is None:
+        source_tree = SOURCE_TREE
 
     sources = dict()
     # Start each module with a common import code
     # and a warning that is is generated code and will be overwritten
     # on regeneration
-    for module in get_export_modules_by_dir(SOURCE_TREE):
+    for module in get_export_modules_by_dir(source_tree):
         sources[module.module_file] = [IMPORTS]
 
     # Get all modules we have classes with methods to export in the directory path
-    trees = get_export_modules_by_dir(SOURCE_TREE)
+    trees = get_export_modules_by_dir(source_tree)
 
     # Get all methods we want to export
     methods = [meth for tree in trees for meth in get_public_methods(tree)]
@@ -257,7 +259,7 @@ def process_sources(sources, args):
 
 
 if __name__ == '__main__':
-    sources = gen_sources()
+    sources = gen_sources(SOURCE_TREE)
     formatted_sources = gen_formatted_sources(sources)
     args = parse_args(sys.argv[1:])
     process_sources(formatted_sources, args)
