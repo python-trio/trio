@@ -103,7 +103,7 @@ def get_export_modules_by_dir(source_dir):
 
 def get_doc_string(func):
     """ Returns the doc string of a function
-    or an empty sting if none
+    or None if no doc string is present
     """
     try:
         return ast.get_docstring(func)
@@ -134,10 +134,9 @@ def gen_source():
     """
 
     source = dict()
-    imports = IMPORTS
     # Create a module for each os and the common code
     for module in get_export_modules_by_dir(SOURCE_TREE):
-        source[module.module_file] = [imports]
+        source[module.module_file] = [IMPORTS]
 
     # Get all modules we have classes with methods to export in the directory path
     trees = get_export_modules_by_dir(SOURCE_TREE)
@@ -191,8 +190,10 @@ def gen_source():
     return formatted_source
 
 
-if __name__ == '__main__':
-    sources = gen_source()
+def parse_arguments(sources):
+    ''' Parse the arguments and loop over all sources
+    for each given argument
+    '''
 
     parser = argparse.ArgumentParser(
         description='Generate python code for public api wrappers'
@@ -214,6 +215,8 @@ if __name__ == '__main__':
     )
 
     args = parser.parse_args()
+    # Loop over all sources and test if the current generated source
+    # is still up to date
     if args.test:
         for src in sources:
             pub_file_path = os.path.join(args.path, PREFIX + src)
@@ -226,6 +229,8 @@ if __name__ == '__main__':
             except AssertionError:
                 print('Source is outdated. Please regenerate.')
                 sys.exit(-1)
+    # Test if the given path actually exists and then loop over
+    # all sources and generate a new source
     elif args.path:
         if not os.path.exists(args.path):
             raise OSError("""Path {} does not exist""".format(args.path))
@@ -233,3 +238,8 @@ if __name__ == '__main__':
             pub_file_path = os.path.join(args.path, PREFIX + src)
             with open(pub_file_path, 'w', encoding='utf-8') as pub_file:
                 pub_file.writelines(sources[src])
+
+
+if __name__ == '__main__':
+    sources = gen_source()
+    parse_arguments(sources)

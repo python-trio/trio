@@ -5,7 +5,7 @@ set -ex
 EXIT_STATUS=0
 
 # Test if the generated code is still up to date
-python ./tools/gen_exports.py --test \
+python ./trio/_tools/gen_exports.py --test \
     || EXIT_STATUS=$?
 
 # Autoformatter *first*, to avoid double-reporting errors
