@@ -75,7 +75,7 @@ def get_public_methods(tree):
 def get_module_trees_by_dir(source_dir):
     """ Converts a list of modules into ast module objects
     """
-    mod_files = astor.code_to_ast.find_py_files(source_dir)
+    mod_files = astor.code_to_ast.find_py_files(str(source_dir))
     modules = []
     for mod_file in mod_files:
         if not mod_file[1].startswith('_public'):
