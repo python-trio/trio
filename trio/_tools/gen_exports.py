@@ -107,7 +107,7 @@ def get_doc_string(func):
     """
     try:
         return ast.get_docstring(func)
-    except TypeError:
+    except TypeError:  # pragma: no cover
         return
 
 
