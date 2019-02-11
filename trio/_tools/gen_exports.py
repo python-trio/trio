@@ -132,8 +132,11 @@ def gen_sources(source_tree=None):
     a method that is exported as public API. For each method
     a wrapper is created and added to its corresponding module.
     """
+    # Make sure there is always a path and it is a string
     if source_tree is None:
         source_tree = SOURCE_TREE
+    else:
+        source_tree = str(source_tree)
 
     sources = dict()
     # Start each module with a common import code

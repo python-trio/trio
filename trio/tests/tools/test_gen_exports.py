@@ -131,7 +131,7 @@ def test_is_public(module):
 
 
 def test_get_module_trees_by_dir(mod_path, source, non_pub_source):
-    modules = get_module_trees_by_dir(str(mod_path))
+    modules = get_module_trees_by_dir(mod_path)
     assert len(modules) == 2
     sources = [astor.to_source(mod) for mod in modules]
     assert source in sources
@@ -139,13 +139,13 @@ def test_get_module_trees_by_dir(mod_path, source, non_pub_source):
 
 
 def test_get_export_modules_by_dir(mod_path, source):
-    modules = get_export_modules_by_dir(str(mod_path))
+    modules = get_export_modules_by_dir(mod_path)
     assert len(modules) == 1
     assert source in astor.to_source(modules[0])
 
 
 def test_get_public_methods(mod_path):
-    modules = get_export_modules_by_dir(str(mod_path))
+    modules = get_export_modules_by_dir(mod_path)
     methods = get_public_methods(modules[0])
     assert len(methods) == 2
     assert methods[0].name == 'public_func'
