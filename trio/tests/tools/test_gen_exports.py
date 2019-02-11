@@ -220,19 +220,14 @@ def test_process_sources_when_outdated(capsys, mod_path):
     assert pytest_wrapped_e.value.code == -1
 
 
-# @pytest.mark.skipif(
-#     sys.version_info >= (3, 8), reason="requires on dev version"
-# )
-# def test_process_sources_when_new_and_up_to_date(capsys, real_path, tmpdir):
-#     sources = gen_sources(real_path)
-#     formatted_sources = gen_formatted_sources(sources)
-#     args = parse_args(['-p{}'.format(tmpdir)])
-#     process_sources(formatted_sources, args)
-#     capture = capsys.readouterr()
-#     assert capture.out == 'Sucessfully generated source files at {}\n'.format(
-#         tmpdir
-#     )
-#     args = parse_args(['-t', '-p{}'.format(tmpdir)])
-#     process_sources(formatted_sources, args)
-#     capture = capsys.readouterr()
-#     assert capture.out == 'Source is still up to date\n'
+@pytest.mark.skipif(
+    sys.version_info >= (3, 8), reason="requires on dev version"
+)
+def test_process_sources_when_new(capsys, mod_path, tmpdir):
+    sources = gen_sources(mod_path)
+    args = parse_args(['-p{}'.format(str(tmpdir))])
+    process_sources(sources, args)
+    capture = capsys.readouterr()
+    assert capture.out == 'Sucessfully generated source files at {}\n'.format(
+        str(tmpdir)
+    )
