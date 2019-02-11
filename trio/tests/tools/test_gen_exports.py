@@ -208,16 +208,15 @@ def test_parse_args():
     assert parser.path == '/tmp'
 
 
-# def test_process_sources_when_outdated(capsys, real_path, tmp_path):
-#     sources = gen_sources(real_path)
-#     formatted_sources = gen_formatted_sources(sources)
-#     args = parse_args(['-t', '-p {}'.format(tmp_path)])
-#     with pytest.raises(SystemExit) as pytest_wrapped_e:
-#         process_sources(formatted_sources, args)
-#     assert pytest_wrapped_e.type == SystemExit
-#     assert pytest_wrapped_e.value.code == -1
-#     capture = capsys.readouterr()
-#     assert capture.out == 'Source is outdated. Please regenerate.\n'
+def test_process_sources_when_outdated(capsys, mod_path):
+    sources = gen_sources(mod_path)
+    formatted_sources = gen_formatted_sources(sources)
+    args = parse_args(['-t', '-p {}'.format(str(mod_path))])
+    with pytest.raises(SystemExit) as pytest_wrapped_e:
+        process_sources(formatted_sources, args)
+    assert pytest_wrapped_e.type == SystemExit
+    assert pytest_wrapped_e.value.code == -1
+
 
 # def test_process_sources_when_new_and_up_to_date(capsys, real_path, tmpdir):
 #     sources = gen_sources(real_path)

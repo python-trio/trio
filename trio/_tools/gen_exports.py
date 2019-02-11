@@ -233,6 +233,7 @@ def process_sources(sources, args):
     # Loop over all sources and test if the current generated source
     # is still up to date
     if args.test:
+
         for src in sources:
             pub_file_path = os.path.join(args.path, PREFIX + src)
 
