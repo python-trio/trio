@@ -103,13 +103,6 @@ def pass_through_module(pass_through_source):
 
 
 @pytest.fixture
-def yapf_style():
-    """Get the location of the .style.yapf file
-    """
-    return YAPF_STYLE
-
-
-@pytest.fixture
 def mod_path(tmp_path, source, non_pub_source):
     mod_path = str(tmp_path.joinpath('public_module.py'))
     with open(mod_path, 'w') as mod_file:
@@ -196,13 +189,6 @@ def test_gen_sources_startswith_imports(mod_path):
     sources = gen_sources(mod_path)
     for source in sources.values():
         assert source[0].startswith(IMPORTS)
-
-
-def test_formatted_source(mod_path, yapf_style):
-    sources = gen_sources(mod_path)
-    formatted_sources = gen_formatted_sources(sources, yapf_style)
-    for source, formatted_source in zip(sources, formatted_sources):
-        assert source[0].count('def') == formatted_source[0].count('def')
 
 
 def test_parse_args():

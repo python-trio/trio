@@ -260,6 +260,6 @@ def process_sources(sources, args):
 
 if __name__ == '__main__':
     sources = gen_sources(SOURCE_TREE)
-    formatted_sources = gen_formatted_sources(sources)
+    formatted_sources = gen_formatted_sources(sources)  # pragma: no cover
     args = parse_args(sys.argv[1:])
     process_sources(formatted_sources, args)
