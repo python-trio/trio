@@ -210,10 +210,9 @@ def test_parse_args():
 
 def test_process_sources_when_outdated(capsys, mod_path):
     sources = gen_sources(mod_path)
-    formatted_sources = gen_formatted_sources(sources)
     args = parse_args(['-t', '-p {}'.format(str(mod_path))])
     with pytest.raises(SystemExit) as pytest_wrapped_e:
-        process_sources(formatted_sources, args)
+        process_sources(sources, args)
     assert pytest_wrapped_e.type == SystemExit
     assert pytest_wrapped_e.value.code == -1
 
