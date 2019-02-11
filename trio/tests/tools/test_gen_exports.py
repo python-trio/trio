@@ -2,6 +2,7 @@ import ast
 import astor
 import pytest
 import os
+import sys
 
 from shutil import copyfile
 from trio._tools.gen_exports import (
@@ -123,7 +124,8 @@ def test_is_public(module):
         if is_function(node) and node.name == 'non_public_func':
             assert is_public(node) is False
 
-
+@pytest.mark.skipif(sys.version_info >= (3,8),
+                    reason="requires on dev version")
 def test_get_module_trees_by_dir(mod_path, source, non_pub_source):
     modules = get_module_trees_by_dir(mod_path)
     assert len(modules) == 2
@@ -131,7 +133,8 @@ def test_get_module_trees_by_dir(mod_path, source, non_pub_source):
     assert source in sources
     assert non_pub_source in sources
 
-
+@pytest.mark.skipif(sys.version_info >= (3,8),
+                    reason="requires on dev version")
 def test_get_export_modules_by_dir(mod_path, source):
     modules = get_export_modules_by_dir(mod_path)
     assert len(modules) == 1
@@ -178,7 +181,8 @@ def test_create_pass_through_args(pass_through_module):
                         test_args[fnc]
                     )
 
-
+@pytest.mark.skipif(sys.version_info >= (3,8),
+                    reason="requires on dev version")
 def test_gen_sources_startswith_imports(mod_path):
     sources = gen_sources(mod_path)
     for source in sources.values():
