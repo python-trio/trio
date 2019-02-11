@@ -18,12 +18,6 @@ def pass_through_source():
     source = '''def func():
     """"""
 
-async def async_func():
-    """"""
-
-def non_public_func():
-    """"""
-
 def one_arg_func(one):
     """"""
 
@@ -79,10 +73,10 @@ async def async_func():
 
 class Test:
 
-    def non_public_func():
+    def non_public_func(self):
         """"""
 
-    def non_pub_func():
+    def non_pub_func(self):
         """"""
 '''
     return non_pub_source
