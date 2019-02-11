@@ -97,9 +97,16 @@ def module(source):
 
 @pytest.fixture
 def pass_through_module(pass_through_source):
-    """Compile the source into an ast module
+    """Compile the pass through source into an ast module
     """
     return ast.parse(pass_through_source)
+
+
+@pytest.fixture
+def yapf_style():
+    """Get the location of the .style.yapf file
+    """
+    return YAPF_STYLE
 
 
 @pytest.fixture
@@ -191,9 +198,9 @@ def test_gen_sources_startswith_imports(mod_path):
         assert source[0].startswith(IMPORTS)
 
 
-def test_formatted_source(mod_path):
+def test_formatted_source(mod_path, yapf_style):
     sources = gen_sources(mod_path)
-    formatted_sources = gen_formatted_sources(sources, YAPF_STYLE)
+    formatted_sources = gen_formatted_sources(sources, yapf_style)
     for source, formatted_source in zip(sources, formatted_sources):
         assert source[0].count('def') == formatted_source[0].count('def')
 
