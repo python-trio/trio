@@ -337,6 +337,9 @@ configure timeouts on individual requests.
 Cancellation semantics
 ~~~~~~~~~~~~~~~~~~~~~~
 
+Nesting of cancel scopes
+++++++++++++++++++++++++
+
 You can freely nest cancellation blocks, and each :exc:`Cancelled`
 exception "knows" which block it belongs to. So long as you don't stop
 it, the exception will keep propagating until it reaches the block
@@ -366,6 +369,9 @@ move_on_after(5)`` context manager. So this code will print:
 The end result is that trio has successfully cancelled exactly the
 work that was happening within the scope that was cancelled.
 
+Checking whether a scope was cancelled
+++++++++++++++++++++++++++++++++++++++
+
 Looking at this, you might wonder how you can tell whether the inner
 block timed out – perhaps you want to do something different, like try
 a fallback procedure or report a failure to our caller. To make this
@@ -383,6 +389,9 @@ for the deadline, check if the scope has already been cancelled, and
 so forth – see :class:`CancelScope` below for the full details.
 
 .. _blocking-cleanup-example:
+
+Cancellations affect blocking cleanup too
++++++++++++++++++++++++++++++++++++++++++
 
 Cancellations in trio are "level triggered", meaning that once a block
 has been cancelled, *all* cancellable operations in that block will
@@ -411,30 +420,136 @@ forever. But in trio, this *doesn't* happen: the ``await
 conn.send_goodbye_msg()`` call is still inside the cancelled block, so
 it will also raise :exc:`Cancelled`.
 
-Of course, if you really want to make another blocking call in your
-cleanup handler, trio will let you; it's trying to prevent you from
-accidentally shooting yourself in the foot. Intentional foot-shooting
-is no problem (or at least – it's not trio's problem). To do this,
-create a new scope, and set its :attr:`~CancelScope.shield`
-attribute to :data:`True`::
+.. _cleanup-with-grace-period:
 
-   with trio.move_on_after(TIMEOUT):
-       conn = make_connection()
+Grace periods allow blocking cleanup within externally-specified limits
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Of course, if you really want to make another blocking call in your
+cleanup handler, trio will let you, and it even lets you provide a
+top-down limit on the amount of time that the blocking cleanup should
+be allowed to take. To take advantage of this, you need to do two things:
+
+* surround the part of your code that wants to do blocking cleanup
+  after a cancellation in a ``with trio.shield_during_cleanup():``
+  block
+
+* specify a *grace period* alongside the original timeout or cancellation,
+  to indicate how long that blocking cleanup should be allowed to go on for
+
+For example::
+
+   with trio.move_on_after(TIMEOUT, grace_period=CLEANUP_TIMEOUT):
+       conn = await make_connection()
        try:
            await conn.send_hello_msg()
        finally:
-           with move_on_after(CLEANUP_TIMEOUT) as cleanup_scope:
+           with trio.shield_during_cleanup():
+               await conn.send_goodbye_msg()
+
+If ``await conn.send_hello_msg()`` takes more than ``TIMEOUT``
+seconds, execution will proceed to the ``finally`` block. Then, since
+``await conn.send_goodbye_msg()`` is within a ``with
+trio.shield_during_cleanup():`` block, it gets an additional
+``CLEANUP_TIMEOUT`` seconds (the ``grace_period``)
+before it too becomes cancelled. If ``await conn.send_goodbye_msg()``
+uses any timeouts internally, they will continue to work normally.
+This is a pretty advanced feature that most people probably
+won't use, but it's there for the cases where you need it.
+
+If you do use grace periods, there are some additional semantics to
+keep in mind:
+
+* The grace period mechanism temporarily protects code *inside*
+  a :func:`shield_during_cleanup` block from cancellations originating
+  *outside* such a block. Outside of :func:`shield_during_cleanup` blocks,
+  cancellation behavior is not affected by the grace period. Trio does
+  *not* attempt to automatically protect code in typical cleanup
+  locations such as all ``finally`` blocks or ``__aexit__`` handlers.
+  (Explicit is better than implicit.)
+
+* If you explicitly cancel a scope by calling :meth:`~CancelScope.cancel`,
+  as documented below, the grace period specified in the call to
+  :func:`move_on_after` has no effect; it only applies to cancellations
+  that occur as a result of the :func:`move_on_after` timeout expiring.
+  Instead, you can specify a grace period directly in the call to
+  :meth:`~CancelScope.cancel`.
+
+* A grace period specified *inside* the cancelled scope doesn't affect
+  the outcome. This code::
+
+     print("starting...")
+     with trio.move_on_after(5, grace_period=1):
+         with trio.move_on_after(10, grace_period=2):
+             try:
+                 await trio.sleep(20)
+                 print("sleep finished without error")
+             finally:
+                 with trio.shield_during_cleanup():
+                     print("blocking cleanup starting")
+                     await trio.sleep(1.5)
+                     print("blocking cleanup done")
+         print("move_on_after(10) finished without error")
+     print("move_on_after(5) finished without error")
+
+  will print:
+
+  .. code-block:: none
+
+     starting...
+     <5 second delay>
+     blocking cleanup starting
+     <1 second delay>
+     move_on_after(5) finished without error
+
+  In other words: Imposing a grace period at top level constrains the
+  amount of time that cleanup is allowed to take, just like imposing a
+  cancel scope at top level constrains the amount of time that normal
+  execution is allowed to take. The allowable grace period is
+  fundamentally a decision made by the *user* of an interface, even
+  though the specification of which work should be protected by it
+  will be part of the implementation.
+
+* The grace period clock starts ticking as soon as a scope becomes
+  cancelled. It applies cumulatively to all cleanup within the
+  cancelled scope, *not* to each ``with trio.shield_during_cleanup()``
+  block individually. That is, if a cancelled scope has a grace period
+  of 5, and it was cancelled more than 5 seconds ago, any
+  :func:`shield_during_cleanup` blocks within it will be cancelled
+  just like the rest of the scope.
+
+Shielding allows unlimited blocking cleanup
++++++++++++++++++++++++++++++++++++++++++++
+
+Finally, if you really need to locally force some code to run beyond
+the point at which an enclosing scope said it should be cancelled,
+trio lets you do that too, by setting the :attr:`~CancelScope.shield`
+attribute of a cancel scope to :data:`True`. So, the above
+:ref:`grace period example <cleanup-with-grace-period>` could equivalently
+be written::
+
+   with trio.move_on_after(TIMEOUT):
+       conn = await make_connection()
+       try:
+           await conn.send_hello_msg()
+       finally:
+           with trio.move_on_after(CLEANUP_TIMEOUT) as cleanup_scope:
                cleanup_scope.shield = True
                await conn.send_goodbye_msg()
 
-So long as you're inside a scope with ``shield = True`` set, then
+But the grace period approach works better as your application becomes
+more complex, because it lets you specify limits on cleanup duration
+as a matter of policy rather than at each place that does any cleanup.
+Shielding should only be used where you can't obtain correct behavior
+in any other way. (For an example, see :meth:`Condition.wait`.)
+
+So long as you're inside a scope with ``shield = True`` set,
 you'll be protected from outside cancellations. Note though that this
 *only* applies to *outside* cancellations: if ``CLEANUP_TIMEOUT``
 expires then ``await conn.send_goodbye_msg()`` will still be
 cancelled, and if ``await conn.send_goodbye_msg()`` call uses any
 timeouts internally, then those will continue to work normally as
-well. This is a pretty advanced feature that most people probably
-won't use, but it's there for the rare cases where you need it.
+well.
 
 
 .. _cancellable-primitives:
@@ -502,9 +617,13 @@ objects.
 
    .. autoattribute:: deadline
 
+   .. autoattribute:: cleanup_deadline
+
    .. autoattribute:: shield
 
-   .. automethod:: cancel()
+   .. autoattribute:: shield_during_cleanup
+
+   .. automethod:: cancel(*, grace_period=0)
 
    .. attribute:: cancelled_caught
 
@@ -537,6 +656,24 @@ objects.
       cancelled, then :attr:`cancelled_caught` is usually more
       appropriate.
 
+   .. attribute:: cleanup_expired
+
+      Readonly :class:`bool`. Records whether the cancellation of this
+      scope had its grace period expire while the ``with`` block was
+      still active. A true value of :attr:`cleanup_expired` implies
+      a true value of :attr:`cancel_called`, but not vice versa.
+
+      If a cancellation occurred with zero grace period,
+      :attr:`cleanup_expired` is always true.
+
+      The same caveats apply here as for :attr:`cancel_called`: you
+      usually want :attr:`cancelled_caught` instead. But if you
+      already know :attr:`cancelled_caught` is true, inspecting
+      :attr:`cleanup_expired` can assist in distinguishing an
+      "orderly" cancellation (where all the cleanup code was able to
+      run to completion) from one where some cleanup code may have
+      been interrupted.
+
 
 Trio also provides several convenience functions for the common
 situation of just wanting to impose a timeout on some code:
@@ -552,6 +689,12 @@ situation of just wanting to impose a timeout on some code:
 
 .. autofunction:: fail_at
    :with: cancel_scope
+
+And one for marking blocking cleanup code that should take advantage of
+any grace period that might exist if it's cancelled:
+
+.. autofunction:: shield_during_cleanup
+   :with:
 
 Cheat sheet:
 

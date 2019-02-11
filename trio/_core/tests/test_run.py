@@ -18,7 +18,7 @@ from async_generator import async_generator
 from .tutil import check_sequence_matches, gc_collect_harder
 from ... import _core
 from ..._threads import run_sync_in_worker_thread
-from ..._timeouts import sleep, fail_after
+from ..._timeouts import sleep, fail_after, move_on_at, shield_during_cleanup
 from ..._util import aiter_compat
 from ...testing import (
     wait_all_tasks_blocked,
@@ -562,9 +562,26 @@ async def test_cancel_scope_repr(mock_clock):
         assert "deadline is 10.00 seconds from now" in repr(scope)
         # when not in async context, can't get the current time
         assert "deadline" not in await run_sync_in_worker_thread(repr, scope)
+        scope.cancel(grace_period=inf)
+        assert "cancelled pending cleanup" in repr(scope)
+        scope.cleanup_deadline = _core.current_time() + 1
+        assert "cleanup deadline is 1.00 seconds from now" in repr(scope)
         scope.cancel()
-        assert "cancelled" in repr(scope)
+        assert "cancelled" in repr(scope) and "cleanup" not in repr(scope)
     assert "exited" in repr(scope)
+
+
+async def test_cancel_scope_validation():
+    with pytest.raises(ValueError):
+        _core.CancelScope(deadline="nan")
+    with pytest.raises(ValueError):
+        _core.CancelScope(cleanup_deadline=float("nan"))
+    scope = _core.CancelScope(deadline=42)
+    with pytest.raises(ValueError):
+        scope.cleanup_deadline = "nan"
+    with pytest.raises(ValueError):
+        scope.deadline = float("nan")
+    assert scope.deadline == scope.cleanup_deadline == 42
 
 
 def test_cancel_points():
@@ -911,6 +928,209 @@ async def test_cancel_unbound():
                 pass  # pragma: no cover
         assert "single 'with' block" in str(exc_info.value)
         nursery.cancel_scope.cancel()
+
+
+async def test_cancel_graceful(autojump_clock):
+    start = _core.current_time()
+    cleanup_start = None
+    cleanup_finish = None
+
+    # cleanup deadline changes track deadline changes
+    with _core.CancelScope(deadline=start + 5) as scope:
+        assert scope.deadline == pytest.approx(start + 5)
+        assert scope.cleanup_deadline == pytest.approx(start + 5)
+        scope.cleanup_deadline += 2
+        assert scope.deadline == pytest.approx(start + 5)
+        assert scope.cleanup_deadline == pytest.approx(start + 7)
+        scope.deadline += 3
+        assert scope.deadline == pytest.approx(start + 8)
+        assert scope.cleanup_deadline == pytest.approx(start + 10)
+        scope.deadline = inf
+        assert scope.deadline == scope.cleanup_deadline == inf
+        # make sure we don't blindly add (new_deadline - old_deadline)
+        # and get a NaN
+        scope.deadline = inf
+        assert scope.deadline == scope.cleanup_deadline == inf
+        scope.deadline = start + 3
+        assert scope.deadline == pytest.approx(start + 3)
+        assert scope.cleanup_deadline == pytest.approx(start + 3)
+
+    # nested scopes, outer one's grace period expires first
+    with move_on_at(start + 1, grace_period=1) as outer:
+        with move_on_at(start + 1.5, grace_period=2) as inner:
+            try:
+                await sleep(10)
+            finally:
+                cleanup_start = _core.current_time()
+                with shield_during_cleanup():
+                    assert "cancelled pending cleanup" in repr(outer)
+                    assert not inner.cancel_called
+                    assert outer.cancel_called and not outer.cleanup_expired
+                    try:
+                        await sleep(5)
+                    finally:
+                        cleanup_finish = _core.current_time()
+
+    assert cleanup_start == pytest.approx(start + 1)
+    assert cleanup_finish == pytest.approx(cleanup_start + 1)
+    assert outer.cancelled_caught and not inner.cancelled_caught
+    assert outer.cancel_called and outer.cleanup_expired
+    assert inner.cancel_called and not inner.cleanup_expired
+
+    # now the inner one's grace period expires first even though the outer
+    # was cancelled first
+    start = _core.current_time()
+    with move_on_at(start + 1, grace_period=1) as outer:
+        with move_on_at(start + 1.5, grace_period=0.3) as inner:
+            try:
+                await sleep(10)
+            finally:
+                cleanup_start = _core.current_time()
+                with shield_during_cleanup():
+                    try:
+                        await sleep(5)
+                    finally:
+                        cleanup_finish = _core.current_time()
+
+    assert cleanup_start == pytest.approx(start + 1)
+    assert cleanup_finish == pytest.approx(cleanup_start + 0.8)
+    assert outer.cancelled_caught and not inner.cancelled_caught
+    assert outer.cancel_called and not outer.cleanup_expired
+    assert inner.cancel_called and inner.cleanup_expired
+
+    # cancel can specify grace period, second call may shorten it but
+    # not lengthen
+    start = _core.current_time()
+    with _core.CancelScope() as scope:
+        scope.cancel(grace_period=1)
+        assert scope.cancel_called and not scope.cleanup_expired
+        scope.cancel(grace_period=0.5)
+        assert scope.cancel_called and not scope.cleanup_expired
+        scope.cancel(grace_period=2)
+        assert scope.cancel_called and not scope.cleanup_expired
+
+        with pytest.raises(_core.Cancelled):
+            await sleep(5)
+        assert _core.current_time() == pytest.approx(start)
+
+        with pytest.raises(_core.Cancelled):
+            with shield_during_cleanup():
+                await sleep(5)
+        assert _core.current_time() == pytest.approx(start + 0.5)
+        assert scope.cleanup_expired
+
+    async def canary(*, task_status=_core.TASK_STATUS_IGNORED):
+        start = _core.current_time()
+        with pytest.raises(_core.Cancelled):
+            with shield_during_cleanup() as scope:
+                task_status.started(scope)
+                await sleep(5)
+        assert _core.current_time() == pytest.approx(start + 0.5)
+
+    # if grace period is zero, cancellation of shield_during_cleanup scopes
+    # is instantaneous
+    async with _core.open_nursery() as nursery:
+        shield_scope = await nursery.start(canary)
+        await sleep(0.5)
+        nursery.cancel_scope.cancel()
+        nursery.cancel_scope.cleanup_deadline += 1  # no effect/already expired
+        assert nursery.cancel_scope.cleanup_expired
+
+    # grace period changes after cancel do work
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(canary)
+        nursery.cancel_scope.cancel(grace_period=0.1)
+        nursery.cancel_scope.cleanup_deadline += 0.2
+        with _core.CancelScope(shield=True):
+            await sleep(0.2)
+        assert not nursery.cancel_scope.cleanup_expired
+        nursery.cancel_scope.cleanup_deadline += 0.2
+
+    # but not if the old grace period already expired
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(canary)
+        await sleep(0.3)
+        nursery.cancel_scope.cancel(grace_period=0.2)
+        with _core.CancelScope(shield=True):
+            await sleep(0.3)
+        assert nursery.cancel_scope.cleanup_expired
+        nursery.cancel_scope.cleanup_deadline += 0.3
+        assert nursery.cancel_scope.cleanup_expired
+
+    # cleanup_expired is not set after the with block is exited
+    with _core.CancelScope() as scope:
+        scope.cancel(grace_period=0.5)
+        with shield_during_cleanup():
+            await sleep(0.3)
+    await sleep(1)
+    assert scope.cancel_called and not scope.cleanup_expired
+
+    # entering an unbound scope whose grace period already expired works
+    start = _core.current_time()
+    scope = _core.CancelScope()
+    scope.cancel(grace_period=0.2)
+    await sleep(0.3)
+    with scope, shield_during_cleanup(), pytest.raises(_core.Cancelled):
+        await _core.checkpoint()
+
+    # cancel() without grace period can accelerate an existing cancel
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(canary)
+        await sleep(0.2)
+        nursery.cancel_scope.cancel(grace_period=1)
+        with _core.CancelScope(shield=True):
+            await sleep(0.3)
+        nursery.cancel_scope.cancel()
+        assert nursery.cancel_scope.cleanup_expired
+        nursery.cancel_scope.cancel()  # idempotent
+
+    # removing shield_during_cleanup during the grace period wakes up
+    # the affected task(s)
+    async with _core.open_nursery() as nursery:
+        shield_scope = await nursery.start(canary)
+        nursery.cancel_scope.cancel(grace_period=1)
+        with _core.CancelScope(shield=True):
+            await sleep(0.5)
+        assert shield_scope.shield_during_cleanup
+        shield_scope.shield_during_cleanup = False
+        assert not shield_scope.shield_during_cleanup
+
+
+async def test_grace_period_effective_deadline(autojump_clock):
+    start = _core.current_time()
+    with move_on_at(start + 1, grace_period=2) as outer:
+        with move_on_at(start + 2, grace_period=0.5) as inner:
+            assert _core.current_effective_deadline() == start + 1
+            inner.shield_during_cleanup = True
+            assert _core.current_effective_deadline() == start + 2
+            with shield_during_cleanup():
+                assert _core.current_effective_deadline() == start + 2.5
+                inner.cleanup_deadline += 4.5
+                assert _core.current_effective_deadline() == start + 3
+                inner.shield_during_cleanup = False
+                assert _core.current_effective_deadline() == start + 3
+            assert _core.current_effective_deadline() == start + 1
+            outer.deadline += 2
+            assert _core.current_effective_deadline() == start + 2
+            outer.deadline -= 2
+            assert _core.current_effective_deadline() == start + 1
+            inner.shield = True
+            assert _core.current_effective_deadline() == start + 2
+            with shield_during_cleanup() as scope:
+                assert _core.current_effective_deadline() == start + 7
+                scope.shield = True
+                assert _core.current_effective_deadline() == inf
+                scope.shield = False
+                inner.cancel(grace_period=5)
+                assert _core.current_effective_deadline() == start + 5
+            assert _core.current_effective_deadline() == -inf
+            with shield_during_cleanup():
+                inner.cleanup_deadline -= 2
+                assert _core.current_effective_deadline() == start + 3
+                outer.cancel()
+                assert _core.current_effective_deadline() == start + 3
+                inner.shield = False
+                assert _core.current_effective_deadline() == -inf
 
 
 async def test_timekeeping():
