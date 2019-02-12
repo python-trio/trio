@@ -37,8 +37,7 @@ async def test_do_in_trio_thread():
             print("yawn")
             await sleep(0.01)
         assert record == [
-            ("start", child_thread),
-            ("f", trio_thread), expected
+            ("start", child_thread), ("f", trio_thread), expected
         ]
 
     portal = BlockingTrioPortal()

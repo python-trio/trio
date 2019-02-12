@@ -243,8 +243,7 @@ async def test_Semaphore_bounded():
 
 
 @pytest.mark.parametrize(
-    "lockcls",
-    [Lock, StrictFIFOLock], ids=lambda fn: fn.__name__
+    "lockcls", [Lock, StrictFIFOLock], ids=lambda fn: fn.__name__
 )
 async def test_Lock_and_StrictFIFOLock(lockcls):
     l = lockcls()  # noqa
