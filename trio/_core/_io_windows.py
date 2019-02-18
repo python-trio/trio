@@ -15,6 +15,7 @@ from .. import _core
 from . import _public
 from ._wakeup_socketpair import WakeupSocketpair
 from .._util import is_main_thread
+from .._channel import open_memory_channel
 
 from ._windows_cffi import (
     ffi,
@@ -133,7 +134,7 @@ class WindowsIOManager:
         self._iocp_thread = None
         self._overlapped_waiters = {}
         self._posted_too_late_to_cancel = set()
-        self._completion_key_queues = {}
+        self._completion_key_channels = {}
         # Completion key 0 is reserved for regular IO events.
         # Completion key 1 is used by the fallback post from a regular
         # IO event's abort_fn to catch the user forgetting to call
@@ -156,7 +157,7 @@ class WindowsIOManager:
     def statistics(self):
         return _WindowsStatistics(
             tasks_waiting_overlapped=len(self._overlapped_waiters),
-            completion_key_monitors=len(self._completion_key_queues),
+            completion_key_monitors=len(self._completion_key_channels),
             tasks_waiting_socket_readable=len(self._socket_waiters["read"]),
             tasks_waiting_socket_writable=len(self._socket_waiters["write"]),
             iocp_backlog=len(self._iocp_queue),
@@ -288,14 +289,15 @@ class WindowsIOManager:
                         raise exc
                 else:
                     # dispatch on lpCompletionKey
-                    queue = self._completion_key_queues[entry.lpCompletionKey]
+                    send_channel = self._completion_key_channels[
+                        entry.lpCompletionKey]
                     overlapped = int(ffi.cast("uintptr_t", entry.lpOverlapped))
                     transferred = entry.dwNumberOfBytesTransferred
                     info = CompletionKeyEventInfo(
                         lpOverlapped=overlapped,
                         dwNumberOfBytesTransferred=transferred,
                     )
-                    queue.put_nowait(info)
+                    send_channel.send_nowait(info)
 
     def _iocp_thread_fn(self):
         # This thread sits calling GetQueuedCompletionStatusEx forever. To
@@ -422,12 +424,12 @@ class WindowsIOManager:
     @contextmanager
     def monitor_completion_key(self):
         key = next(self._completion_key_counter)
-        queue = _core.UnboundedQueue()
-        self._completion_key_queues[key] = queue
+        send_channel, recv_channel = open_memory_channel(math.inf)
+        self._completion_key_channels[key] = send_channel
         try:
-            yield (key, queue)
+            yield (key, recv_channel)
         finally:
-            del self._completion_key_queues[key]
+            del self._completion_key_channels[key]
 
     async def _wait_socket(self, which, sock):
         if not isinstance(sock, int):

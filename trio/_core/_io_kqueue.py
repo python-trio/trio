@@ -1,4 +1,5 @@
 import select
+import math
 
 import outcome
 from contextlib import contextmanager
@@ -6,6 +7,7 @@ import attr
 
 from .. import _core
 from . import _public
+from .._channel import open_memory_channel
 
 
 @attr.s(frozen=True)
@@ -18,7 +20,7 @@ class _KqueueStatistics:
 @attr.s(slots=True, cmp=False, hash=False)
 class KqueueIOManager:
     _kqueue = attr.ib(default=attr.Factory(select.kqueue))
-    # {(ident, filter): Task or UnboundedQueue}
+    # {(ident, filter): Task or MemorySendChannel}
     _registered = attr.ib(default=attr.Factory(dict))
 
     def statistics(self):
@@ -60,7 +62,7 @@ class KqueueIOManager:
             if type(receiver) is _core.Task:
                 _core.reschedule(receiver, outcome.Value(event))
             else:
-                receiver.put_nowait(event)
+                receiver.send_nowait(event)
 
     # kevent registration is complicated -- e.g. aio submission can
     # implicitly perform a EV_ADD, and EVFILT_PROC with NOTE_TRACK will
@@ -86,10 +88,10 @@ class KqueueIOManager:
                 "attempt to register multiple listeners for same "
                 "ident/filter pair"
             )
-        q = _core.UnboundedQueue()
-        self._registered[key] = q
+        send_channel, recv_channel = open_memory_channel(math.inf)
+        self._registered[key] = send_channel
         try:
-            yield q
+            yield recv_channel
         finally:
             del self._registered[key]
 
@@ -154,7 +156,7 @@ class KqueueIOManager:
                 del self._registered[key]
             else:
                 # XX this is an interesting example of a case where being able
-                # to close a queue would be useful...
+                # to close a send_channel would be useful...
                 raise NotImplementedError(
                     "can't close an fd that monitor_kevent is using"
                 )

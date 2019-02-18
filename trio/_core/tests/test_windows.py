@@ -17,12 +17,6 @@ if on_windows:
     )
 
 
-# The undocumented API that this is testing should be changed to stop using
-# UnboundedQueue (or just removed until we have time to redo it), but until
-# then we filter out the warning.
-@pytest.mark.filterwarnings(
-    "ignore:.*UnboundedQueue:trio.TrioDeprecationWarning"
-)
 async def test_completion_key_listen():
     async def post(key):
         iocp = ffi.cast("HANDLE", _core.current_iocp())
@@ -35,19 +29,15 @@ async def test_completion_key_listen():
             )
             assert success
 
-    with _core.monitor_completion_key() as (key, queue):
+    with _core.monitor_completion_key() as (key, recv_channel):
         async with _core.open_nursery() as nursery:
             nursery.start_soon(post, key)
-            i = 0
             print("loop")
-            async for batch in queue:  # pragma: no branch
-                print("got some", batch)
-                for info in batch:
-                    assert info.lpOverlapped == 0
-                    assert info.dwNumberOfBytesTransferred == i
-                    i += 1
-                if i == 10:
-                    break
+            for i in range(10):
+                info = await recv_channel.receive()
+                print("got one", info)
+                assert info.lpOverlapped == 0
+                assert info.dwNumberOfBytesTransferred == i
             print("end loop")
 
 
