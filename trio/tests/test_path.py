@@ -36,7 +36,8 @@ async def test_magic():
 
 
 cls_pairs = [
-    (trio.Path, pathlib.Path), (pathlib.Path, trio.Path),
+    (trio.Path, pathlib.Path),
+    (pathlib.Path, trio.Path),
     (trio.Path, trio.Path)
 ]
 
@@ -61,7 +62,9 @@ async def test_cmp_magic(cls_a, cls_b):
 # __*div__ does not properly raise NotImplementedError like the other comparison
 # magic, so trio.Path's implementation does not get dispatched
 cls_pairs = [
-    (trio.Path, pathlib.Path), (trio.Path, trio.Path), (trio.Path, str),
+    (trio.Path, pathlib.Path),
+    (trio.Path, trio.Path),
+    (trio.Path, str),
     (str, trio.Path)
 ]
 

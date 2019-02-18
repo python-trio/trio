@@ -126,7 +126,8 @@ def test_is_public(module):
 
 
 @pytest.mark.skipif(
-    sys.version_info >= (3, 8), reason="requires on dev version"
+    sys.version_info >= (3, 8),
+    reason="https://github.com/berkerpeksag/astor/pull/121 skip 3.8 dev version"
 )
 def test_get_module_trees_by_dir(mod_path, source, non_pub_source):
     modules = get_module_trees_by_dir(mod_path)
@@ -137,7 +138,8 @@ def test_get_module_trees_by_dir(mod_path, source, non_pub_source):
 
 
 @pytest.mark.skipif(
-    sys.version_info >= (3, 8), reason="requires on dev version"
+    sys.version_info >= (3, 8),
+    reason="https://github.com/berkerpeksag/astor/pull/121 skip 3.8 dev version"
 )
 def test_get_export_modules_by_dir(mod_path, source):
     modules = get_export_modules_by_dir(mod_path)
@@ -187,7 +189,8 @@ def test_create_pass_through_args(pass_through_module):
 
 
 @pytest.mark.skipif(
-    sys.version_info >= (3, 8), reason="requires on dev version"
+    sys.version_info >= (3, 8),
+    reason="https://github.com/berkerpeksag/astor/pull/121 skip 3.8 dev version"
 )
 def test_gen_sources_startswith_imports(mod_path):
     sources = gen_sources(mod_path)
@@ -209,7 +212,8 @@ def test_parse_args():
 
 
 @pytest.mark.skipif(
-    sys.version_info >= (3, 8), reason="requires on dev version"
+    sys.version_info >= (3, 8),
+    reason="https://github.com/berkerpeksag/astor/pull/121 skip 3.8 dev version"
 )
 def test_process_sources_when_outdated(capsys, mod_path):
     sources = gen_sources(mod_path)
@@ -221,7 +225,8 @@ def test_process_sources_when_outdated(capsys, mod_path):
 
 
 @pytest.mark.skipif(
-    sys.version_info >= (3, 8), reason="requires on dev version"
+    sys.version_info >= (3, 8),
+    reason="https://github.com/berkerpeksag/astor/pull/121 skip 3.8 dev version"
 )
 def test_process_sources_when_new(capsys, mod_path, tmpdir):
     sources = gen_sources(mod_path)

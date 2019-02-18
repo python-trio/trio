@@ -213,8 +213,8 @@ class FakeHostnameResolver:
 
     async def getaddrinfo(self, host, port, family, type, proto, flags):
         return [
-            (family, tsocket.SOCK_STREAM, 0, "", (addr, port))
-            for family, addr in self.family_addr_pairs
+            (family, tsocket.SOCK_STREAM, 0, "",
+             (addr, port)) for family, addr in self.family_addr_pairs
         ]
 
 
