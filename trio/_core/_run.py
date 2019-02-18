@@ -44,7 +44,6 @@ _NO_SEND = object()
 def _public(fn):
     return fn
 
-
 # When running under Hypothesis, we want examples to be reproducible and
 # shrinkable.  pytest-trio's Hypothesis integration monkeypatches this
 # variable to True, and registers the Random instance _r for Hypothesis
