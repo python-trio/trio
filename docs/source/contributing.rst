@@ -17,6 +17,9 @@ all contributions are valued.  For example, you could:
 
 - Hang out in our `chatroom <https://gitter.im/python-trio/general>`__
   and help people with questions.
+- Sign up for our `forum <https://trio.discourse.group>`__, set up
+  your notifications so you notice interesting conversations, and join
+  in.
 - Answer questions on StackOverflow (`recent questions
   <https://stackexchange.com/filters/289914/trio-project-tags-on-stackoverflow-filter>`__).
 - Use Trio in a project, and give us feedback on what worked and what
@@ -58,8 +61,8 @@ repositories. See :ref:`joining-the-team` below for more details.
 If you're looking for a good place to start, then check out our issues
 labeled `good first issue
 <https://github.com/search?utf8=%E2%9C%93&q=user%3Apython-trio+label%3A%22good+first+issue%22+state%3Aopen&type=Issues&ref=advsearch&l=&l=>`__,
-or feel free to `ask in chat
-<https://gitter.im/python-trio/general>`__.
+or feel free to ask `on the forum <https://trio.discourse.group>`__ or
+`in chat <https://gitter.im/python-trio/general>`__.
 
 
 Providing support
@@ -441,14 +444,16 @@ to start doing more, that's excellent; if it doesn't happen, that's
 fine too.
 
 If at any point you're unsure about whether doing something would be
-appropriate, feel free to ask (for example, in our chat room or by
-posting Github comment). For example, it's *totally OK* if the first
-time you review a PR, you want someone else to check over your work
-before you hit the merge button.
+appropriate, feel free to ask. For example, it's *totally OK* if the
+first time you review a PR, you want someone else to check over your
+work before you hit the merge button.
 
-For general tips on doing code reviews, the `node.js guide
+The best essay I know about reviewing pull request's is Sage Sharp's
+`The gentle art of patch review
+<http://sage.thesharps.us/2014/09/01/the-gentle-art-of-patch-review/>`__.
+The `node.js guide
 <https://github.com/nodejs/node/blob/master/doc/guides/contributing/pull-requests.md#reviewing-pull-requests>`__
-has some good suggestions, and `so does this blog post
+also has some good suggestions, and `so does this blog post
 <http://verraes.net/2013/10/pre-merge-code-reviews/>`__.
 
 

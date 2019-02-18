@@ -514,6 +514,7 @@ def run_script(name, use_ipython=False):
     script_path = Path(__file__).parent / "test_multierror_scripts" / name
 
     env = dict(os.environ)
+    print("parent PYTHONPATH:", env.get("PYTHONPATH"))
     if "PYTHONPATH" in env:  # pragma: no cover
         pp = env["PYTHONPATH"].split(os.pathsep)
     else:
@@ -521,6 +522,7 @@ def run_script(name, use_ipython=False):
     pp.insert(0, str(trio_path))
     pp.insert(0, str(script_path.parent))
     env["PYTHONPATH"] = os.pathsep.join(pp)
+    print("subprocess PYTHONPATH:", env.get("PYTHONPATH"))
 
     if use_ipython:
         lines = [script_path.open().read(), "exit()"]
@@ -591,10 +593,16 @@ else:
     have_ipython = True
 
 need_ipython = pytest.mark.skipif(not have_ipython, reason="need IPython")
+# https://github.com/ipython/ipython/issues/11590
+fails_on_38 = pytest.mark.xfail(
+    sys.version_info >= (3, 8),
+    reason="IPython is currently broken on 3.8-dev"
+)
 
 
 @slow
 @need_ipython
+@fails_on_38
 def test_ipython_exc_handler():
     completed = run_script("simple_excepthook.py", use_ipython=True)
     check_simple_excepthook(completed)
@@ -609,6 +617,7 @@ def test_ipython_imported_but_unused():
 
 @slow
 @need_ipython
+@fails_on_38
 def test_ipython_custom_exc_handler():
     # Check we get a nice warning (but only one!) if the user is using IPython
     # and already has some other set_custom_exc handler installed.

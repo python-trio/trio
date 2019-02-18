@@ -22,7 +22,7 @@ def move_on_at(deadline):
       deadline (float): The deadline.
 
     """
-    return _core.open_cancel_scope(deadline=deadline)
+    return _core.CancelScope(deadline=deadline)
 
 
 def move_on_after(seconds):

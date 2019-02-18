@@ -5,7 +5,7 @@ import os
 import socket as stdlib_socket
 import inspect
 import tempfile
-
+import sys as _sys
 from .._core.tests.tutil import creates_ipv6, binds_ipv6
 from .. import _core
 from .. import _socket as _tsocket
@@ -261,6 +261,29 @@ async def test_socket_v6():
     with tsocket.socket(tsocket.AF_INET6, tsocket.SOCK_DGRAM) as s:
         assert isinstance(s, tsocket.SocketType)
         assert s.family == tsocket.AF_INET6
+
+
+@pytest.mark.skipif(not _sys.platform == "linux", reason="linux only")
+async def test_sniff_sockopts():
+    from socket import AF_INET, AF_INET6, SOCK_DGRAM, SOCK_STREAM
+    # generate the combinations of families/types we're testing:
+    sockets = []
+    for family in [AF_INET, AF_INET6]:
+        for type in [SOCK_DGRAM, SOCK_STREAM]:
+            sockets.append(stdlib_socket.socket(family, type))
+    for socket in sockets:
+        # regular trio socket constructor
+        tsocket_socket = tsocket.socket(fileno=socket.fileno())
+        # check family / type for correctness:
+        assert tsocket_socket.family == socket.family
+        assert tsocket_socket.type == socket.type
+
+        # fromfd constructor
+        tsocket_from_fd = tsocket.fromfd(socket.fileno(), AF_INET, SOCK_STREAM)
+        # check family / type for correctness:
+        assert tsocket_from_fd.family == socket.family
+        assert tsocket_from_fd.type == socket.type
+        socket.close()
 
 
 ################################################################
@@ -526,7 +549,7 @@ async def test_SocketType_non_blocking_paths():
 
         # cancel before even calling
         b.send(b"1")
-        with _core.open_cancel_scope() as cscope:
+        with _core.CancelScope() as cscope:
             cscope.cancel()
             with assert_checkpoints():
                 with pytest.raises(_core.Cancelled):
@@ -603,13 +626,13 @@ async def test_SocketType_connect_paths():
     # cancelled before we start
     with tsocket.socket() as sock:
         with assert_checkpoints():
-            with _core.open_cancel_scope() as cancel_scope:
+            with _core.CancelScope() as cancel_scope:
                 cancel_scope.cancel()
                 with pytest.raises(_core.Cancelled):
                     await sock.connect(("127.0.0.1", 80))
 
     # Cancelled in between the connect() call and the connect completing
-    with _core.open_cancel_scope() as cancel_scope:
+    with _core.CancelScope() as cancel_scope:
         with tsocket.socket() as sock, tsocket.socket() as listener:
             await listener.bind(("127.0.0.1", 0))
             listener.listen()
@@ -651,7 +674,7 @@ async def test_SocketType_connect_paths():
 
 async def test_resolve_remote_address_exception_closes_socket():
     # Here we are testing issue 247, any cancellation will leave the socket closed
-    with _core.open_cancel_scope() as cancel_scope:
+    with _core.CancelScope() as cancel_scope:
         with tsocket.socket() as sock:
 
             async def _resolve_remote_address(self, *args, **kwargs):

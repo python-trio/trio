@@ -7,9 +7,8 @@ from ._sync import Event
 from ._util import (
     signal_raise, aiter_compat, is_main_thread, ConflictDetector
 )
-from ._deprecate import deprecated
 
-__all__ = ["open_signal_receiver", "catch_signals"]
+__all__ = ["open_signal_receiver"]
 
 # Discussion of signal handling strategies:
 #
@@ -166,22 +165,3 @@ def open_signal_receiver(*signals):
             yield queue
     finally:
         queue._redeliver_remaining()
-
-
-class CompatSignalQueue:
-    def __init__(self, signal_queue):
-        self._signal_queue = signal_queue
-
-    @aiter_compat
-    def __aiter__(self):
-        return self
-
-    async def __anext__(self):
-        return { await self._signal_queue.__anext__()}
-
-
-@deprecated("0.7.0", issue=354, instead=open_signal_receiver)
-@contextmanager
-def catch_signals(signals):
-    with open_signal_receiver(*signals) as signal_queue:
-        yield CompatSignalQueue(signal_queue)
