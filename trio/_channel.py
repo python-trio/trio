@@ -168,8 +168,12 @@ class MemorySendChannel(SendChannel):
 
     @_core.enable_ki_protection
     async def aclose(self):
+        self.close()
+        await _core.checkpoint()
+
+    @_core.enable_ki_protection
+    def close(self):
         if self._closed:
-            await _core.checkpoint()
             return
         self._closed = True
         for task in self._tasks:
@@ -183,7 +187,6 @@ class MemorySendChannel(SendChannel):
                 task.custom_sleep_data._tasks.remove(task)
                 _core.reschedule(task, Error(_core.EndOfChannel()))
             self._state.receive_tasks.clear()
-        await _core.checkpoint()
 
 
 @attr.s(cmp=False, repr=False)
@@ -250,8 +253,12 @@ class MemoryReceiveChannel(ReceiveChannel):
 
     @_core.enable_ki_protection
     async def aclose(self):
+        self.close()
+        await _core.checkpoint()
+
+    @_core.enable_ki_protection
+    def close(self):
         if self._closed:
-            await _core.checkpoint()
             return
         self._closed = True
         for task in self._tasks:
@@ -266,4 +273,3 @@ class MemoryReceiveChannel(ReceiveChannel):
                 _core.reschedule(task, Error(_core.BrokenResourceError()))
             self._state.send_tasks.clear()
             self._state.data.clear()
-        await _core.checkpoint()

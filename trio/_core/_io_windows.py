@@ -429,6 +429,7 @@ class WindowsIOManager:
         try:
             yield (key, recv_channel)
         finally:
+            send_channel.close()
             del self._completion_key_channels[key]
 
     async def _wait_socket(self, which, sock):

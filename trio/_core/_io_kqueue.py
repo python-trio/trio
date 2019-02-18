@@ -93,6 +93,7 @@ class KqueueIOManager:
         try:
             yield recv_channel
         finally:
+            send_channel.close()
             del self._registered[key]
 
     @_public
@@ -155,8 +156,5 @@ class KqueueIOManager:
                 _core.reschedule(receiver, outcome.Error(exc))
                 del self._registered[key]
             else:
-                # XX this is an interesting example of a case where being able
-                # to close a send_channel would be useful...
-                raise NotImplementedError(
-                    "can't close an fd that monitor_kevent is using"
-                )
+                receiver.close()
+                del self._registered[key]
