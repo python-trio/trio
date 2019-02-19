@@ -411,14 +411,10 @@ def test_instruments(recwarn):
     # reschedules the task immediately upon yielding, before the
     # after_task_step event fires.
     expected = (
-        [("before_run",),
-         ("schedule", task)] +
-        [("before", task),
-         ("schedule", task),
-         ("after", task)] * 5 + [
-             ("before", task),
-             ("after", task), ("after_run",)
-         ]
+        [("before_run",), ("schedule", task)] +
+        [("before", task), ("schedule", task), ("after", task)] * 5 + [
+            ("before", task), ("after", task), ("after_run",)
+        ]
     )
     assert len(r1.record) > len(r2.record) > len(r3.record)
     assert r1.record == r2.record + r3.record

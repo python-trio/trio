@@ -137,8 +137,7 @@ async def test_serve_listeners_connection_nursery(autojump_clock):
             await nursery.start(
                 partial(
                     trio.serve_listeners,
-                    handler,
-                    [listener],
+                    handler, [listener],
                     handler_nursery=handler_nursery
                 )
             )
