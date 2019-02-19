@@ -168,11 +168,13 @@ class CancelScope:
     _has_been_entered = attr.ib(default=False, init=False)
     _effective_deadline = attr.ib(default=inf, init=False)
     cancel_called = attr.ib(default=False, init=False)
+    graceful_cancel_called = attr.ib(default=False, init=False)
     cancelled_caught = attr.ib(default=False, init=False)
 
     # Constructor arguments:
     _deadline = attr.ib(default=inf, kw_only=True)
     _shield = attr.ib(default=False, kw_only=True)
+    _graceful = attr.ib(default=None, kw_only=True)
 
     @enable_ki_protection
     def __enter__(self):
@@ -325,6 +327,19 @@ class CancelScope:
             for task in self._tasks:
                 task._attempt_delivery_of_any_pending_cancel()
 
+    @property
+    def graceful(self):
+        """If this is set to :data:`True`, then the code inside this
+        scope will receive :exc:`~trio.Cancelled` exceptions from scopes
+        that are outside this scope that have been gracefully canceled.
+        If this is set to :data:`None` then this scope will inherit its
+        graceful cancel behavior from its parent scope.
+
+        Defaults to :data:`None`, though this can be overridden by the
+        ``graceful=`` argument to the :class:`~trio.CancelScope` constructor.
+        """
+        return self._graceful
+
     @enable_ki_protection
     def cancel(self):
         """Cancels this scope immediately.
@@ -336,6 +351,27 @@ class CancelScope:
             return
         with self._might_change_effective_deadline():
             self.cancel_called = True
+        for task in self._tasks:
+            task._attempt_delivery_of_any_pending_cancel()
+
+    @enable_ki_protection
+    def graceful_cancel(self, seconds=None):
+        """Gracefully cancel this scope immediately.
+
+         Args:
+            seconds (float): Optional. If provided, this will change the deadline
+                of the current scope to be the number of seconds in the future.
+
+        Raises:
+            ValueError: if *seconds* is negative.
+        """
+        if self.cancel_called or self.graceful_cancel_called:
+            return
+        if seconds is not None:
+            if seconds < 0:
+                raise ValueError("new deadline must be in the future")
+            self.deadline = current_time() + float(seconds)
+        self.graceful_cancel_called = True
         for task in self._tasks:
             task._attempt_delivery_of_any_pending_cancel()
 
@@ -365,10 +401,7 @@ class CancelScope:
 
     def _close(self, exc):
         scope_task = current_task()
-        if (
-            exc is not None and self.cancel_called
-            and scope_task._pending_cancel_scope() is self
-        ):
+        if exc is not None and scope_task._pending_cancel_scope() is self:
             exc = MultiError.filter(self._exc_filter, exc)
         with self._might_change_effective_deadline():
             self._remove_task(scope_task)
@@ -643,16 +676,51 @@ class Nursery:
 ################################################################
 
 
+def _pending_graceful_cancel_scope(cancel_stack):
+    # Return the outermost scope that is graceful, graceful_cancelled, and not outside a shield
+    pending_scope = None
+    graceful_cancel_called = False
+    scope_is_graceful = False
+    level = len(cancel_stack)
+
+    for i, scope in enumerate(cancel_stack):
+        if scope.shield:
+            pending_scope = None
+            level = len(cancel_stack)
+            graceful_cancel_called = False
+            scope_is_graceful = False
+        if scope.graceful is False:  # None implies inherit
+            pending_scope = None
+            level = len(cancel_stack)
+            scope_is_graceful = False
+        if scope.graceful:
+            scope_is_graceful = True
+        if scope.graceful_cancel_called:
+            graceful_cancel_called = True
+        if pending_scope is None and scope_is_graceful and graceful_cancel_called:
+            level = i
+            pending_scope = scope
+
+    return level, pending_scope
+
+
 def _pending_cancel_scope(cancel_stack):
     # Return the outermost exception that is is not outside a shield.
     pending_scope = None
-    for scope in cancel_stack:
+    level = len(cancel_stack)
+    for i, scope in enumerate(cancel_stack):
         # Check shield before _exc, because shield should not block
         # processing of *this* scope's exception
         if scope.shield:
+            level = len(cancel_stack)
             pending_scope = None
         if pending_scope is None and scope.cancel_called:
+            level = i
             pending_scope = scope
+
+    # Pick the outermost scope between cancel and graceful cancel
+    _, pending_scope = min((level, pending_scope), _pending_graceful_cancel_scope(cancel_stack))
+
     return pending_scope
 
 
@@ -1671,12 +1739,27 @@ def current_effective_deadline():
     """
     task = current_task()
     deadline = inf
+    graceful_deadline = inf
+    graceful_cancel_called = False
+    scope_is_graceful = False
     for scope in task._cancel_stack:
         if scope._shield:
             deadline = inf
+            graceful_deadline = inf
+            graceful_cancel_called = False
+            scope_is_graceful = False
+        if scope.graceful is False:  # None implies inherit
+            graceful_deadline = inf
+            scope_is_graceful = False
+        if scope.graceful:
+            scope_is_graceful = True
+        if scope.graceful_cancel_called:
+            graceful_cancel_called = True
         if scope.cancel_called:
             deadline = -inf
-        deadline = min(deadline, scope._deadline)
+        if scope_is_graceful and graceful_cancel_called:
+            graceful_deadline = -inf
+        deadline = min(deadline, graceful_deadline, scope._deadline)
     return deadline
 
 
