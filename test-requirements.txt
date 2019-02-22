@@ -33,7 +33,7 @@ pickleshare==0.7.5        # via ipython
 pluggy==0.8.1             # via pytest
 prompt-toolkit==2.0.9     # via ipython
 ptyprocess==0.6.0         # via pexpect
-py==1.7.0                 # via pytest
+py==1.8.0                 # via pytest
 pycodestyle==2.5.0        # via flake8
 pycparser==2.19           # via cffi
 pyflakes==2.1.0           # via flake8
