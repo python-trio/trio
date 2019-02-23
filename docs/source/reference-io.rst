@@ -723,11 +723,10 @@ before returning, so there's no need to worry about leaving a process
 running by mistake after you've gone on to do other things.
 :func:`~trio.run_process` is similar to the standard library
 :func:`subprocess.run` function, but tries to have safer defaults:
-with no options, the subprocess's input is provided and its outputs
-are captured by the parent Trio process rather than connecting them
-to the user's terminal, and a failure in the subprocess will be propagated
-as a :exc:`subprocess.CalledProcessError` exception. Of course, these
-defaults can be changed where necessary.
+with no options, the subprocess's input is empty rather than coming
+from the user's terminal, and a failure in the subprocess will be
+propagated as a :exc:`subprocess.CalledProcessError` exception. Of
+course, these defaults can be changed where necessary.
 
 .. autofunction:: trio.run_process
 

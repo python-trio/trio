@@ -204,43 +204,49 @@ async def test_interactive():
 async def test_run():
     data = bytes(random.randint(0, 255) for _ in range(2**18))
 
-    result = await run_process(CAT, input=data)
+    result = await run_process(CAT, stdin=data, capture=True)
     assert result.args == CAT
     assert result.returncode == 0
     assert result.stdout == data
     assert result.stderr == b""
 
-    result = await run_process(CAT, stderr=None)
+    result = await run_process(CAT, capture_stdout=True)
     assert result.args == CAT
     assert result.returncode == 0
     assert result.stdout == b""
     assert result.stderr is None
 
     result = await run_process(
-        COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR, input=data
+        COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR, stdin=data, capture=True
     )
     assert result.args == COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR
     assert result.returncode == 0
     assert result.stdout == data
     assert result.stderr == data[::-1]
 
-    # can't use both input and stdin
+    # invalid combinations
+    with pytest.raises(UnicodeError):
+        await run_process(CAT, stdin="oh no, it's text")
     with pytest.raises(ValueError):
-        await run_process(CAT, input=b"la di dah", stdin=subprocess.DEVNULL)
+        await run_process(CAT, stdin=subprocess.PIPE)
     with pytest.raises(ValueError):
-        await run_process(CAT, input=b"la di dah", passthrough=True)
+        await run_process(CAT, capture=True, capture_stdout=True)
+    with pytest.raises(ValueError):
+        await run_process(CAT, capture_stdout=True, stdout=subprocess.DEVNULL)
+    with pytest.raises(ValueError):
+        await run_process(CAT, capture_stderr=True, stderr=None)
 
 
 async def test_run_check():
     cmd = python("sys.stderr.buffer.write(b'test\\n'); sys.exit(1)")
     with pytest.raises(subprocess.CalledProcessError) as excinfo:
-        await run_process(cmd, stdout=None)
+        await run_process(cmd, stdin=subprocess.DEVNULL, capture_stderr=True)
     assert excinfo.value.cmd == cmd
     assert excinfo.value.returncode == 1
     assert excinfo.value.stderr == b"test\n"
     assert excinfo.value.stdout is None
 
-    result = await run_process(cmd, check=False)
+    result = await run_process(cmd, capture=True, check=False)
     assert result.args == cmd
     assert result.stdout == b""
     assert result.stderr == b"test\n"
@@ -250,7 +256,8 @@ async def test_run_check():
 async def test_run_with_broken_pipe():
     result = await run_process(
         [sys.executable, "-c", "import sys; sys.stdin.close()"],
-        input=b"x" * 131072
+        stdin=b"x" * 131072,
+        capture=True,
     )
     assert result.returncode == 0
     assert result.stdout == result.stderr == b""
@@ -280,7 +287,8 @@ async def test_stderr_stdout():
     # equivalent test with run_process()
     result = await run_process(
         COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR,
-        input=b"1234",
+        stdin=b"1234",
+        capture_stdout=True,
         stderr=subprocess.STDOUT,
     )
     assert result.returncode == 0
@@ -348,22 +356,6 @@ async def test_signals():
     await test_one_signal(Process.terminate, SIGTERM)
     if posix:
         await test_one_signal(lambda proc: proc.send_signal(SIGINT), SIGINT)
-
-
-async def test_run_in_background():
-    # Test signaling a background process
-    async with _core.open_nursery() as nursery:
-        proc = await nursery.start(
-            run_process, python("import time; time.sleep(5)")
-        )
-        assert proc.returncode is None
-        nursery.cancel_scope.cancel()
-    assert got_signal(proc, SIGKILL)
-
-    # Test a background process failing
-    with pytest.raises(subprocess.CalledProcessError):
-        async with _core.open_nursery() as nursery:
-            await nursery.start(run_process, EXIT_FALSE)
 
 
 @pytest.mark.skipif(not posix, reason="POSIX specific")

@@ -287,10 +287,11 @@ class Process(AsyncResource):
 async def run_process(
     command,
     *,
-    input=None,
+    stdin=b"",
+    capture_stdout=False,
+    capture_stderr=False,
+    capture=False,
     check=True,
-    passthrough=False,
-    task_status=_core.TASK_STATUS_IGNORED,
     **options
 ):
     """Run ``command`` in a subprocess, wait for it to complete, and
@@ -301,38 +302,34 @@ async def run_process(
     waits for it to exit before propagating the cancellation, like
     :meth:`Process.aclose`.
 
-    The default behavior of :func:`run_process` is designed to isolate
-    the subprocess from potential impacts on the parent Trio process, and to
-    reduce opportunities for errors to pass silently. Specifically:
+    **Input:** The subprocess's standard input stream is set up to
+    receive the bytes provided as ``stdin``.  Once the given input has
+    been fully delivered, or if none is provided, the subprocess will
+    receive end-of-file when reading from its standard input.
+    Alternatively, if you want the subprocess to read its
+    standard input from the same place as the parent Trio process, you
+    can pass ``stdin=None``.
 
-    * The subprocess's standard input stream is set up to receive the
-      bytes provided as ``input``.  Once the given input has been
-      fully delivered, or if none is provided, the subprocess will
-      receive end-of-file when reading from its standard input.
+    **Output:** By default, any output produced by the subprocess is
+    passed through to the standard output and error streams of the
+    parent Trio process. If you would like to capture this output and
+    do something with it, you can pass ``capture_stdout=True`` to
+    capture just the subprocess's standard output,
+    ``capture_stderr=True`` to capture just its standard error, or
+    ``capture=True`` to capture both.  Captured data is provided
+    as the :attr:`~subprocess.CompletedProcess.stdout` and/or
+    :attr:`~subprocess.CompletedProcess.stderr` attributes of the
+    returned :class:`~subprocess.CompletedProcess` object. The
+    value for any stream that was not captured will be ``None``.
 
-    * The subprocess's standard output and standard error streams are
-      individually captured and returned as bytestrings from
-      :func:`run_process`.
-
-    * If the subprocess exits with a nonzero status code, indicating failure,
-      :func:`run_process` raises a :exc:`subprocess.CalledProcessError`
-      exception rather than returning normally. The captured outputs
-      are still available as the ``stdout`` and ``stderr`` attributes
-      of that exception.
-
-    To suppress the :exc:`~subprocess.CalledProcessError` on failure,
-    pass ``check=False``. To run the subprocess without I/O capturing,
-    pass ``passthrough=True``. To redirect some standard streams
-    differently than others, use the lower-level ``stdin``,
-    ``stdout``, and/or ``stderr`` :ref:`options <subprocess-options>`.
-
-    If you specify ``passthrough=True`` or a value for ``stdin`` other
-    than ``PIPE``, you can't specify ``input`` (because we'd have no
-    way to send it). If you specify ``passthrough=True`` or a value
-    for ``stdout`` or ``stderr`` other than ``PIPE``, you can't
-    observe the subprocess's output or errors; the corresponding
-    attributes of the returned returned
-    :class:`~subprocess.CompletedProcess` object will be ``None``.
+    **Error checking:** If the subprocess exits with a nonzero status
+    code, indicating failure, :func:`run_process` raises a
+    :exc:`subprocess.CalledProcessError` exception rather than
+    returning normally. The captured outputs are still available as
+    the ``stdout`` and ``stderr`` attributes of that exception.  To
+    disable this behavior, so that :func:`run_process` returns
+    normally even if the subprocess exits abnormally, pass
+    ``check=False``.
 
     Args:
       command (list or str): The command to run. Typically this is a
@@ -341,42 +338,47 @@ async def run_process(
           elements specify its arguments. With ``shell=True`` in the
           ``**options``, or on Windows, ``command`` may alternatively
           be a string, which will be parsed following platform-dependent
-          quoting rules.
-      input (bytes): The input to provide to the subprocess on its
-          standard input stream. If you want the subprocess's input
-          to come from something other than data specified at the time
-          of the :func:`run_process` call, you can specify a redirection
-          using the lower-level ``stdin`` option; then ``input`` must
-          be unspecified or None.
+          :ref:`quoting rules <subprocess-quoting>`.
+      stdin (:obj:`bytes`, file descriptor, or None): The bytes to provide to
+          the subprocess on its standard input stream, or ``None`` if the
+          subprocess's standard input should come from the same place as
+          the parent Trio process's standard input. As is the case with
+          the :mod:`subprocess` module, you can also pass a
+          file descriptor or an object with a ``fileno()`` method,
+          in which case the subprocess's standard input will come from
+          that file.
+      capture_stdout (bool): If true, capture the bytes that the subprocess
+          writes to its standard output stream and return them in the
+          :attr:`~subprocess.CompletedProcess.stdout` attribute
+          of the returned :class:`~subprocess.CompletedProcess` object.
+      capture_stderr (bool): If true, capture the bytes that the subprocess
+          writes to its standard error stream and return them in the
+          :attr:`~subprocess.CompletedProcess.stderr` attribute
+          of the returned :class:`~subprocess.CompletedProcess` object.
+      capture (bool): If true, capture both standard output and standard
+          error, as if you had passed ``capture_stdout=True,
+          capture_stderr=True``.
       check (bool): If false, don't validate that the subprocess exits
           successfully. You should be sure to check the
           ``returncode`` attribute of the returned object if you pass
           ``check=False``, so that errors don't pass silently.
-      passthrough (bool): If true, set up the subprocess to inherit the
-          parent Trio process's standard streams; for example, if the parent
-          Trio process is running in an interactive console, the subprocess
-          will be able to interact with the user via that console. Only
-          one call to :func:`run_process` should be active at a time with
-          ``passthrough=True``, to avoid different processes' I/O being
-          unpredictably interleaved.
-      task_status: This function can be used with ``nursery.start``.
-          If it is, it returns the :class:`Process` object, so that other tasks
-          can send signals to the subprocess or wait for it to exit.
-          They shouldn't try to send or receive on the subprocess's
-          input and output streams, because :func:`run_process` is
-          already doing that. Note that signals which terminate a
-          subprocess often result in a nonzero return code; you
-          probably want to pass ``check=False`` and do your own
-          more specific error check if you're planning on sending any.
       **options: :func:`run_process` also accepts any :ref:`general subprocess
           options <subprocess-options>` and passes them on to the
-          :class:`~trio.Process` constructor.
+          :class:`~trio.Process` constructor. This includes the
+          ``stdout`` and ``stderr`` options, which provide additional
+          redirection possibilities such as ``stderr=subprocess.STDOUT``,
+          ``stdout=subprocess.DEVNULL``, or file descriptors.
 
     Returns:
       A :class:`subprocess.CompletedProcess` instance describing the
       return code and outputs.
 
     Raises:
+      UnicodeError: if ``stdin`` is specified as a Unicode string, rather
+          than bytes
+      ValueError: if multiple redirections are specified for the same
+          stream, e.g., both ``capture_stdout=True`` and
+          ``stdout=subprocess.DEVNULL``
       subprocess.CalledProcessError: if ``check=False`` is not passed
           and the process exits with a nonzero exit status
       OSError: if an error is encountered starting or communicating with
@@ -389,24 +391,47 @@ async def run_process(
        process group.
 
     """
-    default_redirect = None if passthrough else subprocess.PIPE
-    options.setdefault("stdin", default_redirect)
-    options.setdefault("stdout", default_redirect)
-    options.setdefault("stderr", default_redirect)
 
-    if input is not None and options["stdin"] != subprocess.PIPE:
+    if isinstance(stdin, str):
+        raise UnicodeError("process stdin must be bytes, not str")
+    if stdin == subprocess.PIPE:
         raise ValueError(
-            "can't provide input to a process whose stdin is redirected"
+            "stdin=subprocess.PIPE doesn't make sense since the pipe "
+            "is internal to run_process(); pass the actual data you "
+            "want to send over that pipe instead"
         )
+    if isinstance(stdin, bytes):
+        input = stdin
+        if input:
+            options["stdin"] = subprocess.PIPE
+        else:
+            options["stdin"] = subprocess.DEVNULL
+    else:
+        # stdin should be something acceptable to Process
+        # (None, DEVNULL, a file descriptor, etc) and Process
+        # will raise if it's not
+        input = None
+        options["stdin"] = stdin
 
-    if options["stdin"] == subprocess.PIPE and not input:
-        options["stdin"] = subprocess.DEVNULL
+    if capture:
+        if capture_stdout or capture_stderr:
+            raise ValueError(
+                "can't specify both capture and capture_stdout/stderr"
+            )
+        capture_stdout = capture_stderr = True
+    if capture_stdout:
+        if "stdout" in options:
+            raise ValueError("can't specify both stdout and capture_stdout")
+        options["stdout"] = subprocess.PIPE
+    if capture_stderr:
+        if "stderr" in options:
+            raise ValueError("can't specify both stderr and capture_stderr")
+        options["stderr"] = subprocess.PIPE
 
     stdout_chunks = []
     stderr_chunks = []
 
     async with Process(command, **options) as proc:
-        task_status.started(proc)
 
         async def feed_input():
             async with proc.stdin:
