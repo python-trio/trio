@@ -674,7 +674,6 @@ for them to exit. The interface for doing so consists of two layers:
 Options for starting subprocesses
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-<<<<<<< HEAD
 All of Trio's subprocess APIs accept the numerous keyword arguments used
 by the standard :mod:`subprocess` module to control the environment in
 which a process starts and the mechanisms used for communicating with
@@ -687,31 +686,10 @@ in the :mod:`subprocess` documentation. (You may need to ``import
 subprocess`` in order to access constants such as ``PIPE`` or
 ``DEVNULL``.)
 
-Currently, Trio always uses unbuffered byte streams for communicating with a
-process, so it does not support the ``encoding``, ``errors``,
+Currently, Trio always uses unbuffered byte streams for communicating
+with a process, so it does not support the ``encoding``, ``errors``,
 ``universal_newlines`` (alias ``text`` in 3.7+), and ``bufsize``
 options.
-=======
-The standard :mod:`subprocess` module supports a dizzying array
-of `options <https://docs.python.org/3/library/subprocess.html#popen-constructor>`__
-for controlling the environment in which a process starts and the
-mechanisms used for communicating with it. (If you find that list
-overwhelming, you're not alone; you might prefer to start with
-just the `frequently used ones
-<https://docs.python.org/3/library/subprocess.html#frequently-used-arguments>`__.)
-
-Trio makes use of the :mod:`subprocess` module's logic for spawning
-processes, so almost all of these options can be used with their same
-semantics when starting subprocesses under Trio; pass them wherever you see
-``**options`` in the API documentation below. (You may need to
-``import subprocess`` in order to access constants such as ``PIPE`` or
-``DEVNULL``.)  The exceptions are ``encoding``, ``errors``,
-``universal_newlines`` (and its 3.7+ alias ``text``), and ``bufsize``;
-Trio always uses unbuffered byte streams for communicating with a
-process, so these options don't make sense. Text I/O should use a
-layer on top of the raw byte streams, just as it does with sockets.
-[This layer does not yet exist, but is in the works.]
->>>>>>> origin/master
 
 
 Running a process and waiting for it to finish
@@ -765,6 +743,7 @@ you can spawn a subprocess by creating an instance of
       spawns a background thread which continues to read from the child
       process even after the timeout has expired) and we wanted to
       provide an interface with fewer surprises.
+
 
 .. _subprocess-quoting:
 
