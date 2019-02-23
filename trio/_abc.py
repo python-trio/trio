@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+from typing import Generic, TypeVar
 from ._util import aiter_compat
 from . import _core
 
@@ -483,7 +484,22 @@ class HalfCloseableStream(Stream):
         """
 
 
-class Listener(AsyncResource):
+# The type of object produced by a ReceiveChannel (covariant because
+# ReceiveChannel[Derived] can be passed to someone expecting
+# ReceiveChannel[Base])
+T_co = TypeVar("T_co", covariant=True)
+
+# The type of object accepted by a SendChannel (contravariant because
+# SendChannel[Base] can be passed to someone expecting
+# SendChannel[Derived])
+T_contra = TypeVar("T_contra", contravariant=True)
+
+# The type of object produced by a Listener (covariant plus must be
+# an AsyncResource)
+T_resource = TypeVar("T_resource", bound=AsyncResource, covariant=True)
+
+
+class Listener(AsyncResource, Generic[T_resource]):
     """A standard interface for listening for incoming connections.
 
     :class:`Listener` objects also implement the :class:`AsyncResource`
@@ -521,7 +537,7 @@ class Listener(AsyncResource):
         """
 
 
-class SendChannel(AsyncResource):
+class SendChannel(AsyncResource, Generic[T_contra]):
     """A standard interface for sending Python objects to some receiver.
 
     :class:`SendChannel` objects also implement the :class:`AsyncResource`
@@ -595,7 +611,7 @@ class SendChannel(AsyncResource):
         """
 
 
-class ReceiveChannel(AsyncResource):
+class ReceiveChannel(AsyncResource, Generic[T_co]):
     """A standard interface for receiving Python objects from some sender.
 
     You can iterate over a :class:`ReceiveChannel` using an ``async for``

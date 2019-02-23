@@ -236,11 +236,12 @@ def from_stdlib_socket(sock):
 
 
 @_wraps(_stdlib_socket.fromfd, assigned=(), updated=())
-def fromfd(*args, **kwargs):
+def fromfd(fd, family, type, proto=0):
     """Like :func:`socket.fromfd`, but returns a trio socket object.
 
     """
-    return from_stdlib_socket(_stdlib_socket.fromfd(*args, **kwargs))
+    family, type, proto = _sniff_sockopts_for_fileno(family, type, proto, fd)
+    return from_stdlib_socket(_stdlib_socket.fromfd(fd, family, type, proto))
 
 
 if hasattr(_stdlib_socket, "fromshare"):
@@ -277,8 +278,39 @@ def socket(
         sf = _socket_factory.get(None)
         if sf is not None:
             return sf.socket(family, type, proto)
+    else:
+        family, type, proto = _sniff_sockopts_for_fileno(
+            family, type, proto, fileno
+        )
     stdlib_socket = _stdlib_socket.socket(family, type, proto, fileno)
     return from_stdlib_socket(stdlib_socket)
+
+
+def _sniff_sockopts_for_fileno(family, type, proto, fileno):
+    """Correct SOCKOPTS for given fileno, falling back to provided values.
+    
+    """
+    # Wrap the raw fileno into a Python socket object
+    # This object might have the wrong metadata, but it lets us easily call getsockopt
+    # and then we'll throw it away and construct a new one with the correct metadata.
+    if not _sys.platform == "linux":
+        return family, type, proto
+    try:
+        from socket import SO_DOMAIN, SO_PROTOCOL
+    except ImportError:
+        # Only available on 3.6 and above:
+        SO_PROTOCOL = 38
+        SO_DOMAIN = 39
+    from socket import SOL_SOCKET, SO_TYPE
+    sockobj = _stdlib_socket.socket(family, type, proto, fileno=fileno)
+    try:
+        family = sockobj.getsockopt(SOL_SOCKET, SO_DOMAIN)
+        proto = sockobj.getsockopt(SOL_SOCKET, SO_PROTOCOL)
+        type = sockobj.getsockopt(SOL_SOCKET, SO_TYPE)
+    finally:
+        # Unwrap it again, so that sockobj.__del__ doesn't try to close our socket
+        sockobj.detach()
+    return family, type, proto
 
 
 ################################################################

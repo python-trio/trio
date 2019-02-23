@@ -135,7 +135,7 @@ class MockClock(Clock):
 
     async def _autojumper(self):
         while True:
-            with _core.open_cancel_scope() as cancel_scope:
+            with _core.CancelScope() as cancel_scope:
                 self._autojump_cancel_scope = cancel_scope
                 try:
                     # If the autojump_threshold changes, then the setter does

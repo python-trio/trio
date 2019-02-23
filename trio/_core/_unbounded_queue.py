@@ -25,7 +25,7 @@ class UnboundedQueue:
     "batches". If a consumer task processes each batch without yielding, then
     this helps achieve (but does not guarantee) an effective bound on the
     queue's memory use, at the cost of potentially increasing system latencies
-    in general. You should generally prefer to use a :class:`trio.Queue`
+    in general. You should generally prefer to use a memory channel
     instead if you can.
 
     Currently each batch completely empties the queue, but `this may change in

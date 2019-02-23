@@ -37,8 +37,7 @@ async def test_do_in_trio_thread():
             print("yawn")
             await sleep(0.01)
         assert record == [
-            ("start", child_thread),
-            ("f", trio_thread), expected
+            ("start", child_thread), ("f", trio_thread), expected
         ]
 
     portal = BlockingTrioPortal()
@@ -237,7 +236,7 @@ async def test_run_in_worker_thread_cancellation():
         nursery.start_soon(child, q, False)
         await wait_all_tasks_blocked()
         nursery.cancel_scope.cancel()
-        with _core.open_cancel_scope(shield=True):
+        with _core.CancelScope(shield=True):
             for _ in range(10):
                 await _core.checkpoint()
         # It's still running
@@ -247,7 +246,7 @@ async def test_run_in_worker_thread_cancellation():
 
     # But if we cancel *before* it enters, the entry is itself a cancellation
     # point
-    with _core.open_cancel_scope() as scope:
+    with _core.CancelScope() as scope:
         scope.cancel()
         await child(q, False)
     assert scope.cancelled_caught
@@ -347,7 +346,7 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
             print("thread_fn exiting")
 
         async def run_thread(event):
-            with _core.open_cancel_scope() as cancel_scope:
+            with _core.CancelScope() as cancel_scope:
                 await run_sync_in_worker_thread(
                     thread_fn,
                     cancel_scope,

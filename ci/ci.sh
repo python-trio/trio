@@ -1,15 +1,49 @@
 #!/bin/bash
 
-set -ex
+set -ex -o pipefail
 
-git rev-parse HEAD
+# Log some general info about the environment
+env | sort
 
 if [ "$SYSTEM_JOBIDENTIFIER" != "" ]; then
     # azure pipelines
     CODECOV_NAME="$SYSTEM_JOBIDENTIFIER"
 else
-    CODECOV_NAME="${TRAVIS_OS_NAME}_${TRAVIS_PYTHON_VERSION:-unknown}"
+    CODECOV_NAME="${TRAVIS_OS_NAME}-${TRAVIS_PYTHON_VERSION:-unknown}"
 fi
+
+################################################################
+# Bootstrap python environment, if necessary
+################################################################
+
+### Azure pipelines + Windows ###
+
+# On azure pipeline's windows VMs, to get reasonable performance, we need to
+# jump through hoops to avoid touching the C:\ drive as much as possible.
+if [ "$AGENT_OS" = "Windows_NT" ]; then
+    # By default temp and cache directories are on C:\. Fix that.
+    export TEMP="${AGENT_TEMPDIRECTORY}"
+    export TMP="${AGENT_TEMPDIRECTORY}"
+    export TMPDIR="${AGENT_TEMPDIRECTORY}"
+    export PIP_CACHE_DIR="${AGENT_TEMPDIRECTORY}\\pip-cache"
+
+    # Download and install Python from scratch onto D:\, instead of using the
+    # pre-installed versions that azure pipelines provides on C:\.
+    # Also use -DirectDownload to stop nuget from caching things on C:\.
+    nuget install "${PYTHON_PKG}" -Version "${PYTHON_VERSION}" \
+          -OutputDirectory "$PWD/pyinstall" -ExcludeVersion \
+          -Source "https://api.nuget.org/v3/index.json" \
+          -Verbosity detailed -DirectDownload -NonInteractive
+
+    pydir="$PWD/pyinstall/${PYTHON_PKG}"
+    export PATH="${pydir}/tools:${pydir}/tools/scripts:$PATH"
+
+    # Fix an issue with the nuget python 3.5 packages
+    # https://github.com/python-trio/trio/pull/827#issuecomment-457433940
+    rm -f "${pydir}/tools/pyvenv.cfg" || true
+fi
+
+### Travis + macOS ###
 
 if [ "$TRAVIS_OS_NAME" = "osx" ]; then
     CODECOV_NAME="osx_${MACPYTHON}"
@@ -23,6 +57,8 @@ if [ "$TRAVIS_OS_NAME" = "osx" ]; then
     $PYTHON_EXE -m virtualenv testenv
     source testenv/bin/activate
 fi
+
+### PyPy nightly (currently on Travis) ###
 
 if [ "$PYPY_NIGHTLY_BRANCH" != "" ]; then
     CODECOV_NAME="pypy_nightly_${PYPY_NIGHTLY_BRANCH}"
@@ -53,36 +89,37 @@ if [ "$PYPY_NIGHTLY_BRANCH" != "" ]; then
     source testenv/bin/activate
 fi
 
-# Fix https://github.com/python-trio/trio/issues/487
-pip --version
-curl https://bootstrap.pypa.io/get-pip.py | python
-pip --version
+################################################################
+# We have a Python environment!
+################################################################
 
-pip install -U pip setuptools wheel
+python -c "import sys, struct, ssl; print('#' * 70); print('python:', sys.version); print('version_info:', sys.version_info); print('bits:', struct.calcsize('P') * 8); print('openssl:', ssl.OPENSSL_VERSION, ssl.OPENSSL_VERSION_INFO); print('#' * 70)"
+
+python -m pip install -U pip setuptools wheel
+python -m pip --version
 
 python setup.py sdist --formats=zip
-pip install dist/*.zip
+python -m pip install dist/*.zip
 
 if [ "$CHECK_DOCS" = "1" ]; then
-    pip install -r ci/rtd-requirements.txt
+    python -m pip install -r ci/rtd-requirements.txt
     towncrier --yes  # catch errors in newsfragments
     cd docs
     # -n (nit-picky): warn on missing references
     # -W: turn warnings into errors
     sphinx-build -nW  -b html source build
+elif [ "$CHECK_FORMATTING" = "1" ]; then
+    python -m pip install -r test-requirements.txt
+    source check.sh
 else
     # Actual tests
-    pip install -r test-requirements.txt
-
-    if [ "$CHECK_FORMATTING" = "1" ]; then
-        source check.sh
-    fi
+    python -m pip install -r test-requirements.txt
 
     mkdir empty
     cd empty
 
     INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
-    pytest -W error -ra --run-slow --faulthandler-timeout=60 ${INSTALLDIR} --cov="$INSTALLDIR" --cov-config=../.coveragerc --verbose
+    pytest -W error -ra --junitxml=../test-results.xml --run-slow --faulthandler-timeout=60 ${INSTALLDIR} --cov="$INSTALLDIR" --cov-config=../.coveragerc --verbose
 
     # Disable coverage on 3.8-dev, at least until it's fixed (or a1 comes out):
     #   https://github.com/python-trio/trio/issues/711

@@ -7,7 +7,6 @@ import outcome
 
 from . import _core
 from ._util import aiter_compat
-from ._deprecate import deprecated
 
 __all__ = [
     "Event",
@@ -16,7 +15,6 @@ __all__ = [
     "Lock",
     "StrictFIFOLock",
     "Condition",
-    "Queue",
 ]
 
 
@@ -767,7 +765,7 @@ class Condition:
         try:
             await self._lot.park()
         except:
-            with _core.open_cancel_scope(shield=True):
+            with _core.CancelScope(shield=True):
                 await self.acquire()
             raise
 
@@ -810,217 +808,4 @@ class Condition:
         return _ConditionStatistics(
             tasks_waiting=len(self._lot),
             lock_statistics=self._lock.statistics(),
-        )
-
-
-@attr.s(frozen=True)
-class _QueueStats:
-    qsize = attr.ib()
-    capacity = attr.ib()
-    tasks_waiting_put = attr.ib()
-    tasks_waiting_get = attr.ib()
-
-
-# Like queue.Queue, with the notable difference that the capacity argument is
-# mandatory.
-class Queue:
-    """A bounded queue suitable for inter-task communication.
-
-    This class is generally modelled after :class:`queue.Queue`, but with the
-    major difference that it is always bounded.
-
-    A :class:`Queue` object can be used as an asynchronous iterator that
-    dequeues objects one at a time. That is, these two loops are equivalent::
-
-       async for obj in queue:
-           ...
-
-       while True:
-           obj = await queue.get()
-           ...
-
-    Args:
-      capacity (int): The maximum number of items allowed in the queue before
-          :meth:`put` blocks. Choosing a sensible value here is important to
-          ensure that backpressure is communicated promptly and avoid
-          unnecessary latency. If in doubt, use 0.
-
-    """
-
-    @deprecated(
-        "0.9.0",
-        issue=497,
-        thing="trio.Queue",
-        instead="trio.open_memory_channel"
-    )
-    def __init__(self, capacity):
-        if not isinstance(capacity, int):
-            raise TypeError("capacity must be an integer")
-        if capacity < 0:
-            raise ValueError("capacity must be >= 0")
-        self.capacity = operator.index(capacity)
-        # {task: None} ordered set
-        self._get_wait = OrderedDict()
-        # {task: queued value}
-        self._put_wait = OrderedDict()
-        # invariants:
-        # if len(self._data) < self.capacity, then self._put_wait is empty
-        # if len(self._data) > 0, then self._get_wait is empty
-        self._data = deque()
-
-    def __repr__(self):
-        return (
-            "<Queue({}) at {:#x} holding {} items>".format(
-                self.capacity, id(self), len(self._data)
-            )
-        )
-
-    def qsize(self):
-        """Returns the number of items currently in the queue.
-
-        There is some subtlety to interpreting this method's return value: see
-        `issue #63 <https://github.com/python-trio/trio/issues/63>`__.
-
-        """
-        return len(self._data)
-
-    def full(self):
-        """Returns True if the queue is at capacity, False otherwise.
-
-        There is some subtlety to interpreting this method's return value: see
-        `issue #63 <https://github.com/python-trio/trio/issues/63>`__.
-
-        """
-        return len(self._data) == self.capacity
-
-    def empty(self):
-        """Returns True if the queue is empty, False otherwise.
-
-        There is some subtlety to interpreting this method's return value: see
-        `issue #63 <https://github.com/python-trio/trio/issues/63>`__.
-
-        """
-        return not self._data
-
-    @_core.enable_ki_protection
-    def put_nowait(self, obj):
-        """Attempt to put an object into the queue, without blocking.
-
-        Args:
-          obj (object): The object to enqueue.
-
-        Raises:
-          WouldBlock: if the queue is full.
-
-        """
-        if self._get_wait:
-            assert not self._data
-            task, _ = self._get_wait.popitem(last=False)
-            _core.reschedule(task, outcome.Value(obj))
-        elif len(self._data) < self.capacity:
-            self._data.append(obj)
-        else:
-            raise _core.WouldBlock()
-
-    @_core.enable_ki_protection
-    async def put(self, obj):
-        """Put an object into the queue, blocking if necessary.
-
-        Args:
-          obj (object): The object to enqueue.
-
-        """
-        await _core.checkpoint_if_cancelled()
-        try:
-            self.put_nowait(obj)
-        except _core.WouldBlock:
-            pass
-        else:
-            await _core.cancel_shielded_checkpoint()
-            return
-
-        task = _core.current_task()
-        self._put_wait[task] = obj
-
-        def abort_fn(_):
-            del self._put_wait[task]
-            return _core.Abort.SUCCEEDED
-
-        await _core.wait_task_rescheduled(abort_fn)
-
-    @_core.enable_ki_protection
-    def get_nowait(self):
-        """Attempt to get an object from the queue, without blocking.
-
-        Returns:
-          object: The dequeued object.
-
-        Raises:
-          WouldBlock: if the queue is empty.
-
-        """
-        if self._put_wait:
-            task, value = self._put_wait.popitem(last=False)
-            # No need to check max_size, b/c we'll pop an item off again right
-            # below.
-            self._data.append(value)
-            _core.reschedule(task)
-        if self._data:
-            value = self._data.popleft()
-            return value
-        raise _core.WouldBlock()
-
-    @_core.enable_ki_protection
-    async def get(self):
-        """Get an object from the queue, blocking if necessary.
-
-        Returns:
-          object: The dequeued object.
-
-        """
-        await _core.checkpoint_if_cancelled()
-        try:
-            value = self.get_nowait()
-        except _core.WouldBlock:
-            pass
-        else:
-            await _core.cancel_shielded_checkpoint()
-            return value
-
-        # Queue doesn't have anything, we must wait.
-        task = _core.current_task()
-
-        def abort_fn(_):
-            self._get_wait.pop(task)
-            return _core.Abort.SUCCEEDED
-
-        self._get_wait[task] = None
-        value = await _core.wait_task_rescheduled(abort_fn)
-        return value
-
-    @aiter_compat
-    def __aiter__(self):
-        return self
-
-    async def __anext__(self):
-        return await self.get()
-
-    def statistics(self):
-        """Returns an object containing debugging information.
-
-        Currently the following fields are defined:
-
-        * ``qsize``: The number of items currently in the queue.
-        * ``capacity``: The maximum number of items the queue can hold.
-        * ``tasks_waiting_put``: The number of tasks blocked on this queue's
-          :meth:`put` method.
-        * ``tasks_waiting_get``: The number of tasks blocked on this queue's
-          :meth:`get` method.
-
-        """
-        return _QueueStats(
-            qsize=len(self._data),
-            capacity=self.capacity,
-            tasks_waiting_put=len(self._put_wait),
-            tasks_waiting_get=len(self._get_wait),
         )
