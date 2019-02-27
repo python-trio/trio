@@ -24,8 +24,7 @@ matrix:
     - python: 3.5-dev
     - python: 3.6-dev
     - python: 3.7-dev
-    # https://bitbucket.org/cffi/cffi/issues/403/build-fails-on-38-dev-pyinterpreterstate
-    # - python: 3.8-dev
+    - python: 3.8-dev
 
 script:
   - ci/ci.sh
