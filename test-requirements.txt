@@ -13,7 +13,7 @@ backcall==0.1.0           # via ipython
 cffi==1.12.2              # via cryptography
 contextvars==2.3 ; python_version < "3.7"
 coverage==4.5.2           # via pytest-cov
-cryptography==2.5         # via pyopenssl, trustme
+cryptography==2.6.1       # via pyopenssl, trustme
 decorator==4.3.2          # via ipython, traitlets
 entrypoints==0.3          # via flake8
 flake8==3.7.7
