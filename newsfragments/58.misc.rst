@@ -1,0 +1,4 @@
+The plumbing of Trio's cancellation system has been substantially overhauled
+to improve performance and ease future planned improvements. Notably, there is
+no longer any internal concept of a "cancel stack", and checkpoints now take
+constant time regardless of the cancel scope nesting depth.

@@ -124,6 +124,140 @@ class SystemClock:
 ################################################################
 
 
+@attr.s(cmp=False, slots=True)
+class CancelStatus:
+    """Tracks the cancellation status for a contiguous extent
+    of code that will become cancelled, or not, as a unit.
+
+    Each task has at all times a single "active" CancelStatus whose
+    cancellation state determines whether checkpoints executed in that
+    task raise Cancelled. Each 'with CancelScope(...)' context is
+    associated with a particular CancelStatus.  When a task enters
+    such a context, a CancelStatus is created which becomes the active
+    CancelStatus for that task; when the 'with' block is exited, the
+    active CancelStatus for that task goes back to whatever it was
+    before.
+
+    CancelStatus objects are arranged in a tree whose structure
+    mirrors the lexical nesting of the cancel scope contexts.  When a
+    CancelStatus becomes cancelled, it notifies all of its direct
+    children, who become cancelled in turn (and continue propagating
+    the cancellation down the tree) unless they are shielded. (There
+    will be at most one such child except in the case of a
+    CancelStatus that immediately encloses a nursery.) At the leaves
+    of this tree are the tasks themselves, which get woken up to deliver
+    an abort when their direct parent CancelStatus becomes cancelled.
+
+    You can think of CancelStatus as being responsible for the
+    "plumbing" of cancellations as oppposed to CancelScope which is
+    responsible for the origination of them.
+
+    """
+
+    # False if we should become cancelled when our parent becomes
+    # cancelled; True if we should only become cancelled when our own
+    # cancel() method is called.
+    shield = attr.ib(default=False)
+
+    # The time at which a direct call to cancel() is expected to
+    # occur.  Used only in implementing current_effective_deadline().
+    # Setting this attribute does _not_ cause cancel() to be called at
+    # the given time -- that's CancelScope's job, not ours.
+    deadline = attr.ib(default=inf)
+
+    # True iff our controlling CancelScope became cancelled, which will
+    # make us stay cancelled forever, regardless of what our parents
+    # are doing.
+    cancel_requested = attr.ib(default=False)
+
+    # True iff the tasks in self._tasks should receive cancellations
+    # when they checkpoint. Always True when cancel_requested is True;
+    # may also be True due to a cancellation propagated from our
+    # parent.  Unlike cancel_requested, this does not necessarily stay
+    # true once it becomes true. For example, we might become
+    # effectively cancelled due to the cancel scope two levels out
+    # becoming cancelled, but then the cancel scope one level out
+    # becomes shielded so we're not effectively cancelled anymore.
+    effectively_cancelled = attr.ib(default=False)
+
+    # The CancelStatus whose cancellations can propagate to us; we
+    # become effectively cancelled when they do, unless shield is True.
+    # May be None (for the outermost CancelStatus in a call to trio.run(),
+    # or briefly during TaskStatus.started()).
+    _parent = attr.ib(default=None, repr=False)
+
+    # All of the CancelStatuses that have this CancelStatus as their parent.
+    _children = attr.ib(factory=set, init=False, repr=False)
+
+    # Tasks whose cancellation state is currently tied directly to
+    # the cancellation state of this CancelStatus object. Don't modify
+    # this directly; instead, use Task._activate_cancel_status().
+    # Invariant: all(task._cancel_status is self for task in self._tasks)
+    _tasks = attr.ib(factory=set, init=False, repr=False)
+
+    def __attrs_post_init__(self):
+        if self._parent is not None:
+            self._parent._children.add(self)
+            self.check_cancelled()
+
+    # parent/children/tasks accessors are used by TaskStatus.started()
+
+    @property
+    def parent(self):
+        return self._parent
+
+    @parent.setter
+    def parent(self, parent):
+        if self._parent is not None:
+            self._parent._children.remove(self)
+        self._parent = parent
+        if self._parent is not None:
+            self._parent._children.add(self)
+            self.check_cancelled()
+
+    @property
+    def children(self):
+        return frozenset(self._children)
+
+    @property
+    def tasks(self):
+        return frozenset(self._tasks)
+
+    def close(self):
+        assert not self._tasks and not self._children
+        self.parent = None  # now we're not a child of self.parent anymore
+
+    @property
+    def parent_cancellation_is_visible_to_us(self):
+        return (
+            self._parent is not None and not self.shield
+            and self._parent.effectively_cancelled
+        )
+
+    def check_cancelled(self):
+        new_state = (
+            self.cancel_requested or self.parent_cancellation_is_visible_to_us
+        )
+        if new_state != self.effectively_cancelled:
+            self.effectively_cancelled = new_state
+            if new_state:
+                for task in self._tasks:
+                    task._attempt_delivery_of_any_pending_cancel()
+            for child in self._children:
+                child.check_cancelled()
+
+    def cancel(self):
+        self.cancel_requested = True
+        self.check_cancelled()
+
+    def effective_deadline(self):
+        if self.effectively_cancelled:
+            return -inf
+        if self._parent is None or self.shield:
+            return self.deadline
+        return min(self.deadline, self._parent.effective_deadline())
+
+
 @attr.s(cmp=False, repr=False, slots=True)
 class CancelScope:
     """A *cancellation scope*: the link between a unit of cancellable
@@ -164,10 +298,10 @@ class CancelScope:
     has been entered yet, and changes take immediate effect.
     """
 
-    _tasks = attr.ib(factory=set, init=False)
+    _cancel_status = attr.ib(default=None, init=False)
     _has_been_entered = attr.ib(default=False, init=False)
-    _effective_deadline = attr.ib(default=inf, init=False)
-    cancel_called = attr.ib(default=False, init=False)
+    _registered_deadline = attr.ib(default=inf, init=False)
+    _cancel_called = attr.ib(default=False, init=False)
     cancelled_caught = attr.ib(default=False, init=False)
 
     # Constructor arguments:
@@ -183,10 +317,35 @@ class CancelScope:
             )
         self._has_been_entered = True
         if current_time() >= self._deadline:
-            self.cancel_called = True
-        with self._might_change_effective_deadline():
-            self._add_task(task)
+            self.cancel()
+        with self._might_change_registered_deadline():
+            self._cancel_status = CancelStatus(
+                shield=self._shield,
+                deadline=self._deadline,
+                cancel_requested=self._cancel_called,
+                parent=task._cancel_status,
+            )
+            task._activate_cancel_status(self._cancel_status)
         return self
+
+    def _exc_filter(self, exc):
+        if isinstance(exc, Cancelled):
+            self.cancelled_caught = True
+            return None
+        return exc
+
+    def _close(self, exc):
+        scope_task = current_task()
+        if (
+            exc is not None
+            and not self._cancel_status.parent_cancellation_is_visible_to_us
+        ):
+            exc = MultiError.filter(self._exc_filter, exc)
+        current_task()._activate_cancel_status(self._cancel_status.parent)
+        self._cancel_status.close()
+        with self._might_change_registered_deadline():
+            self._cancel_status = None
+        return exc
 
     @enable_ki_protection
     def __exit__(self, etype, exc, tb):
@@ -213,18 +372,16 @@ class CancelScope:
                 value.__context__ = old_context
 
     def __repr__(self):
-        if self._tasks:
-            binding = "bound to {} task{}".format(
-                len(self._tasks), "s" if len(self._tasks) > 1 else ""
-            )
+        if self._cancel_status is not None:
+            binding = "active"
         elif self._has_been_entered:
             binding = "exited"
         else:
             binding = "unbound"
 
-        if self.cancel_called:
+        if self._cancel_called:
             state = ", cancelled"
-        elif self.deadline == inf:
+        elif self._deadline == inf:
             state = ""
         else:
             try:
@@ -233,8 +390,8 @@ class CancelScope:
                 state = ""
             else:
                 state = ", deadline is {:.2f} seconds {}".format(
-                    abs(self.deadline - now),
-                    "from now" if self.deadline >= now else "ago"
+                    abs(self._deadline - now),
+                    "from now" if self._deadline >= now else "ago"
                 )
 
         return "<trio.CancelScope at {:#x}, {}{}>".format(
@@ -243,17 +400,17 @@ class CancelScope:
 
     @contextmanager
     @enable_ki_protection
-    def _might_change_effective_deadline(self):
+    def _might_change_registered_deadline(self):
         try:
             yield
         finally:
-            old = self._effective_deadline
-            if self.cancel_called or not self._tasks:
+            old = self._registered_deadline
+            if self._cancel_status is None or self._cancel_called:
                 new = inf
             else:
                 new = self._deadline
             if old != new:
-                self._effective_deadline = new
+                self._registered_deadline = new
                 runner = GLOBAL_RUN_CONTEXT.runner
                 if old != inf:
                     del runner.deadlines[old, id(self)]
@@ -288,8 +445,10 @@ class CancelScope:
 
     @deadline.setter
     def deadline(self, new_deadline):
-        with self._might_change_effective_deadline():
+        with self._might_change_registered_deadline():
             self._deadline = float(new_deadline)
+        if self._cancel_status is not None:
+            self._cancel_status.deadline = self._deadline
 
     @property
     def shield(self):
@@ -321,9 +480,9 @@ class CancelScope:
         if not isinstance(new_value, bool):
             raise TypeError("shield must be a bool")
         self._shield = new_value
-        if not self._shield:
-            for task in self._tasks:
-                task._attempt_delivery_of_any_pending_cancel()
+        if self._cancel_status is not None:
+            self._cancel_status.shield = new_value
+            self._cancel_status.check_cancelled()
 
     @enable_ki_protection
     def cancel(self):
@@ -332,50 +491,37 @@ class CancelScope:
         This method is idempotent, i.e., if the scope was already
         cancelled then this method silently does nothing.
         """
-        if self.cancel_called:
+        if self._cancel_called:
             return
-        with self._might_change_effective_deadline():
-            self.cancel_called = True
-        for task in self._tasks:
-            task._attempt_delivery_of_any_pending_cancel()
+        with self._might_change_registered_deadline():
+            self._cancel_called = True
+        if self._cancel_status is not None:
+            self._cancel_status.cancel()
 
-    def _add_task(self, task):
-        self._tasks.add(task)
-        task._cancel_stack.append(self)
+    @property
+    def cancel_called(self):
+        """Readonly :class:`bool`. Records whether cancellation has been
+        requested for this scope, either by an explicit call to
+        :meth:`cancel` or by the deadline expiring.
 
-    def _remove_task(self, task):
-        self._tasks.remove(task)
-        assert task._cancel_stack[-1] is self
-        task._cancel_stack.pop()
+        This attribute being True does *not* necessarily mean that the
+        code within the scope has been, or will be, affected by the
+        cancellation. For example, if :meth:`cancel` was called after
+        the last checkpoint in the ``with`` block, when it's too late to
+        deliver a :exc:`~trio.Cancelled` exception, then this attribute
+        will still be True.
 
-    # Used by the nursery.start trickiness
-    def _tasks_removed_by_adoption(self, tasks):
-        with self._might_change_effective_deadline():
-            self._tasks.difference_update(tasks)
-
-    # Used by the nursery.start trickiness
-    def _tasks_added_by_adoption(self, tasks):
-        self._tasks.update(tasks)
-
-    def _exc_filter(self, exc):
-        if isinstance(exc, Cancelled):
-            self.cancelled_caught = True
-            return None
-        return exc
-
-    def _close(self, exc):
-        scope_task = current_task()
-        if (
-            exc is not None and self.cancel_called
-            and scope_task._pending_cancel_scope() is self
-        ):
-            exc = MultiError.filter(self._exc_filter, exc)
-        with self._might_change_effective_deadline():
-            self._remove_task(scope_task)
-        return exc
+        This attribute is mostly useful for debugging and introspection.
+        If you want to know whether or not a chunk of code was actually
+        cancelled, then :attr:`cancelled_caught` is usually more
+        appropriate.
+        """
+        return self._cancel_called or (
+            not self._has_been_entered and self._deadline <= current_time()
+        )
 
 
-@deprecated("0.10.0", issue=607, instead="trio.CancelScope")
+@deprecated("0.11.0", issue=607, instead="trio.CancelScope")
 def open_cancel_scope(*, deadline=inf, shield=False):
     """Returns a context manager which creates a new cancellation scope."""
     return CancelScope(deadline=deadline, shield=shield)
@@ -410,61 +556,42 @@ class _TaskStatus:
         # will eventually exit on its own, and we don't want to risk moving
         # children that might have propagating Cancelled exceptions into
         # a place with no cancelled cancel scopes to catch them.
-        if _pending_cancel_scope(self._old_nursery._cancel_stack) is not None:
+        if self._old_nursery._cancel_status.effectively_cancelled:
             return
 
         # Can't be closed, b/c we checked in start() and then _pending_starts
         # should keep it open.
         assert not self._new_nursery._closed
 
-        # otherwise, find all the tasks under the old nursery, and move them
-        # under the new nursery instead. This means:
-        # - changing parents of direct children
-        # - changing cancel stack of all direct+indirect children
-        # - changing cancel stack of all direct+indirect children's nurseries
-        # - checking for cancellation in all changed cancel stacks
-        old_stack = self._old_nursery._cancel_stack
-        new_stack = self._new_nursery._cancel_stack
-        # LIFO todo stack for depth-first traversal
-        todo = list(self._old_nursery._children)
-        munged_tasks = []
-        while todo:
-            task = todo.pop()
-            # Direct children need to be reparented
-            if task._parent_nursery is self._old_nursery:
-                self._old_nursery._children.remove(task)
-                task._parent_nursery = self._new_nursery
-                self._new_nursery._children.add(task)
-            # Everyone needs their cancel scopes fixed up...
-            assert task._cancel_stack[:len(old_stack)] == old_stack
-            task._cancel_stack[:len(old_stack)] = new_stack
-            # ...and their nurseries' cancel scopes fixed up.
-            for nursery in task._child_nurseries:
-                assert nursery._cancel_stack[:len(old_stack)] == old_stack
-                nursery._cancel_stack[:len(old_stack)] = new_stack
-                # And then add all the nursery's children to our todo list
-                todo.extend(nursery._children)
-            # And make a note to check for cancellation later
-            munged_tasks.append(task)
+        # Move tasks from the old nursery to the new
+        tasks = self._old_nursery._children
+        self._old_nursery._children = set()
+        for task in tasks:
+            task._parent_nursery = self._new_nursery
+            self._new_nursery._children.add(task)
 
-        # Tell all the cancel scopes about the change. (There are probably
-        # some scopes in common between the two stacks, so some scopes will
-        # get the same tasks removed and then immediately re-added. This is
-        # fine though.)
-        for cancel_scope in old_stack:
-            cancel_scope._tasks_removed_by_adoption(munged_tasks)
-        for cancel_scope in new_stack:
-            cancel_scope._tasks_added_by_adoption(munged_tasks)
+        # Move all children of the old nursery's cancel status object
+        # to be underneath the new nursery instead. This includes both
+        # tasks and child cancel status objects.
+        # NB: If the new nursery is cancelled, reparenting a cancel
+        # status to be underneath it can invoke an abort_fn, which might
+        # do something evil like cancel the old nursery. We thus break
+        # everything off from the old nursery before we start attaching
+        # anything to the new.
+        cancel_status_children = self._old_nursery._cancel_status.children
+        cancel_status_tasks = set(self._old_nursery._cancel_status.tasks)
+        cancel_status_tasks.discard(self._old_nursery._parent_task)
+        for cancel_status in cancel_status_children:
+            cancel_status.parent = None
+        for task in cancel_status_tasks:
+            task._activate_cancel_status(None)
+        for cancel_status in cancel_status_children:
+            cancel_status.parent = self._new_nursery._cancel_status
+        for task in cancel_status_tasks:
+            task._activate_cancel_status(self._new_nursery._cancel_status)
 
         # That should have removed all the children from the old nursery
         assert not self._old_nursery._children
-
-        # After all the delicate surgery is done, check for cancellation in
-        # all the tasks that had their cancel scopes munged. This can trigger
-        # arbitrary abort() callbacks, so we put it off until our internal
-        # data structures are all self-consistent again.
-        for task in munged_tasks:
-            task._attempt_delivery_of_any_pending_cancel()
 
         # And finally, poke the old nursery so it notices that all its
         # children have disappeared and can exit.
@@ -533,13 +660,13 @@ class Nursery:
     def __init__(self, parent_task, cancel_scope):
         self._parent_task = parent_task
         parent_task._child_nurseries.append(self)
-        # the cancel stack that children inherit - we take a snapshot, so it
+        # the cancel status that children inherit - we take a snapshot, so it
         # won't be affected by any changes in the parent.
-        self._cancel_stack = list(parent_task._cancel_stack)
+        self._cancel_status = parent_task._cancel_status
         # the cancel scope that directly surrounds us; used for cancelling all
         # children.
         self.cancel_scope = cancel_scope
-        assert self.cancel_scope is self._cancel_stack[-1]
+        assert self.cancel_scope._cancel_status is self._cancel_status
         self._children = set()
         self._pending_excs = []
         # The "nested child" is how this code refers to the contents of the
@@ -643,19 +770,6 @@ class Nursery:
 ################################################################
 
 
-def _pending_cancel_scope(cancel_stack):
-    # Return the outermost exception that is is not outside a shield.
-    pending_scope = None
-    for scope in cancel_stack:
-        # Check shield before _exc, because shield should not block
-        # processing of *this* scope's exception
-        if scope.shield:
-            pending_scope = None
-        if pending_scope is None and scope.cancel_called:
-            pending_scope = scope
-    return pending_scope
-
-
 @attr.s(cmp=False, hash=False, repr=False)
 class Task:
     _parent_nursery = attr.ib()
@@ -711,10 +825,18 @@ class Task:
     # Cancellation
     ################
 
-    _cancel_stack = attr.ib(default=attr.Factory(list), repr=False)
+    # The CancelStatus object that is currently active for this task.
+    # Don't change this directly; instead, use _activate_cancel_status().
+    _cancel_status = attr.ib(default=None, repr=False)
 
-    def _pending_cancel_scope(self):
-        return _pending_cancel_scope(self._cancel_stack)
+    def _activate_cancel_status(self, cancel_status):
+        if self._cancel_status is not None:
+            self._cancel_status._tasks.remove(self)
+        self._cancel_status = cancel_status
+        if self._cancel_status is not None:
+            self._cancel_status._tasks.add(self)
+            if self._cancel_status.effectively_cancelled:
+                self._attempt_delivery_of_any_pending_cancel()
 
     def _attempt_abort(self, raise_cancel):
         # Either the abort succeeds, in which case we will reschedule the
@@ -733,7 +855,7 @@ class Task:
     def _attempt_delivery_of_any_pending_cancel(self):
         if self._abort_func is None:
             return
-        if self._pending_cancel_scope() is None:
+        if not self._cancel_status.effectively_cancelled:
             return
 
         def raise_cancel():
@@ -1035,8 +1157,7 @@ class Runner:
 
         if nursery is not None:
             nursery._children.add(task)
-            for scope in nursery._cancel_stack:
-                scope._add_task(task)
+            task._activate_cancel_status(nursery._cancel_status)
 
         if self.instruments:
             self.instrument("task_spawned", task)
@@ -1046,8 +1167,7 @@ class Runner:
         return task
 
     def task_exited(self, task, outcome):
-        while task._cancel_stack:
-            task._cancel_stack[-1]._remove_task(task)
+        task._activate_cancel_status(None)
         self.tasks.remove(task)
         if task is self.main_task:
             self.main_task_outcome = outcome
@@ -1669,15 +1789,7 @@ def current_effective_deadline():
         float: the effective deadline, as an absolute time.
 
     """
-    task = current_task()
-    deadline = inf
-    for scope in task._cancel_stack:
-        if scope._shield:
-            deadline = inf
-        if scope.cancel_called:
-            deadline = -inf
-        deadline = min(deadline, scope._deadline)
-    return deadline
+    return current_task()._cancel_status.effective_deadline()
 
 
 async def checkpoint():
@@ -1715,7 +1827,7 @@ async def checkpoint_if_cancelled():
     """
     task = current_task()
     if (
-        task._pending_cancel_scope() is not None or
+        task._cancel_status.effectively_cancelled or
         (task is task._runner.main_task and task._runner.ki_pending)
     ):
         await _core.checkpoint()

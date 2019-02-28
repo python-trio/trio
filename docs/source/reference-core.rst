@@ -519,23 +519,7 @@ objects.
       most recent ``with`` block. (It is reset to :data:`False` each
       time a new ``with`` block is entered.)
 
-   .. attribute:: cancel_called
-
-      Readonly :class:`bool`. Records whether cancellation has been
-      requested for this scope, either by an explicit call to
-      :meth:`cancel` or by the deadline expiring.
-
-      This attribute being True does *not* necessarily mean that the
-      code within the scope has been, or will be, affected by the
-      cancellation. For example, if :meth:`cancel` was called after
-      the last checkpoint in the ``with`` block, when it's too late to
-      deliver a :exc:`~trio.Cancelled` exception, then this attribute
-      will still be True.
-
-      This attribute is mostly useful for debugging and introspection.
-      If you want to know whether or not a chunk of code was actually
-      cancelled, then :attr:`cancelled_caught` is usually more
-      appropriate.
+   .. autoattribute:: cancel_called
 
 
 Trio also provides several convenience functions for the common
