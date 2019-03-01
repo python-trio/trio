@@ -341,7 +341,7 @@ class CancelScope:
             and not self._cancel_status.parent_cancellation_is_visible_to_us
         ):
             exc = MultiError.filter(self._exc_filter, exc)
-        current_task()._activate_cancel_status(self._cancel_status.parent)
+        scope_task._activate_cancel_status(self._cancel_status.parent)
         self._cancel_status.close()
         with self._might_change_registered_deadline():
             self._cancel_status = None
