@@ -53,6 +53,17 @@ def _forward_magic(cls, attr):
     return wrapper
 
 
+def iter_wrapper_factory(cls, meth_name):
+    @async_wraps(cls, pathlib.Path, meth_name)
+    async def wrapper(self, *args, **kwargs):
+        meth = getattr(self._wrapped, meth_name)
+        func = partial(meth, *args, **kwargs)
+        items = await trio.run_sync_in_worker_thread(func)
+        return (rewrap_path(item) for item in items)
+
+    return wrapper
+
+
 def thread_wrapper_factory(cls, meth_name):
     @async_wraps(cls, pathlib.Path, meth_name)
     async def wrapper(self, *args, **kwargs):
@@ -73,6 +84,7 @@ class AsyncAutoWrapperType(type):
         type(cls).generate_forwards(cls, attrs)
         type(cls).generate_wraps(cls, attrs)
         type(cls).generate_magic(cls, attrs)
+        type(cls).generate_iter(cls, attrs)
 
     def generate_forwards(cls, attrs):
         # forward functions of _forwards
@@ -91,6 +103,7 @@ class AsyncAutoWrapperType(type):
     def generate_wraps(cls, attrs):
         # generate wrappers for functions of _wraps
         for attr_name, attr in cls._wraps.__dict__.items():
+            # .z. exclude cls._wrap_iter
             if attr_name.startswith('_') or attr_name in attrs:
                 continue
 
@@ -109,6 +122,13 @@ class AsyncAutoWrapperType(type):
             wrapper = _forward_magic(cls, attr)
             setattr(cls, attr_name, wrapper)
 
+    def generate_iter(cls, attrs):
+        # generate wrappers for methods that return iterators
+        for attr_name, attr in cls._wraps.__dict__.items():
+            if attr_name in cls._wrap_iter:
+                wrapper = iter_wrapper_factory(cls, attr_name)
+                setattr(cls, attr_name, wrapper)
+
 
 class Path(metaclass=AsyncAutoWrapperType):
     """A :class:`pathlib.Path` wrapper that executes blocking methods in
@@ -122,6 +142,7 @@ class Path(metaclass=AsyncAutoWrapperType):
         '__str__', '__bytes__', '__truediv__', '__rtruediv__', '__eq__',
         '__lt__', '__le__', '__gt__', '__ge__'
     ]
+    _wrap_iter = ['glob', 'rglob']
 
     def __init__(self, *args):
         args = unwrap_paths(args)

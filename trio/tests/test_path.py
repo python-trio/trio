@@ -197,6 +197,35 @@ async def test_open_file_can_open_path(path):
         assert f.name == fspath(path)
 
 
+async def test_globmethods(path):
+    # Populate a directory tree
+    await path.mkdir()
+    await (path / 'foo').mkdir()
+    await (path / 'foo' / '_bar.txt').write_bytes(b'')
+    await (path / 'bar.txt').write_bytes(b'')
+    await (path / 'bar.dat').write_bytes(b'')
+
+    # Path.glob
+    for _pattern, _results in {
+        '*.txt': {'bar.txt'},
+        '**/*.txt': {'_bar.txt', 'bar.txt'},
+    }.items():
+        entries = set()
+        for entry in await path.glob(_pattern):
+            assert isinstance(entry, trio.Path)
+            entries.add(entry.name)
+
+        assert entries == _results
+
+    # Path.rglob
+    entries = set()
+    for entry in await path.rglob('*.txt'):
+        assert isinstance(entry, trio.Path)
+        entries.add(entry.name)
+
+    assert entries == {'_bar.txt', 'bar.txt'}
+
+
 async def test_iterdir(path):
     # Populate a directory
     await path.mkdir()
