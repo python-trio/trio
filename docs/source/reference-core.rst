@@ -834,13 +834,14 @@ Nursery objects provide the following interface:
 
       Note that this is *not* an async function and you don't use await
       when calling it. It sets up the new task, but then returns
-      immediately, *before* it has a chance to run. The new task won’t
-      actually get a chance to do anything until some later point when
-      you execute a checkpoint and the scheduler decides to run it.
-      If you want to run a function and immediately wait for its result,
+      immediately, *before* it has a chance to run. At the next
+      checkpoint, (which might be closing of the nursery context), all
+      tasks requested with :meth:`start_soon` will begin in no
+      particular order. If you want to run a function to completion,
       then you don't need a nursery; just use ``await async_fn(*args)``.
-      If you want to wait for the task to initialize itself before 
-      continuing, see :meth:`start()`.
+      If you want to ensure that the child task does something before
+      before the parent moves on to the next line, or that multiple
+      child tasks start in order, see :meth:`start()`.
 
       It's possible to pass a nursery object into another task, which
       allows that task to start new child tasks in the first task's
@@ -869,7 +870,9 @@ Nursery objects provide the following interface:
 
       Like :meth:`start_soon`, but blocks until the new task has
       finished initializing itself, and optionally returns some
-      information from it.
+      information from it. Even if the child task reaches a checkpoint,
+      the parent task may not execute further until the child indicates
+      it is ready.
 
       The ``async_fn`` must accept a ``task_status`` keyword argument,
       and it must make sure that it (or someone) eventually calls
@@ -878,9 +881,9 @@ Nursery objects provide the following interface:
       The conventional way to define ``async_fn`` is like::
 
          async def async_fn(arg1, arg2, *, task_status=trio.TASK_STATUS_IGNORED):
-             ...
+             ... # some work before the parent may proceed
              task_status.started()
-             ...
+             ... # some work that may run in parallel with the parent
 
       :attr:`trio.TASK_STATUS_IGNORED` is a special global object with
       a do-nothing ``started`` method. This way your function supports

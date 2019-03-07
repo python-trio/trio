@@ -1,0 +1,1 @@
+Clarified documentation around Nursery.start_soon and Nursery.start, that start_soon does not guarantee task ordering, and when you should use each.
