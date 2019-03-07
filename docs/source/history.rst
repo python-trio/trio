@@ -5,42 +5,6 @@ Release history
 
 .. towncrier release notes start
 
-Trio 0.11.0+dev (2019-03-07)
-----------------------------
-
-Features
-~~~~~~~~
-
-- On Linux, when wrapping a bare file descriptor in a Trio socket object,
-  Trio now auto-detects the correct ``family``, ``type``, and ``protocol``.
-  This is useful, for example, when implementing `systemd socket activation
-  <http://0pointer.de/blog/projects/socket-activation.html>`__. (`#251 <https://github.com/python-trio/trio/issues/251>`__)
-
-
-Improved Documentation
-~~~~~~~~~~~~~~~~~~~~~~
-
-- Clarified documentation around Nursery.start_soon and Nursery.start, that start_soon does not guarantee task ordering, and when you should use each. (`#970 <https://github.com/python-trio/trio/issues/970>`__)
-
-
-Trio 0.11.0+dev (2019-03-07)
-----------------------------
-
-No significant changes.
-
-
-Trio 0.11.0+dev (2019-03-07)
-----------------------------
-
-Features
-~~~~~~~~
-
-- On Linux, when wrapping a bare file descriptor in a Trio socket object,
-  Trio now auto-detects the correct ``family``, ``type``, and ``protocol``.
-  This is useful, for example, when implementing `systemd socket activation
-  <http://0pointer.de/blog/projects/socket-activation.html>`__. (`#251 <https://github.com/python-trio/trio/issues/251>`__)
-
-
 Trio 0.11.0 (2019-02-09)
 ------------------------
 
