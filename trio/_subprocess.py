@@ -290,7 +290,6 @@ async def run_process(
     stdin=b"",
     capture_stdout=False,
     capture_stderr=False,
-    capture=False,
     check=True,
     **options
 ):
@@ -314,21 +313,22 @@ async def run_process(
     passed through to the standard output and error streams of the
     parent Trio process. If you would like to capture this output and
     do something with it, you can pass ``capture_stdout=True`` to
-    capture just the subprocess's standard output,
-    ``capture_stderr=True`` to capture just its standard error, or
-    ``capture=True`` to capture both.  Captured data is provided
-    as the :attr:`~subprocess.CompletedProcess.stdout` and/or
+    capture the subprocess's standard output, and/or
+    ``capture_stderr=True`` to capture its standard error.  Captured
+    data is provided as the
+    :attr:`~subprocess.CompletedProcess.stdout` and/or
     :attr:`~subprocess.CompletedProcess.stderr` attributes of the
-    returned :class:`~subprocess.CompletedProcess` object. The
-    value for any stream that was not captured will be ``None``.
+    returned :class:`~subprocess.CompletedProcess` object.  The value
+    for any stream that was not captured will be ``None``.
 
     **Error checking:** If the subprocess exits with a nonzero status
     code, indicating failure, :func:`run_process` raises a
     :exc:`subprocess.CalledProcessError` exception rather than
     returning normally. The captured outputs are still available as
-    the ``stdout`` and ``stderr`` attributes of that exception.  To
-    disable this behavior, so that :func:`run_process` returns
-    normally even if the subprocess exits abnormally, pass
+    the :attr:`~subprocess.CalledProcessError.stdout` and
+    :attr:`~subprocess.CalledProcessError.stderr` attributes of that
+    exception.  To disable this behavior, so that :func:`run_process`
+    returns normally even if the subprocess exits abnormally, pass
     ``check=False``.
 
     Args:
@@ -355,9 +355,6 @@ async def run_process(
           writes to its standard error stream and return them in the
           :attr:`~subprocess.CompletedProcess.stderr` attribute
           of the returned :class:`~subprocess.CompletedProcess` object.
-      capture (bool): If true, capture both standard output and standard
-          error, as if you had passed ``capture_stdout=True,
-          capture_stderr=True``.
       check (bool): If false, don't validate that the subprocess exits
           successfully. You should be sure to check the
           ``returncode`` attribute of the returned object if you pass
@@ -400,12 +397,9 @@ async def run_process(
             "is internal to run_process(); pass the actual data you "
             "want to send over that pipe instead"
         )
-    if isinstance(stdin, bytes):
+    if isinstance(stdin, (bytes, bytearray, memoryview)):
         input = stdin
-        if input:
-            options["stdin"] = subprocess.PIPE
-        else:
-            options["stdin"] = subprocess.DEVNULL
+        options["stdin"] = subprocess.PIPE
     else:
         # stdin should be something acceptable to Process
         # (None, DEVNULL, a file descriptor, etc) and Process
@@ -413,12 +407,6 @@ async def run_process(
         input = None
         options["stdin"] = stdin
 
-    if capture:
-        if capture_stdout or capture_stderr:
-            raise ValueError(
-                "can't specify both capture and capture_stdout/stderr"
-            )
-        capture_stdout = capture_stderr = True
     if capture_stdout:
         if "stdout" in options:
             raise ValueError("can't specify both stdout and capture_stdout")

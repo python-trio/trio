@@ -204,7 +204,9 @@ async def test_interactive():
 async def test_run():
     data = bytes(random.randint(0, 255) for _ in range(2**18))
 
-    result = await run_process(CAT, stdin=data, capture=True)
+    result = await run_process(
+        CAT, stdin=data, capture_stdout=True, capture_stderr=True
+    )
     assert result.args == CAT
     assert result.returncode == 0
     assert result.stdout == data
@@ -217,7 +219,10 @@ async def test_run():
     assert result.stderr is None
 
     result = await run_process(
-        COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR, stdin=data, capture=True
+        COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR,
+        stdin=data,
+        capture_stdout=True,
+        capture_stderr=True,
     )
     assert result.args == COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR
     assert result.returncode == 0
@@ -229,8 +234,6 @@ async def test_run():
         await run_process(CAT, stdin="oh no, it's text")
     with pytest.raises(ValueError):
         await run_process(CAT, stdin=subprocess.PIPE)
-    with pytest.raises(ValueError):
-        await run_process(CAT, capture=True, capture_stdout=True)
     with pytest.raises(ValueError):
         await run_process(CAT, capture_stdout=True, stdout=subprocess.DEVNULL)
     with pytest.raises(ValueError):
@@ -246,7 +249,9 @@ async def test_run_check():
     assert excinfo.value.stderr == b"test\n"
     assert excinfo.value.stdout is None
 
-    result = await run_process(cmd, capture=True, check=False)
+    result = await run_process(
+        cmd, capture_stdout=True, capture_stderr=True, check=False
+    )
     assert result.args == cmd
     assert result.stdout == b""
     assert result.stderr == b"test\n"
@@ -257,10 +262,9 @@ async def test_run_with_broken_pipe():
     result = await run_process(
         [sys.executable, "-c", "import sys; sys.stdin.close()"],
         stdin=b"x" * 131072,
-        capture=True,
     )
     assert result.returncode == 0
-    assert result.stdout == result.stderr == b""
+    assert result.stdout is result.stderr is None
 
 
 async def test_stderr_stdout():
