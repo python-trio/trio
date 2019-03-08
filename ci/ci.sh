@@ -121,10 +121,9 @@ else
     INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
     pytest -W error -ra --junitxml=../test-results.xml --run-slow --faulthandler-timeout=60 ${INSTALLDIR} --cov="$INSTALLDIR" --cov-config=../.coveragerc --verbose
 
-    # Disable coverage on 3.8-dev, at least until it's fixed (or a1 comes out):
-    #   https://github.com/python-trio/trio/issues/711
-    #   https://github.com/nedbat/coveragepy/issues/707#issuecomment-426455490
-    if [ "$(python -V)" != "Python 3.8.0a0" ]; then
+    # Disable coverage on 3.8 until we run 3.8 on Windows CI too
+    #   https://github.com/python-trio/trio/pull/784#issuecomment-446438407
+    if [[ "$(python -V)" != Python\ 3.8* ]]; then
         # Disable coverage on pypy py3.6 nightly for now:
         # https://bitbucket.org/pypy/pypy/issues/2943/
         if [ "$PYPY_NIGHTLY_BRANCH" != "py3.6" ]; then

@@ -6,7 +6,7 @@
 #
 alabaster==0.7.12         # via sphinx
 async-generator==1.10
-attrs==18.2.0
+attrs==19.1.0
 babel==2.6.0              # via sphinx
 certifi==2018.11.29       # via requests
 chardet==3.0.4            # via requests
@@ -18,7 +18,7 @@ imagesize==1.1.0          # via sphinx
 immutables==0.6           # via contextvars
 incremental==17.5.0       # via towncrier
 jinja2==2.10              # via sphinx, towncrier
-markupsafe==1.1.0         # via jinja2
+markupsafe==1.1.1         # via jinja2
 outcome==1.0.0
 packaging==19.0           # via sphinx
 pygments==2.3.1           # via sphinx
