@@ -154,26 +154,15 @@ class CancelStatus:
 
     """
 
-    # False if we should become cancelled when our parent becomes
-    # cancelled; True if we should only become cancelled when our own
-    # cancel() method is called.
-    shield = attr.ib(default=False)
-
-    # The time at which a direct call to cancel() is expected to
-    # occur.  Used only in implementing current_effective_deadline().
-    # Setting this attribute does _not_ cause cancel() to be called at
-    # the given time -- that's CancelScope's job, not ours.
-    deadline = attr.ib(default=inf)
-
-    # True iff our controlling CancelScope became cancelled, which will
-    # make us stay cancelled forever, regardless of what our parents
-    # are doing.
-    cancel_requested = attr.ib(default=False)
+    # Our associated cancel scope. Can be any object with attributes
+    # `deadline`, `shield`, and `cancel_called`, but in current usage
+    # is always a CancelScope object. Must not be None.
+    _scope = attr.ib()
 
     # True iff the tasks in self._tasks should receive cancellations
-    # when they checkpoint. Always True when cancel_requested is True;
+    # when they checkpoint. Always True when scope.cancel_called is True;
     # may also be True due to a cancellation propagated from our
-    # parent.  Unlike cancel_requested, this does not necessarily stay
+    # parent.  Unlike scope.cancel_called, this does not necessarily stay
     # true once it becomes true. For example, we might become
     # effectively cancelled due to the cancel scope two levels out
     # becoming cancelled, but then the cancel scope one level out
@@ -181,9 +170,9 @@ class CancelStatus:
     effectively_cancelled = attr.ib(default=False)
 
     # The CancelStatus whose cancellations can propagate to us; we
-    # become effectively cancelled when they do, unless shield is True.
-    # May be None (for the outermost CancelStatus in a call to trio.run(),
-    # or briefly during TaskStatus.started()).
+    # become effectively cancelled when they do, unless scope.shield
+    # is True.  May be None (for the outermost CancelStatus in a call
+    # to trio.run(), or briefly during TaskStatus.started()).
     _parent = attr.ib(default=None, repr=False)
 
     # All of the CancelStatuses that have this CancelStatus as their parent.
@@ -198,7 +187,7 @@ class CancelStatus:
     def __attrs_post_init__(self):
         if self._parent is not None:
             self._parent._children.add(self)
-            self.check_cancelled()
+            self.recalculate()
 
     # parent/children/tasks accessors are used by TaskStatus.started()
 
@@ -213,7 +202,7 @@ class CancelStatus:
         self._parent = parent
         if self._parent is not None:
             self._parent._children.add(self)
-            self.check_cancelled()
+            self.recalculate()
 
     @property
     def children(self):
@@ -230,13 +219,14 @@ class CancelStatus:
     @property
     def parent_cancellation_is_visible_to_us(self):
         return (
-            self._parent is not None and not self.shield
+            self._parent is not None and not self._scope.shield
             and self._parent.effectively_cancelled
         )
 
-    def check_cancelled(self):
+    def recalculate(self):
         new_state = (
-            self.cancel_requested or self.parent_cancellation_is_visible_to_us
+            self._scope.cancel_called
+            or self.parent_cancellation_is_visible_to_us
         )
         if new_state != self.effectively_cancelled:
             self.effectively_cancelled = new_state
@@ -244,18 +234,14 @@ class CancelStatus:
                 for task in self._tasks:
                     task._attempt_delivery_of_any_pending_cancel()
             for child in self._children:
-                child.check_cancelled()
-
-    def cancel(self):
-        self.cancel_requested = True
-        self.check_cancelled()
+                child.recalculate()
 
     def effective_deadline(self):
         if self.effectively_cancelled:
             return -inf
-        if self._parent is None or self.shield:
-            return self.deadline
-        return min(self.deadline, self._parent.effective_deadline())
+        if self._parent is None or self._scope.shield:
+            return self._scope.deadline
+        return min(self._scope.deadline, self._parent.effective_deadline())
 
 
 @attr.s(cmp=False, repr=False, slots=True)
@@ -320,10 +306,7 @@ class CancelScope:
             self.cancel()
         with self._might_change_registered_deadline():
             self._cancel_status = CancelStatus(
-                shield=self._shield,
-                deadline=self._deadline,
-                cancel_requested=self._cancel_called,
-                parent=task._cancel_status,
+                scope=self, parent=task._cancel_status
             )
             task._activate_cancel_status(self._cancel_status)
         return self
@@ -447,8 +430,6 @@ class CancelScope:
     def deadline(self, new_deadline):
         with self._might_change_registered_deadline():
             self._deadline = float(new_deadline)
-        if self._cancel_status is not None:
-            self._cancel_status.deadline = self._deadline
 
     @property
     def shield(self):
@@ -481,8 +462,7 @@ class CancelScope:
             raise TypeError("shield must be a bool")
         self._shield = new_value
         if self._cancel_status is not None:
-            self._cancel_status.shield = new_value
-            self._cancel_status.check_cancelled()
+            self._cancel_status.recalculate()
 
     @enable_ki_protection
     def cancel(self):
@@ -496,7 +476,7 @@ class CancelScope:
         with self._might_change_registered_deadline():
             self._cancel_called = True
         if self._cancel_status is not None:
-            self._cancel_status.cancel()
+            self._cancel_status.recalculate()
 
     @property
     def cancel_called(self):
@@ -516,9 +496,16 @@ class CancelScope:
         cancelled, then :attr:`cancelled_caught` is usually more
         appropriate.
         """
-        return self._cancel_called or (
-            not self._has_been_entered and self._deadline <= current_time()
-        )
+        if self._cancel_status is not None or not self._has_been_entered:
+            # Scope is active or not yet entered: make sure cancel_called
+            # is true if the deadline has passed. This shouldn't
+            # be able to actually change behavior, since we check for
+            # deadline expiry on scope entry and at every checkpoint,
+            # but it makes the value returned by cancel_called more
+            # closely match expectations.
+            if not self._cancel_called and current_time() >= self._deadline:
+                self.cancel()
+        return self._cancel_called
 
 
 @deprecated("0.11.0", issue=607, instead="trio.CancelScope")

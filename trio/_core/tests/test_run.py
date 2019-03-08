@@ -916,16 +916,12 @@ async def test_cancel_unbound():
 
     # If not yet entered, cancel_called is true when the deadline has passed
     # even if cancel() hasn't been called yet
-    scope = _core.CancelScope(deadline=_core.current_time())
-    assert scope.cancel_called
-    scope.deadline += 1
+    scope = _core.CancelScope(deadline=_core.current_time() + 1)
     assert not scope.cancel_called
     scope.deadline -= 1
     assert scope.cancel_called
     scope.deadline += 1
-    assert not scope.cancel_called
-    scope.cancel()
-    assert scope.cancel_called
+    assert scope.cancel_called  # never become un-cancelled
 
 
 async def test_timekeeping():
