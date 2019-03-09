@@ -834,11 +834,11 @@ Nursery objects provide the following interface:
 
       Note that this is *not* an async function and you don't use await
       when calling it. It sets up the new task, but then returns
-      immediately, *before* it has a chance to run. At some future
-      time, (which might be closing of the nursery context, but no
-      later), all tasks requested with :meth:`start_soon` will begin,
-      in no particular order. If you want to run a function to
-      completion, then you don't need a nursery; just use
+      immediately, *before* it has a chance to run. All tasks requested
+      with :meth:`start_soon` will begin, at no particular time, in no
+      particular order (but no later than the closing of the nursery
+      context). If you want to run a function and block until it
+      finishes, then you don't need a nursery; just use
       ``await async_fn(*args)``. If you want to run some part of the
       child task before the parent task proceeds, see :meth:`start()`.
 
@@ -868,8 +868,8 @@ Nursery objects provide the following interface:
       :async:
 
       Like :meth:`start_soon`, but blocks until the new child task
-      signals that it may unblock, optionally returning additional
-      information.
+      indicates it may unblock, and optionally returns something back
+      to the parent.
 
       The ``async_fn`` must accept a ``task_status`` keyword argument,
       and it must make sure that it (or someone) eventually calls
