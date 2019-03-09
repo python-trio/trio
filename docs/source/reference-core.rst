@@ -847,7 +847,7 @@ Nursery objects provide the following interface:
       nursery.
 
       The child task inherits its parent nursery's cancel scopes.
-`
+
       :param async_fn: An async callable.
       :param args: Positional arguments for ``async_fn``. If you want
                    to pass keyword arguments, use
