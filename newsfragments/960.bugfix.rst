@@ -1,0 +1,2 @@
+As a result of fixing a bug in ``trio.Path.home``, the two ``trio.Path``
+classmethods, ``home`` and ``cwd``, are now async functions (see #917).
