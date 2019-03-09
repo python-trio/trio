@@ -878,7 +878,7 @@ Nursery objects provide the following interface:
       The conventional way to define ``async_fn`` is like::
 
          async def async_fn(arg1, arg2, *, task_status=trio.TASK_STATUS_IGNORED):
-             ... # some work before the parent may proceed
+             ... # some work the parent might wait for
              task_status.started()
              ... # some work that may run in parallel with the parent
 
