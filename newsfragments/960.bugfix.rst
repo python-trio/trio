@@ -1,2 +1,4 @@
-As a result of fixing a bug in ``trio.Path.home``, the two ``trio.Path``
-classmethods, ``home`` and ``cwd``, are now async functions (see #917).
+The :class:`trio.Path` classmethods, :meth:`~trio.Path.home` and
+:meth:`~trio.Path.cwd`, are now async functions.  Previously, a bug
+in the forwarding logic meant :meth:`~trio.Path.cwd` was synchronous
+and :meth:`~trio.Path.home` didn't work at all.
