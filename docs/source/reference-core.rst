@@ -834,7 +834,7 @@ Nursery objects provide the following interface:
 
       Note that this is *not* an async function and you don't use await
       when calling it. It sets up the new task, but then returns
-      immediately, *before* it has a chance to run. All tasks requested
+      immediately, *before* it has a chance to run. Tasks requested
       with :meth:`start_soon` will begin, at no particular time, in no
       particular order (but no later than the closing of the nursery
       context). If you want to run a function and block until it
