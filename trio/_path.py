@@ -54,7 +54,7 @@ def _forward_magic(cls, attr):
 
 
 def iter_wrapper_factory(cls, meth_name):
-    @async_wraps(cls, pathlib.Path, meth_name)
+    @async_wraps(cls, cls._wraps, meth_name)
     async def wrapper(self, *args, **kwargs):
         meth = getattr(self._wrapped, meth_name)
         func = partial(meth, *args, **kwargs)
