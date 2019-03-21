@@ -9,7 +9,7 @@ from ._wakeup_socketpair import WakeupSocketpair
 __all__ = ["TrioToken"]
 
 
-@attr.s
+@attr.s(slots=True)
 class EntryQueue:
     # This used to use a queue.Queue. but that was broken, because Queues are
     # implemented in Python, and not reentrant -- so it was thread-safe, but
