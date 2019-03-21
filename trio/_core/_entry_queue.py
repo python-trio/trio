@@ -142,6 +142,8 @@ class TrioToken:
 
     """
 
+    __slots__ = ('_reentry_queue',)
+
     def __init__(self, reentry_queue):
         self._reentry_queue = reentry_queue
 
