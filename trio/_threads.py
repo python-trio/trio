@@ -335,7 +335,7 @@ async def run_sync_in_worker_thread(
       Whatever ``sync_fn(*args)`` returns.
 
     Raises:
-      Whatever ``sync_fn(*args)`` raises.
+      Exception: Whatever ``sync_fn(*args)`` raises.
 
     """
     await _core.checkpoint_if_cancelled()
