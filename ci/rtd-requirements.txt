@@ -30,7 +30,7 @@ sniffio==1.0.0
 snowballstemmer==1.2.1    # via sphinx
 sortedcontainers==2.1.0
 sphinx-rtd-theme==0.4.3
-sphinx==2.0.0
+sphinx==2.0.1
 sphinxcontrib-applehelp==1.0.1  # via sphinx
 sphinxcontrib-devhelp==1.0.1  # via sphinx
 sphinxcontrib-htmlhelp==1.0.1  # via sphinx
