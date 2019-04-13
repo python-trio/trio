@@ -25,7 +25,7 @@ async def wait_child_exiting(process: "_subprocess.Process") -> None:
     raise NotImplementedError from wait_child_exiting._error  # pragma: no cover
 
 
-async def create_pipe_to_child_stdin() -> Tuple[SendStream, int]:
+def create_pipe_to_child_stdin() -> Tuple[SendStream, int]:
     """Create a new pipe suitable for sending data from this
     process to the standard input of a child we're about to spawn.
 
@@ -40,7 +40,7 @@ async def create_pipe_to_child_stdin() -> Tuple[SendStream, int]:
     )
 
 
-async def create_pipe_from_child_output() -> Tuple[ReceiveStream, int]:
+def create_pipe_from_child_output() -> Tuple[ReceiveStream, int]:
     """Create a new pipe suitable for receiving data into this
     process from the standard output or error stream of a child
     we're about to spawn.
