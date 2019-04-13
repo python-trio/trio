@@ -14,7 +14,7 @@ flake8 trio/ \
     || EXIT_STATUS=$?
 
 # pylint to at least cover common omissions of "await" and "async" qualifiers
-find trio/ -name '*.py' |
+find trio/ -not -name 'test_pylint_missing_await.py' -name '*.py' |
     PYTHONPATH=. xargs pylint --load-plugins=trio.testing.pylint-missing-await \
     --disable=all --enable=missing-await,not-an-iterable,not-context-manager \
     || EXIT_STATUS=$?
