@@ -4,8 +4,8 @@
 #
 #    pip-compile --output-file test-requirements.txt test-requirements.in
 #
+-e git+https://github.com/PyCQA/astroid.git#egg=astroid  # via pylint
 asn1crypto==0.24.0        # via cryptography
-astroid==2.2.5            # via pylint
 async-generator==1.10
 atomicwrites==1.3.0       # via pytest
 attrs==19.1.0
