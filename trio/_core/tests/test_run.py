@@ -1654,10 +1654,6 @@ def test_nice_error_on_bad_calls_to_run_or_spawn():
             assert "asyncio" in str(excinfo.value)
 
             with pytest.raises(TypeError) as excinfo:
-                bad_call(generator_based_coro)
-            assert "asyncio" in str(excinfo.value)
-
-            with pytest.raises(TypeError) as excinfo:
                 bad_call(lambda: asyncio.Future())
             assert "asyncio" in str(excinfo.value)
 
