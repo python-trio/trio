@@ -11,7 +11,7 @@ import collections.abc
 from contextlib import contextmanager, closing
 
 from contextvars import copy_context
-from math import inf
+from math import inf, isnan
 from time import perf_counter
 
 from sniffio import current_async_library_cvar
@@ -124,6 +124,13 @@ class SystemClock:
 ################################################################
 
 
+def _convert_deadline(arg):
+    result = float(arg)
+    if isnan(result):
+        raise ValueError("deadlines cannot be NaN")
+    return result
+
+
 @attr.s(cmp=False, repr=False, slots=True)
 class CancelScope:
     """A *cancellation scope*: the link between a unit of cancellable
@@ -159,20 +166,57 @@ class CancelScope:
     :exc:`RuntimeError` if you violate this rule.)
 
     The :class:`CancelScope` constructor takes initial values for the
-    cancel scope's :attr:`deadline` and :attr:`shield` attributes; these
-    may be freely modified after construction, whether or not the scope
-    has been entered yet, and changes take immediate effect.
+    cancel scope's :attr:`deadline`, :attr:`cleanup_deadline`,
+    :attr:`shield`, and :attr:`shield_during_cleanup` attributes;
+    these may be freely modified after construction, whether or not
+    the scope has been entered yet, and changes take immediate effect.
+
     """
 
+    # The set of tasks that might possibly be affected by a cancellation
+    # of this cancel scope
     _tasks = attr.ib(factory=set, init=False)
+
+    # True if we have entered the cancel scope's 'with' block yet, and
+    # shouldn't be allowed to enter it again
     _has_been_entered = attr.ib(default=False, init=False)
-    _effective_deadline = attr.ib(default=inf, init=False)
+
+    # True if cancel() has been called or the deadline has expired
     cancel_called = attr.ib(default=False, init=False)
+
+    # True if we passed the _cleanup_deadline time before exiting the
+    # 'with' block, either via a deadline callback or via cancel()
+    # with no grace period
+    cleanup_expired = attr.ib(default=False, init=False)
+
+    # True if the 'with' block caught a Cancelled exception
     cancelled_caught = attr.ib(default=False, init=False)
 
+    # If other than +inf, this is the time at which we have registered
+    # ourselves in Runner.deadlines to have
+    # _registered_deadline_expired() called.
+    # This is _deadline until cancel_called is True, then
+    # _cleanup_deadline until cleanup_expired is True, then +inf;
+    # except that it's always +inf if we have no _tasks.
+    _registered_deadline = attr.ib(default=inf, init=False)
+
     # Constructor arguments:
-    _deadline = attr.ib(default=inf, kw_only=True)
-    _shield = attr.ib(default=False, kw_only=True)
+    _deadline = attr.ib(default=inf, converter=_convert_deadline, kw_only=True)
+    _cleanup_deadline = attr.ib(
+        default=attr.Factory(lambda self: self._deadline, takes_self=True),
+        converter=_convert_deadline,
+        kw_only=True
+    )
+    _shield = attr.ib(
+        default=False,
+        validator=attr.validators.instance_of(bool),
+        kw_only=True
+    )
+    _shield_during_cleanup = attr.ib(
+        default=False,
+        validator=attr.validators.instance_of(bool),
+        kw_only=True
+    )
 
     @enable_ki_protection
     def __enter__(self):
@@ -182,10 +226,13 @@ class CancelScope:
                 "Each CancelScope may only be used for a single 'with' block"
             )
         self._has_been_entered = True
-        if current_time() >= self._deadline:
+        now = current_time()
+        if now >= self._deadline:
             self.cancel_called = True
-        with self._might_change_effective_deadline():
-            self._add_task(task)
+        if now >= self._cleanup_deadline:
+            self.cleanup_expired = True
+        self._add_task(task)
+        self._update_registered_deadline()
         return self
 
     @enable_ki_protection
@@ -222,43 +269,54 @@ class CancelScope:
         else:
             binding = "unbound"
 
-        if self.cancel_called:
+        try:
+            now = current_time()
+        except RuntimeError:  # must be called from async context
+            now = None
+
+        if self.cleanup_expired:
             state = ", cancelled"
-        elif self.deadline == inf:
-            state = ""
-        else:
-            try:
-                now = current_time()
-            except RuntimeError:  # must be called from async context
-                state = ""
-            else:
-                state = ", deadline is {:.2f} seconds {}".format(
-                    abs(self.deadline - now),
-                    "from now" if self.deadline >= now else "ago"
+        elif self.cancel_called:
+            state = ", cancelled pending cleanup"
+            if now is not None and self._cleanup_deadline != inf:
+                state += ", cleanup deadline is {:.2f} seconds {}".format(
+                    abs(self._cleanup_deadline - now),
+                    "from now" if self._cleanup_deadline >= now else "ago"
                 )
+        elif self.deadline != inf and now is not None:
+            state = ", deadline is {:.2f} seconds {}".format(
+                abs(self.deadline - now),
+                "from now" if self.deadline >= now else "ago"
+            )
+        else:
+            state = ""
 
         return "<trio.CancelScope at {:#x}, {}{}>".format(
             id(self), binding, state
         )
 
-    @contextmanager
     @enable_ki_protection
-    def _might_change_effective_deadline(self):
-        try:
-            yield
-        finally:
-            old = self._effective_deadline
-            if self.cancel_called or not self._tasks:
-                new = inf
-            else:
-                new = self._deadline
-            if old != new:
-                self._effective_deadline = new
-                runner = GLOBAL_RUN_CONTEXT.runner
-                if old != inf:
-                    del runner.deadlines[old, id(self)]
-                if new != inf:
-                    runner.deadlines[new, id(self)] = self
+    def _update_registered_deadline(self):
+        old = self._registered_deadline
+        if self.cleanup_expired or not self._tasks:
+            # After grace period expires, no more callbacks needed.
+            # If no tasks are attached, our cancellation has no impact.
+            new = inf
+        elif self.cancel_called:
+            # cancel() has been called (or deadline expired) but
+            # grace period is still ticking -- set up to be called
+            # back when the grace period expires
+            new = self._cleanup_deadline
+        else:
+            new = self._deadline
+
+        if old != new:
+            self._registered_deadline = new
+            runner = GLOBAL_RUN_CONTEXT.runner
+            if old != inf:
+                del runner.deadlines[old, id(self)]
+            if new != inf:
+                runner.deadlines[new, id(self)] = self
 
     @property
     def deadline(self):
@@ -280,6 +338,12 @@ class CancelScope:
         course, then `we want to know!
         <https://github.com/python-trio/trio/issues>`__)
 
+        Changing the deadline will also change the :attr:`cleanup_deadline`
+        so as to keep the difference between the two attributes the
+        same as it was before. Changing the deadline from infinity
+        to some finite value will set the cleanup deadline to that same
+        value.
+
         Defaults to :data:`math.inf`, which means "no deadline", though
         this can be overridden by the ``deadline=`` argument to
         the :class:`~trio.CancelScope` constructor.
@@ -288,8 +352,44 @@ class CancelScope:
 
     @deadline.setter
     def deadline(self, new_deadline):
-        with self._might_change_effective_deadline():
-            self._deadline = float(new_deadline)
+        old_deadline = self._deadline
+        self._deadline = _convert_deadline(new_deadline)
+        if old_deadline == inf and self._deadline != inf:
+            self._cleanup_deadline = self._deadline
+        elif old_deadline != self._deadline:  # avoid inf minus inf creating NaN
+            self._cleanup_deadline += self._deadline - old_deadline
+        self._update_registered_deadline()
+
+    @property
+    def cleanup_deadline(self):
+        """Read-write, :class:`float`. An absolute time on the current run's
+        clock at which the cancellation of this scope will extend to
+        also cover nested scopes that set
+        :attr:`shield_during_cleanup` to :data:`True`.
+
+        Normally this is set implicitly by the ``grace_period`` argument
+        to :func:`move_on_after` and friends; for example,
+        ``move_on_at(DEADLINE, grace_period=5)`` creates a cancel scope
+        with ``cleanup_deadline = DEADLINE + 5``.
+
+        You can modify this attribute.  Setting it earlier than the
+        :attr:`deadline` is allowed, but will not result in a
+        cancellation being delivered before the :attr:`deadline` in
+        the absence of an explicit call to :meth:`cancel`. Calls to
+        :meth:`cancel` may also implicitly modify the
+        :attr:`cleanup_deadline`; see the :meth:`cancel` documentation
+        for details.
+
+        The default :attr:`cleanup_deadline` is the specified :attr:`deadline`,
+        i.e., no grace period.
+        """
+        return self._cleanup_deadline
+
+    @cleanup_deadline.setter
+    def cleanup_deadline(self, new_deadline):
+        new_deadline = _convert_deadline(new_deadline)
+        self._cleanup_deadline = new_deadline
+        self._update_registered_deadline()
 
     @property
     def shield(self):
@@ -316,28 +416,77 @@ class CancelScope:
         return self._shield
 
     @shield.setter
-    @enable_ki_protection
     def shield(self, new_value):
+        self._set_shield("_shield", new_value)
+
+    @property
+    def shield_during_cleanup(self):
+        """Read-write, :class:`bool`, default :data:`False`. Like
+        :attr:`shield`, but instead of shielding this scope from outside
+        cancellations indefinitely, it only shields until the outside
+        cancellation's :attr:`cleanup_deadline` expires. This allows for
+        :ref:`blocking cleanup <cleanup-with-grace-period>` whose maximum
+        duration is specified externally.
+
+        You can set both :attr:`shield` and
+        :attr:`shield_during_cleanup` independently, but
+        :attr:`shield` offers strictly more protection, so if
+        :attr:`shield` is :data:`True` then the value of
+        :attr:`shield_during_cleanup` doesn't matter.
+        """
+        return self._shield_during_cleanup
+
+    @shield_during_cleanup.setter
+    def shield_during_cleanup(self, new_value):
+        self._set_shield("_shield_during_cleanup", new_value)
+
+    @enable_ki_protection
+    def _set_shield(self, attr_name, new_value):
         if not isinstance(new_value, bool):
-            raise TypeError("shield must be a bool")
-        self._shield = new_value
-        if not self._shield:
+            raise TypeError("{} must be a bool".format(attr_name.lstrip("_")))
+        setattr(self, attr_name, new_value)
+        if not new_value:
             for task in self._tasks:
                 task._attempt_delivery_of_any_pending_cancel()
 
     @enable_ki_protection
-    def cancel(self):
+    def cancel(self, *, grace_period=0, _as_of=None):
         """Cancels this scope immediately.
 
-        This method is idempotent, i.e., if the scope was already
-        cancelled then this method silently does nothing.
+        Multiple calls to :meth:`cancel` with the same ``grace_period``
+        are idempotent. Calling :meth:`cancel` again with a shorter
+        ``grace_period`` may reduce the amount of time available for
+        cleanup; the resulting :attr:`cleanup_deadline` is the minimum
+        of the cleanup deadlines implied by all calls to :meth:`cancel`.
+
+        Args:
+          grace_period (float): If specified, wait this many seconds
+              before extending this cancellation to also cover nested
+              scopes that set :attr:`shield_during_cleanup` to
+              :data:`True`. This is implemented by decreasing
+              :attr:`cleanup_deadline` to at most :func:`current_time`
+              plus ``grace_period``. If no ``grace_period`` is given,
+              perform a full cancellation immediately.
+
         """
-        if self.cancel_called:
+        if self.cleanup_expired:
             return
-        with self._might_change_effective_deadline():
-            self.cancel_called = True
+        self.cancel_called = True
+        now = _as_of if _as_of is not None else current_time()
+        self._cleanup_deadline = min(
+            self._cleanup_deadline, now + grace_period
+        )
+        self.cleanup_expired = (now >= self._cleanup_deadline)
+        self._update_registered_deadline()
         for task in self._tasks:
             task._attempt_delivery_of_any_pending_cancel()
+
+    def _registered_deadline_expired(self, as_of):
+        if not self.cancel_called:
+            self.cancel(grace_period=inf, _as_of=as_of)
+        else:
+            assert not self.cleanup_expired
+            self.cancel(grace_period=0, _as_of=as_of)
 
     def _add_task(self, task):
         self._tasks.add(task)
@@ -350,8 +499,8 @@ class CancelScope:
 
     # Used by the nursery.start trickiness
     def _tasks_removed_by_adoption(self, tasks):
-        with self._might_change_effective_deadline():
-            self._tasks.difference_update(tasks)
+        self._tasks.difference_update(tasks)
+        self._update_registered_deadline()  # might have no tasks left
 
     # Used by the nursery.start trickiness
     def _tasks_added_by_adoption(self, tasks):
@@ -370,8 +519,8 @@ class CancelScope:
             and scope_task._pending_cancel_scope() is self
         ):
             exc = MultiError.filter(self._exc_filter, exc)
-        with self._might_change_effective_deadline():
-            self._remove_task(scope_task)
+        self._remove_task(scope_task)
+        self._update_registered_deadline()  # might have no tasks left
         return exc
 
 
@@ -529,6 +678,14 @@ def open_nursery():
     return NurseryManager()
 
 
+def _is_only_cancelleds(exc):
+    return isinstance(exc, _core.Cancelled) or (
+        isinstance(exc, _core.MultiError) and all(
+            _is_only_cancelleds(subexc) for subexc in exc.exceptions
+        )
+    )
+
+
 class Nursery:
     def __init__(self, parent_task, cancel_scope):
         self._parent_task = parent_task
@@ -560,7 +717,16 @@ class Nursery:
 
     def _add_exc(self, exc):
         self._pending_excs.append(exc)
-        self.cancel_scope.cancel()
+        if _is_only_cancelleds(exc):
+            # A cancellation that propagates out of a task must be
+            # associated with some cancel scope in the nursery's cancel
+            # stack. If that scope is cancelled, it's cancelled for all
+            # tasks in the nursery, and adding our own cancellation on
+            # top of that (with a potentially different grace period)
+            # just confuses things.
+            pass
+        else:
+            self.cancel_scope.cancel()
 
     def _check_nursery_closed(self):
         if not any(
@@ -644,15 +810,37 @@ class Nursery:
 
 
 def _pending_cancel_scope(cancel_stack):
-    # Return the outermost exception that is is not outside a shield.
+    # Return the outermost of the following two possibilities:
+    # - the outermost cancel scope in cleanup state (cancel_called and not
+    #   cleanup_expired) that is not outside a shield_during_cleanup
+    # - the outermost cancel scope in fully-cancelled state
+    #   (cleanup_expired, which implies also cancel_called)
+    #   that is not outside any kind of shield
+
     pending_scope = None
+    pending_with_cleanup_expired = None
+
     for scope in cancel_stack:
-        # Check shield before _exc, because shield should not block
-        # processing of *this* scope's exception
-        if scope.shield:
+        # Check shielding before cancellation state, because shield
+        # should not block processing of *this* scope's exception
+        if scope._shield:
+            # Full shield: nothing outside this scope can affect a task
+            # that is currently executing code inside the scope.
             pending_scope = None
+            pending_with_cleanup_expired = None
+
+        if scope._shield_during_cleanup:
+            # Shield during cleanup: only cancel scopes with cleanup_expired
+            # outside this scope can affect a task that's executing code
+            # inside it.
+            pending_scope = pending_with_cleanup_expired
+
         if pending_scope is None and scope.cancel_called:
             pending_scope = scope
+
+        if pending_with_cleanup_expired is None and scope.cleanup_expired:
+            pending_with_cleanup_expired = scope
+
     return pending_scope
 
 
@@ -1501,8 +1689,10 @@ def run_impl(runner, async_fn, args):
         while runner.deadlines:
             (deadline, _), cancel_scope = runner.deadlines.peekitem(0)
             if deadline <= now:
-                # This removes the given scope from runner.deadlines:
-                cancel_scope.cancel()
+                # This removes the given scope from runner.deadlines,
+                # or reinserts it with a later deadline if there's a
+                # grace period involved.
+                cancel_scope._registered_deadline_expired(now)
                 idle_primed = False
             else:
                 break
@@ -1671,12 +1861,26 @@ def current_effective_deadline():
     """
     task = current_task()
     deadline = inf
+    cleanup_deadline = inf
+
     for scope in task._cancel_stack:
         if scope._shield:
-            deadline = inf
+            deadline = cleanup_deadline = inf
+        if scope._shield_during_cleanup:
+            deadline = cleanup_deadline
+
+        if scope.cleanup_expired:
+            cleanup_deadline = -inf
+        else:
+            cleanup_deadline = min(
+                cleanup_deadline, scope._cleanup_deadline
+            )
+
         if scope.cancel_called:
             deadline = -inf
-        deadline = min(deadline, scope._deadline)
+        else:
+            deadline = min(deadline, scope._deadline)
+
     return deadline
 
 
@@ -1704,7 +1908,7 @@ async def checkpoint_if_cancelled():
 
     Equivalent to (but potentially more efficient than)::
 
-        if trio.current_deadline() == -inf:
+        if trio.current_effective_deadline() == -inf:
             await trio.hazmat.checkpoint()
 
     This is either a no-op, or else it allow other tasks to be scheduled and

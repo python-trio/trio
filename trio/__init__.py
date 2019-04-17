@@ -24,7 +24,7 @@ from ._core import (
 
 from ._timeouts import (
     move_on_at, move_on_after, sleep_forever, sleep_until, sleep, fail_at,
-    fail_after, TooSlowError
+    fail_after, shield_during_cleanup, TooSlowError
 )
 
 from ._sync import (
