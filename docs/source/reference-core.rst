@@ -651,6 +651,19 @@ Since all tasks are descendents of the initial task, one consequence
 of this is that :func:`run` can't finish until all tasks have
 finished.
 
+.. warning::
+
+  A return statement will not cancel the nursery if it still has tasks running.
+
+  .. code-block:: python
+  
+      with trio.open_nursery() as nursery:
+          nursery.start_soon(trio.sleep(5))
+
+          await trio.sleep(1)
+          return
+
+  This code will wait 5 seconds, NOT 1.
 
 Child tasks and cancellation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
