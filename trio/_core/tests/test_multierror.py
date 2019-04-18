@@ -593,16 +593,10 @@ else:
     have_ipython = True
 
 need_ipython = pytest.mark.skipif(not have_ipython, reason="need IPython")
-# https://github.com/ipython/ipython/issues/11590
-fails_on_38 = pytest.mark.xfail(
-    sys.version_info >= (3, 8),
-    reason="IPython is currently broken on 3.8-dev"
-)
 
 
 @slow
 @need_ipython
-@fails_on_38
 def test_ipython_exc_handler():
     completed = run_script("simple_excepthook.py", use_ipython=True)
     check_simple_excepthook(completed)
@@ -617,7 +611,6 @@ def test_ipython_imported_but_unused():
 
 @slow
 @need_ipython
-@fails_on_38
 def test_ipython_custom_exc_handler():
     # Check we get a nice warning (but only one!) if the user is using IPython
     # and already has some other set_custom_exc handler installed.
