@@ -471,6 +471,7 @@ async def test_SocketType_resolve(socket_type, addrs):
         async def res(*args):
             return await getattr(sock, resolver)(*args)
 
+        # yapf: disable
         assert await res((addrs.arbitrary,
                           "http")) == (addrs.arbitrary, 80, *addrs.extra)
         if v6:
@@ -485,6 +486,7 @@ async def test_SocketType_resolve(socket_type, addrs):
         # Check the <broadcast> special case, because why not
         assert await res(("<broadcast>",
                           123)) == (addrs.broadcast, 123, *addrs.extra)
+        # yapf: enable
 
         # But not if it's true (at least on systems where getaddrinfo works
         # correctly)
