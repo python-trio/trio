@@ -102,7 +102,7 @@ async def test_open_ssl_over_tcp_stream_and_everything_else():
 async def test_open_ssl_over_tcp_listeners():
     (listener,) = await open_ssl_over_tcp_listeners(
         0, SERVER_CTX, host="127.0.0.1"
-    )
+    )  # yapf: disable
     async with listener:
         assert isinstance(listener, trio.SSLListener)
         tl = listener.transport_listener
