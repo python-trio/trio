@@ -6,7 +6,7 @@ import sys
 import pytest
 
 from .. import _core
-from .._threads import run_sync_in_worker_thread
+from trio import run_sync_in_worker_thread
 from .._util import (
     signal_raise, ConflictDetector, fspath, is_main_thread, generic_function
 )
