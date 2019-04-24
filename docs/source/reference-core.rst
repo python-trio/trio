@@ -1271,7 +1271,7 @@ exit its ``async for`` loop. Then the program shuts down because both
 tasks have exited.
 
 We also added an ``async with`` to the consumer. This isn't as
-important, but can it help us catch mistakes or other problems. For
+important, but it can help us catch mistakes or other problems. For
 example, suppose that the consumer exited early for some reason –
 maybe because of a bug. Then the producer would be sending messages
 into the void, and might get stuck indefinitely. But, if the consumer
