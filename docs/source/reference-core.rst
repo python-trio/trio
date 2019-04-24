@@ -514,11 +514,6 @@ objects.
       exception, and (2) this scope is the one that was responsible
       for triggering this :exc:`~trio.Cancelled` exception.
 
-      If the same :class:`CancelScope` is reused for multiple ``with``
-      blocks, the :attr:`cancelled_caught` attribute applies to the
-      most recent ``with`` block. (It is reset to :data:`False` each
-      time a new ``with`` block is entered.)
-
    .. attribute:: cancel_called
 
       Readonly :class:`bool`. Records whether cancellation has been
