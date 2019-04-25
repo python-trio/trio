@@ -113,6 +113,12 @@ def test_MultiError():
     sys.version_info < (3, 6, 4), reason="Unsupported in python < 3.6.4"
 )
 async def test_MultiErrorNotHashable():
+    exc1 = NotHashableException(42)
+    exc2 = NotHashableException(4242)
+    exc3 = ValueError()
+    assert exc1 != exc2
+    assert exc1 != exc3
+
     with pytest.raises(MultiError):
         async with open_nursery() as nursery:
             nursery.start_soon(raise_nothashable, 42)
