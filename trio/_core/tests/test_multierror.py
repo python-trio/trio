@@ -12,6 +12,24 @@ import warnings
 from .tutil import slow
 
 from .._multierror import MultiError, concat_tb
+from ..._core import open_nursery
+
+
+class NotHashableException(Exception):
+    code = None
+
+    def __init__(self, code):
+        super().__init__()
+        self.code = code
+
+    def __eq__(self, other):
+        if not isinstance(other, NotHashableException):
+            return False
+        return self.code == other.code
+
+
+async def raise_nothashable(code):
+    raise NotHashableException(code)
 
 
 def raiser1():
@@ -89,6 +107,16 @@ def test_MultiError():
         MultiError(object())
     with pytest.raises(TypeError):
         MultiError([KeyError(), ValueError])
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 6, 4), reason="Unsupported in python < 3.6.4"
+)
+async def test_MultiErrorNotHashable():
+    with pytest.raises(MultiError):
+        async with open_nursery() as nursery:
+            nursery.start_soon(raise_nothashable, 42)
+            nursery.start_soon(raise_nothashable, 4242)
 
 
 def make_tree():
