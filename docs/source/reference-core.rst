@@ -653,16 +653,16 @@ finished.
 
 .. note::
 
-  A return statement will not cancel the nursery if it still has tasks running::
+   A return statement will not cancel the nursery if it still has tasks running::
 
-    async def main():
-      async with trio.open_nursery() as nursery:
-          nursery.start_soon(trio.sleep, 5)
-          return
+     async def main():
+         async with trio.open_nursery() as nursery:
+             nursery.start_soon(trio.sleep, 5)
+             return
 
-    trio.run(main)
+     trio.run(main)
 
-  This code will wait 5 seconds (for the child task to finish), and then return.
+   This code will wait 5 seconds (for the child task to finish), and then return.
 
 Child tasks and cancellation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
