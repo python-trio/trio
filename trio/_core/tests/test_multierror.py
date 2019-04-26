@@ -67,6 +67,10 @@ def get_tb(raiser):
     return get_exc(raiser).__traceback__
 
 
+def einfo(exc):
+    return (type(exc), exc, exc.__traceback__)
+
+
 def test_concat_tb():
 
     tb1 = get_tb(raiser1)
@@ -123,6 +127,36 @@ async def test_MultiErrorNotHashable():
         async with open_nursery() as nursery:
             nursery.start_soon(raise_nothashable, 42)
             nursery.start_soon(raise_nothashable, 4242)
+
+
+def test_MultiError_filter_NotHashable():
+    excs = MultiError([NotHashableException(42), ValueError()])
+
+    def handle_ValueError(exc):
+        if isinstance(exc, ValueError):
+            return None
+        else:
+            return exc
+
+    filtered_excs = MultiError.filter(handle_ValueError, excs)
+    assert isinstance(filtered_excs, NotHashableException)
+
+
+def test_traceback_recursion():
+    exc1 = RuntimeError()
+    exc2 = KeyError()
+    exc3 = NotHashableException(42)
+    # Note how this creates a loop, where exc1 refers to exc1
+    # This could trigger an infinite recursion; the 'seen' set is supposed to prevent
+    # this.
+    exc1.__cause__ = MultiError([exc1, exc2, exc3])
+    # python traceback.TracebackException < 3.6.4 does not support unhashable exceptions
+    # and raises a TypeError exception
+    if sys.version_info < (3, 6, 4):
+        with pytest.raises(TypeError):
+            format_exception(*einfo(exc1))
+    else:
+        format_exception(*einfo(exc1))
 
 
 def make_tree():
@@ -343,9 +377,6 @@ def test_assert_match_in_seq():
 
 
 def test_format_exception():
-    def einfo(exc):
-        return (type(exc), exc, exc.__traceback__)
-
     exc = get_exc(raiser1)
     formatted = "".join(format_exception(*einfo(exc)))
     assert "raiser1_string" in formatted

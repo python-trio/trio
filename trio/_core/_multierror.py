@@ -7,6 +7,13 @@ import attr
 
 __all__ = ["MultiError"]
 
+# python traceback.TracebackException < 3.6.4 does not support unhashable exceptions
+# see https://github.com/python/cpython/pull/4014 for details
+if sys.version_info < (3, 6, 4):
+    exc_key = lambda exc: exc
+else:
+    exc_key = id
+
 ################################################################
 # MultiError
 ################################################################
@@ -375,7 +382,7 @@ def traceback_exception_init(
     if isinstance(exc_value, MultiError):
         embedded = []
         for exc in exc_value.exceptions:
-            if id(exc) not in _seen:
+            if exc_key(exc) not in _seen:
                 embedded.append(
                     traceback.TracebackException.from_exception(
                         exc,
