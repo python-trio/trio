@@ -1,10 +1,10 @@
 from functools import partial
 import io
 
-import trio
-from . import _core
 from .abc import AsyncResource
 from ._util import aiter_compat, async_wraps, fspath
+
+import trio
 
 __all__ = ['open_file', 'wrap_file']
 
@@ -127,10 +127,10 @@ class AsyncIOWrapper(AsyncResource):
         """
 
         # ensure the underling file is closed during cancellation
-        with _core.CancelScope(shield=True):
+        with trio.CancelScope(shield=True):
             await trio.run_sync_in_worker_thread(self._wrapped.close)
 
-        await _core.checkpoint_if_cancelled()
+        await trio.hazmat.checkpoint_if_cancelled()
 
 
 async def open_file(

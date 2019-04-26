@@ -3,7 +3,7 @@
 import errno
 from contextlib import contextmanager
 
-from . import _core
+import trio
 from . import socket as tsocket
 from ._util import ConflictDetector
 from .abc import HalfCloseableStream, Listener
@@ -24,11 +24,11 @@ def _translate_socket_errors_to_stream_errors():
         yield
     except OSError as exc:
         if exc.errno in _closed_stream_errnos:
-            raise _core.ClosedResourceError(
+            raise trio.ClosedResourceError(
                 "this socket was already closed"
             ) from None
         else:
-            raise _core.BrokenResourceError(
+            raise trio.BrokenResourceError(
                 "socket connection broken: {}".format(exc)
             ) from exc
 
@@ -95,17 +95,15 @@ class SocketStream(HalfCloseableStream):
 
     async def send_all(self, data):
         if self.socket.did_shutdown_SHUT_WR:
-            await _core.checkpoint()
-            raise _core.ClosedResourceError(
-                "can't send data after sending EOF"
-            )
+            await trio.hazmat.checkpoint()
+            raise trio.ClosedResourceError("can't send data after sending EOF")
         with self._send_conflict_detector.sync:
             with _translate_socket_errors_to_stream_errors():
                 with memoryview(data) as data:
                     if not data:
-                        await _core.checkpoint()
+                        await trio.hazmat.checkpoint()
                         if self.socket.fileno() == -1:
-                            raise _core.ClosedResourceError(
+                            raise trio.ClosedResourceError(
                                 "socket was already closed"
                             )
                         return
@@ -118,7 +116,7 @@ class SocketStream(HalfCloseableStream):
     async def wait_send_all_might_not_block(self):
         async with self._send_conflict_detector:
             if self.socket.fileno() == -1:
-                raise _core.ClosedResourceError
+                raise trio.ClosedResourceError
             with _translate_socket_errors_to_stream_errors():
                 await self.socket.wait_writable()
 
@@ -133,14 +131,14 @@ class SocketStream(HalfCloseableStream):
 
     async def receive_some(self, max_bytes):
         if max_bytes < 1:
-            await _core.checkpoint()
+            await trio.hazmat.checkpoint()
             raise ValueError("max_bytes must be >= 1")
         with _translate_socket_errors_to_stream_errors():
             return await self.socket.recv(max_bytes)
 
     async def aclose(self):
         self.socket.close()
-        await _core.checkpoint()
+        await trio.hazmat.checkpoint()
 
     # __aenter__, __aexit__ inherited from HalfCloseableStream are OK
 
@@ -375,7 +373,7 @@ class SocketListener(Listener[SocketStream]):
                 sock, _ = await self.socket.accept()
             except OSError as exc:
                 if exc.errno in _closed_stream_errnos:
-                    raise _core.ClosedResourceError
+                    raise trio.ClosedResourceError
                 if exc.errno not in _ignorable_accept_errnos:
                     raise
             else:
@@ -388,4 +386,4 @@ class SocketListener(Listener[SocketStream]):
         try:
             self.socket.close()
         finally:
-            await _core.checkpoint()
+            await trio.hazmat.checkpoint()

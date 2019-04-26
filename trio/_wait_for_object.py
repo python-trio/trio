@@ -1,9 +1,7 @@
 import math
 from . import _timeouts
-from . import _core
-from ._threads import run_sync_in_worker_thread
+import trio
 from ._core._windows_cffi import ffi, kernel32, ErrorCodes, raise_winerror, _handle
-from ._sync import CapacityLimiter
 
 __all__ = ["WaitForSingleObject"]
 
@@ -34,12 +32,12 @@ async def WaitForSingleObject(obj):
     # that we can use to cancel the thread.
     cancel_handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     try:
-        await run_sync_in_worker_thread(
+        await trio.run_sync_in_worker_thread(
             WaitForMultipleObjects_sync,
             handle,
             cancel_handle,
             cancellable=True,
-            limiter=CapacityLimiter(math.inf),
+            limiter=trio.CapacityLimiter(math.inf),
         )
     finally:
         # Clean up our cancel handle. In case we get here because this task was
