@@ -68,6 +68,8 @@ Inter-task ordering
 
 .. autoclass:: Sequencer
 
+.. autoclass:: LabeledSequencer
+
 .. autofunction:: wait_all_tasks_blocked
 
 

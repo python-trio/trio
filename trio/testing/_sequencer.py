@@ -86,7 +86,7 @@ class Sequencer:
 
 class LabeledSequencer(Sequencer):
 
-    """The labeled version of :class:`Sequencer`
+    """The labeled version of :class:`~trio.testing.Sequencer`
 
     It allows you to specify ahead of time what position the sequencer should
     wait for, making the insertion of new positions much easier. Using the same
