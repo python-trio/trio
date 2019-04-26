@@ -227,6 +227,56 @@ async def test_Sequencer():
         async with seq(0):
             pass  # pragma: no cover
 
+async def test_LabeledSequencer():
+    record = []
+
+    def t(val):
+        print(val)
+        record.append(val)
+
+    async def f1(seq):
+        async with seq("f1 first"):
+            t(("f1", 1))
+        async with seq("f1 second"):
+            t(("f1", 3))
+        async with seq("f1 third"):
+            t(("f1", 4))
+
+    async def f2(seq):
+        async with seq("f2 first"):
+            t(("f2", 0))
+        async with seq("f2 second"):
+            t(("f2", 2))
+
+    seq = LabeledSequencer(
+        "f2 first",
+        "f1 first",
+        "f2 second",
+        "f1 second",
+        "f1 third",
+        "wait blocked"
+    )
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(f1, seq)
+        nursery.start_soon(f2, seq)
+        async with seq("wait blocked"):
+            await wait_all_tasks_blocked()
+        assert record == [
+            ("f2", 0), ("f1", 1), ("f2", 2), ("f1", 3), ("f1", 4)
+        ]
+
+    seq = LabeledSequencer("first")
+    # Catches us if we try to re-use a sequence point:
+    async with seq("first"):
+        pass
+    with pytest.raises(RuntimeError):
+        async with seq("first"):
+            pass  # pragma: no cover
+
+    with pytest.raises(ValueError):
+        async with seq("unspecified"):
+            pass
+
 
 async def test_Sequencer_cancel():
     # Killing a blocked task makes everything blow up
@@ -256,6 +306,33 @@ async def test_Sequencer_cancel():
         async with seq(3):
             pass  # pragma: no cover
 
+async def test_LabeledSequencer_cancel():
+    # Killing a blocked task makes everything blow up
+    record = []
+    seq = LabeledSequencer("first", "second", "third", "fourth")
+
+    async def child(label: str):
+        with _core.CancelScope() as scope:
+            if label == "second":
+                scope.cancel()
+            try:
+                async with seq(label):
+                    pass  # pragma: no cover
+            except RuntimeError:
+                record.append("seq({}) RuntimeError".format(label))
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(child, "second")
+        nursery.start_soon(child, "third")
+        async with seq("first"):
+            pass  # pragma: no cover
+
+    assert record == ["seq(second) RuntimeError", "seq(third) RuntimeError"]
+
+    # Late arrivals also get errors
+    with pytest.raises(RuntimeError):
+        async with seq("fourth"):
+            pass  # pragma: no cover
 
 ################################################################
 
