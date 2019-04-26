@@ -412,6 +412,7 @@ Socket objects
    arguments require pre-resolved addresses:
 
    * :meth:`~socket.socket.accept`
+   * :meth:`~socket.socket.bind`
    * :meth:`~socket.socket.recv`
    * :meth:`~socket.socket.recv_into`
    * :meth:`~socket.socket.recvfrom`
