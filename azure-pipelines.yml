@@ -67,7 +67,7 @@ jobs:
   steps:
   - task: NuGetToolInstaller@0
 
-  - bash: ci.sh
+  - bash: ./ci.sh
     displayName: "Run the actual tests"
 
   - task: PublishTestResults@2
@@ -123,7 +123,7 @@ jobs:
     inputs:
       versionSpec: '$(python.version)'
 
-  - bash: ci.sh
+  - bash: ./ci.sh
     displayName: "Run the actual tests"
 
   - task: PublishTestResults@2
