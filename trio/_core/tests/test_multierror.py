@@ -113,9 +113,6 @@ def test_MultiError():
         MultiError([KeyError(), ValueError])
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 6, 4), reason="Unsupported in python < 3.6.4"
-)
 async def test_MultiErrorNotHashable():
     exc1 = NotHashableException(42)
     exc2 = NotHashableException(4242)
