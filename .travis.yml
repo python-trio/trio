@@ -27,7 +27,7 @@ matrix:
     - python: 3.8-dev
 
 script:
-  - ci/ci.sh
+  - ./ci.sh
 
 branches:
   except:

@@ -2,7 +2,7 @@ import signal
 from contextlib import contextmanager
 from collections import OrderedDict
 
-from . import _core
+import trio
 from ._sync import Event
 from ._util import (
     signal_raise, aiter_compat, is_main_thread, ConflictDetector
@@ -154,7 +154,7 @@ def open_signal_receiver(*signals):
             "Sorry, open_signal_receiver is only possible when running in "
             "Python interpreter's main thread"
         )
-    token = _core.current_trio_token()
+    token = trio.hazmat.current_trio_token()
     queue = SignalReceiver()
 
     def handler(signum, _):

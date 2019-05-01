@@ -102,7 +102,7 @@ python setup.py sdist --formats=zip
 python -m pip install dist/*.zip
 
 if [ "$CHECK_DOCS" = "1" ]; then
-    python -m pip install -r ci/rtd-requirements.txt
+    python -m pip install -r docs-requirements.txt
     towncrier --yes  # catch errors in newsfragments
     cd docs
     # -n (nit-picky): warn on missing references

@@ -12,6 +12,24 @@ import warnings
 from .tutil import slow
 
 from .._multierror import MultiError, concat_tb
+from ..._core import open_nursery
+
+
+class NotHashableException(Exception):
+    code = None
+
+    def __init__(self, code):
+        super().__init__()
+        self.code = code
+
+    def __eq__(self, other):
+        if not isinstance(other, NotHashableException):
+            return False
+        return self.code == other.code
+
+
+async def raise_nothashable(code):
+    raise NotHashableException(code)
 
 
 def raiser1():
@@ -47,6 +65,10 @@ def get_exc(raiser):
 
 def get_tb(raiser):
     return get_exc(raiser).__traceback__
+
+
+def einfo(exc):
+    return (type(exc), exc, exc.__traceback__)
 
 
 def test_concat_tb():
@@ -89,6 +111,49 @@ def test_MultiError():
         MultiError(object())
     with pytest.raises(TypeError):
         MultiError([KeyError(), ValueError])
+
+
+async def test_MultiErrorNotHashable():
+    exc1 = NotHashableException(42)
+    exc2 = NotHashableException(4242)
+    exc3 = ValueError()
+    assert exc1 != exc2
+    assert exc1 != exc3
+
+    with pytest.raises(MultiError):
+        async with open_nursery() as nursery:
+            nursery.start_soon(raise_nothashable, 42)
+            nursery.start_soon(raise_nothashable, 4242)
+
+
+def test_MultiError_filter_NotHashable():
+    excs = MultiError([NotHashableException(42), ValueError()])
+
+    def handle_ValueError(exc):
+        if isinstance(exc, ValueError):
+            return None
+        else:
+            return exc
+
+    filtered_excs = MultiError.filter(handle_ValueError, excs)
+    assert isinstance(filtered_excs, NotHashableException)
+
+
+def test_traceback_recursion():
+    exc1 = RuntimeError()
+    exc2 = KeyError()
+    exc3 = NotHashableException(42)
+    # Note how this creates a loop, where exc1 refers to exc1
+    # This could trigger an infinite recursion; the 'seen' set is supposed to prevent
+    # this.
+    exc1.__cause__ = MultiError([exc1, exc2, exc3])
+    # python traceback.TracebackException < 3.6.4 does not support unhashable exceptions
+    # and raises a TypeError exception
+    if sys.version_info < (3, 6, 4):
+        with pytest.raises(TypeError):
+            format_exception(*einfo(exc1))
+    else:
+        format_exception(*einfo(exc1))
 
 
 def make_tree():
@@ -309,9 +374,6 @@ def test_assert_match_in_seq():
 
 
 def test_format_exception():
-    def einfo(exc):
-        return (type(exc), exc, exc.__traceback__)
-
     exc = get_exc(raiser1)
     formatted = "".join(format_exception(*einfo(exc)))
     assert "raiser1_string" in formatted

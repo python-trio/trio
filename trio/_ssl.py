@@ -153,7 +153,8 @@ import operator as _operator
 import ssl as _stdlib_ssl
 from enum import Enum as _Enum
 
-from . import _core
+import trio
+
 from .abc import Stream, Listener
 from ._highlevel_generic import aclose_forcefully
 from . import _sync
@@ -397,9 +398,9 @@ class SSLStream(Stream):
         if self._state is _State.OK:
             return
         elif self._state is _State.BROKEN:
-            raise _core.BrokenResourceError
+            raise trio.BrokenResourceError
         elif self._state is _State.CLOSED:
-            raise _core.ClosedResourceError
+            raise trio.ClosedResourceError
         else:  # pragma: no cover
             assert False
 
@@ -408,7 +409,7 @@ class SSLStream(Stream):
     # touch it. The big comment at the top of this file will help explain
     # too.
     async def _retry(self, fn, *args, ignore_want_read=False):
-        await _core.checkpoint_if_cancelled()
+        await trio.hazmat.checkpoint_if_cancelled()
         yielded = False
         try:
             finished = False
@@ -447,7 +448,7 @@ class SSLStream(Stream):
                     _stdlib_ssl.SSLError, _stdlib_ssl.CertificateError
                 ) as exc:
                     self._state = _State.BROKEN
-                    raise _core.BrokenResourceError from exc
+                    raise trio.BrokenResourceError from exc
                 else:
                     finished = True
                 if ignore_want_read:
@@ -549,7 +550,7 @@ class SSLStream(Stream):
             return ret
         finally:
             if not yielded:
-                await _core.cancel_shielded_checkpoint()
+                await trio.hazmat.cancel_shielded_checkpoint()
 
     async def _do_handshake(self):
         try:
@@ -585,7 +586,7 @@ class SSLStream(Stream):
         try:
             self._check_status()
         except:
-            await _core.checkpoint()
+            await trio.hazmat.checkpoint()
             raise
         await self._handshook.ensure(checkpoint=True)
 
@@ -614,7 +615,7 @@ class SSLStream(Stream):
             self._check_status()
             try:
                 await self._handshook.ensure(checkpoint=False)
-            except _core.BrokenResourceError as exc:
+            except trio.BrokenResourceError as exc:
                 # For some reason, EOF before handshake sometimes raises
                 # SSLSyscallError instead of SSLEOFError (e.g. on my linux
                 # laptop, but not on appveyor). Thanks openssl.
@@ -632,7 +633,7 @@ class SSLStream(Stream):
                 raise ValueError("max_bytes must be >= 1")
             try:
                 return await self._retry(self._ssl_object.read, max_bytes)
-            except _core.BrokenResourceError as exc:
+            except trio.BrokenResourceError as exc:
                 # This isn't quite equivalent to just returning b"" in the
                 # first place, because we still end up with self._state set to
                 # BROKEN. But that's actually fine, because after getting an
@@ -663,7 +664,7 @@ class SSLStream(Stream):
             # SSLObject interprets write(b"") as an EOF for some reason, which
             # is not what we want.
             if not data:
-                await _core.checkpoint()
+                await trio.hazmat.checkpoint()
                 return
             await self._retry(self._ssl_object.write, data)
 
@@ -707,7 +708,7 @@ class SSLStream(Stream):
 
         """
         if self._state is _State.CLOSED:
-            await _core.checkpoint()
+            await trio.hazmat.checkpoint()
             return
         if self._state is _State.BROKEN or self._https_compatible:
             self._state = _State.CLOSED
@@ -771,7 +772,7 @@ class SSLStream(Stream):
                 await self._retry(
                     self._ssl_object.unwrap, ignore_want_read=True
                 )
-            except (_core.BrokenResourceError, _core.BusyResourceError):
+            except (trio.BrokenResourceError, trio.BusyResourceError):
                 pass
         except:
             # Failure! Kill the stream and move on.

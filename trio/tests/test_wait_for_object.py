@@ -12,7 +12,8 @@ from .. import _core
 from .. import _timeouts
 if on_windows:
     from .._core._windows_cffi import ffi, kernel32
-    from .._wait_for_object import WaitForSingleObject, WaitForMultipleObjects_sync, run_sync_in_worker_thread
+    from .._wait_for_object import WaitForSingleObject, WaitForMultipleObjects_sync
+    from trio import run_sync_in_worker_thread
 
 
 async def test_WaitForMultipleObjects_sync():

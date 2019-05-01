@@ -2,9 +2,10 @@ import fcntl
 import os
 import errno
 
-from . import _core
 from ._abc import SendStream, ReceiveStream
 from ._util import ConflictDetector
+
+import trio
 
 
 class _FdHolder:
@@ -59,9 +60,9 @@ class _FdHolder:
 
     async def aclose(self):
         if not self.closed:
-            _core.notify_fd_close(self.fd)
+            trio.hazmat.notify_fd_close(self.fd)
             self._raw_close()
-        await _core.checkpoint()
+        await trio.hazmat.checkpoint()
 
 
 class PipeSendStream(SendStream):
@@ -78,7 +79,7 @@ class PipeSendStream(SendStream):
             # have to check up front, because send_all(b"") on a closed pipe
             # should raise
             if self._fd_holder.closed:
-                raise _core.ClosedResourceError("this pipe was already closed")
+                raise trio.ClosedResourceError("this pipe was already closed")
 
             length = len(data)
             # adapted from the SocketStream code
@@ -89,25 +90,25 @@ class PipeSendStream(SendStream):
                         try:
                             sent += os.write(self._fd_holder.fd, remaining)
                         except BlockingIOError:
-                            await _core.wait_writable(self._fd_holder.fd)
+                            await trio.hazmat.wait_writable(self._fd_holder.fd)
                         except OSError as e:
                             if e.errno == errno.EBADF:
-                                raise _core.ClosedResourceError(
+                                raise trio.ClosedResourceError(
                                     "this pipe was closed"
                                 ) from None
                             else:
-                                raise _core.BrokenResourceError from e
+                                raise trio.BrokenResourceError from e
 
     async def wait_send_all_might_not_block(self) -> None:
         async with self._conflict_detector:
             if self._fd_holder.closed:
-                raise _core.ClosedResourceError("this pipe was already closed")
+                raise trio.ClosedResourceError("this pipe was already closed")
             try:
-                await _core.wait_writable(self._fd_holder.fd)
+                await trio.hazmat.wait_writable(self._fd_holder.fd)
             except BrokenPipeError as e:
                 # kqueue: raises EPIPE on wait_writable instead
                 # of sending, which is annoying
-                raise _core.BrokenResourceError from e
+                raise trio.BrokenResourceError from e
 
     async def aclose(self):
         await self._fd_holder.aclose()
@@ -137,14 +138,14 @@ class PipeReceiveStream(ReceiveStream):
                 try:
                     data = os.read(self._fd_holder.fd, max_bytes)
                 except BlockingIOError:
-                    await _core.wait_readable(self._fd_holder.fd)
+                    await trio.hazmat.wait_readable(self._fd_holder.fd)
                 except OSError as e:
                     if e.errno == errno.EBADF:
-                        raise _core.ClosedResourceError(
+                        raise trio.ClosedResourceError(
                             "this pipe was closed"
                         ) from None
                     else:
-                        raise _core.BrokenResourceError from e
+                        raise trio.BrokenResourceError from e
                 else:
                     break
 
