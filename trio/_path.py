@@ -65,10 +65,23 @@ def iter_wrapper_factory(cls, meth_name):
 
 
 def thread_wrapper_factory(cls, meth_name):
-    @async_wraps(cls, pathlib.Path, meth_name)
+    @async_wraps(cls, cls._wraps, meth_name)
     async def wrapper(self, *args, **kwargs):
         args = unwrap_paths(args)
         meth = getattr(self._wrapped, meth_name)
+        func = partial(meth, *args, **kwargs)
+        value = await trio.run_sync_in_worker_thread(func)
+        return rewrap_path(value)
+
+    return wrapper
+
+
+def classmethod_wrapper_factory(cls, meth_name):
+    @classmethod
+    @async_wraps(cls, cls._wraps, meth_name)
+    async def wrapper(cls, *args, **kwargs):
+        args = unwrap_paths(args)
+        meth = getattr(cls._wraps, meth_name)
         func = partial(meth, *args, **kwargs)
         value = await trio.run_sync_in_worker_thread(func)
         return rewrap_path(value)
@@ -106,9 +119,9 @@ class AsyncAutoWrapperType(type):
             # .z. exclude cls._wrap_iter
             if attr_name.startswith('_') or attr_name in attrs:
                 continue
-
             if isinstance(attr, classmethod):
-                setattr(cls, attr_name, attr)
+                wrapper = classmethod_wrapper_factory(cls, attr_name)
+                setattr(cls, attr_name, wrapper)
             elif isinstance(attr, types.FunctionType):
                 wrapper = thread_wrapper_factory(cls, attr_name)
                 setattr(cls, attr_name, wrapper)

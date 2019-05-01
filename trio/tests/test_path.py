@@ -238,3 +238,14 @@ async def test_iterdir(path):
         entries.add(entry.name)
 
     assert entries == {'bar.txt', 'foo'}
+
+
+async def test_classmethods():
+    assert isinstance(await trio.Path.home(), trio.Path)
+
+    # pathlib.Path has only two classmethods
+    assert str(await trio.Path.home()) == os.path.expanduser('~')
+    assert str(await trio.Path.cwd()) == os.getcwd()
+
+    # Wrapped method has docstring
+    assert trio.Path.home.__doc__
