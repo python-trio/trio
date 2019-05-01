@@ -3,7 +3,7 @@ formats:
   - htmlzip
   - epub
 
-requirements_file: ci/rtd-requirements.txt
+requirements_file: docs-requirements.txt
 
 python:
   version: 3.5
