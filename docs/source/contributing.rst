@@ -368,25 +368,19 @@ a dangling reference, you can add it to the `nitpick_ignore
 <http://www.sphinx-doc.org/en/stable/config.html#confval-nitpick_ignore>`__
 whitelist in ``docs/source/conf.py``.
 
-To build the docs locally, first start by installing the trio
-requirements (possibly in a virtualenv!), then install
-
-* sphinx
-* sphinxcontrib-trio
-* sphinx-rtd-theme
-
-After that, build the docs using ``make html`` in the docs
-directory. The whole process might look something like this::
+To build the docs locally, use our handy ``docs-requirements.txt``
+file to install all of the required packages (possibly using a
+virtualenv). After that, build the docs using ``make html`` in the
+docs directory. The whole process might look something like this::
 
     cd path/to/project/checkout/
-    pip install -r test-requirements.txt
-    pip install sphinx sphinxcontrib-trio sphinx-rtd-theme
+    pip install -r docs-requirements.txt
     cd docs
     make html
 
-You can then browse the docs using the builtin http server:
+You can then browse the docs using Python's builtin http server:
 ``python -m http.server 8000 --bind 127.0.0.1 --directory build/html``
-and then opening ``http://127.0.0.1:8000/`` in your web browser
+and then opening ``http://127.0.0.1:8000/`` in your web browser.
 
 .. _joining-the-team:
 
