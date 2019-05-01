@@ -102,7 +102,7 @@ python setup.py sdist --formats=zip
 python -m pip install dist/*.zip
 
 if [ "$CHECK_DOCS" = "1" ]; then
-    python -m pip install -r ci/rtd-requirements.txt
+    python -m pip install -r docs-requirements.txt
     towncrier --yes  # catch errors in newsfragments
     cd docs
     # -n (nit-picky): warn on missing references
@@ -119,6 +119,7 @@ else
     cd empty
 
     INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
+    cp ../setup.cfg $INSTALLDIR
     pytest -W error -ra --junitxml=../test-results.xml --run-slow --faulthandler-timeout=60 ${INSTALLDIR} --cov="$INSTALLDIR" --cov-config=../.coveragerc --verbose
 
     # Disable coverage on 3.8 until we run 3.8 on Windows CI too

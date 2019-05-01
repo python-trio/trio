@@ -5,8 +5,10 @@ from itertools import count
 import attr
 import outcome
 
-from . import _core
+import trio
+
 from ._sync import CapacityLimiter
+from ._core import enable_ki_protection, disable_ki_protection, RunVar
 
 __all__ = [
     "run_sync_in_worker_thread",
@@ -49,23 +51,23 @@ class BlockingTrioPortal:
 
     def __init__(self, trio_token=None):
         if trio_token is None:
-            trio_token = _core.current_trio_token()
+            trio_token = trio.hazmat.current_trio_token()
         self._trio_token = trio_token
 
     # This is the part that runs in the trio thread
     def _run_cb(self, q, afn, args):
-        @_core.disable_ki_protection
+        @disable_ki_protection
         async def unprotected_afn():
             return await afn(*args)
 
         async def await_in_trio_thread_task():
             q.put_nowait(await outcome.acapture(unprotected_afn))
 
-        _core.spawn_system_task(await_in_trio_thread_task, name=afn)
+        trio.hazmat.spawn_system_task(await_in_trio_thread_task, name=afn)
 
     # This is the part that runs in the trio thread
     def _run_sync_cb(self, q, fn, args):
-        @_core.disable_ki_protection
+        @disable_ki_protection
         def unprotected_fn():
             return fn(*args)
 
@@ -74,7 +76,7 @@ class BlockingTrioPortal:
 
     def _do_it(self, cb, fn, *args):
         try:
-            _core.current_task()
+            trio.hazmat.current_task()
         except RuntimeError:
             pass
         else:
@@ -221,7 +223,7 @@ class BlockingTrioPortal:
 # really the only real limit is on stack size actually *used*; how much you
 # *allocate* should be pretty much irrelevant.)
 
-_limiter_local = _core.RunVar("limiter")
+_limiter_local = RunVar("limiter")
 # I pulled this number out of the air; it isn't based on anything. Probably we
 # should make some kind of measurements to pick a good value.
 DEFAULT_LIMIT = 40
@@ -253,7 +255,7 @@ class ThreadPlaceholder:
     name = attr.ib()
 
 
-@_core.enable_ki_protection
+@enable_ki_protection
 async def run_sync_in_worker_thread(
     sync_fn, *args, cancellable=False, limiter=None
 ):
@@ -335,18 +337,18 @@ async def run_sync_in_worker_thread(
       Whatever ``sync_fn(*args)`` returns.
 
     Raises:
-      Whatever ``sync_fn(*args)`` raises.
+      Exception: Whatever ``sync_fn(*args)`` raises.
 
     """
-    await _core.checkpoint_if_cancelled()
-    token = _core.current_trio_token()
+    await trio.hazmat.checkpoint_if_cancelled()
+    token = trio.hazmat.current_trio_token()
     if limiter is None:
         limiter = current_default_worker_thread_limiter()
 
     # Holds a reference to the task that's blocked in this function waiting
     # for the result – or None if this function was cancelled and we should
     # discard the result.
-    task_register = [_core.current_task()]
+    task_register = [trio.hazmat.current_task()]
     name = "trio-worker-{}".format(next(_worker_thread_counter))
     placeholder = ThreadPlaceholder(name)
 
@@ -365,7 +367,7 @@ async def run_sync_in_worker_thread(
 
         result = outcome.capture(do_release_then_return_result)
         if task_register[0] is not None:
-            _core.reschedule(task_register[0], result)
+            trio.hazmat.reschedule(task_register[0], result)
 
     # This is the function that runs in the worker thread to do the actual
     # work and then schedule the call to report_back_in_trio_thread_fn
@@ -373,7 +375,7 @@ async def run_sync_in_worker_thread(
         result = outcome.capture(sync_fn, *args)
         try:
             token.run_sync_soon(report_back_in_trio_thread_fn, result)
-        except _core.RunFinishedError:
+        except trio.RunFinishedError:
             # The entire run finished, so our particular task is certainly
             # long gone -- it must have cancelled.
             pass
@@ -393,8 +395,8 @@ async def run_sync_in_worker_thread(
     def abort(_):
         if cancellable:
             task_register[0] = None
-            return _core.Abort.SUCCEEDED
+            return trio.hazmat.Abort.SUCCEEDED
         else:
-            return _core.Abort.FAILED
+            return trio.hazmat.Abort.FAILED
 
-    return await _core.wait_task_rescheduled(abort)
+    return await trio.hazmat.wait_task_rescheduled(abort)

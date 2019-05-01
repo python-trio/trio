@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import Generic, TypeVar
 from ._util import aiter_compat
-from . import _core
+import trio
 
 
 # We use ABCMeta instead of ABC, plus set __slots__=(), so as not to force a
@@ -708,5 +708,5 @@ class ReceiveChannel(AsyncResource, Generic[T_co]):
     async def __anext__(self):
         try:
             return await self.receive()
-        except _core.EndOfChannel:
+        except trio.EndOfChannel:
             raise StopAsyncIteration

@@ -1,3 +1,7 @@
+# NOTE:
+# possibly it would be easier to use https://pypi.org/project/tree-format/
+# instead of formatting by hand like this code does...
+
 """
 Demo/exploration of how to print a task tree. Outputs:
 

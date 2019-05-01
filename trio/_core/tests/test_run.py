@@ -412,9 +412,8 @@ def test_instruments(recwarn):
     # after_task_step event fires.
     expected = (
         [("before_run",), ("schedule", task)] +
-        [("before", task), ("schedule", task), ("after", task)] * 5 + [
-            ("before", task), ("after", task), ("after_run",)
-        ]
+        [("before", task), ("schedule", task), ("after", task)] * 5 +
+        [("before", task), ("after", task), ("after_run",)]
     )
     assert len(r1.record) > len(r2.record) > len(r3.record)
     assert r1.record == r2.record + r3.record
@@ -1666,10 +1665,6 @@ def test_nice_error_on_bad_calls_to_run_or_spawn():
 
             with pytest.raises(TypeError) as excinfo:
                 bad_call(asyncio.Future())
-            assert "asyncio" in str(excinfo.value)
-
-            with pytest.raises(TypeError) as excinfo:
-                bad_call(generator_based_coro)
             assert "asyncio" in str(excinfo.value)
 
             with pytest.raises(TypeError) as excinfo:

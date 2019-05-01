@@ -514,11 +514,6 @@ objects.
       exception, and (2) this scope is the one that was responsible
       for triggering this :exc:`~trio.Cancelled` exception.
 
-      If the same :class:`CancelScope` is reused for multiple ``with``
-      blocks, the :attr:`cancelled_caught` attribute applies to the
-      most recent ``with`` block. (It is reset to :data:`False` each
-      time a new ``with`` block is entered.)
-
    .. autoattribute:: cancel_called
 
 
@@ -640,6 +635,18 @@ Since all tasks are descendents of the initial task, one consequence
 of this is that :func:`run` can't finish until all tasks have
 finished.
 
+.. note::
+
+   A return statement will not cancel the nursery if it still has tasks running::
+
+     async def main():
+         async with trio.open_nursery() as nursery:
+             nursery.start_soon(trio.sleep, 5)
+             return
+
+     trio.run(main)
+
+   This code will wait 5 seconds (for the child task to finish), and then return.
 
 Child tasks and cancellation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1260,7 +1267,7 @@ exit its ``async for`` loop. Then the program shuts down because both
 tasks have exited.
 
 We also added an ``async with`` to the consumer. This isn't as
-important, but can it help us catch mistakes or other problems. For
+important, but it can help us catch mistakes or other problems. For
 example, suppose that the consumer exited early for some reason –
 maybe because of a bug. Then the producer would be sending messages
 into the void, and might get stuck indefinitely. But, if the consumer

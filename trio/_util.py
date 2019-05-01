@@ -14,7 +14,8 @@ import async_generator
 # ConflictDetector needs checkpoint so it also has to import
 # _core. Possibly we should split this file into two: one for true generic
 # low-level utility code, and one for higher level helpers?
-from . import _core
+
+import trio
 
 __all__ = [
     "signal_raise",
@@ -113,7 +114,7 @@ class _ConflictDetectorSync:
 
     def __enter__(self):
         if self._held:
-            raise _core.BusyResourceError(self._msg)
+            raise trio.BusyResourceError(self._msg)
         else:
             self._held = True
 
@@ -144,7 +145,7 @@ class ConflictDetector:
         self.sync = _ConflictDetectorSync(msg)
 
     async def __aenter__(self):
-        await _core.checkpoint()
+        await trio.hazmat.checkpoint()
         return self.sync.__enter__()
 
     async def __aexit__(self, *args):

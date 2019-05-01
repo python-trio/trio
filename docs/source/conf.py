@@ -36,6 +36,7 @@ nitpick_ignore = [
     # trio.abc is documented at random places scattered throughout the docs
     ("py:mod", "trio.abc"),
     ("py:class", "math.inf"),
+    ("py:exc", "Anything else"),
 ]
 autodoc_inherit_docstrings = False
 
