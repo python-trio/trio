@@ -13,7 +13,7 @@ yapf ==0.27.0  # formatting
 flake8
 
 # https://github.com/python-trio/trio/pull/654#issuecomment-420518745
-typed_ast; implementation_name == "cpython"
+typed_ast; python_version < "3.8" and implementation_name == "cpython"
 
 # Trio's own dependencies
 cffi; os_name == "nt"
