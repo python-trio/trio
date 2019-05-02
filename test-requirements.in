@@ -13,7 +13,7 @@ yapf ==0.27.0  # formatting
 flake8
 
 # https://github.com/python-trio/trio/pull/654#issuecomment-420518745
-typed_ast;python_version<"3.7" and implementation_name=="cpython"
+typed_ast; implementation_name == "cpython"
 
 # Trio's own dependencies
 cffi; os_name == "nt"
@@ -24,3 +24,8 @@ async_generator >= 1.9
 idna
 outcome
 sniffio
+
+# Required by contextvars, but harmless to install everywhere.
+# dependabot drops the contextvars dependency because it runs
+# on 3.7.
+immutables >= 0.6
