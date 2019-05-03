@@ -11,14 +11,13 @@ atomicwrites==1.3.0       # via pytest
 attrs==19.1.0
 backcall==0.1.0           # via ipython
 cffi==1.12.3              # via cryptography
-contextvars==2.3 ; python_version < "3.7"
 coverage==4.5.3           # via pytest-cov
 cryptography==2.6.1       # via pyopenssl, trustme
 decorator==4.4.0          # via ipython, traitlets
 entrypoints==0.3          # via flake8
 flake8==3.7.7
 idna==2.8
-immutables==0.6           # via contextvars
+immutables==0.9
 ipython-genutils==0.2.0   # via traitlets
 ipython==7.5.0
 isort==4.3.17             # via pylint
@@ -48,7 +47,7 @@ sniffio==1.1.0
 sortedcontainers==2.1.0
 traitlets==4.3.2          # via ipython
 trustme==0.5.1
-typed-ast==1.3.1 ; python_version < "3.7" and implementation_name == "cpython"
+typed-ast==1.3.1 ; python_version < "3.8" and implementation_name == "cpython"
 wcwidth==0.1.7            # via prompt-toolkit
 wrapt==1.11.1             # via astroid
 yapf==0.27.0
