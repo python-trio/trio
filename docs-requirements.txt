@@ -11,11 +11,10 @@ babel==2.6.0              # via sphinx
 certifi==2019.3.9         # via requests
 chardet==3.0.4            # via requests
 click==7.0                # via towncrier
-contextvars==2.3 ; python_version < "3.7"
 docutils==0.14            # via sphinx
 idna==2.8
 imagesize==1.1.0          # via sphinx
-immutables==0.6           # via contextvars
+immutables==0.9
 incremental==17.5.0       # via towncrier
 jinja2==2.10.1            # via sphinx, towncrier
 markupsafe==1.1.1         # via jinja2
