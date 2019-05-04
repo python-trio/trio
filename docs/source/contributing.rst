@@ -309,7 +309,8 @@ Release notes
 ~~~~~~~~~~~~~
 
 We use `towncrier <https://github.com/hawkowl/towncrier>`__ to manage
-our release notes. Basically, every pull request that has a user
+our `release notes <https://trio.readthedocs.io/en/latest/history.html>`__.
+Basically, every pull request that has a user
 visible effect should add a short file to the ``newsfragments/``
 directory describing the change, with a name like ``<ISSUE
 NUMBER>.<TYPE>.rst``. See `newsfragments/README.rst
