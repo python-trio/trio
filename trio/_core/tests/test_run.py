@@ -2070,6 +2070,11 @@ def test_Cancelled_init():
     _core.Cancelled._init()
 
 
+def test_Cancelled_str():
+    cancelled = _core.Cancelled._init()
+    assert str(cancelled) == 'Cancelled'
+
+
 def test_sniffio_integration():
     with pytest.raises(sniffio.AsyncLibraryNotFoundError):
         sniffio.current_async_library()

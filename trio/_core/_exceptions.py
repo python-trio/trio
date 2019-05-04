@@ -73,6 +73,9 @@ class Cancelled(BaseException):
             )
         super().__init__()
 
+    def __str__(self):
+        return "Cancelled"
+
     @classmethod
     def _init(cls):
         """A private constructor so that a user-created instance of Cancelled
