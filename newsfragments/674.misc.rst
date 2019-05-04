@@ -1,1 +1,1 @@
-Calling :func:`str` on a :exc:`trio.Cancelled` exception object returns "Cancelled" instead of an empty string.
+Calling ``str`` on a :exc:`trio.Cancelled` exception object returns "Cancelled" instead of an empty string.
