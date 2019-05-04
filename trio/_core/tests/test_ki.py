@@ -202,15 +202,15 @@ async def test_agen_protection():
 def test_ki_enabled_out_of_context():
     assert not _core.currently_ki_protected()
 
+
 def test_ki_disabled_in_del():
     def nestedfunction():
-            return _core.currently_ki_protected()
-    
+        return _core.currently_ki_protected()
+
     def __del__():
         assert _core.currently_ki_protected()
         assert nestedfunction()
-        
-            
+
     __del__()
     assert not nestedfunction()
 
