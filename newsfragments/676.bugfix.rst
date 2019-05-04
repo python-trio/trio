@@ -1,1 +1,1 @@
-Destructor methods (``__del__``) are now protected against ``KeyboardInterrupt``
+Destructor methods (``__del__``) are now protected against ``KeyboardInterrupt``.
