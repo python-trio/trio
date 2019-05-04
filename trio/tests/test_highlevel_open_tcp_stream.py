@@ -284,7 +284,7 @@ async def test_one_host_failed_after_connect(autojump_clock):
     assert isinstance(exc, KeyboardInterrupt)
 
 
-# With the default 0.300 second delay, the third attempt will win
+# With the default 0.250 second delay, the third attempt will win
 async def test_basic_fallthrough(autojump_clock):
     sock, scenario = await run_scenario(
         80,
@@ -295,6 +295,7 @@ async def test_basic_fallthrough(autojump_clock):
         ],
     )
     assert sock.ip == "3.3.3.3"
+    # current time is default time + default time + connection time
     assert trio.current_time() == (0.250 + 0.250 + 0.2)
     assert scenario.connect_times == {
         "1.1.1.1": 0,
@@ -348,11 +349,12 @@ async def test_custom_errors_expedite(autojump_clock):
             ("1.1.1.1", 0.1, "error"),
             ("2.2.2.2", 0.2, "error"),
             ("3.3.3.3", 10, "success"),
-            ("4.4.4.4", 0.3, "success"),
+            # .25 is the default timeout
+            ("4.4.4.4", 0.25, "success"),
         ],
     )
     assert sock.ip == "4.4.4.4"
-    assert trio.current_time() == (0.1 + 0.2 + 0.3 + 0.25)
+    assert trio.current_time() == (0.1 + 0.2 + 0.25 + 0.25)
     assert scenario.connect_times == {
         "1.1.1.1": 0,
         "2.2.2.2": 0.1,
