@@ -62,7 +62,7 @@ __all__ = ["open_tcp_stream"]
 #   https://www.researchgate.net/profile/Vaibhav_Bajpai3/publication/304568993_Measuring_the_Effects_of_Happy_Eyeballs/links/5773848e08ae6f328f6c284c/Measuring-the-Effects-of-Happy-Eyeballs.pdf
 # claims that Firefox actually uses 0 ms, unless an about:config option is
 # toggled and then it uses 250 ms.
-DEFAULT_DELAY = 0.300
+DEFAULT_DELAY = 0.250
 
 # How should we call getaddrinfo? In particular, should we use AI_ADDRCONFIG?
 #
