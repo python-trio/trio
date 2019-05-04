@@ -92,6 +92,8 @@ def ki_protection_enabled(frame):
     while frame is not None:
         if LOCALS_KEY_KI_PROTECTION_ENABLED in frame.f_locals:
             return frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED]
+        if frame.f_code.co_name == "__del__":
+            return True
         frame = frame.f_back
     return False
 
