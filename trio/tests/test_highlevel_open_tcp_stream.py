@@ -295,11 +295,11 @@ async def test_basic_fallthrough(autojump_clock):
         ],
     )
     assert sock.ip == "3.3.3.3"
-    assert trio.current_time() == (0.300 + 0.300 + 0.2)
+    assert trio.current_time() == (0.250 + 0.250 + 0.2)
     assert scenario.connect_times == {
         "1.1.1.1": 0,
-        "2.2.2.2": 0.300,
-        "3.3.3.3": 0.600,
+        "2.2.2.2": 0.250,
+        "3.3.3.3": 0.500,
     }
 
 
@@ -313,10 +313,10 @@ async def test_early_success(autojump_clock):
         ],
     )
     assert sock.ip == "2.2.2.2"
-    assert trio.current_time() == (0.300 + 0.1)
+    assert trio.current_time() == (0.250 + 0.1)
     assert scenario.connect_times == {
         "1.1.1.1": 0,
-        "2.2.2.2": 0.300,
+        "2.2.2.2": 0.250,
         # 3.3.3.3 was never even started
     }
 
@@ -352,12 +352,12 @@ async def test_custom_errors_expedite(autojump_clock):
         ],
     )
     assert sock.ip == "4.4.4.4"
-    assert trio.current_time() == (0.1 + 0.2 + 0.3 + 0.3)
+    assert trio.current_time() == (0.1 + 0.2 + 0.3 + 0.25)
     assert scenario.connect_times == {
         "1.1.1.1": 0,
         "2.2.2.2": 0.1,
         "3.3.3.3": 0.1 + 0.2,
-        "4.4.4.4": 0.1 + 0.2 + 0.3,
+        "4.4.4.4": 0.1 + 0.2 + 0.25,
     }
 
 
@@ -368,7 +368,7 @@ async def test_all_fail(autojump_clock):
             ("1.1.1.1", 0.1, "error"),
             ("2.2.2.2", 0.2, "error"),
             ("3.3.3.3", 10, "error"),
-            ("4.4.4.4", 0.3, "error"),
+            ("4.4.4.4", 0.250, "error"),
         ],
         expect_error=OSError,
     )
@@ -380,7 +380,7 @@ async def test_all_fail(autojump_clock):
         "1.1.1.1": 0,
         "2.2.2.2": 0.1,
         "3.3.3.3": 0.1 + 0.2,
-        "4.4.4.4": 0.1 + 0.2 + 0.3,
+        "4.4.4.4": 0.1 + 0.2 + 0.25,
     }
 
 
