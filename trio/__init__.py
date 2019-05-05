@@ -1,4 +1,4 @@
-"""Trio - Pythonic async I/O for humans and snake people.
+"""Trio - A friendly Python library for async concurrency and I/O
 """
 
 # General layout:

@@ -22,10 +22,8 @@
    :target: https://codecov.io/gh/python-trio/trio
    :alt: Test coverage
 
-Trio – async I/O for humans and snake people
-============================================
-
-*P.S. your API is a user interface – Kenneth Reitz*
+Trio – a friendly Python library for async concurrency and I/O
+==============================================================
 
 .. Github carefully breaks rendering of SVG directly out of the repo,
    so we have to redirect through cdn.rawgit.com

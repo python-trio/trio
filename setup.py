@@ -71,7 +71,7 @@ Vital statistics:
 setup(
     name="trio",
     version=__version__,
-    description="An async/await-native I/O library for humans and snake people",
+    description="A friendly Python library for async concurrency and I/O",
     long_description=LONG_DESC,
     author="Nathaniel J. Smith",
     author_email="njs@pobox.com",
