@@ -546,11 +546,7 @@ async def test_cancel_scope_repr(mock_clock):
     scope = _core.CancelScope()
     assert "unbound" in repr(scope)
     with scope:
-        assert "bound to 1 task" in repr(scope)
-        async with _core.open_nursery() as nursery:
-            nursery.start_soon(sleep, 10)
-            assert "bound to 2 tasks" in repr(scope)
-            nursery.cancel_scope.cancel()
+        assert "active" in repr(scope)
         scope.deadline = _core.current_time() - 1
         assert "deadline is 1.00 seconds ago" in repr(scope)
         scope.deadline = _core.current_time() + 10
@@ -871,6 +867,16 @@ async def test_cancel_unbound():
         await wait_all_tasks_blocked()
         scope.cancel()
 
+    # Shield before entry
+    scope = _core.CancelScope()
+    scope.shield = True
+    with _core.CancelScope() as outer, scope:
+        outer.cancel()
+        await _core.checkpoint()
+        scope.shield = False
+        with pytest.raises(_core.Cancelled):
+            await _core.checkpoint()
+
     # Can't reuse
     with _core.CancelScope() as scope:
         await _core.checkpoint()
@@ -906,6 +912,15 @@ async def test_cancel_unbound():
                 pass  # pragma: no cover
         assert "single 'with' block" in str(exc_info.value)
         nursery.cancel_scope.cancel()
+
+    # If not yet entered, cancel_called is true when the deadline has passed
+    # even if cancel() hasn't been called yet
+    scope = _core.CancelScope(deadline=_core.current_time() + 1)
+    assert not scope.cancel_called
+    scope.deadline -= 1
+    assert scope.cancel_called
+    scope.deadline += 1
+    assert scope.cancel_called  # never become un-cancelled
 
 
 async def test_timekeeping():

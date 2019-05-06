@@ -1,0 +1,5 @@
+Inspecting the :attr:`~trio.CancelScope.cancel_called` attribute of a
+not-yet-exited cancel scope whose deadline is in the past now always
+returns ``True``, like you might expect. (Previously it would return
+``False`` for not-yet-entered cancel scopes, and for active cancel
+scopes until the first checkpoint after their deadline expiry.)
