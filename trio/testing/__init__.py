@@ -6,7 +6,7 @@ from ._mock_clock import MockClock
 
 from ._checkpoints import assert_checkpoints, assert_no_checkpoints
 
-from ._sequencer import Sequencer
+from ._sequencer import Sequencer, LabeledSequencer
 
 from ._check_streams import (
     check_one_way_stream, check_two_way_stream, check_half_closeable_stream

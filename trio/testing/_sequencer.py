@@ -1,6 +1,5 @@
 from collections import defaultdict
 
-import attr
 from async_generator import async_generator, yield_, asynccontextmanager
 
 from .. import _core
@@ -10,10 +9,8 @@ from .. import Event
 if False:
     from typing import DefaultDict, Set
 
-__all__ = ["Sequencer"]
+__all__ = ["Sequencer", "LabeledSequencer"]
 
-
-@attr.s(cmp=False, hash=False)
 class Sequencer:
     """A convenience class for forcing code in different tasks to run in an
     explicit linear order.
@@ -54,11 +51,10 @@ class Sequencer:
 
     """
 
-    _sequence_points = attr.ib(
-        default=attr.Factory(lambda: defaultdict(Event)), init=False
-    )  # type: DefaultDict[int, Event]
-    _claimed = attr.ib(default=attr.Factory(set), init=False)  # type: Set[int]
-    _broken = attr.ib(default=False, init=False)
+    def __init__(self):
+        self._sequence_points: DefaultDict[int, Event] = defaultdict(Event)
+        self._claimed: Set[int] = set()
+        self._broken = False
 
     @asynccontextmanager
     @async_generator
@@ -87,3 +83,60 @@ class Sequencer:
             await yield_()
         finally:
             self._sequence_points[position + 1].set()
+
+class LabeledSequencer(Sequencer):
+
+    """The labeled version of :class:`~trio.testing.Sequencer`
+
+    It allows you to specify ahead of time what position the sequencer should
+    wait for, making the insertion of new positions much easier. Using the same
+    example as above::
+
+         async def worker1(seq):
+             async with seq("worker 1 first"):
+                 print(0)
+             async with seq("worker 1 second"):
+                 print(4)
+
+         async def worker2(seq):
+             async with seq("worker 2 first"):
+                 print(2)
+             async with seq("worker 2 second"):
+                 print(5)
+
+         async def worker3(seq):
+             async with seq("worker 3 first"):
+                 print(1)
+             async with seq("worker 3 second"):
+                 print(3)
+
+         async def main():
+             seq = trio.testing.LabeledSequencer(
+                 "worker 1 first",
+                 "worker 3 first",
+                 "worker 2 first",
+                 "worker 3 second",
+                 "worker 1 second",
+                 "worker 2 second"
+             )
+             async with trio.open_nursery() as nursery:
+                 nursery.start_soon(worker1, seq)
+                 nursery.start_soon(worker2, seq)
+                 nursery.start_soon(worker3, seq)
+
+    """
+
+    def __init__(self, *labels: str):
+        super().__init__()
+        self._labels = labels
+
+    @asynccontextmanager
+    @async_generator
+    async def __call__(self, label: str):
+        try:
+            pos = self._labels.index(label)
+        except ValueError:
+            raise ValueError("Label {!r} is unknown".format(label)) from None
+
+        async with super().__call__(pos):
+            await yield_()

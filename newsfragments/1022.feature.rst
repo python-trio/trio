@@ -1,0 +1,2 @@
+Add ``LabeledSequencer`` to ``trio.testing`` which improves the maintainability
+and adaptability of tests.
