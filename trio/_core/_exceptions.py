@@ -1,5 +1,7 @@
 import attr
 
+from trio._util import NoPublicConstructor
+
 
 class TrioInternalError(Exception):
     """Raised by :func:`run` if we encounter a bug in trio, or (possibly) a
@@ -31,7 +33,7 @@ class WouldBlock(Exception):
     pass
 
 
-class Cancelled(BaseException):
+class Cancelled(BaseException, metaclass=NoPublicConstructor):
     """Raised by blocking calls if the surrounding scope has been cancelled.
 
     You should let this exception propagate, to be caught by the relevant
@@ -47,7 +49,7 @@ class Cancelled(BaseException):
     then this *won't* catch a :exc:`Cancelled` exception.
 
     You cannot raise :exc:`Cancelled` yourself. Attempting to do so
-    will produce a :exc:`RuntimeError`. Use :meth:`cancel_scope.cancel()
+    will produce a :exc:`TypeError`. Use :meth:`cancel_scope.cancel()
     <trio.CancelScope.cancel>` instead.
 
     .. note::
@@ -63,26 +65,9 @@ class Cancelled(BaseException):
        everywhere.
 
     """
-    __marker = object()
-
-    def __init__(self, _marker=None):
-        if _marker is not self.__marker:
-            raise RuntimeError(
-                'Cancelled should not be raised directly. Use the cancel() '
-                'method on your cancel scope.'
-            )
-        super().__init__()
 
     def __str__(self):
         return "Cancelled"
-
-    @classmethod
-    def _init(cls):
-        """A private constructor so that a user-created instance of Cancelled
-        can raise an appropriate error. see `issue #342
-        <https://github.com/python-trio/trio/issues/342>`__.
-        """
-        return cls(_marker=cls.__marker)
 
 
 class BusyResourceError(Exception):

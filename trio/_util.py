@@ -280,3 +280,53 @@ class generic_function:
 
     def __getitem__(self, _):
         return self
+
+
+class Final(type):
+    """Metaclass that enforces a class to be final (i.e., subclass not allowed).
+
+    If a class uses this metaclass like this::
+
+        class SomeClass(metaclass=Final):
+            pass
+
+    The metaclass will ensure that no sub class can be created.
+
+    Raises
+    ------
+    - TypeError if a sub class is created
+    """
+
+    def __new__(cls, name, bases, cls_namespace):
+        for base in bases:
+            if isinstance(base, Final):
+                raise TypeError(
+                    "`%s` does not support subclassing" % base.__name__
+                )
+        return type.__new__(cls, name, bases, cls_namespace)
+
+
+class NoPublicConstructor(Final):
+    """Metaclass that enforces a class to be final (i.e., subclass not allowed)
+    and ensures a private constructor.
+
+    If a class uses this metaclass like this::
+
+        class SomeClass(metaclass=NoPublicConstructor):
+            pass
+
+    The metaclass will ensure that no sub class can be created, and that no instance
+    can be initialized.
+
+    If you try to instantiate your class (SomeClass()), a TypeError will be thrown.
+
+    Raises
+    ------
+    - TypeError if a sub class or an instance is created.
+    """
+
+    def __call__(self, *args, **kwargs):
+        raise TypeError("no public constructor available")
+
+    def _create(self, *args, **kwargs):
+        return super().__call__(*args, **kwargs)

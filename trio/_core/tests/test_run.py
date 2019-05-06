@@ -2072,7 +2072,7 @@ def test_system_task_contexts():
 
 def test_Cancelled_init():
     check_Cancelled_error = pytest.raises(
-        RuntimeError, match='should not be raised directly'
+        TypeError, match='no public constructor available'
     )
 
     with check_Cancelled_error:
@@ -2082,12 +2082,30 @@ def test_Cancelled_init():
         _core.Cancelled()
 
     # private constructor should not raise
-    _core.Cancelled._init()
+    _core.Cancelled._create()
 
 
 def test_Cancelled_str():
-    cancelled = _core.Cancelled._init()
+    cancelled = _core.Cancelled._create()
     assert str(cancelled) == 'Cancelled'
+
+
+def test_Cancelled_subclass():
+    with pytest.raises(
+        TypeError, match='`Cancelled` does not support subclassing'
+    ):
+
+        class Subclass(_core.Cancelled):
+            pass
+
+
+def test_CancelScope_subclass():
+    with pytest.raises(
+        TypeError, match='`CancelScope` does not support subclassing'
+    ):
+
+        class Subclass(_core.CancelScope):
+            pass
 
 
 def test_sniffio_integration():
