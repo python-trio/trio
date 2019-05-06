@@ -39,7 +39,7 @@ pyflakes==2.1.1           # via flake8
 pygments==2.3.1           # via ipython
 pylint==2.3.1
 pyopenssl==19.0.0
-pytest-cov==2.6.1
+pytest-cov==2.7.1
 pytest-faulthandler==1.5.0
 pytest==4.4.1
 six==1.12.0               # via astroid, cryptography, prompt-toolkit, pyopenssl, pytest, traitlets
