@@ -195,7 +195,7 @@ class SocketFactory(metaclass=ABCMeta):
 
         Note that unlike :func:`trio.socket.socket`, this does not take a
         ``fileno=`` argument. If a ``fileno=`` is specified, then
-        :func:`trio.socket.socket` returns a regular trio socket object
+        :func:`trio.socket.socket` returns a regular Trio socket object
         instead of calling this method.
 
         """
