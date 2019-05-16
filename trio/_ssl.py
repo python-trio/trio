@@ -404,7 +404,7 @@ class SSLStream(Stream):
         else:  # pragma: no cover
             assert False
 
-    # This is probably the single trickiest function in trio. It has lots of
+    # This is probably the single trickiest function in Trio. It has lots of
     # comments, though, just make sure to think carefully if you ever have to
     # touch it. The big comment at the top of this file will help explain
     # too.

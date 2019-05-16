@@ -67,7 +67,7 @@ class WaitTaskRescheduled:
 async def wait_task_rescheduled(abort_func):
     """Put the current task to sleep, with cancellation support.
 
-    This is the lowest-level API for blocking in trio. Every time a
+    This is the lowest-level API for blocking in Trio. Every time a
     :class:`~trio.hazmat.Task` blocks, it does so by calling this function
     (usually indirectly via some higher-level API).
 

@@ -328,7 +328,7 @@ async def run_sync_in_worker_thread(
        tend to "starve out" IO-bound threads
        <https://bugs.python.org/issue7946>`__, so using
        :func:`run_sync_in_worker_thread` for CPU-bound work is likely to
-       adversely affect the main thread running trio. If you need to do this,
+       adversely affect the main thread running Trio. If you need to do this,
        you're better off using a worker process, or perhaps PyPy (which still
        has a GIL, but may do a better job of fairly allocating CPU time
        between threads).
