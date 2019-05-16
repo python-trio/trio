@@ -69,7 +69,7 @@ if [ "$PYPY_NIGHTLY_BRANCH" != "" ]; then
         # server returns 4xx or 5xx")
         # - nonetheless, pypy.tar.bz2 does not exist, or contains no data
         # This isn't going to work, and the failure is not informative of
-        # anything involving trio.
+        # anything involving Trio.
         ls -l
         echo "PyPy3 nightly build failed to download – something is wrong on their end."
         echo "Skipping testing against the nightly build for right now."

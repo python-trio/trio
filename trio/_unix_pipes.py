@@ -42,7 +42,7 @@ class _FdHolder:
         return self.fd == -1
 
     def _raw_close(self):
-        # This doesn't assume it's in a trio context, so it can be called from
+        # This doesn't assume it's in a Trio context, so it can be called from
         # __del__. You should never call it from Trio context, because it
         # skips calling notify_fd_close. But from __del__, skipping that is
         # OK, because notify_fd_close just wakes up other tasks that are

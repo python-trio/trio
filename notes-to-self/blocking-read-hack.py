@@ -33,7 +33,7 @@ async def blocking_read_with_timeout(fd, count, timeout):
             except OSError as exc:
                 if cancel_requested and exc.errno == errno.ENOTCONN:
                     # Call was successfully cancelled. In a real version we'd
-                    # integrate properly with trio's cancellation tools; here
+                    # integrate properly with Trio's cancellation tools; here
                     # we'll just raise an arbitrary error.
                     raise BlockingReadTimeoutError from None
             print("got", data)

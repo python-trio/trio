@@ -157,7 +157,7 @@ if _sys.platform == 'win32':
     # (you can still get it from stdlib socket, of course, if you want it)
     del SO_REUSEADDR
 
-# get names used by trio that we define on our own
+# get names used by Trio that we define on our own
 from ._socket import IPPROTO_IPV6
 
 # Not defined in all python versions and platforms but sometimes needed

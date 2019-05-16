@@ -38,7 +38,7 @@ class SocketStream(HalfCloseableStream):
     interface based on a raw network socket.
 
     Args:
-      socket: The trio socket object to wrap. Must have type ``SOCK_STREAM``,
+      socket: The Trio socket object to wrap. Must have type ``SOCK_STREAM``,
           and be connected.
 
     By default for TCP sockets, :class:`SocketStream` enables ``TCP_NODELAY``,
@@ -59,7 +59,7 @@ class SocketStream(HalfCloseableStream):
 
     def __init__(self, socket):
         if not isinstance(socket, tsocket.SocketType):
-            raise TypeError("SocketStream requires trio socket object")
+            raise TypeError("SocketStream requires a Trio socket object")
         if socket.type != tsocket.SOCK_STREAM:
             raise ValueError("SocketStream requires a SOCK_STREAM socket")
 
@@ -178,7 +178,7 @@ class SocketStream(HalfCloseableStream):
 # Here's a list of all the possible errors that accept() can return, according
 # to the POSIX spec or the Linux, FreeBSD, macOS, and Windows docs:
 #
-# Can't happen with a trio socket:
+# Can't happen with a Trio socket:
 # - EAGAIN/(WSA)EWOULDBLOCK
 # - EINTR
 # - WSANOTINITIALISED
@@ -321,7 +321,7 @@ class SocketListener(Listener[SocketStream]):
     incoming connections as :class:`SocketStream` objects.
 
     Args:
-      socket: The trio socket object to wrap. Must have type ``SOCK_STREAM``,
+      socket: The Trio socket object to wrap. Must have type ``SOCK_STREAM``,
           and be listening.
 
     Note that the :class:`SocketListener` "takes ownership" of the given
@@ -335,7 +335,7 @@ class SocketListener(Listener[SocketStream]):
 
     def __init__(self, socket):
         if not isinstance(socket, tsocket.SocketType):
-            raise TypeError("SocketListener requires trio socket object")
+            raise TypeError("SocketListener requires a Trio socket object")
         if socket.type != tsocket.SOCK_STREAM:
             raise ValueError("SocketListener requires a SOCK_STREAM socket")
         try:

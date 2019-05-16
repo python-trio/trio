@@ -64,7 +64,7 @@ class RunVar(object):
         else:
             token = _RunVarToken(self, old_value)
 
-        # This can't fail, because if we weren't in trio context then the
+        # This can't fail, because if we weren't in Trio context then the
         # get() above would have failed.
         _run.GLOBAL_RUN_CONTEXT.runner._locals[self] = value
         return token

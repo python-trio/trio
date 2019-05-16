@@ -165,7 +165,7 @@ async def test_too_late_to_cancel():
                 write_fp.write(b"test1\ntest2\n")
 
             # Note: not trio.sleep! We're making sure the OS level
-            # ReadFile completes, before trio has a chance to execute
+            # ReadFile completes, before Trio has a chance to execute
             # another checkpoint and notice it completed.
             time.sleep(1)
             nursery.cancel_scope.cancel()

@@ -67,7 +67,7 @@ class WaitTaskRescheduled:
 async def wait_task_rescheduled(abort_func):
     """Put the current task to sleep, with cancellation support.
 
-    This is the lowest-level API for blocking in trio. Every time a
+    This is the lowest-level API for blocking in Trio. Every time a
     :class:`~trio.hazmat.Task` blocks, it does so by calling this function
     (usually indirectly via some higher-level API).
 
@@ -82,7 +82,7 @@ async def wait_task_rescheduled(abort_func):
     Then you call :func:`wait_task_rescheduled`, passing in ``abort_func``, an
     "abort callback".
 
-    (Terminology: in trio, "aborting" is the process of attempting to
+    (Terminology: in Trio, "aborting" is the process of attempting to
     interrupt a blocked task to deliver a cancellation.)
 
     There are two possibilities for what happens next:
@@ -126,7 +126,7 @@ async def wait_task_rescheduled(abort_func):
 
           # Option 1:
           # Catch the exception from raise_cancel and inject it into the task.
-          # (This is what trio does automatically for you if you return
+          # (This is what Trio does automatically for you if you return
           # Abort.SUCCEEDED.)
           trio.hazmat.reschedule(task, outcome.capture(raise_cancel))
 
@@ -156,9 +156,9 @@ async def wait_task_rescheduled(abort_func):
     .. warning::
 
        If your ``abort_func`` raises an error, or returns any value other than
-       :data:`Abort.SUCCEEDED` or :data:`Abort.FAILED`, then trio will crash
+       :data:`Abort.SUCCEEDED` or :data:`Abort.FAILED`, then Trio will crash
        violently. Be careful! Similarly, it is entirely possible to deadlock a
-       trio program by failing to reschedule a blocked task, or cause havoc by
+       Trio program by failing to reschedule a blocked task, or cause havoc by
        calling :func:`reschedule` too many times. Remember what we said up
        above about how you should use a higher-level API if at all possible?
 

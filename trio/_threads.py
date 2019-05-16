@@ -54,7 +54,7 @@ class BlockingTrioPortal:
             trio_token = trio.hazmat.current_trio_token()
         self._trio_token = trio_token
 
-    # This is the part that runs in the trio thread
+    # This is the part that runs in the Trio thread
     def _run_cb(self, q, afn, args):
         @disable_ki_protection
         async def unprotected_afn():
@@ -65,7 +65,7 @@ class BlockingTrioPortal:
 
         trio.hazmat.spawn_system_task(await_in_trio_thread_task, name=afn)
 
-    # This is the part that runs in the trio thread
+    # This is the part that runs in the Trio thread
     def _run_sync_cb(self, q, fn, args):
         @disable_ki_protection
         def unprotected_fn():
@@ -88,7 +88,7 @@ class BlockingTrioPortal:
         return q.get().unwrap()
 
     def run(self, afn, *args):
-        """Run the given async function in the trio thread, blocking until it
+        """Run the given async function in the Trio thread, blocking until it
         is complete.
 
         Returns or raises whatever the given function returns or raises. It
@@ -107,7 +107,7 @@ class BlockingTrioPortal:
         return self._do_it(self._run_cb, afn, *args)
 
     def run_sync(self, fn, *args):
-        """Run the given synchronous function in the trio thread, blocking
+        """Run the given synchronous function in the Trio thread, blocking
         until it is complete.
 
         Returns or raises whatever the given function returns or raises. It
@@ -328,7 +328,7 @@ async def run_sync_in_worker_thread(
        tend to "starve out" IO-bound threads
        <https://bugs.python.org/issue7946>`__, so using
        :func:`run_sync_in_worker_thread` for CPU-bound work is likely to
-       adversely affect the main thread running trio. If you need to do this,
+       adversely affect the main thread running Trio. If you need to do this,
        you're better off using a worker process, or perhaps PyPy (which still
        has a GIL, but may do a better job of fairly allocating CPU time
        between threads).
@@ -352,7 +352,7 @@ async def run_sync_in_worker_thread(
     name = "trio-worker-{}".format(next(_worker_thread_counter))
     placeholder = ThreadPlaceholder(name)
 
-    # This function gets scheduled into the trio run loop to deliver the
+    # This function gets scheduled into the Trio run loop to deliver the
     # thread's result.
     def report_back_in_trio_thread_fn(result):
         def do_release_then_return_result():

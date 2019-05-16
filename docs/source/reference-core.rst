@@ -4,10 +4,10 @@ Trio's core functionality
 .. module:: trio
 
 
-Entering trio
+Entering Trio
 -------------
 
-If you want to use trio, then the first thing you have to do is call
+If you want to use Trio, then the first thing you have to do is call
 :func:`trio.run`:
 
 .. autofunction:: run
@@ -21,25 +21,25 @@ General principles
 Checkpoints
 ~~~~~~~~~~~
 
-When writing code using trio, it's very important to understand the
-concept of a *checkpoint*. Many of trio's functions act as checkpoints.
+When writing code using Trio, it's very important to understand the
+concept of a *checkpoint*. Many of Trio's functions act as checkpoints.
 
 A checkpoint is two things:
 
-1. It's a point where trio checks for cancellation. For example, if
+1. It's a point where Trio checks for cancellation. For example, if
    the code that called your function set a timeout, and that timeout
    has expired, then the next time your function executes a checkpoint
-   trio will raise a :exc:`Cancelled` exception. See
+   Trio will raise a :exc:`Cancelled` exception. See
    :ref:`cancellation` below for more details.
 
-2. It's a point where the trio scheduler checks its scheduling policy
+2. It's a point where the Trio scheduler checks its scheduling policy
    to see if it's a good time to switch to another task, and
    potentially does so. (Currently, this check is very simple: the
    scheduler always switches at every checkpoint. But `this might
    change in the future
    <https://github.com/python-trio/trio/issues/32>`__.)
 
-When writing trio code, you need to keep track of where your
+When writing Trio code, you need to keep track of where your
 checkpoints are. Why? First, because checkpoints require extra
 scrutiny: whenever you execute a checkpoint, you need to be prepared
 to handle a :exc:`Cancelled` error, or for another task to run and
@@ -48,7 +48,7 @@ to handle a :exc:`Cancelled` error, or for another task to run and
 second, because you also need to make sure that you have *enough*
 checkpoints: if your code doesn't pass through a checkpoint on a
 regular basis, then it will be slow to notice and respond to
-cancellation and – much worse – since trio is a cooperative
+cancellation and – much worse – since Trio is a cooperative
 multi-tasking system where the *only* place the scheduler can switch
 tasks is at checkpoints, it'll also prevent the scheduler from fairly
 allocating time between different tasks and adversely effect the
@@ -56,7 +56,7 @@ response latency of all the other code running in the same
 process. (Informally we say that a task that does this is "hogging the
 run loop".)
 
-So when you're doing code review on a project that uses trio, one of
+So when you're doing code review on a project that uses Trio, one of
 the things you'll want to think about is whether there are enough
 checkpoints, and whether each one is handled correctly. Of course this
 means you need a way to recognize checkpoints. How do you do that?
@@ -79,13 +79,13 @@ points?
 
 .. _checkpoint-rule:
 
-Don't worry – trio's got your back. Since checkpoints are important
+Don't worry – Trio's got your back. Since checkpoints are important
 and ubiquitous, we make it as simple as possible to keep track of
 them. Here are the rules:
 
 * Regular (synchronous) functions never contain any checkpoints.
 
-* Every async function provided by trio *always* acts as a check
+* Every async function provided by Trio *always* acts as a check
   point; if you see ``await <something in trio>``, or ``async for
   ... in <a trio object>``, or ``async with <trio.something>``, then
   that's *definitely* a checkpoint.
@@ -99,7 +99,7 @@ them. Here are the rules:
   checkpoint. So to be safe, you should prepare for scheduling or
   cancellation happening there.
 
-The reason we distinguish between trio functions and other functions
+The reason we distinguish between Trio functions and other functions
 is that we can't make any guarantees about third party
 code. Checkpoint-ness is a transitive property: if function A acts as
 a checkpoint, and you write a function that calls function A, then
@@ -111,7 +111,7 @@ like::
    async def why_is_this_async():
        return 7
 
-that never calls any of trio's async functions. This is an async
+that never calls any of Trio's async functions. This is an async
 function, but it's not a checkpoint. But why make a function async if
 it never calls any async functions? It's possible, but it's a bad
 idea. If you have a function that's not calling any async functions,
@@ -122,7 +122,7 @@ a checkpoint, and their code reviews will go faster.
 (Remember how in the tutorial we emphasized the importance of the
 :ref:`"async sandwich" <async-sandwich>`, and the way it means that
 ``await`` ends up being a marker that shows when you're calling a
-function that calls a function that ... eventually calls one of trio's
+function that calls a function that ... eventually calls one of Trio's
 built-in async functions? The transitivity of async-ness is a
 technical requirement that Python imposes, but since it exactly
 matches the transitivity of checkpoint-ness, we're able to exploit it
@@ -138,14 +138,14 @@ A slightly trickier case is a function like::
 
 Here the function acts as a checkpoint if you call it with
 ``should_sleep`` set to a true value, but not otherwise. This is why
-we emphasize that trio's own async functions are *unconditional* check
+we emphasize that Trio's own async functions are *unconditional* check
 points: they *always* check for cancellation and check for scheduling,
 regardless of what arguments they're passed. If you find an async
-function in trio that doesn't follow this rule, then it's a bug and
+function in Trio that doesn't follow this rule, then it's a bug and
 you should `let us know
 <https://github.com/python-trio/trio/issues>`__.
 
-Inside trio, we're very picky about this, because trio is the
+Inside Trio, we're very picky about this, because Trio is the
 foundation of the whole system so we think it's worth the extra effort
 to make things extra predictable. It's up to you how picky you want to
 be in your code. To give you a more realistic example of what this
@@ -163,12 +163,12 @@ kind of issue looks like in real life, consider this function::
         return data
 
 If called with an ``nbytes`` that's greater than zero, then it will
-call ``sock.recv`` at least once, and ``recv`` is an async trio
+call ``sock.recv`` at least once, and ``recv`` is an async Trio
 function, and thus an unconditional checkpoint. So in this case,
 ``recv_exactly`` acts as a checkpoint. But if we do ``await
 recv_exactly(sock, 0)``, then it will immediately return an empty
 buffer without executing a checkpoint. If this were a function in
-trio itself, then this wouldn't be acceptable, but you may decide you
+Trio itself, then this wouldn't be acceptable, but you may decide you
 don't want to worry about this kind of minor edge case in your own
 code.
 
@@ -183,11 +183,11 @@ arbitrary block of code contains a checkpoint.
 Thread safety
 ~~~~~~~~~~~~~
 
-The vast majority of trio's API is *not* thread safe: it can only be
+The vast majority of Trio's API is *not* thread safe: it can only be
 used from inside a call to :func:`trio.run`. This manual doesn't
 bother documenting this on individual calls; unless specifically noted
-otherwise, you should assume that it isn't safe to call any trio
-functions from anywhere except the trio thread. (But :ref:`see below
+otherwise, you should assume that it isn't safe to call any Trio
+functions from anywhere except the Trio thread. (But :ref:`see below
 <threads>` if you really do need to work with threads.)
 
 
@@ -198,11 +198,11 @@ Time and clocks
 
 Every call to :func:`run` has an associated clock.
 
-By default, trio uses an unspecified monotonic clock, but this can be
+By default, Trio uses an unspecified monotonic clock, but this can be
 changed by passing a custom clock object to :func:`run` (e.g. for
 testing).
 
-You should not assume that trio's internal clock matches any other
+You should not assume that Trio's internal clock matches any other
 clock you have access to, including the clocks of simultaneous calls
 to :func:`trio.run` happening in other processes or threads!
 
@@ -264,7 +264,7 @@ finished`` message.
    <http://docs.python-requests.org/en/master/user/quickstart/#timeouts>`__. We
    think this way is easier to reason about.
 
-How does this work? There's no magic here: trio is built using
+How does this work? There's no magic here: Trio is built using
 ordinary Python functionality, so we can't just abandon the code
 inside the ``with`` block. Instead, we take advantage of Python's
 standard way of aborting a large and complex piece of code: we raise
@@ -292,7 +292,7 @@ triggered it is the only one that will catch it.
 Handling cancellation
 ~~~~~~~~~~~~~~~~~~~~~
 
-Pretty much any code you write using trio needs to have some strategy
+Pretty much any code you write using Trio needs to have some strategy
 to handle :exc:`Cancelled` exceptions – even if you didn't set a
 timeout, then your caller might (and probably will).
 
@@ -313,7 +313,7 @@ you have a task that has to do a lot of work without any I/O, then you
 can use ``await sleep(0)`` to insert an explicit cancel+schedule
 point.
 
-Here's a rule of thumb for designing good trio-style ("trionic"?)
+Here's a rule of thumb for designing good Trio-style ("trionic"?)
 APIs: if you're writing a reusable function, then you shouldn't take a
 ``timeout=`` parameter, and instead let your caller worry about
 it. This has several advantages. First, it leaves the caller's options
@@ -326,7 +326,7 @@ re-use your code. If you write a ``http_get`` function, and then I
 come along later and write a ``log_in_to_twitter`` function that needs
 to internally make several ``http_get`` calls, I don't want to have to
 figure out how to configure the individual timeouts on each of those
-calls – and with trio's timeout system, it's totally unnecessary.
+calls – and with Trio's timeout system, it's totally unnecessary.
 
 Of course, this rule doesn't apply to APIs that need to impose
 internal timeouts. For example, if you write a ``start_http_server``
@@ -363,7 +363,7 @@ move_on_after(5)`` context manager. So this code will print:
    starting...
    move_on_after(5) finished without error
 
-The end result is that trio has successfully cancelled exactly the
+The end result is that Trio has successfully cancelled exactly the
 work that was happening within the scope that was cancelled.
 
 Looking at this, you might wonder how you can tell whether the inner
@@ -384,7 +384,7 @@ so forth – see :class:`CancelScope` below for the full details.
 
 .. _blocking-cleanup-example:
 
-Cancellations in trio are "level triggered", meaning that once a block
+Cancellations in Trio are "level triggered", meaning that once a block
 has been cancelled, *all* cancellable operations in that block will
 keep raising :exc:`Cancelled`. This helps avoid some pitfalls around
 resource clean-up. For example, imagine that we have a function that
@@ -407,14 +407,14 @@ blocking operation, which will also hang forever! At this point, if we
 were using :mod:`asyncio` or another library with "edge-triggered"
 cancellation, we'd be in trouble: since our timeout already fired, it
 wouldn't fire again, and at this point our application would lock up
-forever. But in trio, this *doesn't* happen: the ``await
+forever. But in Trio, this *doesn't* happen: the ``await
 conn.send_goodbye_msg()`` call is still inside the cancelled block, so
 it will also raise :exc:`Cancelled`.
 
 Of course, if you really want to make another blocking call in your
-cleanup handler, trio will let you; it's trying to prevent you from
+cleanup handler, Trio will let you; it's trying to prevent you from
 accidentally shooting yourself in the foot. Intentional foot-shooting
-is no problem (or at least – it's not trio's problem). To do this,
+is no problem (or at least – it's not Trio's problem). To do this,
 create a new scope, and set its :attr:`~CancelScope.shield`
 attribute to :data:`True`::
 
@@ -448,7 +448,7 @@ cancellable operation... but we haven't gone into the details about
 which operations are cancellable, and how exactly they behave when
 they're cancelled.
 
-Here's the rule: if it's in the trio namespace, and you use ``await``
+Here's the rule: if it's in the ``trio`` namespace, and you use ``await``
 to call it, then it's cancellable (see :ref:`checkpoints`
 above). Cancellable means:
 
@@ -460,8 +460,8 @@ above). Cancellable means:
   :exc:`Cancelled`.
 
 * Raising :exc:`Cancelled` means that the operation *did not
-  happen*. If a trio socket's ``send`` method raises :exc:`Cancelled`,
-  then no data was sent. If a trio socket's ``recv`` method raises
+  happen*. If a Trio socket's ``send`` method raises :exc:`Cancelled`,
+  then no data was sent. If a Trio socket's ``recv`` method raises
   :exc:`Cancelled` then no data was lost – it's still sitting in the
   socket receive buffer waiting for you to call ``recv`` again. And so
   forth.
@@ -568,13 +568,13 @@ which is sometimes useful:
 Tasks let you do multiple things at once
 ----------------------------------------
 
-One of trio's core design principles is: *no implicit
+One of Trio's core design principles is: *no implicit
 concurrency*. Every function executes in a straightforward,
 top-to-bottom manner, finishing each operation before moving on to the
 next – *like Guido intended*.
 
 But, of course, the entire point of an async library is to let you do
-multiple things at once. The one and only way to do that in trio is
+multiple things at once. The one and only way to do that in Trio is
 through the task spawning interface. So if you want your program to
 walk *and* chew gum, this is the section for you.
 
@@ -651,7 +651,7 @@ finished.
 Child tasks and cancellation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-In trio, child tasks inherit the parent nursery's cancel scopes. So in
+In Trio, child tasks inherit the parent nursery's cancel scopes. So in
 this example, both the child tasks will be cancelled when the timeout
 expires::
 
@@ -698,7 +698,7 @@ in Python there can only be one exception at a time.
 Trio's answer is that it raises a :exc:`MultiError` object. This is a
 special exception which encapsulates multiple exception objects –
 either regular exceptions or nested :exc:`MultiError`\s. To make these
-easier to work with, trio installs a custom :obj:`sys.excepthook` that
+easier to work with, Trio installs a custom :obj:`sys.excepthook` that
 knows how to print nice tracebacks for unhandled :exc:`MultiError`\s,
 and it also provides some helpful utilities like
 :meth:`MultiError.catch`, which allows you to catch "part of" a
@@ -821,7 +821,7 @@ Nursery objects provide the following interface:
       run ``await async_fn(*args)``.
 
       This and :meth:`start` are the two fundamental methods for
-      creating concurrent tasks in trio.
+      creating concurrent tasks in Trio.
 
       Note that this is *not* an async function and you don't use await
       when calling it. It sets up the new task, but then returns
@@ -1129,7 +1129,7 @@ mechanisms for specifying timeouts and blocking behavior, and of
 signaling whether an operation returned due to success versus a
 timeout.
 
-In trio, we standardize on the following conventions:
+In Trio, we standardize on the following conventions:
 
 * We don't provide timeout arguments. If you want a timeout, then use
   a cancel scope.
@@ -1164,7 +1164,7 @@ always immediately attempts to re-acquire it, before the other task has
 a chance to run. (And remember that we're doing cooperative
 multi-tasking here, so it's actually *deterministic* that the task
 releasing the lock will call :meth:`~Lock.acquire` before the other
-task wakes up; in trio releasing a lock is not a checkpoint.)  With
+task wakes up; in Trio releasing a lock is not a checkpoint.)  With
 an unfair lock, this would result in the same task holding the lock
 forever and the other task being starved out. But if you run this,
 you'll see that the two tasks politely take turns::
@@ -1520,10 +1520,10 @@ than the lower-level primitives discussed in this section. But if you
 need them, they're here. (If you find yourself reaching for these
 because you're trying to implement a new higher-level synchronization
 primitive, then you might also want to check out the facilities in
-:mod:`trio.hazmat` for a more direct exposure of trio's underlying
+:mod:`trio.hazmat` for a more direct exposure of Trio's underlying
 synchronization logic. All of classes discussed in this section are
 implemented on top of the public APIs in :mod:`trio.hazmat`; they
-don't have any special access to trio's internals.)
+don't have any special access to Trio's internals.)
 
 .. autoclass:: CapacityLimiter
    :members:
@@ -1559,7 +1559,7 @@ for working with real, operating-system level,
 :mod:`threading`\-module-style threads. First, if you're in Trio but
 need to push some blocking I/O into a thread, there's
 :func:`run_sync_in_worker_thread`. And if you're in a thread and need
-to communicate back with trio, you can use a
+to communicate back with Trio, you can use a
 :class:`BlockingTrioPortal`.
 
 
@@ -1695,7 +1695,7 @@ Putting blocking I/O into worker threads
 .. autofunction:: current_default_worker_thread_limiter
 
 
-Getting back into the trio thread from another thread
+Getting back into the Trio thread from another thread
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: BlockingTrioPortal
@@ -1703,7 +1703,7 @@ Getting back into the trio thread from another thread
 
 This will probably be clearer with an example. Here we demonstrate how
 to spawn a child thread, and then use a :ref:`memory channel
-<channels>` to send messages between the thread and a trio task:
+<channels>` to send messages between the thread and a Trio task:
 
 .. literalinclude:: reference-core/blocking-trio-portal-example.py
 
