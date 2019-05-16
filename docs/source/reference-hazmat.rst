@@ -79,7 +79,7 @@ happens, it loops over these instruments and notifies them by calling
 an appropriate method. The tutorial has :ref:`a simple example of
 using this for tracing <tutorial-instrument-example>`.
 
-Since this hooks into trio at a rather low level, you do have to be
+Since this hooks into Trio at a rather low level, you do have to be
 careful. The callbacks are run synchronously, and in many cases if
 they error out then there isn't any plausible way to propagate this
 exception (for instance, we might be deep in the guts of the exception
@@ -106,7 +106,7 @@ And here's the interface to implement if you want to build your own
 
 The tutorial has a :ref:`fully-worked example
 <tutorial-instrument-example>` of defining a custom instrument to log
-trio's internal scheduling decisions.
+Trio's internal scheduling decisions.
 
 
 Low-level I/O primitives
@@ -116,7 +116,7 @@ Different environments expose different low-level APIs for performing
 async I/O. :mod:`trio.hazmat` exposes these APIs in a relatively
 direct way, so as to allow maximum power and flexibility for higher
 level code. However, this means that the exact API provided may vary
-depending on what system trio is running on.
+depending on what system Trio is running on.
 
 
 Universally available API
@@ -339,12 +339,12 @@ These transitions are accomplished using two function decorators:
    function).
 
    An example of where you'd use this is in implementing something
-   like ``run_in_trio_thread``, which uses
-   ``call_soon_thread_and_signal_safe`` to get into the trio
-   thread. ``call_soon_thread_and_signal_safe`` callbacks are run with
+   like :meth:`trio.BlockingTrioPortal.run`, which uses
+   :meth:`TrioToken.run_sync_soon` to get into the Trio
+   thread. :meth:`~TrioToken.run_sync_soon` callbacks are run with
    :exc:`KeyboardInterrupt` protection enabled, and
-   ``run_in_trio_thread`` takes advantage of this to safely set up the
-   machinery for sending a response back to the original thread, and
+   :meth:`~trio.BlockingTrioPortal.run` takes advantage of this to safely set up
+   the machinery for sending a response back to the original thread, but
    then uses :func:`disable_ki_protection` when entering the
    user-provided function.
 
@@ -402,7 +402,7 @@ The next two functions are used *together* to make up a checkpoint:
 .. autofunction:: cancel_shielded_checkpoint
 
 These are commonly used in cases where you have an operation that
-might-or-might-not block, and you want to implement trio's standard
+might-or-might-not block, and you want to implement Trio's standard
 checkpoint semantics. Example::
 
    async def operation_that_maybe_blocks():

@@ -318,7 +318,7 @@ def memory_stream_one_way_pair():
     buffering and flexible configuration options.
 
     You can think of this as being a no-operating-system-involved
-    trio-streamsified version of :func:`os.pipe` (except that :func:`os.pipe`
+    Trio-streamsified version of :func:`os.pipe` (except that :func:`os.pipe`
     returns the streams in the wrong order – we follow the superior convention
     that data flows from left to right).
 
@@ -368,7 +368,7 @@ def memory_stream_pair():
     :class:`~trio.StapledStream` to combine them into a single bidirectional
     stream.
 
-    This is like a no-operating-system-involved, trio-streamsified version of
+    This is like a no-operating-system-involved, Trio-streamsified version of
     :func:`socket.socketpair`.
 
     Returns:

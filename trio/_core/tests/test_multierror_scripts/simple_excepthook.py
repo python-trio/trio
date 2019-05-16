@@ -17,5 +17,5 @@ def exc2_fn():
         return exc
 
 
-# This should be printed nicely, because trio overrode sys.excepthook
+# This should be printed nicely, because Trio overrode sys.excepthook
 raise trio.MultiError([exc1_fn(), exc2_fn()])

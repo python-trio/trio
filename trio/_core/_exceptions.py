@@ -4,13 +4,13 @@ from trio._util import NoPublicConstructor
 
 
 class TrioInternalError(Exception):
-    """Raised by :func:`run` if we encounter a bug in trio, or (possibly) a
+    """Raised by :func:`run` if we encounter a bug in Trio, or (possibly) a
     misuse of one of the low-level :mod:`trio.hazmat` APIs.
 
     This should never happen! If you get this error, please file a bug.
 
     Unfortunately, if you get this error it also means that all bets are off –
-    trio doesn't know what is going on and its normal invariants may be void.
+    Trio doesn't know what is going on and its normal invariants may be void.
     (For example, we might have "lost track" of a task. Or lost track of all
     tasks.) Again, though, this shouldn't happen.
 
@@ -61,7 +61,7 @@ class Cancelled(BaseException, metaclass=NoPublicConstructor):
        <https://books.google.com/ngrams/graph?content=canceled%2Ccancelled&year_start=1800&year_end=2000&corpus=18&smoothing=3&share=&direct_url=t1%3B%2Ccanceled%3B%2Cc0%3B.t1%3B%2Ccancelled%3B%2Cc0>`__
        innovation, and even in the US both forms are still commonly used. So
        for consistency with the rest of the world and with "cancellation"
-       (which always has two "l"s), trio uses the two "l" spelling
+       (which always has two "l"s), Trio uses the two "l" spelling
        everywhere.
 
     """
@@ -75,7 +75,7 @@ class BusyResourceError(Exception):
     already using, and this would lead to bugs and nonsense.
 
     For example, if two tasks try to send data through the same socket at the
-    same time, trio will raise :class:`BusyResourceError` instead of letting
+    same time, Trio will raise :class:`BusyResourceError` instead of letting
     the data get scrambled.
 
     """

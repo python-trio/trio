@@ -66,7 +66,7 @@ _socket_factory = RunVar("socket_factory")
 def set_custom_hostname_resolver(hostname_resolver):
     """Set a custom hostname resolver.
 
-    By default, trio's :func:`getaddrinfo` and :func:`getnameinfo` functions
+    By default, Trio's :func:`getaddrinfo` and :func:`getnameinfo` functions
     use the standard system resolver functions. This function allows you to
     customize that behavior. The main intended use case is for testing, but it
     might also be useful for using third-party resolvers like `c-ares
@@ -76,7 +76,7 @@ def set_custom_hostname_resolver(hostname_resolver):
 
     Setting a custom hostname resolver affects all future calls to
     :func:`getaddrinfo` and :func:`getnameinfo` within the enclosing call to
-    :func:`trio.run`. All other hostname resolution in trio is implemented in
+    :func:`trio.run`. All other hostname resolution in Trio is implemented in
     terms of these functions.
 
     Generally you should call this function just once, right at the beginning
@@ -98,7 +98,7 @@ def set_custom_hostname_resolver(hostname_resolver):
 def set_custom_socket_factory(socket_factory):
     """Set a custom socket object factory.
 
-    This function allows you to replace trio's normal socket class with a
+    This function allows you to replace Trio's normal socket class with a
     custom class. This is very useful for testing, and probably a bad idea in
     any other circumstance. See :class:`trio.abc.HostnameResolver` for more
     details.
@@ -229,7 +229,7 @@ async def getprotobyname(name):
 
 
 def from_stdlib_socket(sock):
-    """Convert a standard library :func:`socket.socket` object into a trio
+    """Convert a standard library :func:`socket.socket` object into a Trio
     socket object.
 
     """
@@ -238,7 +238,7 @@ def from_stdlib_socket(sock):
 
 @_wraps(_stdlib_socket.fromfd, assigned=(), updated=())
 def fromfd(fd, family, type, proto=0):
-    """Like :func:`socket.fromfd`, but returns a trio socket object.
+    """Like :func:`socket.fromfd`, but returns a Trio socket object.
 
     """
     family, type, proto = _sniff_sockopts_for_fileno(family, type, proto, fd)
@@ -254,7 +254,7 @@ if hasattr(_stdlib_socket, "fromshare"):
 
 @_wraps(_stdlib_socket.socketpair, assigned=(), updated=())
 def socketpair(*args, **kwargs):
-    """Like :func:`socket.socketpair`, but returns a pair of trio socket
+    """Like :func:`socket.socketpair`, but returns a pair of Trio socket
     objects.
 
     """
@@ -269,7 +269,7 @@ def socket(
     proto=0,
     fileno=None
 ):
-    """Create a new trio socket, like :func:`socket.socket`.
+    """Create a new Trio socket, like :func:`socket.socket`.
 
     This function's behavior can be customized using
     :func:`set_custom_socket_factory`.

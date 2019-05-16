@@ -931,7 +931,7 @@ class Runner:
         * ``run_sync_soon_queue_size`` (int): The number of
           unprocessed callbacks queued via
           :meth:`trio.hazmat.TrioToken.run_sync_soon`.
-        * ``io_statistics`` (object): Some statistics from trio's I/O
+        * ``io_statistics`` (object): Some statistics from Trio's I/O
           backend. This always has an attribute ``backend`` which is a string
           naming which operating-system-specific I/O backend is in use; the
           other attributes vary between backends.
@@ -952,7 +952,7 @@ class Runner:
 
     @_public
     def current_time(self):
-        """Returns the current time according to trio's internal clock.
+        """Returns the current time according to Trio's internal clock.
 
         Returns:
             float: The current time.
@@ -1057,7 +1057,7 @@ class Runner:
             # Give good error for: nursery.start_soon(trio.sleep(1))
             if isinstance(async_fn, collections.abc.Coroutine):
                 raise TypeError(
-                    "trio was expecting an async function, but instead it got "
+                    "Trio was expecting an async function, but instead it got "
                     "a coroutine object {async_fn!r}\n"
                     "\n"
                     "Probably you did something like:\n"
@@ -1075,7 +1075,7 @@ class Runner:
             # Give good error for: nursery.start_soon(future)
             if _return_value_looks_like_wrong_library(async_fn):
                 raise TypeError(
-                    "trio was expecting an async function, but instead it got "
+                    "Trio was expecting an async function, but instead it got "
                     "{!r} – are you trying to use a library written for "
                     "asyncio/twisted/tornado or similar? That won't work "
                     "without some sort of compatibility shim."
@@ -1106,7 +1106,7 @@ class Runner:
 
             # Give good error for: nursery.start_soon(some_sync_fn)
             raise TypeError(
-                "trio expected an async function, but {!r} appears to be "
+                "Trio expected an async function, but {!r} appears to be "
                 "synchronous".format(
                     getattr(async_fn, "__qualname__", async_fn)
                 )
@@ -1302,7 +1302,7 @@ class Runner:
         want to ignore the potential brief moment between a send and receive
         when all tasks are blocked.)
 
-        Note that ``cushion`` is measured in *real* time, not the trio clock
+        Note that ``cushion`` is measured in *real* time, not the Trio clock
         time.
 
         If there are multiple tasks blocked in :func:`wait_all_tasks_blocked`,
@@ -1318,7 +1318,7 @@ class Runner:
         test, and will often produce more readable tests.
 
         Example:
-          Here's an example of one way to test that trio's locks are fair: we
+          Here's an example of one way to test that Trio's locks are fair: we
           take the lock in the parent, start a child, wait for the child to be
           blocked waiting for the lock (!), and then check that we can't
           release and immediately re-acquire the lock::
@@ -1430,7 +1430,7 @@ def run(
     instruments=(),
     restrict_keyboard_interrupt_to_checkpoints=False
 ):
-    """Run a trio-flavored async function, and return the result.
+    """Run a Trio-flavored async function, and return the result.
 
     Calling::
 
@@ -1443,7 +1443,7 @@ def run(
     except that :func:`run` can (and must) be called from a synchronous
     context.
 
-    This is trio's main entry point. Almost every other function in trio
+    This is Trio's main entry point. Almost every other function in Trio
     requires that you be inside a call to :func:`run`.
 
     Args:
@@ -1465,7 +1465,7 @@ def run(
           user hits control-C while :func:`run` is running? If this argument
           is False (the default), then you get the standard Python behavior: a
           :exc:`KeyboardInterrupt` exception will immediately interrupt
-          whatever task is running (or if no task is running, then trio will
+          whatever task is running (or if no task is running, then Trio will
           wake up a task to be interrupted). Alternatively, if you set this
           argument to True, then :exc:`KeyboardInterrupt` delivery will be
           delayed: it will be *only* be raised at :ref:`checkpoints
@@ -1489,7 +1489,7 @@ def run(
       Whatever ``async_fn`` returns.
 
     Raises:
-      TrioInternalError: if an unexpected error is encountered inside trio's
+      TrioInternalError: if an unexpected error is encountered inside Trio's
           internal machinery. This is a bug and you should `let us know
           <https://github.com/python-trio/trio/issues>`__.
 
@@ -1540,12 +1540,12 @@ def run(
                 raise
             except BaseException as exc:
                 raise TrioInternalError(
-                    "internal error in trio - please file a bug!"
+                    "internal error in Trio - please file a bug!"
                 ) from exc
             finally:
                 GLOBAL_RUN_CONTEXT.__dict__.clear()
             # Inlined copy of runner.main_task_outcome.unwrap() to avoid
-            # cluttering every single trio traceback with an extra frame.
+            # cluttering every single Trio traceback with an extra frame.
             if type(runner.main_task_outcome) is Value:
                 return runner.main_task_outcome.value
             else:

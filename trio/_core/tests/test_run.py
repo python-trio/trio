@@ -1122,7 +1122,7 @@ async def test_yield_briefly_checks_for_timeout(mock_clock):
 
 # This tests that sys.exc_info is properly saved/restored as we swap between
 # tasks. It turns out that the interpreter automagically handles this for us
-# so there's no special code in trio required to pass this test, but it's
+# so there's no special code in Trio required to pass this test, but it's
 # still nice to know that it works :-).
 #
 # Update: it turns out I was right to be nervous! see the next test...

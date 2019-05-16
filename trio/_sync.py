@@ -665,7 +665,7 @@ class StrictFIFOLock(Lock):
     the same order that the state machine generated it.
 
     Currently, :class:`StrictFIFOLock` is simply an alias for :class:`Lock`,
-    but (a) this may not always be true in the future, especially if trio ever
+    but (a) this may not always be true in the future, especially if Trio ever
     implements `more sophisticated scheduling policies
     <https://github.com/python-trio/trio/issues/32>`__, and (b) the above code
     is relying on a pretty subtle property of its lock. Using a

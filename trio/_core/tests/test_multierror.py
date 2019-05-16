@@ -682,7 +682,7 @@ def test_ipython_custom_exc_handler():
             # The warning
             "RuntimeWarning",
             "IPython detected",
-            "skip installing trio",
+            "skip installing Trio",
             # The MultiError
             "MultiError",
             "ValueError",

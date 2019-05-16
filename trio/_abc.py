@@ -140,7 +140,7 @@ class Instrument(metaclass=ABCMeta):
 
 class HostnameResolver(metaclass=ABCMeta):
     """If you have a custom hostname resolver, then implementing
-    :class:`HostnameResolver` allows you to register this to be used by trio.
+    :class:`HostnameResolver` allows you to register this to be used by Trio.
 
     See :func:`trio.socket.set_custom_hostname_resolver`.
 
@@ -176,8 +176,8 @@ class HostnameResolver(metaclass=ABCMeta):
 
 
 class SocketFactory(metaclass=ABCMeta):
-    """If you write a custom class implementing the trio socket interface,
-    then you can use a :class:`SocketFactory` to get trio to use it.
+    """If you write a custom class implementing the Trio socket interface,
+    then you can use a :class:`SocketFactory` to get Trio to use it.
 
     See :func:`trio.socket.set_custom_socket_factory`.
 
@@ -189,7 +189,7 @@ class SocketFactory(metaclass=ABCMeta):
 
         Your socket object must inherit from :class:`trio.socket.SocketType`,
         which is an empty class whose only purpose is to "mark" which classes
-        should be considered valid trio sockets.
+        should be considered valid Trio sockets.
 
         Called by :func:`trio.socket.socket`.
 
@@ -298,7 +298,7 @@ class SendStream(AsyncResource):
               object, or if another task closes this stream object while
               :meth:`send_all` is running.
 
-        Most low-level operations in trio provide a guarantee: if they raise
+        Most low-level operations in Trio provide a guarantee: if they raise
         :exc:`trio.Cancelled`, this means that they had no effect, so the
         system remains in a known state. This is **not true** for
         :meth:`send_all`. If this operation raises :exc:`trio.Cancelled` (or
@@ -456,7 +456,7 @@ class HalfCloseableStream(Stream):
           page <https://linux.die.net/man/2/shutdown>`__).
 
         * The SSH protocol provides the ability to multiplex bidirectional
-          "channels" on top of a single encrypted connection. A trio
+          "channels" on top of a single encrypted connection. A Trio
           implementation of SSH could expose these channels as
           :class:`HalfCloseableStream` objects, and calling :meth:`send_eof`
           would send an ``SSH_MSG_CHANNEL_EOF`` request (see `RFC 4254 §5.3

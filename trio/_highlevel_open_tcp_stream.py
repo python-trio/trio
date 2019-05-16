@@ -151,7 +151,7 @@ def format_host_port(host, port):
 #
 # - per-connection timeout
 #   this doesn't seem useful -- we let you set a timeout on the whole thing
-#   using trio's normal mechanisms, and that seems like enough
+#   using Trio's normal mechanisms, and that seems like enough
 # - delay between attempts
 # - bind address (but not port!)
 #   they *don't* support multiple address bindings, like giving the ipv4 and

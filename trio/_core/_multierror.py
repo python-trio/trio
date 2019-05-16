@@ -430,7 +430,7 @@ if "IPython" in sys.modules:
         if ip.custom_exceptions != ():
             warnings.warn(
                 "IPython detected, but you already have a custom exception "
-                "handler installed. I'll skip installing trio's custom "
+                "handler installed. I'll skip installing Trio's custom "
                 "handler, but this means MultiErrors will not show full "
                 "tracebacks.",
                 category=RuntimeWarning
@@ -452,7 +452,7 @@ else:
     if not IPython_handler_installed and not warning_given:
         warnings.warn(
             "You seem to already have a custom sys.excepthook handler "
-            "installed. I'll skip installing trio's custom handler, but this "
+            "installed. I'll skip installing Trio's custom handler, but this "
             "means MultiErrors will not show full tracebacks.",
             category=RuntimeWarning
         )

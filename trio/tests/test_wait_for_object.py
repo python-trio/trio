@@ -85,7 +85,7 @@ async def test_WaitForMultipleObjects_sync_slow():
         )
         await _timeouts.sleep(TIMEOUT)
         # If we would comment the line below, the above thread will be stuck,
-        # and trio wont exit this scope
+        # and Trio won't exit this scope
         kernel32.SetEvent(handle1)
     t1 = _core.current_time()
     assert TIMEOUT <= (t1 - t0) < 2.0 * TIMEOUT

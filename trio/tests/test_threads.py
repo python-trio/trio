@@ -108,7 +108,7 @@ def test_run_in_trio_thread_ki():
         portal = BlockingTrioPortal()
 
         def trio_thread_fn():
-            print("in trio thread")
+            print("in Trio thread")
             assert not _core.currently_ki_protected()
             print("ki_self")
             try:
@@ -336,7 +336,7 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
                 state.ran += 1
                 state.running += 1
                 state.high_water = max(state.high_water, state.running)
-                # The trio thread below watches this value and uses it as a
+                # The Trio thread below watches this value and uses it as a
                 # signal that all the stats calculations have finished.
                 state.parked += 1
             gate.wait()

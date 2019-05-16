@@ -103,7 +103,7 @@
 # write it needs to skip the first 1024 bytes or whatever it is. (Well,
 # technically, we're actually allowed to call 'write' again with a data buffer
 # which is the same as our old one PLUS some extra stuff added onto the end,
-# but in trio that never comes up so never mind.)
+# but in Trio that never comes up so never mind.)
 #
 # There are some people online who claim that once you've gotten a Want*Error
 # then the *very next call* you make to openssl *must* be the same as the
@@ -128,7 +128,7 @@
 # the outgoing BIO to the wire, reading data from the wire to the incoming
 # BIO, retrying an I/O call until it works, and synchronizing with other tasks
 # that might be calling _retry concurrently. Basically it takes an SSLObject
-# non-blocking in-memory method and converts it into a trio async blocking
+# non-blocking in-memory method and converts it into a Trio async blocking
 # method. _retry is only about 30 lines of code, but all these cases
 # multiplied by concurrent calls make it extremely tricky, so there are lots
 # of comments down below on the details, and a really extensive test suite in
@@ -147,7 +147,7 @@
 # XX document behavior on cancellation/error (i.e.: all is lost abandon
 # stream)
 # docs will need to make very clear that this is different from all the other
-# cancellations in core trio
+# cancellations in core Trio
 
 import operator as _operator
 import ssl as _stdlib_ssl
@@ -749,7 +749,7 @@ class SSLStream(Stream):
             # close_notify and closed their connection then it's possible that
             # our attempt to send close_notify will raise
             # BrokenResourceError. This is totally legal, and in fact can happen
-            # with two well-behaved trio programs talking to each other, so we
+            # with two well-behaved Trio programs talking to each other, so we
             # don't want to raise an error. So we suppress BrokenResourceError
             # here. (This is safe, because literally the only thing this call
             # to _retry will do is send the close_notify alert, so that's
@@ -790,7 +790,7 @@ class SSLStream(Stream):
         """
         # This method's implementation is deceptively simple.
         #
-        # First, we take the outer send lock, because of trio's standard
+        # First, we take the outer send lock, because of Trio's standard
         # semantics that wait_send_all_might_not_block and send_all
         # conflict. This also takes care of providing correct checkpoint
         # semantics before we potentially error out from _check_status().
