@@ -443,9 +443,7 @@ class SSLStream(Stream):
                 ret = fn(*args)
             except _stdlib_ssl.SSLWantReadError:
                 want_read = True
-            except (
-                _stdlib_ssl.SSLError, _stdlib_ssl.CertificateError
-            ) as exc:
+            except (_stdlib_ssl.SSLError, _stdlib_ssl.CertificateError) as exc:
                 self._state = _State.BROKEN
                 raise trio.BrokenResourceError from exc
             else:
