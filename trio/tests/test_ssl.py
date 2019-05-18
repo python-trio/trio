@@ -858,23 +858,19 @@ async def test_closing_nice_case():
         await client_ssl.aclose()
 
     # Trying to send more data does not work
-    with assert_checkpoints():
-        with pytest.raises(ClosedResourceError):
-            await server_ssl.send_all(b"123")
+    with pytest.raises(ClosedResourceError):
+        await server_ssl.send_all(b"123")
 
     # And once the connection is has been closed *locally*, then instead of
     # getting empty bytestrings we get a proper error
-    with assert_checkpoints():
-        with pytest.raises(ClosedResourceError):
-            await client_ssl.receive_some(10) == b""
+    with pytest.raises(ClosedResourceError):
+        await client_ssl.receive_some(10) == b""
 
-    with assert_checkpoints():
-        with pytest.raises(ClosedResourceError):
-            await client_ssl.unwrap()
+    with pytest.raises(ClosedResourceError):
+        await client_ssl.unwrap()
 
-    with assert_checkpoints():
-        with pytest.raises(ClosedResourceError):
-            await client_ssl.do_handshake()
+    with pytest.raises(ClosedResourceError):
+        await client_ssl.do_handshake()
 
     # Check that a graceful close *before* handshaking gives a clean EOF on
     # the other side

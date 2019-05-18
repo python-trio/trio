@@ -128,10 +128,8 @@ class UnboundedQueue:
             await self._lot.park()
             return self._get_batch_protected()
         else:
-            try:
-                return self._get_batch_protected()
-            finally:
-                await _core.cancel_shielded_checkpoint()
+            await _core.cancel_shielded_checkpoint()
+            return self._get_batch_protected()
 
     def statistics(self):
         """Return an object containing debugging information.

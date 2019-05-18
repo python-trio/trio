@@ -103,7 +103,6 @@ class EpollIOManager:
             self._registered[fd] = EpollWaiters()
         waiters = self._registered[fd]
         if getattr(waiters, attr_name) is not None:
-            await _core.checkpoint()
             raise _core.BusyResourceError(
                 "another task is already reading / writing this fd"
             )

@@ -89,7 +89,7 @@ class PipeReceiveStream(ReceiveStream):
         )
 
     async def receive_some(self, max_bytes: int) -> bytes:
-        async with self._conflict_detector:
+        with self._conflict_detector.sync:
             if self._handle_holder.closed:
                 raise _core.ClosedResourceError("this pipe is already closed")
 

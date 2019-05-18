@@ -95,17 +95,16 @@ class SocketStream(HalfCloseableStream):
 
     async def send_all(self, data):
         if self.socket.did_shutdown_SHUT_WR:
-            await trio.hazmat.checkpoint()
             raise trio.ClosedResourceError("can't send data after sending EOF")
         with self._send_conflict_detector.sync:
             with _translate_socket_errors_to_stream_errors():
                 with memoryview(data) as data:
                     if not data:
-                        await trio.hazmat.checkpoint()
                         if self.socket.fileno() == -1:
                             raise trio.ClosedResourceError(
                                 "socket was already closed"
                             )
+                        await trio.hazmat.checkpoint()
                         return
                     total_sent = 0
                     while total_sent < len(data):
@@ -114,7 +113,7 @@ class SocketStream(HalfCloseableStream):
                         total_sent += sent
 
     async def wait_send_all_might_not_block(self):
-        async with self._send_conflict_detector:
+        with self._send_conflict_detector.sync:
             if self.socket.fileno() == -1:
                 raise trio.ClosedResourceError
             with _translate_socket_errors_to_stream_errors():
@@ -131,7 +130,6 @@ class SocketStream(HalfCloseableStream):
 
     async def receive_some(self, max_bytes):
         if max_bytes < 1:
-            await trio.hazmat.checkpoint()
             raise ValueError("max_bytes must be >= 1")
         with _translate_socket_errors_to_stream_errors():
             return await self.socket.recv(max_bytes)
@@ -383,7 +381,5 @@ class SocketListener(Listener[SocketStream]):
         """Close this listener and its underlying socket.
 
         """
-        try:
-            self.socket.close()
-        finally:
-            await trio.hazmat.checkpoint()
+        self.socket.close()
+        await trio.hazmat.checkpoint()

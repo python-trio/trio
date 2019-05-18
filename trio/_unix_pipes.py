@@ -100,7 +100,7 @@ class PipeSendStream(SendStream):
                                 raise trio.BrokenResourceError from e
 
     async def wait_send_all_might_not_block(self) -> None:
-        async with self._conflict_detector:
+        with self._conflict_detector.sync:
             if self._fd_holder.closed:
                 raise trio.ClosedResourceError("this pipe was already closed")
             try:
