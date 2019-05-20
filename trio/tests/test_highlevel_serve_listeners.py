@@ -2,7 +2,6 @@ import pytest
 
 from functools import partial
 import errno
-from collections import deque
 
 import attr
 

@@ -191,7 +191,7 @@ def test_main_and_task_both_crash():
         _core.run(main)
     print(excinfo.value)
     assert {type(exc)
-               for exc in excinfo.value.exceptions} == {ValueError, KeyError}
+            for exc in excinfo.value.exceptions} == {ValueError, KeyError}
 
 
 def test_two_child_crashes():
@@ -206,7 +206,7 @@ def test_two_child_crashes():
     with pytest.raises(_core.MultiError) as excinfo:
         _core.run(main)
     assert {type(exc)
-               for exc in excinfo.value.exceptions} == {ValueError, KeyError}
+            for exc in excinfo.value.exceptions} == {ValueError, KeyError}
 
 
 async def test_child_crash_wakes_parent():
@@ -1725,9 +1725,10 @@ async def test_trivial_yields():
             async with _core.open_nursery():
                 raise KeyError
         assert len(excinfo.value.exceptions) == 2
-        assert {type(e) for e in excinfo.value.exceptions} == {
-            KeyError, _core.Cancelled
-        }
+        assert {type(e)
+                for e in excinfo.value.exceptions} == {
+                    KeyError, _core.Cancelled
+                }
 
 
 async def test_nursery_start(autojump_clock):
@@ -1816,9 +1817,8 @@ async def test_nursery_start(autojump_clock):
             cs.cancel()
             with pytest.raises(_core.MultiError) as excinfo:
                 await nursery.start(raise_keyerror_after_started)
-    assert {type(e) for e in excinfo.value.exceptions} == {
-        _core.Cancelled, KeyError
-    }
+    assert {type(e)
+            for e in excinfo.value.exceptions} == {_core.Cancelled, KeyError}
 
     # trying to start in a closed nursery raises an error immediately
     async with _core.open_nursery() as closed_nursery:

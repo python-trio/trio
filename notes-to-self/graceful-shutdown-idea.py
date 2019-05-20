@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 import trio
 
 class GracefulShutdownManager:
