@@ -45,7 +45,7 @@ async def test_serve_listeners_basic():
     def close_hook():
         # Make sure this is a forceful close
         assert trio.current_effective_deadline() == float("-inf")
-        record.append(("closed"))
+        record.append("closed")
 
     async def handler(stream):
         await stream.send_all(b"123")
