@@ -297,8 +297,8 @@ MISNESTING_ADVICE = """Typically this is caused by one of the following:
     @asynccontextmanager); see https://github.com/python-trio/trio/issues/638
   - manually calling __enter__ or __exit__ on a trio.CancelScope, or
     __aenter__ or __aexit__ on the object returned by trio.open_nursery();
-    doing so correctly is difficult and you should use ExitStack or
-    AsyncExitStack instead
+    doing so correctly is difficult and you should use @[async]contextmanager
+    instead, or maybe [Async]ExitStack
   - using [Async]ExitStack to interleave the entries/exits of cancel scopes
     and/or nurseries in a way that couldn't be achieved by some nesting of
     'with' and 'async with' blocks
