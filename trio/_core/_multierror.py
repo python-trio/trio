@@ -176,6 +176,15 @@ class MultiError(BaseException):
 
     """
 
+    def __init__(self, exceptions):
+        # Avoid recursion when exceptions[0] returned by __new__() happens
+        # to be a MultiError and subsequently __init__() is called.
+        if hasattr(self, "exceptions"):
+            # __init__ was already called on this object
+            assert len(exceptions) == 1 and exceptions[0] is self
+            return
+        self.exceptions = exceptions
+
     def __new__(cls, exceptions):
         exceptions = list(exceptions)
         for exc in exceptions:
@@ -184,11 +193,18 @@ class MultiError(BaseException):
                     "Expected an exception object, not {!r}".format(exc)
                 )
         if len(exceptions) == 1:
+            # If this lone object happens to itself be a MultiError, then
+            # Python will implicitly call our __init__ on it again.  See
+            # special handling in __init__.
             return exceptions[0]
         else:
-            self = BaseException.__new__(cls)
-            self.exceptions = exceptions
-            return self
+            # The base class __new__() implicitly invokes our __init__, which
+            # is what we want.
+            #
+            # In an earlier version of the code, we didn't define __init__ and
+            # simply set the `exceptions` attribute directly on the new object.
+            # However, linters expect attributes to be initialized in __init__.
+            return BaseException.__new__(cls, exceptions)
 
     def __str__(self):
         return ", ".join(repr(exc) for exc in self.exceptions)
