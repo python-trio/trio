@@ -1,4 +1,3 @@
-from collections import deque
 import attr
 
 from .. import _core

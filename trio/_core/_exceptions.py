@@ -15,7 +15,6 @@ class TrioInternalError(Exception):
     tasks.) Again, though, this shouldn't happen.
 
     """
-    pass
 
 
 class RunFinishedError(RuntimeError):
@@ -23,14 +22,12 @@ class RunFinishedError(RuntimeError):
     corresponding call to :func:`trio.run` has already finished.
 
     """
-    pass
 
 
 class WouldBlock(Exception):
     """Raised by ``X_nowait`` functions if ``X`` would block.
 
     """
-    pass
 
 
 class Cancelled(BaseException, metaclass=NoPublicConstructor):

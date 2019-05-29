@@ -2,7 +2,6 @@ import pytest
 
 import inspect
 import warnings
-from types import ModuleType
 
 from .._deprecate import (
     TrioDeprecationWarning, warn_deprecated, deprecated, deprecated_alias

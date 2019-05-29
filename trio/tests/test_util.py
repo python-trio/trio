@@ -99,7 +99,7 @@ class ConcretePathLike(BaseKlass):
         return self.path
 
 
-class TestFspath(object):
+class TestFspath:
 
     # based on:
     # https://github.com/python/cpython/blob/da6c3da6c33c6bf794f741e348b9c6d86cc43ec5/Lib/test/test_os.py#L3527-L3571

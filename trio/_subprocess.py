@@ -1,8 +1,6 @@
-import math
 import os
 import select
 import subprocess
-import sys
 
 from ._abc import AsyncResource
 from ._highlevel_generic import StapledStream

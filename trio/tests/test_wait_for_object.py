@@ -1,5 +1,4 @@
 import os
-import time
 
 import pytest
 
@@ -204,8 +203,6 @@ async def test_WaitForSingleObject_slow():
     print('test_WaitForSingleObject_slow set from task as int OK')
 
     # Test handle is CLOSED after 1 sec - NOPE see comment above
-
-    pass
 
     # Test cancellation
 
