@@ -21,6 +21,9 @@ matrix:
     - python: 3.5
     - python: 3.6
     - python: 3.7
+      before_script:
+        - pip install flake8
+        - flake8 --select=E9
     - python: 3.5-dev
     - python: 3.6-dev
     - python: 3.7-dev
