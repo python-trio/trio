@@ -646,6 +646,14 @@ def test_custom_excepthook():
     )
 
 
+# This warning is triggered by ipython 7.5.0 on python 3.8
+import warnings
+warnings.filterwarnings(
+    "ignore",
+    message=".*\"@coroutine\" decorator is deprecated",
+    category=DeprecationWarning,
+    module="IPython.*"
+)
 try:
     import IPython
 except ImportError:  # pragma: no cover
