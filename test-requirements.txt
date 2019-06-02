@@ -12,7 +12,7 @@ attrs==19.1.0
 backcall==0.1.0           # via ipython
 cffi==1.12.3              # via cryptography
 coverage==4.5.3           # via pytest-cov
-cryptography==2.6.1       # via pyopenssl, trustme
+cryptography==2.7         # via pyopenssl, trustme
 decorator==4.4.0          # via ipython, traitlets
 entrypoints==0.3          # via flake8
 flake8==3.7.7
