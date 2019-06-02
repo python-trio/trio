@@ -8,9 +8,7 @@ matrix:
     - python: 3.6
       env: CHECK_FORMATTING=1
     # The pypy tests are slow, so we list them first
-    - python: pypy3.5
-    - language: generic
-      env: PYPY_NIGHTLY_BRANCH=py3.5
+    - python: pypy3
     - language: generic
       env: PYPY_NIGHTLY_BRANCH=py3.6
     # 3.5.0 and 3.5.1 have different __aiter__ semantics than all
