@@ -1629,6 +1629,8 @@ async def test_current_effective_deadline(mock_clock):
     assert _core.current_effective_deadline() == inf
 
 
+# @coroutine is deprecated since python 3.8, which is fine with us.
+@pytest.mark.filterwarnings("ignore:.*@coroutine.*:DeprecationWarning")
 def test_nice_error_on_bad_calls_to_run_or_spawn():
     def bad_call_run(*args):
         _core.run(*args)
