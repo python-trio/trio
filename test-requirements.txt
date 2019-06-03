@@ -18,7 +18,7 @@ entrypoints==0.3          # via flake8
 flake8==3.7.7
 idna==2.8
 immutables==0.9
-importlib-metadata==0.17  # via pluggy
+importlib-metadata==0.17  # via pluggy, pytest
 ipython-genutils==0.2.0   # via traitlets
 ipython==7.5.0
 isort==4.3.20             # via pylint
@@ -27,6 +27,7 @@ lazy-object-proxy==1.4.1  # via astroid
 mccabe==0.6.1             # via flake8, pylint
 more-itertools==7.0.0     # via pytest
 outcome==1.0.0
+packaging==19.0           # via pytest
 parso==0.4.0              # via jedi
 pexpect==4.7.0            # via ipython
 pickleshare==0.7.5        # via ipython
@@ -40,10 +41,11 @@ pyflakes==2.1.1           # via flake8
 pygments==2.4.2           # via ipython
 pylint==2.3.1
 pyopenssl==19.0.0
+pyparsing==2.4.0          # via packaging
 pytest-cov==2.7.1
 pytest-faulthandler==1.6.0
-pytest==4.5.0
-six==1.12.0               # via astroid, cryptography, prompt-toolkit, pyopenssl, pytest, traitlets
+pytest==4.6.1
+six==1.12.0               # via astroid, cryptography, packaging, prompt-toolkit, pyopenssl, pytest, traitlets
 sniffio==1.1.0
 sortedcontainers==2.1.0
 traitlets==4.3.2          # via ipython
