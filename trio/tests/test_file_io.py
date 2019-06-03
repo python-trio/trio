@@ -57,6 +57,12 @@ def test_wrapped_property(async_file, wrapped):
 def test_dir_matches_wrapped(async_file, wrapped):
     attrs = _FILE_SYNC_ATTRS.union(_FILE_ASYNC_METHODS)
 
+    print("attrs", attrs)
+    print("_FILE_SYNC_ATTRS", _FILE_SYNC_ATTRS)
+    print("_FILE_ASYNC_METHODS", _FILE_ASYNC_METHODS)
+    print("dir(async_file)", dir(async_file))
+    print("dir(wrapper)", dir(wrapper))
+
     # all supported attrs in wrapped should be available in async_file
     assert all(
         attr in dir(async_file) for attr in attrs if attr in dir(wrapped)
