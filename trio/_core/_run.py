@@ -291,7 +291,12 @@ class CancelStatus:
         return min(self._scope.deadline, self._parent.effective_deadline())
 
 
-MISNESTING_ADVICE = """Typically this is caused by one of the following:
+MISNESTING_ADVICE = """
+This is probably a bug in your code, that has caused Trio's internal state to
+become corrupted. We'll do our best to recover, but from now on there are
+no guarantees.
+
+Typically this is caused by one of the following:
   - yielding within a generator or async generator that's opened a cancel
     scope or nursery (unless the generator is a @contextmanager or
     @asynccontextmanager); see https://github.com/python-trio/trio/issues/638
@@ -409,7 +414,7 @@ class CancelScope(metaclass=Final):
                 # without changing any state.
                 new_exc = RuntimeError(
                     "Cancel scope stack corrupted: attempted to exit {!r} "
-                    "from unrelated {!r}\n\n{}".format(
+                    "from unrelated {!r}\n{}".format(
                         self, scope_task, MISNESTING_ADVICE
                     )
                 )
@@ -423,7 +428,7 @@ class CancelScope(metaclass=Final):
                 # pass silently.
                 new_exc = RuntimeError(
                     "Cancel scope stack corrupted: attempted to exit {!r} "
-                    "in {!r} that's still within its child {!r}\n\n{}".format(
+                    "in {!r} that's still within its child {!r}\n{}".format(
                         self, scope_task, scope_task._cancel_status._scope,
                         MISNESTING_ADVICE
                     )
@@ -1281,7 +1286,7 @@ class Runner:
                 # traceback frame included
                 raise RuntimeError(
                     "Cancel scope stack corrupted: cancel scope surrounding "
-                    "{!r} was closed before the task exited\n\n{}".format(
+                    "{!r} was closed before the task exited\n{}".format(
                         task, MISNESTING_ADVICE
                     )
                 )
