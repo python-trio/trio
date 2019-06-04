@@ -1,9 +1,7 @@
-import math
 import itertools
 
 import outcome
 from contextlib import contextmanager
-import socket as stdlib_socket
 from select import select
 import threading
 from collections import deque

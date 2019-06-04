@@ -1,7 +1,6 @@
 # Platform-specific subprocess bits'n'pieces.
 
 import os
-import sys
 from typing import Tuple
 
 from .. import _core, _subprocess

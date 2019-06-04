@@ -1,6 +1,3 @@
-import os
-from typing import Tuple
-
 from . import _core
 from ._abc import SendStream, ReceiveStream
 from ._util import ConflictDetector
@@ -73,7 +70,6 @@ class PipeSendStream(SendStream):
                 raise _core.ClosedResourceError("This pipe is already closed")
 
             # not implemented yet, and probably not needed
-            pass
 
     async def aclose(self):
         await self._handle_holder.aclose()

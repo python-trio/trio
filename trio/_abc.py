@@ -689,7 +689,7 @@ class ReceiveChannel(AsyncResource, Generic[T_co]):
         :ref:`channel-mpmc` for examples.
 
         .. warning:: The clones all share the same underlying channel.
-           Whenever a clone :meth:`receive`\s a value, it is removed from the
+           Whenever a clone :meth:`receive`\\s a value, it is removed from the
            channel and the other clones do *not* receive that value. If you
            want to send multiple copies of the same stream of values to
            multiple destinations, like :func:`itertools.tee`, then you need to

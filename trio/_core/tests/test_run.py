@@ -190,8 +190,8 @@ def test_main_and_task_both_crash():
     with pytest.raises(_core.MultiError) as excinfo:
         _core.run(main)
     print(excinfo.value)
-    assert set(type(exc)
-               for exc in excinfo.value.exceptions) == {ValueError, KeyError}
+    assert {type(exc)
+            for exc in excinfo.value.exceptions} == {ValueError, KeyError}
 
 
 def test_two_child_crashes():
@@ -205,8 +205,8 @@ def test_two_child_crashes():
 
     with pytest.raises(_core.MultiError) as excinfo:
         _core.run(main)
-    assert set(type(exc)
-               for exc in excinfo.value.exceptions) == {ValueError, KeyError}
+    assert {type(exc)
+            for exc in excinfo.value.exceptions} == {ValueError, KeyError}
 
 
 async def test_child_crash_wakes_parent():
@@ -1629,6 +1629,8 @@ async def test_current_effective_deadline(mock_clock):
     assert _core.current_effective_deadline() == inf
 
 
+# @coroutine is deprecated since python 3.8, which is fine with us.
+@pytest.mark.filterwarnings("ignore:.*@coroutine.*:DeprecationWarning")
 def test_nice_error_on_bad_calls_to_run_or_spawn():
     def bad_call_run(*args):
         _core.run(*args)
@@ -1725,9 +1727,10 @@ async def test_trivial_yields():
             async with _core.open_nursery():
                 raise KeyError
         assert len(excinfo.value.exceptions) == 2
-        assert set(type(e) for e in excinfo.value.exceptions) == {
-            KeyError, _core.Cancelled
-        }
+        assert {type(e)
+                for e in excinfo.value.exceptions} == {
+                    KeyError, _core.Cancelled
+                }
 
 
 async def test_nursery_start(autojump_clock):
@@ -1816,9 +1819,8 @@ async def test_nursery_start(autojump_clock):
             cs.cancel()
             with pytest.raises(_core.MultiError) as excinfo:
                 await nursery.start(raise_keyerror_after_started)
-    assert set(type(e) for e in excinfo.value.exceptions) == {
-        _core.Cancelled, KeyError
-    }
+    assert {type(e)
+            for e in excinfo.value.exceptions} == {_core.Cancelled, KeyError}
 
     # trying to start in a closed nursery raises an error immediately
     async with _core.open_nursery() as closed_nursery:
@@ -1933,7 +1935,7 @@ async def test_nursery_stop_iteration():
 
 
 async def test_nursery_stop_async_iteration():
-    class it(object):
+    class it:
         def __init__(self, count):
             self.count = count
             self.val = 0
@@ -1946,7 +1948,7 @@ async def test_nursery_stop_async_iteration():
             self.val += 1
             return val
 
-    class async_zip(object):
+    class async_zip:
         def __init__(self, *largs):
             self.nexts = [obj.__anext__ for obj in largs]
 

@@ -57,5 +57,5 @@ for i, mode1 in enumerate(modes):
                 entry = table_entry(mode1, bind_type1, mode2, bind_type2)
                 row.append(entry)
                 #print(mode1, bind_type1, mode2, bind_type2, entry)
-        print("%19s | %8s | " % (mode1, bind_type1)
+        print("{:>19} | {:>8} | ".format(mode1, bind_type1)
               + " | ".join(["%7s" % entry for entry in row]))

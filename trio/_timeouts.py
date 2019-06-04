@@ -93,7 +93,6 @@ class TooSlowError(Exception):
     expires.
 
     """
-    pass
 
 
 @contextmanager
