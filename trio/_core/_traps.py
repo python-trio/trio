@@ -2,7 +2,6 @@
 
 import types
 import enum
-from functools import wraps
 
 import attr
 import outcome

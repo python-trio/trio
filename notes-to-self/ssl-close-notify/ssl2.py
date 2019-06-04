@@ -4,7 +4,6 @@
 import socket
 import ssl
 import threading
-import os
 
 #client_sock, server_sock = socket.socketpair()
 listen_sock = socket.socket()

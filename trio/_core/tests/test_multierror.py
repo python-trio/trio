@@ -7,7 +7,6 @@ import os
 import re
 from pathlib import Path
 import subprocess
-import warnings
 
 from .tutil import slow
 
@@ -111,6 +110,16 @@ def test_MultiError():
         MultiError(object())
     with pytest.raises(TypeError):
         MultiError([KeyError(), ValueError])
+
+
+def test_MultiErrorOfSingleMultiError():
+    # For MultiError([MultiError]), ensure there is no bad recursion by the
+    # constructor where __init__ is called if __new__ returns a bare MultiError.
+    exceptions = [KeyError(), ValueError()]
+    a = MultiError(exceptions)
+    b = MultiError([a])
+    assert b == a
+    assert b.exceptions == exceptions
 
 
 async def test_MultiErrorNotHashable():
@@ -647,6 +656,14 @@ def test_custom_excepthook():
     )
 
 
+# This warning is triggered by ipython 7.5.0 on python 3.8
+import warnings
+warnings.filterwarnings(
+    "ignore",
+    message=".*\"@coroutine\" decorator is deprecated",
+    category=DeprecationWarning,
+    module="IPython.*"
+)
 try:
     import IPython
 except ImportError:  # pragma: no cover

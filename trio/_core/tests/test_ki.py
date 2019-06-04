@@ -221,7 +221,7 @@ def test_ki_protection_works():
             while True:
                 await _core.checkpoint()
         except _core.Cancelled:
-            record.add((name + " ok"))
+            record.add(name + " ok")
 
     async def raiser(name, record):
         try:
@@ -233,7 +233,7 @@ def test_ki_protection_works():
             print("raised!")
             # Make sure we aren't getting cancelled as well as siginted
             await _core.checkpoint()
-            record.add((name + " raise ok"))
+            record.add(name + " raise ok")
             raise
         else:
             print("didn't raise!")
@@ -244,7 +244,7 @@ def test_ki_protection_works():
                     lambda _: _core.Abort.SUCCEEDED
                 )
             except _core.Cancelled:
-                record.add((name + " cancel ok"))
+                record.add(name + " cancel ok")
 
     # simulated control-C during raiser, which is *unprotected*
     print("check 1")

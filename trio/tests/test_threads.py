@@ -1,9 +1,6 @@
 import threading
 import queue as stdlib_queue
 import time
-import os
-import signal
-from functools import partial
 
 import pytest
 
