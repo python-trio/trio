@@ -125,10 +125,14 @@ else
     # Disable coverage on 3.8 until we run 3.8 on Windows CI too
     #   https://github.com/python-trio/trio/pull/784#issuecomment-446438407
     if [[ "$(python -V)" != Python\ 3.8* ]]; then
-        # Disable coverage on pypy py3.6 nightly for now:
-        # https://bitbucket.org/pypy/pypy/issues/2943/
-        if [ "$PYPY_NIGHTLY_BRANCH" != "py3.6" ]; then
-            bash <(curl -s https://codecov.io/bash) -n "${CODECOV_NAME}"
+        # Special flag for pypy3.6 builds, so we can track weird coverage
+        # issues: https://bitbucket.org/pypy/pypy/issues/2943/
+        FLAGARGS=""
+        if [[ "$PYPY_NIGHTLY_BRANCH" == "py3.6" ]]; then
+            FLAGARGS="-F pypy36nightly"
+        elif [[ "$(python -V)" == *PyPy* ]]; then
+            FLAGARGS="-F pypy36release"
         fi
+        bash <(curl -s https://codecov.io/bash) -n "${CODECOV_NAME}" $FLAGARGS
     fi
 fi
