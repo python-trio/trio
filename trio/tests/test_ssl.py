@@ -194,13 +194,15 @@ class PyOpenSSLEchoStream:
         assert self._conn.renegotiate()
 
     async def wait_send_all_might_not_block(self):
-        async with self._send_all_conflict_detector:
+        with self._send_all_conflict_detector:
+            await _core.checkpoint()
             await _core.checkpoint()
             await self.sleeper("wait_send_all_might_not_block")
 
     async def send_all(self, data):
         print("  --> transport_stream.send_all")
-        async with self._send_all_conflict_detector:
+        with self._send_all_conflict_detector:
+            await _core.checkpoint()
             await _core.checkpoint()
             await self.sleeper("send_all")
             self._conn.bio_write(data)
@@ -222,8 +224,9 @@ class PyOpenSSLEchoStream:
 
     async def receive_some(self, nbytes):
         print("  --> transport_stream.receive_some")
-        async with self._receive_some_conflict_detector:
+        with self._receive_some_conflict_detector:
             try:
+                await _core.checkpoint()
                 await _core.checkpoint()
                 while True:
                     await self.sleeper("receive_some")

@@ -96,7 +96,7 @@ class SocketStream(HalfCloseableStream):
     async def send_all(self, data):
         if self.socket.did_shutdown_SHUT_WR:
             raise trio.ClosedResourceError("can't send data after sending EOF")
-        with self._send_conflict_detector.sync:
+        with self._send_conflict_detector:
             with _translate_socket_errors_to_stream_errors():
                 with memoryview(data) as data:
                     if not data:
@@ -113,14 +113,15 @@ class SocketStream(HalfCloseableStream):
                         total_sent += sent
 
     async def wait_send_all_might_not_block(self):
-        with self._send_conflict_detector.sync:
+        with self._send_conflict_detector:
             if self.socket.fileno() == -1:
                 raise trio.ClosedResourceError
             with _translate_socket_errors_to_stream_errors():
                 await self.socket.wait_writable()
 
     async def send_eof(self):
-        async with self._send_conflict_detector:
+        with self._send_conflict_detector:
+            await trio.hazmat.checkpoint()
             # On macOS, calling shutdown a second time raises ENOTCONN, but
             # send_eof needs to be idempotent.
             if self.socket.did_shutdown_SHUT_WR:

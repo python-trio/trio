@@ -107,7 +107,7 @@ class SignalReceiver:
         # In principle it would be possible to support multiple concurrent
         # calls to __anext__, but doing it without race conditions is quite
         # tricky, and there doesn't seem to be any point in trying.
-        with self._conflict_detector.sync:
+        with self._conflict_detector:
             await self._have_pending.wait()
             signum, _ = self._pending.popitem(last=False)
             if not self._pending:

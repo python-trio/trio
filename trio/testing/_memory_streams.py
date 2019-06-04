@@ -67,17 +67,19 @@ class _UnboundedByteQueue:
             return bytearray()
 
     def get_nowait(self, max_bytes=None):
-        with self._fetch_lock.sync:
+        with self._fetch_lock:
             self._check_max_bytes(max_bytes)
             if not self._closed and not self._data:
                 raise _core.WouldBlock
             return self._get_impl(max_bytes)
 
     async def get(self, max_bytes=None):
-        async with self._fetch_lock:
+        with self._fetch_lock:
             self._check_max_bytes(max_bytes)
             if not self._closed and not self._data:
                 await self._lot.park()
+            else:
+                await _core.checkpoint()
             return self._get_impl(max_bytes)
 
 
@@ -121,10 +123,10 @@ class MemorySendStream(SendStream):
         calls the :attr:`send_all_hook` (if any).
 
         """
-        # The lock itself is a checkpoint, but then we also yield inside the
-        # lock to give ourselves a chance to detect buggy user code that calls
-        # this twice at the same time.
-        async with self._conflict_detector:
+        # Execute two checkpoints so we have more of a chance to detect
+        # buggy user code that calls this twice at the same time.
+        with self._conflict_detector:
+            await _core.checkpoint()
             await _core.checkpoint()
             self._outgoing.put(data)
             if self.send_all_hook is not None:
@@ -135,10 +137,10 @@ class MemorySendStream(SendStream):
         then returns immediately.
 
         """
-        # The lock itself is a checkpoint, but then we also yield inside the
-        # lock to give ourselves a chance to detect buggy user code that calls
-        # this twice at the same time.
-        async with self._conflict_detector:
+        # Execute two checkpoints so we have more of a chance to detect
+        # buggy user code that calls this twice at the same time.
+        with self._conflict_detector:
+            await _core.checkpoint()
             await _core.checkpoint()
             # check for being closed:
             self._outgoing.put(b"")
@@ -228,10 +230,10 @@ class MemoryReceiveStream(ReceiveStream):
         data from the internal buffer, blocking if necessary.
 
         """
-        # The lock itself is a checkpoint, but then we also yield inside the
-        # lock to give ourselves a chance to detect buggy user code that calls
-        # this twice at the same time.
-        async with self._conflict_detector:
+        # Execute two checkpoints so we have more of a chance to detect
+        # buggy user code that calls this twice at the same time.
+        with self._conflict_detector:
+            await _core.checkpoint()
             await _core.checkpoint()
             if max_bytes is None:
                 raise TypeError("max_bytes must not be None")
@@ -470,6 +472,7 @@ class _LockstepByteQueue:
             if self._sender_closed or self._receiver_closed:
                 break
             await self._waiters.park()
+        await _core.checkpoint()
 
     def close_sender(self):
         self._sender_closed = True
@@ -480,7 +483,7 @@ class _LockstepByteQueue:
         self._something_happened()
 
     async def send_all(self, data):
-        async with self._send_conflict_detector:
+        with self._send_conflict_detector:
             if self._sender_closed:
                 raise _core.ClosedResourceError
             if self._receiver_closed:
@@ -495,17 +498,18 @@ class _LockstepByteQueue:
                 raise _core.BrokenResourceError
 
     async def wait_send_all_might_not_block(self):
-        async with self._send_conflict_detector:
+        with self._send_conflict_detector:
             if self._sender_closed:
                 raise _core.ClosedResourceError
             if self._receiver_closed:
+                await _core.checkpoint()
                 return
             await self._wait_for(lambda: self._receiver_waiting)
             if self._sender_closed:
                 raise _core.ClosedResourceError
 
     async def receive_some(self, max_bytes):
-        async with self._receive_conflict_detector:
+        with self._receive_conflict_detector:
             # Argument validation
             max_bytes = operator.index(max_bytes)
             if max_bytes < 1:

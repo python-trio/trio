@@ -603,7 +603,7 @@ class SSLStream(Stream):
            :exc:`trio.BrokenResourceError`.
 
         """
-        with self._outer_recv_conflict_detector.sync:
+        with self._outer_recv_conflict_detector:
             self._check_status()
             try:
                 await self._handshook.ensure(checkpoint=False)
@@ -652,7 +652,7 @@ class SSLStream(Stream):
            :exc:`trio.BrokenResourceError`.
 
         """
-        with self._outer_send_conflict_detector.sync:
+        with self._outer_send_conflict_detector:
             self._check_status()
             await self._handshook.ensure(checkpoint=False)
             # SSLObject interprets write(b"") as an EOF for some reason, which
@@ -679,8 +679,8 @@ class SSLStream(Stream):
           ``transport_stream.receive_some(...)``.
 
         """
-        with self._outer_recv_conflict_detector.sync, \
-                self._outer_send_conflict_detector.sync:
+        with self._outer_recv_conflict_detector, \
+                self._outer_send_conflict_detector:
             self._check_status()
             await self._handshook.ensure(checkpoint=False)
             await self._retry(self._ssl_object.unwrap)
@@ -787,7 +787,7 @@ class SSLStream(Stream):
         # First, we take the outer send lock, because of Trio's standard
         # semantics that wait_send_all_might_not_block and send_all
         # conflict.
-        with self._outer_send_conflict_detector.sync:
+        with self._outer_send_conflict_detector:
             self._check_status()
             # Then we take the inner send lock. We know that no other tasks
             # are calling self.send_all or self.wait_send_all_might_not_block,
