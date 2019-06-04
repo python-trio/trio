@@ -127,12 +127,12 @@ else
     if [[ "$(python -V)" != Python\ 3.8* ]]; then
         # Special flag for pypy3.6 builds, so we can track weird coverage
         # issues: https://bitbucket.org/pypy/pypy/issues/2943/
-        FLAGARGS=""
+        FLAG="cpython"
         if [[ "$PYPY_NIGHTLY_BRANCH" == "py3.6" ]]; then
-            FLAGARGS="-F pypy36nightly"
+            FLAG="pypy36nightly"
         elif [[ "$(python -V)" == *PyPy* ]]; then
-            FLAGARGS="-F pypy36release"
+            FLAG="pypy36release"
         fi
-        bash <(curl -s https://codecov.io/bash) -n "${CODECOV_NAME}" $FLAGARGS
+        bash <(curl -s https://codecov.io/bash) -n "${CODECOV_NAME}" -F "$FLAG"
     fi
 fi
