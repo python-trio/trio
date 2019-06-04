@@ -6,7 +6,7 @@ import threading
 import time
 import types
 import warnings
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 from math import inf
 
 import attr
@@ -921,6 +921,76 @@ async def test_cancel_unbound():
     assert scope.cancel_called
     scope.deadline += 1
     assert scope.cancel_called  # never become un-cancelled
+
+
+async def test_cancel_scope_misnesting():
+    outer = _core.CancelScope()
+    inner = _core.CancelScope()
+    with ExitStack() as stack:
+        stack.enter_context(outer)
+        with inner:
+            with pytest.raises(RuntimeError, match="still within its child"):
+                stack.close()
+        # No further error is raised when exiting the inner context
+
+    # If there are other tasks inside the abandoned part of the cancel tree,
+    # they get cancelled when the misnesting is detected
+    async def task1():
+        with pytest.raises(_core.Cancelled):
+            await sleep_forever()
+
+    # Even if inside another cancel scope
+    async def task2():
+        with _core.CancelScope():
+            with pytest.raises(_core.Cancelled):
+                await sleep_forever()
+
+    with ExitStack() as stack:
+        stack.enter_context(_core.CancelScope())
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(task1)
+            nursery.start_soon(task2)
+            await wait_all_tasks_blocked()
+            with pytest.raises(RuntimeError, match="still within its child"):
+                stack.close()
+
+    # Variant that makes the child tasks direct children of the scope
+    # that noticed the misnesting:
+    nursery_mgr = _core.open_nursery()
+    nursery = await nursery_mgr.__aenter__()
+    try:
+        nursery.start_soon(task1)
+        nursery.start_soon(task2)
+        nursery.start_soon(sleep_forever)
+        await wait_all_tasks_blocked()
+        nursery.cancel_scope.__exit__(None, None, None)
+    finally:
+        with pytest.raises(RuntimeError) as exc_info:
+            await nursery_mgr.__aexit__(*sys.exc_info())
+        assert "which had already been exited" in str(exc_info.value)
+        assert type(exc_info.value.__context__) is _core.MultiError
+        assert len(exc_info.value.__context__.exceptions) == 3
+        cancelled_in_context = False
+        for exc in exc_info.value.__context__.exceptions:
+            assert isinstance(exc, RuntimeError)
+            assert "closed before the task exited" in str(exc)
+            cancelled_in_context |= isinstance(
+                exc.__context__, _core.Cancelled
+            )
+        assert cancelled_in_context  # for the sleep_forever
+
+    # Trying to exit a cancel scope from an unrelated task raises an error
+    # without affecting any state
+    async def task3(task_status):
+        with _core.CancelScope() as scope:
+            task_status.started(scope)
+            await sleep_forever()
+
+    async with _core.open_nursery() as nursery:
+        scope = await nursery.start(task3)
+        with pytest.raises(RuntimeError, match="from unrelated"):
+            scope.__exit__(None, None, None)
+        scope.cancel()
 
 
 async def test_timekeeping():
