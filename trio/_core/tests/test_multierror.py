@@ -112,6 +112,16 @@ def test_MultiError():
         MultiError([KeyError(), ValueError])
 
 
+def test_MultiErrorOfSingleMultiError():
+    # For MultiError([MultiError]), ensure there is no bad recursion by the
+    # constructor where __init__ is called if __new__ returns a bare MultiError.
+    exceptions = [KeyError(), ValueError()]
+    a = MultiError(exceptions)
+    b = MultiError([a])
+    assert b == a
+    assert b.exceptions == exceptions
+
+
 async def test_MultiErrorNotHashable():
     exc1 = NotHashableException(42)
     exc2 = NotHashableException(4242)
