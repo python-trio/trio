@@ -456,7 +456,6 @@ class _SocketType(SocketType):
         self._sock.close()
 
     async def bind(self, address):
-        await trio.hazmat.checkpoint()
         address = await self._resolve_local_address(address)
         if (
             hasattr(_stdlib_socket, "AF_UNIX")
@@ -493,11 +492,9 @@ class _SocketType(SocketType):
         # Do some pre-checking (or exit early for non-IP sockets)
         if self._sock.family == _stdlib_socket.AF_INET:
             if not isinstance(address, tuple) or not len(address) == 2:
-                await trio.hazmat.checkpoint()
                 raise ValueError("address should be a (host, port) tuple")
         elif self._sock.family == _stdlib_socket.AF_INET6:
             if not isinstance(address, tuple) or not 2 <= len(address) <= 4:
-                await trio.hazmat.checkpoint()
                 raise ValueError(
                     "address should be a (host, port, [flowinfo, [scopeid]]) "
                     "tuple"

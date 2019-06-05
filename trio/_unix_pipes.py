@@ -75,12 +75,12 @@ class PipeSendStream(SendStream):
         )
 
     async def send_all(self, data: bytes):
-        async with self._conflict_detector:
+        with self._conflict_detector:
             # have to check up front, because send_all(b"") on a closed pipe
             # should raise
             if self._fd_holder.closed:
                 raise trio.ClosedResourceError("this pipe was already closed")
-
+            await trio.hazmat.checkpoint()
             length = len(data)
             # adapted from the SocketStream code
             with memoryview(data) as view:
@@ -100,7 +100,7 @@ class PipeSendStream(SendStream):
                                 raise trio.BrokenResourceError from e
 
     async def wait_send_all_might_not_block(self) -> None:
-        async with self._conflict_detector:
+        with self._conflict_detector:
             if self._fd_holder.closed:
                 raise trio.ClosedResourceError("this pipe was already closed")
             try:
@@ -127,13 +127,14 @@ class PipeReceiveStream(ReceiveStream):
         )
 
     async def receive_some(self, max_bytes: int) -> bytes:
-        async with self._conflict_detector:
+        with self._conflict_detector:
             if not isinstance(max_bytes, int):
                 raise TypeError("max_bytes must be integer >= 1")
 
             if max_bytes < 1:
                 raise ValueError("max_bytes must be integer >= 1")
 
+            await trio.hazmat.checkpoint()
             while True:
                 try:
                     data = os.read(self._fd_holder.fd, max_bytes)

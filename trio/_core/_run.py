@@ -898,7 +898,7 @@ class Task:
     _child_nurseries = attr.ib(default=attr.Factory(list))
 
     # these are counts of how many cancel/schedule points this task has
-    # executed, for assert{_no,}_yields
+    # executed, for assert{_no,}_checkpoints
     # XX maybe these should be exposed as part of a statistics() method?
     _cancel_points = attr.ib(default=0)
     _schedule_points = attr.ib(default=0)

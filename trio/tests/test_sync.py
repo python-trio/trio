@@ -68,9 +68,8 @@ async def test_CapacityLimiter():
     with pytest.raises(RuntimeError):
         c.acquire_nowait()
     assert c.borrowed_tokens == 1
-    with assert_checkpoints():
-        with pytest.raises(RuntimeError):
-            await c.acquire()
+    with pytest.raises(RuntimeError):
+        await c.acquire()
     assert c.borrowed_tokens == 1
 
     # We can acquire on behalf of someone else though

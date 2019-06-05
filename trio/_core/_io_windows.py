@@ -431,7 +431,6 @@ class WindowsIOManager:
         if not isinstance(sock, int):
             sock = sock.fileno()
         if sock in self._socket_waiters[which]:
-            await _core.checkpoint()
             raise _core.BusyResourceError(
                 "another task is already waiting to {} this socket"
                 .format(which)

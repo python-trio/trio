@@ -412,10 +412,6 @@ checkpoint semantics. Example::
        except BlockingIOError:
            # need to block and then retry, which we do below
            pass
-       except:
-           # some other error, finish the checkpoint then let it propagate
-           await cancel_shielded_checkpoint()
-           raise
        else:
            # operation succeeded, finish the checkpoint then return
            await cancel_shielded_checkpoint()
@@ -429,13 +425,13 @@ checkpoint semantics. Example::
 
 This logic is a bit convoluted, but accomplishes all of the following:
 
-* Every execution path passes through a checkpoint (assuming that
+* Every successful execution path passes through a checkpoint (assuming that
   ``wait_for_operation_to_be_ready`` is an unconditional checkpoint)
 
 * Our :ref:`cancellation semantics <cancellable-primitives>` say that
   :exc:`~trio.Cancelled` should only be raised if the operation didn't
   happen. Using :func:`cancel_shielded_checkpoint` on the early-exit
-  branches accomplishes this.
+  branch accomplishes this.
 
 * On the path where we do end up blocking, we don't pass through any
   schedule points before that, which avoids some unnecessary work.

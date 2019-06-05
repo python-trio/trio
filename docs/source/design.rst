@@ -221,6 +221,13 @@ In fact, to make this even simpler, we make it so you don't even have
 to look at the function arguments: each *function* is either a
 cancel+schedule point on *every* call or on *no* calls.
 
+(Pragmatic exception: a Trio primitive is not required to act as a
+cancel+schedule point when it raises an exception, even if it would
+act as one in the case of a successful return. See `issue 474
+<https://github.com/python-trio/trio/issues/474>`__ for more details;
+basically, requiring checkpoints on all exception paths added a lot of
+implementation complexity with negligible user-facing benefit.)
+
 Observation: since blocking is always a cancel+schedule point, rule 2
 implies that any function that *sometimes* blocks is *always* a
 cancel+schedule point.

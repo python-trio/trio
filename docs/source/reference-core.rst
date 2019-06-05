@@ -74,8 +74,7 @@ not others, depending on the arguments passed / network speed / phase
 of the moon? How do we figure out where the checkpoints are when
 we're stressed and sleep deprived but still want to get this code
 review right, and would prefer to reserve our mental energy for
-thinking about the actual logic instead of worrying about check
-points?
+thinking about the actual logic instead of worrying about checkpoints?
 
 .. _checkpoint-rule:
 
@@ -85,19 +84,28 @@ them. Here are the rules:
 
 * Regular (synchronous) functions never contain any checkpoints.
 
-* Every async function provided by Trio *always* acts as a check
-  point; if you see ``await <something in trio>``, or ``async for
-  ... in <a trio object>``, or ``async with <trio.something>``, then
-  that's *definitely* a checkpoint.
+* If you call an async function provided by Trio (``await
+  <something in trio>``), and it doesn't raise an exception,
+  then it *always* acts as a checkpoint. (If it does raise an
+  exception, it might act as a checkpoint or might not.)
 
-  (Partial exception: for async context managers, it might be only the
-  entry or only the exit that acts as a checkpoint; this is
-  documented on a case-by-case basis.)
+  * This includes async iterators: If you write ``async for ... in <a
+    trio object>``, then there will be at least one checkpoint before
+    each iteration of the loop and one checkpoint after the last
+    iteration.
 
-* Third-party async functions can act as checkpoints; if you see
-  ``await <something>`` or one of its friends, then that *might* be a
-  checkpoint. So to be safe, you should prepare for scheduling or
-  cancellation happening there.
+  * Partial exception for async context managers:
+    Both the entry and exit of an ``async with`` block are
+    defined as async functions; but for a
+    particular type of async context manager, it's often the
+    case that only one of them is able to block, which means
+    only that one will act as a checkpoint. This is documented
+    on a case-by-case basis.
+
+* Third-party async functions / iterators / context managers can act
+  as checkpoints; if you see ``await <something>`` or one of its
+  friends, then that *might* be a checkpoint. So to be safe, you
+  should prepare for scheduling or cancellation happening there.
 
 The reason we distinguish between Trio functions and other functions
 is that we can't make any guarantees about third party
@@ -138,8 +146,8 @@ A slightly trickier case is a function like::
 
 Here the function acts as a checkpoint if you call it with
 ``should_sleep`` set to a true value, but not otherwise. This is why
-we emphasize that Trio's own async functions are *unconditional* check
-points: they *always* check for cancellation and check for scheduling,
+we emphasize that Trio's own async functions are *unconditional* checkpoints:
+they *always* check for cancellation and check for scheduling,
 regardless of what arguments they're passed. If you find an async
 function in Trio that doesn't follow this rule, then it's a bug and
 you should `let us know

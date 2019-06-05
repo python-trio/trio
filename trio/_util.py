@@ -107,7 +107,20 @@ def is_main_thread():
         return False
 
 
-class _ConflictDetectorSync:
+class ConflictDetector:
+    """Detect when two tasks are about to perform operations that would
+    conflict.
+
+    Use as a synchronous context manager; if two tasks enter it at the same
+    time then the second one raises an error. You can use it when there are
+    two pieces of code that *would* collide and need a lock if they ever were
+    called at the same time, but that should never happen.
+
+    We use this in particular for things like, making sure that two different
+    tasks don't call sendall simultaneously on the same stream.
+
+    """
+
     def __init__(self, msg):
         self._msg = msg
         self._held = False
@@ -120,36 +133,6 @@ class _ConflictDetectorSync:
 
     def __exit__(self, *args):
         self._held = False
-
-
-class ConflictDetector:
-    """Detect when two tasks are about to perform operations that would
-    conflict.
-
-    Use as an async context manager; if two tasks enter it at the same
-    time then the second one raises an error. You can use it when there are
-    two pieces of code that *would* collide and need a lock if they ever were
-    called at the same time, but that should never happen.
-
-    We use this in particular for things like, making sure that two different
-    tasks don't call sendall simultaneously on the same stream.
-
-    This executes a checkpoint on entry. That's the only reason it's async.
-
-    To use from sync code, do ``with cd.sync``; this is just like ``async with
-    cd`` except that it doesn't execute a checkpoint.
-
-    """
-
-    def __init__(self, msg):
-        self.sync = _ConflictDetectorSync(msg)
-
-    async def __aenter__(self):
-        await trio.hazmat.checkpoint()
-        return self.sync.__enter__()
-
-    async def __aexit__(self, *args):
-        return self.sync.__exit__()
 
 
 def async_wraps(cls, wrapped_cls, attr_name):

@@ -38,34 +38,24 @@ async def test_ConflictDetector():
     ul1 = ConflictDetector("ul1")
     ul2 = ConflictDetector("ul2")
 
-    async with ul1:
-        with assert_checkpoints():
-            async with ul2:
-                print("ok")
+    with ul1:
+        with ul2:
+            print("ok")
 
     with pytest.raises(_core.BusyResourceError) as excinfo:
-        async with ul1:
-            with assert_checkpoints():
-                async with ul1:
-                    pass  # pragma: no cover
+        with ul1:
+            with ul1:
+                pass  # pragma: no cover
     assert "ul1" in str(excinfo.value)
 
     async def wait_with_ul1():
-        async with ul1:
+        with ul1:
             await wait_all_tasks_blocked()
 
     with pytest.raises(_core.BusyResourceError) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(wait_with_ul1)
             nursery.start_soon(wait_with_ul1)
-    assert "ul1" in str(excinfo.value)
-
-    # mixing sync and async entry
-    with pytest.raises(_core.BusyResourceError) as excinfo:
-        with ul1.sync:
-            with assert_checkpoints():
-                async with ul1:
-                    pass  # pragma: no cover
     assert "ul1" in str(excinfo.value)
 
 

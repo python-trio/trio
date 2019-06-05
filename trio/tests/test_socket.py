@@ -620,18 +620,16 @@ async def test_SocketType_non_blocking_paths():
 # This tests the complicated paths through connect
 async def test_SocketType_connect_paths():
     with tsocket.socket() as sock:
-        with assert_checkpoints():
-            with pytest.raises(ValueError):
-                # Should be a tuple
-                await sock.connect("localhost")
+        with pytest.raises(ValueError):
+            # Should be a tuple
+            await sock.connect("localhost")
 
     # cancelled before we start
     with tsocket.socket() as sock:
-        with assert_checkpoints():
-            with _core.CancelScope() as cancel_scope:
-                cancel_scope.cancel()
-                with pytest.raises(_core.Cancelled):
-                    await sock.connect(("127.0.0.1", 80))
+        with _core.CancelScope() as cancel_scope:
+            cancel_scope.cancel()
+            with pytest.raises(_core.Cancelled):
+                await sock.connect(("127.0.0.1", 80))
 
     # Cancelled in between the connect() call and the connect completing
     with _core.CancelScope() as cancel_scope:
@@ -662,16 +660,15 @@ async def test_SocketType_connect_paths():
 
     # Failed connect (hopefully after raising BlockingIOError)
     with tsocket.socket() as sock:
-        with assert_checkpoints():
-            with pytest.raises(OSError):
-                # TCP port 2 is not assigned. Pretty sure nothing will be
-                # listening there. (We used to bind a port and then *not* call
-                # listen() to ensure nothing was listening there, but it turns
-                # out on macOS if you do this it takes 30 seconds for the
-                # connect to fail. Really. Also if you use a non-routable
-                # address. This way fails instantly though. As long as nothing
-                # is listening on port 2.)
-                await sock.connect(("127.0.0.1", 2))
+        with pytest.raises(OSError):
+            # TCP port 2 is not assigned. Pretty sure nothing will be
+            # listening there. (We used to bind a port and then *not* call
+            # listen() to ensure nothing was listening there, but it turns
+            # out on macOS if you do this it takes 30 seconds for the
+            # connect to fail. Really. Also if you use a non-routable
+            # address. This way fails instantly though. As long as nothing
+            # is listening on port 2.)
+            await sock.connect(("127.0.0.1", 2))
 
 
 async def test_resolve_remote_address_exception_closes_socket():

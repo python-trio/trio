@@ -194,13 +194,15 @@ class PyOpenSSLEchoStream:
         assert self._conn.renegotiate()
 
     async def wait_send_all_might_not_block(self):
-        async with self._send_all_conflict_detector:
+        with self._send_all_conflict_detector:
+            await _core.checkpoint()
             await _core.checkpoint()
             await self.sleeper("wait_send_all_might_not_block")
 
     async def send_all(self, data):
         print("  --> transport_stream.send_all")
-        async with self._send_all_conflict_detector:
+        with self._send_all_conflict_detector:
+            await _core.checkpoint()
             await _core.checkpoint()
             await self.sleeper("send_all")
             self._conn.bio_write(data)
@@ -222,8 +224,9 @@ class PyOpenSSLEchoStream:
 
     async def receive_some(self, nbytes):
         print("  --> transport_stream.receive_some")
-        async with self._receive_some_conflict_detector:
+        with self._receive_some_conflict_detector:
             try:
+                await _core.checkpoint()
                 await _core.checkpoint()
                 while True:
                     await self.sleeper("receive_some")
@@ -858,23 +861,19 @@ async def test_closing_nice_case():
         await client_ssl.aclose()
 
     # Trying to send more data does not work
-    with assert_checkpoints():
-        with pytest.raises(ClosedResourceError):
-            await server_ssl.send_all(b"123")
+    with pytest.raises(ClosedResourceError):
+        await server_ssl.send_all(b"123")
 
     # And once the connection is has been closed *locally*, then instead of
     # getting empty bytestrings we get a proper error
-    with assert_checkpoints():
-        with pytest.raises(ClosedResourceError):
-            await client_ssl.receive_some(10) == b""
+    with pytest.raises(ClosedResourceError):
+        await client_ssl.receive_some(10) == b""
 
-    with assert_checkpoints():
-        with pytest.raises(ClosedResourceError):
-            await client_ssl.unwrap()
+    with pytest.raises(ClosedResourceError):
+        await client_ssl.unwrap()
 
-    with assert_checkpoints():
-        with pytest.raises(ClosedResourceError):
-            await client_ssl.do_handshake()
+    with pytest.raises(ClosedResourceError):
+        await client_ssl.do_handshake()
 
     # Check that a graceful close *before* handshaking gives a clean EOF on
     # the other side

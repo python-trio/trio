@@ -304,9 +304,6 @@ class CapacityLimiter:
             except trio.Cancelled:
                 self._pending_borrowers.pop(task)
                 raise
-        except:
-            await trio.hazmat.cancel_shielded_checkpoint()
-            raise
         else:
             await trio.hazmat.cancel_shielded_checkpoint()
 
