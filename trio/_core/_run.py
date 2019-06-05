@@ -173,7 +173,8 @@ class CancelStatus:
     # The CancelStatus whose cancellations can propagate to us; we
     # become effectively cancelled when they do, unless scope.shield
     # is True.  May be None (for the outermost CancelStatus in a call
-    # to trio.run(), or briefly during TaskStatus.started()).
+    # to trio.run(), briefly during TaskStatus.started(), or during
+    # recovery from mis-nesting of cancel scopes).
     _parent = attr.ib(default=None, repr=False)
 
     # All of the CancelStatuses that have this CancelStatus as their parent.
@@ -184,6 +185,12 @@ class CancelStatus:
     # this directly; instead, use Task._activate_cancel_status().
     # Invariant: all(task._cancel_status is self for task in self._tasks)
     _tasks = attr.ib(factory=set, init=False, repr=False)
+
+    # Set to True on still-active cancel statuses that are children
+    # of a cancel status that's been closed. This is used to permit
+    # recovery from mis-nested cancel scopes (well, at least enough
+    # recovery to show a useful traceback).
+    abandoned_by_misnesting = attr.ib(default=False, init=False, repr=False)
 
     def __attrs_post_init__(self):
         if self._parent is not None:
@@ -213,9 +220,43 @@ class CancelStatus:
     def tasks(self):
         return frozenset(self._tasks)
 
+    def encloses(self, other):
+        """Returns true if this cancel status is a direct or indirect
+        parent of cancel status *other*, or if *other* is *self*.
+        """
+        while other is not None:
+            if other is self:
+                return True
+            other = other.parent
+        return False
+
     def close(self):
-        assert not self._tasks and not self._children
         self.parent = None  # now we're not a child of self.parent anymore
+        if self._tasks or self._children:
+            # Cancel scopes weren't exited in opposite order of being
+            # entered. CancelScope._close() deals with raising an error
+            # if appropriate; our job is to leave things in a reasonable
+            # state for unwinding our dangling children. We choose to leave
+            # this part of the CancelStatus tree unlinked from everyone
+            # else, cancelled, and marked so that exiting a CancelScope
+            # within the abandoned subtree doesn't affect the active
+            # CancelStatus. Note that it's possible for us to get here
+            # without CancelScope._close() raising an error, if a
+            # nursery's cancel scope is closed within the nursery's
+            # nested child and no other cancel scopes are involved,
+            # but in that case task_exited() will deal with raising
+            # the error.
+            self._mark_abandoned()
+
+            # Since our CancelScope is about to forget about us, and we
+            # have no parent anymore, there's nothing left to call
+            # recalculate(). So, we can stay cancelled by setting
+            # effectively_cancelled and updating our children.
+            self.effectively_cancelled = True
+            for task in self._tasks:
+                task._attempt_delivery_of_any_pending_cancel()
+            for child in self._children:
+                child.recalculate()
 
     @property
     def parent_cancellation_is_visible_to_us(self):
@@ -237,12 +278,41 @@ class CancelStatus:
             for child in self._children:
                 child.recalculate()
 
+    def _mark_abandoned(self):
+        self.abandoned_by_misnesting = True
+        for child in self._children:
+            child._mark_abandoned()
+
     def effective_deadline(self):
         if self.effectively_cancelled:
             return -inf
         if self._parent is None or self._scope.shield:
             return self._scope.deadline
         return min(self._scope.deadline, self._parent.effective_deadline())
+
+
+MISNESTING_ADVICE = """
+This is probably a bug in your code, that has caused Trio's internal state to
+become corrupted. We'll do our best to recover, but from now on there are
+no guarantees.
+
+Typically this is caused by one of the following:
+  - yielding within a generator or async generator that's opened a cancel
+    scope or nursery (unless the generator is a @contextmanager or
+    @asynccontextmanager); see https://github.com/python-trio/trio/issues/638
+  - manually calling __enter__ or __exit__ on a trio.CancelScope, or
+    __aenter__ or __aexit__ on the object returned by trio.open_nursery();
+    doing so correctly is difficult and you should use @[async]contextmanager
+    instead, or maybe [Async]ExitStack
+  - using [Async]ExitStack to interleave the entries/exits of cancel scopes
+    and/or nurseries in a way that couldn't be achieved by some nesting of
+    'with' and 'async with' blocks
+  - using the low-level coroutine object protocol to execute some parts of
+    an async function in a different cancel scope/nursery context than
+    other parts
+If you don't believe you're doing any of these things, please file a bug:
+https://github.com/python-trio/trio/issues/new
+"""
 
 
 @attr.s(cmp=False, repr=False, slots=True)
@@ -319,13 +389,60 @@ class CancelScope(metaclass=Final):
         return exc
 
     def _close(self, exc):
+        if self._cancel_status is None:
+            new_exc = RuntimeError(
+                "Cancel scope stack corrupted: attempted to exit {!r} "
+                "which had already been exited".format(self)
+            )
+            new_exc.__context__ = exc
+            return new_exc
         scope_task = current_task()
+        if scope_task._cancel_status is not self._cancel_status:
+            # Cancel scope mis-nesting: this cancel scope isn't the most
+            # recently opened by this task (that's still open). That is,
+            # our assumptions about context managers forming a stack
+            # have been violated. Try and make the best of it.
+            if self._cancel_status.abandoned_by_misnesting:
+                # We are an inner cancel scope that was still active when
+                # some outer scope was closed. The closure of that outer
+                # scope threw an error, so we don't need to throw another
+                # one; it would just confuse the traceback.
+                pass
+            elif not self._cancel_status.encloses(scope_task._cancel_status):
+                # This task isn't even indirectly contained within the
+                # cancel scope it's trying to close. Raise an error
+                # without changing any state.
+                new_exc = RuntimeError(
+                    "Cancel scope stack corrupted: attempted to exit {!r} "
+                    "from unrelated {!r}\n{}".format(
+                        self, scope_task, MISNESTING_ADVICE
+                    )
+                )
+                new_exc.__context__ = exc
+                return new_exc
+            else:
+                # Otherwise, there's some inner cancel scope(s) that
+                # we're abandoning by closing this outer one.
+                # CancelStatus.close() will take care of the plumbing;
+                # we just need to make sure we don't let the error
+                # pass silently.
+                new_exc = RuntimeError(
+                    "Cancel scope stack corrupted: attempted to exit {!r} "
+                    "in {!r} that's still within its child {!r}\n{}".format(
+                        self, scope_task, scope_task._cancel_status._scope,
+                        MISNESTING_ADVICE
+                    )
+                )
+                new_exc.__context__ = exc
+                exc = new_exc
+                scope_task._activate_cancel_status(self._cancel_status.parent)
+        else:
+            scope_task._activate_cancel_status(self._cancel_status.parent)
         if (
             exc is not None
             and not self._cancel_status.parent_cancellation_is_visible_to_us
         ):
             exc = MultiError.filter(self._exc_filter, exc)
-        scope_task._activate_cancel_status(self._cancel_status.parent)
         self._cancel_status.close()
         with self._might_change_registered_deadline():
             self._cancel_status = None
@@ -1155,6 +1272,29 @@ class Runner:
         return task
 
     def task_exited(self, task, outcome):
+        if (
+            task._cancel_status is not None
+            and task._cancel_status.abandoned_by_misnesting
+            and task._cancel_status.parent is None
+        ):
+            # The cancel scope surrounding this task's nursery was closed
+            # before the task exited. Force the task to exit with an error,
+            # since the error might not have been caught elsewhere. See the
+            # comments in CancelStatus.close().
+            try:
+                # Raise this, rather than just constructing it, to get a
+                # traceback frame included
+                raise RuntimeError(
+                    "Cancel scope stack corrupted: cancel scope surrounding "
+                    "{!r} was closed before the task exited\n{}".format(
+                        task, MISNESTING_ADVICE
+                    )
+                )
+            except RuntimeError as new_exc:
+                if isinstance(outcome, Error):
+                    new_exc.__context__ = outcome.error
+                outcome = Error(new_exc)
+
         task._activate_cancel_status(None)
         self.tasks.remove(task)
         if task is self.main_task:
