@@ -78,12 +78,9 @@ class _UnboundedByteQueue:
             self._check_max_bytes(max_bytes)
             if not self._closed and not self._data:
                 await self._lot.park()
-                return self._get_impl(max_bytes)
-            await _core.checkpoint_if_cancelled()
-            try:
-                return self._get_impl(max_bytes)
-            finally:
-                await _core.cancel_shielded_checkpoint()
+            else:
+                await _core.checkpoint()
+            return self._get_impl(max_bytes)
 
 
 class MemorySendStream(SendStream):
