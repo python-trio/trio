@@ -115,6 +115,11 @@ else
     # Actual tests
     python -m pip install -r test-requirements.txt
 
+    # On azure pipelines, install the pytest plugin
+    if [ -n "$AGENT_OS" ]; then
+        pip install pytest-azurepipelines
+    fi
+
     mkdir empty
     cd empty
 
