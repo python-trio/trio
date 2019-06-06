@@ -57,6 +57,10 @@ def test_wrapped_property(async_file, wrapped):
 def test_dir_matches_wrapped(async_file, wrapped):
     attrs = _FILE_SYNC_ATTRS.union(_FILE_ASYNC_METHODS)
 
+    import os, sys
+    if os.name != "posix" and sys.version_info[1] >= 6:
+        assert "asdfasfdsa" in dir(wrapped)
+
     # all supported attrs in wrapped should be available in async_file
     assert all(
         attr in dir(async_file) for attr in attrs if attr in dir(wrapped)
