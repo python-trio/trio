@@ -39,6 +39,7 @@ nitpick_ignore = [
     ("py:exc", "Anything else"),
 ]
 autodoc_inherit_docstrings = False
+default_role = "obj"
 
 # XX hack the RTD theme until
 #   https://github.com/rtfd/sphinx_rtd_theme/pull/382

@@ -706,7 +706,7 @@ in Python there can only be one exception at a time.
 Trio's answer is that it raises a :exc:`MultiError` object. This is a
 special exception which encapsulates multiple exception objects –
 either regular exceptions or nested :exc:`MultiError`\s. To make these
-easier to work with, Trio installs a custom :obj:`sys.excepthook` that
+easier to work with, Trio installs a custom `sys.excepthook` that
 knows how to print nice tracebacks for unhandled :exc:`MultiError`\s,
 and it also provides some helpful utilities like
 :meth:`MultiError.catch`, which allows you to catch "part of" a

@@ -298,7 +298,7 @@ class SSLStream(Stream):
     raises :exc:`NeedHandshakeError`.
 
     This also means that if you register a SNI callback using
-    :obj:`~ssl.SSLContext.sni_callback`, then the first argument your callback
+    `~ssl.SSLContext.sni_callback`, then the first argument your callback
     receives will be a :class:`ssl.SSLObject`.
 
     """
