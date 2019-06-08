@@ -2142,6 +2142,30 @@ def test_system_task_contexts():
     _core.run(inner)
 
 
+def test_Nursery_init():
+    check_Nursery_error = pytest.raises(
+        TypeError, match='no public constructor available'
+    )
+
+    with check_Nursery_error:
+        _core._run.Nursery(None, None)
+
+
+async def test_Nursery_private_init():
+    # context manager creation should not raise
+    async with _core.open_nursery() as nursery:
+        assert False == nursery._closed
+
+
+def test_Nursery_subclass():
+    with pytest.raises(
+        TypeError, match='`Nursery` does not support subclassing'
+    ):
+
+        class Subclass(_core._run.Nursery):
+            pass
+
+
 def test_Cancelled_init():
     check_Cancelled_error = pytest.raises(
         TypeError, match='no public constructor available'

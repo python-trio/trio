@@ -37,7 +37,7 @@ from ._traps import (
 )
 from .. import _core
 from .._deprecate import deprecated
-from .._util import Final
+from .._util import Final, NoPublicConstructor
 
 # At the bottom of this file there's also some "clever" code that generates
 # wrapper functions for runner and io manager methods, and adds them to
@@ -717,7 +717,7 @@ class NurseryManager:
     async def __aenter__(self):
         self._scope = CancelScope()
         self._scope.__enter__()
-        self._nursery = Nursery(current_task(), self._scope)
+        self._nursery = Nursery._create(current_task(), self._scope)
         return self._nursery
 
     @enable_ki_protection
@@ -761,7 +761,7 @@ def open_nursery():
     return NurseryManager()
 
 
-class Nursery:
+class Nursery(metaclass=NoPublicConstructor):
     def __init__(self, parent_task, cancel_scope):
         self._parent_task = parent_task
         parent_task._child_nurseries.append(self)
