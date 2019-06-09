@@ -109,7 +109,7 @@ Features
   also reexports all the stdlib :mod:`subprocess` exceptions and constants for
   convenience. (`#4 <https://github.com/python-trio/trio/issues/4>`__)
 - You can now create an unbounded :class:`CapacityLimiter` by initializing with
-  :obj:`math.inf` (`#618 <https://github.com/python-trio/trio/issues/618>`__)
+  `math.inf` (`#618 <https://github.com/python-trio/trio/issues/618>`__)
 - New :mod:`trio.hazmat` features to allow cleanly switching live coroutine
   objects between Trio and other coroutine runners. Frankly, we're not even
   sure this is a good idea, but we want to `try it out in trio-asyncio
@@ -238,7 +238,7 @@ Bugfixes
 - Prevent crashes when used with Sentry (raven-python). (`#599
   <https://github.com/python-trio/trio/issues/599>`__)
 - The nursery context manager was rewritten to avoid use of
-  `@asynccontextmanager` and `@async_generator`. This reduces extraneous frames
+  ``@asynccontextmanager`` and ``@async_generator``. This reduces extraneous frames
   in exception traces and addresses bugs regarding `StopIteration` and
   `StopAsyncIteration` exceptions not propagating correctly. (`#612
   <https://github.com/python-trio/trio/issues/612>`__)

@@ -210,7 +210,7 @@ async def open_tcp_stream(
       port (int): The port to connect to.
       happy_eyeballs_delay (float): How many seconds to wait for each
           connection attempt to succeed or fail before getting impatient and
-          starting another one in parallel. Set to :obj:`math.inf` if you want
+          starting another one in parallel. Set to `math.inf` if you want
           to limit to only one connection attempt at a time (like
           :func:`socket.create_connection`). Default: 0.3 (300 ms).
 

@@ -181,7 +181,7 @@ def wrap_file(file):
         file: a :term:`file object`
 
     Returns:
-        An :term:`asynchronous file object` that wraps `file`
+        An :term:`asynchronous file object` that wraps ``file``
 
     Example::
 
