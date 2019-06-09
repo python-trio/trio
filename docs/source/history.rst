@@ -440,7 +440,7 @@ Highlights
   :ref:`async-file-io` (`gh-20
   <https://github.com/python-trio/trio/pull/20>`__)
 
-* The new nursery :meth:`~The nursery interface.start` method makes it
+* The new nursery :meth:`~Nursery.start` method makes it
   easy to perform controlled start-up of long-running tasks. For
   example, given an appropriate ``http_server_on_random_open_port``
   function, you could write::

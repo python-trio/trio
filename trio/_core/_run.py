@@ -46,7 +46,7 @@ from .._util import Final, NoPublicConstructor
 __all__ = [
     "Task", "run", "open_nursery", "open_cancel_scope", "CancelScope",
     "checkpoint", "current_task", "current_effective_deadline",
-    "checkpoint_if_cancelled", "TASK_STATUS_IGNORED"
+    "checkpoint_if_cancelled", "TASK_STATUS_IGNORED", "Nursery"
 ]
 
 GLOBAL_RUN_CONTEXT = threading.local()

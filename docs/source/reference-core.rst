@@ -928,7 +928,7 @@ Nursery objects provide the following interface:
 
 .. attribute:: TASK_STATUS_IGNORED
 
-   See :meth:`~The nursery interface.start`.
+   See :meth:`~Nursery.start`.
 
 
 Working with :exc:`MultiError`\s
