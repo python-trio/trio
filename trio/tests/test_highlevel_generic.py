@@ -8,7 +8,7 @@ from .._highlevel_generic import StapledStream
 
 @attr.s
 class RecordSendStream(SendStream):
-    record = attr.ib(default=attr.Factory(list))
+    record = attr.ib(factory=list)
 
     async def send_all(self, data):
         self.record.append(("send_all", data))
@@ -22,7 +22,7 @@ class RecordSendStream(SendStream):
 
 @attr.s
 class RecordReceiveStream(ReceiveStream):
-    record = attr.ib(default=attr.Factory(list))
+    record = attr.ib(factory=list)
 
     async def receive_some(self, max_bytes):
         self.record.append(("receive_some", max_bytes))

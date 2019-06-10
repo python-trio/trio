@@ -348,7 +348,7 @@ async def test_current_statistics(mock_clock):
 
 @attr.s(cmp=False, hash=False)
 class TaskRecorder:
-    record = attr.ib(default=attr.Factory(list))
+    record = attr.ib(factory=list)
 
     def before_run(self):
         self.record.append(("before_run",))
