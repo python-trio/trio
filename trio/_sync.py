@@ -40,7 +40,7 @@ class Event:
 
     """
 
-    _lot = attr.ib(default=attr.Factory(ParkingLot), init=False)
+    _lot = attr.ib(factory=ParkingLot, init=False)
     _flag = attr.ib(default=False, init=False)
 
     def is_set(self):
@@ -518,7 +518,7 @@ class Lock:
 
     """
 
-    _lot = attr.ib(default=attr.Factory(ParkingLot), init=False)
+    _lot = attr.ib(factory=ParkingLot, init=False)
     _owner = attr.ib(default=None, init=False)
 
     def __repr__(self):

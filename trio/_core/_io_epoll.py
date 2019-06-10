@@ -42,9 +42,9 @@ class EpollWaiters:
 
 @attr.s(slots=True, cmp=False, hash=False)
 class EpollIOManager:
-    _epoll = attr.ib(default=attr.Factory(select.epoll))
+    _epoll = attr.ib(factory=select.epoll)
     # {fd: EpollWaiters}
-    _registered = attr.ib(default=attr.Factory(dict))
+    _registered = attr.ib(factory=dict)
 
     def statistics(self):
         tasks_waiting_read = 0
