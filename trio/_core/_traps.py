@@ -91,7 +91,7 @@ async def wait_task_rescheduled(abort_func):
        was passed to :func:`reschedule`.
 
     2. The call's context transitions to a cancelled state (e.g. due to a
-       timeout expiring). When this happens, the ``abort_func`` is called. It's
+       timeout expiring). When this happens, the ``abort_func`` is called. Its
        interface looks like::
 
            def abort_func(raise_cancel):
