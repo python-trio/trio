@@ -3,6 +3,7 @@ import signal
 import subprocess
 import sys
 import pytest
+import random
 
 from .. import (
     _core, move_on_after, fail_after, sleep, sleep_forever, Process,
