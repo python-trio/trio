@@ -320,6 +320,15 @@ async def run_process(
     :attr:`~subprocess.CompletedProcess.stderr` attributes of the
     returned :class:`~subprocess.CompletedProcess` object.  The value
     for any stream that was not captured will be ``None``.
+    
+    If you want to capture both stdout and stderr while keeping them
+    separate, pass ``capture_stdout=True, capture_stderr=True``.
+    
+    If you want to capture both stdout and stderr but mixed together
+    in the order they were printed, use: ``capture_stdout=True, stderr=subprocess.STDOUT``.
+    This directs the child's stderr into its stdout, so the combined
+    output will be available in the `~subprocess.CompletedProcess.stdout`
+    attribute.
 
     **Error checking:** If the subprocess exits with a nonzero status
     code, indicating failure, :func:`run_process` raises a
