@@ -15,6 +15,11 @@ issue_format = "`#{issue} <https://github.com/python-trio/trio/issues/{issue}>`_
 # tool.towncrier.type.misc.showcontent
 
 [[tool.towncrier.type]]
+directory = "removal"
+name = "Deprecations and Removals"
+showcontent = true
+
+[[tool.towncrier.type]]
 directory = "feature"
 name = "Features"
 showcontent = true
@@ -27,11 +32,6 @@ showcontent = true
 [[tool.towncrier.type]]
 directory = "doc"
 name = "Improved Documentation"
-showcontent = true
-
-[[tool.towncrier.type]]
-directory = "removal"
-name = "Deprecations and Removals"
 showcontent = true
 
 [[tool.towncrier.type]]
