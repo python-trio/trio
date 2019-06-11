@@ -71,29 +71,6 @@ from ._windows_cffi import (
 #   completion that never arrives)
 # - other completion keys are available for user use
 
-# handles:
-# - for now we'll just use 1 thread per handle, should file a QoI bug to
-#   multiplex multiple handles onto the same thread
-# - cancel via QueueUserAPC
-# - I'm a little nervous about the callback to QueueUserAPC... cffi's
-#   ABI-level callbacks require executable memory and who knows how happy the
-#   re-enter-Python code will be about being executed in APC context. (I guess
-#   APC context here is always "on a thread running Python code but that has
-#   dropped the GIL", so maybe there's no issue?)
-#   - on 32-bit windows, Sleep makes a great QueueUserAPC callback...
-#   - WakeByAddressAll and WakeByAddresSingle have the right signature
-#     everywhere!
-#     - there are also a bunch that take a *-sized arg and return BOOL,
-#       e.g. CloseHandle, SetEvent, etc.
-#   - or free() from the CRT (free(NULL) is a no-op says the spec)
-#   - but do they have the right calling convention? QueueUserAPC wants an
-#       APCProc which is VOID CALLBACK f(ULONG_PTR)
-#       CALLBACK = __stdcall
-#     ugh, and free is not annotated, so probably __cdecl
-#     but most of the rest are WINAPI which is __stdcall
-#     ...but, on x86-64 calling convention distinctions are erased! so we can
-#     do Sleep on x86-32 and free on x86-64...
-
 
 def _check(success):
     if not success:
