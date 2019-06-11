@@ -20,19 +20,19 @@ from ssl import (
 
 # Added in python 3.6
 try:
-    from ssl import AlertDescription, SSLErrorNumber, SSLSession, VerifyFlags, VerifyMode, Options
+    from ssl import AlertDescription, SSLErrorNumber, SSLSession, VerifyFlags, VerifyMode, Options  # noqa
 except ImportError:
     pass
 
 # Added in python 3.7
 try:
-    from ssl import SSLCertVerificationError, TLSVersion
+    from ssl import SSLCertVerificationError, TLSVersion  # noqa
 except ImportError:
     pass
 
 # Windows-only
 try:
-    from ssl import enum_certificates, enum_crls
+    from ssl import enum_certificates, enum_crls  # noqa
 except ImportError:
     pass
 

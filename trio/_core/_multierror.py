@@ -7,6 +7,13 @@ import attr
 
 __all__ = ["MultiError"]
 
+# python traceback.TracebackException < 3.6.4 does not support unhashable exceptions
+# see https://github.com/python/cpython/pull/4014 for details
+if sys.version_info < (3, 6, 4):
+    exc_key = lambda exc: exc
+else:
+    exc_key = id
+
 ################################################################
 # MultiError
 ################################################################
@@ -86,7 +93,7 @@ def _filter_impl(handler, root_exc):
             elif changed:
                 return MultiError(new_exceptions)
             else:
-                preserved.add(exc)
+                preserved.add(id(exc))
                 return exc
         else:
             new_exc = handler(exc)
@@ -96,7 +103,7 @@ def _filter_impl(handler, root_exc):
             return new_exc
 
     def push_tb_down(tb, exc, preserved):
-        if exc in preserved:
+        if id(exc) in preserved:
             return
         new_tb = concat_tb(tb, exc.__traceback__)
         if isinstance(exc, MultiError):
@@ -169,6 +176,15 @@ class MultiError(BaseException):
 
     """
 
+    def __init__(self, exceptions):
+        # Avoid recursion when exceptions[0] returned by __new__() happens
+        # to be a MultiError and subsequently __init__() is called.
+        if hasattr(self, "exceptions"):
+            # __init__ was already called on this object
+            assert len(exceptions) == 1 and exceptions[0] is self
+            return
+        self.exceptions = exceptions
+
     def __new__(cls, exceptions):
         exceptions = list(exceptions)
         for exc in exceptions:
@@ -177,11 +193,18 @@ class MultiError(BaseException):
                     "Expected an exception object, not {!r}".format(exc)
                 )
         if len(exceptions) == 1:
+            # If this lone object happens to itself be a MultiError, then
+            # Python will implicitly call our __init__ on it again.  See
+            # special handling in __init__.
             return exceptions[0]
         else:
-            self = BaseException.__new__(cls)
-            self.exceptions = exceptions
-            return self
+            # The base class __new__() implicitly invokes our __init__, which
+            # is what we want.
+            #
+            # In an earlier version of the code, we didn't define __init__ and
+            # simply set the `exceptions` attribute directly on the new object.
+            # However, linters expect attributes to be initialized in __init__.
+            return BaseException.__new__(cls, exceptions)
 
     def __str__(self):
         return ", ".join(repr(exc) for exc in self.exceptions)
@@ -375,7 +398,7 @@ def traceback_exception_init(
     if isinstance(exc_value, MultiError):
         embedded = []
         for exc in exc_value.exceptions:
-            if exc not in _seen:
+            if exc_key(exc) not in _seen:
                 embedded.append(
                     traceback.TracebackException.from_exception(
                         exc,
@@ -423,7 +446,7 @@ if "IPython" in sys.modules:
         if ip.custom_exceptions != ():
             warnings.warn(
                 "IPython detected, but you already have a custom exception "
-                "handler installed. I'll skip installing trio's custom "
+                "handler installed. I'll skip installing Trio's custom "
                 "handler, but this means MultiErrors will not show full "
                 "tracebacks.",
                 category=RuntimeWarning
@@ -445,7 +468,7 @@ else:
     if not IPython_handler_installed and not warning_given:
         warnings.warn(
             "You seem to already have a custom sys.excepthook handler "
-            "installed. I'll skip installing trio's custom handler, but this "
+            "installed. I'll skip installing Trio's custom handler, but this "
             "means MultiErrors will not show full tracebacks.",
             category=RuntimeWarning
         )

@@ -14,7 +14,8 @@ import async_generator
 # ConflictDetector needs checkpoint so it also has to import
 # _core. Possibly we should split this file into two: one for true generic
 # low-level utility code, and one for higher level helpers?
-from . import _core
+
+import trio
 
 __all__ = [
     "signal_raise",
@@ -106,26 +107,11 @@ def is_main_thread():
         return False
 
 
-class _ConflictDetectorSync:
-    def __init__(self, msg):
-        self._msg = msg
-        self._held = False
-
-    def __enter__(self):
-        if self._held:
-            raise _core.BusyResourceError(self._msg)
-        else:
-            self._held = True
-
-    def __exit__(self, *args):
-        self._held = False
-
-
 class ConflictDetector:
     """Detect when two tasks are about to perform operations that would
     conflict.
 
-    Use as an async context manager; if two tasks enter it at the same
+    Use as a synchronous context manager; if two tasks enter it at the same
     time then the second one raises an error. You can use it when there are
     two pieces of code that *would* collide and need a lock if they ever were
     called at the same time, but that should never happen.
@@ -133,22 +119,20 @@ class ConflictDetector:
     We use this in particular for things like, making sure that two different
     tasks don't call sendall simultaneously on the same stream.
 
-    This executes a checkpoint on entry. That's the only reason it's async.
-
-    To use from sync code, do ``with cd.sync``; this is just like ``async with
-    cd`` except that it doesn't execute a checkpoint.
-
     """
 
     def __init__(self, msg):
-        self.sync = _ConflictDetectorSync(msg)
+        self._msg = msg
+        self._held = False
 
-    async def __aenter__(self):
-        await _core.checkpoint()
-        return self.sync.__enter__()
+    def __enter__(self):
+        if self._held:
+            raise trio.BusyResourceError(self._msg)
+        else:
+            self._held = True
 
-    async def __aexit__(self, *args):
-        return self.sync.__exit__()
+    def __exit__(self, *args):
+        self._held = False
 
 
 def async_wraps(cls, wrapped_cls, attr_name):
@@ -279,3 +263,53 @@ class generic_function:
 
     def __getitem__(self, _):
         return self
+
+
+class Final(type):
+    """Metaclass that enforces a class to be final (i.e., subclass not allowed).
+
+    If a class uses this metaclass like this::
+
+        class SomeClass(metaclass=Final):
+            pass
+
+    The metaclass will ensure that no sub class can be created.
+
+    Raises
+    ------
+    - TypeError if a sub class is created
+    """
+
+    def __new__(cls, name, bases, cls_namespace):
+        for base in bases:
+            if isinstance(base, Final):
+                raise TypeError(
+                    "`%s` does not support subclassing" % base.__name__
+                )
+        return type.__new__(cls, name, bases, cls_namespace)
+
+
+class NoPublicConstructor(Final):
+    """Metaclass that enforces a class to be final (i.e., subclass not allowed)
+    and ensures a private constructor.
+
+    If a class uses this metaclass like this::
+
+        class SomeClass(metaclass=NoPublicConstructor):
+            pass
+
+    The metaclass will ensure that no sub class can be created, and that no instance
+    can be initialized.
+
+    If you try to instantiate your class (SomeClass()), a TypeError will be thrown.
+
+    Raises
+    ------
+    - TypeError if a sub class or an instance is created.
+    """
+
+    def __call__(self, *args, **kwargs):
+        raise TypeError("no public constructor available")
+
+    def _create(self, *args, **kwargs):
+        return super().__call__(*args, **kwargs)

@@ -13,7 +13,6 @@ def _assert_yields_or_not(expected):
     orig_schedule = task._schedule_points
     try:
         yield
-    finally:
         if (
             expected and (
                 task._cancel_points == orig_cancel
@@ -21,18 +20,20 @@ def _assert_yields_or_not(expected):
             )
         ):
             raise AssertionError("assert_checkpoints block did not yield!")
-        elif (
+    finally:
+        if (
             not expected and (
                 task._cancel_points != orig_cancel
                 or task._schedule_points != orig_schedule
             )
         ):
-            raise AssertionError("assert_no_yields block yielded!")
+            raise AssertionError("assert_no_checkpoints block yielded!")
 
 
 def assert_checkpoints():
     """Use as a context manager to check that the code inside the ``with``
-    block executes at least one :ref:`checkpoint <checkpoints>`.
+    block either exits with an exception or executes at least one
+    :ref:`checkpoint <checkpoints>`.
 
     Raises:
       AssertionError: if no checkpoint was executed.
@@ -51,7 +52,7 @@ def assert_checkpoints():
 
 def assert_no_checkpoints():
     """Use as a context manager to check that the code inside the ``with``
-    block does not execute any :ref:`check points <checkpoints>`.
+    block does not execute any :ref:`checkpoints <checkpoints>`.
 
     Raises:
       AssertionError: if a checkpoint was executed.

@@ -20,7 +20,7 @@ create complex transport configurations. Here's some examples:
 
 * :class:`trio.SSLStream` is a "stream adapter" that can take any
   object that implements the :class:`trio.abc.Stream` interface, and
-  convert it into an encrypted stream. In trio the standard way to
+  convert it into an encrypted stream. In Trio the standard way to
   speak SSL over the network is to wrap an
   :class:`~trio.SSLStream` around a :class:`~trio.SocketStream`.
 
@@ -40,7 +40,7 @@ create complex transport configurations. Here's some examples:
   but you have to go through a web proxy... and the proxy also uses
   HTTPS. So you end up having to do `SSL-on-top-of-SSL
   <https://daniel.haxx.se/blog/2016/11/26/https-proxy-with-curl/>`__. In
-  trio this is trivial – just wrap your first
+  Trio this is trivial – just wrap your first
   :class:`~trio.SSLStream` in a second
   :class:`~trio.SSLStream`::
 
@@ -255,7 +255,7 @@ you call them before the handshake completes:
 Low-level networking with :mod:`trio.socket`
 ---------------------------------------------
 
-The :mod:`trio.socket` module provides trio's basic low-level
+The :mod:`trio.socket` module provides Trio's basic low-level
 networking API. If you're doing ordinary things with stream-oriented
 connections over IPv4/IPv6/Unix domain sockets, then you probably want
 to stick to the high-level API described above. If you want to use
@@ -275,7 +275,7 @@ which are described here.
 
 First, Trio provides analogues to all the standard library functions
 that return socket objects; their interface is identical, except that
-they're modified to return trio socket objects instead:
+they're modified to return Trio socket objects instead:
 
 .. autofunction:: socket
 
@@ -285,16 +285,16 @@ they're modified to return trio socket objects instead:
 
 .. function:: fromshare(data)
 
-   Like :func:`socket.fromshare`, but returns a trio socket object.
+   Like :func:`socket.fromshare`, but returns a Trio socket object.
 
 In addition, there is a new function to directly convert a standard
-library socket into a trio socket:
+library socket into a Trio socket:
 
 .. autofunction:: from_stdlib_socket
 
 Unlike :func:`socket.socket`, :func:`trio.socket.socket` is a
 function, not a class; if you want to check whether an object is a
-trio socket, use ``isinstance(obj, trio.socket.SocketType)``.
+Trio socket, use ``isinstance(obj, trio.socket.SocketType)``.
 
 For name lookup, Trio provides the standard functions, but with some
 changes:
@@ -326,7 +326,7 @@ broken features:
   ``AI_CANONNAME`` flag.
 
 * :func:`~socket.getdefaulttimeout`,
-  :func:`~socket.setdefaulttimeout`: instead, use trio's standard
+  :func:`~socket.setdefaulttimeout`: instead, use Trio's standard
   support for :ref:`cancellation`.
 
 * On Windows, ``SO_REUSEADDR`` is not exported, because it's a trap:
@@ -353,11 +353,11 @@ Socket objects
    library socket objects <python:socket-objects>`, with a few
    important differences:
 
-   First, and most obviously, everything is made "trio-style":
+   First, and most obviously, everything is made "Trio-style":
    blocking methods become async methods, and the following attributes
    are *not* supported:
 
-   * :meth:`~socket.socket.setblocking`: trio sockets always act like
+   * :meth:`~socket.socket.setblocking`: Trio sockets always act like
      blocking sockets; if you need to read/write from multiple sockets
      at once, then create multiple tasks.
    * :meth:`~socket.socket.settimeout`: see :ref:`cancellation` instead.
@@ -371,7 +371,7 @@ Socket objects
      additional error checking.
 
    In addition, the following methods are similar to the equivalents
-   in :func:`socket.socket`, but have some trio-specific quirks:
+   in :func:`socket.socket`, but have some Trio-specific quirks:
 
    .. method:: connect
       :async:
@@ -412,6 +412,7 @@ Socket objects
    arguments require pre-resolved addresses:
 
    * :meth:`~socket.socket.accept`
+   * :meth:`~socket.socket.bind`
    * :meth:`~socket.socket.recv`
    * :meth:`~socket.socket.recv_into`
    * :meth:`~socket.socket.recvfrom`
@@ -604,7 +605,7 @@ Asynchronous file objects
 
    Special notes:
 
-   * Async file objects implement trio's
+   * Async file objects implement Trio's
      :class:`~trio.abc.AsyncResource` interface: you close them by
      calling :meth:`~trio.abc.AsyncResource.aclose` instead of
      ``close`` (!!), and they can be used as async context

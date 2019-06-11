@@ -40,7 +40,7 @@ class MockClock(Clock):
        Basically the idea is that if you have code or tests that use sleeps
        and timeouts, you can use this to make it run much faster, totally
        automatically. (At least, as long as those sleeps/timeouts are
-       happening inside trio; if your test involves talking to external
+       happening inside Trio; if your test involves talking to external
        service and waiting for it to timeout then obviously we can't help you
        there.)
 

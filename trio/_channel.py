@@ -4,9 +4,11 @@ from math import inf
 import attr
 from outcome import Error, Value
 
-from . import _core
 from .abc import SendChannel, ReceiveChannel
 from ._util import generic_function
+
+import trio
+from ._core import enable_ki_protection
 
 
 @generic_function
@@ -121,34 +123,34 @@ class MemorySendChannel(SendChannel):
         # XX should we also report statistics specific to this object?
         return self._state.statistics()
 
-    @_core.enable_ki_protection
+    @enable_ki_protection
     def send_nowait(self, value):
         if self._closed:
-            raise _core.ClosedResourceError
+            raise trio.ClosedResourceError
         if self._state.open_receive_channels == 0:
-            raise _core.BrokenResourceError
+            raise trio.BrokenResourceError
         if self._state.receive_tasks:
             assert not self._state.data
             task, _ = self._state.receive_tasks.popitem(last=False)
             task.custom_sleep_data._tasks.remove(task)
-            _core.reschedule(task, Value(value))
+            trio.hazmat.reschedule(task, Value(value))
         elif len(self._state.data) < self._state.max_buffer_size:
             self._state.data.append(value)
         else:
-            raise _core.WouldBlock
+            raise trio.WouldBlock
 
-    @_core.enable_ki_protection
+    @enable_ki_protection
     async def send(self, value):
-        await _core.checkpoint_if_cancelled()
+        await trio.hazmat.checkpoint_if_cancelled()
         try:
             self.send_nowait(value)
-        except _core.WouldBlock:
+        except trio.WouldBlock:
             pass
         else:
-            await _core.cancel_shielded_checkpoint()
+            await trio.hazmat.cancel_shielded_checkpoint()
             return
 
-        task = _core.current_task()
+        task = trio.hazmat.current_task()
         self._tasks.add(task)
         self._state.send_tasks[task] = value
         task.custom_sleep_data = self
@@ -156,24 +158,24 @@ class MemorySendChannel(SendChannel):
         def abort_fn(_):
             self._tasks.remove(task)
             del self._state.send_tasks[task]
-            return _core.Abort.SUCCEEDED
+            return trio.hazmat.Abort.SUCCEEDED
 
-        await _core.wait_task_rescheduled(abort_fn)
+        await trio.hazmat.wait_task_rescheduled(abort_fn)
 
-    @_core.enable_ki_protection
+    @enable_ki_protection
     def clone(self):
         if self._closed:
-            raise _core.ClosedResourceError
+            raise trio.ClosedResourceError
         return MemorySendChannel(self._state)
 
-    @_core.enable_ki_protection
+    @enable_ki_protection
     async def aclose(self):
         if self._closed:
-            await _core.checkpoint()
+            await trio.hazmat.checkpoint()
             return
         self._closed = True
         for task in self._tasks:
-            _core.reschedule(task, Error(_core.ClosedResourceError()))
+            trio.hazmat.reschedule(task, Error(trio.ClosedResourceError()))
             del self._state.send_tasks[task]
         self._tasks.clear()
         self._state.open_send_channels -= 1
@@ -181,9 +183,9 @@ class MemorySendChannel(SendChannel):
             assert not self._state.send_tasks
             for task in self._state.receive_tasks:
                 task.custom_sleep_data._tasks.remove(task)
-                _core.reschedule(task, Error(_core.EndOfChannel()))
+                trio.hazmat.reschedule(task, Error(trio.EndOfChannel()))
             self._state.receive_tasks.clear()
-        await _core.checkpoint()
+        await trio.hazmat.checkpoint()
 
 
 @attr.s(cmp=False, repr=False)
@@ -203,34 +205,34 @@ class MemoryReceiveChannel(ReceiveChannel):
             id(self), id(self._state)
         )
 
-    @_core.enable_ki_protection
+    @enable_ki_protection
     def receive_nowait(self):
         if self._closed:
-            raise _core.ClosedResourceError
+            raise trio.ClosedResourceError
         if self._state.send_tasks:
             task, value = self._state.send_tasks.popitem(last=False)
             task.custom_sleep_data._tasks.remove(task)
-            _core.reschedule(task)
+            trio.hazmat.reschedule(task)
             self._state.data.append(value)
             # Fall through
         if self._state.data:
             return self._state.data.popleft()
         if not self._state.open_send_channels:
-            raise _core.EndOfChannel
-        raise _core.WouldBlock
+            raise trio.EndOfChannel
+        raise trio.WouldBlock
 
-    @_core.enable_ki_protection
+    @enable_ki_protection
     async def receive(self):
-        await _core.checkpoint_if_cancelled()
+        await trio.hazmat.checkpoint_if_cancelled()
         try:
             value = self.receive_nowait()
-        except _core.WouldBlock:
+        except trio.WouldBlock:
             pass
         else:
-            await _core.cancel_shielded_checkpoint()
+            await trio.hazmat.cancel_shielded_checkpoint()
             return value
 
-        task = _core.current_task()
+        task = trio.hazmat.current_task()
         self._tasks.add(task)
         self._state.receive_tasks[task] = None
         task.custom_sleep_data = self
@@ -238,24 +240,24 @@ class MemoryReceiveChannel(ReceiveChannel):
         def abort_fn(_):
             self._tasks.remove(task)
             del self._state.receive_tasks[task]
-            return _core.Abort.SUCCEEDED
+            return trio.hazmat.Abort.SUCCEEDED
 
-        return await _core.wait_task_rescheduled(abort_fn)
+        return await trio.hazmat.wait_task_rescheduled(abort_fn)
 
-    @_core.enable_ki_protection
+    @enable_ki_protection
     def clone(self):
         if self._closed:
-            raise _core.ClosedResourceError
+            raise trio.ClosedResourceError
         return MemoryReceiveChannel(self._state)
 
-    @_core.enable_ki_protection
+    @enable_ki_protection
     async def aclose(self):
         if self._closed:
-            await _core.checkpoint()
+            await trio.hazmat.checkpoint()
             return
         self._closed = True
         for task in self._tasks:
-            _core.reschedule(task, Error(_core.ClosedResourceError()))
+            trio.hazmat.reschedule(task, Error(trio.ClosedResourceError()))
             del self._state.receive_tasks[task]
         self._tasks.clear()
         self._state.open_receive_channels -= 1
@@ -263,7 +265,7 @@ class MemoryReceiveChannel(ReceiveChannel):
             assert not self._state.receive_tasks
             for task in self._state.send_tasks:
                 task.custom_sleep_data._tasks.remove(task)
-                _core.reschedule(task, Error(_core.BrokenResourceError()))
+                trio.hazmat.reschedule(task, Error(trio.BrokenResourceError()))
             self._state.send_tasks.clear()
             self._state.data.clear()
-        await _core.checkpoint()
+        await trio.hazmat.checkpoint()

@@ -7,11 +7,28 @@ import os
 import re
 from pathlib import Path
 import subprocess
-import warnings
 
 from .tutil import slow
 
 from .._multierror import MultiError, concat_tb
+from ..._core import open_nursery
+
+
+class NotHashableException(Exception):
+    code = None
+
+    def __init__(self, code):
+        super().__init__()
+        self.code = code
+
+    def __eq__(self, other):
+        if not isinstance(other, NotHashableException):
+            return False
+        return self.code == other.code
+
+
+async def raise_nothashable(code):
+    raise NotHashableException(code)
 
 
 def raiser1():
@@ -47,6 +64,10 @@ def get_exc(raiser):
 
 def get_tb(raiser):
     return get_exc(raiser).__traceback__
+
+
+def einfo(exc):
+    return (type(exc), exc, exc.__traceback__)
 
 
 def test_concat_tb():
@@ -89,6 +110,59 @@ def test_MultiError():
         MultiError(object())
     with pytest.raises(TypeError):
         MultiError([KeyError(), ValueError])
+
+
+def test_MultiErrorOfSingleMultiError():
+    # For MultiError([MultiError]), ensure there is no bad recursion by the
+    # constructor where __init__ is called if __new__ returns a bare MultiError.
+    exceptions = [KeyError(), ValueError()]
+    a = MultiError(exceptions)
+    b = MultiError([a])
+    assert b == a
+    assert b.exceptions == exceptions
+
+
+async def test_MultiErrorNotHashable():
+    exc1 = NotHashableException(42)
+    exc2 = NotHashableException(4242)
+    exc3 = ValueError()
+    assert exc1 != exc2
+    assert exc1 != exc3
+
+    with pytest.raises(MultiError):
+        async with open_nursery() as nursery:
+            nursery.start_soon(raise_nothashable, 42)
+            nursery.start_soon(raise_nothashable, 4242)
+
+
+def test_MultiError_filter_NotHashable():
+    excs = MultiError([NotHashableException(42), ValueError()])
+
+    def handle_ValueError(exc):
+        if isinstance(exc, ValueError):
+            return None
+        else:
+            return exc
+
+    filtered_excs = MultiError.filter(handle_ValueError, excs)
+    assert isinstance(filtered_excs, NotHashableException)
+
+
+def test_traceback_recursion():
+    exc1 = RuntimeError()
+    exc2 = KeyError()
+    exc3 = NotHashableException(42)
+    # Note how this creates a loop, where exc1 refers to exc1
+    # This could trigger an infinite recursion; the 'seen' set is supposed to prevent
+    # this.
+    exc1.__cause__ = MultiError([exc1, exc2, exc3])
+    # python traceback.TracebackException < 3.6.4 does not support unhashable exceptions
+    # and raises a TypeError exception
+    if sys.version_info < (3, 6, 4):
+        with pytest.raises(TypeError):
+            format_exception(*einfo(exc1))
+    else:
+        format_exception(*einfo(exc1))
 
 
 def make_tree():
@@ -169,9 +243,9 @@ def test_MultiError_filter():
     assert isinstance(orig.exceptions[0].exceptions[1], KeyError)
     # get original traceback summary
     orig_extracted = (
-        extract_tb(orig.__traceback__) + extract_tb(
-            orig.exceptions[0].__traceback__
-        ) + extract_tb(orig.exceptions[0].exceptions[1].__traceback__)
+        extract_tb(orig.__traceback__) +
+        extract_tb(orig.exceptions[0].__traceback__) +
+        extract_tb(orig.exceptions[0].exceptions[1].__traceback__)
     )
 
     def p(exc):
@@ -309,9 +383,6 @@ def test_assert_match_in_seq():
 
 
 def test_format_exception():
-    def einfo(exc):
-        return (type(exc), exc, exc.__traceback__)
-
     exc = get_exc(raiser1)
     formatted = "".join(format_exception(*einfo(exc)))
     assert "raiser1_string" in formatted
@@ -585,6 +656,14 @@ def test_custom_excepthook():
     )
 
 
+# This warning is triggered by ipython 7.5.0 on python 3.8
+import warnings
+warnings.filterwarnings(
+    "ignore",
+    message=".*\"@coroutine\" decorator is deprecated",
+    category=DeprecationWarning,
+    module="IPython.*"
+)
 try:
     import IPython
 except ImportError:  # pragma: no cover
@@ -593,16 +672,10 @@ else:
     have_ipython = True
 
 need_ipython = pytest.mark.skipif(not have_ipython, reason="need IPython")
-# https://github.com/ipython/ipython/issues/11590
-fails_on_38 = pytest.mark.xfail(
-    sys.version_info >= (3, 8),
-    reason="IPython is currently broken on 3.8-dev"
-)
 
 
 @slow
 @need_ipython
-@fails_on_38
 def test_ipython_exc_handler():
     completed = run_script("simple_excepthook.py", use_ipython=True)
     check_simple_excepthook(completed)
@@ -617,7 +690,6 @@ def test_ipython_imported_but_unused():
 
 @slow
 @need_ipython
-@fails_on_38
 def test_ipython_custom_exc_handler():
     # Check we get a nice warning (but only one!) if the user is using IPython
     # and already has some other set_custom_exc handler installed.
@@ -627,7 +699,7 @@ def test_ipython_custom_exc_handler():
             # The warning
             "RuntimeWarning",
             "IPython detected",
-            "skip installing trio",
+            "skip installing Trio",
             # The MultiError
             "MultiError",
             "ValueError",

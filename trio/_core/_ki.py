@@ -21,7 +21,7 @@ __all__ = [
 # In ordinary single-threaded Python code, when you hit control-C, it raises
 # an exception and automatically does all the regular unwinding stuff.
 #
-# It trio code, we would like hitting control-C to raise an exception and
+# In Trio code, we would like hitting control-C to raise an exception and
 # automatically do all the regular unwinding stuff. In particular, we would
 # like to maintain our invariant that all tasks always run to completion (one
 # way or another), by unwinding all of them.
@@ -92,6 +92,8 @@ def ki_protection_enabled(frame):
     while frame is not None:
         if LOCALS_KEY_KI_PROTECTION_ENABLED in frame.f_locals:
             return frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED]
+        if frame.f_code.co_name == "__del__":
+            return True
         frame = frame.f_back
     return False
 
@@ -102,7 +104,7 @@ def currently_ki_protected():
 
     It's surprisingly easy to think that one's :exc:`KeyboardInterrupt`
     protection is enabled when it isn't, or vice-versa. This function tells
-    you what trio thinks of the matter, which makes it useful for ``assert``\s
+    you what Trio thinks of the matter, which makes it useful for ``assert``\s
     and unit tests.
 
     Returns:

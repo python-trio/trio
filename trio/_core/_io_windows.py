@@ -1,9 +1,7 @@
-import math
 import itertools
 
 import outcome
 from contextlib import contextmanager
-import socket as stdlib_socket
 from select import select
 import threading
 from collections import deque
@@ -433,7 +431,6 @@ class WindowsIOManager:
         if not isinstance(sock, int):
             sock = sock.fileno()
         if sock in self._socket_waiters[which]:
-            await _core.checkpoint()
             raise _core.BusyResourceError(
                 "another task is already waiting to {} this socket"
                 .format(which)

@@ -2,7 +2,7 @@ import signal
 from contextlib import contextmanager
 from collections import OrderedDict
 
-from . import _core
+import trio
 from ._sync import Event
 from ._util import (
     signal_raise, aiter_compat, is_main_thread, ConflictDetector
@@ -107,7 +107,7 @@ class SignalReceiver:
         # In principle it would be possible to support multiple concurrent
         # calls to __anext__, but doing it without race conditions is quite
         # tricky, and there doesn't seem to be any point in trying.
-        with self._conflict_detector.sync:
+        with self._conflict_detector:
             await self._have_pending.wait()
             signum, _ = self._pending.popitem(last=False)
             if not self._pending:
@@ -154,7 +154,7 @@ def open_signal_receiver(*signals):
             "Sorry, open_signal_receiver is only possible when running in "
             "Python interpreter's main thread"
         )
-    token = _core.current_trio_token()
+    token = trio.hazmat.current_trio_token()
     queue = SignalReceiver()
 
     def handler(signum, _):

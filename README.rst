@@ -22,10 +22,8 @@
    :target: https://codecov.io/gh/python-trio/trio
    :alt: Test coverage
 
-Trio – async I/O for humans and snake people
-============================================
-
-*P.S. your API is a user interface – Kenneth Reitz*
+Trio – a friendly Python library for async concurrency and I/O
+==============================================================
 
 .. Github carefully breaks rendering of SVG directly out of the repo,
    so we have to redirect through cdn.rawgit.com
@@ -124,7 +122,7 @@ and we'll do our best to help you out.
 the best! There's tons of work to do – filling in missing
 functionality, building up an ecosystem of Trio-using libraries,
 usability testing (e.g., maybe try teaching yourself or a friend to
-use trio and make a list of every error message you hit and place
+use Trio and make a list of every error message you hit and place
 where you got confused?), improving the docs, ... check out our `guide
 for contributors
 <https://trio.readthedocs.io/en/latest/contributing.html>`__!

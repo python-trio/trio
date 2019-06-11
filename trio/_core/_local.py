@@ -4,7 +4,7 @@ from . import _run
 __all__ = ["RunVar"]
 
 
-class _RunVarToken(object):
+class _RunVarToken:
     _no_value = object()
 
     __slots__ = ("_var", "previous_value", "redeemed")
@@ -19,7 +19,7 @@ class _RunVarToken(object):
         self.redeemed = False
 
 
-class RunVar(object):
+class RunVar:
     """The run-local variant of a context variable.
 
     :class:`RunVar` objects are similar to context variable objects,
@@ -64,7 +64,7 @@ class RunVar(object):
         else:
             token = _RunVarToken(self, old_value)
 
-        # This can't fail, because if we weren't in trio context then the
+        # This can't fail, because if we weren't in Trio context then the
         # get() above would have failed.
         _run.GLOBAL_RUN_CONTEXT.runner._locals[self] = value
         return token

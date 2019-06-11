@@ -1,7 +1,7 @@
 import _common
 
 # Override the regular excepthook too -- it doesn't change anything either way
-# because ipython doesn't use it, but we want to make sure trio doesn't warn
+# because ipython doesn't use it, but we want to make sure Trio doesn't warn
 # about it.
 import sys
 
@@ -30,6 +30,6 @@ ip.set_custom_exc((SomeError,), custom_exc_hook)
 
 import trio
 
-# The custom excepthook should run, because trio was polite and didn't
+# The custom excepthook should run, because Trio was polite and didn't
 # override it
 raise trio.MultiError([ValueError(), KeyError()])

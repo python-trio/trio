@@ -9,9 +9,7 @@ from trio._highlevel_open_unix_stream import (
     close_on_error,
 )
 
-try:
-    from socket import AF_UNIX
-except ImportError:
+if not hasattr(socket, "AF_UNIX"):
     pytestmark = pytest.mark.skip("Needs unix socket support")
 
 

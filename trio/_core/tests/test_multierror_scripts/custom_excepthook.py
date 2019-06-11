@@ -13,6 +13,6 @@ sys.excepthook = custom_excepthook
 # Should warn that we'll get kinda-broken tracebacks
 import trio
 
-# The custom excepthook should run, because trio was polite and didn't
+# The custom excepthook should run, because Trio was polite and didn't
 # override it
 raise trio.MultiError([ValueError(), KeyError()])

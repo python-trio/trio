@@ -5,7 +5,6 @@
 
 import pytest
 
-import os
 import select
 import socket as stdlib_socket
 

@@ -147,7 +147,7 @@ class TrioToken:
 
     def run_sync_soon(self, sync_fn, *args, idempotent=False):
         """Schedule a call to ``sync_fn(*args)`` to occur in the context of a
-        trio task.
+        Trio task.
 
         This is safe to call from the main thread, from other threads, and
         from signal handlers. This is the fundamental primitive used to
@@ -174,7 +174,7 @@ class TrioToken:
         first-in first-out order.
 
         If ``idempotent=True``, then ``sync_fn`` and ``args`` must be
-        hashable, and trio will make a best-effort attempt to discard any
+        hashable, and Trio will make a best-effort attempt to discard any
         call submission which is equal to an already-pending call. Trio
         will make an attempt to process these in first-in first-out order,
         but no guarantees. (Currently processing is FIFO on CPython 3.6 and

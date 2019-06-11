@@ -1,12 +1,12 @@
-import operator
-from collections import deque, OrderedDict
 import math
 
 import attr
 import outcome
 
-from . import _core
+import trio
+
 from ._util import aiter_compat
+from ._core import enable_ki_protection, ParkingLot
 
 __all__ = [
     "Event",
@@ -38,7 +38,7 @@ class Event:
 
     """
 
-    _lot = attr.ib(default=attr.Factory(_core.ParkingLot), init=False)
+    _lot = attr.ib(default=attr.Factory(ParkingLot), init=False)
     _flag = attr.ib(default=False, init=False)
 
     def is_set(self):
@@ -47,7 +47,7 @@ class Event:
         """
         return self._flag
 
-    @_core.enable_ki_protection
+    @enable_ki_protection
     def set(self):
         """Set the internal flag value to True, and wake any waiting tasks.
 
@@ -68,7 +68,7 @@ class Event:
 
         """
         if self._flag:
-            await _core.checkpoint()
+            await trio.hazmat.checkpoint()
         else:
             await self._lot.park()
 
@@ -85,14 +85,14 @@ class Event:
 
 
 def async_cm(cls):
-    @_core.enable_ki_protection
+    @enable_ki_protection
     async def __aenter__(self):
         await self.acquire()
 
     __aenter__.__qualname__ = cls.__qualname__ + ".__aenter__"
     cls.__aenter__ = __aenter__
 
-    @_core.enable_ki_protection
+    @enable_ki_protection
     async def __aexit__(self, *args):
         self.release()
 
@@ -165,7 +165,7 @@ class CapacityLimiter:
     """
 
     def __init__(self, total_tokens):
-        self._lot = _core.ParkingLot()
+        self._lot = ParkingLot()
         self._borrowers = set()
         # Maps tasks attempting to acquire -> borrower, to handle on-behalf-of
         self._pending_borrowers = {}
@@ -226,7 +226,7 @@ class CapacityLimiter:
         """
         return self.total_tokens - self.borrowed_tokens
 
-    @_core.enable_ki_protection
+    @enable_ki_protection
     def acquire_nowait(self):
         """Borrow a token from the sack, without blocking.
 
@@ -236,9 +236,9 @@ class CapacityLimiter:
               tokens.
 
         """
-        self.acquire_on_behalf_of_nowait(_core.current_task())
+        self.acquire_on_behalf_of_nowait(trio.hazmat.current_task())
 
-    @_core.enable_ki_protection
+    @enable_ki_protection
     def acquire_on_behalf_of_nowait(self, borrower):
         """Borrow a token from the sack on behalf of ``borrower``, without
         blocking.
@@ -265,9 +265,9 @@ class CapacityLimiter:
         if len(self._borrowers) < self._total_tokens and not self._lot:
             self._borrowers.add(borrower)
         else:
-            raise _core.WouldBlock
+            raise trio.WouldBlock
 
-    @_core.enable_ki_protection
+    @enable_ki_protection
     async def acquire(self):
         """Borrow a token from the sack, blocking if necessary.
 
@@ -276,9 +276,9 @@ class CapacityLimiter:
               tokens.
 
         """
-        await self.acquire_on_behalf_of(_core.current_task())
+        await self.acquire_on_behalf_of(trio.hazmat.current_task())
 
-    @_core.enable_ki_protection
+    @enable_ki_protection
     async def acquire_on_behalf_of(self, borrower):
         """Borrow a token from the sack on behalf of ``borrower``, blocking if
         necessary.
@@ -293,24 +293,21 @@ class CapacityLimiter:
              tokens.
 
         """
-        await _core.checkpoint_if_cancelled()
+        await trio.hazmat.checkpoint_if_cancelled()
         try:
             self.acquire_on_behalf_of_nowait(borrower)
-        except _core.WouldBlock:
-            task = _core.current_task()
+        except trio.WouldBlock:
+            task = trio.hazmat.current_task()
             self._pending_borrowers[task] = borrower
             try:
                 await self._lot.park()
-            except _core.Cancelled:
+            except trio.Cancelled:
                 self._pending_borrowers.pop(task)
                 raise
-        except:
-            await _core.cancel_shielded_checkpoint()
-            raise
         else:
-            await _core.cancel_shielded_checkpoint()
+            await trio.hazmat.cancel_shielded_checkpoint()
 
-    @_core.enable_ki_protection
+    @enable_ki_protection
     def release(self):
         """Put a token back into the sack.
 
@@ -319,9 +316,9 @@ class CapacityLimiter:
               sack's tokens.
 
         """
-        self.release_on_behalf_of(_core.current_task())
+        self.release_on_behalf_of(trio.hazmat.current_task())
 
-    @_core.enable_ki_protection
+    @enable_ki_protection
     def release_on_behalf_of(self, borrower):
         """Put a token back into the sack on behalf of ``borrower``.
 
@@ -407,7 +404,7 @@ class Semaphore:
         # Invariants:
         # bool(self._lot) implies self._value == 0
         # (or equivalently: self._value > 0 implies not self._lot)
-        self._lot = _core.ParkingLot()
+        self._lot = trio.hazmat.ParkingLot()
         self._value = initial_value
         self._max_value = max_value
 
@@ -436,7 +433,7 @@ class Semaphore:
         """
         return self._max_value
 
-    @_core.enable_ki_protection
+    @enable_ki_protection
     def acquire_nowait(self):
         """Attempt to decrement the semaphore value, without blocking.
 
@@ -448,23 +445,23 @@ class Semaphore:
             assert not self._lot
             self._value -= 1
         else:
-            raise _core.WouldBlock
+            raise trio.WouldBlock
 
-    @_core.enable_ki_protection
+    @enable_ki_protection
     async def acquire(self):
         """Decrement the semaphore value, blocking if necessary to avoid
         letting it drop below zero.
 
         """
-        await _core.checkpoint_if_cancelled()
+        await trio.hazmat.checkpoint_if_cancelled()
         try:
             self.acquire_nowait()
-        except _core.WouldBlock:
+        except trio.WouldBlock:
             await self._lot.park()
         else:
-            await _core.cancel_shielded_checkpoint()
+            await trio.hazmat.cancel_shielded_checkpoint()
 
-    @_core.enable_ki_protection
+    @enable_ki_protection
     def release(self):
         """Increment the semaphore value, possibly waking a task blocked in
         :meth:`acquire`.
@@ -516,7 +513,7 @@ class Lock:
 
     """
 
-    _lot = attr.ib(default=attr.Factory(_core.ParkingLot), init=False)
+    _lot = attr.ib(default=attr.Factory(ParkingLot), init=False)
     _owner = attr.ib(default=None, init=False)
 
     def __repr__(self):
@@ -541,7 +538,7 @@ class Lock:
         """
         return self._owner is not None
 
-    @_core.enable_ki_protection
+    @enable_ki_protection
     def acquire_nowait(self):
         """Attempt to acquire the lock, without blocking.
 
@@ -550,32 +547,32 @@ class Lock:
 
         """
 
-        task = _core.current_task()
+        task = trio.hazmat.current_task()
         if self._owner is task:
             raise RuntimeError("attempt to re-acquire an already held Lock")
         elif self._owner is None and not self._lot:
             # No-one owns it
             self._owner = task
         else:
-            raise _core.WouldBlock
+            raise trio.WouldBlock
 
-    @_core.enable_ki_protection
+    @enable_ki_protection
     async def acquire(self):
         """Acquire the lock, blocking if necessary.
 
         """
-        await _core.checkpoint_if_cancelled()
+        await trio.hazmat.checkpoint_if_cancelled()
         try:
             self.acquire_nowait()
-        except _core.WouldBlock:
+        except trio.WouldBlock:
             # NOTE: it's important that the contended acquire path is just
             # "_lot.park()", because that's how Condition.wait() acquires the
             # lock as well.
             await self._lot.park()
         else:
-            await _core.cancel_shielded_checkpoint()
+            await trio.hazmat.cancel_shielded_checkpoint()
 
-    @_core.enable_ki_protection
+    @enable_ki_protection
     def release(self):
         """Release the lock.
 
@@ -583,7 +580,7 @@ class Lock:
           RuntimeError: if the calling task does not hold the lock.
 
         """
-        task = _core.current_task()
+        task = trio.hazmat.current_task()
         if task is not self._owner:
             raise RuntimeError("can't release a Lock you don't own")
         if self._lot:
@@ -663,7 +660,7 @@ class StrictFIFOLock(Lock):
     the same order that the state machine generated it.
 
     Currently, :class:`StrictFIFOLock` is simply an alias for :class:`Lock`,
-    but (a) this may not always be true in the future, especially if trio ever
+    but (a) this may not always be true in the future, especially if Trio ever
     implements `more sophisticated scheduling policies
     <https://github.com/python-trio/trio/issues/32>`__, and (b) the above code
     is relying on a pretty subtle property of its lock. Using a
@@ -701,7 +698,7 @@ class Condition:
         if not type(lock) is Lock:
             raise TypeError("lock must be a trio.Lock")
         self._lock = lock
-        self._lot = _core.ParkingLot()
+        self._lot = trio.hazmat.ParkingLot()
 
     def locked(self):
         """Check whether the underlying lock is currently held.
@@ -733,7 +730,7 @@ class Condition:
         """
         self._lock.release()
 
-    @_core.enable_ki_protection
+    @enable_ki_protection
     async def wait(self):
         """Wait for another thread to call :meth:`notify` or
         :meth:`notify_all`.
@@ -757,7 +754,7 @@ class Condition:
           RuntimeError: if the calling task does not hold the lock.
 
         """
-        if _core.current_task() is not self._lock._owner:
+        if trio.hazmat.current_task() is not self._lock._owner:
             raise RuntimeError("must hold the lock to wait")
         self.release()
         # NOTE: we go to sleep on self._lot, but we'll wake up on
@@ -765,7 +762,7 @@ class Condition:
         try:
             await self._lot.park()
         except:
-            with _core.CancelScope(shield=True):
+            with trio.CancelScope(shield=True):
                 await self.acquire()
             raise
 
@@ -779,7 +776,7 @@ class Condition:
           RuntimeError: if the calling task does not hold the lock.
 
         """
-        if _core.current_task() is not self._lock._owner:
+        if trio.hazmat.current_task() is not self._lock._owner:
             raise RuntimeError("must hold the lock to notify")
         self._lot.repark(self._lock._lot, count=n)
 
@@ -790,7 +787,7 @@ class Condition:
           RuntimeError: if the calling task does not hold the lock.
 
         """
-        if _core.current_task() is not self._lock._owner:
+        if trio.hazmat.current_task() is not self._lock._owner:
             raise RuntimeError("must hold the lock to notify")
         self._lot.repark_all(self._lock._lot)
 

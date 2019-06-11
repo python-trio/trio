@@ -5,50 +5,53 @@
 #    pip-compile --output-file test-requirements.txt test-requirements.in
 #
 asn1crypto==0.24.0        # via cryptography
-astroid==2.2.4            # via pylint
+astroid==2.2.5            # via pylint
 async-generator==1.10
 atomicwrites==1.3.0       # via pytest
 attrs==19.1.0
 backcall==0.1.0           # via ipython
-cffi==1.12.2              # via cryptography
-contextvars==2.3 ; python_version < "3.7"
-coverage==4.5.2           # via pytest-cov
-cryptography==2.6.1       # via pyopenssl, trustme
-decorator==4.3.2          # via ipython, traitlets
+cffi==1.12.3              # via cryptography
+coverage==4.5.3           # via pytest-cov
+cryptography==2.7         # via pyopenssl, trustme
+decorator==4.4.0          # via ipython, traitlets
 entrypoints==0.3          # via flake8
 flake8==3.7.7
 idna==2.8
-immutables==0.6           # via contextvars
+immutables==0.9
+importlib-metadata==0.17  # via pluggy, pytest
 ipython-genutils==0.2.0   # via traitlets
-ipython==7.3.0
-isort==4.3.12             # via pylint
+ipython==7.5.0
+isort==4.3.20             # via pylint
 jedi==0.13.3
-lazy-object-proxy==1.3.1  # via astroid
+lazy-object-proxy==1.4.1  # via astroid
 mccabe==0.6.1             # via flake8, pylint
-more-itertools==6.0.0     # via pytest
+more-itertools==7.0.0     # via pytest
 outcome==1.0.0
-parso==0.3.4              # via jedi
-pexpect==4.6.0            # via ipython
+packaging==19.0           # via pytest
+parso==0.4.0              # via jedi
+pexpect==4.7.0            # via ipython
 pickleshare==0.7.5        # via ipython
-pluggy==0.9.0             # via pytest
+pluggy==0.12.0            # via pytest
 prompt-toolkit==2.0.9     # via ipython
 ptyprocess==0.6.0         # via pexpect
 py==1.8.0                 # via pytest
 pycodestyle==2.5.0        # via flake8
 pycparser==2.19           # via cffi
 pyflakes==2.1.1           # via flake8
-pygments==2.3.1           # via ipython
+pygments==2.4.2           # via ipython
 pylint==2.3.1
 pyopenssl==19.0.0
-pytest-cov==2.6.1
-pytest-faulthandler==1.5.0
-pytest==4.3.0
-six==1.12.0               # via astroid, cryptography, prompt-toolkit, pyopenssl, pytest, traitlets
-sniffio==1.0.0
+pyparsing==2.4.0          # via packaging
+pytest-cov==2.7.1
+pytest-faulthandler==1.6.0
+pytest==4.6.2
+six==1.12.0               # via astroid, cryptography, packaging, prompt-toolkit, pyopenssl, pytest, traitlets
+sniffio==1.1.0
 sortedcontainers==2.1.0
 traitlets==4.3.2          # via ipython
-trustme==0.5.0
-typed-ast==1.3.1 ; python_version < "3.7" and implementation_name == "cpython"
-wcwidth==0.1.7            # via prompt-toolkit
+trustme==0.5.2
+typed-ast==1.3.1 ; python_version < "3.8" and implementation_name == "cpython"
+wcwidth==0.1.7            # via prompt-toolkit, pytest
 wrapt==1.11.1             # via astroid
-yapf==0.26.0
+yapf==0.27.0
+zipp==0.5.1               # via importlib-metadata

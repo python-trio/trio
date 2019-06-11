@@ -1,5 +1,4 @@
 import trio
-import threading
 
 def thread_fn(portal, receive_from_trio, send_to_trio):
     while True:

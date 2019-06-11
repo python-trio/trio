@@ -5,6 +5,10 @@ set -ex
 EXIT_STATUS=0
 
 # Autoformatter *first*, to avoid double-reporting errors
+# (we'd like to run further autoformatters but *after* merging;
+# see https://forum.bors.tech/t/pre-test-and-pre-merge-hooks/322)
+# autoflake --recursive --in-place .
+# pyupgrade --py3-plus $(find . -name "*.py")
 yapf -rpd setup.py trio \
     || EXIT_STATUS=$?
 

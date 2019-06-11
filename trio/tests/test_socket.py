@@ -272,7 +272,7 @@ async def test_sniff_sockopts():
         for type in [SOCK_DGRAM, SOCK_STREAM]:
             sockets.append(stdlib_socket.socket(family, type))
     for socket in sockets:
-        # regular trio socket constructor
+        # regular Trio socket constructor
         tsocket_socket = tsocket.socket(fileno=socket.fileno())
         # check family / type for correctness:
         assert tsocket_socket.family == socket.family
@@ -471,6 +471,7 @@ async def test_SocketType_resolve(socket_type, addrs):
         async def res(*args):
             return await getattr(sock, resolver)(*args)
 
+        # yapf: disable
         assert await res((addrs.arbitrary,
                           "http")) == (addrs.arbitrary, 80, *addrs.extra)
         if v6:
@@ -485,6 +486,7 @@ async def test_SocketType_resolve(socket_type, addrs):
         # Check the <broadcast> special case, because why not
         assert await res(("<broadcast>",
                           123)) == (addrs.broadcast, 123, *addrs.extra)
+        # yapf: enable
 
         # But not if it's true (at least on systems where getaddrinfo works
         # correctly)
@@ -618,18 +620,16 @@ async def test_SocketType_non_blocking_paths():
 # This tests the complicated paths through connect
 async def test_SocketType_connect_paths():
     with tsocket.socket() as sock:
-        with assert_checkpoints():
-            with pytest.raises(ValueError):
-                # Should be a tuple
-                await sock.connect("localhost")
+        with pytest.raises(ValueError):
+            # Should be a tuple
+            await sock.connect("localhost")
 
     # cancelled before we start
     with tsocket.socket() as sock:
-        with assert_checkpoints():
-            with _core.CancelScope() as cancel_scope:
-                cancel_scope.cancel()
-                with pytest.raises(_core.Cancelled):
-                    await sock.connect(("127.0.0.1", 80))
+        with _core.CancelScope() as cancel_scope:
+            cancel_scope.cancel()
+            with pytest.raises(_core.Cancelled):
+                await sock.connect(("127.0.0.1", 80))
 
     # Cancelled in between the connect() call and the connect completing
     with _core.CancelScope() as cancel_scope:
@@ -660,16 +660,15 @@ async def test_SocketType_connect_paths():
 
     # Failed connect (hopefully after raising BlockingIOError)
     with tsocket.socket() as sock:
-        with assert_checkpoints():
-            with pytest.raises(OSError):
-                # TCP port 2 is not assigned. Pretty sure nothing will be
-                # listening there. (We used to bind a port and then *not* call
-                # listen() to ensure nothing was listening there, but it turns
-                # out on macOS if you do this it takes 30 seconds for the
-                # connect to fail. Really. Also if you use a non-routable
-                # address. This way fails instantly though. As long as nothing
-                # is listening on port 2.)
-                await sock.connect(("127.0.0.1", 2))
+        with pytest.raises(OSError):
+            # TCP port 2 is not assigned. Pretty sure nothing will be
+            # listening there. (We used to bind a port and then *not* call
+            # listen() to ensure nothing was listening there, but it turns
+            # out on macOS if you do this it takes 30 seconds for the
+            # connect to fail. Really. Also if you use a non-routable
+            # address. This way fails instantly though. As long as nothing
+            # is listening on port 2.)
+            await sock.connect(("127.0.0.1", 2))
 
 
 async def test_resolve_remote_address_exception_closes_socket():
@@ -845,7 +844,7 @@ async def test_custom_hostname_resolver(monkeygai):
     # We can set it back to None
     assert tsocket.set_custom_hostname_resolver(None) is cr
 
-    # And now trio switches back to calling socket.getaddrinfo (specifically
+    # And now Trio switches back to calling socket.getaddrinfo (specifically
     # our monkeypatched version of socket.getaddrinfo)
     monkeygai.set("x", b"host", "port", family=0, type=0, proto=0, flags=0)
     assert await tsocket.getaddrinfo("host", "port") == "x"
