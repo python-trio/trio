@@ -17,7 +17,7 @@ from async_generator import async_generator
 
 from .tutil import check_sequence_matches, gc_collect_harder
 from ... import _core
-from ..._threads import run_sync_in_worker_thread
+from ..._threads import run_sync_in_thread
 from ..._timeouts import sleep, fail_after
 from ..._util import aiter_compat
 from ...testing import (
@@ -552,7 +552,7 @@ async def test_cancel_scope_repr(mock_clock):
         scope.deadline = _core.current_time() + 10
         assert "deadline is 10.00 seconds from now" in repr(scope)
         # when not in async context, can't get the current time
-        assert "deadline" not in await run_sync_in_worker_thread(repr, scope)
+        assert "deadline" not in await run_sync_in_thread(repr, scope)
         scope.cancel()
         assert "cancelled" in repr(scope)
     assert "exited" in repr(scope)

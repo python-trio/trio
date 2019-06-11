@@ -1,0 +1,5 @@
+``run_sync_in_worker_thread`` was too much of a mouthful – now it's
+just called `run_sync_in_thread` (though the old name still works with
+a deprecation warning, for now). Similarly,
+``current_default_worker_thread_limiter`` is becoming
+`current_default_thread_limiter`.

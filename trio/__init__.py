@@ -32,7 +32,7 @@ from ._sync import (
 )
 
 from ._threads import (
-    run_sync_in_worker_thread, current_default_worker_thread_limiter,
+    run_sync_in_thread, current_default_thread_limiter,
     BlockingTrioPortal
 )
 
@@ -99,6 +99,20 @@ __deprecated_attributes__ = {
                 "trio.Process and the constants in the standard "
                 "library 'subprocess' module"
             ),
+        ),
+    "run_sync_in_worker_thread":
+        _deprecate.DeprecatedAttribute(
+            run_sync_in_thread,
+            "0.12.0",
+            issue=810,
+            instead=run_sync_in_thread,
+        ),
+    "current_default_worker_thread_limiter":
+        _deprecate.DeprecatedAttribute(
+            current_default_thread_limiter,
+            "0.12.0",
+            issue=810,
+            instead=current_default_thread_limiter,
         ),
 }
 
