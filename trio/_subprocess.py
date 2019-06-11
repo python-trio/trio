@@ -430,7 +430,7 @@ async def run_process(
             async with proc.stdin:
                 try:
                     await proc.stdin.send_all(input)
-                except _core.BrokenResourceError:
+                except trio.BrokenResourceError:
                     pass
 
         async def read_output(stream, chunks):
@@ -441,7 +441,7 @@ async def run_process(
                         break
                     chunks.append(chunk)
 
-        async with _core.open_nursery() as nursery:
+        async with trio.open_nursery() as nursery:
             if proc.stdin is not None:
                 nursery.start_soon(feed_input)
             if proc.stdout is not None:
