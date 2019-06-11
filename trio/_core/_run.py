@@ -1391,6 +1391,14 @@ class Runner:
             self.trio_token = TrioToken(self.entry_queue)
         return self.trio_token
 
+    @_public
+    def open_trio_entry_handle(self):
+        """Open a new `TrioEntryHandle`, to let you reenter the current call
+        to `trio.run` from other contexts.
+
+        """
+        return self.entry_queue.open_handle()
+
     ################
     # KI handling
     ################

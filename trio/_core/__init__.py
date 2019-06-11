@@ -35,7 +35,7 @@ from ._traps import (
     reattach_detached_coroutine_object
 )
 
-from ._entry_queue import TrioToken
+from ._entry_queue import TrioToken, TrioEntryHandle
 
 from ._parking_lot import ParkingLot
 

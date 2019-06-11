@@ -1,10 +1,12 @@
 from collections import deque
 import threading
+import warnings
 
 import attr
 
 from .. import _core
 from ._wakeup_socketpair import WakeupSocketpair
+from .._deprecate import deprecated
 
 __all__ = ["TrioToken"]
 
@@ -32,6 +34,9 @@ class EntryQueue:
     # you look at the one place where the main thread holds the lock, it's
     # just to make 1 assignment, so that's atomic WRT a signal anyway.
     lock = attr.ib(default=attr.Factory(threading.RLock))
+
+    live_handles = attr.ib(default=0)
+    live_handles_lock = attr.ib(factory=threading.Lock)
 
     async def task(self):
         assert _core.currently_ki_protected()
@@ -122,6 +127,136 @@ class EntryQueue:
                 self.queue.append((sync_fn, args))
             self.wakeup.wakeup_thread_and_signal_safe()
 
+    def open_handle(self):
+        with self.live_handles_lock:
+            self.live_handles += 1
+            return TrioEntryHandle(self)
+
+
+class TrioEntryHandle:
+    def __init__(self, reentry_queue):
+        self._reentry_queue = reentry_queue
+        self._thread = threading.current_thread()
+        self._lock = threading.RLock()
+
+    def run_sync_soon(self, sync_fn, *args, idempotent=False):
+        """Schedule a call to ``sync_fn(*args)`` to occur in the context of a
+        Trio task.
+
+        Most functions in Trio are only safe to call from inside the main Trio
+        thread, and never from signal handlers or ``__del__`` methods. But
+        this method is safe to call from the main thread, from other threads,
+        from signal handlers, and from ``__del__`` methods. This is the
+        fundamental primitive used to re-enter the Trio run loop from outside
+        of it.
+
+        The call will happen "soon", but there's no guarantee about exactly
+        when, and no mechanism provided for finding out when it's happened.
+        If you need this, you'll have to build your own.
+
+        The call is effectively run as part of a system task (see
+        :func:`~trio.hazmat.spawn_system_task`). In particular this means
+        that:
+
+        * :exc:`KeyboardInterrupt` protection is *enabled* by default. Your
+          function won't be interrupted by control-C.
+
+        * If ``sync_fn`` raises an exception, then it's converted into a
+          :exc:`~trio.TrioInternalError` and *all* tasks are cancelled. You
+          should be careful that ``sync_fn`` doesn't raise an exception.
+
+        All calls with ``idempotent=False`` are processed in strict
+        first-in first-out order.
+
+        If ``idempotent=True``, then ``sync_fn`` and ``args`` must be
+        hashable, and Trio will make a best-effort attempt to discard any call
+        submission which is equal to an already-pending call. Trio will make
+        an attempt to process these in first-in first-out order, but no
+        guarantees. (Currently processing is FIFO on CPython 3.6+ and on PyPy,
+        but not CPython 3.5.)
+
+        Any ordering guarantees apply separately to ``idempotent=False``
+        and ``idempotent=True`` calls; there's no rule for how calls in the
+        different categories are ordered with respect to each other.
+
+        Raises:
+           trio.ClosedResourceError: If this handle has already been closed.
+           trio.RunFinishedError: If the associated call to :func:`trio.run`
+              has already exited.
+
+        """
+        with self._lock:
+            if self._reentry_queue is None:
+                raise _core.ClosedResourceError
+            self._reentry_queue.run_sync_soon(
+                sync_fn, *args, idempotent=idempotent
+            )
+
+    def close(self):
+        """Close this entry handle.
+
+        After the entry handle is closed, it cannot be used.
+
+        This method is thread-safe: you can call it from any thread at any
+        time. It is *not* reentrant-safe: you should *never* call it from a
+        signal handler or ``__del__`` method.
+
+        .. warning:: It is very important to always close your entry handles
+           when you are done with them! If you don't, Trio won't be able to
+           detect when a program deadlocks.
+
+        """
+        with self._lock:
+            # This code can't mutate anything – see the comment below.
+            if self._reentry_queue is None:
+                return
+            rq = self._reentry_queue
+
+            # We have the lock, so we can't be racing with another thread
+            # calling close() or run_sync_soon(). And by assumption, no signal
+            # handler or __del__ method can call close(). So we don't need to
+            # worry about multiple close() calls racing with each other.
+            #
+            # BUT, a signal handler or __del__ method *could* call
+            # run_sync_soon at any point during this call, i.e. the
+            # interpreter could pause interpreting this function while it uses
+            # our thread to execute a call to run_sync_soon, and we need to
+            # handle that correctly.
+            #
+            # The next line is the barrier for any reentrant run_sync_soon
+            # calls. If they get called before this assignment takes effect,
+            # they're fine; we haven't done anything yet. If not, then they'll
+            # raise ClosedResourceError.
+            self._reentry_queue = None
+
+            with rq.live_handles_lock:
+                rq.live_handles -= 1
+                if rq.live_handles == 0:
+                    try:
+                        rq.run_sync_soon(lambda: None)
+                    except _core.RunFinishedError:
+                        pass
+
+    def __del__(self):
+        # Closing ourselves reliably from __del__ would be very tricky, and if
+        # anyone did rely on it then it would almost certainly break the
+        # deadlock detector. (If you rely on the GC to detect when you're
+        # deadlocked, that's a problem, because deadlocked programs don't tend
+        # to trigger the GC.) So instead we just issue a noisy warning.
+        if self._reentry_queue is not None:
+            warnings.warn(
+                RuntimeWarning(
+                    "failed to close TrioEntryHandle. this is a bug!"
+                ),
+                source=self,
+            )
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        self.close()
+
 
 class TrioToken:
     """An opaque object representing a single call to :func:`trio.run`.
@@ -145,6 +280,7 @@ class TrioToken:
     def __init__(self, reentry_queue):
         self._reentry_queue = reentry_queue
 
+    @deprecated("0.12.0", issue=1085, instead="open_trio_entry_handle")
     def run_sync_soon(self, sync_fn, *args, idempotent=False):
         """Schedule a call to ``sync_fn(*args)`` to occur in the context of a
         Trio task.

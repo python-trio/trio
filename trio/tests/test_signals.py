@@ -70,8 +70,8 @@ async def test_open_signal_receiver_conflict():
 # processed.
 async def wait_run_sync_soon_idempotent_queue_barrier():
     ev = trio.Event()
-    token = _core.current_trio_token()
-    token.run_sync_soon(ev.set, idempotent=True)
+    with _core.open_trio_entry_handle() as handle:
+        handle.run_sync_soon(ev.set, idempotent=True)
     await ev.wait()
 
 

@@ -20,7 +20,7 @@ from ._core import (
     current_statistics, reschedule, remove_instrument, add_instrument,
     current_clock, current_root_task, checkpoint_if_cancelled,
     spawn_system_task, wait_socket_readable, wait_socket_writable,
-    notify_socket_close
+    notify_socket_close, open_trio_entry_handle, TrioEntryHandle
 )
 
 # Unix-specific symbols

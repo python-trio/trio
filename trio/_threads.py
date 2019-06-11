@@ -341,62 +341,62 @@ async def run_sync_in_worker_thread(
 
     """
     await trio.hazmat.checkpoint_if_cancelled()
-    token = trio.hazmat.current_trio_token()
-    if limiter is None:
-        limiter = current_default_worker_thread_limiter()
+    with trio.hazmat.open_trio_entry_handle() as handle:
+        if limiter is None:
+            limiter = current_default_worker_thread_limiter()
 
-    # Holds a reference to the task that's blocked in this function waiting
-    # for the result – or None if this function was cancelled and we should
-    # discard the result.
-    task_register = [trio.hazmat.current_task()]
-    name = "trio-worker-{}".format(next(_worker_thread_counter))
-    placeholder = ThreadPlaceholder(name)
+        # Holds a reference to the task that's blocked in this function
+        # waiting for the result – or None if this function was cancelled and
+        # we should discard the result.
+        task_register = [trio.hazmat.current_task()]
+        name = "trio-worker-{}".format(next(_worker_thread_counter))
+        placeholder = ThreadPlaceholder(name)
 
-    # This function gets scheduled into the Trio run loop to deliver the
-    # thread's result.
-    def report_back_in_trio_thread_fn(result):
-        def do_release_then_return_result():
-            # release_on_behalf_of is an arbitrary user-defined method, so it
-            # might raise an error. If it does, we want that error to
-            # replace the regular return value, and if the regular return was
-            # already an exception then we want them to chain.
+        # This function gets scheduled into the Trio run loop to deliver the
+        # thread's result.
+        def report_back_in_trio_thread_fn(result):
+            def do_release_then_return_result():
+                # release_on_behalf_of is an arbitrary user-defined method, so
+                # it might raise an error. If it does, we want that error to
+                # replace the regular return value, and if the regular return
+                # was already an exception then we want them to chain.
+                try:
+                    return result.unwrap()
+                finally:
+                    limiter.release_on_behalf_of(placeholder)
+
+            result = outcome.capture(do_release_then_return_result)
+            if task_register[0] is not None:
+                trio.hazmat.reschedule(task_register[0], result)
+
+        # This is the function that runs in the worker thread to do the actual
+        # work and then schedule the call to report_back_in_trio_thread_fn
+        def worker_thread_fn():
+            result = outcome.capture(sync_fn, *args)
             try:
-                return result.unwrap()
-            finally:
-                limiter.release_on_behalf_of(placeholder)
+                handle.run_sync_soon(report_back_in_trio_thread_fn, result)
+            except trio.ClosedResourceError:
+                # Our handle got closed, which means the task we're trying to
+                # report back to has moved on and isn't interested anymore.
+                pass
 
-        result = outcome.capture(do_release_then_return_result)
-        if task_register[0] is not None:
-            trio.hazmat.reschedule(task_register[0], result)
-
-    # This is the function that runs in the worker thread to do the actual
-    # work and then schedule the call to report_back_in_trio_thread_fn
-    def worker_thread_fn():
-        result = outcome.capture(sync_fn, *args)
+        await limiter.acquire_on_behalf_of(placeholder)
         try:
-            token.run_sync_soon(report_back_in_trio_thread_fn, result)
-        except trio.RunFinishedError:
-            # The entire run finished, so our particular task is certainly
-            # long gone -- it must have cancelled.
-            pass
+            # daemon=True because it might get left behind if we cancel, and
+            # in this case shouldn't block process exit.
+            thread = threading.Thread(
+                target=worker_thread_fn, name=name, daemon=True
+            )
+            thread.start()
+        except:
+            limiter.release_on_behalf_of(placeholder)
+            raise
 
-    await limiter.acquire_on_behalf_of(placeholder)
-    try:
-        # daemon=True because it might get left behind if we cancel, and in
-        # this case shouldn't block process exit.
-        thread = threading.Thread(
-            target=worker_thread_fn, name=name, daemon=True
-        )
-        thread.start()
-    except:
-        limiter.release_on_behalf_of(placeholder)
-        raise
+        def abort(_):
+            if cancellable:
+                task_register[0] = None
+                return trio.hazmat.Abort.SUCCEEDED
+            else:
+                return trio.hazmat.Abort.FAILED
 
-    def abort(_):
-        if cancellable:
-            task_register[0] = None
-            return trio.hazmat.Abort.SUCCEEDED
-        else:
-            return trio.hazmat.Abort.FAILED
-
-    return await trio.hazmat.wait_task_rescheduled(abort)
+        return await trio.hazmat.wait_task_rescheduled(abort)

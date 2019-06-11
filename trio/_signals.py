@@ -154,14 +154,14 @@ def open_signal_receiver(*signals):
             "Sorry, open_signal_receiver is only possible when running in "
             "Python interpreter's main thread"
         )
-    token = trio.hazmat.current_trio_token()
-    queue = SignalReceiver()
+    with trio.hazmat.open_trio_entry_handle() as entry_handle:
+        queue = SignalReceiver()
 
-    def handler(signum, _):
-        token.run_sync_soon(queue._add, signum, idempotent=True)
+        def handler(signum, _):
+            entry_handle.run_sync_soon(queue._add, signum, idempotent=True)
 
-    try:
-        with _signal_handler(signals, handler):
-            yield queue
-    finally:
-        queue._redeliver_remaining()
+        try:
+            with _signal_handler(signals, handler):
+                yield queue
+        finally:
+            queue._redeliver_remaining()
