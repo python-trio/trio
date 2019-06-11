@@ -256,9 +256,7 @@ class ThreadPlaceholder:
 
 
 @enable_ki_protection
-async def run_sync_in_thread(
-    sync_fn, *args, cancellable=False, limiter=None
-):
+async def run_sync_in_thread(sync_fn, *args, cancellable=False, limiter=None):
     """Convert a blocking operation into an async operation using a thread.
 
     These two lines are equivalent::

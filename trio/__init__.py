@@ -32,8 +32,7 @@ from ._sync import (
 )
 
 from ._threads import (
-    run_sync_in_thread, current_default_thread_limiter,
-    BlockingTrioPortal
+    run_sync_in_thread, current_default_thread_limiter, BlockingTrioPortal
 )
 
 from ._highlevel_generic import aclose_forcefully, StapledStream

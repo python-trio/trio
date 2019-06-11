@@ -202,9 +202,7 @@ async def test_run_in_worker_thread_cancellation():
     async def child(q, cancellable):
         record.append("start")
         try:
-            return await run_sync_in_thread(
-                f, q, cancellable=cancellable
-            )
+            return await run_sync_in_thread(f, q, cancellable=cancellable)
         finally:
             record.append("exit")
 
