@@ -97,7 +97,8 @@ setup(
     # also supported by pip and setuptools, as long as they're vaguely
     # recent
     extras_require={
-        ":os_name == 'nt'": ["cffi"],  # "cffi is required on windows",
+        # cffi 1.12 adds from_buffer(require_writable=True) and ffi.release()
+        ":os_name == 'nt'": ["cffi >= 1.12"],  # "cffi is required on windows",
         ":python_version < '3.7'": ["contextvars>=2.1"]
     },
     python_requires=">=3.5",
