@@ -7,6 +7,7 @@ import trio
 
 from ._util import aiter_compat
 from ._core import enable_ki_protection, ParkingLot
+from ._deprecate import deprecated
 
 __all__ = [
     "Event",
@@ -36,6 +37,13 @@ class Event:
     primitive that doesn't have this protection, consider :class:`Condition`
     or :class:`trio.hazmat.ParkingLot`.
 
+    .. note:: Unlike `threading.Event`, `trio.Event` has no
+       `~threading.Event.clear` method. In Trio, once an `Event` has happened,
+       it cannot un-happen. If you need to represent a series of events,
+       consider creating a new `Event` object for each one (they're cheap!),
+       or other synchronization methods like :ref:`channels <channels>` or
+       `trio.hazmat.ParkingLot`.
+
     """
 
     _lot = attr.ib(default=attr.Factory(ParkingLot), init=False)
@@ -55,10 +63,12 @@ class Event:
         self._flag = True
         self._lot.unpark_all()
 
+    @deprecated(
+        "0.12.0",
+        issue=637,
+        instead="multiple Event objects or other synchronization primitives"
+    )
     def clear(self):
-        """Set the internal flag value to False.
-
-        """
         self._flag = False
 
     async def wait(self):
