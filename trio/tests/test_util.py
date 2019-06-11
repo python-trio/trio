@@ -6,7 +6,7 @@ import sys
 import pytest
 
 from .. import _core
-from trio import run_sync_in_worker_thread
+from trio import run_sync_in_thread
 from .._util import (
     signal_raise, ConflictDetector, fspath, is_main_thread, generic_function,
     Final, NoPublicConstructor
@@ -160,7 +160,7 @@ async def test_is_main_thread():
     def not_main_thread():
         assert not is_main_thread()
 
-    await run_sync_in_worker_thread(not_main_thread)
+    await run_sync_in_thread(not_main_thread)
 
 
 def test_generic_function():

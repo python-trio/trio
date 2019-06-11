@@ -560,7 +560,7 @@ Upcoming breaking changes with warnings (i.e., stuff that in 0.2.0
   functions that take and run a synchronous function. As part of this:
 
   * ``run_in_worker_thread`` is becoming
-    :func:`run_sync_in_worker_thread`
+    ``run_sync_in_worker_thread``
 
   * We took the opportunity to refactor ``run_in_trio_thread`` and
     ``await_in_trio_thread`` into the new class
@@ -655,7 +655,7 @@ CPython, or PyPy3 5.9+.
 Other changes
 ~~~~~~~~~~~~~
 
-* :func:`run_sync_in_worker_thread` now has a :ref:`robust mechanism
+* :func:`run_sync_in_thread` now has a :ref:`robust mechanism
   for applying capacity limits to the number of concurrent threads
   <worker-thread-limiting>` (`#10
   <https://github.com/python-trio/trio/issues/170>`__, `#57

@@ -442,7 +442,7 @@ This logic is a bit convoluted, but accomplishes all of the following:
   loop outside of the ``except BlockingIOError:`` block.
 
 These functions can also be useful in other situations. For example,
-when :func:`trio.run_sync_in_worker_thread` schedules some work to run
+when :func:`trio.run_sync_in_thread` schedules some work to run
 in a worker thread, it blocks until the work is finished (so it's a
 schedule point), but by default it doesn't allow cancellation. So to
 make sure that the call always acts as a checkpoint, it calls

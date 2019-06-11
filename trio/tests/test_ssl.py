@@ -114,7 +114,7 @@ async def ssl_echo_server_raw(**kwargs):
         # nursery context manager to exit too.
         with a, b:
             nursery.start_soon(
-                trio.run_sync_in_worker_thread,
+                trio.run_sync_in_thread,
                 partial(ssl_echo_serve_sync, b, **kwargs)
             )
 

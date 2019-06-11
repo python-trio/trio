@@ -32,7 +32,7 @@ async def WaitForSingleObject(obj):
     # that we can use to cancel the thread.
     cancel_handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     try:
-        await trio.run_sync_in_worker_thread(
+        await trio.run_sync_in_thread(
             WaitForMultipleObjects_sync,
             handle,
             cancel_handle,

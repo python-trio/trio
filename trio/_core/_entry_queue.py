@@ -132,7 +132,7 @@ class TrioToken:
 
     1. It lets you re-enter the Trio run loop from external threads or signal
        handlers. This is the low-level primitive that
-       :func:`trio.run_sync_in_worker_thread` uses to receive results from
+       :func:`trio.run_sync_in_thread` uses to receive results from
        worker threads, that :func:`trio.open_signal_receiver` uses to receive
        notifications about signals, and so forth.
 
