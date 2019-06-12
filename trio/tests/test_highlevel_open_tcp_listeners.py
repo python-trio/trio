@@ -122,7 +122,7 @@ async def test_open_tcp_listeners_rebind():
     sockaddr1 = l1.socket.getsockname()
 
     # Plain old rebinding while it's still there should fail, even if we have
-    # SO_REUSEADDR set (requires SO_EXCLUSIVEADDRUSE on Windows)
+    # SO_REUSEADDR set
     probe = stdlib_socket.socket()
     probe.setsockopt(stdlib_socket.SOL_SOCKET, stdlib_socket.SO_REUSEADDR, 1)
     with pytest.raises(OSError):
