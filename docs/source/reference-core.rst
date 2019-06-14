@@ -820,7 +820,7 @@ The nursery API
    :async-with: nursery
 
 
-.. autoclass:: Nursery
+.. autoclass:: Nursery()
    :members:
 
 .. attribute:: TASK_STATUS_IGNORED
