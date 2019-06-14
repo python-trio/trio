@@ -19,7 +19,8 @@ from ._core import (
     TrioInternalError, RunFinishedError, WouldBlock, Cancelled,
     BusyResourceError, ClosedResourceError, MultiError, run, open_nursery,
     CancelScope, open_cancel_scope, current_effective_deadline,
-    TASK_STATUS_IGNORED, current_time, BrokenResourceError, EndOfChannel
+    TASK_STATUS_IGNORED, current_time, BrokenResourceError, EndOfChannel,
+    Nursery
 )
 
 from ._timeouts import (

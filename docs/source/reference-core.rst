@@ -819,116 +819,13 @@ The nursery API
 .. autofunction:: open_nursery
    :async-with: nursery
 
-Nursery objects provide the following interface:
 
-.. interface:: The nursery interface
-
-   .. method:: start_soon(async_fn, *args, name=None)
-
-      Creates a new child task inside this nursery, and sets it up to
-      run ``await async_fn(*args)``.
-
-      This and :meth:`start` are the two fundamental methods for
-      creating concurrent tasks in Trio.
-
-      Note that this is *not* an async function and you don't use await
-      when calling it. It sets up the new task, but then returns
-      immediately, *before* it has a chance to run. The new task won’t
-      actually get a chance to do anything until some later point when
-      you execute a checkpoint and the scheduler decides to run it.
-      If you want to run a function and immediately wait for its result,
-      then you don't need a nursery; just use ``await async_fn(*args)``.
-      If you want to wait for the task to initialize itself before 
-      continuing, see :meth:`start()`.
-
-      It's possible to pass a nursery object into another task, which
-      allows that task to start new child tasks in the first task's
-      nursery.
-
-      The child task inherits its parent nursery's cancel scopes.
-
-      :param async_fn: An async callable.
-      :param args: Positional arguments for ``async_fn``. If you want
-                   to pass keyword arguments, use
-                   :func:`functools.partial`.
-      :param name: The name for this task. Only used for
-                   debugging/introspection
-                   (e.g. ``repr(task_obj)``). If this isn't a string,
-                   :meth:`start_soon` will try to make it one. A
-                   common use case is if you're wrapping a function
-                   before spawning a new task, you might pass the
-                   original function as the ``name=`` to make
-                   debugging easier.
-      :raises RuntimeError: If this nursery is no longer open
-                            (i.e. its ``async with`` block has
-                            exited).
-
-   .. method:: start(async_fn, *args, name=None)
-      :async:
-
-      Like :meth:`start_soon`, but blocks until the new task has
-      finished initializing itself, and optionally returns some
-      information from it.
-
-      The ``async_fn`` must accept a ``task_status`` keyword argument,
-      and it must make sure that it (or someone) eventually calls
-      ``task_status.started()``.
-
-      The conventional way to define ``async_fn`` is like::
-
-         async def async_fn(arg1, arg2, *, task_status=trio.TASK_STATUS_IGNORED):
-             ...
-             task_status.started()
-             ...
-
-      :attr:`trio.TASK_STATUS_IGNORED` is a special global object with
-      a do-nothing ``started`` method. This way your function supports
-      being called either like ``await nursery.start(async_fn, arg1,
-      arg2)`` or directly like ``await async_fn(arg1, arg2)``, and
-      either way it can call ``task_status.started()`` without
-      worrying about which mode it's in. Defining your function like
-      this will make it obvious to readers that it supports being used
-      in both modes.
-
-      Before the child calls ``task_status.started()``, it's
-      effectively run underneath the call to :meth:`start`: if it
-      raises an exception then that exception is reported by
-      :meth:`start`, and does *not* propagate out of the nursery. If
-      :meth:`start` is cancelled, then the child task is also
-      cancelled.
-
-      When the child calls ``task_status.started()``, it's moved from
-      out from underneath :meth:`start` and into the given nursery.
-
-      If the child task passes a value to
-      ``task_status.started(value)``, then :meth:`start` returns this
-      value. Otherwise it returns ``None``.
-
-   .. attribute:: cancel_scope
-
-      Creating a nursery also implicitly creates a cancellation scope,
-      which is exposed as the :attr:`cancel_scope` attribute. This is
-      used internally to implement the logic where if an error occurs
-      then ``__aexit__`` cancels all children, but you can use it for
-      other things, e.g. if you want to explicitly cancel all children
-      in response to some external event.
-
-   The last two attributes are mainly to enable introspection of the
-   task tree, for example in debuggers.
-
-   .. attribute:: parent_task
-
-      The :class:`~trio.hazmat.Task` that opened this nursery.
-
-   .. attribute:: child_tasks
-
-      A :class:`frozenset` containing all the child
-      :class:`~trio.hazmat.Task` objects which are still running.
-
+.. autoclass:: Nursery()
+   :members:
 
 .. attribute:: TASK_STATUS_IGNORED
 
-   See :meth:`~The nursery interface.start`.
+   See :meth:`~Nursery.start`.
 
 
 Working with :exc:`MultiError`\s
