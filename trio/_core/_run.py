@@ -105,7 +105,7 @@ class SystemClock:
     # Add a large random offset to our clock to ensure that if people
     # accidentally call time.perf_counter() directly or start comparing clocks
     # between different runs, then they'll notice the bug quickly:
-    offset = attr.ib(default=attr.Factory(lambda: _r.uniform(10000, 200000)))
+    offset = attr.ib(factory=lambda: _r.uniform(10000, 200000))
 
     def start_clock(self):
         pass
@@ -1002,7 +1002,7 @@ class Task:
     custom_sleep_data = attr.ib(default=None)
 
     # For introspection and nursery.start()
-    _child_nurseries = attr.ib(default=attr.Factory(list))
+    _child_nurseries = attr.ib(factory=list)
 
     # these are counts of how many cancel/schedule points this task has
     # executed, for assert{_no,}_checkpoints
@@ -1108,15 +1108,15 @@ class Runner:
     io_manager = attr.ib()
 
     # Run-local values, see _local.py
-    _locals = attr.ib(default=attr.Factory(dict))
+    _locals = attr.ib(factory=dict)
 
-    runq = attr.ib(default=attr.Factory(deque))
-    tasks = attr.ib(default=attr.Factory(set))
+    runq = attr.ib(factory=deque)
+    tasks = attr.ib(factory=set)
 
     # {(deadline, id(CancelScope)): CancelScope}
     # only contains scopes with non-infinite deadlines that are currently
     # attached to at least one task
-    deadlines = attr.ib(default=attr.Factory(SortedDict))
+    deadlines = attr.ib(factory=SortedDict)
 
     init_task = attr.ib(default=None)
     system_nursery = attr.ib(default=None)
@@ -1124,7 +1124,7 @@ class Runner:
     main_task = attr.ib(default=None)
     main_task_outcome = attr.ib(default=None)
 
-    entry_queue = attr.ib(default=attr.Factory(EntryQueue))
+    entry_queue = attr.ib(factory=EntryQueue)
     trio_token = attr.ib(default=None)
 
     _NO_SEND = object()
@@ -1535,7 +1535,7 @@ class Runner:
     # Quiescing
     ################
 
-    waiting_for_idle = attr.ib(default=attr.Factory(SortedDict))
+    waiting_for_idle = attr.ib(factory=SortedDict)
 
     @_public
     async def wait_all_tasks_blocked(self, cushion=0.0, tiebreaker=0):
