@@ -1,0 +1,3 @@
+It turns out that it's better to treat subprocess spawning as an async
+operation. Therefore, direct construction of `Process` objects has
+been deprecated. Use `trio.open_process` instead.
