@@ -120,11 +120,7 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
                     raise
             try:
                 # See https://github.com/python-trio/trio/issues/39
-                if sys.platform == "win32":
-                    sock.setsockopt(
-                        tsocket.SOL_SOCKET, tsocket.SO_EXCLUSIVEADDRUSE, 1
-                    )
-                else:
+                if sys.platform != "win32":
                     sock.setsockopt(
                         tsocket.SOL_SOCKET, tsocket.SO_REUSEADDR, 1
                     )
