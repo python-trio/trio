@@ -278,7 +278,7 @@ class Final(type):
                 raise TypeError(
                     "`%s` does not support subclassing" % base.__name__
                 )
-        return type.__new__(cls, name, bases, cls_namespace)
+        return super().__new__(cls, name, bases, cls_namespace)
 
 
 class NoPublicConstructor(Final):
