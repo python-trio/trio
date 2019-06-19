@@ -78,6 +78,7 @@ class MemoryChannelStats:
     tasks_waiting_send = attr.ib()
     tasks_waiting_receive = attr.ib()
 
+
 @attr.s
 class MemoryChannelState:
     max_buffer_size = attr.ib()
@@ -105,9 +106,11 @@ try:
     from typing import GenericMeta
 except ImportError:
     from abc import ABCMeta
+
     class _GenericNoPublicConstructor(NoPublicConstructor, ABCMeta):
         pass
 else:
+
     class _GenericNoPublicConstructor(NoPublicConstructor, GenericMeta):
         pass
 
