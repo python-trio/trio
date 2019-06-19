@@ -1,5 +1,6 @@
 # Little utilities we use internally
 
+from abc import ABCMeta
 import os
 import signal
 import sys
@@ -16,15 +17,6 @@ import async_generator
 # low-level utility code, and one for higher level helpers?
 
 import trio
-
-__all__ = [
-    "signal_raise",
-    "aiter_compat",
-    "ConflictDetector",
-    "fixup_module_metadata",
-    "fspath",
-    "generic_function",
-]
 
 # Equivalent to the C function raise(), which Python doesn't wrap
 if os.name == "nt":

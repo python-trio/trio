@@ -117,14 +117,19 @@ Abstract base classes
      - :class:`~trio.SocketListener`, :class:`~trio.SSLListener`
    * - :class:`SendChannel`
      - :class:`AsyncResource`
-     - :meth:`~SendChannel.send`, :meth:`~SendChannel.send_nowait`
+     - :meth:`~SendChannel.send`
      -
-     - :func:`~trio.open_memory_channel`
+     - `~trio.MemorySendChannel`
    * - :class:`ReceiveChannel`
      - :class:`AsyncResource`
-     - :meth:`~ReceiveChannel.receive`, :meth:`~ReceiveChannel.receive_nowait`
+     - :meth:`~ReceiveChannel.receive`
      - ``__aiter__``, ``__anext__``
-     - :func:`~trio.open_memory_channel`
+     - `~trio.MemoryReceiveChannel`
+   * - `Channel`
+     - `SendChannel`, `ReceiveChannel`
+     -
+     -
+     -
 
 .. autoclass:: trio.abc.AsyncResource
    :members:
@@ -162,6 +167,10 @@ Abstract base classes
    :show-inheritance:
 
 .. autoclass:: trio.abc.ReceiveChannel
+   :members:
+   :show-inheritance:
+
+.. autoclass:: trio.abc.Channel
    :members:
    :show-inheritance:
 

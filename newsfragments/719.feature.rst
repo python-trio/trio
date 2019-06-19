@@ -1,0 +1,6 @@
+We cleaned up the distinction between the "abstract channel interface"
+and the "memory channel" concrete implementation.
+`trio.abc.SendChannel` and `trio.abc.ReceiveChannel` have been slimmed
+down, `trio.SendMemoryChannel` and `trio.ReceiveMemoryChannel` are now
+public types that can be used in type hints, and there's a new
+`trio.abc.Channel` interface for future bidirectional channels.

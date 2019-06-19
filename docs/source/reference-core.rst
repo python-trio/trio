@@ -1212,7 +1212,7 @@ Using channels to pass values between tasks
 different tasks. They're particularly useful for implementing
 producer/consumer patterns.
 
-The channel API is defined by the abstract base classes
+The core channel API is defined by the abstract base classes
 :class:`trio.abc.SendChannel` and :class:`trio.abc.ReceiveChannel`.
 You can use these to implement your own custom channels, that do
 things like pass objects between processes or over the network. But in
@@ -1228,14 +1228,23 @@ inside a single process, and for that you can use
    what you use when you're looking for a queue. The main difference
    is that Trio splits the classic queue interface up into two
    objects. The advantage of this is that it makes it possible to put
-   the two ends in different processes, and that we can close the two
-   sides separately.
+   the two ends in different processes without rewriting your code,
+   and that we can close the two sides separately.
+
+`MemorySendChannel` and `MemoryReceiveChannel` also expose several
+more features beyond the core channel interface:
+
+.. autoclass:: MemorySendChannel
+   :members:
+
+.. autoclass:: MemoryReceiveChannel
+   :members:
 
 
 A simple channel example
 ++++++++++++++++++++++++
 
-Here's a simple example of how to use channels:
+Here's a simple example of how to use memory channels:
 
 .. literalinclude:: reference-core/channels-simple.py
 
@@ -1347,14 +1356,13 @@ program above:
 .. literalinclude:: reference-core/channels-mpmc-fixed.py
    :emphasize-lines: 7, 9, 10, 12, 13
 
-This example demonstrates using the :meth:`SendChannel.clone
-<trio.abc.SendChannel.clone>` and :meth:`ReceiveChannel.clone
-<trio.abc.ReceiveChannel.clone>` methods. What these do is create
-copies of our endpoints, that act just like the original – except that
-they can be closed independently. And the underlying channel is only
-closed after *all* the clones have been closed. So this completely
-solves our problem with shutdown, and if you run this program, you'll
-see it print its six lines of output and then exits cleanly.
+This example demonstrates using the `MemorySendChannel.clone` and
+`MemoryReceiveChannel.clone` methods. What these do is create copies
+of our endpoints, that act just like the original – except that they
+can be closed independently. And the underlying channel is only closed
+after *all* the clones have been closed. So this completely solves our
+problem with shutdown, and if you run this program, you'll see it
+print its six lines of output and then exits cleanly.
 
 Notice a small trick we use: the code in ``main`` creates clone
 objects to pass into all the child tasks, and then closes the original

@@ -38,7 +38,9 @@ from ._threads import (
 
 from ._highlevel_generic import aclose_forcefully, StapledStream
 
-from ._channel import open_memory_channel
+from ._channel import (
+    open_memory_channel, MemorySendChannel, MemoryReceiveChannel
+)
 
 from ._signals import open_signal_receiver
 
