@@ -6,7 +6,7 @@ from .. import _core
 from . import _public
 
 
-@attr.s(frozen=True)
+@attr.s(slots=True, cmp=False, hash=False, frozen=True)
 class _EpollStatistics:
     tasks_waiting_read = attr.ib()
     tasks_waiting_write = attr.ib()

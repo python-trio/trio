@@ -8,7 +8,7 @@ from .. import _core
 from . import _public
 
 
-@attr.s(frozen=True)
+@attr.s(slots=True, cmp=False, hash=False, frozen=True)
 class _KqueueStatistics:
     tasks_waiting = attr.ib()
     monitors = attr.ib()
