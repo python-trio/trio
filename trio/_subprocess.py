@@ -21,9 +21,9 @@ class Process(AsyncResource):
 
        process = await trio.open_process(...)
 
-    `Process` implements the `AsyncResource` interface. In order to make sure
-    your process doesn't end up getting abandoned by mistake or after an
-    exception, you can use ``async with``::
+    `Process` implements the `~trio.abc.AsyncResource` interface. In order to
+    make sure your process doesn't end up getting abandoned by mistake or
+    after an exception, you can use ``async with``::
 
        async with await trio.open_process(...) as process:
            ...
@@ -271,15 +271,15 @@ async def open_process(
     r"""Execute a child program in a new process.
 
     After construction, you can interact with the child process by writing
-    data to its :attr:`stdin` stream (a :class:`~trio.abc.SendStream`),
-    reading data from its :attr:`stdout` and/or :attr:`stderr` streams (both
-    :class:`~trio.abc.ReceiveStream`\s), sending it signals using
-    :meth:`terminate`, :meth:`kill`, or :meth:`send_signal`, and waiting for
-    it to exit using :meth:`wait`. See `Process` for details.
+    data to its `~Process.stdin` stream (a `~trio.abc.SendStream`), reading
+    data from its `~Process.stdout` and/or `~Process.stderr` streams (both
+    `~trio.abc.ReceiveStream`\s), sending it signals using
+    `~Process.terminate`, `~Process.kill`, or `~Process.send_signal`, and
+    waiting for it to exit using `~Process.wait`. See `Process` for details.
 
     Each standard stream is only available if you specify that a pipe should
     be created for it. For example, if you pass ``stdin=subprocess.PIPE``, you
-    can write to the :attr:`stdin` stream, else :attr:`stdin` will be
+    can write to the `~Process.stdin` stream, else `~Process.stdin` will be
     ``None``.
 
     Args:
