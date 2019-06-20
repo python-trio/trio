@@ -71,6 +71,8 @@ class Process(AsyncResource):
     # - delete __init__ and _create
     # - add metaclass=NoPublicConstructor
     # - rename _init to __init__
+    # - move most of the code into open_process()
+    # - put the subprocess.Popen(...) call into a thread
     def __init__(self, *args, **kwargs):
         trio._deprecate.warn_deprecated(
             "directly constructing Process objects",
@@ -313,15 +315,11 @@ async def open_process(
          specified command could not be found.
 
     """
-    return await trio.run_sync_in_thread(
-        partial(
-            Process._create,
-            command,
-            stdin=stdin,
-            stdout=stdout,
-            stderr=stderr,
-            **options
-        )
+    # XX FIXME: move the process creation into a thread as soon as we're done
+    # deprecating Process(...)
+    await trio.hazmat.checkpoint()
+    return Process._create(
+        command, stdin=stdin, stdout=stdout, stderr=stderr, **options
     )
 
 
