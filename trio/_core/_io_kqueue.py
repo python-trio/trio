@@ -134,7 +134,7 @@ class KqueueIOManager:
         await self._wait_common(fd, select.KQ_FILTER_WRITE)
 
     @_public
-    def notify_fd_close(self, fd):
+    def notify_closing(self, fd):
         if not isinstance(fd, int):
             fd = fd.fileno()
 

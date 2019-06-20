@@ -421,15 +421,15 @@ class WindowsIOManager:
         await _core.wait_task_rescheduled(abort)
 
     @_public
-    async def wait_socket_readable(self, sock):
+    async def wait_readable(self, sock):
         await self._wait_socket("read", sock)
 
     @_public
-    async def wait_socket_writable(self, sock):
+    async def wait_writable(self, sock):
         await self._wait_socket("write", sock)
 
     @_public
-    def notify_socket_close(self, sock):
+    def notify_closing(self, sock):
         if not isinstance(sock, int):
             sock = sock.fileno()
         for mode in ["read", "write"]:
