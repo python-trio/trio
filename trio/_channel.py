@@ -102,21 +102,8 @@ class MemoryChannelState:
         )
 
 
-try:
-    from typing import GenericMeta
-except ImportError:
-    from abc import ABCMeta
-
-    class _GenericNoPublicConstructor(NoPublicConstructor, ABCMeta):
-        pass
-else:
-
-    class _GenericNoPublicConstructor(NoPublicConstructor, GenericMeta):
-        pass
-
-
 @attr.s(cmp=False, repr=False)
-class MemorySendChannel(SendChannel, metaclass=_GenericNoPublicConstructor):
+class MemorySendChannel(SendChannel, metaclass=NoPublicConstructor):
     _state = attr.ib()
     _closed = attr.ib(default=False)
     # This is just the tasks waiting on *this* object. As compared to
@@ -234,9 +221,7 @@ class MemorySendChannel(SendChannel, metaclass=_GenericNoPublicConstructor):
 
 
 @attr.s(cmp=False, repr=False)
-class MemoryReceiveChannel(
-    ReceiveChannel, metaclass=_GenericNoPublicConstructor
-):
+class MemoryReceiveChannel(ReceiveChannel, metaclass=NoPublicConstructor):
     _state = attr.ib()
     _closed = attr.ib(default=False)
     _tasks = attr.ib(factory=set)

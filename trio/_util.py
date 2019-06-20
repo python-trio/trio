@@ -257,7 +257,21 @@ class generic_function:
         return self
 
 
-class Final(type):
+# If a new class inherits from any ABC, then the new class's metaclass has to
+# inherit from ABCMeta. If a new class inherits from typing.Generic, and
+# you're using Python 3.6 or earlier, then the new class's metaclass has to
+# inherit from typing.GenericMeta. Some of the classes that want to use Final
+# or NoPublicConstructor inherit from ABCs and generics, so Final has to
+# inherit from these metaclasses. Fortunately, GenericMeta inherits from
+# ABCMeta, so inheriting from GenericMeta alone is sufficient (when it
+# exists at all).
+if hasattr(t, "GenericMeta"):
+    BaseMeta = t.GenericMeta
+else:
+    BaseMeta = ABCMeta
+
+
+class Final(BaseMeta):
     """Metaclass that enforces a class to be final (i.e., subclass not allowed).
 
     If a class uses this metaclass like this::
