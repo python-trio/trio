@@ -100,7 +100,7 @@ def _count_context_run_tb_frames():
 CONTEXT_RUN_TB_FRAMES = _count_context_run_tb_frames()
 
 
-@attr.s(frozen=True)
+@attr.s(frozen=True, slots=True)
 class SystemClock:
     # Add a large random offset to our clock to ensure that if people
     # accidentally call time.perf_counter() directly or start comparing clocks

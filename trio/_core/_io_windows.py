@@ -78,7 +78,7 @@ def _check(success):
     return success
 
 
-@attr.s(frozen=True)
+@attr.s(slots=True, cmp=False, frozen=True)
 class _WindowsStatistics:
     tasks_waiting_overlapped = attr.ib()
     completion_key_monitors = attr.ib()
