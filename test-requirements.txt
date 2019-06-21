@@ -22,7 +22,7 @@ importlib-metadata==0.18  # via pluggy, pytest
 ipython-genutils==0.2.0   # via traitlets
 ipython==7.5.0
 isort==4.3.20             # via pylint
-jedi==0.13.3
+jedi==0.14.0
 lazy-object-proxy==1.4.1  # via astroid
 mccabe==0.6.1             # via flake8, pylint
 more-itertools==7.0.0     # via pytest
