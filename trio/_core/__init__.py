@@ -42,8 +42,3 @@ from ._parking_lot import ParkingLot
 from ._unbounded_queue import UnboundedQueue
 
 from ._local import RunVar
-
-if hasattr(_run, "wait_readable"):
-    wait_socket_readable = wait_readable
-    wait_socket_writable = wait_writable
-    notify_socket_close = notify_fd_close

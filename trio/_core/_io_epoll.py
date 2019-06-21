@@ -125,7 +125,7 @@ class EpollIOManager:
         await self._epoll_wait(fd, "write_task")
 
     @_public
-    def notify_fd_close(self, fd):
+    def notify_closing(self, fd):
         if not isinstance(fd, int):
             fd = fd.fileno()
         if fd not in self._registered:
