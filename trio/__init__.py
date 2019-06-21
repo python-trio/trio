@@ -117,29 +117,29 @@ __deprecated_attributes__ = {
 _deprecate.enable_attribute_deprecations(hazmat.__name__)
 hazmat.__deprecated_attributes__ = {
     "wait_socket_readable":
-      _deprecate.DeprecatedAttribute(
-          hazmat.wait_readable,
-          "0.12.0",
-          issue=878,
-      ),
+        _deprecate.DeprecatedAttribute(
+            hazmat.wait_readable,
+            "0.12.0",
+            issue=878,
+        ),
     "wait_socket_writable":
-      _deprecate.DeprecatedAttribute(
-          hazmat.wait_writable,
-          "0.12.0",
-          issue=878,
-      ),
+        _deprecate.DeprecatedAttribute(
+            hazmat.wait_writable,
+            "0.12.0",
+            issue=878,
+        ),
     "notify_socket_close":
-      _deprecate.DeprecatedAttribute(
-          hazmat.notify_closing,
-          "0.12.0",
-          issue=878,
-      ),
+        _deprecate.DeprecatedAttribute(
+            hazmat.notify_closing,
+            "0.12.0",
+            issue=878,
+        ),
     "notify_fd_close":
-      _deprecate.DeprecatedAttribute(
-          hazmat.notify_closing,
-          "0.12.0",
-          issue=878,
-      ),
+        _deprecate.DeprecatedAttribute(
+            hazmat.notify_closing,
+            "0.12.0",
+            issue=878,
+        ),
 }
 
 # Having the public path in .__module__ attributes is important for:
