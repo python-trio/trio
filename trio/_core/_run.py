@@ -41,7 +41,8 @@ from .._util import Final, NoPublicConstructor
 _NO_SEND = object()
 
 
-# Decorator to mark methods public
+# Decorator to mark methods public. This does nothing by itself, but
+# trio/_tools/gen_exports.py looks for it.
 def _public(fn):
     return fn
 
@@ -1121,7 +1122,6 @@ class Runner:
         if self.instruments:
             self.instrument("after_run")
 
-    # Export methods by adding the @_public decorator
     @_public
     def current_statistics(self):
         """Returns an object containing run-loop-level debugging information.

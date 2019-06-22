@@ -15,7 +15,7 @@ from ._ki import (
     enable_ki_protection, disable_ki_protection, currently_ki_protected
 )
 
-# Discrete imports
+# Imports that always exist
 from ._run import (
     Task, CancelScope, run, open_nursery, open_cancel_scope, checkpoint,
     current_task, current_effective_deadline, checkpoint_if_cancelled,
