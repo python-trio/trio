@@ -567,6 +567,10 @@ class SendChannel(AsyncResource, Generic[SendType]):
           trio.ClosedResourceError: if you previously closed this
               :class:`SendChannel` object, or if another task closes it while
               :meth:`send` is running.
+          trio.BusyResourceError: some channels allow multiple tasks to call
+              `send` at the same time, but others don't. If you try to call
+              `send` simultaneously from multiple tasks on a channel that
+              doesn't support it, then you can get `~trio.BusyResourceError`.
 
         """
 
@@ -607,6 +611,10 @@ class ReceiveChannel(AsyncResource, Generic[ReceiveType]):
               :class:`ReceiveChannel` object.
           trio.BrokenResourceError: if something has gone wrong, and the
               channel is broken.
+          trio.BusyResourceError: some channels allow multiple tasks to call
+              `receive` at the same time, but others don't. If you try to call
+              `receive` simultaneously from multiple tasks on a channel that
+              doesn't support it, then you can get `~trio.BusyResourceError`.
 
         """
 

@@ -147,7 +147,9 @@ class MemorySendChannel(SendChannel, metaclass=NoPublicConstructor):
 
     @enable_ki_protection
     async def send(self, value):
-        """See `~trio.abc.SendChannel.send`.
+        """See `SendChannel.send <trio.abc.SendChannel.send>`.
+
+        Memory channels allow multiple tasks to call `send` at the same time.
 
         """
         await trio.hazmat.checkpoint_if_cancelled()
@@ -259,7 +261,11 @@ class MemoryReceiveChannel(ReceiveChannel, metaclass=NoPublicConstructor):
 
     @enable_ki_protection
     async def receive(self):
-        """See `~trio.abc.ReceiveChannel.receive`.
+        """See `ReceiveChannel.receive <trio.abc.ReceiveChannel.receive>`.
+
+        Memory channels allow multiple tasks to call `receive` at the same
+        time. The first task will get the first item sent, the second task
+        will get the second item sent, and so on.
 
         """
         await trio.hazmat.checkpoint_if_cancelled()
