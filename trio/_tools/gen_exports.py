@@ -14,17 +14,6 @@ import yapf.yapflib.yapf_api as formatter
 
 from textwrap import indent
 
-SOURCE_ROOT = Path.cwd()
-assert (SOURCE_ROOT / "LICENSE").exists()
-
-CORE = SOURCE_ROOT / 'trio/_core'
-TO_WRAP = [
-    (CORE / "_run.py", "runner"),
-    (CORE / "_io_windows.py", "runner.io_manager"),
-    (CORE / "_io_epoll.py", "runner.io_manager"),
-    (CORE / "_io_kqueue.py", "runner.io_manager"),
-]
-
 PREFIX = '_generated'
 
 HEADER = """# ***********************************************************
@@ -186,7 +175,19 @@ def main():  # pragma: no cover
         help='test if code is still up to date'
     )
     parsed_args = parser.parse_args()
-    process(TO_WRAP, do_test=parsed_args.test)
+
+    source_root = Path.cwd()
+    # Double-check we found the right directory
+    assert (source_root / "LICENSE").exists()
+    core = source_root / 'trio/_core'
+    to_wrap = [
+        (core / "_run.py", "runner"),
+        (core / "_io_windows.py", "runner.io_manager"),
+        (core / "_io_epoll.py", "runner.io_manager"),
+        (core / "_io_kqueue.py", "runner.io_manager"),
+    ]
+
+    process(to_wrap, do_test=parsed_args.test)
 
 
 if __name__ == '__main__':  # pragma: no cover
