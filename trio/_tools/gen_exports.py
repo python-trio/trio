@@ -25,7 +25,6 @@ TO_WRAP = [
     (CORE / "_io_kqueue.py", "runner.io_manager"),
 ]
 
-YAPF_STYLE = SOURCE_ROOT / '.style.yapf'
 PREFIX = '_generated'
 
 HEADER = """# ***********************************************************
@@ -99,11 +98,6 @@ def create_passthrough_args(funcdef):
     return "({})".format(", ".join(call_args))
 
 
-def format_source(source_str):
-    new_source, _ = formatter.FormatCode(source_str, style_config=str(YAPF_STYLE))
-    return new_source
-
-
 def gen_public_wrappers_source(source_path: Path, lookup_path: str) -> str:
     """Scan the given .py file for @_public decorators, and generate wrapper
     functions.
@@ -144,8 +138,7 @@ def gen_public_wrappers_source(source_path: Path, lookup_path: str) -> str:
 
         # Append the snippet to the corresponding module
         generated.append(snippet)
-    new_source = "\n".join(generated)
-    return format_source(new_source)
+    return "\n".join(generated)
 
 
 def matches_disk_files(new_files):

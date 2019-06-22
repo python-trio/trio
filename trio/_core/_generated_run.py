@@ -4,6 +4,7 @@
 from ._run import GLOBAL_RUN_CONTEXT, _NO_SEND
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 
+    
 
 def current_statistics():
     """Returns an object containing run-loop-level debugging information.
@@ -30,10 +31,9 @@ def current_statistics():
         """
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        return GLOBAL_RUN_CONTEXT.runner.current_statistics()
+        return  GLOBAL_RUN_CONTEXT.runner.current_statistics()
     except AttributeError:
         raise RuntimeError('must be called from async context')
-
 
 def current_time():
     """Returns the current time according to Trio's internal clock.
@@ -47,10 +47,9 @@ def current_time():
         """
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        return GLOBAL_RUN_CONTEXT.runner.current_time()
+        return  GLOBAL_RUN_CONTEXT.runner.current_time()
     except AttributeError:
         raise RuntimeError('must be called from async context')
-
 
 def current_clock():
     """Returns the current :class:`~trio.abc.Clock`.
@@ -58,10 +57,9 @@ def current_clock():
         """
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        return GLOBAL_RUN_CONTEXT.runner.current_clock()
+        return  GLOBAL_RUN_CONTEXT.runner.current_clock()
     except AttributeError:
         raise RuntimeError('must be called from async context')
-
 
 def current_root_task():
     """Returns the current root :class:`Task`.
@@ -71,10 +69,9 @@ def current_root_task():
         """
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        return GLOBAL_RUN_CONTEXT.runner.current_root_task()
+        return  GLOBAL_RUN_CONTEXT.runner.current_root_task()
     except AttributeError:
         raise RuntimeError('must be called from async context')
-
 
 def reschedule(task, next_send=_NO_SEND):
     """Reschedule the given task with the given
@@ -96,10 +93,9 @@ def reschedule(task, next_send=_NO_SEND):
         """
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        return GLOBAL_RUN_CONTEXT.runner.reschedule(task, next_send)
+        return  GLOBAL_RUN_CONTEXT.runner.reschedule(task, next_send)
     except AttributeError:
         raise RuntimeError('must be called from async context')
-
 
 def spawn_system_task(async_fn, *args, name=None):
     """Spawn a "system" task.
@@ -142,12 +138,9 @@ def spawn_system_task(async_fn, *args, name=None):
         """
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        return GLOBAL_RUN_CONTEXT.runner.spawn_system_task(
-            async_fn, *args, name=name
-        )
+        return  GLOBAL_RUN_CONTEXT.runner.spawn_system_task(async_fn, *args, name=name)
     except AttributeError:
         raise RuntimeError('must be called from async context')
-
 
 def current_trio_token():
     """Retrieve the :class:`TrioToken` for the current call to
@@ -156,10 +149,9 @@ def current_trio_token():
         """
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        return GLOBAL_RUN_CONTEXT.runner.current_trio_token()
+        return  GLOBAL_RUN_CONTEXT.runner.current_trio_token()
     except AttributeError:
         raise RuntimeError('must be called from async context')
-
 
 async def wait_all_tasks_blocked(cushion=0.0, tiebreaker=0):
     """Block until there are no runnable tasks.
@@ -223,12 +215,9 @@ async def wait_all_tasks_blocked(cushion=0.0, tiebreaker=0):
         """
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        return await GLOBAL_RUN_CONTEXT.runner.wait_all_tasks_blocked(
-            cushion, tiebreaker
-        )
+        return await GLOBAL_RUN_CONTEXT.runner.wait_all_tasks_blocked(cushion, tiebreaker)
     except AttributeError:
         raise RuntimeError('must be called from async context')
-
 
 def add_instrument(instrument):
     """Start instrumenting the current run loop with the given instrument.
@@ -241,10 +230,9 @@ def add_instrument(instrument):
         """
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        return GLOBAL_RUN_CONTEXT.runner.add_instrument(instrument)
+        return  GLOBAL_RUN_CONTEXT.runner.add_instrument(instrument)
     except AttributeError:
         raise RuntimeError('must be called from async context')
-
 
 def remove_instrument(instrument):
     """Stop instrumenting the current run loop with the given instrument.
@@ -261,6 +249,6 @@ def remove_instrument(instrument):
         """
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        return GLOBAL_RUN_CONTEXT.runner.remove_instrument(instrument)
+        return  GLOBAL_RUN_CONTEXT.runner.remove_instrument(instrument)
     except AttributeError:
         raise RuntimeError('must be called from async context')
