@@ -49,9 +49,9 @@ async def wait_writable(fd):
         raise RuntimeError('must be called from async context')
 
 
-def notify_fd_close(fd):
+def notify_closing(fd):
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        return GLOBAL_RUN_CONTEXT.runner.io_manager.notify_fd_close(fd)
+        return GLOBAL_RUN_CONTEXT.runner.io_manager.notify_closing(fd)
     except AttributeError:
         raise RuntimeError('must be called from async context')

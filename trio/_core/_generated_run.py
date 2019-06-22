@@ -22,7 +22,7 @@ def current_statistics():
         * ``run_sync_soon_queue_size`` (int): The number of
           unprocessed callbacks queued via
           :meth:`trio.hazmat.TrioToken.run_sync_soon`.
-        * ``io_statistics`` (object): Some statistics from trio's I/O
+        * ``io_statistics`` (object): Some statistics from Trio's I/O
           backend. This always has an attribute ``backend`` which is a string
           naming which operating-system-specific I/O backend is in use; the
           other attributes vary between backends.
@@ -36,7 +36,7 @@ def current_statistics():
 
 
 def current_time():
-    """Returns the current time according to trio's internal clock.
+    """Returns the current time according to Trio's internal clock.
 
         Returns:
             float: The current time.
@@ -172,7 +172,7 @@ async def wait_all_tasks_blocked(cushion=0.0, tiebreaker=0):
         want to ignore the potential brief moment between a send and receive
         when all tasks are blocked.)
 
-        Note that ``cushion`` is measured in *real* time, not the trio clock
+        Note that ``cushion`` is measured in *real* time, not the Trio clock
         time.
 
         If there are multiple tasks blocked in :func:`wait_all_tasks_blocked`,
@@ -188,7 +188,7 @@ async def wait_all_tasks_blocked(cushion=0.0, tiebreaker=0):
         test, and will often produce more readable tests.
 
         Example:
-          Here's an example of one way to test that trio's locks are fair: we
+          Here's an example of one way to test that Trio's locks are fair: we
           take the lock in the parent, start a child, wait for the child to be
           blocked waiting for the lock (!), and then check that we can't
           release and immediately re-acquire the lock::
