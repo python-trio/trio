@@ -22,7 +22,7 @@ from ._run import (
     TASK_STATUS_IGNORED, current_statistics, current_trio_token, reschedule,
     remove_instrument, add_instrument, current_clock, current_root_task,
     spawn_system_task, current_time, wait_all_tasks_blocked, wait_readable,
-    wait_writable, notify_closing
+    wait_writable, notify_closing, Nursery
 )
 
 # Has to come after _run to resolve a circular import
