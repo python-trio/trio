@@ -8,6 +8,7 @@ from .. import _core
 from .. import Event, CapacityLimiter, sleep
 from ..testing import wait_all_tasks_blocked
 from .._threads import *
+from .._threads import run, run_sync  # Not in __all__, must import explicitly
 
 from .._core.tests.test_ki import ki_self
 from .._core.tests.tutil import slow
@@ -457,3 +458,88 @@ async def test_run_in_worker_thread_fail_to_spawn(monkeypatch):
     assert "engines" in str(excinfo.value)
 
     assert limiter.borrowed_tokens == 0
+
+
+async def test_trio_run_sync_in_thread_token():
+    # Test that run_sync_in_thread automatically injects the current trio token
+    # into a spawned thread
+
+    def thread_fn():
+        current_thread = threading.current_thread()
+        callee_token = getattr(current_thread, 'current_trio_token')
+        return callee_token
+
+    caller_token = _core.current_trio_token()
+    callee_token = await run_sync_in_thread(thread_fn)
+    assert callee_token == caller_token
+
+
+async def test_trio_from_thread_run_sync():
+    # Test that run_sync_in_thread correctly "hands off" the trio token to
+    # trio.from_thread.run_sync()
+    def thread_fn():
+        start = run_sync(_core.current_time)
+        end = run_sync(_core.current_time)
+        return end - start
+
+    duration = await run_sync_in_thread(thread_fn)
+    assert duration > 0
+
+
+async def test_trio_from_thread_run():
+    # Test that run_sync_in_thread correctly "hands off" the trio token to
+    # trio.from_thread.run()
+    def thread_fn():
+        start = time.perf_counter()
+        run(sleep, 0.05)
+        end = time.perf_counter()
+        return end - start
+
+    duration = await run_sync_in_thread(thread_fn)
+    assert duration > 0
+
+
+async def test_trio_from_thread_token():
+    # Test that run_sync_in_thread and spawned trio.from_thread.run_sync()
+    # share the same Trio token
+    def thread_fn():
+        callee_token = run_sync(_core.current_trio_token)
+        return callee_token
+
+    caller_token = _core.current_trio_token()
+    callee_token = await run_sync_in_thread(thread_fn)
+    assert callee_token == caller_token
+
+
+async def test_trio_from_thread_token_kwarg():
+    # Test that run_sync_in_thread and spawned trio.from_thread.run_sync() can
+    # use an explicitly defined token
+    def thread_fn(token):
+        callee_token = run_sync(_core.current_trio_token, trio_token=token)
+        return callee_token
+
+    caller_token = _core.current_trio_token()
+    callee_token = await run_sync_in_thread(thread_fn, caller_token)
+    assert callee_token == caller_token
+
+
+async def test_trio_from_thread_both_run():
+    # Test that trio.from_thread.run() and from_thread.run_sync() can run in
+    # the same thread together
+
+    def thread_fn():
+        start = run_sync(_core.current_time)
+        run(sleep, 0.05)
+        end = run_sync(_core.current_time)
+        return end - start
+
+    duration = await run_sync_in_thread(thread_fn)
+    assert duration > 0
+
+
+async def test_trio_from_thread_raw_call():
+    # Test that a "raw call" to trio.from_thread.run() fails because no token
+    # has been provided
+
+    with pytest.raises(AttributeError):
+        run_sync(_core.current_time)

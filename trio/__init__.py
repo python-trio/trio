@@ -32,9 +32,8 @@ from ._sync import (
     Event, CapacityLimiter, Semaphore, Lock, StrictFIFOLock, Condition
 )
 
-from ._threads import (
-    run_sync_in_thread, current_default_thread_limiter, BlockingTrioPortal
-)
+from ._threads import (run_sync_in_thread, current_default_thread_limiter)
+from ._threads import BlockingTrioPortal as _BlockingTrioPortal
 
 from ._highlevel_generic import aclose_forcefully, StapledStream
 
@@ -70,6 +69,7 @@ from ._deprecate import TrioDeprecationWarning
 from . import hazmat
 from . import socket
 from . import abc
+from . import from_thread
 # Not imported by default: testing
 if False:
     from . import testing
@@ -113,6 +113,13 @@ __deprecated_attributes__ = {
             "0.12.0",
             issue=810,
             instead=current_default_thread_limiter,
+        ),
+    "BlockingTrioPortal":
+        _deprecate.DeprecatedAttribute(
+            _BlockingTrioPortal,
+            "0.12.0",
+            issue=810,
+            instead=("trio.from_thread.run(), trio.from_thread.run_sync()")
         ),
 }
 
