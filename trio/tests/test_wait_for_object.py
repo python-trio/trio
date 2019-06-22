@@ -1,5 +1,4 @@
 import os
-import time
 
 import pytest
 
@@ -12,7 +11,8 @@ from .. import _core
 from .. import _timeouts
 if on_windows:
     from .._core._windows_cffi import ffi, kernel32
-    from .._wait_for_object import WaitForSingleObject, WaitForMultipleObjects_sync, run_sync_in_worker_thread
+    from .._wait_for_object import WaitForSingleObject, WaitForMultipleObjects_sync
+    from trio import run_sync_in_thread
 
 
 async def test_WaitForMultipleObjects_sync():
@@ -80,11 +80,11 @@ async def test_WaitForMultipleObjects_sync_slow():
     t0 = _core.current_time()
     async with _core.open_nursery() as nursery:
         nursery.start_soon(
-            run_sync_in_worker_thread, WaitForMultipleObjects_sync, handle1
+            run_sync_in_thread, WaitForMultipleObjects_sync, handle1
         )
         await _timeouts.sleep(TIMEOUT)
         # If we would comment the line below, the above thread will be stuck,
-        # and trio wont exit this scope
+        # and Trio won't exit this scope
         kernel32.SetEvent(handle1)
     t1 = _core.current_time()
     assert TIMEOUT <= (t1 - t0) < 2.0 * TIMEOUT
@@ -97,8 +97,7 @@ async def test_WaitForMultipleObjects_sync_slow():
     t0 = _core.current_time()
     async with _core.open_nursery() as nursery:
         nursery.start_soon(
-            run_sync_in_worker_thread, WaitForMultipleObjects_sync, handle1,
-            handle2
+            run_sync_in_thread, WaitForMultipleObjects_sync, handle1, handle2
         )
         await _timeouts.sleep(TIMEOUT)
         kernel32.SetEvent(handle1)
@@ -114,8 +113,7 @@ async def test_WaitForMultipleObjects_sync_slow():
     t0 = _core.current_time()
     async with _core.open_nursery() as nursery:
         nursery.start_soon(
-            run_sync_in_worker_thread, WaitForMultipleObjects_sync, handle1,
-            handle2
+            run_sync_in_thread, WaitForMultipleObjects_sync, handle1, handle2
         )
         await _timeouts.sleep(TIMEOUT)
         kernel32.SetEvent(handle2)
@@ -203,8 +201,6 @@ async def test_WaitForSingleObject_slow():
     print('test_WaitForSingleObject_slow set from task as int OK')
 
     # Test handle is CLOSED after 1 sec - NOPE see comment above
-
-    pass
 
     # Test cancellation
 

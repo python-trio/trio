@@ -20,8 +20,7 @@ async def test_Event():
     with assert_checkpoints():
         await e.wait()
 
-    e.clear()
-    assert not e.is_set()
+    e = Event()
 
     record = []
 
@@ -39,6 +38,16 @@ async def test_Event():
         e.set()
         await wait_all_tasks_blocked()
         assert record == ["sleeping", "sleeping", "woken", "woken"]
+
+
+# When we remove clear() then this test can be removed too
+def test_Event_clear(recwarn):
+    e = Event()
+    assert not e.is_set()
+    e.set()
+    assert e.is_set()
+    e.clear()
+    assert not e.is_set()
 
 
 async def test_CapacityLimiter():
@@ -68,9 +77,8 @@ async def test_CapacityLimiter():
     with pytest.raises(RuntimeError):
         c.acquire_nowait()
     assert c.borrowed_tokens == 1
-    with assert_checkpoints():
-        with pytest.raises(RuntimeError):
-            await c.acquire()
+    with pytest.raises(RuntimeError):
+        await c.acquire()
     assert c.borrowed_tokens == 1
 
     # We can acquire on behalf of someone else though

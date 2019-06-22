@@ -8,18 +8,18 @@ from .. import _core
 from ._run import _public
 
 
-@attr.s(frozen=True)
+@attr.s(slots=True, cmp=False, frozen=True)
 class _KqueueStatistics:
     tasks_waiting = attr.ib()
     monitors = attr.ib()
     backend = attr.ib(default="kqueue")
 
 
-@attr.s(slots=True, cmp=False, hash=False)
+@attr.s(slots=True, cmp=False)
 class KqueueIOManager:
-    _kqueue = attr.ib(default=attr.Factory(select.kqueue))
+    _kqueue = attr.ib(factory=select.kqueue)
     # {(ident, filter): Task or UnboundedQueue}
-    _registered = attr.ib(default=attr.Factory(dict))
+    _registered = attr.ib(factory=dict)
 
     def statistics(self):
         tasks_waiting = 0
@@ -97,7 +97,6 @@ class KqueueIOManager:
     async def wait_kevent(self, ident, filter, abort_func):
         key = (ident, filter)
         if key in self._registered:
-            await _core.checkpoint()
             raise _core.BusyResourceError(
                 "attempt to register multiple listeners for same "
                 "ident/filter pair"
@@ -135,7 +134,7 @@ class KqueueIOManager:
         await self._wait_common(fd, select.KQ_FILTER_WRITE)
 
     @_public
-    def notify_fd_close(self, fd):
+    def notify_closing(self, fd):
         if not isinstance(fd, int):
             fd = fd.fileno()
 

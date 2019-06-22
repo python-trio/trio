@@ -5,12 +5,14 @@ from itertools import count
 import attr
 import outcome
 
-from . import _core
+import trio
+
 from ._sync import CapacityLimiter
+from ._core import enable_ki_protection, disable_ki_protection, RunVar
 
 __all__ = [
-    "run_sync_in_worker_thread",
-    "current_default_worker_thread_limiter",
+    "run_sync_in_thread",
+    "current_default_thread_limiter",
     "BlockingTrioPortal",
 ]
 
@@ -40,7 +42,7 @@ class BlockingTrioPortal:
 
        async def some_function():
            portal = trio.BlockingTrioPortal()
-           await trio.run_sync_in_worker_thread(sync_fn, portal)
+           await trio.run_sync_in_thread(sync_fn, portal)
 
     Alternatively, you can pass an explicit :class:`trio.hazmat.TrioToken` to
     specify the :func:`trio.run` that you want your portal to connect to.
@@ -49,23 +51,23 @@ class BlockingTrioPortal:
 
     def __init__(self, trio_token=None):
         if trio_token is None:
-            trio_token = _core.current_trio_token()
+            trio_token = trio.hazmat.current_trio_token()
         self._trio_token = trio_token
 
-    # This is the part that runs in the trio thread
+    # This is the part that runs in the Trio thread
     def _run_cb(self, q, afn, args):
-        @_core.disable_ki_protection
+        @disable_ki_protection
         async def unprotected_afn():
             return await afn(*args)
 
         async def await_in_trio_thread_task():
             q.put_nowait(await outcome.acapture(unprotected_afn))
 
-        _core.spawn_system_task(await_in_trio_thread_task, name=afn)
+        trio.hazmat.spawn_system_task(await_in_trio_thread_task, name=afn)
 
-    # This is the part that runs in the trio thread
+    # This is the part that runs in the Trio thread
     def _run_sync_cb(self, q, fn, args):
-        @_core.disable_ki_protection
+        @disable_ki_protection
         def unprotected_fn():
             return fn(*args)
 
@@ -74,7 +76,7 @@ class BlockingTrioPortal:
 
     def _do_it(self, cb, fn, *args):
         try:
-            _core.current_task()
+            trio.hazmat.current_task()
         except RuntimeError:
             pass
         else:
@@ -86,7 +88,7 @@ class BlockingTrioPortal:
         return q.get().unwrap()
 
     def run(self, afn, *args):
-        """Run the given async function in the trio thread, blocking until it
+        """Run the given async function in the Trio thread, blocking until it
         is complete.
 
         Returns or raises whatever the given function returns or raises. It
@@ -105,7 +107,7 @@ class BlockingTrioPortal:
         return self._do_it(self._run_cb, afn, *args)
 
     def run_sync(self, fn, *args):
-        """Run the given synchronous function in the trio thread, blocking
+        """Run the given synchronous function in the Trio thread, blocking
         until it is complete.
 
         Returns or raises whatever the given function returns or raises. It
@@ -221,16 +223,16 @@ class BlockingTrioPortal:
 # really the only real limit is on stack size actually *used*; how much you
 # *allocate* should be pretty much irrelevant.)
 
-_limiter_local = _core.RunVar("limiter")
+_limiter_local = RunVar("limiter")
 # I pulled this number out of the air; it isn't based on anything. Probably we
 # should make some kind of measurements to pick a good value.
 DEFAULT_LIMIT = 40
-_worker_thread_counter = count()
+_thread_counter = count()
 
 
-def current_default_worker_thread_limiter():
+def current_default_thread_limiter():
     """Get the default :class:`CapacityLimiter` used by
-    :func:`run_sync_in_worker_thread`.
+    :func:`run_sync_in_thread`.
 
     The most common reason to call this would be if you want to modify its
     :attr:`~CapacityLimiter.total_tokens` attribute.
@@ -253,16 +255,14 @@ class ThreadPlaceholder:
     name = attr.ib()
 
 
-@_core.enable_ki_protection
-async def run_sync_in_worker_thread(
-    sync_fn, *args, cancellable=False, limiter=None
-):
+@enable_ki_protection
+async def run_sync_in_thread(sync_fn, *args, cancellable=False, limiter=None):
     """Convert a blocking operation into an async operation using a thread.
 
     These two lines are equivalent::
 
         sync_fn(*args)
-        await run_sync_in_worker_thread(sync_fn, *args)
+        await run_sync_in_thread(sync_fn, *args)
 
     except that if ``sync_fn`` takes a long time, then the first line will
     block the Trio loop while it runs, while the second line allows other Trio
@@ -281,17 +281,17 @@ async def run_sync_in_worker_thread(
           anything providing compatible
           :meth:`~trio.CapacityLimiter.acquire_on_behalf_of` and
           :meth:`~trio.CapacityLimiter.release_on_behalf_of`
-          methods. :func:`run_sync_in_worker_thread` will call
+          methods. :func:`run_sync_in_thread` will call
           ``acquire_on_behalf_of`` before starting the thread, and
           ``release_on_behalf_of`` after the thread has finished.
 
           If None (the default), uses the default :class:`CapacityLimiter`, as
-          returned by :func:`current_default_worker_thread_limiter`.
+          returned by :func:`current_default_thread_limiter`.
 
     **Cancellation handling**: Cancellation is a tricky issue here, because
     neither Python nor the operating systems it runs on provide any general
     mechanism for cancelling an arbitrary synchronous function running in a
-    thread. :func:`run_sync_in_worker_thread` will always check for
+    thread. :func:`run_sync_in_thread` will always check for
     cancellation on entry, before starting the thread. But once the thread is
     running, there are two ways it can handle being cancelled:
 
@@ -299,34 +299,34 @@ async def run_sync_in_worker_thread(
       keeps going, just like if we had called ``sync_fn`` synchronously. This
       is the default behavior.
 
-    * If ``cancellable=True``, then ``run_sync_in_worker_thread`` immediately
+    * If ``cancellable=True``, then ``run_sync_in_thread`` immediately
       raises :exc:`Cancelled`. In this case **the thread keeps running in
       background** – we just abandon it to do whatever it's going to do, and
       silently discard any return value or errors that it raises. Only use
       this if you know that the operation is safe and side-effect free. (For
       example: :func:`trio.socket.getaddrinfo` is implemented using
-      :func:`run_sync_in_worker_thread`, and it sets ``cancellable=True``
+      :func:`run_sync_in_thread`, and it sets ``cancellable=True``
       because it doesn't really affect anything if a stray hostname lookup
       keeps running in the background.)
 
       The ``limiter`` is only released after the thread has *actually*
       finished – which in the case of cancellation may be some time after
-      :func:`run_sync_in_worker_thread` has returned. (This is why it's
-      crucial that :func:`run_sync_in_worker_thread` takes care of acquiring
+      :func:`run_sync_in_thread` has returned. (This is why it's
+      crucial that :func:`run_sync_in_thread` takes care of acquiring
       and releasing the limiter.) If :func:`trio.run` finishes before the
       thread does, then the limiter release method will never be called at
       all.
 
     .. warning::
 
-       You should not use :func:`run_sync_in_worker_thread` to call
+       You should not use :func:`run_sync_in_thread` to call
        long-running CPU-bound functions! In addition to the usual GIL-related
        reasons why using threads for CPU-bound work is not very effective in
        Python, there is an additional problem: on CPython, `CPU-bound threads
        tend to "starve out" IO-bound threads
        <https://bugs.python.org/issue7946>`__, so using
-       :func:`run_sync_in_worker_thread` for CPU-bound work is likely to
-       adversely affect the main thread running trio. If you need to do this,
+       :func:`run_sync_in_thread` for CPU-bound work is likely to
+       adversely affect the main thread running Trio. If you need to do this,
        you're better off using a worker process, or perhaps PyPy (which still
        has a GIL, but may do a better job of fairly allocating CPU time
        between threads).
@@ -335,22 +335,22 @@ async def run_sync_in_worker_thread(
       Whatever ``sync_fn(*args)`` returns.
 
     Raises:
-      Whatever ``sync_fn(*args)`` raises.
+      Exception: Whatever ``sync_fn(*args)`` raises.
 
     """
-    await _core.checkpoint_if_cancelled()
-    token = _core.current_trio_token()
+    await trio.hazmat.checkpoint_if_cancelled()
+    token = trio.hazmat.current_trio_token()
     if limiter is None:
-        limiter = current_default_worker_thread_limiter()
+        limiter = current_default_thread_limiter()
 
     # Holds a reference to the task that's blocked in this function waiting
     # for the result – or None if this function was cancelled and we should
     # discard the result.
-    task_register = [_core.current_task()]
-    name = "trio-worker-{}".format(next(_worker_thread_counter))
+    task_register = [trio.hazmat.current_task()]
+    name = "trio-worker-{}".format(next(_thread_counter))
     placeholder = ThreadPlaceholder(name)
 
-    # This function gets scheduled into the trio run loop to deliver the
+    # This function gets scheduled into the Trio run loop to deliver the
     # thread's result.
     def report_back_in_trio_thread_fn(result):
         def do_release_then_return_result():
@@ -365,7 +365,7 @@ async def run_sync_in_worker_thread(
 
         result = outcome.capture(do_release_then_return_result)
         if task_register[0] is not None:
-            _core.reschedule(task_register[0], result)
+            trio.hazmat.reschedule(task_register[0], result)
 
     # This is the function that runs in the worker thread to do the actual
     # work and then schedule the call to report_back_in_trio_thread_fn
@@ -373,7 +373,7 @@ async def run_sync_in_worker_thread(
         result = outcome.capture(sync_fn, *args)
         try:
             token.run_sync_soon(report_back_in_trio_thread_fn, result)
-        except _core.RunFinishedError:
+        except trio.RunFinishedError:
             # The entire run finished, so our particular task is certainly
             # long gone -- it must have cancelled.
             pass
@@ -393,8 +393,8 @@ async def run_sync_in_worker_thread(
     def abort(_):
         if cancellable:
             task_register[0] = None
-            return _core.Abort.SUCCEEDED
+            return trio.hazmat.Abort.SUCCEEDED
         else:
-            return _core.Abort.FAILED
+            return trio.hazmat.Abort.FAILED
 
-    return await _core.wait_task_rescheduled(abort)
+    return await trio.hazmat.wait_task_rescheduled(abort)

@@ -12,7 +12,7 @@ Tutorial
    asyncio, or another language like Go or Erlang, then you should
    still probably read this, because Trio is different.)
 
-   trio turns Python into a concurrent language. It takes the core
+   Trio turns Python into a concurrent language. It takes the core
    async/await syntax introduced in 3.5, and uses it to add three
    new pieces of semantics:
 
@@ -205,7 +205,7 @@ things:
    and they're useful, so if you want to use them, you have to write
    async code. If you think keeping track of these ``async`` and
    ``await`` things is annoying, then too bad – you've got no choice
-   in the matter! (Well, OK, you could just not use trio. That's a
+   in the matter! (Well, OK, you could just not use Trio. That's a
    legitimate option. But it turns out that the ``async/await`` stuff
    is actually a good thing, for reasons we'll discuss a little bit
    later.)
@@ -231,7 +231,7 @@ but it's pointless: it could just as easily be written as a regular
 function, and it would be more useful that way. ``double_sleep`` is a
 much more typical example: we have to make it async, because it calls
 another async function. The end result is a kind of async sandwich,
-with trio on both sides and our code in the middle:
+with Trio on both sides and our code in the middle:
 
 .. code-block:: none
 
@@ -367,7 +367,7 @@ never awaited``; it means you need to find and fix your missing
 Okay, let's see something cool already
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-So now we've started using trio, but so far all we've learned to do is
+So now we've started using Trio, but so far all we've learned to do is
 write functions that print things and sleep for various lengths of
 time. Interesting enough, but we could just as easily have done that
 with :func:`time.sleep`. ``async/await`` is useless!
@@ -446,7 +446,7 @@ There are only 4 lines of code that really do anything here. On line
 then inside the ``async with`` block we call ``nursery.start_soon`` twice,
 on lines 19 and 22. There are actually two ways to call an async
 function: the first one is the one we already saw, using ``await
-async_fn()``; the new one is ``nursery.start_soon(async_fn)``: it asks trio
+async_fn()``; the new one is ``nursery.start_soon(async_fn)``: it asks Trio
 to start running this async function, *but then returns immediately
 without waiting for the function to finish*. So after our two calls to
 ``nursery.start_soon``, ``child1`` and ``child2`` are now running in the
@@ -503,22 +503,22 @@ switch at certain designated places we call :ref:`"checkpoints"
 Task switching illustrated
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The big idea behind async/await-based libraries like trio is to run
+The big idea behind async/await-based libraries like Trio is to run
 lots of tasks simultaneously on a single thread by switching between
 them at appropriate places – so for example, if we're implementing a
 web server, then one task could be sending an HTTP response at the
 same time as another task is waiting for new connections. If all you
-want to do is use trio, then you don't need to understand all the
+want to do is use Trio, then you don't need to understand all the
 nitty-gritty detail of how this switching works – but it's very useful
-to have at least a general intuition about what trio is doing "under
+to have at least a general intuition about what Trio is doing "under
 the hood" when your code is executing. To help build that intuition,
-let's look more closely at how trio ran our example from the last
+let's look more closely at how Trio ran our example from the last
 section.
 
-Fortunately, trio provides a :ref:`rich set of tools for inspecting
+Fortunately, Trio provides a :ref:`rich set of tools for inspecting
 and debugging your programs <instrumentation>`. Here we want to watch
 :func:`trio.run` at work, which we can do by writing a class we'll
-call ``Tracer``, which implements trio's :class:`~trio.abc.Instrument`
+call ``Tracer``, which implements Trio's :class:`~trio.abc.Instrument`
 interface. Its job is to log various events as they happen:
 
 .. literalinclude:: tutorial/tasks-with-trace.py
@@ -533,9 +533,9 @@ time we pass :func:`trio.run` a ``Tracer`` object:
 This generates a *lot* of output, so we'll go through it one step at a
 time.
 
-First, there's a bit of chatter while trio gets ready to run our
+First, there's a bit of chatter while Trio gets ready to run our
 code. Most of this is irrelevant to us for now, but in the middle you
-can see that trio has created a task for the ``__main__.parent``
+can see that Trio has created a task for the ``__main__.parent``
 function, and "scheduled" it (i.e., made a note that it should be run
 soon):
 
@@ -556,7 +556,7 @@ soon):
    ### doing a quick check for I/O
    ### finished I/O check (took 6.4980704337358475e-06 seconds)
 
-Once the initial housekeeping is done, trio starts running the
+Once the initial housekeeping is done, Trio starts running the
 ``parent`` function, and you can see ``parent`` creating the two child
 tasks. Then it hits the end of the ``async with`` block, and pauses:
 
@@ -617,7 +617,7 @@ between the implementation of generators and async functions.)
    of our async sandwich have a private language they use to talk to
    each other, and different libraries use different languages. So if
    you try to call :func:`asyncio.sleep` from inside a
-   :func:`trio.run`, then trio will get very confused indeed and
+   :func:`trio.run`, then Trio will get very confused indeed and
    probably blow up in some dramatic way.
 
 Only async functions have access to the special magic for suspending a
@@ -628,7 +628,7 @@ be suspended. This makes tasks much `easier to reason about
 <https://glyph.twistedmatrix.com/2014/02/unyielding.html>`__ than
 threads, because there are far fewer ways that tasks can be
 interleaved with each other and stomp on each others' state. (For
-example, in trio a statement like ``a += 1`` is always atomic – even
+example, in Trio a statement like ``a += 1`` is always atomic – even
 if ``a`` is some arbitrarily complicated custom object!) Trio also
 makes some :ref:`further guarantees beyond that <checkpoints>`, but
 that's the big one.
@@ -653,7 +653,7 @@ operating system primitive to put the whole process to sleep:
    ### waiting for I/O for up to 0.9999009938910604 seconds
 
 And in fact no I/O does arrive, so one second later we wake up again,
-and trio checks its notes again. At this point it checks the current
+and Trio checks its notes again. At this point it checks the current
 time, compares it to the notes that :func:`trio.sleep` sent saying
 when the two child tasks should be woken up again, and realizes
 that they've slept for long enough, so it schedules them to run soon:
@@ -721,12 +721,12 @@ exits too:
 You made it!
 
 That was a lot of text, but again, you don't need to understand
-everything here to use trio – in fact, trio goes to great lengths to
+everything here to use Trio – in fact, Trio goes to great lengths to
 make each task feel like it executes in a simple, linear way. (Just
 like your operating system goes to great lengths to make it feel like
 your single-threaded code executes in a simple linear way, even though
 under the covers the operating system juggles between different
-threads and processes in essentially the same way trio does.) But it
+threads and processes in essentially the same way Trio does.) But it
 is useful to have a rough model in your head of how the code you write
 is actually executed, and – most importantly – the consequences of
 that for parallelism.
@@ -747,7 +747,7 @@ Speaking of parallelism – let's zoom out for a moment and talk about
 how async/await compares to other ways of handling concurrency in
 Python.
 
-As we've already noted, trio tasks are conceptually rather similar to
+As we've already noted, Trio tasks are conceptually rather similar to
 Python's built-in threads, as provided by the :mod:`threading`
 module. And in all common Python implementations, threads have a
 famous limitation: the Global Interpreter Lock, or "GIL" for
@@ -755,7 +755,7 @@ short. The GIL means that even if you use multiple threads, your code
 still (mostly) ends up running on a single core. People tend to find
 this frustrating.
 
-But from trio's point of view, the problem with the GIL isn't that it
+But from Trio's point of view, the problem with the GIL isn't that it
 restricts parallelism. Of course it would be nice if Python had better
 options for taking advantage of multiple cores, but that's an
 extremely difficult problem to solve, and in the meantime there are
@@ -770,13 +770,13 @@ programming, and – to add insult to injury – `pretty poor scalability
 Python just aren't that appealing.
 
 Trio doesn't make your code run on multiple cores; in fact, as we saw
-above, it's baked into trio's design that you never have two tasks
+above, it's baked into Trio's design that you never have two tasks
 running at the same time. We're not so much overcoming the GIL as
 embracing it. But if you're willing to accept that, plus a bit of
 extra work to put these new ``async`` and ``await`` keywords in the
 right places, then in exchange you get:
 
-* Excellent scalability: trio can run 10,000+ tasks simultaneously
+* Excellent scalability: Trio can run 10,000+ tasks simultaneously
   without breaking a sweat, so long as their total CPU demands don't
   exceed what a single core can provide. (This is common in, for
   example, network servers that have lots of clients connected, but
@@ -784,13 +784,13 @@ right places, then in exchange you get:
 
 * Fancy features: most threading systems are implemented in C and
   restricted to whatever features the operating system provides. In
-  trio our logic is all in Python, which makes it possible to
-  implement powerful and ergonomic features like :ref:`trio's
+  Trio our logic is all in Python, which makes it possible to
+  implement powerful and ergonomic features like :ref:`Trio's
   cancellation system <cancellation>`.
 
 * Code that's easier to reason about: the ``await`` keyword means that
   potential task-switching points are explicitly marked within each
-  function. This can make trio code `dramatically easier to reason
+  function. This can make Trio code `dramatically easier to reason
   about <https://glyph.twistedmatrix.com/2014/02/unyielding.html>`__
   than the equivalent program using threads.
 
@@ -801,7 +801,7 @@ There is one downside that's important to keep in mind, though. Making
 checkpoints explicit gives you more control over how your tasks can be
 interleaved – but with great power comes great responsibility. With
 threads, the runtime environment is responsible for making sure that
-each thread gets its fair share of running time. With trio, if some
+each thread gets its fair share of running time. With Trio, if some
 task runs off and does stuff for seconds on end without executing a
 checkpoint, then... all your other tasks will just have to wait.
 
@@ -824,12 +824,12 @@ modified program, we'll see something like:
      child1: exiting!
    parent: all done!
 
-One of the major reasons why trio has such a rich
+One of the major reasons why Trio has such a rich
 :ref:`instrumentation API <tutorial-instrument-example>` is to make it
 possible to write debugging tools to catch issues like this.
 
 
-Networking with trio
+Networking with Trio
 --------------------
 
 Now let's take what we've learned and use it to do some I/O, which is
@@ -861,7 +861,7 @@ our :ref:`last example <tutorial-example-tasks-intro>`: we have a
 parent task, which spawns two child tasks to do the actual work, and
 then at the end of the ``async with`` block it switches into full-time
 parenting mode while waiting for them to finish. But now instead of
-just calling :func:`trio.sleep`, the children use some of trio's
+just calling :func:`trio.sleep`, the children use some of Trio's
 networking APIs.
 
 Let's look at the parent first:
@@ -980,7 +980,7 @@ discussed below, and finally the server loop which alternates between
 reading some data from the socket and then sending it back out again
 (unless the socket was closed, in which case we quit).
 
-So what's that ``try`` block for? Remember that in trio, like Python
+So what's that ``try`` block for? Remember that in Trio, like Python
 in general, exceptions keep propagating until they're caught. Here we
 think it's plausible there might be unexpected exceptions, and we want
 to isolate that to making just this one task crash, without taking
@@ -995,7 +995,7 @@ want that to propagate out into the parent task and cause the whole
 program to exit. To express this, we use a ``try`` block with an
 ``except Exception:`` handler.
 
-In general, trio leaves it up to you to decide whether and how you
+In general, Trio leaves it up to you to decide whether and how you
 want to handle exceptions, just like Python in general.
 
 
@@ -1100,7 +1100,7 @@ trying to send is large enough (e.g. 10 megabytes will probably do it
 in most configurations), then the two processes will `deadlock
 <https://en.wikipedia.org/wiki/Deadlock>`__.
 
-Moral: trio gives you powerful tools to manage sequential and
+Moral: Trio gives you powerful tools to manage sequential and
 concurrent execution. In this example we saw that the server needs
 ``send`` and ``receive_some`` to alternate in sequence, while the
 client needs them to run concurrently, and both were straightforward
@@ -1115,7 +1115,7 @@ This can avoid deadlocks, but can introduce its own problems and in
 particular can make it difficult to keep `memory usage and latency
 under control
 <https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/#three-bugs>`__.
-While both approaches have their advantages, trio takes the position
+While both approaches have their advantages, Trio takes the position
 that it's better to expose the underlying problem as directly as
 possible and provide good tools to confront it head-on.
 

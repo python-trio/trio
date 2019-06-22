@@ -2,7 +2,7 @@
 # minimal a fashion as possible.
 #
 # This is useful to get a sense of the *lower-bound* cost of
-# run_sync_in_worker_thread
+# run_sync_in_thread
 
 import threading
 from queue import Queue

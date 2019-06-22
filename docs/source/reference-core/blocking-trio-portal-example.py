@@ -1,5 +1,4 @@
 import trio
-import threading
 
 def thread_fn(portal, receive_from_trio, send_to_trio):
     while True:
@@ -23,7 +22,7 @@ async def main():
         # In a background thread, run:
         #   thread_fn(portal, receive_from_trio, send_to_trio)
         nursery.start_soon(
-            trio.run_sync_in_worker_thread,
+            trio.run_sync_in_thread,
             thread_fn, portal, receive_from_trio, send_to_trio
         )
 

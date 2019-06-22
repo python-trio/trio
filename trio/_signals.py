@@ -2,8 +2,7 @@ import signal
 from contextlib import contextmanager
 from collections import OrderedDict
 
-from . import _core
-from ._sync import Event
+import trio
 from ._util import (
     signal_raise, aiter_compat, is_main_thread, ConflictDetector
 )
@@ -62,7 +61,7 @@ class SignalReceiver:
     def __init__(self):
         # {signal num: None}
         self._pending = OrderedDict()
-        self._have_pending = Event()
+        self._lot = trio.hazmat.ParkingLot()
         self._conflict_detector = ConflictDetector(
             "only one task can iterate on a signal receiver at a time"
         )
@@ -73,7 +72,7 @@ class SignalReceiver:
             signal_raise(signum)
         else:
             self._pending[signum] = None
-            self._have_pending.set()
+            self._lot.unpark()
 
     def _redeliver_remaining(self):
         # First make sure that any signals still in the delivery pipeline will
@@ -107,11 +106,12 @@ class SignalReceiver:
         # In principle it would be possible to support multiple concurrent
         # calls to __anext__, but doing it without race conditions is quite
         # tricky, and there doesn't seem to be any point in trying.
-        with self._conflict_detector.sync:
-            await self._have_pending.wait()
-            signum, _ = self._pending.popitem(last=False)
+        with self._conflict_detector:
             if not self._pending:
-                self._have_pending.clear()
+                await self._lot.park()
+            else:
+                await trio.hazmat.checkpoint()
+            signum, _ = self._pending.popitem(last=False)
             return signum
 
 
@@ -154,7 +154,7 @@ def open_signal_receiver(*signals):
             "Sorry, open_signal_receiver is only possible when running in "
             "Python interpreter's main thread"
         )
-    token = _core.current_trio_token()
+    token = trio.hazmat.current_trio_token()
     queue = SignalReceiver()
 
     def handler(signum, _):

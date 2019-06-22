@@ -1,0 +1,8 @@
+We've slightly relaxed our definition of which Trio operations act as
+:ref:`checkpoints <checkpoint-rule>`. A Trio async function that exits by
+throwing an exception is no longer guaranteed to execute a checkpoint;
+it might or might not. The rules are unchanged for async functions that
+don't exit with an exception, async iterators, and async context managers.
+:func:`trio.testing.assert_checkpoints` has been updated to reflect the
+new behavior: if its ``with`` block exits with an exception, no assertion
+is made.

@@ -103,7 +103,7 @@
 # write it needs to skip the first 1024 bytes or whatever it is. (Well,
 # technically, we're actually allowed to call 'write' again with a data buffer
 # which is the same as our old one PLUS some extra stuff added onto the end,
-# but in trio that never comes up so never mind.)
+# but in Trio that never comes up so never mind.)
 #
 # There are some people online who claim that once you've gotten a Want*Error
 # then the *very next call* you make to openssl *must* be the same as the
@@ -128,7 +128,7 @@
 # the outgoing BIO to the wire, reading data from the wire to the incoming
 # BIO, retrying an I/O call until it works, and synchronizing with other tasks
 # that might be calling _retry concurrently. Basically it takes an SSLObject
-# non-blocking in-memory method and converts it into a trio async blocking
+# non-blocking in-memory method and converts it into a Trio async blocking
 # method. _retry is only about 30 lines of code, but all these cases
 # multiplied by concurrent calls make it extremely tricky, so there are lots
 # of comments down below on the details, and a really extensive test suite in
@@ -147,13 +147,14 @@
 # XX document behavior on cancellation/error (i.e.: all is lost abandon
 # stream)
 # docs will need to make very clear that this is different from all the other
-# cancellations in core trio
+# cancellations in core Trio
 
 import operator as _operator
 import ssl as _stdlib_ssl
 from enum import Enum as _Enum
 
-from . import _core
+import trio
+
 from .abc import Stream, Listener
 from ._highlevel_generic import aclose_forcefully
 from . import _sync
@@ -297,7 +298,7 @@ class SSLStream(Stream):
     raises :exc:`NeedHandshakeError`.
 
     This also means that if you register a SNI callback using
-    :obj:`~ssl.SSLContext.sni_callback`, then the first argument your callback
+    `~ssl.SSLContext.sni_callback`, then the first argument your callback
     receives will be a :class:`ssl.SSLObject`.
 
     """
@@ -397,159 +398,155 @@ class SSLStream(Stream):
         if self._state is _State.OK:
             return
         elif self._state is _State.BROKEN:
-            raise _core.BrokenResourceError
+            raise trio.BrokenResourceError
         elif self._state is _State.CLOSED:
-            raise _core.ClosedResourceError
+            raise trio.ClosedResourceError
         else:  # pragma: no cover
             assert False
 
-    # This is probably the single trickiest function in trio. It has lots of
+    # This is probably the single trickiest function in Trio. It has lots of
     # comments, though, just make sure to think carefully if you ever have to
     # touch it. The big comment at the top of this file will help explain
     # too.
     async def _retry(self, fn, *args, ignore_want_read=False):
-        await _core.checkpoint_if_cancelled()
+        await trio.hazmat.checkpoint_if_cancelled()
         yielded = False
-        try:
-            finished = False
-            while not finished:
-                # WARNING: this code needs to be very careful with when it
-                # calls 'await'! There might be multiple tasks calling this
-                # function at the same time trying to do different operations,
-                # so we need to be careful to:
-                #
-                # 1) interact with the SSLObject, then
-                # 2) await on exactly one thing that lets us make forward
-                # progress, then
-                # 3) loop or exit
-                #
-                # In particular we don't want to yield while interacting with
-                # the SSLObject (because it's shared state, so someone else
-                # might come in and mess with it while we're suspended), and
-                # we don't want to yield *before* starting the operation that
-                # will help us make progress, because then someone else might
-                # come in and leapfrog us.
+        finished = False
+        while not finished:
+            # WARNING: this code needs to be very careful with when it
+            # calls 'await'! There might be multiple tasks calling this
+            # function at the same time trying to do different operations,
+            # so we need to be careful to:
+            #
+            # 1) interact with the SSLObject, then
+            # 2) await on exactly one thing that lets us make forward
+            # progress, then
+            # 3) loop or exit
+            #
+            # In particular we don't want to yield while interacting with
+            # the SSLObject (because it's shared state, so someone else
+            # might come in and mess with it while we're suspended), and
+            # we don't want to yield *before* starting the operation that
+            # will help us make progress, because then someone else might
+            # come in and leapfrog us.
 
-                # Call the SSLObject method, and get its result.
-                #
-                # NB: despite what the docs say, SSLWantWriteError can't
-                # happen – "Writes to memory BIOs will always succeed if
-                # memory is available: that is their size can grow
-                # indefinitely."
-                # https://wiki.openssl.org/index.php/Manual:BIO_s_mem(3)
+            # Call the SSLObject method, and get its result.
+            #
+            # NB: despite what the docs say, SSLWantWriteError can't
+            # happen – "Writes to memory BIOs will always succeed if
+            # memory is available: that is their size can grow
+            # indefinitely."
+            # https://wiki.openssl.org/index.php/Manual:BIO_s_mem(3)
+            want_read = False
+            ret = None
+            try:
+                ret = fn(*args)
+            except _stdlib_ssl.SSLWantReadError:
+                want_read = True
+            except (_stdlib_ssl.SSLError, _stdlib_ssl.CertificateError) as exc:
+                self._state = _State.BROKEN
+                raise trio.BrokenResourceError from exc
+            else:
+                finished = True
+            if ignore_want_read:
                 want_read = False
-                ret = None
-                try:
-                    ret = fn(*args)
-                except _stdlib_ssl.SSLWantReadError:
-                    want_read = True
-                except (
-                    _stdlib_ssl.SSLError, _stdlib_ssl.CertificateError
-                ) as exc:
-                    self._state = _State.BROKEN
-                    raise _core.BrokenResourceError from exc
-                else:
-                    finished = True
-                if ignore_want_read:
-                    want_read = False
-                    finished = True
-                to_send = self._outgoing.read()
+                finished = True
+            to_send = self._outgoing.read()
 
-                # Outputs from the above code block are:
-                #
-                # - to_send: bytestring; if non-empty then we need to send
-                #   this data to make forward progress
-                #
-                # - want_read: True if we need to receive_some some data to make
-                #   forward progress
-                #
-                # - finished: False means that we need to retry the call to
-                #   fn(*args) again, after having pushed things forward. True
-                #   means we still need to do whatever was said (in particular
-                #   send any data in to_send), but once we do then we're
-                #   done.
-                #
-                # - ret: the operation's return value. (Meaningless unless
-                #   finished is True.)
-                #
-                # Invariant: want_read and finished can't both be True at the
-                # same time.
-                #
-                # Now we need to move things forward. There are two things we
-                # might have to do, and any given operation might require
-                # either, both, or neither to proceed:
-                #
-                # - send the data in to_send
-                #
-                # - receive_some some data and put it into the incoming BIO
-                #
-                # Our strategy is: if there's data to send, send it;
-                # *otherwise* if there's data to receive_some, receive_some it.
-                #
-                # If both need to happen, then we only send. Why? Well, we
-                # know that *right now* we have to both send and receive_some
-                # before the operation can complete. But as soon as we yield,
-                # that information becomes potentially stale – e.g. while
-                # we're sending, some other task might go and receive_some the
-                # data we need and put it into the incoming BIO. And if it
-                # does, then we *definitely don't* want to do a receive_some –
-                # there might not be any more data coming, and we'd deadlock!
-                # We could do something tricky to keep track of whether a
-                # receive_some happens while we're sending, but the case where
-                # we have to do both is very unusual (only during a
-                # renegotation), so it's better to keep things simple. So we
-                # do just one potentially-blocking operation, then check again
-                # for fresh information.
-                #
-                # And we prioritize sending over receiving because, if there
-                # are multiple tasks that want to receive_some, then it
-                # doesn't matter what order they go in. But if there are
-                # multiple tasks that want to send, then they each have
-                # different data, and the data needs to get put onto the wire
-                # in the same order that it was retrieved from the outgoing
-                # BIO. So if we have data to send, that *needs* to be the
-                # *very* *next* *thing* we do, to make sure no-one else sneaks
-                # in before us. Or if we can't send immediately because
-                # someone else is, then we at least need to get in line
-                # immediately.
-                if to_send:
-                    # NOTE: This relies on the lock being strict FIFO fair!
-                    async with self._inner_send_lock:
-                        yielded = True
-                        try:
-                            await self.transport_stream.send_all(to_send)
-                        except:
-                            # Some unknown amount of our data got sent, and we
-                            # don't know how much. This stream is doomed.
-                            self._state = _State.BROKEN
-                            raise
-                elif want_read:
-                    # It's possible that someone else is already blocked in
-                    # transport_stream.receive_some. If so then we want to
-                    # wait for them to finish, but we don't want to call
-                    # transport_stream.receive_some again ourselves; we just
-                    # want to loop around and check if their contribution
-                    # helped anything. So we make a note of how many times
-                    # some task has been through here before taking the lock,
-                    # and if it's changed by the time we get the lock, then we
-                    # skip calling transport_stream.receive_some and loop
-                    # around immediately.
-                    recv_count = self._inner_recv_count
-                    async with self._inner_recv_lock:
-                        yielded = True
-                        if recv_count == self._inner_recv_count:
-                            data = await self.transport_stream.receive_some(
-                                self._max_refill_bytes
-                            )
-                            if not data:
-                                self._incoming.write_eof()
-                            else:
-                                self._incoming.write(data)
-                            self._inner_recv_count += 1
-            return ret
-        finally:
-            if not yielded:
-                await _core.cancel_shielded_checkpoint()
+            # Outputs from the above code block are:
+            #
+            # - to_send: bytestring; if non-empty then we need to send
+            #   this data to make forward progress
+            #
+            # - want_read: True if we need to receive_some some data to make
+            #   forward progress
+            #
+            # - finished: False means that we need to retry the call to
+            #   fn(*args) again, after having pushed things forward. True
+            #   means we still need to do whatever was said (in particular
+            #   send any data in to_send), but once we do then we're
+            #   done.
+            #
+            # - ret: the operation's return value. (Meaningless unless
+            #   finished is True.)
+            #
+            # Invariant: want_read and finished can't both be True at the
+            # same time.
+            #
+            # Now we need to move things forward. There are two things we
+            # might have to do, and any given operation might require
+            # either, both, or neither to proceed:
+            #
+            # - send the data in to_send
+            #
+            # - receive_some some data and put it into the incoming BIO
+            #
+            # Our strategy is: if there's data to send, send it;
+            # *otherwise* if there's data to receive_some, receive_some it.
+            #
+            # If both need to happen, then we only send. Why? Well, we
+            # know that *right now* we have to both send and receive_some
+            # before the operation can complete. But as soon as we yield,
+            # that information becomes potentially stale – e.g. while
+            # we're sending, some other task might go and receive_some the
+            # data we need and put it into the incoming BIO. And if it
+            # does, then we *definitely don't* want to do a receive_some –
+            # there might not be any more data coming, and we'd deadlock!
+            # We could do something tricky to keep track of whether a
+            # receive_some happens while we're sending, but the case where
+            # we have to do both is very unusual (only during a
+            # renegotation), so it's better to keep things simple. So we
+            # do just one potentially-blocking operation, then check again
+            # for fresh information.
+            #
+            # And we prioritize sending over receiving because, if there
+            # are multiple tasks that want to receive_some, then it
+            # doesn't matter what order they go in. But if there are
+            # multiple tasks that want to send, then they each have
+            # different data, and the data needs to get put onto the wire
+            # in the same order that it was retrieved from the outgoing
+            # BIO. So if we have data to send, that *needs* to be the
+            # *very* *next* *thing* we do, to make sure no-one else sneaks
+            # in before us. Or if we can't send immediately because
+            # someone else is, then we at least need to get in line
+            # immediately.
+            if to_send:
+                # NOTE: This relies on the lock being strict FIFO fair!
+                async with self._inner_send_lock:
+                    yielded = True
+                    try:
+                        await self.transport_stream.send_all(to_send)
+                    except:
+                        # Some unknown amount of our data got sent, and we
+                        # don't know how much. This stream is doomed.
+                        self._state = _State.BROKEN
+                        raise
+            elif want_read:
+                # It's possible that someone else is already blocked in
+                # transport_stream.receive_some. If so then we want to
+                # wait for them to finish, but we don't want to call
+                # transport_stream.receive_some again ourselves; we just
+                # want to loop around and check if their contribution
+                # helped anything. So we make a note of how many times
+                # some task has been through here before taking the lock,
+                # and if it's changed by the time we get the lock, then we
+                # skip calling transport_stream.receive_some and loop
+                # around immediately.
+                recv_count = self._inner_recv_count
+                async with self._inner_recv_lock:
+                    yielded = True
+                    if recv_count == self._inner_recv_count:
+                        data = await self.transport_stream.receive_some(
+                            self._max_refill_bytes
+                        )
+                        if not data:
+                            self._incoming.write_eof()
+                        else:
+                            self._incoming.write(data)
+                        self._inner_recv_count += 1
+        if not yielded:
+            await trio.hazmat.cancel_shielded_checkpoint()
+        return ret
 
     async def _do_handshake(self):
         try:
@@ -582,11 +579,7 @@ class SSLStream(Stream):
            :exc:`trio.BrokenResourceError`.
 
         """
-        try:
-            self._check_status()
-        except:
-            await _core.checkpoint()
-            raise
+        self._check_status()
         await self._handshook.ensure(checkpoint=True)
 
     # Most things work if we don't explicitly force do_handshake to be called
@@ -610,11 +603,11 @@ class SSLStream(Stream):
            :exc:`trio.BrokenResourceError`.
 
         """
-        async with self._outer_recv_conflict_detector:
+        with self._outer_recv_conflict_detector:
             self._check_status()
             try:
                 await self._handshook.ensure(checkpoint=False)
-            except _core.BrokenResourceError as exc:
+            except trio.BrokenResourceError as exc:
                 # For some reason, EOF before handshake sometimes raises
                 # SSLSyscallError instead of SSLEOFError (e.g. on my linux
                 # laptop, but not on appveyor). Thanks openssl.
@@ -624,6 +617,7 @@ class SSLStream(Stream):
                         (_stdlib_ssl.SSLEOFError, _stdlib_ssl.SSLSyscallError)
                     )
                 ):
+                    await trio.hazmat.checkpoint()
                     return b""
                 else:
                     raise
@@ -632,7 +626,7 @@ class SSLStream(Stream):
                 raise ValueError("max_bytes must be >= 1")
             try:
                 return await self._retry(self._ssl_object.read, max_bytes)
-            except _core.BrokenResourceError as exc:
+            except trio.BrokenResourceError as exc:
                 # This isn't quite equivalent to just returning b"" in the
                 # first place, because we still end up with self._state set to
                 # BROKEN. But that's actually fine, because after getting an
@@ -642,6 +636,7 @@ class SSLStream(Stream):
                     self._https_compatible
                     and isinstance(exc.__cause__, _stdlib_ssl.SSLEOFError)
                 ):
+                    await trio.hazmat.checkpoint()
                     return b""
                 else:
                     raise
@@ -657,13 +652,13 @@ class SSLStream(Stream):
            :exc:`trio.BrokenResourceError`.
 
         """
-        async with self._outer_send_conflict_detector:
+        with self._outer_send_conflict_detector:
             self._check_status()
             await self._handshook.ensure(checkpoint=False)
             # SSLObject interprets write(b"") as an EOF for some reason, which
             # is not what we want.
             if not data:
-                await _core.checkpoint()
+                await trio.hazmat.checkpoint()
                 return
             await self._retry(self._ssl_object.write, data)
 
@@ -684,7 +679,7 @@ class SSLStream(Stream):
           ``transport_stream.receive_some(...)``.
 
         """
-        async with self._outer_recv_conflict_detector, \
+        with self._outer_recv_conflict_detector, \
                 self._outer_send_conflict_detector:
             self._check_status()
             await self._handshook.ensure(checkpoint=False)
@@ -707,7 +702,7 @@ class SSLStream(Stream):
 
         """
         if self._state is _State.CLOSED:
-            await _core.checkpoint()
+            await trio.hazmat.checkpoint()
             return
         if self._state is _State.BROKEN or self._https_compatible:
             self._state = _State.CLOSED
@@ -748,7 +743,7 @@ class SSLStream(Stream):
             # close_notify and closed their connection then it's possible that
             # our attempt to send close_notify will raise
             # BrokenResourceError. This is totally legal, and in fact can happen
-            # with two well-behaved trio programs talking to each other, so we
+            # with two well-behaved Trio programs talking to each other, so we
             # don't want to raise an error. So we suppress BrokenResourceError
             # here. (This is safe, because literally the only thing this call
             # to _retry will do is send the close_notify alert, so that's
@@ -771,7 +766,7 @@ class SSLStream(Stream):
                 await self._retry(
                     self._ssl_object.unwrap, ignore_want_read=True
                 )
-            except (_core.BrokenResourceError, _core.BusyResourceError):
+            except (trio.BrokenResourceError, trio.BusyResourceError):
                 pass
         except:
             # Failure! Kill the stream and move on.
@@ -789,11 +784,10 @@ class SSLStream(Stream):
         """
         # This method's implementation is deceptively simple.
         #
-        # First, we take the outer send lock, because of trio's standard
+        # First, we take the outer send lock, because of Trio's standard
         # semantics that wait_send_all_might_not_block and send_all
-        # conflict. This also takes care of providing correct checkpoint
-        # semantics before we potentially error out from _check_status().
-        async with self._outer_send_conflict_detector:
+        # conflict.
+        with self._outer_send_conflict_detector:
             self._check_status()
             # Then we take the inner send lock. We know that no other tasks
             # are calling self.send_all or self.wait_send_all_might_not_block,

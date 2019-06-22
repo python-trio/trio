@@ -10,7 +10,7 @@
 #
 # Compared to these, our use of cooperative scheduling allows some
 # simplifications (no need for internal locking). On the other hand, the need
-# to support trio's strong cancellation semantics adds some complications
+# to support Trio's strong cancellation semantics adds some complications
 # (tasks need to know where they're queued so they can cancel). Also, in the
 # above work, the ParkingLot is a global structure that holds a collection of
 # waitqueues keyed by lock address, and which are opportunistically allocated
@@ -102,7 +102,7 @@ class ParkingLot:
 
     # {task: None}, we just want a deque where we can quickly delete random
     # items
-    _parked = attr.ib(default=attr.Factory(OrderedDict), init=False)
+    _parked = attr.ib(factory=OrderedDict, init=False)
 
     def __len__(self):
         """Returns the number of parked tasks.

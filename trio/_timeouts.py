@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 
-from . import _core
+import trio
 
 __all__ = [
     "move_on_at",
@@ -22,7 +22,7 @@ def move_on_at(deadline):
       deadline (float): The deadline.
 
     """
-    return _core.CancelScope(deadline=deadline)
+    return trio.CancelScope(deadline=deadline)
 
 
 def move_on_after(seconds):
@@ -39,7 +39,7 @@ def move_on_after(seconds):
 
     if seconds < 0:
         raise ValueError("timeout must be non-negative")
-    return move_on_at(_core.current_time() + seconds)
+    return move_on_at(trio.current_time() + seconds)
 
 
 async def sleep_forever():
@@ -48,7 +48,9 @@ async def sleep_forever():
     Equivalent to calling ``await sleep(math.inf)``.
 
     """
-    await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
+    await trio.hazmat.wait_task_rescheduled(
+        lambda _: trio.hazmat.Abort.SUCCEEDED
+    )
 
 
 async def sleep_until(deadline):
@@ -59,7 +61,8 @@ async def sleep_until(deadline):
 
     Args:
         deadline (float): The time at which we should wake up again. May be in
-            the past, in which case this function yields but does not block.
+            the past, in which case this function executes a checkpoint but
+            does not block.
 
     """
     with move_on_at(deadline):
@@ -80,9 +83,9 @@ async def sleep(seconds):
     if seconds < 0:
         raise ValueError("duration must be non-negative")
     if seconds == 0:
-        await _core.checkpoint()
+        await trio.hazmat.checkpoint()
     else:
-        await sleep_until(_core.current_time() + seconds)
+        await sleep_until(trio.current_time() + seconds)
 
 
 class TooSlowError(Exception):
@@ -90,7 +93,6 @@ class TooSlowError(Exception):
     expires.
 
     """
-    pass
 
 
 @contextmanager
@@ -137,4 +139,4 @@ def fail_after(seconds):
     """
     if seconds < 0:
         raise ValueError("timeout must be non-negative")
-    return fail_at(_core.current_time() + seconds)
+    return fail_at(trio.current_time() + seconds)

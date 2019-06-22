@@ -1,19 +1,20 @@
 import attr
 
+from trio._util import NoPublicConstructor
+
 
 class TrioInternalError(Exception):
-    """Raised by :func:`run` if we encounter a bug in trio, or (possibly) a
+    """Raised by :func:`run` if we encounter a bug in Trio, or (possibly) a
     misuse of one of the low-level :mod:`trio.hazmat` APIs.
 
     This should never happen! If you get this error, please file a bug.
 
     Unfortunately, if you get this error it also means that all bets are off –
-    trio doesn't know what is going on and its normal invariants may be void.
+    Trio doesn't know what is going on and its normal invariants may be void.
     (For example, we might have "lost track" of a task. Or lost track of all
     tasks.) Again, though, this shouldn't happen.
 
     """
-    pass
 
 
 class RunFinishedError(RuntimeError):
@@ -21,17 +22,15 @@ class RunFinishedError(RuntimeError):
     corresponding call to :func:`trio.run` has already finished.
 
     """
-    pass
 
 
 class WouldBlock(Exception):
     """Raised by ``X_nowait`` functions if ``X`` would block.
 
     """
-    pass
 
 
-class Cancelled(BaseException):
+class Cancelled(BaseException, metaclass=NoPublicConstructor):
     """Raised by blocking calls if the surrounding scope has been cancelled.
 
     You should let this exception propagate, to be caught by the relevant
@@ -47,7 +46,7 @@ class Cancelled(BaseException):
     then this *won't* catch a :exc:`Cancelled` exception.
 
     You cannot raise :exc:`Cancelled` yourself. Attempting to do so
-    will produce a :exc:`RuntimeError`. Use :meth:`cancel_scope.cancel()
+    will produce a :exc:`TypeError`. Use :meth:`cancel_scope.cancel()
     <trio.CancelScope.cancel>` instead.
 
     .. note::
@@ -59,27 +58,13 @@ class Cancelled(BaseException):
        <https://books.google.com/ngrams/graph?content=canceled%2Ccancelled&year_start=1800&year_end=2000&corpus=18&smoothing=3&share=&direct_url=t1%3B%2Ccanceled%3B%2Cc0%3B.t1%3B%2Ccancelled%3B%2Cc0>`__
        innovation, and even in the US both forms are still commonly used. So
        for consistency with the rest of the world and with "cancellation"
-       (which always has two "l"s), trio uses the two "l" spelling
+       (which always has two "l"s), Trio uses the two "l" spelling
        everywhere.
 
     """
-    __marker = object()
 
-    def __init__(self, _marker=None):
-        if _marker is not self.__marker:
-            raise RuntimeError(
-                'Cancelled should not be raised directly. Use the cancel() '
-                'method on your cancel scope.'
-            )
-        super().__init__()
-
-    @classmethod
-    def _init(cls):
-        """A private constructor so that a user-created instance of Cancelled
-        can raise an appropriate error. see `issue #342
-        <https://github.com/python-trio/trio/issues/342>`__.
-        """
-        return cls(_marker=cls.__marker)
+    def __str__(self):
+        return "Cancelled"
 
 
 class BusyResourceError(Exception):
@@ -87,7 +72,7 @@ class BusyResourceError(Exception):
     already using, and this would lead to bugs and nonsense.
 
     For example, if two tasks try to send data through the same socket at the
-    same time, trio will raise :class:`BusyResourceError` instead of letting
+    same time, Trio will raise :class:`BusyResourceError` instead of letting
     the data get scrambled.
 
     """

@@ -1,4 +1,4 @@
-"""Trio - Pythonic async I/O for humans and snake people.
+"""Trio - A friendly Python library for async concurrency and I/O
 """
 
 # General layout:
@@ -19,7 +19,8 @@ from ._core import (
     TrioInternalError, RunFinishedError, WouldBlock, Cancelled,
     BusyResourceError, ClosedResourceError, MultiError, run, open_nursery,
     CancelScope, open_cancel_scope, current_effective_deadline,
-    TASK_STATUS_IGNORED, current_time, BrokenResourceError, EndOfChannel
+    TASK_STATUS_IGNORED, current_time, BrokenResourceError, EndOfChannel,
+    Nursery
 )
 
 from ._timeouts import (
@@ -32,8 +33,7 @@ from ._sync import (
 )
 
 from ._threads import (
-    run_sync_in_worker_thread, current_default_worker_thread_limiter,
-    BlockingTrioPortal
+    run_sync_in_thread, current_default_thread_limiter, BlockingTrioPortal
 )
 
 from ._highlevel_generic import aclose_forcefully, StapledStream
@@ -48,7 +48,7 @@ from ._file_io import open_file, wrap_file
 
 from ._path import Path
 
-from ._subprocess import Process
+from ._subprocess import Process, open_process, run_process
 
 from ._ssl import SSLStream, SSLListener, NeedHandshakeError
 
@@ -99,6 +99,46 @@ __deprecated_attributes__ = {
                 "trio.Process and the constants in the standard "
                 "library 'subprocess' module"
             ),
+        ),
+    "run_sync_in_worker_thread":
+        _deprecate.DeprecatedAttribute(
+            run_sync_in_thread,
+            "0.12.0",
+            issue=810,
+        ),
+    "current_default_worker_thread_limiter":
+        _deprecate.DeprecatedAttribute(
+            current_default_thread_limiter,
+            "0.12.0",
+            issue=810,
+        ),
+}
+
+_deprecate.enable_attribute_deprecations(hazmat.__name__)
+hazmat.__deprecated_attributes__ = {
+    "wait_socket_readable":
+        _deprecate.DeprecatedAttribute(
+            hazmat.wait_readable,
+            "0.12.0",
+            issue=878,
+        ),
+    "wait_socket_writable":
+        _deprecate.DeprecatedAttribute(
+            hazmat.wait_writable,
+            "0.12.0",
+            issue=878,
+        ),
+    "notify_socket_close":
+        _deprecate.DeprecatedAttribute(
+            hazmat.notify_closing,
+            "0.12.0",
+            issue=878,
+        ),
+    "notify_fd_close":
+        _deprecate.DeprecatedAttribute(
+            hazmat.notify_closing,
+            "0.12.0",
+            issue=878,
         ),
 }
 

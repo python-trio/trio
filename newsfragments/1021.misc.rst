@@ -1,0 +1,4 @@
+Any attempt to inherit from `CancelScope` or `Nursery` now raises
+`TypeError`.  (Trio has never been able to safely support subclassing
+here; this change just makes it more obvious.)
+Also exposed as public classes for type-checking, etc.

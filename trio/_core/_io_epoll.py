@@ -6,14 +6,14 @@ from .. import _core
 from ._run import _public
 
 
-@attr.s(frozen=True)
+@attr.s(slots=True, cmp=False, frozen=True)
 class _EpollStatistics:
     tasks_waiting_read = attr.ib()
     tasks_waiting_write = attr.ib()
     backend = attr.ib(default="epoll")
 
 
-@attr.s(slots=True, cmp=False, hash=False)
+@attr.s(slots=True, cmp=False)
 class EpollWaiters:
     read_task = attr.ib(default=None)
     write_task = attr.ib(default=None)
@@ -42,9 +42,9 @@ class EpollWaiters:
 
 @attr.s(slots=True, cmp=False, hash=False)
 class EpollIOManager:
-    _epoll = attr.ib(default=attr.Factory(select.epoll))
+    _epoll = attr.ib(factory=select.epoll)
     # {fd: EpollWaiters}
-    _registered = attr.ib(default=attr.Factory(dict))
+    _registered = attr.ib(factory=dict)
 
     def statistics(self):
         tasks_waiting_read = 0
@@ -103,7 +103,6 @@ class EpollIOManager:
             self._registered[fd] = EpollWaiters()
         waiters = self._registered[fd]
         if getattr(waiters, attr_name) is not None:
-            await _core.checkpoint()
             raise _core.BusyResourceError(
                 "another task is already reading / writing this fd"
             )
@@ -126,7 +125,7 @@ class EpollIOManager:
         await self._epoll_wait(fd, "write_task")
 
     @_public
-    def notify_fd_close(self, fd):
+    def notify_closing(self, fd):
         if not isinstance(fd, int):
             fd = fd.fileno()
         if fd not in self._registered:

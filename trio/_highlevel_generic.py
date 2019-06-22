@@ -1,6 +1,6 @@
 import attr
 
-from . import _core
+import trio
 from .abc import HalfCloseableStream
 
 
@@ -29,7 +29,7 @@ async def aclose_forcefully(resource):
     assuming the underlying resource object is correctly implemented).
 
     """
-    with _core.CancelScope() as cs:
+    with trio.CancelScope() as cs:
         cs.cancel()
         await resource.aclose()
 

@@ -1,6 +1,3 @@
-import os
-from typing import Tuple
-
 from . import _core
 from ._abc import SendStream, ReceiveStream
 from ._util import ConflictDetector
@@ -49,11 +46,12 @@ class PipeSendStream(SendStream):
         )
 
     async def send_all(self, data: bytes):
-        async with self._conflict_detector:
+        with self._conflict_detector:
             if self._handle_holder.closed:
                 raise _core.ClosedResourceError("this pipe is already closed")
 
             if not data:
+                await _core.checkpoint()
                 return
 
             try:
@@ -68,12 +66,12 @@ class PipeSendStream(SendStream):
             assert written == len(data)
 
     async def wait_send_all_might_not_block(self) -> None:
-        async with self._conflict_detector:
+        with self._conflict_detector:
             if self._handle_holder.closed:
                 raise _core.ClosedResourceError("This pipe is already closed")
 
             # not implemented yet, and probably not needed
-            pass
+            await _core.checkpoint()
 
     async def aclose(self):
         await self._handle_holder.aclose()
@@ -89,7 +87,7 @@ class PipeReceiveStream(ReceiveStream):
         )
 
     async def receive_some(self, max_bytes: int) -> bytes:
-        async with self._conflict_detector:
+        with self._conflict_detector:
             if self._handle_holder.closed:
                 raise _core.ClosedResourceError("this pipe is already closed")
 

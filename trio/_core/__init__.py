@@ -21,7 +21,8 @@ from ._run import (
     current_task, current_effective_deadline, checkpoint_if_cancelled,
     TASK_STATUS_IGNORED, current_statistics, current_trio_token, reschedule,
     remove_instrument, add_instrument, current_clock, current_root_task,
-    spawn_system_task, current_time, wait_all_tasks_blocked
+    spawn_system_task, current_time, wait_all_tasks_blocked, wait_readable,
+    wait_writable, notify_closing
 )
 
 # Has to come after _run to resolve a circular import
@@ -39,16 +40,6 @@ from ._unbounded_queue import UnboundedQueue
 
 from ._local import RunVar
 
-# Epoll imports
-try:
-    from ._run import (wait_readable, wait_writable, notify_fd_close)
-
-    wait_socket_readable = wait_readable
-    wait_socket_writable = wait_writable
-    notify_socket_close = notify_fd_close
-except ImportError:
-    pass
-
 # Kqueue imports
 try:
     from ._run import (current_kqueue, monitor_kevent, wait_kevent)
@@ -58,7 +49,6 @@ except ImportError:
 # Windows imports
 try:
     from ._run import (
-        wait_socket_readable, wait_socket_writable, notify_socket_close,
         monitor_completion_key, current_iocp, register_with_iocp,
         wait_overlapped, write_overlapped, readinto_overlapped
     )

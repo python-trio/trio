@@ -20,7 +20,7 @@ create complex transport configurations. Here's some examples:
 
 * :class:`trio.SSLStream` is a "stream adapter" that can take any
   object that implements the :class:`trio.abc.Stream` interface, and
-  convert it into an encrypted stream. In trio the standard way to
+  convert it into an encrypted stream. In Trio the standard way to
   speak SSL over the network is to wrap an
   :class:`~trio.SSLStream` around a :class:`~trio.SocketStream`.
 
@@ -40,7 +40,7 @@ create complex transport configurations. Here's some examples:
   but you have to go through a web proxy... and the proxy also uses
   HTTPS. So you end up having to do `SSL-on-top-of-SSL
   <https://daniel.haxx.se/blog/2016/11/26/https-proxy-with-curl/>`__. In
-  trio this is trivial – just wrap your first
+  Trio this is trivial – just wrap your first
   :class:`~trio.SSLStream` in a second
   :class:`~trio.SSLStream`::
 
@@ -255,7 +255,7 @@ you call them before the handshake completes:
 Low-level networking with :mod:`trio.socket`
 ---------------------------------------------
 
-The :mod:`trio.socket` module provides trio's basic low-level
+The :mod:`trio.socket` module provides Trio's basic low-level
 networking API. If you're doing ordinary things with stream-oriented
 connections over IPv4/IPv6/Unix domain sockets, then you probably want
 to stick to the high-level API described above. If you want to use
@@ -275,7 +275,7 @@ which are described here.
 
 First, Trio provides analogues to all the standard library functions
 that return socket objects; their interface is identical, except that
-they're modified to return trio socket objects instead:
+they're modified to return Trio socket objects instead:
 
 .. autofunction:: socket
 
@@ -285,16 +285,16 @@ they're modified to return trio socket objects instead:
 
 .. function:: fromshare(data)
 
-   Like :func:`socket.fromshare`, but returns a trio socket object.
+   Like :func:`socket.fromshare`, but returns a Trio socket object.
 
 In addition, there is a new function to directly convert a standard
-library socket into a trio socket:
+library socket into a Trio socket:
 
 .. autofunction:: from_stdlib_socket
 
 Unlike :func:`socket.socket`, :func:`trio.socket.socket` is a
 function, not a class; if you want to check whether an object is a
-trio socket, use ``isinstance(obj, trio.socket.SocketType)``.
+Trio socket, use ``isinstance(obj, trio.socket.SocketType)``.
 
 For name lookup, Trio provides the standard functions, but with some
 changes:
@@ -326,7 +326,7 @@ broken features:
   ``AI_CANONNAME`` flag.
 
 * :func:`~socket.getdefaulttimeout`,
-  :func:`~socket.setdefaulttimeout`: instead, use trio's standard
+  :func:`~socket.setdefaulttimeout`: instead, use Trio's standard
   support for :ref:`cancellation`.
 
 * On Windows, ``SO_REUSEADDR`` is not exported, because it's a trap:
@@ -353,11 +353,11 @@ Socket objects
    library socket objects <python:socket-objects>`, with a few
    important differences:
 
-   First, and most obviously, everything is made "trio-style":
+   First, and most obviously, everything is made "Trio-style":
    blocking methods become async methods, and the following attributes
    are *not* supported:
 
-   * :meth:`~socket.socket.setblocking`: trio sockets always act like
+   * :meth:`~socket.socket.setblocking`: Trio sockets always act like
      blocking sockets; if you need to read/write from multiple sockets
      at once, then create multiple tasks.
    * :meth:`~socket.socket.settimeout`: see :ref:`cancellation` instead.
@@ -371,7 +371,7 @@ Socket objects
      additional error checking.
 
    In addition, the following methods are similar to the equivalents
-   in :func:`socket.socket`, but have some trio-specific quirks:
+   in :func:`socket.socket`, but have some Trio-specific quirks:
 
    .. method:: connect
       :async:
@@ -412,6 +412,7 @@ Socket objects
    arguments require pre-resolved addresses:
 
    * :meth:`~socket.socket.accept`
+   * :meth:`~socket.socket.bind`
    * :meth:`~socket.socket.recv`
    * :meth:`~socket.socket.recv_into`
    * :meth:`~socket.socket.recvfrom`
@@ -478,7 +479,7 @@ To understand why, you need to know two things.
 First, right now no mainstream operating system offers a generic,
 reliable, native API for async file or filesystem operations, so we
 have to fake it by using threads (specifically,
-:func:`run_sync_in_worker_thread`). This is cheap but isn't free: on a
+:func:`run_sync_in_thread`). This is cheap but isn't free: on a
 typical PC, dispatching to a worker thread adds something like ~100 µs
 of overhead to each operation. ("µs" is pronounced "microseconds", and
 there are 1,000,000 µs in a second. Note that all the numbers here are
@@ -604,7 +605,7 @@ Asynchronous file objects
 
    Special notes:
 
-   * Async file objects implement trio's
+   * Async file objects implement Trio's
      :class:`~trio.abc.AsyncResource` interface: you close them by
      calling :meth:`~trio.abc.AsyncResource.aclose` instead of
      ``close`` (!!), and they can be used as async context
@@ -651,9 +652,22 @@ Spawning subprocesses
 
 Trio provides support for spawning other programs as subprocesses,
 communicating with them via pipes, sending them signals, and waiting
-for them to exit. Currently this interface consists of the
-:class:`trio.Process` class, which is modelled after :class:`subprocess.Popen`
-in the standard library.
+for them to exit. The interface for doing so consists of two layers:
+
+* :func:`trio.run_process` runs a process from start to
+  finish and returns a :class:`~subprocess.CompletedProcess` object describing
+  its outputs and return value. This is what you should reach for if you
+  want to run a process to completion before continuing, while possibly
+  sending it some input or capturing its output. It is modelled after
+  the standard :func:`subprocess.run` with some additional features
+  and safer defaults.
+
+* `trio.open_process` starts a process in the background and returns a
+  `Process` object to let you interact with it. Using it requires a
+  bit more code than `run_process`, but exposes additional
+  capabilities: back-and-forth communication, processing output as
+  soon as it is generated, and so forth. It is modelled after the
+  standard library :class:`subprocess.Popen`.
 
 
 .. _subprocess-options:
@@ -661,98 +675,74 @@ in the standard library.
 Options for starting subprocesses
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The standard :mod:`subprocess` module supports a dizzying array
-of `options <https://docs.python.org/3/library/subprocess.html#popen-constructor>`__
-for controlling the environment in which a process starts and the
-mechanisms used for communicating with it. (If you find that list
-overwhelming, you're not alone; you might prefer to start with
-just the `frequently used ones
-<https://docs.python.org/3/library/subprocess.html#frequently-used-arguments>`__.)
+All of Trio's subprocess APIs accept the numerous keyword arguments used
+by the standard :mod:`subprocess` module to control the environment in
+which a process starts and the mechanisms used for communicating with
+it.  These may be passed wherever you see ``**options`` in the
+documentation below.  See the `full list
+<https://docs.python.org/3/library/subprocess.html#popen-constructor>`__
+or just the `frequently used ones
+<https://docs.python.org/3/library/subprocess.html#frequently-used-arguments>`__
+in the :mod:`subprocess` documentation. (You may need to ``import
+subprocess`` in order to access constants such as ``PIPE`` or
+``DEVNULL``.)
 
-Trio makes use of the :mod:`subprocess` module's logic for spawning
-processes, so almost all of these options can be used with their same
-semantics when starting subprocesses under Trio; pass them wherever you see
-``**options`` in the API documentation below. (You may need to
-``import subprocess`` in order to access constants such as ``PIPE`` or
-``DEVNULL``.)  The exceptions are ``encoding``, ``errors``,
-``universal_newlines`` (and its 3.7+ alias ``text``), and ``bufsize``;
-Trio always uses unbuffered byte streams for communicating with a
-process, so these options don't make sense. Text I/O should use a
-layer on top of the raw byte streams, just as it does with sockets.
-[This layer does not yet exist, but is in the works.]
+Currently, Trio always uses unbuffered byte streams for communicating
+with a process, so it does not support the ``encoding``, ``errors``,
+``universal_newlines`` (alias ``text`` in 3.7+), and ``bufsize``
+options.
 
 
 Running a process and waiting for it to finish
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-We're `working on <https://github.com/python-trio/trio/pull/791>`__
-figuring out the best API for common higher-level subprocess operations.
-In the meantime, you can implement something like the standard library
-:func:`subprocess.run` in terms of :class:`trio.Process`
-as follows::
+The basic interface for running a subprocess start-to-finish is
+:func:`trio.run_process`.  It always waits for the subprocess to exit
+before returning, so there's no need to worry about leaving a process
+running by mistake after you've gone on to do other things.
+:func:`~trio.run_process` is similar to the standard library
+:func:`subprocess.run` function, but tries to have safer defaults:
+with no options, the subprocess's input is empty rather than coming
+from the user's terminal, and a failure in the subprocess will be
+propagated as a :exc:`subprocess.CalledProcessError` exception. Of
+course, these defaults can be changed where necessary.
 
-    async def run(
-        command, *, input=None, capture_output=False, **options
-    ):
-        if input is not None:
-            options['stdin'] = subprocess.PIPE
-        if capture_output:
-            options['stdout'] = options['stderr'] = subprocess.PIPE
-
-        stdout_chunks = []
-        stderr_chunks = []
-
-        async with trio.Process(command, **options) as proc:
-
-            async def feed_input():
-                async with proc.stdin:
-                    if input:
-                        try:
-                            await proc.stdin.send_all(input)
-                        except trio.BrokenResourceError:
-                            pass
-
-            async def read_output(stream, chunks):
-                async with stream:
-                    while True:
-                        chunk = await stream.receive_some(32768)
-                        if not chunk:
-                            break
-                        chunks.append(chunk)
-
-            async with trio.open_nursery() as nursery:
-                if proc.stdin is not None:
-                    nursery.start_soon(feed_input)
-                if proc.stdout is not None:
-                    nursery.start_soon(read_output, proc.stdout, stdout_chunks)
-                if proc.stderr is not None:
-                    nursery.start_soon(read_output, proc.stderr, stderr_chunks)
-                await proc.wait()
-
-        stdout = b"".join(stdout_chunks) if proc.stdout is not None else None
-        stderr = b"".join(stderr_chunks) if proc.stderr is not None else None
-
-        if proc.returncode:
-            raise subprocess.CalledProcessError(
-                proc.returncode, proc.args, output=stdout, stderr=stderr
-            )
-        else:
-            return subprocess.CompletedProcess(
-                proc.args, proc.returncode, stdout, stderr
-            )
+.. autofunction:: trio.run_process
 
 
 Interacting with a process as it runs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-You can spawn a subprocess by creating an instance of
-:class:`trio.Process` and then interact with it using its
-:attr:`~trio.Process.stdin`,
-:attr:`~trio.Process.stdout`, and/or
-:attr:`~trio.Process.stderr` streams.
+If you want more control than :func:`~trio.run_process` affords, you
+can use `trio.open_process` to spawn a subprocess, and then interact
+with it using the `Process` interface.
+
+.. autofunction:: trio.open_process
 
 .. autoclass:: trio.Process
-   :members:
+
+   .. autoattribute:: returncode
+
+   .. automethod:: aclose
+
+   .. automethod:: wait
+
+   .. automethod:: poll
+
+   .. automethod:: kill
+
+   .. automethod:: terminate
+
+   .. automethod:: send_signal
+
+   .. note:: :meth:`~subprocess.Popen.communicate` is not provided as a
+      method on :class:`~trio.Process` objects; use :func:`~trio.run_process`
+      instead, or write the loop yourself if you have unusual
+      needs. :meth:`~subprocess.Popen.communicate` has quite unusual
+      cancellation behavior in the standard library (on some platforms it
+      spawns a background thread which continues to read from the child
+      process even after the timeout has expired) and we wanted to
+      provide an interface with fewer surprises.
 
 
 .. _subprocess-quoting:
@@ -847,52 +837,6 @@ Further reading:
 * https://stackoverflow.com/questions/30620876/how-to-properly-escape-filenames-in-windows-cmd-exe
 
 * https://stackoverflow.com/questions/4094699/how-does-the-windows-command-interpreter-cmd-exe-parse-scripts
-
-
-Differences from :class:`subprocess.Popen`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-* All arguments to the constructor of
-  :class:`~trio.Process`, except the command to run, must be
-  passed using keywords.
-
-* :meth:`~subprocess.Popen.communicate` is not provided as a method on
-  :class:`~trio.Process` objects; use a higher-level
-  function instead, or write the loop yourself if
-  you have unusual needs. :meth:`~subprocess.Popen.communicate` has
-  quite unusual cancellation behavior in the standard library (on some
-  platforms it spawns a background thread which continues to read from
-  the child process even after the timeout has expired) and we wanted
-  to provide an interface with fewer surprises.
-
-* :meth:`~trio.Process.wait` is an async function that does
-  not take a ``timeout`` argument; combine it with
-  :func:`~trio.fail_after` if you want a timeout.
-
-* Text I/O is not supported: you may not use the
-  :class:`~trio.Process` constructor arguments
-  ``universal_newlines`` (or its 3.7+ alias ``text``), ``encoding``,
-  or ``errors``.
-
-* :attr:`~trio.Process.stdin` is a :class:`~trio.abc.SendStream` and
-  :attr:`~trio.Process.stdout` and :attr:`~trio.Process.stderr`
-  are :class:`~trio.abc.ReceiveStream`\s, rather than file objects. The
-  :class:`~trio.Process` constructor argument ``bufsize`` is
-  not supported since there would be no file object to pass it to.
-
-* :meth:`~trio.Process.aclose` (and thus also
-  ``__aexit__``) behave like the standard :class:`~subprocess.Popen`
-  context manager exit (close pipes to the process, then wait for it
-  to exit), but add additional behavior if cancelled: kill the process
-  and wait for it to finish terminating.  This is useful for scoping
-  the lifetime of a simple subprocess that doesn't spawn any children
-  of its own. (For subprocesses that do in turn spawn their own
-  subprocesses, there is not currently any way to clean up the whole
-  tree; moreover, using the :class:`Process` context manager in such
-  cases is likely to be counterproductive as killing the top-level
-  subprocess leaves it no chance to do any cleanup of its children
-  that might be desired. You'll probably want to write your own
-  supervision logic in that case.)
 
 
 Signals

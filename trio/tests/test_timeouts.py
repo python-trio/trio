@@ -13,7 +13,7 @@ async def check_takes_about(f, expected_dur):
     result = await outcome.acapture(f)
     dur = time.perf_counter() - start
     print(dur / expected_dur)
-    # 1.2 is an arbitrary fudge factor because there's always some delay
+    # 1.5 is an arbitrary fudge factor because there's always some delay
     # between when we become eligible to wake up and when we actually do. We
     # used to sleep for 0.05, and regularly observed overruns of 1.6x on
     # Appveyor, and then started seeing overruns of 2.3x on Travis's macOS, so
@@ -32,7 +32,7 @@ async def check_takes_about(f, expected_dur):
     # lol floating point we got slightly different rounding errors. (That
     # value above is exactly 128 ULPs below 1.0, which would make sense if it
     # started as a 1 ULP error at a different dynamic range.)
-    assert (1 - 1e-8) <= (dur / expected_dur) < 1.2
+    assert (1 - 1e-8) <= (dur / expected_dur) < 1.5
     return result.unwrap()
 
 

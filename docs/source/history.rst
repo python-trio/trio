@@ -109,7 +109,7 @@ Features
   also reexports all the stdlib :mod:`subprocess` exceptions and constants for
   convenience. (`#4 <https://github.com/python-trio/trio/issues/4>`__)
 - You can now create an unbounded :class:`CapacityLimiter` by initializing with
-  :obj:`math.inf` (`#618 <https://github.com/python-trio/trio/issues/618>`__)
+  `math.inf` (`#618 <https://github.com/python-trio/trio/issues/618>`__)
 - New :mod:`trio.hazmat` features to allow cleanly switching live coroutine
   objects between Trio and other coroutine runners. Frankly, we're not even
   sure this is a good idea, but we want to `try it out in trio-asyncio
@@ -220,9 +220,9 @@ Features
   (`#56 <https://github.com/python-trio/trio/issues/56>`__)
 - New and improved signal catching API: :func:`open_signal_receiver`. (`#354
   <https://github.com/python-trio/trio/issues/354>`__)
-- The low level :func:`trio.hazmat.wait_socket_readable`,
-  :func:`~trio.hazmat.wait_socket_writable`, and
-  :func:`~trio.hazmat.notify_socket_close` now work on bare socket descriptors,
+- The low level ``trio.hazmat.wait_socket_readable``,
+  ``wait_socket_writable``, and
+  ``notify_socket_close`` now work on bare socket descriptors,
   instead of requiring a :func:`socket.socket` object. (`#400
   <https://github.com/python-trio/trio/issues/400>`__)
 - If you're using :func:`trio.hazmat.wait_task_rescheduled` and other low-level
@@ -238,7 +238,7 @@ Bugfixes
 - Prevent crashes when used with Sentry (raven-python). (`#599
   <https://github.com/python-trio/trio/issues/599>`__)
 - The nursery context manager was rewritten to avoid use of
-  `@asynccontextmanager` and `@async_generator`. This reduces extraneous frames
+  ``@asynccontextmanager`` and ``@async_generator``. This reduces extraneous frames
   in exception traces and addresses bugs regarding `StopIteration` and
   `StopAsyncIteration` exceptions not propagating correctly. (`#612
   <https://github.com/python-trio/trio/issues/612>`__)
@@ -303,8 +303,8 @@ Features
   :exc:`ClosedResourceError`. ``ClosedStreamError`` and ``ClosedListenerError``
   are now aliases for :exc:`ClosedResourceError`, and deprecated. For this to
   work, Trio needs to know when a resource has been closed. To facilitate this,
-  new functions have been added: :func:`trio.hazmat.notify_fd_close` and
-  :func:`trio.hazmat.notify_socket_close`. If you're using Trio's built-in
+  new functions have been added: ``trio.hazmat.notify_fd_close`` and
+  ``trio.hazmat.notify_socket_close``. If you're using Trio's built-in
   wrappers like :class:`~trio.SocketStream` or :mod:`trio.socket`, then you don't
   need to worry about this, but if you're using the low-level functions like
   :func:`trio.hazmat.wait_readable`, you should make sure to call these
@@ -440,7 +440,7 @@ Highlights
   :ref:`async-file-io` (`gh-20
   <https://github.com/python-trio/trio/pull/20>`__)
 
-* The new nursery :meth:`~The nursery interface.start` method makes it
+* The new nursery :meth:`~Nursery.start` method makes it
   easy to perform controlled start-up of long-running tasks. For
   example, given an appropriate ``http_server_on_random_open_port``
   function, you could write::
@@ -560,7 +560,7 @@ Upcoming breaking changes with warnings (i.e., stuff that in 0.2.0
   functions that take and run a synchronous function. As part of this:
 
   * ``run_in_worker_thread`` is becoming
-    :func:`run_sync_in_worker_thread`
+    ``run_sync_in_worker_thread``
 
   * We took the opportunity to refactor ``run_in_trio_thread`` and
     ``await_in_trio_thread`` into the new class
@@ -655,7 +655,7 @@ CPython, or PyPy3 5.9+.
 Other changes
 ~~~~~~~~~~~~~
 
-* :func:`run_sync_in_worker_thread` now has a :ref:`robust mechanism
+* :func:`run_sync_in_thread` now has a :ref:`robust mechanism
   for applying capacity limits to the number of concurrent threads
   <worker-thread-limiting>` (`#10
   <https://github.com/python-trio/trio/issues/170>`__, `#57

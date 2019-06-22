@@ -9,7 +9,7 @@ from .. import abc as tabc
 async def test_AsyncResource_defaults():
     @attr.s
     class MyAR(tabc.AsyncResource):
-        record = attr.ib(default=attr.Factory(list))
+        record = attr.ib(factory=list)
 
         async def aclose(self):
             self.record.append("ac")

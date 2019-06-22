@@ -79,7 +79,7 @@ happens, it loops over these instruments and notifies them by calling
 an appropriate method. The tutorial has :ref:`a simple example of
 using this for tracing <tutorial-instrument-example>`.
 
-Since this hooks into trio at a rather low level, you do have to be
+Since this hooks into Trio at a rather low level, you do have to be
 careful. The callbacks are run synchronously, and in many cases if
 they error out then there isn't any plausible way to propagate this
 exception (for instance, we might be deep in the guts of the exception
@@ -106,7 +106,7 @@ And here's the interface to implement if you want to build your own
 
 The tutorial has a :ref:`fully-worked example
 <tutorial-instrument-example>` of defining a custom instrument to log
-trio's internal scheduling decisions.
+Trio's internal scheduling decisions.
 
 
 Low-level I/O primitives
@@ -116,7 +116,7 @@ Different environments expose different low-level APIs for performing
 async I/O. :mod:`trio.hazmat` exposes these APIs in a relatively
 direct way, so as to allow maximum power and flexibility for higher
 level code. However, this means that the exact API provided may vary
-depending on what system trio is running on.
+depending on what system Trio is running on.
 
 
 Universally available API
@@ -124,113 +124,54 @@ Universally available API
 
 All environments provide the following functions:
 
-.. function:: wait_socket_readable(sock)
+.. function:: wait_readable(obj)
    :async:
 
-   Block until the given :func:`socket.socket` object is readable.
+   Block until the kernel reports that the given object is readable.
 
-   On Unix systems, sockets are fds, and this is identical to
-   :func:`wait_readable`. On Windows, ``SOCKET`` handles and fds are
-   different, and this works on ``SOCKET`` handles or Python socket
-   objects.
+   On Unix systems, ``obj`` must either be an integer file descriptor,
+   or else an object with a ``.fileno()`` method which returns an
+   integer file descriptor. Any kind of file descriptor can be passed,
+   though the exact semantics will depend on your kernel. For example,
+   this probably won't do anything useful for on-disk files.
+
+   On Windows systems, ``obj`` must either be an integer ``SOCKET``
+   handle, or else an object with a ``.fileno()`` method which returns
+   an integer ``SOCKET`` handle. File descriptors aren't supported,
+   and neither are handles that refer to anything besides a
+   ``SOCKET``.
 
    :raises trio.BusyResourceError:
        if another task is already waiting for the given socket to
        become readable.
+   :raises trio.ClosedResourceError:
+       if another task calls :func:`notify_closing` while this
+       function is still working.
 
-.. function:: wait_socket_writable(sock)
+.. function:: wait_writable(obj)
    :async:
 
-   Block until the given :func:`socket.socket` object is writable.
+   Block until the kernel reports that the given object is writable.
 
-   On Unix systems, sockets are fds, and this is identical to
-   :func:`wait_writable`. On Windows, ``SOCKET`` handles and fds are
-   different, and this works on ``SOCKET`` handles or Python socket
-   objects.
+   See `wait_readable` for the definition of ``obj``.
 
    :raises trio.BusyResourceError:
        if another task is already waiting for the given socket to
        become writable.
    :raises trio.ClosedResourceError:
-       if another task calls :func:`notify_socket_close` while this
+       if another task calls :func:`notify_closing` while this
        function is still working.
 
 
-.. function:: notify_socket_close(sock)
+.. function:: notify_closing(obj)
 
-   Notifies Trio's internal I/O machinery that you are about to close
-   a socket.
+   Call this before closing a file descriptor or ``SOCKET`` handle
+   that another task might be waiting on. This will cause any
+   `wait_readable` or `wait_writable` calls to immediately raise
+   `~trio.ClosedResourceError`.
 
-   This causes any operations currently waiting for this socket to
-   immediately raise :exc:`~trio.ClosedResourceError`.
-
-   This does *not* actually close the socket. Generally when closing a
-   socket, you should first call this function, and then close the
-   socket.
-
-   On Unix systems, sockets are fds, and this is identical to
-   :func:`notify_fd_close`. On Windows, ``SOCKET`` handles and fds are
-   different, and this works on ``SOCKET`` handles or Python socket
-   objects.
-
-
-Unix-specific API
------------------
-
-Unix-like systems provide the following functions:
-
-.. function:: wait_readable(fd)
-   :async:
-
-   Block until the given file descriptor is readable.
-
-   .. warning::
-
-      This is "readable" according to the operating system's
-      definition of readable. In particular, it probably won't tell
-      you anything useful for on-disk files.
-
-   :arg fd:
-       integer file descriptor, or else an object with a ``fileno()`` method
-   :raises trio.BusyResourceError:
-       if another task is already waiting for the given fd to
-       become readable.
-   :raises trio.ClosedResourceError:
-       if another task calls :func:`notify_fd_close` while this
-       function is still working.
-
-
-.. function:: wait_writable(fd)
-   :async:
-
-   Block until the given file descriptor is writable.
-
-   .. warning::
-
-      This is "writable" according to the operating system's
-      definition of writable. In particular, it probably won't tell
-      you anything useful for on-disk files.
-
-   :arg fd:
-       integer file descriptor, or else an object with a ``fileno()`` method
-   :raises trio.BusyResourceError:
-       if another task is already waiting for the given fd to
-       become writable.
-   :raises trio.ClosedResourceError:
-       if another task calls :func:`notify_fd_close` while this
-       function is still working.
-
-.. function:: notify_fd_close(fd)
-
-   Notifies Trio's internal I/O machinery that you are about to close
-   a file descriptor.
-
-   This causes any operations currently waiting for this file
-   descriptor to immediately raise :exc:`~trio.ClosedResourceError`.
-
-   This does *not* actually close the file descriptor. Generally when
-   closing a file descriptor, you should first call this function, and
-   then actually close it.
+   This doesn't actually close the object – you still have to do that
+   yourself afterwards.
 
 
 Kqueue-specific API
@@ -339,12 +280,12 @@ These transitions are accomplished using two function decorators:
    function).
 
    An example of where you'd use this is in implementing something
-   like ``run_in_trio_thread``, which uses
-   ``call_soon_thread_and_signal_safe`` to get into the trio
-   thread. ``call_soon_thread_and_signal_safe`` callbacks are run with
+   like :meth:`trio.BlockingTrioPortal.run`, which uses
+   :meth:`TrioToken.run_sync_soon` to get into the Trio
+   thread. :meth:`~TrioToken.run_sync_soon` callbacks are run with
    :exc:`KeyboardInterrupt` protection enabled, and
-   ``run_in_trio_thread`` takes advantage of this to safely set up the
-   machinery for sending a response back to the original thread, and
+   :meth:`~trio.BlockingTrioPortal.run` takes advantage of this to safely set up
+   the machinery for sending a response back to the original thread, but
    then uses :func:`disable_ki_protection` when entering the
    user-provided function.
 
@@ -402,7 +343,7 @@ The next two functions are used *together* to make up a checkpoint:
 .. autofunction:: cancel_shielded_checkpoint
 
 These are commonly used in cases where you have an operation that
-might-or-might-not block, and you want to implement trio's standard
+might-or-might-not block, and you want to implement Trio's standard
 checkpoint semantics. Example::
 
    async def operation_that_maybe_blocks():
@@ -412,10 +353,6 @@ checkpoint semantics. Example::
        except BlockingIOError:
            # need to block and then retry, which we do below
            pass
-       except:
-           # some other error, finish the checkpoint then let it propagate
-           await cancel_shielded_checkpoint()
-           raise
        else:
            # operation succeeded, finish the checkpoint then return
            await cancel_shielded_checkpoint()
@@ -429,13 +366,13 @@ checkpoint semantics. Example::
 
 This logic is a bit convoluted, but accomplishes all of the following:
 
-* Every execution path passes through a checkpoint (assuming that
+* Every successful execution path passes through a checkpoint (assuming that
   ``wait_for_operation_to_be_ready`` is an unconditional checkpoint)
 
 * Our :ref:`cancellation semantics <cancellable-primitives>` say that
   :exc:`~trio.Cancelled` should only be raised if the operation didn't
   happen. Using :func:`cancel_shielded_checkpoint` on the early-exit
-  branches accomplishes this.
+  branch accomplishes this.
 
 * On the path where we do end up blocking, we don't pass through any
   schedule points before that, which avoids some unnecessary work.
@@ -446,7 +383,7 @@ This logic is a bit convoluted, but accomplishes all of the following:
   loop outside of the ``except BlockingIOError:`` block.
 
 These functions can also be useful in other situations. For example,
-when :func:`trio.run_sync_in_worker_thread` schedules some work to run
+when :func:`trio.run_sync_in_thread` schedules some work to run
 in a worker thread, it blocks until the work is finished (so it's a
 schedule point), but by default it doesn't allow cancellation. So to
 make sure that the call always acts as a checkpoint, it calls

@@ -1,9 +1,7 @@
-import math
 import itertools
 
 import outcome
 from contextlib import contextmanager
-import socket as stdlib_socket
 from select import select
 import threading
 from collections import deque
@@ -74,29 +72,6 @@ from ._windows_cffi import (
 #   completion that never arrives)
 # - other completion keys are available for user use
 
-# handles:
-# - for now we'll just use 1 thread per handle, should file a QoI bug to
-#   multiplex multiple handles onto the same thread
-# - cancel via QueueUserAPC
-# - I'm a little nervous about the callback to QueueUserAPC... cffi's
-#   ABI-level callbacks require executable memory and who knows how happy the
-#   re-enter-Python code will be about being executed in APC context. (I guess
-#   APC context here is always "on a thread running Python code but that has
-#   dropped the GIL", so maybe there's no issue?)
-#   - on 32-bit windows, Sleep makes a great QueueUserAPC callback...
-#   - WakeByAddressAll and WakeByAddresSingle have the right signature
-#     everywhere!
-#     - there are also a bunch that take a *-sized arg and return BOOL,
-#       e.g. CloseHandle, SetEvent, etc.
-#   - or free() from the CRT (free(NULL) is a no-op says the spec)
-#   - but do they have the right calling convention? QueueUserAPC wants an
-#       APCProc which is VOID CALLBACK f(ULONG_PTR)
-#       CALLBACK = __stdcall
-#     ugh, and free is not annotated, so probably __cdecl
-#     but most of the rest are WINAPI which is __stdcall
-#     ...but, on x86-64 calling convention distinctions are erased! so we can
-#     do Sleep on x86-32 and free on x86-64...
-
 
 def _check(success):
     if not success:
@@ -104,7 +79,7 @@ def _check(success):
     return success
 
 
-@attr.s(frozen=True)
+@attr.s(slots=True, cmp=False, frozen=True)
 class _WindowsStatistics:
     tasks_waiting_overlapped = attr.ib()
     completion_key_monitors = attr.ib()
@@ -434,7 +409,6 @@ class WindowsIOManager:
         if not isinstance(sock, int):
             sock = sock.fileno()
         if sock in self._socket_waiters[which]:
-            await _core.checkpoint()
             raise _core.BusyResourceError(
                 "another task is already waiting to {} this socket"
                 .format(which)
@@ -448,15 +422,15 @@ class WindowsIOManager:
         await _core.wait_task_rescheduled(abort)
 
     @_public
-    async def wait_socket_readable(self, sock):
+    async def wait_readable(self, sock):
         await self._wait_socket("read", sock)
 
     @_public
-    async def wait_socket_writable(self, sock):
+    async def wait_writable(self, sock):
         await self._wait_socket("write", sock)
 
     @_public
-    def notify_socket_close(self, sock):
+    def notify_closing(self, sock):
         if not isinstance(sock, int):
             sock = sock.fileno()
         for mode in ["read", "write"]:
@@ -485,99 +459,44 @@ class WindowsIOManager:
 
     @_public
     async def write_overlapped(self, handle, data, file_offset=0):
-        # Make sure we keep our buffer referenced until the I/O completes.
-        # For typical types of `data` (bytes, bytearray) the memory we
-        # pass is part of the existing allocation, but the buffer protocol
-        # allows for other possibilities.
-        cbuf = ffi.from_buffer(data)
+        with ffi.from_buffer(data) as cbuf:
 
-        def submit_write(lpOverlapped):
-            # yes, these are the real documented names
-            offset_fields = lpOverlapped.DUMMYUNIONNAME.DUMMYSTRUCTNAME
-            offset_fields.Offset = file_offset & 0xffffffff
-            offset_fields.OffsetHigh = file_offset >> 32
-            _check(
-                kernel32.WriteFile(
-                    _handle(handle),
-                    ffi.cast("LPCVOID", cbuf),
-                    len(cbuf),
-                    ffi.NULL,
-                    lpOverlapped,
+            def submit_write(lpOverlapped):
+                # yes, these are the real documented names
+                offset_fields = lpOverlapped.DUMMYUNIONNAME.DUMMYSTRUCTNAME
+                offset_fields.Offset = file_offset & 0xffffffff
+                offset_fields.OffsetHigh = file_offset >> 32
+                _check(
+                    kernel32.WriteFile(
+                        _handle(handle),
+                        ffi.cast("LPCVOID", cbuf),
+                        len(cbuf),
+                        ffi.NULL,
+                        lpOverlapped,
+                    )
                 )
-            )
 
-        try:
             lpOverlapped = await self._perform_overlapped(handle, submit_write)
             # this is "number of bytes transferred"
             return lpOverlapped.InternalHigh
-        finally:
-            # There's a trap here. Let's say the incoming `data` is a
-            # memoryview, and our caller is bounding its lifetime with
-            # a context manager, maybe because they want to break a
-            # larger buffer into multiple writes without copying:
-            #
-            #     with memoryview(big_buffer) as view:
-            #         total_sent = 0
-            #         while total_sent < len(view):
-            #             total_sent += await write_overlapped(
-            #                 handle, big_buffer[total_sent : total_sent + 8192]
-            #             )
-            #
-            # Our FFI buffer object holds a reference to the memoryview's
-            # buffer, and the memoryview knows about this. If the
-            # memoryview context is exited (equivalent to calling
-            # memoryview.release()) while that reference is still held,
-            # we get a BufferError.
-            #
-            # Unfortunately, there seems to be no way to drop that
-            # reference without destroying the FFI buffer object,
-            # alhough one might be coming soon.
-            #   (https://bitbucket.org/cffi/cffi/issues/395/)
-            # We can't even call __del__, because there's no __del__
-            # exposed. On CPython, when we return normally, the frame
-            # and its locals are destroyed, but when we throw an
-            # exception, they remain referenced by the traceback.
-            # So, we need to drop the reference to the FFI buffer
-            # explicitly when unwinding.
-            #
-            # This doesn't help with destruction on PyPy, but PyPy
-            # doesn't currently track buffer references in the same
-            # way as CPython does, so there's no need for a workaround
-            # there.
-            #
-            del cbuf
 
     @_public
     async def readinto_overlapped(self, handle, buffer, file_offset=0):
-        # This will throw a reasonable error if `buffer` is read-only
-        # or doesn't support the buffer protocol, and perform no
-        # operation otherwise. A future release of CFFI will support
-        # ffi.from_buffer(foo, require_writable=True) to do the same
-        # thing less circumlocutiously.
-        #   (https://bitbucket.org/cffi/cffi/issues/394/)
-        ffi.memmove(buffer, b"", 0)
+        with ffi.from_buffer(buffer, require_writable=True) as cbuf:
 
-        # As in write_overlapped, we want to ensure the buffer stays
-        # alive for the duration of the I/O.
-        cbuf = ffi.from_buffer(buffer)
-
-        def submit_read(lpOverlapped):
-            offset_fields = lpOverlapped.DUMMYUNIONNAME.DUMMYSTRUCTNAME
-            offset_fields.Offset = file_offset & 0xffffffff
-            offset_fields.OffsetHigh = file_offset >> 32
-            _check(
-                kernel32.ReadFile(
-                    _handle(handle),
-                    ffi.cast("LPVOID", cbuf),
-                    len(cbuf),
-                    ffi.NULL,
-                    lpOverlapped,
+            def submit_read(lpOverlapped):
+                offset_fields = lpOverlapped.DUMMYUNIONNAME.DUMMYSTRUCTNAME
+                offset_fields.Offset = file_offset & 0xffffffff
+                offset_fields.OffsetHigh = file_offset >> 32
+                _check(
+                    kernel32.ReadFile(
+                        _handle(handle),
+                        ffi.cast("LPVOID", cbuf),
+                        len(cbuf),
+                        ffi.NULL,
+                        lpOverlapped,
+                    )
                 )
-            )
 
-        try:
             lpOverlapped = await self._perform_overlapped(handle, submit_read)
             return lpOverlapped.InternalHigh
-        finally:
-            # See discussion in write_overlapped()
-            del cbuf

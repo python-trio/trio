@@ -1,5 +1,4 @@
 import textwrap
-import io
 import time
 
 methods = {"fileno"}

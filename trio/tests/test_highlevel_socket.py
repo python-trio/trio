@@ -134,7 +134,7 @@ async def test_SocketStream_generic():
 
 
 async def test_SocketListener():
-    # Not a trio socket
+    # Not a Trio socket
     with stdlib_socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         s.listen(10)

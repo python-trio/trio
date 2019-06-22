@@ -13,7 +13,7 @@ import Queue
 # we don't need to support job cancellation
 #
 # we do need to mark a thread as "available" just before it
-# signals back to trio that it's done, to maintain the invariant that all
+# signals back to Trio that it's done, to maintain the invariant that all
 # unavailable threads are inside the limiter= protection
 #
 # maintaining this invariant while exiting can be a bit tricky
