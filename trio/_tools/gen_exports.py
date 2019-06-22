@@ -8,20 +8,24 @@ import argparse
 import ast
 import astor
 import os
+from pathlib import Path
 import sys
 import yapf.yapflib.yapf_api as formatter
 
 from textwrap import indent
 
-SOURCE_TREE = os.path.join(os.getcwd(), 'trio/_core')
+SOURCE_ROOT = Path.cwd()
+assert (SOURCE_ROOT / "LICENSE").exists()
+
+CORE = SOURCE_ROOT / 'trio/_core'
 TO_WRAP = [
-    (os.path.join(SOURCE_TREE, "_run.py"), "runner"),
-    (os.path.join(SOURCE_TREE, "_io_windows.py"), "runner.io_manager"),
-    (os.path.join(SOURCE_TREE, "_io_epoll.py"), "runner.io_manager"),
-    (os.path.join(SOURCE_TREE, "_io_kqueue.py"), "runner.io_manager"),
+    (CORE / "_run.py", "runner"),
+    (CORE / "_io_windows.py", "runner.io_manager"),
+    (CORE / "_io_epoll.py", "runner.io_manager"),
+    (CORE / "_io_kqueue.py", "runner.io_manager"),
 ]
 
-YAPF_STYLE = os.path.join(os.getcwd(), '.style.yapf')
+YAPF_STYLE = SOURCE_ROOT / '.style.yapf'
 PREFIX = '_generated'
 
 HEADER = """# ***********************************************************
@@ -96,11 +100,11 @@ def create_passthrough_args(funcdef):
 
 
 def format_source(source_str):
-    new_source, _ = formatter.FormatCode(source_str, style_config=YAPF_STYLE)
+    new_source, _ = formatter.FormatCode(source_str, style_config=str(YAPF_STYLE))
     return new_source
 
 
-def gen_public_wrappers_source(source_path: str, lookup_path: str) -> str:
+def gen_public_wrappers_source(source_path: Path, lookup_path: str) -> str:
     """Scan the given .py file for @_public decorators, and generate wrapper
     functions.
 
