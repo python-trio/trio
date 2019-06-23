@@ -10,7 +10,8 @@ import signal
 import attr
 
 from .. import _core
-from . import _public
+from ._run import _public
+
 from ._wakeup_socketpair import WakeupSocketpair
 from .._util import is_main_thread
 
@@ -393,8 +394,8 @@ class WindowsIOManager:
             else:
                 raise_winerror(code)
 
-    @_public
     @contextmanager
+    @_public
     def monitor_completion_key(self):
         key = next(self._completion_key_counter)
         queue = _core.UnboundedQueue()

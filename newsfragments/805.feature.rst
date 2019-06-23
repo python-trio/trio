@@ -1,0 +1,4 @@
+We no longer use runtime code generation to dispatch core functions
+like `current_time`. Static analysis tools like mypy and pylint should
+now be able to recognize and analyze all of Trio's top-level functions
+(though some class attributes are still dynamic... we're working on it).

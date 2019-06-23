@@ -21,7 +21,6 @@ from async_generator import isasyncgen
 from sortedcontainers import SortedDict
 from outcome import Error, Value, capture
 
-from . import _public
 from ._entry_queue import EntryQueue, TrioToken
 from ._exceptions import (TrioInternalError, RunFinishedError, Cancelled)
 from ._ki import (
@@ -39,26 +38,14 @@ from .. import _core
 from .._deprecate import deprecated
 from .._util import Final, NoPublicConstructor
 
-# At the bottom of this file there's also some "clever" code that generates
-# wrapper functions for runner and io manager methods, and adds them to
-# __all__. These are all re-exported as part of the 'trio' or 'trio.hazmat'
-# namespaces.
-__all__ = [
-    "Task", "run", "open_nursery", "open_cancel_scope", "CancelScope",
-    "checkpoint", "current_task", "current_effective_deadline",
-    "checkpoint_if_cancelled", "TASK_STATUS_IGNORED", "Nursery"
-]
+_NO_SEND = object()
 
-GLOBAL_RUN_CONTEXT = threading.local()
 
-if os.name == "nt":
-    from ._io_windows import WindowsIOManager as TheIOManager
-elif hasattr(select, "epoll"):
-    from ._io_epoll import EpollIOManager as TheIOManager
-elif hasattr(select, "kqueue"):
-    from ._io_kqueue import KqueueIOManager as TheIOManager
-else:  # pragma: no cover
-    raise NotImplementedError("unsupported platform")
+# Decorator to mark methods public. This does nothing by itself, but
+# trio/_tools/gen_exports.py looks for it.
+def _public(fn):
+    return fn
+
 
 # When running under Hypothesis, we want examples to be reproducible and
 # shrinkable.  pytest-trio's Hypothesis integration monkeypatches this
@@ -1091,6 +1078,8 @@ class Task:
 # The central Runner object
 ################################################################
 
+GLOBAL_RUN_CONTEXT = threading.local()
+
 
 @attr.s(frozen=True)
 class _RunStatistics:
@@ -1127,16 +1116,12 @@ class Runner:
     entry_queue = attr.ib(factory=EntryQueue)
     trio_token = attr.ib(default=None)
 
-    _NO_SEND = object()
-
     def close(self):
         self.io_manager.close()
         self.entry_queue.close()
         if self.instruments:
             self.instrument("after_run")
 
-    # Methods marked with @_public get converted into functions exported by
-    # trio.hazmat:
     @_public
     def current_statistics(self):
         """Returns an object containing run-loop-level debugging information.
@@ -1221,12 +1206,12 @@ class Runner:
 
         Args:
           task (trio.hazmat.Task): the task to be rescheduled. Must be blocked
-            in a call to :func:`wait_task_rescheduled`.
+              in a call to :func:`wait_task_rescheduled`.
           next_send (outcome.Outcome): the value (or error) to return (or
-            raise) from :func:`wait_task_rescheduled`.
+              raise) from :func:`wait_task_rescheduled`.
 
         """
-        if next_send is self._NO_SEND:
+        if next_send is _NO_SEND:
             next_send = Value(None)
 
         assert task._runner is self
@@ -1467,7 +1452,6 @@ class Runner:
           Task: the newly spawned task
 
         """
-
         return self.spawn_impl(
             async_fn, args, self.system_nursery, name, system_task=True
         )
@@ -2070,44 +2054,16 @@ async def checkpoint_if_cancelled():
     task._cancel_points += 1
 
 
-_WRAPPER_TEMPLATE = """
-def wrapper(*args, **kwargs):
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
-    try:
-        meth = GLOBAL_RUN_CONTEXT.{}.{}
-    except AttributeError:
-        raise RuntimeError("must be called from async context") from None
-    return meth(*args, **kwargs)
-"""
+if os.name == "nt":
+    from ._io_windows import WindowsIOManager as TheIOManager
+    from ._generated_io_windows import *
+elif hasattr(select, "epoll"):
+    from ._io_epoll import EpollIOManager as TheIOManager
+    from ._generated_io_epoll import *
+elif hasattr(select, "kqueue"):
+    from ._io_kqueue import KqueueIOManager as TheIOManager
+    from ._generated_io_kqueue import *
+else:  # pragma: no cover
+    raise NotImplementedError("unsupported platform")
 
-
-def _generate_method_wrappers(cls, path_to_instance):
-    for methname, fn in cls.__dict__.items():
-        if callable(fn) and getattr(fn, "_public", False):
-            # Create a wrapper function that looks up this method in the
-            # current thread-local context version of this object, and calls
-            # it. exec() is a bit ugly but the resulting code is faster and
-            # simpler than doing some loop over getattr.
-            ns = {
-                "GLOBAL_RUN_CONTEXT":
-                    GLOBAL_RUN_CONTEXT,
-                "LOCALS_KEY_KI_PROTECTION_ENABLED":
-                    LOCALS_KEY_KI_PROTECTION_ENABLED
-            }
-            exec(_WRAPPER_TEMPLATE.format(path_to_instance, methname), ns)
-            wrapper = ns["wrapper"]
-            # 'fn' is the *unbound* version of the method, but our exported
-            # function has the same API as the *bound* version of the
-            # method. So create a dummy bound method object:
-            from types import MethodType
-            bound_fn = MethodType(fn, object())
-            # Then set exported function's metadata to match it:
-            from functools import update_wrapper
-            update_wrapper(wrapper, bound_fn)
-            # And finally export it:
-            globals()[methname] = wrapper
-            __all__.append(methname)
-
-
-_generate_method_wrappers(Runner, "runner")
-_generate_method_wrappers(TheIOManager, "runner.io_manager")
+from ._generated_run import *

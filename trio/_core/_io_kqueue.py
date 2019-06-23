@@ -5,7 +5,7 @@ from contextlib import contextmanager
 import attr
 
 from .. import _core
-from . import _public
+from ._run import _public
 
 
 @attr.s(slots=True, cmp=False, frozen=True)
@@ -77,8 +77,8 @@ class KqueueIOManager:
     def current_kqueue(self):
         return self._kqueue
 
-    @_public
     @contextmanager
+    @_public
     def monitor_kevent(self, ident, filter):
         key = (ident, filter)
         if key in self._registered:

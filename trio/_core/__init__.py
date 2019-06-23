@@ -4,16 +4,6 @@ and deal with private internal data structures. Things in this namespace
 are publicly available in either trio, trio.hazmat, or trio.testing.
 """
 
-
-# Needs to be defined early so it can be imported:
-def _public(fn):
-    # Used to mark methods on _Runner and on IOManager implementations that
-    # should be wrapped as global context-sensitive functions (see the bottom
-    # of _run.py for the wrapper implementation).
-    fn._public = True
-    return fn
-
-
 from ._exceptions import (
     TrioInternalError, RunFinishedError, WouldBlock, Cancelled,
     BusyResourceError, ClosedResourceError, BrokenResourceError, EndOfChannel
@@ -25,8 +15,15 @@ from ._ki import (
     enable_ki_protection, disable_ki_protection, currently_ki_protected
 )
 
-# TODO:  make the _run namespace a lot less magical
-from ._run import *
+# Imports that always exist
+from ._run import (
+    Task, CancelScope, run, open_nursery, open_cancel_scope, checkpoint,
+    current_task, current_effective_deadline, checkpoint_if_cancelled,
+    TASK_STATUS_IGNORED, current_statistics, current_trio_token, reschedule,
+    remove_instrument, add_instrument, current_clock, current_root_task,
+    spawn_system_task, current_time, wait_all_tasks_blocked, wait_readable,
+    wait_writable, notify_closing, Nursery
+)
 
 # Has to come after _run to resolve a circular import
 from ._traps import (
@@ -42,3 +39,18 @@ from ._parking_lot import ParkingLot
 from ._unbounded_queue import UnboundedQueue
 
 from ._local import RunVar
+
+# Kqueue imports
+try:
+    from ._run import (current_kqueue, monitor_kevent, wait_kevent)
+except ImportError:
+    pass
+
+# Windows imports
+try:
+    from ._run import (
+        monitor_completion_key, current_iocp, register_with_iocp,
+        wait_overlapped, write_overlapped, readinto_overlapped
+    )
+except ImportError:
+    pass

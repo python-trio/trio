@@ -4,6 +4,10 @@ set -ex
 
 EXIT_STATUS=0
 
+# Test if the generated code is still up to date
+python ./trio/_tools/gen_exports.py --test \
+    || EXIT_STATUS=$?
+
 # Autoformatter *first*, to avoid double-reporting errors
 # (we'd like to run further autoformatters but *after* merging;
 # see https://forum.bors.tech/t/pre-test-and-pre-merge-hooks/322)
