@@ -222,8 +222,10 @@ class PyOpenSSLEchoStream:
             await self.sleeper("send_all")
             print("  <-- transport_stream.send_all finished")
 
-    async def receive_some(self, nbytes):
+    async def receive_some(self, nbytes=None):
         print("  --> transport_stream.receive_some")
+        if nbytes is None:
+            nbytes = 65536  # arbitrary
         with self._receive_some_conflict_detector:
             try:
                 await _core.checkpoint()
@@ -1232,16 +1234,12 @@ async def test_SSLListener():
 
     ################
 
-    # Test https_compatible and max_refill_bytes
-    _, ssl_listener, ssl_client = await setup(
-        https_compatible=True,
-        max_refill_bytes=100,
-    )
+    # Test https_compatible
+    _, ssl_listener, ssl_client = await setup(https_compatible=True,)
 
     ssl_server = await ssl_listener.accept()
 
     assert ssl_server._https_compatible
-    assert ssl_server._max_refill_bytes == 100
 
     await aclose_forcefully(ssl_listener)
     await aclose_forcefully(ssl_client)

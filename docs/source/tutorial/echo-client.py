@@ -8,9 +8,6 @@ import trio
 # - can't be in use by some other program on your computer
 # - must match what we set in our echo server
 PORT = 12345
-# How much memory to spend (at most) on each call to recv. Pretty arbitrary,
-# but shouldn't be too big or too small.
-BUFSIZE = 16384
 
 async def sender(client_stream):
     print("sender: started!")
@@ -22,12 +19,10 @@ async def sender(client_stream):
 
 async def receiver(client_stream):
     print("receiver: started!")
-    while True:
-        data = await client_stream.receive_some(BUFSIZE)
+    async for data in client_stream:
         print("receiver: got data {!r}".format(data))
-        if not data:
-            print("receiver: connection closed")
-            sys.exit()
+    print("receiver: connection closed")
+    sys.exit()
 
 async def parent():
     print("parent: connecting to 127.0.0.1:{}".format(PORT))

@@ -378,26 +378,26 @@ class ReceiveStream(AsyncResource):
     If you want to receive Python objects rather than raw bytes, see
     :class:`ReceiveChannel`.
 
+    `ReceiveStream` objects can be used in ``async for`` loops. Each iteration
+    will produce an arbitrary size
+
     """
     __slots__ = ()
 
     @abstractmethod
-    async def receive_some(self, max_bytes):
+    async def receive_some(self, max_bytes=None):
         """Wait until there is data available on this stream, and then return
-        at most ``max_bytes`` of it.
+        some of it.
 
         A return value of ``b""`` (an empty bytestring) indicates that the
         stream has reached end-of-file. Implementations should be careful that
         they return ``b""`` if, and only if, the stream has reached
         end-of-file!
 
-        This method will return as soon as any data is available, so it may
-        return fewer than ``max_bytes`` of data. But it will never return
-        more.
-
         Args:
           max_bytes (int): The maximum number of bytes to return. Must be
-              greater than zero.
+              greater than zero. Optional; if omitted, then the stream object
+              is free to pick a reasonable default.
 
         Returns:
           bytes or bytearray: The data received.
@@ -412,6 +412,15 @@ class ReceiveStream(AsyncResource):
               :meth:`receive_some` is running.
 
         """
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        data = await self.receive_some()
+        if not data:
+            raise StopAsyncIteration
+        return data
 
 
 class Stream(SendStream, ReceiveStream):

@@ -603,8 +603,8 @@ async def test_MemoryReceiveStream():
     mrs.put_data(b"abc")
     assert await do_receive_some(1) == b"a"
     assert await do_receive_some(10) == b"bc"
-    with pytest.raises(TypeError):
-        await do_receive_some(None)
+    mrs.put_data(b"abc")
+    assert await do_receive_some(None) == b"abc"
 
     with pytest.raises(_core.BusyResourceError):
         async with _core.open_nursery() as nursery:

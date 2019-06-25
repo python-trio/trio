@@ -120,11 +120,8 @@ async def test_pipes():
 
         async def check_output(stream, expected):
             seen = bytearray()
-            while True:
-                chunk = await stream.receive_some(4096)
-                if not chunk:
-                    break
-                seen.extend(chunk)
+            async for chunk in stream:
+                seen += chunk
             assert seen == expected
 
         async with _core.open_nursery() as nursery:

@@ -7,6 +7,10 @@ from ._util import ConflictDetector
 
 import trio
 
+# XX TODO: is this a good number? who knows... it does match the default Linux
+# pipe capacity though.
+DEFAULT_RECEIVE_SIZE = 65536
+
 
 class _FdHolder:
     # This class holds onto a raw file descriptor, in non-blocking mode, and
@@ -126,13 +130,15 @@ class PipeReceiveStream(ReceiveStream):
             "another task is using this pipe"
         )
 
-    async def receive_some(self, max_bytes: int) -> bytes:
+    async def receive_some(self, max_bytes=None) -> bytes:
         with self._conflict_detector:
-            if not isinstance(max_bytes, int):
-                raise TypeError("max_bytes must be integer >= 1")
-
-            if max_bytes < 1:
-                raise ValueError("max_bytes must be integer >= 1")
+            if max_bytes is None:
+                max_bytes = DEFAULT_RECEIVE_SIZE
+            else:
+                if not isinstance(max_bytes, int):
+                    raise TypeError("max_bytes must be integer >= 1")
+                if max_bytes < 1:
+                    raise ValueError("max_bytes must be integer >= 1")
 
             await trio.hazmat.checkpoint()
             while True:

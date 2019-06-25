@@ -478,10 +478,7 @@ async def run_process(
 
         async def read_output(stream, chunks):
             async with stream:
-                while True:
-                    chunk = await stream.receive_some(32768)
-                    if not chunk:
-                        break
+                async for chunk in stream:
                     chunks.append(chunk)
 
         async with trio.open_nursery() as nursery:

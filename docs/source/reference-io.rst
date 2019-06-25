@@ -98,7 +98,7 @@ Abstract base classes
    * - :class:`ReceiveStream`
      - :class:`AsyncResource`
      - :meth:`~ReceiveStream.receive_some`
-     -
+     - ``__aiter__``, ``__anext__``
      - :class:`~trio.testing.MemoryReceiveStream`
    * - :class:`Stream`
      - :class:`SendStream`, :class:`ReceiveStream`

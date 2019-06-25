@@ -1,0 +1,8 @@
+If you have a `~trio.abc.ReceiveStream` object, you can now use
+``async for data in stream: ...`` instead of calling
+`~trio.abc.ReceiveStream.receive_some` repeatedly. And the best part
+is, it automatically checks for EOF for you, so you don't have to.
+Also, you no longer have to choose a magic buffer size value before
+calling `~trio.abc.ReceiveStream.receive_some`; you can now call
+``await stream.receive_some()`` and the stream will automatically pick
+a reasonable value for you.
