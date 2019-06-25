@@ -413,6 +413,7 @@ class ReceiveStream(AsyncResource):
 
         """
 
+    @aiter_compat
     def __aiter__(self):
         return self
 

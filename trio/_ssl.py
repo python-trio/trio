@@ -307,7 +307,7 @@ class SSLStream(Stream):
         server_hostname=None,
         server_side=False,
         https_compatible=False,
-        max_refill_bytes="unused and deprecated",
+        max_refill_bytes="unused and deprecated"
     ):
         self.transport_stream = transport_stream
         self._state = _State.OK
@@ -850,7 +850,7 @@ class SSLListener(Listener[SSLStream]):
         ssl_context,
         *,
         https_compatible=False,
-        max_refill_bytes="unused and deprecated",
+        max_refill_bytes="unused and deprecated"
     ):
         if max_refill_bytes != "unused and deprecated":
             warn_deprecated(
