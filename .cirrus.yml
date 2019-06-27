@@ -1,0 +1,4 @@
+task:
+  freebsd_instance:
+    image: freebsd-12-0-release-amd64
+  script: bash $CIRRUS_WORKING_DIR/ci.sh

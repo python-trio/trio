@@ -89,6 +89,12 @@ if [ "$PYPY_NIGHTLY_BRANCH" != "" ]; then
     source testenv/bin/activate
 fi
 
+if [ "$CIRRUS_CI" != "" ]; then
+  ln -s /usr/local/bin/python3.6 /usr/local/bin/python
+  pkg install py36-pip
+  ln -s /usr/local/bin/pip-3.6 /usr/local/bin/pip
+fi
+
 ################################################################
 # We have a Python environment!
 ################################################################
