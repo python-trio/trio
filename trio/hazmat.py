@@ -3,6 +3,7 @@ This namespace represents low-level functionality not intended for daily use,
 but useful for extending Trio's functionality.
 """
 
+import os
 import sys
 
 # This is the union of a subset of trio/_core/ and some things from trio/*.py.
@@ -21,6 +22,13 @@ from ._core import (
     current_clock, current_root_task, checkpoint_if_cancelled,
     spawn_system_task, wait_readable, wait_writable, notify_closing
 )
+
+# Unix-specific symbols
+if os.name == "posix":
+    from ._unix_pipes import (
+        fd_open_receive_stream,
+        fd_open_send_stream,
+    )
 
 # Kqueue-specific symbols
 try:

@@ -33,9 +33,11 @@ class _FdHolder:
         if not isinstance(fd, int):
             raise TypeError("file descriptor must be an int")
         self.fd = fd
-        # Flip the fd to non-blocking mode
-        flags = fcntl.fcntl(self.fd, fcntl.F_GETFL)
-        fcntl.fcntl(self.fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+        # Store original state, and ensure non-blocking mode is enabled
+        self._original_flags = fcntl.fcntl(self.fd, fcntl.F_GETFL)
+        fcntl.fcntl(
+            self.fd, fcntl.F_SETFL, self._original_flags | os.O_NONBLOCK
+        )
 
     @property
     def closed(self):
@@ -53,6 +55,7 @@ class _FdHolder:
             return
         fd = self.fd
         self.fd = -1
+        fcntl.fcntl(fd, fcntl.F_SETFL, self._original_flags)
         os.close(fd)
 
     def __del__(self):
@@ -157,3 +160,25 @@ class PipeReceiveStream(ReceiveStream):
 
     def fileno(self):
         return self._fd_holder.fd
+
+
+def fd_open_send_stream(fd: int):
+    """Returns a send stream over an os.pipe.
+
+    The pipe must support non-blocking mode.  The stream takes ownership
+    of the fd.
+
+    :rtype: SendStream
+    """
+    return PipeSendStream(fd)
+
+
+def fd_open_receive_stream(fd: int):
+    """Returns a receive stream over an os.pipe.
+
+    The pipe must support non-blocking mode.  The stream takes ownership
+    of the fd.
+
+    :rtype: ReceiveStream
+    """
+    return PipeReceiveStream(fd)
