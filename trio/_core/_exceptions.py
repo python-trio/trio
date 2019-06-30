@@ -18,7 +18,7 @@ class TrioInternalError(Exception):
 
 
 class RunFinishedError(RuntimeError):
-    """Raised by ``run_in_trio_thread`` and similar functions if the
+    """Raised by ``BlockingTrioPortal.run`` and similar functions if the
     corresponding call to :func:`trio.run` has already finished.
 
     """
