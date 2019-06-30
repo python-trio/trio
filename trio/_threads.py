@@ -81,7 +81,8 @@ class BlockingTrioPortal:
             pass
         else:
             raise RuntimeError(
-                "this is a blocking function; call it from a thread"
+                "BlockingTrioPortal run() or run_async() called from a Trio "
+                " task rather than synchronous thread"
             )
         q = stdlib_queue.Queue()
         self._trio_token.run_sync_soon(cb, q, fn, args)
