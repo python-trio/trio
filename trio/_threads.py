@@ -81,8 +81,8 @@ class BlockingTrioPortal:
             pass
         else:
             raise RuntimeError(
-                "BlockingTrioPortal run() or run_async() called from a Trio "
-                " task rather than synchronous thread"
+                "BlockingTrioPortal run() or run_async() was called from a "
+                " `trio.run` thread rather than an external, synchronous thread"
             )
         q = stdlib_queue.Queue()
         self._trio_token.run_sync_soon(cb, q, fn, args)
@@ -101,7 +101,7 @@ class BlockingTrioPortal:
           Cancelled: if the corresponding call to :func:`trio.run` completes
               while ``afn(*args)`` is running, then ``afn`` is likely to raise
               :class:`Cancelled`, and this will propagate out into
-          RuntimeError: if you try calling this from inside the Trio thread,
+          RuntimeError: if you try calling this from inside a Trio thread,
               which would otherwise cause a deadlock.
 
         """
@@ -117,7 +117,7 @@ class BlockingTrioPortal:
         Raises:
           RunFinishedError: if the corresponding call to :func:`trio.run` has
               already completed.
-          RuntimeError: if you try calling this from inside the Trio thread,
+          RuntimeError: if you try calling this from inside a Trio thread,
               which would otherwise cause a deadlock.
 
         """
