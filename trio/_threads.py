@@ -19,7 +19,7 @@ __all__ = [
 
 class BlockingTrioPortal:
     """A portal that synchronous threads can reach through to run code in the
-    Trio thread.
+    Trio thread (i.e. the OS thread which invoked :func:`trio.run`).
 
     Most Trio functions can only be called from the Trio thread, which is
     sometimes annoying. What if you really need to call a Trio function from a
