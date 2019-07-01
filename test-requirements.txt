@@ -21,7 +21,7 @@ idna==2.8
 immutables==0.9
 importlib-metadata==0.18  # via pluggy, pytest
 ipython-genutils==0.2.0   # via traitlets
-ipython==7.5.0
+ipython==7.6.0
 isort==4.3.21             # via pylint
 jedi==0.13.3
 lazy-object-proxy==1.4.1  # via astroid
