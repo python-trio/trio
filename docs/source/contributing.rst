@@ -167,6 +167,14 @@ to get feedback on, feel free to submit it as a PR. (In this case it's
 traditional to start the PR title with ``[WIP]``, for "work in
 progress".)
 
+When you are submitting your PR, you can include ``Closes #123``,
+``Fixes: #123`` or
+`some variation <https://help.github.com/en/articles/closing-issues-using-keywords>`__
+in either your commit message or the PR description, in order to
+automatically close the issue you are solving when the PR is merged.
+This is not mandatory, but it helps cleaning up and prevents dangling issues
+that have to be closed by people coming across them in the future.
+
 
 .. _pull-request-tests:
 
