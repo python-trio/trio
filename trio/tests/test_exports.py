@@ -55,6 +55,10 @@ NAMESPACES = list(public_namespaces(trio))
     sys.version_info.releaselevel == "alpha",
     reason="skip static introspection tools on Python dev/alpha releases",
 )
+@pytest.mark.filterwarnings(
+    # https://github.com/PyCQA/astroid/issues/681
+    "ignore:the imp module is deprecated.*:DeprecationWarning"
+)
 @pytest.mark.parametrize("modname", NAMESPACES)
 @pytest.mark.parametrize("tool", ["pylint", "jedi"])
 def test_static_tool_sees_all_symbols(tool, modname):
