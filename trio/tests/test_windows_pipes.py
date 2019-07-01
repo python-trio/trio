@@ -93,7 +93,7 @@ async def test_close_during_write():
             with pytest.raises(_core.ClosedResourceError) as excinfo:
                 while True:
                     await w.send_all(b"x" * 4096)
-            assert "another task" in str(excinfo)
+            assert "another task" in str(excinfo.value)
 
         nursery.start_soon(write_forever)
         await wait_all_tasks_blocked(0.1)
