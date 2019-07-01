@@ -463,10 +463,8 @@ async def test_run_in_worker_thread_fail_to_spawn(monkeypatch):
 async def test_trio_run_sync_in_thread_token():
     # Test that run_sync_in_thread automatically injects the current trio token
     # into a spawned thread
-
     def thread_fn():
-        current_thread = threading.current_thread()
-        callee_token = getattr(current_thread, 'current_trio_token')
+        callee_token = run_sync(_core.current_trio_token)
         return callee_token
 
     caller_token = _core.current_trio_token()
@@ -478,25 +476,28 @@ async def test_trio_from_thread_run_sync():
     # Test that run_sync_in_thread correctly "hands off" the trio token to
     # trio.from_thread.run_sync()
     def thread_fn():
-        start = run_sync(_core.current_time)
-        end = run_sync(_core.current_time)
-        return end - start
+        trio_time = run_sync(_core.current_time)
+        return trio_time
 
-    duration = await run_sync_in_thread(thread_fn)
-    assert duration > 0
+    trio_time = await run_sync_in_thread(thread_fn)
+    assert isinstance(trio_time, float)
 
 
 async def test_trio_from_thread_run():
     # Test that run_sync_in_thread correctly "hands off" the trio token to
     # trio.from_thread.run()
-    def thread_fn():
-        start = time.perf_counter()
-        run(sleep, 0.05)
-        end = time.perf_counter()
-        return end - start
+    record = []
 
-    duration = await run_sync_in_thread(thread_fn)
-    assert duration > 0
+    async def back_in_trio_fn():
+        _core.current_time()  # implicitly checks that we're in trio
+        record.append("back in trio")
+
+    def thread_fn():
+        record.append("in thread")
+        run(back_in_trio_fn)
+
+    await run_sync_in_thread(thread_fn)
+    assert record == ["in thread", "back in trio"]
 
 
 async def test_trio_from_thread_token():
@@ -523,23 +524,9 @@ async def test_trio_from_thread_token_kwarg():
     assert callee_token == caller_token
 
 
-async def test_trio_from_thread_both_run():
-    # Test that trio.from_thread.run() and from_thread.run_sync() can run in
-    # the same thread together
-
-    def thread_fn():
-        start = run_sync(_core.current_time)
-        run(sleep, 0.05)
-        end = run_sync(_core.current_time)
-        return end - start
-
-    duration = await run_sync_in_thread(thread_fn)
-    assert duration > 0
-
-
-async def test_trio_from_thread_raw_call():
+async def test_from_thread_no_token():
     # Test that a "raw call" to trio.from_thread.run() fails because no token
     # has been provided
 
-    with pytest.raises(AttributeError):
+    with pytest.raises(RuntimeError):
         run_sync(_core.current_time)

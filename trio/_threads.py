@@ -16,6 +16,9 @@ __all__ = [
     "BlockingTrioPortal",
 ]
 
+# Global due to Threading API, thread local storage for trio token
+TOKEN_LOCAL = threading.local()
+
 
 class BlockingTrioPortal:
     """A portal that synchronous threads can reach through to run code in the
@@ -375,7 +378,10 @@ async def run_sync_in_thread(sync_fn, *args, cancellable=False, limiter=None):
 
     # This is the function that runs in the worker thread to do the actual
     # work and then schedule the call to report_back_in_trio_thread_fn
-    def worker_thread_fn():
+    # Since this is spawned in a new thread, the trio token needs to be passed
+    # explicitly to it so it can inject it into thread local storage
+    def worker_thread_fn(trio_token):
+        TOKEN_LOCAL.token = trio_token
         result = outcome.capture(sync_fn, *args)
         try:
             token.run_sync_soon(report_back_in_trio_thread_fn, result)
@@ -383,15 +389,20 @@ async def run_sync_in_thread(sync_fn, *args, cancellable=False, limiter=None):
             # The entire run finished, so our particular task is certainly
             # long gone -- it must have cancelled.
             pass
+        finally:
+            del TOKEN_LOCAL.token
 
     await limiter.acquire_on_behalf_of(placeholder)
     try:
         # daemon=True because it might get left behind if we cancel, and in
         # this case shouldn't block process exit.
+        current_trio_token = trio.hazmat.current_trio_token()
         thread = threading.Thread(
-            target=worker_thread_fn, name=name, daemon=True
+            target=worker_thread_fn,
+            args=(current_trio_token,),
+            name=name,
+            daemon=True
         )
-        setattr(thread, 'current_trio_token', trio.hazmat.current_trio_token())
         thread.start()
     except:
         limiter.release_on_behalf_of(placeholder)
@@ -412,11 +423,15 @@ def _run_fn_as_system_task(cb, fn, *args, trio_token=None):
 
     Since this internally uses TrioToken.run_sync_soon, all warnings about
     raised exceptions canceling all tasks should be noted.
-
     """
+
     if not trio_token:
-        current_thread = threading.current_thread()
-        trio_token = getattr(current_thread, 'current_trio_token')
+        try:
+            trio_token = TOKEN_LOCAL.token
+        except AttributeError:
+            raise RuntimeError(
+                "this thread wasn't created by Trio, pass kwarg trio_token=..."
+            )
 
     try:
         trio.hazmat.current_task()
