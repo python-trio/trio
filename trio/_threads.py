@@ -21,109 +21,16 @@ TOKEN_LOCAL = threading.local()
 
 
 class BlockingTrioPortal:
-    """A portal that synchronous threads can reach through to run code in the
-    Trio thread.
-
-    Most Trio functions can only be called from the Trio thread, which is
-    sometimes annoying. What if you really need to call a Trio function from a
-    worker thread? That's where :class:`BlockingTrioPortal` comes in: it's the
-    rare Trio object whose methods can – in fact, must! – be called from
-    another thread, and it allows you to call all those other functions.
-
-    There is one complication: it's possible for a single Python program to
-    contain multiple calls to :func:`trio.run`, either in sequence – like in a
-    test suite that calls :func:`trio.run` for each test – or simultaneously
-    in different threads. So how do you control which :func:`trio.run` your
-    portal opens into?
-
-    The answer is that each :class:`BlockingTrioPortal` object is associated
-    with one *specific* call to :func:`trio.run`.
-
-    The simplest way to set this up is to instantiate the class with no
-    arguments inside Trio; this automatically binds it to the context where
-    you instantiate it::
-
-       async def some_function():
-           portal = trio.BlockingTrioPortal()
-           await trio.run_sync_in_thread(sync_fn, portal)
-
-    Alternatively, you can pass an explicit :class:`trio.hazmat.TrioToken` to
-    specify the :func:`trio.run` that you want your portal to connect to.
-
-    """
-
     def __init__(self, trio_token=None):
         if trio_token is None:
             trio_token = trio.hazmat.current_trio_token()
         self._trio_token = trio_token
 
-    # This is the part that runs in the Trio thread
-    def _run_cb(self, q, afn, args):
-        @disable_ki_protection
-        async def unprotected_afn():
-            return await afn(*args)
-
-        async def await_in_trio_thread_task():
-            q.put_nowait(await outcome.acapture(unprotected_afn))
-
-        trio.hazmat.spawn_system_task(await_in_trio_thread_task, name=afn)
-
-    # This is the part that runs in the Trio thread
-    def _run_sync_cb(self, q, fn, args):
-        @disable_ki_protection
-        def unprotected_fn():
-            return fn(*args)
-
-        res = outcome.capture(unprotected_fn)
-        q.put_nowait(res)
-
-    def _do_it(self, cb, fn, *args):
-        try:
-            trio.hazmat.current_task()
-        except RuntimeError:
-            pass
-        else:
-            raise RuntimeError(
-                "this is a blocking function; call it from a thread"
-            )
-        q = stdlib_queue.Queue()
-        self._trio_token.run_sync_soon(cb, q, fn, args)
-        return q.get().unwrap()
-
     def run(self, afn, *args):
-        """Run the given async function in the Trio thread, blocking until it
-        is complete.
-
-        Returns or raises whatever the given function returns or raises. It
-        can also raise exceptions of its own:
-
-        Raises:
-          RunFinishedError: if the corresponding call to :func:`trio.run` has
-              already completed.
-          Cancelled: if the corresponding call to :func:`trio.run` completes
-              while ``afn(*args)`` is running, then ``afn`` is likely to raise
-              :class:`Cancelled`, and this will propagate out into
-          RuntimeError: if you try calling this from inside the Trio thread,
-              which would otherwise cause a deadlock.
-
-        """
-        return self._do_it(self._run_cb, afn, *args)
+        return run(afn, *args, trio_token=self._trio_token)
 
     def run_sync(self, fn, *args):
-        """Run the given synchronous function in the Trio thread, blocking
-        until it is complete.
-
-        Returns or raises whatever the given function returns or raises. It
-        can also exceptions of its own:
-
-        Raises:
-          RunFinishedError: if the corresponding call to :func:`trio.run` has
-              already completed.
-          RuntimeError: if you try calling this from inside the Trio thread,
-              which would otherwise cause a deadlock.
-
-        """
-        return self._do_it(self._run_sync_cb, fn, *args)
+        return run_sync(fn, *args, trio_token=self._trio_token)
 
 
 ################################################################
@@ -469,13 +376,13 @@ def run(afn, *args, trio_token=None):
             This happens when it was not spawned from trio.run_sync_in_thread.
 
     **Locating a Trio Token**: There are two ways to specify which
-    :func: ``trio.run()`` loop to reenter:: 
+    `trio.run()` loop to reenter::
 
-        - Spawn this thread from :func: ``run_sync_in_thread``. This will
+        - Spawn this thread from `run_sync_in_thread`. This will
             "inject" the current Trio Token into thread local storage and allow
-            this function to re-enter the same :func: ``trio.run()`` loop.
+            this function to re-enter the same `trio.run` loop.
         - Pass a keyword argument, ``trio_token`` specifiying a specific
-            :func: ``trio.run()`` loop to re-enter. This is the "legacy" way of
+            `trio.run` loop to re-enter. This is the "legacy" way of
             re-entering a trio thread and is similar to the old
             `BlockingTrioPortal`.
     """
@@ -504,9 +411,9 @@ def run_sync(fn, *args, trio_token=None):
     can also raise exceptions of its own:
 
     Raises:
-        RunFinishedError: if the corresponding call to :func:`trio.run` has
+        RunFinishedError: if the corresponding call to `trio.run` has
             already completed.
-        Cancelled: if the corresponding call to :func:`trio.run` completes
+        Cancelled: if the corresponding call to `trio.run` completes
             while ``afn(*args)`` is running, then ``afn`` is likely to raise
             :class:`Cancelled`, and this will propagate out into
         RuntimeError: if you try calling this from inside the Trio thread,
@@ -515,13 +422,13 @@ def run_sync(fn, *args, trio_token=None):
             This happens when it was not spawned from trio.run_sync_in_thread.
 
     **Locating a Trio Token**: There are two ways to specify which
-    :func: ``trio.run()`` loop to reenter::
+    `trio.run` loop to reenter::
 
-        - Spawn this thread from :func: ``run_sync_in_thread``. This will
+        - Spawn this thread from `run_sync_in_thread`. This will
             "inject" the current Trio Token into thread local storage and allow
-            this function to re-enter the same :func: ``trio.run()`` loop.
+            this function to re-enter the same `trio.run` loop.
         - Pass a keyword argument, ``trio_token`` specifiying a specific
-            :func: ``trio.run()`` loop to re-enter. This is the "legacy" way of
+            `trio.run()` loop to re-enter. This is the "legacy" way of
             re-entering a trio thread and is similar to the old
             `BlockingTrioPortal`.
     """

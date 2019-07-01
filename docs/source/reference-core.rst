@@ -1465,7 +1465,7 @@ for working with real, operating-system level,
 need to push some blocking I/O into a thread, there's
 :func:`run_sync_in_thread`. And if you're in a thread and need
 to communicate back with Trio, you can use a
-:class:`BlockingTrioPortal`.
+`trio.from_thread`.
 
 
 .. _worker-thread-limiting:
@@ -1603,14 +1603,15 @@ Putting blocking I/O into worker threads
 Getting back into the Trio thread from another thread
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: BlockingTrioPortal
-   :members:
+.. autofunction:: from_thread.run
+
+.. autofunction:: from_thread.run_sync
 
 This will probably be clearer with an example. Here we demonstrate how
 to spawn a child thread, and then use a :ref:`memory channel
 <channels>` to send messages between the thread and a Trio task:
 
-.. literalinclude:: reference-core/blocking-trio-portal-example.py
+.. literalinclude:: reference-core/from-thread-example.py
 
 
 Exceptions and warnings
