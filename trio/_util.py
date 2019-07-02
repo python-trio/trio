@@ -1,5 +1,6 @@
 # Little utilities we use internally
 
+from abc import ABCMeta
 import os
 import signal
 import sys
@@ -16,15 +17,6 @@ import async_generator
 # low-level utility code, and one for higher level helpers?
 
 import trio
-
-__all__ = [
-    "signal_raise",
-    "aiter_compat",
-    "ConflictDetector",
-    "fixup_module_metadata",
-    "fspath",
-    "generic_function",
-]
 
 # Equivalent to the C function raise(), which Python doesn't wrap
 if os.name == "nt":
@@ -265,7 +257,21 @@ class generic_function:
         return self
 
 
-class Final(type):
+# If a new class inherits from any ABC, then the new class's metaclass has to
+# inherit from ABCMeta. If a new class inherits from typing.Generic, and
+# you're using Python 3.6 or earlier, then the new class's metaclass has to
+# inherit from typing.GenericMeta. Some of the classes that want to use Final
+# or NoPublicConstructor inherit from ABCs and generics, so Final has to
+# inherit from these metaclasses. Fortunately, GenericMeta inherits from
+# ABCMeta, so inheriting from GenericMeta alone is sufficient (when it
+# exists at all).
+if hasattr(t, "GenericMeta"):
+    BaseMeta = t.GenericMeta
+else:
+    BaseMeta = ABCMeta
+
+
+class Final(BaseMeta):
     """Metaclass that enforces a class to be final (i.e., subclass not allowed).
 
     If a class uses this metaclass like this::
@@ -286,7 +292,7 @@ class Final(type):
                 raise TypeError(
                     "`%s` does not support subclassing" % base.__name__
                 )
-        return type.__new__(cls, name, bases, cls_namespace)
+        return super().__new__(cls, name, bases, cls_namespace)
 
 
 class NoPublicConstructor(Final):
