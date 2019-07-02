@@ -171,7 +171,7 @@ When you are submitting your PR, you can include ``Closes #123``,
 ``Fixes: #123`` or
 `some variation <https://help.github.com/en/articles/closing-issues-using-keywords>`__
 in either your commit message or the PR description, in order to
-automatically close the references issue when the PR is merged.
+automatically close the referenced issue when the PR is merged.
 This keeps us closer to the desired state where each open issue reflects some
 work that still needs to be done.
 
