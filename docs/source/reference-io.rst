@@ -403,6 +403,10 @@ Socket objects
          left in an unknown state – possibly open, and possibly
          closed. The only reasonable thing to do is to close it.
 
+   .. method:: is_readable
+
+      Check whether the socket is readable or not.
+
    .. method:: sendfile
 
       `Not implemented yet! <https://github.com/python-trio/trio/issues/45>`__

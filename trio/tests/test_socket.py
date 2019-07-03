@@ -404,6 +404,23 @@ async def test_SocketType_simple_server(address, socket_type):
             assert await client.recv(1) == b"x"
 
 
+async def test_SocketTupe_is_readable():
+    listener = tsocket.socket(tsocket.AF_INET)
+    client = tsocket.socket(tsocket.AF_INET)
+    with listener, client:
+        await listener.bind(('127.0.0.1', 0))
+        listener.listen(20)
+        addr = listener.getsockname()[:2]
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(client.connect, addr)
+            server, client_addr = await listener.accept()
+        with server:
+            assert not client.is_readable()
+            await server.send(b"x")
+            assert client.is_readable()
+            assert await client.recv(1) == b"x"
+
+
 # On some macOS systems, getaddrinfo likes to return V4-mapped addresses even
 # when we *don't* pass AI_V4MAPPED.
 # https://github.com/python-trio/trio/issues/580

@@ -1,0 +1,3 @@
+We added a new ``is_readable`` method to the ``trio.socket.SocketType``
+object that allows you to check whether a socket is ready to be read
+or not.
