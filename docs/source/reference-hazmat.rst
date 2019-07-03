@@ -339,11 +339,11 @@ These transitions are accomplished using two function decorators:
    function).
 
    An example of where you'd use this is in implementing something
-   like :meth:`trio.from_thread.run`, which uses
+   like :func:`trio.from_thread.run`, which uses
    :meth:`TrioToken.run_sync_soon` to get into the Trio
    thread. :meth:`~TrioToken.run_sync_soon` callbacks are run with
    :exc:`KeyboardInterrupt` protection enabled, and
-   :meth:`~trio.from_thread.run` takes advantage of this to safely set up
+   :func:`trio.from_thread.run` takes advantage of this to safely set up
    the machinery for sending a response back to the original thread, but
    then uses :func:`disable_ki_protection` when entering the
    user-provided function.

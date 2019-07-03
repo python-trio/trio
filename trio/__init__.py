@@ -119,7 +119,7 @@ __deprecated_attributes__ = {
             _BlockingTrioPortal,
             "0.12.0",
             issue=810,
-            instead=("trio.from_thread.run(), trio.from_thread.run_sync()")
+            instead=from_thread,
         ),
 }
 
@@ -134,6 +134,7 @@ fixup_module_metadata(__name__, globals())
 fixup_module_metadata(hazmat.__name__, hazmat.__dict__)
 fixup_module_metadata(socket.__name__, socket.__dict__)
 fixup_module_metadata(abc.__name__, abc.__dict__)
+fixup_module_metadata(from_thread.__name__, from_thread.__dict__)
 fixup_module_metadata(__name__ + ".ssl", _deprecated_ssl_reexports.__dict__)
 fixup_module_metadata(
     __name__ + ".subprocess", _deprecated_subprocess_reexports.__dict__

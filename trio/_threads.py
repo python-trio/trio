@@ -369,7 +369,7 @@ def run(afn, *args, trio_token=None):
             already completed.
         Cancelled: if the corresponding call to :func:`trio.run` completes
             while ``afn(*args)`` is running, then ``afn`` is likely to raise
-            :class:`Cancelled`, and this will propagate out into
+            :exc:`trio.Cancelled`, and this will propagate out into
         RuntimeError: if you try calling this from inside the Trio thread,
             which would otherwise cause a deadlock.
         AttributeError: if run()'s thread local storage does not have a token.
@@ -415,7 +415,7 @@ def run_sync(fn, *args, trio_token=None):
             already completed.
         Cancelled: if the corresponding call to `trio.run` completes
             while ``afn(*args)`` is running, then ``afn`` is likely to raise
-            :class:`Cancelled`, and this will propagate out into
+            :exc:`trio.Cancelled`, and this will propagate out into
         RuntimeError: if you try calling this from inside the Trio thread,
             which would otherwise cause a deadlock.
         AttributeError: if run()'s thread local storage does not have a token.

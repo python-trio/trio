@@ -1464,8 +1464,8 @@ for working with real, operating-system level,
 :mod:`threading`\-module-style threads. First, if you're in Trio but
 need to push some blocking I/O into a thread, there's
 :func:`run_sync_in_thread`. And if you're in a thread and need
-to communicate back with Trio, you can use a
-`trio.from_thread`.
+to communicate back with Trio, you can use
+:func:`trio.from_thread.run` and :func:`trio.from_thread.run_sync`.
 
 
 .. _worker-thread-limiting:
@@ -1603,9 +1603,9 @@ Putting blocking I/O into worker threads
 Getting back into the Trio thread from another thread
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autofunction:: from_thread.run
+.. autofunction:: trio.from_thread.run
 
-.. autofunction:: from_thread.run_sync
+.. autofunction:: trio.from_thread.run_sync
 
 This will probably be clearer with an example. Here we demonstrate how
 to spawn a child thread, and then use a :ref:`memory channel
