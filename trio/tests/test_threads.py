@@ -515,3 +515,40 @@ async def test_from_thread_no_token():
 
     with pytest.raises(RuntimeError):
         run_sync(_core.current_time)
+
+
+def test_run_fn_as_system_task_catched_badly_typed_token():
+    with pytest.raises(RuntimeError):
+        run_sync(_core.current_time, trio_token="Not TrioTokentype")
+
+
+async def test_do_in_trio_thread_from_trio_thread():
+    # This check specifically confirms that a RuntimeError will be raised if
+    # the old BlockingTrIoPortal API calls into a trio loop while already
+    # running inside of one.
+    portal = BlockingTrioPortal()
+
+    with pytest.raises(RuntimeError):
+        portal.run_sync(lambda: None)  # pragma: no branch
+
+    async def foo():  # pragma: no cover
+        pass
+
+    with pytest.raises(RuntimeError):
+        portal.run(foo)
+
+
+async def test_BlockingTrioPortal_with_explicit_TrioToken():
+    # This tests the deprecated BlockingTrioPortal with a token passed in to
+    # confirm that both methods of making a portal are supported by
+    # trio.from_thread
+    token = _core.current_trio_token()
+
+    def worker_thread(token):
+        with pytest.raises(RuntimeError):
+            BlockingTrioPortal()
+        portal = BlockingTrioPortal(token)
+        return portal.run_sync(threading.current_thread)
+
+    t = await run_sync_in_thread(worker_thread, token)
+    assert t == threading.current_thread()

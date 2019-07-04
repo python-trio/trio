@@ -8,7 +8,7 @@ import outcome
 import trio
 
 from ._sync import CapacityLimiter
-from ._core import enable_ki_protection, disable_ki_protection, RunVar
+from ._core import enable_ki_protection, disable_ki_protection, RunVar, _entry_queue
 
 __all__ = [
     "run_sync_in_thread",
@@ -332,6 +332,9 @@ def _run_fn_as_system_task(cb, fn, *args, trio_token=None):
     raised exceptions canceling all tasks should be noted.
     """
 
+    if trio_token and not isinstance(trio_token, _entry_queue.TrioToken):
+        raise RuntimeError("Passed kwarg trio_token is not of type TrioToken")
+
     if not trio_token:
         try:
             trio_token = TOKEN_LOCAL.token
@@ -340,6 +343,10 @@ def _run_fn_as_system_task(cb, fn, *args, trio_token=None):
                 "this thread wasn't created by Trio, pass kwarg trio_token=..."
             )
 
+    # TODO: This is only necessary for compatibility with BlockingTrioPortal.
+    # once that is deprecated, this check should no longer be necessary because
+    # thread local storage (or the absence of) is sufficient to check if trio
+    # is running in a thread or not.
     try:
         trio.hazmat.current_task()
     except RuntimeError:
