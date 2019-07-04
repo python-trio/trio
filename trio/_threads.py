@@ -376,15 +376,15 @@ def run(afn, *args, trio_token=None):
             This happens when it was not spawned from trio.run_sync_in_thread.
 
     **Locating a Trio Token**: There are two ways to specify which
-    `trio.run()` loop to reenter::
+    `trio.run` loop to reenter:
 
-        - Spawn this thread from `run_sync_in_thread`. This will
+        - Spawn this thread from `trio.run_sync_in_thread`. This will
             "inject" the current Trio Token into thread local storage and allow
             this function to re-enter the same `trio.run` loop.
         - Pass a keyword argument, ``trio_token`` specifiying a specific
             `trio.run` loop to re-enter. This is the "legacy" way of
             re-entering a trio thread and is similar to the old
-            `BlockingTrioPortal`.
+            ``BlockingTrioPortal``.
     """
 
     def callback(q, afn, args):
@@ -422,15 +422,15 @@ def run_sync(fn, *args, trio_token=None):
             This happens when it was not spawned from trio.run_sync_in_thread.
 
     **Locating a Trio Token**: There are two ways to specify which
-    `trio.run` loop to reenter::
+    `trio.run` loop to reenter:
 
-        - Spawn this thread from `run_sync_in_thread`. This will
+        - Spawn this thread from `trio.run_sync_in_thread`. This will
             "inject" the current Trio Token into thread local storage and allow
             this function to re-enter the same `trio.run` loop.
         - Pass a keyword argument, ``trio_token`` specifiying a specific
-            `trio.run()` loop to re-enter. This is the "legacy" way of
+            `trio.run` loop to re-enter. This is the "legacy" way of
             re-entering a trio thread and is similar to the old
-            `BlockingTrioPortal`.
+            ``BlockingTrioPortal``.
     """
 
     def callback(q, fn, args):
