@@ -522,7 +522,7 @@ def test_run_fn_as_system_task_catched_badly_typed_token():
         run_sync(_core.current_time, trio_token="Not TrioTokentype")
 
 
-async def test_do_in_trio_thread_from_trio_thread():
+async def test_do_in_trio_thread_from_trio_thread_legacy():
     # This check specifically confirms that a RuntimeError will be raised if
     # the old BlockingTrIoPortal API calls into a trio loop while already
     # running inside of one.
