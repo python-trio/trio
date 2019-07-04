@@ -60,7 +60,7 @@ class _FdHolder:
 
     async def aclose(self):
         if not self.closed:
-            trio.hazmat.notify_fd_close(self.fd)
+            trio.hazmat.notify_closing(self.fd)
             self._raw_close()
         await trio.hazmat.checkpoint()
 

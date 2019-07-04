@@ -117,14 +117,19 @@ Abstract base classes
      - :class:`~trio.SocketListener`, :class:`~trio.SSLListener`
    * - :class:`SendChannel`
      - :class:`AsyncResource`
-     - :meth:`~SendChannel.send`, :meth:`~SendChannel.send_nowait`
+     - :meth:`~SendChannel.send`
      -
-     - :func:`~trio.open_memory_channel`
+     - `~trio.MemorySendChannel`
    * - :class:`ReceiveChannel`
      - :class:`AsyncResource`
-     - :meth:`~ReceiveChannel.receive`, :meth:`~ReceiveChannel.receive_nowait`
+     - :meth:`~ReceiveChannel.receive`
      - ``__aiter__``, ``__anext__``
-     - :func:`~trio.open_memory_channel`
+     - `~trio.MemoryReceiveChannel`
+   * - `Channel`
+     - `SendChannel`, `ReceiveChannel`
+     -
+     -
+     -
 
 .. autoclass:: trio.abc.AsyncResource
    :members:
@@ -162,6 +167,10 @@ Abstract base classes
    :show-inheritance:
 
 .. autoclass:: trio.abc.ReceiveChannel
+   :members:
+   :show-inheritance:
+
+.. autoclass:: trio.abc.Channel
    :members:
    :show-inheritance:
 
@@ -662,12 +671,12 @@ for them to exit. The interface for doing so consists of two layers:
   the standard :func:`subprocess.run` with some additional features
   and safer defaults.
 
-* :class:`trio.Process` starts a process in the background and optionally
-  provides Trio streams for interacting with it (sending input,
-  receiving output and errors). Using it requires a bit more code
-  than :func:`~trio.run_process`, but exposes additional capabilities:
-  back-and-forth communication, processing output as soon as it is generated,
-  and so forth. It is modelled after the standard :class:`subprocess.Popen`.
+* `trio.open_process` starts a process in the background and returns a
+  `Process` object to let you interact with it. Using it requires a
+  bit more code than `run_process`, but exposes additional
+  capabilities: back-and-forth communication, processing output as
+  soon as it is generated, and so forth. It is modelled after the
+  standard library :class:`subprocess.Popen`.
 
 
 .. _subprocess-options:
@@ -713,12 +722,11 @@ course, these defaults can be changed where necessary.
 Interacting with a process as it runs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If you want more control than :func:`~trio.run_process` affords,
-you can spawn a subprocess by creating an instance of
-:class:`trio.Process` and then interact with it using its
-:attr:`~trio.Process.stdin`,
-:attr:`~trio.Process.stdout`, and/or
-:attr:`~trio.Process.stderr` streams.
+If you want more control than :func:`~trio.run_process` affords, you
+can use `trio.open_process` to spawn a subprocess, and then interact
+with it using the `Process` interface.
+
+.. autofunction:: trio.open_process
 
 .. autoclass:: trio.Process
 

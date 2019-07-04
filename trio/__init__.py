@@ -37,7 +37,9 @@ from ._threads import BlockingTrioPortal as _BlockingTrioPortal
 
 from ._highlevel_generic import aclose_forcefully, StapledStream
 
-from ._channel import open_memory_channel
+from ._channel import (
+    open_memory_channel, MemorySendChannel, MemoryReceiveChannel
+)
 
 from ._signals import open_signal_receiver
 
@@ -47,7 +49,7 @@ from ._file_io import open_file, wrap_file
 
 from ._path import Path
 
-from ._subprocess import Process, run_process
+from ._subprocess import Process, open_process, run_process
 
 from ._ssl import SSLStream, SSLListener, NeedHandshakeError
 
@@ -105,14 +107,40 @@ __deprecated_attributes__ = {
             run_sync_in_thread,
             "0.12.0",
             issue=810,
-            instead=run_sync_in_thread,
         ),
     "current_default_worker_thread_limiter":
         _deprecate.DeprecatedAttribute(
             current_default_thread_limiter,
             "0.12.0",
             issue=810,
-            instead=current_default_thread_limiter,
+        ),
+}
+
+_deprecate.enable_attribute_deprecations(hazmat.__name__)
+hazmat.__deprecated_attributes__ = {
+    "wait_socket_readable":
+        _deprecate.DeprecatedAttribute(
+            hazmat.wait_readable,
+            "0.12.0",
+            issue=878,
+        ),
+    "wait_socket_writable":
+        _deprecate.DeprecatedAttribute(
+            hazmat.wait_writable,
+            "0.12.0",
+            issue=878,
+        ),
+    "notify_socket_close":
+        _deprecate.DeprecatedAttribute(
+            hazmat.notify_closing,
+            "0.12.0",
+            issue=878,
+        ),
+    "notify_fd_close":
+        _deprecate.DeprecatedAttribute(
+            hazmat.notify_closing,
+            "0.12.0",
+            issue=878,
         ),
     "BlockingTrioPortal":
         _deprecate.DeprecatedAttribute(

@@ -484,15 +484,18 @@ class HalfCloseableStream(Stream):
         """
 
 
+# A regular invariant generic type
+T = TypeVar("T")
+
 # The type of object produced by a ReceiveChannel (covariant because
 # ReceiveChannel[Derived] can be passed to someone expecting
 # ReceiveChannel[Base])
-T_co = TypeVar("T_co", covariant=True)
+ReceiveType = TypeVar("ReceiveType", covariant=True)
 
 # The type of object accepted by a SendChannel (contravariant because
 # SendChannel[Base] can be passed to someone expecting
 # SendChannel[Derived])
-T_contra = TypeVar("T_contra", contravariant=True)
+SendType = TypeVar("SendType", contravariant=True)
 
 # The type of object produced by a Listener (covariant plus must be
 # an AsyncResource)
@@ -537,39 +540,21 @@ class Listener(AsyncResource, Generic[T_resource]):
         """
 
 
-class SendChannel(AsyncResource, Generic[T_contra]):
+class SendChannel(AsyncResource, Generic[SendType]):
     """A standard interface for sending Python objects to some receiver.
 
-    :class:`SendChannel` objects also implement the :class:`AsyncResource`
-    interface, so they can be closed by calling :meth:`~AsyncResource.aclose`
-    or using an ``async with`` block.
+    `SendChannel` objects also implement the `AsyncResource` interface, so
+    they can be closed by calling `~AsyncResource.aclose` or using an ``async
+    with`` block.
 
     If you want to send raw bytes rather than Python objects, see
-    :class:`ReceiveStream`.
+    `ReceiveStream`.
 
     """
     __slots__ = ()
 
     @abstractmethod
-    def send_nowait(self, value):
-        """Attempt to send an object through the channel, without blocking.
-
-        Args:
-          value (object): The object to send.
-
-        Raises:
-          trio.WouldBlock: if the operation cannot be completed immediately
-              (for example, because the channel's internal buffer is full).
-          trio.BrokenResourceError: if something has gone wrong, and the
-              channel is broken. For example, you may get this if the receiver
-              has already been closed.
-          trio.ClosedResourceError: if you previously closed this
-              :class:`SendChannel` object.
-
-        """
-
-    @abstractmethod
-    async def send(self, value):
+    async def send(self, value: SendType) -> None:
         """Attempt to send an object through the channel, blocking if necessary.
 
         Args:
@@ -582,36 +567,15 @@ class SendChannel(AsyncResource, Generic[T_contra]):
           trio.ClosedResourceError: if you previously closed this
               :class:`SendChannel` object, or if another task closes it while
               :meth:`send` is running.
-
-        """
-
-    @abstractmethod
-    def clone(self):
-        """Clone this send channel object.
-
-        This returns a new :class:`SendChannel` object, which acts as a
-        duplicate of the original: sending on the new object does exactly the
-        same thing as sending on the old object.
-
-        However, closing one of the objects does not close the other, and
-        receivers don't get :exc:`~trio.EndOfChannel` until *all* clones have
-        been closed.
-
-        This is useful for communication patterns that involve multiple
-        producers all sending objects to the same destination. If you give
-        each producer its own clone of the :class:`SendChannel`, and then make
-        sure to close each :class:`SendChannel` when it's finished, receivers
-        will automatically get notified when all producers are finished. See
-        :ref:`channel-mpmc` for examples.
-
-        Raises:
-          trio.ClosedResourceError: if you already closed this
-              :class:`SendChannel` object.
+          trio.BusyResourceError: some channels allow multiple tasks to call
+              `send` at the same time, but others don't. If you try to call
+              `send` simultaneously from multiple tasks on a channel that
+              doesn't support it, then you can get `~trio.BusyResourceError`.
 
         """
 
 
-class ReceiveChannel(AsyncResource, Generic[T_co]):
+class ReceiveChannel(AsyncResource, Generic[ReceiveType]):
     """A standard interface for receiving Python objects from some sender.
 
     You can iterate over a :class:`ReceiveChannel` using an ``async for``
@@ -621,45 +585,22 @@ class ReceiveChannel(AsyncResource, Generic[T_co]):
            ...
 
     This is equivalent to calling :meth:`receive` repeatedly. The loop exits
-    without error when :meth:`receive` raises :exc:`~trio.EndOfChannel`.
+    without error when `receive` raises `~trio.EndOfChannel`.
 
-    :class:`ReceiveChannel` objects also implement the :class:`AsyncResource`
-    interface, so they can be closed by calling :meth:`~AsyncResource.aclose`
-    or using an ``async with`` block.
+    `ReceiveChannel` objects also implement the `AsyncResource` interface, so
+    they can be closed by calling `~AsyncResource.aclose` or using an ``async
+    with`` block.
 
     If you want to receive raw bytes rather than Python objects, see
-    :class:`ReceiveStream`.
+    `ReceiveStream`.
 
     """
     __slots__ = ()
 
     @abstractmethod
-    def receive_nowait(self):
-        """Attempt to receive an incoming object, without blocking.
-
-        Returns:
-          object: Whatever object was received.
-
-        Raises:
-          trio.WouldBlock: if the operation cannot be completed immediately
-              (for example, because no object has been sent yet).
-          trio.EndOfChannel: if the sender has been closed cleanly, and no
-              more objects are coming. This is not an error condition.
-          trio.ClosedResourceError: if you previously closed this
-              :class:`ReceiveChannel` object.
-          trio.BrokenResourceError: if something has gone wrong, and the
-              channel is broken.
-
-        """
-
-    @abstractmethod
-    async def receive(self):
+    async def receive(self) -> ReceiveType:
         """Attempt to receive an incoming object, blocking if necessary.
 
-        It's legal for multiple tasks to call :meth:`receive` at the same
-        time. If this happens, then one task receives the first value sent,
-        another task receives the next value sent, and so on.
-
         Returns:
           object: Whatever object was received.
 
@@ -670,34 +611,10 @@ class ReceiveChannel(AsyncResource, Generic[T_co]):
               :class:`ReceiveChannel` object.
           trio.BrokenResourceError: if something has gone wrong, and the
               channel is broken.
-
-        """
-
-    @abstractmethod
-    def clone(self):
-        """Clone this receive channel object.
-
-        This returns a new :class:`ReceiveChannel` object, which acts as a
-        duplicate of the original: receiving on the new object does exactly
-        the same thing as receiving on the old object.
-
-        However, closing one of the objects does not close the other, and the
-        underlying channel is not closed until all clones are closed.
-
-        This is useful for communication patterns involving multiple consumers
-        all receiving objects from the same underlying channel. See
-        :ref:`channel-mpmc` for examples.
-
-        .. warning:: The clones all share the same underlying channel.
-           Whenever a clone :meth:`receive`\\s a value, it is removed from the
-           channel and the other clones do *not* receive that value. If you
-           want to send multiple copies of the same stream of values to
-           multiple destinations, like :func:`itertools.tee`, then you need to
-           find some other solution; this method does *not* do that.
-
-        Raises:
-          trio.ClosedResourceError: if you already closed this
-              :class:`SendChannel` object.
+          trio.BusyResourceError: some channels allow multiple tasks to call
+              `receive` at the same time, but others don't. If you try to call
+              `receive` simultaneously from multiple tasks on a channel that
+              doesn't support it, then you can get `~trio.BusyResourceError`.
 
         """
 
@@ -705,8 +622,17 @@ class ReceiveChannel(AsyncResource, Generic[T_co]):
     def __aiter__(self):
         return self
 
-    async def __anext__(self):
+    async def __anext__(self) -> ReceiveType:
         try:
             return await self.receive()
         except trio.EndOfChannel:
             raise StopAsyncIteration
+
+
+class Channel(SendChannel[T], ReceiveChannel[T]):
+    """A standard interface for interacting with bidirectional channels.
+
+    A `Channel` is an object that implements both the `SendChannel` and
+    `ReceiveChannel` interfaces, so you can both send and receive objects.
+
+    """

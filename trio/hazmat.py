@@ -19,19 +19,8 @@ from ._core import (
     permanently_detach_coroutine_object, reattach_detached_coroutine_object,
     current_statistics, reschedule, remove_instrument, add_instrument,
     current_clock, current_root_task, checkpoint_if_cancelled,
-    spawn_system_task, wait_socket_readable, wait_socket_writable,
-    notify_socket_close
+    spawn_system_task, wait_readable, wait_writable, notify_closing
 )
-
-# Unix-specific symbols
-try:
-    from ._core import (
-        wait_writable,
-        wait_readable,
-        notify_fd_close,
-    )
-except ImportError:
-    pass
 
 # Kqueue-specific symbols
 try:

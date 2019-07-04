@@ -5,17 +5,17 @@ from contextlib import contextmanager
 import attr
 
 from .. import _core
-from . import _public
+from ._run import _public
 
 
-@attr.s(frozen=True)
+@attr.s(slots=True, cmp=False, frozen=True)
 class _KqueueStatistics:
     tasks_waiting = attr.ib()
     monitors = attr.ib()
     backend = attr.ib(default="kqueue")
 
 
-@attr.s(slots=True, cmp=False, hash=False)
+@attr.s(slots=True, cmp=False)
 class KqueueIOManager:
     _kqueue = attr.ib(factory=select.kqueue)
     # {(ident, filter): Task or UnboundedQueue}
@@ -77,8 +77,8 @@ class KqueueIOManager:
     def current_kqueue(self):
         return self._kqueue
 
-    @_public
     @contextmanager
+    @_public
     def monitor_kevent(self, ident, filter):
         key = (ident, filter)
         if key in self._registered:
@@ -134,7 +134,7 @@ class KqueueIOManager:
         await self._wait_common(fd, select.KQ_FILTER_WRITE)
 
     @_public
-    def notify_fd_close(self, fd):
+    def notify_closing(self, fd):
         if not isinstance(fd, int):
             fd = fd.fileno()
 

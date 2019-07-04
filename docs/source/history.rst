@@ -220,9 +220,9 @@ Features
   (`#56 <https://github.com/python-trio/trio/issues/56>`__)
 - New and improved signal catching API: :func:`open_signal_receiver`. (`#354
   <https://github.com/python-trio/trio/issues/354>`__)
-- The low level :func:`trio.hazmat.wait_socket_readable`,
-  :func:`~trio.hazmat.wait_socket_writable`, and
-  :func:`~trio.hazmat.notify_socket_close` now work on bare socket descriptors,
+- The low level ``trio.hazmat.wait_socket_readable``,
+  ``wait_socket_writable``, and
+  ``notify_socket_close`` now work on bare socket descriptors,
   instead of requiring a :func:`socket.socket` object. (`#400
   <https://github.com/python-trio/trio/issues/400>`__)
 - If you're using :func:`trio.hazmat.wait_task_rescheduled` and other low-level
@@ -303,8 +303,8 @@ Features
   :exc:`ClosedResourceError`. ``ClosedStreamError`` and ``ClosedListenerError``
   are now aliases for :exc:`ClosedResourceError`, and deprecated. For this to
   work, Trio needs to know when a resource has been closed. To facilitate this,
-  new functions have been added: :func:`trio.hazmat.notify_fd_close` and
-  :func:`trio.hazmat.notify_socket_close`. If you're using Trio's built-in
+  new functions have been added: ``trio.hazmat.notify_fd_close`` and
+  ``trio.hazmat.notify_socket_close``. If you're using Trio's built-in
   wrappers like :class:`~trio.SocketStream` or :mod:`trio.socket`, then you don't
   need to worry about this, but if you're using the low-level functions like
   :func:`trio.hazmat.wait_readable`, you should make sure to call these

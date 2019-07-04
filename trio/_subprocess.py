@@ -1,6 +1,7 @@
 import os
 import select
 import subprocess
+from functools import partial
 
 from ._abc import AsyncResource
 from ._highlevel_generic import StapledStream
@@ -13,61 +14,24 @@ import trio
 
 
 class Process(AsyncResource):
-    r"""Execute a child program in a new process.
+    r"""A child process. Like :class:`subprocess.Popen`, but async.
 
-    Like :class:`subprocess.Popen`, but async.
+    This class has no public constructor. To create a child process, use
+    `open_process`::
 
-    Constructing a :class:`Process` immediately spawns the child
-    process, or throws an :exc:`OSError` if the spawning fails (for
-    example, if the specified command could not be found).
-    After construction, you can interact with the child process
-    by writing data to its :attr:`stdin` stream (a
-    :class:`~trio.abc.SendStream`), reading data from its :attr:`stdout`
-    and/or :attr:`stderr` streams (both :class:`~trio.abc.ReceiveStream`\s),
-    sending it signals using :meth:`terminate`, :meth:`kill`, or
-    :meth:`send_signal`, and waiting for it to exit using :meth:`wait`.
+       process = await trio.open_process(...)
 
-    Each standard stream is only available if it was specified at
-    :class:`Process` construction time that a pipe should be created
-    for it.  For example, if you constructed with
-    ``stdin=subprocess.PIPE``, you can write to the :attr:`stdin`
-    stream, else :attr:`stdin` will be ``None``.
+    `Process` implements the `~trio.abc.AsyncResource` interface. In order to
+    make sure your process doesn't end up getting abandoned by mistake or
+    after an exception, you can use ``async with``::
 
-    :class:`Process` implements :class:`~trio.abc.AsyncResource`,
-    so you can use it as an async context manager or call its
-    :meth:`aclose` method directly. "Closing" a :class:`Process`
-    will close any pipes to the child and wait for it to exit;
-    if cancelled, the child will be forcibly killed and we will
-    ensure it has finished exiting before allowing the cancellation
-    to propagate. It is *strongly recommended* that process lifetime
-    be scoped using an ``async with`` block wherever possible, to
-    avoid winding up with processes hanging around longer than you
-    were planning on.
+       async with await trio.open_process(...) as process:
+           ...
 
-    Args:
-      command (list or str): The command to run. Typically this is a
-          sequence of strings such as ``['ls', '-l', 'directory with spaces']``,
-          where the first element names the executable to invoke and the other
-          elements specify its arguments. With ``shell=True`` in the
-          ``**options``, or on Windows, ``command`` may alternatively
-          be a string, which will be parsed following platform-dependent
-          :ref:`quoting rules <subprocess-quoting>`.
-      stdin: Specifies what the child process's standard input
-          stream should connect to: output written by the parent
-          (``subprocess.PIPE``), nothing (``subprocess.DEVNULL``),
-          or an open file (pass a file descriptor or something whose
-          ``fileno`` method returns one). If ``stdin`` is unspecified,
-          the child process will have the same standard input stream
-          as its parent.
-      stdout: Like ``stdin``, but for the child process's standard output
-          stream.
-      stderr: Like ``stdin``, but for the child process's standard error
-          stream. An additional value ``subprocess.STDOUT`` is supported,
-          which causes the child's standard output and standard error
-          messages to be intermixed on a single standard output stream,
-          attached to whatever the ``stdout`` option says to attach it to.
-      **options: Other :ref:`general subprocess options <subprocess-options>`
-          are also accepted.
+    "Closing" a :class:`Process` will close any pipes to the child and wait
+    for it to exit; if cancelled, the child will be forcibly killed and we
+    will ensure it has finished exiting before allowing the cancellation to
+    propagate.
 
     Attributes:
       args (str or list): The ``command`` passed at construction time,
@@ -103,7 +67,28 @@ class Process(AsyncResource):
     # arbitrarily many threads if wait() keeps getting cancelled.
     _wait_for_exit_data = None
 
-    def __init__(
+    # After the deprecation period:
+    # - delete __init__ and _create
+    # - add metaclass=NoPublicConstructor
+    # - rename _init to __init__
+    # - move most of the code into open_process()
+    # - put the subprocess.Popen(...) call into a thread
+    def __init__(self, *args, **kwargs):
+        trio._deprecate.warn_deprecated(
+            "directly constructing Process objects",
+            "0.12.0",
+            issue=1109,
+            instead="trio.open_process"
+        )
+        self._init(*args, **kwargs)
+
+    @classmethod
+    def _create(cls, *args, **kwargs):
+        self = cls.__new__(cls)
+        self._init(*args, **kwargs)
+        return self
+
+    def _init(
         self, command, *, stdin=None, stdout=None, stderr=None, **options
     ):
         for key in (
@@ -280,6 +265,64 @@ class Process(AsyncResource):
         self._proc.kill()
 
 
+async def open_process(
+    command, *, stdin=None, stdout=None, stderr=None, **options
+) -> Process:
+    r"""Execute a child program in a new process.
+
+    After construction, you can interact with the child process by writing
+    data to its `~Process.stdin` stream (a `~trio.abc.SendStream`), reading
+    data from its `~Process.stdout` and/or `~Process.stderr` streams (both
+    `~trio.abc.ReceiveStream`\s), sending it signals using
+    `~Process.terminate`, `~Process.kill`, or `~Process.send_signal`, and
+    waiting for it to exit using `~Process.wait`. See `Process` for details.
+
+    Each standard stream is only available if you specify that a pipe should
+    be created for it. For example, if you pass ``stdin=subprocess.PIPE``, you
+    can write to the `~Process.stdin` stream, else `~Process.stdin` will be
+    ``None``.
+
+    Args:
+      command (list or str): The command to run. Typically this is a
+          sequence of strings such as ``['ls', '-l', 'directory with spaces']``,
+          where the first element names the executable to invoke and the other
+          elements specify its arguments. With ``shell=True`` in the
+          ``**options``, or on Windows, ``command`` may alternatively
+          be a string, which will be parsed following platform-dependent
+          :ref:`quoting rules <subprocess-quoting>`.
+      stdin: Specifies what the child process's standard input
+          stream should connect to: output written by the parent
+          (``subprocess.PIPE``), nothing (``subprocess.DEVNULL``),
+          or an open file (pass a file descriptor or something whose
+          ``fileno`` method returns one). If ``stdin`` is unspecified,
+          the child process will have the same standard input stream
+          as its parent.
+      stdout: Like ``stdin``, but for the child process's standard output
+          stream.
+      stderr: Like ``stdin``, but for the child process's standard error
+          stream. An additional value ``subprocess.STDOUT`` is supported,
+          which causes the child's standard output and standard error
+          messages to be intermixed on a single standard output stream,
+          attached to whatever the ``stdout`` option says to attach it to.
+      **options: Other :ref:`general subprocess options <subprocess-options>`
+          are also accepted.
+
+    Returns:
+      A new `Process` object.
+
+    Raises:
+      OSError: if the process spawning fails, for example because the
+         specified command could not be found.
+
+    """
+    # XX FIXME: move the process creation into a thread as soon as we're done
+    # deprecating Process(...)
+    await trio.hazmat.checkpoint()
+    return Process._create(
+        command, stdin=stdin, stdout=stdout, stderr=stderr, **options
+    )
+
+
 async def run_process(
     command,
     *,
@@ -424,7 +467,7 @@ async def run_process(
     stdout_chunks = []
     stderr_chunks = []
 
-    async with Process(command, **options) as proc:
+    async with await open_process(command, **options) as proc:
 
         async def feed_input():
             async with proc.stdin:

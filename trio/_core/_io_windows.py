@@ -10,7 +10,8 @@ import signal
 import attr
 
 from .. import _core
-from . import _public
+from ._run import _public
+
 from ._wakeup_socketpair import WakeupSocketpair
 from .._util import is_main_thread
 
@@ -78,7 +79,7 @@ def _check(success):
     return success
 
 
-@attr.s(frozen=True)
+@attr.s(slots=True, cmp=False, frozen=True)
 class _WindowsStatistics:
     tasks_waiting_overlapped = attr.ib()
     completion_key_monitors = attr.ib()
@@ -393,8 +394,8 @@ class WindowsIOManager:
             else:
                 raise_winerror(code)
 
-    @_public
     @contextmanager
+    @_public
     def monitor_completion_key(self):
         key = next(self._completion_key_counter)
         queue = _core.UnboundedQueue()
@@ -421,15 +422,15 @@ class WindowsIOManager:
         await _core.wait_task_rescheduled(abort)
 
     @_public
-    async def wait_socket_readable(self, sock):
+    async def wait_readable(self, sock):
         await self._wait_socket("read", sock)
 
     @_public
-    async def wait_socket_writable(self, sock):
+    async def wait_writable(self, sock):
         await self._wait_socket("write", sock)
 
     @_public
-    def notify_socket_close(self, sock):
+    def notify_closing(self, sock):
         if not isinstance(sock, int):
             sock = sock.fileno()
         for mode in ["read", "write"]:

@@ -7,7 +7,7 @@ import random
 
 from .. import (
     _core, move_on_after, fail_after, sleep, sleep_forever, Process,
-    run_process
+    open_process, run_process, TrioDeprecationWarning
 )
 from .._core.tests.tutil import slow
 from ..testing import wait_all_tasks_blocked
@@ -41,7 +41,8 @@ def got_signal(proc, sig):
 
 async def test_basic():
     repr_template = "<trio.Process {!r}: {{}}>".format(EXIT_TRUE)
-    async with Process(EXIT_TRUE) as proc:
+    async with await open_process(EXIT_TRUE) as proc:
+        assert isinstance(proc, Process)
         assert proc.returncode is None
         assert repr(proc) == repr_template.format(
             "running with PID {}".format(proc.pid)
@@ -49,7 +50,7 @@ async def test_basic():
     assert proc.returncode == 0
     assert repr(proc) == repr_template.format("exited with status 0")
 
-    async with Process(EXIT_FALSE) as proc:
+    async with await open_process(EXIT_FALSE) as proc:
         pass
     assert proc.returncode == 1
     assert repr(proc) == "<trio.Process {!r}: {}>".format(
@@ -57,8 +58,16 @@ async def test_basic():
     )
 
 
+# Delete this test when we remove direct Process construction
+async def test_deprecated_Process_init():
+    with pytest.warns(TrioDeprecationWarning):
+        async with Process(EXIT_TRUE) as proc:
+            assert isinstance(proc, Process)
+        assert proc.returncode == 0
+
+
 async def test_multi_wait():
-    async with Process(SLEEP(10)) as proc:
+    async with await open_process(SLEEP(10)) as proc:
         # Check that wait (including multi-wait) tolerates being cancelled
         async with _core.open_nursery() as nursery:
             nursery.start_soon(proc.wait)
@@ -77,11 +86,10 @@ async def test_multi_wait():
 
 
 async def test_kill_when_context_cancelled():
-    with move_on_after(0) as scope:
-        async with Process(SLEEP(10)) as proc:
+    with move_on_after(100) as scope:
+        async with await open_process(SLEEP(10)) as proc:
             assert proc.poll() is None
-            # Process context entry is synchronous, so this is the
-            # only checkpoint:
+            scope.cancel()
             await sleep_forever()
     assert scope.cancelled_caught
     assert got_signal(proc, SIGKILL)
@@ -98,7 +106,7 @@ COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR = python(
 
 
 async def test_pipes():
-    async with Process(
+    async with await open_process(
         COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
@@ -142,7 +150,7 @@ async def test_interactive():
     # out: EOF
     # err: EOF
 
-    async with Process(
+    async with await open_process(
         python(
             "idx = 0\n"
             "while True:\n"
@@ -267,7 +275,7 @@ async def test_run_with_broken_pipe():
 
 
 async def test_stderr_stdout():
-    async with Process(
+    async with await open_process(
         COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
@@ -300,7 +308,7 @@ async def test_stderr_stdout():
 
     # this one hits the branch where stderr=STDOUT but stdout
     # is not redirected
-    async with Process(
+    async with await open_process(
         CAT, stdin=subprocess.PIPE, stderr=subprocess.STDOUT
     ) as proc:
         assert proc.stdout is None
@@ -312,7 +320,7 @@ async def test_stderr_stdout():
         try:
             r, w = os.pipe()
 
-            async with Process(
+            async with await open_process(
                 COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR,
                 stdin=subprocess.PIPE,
                 stdout=w,
@@ -333,21 +341,21 @@ async def test_stderr_stdout():
 
 async def test_errors():
     with pytest.raises(TypeError) as excinfo:
-        Process(["ls"], encoding="utf-8")
+        await open_process(["ls"], encoding="utf-8")
     assert "unbuffered byte streams" in str(excinfo.value)
     assert "the 'encoding' option is not supported" in str(excinfo.value)
 
     if posix:
         with pytest.raises(TypeError) as excinfo:
-            Process(["ls"], shell=True)
+            await open_process(["ls"], shell=True)
         with pytest.raises(TypeError) as excinfo:
-            Process("ls", shell=False)
+            await open_process("ls", shell=False)
 
 
 async def test_signals():
     async def test_one_signal(send_it, signum):
         with move_on_after(1.0) as scope:
-            async with Process(SLEEP(3600)) as proc:
+            async with await open_process(SLEEP(3600)) as proc:
                 send_it(proc)
         assert not scope.cancelled_caught
         if posix:
@@ -368,7 +376,7 @@ async def test_wait_reapable_fails():
         # With SIGCHLD disabled, the wait() syscall will wait for the
         # process to exit but then fail with ECHILD. Make sure we
         # support this case as the stdlib subprocess module does.
-        async with Process(SLEEP(3600)) as proc:
+        async with await open_process(SLEEP(3600)) as proc:
             async with _core.open_nursery() as nursery:
                 nursery.start_soon(proc.wait)
                 await wait_all_tasks_blocked()
