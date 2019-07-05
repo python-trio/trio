@@ -90,9 +90,9 @@ if [ "$PYPY_NIGHTLY_BRANCH" != "" ]; then
 fi
 
 if [ "$CIRRUS_CI" != "" ]; then
-  ln -s /usr/local/bin/python3.6 /usr/local/bin/python
+  ln -sf /usr/local/bin/python3.6 /usr/local/bin/python
   pkg install --yes py36-pip
-  ln -s /usr/local/bin/pip-3.6 /usr/local/bin/pip
+  ln -sf /usr/local/bin/pip-3.6 /usr/local/bin/pip
 fi
 
 ################################################################
