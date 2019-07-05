@@ -1235,7 +1235,7 @@ async def test_SSLListener():
     ################
 
     # Test https_compatible
-    _, ssl_listener, ssl_client = await setup(https_compatible=True,)
+    _, ssl_listener, ssl_client = await setup(https_compatible=True)
 
     ssl_server = await ssl_listener.accept()
 

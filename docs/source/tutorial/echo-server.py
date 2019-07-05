@@ -21,7 +21,6 @@ async def echo_server(server_stream):
             print("echo_server {}: received data {!r}".format(ident, data))
             await server_stream.send_all(data)
         print("echo_server {}: connection closed".format(ident))
-        return
     # FIXME: add discussion of MultiErrors to the tutorial, and use
     # MultiError.catch here. (Not important in this case, but important if the
     # server code uses nurseries internally.)

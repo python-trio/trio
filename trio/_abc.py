@@ -379,7 +379,9 @@ class ReceiveStream(AsyncResource):
     :class:`ReceiveChannel`.
 
     `ReceiveStream` objects can be used in ``async for`` loops. Each iteration
-    will produce an arbitrary size
+    will produce an arbitrary sized chunk of bytes, like calling
+    `receive_some` with no arguments. Every chunk will contain at least one
+    byte, and the loop automatically exits when reaching end-of-file.
 
     """
     __slots__ = ()
