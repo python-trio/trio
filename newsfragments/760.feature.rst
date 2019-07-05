@@ -1,3 +1,2 @@
-We added a new ``is_readable`` method to the ``trio.socket.SocketType``
-object that allows you to check whether a socket is ready to be read
-or not.
+Trio sockets have a new method `~trio.socket.SocketType.is_readable` that allows
+you to check whether a socket is readable. This is useful for HTTP/1.1 clients.
