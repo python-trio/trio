@@ -152,6 +152,7 @@ class Process(AsyncResource):
                 os.close(stderr)
 
         if self.stdin is not None and self.stdout is not None:
+            # TODO: fix me
             self.stdio = StapledStream(self.stdin, self.stdout)
         else:
             self.stdio = None

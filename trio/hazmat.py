@@ -25,10 +25,7 @@ from ._core import (
 
 # Unix-specific symbols
 if os.name == "posix":
-    from ._unix_pipes import (
-        fd_open_receive_stream,
-        fd_open_send_stream,
-    )
+    from ._unix_pipes import FdStream
 
 # Kqueue-specific symbols
 try:

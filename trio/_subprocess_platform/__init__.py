@@ -67,15 +67,15 @@ except ImportError as ex:  # pragma: no cover
 
 try:
     if os.name == "posix":
-        from ..hazmat import fd_open_send_stream, fd_open_receive_stream
+        from ..hazmat import FdStream
 
         def create_pipe_to_child_stdin():  # noqa: F811
             rfd, wfd = os.pipe()
-            return fd_open_send_stream(wfd), rfd
+            return FdStream(send_fd=wfd), rfd
 
         def create_pipe_from_child_output():  # noqa: F811
             rfd, wfd = os.pipe()
-            return fd_open_receive_stream(rfd), wfd
+            return FdStream(receive_fd=rfd), wfd
 
     elif os.name == "nt":
         from .._windows_pipes import PipeSendStream, PipeReceiveStream
