@@ -1,9 +1,8 @@
 import os
-import select
 import subprocess
-from functools import partial
+from typing import Optional
 
-from ._abc import AsyncResource
+from ._abc import AsyncResource, SendStream, ReceiveStream, Stream
 from ._highlevel_generic import StapledStream
 from ._sync import Lock
 from ._subprocess_platform import (
@@ -51,7 +50,7 @@ class Process(AsyncResource):
           standard error, the written bytes become available for you
           to read here. Only available if the :class:`Process` was
           constructed using ``stderr=PIPE``; otherwise this will be None.
-      stdio (trio.StapledStream or None): A stream that sends data to
+      stdio (trio.Stream or None): A stream that sends data to
           the child's standard input and receives from the child's standard
           output. Only available if both :attr:`stdin` and :attr:`stdout` are
           available; otherwise this will be None.
@@ -101,9 +100,10 @@ class Process(AsyncResource):
                     .format(key)
                 )
 
-        self.stdin = None
-        self.stdout = None
-        self.stderr = None
+        self.stdin = None  # type: Optional[SendStream]
+        self.stdout = None  # type: Optional[ReceiveStream]
+        self.stderr = None  # type: Optional[ReceiveStream]
+        self.stdio = None  # type: Optional[Stream]
 
         if os.name == "posix":
             if isinstance(command, str) and not options.get("shell"):
@@ -154,8 +154,6 @@ class Process(AsyncResource):
         if self.stdin is not None and self.stdout is not None:
             # TODO: fix me
             self.stdio = StapledStream(self.stdin, self.stdout)
-        else:
-            self.stdio = None
 
         self.args = self._proc.args
         self.pid = self._proc.pid
