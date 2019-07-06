@@ -68,101 +68,6 @@ class _FdHolder:
         await trio.hazmat.checkpoint()
 
 
-# TODO: remove
-class PipeSendStream(SendStream):
-    """Represents a send stream over an os.pipe object."""
-
-    def __init__(self, fd: int):
-        self._fd_holder = _FdHolder(fd)
-        self._conflict_detector = ConflictDetector(
-            "another task is using this pipe"
-        )
-
-    async def send_all(self, data: bytes):
-        with self._conflict_detector:
-            # have to check up front, because send_all(b"") on a closed pipe
-            # should raise
-            if self._fd_holder.closed:
-                raise trio.ClosedResourceError("this pipe was already closed")
-            await trio.hazmat.checkpoint()
-            length = len(data)
-            # adapted from the SocketStream code
-            with memoryview(data) as view:
-                sent = 0
-                while sent < length:
-                    with view[sent:] as remaining:
-                        try:
-                            sent += os.write(self._fd_holder.fd, remaining)
-                        except BlockingIOError:
-                            await trio.hazmat.wait_writable(self._fd_holder.fd)
-                        except OSError as e:
-                            if e.errno == errno.EBADF:
-                                raise trio.ClosedResourceError(
-                                    "this pipe was closed"
-                                ) from None
-                            else:
-                                raise trio.BrokenResourceError from e
-
-    async def wait_send_all_might_not_block(self) -> None:
-        with self._conflict_detector:
-            if self._fd_holder.closed:
-                raise trio.ClosedResourceError("this pipe was already closed")
-            try:
-                await trio.hazmat.wait_writable(self._fd_holder.fd)
-            except BrokenPipeError as e:
-                # kqueue: raises EPIPE on wait_writable instead
-                # of sending, which is annoying
-                raise trio.BrokenResourceError from e
-
-    async def aclose(self):
-        await self._fd_holder.aclose()
-
-    def fileno(self):
-        return self._fd_holder.fd
-
-
-class PipeReceiveStream(ReceiveStream):
-    """Represents a receive stream over an os.pipe object."""
-
-    def __init__(self, fd: int):
-        self._fd_holder = _FdHolder(fd)
-        self._conflict_detector = ConflictDetector(
-            "another task is using this pipe"
-        )
-
-    async def receive_some(self, max_bytes: int) -> bytes:
-        with self._conflict_detector:
-            if not isinstance(max_bytes, int):
-                raise TypeError("max_bytes must be integer >= 1")
-
-            if max_bytes < 1:
-                raise ValueError("max_bytes must be integer >= 1")
-
-            await trio.hazmat.checkpoint()
-            while True:
-                try:
-                    data = os.read(self._fd_holder.fd, max_bytes)
-                except BlockingIOError:
-                    await trio.hazmat.wait_readable(self._fd_holder.fd)
-                except OSError as e:
-                    if e.errno == errno.EBADF:
-                        raise trio.ClosedResourceError(
-                            "this pipe was closed"
-                        ) from None
-                    else:
-                        raise trio.BrokenResourceError from e
-                else:
-                    break
-
-            return data
-
-    async def aclose(self):
-        await self._fd_holder.aclose()
-
-    def fileno(self):
-        return self._fd_holder.fd
-
-
 class FdStream(Stream):
     """
     Represents a stream given the file descriptor to a pipe, TTY, etc.
@@ -170,7 +75,7 @@ class FdStream(Stream):
     *fd* must refer to a file that is open for reading and/or writing and
     supports non-blocking I/O (pipes and TTYs will work, on-disk files probably
     not).  The returned stream takes ownership of the fd, so closing the stream
-    will close the fd(s) too.  As with `os.fdopen`, you should not directly use
+    will close the fd too.  As with `os.fdopen`, you should not directly use
     an fd after you have wrapped it in a stream using this function.
 
     Args:

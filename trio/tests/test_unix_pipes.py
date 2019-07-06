@@ -11,14 +11,14 @@ from ..testing import wait_all_tasks_blocked, check_one_way_stream
 posix = os.name == "posix"
 pytestmark = pytest.mark.skipif(not posix, reason="posix only")
 if posix:
-    from .._unix_pipes import PipeSendStream, PipeReceiveStream
+    from .._unix_pipes import FdStream
 
 
 # Have to use quoted types so import doesn't crash on windows
-async def make_pipe() -> "Tuple[PipeSendStream, PipeReceiveStream]":
+async def make_pipe() -> "Tuple[FdStream, FdStream]":
     """Makes a new pair of pipes."""
     (r, w) = os.pipe()
-    return PipeSendStream(w), PipeReceiveStream(r)
+    return FdStream(w), FdStream(r)
 
 
 async def make_clogged_pipe():
@@ -49,7 +49,7 @@ async def make_clogged_pipe():
 
 async def test_send_pipe():
     r, w = os.pipe()
-    async with PipeSendStream(w) as send:
+    async with FdStream(w) as send:
         assert send.fileno() == w
         await send.send_all(b"123")
         assert (os.read(r, 8)) == b"123"
@@ -59,7 +59,7 @@ async def test_send_pipe():
 
 async def test_receive_pipe():
     r, w = os.pipe()
-    async with PipeReceiveStream(r) as recv:
+    async with FdStream(r) as recv:
         assert (recv.fileno()) == r
         os.write(w, b"123")
         assert (await recv.receive_some(8)) == b"123"
@@ -93,10 +93,10 @@ async def test_pipes_combined():
 
 async def test_pipe_errors():
     with pytest.raises(TypeError):
-        PipeReceiveStream(None)
+        FdStream(None)
 
     with pytest.raises(ValueError):
-        await PipeReceiveStream(0).receive_some(0)
+        await FdStream(0).receive_some(0)
 
 
 async def test_del():
@@ -146,7 +146,7 @@ async def test_misdirected_aclose_regression():
     if r2_fd != old_r_fd:  # pragma: no cover
         os.dup2(r2_fd, old_r_fd)
         os.close(r2_fd)
-    async with PipeReceiveStream(old_r_fd) as r2:
+    async with FdStream(old_r_fd) as r2:
         assert r2.fileno() == old_r_fd
 
         # And now set up a background task that's working on the new receive
