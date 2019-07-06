@@ -302,9 +302,6 @@ class SSLStream(Stream):
 
     """
 
-    _outgoing: _SSL.Connection.bio_read
-    _incoming: _SSL.Connection.bio_write
-
     # Note: any new arguments here should likely also be added to
     # SSLListener.__init__, and maybe the open_ssl_over_tcp_* helpers.
     def __init__(
@@ -322,15 +319,12 @@ class SSLStream(Stream):
         self._max_refill_bytes = max_refill_bytes
         self._https_compatible = https_compatible
         self._ssl_object = _SSL.Connection(ssl_context)
-        self._outgoing = self._ssl_object.bio_read
-        self._incoming = self._ssl_object.bio_write
+        if server_hostname is not None:
+            self._ssl_object.set_tlsext_host_name(server_hostname.encode("idna"))
         if server_side:
             self._ssl_object.set_accept_state()
         else:
             self._ssl_object.set_connect_state()
-        # TODO encode with IDNA?
-        if server_hostname is not None:
-            self._ssl_object.set_tlsext_host_name(server_hostname)
         # Tracks whether we've already done the initial handshake
         self._handshook = _Once(self._do_handshake)
 
@@ -398,6 +392,14 @@ class SSLStream(Stream):
 
     def __dir__(self):
         return super().__dir__() + list(self._forwarded)
+
+    @property
+    def _incoming(self):
+        return self._ssl_object.bio_write
+
+    @property
+    def _outgoing(self):
+        return self._ssl_object.bio_read
 
     def _check_status(self):
         if self._state is _State.OK:
