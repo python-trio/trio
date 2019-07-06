@@ -404,6 +404,17 @@ async def test_SocketType_simple_server(address, socket_type):
             assert await client.recv(1) == b"x"
 
 
+async def test_SocketType_is_readable():
+    a, b = tsocket.socketpair()
+    with a, b:
+        assert not a.is_readable()
+        await b.send(b"x")
+        await _core.wait_readable(a)
+        assert a.is_readable()
+        assert await a.recv(1) == b"x"
+        assert not a.is_readable()
+
+
 # On some macOS systems, getaddrinfo likes to return V4-mapped addresses even
 # when we *don't* pass AI_V4MAPPED.
 # https://github.com/python-trio/trio/issues/580
