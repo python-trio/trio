@@ -321,6 +321,7 @@ class SSLStream(Stream):
         self._ssl_object = _SSL.Connection(ssl_context)
         if server_hostname is not None:
             self._ssl_object.set_tlsext_host_name(server_hostname.encode("idna"))
+        self._server_side = server_side  # TODO
         if server_side:
             self._ssl_object.set_accept_state()
         else:
@@ -345,12 +346,11 @@ class SSLStream(Stream):
 
     # TODO many will be absent from pyOpenSSL
     _forwarded = {
-        "context",
-        "server_side",
-        "server_hostname",
+        "get_context",
+        "set_context",
         "session",
         "session_reused",
-        "getpeercert",
+        "get_peer_certificate",  # pyOpenSSL
         "selected_npn_protocol",
         "cipher",
         "shared_ciphers",
@@ -363,7 +363,7 @@ class SSLStream(Stream):
 
     _after_handshake = {
         "session_reused",
-        "getpeercert",
+        "get_peer_certificate",
         "selected_npn_protocol",
         "cipher",
         "shared_ciphers",
@@ -400,6 +400,19 @@ class SSLStream(Stream):
     @property
     def _outgoing(self):
         return self._ssl_object.bio_read
+
+    # compat
+    @property
+    def context(self):
+        return self._ssl_object.get_context()
+
+    @context.setter
+    def context(self, ssl_context):
+        return self._ssl_object.set_context(ssl_context)
+
+    @property
+    def server_hostname(self):  # as bytes
+        return self._ssl_object.get_servername()
 
     def _check_status(self):
         if self._state is _State.OK:
@@ -458,7 +471,10 @@ class SSLStream(Stream):
             if ignore_want_read:
                 want_read = False
                 finished = True
-            to_send = self._outgoing(_default_max_refill_bytes)
+            try:
+                to_send = self._outgoing(_default_max_refill_bytes)
+            except _SSL.WantReadError:  # if _outgoing was empty
+                to_send = b""
 
             # Outputs from the above code block are:
             #
@@ -517,7 +533,7 @@ class SSLStream(Stream):
             # in before us. Or if we can't send immediately because
             # someone else is, then we at least need to get in line
             # immediately.
-            if to_send:
+            if to_send:  # TODO replace with try / catch WantReadError
                 # NOTE: This relies on the lock being strict FIFO fair!
                 async with self._inner_send_lock:
                     yielded = True

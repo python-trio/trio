@@ -417,7 +417,7 @@ async def test_ssl_server_basics():
 async def test_attributes():
     async with ssl_echo_server_raw(expect_fail=True) as sock:
         good_ctx = CLIENT_CTX
-        bad_ctx = ssl.create_default_context()
+        bad_ctx = SSL.Context(SSL.TLSv1_2_METHOD)
         s = SSLStream(
             sock, good_ctx, server_hostname="trio-test-1.example.org"
         )
@@ -426,8 +426,8 @@ async def test_attributes():
 
         # Forwarded attribute getting
         assert s.context is good_ctx
-        assert s.server_side == False  # noqa
-        assert s.server_hostname == "trio-test-1.example.org"
+        # assert s.server_side == False  # noqa
+        assert s.server_hostname == b"trio-test-1.example.org"
         with pytest.raises(AttributeError):
             s.asfdasdfsa
 
@@ -438,10 +438,11 @@ async def test_attributes():
         # Setting the attribute goes through to the underlying object
 
         # most attributes on SSLObject are read-only
-        with pytest.raises(AttributeError):
-            s.server_side = True
-        with pytest.raises(AttributeError):
-            s.server_hostname = "asdf"
+        # Not on SSL.Connection()
+        # with pytest.raises(AttributeError):
+        #     s.server_side = True
+        # with pytest.raises(AttributeError):
+        #     s.server_hostname = "asdf"
 
         # but .context is *not*. Check that we forward attribute setting by
         # making sure that after we set the bad context our handshake indeed
@@ -1195,11 +1196,11 @@ async def test_getpeercert():
         nursery.start_soon(client.do_handshake)
         nursery.start_soon(server.do_handshake)
 
-    assert server.getpeercert() is None
-    print(client.getpeercert())
+    assert server.get_peer_certificate() is None
+    print(client.get_peer_certificate())
     assert (
         ("DNS",
-         "trio-test-1.example.org") in client.getpeercert()["subjectAltName"]
+         "trio-test-1.example.org") in client.get_peer_certificate()["subjectAltName"]
     )
 
 
