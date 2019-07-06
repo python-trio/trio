@@ -174,6 +174,40 @@ All environments provide the following functions:
    yourself afterwards.
 
 
+Unix-specific API
+-----------------
+
+`FdStream` supports wrapping Unix files (such as a pipe or TTY) as
+a stream.
+
+To be used as a Trio stream, an open file must be placed in non-blocking
+mode.  Unfortunately, this impacts all I/O that goes through the
+underlying open file description, including I/O that uses a different
+file descriptor than the one that was passed to Trio. If other threads
+or processes are using file descriptors that are related through `os.dup`
+or inheritance across `os.fork` to the one that Trio is using, they are
+unlikely to be prepared to have non-blocking I/O semantics suddenly
+thrust upon them.  For example, you can use ``FdStream(os.dup(0))`` to
+obtain a stream for reading from standard input, but it is only safe to
+do so with heavy caveats: your stdin must not be shared by any other
+processes and you must not make any calls to synchronous methods of
+`sys.stdin` until the stream returned by `FdStream` is closed. See
+`issue #174 <https://github.com/python-trio/trio/issues/174>`__ for a
+discussion of the challenges involved in relaxing this restriction.
+
+To obtain a bidirectional `~trio.abc.Stream` for sending and receiving on
+different file descriptors, use `trio.StapledStream`::
+
+    bidirectional_stream = trio.StapledStream(
+        trio.hazmat.FdStream(write_fd),
+        trio.hazmat.FdStream(read_fd)
+    )
+
+.. autoclass:: FdStream
+   :show-inheritance:
+   :members:
+
+
 Kqueue-specific API
 -------------------
 
