@@ -150,7 +150,7 @@
 # cancellations in core Trio
 
 import operator as _operator
-import ssl as _stdlib_ssl
+import OpenSSL.SSL as _SSL
 from enum import Enum as _Enum
 
 import trio
@@ -220,9 +220,8 @@ class SSLStream(Stream):
       transport_stream (~trio.abc.Stream): The stream used to transport
           encrypted data. Required.
 
-      ssl_context (~ssl.SSLContext): The :class:`~ssl.SSLContext` used for
-          this connection. Required. Usually created by calling
-          :func:`ssl.create_default_context`.
+      ssl_context (~SSL.Context): The :class:`~SSL.Context` used for
+          this connection. Required.
 
       server_hostname (str or None): The name of the server being connected
           to. Used for `SNI
@@ -298,10 +297,13 @@ class SSLStream(Stream):
     raises :exc:`NeedHandshakeError`.
 
     This also means that if you register a SNI callback using
-    `~ssl.SSLContext.sni_callback`, then the first argument your callback
+    `~SSL.Contex.sni_callback`, then the first argument your callback
     receives will be a :class:`ssl.SSLObject`.
 
     """
+
+    _outgoing: _SSL.Connection.bio_read
+    _incoming: _SSL.Connection.bio_write
 
     # Note: any new arguments here should likely also be added to
     # SSLListener.__init__, and maybe the open_ssl_over_tcp_* helpers.
@@ -319,14 +321,16 @@ class SSLStream(Stream):
         self._state = _State.OK
         self._max_refill_bytes = max_refill_bytes
         self._https_compatible = https_compatible
-        self._outgoing = _stdlib_ssl.MemoryBIO()
-        self._incoming = _stdlib_ssl.MemoryBIO()
-        self._ssl_object = ssl_context.wrap_bio(
-            self._incoming,
-            self._outgoing,
-            server_side=server_side,
-            server_hostname=server_hostname
-        )
+        self._ssl_object = _SSL.Connection(ssl_context)
+        self._outgoing = self._ssl_object.bio_read
+        self._incoming = self._ssl_object.bio_write
+        if server_side:
+            self._ssl_object.set_accept_state()
+        else:
+            self._ssl_object.set_connect_state()
+        # TODO encode with IDNA?
+        if server_hostname is not None:
+            self._ssl_object.set_tlsext_host_name(server_hostname)
         # Tracks whether we've already done the initial handshake
         self._handshook = _Once(self._do_handshake)
 
@@ -345,6 +349,7 @@ class SSLStream(Stream):
             "another task is currently receiving data on this SSLStream"
         )
 
+    # TODO many will be absent from pyOpenSSL
     _forwarded = {
         "context",
         "server_side",
@@ -441,9 +446,9 @@ class SSLStream(Stream):
             ret = None
             try:
                 ret = fn(*args)
-            except _stdlib_ssl.SSLWantReadError:
+            except _SSL.WantReadError:
                 want_read = True
-            except (_stdlib_ssl.SSLError, _stdlib_ssl.CertificateError) as exc:
+            except (_SSL.Error,) as exc:  # TODO no VerifyError in pyOpenSSL
                 self._state = _State.BROKEN
                 raise trio.BrokenResourceError from exc
             else:
@@ -451,7 +456,7 @@ class SSLStream(Stream):
             if ignore_want_read:
                 want_read = False
                 finished = True
-            to_send = self._outgoing.read()
+            to_send = self._outgoing(_default_max_refill_bytes)
 
             # Outputs from the above code block are:
             #
@@ -540,9 +545,9 @@ class SSLStream(Stream):
                             self._max_refill_bytes
                         )
                         if not data:
-                            self._incoming.write_eof()
+                            self._ssl_object.shutdown()  # TODO is this the same as send eof?
                         else:
-                            self._incoming.write(data)
+                            self._incoming(data)
                         self._inner_recv_count += 1
         if not yielded:
             await trio.hazmat.cancel_shielded_checkpoint()
@@ -611,11 +616,8 @@ class SSLStream(Stream):
                 # For some reason, EOF before handshake sometimes raises
                 # SSLSyscallError instead of SSLEOFError (e.g. on my linux
                 # laptop, but not on appveyor). Thanks openssl.
-                if (
-                    self._https_compatible and isinstance(
-                        exc.__cause__,
-                        (_stdlib_ssl.SSLEOFError, _stdlib_ssl.SSLSyscallError)
-                    )
+                if self._https_compatible and isinstance(
+                    exc.__cause__, (_SSL.Error, _SSL.SysCallError)  # TODO no EOFError
                 ):
                     await trio.hazmat.checkpoint()
                     return b""
@@ -632,9 +634,8 @@ class SSLStream(Stream):
                 # BROKEN. But that's actually fine, because after getting an
                 # EOF on TLS then the only thing you can do is close the
                 # stream, and closing doesn't care about the state.
-                if (
-                    self._https_compatible
-                    and isinstance(exc.__cause__, _stdlib_ssl.SSLEOFError)
+                if self._https_compatible and isinstance(
+                    exc.__cause__, _SSL.Error  # TODO no EOFError in SSL
                 ):
                     await trio.hazmat.checkpoint()
                     return b""
@@ -679,15 +680,16 @@ class SSLStream(Stream):
           ``transport_stream.receive_some(...)``.
 
         """
-        with self._outer_recv_conflict_detector, \
-                self._outer_send_conflict_detector:
+        raise NotImplementedError()
+        with self._outer_recv_conflict_detector, self._outer_send_conflict_detector:
             self._check_status()
             await self._handshook.ensure(checkpoint=False)
             await self._retry(self._ssl_object.unwrap)
             transport_stream = self.transport_stream
             self.transport_stream = None
             self._state = _State.CLOSED
-            return (transport_stream, self._incoming.read())
+            # TODO was _incoming.read() which we don't get from pyOpenSSL:
+            return (transport_stream, self._outgoing(_default_max_refill_bytes))
 
     async def aclose(self):
         """Gracefully shut down this connection, and close the underlying
@@ -763,9 +765,7 @@ class SSLStream(Stream):
             # going to be able to do a clean shutdown. If that happens, we'll
             # just do an unclean shutdown.
             try:
-                await self._retry(
-                    self._ssl_object.unwrap, ignore_want_read=True
-                )
+                await self._retry(self._ssl_object.shutdown(), ignore_want_read=True)
             except (trio.BrokenResourceError, trio.BusyResourceError):
                 pass
         except:
@@ -832,7 +832,7 @@ class SSLListener(Listener[SSLStream]):
       transport_listener (~trio.abc.Listener): The listener whose incoming
           connections will be wrapped in :class:`SSLStream`.
 
-      ssl_context (~ssl.SSLContext): The :class:`~ssl.SSLContext` that will be
+      ssl_context (~SSL.Context): The :class:`~SSL.Context` that will be
           used for incoming connections.
 
       https_compatible (bool): Passed on to :class:`SSLStream`.
