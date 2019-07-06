@@ -1,9 +1,8 @@
 import fcntl
 import os
 import errno
-from typing import Optional, List
 
-from ._abc import SendStream, ReceiveStream
+from ._abc import SendStream, ReceiveStream, Stream
 from ._util import ConflictDetector
 
 import trio
@@ -164,63 +163,37 @@ class PipeReceiveStream(ReceiveStream):
         return self._fd_holder.fd
 
 
-class FdStream(SendStream, ReceiveStream):
+class FdStream(Stream):
     """
-    Represents a send and/or receive stream given file descriptor(s) to
-    a pipe, TTY, etc.
+    Represents a stream given the file descriptor to a pipe, TTY, etc.
 
-    *send_fd*/*receive_fd* must refer to a file that is open for
-    reading/writing and supports non-blocking I/O (pipes and TTYs will work,
-    on-disk files probably not).  The returned stream takes ownership of the
-    fd(s), so closing the stream will close the fd(s) too.  As with
-    `os.fdopen`, you should not directly use an fd after you have wrapped it in
-    a stream using thisfunction.
-
-    Where an fd supports both read and write, pass the same fd to *send_fd* and
-    *receive_fd*.
+    *fd* must refer to a file that is open for reading and/or writing and
+    supports non-blocking I/O (pipes and TTYs will work, on-disk files probably
+    not).  The returned stream takes ownership of the fd, so closing the stream
+    will close the fd(s) too.  As with `os.fdopen`, you should not directly use
+    an fd after you have wrapped it in a stream using this function.
 
     Args:
-      send_fd (int on None): The send stream fd.
-      receive_fd (int or None): The receive stream fd.
+      fd (int): The fd to be wrapped.
 
     Returns:
       A new `FdStream` object.
-
-    Raises:
-      ValueError: if both *send_fd* and *receive_fd* are None.
     """
 
-    def __init__(
-        self, send_fd: Optional[int] = None, receive_fd: Optional[int] = None
-    ):
-        if (send_fd, receive_fd) == (None, None):
-            raise ValueError('Expected send_fd or receive_fd')
+    def __init__(self, fd: int):
+        self._fd_holder = _FdHolder(fd)
         self._send_conflict_detector = ConflictDetector(
             "another task is using this stream for send"
         )
         self._receive_conflict_detector = ConflictDetector(
             "another task is using this stream for receive"
         )
-        # NOTE: if send is supported, it's always represented by first
-        # fd holder in the list.
-        self._fd_holders = []  # type: List[_FdHolder]
-        if send_fd == receive_fd:
-            self._fd_holders.append(_FdHolder(send_fd))
-        else:
-            if send_fd is not None:
-                self._fd_holders.append(_FdHolder(send_fd))
-            if receive_fd is not None:
-                self._fd_holders.append(_FdHolder(receive_fd))
-        self._send_fd = send_fd
-        self._receive_fd = receive_fd
 
     async def send_all(self, data: bytes):
-        if self._send_fd is None:
-            raise RuntimeError('stream does not support send')
         with self._send_conflict_detector:
             # have to check up front, because send_all(b"") on a closed pipe
             # should raise
-            if self._fd_holders[0].closed:
+            if self._fd_holder.closed:
                 raise trio.ClosedResourceError("send file was already closed")
             await trio.hazmat.checkpoint()
             length = len(data)
@@ -230,9 +203,9 @@ class FdStream(SendStream, ReceiveStream):
                 while sent < length:
                     with view[sent:] as remaining:
                         try:
-                            sent += os.write(self._send_fd, remaining)
+                            sent += os.write(self._fd_holder.fd, remaining)
                         except BlockingIOError:
-                            await trio.hazmat.wait_writable(self._send_fd)
+                            await trio.hazmat.wait_writable(self._fd_holder.fd)
                         except OSError as e:
                             if e.errno == errno.EBADF:
                                 raise trio.ClosedResourceError(
@@ -242,13 +215,11 @@ class FdStream(SendStream, ReceiveStream):
                                 raise trio.BrokenResourceError from e
 
     async def wait_send_all_might_not_block(self) -> None:
-        if self._send_fd is None:
-            raise RuntimeError('stream does not support send')
         with self._send_conflict_detector:
-            if self._fd_holders[0].closed:
+            if self._fd_holder.closed:
                 raise trio.ClosedResourceError("send file was already closed")
             try:
-                await trio.hazmat.wait_writable(self._send_fd)
+                await trio.hazmat.wait_writable(self._fd_holder.fd)
             except BrokenPipeError as e:
                 # kqueue: raises EPIPE on wait_writable instead
                 # of sending, which is annoying
@@ -265,9 +236,9 @@ class FdStream(SendStream, ReceiveStream):
             await trio.hazmat.checkpoint()
             while True:
                 try:
-                    data = os.read(self._receive_fd, max_bytes)
+                    data = os.read(self._fd_holder.fd, max_bytes)
                 except BlockingIOError:
-                    await trio.hazmat.wait_readable(self._receive_fd)
+                    await trio.hazmat.wait_readable(self._fd_holder.fd)
                 except OSError as e:
                     if e.errno == errno.EBADF:
                         raise trio.ClosedResourceError(
@@ -281,15 +252,7 @@ class FdStream(SendStream, ReceiveStream):
             return data
 
     async def aclose(self):
-        for fd_holder in self._fd_holders:
-            await fd_holder.aclose()
+        await self._fd_holder.aclose()
 
-    def send_fileno(self):
-        if self._send_fd is None:
-            raise RuntimeError('stream does not support send')
-        return self._send_fd
-
-    def receive_fileno(self):
-        if self._receive_fd is None:
-            raise RuntimeError('stream does not support receive')
-        return self._receive_fd
+    def fileno(self):
+        return self._fd_holder.fd

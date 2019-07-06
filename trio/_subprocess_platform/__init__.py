@@ -71,11 +71,11 @@ try:
 
         def create_pipe_to_child_stdin():  # noqa: F811
             rfd, wfd = os.pipe()
-            return FdStream(send_fd=wfd), rfd
+            return FdStream(wfd), rfd
 
         def create_pipe_from_child_output():  # noqa: F811
             rfd, wfd = os.pipe()
-            return FdStream(receive_fd=rfd), wfd
+            return FdStream(rfd), wfd
 
     elif os.name == "nt":
         from .._windows_pipes import PipeSendStream, PipeReceiveStream
