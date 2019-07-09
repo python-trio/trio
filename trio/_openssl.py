@@ -160,6 +160,11 @@ from ._highlevel_generic import aclose_forcefully
 from . import _sync
 from ._util import ConflictDetector
 
+import service_identity.exceptions
+
+from service_identity.pyopenssl import verify_hostname
+
+
 ################################################################
 # SSLStream
 ################################################################
@@ -197,7 +202,10 @@ class _Once:
 
 _State = _Enum("_State", ["OK", "BROKEN", "CLOSED"])
 
-_default_max_refill_bytes = 32 * 1024
+_default_max_refill_bytes = 16 * 1024
+
+# set connect/accept state in constructor?
+_HANDSHAKE_INIT = True
 
 
 class SSLStream(Stream):
@@ -319,13 +327,17 @@ class SSLStream(Stream):
         self._max_refill_bytes = max_refill_bytes
         self._https_compatible = https_compatible
         self._ssl_object = _SSL.Connection(ssl_context)
+        self._server_hostname = server_hostname
         if server_hostname is not None:
             self._ssl_object.set_tlsext_host_name(server_hostname.encode("idna"))
         self._server_side = server_side  # TODO
-        if server_side:
-            self._ssl_object.set_accept_state()
-        else:
-            self._ssl_object.set_connect_state()
+
+        if _HANDSHAKE_INIT:
+            if self._server_side:
+                self._ssl_object.set_accept_state()
+            else:
+                self._ssl_object.set_connect_state()
+
         # Tracks whether we've already done the initial handshake
         self._handshook = _Once(self._do_handshake)
 
@@ -463,7 +475,7 @@ class SSLStream(Stream):
                 ret = fn(*args)
             except _SSL.WantReadError:
                 want_read = True
-            except (_SSL.Error,) as exc:  # TODO no VerifyError in pyOpenSSL
+            except (_SSL.Error) as exc:  # TODO no VerifyError in pyOpenSSL
                 self._state = _State.BROKEN
                 raise trio.BrokenResourceError from exc
             else:
@@ -471,10 +483,11 @@ class SSLStream(Stream):
             if ignore_want_read:
                 want_read = False
                 finished = True
+
             try:
                 to_send = self._outgoing(_default_max_refill_bytes)
-            except _SSL.WantReadError:  # if _outgoing was empty
-                to_send = b""
+            except _SSL.WantReadError:
+                to_send = None
 
             # Outputs from the above code block are:
             #
@@ -533,7 +546,7 @@ class SSLStream(Stream):
             # in before us. Or if we can't send immediately because
             # someone else is, then we at least need to get in line
             # immediately.
-            if to_send:  # TODO replace with try / catch WantReadError
+            if to_send:
                 # NOTE: This relies on the lock being strict FIFO fair!
                 async with self._inner_send_lock:
                     yielded = True
@@ -573,7 +586,18 @@ class SSLStream(Stream):
 
     async def _do_handshake(self):
         try:
+            if not _HANDSHAKE_INIT:
+                if self._server_side:
+                    self._ssl_object.set_accept_state()
+                else:
+                    self._ssl_object.set_connect_state()
+
             await self._retry(self._ssl_object.do_handshake)
+            if self._server_hostname:
+                try:
+                    verify_hostname(self._ssl_object, self._server_hostname)
+                except service_identity.exceptions.VerificationError as exc:
+                    raise trio.BrokenResourceError from exc
         except:
             self._state = _State.BROKEN
             raise
@@ -698,16 +722,15 @@ class SSLStream(Stream):
           ``transport_stream.receive_some(...)``.
 
         """
-        raise NotImplementedError()
         with self._outer_recv_conflict_detector, self._outer_send_conflict_detector:
             self._check_status()
             await self._handshook.ensure(checkpoint=False)
-            await self._retry(self._ssl_object.unwrap)
+            await self._retry(self._ssl_object.shutdown)
             transport_stream = self.transport_stream
             self.transport_stream = None
             self._state = _State.CLOSED
             # TODO was _incoming.read() which we don't get from pyOpenSSL:
-            return (transport_stream, self._outgoing(_default_max_refill_bytes))
+            return (transport_stream, b"")
 
     async def aclose(self):
         """Gracefully shut down this connection, and close the underlying
@@ -783,7 +806,7 @@ class SSLStream(Stream):
             # going to be able to do a clean shutdown. If that happens, we'll
             # just do an unclean shutdown.
             try:
-                await self._retry(self._ssl_object.shutdown(), ignore_want_read=True)
+                await self._retry(self._ssl_object.shutdown, ignore_want_read=True)
             except (trio.BrokenResourceError, trio.BusyResourceError):
                 pass
         except:
