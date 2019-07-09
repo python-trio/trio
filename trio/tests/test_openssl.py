@@ -1208,11 +1208,10 @@ async def test_getpeercert():
         nursery.start_soon(client.do_handshake)
         nursery.start_soon(server.do_handshake)
 
-    assert server.get_peer_certificate() is None
-    print(client.get_peer_certificate())
+    assert server.getpeercert() is None
     assert (
         ("DNS",
-         "trio-test-1.example.org") in client.get_peer_certificate()["subjectAltName"]
+         "trio-test-1.example.org") in client.getpeercert()["subjectAltName"]
     )
 
 

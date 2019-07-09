@@ -418,6 +418,21 @@ class SSLStream(Stream):
     def context(self):
         return self._ssl_object.get_context()
 
+    # from urllib3.contrib.pyopenssl
+    def getpeercert(self, binary_form=False):
+        x509 = self._ssl_object.get_peer_certificate()
+
+        if not x509:
+            return x509
+
+        return {
+            'subject': (
+                (('commonName', x509.get_subject().CN),),
+            ),
+            'subjectAltName': get_subj_alt_name(x509)
+        }
+
+
     @context.setter
     def context(self, ssl_context):
         return self._ssl_object.set_context(ssl_context)
@@ -676,6 +691,11 @@ class SSLStream(Stream):
                 # BROKEN. But that's actually fine, because after getting an
                 # EOF on TLS then the only thing you can do is close the
                 # stream, and closing doesn't care about the state.
+                if isinstance(exc.__cause__, _SSL.ZeroReturnError): # copied from urllib3 pyopenssl
+                    if self._ssl_object.get_shutdown() == _SSL.RECEIVED_SHUTDOWN:
+                        return b""
+                    else:
+                        raise
                 if self._https_compatible and isinstance(
                     exc.__cause__, _SSL.Error  # TODO no EOFError in SSL
                 ):
@@ -919,3 +939,104 @@ class SSLListener(Listener[SSLStream]):
 
         """
         await self.transport_listener.aclose()
+
+
+import sys
+from cryptography import x509
+from cryptography.hazmat.backends.openssl import backend as openssl_backend
+from cryptography.hazmat.backends.openssl.x509 import _Certificate
+try:
+    from cryptography.x509 import UnsupportedExtension
+except ImportError:
+    # UnsupportedExtension is gone in cryptography >= 2.1.0
+    class UnsupportedExtension(Exception):
+        pass
+
+def _dnsname_to_stdlib(name):
+    """
+    Converts a dNSName SubjectAlternativeName field to the form used by the
+    standard library on the given Python version.
+
+    Cryptography produces a dNSName as a unicode string that was idna-decoded
+    from ASCII bytes. We need to idna-encode that string to get it back, and
+    then on Python 3 we also need to convert to unicode via UTF-8 (the stdlib
+    uses PyUnicode_FromStringAndSize on it, which decodes via UTF-8).
+
+    If the name cannot be idna-encoded then we return None signalling that
+    the name given should be skipped.
+    """
+    def idna_encode(name):
+        """
+        Borrowed wholesale from the Python Cryptography Project. It turns out
+        that we can't just safely call `idna.encode`: it can explode for
+        wildcard names. This avoids that problem.
+        """
+        import idna
+
+        try:
+            for prefix in [u'*.', u'.']:
+                if name.startswith(prefix):
+                    name = name[len(prefix):]
+                    return prefix.encode('ascii') + idna.encode(name)
+            return idna.encode(name)
+        except idna.core.IDNAError:
+            return None
+
+    name = idna_encode(name)
+    if name is None:
+        return None
+    elif sys.version_info >= (3, 0):
+        name = name.decode('utf-8')
+    return name
+
+
+def get_subj_alt_name(peer_cert):
+    """
+    Given an PyOpenSSL certificate, provides all the subject alternative names.
+    """
+    # Pass the cert to cryptography, which has much better APIs for this.
+    if hasattr(peer_cert, "to_cryptography"):
+        cert = peer_cert.to_cryptography()
+    else:
+        # This is technically using private APIs, but should work across all
+        # relevant versions before PyOpenSSL got a proper API for this.
+        cert = _Certificate(openssl_backend, peer_cert._x509)
+
+    # We want to find the SAN extension. Ask Cryptography to locate it (it's
+    # faster than looping in Python)
+    try:
+        ext = cert.extensions.get_extension_for_class(
+            x509.SubjectAlternativeName
+        ).value
+    except x509.ExtensionNotFound:
+        # No such extension, return the empty list.
+        return []
+    except (x509.DuplicateExtension, UnsupportedExtension,
+            x509.UnsupportedGeneralNameType, UnicodeError) as e:
+        # A problem has been found with the quality of the certificate. Assume
+        # no SAN field is present.
+        log.warning(
+            "A problem was encountered with the certificate that prevented "
+            "urllib3 from finding the SubjectAlternativeName field. This can "
+            "affect certificate validation. The error was %s",
+            e,
+        )
+        return []
+
+    # We want to return dNSName and iPAddress fields. We need to cast the IPs
+    # back to strings because the match_hostname function wants them as
+    # strings.
+    # Sadly the DNS names need to be idna encoded and then, on Python 3, UTF-8
+    # decoded. This is pretty frustrating, but that's what the standard library
+    # does with certificates, and so we need to attempt to do the same.
+    # We also want to skip over names which cannot be idna encoded.
+    names = [
+        ('DNS', name) for name in map(_dnsname_to_stdlib, ext.get_values_for_type(x509.DNSName))
+        if name is not None
+    ]
+    names.extend(
+        ('IP Address', str(name))
+        for name in ext.get_values_for_type(x509.IPAddress)
+    )
+
+    return names
