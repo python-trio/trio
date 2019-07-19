@@ -8,7 +8,7 @@ import outcome
 import trio
 
 from ._sync import CapacityLimiter
-from ._core import enable_ki_protection, disable_ki_protection, RunVar, _entry_queue
+from ._core import enable_ki_protection, disable_ki_protection, RunVar, TrioToken
 
 __all__ = [
     "run_sync_in_thread",
@@ -181,8 +181,8 @@ async def run_sync_in_thread(sync_fn, *args, cancellable=False, limiter=None):
 
     ``run_sync_in_thread`` also injects the current ``TrioToken`` into the
     spawned thread's local storage so that these threads can re-enter the Trio
-    loop by calling either :func: ``trio.from_thread.run`` or
-    :func: ``trio.from_thread.run_sync`` for async or synchronous functions,
+    loop by calling either `trio.from_thread.run` or
+    `trio.from_thread.run_sync` for async or synchronous functions,
     respectively.
 
     Args:
@@ -289,13 +289,14 @@ async def run_sync_in_thread(sync_fn, *args, cancellable=False, limiter=None):
     # explicitly to it so it can inject it into thread local storage
     def worker_thread_fn(trio_token):
         TOKEN_LOCAL.token = trio_token
-        result = outcome.capture(sync_fn, *args)
         try:
-            token.run_sync_soon(report_back_in_trio_thread_fn, result)
-        except trio.RunFinishedError:
-            # The entire run finished, so our particular task is certainly
-            # long gone -- it must have cancelled.
-            pass
+            result = outcome.capture(sync_fn, *args)
+            try:
+                token.run_sync_soon(report_back_in_trio_thread_fn, result)
+            except trio.RunFinishedError:
+                # The entire run finished, so our particular task is certainly
+                # long gone -- it must have cancelled.
+                pass
         finally:
             del TOKEN_LOCAL.token
 
@@ -332,7 +333,7 @@ def _run_fn_as_system_task(cb, fn, *args, trio_token=None):
     raised exceptions canceling all tasks should be noted.
     """
 
-    if trio_token and not isinstance(trio_token, _entry_queue.TrioToken):
+    if trio_token and not isinstance(trio_token, TrioToken):
         raise RuntimeError("Passed kwarg trio_token is not of type TrioToken")
 
     if not trio_token:

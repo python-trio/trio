@@ -4,7 +4,7 @@ import trio
 def thread_fn(receive_from_trio, send_to_trio):
     while True:
         # Since we're in a thread, we can't call methods on Trio
-        # objects directly -- so we use our portal to call them.
+        # objects directly -- so we use trio.from_thread to call them.
         try:
             request = trio.from_thread.run(receive_from_trio.receive)
         except trio.EndOfChannel:
