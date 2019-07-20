@@ -1,8 +1,7 @@
-import fcntl
 import os
 import errno
 
-from ._abc import SendStream, ReceiveStream, Stream
+from ._abc import Stream
 from ._util import ConflictDetector
 
 import trio
@@ -34,10 +33,8 @@ class _FdHolder:
             raise TypeError("file descriptor must be an int")
         self.fd = fd
         # Store original state, and ensure non-blocking mode is enabled
-        self._original_flags = fcntl.fcntl(self.fd, fcntl.F_GETFL)
-        fcntl.fcntl(
-            self.fd, fcntl.F_SETFL, self._original_flags | os.O_NONBLOCK
-        )
+        self._original_is_blocking = os.get_blocking(fd)
+        os.set_blocking(fd, False)
 
     @property
     def closed(self):
@@ -55,7 +52,7 @@ class _FdHolder:
             return
         fd = self.fd
         self.fd = -1
-        fcntl.fcntl(fd, fcntl.F_SETFL, self._original_flags)
+        os.set_blocking(fd, self._original_is_blocking)
         os.close(fd)
 
     def __del__(self):
