@@ -24,8 +24,10 @@ from ._core import (
 )
 
 # Unix-specific symbols
-if os.name == "posix":
+try:
     from ._unix_pipes import FdStream
+except ImportError:
+    pass
 
 # Kqueue-specific symbols
 try:
