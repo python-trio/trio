@@ -180,8 +180,9 @@ Unix-specific API
 `FdStream` supports wrapping Unix files (such as a pipe or TTY) as
 a stream.
 
-To obtain a bidirectional `~trio.abc.Stream` for sending and receiving on
-different file descriptors, use `trio.StapledStream`::
+If you have two different file descriptors for sending and receiving,
+and want to bundle them together into a single bidirectional
+`~trio.abc.Stream`, then use `trio.StapledStream`::
 
     bidirectional_stream = trio.StapledStream(
         trio.hazmat.FdStream(write_fd),
