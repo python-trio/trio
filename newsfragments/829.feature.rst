@@ -1,1 +1,1 @@
-Add :class:`trio.hazmat.FdStream` for wrapping a Unix file as a Stream.
+Add `trio.hazmat.FdStream` for wrapping a Unix file descriptor as a `~trio.abc.Stream`.
