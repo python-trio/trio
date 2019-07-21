@@ -6,6 +6,11 @@ from ._util import ConflictDetector
 
 import trio
 
+if os.name != "posix":
+    # We raise an error here rather than gating the import in hazmat.py
+    # in order to keep jedi static analysis happy.
+    raise ImportError
+
 
 class _FdHolder:
     # This class holds onto a raw file descriptor, in non-blocking mode, and

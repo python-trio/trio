@@ -12,6 +12,9 @@ posix = os.name == "posix"
 pytestmark = pytest.mark.skipif(not posix, reason="posix only")
 if posix:
     from .._unix_pipes import FdStream
+else:
+    with pytest.raises(ImportError):
+        from .._unix_pipes import FdStream
 
 
 # Have to use quoted types so import doesn't crash on windows
