@@ -111,7 +111,7 @@ class FdStream(Stream):
             # have to check up front, because send_all(b"") on a closed pipe
             # should raise
             if self._fd_holder.closed:
-                raise trio.ClosedResourceError("send file was already closed")
+                raise trio.ClosedResourceError("file was already closed")
             await trio.hazmat.checkpoint()
             length = len(data)
             # adapted from the SocketStream code
@@ -126,7 +126,7 @@ class FdStream(Stream):
                         except OSError as e:
                             if e.errno == errno.EBADF:
                                 raise trio.ClosedResourceError(
-                                    "send file was closed"
+                                    "file was already closed"
                                 ) from None
                             else:
                                 raise trio.BrokenResourceError from e
@@ -134,7 +134,7 @@ class FdStream(Stream):
     async def wait_send_all_might_not_block(self) -> None:
         with self._send_conflict_detector:
             if self._fd_holder.closed:
-                raise trio.ClosedResourceError("send file was already closed")
+                raise trio.ClosedResourceError("file was already closed")
             try:
                 await trio.hazmat.wait_writable(self._fd_holder.fd)
             except BrokenPipeError as e:
@@ -159,7 +159,7 @@ class FdStream(Stream):
                 except OSError as e:
                     if e.errno == errno.EBADF:
                         raise trio.ClosedResourceError(
-                            "receive file was closed"
+                            "file was already closed"
                         ) from None
                     else:
                         raise trio.BrokenResourceError from e
