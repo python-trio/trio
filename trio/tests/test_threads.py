@@ -8,6 +8,7 @@ from .. import _core
 from .. import Event, CapacityLimiter, sleep
 from ..testing import wait_all_tasks_blocked
 from .._threads import *
+from .._threads import run, run_sync  # Not in __all__, must import explicitly
 
 from .._core.tests.test_ki import ki_self
 from .._core.tests.tutil import slow
@@ -16,13 +17,13 @@ from .._core.tests.tutil import slow
 async def test_do_in_trio_thread():
     trio_thread = threading.current_thread()
 
-    async def check_case(do_in_trio_thread, fn, expected):
+    async def check_case(do_in_trio_thread, fn, expected, trio_token=None):
         record = []
 
         def threadfn():
             try:
                 record.append(("start", threading.current_thread()))
-                x = do_in_trio_thread(fn, record)
+                x = do_in_trio_thread(fn, record, trio_token=trio_token)
                 record.append(("got", x))
             except BaseException as exc:
                 print(exc)
@@ -37,21 +38,21 @@ async def test_do_in_trio_thread():
             ("start", child_thread), ("f", trio_thread), expected
         ]
 
-    portal = BlockingTrioPortal()
+    token = _core.current_trio_token()
 
     def f(record):
         assert not _core.currently_ki_protected()
         record.append(("f", threading.current_thread()))
         return 2
 
-    await check_case(portal.run_sync, f, ("got", 2))
+    await check_case(run_sync, f, ("got", 2), trio_token=token)
 
     def f(record):
         assert not _core.currently_ki_protected()
         record.append(("f", threading.current_thread()))
         raise ValueError
 
-    await check_case(portal.run_sync, f, ("error", ValueError))
+    await check_case(run_sync, f, ("error", ValueError), trio_token=token)
 
     async def f(record):
         assert not _core.currently_ki_protected()
@@ -59,7 +60,7 @@ async def test_do_in_trio_thread():
         record.append(("f", threading.current_thread()))
         return 3
 
-    await check_case(portal.run, f, ("got", 3))
+    await check_case(run, f, ("got", 3), trio_token=token)
 
     async def f(record):
         assert not _core.currently_ki_protected()
@@ -67,33 +68,18 @@ async def test_do_in_trio_thread():
         record.append(("f", threading.current_thread()))
         raise KeyError
 
-    await check_case(portal.run, f, ("error", KeyError))
+    await check_case(run, f, ("error", KeyError), trio_token=token)
 
 
 async def test_do_in_trio_thread_from_trio_thread():
-    portal = BlockingTrioPortal()
-
     with pytest.raises(RuntimeError):
-        portal.run_sync(lambda: None)  # pragma: no branch
+        run_sync(lambda: None)  # pragma: no branch
 
     async def foo():  # pragma: no cover
         pass
 
     with pytest.raises(RuntimeError):
-        portal.run(foo)
-
-
-async def test_BlockingTrioPortal_with_explicit_TrioToken():
-    token = _core.current_trio_token()
-
-    def worker_thread(token):
-        with pytest.raises(RuntimeError):
-            BlockingTrioPortal()
-        portal = BlockingTrioPortal(token)
-        return portal.run_sync(threading.current_thread)
-
-    t = await run_sync_in_thread(worker_thread, token)
-    assert t == threading.current_thread()
+        run(foo)
 
 
 def test_run_in_trio_thread_ki():
@@ -102,7 +88,7 @@ def test_run_in_trio_thread_ki():
     record = set()
 
     async def check_run_in_trio_thread():
-        portal = BlockingTrioPortal()
+        token = _core.current_trio_token()
 
         def trio_thread_fn():
             print("in Trio thread")
@@ -120,12 +106,12 @@ def test_run_in_trio_thread_ki():
         def external_thread_fn():
             try:
                 print("running")
-                portal.run_sync(trio_thread_fn)
+                run_sync(trio_thread_fn, trio_token=token)
             except KeyboardInterrupt:
                 print("ok1")
                 record.add("ok1")
             try:
-                portal.run(trio_thread_afn)
+                run(trio_thread_afn, trio_token=token)
             except KeyboardInterrupt:
                 print("ok2")
                 record.add("ok2")
@@ -152,15 +138,15 @@ def test_await_in_trio_thread_while_main_exits():
         ev.set()
         await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
 
-    def thread_fn(portal):
+    def thread_fn(token):
         try:
-            portal.run(trio_fn)
+            run(trio_fn, trio_token=token)
         except _core.Cancelled:
             record.append("cancelled")
 
     async def main():
-        portal = BlockingTrioPortal()
-        thread = threading.Thread(target=thread_fn, args=(portal,))
+        token = _core.current_trio_token()
+        thread = threading.Thread(target=thread_fn, args=(token,))
         thread.start()
         await ev.wait()
         assert record == ["sleeping"]
@@ -322,11 +308,11 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
         state.running = 0
         state.parked = 0
 
-        portal = BlockingTrioPortal()
+        token = _core.current_trio_token()
 
         def thread_fn(cancel_scope):
             print("thread_fn start")
-            portal.run_sync(cancel_scope.cancel)
+            run_sync(cancel_scope.cancel, trio_token=token)
             with lock:
                 state.ran += 1
                 state.running += 1
@@ -457,3 +443,112 @@ async def test_run_in_worker_thread_fail_to_spawn(monkeypatch):
     assert "engines" in str(excinfo.value)
 
     assert limiter.borrowed_tokens == 0
+
+
+async def test_trio_run_sync_in_thread_token():
+    # Test that run_sync_in_thread automatically injects the current trio token
+    # into a spawned thread
+    def thread_fn():
+        callee_token = run_sync(_core.current_trio_token)
+        return callee_token
+
+    caller_token = _core.current_trio_token()
+    callee_token = await run_sync_in_thread(thread_fn)
+    assert callee_token == caller_token
+
+
+async def test_trio_from_thread_run_sync():
+    # Test that run_sync_in_thread correctly "hands off" the trio token to
+    # trio.from_thread.run_sync()
+    def thread_fn():
+        trio_time = run_sync(_core.current_time)
+        return trio_time
+
+    trio_time = await run_sync_in_thread(thread_fn)
+    assert isinstance(trio_time, float)
+
+
+async def test_trio_from_thread_run():
+    # Test that run_sync_in_thread correctly "hands off" the trio token to
+    # trio.from_thread.run()
+    record = []
+
+    async def back_in_trio_fn():
+        _core.current_time()  # implicitly checks that we're in trio
+        record.append("back in trio")
+
+    def thread_fn():
+        record.append("in thread")
+        run(back_in_trio_fn)
+
+    await run_sync_in_thread(thread_fn)
+    assert record == ["in thread", "back in trio"]
+
+
+async def test_trio_from_thread_token():
+    # Test that run_sync_in_thread and spawned trio.from_thread.run_sync()
+    # share the same Trio token
+    def thread_fn():
+        callee_token = run_sync(_core.current_trio_token)
+        return callee_token
+
+    caller_token = _core.current_trio_token()
+    callee_token = await run_sync_in_thread(thread_fn)
+    assert callee_token == caller_token
+
+
+async def test_trio_from_thread_token_kwarg():
+    # Test that run_sync_in_thread and spawned trio.from_thread.run_sync() can
+    # use an explicitly defined token
+    def thread_fn(token):
+        callee_token = run_sync(_core.current_trio_token, trio_token=token)
+        return callee_token
+
+    caller_token = _core.current_trio_token()
+    callee_token = await run_sync_in_thread(thread_fn, caller_token)
+    assert callee_token == caller_token
+
+
+async def test_from_thread_no_token():
+    # Test that a "raw call" to trio.from_thread.run() fails because no token
+    # has been provided
+
+    with pytest.raises(RuntimeError):
+        run_sync(_core.current_time)
+
+
+def test_run_fn_as_system_task_catched_badly_typed_token():
+    with pytest.raises(RuntimeError):
+        run_sync(_core.current_time, trio_token="Not TrioTokentype")
+
+
+async def test_do_in_trio_thread_from_trio_thread_legacy():
+    # This check specifically confirms that a RuntimeError will be raised if
+    # the old BlockingTrIoPortal API calls into a trio loop while already
+    # running inside of one.
+    portal = BlockingTrioPortal()
+
+    with pytest.raises(RuntimeError):
+        portal.run_sync(lambda: None)  # pragma: no branch
+
+    async def foo():  # pragma: no cover
+        pass
+
+    with pytest.raises(RuntimeError):
+        portal.run(foo)
+
+
+async def test_BlockingTrioPortal_with_explicit_TrioToken():
+    # This tests the deprecated BlockingTrioPortal with a token passed in to
+    # confirm that both methods of making a portal are supported by
+    # trio.from_thread
+    token = _core.current_trio_token()
+
+    def worker_thread(token):
+        with pytest.raises(RuntimeError):
+            BlockingTrioPortal()
+        portal = BlockingTrioPortal(token)
+        return portal.run_sync(threading.current_thread)
+
+    t = await run_sync_in_thread(worker_thread, token)
+    assert t == threading.current_thread()
