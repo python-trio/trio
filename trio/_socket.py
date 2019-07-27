@@ -7,7 +7,6 @@ from functools import wraps as _wraps
 import idna as _idna
 
 import trio
-from ._threads import run_sync_in_thread
 from ._util import fspath
 from . import _core
 
@@ -179,7 +178,7 @@ async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
     if hr is not None:
         return await hr.getaddrinfo(host, port, family, type, proto, flags)
     else:
-        return await run_sync_in_thread(
+        return await trio.to_thread.run_sync(
             _stdlib_socket.getaddrinfo,
             host,
             port,
@@ -205,7 +204,7 @@ async def getnameinfo(sockaddr, flags):
     if hr is not None:
         return await hr.getnameinfo(sockaddr, flags)
     else:
-        return await run_sync_in_thread(
+        return await trio.to_thread.run_sync(
             _stdlib_socket.getnameinfo, sockaddr, flags, cancellable=True
         )
 
@@ -216,7 +215,7 @@ async def getprotobyname(name):
     Like :func:`socket.getprotobyname`, but async.
 
     """
-    return await run_sync_in_thread(
+    return await trio.to_thread.run_sync(
         _stdlib_socket.getprotobyname, name, cancellable=True
     )
 
@@ -464,7 +463,7 @@ class _SocketType(SocketType):
         ):
             # Use a thread for the filesystem traversal (unless it's an
             # abstract domain socket)
-            return await run_sync_in_thread(self._sock.bind, address)
+            return await trio.to_thread.run_sync(self._sock.bind, address)
         else:
             # POSIX actually says that bind can return EWOULDBLOCK and
             # complete asynchronously, like connect. But in practice AFAICT

@@ -1471,7 +1471,7 @@ In acknowledgment of this reality, Trio provides two useful utilities
 for working with real, operating-system level,
 :mod:`threading`\-module-style threads. First, if you're in Trio but
 need to push some blocking I/O into a thread, there's
-:func:`run_sync_in_thread`. And if you're in a thread and need
+`trio.to_thread.run_sync`. And if you're in a thread and need
 to communicate back with Trio, you can use
 :func:`trio.from_thread.run` and :func:`trio.from_thread.run_sync`.
 
@@ -1494,7 +1494,7 @@ are spawned and the system gets overloaded and crashes. Instead, the N
 threads start executing the first N jobs, while the other
 (100,000 - N) jobs sit in a queue and wait their turn. Which is
 generally what you want, and this is how
-:func:`trio.run_sync_in_thread` works by default.
+:func:`trio.to_thread.run_sync` works by default.
 
 The downside of this kind of thread pool is that sometimes, you need
 more sophisticated logic for controlling how many threads are run at
@@ -1541,16 +1541,16 @@ re-using threads, but has no admission control policy: if you give it
 responsible for providing the policy to make sure that this doesn't
 happen – but since it *only* has to worry about policy, it can be much
 simpler. In fact, all there is to it is the ``limiter=`` argument
-passed to :func:`run_sync_in_thread`. This defaults to a global
+passed to :func:`trio.to_thread.run_sync`. This defaults to a global
 :class:`CapacityLimiter` object, which gives us the classic fixed-size
 thread pool behavior. (See
-:func:`current_default_thread_limiter`.) But if you want to use
-"separate pools" for type A jobs and type B jobs, then it's just a
-matter of creating two separate :class:`CapacityLimiter` objects and
-passing them in when running these jobs. Or here's an example of
-defining a custom policy that respects the global thread limit, while
-making sure that no individual user can use more than 3 threads at a
-time::
+:func:`trio.to_thread.current_default_thread_limiter`.) But if you
+want to use "separate pools" for type A jobs and type B jobs, then
+it's just a matter of creating two separate :class:`CapacityLimiter`
+objects and passing them in when running these jobs. Or here's an
+example of defining a custom policy that respects the global thread
+limit, while making sure that no individual user can use more than 3
+threads at a time::
 
    class CombinedLimiter:
         def __init__(self, first, second):
@@ -1594,19 +1594,24 @@ time::
            return combined_limiter
 
 
-   async def run_in_worker_thread_for_user(user_id, async_fn, *args, **kwargs):
-       # *args belong to async_fn; **kwargs belong to run_sync_in_thread
+   async def run_sync_in_thread_for_user(user_id, sync_fn, *args):
        kwargs["limiter"] = get_user_limiter(user_id)
-       return await trio.run_sync_in_thread(asycn_fn, *args, **kwargs)
+       return await trio.to_thread.run_sync(asycn_fn, *args)
 
+
+.. module:: trio.to_thread
+.. currentmodule:: trio
 
 Putting blocking I/O into worker threads
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autofunction:: run_sync_in_thread
+.. autofunction:: trio.to_thread.run_sync
 
-.. autofunction:: current_default_thread_limiter
+.. autofunction:: trio.to_thread.current_default_thread_limiter
 
+
+.. module:: trio.from_thread
+.. currentmodule:: trio
 
 Getting back into the Trio thread from another thread
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1614,6 +1619,7 @@ Getting back into the Trio thread from another thread
 .. autofunction:: trio.from_thread.run
 
 .. autofunction:: trio.from_thread.run_sync
+
 
 This will probably be clearer with an example. Here we demonstrate how
 to spawn a child thread, and then use a :ref:`memory channel

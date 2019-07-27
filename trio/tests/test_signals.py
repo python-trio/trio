@@ -55,7 +55,7 @@ async def test_catch_signals_wrong_thread():
             pass  # pragma: no cover
 
     with pytest.raises(RuntimeError):
-        await trio.run_sync_in_thread(trio.run, naughty)
+        await trio.to_thread.run_sync(trio.run, naughty)
 
 
 async def test_open_signal_receiver_conflict():

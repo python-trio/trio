@@ -5,7 +5,7 @@ import sys
 
 from .. import _core, _subprocess
 from .._sync import CapacityLimiter, Event
-from .._threads import run_sync_in_thread
+from .._threads import to_thread_run_sync
 
 try:
     from os import waitid
@@ -74,7 +74,7 @@ async def _waitid_system_task(pid: int, event: Event) -> None:
     # call to trio.run is shutting down.
 
     try:
-        await run_sync_in_thread(
+        await to_thread_run_sync(
             sync_wait_reapable,
             pid,
             cancellable=True,
