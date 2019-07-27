@@ -54,7 +54,9 @@ async def test_do_in_trio_thread():
         record.append(("f", threading.current_thread()))
         raise ValueError
 
-    await check_case(from_thread_run_sync, f, ("error", ValueError), trio_token=token)
+    await check_case(
+        from_thread_run_sync, f, ("error", ValueError), trio_token=token
+    )
 
     async def f(record):
         assert not _core.currently_ki_protected()
@@ -503,7 +505,9 @@ async def test_trio_from_thread_token_kwarg():
     # Test that to_thread_run_sync and spawned trio.from_thread.run_sync() can
     # use an explicitly defined token
     def thread_fn(token):
-        callee_token = from_thread_run_sync(_core.current_trio_token, trio_token=token)
+        callee_token = from_thread_run_sync(
+            _core.current_trio_token, trio_token=token
+        )
         return callee_token
 
     caller_token = _core.current_trio_token()
@@ -521,7 +525,9 @@ async def test_from_thread_no_token():
 
 def test_run_fn_as_system_task_catched_badly_typed_token():
     with pytest.raises(RuntimeError):
-        from_thread_run_sync(_core.current_time, trio_token="Not TrioTokentype")
+        from_thread_run_sync(
+            _core.current_time, trio_token="Not TrioTokentype"
+        )
 
 
 async def test_do_in_trio_thread_from_trio_thread_legacy():
