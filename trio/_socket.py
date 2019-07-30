@@ -1,5 +1,6 @@
 import os as _os
 import sys as _sys
+import select
 import socket as _stdlib_socket
 from functools import wraps as _wraps
 
@@ -289,7 +290,7 @@ def socket(
 
 def _sniff_sockopts_for_fileno(family, type, proto, fileno):
     """Correct SOCKOPTS for given fileno, falling back to provided values.
-    
+
     """
     # Wrap the raw fileno into a Python socket object
     # This object might have the wrong metadata, but it lets us easily call getsockopt
@@ -477,6 +478,15 @@ class _SocketType(SocketType):
         # only do this if the call succeeded:
         if flag in [_stdlib_socket.SHUT_WR, _stdlib_socket.SHUT_RDWR]:
             self._did_shutdown_SHUT_WR = True
+
+    def is_readable(self):
+        # use select.select on Windows, and select.poll everywhere else
+        if _sys.platform == "win32":
+            rready, _, _ = select.select([self._sock], [], [], 0)
+            return bool(rready)
+        p = select.poll()
+        p.register(self._sock, select.POLLIN)
+        return bool(p.poll(0))
 
     async def wait_writable(self):
         await _core.wait_writable(self._sock)

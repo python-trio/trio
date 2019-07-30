@@ -32,13 +32,14 @@ from ._sync import (
     Event, CapacityLimiter, Semaphore, Lock, StrictFIFOLock, Condition
 )
 
-from ._threads import (
-    run_sync_in_thread, current_default_thread_limiter, BlockingTrioPortal
-)
+from ._threads import (run_sync_in_thread, current_default_thread_limiter)
+from ._threads import BlockingTrioPortal as _BlockingTrioPortal
 
 from ._highlevel_generic import aclose_forcefully, StapledStream
 
-from ._channel import open_memory_channel
+from ._channel import (
+    open_memory_channel, MemorySendChannel, MemoryReceiveChannel
+)
 
 from ._signals import open_signal_receiver
 
@@ -70,6 +71,7 @@ from ._deprecate import TrioDeprecationWarning
 from . import hazmat
 from . import socket
 from . import abc
+from . import from_thread
 # Not imported by default: testing
 if False:
     from . import testing
@@ -140,6 +142,13 @@ hazmat.__deprecated_attributes__ = {
             "0.12.0",
             issue=878,
         ),
+    "BlockingTrioPortal":
+        _deprecate.DeprecatedAttribute(
+            _BlockingTrioPortal,
+            "0.12.0",
+            issue=810,
+            instead=from_thread,
+        ),
 }
 
 # Having the public path in .__module__ attributes is important for:
@@ -153,6 +162,7 @@ fixup_module_metadata(__name__, globals())
 fixup_module_metadata(hazmat.__name__, hazmat.__dict__)
 fixup_module_metadata(socket.__name__, socket.__dict__)
 fixup_module_metadata(abc.__name__, abc.__dict__)
+fixup_module_metadata(from_thread.__name__, from_thread.__dict__)
 fixup_module_metadata(__name__ + ".ssl", _deprecated_ssl_reexports.__dict__)
 fixup_module_metadata(
     __name__ + ".subprocess", _deprecated_subprocess_reexports.__dict__

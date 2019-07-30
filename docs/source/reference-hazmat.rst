@@ -174,6 +174,26 @@ All environments provide the following functions:
    yourself afterwards.
 
 
+Unix-specific API
+-----------------
+
+`FdStream` supports wrapping Unix files (such as a pipe or TTY) as
+a stream.
+
+If you have two different file descriptors for sending and receiving,
+and want to bundle them together into a single bidirectional
+`~trio.abc.Stream`, then use `trio.StapledStream`::
+
+    bidirectional_stream = trio.StapledStream(
+        trio.hazmat.FdStream(write_fd),
+        trio.hazmat.FdStream(read_fd)
+    )
+
+.. autoclass:: FdStream
+   :show-inheritance:
+   :members:
+
+
 Kqueue-specific API
 -------------------
 
@@ -280,11 +300,11 @@ These transitions are accomplished using two function decorators:
    function).
 
    An example of where you'd use this is in implementing something
-   like :meth:`trio.BlockingTrioPortal.run`, which uses
+   like :func:`trio.from_thread.run`, which uses
    :meth:`TrioToken.run_sync_soon` to get into the Trio
    thread. :meth:`~TrioToken.run_sync_soon` callbacks are run with
    :exc:`KeyboardInterrupt` protection enabled, and
-   :meth:`~trio.BlockingTrioPortal.run` takes advantage of this to safely set up
+   :func:`trio.from_thread.run` takes advantage of this to safely set up
    the machinery for sending a response back to the original thread, but
    then uses :func:`disable_ki_protection` when entering the
    user-provided function.

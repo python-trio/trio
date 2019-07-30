@@ -564,7 +564,7 @@ Upcoming breaking changes with warnings (i.e., stuff that in 0.2.0
 
   * We took the opportunity to refactor ``run_in_trio_thread`` and
     ``await_in_trio_thread`` into the new class
-    :class:`trio.BlockingTrioPortal`
+    ``trio.BlockingTrioPortal``
 
   * The hazmat function ``current_call_soon_thread_and_signal_safe``
     is being replaced by :class:`trio.hazmat.TrioToken`

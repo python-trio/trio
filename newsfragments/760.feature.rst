@@ -1,0 +1,2 @@
+Trio sockets have a new method `~trio.socket.SocketType.is_readable` that allows
+you to check whether a socket is readable. This is useful for HTTP/1.1 clients.
