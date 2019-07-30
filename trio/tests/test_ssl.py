@@ -222,8 +222,10 @@ class PyOpenSSLEchoStream:
             await self.sleeper("send_all")
             print("  <-- transport_stream.send_all finished")
 
-    async def receive_some(self, nbytes):
+    async def receive_some(self, nbytes=None):
         print("  --> transport_stream.receive_some")
+        if nbytes is None:
+            nbytes = 65536  # arbitrary
         with self._receive_some_conflict_detector:
             try:
                 await _core.checkpoint()
@@ -1232,17 +1234,25 @@ async def test_SSLListener():
 
     ################
 
-    # Test https_compatible and max_refill_bytes
-    _, ssl_listener, ssl_client = await setup(
-        https_compatible=True,
-        max_refill_bytes=100,
-    )
+    # Test https_compatible
+    _, ssl_listener, ssl_client = await setup(https_compatible=True)
 
     ssl_server = await ssl_listener.accept()
 
     assert ssl_server._https_compatible
-    assert ssl_server._max_refill_bytes == 100
 
     await aclose_forcefully(ssl_listener)
     await aclose_forcefully(ssl_client)
     await aclose_forcefully(ssl_server)
+
+
+async def test_deprecated_max_refill_bytes():
+    stream1, stream2 = memory_stream_pair()
+    with pytest.warns(trio.TrioDeprecationWarning):
+        SSLStream(stream1, CLIENT_CTX, max_refill_bytes=100)
+    with pytest.warns(trio.TrioDeprecationWarning):
+        # passing None is wrong here, but I'm too lazy to make a fake Listener
+        # and we get away with it for now. And this test will be deleted in a
+        # release or two anyway, so hopefully we'll keep getting away with it
+        # for long enough.
+        SSLListener(None, CLIENT_CTX, max_refill_bytes=100)

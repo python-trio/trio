@@ -67,9 +67,9 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             with assert_checkpoints():
                 assert await s.send_all(data) is None
 
-        async def do_receive_some(max_bytes):
+        async def do_receive_some(*args):
             with assert_checkpoints():
-                return await r.receive_some(1)
+                return await r.receive_some(*args)
 
         async def checked_receive_1(expected):
             assert await do_receive_some(1) == expected
@@ -111,6 +111,13 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             await r.receive_some(0)
         with _assert_raises(TypeError):
             await r.receive_some(1.5)
+        # it can also be missing or None
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(do_send_all, b"x")
+            assert await do_receive_some() == b"x"
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(do_send_all, b"x")
+            assert await do_receive_some(None) == b"x"
 
         with _assert_raises(_core.BusyResourceError):
             async with _core.open_nursery() as nursery:

@@ -908,12 +908,10 @@ And the second task's job is to process the data the server sends back:
    :lineno-match:
    :pyobject: receiver
 
-It repeatedly calls ``await client_stream.receive_some(...)`` to get
-more data from the server (again, all Trio streams provide this
-method), and then checks to see if the server has closed the
-connection. ``receive_some`` only returns an empty bytestring if the
-connection has been closed; otherwise, it waits until some data has
-arrived, up to a maximum of ``BUFSIZE`` bytes.
+It uses an ``async for`` loop to fetch data from the server.
+Alternatively, it could use `~trio.abc.ReceiveStream.receive_some`,
+which is the opposite of `~trio.abc.SendStream.send_all`, but using
+``async for`` saves some boilerplate.
 
 And now we're ready to look at the server.
 
@@ -974,11 +972,11 @@ functions we saw in the last section:
 
 The argument ``server_stream`` is provided by :func:`serve_tcp`, and
 is the other end of the connection we made in the client: so the data
-that the client passes to ``send_all`` will come out of
-``receive_some`` here, and vice-versa. Then we have a ``try`` block
-discussed below, and finally the server loop which alternates between
-reading some data from the socket and then sending it back out again
-(unless the socket was closed, in which case we quit).
+that the client passes to ``send_all`` will come out here. Then we
+have a ``try`` block discussed below, and finally the server loop
+which alternates between reading some data from the socket and then
+sending it back out again (unless the socket was closed, in which case
+we quit).
 
 So what's that ``try`` block for? Remember that in Trio, like Python
 in general, exceptions keep propagating until they're caught. Here we
@@ -1029,7 +1027,7 @@ our client could use a single task like::
        while True:
            data = ...
            await client_stream.send_all(data)
-           received = await client_stream.receive_some(BUFSIZE)
+           received = await client_stream.receive_some()
            if not received:
                sys.exit()
            await trio.sleep(1)
@@ -1046,18 +1044,23 @@ line, any time we're expecting more than one byte of data, we have to
 be prepared to call ``receive_some`` multiple times.
 
 And where this would go especially wrong is if we find ourselves in
-the situation where ``len(data) > BUFSIZE``. On each pass through the
-loop, we send ``len(data)`` bytes, but only read *at most* ``BUFSIZE``
-bytes. The result is something like a memory leak: we'll end up with
-more and more data backed up in the network, until eventually
-something breaks.
+the situation where ``data`` is big enough that it passes some
+internal threshold, and the operating system or network decide to
+always break it up into multiple pieces. Now on each pass through the
+loop, we send ``len(data)`` bytes, but read less than that. The result
+is something like a memory leak: we'll end up with more and more data
+backed up in the network, until eventually something breaks.
+
+.. note:: If you're curious *how* things break, then you can use
+   `~trio.abc.ReceiveStream.receive_some`\'s optional argument to put
+   a limit on how many bytes you read each time, and see what happens.
 
 We could fix this by keeping track of how much data we're expecting at
 each moment, and then keep calling ``receive_some`` until we get it all::
 
    expected = len(data)
    while expected > 0:
-       received = await client_stream.receive_some(BUFSIZE)
+       received = await client_stream.receive_some(expected)
        if not received:
            sys.exit(1)
        expected -= len(received)

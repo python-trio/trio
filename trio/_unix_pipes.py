@@ -11,6 +11,10 @@ if os.name != "posix":
     # in order to keep jedi static analysis happy.
     raise ImportError
 
+# XX TODO: is this a good number? who knows... it does match the default Linux
+# pipe capacity though.
+DEFAULT_RECEIVE_SIZE = 65536
+
 
 class _FdHolder:
     # This class holds onto a raw file descriptor, in non-blocking mode, and
@@ -147,13 +151,15 @@ class FdStream(Stream):
                 # of sending, which is annoying
                 raise trio.BrokenResourceError from e
 
-    async def receive_some(self, max_bytes: int) -> bytes:
+    async def receive_some(self, max_bytes=None) -> bytes:
         with self._receive_conflict_detector:
-            if not isinstance(max_bytes, int):
-                raise TypeError("max_bytes must be integer >= 1")
-
-            if max_bytes < 1:
-                raise ValueError("max_bytes must be integer >= 1")
+            if max_bytes is None:
+                max_bytes = DEFAULT_RECEIVE_SIZE
+            else:
+                if not isinstance(max_bytes, int):
+                    raise TypeError("max_bytes must be integer >= 1")
+                if max_bytes < 1:
+                    raise ValueError("max_bytes must be integer >= 1")
 
             await trio.hazmat.checkpoint()
             while True:

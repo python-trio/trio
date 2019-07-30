@@ -30,7 +30,7 @@ class GracefulShutdownManager:
 async def stream_handler(stream):
     while True:
         with gsm.cancel_on_graceful_shutdown():
-            data = await stream.receive_some(...)
+            data = await stream.receive_some()
         if gsm.shutting_down:
             break
 

@@ -225,7 +225,7 @@ class MemoryReceiveStream(ReceiveStream):
         self.receive_some_hook = receive_some_hook
         self.close_hook = close_hook
 
-    async def receive_some(self, max_bytes):
+    async def receive_some(self, max_bytes=None):
         """Calls the :attr:`receive_some_hook` (if any), and then retrieves
         data from the internal buffer, blocking if necessary.
 
@@ -235,8 +235,6 @@ class MemoryReceiveStream(ReceiveStream):
         with self._conflict_detector:
             await _core.checkpoint()
             await _core.checkpoint()
-            if max_bytes is None:
-                raise TypeError("max_bytes must not be None")
             if self._closed:
                 raise _core.ClosedResourceError
             if self.receive_some_hook is not None:
@@ -382,9 +380,9 @@ def memory_stream_pair():
 
        left, right = memory_stream_pair()
        await left.send_all(b"123")
-       assert await right.receive_some(10) == b"123"
+       assert await right.receive_some() == b"123"
        await right.send_all(b"456")
-       assert await left.receive_some(10) == b"456"
+       assert await left.receive_some() == b"456"
 
     But if you read the docs for :class:`~trio.StapledStream` and
     :func:`memory_stream_one_way_pair`, you'll see that all the pieces
@@ -411,10 +409,7 @@ def memory_stream_pair():
             await left.send_eof()
 
         async def receiver():
-            while True:
-                data = await right.receive_some(10)
-                if data == b"":
-                    return
+            async for data in right:
                 print(data)
 
         async with trio.open_nursery() as nursery:
@@ -508,12 +503,13 @@ class _LockstepByteQueue:
             if self._sender_closed:
                 raise _core.ClosedResourceError
 
-    async def receive_some(self, max_bytes):
+    async def receive_some(self, max_bytes=None):
         with self._receive_conflict_detector:
             # Argument validation
-            max_bytes = operator.index(max_bytes)
-            if max_bytes < 1:
-                raise ValueError("max_bytes must be >= 1")
+            if max_bytes is not None:
+                max_bytes = operator.index(max_bytes)
+                if max_bytes < 1:
+                    raise ValueError("max_bytes must be >= 1")
             # State validation
             if self._receiver_closed:
                 raise _core.ClosedResourceError
@@ -528,6 +524,8 @@ class _LockstepByteQueue:
                 raise _core.ClosedResourceError
             # Get data, possibly waking send_all
             if self._data:
+                # Neat trick: if max_bytes is None, then obj[:max_bytes] is
+                # the same as obj[:].
                 got = self._data[:max_bytes]
                 del self._data[:max_bytes]
                 self._something_happened()
@@ -566,7 +564,7 @@ class _LockstepReceiveStream(ReceiveStream):
         self.close()
         await _core.checkpoint()
 
-    async def receive_some(self, max_bytes):
+    async def receive_some(self, max_bytes=None):
         return await self._lbq.receive_some(max_bytes)
 
 

@@ -10,6 +10,12 @@ from .abc import HalfCloseableStream, Listener
 
 __all__ = ["SocketStream", "SocketListener"]
 
+# XX TODO: this number was picked arbitrarily. We should do experiments to
+# tune it. (Or make it dynamic -- one idea is to start small and increase it
+# if we observe single reads filling up the whole buffer, at least within some
+# limits.)
+DEFAULT_RECEIVE_SIZE = 65536
+
 _closed_stream_errnos = {
     # Unix
     errno.EBADF,
@@ -129,7 +135,9 @@ class SocketStream(HalfCloseableStream):
             with _translate_socket_errors_to_stream_errors():
                 self.socket.shutdown(tsocket.SHUT_WR)
 
-    async def receive_some(self, max_bytes):
+    async def receive_some(self, max_bytes=None):
+        if max_bytes is None:
+            max_bytes = DEFAULT_RECEIVE_SIZE
         if max_bytes < 1:
             raise ValueError("max_bytes must be >= 1")
         with _translate_socket_errors_to_stream_errors():

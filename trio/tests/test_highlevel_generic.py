@@ -24,7 +24,7 @@ class RecordSendStream(SendStream):
 class RecordReceiveStream(ReceiveStream):
     record = attr.ib(factory=list)
 
-    async def receive_some(self, max_bytes):
+    async def receive_some(self, max_bytes=None):
         self.record.append(("receive_some", max_bytes))
 
     async def aclose(self):
