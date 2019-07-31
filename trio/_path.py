@@ -58,7 +58,7 @@ def iter_wrapper_factory(cls, meth_name):
     async def wrapper(self, *args, **kwargs):
         meth = getattr(self._wrapped, meth_name)
         func = partial(meth, *args, **kwargs)
-        items = await trio.run_sync_in_thread(func)
+        items = await trio.to_thread.run_sync(func)
         return (rewrap_path(item) for item in items)
 
     return wrapper
@@ -70,7 +70,7 @@ def thread_wrapper_factory(cls, meth_name):
         args = unwrap_paths(args)
         meth = getattr(self._wrapped, meth_name)
         func = partial(meth, *args, **kwargs)
-        value = await trio.run_sync_in_thread(func)
+        value = await trio.to_thread.run_sync(func)
         return rewrap_path(value)
 
     return wrapper
@@ -83,7 +83,7 @@ def classmethod_wrapper_factory(cls, meth_name):
         args = unwrap_paths(args)
         meth = getattr(cls._wraps, meth_name)
         func = partial(meth, *args, **kwargs)
-        value = await trio.run_sync_in_thread(func)
+        value = await trio.to_thread.run_sync(func)
         return rewrap_path(value)
 
     return wrapper
@@ -145,7 +145,7 @@ class AsyncAutoWrapperType(type):
 
 class Path(metaclass=AsyncAutoWrapperType):
     """A :class:`pathlib.Path` wrapper that executes blocking methods in
-    :meth:`trio.run_sync_in_thread`.
+    :meth:`trio.to_thread.run_sync`.
 
     """
 
@@ -185,7 +185,7 @@ class Path(metaclass=AsyncAutoWrapperType):
         """
 
         func = partial(self._wrapped.open, *args, **kwargs)
-        value = await trio.run_sync_in_thread(func)
+        value = await trio.to_thread.run_sync(func)
         return trio.wrap_file(value)
 
 

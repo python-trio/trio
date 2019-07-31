@@ -10,12 +10,6 @@ import trio
 from ._sync import CapacityLimiter
 from ._core import enable_ki_protection, disable_ki_protection, RunVar, TrioToken
 
-__all__ = [
-    "run_sync_in_thread",
-    "current_default_thread_limiter",
-    "BlockingTrioPortal",
-]
-
 # Global due to Threading API, thread local storage for trio token
 TOKEN_LOCAL = threading.local()
 
@@ -27,10 +21,10 @@ class BlockingTrioPortal:
         self._trio_token = trio_token
 
     def run(self, afn, *args):
-        return run(afn, *args, trio_token=self._trio_token)
+        return from_thread_run(afn, *args, trio_token=self._trio_token)
 
     def run_sync(self, fn, *args):
-        return run_sync(fn, *args, trio_token=self._trio_token)
+        return from_thread_run_sync(fn, *args, trio_token=self._trio_token)
 
 
 ################################################################
@@ -141,11 +135,11 @@ _thread_counter = count()
 
 
 def current_default_thread_limiter():
-    """Get the default :class:`CapacityLimiter` used by
-    :func:`run_sync_in_thread`.
+    """Get the default `~trio.CapacityLimiter` used by
+    `trio.to_thread.run_sync`.
 
     The most common reason to call this would be if you want to modify its
-    :attr:`~CapacityLimiter.total_tokens` attribute.
+    :attr:`~trio.CapacityLimiter.total_tokens` attribute.
 
     """
     try:
@@ -166,24 +160,21 @@ class ThreadPlaceholder:
 
 
 @enable_ki_protection
-async def run_sync_in_thread(sync_fn, *args, cancellable=False, limiter=None):
+async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
     """Convert a blocking operation into an async operation using a thread.
 
     These two lines are equivalent::
 
         sync_fn(*args)
-        await run_sync_in_thread(sync_fn, *args)
+        await trio.to_thread.run_sync(sync_fn, *args)
 
     except that if ``sync_fn`` takes a long time, then the first line will
     block the Trio loop while it runs, while the second line allows other Trio
     tasks to continue working while ``sync_fn`` runs. This is accomplished by
     pushing the call to ``sync_fn(*args)`` off into a worker thread.
 
-    ``run_sync_in_thread`` also injects the current ``TrioToken`` into the
-    spawned thread's local storage so that these threads can re-enter the Trio
-    loop by calling either `trio.from_thread.run` or
-    `trio.from_thread.run_sync` for async or synchronous functions,
-    respectively.
+    From inside the worker thread, you can get back into Trio using the
+    functions in `trio.from_thread`.
 
     Args:
       sync_fn: An arbitrary synchronous callable.
@@ -191,61 +182,54 @@ async def run_sync_in_thread(sync_fn, *args, cancellable=False, limiter=None):
           arguments, use :func:`functools.partial`.
       cancellable (bool): Whether to allow cancellation of this operation. See
           discussion below.
-      limiter (None, CapacityLimiter, or CapacityLimiter-like object):
+      limiter (None, or CapacityLimiter-like object):
           An object used to limit the number of simultaneous threads. Most
-          commonly this will be a :class:`CapacityLimiter`, but it could be
+          commonly this will be a `~trio.CapacityLimiter`, but it could be
           anything providing compatible
           :meth:`~trio.CapacityLimiter.acquire_on_behalf_of` and
-          :meth:`~trio.CapacityLimiter.release_on_behalf_of`
-          methods. :func:`run_sync_in_thread` will call
-          ``acquire_on_behalf_of`` before starting the thread, and
-          ``release_on_behalf_of`` after the thread has finished.
+          :meth:`~trio.CapacityLimiter.release_on_behalf_of` methods. This
+          function will call ``acquire_on_behalf_of`` before starting the
+          thread, and ``release_on_behalf_of`` after the thread has finished.
 
-          If None (the default), uses the default :class:`CapacityLimiter`, as
+          If None (the default), uses the default `~trio.CapacityLimiter`, as
           returned by :func:`current_default_thread_limiter`.
 
     **Cancellation handling**: Cancellation is a tricky issue here, because
     neither Python nor the operating systems it runs on provide any general
     mechanism for cancelling an arbitrary synchronous function running in a
-    thread. :func:`run_sync_in_thread` will always check for
-    cancellation on entry, before starting the thread. But once the thread is
-    running, there are two ways it can handle being cancelled:
+    thread. This function will always check for cancellation on entry, before
+    starting the thread. But once the thread is running, there are two ways it
+    can handle being cancelled:
 
     * If ``cancellable=False``, the function ignores the cancellation and
       keeps going, just like if we had called ``sync_fn`` synchronously. This
       is the default behavior.
 
-    * If ``cancellable=True``, then ``run_sync_in_thread`` immediately
-      raises :exc:`Cancelled`. In this case **the thread keeps running in
+    * If ``cancellable=True``, then this function immediately raises
+      `~trio.Cancelled`. In this case **the thread keeps running in
       background** – we just abandon it to do whatever it's going to do, and
       silently discard any return value or errors that it raises. Only use
       this if you know that the operation is safe and side-effect free. (For
-      example: :func:`trio.socket.getaddrinfo` is implemented using
-      :func:`run_sync_in_thread`, and it sets ``cancellable=True``
-      because it doesn't really affect anything if a stray hostname lookup
-      keeps running in the background.)
+      example: :func:`trio.socket.getaddrinfo` is uses a thread with
+      ``cancellable=True``, because it doesn't really affect anything if a
+      stray hostname lookup keeps running in the background.)
 
       The ``limiter`` is only released after the thread has *actually*
-      finished – which in the case of cancellation may be some time after
-      :func:`run_sync_in_thread` has returned. (This is why it's
-      crucial that :func:`run_sync_in_thread` takes care of acquiring
-      and releasing the limiter.) If :func:`trio.run` finishes before the
-      thread does, then the limiter release method will never be called at
-      all.
+      finished – which in the case of cancellation may be some time after this
+      function has returned. If :func:`trio.run` finishes before the thread
+      does, then the limiter release method will never be called at all.
 
     .. warning::
 
-       You should not use :func:`run_sync_in_thread` to call
-       long-running CPU-bound functions! In addition to the usual GIL-related
-       reasons why using threads for CPU-bound work is not very effective in
-       Python, there is an additional problem: on CPython, `CPU-bound threads
-       tend to "starve out" IO-bound threads
-       <https://bugs.python.org/issue7946>`__, so using
-       :func:`run_sync_in_thread` for CPU-bound work is likely to
-       adversely affect the main thread running Trio. If you need to do this,
-       you're better off using a worker process, or perhaps PyPy (which still
-       has a GIL, but may do a better job of fairly allocating CPU time
-       between threads).
+       You should not use this function to call long-running CPU-bound
+       functions! In addition to the usual GIL-related reasons why using
+       threads for CPU-bound work is not very effective in Python, there is an
+       additional problem: on CPython, `CPU-bound threads tend to "starve out"
+       IO-bound threads <https://bugs.python.org/issue7946>`__, so using
+       threads for CPU-bound work is likely to adversely affect the main
+       thread running Trio. If you need to do this, you're better off using a
+       worker process, or perhaps PyPy (which still has a GIL, but may do a
+       better job of fairly allocating CPU time between threads).
 
     Returns:
       Whatever ``sync_fn(*args)`` returns.
@@ -362,7 +346,7 @@ def _run_fn_as_system_task(cb, fn, *args, trio_token=None):
     return q.get().unwrap()
 
 
-def run(afn, *args, trio_token=None):
+def from_thread_run(afn, *args, trio_token=None):
     """Run the given async function in the parent Trio thread, blocking until it
     is complete.
 
@@ -380,19 +364,19 @@ def run(afn, *args, trio_token=None):
             :exc:`trio.Cancelled`, and this will propagate out into
         RuntimeError: if you try calling this from inside the Trio thread,
             which would otherwise cause a deadlock.
-        AttributeError: if run()'s thread local storage does not have a token.
-            This happens when it was not spawned from trio.run_sync_in_thread.
+        AttributeError: if no ``trio_token`` was provided, and we can't infer
+            one from context.
 
     **Locating a Trio Token**: There are two ways to specify which
     `trio.run` loop to reenter:
 
-        - Spawn this thread from `trio.run_sync_in_thread`. This will
-            "inject" the current Trio Token into thread local storage and allow
-            this function to re-enter the same `trio.run` loop.
+        - Spawn this thread from `trio.to_thread.run_sync`. Trio will
+          automatically capture the relevant Trio token and use it when you
+          want to re-enter Trio.
         - Pass a keyword argument, ``trio_token`` specifiying a specific
-            `trio.run` loop to re-enter. This is the "legacy" way of
-            re-entering a trio thread and is similar to the old
-            ``BlockingTrioPortal``.
+          `trio.run` loop to re-enter. This is useful in case you have a
+          "foreign" thread, spawned using some other framework, and still want
+          to enter Trio.
     """
 
     def callback(q, afn, args):
@@ -408,7 +392,7 @@ def run(afn, *args, trio_token=None):
     return _run_fn_as_system_task(callback, afn, *args, trio_token=trio_token)
 
 
-def run_sync(fn, *args, trio_token=None):
+def from_thread_run_sync(fn, *args, trio_token=None):
     """Run the given sync function in the parent Trio thread, blocking until it
     is complete.
 
@@ -426,19 +410,19 @@ def run_sync(fn, *args, trio_token=None):
             :exc:`trio.Cancelled`, and this will propagate out into
         RuntimeError: if you try calling this from inside the Trio thread,
             which would otherwise cause a deadlock.
-        AttributeError: if run()'s thread local storage does not have a token.
-            This happens when it was not spawned from trio.run_sync_in_thread.
+        AttributeError: if no ``trio_token`` was provided, and we can't infer
+            one from context.
 
     **Locating a Trio Token**: There are two ways to specify which
     `trio.run` loop to reenter:
 
-        - Spawn this thread from `trio.run_sync_in_thread`. This will
-            "inject" the current Trio Token into thread local storage and allow
-            this function to re-enter the same `trio.run` loop.
+        - Spawn this thread from `trio.to_thread.run_sync`. Trio will
+          automatically capture the relevant Trio token and use it when you
+          want to re-enter Trio.
         - Pass a keyword argument, ``trio_token`` specifiying a specific
-            `trio.run` loop to re-enter. This is the "legacy" way of
-            re-entering a trio thread and is similar to the old
-            ``BlockingTrioPortal``.
+          `trio.run` loop to re-enter. This is useful in case you have a
+          "foreign" thread, spawned using some other framework, and still want
+          to enter Trio.
     """
 
     def callback(q, fn, args):

@@ -655,7 +655,7 @@ CPython, or PyPy3 5.9+.
 Other changes
 ~~~~~~~~~~~~~
 
-* :func:`run_sync_in_thread` now has a :ref:`robust mechanism
+* ``run_sync_in_worker_thread`` now has a :ref:`robust mechanism
   for applying capacity limits to the number of concurrent threads
   <worker-thread-limiting>` (`#10
   <https://github.com/python-trio/trio/issues/170>`__, `#57

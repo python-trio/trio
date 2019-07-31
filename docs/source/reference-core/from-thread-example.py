@@ -23,7 +23,7 @@ async def main():
         # In a background thread, run:
         #   thread_fn(portal, receive_from_trio, send_to_trio)
         nursery.start_soon(
-            trio.run_sync_in_thread, thread_fn, receive_from_trio, send_to_trio
+            trio.to_thread.run_sync, thread_fn, receive_from_trio, send_to_trio
         )
 
         # prints "1"
