@@ -5,6 +5,127 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.12.0 (2019-07-31)
+------------------------
+
+Features
+~~~~~~~~
+
+- If you have a `~trio.abc.ReceiveStream` object, you can now use
+  ``async for data in stream: ...`` instead of calling
+  `~trio.abc.ReceiveStream.receive_some`. Each iteration gives an
+  arbitrary sized chunk of bytes. And the best part is, the loop
+  automatically exits when you reach EOF, so you don't have to check for
+  it yourself anymore. Relatedly, you no longer need to pick a magic
+  buffer size value before calling
+  `~trio.abc.ReceiveStream.receive_some`; you can ``await
+  stream.receive_some()`` with no arguments, and the stream will
+  automatically pick a reasonable size for you. (`#959 <https://github.com/python-trio/trio/issues/959>`__)
+- We cleaned up the distinction between the "abstract channel interface"
+  and the "memory channel" concrete implementation.
+  `trio.abc.SendChannel` and `trio.abc.ReceiveChannel` have been slimmed
+  down, `trio.MemorySendChannel` and `trio.MemoryReceiveChannel` are now
+  public types that can be used in type hints, and there's a new
+  `trio.abc.Channel` interface for future bidirectional channels. (`#719 <https://github.com/python-trio/trio/issues/719>`__)
+- Add :func:`trio.run_process` as a high-level helper for running a process
+  and waiting for it to finish, like the standard :func:`subprocess.run` does. (`#822 <https://github.com/python-trio/trio/issues/822>`__)
+- On Linux, when wrapping a bare file descriptor in a Trio socket object,
+  Trio now auto-detects the correct ``family``, ``type``, and ``protocol``.
+  This is useful, for example, when implementing `systemd socket activation
+  <http://0pointer.de/blog/projects/socket-activation.html>`__. (`#251 <https://github.com/python-trio/trio/issues/251>`__)
+- Trio sockets have a new method `~trio.socket.SocketType.is_readable` that allows
+  you to check whether a socket is readable. This is useful for HTTP/1.1 clients. (`#760 <https://github.com/python-trio/trio/issues/760>`__)
+- We no longer use runtime code generation to dispatch core functions
+  like `current_time`. Static analysis tools like mypy and pylint should
+  now be able to recognize and analyze all of Trio's top-level functions
+  (though some class attributes are still dynamic... we're working on it). (`#805 <https://github.com/python-trio/trio/issues/805>`__)
+- Add `trio.hazmat.FdStream` for wrapping a Unix file descriptor as a `~trio.abc.Stream`. (`#829 <https://github.com/python-trio/trio/issues/829>`__)
+- Trio now gives a reasonable traceback and error message in most cases
+  when its invariants surrounding cancel scope nesting have been
+  violated. (One common source of such violations is an async generator
+  that yields within a cancel scope.) The previous behavior was an
+  inscrutable chain of TrioInternalErrors. (`#882 <https://github.com/python-trio/trio/issues/882>`__)
+- MultiError now defines its ``exceptions`` attribute in ``__init__()``
+  to better support linters and code autocompletion. (`#1066 <https://github.com/python-trio/trio/issues/1066>`__)
+- Use ``__slots__`` in more places internally, which should make Trio slightly faster. (`#984 <https://github.com/python-trio/trio/issues/984>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Destructor methods (``__del__``) are now protected against ``KeyboardInterrupt``. (`#676 <https://github.com/python-trio/trio/issues/676>`__)
+- The :class:`trio.Path` methods :meth:`~trio.Path.glob` and
+  :meth:`~trio.Path.rglob` now return iterables of :class:`trio.Path`
+  (not :class:`pathlib.Path`). (`#917 <https://github.com/python-trio/trio/issues/917>`__)
+- Inspecting the :attr:`~trio.CancelScope.cancel_called` attribute of a
+  not-yet-exited cancel scope whose deadline is in the past now always
+  returns ``True``, like you might expect. (Previously it would return
+  ``False`` for not-yet-entered cancel scopes, and for active cancel
+  scopes until the first checkpoint after their deadline expiry.) (`#958 <https://github.com/python-trio/trio/issues/958>`__)
+- The :class:`trio.Path` classmethods, :meth:`~trio.Path.home` and
+  :meth:`~trio.Path.cwd`, are now async functions.  Previously, a bug
+  in the forwarding logic meant :meth:`~trio.Path.cwd` was synchronous
+  and :meth:`~trio.Path.home` didn't work at all. (`#960 <https://github.com/python-trio/trio/issues/960>`__)
+- An exception encapsulated within a :class:`MultiError` doesn't need to be
+  hashable anymore.
+
+  .. note::
+
+     This is only supported if you are running python >= 3.6.4. You can
+     refer to `this github PR <https://github.com/python/cpython/pull/4014>`_
+     for details. (`#1005 <https://github.com/python-trio/trio/issues/1005>`__)
+
+
+Improved Documentation
+~~~~~~~~~~~~~~~~~~~~~~
+
+- To help any user reading through Trio's function implementations, start using public names (not _core) whenever possible. (`#1017 <https://github.com/python-trio/trio/issues/1017>`__)
+
+
+Deprecations and Removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- The ``clear`` method on `trio.Event` has been deprecated. (`#637 <https://github.com/python-trio/trio/issues/637>`__)
+- ``run_sync_in_worker_thread`` has become `trio.to_thread.run_sync`, in
+  order to make it shorter, and more consistent with the new
+  ``trio.from_thread``. And ``current_default_worker_thread_limiter`` is
+  now `trio.to_thread.current_default_thread_limiter`. (Of course the
+  old names still work with a deprecation warning, for now.) (`#810 <https://github.com/python-trio/trio/issues/810>`__)
+- Give up on trying to have different low-level waiting APIs on Unix and
+  Windows. All platforms now have `trio.hazmat.wait_readable`,
+  `trio.hazmat.wait_writable`, and `trio.hazmat.notify_closing`. The old
+  platform-specific synonyms ``wait_socket_*``,
+  ``notify_socket_closing``, and ``notify_fd_closing`` have been
+  deprecated. (`#878 <https://github.com/python-trio/trio/issues/878>`__)
+- It turns out that it's better to treat subprocess spawning as an async
+  operation. Therefore, direct construction of `Process` objects has
+  been deprecated. Use `trio.open_process` instead. (`#1109 <https://github.com/python-trio/trio/issues/1109>`__)
+
+
+Miscellaneous internal changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- The plumbing of Trio's cancellation system has been substantially overhauled
+  to improve performance and ease future planned improvements. Notably, there is
+  no longer any internal concept of a "cancel stack", and checkpoints now take
+  constant time regardless of the cancel scope nesting depth. (`#58 <https://github.com/python-trio/trio/issues/58>`__)
+- We've slightly relaxed our definition of which Trio operations act as
+  :ref:`checkpoints <checkpoint-rule>`. A Trio async function that exits by
+  throwing an exception is no longer guaranteed to execute a checkpoint;
+  it might or might not. The rules are unchanged for async functions that
+  don't exit with an exception, async iterators, and async context managers.
+  :func:`trio.testing.assert_checkpoints` has been updated to reflect the
+  new behavior: if its ``with`` block exits with an exception, no assertion
+  is made. (`#474 <https://github.com/python-trio/trio/issues/474>`__)
+- Calling ``str`` on a :exc:`trio.Cancelled` exception object returns "Cancelled" instead of an empty string. (`#674 <https://github.com/python-trio/trio/issues/674>`__)
+- Change the default timeout in :func:`trio.open_tcp_stream` to 0.250 seconds, for consistency with RFC 8305. (`#762 <https://github.com/python-trio/trio/issues/762>`__)
+- On win32 we no longer set SO_EXCLUSIVEADDRUSE when binding a socket in :exc:`trio.open_tcp_listeners`. (`#928 <https://github.com/python-trio/trio/issues/928>`__)
+- Any attempt to inherit from `CancelScope` or `Nursery` now raises
+  `TypeError`.  (Trio has never been able to safely support subclassing
+  here; this change just makes it more obvious.)
+  Also exposed as public classes for type-checking, etc. (`#1021 <https://github.com/python-trio/trio/issues/1021>`__)
+
+
 Trio 0.11.0 (2019-02-09)
 ------------------------
 
