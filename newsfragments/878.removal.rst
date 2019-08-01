@@ -1,6 +1,0 @@
-Give up on trying to have different low-level waiting APIs on Unix and
-Windows. All platforms now have `trio.hazmat.wait_readable`,
-`trio.hazmat.wait_writable`, and `trio.hazmat.notify_closing`. The old
-platform-specific synonyms ``wait_socket_*``,
-``notify_socket_closing``, and ``notify_fd_closing`` have been
-deprecated.

@@ -1,5 +1,0 @@
-``run_sync_in_worker_thread`` has become `trio.to_thread.run_sync`, in
-order to make it shorter, and more consistent with the new
-``trio.from_thread``. And ``current_default_worker_thread_limiter`` is
-now `trio.to_thread.current_default_thread_limiter`. (Of course the
-old names still work with a deprecation warning, for now.)

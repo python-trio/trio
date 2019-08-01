@@ -1,1 +1,0 @@
-To help any user reading through Trio's function implementations, start using public names (not _core) whenever possible.  
