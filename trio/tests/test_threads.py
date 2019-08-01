@@ -560,3 +560,9 @@ async def test_BlockingTrioPortal_with_explicit_TrioToken():
 
     t = await to_thread_run_sync(worker_thread, token)
     assert t == threading.current_thread()
+
+
+def test_BlockingTrioPortal_deprecated_export(recwarn):
+    import trio
+    btp = trio.BlockingTrioPortal
+    assert btp is BlockingTrioPortal

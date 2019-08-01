@@ -115,6 +115,13 @@ __deprecated_attributes__ = {
             "0.12.0",
             issue=810,
         ),
+    "BlockingTrioPortal":
+        _deprecate.DeprecatedAttribute(
+            _BlockingTrioPortal,
+            "0.12.0",
+            issue=810,
+            instead=from_thread,
+        ),
 }
 
 _deprecate.enable_attribute_deprecations(hazmat.__name__)
@@ -142,13 +149,6 @@ hazmat.__deprecated_attributes__ = {
             hazmat.notify_closing,
             "0.12.0",
             issue=878,
-        ),
-    "BlockingTrioPortal":
-        _deprecate.DeprecatedAttribute(
-            _BlockingTrioPortal,
-            "0.12.0",
-            issue=810,
-            instead=from_thread,
         ),
 }
 
