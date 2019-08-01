@@ -21,6 +21,14 @@ Features
   `~trio.abc.ReceiveStream.receive_some`; you can ``await
   stream.receive_some()`` with no arguments, and the stream will
   automatically pick a reasonable size for you. (`#959 <https://github.com/python-trio/trio/issues/959>`__)
+- Threading interfaces have been reworked:
+  ``run_sync_in_worker_thread`` is now `trio.to_thread.run_sync`, and
+  instead of ``BlockingTrioPortal``, use `trio.from_thread.run` and
+  `trio.from_thread.run_sync`. What's neat about this is that these
+  cooperate, so if you're in a thread created by `to_thread.run_sync`,
+  it remembers which Trio created it, and you can call
+  ``trio.from_thread.*`` directly without having to pass around a
+  ``BlockingTrioPortal`` object everywhere. (`#810 <https://github.com/python-trio/trio/issues/810>`__)
 - We cleaned up the distinction between the "abstract channel interface"
   and the "memory channel" concrete implementation.
   `trio.abc.SendChannel` and `trio.abc.ReceiveChannel` have been slimmed
@@ -86,11 +94,15 @@ Deprecations and Removals
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - The ``clear`` method on `trio.Event` has been deprecated. (`#637 <https://github.com/python-trio/trio/issues/637>`__)
-- ``run_sync_in_worker_thread`` has become `trio.to_thread.run_sync`, in
-  order to make it shorter, and more consistent with the new
-  ``trio.from_thread``. And ``current_default_worker_thread_limiter`` is
-  now `trio.to_thread.current_default_thread_limiter`. (Of course the
-  old names still work with a deprecation warning, for now.) (`#810 <https://github.com/python-trio/trio/issues/810>`__)
+- ``BlockingTrioPortal`` has been deprecated in favor of the new
+  `trio.from_thread`.  (`#810
+  <https://github.com/python-trio/trio/issues/810>`__)
+- ``run_sync_in_worker_thread`` is deprecated in favor of
+  `trio.to_thread.run_sync`.  (`#810
+  <https://github.com/python-trio/trio/issues/810>`__)
+- ``current_default_worker_thread_limiter`` is deprecated in favor of
+  `trio.to_thread.current_default_thread_limiter`. (`#810
+  <https://github.com/python-trio/trio/issues/810>`__)
 - Give up on trying to have different low-level waiting APIs on Unix and
   Windows. All platforms now have `trio.hazmat.wait_readable`,
   `trio.hazmat.wait_writable`, and `trio.hazmat.notify_closing`. The old
