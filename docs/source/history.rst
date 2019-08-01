@@ -5,6 +5,17 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.12.1 (2019-08-01)
+------------------------
+
+Bugfixes
+~~~~~~~~
+
+- In v0.12.0, we accidentally moved ``BlockingTrioPortal`` from ``trio``
+  to ``trio.hazmat``. It's now been restored to its proper position.
+  (It's still deprecated though, and will issue a warning if you use it.) (`#1167 <https://github.com/python-trio/trio/issues/1167>`__)
+
+
 Trio 0.12.0 (2019-07-31)
 ------------------------
 
