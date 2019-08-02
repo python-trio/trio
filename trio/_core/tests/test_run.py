@@ -15,7 +15,7 @@ import sniffio
 import pytest
 from async_generator import async_generator
 
-from .tutil import check_sequence_matches, gc_collect_harder
+from .tutil import slow, check_sequence_matches, gc_collect_harder
 from ... import _core
 from ..._threads import to_thread_run_sync
 from ..._timeouts import sleep, fail_after
@@ -993,9 +993,10 @@ async def test_cancel_scope_misnesting():
         scope.cancel()
 
 
+@slow
 async def test_timekeeping():
     # probably a good idea to use a real clock for *one* test anyway...
-    TARGET = 0.1
+    TARGET = 1.0
     # give it a few tries in case of random CI server flakiness
     for _ in range(4):
         real_start = time.perf_counter()
