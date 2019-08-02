@@ -338,6 +338,7 @@ class SSLStream(Stream):
             )
         self._https_compatible = https_compatible
         self._outgoing = _stdlib_ssl.MemoryBIO()
+        self._delayed_outgoing = None
         self._incoming = _stdlib_ssl.MemoryBIO()
         self._ssl_object = ssl_context.wrap_bio(
             self._incoming,
@@ -428,7 +429,9 @@ class SSLStream(Stream):
     # comments, though, just make sure to think carefully if you ever have to
     # touch it. The big comment at the top of this file will help explain
     # too.
-    async def _retry(self, fn, *args, ignore_want_read=False):
+    async def _retry(
+        self, fn, *args, ignore_want_read=False, is_handshake=False
+    ):
         await trio.hazmat.checkpoint_if_cancelled()
         yielded = False
         finished = False
@@ -472,6 +475,32 @@ class SSLStream(Stream):
                 want_read = False
                 finished = True
             to_send = self._outgoing.read()
+
+            # Some versions of SSL_do_handshake have a bug in how they handle
+            # the TLS 1.3 handshake on the server side: after the handshake
+            # finishes, they automatically send session tickets, even though
+            # the client may not be expecting data to arrive at this point and
+            # sending it could cause a deadlock or lost data. This applies at
+            # least to OpenSSL 1.1.1c and earlier, and the OpenSSL devs
+            # currently have no plans to fix it:
+            #
+            #   https://github.com/openssl/openssl/issues/7948
+            #   https://github.com/openssl/openssl/issues/7967
+            #
+            # The correct behavior is to wait to send session tickets on the
+            # first call to SSL_write. (This is what BoringSSL does.) So, we
+            # use a heuristic to detect when OpenSSL has tried to send session
+            # tickets, and we manually delay sending them until the
+            # appropriate moment. For more discussion see:
+            #
+            #   https://github.com/python-trio/trio/issues/819#issuecomment-517529763
+            if (
+                is_handshake and not want_read and self._ssl_object.server_side
+                and self._ssl_object.version() == "TLSv1.3"
+            ):
+                assert self._delayed_outgoing is None
+                self._delayed_outgoing = to_send
+                to_send = b""
 
             # Outputs from the above code block are:
             #
@@ -535,6 +564,9 @@ class SSLStream(Stream):
                 async with self._inner_send_lock:
                     yielded = True
                     try:
+                        if self._delayed_outgoing is not None:
+                            to_send = self._delayed_outgoing + to_send
+                            self._delayed_outgoing = None
                         await self.transport_stream.send_all(to_send)
                     except:
                         # Some unknown amount of our data got sent, and we
@@ -571,7 +603,7 @@ class SSLStream(Stream):
 
     async def _do_handshake(self):
         try:
-            await self._retry(self._ssl_object.do_handshake)
+            await self._retry(self._ssl_object.do_handshake, is_handshake=True)
         except:
             self._state = _State.BROKEN
             raise
