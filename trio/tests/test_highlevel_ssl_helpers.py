@@ -40,7 +40,10 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
 
 
 # This uses serve_ssl_over_tcp, which uses open_ssl_over_tcp_listeners...
-async def test_open_ssl_over_tcp_stream_and_everything_else(client_ctx):
+# noqa is needed because flake8 doesn't understand how pytest fixtures work.
+async def test_open_ssl_over_tcp_stream_and_everything_else(
+    client_ctx,  # noqa: F811
+):
     async with trio.open_nursery() as nursery:
         (listener,) = await nursery.start(
             partial(
