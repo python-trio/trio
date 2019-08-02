@@ -173,13 +173,15 @@ class PyOpenSSLEchoStream:
         # released:
         #     https://github.com/pyca/pyopenssl/pull/861
         #
-        # ctx.set_options(SSL.OP_NO_TLSv1_3)
+        # if hasattr(SSL, "OP_NO_TLSv1_3"):
+        #     ctx.set_options(SSL.OP_NO_TLSv1_3)
         #
         # Fortunately pyopenssl uses cryptography under the hood, so we can be
         # confident that they're using the same version of openssl
         from cryptography.hazmat.bindings.openssl.binding import Binding
         b = Binding()
-        ctx.set_options(b.lib.SSL_OP_NO_TLSv1_3)
+        if hasattr(b.lib, "SSL_OP_NO_TLSv1_3"):
+            ctx.set_options(b.lib.SSL_OP_NO_TLSv1_3)
 
         # Unfortunately there's currently no way to say "use 1.3 or worse", we
         # can only disable specific versions. And if the two sides start
