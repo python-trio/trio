@@ -69,7 +69,7 @@ fun. `Perhaps you'll find the same
 This project is young and still somewhat experimental: the overall
 design is solid and the existing features are fully tested and
 documented, but you may encounter missing functionality or rough
-edges. We *do* encourage you do use it, but you should `read and
+edges. We *do* encourage you to use it, but you should `read and
 subscribe to issue #1
 <https://github.com/python-trio/trio/issues/1>`__ to get warning and a
 chance to give feedback about any compatibility-breaking changes.
