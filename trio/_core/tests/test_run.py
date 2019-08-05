@@ -840,6 +840,16 @@ async def test_cancel_scope_nesting():
             with pytest.raises(_core.Cancelled):
                 await _core.checkpoint()
 
+    # change shielding while a cancellation is in flight
+    with _core.CancelScope() as outer:
+        with _core.CancelScope() as inner:
+            outer.cancel()
+            try:
+                await _core.checkpoint()
+            finally:
+                inner.shield = True
+    assert outer.cancelled_caught and not inner.cancelled_caught
+
     # if a scope is pending, but then gets popped off the stack, then it
     # isn't delivered
     with _core.CancelScope() as scope:

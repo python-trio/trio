@@ -1,0 +1,4 @@
+It is no longer possible for a cancel scope that isn't cancelled to
+catch a propagating :exc:`trio.Cancelled` exception, even if you
+change shielding while a :exc:`trio.Cancelled` exception is propagating.
+(This fixes a regression introduced with the cancellation changes in 0.12.)
