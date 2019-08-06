@@ -426,7 +426,7 @@ class CancelScope(metaclass=Final):
         else:
             scope_task._activate_cancel_status(self._cancel_status.parent)
         if (
-            exc is not None
+            exc is not None and self._cancel_status.effectively_cancelled
             and not self._cancel_status.parent_cancellation_is_visible_to_us
         ):
             exc = MultiError.filter(self._exc_filter, exc)

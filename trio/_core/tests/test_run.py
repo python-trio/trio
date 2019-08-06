@@ -849,6 +849,18 @@ async def test_cancel_scope_nesting():
     assert not scope.cancelled_caught
 
 
+# Regression test for https://github.com/python-trio/trio/issues/1175
+async def test_unshield_while_cancel_propagating():
+    with _core.CancelScope() as outer:
+        with _core.CancelScope() as inner:
+            outer.cancel()
+            try:
+                await _core.checkpoint()
+            finally:
+                inner.shield = True
+    assert outer.cancelled_caught and not inner.cancelled_caught
+
+
 async def test_cancel_unbound():
     async def sleep_until_cancelled(scope):
         with scope, fail_after(1):

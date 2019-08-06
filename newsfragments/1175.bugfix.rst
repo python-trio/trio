@@ -1,0 +1,4 @@
+Fix regression introduced with cancellation changes in 0.12.0, where a
+`trio.CancelScope` which isn't cancelled could catch a propagating
+`trio.Cancelled` exception if shielding were changed while the
+cancellation was propagating.
