@@ -840,7 +840,17 @@ async def test_cancel_scope_nesting():
             with pytest.raises(_core.Cancelled):
                 await _core.checkpoint()
 
-    # change shielding while a cancellation is in flight
+    # if a scope is pending, but then gets popped off the stack, then it
+    # isn't delivered
+    with _core.CancelScope() as scope:
+        scope.cancel()
+        await _core.cancel_shielded_checkpoint()
+    await _core.checkpoint()
+    assert not scope.cancelled_caught
+
+
+# Regression test for https://github.com/python-trio/trio/issues/1175
+async def test_unshield_while_cancel_propagating():
     with _core.CancelScope() as outer:
         with _core.CancelScope() as inner:
             outer.cancel()
@@ -849,14 +859,6 @@ async def test_cancel_scope_nesting():
             finally:
                 inner.shield = True
     assert outer.cancelled_caught and not inner.cancelled_caught
-
-    # if a scope is pending, but then gets popped off the stack, then it
-    # isn't delivered
-    with _core.CancelScope() as scope:
-        scope.cancel()
-        await _core.cancel_shielded_checkpoint()
-    await _core.checkpoint()
-    assert not scope.cancelled_caught
 
 
 async def test_cancel_unbound():
