@@ -984,7 +984,10 @@ class Task:
     # - for scheduled tasks, _next_send_fn(_next_send) resumes the task;
     #   usually _next_send_fn is self.coro.send and _next_send is an
     #   Outcome. When recovering from a foreign await, _next_send_fn is
-    #   self.coro.throw and _next_send is an exception.
+    #   self.coro.throw and _next_send is an exception. _next_send_fn
+    #   will effectively be at the top of every task's call stack, so
+    #   it should be written in C if you don't want to pollute Trio
+    #   tracebacks with extraneous frames.
     # - for scheduled tasks, custom_sleep_data is None
     # Tasks start out unscheduled.
     _next_send_fn = attr.ib(default=None)
