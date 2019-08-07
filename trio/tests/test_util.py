@@ -81,6 +81,7 @@ def test_module_metadata_is_fixed_up():
     assert trio.to_thread.run_sync.__name__ == "run_sync"
     assert trio.to_thread.run_sync.__qualname__ == "run_sync"
 
+
 # define a concrete class implementing the PathLike protocol
 # Since we want to have compatibility with Python 3.5 we need
 # to define the base class on runtime.
