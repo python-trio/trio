@@ -1797,6 +1797,16 @@ def test_calling_asyncio_function_gives_nice_error():
     assert any(entry.name == "child_xyzzy" for entry in excinfo.traceback)
 
 
+async def test_asyncio_function_inside_nursery_does_not_explode():
+    # Regression test for https://github.com/python-trio/trio/issues/552
+    with pytest.raises(TypeError) as excinfo:
+        async with _core.open_nursery() as nursery:
+            import asyncio
+            nursery.start_soon(sleep_forever)
+            await asyncio.Future()
+    assert "asyncio" in str(excinfo.value)
+
+
 async def test_trivial_yields():
     with assert_checkpoints():
         await _core.checkpoint()
