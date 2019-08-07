@@ -7,8 +7,8 @@
    :alt: Join forum
 
 .. image:: https://img.shields.io/badge/docs-read%20now-blue.svg
-   :target: https://trio.readthedocs.io/en/latest/?badge=latest
-   :alt: Documentation Status
+   :target: https://trio.readthedocs.io
+   :alt: Documentation
    
 .. image:: https://img.shields.io/pypi/v/trio.svg
    :target: https://pypi.org/project/trio
