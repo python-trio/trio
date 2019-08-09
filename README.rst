@@ -7,8 +7,8 @@
    :alt: Join forum
 
 .. image:: https://img.shields.io/badge/docs-read%20now-blue.svg
-   :target: https://trio.readthedocs.io/en/latest/?badge=latest
-   :alt: Documentation Status
+   :target: https://trio.readthedocs.io
+   :alt: Documentation
    
 .. image:: https://img.shields.io/pypi/v/trio.svg
    :target: https://pypi.org/project/trio
@@ -79,16 +79,16 @@ Where to next?
 --------------
 
 **I want to try it out!** Awesome! We have a `friendly tutorial
-<https://trio.readthedocs.io/en/latest/tutorial.html>`__ to get you
+<https://trio.readthedocs.io/en/stable/tutorial.html>`__ to get you
 started; no prior experience with async coding is required.
 
 **Ugh, I don't want to read all that – show me some code!** If you're
 impatient, then here's a `simple concurrency example
-<https://trio.readthedocs.io/en/latest/tutorial.html#tutorial-example-tasks-intro>`__,
+<https://trio.readthedocs.io/en/stable/tutorial.html#tutorial-example-tasks-intro>`__,
 an `echo client
-<https://trio.readthedocs.io/en/latest/tutorial.html#tutorial-echo-client-example>`__,
+<https://trio.readthedocs.io/en/stable/tutorial.html#tutorial-echo-client-example>`__,
 and an `echo server
-<https://trio.readthedocs.io/en/latest/tutorial.html#tutorial-echo-server-example>`__.
+<https://trio.readthedocs.io/en/stable/tutorial.html#tutorial-echo-server-example>`__.
 
 **How does Trio make programs easier to read and reason about than
 competing approaches?** Trio is based on a new way of thinking that we
@@ -125,7 +125,7 @@ usability testing (e.g., maybe try teaching yourself or a friend to
 use Trio and make a list of every error message you hit and place
 where you got confused?), improving the docs, ... check out our `guide
 for contributors
-<https://trio.readthedocs.io/en/latest/contributing.html>`__!
+<https://trio.readthedocs.io/en/stable/contributing.html>`__!
 
 **I don't have any immediate plans to use it, but I love geeking out
 about I/O library design!** That's a little weird? But let's be
@@ -134,7 +134,7 @@ for discussing structured concurrency
 <https://trio.discourse.group/c/structured-concurrency>`__ (developers
 of other systems welcome!). Or check out our `discussion of design
 choices
-<https://trio.readthedocs.io/en/latest/design.html#user-level-api-principles>`__,
+<https://trio.readthedocs.io/en/stable/design.html#user-level-api-principles>`__,
 `reading list
 <https://github.com/python-trio/trio/wiki/Reading-list>`__, and
 `issues tagged design-discussion
@@ -150,5 +150,5 @@ Code of conduct
 ---------------
 
 Contributors are requested to follow our `code of conduct
-<https://trio.readthedocs.io/en/latest/code-of-conduct.html>`__ in all
+<https://trio.readthedocs.io/en/stable/code-of-conduct.html>`__ in all
 project spaces.
