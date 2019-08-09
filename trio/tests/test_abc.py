@@ -56,16 +56,16 @@ async def test_Stream_send_eof_deprecation():
     with pytest.warns(trio.TrioDeprecationWarning, match="send_eof"):
 
         class OldStyleStream(tabc.Stream):
-            async def aclose(self):
+            async def aclose(self):  # pragma: no cover
                 pass
 
-            async def send_all(self, data):
+            async def send_all(self, data):  # pragma: no cover
                 pass
 
-            async def receive_some(self, max_nbytes=None):
+            async def receive_some(self, max_nbytes=None):  # pragma: no cover
                 pass
 
-            async def wait_send_all_might_not_block(self):
+            async def wait_send_all_might_not_block(self):  # pragma: no cover
                 pass
 
     oss = OldStyleStream()
@@ -75,5 +75,5 @@ async def test_Stream_send_eof_deprecation():
     # But you can still define new abstract subclasses if you want, without
     # getting a warning
     class NewStyleAbstractStreamSubinterface(tabc.Stream):
-        async def some_other_method(self):
+        async def some_other_method(self):  # pragma: no cover
             pass

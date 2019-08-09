@@ -503,6 +503,8 @@ async def check_two_way_stream(stream_maker, clogged_stream_maker):
             # now sending is disallowed
             with _assert_raises(_core.ClosedResourceError):
                 await s1.send_all(b"y")
+            with _assert_raises(_core.ClosedResourceError):
+                await s1.wait_send_all_might_not_block()
 
             # but we can do send_eof again
             with assert_checkpoints():

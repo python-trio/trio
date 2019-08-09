@@ -119,6 +119,8 @@ class SocketStream(Stream):
                         total_sent += sent
 
     async def wait_send_all_might_not_block(self):
+        if self.socket.did_shutdown_SHUT_WR:
+            raise trio.ClosedResourceError("can't send data after sending EOF")
         with self._send_conflict_detector:
             if self.socket.fileno() == -1:
                 raise trio.ClosedResourceError
