@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import Generic, TypeVar
 from ._util import aiter_compat
+from ._deprecate import warn_deprecated
 import trio
 
 
@@ -426,7 +427,22 @@ class ReceiveStream(AsyncResource):
         return data
 
 
-class Stream(SendStream, ReceiveStream):
+class _StreamMeta(ABCMeta):
+    def __new__(cls, name, bases, namespace):
+        if "send_all" in namespace and "send_eof" not in namespace:
+            warn_deprecated(
+                "defining a Stream class without a send_eof method",
+                "0.13.0",
+                issue=823,
+                instead=None,
+            )
+            async def send_eof(self):
+                raise NotImplementedError
+            namespace["send_eof"] = send_eof
+        return super().__new__(cls, name, bases, namespace)
+
+
+class Stream(SendStream, ReceiveStream, metaclass=_StreamMeta):
     """A standard interface for interacting with bidirectional byte streams.
 
     A `Stream` is an object that implements both the `SendStream` and

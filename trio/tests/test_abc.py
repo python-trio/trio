@@ -2,6 +2,7 @@ import pytest
 
 import attr
 
+import trio
 from ..testing import assert_checkpoints
 from .. import abc as tabc
 
@@ -47,3 +48,31 @@ def test_abc_generics():
     channel = SlottedChannel()
     with pytest.raises(RuntimeError):
         channel.send_nowait(None)
+
+
+async def test_Stream_send_eof_deprecation():
+    # An old-style concrete subclass stream with no send_eof issues a warning
+    # at definition time, and a default implementation is filled in
+    with pytest.warns(trio.TrioDeprecationWarning, match="send_eof"):
+        class OldStyleStream(tabc.Stream):
+            async def aclose(self):
+                pass
+
+            async def send_all(self, data):
+                pass
+
+            async def receive_some(self, max_nbytes=None):
+                pass
+
+            async def wait_send_all_might_not_block(self):
+                pass
+
+    oss = OldStyleStream()
+    with pytest.raises(NotImplementedError):
+        await oss.send_eof()
+
+    # But you can still define new abstract subclasses if you want, without
+    # getting a warning
+    class NewStyleAbstractStreamSubinterface(tabc.Stream):
+        async def some_other_method(self):
+            pass
