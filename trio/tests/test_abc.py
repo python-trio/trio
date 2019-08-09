@@ -54,6 +54,7 @@ async def test_Stream_send_eof_deprecation():
     # An old-style concrete subclass stream with no send_eof issues a warning
     # at definition time, and a default implementation is filled in
     with pytest.warns(trio.TrioDeprecationWarning, match="send_eof"):
+
         class OldStyleStream(tabc.Stream):
             async def aclose(self):
                 pass

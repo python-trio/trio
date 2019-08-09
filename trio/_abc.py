@@ -436,8 +436,10 @@ class _StreamMeta(ABCMeta):
                 issue=823,
                 instead=None,
             )
+
             async def send_eof(self):
                 raise NotImplementedError
+
             namespace["send_eof"] = send_eof
         return super().__new__(cls, name, bases, namespace)
 
