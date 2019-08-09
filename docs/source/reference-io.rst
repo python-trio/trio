@@ -102,14 +102,9 @@ Abstract base classes
      - :class:`~trio.testing.MemoryReceiveStream`
    * - :class:`Stream`
      - :class:`SendStream`, :class:`ReceiveStream`
+     - `~Stream.send_eof`
      -
-     -
-     - :class:`~trio.SSLStream`
-   * - :class:`HalfCloseableStream`
-     - :class:`Stream`
-     - :meth:`~HalfCloseableStream.send_eof`
-     -
-     - :class:`~trio.SocketStream`, :class:`~trio.StapledStream`
+     - `~trio.SocketStream`, `~trio.StapledStream`, `~trio.SSLStream`
    * - :class:`Listener`
      - :class:`AsyncResource`
      - :meth:`~Listener.accept`
@@ -149,10 +144,6 @@ Abstract base classes
    :show-inheritance:
 
 .. autoclass:: trio.abc.Stream
-   :members:
-   :show-inheritance:
-
-.. autoclass:: trio.abc.HalfCloseableStream
    :members:
    :show-inheritance:
 

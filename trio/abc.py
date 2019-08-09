@@ -6,6 +6,6 @@
 # here.
 from ._abc import (
     Clock, Instrument, AsyncResource, SendStream, ReceiveStream, Stream,
-    HalfCloseableStream, SocketFactory, HostnameResolver, Listener,
-    SendChannel, ReceiveChannel, Channel
+    SocketFactory, HostnameResolver, Listener, SendChannel, ReceiveChannel,
+    Channel
 )

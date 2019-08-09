@@ -1,7 +1,8 @@
 import attr
 
 import trio
-from .abc import HalfCloseableStream
+from .abc import Stream
+from ._util import ConflictDetector
 
 
 async def aclose_forcefully(resource):
@@ -35,7 +36,7 @@ async def aclose_forcefully(resource):
 
 
 @attr.s(cmp=False, hash=False)
-class StapledStream(HalfCloseableStream):
+class StapledStream(Stream):
     """This class `staples <https://en.wikipedia.org/wiki/Staple_(fastener)>`__
     together two unidirectional streams to make single bidirectional stream.
 
@@ -54,9 +55,8 @@ class StapledStream(HalfCloseableStream):
           await echo_stream.send_all(b"x")
           assert await echo_stream.receive_some() == b"x"
 
-    :class:`StapledStream` objects implement the methods in the
-    :class:`~trio.abc.HalfCloseableStream` interface. They also have two
-    additional public attributes:
+    `StapledStream` objects implement the methods in the `~trio.abc.Stream`
+    interface. They also have two additional public attributes:
 
     .. attribute:: send_stream
 
@@ -71,29 +71,42 @@ class StapledStream(HalfCloseableStream):
     """
     send_stream = attr.ib()
     receive_stream = attr.ib()
+    # This is needed to correctly handle the case where send_eof calls aclose,
+    # because aclose interrupts other tasks, while send_eof is supposed to
+    # error out if there are other tasks.
+    _send_conflict_detector = attr.ib(
+        init=False,
+        factory=lambda:
+        ConflictDetector("another task is sending on this stream"),
+    )
 
     async def send_all(self, data):
         """Calls ``self.send_stream.send_all``.
 
         """
-        return await self.send_stream.send_all(data)
+        with self._send_conflict_detector:
+            return await self.send_stream.send_all(data)
 
     async def wait_send_all_might_not_block(self):
         """Calls ``self.send_stream.wait_send_all_might_not_block``.
 
         """
-        return await self.send_stream.wait_send_all_might_not_block()
+        with self._send_conflict_detector:
+            return await self.send_stream.wait_send_all_might_not_block()
 
     async def send_eof(self):
         """Shuts down the send side of the stream.
 
-        If ``self.send_stream.send_eof`` exists, then calls it. Otherwise,
-        calls ``self.send_stream.aclose()``.
+        If ``self.send_stream.send_eof`` exists, then attempts to call it.
+        Otherwise, calls ``self.send_stream.aclose()``.
 
         """
-        if hasattr(self.send_stream, "send_eof"):
-            return await self.send_stream.send_eof()
-        else:
+        with self._send_conflict_detector:
+            if hasattr(self.send_stream, "send_eof"):
+                try:
+                    return await self.send_stream.send_eof()
+                except NotImplementedError:
+                    pass
             return await self.send_stream.aclose()
 
     async def receive_some(self, max_bytes=None):

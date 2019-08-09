@@ -1,0 +1,4 @@
+The `trio.abc.Stream` interface now includes
+`~trio.abc.Stream.send_eof` as a standard feature, rather than
+relegating it to the ``HalfCloseableStream`` sub-interface. And
+`trio.SSLStream` now supports ``send_eof`` on TLS 1.3 connections.

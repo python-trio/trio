@@ -152,6 +152,16 @@ hazmat.__deprecated_attributes__ = {
         ),
 }
 
+_deprecate.enable_attribute_deprecations(abc.__name__)
+abc.__deprecated_attributes__ = {
+    "HalfCloseableStream":
+        _deprecate.DeprecatedAttribute(
+            abc.Stream,
+            "0.13.0",
+            issue=823,
+        ),
+}
+
 # Having the public path in .__module__ attributes is important for:
 # - exception names in printed tracebacks
 # - sphinx :show-inheritance:

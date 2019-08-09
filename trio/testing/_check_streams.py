@@ -5,7 +5,7 @@ import random
 
 from .. import _core
 from .._highlevel_generic import aclose_forcefully
-from .._abc import SendStream, ReceiveStream, Stream, HalfCloseableStream
+from .._abc import SendStream, ReceiveStream, Stream
 from ._checkpoints import assert_checkpoints
 
 __all__ = [
@@ -453,54 +453,66 @@ async def check_two_way_stream(stream_maker, clogged_stream_maker):
             nursery.start_soon(expect_receive_some_empty)
             nursery.start_soon(s1.aclose)
 
-
-async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
-    """Perform a number of generic tests on a custom half-closeable stream
-    implementation.
-
-    This is similar to :func:`check_two_way_stream`, except that the maker
-    functions are expected to return objects that implement the
-    :class:`~trio.abc.HalfCloseableStream` interface.
-
-    This function tests a *superset* of what :func:`check_two_way_stream`
-    checks – if you call this, then you don't need to also call
-    :func:`check_two_way_stream`.
-
-    """
-    await check_two_way_stream(stream_maker, clogged_stream_maker)
-
+    # send_eof related checks
     async with _ForceCloseBoth(await stream_maker()) as (s1, s2):
-        assert isinstance(s1, HalfCloseableStream)
-        assert isinstance(s2, HalfCloseableStream)
+        send_eof_implemented = True
 
-        async def send_x_then_eof(s):
-            await s.send_all(b"x")
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(s2.receive_some)
+            try:
+                await s1.send_eof()
+            except NotImplementedError:
+                send_eof_implemented = False
+            nursery.cancel_scope.cancel()
+
+    if not send_eof_implemented:
+        # If it's not implemented, then it should be a no-op
+        async with _ForceCloseBoth(await stream_maker()) as (s1, s2):
+            async def send_eof_ignored_sender(s):
+                with _assert_raises(NotImplementedError):
+                    await s.send_eof()
+                await s.send_all(b"x")
+
+            async def send_eof_ignored_receiver(r):
+                with _assert_raises(NotImplementedError):
+                    await r.send_eof()
+                assert await r.receive_some() == b"x"
+
+            async with _core.open_nursery() as nursery:
+                nursery.start_soon(send_eof_ignored_sender, s1)
+                nursery.start_soon(send_eof_ignored_receiver, s2)
+
+    if send_eof_implemented:
+        async with _ForceCloseBoth(await stream_maker()) as (s1, s2):
+
+            async def send_x_then_eof(s):
+                await s.send_all(b"x")
+                with assert_checkpoints():
+                    await s.send_eof()
+
+            async def expect_x_then_eof(r):
+                await _core.wait_all_tasks_blocked()
+                assert await r.receive_some(10) == b"x"
+                assert await r.receive_some(10) == b""
+
+            async with _core.open_nursery() as nursery:
+                nursery.start_soon(send_x_then_eof, s1)
+                nursery.start_soon(expect_x_then_eof, s2)
+
+            # now sending is disallowed
+            with _assert_raises(_core.ClosedResourceError):
+                await s1.send_all(b"y")
+
+            # but we can do send_eof again
             with assert_checkpoints():
-                await s.send_eof()
+                await s1.send_eof()
 
-        async def expect_x_then_eof(r):
-            await _core.wait_all_tasks_blocked()
-            assert await r.receive_some(10) == b"x"
-            assert await r.receive_some(10) == b""
+            # and we can still send stuff back the other way
+            async with _core.open_nursery() as nursery:
+                nursery.start_soon(send_x_then_eof, s2)
+                nursery.start_soon(expect_x_then_eof, s1)
 
-        async with _core.open_nursery() as nursery:
-            nursery.start_soon(send_x_then_eof, s1)
-            nursery.start_soon(expect_x_then_eof, s2)
-
-        # now sending is disallowed
-        with _assert_raises(_core.ClosedResourceError):
-            await s1.send_all(b"y")
-
-        # but we can do send_eof again
-        with assert_checkpoints():
-            await s1.send_eof()
-
-        # and we can still send stuff back the other way
-        async with _core.open_nursery() as nursery:
-            nursery.start_soon(send_x_then_eof, s2)
-            nursery.start_soon(expect_x_then_eof, s1)
-
-    if clogged_stream_maker is not None:
+    if send_eof_implemented and clogged_stream_maker is not None:
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s1, s2):
             # send_all and send_eof simultaneously is not ok
             with _assert_raises(_core.BusyResourceError):
@@ -517,3 +529,12 @@ async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
                     nursery.start_soon(s1.wait_send_all_might_not_block)
                     await _core.wait_all_tasks_blocked()
                     nursery.start_soon(s1.send_eof)
+
+
+from .._deprecate import deprecated
+
+
+@deprecated("0.13.0", issue=823, instead=check_two_way_stream)
+async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
+    "Deprecated alias for check_two_way_stream."
+    return await check_two_way_stream(stream_maker, clogged_stream_maker)

@@ -1301,3 +1301,22 @@ async def test_deprecated_max_refill_bytes(client_ctx):
         # release or two anyway, so hopefully we'll keep getting away with it
         # for long enough.
         SSLListener(None, client_ctx, max_refill_bytes=100)
+
+
+async def test_send_eof(client_ctx):
+    client, server = ssl_memory_stream_pair(client_ctx)
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(client.do_handshake)
+        nursery.start_soon(server.do_handshake)
+
+    if client.version() != "TLSv1.3":
+        with pytest.raises(NotImplementedError):
+            await client.send_eof()
+        with pytest.raises(NotImplementedError):
+            await server.send_eof()
+    else:
+        await client.send_eof()
+        assert await server.receive_some() == b""
+        await server.send_all(b"x")
+        assert await client.receive_some() == b"x"

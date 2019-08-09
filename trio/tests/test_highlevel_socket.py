@@ -6,7 +6,7 @@ import errno
 
 from .. import _core
 from ..testing import (
-    check_half_closeable_stream, wait_all_tasks_blocked, assert_checkpoints
+    check_two_way_stream, wait_all_tasks_blocked, assert_checkpoints
 )
 from .._highlevel_socket import *
 from .. import socket as tsocket
@@ -130,7 +130,7 @@ async def test_SocketStream_generic():
         await fill_stream(right)
         return left, right
 
-    await check_half_closeable_stream(stream_maker, clogged_stream_maker)
+    await check_two_way_stream(stream_maker, clogged_stream_maker)
 
 
 async def test_SocketListener():

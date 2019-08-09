@@ -1,0 +1,5 @@
+Normally, if you try to call two stream send methods at the same time,
+then you're supposed to get a `BusyResourceError`. But
+`StapledStream.send_eof` had a subtle bug, where it could sometimes
+interrupt the other call to make it raise `ClosedResourceError`. This
+has now been fixed.

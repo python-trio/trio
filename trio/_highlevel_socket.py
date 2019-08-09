@@ -6,7 +6,7 @@ from contextlib import contextmanager
 import trio
 from . import socket as tsocket
 from ._util import ConflictDetector
-from .abc import HalfCloseableStream, Listener
+from .abc import Stream, Listener
 
 __all__ = ["SocketStream", "SocketListener"]
 
@@ -39,9 +39,9 @@ def _translate_socket_errors_to_stream_errors():
             ) from exc
 
 
-class SocketStream(HalfCloseableStream):
-    """An implementation of the :class:`trio.abc.HalfCloseableStream`
-    interface based on a raw network socket.
+class SocketStream(Stream):
+    """An implementation of the `trio.abc.Stream` interface based on a raw
+    network socket.
 
     Args:
       socket: The Trio socket object to wrap. Must have type ``SOCK_STREAM``,
@@ -53,9 +53,9 @@ class SocketStream(HalfCloseableStream):
     <https://github.com/python-trio/trio/issues/72>`__ for discussion. You can
     of course override these defaults by calling :meth:`setsockopt`.
 
-    Once a :class:`SocketStream` object is constructed, it implements the full
-    :class:`trio.abc.HalfCloseableStream` interface. In addition, it provides
-    a few extra features:
+    Once a `SocketStream` object is constructed, it implements the full
+    `trio.abc.Stream` interface. In addition, it provides a few extra
+    features:
 
     .. attribute:: socket
 
@@ -147,7 +147,7 @@ class SocketStream(HalfCloseableStream):
         self.socket.close()
         await trio.hazmat.checkpoint()
 
-    # __aenter__, __aexit__ inherited from HalfCloseableStream are OK
+    # __aenter__, __aexit__ inherited from Stream are OK
 
     def setsockopt(self, level, option, value):
         """Set an option on the underlying socket.

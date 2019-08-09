@@ -332,6 +332,7 @@ class SSLStream(Stream):
     ):
         self.transport_stream = transport_stream
         self._state = _State.OK
+        self._sent_eof = False
         if max_refill_bytes != "unused and deprecated":
             warn_deprecated(
                 "max_refill_bytes=...", "0.12.0", issue=959, instead=None
@@ -685,22 +686,19 @@ class SSLStream(Stream):
                 max_bytes = _operator.index(max_bytes)
                 if max_bytes < 1:
                     raise ValueError("max_bytes must be >= 1")
-            try:
-                return await self._retry(self._ssl_object.read, max_bytes)
-            except trio.BrokenResourceError as exc:
-                # This isn't quite equivalent to just returning b"" in the
-                # first place, because we still end up with self._state set to
-                # BROKEN. But that's actually fine, because after getting an
-                # EOF on TLS then the only thing you can do is close the
-                # stream, and closing doesn't care about the state.
-                if (
-                    self._https_compatible
-                    and isinstance(exc.__cause__, _stdlib_ssl.SSLEOFError)
-                ):
-                    await trio.hazmat.checkpoint()
+
+            def do_read():
+                try:
+                    return self._ssl_object.read(max_bytes)
+                except _stdlib_ssl.SSLZeroReturnError:
                     return b""
-                else:
-                    raise
+                except _stdlib_ssl.SSLEOFError:
+                    if self._https_compatible:
+                        return b""
+                    else:
+                        raise
+
+            return await self._retry(do_read)
 
     async def send_all(self, data):
         """Encrypt some data and then send it on the underlying transport.
@@ -715,6 +713,8 @@ class SSLStream(Stream):
         """
         with self._outer_send_conflict_detector:
             self._check_status()
+            if self._sent_eof:
+                raise trio.ClosedResourceError
             await self._handshook.ensure(checkpoint=False)
             # SSLObject interprets write(b"") as an EOF for some reason, which
             # is not what we want.
@@ -850,6 +850,8 @@ class SSLStream(Stream):
         # conflict.
         with self._outer_send_conflict_detector:
             self._check_status()
+            if self._sent_eof:
+                raise trio.ClosedResourceError
             # Then we take the inner send lock. We know that no other tasks
             # are calling self.send_all or self.wait_send_all_might_not_block,
             # because we have the outer_send_lock. But! There might be another
@@ -880,6 +882,29 @@ class SSLStream(Stream):
                 # wait_send_all_might_not_block only guarantees that it
                 # doesn't return late.
                 await self.transport_stream.wait_send_all_might_not_block()
+
+    async def send_eof(self):
+        """Attempt to send an EOF. See `trio.abc.Stream.send_eof` for details.
+
+        Due to protocol limitations, this is only supported if the connection
+        has negotiated TLS v1.3. Earlier versions of TLS did not support
+        half-close, and attempting to call this method will raise
+        `NotImplementedError`.
+
+        """
+        with self._outer_send_conflict_detector:
+            self._check_status()
+            if self._sent_eof:
+                await trio.hazmat.checkpoint()
+                return
+            await self._handshook.ensure(checkpoint=False)
+            if self._ssl_object.version() != "TLSv1.3":
+                raise NotImplementedError(
+                    "Only TLSv1.3 supports send_eof, and this connection "
+                    "negotiated {}".format(self._ssl_object.version())
+                )
+            self._sent_eof = True
+            await self._retry(self._ssl_object.unwrap, ignore_want_read=True)
 
 
 class SSLListener(Listener[SSLStream]):

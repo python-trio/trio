@@ -164,8 +164,6 @@ implementations:
 
 .. autofunction:: check_two_way_stream
 
-.. autofunction:: check_half_closeable_stream
-
 
 .. _virtual-network-hooks:
 
