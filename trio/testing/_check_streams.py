@@ -468,6 +468,7 @@ async def check_two_way_stream(stream_maker, clogged_stream_maker):
     if not send_eof_implemented:
         # If it's not implemented, then it should be a no-op
         async with _ForceCloseBoth(await stream_maker()) as (s1, s2):
+
             async def send_eof_ignored_sender(s):
                 with _assert_raises(NotImplementedError):
                     await s.send_eof()
