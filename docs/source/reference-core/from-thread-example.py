@@ -1,20 +1,21 @@
 import trio
 
-def thread_fn(portal, receive_from_trio, send_to_trio):
+
+def thread_fn(receive_from_trio, send_to_trio):
     while True:
         # Since we're in a thread, we can't call methods on Trio
-        # objects directly -- so we use our portal to call them.
+        # objects directly -- so we use trio.from_thread to call them.
         try:
-            request = portal.run(receive_from_trio.receive)
+            request = trio.from_thread.run(receive_from_trio.receive)
         except trio.EndOfChannel:
-            portal.run(send_to_trio.aclose)
+            trio.from_thread.run(send_to_trio.aclose)
             return
         else:
             response = request + 1
-            portal.run(send_to_trio.send, response)
+            trio.from_thread.run(send_to_trio.send, response)
+
 
 async def main():
-    portal = trio.BlockingTrioPortal()
     send_to_thread, receive_from_trio = trio.open_memory_channel(0)
     send_to_trio, receive_from_thread = trio.open_memory_channel(0)
 
@@ -22,8 +23,7 @@ async def main():
         # In a background thread, run:
         #   thread_fn(portal, receive_from_trio, send_to_trio)
         nursery.start_soon(
-            trio.run_sync_in_worker_thread,
-            thread_fn, portal, receive_from_trio, send_to_trio
+            trio.to_thread.run_sync, thread_fn, receive_from_trio, send_to_trio
         )
 
         # prints "1"
@@ -39,5 +39,6 @@ async def main():
 
         # When we exit the nursery, it waits for the background thread to
         # exit.
+
 
 trio.run(main)

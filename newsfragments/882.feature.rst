@@ -1,5 +1,0 @@
-Trio now gives a reasonable traceback and error message in most cases
-when its invariants surrounding cancel scope nesting have been
-violated. (One common source of such violations is an async generator
-that yields within a cancel scope.) The previous behavior was an
-inscrutable chain of TrioInternalErrors.

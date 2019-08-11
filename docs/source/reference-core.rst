@@ -819,116 +819,13 @@ The nursery API
 .. autofunction:: open_nursery
    :async-with: nursery
 
-Nursery objects provide the following interface:
 
-.. interface:: The nursery interface
-
-   .. method:: start_soon(async_fn, *args, name=None)
-
-      Creates a new child task inside this nursery, and sets it up to
-      run ``await async_fn(*args)``.
-
-      This and :meth:`start` are the two fundamental methods for
-      creating concurrent tasks in Trio.
-
-      Note that this is *not* an async function and you don't use await
-      when calling it. It sets up the new task, but then returns
-      immediately, *before* it has a chance to run. The new task won’t
-      actually get a chance to do anything until some later point when
-      you execute a checkpoint and the scheduler decides to run it.
-      If you want to run a function and immediately wait for its result,
-      then you don't need a nursery; just use ``await async_fn(*args)``.
-      If you want to wait for the task to initialize itself before 
-      continuing, see :meth:`start()`.
-
-      It's possible to pass a nursery object into another task, which
-      allows that task to start new child tasks in the first task's
-      nursery.
-
-      The child task inherits its parent nursery's cancel scopes.
-
-      :param async_fn: An async callable.
-      :param args: Positional arguments for ``async_fn``. If you want
-                   to pass keyword arguments, use
-                   :func:`functools.partial`.
-      :param name: The name for this task. Only used for
-                   debugging/introspection
-                   (e.g. ``repr(task_obj)``). If this isn't a string,
-                   :meth:`start_soon` will try to make it one. A
-                   common use case is if you're wrapping a function
-                   before spawning a new task, you might pass the
-                   original function as the ``name=`` to make
-                   debugging easier.
-      :raises RuntimeError: If this nursery is no longer open
-                            (i.e. its ``async with`` block has
-                            exited).
-
-   .. method:: start(async_fn, *args, name=None)
-      :async:
-
-      Like :meth:`start_soon`, but blocks until the new task has
-      finished initializing itself, and optionally returns some
-      information from it.
-
-      The ``async_fn`` must accept a ``task_status`` keyword argument,
-      and it must make sure that it (or someone) eventually calls
-      ``task_status.started()``.
-
-      The conventional way to define ``async_fn`` is like::
-
-         async def async_fn(arg1, arg2, *, task_status=trio.TASK_STATUS_IGNORED):
-             ...
-             task_status.started()
-             ...
-
-      :attr:`trio.TASK_STATUS_IGNORED` is a special global object with
-      a do-nothing ``started`` method. This way your function supports
-      being called either like ``await nursery.start(async_fn, arg1,
-      arg2)`` or directly like ``await async_fn(arg1, arg2)``, and
-      either way it can call ``task_status.started()`` without
-      worrying about which mode it's in. Defining your function like
-      this will make it obvious to readers that it supports being used
-      in both modes.
-
-      Before the child calls ``task_status.started()``, it's
-      effectively run underneath the call to :meth:`start`: if it
-      raises an exception then that exception is reported by
-      :meth:`start`, and does *not* propagate out of the nursery. If
-      :meth:`start` is cancelled, then the child task is also
-      cancelled.
-
-      When the child calls ``task_status.started()``, it's moved from
-      out from underneath :meth:`start` and into the given nursery.
-
-      If the child task passes a value to
-      ``task_status.started(value)``, then :meth:`start` returns this
-      value. Otherwise it returns ``None``.
-
-   .. attribute:: cancel_scope
-
-      Creating a nursery also implicitly creates a cancellation scope,
-      which is exposed as the :attr:`cancel_scope` attribute. This is
-      used internally to implement the logic where if an error occurs
-      then ``__aexit__`` cancels all children, but you can use it for
-      other things, e.g. if you want to explicitly cancel all children
-      in response to some external event.
-
-   The last two attributes are mainly to enable introspection of the
-   task tree, for example in debuggers.
-
-   .. attribute:: parent_task
-
-      The :class:`~trio.hazmat.Task` that opened this nursery.
-
-   .. attribute:: child_tasks
-
-      A :class:`frozenset` containing all the child
-      :class:`~trio.hazmat.Task` objects which are still running.
-
+.. autoclass:: Nursery()
+   :members:
 
 .. attribute:: TASK_STATUS_IGNORED
 
-   See :meth:`~The nursery interface.start`.
+   See :meth:`~Nursery.start`.
 
 
 Working with :exc:`MultiError`\s
@@ -1212,7 +1109,7 @@ Using channels to pass values between tasks
 different tasks. They're particularly useful for implementing
 producer/consumer patterns.
 
-The channel API is defined by the abstract base classes
+The core channel API is defined by the abstract base classes
 :class:`trio.abc.SendChannel` and :class:`trio.abc.ReceiveChannel`.
 You can use these to implement your own custom channels, that do
 things like pass objects between processes or over the network. But in
@@ -1228,14 +1125,23 @@ inside a single process, and for that you can use
    what you use when you're looking for a queue. The main difference
    is that Trio splits the classic queue interface up into two
    objects. The advantage of this is that it makes it possible to put
-   the two ends in different processes, and that we can close the two
-   sides separately.
+   the two ends in different processes without rewriting your code,
+   and that we can close the two sides separately.
+
+`MemorySendChannel` and `MemoryReceiveChannel` also expose several
+more features beyond the core channel interface:
+
+.. autoclass:: MemorySendChannel
+   :members:
+
+.. autoclass:: MemoryReceiveChannel
+   :members:
 
 
 A simple channel example
 ++++++++++++++++++++++++
 
-Here's a simple example of how to use channels:
+Here's a simple example of how to use memory channels:
 
 .. literalinclude:: reference-core/channels-simple.py
 
@@ -1347,14 +1253,13 @@ program above:
 .. literalinclude:: reference-core/channels-mpmc-fixed.py
    :emphasize-lines: 7, 9, 10, 12, 13
 
-This example demonstrates using the :meth:`SendChannel.clone
-<trio.abc.SendChannel.clone>` and :meth:`ReceiveChannel.clone
-<trio.abc.ReceiveChannel.clone>` methods. What these do is create
-copies of our endpoints, that act just like the original – except that
-they can be closed independently. And the underlying channel is only
-closed after *all* the clones have been closed. So this completely
-solves our problem with shutdown, and if you run this program, you'll
-see it print its six lines of output and then exits cleanly.
+This example demonstrates using the `MemorySendChannel.clone` and
+`MemoryReceiveChannel.clone` methods. What these do is create copies
+of our endpoints, that act just like the original – except that they
+can be closed independently. And the underlying channel is only closed
+after *all* the clones have been closed. So this completely solves our
+problem with shutdown, and if you run this program, you'll see it
+print its six lines of output and then exits cleanly.
 
 Notice a small trick we use: the code in ``main`` creates clone
 objects to pass into all the child tasks, and then closes the original
@@ -1566,9 +1471,9 @@ In acknowledgment of this reality, Trio provides two useful utilities
 for working with real, operating-system level,
 :mod:`threading`\-module-style threads. First, if you're in Trio but
 need to push some blocking I/O into a thread, there's
-:func:`run_sync_in_worker_thread`. And if you're in a thread and need
-to communicate back with Trio, you can use a
-:class:`BlockingTrioPortal`.
+`trio.to_thread.run_sync`. And if you're in a thread and need
+to communicate back with Trio, you can use
+:func:`trio.from_thread.run` and :func:`trio.from_thread.run_sync`.
 
 
 .. _worker-thread-limiting:
@@ -1589,7 +1494,7 @@ are spawned and the system gets overloaded and crashes. Instead, the N
 threads start executing the first N jobs, while the other
 (100,000 - N) jobs sit in a queue and wait their turn. Which is
 generally what you want, and this is how
-:func:`trio.run_sync_in_worker_thread` works by default.
+:func:`trio.to_thread.run_sync` works by default.
 
 The downside of this kind of thread pool is that sometimes, you need
 more sophisticated logic for controlling how many threads are run at
@@ -1636,16 +1541,16 @@ re-using threads, but has no admission control policy: if you give it
 responsible for providing the policy to make sure that this doesn't
 happen – but since it *only* has to worry about policy, it can be much
 simpler. In fact, all there is to it is the ``limiter=`` argument
-passed to :func:`run_sync_in_worker_thread`. This defaults to a global
+passed to :func:`trio.to_thread.run_sync`. This defaults to a global
 :class:`CapacityLimiter` object, which gives us the classic fixed-size
 thread pool behavior. (See
-:func:`current_default_worker_thread_limiter`.) But if you want to use
-"separate pools" for type A jobs and type B jobs, then it's just a
-matter of creating two separate :class:`CapacityLimiter` objects and
-passing them in when running these jobs. Or here's an example of
-defining a custom policy that respects the global thread limit, while
-making sure that no individual user can use more than 3 threads at a
-time::
+:func:`trio.to_thread.current_default_thread_limiter`.) But if you
+want to use "separate pools" for type A jobs and type B jobs, then
+it's just a matter of creating two separate :class:`CapacityLimiter`
+objects and passing them in when running these jobs. Or here's an
+example of defining a custom policy that respects the global thread
+limit, while making sure that no individual user can use more than 3
+threads at a time::
 
    class CombinedLimiter:
         def __init__(self, first, second):
@@ -1679,7 +1584,7 @@ time::
            return USER_LIMITERS[user_id]
        except KeyError:
            per_user_limiter = trio.CapacityLimiter(MAX_THREADS_PER_USER)
-           global_limiter = trio.current_default_worker_thread_limiter()
+           global_limiter = trio.current_default_thread_limiter()
            # IMPORTANT: acquire the per_user_limiter before the global_limiter.
            # If we get 100 jobs for a user at the same time, we want
            # to only allow 3 of them at a time to even compete for the
@@ -1689,31 +1594,38 @@ time::
            return combined_limiter
 
 
-   async def run_in_worker_thread_for_user(user_id, async_fn, *args, **kwargs):
-       # *args belong to async_fn; **kwargs belong to run_sync_in_worker_thread
+   async def run_sync_in_thread_for_user(user_id, sync_fn, *args):
        kwargs["limiter"] = get_user_limiter(user_id)
-       return await trio.run_sync_in_worker_thread(asycn_fn, *args, **kwargs)
+       return await trio.to_thread.run_sync(asycn_fn, *args)
 
+
+.. module:: trio.to_thread
+.. currentmodule:: trio
 
 Putting blocking I/O into worker threads
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autofunction:: run_sync_in_worker_thread
+.. autofunction:: trio.to_thread.run_sync
 
-.. autofunction:: current_default_worker_thread_limiter
+.. autofunction:: trio.to_thread.current_default_thread_limiter
 
+
+.. module:: trio.from_thread
+.. currentmodule:: trio
 
 Getting back into the Trio thread from another thread
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: BlockingTrioPortal
-   :members:
+.. autofunction:: trio.from_thread.run
+
+.. autofunction:: trio.from_thread.run_sync
+
 
 This will probably be clearer with an example. Here we demonstrate how
 to spawn a child thread, and then use a :ref:`memory channel
 <channels>` to send messages between the thread and a Trio task:
 
-.. literalinclude:: reference-core/blocking-trio-portal-example.py
+.. literalinclude:: reference-core/from-thread-example.py
 
 
 Exceptions and warnings

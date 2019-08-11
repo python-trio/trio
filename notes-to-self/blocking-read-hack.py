@@ -29,7 +29,7 @@ async def blocking_read_with_timeout(fd, count, timeout):
         async with trio.open_nursery() as nursery:
             nursery.start_soon(kill_it_after_timeout, new_fd)
             try:
-                data = await trio.run_sync_in_worker_thread(os.read, new_fd, count)
+                data = await trio.to_thread.run_sync(os.read, new_fd, count)
             except OSError as exc:
                 if cancel_requested and exc.errno == errno.ENOTCONN:
                     # Call was successfully cancelled. In a real version we'd

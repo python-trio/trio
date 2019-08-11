@@ -159,10 +159,36 @@ from .abc import Stream, Listener
 from ._highlevel_generic import aclose_forcefully
 from . import _sync
 from ._util import ConflictDetector
+from ._deprecate import warn_deprecated
 
 ################################################################
 # SSLStream
 ################################################################
+
+# Ideally, when the user calls SSLStream.receive_some() with no argument, then
+# we should do exactly one call to self.transport_stream.receive_some(),
+# decrypt everything we got, and return it. Unfortunately, the way openssl's
+# API works, we have to pick how much data we want to allow when we call
+# read(), and then it (potentially) triggers a call to
+# transport_stream.receive_some(). So at the time we pick the amount of data
+# to decrypt, we don't know how much data we've read. As a simple heuristic,
+# we record the max amount of data returned by previous calls to
+# transport_stream.receive_some(), and we use that for future calls to read().
+# But what do we use for the very first call? That's what this constant sets.
+#
+# Note that the value passed to read() is a limit on the amount of
+# *decrypted* data, but we can only see the size of the *encrypted* data
+# returned by transport_stream.receive_some(). TLS adds a small amount of
+# framing overhead, and TLS compression is rarely used these days because it's
+# insecure. So the size of the encrypted data should be a slight over-estimate
+# of the size of the decrypted data, which is exactly what we want.
+#
+# The specific value is not really based on anything; it might be worth tuning
+# at some point. But, if you have an TCP connection with the typical 1500 byte
+# MTU and an initial window of 10 (see RFC 6928), then the initial burst of
+# data will be limited to ~15000 bytes (or a bit less due to IP-level framing
+# overhead), so this is chosen to be larger than that.
+STARTING_RECEIVE_SIZE = 16384
 
 
 class NeedHandshakeError(Exception):
@@ -196,8 +222,6 @@ class _Once:
 
 
 _State = _Enum("_State", ["OK", "BROKEN", "CLOSED"])
-
-_default_max_refill_bytes = 32 * 1024
 
 
 class SSLStream(Stream):
@@ -269,15 +293,6 @@ class SSLStream(Stream):
           that :class:`~ssl.SSLSocket` implements the
           ``https_compatible=True`` behavior by default.
 
-      max_refill_bytes (int): :class:`~ssl.SSLSocket` maintains an internal
-          buffer of incoming data, and when it runs low then it calls
-          :meth:`receive_some` on the underlying transport stream to refill
-          it. This argument lets you set the ``max_bytes`` argument passed to
-          the *underlying* :meth:`receive_some` call. It doesn't affect calls
-          to *this* class's :meth:`receive_some`, or really anything else
-          user-observable except possibly performance. You probably don't need
-          to worry about this.
-
     Attributes:
       transport_stream (trio.abc.Stream): The underlying transport stream
           that was passed to ``__init__``. An example of when this would be
@@ -313,13 +328,17 @@ class SSLStream(Stream):
         server_hostname=None,
         server_side=False,
         https_compatible=False,
-        max_refill_bytes=_default_max_refill_bytes
+        max_refill_bytes="unused and deprecated"
     ):
         self.transport_stream = transport_stream
         self._state = _State.OK
-        self._max_refill_bytes = max_refill_bytes
+        if max_refill_bytes != "unused and deprecated":
+            warn_deprecated(
+                "max_refill_bytes=...", "0.12.0", issue=959, instead=None
+            )
         self._https_compatible = https_compatible
         self._outgoing = _stdlib_ssl.MemoryBIO()
+        self._delayed_outgoing = None
         self._incoming = _stdlib_ssl.MemoryBIO()
         self._ssl_object = ssl_context.wrap_bio(
             self._incoming,
@@ -344,6 +363,8 @@ class SSLStream(Stream):
         self._outer_recv_conflict_detector = ConflictDetector(
             "another task is currently receiving data on this SSLStream"
         )
+
+        self._estimated_receive_size = STARTING_RECEIVE_SIZE
 
     _forwarded = {
         "context",
@@ -408,7 +429,9 @@ class SSLStream(Stream):
     # comments, though, just make sure to think carefully if you ever have to
     # touch it. The big comment at the top of this file will help explain
     # too.
-    async def _retry(self, fn, *args, ignore_want_read=False):
+    async def _retry(
+        self, fn, *args, ignore_want_read=False, is_handshake=False
+    ):
         await trio.hazmat.checkpoint_if_cancelled()
         yielded = False
         finished = False
@@ -452,6 +475,32 @@ class SSLStream(Stream):
                 want_read = False
                 finished = True
             to_send = self._outgoing.read()
+
+            # Some versions of SSL_do_handshake have a bug in how they handle
+            # the TLS 1.3 handshake on the server side: after the handshake
+            # finishes, they automatically send session tickets, even though
+            # the client may not be expecting data to arrive at this point and
+            # sending it could cause a deadlock or lost data. This applies at
+            # least to OpenSSL 1.1.1c and earlier, and the OpenSSL devs
+            # currently have no plans to fix it:
+            #
+            #   https://github.com/openssl/openssl/issues/7948
+            #   https://github.com/openssl/openssl/issues/7967
+            #
+            # The correct behavior is to wait to send session tickets on the
+            # first call to SSL_write. (This is what BoringSSL does.) So, we
+            # use a heuristic to detect when OpenSSL has tried to send session
+            # tickets, and we manually delay sending them until the
+            # appropriate moment. For more discussion see:
+            #
+            #   https://github.com/python-trio/trio/issues/819#issuecomment-517529763
+            if (
+                is_handshake and not want_read and self._ssl_object.server_side
+                and self._ssl_object.version() == "TLSv1.3"
+            ):
+                assert self._delayed_outgoing is None
+                self._delayed_outgoing = to_send
+                to_send = b""
 
             # Outputs from the above code block are:
             #
@@ -515,6 +564,9 @@ class SSLStream(Stream):
                 async with self._inner_send_lock:
                     yielded = True
                     try:
+                        if self._delayed_outgoing is not None:
+                            to_send = self._delayed_outgoing + to_send
+                            self._delayed_outgoing = None
                         await self.transport_stream.send_all(to_send)
                     except:
                         # Some unknown amount of our data got sent, and we
@@ -536,12 +588,13 @@ class SSLStream(Stream):
                 async with self._inner_recv_lock:
                     yielded = True
                     if recv_count == self._inner_recv_count:
-                        data = await self.transport_stream.receive_some(
-                            self._max_refill_bytes
-                        )
+                        data = await self.transport_stream.receive_some()
                         if not data:
                             self._incoming.write_eof()
                         else:
+                            self._estimated_receive_size = max(
+                                self._estimated_receive_size, len(data)
+                            )
                             self._incoming.write(data)
                         self._inner_recv_count += 1
         if not yielded:
@@ -550,7 +603,7 @@ class SSLStream(Stream):
 
     async def _do_handshake(self):
         try:
-            await self._retry(self._ssl_object.do_handshake)
+            await self._retry(self._ssl_object.do_handshake, is_handshake=True)
         except:
             self._state = _State.BROKEN
             raise
@@ -590,7 +643,7 @@ class SSLStream(Stream):
     #   https://bugs.python.org/issue30141
     # So we *definitely* have to make sure that do_handshake is called
     # before doing anything else.
-    async def receive_some(self, max_bytes):
+    async def receive_some(self, max_bytes=None):
         """Read some data from the underlying transport, decrypt it, and
         return it.
 
@@ -621,9 +674,17 @@ class SSLStream(Stream):
                     return b""
                 else:
                     raise
-            max_bytes = _operator.index(max_bytes)
-            if max_bytes < 1:
-                raise ValueError("max_bytes must be >= 1")
+            if max_bytes is None:
+                # If we somehow have more data already in our pending buffer
+                # than the estimate receive size, bump up our size a bit for
+                # this read only.
+                max_bytes = max(
+                    self._estimated_receive_size, self._incoming.pending
+                )
+            else:
+                max_bytes = _operator.index(max_bytes)
+                if max_bytes < 1:
+                    raise ValueError("max_bytes must be >= 1")
             try:
                 return await self._retry(self._ssl_object.read, max_bytes)
             except trio.BrokenResourceError as exc:
@@ -837,8 +898,6 @@ class SSLListener(Listener[SSLStream]):
 
       https_compatible (bool): Passed on to :class:`SSLStream`.
 
-      max_refill_bytes (int): Passed on to :class:`SSLStream`.
-
     Attributes:
       transport_listener (trio.abc.Listener): The underlying listener that was
           passed to ``__init__``.
@@ -851,12 +910,15 @@ class SSLListener(Listener[SSLStream]):
         ssl_context,
         *,
         https_compatible=False,
-        max_refill_bytes=_default_max_refill_bytes
+        max_refill_bytes="unused and deprecated"
     ):
+        if max_refill_bytes != "unused and deprecated":
+            warn_deprecated(
+                "max_refill_bytes=...", "0.12.0", issue=959, instead=None
+            )
         self.transport_listener = transport_listener
         self._ssl_context = ssl_context
         self._https_compatible = https_compatible
-        self._max_refill_bytes = max_refill_bytes
 
     async def accept(self):
         """Accept the next connection and wrap it in an :class:`SSLStream`.
@@ -870,7 +932,6 @@ class SSLListener(Listener[SSLStream]):
             self._ssl_context,
             server_side=True,
             https_compatible=self._https_compatible,
-            max_refill_bytes=self._max_refill_bytes,
         )
 
     async def aclose(self):

@@ -55,9 +55,9 @@ class Sequencer:
     """
 
     _sequence_points = attr.ib(
-        default=attr.Factory(lambda: defaultdict(Event)), init=False
+        factory=lambda: defaultdict(Event), init=False
     )  # type: DefaultDict[int, Event]
-    _claimed = attr.ib(default=attr.Factory(set), init=False)  # type: Set[int]
+    _claimed = attr.ib(factory=set, init=False)  # type: Set[int]
     _broken = attr.ib(default=False, init=False)
 
     @asynccontextmanager

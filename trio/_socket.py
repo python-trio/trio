@@ -1,14 +1,14 @@
 import os as _os
 import sys as _sys
+import select
 import socket as _stdlib_socket
 from functools import wraps as _wraps
 
 import idna as _idna
 
 import trio
-from ._threads import run_sync_in_worker_thread
 from ._util import fspath
-from ._core import RunVar, wait_socket_readable, wait_socket_writable
+from . import _core
 
 
 # Usage:
@@ -59,8 +59,8 @@ except ImportError:
 # Overrides
 ################################################################
 
-_resolver = RunVar("hostname_resolver")
-_socket_factory = RunVar("socket_factory")
+_resolver = _core.RunVar("hostname_resolver")
+_socket_factory = _core.RunVar("socket_factory")
 
 
 def set_custom_hostname_resolver(hostname_resolver):
@@ -178,7 +178,7 @@ async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
     if hr is not None:
         return await hr.getaddrinfo(host, port, family, type, proto, flags)
     else:
-        return await run_sync_in_worker_thread(
+        return await trio.to_thread.run_sync(
             _stdlib_socket.getaddrinfo,
             host,
             port,
@@ -204,7 +204,7 @@ async def getnameinfo(sockaddr, flags):
     if hr is not None:
         return await hr.getnameinfo(sockaddr, flags)
     else:
-        return await run_sync_in_worker_thread(
+        return await trio.to_thread.run_sync(
             _stdlib_socket.getnameinfo, sockaddr, flags, cancellable=True
         )
 
@@ -215,7 +215,7 @@ async def getprotobyname(name):
     Like :func:`socket.getprotobyname`, but async.
 
     """
-    return await run_sync_in_worker_thread(
+    return await trio.to_thread.run_sync(
         _stdlib_socket.getprotobyname, name, cancellable=True
     )
 
@@ -289,7 +289,7 @@ def socket(
 
 def _sniff_sockopts_for_fileno(family, type, proto, fileno):
     """Correct SOCKOPTS for given fileno, falling back to provided values.
-    
+
     """
     # Wrap the raw fileno into a Python socket object
     # This object might have the wrong metadata, but it lets us easily call getsockopt
@@ -452,7 +452,7 @@ class _SocketType(SocketType):
         return _SocketType(self._sock.dup())
 
     def close(self):
-        trio.hazmat.notify_socket_close(self._sock)
+        trio.hazmat.notify_closing(self._sock)
         self._sock.close()
 
     async def bind(self, address):
@@ -463,7 +463,7 @@ class _SocketType(SocketType):
         ):
             # Use a thread for the filesystem traversal (unless it's an
             # abstract domain socket)
-            return await run_sync_in_worker_thread(self._sock.bind, address)
+            return await trio.to_thread.run_sync(self._sock.bind, address)
         else:
             # POSIX actually says that bind can return EWOULDBLOCK and
             # complete asynchronously, like connect. But in practice AFAICT
@@ -478,8 +478,17 @@ class _SocketType(SocketType):
         if flag in [_stdlib_socket.SHUT_WR, _stdlib_socket.SHUT_RDWR]:
             self._did_shutdown_SHUT_WR = True
 
+    def is_readable(self):
+        # use select.select on Windows, and select.poll everywhere else
+        if _sys.platform == "win32":
+            rready, _, _ = select.select([self._sock], [], [], 0)
+            return bool(rready)
+        p = select.poll()
+        p.register(self._sock, select.POLLIN)
+        return bool(p.poll(0))
+
     async def wait_writable(self):
-        await wait_socket_writable(self._sock)
+        await _core.wait_writable(self._sock)
 
     ################################################################
     # Address handling
@@ -589,7 +598,7 @@ class _SocketType(SocketType):
     # accept
     ################################################################
 
-    _accept = _make_simple_sock_method_wrapper("accept", wait_socket_readable)
+    _accept = _make_simple_sock_method_wrapper("accept", _core.wait_readable)
 
     async def accept(self):
         """Like :meth:`socket.socket.accept`, but async.
@@ -660,7 +669,7 @@ class _SocketType(SocketType):
                 return self._sock.connect(address)
             # It raised BlockingIOError, meaning that it's started the
             # connection attempt. We wait for it to complete:
-            await wait_socket_writable(self._sock)
+            await _core.wait_writable(self._sock)
         except trio.Cancelled:
             # We can't really cancel a connect, and the socket is in an
             # indeterminate state. Better to close it so we don't get
@@ -678,14 +687,14 @@ class _SocketType(SocketType):
     # recv
     ################################################################
 
-    recv = _make_simple_sock_method_wrapper("recv", wait_socket_readable)
+    recv = _make_simple_sock_method_wrapper("recv", _core.wait_readable)
 
     ################################################################
     # recv_into
     ################################################################
 
     recv_into = _make_simple_sock_method_wrapper(
-        "recv_into", wait_socket_readable
+        "recv_into", _core.wait_readable
     )
 
     ################################################################
@@ -693,7 +702,7 @@ class _SocketType(SocketType):
     ################################################################
 
     recvfrom = _make_simple_sock_method_wrapper(
-        "recvfrom", wait_socket_readable
+        "recvfrom", _core.wait_readable
     )
 
     ################################################################
@@ -701,7 +710,7 @@ class _SocketType(SocketType):
     ################################################################
 
     recvfrom_into = _make_simple_sock_method_wrapper(
-        "recvfrom_into", wait_socket_readable
+        "recvfrom_into", _core.wait_readable
     )
 
     ################################################################
@@ -710,7 +719,7 @@ class _SocketType(SocketType):
 
     if hasattr(_stdlib_socket.socket, "recvmsg"):
         recvmsg = _make_simple_sock_method_wrapper(
-            "recvmsg", wait_socket_readable, maybe_avail=True
+            "recvmsg", _core.wait_readable, maybe_avail=True
         )
 
     ################################################################
@@ -719,14 +728,14 @@ class _SocketType(SocketType):
 
     if hasattr(_stdlib_socket.socket, "recvmsg_into"):
         recvmsg_into = _make_simple_sock_method_wrapper(
-            "recvmsg_into", wait_socket_readable, maybe_avail=True
+            "recvmsg_into", _core.wait_readable, maybe_avail=True
         )
 
     ################################################################
     # send
     ################################################################
 
-    send = _make_simple_sock_method_wrapper("send", wait_socket_writable)
+    send = _make_simple_sock_method_wrapper("send", _core.wait_writable)
 
     ################################################################
     # sendto
@@ -742,7 +751,7 @@ class _SocketType(SocketType):
         args = list(args)
         args[-1] = await self._resolve_remote_address(args[-1])
         return await self._nonblocking_helper(
-            _stdlib_socket.socket.sendto, args, {}, wait_socket_writable
+            _stdlib_socket.socket.sendto, args, {}, _core.wait_writable
         )
 
     ################################################################
@@ -765,7 +774,7 @@ class _SocketType(SocketType):
                 args = list(args)
                 args[-1] = await self._resolve_remote_address(args[-1])
             return await self._nonblocking_helper(
-                _stdlib_socket.socket.sendmsg, args, {}, wait_socket_writable
+                _stdlib_socket.socket.sendmsg, args, {}, _core.wait_writable
             )
 
     ################################################################

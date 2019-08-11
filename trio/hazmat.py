@@ -3,6 +3,7 @@ This namespace represents low-level functionality not intended for daily use,
 but useful for extending Trio's functionality.
 """
 
+import os
 import sys
 
 # This is the union of a subset of trio/_core/ and some things from trio/*.py.
@@ -19,17 +20,13 @@ from ._core import (
     permanently_detach_coroutine_object, reattach_detached_coroutine_object,
     current_statistics, reschedule, remove_instrument, add_instrument,
     current_clock, current_root_task, checkpoint_if_cancelled,
-    spawn_system_task, wait_socket_readable, wait_socket_writable,
-    notify_socket_close, open_trio_entry_handle, TrioEntryHandle
+    spawn_system_task, wait_readable, wait_writable, notify_closing,
+    open_trio_entry_handle, TrioEntryHandle
 )
 
 # Unix-specific symbols
 try:
-    from ._core import (
-        wait_writable,
-        wait_readable,
-        notify_fd_close,
-    )
+    from ._unix_pipes import FdStream
 except ImportError:
     pass
 

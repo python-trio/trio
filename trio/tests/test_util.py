@@ -5,8 +5,8 @@ import sys
 
 import pytest
 
+import trio
 from .. import _core
-from trio import run_sync_in_worker_thread
 from .._util import (
     signal_raise, ConflictDetector, fspath, is_main_thread, generic_function,
     Final, NoPublicConstructor
@@ -71,6 +71,15 @@ def test_module_metadata_is_fixed_up():
     # Also check methods
     assert trio.hazmat.ParkingLot.__init__.__module__ == "trio.hazmat"
     assert trio.abc.Stream.send_all.__module__ == "trio.abc"
+
+    # And names
+    assert trio.Cancelled.__name__ == "Cancelled"
+    assert trio.Cancelled.__qualname__ == "Cancelled"
+    assert trio.abc.SendStream.send_all.__name__ == "send_all"
+    assert trio.abc.SendStream.send_all.__qualname__ == "SendStream.send_all"
+    assert trio.to_thread.__name__ == "trio.to_thread"
+    assert trio.to_thread.run_sync.__name__ == "run_sync"
+    assert trio.to_thread.run_sync.__qualname__ == "run_sync"
 
 
 # define a concrete class implementing the PathLike protocol
@@ -160,7 +169,7 @@ async def test_is_main_thread():
     def not_main_thread():
         assert not is_main_thread()
 
-    await run_sync_in_worker_thread(not_main_thread)
+    await trio.to_thread.run_sync(not_main_thread)
 
 
 def test_generic_function():

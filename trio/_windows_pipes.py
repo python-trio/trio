@@ -3,6 +3,9 @@ from ._abc import SendStream, ReceiveStream
 from ._util import ConflictDetector
 from ._core._windows_cffi import _handle, raise_winerror, kernel32, ffi
 
+# XX TODO: don't just make this up based on nothing.
+DEFAULT_RECEIVE_SIZE = 65536
+
 
 # See the comments on _unix_pipes._FdHolder for discussion of why we set the
 # handle to -1 when it's closed.
@@ -86,16 +89,18 @@ class PipeReceiveStream(ReceiveStream):
             "another task is currently using this pipe"
         )
 
-    async def receive_some(self, max_bytes: int) -> bytes:
+    async def receive_some(self, max_bytes=None) -> bytes:
         with self._conflict_detector:
             if self._handle_holder.closed:
                 raise _core.ClosedResourceError("this pipe is already closed")
 
-            if not isinstance(max_bytes, int):
-                raise TypeError("max_bytes must be integer >= 1")
-
-            if max_bytes < 1:
-                raise ValueError("max_bytes must be integer >= 1")
+            if max_bytes is None:
+                max_bytes = DEFAULT_RECEIVE_SIZE
+            else:
+                if not isinstance(max_bytes, int):
+                    raise TypeError("max_bytes must be integer >= 1")
+                if max_bytes < 1:
+                    raise ValueError("max_bytes must be integer >= 1")
 
             buffer = bytearray(max_bytes)
             try:

@@ -11,7 +11,7 @@ from .._deprecate import deprecated
 __all__ = ["TrioToken"]
 
 
-@attr.s
+@attr.s(slots=True)
 class EntryQueue:
     # This used to use a queue.Queue. but that was broken, because Queues are
     # implemented in Python, and not reentrant -- so it was thread-safe, but
@@ -20,10 +20,10 @@ class EntryQueue:
     # atomic WRT signal delivery (signal handlers can run on either side, but
     # not *during* a deque operation). dict makes similar guarantees - and on
     # CPython 3.6 and PyPy, it's even ordered!
-    queue = attr.ib(default=attr.Factory(deque))
-    idempotent_queue = attr.ib(default=attr.Factory(dict))
+    queue = attr.ib(factory=deque)
+    idempotent_queue = attr.ib(factory=dict)
 
-    wakeup = attr.ib(default=attr.Factory(WakeupSocketpair))
+    wakeup = attr.ib(factory=WakeupSocketpair)
     done = attr.ib(default=False)
     # Must be a reentrant lock, because it's acquired from signal handlers.
     # RLock is signal-safe as of cpython 3.2. NB that this does mean that the
@@ -33,7 +33,7 @@ class EntryQueue:
     # main thread -- it just might happen at some inconvenient place. But if
     # you look at the one place where the main thread holds the lock, it's
     # just to make 1 assignment, so that's atomic WRT a signal anyway.
-    lock = attr.ib(default=attr.Factory(threading.RLock))
+    lock = attr.ib(factory=threading.RLock)
 
     live_handles = attr.ib(default=0)
     live_handles_lock = attr.ib(factory=threading.Lock)
@@ -266,16 +266,18 @@ class TrioToken:
     This object has two uses:
 
     1. It lets you re-enter the Trio run loop from external threads or signal
-       handlers. This is the low-level primitive that
-       :func:`trio.run_sync_in_worker_thread` uses to receive results from
-       worker threads, that :func:`trio.open_signal_receiver` uses to receive
-       notifications about signals, and so forth.
+       handlers. This is the low-level primitive that :func:`trio.to_thread`
+       and `trio.from_thread` use to communicate with worker threads, that
+       `trio.open_signal_receiver` uses to receive notifications about
+       signals, and so forth.
 
     2. Each call to :func:`trio.run` has exactly one associated
        :class:`TrioToken` object, so you can use it to identify a particular
        call.
 
     """
+
+    __slots__ = ('_reentry_queue',)
 
     def __init__(self, reentry_queue):
         self._reentry_queue = reentry_queue

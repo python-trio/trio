@@ -52,7 +52,7 @@ class StapledStream(HalfCloseableStream):
           left, right = trio.testing.memory_stream_pair()
           echo_stream = StapledStream(SocketStream(left), SocketStream(right))
           await echo_stream.send_all(b"x")
-          assert await echo_stream.receive_some(1) == b"x"
+          assert await echo_stream.receive_some() == b"x"
 
     :class:`StapledStream` objects implement the methods in the
     :class:`~trio.abc.HalfCloseableStream` interface. They also have two
@@ -96,7 +96,7 @@ class StapledStream(HalfCloseableStream):
         else:
             return await self.send_stream.aclose()
 
-    async def receive_some(self, max_bytes):
+    async def receive_some(self, max_bytes=None):
         """Calls ``self.receive_stream.receive_some``.
 
         """

@@ -1,0 +1,3 @@
+In 0.12.0 we deprecated ``trio.run_sync_in_worker_thread`` in favor of
+`trio.to_thread.run_sync`. But, the deprecation message listed the
+wrong name for the replacement. The message now gives the correct name.

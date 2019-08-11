@@ -15,9 +15,9 @@ import sniffio
 import pytest
 from async_generator import async_generator
 
-from .tutil import check_sequence_matches, gc_collect_harder
+from .tutil import slow, check_sequence_matches, gc_collect_harder
 from ... import _core
-from ..._threads import run_sync_in_worker_thread
+from ..._threads import to_thread_run_sync
 from ..._timeouts import sleep, fail_after
 from ..._util import aiter_compat
 from ...testing import (
@@ -348,7 +348,7 @@ async def test_current_statistics(mock_clock):
 
 @attr.s(cmp=False, hash=False)
 class TaskRecorder:
-    record = attr.ib(default=attr.Factory(list))
+    record = attr.ib(factory=list)
 
     def before_run(self):
         self.record.append(("before_run",))
@@ -552,7 +552,7 @@ async def test_cancel_scope_repr(mock_clock):
         scope.deadline = _core.current_time() + 10
         assert "deadline is 10.00 seconds from now" in repr(scope)
         # when not in async context, can't get the current time
-        assert "deadline" not in await run_sync_in_worker_thread(repr, scope)
+        assert "deadline" not in await to_thread_run_sync(repr, scope)
         scope.cancel()
         assert "cancelled" in repr(scope)
     assert "exited" in repr(scope)
@@ -849,6 +849,18 @@ async def test_cancel_scope_nesting():
     assert not scope.cancelled_caught
 
 
+# Regression test for https://github.com/python-trio/trio/issues/1175
+async def test_unshield_while_cancel_propagating():
+    with _core.CancelScope() as outer:
+        with _core.CancelScope() as inner:
+            outer.cancel()
+            try:
+                await _core.checkpoint()
+            finally:
+                inner.shield = True
+    assert outer.cancelled_caught and not inner.cancelled_caught
+
+
 async def test_cancel_unbound():
     async def sleep_until_cancelled(scope):
         with scope, fail_after(1):
@@ -993,9 +1005,10 @@ async def test_cancel_scope_misnesting():
         scope.cancel()
 
 
+@slow
 async def test_timekeeping():
     # probably a good idea to use a real clock for *one* test anyway...
-    TARGET = 0.1
+    TARGET = 1.0
     # give it a few tries in case of random CI server flakiness
     for _ in range(4):
         real_start = time.perf_counter()
@@ -2140,6 +2153,30 @@ def test_system_task_contexts():
             await wait_all_tasks_blocked()
 
     _core.run(inner)
+
+
+def test_Nursery_init():
+    check_Nursery_error = pytest.raises(
+        TypeError, match='no public constructor available'
+    )
+
+    with check_Nursery_error:
+        _core._run.Nursery(None, None)
+
+
+async def test_Nursery_private_init():
+    # context manager creation should not raise
+    async with _core.open_nursery() as nursery:
+        assert False == nursery._closed
+
+
+def test_Nursery_subclass():
+    with pytest.raises(
+        TypeError, match='`Nursery` does not support subclassing'
+    ):
+
+        class Subclass(_core._run.Nursery):
+            pass
 
 
 def test_Cancelled_init():

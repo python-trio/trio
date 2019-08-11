@@ -19,7 +19,8 @@ from ._core import (
     TrioInternalError, RunFinishedError, WouldBlock, Cancelled,
     BusyResourceError, ClosedResourceError, MultiError, run, open_nursery,
     CancelScope, open_cancel_scope, current_effective_deadline,
-    TASK_STATUS_IGNORED, current_time, BrokenResourceError, EndOfChannel
+    TASK_STATUS_IGNORED, current_time, BrokenResourceError, EndOfChannel,
+    Nursery
 )
 
 from ._timeouts import (
@@ -31,14 +32,13 @@ from ._sync import (
     Event, CapacityLimiter, Semaphore, Lock, StrictFIFOLock, Condition
 )
 
-from ._threads import (
-    run_sync_in_worker_thread, current_default_worker_thread_limiter,
-    BlockingTrioPortal
-)
+from ._threads import BlockingTrioPortal as _BlockingTrioPortal
 
 from ._highlevel_generic import aclose_forcefully, StapledStream
 
-from ._channel import open_memory_channel
+from ._channel import (
+    open_memory_channel, MemorySendChannel, MemoryReceiveChannel
+)
 
 from ._signals import open_signal_receiver
 
@@ -48,7 +48,7 @@ from ._file_io import open_file, wrap_file
 
 from ._path import Path
 
-from ._subprocess import Process
+from ._subprocess import Process, open_process, run_process
 
 from ._ssl import SSLStream, SSLListener, NeedHandshakeError
 
@@ -66,11 +66,14 @@ from ._highlevel_ssl_helpers import (
 
 from ._deprecate import TrioDeprecationWarning
 
-# Imported by default
+# Submodules imported by default
 from . import hazmat
 from . import socket
 from . import abc
-# Not imported by default: testing
+from . import from_thread
+from . import to_thread
+# Not imported by default, but mentioned here so static analysis tools like
+# pylint will know that it exists.
 if False:
     from . import testing
 
@@ -100,6 +103,53 @@ __deprecated_attributes__ = {
                 "library 'subprocess' module"
             ),
         ),
+    "run_sync_in_worker_thread":
+        _deprecate.DeprecatedAttribute(
+            to_thread.run_sync,
+            "0.12.0",
+            issue=810,
+        ),
+    "current_default_worker_thread_limiter":
+        _deprecate.DeprecatedAttribute(
+            to_thread.current_default_thread_limiter,
+            "0.12.0",
+            issue=810,
+        ),
+    "BlockingTrioPortal":
+        _deprecate.DeprecatedAttribute(
+            _BlockingTrioPortal,
+            "0.12.0",
+            issue=810,
+            instead=from_thread,
+        ),
+}
+
+_deprecate.enable_attribute_deprecations(hazmat.__name__)
+hazmat.__deprecated_attributes__ = {
+    "wait_socket_readable":
+        _deprecate.DeprecatedAttribute(
+            hazmat.wait_readable,
+            "0.12.0",
+            issue=878,
+        ),
+    "wait_socket_writable":
+        _deprecate.DeprecatedAttribute(
+            hazmat.wait_writable,
+            "0.12.0",
+            issue=878,
+        ),
+    "notify_socket_close":
+        _deprecate.DeprecatedAttribute(
+            hazmat.notify_closing,
+            "0.12.0",
+            issue=878,
+        ),
+    "notify_fd_close":
+        _deprecate.DeprecatedAttribute(
+            hazmat.notify_closing,
+            "0.12.0",
+            issue=878,
+        ),
 }
 
 # Having the public path in .__module__ attributes is important for:
@@ -113,6 +163,8 @@ fixup_module_metadata(__name__, globals())
 fixup_module_metadata(hazmat.__name__, hazmat.__dict__)
 fixup_module_metadata(socket.__name__, socket.__dict__)
 fixup_module_metadata(abc.__name__, abc.__dict__)
+fixup_module_metadata(from_thread.__name__, from_thread.__dict__)
+fixup_module_metadata(to_thread.__name__, to_thread.__dict__)
 fixup_module_metadata(__name__ + ".ssl", _deprecated_ssl_reexports.__dict__)
 fixup_module_metadata(
     __name__ + ".subprocess", _deprecated_subprocess_reexports.__dict__

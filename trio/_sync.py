@@ -7,6 +7,7 @@ import trio
 
 from ._util import aiter_compat
 from ._core import enable_ki_protection, ParkingLot
+from ._deprecate import deprecated
 
 __all__ = [
     "Event",
@@ -36,9 +37,16 @@ class Event:
     primitive that doesn't have this protection, consider :class:`Condition`
     or :class:`trio.hazmat.ParkingLot`.
 
+    .. note:: Unlike `threading.Event`, `trio.Event` has no
+       `~threading.Event.clear` method. In Trio, once an `Event` has happened,
+       it cannot un-happen. If you need to represent a series of events,
+       consider creating a new `Event` object for each one (they're cheap!),
+       or other synchronization methods like :ref:`channels <channels>` or
+       `trio.hazmat.ParkingLot`.
+
     """
 
-    _lot = attr.ib(default=attr.Factory(ParkingLot), init=False)
+    _lot = attr.ib(factory=ParkingLot, init=False)
     _flag = attr.ib(default=False, init=False)
 
     def is_set(self):
@@ -55,10 +63,12 @@ class Event:
         self._flag = True
         self._lot.unpark_all()
 
+    @deprecated(
+        "0.12.0",
+        issue=637,
+        instead="multiple Event objects or other synchronization primitives"
+    )
     def clear(self):
-        """Set the internal flag value to False.
-
-        """
         self._flag = False
 
     async def wait(self):
@@ -143,9 +153,9 @@ class CapacityLimiter:
     fixed number of seats, and if they're all taken then you have to wait for
     someone to get up before you can sit down.
 
-    By default, :func:`run_sync_in_worker_thread` uses a
+    By default, :func:`trio.to_thread.run_sync` uses a
     :class:`CapacityLimiter` to limit the number of threads running at once;
-    see :func:`current_default_worker_thread_limiter` for details.
+    see `trio.to_thread.current_default_thread_limiter` for details.
 
     If you're familiar with semaphores, then you can think of this as a
     restricted semaphore that's specialized for one common use case, with
@@ -246,7 +256,7 @@ class CapacityLimiter:
         Args:
           borrower: A :class:`trio.hazmat.Task` or arbitrary opaque object
              used to record who is borrowing this token. This is used by
-             :func:`run_sync_in_worker_thread` to allow threads to "hold
+             :func:`trio.to_thread.run_sync` to allow threads to "hold
              tokens", with the intention in the future of using it to `allow
              deadlock detection and other useful things
              <https://github.com/python-trio/trio/issues/182>`__
@@ -513,7 +523,7 @@ class Lock:
 
     """
 
-    _lot = attr.ib(default=attr.Factory(ParkingLot), init=False)
+    _lot = attr.ib(factory=ParkingLot, init=False)
     _owner = attr.ib(default=None, init=False)
 
     def __repr__(self):

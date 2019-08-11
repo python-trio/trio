@@ -34,7 +34,7 @@ class WakeupSocketpair:
             pass
 
     async def wait_woken(self):
-        await _core.wait_socket_readable(self.wakeup_sock)
+        await _core.wait_readable(self.wakeup_sock)
         self.drain()
 
     def drain(self):

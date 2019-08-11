@@ -1,3 +1,0 @@
-Any attempt to inherit from :class:`CancelScope` now raises TypeError.
-(Trio has never been able to safely support subclassing here;
-this change just makes it more obvious.)
