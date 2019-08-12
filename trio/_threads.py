@@ -296,9 +296,8 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
             daemon=True
         )
         thread.start()
-    except:
+    finally:
         limiter.release_on_behalf_of(placeholder)
-        raise
 
     def abort(_):
         if cancellable:
