@@ -1794,7 +1794,9 @@ def test_calling_asyncio_function_gives_nice_error():
 
     assert "asyncio" in str(excinfo.value)
     # The traceback should point to the location of the foreign await
-    assert any(entry.name == "child_xyzzy" for entry in excinfo.traceback)  # pragma: no branch
+    assert any(  # pragma: no branch
+        entry.name == "child_xyzzy" for entry in excinfo.traceback
+    )
 
 
 async def test_asyncio_function_inside_nursery_does_not_explode():
