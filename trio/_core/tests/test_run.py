@@ -1782,13 +1782,30 @@ def test_nice_error_on_bad_calls_to_run_or_spawn():
 
 
 def test_calling_asyncio_function_gives_nice_error():
-    async def misguided():
+    async def child_xyzzy():
         import asyncio
         await asyncio.Future()
+
+    async def misguided():
+        await child_xyzzy()
 
     with pytest.raises(TypeError) as excinfo:
         _core.run(misguided)
 
+    assert "asyncio" in str(excinfo.value)
+    # The traceback should point to the location of the foreign await
+    assert any(  # pragma: no branch
+        entry.name == "child_xyzzy" for entry in excinfo.traceback
+    )
+
+
+async def test_asyncio_function_inside_nursery_does_not_explode():
+    # Regression test for https://github.com/python-trio/trio/issues/552
+    with pytest.raises(TypeError) as excinfo:
+        async with _core.open_nursery() as nursery:
+            import asyncio
+            nursery.start_soon(sleep_forever)
+            await asyncio.Future()
     assert "asyncio" in str(excinfo.value)
 
 

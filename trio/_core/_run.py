@@ -980,10 +980,17 @@ class Task:
     _counter = attr.ib(init=False, factory=itertools.count().__next__)
 
     # Invariant:
-    # - for unscheduled tasks, _next_send is None
-    # - for scheduled tasks, _next_send is an Outcome object,
-    #   and custom_sleep_data is None
+    # - for unscheduled tasks, _next_send_fn and _next_send are both None
+    # - for scheduled tasks, _next_send_fn(_next_send) resumes the task;
+    #   usually _next_send_fn is self.coro.send and _next_send is an
+    #   Outcome. When recovering from a foreign await, _next_send_fn is
+    #   self.coro.throw and _next_send is an exception. _next_send_fn
+    #   will effectively be at the top of every task's call stack, so
+    #   it should be written in C if you don't want to pollute Trio
+    #   tracebacks with extraneous frames.
+    # - for scheduled tasks, custom_sleep_data is None
     # Tasks start out unscheduled.
+    _next_send_fn = attr.ib(default=None)
     _next_send = attr.ib(default=None)
     _abort_func = attr.ib(default=None)
     custom_sleep_data = attr.ib(default=None)
@@ -1215,7 +1222,8 @@ class Runner:
             next_send = Value(None)
 
         assert task._runner is self
-        assert task._next_send is None
+        assert task._next_send_fn is None
+        task._next_send_fn = task.coro.send
         task._next_send = next_send
         task._abort_func = None
         task.custom_sleep_data = None
@@ -1887,8 +1895,9 @@ def run_impl(runner, async_fn, args):
             if runner.instruments:
                 runner.instrument("before_task_step", task)
 
+            next_send_fn = task._next_send_fn
             next_send = task._next_send
-            task._next_send = None
+            task._next_send_fn = task._next_send = None
             final_outcome = None
             try:
                 # We used to unwrap the Outcome object here and send/throw its
@@ -1898,7 +1907,7 @@ def run_impl(runner, async_fn, args):
                 #   https://bugs.python.org/issue29590
                 # So now we send in the Outcome object and unwrap it on the
                 # other side.
-                msg = task.context.run(task.coro.send, next_send)
+                msg = task.context.run(next_send_fn, next_send)
             except StopIteration as stop_iteration:
                 final_outcome = Value(stop_iteration.value)
             except BaseException as task_exc:
@@ -1938,16 +1947,12 @@ def run_impl(runner, async_fn, args):
                         "other framework like asyncio? That won't work "
                         "without some kind of compatibility shim.".format(msg)
                     )
-                    # How can we resume this task? It's blocked in code we
-                    # don't control, waiting for some message that we know
-                    # nothing about. We *could* try using coro.throw(...) to
-                    # blast an exception in and hope that it propagates out,
-                    # but (a) that's complicated because we aren't set up to
-                    # resume a task via .throw(), and (b) even if we did,
-                    # there's no guarantee that the foreign code will respond
-                    # the way we're hoping. So instead we abandon this task
-                    # and propagate the exception into the task's spawner.
-                    runner.task_exited(task, Error(exc))
+                    # The foreign library probably doesn't adhere to our
+                    # protocol of unwrapping whatever outcome gets sent in.
+                    # Instead, we'll arrange to throw `exc` in directly,
+                    # which works for at least asyncio and curio.
+                    runner.reschedule(task, exc)
+                    task._next_send_fn = task.coro.throw
 
             if runner.instruments:
                 runner.instrument("after_task_step", task)

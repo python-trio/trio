@@ -1,0 +1,1 @@
+When a Trio task makes improper use of a non-Trio async library, Trio now causes an exception to be raised within the task at the point of the error, rather than abandoning the task and raising an error in its parent. This improves debuggability and resolves the `TrioInternalError` that would sometimes result from the latter strategy.
