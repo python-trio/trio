@@ -1357,8 +1357,8 @@ class Runner:
         )
         if not hasattr(coro, "cr_frame"):
             # This async function is implemented in C or Cython
-            async def python_wrapper(coro):
-                return await coro
+            async def python_wrapper(orig_coro):
+                return await orig_coro
             coro = python_wrapper(coro)
         coro.cr_frame.f_locals.setdefault(
             LOCALS_KEY_KI_PROTECTION_ENABLED, system_task
