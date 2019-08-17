@@ -2394,8 +2394,14 @@ async def test_detached_coroutine_cancellation():
 def test_async_function_implemented_in_C():
     # These used to crash because we'd try to mutate the coroutine object's
     # cr_frame, but C functions don't have Python frames.
-    async def agen_fn():
-        yield "hi"
+
+    ns = {}
+    try:
+        exec("async def agen_fn():\n    yield 'hi'", ns)
+    except SyntaxError:
+        pytest.skip("Requires Python 3.6+")
+    else:
+        agen_fn = ns["agen_fn"]
 
     agen = agen_fn()
     assert _core.run(agen.__anext__) == "hi"
