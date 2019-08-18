@@ -2398,12 +2398,15 @@ def test_async_function_implemented_in_C():
 
     ns = {"_core": _core}
     try:
-        exec(dedent("""
+        exec(
+            dedent(
+                """
              async def agen_fn():
                  assert not _core.currently_ki_protected()
                  yield 'hi'
-             """),
-             ns)
+             """
+            ), ns
+        )
     except SyntaxError:
         pytest.skip("Requires Python 3.6+")
     else:
