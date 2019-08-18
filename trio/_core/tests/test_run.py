@@ -8,6 +8,7 @@ import types
 import warnings
 from contextlib import contextmanager, ExitStack
 from math import inf
+from textwrap import dedent
 
 import attr
 import outcome
@@ -2395,9 +2396,14 @@ def test_async_function_implemented_in_C():
     # These used to crash because we'd try to mutate the coroutine object's
     # cr_frame, but C functions don't have Python frames.
 
-    ns = {}
+    ns = {"_core": _core}
     try:
-        exec("async def agen_fn():\n    yield 'hi'", ns)
+        exec(dedent("""
+             async def agen_fn():
+                 assert not _core.currently_ki_protected()
+                 yield 'hi'
+             """),
+             ns)
     except SyntaxError:
         pytest.skip("Requires Python 3.6+")
     else:

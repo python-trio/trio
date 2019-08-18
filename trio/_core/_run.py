@@ -1348,13 +1348,6 @@ class Runner:
         else:
             context = copy_context()
 
-        task = Task(
-            coro=coro,
-            parent_nursery=nursery,
-            runner=self,
-            name=name,
-            context=context,
-        )
         if not hasattr(coro, "cr_frame"):
             # This async function is implemented in C or Cython
             async def python_wrapper(orig_coro):
@@ -1363,6 +1356,14 @@ class Runner:
             coro = python_wrapper(coro)
         coro.cr_frame.f_locals.setdefault(
             LOCALS_KEY_KI_PROTECTION_ENABLED, system_task
+        )
+
+        task = Task(
+            coro=coro,
+            parent_nursery=nursery,
+            runner=self,
+            name=name,
+            context=context,
         )
 
         self.tasks.add(task)
