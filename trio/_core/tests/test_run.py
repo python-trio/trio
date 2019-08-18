@@ -8,6 +8,7 @@ import types
 import warnings
 from contextlib import contextmanager, ExitStack
 from math import inf
+from textwrap import dedent
 
 import attr
 import outcome
@@ -2389,3 +2390,40 @@ async def test_detached_coroutine_cancellation():
         task.coro.send(None)
 
     assert abort_fn_called
+
+
+def test_async_function_implemented_in_C():
+    # These used to crash because we'd try to mutate the coroutine object's
+    # cr_frame, but C functions don't have Python frames.
+
+    ns = {"_core": _core}
+    try:
+        exec(
+            dedent(
+                """
+                async def agen_fn(record):
+                    assert not _core.currently_ki_protected()
+                    record.append("the generator ran")
+                    yield
+                """
+            ),
+            ns,
+        )
+    except SyntaxError:
+        pytest.skip("Requires Python 3.6+")
+    else:
+        agen_fn = ns["agen_fn"]
+
+    run_record = []
+    agen = agen_fn(run_record)
+    _core.run(agen.__anext__)
+    assert run_record == ["the generator ran"]
+
+    async def main():
+        start_soon_record = []
+        agen = agen_fn(start_soon_record)
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(agen.__anext__)
+        assert start_soon_record == ["the generator ran"]
+
+    _core.run(main)
