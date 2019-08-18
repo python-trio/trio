@@ -2401,23 +2401,29 @@ def test_async_function_implemented_in_C():
         exec(
             dedent(
                 """
-             async def agen_fn():
-                 assert not _core.currently_ki_protected()
-                 yield 'hi'
-             """
-            ), ns
+                async def agen_fn(record):
+                    assert not _core.currently_ki_protected()
+                    record.append("the generator ran")
+                    yield
+                """
+            ),
+            ns,
         )
     except SyntaxError:
         pytest.skip("Requires Python 3.6+")
     else:
         agen_fn = ns["agen_fn"]
 
-    agen = agen_fn()
-    assert _core.run(agen.__anext__) == "hi"
+    run_record = []
+    agen = agen_fn(run_record)
+    _core.run(agen.__anext__)
+    assert run_record == ["the generator ran"]
 
     async def main():
-        agen = agen_fn()
+        start_soon_record = []
+        agen = agen_fn(start_soon_record)
         async with _core.open_nursery() as nursery:
             nursery.start_soon(agen.__anext__)
+        assert start_soon_record == ["the generator ran"]
 
     _core.run(main)
