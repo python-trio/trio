@@ -1,0 +1,2 @@
+Fix a crash that could happen when using ``MockClock`` with autojump
+enabled and a non-zero rate.
