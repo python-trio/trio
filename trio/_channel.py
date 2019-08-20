@@ -69,7 +69,7 @@ def open_memory_channel(max_buffer_size):
     )
 
 
-@attr.s(frozen=True)
+@attr.s(frozen=True, slots=True)
 class MemoryChannelStats:
     current_buffer_used = attr.ib()
     max_buffer_size = attr.ib()
@@ -79,7 +79,7 @@ class MemoryChannelStats:
     tasks_waiting_receive = attr.ib()
 
 
-@attr.s
+@attr.s(slots=True)
 class MemoryChannelState:
     max_buffer_size = attr.ib()
     data = attr.ib(factory=deque)
