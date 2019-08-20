@@ -148,7 +148,7 @@ class MockClock(Clock):
                     )
                     statistics = _core.current_statistics()
                     jump = statistics.seconds_to_next_deadline
-                    if jump < inf:
+                    if 0 < jump < inf:
                         self.jump(jump)
                     else:
                         # There are no deadlines, nothing is going to happen
