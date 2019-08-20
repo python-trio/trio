@@ -1,2 +1,1 @@
-Use slots for channel state and statistics which should make Trio channels
-slightly faster.
+Use slots for memory channel state and statistics which should make memory channels slightly smaller and faster.
