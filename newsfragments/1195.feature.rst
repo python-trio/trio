@@ -1,0 +1,2 @@
+Use slots for channel state and statistics which should make Trio channels
+slightly faster.
