@@ -80,7 +80,6 @@ class MockClock(Clock):
           :func:`wait_all_tasks_blocked`.
 
     """
-
     def __init__(self, rate=0.0, autojump_threshold=inf):
         # when the real clock said 'real_base', the virtual time was
         # 'virtual_base', and since then it's advanced at 'rate' virtual

@@ -175,7 +175,6 @@ class MultiError(BaseException):
           :exc:`BaseException`.
 
     """
-
     def __init__(self, exceptions):
         # Avoid recursion when exceptions[0] returned by __new__() happens
         # to be a MultiError and subsequently __init__() is called.

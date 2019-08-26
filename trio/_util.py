@@ -112,7 +112,6 @@ class ConflictDetector:
     tasks don't call sendall simultaneously on the same stream.
 
     """
-
     def __init__(self, msg):
         self._msg = msg
         self._held = False
@@ -131,7 +130,6 @@ def async_wraps(cls, wrapped_cls, attr_name):
     """Similar to wraps, but for async wrappers of non-async functions.
 
     """
-
     def decorator(func):
         func.__name__ = attr_name
         func.__qualname__ = '.'.join((cls.__qualname__, attr_name))
@@ -251,7 +249,6 @@ class generic_function:
     and currently won't type-check without a mypy plugin or clever stubs,
     but at least it becomes possible to write those.
     """
-
     def __init__(self, fn):
         update_wrapper(self, fn)
         self._fn = fn
@@ -291,7 +288,6 @@ class Final(BaseMeta):
     ------
     - TypeError if a sub class is created
     """
-
     def __new__(cls, name, bases, cls_namespace):
         for base in bases:
             if isinstance(base, Final):
@@ -319,7 +315,6 @@ class NoPublicConstructor(Final):
     ------
     - TypeError if a sub class or an instance is created.
     """
-
     def __call__(self, *args, **kwargs):
         raise TypeError("no public constructor available")
 

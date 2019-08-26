@@ -173,7 +173,6 @@ class CapacityLimiter:
        just borrowed and then put back.
 
     """
-
     def __init__(self, total_tokens):
         self._lot = ParkingLot()
         self._borrowers = set()
@@ -399,7 +398,6 @@ class Semaphore:
         ``max_value``.
 
     """
-
     def __init__(self, initial_value, *, max_value=None):
         if not isinstance(initial_value, int):
             raise TypeError("initial_value must be an int")
@@ -678,8 +676,6 @@ class StrictFIFOLock(Lock):
     on this property.
 
     """
-
-
 @attr.s(frozen=True)
 class _ConditionStatistics:
     tasks_waiting = attr.ib()
@@ -701,7 +697,6 @@ class Condition:
           and used.
 
     """
-
     def __init__(self, lock=None):
         if lock is None:
             lock = Lock()

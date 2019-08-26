@@ -103,7 +103,6 @@ class MemorySendStream(SendStream):
        you can change them at any time.
 
     """
-
     def __init__(
         self,
         send_all_hook=None,
@@ -215,7 +214,6 @@ class MemoryReceiveStream(ReceiveStream):
        change them at any time.
 
     """
-
     def __init__(self, receive_some_hook=None, close_hook=None):
         self._conflict_detector = _util.ConflictDetector(
             "another task is using this stream"

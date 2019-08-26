@@ -41,7 +41,6 @@ class PipeSendStream(SendStream):
     """Represents a send stream over a Windows named pipe that has been
     opened in OVERLAPPED mode.
     """
-
     def __init__(self, handle: int) -> None:
         self._handle_holder = _HandleHolder(handle)
         self._conflict_detector = ConflictDetector(
@@ -82,7 +81,6 @@ class PipeSendStream(SendStream):
 
 class PipeReceiveStream(ReceiveStream):
     """Represents a receive stream over an os.pipe object."""
-
     def __init__(self, handle: int) -> None:
         self._handle_holder = _HandleHolder(handle)
         self._conflict_detector = ConflictDetector(

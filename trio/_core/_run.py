@@ -699,7 +699,6 @@ class NurseryManager:
     and StopAsyncIteration.
 
     """
-
     @enable_ki_protection
     async def __aenter__(self):
         self._scope = CancelScope()
@@ -769,7 +768,6 @@ class Nursery(metaclass=NoPublicConstructor):
             other things, e.g. if you want to explicitly cancel all children
             in response to some external event.
     """
-
     def __init__(self, parent_task, cancel_scope):
         self._parent_task = parent_task
         parent_task._child_nurseries.append(self)

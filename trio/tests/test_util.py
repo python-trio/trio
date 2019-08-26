@@ -90,7 +90,6 @@ BaseKlass = os.PathLike if hasattr(os, "PathLike") else object
 
 class ConcretePathLike(BaseKlass):
     """ Class implementing the file system path protocol."""
-
     def __init__(self, path=""):
         self.path = path
 

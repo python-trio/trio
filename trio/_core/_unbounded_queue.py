@@ -42,7 +42,6 @@ class UnboundedQueue:
            ...
 
     """
-
     @deprecated(
         "0.9.0",
         issue=497,
