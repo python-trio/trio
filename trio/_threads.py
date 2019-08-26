@@ -378,7 +378,6 @@ def from_thread_run(afn, *args, trio_token=None):
           "foreign" thread, spawned using some other framework, and still want
           to enter Trio.
     """
-
     def callback(q, afn, args):
         @disable_ki_protection
         async def unprotected_afn():
@@ -424,7 +423,6 @@ def from_thread_run_sync(fn, *args, trio_token=None):
           "foreign" thread, spawned using some other framework, and still want
           to enter Trio.
     """
-
     def callback(q, fn, args):
         @disable_ki_protection
         def unprotected_fn():

@@ -59,7 +59,6 @@ class AsyncIOWrapper(AsyncResource):
     wrapper, if they exist in the wrapped file object.
 
     """
-
     def __init__(self, file):
         self._wrapped = file
 
@@ -190,7 +189,6 @@ def wrap_file(file):
         assert await async_file.read() == 'asdf'
 
     """
-
     def has(attr):
         return hasattr(file, attr) and callable(getattr(file, attr))
 

@@ -62,7 +62,6 @@ class SocketStream(HalfCloseableStream):
        The Trio socket object that this stream wraps.
 
     """
-
     def __init__(self, socket):
         if not isinstance(socket, tsocket.SocketType):
             raise TypeError("SocketStream requires a Trio socket object")
@@ -339,7 +338,6 @@ class SocketListener(Listener[SocketStream]):
        The Trio socket object that this stream wraps.
 
     """
-
     def __init__(self, socket):
         if not isinstance(socket, tsocket.SocketType):
             raise TypeError("SocketListener requires a Trio socket object")
