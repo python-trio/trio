@@ -32,7 +32,7 @@ packaging==19.1           # via pytest
 parso==0.5.1              # via jedi
 pexpect==4.7.0            # via ipython
 pickleshare==0.7.5        # via ipython
-pluggy==0.12.0            # via pytest
+pluggy==0.13.0            # via pytest
 prompt-toolkit==2.0.9     # via ipython
 ptyprocess==0.6.0         # via pexpect
 py==1.8.0                 # via pytest
