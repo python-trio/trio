@@ -40,7 +40,7 @@ pycodestyle==2.5.0        # via flake8
 pycparser==2.19           # via cffi
 pyflakes==2.1.1           # via flake8
 pygments==2.4.2           # via ipython
-pylint==2.3.1
+pylint==2.4.0
 pyopenssl==19.0.0
 pyparsing==2.4.2          # via packaging
 pytest-cov==2.7.1
