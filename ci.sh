@@ -7,7 +7,7 @@ env | sort
 
 if [ "$SYSTEM_JOBIDENTIFIER" != "" ]; then
     # azure pipelines
-    CODECOV_NAME="$SYSTEM_JOBIDENTIFIER"
+    CODECOV_NAME="$SYSTEM_JOBDISPLAYNAME"
 else
     CODECOV_NAME="${TRAVIS_OS_NAME}-${TRAVIS_PYTHON_VERSION:-unknown}"
 fi
@@ -139,6 +139,11 @@ else
         elif [[ "$(python -V)" == *PyPy* ]]; then
             FLAG="pypy36release"
         fi
-        bash <(curl -s https://codecov.io/bash) -n "${CODECOV_NAME}" -F "$FLAG"
+        # It's more common to do
+        #   bash <(curl ...)
+        # but azure is broken:
+        #   https://developercommunity.visualstudio.com/content/problem/743824/bash-task-on-windows-suddenly-fails-with-bash-devf.html
+        curl --retry 5 -o codecov.sh https://codecov.io/bash
+        bash codecov.sh -n "${CODECOV_NAME}" -F "$FLAG"
     fi
 fi
