@@ -1,10 +1,11 @@
-# https://docs.readthedocs.io/en/latest/yaml-config.html
+# https://docs.readthedocs.io/en/latest/config-file/index.html
+version: 2
+
 formats:
   - htmlzip
   - epub
 
-requirements_file: docs-requirements.txt
-
 python:
-  version: 3.5
-  pip_install: True
+  version: 3.7
+  install:
+    - requirements: docs-requirements.txt
