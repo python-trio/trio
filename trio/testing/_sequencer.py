@@ -13,7 +13,7 @@ if False:
 __all__ = ["Sequencer"]
 
 
-@attr.s(cmp=False, hash=False)
+@attr.s(eq=False, hash=False)
 class Sequencer:
     """A convenience class for forcing code in different tasks to run in an
     explicit linear order.

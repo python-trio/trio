@@ -154,7 +154,7 @@ def current_default_thread_limiter():
 # system; see https://github.com/python-trio/trio/issues/182
 # But for now we just need an object to stand in for the thread, so we can
 # keep track of who's holding the CapacityLimiter's token.
-@attr.s(frozen=True, cmp=False, hash=False)
+@attr.s(frozen=True, eq=False, hash=False)
 class ThreadPlaceholder:
     name = attr.ib()
 

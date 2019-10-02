@@ -112,7 +112,7 @@ class SystemClock:
 ################################################################
 
 
-@attr.s(cmp=False, slots=True)
+@attr.s(eq=False, slots=True)
 class CancelStatus:
     """Tracks the cancellation status for a contiguous extent
     of code that will become cancelled, or not, as a unit.
@@ -302,7 +302,7 @@ https://github.com/python-trio/trio/issues/new
 """
 
 
-@attr.s(cmp=False, repr=False, slots=True)
+@attr.s(eq=False, repr=False, slots=True)
 class CancelScope(metaclass=Final):
     """A *cancellation scope*: the link between a unit of cancellable
     work and Trio's cancellation system.
@@ -626,7 +626,7 @@ def open_cancel_scope(*, deadline=inf, shield=False):
 
 # This code needs to be read alongside the code from Nursery.start to make
 # sense.
-@attr.s(cmp=False, hash=False, repr=False)
+@attr.s(eq=False, hash=False, repr=False)
 class _TaskStatus:
     _old_nursery = attr.ib()
     _new_nursery = attr.ib()
@@ -967,7 +967,7 @@ class Nursery(metaclass=NoPublicConstructor):
 ################################################################
 
 
-@attr.s(cmp=False, hash=False, repr=False)
+@attr.s(eq=False, hash=False, repr=False)
 class Task:
     _parent_nursery = attr.ib()
     coro = attr.ib()
@@ -1095,7 +1095,7 @@ class _RunStatistics:
     run_sync_soon_queue_size = attr.ib()
 
 
-@attr.s(cmp=False, hash=False)
+@attr.s(eq=False, hash=False)
 class Runner:
     clock = attr.ib()
     instruments = attr.ib()

@@ -102,7 +102,7 @@ class MemoryChannelState:
         )
 
 
-@attr.s(cmp=False, repr=False)
+@attr.s(eq=False, repr=False)
 class MemorySendChannel(SendChannel, metaclass=NoPublicConstructor):
     _state = attr.ib()
     _closed = attr.ib(default=False)
@@ -222,7 +222,7 @@ class MemorySendChannel(SendChannel, metaclass=NoPublicConstructor):
         await trio.hazmat.checkpoint()
 
 
-@attr.s(cmp=False, repr=False)
+@attr.s(eq=False, repr=False)
 class MemoryReceiveChannel(ReceiveChannel, metaclass=NoPublicConstructor):
     _state = attr.ib()
     _closed = attr.ib(default=False)
