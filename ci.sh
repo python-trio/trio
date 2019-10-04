@@ -143,7 +143,8 @@ else
         #   bash <(curl ...)
         # but azure is broken:
         #   https://developercommunity.visualstudio.com/content/problem/743824/bash-task-on-windows-suddenly-fails-with-bash-devf.html
-        curl -v --retry 5 -o codecov.sh https://codecov.io/bash
+        curl --version
+        curl -v --connect-timeout 5 --retry 5 -o codecov.sh https://codecov.io/bash
         bash codecov.sh -n "${CODECOV_NAME}" -F "$FLAG"
     fi
 fi
