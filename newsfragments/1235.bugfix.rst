@@ -1,0 +1,2 @@
+If you nest >1000 cancel scopes within each other, Trio now handles
+that gracefully instead of crashing with a ``RecursionError``.
