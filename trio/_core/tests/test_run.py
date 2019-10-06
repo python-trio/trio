@@ -2427,3 +2427,13 @@ def test_async_function_implemented_in_C():
         assert start_soon_record == ["the generator ran"]
 
     _core.run(main)
+
+
+async def test_very_deep_cancel_scope_nesting():
+    # This used to crash with a RecursionError in CancelStatus.recalculate
+    with ExitStack() as exit_stack:
+        outermost_scope = _core.CancelScope()
+        exit_stack.enter_context(outermost_scope)
+        for _ in range(5000):
+            exit_stack.enter_context(_core.CancelScope())
+        outermost_scope.cancel()
