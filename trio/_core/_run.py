@@ -501,9 +501,12 @@ class CancelScope(metaclass=Final):
                 self._registered_deadline = new
                 runner = GLOBAL_RUN_CONTEXT.runner
                 if old != inf:
-                    del runner.deadlines[old, id(self)]
+                    runner.deadlines.remove(self)
+                    # Note: no increase of scheduling_deadline can be done here
                 if new != inf:
-                    runner.deadlines[new, id(self)] = self
+                    runner.deadlines.add(self)
+                    if new < runner.scheduling_deadline:
+                        runner.scheduling_deadline = new
 
     @property
     def deadline(self):
@@ -1110,7 +1113,8 @@ class Runner:
     # {(deadline, id(CancelScope)): CancelScope}
     # only contains scopes with non-infinite deadlines that are currently
     # attached to at least one task
-    deadlines = attr.ib(factory=SortedDict)
+    deadlines = attr.ib(factory=set)
+    scheduling_deadline = attr.ib(default=inf)
 
     init_task = attr.ib(default=None)
     system_nursery = attr.ib(default=None)
@@ -1152,10 +1156,10 @@ class Runner:
 
         """
         if self.deadlines:
-            next_deadline, _ = self.deadlines.keys()[0]
+            next_deadline = min(cs._deadline for cs in self.deadlines)
             seconds_to_next_deadline = next_deadline - self.current_time()
         else:
-            seconds_to_next_deadline = float("inf")
+            seconds_to_next_deadline = inf
         return _RunStatistics(
             tasks_living=len(self.tasks),
             tasks_runnable=len(self.runq),
@@ -1826,8 +1830,8 @@ def run_impl(runner, async_fn, args):
     while runner.tasks:
         if runner.runq:
             timeout = 0
-        elif runner.deadlines:
-            deadline, _ = runner.deadlines.keys()[0]
+        elif runner.scheduling_deadline < inf:
+            deadline = runner.scheduling_deadline
             timeout = runner.clock.deadline_to_sleep_time(deadline)
         else:
             timeout = _MAX_TIMEOUT
@@ -1850,14 +1854,19 @@ def run_impl(runner, async_fn, args):
 
         # Process cancellations due to deadline expiry
         now = runner.clock.current_time()
-        while runner.deadlines:
-            (deadline, _), cancel_scope = runner.deadlines.peekitem(0)
-            if deadline <= now:
+        while runner.scheduling_deadline < now:
+            runner.scheduling_deadline = inf
+            expired = []
+            for cancel_scope in runner.deadlines:
+                deadline = cancel_scope._deadline
+                if deadline <= now:
+                    expired.append(cancel_scope)
+                elif deadline < runner.scheduling_deadline:
+                    runner.scheduling_deadline = deadline
+            for cancel_scope in expired:
                 # This removes the given scope from runner.deadlines:
                 cancel_scope.cancel()
                 idle_primed = False
-            else:
-                break
 
         if not runner.runq and idle_primed:
             while runner.waiting_for_idle:
