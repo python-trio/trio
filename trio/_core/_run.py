@@ -1854,7 +1854,7 @@ def run_impl(runner, async_fn, args):
 
         # Process cancellations due to deadline expiry
         now = runner.clock.current_time()
-        while runner.scheduling_deadline < now:
+        while runner.scheduling_deadline <= now:
             runner.scheduling_deadline = inf
             expired = []
             for cancel_scope in runner.deadlines:
