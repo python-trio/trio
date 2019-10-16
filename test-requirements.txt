@@ -18,7 +18,7 @@ decorator==4.4.0          # via ipython, traitlets
 entrypoints==0.3          # via flake8
 flake8==3.7.8
 idna==2.8
-immutables==0.10
+immutables==0.11
 importlib-metadata==0.23  # via pluggy, pytest
 ipython-genutils==0.2.0   # via traitlets
 ipython==7.8.0
