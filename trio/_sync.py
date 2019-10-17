@@ -19,7 +19,7 @@ __all__ = [
 ]
 
 
-@attr.s(repr=False, cmp=False, hash=False)
+@attr.s(repr=False, eq=False, hash=False)
 class Event:
     """A waitable boolean value useful for inter-task synchronization,
     inspired by :class:`threading.Event`.
@@ -507,7 +507,7 @@ class _LockStatistics:
 
 
 @async_cm
-@attr.s(cmp=False, hash=False, repr=False)
+@attr.s(eq=False, hash=False, repr=False)
 class Lock:
     """A classic `mutex
     <https://en.wikipedia.org/wiki/Lock_(computer_science)>`__.

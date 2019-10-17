@@ -111,7 +111,7 @@ async def test_open_tcp_stream_input_validation():
 # Now, thorough tests using fake sockets
 
 
-@attr.s(cmp=False)
+@attr.s(eq=False)
 class FakeSocket(trio.socket.SocketType):
     scenario = attr.ib()
     family = attr.ib()

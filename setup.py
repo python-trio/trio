@@ -79,7 +79,7 @@ setup(
     license="MIT -or- Apache License 2.0",
     packages=find_packages(),
     install_requires=[
-        "attrs >= 18.2.0",  # for kw_only
+        "attrs >= 19.2.0",  # for eq
         "sortedcontainers",
         "async_generator >= 1.9",
         "idna",
