@@ -1,3 +1,5 @@
+# type: ignore
+# (this should have a stubs file, it's too dynamic)
 from functools import wraps, partial
 import os
 import types

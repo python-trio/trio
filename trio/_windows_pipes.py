@@ -1,3 +1,7 @@
+import sys
+
+assert sys.platform.startswith("win")
+
 from . import _core
 from ._abc import SendStream, ReceiveStream
 from ._util import ConflictDetector

@@ -1,6 +1,7 @@
 import errno
 import select
 import os
+from typing import Tuple
 
 import pytest
 

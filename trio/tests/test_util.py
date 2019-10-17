@@ -2,6 +2,7 @@ import os
 import pathlib
 import signal
 import sys
+import typing
 
 import pytest
 
@@ -85,7 +86,10 @@ def test_module_metadata_is_fixed_up():
 # define a concrete class implementing the PathLike protocol
 # Since we want to have compatibility with Python 3.5 we need
 # to define the base class on runtime.
-BaseKlass = os.PathLike if hasattr(os, "PathLike") else object
+if not typing.TYPE_CHECKING and hasattr(os, "PathLike"):
+    BaseKlass = os.PathLike
+else:
+    BaseKlass = object
 
 
 class ConcretePathLike(BaseKlass):

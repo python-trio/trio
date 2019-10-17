@@ -1,3 +1,4 @@
+# type: ignore
 # This is a public namespace, so we don't want to expose any non-underscored
 # attributes that aren't actually part of our public API. But it's very
 # annoying to carefully always use underscored names for module-level

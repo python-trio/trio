@@ -3,8 +3,8 @@ This namespace represents low-level functionality not intended for daily use,
 but useful for extending Trio's functionality.
 """
 
-import os
 import sys
+import typing as _t
 
 # This is the union of a subset of trio/_core/ and some things from trio/*.py.
 # See comments in trio/__init__.py for details. To make static analysis easier,
@@ -23,24 +23,8 @@ from ._core import (
     spawn_system_task, wait_readable, wait_writable, notify_closing
 )
 
-# Unix-specific symbols
-try:
-    from ._unix_pipes import FdStream
-except ImportError:
-    pass
-
-# Kqueue-specific symbols
-try:
-    from ._core import (
-        current_kqueue,
-        monitor_kevent,
-        wait_kevent,
-    )
-except ImportError:
-    pass
-
-# Windows symbols
-try:
+if sys.platform.startswith("win"):
+    # Windows symbols
     from ._core import (
         current_iocp,
         register_with_iocp,
@@ -49,11 +33,24 @@ try:
         readinto_overlapped,
         write_overlapped,
     )
-except ImportError:
-    pass
-
-from . import _core
-
-# Import bits from trio/*.py
-if sys.platform.startswith("win"):
     from ._wait_for_object import WaitForSingleObject
+else:
+    # Unix-specific symbols
+    from ._unix_pipes import FdStream
+
+    if (
+        sys.platform.startswith("freebsd")
+        or sys.platform.startswith("darwin")
+        or not _t.TYPE_CHECKING
+    ):
+        # Kqueue-specific symbols
+        try:
+            from ._core import (
+                current_kqueue,
+                monitor_kevent,
+                wait_kevent,
+            )
+        except ImportError:
+            pass
+
+del sys

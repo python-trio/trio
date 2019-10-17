@@ -1,3 +1,4 @@
+# type: ignore
 from ._subprocess import Process
 
 # Reexport constants and exceptions from the stdlib subprocess module

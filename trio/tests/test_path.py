@@ -1,10 +1,10 @@
 import os
 import pathlib
+import typing
 
 import pytest
 
 import trio
-from trio._path import AsyncAutoWrapperType as Type
 from trio._util import fspath
 from trio._file_io import AsyncIOWrapper
 
@@ -145,36 +145,39 @@ async def test_repr():
     assert repr(path) == "trio.Path('.')"
 
 
-class MockWrapped:
-    unsupported = 'unsupported'
-    _private = 'private'
+if not typing.TYPE_CHECKING:
+    from trio._path import AsyncAutoWrapperType as Type
+
+    class MockWrapped:
+        unsupported = 'unsupported'
+        _private = 'private'
 
 
-class MockWrapper:
-    _forwards = MockWrapped
-    _wraps = MockWrapped
+    class MockWrapper:
+        _forwards = MockWrapped
+        _wraps = MockWrapped
 
 
-async def test_type_forwards_unsupported():
-    with pytest.raises(TypeError):
-        Type.generate_forwards(MockWrapper, {})
+    async def test_type_forwards_unsupported():
+        with pytest.raises(TypeError):
+            Type.generate_forwards(MockWrapper, {})
 
 
-async def test_type_wraps_unsupported():
-    with pytest.raises(TypeError):
-        Type.generate_wraps(MockWrapper, {})
+    async def test_type_wraps_unsupported():
+        with pytest.raises(TypeError):
+            Type.generate_wraps(MockWrapper, {})
 
 
-async def test_type_forwards_private():
-    Type.generate_forwards(MockWrapper, {'unsupported': None})
+    async def test_type_forwards_private():
+        Type.generate_forwards(MockWrapper, {'unsupported': None})
 
-    assert not hasattr(MockWrapper, '_private')
+        assert not hasattr(MockWrapper, '_private')
 
 
-async def test_type_wraps_private():
-    Type.generate_wraps(MockWrapper, {'unsupported': None})
+    async def test_type_wraps_private():
+        Type.generate_wraps(MockWrapper, {'unsupported': None})
 
-    assert not hasattr(MockWrapper, '_private')
+        assert not hasattr(MockWrapper, '_private')
 
 
 @pytest.mark.parametrize('meth', [trio.Path.__init__, trio.Path.joinpath])

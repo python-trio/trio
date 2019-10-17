@@ -20,7 +20,7 @@ import sys as _sys
 # going on. There's a test in test_exports.py to make sure that the list is
 # kept up to date.
 try:
-    from socket import (
+    from socket import (  # type: ignore
         CMSG_LEN, CMSG_SPACE, CAPI, AF_UNSPEC, AF_INET, AF_UNIX, AF_IPX,
         AF_APPLETALK, AF_INET6, AF_ROUTE, AF_LINK, AF_SNA, PF_SYSTEM,
         AF_SYSTEM, SOCK_STREAM, SOCK_DGRAM, SOCK_RAW, SOCK_SEQPACKET, SOCK_RDM,
@@ -116,7 +116,8 @@ import socket as _stdlib_socket
 globals().update(
     {
         _name: getattr(_stdlib_socket, _name)
-        for _name in _stdlib_socket.__all__ if _name.isupper()
+        for _name in _stdlib_socket.__all__  # type: ignore
+        if _name.isupper()
     }
 )
 

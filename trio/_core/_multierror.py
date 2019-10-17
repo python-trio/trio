@@ -414,7 +414,7 @@ def traceback_exception_init(
         self.embedded = []
 
 
-traceback.TracebackException.__init__ = traceback_exception_init
+traceback.TracebackException.__init__ = traceback_exception_init  # type: ignore
 traceback_exception_original_format = traceback.TracebackException.format
 
 
@@ -428,7 +428,7 @@ def traceback_exception_format(self, *, chain=True):
         )
 
 
-traceback.TracebackException.format = traceback_exception_format
+traceback.TracebackException.format = traceback_exception_format  # type: ignore
 
 
 def trio_excepthook(etype, value, tb):

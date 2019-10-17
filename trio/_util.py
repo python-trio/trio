@@ -268,7 +268,7 @@ class generic_function:
 # inherit from these metaclasses. Fortunately, GenericMeta inherits from
 # ABCMeta, so inheriting from GenericMeta alone is sufficient (when it
 # exists at all).
-if hasattr(t, "GenericMeta"):
+if not t.TYPE_CHECKING and hasattr(t, "GenericMeta"):
     BaseMeta = t.GenericMeta
 else:
     BaseMeta = ABCMeta

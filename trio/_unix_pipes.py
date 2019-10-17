@@ -128,7 +128,11 @@ class FdStream(Stream):
                 while sent < length:
                     with view[sent:] as remaining:
                         try:
-                            sent += os.write(self._fd_holder.fd, remaining)
+                            # os.write() stubs don't accept memoryview
+                            # even though the runtime function does
+                            sent += os.write(
+                                self._fd_holder.fd, remaining  # type: ignore
+                            )
                         except BlockingIOError:
                             await trio.hazmat.wait_writable(self._fd_holder.fd)
                         except OSError as e:

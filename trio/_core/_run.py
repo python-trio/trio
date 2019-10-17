@@ -13,6 +13,7 @@ from contextlib import contextmanager, closing
 from contextvars import copy_context
 from math import inf
 from time import perf_counter
+from typing import TYPE_CHECKING
 
 from sniffio import current_async_library_cvar
 
@@ -560,7 +561,7 @@ class CancelScope(metaclass=Final):
         """
         return self._shield
 
-    @shield.setter
+    @shield.setter  # type: ignore  # "decorated property not supported"
     @enable_ki_protection
     def shield(self, new_value):
         if not isinstance(new_value, bool):
@@ -2064,13 +2065,20 @@ async def checkpoint_if_cancelled():
     task._cancel_points += 1
 
 
-if os.name == "nt":
+if sys.platform.startswith("win"):
     from ._io_windows import WindowsIOManager as TheIOManager
     from ._generated_io_windows import *
-elif hasattr(select, "epoll"):
+elif (
+    sys.platform.startswith("linux")
+    or (not TYPE_CHECKING and hasattr(select, "epoll"))
+):
     from ._io_epoll import EpollIOManager as TheIOManager
     from ._generated_io_epoll import *
-elif hasattr(select, "kqueue"):
+elif (
+    sys.platform.startswith("darwin")
+    or sys.platform.startswith("freebsd")
+    or (not TYPE_CHECKING and hasattr(select, "epoll"))
+):
     from ._io_kqueue import KqueueIOManager as TheIOManager
     from ._generated_io_kqueue import *
 else:  # pragma: no cover

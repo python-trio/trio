@@ -316,7 +316,7 @@ async def open_process(
     # XX FIXME: move the process creation into a thread as soon as we're done
     # deprecating Process(...)
     await trio.hazmat.checkpoint()
-    return Process._create(
+    return Process._create(  # type: ignore[no-any-return]
         command, stdin=stdin, stdout=stdout, stderr=stderr, **options
     )
 
