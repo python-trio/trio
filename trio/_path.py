@@ -152,8 +152,16 @@ class Path(metaclass=AsyncAutoWrapperType):
     _wraps = pathlib.Path
     _forwards = pathlib.PurePath
     _forward_magic = [
-        '__str__', '__bytes__', '__truediv__', '__rtruediv__', '__eq__',
-        '__lt__', '__le__', '__gt__', '__ge__'
+        '__str__',
+        '__bytes__',
+        '__truediv__',
+        '__rtruediv__',
+        '__eq__',
+        '__lt__',
+        '__le__',
+        '__gt__',
+        '__ge__',
+        '__hash__',
     ]
     _wrap_iter = ['glob', 'rglob', 'iterdir']
 
