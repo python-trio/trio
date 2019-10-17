@@ -63,6 +63,12 @@ jobs:
       "Python 3.7, 64 bit":
         python.version: '3.7.2'
         python.pkg: 'python'
+      "Python 3.8, 32 bit":
+        python.version: '3.7.2'
+        python.pkg: 'pythonx86'
+      "Python 3.8, 64 bit":
+        python.version: '3.7.2'
+        python.pkg: 'python'
 
   steps:
   - task: NuGetToolInstaller@0
@@ -117,6 +123,8 @@ jobs:
         python.version: '3.6'
       "Python 3.7":
         python.version: '3.7'
+      "Python 3.8":
+        python.version: '3.8'
 
   steps:
   - task: UsePythonVersion@0
