@@ -75,6 +75,15 @@ async def test_div_magic(cls_a, cls_b):
     assert str(result) == os.path.join('a', 'b')
 
 
+@pytest.mark.parametrize(
+    'cls_a,cls_b', [(trio.Path, pathlib.Path), (trio.Path, trio.Path)]
+)
+@pytest.mark.parametrize('path', ["foo", "foo/bar/baz", "./foo"])
+async def test_hash_magic(cls_a, cls_b, path):
+    a, b = cls_a(path), cls_b(path)
+    assert hash(a) == hash(b)
+
+
 async def test_forwarded_properties(path):
     # use `name` as a representative of forwarded properties
 
