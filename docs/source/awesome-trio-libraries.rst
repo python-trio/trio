@@ -46,3 +46,6 @@ Database Libraries
 * `trio-mysql <https://github.com/python-trio/trio-mysql>`__ - Pure Python MySQL Client
 * `sqlalchemy_aio <https://github.com/RazerM/sqlalchemy_aio>`__ - Add asyncio and Trio support to SQLAlchemy core, derived from alchimia.
 
+Tools and Utility Libraries
+---------------------------
+* `anyio <https://github.com/agronholm/anyio>`__ - AnyIO is a asynchronous compatibility API that allows applications and libraries written against it to run unmodified on asyncio, curio and trio.
