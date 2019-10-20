@@ -13,7 +13,9 @@ You have completed the turorial, and are enthusiastic about building
 great new applications and libraries with async functionality.
 However, to get much useful work done you will want to use some of
 the great libraries that support trio-flavoured concurrency. This list
-is not complete, but gives a starting point.
+is not complete, but gives a starting point. Another great way to find
+trio-compatible libraries is to search on PyPI for the `Framework :: trio`
+tag -> `PyPI Search <https://pypi.org/search/?q=Framework+%3A%3A+trio>`__
 
 
 Core Trio Libraries
@@ -38,6 +40,8 @@ Web and HTML Libraries
 * `asks <https://github.com/theelous3/asks>`__ - asks is an async requests-like http library
 * `trustme <https://github.com/python-trio/trustme>`__ - #1 quality TLS certs while you wait, for the discerning tester
 * `trio-websocket <https://github.com/HyperionGray/trio-websocket>`__ - This library implements the WebSocket protocol, striving for safety, correctness, and ergonomics.
+* `quart-trio <https://gitlab.com/pgjones/quart-trio/>`__ - `Quart <https://gitlab.com/pgjones/quart>`__ is a Python ASGI web microframework with the same API as Flask and Quart-Trio is an extension for Quart to support the Trio event loop.
+
 
 Database Libraries
 ------------------
@@ -49,3 +53,5 @@ Database Libraries
 Tools and Utility Libraries
 ---------------------------
 * `anyio <https://github.com/agronholm/anyio>`__ - AnyIO is a asynchronous compatibility API that allows applications and libraries written against it to run unmodified on asyncio, curio and trio.
+* `tractor <https://github.com/goodboy/tractor>`__ - tractor is an attempt to bring trionic structured concurrency to distributed multi-core Python.
+* `sniffio <https://github.com/python-trio/sniffio>`__ - This is a tiny package whose only purpose is to let you detect which async library your code is running under.
