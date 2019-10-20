@@ -33,8 +33,9 @@ async def echo_server(server_stream):
 async def main():
     await trio.serve_tcp(echo_server, PORT)
 
-# We could also just write 'trio.run(serve_tcp, echo_server, PORT)', but real
+# We could also just write 'trio.run(trio.serve_tcp, echo_server, PORT)', but real
 # programs almost always end up doing other stuff too and then we'd have to go
 # back and factor it out into a separate function anyway. So it's simplest to
 # just make it a standalone function from the beginning.
 trio.run(main)
+
