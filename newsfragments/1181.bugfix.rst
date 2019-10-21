@@ -1,0 +1,3 @@
+Fixed a minor bug in `SocketStream`, so that if you first call
+``send_eof`` and then call ``wait_send_all_might_not_block``, it
+reliably raises `ClosedResourceError`.
