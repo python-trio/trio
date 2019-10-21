@@ -184,10 +184,11 @@ Tests
 We use `pytest <https://pytest.org/>`__ for testing. To run the tests
 locally, you should run:
 
-* ``cd path/to/project/checkout/``
-* ``pip install -r test-requirements.txt`` (possibly using a
-  virtualenv)
-* ``pytest <projectname>``
+.. code-block:: shell
+
+   cd path/to/trio/checkout/
+   pip install -r test-requirements.txt  # possibly using a virtualenv
+   pytest trio
 
 This doesn't try to be completely exhaustive – it only checks that
 things work on your machine, and it may skip some slow tests. But it's

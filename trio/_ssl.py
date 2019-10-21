@@ -928,7 +928,6 @@ class SSLListener(Listener[SSLStream]):
           passed to ``__init__``.
 
     """
-
     def __init__(
         self,
         transport_listener,

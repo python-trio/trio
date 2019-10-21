@@ -112,7 +112,6 @@ class ConflictDetector:
     tasks don't call sendall simultaneously on the same stream.
 
     """
-
     def __init__(self, msg):
         self._msg = msg
         self._held = False
@@ -131,7 +130,6 @@ def async_wraps(cls, wrapped_cls, attr_name):
     """Similar to wraps, but for async wrappers of non-async functions.
 
     """
-
     def decorator(func):
         func.__name__ = attr_name
         func.__qualname__ = '.'.join((cls.__qualname__, attr_name))
@@ -150,7 +148,7 @@ def async_wraps(cls, wrapped_cls, attr_name):
 def fixup_module_metadata(module_name, namespace):
     seen_ids = set()
 
-    def fix_one(obj):
+    def fix_one(qualname, name, obj):
         # avoid infinite recursion (relevant when using
         # typing.Generic, for example)
         if id(obj) in seen_ids:
@@ -160,13 +158,19 @@ def fixup_module_metadata(module_name, namespace):
         mod = getattr(obj, "__module__", None)
         if mod is not None and mod.startswith("trio."):
             obj.__module__ = module_name
+            # Modules, unlike everything else in Python, put fully-qualitied
+            # names into their __name__ attribute. We check for "." to avoid
+            # rewriting these.
+            if hasattr(obj, "__name__") and "." not in obj.__name__:
+                obj.__name__ = name
+                obj.__qualname__ = qualname
             if isinstance(obj, type):
-                for attr_value in obj.__dict__.values():
-                    fix_one(attr_value)
+                for attr_name, attr_value in obj.__dict__.items():
+                    fix_one(objname + "." + attr_name, attr_name, attr_value)
 
     for objname, obj in namespace.items():
         if not objname.startswith("_"):  # ignore private attributes
-            fix_one(obj)
+            fix_one(objname, objname, obj)
 
 
 # os.fspath is defined on Python 3.6+ but we need to support Python 3.5 too
@@ -245,7 +249,6 @@ class generic_function:
     and currently won't type-check without a mypy plugin or clever stubs,
     but at least it becomes possible to write those.
     """
-
     def __init__(self, fn):
         update_wrapper(self, fn)
         self._fn = fn
@@ -285,7 +288,6 @@ class Final(BaseMeta):
     ------
     - TypeError if a sub class is created
     """
-
     def __new__(cls, name, bases, cls_namespace):
         for base in bases:
             if isinstance(base, Final):
@@ -313,7 +315,6 @@ class NoPublicConstructor(Final):
     ------
     - TypeError if a sub class or an instance is created.
     """
-
     def __call__(self, *args, **kwargs):
         raise TypeError("no public constructor available")
 

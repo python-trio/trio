@@ -20,7 +20,6 @@ class Clock(metaclass=ABCMeta):
         Called at the beginning of the run.
 
         """
-
     @abstractmethod
     def current_time(self):
         """Return the current time, according to this clock.
@@ -32,7 +31,6 @@ class Clock(metaclass=ABCMeta):
             float: The current time.
 
         """
-
     @abstractmethod
     def deadline_to_sleep_time(self, deadline):
         """Compute the real time until the given deadline.
@@ -71,12 +69,10 @@ class Instrument(metaclass=ABCMeta):
         """Called at the beginning of :func:`trio.run`.
 
         """
-
     def after_run(self):
         """Called just before :func:`trio.run` returns.
 
         """
-
     def task_spawned(self, task):
         """Called when the given task is created.
 
@@ -84,7 +80,6 @@ class Instrument(metaclass=ABCMeta):
             task (trio.hazmat.Task): The new task.
 
         """
-
     def task_scheduled(self, task):
         """Called when the given task becomes runnable.
 
@@ -95,7 +90,6 @@ class Instrument(metaclass=ABCMeta):
             task (trio.hazmat.Task): The task that became runnable.
 
         """
-
     def before_task_step(self, task):
         """Called immediately before we resume running the given task.
 
@@ -103,7 +97,6 @@ class Instrument(metaclass=ABCMeta):
             task (trio.hazmat.Task): The task that is about to run.
 
         """
-
     def after_task_step(self, task):
         """Called when we return to the main run loop after a task has yielded.
 
@@ -111,7 +104,6 @@ class Instrument(metaclass=ABCMeta):
             task (trio.hazmat.Task): The task that just ran.
 
         """
-
     def task_exited(self, task):
         """Called when the given task exits.
 
@@ -119,7 +111,6 @@ class Instrument(metaclass=ABCMeta):
             task (trio.hazmat.Task): The finished task.
 
         """
-
     def before_io_wait(self, timeout):
         """Called before blocking to wait for I/O readiness.
 
@@ -127,7 +118,6 @@ class Instrument(metaclass=ABCMeta):
             timeout (float): The number of seconds we are willing to wait.
 
         """
-
     def after_io_wait(self, timeout):
         """Called after handling pending I/O.
 
@@ -166,7 +156,6 @@ class HostnameResolver(metaclass=ABCMeta):
         ``b"xn--caf-dma.com"``.
 
         """
-
     @abstractmethod
     async def getnameinfo(self, sockaddr, flags):
         """A custom implementation of :func:`~trio.socket.getnameinfo`.
@@ -183,7 +172,6 @@ class SocketFactory(metaclass=ABCMeta):
     See :func:`trio.socket.set_custom_socket_factory`.
 
     """
-
     @abstractmethod
     def socket(self, family=None, type=None, proto=None):
         """Create and return a socket object.
@@ -257,7 +245,6 @@ class AsyncResource(metaclass=ABCMeta):
         See also: :func:`trio.aclose_forcefully`.
 
         """
-
     async def __aenter__(self):
         return self
 
@@ -307,7 +294,6 @@ class SendStream(AsyncResource):
         or none of the requested data, and there is no way to know which.
 
         """
-
     @abstractmethod
     async def wait_send_all_might_not_block(self):
         """Block until it's possible that :meth:`send_all` might not block.
@@ -415,7 +401,6 @@ class ReceiveStream(AsyncResource):
               :meth:`receive_some` is running.
 
         """
-
     @aiter_compat
     def __aiter__(self):
         return self
@@ -626,7 +611,6 @@ class ReceiveChannel(AsyncResource, Generic[ReceiveType]):
               doesn't support it, then you can get `~trio.BusyResourceError`.
 
         """
-
     @aiter_compat
     def __aiter__(self):
         return self

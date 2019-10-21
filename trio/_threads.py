@@ -154,7 +154,7 @@ def current_default_thread_limiter():
 # system; see https://github.com/python-trio/trio/issues/182
 # But for now we just need an object to stand in for the thread, so we can
 # keep track of who's holding the CapacityLimiter's token.
-@attr.s(frozen=True, cmp=False, hash=False)
+@attr.s(frozen=True, eq=False, hash=False)
 class ThreadPlaceholder:
     name = attr.ib()
 
@@ -378,7 +378,6 @@ def from_thread_run(afn, *args, trio_token=None):
           "foreign" thread, spawned using some other framework, and still want
           to enter Trio.
     """
-
     def callback(q, afn, args):
         @disable_ki_protection
         async def unprotected_afn():
@@ -424,7 +423,6 @@ def from_thread_run_sync(fn, *args, trio_token=None):
           "foreign" thread, spawned using some other framework, and still want
           to enter Trio.
     """
-
     def callback(q, fn, args):
         @disable_ki_protection
         def unprotected_fn():

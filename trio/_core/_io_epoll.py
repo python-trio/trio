@@ -6,14 +6,14 @@ from .. import _core
 from ._run import _public
 
 
-@attr.s(slots=True, cmp=False, frozen=True)
+@attr.s(slots=True, eq=False, frozen=True)
 class _EpollStatistics:
     tasks_waiting_read = attr.ib()
     tasks_waiting_write = attr.ib()
     backend = attr.ib(default="epoll")
 
 
-@attr.s(slots=True, cmp=False)
+@attr.s(slots=True, eq=False)
 class EpollWaiters:
     read_task = attr.ib(default=None)
     write_task = attr.ib(default=None)
@@ -40,7 +40,7 @@ class EpollWaiters:
         return flags
 
 
-@attr.s(slots=True, cmp=False, hash=False)
+@attr.s(slots=True, eq=False, hash=False)
 class EpollIOManager:
     _epoll = attr.ib(factory=select.epoll)
     # {fd: EpollWaiters}

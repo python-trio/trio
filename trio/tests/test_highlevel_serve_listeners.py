@@ -9,7 +9,7 @@ import trio
 from trio.testing import memory_stream_pair, wait_all_tasks_blocked
 
 
-@attr.s(hash=False, cmp=False)
+@attr.s(hash=False, eq=False)
 class MemoryListener(trio.abc.Listener):
     closed = attr.ib(default=False)
     accepted_streams = attr.ib(factory=list)

@@ -80,7 +80,6 @@ class MockClock(Clock):
           :func:`wait_all_tasks_blocked`.
 
     """
-
     def __init__(self, rate=0.0, autojump_threshold=inf):
         # when the real clock said 'real_base', the virtual time was
         # 'virtual_base', and since then it's advanced at 'rate' virtual
@@ -148,7 +147,7 @@ class MockClock(Clock):
                     )
                     statistics = _core.current_statistics()
                     jump = statistics.seconds_to_next_deadline
-                    if jump < inf:
+                    if 0 < jump < inf:
                         self.jump(jump)
                     else:
                         # There are no deadlines, nothing is going to happen

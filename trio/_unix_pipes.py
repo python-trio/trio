@@ -108,7 +108,6 @@ class FdStream(Stream):
     Returns:
       A new `FdStream` object.
     """
-
     def __init__(self, fd: int):
         self._fd_holder = _FdHolder(fd)
         self._send_conflict_detector = ConflictDetector(

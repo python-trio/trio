@@ -112,7 +112,7 @@ class SystemClock:
 ################################################################
 
 
-@attr.s(cmp=False, slots=True)
+@attr.s(eq=False, slots=True)
 class CancelStatus:
     """Tracks the cancellation status for a contiguous extent
     of code that will become cancelled, or not, as a unit.
@@ -253,17 +253,23 @@ class CancelStatus:
         )
 
     def recalculate(self):
-        new_state = (
-            self._scope.cancel_called
-            or self.parent_cancellation_is_visible_to_us
-        )
-        if new_state != self.effectively_cancelled:
-            self.effectively_cancelled = new_state
-            if new_state:
-                for task in self._tasks:
-                    task._attempt_delivery_of_any_pending_cancel()
-            for child in self._children:
-                child.recalculate()
+        # This does a depth-first traversal over this and descendent cancel
+        # statuses, to ensure their state is up-to-date. It's basically a
+        # recursive algorithm, but we use an explicit stack to avoid any
+        # issues with stack overflow.
+        todo = [self]
+        while todo:
+            current = todo.pop()
+            new_state = (
+                current._scope.cancel_called
+                or current.parent_cancellation_is_visible_to_us
+            )
+            if new_state != current.effectively_cancelled:
+                current.effectively_cancelled = new_state
+                if new_state:
+                    for task in current._tasks:
+                        task._attempt_delivery_of_any_pending_cancel()
+                todo.extend(current._children)
 
     def _mark_abandoned(self):
         self.abandoned_by_misnesting = True
@@ -302,7 +308,7 @@ https://github.com/python-trio/trio/issues/new
 """
 
 
-@attr.s(cmp=False, repr=False, slots=True)
+@attr.s(eq=False, repr=False, slots=True)
 class CancelScope(metaclass=Final):
     """A *cancellation scope*: the link between a unit of cancellable
     work and Trio's cancellation system.
@@ -626,7 +632,7 @@ def open_cancel_scope(*, deadline=inf, shield=False):
 
 # This code needs to be read alongside the code from Nursery.start to make
 # sense.
-@attr.s(cmp=False, hash=False, repr=False)
+@attr.s(eq=False, hash=False, repr=False)
 class _TaskStatus:
     _old_nursery = attr.ib()
     _new_nursery = attr.ib()
@@ -699,7 +705,6 @@ class NurseryManager:
     and StopAsyncIteration.
 
     """
-
     @enable_ki_protection
     async def __aenter__(self):
         self._scope = CancelScope()
@@ -769,7 +774,6 @@ class Nursery(metaclass=NoPublicConstructor):
             other things, e.g. if you want to explicitly cancel all children
             in response to some external event.
     """
-
     def __init__(self, parent_task, cancel_scope):
         self._parent_task = parent_task
         parent_task._child_nurseries.append(self)
@@ -969,7 +973,7 @@ class Nursery(metaclass=NoPublicConstructor):
 ################################################################
 
 
-@attr.s(cmp=False, hash=False, repr=False)
+@attr.s(eq=False, hash=False, repr=False)
 class Task:
     _parent_nursery = attr.ib()
     coro = attr.ib()
@@ -980,10 +984,17 @@ class Task:
     _counter = attr.ib(init=False, factory=itertools.count().__next__)
 
     # Invariant:
-    # - for unscheduled tasks, _next_send is None
-    # - for scheduled tasks, _next_send is an Outcome object,
-    #   and custom_sleep_data is None
+    # - for unscheduled tasks, _next_send_fn and _next_send are both None
+    # - for scheduled tasks, _next_send_fn(_next_send) resumes the task;
+    #   usually _next_send_fn is self.coro.send and _next_send is an
+    #   Outcome. When recovering from a foreign await, _next_send_fn is
+    #   self.coro.throw and _next_send is an exception. _next_send_fn
+    #   will effectively be at the top of every task's call stack, so
+    #   it should be written in C if you don't want to pollute Trio
+    #   tracebacks with extraneous frames.
+    # - for scheduled tasks, custom_sleep_data is None
     # Tasks start out unscheduled.
+    _next_send_fn = attr.ib(default=None)
     _next_send = attr.ib(default=None)
     _abort_func = attr.ib(default=None)
     custom_sleep_data = attr.ib(default=None)
@@ -1090,7 +1101,7 @@ class _RunStatistics:
     run_sync_soon_queue_size = attr.ib()
 
 
-@attr.s(cmp=False, hash=False)
+@attr.s(eq=False, hash=False)
 class Runner:
     clock = attr.ib()
     instruments = attr.ib()
@@ -1215,7 +1226,8 @@ class Runner:
             next_send = Value(None)
 
         assert task._runner is self
-        assert task._next_send is None
+        assert task._next_send_fn is None
+        task._next_send_fn = task.coro.send
         task._next_send = next_send
         task._abort_func = None
         task.custom_sleep_data = None
@@ -1340,6 +1352,16 @@ class Runner:
         else:
             context = copy_context()
 
+        if not hasattr(coro, "cr_frame"):
+            # This async function is implemented in C or Cython
+            async def python_wrapper(orig_coro):
+                return await orig_coro
+
+            coro = python_wrapper(coro)
+        coro.cr_frame.f_locals.setdefault(
+            LOCALS_KEY_KI_PROTECTION_ENABLED, system_task
+        )
+
         task = Task(
             coro=coro,
             parent_nursery=nursery,
@@ -1347,11 +1369,8 @@ class Runner:
             name=name,
             context=context,
         )
-        self.tasks.add(task)
-        coro.cr_frame.f_locals.setdefault(
-            LOCALS_KEY_KI_PROTECTION_ENABLED, system_task
-        )
 
+        self.tasks.add(task)
         if nursery is not None:
             nursery._children.add(task)
             task._activate_cancel_status(nursery._cancel_status)
@@ -1887,8 +1906,9 @@ def run_impl(runner, async_fn, args):
             if runner.instruments:
                 runner.instrument("before_task_step", task)
 
+            next_send_fn = task._next_send_fn
             next_send = task._next_send
-            task._next_send = None
+            task._next_send_fn = task._next_send = None
             final_outcome = None
             try:
                 # We used to unwrap the Outcome object here and send/throw its
@@ -1898,7 +1918,7 @@ def run_impl(runner, async_fn, args):
                 #   https://bugs.python.org/issue29590
                 # So now we send in the Outcome object and unwrap it on the
                 # other side.
-                msg = task.context.run(task.coro.send, next_send)
+                msg = task.context.run(next_send_fn, next_send)
             except StopIteration as stop_iteration:
                 final_outcome = Value(stop_iteration.value)
             except BaseException as task_exc:
@@ -1938,16 +1958,12 @@ def run_impl(runner, async_fn, args):
                         "other framework like asyncio? That won't work "
                         "without some kind of compatibility shim.".format(msg)
                     )
-                    # How can we resume this task? It's blocked in code we
-                    # don't control, waiting for some message that we know
-                    # nothing about. We *could* try using coro.throw(...) to
-                    # blast an exception in and hope that it propagates out,
-                    # but (a) that's complicated because we aren't set up to
-                    # resume a task via .throw(), and (b) even if we did,
-                    # there's no guarantee that the foreign code will respond
-                    # the way we're hoping. So instead we abandon this task
-                    # and propagate the exception into the task's spawner.
-                    runner.task_exited(task, Error(exc))
+                    # The foreign library probably doesn't adhere to our
+                    # protocol of unwrapping whatever outcome gets sent in.
+                    # Instead, we'll arrange to throw `exc` in directly,
+                    # which works for at least asyncio and curio.
+                    runner.reschedule(task, exc)
+                    task._next_send_fn = task.coro.throw
 
             if runner.instruments:
                 runner.instrument("after_task_step", task)

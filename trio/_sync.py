@@ -19,7 +19,7 @@ __all__ = [
 ]
 
 
-@attr.s(repr=False, cmp=False, hash=False)
+@attr.s(repr=False, eq=False, hash=False)
 class Event:
     """A waitable boolean value useful for inter-task synchronization,
     inspired by :class:`threading.Event`.
@@ -173,7 +173,6 @@ class CapacityLimiter:
        just borrowed and then put back.
 
     """
-
     def __init__(self, total_tokens):
         self._lot = ParkingLot()
         self._borrowers = set()
@@ -399,7 +398,6 @@ class Semaphore:
         ``max_value``.
 
     """
-
     def __init__(self, initial_value, *, max_value=None):
         if not isinstance(initial_value, int):
             raise TypeError("initial_value must be an int")
@@ -509,7 +507,7 @@ class _LockStatistics:
 
 
 @async_cm
-@attr.s(cmp=False, hash=False, repr=False)
+@attr.s(eq=False, hash=False, repr=False)
 class Lock:
     """A classic `mutex
     <https://en.wikipedia.org/wiki/Lock_(computer_science)>`__.
@@ -678,8 +676,6 @@ class StrictFIFOLock(Lock):
     on this property.
 
     """
-
-
 @attr.s(frozen=True)
 class _ConditionStatistics:
     tasks_waiting = attr.ib()
@@ -701,7 +697,6 @@ class Condition:
           and used.
 
     """
-
     def __init__(self, lock=None):
         if lock is None:
             lock = Lock()

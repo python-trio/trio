@@ -69,7 +69,7 @@ def open_memory_channel(max_buffer_size):
     )
 
 
-@attr.s(frozen=True)
+@attr.s(frozen=True, slots=True)
 class MemoryChannelStats:
     current_buffer_used = attr.ib()
     max_buffer_size = attr.ib()
@@ -79,7 +79,7 @@ class MemoryChannelStats:
     tasks_waiting_receive = attr.ib()
 
 
-@attr.s
+@attr.s(slots=True)
 class MemoryChannelState:
     max_buffer_size = attr.ib()
     data = attr.ib(factory=deque)
@@ -102,7 +102,7 @@ class MemoryChannelState:
         )
 
 
-@attr.s(cmp=False, repr=False)
+@attr.s(eq=False, repr=False)
 class MemorySendChannel(SendChannel, metaclass=NoPublicConstructor):
     _state = attr.ib()
     _closed = attr.ib(default=False)
@@ -222,7 +222,7 @@ class MemorySendChannel(SendChannel, metaclass=NoPublicConstructor):
         await trio.hazmat.checkpoint()
 
 
-@attr.s(cmp=False, repr=False)
+@attr.s(eq=False, repr=False)
 class MemoryReceiveChannel(ReceiveChannel, metaclass=NoPublicConstructor):
     _state = attr.ib()
     _closed = attr.ib(default=False)

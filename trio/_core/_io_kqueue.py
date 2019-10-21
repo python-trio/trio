@@ -8,14 +8,14 @@ from .. import _core
 from ._run import _public
 
 
-@attr.s(slots=True, cmp=False, frozen=True)
+@attr.s(slots=True, eq=False, frozen=True)
 class _KqueueStatistics:
     tasks_waiting = attr.ib()
     monitors = attr.ib()
     backend = attr.ib(default="kqueue")
 
 
-@attr.s(slots=True, cmp=False)
+@attr.s(slots=True, eq=False)
 class KqueueIOManager:
     _kqueue = attr.ib(factory=select.kqueue)
     # {(ident, filter): Task or UnboundedQueue}

@@ -1595,8 +1595,8 @@ threads at a time::
 
 
    async def run_sync_in_thread_for_user(user_id, sync_fn, *args):
-       kwargs["limiter"] = get_user_limiter(user_id)
-       return await trio.to_thread.run_sync(asycn_fn, *args)
+       combined_limiter = get_user_limiter(user_id)
+       return await trio.to_thread.run_sync(sync_fn, *args, limiter=combined_limiter)
 
 
 .. module:: trio.to_thread

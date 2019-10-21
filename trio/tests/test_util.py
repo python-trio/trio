@@ -72,6 +72,15 @@ def test_module_metadata_is_fixed_up():
     assert trio.hazmat.ParkingLot.__init__.__module__ == "trio.hazmat"
     assert trio.abc.Stream.send_all.__module__ == "trio.abc"
 
+    # And names
+    assert trio.Cancelled.__name__ == "Cancelled"
+    assert trio.Cancelled.__qualname__ == "Cancelled"
+    assert trio.abc.SendStream.send_all.__name__ == "send_all"
+    assert trio.abc.SendStream.send_all.__qualname__ == "SendStream.send_all"
+    assert trio.to_thread.__name__ == "trio.to_thread"
+    assert trio.to_thread.run_sync.__name__ == "run_sync"
+    assert trio.to_thread.run_sync.__qualname__ == "run_sync"
+
 
 # define a concrete class implementing the PathLike protocol
 # Since we want to have compatibility with Python 3.5 we need
@@ -81,7 +90,6 @@ BaseKlass = os.PathLike if hasattr(os, "PathLike") else object
 
 class ConcretePathLike(BaseKlass):
     """ Class implementing the file system path protocol."""
-
     def __init__(self, path=""):
         self.path = path
 

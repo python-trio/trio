@@ -8,7 +8,7 @@ pylint         # for pylint finding all symbols tests
 jedi           # for jedi code completion tests
 
 # Tools
-yapf ==0.27.0  # formatting
+yapf ==0.28.0  # formatting
 flake8
 astor          # code generation
 
@@ -18,7 +18,7 @@ typed_ast; python_version < "3.8" and implementation_name == "cpython"
 # Trio's own dependencies
 cffi; os_name == "nt"
 contextvars; python_version < "3.7"
-attrs >= 18.1.0
+attrs >= 19.2.0
 sortedcontainers
 async_generator >= 1.9
 idna

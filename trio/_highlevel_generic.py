@@ -35,7 +35,7 @@ async def aclose_forcefully(resource):
         await resource.aclose()
 
 
-@attr.s(cmp=False, hash=False)
+@attr.s(eq=False, hash=False)
 class StapledStream(Stream):
     """This class `staples <https://en.wikipedia.org/wiki/Staple_(fastener)>`__
     together two unidirectional streams to make single bidirectional stream.
