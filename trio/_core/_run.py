@@ -253,17 +253,23 @@ class CancelStatus:
         )
 
     def recalculate(self):
-        new_state = (
-            self._scope.cancel_called
-            or self.parent_cancellation_is_visible_to_us
-        )
-        if new_state != self.effectively_cancelled:
-            self.effectively_cancelled = new_state
-            if new_state:
-                for task in self._tasks:
-                    task._attempt_delivery_of_any_pending_cancel()
-            for child in self._children:
-                child.recalculate()
+        # This does a depth-first traversal over this and descendent cancel
+        # statuses, to ensure their state is up-to-date. It's basically a
+        # recursive algorithm, but we use an explicit stack to avoid any
+        # issues with stack overflow.
+        todo = [self]
+        while todo:
+            current = todo.pop()
+            new_state = (
+                current._scope.cancel_called
+                or current.parent_cancellation_is_visible_to_us
+            )
+            if new_state != current.effectively_cancelled:
+                current.effectively_cancelled = new_state
+                if new_state:
+                    for task in current._tasks:
+                        task._attempt_delivery_of_any_pending_cancel()
+                todo.extend(current._children)
 
     def _mark_abandoned(self):
         self.abandoned_by_misnesting = True
