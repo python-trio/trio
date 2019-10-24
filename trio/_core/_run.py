@@ -1783,9 +1783,11 @@ def run(
         ):
             try:
                 with closing(runner):
-                    # The main reason this is split off into its own function
-                    # is just to get rid of this extra indentation.
-                    run_impl(runner, async_fn, args)
+                    with runner.entry_queue.wakeup.wakeup_on_signals():
+                        # The main reason this is split off into its own
+                        # function is just to get rid of this extra
+                        # indentation.
+                        run_impl(runner, async_fn, args)
             except TrioInternalError:
                 raise
             except BaseException as exc:

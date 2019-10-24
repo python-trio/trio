@@ -7,6 +7,7 @@ import sys
 import pathlib
 from functools import wraps, update_wrapper
 import typing as t
+import threading
 
 import async_generator
 
@@ -64,7 +65,7 @@ if os.name == "nt":
 else:
 
     def signal_raise(signum):
-        os.kill(os.getpid(), signum)
+        signal.pthread_kill(threading.get_ident(), signum)
 
 
 # Decorator to handle the change to __aiter__ in 3.5.2

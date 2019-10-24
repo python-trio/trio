@@ -123,12 +123,6 @@ class WindowsIOManager:
         wakeup_sock = self._main_thread_waker.wakeup_sock
         self._socket_waiters["read"][wakeup_sock] = None
 
-        # This is necessary to allow control-C to interrupt select().
-        # https://github.com/python-trio/trio/issues/42
-        if is_main_thread():
-            fileno = self._main_thread_waker.write_sock.fileno()
-            self._old_signal_wakeup_fd = signal.set_wakeup_fd(fileno)
-
     def statistics(self):
         return _WindowsStatistics(
             tasks_waiting_overlapped=len(self._overlapped_waiters),
@@ -145,8 +139,6 @@ class WindowsIOManager:
             if self._iocp_thread is not None:
                 self._iocp_thread.join()
             self._main_thread_waker.close()
-            if is_main_thread():
-                signal.set_wakeup_fd(self._old_signal_wakeup_fd)
 
     def __del__(self):
         # Need to make sure we clean up self._iocp (raw handle) and the IOCP

@@ -1,0 +1,4 @@
+Trio now uses `signal.set_wakeup_fd` on all platforms. This is mostly
+an internal refactoring with no user-visible effect, but in theory it
+should fix a few extremely-rare race conditions on Unix that could
+have caused signal delivery to be delayed.
