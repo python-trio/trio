@@ -231,6 +231,7 @@ ws2_32 = ffi.dlopen("ws2_32.dll")
 
 INVALID_HANDLE_VALUE = ffi.cast("HANDLE", -1)
 
+
 class ErrorCodes(enum.IntEnum):
     STATUS_TIMEOUT = 0x102
     WAIT_TIMEOUT = 0x102
@@ -264,15 +265,16 @@ class AFDPollFlags(enum.IntFlag):
     AFD_POLL_RECEIVE = 0x0001
     AFD_POLL_RECEIVE_EXPEDITED = 0x0002
     AFD_POLL_SEND = 0x0004
-    AFD_POLL_DISCONNECT       = 0x0008
-    AFD_POLL_ABORT           =  0x0010
-    AFD_POLL_LOCAL_CLOSE    =   0x0020
-    AFD_POLL_ACCEPT        =    0x0080
-    AFD_POLL_CONNECT_FAIL =      0x0100
+    AFD_POLL_DISCONNECT = 0x0008
+    AFD_POLL_ABORT = 0x0010
+    AFD_POLL_LOCAL_CLOSE = 0x0020
+    AFD_POLL_ACCEPT = 0x0080
+    AFD_POLL_CONNECT_FAIL = 0x0100
 
 
 class WSAIoctls(enum.IntEnum):
     SIO_BASE_HANDLE = 0x48000022
+
 
 class CompletionModes(enum.IntFlag):
     FILE_SKIP_COMPLETION_PORT_ON_SUCCESS = 0x1
@@ -286,6 +288,7 @@ class IoControlCodes(enum.IntEnum):
 ################################################################
 # Generic helpers
 ################################################################
+
 
 def _handle(obj):
     # For now, represent handles as either cffi HANDLEs or as ints.  If you
