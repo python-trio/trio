@@ -19,10 +19,16 @@ from ._windows_cffi import (
     ffi,
     kernel32,
     ntdll,
+    ws2_32,
     INVALID_HANDLE_VALUE,
     raise_winerror,
-    ErrorCodes,
     _handle,
+    ErrorCodes,
+    FileFlags,
+    AFDPollFlags,
+    WSAIoctls,
+    CompletionModes,
+    IoControlCodes,
 )
 
 # There's a lot to be said about the overall design of a Windows event
@@ -79,6 +85,60 @@ def _check(success):
     return success
 
 
+def _get_base_socket(sock):
+    if hasattr(sock, "fileno"):
+        sock = sock.fileno()
+    base_ptr = ffi.new("HANDLE *")
+    out_size = ffi.new("DWORD *")
+    failed = ws2_32.WSAIoctl(
+        ffi.cast("SOCKET", sock),
+        WSAIoctls.SIO_BASE_HANDLE,
+        ffi.NULL,
+        0,
+        base_ptr,
+        ffi.sizeof("HANDLE"),
+        out_size,
+        ffi.NULL,
+        ffi.NULL,
+    )
+    if failed:
+        code = ws2_32.WSAGetLastError()
+        raise_winerror(code)
+    return base_ptr[0]
+
+
+# We'll use CreateFile and DeviceIoControl instead of the Nt* versions
+def _afd_helper_handle():
+    # The "AFD" driver is exposed at the NT path "\Device\Afd". We're using
+    # the Win32 CreateFile, though, so we have to pass a Win32 path. \\.\ is
+    # how Win32 refers to the NT \GLOBAL??\ directory, and GLOBALROOT is a
+    # symlink inside that directory that points to the root of the NT path
+    # system. So by sticking that in front of the NT path, we get a Win32
+    # path. Alternatively, we could use NtCreateFile directly, since it takes
+    # an NT path. But we already wrap CreateFileW so this was easier.
+    # References:
+    #   https://blogs.msdn.microsoft.com/jeremykuhne/2016/05/02/dos-to-nt-a-paths-journey/
+    #   https://stackoverflow.com/a/21704022
+    rawname = r"\\.\GLOBALROOT\Device\Afd\Trio".encode("utf-16le") + b"\0\0"
+    rawname_buf = ffi.from_buffer(rawname)
+
+    handle = kernel32.CreateFileW(
+        ffi.cast("LPCWSTR", rawname_buf),
+        FileFlags.SYNCHRONIZE,
+        FileFlags.FILE_SHARE_READ | FileFlags.FILE_SHARE_WRITE,
+        ffi.NULL,  # no security attributes
+        FileFlags.OPEN_EXISTING,
+        FileFlags.FILE_FLAG_OVERLAPPED,
+        ffi.NULL,  # no template file
+    )
+    if handle == INVALID_HANDLE_VALUE:  # pragma: no cover
+        raise_winerror()
+    return handle
+
+# "readable" is AFD_POLL_RECEIVE | AFD_POLL_ACCEPT | AFD_POLL_ABORT | AFD_POLL_DISCONNECT | AFD_POLL_LOCAL_CLOSE
+# "writable" is AFD_POLL_SEND | AFD_POLL_CONNECT_FAIL | AFD_POLL_ABORT | AFD_POLL_LOCAL_CLOSE
+
+
 @attr.s(slots=True, eq=False, frozen=True)
 class _WindowsStatistics:
     tasks_waiting_overlapped = attr.ib()
@@ -104,6 +164,8 @@ class WindowsIOManager:
                 INVALID_HANDLE_VALUE, ffi.NULL, 0, 0
             )
         )
+        self._afd = _afd_helper_handle()
+        self.register_with_iocp(self._afd)
         self._closed = False
         self._iocp_queue = deque()
         self._iocp_thread = None
@@ -318,6 +380,11 @@ class WindowsIOManager:
         # INVALID_PARAMETER seems to be used for both "can't register
         # because not opened in OVERLAPPED mode" and "already registered"
         _check(kernel32.CreateIoCompletionPort(handle, self._iocp, 0, 0))
+        # Supposedly this makes things slightly faster, by disabling the
+        # ability to do WaitForSingleObject(handle). We would never want to do
+        # that anyway, so might as well get the extra speed (if any).
+        # Ref: http://www.lenholgate.com/blog/2009/09/interesting-blog-posts-on-high-performance-servers.html
+        _check(kernel32.SetFileCompletionNotificationModes(handle, CompletionModes.FILE_SKIP_SET_EVENT_ON_HANDLE))
 
     @_public
     async def wait_overlapped(self, handle, lpOverlapped):
@@ -456,6 +523,31 @@ class WindowsIOManager:
                 raise
         await self.wait_overlapped(handle, lpOverlapped)
         return lpOverlapped
+
+    @_public
+    async def afd_poll(self, sock, events):
+        poll_info = ffi.new("AFD_POLL_INFO *")
+        poll_info.Timeout = 2 ** 63 - 1  # INT64_MAX
+        poll_info.NumberOfHandles = 1
+        poll_info.Exclusive = 0
+        poll_info.Handles[0].Handle = _get_base_socket(sock)
+        poll_info.Handles[0].Status = 0
+        poll_info.Handles[0].Events = events
+
+        def submit_afd_poll(lpOverlapped):
+            _check(kernel32.DeviceIoControl(
+                self._afd,
+                IoControlCodes.IOCTL_AFD_POLL,
+                poll_info,
+                ffi.sizeof("AFD_POLL_INFO"),
+                poll_info,
+                ffi.sizeof("AFD_POLL_INFO"),
+                ffi.NULL,
+                lpOverlapped,
+            ))
+
+        await self._perform_overlapped(self._afd, submit_afd_poll)
+        return AFDPollFlags(poll_info.Handles[0].Events)
 
     @_public
     async def write_overlapped(self, handle, data, file_offset=0):

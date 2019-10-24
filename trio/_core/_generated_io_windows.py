@@ -55,6 +55,13 @@ def notify_closing(sock):
     except AttributeError:
         raise RuntimeError('must be called from async context')
 
+async def afd_poll(sock, events):
+    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    try:
+        return await GLOBAL_RUN_CONTEXT.runner.io_manager.afd_poll(sock, events)
+    except AttributeError:
+        raise RuntimeError('must be called from async context')
+
 async def write_overlapped(handle, data, file_offset=0):
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
