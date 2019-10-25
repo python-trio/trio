@@ -289,3 +289,49 @@ async def test_notify_closing_on_invalid_object():
     else:
         got_no_error = True
     assert got_oserror or got_no_error
+
+
+async def test_io_manager_statistics():
+    def check(stats, expected_readers, expected_writers):
+        if stats.backend in ["epoll", "windows"]:
+            assert stats.tasks_waiting_read == expected_readers
+            assert stats.tasks_waiting_write == expected_writers
+        else:
+            stats.backend == "kqueue"
+            assert stats.tasks_waiting == expected_readers + expected_writers
+
+    a1, b1 = stdlib_socket.socketpair()
+    a2, b2 = stdlib_socket.socketpair()
+    a3, b3 = stdlib_socket.socketpair()
+    for sock in [a1, b1, a2, b2, a3, b3]:
+        sock.setblocking(False)
+    with a1, b1, a2, b2, a3, b3:
+        # let the call_soon_task settle down
+        await wait_all_tasks_blocked()
+
+        statistics = _core.current_statistics()
+        print(statistics)
+        # 1 for call_soon_task
+        check(statistics.io_statistics, 1, 0)
+
+        # We want:
+        # - one socket with a writer blocked
+        # - two sockets with a reader blocked
+        # - a socket with both blocked
+        fill_socket(a1)
+        fill_socket(a3)
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(_core.wait_writable, a1)
+            nursery.start_soon(_core.wait_readable, a2)
+            nursery.start_soon(_core.wait_readable, b2)
+            nursery.start_soon(_core.wait_writable, a3)
+            nursery.start_soon(_core.wait_readable, a3)
+
+            await wait_all_tasks_blocked()
+
+            statistics = _core.current_statistics()
+            print(statistics)
+            # 1 for call_soon_task
+            check(statistics.io_statistics, 4, 2)
+
+            nursery.cancel_scope.cancel()
