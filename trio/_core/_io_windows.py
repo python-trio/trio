@@ -614,7 +614,6 @@ class WindowsIOManager:
 
     @_public
     async def readinto_overlapped(self, handle, buffer, file_offset=0):
-        t = _core.current_task()
         with ffi.from_buffer(buffer, require_writable=True) as cbuf:
 
             def submit_read(lpOverlapped):

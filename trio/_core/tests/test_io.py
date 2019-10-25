@@ -216,7 +216,6 @@ async def test_socket_simultaneous_read_write(
         assert record == []
         b.send(b"x")
         await wait_all_tasks_blocked()
-        await trio.sleep(1)
         assert record == ["r_task"]
         drain_socket(b)
         await wait_all_tasks_blocked()
