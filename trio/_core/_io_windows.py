@@ -200,8 +200,8 @@ class AFDPollOp:
 
 @attr.s(slots=True, eq=False, frozen=True)
 class _WindowsStatistics:
-    tasks_waiting_readable = attr.ib()
-    tasks_waiting_writable = attr.ib()
+    tasks_waiting_read = attr.ib()
+    tasks_waiting_write = attr.ib()
     tasks_waiting_overlapped = attr.ib()
     completion_key_monitors = attr.ib()
     backend = attr.ib(default="windows")
@@ -266,16 +266,16 @@ class WindowsIOManager:
         self.close()
 
     def statistics(self):
-        tasks_waiting_readable = 0
-        tasks_waiting_writable = 0
+        tasks_waiting_read = 0
+        tasks_waiting_write = 0
         for waiter in self._afd_waiters.values():
             if waiter.read_task is not None:
-                tasks_waiting_readable += 1
+                tasks_waiting_read += 1
             if waiter.write_task is not None:
-                tasks_waiting_writable += 1
+                tasks_waiting_write += 1
         return _WindowsStatistics(
-            tasks_waiting_readable=tasks_waiting_readable,
-            tasks_waiting_writable=tasks_waiting_writable,
+            tasks_waiting_read=tasks_waiting_read,
+            tasks_waiting_write=tasks_waiting_write,
             tasks_waiting_overlapped=len(self._overlapped_waiters),
             completion_key_monitors=len(self._completion_key_queues),
         )
