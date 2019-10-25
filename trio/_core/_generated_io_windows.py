@@ -20,6 +20,13 @@ def register_with_iocp(handle):
     except AttributeError:
         raise RuntimeError('must be called from async context')
 
+def notify_closing(handle):
+    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    try:
+        return  GLOBAL_RUN_CONTEXT.runner.io_manager.notify_closing(handle)
+    except AttributeError:
+        raise RuntimeError('must be called from async context')
+
 async def wait_overlapped(handle, lpOverlapped):
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
@@ -45,20 +52,6 @@ async def wait_writable(sock):
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_writable(sock)
-    except AttributeError:
-        raise RuntimeError('must be called from async context')
-
-def notify_closing(sock):
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
-    try:
-        return  GLOBAL_RUN_CONTEXT.runner.io_manager.notify_closing(sock)
-    except AttributeError:
-        raise RuntimeError('must be called from async context')
-
-async def afd_poll(sock, events):
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
-    try:
-        return await GLOBAL_RUN_CONTEXT.runner.io_manager.afd_poll(sock, events)
     except AttributeError:
         raise RuntimeError('must be called from async context')
 

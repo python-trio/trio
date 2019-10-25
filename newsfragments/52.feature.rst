@@ -1,0 +1,4 @@
+Trio's Windows backend was rewritten to use IOCP exclusively, instead
+of a hybrid of ``select`` + IOCP. This should make it much faster and
+more scalable. It also simplifies the code internally, and paves the
+way for future improvements.

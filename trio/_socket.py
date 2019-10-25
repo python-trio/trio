@@ -452,8 +452,9 @@ class _SocketType(SocketType):
         return _SocketType(self._sock.dup())
 
     def close(self):
-        trio.hazmat.notify_closing(self._sock)
-        self._sock.close()
+        if self._sock.fileno() != -1:
+            trio.hazmat.notify_closing(self._sock)
+            self._sock.close()
 
     async def bind(self, address):
         address = await self._resolve_local_address(address)

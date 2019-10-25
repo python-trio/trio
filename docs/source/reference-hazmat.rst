@@ -166,9 +166,9 @@ All environments provide the following functions:
 .. function:: notify_closing(obj)
 
    Call this before closing a file descriptor (on Unix) or socket (on
-   Windows) that another task might be waiting on. This will cause any
-   `wait_readable` or `wait_writable` calls on the given object to
-   immediately wake up and raise `~trio.ClosedResourceError`.
+   Windows). This will cause any `wait_readable` or `wait_writable`
+   calls on the given object to immediately wake up and raise
+   `~trio.ClosedResourceError`.
 
    This doesn't actually close the object – you still have to do that
    yourself afterwards. Also, you want to be careful to make sure no

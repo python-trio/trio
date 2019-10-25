@@ -1,30 +1,6 @@
-# you can't have multiple AFD_POLL's outstanding simultaneously on the same
-# socket. They get mixed up and weird stuff happens -- like you get
-# notifications for the first call's flag, but with the second call's
-# lpOverlapped.
-#
-# so we need a muxing system like _io_epoll has
-# I think we can set Exclusive=1 to cause the old one to disappear, maybe?
-# though really... who knows what that even does. maybe CancelIoEx is safer.
-#
-# for this case, we can ignore CancelIoEx errors, or the possibility of
-# forgetting register_with_iocp
-# can even use a dedicated completion key
-#
-# track {handle: Waiters object (reader task, writer task, lpOverlapped)}
-# track {lpOverlapped: Waiters object}
-# when need to update wait, CancelIoEx(afd_handle, lpOverlapped)
-#   and drop from the second dict
-# then submit new lpOverlapped and store it in both places
-# when event comes in, look it up in lpOverlapped table and figure out who to
-# wake up
-# when notify_closing, wake up both tasks and then refresh the wait
-#
-# consider making notify_closing work for more operations
-
 import itertools
 from contextlib import contextmanager
-import errno
+import enum
 
 import outcome
 import attr
@@ -106,9 +82,18 @@ from ._windows_cffi import (
 # - other completion keys are available for user use
 
 
+# The completion keys we use
+class CKeys(enum.IntEnum):
+    AFD_POLL = 0
+    WAIT_OVERLAPPED = 1
+    LATE_CANCEL = 2
+    USER_DEFINED = 3  # and above
+
+
 def reprO(lpOverlapped):
     return hex(int(ffi.cast("uintptr_t", lpOverlapped)))
     #return repr(ffi.cast("void *", lpOverlapped))
+
 
 def _check(success):
     if not success:
@@ -198,30 +183,39 @@ WRITABLE_FLAGS = (
 # from wait_writable, then Windows may complete the wait_writable operation
 # when the socket becomes readable.
 #
-# To avoid this, we have to coalesce all operations on a single socket, which
-# is slightly fiddly, though not really any worse than what we have to do for
-# epoll.
-
-@attr.s(slots=True, eq=False):
+# To avoid this, we have to coalesce all the operations on a single socket
+# into one, and when the set of waiters changes we have to throw away the old
+# operation and start a new one.
+@attr.s(slots=True, eq=False)
 class AFDWaiters:
     read_task = attr.ib(default=None)
     write_task = attr.ib(default=None)
-    current_lpOverlapped = attr.ib(default=None)
+    current_op = attr.ib(default=None)
+
+
+# We also need to bundle up all the info for a single op into a standalone
+# object, because we need to keep all these objects alive until the operation
+# finishes, even if we're throwing it away.
+@attr.s(slots=True, eq=False, frozen=True)
+class AFDPollOp:
+    lpOverlapped = attr.ib()
+    poll_info = attr.ib()
+    waiters = attr.ib()
 
 
 @attr.s(slots=True, eq=False, frozen=True)
 class _WindowsStatistics:
+    tasks_waiting_readable = attr.ib()
+    tasks_waiting_writable = attr.ib()
     tasks_waiting_overlapped = attr.ib()
     completion_key_monitors = attr.ib()
-    tasks_waiting_socket_readable = attr.ib()
-    tasks_waiting_socket_writable = attr.ib()
     backend = attr.ib(default="windows")
 
 
 # Maximum number of events to dequeue from the completion port on each pass
 # through the run loop. Somewhat arbitrary. Should be large enough to collect
 # a good set of tasks on each loop, but not so large to waste tons of memory.
-# (Each call to trio.run allocates a buffer that's ~32x this number.)
+# (Each WindowsIOManager holds a buffer whose size is ~32x this number.)
 MAX_EVENTS = 1000
 
 
@@ -234,8 +228,8 @@ class CompletionKeyEventInfo:
 class WindowsIOManager:
     def __init__(self):
         # If this method raises an exception, then __del__ could run on a
-        # half-initialized object. So initialize everything that __del__
-        # touches to known values up front, before we do anything that can
+        # half-initialized object. So we initialize everything that __del__
+        # touches to safe values up front, before we do anything that can
         # fail.
         self._iocp = None
         self._afd = None
@@ -245,36 +239,21 @@ class WindowsIOManager:
                 INVALID_HANDLE_VALUE, ffi.NULL, 0, 0
             )
         )
-        self._afd = _afd_helper_handle()
-        self.register_with_iocp(self._afd)
         self._events = ffi.new("OVERLAPPED_ENTRY[]", MAX_EVENTS)
 
-        # {lpOverlapped: task}
-        # These tasks also carry (handle, lpOverlapped) in their
-        # custom_sleep_data, unless they've already been cancelled or
-        # rescheduled.
-        self._overlapped_waiters = {}
-        # These are all listed in overlapped_waiters too; these extra dicts
-        # are to (a) catch when two tasks try to wait on the same socket at
-        # the same time, (b) find tasks to wake up in notify_closing.
-        # {SOCKET: task}
-        self._wait_readable_tasks = {}
-        self._wait_writable_tasks = {}
-        self._posted_too_late_to_cancel = set()
-        self._completion_key_queues = {}
-        # Completion key 0 is reserved for regular IO events.
-        # Completion key 1 is used by the fallback post from a regular
-        # IO event's abort_fn to catch the user forgetting to call
-        # register_with_iocp.
-        self._completion_key_counter = itertools.count(2)
+        self._afd = _afd_helper_handle()
+        self._register_with_iocp(self._afd, CKeys.AFD_POLL)
+        # {lpOverlapped: AFDPollOp}
+        self._afd_ops = {}
+        # {socket handle: AFDWaiters}
+        self._afd_waiters = {}
 
-    def statistics(self):
-        return _WindowsStatistics(
-            tasks_waiting_overlapped=len(self._overlapped_waiters),
-            completion_key_monitors=len(self._completion_key_queues),
-            tasks_waiting_socket_readable=len(self._wait_readable_tasks),
-            tasks_waiting_socket_writable=len(self._wait_writable_tasks),
-        )
+        # {lpOverlapped: task}
+        self._overlapped_waiters = {}
+        self._posted_too_late_to_cancel = set()
+
+        self._completion_key_queues = {}
+        self._completion_key_counter = itertools.count(CKeys.USER_DEFINED)
 
     def close(self):
         try:
@@ -291,29 +270,72 @@ class WindowsIOManager:
     def __del__(self):
         self.close()
 
+    def statistics(self):
+        tasks_waiting_readable = 0
+        tasks_waiting_writable = 0
+        for waiter in self._afd_waiters.values():
+            if waiter.read_task is not None:
+                tasks_waiting_readable += 1
+            if waiter.write_task is not None:
+                tasks_waiting_writable += 1
+        return _WindowsStatistics(
+            tasks_waiting_readable=tasks_waiting_readable,
+            tasks_waiting_writable=tasks_waiting_writable,
+            tasks_waiting_overlapped=len(self._overlapped_waiters),
+            completion_key_monitors=len(self._completion_key_queues),
+        )
+
     def handle_io(self, timeout):
-        # arbitrary limit
         received = ffi.new("PULONG")
         milliseconds = round(1000 * timeout)
         if timeout > 0 and milliseconds == 0:
             milliseconds = 1
         try:
-            _check(kernel32.GetQueuedCompletionStatusEx(
-                self._iocp, self._events, MAX_EVENTS, received, milliseconds, 0
+            _check(
+                kernel32.GetQueuedCompletionStatusEx(
+                    self._iocp, self._events, MAX_EVENTS, received,
+                    milliseconds, 0
+                )
             )
-                   )
         except OSError as exc:
             if exc.winerror == ErrorCodes.WAIT_TIMEOUT:
                 return
             raise
         for i in range(received[0]):
             entry = self._events[i]
-            if entry.lpCompletionKey == 0:
+            if entry.lpCompletionKey == CKeys.AFD_POLL:
+                print(f"AFD completion: {entry.lpOverlapped!r}")
+                lpo = entry.lpOverlapped
+                op = self._afd_ops.pop(lpo)
+                waiters = op.waiters
+                if waiters.current_op is not op:
+                    # Stale op, nothing to do
+                    print("stale, nothing to do")
+                    pass
+                else:
+                    waiters.current_op = None
+                    # I don't think this can happen, so if it does let's crash
+                    # and get a debug trace.
+                    if lpo.Internal != 0:  # pragma: no cover
+                        code = ntdll.RtlNtStatusToDosError(lpo.Internal)
+                        raise_winerror(code)
+                    flags = op.poll_info.Handles[0].Events
+                    print("flags: {AFDPollFlags(flags)!r}")
+                    if waiters.read_task and flags & READABLE_FLAGS:
+                        print("waking reader")
+                        _core.reschedule(waiters.read_task)
+                        waiters.read_task = None
+                    if waiters.write_task and flags & WRITABLE_FLAGS:
+                        print("waking writer")
+                        _core.reschedule(waiters.write_task)
+                        waiters.write_task = None
+                    self._refresh_afd(op.poll_info.Handles[0].Handle)
+            elif entry.lpCompletionKey == CKeys.WAIT_OVERLAPPED:
                 # Regular I/O event, dispatch on lpOverlapped
                 print(f"waking {reprO(entry.lpOverlapped)}")
                 waiter = self._overlapped_waiters.pop(entry.lpOverlapped)
                 _core.reschedule(waiter)
-            elif entry.lpCompletionKey == 1:
+            elif entry.lpCompletionKey == CKeys.LATE_CANCEL:
                 # Post made by a regular I/O event's abort_fn
                 # after it failed to cancel the I/O. If we still
                 # have a waiter with this lpOverlapped, we didn't
@@ -358,17 +380,13 @@ class WindowsIOManager:
                 )
                 queue.put_nowait(info)
 
-    @_public
-    def current_iocp(self):
-        return int(ffi.cast("uintptr_t", self._iocp))
-
-    @_public
-    def register_with_iocp(self, handle):
+    def _register_with_iocp(self, handle, completion_key):
         handle = _handle(handle)
-        # https://msdn.microsoft.com/en-us/library/windows/desktop/aa363862(v=vs.85).aspx
-        # INVALID_PARAMETER seems to be used for both "can't register
-        # because not opened in OVERLAPPED mode" and "already registered"
-        _check(kernel32.CreateIoCompletionPort(handle, self._iocp, 0, 0))
+        _check(
+            kernel32.CreateIoCompletionPort(
+                handle, self._iocp, completion_key, 0
+            )
+        )
         # Supposedly this makes things slightly faster, by disabling the
         # ability to do WaitForSingleObject(handle). We would never want to do
         # that anyway, so might as well get the extra speed (if any).
@@ -379,51 +397,126 @@ class WindowsIOManager:
             )
         )
 
-    def _try_cancel_io_ex_for_task(self, task):
-        if task.custom_sleep_data is None:
-            return
-        handle, lpOverlapped = task.custom_sleep_data
-        task.custom_sleep_data = None
-        try:
-            _check(kernel32.CancelIoEx(handle, lpOverlapped))
-        except OSError as exc:
-            if exc.winerror == ErrorCodes.ERROR_NOT_FOUND:
-                # Too late to cancel. If this happens because the
-                # operation is already completed, we don't need to
-                # do anything; presumably the IOCP thread will be
-                # reporting back about that completion soon. But
-                # another possibility is that the operation was
-                # performed on a handle that wasn't registered
-                # with our IOCP (ie, the user forgot to call
-                # register_with_iocp), in which case we're just
-                # never going to see the completion. To avoid an
-                # uncancellable infinite sleep in the latter case,
-                # we'll PostQueuedCompletionStatus here, and if
-                # our post arrives before the original completion
-                # does, we'll assume the handle wasn't registered.
+    ################################################################
+    # AFD stuff
+    ################################################################
+
+    def _refresh_afd(self, base_handle):
+        waiters = self._afd_waiters[base_handle]
+        print(f"refreshing AFD for {base_handle!r}: {waiters!r}")
+        if waiters.current_op is not None:
+            try:
                 _check(
-                    kernel32.PostQueuedCompletionStatus(
-                        self._iocp, 0, 1, lpOverlapped
+                    kernel32.CancelIoEx(
+                        self._afd, waiters.current_op.lpOverlapped
                     )
                 )
-                # Keep the lpOverlapped referenced so its address
-                # doesn't get reused until our posted completion
-                # status has been processed. Otherwise, we can
-                # get confused about which completion goes with
-                # which I/O.
-                self._posted_too_late_to_cancel.add(lpOverlapped)
-            else:  # pragma: no cover
-                raise _core.TrioInternalError(
-                    "CancelIoEx failed with unexpected error"
-                ) from exc
+            except OSError as exc:
+                if exc.winerror != ErrorCodes.ERROR_NOT_FOUND:
+                    raise
+            waiters.current_op = None
+
+        flags = 0
+        if waiters.read_task is not None:
+            flags |= READABLE_FLAGS
+        if waiters.write_task is not None:
+            flags |= WRITABLE_FLAGS
+
+        if not flags:
+            print("nothing to do; clearing")
+            del self._afd_waiters[base_handle]
+        else:
+            lpOverlapped = ffi.new("LPOVERLAPPED")
+            print(f"new AFD: {reprO(lpOverlapped)} for {flags!r} on {base_handle!r}")
+
+            poll_info = ffi.new("AFD_POLL_INFO *")
+            poll_info.Timeout = 2**63 - 1  # INT64_MAX
+            poll_info.NumberOfHandles = 1
+            poll_info.Exclusive = 0
+            poll_info.Handles[0].Handle = base_handle
+            poll_info.Handles[0].Status = 0
+            poll_info.Handles[0].Events = flags
+
+            try:
+                _check(
+                    kernel32.DeviceIoControl(
+                        self._afd,
+                        IoControlCodes.IOCTL_AFD_POLL,
+                        poll_info,
+                        ffi.sizeof("AFD_POLL_INFO"),
+                        poll_info,
+                        ffi.sizeof("AFD_POLL_INFO"),
+                        ffi.NULL,
+                        lpOverlapped,
+                    )
+                )
+            except OSError as exc:
+                if exc.winerror != ErrorCodes.ERROR_IO_PENDING:
+                    raise
+
+            op = AFDPollOp(lpOverlapped, poll_info, waiters)
+            waiters.current_op = op
+            self._afd_ops[lpOverlapped] = op
+
+    async def _afd_poll(self, sock, mode):
+        base_handle = _get_base_socket(sock)
+        waiters = self._afd_waiters.get(base_handle)
+        if waiters is None:
+            waiters = AFDWaiters()
+            self._afd_waiters[base_handle] = waiters
+        if getattr(waiters, mode) is not None:
+            raise _core.BusyResourceError
+        setattr(waiters, mode, _core.current_task())
+        self._refresh_afd(base_handle)
+
+        def abort_fn(_):
+            print(f"_afd_poll({base_handle!r}, {mode!r}) cancelled")
+            setattr(waiters, mode, None)
+            self._refresh_afd(base_handle)
+            return _core.Abort.SUCCEEDED
+
+        await _core.wait_task_rescheduled(abort_fn)
+
+    @_public
+    async def wait_readable(self, sock):
+        print("wait_readable start")
+        try:
+            await self._afd_poll(sock, "read_task")
+        finally:
+            print("wait_readable finish")
+
+    @_public
+    async def wait_writable(self, sock):
+        print("wait_writable start")
+        try:
+            await self._afd_poll(sock, "write_task")
+        finally:
+            print("wait_writable finish")
 
     @_public
     def notify_closing(self, handle):
         handle = _get_base_socket(handle)
-        for tasks in [self._wait_readable_tasks, self._wait_writable_tasks]:
-            task = tasks.get(handle)
-            if task is not None:
-                self._try_cancel_io_ex_for_task(task)
+        waiters = self._afd_waiters.get(handle)
+        if waiters is not None:
+            if waiters.read_task is not None:
+                _core.reschedule(
+                    waiters.read_task, outcome.Error(_core.ClosedResourceError())
+                )
+                waiters.read_task = None
+            if waiters.write_task is not None:
+                _core.reschedule(
+                    waiters.write_task, outcome.Error(_core.ClosedResourceError())
+                )
+                waiters.write_task = None
+            self._refresh_afd(handle)
+
+    ################################################################
+    # Regular overlapped operations
+    ################################################################
+
+    @_public
+    def register_with_iocp(self, handle):
+        self._register_with_iocp(handle, CKeys.WAIT_OVERLAPPED)
 
     @_public
     async def wait_overlapped(self, handle, lpOverlapped):
@@ -436,13 +529,43 @@ class WindowsIOManager:
             )
         task = _core.current_task()
         self._overlapped_waiters[lpOverlapped] = task
-        task.custom_sleep_data = (handle, lpOverlapped)
         raise_cancel = None
 
         def abort(raise_cancel_):
             nonlocal raise_cancel
             raise_cancel = raise_cancel_
-            self._try_cancel_io_ex_for_task(task)
+            try:
+                _check(kernel32.CancelIoEx(handle, lpOverlapped))
+            except OSError as exc:
+                if exc.winerror == ErrorCodes.ERROR_NOT_FOUND:
+                    # Too late to cancel. If this happens because the
+                    # operation is already completed, we don't need to
+                    # do anything; presumably the IOCP thread will be
+                    # reporting back about that completion soon. But
+                    # another possibility is that the operation was
+                    # performed on a handle that wasn't registered
+                    # with our IOCP (ie, the user forgot to call
+                    # register_with_iocp), in which case we're just
+                    # never going to see the completion. To avoid an
+                    # uncancellable infinite sleep in the latter case,
+                    # we'll PostQueuedCompletionStatus here, and if
+                    # our post arrives before the original completion
+                    # does, we'll assume the handle wasn't registered.
+                    _check(
+                        kernel32.PostQueuedCompletionStatus(
+                            self._iocp, 0, CKeys.LATE_CANCEL, lpOverlapped
+                        )
+                    )
+                    # Keep the lpOverlapped referenced so its address
+                    # doesn't get reused until our posted completion
+                    # status has been processed. Otherwise, we can
+                    # get confused about which completion goes with
+                    # which I/O.
+                    self._posted_too_late_to_cancel.add(lpOverlapped)
+                else:  # pragma: no cover
+                    raise _core.TrioInternalError(
+                        "CancelIoEx failed with unexpected error"
+                    ) from exc
             return _core.Abort.FAILED
 
         await _core.wait_task_rescheduled(abort)
@@ -464,22 +587,15 @@ class WindowsIOManager:
             else:
                 raise_winerror(code)
 
-    @contextmanager
-    @_public
-    def monitor_completion_key(self):
-        key = next(self._completion_key_counter)
-        queue = _core.UnboundedQueue()
-        self._completion_key_queues[key] = queue
-        try:
-            yield (key, queue)
-        finally:
-            del self._completion_key_queues[key]
-
     async def _perform_overlapped(self, handle, submit_fn):
         # submit_fn(lpOverlapped) submits some I/O
         # it may raise an OSError with ERROR_IO_PENDING
         # the handle must already be registered using
         # register_with_iocp(handle)
+        # This always does a schedule point, but it's possible that the
+        # operation will not be cancellable, depending on how Windows is
+        # feeling today. So we need to check for cancellation manually.
+        await _core.checkpoint_if_cancelled()
         lpOverlapped = ffi.new("LPOVERLAPPED")
         print(f"submitting {reprO(lpOverlapped)}")
         try:
@@ -489,54 +605,6 @@ class WindowsIOManager:
                 raise
         await self.wait_overlapped(handle, lpOverlapped)
         return lpOverlapped
-
-    async def _afd_poll(self, sock, events, tasks):
-        base_handle = _get_base_socket(sock)
-        if base_handle in tasks:
-            raise _core.BusyResourceError
-        tasks[base_handle] = _core.current_task()
-
-        poll_info = ffi.new("AFD_POLL_INFO *")
-        poll_info.Timeout = 2**63 - 1  # INT64_MAX
-        poll_info.NumberOfHandles = 1
-        poll_info.Exclusive = 0
-        poll_info.Handles[0].Handle = base_handle
-        poll_info.Handles[0].Status = 0
-        poll_info.Handles[0].Events = events
-
-        def submit_afd_poll(lpOverlapped):
-            _check(
-                kernel32.DeviceIoControl(
-                    self._afd,
-                    IoControlCodes.IOCTL_AFD_POLL,
-                    poll_info,
-                    ffi.sizeof("AFD_POLL_INFO"),
-                    poll_info,
-                    ffi.sizeof("AFD_POLL_INFO"),
-                    ffi.NULL,
-                    lpOverlapped,
-                )
-            )
-
-        try:
-            await self._perform_overlapped(self._afd, submit_afd_poll)
-        finally:
-            del tasks[base_handle]
-
-        print("status", poll_info.Handles[0].Status)
-        print(repr(AFDPollFlags(poll_info.Handles[0].Events)))
-
-    @_public
-    async def wait_readable(self, sock):
-        print("wait_readable start")
-        await self._afd_poll(sock, READABLE_FLAGS, self._wait_readable_tasks)
-        print("wait_readable finish")
-
-    @_public
-    async def wait_writable(self, sock):
-        print("wait_writable start")
-        await self._afd_poll(sock, WRITABLE_FLAGS, self._wait_writable_tasks)
-        print("wait_writable finish")
 
     @_public
     async def write_overlapped(self, handle, data, file_offset=0):
@@ -563,21 +631,48 @@ class WindowsIOManager:
 
     @_public
     async def readinto_overlapped(self, handle, buffer, file_offset=0):
-        with ffi.from_buffer(buffer, require_writable=True) as cbuf:
+        print("readinto_overlapped start")
+        t = _core.current_task()
+        print(f"{t._cancel_points}, {t._schedule_points}")
+        try:
+            with ffi.from_buffer(buffer, require_writable=True) as cbuf:
 
-            def submit_read(lpOverlapped):
-                offset_fields = lpOverlapped.DUMMYUNIONNAME.DUMMYSTRUCTNAME
-                offset_fields.Offset = file_offset & 0xffffffff
-                offset_fields.OffsetHigh = file_offset >> 32
-                _check(
-                    kernel32.ReadFile(
-                        _handle(handle),
-                        ffi.cast("LPVOID", cbuf),
-                        len(cbuf),
-                        ffi.NULL,
-                        lpOverlapped,
+                def submit_read(lpOverlapped):
+                    offset_fields = lpOverlapped.DUMMYUNIONNAME.DUMMYSTRUCTNAME
+                    offset_fields.Offset = file_offset & 0xffffffff
+                    offset_fields.OffsetHigh = file_offset >> 32
+                    _check(
+                        kernel32.ReadFile(
+                            _handle(handle),
+                            ffi.cast("LPVOID", cbuf),
+                            len(cbuf),
+                            ffi.NULL,
+                            lpOverlapped,
+                        )
                     )
-                )
 
-            lpOverlapped = await self._perform_overlapped(handle, submit_read)
-            return lpOverlapped.InternalHigh
+                lpOverlapped = await self._perform_overlapped(handle, submit_read)
+                return lpOverlapped.InternalHigh
+        finally:
+            import sys
+            print("readinto_overlapped done", sys.exc_info())
+            print(f"{t._cancel_points}, {t._schedule_points}")
+
+    ################################################################
+    # Raw IOCP operations
+    ################################################################
+
+    @_public
+    def current_iocp(self):
+        return int(ffi.cast("uintptr_t", self._iocp))
+
+    @contextmanager
+    @_public
+    def monitor_completion_key(self):
+        key = next(self._completion_key_counter)
+        queue = _core.UnboundedQueue()
+        self._completion_key_queues[key] = queue
+        try:
+            yield (key, queue)
+        finally:
+            del self._completion_key_queues[key]
