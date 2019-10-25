@@ -273,3 +273,19 @@ async def test_socket_actual_streaming(
 
     assert results["send_a"] == results["recv_b"]
     assert results["send_b"] == results["recv_a"]
+
+
+async def test_notify_closing_on_invalid_object():
+    # It should either be a no-op (generally on Unix, where we don't know
+    # which fds are valid), or an OSError (on Windows, where we currently only
+    # support sockets, so we have to do some validation to figure out whether
+    # it's a socket or a regular handle).
+    got_oserror = False
+    got_no_error = False
+    try:
+        trio.hazmat.notify_closing(-1)
+    except OSError:
+        got_oserror = True
+    else:
+        got_no_error = True
+    assert got_oserror or got_no_error
