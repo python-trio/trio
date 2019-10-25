@@ -482,12 +482,14 @@ class WindowsIOManager:
         if waiters is not None:
             if waiters.read_task is not None:
                 _core.reschedule(
-                    waiters.read_task, outcome.Error(_core.ClosedResourceError())
+                    waiters.read_task,
+                    outcome.Error(_core.ClosedResourceError())
                 )
                 waiters.read_task = None
             if waiters.write_task is not None:
                 _core.reschedule(
-                    waiters.write_task, outcome.Error(_core.ClosedResourceError())
+                    waiters.write_task,
+                    outcome.Error(_core.ClosedResourceError())
                 )
                 waiters.write_task = None
             self._refresh_afd(handle)
