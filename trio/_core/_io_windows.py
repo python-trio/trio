@@ -90,11 +90,6 @@ class CKeys(enum.IntEnum):
     USER_DEFINED = 3  # and above
 
 
-def reprO(lpOverlapped):
-    return hex(int(ffi.cast("uintptr_t", lpOverlapped)))
-    #return repr(ffi.cast("void *", lpOverlapped))
-
-
 def _check(success):
     if not success:
         raise_winerror()
