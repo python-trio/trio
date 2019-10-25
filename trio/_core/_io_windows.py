@@ -293,9 +293,9 @@ class WindowsIOManager:
                 )
             )
         except OSError as exc:
-            if exc.winerror == ErrorCodes.WAIT_TIMEOUT:
-                return
-            raise
+            if exc.winerror != ErrorCodes.WAIT_TIMEOUT:  # pragma: no cover
+                raise
+            return
         for i in range(received[0]):
             entry = self._events[i]
             if entry.lpCompletionKey == CKeys.AFD_POLL:
@@ -400,7 +400,7 @@ class WindowsIOManager:
                     )
                 )
             except OSError as exc:
-                if exc.winerror != ErrorCodes.ERROR_NOT_FOUND:
+                if exc.winerror != ErrorCodes.ERROR_NOT_FOUND:  # pragma: no cover
                     raise
             waiters.current_op = None
 
@@ -437,7 +437,7 @@ class WindowsIOManager:
                     )
                 )
             except OSError as exc:
-                if exc.winerror != ErrorCodes.ERROR_IO_PENDING:
+                if exc.winerror != ErrorCodes.ERROR_IO_PENDING:  # pragma: no cover
                     raise
 
             op = AFDPollOp(lpOverlapped, poll_info, waiters)
