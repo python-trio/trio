@@ -45,6 +45,18 @@ jobs:
     #   64-bit: https://www.nuget.org/packages/python/
     #   32-bit: https://www.nuget.org/packages/pythonx86/
     matrix:
+      # The LSP tests can be super slow for some reason - like
+      # sometimes it just randomly takes 5 minutes to run the LSP
+      # installer. So we put them at the top, so they can get started
+      # earlier.
+      "with IFS LSP, Python 3.7, 64 bit":
+        python.version: '3.7.2'
+        python.pkg: 'python'
+        lsp: 'http://www.proxifier.com/download/ProxifierSetup.exe'
+      "with non-IFS LSP, Python 3.7, 64 bit":
+        python.version: '3.7.2'
+        python.pkg: 'python'
+        lsp: 'http://download.pctools.com/mirror/updates/9.0.0.2308-SDavfree-lite_en.exe'
       "Python 3.5, 32 bit":
         python.version: '3.5.4'
         python.pkg: 'pythonx86'
@@ -63,14 +75,6 @@ jobs:
       "Python 3.7, 64 bit":
         python.version: '3.7.2'
         python.pkg: 'python'
-      "with IFS LSP, Python 3.7, 64 bit":
-        python.version: '3.7.2'
-        python.pkg: 'python'
-        lsp: 'http://www.proxifier.com/download/ProxifierSetup.exe'
-      "with non-IFS LSP, Python 3.7, 64 bit":
-        python.version: '3.7.2'
-        python.pkg: 'python'
-        lsp: 'http://download.pctools.com/mirror/updates/9.0.0.2308-SDavfree-lite_en.exe'
 
   steps:
   - task: NuGetToolInstaller@0
