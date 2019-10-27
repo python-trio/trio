@@ -292,13 +292,16 @@ async def test_notify_closing_on_invalid_object():
 
 
 async def test_io_manager_statistics():
-    def check(stats, expected_readers, expected_writers):
-        if stats.backend in ["epoll", "windows"]:
-            assert stats.tasks_waiting_read == expected_readers
-            assert stats.tasks_waiting_write == expected_writers
+    def check(*, expected_readers, expected_writers):
+        statistics = _core.current_statistics()
+        print(statistics)
+        iostats = statistics.io_statistics
+        if iostats.backend in ["epoll", "windows"]:
+            assert iostats.tasks_waiting_read == expected_readers
+            assert iostats.tasks_waiting_write == expected_writers
         else:
-            stats.backend == "kqueue"
-            assert stats.tasks_waiting == expected_readers + expected_writers
+            assert iostats.backend == "kqueue"
+            assert iostats.tasks_waiting == expected_readers + expected_writers
 
     a1, b1 = stdlib_socket.socketpair()
     a2, b2 = stdlib_socket.socketpair()
@@ -309,10 +312,8 @@ async def test_io_manager_statistics():
         # let the call_soon_task settle down
         await wait_all_tasks_blocked()
 
-        statistics = _core.current_statistics()
-        print(statistics)
         # 1 for call_soon_task
-        check(statistics.io_statistics, 1, 0)
+        check(expected_readers=1, expected_writers=0)
 
         # We want:
         # - one socket with a writer blocked
@@ -329,9 +330,10 @@ async def test_io_manager_statistics():
 
             await wait_all_tasks_blocked()
 
-            statistics = _core.current_statistics()
-            print(statistics)
-            # 1 for call_soon_task
-            check(statistics.io_statistics, 4, 2)
+            # +1 for call_soon_task
+            check(expected_readers=3 + 1, expected_writers=2)
 
             nursery.cancel_scope.cancel()
+
+        # 1 for call_soon_task
+        check(expected_readers=1, expected_writers=0)
