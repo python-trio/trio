@@ -1,6 +1,7 @@
 import itertools
 from contextlib import contextmanager
 import enum
+import socket
 
 import outcome
 import attr
@@ -175,14 +176,14 @@ def _check(success):
     return success
 
 
-def _get_base_socket(sock):
+def _get_base_socket(sock, *, which=WSAIoctls.SIO_BASE_HANDLE):
     if hasattr(sock, "fileno"):
         sock = sock.fileno()
     base_ptr = ffi.new("HANDLE *")
     out_size = ffi.new("DWORD *")
     failed = ws2_32.WSAIoctl(
         ffi.cast("SOCKET", sock),
-        WSAIoctls.SIO_BASE_HANDLE,
+        which,
         ffi.NULL,
         0,
         base_ptr,
@@ -332,6 +333,23 @@ class WindowsIOManager:
 
         self._completion_key_queues = {}
         self._completion_key_counter = itertools.count(CKeys.USER_DEFINED)
+
+        with socket.socket() as s:
+            # LSPs can't override this.
+            base_handle = _get_base_socket(s, which=WSAIoctls.SIO_BASE_HANDLE)
+            # LSPs can in theory override this, but we believe that it never
+            # actually happens in the wild.
+            select_handle = _get_base_socket(
+                s, which=WSAIoctls.SIO_BSP_HANDLE_SELECT
+            )
+            if base_handle != select_handle:  # pragma: no cover
+                raise RuntimeError(
+                    "Unexpected network configuration detected. "
+                    "Please file a bug at "
+                    "https://github.com/python-trio/trio/issues/new, "
+                    "and include the output of running: "
+                    "netsh winsock show catalog"
+                )
 
     def close(self):
         try:

@@ -286,6 +286,7 @@ class AFDPollFlags(IntFlag):
 
 class WSAIoctls(enum.IntEnum):
     SIO_BASE_HANDLE = 0x48000022
+    SIO_BSP_HANDLE_SELECT = 0x4800001C
 
 
 class CompletionModes(IntFlag):
