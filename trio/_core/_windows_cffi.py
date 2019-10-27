@@ -264,16 +264,24 @@ class FileFlags(enum.IntEnum):
     TRUNCATE_EXISTING = 5
 
 
-# https://github.com/piscisaureus/wepoll/blob/master/src/afd.h
 class AFDPollFlags(IntFlag):
+    # These are drawn from a combination of:
+    #   https://github.com/piscisaureus/wepoll/blob/master/src/afd.h
+    #   https://github.com/reactos/reactos/blob/master/sdk/include/reactos/drivers/afd/shared.h
     AFD_POLL_RECEIVE = 0x0001
-    AFD_POLL_RECEIVE_EXPEDITED = 0x0002
+    AFD_POLL_RECEIVE_EXPEDITED = 0x0002  # OOB/urgent data
     AFD_POLL_SEND = 0x0004
-    AFD_POLL_DISCONNECT = 0x0008
-    AFD_POLL_ABORT = 0x0010
-    AFD_POLL_LOCAL_CLOSE = 0x0020
-    AFD_POLL_ACCEPT = 0x0080
-    AFD_POLL_CONNECT_FAIL = 0x0100
+    AFD_POLL_DISCONNECT = 0x0008  # received EOF (FIN)
+    AFD_POLL_ABORT = 0x0010  # received RST
+    AFD_POLL_LOCAL_CLOSE = 0x0020  # local socket object closed
+    AFD_POLL_CONNECT = 0x0040  # socket is successfully connected
+    AFD_POLL_ACCEPT = 0x0080  # you can call accept on this socket
+    AFD_POLL_CONNECT_FAIL = 0x0100  # connect() terminated unsuccessfully
+    # See WSAEventSelect docs for more details on these four:
+    AFD_POLL_QOS = 0x0200
+    AFD_POLL_GROUP_QOS = 0x0400
+    AFD_POLL_ROUTING_INTERFACE_CHANGE = 0x0800
+    AFD_POLL_EVENT_ADDRESS_LIST_CHANGE = 0x1000
 
 
 class WSAIoctls(enum.IntEnum):
