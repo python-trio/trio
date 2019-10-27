@@ -233,24 +233,30 @@ def _afd_helper_handle():
 # AFD_POLL has a finer-grained set of events than other APIs. We collapse them
 # down into Unix-style "readable" and "writable".
 #
-# There's also a AFD_POLL_LOCAL_CLOSE that we could wait on, to potentially
-# catch some cases where someone forgot to call notify_closing. But it's not
-# reliable – e.g. if the socket has been dup'ed, then closing one of the
-# handles doesn't trigger the event – and it's not available on Unix-like
-# platforms. So it seems like including it here would be more likely to mask
-# subtle bugs than to actually help anything.
+# Note: AFD_POLL_LOCAL_CLOSE isn't a reliable substitute for notify_closing(),
+# because even if the user closes the socket *handle*, the socket *object*
+# could still remain open, e.g. if the socket was dup'ed (possibly into
+# another process). Explicitly calling notify_closing() guarantees that
+# everyone waiting on the *handle* wakes up, which is what you'd expect.
+#
+# However, we can't avoid getting LOCAL_CLOSE notifications -- the kernel
+# delivers them whether we ask for them or not -- so better to include them
+# here for documentation, and so that when we check (delivered & requested) we
+# get a match.
 
 READABLE_FLAGS = (
     AFDPollFlags.AFD_POLL_RECEIVE
     | AFDPollFlags.AFD_POLL_ACCEPT
     | AFDPollFlags.AFD_POLL_DISCONNECT  # other side sent an EOF
     | AFDPollFlags.AFD_POLL_ABORT
+    | AFDPollFlags.AFD_POLL_LOCAL_CLOSE
 )
 
 WRITABLE_FLAGS = (
     AFDPollFlags.AFD_POLL_SEND
     | AFDPollFlags.AFD_POLL_CONNECT_FAIL
     | AFDPollFlags.AFD_POLL_ABORT
+    | AFDPollFlags.AFD_POLL_LOCAL_CLOSE
 )
 
 
