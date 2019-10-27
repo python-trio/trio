@@ -3,6 +3,7 @@ import pytest
 import socket as stdlib_socket
 import select
 import random
+import errno
 
 from ... import _core
 from ...testing import wait_all_tasks_blocked, Sequencer, assert_checkpoints
@@ -289,6 +290,20 @@ async def test_notify_closing_on_invalid_object():
     else:
         got_no_error = True
     assert got_oserror or got_no_error
+
+
+async def test_wait_on_invalid_object():
+    # We definitely want to raise an error everywhere if you pass in an
+    # invalid fd to wait_*
+    for wait in [trio.hazmat.wait_readable, trio.hazmat.wait_writable]:
+        with stdlib_socket.socket() as s:
+            fileno = s.fileno()
+        # We just closed the socket and don't do anything else in between, so
+        # we can be confident that the fileno hasn't be reassigned.
+        with pytest.raises(OSError) as excinfo:
+            await wait(fileno)
+        exc = excinfo.value
+        assert exc.errno == errno.EBADF or exc.winerror == errno.ENOTSOCK
 
 
 async def test_io_manager_statistics():
