@@ -32,57 +32,136 @@ from ._windows_cffi import (
 # for discussion. This now just has some lower-level notes:
 #
 # How IOCP fits together:
-# - each notification event (OVERLAPPED_ENTRY) contains:
-#   - the "completion key" (an integer)
-#   - pointer to OVERLAPPED
-#   - dwNumberOfBytesTransferred
-# - and in addition, for regular I/O, the OVERLAPPED structure gets filled in
-#   with:
-#   - result code (named "Internal")
-#   - number of bytes transferred (named "InternalHigh"); redundant with
-#     dwNumberOfBytesTransferred *if* this is a regular I/O event.
+#
+# The general model is that you call some function like ReadFile or WriteFile
+# to tell the kernel that you want it to perform some operation, and the
+# kernel goes off and does that in the background, then at some point later it
+# sends you a notification that the operation is complete. There are some more
+# exotic APIs that don't quite fit this pattern, but most APIs do.
+#
+# Each background operation is tracked using an OVERLAPPED struct, that
+# uniquely identifies that particular operation.
+#
+# An "IOCP" (or "I/O completion port") is an object that lets the kernel send
+# us these notifications -- basically it's just a kernel->userspace queue.
+#
+# Each IOCP notification is represented by an OVERLAPPED_ENTRY struct, which
+# contains 3 fields:
+# - The "completion key". This is an opaque integer that we pick, and use
+#   however is convenient.
+# - pointer to the OVERLAPPED struct for the completed operation.
+# - dwNumberOfBytesTransferred (an integer).
+#
+# And in addition, for regular I/O, the OVERLAPPED structure gets filled in
+# with:
+# - result code (named "Internal")
+# - number of bytes transferred (named "InternalHigh"); usually redundant
+#   with dwNumberOfBytesTransferred.
 #
 # There are also some other entries in OVERLAPPED which only matter on input:
 # - Offset and OffsetHigh which are inputs to {Read,Write}File and
 #   otherwise always zero
 # - hEvent which is for if you aren't using IOCP; we always set it to zero.
 #
-# PostQueuedCompletionStatus: lets you set the 3 magic scalars to whatever you
-# want.
+# That describes the usual pattern for operations and the usual meaning of
+# these struct fields, but really these are just some arbitrary chunks of
+# bytes that get passed back and forth, so some operations like to overload
+# them to mean something else.
 #
-# Regular I/O events: these are identified by the pointer-to-OVERLAPPED. The
-# "completion key" is a property of a particular handle being operated on that
-# is set when associating the handle with the IOCP. We don't use it, so should
-# always set it to zero.
+# You can also directly queue an OVERLAPPED_ENTRY object to an IOCP by calling
+# PostQueuedCompletionStatus. When you use this you get to set all the
+# OVERLAPPED_ENTRY fields to arbitrary values.
 #
-# Socket state notifications: the public APIs that windows provides for this
-# are all really awkward and don't integrate with IOCP. So we drop down to a
-# lower level, and talk directly to the socket device driver in the kernel,
-# which is called "AFD". The magic IOCTL_AFD_POLL operation lets us request a
-# regular IOCP notification when a given socket enters a given state, which is
-# exactly what we want. Unfortunately, this is a totally undocumented internal
-# API. Fortunately libuv also does this, so we can be pretty confident that MS
-# won't break it on us, and there is a *little* bit of information out there
-# if you go digging.
+# You can request to cancel any operation if you know which handle it was
+# issued on + the OVERLAPPED struct that identifies it (via CancelIoEx). This
+# request might fail because the operation has already completed, or it might
+# be queued to happen in the background, so you only find out whether it
+# succeeded or failed later, when we get back the notification for the
+# operation being complete.
 #
-# Job notifications: effectively uses PostQueuedCompletionStatus, the
-# "completion key" is used to identify which job we're talking about, and the
-# other two scalars are overloaded to contain arbitrary data.
+# There are three types of operations that we support:
 #
-# So our strategy is:
-# - when binding handles to the IOCP, we always set the completion key to 0.
-#   when dispatching received events, when the completion key is 0 we dispatch
-#   based on lpOverlapped
-# - when we try to cancel an I/O operation and the cancellation fails,
-#   we post a completion with completion key 1; if this arrives before the
-#   real completion (with completion key 0) we assume the user forgot to
-#   call register_with_iocp on their handle, and raise an error accordingly
-#   (without this logic we'd hang forever uninterruptibly waiting for the
-#   completion that never arrives)
-# - other completion keys are available for user use
+# == Regular I/O operations on handles (e.g. files or named pipes) ==
+#
+# Implemented by: register_with_iocp, wait_overlapped
+#
+# To use these, you have to register the handle with your IOCP first. Once
+# it's registered, any operations on that handle will automatically send
+# completion events to that IOCP, with a completion key that you specify *when
+# the handle is registered* (so you can't use different completion keys for
+# different operations).
+#
+# We give these two dedicated completion keys: CKeys.WAIT_OVERLAPPED for
+# regular operations, and CKeys.LATE_CANCEL that's used to make
+# wait_overlapped cancellable even if the user forgot to call
+# register_with_iocp. The problem here is that after we request the cancel,
+# wait_overlapped keeps blocking until it sees the completion notification...
+# but if the user forgot to register_with_iocp, then the completion will never
+# come, so the cancellation will never resolve. To avoid this, whenever we try
+# to cancel an I/O operation and the cancellation fails, we use
+# PostQueuedCompletionStatus to send a CKeys.LATE_CANCEL notification. If this
+# arrives before the real completion, we assume the user forgot to call
+# register_with_iocp on their handle, and raise an error accordingly.
+#
+# == Socket state notifications ==
+#
+# Implemented by: wait_readable, wait_writable
+#
+# The public APIs that windows provides for this are all really awkward and
+# don't integrate with IOCP. So we drop down to a lower level, and talk
+# directly to the socket device driver in the kernel, which is called "AFD".
+# Unfortunately, this is a totally undocumented internal API. Fortunately
+# libuv also does this, so we can be pretty confident that MS won't break it
+# on us, and there is a *little* bit of information out there if you go
+# digging.
+#
+# Basically: we open a magic file that refers to the AFD driver, register the
+# magic file with our IOCP, and then we can issue regular overlapped I/O
+# operations on that handle. Specifically, the operation we use is called
+# IOCTL_AFD_POLL, which lets us pass in a buffer describing which events we're
+# interested in on a given socket (readable, writable, etc.). Later, when the
+# operation completes, the kernel rewrites the buffer we passed in to record
+# which events happened, and uses IOCP as normal to notify us that this
+# operation has completed.
+#
+# There's some trickiness required to handle multiple tasks that are waiting
+# on the same socket simultaneously, so instead of using the wait_overlapped
+# machinery, we have some dedicated code to handle these operations, and a
+# dedicated completion key CKeys.AFD_POLL.
+#
+# Sources of information:
+# - https://github.com/python-trio/trio/issues/52
+# - Wepoll: https://github.com/piscisaureus/wepoll/
+# - libuv: https://github.com/libuv/libuv/
+# - ReactOS: https://github.com/reactos/reactos/
+# - Ancient leaked copies of the Windows NT and Winsock source code:
+#   https://github.com/pustladi/Windows-2000/blob/661d000d50637ed6fab2329d30e31775046588a9/private/net/sockets/winsock2/wsp/msafd/select.c#L59-L655
+#   https://github.com/metoo10987/WinNT4/blob/f5c14e6b42c8f45c20fe88d14c61f9d6e0386b8e/private/ntos/afd/poll.c#L68-L707
+# - The WSAEventSelect docs (this exposes a finer-grained set of events than
+#   select())
+#
+#
+# == Everything else ==
+#
+# There are also some weirder APIs for interacting with IOCP. For example, the
+# "Job" API lets you specify an IOCP handle and "completion key", and then in
+# the future whenever certain events happen it sends uses IOCP to send a
+# notification. These notifications don't correspond to any particular
+# operation; they're just spontaneous messages you get. The
+# "dwNumberOfBytesTransferred" field gets repurposed to carry an identifier
+# for the message type (e.g. JOB_OBJECT_MSG_EXIT_PROCESS), and the
+# "lpOverlapped" field gets repurposed to carry some arbitrary data that
+# depends on the message type (e.g. the pid of the process that exited).
+#
+# To handle these, we have monitor_completion_key, where we hand out an
+# unassigned completion key, let users set it up however they want, and then
+# get any events that arrive on that key.
+#
+# (Note: monitor_completion_key is not documented or fully baked; expect it to
+# change in the future.)
 
 
-# The completion keys we use
+# Our completion keys
 class CKeys(enum.IntEnum):
     AFD_POLL = 0
     WAIT_OVERLAPPED = 1
@@ -129,6 +208,10 @@ def _afd_helper_handle():
     # References:
     #   https://blogs.msdn.microsoft.com/jeremykuhne/2016/05/02/dos-to-nt-a-paths-journey/
     #   https://stackoverflow.com/a/21704022
+    #
+    # I'm actually not sure what the \Trio part at the end of the path does.
+    # Wepoll uses \Device\Afd\Wepoll, so I just copied them. (I'm guessing it
+    # might be visible in some debug tools, and is otherwise arbitrary?)
     rawname = r"\\.\GLOBALROOT\Device\Afd\Trio".encode("utf-16le") + b"\0\0"
     rawname_buf = ffi.from_buffer(rawname)
 
@@ -518,17 +601,15 @@ class WindowsIOManager:
             except OSError as exc:
                 if exc.winerror == ErrorCodes.ERROR_NOT_FOUND:
                     # Too late to cancel. If this happens because the
-                    # operation is already completed, we don't need to
-                    # do anything; presumably the IOCP thread will be
-                    # reporting back about that completion soon. But
-                    # another possibility is that the operation was
-                    # performed on a handle that wasn't registered
-                    # with our IOCP (ie, the user forgot to call
-                    # register_with_iocp), in which case we're just
-                    # never going to see the completion. To avoid an
-                    # uncancellable infinite sleep in the latter case,
-                    # we'll PostQueuedCompletionStatus here, and if
-                    # our post arrives before the original completion
+                    # operation is already completed, we don't need to do
+                    # anything; we'll get a notification of that completion
+                    # soon. But another possibility is that the operation was
+                    # performed on a handle that wasn't registered with our
+                    # IOCP (ie, the user forgot to call register_with_iocp),
+                    # in which case we're just never going to see the
+                    # completion. To avoid an uncancellable infinite sleep in
+                    # the latter case, we'll PostQueuedCompletionStatus here,
+                    # and if our post arrives before the original completion
                     # does, we'll assume the handle wasn't registered.
                     _check(
                         kernel32.PostQueuedCompletionStatus(
