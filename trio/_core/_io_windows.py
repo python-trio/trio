@@ -125,9 +125,12 @@ from ._windows_cffi import (
 # which events happened, and uses IOCP as normal to notify us that this
 # operation has completed.
 #
-# There's some trickiness required to handle multiple tasks that are waiting
-# on the same socket simultaneously, so instead of using the wait_overlapped
-# machinery, we have some dedicated code to handle these operations, and a
+# Unfortunately, the Windows kernel seems to have bugs if you try to issue
+# multiple simultaneous IOCTL_AFD_POLL operations on the same socket (see
+# notes-to-self/afd-lab.py). So if a user calls wait_readable and
+# wait_writable at the same time, we have to combine those into a single
+# IOCTL_AFD_POLL. This means we can't just use the wait_overlapped machinery.
+# Instead we have some dedicated code to handle these operations, and a
 # dedicated completion key CKeys.AFD_POLL.
 #
 # Sources of information:
@@ -139,7 +142,8 @@ from ._windows_cffi import (
 #   https://github.com/pustladi/Windows-2000/blob/661d000d50637ed6fab2329d30e31775046588a9/private/net/sockets/winsock2/wsp/msafd/select.c#L59-L655
 #   https://github.com/metoo10987/WinNT4/blob/f5c14e6b42c8f45c20fe88d14c61f9d6e0386b8e/private/ntos/afd/poll.c#L68-L707
 # - The WSAEventSelect docs (this exposes a finer-grained set of events than
-#   select())
+#   select(), so if you squint you can treat it as a source of information on
+#   the fine-grained AFD poll types)
 #
 #
 # == Everything else ==

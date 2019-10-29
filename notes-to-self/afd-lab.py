@@ -14,6 +14,9 @@
 #
 # ...then the SEND poll operation completes with the RECEIVE flag set.
 #
+# (This bug is why our Windows backend jumps through hoops to avoid ever
+# issuing multiple polls simultaneously for the same socket.)
+#
 # This script's output on my machine:
 #
 # -- Iteration start --
