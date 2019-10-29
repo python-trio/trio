@@ -4,8 +4,8 @@ is generally the best way to implement async I/O operations – but it's
 historically been weak at providing ``select``\-style readiness
 notifications, like `trio.hazmat.wait_readable` and
 `~trio.hazmat.wait_writable`. We aren't willing to give those up, so
-Trio's Windows backend used to use a hybrid of ``select`` + IOCP. This
-was complex, slow, and had `limited scalability
+previously Trio's Windows backend used a hybrid of ``select`` + IOCP.
+This was complex, slow, and had `limited scalability
 <https://github.com/python-trio/trio/issues/3>`__.
 
 Fortunately, we found a way to implement ``wait_*`` with IOCP, so
