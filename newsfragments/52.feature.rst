@@ -11,6 +11,9 @@ This was complex, slow, and had `limited scalability
 Fortunately, we found a way to implement ``wait_*`` with IOCP, so
 Trio's Windows backend has been completely rewritten, and now uses
 IOCP exclusively. As a user, the only difference you should notice is
-that Trio should now be faster and more scalable on Windows. This also
-simplified the code internally, which should allow for more
-improvements in the future.
+that Trio should now be faster on Windows, and can handle many more
+sockets. This also simplified the code internally, which should allow
+for more improvements in the future.
+
+However, this is somewhat experimental, so if you use Windows then
+please keep an eye out and let us know if you run into any problems!
