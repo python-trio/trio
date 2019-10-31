@@ -1,6 +1,14 @@
 import cffi
 import re
 import enum
+try:
+    from enum import IntFlag
+except ImportError:  # python 3.5
+    from enum import IntEnum as IntFlag
+
+################################################################
+# Functions and types
+################################################################
 
 LIB = """
 // https://msdn.microsoft.com/en-us/library/windows/desktop/aa383751(v=vs.85).aspx
@@ -55,6 +63,11 @@ HANDLE WINAPI CreateIoCompletionPort(
   _In_opt_ HANDLE    ExistingCompletionPort,
   _In_     ULONG_PTR CompletionKey,
   _In_     DWORD     NumberOfConcurrentThreads
+);
+
+BOOL SetFileCompletionNotificationModes(
+  HANDLE FileHandle,
+  UCHAR  Flags
 );
 
 HANDLE CreateFileW(
@@ -144,6 +157,51 @@ ULONG RtlNtStatusToDosError(
   NTSTATUS Status
 );
 
+int WSAIoctl(
+  SOCKET                             s,
+  DWORD                              dwIoControlCode,
+  LPVOID                             lpvInBuffer,
+  DWORD                              cbInBuffer,
+  LPVOID                             lpvOutBuffer,
+  DWORD                              cbOutBuffer,
+  LPDWORD                            lpcbBytesReturned,
+  LPWSAOVERLAPPED                    lpOverlapped,
+  // actually LPWSAOVERLAPPED_COMPLETION_ROUTINE
+  void* lpCompletionRoutine
+);
+
+int WSAGetLastError();
+
+BOOL DeviceIoControl(
+  HANDLE       hDevice,
+  DWORD        dwIoControlCode,
+  LPVOID       lpInBuffer,
+  DWORD        nInBufferSize,
+  LPVOID       lpOutBuffer,
+  DWORD        nOutBufferSize,
+  LPDWORD      lpBytesReturned,
+  LPOVERLAPPED lpOverlapped
+);
+
+// From https://github.com/piscisaureus/wepoll/blob/master/src/afd.h
+typedef struct _AFD_POLL_HANDLE_INFO {
+  HANDLE Handle;
+  ULONG Events;
+  NTSTATUS Status;
+} AFD_POLL_HANDLE_INFO, *PAFD_POLL_HANDLE_INFO;
+
+// This is really defined as a messy union to allow stuff like
+// i.DUMMYSTRUCTNAME.LowPart, but we don't need those complications.
+// Under all that it's just an int64.
+typedef int64_t LARGE_INTEGER;
+
+typedef struct _AFD_POLL_INFO {
+  LARGE_INTEGER Timeout;
+  ULONG NumberOfHandles;
+  ULONG Exclusive;
+  AFD_POLL_HANDLE_INFO Handles[1];
+} AFD_POLL_INFO, *PAFD_POLL_INFO;
+
 """
 
 # cribbed from pywincffi
@@ -165,8 +223,84 @@ ffi.cdef(LIB)
 
 kernel32 = ffi.dlopen("kernel32.dll")
 ntdll = ffi.dlopen("ntdll.dll")
+ws2_32 = ffi.dlopen("ws2_32.dll")
+
+################################################################
+# Magic numbers
+################################################################
+
+# Here's a great resource for looking these up:
+#   https://www.magnumdb.com
+# (Tip: check the box to see "Hex value")
 
 INVALID_HANDLE_VALUE = ffi.cast("HANDLE", -1)
+
+
+class ErrorCodes(enum.IntEnum):
+    STATUS_TIMEOUT = 0x102
+    WAIT_TIMEOUT = 0x102
+    WAIT_ABANDONED = 0x80
+    WAIT_OBJECT_0 = 0x00  # object is signaled
+    WAIT_FAILED = 0xFFFFFFFF
+    ERROR_IO_PENDING = 997
+    ERROR_OPERATION_ABORTED = 995
+    ERROR_ABANDONED_WAIT_0 = 735
+    ERROR_INVALID_HANDLE = 6
+    ERROR_INVALID_PARMETER = 87
+    ERROR_NOT_FOUND = 1168
+
+
+class FileFlags(enum.IntEnum):
+    GENERIC_READ = 0x80000000
+    SYNCHRONIZE = 0x00100000
+    FILE_FLAG_OVERLAPPED = 0x40000000
+    FILE_SHARE_READ = 1
+    FILE_SHARE_WRITE = 2
+    FILE_SHARE_DELETE = 4
+    CREATE_NEW = 1
+    CREATE_ALWAYS = 2
+    OPEN_EXISTING = 3
+    OPEN_ALWAYS = 4
+    TRUNCATE_EXISTING = 5
+
+
+class AFDPollFlags(IntFlag):
+    # These are drawn from a combination of:
+    #   https://github.com/piscisaureus/wepoll/blob/master/src/afd.h
+    #   https://github.com/reactos/reactos/blob/master/sdk/include/reactos/drivers/afd/shared.h
+    AFD_POLL_RECEIVE = 0x0001
+    AFD_POLL_RECEIVE_EXPEDITED = 0x0002  # OOB/urgent data
+    AFD_POLL_SEND = 0x0004
+    AFD_POLL_DISCONNECT = 0x0008  # received EOF (FIN)
+    AFD_POLL_ABORT = 0x0010  # received RST
+    AFD_POLL_LOCAL_CLOSE = 0x0020  # local socket object closed
+    AFD_POLL_CONNECT = 0x0040  # socket is successfully connected
+    AFD_POLL_ACCEPT = 0x0080  # you can call accept on this socket
+    AFD_POLL_CONNECT_FAIL = 0x0100  # connect() terminated unsuccessfully
+    # See WSAEventSelect docs for more details on these four:
+    AFD_POLL_QOS = 0x0200
+    AFD_POLL_GROUP_QOS = 0x0400
+    AFD_POLL_ROUTING_INTERFACE_CHANGE = 0x0800
+    AFD_POLL_EVENT_ADDRESS_LIST_CHANGE = 0x1000
+
+
+class WSAIoctls(enum.IntEnum):
+    SIO_BASE_HANDLE = 0x48000022
+    SIO_BSP_HANDLE_SELECT = 0x4800001C
+
+
+class CompletionModes(IntFlag):
+    FILE_SKIP_COMPLETION_PORT_ON_SUCCESS = 0x1
+    FILE_SKIP_SET_EVENT_ON_HANDLE = 0x2
+
+
+class IoControlCodes(enum.IntEnum):
+    IOCTL_AFD_POLL = 0x00012024
+
+
+################################################################
+# Generic helpers
+################################################################
 
 
 def _handle(obj):
@@ -187,33 +321,5 @@ def raise_winerror(winerror=None, *, filename=None, filename2=None):
         winerror, msg = ffi.getwinerror()
     else:
         _, msg = ffi.getwinerror(winerror)
-    # See:
-    # https://docs.python.org/3/library/exceptions.html#exceptions.WindowsError
+    # https://docs.python.org/3/library/exceptions.html#OSError
     raise OSError(0, msg, filename, winerror, filename2)
-
-
-class ErrorCodes(enum.IntEnum):
-    STATUS_TIMEOUT = 0x102
-    WAIT_TIMEOUT = 0x102
-    WAIT_ABANDONED = 0x80
-    WAIT_OBJECT_0 = 0x00  # object is signaled
-    WAIT_FAILED = 0xFFFFFFFF
-    ERROR_IO_PENDING = 997
-    ERROR_OPERATION_ABORTED = 995
-    ERROR_ABANDONED_WAIT_0 = 735
-    ERROR_INVALID_HANDLE = 6
-    ERROR_INVALID_PARMETER = 87
-    ERROR_NOT_FOUND = 1168
-
-
-class FileFlags(enum.IntEnum):
-    GENERIC_READ = 0x80000000
-    FILE_FLAG_OVERLAPPED = 0x40000000
-    FILE_SHARE_READ = 1
-    FILE_SHARE_WRITE = 2
-    FILE_SHARE_DELETE = 4
-    CREATE_NEW = 1
-    CREATE_ALWAYS = 2
-    OPEN_EXISTING = 3
-    OPEN_ALWAYS = 4
-    TRUNCATE_EXISTING = 5

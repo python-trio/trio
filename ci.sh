@@ -12,6 +12,11 @@ else
     CODECOV_NAME="${TRAVIS_OS_NAME}-${TRAVIS_PYTHON_VERSION:-unknown}"
 fi
 
+# We always want to retry on failure, and we have to set --connect-timeout to
+# work around a curl bug:
+#   https://github.com/curl/curl/issues/4461
+CURL="curl --connect-timeout 5 --retry 5"
+
 ################################################################
 # Bootstrap python environment, if necessary
 ################################################################
@@ -47,12 +52,12 @@ fi
 
 if [ "$TRAVIS_OS_NAME" = "osx" ]; then
     CODECOV_NAME="osx_${MACPYTHON}"
-    curl -Lo macpython.pkg https://www.python.org/ftp/python/${MACPYTHON}/python-${MACPYTHON}-macosx10.6.pkg
+    $CURL -Lo macpython.pkg https://www.python.org/ftp/python/${MACPYTHON}/python-${MACPYTHON}-macosx10.6.pkg
     sudo installer -pkg macpython.pkg -target /
     ls /Library/Frameworks/Python.framework/Versions/*/bin/
     PYTHON_EXE=/Library/Frameworks/Python.framework/Versions/*/bin/python3
     # The pip in older MacPython releases doesn't support a new enough TLS
-    curl https://bootstrap.pypa.io/get-pip.py | sudo $PYTHON_EXE
+    $CURL https://bootstrap.pypa.io/get-pip.py | sudo $PYTHON_EXE
     sudo $PYTHON_EXE -m pip install virtualenv
     $PYTHON_EXE -m virtualenv testenv
     source testenv/bin/activate
@@ -62,7 +67,7 @@ fi
 
 if [ "$PYPY_NIGHTLY_BRANCH" != "" ]; then
     CODECOV_NAME="pypy_nightly_${PYPY_NIGHTLY_BRANCH}"
-    curl -fLo pypy.tar.bz2 http://buildbot.pypy.org/nightly/${PYPY_NIGHTLY_BRANCH}/pypy-c-jit-latest-linux64.tar.bz2
+    $CURL -fLo pypy.tar.bz2 http://buildbot.pypy.org/nightly/${PYPY_NIGHTLY_BRANCH}/pypy-c-jit-latest-linux64.tar.bz2
     if [ ! -s pypy.tar.bz2 ]; then
         # We know:
         # - curl succeeded (200 response code; -f means "exit with error if
@@ -115,12 +120,40 @@ else
     # Actual tests
     python -m pip install -r test-requirements.txt
 
+    # If we're testing with a LSP installed, then it might break network
+    # stuff, so wait until after we've finished setting everything else
+    # up.
+    if [ "$LSP" != "" ]; then
+        echo "Installing LSP from ${LSP}"
+        $CURL -o lsp-installer.exe "$LSP"
+        # Double-slashes are how you tell windows-bash that you want a single
+        # slash, and don't treat this as a unix-style filename that needs to
+        # be replaced by a windows-style filename.
+        # http://www.mingw.org/wiki/Posix_path_conversion
+        ./lsp-installer.exe //silent //norestart
+        echo "Waiting for LSP to appear in Winsock catalog"
+        while ! netsh winsock show catalog | grep "Layered Chain Entry"; do
+            sleep 1
+        done
+        netsh winsock show catalog
+    fi
+
     mkdir empty
     cd empty
 
     INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
     cp ../setup.cfg $INSTALLDIR
-    pytest -W error -r a --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --cov="$INSTALLDIR" --cov-config=../.coveragerc --verbose
+    if pytest -W error -r a --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --cov="$INSTALLDIR" --cov-config=../.coveragerc --verbose; then
+        PASSED=true
+    else
+        PASSED=false
+    fi
+
+    # Remove the LSP again; again we want to do this ASAP to avoid
+    # accidentally breaking other stuff.
+    if [ "$LSP" != "" ]; then
+        netsh winsock reset
+    fi
 
     # Disable coverage on 3.8 until we run 3.8 on Windows CI too
     #   https://github.com/python-trio/trio/pull/784#issuecomment-446438407
@@ -143,9 +176,9 @@ else
         #   bash <(curl ...)
         # but azure is broken:
         #   https://developercommunity.visualstudio.com/content/problem/743824/bash-task-on-windows-suddenly-fails-with-bash-devf.html
-        # Also we have to set --connect-timeout to work around:
-        #   https://github.com/curl/curl/issues/4461
-        curl --connect-timeout 5 --retry 5 -o codecov.sh https://codecov.io/bash
+        $CURL -o codecov.sh https://codecov.io/bash
         bash codecov.sh -n "${CODECOV_NAME}" -F "$FLAG"
     fi
+
+    $PASSED
 fi

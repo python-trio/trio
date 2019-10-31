@@ -1,0 +1,19 @@
+On Windows, the `IOCP subsystem
+<https://docs.microsoft.com/en-us/windows/win32/fileio/i-o-completion-ports>`__
+is generally the best way to implement async I/O operations – but it's
+historically been weak at providing ``select``\-style readiness
+notifications, like `trio.hazmat.wait_readable` and
+`~trio.hazmat.wait_writable`. We aren't willing to give those up, so
+previously Trio's Windows backend used a hybrid of ``select`` + IOCP.
+This was complex, slow, and had `limited scalability
+<https://github.com/python-trio/trio/issues/3>`__.
+
+Fortunately, we found a way to implement ``wait_*`` with IOCP, so
+Trio's Windows backend has been completely rewritten, and now uses
+IOCP exclusively. As a user, the only difference you should notice is
+that Trio should now be faster on Windows, and can handle many more
+sockets. This also simplified the code internally, which should allow
+for more improvements in the future.
+
+However, this is somewhat experimental, so if you use Windows then
+please keep an eye out and let us know if you run into any problems!

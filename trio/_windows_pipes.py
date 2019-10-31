@@ -115,6 +115,12 @@ class PipeReceiveStream(ReceiveStream):
                 # whenever the other end closes, regardless of direction.
                 # Convert this to the Unix behavior of returning EOF to the
                 # reader when the writer closes.
+                #
+                # And since we're not raising an exception, we have to
+                # checkpoint. But readinto_overlapped did raise an exception,
+                # so it might not have checkpointed for us. So we have to
+                # checkpoint manually.
+                await _core.checkpoint()
                 return b""
             else:
                 del buffer[size:]
