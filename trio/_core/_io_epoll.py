@@ -118,6 +118,11 @@ class EpollIOManager:
 
     @_public
     async def wait_readable(self, fd):
+        """ Non blocking wrapper around epoll wait reads.
+
+        Args:
+          fd: epoll file descriptor
+        """
         await self._epoll_wait(fd, "read_task")
 
     @_public
