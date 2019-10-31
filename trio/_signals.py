@@ -139,14 +139,14 @@ def open_signal_receiver(*signals):
 
     Example:
 
-      A common convention for Unix daemons is that they should reload their
-      configuration when they receive a ``SIGHUP``. Here's a sketch of what
-      that might look like using :func:`open_signal_receiver`::
+      In order to terminate a program the ``SIGTERM`` signal, which is also supported on 
+      windows, can be send. Here's a sketch of what that might look like using
+      :func:`open_signal_receiver`::
 
-         with trio.open_signal_receiver(signal.SIGHUP) as signal_aiter:
+         with trio.open_signal_receiver(signal.SIGHTERM) as signal_aiter:
              async for signum in signal_aiter:
-                 assert signum == signal.SIGHUP
-                 reload_configuration()
+                 assert signum == signal.SIGTERM
+                 request_termination()
 
     """
     if not is_main_thread():
