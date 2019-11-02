@@ -5,6 +5,65 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.13.0 (2019-11-02)
+------------------------
+
+Features
+~~~~~~~~
+
+- On Windows, the `IOCP subsystem
+  <https://docs.microsoft.com/en-us/windows/win32/fileio/i-o-completion-ports>`__
+  is generally the best way to implement async I/O operations – but it's
+  historically been weak at providing ``select``\-style readiness
+  notifications, like `trio.hazmat.wait_readable` and
+  `~trio.hazmat.wait_writable`. We aren't willing to give those up, so
+  previously Trio's Windows backend used a hybrid of ``select`` + IOCP.
+  This was complex, slow, and had `limited scalability
+  <https://github.com/python-trio/trio/issues/3>`__.
+
+  Fortunately, we found a way to implement ``wait_*`` with IOCP, so
+  Trio's Windows backend has been completely rewritten, and now uses
+  IOCP exclusively. As a user, the only difference you should notice is
+  that Trio should now be faster on Windows, and can handle many more
+  sockets. This also simplified the code internally, which should allow
+  for more improvements in the future.
+
+  However, this is somewhat experimental, so if you use Windows then
+  please keep an eye out and let us know if you run into any problems! (`#52 <https://github.com/python-trio/trio/issues/52>`__)
+- Use slots for memory channel state and statistics which should make memory channels slightly smaller and faster. (`#1195 <https://github.com/python-trio/trio/issues/1195>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- OpenSSL has a bug in its handling of TLS 1.3 session tickets that can
+  cause deadlocks or data loss in some rare edge cases. These edge cases
+  most frequently happen during tests. (Upstream bug reports: `openssl/openssl#7948
+  <https://github.com/openssl/openssl/issues/7948>`__, `openssl/openssl#7967
+  <https://github.com/openssl/openssl/issues/7967>`__.) `trio.SSLStream`
+  now works around this issue, so you don't have to worry about it. (`#819 <https://github.com/python-trio/trio/issues/819>`__)
+- Trio now uses `signal.set_wakeup_fd` on all platforms. This is mostly
+  an internal refactoring with no user-visible effect, but in theory it
+  should fix a few extremely-rare race conditions on Unix that could
+  have caused signal delivery to be delayed. (`#109 <https://github.com/python-trio/trio/issues/109>`__)
+- Trio no longer crashes when an async function is implemented in C or
+  Cython and then passed directly to `trio.run` or
+  ``nursery.start_soon``. (`#550 <https://github.com/python-trio/trio/issues/550>`__, `#1191 <https://github.com/python-trio/trio/issues/1191>`__)
+- When a Trio task makes improper use of a non-Trio async library, Trio now causes an exception to be raised within the task at the point of the error, rather than abandoning the task and raising an error in its parent. This improves debuggability and resolves the `TrioInternalError` that would sometimes result from the old strategy. (`#552 <https://github.com/python-trio/trio/issues/552>`__)
+- In 0.12.0 we deprecated ``trio.run_sync_in_worker_thread`` in favor of
+  `trio.to_thread.run_sync`. But, the deprecation message listed the
+  wrong name for the replacement. The message now gives the correct name. (`#810 <https://github.com/python-trio/trio/issues/810>`__)
+- Fix regression introduced with cancellation changes in 0.12.0, where a
+  `trio.CancelScope` which isn't cancelled could catch a propagating
+  `trio.Cancelled` exception if shielding were changed while the
+  cancellation was propagating. (`#1175 <https://github.com/python-trio/trio/issues/1175>`__)
+- Fix a crash that could happen when using ``MockClock`` with autojump
+  enabled and a non-zero rate. (`#1190 <https://github.com/python-trio/trio/issues/1190>`__)
+- If you nest >1000 cancel scopes within each other, Trio now handles
+  that gracefully instead of crashing with a ``RecursionError``. (`#1235 <https://github.com/python-trio/trio/issues/1235>`__)
+- Fixed the hash behavior of `trio.Path` to match `pathlib.Path`. Previously `trio.Path`'s hash was inherited from `object` instead of from `pathlib.PurePath`. Thus, hashing two `trio.Path`\'s or a `trio.Path` and a `pathlib.Path` with the same underlying path would yield different results. (`#1259 <https://github.com/python-trio/trio/issues/1259>`__)
+
+
 Trio 0.12.1 (2019-08-01)
 ------------------------
 
