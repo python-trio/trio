@@ -418,6 +418,7 @@ async def test_can_survive_unnotified_close():
         b.setblocking(False)
         fill_socket(a)
         e = trio.Event()
+
         async def wait_readable_then_set():
             await trio.hazmat.wait_readable(a)
             e.set()

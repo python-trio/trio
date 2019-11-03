@@ -14,6 +14,7 @@ class _EpollStatistics:
     tasks_waiting_write = attr.ib()
     backend = attr.ib(default="epoll")
 
+
 # Some facts about epoll
 # ----------------------
 #
@@ -244,7 +245,9 @@ class EpollIOManager:
                     self._epoll.modify(fd, wanted_flags | select.EPOLLONESHOT)
                 except OSError:
                     # If that fails, it might be a new fd; try EPOLL_CTL_ADD
-                    self._epoll.register(fd, wanted_flags | select.EPOLLONESHOT)
+                    self._epoll.register(
+                        fd, wanted_flags | select.EPOLLONESHOT
+                    )
                 waiters.current_flags = wanted_flags
             except OSError as exc:
                 # If everything fails, probably it's a bad fd, e.g. because
