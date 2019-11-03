@@ -419,13 +419,20 @@ async def test_can_survive_unnotified_close():
         fill_socket(a)
         e = trio.Event()
 
-        async def wait_readable_then_set():
-            await trio.hazmat.wait_readable(a)
+        # We want to wait for the kernel to process the wakeup on 'a', if any.
+        # But depending on the platform, we might not get a wakeup on 'a'. So
+        # we put one task to sleep waiting on 'a', and we put a second task to
+        # sleep waiting on 'a2', with the idea that the 'a2' notification will
+        # definitely arrive, and when it does then we can assume that whatever
+        # notification was going to arrive for 'a' has also arrived.
+        async def wait_readable_a2_then_set():
+            await trio.hazmat.wait_readable(a2)
             e.set()
 
         async with trio.open_nursery() as nursery:
-            nursery.start_soon(allow_OSError, wait_readable_then_set)
+            nursery.start_soon(allow_OSError, trio.hazmat.wait_readable, a)
             nursery.start_soon(allow_OSError, trio.hazmat.wait_writable, a)
+            nursery.start_soon(allow_OSError, wait_readable_a2_then_set)
             await wait_all_tasks_blocked()
             a.close()
             b.send(b"x")
