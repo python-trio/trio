@@ -120,7 +120,17 @@ class KqueueIOManager:
 
         def abort(_):
             event = select.kevent(fd, filter, select.KQ_EV_DELETE)
-            self._kqueue.control([event], 0)
+            try:
+                self._kqueue.control([event], 0)
+            except FileNotFoundError:
+                # kqueue tracks individual fds (*not* the underlying file
+                # object, see _io_epoll.py for a long discussion of why this
+                # matters), and automatically deregisters an event if the fd
+                # is closed. So if kqueue.control says that it doesn't know
+                # about this event, then probably it's because the fd was
+                # closed behind our backs. (Too bad it doesn't tell us that
+                # this happened... oh well, you can't have everything.)
+                pass
             return _core.Abort.SUCCEEDED
 
         await self.wait_kevent(fd, filter, abort)
