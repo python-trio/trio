@@ -413,7 +413,7 @@ async def test_can_survive_unnotified_close():
     # handle_io context rather than abort context.
     a, b = stdlib_socket.socketpair()
     with a, b, a.dup() as a2:
-        print(f"a={a.fileno()}, b={b.fileno()}, a2={a2.fileno()}")
+        print("a={}, b={}, a2={}".format(a.fileno(), b.fileno(), a2.fileno()))
         a.setblocking(False)
         b.setblocking(False)
         fill_socket(a)
