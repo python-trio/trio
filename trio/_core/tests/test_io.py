@@ -381,7 +381,7 @@ async def test_can_survive_unnotified_close():
     # handle to the object (which produces a LOCAL_CLOSE notification and
     # wakes up wait_readable), or only close one of the handles (which leaves
     # wait_readable pending until cancelled).
-    with stdlib_socket.socket() as s, s.dup() as s2:
+    with stdlib_socket.socket() as s, s.dup() as s2:  # noqa: F841
         async with trio.open_nursery() as nursery:
             nursery.start_soon(allow_OSError, trio.hazmat.wait_readable, s)
             await wait_all_tasks_blocked()
@@ -397,7 +397,7 @@ async def test_can_survive_unnotified_close():
     # do that has been pulled out from under our feet... so test that we can
     # survive this.
     a, b = stdlib_socket.socketpair()
-    with a, b, a.dup() as a2:
+    with a, b, a.dup() as a2:  # noqa: F841
         a.setblocking(False)
         b.setblocking(False)
         fill_socket(a)
@@ -412,7 +412,7 @@ async def test_can_survive_unnotified_close():
     # arriving, not a cancellation, so the operation gets re-issued from
     # handle_io context rather than abort context.
     a, b = stdlib_socket.socketpair()
-    with a, b, a.dup() as a2:
+    with a, b, a.dup() as a2:  # noqa: F841
         print("a={}, b={}, a2={}".format(a.fileno(), b.fileno(), a2.fileno()))
         a.setblocking(False)
         b.setblocking(False)
