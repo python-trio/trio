@@ -2,13 +2,12 @@ import itertools
 from contextlib import contextmanager
 import enum
 import socket
-import copy
 
-import outcome
 import attr
 
 from .. import _core
 from ._run import _public
+from ._io_common import wake_all
 
 from ._windows_cffi import (
     ffi,
@@ -282,23 +281,6 @@ class AFDWaiters:
     read_task = attr.ib(default=None)
     write_task = attr.ib(default=None)
     current_op = attr.ib(default=None)
-
-    def wake_all(self, exc):
-        try:
-            current_task = _core.current_task()
-        except RuntimeError:
-            current_task = None
-        raise_at_end = False
-        for attr_name in ["read_task", "write_task"]:
-            task = getattr(self, attr_name)
-            if task is not None:
-                if task is current_task:
-                    raise_at_end = True
-                else:
-                    _core.reschedule(task, outcome.Error(copy.copy(exc)))
-                setattr(self, attr_name, None)
-        if raise_at_end:
-            raise exc
 
 
 # We also need to bundle up all the info for a single op into a standalone
@@ -576,7 +558,7 @@ class WindowsIOManager:
                     # pending calls.
                     del self._afd_waiters[base_handle]
                     # Do this last, because it could raise.
-                    waiters.wake_all(exc)
+                    wake_all(waiters, exc)
                     return
             op = AFDPollOp(lpOverlapped, poll_info, waiters)
             waiters.current_op = op
@@ -615,7 +597,7 @@ class WindowsIOManager:
         handle = _get_base_socket(handle)
         waiters = self._afd_waiters.get(handle)
         if waiters is not None:
-            waiters.wake_all(_core.ClosedResourceError())
+            wake_all(waiters, _core.ClosedResourceError())
             self._refresh_afd(handle)
 
     ################################################################

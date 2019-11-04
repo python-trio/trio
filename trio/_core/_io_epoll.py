@@ -1,11 +1,10 @@
 import select
 import attr
-import outcome
-import copy
 from collections import defaultdict
 
 from .. import _core
 from ._run import _public
+from ._io_common import wake_all
 
 
 @attr.s(slots=True, eq=False, frozen=True)
@@ -179,23 +178,6 @@ class EpollWaiters:
     write_task = attr.ib(default=None)
     current_flags = attr.ib(default=0)
 
-    def wake_all(self, exc):
-        try:
-            current_task = _core.current_task()
-        except RuntimeError:
-            current_task = None
-        raise_at_end = False
-        for attr_name in ["read_task", "write_task"]:
-            task = getattr(self, attr_name)
-            if task is not None:
-                if task is current_task:
-                    raise_at_end = True
-                else:
-                    _core.reschedule(task, outcome.Error(copy.copy(exc)))
-                setattr(self, attr_name, None)
-        if raise_at_end:
-            raise exc
-
 
 @attr.s(slots=True, eq=False, hash=False)
 class EpollIOManager:
@@ -265,7 +247,7 @@ class EpollIOManager:
                 del self._registered[fd]
                 # This could raise (in case we're calling this inside one of
                 # the to-be-woken tasks), so we have to do it last.
-                waiters.wake_all(exc)
+                wake_all(waiters, exc)
                 return
         if not wanted_flags:
             del self._registered[fd]
@@ -300,7 +282,8 @@ class EpollIOManager:
     def notify_closing(self, fd):
         if not isinstance(fd, int):
             fd = fd.fileno()
-        self._registered[fd].wake_all(
+        wake_all(
+            self._registered[fd],
             _core.ClosedResourceError("another task closed this fd")
         )
         del self._registered[fd]
