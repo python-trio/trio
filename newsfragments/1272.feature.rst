@@ -1,7 +1,7 @@
 If you're using Trio's low-level interfaces like
 `trio.hazmat.wait_readable` or similar, and then you close a socket or
 file descriptor, you're supposed to call `trio.hazmat.notify_closing`
-first so Trio can clean up properly. But what if you forgot? In the
+first so Trio can clean up properly. But what if you forget? In the
 past, Trio would tend to either deadlock or explode spectacularly.
 Now, it's much more robust to this situation, and should generally
 survive. (But note that "survive" is not the same as "give you the
