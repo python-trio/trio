@@ -50,11 +50,11 @@ jobs:
       # installer. So we put them at the top, so they can get started
       # earlier.
       "with IFS LSP, Python 3.7, 64 bit":
-        python.version: '3.7.2'
+        python.version: '3.7.5'
         python.pkg: 'python'
         lsp: 'http://www.proxifier.com/download/ProxifierSetup.exe'
       "with non-IFS LSP, Python 3.7, 64 bit":
-        python.version: '3.7.2'
+        python.version: '3.7.5'
         python.pkg: 'python'
         lsp: 'http://download.pctools.com/mirror/updates/9.0.0.2308-SDavfree-lite_en.exe'
       "Python 3.5, 32 bit":
@@ -70,10 +70,16 @@ jobs:
         python.version: '3.6.8'
         python.pkg: 'python'
       "Python 3.7, 32 bit":
-        python.version: '3.7.2'
+        python.version: '3.7.5'
         python.pkg: 'pythonx86'
       "Python 3.7, 64 bit":
-        python.version: '3.7.2'
+        python.version: '3.7.5'
+        python.pkg: 'python'
+      "Python 3.8, 32 bit":
+        python.version: '3.8.0'
+        python.pkg: 'pythonx86'
+      "Python 3.8, 64 bit":
+        python.version: '3.8.0'
         python.pkg: 'python'
 
   steps:
