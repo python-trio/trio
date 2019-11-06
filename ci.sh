@@ -5,11 +5,13 @@ set -ex -o pipefail
 # Log some general info about the environment
 env | sort
 
-if [ "$SYSTEM_JOBIDENTIFIER" != "" ]; then
-    # azure pipelines
-    CODECOV_NAME="$SYSTEM_JOBDISPLAYNAME"
-else
-    CODECOV_NAME="${TRAVIS_OS_NAME}-${TRAVIS_PYTHON_VERSION:-unknown}"
+if [ "$JOB_NAME" = "" ]; then
+    if [ "$SYSTEM_JOBIDENTIFIER" != "" ]; then
+        # azure pipelines
+        JOB_NAME="$SYSTEM_JOBDISPLAYNAME"
+    else
+        JOB_NAME="${TRAVIS_OS_NAME}-${TRAVIS_PYTHON_VERSION:-unknown}"
+    fi
 fi
 
 # We always want to retry on failure, and we have to set --connect-timeout to
@@ -92,6 +94,101 @@ if [ "$PYPY_NIGHTLY_BRANCH" != "" ]; then
         exit 0
     fi
     source testenv/bin/activate
+fi
+
+### Qemu virtual-machine inception, on Travis
+
+if [ "$VM_IMAGE" != "" ]; then
+    VM_CPU=${VM_CPU:-x86_64}
+
+    sudo apt update
+    sudo apt install cloud-image-utils qemu-system-x86
+
+    # If the base image is already present, we don't try downloading it again;
+    # and we use a scratch image for the actual run, in order to keep the base
+    # image file pristine. None of this matters when running in CI, but it
+    # makes local testing much easier.
+    BASEIMG=$(basename $VM_IMAGE)
+    if [ ! -e $BASEIMG ]; then
+        $CURL "$VM_IMAGE" -o $BASEIMG
+    fi
+    rm -f os-working.img
+    qemu-img create -f qcow2 -b $BASEIMG os-working.img
+
+    # This is the test script, that runs inside the VM, using cloud-init.
+    #
+    # This script goes through shell expansion, so use \ to quote any
+    # $variables you want to expand inside the guest.
+    cloud-localds -H test-host seed.img /dev/stdin << EOF
+#!/bin/bash
+
+set -xeuo pipefail
+
+# When this script exits, we shut down the machine, which causes the qemu on
+# the host to exit
+trap "poweroff" exit
+
+uname -a
+echo \$PWD
+id
+cat /etc/lsb-release
+cat /proc/cpuinfo
+
+# Pass-through JOB_NAME + the env vars that codecov-bash looks at
+export JOB_NAME="$JOB_NAME"
+export CI="$CI"
+export TRAVIS_COMMIT="$TRAVIS_COMMIT"
+export TRAVIS_PULL_REQUEST_SHA="$TRAVIS_PULL_REQUEST_SHA"
+export TRAVIS_JOB_NUMBER="$TRAVIS_JOB_NUMBER"
+export TRAVIS_PULL_REQUEST="$TRAVIS_PULL_REQUEST"
+export TRAVIS_JOB_ID="$TRAVIS_JOB_ID"
+export TRAVIS_REPO_SLUG="$TRAVIS_REPO_SLUG"
+export TRAVIS_TAG="$TRAVIS_TAG"
+export TRAVIS_BRANCH="$TRAVIS_BRANCH"
+
+env
+
+mkdir /host-files
+mount -t 9p -o trans=virtio,version=9p2000.L host-files /host-files
+
+# Install and set up the system Python (assumes Debian/Ubuntu)
+apt update
+apt install -y python3-dev python3-virtualenv git build-essential curl
+python3 -m virtualenv -p python3 /venv
+# Uses unbound shell variable PS1, so have to allow that temporarily
+set +u
+source /venv/bin/activate
+set -u
+
+# And then we re-invoke ourselves!
+cd /host-files
+./ci.sh
+
+# We can't pass our exit status out. So if we got this far without error, make
+# a marker file where the host can see it.
+touch /host-files/SUCCESS
+EOF
+
+    rm -f SUCCESS
+    # Apparently Travis's bionic images have nested virtualization enabled, so
+    # we can use KVM... but the default user isn't in the appropriate groups
+    # to use KVM, so we have to use 'sudo' to add that.
+    #
+    # Travis Linux VMs have 7.5 GiB RAM, so we give our nested VM 6 GiB RAM
+    # (-m 6144).
+    sudo -u $USER -g kvm qemu-system-$VM_CPU \
+      -enable-kvm \
+      -M pc \
+      -m 6144 \
+      -nographic \
+      -drive "file=./os-working.img,if=virtio" \
+      -drive "file=./seed.img,if=virtio,format=raw" \
+      -net nic \
+      -net "user,hostfwd=tcp:127.0.0.1:50022-:22" \
+      -virtfs local,path=$PWD,security_model=mapped-file,mount_tag=host-files
+
+    test -e SUCCESS
+    exit
 fi
 
 ################################################################
@@ -177,7 +274,7 @@ else
         # but azure is broken:
         #   https://developercommunity.visualstudio.com/content/problem/743824/bash-task-on-windows-suddenly-fails-with-bash-devf.html
         $CURL -o codecov.sh https://codecov.io/bash
-        bash codecov.sh -n "${CODECOV_NAME}" -F "$FLAG"
+        bash codecov.sh -n "${JOB_NAME}" -F "$FLAG"
     fi
 
     $PASSED
