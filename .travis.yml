@@ -1,5 +1,5 @@
 language: python
-dist: bionic
+dist: trusty
 
 matrix:
   include:
@@ -18,6 +18,9 @@ matrix:
     # early warning of any issues that might happen in the next Ubuntu
     # LTS.
     - language: generic
+      # We use bionic for the host, b/c rumor says that Travis's
+      # 'bionic' systems have nested KVM enabled.
+      dist: bionic
       env:
         - "JOB_NAME=Ubuntu 19.10, full VM"
         - "VM_IMAGE=https://cloud-images.ubuntu.com/eoan/current/eoan-server-cloudimg-amd64.img"
