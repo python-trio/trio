@@ -41,7 +41,7 @@ pyflakes==2.1.1           # via flake8
 pygments==2.4.2           # via ipython
 pylint==2.4.2
 pyopenssl==19.0.0
-pyparsing==2.4.2          # via packaging
+pyparsing==2.4.4          # via packaging
 pytest-cov==2.8.1
 pytest==5.2.2
 six==1.12.0               # via astroid, cryptography, packaging, prompt-toolkit, pyopenssl, traitlets
