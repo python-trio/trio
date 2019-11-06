@@ -53,7 +53,7 @@ fi
 ### Travis + macOS ###
 
 if [ "$TRAVIS_OS_NAME" = "osx" ]; then
-    CODECOV_NAME="osx_${MACPYTHON}"
+    JOB_NAME="osx_${MACPYTHON}"
     $CURL -Lo macpython.pkg https://www.python.org/ftp/python/${MACPYTHON}/python-${MACPYTHON}-macosx10.6.pkg
     sudo installer -pkg macpython.pkg -target /
     ls /Library/Frameworks/Python.framework/Versions/*/bin/
@@ -68,7 +68,7 @@ fi
 ### PyPy nightly (currently on Travis) ###
 
 if [ "$PYPY_NIGHTLY_BRANCH" != "" ]; then
-    CODECOV_NAME="pypy_nightly_${PYPY_NIGHTLY_BRANCH}"
+    JOB_NAME="pypy_nightly_${PYPY_NIGHTLY_BRANCH}"
     $CURL -fLo pypy.tar.bz2 http://buildbot.pypy.org/nightly/${PYPY_NIGHTLY_BRANCH}/pypy-c-jit-latest-linux64.tar.bz2
     if [ ! -s pypy.tar.bz2 ]; then
         # We know:
