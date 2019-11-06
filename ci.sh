@@ -172,11 +172,14 @@ EOF
     rm -f SUCCESS
     # Apparently Travis's bionic images have nested virtualization enabled, so
     # we can use KVM... but the default user isn't in the appropriate groups
-    # to use KVM, so we have to use 'sudo' to add that.
+    # to use KVM, so we have to use 'sudo' to add that. And then a second
+    # 'sudo', because by default we have rights to run arbitrary commands as
+    # root, but we don't have rights to run a command as ourselves but with a
+    # tweaked group setting.
     #
     # Travis Linux VMs have 7.5 GiB RAM, so we give our nested VM 6 GiB RAM
     # (-m 6144).
-    sudo -u $USER -g kvm qemu-system-$VM_CPU \
+    sudo sudo -u $USER -g kvm qemu-system-$VM_CPU \
       -enable-kvm \
       -M pc \
       -m 6144 \
