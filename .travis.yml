@@ -1,5 +1,5 @@
 language: python
-dist: trusty
+dist: xenial
 
 matrix:
   include:
