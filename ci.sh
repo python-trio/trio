@@ -137,6 +137,7 @@ cat /proc/cpuinfo
 # Pass-through JOB_NAME + the env vars that codecov-bash looks at
 export JOB_NAME="$JOB_NAME"
 export CI="$CI"
+export TRAVIS="$TRAVIS"
 export TRAVIS_COMMIT="$TRAVIS_COMMIT"
 export TRAVIS_PULL_REQUEST_SHA="$TRAVIS_PULL_REQUEST_SHA"
 export TRAVIS_JOB_NUMBER="$TRAVIS_JOB_NUMBER"
