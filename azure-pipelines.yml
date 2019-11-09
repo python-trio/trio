@@ -90,7 +90,7 @@ jobs:
     inputs:
       versionSpec: '$(python.version)'
 
-  - bash: ci.sh
+  - bash: ./ci.sh
     displayName: "Run the actual tests"
 
   - task: PublishTestResults@2
