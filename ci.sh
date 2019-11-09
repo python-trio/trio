@@ -14,10 +14,21 @@ if [ "$JOB_NAME" = "" ]; then
     fi
 fi
 
-# We always want to retry on failure, and we have to set --connect-timeout to
-# work around a curl bug:
-#   https://github.com/curl/curl/issues/4461
-CURL="curl --connect-timeout 5 --retry 5"
+# Curl's built-in retry system is not very robust; it gives up on lots of
+# network errors that we want to retry on. Wget might work better, but it's
+# not installed on azure pipelines's windows boxes. So... let's try some good
+# old-fashioned brute force. (This is also a convenient place to put options
+# we always want, like -f to tell curl to give an error if the server sends an
+# error response, and -L to follow redirects.)
+function curl-harder() {
+    for BACKOFF in 0 1 2 4 8 15 15 15 15; do
+        sleep $BACKOFF
+        if curl -fL --connect-timeout 5 "$@"; then
+            return 0
+        fi
+    done
+    return 1
+}
 
 ################################################################
 # Bootstrap python environment, if necessary
@@ -54,12 +65,13 @@ fi
 
 if [ "$TRAVIS_OS_NAME" = "osx" ]; then
     JOB_NAME="osx_${MACPYTHON}"
-    $CURL -Lo macpython.pkg https://www.python.org/ftp/python/${MACPYTHON}/python-${MACPYTHON}-macosx10.6.pkg
+    curl-harder -o macpython.pkg https://www.python.org/ftp/python/${MACPYTHON}/python-${MACPYTHON}-macosx10.6.pkg
     sudo installer -pkg macpython.pkg -target /
     ls /Library/Frameworks/Python.framework/Versions/*/bin/
     PYTHON_EXE=/Library/Frameworks/Python.framework/Versions/*/bin/python3
     # The pip in older MacPython releases doesn't support a new enough TLS
-    $CURL https://bootstrap.pypa.io/get-pip.py | sudo $PYTHON_EXE
+    curl-harder -o get-pip.py https://bootstrap.pypa.io/get-pip.py
+    sudo $PYTHON_EXE get-pip.py
     sudo $PYTHON_EXE -m pip install virtualenv
     $PYTHON_EXE -m virtualenv testenv
     source testenv/bin/activate
@@ -69,11 +81,10 @@ fi
 
 if [ "$PYPY_NIGHTLY_BRANCH" != "" ]; then
     JOB_NAME="pypy_nightly_${PYPY_NIGHTLY_BRANCH}"
-    $CURL -fLo pypy.tar.bz2 http://buildbot.pypy.org/nightly/${PYPY_NIGHTLY_BRANCH}/pypy-c-jit-latest-linux64.tar.bz2
+    curl-harder -o pypy.tar.bz2 http://buildbot.pypy.org/nightly/${PYPY_NIGHTLY_BRANCH}/pypy-c-jit-latest-linux64.tar.bz2
     if [ ! -s pypy.tar.bz2 ]; then
         # We know:
-        # - curl succeeded (200 response code; -f means "exit with error if
-        # server returns 4xx or 5xx")
+        # - curl succeeded (200 response code)
         # - nonetheless, pypy.tar.bz2 does not exist, or contains no data
         # This isn't going to work, and the failure is not informative of
         # anything involving Trio.
@@ -110,7 +121,7 @@ if [ "$VM_IMAGE" != "" ]; then
     # makes local testing much easier.
     BASEIMG=$(basename $VM_IMAGE)
     if [ ! -e $BASEIMG ]; then
-        $CURL "$VM_IMAGE" -o $BASEIMG
+        curl-harder "$VM_IMAGE" -o $BASEIMG
     fi
     rm -f os-working.img
     qemu-img create -f qcow2 -b $BASEIMG os-working.img
@@ -226,7 +237,7 @@ else
     # up.
     if [ "$LSP" != "" ]; then
         echo "Installing LSP from ${LSP}"
-        $CURL -o lsp-installer.exe "$LSP"
+        curl-harder -o lsp-installer.exe "$LSP"
         # Double-slashes are how you tell windows-bash that you want a single
         # slash, and don't treat this as a unix-style filename that needs to
         # be replaced by a windows-style filename.
@@ -277,7 +288,7 @@ else
         #   bash <(curl ...)
         # but azure is broken:
         #   https://developercommunity.visualstudio.com/content/problem/743824/bash-task-on-windows-suddenly-fails-with-bash-devf.html
-        $CURL -o codecov.sh https://codecov.io/bash
+        curl-harder -o codecov.sh https://codecov.io/bash
         bash codecov.sh -n "${JOB_NAME}" -F "$FLAG"
     fi
 
