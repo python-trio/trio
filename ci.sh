@@ -14,11 +14,6 @@ if [ "$JOB_NAME" = "" ]; then
     fi
 fi
 
-# We always want to retry on failure, and we have to set --connect-timeout to
-# work around a curl bug:
-#   https://github.com/curl/curl/issues/4461
-CURL="curl --connect-timeout 5 --retry 5"
-
 ################################################################
 # Bootstrap python environment, if necessary
 ################################################################
@@ -54,12 +49,12 @@ fi
 
 if [ "$TRAVIS_OS_NAME" = "osx" ]; then
     JOB_NAME="osx_${MACPYTHON}"
-    $CURL -Lo macpython.pkg https://www.python.org/ftp/python/${MACPYTHON}/python-${MACPYTHON}-macosx10.6.pkg
+    wget -O macpython.pkg https://www.python.org/ftp/python/${MACPYTHON}/python-${MACPYTHON}-macosx10.6.pkg
     sudo installer -pkg macpython.pkg -target /
     ls /Library/Frameworks/Python.framework/Versions/*/bin/
     PYTHON_EXE=/Library/Frameworks/Python.framework/Versions/*/bin/python3
     # The pip in older MacPython releases doesn't support a new enough TLS
-    $CURL https://bootstrap.pypa.io/get-pip.py | sudo $PYTHON_EXE
+    wget -O- https://bootstrap.pypa.io/get-pip.py | sudo $PYTHON_EXE
     sudo $PYTHON_EXE -m pip install virtualenv
     $PYTHON_EXE -m virtualenv testenv
     source testenv/bin/activate
@@ -69,11 +64,10 @@ fi
 
 if [ "$PYPY_NIGHTLY_BRANCH" != "" ]; then
     JOB_NAME="pypy_nightly_${PYPY_NIGHTLY_BRANCH}"
-    $CURL -fLo pypy.tar.bz2 http://buildbot.pypy.org/nightly/${PYPY_NIGHTLY_BRANCH}/pypy-c-jit-latest-linux64.tar.bz2
+    wget -O pypy.tar.bz2 http://buildbot.pypy.org/nightly/${PYPY_NIGHTLY_BRANCH}/pypy-c-jit-latest-linux64.tar.bz2
     if [ ! -s pypy.tar.bz2 ]; then
         # We know:
-        # - curl succeeded (200 response code; -f means "exit with error if
-        # server returns 4xx or 5xx")
+        # - wget succeeded (200 response code)
         # - nonetheless, pypy.tar.bz2 does not exist, or contains no data
         # This isn't going to work, and the failure is not informative of
         # anything involving Trio.
@@ -110,7 +104,7 @@ if [ "$VM_IMAGE" != "" ]; then
     # makes local testing much easier.
     BASEIMG=$(basename $VM_IMAGE)
     if [ ! -e $BASEIMG ]; then
-        $CURL "$VM_IMAGE" -o $BASEIMG
+        wget "$VM_IMAGE" -O $BASEIMG
     fi
     rm -f os-working.img
     qemu-img create -f qcow2 -b $BASEIMG os-working.img
@@ -154,7 +148,7 @@ mount -t 9p -o trans=virtio,version=9p2000.L host-files /host-files
 
 # Install and set up the system Python (assumes Debian/Ubuntu)
 apt update
-apt install -y python3-dev python3-virtualenv git build-essential curl
+apt install -y python3-dev python3-virtualenv git build-essential wget
 python3 -m virtualenv -p python3 /venv
 # Uses unbound shell variable PS1, so have to allow that temporarily
 set +u
@@ -226,7 +220,7 @@ else
     # up.
     if [ "$LSP" != "" ]; then
         echo "Installing LSP from ${LSP}"
-        $CURL -o lsp-installer.exe "$LSP"
+        wget -O lsp-installer.exe "$LSP"
         # Double-slashes are how you tell windows-bash that you want a single
         # slash, and don't treat this as a unix-style filename that needs to
         # be replaced by a windows-style filename.
@@ -277,7 +271,8 @@ else
         #   bash <(curl ...)
         # but azure is broken:
         #   https://developercommunity.visualstudio.com/content/problem/743824/bash-task-on-windows-suddenly-fails-with-bash-devf.html
-        $CURL -o codecov.sh https://codecov.io/bash
+        # and curl is poor at coping with flaky servers.
+        wget -O codecov.sh https://codecov.io/bash
         bash codecov.sh -n "${JOB_NAME}" -F "$FLAG"
     fi
 
