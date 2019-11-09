@@ -107,6 +107,22 @@ def ssl_echo_serve_sync(sock, *, expect_fail=False):
                     pass
                 return
             wrapped.sendall(data)
+    # This is an obscure workaround for an openssl bug. In server mode, in
+    # some versions, openssl sends some extra data at the end of do_handshake
+    # that it shouldn't send. Normally this is harmless, but, if the other
+    # side shuts down the connection before it reads that data, it might cause
+    # the OS to report a ECONNREST or even ECONNABORTED (which is just wrong,
+    # since ECONNABORTED is supposed to mean that connect() failed, but what
+    # can you do). In this case the other side did nothing wrong, but there's
+    # no way to recover, so we let it pass, and just cross our fingers its not
+    # hiding any (other) real bugs. For more details see:
+    #
+    #   https://github.com/python-trio/trio/issues/1293
+    #
+    # Also, this happens frequently but non-deterministically, so we have to
+    # 'no cover' it to avoid coverage flapping.
+    except (ConnectionResetError, ConnectionAbortedError):  # pragma: no cover
+        return
     except Exception as exc:
         if expect_fail:
             print("ssl_echo_serve_sync got error as expected:", exc)
