@@ -8,7 +8,7 @@ jobs:
 
 - job: 'Windows'
   pool:
-    vmImage: 'vs2017-win2016'
+    vmImage: 'windows-latest'
   timeoutInMinutes: 20
   strategy:
     # Python version list:
@@ -64,38 +64,43 @@ jobs:
       testRunTitle: 'Windows $(python.pkg) $(python.version)'
     condition: succeededOrFailed()
 
-# Currently broken for unclear reasons probably related to openssl v1.1.1:
-#   https://github.com/python-trio/trio/pull/827#issuecomment-457139883
-#
-# - job: 'Linux'
-#   pool:
-#     vmImage: 'ubuntu-16.04'
-#   timeoutInMinutes: 10
-#   strategy:
-#     matrix:
-#       "Python 3.5":
-#         python.version: '3.5'
-#       "Python 3.6":
-#         python.version: '3.6'
-#       "Python 3.7":
-#         python.version: '3.7'
-#
-#   steps:
-#   - task: UsePythonVersion@0
-#     inputs:
-#       versionSpec: '$(python.version)'
-#
-#   - bash: ci.sh
-#     displayName: "Run the actual tests"
-#
-#   - task: PublishTestResults@2
-#     inputs:
-#       testResultsFiles: 'test-results.xml'
-#     condition: succeededOrFailed()
+- job: 'Linux'
+  pool:
+    vmImage: 'ubuntu-latest'
+  timeoutInMinutes: 10
+  strategy:
+    matrix:
+      "Check docs":
+        python.version: '3.8'
+        CHECK_DOCS: 1
+      "Formatting and linting":
+        python.version: '3.8'
+        CHECK_FORMATTING: 1
+      "Python 3.5":
+        python.version: '3.5'
+      "Python 3.6":
+        python.version: '3.6'
+      "Python 3.7":
+        python.version: '3.7'
+      "Python 3.8":
+        python.version: '3.8'
+
+  steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '$(python.version)'
+
+  - bash: ./ci.sh
+    displayName: "Run the actual tests"
+
+  - task: PublishTestResults@2
+    inputs:
+      testResultsFiles: 'test-results.xml'
+    condition: succeededOrFailed()
 
 - job: 'macOS'
   pool:
-    vmImage: 'macOS-10.13'
+    vmImage: 'macOS-latest'
   timeoutInMinutes: 10
   strategy:
     matrix:
