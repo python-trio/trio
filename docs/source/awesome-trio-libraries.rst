@@ -14,7 +14,7 @@ great new applications and libraries with async functionality.
 However, to get much useful work done you will want to use some of
 the great libraries that support Trio-flavoured concurrency. This list
 is not complete, but gives a starting point. Another great way to find
-Trio-compatible libraries is to search on PyPI for the ``Framework :: trio``
+Trio-compatible libraries is to search on PyPI for the ``Framework :: Trio``
 tag -> `PyPI Search <https://pypi.org/search/?q=Framework+%3A%3A+trio>`__
 
 
