@@ -9,7 +9,7 @@ Awesome Trio Libraries
 
 .. currentmodule:: trio
 
-You have completed the turorial, and are enthusiastic about building
+You have completed the tutorial, and are enthusiastic about building
 great new applications and libraries with async functionality.
 However, to get much useful work done you will want to use some of
 the great libraries that support Trio-flavoured concurrency. This list
