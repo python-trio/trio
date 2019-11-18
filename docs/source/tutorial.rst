@@ -770,11 +770,12 @@ programming, and – to add insult to injury – `pretty poor scalability
 Python just aren't that appealing.
 
 Trio doesn't make your code run on multiple cores; in fact, as we saw
-above, it's baked into Trio's design that you never have two tasks
-running at the same time. We're not so much overcoming the GIL as
-embracing it. But if you're willing to accept that, plus a bit of
-extra work to put these new ``async`` and ``await`` keywords in the
-right places, then in exchange you get:
+above, it's baked into Trio's design that when it has multiple tasks,
+they take turns, so at each moment only one of them is actively running.
+We're not so much overcoming the GIL as embracing it. But if you're
+willing to accept that, plus a bit of extra work to put these new
+``async`` and ``await`` keywords in the right places, then in exchange 
+you get:
 
 * Excellent scalability: Trio can run 10,000+ tasks simultaneously
   without breaking a sweat, so long as their total CPU demands don't
