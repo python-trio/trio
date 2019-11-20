@@ -1174,3 +1174,36 @@ TODO: maybe a brief discussion of :exc:`KeyboardInterrupt` handling?
    brief discussion of KI?
    tasks-with-trace.py + control-C is pretty interesting
    or maybe leave it for a blog post?
+
+An examples cookbook for moving forward with Trio
+-------------------------------------------------
+
+As more and more people start to use Trio, it becomes clear what
+approaches are useful to share as a more general indications of how to
+get things done. Please find below a (hopefully growing, see `"Add
+collection of worked examples to tutorial"
+<https://github.com/python-trio/trio/issues/472>`__) selection of
+"cookbook" examples to see what else Trio can help you do.
+
+Pluggable stream transports using composition
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you're writing a protocol using the :ref:`the Stream API
+<abstract-stream-api>` and are aiming to have a pluggable transport layer
+(e.g., you want your protocol to work with TCP and also uTP) then you can think
+about leveraging object composition.
+
+Your protocol can take a stream as an argument and then use its methods to send
+and receive bytes. Your protocol implementation can then focus on the high
+level goals of what to do with those bytes.
+
+For example:
+
+.. code-block:: python
+
+    tcp_proto = MyProtocol(tcp_stream)
+    utp_proto = MyProtocol(utp_stream)
+
+This can be particularly useful if you'd like to get moving fast and want to
+make use of Trios :ref:`in-memory testing stream implementation <virtual-streams>`
+so that you can initially focus on your high level implementation tasks.
