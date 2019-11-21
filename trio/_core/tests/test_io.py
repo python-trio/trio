@@ -354,9 +354,12 @@ async def test_io_manager_statistics():
 
 
 async def test_can_survive_unnotified_close():
-    # This should never happen -- users should call notify_closing when they
-    # close things. But, just in case they don't, we would still like to avoid
-    # exploding. Acceptable behaviors:
+    # An "unnotified" close is when the user closes an fd/socket/handle
+    # directly, without calling notify_closing first. This should never happen
+    # -- users should call notify_closing before closing things. But, just in
+    # case they don't, we would still like to avoid exploding.
+    #
+    # Acceptable behaviors:
     # - wait_* never return, but can be cancelled cleanly
     # - wait_* exit cleanly
     # - wait_* raise an OSError
@@ -364,6 +367,9 @@ async def test_can_survive_unnotified_close():
     # Not acceptable:
     # - getting stuck in an uncancellable state
     # - TrioInternalError blowing up the whole run
+    #
+    # This test exercises some tricky "unnotified close" scenarios, to make
+    # sure we get the "acceptable" behaviors.
 
     async def allow_OSError(async_func, *args):
         with suppress(OSError):
