@@ -438,7 +438,7 @@ async def test_can_survive_unnotified_close():
         async with trio.open_nursery() as nursery:
             nursery.start_soon(allow_OSError, trio.hazmat.wait_readable, a)
             nursery.start_soon(allow_OSError, trio.hazmat.wait_writable, a)
-            nursery.start_soon(allow_OSError, wait_readable_a2_then_set)
+            nursery.start_soon(wait_readable_a2_then_set)
             await wait_all_tasks_blocked()
             a.close()
             b.send(b"x")
