@@ -856,7 +856,7 @@ class Nursery(metaclass=NoPublicConstructor):
             return MultiError(self._pending_excs)
 
     def start_soon(self, async_fn, *args, name=None):
-        """ Creates a child task, scheduling ``await async_fn(*args)``.
+        """Creates a child task, scheduling ``await async_fn(*args)``.
 
         This and :meth:`start` are the two fundamental methods for
         creating concurrent tasks in Trio.

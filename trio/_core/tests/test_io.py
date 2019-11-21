@@ -4,6 +4,7 @@ import socket as stdlib_socket
 import select
 import random
 import errno
+from contextlib import suppress
 
 from ... import _core
 from ...testing import wait_all_tasks_blocked, Sequencer, assert_checkpoints
@@ -300,10 +301,8 @@ async def test_wait_on_invalid_object():
             fileno = s.fileno()
         # We just closed the socket and don't do anything else in between, so
         # we can be confident that the fileno hasn't be reassigned.
-        with pytest.raises(OSError) as excinfo:
+        with pytest.raises(OSError):
             await wait(fileno)
-        exc = excinfo.value
-        assert exc.errno == errno.EBADF or exc.winerror == errno.ENOTSOCK
 
 
 async def test_io_manager_statistics():
@@ -352,3 +351,99 @@ async def test_io_manager_statistics():
 
         # 1 for call_soon_task
         check(expected_readers=1, expected_writers=0)
+
+
+async def test_can_survive_unnotified_close():
+    # An "unnotified" close is when the user closes an fd/socket/handle
+    # directly, without calling notify_closing first. This should never happen
+    # -- users should call notify_closing before closing things. But, just in
+    # case they don't, we would still like to avoid exploding.
+    #
+    # Acceptable behaviors:
+    # - wait_* never return, but can be cancelled cleanly
+    # - wait_* exit cleanly
+    # - wait_* raise an OSError
+    #
+    # Not acceptable:
+    # - getting stuck in an uncancellable state
+    # - TrioInternalError blowing up the whole run
+    #
+    # This test exercises some tricky "unnotified close" scenarios, to make
+    # sure we get the "acceptable" behaviors.
+
+    async def allow_OSError(async_func, *args):
+        with suppress(OSError):
+            await async_func(*args)
+
+    with stdlib_socket.socket() as s:
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(allow_OSError, trio.hazmat.wait_readable, s)
+            await wait_all_tasks_blocked()
+            s.close()
+            await wait_all_tasks_blocked()
+            nursery.cancel_scope.cancel()
+
+    # We hit different paths on Windows depending on whether we close the last
+    # handle to the object (which produces a LOCAL_CLOSE notification and
+    # wakes up wait_readable), or only close one of the handles (which leaves
+    # wait_readable pending until cancelled).
+    with stdlib_socket.socket() as s, s.dup() as s2:  # noqa: F841
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(allow_OSError, trio.hazmat.wait_readable, s)
+            await wait_all_tasks_blocked()
+            s.close()
+            await wait_all_tasks_blocked()
+            nursery.cancel_scope.cancel()
+
+    # A more elaborate case, with two tasks waiting. On windows and epoll,
+    # the two tasks get muxed together onto a single underlying wait
+    # operation. So when they're cancelled, there's a brief moment where one
+    # of the tasks is cancelled but the other isn't, so we try to re-issue the
+    # underlying wait operation. But here, the handle we were going to use to
+    # do that has been pulled out from under our feet... so test that we can
+    # survive this.
+    a, b = stdlib_socket.socketpair()
+    with a, b, a.dup() as a2:  # noqa: F841
+        a.setblocking(False)
+        b.setblocking(False)
+        fill_socket(a)
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(allow_OSError, trio.hazmat.wait_readable, a)
+            nursery.start_soon(allow_OSError, trio.hazmat.wait_writable, a)
+            await wait_all_tasks_blocked()
+            a.close()
+            nursery.cancel_scope.cancel()
+
+    # A similar case, but now the single-task-wakeup happens due to I/O
+    # arriving, not a cancellation, so the operation gets re-issued from
+    # handle_io context rather than abort context.
+    a, b = stdlib_socket.socketpair()
+    with a, b, a.dup() as a2:  # noqa: F841
+        print("a={}, b={}, a2={}".format(a.fileno(), b.fileno(), a2.fileno()))
+        a.setblocking(False)
+        b.setblocking(False)
+        fill_socket(a)
+        e = trio.Event()
+
+        # We want to wait for the kernel to process the wakeup on 'a', if any.
+        # But depending on the platform, we might not get a wakeup on 'a'. So
+        # we put one task to sleep waiting on 'a', and we put a second task to
+        # sleep waiting on 'a2', with the idea that the 'a2' notification will
+        # definitely arrive, and when it does then we can assume that whatever
+        # notification was going to arrive for 'a' has also arrived.
+        async def wait_readable_a2_then_set():
+            await trio.hazmat.wait_readable(a2)
+            e.set()
+
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(allow_OSError, trio.hazmat.wait_readable, a)
+            nursery.start_soon(allow_OSError, trio.hazmat.wait_writable, a)
+            nursery.start_soon(wait_readable_a2_then_set)
+            await wait_all_tasks_blocked()
+            a.close()
+            b.send(b"x")
+            # Make sure that the wakeup has been received and everything has
+            # settled before cancelling the wait_writable.
+            await e.wait()
+            await wait_all_tasks_blocked()
+            nursery.cancel_scope.cancel()

@@ -3,11 +3,11 @@ from contextlib import contextmanager
 import enum
 import socket
 
-import outcome
 import attr
 
 from .. import _core
 from ._run import _public
+from ._io_common import wake_all
 
 from ._windows_cffi import (
     ffi,
@@ -264,13 +264,14 @@ WRITABLE_FLAGS = (
 )
 
 
-# Annoyingly, while the API makes it *seem* like you can happily issue
-# as many independent AFD_POLL operations as you want without them interfering
-# with each other, in fact if you issue two AFD_POLL operations for the same
-# socket at the same time, then Windows gets super confused. For example, if
-# we issue one operation from wait_readable, and another independent operation
-# from wait_writable, then Windows may complete the wait_writable operation
-# when the socket becomes readable.
+# Annoyingly, while the API makes it *seem* like you can happily issue as many
+# independent AFD_POLL operations as you want without them interfering with
+# each other, in fact if you issue two AFD_POLL operations for the same socket
+# at the same time with notification going to the same IOCP port, then Windows
+# gets super confused. For example, if we issue one operation from
+# wait_readable, and another independent operation from wait_writable, then
+# Windows may complete the wait_writable operation when the socket becomes
+# readable.
 #
 # To avoid this, we have to coalesce all the operations on a single socket
 # into one, and when the set of waiters changes we have to throw away the old
@@ -511,8 +512,10 @@ class WindowsIOManager:
                     )
                 )
             except OSError as exc:
-                if exc.winerror != ErrorCodes.ERROR_NOT_FOUND:  # pragma: no cover
-                    raise
+                if exc.winerror != ErrorCodes.ERROR_NOT_FOUND:
+                    # I don't think this is possible, so if it happens let's
+                    # crash noisily.
+                    raise  # pragma: no cover
             waiters.current_op = None
 
         flags = 0
@@ -548,9 +551,15 @@ class WindowsIOManager:
                     )
                 )
             except OSError as exc:
-                if exc.winerror != ErrorCodes.ERROR_IO_PENDING:  # pragma: no cover
-                    raise
-
+                if exc.winerror != ErrorCodes.ERROR_IO_PENDING:
+                    # This could happen if the socket handle got closed behind
+                    # our back while a wait_* call was pending, and we tried
+                    # to re-issue the call. Clear our state and wake up any
+                    # pending calls.
+                    del self._afd_waiters[base_handle]
+                    # Do this last, because it could raise.
+                    wake_all(waiters, exc)
+                    return
             op = AFDPollOp(lpOverlapped, poll_info, waiters)
             waiters.current_op = op
             self._afd_ops[lpOverlapped] = op
@@ -564,6 +573,8 @@ class WindowsIOManager:
         if getattr(waiters, mode) is not None:
             raise _core.BusyResourceError
         setattr(waiters, mode, _core.current_task())
+        # Could potentially raise if the handle is somehow invalid; that's OK,
+        # we let it escape.
         self._refresh_afd(base_handle)
 
         def abort_fn(_):
@@ -586,18 +597,7 @@ class WindowsIOManager:
         handle = _get_base_socket(handle)
         waiters = self._afd_waiters.get(handle)
         if waiters is not None:
-            if waiters.read_task is not None:
-                _core.reschedule(
-                    waiters.read_task,
-                    outcome.Error(_core.ClosedResourceError())
-                )
-                waiters.read_task = None
-            if waiters.write_task is not None:
-                _core.reschedule(
-                    waiters.write_task,
-                    outcome.Error(_core.ClosedResourceError())
-                )
-                waiters.write_task = None
+            wake_all(waiters, _core.ClosedResourceError())
             self._refresh_afd(handle)
 
     ################################################################
