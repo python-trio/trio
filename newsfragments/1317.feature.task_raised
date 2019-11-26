@@ -1,0 +1,8 @@
+There is a new "task_raised" instrumentation.
+    
+The use case: One of your tasks raises an exception. The nursery cancels
+all other tasks and waits for them to end. If one of these tasks swallows
+the cancellation, e.g. because of a deadlock, you may need a way to find
+the original exception (and the task it was raised in) to see what's going
+on.
+
