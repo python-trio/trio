@@ -492,6 +492,45 @@ def test_instrument_before_after_run():
     assert record == ["before_run", "after_run"]
 
 
+def test_instrument_raised_nursery():
+    record = []
+
+    class Raised:
+        def task_raised(self, task, exception):
+            record.append("raised")
+
+    async def main():
+        try:
+            async with _core.open_nursery():
+                raise RuntimeError()
+        except RuntimeError:
+            pass
+
+    _core.run(main, instruments=[Raised()])
+    assert record == ["raised"]
+
+
+def test_instrument_raised_task():
+    record = []
+
+    class Raised:
+        def task_raised(self, task, exception):
+            record.append("raised")
+
+    async def err():
+        raise RuntimeError()
+
+    async def main():
+        try:
+            async with _core.open_nursery() as nursery:
+                nursery.start_soon(err)
+        except RuntimeError:
+            pass
+
+    _core.run(main, instruments=[Raised()])
+    assert record == ["raised"]
+
+
 def test_instrument_task_spawn_exit():
     record = []
 

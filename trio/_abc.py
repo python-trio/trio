@@ -103,6 +103,15 @@ class Instrument(metaclass=ABCMeta):
             task (trio.hazmat.Task): The task that just ran.
 
         """
+    def task_raised(self, task):
+        """Called when the given task either dies with an exception, or
+        leaves the scope of a nursery with one.
+
+        Args:
+            task (trio.hazmat.Task): The finished task.
+            exception (BaseException): The exception in question.
+
+        """
     def task_exited(self, task):
         """Called when the given task exits.
 

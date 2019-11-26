@@ -714,6 +714,12 @@ class NurseryManager:
 
     @enable_ki_protection
     async def __aexit__(self, etype, exc, tb):
+        if exc is not None:
+            task = self._nursery._parent_task
+            runner = task._runner
+            if runner.instruments:
+                runner.instrument("task_raised", task, exc)
+
         new_exc = await self._nursery._nested_child_finished(exc)
         # Tracebacks show the 'raise' line below out of context, so let's give
         # this variable a name that makes sense out of context.
@@ -1425,6 +1431,8 @@ class Runner:
             task._parent_nursery._child_finished(task, outcome)
 
         if self.instruments:
+            if type(outcome) is Error:
+                self.instrument("task_raised", task, outcome.error)
             self.instrument("task_exited", task)
 
     ################
