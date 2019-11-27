@@ -103,6 +103,16 @@ class Instrument(metaclass=ABCMeta):
             task (trio.hazmat.Task): The task that just ran.
 
         """
+    def nursery_end(self, task, exception):
+        """Called when execution of an ``async with trio.open_nursery()``
+        context ends.
+
+        Args:
+            task (trio.hazmat.Task): The task in question.
+            exception (BaseException): The exception (if any) which the
+                code in question raised.
+
+        """
     def task_exited(self, task):
         """Called when the given task exits.
 

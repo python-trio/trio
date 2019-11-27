@@ -1,0 +1,8 @@
+There is a new "nursery_end" instrumentation.
+
+The use case: The code in an ``async with trio.open_nursery():`` block
+leaves that block withh an exception. The nursery cancels all tasks it
+started and waits for them to end. If one of these tasks swallows the
+cancellation (deadlock, catching and not re-raising `BaseException`, …),
+you need a way to trace what originally caused the problem.
+
