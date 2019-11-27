@@ -492,12 +492,31 @@ def test_instrument_before_after_run():
     assert record == ["before_run", "after_run"]
 
 
-def test_instrument_raised_nursery():
+def test_instrument_nursery_end():
     record = []
 
     class Raised:
-        def task_raised(self, task, exception):
-            record.append("raised")
+        def nursery_end(self, task, exception):
+            assert exception is None
+            record.append("ended")
+
+    async def main():
+        try:
+            pass
+        except RuntimeError:
+            pass
+
+    _core.run(main, instruments=[Raised()])
+    assert record == ["ended"]
+
+
+def test_instrument_nursery_error():
+    record = []
+
+    class Raised:
+        def nursery_end(self, task, exception):
+            if isinstance(exception, RuntimeError):
+                record.append("ended")
 
     async def main():
         try:
@@ -507,28 +526,7 @@ def test_instrument_raised_nursery():
             pass
 
     _core.run(main, instruments=[Raised()])
-    assert record == ["raised"]
-
-
-def test_instrument_raised_task():
-    record = []
-
-    class Raised:
-        def task_raised(self, task, exception):
-            record.append("raised")
-
-    async def err():
-        raise RuntimeError()
-
-    async def main():
-        try:
-            async with _core.open_nursery() as nursery:
-                nursery.start_soon(err)
-        except RuntimeError:
-            pass
-
-    _core.run(main, instruments=[Raised()])
-    assert record == ["raised"]
+    assert record == ["ended"]
 
 
 def test_instrument_task_spawn_exit():

@@ -49,8 +49,9 @@ class Tracer(trio.abc.Instrument):
     def task_exited(self, task):
         self._print_with_task("### task exited", task)
 
-    def task_raised(self, task. exception):
-        print("### {}: {}: {}".format(msg, task.name, repr(exception))
+    def nursery_end(self, task. exception):
+        if exception is not None:
+            print("### {}: {}: {}".format(msg, task.name, repr(exception))
 
     def before_io_wait(self, timeout):
         if timeout:
