@@ -1431,6 +1431,7 @@ class Runner:
             task._parent_nursery._child_finished(task, outcome)
 
         if self.instruments:
+            task.outcome = outcome
             self.instrument("task_exited", task)
 
     ################
