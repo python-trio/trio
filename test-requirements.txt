@@ -17,14 +17,13 @@ entrypoints==0.3          # via flake8
 flake8==3.7.9
 idna==2.8
 immutables==0.11
-importlib-metadata==0.23  # via pluggy, pytest
 ipython-genutils==0.2.0   # via traitlets
 ipython==7.9.0
 isort==4.3.21             # via pylint
 jedi==0.15.1
 lazy-object-proxy==1.4.3  # via astroid
 mccabe==0.6.1             # via flake8, pylint
-more-itertools==7.2.0     # via pytest, zipp
+more-itertools==7.2.0     # via pytest
 outcome==1.0.1
 packaging==19.2           # via pytest
 parso==0.5.1              # via jedi
@@ -37,7 +36,7 @@ py==1.8.0                 # via pytest
 pycodestyle==2.5.0        # via flake8
 pycparser==2.19           # via cffi
 pyflakes==2.1.1           # via flake8
-pygments==2.5.1           # via ipython
+pygments==2.5.2           # via ipython
 pylint==2.4.2
 pyopenssl==19.1.0
 pyparsing==2.4.5          # via packaging
@@ -48,8 +47,6 @@ sniffio==1.1.0
 sortedcontainers==2.1.0
 traitlets==4.3.3          # via ipython
 trustme==0.5.3
-typed-ast==1.4.0 ; python_version < "3.8" and implementation_name == "cpython"
 wcwidth==0.1.7            # via prompt-toolkit, pytest
 wrapt==1.11.2             # via astroid
 yapf==0.28.0
-zipp==0.6.0               # via importlib-metadata
