@@ -676,6 +676,8 @@ class StrictFIFOLock(Lock):
     on this property.
 
     """
+
+
 @attr.s(frozen=True)
 class _ConditionStatistics:
     tasks_waiting = attr.ib()
