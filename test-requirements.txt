@@ -49,4 +49,4 @@ traitlets==4.3.3          # via ipython
 trustme==0.5.3
 wcwidth==0.1.7            # via prompt-toolkit, pytest
 wrapt==1.11.2             # via astroid
-yapf==0.28.0
+yapf==0.29.0
