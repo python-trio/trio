@@ -85,9 +85,9 @@ setup(
         "idna",
         "outcome",
         "sniffio",
-        # PEP 508 style, but:
-        # https://bitbucket.org/pypa/wheel/issues/181/bdist_wheel-silently-discards-pep-508
-        #"cffi; os_name == 'nt'",  # "cffi is required on windows"
+        # cffi 1.12 adds from_buffer(require_writable=True) and ffi.release()
+        "cffi>=1.12; os_name == 'nt'",  # "cffi is required on windows"
+        "contextvars>=2.1; python_version < '3.7'"
     ],
     # This means, just install *everything* you see under trio/, even if it
     # doesn't look like a source file, so long as it appears in MANIFEST.in:
