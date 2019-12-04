@@ -122,7 +122,8 @@ class _ModuleWithDeprecations(ModuleType):
             )
             return info.value
 
-        raise AttributeError(name)
+        msg = "module '{}' has no attribute '{}'"
+        raise AttributeError(msg.format(self.__name__, name))
 
 
 def enable_attribute_deprecations(module_name):
