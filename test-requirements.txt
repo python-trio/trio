@@ -23,7 +23,7 @@ isort==4.3.21             # via pylint
 jedi==0.15.1
 lazy-object-proxy==1.4.3  # via astroid
 mccabe==0.6.1             # via flake8, pylint
-more-itertools==8.0.0     # via pytest
+more-itertools==8.0.1     # via pytest
 outcome==1.0.1
 packaging==19.2           # via pytest
 parso==0.5.1              # via jedi
