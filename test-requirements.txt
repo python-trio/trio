@@ -4,7 +4,7 @@
 #
 #    pip-compile --output-file test-requirements.txt test-requirements.in
 #
-astor==0.8.0
+astor==0.8.1
 astroid==2.3.3            # via pylint
 async-generator==1.10
 attrs==19.3.0
