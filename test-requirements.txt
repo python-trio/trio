@@ -46,7 +46,7 @@ six==1.13.0               # via astroid, cryptography, packaging, prompt-toolkit
 sniffio==1.1.0
 sortedcontainers==2.1.0
 traitlets==4.3.3          # via ipython
-trustme==0.5.3
+trustme==0.6.0
 wcwidth==0.1.7            # via prompt-toolkit, pytest
 wrapt==1.11.2             # via astroid
 yapf==0.29.0
