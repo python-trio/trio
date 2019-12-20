@@ -58,7 +58,9 @@ def iter_wrapper_factory(cls, meth_name):
     async def wrapper(self, *args, **kwargs):
         meth = getattr(self._wrapped, meth_name)
         func = partial(meth, *args, **kwargs)
-        items = await trio.to_thread.run_sync(func)
+        # Make sure that the full iteration is performed in the thread
+        # by converting the generator produced by pathlib into a list
+        items = await trio.to_thread.run_sync(lambda: list(func()))
         return (rewrap_path(item) for item in items)
 
     return wrapper
