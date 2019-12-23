@@ -20,7 +20,7 @@ immutables==0.11
 ipython-genutils==0.2.0   # via traitlets
 ipython==7.9.0
 isort==4.3.21             # via pylint
-jedi==0.15.1
+jedi==0.15.2
 lazy-object-proxy==1.4.3  # via astroid
 mccabe==0.6.1             # via flake8, pylint
 more-itertools==8.0.2     # via pytest
