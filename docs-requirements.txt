@@ -13,7 +13,7 @@ chardet==3.0.4            # via requests
 click==7.0                # via towncrier
 docutils==0.15.2          # via sphinx
 idna==2.8
-imagesize==1.1.0          # via sphinx
+imagesize==1.2.0          # via sphinx
 immutables==0.11
 incremental==17.5.0       # via towncrier
 jinja2==2.10.3            # via sphinx, towncrier
