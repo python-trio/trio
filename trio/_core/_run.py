@@ -1116,7 +1116,7 @@ class _Deadlines:
 
     def seconds_to_next(self, clock):
         return (
-            clock.deadline_to_sleep_time(self.c.keys()[0][0])
+            self.c.keys()[0][0] - clock.current_time()
             if self.c else float("inf")
         )
 
