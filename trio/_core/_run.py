@@ -507,9 +507,9 @@ class CancelScope(metaclass=Final):
                 self._registered_deadline = new
                 runner = GLOBAL_RUN_CONTEXT.runner
                 if old != inf:
-                    del runner.deadlines[old, id(self)]
+                    runner.deadlines.remove(old, self)
                 if new != inf:
-                    runner.deadlines[new, id(self)] = self
+                    runner.deadlines.add(new, self)
 
     @property
     def deadline(self):
@@ -856,7 +856,7 @@ class Nursery(metaclass=NoPublicConstructor):
             return MultiError(self._pending_excs)
 
     def start_soon(self, async_fn, *args, name=None):
-        """Creates a child task, scheduling ``await async_fn(*args)``.
+        """ Creates a child task, scheduling ``await async_fn(*args)``.
 
         This and :meth:`start` are the two fundamental methods for
         creating concurrent tasks in Trio.
@@ -1100,6 +1100,33 @@ class _RunStatistics:
     io_statistics = attr.ib()
     run_sync_soon_queue_size = attr.ib()
 
+class _Deadlines:
+    """A container of deadlined cancel scopes.
+    Only contains scopes with non-infinite deadlines that are currently
+    attached to at least one task.
+    """
+    def __init__(self):
+        self.c = SortedDict()  # {(deadline, id(CancelScope)): CancelScope}
+
+    def add(self, deadline, cancel_scope):
+        self.c[(deadline, id(cancel_scope))] = cancel_scope
+
+    def remove(self, deadline, cancel_scope):
+        del self.c[(deadline, id(cancel_scope))]
+
+    def seconds_to_next(self, clock):
+        return (
+            clock.deadline_to_sleep_time(self.c.keys()[0][0])
+            if self.c else float("inf")
+        )
+
+    def expire(self, clock):
+        any_removed = False
+        while self.seconds_to_next(clock) <= 0:
+            cancel_scope = self.c.peekitem(0)[1]
+            cancel_scope.cancel()  # This ends up calling self.remove(...)
+            any_removed = True
+        return any_removed
 
 @attr.s(eq=False, hash=False)
 class Runner:
@@ -1113,10 +1140,7 @@ class Runner:
     runq = attr.ib(factory=deque)
     tasks = attr.ib(factory=set)
 
-    # {(deadline, id(CancelScope)): CancelScope}
-    # only contains scopes with non-infinite deadlines that are currently
-    # attached to at least one task
-    deadlines = attr.ib(factory=SortedDict)
+    deadlines = attr.ib(factory=_Deadlines)
 
     init_task = attr.ib(default=None)
     system_nursery = attr.ib(default=None)
@@ -1157,11 +1181,7 @@ class Runner:
           other attributes vary between backends.
 
         """
-        if self.deadlines:
-            next_deadline, _ = self.deadlines.keys()[0]
-            seconds_to_next_deadline = next_deadline - self.current_time()
-        else:
-            seconds_to_next_deadline = float("inf")
+        seconds_to_next_deadline = self.deadlines.seconds_to_next(self.clock)
         return _RunStatistics(
             tasks_living=len(self.tasks),
             tasks_runnable=len(self.runq),
@@ -1832,13 +1852,10 @@ def run_impl(runner, async_fn, args):
     # You know how people talk about "event loops"? This 'while' loop right
     # here is our event loop:
     while runner.tasks:
-        if runner.runq:
-            timeout = 0
-        elif runner.deadlines:
-            deadline, _ = runner.deadlines.keys()[0]
-            timeout = runner.clock.deadline_to_sleep_time(deadline)
-        else:
-            timeout = _MAX_TIMEOUT
+        timeout = (
+            0 if runner.runq
+            else runner.deadlines.seconds_to_next(runner.clock)
+        )
         timeout = min(max(0, timeout), _MAX_TIMEOUT)
 
         idle_primed = False
@@ -1857,15 +1874,8 @@ def run_impl(runner, async_fn, args):
             runner.instrument("after_io_wait", timeout)
 
         # Process cancellations due to deadline expiry
-        now = runner.clock.current_time()
-        while runner.deadlines:
-            (deadline, _), cancel_scope = runner.deadlines.peekitem(0)
-            if deadline <= now:
-                # This removes the given scope from runner.deadlines:
-                cancel_scope.cancel()
-                idle_primed = False
-            else:
-                break
+        if runner.deadlines.expire(runner.clock):
+            idle_primed = False
 
         if not runner.runq and idle_primed:
             while runner.waiting_for_idle:
