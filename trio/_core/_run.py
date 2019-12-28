@@ -1100,6 +1100,7 @@ class _RunStatistics:
     io_statistics = attr.ib()
     run_sync_soon_queue_size = attr.ib()
 
+
 class _Deadlines:
     """A container of deadlined cancel scopes.
     Only contains scopes with non-infinite deadlines that are currently
@@ -1115,10 +1116,9 @@ class _Deadlines:
         del self.c[(deadline, id(cancel_scope))]
 
     def seconds_to_next(self, clock):
-        return (
-            self.c.keys()[0][0] - clock.current_time()
-            if self.c else float("inf")
-        )
+        if not self.c:
+            return float("inf")
+        return self.c.keys()[0][0] - clock.current_time()
 
     def expire(self, clock):
         any_removed = False
@@ -1127,6 +1127,7 @@ class _Deadlines:
             cancel_scope.cancel()  # This ends up calling self.remove(...)
             any_removed = True
         return any_removed
+
 
 @attr.s(eq=False, hash=False)
 class Runner:
@@ -1852,11 +1853,11 @@ def run_impl(runner, async_fn, args):
     # You know how people talk about "event loops"? This 'while' loop right
     # here is our event loop:
     while runner.tasks:
-        timeout = (
-            0 if runner.runq
-            else runner.deadlines.seconds_to_next(runner.clock)
-        )
-        timeout = min(max(0, timeout), _MAX_TIMEOUT)
+        if runner.runq:
+            timeout = 0
+        else:
+            timeout = runner.deadlines.seconds_to_next(runner.clock)
+            timeout = min(max(0, timeout), _MAX_TIMEOUT)
 
         idle_primed = False
         if runner.waiting_for_idle:
