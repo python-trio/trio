@@ -1115,10 +1115,14 @@ class _Deadlines:
     def remove(self, deadline, cancel_scope):
         del self.c[(deadline, id(cancel_scope))]
 
-    def seconds_to_next(self, clock):
+    @property
+    def next(self):
         if not self.c:
             return float("inf")
-        return self.c.keys()[0][0] - clock.current_time()
+        return self.c.keys()[0][0]
+
+    def seconds_to_next(self, clock):
+        return self.next - clock.current_time()
 
     def expire(self, clock):
         any_removed = False
@@ -1856,7 +1860,7 @@ def run_impl(runner, async_fn, args):
         if runner.runq:
             timeout = 0
         else:
-            timeout = runner.deadlines.seconds_to_next(runner.clock)
+            timeout = runner.clock.deadline_to_sleep_time(runner.deadlines.next)
             timeout = min(max(0, timeout), _MAX_TIMEOUT)
 
         idle_primed = False
