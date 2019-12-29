@@ -1121,9 +1121,8 @@ class _Deadlines:
             return float("inf")
         return self.c.keys()[0][0]
 
-    def expire(self, clock):
+    def expire(self, now):
         any_removed = False
-        now = clock.current_time()
         while self.next <= now:
             cancel_scope = self.c.peekitem(0)[1]
             cancel_scope.cancel()  # This ends up calling self.remove(...)
@@ -1878,7 +1877,7 @@ def run_impl(runner, async_fn, args):
             runner.instrument("after_io_wait", timeout)
 
         # Process cancellations due to deadline expiry
-        if runner.deadlines.expire(runner.clock):
+        if runner.deadlines.expire(runner.clock.current_time()):
             idle_primed = False
 
         if not runner.runq and idle_primed:
