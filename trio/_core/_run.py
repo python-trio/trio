@@ -1121,12 +1121,10 @@ class _Deadlines:
             return float("inf")
         return self.c.keys()[0][0]
 
-    def seconds_to_next(self, clock):
-        return self.next - clock.current_time()
-
     def expire(self, clock):
         any_removed = False
-        while self.seconds_to_next(clock) <= 0:
+        now = clock.current_time()
+        while self.next <= now:
             cancel_scope = self.c.peekitem(0)[1]
             cancel_scope.cancel()  # This ends up calling self.remove(...)
             any_removed = True
@@ -1186,7 +1184,7 @@ class Runner:
           other attributes vary between backends.
 
         """
-        seconds_to_next_deadline = self.deadlines.seconds_to_next(self.clock)
+        seconds_to_next_deadline = self.deadlines.next - self.current_time()
         return _RunStatistics(
             tasks_living=len(self.tasks),
             tasks_runnable=len(self.runq),
@@ -1860,7 +1858,8 @@ def run_impl(runner, async_fn, args):
         if runner.runq:
             timeout = 0
         else:
-            timeout = runner.clock.deadline_to_sleep_time(runner.deadlines.next)
+            deadline = runner.deadlines.next
+            timeout = runner.clock.deadline_to_sleep_time(deadline)
             timeout = min(max(0, timeout), _MAX_TIMEOUT)
 
         idle_primed = False
