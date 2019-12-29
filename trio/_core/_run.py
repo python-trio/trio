@@ -1108,18 +1108,17 @@ class _Deadlines:
     """
     def __init__(self):
         self.c = SortedDict()  # {(deadline, id(CancelScope)): CancelScope}
+        self.next = float("inf")
 
     def add(self, deadline, cancel_scope):
+        if self.next > deadline:
+            self.next = deadline
         self.c[(deadline, id(cancel_scope))] = cancel_scope
 
     def remove(self, deadline, cancel_scope):
         del self.c[(deadline, id(cancel_scope))]
-
-    @property
-    def next(self):
-        if not self.c:
-            return float("inf")
-        return self.c.keys()[0][0]
+        if self.next == deadline:
+            self.next = self.c.peekitem(0)[0][0] if self.c else float("inf")
 
     def expire(self, now):
         any_removed = False
