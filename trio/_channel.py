@@ -27,6 +27,11 @@ def open_memory_channel(max_buffer_size):
     on a channel when there's no-one on the other side. See
     :ref:`channel-shutdown` for details.
 
+    Memory channel operations are all atomic with respect to
+    cancellation, either `~trio.abc.ReceiveChannel.receive` will
+    successfully return an object, or it will raise :exc:`Cancelled`
+    while leaving the channel unchanged.
+
     Args:
       max_buffer_size (int or math.inf): The maximum number of items that can
         be buffered in the channel before :meth:`~trio.abc.SendChannel.send`
