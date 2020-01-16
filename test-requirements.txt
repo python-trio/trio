@@ -42,7 +42,7 @@ pyopenssl==19.1.0
 pyparsing==2.4.6          # via packaging
 pytest-cov==2.8.1
 pytest==5.3.2
-six==1.13.0               # via astroid, cryptography, packaging, prompt-toolkit, pyopenssl, traitlets
+six==1.14.0               # via astroid, cryptography, packaging, prompt-toolkit, pyopenssl, traitlets
 sniffio==1.1.0
 sortedcontainers==2.1.0
 traitlets==4.3.3          # via ipython
