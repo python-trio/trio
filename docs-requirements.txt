@@ -24,7 +24,7 @@ pygments==2.5.2           # via sphinx
 pyparsing==2.4.6          # via packaging
 pytz==2019.3              # via babel
 requests==2.22.0          # via sphinx
-six==1.13.0               # via packaging
+six==1.14.0               # via packaging
 sniffio==1.1.0
 snowballstemmer==2.0.0    # via sphinx
 sortedcontainers==2.1.0
