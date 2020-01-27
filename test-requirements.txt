@@ -25,7 +25,7 @@ lazy-object-proxy==1.4.3  # via astroid
 mccabe==0.6.1             # via flake8, pylint
 more-itertools==8.0.2     # via pytest
 outcome==1.0.1
-packaging==20.0           # via pytest
+packaging==20.1           # via pytest
 parso==0.5.2              # via jedi
 pexpect==4.7.0            # via ipython
 pickleshare==0.7.5        # via ipython
