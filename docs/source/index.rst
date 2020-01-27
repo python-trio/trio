@@ -73,6 +73,7 @@ Vital statistics:
    :caption: Trio's friendly, yet comprehensive, manual:
 
    tutorial.rst
+   awesome-trio-libraries.rst
    reference-core.rst
    reference-io.rst
    reference-testing.rst
