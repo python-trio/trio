@@ -41,14 +41,21 @@ Database
 * `sqlalchemy_aio <https://github.com/RazerM/sqlalchemy_aio>`__ - Add asyncio and Trio support to SQLAlchemy core, derived from alchimia.
 
 
+IOT
+---
+* `DistMQTT <https://github.com/smurfix/distmqtt>`__ - DistMQTT is an open source MQTT client and broker implementation. It is a fork of hbmqtt with support for anyio and DistKV.
+
+
 Building Command Line Apps
 --------------------------
 * `trio-click <https://github.com/python-trio/trio-click>`__ - Python composable command line utility, trio-compatible version.
+* `urwid <https://github.com/urwid/urwid>`__ - Urwid is a console user interface library for Python.
 
 
 Multi-Core/Multiprocessing
 --------------------------
 * `tractor <https://github.com/goodboy/tractor>`__ - tractor is an attempt to bring trionic structured concurrency to distributed multi-core Python.
+* `Trio run_in_process <https://github.com/ethereum/trio-run-in-process>`__ - Trio based API for running code in a separate process.
 
 
 Testing
