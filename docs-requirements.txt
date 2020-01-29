@@ -39,4 +39,4 @@ sphinxcontrib-serializinghtml==1.1.3  # via sphinx
 sphinxcontrib-trio==1.1.0
 toml==0.10.0              # via towncrier
 towncrier==19.2.0
-urllib3==1.25.7           # via requests
+urllib3==1.25.8           # via requests
