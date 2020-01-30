@@ -31,6 +31,7 @@ Web and HTML
 * `trio-websocket <https://github.com/HyperionGray/trio-websocket>`__ - This library implements the WebSocket protocol, striving for safety, correctness, and ergonomics.
 * `quart-trio <https://gitlab.com/pgjones/quart-trio/>`__ - Like Flask, but for Trio. A simple and powerful framework for building async web applications and REST APIs. Tip: this is an ASGI-based framework, so you'll also need an HTTP server with ASGI support.
 * `hypercorn <https://gitlab.com/pgjones/hypercorn>`__ - An HTTP server for hosting your ASGI apps. Supports HTTP/1.1, HTTP/2, HTTP/3, and Websockets. Can be run as a standalone server, or embedded in a larger Trio app. Use it with ``quart-trio``, or any other Trio-compatible ASGI framework.
+* `httpx <https://www.python-httpx.org/>`__ - HTTPX is a fully featured HTTP client for Python 3, which provides sync and async APIs, and support for both HTTP/1.1 and HTTP/2.
 
 
 Database
