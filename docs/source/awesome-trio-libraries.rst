@@ -45,6 +45,9 @@ Database
 IOT
 ---
 * `DistMQTT <https://github.com/smurfix/distmqtt>`__ - DistMQTT is an open source MQTT client and broker implementation. It is a fork of hbmqtt with support for anyio and DistKV.
+* `asyncgpio <https://github.com/python-trio/trio-gpio>`__ - Allows easy access to the GPIO pins on your Raspberry Pi or similar embedded computer.
+
+
 
 
 Building Command Line Apps
