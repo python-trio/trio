@@ -72,9 +72,12 @@ else:
 if sys.version_info < (3, 5, 2):
 
     def aiter_compat(aiter_impl):
-        @wraps(aiter_impl)
+        # de-sugar decorator to fix Python 3.8 coverage issue
+        # https://github.com/python-trio/trio/pull/784#issuecomment-446438407
         async def __aiter__(*args, **kwargs):
             return aiter_impl(*args, **kwargs)
+
+        __aiter__ = wraps(aiter_impl)(__aiter__)
 
         return __aiter__
 else:
