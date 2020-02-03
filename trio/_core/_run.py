@@ -1107,7 +1107,6 @@ class _Deadlines:
     Only contains scopes with non-infinite deadlines that are currently
     attached to at least one task.
     """
-
     def __init__(self):
         self.c = []  # Heap of (deadline, id(CancelScope), CancelScope)
         self.count = 0  # Count of active deadlines
