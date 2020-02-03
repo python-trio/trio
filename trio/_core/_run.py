@@ -18,6 +18,7 @@ from sniffio import current_async_library_cvar
 
 import attr
 from async_generator import isasyncgen
+from heapq import heapify, heappop, heappush
 from sortedcontainers import SortedDict
 from outcome import Error, Value, capture
 
@@ -1106,27 +1107,36 @@ class _Deadlines:
     Only contains scopes with non-infinite deadlines that are currently
     attached to at least one task.
     """
+
     def __init__(self):
-        self.c = SortedDict()  # {(deadline, id(CancelScope)): CancelScope}
-        self.next = float("inf")
+        self.c = []  # Heap of (deadline, id(CancelScope), CancelScope)
+        self.count = 0  # Count of active deadlines
+
+    @property
+    def next(self):
+        return self.c[0][0] if self.count else float("inf")
 
     def add(self, deadline, cancel_scope):
-        if self.next > deadline:
-            self.next = deadline
-        self.c[(deadline, id(cancel_scope))] = cancel_scope
+        heappush(self.c, (deadline, id(cancel_scope), cancel_scope))
+        self.count += 1
 
     def remove(self, deadline, cancel_scope):
-        del self.c[(deadline, id(cancel_scope))]
-        if self.next == deadline:
-            self.next = self.c.peekitem(0)[0][0] if self.c else float("inf")
+        self.count -= 1
+
+    def prune(self):
+        # sorted seems faster than heapify to satisfy the heap condition
+        self.c = sorted(t for t in self.c if t[0] == t[2]._deadline)
 
     def expire(self, now):
-        any_removed = False
+        if len(self.c) > self.count * 2 + 1000:
+            self.prune()
+        # Expire any expired, cancel those whose deadlines haven't changed
+        old_count = self.count
         while self.next <= now:
-            cancel_scope = self.c.peekitem(0)[1]
-            cancel_scope.cancel()  # This ends up calling self.remove(...)
-            any_removed = True
-        return any_removed
+            deadline, _, cancel_scope = heappop(self.c)
+            if deadline == cancel_scope._deadline:
+                cancel_scope.cancel()  # Calls back to self.remove()
+        return self.count < old_count
 
 
 @attr.s(eq=False, hash=False)
