@@ -275,7 +275,7 @@ else
     else
         # Flag pypy and cpython coverage differently, until it settles down...
         FLAG="cpython"
-        if [[ "$PYPY_NIGHTLY_BRANCH" == "py3.6" ]]; then
+        if [[ "$PYPY_NIGHTLY_BRANCH" == "py3.8" ]]; then
             FLAG="pypy36nightly"
         elif [[ "$(python -V)" == *PyPy* ]]; then
             FLAG="pypy36release"
