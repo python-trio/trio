@@ -267,26 +267,12 @@ else
         netsh winsock reset
     fi
 
-    # coverage is broken in pypy3 7.1.1, but is fixed in nightly and should be
-    # fixed in the next release after 7.1.1.
-    # See: https://bitbucket.org/pypy/pypy/issues/2943/
-    if [[ "$TRAVIS_PYTHON_VERSION" = "pypy3" ]]; then
-        true;
-    else
-        # Flag pypy and cpython coverage differently, until it settles down...
-        FLAG="cpython"
-        if [[ "$PYPY_NIGHTLY_BRANCH" == "py3.8" ]]; then
-            FLAG="pypy36nightly"
-        elif [[ "$(python -V)" == *PyPy* ]]; then
-            FLAG="pypy36release"
-        fi
-        # It's more common to do
-        #   bash <(curl ...)
-        # but azure is broken:
-        #   https://developercommunity.visualstudio.com/content/problem/743824/bash-task-on-windows-suddenly-fails-with-bash-devf.html
-        curl-harder -o codecov.sh https://codecov.io/bash
-        bash codecov.sh -n "${JOB_NAME}" -F "$FLAG"
-    fi
+    # It's more common to do
+    #   bash <(curl ...)
+    # but azure is broken:
+    #   https://developercommunity.visualstudio.com/content/problem/743824/bash-task-on-windows-suddenly-fails-with-bash-devf.html
+    curl-harder -o codecov.sh https://codecov.io/bash
+    bash codecov.sh -n "${JOB_NAME}"
 
     $PASSED
 fi
