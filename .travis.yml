@@ -1,7 +1,8 @@
+os: linux
 language: python
 dist: xenial
 
-matrix:
+jobs:
   include:
     # The pypy tests are slow, so we list them first
     - python: pypy3
