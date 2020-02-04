@@ -7,7 +7,7 @@ jobs:
     # The pypy tests are slow, so we list them first
     - python: pypy3.6-7.2.0
     - language: generic
-      env: PYPY_NIGHTLY_BRANCH=py3.6
+      env: PYPY_NIGHTLY_BRANCH=py3.7
     # Qemu tests are also slow
     # The unique thing this provides is testing on the given distro's
     # kernel, which is important when we use new kernel features. This
