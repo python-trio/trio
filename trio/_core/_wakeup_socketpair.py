@@ -1,3 +1,4 @@
+import platform
 import socket
 import sys
 from contextlib import contextmanager
@@ -6,7 +7,7 @@ import signal
 from .. import _core
 from .._util import is_main_thread
 
-if sys.version_info >= (3, 7):
+if sys.version_info >= (3, 7) and platform.python_implementation() != "PyPy":
     HAVE_WARN_ON_FULL_BUFFER = True
 else:
     HAVE_WARN_ON_FULL_BUFFER = False
