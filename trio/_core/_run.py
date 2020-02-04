@@ -1123,8 +1123,8 @@ class _Deadlines:
         self.count -= 1
 
     def prune(self):
-        # sorted seems faster than heapify to satisfy the heap condition
-        self.c = sorted(t for t in self.c if t[0] == t[2]._deadline)
+        self.c = [t for t in self.c if t[0] == t[2]._deadline]
+        heapify(self.c)
 
     def expire(self, now):
         if len(self.c) > self.count * 2 + 1000:
