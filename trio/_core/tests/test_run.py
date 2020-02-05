@@ -38,9 +38,7 @@ async def sleep_forever():
 # Some of our tests need to leak coroutines, and thus trigger the
 # "RuntimeWarning: coroutine '...' was never awaited" message. This context
 # manager should be used anywhere this happens to hide those messages, because
-# (a) when expected they're clutter, (b) on CPython 3.5.x where x < 3, this
-# warning can trigger a segfault if we run with warnings turned into errors:
-#   https://bugs.python.org/issue27811
+# when expected they're clutter.
 @contextmanager
 def ignore_coroutine_never_awaited_warnings():
     with warnings.catch_warnings():

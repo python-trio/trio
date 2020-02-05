@@ -94,7 +94,7 @@ Okay, ready? Let's get started.
 Before you begin
 ----------------
 
-1. Make sure you're using Python 3.5 or newer.
+1. Make sure you're using Python 3.6 or newer.
 
 2. ``python3 -m pip install --upgrade trio`` (or on Windows, maybe
    ``py -3 -m pip install --upgrade trio`` – `details
@@ -312,7 +312,7 @@ runs:
    >>>> # but forcing a garbage collection gives us a warning:
    >>>> import gc
    >>>> gc.collect()
-   /home/njs/pypy-3.5-nightly/lib-python/3/importlib/_bootstrap.py:191: RuntimeWarning: coroutine 'sleep' was never awaited
+   /home/njs/pypy-3.8-nightly/lib-python/3/importlib/_bootstrap.py:191: RuntimeWarning: coroutine 'sleep' was never awaited
    if _module_locks.get(name) is wr:    # XXX PyPy fix?
    0
    >>>>

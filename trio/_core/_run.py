@@ -1256,12 +1256,9 @@ class Runner:
             # The protocol for detecting an asyncio Future-like object
             if getattr(value, "_asyncio_future_blocking", None) is not None:
                 return True
-            # asyncio.Future doesn't have _asyncio_future_blocking until
-            # 3.5.3. We don't want to import asyncio, but this janky check
-            # should work well enough for our purposes. And it also catches
-            # tornado Futures and twisted Deferreds. By the time we're calling
-            # this function, we already know something has gone wrong, so a
-            # heuristic is pretty safe.
+            # This janky check catches tornado Futures and twisted Deferreds.
+            # By the time we're calling this function, we already know
+            # something has gone wrong, so a heuristic is pretty safe.
             if value.__class__.__name__ in ("Future", "Deferred"):
                 return True
             return False

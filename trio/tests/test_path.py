@@ -57,7 +57,7 @@ async def test_cmp_magic(cls_a, cls_b):
     assert not b == None  # noqa
 
 
-# upstream python3.5 bug: we should also test (pathlib.Path, trio.Path), but
+# upstream python3.8 bug: we should also test (pathlib.Path, trio.Path), but
 # __*div__ does not properly raise NotImplementedError like the other comparison
 # magic, so trio.Path's implementation does not get dispatched
 cls_pairs = [

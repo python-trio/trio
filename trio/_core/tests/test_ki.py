@@ -504,9 +504,7 @@ def test_ki_wakes_us_up():
     #
     # which contains the desired sequence.
     #
-    # Affected version of CPython include:
-    # - all versions of 3.5 (fix will not be backported)
-    # - 3.6.1 and earlier
+    # Affected version of CPython include 3.6.1 and earlier.
     # It's fixed in 3.6.2 and 3.7+
     #
     # PyPy was never affected.

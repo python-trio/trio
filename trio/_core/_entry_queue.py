@@ -179,8 +179,8 @@ class TrioToken:
         hashable, and Trio will make a best-effort attempt to discard any
         call submission which is equal to an already-pending call. Trio
         will make an attempt to process these in first-in first-out order,
-        but no guarantees. (Currently processing is FIFO on CPython 3.6 and
-        PyPy, but not CPython 3.5.)
+        but no guarantees. (Currently processing is FIFO on CPython and
+        PyPy.)
 
         Any ordering guarantees apply separately to ``idempotent=False``
         and ``idempotent=True`` calls; there's no rule for how calls in the
