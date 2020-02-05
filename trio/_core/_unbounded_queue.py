@@ -1,7 +1,6 @@
 import attr
 
 from .. import _core
-from .._util import aiter_compat
 from .._deprecate import deprecated
 
 __all__ = ["UnboundedQueue"]
@@ -146,7 +145,6 @@ class UnboundedQueue:
             tasks_waiting=self._lot.statistics().tasks_waiting
         )
 
-    @aiter_compat
     def __aiter__(self):
         return self
 

@@ -3,9 +3,7 @@ from contextlib import contextmanager
 from collections import OrderedDict
 
 import trio
-from ._util import (
-    signal_raise, aiter_compat, is_main_thread, ConflictDetector
-)
+from ._util import signal_raise, is_main_thread, ConflictDetector
 
 __all__ = ["open_signal_receiver"]
 
@@ -96,7 +94,6 @@ class SignalReceiver:
     def _pending_signal_count(self):
         return len(self._pending)
 
-    @aiter_compat
     def __aiter__(self):
         return self
 

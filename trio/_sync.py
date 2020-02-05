@@ -5,7 +5,6 @@ import outcome
 
 import trio
 
-from ._util import aiter_compat
 from ._core import enable_ki_protection, ParkingLot
 from ._deprecate import deprecated
 

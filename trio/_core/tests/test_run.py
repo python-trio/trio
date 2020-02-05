@@ -20,7 +20,6 @@ from .tutil import slow, check_sequence_matches, gc_collect_harder
 from ... import _core
 from ..._threads import to_thread_run_sync
 from ..._timeouts import sleep, fail_after
-from ..._util import aiter_compat
 from ...testing import (
     wait_all_tasks_blocked,
     Sequencer,
@@ -2054,7 +2053,6 @@ async def test_nursery_stop_async_iteration():
         async def _accumulate(self, f, items, i):
             items[i] = await f()
 
-        @aiter_compat
         def __aiter__(self):
             return self
 
