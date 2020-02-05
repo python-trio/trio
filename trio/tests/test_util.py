@@ -82,13 +82,7 @@ def test_module_metadata_is_fixed_up():
     assert trio.to_thread.run_sync.__qualname__ == "run_sync"
 
 
-# define a concrete class implementing the PathLike protocol
-# Since we want to have compatibility with Python 3.5 we need
-# to define the base class on runtime.
-BaseKlass = os.PathLike if hasattr(os, "PathLike") else object
-
-
-class ConcretePathLike(BaseKlass):
+class ConcretePathLike(os.PathLike):
     """ Class implementing the file system path protocol."""
     def __init__(self, path=""):
         self.path = path

@@ -203,6 +203,4 @@ Path.iterdir.__doc__ = """
 # sense than inventing our own special docstring for this.
 del Path.absolute.__doc__
 
-# python3.5 compat
-if hasattr(os, 'PathLike'):
-    os.PathLike.register(Path)
+os.PathLike.register(Path)
