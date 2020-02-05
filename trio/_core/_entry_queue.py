@@ -178,9 +178,7 @@ class TrioToken:
         If ``idempotent=True``, then ``sync_fn`` and ``args`` must be
         hashable, and Trio will make a best-effort attempt to discard any
         call submission which is equal to an already-pending call. Trio
-        will make an attempt to process these in first-in first-out order,
-        but no guarantees. (Currently processing is FIFO on CPython and
-        PyPy.)
+        will process these in first-in first-out order.
 
         Any ordering guarantees apply separately to ``idempotent=False``
         and ``idempotent=True`` calls; there's no rule for how calls in the
