@@ -9,17 +9,6 @@ from trio._util import async_wraps, fspath
 __all__ = ['Path']
 
 
-# python3.5 compat: __fspath__ does not exist in 3.5, so unwrap any trio.Path
-# being passed to any wrapped method
-def unwrap_paths(args):
-    new_args = []
-    for arg in args:
-        if isinstance(arg, Path):
-            arg = arg._wrapped
-        new_args.append(arg)
-    return new_args
-
-
 # re-wrap return value from methods that return new instances of pathlib.Path
 def rewrap_path(value):
     if isinstance(value, pathlib.Path):
@@ -30,7 +19,6 @@ def rewrap_path(value):
 def _forward_factory(cls, attr_name, attr):
     @wraps(attr)
     def wrapper(self, *args, **kwargs):
-        args = unwrap_paths(args)
         attr = getattr(self._wrapped, attr_name)
         value = attr(*args, **kwargs)
         return rewrap_path(value)
@@ -69,7 +57,6 @@ def iter_wrapper_factory(cls, meth_name):
 def thread_wrapper_factory(cls, meth_name):
     @async_wraps(cls, cls._wraps, meth_name)
     async def wrapper(self, *args, **kwargs):
-        args = unwrap_paths(args)
         meth = getattr(self._wrapped, meth_name)
         func = partial(meth, *args, **kwargs)
         value = await trio.to_thread.run_sync(func)
@@ -82,7 +69,6 @@ def classmethod_wrapper_factory(cls, meth_name):
     @classmethod
     @async_wraps(cls, cls._wraps, meth_name)
     async def wrapper(cls, *args, **kwargs):
-        args = unwrap_paths(args)
         meth = getattr(cls._wraps, meth_name)
         func = partial(meth, *args, **kwargs)
         value = await trio.to_thread.run_sync(func)
@@ -168,8 +154,6 @@ class Path(metaclass=AsyncAutoWrapperType):
     _wrap_iter = ['glob', 'rglob', 'iterdir']
 
     def __init__(self, *args):
-        args = unwrap_paths(args)
-
         self._wrapped = pathlib.Path(*args)
 
     def __getattr__(self, name):
