@@ -60,7 +60,7 @@ INSTRUMENT_LOGGER = logging.getLogger("trio.abc.Instrument")
 
 
 # On 3.7+, Context.run() is implemented in C and doesn't show up in
-# tracebacks. On 3.6 and earlier, we use the contextvars backport, which is
+# tracebacks. On 3.6, we use the contextvars backport, which is
 # currently implemented in Python and adds 1 frame to tracebacks. So this
 # function is a super-overkill version of "0 if sys.version_info >= (3, 7)
 # else 1". But if Context.run ever changes, we'll be ready!
@@ -1912,7 +1912,7 @@ def run_impl(runner, async_fn, args):
             try:
                 # We used to unwrap the Outcome object here and send/throw its
                 # contents in directly, but it turns out that .throw() is
-                # buggy, at least on CPython 3.6 and earlier:
+                # buggy, at least on CPython 3.6:
                 #   https://bugs.python.org/issue29587
                 #   https://bugs.python.org/issue29590
                 # So now we send in the Outcome object and unwrap it on the
