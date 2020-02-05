@@ -7,9 +7,7 @@ import threading
 import contextlib
 import time
 
-from async_generator import (
-    async_generator, yield_, isasyncgenfunction, asynccontextmanager
-)
+from async_generator import isasyncgenfunction, asynccontextmanager
 
 from ... import _core
 from ...testing import wait_all_tasks_blocked
@@ -140,39 +138,35 @@ async def test_generator_based_context_manager_throw():
 
 async def test_agen_protection():
     @_core.enable_ki_protection
-    @async_generator
     async def agen_protected1():
         assert _core.currently_ki_protected()
         try:
-            await yield_()
+            yield
         finally:
             assert _core.currently_ki_protected()
 
     @_core.disable_ki_protection
-    @async_generator
     async def agen_unprotected1():
         assert not _core.currently_ki_protected()
         try:
-            await yield_()
+            yield
         finally:
             assert not _core.currently_ki_protected()
 
     # Swap the order of the decorators:
-    @async_generator
     @_core.enable_ki_protection
     async def agen_protected2():
         assert _core.currently_ki_protected()
         try:
-            await yield_()
+            yield
         finally:
             assert _core.currently_ki_protected()
 
-    @async_generator
     @_core.disable_ki_protection
     async def agen_unprotected2():
         assert not _core.currently_ki_protected()
         try:
-            await yield_()
+            yield
         finally:
             assert not _core.currently_ki_protected()
 

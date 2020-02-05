@@ -1,7 +1,7 @@
 from collections import defaultdict
 
 import attr
-from async_generator import async_generator, yield_, asynccontextmanager
+from async_generator import asynccontextmanager
 
 from .. import _core
 from .. import _util
@@ -61,7 +61,6 @@ class Sequencer:
     _broken = attr.ib(default=False, init=False)
 
     @asynccontextmanager
-    @async_generator
     async def __call__(self, position: int):
         if position in self._claimed:
             raise RuntimeError(
@@ -84,6 +83,6 @@ class Sequencer:
                 if self._broken:
                     raise RuntimeError("sequence broken!")
         try:
-            await yield_()
+            yield
         finally:
             self._sequence_points[position + 1].set()

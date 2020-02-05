@@ -9,8 +9,6 @@ from functools import wraps, update_wrapper
 import typing as t
 import threading
 
-import async_generator
-
 # There's a dependency loop here... _core is allowed to use this file (in fact
 # it's the *only* file in the main trio/ package it's allowed to use), but
 # ConflictDetector needs checkpoint so it also has to import

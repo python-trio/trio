@@ -14,7 +14,6 @@ import attr
 import outcome
 import sniffio
 import pytest
-from async_generator import async_generator
 
 from .tutil import slow, check_sequence_matches, gc_collect_harder
 from ... import _core
@@ -1760,9 +1759,8 @@ def test_nice_error_on_bad_calls_to_run_or_spawn():
                 bad_call(len, [1, 2, 3])
             assert "appears to be synchronous" in str(excinfo.value)
 
-            @async_generator
             async def async_gen(arg):  # pragma: no cover
-                pass
+                yield
 
             with pytest.raises(TypeError) as excinfo:
                 bad_call(async_gen, 0)
