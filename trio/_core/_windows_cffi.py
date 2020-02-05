@@ -1,10 +1,6 @@
 import cffi
 import re
 import enum
-try:
-    from enum import IntFlag
-except ImportError:  # python 3.5
-    from enum import IntEnum as IntFlag
 
 ################################################################
 # Functions and types
@@ -264,7 +260,7 @@ class FileFlags(enum.IntEnum):
     TRUNCATE_EXISTING = 5
 
 
-class AFDPollFlags(IntFlag):
+class AFDPollFlags(enum.IntFlag):
     # These are drawn from a combination of:
     #   https://github.com/piscisaureus/wepoll/blob/master/src/afd.h
     #   https://github.com/reactos/reactos/blob/master/sdk/include/reactos/drivers/afd/shared.h
@@ -289,7 +285,7 @@ class WSAIoctls(enum.IntEnum):
     SIO_BSP_HANDLE_SELECT = 0x4800001C
 
 
-class CompletionModes(IntFlag):
+class CompletionModes(enum.IntFlag):
     FILE_SKIP_COMPLETION_PORT_ON_SUCCESS = 0x1
     FILE_SKIP_SET_EVENT_ON_HANDLE = 0x2
 
