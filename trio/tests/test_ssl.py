@@ -175,13 +175,12 @@ class PyOpenSSLEchoStream:
         ctx = SSL.Context(SSL.SSLv23_METHOD)
         # TLS 1.3 removes renegotiation support. Which is great for them, but
         # we still have to support versions before that, and that means we
-        # need to test renegotation support, which means we need to force this
+        # need to test renegotiation support, which means we need to force this
         # to use a lower version where this test server can trigger
         # renegotiations. Of course TLS 1.3 support isn't released yet, but
         # I'm told that this will work once it is. (And once it is we can
-        # remove the pragma: no cover too.) Alternatively, once we drop
-        # support for CPython 3.5 on macOS, then we could switch to using
-        # TLSv1_2_METHOD.
+        # remove the pragma: no cover too.) Alternatively, we could switch to
+        # using TLSv1_2_METHOD.
         #
         # Discussion: https://github.com/pyca/pyopenssl/issues/624
 
