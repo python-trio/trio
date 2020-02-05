@@ -2380,22 +2380,18 @@ def test_async_function_implemented_in_C():
     # cr_frame, but C functions don't have Python frames.
 
     ns = {"_core": _core}
-    try:
-        exec(
-            dedent(
-                """
-                async def agen_fn(record):
-                    assert not _core.currently_ki_protected()
-                    record.append("the generator ran")
-                    yield
-                """
-            ),
-            ns,
-        )
-    except SyntaxError:
-        pytest.skip("Requires Python 3.6+")
-    else:
-        agen_fn = ns["agen_fn"]
+    exec(
+        dedent(
+            """
+            async def agen_fn(record):
+                assert not _core.currently_ki_protected()
+                record.append("the generator ran")
+                yield
+            """
+        ),
+        ns,
+    )
+    agen_fn = ns["agen_fn"]
 
     run_record = []
     agen = agen_fn(run_record)
