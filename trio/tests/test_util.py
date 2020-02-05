@@ -8,8 +8,8 @@ import pytest
 import trio
 from .. import _core
 from .._util import (
-    signal_raise, ConflictDetector, is_main_thread, generic_function,
-    Final, NoPublicConstructor
+    signal_raise, ConflictDetector, is_main_thread, generic_function, Final,
+    NoPublicConstructor
 )
 from ..testing import wait_all_tasks_blocked, assert_checkpoints
 
