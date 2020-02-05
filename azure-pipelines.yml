@@ -27,12 +27,6 @@ jobs:
         python.version: '3.7.5'
         python.pkg: 'python'
         lsp: 'http://download.pctools.com/mirror/updates/9.0.0.2308-SDavfree-lite_en.exe'
-      "Python 3.5, 32 bit":
-        python.version: '3.5.4'
-        python.pkg: 'pythonx86'
-      "Python 3.5, 64 bit":
-        python.version: '3.5.4'
-        python.pkg: 'python'
       "Python 3.6, 32 bit":
         python.version: '3.6.8'
         python.pkg: 'pythonx86'
@@ -76,8 +70,6 @@ jobs:
       "Formatting and linting":
         python.version: '3.8'
         CHECK_FORMATTING: 1
-      "Python 3.5":
-        python.version: '3.5'
       "Python 3.6":
         python.version: '3.6'
       "Python 3.7":
@@ -104,8 +96,6 @@ jobs:
   timeoutInMinutes: 10
   strategy:
     matrix:
-      "Python 3.5":
-        python.version: '3.5'
       "Python 3.6":
         python.version: '3.6'
       "Python 3.7":

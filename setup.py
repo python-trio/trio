@@ -44,7 +44,7 @@ chance to give feedback about any compatibility-breaking changes.
 Vital statistics:
 
 * Supported environments: Linux, macOS, or Windows running some kind of Python
-  3.5-or-better (either CPython or PyPy3 is fine). \\*BSD and illumos likely
+  3.6-or-better (either CPython or PyPy3 is fine). \\*BSD and illumos likely
   work too, but are not tested.
 
 * Install: ``python3 -m pip install -U trio`` (or on Windows, maybe
@@ -101,7 +101,7 @@ setup(
         ":os_name == 'nt'": ["cffi >= 1.12"],  # "cffi is required on windows",
         ":python_version < '3.7'": ["contextvars>=2.1"]
     },
-    python_requires=">=3.5",
+    python_requires=">=3.6",
     keywords=["async", "io", "networking", "trio"],
     classifiers=[
         "Development Status :: 3 - Alpha",
@@ -115,8 +115,9 @@ setup(
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
         "Topic :: System :: Networking",
         "Framework :: Trio",
     ],
