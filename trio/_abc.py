@@ -1,6 +1,5 @@
 from abc import ABCMeta, abstractmethod
 from typing import Generic, TypeVar
-from ._util import aiter_compat
 import trio
 
 
@@ -414,7 +413,6 @@ class ReceiveStream(AsyncResource):
 
         """
 
-    @aiter_compat
     def __aiter__(self):
         return self
 
@@ -629,7 +627,6 @@ class ReceiveChannel(AsyncResource, Generic[ReceiveType]):
 
         """
 
-    @aiter_compat
     def __aiter__(self):
         return self
 

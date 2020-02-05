@@ -2,7 +2,7 @@ from functools import partial
 import io
 
 from .abc import AsyncResource
-from ._util import aiter_compat, async_wraps
+from ._util import async_wraps
 
 import trio
 
@@ -95,7 +95,6 @@ class AsyncIOWrapper(AsyncResource):
         )
         return attrs
 
-    @aiter_compat
     def __aiter__(self):
         return self
 

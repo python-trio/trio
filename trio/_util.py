@@ -68,24 +68,6 @@ else:
         signal.pthread_kill(threading.get_ident(), signum)
 
 
-# Decorator to handle the change to __aiter__ in 3.5.2
-if sys.version_info < (3, 5, 2):
-
-    def aiter_compat(aiter_impl):
-        # de-sugar decorator to fix Python 3.8 coverage issue
-        # https://github.com/python-trio/trio/pull/784#issuecomment-446438407
-        async def __aiter__(*args, **kwargs):
-            return aiter_impl(*args, **kwargs)
-
-        __aiter__ = wraps(aiter_impl)(__aiter__)
-
-        return __aiter__
-else:
-
-    def aiter_compat(aiter_impl):
-        return aiter_impl
-
-
 # See: #461 as to why this is needed.
 # The gist is that threading.main_thread() has the capability to lie to us
 # if somebody else edits the threading ident cache to replace the main
