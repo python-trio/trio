@@ -85,20 +85,13 @@ setup(
         "idna",
         "outcome",
         "sniffio",
-        "cffi; os_name == 'nt'",  # "cffi is required on windows"
+        # cffi 1.12 adds from_buffer(require_writable=True) and ffi.release()
+        "cffi>=1.12; os_name == 'nt'",  # "cffi is required on windows"
+        "contextvars>=2.1; python_version < '3.7'"
     ],
     # This means, just install *everything* you see under trio/, even if it
     # doesn't look like a source file, so long as it appears in MANIFEST.in:
     include_package_data=True,
-    # Quirky bdist_wheel-specific way:
-    # https://wheel.readthedocs.io/en/latest/#defining-conditional-dependencies
-    # also supported by pip and setuptools, as long as they're vaguely
-    # recent
-    extras_require={
-        # cffi 1.12 adds from_buffer(require_writable=True) and ffi.release()
-        ":os_name == 'nt'": ["cffi >= 1.12"],  # "cffi is required on windows",
-        ":python_version < '3.7'": ["contextvars>=2.1"]
-    },
     python_requires=">=3.5",
     keywords=["async", "io", "networking", "trio"],
     classifiers=[
