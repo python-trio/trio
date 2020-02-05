@@ -55,10 +55,6 @@ if [ "$AGENT_OS" = "Windows_NT" ]; then
 
     pydir="$PWD/pyinstall/${PYTHON_PKG}"
     export PATH="${pydir}/tools:${pydir}/tools/scripts:$PATH"
-
-    # Fix an issue with the nuget python 3.5 packages
-    # https://github.com/python-trio/trio/pull/827#issuecomment-457433940
-    rm -f "${pydir}/tools/pyvenv.cfg" || true
 fi
 
 ### Travis + macOS ###
