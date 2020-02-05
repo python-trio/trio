@@ -1,7 +1,4 @@
-import os
-import pathlib
 import signal
-import sys
 
 import pytest
 
@@ -11,7 +8,7 @@ from .._util import (
     signal_raise, ConflictDetector, is_main_thread, generic_function, Final,
     NoPublicConstructor
 )
-from ..testing import wait_all_tasks_blocked, assert_checkpoints
+from ..testing import wait_all_tasks_blocked
 
 
 def raise_(exc):
@@ -80,15 +77,6 @@ def test_module_metadata_is_fixed_up():
     assert trio.to_thread.__name__ == "trio.to_thread"
     assert trio.to_thread.run_sync.__name__ == "run_sync"
     assert trio.to_thread.run_sync.__qualname__ == "run_sync"
-
-
-class ConcretePathLike(os.PathLike):
-    """ Class implementing the file system path protocol."""
-    def __init__(self, path=""):
-        self.path = path
-
-    def __fspath__(self):
-        return self.path
 
 
 async def test_is_main_thread():
