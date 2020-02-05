@@ -1,4 +1,5 @@
 import io
+import os
 
 import pytest
 from unittest import mock
@@ -6,13 +7,12 @@ from unittest.mock import sentinel
 
 import trio
 from trio import _core
-from trio._util import fspath
 from trio._file_io import AsyncIOWrapper, _FILE_SYNC_ATTRS, _FILE_ASYNC_METHODS
 
 
 @pytest.fixture
 def path(tmpdir):
-    return fspath(tmpdir.join('test'))
+    return os.fspath(tmpdir.join('test'))
 
 
 @pytest.fixture

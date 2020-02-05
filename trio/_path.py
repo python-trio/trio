@@ -4,7 +4,7 @@ import types
 import pathlib
 
 import trio
-from trio._util import async_wraps, fspath
+from trio._util import async_wraps
 
 __all__ = ['Path']
 
@@ -169,7 +169,7 @@ class Path(metaclass=AsyncAutoWrapperType):
         return 'trio.Path({})'.format(repr(str(self)))
 
     def __fspath__(self):
-        return fspath(self._wrapped)
+        return os.fspath(self._wrapped)
 
     @wraps(pathlib.Path.open)
     async def open(self, *args, **kwargs):
@@ -203,6 +203,4 @@ Path.iterdir.__doc__ = """
 # sense than inventing our own special docstring for this.
 del Path.absolute.__doc__
 
-# python3.5 compat
-if hasattr(os, 'PathLike'):
-    os.PathLike.register(Path)
+os.PathLike.register(Path)
