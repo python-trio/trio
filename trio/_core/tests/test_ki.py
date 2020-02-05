@@ -176,11 +176,30 @@ async def test_agen_protection():
         finally:
             assert not _core.currently_ki_protected()
 
+    # Native async generators
+    @_core.enable_ki_protection
+    async def agen_protected3():
+        assert _core.currently_ki_protected()
+        try:
+            yield
+        finally:
+            assert _core.currently_ki_protected()
+
+    @_core.disable_ki_protection
+    async def agen_unprotected3():
+        assert not _core.currently_ki_protected()
+        try:
+            yield
+        finally:
+            assert not _core.currently_ki_protected()
+
     for agen_fn in [
         agen_protected1,
         agen_protected2,
+        agen_protected3,
         agen_unprotected1,
         agen_unprotected2,
+        agen_unprotected3,
     ]:
         async for _ in agen_fn():  # noqa
             assert not _core.currently_ki_protected()
