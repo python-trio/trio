@@ -7,7 +7,6 @@ from functools import wraps as _wraps
 import idna as _idna
 
 import trio
-from ._util import fspath
 from . import _core
 
 
@@ -512,7 +511,7 @@ class _SocketType(SocketType):
         elif self._sock.family == _stdlib_socket.AF_UNIX:
             await trio.hazmat.checkpoint()
             # unwrap path-likes
-            return fspath(address)
+            return _os.fspath(address)
 
         else:
             await trio.hazmat.checkpoint()
