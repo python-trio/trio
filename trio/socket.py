@@ -137,10 +137,25 @@ except ImportError:
 
 # expose these functions to trio.socket
 from socket import (
-    gaierror, herror, gethostname, ntohs, htonl, htons, inet_aton, inet_ntoa,
-    inet_pton, inet_ntop, sethostname, if_nameindex, if_nametoindex,
-    if_indextoname
+    gaierror,
+    herror,
+    gethostname,
+    ntohs,
+    htonl,
+    htons,
+    inet_aton,
+    inet_ntoa,
+    inet_pton,
+    inet_ntop,
 )
+
+# not always available so expose only if
+try:
+    from socket import (
+        sethostname, if_nameindex, if_nametoindex, if_indextoname
+    )
+except ImportError:
+    pass
 
 if _sys.platform == 'win32':
     # See https://github.com/python-trio/trio/issues/39
