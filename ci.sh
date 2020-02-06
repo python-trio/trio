@@ -267,12 +267,7 @@ else
         netsh winsock reset
     fi
 
-    # It's more common to do
-    #   bash <(curl ...)
-    # but azure is broken:
-    #   https://developercommunity.visualstudio.com/content/problem/743824/bash-task-on-windows-suddenly-fails-with-bash-devf.html
-    curl-harder -o codecov.sh https://codecov.io/bash
-    bash codecov.sh -n "${JOB_NAME}"
+    bash <(curl-harder -o codecov.sh https://codecov.io/bash) -n "${JOB_NAME}"
 
     $PASSED
 fi
