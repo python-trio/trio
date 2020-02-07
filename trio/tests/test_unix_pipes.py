@@ -98,8 +98,9 @@ async def test_pipe_errors():
     with pytest.raises(TypeError):
         FdStream(None)
 
+    r, _ = os.pipe()
     with pytest.raises(ValueError):
-        await FdStream(0).receive_some(0)
+        await FdStream(r).receive_some(0)
 
 
 async def test_del():
