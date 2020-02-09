@@ -393,7 +393,7 @@ def memory_stream_pair():
         async def trickle():
             # left is a StapledStream, and left.send_stream is a MemorySendStream
             # right is a StapledStream, and right.recv_stream is a MemoryReceiveStream
-            while memory_stream_pump(left.send_stream, right.recv_stream, max_byes=1):
+            while memory_stream_pump(left.send_stream, right.recv_stream, max_bytes=1):
                 # Pause between each byte
                 await trio.sleep(1)
         # Normally this send_all_hook calls memory_stream_pump directly without

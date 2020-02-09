@@ -212,7 +212,7 @@ async def open_tcp_stream(
           connection attempt to succeed or fail before getting impatient and
           starting another one in parallel. Set to `math.inf` if you want
           to limit to only one connection attempt at a time (like
-          :func:`socket.create_connection`). Default: 0.3 (300 ms).
+          :func:`socket.create_connection`). Default: 0.25 (250 ms).
 
     Returns:
       SocketStream: a :class:`~trio.abc.Stream` connected to the given server.

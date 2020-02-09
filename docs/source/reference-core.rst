@@ -1351,7 +1351,7 @@ after an hour, that grows to ~32,400. Eventually, the program will run
 out of memory. And well before we run out of memory, our latency on
 handling individual messages will become abysmal. For example, at the
 one minute mark, the producer is sending message ~600, but the
-producer is still processing message ~60. Message 600 will have to sit
+consumer is still processing message ~60. Message 600 will have to sit
 in the channel for ~9 minutes before the consumer catches up and
 processes it.
 
