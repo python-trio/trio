@@ -30,6 +30,12 @@ def test_close_on_error():
     assert c.closed
 
 
+@pytest.mark.parametrize('filename', [4, 4.5])
+async def test_open_with_bad_filename_type(filename):
+    with pytest.raises(TypeError):
+        await open_unix_socket(filename)
+
+
 async def test_open_bad_socket():
     # mktemp is marked as insecure, but that's okay, we don't want the file to
     # exist

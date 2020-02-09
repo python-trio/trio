@@ -36,12 +36,13 @@ async def open_unix_socket(filename,):
     Raises:
       OSError: If the socket file could not be connected to.
       RuntimeError: If AF_UNIX sockets are not supported.
+      TypeError: if filename is not str or bytes.
     """
     if not has_unix:
         raise RuntimeError("Unix sockets are not supported on this platform")
 
-    if filename is None:
-        raise ValueError("Filename cannot be None")
+    if not isinstance(filename, (str, bytes)):
+        raise TypeError("Filename must be str or bytes")
 
     # much more simplified logic vs tcp sockets - one socket type and only one
     # possible location to connect to
