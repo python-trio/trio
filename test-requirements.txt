@@ -9,7 +9,7 @@ astroid==2.3.3            # via pylint
 async-generator==1.10
 attrs==19.3.0
 backcall==0.1.0           # via ipython
-cffi==1.13.2
+cffi==1.14.0
 coverage==4.5.4           # via pytest-cov
 cryptography==2.8         # via pyopenssl, trustme
 decorator==4.4.1          # via ipython, traitlets
