@@ -210,7 +210,7 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
       background** – we just abandon it to do whatever it's going to do, and
       silently discard any return value or errors that it raises. Only use
       this if you know that the operation is safe and side-effect free. (For
-      example: :func:`trio.socket.getaddrinfo` is uses a thread with
+      example: :func:`trio.socket.getaddrinfo` uses a thread with
       ``cancellable=True``, because it doesn't really affect anything if a
       stray hostname lookup keeps running in the background.)
 
