@@ -41,8 +41,8 @@ async def open_unix_socket(filename,):
     if not has_unix:
         raise RuntimeError("Unix sockets are not supported on this platform")
 
-    if not isinstance(filename, (str, bytes)):
-        raise TypeError("Filename must be str or bytes")
+    if not isinstance(filename, (str, trio.Path, bytes)):
+        raise TypeError("Filename must be str, trio.Path or bytes")
 
     # much more simplified logic vs tcp sockets - one socket type and only one
     # possible location to connect to
