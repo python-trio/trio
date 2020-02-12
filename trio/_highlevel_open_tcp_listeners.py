@@ -89,7 +89,7 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
     # doesn't:
     #   http://klickverbot.at/blog/2012/01/getaddrinfo-edge-case-behavior-on-windows-linux-and-osx/
     if not isinstance(port, int):
-        raise TypeError("port must be an int or str, not {!r}".format(port))
+        raise TypeError("port must be an int not {!r}".format(port))
 
     backlog = _compute_backlog(backlog)
 
