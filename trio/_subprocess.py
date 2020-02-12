@@ -31,7 +31,7 @@ except ImportError:
         # registers where syscall() will find them.)
         _cdll_for_pidfd_open.syscall.argtypes = [
             ctypes.c_long,  # syscall number
-            ctypes.c_long,  # fd
+            ctypes.c_long,  # pid
             ctypes.c_long,  # flags
         ]
         __NR_pidfd_open = 434
@@ -254,22 +254,31 @@ class Process(AsyncResource):
                 with trio.CancelScope(shield=True):
                     await self.wait()
 
+    def _close_pidfd(self):
+        if self._pidfd is not None:
+            self._pidfd.close()
+            self._pidfd = None
+
     async def wait(self):
         """Block until the process exits.
 
         Returns:
           The exit status of the process; see :attr:`returncode`.
         """
-        if self.poll() is None:
-            async with self._wait_lock:
-                if self.poll() is None:
-                    if self._pidfd is not None:
-                        await trio.hazmat.wait_readable(self._pidfd)
-                    else:
-                        await wait_child_exiting(self)
-                    self.poll()
-        else:
-            await trio.hazmat.checkpoint()
+        async with self._wait_lock:
+            if self.poll() is None:
+                if self._pidfd is not None:
+                    await trio.hazmat.wait_readable(self._pidfd)
+                else:
+                    await wait_child_exiting(self)
+                # We have to use .wait() here, not .poll(), because on macOS
+                # (and maybe other systems, who knows), there's a race
+                # condition inside the kernel that creates a tiny window where
+                # kqueue reports that the process has exited, but
+                # waitpid(WNOHANG) can't yet reap it. So this .wait() may
+                # actually block for a tiny fraction of a second.
+                self._proc.wait()
+                self._close_pidfd()
         assert self.returncode is not None
         return self.returncode
 
@@ -281,9 +290,8 @@ class Process(AsyncResource):
           running; see :attr:`returncode`.
         """
         result = self._proc.poll()
-        if result is not None and self._pidfd is not None:
-            self._pidfd.close()
-            self._pidfd = None
+        if result is not None:
+            self._close_pidfd()
         return result
 
     def send_signal(self, sig):
