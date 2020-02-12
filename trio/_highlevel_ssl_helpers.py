@@ -84,7 +84,7 @@ async def open_ssl_over_tcp_listeners(
       host (str, bytes, or None): The address to bind to; use ``None`` to bind
           to the wildcard address. See :func:`open_tcp_listeners`.
       https_compatible (bool): See :class:`~trio.SSLStream` for details.
-      backlog (int or None): See :class:`~trio.SSLStream` for details.
+      backlog (int or None): See :func:`open_tcp_listeners` for details.
 
     """
     tcp_listeners = await trio.open_tcp_listeners(
