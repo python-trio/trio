@@ -11,7 +11,7 @@ babel==2.8.0              # via sphinx
 certifi==2019.11.28       # via requests
 chardet==3.0.4            # via requests
 click==7.0                # via towncrier
-docutils==0.15.2          # via sphinx
+docutils==0.16            # via sphinx
 idna==2.8
 imagesize==1.2.0          # via sphinx
 immutables==0.11
