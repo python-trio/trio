@@ -40,13 +40,10 @@ async def open_unix_socket(filename,):
     if not has_unix:
         raise RuntimeError("Unix sockets are not supported on this platform")
 
-    if filename is None:
-        raise ValueError("Filename cannot be None")
-
     # much more simplified logic vs tcp sockets - one socket type and only one
     # possible location to connect to
     sock = socket(AF_UNIX, SOCK_STREAM)
     with close_on_error(sock):
-        await sock.connect(filename)
+        await sock.connect(trio._util.fspath(filename))
 
     return trio.SocketStream(sock)

@@ -557,7 +557,7 @@ class SendChannel(AsyncResource, Generic[SendType]):
     with`` block.
 
     If you want to send raw bytes rather than Python objects, see
-    `ReceiveStream`.
+    `SendStream`.
 
     """
     __slots__ = ()

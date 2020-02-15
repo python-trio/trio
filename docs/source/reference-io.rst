@@ -24,7 +24,7 @@ create complex transport configurations. Here's some examples:
   speak SSL over the network is to wrap an
   :class:`~trio.SSLStream` around a :class:`~trio.SocketStream`.
 
-* If you spawn a :ref:`subprocess`, you can get a
+* If you spawn a :ref:`subprocess <subprocess>`, you can get a
   :class:`~trio.abc.SendStream` that lets you write to its stdin, and
   a :class:`~trio.abc.ReceiveStream` that lets you read from its
   stdout. If for some reason you wanted to speak SSL to a subprocess,

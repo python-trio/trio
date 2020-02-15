@@ -11,7 +11,7 @@ babel==2.8.0              # via sphinx
 certifi==2019.11.28       # via requests
 chardet==3.0.4            # via requests
 click==7.0                # via towncrier
-docutils==0.15.2          # via sphinx
+docutils==0.16            # via sphinx
 idna==2.8
 imagesize==1.2.0          # via sphinx
 immutables==0.11
@@ -29,7 +29,7 @@ sniffio==1.1.0
 snowballstemmer==2.0.0    # via sphinx
 sortedcontainers==2.1.0
 sphinx-rtd-theme==0.4.3
-sphinx==2.3.1
+sphinx==2.4.1
 sphinxcontrib-applehelp==1.0.1  # via sphinx
 sphinxcontrib-devhelp==1.0.1  # via sphinx
 sphinxcontrib-htmlhelp==1.0.2  # via sphinx
