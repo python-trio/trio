@@ -1,6 +1,7 @@
 import errno
 import select
 import os
+import tempfile
 
 import pytest
 
@@ -98,8 +99,11 @@ async def test_pipe_errors():
     with pytest.raises(TypeError):
         FdStream(None)
 
-    with pytest.raises(ValueError):
-        await FdStream(0).receive_some(0)
+    r, w = os.pipe()
+    os.close(w)
+    async with FdStream(r) as s:
+        with pytest.raises(ValueError):
+            await s.receive_some(0)
 
 
 async def test_del():
