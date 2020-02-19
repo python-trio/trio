@@ -295,7 +295,13 @@ def _sniff_sockopts_for_fileno(family, type, proto, fileno):
     # and then we'll throw it away and construct a new one with the correct metadata.
     if not _sys.platform == "linux":
         return family, type, proto
-    from socket import SO_DOMAIN, SO_PROTOCOL, SOL_SOCKET, SO_TYPE
+    try:
+        from socket import SO_DOMAIN, SO_PROTOCOL
+    except ImportError:
+        # Only available on 3.6 and above:
+        SO_PROTOCOL = 38
+        SO_DOMAIN = 39
+    from socket import SOL_SOCKET, SO_TYPE
     sockobj = _stdlib_socket.socket(family, type, proto, fileno=fileno)
     try:
         family = sockobj.getsockopt(SOL_SOCKET, SO_DOMAIN)
