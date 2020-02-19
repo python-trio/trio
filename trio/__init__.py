@@ -173,5 +173,7 @@ del fixup_module_metadata
 
 import sys
 if sys.version_info < (3, 6):
-    _deprecate.warn_deprecated("Support for Python 3.5", "0.14", issue=75, instead="Python 3.6+")
+    _deprecate.warn_deprecated(
+        "Support for Python 3.5", "0.14", issue=75, instead="Python 3.6+"
+    )
 del sys
