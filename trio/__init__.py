@@ -64,7 +64,7 @@ from ._highlevel_ssl_helpers import (
     open_ssl_over_tcp_stream, open_ssl_over_tcp_listeners, serve_ssl_over_tcp
 )
 
-from ._deprecate import TrioDeprecationWarning, warn_deprecated
+from ._deprecate import TrioDeprecationWarning
 
 # Submodules imported by default
 from . import hazmat
