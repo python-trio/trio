@@ -298,7 +298,9 @@ def _sniff_sockopts_for_fileno(family, type, proto, fileno):
     try:
         from socket import SO_DOMAIN, SO_PROTOCOL
     except ImportError:
-        # Only available on 3.6 and above:
+        # pypy does not expose these constants so we need to set these manually.
+        # when the following upstream issue is resolved we can remove these:
+        # https://foss.heptapod.net/pypy/pypy/issues/3171
         SO_PROTOCOL = 38
         SO_DOMAIN = 39
     from socket import SOL_SOCKET, SO_TYPE
