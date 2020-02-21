@@ -12,7 +12,7 @@ certifi==2019.11.28       # via requests
 chardet==3.0.4            # via requests
 click==7.0                # via towncrier
 docutils==0.16            # via sphinx
-idna==2.8
+idna==2.9
 imagesize==1.2.0          # via sphinx
 immutables==0.11
 incremental==17.5.0       # via towncrier
