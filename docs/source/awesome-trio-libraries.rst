@@ -74,6 +74,7 @@ Tools and Utilities
 * `trio-typing <https://github.com/python-trio/trio-typing>`__ - Type hints for Trio and related projects.
 * `trio-util <https://github.com/groove-x/trio-util>`__ - An assortment of utilities for the Trio async/await framework.
 * `tricycle <https://github.com/oremanj/tricycle>`__ - This is a library of interesting-but-maybe-not-yet-fully-proven extensions to Trio.
+* `tenacity <https://github.com/jd/tenacity>`__ - Retrying library for Python with async/await support.
 
 
 Trio/Asyncio Interoperability
