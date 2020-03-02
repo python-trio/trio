@@ -4,27 +4,27 @@
 #
 #    pip-compile --output-file test-requirements.txt test-requirements.in
 #
-astor==0.8.1
+astor==0.8.1              # via -r test-requirements.in (line 13)
 astroid==2.3.3            # via pylint
-async-generator==1.10
-attrs==19.3.0
+async-generator==1.10     # via -r test-requirements.in (line 23)
+attrs==19.3.0             # via -r test-requirements.in (line 21), outcome, pytest
 backcall==0.1.0           # via ipython
-cffi==1.14.0
+cffi==1.14.0              # via cryptography
 coverage==5.0.3           # via pytest-cov
 cryptography==2.8         # via pyopenssl, trustme
-decorator==4.4.1          # via ipython, traitlets
+decorator==4.4.2          # via ipython, traitlets
 entrypoints==0.3          # via flake8
-flake8==3.7.9
-idna==2.9
-immutables==0.11
+flake8==3.7.9             # via -r test-requirements.in (line 12)
+idna==2.9                 # via -r test-requirements.in (line 24), trustme
+immutables==0.11          # via -r test-requirements.in (line 31)
 ipython-genutils==0.2.0   # via traitlets
-ipython==7.9.0
+ipython==7.9.0            # via -r test-requirements.in (line 4)
 isort==4.3.21             # via pylint
-jedi==0.16.0
+jedi==0.16.0              # via -r test-requirements.in (line 8), ipython
 lazy-object-proxy==1.4.3  # via astroid
 mccabe==0.6.1             # via flake8, pylint
 more-itertools==8.2.0     # via pytest
-outcome==1.0.1
+outcome==1.0.1            # via -r test-requirements.in (line 25)
 packaging==20.1           # via pytest
 parso==0.6.1              # via jedi
 pexpect==4.8.0            # via ipython
@@ -37,16 +37,16 @@ pycodestyle==2.5.0        # via flake8
 pycparser==2.19           # via cffi
 pyflakes==2.1.1           # via flake8
 pygments==2.5.2           # via ipython
-pylint==2.4.2
-pyopenssl==19.1.0
+pylint==2.4.2             # via -r test-requirements.in (line 7)
+pyopenssl==19.1.0         # via -r test-requirements.in (line 5)
 pyparsing==2.4.6          # via packaging
-pytest-cov==2.8.1
-pytest==5.3.5
+pytest-cov==2.8.1         # via -r test-requirements.in (line 3)
+pytest==5.3.5             # via -r test-requirements.in (line 2), pytest-cov
 six==1.14.0               # via astroid, cryptography, packaging, prompt-toolkit, pyopenssl, traitlets
-sniffio==1.1.0
-sortedcontainers==2.1.0
+sniffio==1.1.0            # via -r test-requirements.in (line 26)
+sortedcontainers==2.1.0   # via -r test-requirements.in (line 22)
 traitlets==4.3.3          # via ipython
-trustme==0.6.0
+trustme==0.6.0            # via -r test-requirements.in (line 6)
 wcwidth==0.1.8            # via prompt-toolkit, pytest
 wrapt==1.11.2             # via astroid
-yapf==0.29.0
+yapf==0.29.0              # via -r test-requirements.in (line 11)
