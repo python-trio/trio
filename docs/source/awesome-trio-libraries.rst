@@ -20,7 +20,7 @@ tag -> `PyPI Search <https://pypi.org/search/?q=Framework+%3A%3A+Trio>`__
 
 Getting Started
 ---------------
-* `cookiecutter-trio <https://github.com/python-trio/cookiecutter-trio>`__ - This is a cookiecutter template for Python projects that use Trio. It makes it easy to start a new project, by providing a bunch of preconfigured boilerplate. 
+* `cookiecutter-trio <https://github.com/python-trio/cookiecutter-trio>`__ - This is a cookiecutter template for Python projects that use Trio. It makes it easy to start a new project, by providing a bunch of preconfigured boilerplate.
 * `pytest-trio <https://github.com/python-trio/pytest-trio>`__ - Pytest plugin to test async-enabled Trio functions.
 * `sphinxcontrib-trio <https://github.com/python-trio/sphinxcontrib-trio>`__ - Make Sphinx better at documenting Python functions and methods. In particular, it makes it easy to document async functions.
 
@@ -40,6 +40,7 @@ Database
 * `triopg <https://github.com/python-trio/triopg>`__ - PostgreSQL client for Trio based on asyncpg.
 * `trio-mysql <https://github.com/python-trio/trio-mysql>`__ - Pure Python MySQL Client.
 * `sqlalchemy_aio <https://github.com/RazerM/sqlalchemy_aio>`__ - Add asyncio and Trio support to SQLAlchemy core, derived from alchimia.
+* `redio <https://github.com/Tronic/redio>`__ - Redis client, pure Python and Trio.
 
 
 IOT
@@ -81,4 +82,3 @@ Trio/Asyncio Interoperability
 * `anyio <https://github.com/agronholm/anyio>`__ - AnyIO is a asynchronous compatibility API that allows applications and libraries written against it to run unmodified on asyncio, curio and trio.
 * `sniffio <https://github.com/python-trio/sniffio>`__ - This is a tiny package whose only purpose is to let you detect which async library your code is running under.
 * `trio-asyncio <https://github.com/python-trio/trio-asyncio>`__ - Trio-Asyncio lets you use many asyncio libraries from your Trio app.
-
