@@ -14,9 +14,9 @@ from ..testing import wait_all_tasks_blocked
 
 posix = os.name == "posix"
 if posix:
-    from signal import SIGKILL, SIGTERM, SIGINT
+    from signal import SIGKILL, SIGTERM, SIGUSR1
 else:
-    SIGKILL, SIGTERM, SIGINT = None, None, None
+    SIGKILL, SIGTERM, SIGUSR1 = None, None, None
 
 
 # Since Windows has very few command-line utilities generally available,
@@ -362,8 +362,15 @@ async def test_signals():
 
     await test_one_signal(Process.kill, SIGKILL)
     await test_one_signal(Process.terminate, SIGTERM)
+    # Test that we can send arbitrary signals.
+    #
+    # We used to use SIGINT here, but it turns out that the Python interpreter
+    # has race conditions that can cause it to explode in weird ways if it
+    # tries to handle SIGINT during startup. SIGUSR1's default disposition is
+    # to terminate the target process, and Python doesn't try to do anything
+    # clever to handle it.
     if posix:
-        await test_one_signal(lambda proc: proc.send_signal(SIGINT), SIGINT)
+        await test_one_signal(lambda proc: proc.send_signal(SIGUSR1), SIGUSR1)
 
 
 @pytest.mark.skipif(not posix, reason="POSIX specific")
