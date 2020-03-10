@@ -49,6 +49,11 @@ def public_namespaces(module):
 NAMESPACES = list(public_namespaces(trio))
 
 
+# It doesn't make sense for downstream redistributors to run this test, since
+# they might be using a newer version of Python with additional symbols which
+# won't be reflected in trio.socket, and this shouldn't cause downstream test
+# runs to start failing.
+@pytest.mark.redistributors_should_skip
 # pylint/jedi often have trouble with alpha releases, where Python's internals
 # are in flux, grammar may not have settled down, etc.
 @pytest.mark.skipif(
