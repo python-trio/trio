@@ -60,6 +60,8 @@ from ._highlevel_open_tcp_listeners import open_tcp_listeners, serve_tcp
 
 from ._highlevel_open_unix_stream import open_unix_socket
 
+from ._highlevel_open_unix_listeners import open_unix_listeners, serve_unix
+
 from ._highlevel_ssl_helpers import (
     open_ssl_over_tcp_stream, open_ssl_over_tcp_listeners, serve_ssl_over_tcp
 )
