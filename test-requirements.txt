@@ -41,7 +41,7 @@ pylint==2.4.2             # via -r test-requirements.in
 pyopenssl==19.1.0         # via -r test-requirements.in
 pyparsing==2.4.6          # via packaging
 pytest-cov==2.8.1         # via -r test-requirements.in
-pytest==5.3.5             # via -r test-requirements.in, pytest-cov
+pytest==5.4.0             # via -r test-requirements.in, pytest-cov
 six==1.14.0               # via astroid, cryptography, packaging, prompt-toolkit, pyopenssl, traitlets
 sniffio==1.1.0            # via -r test-requirements.in
 sortedcontainers==2.1.0   # via -r test-requirements.in
