@@ -10,7 +10,7 @@ async-generator==1.10     # via -r test-requirements.in
 attrs==19.3.0             # via -r test-requirements.in, outcome, pytest
 backcall==0.1.0           # via ipython
 cffi==1.14.0              # via cryptography
-coverage==5.0.3           # via pytest-cov
+coverage==5.0.4           # via pytest-cov
 cryptography==2.8         # via pyopenssl, trustme
 decorator==4.4.2          # via ipython, traitlets
 entrypoints==0.3          # via flake8
