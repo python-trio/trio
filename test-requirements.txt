@@ -47,6 +47,6 @@ sniffio==1.1.0            # via -r test-requirements.in
 sortedcontainers==2.1.0   # via -r test-requirements.in
 traitlets==4.3.3          # via ipython
 trustme==0.6.0            # via -r test-requirements.in
-wcwidth==0.1.8            # via prompt-toolkit, pytest
+wcwidth==0.1.9            # via prompt-toolkit, pytest
 wrapt==1.11.2             # via astroid
 yapf==0.29.0              # via -r test-requirements.in
