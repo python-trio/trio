@@ -94,8 +94,11 @@ class UnixSocketListener(trio.SocketListener):
         folder = os.path.dirname(path)
         if not os.path.isdir(folder):
             raise FileNotFoundError(f"Socket folder does not exist: {folder}")
-        if os.path.exists(path) and not stat.S_ISSOCK(os.stat(path).st_mode):
-            raise FileExistsError(f"Existing file is not a socket: {path}")
+        try:
+            if not stat.S_ISSOCK(os.stat(path, follow_symlinks=False).st_mode):
+                raise FileExistsError(f"Existing file is not a socket: {path}")
+        except FileNotFoundError:
+            pass
         # Create new socket with a random temporary name
         tmp_path = f"{path}.{secrets.token_urlsafe()}"
         sock = socket.socket(socket.AF_UNIX)
