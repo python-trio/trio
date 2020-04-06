@@ -20,7 +20,8 @@ from ._core import (
     permanently_detach_coroutine_object, reattach_detached_coroutine_object,
     current_statistics, reschedule, remove_instrument, add_instrument,
     current_clock, current_root_task, checkpoint_if_cancelled,
-    spawn_system_task, wait_readable, wait_writable, notify_closing
+    spawn_system_task, wait_readable, wait_writable, notify_closing,
+    open_trio_entry_handle, TrioEntryHandle
 )
 
 # Unix-specific symbols
