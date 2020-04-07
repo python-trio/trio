@@ -355,7 +355,7 @@ Here's an example::
    print("starting...")
    with trio.move_on_after(5):
        with trio.move_on_after(10):
-           await sleep(20)
+           await trio.sleep(20)
            print("sleep finished without error")
        print("move_on_after(10) finished without error")
    print("move_on_after(5) finished without error")
@@ -382,7 +382,7 @@ object representing this cancel scope, which we can use to check
 whether this scope caught a :exc:`Cancelled` exception::
 
    with trio.move_on_after(5) as cancel_scope:
-       await sleep(10)
+       await trio.sleep(10)
    print(cancel_scope.cancelled_caught)  # prints "True"
 
 The ``cancel_scope`` object also allows you to check or adjust this
