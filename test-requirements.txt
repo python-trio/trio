@@ -26,7 +26,7 @@ mccabe==0.6.1             # via flake8, pylint
 more-itertools==8.2.0     # via pytest
 outcome==1.0.1            # via -r test-requirements.in
 packaging==20.3           # via pytest
-parso==0.6.2              # via jedi
+parso==0.7.0              # via jedi
 pexpect==4.8.0            # via ipython
 pickleshare==0.7.5        # via ipython
 pluggy==0.13.1            # via pytest
