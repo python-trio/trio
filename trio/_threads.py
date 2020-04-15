@@ -239,7 +239,6 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
 
     """
     await trio.hazmat.checkpoint_if_cancelled()
-    token = trio.hazmat.current_trio_token()
     if limiter is None:
         limiter = current_default_thread_limiter()
 
@@ -276,7 +275,7 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
         try:
             result = outcome.capture(sync_fn, *args)
             try:
-                token.run_sync_soon(report_back_in_trio_thread_fn, result)
+                trio_token.run_sync_soon(report_back_in_trio_thread_fn, result)
             except trio.RunFinishedError:
                 # The entire run finished, so our particular task is certainly
                 # long gone -- it must have cancelled.
