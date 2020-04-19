@@ -1,0 +1,1 @@
+Remove ``trio.open_cancel_scope`` which was deprecated in 0.11.0.
