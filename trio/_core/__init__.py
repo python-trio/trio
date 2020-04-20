@@ -17,12 +17,12 @@ from ._ki import (
 
 # Imports that always exist
 from ._run import (
-    Task, CancelScope, run, open_nursery, open_cancel_scope, checkpoint,
-    current_task, current_effective_deadline, checkpoint_if_cancelled,
-    TASK_STATUS_IGNORED, current_statistics, current_trio_token, reschedule,
-    remove_instrument, add_instrument, current_clock, current_root_task,
-    spawn_system_task, current_time, wait_all_tasks_blocked, wait_readable,
-    wait_writable, notify_closing, Nursery
+    Task, CancelScope, run, open_nursery, checkpoint, current_task,
+    current_effective_deadline, checkpoint_if_cancelled, TASK_STATUS_IGNORED,
+    current_statistics, current_trio_token, reschedule, remove_instrument,
+    add_instrument, current_clock, current_root_task, spawn_system_task,
+    current_time, wait_all_tasks_blocked, wait_readable, wait_writable,
+    notify_closing, Nursery
 )
 
 # Has to come after _run to resolve a circular import

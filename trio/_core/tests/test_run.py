@@ -805,13 +805,6 @@ async def test_basic_timeout(mock_clock):
             await _core.checkpoint()
 
 
-@pytest.mark.filterwarnings(
-    "ignore:.*trio.open_cancel_scope:trio.TrioDeprecationWarning"
-)
-async def test_cancel_scope_deprecated(recwarn):
-    assert isinstance(_core.open_cancel_scope(), _core.CancelScope)
-
-
 async def test_cancel_scope_nesting():
     # Nested scopes: if two triggering at once, the outer one wins
     with _core.CancelScope() as scope1:

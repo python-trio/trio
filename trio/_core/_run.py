@@ -619,12 +619,6 @@ class CancelScope(metaclass=Final):
         return self._cancel_called
 
 
-@deprecated("0.11.0", issue=607, instead="trio.CancelScope")
-def open_cancel_scope(*, deadline=inf, shield=False):
-    """Returns a context manager which creates a new cancellation scope."""
-    return CancelScope(deadline=deadline, shield=shield)
-
-
 ################################################################
 # Nursery and friends
 ################################################################
