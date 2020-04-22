@@ -11,7 +11,7 @@ attrs==19.3.0             # via -r test-requirements.in, outcome, pytest
 backcall==0.1.0           # via ipython
 cffi==1.14.0              # via cryptography
 coverage==5.1             # via pytest-cov
-cryptography==2.9         # via pyopenssl, trustme
+cryptography==2.9.1       # via pyopenssl, trustme
 decorator==4.4.2          # via ipython, traitlets
 entrypoints==0.3          # via flake8
 flake8==3.7.9             # via -r test-requirements.in
