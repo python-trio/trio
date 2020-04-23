@@ -1,0 +1,5 @@
+``trio.abc.HalfCloseableStream`` has been deprecated, since its
+functionality was merged into `trio.abc.Stream`. And
+``trio.testing.check_half_closeable_stream`` has been deprecated,
+since its functionality was merged into
+`trio.testing.check_two_way_stream`.

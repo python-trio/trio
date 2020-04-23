@@ -99,6 +99,9 @@ class FdStream(Stream):
     `issue #174 <https://github.com/python-trio/trio/issues/174>`__ for a
     discussion of the challenges involved in relaxing this restriction.
 
+    The Unix file descriptor API does not provide any generic way to perform a
+    half-close, so ``FdStream.send_eof`` always raises `NotImplementedError`.
+
     Args:
       fd (int): The fd to be wrapped.
 
@@ -177,6 +180,9 @@ class FdStream(Stream):
                     break
 
             return data
+
+    async def send_eof(self):
+        raise NotImplementedError
 
     async def aclose(self):
         await self._fd_holder.aclose()

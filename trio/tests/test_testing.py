@@ -6,6 +6,7 @@ import tempfile
 
 import pytest
 
+import trio
 from .._core.tests.tutil import can_bind_ipv6
 from .. import sleep
 from .. import _core
@@ -782,10 +783,10 @@ async def test_memory_streams_with_generic_tests():
 
     await check_one_way_stream(one_way_stream_maker, None)
 
-    async def half_closeable_stream_maker():
+    async def two_way_stream_maker():
         return memory_stream_pair()
 
-    await check_half_closeable_stream(half_closeable_stream_maker, None)
+    await check_two_way_stream(two_way_stream_maker, None)
 
 
 async def test_lockstep_streams_with_generic_tests():
@@ -798,6 +799,14 @@ async def test_lockstep_streams_with_generic_tests():
         return lockstep_stream_pair()
 
     await check_two_way_stream(two_way_stream_maker, two_way_stream_maker)
+
+
+async def test_deprecated_check_half_closeable_stream():
+    async def two_way_stream_maker():
+        return memory_stream_pair()
+
+    with pytest.warns(trio.TrioDeprecationWarning):
+        await check_half_closeable_stream(two_way_stream_maker, None)
 
 
 async def test_open_stream_to_socket_listener():

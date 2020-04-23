@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import Generic, TypeVar
 from ._util import aiter_compat
+from ._deprecate import warn_deprecated
 import trio
 
 
@@ -289,8 +290,8 @@ class SendStream(AsyncResource):
 
         Raises:
           trio.BusyResourceError: if another task is already executing a
-              :meth:`send_all`, :meth:`wait_send_all_might_not_block`, or
-              :meth:`HalfCloseableStream.send_eof` on this stream.
+              `send_all`, `wait_send_all_might_not_block`, or
+              `Stream.send_eof` on this stream.
           trio.BrokenResourceError: if something has gone wrong, and the stream
               is broken.
           trio.ClosedResourceError: if you previously closed this stream
@@ -322,8 +323,8 @@ class SendStream(AsyncResource):
 
         Raises:
           trio.BusyResourceError: if another task is already executing a
-              :meth:`send_all`, :meth:`wait_send_all_might_not_block`, or
-              :meth:`HalfCloseableStream.send_eof` on this stream.
+              `send_all`, `wait_send_all_might_not_block`, or
+              `Stream.send_eof` on this stream.
           trio.BrokenResourceError: if something has gone wrong, and the stream
               is broken.
           trio.ClosedResourceError: if you previously closed this stream
@@ -425,22 +426,28 @@ class ReceiveStream(AsyncResource):
         return data
 
 
-class Stream(SendStream, ReceiveStream):
+class _StreamMeta(ABCMeta):
+    def __new__(cls, name, bases, namespace):
+        if "send_all" in namespace and "send_eof" not in namespace:
+            warn_deprecated(
+                "defining a Stream class without a send_eof method",
+                "0.13.0",
+                issue=823,
+                instead=None,
+            )
+
+            async def send_eof(self):
+                raise NotImplementedError
+
+            namespace["send_eof"] = send_eof
+        return super().__new__(cls, name, bases, namespace)
+
+
+class Stream(SendStream, ReceiveStream, metaclass=_StreamMeta):
     """A standard interface for interacting with bidirectional byte streams.
 
-    A :class:`Stream` is an object that implements both the
-    :class:`SendStream` and :class:`ReceiveStream` interfaces.
-
-    If implementing this interface, you should consider whether you can go one
-    step further and implement :class:`HalfCloseableStream`.
-
-    """
-    __slots__ = ()
-
-
-class HalfCloseableStream(Stream):
-    """This interface extends :class:`Stream` to also allow closing the send
-    part of the stream without closing the receive part.
+    A `Stream` is an object that implements both the `SendStream` and
+    `ReceiveStream` interfaces, and also adds a `send_eof` method.
 
     """
     __slots__ = ()
@@ -461,27 +468,17 @@ class HalfCloseableStream(Stream):
         :class:`SendStream` "half" of the stream object (and in fact that's
         literally how :class:`trio.StapledStream` implements it).
 
-        Examples:
-
-        * On a socket, this corresponds to ``shutdown(..., SHUT_WR)`` (`man
-          page <https://linux.die.net/man/2/shutdown>`__).
-
-        * The SSH protocol provides the ability to multiplex bidirectional
-          "channels" on top of a single encrypted connection. A Trio
-          implementation of SSH could expose these channels as
-          :class:`HalfCloseableStream` objects, and calling :meth:`send_eof`
-          would send an ``SSH_MSG_CHANNEL_EOF`` request (see `RFC 4254 §5.3
-          <https://tools.ietf.org/html/rfc4254#section-5.3>`__).
-
-        * On an SSL/TLS-encrypted connection, the protocol doesn't provide any
-          way to do a unidirectional shutdown without closing the connection
-          entirely, so :class:`~trio.SSLStream` implements
-          :class:`Stream`, not :class:`HalfCloseableStream`.
+        Most stream implementations should support this method, but not all
+        do. The main exception is TLS: in TLS 1.2 and earlier, there was no
+        way to send an EOF without closing the stream entirely; this feature
+        was only added in TLS 1.3. Therefore, generic code needs to be
+        prepared for this method to raise `NotImplementedError`.
 
         If an EOF has already been sent, then this method should silently
         succeed.
 
         Raises:
+          NotImplementedError: if this `Stream` does not support `send_eof`.
           trio.BusyResourceError: if another task is already executing a
               :meth:`~SendStream.send_all`,
               :meth:`~SendStream.wait_send_all_might_not_block`, or
