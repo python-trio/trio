@@ -37,7 +37,7 @@ pycodestyle==2.5.0        # via flake8
 pycparser==2.20           # via cffi
 pyflakes==2.1.1           # via flake8
 pygments==2.6.1           # via ipython
-pylint==2.4.2             # via -r test-requirements.in
+pylint==2.4.4             # via -r test-requirements.in
 pyopenssl==19.1.0         # via -r test-requirements.in
 pyparsing==2.4.7          # via packaging
 pytest-cov==2.8.1         # via -r test-requirements.in
