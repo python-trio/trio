@@ -16,7 +16,7 @@ decorator==4.4.2          # via ipython, traitlets
 entrypoints==0.3          # via flake8
 flake8==3.7.9             # via -r test-requirements.in
 idna==2.9                 # via -r test-requirements.in, trustme
-immutables==0.11          # via -r test-requirements.in
+immutables==0.12          # via -r test-requirements.in
 ipython-genutils==0.2.0   # via traitlets
 ipython==7.9.0            # via -r test-requirements.in
 isort==4.3.21             # via pylint
