@@ -1255,8 +1255,8 @@ async def test_getpeercert(client_ctx):
     assert server.getpeercert() is None
     print(client.getpeercert())
     assert (
-        ("DNS",
-         "trio-test-1.example.org") in client.getpeercert()["subjectAltName"]
+        ("DNS", "trio-test-1.example.org")
+        in client.getpeercert()["subjectAltName"]
     )
 
 
