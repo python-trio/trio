@@ -1,0 +1,91 @@
+name: CI
+
+on: [pull_request]
+
+jobs:
+  Windows:
+    name: 'Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})'
+    timeout-minutes: 20
+    runs-on: 'windows-latest'
+    strategy:
+      matrix:
+        python: ['3.5', '3.6', '3.7', '3.8']
+        arch: ['x86', 'x64']
+        lsp: ['']
+        extra_name: ['']
+        include:
+          - python: '3.8'
+            arch: 'x64'
+            lsp: 'http://www.proxifier.com/download/ProxifierSetup.exe'
+            extra_name: ', with IFS LSP'
+          - python: '3.8'
+            arch: 'x64'
+            lsp: 'http://download.pctools.com/mirror/updates/9.0.0.2308-SDavfree-lite_en.exe'
+            extra_name: ', with non-IFS LSP'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup python
+        uses: actions/setup-python@v1
+        with:
+          python-version: '${{ matrix.python }}'
+          architecture: '${{ matrix.arch }}'
+      - name: Run tests
+        run: ./ci.sh
+        shell: bash
+        env:
+          LSP: '${{ matrix.lsp }}'
+          # Should match 'name:' up above
+          JOB_NAME: 'Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})'
+
+  Linux:
+    name: 'Linux (${{ matrix.python }}${{ matrix.extra_name }})'
+    timeout-minutes: 10
+    runs-on: 'ubuntu-latest'
+    strategy:
+      matrix:
+        python: ['3.5', '3.6', '3.7', '3.8']
+        check_docs: ['0']
+        check_formatting: ['0']
+        extra_name: ['']
+        include:
+          - python: '3.8'
+            check_docs: '1'
+            extra_name: ', check docs'
+          - python: '3.8'
+            check_formatting: '1'
+            extra_name: ', check formatting'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup python
+        uses: actions/setup-python@v1
+        with:
+          python-version: '${{ matrix.python }}'
+      - name: Run tests
+        run: ./ci.sh
+        env:
+          CHECK_DOCS: '${{ matrix.check_docs }}'
+          CHECK_FORMATTING: '${{ matrix.check_formatting }}'
+          # Should match 'name:' up above
+          JOB_NAME: 'Linux (${{ matrix.python }}${{ matrix.extra_name }})'
+
+  macOS:
+    name: 'macOS (${{ matrix.python }})'
+    timeout-minutes: 10
+    runs-on: 'macos-latest'
+    strategy:
+      matrix:
+        python: ['3.5', '3.6', '3.7', '3.8']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup python
+        uses: actions/setup-python@v1
+        with:
+          python-version: '${{ matrix.python }}'
+      - name: Run tests
+        run: ./ci.sh
+        env:
+          # Should match 'name:' up above
+          JOB_NAME: 'macOS (${{ matrix.python }})'
