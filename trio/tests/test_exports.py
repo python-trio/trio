@@ -92,7 +92,7 @@ def test_static_tool_sees_all_symbols(tool, modname):
         import jedi
         # Simulate typing "import trio; trio.<TAB>"
         script = jedi.Script("import {}; {}.".format(modname, modname))
-        completions = script.completions()
+        completions = script.complete()
         static_names = no_underscores(c.name for c in completions)
     else:  # pragma: no cover
         assert False
