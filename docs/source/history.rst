@@ -5,6 +5,51 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.14.0 (2020-04-27)
+------------------------
+
+Features
+~~~~~~~~
+
+- If you're using Trio's low-level interfaces like
+  `trio.hazmat.wait_readable` or similar, and then you close a socket or
+  file descriptor, you're supposed to call `trio.hazmat.notify_closing`
+  first so Trio can clean up properly. But what if you forget? In the
+  past, Trio would tend to either deadlock or explode spectacularly.
+  Now, it's much more robust to this situation, and should generally
+  survive. (But note that "survive" is not the same as "give you the
+  results you were expecting", so you should still call
+  `~trio.hazmat.notify_closing` when appropriate. This is about harm
+  reduction and making it easier to debug this kind of mistake, not
+  something you should rely on.)
+
+  If you're using higher-level interfaces outside of the `trio.hazmat`
+  module, then you don't need to worry about any of this; those
+  intefaces already take care of calling `~trio.hazmat.notify_closing`
+  for you. (`#1272 <https://github.com/python-trio/trio/issues/1272>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- A bug related to the following methods has been introduced in version 0.12.0:
+
+  - `trio.Path.iterdir`
+  - `trio.Path.glob`
+  - `trio.Path.rglob`
+
+  The iteration of the blocking generators produced by pathlib was performed in
+  the trio thread. With this fix, the previous behavior is restored: the blocking
+  generators are converted into lists in a thread dedicated to blocking IO calls. (`#1308 <https://github.com/python-trio/trio/issues/1308>`__)
+
+
+Deprecations and Removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Deprecate Python 3.5 (`#1408 <https://github.com/python-trio/trio/pull/1408>`__)
+- Remove ``trio.open_cancel_scope`` which was deprecated in 0.11.0. (`#1458 <https://github.com/python-trio/trio/issues/1458>`__)
+
+
 Trio 0.13.0 (2019-11-02)
 ------------------------
 
