@@ -5,7 +5,7 @@
 #    pip-compile --output-file test-requirements.txt test-requirements.in
 #
 astor==0.8.1              # via -r test-requirements.in
-astroid==2.3.3            # via pylint
+astroid==2.4.0            # via pylint
 async-generator==1.10     # via -r test-requirements.in
 attrs==19.3.0             # via -r test-requirements.in, outcome, pytest
 backcall==0.1.0           # via ipython
@@ -37,7 +37,7 @@ pycodestyle==2.5.0        # via flake8
 pycparser==2.20           # via cffi
 pyflakes==2.1.1           # via flake8
 pygments==2.6.1           # via ipython
-pylint==2.4.2             # via -r test-requirements.in
+pylint==2.5.0             # via -r test-requirements.in
 pyopenssl==19.1.0         # via -r test-requirements.in
 pyparsing==2.4.7          # via packaging
 pytest-cov==2.8.1         # via -r test-requirements.in
@@ -45,6 +45,7 @@ pytest==5.4.1             # via -r test-requirements.in, pytest-cov
 six==1.14.0               # via astroid, cryptography, packaging, prompt-toolkit, pyopenssl, traitlets
 sniffio==1.1.0            # via -r test-requirements.in
 sortedcontainers==2.1.0   # via -r test-requirements.in
+toml==0.10.0              # via pylint
 traitlets==4.3.3          # via ipython
 trustme==0.6.0            # via -r test-requirements.in
 wcwidth==0.1.9            # via prompt-toolkit, pytest
