@@ -87,4 +87,5 @@ jobs:
       - name: Run tests
         run: ./ci.sh
         env:
+          # Should match 'name:' up above
           JOB_NAME: 'macOS (${{ matrix.python }})'
