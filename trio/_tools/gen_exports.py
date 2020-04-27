@@ -10,7 +10,6 @@ import astor
 import os
 from pathlib import Path
 import sys
-import yapf.yapflib.yapf_api as formatter
 
 from textwrap import indent
 
