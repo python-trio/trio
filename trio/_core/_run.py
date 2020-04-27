@@ -929,8 +929,8 @@ class Nursery(metaclass=NoPublicConstructor):
         :meth:`start` is cancelled, then the child task is also
         cancelled.
 
-        When the child calls ``task_status.started()``, it's moved from
-        out from underneath :meth:`start` and into the given nursery.
+        When the child calls ``task_status.started()``, it's moved out
+        from underneath :meth:`start` and into the given nursery.
 
         If the child task passes a value to
         ``task_status.started(value)``, then :meth:`start` returns this
