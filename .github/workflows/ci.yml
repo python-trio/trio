@@ -8,6 +8,7 @@ jobs:
     timeout-minutes: 20
     runs-on: 'windows-latest'
     strategy:
+      fail-fast: false
       matrix:
         python: ['3.5', '3.6', '3.7', '3.8']
         arch: ['x86', 'x64']
@@ -43,6 +44,7 @@ jobs:
     timeout-minutes: 10
     runs-on: 'ubuntu-latest'
     strategy:
+      fail-fast: false
       matrix:
         python: ['3.5', '3.6', '3.7', '3.8']
         check_docs: ['0']
@@ -75,6 +77,7 @@ jobs:
     timeout-minutes: 10
     runs-on: 'macos-latest'
     strategy:
+      fail-fast: false
       matrix:
         python: ['3.5', '3.6', '3.7', '3.8']
     steps:
