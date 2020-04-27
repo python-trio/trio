@@ -115,10 +115,18 @@ except ImportError:
 # have:
 import socket as _stdlib_socket
 
+_bad_symbols = set()
+if _sys.platform == 'win32':
+    # See https://github.com/python-trio/trio/issues/39
+    # Do not import for windows platform
+    # (you can still get it from stdlib socket, of course, if you want it)
+    _bad_symbols.add("SO_REUSEADDR")
+
 globals().update(
     {
         _name: getattr(_stdlib_socket, _name)
-        for _name in _stdlib_socket.__all__ if _name.isupper()
+        for _name in _stdlib_socket.__all__
+        if _name.isupper() and _name not in _bad_symbols
     }
 )
 
@@ -156,12 +164,6 @@ try:
     )
 except ImportError:
     pass
-
-if _sys.platform == 'win32':
-    # See https://github.com/python-trio/trio/issues/39
-    # Do not import for windows platform
-    # (you can still get it from stdlib socket, of course, if you want it)
-    del SO_REUSEADDR
 
 # get names used by Trio that we define on our own
 from ._socket import IPPROTO_IPV6
