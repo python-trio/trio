@@ -1306,7 +1306,7 @@ produces *backpressure*: if the channel producers are running faster
 than the consumers, then it forces the producers to slow down.
 
 You can disable buffering entirely, by doing
-``open_memory_channel(0)``. In that case any task calls
+``open_memory_channel(0)``. In that case any task that calls
 :meth:`~trio.abc.SendChannel.send` will wait until another task calls
 :meth:`~trio.abc.ReceiveChannel.receive`, and vice versa. This is similar to
 how channels work in the `classic Communicating Sequential Processes
