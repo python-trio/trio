@@ -22,7 +22,7 @@ except ImportError:
         import ctypes
         _cdll_for_pidfd_open = ctypes.CDLL(None, use_errno=True)
         _cdll_for_pidfd_open.syscall.restype = ctypes.c_long
-        # fd and flags are actually int-sized, but the syscall() function
+        # pid and flags are actually int-sized, but the syscall() function
         # always takes longs. (Except on x32 where long is 32-bits and syscall
         # takes 64-bit arguments. But in the unlikely case that anyone is
         # using x32, this will still work, b/c we only need to pass in 32 bits
