@@ -10,7 +10,7 @@ attrs==19.3.0             # via -r docs-requirements.in, outcome
 babel==2.8.0              # via sphinx
 certifi==2020.4.5.1       # via requests
 chardet==3.0.4            # via requests
-click==7.1.1              # via towncrier
+click==7.1.2              # via towncrier
 docutils==0.16            # via sphinx
 idna==2.9                 # via -r docs-requirements.in, requests
 imagesize==1.2.0          # via sphinx
