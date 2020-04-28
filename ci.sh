@@ -237,7 +237,17 @@ else
     # up.
     if [ "$LSP" != "" ]; then
         echo "Installing LSP from ${LSP}"
-        curl-harder -o lsp-installer.exe "$LSP"
+        # We use --insecure because one of the LSP's has been observed to give
+        # cert verification errors:
+        #
+        #   https://github.com/python-trio/trio/issues/1478
+        #
+        # *Normally*, you should never ever use --insecure, especially when
+        # fetching an executable! But *in this case*, we're intentionally
+        # installing some untrustworthy quasi-malware onto into a sandboxed
+        # machine for testing. So MITM attacks are really the least of our
+        # worries.
+        curl-harder --insecure -o lsp-installer.exe "$LSP"
         # Double-slashes are how you tell windows-bash that you want a single
         # slash, and don't treat this as a unix-style filename that needs to
         # be replaced by a windows-style filename.
