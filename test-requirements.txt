@@ -49,5 +49,5 @@ toml==0.10.0              # via pylint
 traitlets==4.3.3          # via ipython
 trustme==0.6.0            # via -r test-requirements.in
 wcwidth==0.1.9            # via prompt-toolkit, pytest
-wrapt==1.11.2             # via astroid
+wrapt==1.12.1             # via astroid
 yapf==0.30.0              # via -r test-requirements.in
