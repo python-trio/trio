@@ -2377,19 +2377,10 @@ def test_async_function_implemented_in_C():
     # These used to crash because we'd try to mutate the coroutine object's
     # cr_frame, but C functions don't have Python frames.
 
-    ns = {"_core": _core}
-    exec(
-        dedent(
-            """
-            async def agen_fn(record):
-                assert not _core.currently_ki_protected()
-                record.append("the generator ran")
-                yield
-            """
-        ),
-        ns,
-    )
-    agen_fn = ns["agen_fn"]
+    async def agen_fn(record):
+        assert not _core.currently_ki_protected()
+        record.append("the generator ran")
+        yield
 
     run_record = []
     agen = agen_fn(run_record)
