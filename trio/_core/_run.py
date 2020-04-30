@@ -60,7 +60,7 @@ INSTRUMENT_LOGGER = logging.getLogger("trio.abc.Instrument")
 
 
 # On 3.7+, Context.run() is implemented in C and doesn't show up in
-# tracebacks. On 3.6 and earlier, we use the contextvars backport, which is
+# tracebacks. On 3.6, we use the contextvars backport, which is
 # currently implemented in Python and adds 1 frame to tracebacks. So this
 # function is a super-overkill version of "0 if sys.version_info >= (3, 7)
 # else 1". But if Context.run ever changes, we'll be ready!
@@ -1256,12 +1256,9 @@ class Runner:
             # The protocol for detecting an asyncio Future-like object
             if getattr(value, "_asyncio_future_blocking", None) is not None:
                 return True
-            # asyncio.Future doesn't have _asyncio_future_blocking until
-            # 3.5.3. We don't want to import asyncio, but this janky check
-            # should work well enough for our purposes. And it also catches
-            # tornado Futures and twisted Deferreds. By the time we're calling
-            # this function, we already know something has gone wrong, so a
-            # heuristic is pretty safe.
+            # This janky check catches tornado Futures and twisted Deferreds.
+            # By the time we're calling this function, we already know
+            # something has gone wrong, so a heuristic is pretty safe.
             if value.__class__.__name__ in ("Future", "Deferred"):
                 return True
             return False
@@ -1909,7 +1906,7 @@ def run_impl(runner, async_fn, args):
             try:
                 # We used to unwrap the Outcome object here and send/throw its
                 # contents in directly, but it turns out that .throw() is
-                # buggy, at least on CPython 3.6 and earlier:
+                # buggy, at least on CPython 3.6:
                 #   https://bugs.python.org/issue29587
                 #   https://bugs.python.org/issue29590
                 # So now we send in the Outcome object and unwrap it on the

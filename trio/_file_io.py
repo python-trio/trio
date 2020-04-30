@@ -2,7 +2,7 @@ from functools import partial
 import io
 
 from .abc import AsyncResource
-from ._util import aiter_compat, async_wraps, fspath
+from ._util import async_wraps
 
 import trio
 
@@ -95,7 +95,6 @@ class AsyncIOWrapper(AsyncResource):
         )
         return attrs
 
-    @aiter_compat
     def __aiter__(self):
         return self
 
@@ -159,10 +158,6 @@ async def open_file(
       :func:`trio.Path.open`
 
     """
-    # python3.5 compat
-    if isinstance(file, trio.Path):
-        file = fspath(file)
-
     _file = wrap_file(
         await trio.to_thread.run_sync(
             io.open, file, mode, buffering, encoding, errors, newline, closefd,

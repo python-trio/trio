@@ -15,14 +15,9 @@ from ssl import (
     cert_time_to_seconds, CertificateError, create_default_context,
     DER_cert_to_PEM_cert, get_default_verify_paths, match_hostname,
     PEM_cert_to_DER_cert, Purpose, SSLEOFError, SSLError, SSLSyscallError,
-    SSLZeroReturnError
+    SSLZeroReturnError, AlertDescription, SSLErrorNumber, SSLSession,
+    VerifyFlags, VerifyMode, Options
 )
-
-# Added in python 3.6
-try:
-    from ssl import AlertDescription, SSLErrorNumber, SSLSession, VerifyFlags, VerifyMode, Options  # noqa
-except ImportError:
-    pass
 
 # Added in python 3.7
 try:

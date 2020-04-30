@@ -8,7 +8,7 @@ from functools import partial
 
 from OpenSSL import SSL
 import trustme
-from async_generator import async_generator, yield_, asynccontextmanager
+from async_generator import asynccontextmanager
 
 import trio
 from .. import _core
@@ -138,7 +138,6 @@ def ssl_echo_serve_sync(sock, *, expect_fail=False):
 # (running in a thread). Useful for testing making connections with different
 # SSLContexts.
 @asynccontextmanager
-@async_generator
 async def ssl_echo_server_raw(**kwargs):
     a, b = stdlib_socket.socketpair()
     async with trio.open_nursery() as nursery:
@@ -151,19 +150,16 @@ async def ssl_echo_server_raw(**kwargs):
                 partial(ssl_echo_serve_sync, b, **kwargs)
             )
 
-            await yield_(SocketStream(tsocket.from_stdlib_socket(a)))
+            yield SocketStream(tsocket.from_stdlib_socket(a))
 
 
 # Fixture that gives a properly set up SSLStream connected to a trio-test-1
 # echo server (running in a thread)
 @asynccontextmanager
-@async_generator
 async def ssl_echo_server(client_ctx, **kwargs):
     async with ssl_echo_server_raw(**kwargs) as sock:
-        await yield_(
-            SSLStream(
-                sock, client_ctx, server_hostname="trio-test-1.example.org"
-            )
+        yield SSLStream(
+            sock, client_ctx, server_hostname="trio-test-1.example.org"
         )
 
 
@@ -175,13 +171,12 @@ class PyOpenSSLEchoStream:
         ctx = SSL.Context(SSL.SSLv23_METHOD)
         # TLS 1.3 removes renegotiation support. Which is great for them, but
         # we still have to support versions before that, and that means we
-        # need to test renegotation support, which means we need to force this
+        # need to test renegotiation support, which means we need to force this
         # to use a lower version where this test server can trigger
         # renegotiations. Of course TLS 1.3 support isn't released yet, but
         # I'm told that this will work once it is. (And once it is we can
-        # remove the pragma: no cover too.) Alternatively, once we drop
-        # support for CPython 3.5 on macOS, then we could switch to using
-        # TLSv1_2_METHOD.
+        # remove the pragma: no cover too.) Alternatively, we could switch to
+        # using TLSv1_2_METHOD.
         #
         # Discussion: https://github.com/pyca/pyopenssl/issues/624
 

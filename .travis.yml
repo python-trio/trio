@@ -21,13 +21,7 @@ jobs:
       env:
         - "JOB_NAME='Ubuntu 19.10, full VM'"
         - "VM_IMAGE=https://cloud-images.ubuntu.com/eoan/current/eoan-server-cloudimg-amd64.img"
-    # 3.5.0 and 3.5.1 have different __aiter__ semantics than all
-    # other versions, so we need to test them specially. Travis's
-    # newer images only provide 3.5.2+, so we have to request the old
-    # 'trusty' images.
-    - python: 3.5.0
-      dist: trusty
-    - python: 3.5-dev
+    - python: 3.6.1  # earliest 3.6 version available on Travis
     - python: 3.6-dev
     - python: 3.7-dev
     - python: 3.8-dev
