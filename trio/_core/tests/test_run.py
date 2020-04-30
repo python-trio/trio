@@ -1376,7 +1376,7 @@ async def test_TrioToken_run_sync_soon_idempotent():
         for i in range(100):
             token.run_sync_soon(cb, i, idempotent=True)
     await wait_all_tasks_blocked()
-    # Otherwise, we guarantee FIFO
+    # We guarantee FIFO
     assert record == list(range(100))
 
 
