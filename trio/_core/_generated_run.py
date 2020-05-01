@@ -22,7 +22,7 @@ def current_statistics():
           :data:`~math.inf` if there are no pending deadlines.
         * ``run_sync_soon_queue_size`` (int): The number of
           unprocessed callbacks queued via
-          :meth:`trio.hazmat.TrioToken.run_sync_soon`.
+          :meth:`trio.lowlevel.TrioToken.run_sync_soon`.
         * ``io_statistics`` (object): Some statistics from Trio's I/O
           backend. This always has an attribute ``backend`` which is a string
           naming which operating-system-specific I/O backend is in use; the
@@ -85,7 +85,7 @@ def reschedule(task, next_send=_NO_SEND):
         to calling :func:`reschedule` once.)
 
         Args:
-          task (trio.hazmat.Task): the task to be rescheduled. Must be blocked
+          task (trio.lowlevel.Task): the task to be rescheduled. Must be blocked
               in a call to :func:`wait_task_rescheduled`.
           next_send (outcome.Outcome): the value (or error) to return (or
               raise) from :func:`wait_task_rescheduled`.
@@ -196,18 +196,18 @@ async def wait_all_tasks_blocked(cushion=0.0, tiebreaker=0):
                      nursery.start_soon(lock_taker, lock)
                      # child hasn't run yet, we have the lock
                      assert lock.locked()
-                     assert lock._owner is trio.hazmat.current_task()
+                     assert lock._owner is trio.lowlevel.current_task()
                      await trio.testing.wait_all_tasks_blocked()
                      # now the child has run and is blocked on lock.acquire(), we
                      # still have the lock
                      assert lock.locked()
-                     assert lock._owner is trio.hazmat.current_task()
+                     assert lock._owner is trio.lowlevel.current_task()
                      lock.release()
                      try:
                          # The child has a prior claim, so we can't have it
                          lock.acquire_nowait()
                      except trio.WouldBlock:
-                         assert lock._owner is not trio.hazmat.current_task()
+                         assert lock._owner is not trio.lowlevel.current_task()
                          print("PASS")
                      else:
                          print("FAIL")

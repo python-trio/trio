@@ -110,7 +110,7 @@ class WorkerThread:
         job.finish(*job.finish_args)
 
 
-# Probably the interface should be: trio.hazmat.call_soon_in_worker_thread?
+# Probably the interface should be: trio.lowlevel.call_soon_in_worker_thread?
 
 # Enqueueing work:
 #   put into unbounded queue

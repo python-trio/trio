@@ -177,8 +177,8 @@ class ParkingLot:
                print("woken")
 
            async def main():
-               lot1 = trio.hazmat.ParkingLot()
-               lot2 = trio.hazmat.ParkingLot()
+               lot1 = trio.lowlevel.ParkingLot()
+               lot2 = trio.lowlevel.ParkingLot()
                async with trio.open_nursery() as nursery:
                    nursery.start_soon(parker, lot1)
                    await trio.testing.wait_all_tasks_blocked()

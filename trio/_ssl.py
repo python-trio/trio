@@ -432,7 +432,7 @@ class SSLStream(Stream):
     async def _retry(
         self, fn, *args, ignore_want_read=False, is_handshake=False
     ):
-        await trio.hazmat.checkpoint_if_cancelled()
+        await trio.lowlevel.checkpoint_if_cancelled()
         yielded = False
         finished = False
         while not finished:
@@ -598,7 +598,7 @@ class SSLStream(Stream):
                             self._incoming.write(data)
                         self._inner_recv_count += 1
         if not yielded:
-            await trio.hazmat.cancel_shielded_checkpoint()
+            await trio.lowlevel.cancel_shielded_checkpoint()
         return ret
 
     async def _do_handshake(self):
@@ -670,7 +670,7 @@ class SSLStream(Stream):
                         (_stdlib_ssl.SSLEOFError, _stdlib_ssl.SSLSyscallError)
                     )
                 ):
-                    await trio.hazmat.checkpoint()
+                    await trio.lowlevel.checkpoint()
                     return b""
                 else:
                     raise
@@ -697,7 +697,7 @@ class SSLStream(Stream):
                     self._https_compatible
                     and isinstance(exc.__cause__, _stdlib_ssl.SSLEOFError)
                 ):
-                    await trio.hazmat.checkpoint()
+                    await trio.lowlevel.checkpoint()
                     return b""
                 else:
                     raise
@@ -719,7 +719,7 @@ class SSLStream(Stream):
             # SSLObject interprets write(b"") as an EOF for some reason, which
             # is not what we want.
             if not data:
-                await trio.hazmat.checkpoint()
+                await trio.lowlevel.checkpoint()
                 return
             await self._retry(self._ssl_object.write, data)
 
@@ -763,7 +763,7 @@ class SSLStream(Stream):
 
         """
         if self._state is _State.CLOSED:
-            await trio.hazmat.checkpoint()
+            await trio.lowlevel.checkpoint()
             return
         if self._state is _State.BROKEN or self._https_compatible:
             self._state = _State.CLOSED

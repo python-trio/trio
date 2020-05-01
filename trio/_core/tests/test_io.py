@@ -48,9 +48,9 @@ def using_fileno(fn):
     return fileno_wrapper
 
 
-wait_readable_options = [trio.hazmat.wait_readable]
-wait_writable_options = [trio.hazmat.wait_writable]
-notify_closing_options = [trio.hazmat.notify_closing]
+wait_readable_options = [trio.lowlevel.wait_readable]
+wait_writable_options = [trio.lowlevel.wait_writable]
+notify_closing_options = [trio.lowlevel.notify_closing]
 
 for options_list in [
     wait_readable_options, wait_writable_options, notify_closing_options
@@ -285,7 +285,7 @@ async def test_notify_closing_on_invalid_object():
     got_oserror = False
     got_no_error = False
     try:
-        trio.hazmat.notify_closing(-1)
+        trio.lowlevel.notify_closing(-1)
     except OSError:
         got_oserror = True
     else:
@@ -296,7 +296,7 @@ async def test_notify_closing_on_invalid_object():
 async def test_wait_on_invalid_object():
     # We definitely want to raise an error everywhere if you pass in an
     # invalid fd to wait_*
-    for wait in [trio.hazmat.wait_readable, trio.hazmat.wait_writable]:
+    for wait in [trio.lowlevel.wait_readable, trio.lowlevel.wait_writable]:
         with stdlib_socket.socket() as s:
             fileno = s.fileno()
         # We just closed the socket and don't do anything else in between, so
@@ -377,7 +377,7 @@ async def test_can_survive_unnotified_close():
 
     with stdlib_socket.socket() as s:
         async with trio.open_nursery() as nursery:
-            nursery.start_soon(allow_OSError, trio.hazmat.wait_readable, s)
+            nursery.start_soon(allow_OSError, trio.lowlevel.wait_readable, s)
             await wait_all_tasks_blocked()
             s.close()
             await wait_all_tasks_blocked()
@@ -389,7 +389,7 @@ async def test_can_survive_unnotified_close():
     # wait_readable pending until cancelled).
     with stdlib_socket.socket() as s, s.dup() as s2:  # noqa: F841
         async with trio.open_nursery() as nursery:
-            nursery.start_soon(allow_OSError, trio.hazmat.wait_readable, s)
+            nursery.start_soon(allow_OSError, trio.lowlevel.wait_readable, s)
             await wait_all_tasks_blocked()
             s.close()
             await wait_all_tasks_blocked()
@@ -408,8 +408,8 @@ async def test_can_survive_unnotified_close():
         b.setblocking(False)
         fill_socket(a)
         async with trio.open_nursery() as nursery:
-            nursery.start_soon(allow_OSError, trio.hazmat.wait_readable, a)
-            nursery.start_soon(allow_OSError, trio.hazmat.wait_writable, a)
+            nursery.start_soon(allow_OSError, trio.lowlevel.wait_readable, a)
+            nursery.start_soon(allow_OSError, trio.lowlevel.wait_writable, a)
             await wait_all_tasks_blocked()
             a.close()
             nursery.cancel_scope.cancel()
@@ -432,12 +432,12 @@ async def test_can_survive_unnotified_close():
         # definitely arrive, and when it does then we can assume that whatever
         # notification was going to arrive for 'a' has also arrived.
         async def wait_readable_a2_then_set():
-            await trio.hazmat.wait_readable(a2)
+            await trio.lowlevel.wait_readable(a2)
             e.set()
 
         async with trio.open_nursery() as nursery:
-            nursery.start_soon(allow_OSError, trio.hazmat.wait_readable, a)
-            nursery.start_soon(allow_OSError, trio.hazmat.wait_writable, a)
+            nursery.start_soon(allow_OSError, trio.lowlevel.wait_readable, a)
+            nursery.start_soon(allow_OSError, trio.lowlevel.wait_writable, a)
             nursery.start_soon(wait_readable_a2_then_set)
             await wait_all_tasks_blocked()
             a.close()

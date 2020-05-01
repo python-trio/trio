@@ -17,7 +17,7 @@ TOKEN_LOCAL = threading.local()
 class BlockingTrioPortal:
     def __init__(self, trio_token=None):
         if trio_token is None:
-            trio_token = trio.hazmat.current_trio_token()
+            trio_token = trio.lowlevel.current_trio_token()
         self._trio_token = trio_token
 
     def run(self, afn, *args):
@@ -238,14 +238,14 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
       Exception: Whatever ``sync_fn(*args)`` raises.
 
     """
-    await trio.hazmat.checkpoint_if_cancelled()
+    await trio.lowlevel.checkpoint_if_cancelled()
     if limiter is None:
         limiter = current_default_thread_limiter()
 
     # Holds a reference to the task that's blocked in this function waiting
     # for the result – or None if this function was cancelled and we should
     # discard the result.
-    task_register = [trio.hazmat.current_task()]
+    task_register = [trio.lowlevel.current_task()]
     name = "trio-worker-{}".format(next(_thread_counter))
     placeholder = ThreadPlaceholder(name)
 
@@ -264,7 +264,7 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
 
         result = outcome.capture(do_release_then_return_result)
         if task_register[0] is not None:
-            trio.hazmat.reschedule(task_register[0], result)
+            trio.lowlevel.reschedule(task_register[0], result)
 
     # This is the function that runs in the worker thread to do the actual
     # work and then schedule the call to report_back_in_trio_thread_fn
@@ -287,7 +287,7 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
     try:
         # daemon=True because it might get left behind if we cancel, and in
         # this case shouldn't block process exit.
-        current_trio_token = trio.hazmat.current_trio_token()
+        current_trio_token = trio.lowlevel.current_trio_token()
         thread = threading.Thread(
             target=worker_thread_fn,
             args=(current_trio_token,),
@@ -302,11 +302,11 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
     def abort(_):
         if cancellable:
             task_register[0] = None
-            return trio.hazmat.Abort.SUCCEEDED
+            return trio.lowlevel.Abort.SUCCEEDED
         else:
-            return trio.hazmat.Abort.FAILED
+            return trio.lowlevel.Abort.FAILED
 
-    return await trio.hazmat.wait_task_rescheduled(abort)
+    return await trio.lowlevel.wait_task_rescheduled(abort)
 
 
 def _run_fn_as_system_task(cb, fn, *args, trio_token=None):
@@ -332,7 +332,7 @@ def _run_fn_as_system_task(cb, fn, *args, trio_token=None):
     # thread local storage (or the absence of) is sufficient to check if trio
     # is running in a thread or not.
     try:
-        trio.hazmat.current_task()
+        trio.lowlevel.current_task()
     except RuntimeError:
         pass
     else:
@@ -385,7 +385,7 @@ def from_thread_run(afn, *args, trio_token=None):
         async def await_in_trio_thread_task():
             q.put_nowait(await outcome.acapture(unprotected_afn))
 
-        trio.hazmat.spawn_system_task(await_in_trio_thread_task, name=afn)
+        trio.lowlevel.spawn_system_task(await_in_trio_thread_task, name=afn)
 
     return _run_fn_as_system_task(callback, afn, *args, trio_token=trio_token)
 

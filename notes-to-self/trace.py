@@ -88,7 +88,7 @@ class Trace(trio.abc.Instrument):
 
     def task_scheduled(self, task):
         try:
-            waker = trio.hazmat.current_task()
+            waker = trio.lowlevel.current_task()
         except RuntimeError:
             pass
         else:

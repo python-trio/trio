@@ -66,7 +66,7 @@ from ._highlevel_ssl_helpers import (
 from ._deprecate import TrioDeprecationWarning
 
 # Submodules imported by default
-from . import hazmat
+from . import lowlevel
 from . import socket
 from . import abc
 from . import from_thread
@@ -121,31 +121,38 @@ __deprecated_attributes__ = {
             issue=810,
             instead=from_thread,
         ),
+    "hazmat":
+        _deprecate.DeprecatedAttribute(
+            lowlevel,
+            "0.15.0",
+            issue=476,
+            instead="trio.lowlevel",
+        ),
 }
 
-_deprecate.enable_attribute_deprecations(hazmat.__name__)
-hazmat.__deprecated_attributes__ = {
+_deprecate.enable_attribute_deprecations(lowlevel.__name__)
+lowlevel.__deprecated_attributes__ = {
     "wait_socket_readable":
         _deprecate.DeprecatedAttribute(
-            hazmat.wait_readable,
+            lowlevel.wait_readable,
             "0.12.0",
             issue=878,
         ),
     "wait_socket_writable":
         _deprecate.DeprecatedAttribute(
-            hazmat.wait_writable,
+            lowlevel.wait_writable,
             "0.12.0",
             issue=878,
         ),
     "notify_socket_close":
         _deprecate.DeprecatedAttribute(
-            hazmat.notify_closing,
+            lowlevel.notify_closing,
             "0.12.0",
             issue=878,
         ),
     "notify_fd_close":
         _deprecate.DeprecatedAttribute(
-            hazmat.notify_closing,
+            lowlevel.notify_closing,
             "0.12.0",
             issue=878,
         ),
@@ -159,7 +166,7 @@ hazmat.__deprecated_attributes__ = {
 # - probably other stuff
 from ._util import fixup_module_metadata
 fixup_module_metadata(__name__, globals())
-fixup_module_metadata(hazmat.__name__, hazmat.__dict__)
+fixup_module_metadata(lowlevel.__name__, lowlevel.__dict__)
 fixup_module_metadata(socket.__name__, socket.__dict__)
 fixup_module_metadata(abc.__name__, abc.__dict__)
 fixup_module_metadata(from_thread.__name__, from_thread.__dict__)

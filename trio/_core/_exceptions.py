@@ -5,7 +5,7 @@ from trio._util import NoPublicConstructor
 
 class TrioInternalError(Exception):
     """Raised by :func:`run` if we encounter a bug in Trio, or (possibly) a
-    misuse of one of the low-level :mod:`trio.hazmat` APIs.
+    misuse of one of the low-level :mod:`trio.lowlevel` APIs.
 
     This should never happen! If you get this error, please file a bug.
 
