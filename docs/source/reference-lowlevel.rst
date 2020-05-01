@@ -26,9 +26,10 @@ reach for :mod:`trio.lowlevel`:
 
 You don't need to be scared of :mod:`trio.lowlevel`, as long as you
 take proper precautions. These are real public APIs, with strictly
-defined and carefully documented semantics. But, you should read
-carefully and take proper precautions. Some of those strict semantics
-have `nasty big pointy teeth
+defined and carefully documented semantics. They're the same tools we
+use to implement all the nice high-level APIs in the :mod:`trio`
+namespace. But, be careful. Some of those strict semantics have `nasty
+big pointy teeth
 <https://en.wikipedia.org/wiki/Rabbit_of_Caerbannog>`__. If you make a
 mistake, Trio may not be able to handle it gracefully; conventions and
 guarantees that are followed strictly in the rest of Trio do not
