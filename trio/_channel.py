@@ -341,7 +341,9 @@ class MemoryReceiveChannel(ReceiveChannel, metaclass=NoPublicConstructor):
             assert not self._state.receive_tasks
             for task in self._state.send_tasks:
                 task.custom_sleep_data._tasks.remove(task)
-                trio.lowlevel.reschedule(task, Error(trio.BrokenResourceError()))
+                trio.lowlevel.reschedule(
+                    task, Error(trio.BrokenResourceError())
+                )
             self._state.send_tasks.clear()
             self._state.data.clear()
         await trio.lowlevel.checkpoint()

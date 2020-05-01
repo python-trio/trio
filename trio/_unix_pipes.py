@@ -130,7 +130,9 @@ class FdStream(Stream):
                         try:
                             sent += os.write(self._fd_holder.fd, remaining)
                         except BlockingIOError:
-                            await trio.lowlevel.wait_writable(self._fd_holder.fd)
+                            await trio.lowlevel.wait_writable(
+                                self._fd_holder.fd
+                            )
                         except OSError as e:
                             if e.errno == errno.EBADF:
                                 raise trio.ClosedResourceError(
