@@ -30,7 +30,7 @@ parso==0.7.0              # via jedi
 pexpect==4.8.0            # via ipython
 pickleshare==0.7.5        # via ipython
 pluggy==0.13.1            # via pytest
-prompt-toolkit==2.0.10    # via ipython
+prompt-toolkit==3.0.5     # via ipython
 ptyprocess==0.6.0         # via pexpect
 py==1.8.1                 # via pytest
 pycodestyle==2.5.0        # via flake8
@@ -42,7 +42,7 @@ pyopenssl==19.1.0         # via -r test-requirements.in
 pyparsing==2.4.7          # via packaging
 pytest-cov==2.8.1         # via -r test-requirements.in
 pytest==5.4.1             # via -r test-requirements.in, pytest-cov
-six==1.14.0               # via astroid, cryptography, packaging, prompt-toolkit, pyopenssl, traitlets
+six==1.14.0               # via astroid, cryptography, packaging, pyopenssl, traitlets
 sniffio==1.1.0            # via -r test-requirements.in
 sortedcontainers==2.1.0   # via -r test-requirements.in
 toml==0.10.0              # via pylint
