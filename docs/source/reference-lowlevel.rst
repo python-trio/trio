@@ -1,44 +1,40 @@
-=======================================================
+=========================================================
  Introspecting and extending Trio with ``trio.lowlevel``
-=======================================================
+=========================================================
 
 .. module:: trio.lowlevel
 
-.. warning::
-   You probably don't want to use this module.
-
-:mod:`trio.lowlevel` is Trio's "hazardous materials" layer: it contains
-APIs useful for introspecting and extending Trio. If you're writing
-ordinary, everyday code, then you can ignore this module completely.
-But sometimes you need something a bit lower level. Here are some
-examples of situations where you should reach for :mod:`trio.lowlevel`:
+:mod:`trio.lowlevel` contains low-level APIs for introspecting and
+extending Trio. If you're writing ordinary, everyday code, then you
+can ignore this module completely. But sometimes you need something a
+bit lower level. Here are some examples of situations where you should
+reach for :mod:`trio.lowlevel`:
 
 * You want to implement a new :ref:`synchronization primitive
   <synchronization>` that Trio doesn't (yet) provide, like a
   reader-writer lock.
 * You want to extract low-level metrics to monitor the health of your
   application.
-* You want to add support for a low-level operating system interface
-  that Trio doesn't (yet) expose, like watching a filesystem directory
-  for changes.
+* You want to use a low-level operating system interface that Trio
+  doesn't (yet) provide its own wrappers for, like watching a
+  filesystem directory for changes.
 * You want to implement an interface for calling between Trio and
   another event loop within the same process.
 * You're writing a debugger and want to visualize Trio's task tree.
 * You need to interoperate with a C library whose API exposes raw file
   descriptors.
 
-Using :mod:`trio.lowlevel` isn't really *that* hazardous; in fact you're
-already using it – it's how most of the functionality described in
-previous chapters is implemented. The APIs described here have
-strictly defined and carefully documented semantics, and are perfectly
-safe – *if* you read carefully and take proper precautions. Some of
-those strict semantics have `nasty big pointy teeth
+You don't need to be scared of :mod:`trio.lowlevel`, as long as you
+take proper precautions. These are real public APIs, with strictly
+defined and carefully documented semantics. But, you should read
+carefully and take proper precautions. Some of those strict semantics
+have `nasty big pointy teeth
 <https://en.wikipedia.org/wiki/Rabbit_of_Caerbannog>`__. If you make a
 mistake, Trio may not be able to handle it gracefully; conventions and
 guarantees that are followed strictly in the rest of Trio do not
-always apply. Using this module makes it your responsibility to think
-through and handle the nasty cases to expose a friendly Trio-style API
-to your users.
+always apply. When you use this module, it's your job to think about
+how you're going to handle the tricky cases so you can expose a
+friendly Trio-style API to your users.
 
 
 Debugging and instrumentation
