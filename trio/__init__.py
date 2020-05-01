@@ -121,6 +121,10 @@ __deprecated_attributes__ = {
             issue=810,
             instead=from_thread,
         ),
+    # NOTE: when you remove this, you should also remove the file
+    # trio/hazmat.py. For details on why we have both, see:
+    #
+    #    https://github.com/python-trio/trio/pull/1484#issuecomment-622574499
     "hazmat":
         _deprecate.DeprecatedAttribute(
             lowlevel,
