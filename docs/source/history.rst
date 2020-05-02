@@ -12,8 +12,9 @@ Features
 ~~~~~~~~
 
 - If you're using Trio's low-level interfaces like
-  `trio.lowlevel.wait_readable` or similar, and then you close a socket or
-  file descriptor, you're supposed to call `trio.lowlevel.notify_closing`
+  `trio.hazmat.wait_readable <trio.lowlevel.wait_readable>` or similar, and then you close a socket or
+  file descriptor, you're supposed to call `trio.hazmat.notify_closing
+  <trio.lowlevel.notify_closing>`
   first so Trio can clean up properly. But what if you forget? In the
   past, Trio would tend to either deadlock or explode spectacularly.
   Now, it's much more robust to this situation, and should generally
@@ -23,7 +24,7 @@ Features
   reduction and making it easier to debug this kind of mistake, not
   something you should rely on.)
 
-  If you're using higher-level interfaces outside of the `trio.lowlevel`
+  If you're using higher-level interfaces outside of the `trio.hazmat <trio.lowlevel>`
   module, then you don't need to worry about any of this; those
   intefaces already take care of calling `~trio.lowlevel.notify_closing`
   for you. (`#1272 <https://github.com/python-trio/trio/issues/1272>`__)
@@ -60,7 +61,7 @@ Features
   <https://docs.microsoft.com/en-us/windows/win32/fileio/i-o-completion-ports>`__
   is generally the best way to implement async I/O operations – but it's
   historically been weak at providing ``select``\-style readiness
-  notifications, like `trio.lowlevel.wait_readable` and
+  notifications, like `trio.hazmat.wait_readable <trio.lowlevel.wait_readable>` and
   `~trio.lowlevel.wait_writable`. We aren't willing to give those up, so
   previously Trio's Windows backend used a hybrid of ``select`` + IOCP.
   This was complex, slow, and had `limited scalability
@@ -162,7 +163,7 @@ Features
   like `current_time`. Static analysis tools like mypy and pylint should
   now be able to recognize and analyze all of Trio's top-level functions
   (though some class attributes are still dynamic... we're working on it). (`#805 <https://github.com/python-trio/trio/issues/805>`__)
-- Add `trio.lowlevel.FdStream` for wrapping a Unix file descriptor as a `~trio.abc.Stream`. (`#829 <https://github.com/python-trio/trio/issues/829>`__)
+- Add `trio.hazmat.FdStream <trio.lowlevel.FdStream>` for wrapping a Unix file descriptor as a `~trio.abc.Stream`. (`#829 <https://github.com/python-trio/trio/issues/829>`__)
 - Trio now gives a reasonable traceback and error message in most cases
   when its invariants surrounding cancel scope nesting have been
   violated. (One common source of such violations is an async generator
@@ -219,8 +220,9 @@ Deprecations and Removals
   `trio.to_thread.current_default_thread_limiter`. (`#810
   <https://github.com/python-trio/trio/issues/810>`__)
 - Give up on trying to have different low-level waiting APIs on Unix and
-  Windows. All platforms now have `trio.lowlevel.wait_readable`,
-  `trio.lowlevel.wait_writable`, and `trio.lowlevel.notify_closing`. The old
+  Windows. All platforms now have `trio.hazmat.wait_readable <trio.lowlevel.wait_readable>`,
+  `trio.hazmat.wait_writable <trio.lowlevel.wait_writable>`, and
+  `trio.hazmat.notify_closing <trio.lowlevel.notify_closing>`. The old
   platform-specific synonyms ``wait_socket_*``,
   ``notify_socket_closing``, and ``notify_fd_closing`` have been
   deprecated. (`#878 <https://github.com/python-trio/trio/issues/878>`__)
@@ -358,7 +360,7 @@ Features
   convenience. (`#4 <https://github.com/python-trio/trio/issues/4>`__)
 - You can now create an unbounded :class:`CapacityLimiter` by initializing with
   `math.inf` (`#618 <https://github.com/python-trio/trio/issues/618>`__)
-- New :mod:`trio.lowlevel` features to allow cleanly switching live coroutine
+- New :mod:`trio.hazmat <trio.lowlevel>` features to allow cleanly switching live coroutine
   objects between Trio and other coroutine runners. Frankly, we're not even
   sure this is a good idea, but we want to `try it out in trio-asyncio
   <https://github.com/python-trio/trio-asyncio/issues/42>`__, so here we are.
@@ -473,9 +475,9 @@ Features
   ``notify_socket_close`` now work on bare socket descriptors,
   instead of requiring a :func:`socket.socket` object. (`#400
   <https://github.com/python-trio/trio/issues/400>`__)
-- If you're using :func:`trio.lowlevel.wait_task_rescheduled` and other low-level
+- If you're using :func:`trio.hazmat.wait_task_rescheduled <trio.lowlevel.wait_task_rescheduled>` and other low-level
   routines to implement a new sleeping primitive, you can now use the new
-  :data:`trio.lowlevel.Task.custom_sleep_data` attribute to pass arbitrary data
+  :data:`trio.hazmat.Task.custom_sleep_data <trio.lowlevel.Task.custom_sleep_data>` attribute to pass arbitrary data
   between the sleeping task, abort function, and waking task. (`#616
   <https://github.com/python-trio/trio/issues/616>`__)
 
@@ -516,7 +518,7 @@ Trio 0.6.0 (2018-08-13)
 Features
 ~~~~~~~~
 
-- Add :func:`trio.lowlevel.WaitForSingleObject` async function to await Windows
+- Add :func:`trio.hazmat.WaitForSingleObject <trio.lowlevel.WaitForSingleObject>` async function to await Windows
   handles. (`#233 <https://github.com/python-trio/trio/issues/233>`__)
 - The `sniffio <https://github.com/python-trio/sniffio>`__ library can now
   detect when Trio is running. (`#572
@@ -555,7 +557,7 @@ Features
   ``trio.hazmat.notify_socket_close``. If you're using Trio's built-in
   wrappers like :class:`~trio.SocketStream` or :mod:`trio.socket`, then you don't
   need to worry about this, but if you're using the low-level functions like
-  :func:`trio.lowlevel.wait_readable`, you should make sure to call these
+  :func:`trio.hazmat.wait_readable <trio.lowlevel.wait_readable>`, you should make sure to call these
   functions at appropriate times. (`#36
   <https://github.com/python-trio/trio/issues/36>`__)
 - Tasks created by :func:`~trio.lowlevel.spawn_system_task` now no longer inherit
@@ -585,11 +587,11 @@ Features
 - Add unix client socket support. (`#401
   <https://github.com/python-trio/trio/issues/401>`__)
 - Add support for :mod:`contextvars` (see :ref:`task-local storage
-  <task-local-storage>`), and add :class:`trio.lowlevel.RunVar` as a similar API
+  <task-local-storage>`), and add :class:`trio.hazmat.RunVar <trio.lowlevel.RunVar>` as a similar API
   for run-local variables. Deprecate ``trio.TaskLocal`` and
   ``trio.hazmat.RunLocal`` in favor of these new APIs. (`#420
   <https://github.com/python-trio/trio/issues/420>`__)
-- Add :func:`trio.lowlevel.current_root_task` to get the root task. (`#452
+- Add :func:`trio.hazmat.current_root_task <trio.lowlevel.current_root_task>` to get the root task. (`#452
   <https://github.com/python-trio/trio/issues/452>`__)
 
 
@@ -815,7 +817,7 @@ Upcoming breaking changes with warnings (i.e., stuff that in 0.2.0
     ``trio.BlockingTrioPortal``
 
   * The hazmat function ``current_call_soon_thread_and_signal_safe``
-    is being replaced by :class:`trio.lowlevel.TrioToken`
+    is being replaced by :class:`trio.hazmat.TrioToken <trio.lowlevel.TrioToken>`
 
   See `#68 <https://github.com/python-trio/trio/issues/68>`__ for
   details.
@@ -840,14 +842,14 @@ Upcoming breaking changes with warnings (i.e., stuff that in 0.2.0
   * ``task.wait``
 
   This also lets us move a number of lower-level features out of the
-  main :mod:`trio` namespace and into :mod:`trio.lowlevel`:
+  main :mod:`trio` namespace and into :mod:`trio.hazmat <trio.lowlevel>`:
 
-  * ``trio.Task`` → :class:`trio.lowlevel.Task`
-  * ``trio.current_task`` → :func:`trio.lowlevel.current_task`
-  * ``trio.Result`` → ``trio.lowlevel.Result``
-  * ``trio.Value`` → ``trio.lowlevel.Value``
-  * ``trio.Error`` → ``trio.lowlevel.Error``
-  * ``trio.UnboundedQueue`` → ``trio.lowlevel.UnboundedQueue``
+  * ``trio.Task`` → :class:`trio.hazmat.Task <trio.lowlevel.Task>`
+  * ``trio.current_task`` → :func:`trio.hazmat.current_task <trio.lowlevel.current_task>`
+  * ``trio.Result`` → ``trio.hazmat.Result``
+  * ``trio.Value`` → ``trio.hazmat.Value``
+  * ``trio.Error`` → ``trio.hazmat.Error``
+  * ``trio.UnboundedQueue`` → ``trio.hazmat.UnboundedQueue``
 
   In addition, several introspection attributes are being renamed:
 
@@ -857,21 +859,22 @@ Upcoming breaking changes with warnings (i.e., stuff that in 0.2.0
   See `#136 <https://github.com/python-trio/trio/issues/136>`__ for
   more details.
 
-* To consolidate introspection functionality in :mod:`trio.lowlevel`,
+* To consolidate introspection functionality in :mod:`trio.hazmat <trio.lowlevel>`,
   the following functions are moving:
 
-  * ``trio.current_clock`` → :func:`trio.lowlevel.current_clock`
-  * ``trio.current_statistics`` → :func:`trio.lowlevel.current_statistics`
+  * ``trio.current_clock`` → :func:`trio.hazmat.current_clock <trio.lowlevel.current_clock>`
+  * ``trio.current_statistics`` →
+    :func:`trio.hazmat.current_statistics <trio.lowlevel.current_statistics>`
 
   See `#317 <https://github.com/python-trio/trio/issues/317>`__ for
   more details.
 
 * It was decided that 0.1.0's "yield point" terminology was confusing;
   we now use :ref:`"checkpoint" <checkpoints>` instead. As part of
-  this, the following functions in :mod:`trio.lowlevel` are changing
+  this, the following functions in :mod:`trio.hazmat <trio.lowlevel>` are changing
   names:
 
-  * ``yield_briefly`` → :func:`~trio.lowlevel.checkpoint`
+  * ``yield_briefly`` → :func:`~trio.hazmat.checkpoint <trio.lowlevel.checkpoint>`
   * ``yield_briefly_no_cancel`` → :func:`~trio.lowlevel.cancel_shielded_checkpoint`
   * ``yield_if_cancelled`` → :func:`~trio.lowlevel.checkpoint_if_cancelled`
   * ``yield_indefinitely`` → :func:`~trio.lowlevel.wait_task_rescheduled`
@@ -890,8 +893,8 @@ Upcoming breaking changes with warnings (i.e., stuff that in 0.2.0
   <https://github.com/python-trio/trio/pull/347>`__).
 
 * ``trio.current_instruments`` is deprecated. For adding or removing
-  instrumentation at run-time, see :func:`trio.lowlevel.add_instrument`
-  and :func:`trio.lowlevel.remove_instrument` (`#257
+  instrumentation at run-time, see :func:`trio.hazmat.add_instrument <trio.lowlevel.add_instrument>`
+  and :func:`trio.hazmat.remove_instrument <trio.lowlevel.remove_instrument>` (`#257
   <https://github.com/python-trio/trio/issues/257>`__)
 
 Unfortunately, a limitation in PyPy3 5.8 breaks our deprecation
@@ -922,7 +925,7 @@ Other changes
 
 * New exception ``ResourceBusyError``
 
-* The :class:`trio.lowlevel.ParkingLot` class (which is used to
+* The :class:`trio.hazmat.ParkingLot <trio.lowlevel.ParkingLot>` class (which is used to
   implement many of Trio's synchronization primitives) was rewritten
   to be simpler and faster (`#272
   <https://github.com/python-trio/trio/issues/272>`__, `#287
@@ -989,7 +992,7 @@ Other changes
   <https://github.com/python-trio/trio/issues/164>`__)
 
 * PyCharm (and hopefully other IDEs) can now offer better completions
-  for the :mod:`trio` and :mod:`trio.lowlevel` modules (`#314
+  for the :mod:`trio` and :mod:`trio.hazmat <trio.lowlevel>` modules (`#314
   <https://github.com/python-trio/trio/issues/314>`__)
 
 * Trio now uses `yapf <https://github.com/google/yapf>`__ to
