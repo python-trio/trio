@@ -437,8 +437,9 @@ and then the other ``trio.*`` modules are implemented in terms of the
 API it exposes. (If you want to see what this API looks like, then
 ``import trio; print(trio._core.__all__)``). Everything exported from
 ``trio._core`` is *also* exported as part of the ``trio``,
-``trio.hazmat``, or ``trio.testing`` namespaces. (See their respective
-``__init__.py`` files for details; there's a test to enforce this.)
+``trio.lowlevel``, or ``trio.testing`` namespaces. (See their
+respective ``__init__.py`` files for details; there's a test to
+enforce this.)
 
 Rationale: currently, Trio is a new project in a novel part of the
 design space, so we don't make any stability guarantees. But the goal
@@ -474,7 +475,7 @@ The most important submodule, where everything is integrated, is
 ``_run.py``. (This is also by far the largest submodule; it'd be nice
 to factor bits of it out where possible, but it's tricky because the
 core functionality genuinely is pretty intertwined.) Notably, this is
-where cancel scopes, nurseries, and :class:`~trio.hazmat.Task` are
+where cancel scopes, nurseries, and :class:`~trio.lowlevel.Task` are
 defined; it's also where the scheduler state and :func:`trio.run`
 live.
 
@@ -524,7 +525,7 @@ several reasons:
 The ``IOManager`` layer provides a fairly raw exposure of the capabilities
 of each system, with public API functions that vary between different
 backends. (This is somewhat inspired by how :mod:`os` works.) These
-public APIs are then exported as part of :mod:`trio.hazmat`, and
+public APIs are then exported as part of :mod:`trio.lowlevel`, and
 higher-level APIs like :mod:`trio.socket` abstract over these
 system-specific APIs to provide a uniform experience.
 

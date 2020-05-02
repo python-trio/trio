@@ -48,8 +48,8 @@ async def sleep_forever():
     Equivalent to calling ``await sleep(math.inf)``.
 
     """
-    await trio.hazmat.wait_task_rescheduled(
-        lambda _: trio.hazmat.Abort.SUCCEEDED
+    await trio.lowlevel.wait_task_rescheduled(
+        lambda _: trio.lowlevel.Abort.SUCCEEDED
     )
 
 
@@ -83,7 +83,7 @@ async def sleep(seconds):
     if seconds < 0:
         raise ValueError("duration must be non-negative")
     if seconds == 0:
-        await trio.hazmat.checkpoint()
+        await trio.lowlevel.checkpoint()
     else:
         await sleep_until(trio.current_time() + seconds)
 

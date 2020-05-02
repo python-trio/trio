@@ -268,7 +268,7 @@ class Process(AsyncResource):
         async with self._wait_lock:
             if self.poll() is None:
                 if self._pidfd is not None:
-                    await trio.hazmat.wait_readable(self._pidfd)
+                    await trio.lowlevel.wait_readable(self._pidfd)
                 else:
                     await wait_child_exiting(self)
                 # We have to use .wait() here, not .poll(), because on macOS
@@ -380,7 +380,7 @@ async def open_process(
     """
     # XX FIXME: move the process creation into a thread as soon as we're done
     # deprecating Process(...)
-    await trio.hazmat.checkpoint()
+    await trio.lowlevel.checkpoint()
     return Process._create(
         command, stdin=stdin, stdout=stdout, stderr=stderr, **options
     )

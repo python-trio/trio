@@ -29,7 +29,7 @@ class _try_sync:
             return self._blocking_exc_override(exc)
 
     async def __aenter__(self):
-        await trio.hazmat.checkpoint_if_cancelled()
+        await trio.lowlevel.checkpoint_if_cancelled()
 
     async def __aexit__(self, etype, value, tb):
         if value is not None and self._is_blocking_io_error(value):
@@ -37,7 +37,7 @@ class _try_sync:
             # block
             return True
         else:
-            await trio.hazmat.cancel_shielded_checkpoint()
+            await trio.lowlevel.cancel_shielded_checkpoint()
             # Let the return or exception propagate
             return False
 
@@ -446,7 +446,7 @@ class _SocketType(SocketType):
 
     def close(self):
         if self._sock.fileno() != -1:
-            trio.hazmat.notify_closing(self._sock)
+            trio.lowlevel.notify_closing(self._sock)
             self._sock.close()
 
     async def bind(self, address):
@@ -503,12 +503,12 @@ class _SocketType(SocketType):
                     "tuple"
                 )
         elif self._sock.family == _stdlib_socket.AF_UNIX:
-            await trio.hazmat.checkpoint()
+            await trio.lowlevel.checkpoint()
             # unwrap path-likes
             return _os.fspath(address)
 
         else:
-            await trio.hazmat.checkpoint()
+            await trio.lowlevel.checkpoint()
             return address
         host, port, *_ = address
         # Special cases to match the stdlib, see gh-277

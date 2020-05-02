@@ -49,11 +49,11 @@ async def main():
         pt("socket creation")
         async with trio.open_nursery() as nursery:
             for s in sockets:
-                nursery.start_soon(trio.hazmat.wait_readable, s)
+                nursery.start_soon(trio.lowlevel.wait_readable, s)
             await trio.testing.wait_all_tasks_blocked()
             pt("spawning wait tasks")
             for _ in range(1000):
-                await trio.hazmat.cancel_shielded_checkpoint()
+                await trio.lowlevel.cancel_shielded_checkpoint()
             pt("scheduling 1000 times", count=1000, item="schedule")
             nursery.cancel_scope.cancel()
         pt("cancelling wait tasks")

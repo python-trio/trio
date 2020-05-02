@@ -77,7 +77,7 @@ Vital statistics:
    reference-core.rst
    reference-io.rst
    reference-testing.rst
-   reference-hazmat.rst
+   reference-lowlevel.rst
    design.rst
    history.rst
    contributing.rst

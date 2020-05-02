@@ -1433,9 +1433,9 @@ than the lower-level primitives discussed in this section. But if you
 need them, they're here. (If you find yourself reaching for these
 because you're trying to implement a new higher-level synchronization
 primitive, then you might also want to check out the facilities in
-:mod:`trio.hazmat` for a more direct exposure of Trio's underlying
+:mod:`trio.lowlevel` for a more direct exposure of Trio's underlying
 synchronization logic. All of classes discussed in this section are
-implemented on top of the public APIs in :mod:`trio.hazmat`; they
+implemented on top of the public APIs in :mod:`trio.lowlevel`; they
 don't have any special access to Trio's internals.)
 
 .. autoclass:: CapacityLimiter

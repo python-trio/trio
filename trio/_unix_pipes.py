@@ -7,7 +7,7 @@ from ._util import ConflictDetector
 import trio
 
 if os.name != "posix":
-    # We raise an error here rather than gating the import in hazmat.py
+    # We raise an error here rather than gating the import in lowlevel.py
     # in order to keep jedi static analysis happy.
     raise ImportError
 
@@ -69,9 +69,9 @@ class _FdHolder:
 
     async def aclose(self):
         if not self.closed:
-            trio.hazmat.notify_closing(self.fd)
+            trio.lowlevel.notify_closing(self.fd)
             self._raw_close()
-        await trio.hazmat.checkpoint()
+        await trio.lowlevel.checkpoint()
 
 
 class FdStream(Stream):
@@ -120,7 +120,7 @@ class FdStream(Stream):
             # should raise
             if self._fd_holder.closed:
                 raise trio.ClosedResourceError("file was already closed")
-            await trio.hazmat.checkpoint()
+            await trio.lowlevel.checkpoint()
             length = len(data)
             # adapted from the SocketStream code
             with memoryview(data) as view:
@@ -130,7 +130,9 @@ class FdStream(Stream):
                         try:
                             sent += os.write(self._fd_holder.fd, remaining)
                         except BlockingIOError:
-                            await trio.hazmat.wait_writable(self._fd_holder.fd)
+                            await trio.lowlevel.wait_writable(
+                                self._fd_holder.fd
+                            )
                         except OSError as e:
                             if e.errno == errno.EBADF:
                                 raise trio.ClosedResourceError(
@@ -144,7 +146,7 @@ class FdStream(Stream):
             if self._fd_holder.closed:
                 raise trio.ClosedResourceError("file was already closed")
             try:
-                await trio.hazmat.wait_writable(self._fd_holder.fd)
+                await trio.lowlevel.wait_writable(self._fd_holder.fd)
             except BrokenPipeError as e:
                 # kqueue: raises EPIPE on wait_writable instead
                 # of sending, which is annoying
@@ -160,12 +162,12 @@ class FdStream(Stream):
                 if max_bytes < 1:
                     raise ValueError("max_bytes must be integer >= 1")
 
-            await trio.hazmat.checkpoint()
+            await trio.lowlevel.checkpoint()
             while True:
                 try:
                     data = os.read(self._fd_holder.fd, max_bytes)
                 except BlockingIOError:
-                    await trio.hazmat.wait_readable(self._fd_holder.fd)
+                    await trio.lowlevel.wait_readable(self._fd_holder.fd)
                 except OSError as e:
                     if e.errno == errno.EBADF:
                         raise trio.ClosedResourceError(

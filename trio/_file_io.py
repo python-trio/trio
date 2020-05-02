@@ -128,7 +128,7 @@ class AsyncIOWrapper(AsyncResource):
         with trio.CancelScope(shield=True):
             await trio.to_thread.run_sync(self._wrapped.close)
 
-        await trio.hazmat.checkpoint_if_cancelled()
+        await trio.lowlevel.checkpoint_if_cancelled()
 
 
 async def open_file(

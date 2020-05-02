@@ -59,7 +59,7 @@ class SignalReceiver:
     def __init__(self):
         # {signal num: None}
         self._pending = OrderedDict()
-        self._lot = trio.hazmat.ParkingLot()
+        self._lot = trio.lowlevel.ParkingLot()
         self._conflict_detector = ConflictDetector(
             "only one task can iterate on a signal receiver at a time"
         )
@@ -107,7 +107,7 @@ class SignalReceiver:
             if not self._pending:
                 await self._lot.park()
             else:
-                await trio.hazmat.checkpoint()
+                await trio.lowlevel.checkpoint()
             signum, _ = self._pending.popitem(last=False)
             return signum
 
@@ -151,7 +151,7 @@ def open_signal_receiver(*signals):
             "Sorry, open_signal_receiver is only possible when running in "
             "Python interpreter's main thread"
         )
-    token = trio.hazmat.current_trio_token()
+    token = trio.lowlevel.current_trio_token()
     queue = SignalReceiver()
 
     def handler(signum, _):
