@@ -60,7 +60,8 @@ class WakeupSocketpair:
 
     @contextmanager
     def wakeup_on_signals(self):
-        if not is_main_thread():
+        # PyPy does not have (or need) set_wakeup_fd() on Windows
+        if not is_main_thread() or not hasattr(signal, 'set_wakeup_fd'):
             yield
             return
         fd = self.write_sock.fileno()
