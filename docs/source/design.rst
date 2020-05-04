@@ -498,7 +498,7 @@ several reasons:
 
 * Controlling our own fate: I/O handling is pretty core to what Trio
   is about, and :mod:`selectors` is (as of 2017-03-01) somewhat buggy
-  (e.g. `issue 29587 <https://bugs.python.org/issue29256>`__, `issue
+  (e.g. `issue 29256 <https://bugs.python.org/issue29256>`__, `issue
   29255 <https://bugs.python.org/issue29255>`__). Which isn't a big
   deal on its own, but since :mod:`selectors` is part of the standard
   library we can't fix it and ship an updated version; we're stuck
