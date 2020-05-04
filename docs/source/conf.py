@@ -47,7 +47,7 @@ default_role = "obj"
 # ...note that this has since grown to contain a bunch of other CSS hacks too
 # though.
 def setup(app):
-    app.add_stylesheet("hackrtd.css")
+    app.add_css_file("hackrtd.css")
 
 # -- General configuration ------------------------------------------------
 
