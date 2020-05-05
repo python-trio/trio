@@ -60,7 +60,7 @@ INSTRUMENT_LOGGER = logging.getLogger("trio.abc.Instrument")
 
 
 # On 3.7+, Context.run() is implemented in C and doesn't show up in
-# tracebacks. On 3.6 and earlier, we use the contextvars backport, which is
+# tracebacks. On 3.6, we use the contextvars backport, which is
 # currently implemented in Python and adds 1 frame to tracebacks. So this
 # function is a super-overkill version of "0 if sys.version_info >= (3, 7)
 # else 1". But if Context.run ever changes, we'll be ready!
@@ -790,13 +790,13 @@ class Nursery(metaclass=NoPublicConstructor):
 
     @property
     def child_tasks(self):
-        """(`frozenset`): Contains all the child :class:`~trio.hazmat.Task`
+        """(`frozenset`): Contains all the child :class:`~trio.lowlevel.Task`
         objects which are still running."""
         return frozenset(self._children)
 
     @property
     def parent_task(self):
-        "(`~trio.hazmat.Task`):  The Task that opened this nursery."
+        "(`~trio.lowlevel.Task`):  The Task that opened this nursery."
         return self._parent_task
 
     def _add_exc(self, exc):
@@ -1144,7 +1144,7 @@ class Runner:
           :data:`~math.inf` if there are no pending deadlines.
         * ``run_sync_soon_queue_size`` (int): The number of
           unprocessed callbacks queued via
-          :meth:`trio.hazmat.TrioToken.run_sync_soon`.
+          :meth:`trio.lowlevel.TrioToken.run_sync_soon`.
         * ``io_statistics`` (object): Some statistics from Trio's I/O
           backend. This always has an attribute ``backend`` which is a string
           naming which operating-system-specific I/O backend is in use; the
@@ -1210,7 +1210,7 @@ class Runner:
         to calling :func:`reschedule` once.)
 
         Args:
-          task (trio.hazmat.Task): the task to be rescheduled. Must be blocked
+          task (trio.lowlevel.Task): the task to be rescheduled. Must be blocked
               in a call to :func:`wait_task_rescheduled`.
           next_send (outcome.Outcome): the value (or error) to return (or
               raise) from :func:`wait_task_rescheduled`.
@@ -1256,12 +1256,9 @@ class Runner:
             # The protocol for detecting an asyncio Future-like object
             if getattr(value, "_asyncio_future_blocking", None) is not None:
                 return True
-            # asyncio.Future doesn't have _asyncio_future_blocking until
-            # 3.5.3. We don't want to import asyncio, but this janky check
-            # should work well enough for our purposes. And it also catches
-            # tornado Futures and twisted Deferreds. By the time we're calling
-            # this function, we already know something has gone wrong, so a
-            # heuristic is pretty safe.
+            # This janky check catches tornado Futures and twisted Deferreds.
+            # By the time we're calling this function, we already know
+            # something has gone wrong, so a heuristic is pretty safe.
             if value.__class__.__name__ in ("Future", "Deferred"):
                 return True
             return False
@@ -1578,18 +1575,18 @@ class Runner:
                      nursery.start_soon(lock_taker, lock)
                      # child hasn't run yet, we have the lock
                      assert lock.locked()
-                     assert lock._owner is trio.hazmat.current_task()
+                     assert lock._owner is trio.lowlevel.current_task()
                      await trio.testing.wait_all_tasks_blocked()
                      # now the child has run and is blocked on lock.acquire(), we
                      # still have the lock
                      assert lock.locked()
-                     assert lock._owner is trio.hazmat.current_task()
+                     assert lock._owner is trio.lowlevel.current_task()
                      lock.release()
                      try:
                          # The child has a prior claim, so we can't have it
                          lock.acquire_nowait()
                      except trio.WouldBlock:
-                         assert lock._owner is not trio.hazmat.current_task()
+                         assert lock._owner is not trio.lowlevel.current_task()
                          print("PASS")
                      else:
                          print("FAIL")
@@ -1909,7 +1906,7 @@ def run_impl(runner, async_fn, args):
             try:
                 # We used to unwrap the Outcome object here and send/throw its
                 # contents in directly, but it turns out that .throw() is
-                # buggy, at least on CPython 3.6 and earlier:
+                # buggy, at least on CPython 3.6:
                 #   https://bugs.python.org/issue29587
                 #   https://bugs.python.org/issue29590
                 # So now we send in the Outcome object and unwrap it on the
@@ -2048,7 +2045,7 @@ async def checkpoint_if_cancelled():
     Equivalent to (but potentially more efficient than)::
 
         if trio.current_deadline() == -inf:
-            await trio.hazmat.checkpoint()
+            await trio.lowlevel.checkpoint()
 
     This is either a no-op, or else it allow other tasks to be scheduled and
     then raises :exc:`trio.Cancelled`.

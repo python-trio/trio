@@ -7,7 +7,6 @@ from functools import wraps as _wraps
 import idna as _idna
 
 import trio
-from ._util import fspath
 from . import _core
 
 
@@ -30,7 +29,7 @@ class _try_sync:
             return self._blocking_exc_override(exc)
 
     async def __aenter__(self):
-        await trio.hazmat.checkpoint_if_cancelled()
+        await trio.lowlevel.checkpoint_if_cancelled()
 
     async def __aexit__(self, etype, value, tb):
         if value is not None and self._is_blocking_io_error(value):
@@ -38,7 +37,7 @@ class _try_sync:
             # block
             return True
         else:
-            await trio.hazmat.cancel_shielded_checkpoint()
+            await trio.lowlevel.cancel_shielded_checkpoint()
             # Let the return or exception propagate
             return False
 
@@ -296,13 +295,7 @@ def _sniff_sockopts_for_fileno(family, type, proto, fileno):
     # and then we'll throw it away and construct a new one with the correct metadata.
     if not _sys.platform == "linux":
         return family, type, proto
-    try:
-        from socket import SO_DOMAIN, SO_PROTOCOL
-    except ImportError:
-        # Only available on 3.6 and above:
-        SO_PROTOCOL = 38
-        SO_DOMAIN = 39
-    from socket import SOL_SOCKET, SO_TYPE
+    from socket import SO_DOMAIN, SO_PROTOCOL, SOL_SOCKET, SO_TYPE
     sockobj = _stdlib_socket.socket(family, type, proto, fileno=fileno)
     try:
         family = sockobj.getsockopt(SOL_SOCKET, SO_DOMAIN)
@@ -453,7 +446,7 @@ class _SocketType(SocketType):
 
     def close(self):
         if self._sock.fileno() != -1:
-            trio.hazmat.notify_closing(self._sock)
+            trio.lowlevel.notify_closing(self._sock)
             self._sock.close()
 
     async def bind(self, address):
@@ -510,12 +503,12 @@ class _SocketType(SocketType):
                     "tuple"
                 )
         elif self._sock.family == _stdlib_socket.AF_UNIX:
-            await trio.hazmat.checkpoint()
+            await trio.lowlevel.checkpoint()
             # unwrap path-likes
-            return fspath(address)
+            return _os.fspath(address)
 
         else:
-            await trio.hazmat.checkpoint()
+            await trio.lowlevel.checkpoint()
             return address
         host, port, *_ = address
         # Special cases to match the stdlib, see gh-277

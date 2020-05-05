@@ -1,0 +1,3 @@
+It turns out that everyone got confused by the name ``trio.hazmat``.
+So that name has been deprecated, and the new name is
+:mod:`trio.lowlevel`.

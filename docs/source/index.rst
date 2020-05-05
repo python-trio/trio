@@ -44,7 +44,7 @@ chance to give feedback about any compatibility-breaking changes.
 Vital statistics:
 
 * Supported environments: Linux, macOS, or Windows running some kind of Python
-  3.5-or-better (either CPython or PyPy3 is fine). \*BSD and
+  3.6-or-better (either CPython or PyPy3 is fine). \*BSD and
   illumos likely work too, but are untested.
 
 * Install: ``python3 -m pip install -U trio`` (or on Windows, maybe
@@ -77,7 +77,7 @@ Vital statistics:
    reference-core.rst
    reference-io.rst
    reference-testing.rst
-   reference-hazmat.rst
+   reference-lowlevel.rst
    design.rst
    history.rst
    contributing.rst

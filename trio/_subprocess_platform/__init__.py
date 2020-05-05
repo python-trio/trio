@@ -67,7 +67,7 @@ except ImportError as ex:  # pragma: no cover
 
 try:
     if os.name == "posix":
-        from ..hazmat import FdStream
+        from ..lowlevel import FdStream
 
         def create_pipe_to_child_stdin():  # noqa: F811
             rfd, wfd = os.pipe()

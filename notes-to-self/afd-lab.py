@@ -96,7 +96,7 @@ from trio._core._io_windows import (
 class AFDLab:
     def __init__(self):
         self._afd = _afd_helper_handle()
-        trio.hazmat.register_with_iocp(self._afd)
+        trio.lowlevel.register_with_iocp(self._afd)
 
     async def afd_poll(self, sock, flags, *, exclusive=0):
         print(f"Starting a poll for {flags!r}")
@@ -127,7 +127,7 @@ class AFDLab:
                 raise
 
         try:
-            await trio.hazmat.wait_overlapped(self._afd, lpOverlapped)
+            await trio.lowlevel.wait_overlapped(self._afd, lpOverlapped)
         except:
             print(f"Poll for {flags!r}: {sys.exc_info()[1]!r}")
             raise

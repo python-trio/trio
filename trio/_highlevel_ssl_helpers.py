@@ -14,12 +14,8 @@ __all__ = [
 # if it's one we created, but not OK if it's one that was passed in... and
 # the one major protocol using NPN/ALPN is HTTP/2, which mandates that you use
 # a specially configured SSLContext anyway! I also thought maybe we could copy
-# the given SSLContext and then mutate the copy, but it's no good:
-# copy.copy(SSLContext) seems to succeed, but the state is not transferred!
-# For example, with CPython 3.5, we have:
-#   ctx = ssl.create_default_context()
-#   assert ctx.check_hostname == True
-#   assert copy.copy(ctx).check_hostname == False
+# the given SSLContext and then mutate the copy, but it's no good as SSLContext
+# objects can't be copied: https://bugs.python.org/issue33023.
 # So... let's punt on that for now. Hopefully we'll be getting a new Python
 # TLS API soon and can revisit this then.
 async def open_ssl_over_tcp_stream(

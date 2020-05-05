@@ -144,7 +144,7 @@ class MemorySendChannel(SendChannel, metaclass=NoPublicConstructor):
             assert not self._state.data
             task, _ = self._state.receive_tasks.popitem(last=False)
             task.custom_sleep_data._tasks.remove(task)
-            trio.hazmat.reschedule(task, Value(value))
+            trio.lowlevel.reschedule(task, Value(value))
         elif len(self._state.data) < self._state.max_buffer_size:
             self._state.data.append(value)
         else:
@@ -157,16 +157,16 @@ class MemorySendChannel(SendChannel, metaclass=NoPublicConstructor):
         Memory channels allow multiple tasks to call `send` at the same time.
 
         """
-        await trio.hazmat.checkpoint_if_cancelled()
+        await trio.lowlevel.checkpoint_if_cancelled()
         try:
             self.send_nowait(value)
         except trio.WouldBlock:
             pass
         else:
-            await trio.hazmat.cancel_shielded_checkpoint()
+            await trio.lowlevel.cancel_shielded_checkpoint()
             return
 
-        task = trio.hazmat.current_task()
+        task = trio.lowlevel.current_task()
         self._tasks.add(task)
         self._state.send_tasks[task] = value
         task.custom_sleep_data = self
@@ -174,9 +174,9 @@ class MemorySendChannel(SendChannel, metaclass=NoPublicConstructor):
         def abort_fn(_):
             self._tasks.remove(task)
             del self._state.send_tasks[task]
-            return trio.hazmat.Abort.SUCCEEDED
+            return trio.lowlevel.Abort.SUCCEEDED
 
-        await trio.hazmat.wait_task_rescheduled(abort_fn)
+        await trio.lowlevel.wait_task_rescheduled(abort_fn)
 
     @enable_ki_protection
     def clone(self):
@@ -210,11 +210,11 @@ class MemorySendChannel(SendChannel, metaclass=NoPublicConstructor):
     @enable_ki_protection
     async def aclose(self):
         if self._closed:
-            await trio.hazmat.checkpoint()
+            await trio.lowlevel.checkpoint()
             return
         self._closed = True
         for task in self._tasks:
-            trio.hazmat.reschedule(task, Error(trio.ClosedResourceError()))
+            trio.lowlevel.reschedule(task, Error(trio.ClosedResourceError()))
             del self._state.send_tasks[task]
         self._tasks.clear()
         self._state.open_send_channels -= 1
@@ -222,9 +222,9 @@ class MemorySendChannel(SendChannel, metaclass=NoPublicConstructor):
             assert not self._state.send_tasks
             for task in self._state.receive_tasks:
                 task.custom_sleep_data._tasks.remove(task)
-                trio.hazmat.reschedule(task, Error(trio.EndOfChannel()))
+                trio.lowlevel.reschedule(task, Error(trio.EndOfChannel()))
             self._state.receive_tasks.clear()
-        await trio.hazmat.checkpoint()
+        await trio.lowlevel.checkpoint()
 
 
 @attr.s(eq=False, repr=False)
@@ -255,7 +255,7 @@ class MemoryReceiveChannel(ReceiveChannel, metaclass=NoPublicConstructor):
         if self._state.send_tasks:
             task, value = self._state.send_tasks.popitem(last=False)
             task.custom_sleep_data._tasks.remove(task)
-            trio.hazmat.reschedule(task)
+            trio.lowlevel.reschedule(task)
             self._state.data.append(value)
             # Fall through
         if self._state.data:
@@ -273,16 +273,16 @@ class MemoryReceiveChannel(ReceiveChannel, metaclass=NoPublicConstructor):
         will get the second item sent, and so on.
 
         """
-        await trio.hazmat.checkpoint_if_cancelled()
+        await trio.lowlevel.checkpoint_if_cancelled()
         try:
             value = self.receive_nowait()
         except trio.WouldBlock:
             pass
         else:
-            await trio.hazmat.cancel_shielded_checkpoint()
+            await trio.lowlevel.cancel_shielded_checkpoint()
             return value
 
-        task = trio.hazmat.current_task()
+        task = trio.lowlevel.current_task()
         self._tasks.add(task)
         self._state.receive_tasks[task] = None
         task.custom_sleep_data = self
@@ -290,9 +290,9 @@ class MemoryReceiveChannel(ReceiveChannel, metaclass=NoPublicConstructor):
         def abort_fn(_):
             self._tasks.remove(task)
             del self._state.receive_tasks[task]
-            return trio.hazmat.Abort.SUCCEEDED
+            return trio.lowlevel.Abort.SUCCEEDED
 
-        return await trio.hazmat.wait_task_rescheduled(abort_fn)
+        return await trio.lowlevel.wait_task_rescheduled(abort_fn)
 
     @enable_ki_protection
     def clone(self):
@@ -329,11 +329,11 @@ class MemoryReceiveChannel(ReceiveChannel, metaclass=NoPublicConstructor):
     @enable_ki_protection
     async def aclose(self):
         if self._closed:
-            await trio.hazmat.checkpoint()
+            await trio.lowlevel.checkpoint()
             return
         self._closed = True
         for task in self._tasks:
-            trio.hazmat.reschedule(task, Error(trio.ClosedResourceError()))
+            trio.lowlevel.reschedule(task, Error(trio.ClosedResourceError()))
             del self._state.receive_tasks[task]
         self._tasks.clear()
         self._state.open_receive_channels -= 1
@@ -341,7 +341,9 @@ class MemoryReceiveChannel(ReceiveChannel, metaclass=NoPublicConstructor):
             assert not self._state.receive_tasks
             for task in self._state.send_tasks:
                 task.custom_sleep_data._tasks.remove(task)
-                trio.hazmat.reschedule(task, Error(trio.BrokenResourceError()))
+                trio.lowlevel.reschedule(
+                    task, Error(trio.BrokenResourceError())
+                )
             self._state.send_tasks.clear()
             self._state.data.clear()
-        await trio.hazmat.checkpoint()
+        await trio.lowlevel.checkpoint()

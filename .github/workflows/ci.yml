@@ -1,6 +1,10 @@
 name: CI
 
-on: [pull_request]
+on:
+  push:
+    branches:
+      - master
+  pull_request:
 
 jobs:
   Windows:
@@ -10,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.5', '3.6', '3.7', '3.8']
+        python: ['3.6', '3.7', '3.8']
         arch: ['x86', 'x64']
         lsp: ['']
         extra_name: ['']
@@ -46,7 +50,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.5', '3.6', '3.7', '3.8']
+        python: ['3.6', '3.7', '3.8']
         check_docs: ['0']
         check_formatting: ['0']
         extra_name: ['']
@@ -79,7 +83,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.5', '3.6', '3.7', '3.8']
+        python: ['3.6', '3.7', '3.8']
     steps:
       - name: Checkout
         uses: actions/checkout@v2

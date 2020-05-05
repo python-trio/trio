@@ -109,7 +109,7 @@ class SocketStream(HalfCloseableStream):
                             raise trio.ClosedResourceError(
                                 "socket was already closed"
                             )
-                        await trio.hazmat.checkpoint()
+                        await trio.lowlevel.checkpoint()
                         return
                     total_sent = 0
                     while total_sent < len(data):
@@ -126,7 +126,7 @@ class SocketStream(HalfCloseableStream):
 
     async def send_eof(self):
         with self._send_conflict_detector:
-            await trio.hazmat.checkpoint()
+            await trio.lowlevel.checkpoint()
             # On macOS, calling shutdown a second time raises ENOTCONN, but
             # send_eof needs to be idempotent.
             if self.socket.did_shutdown_SHUT_WR:
@@ -144,7 +144,7 @@ class SocketStream(HalfCloseableStream):
 
     async def aclose(self):
         self.socket.close()
-        await trio.hazmat.checkpoint()
+        await trio.lowlevel.checkpoint()
 
     # __aenter__, __aexit__ inherited from HalfCloseableStream are OK
 
@@ -389,4 +389,4 @@ class SocketListener(Listener[SocketStream]):
 
         """
         self.socket.close()
-        await trio.hazmat.checkpoint()
+        await trio.lowlevel.checkpoint()

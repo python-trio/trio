@@ -1,44 +1,41 @@
-=======================================================
- Introspecting and extending Trio with ``trio.hazmat``
-=======================================================
+=========================================================
+ Introspecting and extending Trio with ``trio.lowlevel``
+=========================================================
 
-.. module:: trio.hazmat
+.. module:: trio.lowlevel
 
-.. warning::
-   You probably don't want to use this module.
-
-:mod:`trio.hazmat` is Trio's "hazardous materials" layer: it contains
-APIs useful for introspecting and extending Trio. If you're writing
-ordinary, everyday code, then you can ignore this module completely.
-But sometimes you need something a bit lower level. Here are some
-examples of situations where you should reach for :mod:`trio.hazmat`:
+:mod:`trio.lowlevel` contains low-level APIs for introspecting and
+extending Trio. If you're writing ordinary, everyday code, then you
+can ignore this module completely. But sometimes you need something a
+bit lower level. Here are some examples of situations where you should
+reach for :mod:`trio.lowlevel`:
 
 * You want to implement a new :ref:`synchronization primitive
   <synchronization>` that Trio doesn't (yet) provide, like a
   reader-writer lock.
 * You want to extract low-level metrics to monitor the health of your
   application.
-* You want to add support for a low-level operating system interface
-  that Trio doesn't (yet) expose, like watching a filesystem directory
-  for changes.
+* You want to use a low-level operating system interface that Trio
+  doesn't (yet) provide its own wrappers for, like watching a
+  filesystem directory for changes.
 * You want to implement an interface for calling between Trio and
   another event loop within the same process.
 * You're writing a debugger and want to visualize Trio's task tree.
 * You need to interoperate with a C library whose API exposes raw file
   descriptors.
 
-Using :mod:`trio.hazmat` isn't really *that* hazardous; in fact you're
-already using it – it's how most of the functionality described in
-previous chapters is implemented. The APIs described here have
-strictly defined and carefully documented semantics, and are perfectly
-safe – *if* you read carefully and take proper precautions. Some of
-those strict semantics have `nasty big pointy teeth
+You don't need to be scared of :mod:`trio.lowlevel`, as long as you
+take proper precautions. These are real public APIs, with strictly
+defined and carefully documented semantics. They're the same tools we
+use to implement all the nice high-level APIs in the :mod:`trio`
+namespace. But, be careful. Some of those strict semantics have `nasty
+big pointy teeth
 <https://en.wikipedia.org/wiki/Rabbit_of_Caerbannog>`__. If you make a
 mistake, Trio may not be able to handle it gracefully; conventions and
 guarantees that are followed strictly in the rest of Trio do not
-always apply. Using this module makes it your responsibility to think
-through and handle the nasty cases to expose a friendly Trio-style API
-to your users.
+always apply. When you use this module, it's your job to think about
+how you're going to handle the tricky cases so you can expose a
+friendly Trio-style API to your users.
 
 
 Debugging and instrumentation
@@ -113,7 +110,7 @@ Low-level I/O primitives
 ========================
 
 Different environments expose different low-level APIs for performing
-async I/O. :mod:`trio.hazmat` exposes these APIs in a relatively
+async I/O. :mod:`trio.lowlevel` exposes these APIs in a relatively
 direct way, so as to allow maximum power and flexibility for higher
 level code. However, this means that the exact API provided may vary
 depending on what system Trio is running on.
@@ -199,8 +196,8 @@ and want to bundle them together into a single bidirectional
 `~trio.abc.Stream`, then use `trio.StapledStream`::
 
     bidirectional_stream = trio.StapledStream(
-        trio.hazmat.FdStream(write_fd),
-        trio.hazmat.FdStream(read_fd)
+        trio.lowlevel.FdStream(write_fd),
+        trio.lowlevel.FdStream(read_fd)
     )
 
 .. autoclass:: FdStream
@@ -452,15 +449,15 @@ this does serve to illustrate the basic structure of the
                self._blocked_tasks.append(task)
                def abort_fn(_):
                    self._blocked_tasks.remove(task)
-                   return trio.hazmat.Abort.SUCCEEDED
-               await trio.hazmat.wait_task_rescheduled(abort_fn)
+                   return trio.lowlevel.Abort.SUCCEEDED
+               await trio.lowlevel.wait_task_rescheduled(abort_fn)
            self._held = True
 
        def release(self):
            self._held = False
            if self._blocked_tasks:
                woken_task = self._blocked_tasks.popleft()
-               trio.hazmat.reschedule(woken_task)
+               trio.lowlevel.reschedule(woken_task)
 
 
 Task API
