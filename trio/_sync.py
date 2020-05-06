@@ -62,14 +62,6 @@ class Event:
         self._flag = True
         self._lot.unpark_all()
 
-    @deprecated(
-        "0.12.0",
-        issue=637,
-        instead="multiple Event objects or other synchronization primitives"
-    )
-    def clear(self):
-        self._flag = False
-
     async def wait(self):
         """Block until the internal flag value becomes True.
 

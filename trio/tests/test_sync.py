@@ -40,16 +40,6 @@ async def test_Event():
         assert record == ["sleeping", "sleeping", "woken", "woken"]
 
 
-# When we remove clear() then this test can be removed too
-def test_Event_clear(recwarn):
-    e = Event()
-    assert not e.is_set()
-    e.set()
-    assert e.is_set()
-    e.clear()
-    assert not e.is_set()
-
-
 async def test_CapacityLimiter():
     with pytest.raises(TypeError):
         CapacityLimiter(1.0)
