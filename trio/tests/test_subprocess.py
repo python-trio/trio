@@ -58,14 +58,6 @@ async def test_basic():
     )
 
 
-# Delete this test when we remove direct Process construction
-async def test_deprecated_Process_init():
-    with pytest.warns(TrioDeprecationWarning):
-        async with Process(EXIT_TRUE) as proc:
-            assert isinstance(proc, Process)
-        assert proc.returncode == 0
-
-
 async def test_multi_wait():
     async with await open_process(SLEEP(10)) as proc:
         # Check that wait (including multi-wait) tolerates being cancelled
