@@ -5,7 +5,7 @@
 #    pip-compile --output-file test-requirements.txt test-requirements.in
 #
 astor==0.8.1              # via -r test-requirements.in
-astroid==2.4.0            # via pylint
+astroid==2.4.1            # via pylint
 async-generator==1.10     # via -r test-requirements.in
 attrs==19.3.0             # via -r test-requirements.in, outcome, pytest
 backcall==0.1.0           # via ipython
