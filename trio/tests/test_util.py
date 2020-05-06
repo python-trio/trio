@@ -100,9 +100,7 @@ def test_final_metaclass():
     class FinalClass(metaclass=Final):
         pass
 
-    with pytest.raises(
-        TypeError, match="`FinalClass` does not support subclassing"
-    ):
+    with pytest.raises(TypeError):
 
         class SubClass(FinalClass):
             pass
@@ -112,12 +110,10 @@ def test_no_public_constructor_metaclass():
     class SpecialClass(metaclass=NoPublicConstructor):
         pass
 
-    with pytest.raises(TypeError, match="no public constructor available"):
+    with pytest.raises(TypeError):
         SpecialClass()
 
-    with pytest.raises(
-        TypeError, match="`SpecialClass` does not support subclassing"
-    ):
+    with pytest.raises(TypeError):
 
         class SubClass(SpecialClass):
             pass

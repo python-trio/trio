@@ -2155,11 +2155,7 @@ def test_system_task_contexts():
 
 
 def test_Nursery_init():
-    check_Nursery_error = pytest.raises(
-        TypeError, match='no public constructor available'
-    )
-
-    with check_Nursery_error:
+    with pytest.raises(TypeError):
         _core._run.Nursery(None, None)
 
 
@@ -2170,23 +2166,17 @@ async def test_Nursery_private_init():
 
 
 def test_Nursery_subclass():
-    with pytest.raises(
-        TypeError, match='`Nursery` does not support subclassing'
-    ):
+    with pytest.raises(TypeError):
 
         class Subclass(_core._run.Nursery):
             pass
 
 
 def test_Cancelled_init():
-    check_Cancelled_error = pytest.raises(
-        TypeError, match='no public constructor available'
-    )
-
-    with check_Cancelled_error:
+    with pytest.raises(TypeError):
         raise _core.Cancelled
 
-    with check_Cancelled_error:
+    with pytest.raises(TypeError):
         _core.Cancelled()
 
     # private constructor should not raise
@@ -2199,18 +2189,14 @@ def test_Cancelled_str():
 
 
 def test_Cancelled_subclass():
-    with pytest.raises(
-        TypeError, match='`Cancelled` does not support subclassing'
-    ):
+    with pytest.raises(TypeError):
 
         class Subclass(_core.Cancelled):
             pass
 
 
 def test_CancelScope_subclass():
-    with pytest.raises(
-        TypeError, match='`CancelScope` does not support subclassing'
-    ):
+    with pytest.raises(TypeError):
 
         class Subclass(_core.CancelScope):
             pass

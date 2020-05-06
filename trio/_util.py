@@ -216,7 +216,9 @@ class Final(BaseMeta):
         for base in bases:
             if isinstance(base, Final):
                 raise TypeError(
-                    "`%s` does not support subclassing" % base.__name__
+                    "the {!r} class does not support subclassing".format(
+                        base.__name__
+                    )
                 )
         return super().__new__(cls, name, bases, cls_namespace)
 
@@ -240,7 +242,9 @@ class NoPublicConstructor(Final):
     - TypeError if a sub class or an instance is created.
     """
     def __call__(self, *args, **kwargs):
-        raise TypeError("no public constructor available")
+        raise TypeError(
+            "the {!r} class has no public constructor".format(self.__name__)
+        )
 
     def _create(self, *args, **kwargs):
         return super().__call__(*args, **kwargs)
