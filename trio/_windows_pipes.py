@@ -1,6 +1,6 @@
 from . import _core
 from ._abc import SendStream, ReceiveStream
-from ._util import ConflictDetector
+from ._util import ConflictDetector, Final
 from ._core._windows_cffi import _handle, raise_winerror, kernel32, ffi
 
 # XX TODO: don't just make this up based on nothing.
@@ -37,7 +37,7 @@ class _HandleHolder:
         self._close()
 
 
-class PipeSendStream(SendStream):
+class PipeSendStream(SendStream, metaclass=Final):
     """Represents a send stream over a Windows named pipe that has been
     opened in OVERLAPPED mode.
     """
@@ -79,7 +79,7 @@ class PipeSendStream(SendStream):
         await self._handle_holder.aclose()
 
 
-class PipeReceiveStream(ReceiveStream):
+class PipeReceiveStream(ReceiveStream, metaclass=Final):
     """Represents a receive stream over an os.pipe object."""
     def __init__(self, handle: int) -> None:
         self._handle_holder = _HandleHolder(handle)

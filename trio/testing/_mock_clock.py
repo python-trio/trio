@@ -3,6 +3,7 @@ from math import inf
 
 from .. import _core
 from .._abc import Clock
+from .._util import SubclassingDeprecatedIn_v0_15_0
 
 __all__ = ["MockClock"]
 
@@ -14,7 +15,7 @@ __all__ = ["MockClock"]
 # Prior art:
 #   https://twistedmatrix.com/documents/current/api/twisted.internet.task.Clock.html
 #   https://github.com/ztellman/manifold/issues/57
-class MockClock(Clock):
+class MockClock(Clock, metaclass=SubclassingDeprecatedIn_v0_15_0):
     """A user-controllable clock suitable for writing tests.
 
     Args:

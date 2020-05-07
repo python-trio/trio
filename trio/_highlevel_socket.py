@@ -5,7 +5,7 @@ from contextlib import contextmanager
 
 import trio
 from . import socket as tsocket
-from ._util import ConflictDetector
+from ._util import ConflictDetector, SubclassingDeprecatedIn_v0_15_0
 from .abc import HalfCloseableStream, Listener
 
 __all__ = ["SocketStream", "SocketListener"]
@@ -39,7 +39,9 @@ def _translate_socket_errors_to_stream_errors():
             ) from exc
 
 
-class SocketStream(HalfCloseableStream):
+class SocketStream(
+    HalfCloseableStream, metaclass=SubclassingDeprecatedIn_v0_15_0
+):
     """An implementation of the :class:`trio.abc.HalfCloseableStream`
     interface based on a raw network socket.
 
@@ -322,7 +324,9 @@ for name in _ignorable_accept_errno_names:
         pass
 
 
-class SocketListener(Listener[SocketStream]):
+class SocketListener(
+    Listener[SocketStream], metaclass=SubclassingDeprecatedIn_v0_15_0
+):
     """A :class:`~trio.abc.Listener` that uses a listening socket to accept
     incoming connections as :class:`SocketStream` objects.
 

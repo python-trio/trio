@@ -4,7 +4,7 @@ import types
 import pathlib
 
 import trio
-from trio._util import async_wraps
+from trio._util import async_wraps, SubclassingDeprecatedIn_v0_15_0
 
 __all__ = ['Path']
 
@@ -77,7 +77,7 @@ def classmethod_wrapper_factory(cls, meth_name):
     return wrapper
 
 
-class AsyncAutoWrapperType(type):
+class AsyncAutoWrapperType(SubclassingDeprecatedIn_v0_15_0):
     def __init__(cls, name, bases, attrs):
         super().__init__(name, bases, attrs)
 

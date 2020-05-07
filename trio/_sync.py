@@ -7,6 +7,7 @@ import trio
 
 from ._core import enable_ki_protection, ParkingLot
 from ._deprecate import deprecated
+from ._util import SubclassingDeprecatedIn_v0_15_0
 
 __all__ = [
     "Event",
@@ -19,7 +20,7 @@ __all__ = [
 
 
 @attr.s(repr=False, eq=False, hash=False)
-class Event:
+class Event(metaclass=SubclassingDeprecatedIn_v0_15_0):
     """A waitable boolean value useful for inter-task synchronization,
     inspired by :class:`threading.Event`.
 
@@ -111,7 +112,7 @@ class _CapacityLimiterStatistics:
 
 
 @async_cm
-class CapacityLimiter:
+class CapacityLimiter(metaclass=SubclassingDeprecatedIn_v0_15_0):
     """An object for controlling access to a resource with limited capacity.
 
     Sometimes you need to put a limit on how many tasks can do something at
@@ -363,7 +364,7 @@ class CapacityLimiter:
 
 
 @async_cm
-class Semaphore:
+class Semaphore(metaclass=SubclassingDeprecatedIn_v0_15_0):
     """A `semaphore <https://en.wikipedia.org/wiki/Semaphore_(programming)>`__.
 
     A semaphore holds an integer value, which can be incremented by
@@ -499,19 +500,7 @@ class _LockStatistics:
 
 @async_cm
 @attr.s(eq=False, hash=False, repr=False)
-class Lock:
-    """A classic `mutex
-    <https://en.wikipedia.org/wiki/Lock_(computer_science)>`__.
-
-    This is a non-reentrant, single-owner lock. Unlike
-    :class:`threading.Lock`, only the owner of the lock is allowed to release
-    it.
-
-    A :class:`Lock` object can be used as an async context manager; it
-    blocks on entry but not on exit.
-
-    """
-
+class _LockImpl:
     _lot = attr.ib(factory=ParkingLot, init=False)
     _owner = attr.ib(default=None, init=False)
 
@@ -606,7 +595,21 @@ class Lock:
         )
 
 
-class StrictFIFOLock(Lock):
+class Lock(_LockImpl, metaclass=SubclassingDeprecatedIn_v0_15_0):
+    """A classic `mutex
+    <https://en.wikipedia.org/wiki/Lock_(computer_science)>`__.
+
+    This is a non-reentrant, single-owner lock. Unlike
+    :class:`threading.Lock`, only the owner of the lock is allowed to release
+    it.
+
+    A :class:`Lock` object can be used as an async context manager; it
+    blocks on entry but not on exit.
+
+    """
+
+
+class StrictFIFOLock(_LockImpl, metaclass=SubclassingDeprecatedIn_v0_15_0):
     r"""A variant of :class:`Lock` where tasks are guaranteed to acquire the
     lock in strict first-come-first-served order.
 
@@ -658,7 +661,7 @@ class StrictFIFOLock(Lock):
     :class:`StrictFIFOLock` guarantees that each task will send its data in
     the same order that the state machine generated it.
 
-    Currently, :class:`StrictFIFOLock` is simply an alias for :class:`Lock`,
+    Currently, :class:`StrictFIFOLock` is identical to :class:`Lock`,
     but (a) this may not always be true in the future, especially if Trio ever
     implements `more sophisticated scheduling policies
     <https://github.com/python-trio/trio/issues/32>`__, and (b) the above code
@@ -676,7 +679,7 @@ class _ConditionStatistics:
 
 
 @async_cm
-class Condition:
+class Condition(metaclass=SubclassingDeprecatedIn_v0_15_0):
     """A classic `condition variable
     <https://en.wikipedia.org/wiki/Monitor_(synchronization)>`__, similar to
     :class:`threading.Condition`.

@@ -3,6 +3,8 @@ import attr
 import trio
 from .abc import HalfCloseableStream
 
+from trio._util import SubclassingDeprecatedIn_v0_15_0
+
 
 async def aclose_forcefully(resource):
     """Close an async resource or async generator immediately, without
@@ -35,7 +37,9 @@ async def aclose_forcefully(resource):
 
 
 @attr.s(eq=False, hash=False)
-class StapledStream(HalfCloseableStream):
+class StapledStream(
+    HalfCloseableStream, metaclass=SubclassingDeprecatedIn_v0_15_0
+):
     """This class `staples <https://en.wikipedia.org/wiki/Staple_(fastener)>`__
     together two unidirectional streams to make single bidirectional stream.
 

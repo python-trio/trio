@@ -1,0 +1,17 @@
+Most of the public classes that Trio exports – like `trio.Lock`,
+`trio.SocketStream`, and so on – weren't designed with subclassing in
+mind. And we've noticed that some users were trying to subclass them
+anyway, and ending up with fragile code that we're likely to
+accidentally break in the future, or else be stuck unable to make
+changes for fear of breaking subclasses.
+
+There are also some classes that were explicitly designed to be
+subclassed, like the ones in `trio.abc`. Subclassing these is still
+supported. However, for all other classes, attempts to subclass will
+now raise a deprecation warning, and in the future will raise an
+error.
+
+If this causes problems for you, feel free to drop by our `chat room
+<https://gitter.im/python-trio/general>`__ or file a bug, to discuss
+alternatives or make a case for why some particular class should be
+designed to support subclassing.
