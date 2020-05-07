@@ -9,6 +9,8 @@ from functools import wraps, update_wrapper
 import typing as t
 import threading
 
+from ._deprecate import warn_deprecated
+
 # There's a dependency loop here... _core is allowed to use this file (in fact
 # it's the *only* file in the main trio/ package it's allowed to use), but
 # ConflictDetector needs checkpoint so it also has to import
@@ -218,6 +220,20 @@ class Final(BaseMeta):
                 raise TypeError(
                     "`%s` does not support subclassing" % base.__name__
                 )
+        return super().__new__(cls, name, bases, cls_namespace)
+
+
+class SubclassingDeprecatedIn_v0_15_0(BaseMeta):
+    def __new__(cls, name, bases, cls_namespace):
+        for base in bases:
+            if isinstance(base, SubclassingDeprecatedIn_v0_15_0):
+                warn_deprecated(
+                    f"subclassing {base.__module__}.{base.__qualname__}",
+                    "0.15.0",
+                    issue=1044,
+                    instead="composition or delegation"
+                )
+                break
         return super().__new__(cls, name, bases, cls_namespace)
 
 
