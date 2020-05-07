@@ -968,7 +968,7 @@ class Nursery(metaclass=NoPublicConstructor):
 
 
 @attr.s(eq=False, hash=False, repr=False)
-class Task:
+class Task(metaclass=NoPublicConstructor):
     _parent_nursery = attr.ib()
     coro = attr.ib()
     _runner = attr.ib()
@@ -1353,7 +1353,7 @@ class Runner:
             LOCALS_KEY_KI_PROTECTION_ENABLED, system_task
         )
 
-        task = Task(
+        task = Task._create(
             coro=coro,
             parent_nursery=nursery,
             runner=self,
@@ -1489,7 +1489,7 @@ class Runner:
 
         """
         if self.trio_token is None:
-            self.trio_token = TrioToken(self.entry_queue)
+            self.trio_token = TrioToken._create(self.entry_queue)
         return self.trio_token
 
     ################
