@@ -6,7 +6,7 @@ accidentally break in the future, or else be stuck unable to make
 changes for fear of breaking subclasses.
 
 There are also some classes that were explicitly designed to be
-subclassed, like the ones in `trio.abc`. Subclassing these is still
+subclassed, like the ones in ``trio.abc``. Subclassing these is still
 supported. However, for all other classes, attempts to subclass will
 now raise a deprecation warning, and in the future will raise an
 error.
