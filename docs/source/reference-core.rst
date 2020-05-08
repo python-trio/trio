@@ -1444,8 +1444,14 @@ don't have any special access to Trio's internals.)
 .. autoclass:: Semaphore
    :members:
 
+.. We have to use :inherited-members: here because all the actual lock
+   methods are stashed in _LockImpl. Weird side-effect of having both
+   Lock and StrictFIFOLock, but wanting both to be marked Final so
+   neither can inherit from the other.
+
 .. autoclass:: Lock
    :members:
+   :inherited-members:
 
 .. autoclass:: StrictFIFOLock
    :members:

@@ -2,6 +2,7 @@ import attr
 
 from .. import _core
 from .._deprecate import deprecated
+from .._util import SubclassingDeprecatedIn_v0_15_0
 
 __all__ = ["UnboundedQueue"]
 
@@ -12,7 +13,7 @@ class _UnboundedQueueStats:
     tasks_waiting = attr.ib()
 
 
-class UnboundedQueue:
+class UnboundedQueue(metaclass=SubclassingDeprecatedIn_v0_15_0):
     """An unbounded queue suitable for certain unusual forms of inter-task
     communication.
 

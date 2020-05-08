@@ -4,6 +4,7 @@ import threading
 import attr
 
 from .. import _core
+from .._util import NoPublicConstructor
 from ._wakeup_socketpair import WakeupSocketpair
 
 __all__ = ["TrioToken"]
@@ -123,7 +124,7 @@ class EntryQueue:
             self.wakeup.wakeup_thread_and_signal_safe()
 
 
-class TrioToken:
+class TrioToken(metaclass=NoPublicConstructor):
     """An opaque object representing a single call to :func:`trio.run`.
 
     It has no public constructor; instead, see :func:`current_trio_token`.
