@@ -101,10 +101,10 @@ def test_socket_has_some_reexports():
 async def test_getaddrinfo(monkeygai):
     def check(got, expected):
         # win32 returns 0 for the proto field
-        # alpine and glibc have inconsistent handling of the canonical name
+        # musl and glibc have inconsistent handling of the canonical name
         # field (https://github.com/python-trio/trio/issues/1499)
-        # Neither gets used much and there isn't much opportunity for us to
-        # mess them up, so we don't bother checking them
+        # Neither field gets used much and there isn't much opportunity for us
+        # to mess them up, so we don't bother checking them here
         def interesting_fields(gai_tup):
             # (family, type, proto, canonname, sockaddr)
             family, type, proto, canonname, sockaddr = gai_tup
