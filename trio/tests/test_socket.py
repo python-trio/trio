@@ -151,8 +151,10 @@ async def test_getaddrinfo(monkeygai):
     with assert_checkpoints():
         with pytest.raises(tsocket.gaierror) as excinfo:
             await tsocket.getaddrinfo("::1", "12345", type=-1)
-    # Linux, Windows
+    # Linux + glibc, Windows
     expected_errnos = {tsocket.EAI_SOCKTYPE}
+    # Linux + musl
+    expected_errnos.add(tsocket.EAI_SERVICE)
     # macOS
     if hasattr(tsocket, "EAI_BADHINTS"):
         expected_errnos.add(tsocket.EAI_BADHINTS)
