@@ -1,0 +1,2 @@
+Fixed an over-strict test that caused failures on Alpine Linux.
+Started testing against Alpine in CI.

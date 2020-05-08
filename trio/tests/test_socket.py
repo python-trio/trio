@@ -101,11 +101,19 @@ def test_socket_has_some_reexports():
 async def test_getaddrinfo(monkeygai):
     def check(got, expected):
         # win32 returns 0 for the proto field
-        def without_proto(gai_tup):
-            return gai_tup[:2] + (0,) + gai_tup[3:]
+        # musl and glibc have inconsistent handling of the canonical name
+        # field (https://github.com/python-trio/trio/issues/1499)
+        # Neither field gets used much and there isn't much opportunity for us
+        # to mess them up, so we don't bother checking them here
+        def interesting_fields(gai_tup):
+            # (family, type, proto, canonname, sockaddr)
+            family, type, proto, canonname, sockaddr = gai_tup
+            return (family, type, sockaddr)
 
-        expected2 = [without_proto(gt) for gt in expected]
-        assert got == expected or got == expected2
+        def filtered(gai_list):
+            return [interesting_fields(gai_tup) for gai_tup in gai_list]
+
+        assert filtered(got) == filtered(expected)
 
     # Simple non-blocking non-error cases, ipv4 and ipv6:
     with assert_checkpoints():
@@ -143,8 +151,10 @@ async def test_getaddrinfo(monkeygai):
     with assert_checkpoints():
         with pytest.raises(tsocket.gaierror) as excinfo:
             await tsocket.getaddrinfo("::1", "12345", type=-1)
-    # Linux, Windows
+    # Linux + glibc, Windows
     expected_errnos = {tsocket.EAI_SOCKTYPE}
+    # Linux + musl
+    expected_errnos.add(tsocket.EAI_SERVICE)
     # macOS
     if hasattr(tsocket, "EAI_BADHINTS"):
         expected_errnos.add(tsocket.EAI_BADHINTS)
