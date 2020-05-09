@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import functools
 import itertools
 import logging
@@ -23,9 +25,7 @@ from outcome import Error, Value, capture
 
 from ._entry_queue import EntryQueue, TrioToken
 from ._exceptions import (TrioInternalError, RunFinishedError, Cancelled)
-from ._ki import (
-    LOCALS_KEY_KI_PROTECTION_ENABLED, ki_manager, enable_ki_protection
-)
+from ._ki import ki_manager, enable_ki_protection, ki_allowed_cvar
 from ._multierror import MultiError
 from ._traps import (
     Abort,
@@ -1342,16 +1342,7 @@ class Runner:
             context = self.system_context.copy()
         else:
             context = copy_context()
-
-        if not hasattr(coro, "cr_frame"):
-            # This async function is implemented in C or Cython
-            async def python_wrapper(orig_coro):
-                return await orig_coro
-
-            coro = python_wrapper(coro)
-        coro.cr_frame.f_locals.setdefault(
-            LOCALS_KEY_KI_PROTECTION_ENABLED, system_task
-        )
+            context.run(ki_allowed_cvar.set, True)
 
         task = Task._create(
             coro=coro,
@@ -1438,9 +1429,9 @@ class Runner:
 
         * System tasks are automatically cancelled when the main task exits.
 
-        * By default, system tasks have :exc:`KeyboardInterrupt` protection
-          *enabled*. If you want your task to be interruptible by control-C,
-          then you need to use :func:`disable_ki_protection` explicitly (and
+        * By default, system tasks have :exc:`KeyboardInterrupt` forbidden.
+          If you want (part of) your task to be interruptible by control-C,
+          then you need to wrap it in :func:`ki_allowed_if_safe` (and
           come up with some plan for what to do with a
           :exc:`KeyboardInterrupt`, given that system tasks aren't allowed to
           raise exceptions).
@@ -1756,6 +1747,7 @@ def run(
     io_manager = TheIOManager()
     system_context = copy_context()
     system_context.run(current_async_library_cvar.set, "trio")
+    system_context.run(ki_allowed_cvar.set, False)
     runner = Runner(
         clock=clock,
         instruments=instruments,
@@ -1763,7 +1755,6 @@ def run(
         system_context=system_context,
     )
     GLOBAL_RUN_CONTEXT.runner = runner
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
 
     # KI handling goes outside the core try/except/finally to avoid a window
     # where KeyboardInterrupt would be allowed and converted into an

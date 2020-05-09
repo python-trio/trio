@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import threading
 import queue as stdlib_queue
 from itertools import count
@@ -8,7 +10,10 @@ import outcome
 import trio
 
 from ._sync import CapacityLimiter
-from ._core import enable_ki_protection, disable_ki_protection, RunVar, TrioToken
+from ._core import (
+    enable_ki_protection, disable_ki_protection, mark_ki_unsafe_as_leaf,
+    ki_allowed_if_safe, RunVar, TrioToken
+)
 
 # Global due to Threading API, thread local storage for trio token
 TOKEN_LOCAL = threading.local()
@@ -378,14 +383,17 @@ def from_thread_run(afn, *args, trio_token=None):
           to enter Trio.
     """
     def callback(q, afn, args):
-        @disable_ki_protection
-        async def unprotected_afn():
-            return await afn(*args)
+        @mark_ki_unsafe_as_leaf
+        async def await_in_trio_thread():
+            with ki_allowed_if_safe():
+                res = await outcome.acapture(afn, *args)
+            q.put_nowait(res)
 
-        async def await_in_trio_thread_task():
-            q.put_nowait(await outcome.acapture(unprotected_afn))
-
-        trio.lowlevel.spawn_system_task(await_in_trio_thread_task, name=afn)
+        task = trio.lowlevel.spawn_system_task(await_in_trio_thread, name=afn)
+        # Normally, system tasks are permanently non-KIable. We want the user
+        # code to be KIable though, so we make the task interruptible
+        # and use enable/disable protection decorators to protect our own glue.
+        task.keyboard_interruptible = True
 
     return _run_fn_as_system_task(callback, afn, *args, trio_token=trio_token)
 
@@ -422,12 +430,10 @@ def from_thread_run_sync(fn, *args, trio_token=None):
           "foreign" thread, spawned using some other framework, and still want
           to enter Trio.
     """
+    @mark_ki_unsafe_as_leaf
     def callback(q, fn, args):
-        @disable_ki_protection
-        def unprotected_fn():
-            return fn(*args)
-
-        res = outcome.capture(unprotected_fn)
+        with ki_allowed_if_safe():
+            res = outcome.capture(fn, *args)
         q.put_nowait(res)
 
     return _run_fn_as_system_task(callback, fn, *args, trio_token=trio_token)

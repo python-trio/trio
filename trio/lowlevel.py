@@ -14,8 +14,9 @@ import sys
 # Generally available symbols
 from ._core import (
     cancel_shielded_checkpoint, Abort, wait_task_rescheduled,
-    enable_ki_protection, disable_ki_protection, currently_ki_protected, Task,
-    checkpoint, current_task, ParkingLot, UnboundedQueue, RunVar, TrioToken,
+    enable_ki_protection, disable_ki_protection, currently_ki_protected,
+    mark_ki_unsafe_as_leaf, ki_allowed_if_safe, ki_forbidden, Task, checkpoint,
+    current_task, ParkingLot, UnboundedQueue, RunVar, TrioToken,
     current_trio_token, temporarily_detach_coroutine_object,
     permanently_detach_coroutine_object, reattach_detached_coroutine_object,
     current_statistics, reschedule, remove_instrument, add_instrument,
