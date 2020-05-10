@@ -3,6 +3,7 @@ import select
 import outcome
 from contextlib import contextmanager
 import attr
+import errno
 
 from .. import _core
 from ._run import _public
@@ -122,16 +123,21 @@ class KqueueIOManager:
             event = select.kevent(fd, filter, select.KQ_EV_DELETE)
             try:
                 self._kqueue.control([event], 0)
-            except FileNotFoundError:
+            except OSError as exc:
                 # kqueue tracks individual fds (*not* the underlying file
                 # object, see _io_epoll.py for a long discussion of why this
                 # distinction matters), and automatically deregisters an event
                 # if the fd is closed. So if kqueue.control says that it
                 # doesn't know about this event, then probably it's because
-                # the fd was closed behind our backs. (Too bad it doesn't tell
-                # us that this happened... oh well, you can't have
-                # everything.)
-                pass
+                # the fd was closed behind our backs. (Too bad we can't ask it
+                # to wake us up when this happens, versus discovering it after
+                # the fact... oh well, you can't have everything.)
+                #
+                # FreeBSD reports this using EBADF. macOS uses ENOENT.
+                if exc.errno in (errno.EBADF, errno.ENOENT):
+                    pass
+                else:
+                    raise
             return _core.Abort.SUCCEEDED
 
         await self.wait_kevent(fd, filter, abort)
