@@ -264,5 +264,10 @@ async def test_bizarro_OSError_from_receive():
             os.close(dir_fd)
 
 
+# https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=246350
+@pytest.mark.skipif(
+    os.uname().sysname == "FreeBSD" and os.uname().release[:4] < "12.2",
+    reason="hangs on FreeBSD 12.1 and earlier, due to FreeBSD bug #246350"
+)
 async def test_pipe_fully():
     await check_one_way_stream(make_pipe, make_clogged_pipe)

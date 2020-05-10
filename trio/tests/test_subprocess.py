@@ -254,6 +254,11 @@ async def test_run_check():
     assert result.returncode == 1
 
 
+# https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=246350
+@pytest.mark.skipif(
+    os.uname().sysname == "FreeBSD" and os.uname().release[:4] < "12.2",
+    reason="hangs on FreeBSD 12.1 and earlier, due to FreeBSD bug #246350"
+)
 async def test_run_with_broken_pipe():
     result = await run_process(
         [sys.executable, "-c", "import sys; sys.stdin.close()"],
