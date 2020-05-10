@@ -2,6 +2,7 @@ import errno
 import select
 import os
 import tempfile
+import sys
 
 import pytest
 
@@ -236,6 +237,14 @@ async def test_close_at_bad_time_for_send_all(monkeypatch):
             await r.receive_some(10000)
 
 
+# On FreeBSD, directories are readable, and we haven't found any other trick
+# for making an unreadable fd, so there's no way to run this test. Fortunately
+# the logic this is testing doesn't depend on the platform, so testing on
+# other platforms is probably good enough.
+@pytest.mark.skipif(
+    sys.platform.startswith("freebsd"),
+    reason="no way to make read() return a bizarro error on FreeBSD"
+)
 async def test_bizarro_OSError_from_receive():
     # Make sure that if the read syscall returns some bizarro error, then we
     # get a BrokenResourceError. This is incredibly unlikely; there's almost
