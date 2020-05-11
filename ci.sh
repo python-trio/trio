@@ -105,17 +105,18 @@ fi
 
 ### FreeBSD-in-Qemu virtual-machine inception, on Travis
 
-# This is complex, because there aren't pre-made images available. So we hack
-# up an install CD, run it to build an image, and use that. But that's slow
-# and we don't want to do it every run, so we try to get Travis to cache the
-# image for us.
+# This is complex, because none of the pre-made images are set up to be
+# controlled by an automatic process – making them do anything requires a
+# human to look at the screen and type stuff. So we hack up an install CD, run
+# it to build our own custom image, and use that. But that's slow and we don't
+# want to do it every run, so we try to get Travis to cache the image for us.
 #
 # Additional subtlety: we actually re-use the same image in-place, and let
 # Travis re-cache it every time. The point of this is that it saves our system
-# packages + pip cache, so we don't have to recreate them from scratch every
-# time. (Especially useful since there are no FreeBSD wheels on PyPI, and we
-# don't want to have to build packages like cryptography from source every
-# time.)
+# packages + pip cache, so we don't have to re-fetch them from scratch every
+# time. (In particular, this means that the first time we install a given
+# version of cryptography, we have to build it from source, but on subsequent
+# runs we'll have a pre-built wheel sitting in our disk image.)
 #
 # You can run this locally for testing. But some things to watch out for:
 #
