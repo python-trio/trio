@@ -245,7 +245,7 @@ source /venv/bin/activate
 set -u
 
 # And put a tmpfs on the empty dir as well, because coverage uses it for
-# storage, and this makes it *massively* faster than if it's on NFS
+# storage, and this is much faster than if coverage has to go through virtfs.
 mkdir empty
 mount -t tmpfs tmpfs ./empty
 
