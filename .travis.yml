@@ -32,8 +32,8 @@ jobs:
       # 'bionic' systems have nested KVM enabled.
       dist: bionic
       env:
-        - "JOB_NAME='Ubuntu 19.10, full VM'"
-        - "LINUX_VM_IMAGE=https://cloud-images.ubuntu.com/eoan/current/eoan-server-cloudimg-amd64.img"
+        - "JOB_NAME='Fedora 32, full VM'"
+        - "LINUX_VM_IMAGE=https://download.fedoraproject.org/pub/fedora/linux/releases/32/Cloud/x86_64/images/Fedora-Cloud-Base-32-1.6.x86_64.qcow2"
 
     - python: 3.6.1  # earliest 3.6 version available on Travis
     - python: 3.6-dev
