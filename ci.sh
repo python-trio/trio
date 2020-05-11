@@ -106,6 +106,7 @@ fi
 ### Qemu virtual-machine inception, on Travis
 
 if [ "$VM_IMAGE" != "" ]; then
+    uname -a
     VM_CPU=${VM_CPU:-x86_64}
 
     sudo apt update
