@@ -274,6 +274,11 @@ set +u
 source /venv/bin/activate
 set -u
 
+# And put a tmpfs on the empty dir as well, because coverage uses it for
+# storage, and this makes it *massively* faster than if it's on NFS
+mkdir empty
+mount -t tmpfs tmpfs ./empty
+
 # And then we re-invoke ourselves!
 bash ./ci.sh
 
@@ -462,7 +467,10 @@ else
         netsh winsock show catalog
     fi
 
-    mkdir empty
+    # We run the tests from inside an empty directory, to make sure Python
+    # doesn't pick up any .py files from our working dir. Might have been
+    # pre-created by some of the code above.
+    mkdir empty || true
     cd empty
 
     INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
