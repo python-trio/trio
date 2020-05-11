@@ -245,7 +245,7 @@ source /venv/bin/activate
 set -u
 
 # And put a tmpfs on the empty dir as well, because coverage uses it for
-# storage, and this makes it *massively* faster than if it's on NFS
+# storage, and this is much faster than if coverage has to go through virtfs.
 mkdir empty
 mount -t tmpfs tmpfs ./empty
 
@@ -319,7 +319,7 @@ trap "poweroff" exit
 uname -a
 echo \$PWD
 id
-cat /etc/lsb-release
+cat /etc/fedora-release
 cat /proc/cpuinfo
 
 # Pass-through JOB_NAME + the env vars that codecov-bash looks at
@@ -340,14 +340,17 @@ env | sort
 mkdir /host-files
 mount -t 9p -o trans=virtio,version=9p2000.L host-files /host-files
 
-# Install and set up the system Python (assumes Debian/Ubuntu)
-apt update
-apt install -y python3-dev python3-virtualenv git build-essential curl
-python3 -m virtualenv -p python3 /venv
+# Set up the system Python (Fedora preinstalls Python 3)
+python3 -m venv /venv
 # Uses unbound shell variable PS1, so have to allow that temporarily
 set +u
 source /venv/bin/activate
 set -u
+
+# We put a tmpfs on the empty dir because coverage uses it for
+# storage, and this makes it *massively* faster than if it's on NFS
+mkdir /host-files/empty
+mount -t tmpfs tmpfs /host-files/empty
 
 # And then we re-invoke ourselves!
 cd /host-files
