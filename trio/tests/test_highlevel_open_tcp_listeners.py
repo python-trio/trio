@@ -74,8 +74,16 @@ async def measure_backlog(listener, limit):
             # the SYN gets dropped, and the client retries after 1 second. So
             # we assume that any connect() call to localhost that takes >0.5
             # seconds indicates a dropped SYN.
+            #
+            # Exception: on FreeBSD when the backlog is exhausted, connect
+            # has been observed to sometimes raise ConnectionResetError.
             with trio.move_on_after(0.5) as cancel_scope:
-                client_stream = await open_stream_to_socket_listener(listener)
+                try:
+                    client_stream = await open_stream_to_socket_listener(
+                        listener
+                    )
+                except ConnectionResetError:  # pragma: no cover
+                    break
                 client_streams.append(client_stream)
             if cancel_scope.cancelled_caught:
                 break

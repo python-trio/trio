@@ -1,0 +1,1 @@
+We've added FreeBSD to the list of platforms we support and test on.

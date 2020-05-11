@@ -1,5 +1,6 @@
 # Utilities for testing
 import socket as stdlib_socket
+import os
 
 import pytest
 
@@ -61,3 +62,11 @@ def check_sequence_matches(seq, template):
         got = set(seq[i:i + len(pattern)])
         assert got == pattern
         i += len(got)
+
+
+# https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=246350
+skip_if_fbsd_pipes_broken = pytest.mark.skipif(
+    hasattr(os, "uname") and os.uname().sysname == "FreeBSD"
+    and os.uname().release[:4] < "12.2",
+    reason="hangs on FreeBSD 12.1 and earlier, due to FreeBSD bug #246350"
+)
