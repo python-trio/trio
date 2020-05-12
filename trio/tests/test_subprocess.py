@@ -47,6 +47,7 @@ async def test_basic():
         assert repr(proc) == repr_template.format(
             "running with PID {}".format(proc.pid)
         )
+    assert proc._pidfd is None
     assert proc.returncode == 0
     assert repr(proc) == repr_template.format("exited with status 0")
 
@@ -56,6 +57,16 @@ async def test_basic():
     assert repr(proc) == "<trio.Process {!r}: {}>".format(
         EXIT_FALSE, "exited with status 1"
     )
+
+
+async def test_auto_update_returncode():
+    p = await open_process(SLEEP(9999))
+    assert p.returncode is None
+    p.kill()
+    p._proc.wait()
+    assert p.returncode is not None
+    assert p._pidfd is None
+    assert p.returncode is not None
 
 
 async def test_multi_wait():
