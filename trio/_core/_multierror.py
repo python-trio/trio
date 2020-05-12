@@ -364,110 +364,35 @@ def concat_tb(head, tail):
 # MultiErrors
 ################################################################
 
-traceback_exception_original_init = traceback.TracebackException.__init__
 
+class MultiTracebackException:
+    def __init__(self, str_, traceback_exceptions):
+        self.embedded = tuple(traceback_exceptions)
+        self.str_ = str_
 
-def traceback_exception_init(
-    self,
-    exc_type,
-    exc_value,
-    exc_traceback,
-    *,
-    limit=None,
-    lookup_lines=True,
-    capture_locals=False,
-    _seen=None
-):
-    if _seen is None:
-        _seen = set()
+    @classmethod
+    def from_multierror(cls, exc:MultiError, *args, **kwargs):
+        """Create a TracebackException from an exception."""
+        return cls(
+            str(exc),
+            [TraceBackException.from_error(e, *args, **kwargs)
+            for e in exc.exceptions])
 
-    # Capture the original exception and its cause and context as TracebackExceptions
-    traceback_exception_original_init(
-        self,
-        exc_type,
-        exc_value,
-        exc_traceback,
-        limit=limit,
-        lookup_lines=lookup_lines,
-        capture_locals=capture_locals,
-        _seen=_seen
-    )
+        return cls([TraceBackException.from_error])
 
-    # Capture each of the exceptions in the MultiError along with each of their causes and contexts
-    if isinstance(exc_value, MultiError):
-        embedded = []
-        for exc in exc_value.exceptions:
-            if exc_key(exc) not in _seen:
-                embedded.append(
-                    traceback.TracebackException.from_exception(
-                        exc,
-                        limit=limit,
-                        lookup_lines=lookup_lines,
-                        capture_locals=capture_locals,
-                        # copy the set of _seen exceptions so that duplicates
-                        # shared between sub-exceptions are not omitted
-                        _seen=set(_seen)
-                    )
-                )
-        self.embedded = embedded
-    else:
-        self.embedded = []
+    def format(self, *, chain=True):
+        yield from traceback.TracebackException.format(self, chain=chain)
 
-
-traceback.TracebackException.__init__ = traceback_exception_init
-traceback_exception_original_format = traceback.TracebackException.format
-
-
-def traceback_exception_format(self, *, chain=True):
-    yield from traceback_exception_original_format(self, chain=chain)
-
-    for i, exc in enumerate(self.embedded):
-        yield "\nDetails of embedded exception {}:\n\n".format(i + 1)
-        yield from (
-            textwrap.indent(line, " " * 2) for line in exc.format(chain=chain)
-        )
-
-
-traceback.TracebackException.format = traceback_exception_format
-
-
-def trio_excepthook(etype, value, tb):
-    for chunk in traceback.format_exception(etype, value, tb):
-        sys.stderr.write(chunk)
-
-
-IPython_handler_installed = False
-warning_given = False
-if "IPython" in sys.modules:
-    import IPython
-    ip = IPython.get_ipython()
-    if ip is not None:
-        if ip.custom_exceptions != ():
-            warnings.warn(
-                "IPython detected, but you already have a custom exception "
-                "handler installed. I'll skip installing Trio's custom "
-                "handler, but this means MultiErrors will not show full "
-                "tracebacks.",
-                category=RuntimeWarning
+        for i, exc in enumerate(self.embedded):
+            yield "\nDetails of embedded exception {}:\n\n".format(i + 1)
+            yield from (
+                textwrap.indent(line, " " * 2) for line in exc.format(chain=chain)
             )
-            warning_given = True
-        else:
 
-            def trio_show_traceback(self, etype, value, tb, tb_offset=None):
-                # XX it would be better to integrate with IPython's fancy
-                # exception formatting stuff (and not ignore tb_offset)
-                trio_excepthook(etype, value, tb)
 
-            ip.set_custom_exc((MultiError,), trio_show_traceback)
-            IPython_handler_installed = True
+import functools
 
-if sys.excepthook is sys.__excepthook__:
-    sys.excepthook = trio_excepthook
-else:
-    if not IPython_handler_installed and not warning_given:
-        warnings.warn(
-            "You seem to already have a custom sys.excepthook handler "
-            "installed. I'll skip installing Trio's custom handler, but this "
-            "means MultiErrors will not show full tracebacks.",
-            category=RuntimeWarning
-        )
+traceback_original_TracebackException = traceback.TracebackException
+
+traceback.TracebackException = functools.singledispatch(traceback.TracebackException)
+traceback.TracebackException.register(MultiError, MultiTracebackException)
