@@ -5,6 +5,8 @@ from itertools import count
 import attr
 import outcome
 
+import inspect
+
 import trio
 
 from ._sync import CapacityLimiter
@@ -364,7 +366,7 @@ def from_thread_run(afn, *args, trio_token=None):
         RuntimeError: if you try calling this from inside the Trio thread,
             which would otherwise cause a deadlock.
         AttributeError: if no ``trio_token`` was provided, and we can't infer
-            one from context.
+            one from context. Also if ``afn`` is not an async function.
 
     **Locating a Trio Token**: There are two ways to specify which
     `trio.run` loop to reenter:
@@ -377,6 +379,9 @@ def from_thread_run(afn, *args, trio_token=None):
           "foreign" thread, spawned using some other framework, and still want
           to enter Trio.
     """
+    if not inspect.iscoroutinefunction(afn):
+        raise AttributeError("afn must be an asynchronous function")
+
     def callback(q, afn, args):
         @disable_ki_protection
         async def unprotected_afn():
@@ -409,7 +414,7 @@ def from_thread_run_sync(fn, *args, trio_token=None):
         RuntimeError: if you try calling this from inside the Trio thread,
             which would otherwise cause a deadlock.
         AttributeError: if no ``trio_token`` was provided, and we can't infer
-            one from context.
+            one from context. Also if ``fn`` is not a sync function.
 
     **Locating a Trio Token**: There are two ways to specify which
     `trio.run` loop to reenter:
@@ -422,6 +427,9 @@ def from_thread_run_sync(fn, *args, trio_token=None):
           "foreign" thread, spawned using some other framework, and still want
           to enter Trio.
     """
+    if not (inspect.isfunction(fn) and not inspect.iscoroutinefunction(fn)):
+        raise AttributeError("fn must be a synchronous function")
+
     def callback(q, fn, args):
         @disable_ki_protection
         def unprotected_fn():
