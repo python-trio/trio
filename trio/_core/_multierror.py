@@ -364,24 +364,19 @@ def concat_tb(head, tail):
 # MultiErrors
 ################################################################
 
+original_TracebackException_new = traceback.TracebackException.__new__
 
-class MultiTracebackException:
-    def __init__(self, str_, traceback_exceptions):
-        self.embedded = tuple(traceback_exceptions)
-        self.str_ = str_
+class MultiTracebackException(TracebackException):
+    def __new__(*args, **kwargs):
+        return original_TracebackException_new(*args, **kwargs)
 
-    @classmethod
-    def from_multierror(cls, exc:MultiError, *args, **kwargs):
-        """Create a TracebackException from an exception."""
-        return cls(
-            str(exc),
-            [TraceBackException.from_error(e, *args, **kwargs)
-            for e in exc.exceptions])
+    def __init__(self, embedded, *args, **kwargs):
+        self.embedded = embedded
+        super().__init__(*args, **kwargs)
 
-        return cls([TraceBackException.from_error])
 
     def format(self, *, chain=True):
-        yield from traceback.TracebackException.format(self, chain=chain)
+        yield from super().format(self, chain=chain)
 
         for i, exc in enumerate(self.embedded):
             yield "\nDetails of embedded exception {}:\n\n".format(i + 1)
@@ -390,9 +385,12 @@ class MultiTracebackException:
             )
 
 
-import functools
+def new_traceback_exception_new(exc_type, exc_value, *args, **kwargs):
+    if exc_type and issubclass(exc_type, MultiError):
+        embedded = tuple(InnerException(e) for e in exc_value.exceptions)
+        return MultiTracebackException(embedded, exc_type, exc_value, *args, **kwargs)
+    else:
+        result = original_TracebackException_new(exc_type, exc_value, *args, **kwargs)
+        result.__init__(exc_type, exc_value, *args, **kwargs)
 
-traceback_original_TracebackException = traceback.TracebackException
-
-traceback.TracebackException = functools.singledispatch(traceback.TracebackException)
-traceback.TracebackException.register(MultiError, MultiTracebackException)
+traceback.TracebackException.__new__ = new_traceback_exception_new
