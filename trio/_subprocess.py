@@ -133,19 +133,20 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         self.pid = self._proc.pid
 
     def __repr__(self):
-        if self.returncode is None:
+        returncode = self.returncode
+        if returncode is None:
             status = "running with PID {}".format(self.pid)
         else:
-            if self.returncode < 0:
-                status = "exited with signal {}".format(-self.returncode)
+            if returncode < 0:
+                status = "exited with signal {}".format(-returncode)
             else:
-                status = "exited with status {}".format(self.returncode)
+                status = "exited with status {}".format(returncode)
         return "<trio.Process {!r}: {}>".format(self.args, status)
 
     @property
     def returncode(self):
-        """The exit status of the process (an integer), or ``None`` if it is
-        not yet known to have exited.
+        """The exit status of the process (an integer), or ``None`` if it's
+        still running.
 
         By convention, a return code of zero indicates success.  On
         UNIX, negative values indicate termination due to a signal,
@@ -153,10 +154,16 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         Windows, a process that exits due to a call to
         :meth:`Process.terminate` will have an exit status of 1.
 
-        Accessing this attribute does not check for termination;
-        use :meth:`poll` or :meth:`wait` for that.
+        Unlike the standard library `subprocess.Popen.returncode`, you don't
+        have to call `poll` or `wait` to update this attribute; it's
+        automatically updated as needed, and will always give you the latest
+        information.
+
         """
-        return self._proc.returncode
+        result = self._proc.poll()
+        if result is not None:
+            self._close_pidfd()
+        return result
 
     async def aclose(self):
         """Close any pipes we have to the process (both input and output)
@@ -175,7 +182,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         try:
             await self.wait()
         finally:
-            if self.returncode is None:
+            if self._proc.returncode is None:
                 self.kill()
                 with trio.CancelScope(shield=True):
                     await self.wait()
@@ -205,20 +212,20 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
                 # actually block for a tiny fraction of a second.
                 self._proc.wait()
                 self._close_pidfd()
-        assert self.returncode is not None
-        return self.returncode
+        assert self._proc.returncode is not None
+        return self._proc.returncode
 
     def poll(self):
-        """Check if the process has exited yet.
+        """Returns the exit status of the process (an integer), or ``None`` if
+        it's still running.
 
-        Returns:
-          The exit status of the process, or ``None`` if it is still
-          running; see :attr:`returncode`.
+        Note that on Trio (unlike the standard library `subprocess.Popen`),
+        ``process.poll()`` and ``process.returncode`` always give the same
+        result. See `returncode` for more details. This method is only
+        included to make it easier to port code from `subprocess`.
+
         """
-        result = self._proc.poll()
-        if result is not None:
-            self._close_pidfd()
-        return result
+        return self.returncode
 
     def send_signal(self, sig):
         """Send signal ``sig`` to the process.
