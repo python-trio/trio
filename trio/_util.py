@@ -11,12 +11,6 @@ import threading
 
 from ._deprecate import warn_deprecated
 
-# There's a dependency loop here... _core is allowed to use this file (in fact
-# it's the *only* file in the main trio/ package it's allowed to use), but
-# ConflictDetector needs checkpoint so it also has to import
-# _core. Possibly we should split this file into two: one for true generic
-# low-level utility code, and one for higher level helpers?
-
 import trio
 
 # Equivalent to the C function raise(), which Python doesn't wrap

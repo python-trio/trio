@@ -6,12 +6,7 @@ set -ex -o pipefail
 env | sort
 
 if [ "$JOB_NAME" = "" ]; then
-    if [ "$SYSTEM_JOBIDENTIFIER" != "" ]; then
-        # azure pipelines
-        JOB_NAME="$SYSTEM_JOBDISPLAYNAME"
-    else
-        JOB_NAME="${TRAVIS_OS_NAME}-${TRAVIS_PYTHON_VERSION:-unknown}"
-    fi
+    JOB_NAME="${TRAVIS_OS_NAME}-${TRAVIS_PYTHON_VERSION:-unknown}"
 fi
 
 # Curl's built-in retry system is not very robust; it gives up on lots of
