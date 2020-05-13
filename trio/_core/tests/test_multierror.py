@@ -643,9 +643,6 @@ def test_custom_excepthook():
     completed = run_script("custom_excepthook.py")
     assert_match_in_seq(
         [
-            # The warning
-            "RuntimeWarning",
-            "already have a custom",
             # The message printed by the custom hook, proving we didn't
             # override it
             "custom running!",
@@ -696,10 +693,6 @@ def test_ipython_custom_exc_handler():
     completed = run_script("ipython_custom_exc.py", use_ipython=True)
     assert_match_in_seq(
         [
-            # The warning
-            "RuntimeWarning",
-            "IPython detected",
-            "skip installing Trio",
             # The MultiError
             "MultiError",
             "ValueError",
