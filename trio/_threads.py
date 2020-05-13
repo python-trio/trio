@@ -3,6 +3,7 @@ import queue as stdlib_queue
 from itertools import count
 
 import attr
+import inspect
 import outcome
 
 import trio
@@ -407,12 +408,13 @@ def from_thread_run_sync(fn, *args, trio_token=None):
         RunFinishedError: if the corresponding call to `trio.run` has
             already completed.
         Cancelled: if the corresponding call to `trio.run` completes
-            while ``afn(*args)`` is running, then ``afn`` is likely to raise
+            while ``fn(*args)`` is running, then ``fn`` is likely to raise
             :exc:`trio.Cancelled`, and this will propagate out into
         RuntimeError: if you try calling this from inside the Trio thread,
             which would otherwise cause a deadlock.
         AttributeError: if no ``trio_token`` was provided, and we can't infer
             one from context. Also if ``fn`` is not a sync function.
+        TypeError: if ``fn`` is not callable or is an async function
 
     **Locating a Trio Token**: There are two ways to specify which
     `trio.run` loop to reenter:
@@ -425,6 +427,14 @@ def from_thread_run_sync(fn, *args, trio_token=None):
           "foreign" thread, spawned using some other framework, and still want
           to enter Trio.
     """
+
+    if not callable(fn) or inspect.iscoroutinefunction(fn):
+        raise TypeError(
+            "Trio expected a sync function, but {!r} appears to not be "
+            "callable or asynchronous".format(
+                getattr(fn, "__qualname__", fn)
+            )
+        )
 
     def callback(q, fn, args):
         @disable_ki_protection
