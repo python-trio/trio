@@ -1,7 +1,6 @@
 import sys
 import traceback
 import textwrap
-import warnings
 
 import attr
 
@@ -153,6 +152,21 @@ class MultiErrorCatcher:
                 value.__context__ = old_context
 
 
+class MultiErrorCause(BaseException):
+    def __init__(self, exceptions):
+        self.embedded = list(traceback.TracebackException.from_exception(e)
+            for e in exceptions)
+
+    def __str__(self):
+        def lines():
+            for i, exc in enumerate(self.embedded):
+                yield "\nDetails of embedded exception {}:\n\n".format(i + 1)
+                yield from (
+                    textwrap.indent(line, " " * 2) for line in exc.format()
+                )
+        return '\n'.join(lines())
+
+
 class MultiError(BaseException):
     """An exception that contains other exceptions; also known as an
     "inception".
@@ -183,6 +197,7 @@ class MultiError(BaseException):
             assert len(exceptions) == 1 and exceptions[0] is self
             return
         self.exceptions = exceptions
+        self.__cause__ = MultiErrorCause(self.exceptions)
 
     def __new__(cls, exceptions):
         exceptions = list(exceptions)
@@ -355,47 +370,3 @@ def concat_tb(head, tail):
         current_head = copy_tb(head_tb, tb_next=current_head)
     return current_head
 
-
-################################################################
-# MultiError traceback formatting
-#
-# What follows is terrible, terrible monkey patching of
-# traceback.TracebackException to add support for handling
-# MultiErrors
-################################################################
-
-original_TracebackException_new = traceback.TracebackException.__new__
-
-
-class MultiTracebackException(traceback.TracebackException):
-    def __new__(cls, *args, **kwargs):
-        return original_TracebackException_new(*args, **kwargs)
-
-    def __init__(self, exc_type, exc_value, exc_traceback, **kwargs):
-        self.embedded = tuple(traceback.TracebackException.from_exception(e,
-            **kwargs) for e in exc_value.exceptions)
-        super().__init__(exc_type, exc_value, exc_traceback, **kwargs)
-
-    def format(self, *, chain=True):
-        yield from super().format(self, chain=chain)
-
-        for i, exc in enumerate(self.embedded):
-            yield "\nDetails of embedded exception {}:\n\n".format(i + 1)
-            yield from (
-                textwrap.indent(line, " " * 2) for line in exc.format(chain=chain)
-            )
-
-
-def new_traceback_exception_new(cls, exc_type, *args, **kwargs):
-    print('b0', file=sys.stderr)
-
-    if exc_type and issubclass(exc_type, MultiError):
-        print('b1', file=sys.stderr)
-        return object.__new__(MultiTracebackException)
-    else:
-        print('b2', file=sys.stderr)
-        return object.__new__(traceback.TracebackException)
-
-
-
-traceback.TracebackException.__new__ = new_traceback_exception_new
