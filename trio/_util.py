@@ -92,7 +92,7 @@ def is_main_thread():
 # Call the function and get the coroutine object, while giving helpful
 # errors for common mistakes. Returns coroutine object.
 ######
-def coroutine_or_error(async_fn, args):
+def coroutine_or_error(async_fn, args=[]):
     def _return_value_looks_like_wrong_library(value):
         # Returned by legacy @asyncio.coroutine functions, which includes
         # a surprising proportion of asyncio builtins.

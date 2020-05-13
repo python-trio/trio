@@ -1,9 +1,11 @@
 import signal
 import warnings
 import pytest
+from contextlib import contextmanager
 
 import trio
 from .. import _core
+from .._core.tests.tutil import gc_collect_harder
 from .._util import (
     signal_raise, ConflictDetector, is_main_thread, coroutine_or_error,
     generic_function, Final, NoPublicConstructor,
@@ -83,64 +85,80 @@ async def test_is_main_thread():
     await trio.to_thread.run_sync(not_main_thread)
 
 
-async def test_coroutine_or_error():
-
-    # error for: nursery.start_soon(trio.sleep(1))
-    warnings.filterwarnings("error")
-
-    async def test_afunc():
-        pass
-
-    with pytest.raises(TypeError):
+# Some of our tests need to leak coroutines, and thus trigger the
+# "RuntimeWarning: coroutine '...' was never awaited" message. This context
+# manager should be used anywhere this happens to hide those messages, because
+# when expected they're clutter.
+@contextmanager
+def ignore_coroutine_never_awaited_warnings():
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message="coroutine '.*' was never awaited"
+        )
         try:
-            coroutine_or_error(test_afunc(), [])
-        except RuntimeWarning:
+            yield
+        finally:
+            # Make sure to trigger any coroutine __del__ methods now, before
+            # we leave the context manager.
+            gc_collect_harder()
+
+
+# @coroutine is deprecated since python 3.8, which is fine with us.
+@pytest.mark.filterwarnings("ignore:.*@coroutine.*:DeprecationWarning")
+def test_coroutine_or_error():
+    class Deferred:
+        "Just kidding"
+
+    with ignore_coroutine_never_awaited_warnings():
+
+        async def f():  # pragma: no cover
             pass
 
-    # error for: nursery.start_soon(future)
+        with pytest.raises(TypeError) as excinfo:
+            coroutine_or_error(f())
+        assert "expecting an async function" in str(excinfo.value)
 
-    # legacy @asyncio.coroutine functions
-    def test_generator():
-        yield None
+        import asyncio
 
-    with pytest.raises(TypeError):
-        coroutine_or_error(test_generator, [])
+        @asyncio.coroutine
+        def generator_based_coro():  # pragma: no cover
+            yield from asyncio.sleep(1)
 
-    # asyncio Future-like object
-    class AsycioFutureLike:
-        def __init__(self):
-            self._asyncio_future_blocking = "im a value!"
+        with pytest.raises(TypeError) as excinfo:
+            coroutine_or_error(generator_based_coro())
+        assert "asyncio" in str(excinfo.value)
 
-    with pytest.raises(TypeError):
-        coroutine_or_error(AsycioFutureLike(), [])
+        with pytest.raises(TypeError) as excinfo:
+            coroutine_or_error(asyncio.Future())
+        assert "asyncio" in str(excinfo.value)
 
-    # tornado Futures
-    class Future:
-        pass
+        with pytest.raises(TypeError) as excinfo:
+            coroutine_or_error(lambda: asyncio.Future())
+        assert "asyncio" in str(excinfo.value)
 
-    with pytest.raises(TypeError):
-        coroutine_or_error(Future(), [])
+        with pytest.raises(TypeError) as excinfo:
+            coroutine_or_error(Deferred())
+        assert "twisted" in str(excinfo.value)
 
-    # twisted Deferreds
-    class Deferreds:
-        pass
+        with pytest.raises(TypeError) as excinfo:
+            coroutine_or_error(lambda: Deferred())
+        assert "twisted" in str(excinfo.value)
 
-    with pytest.raises(TypeError):
-        coroutine_or_error(Deferreds(), [])
+        with pytest.raises(TypeError) as excinfo:
+            coroutine_or_error(len, [[1, 2, 3]])
 
-    # async generator
-    async def test_agenerator():
-        yield None
+        assert "appears to be synchronous" in str(excinfo.value)
 
-    with pytest.raises(TypeError):
-        coroutine_or_error(test_agenerator, [])
+        async def async_gen(arg):  # pragma: no cover
+            yield
 
-    # synchronous function
-    def test_fn():
-        pass
+        with pytest.raises(TypeError) as excinfo:
+            coroutine_or_error(async_gen, [0])
+        msg = "expected an async function but got an async generator"
+        assert msg in str(excinfo.value)
 
-    with pytest.raises(TypeError):
-        coroutine_or_error(test_fn, [])
+        # Make sure no references are kept around to keep anything alive
+        del excinfo
 
 
 def test_generic_function():
