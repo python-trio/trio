@@ -367,6 +367,7 @@ def from_thread_run(afn, *args, trio_token=None):
             which would otherwise cause a deadlock.
         AttributeError: if no ``trio_token`` was provided, and we can't infer
             one from context.
+        TypeError: if ``afn`` is not an asynchronous function.
 
     **Locating a Trio Token**: There are two ways to specify which
     `trio.run` loop to reenter:
@@ -379,7 +380,6 @@ def from_thread_run(afn, *args, trio_token=None):
           "foreign" thread, spawned using some other framework, and still want
           to enter Trio.
     """
-
     def callback(q, afn, args):
         @disable_ki_protection
         async def unprotected_afn():
@@ -414,7 +414,7 @@ def from_thread_run_sync(fn, *args, trio_token=None):
             which would otherwise cause a deadlock.
         AttributeError: if no ``trio_token`` was provided, and we can't infer
             one from context. Also if ``fn`` is not a sync function.
-        TypeError: if ``fn`` is not callable or is an async function
+        TypeError: if ``fn`` is not callable or is an async function.
 
     **Locating a Trio Token**: There are two ways to specify which
     `trio.run` loop to reenter:
@@ -431,9 +431,7 @@ def from_thread_run_sync(fn, *args, trio_token=None):
     if not callable(fn) or inspect.iscoroutinefunction(fn):
         raise TypeError(
             "Trio expected a sync function, but {!r} appears to not be "
-            "callable or asynchronous".format(
-                getattr(fn, "__qualname__", fn)
-            )
+            "callable or asynchronous".format(getattr(fn, "__qualname__", fn))
         )
 
     def callback(q, fn, args):
