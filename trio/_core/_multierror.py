@@ -153,18 +153,31 @@ class MultiErrorCatcher:
 
 
 class MultiErrorCause(BaseException):
-    def __init__(self, exceptions):
-        self.embedded = list(traceback.TracebackException.from_exception(e)
-            for e in exceptions)
+    """
+    Helper class for MultiError
+    This is not expected to be raised as an exception - it just wraps multiple
+    causes for printing purposes
+    """
+    def __init__(self, multi_error):
+        if not isinstance(multi_error, MultiError):
+            raise TypeError(
+                "Expected a MultiError, not {!r}".format(multi_error)
+            )
+        self.multi_error = multi_error
 
     def __str__(self):
         def lines():
-            for i, exc in enumerate(self.embedded):
+            for i, exc in enumerate(self):
                 yield "\nDetails of embedded exception {}:\n\n".format(i + 1)
                 yield from (
-                    textwrap.indent(line, " " * 2) for line in exc.format()
+                    textwrap.indent(line, " " * 2) for line in
+                    traceback.format_exception(
+                        type(exc), exc, exc.__traceback__)
                 )
         return '\n'.join(lines())
+
+    def __iter__(self):
+        yield from self.multi_error.exceptions
 
 
 class MultiError(BaseException):
@@ -197,7 +210,7 @@ class MultiError(BaseException):
             assert len(exceptions) == 1 and exceptions[0] is self
             return
         self.exceptions = exceptions
-        self.__cause__ = MultiErrorCause(self.exceptions)
+        self.__cause__ = MultiErrorCause(self)
 
     def __new__(cls, exceptions):
         exceptions = list(exceptions)
@@ -260,6 +273,8 @@ class MultiError(BaseException):
 
 # Clean up exception printing:
 MultiError.__module__ = "trio"
+
+MultiErrorCause.__module__ = "trio"
 
 ################################################################
 # concat_tb
