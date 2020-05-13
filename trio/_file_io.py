@@ -6,8 +6,6 @@ from ._util import async_wraps
 
 import trio
 
-__all__ = ['open_file', 'wrap_file']
-
 # This list is also in the docs, make sure to keep them in sync
 _FILE_SYNC_ATTRS = {
     'closed',

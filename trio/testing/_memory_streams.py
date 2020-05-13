@@ -5,16 +5,6 @@ from .._highlevel_generic import StapledStream
 from .. import _util
 from ..abc import SendStream, ReceiveStream
 
-__all__ = [
-    "MemorySendStream",
-    "MemoryReceiveStream",
-    "memory_stream_pump",
-    "memory_stream_one_way_pair",
-    "memory_stream_pair",
-    "lockstep_stream_one_way_pair",
-    "lockstep_stream_pair",
-]
-
 ################################################################
 # In-memory streams - Unbounded buffer version
 ################################################################

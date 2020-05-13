@@ -324,8 +324,6 @@ _SOCK_TYPE_MASK = ~(
 )
 
 
-# Note that this is *not* in __all__.
-#
 # This function will modify the given socket to match the behavior in python
 # 3.7. This will become unecessary and can be removed when support for versions
 # older than 3.7 is dropped.

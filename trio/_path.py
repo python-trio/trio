@@ -6,8 +6,6 @@ import pathlib
 import trio
 from trio._util import async_wraps, SubclassingDeprecatedIn_v0_15_0
 
-__all__ = ['Path']
-
 
 # re-wrap return value from methods that return new instances of pathlib.Path
 def rewrap_path(value):

@@ -5,8 +5,6 @@ from math import inf
 import trio
 from . import socket as tsocket
 
-__all__ = ["open_tcp_listeners", "serve_tcp"]
-
 
 # Default backlog size:
 #

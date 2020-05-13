@@ -8,8 +8,6 @@ from . import socket as tsocket
 from ._util import ConflictDetector, SubclassingDeprecatedIn_v0_15_0
 from .abc import HalfCloseableStream, Listener
 
-__all__ = ["SocketStream", "SocketListener"]
-
 # XX TODO: this number was picked arbitrarily. We should do experiments to
 # tune it. (Or make it dynamic -- one idea is to start small and increase it
 # if we observe single reads filling up the whole buffer, at least within some

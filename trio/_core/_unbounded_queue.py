@@ -4,8 +4,6 @@ from .. import _core
 from .._deprecate import deprecated
 from .._util import SubclassingDeprecatedIn_v0_15_0
 
-__all__ = ["UnboundedQueue"]
-
 
 @attr.s(frozen=True)
 class _UnboundedQueueStats:

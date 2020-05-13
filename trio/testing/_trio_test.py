@@ -3,8 +3,6 @@ from functools import wraps, partial
 from .. import _core
 from ..abc import Clock, Instrument
 
-__all__ = ["trio_test"]
-
 
 # Use:
 #

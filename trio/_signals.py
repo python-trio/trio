@@ -5,8 +5,6 @@ from collections import OrderedDict
 import trio
 from ._util import signal_raise, is_main_thread, ConflictDetector
 
-__all__ = ["open_signal_receiver"]
-
 # Discussion of signal handling strategies:
 #
 # - On Windows signals barely exist. There are no options; signal handlers are

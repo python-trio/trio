@@ -10,8 +10,6 @@ from .. import Event
 if False:
     from typing import DefaultDict, Set
 
-__all__ = ["Sequencer"]
-
 
 @attr.s(eq=False, hash=False)
 class Sequencer(metaclass=_util.SubclassingDeprecatedIn_v0_15_0):

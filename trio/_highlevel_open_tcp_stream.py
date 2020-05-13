@@ -3,8 +3,6 @@ from contextlib import contextmanager
 import trio
 from trio.socket import getaddrinfo, SOCK_STREAM, socket
 
-__all__ = ["open_tcp_stream"]
-
 # Implementation of RFC 6555 "Happy eyeballs"
 # https://tools.ietf.org/html/rfc6555
 #

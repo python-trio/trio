@@ -3,11 +3,6 @@ import ssl
 
 from ._highlevel_open_tcp_stream import DEFAULT_DELAY
 
-__all__ = [
-    "open_ssl_over_tcp_stream", "open_ssl_over_tcp_listeners",
-    "serve_ssl_over_tcp"
-]
-
 
 # It might have been nice to take a ssl_protocols= argument here to set up
 # NPN/ALPN, but to do this we have to mutate the context object, which is OK

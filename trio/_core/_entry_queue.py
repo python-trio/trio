@@ -7,8 +7,6 @@ from .. import _core
 from .._util import NoPublicConstructor
 from ._wakeup_socketpair import WakeupSocketpair
 
-__all__ = ["TrioToken"]
-
 
 @attr.s(slots=True)
 class EntryQueue:
