@@ -366,14 +366,15 @@ def concat_tb(head, tail):
 
 original_TracebackException_new = traceback.TracebackException.__new__
 
-class MultiTracebackException(TracebackException):
-    def __new__(*args, **kwargs):
+
+class MultiTracebackException(traceback.TracebackException):
+    def __new__(cls, *args, **kwargs):
         return original_TracebackException_new(*args, **kwargs)
 
-    def __init__(self, embedded, *args, **kwargs):
-        self.embedded = embedded
-        super().__init__(*args, **kwargs)
-
+    def __init__(self, exc_type, exc_value, exc_traceback, **kwargs):
+        self.embedded = tuple(traceback.TracebackException.from_exception(e,
+            **kwargs) for e in exc_value.exceptions)
+        super().__init__(exc_type, exc_value, exc_traceback, **kwargs)
 
     def format(self, *, chain=True):
         yield from super().format(self, chain=chain)
@@ -385,12 +386,16 @@ class MultiTracebackException(TracebackException):
             )
 
 
-def new_traceback_exception_new(exc_type, exc_value, *args, **kwargs):
+def new_traceback_exception_new(cls, exc_type, *args, **kwargs):
+    print('b0', file=sys.stderr)
+
     if exc_type and issubclass(exc_type, MultiError):
-        embedded = tuple(InnerException(e) for e in exc_value.exceptions)
-        return MultiTracebackException(embedded, exc_type, exc_value, *args, **kwargs)
+        print('b1', file=sys.stderr)
+        return object.__new__(MultiTracebackException)
     else:
-        result = original_TracebackException_new(exc_type, exc_value, *args, **kwargs)
-        result.__init__(exc_type, exc_value, *args, **kwargs)
+        print('b2', file=sys.stderr)
+        return object.__new__(traceback.TracebackException)
+
+
 
 traceback.TracebackException.__new__ = new_traceback_exception_new
