@@ -155,8 +155,8 @@ class MultiErrorCatcher:
 class MultiErrorCause(BaseException):
     """
     Helper class for MultiError
-    This is not expected to be raised as an exception - it just wraps multiple
-    causes for printing purposes
+    This is not expected to be raised as an exception - it only inherits
+    from BaseException so it can be assigned to MultiError.__cause__
     """
     def __init__(self, multi_error):
         if not isinstance(multi_error, MultiError):
@@ -210,6 +210,8 @@ class MultiError(BaseException):
             assert len(exceptions) == 1 and exceptions[0] is self
             return
         self.exceptions = exceptions
+        # should be a property, but some of python error handling circumvents
+        # getters and setters
         self.__cause__ = MultiErrorCause(self)
 
     def __new__(cls, exceptions):
