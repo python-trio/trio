@@ -12,7 +12,8 @@ from ._exceptions import (
 from ._multierror import MultiError
 
 from ._ki import (
-    enable_ki_protection, disable_ki_protection, currently_ki_protected
+    enable_ki_protection, disable_ki_protection, mark_ki_unsafe_as_leaf,
+    ki_allowed_if_safe, ki_forbidden, currently_ki_protected
 )
 
 # Imports that always exist
