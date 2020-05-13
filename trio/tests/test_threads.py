@@ -471,6 +471,13 @@ async def test_trio_from_thread_run_sync():
     trio_time = await to_thread_run_sync(thread_fn)
     assert isinstance(trio_time, float)
 
+    # Test correct error when passed async function
+    async def async_fn():
+        pass
+
+    with pytest.raises(TypeError):
+        from_thread_run_sync(async_fn)
+
 
 async def test_trio_from_thread_run():
     # Test that to_thread_run_sync correctly "hands off" the trio token to
@@ -487,6 +494,16 @@ async def test_trio_from_thread_run():
 
     await to_thread_run_sync(thread_fn)
     assert record == ["in thread", "back in trio"]
+
+    # Test correct error when passed sync function
+    def sync_fn():
+        pass
+
+    def thread_fn():
+        from_thread_run(sync_fn)
+
+    with pytest.raises(TypeError):
+        await to_thread_run_sync(thread_fn)
 
 
 async def test_trio_from_thread_token():
