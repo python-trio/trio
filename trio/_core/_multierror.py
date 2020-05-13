@@ -168,7 +168,7 @@ class MultiErrorCause(BaseException):
     def __str__(self):
         def lines():
             for i, exc in enumerate(self):
-                yield "\nDetails of embedded exception {}:\n\n".format(i + 1)
+                yield "\nDetails of cause {}:\n\n".format(i + 1)
                 yield from (
                     textwrap.indent(line, " " * 2) for line in
                     traceback.format_exception(
@@ -274,7 +274,8 @@ class MultiError(BaseException):
 # Clean up exception printing:
 MultiError.__module__ = "trio"
 
-MultiErrorCause.__module__ = "trio"
+MultiErrorCause.__name__ = "__cause__"
+MultiErrorCause.__module__ = MultiError.__qualname__
 
 ################################################################
 # concat_tb
