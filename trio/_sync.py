@@ -9,15 +9,6 @@ from ._core import enable_ki_protection, ParkingLot
 from ._deprecate import deprecated
 from ._util import SubclassingDeprecatedIn_v0_15_0
 
-__all__ = [
-    "Event",
-    "CapacityLimiter",
-    "Semaphore",
-    "Lock",
-    "StrictFIFOLock",
-    "Condition",
-]
-
 
 @attr.s(repr=False, eq=False, hash=False)
 class Event(metaclass=SubclassingDeprecatedIn_v0_15_0):

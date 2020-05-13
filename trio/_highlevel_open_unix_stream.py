@@ -10,8 +10,6 @@ try:
 except ImportError:
     has_unix = False
 
-__all__ = ["open_unix_socket"]
-
 
 @contextmanager
 def close_on_error(obj):

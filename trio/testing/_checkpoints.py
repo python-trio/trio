@@ -2,8 +2,6 @@ from contextlib import contextmanager
 
 from .. import _core
 
-__all__ = ["assert_checkpoints", "assert_no_checkpoints"]
-
 
 @contextmanager
 def _assert_yields_or_not(expected):

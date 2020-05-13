@@ -3,8 +3,6 @@ from . import _run
 
 from .._util import SubclassingDeprecatedIn_v0_15_0
 
-__all__ = ["RunVar"]
-
 
 class _RunVarToken:
     _no_value = object()

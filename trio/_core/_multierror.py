@@ -5,8 +5,6 @@ import warnings
 
 import attr
 
-__all__ = ["MultiError"]
-
 # python traceback.TracebackException < 3.6.4 does not support unhashable exceptions
 # see https://github.com/python/cpython/pull/4014 for details
 if sys.version_info < (3, 6, 4):

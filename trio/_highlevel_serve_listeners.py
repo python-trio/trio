@@ -4,8 +4,6 @@ import os
 
 import trio
 
-__all__ = ["serve_listeners"]
-
 # Errors that accept(2) can return, and which indicate that the system is
 # overloaded
 ACCEPT_CAPACITY_ERRNOS = {

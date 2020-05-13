@@ -3,8 +3,6 @@ from . import _timeouts
 import trio
 from ._core._windows_cffi import ffi, kernel32, ErrorCodes, raise_winerror, _handle
 
-__all__ = ["WaitForSingleObject"]
-
 
 async def WaitForSingleObject(obj):
     """Async and cancellable variant of WaitForSingleObject. Windows only.

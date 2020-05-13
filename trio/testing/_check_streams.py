@@ -8,12 +8,6 @@ from .._highlevel_generic import aclose_forcefully
 from .._abc import SendStream, ReceiveStream, Stream, HalfCloseableStream
 from ._checkpoints import assert_checkpoints
 
-__all__ = [
-    "check_one_way_stream",
-    "check_two_way_stream",
-    "check_half_closeable_stream",
-]
-
 
 class _ForceCloseBoth:
     def __init__(self, both):
