@@ -1,12 +1,13 @@
 import signal
-
+import warnings
 import pytest
 
 import trio
 from .. import _core
 from .._util import (
-    signal_raise, ConflictDetector, is_main_thread, generic_function, Final,
-    NoPublicConstructor, SubclassingDeprecatedIn_v0_15_0
+    signal_raise, ConflictDetector, is_main_thread, coroutine_or_error,
+    generic_function, Final, NoPublicConstructor,
+    SubclassingDeprecatedIn_v0_15_0
 )
 from ..testing import wait_all_tasks_blocked
 
@@ -80,6 +81,66 @@ async def test_is_main_thread():
         assert not is_main_thread()
 
     await trio.to_thread.run_sync(not_main_thread)
+
+
+async def test_coroutine_or_error():
+
+    # error for: nursery.start_soon(trio.sleep(1))
+    warnings.filterwarnings("error")
+
+    async def test_afunc():
+        pass
+
+    with pytest.raises(TypeError):
+        try:
+            coroutine_or_error(test_afunc(), [])
+        except RuntimeWarning:
+            pass
+
+    # error for: nursery.start_soon(future)
+
+    # legacy @asyncio.coroutine functions
+    def test_generator():
+        yield None
+
+    with pytest.raises(TypeError):
+        coroutine_or_error(test_generator, [])
+
+    # asyncio Future-like object
+    class AsycioFutureLike:
+        def __init__(self):
+            self._asyncio_future_blocking = "im a value!"
+
+    with pytest.raises(TypeError):
+        coroutine_or_error(AsycioFutureLike(), [])
+
+    # tornado Futures
+    class Future:
+        pass
+
+    with pytest.raises(TypeError):
+        coroutine_or_error(Future(), [])
+
+    # twisted Deferreds
+    class Deferreds:
+        pass
+
+    with pytest.raises(TypeError):
+        coroutine_or_error(Deferreds(), [])
+
+    # async generator
+    async def test_agenerator():
+        yield None
+
+    with pytest.raises(TypeError):
+        coroutine_or_error(test_agenerator, [])
+
+    # synchronous function
+    def test_fn():
+        pass
+
+    with pytest.raises(TypeError):
+        coroutine_or_error(test_fn, [])
 
 
 def test_generic_function():
