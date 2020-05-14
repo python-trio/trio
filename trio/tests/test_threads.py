@@ -472,7 +472,7 @@ async def test_trio_from_thread_run_sync():
     assert isinstance(trio_time, float)
 
     # Test correct error when passed async function
-    async def async_fn():
+    async def async_fn():  # pragma: no cover
         pass
 
     with pytest.raises(TypeError) as excinfo:
@@ -498,7 +498,7 @@ async def test_trio_from_thread_run():
     assert record == ["in thread", "back in trio"]
 
     # Test correct error when passed sync function
-    def sync_fn():
+    def sync_fn():  # pragma: no cover
         pass
 
     def thread_fn():
