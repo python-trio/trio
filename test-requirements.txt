@@ -15,7 +15,7 @@ cryptography==2.9.2       # via pyopenssl, trustme
 decorator==4.4.2          # via ipython, traitlets
 flake8==3.8.1             # via -r test-requirements.in
 idna==2.9                 # via -r test-requirements.in, trustme
-immutables==0.12          # via -r test-requirements.in
+immutables==0.13          # via -r test-requirements.in
 ipython-genutils==0.2.0   # via traitlets
 ipython==7.14.0           # via -r test-requirements.in
 isort==4.3.21             # via pylint
