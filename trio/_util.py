@@ -92,7 +92,7 @@ def is_main_thread():
 # Call the function and get the coroutine object, while giving helpful
 # errors for common mistakes. Returns coroutine object.
 ######
-def coroutine_or_error(async_fn, args=[]):
+def coroutine_or_error(async_fn, *args):
     def _return_value_looks_like_wrong_library(value):
         # Returned by legacy @asyncio.coroutine functions, which includes
         # a surprising proportion of asyncio builtins.
@@ -110,9 +110,14 @@ def coroutine_or_error(async_fn, args=[]):
 
     try:
         coro = async_fn(*args)
+
     except TypeError:
         # Give good error for: nursery.start_soon(trio.sleep(1))
         if isinstance(async_fn, collections.abc.Coroutine):
+
+            # explicitly close coroutine to avoid RuntimeWarning
+            async_fn.close()
+
             raise TypeError(
                 "Trio was expecting an async function, but instead it got "
                 "a coroutine object {async_fn!r}\n"
@@ -148,7 +153,7 @@ def coroutine_or_error(async_fn, args=[]):
         # Give good error for: nursery.start_soon(func_returning_future)
         if _return_value_looks_like_wrong_library(coro):
             raise TypeError(
-                "start_soon got unexpected {!r} – are you trying to use a "
+                "Trio got unexpected {!r} – are you trying to use a "
                 "library written for asyncio/twisted/tornado or similar? "
                 "That won't work without some sort of compatibility shim."
                 .format(coro)

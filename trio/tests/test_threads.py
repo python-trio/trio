@@ -13,7 +13,7 @@ from .._threads import (
 )
 
 from .._core.tests.test_ki import ki_self
-from .._core.tests.tutil import slow
+from .._core.tests.tutil import ignore_coroutine_never_awaited_warnings
 
 
 async def test_do_in_trio_thread():
@@ -475,10 +475,12 @@ async def test_trio_from_thread_run_sync():
     async def async_fn():  # pragma: no cover
         pass
 
-    with pytest.raises(TypeError) as excinfo:
+    def thread_fn():
         from_thread_run_sync(async_fn)
 
-    assert "expected a sync function" in str(excinfo.value)
+    with pytest.raises(TypeError, match="expected a sync function"):
+
+        await to_thread_run_sync(thread_fn)
 
 
 async def test_trio_from_thread_run():
@@ -501,13 +503,9 @@ async def test_trio_from_thread_run():
     def sync_fn():  # pragma: no cover
         pass
 
-    def thread_fn():
-        from_thread_run(sync_fn)
+    with pytest.raises(TypeError, match="appears to be synchronous"):
 
-    with pytest.raises(TypeError) as excinfo:
-        await to_thread_run_sync(thread_fn)
-
-    assert "appears to be synchronous" in str(excinfo.value)
+        await to_thread_run_sync(from_thread_run, sync_fn)
 
 
 async def test_trio_from_thread_token():

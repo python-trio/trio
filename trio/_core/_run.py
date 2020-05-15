@@ -1242,12 +1242,11 @@ class Runner:
         if nursery is None:
             assert self.init_task is None
 
-        # Check if async_fn is callable coroutine
-        coro = coroutine_or_error(async_fn, args)
-
         ######
-        # Set up the Task object
+        # Call the function and get the coroutine object, while giving helpful
+        # errors for common mistakes.
         ######
+        coro = coroutine_or_error(async_fn, *args)
 
         if name is None:
             name = async_fn
