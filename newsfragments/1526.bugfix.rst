@@ -1,0 +1,1 @@
+Calling `open_signal_receiver` with no arguments used to succeed without listening for any signals. This was confusing, so now it raises TypeError instead.
