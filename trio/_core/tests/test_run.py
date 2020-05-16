@@ -1698,10 +1698,9 @@ def test_nice_error_on_bad_calls_to_run_or_spawn():
         async def f():  # pragma: no cover
             pass
 
-        with ignore_coroutine_never_awaited_warnings():
-            with pytest.raises(TypeError, match="expecting an async function"):
+        with pytest.raises(TypeError, match="expecting an async function"):
 
-                bad_call(f())
+            bad_call(f())
 
         async def async_gen(arg):  # pragma: no cover
             yield arg
@@ -1710,7 +1709,6 @@ def test_nice_error_on_bad_calls_to_run_or_spawn():
             TypeError,
             match="expected an async function but got an async generator"
         ):
-
             bad_call(async_gen, 0)
 
 

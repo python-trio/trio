@@ -13,7 +13,6 @@ from .._threads import (
 )
 
 from .._core.tests.test_ki import ki_self
-from .._core.tests.tutil import ignore_coroutine_never_awaited_warnings
 
 
 async def test_do_in_trio_thread():

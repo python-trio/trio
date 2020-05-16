@@ -1273,6 +1273,9 @@ class Runner:
             LOCALS_KEY_KI_PROTECTION_ENABLED, system_task
         )
 
+        ######
+        # Set up the Task object
+        ######
         task = Task._create(
             coro=coro,
             parent_nursery=nursery,

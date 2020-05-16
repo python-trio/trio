@@ -411,7 +411,7 @@ def from_thread_run_sync(fn, *args, trio_token=None):
             which would otherwise cause a deadlock.
         AttributeError: if no ``trio_token`` was provided, and we can't infer
             one from context. Also if ``fn`` is not a sync function.
-        TypeError: if ``fn`` is not callable or is an async function.
+        TypeError: if ``fn`` is an async function.
 
     **Locating a Trio Token**: There are two ways to specify which
     `trio.run` loop to reenter:
@@ -427,16 +427,18 @@ def from_thread_run_sync(fn, *args, trio_token=None):
     def callback(q, fn, args):
         @disable_ki_protection
         def unprotected_fn():
-            call = fn(*args)
+            ret = fn(*args)
 
-            if inspect.iscoroutine(call):
-                call.close()
+            if inspect.iscoroutine(ret):
+
+                # Manually close coroutine to avoid RuntimeWarnings
+                ret.close()
                 raise TypeError(
                     "Trio expected a sync function, but {!r} appears to be "
                     "asynchronous".format(getattr(fn, "__qualname__", fn))
                 )
 
-            return call
+            return ret
 
         res = outcome.capture(unprotected_fn)
         q.put_nowait(res)
