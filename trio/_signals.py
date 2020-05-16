@@ -129,6 +129,8 @@ def open_signal_receiver(*signals):
       signals: the signals to listen for.
 
     Raises:
+      TypeError: if no signals were provided.
+
       RuntimeError: if you try to use this anywhere except Python's main
           thread. (This is a Python limitation.)
 
@@ -144,6 +146,9 @@ def open_signal_receiver(*signals):
                  reload_configuration()
 
     """
+    if not signals:
+        raise TypeError("No signals were provided")
+
     if not is_main_thread():
         raise RuntimeError(
             "Sorry, open_signal_receiver is only possible when running in "
