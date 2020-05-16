@@ -4,6 +4,7 @@ import subprocess
 import sys
 import pytest
 import random
+from functools import partial
 
 from .. import (
     _core, move_on_after, fail_after, sleep, sleep_forever, Process,
@@ -425,3 +426,56 @@ def test_waitid_eintr():
             sleeper.kill()
             sleeper.wait()
         signal.signal(signal.SIGALRM, old_sigalrm)
+
+
+async def test_custom_deliver_cancel():
+    custom_deliver_cancel_called = False
+
+    async def custom_deliver_cancel(proc):
+        nonlocal custom_deliver_cancel_called
+        custom_deliver_cancel_called = True
+        proc.terminate()
+        # Make sure this does get cancelled when the process exits, and that
+        # the process really exited.
+        try:
+            await sleep_forever()
+        finally:
+            assert proc.returncode is not None
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(
+            partial(
+                run_process, SLEEP(9999), deliver_cancel=custom_deliver_cancel
+            )
+        )
+        await wait_all_tasks_blocked()
+        nursery.cancel_scope.cancel()
+
+    assert custom_deliver_cancel_called
+
+
+async def test_warn_on_failed_cancel_terminate(monkeypatch):
+    original_terminate = Process.terminate
+
+    def broken_terminate(self):
+        original_terminate(self)
+        raise OSError("whoops")
+
+    monkeypatch.setattr(Process, "terminate", broken_terminate)
+
+    with pytest.warns(RuntimeWarning, match=".*whoops.*"):
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(run_process, SLEEP(9999))
+            await wait_all_tasks_blocked()
+            nursery.cancel_scope.cancel()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="posix only")
+async def test_warn_on_cancel_SIGKILL_escalation(autojump_clock, monkeypatch):
+    monkeypatch.setattr(Process, "terminate", lambda *args: None)
+
+    with pytest.warns(RuntimeWarning, match=".*ignored SIGTERM.*"):
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(run_process, SLEEP(9999))
+            await wait_all_tasks_blocked()
+            nursery.cancel_scope.cancel()
