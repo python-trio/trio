@@ -3,6 +3,7 @@ import subprocess
 import sys
 from typing import Optional
 from functools import partial
+import warnings
 
 from ._abc import AsyncResource, SendStream, ReceiveStream
 from ._highlevel_generic import StapledStream
@@ -377,6 +378,34 @@ async def open_process(
     return Process._create(popen, trio_stdin, trio_stdout, trio_stderr)
 
 
+async def _windows_deliver_cancel(p):
+    try:
+        p.terminate()
+    except OSError as exc:
+        warnings.warn(
+            RuntimeWarning(f"TerminateProcess on {p!r} failed with: {exc!r}")
+        )
+
+
+async def _posix_deliver_cancel(p):
+    try:
+        p.terminate()
+        await trio.sleep(5)
+        warnings.warn(
+            RuntimeWarning(
+                f"process {p!r} ignored SIGTERM for 5 seconds. "
+                f"(Maybe you should custom deliver_cancel?) Trying SIGKILL."
+            )
+        )
+        p.kill()
+    except OSError as exc:
+        warnings.warn(
+            RuntimeWarning(
+                f"tried to kill process {p!r}, but failed with: {exc!r}"
+            )
+        )
+
+
 async def run_process(
     command,
     *,
@@ -384,6 +413,7 @@ async def run_process(
     capture_stdout=False,
     capture_stderr=False,
     check=True,
+    deliver_cancel=None,
     **options
 ):
     """Run ``command`` in a subprocess, wait for it to complete, and
@@ -441,6 +471,7 @@ async def run_process(
           ``**options``, or on Windows, ``command`` may alternatively
           be a string, which will be parsed following platform-dependent
           :ref:`quoting rules <subprocess-quoting>`.
+
       stdin (:obj:`bytes`, file descriptor, or None): The bytes to provide to
           the subprocess on its standard input stream, or ``None`` if the
           subprocess's standard input should come from the same place as
@@ -449,18 +480,52 @@ async def run_process(
           file descriptor or an object with a ``fileno()`` method,
           in which case the subprocess's standard input will come from
           that file.
+
       capture_stdout (bool): If true, capture the bytes that the subprocess
           writes to its standard output stream and return them in the
           :attr:`~subprocess.CompletedProcess.stdout` attribute
           of the returned :class:`~subprocess.CompletedProcess` object.
+
       capture_stderr (bool): If true, capture the bytes that the subprocess
           writes to its standard error stream and return them in the
           :attr:`~subprocess.CompletedProcess.stderr` attribute
           of the returned :class:`~subprocess.CompletedProcess` object.
+
       check (bool): If false, don't validate that the subprocess exits
           successfully. You should be sure to check the
           ``returncode`` attribute of the returned object if you pass
           ``check=False``, so that errors don't pass silently.
+
+      deliver_cancel (async function or None): If `run_process` is cancelled,
+          then it needs to kill the child process. There are multiple ways to
+          do this, so we let you customize it.
+
+          If you pass None (the default), then the behavior depends on the
+          platform:
+
+          - On Windows, Trio calls ``TerminateProcess``, which should kill the
+            process immediately.
+
+          - On Unix-likes, the default behavior is to send a ``SIGTERM``, wait
+            5 seconds, and send a ``SIGKILL``.
+
+          Alternatively, you can customize this behavior by passing in an
+          arbitrary async function, which will be called with the `Process`
+          object as an argument. For example, the default Unix behavior could
+          be implemented like this::
+
+             async def my_deliver_cancel(process):
+                 process.send_signal(signal.SIGTERM)
+                 await trio.sleep(5)
+                 process.send_signal(signal.SIGKILL)
+
+          When the process actually exits, the ``deliver_cancel`` function
+          will automatically be cancelled – so if the process exits after
+          ``SIGTERM``, then we'll never reach the ``SIGKILL``.
+
+          In any case, `run_process` will always wait for the child process to
+          exit before raising `Cancelled`.
+
       **options: :func:`run_process` also accepts any :ref:`general subprocess
           options <subprocess-options>` and passes them on to the
           :class:`~trio.Process` constructor. This includes the
@@ -518,6 +583,13 @@ async def run_process(
             raise ValueError("can't specify both stderr and capture_stderr")
         options["stderr"] = subprocess.PIPE
 
+    if deliver_cancel is None:
+        if os.name == "nt":
+            deliver_cancel = _windows_deliver_cancel
+        else:
+            assert os.name == "posix"
+            deliver_cancel = _posix_deliver_cancel
+
     stdout_chunks = []
     stderr_chunks = []
 
@@ -542,7 +614,20 @@ async def run_process(
                 nursery.start_soon(read_output, proc.stdout, stdout_chunks)
             if proc.stderr is not None:
                 nursery.start_soon(read_output, proc.stderr, stderr_chunks)
-            await proc.wait()
+            try:
+                await proc.wait()
+            except trio.Cancelled:
+                with trio.CancelScope(shield=True):
+                    killer_cscope = trio.CancelScope(shield=True)
+
+                    async def killer():
+                        with killer_cscope:
+                            await deliver_cancel(proc)
+
+                    nursery.start_soon(killer)
+                    await proc.wait()
+                    killer_cscope.cancel()
+                    raise
 
     stdout = b"".join(stdout_chunks) if proc.stdout is not None else None
     stderr = b"".join(stderr_chunks) if proc.stderr is not None else None
