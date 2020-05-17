@@ -434,8 +434,8 @@ def trio_excepthook(etype, value, tb):
         sys.stderr.write(chunk)
 
 
-IPython_handler_installed = False
-warning_given = False
+monkeypatched_or_warned = False
+
 if "IPython" in sys.modules:
     import IPython
     ip = IPython.get_ipython()
@@ -448,7 +448,7 @@ if "IPython" in sys.modules:
                 "tracebacks.",
                 category=RuntimeWarning
             )
-            warning_given = True
+            monkeypatched_or_warned = True
         else:
 
             def trio_show_traceback(self, etype, value, tb, tb_offset=None):
@@ -457,15 +457,44 @@ if "IPython" in sys.modules:
                 trio_excepthook(etype, value, tb)
 
             ip.set_custom_exc((MultiError,), trio_show_traceback)
-            IPython_handler_installed = True
+            monkeypatched_or_warned = True
 
 if sys.excepthook is sys.__excepthook__:
     sys.excepthook = trio_excepthook
-else:
-    if not IPython_handler_installed and not warning_given:
-        warnings.warn(
-            "You seem to already have a custom sys.excepthook handler "
-            "installed. I'll skip installing Trio's custom handler, but this "
-            "means MultiErrors will not show full tracebacks.",
-            category=RuntimeWarning
-        )
+    monkeypatched_or_warned = True
+
+# Ubuntu's system Python has a sitecustomize.py file that import
+# apport_python_hook and replaces sys.excepthook.
+#
+# The custom hook captures the error for crash reporting, and then calls
+# sys.__excepthook__ to actually print the error.
+#
+# We don't mind it capturing the error for crash reporting, but we want to
+# take over printing the error. So we monkeypatch the apport_python_hook
+# module so that instead of calling sys.__excepthook__, it calls our custom
+# hook.
+#
+# More details: https://github.com/python-trio/trio/issues/1065
+if sys.excepthook.__name__ == "apport_excepthook":
+    import apport_python_hook
+    assert sys.excepthook is apport_python_hook.apport_excepthook
+
+    # Give it a descriptive name as a hint for anyone who's stuck trying to
+    # debug this mess later.
+    class TrioFakeSysModuleForApport:
+        pass
+
+    fake_sys = TrioFakeSysModuleForApport()
+    fake_sys.__dict__.update(sys.__dict__)
+    fake_sys.__excepthook__ = trio_excepthook
+    apport_python_hook.sys = fake_sys
+
+    monkeypatched_or_warned = True
+
+if not monkeypatched_or_warned:
+    warnings.warn(
+        "You seem to already have a custom sys.excepthook handler "
+        "installed. I'll skip installing Trio's custom handler, but this "
+        "means MultiErrors will not show full tracebacks.",
+        category=RuntimeWarning
+    )
