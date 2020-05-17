@@ -709,3 +709,26 @@ def test_ipython_custom_exc_handler():
     )
     # Make sure our other warning doesn't show up
     assert "custom sys.excepthook" not in completed.stdout.decode("utf-8")
+
+
+@slow
+@pytest.mark.skipif(
+    not Path("/usr/lib/python3/dist-packages/apport_python_hook.py").exists(),
+    reason="need Ubuntu with python3-apport installed"
+)
+def test_apport_excepthook_monkeypatch_interaction():
+    completed = run_script("apport_excepthook.py")
+    stdout = completed.stdout.decode("utf-8")
+
+    # No warning
+    assert "custom sys.excepthook" not in stdout
+
+    # Proper traceback
+    assert_match_in_seq(
+        [
+            "Details of embedded",
+            "KeyError",
+            "Details of embedded",
+            "ValueError",
+        ], stdout
+    )
