@@ -410,7 +410,7 @@ def from_thread_run_sync(fn, *args, trio_token=None):
         RuntimeError: if you try calling this from inside the Trio thread,
             which would otherwise cause a deadlock.
         AttributeError: if no ``trio_token`` was provided, and we can't infer
-            one from context. Also if ``fn`` is not a sync function.
+            one from context.
         TypeError: if ``fn`` is an async function.
 
     **Locating a Trio Token**: There are two ways to specify which
@@ -430,7 +430,6 @@ def from_thread_run_sync(fn, *args, trio_token=None):
             ret = fn(*args)
 
             if inspect.iscoroutine(ret):
-
                 # Manually close coroutine to avoid RuntimeWarnings
                 ret.close()
                 raise TypeError(

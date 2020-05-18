@@ -1699,7 +1699,6 @@ def test_nice_error_on_bad_calls_to_run_or_spawn():
             pass
 
         with pytest.raises(TypeError, match="expecting an async function"):
-
             bad_call(f())
 
         async def async_gen(arg):  # pragma: no cover
