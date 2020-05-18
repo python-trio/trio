@@ -14,7 +14,7 @@ click==7.1.2              # via towncrier
 docutils==0.16            # via sphinx
 idna==2.9                 # via -r docs-requirements.in, requests
 imagesize==1.2.0          # via sphinx
-immutables==0.13          # via -r docs-requirements.in
+immutables==0.14          # via -r docs-requirements.in
 incremental==17.5.0       # via towncrier
 jinja2==2.11.2            # via sphinx, towncrier
 markupsafe==1.1.1         # via jinja2
