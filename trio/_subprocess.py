@@ -394,7 +394,8 @@ async def _posix_deliver_cancel(p):
         warnings.warn(
             RuntimeWarning(
                 f"process {p!r} ignored SIGTERM for 5 seconds. "
-                f"(Maybe you should custom deliver_cancel?) Trying SIGKILL."
+                f"(Maybe you should pass a custom deliver_cancel?) "
+                f"Trying SIGKILL."
             )
         )
         p.kill()
