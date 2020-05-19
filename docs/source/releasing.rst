@@ -19,7 +19,7 @@ Things to do for releasing:
 
 * Do the actual release changeset
 
-   + update version number
+   + bump version number
 
       - increment as per Semantic Versioning rules
 
@@ -37,31 +37,18 @@ Things to do for releasing:
 
 * create pull request to ``python-trio/trio``'s "master" branch
 
-* announce PR on gitter
-
-   + wait for feedback
-
-   + fix problems, if any
-
 * verify that all checks succeeded
 
-* acknowledge the release PR
-
-   + or rather, somebody else should do that
-
-* tag with vVERSION
+* tag with vVERSION, push tag
 
 * push to PyPI
 
    + ``python3 setup.py sdist bdist_wheel upload``
 
-* announce on gitter
-
-* update version number
+* update version number in the same pull request
 
    + add ``+dev`` tag to the end
 
-* prepare another pull request to "master"
+* approve and merge the release pull request
 
-   + acknowledge it
-
+* announce on gitter
