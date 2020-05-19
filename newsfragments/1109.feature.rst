@@ -1,3 +1,0 @@
-It turns out that creating a subprocess can block the parent process
-for a surprisingly long time. So `trio.open_process` now uses a worker
-thread to avoid blocking the event loop.
