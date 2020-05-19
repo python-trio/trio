@@ -1,4 +1,0 @@
-The `trio.Process.returncode` attribute is now automatically updated
-as needed, instead of only when you call `~trio.Process.poll` or
-`~trio.Process.wait`. Also, ``repr(process_object)`` now always
-contains up-to-date information about the process status.

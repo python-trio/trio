@@ -1,1 +1,0 @@
-Remove ``clear`` method on `trio.Event`: it was deprecated in 0.12.0.

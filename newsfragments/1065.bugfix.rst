@@ -1,8 +1,0 @@
-On Ubuntu systems, the system Python includes a custom
-unhandled-exception hook to perform `crash reporting
-<https://wiki.ubuntu.com/Apport>`__. Unfortunately, Trio wants to use
-the same hook to print nice `MultiError` tracebacks, causing a
-conflict. Previously, Trio would detect the conflict, print a warning,
-and you just wouldn't get nice `MultiError` tracebacks. Now, Trio has
-gotten clever enough to integrate its hook with Ubuntu's, so the two
-systems should Just Work together.

@@ -1,7 +1,0 @@
-Previously, when `trio.run_process` was cancelled, it always killed
-the subprocess immediately. Now, on Unix, it first gives the process a
-chance to clean up by sending ``SIGTERM``, and only escalates to
-``SIGKILL`` if the process is still running after 5 seconds. But if
-you prefer the old behavior, or want to adjust the timeout, then don't
-worry: you can now pass a custom ``deliver_cancel=`` argument to
-define your own process killing policy.
