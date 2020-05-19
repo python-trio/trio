@@ -41,14 +41,16 @@ Things to do for releasing:
 
 * tag with vVERSION, push tag
 
-* push to PyPI
+* push to PyPI::
 
-   + ``python3 setup.py sdist bdist_wheel upload``
+    git clean -xdf   # maybe run 'git clean -xdn' first to see what it will delete
+    python3 setup.py sdist bdist_wheel
+    twine upload dist/*
 
 * update version number in the same pull request
 
    + add ``+dev`` tag to the end
 
-* approve and merge the release pull request
+* merge the release pull request
 
 * announce on gitter
