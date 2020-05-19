@@ -386,9 +386,8 @@ def test_ki_protection_works():
         ki_self()
         task = _core.current_task()
 
-        def abort(raise_cancel):
-            result = outcome.capture(raise_cancel)
-            _core.reschedule(task, result)
+        def abort(exc):
+            _core.reschedule(task, outcome.Error(exc))
             return _core.Abort.FAILED
 
         with pytest.raises(KeyboardInterrupt):

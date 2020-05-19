@@ -104,8 +104,8 @@ class KqueueIOManager:
             )
         self._registered[key] = _core.current_task()
 
-        def abort(raise_cancel):
-            r = abort_func(raise_cancel)
+        def abort(exc):
+            r = abort_func(exc)
             if r is _core.Abort.SUCCEEDED:
                 del self._registered[key]
             return r

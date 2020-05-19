@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import functools
 import itertools
 import logging
@@ -829,8 +831,8 @@ class Nursery(metaclass=NoPublicConstructor):
             # If we get cancelled (or have an exception injected, like
             # KeyboardInterrupt), then save that, but still wait until our
             # children finish.
-            def aborted(raise_cancel):
-                self._add_exc(capture(raise_cancel).error)
+            def aborted(exc):
+                self._add_exc(exc)
                 return Abort.FAILED
 
             self._parent_waiting_in_aexit = True
@@ -1042,41 +1044,26 @@ class Task(metaclass=NoPublicConstructor):
             if self._cancel_status.effectively_cancelled:
                 self._attempt_delivery_of_any_pending_cancel()
 
-    def _attempt_abort(self, raise_cancel):
+    def _attempt_abort(self, exc):
         # Either the abort succeeds, in which case we will reschedule the
         # task, or else it fails, in which case it will worry about
-        # rescheduling itself (hopefully eventually calling reraise to raise
+        # rescheduling itself (hopefully eventually raising
         # the given exception, but not necessarily).
-        success = self._abort_func(raise_cancel)
+        success = self._abort_func(exc)
         if type(success) is not Abort:
             raise TrioInternalError("abort function must return Abort enum")
         # We only attempt to abort once per blocking call, regardless of
         # whether we succeeded or failed.
         self._abort_func = None
         if success is Abort.SUCCEEDED:
-            self._runner.reschedule(self, capture(raise_cancel))
+            self._runner.reschedule(self, Error(exc))
 
     def _attempt_delivery_of_any_pending_cancel(self):
         if self._abort_func is None:
             return
         if not self._cancel_status.effectively_cancelled:
             return
-
-        def raise_cancel():
-            raise Cancelled._create()
-
-        self._attempt_abort(raise_cancel)
-
-    def _attempt_delivery_of_pending_ki(self):
-        assert self._runner.ki_pending
-        if self._abort_func is None:
-            return
-
-        def raise_cancel():
-            self._runner.ki_pending = False
-            raise KeyboardInterrupt
-
-        self._attempt_abort(raise_cancel)
+        self._attempt_abort(Cancelled._create())
 
 
 ################################################################
@@ -1498,12 +1485,6 @@ class Runner:
 
     ki_pending = attr.ib(default=False)
 
-    # deliver_ki is broke. Maybe move all the actual logic and state into
-    # RunToken, and we'll only have one instance per runner? But then we can't
-    # have a public constructor. Eh, but current_run_token() returning a
-    # unique object per run feels pretty nice. Maybe let's just go for it. And
-    # keep the class public so people can isinstance() it if they want.
-
     # This gets called from signal context
     def deliver_ki(self):
         self.ki_pending = True
@@ -1512,9 +1493,14 @@ class Runner:
         except RunFinishedError:
             pass
 
+    # The name of this function shows up in tracebacks, so make it a good one
+    async def _raise_deferred_keyboard_interrupt(self):
+        raise KeyboardInterrupt
+
     def _deliver_ki_cb(self):
         if not self.ki_pending:
             return
+
         # Can't happen because main_task and run_sync_soon_task are created at
         # the same time -- so even if KI arrives before main_task is created,
         # we won't get here until afterwards.
@@ -1523,7 +1509,27 @@ class Runner:
             # We're already in the process of exiting -- leave ki_pending set
             # and we'll check it again on our way out of run().
             return
-        self.main_task._attempt_delivery_of_pending_ki()
+
+        # Raise KI from a new task in the innermost nursery that was opened
+        # by the main task. Rationale:
+        # - Using a new task means we don't have to contend with
+        #   injecting KI at a checkpoint in an existing task.
+        # - Either the main task has at least one nursery open, or there are
+        #   no non-system tasks except the main task.
+        # - The main task is likely to be waiting in __aexit__ of its innermost
+        #   nursery. On Trio <=0.15.0, a deferred KI would be raised at the
+        #   main task's next checkpoint. So, spawning our raise-KI task in the
+        #   main task's innermost nursery is the most backwards-compatible
+        #   thing we can do.
+        for nursery in reversed(self.main_task.child_nurseries):
+            if not nursery._closed:
+                self.ki_pending = False
+                nursery.start_soon(self._raise_deferred_keyboard_interrupt)
+                return
+
+        # If we get here, the main task has no non-closed child nurseries.
+        # Cancel the whole run; we'll raise KI on our way out of run().
+        self.system_nursery.cancel_scope.cancel()
 
     ################
     # Quiescing
@@ -1936,10 +1942,6 @@ def run_impl(runner, async_fn, args):
                 elif type(msg) is WaitTaskRescheduled:
                     task._cancel_points += 1
                     task._abort_func = msg.abort_func
-                    # KI is "outside" all cancel scopes, so check for it
-                    # before checking for regular cancellation:
-                    if runner.ki_pending and task is runner.main_task:
-                        task._attempt_delivery_of_pending_ki()
                     task._attempt_delivery_of_any_pending_cancel()
                 elif type(msg) is PermanentlyDetachCoroutineObject:
                     # Pretend the task just exited with the given outcome

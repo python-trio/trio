@@ -1,3 +1,5 @@
+# coding: utf-8
+
 # These are the only functions that ever yield back to the task runner.
 
 import types
@@ -94,7 +96,7 @@ async def wait_task_rescheduled(abort_func):
        timeout expiring). When this happens, the ``abort_func`` is called. Its
        interface looks like::
 
-           def abort_func(raise_cancel):
+           def abort_func(exc):
                ...
                return trio.lowlevel.Abort.SUCCEEDED  # or FAILED
 
@@ -108,40 +110,43 @@ async def wait_task_rescheduled(abort_func):
        task can't be cancelled at this time, and still has to make sure that
        "someone" eventually calls :func:`reschedule`.
 
-       At that point there are again two possibilities. You can simply ignore
-       the cancellation altogether: wait for the operation to complete and
-       then reschedule and continue as normal. (For example, this is what
-       :func:`trio.to_thread.run_sync` does if cancellation is disabled.)
-       The other possibility is that the ``abort_func`` does succeed in
-       cancelling the operation, but for some reason isn't able to report that
-       right away. (Example: on Windows, it's possible to request that an
-       async ("overlapped") I/O operation be cancelled, but this request is
-       *also* asynchronous – you don't find out until later whether the
-       operation was actually cancelled or not.)  To report a delayed
-       cancellation, then you should reschedule the task yourself, and call
-       the ``raise_cancel`` callback passed to ``abort_func`` to raise a
-       :exc:`~trio.Cancelled` (or possibly :exc:`KeyboardInterrupt`) exception
-       into this task. Either of the approaches sketched below can work::
+       At that point there are again two possibilities. You can simply
+       ignore the cancellation altogether: wait for the operation to
+       complete and then reschedule and continue as normal. (For
+       example, this is what :func:`trio.to_thread.run_sync` does if
+       cancellation is disabled.)  The other possibility is that the
+       ``abort_func`` does succeed in cancelling the operation, but
+       for some reason isn't able to report that right away. (Example:
+       on Windows, it's possible to request that an async
+       ("overlapped") I/O operation be cancelled, but this request is
+       *also* asynchronous – you don't find out until later whether
+       the operation was actually cancelled or not.)  To report a
+       delayed cancellation, you should reschedule the task yourself,
+       and cause it to raise the exception ``exc`` that was passed to
+       ``abort_func``. (Currently ``exc`` will always be a
+       `~trio.Cancelled` exception, but we may use this mechanism to
+       raise other exceptions in the future; you should raise whatever
+       you're given.) Either of the approaches sketched below can
+       work::
 
           # Option 1:
-          # Catch the exception from raise_cancel and inject it into the task.
+          # Directly reschedule the task with the provided exception.
           # (This is what Trio does automatically for you if you return
           # Abort.SUCCEEDED.)
-          trio.lowlevel.reschedule(task, outcome.capture(raise_cancel))
+          trio.lowlevel.reschedule(task, outcome.Error(exc))
 
           # Option 2:
           # wait to be woken by "someone", and then decide whether to raise
           # the error from inside the task.
-          outer_raise_cancel = None
-          def abort(inner_raise_cancel):
-              nonlocal outer_raise_cancel
-              outer_raise_cancel = inner_raise_cancel
+          outer_exc = None
+          def abort(inner_exc):
+              nonlocal outer_exc
+              outer_exc = inner_exc
               TRY_TO_CANCEL_OPERATION()
               return trio.lowlevel.Abort.FAILED
           await wait_task_rescheduled(abort)
           if OPERATION_WAS_SUCCESSFULLY_CANCELLED:
-              # raises the error
-              outer_raise_cancel()
+              raise outer_exc
 
        In any case it's guaranteed that we only call the ``abort_func`` at most
        once per call to :func:`wait_task_rescheduled`.
@@ -228,8 +233,8 @@ async def temporarily_detach_coroutine_object(abort_func):
           detached task directly without going through
           :func:`reattach_detached_coroutine_object`, which would be bad.)
           Your ``abort_func`` should still arrange for whatever the coroutine
-          object is doing to be cancelled, and then reattach to Trio and call
-          the ``raise_cancel`` callback, if possible.
+          object is doing to be cancelled, and then reattach to Trio and raise
+          the exception it received, if possible.
 
     Returns or raises whatever value or exception the new coroutine runner
     uses to resume the coroutine.

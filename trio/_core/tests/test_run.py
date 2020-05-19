@@ -1539,9 +1539,8 @@ async def test_slow_abort_basic():
             task = _core.current_task()
             token = _core.current_trio_token()
 
-            def slow_abort(raise_cancel):
-                result = outcome.capture(raise_cancel)
-                token.run_sync_soon(_core.reschedule, task, result)
+            def slow_abort(exc):
+                token.run_sync_soon(_core.reschedule, task, outcome.Error(exc))
                 return _core.Abort.FAILED
 
             await _core.wait_task_rescheduled(slow_abort)
@@ -1554,10 +1553,9 @@ async def test_slow_abort_edge_cases():
         task = _core.current_task()
         token = _core.current_trio_token()
 
-        def slow_abort(raise_cancel):
+        def slow_abort(exc):
             record.append("abort-called")
-            result = outcome.capture(raise_cancel)
-            token.run_sync_soon(_core.reschedule, task, result)
+            token.run_sync_soon(_core.reschedule, task, outcome.Error(exc))
             return _core.Abort.FAILED
 
         with pytest.raises(_core.Cancelled):
