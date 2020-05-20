@@ -76,7 +76,7 @@ class Cancelled(BaseException, metaclass=NoPublicConstructor):
         _deprecate.warn_deprecated(
             "wait_task_rescheduled's abort_fn taking a callback argument",
             "0.16.0",
-            issue=1536,
+            issue=1537,
             instead="an exception argument",
         )
         raise self

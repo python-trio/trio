@@ -2056,10 +2056,7 @@ async def checkpoint_if_cancelled():
 
     """
     task = current_task()
-    if (
-        task._cancel_status.effectively_cancelled or
-        (task is task._runner.main_task and task._runner.ki_pending)
-    ):
+    if task._cancel_status.effectively_cancelled:
         await _core.checkpoint()
         assert False  # pragma: no cover
     task._cancel_points += 1

@@ -17,6 +17,7 @@ import pytest
 
 from .tutil import slow, check_sequence_matches, gc_collect_harder
 from ... import _core
+from ..._deprecate import TrioDeprecationWarning
 from ..._threads import to_thread_run_sync
 from ..._timeouts import sleep, fail_after
 from ...testing import (
@@ -1530,6 +1531,22 @@ async def test_TrioToken_run_sync_soon_massive_queue():
         token.run_sync_soon(cb, i)
     await wait_all_tasks_blocked()
     assert counter[0] == COUNT
+
+
+async def test_deprecated_abort_fn_semantics():
+    with _core.CancelScope() as scope:
+        scope.cancel()
+        with pytest.raises(_core.Cancelled):
+            task = _core.current_task()
+            token = _core.current_trio_token()
+
+            def slow_abort(raise_cancel):
+                with pytest.warns(TrioDeprecationWarning):
+                    result = outcome.capture(raise_cancel)
+                token.run_sync_soon(_core.reschedule, task, result)
+                return _core.Abort.FAILED
+
+            await _core.wait_task_rescheduled(slow_abort)
 
 
 async def test_slow_abort_basic():
