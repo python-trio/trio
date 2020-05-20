@@ -484,7 +484,6 @@ def test_ki_protection_works():
     assert record == ["ok", "ok 2"]
 
 
-
 def test_ki_is_good_neighbor():
     # in the unlikely event someone overwrites our signal handler, we leave
     # the overwritten one be
