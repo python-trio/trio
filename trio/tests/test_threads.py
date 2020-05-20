@@ -478,7 +478,6 @@ async def test_trio_from_thread_run_sync():
         from_thread_run_sync(async_fn)
 
     with pytest.raises(TypeError, match="expected a sync function"):
-
         await to_thread_run_sync(thread_fn)
 
 
@@ -503,7 +502,6 @@ async def test_trio_from_thread_run():
         pass
 
     with pytest.raises(TypeError, match="appears to be synchronous"):
-
         await to_thread_run_sync(from_thread_run, sync_fn)
 
 
