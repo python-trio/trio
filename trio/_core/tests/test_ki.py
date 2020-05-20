@@ -442,9 +442,9 @@ def test_ki_protection_works():
     # KI delivered into innermost main task nursery if there are any
     @_core.enable_ki_protection
     async def main():
-        async with _core.open_nursery() as outer:
+        async with _core.open_nursery():
             with pytest.raises(KeyboardInterrupt):
-                async with _core.open_nursery() as inner:
+                async with _core.open_nursery():
                     ki_self()
                     record.append("ok")
                     # First tick ensures KI callback ran
@@ -467,7 +467,7 @@ def test_ki_protection_works():
     @_core.enable_ki_protection
     async def main():
         with pytest.raises(KeyboardInterrupt):
-            async with _core.open_nursery() as outer:
+            async with _core.open_nursery():
                 async with _core.open_nursery() as inner:
                     assert inner._closed is False
                     inner._closed = True
