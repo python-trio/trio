@@ -114,7 +114,6 @@ def coroutine_or_error(async_fn, *args):
     except TypeError:
         # Give good error for: nursery.start_soon(trio.sleep(1))
         if isinstance(async_fn, collections.abc.Coroutine):
-
             # explicitly close coroutine to avoid RuntimeWarning
             async_fn.close()
 
