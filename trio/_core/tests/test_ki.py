@@ -446,6 +446,7 @@ def test_ki_protection_works():
             with pytest.raises(KeyboardInterrupt):
                 async with _core.open_nursery():
                     ki_self()
+                    ki_self()
                     record.append("ok")
                     # First tick ensures KI callback ran
                     # Second tick ensures KI delivery task ran
