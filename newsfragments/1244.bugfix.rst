@@ -1,0 +1,1 @@
+Added helpful error message in the case the user passed incorrect type of function to "from_thread_run" & "from_thread_run_sync" functions.
