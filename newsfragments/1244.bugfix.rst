@@ -1,1 +1,1 @@
-Added helpful error message in the case the user passed incorrect type of function to "from_thread_run" & "from_thread_run_sync" functions.
+Added a helpful error message if an async function is passed to `trio.from_thread.run_sync` or a sync function to `trio.from_thread.run`.
