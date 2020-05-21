@@ -13,7 +13,6 @@ from .._threads import (
 )
 
 from .._core.tests.test_ki import ki_self
-from .._core.tests.tutil import slow
 
 
 async def test_do_in_trio_thread():
@@ -471,6 +470,16 @@ async def test_trio_from_thread_run_sync():
     trio_time = await to_thread_run_sync(thread_fn)
     assert isinstance(trio_time, float)
 
+    # Test correct error when passed async function
+    async def async_fn():  # pragma: no cover
+        pass
+
+    def thread_fn():
+        from_thread_run_sync(async_fn)
+
+    with pytest.raises(TypeError, match="expected a sync function"):
+        await to_thread_run_sync(thread_fn)
+
 
 async def test_trio_from_thread_run():
     # Test that to_thread_run_sync correctly "hands off" the trio token to
@@ -487,6 +496,13 @@ async def test_trio_from_thread_run():
 
     await to_thread_run_sync(thread_fn)
     assert record == ["in thread", "back in trio"]
+
+    # Test correct error when passed sync function
+    def sync_fn():  # pragma: no cover
+        pass
+
+    with pytest.raises(TypeError, match="appears to be synchronous"):
+        await to_thread_run_sync(from_thread_run, sync_fn)
 
 
 async def test_trio_from_thread_token():

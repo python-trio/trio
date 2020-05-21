@@ -3,6 +3,8 @@ import socket as stdlib_socket
 import os
 
 import pytest
+import warnings
+from contextlib import contextmanager
 
 import gc
 
@@ -50,6 +52,24 @@ def gc_collect_harder():
     # to make sure.
     for _ in range(4):
         gc.collect()
+
+
+# Some of our tests need to leak coroutines, and thus trigger the
+# "RuntimeWarning: coroutine '...' was never awaited" message. This context
+# manager should be used anywhere this happens to hide those messages, because
+# when expected they're clutter.
+@contextmanager
+def ignore_coroutine_never_awaited_warnings():
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message="coroutine '.*' was never awaited"
+        )
+        try:
+            yield
+        finally:
+            # Make sure to trigger any coroutine __del__ methods now, before
+            # we leave the context manager.
+            gc_collect_harder()
 
 
 # template is like:

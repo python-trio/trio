@@ -15,7 +15,11 @@ import outcome
 import sniffio
 import pytest
 
-from .tutil import slow, check_sequence_matches, gc_collect_harder
+from .tutil import (
+    slow, check_sequence_matches, gc_collect_harder,
+    ignore_coroutine_never_awaited_warnings
+)
+
 from ... import _core
 from ..._threads import to_thread_run_sync
 from ..._timeouts import sleep, fail_after
@@ -31,24 +35,6 @@ from ...testing import (
 # rescheduling...
 async def sleep_forever():
     return await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
-
-
-# Some of our tests need to leak coroutines, and thus trigger the
-# "RuntimeWarning: coroutine '...' was never awaited" message. This context
-# manager should be used anywhere this happens to hide those messages, because
-# when expected they're clutter.
-@contextmanager
-def ignore_coroutine_never_awaited_warnings():
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "ignore", message="coroutine '.*' was never awaited"
-        )
-        try:
-            yield
-        finally:
-            # Make sure to trigger any coroutine __del__ methods now, before
-            # we leave the context manager.
-            gc_collect_harder()
 
 
 def test_basic():
@@ -1696,8 +1682,6 @@ async def test_current_effective_deadline(mock_clock):
     assert _core.current_effective_deadline() == inf
 
 
-# @coroutine is deprecated since python 3.8, which is fine with us.
-@pytest.mark.filterwarnings("ignore:.*@coroutine.*:DeprecationWarning")
 def test_nice_error_on_bad_calls_to_run_or_spawn():
     def bad_call_run(*args):
         _core.run(*args)
@@ -1709,59 +1693,22 @@ def test_nice_error_on_bad_calls_to_run_or_spawn():
 
         _core.run(main)
 
-    class Deferred:
-        "Just kidding"
+    for bad_call in bad_call_run, bad_call_spawn:
 
-    with ignore_coroutine_never_awaited_warnings():
-        for bad_call in bad_call_run, bad_call_spawn:
+        async def f():  # pragma: no cover
+            pass
 
-            async def f():  # pragma: no cover
-                pass
+        with pytest.raises(TypeError, match="expecting an async function"):
+            bad_call(f())
 
-            with pytest.raises(TypeError) as excinfo:
-                bad_call(f())
-            assert "expecting an async function" in str(excinfo.value)
+        async def async_gen(arg):  # pragma: no cover
+            yield arg
 
-            import asyncio
-
-            @asyncio.coroutine
-            def generator_based_coro():  # pragma: no cover
-                yield from asyncio.sleep(1)
-
-            with pytest.raises(TypeError) as excinfo:
-                bad_call(generator_based_coro())
-            assert "asyncio" in str(excinfo.value)
-
-            with pytest.raises(TypeError) as excinfo:
-                bad_call(asyncio.Future())
-            assert "asyncio" in str(excinfo.value)
-
-            with pytest.raises(TypeError) as excinfo:
-                bad_call(lambda: asyncio.Future())
-            assert "asyncio" in str(excinfo.value)
-
-            with pytest.raises(TypeError) as excinfo:
-                bad_call(Deferred())
-            assert "twisted" in str(excinfo.value)
-
-            with pytest.raises(TypeError) as excinfo:
-                bad_call(lambda: Deferred())
-            assert "twisted" in str(excinfo.value)
-
-            with pytest.raises(TypeError) as excinfo:
-                bad_call(len, [1, 2, 3])
-            assert "appears to be synchronous" in str(excinfo.value)
-
-            async def async_gen(arg):  # pragma: no cover
-                yield
-
-            with pytest.raises(TypeError) as excinfo:
-                bad_call(async_gen, 0)
-            msg = "expected an async function but got an async generator"
-            assert msg in str(excinfo.value)
-
-            # Make sure no references are kept around to keep anything alive
-            del excinfo
+        with pytest.raises(
+            TypeError,
+            match="expected an async function but got an async generator"
+        ):
+            bad_call(async_gen, 0)
 
 
 def test_calling_asyncio_function_gives_nice_error():
