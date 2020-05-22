@@ -5,6 +5,18 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.15.1 (2020-05-22)
+------------------------
+
+Bugfixes
+~~~~~~~~
+
+- Fix documentation build. (This must be a new release tag to get readthedocs
+  "stable" to include the changes from 0.15.0.)
+
+- Added a helpful error message if an async function is passed to `trio.from_thread.run_sync` or a sync function to `trio.from_thread.run`. (`#1244 <https://github.com/python-trio/trio/issues/1244>`__)
+
+
 Trio 0.15.0 (2020-05-19)
 ------------------------
 
