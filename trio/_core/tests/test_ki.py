@@ -536,10 +536,8 @@ def test_ki_wakes_us_up():
     #   https://bitbucket.org/pypy/pypy/issues/2623
     import platform
 
-    buggy_wakeup_fd = platform.python_implementation() == "CPython" and sys.version_info < (
-        3,
-        6,
-        2,
+    buggy_wakeup_fd = (
+        sys.version_info < (3, 6, 2) and platform.python_implementation() == "CPython"
     )
 
     # lock is only needed to avoid an annoying race condition where the

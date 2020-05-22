@@ -58,13 +58,12 @@ async def test_ConflictDetector():
 
 def test_module_metadata_is_fixed_up():
     import trio
+    import trio.testing
 
     assert trio.Cancelled.__module__ == "trio"
     assert trio.open_nursery.__module__ == "trio"
     assert trio.abc.Stream.__module__ == "trio.abc"
     assert trio.lowlevel.wait_task_rescheduled.__module__ == "trio.lowlevel"
-    import trio.testing
-
     assert trio.testing.trio_test.__module__ == "trio.testing"
 
     # Also check methods

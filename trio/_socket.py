@@ -339,15 +339,13 @@ def _make_simple_sock_method_wrapper(methname, wait_fn, maybe_avail=False):
     async def wrapper(self, *args, **kwargs):
         return await self._nonblocking_helper(fn, args, kwargs, wait_fn)
 
-    wrapper.__doc__ = """Like :meth:`socket.socket.{}`, but async.
+    wrapper.__doc__ = f"""Like :meth:`socket.socket.{methname}`, but async.
 
-            """.format(
-        methname
-    )
+            """
     if maybe_avail:
         wrapper.__doc__ += (
-            "Only available on platforms where :meth:`socket.socket.{}` "
-            "is available.".format(methname)
+            f"Only available on platforms where :meth:`socket.socket.{methname}`"
+            " is available."
         )
     return wrapper
 
