@@ -145,6 +145,10 @@ highlight_language = 'python3'
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
 
+# This avoids a warning by the epub builder that it can't figure out
+# the MIME type for our favicon.
+suppress_warnings = ["epub.unknown_project_files"]
+
 
 # -- Options for HTML output ----------------------------------------------
 
