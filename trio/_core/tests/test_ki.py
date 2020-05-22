@@ -438,52 +438,6 @@ def test_ki_protection_works():
         _core.run(main)
     assert record == []
 
-    print("check 11")
-    # KI delivered into innermost main task nursery if there are any
-    @_core.enable_ki_protection
-    async def main():
-        async with _core.open_nursery():
-            with pytest.raises(KeyboardInterrupt):
-                async with _core.open_nursery():
-                    ki_self()
-                    ki_self()
-                    record.append("ok")
-                    # First tick ensures KI callback ran
-                    # Second tick ensures KI delivery task ran
-                    await _core.cancel_shielded_checkpoint()
-                    await _core.cancel_shielded_checkpoint()
-                    with pytest.raises(_core.Cancelled):
-                        await _core.checkpoint()
-                    record.append("ok 2")
-            record.append("ok 3")
-        record.append("ok 4")
-
-    _core.run(main)
-    assert record == ["ok", "ok 2", "ok 3", "ok 4"]
-
-    # Closed nurseries are ignored when picking one to deliver KI
-    print("check 12")
-    record = []
-
-    @_core.enable_ki_protection
-    async def main():
-        with pytest.raises(KeyboardInterrupt):
-            async with _core.open_nursery():
-                async with _core.open_nursery() as inner:
-                    assert inner._closed is False
-                    inner._closed = True
-                    ki_self()
-                    # First tick ensures KI callback ran
-                    # Second tick ensures KI delivery task ran
-                    await _core.cancel_shielded_checkpoint()
-                    await _core.cancel_shielded_checkpoint()
-                    record.append("ok")
-                record.append("nope")  # pragma: no cover
-        record.append("ok 2")
-
-    _core.run(main)
-    assert record == ["ok", "ok 2"]
-
 
 def test_ki_is_good_neighbor():
     # in the unlikely event someone overwrites our signal handler, we leave

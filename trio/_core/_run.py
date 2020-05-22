@@ -1412,47 +1412,11 @@ class Runner:
     def deliver_ki(self):
         self.ki_pending = True
         try:
-            self.entry_queue.run_sync_soon(self._deliver_ki_cb)
+            self.entry_queue.run_sync_soon(
+                self.system_nursery.cancel_scope.cancel
+            )
         except RunFinishedError:
             pass
-
-    # The name of this function shows up in tracebacks, so make it a good one
-    async def _raise_deferred_keyboard_interrupt(self):
-        raise KeyboardInterrupt
-
-    def _deliver_ki_cb(self):
-        if not self.ki_pending:
-            return
-
-        # Can't happen because main_task and run_sync_soon_task are created at
-        # the same time -- so even if KI arrives before main_task is created,
-        # we won't get here until afterwards.
-        assert self.main_task is not None
-        if self.main_task_outcome is not None:
-            # We're already in the process of exiting -- leave ki_pending set
-            # and we'll check it again on our way out of run().
-            return
-
-        # Raise KI from a new task in the innermost nursery that was opened
-        # by the main task. Rationale:
-        # - Using a new task means we don't have to contend with
-        #   injecting KI at a checkpoint in an existing task.
-        # - Either the main task has at least one nursery open, or there are
-        #   no non-system tasks except the main task.
-        # - The main task is likely to be waiting in __aexit__ of its innermost
-        #   nursery. On Trio <=0.15.0, a deferred KI would be raised at the
-        #   main task's next checkpoint. So, spawning our raise-KI task in the
-        #   main task's innermost nursery is the most backwards-compatible
-        #   thing we can do.
-        for nursery in reversed(self.main_task.child_nurseries):
-            if not nursery._closed:
-                self.ki_pending = False
-                nursery.start_soon(self._raise_deferred_keyboard_interrupt)
-                return
-
-        # If we get here, the main task has no non-closed child nurseries.
-        # Cancel the whole run; we'll raise KI on our way out of run().
-        self.system_nursery.cancel_scope.cancel()
 
     ################
     # Quiescing
