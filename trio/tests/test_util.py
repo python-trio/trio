@@ -1,12 +1,13 @@
 import signal
-
 import pytest
 
 import trio
 from .. import _core
+from .._core.tests.tutil import ignore_coroutine_never_awaited_warnings
 from .._util import (
-    signal_raise, ConflictDetector, is_main_thread, generic_function, Final,
-    NoPublicConstructor, SubclassingDeprecatedIn_v0_15_0
+    signal_raise, ConflictDetector, is_main_thread, coroutine_or_error,
+    generic_function, Final, NoPublicConstructor,
+    SubclassingDeprecatedIn_v0_15_0
 )
 from ..testing import wait_all_tasks_blocked
 
@@ -80,6 +81,64 @@ async def test_is_main_thread():
         assert not is_main_thread()
 
     await trio.to_thread.run_sync(not_main_thread)
+
+
+# @coroutine is deprecated since python 3.8, which is fine with us.
+@pytest.mark.filterwarnings("ignore:.*@coroutine.*:DeprecationWarning")
+def test_coroutine_or_error():
+    class Deferred:
+        "Just kidding"
+
+    with ignore_coroutine_never_awaited_warnings():
+
+        async def f():  # pragma: no cover
+            pass
+
+        with pytest.raises(TypeError) as excinfo:
+            coroutine_or_error(f())
+        assert "expecting an async function" in str(excinfo.value)
+
+        import asyncio
+
+        @asyncio.coroutine
+        def generator_based_coro():  # pragma: no cover
+            yield from asyncio.sleep(1)
+
+        with pytest.raises(TypeError) as excinfo:
+            coroutine_or_error(generator_based_coro())
+        assert "asyncio" in str(excinfo.value)
+
+        with pytest.raises(TypeError) as excinfo:
+            coroutine_or_error(asyncio.Future())
+        assert "asyncio" in str(excinfo.value)
+
+        with pytest.raises(TypeError) as excinfo:
+            coroutine_or_error(lambda: asyncio.Future())
+        assert "asyncio" in str(excinfo.value)
+
+        with pytest.raises(TypeError) as excinfo:
+            coroutine_or_error(Deferred())
+        assert "twisted" in str(excinfo.value)
+
+        with pytest.raises(TypeError) as excinfo:
+            coroutine_or_error(lambda: Deferred())
+        assert "twisted" in str(excinfo.value)
+
+        with pytest.raises(TypeError) as excinfo:
+            coroutine_or_error(len, [[1, 2, 3]])
+
+        assert "appears to be synchronous" in str(excinfo.value)
+
+        async def async_gen(arg):  # pragma: no cover
+            yield
+
+        with pytest.raises(TypeError) as excinfo:
+            coroutine_or_error(async_gen, [0])
+        msg = "expected an async function but got an async generator"
+        assert msg in str(excinfo.value)
+
+        # Make sure no references are kept around to keep anything alive
+        del excinfo
 
 
 def test_generic_function():
