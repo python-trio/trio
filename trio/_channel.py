@@ -70,7 +70,8 @@ def open_memory_channel(max_buffer_size):
         raise ValueError("max_buffer_size must be >= 0")
     state = MemoryChannelState(max_buffer_size)
     return (
-        MemorySendChannel._create(state), MemoryReceiveChannel._create(state)
+        MemorySendChannel._create(state),
+        MemoryReceiveChannel._create(state),
     )
 
 
@@ -120,10 +121,8 @@ class MemorySendChannel(SendChannel, metaclass=NoPublicConstructor):
         self._state.open_send_channels += 1
 
     def __repr__(self):
-        return (
-            "<send channel at {:#x}, using buffer at {:#x}>".format(
-                id(self), id(self._state)
-            )
+        return "<send channel at {:#x}, using buffer at {:#x}>".format(
+            id(self), id(self._state)
         )
 
     def statistics(self):
@@ -341,9 +340,7 @@ class MemoryReceiveChannel(ReceiveChannel, metaclass=NoPublicConstructor):
             assert not self._state.receive_tasks
             for task in self._state.send_tasks:
                 task.custom_sleep_data._tasks.remove(task)
-                trio.lowlevel.reschedule(
-                    task, Error(trio.BrokenResourceError())
-                )
+                trio.lowlevel.reschedule(task, Error(trio.BrokenResourceError()))
             self._state.send_tasks.clear()
             self._state.data.clear()
         await trio.lowlevel.checkpoint()

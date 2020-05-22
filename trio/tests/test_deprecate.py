@@ -4,7 +4,10 @@ import inspect
 import warnings
 
 from .._deprecate import (
-    TrioDeprecationWarning, warn_deprecated, deprecated, deprecated_alias
+    TrioDeprecationWarning,
+    warn_deprecated,
+    deprecated,
+    deprecated_alias,
 )
 
 from . import module_with_deprecations
@@ -181,33 +184,45 @@ def docstring_test4():  # pragma: no cover
 
 
 def test_deprecated_docstring_munging():
-    assert docstring_test1.__doc__ == """Hello!
+    assert (
+        docstring_test1.__doc__
+        == """Hello!
 
 .. deprecated:: 2.1
    Use hi instead.
    For details, see `issue #1 <https://github.com/python-trio/trio/issues/1>`__.
 
 """
+    )
 
-    assert docstring_test2.__doc__ == """Hello!
+    assert (
+        docstring_test2.__doc__
+        == """Hello!
 
 .. deprecated:: 2.1
    Use hi instead.
 
 """
+    )
 
-    assert docstring_test3.__doc__ == """Hello!
+    assert (
+        docstring_test3.__doc__
+        == """Hello!
 
 .. deprecated:: 2.1
    For details, see `issue #1 <https://github.com/python-trio/trio/issues/1>`__.
 
 """
+    )
 
-    assert docstring_test4.__doc__ == """Hello!
+    assert (
+        docstring_test4.__doc__
+        == """Hello!
 
 .. deprecated:: 2.1
 
 """
+    )
 
 
 def test_module_with_deprecations(recwarn_always):

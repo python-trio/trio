@@ -8,8 +8,11 @@ from .. import _core
 from .. import Event, CapacityLimiter, sleep
 from ..testing import wait_all_tasks_blocked
 from .._threads import (
-    to_thread_run_sync, current_default_thread_limiter, from_thread_run,
-    from_thread_run_sync, BlockingTrioPortal
+    to_thread_run_sync,
+    current_default_thread_limiter,
+    from_thread_run,
+    from_thread_run_sync,
+    BlockingTrioPortal,
 )
 
 from .._core.tests.test_ki import ki_self
@@ -35,9 +38,7 @@ async def test_do_in_trio_thread():
         while child_thread.is_alive():
             print("yawn")
             await sleep(0.01)
-        assert record == [
-            ("start", child_thread), ("f", trio_thread), expected
-        ]
+        assert record == [("start", child_thread), ("f", trio_thread), expected]
 
     token = _core.current_trio_token()
 
@@ -53,9 +54,7 @@ async def test_do_in_trio_thread():
         record.append(("f", threading.current_thread()))
         raise ValueError
 
-    await check_case(
-        from_thread_run_sync, f, ("error", ValueError), trio_token=token
-    )
+    await check_case(from_thread_run_sync, f, ("error", ValueError), trio_token=token)
 
     async def f(record):
         assert not _core.currently_ki_protected()
@@ -101,6 +100,7 @@ def test_run_in_trio_thread_ki():
                 ki_self()
             finally:
                 import sys
+
                 print("finally", sys.exc_info())
 
         async def trio_thread_afn():
@@ -332,15 +332,9 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
         async def run_thread(event):
             with _core.CancelScope() as cancel_scope:
                 await to_thread_run_sync(
-                    thread_fn,
-                    cancel_scope,
-                    limiter=limiter_arg,
-                    cancellable=cancel
+                    thread_fn, cancel_scope, limiter=limiter_arg, cancellable=cancel,
                 )
-            print(
-                "run_thread finished, cancelled:",
-                cancel_scope.cancelled_caught
-            )
+            print("run_thread finished, cancelled:", cancel_scope.cancelled_caught)
             event.set()
 
         async with _core.open_nursery() as nursery:
@@ -521,9 +515,7 @@ async def test_trio_from_thread_token_kwarg():
     # Test that to_thread_run_sync and spawned trio.from_thread.run_sync() can
     # use an explicitly defined token
     def thread_fn(token):
-        callee_token = from_thread_run_sync(
-            _core.current_trio_token, trio_token=token
-        )
+        callee_token = from_thread_run_sync(_core.current_trio_token, trio_token=token)
         return callee_token
 
     caller_token = _core.current_trio_token()
@@ -541,9 +533,7 @@ async def test_from_thread_no_token():
 
 def test_run_fn_as_system_task_catched_badly_typed_token():
     with pytest.raises(RuntimeError):
-        from_thread_run_sync(
-            _core.current_time, trio_token="Not TrioTokentype"
-        )
+        from_thread_run_sync(_core.current_time, trio_token="Not TrioTokentype")
 
 
 async def test_do_in_trio_thread_from_trio_thread_legacy():
@@ -580,5 +570,6 @@ async def test_BlockingTrioPortal_with_explicit_TrioToken():
 
 def test_BlockingTrioPortal_deprecated_export(recwarn):
     import trio
+
     btp = trio.BlockingTrioPortal
     assert btp is BlockingTrioPortal

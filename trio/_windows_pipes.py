@@ -41,6 +41,7 @@ class PipeSendStream(SendStream, metaclass=Final):
     """Represents a send stream over a Windows named pipe that has been
     opened in OVERLAPPED mode.
     """
+
     def __init__(self, handle: int) -> None:
         self._handle_holder = _HandleHolder(handle)
         self._conflict_detector = ConflictDetector(
@@ -57,9 +58,7 @@ class PipeSendStream(SendStream, metaclass=Final):
                 return
 
             try:
-                written = await _core.write_overlapped(
-                    self._handle_holder.handle, data
-                )
+                written = await _core.write_overlapped(self._handle_holder.handle, data)
             except BrokenPipeError as ex:
                 raise _core.BrokenResourceError from ex
             # By my reading of MSDN, this assert is guaranteed to pass so long
@@ -81,6 +80,7 @@ class PipeSendStream(SendStream, metaclass=Final):
 
 class PipeReceiveStream(ReceiveStream, metaclass=Final):
     """Represents a receive stream over an os.pipe object."""
+
     def __init__(self, handle: int) -> None:
         self._handle_holder = _HandleHolder(handle)
         self._conflict_detector = ConflictDetector(

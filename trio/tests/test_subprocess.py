@@ -7,8 +7,15 @@ import random
 from functools import partial
 
 from .. import (
-    _core, move_on_after, fail_after, sleep, sleep_forever, Process,
-    open_process, run_process, TrioDeprecationWarning
+    _core,
+    move_on_after,
+    fail_after,
+    sleep,
+    sleep_forever,
+    Process,
+    open_process,
+    run_process,
+    TrioDeprecationWarning,
 )
 from .._core.tests.tutil import slow, skip_if_fbsd_pipes_broken
 from ..testing import wait_all_tasks_blocked
@@ -183,9 +190,7 @@ async def test_interactive():
                     assert await stream.receive_some(len(newline)) == newline
 
                 nursery.start_soon(drain_one, proc.stdout, request, idx * 2)
-                nursery.start_soon(
-                    drain_one, proc.stderr, request * 2, idx * 2 + 1
-                )
+                nursery.start_soon(drain_one, proc.stderr, request * 2, idx * 2 + 1)
 
         with fail_after(5):
             await proc.stdin.send_all(b"12")
@@ -210,7 +215,7 @@ async def test_interactive():
 
 
 async def test_run():
-    data = bytes(random.randint(0, 255) for _ in range(2**18))
+    data = bytes(random.randint(0, 255) for _ in range(2 ** 18))
 
     result = await run_process(
         CAT, stdin=data, capture_stdout=True, capture_stderr=True
@@ -269,8 +274,7 @@ async def test_run_check():
 @skip_if_fbsd_pipes_broken
 async def test_run_with_broken_pipe():
     result = await run_process(
-        [sys.executable, "-c", "import sys; sys.stdin.close()"],
-        stdin=b"x" * 131072,
+        [sys.executable, "-c", "import sys; sys.stdin.close()"], stdin=b"x" * 131072,
     )
     assert result.returncode == 0
     assert result.stdout is result.stderr is None
@@ -402,6 +406,7 @@ def test_waitid_eintr():
     # This only matters on PyPy (where we're coding EINTR handling
     # ourselves) but the test works on all waitid platforms.
     from .._subprocess_platform import wait_child_exiting
+
     if not wait_child_exiting.__module__.endswith("waitid"):
         pytest.skip("waitid only")
     from .._subprocess_platform.waitid import sync_wait_reapable
@@ -444,9 +449,7 @@ async def test_custom_deliver_cancel():
 
     async with _core.open_nursery() as nursery:
         nursery.start_soon(
-            partial(
-                run_process, SLEEP(9999), deliver_cancel=custom_deliver_cancel
-            )
+            partial(run_process, SLEEP(9999), deliver_cancel=custom_deliver_cancel)
         )
         await wait_all_tasks_blocked()
         nursery.cancel_scope.cancel()

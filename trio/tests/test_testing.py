@@ -146,7 +146,8 @@ async def test_assert_checkpoints(recwarn):
     # if you have a schedule point but not a cancel point, or vice-versa, then
     # that's not a checkpoint.
     for partial_yield in [
-        _core.checkpoint_if_cancelled, _core.cancel_shielded_checkpoint
+        _core.checkpoint_if_cancelled,
+        _core.cancel_shielded_checkpoint,
     ]:
         print(partial_yield)
         with pytest.raises(AssertionError):
@@ -171,7 +172,8 @@ async def test_assert_no_checkpoints(recwarn):
     # if you have a schedule point but not a cancel point, or vice-versa, then
     # that doesn't make *either* version of assert_{no_,}yields happy.
     for partial_yield in [
-        _core.checkpoint_if_cancelled, _core.cancel_shielded_checkpoint
+        _core.checkpoint_if_cancelled,
+        _core.cancel_shielded_checkpoint,
     ]:
         print(partial_yield)
         with pytest.raises(AssertionError):
@@ -215,9 +217,7 @@ async def test_Sequencer():
         nursery.start_soon(f2, seq)
         async with seq(5):
             await wait_all_tasks_blocked()
-        assert record == [
-            ("f2", 0), ("f1", 1), ("f2", 2), ("f1", 3), ("f1", 4)
-        ]
+        assert record == [("f2", 0), ("f1", 1), ("f2", 2), ("f1", 3), ("f1", 4)]
 
     seq = Sequencer()
     # Catches us if we try to re-use a sequence point:
@@ -321,11 +321,7 @@ async def test_mock_clock_autojump(mock_clock):
         virtual_start = _core.current_time()
 
     real_duration = time.perf_counter() - real_start
-    print(
-        "Slept {} seconds in {} seconds".format(
-            10 * sum(range(10)), real_duration
-        )
-    )
+    print("Slept {} seconds in {} seconds".format(10 * sum(range(10)), real_duration))
     assert real_duration < 1
 
     mock_clock.autojump_threshold = 0.02
@@ -571,9 +567,7 @@ async def test_MemorySendStream():
         record.append("close_hook")
 
     mss2 = MemorySendStream(
-        send_all_hook,
-        wait_send_all_might_not_block_hook,
-        close_hook,
+        send_all_hook, wait_send_all_might_not_block_hook, close_hook,
     )
 
     assert mss2.send_all_hook is send_all_hook

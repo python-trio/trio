@@ -74,7 +74,7 @@ async def test_receive_pipe():
 
 async def test_pipes_combined():
     write, read = await make_pipe()
-    count = 2**20
+    count = 2 ** 20
 
     async def sender():
         big = bytearray(count)
@@ -195,9 +195,7 @@ async def test_close_at_bad_time_for_receive_some(monkeypatch):
         await orig_wait_readable(*args, **kwargs)
         await r.aclose()
 
-    monkeypatch.setattr(
-        _core._run.TheIOManager, "wait_readable", patched_wait_readable
-    )
+    monkeypatch.setattr(_core._run.TheIOManager, "wait_readable", patched_wait_readable)
     s, r = await make_pipe()
     async with s, r:
         async with _core.open_nursery() as nursery:
@@ -225,9 +223,7 @@ async def test_close_at_bad_time_for_send_all(monkeypatch):
         await orig_wait_writable(*args, **kwargs)
         await s.aclose()
 
-    monkeypatch.setattr(
-        _core._run.TheIOManager, "wait_writable", patched_wait_writable
-    )
+    monkeypatch.setattr(_core._run.TheIOManager, "wait_writable", patched_wait_writable)
     s, r = await make_clogged_pipe()
     async with s, r:
         async with _core.open_nursery() as nursery:
@@ -243,7 +239,7 @@ async def test_close_at_bad_time_for_send_all(monkeypatch):
 # other platforms is probably good enough.
 @pytest.mark.skipif(
     sys.platform.startswith("freebsd"),
-    reason="no way to make read() return a bizarro error on FreeBSD"
+    reason="no way to make read() return a bizarro error on FreeBSD",
 )
 async def test_bizarro_OSError_from_receive():
     # Make sure that if the read syscall returns some bizarro error, then we

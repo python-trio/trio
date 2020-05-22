@@ -62,6 +62,7 @@ class Cancelled(BaseException, metaclass=NoPublicConstructor):
        everywhere.
 
     """
+
     def __str__(self):
         return "Cancelled"
 

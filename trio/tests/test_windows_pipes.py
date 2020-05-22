@@ -47,7 +47,7 @@ async def test_pipe_error_on_close():
 
 async def test_pipes_combined():
     write, read = await make_pipe()
-    count = 2**20
+    count = 2 ** 20
     replicas = 3
 
     async def sender():

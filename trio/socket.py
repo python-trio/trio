@@ -127,7 +127,7 @@ except ImportError:
 import socket as _stdlib_socket
 
 _bad_symbols = set()
-if _sys.platform == 'win32':
+if _sys.platform == "win32":
     # See https://github.com/python-trio/trio/issues/39
     # Do not import for windows platform
     # (you can still get it from stdlib socket, of course, if you want it)
@@ -143,9 +143,16 @@ globals().update(
 
 # import the overwrites
 from ._socket import (
-    fromfd, from_stdlib_socket, getprotobyname, socketpair, getnameinfo,
-    socket, getaddrinfo, set_custom_hostname_resolver,
-    set_custom_socket_factory, SocketType
+    fromfd,
+    from_stdlib_socket,
+    getprotobyname,
+    socketpair,
+    getnameinfo,
+    socket,
+    getaddrinfo,
+    set_custom_hostname_resolver,
+    set_custom_socket_factory,
+    SocketType,
 )
 
 # not always available so expose only if
@@ -170,9 +177,7 @@ from socket import (
 
 # not always available so expose only if
 try:
-    from socket import (
-        sethostname, if_nameindex, if_nametoindex, if_indextoname
-    )
+    from socket import sethostname, if_nameindex, if_nametoindex, if_indextoname
 except ImportError:
     pass
 

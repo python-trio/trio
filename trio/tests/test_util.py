@@ -5,9 +5,14 @@ import trio
 from .. import _core
 from .._core.tests.tutil import ignore_coroutine_never_awaited_warnings
 from .._util import (
-    signal_raise, ConflictDetector, is_main_thread, coroutine_or_error,
-    generic_function, Final, NoPublicConstructor,
-    SubclassingDeprecatedIn_v0_15_0
+    signal_raise,
+    ConflictDetector,
+    is_main_thread,
+    coroutine_or_error,
+    generic_function,
+    Final,
+    NoPublicConstructor,
+    SubclassingDeprecatedIn_v0_15_0,
 )
 from ..testing import wait_all_tasks_blocked
 
@@ -53,11 +58,13 @@ async def test_ConflictDetector():
 
 def test_module_metadata_is_fixed_up():
     import trio
+
     assert trio.Cancelled.__module__ == "trio"
     assert trio.open_nursery.__module__ == "trio"
     assert trio.abc.Stream.__module__ == "trio.abc"
     assert trio.lowlevel.wait_task_rescheduled.__module__ == "trio.lowlevel"
     import trio.testing
+
     assert trio.testing.trio_test.__module__ == "trio.testing"
 
     # Also check methods

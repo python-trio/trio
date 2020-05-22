@@ -40,8 +40,7 @@ class RunVar(metaclass=SubclassingDeprecatedIn_v0_15_0):
         try:
             return _run.GLOBAL_RUN_CONTEXT.runner._locals[self]
         except AttributeError:
-            raise RuntimeError("Cannot be used outside of a run context") \
-                from None
+            raise RuntimeError("Cannot be used outside of a run context") from None
         except KeyError:
             # contextvars consistency
             if default is not self._NO_DEFAULT:
@@ -95,4 +94,4 @@ class RunVar(metaclass=SubclassingDeprecatedIn_v0_15_0):
         token.redeemed = True
 
     def __repr__(self):
-        return ("<RunVar name={!r}>".format(self._name))
+        return "<RunVar name={!r}>".format(self._name)

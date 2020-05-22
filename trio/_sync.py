@@ -156,6 +156,7 @@ class CapacityLimiter(metaclass=SubclassingDeprecatedIn_v0_15_0):
        just borrowed and then put back.
 
     """
+
     def __init__(self, total_tokens):
         self._lot = ParkingLot()
         self._borrowers = set()
@@ -166,11 +167,8 @@ class CapacityLimiter(metaclass=SubclassingDeprecatedIn_v0_15_0):
         assert self._total_tokens == total_tokens
 
     def __repr__(self):
-        return (
-            "<trio.CapacityLimiter at {:#x}, {}/{} with {} waiting>".format(
-                id(self), len(self._borrowers), self._total_tokens,
-                len(self._lot)
-            )
+        return "<trio.CapacityLimiter at {:#x}, {}/{} with {} waiting>".format(
+            id(self), len(self._borrowers), self._total_tokens, len(self._lot)
         )
 
     @property
@@ -190,9 +188,7 @@ class CapacityLimiter(metaclass=SubclassingDeprecatedIn_v0_15_0):
 
     @total_tokens.setter
     def total_tokens(self, new_total_tokens):
-        if not isinstance(
-            new_total_tokens, int
-        ) and new_total_tokens != math.inf:
+        if not isinstance(new_total_tokens, int) and new_total_tokens != math.inf:
             raise TypeError("total_tokens must be an int or math.inf")
         if new_total_tokens < 1:
             raise ValueError("total_tokens must be >= 1")
@@ -321,8 +317,7 @@ class CapacityLimiter(metaclass=SubclassingDeprecatedIn_v0_15_0):
         """
         if borrower not in self._borrowers:
             raise RuntimeError(
-                "this borrower isn't holding any of this CapacityLimiter's "
-                "tokens"
+                "this borrower isn't holding any of this CapacityLimiter's " "tokens"
             )
         self._borrowers.remove(borrower)
         self._wake_waiters()
@@ -381,6 +376,7 @@ class Semaphore(metaclass=SubclassingDeprecatedIn_v0_15_0):
         ``max_value``.
 
     """
+
     def __init__(self, initial_value, *, max_value=None):
         if not isinstance(initial_value, int):
             raise TypeError("initial_value must be an int")
@@ -404,10 +400,8 @@ class Semaphore(metaclass=SubclassingDeprecatedIn_v0_15_0):
             max_value_str = ""
         else:
             max_value_str = ", max_value={}".format(self._max_value)
-        return (
-            "<trio.Semaphore({}{}) at {:#x}>".format(
-                self._value, max_value_str, id(self)
-            )
+        return "<trio.Semaphore({}{}) at {:#x}>".format(
+            self._value, max_value_str, id(self)
         )
 
     @property
@@ -502,10 +496,8 @@ class _LockImpl:
         else:
             s1 = "unlocked"
             s2 = ""
-        return (
-            "<{} {} object at {:#x}{}>".format(
-                s1, self.__class__.__name__, id(self), s2
-            )
+        return "<{} {} object at {:#x}{}>".format(
+            s1, self.__class__.__name__, id(self), s2
         )
 
     def locked(self):
@@ -580,9 +572,7 @@ class _LockImpl:
 
         """
         return _LockStatistics(
-            locked=self.locked(),
-            owner=self._owner,
-            tasks_waiting=len(self._lot),
+            locked=self.locked(), owner=self._owner, tasks_waiting=len(self._lot),
         )
 
 
@@ -684,6 +674,7 @@ class Condition(metaclass=SubclassingDeprecatedIn_v0_15_0):
           and used.
 
     """
+
     def __init__(self, lock=None):
         if lock is None:
             lock = Lock()
@@ -795,6 +786,5 @@ class Condition(metaclass=SubclassingDeprecatedIn_v0_15_0):
 
         """
         return _ConditionStatistics(
-            tasks_waiting=len(self._lot),
-            lock_statistics=self._lock.statistics(),
+            tasks_waiting=len(self._lot), lock_statistics=self._lock.statistics(),
         )

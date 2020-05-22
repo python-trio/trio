@@ -5,7 +5,17 @@
 # implementation in an underscored module, and then re-export the public parts
 # here.
 from ._abc import (
-    Clock, Instrument, AsyncResource, SendStream, ReceiveStream, Stream,
-    HalfCloseableStream, SocketFactory, HostnameResolver, Listener,
-    SendChannel, ReceiveChannel, Channel
+    Clock,
+    Instrument,
+    AsyncResource,
+    SendStream,
+    ReceiveStream,
+    Stream,
+    HalfCloseableStream,
+    SocketFactory,
+    HostnameResolver,
+    Listener,
+    SendChannel,
+    ReceiveChannel,
+    Channel,
 )

@@ -10,7 +10,9 @@ import trio.testing
 from .test_ssl import client_ctx, SERVER_CTX
 
 from .._highlevel_ssl_helpers import (
-    open_ssl_over_tcp_stream, open_ssl_over_tcp_listeners, serve_ssl_over_tcp
+    open_ssl_over_tcp_stream,
+    open_ssl_over_tcp_listeners,
+    serve_ssl_over_tcp,
 )
 
 
@@ -41,18 +43,10 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
 
 # This uses serve_ssl_over_tcp, which uses open_ssl_over_tcp_listeners...
 # noqa is needed because flake8 doesn't understand how pytest fixtures work.
-async def test_open_ssl_over_tcp_stream_and_everything_else(
-    client_ctx,  # noqa: F811
-):
+async def test_open_ssl_over_tcp_stream_and_everything_else(client_ctx,):  # noqa: F811
     async with trio.open_nursery() as nursery:
         (listener,) = await nursery.start(
-            partial(
-                serve_ssl_over_tcp,
-                echo_handler,
-                0,
-                SERVER_CTX,
-                host="127.0.0.1"
-            )
+            partial(serve_ssl_over_tcp, echo_handler, 0, SERVER_CTX, host="127.0.0.1",)
         )
         sockaddr = listener.transport_listener.socket.getsockname()
         hostname_resolver = FakeHostnameResolver(sockaddr)
@@ -67,18 +61,14 @@ async def test_open_ssl_over_tcp_stream_and_everything_else(
         # We have the trust but not the hostname
         # (checks custom ssl_context + hostname checking)
         stream = await open_ssl_over_tcp_stream(
-            "xyzzy.example.org",
-            80,
-            ssl_context=client_ctx,
+            "xyzzy.example.org", 80, ssl_context=client_ctx,
         )
         with pytest.raises(trio.BrokenResourceError):
             await stream.do_handshake()
 
         # This one should work!
         stream = await open_ssl_over_tcp_stream(
-            "trio-test-1.example.org",
-            80,
-            ssl_context=client_ctx,
+            "trio-test-1.example.org", 80, ssl_context=client_ctx,
         )
         assert isinstance(stream, trio.SSLStream)
         assert stream.server_hostname == "trio-test-1.example.org"
@@ -103,9 +93,7 @@ async def test_open_ssl_over_tcp_stream_and_everything_else(
 
 
 async def test_open_ssl_over_tcp_listeners():
-    (listener,) = await open_ssl_over_tcp_listeners(
-        0, SERVER_CTX, host="127.0.0.1"
-    )
+    (listener,) = await open_ssl_over_tcp_listeners(0, SERVER_CTX, host="127.0.0.1")
     async with listener:
         assert isinstance(listener, trio.SSLListener)
         tl = listener.transport_listener
