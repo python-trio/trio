@@ -11,7 +11,7 @@ astroid==2.4.1            # via pylint
 async-generator==1.10     # via -r test-requirements.in
 attrs==19.3.0             # via -r test-requirements.in, black, outcome, pytest
 backcall==0.1.0           # via ipython
-black==19.10b0            # via -r test-requirements.in
+black==19.10b0 ; implementation_name == "cpython"  # via -r test-requirements.in
 cffi==1.14.0              # via cryptography
 click==7.1.2              # via black
 contextvars==2.4 ; python_version < "3.7"  # via -r test-requirements.in, sniffio
