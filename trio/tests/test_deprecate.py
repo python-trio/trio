@@ -37,7 +37,7 @@ def test_warn_deprecated(recwarn_always):
     assert "water instead" in got.message.args[0]
     assert "/issues/1" in got.message.args[0]
     assert got.filename == filename
-    assert got.lineno == lineno + 1
+    assert got.lineno == lineno - 1
 
 
 def test_warn_deprecated_no_instead_or_issue(recwarn_always):
