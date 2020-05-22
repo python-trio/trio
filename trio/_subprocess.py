@@ -9,8 +9,9 @@ from ._abc import AsyncResource, SendStream, ReceiveStream
 from ._highlevel_generic import StapledStream
 from ._sync import Lock
 from ._subprocess_platform import (
-    wait_child_exiting, create_pipe_to_child_stdin,
-    create_pipe_from_child_output
+    wait_child_exiting,
+    create_pipe_to_child_stdin,
+    create_pipe_from_child_output,
 )
 from ._util import NoPublicConstructor
 import trio
@@ -23,6 +24,7 @@ try:
 except ImportError:
     if sys.platform == "linux":
         import ctypes
+
         _cdll_for_pidfd_open = ctypes.CDLL(None, use_errno=True)
         _cdll_for_pidfd_open.syscall.restype = ctypes.c_long
         # pid and flags are actually int-sized, but the syscall() function
@@ -45,6 +47,7 @@ except ImportError:
                 err = ctypes.get_errno()
                 raise OSError(err, os.strerror(err))
             return result
+
     else:
         can_try_pidfd_open = False
 
@@ -312,12 +315,11 @@ async def open_process(
          specified command could not be found.
 
     """
-    for key in ('universal_newlines', 'text', 'encoding', 'errors', 'bufsize'):
+    for key in ("universal_newlines", "text", "encoding", "errors", "bufsize"):
         if options.get(key):
             raise TypeError(
                 "trio.Process only supports communicating over "
-                "unbuffered byte streams; the '{}' option is not supported"
-                .format(key)
+                "unbuffered byte streams; the '{}' option is not supported".format(key)
             )
 
     if os.name == "posix":
@@ -361,7 +363,7 @@ async def open_process(
                 stdin=stdin,
                 stdout=stdout,
                 stderr=stderr,
-                **options
+                **options,
             )
         )
     finally:
@@ -382,9 +384,7 @@ async def _windows_deliver_cancel(p):
     try:
         p.terminate()
     except OSError as exc:
-        warnings.warn(
-            RuntimeWarning(f"TerminateProcess on {p!r} failed with: {exc!r}")
-        )
+        warnings.warn(RuntimeWarning(f"TerminateProcess on {p!r} failed with: {exc!r}"))
 
 
 async def _posix_deliver_cancel(p):
@@ -401,9 +401,7 @@ async def _posix_deliver_cancel(p):
         p.kill()
     except OSError as exc:
         warnings.warn(
-            RuntimeWarning(
-                f"tried to kill process {p!r}, but failed with: {exc!r}"
-            )
+            RuntimeWarning(f"tried to kill process {p!r}, but failed with: {exc!r}")
         )
 
 
@@ -415,7 +413,7 @@ async def run_process(
     capture_stderr=False,
     check=True,
     deliver_cancel=None,
-    **options
+    **options,
 ):
     """Run ``command`` in a subprocess, wait for it to complete, and
     return a :class:`subprocess.CompletedProcess` instance describing
@@ -638,6 +636,4 @@ async def run_process(
             proc.returncode, proc.args, output=stdout, stderr=stderr
         )
     else:
-        return subprocess.CompletedProcess(
-            proc.args, proc.returncode, stdout, stderr
-        )
+        return subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)

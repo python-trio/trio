@@ -6,9 +6,7 @@ import errno
 import attr
 
 import trio
-from trio import (
-    open_tcp_listeners, serve_tcp, SocketListener, open_tcp_stream
-)
+from trio import open_tcp_listeners, serve_tcp, SocketListener, open_tcp_stream
 from trio.testing import open_stream_to_socket_listener
 from .. import socket as tsocket
 from .._core.tests.tutil import slow, creates_ipv6, binds_ipv6
@@ -79,9 +77,7 @@ async def measure_backlog(listener, limit):
             # has been observed to sometimes raise ConnectionResetError.
             with trio.move_on_after(0.5) as cancel_scope:
                 try:
-                    client_stream = await open_stream_to_socket_listener(
-                        listener
-                    )
+                    client_stream = await open_stream_to_socket_listener(listener)
                 except ConnectionResetError:  # pragma: no cover
                     break
                 client_streams.append(client_stream)
@@ -272,28 +268,18 @@ async def test_serve_tcp():
 
 
 @pytest.mark.parametrize(
-    "try_families", [
-        {tsocket.AF_INET},
-        {tsocket.AF_INET6},
-        {tsocket.AF_INET, tsocket.AF_INET6},
-    ]
+    "try_families",
+    [{tsocket.AF_INET}, {tsocket.AF_INET6}, {tsocket.AF_INET, tsocket.AF_INET6},],
 )
 @pytest.mark.parametrize(
-    "fail_families", [
-        {tsocket.AF_INET},
-        {tsocket.AF_INET6},
-        {tsocket.AF_INET, tsocket.AF_INET6},
-    ]
+    "fail_families",
+    [{tsocket.AF_INET}, {tsocket.AF_INET6}, {tsocket.AF_INET, tsocket.AF_INET6},],
 )
 async def test_open_tcp_listeners_some_address_families_unavailable(
     try_families, fail_families
 ):
     fsf = FakeSocketFactory(
-        10,
-        raise_on_family={
-            family: errno.EAFNOSUPPORT
-            for family in fail_families
-        }
+        10, raise_on_family={family: errno.EAFNOSUPPORT for family in fail_families},
     )
     tsocket.set_custom_socket_factory(fsf)
     tsocket.set_custom_hostname_resolver(
@@ -326,13 +312,11 @@ async def test_open_tcp_listeners_socket_fails_not_afnosupport():
         raise_on_family={
             tsocket.AF_INET: errno.EAFNOSUPPORT,
             tsocket.AF_INET6: errno.EINVAL,
-        }
+        },
     )
     tsocket.set_custom_socket_factory(fsf)
     tsocket.set_custom_hostname_resolver(
-        FakeHostnameResolver(
-            [(tsocket.AF_INET, "foo"), (tsocket.AF_INET6, "bar")]
-        )
+        FakeHostnameResolver([(tsocket.AF_INET, "foo"), (tsocket.AF_INET6, "bar")])
     )
 
     with pytest.raises(OSError) as exc_info:

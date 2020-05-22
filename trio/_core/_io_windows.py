@@ -325,9 +325,7 @@ class WindowsIOManager:
         self._afd = None
 
         self._iocp = _check(
-            kernel32.CreateIoCompletionPort(
-                INVALID_HANDLE_VALUE, ffi.NULL, 0, 0
-            )
+            kernel32.CreateIoCompletionPort(INVALID_HANDLE_VALUE, ffi.NULL, 0, 0)
         )
         self._events = ffi.new("OVERLAPPED_ENTRY[]", MAX_EVENTS)
 
@@ -350,9 +348,7 @@ class WindowsIOManager:
             base_handle = _get_base_socket(s, which=WSAIoctls.SIO_BASE_HANDLE)
             # LSPs can in theory override this, but we believe that it never
             # actually happens in the wild.
-            select_handle = _get_base_socket(
-                s, which=WSAIoctls.SIO_BSP_HANDLE_SELECT
-            )
+            select_handle = _get_base_socket(s, which=WSAIoctls.SIO_BSP_HANDLE_SELECT)
             if base_handle != select_handle:  # pragma: no cover
                 raise RuntimeError(
                     "Unexpected network configuration detected. "
@@ -400,8 +396,7 @@ class WindowsIOManager:
         try:
             _check(
                 kernel32.GetQueuedCompletionStatusEx(
-                    self._iocp, self._events, MAX_EVENTS, received,
-                    milliseconds, 0
+                    self._iocp, self._events, MAX_EVENTS, received, milliseconds, 0,
                 )
             )
         except OSError as exc:
@@ -476,18 +471,13 @@ class WindowsIOManager:
                 overlapped = int(ffi.cast("uintptr_t", entry.lpOverlapped))
                 transferred = entry.dwNumberOfBytesTransferred
                 info = CompletionKeyEventInfo(
-                    lpOverlapped=overlapped,
-                    dwNumberOfBytesTransferred=transferred,
+                    lpOverlapped=overlapped, dwNumberOfBytesTransferred=transferred,
                 )
                 queue.put_nowait(info)
 
     def _register_with_iocp(self, handle, completion_key):
         handle = _handle(handle)
-        _check(
-            kernel32.CreateIoCompletionPort(
-                handle, self._iocp, completion_key, 0
-            )
-        )
+        _check(kernel32.CreateIoCompletionPort(handle, self._iocp, completion_key, 0))
         # Supposedly this makes things slightly faster, by disabling the
         # ability to do WaitForSingleObject(handle). We would never want to do
         # that anyway, so might as well get the extra speed (if any).
@@ -506,11 +496,7 @@ class WindowsIOManager:
         waiters = self._afd_waiters[base_handle]
         if waiters.current_op is not None:
             try:
-                _check(
-                    kernel32.CancelIoEx(
-                        self._afd, waiters.current_op.lpOverlapped
-                    )
-                )
+                _check(kernel32.CancelIoEx(self._afd, waiters.current_op.lpOverlapped))
             except OSError as exc:
                 if exc.winerror != ErrorCodes.ERROR_NOT_FOUND:
                     # I don't think this is possible, so if it happens let's
@@ -530,7 +516,7 @@ class WindowsIOManager:
             lpOverlapped = ffi.new("LPOVERLAPPED")
 
             poll_info = ffi.new("AFD_POLL_INFO *")
-            poll_info.Timeout = 2**63 - 1  # INT64_MAX
+            poll_info.Timeout = 2 ** 63 - 1  # INT64_MAX
             poll_info.NumberOfHandles = 1
             poll_info.Exclusive = 0
             poll_info.Handles[0].Handle = base_handle
@@ -669,9 +655,7 @@ class WindowsIOManager:
                     # We didn't request this cancellation, so assume
                     # it happened due to the underlying handle being
                     # closed before the operation could complete.
-                    raise _core.ClosedResourceError(
-                        "another task closed this resource"
-                    )
+                    raise _core.ClosedResourceError("another task closed this resource")
             else:
                 raise_winerror(code)
 
@@ -700,7 +684,7 @@ class WindowsIOManager:
             def submit_write(lpOverlapped):
                 # yes, these are the real documented names
                 offset_fields = lpOverlapped.DUMMYUNIONNAME.DUMMYSTRUCTNAME
-                offset_fields.Offset = file_offset & 0xffffffff
+                offset_fields.Offset = file_offset & 0xFFFFFFFF
                 offset_fields.OffsetHigh = file_offset >> 32
                 _check(
                     kernel32.WriteFile(
@@ -722,7 +706,7 @@ class WindowsIOManager:
 
             def submit_read(lpOverlapped):
                 offset_fields = lpOverlapped.DUMMYUNIONNAME.DUMMYSTRUCTNAME
-                offset_fields.Offset = file_offset & 0xffffffff
+                offset_fields.Offset = file_offset & 0xFFFFFFFF
                 offset_fields.OffsetHigh = file_offset >> 32
                 _check(
                     kernel32.ReadFile(

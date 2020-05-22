@@ -9,7 +9,12 @@ import outcome
 import trio
 
 from ._sync import CapacityLimiter
-from ._core import enable_ki_protection, disable_ki_protection, RunVar, TrioToken
+from ._core import (
+    enable_ki_protection,
+    disable_ki_protection,
+    RunVar,
+    TrioToken,
+)
 from ._util import coroutine_or_error
 
 # Global due to Threading API, thread local storage for trio token
@@ -291,10 +296,7 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
         # this case shouldn't block process exit.
         current_trio_token = trio.lowlevel.current_trio_token()
         thread = threading.Thread(
-            target=worker_thread_fn,
-            args=(current_trio_token,),
-            name=name,
-            daemon=True
+            target=worker_thread_fn, args=(current_trio_token,), name=name, daemon=True,
         )
         thread.start()
     except:
@@ -338,9 +340,7 @@ def _run_fn_as_system_task(cb, fn, *args, trio_token=None):
     except RuntimeError:
         pass
     else:
-        raise RuntimeError(
-            "this is a blocking function; call it from a thread"
-        )
+        raise RuntimeError("this is a blocking function; call it from a thread")
 
     q = stdlib_queue.Queue()
     trio_token.run_sync_soon(cb, q, fn, args)
@@ -380,6 +380,7 @@ def from_thread_run(afn, *args, trio_token=None):
           "foreign" thread, spawned using some other framework, and still want
           to enter Trio.
     """
+
     def callback(q, afn, args):
         @disable_ki_protection
         async def unprotected_afn():
@@ -424,6 +425,7 @@ def from_thread_run_sync(fn, *args, trio_token=None):
           "foreign" thread, spawned using some other framework, and still want
           to enter Trio.
     """
+
     def callback(q, fn, args):
         @disable_ki_protection
         def unprotected_fn():

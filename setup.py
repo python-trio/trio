@@ -89,7 +89,7 @@ setup(
         # cffi 1.14 fixes memory leak inside ffi.getwinerror()
         # cffi is required on Windows, except on PyPy where it is built-in
         "cffi>=1.14; os_name == 'nt' and implementation_name != 'pypy'",
-        "contextvars>=2.1; python_version < '3.7'"
+        "contextvars>=2.1; python_version < '3.7'",
     ],
     # This means, just install *everything* you see under trio/, even if it
     # doesn't look like a source file, so long as it appears in MANIFEST.in:

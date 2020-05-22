@@ -1,7 +1,12 @@
 import logging
 import pytest
 
-from traceback import extract_tb, print_exception, format_exception, _cause_message
+from traceback import (
+    extract_tb,
+    print_exception,
+    format_exception,
+    _cause_message,
+)
 import sys
 import os
 import re
@@ -243,9 +248,9 @@ def test_MultiError_filter():
     assert isinstance(orig.exceptions[0].exceptions[1], KeyError)
     # get original traceback summary
     orig_extracted = (
-        extract_tb(orig.__traceback__) +
-        extract_tb(orig.exceptions[0].__traceback__) +
-        extract_tb(orig.exceptions[0].exceptions[1].__traceback__)
+        extract_tb(orig.__traceback__)
+        + extract_tb(orig.exceptions[0].__traceback__)
+        + extract_tb(orig.exceptions[0].exceptions[1].__traceback__)
     )
 
     def p(exc):
@@ -495,7 +500,7 @@ def test_format_exception():
             r"in raiser3",
             r"NameError",
         ],
-        formatted
+        formatted,
     )
 
     # Prints duplicate exceptions in sub-exceptions
@@ -556,7 +561,7 @@ def test_format_exception():
             r"in raise2_raiser1",
             r"  KeyError: 'bar'",
         ],
-        formatted
+        formatted,
     )
 
 
@@ -572,15 +577,14 @@ def test_logging(caplog):
     except MultiError as exc:
         logging.getLogger().exception(message)
         # Join lines together
-        formatted = "".join(
-            format_exception(type(exc), exc, exc.__traceback__)
-        )
+        formatted = "".join(format_exception(type(exc), exc, exc.__traceback__))
         assert message in caplog.text
         assert formatted in caplog.text
 
 
 def run_script(name, use_ipython=False):
     import trio
+
     trio_path = Path(trio.__file__).parent.parent
     script_path = Path(__file__).parent / "test_multierror_scripts" / name
 
@@ -605,7 +609,7 @@ def run_script(name, use_ipython=False):
             "IPython",
             # no startup files
             "--quick",
-            "--TerminalIPythonApp.code_to_run=" + '\n'.join(lines),
+            "--TerminalIPythonApp.code_to_run=" + "\n".join(lines),
         ]
     else:
         cmd = [sys.executable, "-u", str(script_path)]
@@ -629,7 +633,8 @@ def check_simple_excepthook(completed):
             "Details of embedded exception 2",
             "in exc2_fn",
             "KeyError",
-        ], completed.stdout.decode("utf-8")
+        ],
+        completed.stdout.decode("utf-8"),
     )
 
 
@@ -652,17 +657,18 @@ def test_custom_excepthook():
             # The MultiError
             "MultiError:",
         ],
-        completed.stdout.decode("utf-8")
+        completed.stdout.decode("utf-8"),
     )
 
 
 # This warning is triggered by ipython 7.5.0 on python 3.8
 import warnings
+
 warnings.filterwarnings(
     "ignore",
-    message=".*\"@coroutine\" decorator is deprecated",
+    message='.*"@coroutine" decorator is deprecated',
     category=DeprecationWarning,
-    module="IPython.*"
+    module="IPython.*",
 )
 try:
     import IPython
@@ -705,7 +711,7 @@ def test_ipython_custom_exc_handler():
             "ValueError",
             "KeyError",
         ],
-        completed.stdout.decode("utf-8")
+        completed.stdout.decode("utf-8"),
     )
     # Make sure our other warning doesn't show up
     assert "custom sys.excepthook" not in completed.stdout.decode("utf-8")
@@ -714,7 +720,7 @@ def test_ipython_custom_exc_handler():
 @slow
 @pytest.mark.skipif(
     not Path("/usr/lib/python3/dist-packages/apport_python_hook.py").exists(),
-    reason="need Ubuntu with python3-apport installed"
+    reason="need Ubuntu with python3-apport installed",
 )
 def test_apport_excepthook_monkeypatch_interaction():
     completed = run_script("apport_excepthook.py")
@@ -725,10 +731,6 @@ def test_apport_excepthook_monkeypatch_interaction():
 
     # Proper traceback
     assert_match_in_seq(
-        [
-            "Details of embedded",
-            "KeyError",
-            "Details of embedded",
-            "ValueError",
-        ], stdout
+        ["Details of embedded", "KeyError", "Details of embedded", "ValueError",],
+        stdout,
     )

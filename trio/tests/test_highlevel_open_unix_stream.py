@@ -5,9 +5,7 @@ import tempfile
 import pytest
 
 from trio import open_unix_socket, Path
-from trio._highlevel_open_unix_stream import (
-    close_on_error,
-)
+from trio._highlevel_open_unix_stream import close_on_error
 
 if not hasattr(socket, "AF_UNIX"):
     pytestmark = pytest.mark.skip("Needs unix socket support")
@@ -30,7 +28,7 @@ def test_close_on_error():
     assert c.closed
 
 
-@pytest.mark.parametrize('filename', [4, 4.5])
+@pytest.mark.parametrize("filename", [4, 4.5])
 async def test_open_with_bad_filename_type(filename):
     with pytest.raises(TypeError):
         await open_unix_socket(filename)

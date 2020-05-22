@@ -37,9 +37,7 @@ async def aclose_forcefully(resource):
 
 
 @attr.s(eq=False, hash=False)
-class StapledStream(
-    HalfCloseableStream, metaclass=SubclassingDeprecatedIn_v0_15_0
-):
+class StapledStream(HalfCloseableStream, metaclass=SubclassingDeprecatedIn_v0_15_0):
     """This class `staples <https://en.wikipedia.org/wiki/Staple_(fastener)>`__
     together two unidirectional streams to make single bidirectional stream.
 
@@ -73,6 +71,7 @@ class StapledStream(
        is delegated to this object.
 
     """
+
     send_stream = attr.ib()
     receive_stream = attr.ib()
 
