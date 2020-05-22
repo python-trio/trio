@@ -656,6 +656,8 @@ finished.
 
    This code will wait 5 seconds (for the child task to finish), and then return.
 
+.. _child-tasks-and-cancellation:
+
 Child tasks and cancellation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

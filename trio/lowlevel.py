@@ -25,6 +25,7 @@ from ._core import (
     ParkingLot,
     UnboundedQueue,
     RunVar,
+    ScopeVar,
     TrioToken,
     current_trio_token,
     temporarily_detach_coroutine_object,

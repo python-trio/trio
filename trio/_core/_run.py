@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import functools
 import itertools
 import logging
@@ -10,7 +12,7 @@ from collections import deque
 import collections.abc
 from contextlib import contextmanager, closing
 
-from contextvars import copy_context
+from contextvars import copy_context, Context
 from math import inf
 from time import perf_counter
 
@@ -771,6 +773,7 @@ class Nursery(metaclass=NoPublicConstructor):
 
     def __init__(self, parent_task, cancel_scope):
         self._parent_task = parent_task
+        self._scope_context = parent_task._scope_context.copy()
         parent_task._child_nurseries.append(self)
         # the cancel status that children inherit - we take a snapshot, so it
         # won't be affected by any changes in the parent.
@@ -974,6 +977,9 @@ class Task(metaclass=NoPublicConstructor):
     context = attr.ib()
     _counter = attr.ib(init=False, factory=itertools.count().__next__)
 
+    # Contextvars context that contains ScopeVar values
+    _scope_context = attr.ib(init=False)
+
     # Invariant:
     # - for unscheduled tasks, _next_send_fn and _next_send are both None
     # - for scheduled tasks, _next_send_fn(_next_send) resumes the task;
@@ -998,6 +1004,12 @@ class Task(metaclass=NoPublicConstructor):
     # XX maybe these should be exposed as part of a statistics() method?
     _cancel_points = attr.ib(default=0)
     _schedule_points = attr.ib(default=0)
+
+    def __attrs_post_init__(self):
+        if self._parent_nursery is None:
+            self._scope_context = Context()
+        else:
+            self._scope_context = self._parent_nursery._scope_context.copy()
 
     def __repr__(self):
         return "<Task {!r} at {:#x}>".format(self.name, id(self))

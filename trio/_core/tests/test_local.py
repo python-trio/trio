@@ -1,4 +1,5 @@
 import pytest
+from functools import partial
 
 from ... import _core
 
@@ -113,3 +114,90 @@ def test_accessing_runvar_outside_run_call_fails():
 
     with pytest.raises(RuntimeError):
         t1.reset(token)
+
+
+async def test_scopevar():
+    sv1 = _core.ScopeVar("sv1")
+    sv2 = _core.ScopeVar("sv2", default=None)
+    with pytest.raises(LookupError):
+        sv1.get()
+    assert sv2.get() is None
+    assert sv1.get(42) == 42
+    assert sv2.get(42) == 42
+
+    NOTHING = object()
+
+    async def should_be(val1, val2, new1=NOTHING):
+        assert sv1.get(NOTHING) == val1
+        assert sv2.get(NOTHING) == val2
+        if new1 is not NOTHING:
+            sv1.set(new1)
+
+    tok1 = sv1.set(10)
+    async with _core.open_nursery() as outer:
+        tok2 = sv1.set(15)
+        with sv2.being(20):
+            assert sv2.get_in(_core.current_task()) == 20
+            async with _core.open_nursery() as inner:
+                sv1.reset(tok2)
+                outer.start_soon(should_be, 10, NOTHING, 100)
+                inner.start_soon(should_be, 15, 20, 200)
+                await _core.wait_all_tasks_blocked()
+                assert sv1.get_in(_core.current_task()) == 10
+                await should_be(10, 20, 300)
+                assert sv1.get_in(inner) == 15
+                assert sv1.get_in(outer) == 10
+                assert sv1.get_in(_core.current_task()) == 300
+                assert sv2.get_in(inner) == 20
+                assert sv2.get_in(outer) is None
+                assert sv2.get_in(_core.current_task()) == 20
+                sv1.reset(tok1)
+                await should_be(NOTHING, 20)
+                assert sv1.get_in(inner) == 15
+                assert sv1.get_in(outer) == 10
+                with pytest.raises(LookupError):
+                    assert sv1.get_in(_core.current_task())
+        assert sv2.get() is None
+        assert sv2.get_in(_core.current_task()) is None
+
+
+async def test_scopevar_token_bound_to_task_that_obtained_it():
+    sv1 = _core.ScopeVar("sv1")
+    token = None
+
+    async def get_token():
+        nonlocal token
+        token = sv1.set(10)
+        try:
+            await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
+        finally:
+            sv1.reset(token)
+            with pytest.raises(LookupError):
+                sv1.get()
+            with pytest.raises(LookupError):
+                sv1.get_in(_core.current_task())
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(get_token)
+        await _core.wait_all_tasks_blocked()
+        assert token is not None
+        with pytest.raises(ValueError, match="different Context"):
+            sv1.reset(token)
+        assert sv1.get_in(list(nursery.child_tasks)[0]) == 10
+        nursery.cancel_scope.cancel()
+
+
+def test_scopevar_outside_run():
+    async def run_sync(fn, *args):
+        return fn(*args)
+
+    sv1 = _core.ScopeVar("sv1", default=10)
+    for operation in (
+        sv1.get,
+        partial(sv1.get, 20),
+        partial(sv1.set, 30),
+        lambda: sv1.reset(_core.run(run_sync, sv1.set, 10)),
+        sv1.being(40).__enter__,
+    ):
+        with pytest.raises(RuntimeError, match="must be called from async context"):
+            operation()

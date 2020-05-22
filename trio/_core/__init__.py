@@ -66,7 +66,7 @@ from ._parking_lot import ParkingLot
 
 from ._unbounded_queue import UnboundedQueue
 
-from ._local import RunVar
+from ._local import RunVar, ScopeVar
 
 # Kqueue imports
 try:

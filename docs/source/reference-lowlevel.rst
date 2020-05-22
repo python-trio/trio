@@ -226,11 +226,11 @@ Windows-specific API
 
 .. function:: WaitForSingleObject(handle)
     :async:
-    
+
     Async and cancellable variant of `WaitForSingleObject
     <https://msdn.microsoft.com/en-us/library/windows/desktop/ms687032(v=vs.85).aspx>`__.
     Windows only.
-    
+
     :arg handle:
         A Win32 object handle, as a Python integer.
     :raises OSError:
@@ -259,6 +259,12 @@ Global state: system tasks and run-local variables
 .. autoclass:: RunVar
 
 .. autofunction:: spawn_system_task
+
+
+Scope variables
+===============
+
+.. autoclass:: ScopeVar
 
 
 Trio tokens
