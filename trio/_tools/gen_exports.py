@@ -21,14 +21,17 @@ HEADER = """# ***********************************************************
 from ._run import GLOBAL_RUN_CONTEXT, _NO_SEND
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 
-    
+# fmt: off
+"""
+
+FOOTER = """# fmt: on
 """
 
 TEMPLATE = """locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
 try:
-    return {} GLOBAL_RUN_CONTEXT.{}.{}
+    return{}GLOBAL_RUN_CONTEXT.{}.{}
 except AttributeError:
-    raise RuntimeError('must be called from async context')
+    raise RuntimeError("must be called from async context")
 """
 
 
@@ -116,7 +119,7 @@ def gen_public_wrappers_source(source_path: Path, lookup_path: str) -> str:
 
         # Create export function body
         template = TEMPLATE.format(
-            'await' if isinstance(method, ast.AsyncFunctionDef) else '',
+            " await " if isinstance(method, ast.AsyncFunctionDef) else " ",
             lookup_path,
             method.name + new_args,
         )
@@ -126,7 +129,8 @@ def gen_public_wrappers_source(source_path: Path, lookup_path: str) -> str:
 
         # Append the snippet to the corresponding module
         generated.append(snippet)
-    return "\n".join(generated)
+    generated.append(FOOTER)
+    return "\n\n".join(generated)
 
 
 def matches_disk_files(new_files):
