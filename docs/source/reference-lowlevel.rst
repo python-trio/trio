@@ -270,6 +270,8 @@ Trio tokens
 .. autofunction:: current_trio_token
 
 
+.. _ki-handling:
+
 Safer KeyboardInterrupt handling
 ================================
 
