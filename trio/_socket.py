@@ -497,7 +497,7 @@ class _SocketType(SocketType):
         elif self._sock.family == _stdlib_socket.AF_INET6:
             if not isinstance(address, tuple) or not 2 <= len(address) <= 4:
                 raise ValueError(
-                    "address should be a (host, port, [flowinfo, [scopeid]]) " "tuple"
+                    "address should be a (host, port, [flowinfo, [scopeid]]) tuple"
                 )
         elif self._sock.family == _stdlib_socket.AF_UNIX:
             await trio.lowlevel.checkpoint()

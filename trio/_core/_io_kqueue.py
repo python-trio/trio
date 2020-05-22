@@ -81,7 +81,7 @@ class KqueueIOManager:
         key = (ident, filter)
         if key in self._registered:
             raise _core.BusyResourceError(
-                "attempt to register multiple listeners for same " "ident/filter pair"
+                "attempt to register multiple listeners for same ident/filter pair"
             )
         q = _core.UnboundedQueue()
         self._registered[key] = q
@@ -95,7 +95,7 @@ class KqueueIOManager:
         key = (ident, filter)
         if key in self._registered:
             raise _core.BusyResourceError(
-                "attempt to register multiple listeners for same " "ident/filter pair"
+                "attempt to register multiple listeners for same ident/filter pair"
             )
         self._registered[key] = _core.current_task()
 

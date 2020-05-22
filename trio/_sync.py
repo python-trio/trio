@@ -317,7 +317,7 @@ class CapacityLimiter(metaclass=SubclassingDeprecatedIn_v0_15_0):
         """
         if borrower not in self._borrowers:
             raise RuntimeError(
-                "this borrower isn't holding any of this CapacityLimiter's " "tokens"
+                "this borrower isn't holding any of this CapacityLimiter's tokens"
             )
         self._borrowers.remove(borrower)
         self._wake_waiters()
