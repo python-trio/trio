@@ -344,8 +344,8 @@ def _make_simple_sock_method_wrapper(methname, wait_fn, maybe_avail=False):
             """
     if maybe_avail:
         wrapper.__doc__ += (
-            f"Only available on platforms where :meth:`socket.socket.{methname}`"
-            " is available."
+            f"Only available on platforms where :meth:`socket.socket.{methname}` is "
+            "available."
         )
     return wrapper
 
