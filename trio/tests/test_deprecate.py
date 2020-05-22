@@ -25,8 +25,8 @@ def test_warn_deprecated(recwarn_always):
     def deprecated_thing():
         warn_deprecated("ice", "1.2", issue=1, instead="water")
 
-    filename, lineno = _here()  # https://github.com/google/yapf/issues/447
     deprecated_thing()
+    filename, lineno = _here()
     assert len(recwarn_always) == 1
     got = recwarn_always.pop(TrioDeprecationWarning)
     assert "ice is deprecated" in got.message.args[0]
@@ -54,7 +54,7 @@ def test_warn_deprecated_stacklevel(recwarn_always):
     def nested2():
         warn_deprecated("x", "1.3", issue=7, instead="y", stacklevel=3)
 
-    filename, lineno = _here()  # https://github.com/google/yapf/issues/447
+    filename, lineno = _here()
     nested1()
     got = recwarn_always.pop(TrioDeprecationWarning)
     assert got.filename == filename
@@ -214,7 +214,7 @@ def test_module_with_deprecations(recwarn_always):
     assert module_with_deprecations.regular == "hi"
     assert len(recwarn_always) == 0
 
-    filename, lineno = _here()  # https://github.com/google/yapf/issues/447
+    filename, lineno = _here()
     assert module_with_deprecations.dep1 == "value1"
     got = recwarn_always.pop(TrioDeprecationWarning)
     assert got.filename == filename

@@ -20,6 +20,7 @@ import sys as _sys
 # going on. There's a test in test_exports.py to make sure that the list is
 # kept up to date.
 try:
+    # fmt: off
     from socket import (
         CMSG_LEN, CMSG_SPACE, CAPI, AF_UNSPEC, AF_INET, AF_UNIX, AF_IPX,
         AF_APPLETALK, AF_INET6, AF_ROUTE, AF_LINK, AF_SNA, PF_SYSTEM,
@@ -117,6 +118,7 @@ try:
         SCM_J1939_PRIO, SO_J1939_ERRQUEUE, SO_J1939_FILTER, SO_J1939_PROMISC,
         SO_J1939_SEND_PRIO, UDPLITE_RECV_CSCOV, UDPLITE_SEND_CSCOV
     )
+    # fmt: on
 except ImportError:
     pass
 

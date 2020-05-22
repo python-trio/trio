@@ -441,7 +441,7 @@ def test_instruments_interleave():
             ("after", tasks["t2"])
         },
         ("after_run",),
-    ]  # yapf: disable
+    ]
     print(list(r.filter_tasks(tasks.values())))
     check_sequence_matches(list(r.filter_tasks(tasks.values())), expected)
 

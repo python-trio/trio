@@ -127,7 +127,7 @@ async def test_getaddrinfo(monkeygai):
          tsocket.IPPROTO_TCP,
          "",
          ("127.0.0.1", 12345)),
-    ])  # yapf: disable
+    ])
 
     with assert_checkpoints():
         res = await tsocket.getaddrinfo(
@@ -139,7 +139,7 @@ async def test_getaddrinfo(monkeygai):
          tsocket.IPPROTO_UDP,
          "",
          ("::1", 12345, 0, 0)),
-    ])  # yapf: disable
+    ])
 
     monkeygai.set("x", b"host", "port", family=0, type=0, proto=0, flags=0)
     with assert_checkpoints():
@@ -492,7 +492,6 @@ async def test_SocketType_resolve(socket_type, addrs):
         async def res(*args):
             return await getattr(sock, resolver)(*args)
 
-        # yapf: disable
         assert await res((addrs.arbitrary,
                           "http")) == (addrs.arbitrary, 80, *addrs.extra)
         if v6:
@@ -507,7 +506,6 @@ async def test_SocketType_resolve(socket_type, addrs):
         # Check the <broadcast> special case, because why not
         assert await res(("<broadcast>",
                           123)) == (addrs.broadcast, 123, *addrs.extra)
-        # yapf: enable
 
         # But not if it's true (at least on systems where getaddrinfo works
         # correctly)
