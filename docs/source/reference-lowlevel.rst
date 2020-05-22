@@ -293,7 +293,7 @@ and raise `KeyboardInterrupt` directly as the result of :func:`trio.run`.
    then `KeyboardInterrupt` is raised once that's complete.
 
    If you want to handle Ctrl+C by doing something other than "cancel
-   all tasks", then you should use :func:`open_signal_receiver` to
+   all tasks", then you should use :func:`~trio.open_signal_receiver` to
    install a handler for ``SIGINT``. If you do that, then Ctrl+C will
    go to your handler, and it can do whatever it wants.
 
