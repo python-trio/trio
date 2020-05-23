@@ -51,7 +51,6 @@ async def test_basic():
     repr_template = "<trio.Process {!r}: {{}}>".format(EXIT_TRUE)
     async with await open_process(EXIT_TRUE) as proc:
         assert isinstance(proc, Process)
-        assert proc.returncode is None
         assert repr(proc) == repr_template.format(
             "running with PID {}".format(proc.pid)
         )
