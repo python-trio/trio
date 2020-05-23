@@ -20,6 +20,7 @@ import sys as _sys
 # going on. There's a test in test_exports.py to make sure that the list is
 # kept up to date.
 try:
+    # fmt: off
     from socket import (
         CMSG_LEN, CMSG_SPACE, CAPI, AF_UNSPEC, AF_INET, AF_UNIX, AF_IPX,
         AF_APPLETALK, AF_INET6, AF_ROUTE, AF_LINK, AF_SNA, PF_SYSTEM,
@@ -117,6 +118,7 @@ try:
         SCM_J1939_PRIO, SO_J1939_ERRQUEUE, SO_J1939_FILTER, SO_J1939_PROMISC,
         SO_J1939_SEND_PRIO, UDPLITE_RECV_CSCOV, UDPLITE_SEND_CSCOV
     )
+    # fmt: on
 except ImportError:
     pass
 
@@ -125,7 +127,7 @@ except ImportError:
 import socket as _stdlib_socket
 
 _bad_symbols = set()
-if _sys.platform == 'win32':
+if _sys.platform == "win32":
     # See https://github.com/python-trio/trio/issues/39
     # Do not import for windows platform
     # (you can still get it from stdlib socket, of course, if you want it)
@@ -141,9 +143,16 @@ globals().update(
 
 # import the overwrites
 from ._socket import (
-    fromfd, from_stdlib_socket, getprotobyname, socketpair, getnameinfo,
-    socket, getaddrinfo, set_custom_hostname_resolver,
-    set_custom_socket_factory, SocketType
+    fromfd,
+    from_stdlib_socket,
+    getprotobyname,
+    socketpair,
+    getnameinfo,
+    socket,
+    getaddrinfo,
+    set_custom_hostname_resolver,
+    set_custom_socket_factory,
+    SocketType,
 )
 
 # not always available so expose only if
@@ -168,9 +177,7 @@ from socket import (
 
 # not always available so expose only if
 try:
-    from socket import (
-        sethostname, if_nameindex, if_nametoindex, if_indextoname
-    )
+    from socket import sethostname, if_nameindex, if_nametoindex, if_indextoname
 except ImportError:
     pass
 

@@ -6,7 +6,9 @@ import sys
 
 from shutil import copyfile
 from trio._tools.gen_exports import (
-    get_public_methods, create_passthrough_args, process
+    get_public_methods,
+    create_passthrough_args,
+    process,
 )
 
 SOURCE = '''from _run import _public
@@ -43,7 +45,7 @@ def test_create_pass_through_args():
         ("def f(one, *args)", "(one, *args)"),
         (
             "def f(one, *args, kw1, kw2=None, **kwargs)",
-            "(one, *args, kw1=kw1, kw2=kw2, **kwargs)"
+            "(one, *args, kw1=kw1, kw2=kw2, **kwargs)",
         ),
     ]
 

@@ -235,9 +235,7 @@ class EpollIOManager:
                     self._epoll.modify(fd, wanted_flags | select.EPOLLONESHOT)
                 except OSError:
                     # If that fails, it might be a new fd; try EPOLL_CTL_ADD
-                    self._epoll.register(
-                        fd, wanted_flags | select.EPOLLONESHOT
-                    )
+                    self._epoll.register(fd, wanted_flags | select.EPOLLONESHOT)
                 waiters.current_flags = wanted_flags
             except OSError as exc:
                 # If everything fails, probably it's a bad fd, e.g. because
@@ -284,7 +282,7 @@ class EpollIOManager:
             fd = fd.fileno()
         wake_all(
             self._registered[fd],
-            _core.ClosedResourceError("another task closed this fd")
+            _core.ClosedResourceError("another task closed this fd"),
         )
         del self._registered[fd]
         try:

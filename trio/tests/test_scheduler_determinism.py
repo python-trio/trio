@@ -26,9 +26,7 @@ def test_the_trio_scheduler_is_not_deterministic():
 
 
 def test_the_trio_scheduler_is_deterministic_if_seeded(monkeypatch):
-    monkeypatch.setattr(
-        trio._core._run, "_ALLOW_DETERMINISTIC_SCHEDULING", True
-    )
+    monkeypatch.setattr(trio._core._run, "_ALLOW_DETERMINISTIC_SCHEDULING", True)
     traces = []
     for _ in range(10):
         state = trio._core._run._r.getstate()

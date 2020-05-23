@@ -13,7 +13,7 @@ python ./trio/_tools/gen_exports.py --test \
 # see https://forum.bors.tech/t/pre-test-and-pre-merge-hooks/322)
 # autoflake --recursive --in-place .
 # pyupgrade --py3-plus $(find . -name "*.py")
-yapf -rpd setup.py trio \
+black --diff setup.py trio \
     || EXIT_STATUS=$?
 
 # Run flake8 without pycodestyle and import-related errors
@@ -31,7 +31,7 @@ Problems were found by static analysis (listed above).
 To fix formatting and see remaining errors, run
 
     pip install -r test-requirements.txt
-    yapf -rpi setup.py trio
+    black setup.py trio
     ./check.sh
 
 in your local checkout.

@@ -4,18 +4,24 @@
 #
 #    pip-compile --output-file test-requirements.txt test-requirements.in
 #
+appdirs==1.4.4            # via black
+appnope==0.1.0            # via ipython
 astor==0.8.1              # via -r test-requirements.in
 astroid==2.4.1            # via pylint
 async-generator==1.10     # via -r test-requirements.in
-attrs==19.3.0             # via -r test-requirements.in, outcome, pytest
+attrs==19.3.0             # via -r test-requirements.in, black, outcome, pytest
 backcall==0.1.0           # via ipython
+black==19.10b0 ; implementation_name == "cpython"  # via -r test-requirements.in
 cffi==1.14.0              # via cryptography
+click==7.1.2              # via black
+contextvars==2.4 ; python_version < "3.7"  # via -r test-requirements.in, sniffio
 coverage==5.1             # via pytest-cov
 cryptography==2.9.2       # via pyopenssl, trustme
 decorator==4.4.2          # via ipython, traitlets
 flake8==3.8.1             # via -r test-requirements.in
 idna==2.9                 # via -r test-requirements.in, trustme
-immutables==0.14          # via -r test-requirements.in
+immutables==0.14          # via -r test-requirements.in, contextvars
+importlib-metadata==1.6.0  # via flake8, pluggy, pytest
 ipython-genutils==0.2.0   # via traitlets
 ipython==7.14.0           # via -r test-requirements.in
 isort==4.3.21             # via pylint
@@ -26,6 +32,7 @@ more-itertools==8.3.0     # via pytest
 outcome==1.0.1            # via -r test-requirements.in
 packaging==20.4           # via pytest
 parso==0.7.0              # via jedi
+pathspec==0.8.0           # via black
 pexpect==4.8.0            # via ipython
 pickleshare==0.7.5        # via ipython
 pluggy==0.13.1            # via pytest
@@ -41,12 +48,14 @@ pyopenssl==19.1.0         # via -r test-requirements.in
 pyparsing==2.4.7          # via packaging
 pytest-cov==2.8.1         # via -r test-requirements.in
 pytest==5.4.2             # via -r test-requirements.in, pytest-cov
+regex==2020.5.14          # via black
 six==1.15.0               # via astroid, cryptography, packaging, pyopenssl, traitlets
 sniffio==1.1.0            # via -r test-requirements.in
 sortedcontainers==2.1.0   # via -r test-requirements.in
-toml==0.10.1              # via pylint
+toml==0.10.1              # via black, pylint
 traitlets==4.3.3          # via ipython
 trustme==0.6.0            # via -r test-requirements.in
+typed-ast==1.4.1 ; python_version < "3.8" and implementation_name == "cpython"  # via -r test-requirements.in, astroid, black
 wcwidth==0.1.9            # via prompt-toolkit, pytest
 wrapt==1.12.1             # via astroid
-yapf==0.30.0              # via -r test-requirements.in
+zipp==3.1.0               # via importlib-metadata

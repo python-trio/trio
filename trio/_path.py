@@ -88,7 +88,7 @@ class AsyncAutoWrapperType(SubclassingDeprecatedIn_v0_15_0):
     def generate_forwards(cls, attrs):
         # forward functions of _forwards
         for attr_name, attr in cls._forwards.__dict__.items():
-            if attr_name.startswith('_') or attr_name in attrs:
+            if attr_name.startswith("_") or attr_name in attrs:
                 continue
 
             if isinstance(attr, property):
@@ -103,7 +103,7 @@ class AsyncAutoWrapperType(SubclassingDeprecatedIn_v0_15_0):
         # generate wrappers for functions of _wraps
         for attr_name, attr in cls._wraps.__dict__.items():
             # .z. exclude cls._wrap_iter
-            if attr_name.startswith('_') or attr_name in attrs:
+            if attr_name.startswith("_") or attr_name in attrs:
                 continue
             if isinstance(attr, classmethod):
                 wrapper = classmethod_wrapper_factory(cls, attr_name)
@@ -138,18 +138,18 @@ class Path(metaclass=AsyncAutoWrapperType):
     _wraps = pathlib.Path
     _forwards = pathlib.PurePath
     _forward_magic = [
-        '__str__',
-        '__bytes__',
-        '__truediv__',
-        '__rtruediv__',
-        '__eq__',
-        '__lt__',
-        '__le__',
-        '__gt__',
-        '__ge__',
-        '__hash__',
+        "__str__",
+        "__bytes__",
+        "__truediv__",
+        "__rtruediv__",
+        "__eq__",
+        "__lt__",
+        "__le__",
+        "__gt__",
+        "__ge__",
+        "__hash__",
     ]
-    _wrap_iter = ['glob', 'rglob', 'iterdir']
+    _wrap_iter = ["glob", "rglob", "iterdir"]
 
     def __init__(self, *args):
         self._wrapped = pathlib.Path(*args)
@@ -164,7 +164,7 @@ class Path(metaclass=AsyncAutoWrapperType):
         return super().__dir__() + self._forward
 
     def __repr__(self):
-        return 'trio.Path({})'.format(repr(str(self)))
+        return "trio.Path({})".format(repr(str(self)))
 
     def __fspath__(self):
         return os.fspath(self._wrapped)

@@ -130,8 +130,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
 
         async with _core.open_nursery() as nursery:
             nursery.start_soon(
-                simple_check_wait_send_all_might_not_block,
-                nursery.cancel_scope
+                simple_check_wait_send_all_might_not_block, nursery.cancel_scope
             )
             nursery.start_soon(do_receive_some, 1)
 
@@ -398,19 +397,18 @@ async def check_two_way_stream(stream_maker, clogged_stream_maker):
 
         async def flipped_clogged_stream_maker():
             return reversed(await clogged_stream_maker())
+
     else:
         flipped_clogged_stream_maker = None
-    await check_one_way_stream(
-        flipped_stream_maker, flipped_clogged_stream_maker
-    )
+    await check_one_way_stream(flipped_stream_maker, flipped_clogged_stream_maker)
 
     async with _ForceCloseBoth(await stream_maker()) as (s1, s2):
         assert isinstance(s1, Stream)
         assert isinstance(s2, Stream)
 
         # Duplex can be a bit tricky, might as well check it as well
-        DUPLEX_TEST_SIZE = 2**20
-        CHUNK_SIZE_MAX = 2**14
+        DUPLEX_TEST_SIZE = 2 ** 20
+        CHUNK_SIZE_MAX = 2 ** 14
 
         r = random.Random(0)
         i = r.getrandbits(8 * DUPLEX_TEST_SIZE)

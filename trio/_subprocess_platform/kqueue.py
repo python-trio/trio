@@ -13,16 +13,11 @@ async def wait_child_exiting(process: "_subprocess.Process") -> None:
         KQ_NOTE_EXIT = 0x80000000
 
     make_event = lambda flags: select.kevent(
-        process.pid,
-        filter=select.KQ_FILTER_PROC,
-        flags=flags,
-        fflags=KQ_NOTE_EXIT
+        process.pid, filter=select.KQ_FILTER_PROC, flags=flags, fflags=KQ_NOTE_EXIT,
     )
 
     try:
-        kqueue.control(
-            [make_event(select.KQ_EV_ADD | select.KQ_EV_ONESHOT)], 0
-        )
+        kqueue.control([make_event(select.KQ_EV_ADD | select.KQ_EV_ONESHOT)], 0)
     except ProcessLookupError:  # pragma: no cover
         # This can supposedly happen if the process is in the process
         # of exiting, and it can even be the case that kqueue says the

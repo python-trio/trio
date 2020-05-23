@@ -16,8 +16,10 @@ import sniffio
 import pytest
 
 from .tutil import (
-    slow, check_sequence_matches, gc_collect_harder,
-    ignore_coroutine_never_awaited_warnings
+    slow,
+    check_sequence_matches,
+    gc_collect_harder,
+    ignore_coroutine_never_awaited_warnings,
 )
 
 from ... import _core
@@ -129,8 +131,7 @@ async def test_basic_interleave():
         nursery.start_soon(looper, "b", record)
 
     check_sequence_matches(
-        record,
-        [{("a", 0), ("b", 0)}, {("a", 1), ("b", 1)}, {("a", 2), ("b", 2)}]
+        record, [{("a", 0), ("b", 0)}, {("a", 1), ("b", 1)}, {("a", 2), ("b", 2)}],
     )
 
 
@@ -174,8 +175,10 @@ def test_main_and_task_both_crash():
     with pytest.raises(_core.MultiError) as excinfo:
         _core.run(main)
     print(excinfo.value)
-    assert {type(exc)
-            for exc in excinfo.value.exceptions} == {ValueError, KeyError}
+    assert {type(exc) for exc in excinfo.value.exceptions} == {
+        ValueError,
+        KeyError,
+    }
 
 
 def test_two_child_crashes():
@@ -189,8 +192,10 @@ def test_two_child_crashes():
 
     with pytest.raises(_core.MultiError) as excinfo:
         _core.run(main)
-    assert {type(exc)
-            for exc in excinfo.value.exceptions} == {ValueError, KeyError}
+    assert {type(exc) for exc in excinfo.value.exceptions} == {
+        ValueError,
+        KeyError,
+    }
 
 
 async def test_child_crash_wakes_parent():
@@ -395,9 +400,9 @@ def test_instruments(recwarn):
     # reschedules the task immediately upon yielding, before the
     # after_task_step event fires.
     expected = (
-        [("before_run",), ("schedule", task)] +
-        [("before", task), ("schedule", task), ("after", task)] * 5 +
-        [("before", task), ("after", task), ("after_run",)]
+        [("before_run",), ("schedule", task)]
+        + [("before", task), ("schedule", task), ("after", task)] * 5
+        + [("before", task), ("after", task), ("after_run",)]
     )
     assert len(r1.record) > len(r2.record) > len(r3.record)
     assert r1.record == r2.record + r3.record
@@ -433,16 +438,16 @@ def test_instruments_interleave():
             ("after", tasks["t1"]),
             ("before", tasks["t2"]),
             ("schedule", tasks["t2"]),
-            ("after", tasks["t2"])
+            ("after", tasks["t2"]),
         },
         {
             ("before", tasks["t1"]),
             ("after", tasks["t1"]),
             ("before", tasks["t2"]),
-            ("after", tasks["t2"])
+            ("after", tasks["t2"]),
         },
         ("after_run",),
-    ]  # yapf: disable
+    ]
     print(list(r.filter_tasks(tasks.values())))
     check_sequence_matches(list(r.filter_tasks(tasks.values())), expected)
 
@@ -963,9 +968,7 @@ async def test_cancel_scope_misnesting():
         for exc in exc_info.value.__context__.exceptions:
             assert isinstance(exc, RuntimeError)
             assert "closed before the task exited" in str(exc)
-            cancelled_in_context |= isinstance(
-                exc.__context__, _core.Cancelled
-            )
+            cancelled_in_context |= isinstance(exc.__context__, _core.Cancelled)
         assert cancelled_in_context  # for the sleep_forever
 
     # Trying to exit a cancel scope from an unrelated task raises an error
@@ -1231,9 +1234,14 @@ async def test_exc_info():
         nursery.start_soon(child2)
 
     assert record == [
-        "child1 raise", "child1 sleep", "child2 wake", "child2 sleep again",
-        "child1 re-raise", "child1 success", "child2 re-raise",
-        "child2 success"
+        "child1 raise",
+        "child1 sleep",
+        "child2 wake",
+        "child2 sleep again",
+        "child1 re-raise",
+        "child1 success",
+        "child2 re-raise",
+        "child2 success",
     ]
 
 
@@ -1720,8 +1728,7 @@ def test_nice_error_on_bad_calls_to_run_or_spawn():
             yield arg
 
         with pytest.raises(
-            TypeError,
-            match="expected an async function but got an async generator"
+            TypeError, match="expected an async function but got an async generator",
         ):
             bad_call(async_gen, 0)
 
@@ -1729,6 +1736,7 @@ def test_nice_error_on_bad_calls_to_run_or_spawn():
 def test_calling_asyncio_function_gives_nice_error():
     async def child_xyzzy():
         import asyncio
+
         await asyncio.Future()
 
     async def misguided():
@@ -1749,6 +1757,7 @@ async def test_asyncio_function_inside_nursery_does_not_explode():
     with pytest.raises(TypeError) as excinfo:
         async with _core.open_nursery() as nursery:
             import asyncio
+
             nursery.start_soon(sleep_forever)
             await asyncio.Future()
     assert "asyncio" in str(excinfo.value)
@@ -1772,10 +1781,10 @@ async def test_trivial_yields():
             async with _core.open_nursery():
                 raise KeyError
         assert len(excinfo.value.exceptions) == 2
-        assert {type(e)
-                for e in excinfo.value.exceptions} == {
-                    KeyError, _core.Cancelled
-                }
+        assert {type(e) for e in excinfo.value.exceptions} == {
+            KeyError,
+            _core.Cancelled,
+        }
 
 
 async def test_nursery_start(autojump_clock):
@@ -1787,9 +1796,7 @@ async def test_nursery_start(autojump_clock):
         with pytest.raises(TypeError):
             await nursery.start(no_args)
 
-    async def sleep_then_start(
-        seconds, *, task_status=_core.TASK_STATUS_IGNORED
-    ):
+    async def sleep_then_start(seconds, *, task_status=_core.TASK_STATUS_IGNORED):
         repr(task_status)  # smoke test
         await sleep(seconds)
         task_status.started(seconds)
@@ -1853,9 +1860,7 @@ async def test_nursery_start(autojump_clock):
 
     # and if after the no-op started(), the child crashes, the error comes out
     # of start()
-    async def raise_keyerror_after_started(
-        task_status=_core.TASK_STATUS_IGNORED
-    ):
+    async def raise_keyerror_after_started(task_status=_core.TASK_STATUS_IGNORED,):
         task_status.started()
         raise KeyError("whoopsiedaisy")
 
@@ -1864,8 +1869,10 @@ async def test_nursery_start(autojump_clock):
             cs.cancel()
             with pytest.raises(_core.MultiError) as excinfo:
                 await nursery.start(raise_keyerror_after_started)
-    assert {type(e)
-            for e in excinfo.value.exceptions} == {_core.Cancelled, KeyError}
+    assert {type(e) for e in excinfo.value.exceptions} == {
+        _core.Cancelled,
+        KeyError,
+    }
 
     # trying to start in a closed nursery raises an error immediately
     async with _core.open_nursery() as closed_nursery:
@@ -2005,9 +2012,7 @@ async def test_nursery_stop_async_iteration():
 
         async def __anext__(self):
             nexts = self.nexts
-            items = [
-                None,
-            ] * len(nexts)
+            items = [None,] * len(nexts)
             got_stop = False
 
             def handle(exc):
@@ -2097,7 +2102,7 @@ async def test_contextvar_multitask():
 
 
 def test_system_task_contexts():
-    cvar = contextvars.ContextVar('qwilfish')
+    cvar = contextvars.ContextVar("qwilfish")
     cvar.set("water")
 
     async def system_task():
@@ -2147,7 +2152,7 @@ def test_Cancelled_init():
 
 def test_Cancelled_str():
     cancelled = _core.Cancelled._create()
-    assert str(cancelled) == 'Cancelled'
+    assert str(cancelled) == "Cancelled"
 
 
 def test_Cancelled_subclass():
@@ -2205,9 +2210,7 @@ async def test_permanently_detach_coroutine_object():
         await async_yield(yield_value)
 
     async with _core.open_nursery() as nursery:
-        nursery.start_soon(
-            detachable_coroutine, outcome.Value(None), "I'm free!"
-        )
+        nursery.start_soon(detachable_coroutine, outcome.Value(None), "I'm free!")
 
     # If we get here then Trio thinks the task has exited... but the coroutine
     # is still iterable
@@ -2222,9 +2225,7 @@ async def test_permanently_detach_coroutine_object():
     pdco_outcome = None
     with pytest.raises(KeyError):
         async with _core.open_nursery() as nursery:
-            nursery.start_soon(
-                detachable_coroutine, outcome.Error(KeyError()), "uh oh"
-            )
+            nursery.start_soon(detachable_coroutine, outcome.Error(KeyError()), "uh oh")
     throw_in = ValueError()
     assert task.coro.throw(throw_in) == "uh oh"
     assert pdco_outcome == outcome.Error(throw_in)
@@ -2234,9 +2235,7 @@ async def test_permanently_detach_coroutine_object():
     async def bad_detach():
         async with _core.open_nursery():
             with pytest.raises(RuntimeError) as excinfo:
-                await _core.permanently_detach_coroutine_object(
-                    outcome.Value(None)
-                )
+                await _core.permanently_detach_coroutine_object(outcome.Value(None))
             assert "open nurser" in str(excinfo.value)
 
     async with _core.open_nursery() as nursery:
@@ -2267,9 +2266,7 @@ async def test_detach_and_reattach_coroutine_object():
         await async_yield(2)
 
         with pytest.raises(RuntimeError) as excinfo:
-            await _core.reattach_detached_coroutine_object(
-                unrelated_task, None
-            )
+            await _core.reattach_detached_coroutine_object(unrelated_task, None)
         assert "does not match" in str(excinfo.value)
 
         await _core.reattach_detached_coroutine_object(task, "byebye")

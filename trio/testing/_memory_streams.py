@@ -73,9 +73,7 @@ class _UnboundedByteQueue:
             return self._get_impl(max_bytes)
 
 
-class MemorySendStream(
-    SendStream, metaclass=_util.SubclassingDeprecatedIn_v0_15_0
-):
+class MemorySendStream(SendStream, metaclass=_util.SubclassingDeprecatedIn_v0_15_0):
     """An in-memory :class:`~trio.abc.SendStream`.
 
     Args:
@@ -95,11 +93,12 @@ class MemorySendStream(
        you can change them at any time.
 
     """
+
     def __init__(
         self,
         send_all_hook=None,
         wait_send_all_might_not_block_hook=None,
-        close_hook=None
+        close_hook=None,
     ):
         self._conflict_detector = _util.ConflictDetector(
             "another task is using this stream"
@@ -208,6 +207,7 @@ class MemoryReceiveStream(
        change them at any time.
 
     """
+
     def __init__(self, receive_some_hook=None, close_hook=None):
         self._conflict_detector = _util.ConflictDetector(
             "another task is using this stream"
@@ -270,9 +270,7 @@ class MemoryReceiveStream(
         self._incoming.close()
 
 
-def memory_stream_pump(
-    memory_send_stream, memory_receive_stream, *, max_bytes=None
-):
+def memory_stream_pump(memory_send_stream, memory_receive_stream, *, max_bytes=None):
     """Take data out of the given :class:`MemorySendStream`'s internal buffer,
     and put it into the given :class:`MemoryReceiveStream`'s internal buffer.
 

@@ -37,9 +37,7 @@ async def sleep_forever():
     Equivalent to calling ``await sleep(math.inf)``.
 
     """
-    await trio.lowlevel.wait_task_rescheduled(
-        lambda _: trio.lowlevel.Abort.SUCCEEDED
-    )
+    await trio.lowlevel.wait_task_rescheduled(lambda _: trio.lowlevel.Abort.SUCCEEDED)
 
 
 async def sleep_until(deadline):

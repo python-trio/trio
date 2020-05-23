@@ -40,11 +40,12 @@ class UnboundedQueue(metaclass=SubclassingDeprecatedIn_v0_15_0):
            ...
 
     """
+
     @deprecated(
         "0.9.0",
         issue=497,
         thing="trio.lowlevel.UnboundedQueue",
-        instead="trio.open_memory_channel(math.inf)"
+        instead="trio.open_memory_channel(math.inf)",
     )
     def __init__(self):
         self._lot = _core.ParkingLot()
@@ -140,8 +141,7 @@ class UnboundedQueue(metaclass=SubclassingDeprecatedIn_v0_15_0):
 
         """
         return _UnboundedQueueStats(
-            qsize=len(self._data),
-            tasks_waiting=self._lot.statistics().tasks_waiting
+            qsize=len(self._data), tasks_waiting=self._lot.statistics().tasks_waiting,
         )
 
     def __aiter__(self):

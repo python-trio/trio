@@ -23,9 +23,11 @@ from sortedcontainers import SortedDict
 from outcome import Error, Value, capture
 
 from ._entry_queue import EntryQueue, TrioToken
-from ._exceptions import (TrioInternalError, RunFinishedError, Cancelled)
+from ._exceptions import TrioInternalError, RunFinishedError, Cancelled
 from ._ki import (
-    LOCALS_KEY_KI_PROTECTION_ENABLED, ki_manager, enable_ki_protection
+    LOCALS_KEY_KI_PROTECTION_ENABLED,
+    ki_manager,
+    enable_ki_protection,
 )
 from ._multierror import MultiError
 from ._traps import (
@@ -249,7 +251,8 @@ class CancelStatus:
     @property
     def parent_cancellation_is_visible_to_us(self):
         return (
-            self._parent is not None and not self._scope.shield
+            self._parent is not None
+            and not self._scope.shield
             and self._parent.effectively_cancelled
         )
 
@@ -370,9 +373,7 @@ class CancelScope(metaclass=Final):
         if current_time() >= self._deadline:
             self.cancel()
         with self._might_change_registered_deadline():
-            self._cancel_status = CancelStatus(
-                scope=self, parent=task._cancel_status
-            )
+            self._cancel_status = CancelStatus(scope=self, parent=task._cancel_status)
             task._activate_cancel_status(self._cancel_status)
         return self
 
@@ -423,8 +424,10 @@ class CancelScope(metaclass=Final):
                 new_exc = RuntimeError(
                     "Cancel scope stack corrupted: attempted to exit {!r} "
                     "in {!r} that's still within its child {!r}\n{}".format(
-                        self, scope_task, scope_task._cancel_status._scope,
-                        MISNESTING_ADVICE
+                        self,
+                        scope_task,
+                        scope_task._cancel_status._scope,
+                        MISNESTING_ADVICE,
                     )
                 )
                 new_exc.__context__ = exc
@@ -433,7 +436,8 @@ class CancelScope(metaclass=Final):
         else:
             scope_task._activate_cancel_status(self._cancel_status.parent)
         if (
-            exc is not None and self._cancel_status.effectively_cancelled
+            exc is not None
+            and self._cancel_status.effectively_cancelled
             and not self._cancel_status.parent_cancellation_is_visible_to_us
         ):
             exc = MultiError.filter(self._exc_filter, exc)
@@ -486,12 +490,10 @@ class CancelScope(metaclass=Final):
             else:
                 state = ", deadline is {:.2f} seconds {}".format(
                     abs(self._deadline - now),
-                    "from now" if self._deadline >= now else "ago"
+                    "from now" if self._deadline >= now else "ago",
                 )
 
-        return "<trio.CancelScope at {:#x}, {}{}>".format(
-            id(self), binding, state
-        )
+        return "<trio.CancelScope at {:#x}, {}{}>".format(id(self), binding, state)
 
     @contextmanager
     @enable_ki_protection
@@ -639,9 +641,7 @@ class _TaskStatus:
 
     def started(self, value=None):
         if self._called_started:
-            raise RuntimeError(
-                "called 'started' twice on the same task status"
-            )
+            raise RuntimeError("called 'started' twice on the same task status")
         self._called_started = True
         self._value = value
 
@@ -700,6 +700,7 @@ class NurseryManager:
     and StopAsyncIteration.
 
     """
+
     @enable_ki_protection
     async def __aenter__(self):
         self._scope = CancelScope()
@@ -769,6 +770,7 @@ class Nursery(metaclass=NoPublicConstructor):
             other things, e.g. if you want to explicitly cancel all children
             in response to some external event.
     """
+
     def __init__(self, parent_task, cancel_scope):
         self._parent_task = parent_task
         parent_task._child_nurseries.append(self)
@@ -805,9 +807,7 @@ class Nursery(metaclass=NoPublicConstructor):
         self.cancel_scope.cancel()
 
     def _check_nursery_closed(self):
-        if not any(
-            [self._nested_child_running, self._children, self._pending_starts]
-        ):
+        if not any([self._nested_child_running, self._children, self._pending_starts]):
             self._closed = True
             if self._parent_waiting_in_aexit:
                 self._parent_waiting_in_aexit = False
@@ -951,9 +951,7 @@ class Nursery(metaclass=NoPublicConstructor):
             # normally. The complicated logic is all in _TaskStatus.started().
             # (Any exceptions propagate directly out of the above.)
             if not task_status._called_started:
-                raise RuntimeError(
-                    "child exited without calling task_status.started()"
-                )
+                raise RuntimeError("child exited without calling task_status.started()")
             return task_status._value
         finally:
             self._pending_starts -= 1
@@ -1004,7 +1002,7 @@ class Task(metaclass=NoPublicConstructor):
     _schedule_points = attr.ib(default=0)
 
     def __repr__(self):
-        return ("<Task {!r} at {:#x}>".format(self.name, id(self)))
+        return "<Task {!r} at {:#x}>".format(self.name, id(self))
 
     @property
     def parent_nursery(self):
@@ -1256,19 +1254,13 @@ class Runner:
                 return await orig_coro
 
             coro = python_wrapper(coro)
-        coro.cr_frame.f_locals.setdefault(
-            LOCALS_KEY_KI_PROTECTION_ENABLED, system_task
-        )
+        coro.cr_frame.f_locals.setdefault(LOCALS_KEY_KI_PROTECTION_ENABLED, system_task)
 
         ######
         # Set up the Task object
         ######
         task = Task._create(
-            coro=coro,
-            parent_nursery=nursery,
-            runner=self,
-            name=name,
-            context=context,
+            coro=coro, parent_nursery=nursery, runner=self, name=name, context=context,
         )
 
         self.tasks.add(task)
@@ -1380,9 +1372,7 @@ class Runner:
         async with open_nursery() as system_nursery:
             self.system_nursery = system_nursery
             try:
-                self.main_task = self.spawn_impl(
-                    async_fn, args, system_nursery, None
-                )
+                self.main_task = self.spawn_impl(async_fn, args, system_nursery, None)
             except BaseException as exc:
                 self.main_task_outcome = Error(exc)
                 system_nursery.cancel_scope.cancel()
@@ -1514,7 +1504,9 @@ class Runner:
                 self.instruments.remove(instrument)
                 INSTRUMENT_LOGGER.exception(
                     "Exception raised when calling %r on instrument %r. "
-                    "Instrument has been disabled.", method_name, instrument
+                    "Instrument has been disabled.",
+                    method_name,
+                    instrument,
                 )
 
     @_public
@@ -1562,7 +1554,7 @@ def run(
     *args,
     clock=None,
     instruments=(),
-    restrict_keyboard_interrupt_to_checkpoints=False
+    restrict_keyboard_interrupt_to_checkpoints=False,
 ):
     """Run a Trio-flavored async function, and return the result.
 
@@ -1662,9 +1654,7 @@ def run(
     # where KeyboardInterrupt would be allowed and converted into an
     # TrioInternalError:
     try:
-        with ki_manager(
-            runner.deliver_ki, restrict_keyboard_interrupt_to_checkpoints
-        ):
+        with ki_manager(runner.deliver_ki, restrict_keyboard_interrupt_to_checkpoints):
             try:
                 with closing(runner):
                     with runner.entry_queue.wakeup.wakeup_on_signals():
@@ -1706,11 +1696,7 @@ def run_impl(runner, async_fn, args):
         runner.instrument("before_run")
     runner.clock.start_clock()
     runner.init_task = runner.spawn_impl(
-        runner.init,
-        (async_fn, args),
-        None,
-        "<init>",
-        system_task=True,
+        runner.init, (async_fn, args), None, "<init>", system_task=True,
     )
 
     # You know how people talk about "event loops"? This 'while' loop right

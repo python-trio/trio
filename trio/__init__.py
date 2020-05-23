@@ -16,19 +16,42 @@
 from ._version import __version__
 
 from ._core import (
-    TrioInternalError, RunFinishedError, WouldBlock, Cancelled,
-    BusyResourceError, ClosedResourceError, MultiError, run, open_nursery,
-    CancelScope, current_effective_deadline, TASK_STATUS_IGNORED, current_time,
-    BrokenResourceError, EndOfChannel, Nursery
+    TrioInternalError,
+    RunFinishedError,
+    WouldBlock,
+    Cancelled,
+    BusyResourceError,
+    ClosedResourceError,
+    MultiError,
+    run,
+    open_nursery,
+    CancelScope,
+    current_effective_deadline,
+    TASK_STATUS_IGNORED,
+    current_time,
+    BrokenResourceError,
+    EndOfChannel,
+    Nursery,
 )
 
 from ._timeouts import (
-    move_on_at, move_on_after, sleep_forever, sleep_until, sleep, fail_at,
-    fail_after, TooSlowError
+    move_on_at,
+    move_on_after,
+    sleep_forever,
+    sleep_until,
+    sleep,
+    fail_at,
+    fail_after,
+    TooSlowError,
 )
 
 from ._sync import (
-    Event, CapacityLimiter, Semaphore, Lock, StrictFIFOLock, Condition
+    Event,
+    CapacityLimiter,
+    Semaphore,
+    Lock,
+    StrictFIFOLock,
+    Condition,
 )
 
 from ._threads import BlockingTrioPortal as _BlockingTrioPortal
@@ -36,7 +59,9 @@ from ._threads import BlockingTrioPortal as _BlockingTrioPortal
 from ._highlevel_generic import aclose_forcefully, StapledStream
 
 from ._channel import (
-    open_memory_channel, MemorySendChannel, MemoryReceiveChannel
+    open_memory_channel,
+    MemorySendChannel,
+    MemoryReceiveChannel,
 )
 
 from ._signals import open_signal_receiver
@@ -60,7 +85,9 @@ from ._highlevel_open_tcp_listeners import open_tcp_listeners, serve_tcp
 from ._highlevel_open_unix_stream import open_unix_socket
 
 from ._highlevel_ssl_helpers import (
-    open_ssl_over_tcp_stream, open_ssl_over_tcp_listeners, serve_ssl_over_tcp
+    open_ssl_over_tcp_stream,
+    open_ssl_over_tcp_listeners,
+    serve_ssl_over_tcp,
 )
 
 from ._deprecate import TrioDeprecationWarning
@@ -71,6 +98,7 @@ from . import socket
 from . import abc
 from . import from_thread
 from . import to_thread
+
 # Not imported by default, but mentioned here so static analysis tools like
 # pylint will know that it exists.
 if False:
@@ -81,85 +109,57 @@ from . import _deprecated_subprocess_reexports
 
 _deprecate.enable_attribute_deprecations(__name__)
 __deprecated_attributes__ = {
-    "ssl":
-        _deprecate.DeprecatedAttribute(
-            _deprecated_ssl_reexports,
-            "0.11.0",
-            issue=852,
-            instead=(
-                "trio.SSLStream, trio.SSLListener, trio.NeedHandshakeError, "
-                "and the standard library 'ssl' module (minus SSLSocket and "
-                "wrap_socket())"
-            ),
+    "ssl": _deprecate.DeprecatedAttribute(
+        _deprecated_ssl_reexports,
+        "0.11.0",
+        issue=852,
+        instead=(
+            "trio.SSLStream, trio.SSLListener, trio.NeedHandshakeError, "
+            "and the standard library 'ssl' module (minus SSLSocket and "
+            "wrap_socket())"
         ),
-    "subprocess":
-        _deprecate.DeprecatedAttribute(
-            _deprecated_subprocess_reexports,
-            "0.11.0",
-            issue=852,
-            instead=(
-                "trio.Process and the constants in the standard "
-                "library 'subprocess' module"
-            ),
+    ),
+    "subprocess": _deprecate.DeprecatedAttribute(
+        _deprecated_subprocess_reexports,
+        "0.11.0",
+        issue=852,
+        instead=(
+            "trio.Process and the constants in the standard "
+            "library 'subprocess' module"
         ),
-    "run_sync_in_worker_thread":
-        _deprecate.DeprecatedAttribute(
-            to_thread.run_sync,
-            "0.12.0",
-            issue=810,
-        ),
-    "current_default_worker_thread_limiter":
-        _deprecate.DeprecatedAttribute(
-            to_thread.current_default_thread_limiter,
-            "0.12.0",
-            issue=810,
-        ),
-    "BlockingTrioPortal":
-        _deprecate.DeprecatedAttribute(
-            _BlockingTrioPortal,
-            "0.12.0",
-            issue=810,
-            instead=from_thread,
-        ),
+    ),
+    "run_sync_in_worker_thread": _deprecate.DeprecatedAttribute(
+        to_thread.run_sync, "0.12.0", issue=810,
+    ),
+    "current_default_worker_thread_limiter": _deprecate.DeprecatedAttribute(
+        to_thread.current_default_thread_limiter, "0.12.0", issue=810,
+    ),
+    "BlockingTrioPortal": _deprecate.DeprecatedAttribute(
+        _BlockingTrioPortal, "0.12.0", issue=810, instead=from_thread,
+    ),
     # NOTE: when you remove this, you should also remove the file
     # trio/hazmat.py. For details on why we have both, see:
     #
     #    https://github.com/python-trio/trio/pull/1484#issuecomment-622574499
-    "hazmat":
-        _deprecate.DeprecatedAttribute(
-            lowlevel,
-            "0.15.0",
-            issue=476,
-            instead="trio.lowlevel",
-        ),
+    "hazmat": _deprecate.DeprecatedAttribute(
+        lowlevel, "0.15.0", issue=476, instead="trio.lowlevel",
+    ),
 }
 
 _deprecate.enable_attribute_deprecations(lowlevel.__name__)
 lowlevel.__deprecated_attributes__ = {
-    "wait_socket_readable":
-        _deprecate.DeprecatedAttribute(
-            lowlevel.wait_readable,
-            "0.12.0",
-            issue=878,
-        ),
-    "wait_socket_writable":
-        _deprecate.DeprecatedAttribute(
-            lowlevel.wait_writable,
-            "0.12.0",
-            issue=878,
-        ),
-    "notify_socket_close":
-        _deprecate.DeprecatedAttribute(
-            lowlevel.notify_closing,
-            "0.12.0",
-            issue=878,
-        ),
-    "notify_fd_close":
-        _deprecate.DeprecatedAttribute(
-            lowlevel.notify_closing,
-            "0.12.0",
-            issue=878,
-        ),
+    "wait_socket_readable": _deprecate.DeprecatedAttribute(
+        lowlevel.wait_readable, "0.12.0", issue=878,
+    ),
+    "wait_socket_writable": _deprecate.DeprecatedAttribute(
+        lowlevel.wait_writable, "0.12.0", issue=878,
+    ),
+    "notify_socket_close": _deprecate.DeprecatedAttribute(
+        lowlevel.notify_closing, "0.12.0", issue=878,
+    ),
+    "notify_fd_close": _deprecate.DeprecatedAttribute(
+        lowlevel.notify_closing, "0.12.0", issue=878,
+    ),
 }
 
 # Having the public path in .__module__ attributes is important for:
@@ -169,6 +169,7 @@ lowlevel.__deprecated_attributes__ = {
 # - pickle
 # - probably other stuff
 from ._util import fixup_module_metadata
+
 fixup_module_metadata(__name__, globals())
 fixup_module_metadata(lowlevel.__name__, lowlevel.__dict__)
 fixup_module_metadata(socket.__name__, socket.__dict__)

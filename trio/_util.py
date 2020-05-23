@@ -123,8 +123,9 @@ def coroutine_or_error(async_fn, *args):
                 "Instead, you want (notice the parentheses!):\n"
                 "\n"
                 "  trio.run({async_fn.__name__}, ...)            # correct!\n"
-                "  nursery.start_soon({async_fn.__name__}, ...)  # correct!"
-                .format(async_fn=async_fn)
+                "  nursery.start_soon({async_fn.__name__}, ...)  # correct!".format(
+                    async_fn=async_fn
+                )
             ) from None
 
         # Give good error for: nursery.start_soon(future)
@@ -148,8 +149,7 @@ def coroutine_or_error(async_fn, *args):
             raise TypeError(
                 "Trio got unexpected {!r} – are you trying to use a "
                 "library written for asyncio/twisted/tornado or similar? "
-                "That won't work without some sort of compatibility shim."
-                .format(coro)
+                "That won't work without some sort of compatibility shim.".format(coro)
             )
 
         if isasyncgen(coro):
@@ -180,6 +180,7 @@ class ConflictDetector:
     tasks don't call sendall simultaneously on the same stream.
 
     """
+
     def __init__(self, msg):
         self._msg = msg
         self._held = False
@@ -198,9 +199,10 @@ def async_wraps(cls, wrapped_cls, attr_name):
     """Similar to wraps, but for async wrappers of non-async functions.
 
     """
+
     def decorator(func):
         func.__name__ = attr_name
-        func.__qualname__ = '.'.join((cls.__qualname__, attr_name))
+        func.__qualname__ = ".".join((cls.__qualname__, attr_name))
 
         func.__doc__ = """Like :meth:`~{}.{}.{}`, but async.
 
@@ -257,6 +259,7 @@ class generic_function:
     and currently won't type-check without a mypy plugin or clever stubs,
     but at least it becomes possible to write those.
     """
+
     def __init__(self, fn):
         update_wrapper(self, fn)
         self._fn = fn
@@ -296,6 +299,7 @@ class Final(BaseMeta):
     ------
     - TypeError if a sub class is created
     """
+
     def __new__(cls, name, bases, cls_namespace):
         for base in bases:
             if isinstance(base, Final):
@@ -313,7 +317,7 @@ class SubclassingDeprecatedIn_v0_15_0(BaseMeta):
                     f"subclassing {base.__module__}.{base.__qualname__}",
                     "0.15.0",
                     issue=1044,
-                    instead="composition or delegation"
+                    instead="composition or delegation",
                 )
                 break
         return super().__new__(cls, name, bases, cls_namespace)
@@ -337,6 +341,7 @@ class NoPublicConstructor(Final):
     ------
     - TypeError if a sub class or an instance is created.
     """
+
     def __call__(self, *args, **kwargs):
         raise TypeError(
             f"{self.__module__}.{self.__qualname__} has no public constructor"

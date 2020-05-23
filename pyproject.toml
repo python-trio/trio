@@ -1,3 +1,7 @@
+[tool.black]
+target-version = ['py36']
+
+
 [tool.towncrier]
 # Usage:
 # - PRs should drop a file like "issuenumber.feature" in newsfragments
