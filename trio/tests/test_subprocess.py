@@ -48,15 +48,12 @@ def got_signal(proc, sig):
 
 
 async def test_basic():
-    repr_template = "<trio.Process {!r}: {{}}>".format(EXIT_TRUE)
     async with await open_process(EXIT_TRUE) as proc:
-        assert isinstance(proc, Process)
-        assert repr(proc) == repr_template.format(
-            "running with PID {}".format(proc.pid)
-        )
+        pass
+    assert isinstance(proc, Process)
     assert proc._pidfd is None
     assert proc.returncode == 0
-    assert repr(proc) == repr_template.format("exited with status 0")
+    assert repr(proc) == f"<trio.Process {EXIT_TRUE}: exited with status 0>"
 
     async with await open_process(EXIT_FALSE) as proc:
         pass
@@ -69,9 +66,11 @@ async def test_basic():
 async def test_auto_update_returncode():
     p = await open_process(SLEEP(9999))
     assert p.returncode is None
+    assert "running" in repr(p)
     p.kill()
     p._proc.wait()
     assert p.returncode is not None
+    assert "exited" in repr(p)
     assert p._pidfd is None
     assert p.returncode is not None
 
