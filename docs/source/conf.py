@@ -50,6 +50,7 @@ nitpick_ignore = [
     ("py:class", "math.inf"),
     ("py:exc", "Anything else"),
     ("py:class", "async function"),
+    ("py:class", "sync function"),
 ]
 autodoc_inherit_docstrings = False
 default_role = "obj"

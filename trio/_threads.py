@@ -14,6 +14,7 @@ from ._core import (
     disable_ki_protection,
     RunVar,
     TrioToken,
+    start_thread_soon,
 )
 from ._util import coroutine_or_error
 
@@ -253,7 +254,7 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
     # for the result – or None if this function was cancelled and we should
     # discard the result.
     task_register = [trio.lowlevel.current_task()]
-    name = "trio-worker-{}".format(next(_thread_counter))
+    name = f"trio.to_thread.run_sync-{next(_thread_counter)}"
     placeholder = ThreadPlaceholder(name)
 
     # This function gets scheduled into the Trio run loop to deliver the
@@ -273,32 +274,26 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
         if task_register[0] is not None:
             trio.lowlevel.reschedule(task_register[0], result)
 
-    # This is the function that runs in the worker thread to do the actual
-    # work and then schedule the call to report_back_in_trio_thread_fn
-    # Since this is spawned in a new thread, the trio token needs to be passed
-    # explicitly to it so it can inject it into thread local storage
-    def worker_thread_fn(trio_token):
-        TOKEN_LOCAL.token = trio_token
+    current_trio_token = trio.lowlevel.current_trio_token()
+
+    def worker_fn():
+        TOKEN_LOCAL.token = current_trio_token
         try:
-            result = outcome.capture(sync_fn, *args)
-            try:
-                trio_token.run_sync_soon(report_back_in_trio_thread_fn, result)
-            except trio.RunFinishedError:
-                # The entire run finished, so our particular task is certainly
-                # long gone -- it must have cancelled.
-                pass
+            return sync_fn(*args)
         finally:
             del TOKEN_LOCAL.token
 
+    def deliver_worker_fn_result(result):
+        try:
+            current_trio_token.run_sync_soon(report_back_in_trio_thread_fn, result)
+        except trio.RunFinishedError:
+            # The entire run finished, so our particular task is certainly
+            # long gone -- it must have been cancelled and abandoned us.
+            pass
+
     await limiter.acquire_on_behalf_of(placeholder)
     try:
-        # daemon=True because it might get left behind if we cancel, and in
-        # this case shouldn't block process exit.
-        current_trio_token = trio.lowlevel.current_trio_token()
-        thread = threading.Thread(
-            target=worker_thread_fn, args=(current_trio_token,), name=name, daemon=True,
-        )
-        thread.start()
+        start_thread_soon(deliver_worker_fn_result, worker_fn)
     except:
         limiter.release_on_behalf_of(placeholder)
         raise

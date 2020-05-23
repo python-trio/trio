@@ -41,6 +41,7 @@ from ._core import (
     wait_readable,
     wait_writable,
     notify_closing,
+    start_thread_soon,
 )
 
 # Unix-specific symbols
