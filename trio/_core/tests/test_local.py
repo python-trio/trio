@@ -119,6 +119,9 @@ def test_accessing_runvar_outside_run_call_fails():
 async def test_scopevar():
     sv1 = _core.ScopeVar("sv1")
     sv2 = _core.ScopeVar("sv2", default=None)
+    assert sv1.name == "sv1"
+    assert "ScopeVar name='sv2'" in repr(sv2)
+
     with pytest.raises(LookupError):
         sv1.get()
     assert sv2.get() is None
