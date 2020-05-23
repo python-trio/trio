@@ -1,0 +1,7 @@
+Added the concept of a "scope variable" (`trio.lowlevel.ScopeVar`), which is
+like a context variable except that its value in a new task is determined
+differently. A context variable is inherited by a new task based on its value
+at the location where the task was spawned, while a scope variable is inherited
+based on its value where the task's parent nursery was opened. This distinction
+makes scope variables useful for anything that's naturally inherited along
+parent/child task relationships.
