@@ -30,7 +30,6 @@ class RunVar(metaclass=SubclassingDeprecatedIn_v0_15_0):
     :class:`RunVar` objects are similar to context variable objects,
     except that they are shared across a single call to :func:`trio.run`
     rather than a single task.
-
     """
 
     __slots__ = ("_name", "_default")
@@ -40,7 +39,8 @@ class RunVar(metaclass=SubclassingDeprecatedIn_v0_15_0):
         self._default = default
 
     def get(self, default=_NO_DEFAULT):
-        """Gets the value of this :class:`RunVar` for the current run call."""
+        """Gets the value of this `RunVar` for the current call
+        to :func:`trio.run`."""
         try:
             return _run.GLOBAL_RUN_CONTEXT.runner._locals[self]
         except AttributeError:
@@ -56,9 +56,11 @@ class RunVar(metaclass=SubclassingDeprecatedIn_v0_15_0):
             raise LookupError(self) from None
 
     def set(self, value):
-        """Sets the value of this :class:`RunVar` for this current run
-        call.
+        """Sets the value of this `RunVar` for the current call to
+        :func:`trio.run`.
 
+        Returns a token which may be passed to :meth:`reset` to restore
+        the previous value.
         """
         try:
             old_value = self.get()
@@ -73,9 +75,8 @@ class RunVar(metaclass=SubclassingDeprecatedIn_v0_15_0):
         return token
 
     def reset(self, token):
-        """Resets the value of this :class:`RunVar` to what it was
-        previously specified by the token.
-
+        """Resets the value of this `RunVar` to the value it had
+        before the call to :meth:`set` that returned the given *token*.
         """
         if token is None:
             raise TypeError("token must not be none")
@@ -149,7 +150,15 @@ class ScopeVar(metaclass=Final):
         return self._cvar.name
 
     def get(self, default=_NO_DEFAULT):
-        """Gets the value of this :class:`ScopeVar` for the current task."""
+        """Gets the value of this `ScopeVar` for the current task.
+
+        If this `ScopeVar` has no value in the current task, then
+        :meth:`get` returns the *default* specified as argument to
+        :meth:`get`, or else the *default* specified when constructing
+        the `ScopeVar`, or else raises `LookupError`. See the
+        documentation of :meth:`contextvars.ContextVar.get` for more
+        details.
+        """
         # This is effectively an inlining for efficiency of:
         # return _run.current_task()._scope_context.run(self._cvar.get, default)
         try:
@@ -166,14 +175,24 @@ class ScopeVar(metaclass=Final):
             return self._cvar.get(default)
 
     def set(self, value):
-        """Sets the value of this :class:`ScopeVar` for the current task and
-        any tasks that run in child nurseries that it later creates.
+        """Sets the value of this `ScopeVar` for the current task.  The new
+        value will be inherited by nurseries that are later opened in
+        this task, so that new tasks can inherit whatever value was
+        set when their parent nursery was created.
+
+        Returns a token which may be passed to :meth:`reset` to restore
+        the previous value.
         """
         return _run.current_task()._scope_context.run(self._cvar.set, value)
 
     def reset(self, token):
-        """Resets the value of this :class:`ScopeVar` to what it was
-        previously, as specified by the token.
+        """Resets the value of this `ScopeVar` to the value it had
+        before the call to :meth:`set` that returned the given *token*.
+
+        The *token* must have been obtained from a call to :meth:`set` on
+        this same `ScopeVar` and in the same task that is now calling
+        :meth:`reset`. Also, each *token* may only be used in one call to
+        :meth:`reset`. Violating these conditions will raise `ValueError`.
         """
         _run.current_task()._scope_context.run(self._cvar.reset, token)
 
@@ -189,7 +208,15 @@ class ScopeVar(metaclass=Final):
             self.reset(token)
 
     def get_in(self, task_or_nursery, default=_NO_DEFAULT):
-        """Gets the value of this :class:`ScopeVar` for the given task or nursery."""
+        """Gets the value of this :class:`ScopeVar` for the given task or nursery.
+
+        The value in a task is the value that would be returned by a call to
+        :meth:`get` in that task. The value in a nursery is the value that would
+        be returned by :meth:`get` at the beginning of a new child task started
+        in that nursery. The *default* argument has the same semantics as it does
+        for :meth:`get`.
+        """
+
         defarg = () if default is _NO_DEFAULT else (default,)
         return task_or_nursery._scope_context.run(self._cvar.get, *defarg)
 
