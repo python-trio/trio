@@ -91,13 +91,14 @@ class FdStream(Stream, metaclass=SubclassingDeprecatedIn_v0_15_0):
     or processes are using file descriptors that are related through `os.dup`
     or inheritance across `os.fork` to the one that Trio is using, they are
     unlikely to be prepared to have non-blocking I/O semantics suddenly
-    thrust upon them.  For example, you can use ``FdStream(os.dup(0))`` to
-    obtain a stream for reading from standard input, but it is only safe to
-    do so with heavy caveats: your stdin must not be shared by any other
-    processes and you must not make any calls to synchronous methods of
-    `sys.stdin` until the stream returned by `FdStream` is closed. See
-    `issue #174 <https://github.com/python-trio/trio/issues/174>`__ for a
-    discussion of the challenges involved in relaxing this restriction.
+    thrust upon them.  For example, you can use
+    ``FdStream(os.dup(sys.stdin.fileno()))`` to obtain a stream for reading
+    from standard input, but it is only safe to do so with heavy caveats: your
+    stdin must not be shared by any other processes and you must not make any
+    calls to synchronous methods of `sys.stdin` until the stream returned by
+    `FdStream` is closed. See `issue #174
+    <https://github.com/python-trio/trio/issues/174>`__ for a discussion of the
+    challenges involved in relaxing this restriction.
 
     Args:
       fd (int): The fd to be wrapped.
