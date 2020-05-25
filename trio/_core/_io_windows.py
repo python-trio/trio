@@ -171,7 +171,8 @@ class CKeys(enum.IntEnum):
     AFD_POLL = 0
     WAIT_OVERLAPPED = 1
     LATE_CANCEL = 2
-    USER_DEFINED = 3  # and above
+    FORCE_WAKEUP = 3
+    USER_DEFINED = 4  # and above
 
 
 def _check(success):
@@ -388,7 +389,12 @@ class WindowsIOManager:
             completion_key_monitors=len(self._completion_key_queues),
         )
 
-    def handle_io(self, timeout):
+    def force_wakeup(self):
+        _check(
+            kernel32.PostQueuedCompletionStatus(self._iocp, 0, CKeys.FORCE_WAKEUP, 0)
+        )
+
+    def get_events(self, timeout):
         received = ffi.new("PULONG")
         milliseconds = round(1000 * timeout)
         if timeout > 0 and milliseconds == 0:
@@ -402,8 +408,11 @@ class WindowsIOManager:
         except OSError as exc:
             if exc.winerror != ErrorCodes.WAIT_TIMEOUT:  # pragma: no cover
                 raise
-            return
-        for i in range(received[0]):
+            return 0
+        return received[0]
+
+    def process_events(received):
+        for i in range(received):
             entry = self._events[i]
             if entry.lpCompletionKey == CKeys.AFD_POLL:
                 lpo = entry.lpOverlapped
@@ -465,6 +474,8 @@ class WindowsIOManager:
                     # try changing this line to
                     # _core.reschedule(waiter, outcome.Error(exc))
                     raise exc
+            elif entry.lpCompletionKey == CKeys.FORCE_WAKEUP:
+                pass
             else:
                 # dispatch on lpCompletionKey
                 queue = self._completion_key_queues[entry.lpCompletionKey]

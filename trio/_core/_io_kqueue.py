@@ -7,6 +7,7 @@ import errno
 
 from .. import _core
 from ._run import _public
+from ._wakeup_socketpair import WakeupSocketpair
 
 
 @attr.s(slots=True, eq=False, frozen=True)
@@ -21,6 +22,13 @@ class KqueueIOManager:
     _kqueue = attr.ib(factory=select.kqueue)
     # {(ident, filter): Task or UnboundedQueue}
     _registered = attr.ib(factory=dict)
+    _force_wakeup = attr.ib(factory=WakeupSocketpair)
+
+    def __attrs_post_init__(self):
+        force_wakeup_event = select.kevent(
+            self._force_wakeup.wakeup_sock, select.KQ_FILTER_READ, select.KQ_EV_ADD
+        )
+        self._kqueue.control([force_wakeup_event], 0)
 
     def statistics(self):
         tasks_waiting = 0
@@ -35,7 +43,7 @@ class KqueueIOManager:
     def close(self):
         self._kqueue.close()
 
-    def handle_io(self, timeout):
+    def get_events(self, timeout):
         # max_events must be > 0 or kqueue gets cranky
         # and we generally want this to be strictly larger than the actual
         # number of events we get, so that we can tell that we've gotten
@@ -50,9 +58,19 @@ class KqueueIOManager:
             else:
                 timeout = 0
                 # and loop back to the start
+        return events
+
+    def process_events(self, events):
         for event in events:
             key = (event.ident, event.filter)
-            receiver = self._registered[key]
+            try:
+                receiver = self._registered[key]
+            except KeyError:
+                if event.ident == self._force_wakeup.wakeup_sock.fileno():
+                    self._force_wakeup.drain()
+                    continue
+                else:
+                    raise
             if event.flags & select.KQ_EV_ONESHOT:
                 del self._registered[key]
             if type(receiver) is _core.Task:

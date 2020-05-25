@@ -48,6 +48,7 @@ from ._run import (
     wait_writable,
     notify_closing,
     Nursery,
+    start_guest_run,
 )
 
 # Has to come after _run to resolve a circular import

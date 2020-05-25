@@ -534,3 +534,74 @@ there is no provision for "pluggable" backends. The intuition here is
 that we'd rather focus our energy on making one set of solid, official
 backends that provide a high-quality experience out-of-the-box on all
 supported systems.
+
+
+Guest mode
+----------
+
+XX TODO: document this properly
+
+the basic idea of pushing ``get_events`` into a thread
+
+actual core logic is identical whether running in regular mode or
+guest mode; alternate between waiting for I/O+timeout vs running trio tasks
+
+one extra wrinkle is: normally tasks can only become runnable, and
+deadline can only change, if trio task is running. In guest mode,
+that's no longer true. So reschedule() and deadline changes need to
+potentially trigger the scheduler, or at least update the I/O
+deadline. Do this in the simplest possible way: force the I/O thread
+to return immediately via the normal path.
+
+subtlety around wait_all_tasks_blocked and 'events' semantics
+
+diagram::
+
+
+  Normal mode
+
+  Main thread executing trio.run:
+
+  +---------------------------+
+  | wait for I/O+timeout      |
+  +---------------------------+
+  | run trio tasks            |
+  +---------------------------+
+  | wait for I/O+timeout      |
+  +---------------------------+
+  | run trio tasks            |
+  +---------------------------+
+  | wait for I/O+timeout      |
+  +---------------------------+
+  | run trio tasks            |
+  +---------------------------+
+  .
+  .
+  .
+
+
+  Guest mode
+
+  Main thread executing host loop:                 Trio I/O thread:
+
+  +---------------------------+
+  | host loop does its thing  |                +---------------------------+
+  |                           |                | wait for trio I/O+timeout |
+  +---------------------------+                +---------------------------+
+                                                 /
+  +---------------------------+ <---------------/
+  | run trio tasks            |
+  +---------------------------+ ----------------\
+                                                 \
+  +---------------------------+                   v
+  | host loop does its thing  |                +---------------------------+
+  |                           |                | wait for trio I/O+timeout |
+  +---------------------------+                +---------------------------+
+                                                 /
+  +---------------------------+ <---------------/
+  | run trio tasks            |
+  +---------------------------+ ----------------\
+                                                 \
+  .
+  .
+  .

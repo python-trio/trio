@@ -507,10 +507,22 @@ class CancelScope(metaclass=Final):
             if old != new:
                 self._registered_deadline = new
                 runner = GLOBAL_RUN_CONTEXT.runner
+                if runner.is_guest:
+                    try:
+                        (old_next_deadline, _), _ = runner.deadlines.peekitem(0)
+                    except IndexError:
+                        old_next_deadline = None
                 if old != inf:
                     del runner.deadlines[old, id(self)]
                 if new != inf:
                     runner.deadlines[new, id(self)] = self
+                if runner.is_guest:
+                    try:
+                        (new_next_deadline, _), _ = runner.deadlines.peekitem(0)
+                    except IndexError:
+                        new_next_deadline = None
+                    if old_next_deadline != new_next_deadline:
+                        runner.force_guest_tick_asap()
 
     @property
     def deadline(self):
@@ -1118,6 +1130,62 @@ class Runner:
     entry_queue = attr.ib(factory=EntryQueue)
     trio_token = attr.ib(default=None)
 
+    # Guest mode stuff
+    is_guest = attr.ib(default=False)
+    run_sync_soon_threadsafe = attr.ib(default=None)
+    done_callback = attr.ib(default=None)
+    unrolled_run_gen = attr.ib(default=None)
+    unrolled_run_next_send = attr.ib(default=None)
+    guest_tick_scheduled = attr.ib(default=False)
+
+    def guest_tick(self):
+        # XX no signal handling support at all currently
+        assert self.is_guest
+        try:
+            timeout = self.unrolled_run_gen.send(self.unrolled_run_next_send)
+        except StopIteration:
+            GLOBAL_RUN_CONTEXT.__dict__.clear()
+            self.close()
+            # XX if we had KI support, we'd have to do something with it here
+            self.done_callback(self.main_task_outcome)
+            return
+
+        self.unrolled_run_next_send = None
+
+        # Optimization: do a zero-timeout check for already-pending I/O from
+        # the main thread
+        events = self.io_manager.get_events(0)
+        if events or timeout <= 0:
+            self.unrolled_run_next_send = events
+            self.guest_tick_scheduled = True
+            self.run_sync_soon_threadsafe(self.guest_tick)
+        else:
+            self.guest_tick_scheduled = False
+
+            def get_events():
+                return self.io_manager.get_events(timeout)
+
+            def deliver(events_outcome):
+                def in_main_thread():
+                    self.unrolled_run_next_send = events_outcome.unwrap()
+                    self.guest_tick_scheduled = True
+                    self.guest_tick()
+
+                self.run_sync_soon_threadsafe(in_main_thread)
+
+            # XX temporary placeholder until #1545 is merged
+            def start_thread_soon(d, fn):
+                t = threading.Thread(daemon=True, target=lambda: deliver(capture(fn)))
+                t.start()
+
+            start_thread_soon(deliver, get_events)
+
+    def force_guest_tick_asap(self):
+        if self.guest_tick_scheduled:
+            return
+        self.guest_tick_scheduled = True
+        self.io_manager.force_wakeup()
+
     def close(self):
         self.io_manager.close()
         self.entry_queue.close()
@@ -1222,6 +1290,8 @@ class Runner:
         task._next_send = next_send
         task._abort_func = None
         task.custom_sleep_data = None
+        if not self.runq and self.is_guest:
+            self.force_guest_tick_asap()
         self.runq.append(task)
         if self.instruments:
             self.instrument("task_scheduled", task)
@@ -1579,6 +1649,30 @@ class Runner:
 ################################################################
 
 
+def setup_runner(clock, instruments):
+    """Create a Runner object and install it as the GLOBAL_RUN_CONTEXT."""
+    # It wouldn't be *hard* to support nested calls to run(), but I can't
+    # think of a single good reason for it, so let's be conservative for
+    # now:
+    if hasattr(GLOBAL_RUN_CONTEXT, "runner"):
+        raise RuntimeError("Attempted to call run() from inside a run()")
+
+    if clock is None:
+        clock = SystemClock()
+    instruments = list(instruments)
+    io_manager = TheIOManager()
+    system_context = copy_context()
+    system_context.run(current_async_library_cvar.set, "trio")
+    runner = Runner(
+        clock=clock,
+        instruments=instruments,
+        io_manager=io_manager,
+        system_context=system_context,
+    )
+    GLOBAL_RUN_CONTEXT.runner = runner
+    return runner
+
+
 def run(
     async_fn,
     *args,
@@ -1656,28 +1750,7 @@ def run(
 
     __tracebackhide__ = True
 
-    # Do error-checking up front, before we enter the TrioInternalError
-    # try/catch
-    #
-    # It wouldn't be *hard* to support nested calls to run(), but I can't
-    # think of a single good reason for it, so let's be conservative for
-    # now:
-    if hasattr(GLOBAL_RUN_CONTEXT, "runner"):
-        raise RuntimeError("Attempted to call run() from inside a run()")
-
-    if clock is None:
-        clock = SystemClock()
-    instruments = list(instruments)
-    io_manager = TheIOManager()
-    system_context = copy_context()
-    system_context.run(current_async_library_cvar.set, "trio")
-    runner = Runner(
-        clock=clock,
-        instruments=instruments,
-        io_manager=io_manager,
-        system_context=system_context,
-    )
-    GLOBAL_RUN_CONTEXT.runner = runner
+    runner = setup_runner(clock, instruments)
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
 
     # KI handling goes outside the core try/except/finally to avoid a window
@@ -1688,10 +1761,14 @@ def run(
             try:
                 with closing(runner):
                     with runner.entry_queue.wakeup.wakeup_on_signals():
-                        # The main reason this is split off into its own
-                        # function is just to get rid of this extra
-                        # indentation.
-                        run_impl(runner, async_fn, args)
+                        gen = unrolled_run(runner, async_fn, args)
+                        next_send = None
+                        while True:
+                            try:
+                                timeout = gen.send(next_send)
+                            except StopIteration:
+                                break
+                            next_send = runner.io_manager.get_events(timeout)
             except TrioInternalError:
                 raise
             except BaseException as exc:
@@ -1714,12 +1791,29 @@ def run(
             raise KeyboardInterrupt
 
 
+def start_guest_run(
+    async_fn,
+    *args,
+    run_sync_soon_threadsafe,
+    done_callback,
+    clock=None,
+    instruments=(),
+):
+    runner = setup_runner(clock, instruments)
+    runner.is_guest = True
+    runner.run_sync_soon_threadsafe = run_sync_soon_threadsafe
+    runner.done_callback = done_callback
+    runner.unrolled_run_gen = unrolled_run(runner, async_fn, args)
+    runner.guest_tick_scheduled = True
+    run_sync_soon_threadsafe(runner.guest_tick)
+
+
 # 24 hours is arbitrary, but it avoids issues like people setting timeouts of
 # 10**20 and then getting integer overflows in the underlying system calls.
 _MAX_TIMEOUT = 24 * 60 * 60
 
 
-def run_impl(runner, async_fn, args):
+def unrolled_run(runner, async_fn, args):
     __tracebackhide__ = True
 
     if runner.instruments:
@@ -1751,7 +1845,8 @@ def run_impl(runner, async_fn, args):
         if runner.instruments:
             runner.instrument("before_io_wait", timeout)
 
-        runner.io_manager.handle_io(timeout)
+        events = yield timeout
+        runner.io_manager.process_events(events)
 
         if runner.instruments:
             runner.instrument("after_io_wait", timeout)
@@ -1767,7 +1862,7 @@ def run_impl(runner, async_fn, args):
             else:
                 break
 
-        if not runner.runq and idle_primed:
+        if not runner.runq and not events and idle_primed:
             while runner.waiting_for_idle:
                 key, task = runner.waiting_for_idle.peekitem(0)
                 if key[:2] == (cushion, tiebreaker):
