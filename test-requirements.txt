@@ -52,6 +52,6 @@ sortedcontainers==2.1.0   # via -r test-requirements.in
 toml==0.10.1              # via black, pylint
 traitlets==4.3.3          # via ipython
 trustme==0.6.0            # via -r test-requirements.in
-typed-ast==1.4.1          # via black
+typed_ast==1.4.1 ; implementation_name == "cpython"  # via black
 wcwidth==0.1.9            # via prompt-toolkit, pytest
 wrapt==1.12.1             # via astroid
