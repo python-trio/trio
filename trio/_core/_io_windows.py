@@ -411,7 +411,7 @@ class WindowsIOManager:
             return 0
         return received[0]
 
-    def process_events(received):
+    def process_events(self, received):
         for i in range(received):
             entry = self._events[i]
             if entry.lpCompletionKey == CKeys.AFD_POLL:
