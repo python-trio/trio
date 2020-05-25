@@ -37,6 +37,9 @@ nitpick_ignore = [
     ("py:mod", "trio.abc"),
     ("py:class", "math.inf"),
     ("py:exc", "Anything else"),
+    # https://github.com/sphinx-doc/sphinx/issues/7722
+    ("py:class", "SendType"),
+    ("py:class", "ReceiveType"),
 ]
 autodoc_inherit_docstrings = False
 default_role = "obj"
