@@ -3,8 +3,7 @@ from math import inf
 
 from .. import _core
 from .._abc import Clock
-
-__all__ = ["MockClock"]
+from .._util import SubclassingDeprecatedIn_v0_15_0
 
 ################################################################
 # The glorious MockClock
@@ -14,7 +13,7 @@ __all__ = ["MockClock"]
 # Prior art:
 #   https://twistedmatrix.com/documents/current/api/twisted.internet.task.Clock.html
 #   https://github.com/ztellman/manifold/issues/57
-class MockClock(Clock):
+class MockClock(Clock, metaclass=SubclassingDeprecatedIn_v0_15_0):
     """A user-controllable clock suitable for writing tests.
 
     Args:
@@ -80,6 +79,7 @@ class MockClock(Clock):
           :func:`wait_all_tasks_blocked`.
 
     """
+
     def __init__(self, rate=0.0, autojump_threshold=inf):
         # when the real clock said 'real_base', the virtual time was
         # 'virtual_base', and since then it's advanced at 'rate' virtual
@@ -98,10 +98,8 @@ class MockClock(Clock):
         self.autojump_threshold = autojump_threshold
 
     def __repr__(self):
-        return (
-            "<MockClock, time={:.7f}, rate={} @ {:#x}>".format(
-                self.current_time(), self._rate, id(self)
-            )
+        return "<MockClock, time={:.7f}, rate={} @ {:#x}>".format(
+            self.current_time(), self._rate, id(self)
         )
 
     @property
@@ -142,9 +140,7 @@ class MockClock(Clock):
                     # to raise Cancelled, which is absorbed by the cancel
                     # scope above, and effectively just causes us to skip back
                     # to the start the loop, like a 'continue'.
-                    await _core.wait_all_tasks_blocked(
-                        self._autojump_threshold, inf
-                    )
+                    await _core.wait_all_tasks_blocked(self._autojump_threshold, inf)
                     statistics = _core.current_statistics()
                     jump = statistics.seconds_to_next_deadline
                     if 0 < jump < inf:

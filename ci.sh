@@ -6,12 +6,7 @@ set -ex -o pipefail
 env | sort
 
 if [ "$JOB_NAME" = "" ]; then
-    if [ "$SYSTEM_JOBIDENTIFIER" != "" ]; then
-        # azure pipelines
-        JOB_NAME="$SYSTEM_JOBDISPLAYNAME"
-    else
-        JOB_NAME="${TRAVIS_OS_NAME}-${TRAVIS_PYTHON_VERSION:-unknown}"
-    fi
+    JOB_NAME="${TRAVIS_OS_NAME}-${TRAVIS_PYTHON_VERSION:-unknown}"
 fi
 
 # Curl's built-in retry system is not very robust; it gives up on lots of
@@ -34,43 +29,12 @@ function curl-harder() {
 # Bootstrap python environment, if necessary
 ################################################################
 
-### Azure pipelines + Windows ###
+### Alpine ###
 
-# On azure pipeline's windows VMs, to get reasonable performance, we need to
-# jump through hoops to avoid touching the C:\ drive as much as possible.
-if [ "$AGENT_OS" = "Windows_NT" ]; then
-    # By default temp and cache directories are on C:\. Fix that.
-    export TEMP="${AGENT_TEMPDIRECTORY}"
-    export TMP="${AGENT_TEMPDIRECTORY}"
-    export TMPDIR="${AGENT_TEMPDIRECTORY}"
-    export PIP_CACHE_DIR="${AGENT_TEMPDIRECTORY}\\pip-cache"
-
-    # Download and install Python from scratch onto D:\, instead of using the
-    # pre-installed versions that azure pipelines provides on C:\.
-    # Also use -DirectDownload to stop nuget from caching things on C:\.
-    nuget install "${PYTHON_PKG}" -Version "${PYTHON_VERSION}" \
-          -OutputDirectory "$PWD/pyinstall" -ExcludeVersion \
-          -Source "https://api.nuget.org/v3/index.json" \
-          -Verbosity detailed -DirectDownload -NonInteractive
-
-    pydir="$PWD/pyinstall/${PYTHON_PKG}"
-    export PATH="${pydir}/tools:${pydir}/tools/scripts:$PATH"
-fi
-
-### Travis + macOS ###
-
-if [ "$TRAVIS_OS_NAME" = "osx" ]; then
-    JOB_NAME="osx_${MACPYTHON}"
-    curl-harder -o macpython.pkg https://www.python.org/ftp/python/${MACPYTHON}/python-${MACPYTHON}-macosx10.6.pkg
-    sudo installer -pkg macpython.pkg -target /
-    ls /Library/Frameworks/Python.framework/Versions/*/bin/
-    PYTHON_EXE=/Library/Frameworks/Python.framework/Versions/*/bin/python3
-    # The pip in older MacPython releases doesn't support a new enough TLS
-    curl-harder -o get-pip.py https://bootstrap.pypa.io/get-pip.py
-    sudo $PYTHON_EXE get-pip.py
-    sudo $PYTHON_EXE -m pip install virtualenv
-    $PYTHON_EXE -m virtualenv testenv
-    source testenv/bin/activate
+if [ -e /etc/alpine-release ]; then
+    apk add --no-cache gcc musl-dev libffi-dev openssl-dev python3-dev curl
+    python3 -m venv venv
+    source venv/bin/activate
 fi
 
 ### PyPy nightly (currently on Travis) ###
@@ -103,9 +67,221 @@ if [ "$PYPY_NIGHTLY_BRANCH" != "" ]; then
     source testenv/bin/activate
 fi
 
-### Qemu virtual-machine inception, on Travis
+### FreeBSD-in-Qemu virtual-machine inception, on Travis
 
-if [ "$VM_IMAGE" != "" ]; then
+# This is complex, because none of the pre-made images are set up to be
+# controlled by an automatic process – making them do anything requires a
+# human to look at the screen and type stuff. So we hack up an install CD, run
+# it to build our own custom image, and use that. But that's slow and we don't
+# want to do it every run, so we try to get Travis to cache the image for us.
+#
+# Additional subtlety: we actually re-use the same image in-place, and let
+# Travis re-cache it every time. The point of this is that it saves our system
+# packages + pip cache, so we don't have to re-fetch them from scratch every
+# time. (In particular, this means that the first time we install a given
+# version of cryptography, we have to build it from source, but on subsequent
+# runs we'll have a pre-built wheel sitting in our disk image.)
+#
+# You can run this locally for testing. But some things to watch out for:
+#
+# - It'll modify /etc/exports on your host machine. You might want to clean
+#   it up after.
+# - It'll create a symlink at /host-files on your host machine. You might want
+#   to clean it up after.
+# - If you don't want to keep downloading the installer ISO over and over,
+#   then drop an unpacked copy at ./local-freebsd-installer.iso
+
+if [ "$FREEBSD_INSTALLER_ISO_XZ" != "" ]; then
+    sudo apt update
+    sudo apt install qemu-system-x86 qemu-utils nfs-kernel-server
+
+    if [ ! -e travis-cache/image.qcow2 ]; then
+        echo "--- No cached FreeBSD VM image; recreating from scratch ---"
+        sudo apt install growisofs genisoimage
+        rm -rf scratch
+        mkdir scratch
+        qemu-img create -f qcow2 scratch/image.qcow2 10G
+        if [ -e local-freebsd-installer.iso ]; then
+            cp local-freebsd-installer.iso scratch/installer.iso
+        else
+            curl-harder "$FREEBSD_INSTALLER_ISO_XZ" -o scratch/installer.iso.xz
+            unxz scratch/installer.iso.xz
+        fi
+
+        # Files that we want to add to the ISO, to convert it into an
+        # unattended-installer:
+        mkdir -p scratch/overlay/etc
+        mkdir -p scratch/overlay/boot
+        # Use serial console, and disable the normal 10 second pause before
+        # booting
+        cat >scratch/overlay/boot/loader.conf.local <<EOF
+console=comconsole
+autoboot_delay=0
+EOF
+        # The default rc.local does a bunch of stuff. For example, if you're
+        # using a serial console, it unconditionally stops the boot to ask you
+        # what TERM to use. So we overwrite rc.local with a stripped-down
+        # version that just handles the one thing we care about, and never
+        # asks questions.
+        cat >scratch/overlay/etc/rc.local <<EOF
+#!/bin/sh
+export TERM=vt100
+bsdinstall script /etc/installerconfig
+EOF
+
+        # This is the installer script that manages the unattended install.
+        # The first part sets some variables that control the install process.
+        # The last part (everything after #!/bin/sh) is an arbitrary script
+        # that gets run after the install is finished, inside the new
+        # environment chroot, so it can apply any custom tweaks to the new
+        # system. Specifically, it:
+        # - does some basic network and boot configuration
+        # - installs bash + python
+        # - installs a boot script that mounts /host-files and then runs
+        #   /host-files/freebsd-wrapper.sh as a bash script.
+        # - powers off the system
+        cat >scratch/overlay/etc/installerconfig <<EOF
+PARTITIONS=ada0
+DISTRIBUTIONS="base.txz kernel.txz"
+
+#!/bin/sh
+set -exuo pipefail
+
+echo "ifconfig_em0=SYNCDHCP" >> /etc/rc.conf
+/bin/cp /usr/share/zoneinfo/UTC /etc/localtime
+
+echo 'autoboot_delay=0' >> /boot/loader.conf.local
+echo 'console=comconsole' >> /boot/loader.conf.local
+
+dhclient em0
+export ASSUME_ALWAYS_YES=true
+pkg install bash curl python38 py38-sqlite3
+
+mkdir /host-files
+cat >>/etc/rc.local <<INNER_RC_LOCAL
+set +ex
+export PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin
+pkg upgrade -y
+mount_nfs -o nolockd 10.0.2.2:/host-files /host-files
+cd /host-files
+bash ./freebsd-wrapper.sh
+INNER_RC_LOCAL
+
+halt -p
+EOF
+
+        # Add these files to our .iso. This is a little tricky because (a)
+        # iso9660 is a read-only filesystem, so it can't be modified in-place,
+        # and (b) unpacking and repacking the .iso is really tricky, because
+        # there's special boot metadata that has to be copied over.
+        # Fortunately though, iso9660 has an obscure feature where you can
+        # append some data on the end as a second "session", and add new files
+        # that shadow whatever files are in the first "session". So that's
+        # what we do. Also we have to set the volume label correctly, because
+        # that the bootloader uses it to locate the install CD.
+        LABEL=$(isoinfo -i scratch/installer.iso -d | grep "Volume id" | cut -f2 -d:)
+        growisofs -V $LABEL -M scratch/installer.iso -R -J scratch/overlay
+
+        # And now we can boot our custom install CD. When this VM exits again,
+        # we'll have a FreeBSD install in travis-cache/image.qcow2
+        sudo sudo -u $USER -g kvm qemu-system-x86_64 \
+            -enable-kvm \
+            -M pc \
+            -m 2048 \
+            -cdrom scratch/installer.iso \
+            -hda scratch/image.qcow2 \
+            -nographic \
+            -net nic \
+            -net user
+
+        # Everything seems to have worked, so move the completed image into
+        # the cache dir
+        mkdir travis-cache || true
+        mv scratch/image.qcow2 travis-cache/
+    fi
+
+    # OK, we have a FreeBSD image! Let's use it to run our tests.
+    cat >freebsd-wrapper.sh <<EOF
+#!/bin/bash
+
+set -xeuo pipefail
+
+# When this script exits, we shut down the machine, which causes the qemu on
+# the host to exit
+trap "halt -p" exit
+
+uname -a
+freebsd-version
+echo $PWD
+id
+
+# Pass-through JOB_NAME + the env vars that codecov-bash looks at
+export JOB_NAME="$JOB_NAME"
+export CI="$CI"
+export TRAVIS="$TRAVIS"
+export TRAVIS_COMMIT="$TRAVIS_COMMIT"
+export TRAVIS_PULL_REQUEST_SHA="$TRAVIS_PULL_REQUEST_SHA"
+export TRAVIS_JOB_NUMBER="$TRAVIS_JOB_NUMBER"
+export TRAVIS_PULL_REQUEST="$TRAVIS_PULL_REQUEST"
+export TRAVIS_JOB_ID="$TRAVIS_JOB_ID"
+export TRAVIS_REPO_SLUG="$TRAVIS_REPO_SLUG"
+export TRAVIS_TAG="$TRAVIS_TAG"
+export TRAVIS_BRANCH="$TRAVIS_BRANCH"
+
+env | sort
+
+# We put the venv into tmpfs, to prevent it getting cached with the rest of
+# the system image (plus, it's fast).
+mkdir /venv || true
+mount -t tmpfs tmpfs /venv
+python3.8 -m venv /venv
+set +u
+source /venv/bin/activate
+set -u
+
+# And put a tmpfs on the empty dir as well, because coverage uses it for
+# storage, and this makes it *massively* faster than if it's on NFS
+mkdir empty
+mount -t tmpfs tmpfs ./empty
+
+# And then we re-invoke ourselves!
+bash ./ci.sh
+
+# We can't pass our exit status out. So if we got this far without error, make
+# a marker file where the host can see it.
+touch /host-files/SUCCESS
+
+EOF
+
+    rm -f SUCCESS
+
+    # I originally tried to use SMB, which is super convenient because qemu
+    # has built-in support for exporting an SMB share to the guest. But it
+    # turns out FreeBSD's SMB support has a bunch of limitations: no symlinks,
+    # no os.utime, etc., that broke using it as a working directory.
+    sudo ln -sfT $(pwd) /host-files
+    if ! grep -q /host-files /etc/exports; then
+        echo "/host-files 127.0.0.1/32(rw,async,all_squash,anonuid=$(id -u),anongid=$(id -g),no_subtree_check,insecure)" | sudo tee -a /etc/exports
+    fi
+    sudo systemctl start nfs-kernel-server.service
+    sudo exportfs -a
+
+    sudo sudo -u $USER -g kvm qemu-system-x86_64 \
+      -enable-kvm \
+      -M pc \
+      -m 6144 \
+      -nographic \
+      -hda travis-cache/image.qcow2 \
+      -net nic \
+      -net user
+
+    test -e SUCCESS
+    exit
+fi
+
+### Linux-in-Qemu virtual-machine inception, on Travis
+
+if [ "$LINUX_VM_IMAGE" != "" ]; then
     VM_CPU=${VM_CPU:-x86_64}
 
     sudo apt update
@@ -115,9 +291,9 @@ if [ "$VM_IMAGE" != "" ]; then
     # and we use a scratch image for the actual run, in order to keep the base
     # image file pristine. None of this matters when running in CI, but it
     # makes local testing much easier.
-    BASEIMG=$(basename $VM_IMAGE)
+    BASEIMG=$(basename $LINUX_VM_IMAGE)
     if [ ! -e $BASEIMG ]; then
-        curl-harder "$VM_IMAGE" -o $BASEIMG
+        curl-harder "$LINUX_VM_IMAGE" -o $BASEIMG
     fi
     rm -f os-working.img
     qemu-img create -f qcow2 -b $BASEIMG os-working.img
@@ -138,7 +314,7 @@ trap "poweroff" exit
 uname -a
 echo \$PWD
 id
-cat /etc/lsb-release
+cat /etc/fedora-release
 cat /proc/cpuinfo
 
 # Pass-through JOB_NAME + the env vars that codecov-bash looks at
@@ -154,19 +330,22 @@ export TRAVIS_REPO_SLUG="$TRAVIS_REPO_SLUG"
 export TRAVIS_TAG="$TRAVIS_TAG"
 export TRAVIS_BRANCH="$TRAVIS_BRANCH"
 
-env
+env | sort
 
 mkdir /host-files
 mount -t 9p -o trans=virtio,version=9p2000.L host-files /host-files
 
-# Install and set up the system Python (assumes Debian/Ubuntu)
-apt update
-apt install -y python3-dev python3-virtualenv git build-essential curl
-python3 -m virtualenv -p python3 /venv
+# Set up the system Python (Fedora preinstalls Python 3)
+python3 -m venv /venv
 # Uses unbound shell variable PS1, so have to allow that temporarily
 set +u
 source /venv/bin/activate
 set -u
+
+# We put a tmpfs on the empty dir because coverage uses it for
+# storage, and this is much faster than if coverage has to go through virtfs.
+mkdir /host-files/empty
+mount -t tmpfs tmpfs /host-files/empty
 
 # And then we re-invoke ourselves!
 cd /host-files
@@ -228,6 +407,11 @@ else
     # Actual tests
     python -m pip install -r test-requirements.txt
 
+    # So we can run the test for our apport/excepthook interaction working
+    if [ -e /etc/lsb-release ] && grep -q Ubuntu /etc/lsb-release; then
+        sudo apt install -q python3-apport
+    fi
+
     # If we're testing with a LSP installed, then it might break network
     # stuff, so wait until after we've finished setting everything else
     # up.
@@ -256,7 +440,10 @@ else
         netsh winsock show catalog
     fi
 
-    mkdir empty
+    # We run the tests from inside an empty directory, to make sure Python
+    # doesn't pick up any .py files from our working dir. Might have been
+    # pre-created by some of the code above.
+    mkdir empty || true
     cd empty
 
     INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")

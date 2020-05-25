@@ -7,19 +7,11 @@ import trio
 
 from ._core import enable_ki_protection, ParkingLot
 from ._deprecate import deprecated
-
-__all__ = [
-    "Event",
-    "CapacityLimiter",
-    "Semaphore",
-    "Lock",
-    "StrictFIFOLock",
-    "Condition",
-]
+from ._util import SubclassingDeprecatedIn_v0_15_0
 
 
 @attr.s(repr=False, eq=False, hash=False)
-class Event:
+class Event(metaclass=SubclassingDeprecatedIn_v0_15_0):
     """A waitable boolean value useful for inter-task synchronization,
     inspired by :class:`threading.Event`.
 
@@ -61,14 +53,6 @@ class Event:
         """
         self._flag = True
         self._lot.unpark_all()
-
-    @deprecated(
-        "0.12.0",
-        issue=637,
-        instead="multiple Event objects or other synchronization primitives"
-    )
-    def clear(self):
-        self._flag = False
 
     async def wait(self):
         """Block until the internal flag value becomes True.
@@ -119,7 +103,7 @@ class _CapacityLimiterStatistics:
 
 
 @async_cm
-class CapacityLimiter:
+class CapacityLimiter(metaclass=SubclassingDeprecatedIn_v0_15_0):
     """An object for controlling access to a resource with limited capacity.
 
     Sometimes you need to put a limit on how many tasks can do something at
@@ -172,6 +156,7 @@ class CapacityLimiter:
        just borrowed and then put back.
 
     """
+
     def __init__(self, total_tokens):
         self._lot = ParkingLot()
         self._borrowers = set()
@@ -182,11 +167,8 @@ class CapacityLimiter:
         assert self._total_tokens == total_tokens
 
     def __repr__(self):
-        return (
-            "<trio.CapacityLimiter at {:#x}, {}/{} with {} waiting>".format(
-                id(self), len(self._borrowers), self._total_tokens,
-                len(self._lot)
-            )
+        return "<trio.CapacityLimiter at {:#x}, {}/{} with {} waiting>".format(
+            id(self), len(self._borrowers), self._total_tokens, len(self._lot)
         )
 
     @property
@@ -206,9 +188,7 @@ class CapacityLimiter:
 
     @total_tokens.setter
     def total_tokens(self, new_total_tokens):
-        if not isinstance(
-            new_total_tokens, int
-        ) and new_total_tokens != math.inf:
+        if not isinstance(new_total_tokens, int) and new_total_tokens != math.inf:
             raise TypeError("total_tokens must be an int or math.inf")
         if new_total_tokens < 1:
             raise ValueError("total_tokens must be >= 1")
@@ -337,8 +317,7 @@ class CapacityLimiter:
         """
         if borrower not in self._borrowers:
             raise RuntimeError(
-                "this borrower isn't holding any of this CapacityLimiter's "
-                "tokens"
+                "this borrower isn't holding any of this CapacityLimiter's tokens"
             )
         self._borrowers.remove(borrower)
         self._wake_waiters()
@@ -371,7 +350,7 @@ class CapacityLimiter:
 
 
 @async_cm
-class Semaphore:
+class Semaphore(metaclass=SubclassingDeprecatedIn_v0_15_0):
     """A `semaphore <https://en.wikipedia.org/wiki/Semaphore_(programming)>`__.
 
     A semaphore holds an integer value, which can be incremented by
@@ -397,6 +376,7 @@ class Semaphore:
         ``max_value``.
 
     """
+
     def __init__(self, initial_value, *, max_value=None):
         if not isinstance(initial_value, int):
             raise TypeError("initial_value must be an int")
@@ -420,10 +400,8 @@ class Semaphore:
             max_value_str = ""
         else:
             max_value_str = ", max_value={}".format(self._max_value)
-        return (
-            "<trio.Semaphore({}{}) at {:#x}>".format(
-                self._value, max_value_str, id(self)
-            )
+        return "<trio.Semaphore({}{}) at {:#x}>".format(
+            self._value, max_value_str, id(self)
         )
 
     @property
@@ -507,19 +485,7 @@ class _LockStatistics:
 
 @async_cm
 @attr.s(eq=False, hash=False, repr=False)
-class Lock:
-    """A classic `mutex
-    <https://en.wikipedia.org/wiki/Lock_(computer_science)>`__.
-
-    This is a non-reentrant, single-owner lock. Unlike
-    :class:`threading.Lock`, only the owner of the lock is allowed to release
-    it.
-
-    A :class:`Lock` object can be used as an async context manager; it
-    blocks on entry but not on exit.
-
-    """
-
+class _LockImpl:
     _lot = attr.ib(factory=ParkingLot, init=False)
     _owner = attr.ib(default=None, init=False)
 
@@ -530,10 +496,8 @@ class Lock:
         else:
             s1 = "unlocked"
             s2 = ""
-        return (
-            "<{} {} object at {:#x}{}>".format(
-                s1, self.__class__.__name__, id(self), s2
-            )
+        return "<{} {} object at {:#x}{}>".format(
+            s1, self.__class__.__name__, id(self), s2
         )
 
     def locked(self):
@@ -608,13 +572,25 @@ class Lock:
 
         """
         return _LockStatistics(
-            locked=self.locked(),
-            owner=self._owner,
-            tasks_waiting=len(self._lot),
+            locked=self.locked(), owner=self._owner, tasks_waiting=len(self._lot),
         )
 
 
-class StrictFIFOLock(Lock):
+class Lock(_LockImpl, metaclass=SubclassingDeprecatedIn_v0_15_0):
+    """A classic `mutex
+    <https://en.wikipedia.org/wiki/Lock_(computer_science)>`__.
+
+    This is a non-reentrant, single-owner lock. Unlike
+    :class:`threading.Lock`, only the owner of the lock is allowed to release
+    it.
+
+    A :class:`Lock` object can be used as an async context manager; it
+    blocks on entry but not on exit.
+
+    """
+
+
+class StrictFIFOLock(_LockImpl, metaclass=SubclassingDeprecatedIn_v0_15_0):
     r"""A variant of :class:`Lock` where tasks are guaranteed to acquire the
     lock in strict first-come-first-served order.
 
@@ -666,7 +642,7 @@ class StrictFIFOLock(Lock):
     :class:`StrictFIFOLock` guarantees that each task will send its data in
     the same order that the state machine generated it.
 
-    Currently, :class:`StrictFIFOLock` is simply an alias for :class:`Lock`,
+    Currently, :class:`StrictFIFOLock` is identical to :class:`Lock`,
     but (a) this may not always be true in the future, especially if Trio ever
     implements `more sophisticated scheduling policies
     <https://github.com/python-trio/trio/issues/32>`__, and (b) the above code
@@ -684,7 +660,7 @@ class _ConditionStatistics:
 
 
 @async_cm
-class Condition:
+class Condition(metaclass=SubclassingDeprecatedIn_v0_15_0):
     """A classic `condition variable
     <https://en.wikipedia.org/wiki/Monitor_(synchronization)>`__, similar to
     :class:`threading.Condition`.
@@ -698,6 +674,7 @@ class Condition:
           and used.
 
     """
+
     def __init__(self, lock=None):
         if lock is None:
             lock = Lock()
@@ -809,6 +786,5 @@ class Condition:
 
         """
         return _ConditionStatistics(
-            tasks_waiting=len(self._lot),
-            lock_statistics=self._lock.statistics(),
+            tasks_waiting=len(self._lot), lock_statistics=self._lock.statistics(),
         )

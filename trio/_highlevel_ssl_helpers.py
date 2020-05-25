@@ -3,11 +3,6 @@ import ssl
 
 from ._highlevel_open_tcp_stream import DEFAULT_DELAY
 
-__all__ = [
-    "open_ssl_over_tcp_stream", "open_ssl_over_tcp_listeners",
-    "serve_ssl_over_tcp"
-]
-
 
 # It might have been nice to take a ssl_protocols= argument here to set up
 # NPN/ALPN, but to do this we have to mutate the context object, which is OK
@@ -25,7 +20,7 @@ async def open_ssl_over_tcp_stream(
     https_compatible=False,
     ssl_context=None,
     # No trailing comma b/c bpo-9232 (fixed in py36)
-    happy_eyeballs_delay=DEFAULT_DELAY
+    happy_eyeballs_delay=DEFAULT_DELAY,
 ):
     """Make a TLS-encrypted Connection to the given host and port over TCP.
 
@@ -54,9 +49,7 @@ async def open_ssl_over_tcp_stream(
 
     """
     tcp_stream = await trio.open_tcp_stream(
-        host,
-        port,
-        happy_eyeballs_delay=happy_eyeballs_delay,
+        host, port, happy_eyeballs_delay=happy_eyeballs_delay,
     )
     if ssl_context is None:
         ssl_context = ssl.create_default_context()
@@ -83,15 +76,10 @@ async def open_ssl_over_tcp_listeners(
       backlog (int or None): See :func:`open_tcp_listeners` for details.
 
     """
-    tcp_listeners = await trio.open_tcp_listeners(
-        port, host=host, backlog=backlog
-    )
+    tcp_listeners = await trio.open_tcp_listeners(port, host=host, backlog=backlog)
     ssl_listeners = [
-        trio.SSLListener(
-            tcp_listener,
-            ssl_context,
-            https_compatible=https_compatible,
-        ) for tcp_listener in tcp_listeners
+        trio.SSLListener(tcp_listener, ssl_context, https_compatible=https_compatible,)
+        for tcp_listener in tcp_listeners
     ]
     return ssl_listeners
 
@@ -105,7 +93,7 @@ async def serve_ssl_over_tcp(
     https_compatible=False,
     backlog=None,
     handler_nursery=None,
-    task_status=trio.TASK_STATUS_IGNORED
+    task_status=trio.TASK_STATUS_IGNORED,
 ):
     """Listen for incoming TCP connections, and for each one start a task
     running ``handler(stream)``.
@@ -159,11 +147,8 @@ async def serve_ssl_over_tcp(
         ssl_context,
         host=host,
         https_compatible=https_compatible,
-        backlog=backlog
+        backlog=backlog,
     )
     await trio.serve_listeners(
-        handler,
-        listeners,
-        handler_nursery=handler_nursery,
-        task_status=task_status
+        handler, listeners, handler_nursery=handler_nursery, task_status=task_status,
     )

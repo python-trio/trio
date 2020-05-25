@@ -2,8 +2,7 @@ import attr
 
 from .. import _core
 from .._deprecate import deprecated
-
-__all__ = ["UnboundedQueue"]
+from .._util import SubclassingDeprecatedIn_v0_15_0
 
 
 @attr.s(frozen=True)
@@ -12,7 +11,7 @@ class _UnboundedQueueStats:
     tasks_waiting = attr.ib()
 
 
-class UnboundedQueue:
+class UnboundedQueue(metaclass=SubclassingDeprecatedIn_v0_15_0):
     """An unbounded queue suitable for certain unusual forms of inter-task
     communication.
 
@@ -41,11 +40,12 @@ class UnboundedQueue:
            ...
 
     """
+
     @deprecated(
         "0.9.0",
         issue=497,
         thing="trio.lowlevel.UnboundedQueue",
-        instead="trio.open_memory_channel(math.inf)"
+        instead="trio.open_memory_channel(math.inf)",
     )
     def __init__(self):
         self._lot = _core.ParkingLot()
@@ -141,8 +141,7 @@ class UnboundedQueue:
 
         """
         return _UnboundedQueueStats(
-            qsize=len(self._data),
-            tasks_waiting=self._lot.statistics().tasks_waiting
+            qsize=len(self._data), tasks_waiting=self._lot.statistics().tasks_waiting,
         )
 
     def __aiter__(self):

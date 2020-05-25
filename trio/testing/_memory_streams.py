@@ -5,16 +5,6 @@ from .._highlevel_generic import StapledStream
 from .. import _util
 from ..abc import SendStream, ReceiveStream
 
-__all__ = [
-    "MemorySendStream",
-    "MemoryReceiveStream",
-    "memory_stream_pump",
-    "memory_stream_one_way_pair",
-    "memory_stream_pair",
-    "lockstep_stream_one_way_pair",
-    "lockstep_stream_pair",
-]
-
 ################################################################
 # In-memory streams - Unbounded buffer version
 ################################################################
@@ -83,7 +73,7 @@ class _UnboundedByteQueue:
             return self._get_impl(max_bytes)
 
 
-class MemorySendStream(SendStream):
+class MemorySendStream(SendStream, metaclass=_util.SubclassingDeprecatedIn_v0_15_0):
     """An in-memory :class:`~trio.abc.SendStream`.
 
     Args:
@@ -103,11 +93,12 @@ class MemorySendStream(SendStream):
        you can change them at any time.
 
     """
+
     def __init__(
         self,
         send_all_hook=None,
         wait_send_all_might_not_block_hook=None,
-        close_hook=None
+        close_hook=None,
     ):
         self._conflict_detector = _util.ConflictDetector(
             "another task is using this stream"
@@ -198,7 +189,9 @@ class MemorySendStream(SendStream):
         return self._outgoing.get_nowait(max_bytes)
 
 
-class MemoryReceiveStream(ReceiveStream):
+class MemoryReceiveStream(
+    ReceiveStream, metaclass=_util.SubclassingDeprecatedIn_v0_15_0
+):
     """An in-memory :class:`~trio.abc.ReceiveStream`.
 
     Args:
@@ -214,6 +207,7 @@ class MemoryReceiveStream(ReceiveStream):
        change them at any time.
 
     """
+
     def __init__(self, receive_some_hook=None, close_hook=None):
         self._conflict_detector = _util.ConflictDetector(
             "another task is using this stream"
@@ -276,9 +270,7 @@ class MemoryReceiveStream(ReceiveStream):
         self._incoming.close()
 
 
-def memory_stream_pump(
-    memory_send_stream, memory_receive_stream, *, max_bytes=None
-):
+def memory_stream_pump(memory_send_stream, memory_receive_stream, *, max_bytes=None):
     """Take data out of the given :class:`MemorySendStream`'s internal buffer,
     and put it into the given :class:`MemoryReceiveStream`'s internal buffer.
 

@@ -2,14 +2,18 @@ import os
 import subprocess
 import sys
 from typing import Optional
+from functools import partial
+import warnings
 
 from ._abc import AsyncResource, SendStream, ReceiveStream
 from ._highlevel_generic import StapledStream
 from ._sync import Lock
 from ._subprocess_platform import (
-    wait_child_exiting, create_pipe_to_child_stdin,
-    create_pipe_from_child_output
+    wait_child_exiting,
+    create_pipe_to_child_stdin,
+    create_pipe_from_child_output,
 )
+from ._util import NoPublicConstructor
 import trio
 
 # Linux-specific, but has complex lifetime management stuff so we hard-code it
@@ -20,6 +24,7 @@ try:
 except ImportError:
     if sys.platform == "linux":
         import ctypes
+
         _cdll_for_pidfd_open = ctypes.CDLL(None, use_errno=True)
         _cdll_for_pidfd_open.syscall.restype = ctypes.c_long
         # pid and flags are actually int-sized, but the syscall() function
@@ -42,11 +47,12 @@ except ImportError:
                 err = ctypes.get_errno()
                 raise OSError(err, os.strerror(err))
             return result
+
     else:
         can_try_pidfd_open = False
 
 
-class Process(AsyncResource):
+class Process(AsyncResource, metaclass=NoPublicConstructor):
     r"""A child process. Like :class:`subprocess.Popen`, but async.
 
     This class has no public constructor. To create a child process, use
@@ -100,90 +106,17 @@ class Process(AsyncResource):
     # arbitrarily many threads if wait() keeps getting cancelled.
     _wait_for_exit_data = None
 
-    # After the deprecation period:
-    # - delete __init__ and _create
-    # - add metaclass=NoPublicConstructor
-    # - rename _init to __init__
-    # - move most of the code into open_process()
-    # - put the subprocess.Popen(...) call into a thread
-    def __init__(self, *args, **kwargs):
-        trio._deprecate.warn_deprecated(
-            "directly constructing Process objects",
-            "0.12.0",
-            issue=1109,
-            instead="trio.open_process"
-        )
-        self._init(*args, **kwargs)
+    def __init__(self, popen, stdin, stdout, stderr):
+        self._proc = popen
+        self.stdin = stdin  # type: Optional[SendStream]
+        self.stdout = stdout  # type: Optional[ReceiveStream]
+        self.stderr = stderr  # type: Optional[ReceiveStream]
 
-    @classmethod
-    def _create(cls, *args, **kwargs):
-        self = cls.__new__(cls)
-        self._init(*args, **kwargs)
-        return self
-
-    def _init(
-        self, command, *, stdin=None, stdout=None, stderr=None, **options
-    ):
-        for key in (
-            'universal_newlines', 'text', 'encoding', 'errors', 'bufsize'
-        ):
-            if options.get(key):
-                raise TypeError(
-                    "trio.Process only supports communicating over "
-                    "unbuffered byte streams; the '{}' option is not supported"
-                    .format(key)
-                )
-
-        self.stdin = None  # type: Optional[SendStream]
-        self.stdout = None  # type: Optional[ReceiveStream]
-        self.stderr = None  # type: Optional[ReceiveStream]
         self.stdio = None  # type: Optional[StapledStream]
-
-        if os.name == "posix":
-            if isinstance(command, str) and not options.get("shell"):
-                raise TypeError(
-                    "command must be a sequence (not a string) if shell=False "
-                    "on UNIX systems"
-                )
-            if not isinstance(command, str) and options.get("shell"):
-                raise TypeError(
-                    "command must be a string (not a sequence) if shell=True "
-                    "on UNIX systems"
-                )
+        if self.stdin is not None and self.stdout is not None:
+            self.stdio = StapledStream(self.stdin, self.stdout)
 
         self._wait_lock = Lock()
-
-        if stdin == subprocess.PIPE:
-            self.stdin, stdin = create_pipe_to_child_stdin()
-        if stdout == subprocess.PIPE:
-            self.stdout, stdout = create_pipe_from_child_output()
-        if stderr == subprocess.STDOUT:
-            # If we created a pipe for stdout, pass the same pipe for
-            # stderr.  If stdout was some non-pipe thing (DEVNULL or a
-            # given FD), pass the same thing. If stdout was passed as
-            # None, keep stderr as STDOUT to allow subprocess to dup
-            # our stdout. Regardless of which of these is applicable,
-            # don't create a new Trio stream for stderr -- if stdout
-            # is piped, stderr will be intermixed on the stdout stream.
-            if stdout is not None:
-                stderr = stdout
-        elif stderr == subprocess.PIPE:
-            self.stderr, stderr = create_pipe_from_child_output()
-
-        try:
-            self._proc = subprocess.Popen(
-                command, stdin=stdin, stdout=stdout, stderr=stderr, **options
-            )
-        finally:
-            # Close the parent's handle for each child side of a pipe;
-            # we want the child to have the only copy, so that when
-            # it exits we can read EOF on our side.
-            if self.stdin is not None:
-                os.close(stdin)
-            if self.stdout is not None:
-                os.close(stdout)
-            if self.stderr is not None:
-                os.close(stderr)
 
         self._pidfd = None
         if can_try_pidfd_open:
@@ -200,26 +133,24 @@ class Process(AsyncResource):
                 # make sure it'll get closed.
                 self._pidfd = open(fd)
 
-        if self.stdin is not None and self.stdout is not None:
-            self.stdio = StapledStream(self.stdin, self.stdout)
-
         self.args = self._proc.args
         self.pid = self._proc.pid
 
     def __repr__(self):
-        if self.returncode is None:
+        returncode = self.returncode
+        if returncode is None:
             status = "running with PID {}".format(self.pid)
         else:
-            if self.returncode < 0:
-                status = "exited with signal {}".format(-self.returncode)
+            if returncode < 0:
+                status = "exited with signal {}".format(-returncode)
             else:
-                status = "exited with status {}".format(self.returncode)
+                status = "exited with status {}".format(returncode)
         return "<trio.Process {!r}: {}>".format(self.args, status)
 
     @property
     def returncode(self):
-        """The exit status of the process (an integer), or ``None`` if it is
-        not yet known to have exited.
+        """The exit status of the process (an integer), or ``None`` if it's
+        still running.
 
         By convention, a return code of zero indicates success.  On
         UNIX, negative values indicate termination due to a signal,
@@ -227,10 +158,16 @@ class Process(AsyncResource):
         Windows, a process that exits due to a call to
         :meth:`Process.terminate` will have an exit status of 1.
 
-        Accessing this attribute does not check for termination;
-        use :meth:`poll` or :meth:`wait` for that.
+        Unlike the standard library `subprocess.Popen.returncode`, you don't
+        have to call `poll` or `wait` to update this attribute; it's
+        automatically updated as needed, and will always give you the latest
+        information.
+
         """
-        return self._proc.returncode
+        result = self._proc.poll()
+        if result is not None:
+            self._close_pidfd()
+        return result
 
     async def aclose(self):
         """Close any pipes we have to the process (both input and output)
@@ -249,7 +186,7 @@ class Process(AsyncResource):
         try:
             await self.wait()
         finally:
-            if self.returncode is None:
+            if self._proc.returncode is None:
                 self.kill()
                 with trio.CancelScope(shield=True):
                     await self.wait()
@@ -279,20 +216,20 @@ class Process(AsyncResource):
                 # actually block for a tiny fraction of a second.
                 self._proc.wait()
                 self._close_pidfd()
-        assert self.returncode is not None
-        return self.returncode
+        assert self._proc.returncode is not None
+        return self._proc.returncode
 
     def poll(self):
-        """Check if the process has exited yet.
+        """Returns the exit status of the process (an integer), or ``None`` if
+        it's still running.
 
-        Returns:
-          The exit status of the process, or ``None`` if it is still
-          running; see :attr:`returncode`.
+        Note that on Trio (unlike the standard library `subprocess.Popen`),
+        ``process.poll()`` and ``process.returncode`` always give the same
+        result. See `returncode` for more details. This method is only
+        included to make it easier to port code from `subprocess`.
+
         """
-        result = self._proc.poll()
-        if result is not None:
-            self._close_pidfd()
-        return result
+        return self.returncode
 
     def send_signal(self, sig):
         """Send signal ``sig`` to the process.
@@ -378,12 +315,94 @@ async def open_process(
          specified command could not be found.
 
     """
-    # XX FIXME: move the process creation into a thread as soon as we're done
-    # deprecating Process(...)
-    await trio.lowlevel.checkpoint()
-    return Process._create(
-        command, stdin=stdin, stdout=stdout, stderr=stderr, **options
-    )
+    for key in ("universal_newlines", "text", "encoding", "errors", "bufsize"):
+        if options.get(key):
+            raise TypeError(
+                "trio.Process only supports communicating over "
+                "unbuffered byte streams; the '{}' option is not supported".format(key)
+            )
+
+    if os.name == "posix":
+        if isinstance(command, str) and not options.get("shell"):
+            raise TypeError(
+                "command must be a sequence (not a string) if shell=False "
+                "on UNIX systems"
+            )
+        if not isinstance(command, str) and options.get("shell"):
+            raise TypeError(
+                "command must be a string (not a sequence) if shell=True "
+                "on UNIX systems"
+            )
+
+    trio_stdin = None  # type: Optional[SendStream]
+    trio_stdout = None  # type: Optional[ReceiveStream]
+    trio_stderr = None  # type: Optional[ReceiveStream]
+
+    if stdin == subprocess.PIPE:
+        trio_stdin, stdin = create_pipe_to_child_stdin()
+    if stdout == subprocess.PIPE:
+        trio_stdout, stdout = create_pipe_from_child_output()
+    if stderr == subprocess.STDOUT:
+        # If we created a pipe for stdout, pass the same pipe for
+        # stderr.  If stdout was some non-pipe thing (DEVNULL or a
+        # given FD), pass the same thing. If stdout was passed as
+        # None, keep stderr as STDOUT to allow subprocess to dup
+        # our stdout. Regardless of which of these is applicable,
+        # don't create a new Trio stream for stderr -- if stdout
+        # is piped, stderr will be intermixed on the stdout stream.
+        if stdout is not None:
+            stderr = stdout
+    elif stderr == subprocess.PIPE:
+        trio_stderr, stderr = create_pipe_from_child_output()
+
+    try:
+        popen = await trio.to_thread.run_sync(
+            partial(
+                subprocess.Popen,
+                command,
+                stdin=stdin,
+                stdout=stdout,
+                stderr=stderr,
+                **options,
+            )
+        )
+    finally:
+        # Close the parent's handle for each child side of a pipe;
+        # we want the child to have the only copy, so that when
+        # it exits we can read EOF on our side.
+        if trio_stdin is not None:
+            os.close(stdin)
+        if trio_stdout is not None:
+            os.close(stdout)
+        if trio_stderr is not None:
+            os.close(stderr)
+
+    return Process._create(popen, trio_stdin, trio_stdout, trio_stderr)
+
+
+async def _windows_deliver_cancel(p):
+    try:
+        p.terminate()
+    except OSError as exc:
+        warnings.warn(RuntimeWarning(f"TerminateProcess on {p!r} failed with: {exc!r}"))
+
+
+async def _posix_deliver_cancel(p):
+    try:
+        p.terminate()
+        await trio.sleep(5)
+        warnings.warn(
+            RuntimeWarning(
+                f"process {p!r} ignored SIGTERM for 5 seconds. "
+                f"(Maybe you should pass a custom deliver_cancel?) "
+                f"Trying SIGKILL."
+            )
+        )
+        p.kill()
+    except OSError as exc:
+        warnings.warn(
+            RuntimeWarning(f"tried to kill process {p!r}, but failed with: {exc!r}")
+        )
 
 
 async def run_process(
@@ -393,7 +412,8 @@ async def run_process(
     capture_stdout=False,
     capture_stderr=False,
     check=True,
-    **options
+    deliver_cancel=None,
+    **options,
 ):
     """Run ``command`` in a subprocess, wait for it to complete, and
     return a :class:`subprocess.CompletedProcess` instance describing
@@ -450,6 +470,7 @@ async def run_process(
           ``**options``, or on Windows, ``command`` may alternatively
           be a string, which will be parsed following platform-dependent
           :ref:`quoting rules <subprocess-quoting>`.
+
       stdin (:obj:`bytes`, file descriptor, or None): The bytes to provide to
           the subprocess on its standard input stream, or ``None`` if the
           subprocess's standard input should come from the same place as
@@ -458,18 +479,52 @@ async def run_process(
           file descriptor or an object with a ``fileno()`` method,
           in which case the subprocess's standard input will come from
           that file.
+
       capture_stdout (bool): If true, capture the bytes that the subprocess
           writes to its standard output stream and return them in the
           :attr:`~subprocess.CompletedProcess.stdout` attribute
           of the returned :class:`~subprocess.CompletedProcess` object.
+
       capture_stderr (bool): If true, capture the bytes that the subprocess
           writes to its standard error stream and return them in the
           :attr:`~subprocess.CompletedProcess.stderr` attribute
           of the returned :class:`~subprocess.CompletedProcess` object.
+
       check (bool): If false, don't validate that the subprocess exits
           successfully. You should be sure to check the
           ``returncode`` attribute of the returned object if you pass
           ``check=False``, so that errors don't pass silently.
+
+      deliver_cancel (async function or None): If `run_process` is cancelled,
+          then it needs to kill the child process. There are multiple ways to
+          do this, so we let you customize it.
+
+          If you pass None (the default), then the behavior depends on the
+          platform:
+
+          - On Windows, Trio calls ``TerminateProcess``, which should kill the
+            process immediately.
+
+          - On Unix-likes, the default behavior is to send a ``SIGTERM``, wait
+            5 seconds, and send a ``SIGKILL``.
+
+          Alternatively, you can customize this behavior by passing in an
+          arbitrary async function, which will be called with the `Process`
+          object as an argument. For example, the default Unix behavior could
+          be implemented like this::
+
+             async def my_deliver_cancel(process):
+                 process.send_signal(signal.SIGTERM)
+                 await trio.sleep(5)
+                 process.send_signal(signal.SIGKILL)
+
+          When the process actually exits, the ``deliver_cancel`` function
+          will automatically be cancelled – so if the process exits after
+          ``SIGTERM``, then we'll never reach the ``SIGKILL``.
+
+          In any case, `run_process` will always wait for the child process to
+          exit before raising `Cancelled`.
+
       **options: :func:`run_process` also accepts any :ref:`general subprocess
           options <subprocess-options>` and passes them on to the
           :class:`~trio.Process` constructor. This includes the
@@ -527,6 +582,13 @@ async def run_process(
             raise ValueError("can't specify both stderr and capture_stderr")
         options["stderr"] = subprocess.PIPE
 
+    if deliver_cancel is None:
+        if os.name == "nt":
+            deliver_cancel = _windows_deliver_cancel
+        else:
+            assert os.name == "posix"
+            deliver_cancel = _posix_deliver_cancel
+
     stdout_chunks = []
     stderr_chunks = []
 
@@ -551,7 +613,20 @@ async def run_process(
                 nursery.start_soon(read_output, proc.stdout, stdout_chunks)
             if proc.stderr is not None:
                 nursery.start_soon(read_output, proc.stderr, stderr_chunks)
-            await proc.wait()
+            try:
+                await proc.wait()
+            except trio.Cancelled:
+                with trio.CancelScope(shield=True):
+                    killer_cscope = trio.CancelScope(shield=True)
+
+                    async def killer():
+                        with killer_cscope:
+                            await deliver_cancel(proc)
+
+                    nursery.start_soon(killer)
+                    await proc.wait()
+                    killer_cscope.cancel()
+                    raise
 
     stdout = b"".join(stdout_chunks) if proc.stdout is not None else None
     stderr = b"".join(stderr_chunks) if proc.stderr is not None else None
@@ -561,6 +636,4 @@ async def run_process(
             proc.returncode, proc.args, output=stdout, stderr=stderr
         )
     else:
-        return subprocess.CompletedProcess(
-            proc.args, proc.returncode, stdout, stderr
-        )
+        return subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)

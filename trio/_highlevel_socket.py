@@ -5,10 +5,8 @@ from contextlib import contextmanager
 
 import trio
 from . import socket as tsocket
-from ._util import ConflictDetector
+from ._util import ConflictDetector, SubclassingDeprecatedIn_v0_15_0
 from .abc import HalfCloseableStream, Listener
-
-__all__ = ["SocketStream", "SocketListener"]
 
 # XX TODO: this number was picked arbitrarily. We should do experiments to
 # tune it. (Or make it dynamic -- one idea is to start small and increase it
@@ -30,16 +28,14 @@ def _translate_socket_errors_to_stream_errors():
         yield
     except OSError as exc:
         if exc.errno in _closed_stream_errnos:
-            raise trio.ClosedResourceError(
-                "this socket was already closed"
-            ) from None
+            raise trio.ClosedResourceError("this socket was already closed") from None
         else:
             raise trio.BrokenResourceError(
                 "socket connection broken: {}".format(exc)
             ) from exc
 
 
-class SocketStream(HalfCloseableStream):
+class SocketStream(HalfCloseableStream, metaclass=SubclassingDeprecatedIn_v0_15_0):
     """An implementation of the :class:`trio.abc.HalfCloseableStream`
     interface based on a raw network socket.
 
@@ -62,6 +58,7 @@ class SocketStream(HalfCloseableStream):
        The Trio socket object that this stream wraps.
 
     """
+
     def __init__(self, socket):
         if not isinstance(socket, tsocket.SocketType):
             raise TypeError("SocketStream requires a Trio socket object")
@@ -92,9 +89,7 @@ class SocketStream(HalfCloseableStream):
                 # http://devstreaming.apple.com/videos/wwdc/2015/719ui2k57m/719/719_your_app_and_next_generation_networks.pdf?dl=1
                 # ). The theory is that you want it to be bandwidth *
                 # rescheduling interval.
-                self.setsockopt(
-                    tsocket.IPPROTO_TCP, tsocket.TCP_NOTSENT_LOWAT, 2**14
-                )
+                self.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NOTSENT_LOWAT, 2 ** 14)
             except OSError:
                 pass
 
@@ -106,9 +101,7 @@ class SocketStream(HalfCloseableStream):
                 with memoryview(data) as data:
                     if not data:
                         if self.socket.fileno() == -1:
-                            raise trio.ClosedResourceError(
-                                "socket was already closed"
-                            )
+                            raise trio.ClosedResourceError("socket was already closed")
                         await trio.lowlevel.checkpoint()
                         return
                     total_sent = 0
@@ -322,7 +315,7 @@ for name in _ignorable_accept_errno_names:
         pass
 
 
-class SocketListener(Listener[SocketStream]):
+class SocketListener(Listener[SocketStream], metaclass=SubclassingDeprecatedIn_v0_15_0):
     """A :class:`~trio.abc.Listener` that uses a listening socket to accept
     incoming connections as :class:`SocketStream` objects.
 
@@ -338,15 +331,14 @@ class SocketListener(Listener[SocketStream]):
        The Trio socket object that this stream wraps.
 
     """
+
     def __init__(self, socket):
         if not isinstance(socket, tsocket.SocketType):
             raise TypeError("SocketListener requires a Trio socket object")
         if socket.type != tsocket.SOCK_STREAM:
             raise ValueError("SocketListener requires a SOCK_STREAM socket")
         try:
-            listening = socket.getsockopt(
-                tsocket.SOL_SOCKET, tsocket.SO_ACCEPTCONN
-            )
+            listening = socket.getsockopt(tsocket.SOL_SOCKET, tsocket.SO_ACCEPTCONN)
         except OSError:
             # SO_ACCEPTCONN fails on macOS; we just have to trust the user.
             pass

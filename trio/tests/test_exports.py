@@ -1,6 +1,8 @@
 import sys
 import importlib
 import types
+import inspect
+import enum
 
 import pytest
 
@@ -8,6 +10,7 @@ import trio
 import trio.testing
 
 from .. import _core
+from .. import _util
 
 
 def test_core_is_properly_reexported():
@@ -15,38 +18,38 @@ def test_core_is_properly_reexported():
     # three modules:
     sources = [trio, trio.lowlevel, trio.testing]
     for symbol in dir(_core):
-        if symbol.startswith('_') or symbol == 'tests':
+        if symbol.startswith("_") or symbol == "tests":
             continue
         found = 0
         for source in sources:
-            if (
-                symbol in dir(source)
-                and getattr(source, symbol) is getattr(_core, symbol)
+            if symbol in dir(source) and getattr(source, symbol) is getattr(
+                _core, symbol
             ):
                 found += 1
         print(symbol, found)
         assert found == 1
 
 
-def public_namespaces(module):
-    yield module.__name__
-    for name, value in module.__dict__.items():
+def public_modules(module):
+    yield module
+    for name, class_ in module.__dict__.items():
         if name.startswith("_"):
             continue
-        if not isinstance(value, types.ModuleType):
+        if not isinstance(class_, types.ModuleType):
             continue
-        if not value.__name__.startswith(module.__name__):
+        if not class_.__name__.startswith(module.__name__):
             continue
-        if value is module:
+        if class_ is module:
             continue
         # We should rename the trio.tests module (#274), but until then we use
         # a special-case hack:
-        if value.__name__ == "trio.tests":
+        if class_.__name__ == "trio.tests":
             continue
-        yield from public_namespaces(value)
+        yield from public_modules(class_)
 
 
-NAMESPACES = list(public_namespaces(trio))
+PUBLIC_MODULES = list(public_modules(trio))
+PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
 
 
 # It doesn't make sense for downstream redistributors to run this test, since
@@ -64,7 +67,7 @@ NAMESPACES = list(public_namespaces(trio))
     # https://github.com/PyCQA/astroid/issues/681
     "ignore:the imp module is deprecated.*:DeprecationWarning"
 )
-@pytest.mark.parametrize("modname", NAMESPACES)
+@pytest.mark.parametrize("modname", PUBLIC_MODULE_NAMES)
 @pytest.mark.parametrize("tool", ["pylint", "jedi"])
 def test_static_tool_sees_all_symbols(tool, modname):
     module = importlib.import_module(modname)
@@ -81,11 +84,13 @@ def test_static_tool_sees_all_symbols(tool, modname):
 
     if tool == "pylint":
         from pylint.lint import PyLinter
+
         linter = PyLinter()
         ast = linter.get_ast(module.__file__, modname)
         static_names = no_underscores(ast)
     elif tool == "jedi":
         import jedi
+
         # Simulate typing "import trio; trio.<TAB>"
         script = jedi.Script("import {}; {}.".format(modname, modname))
         completions = script.complete()
@@ -106,3 +111,35 @@ def test_static_tool_sees_all_symbols(tool, modname):
         for name in sorted(missing_names):
             print("    {}".format(name))
         assert False
+
+
+def test_classes_are_final():
+    for module in PUBLIC_MODULES:
+        for name, class_ in module.__dict__.items():
+            if not isinstance(class_, type):
+                continue
+            if name.startswith("_"):
+                continue
+
+            # Abstract classes can be subclassed, because that's the whole
+            # point of ABCs
+            if inspect.isabstract(class_):
+                continue
+            # Exceptions are allowed to be subclassed, because exception
+            # subclassing isn't used to inherit behavior.
+            if issubclass(class_, BaseException):
+                continue
+            # These are classes that are conceptually abstract, but
+            # inspect.isabstract returns False for boring reasons.
+            if class_ in {trio.abc.Instrument, trio.socket.SocketType}:
+                continue
+            # Enums have their own metaclass, so we can't use our metaclasses.
+            # And I don't think there's a lot of risk from people subclassing
+            # enums...
+            if issubclass(class_, enum.Enum):
+                continue
+            # ... insert other special cases here ...
+
+            assert isinstance(
+                class_, (_util.Final, _util.SubclassingDeprecatedIn_v0_15_0)
+            )

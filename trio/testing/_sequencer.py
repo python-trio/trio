@@ -10,11 +10,9 @@ from .. import Event
 if False:
     from typing import DefaultDict, Set
 
-__all__ = ["Sequencer"]
-
 
 @attr.s(eq=False, hash=False)
-class Sequencer:
+class Sequencer(metaclass=_util.SubclassingDeprecatedIn_v0_15_0):
     """A convenience class for forcing code in different tasks to run in an
     explicit linear order.
 
@@ -63,9 +61,7 @@ class Sequencer:
     @asynccontextmanager
     async def __call__(self, position: int):
         if position in self._claimed:
-            raise RuntimeError(
-                "Attempted to re-use sequence point {}".format(position)
-            )
+            raise RuntimeError("Attempted to re-use sequence point {}".format(position))
         if self._broken:
             raise RuntimeError("sequence broken!")
         self._claimed.add(position)
@@ -76,9 +72,7 @@ class Sequencer:
                 self._broken = True
                 for event in self._sequence_points.values():
                     event.set()
-                raise RuntimeError(
-                    "Sequencer wait cancelled -- sequence broken"
-                )
+                raise RuntimeError("Sequencer wait cancelled -- sequence broken")
             else:
                 if self._broken:
                     raise RuntimeError("sequence broken!")

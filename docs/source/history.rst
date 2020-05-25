@@ -5,6 +5,91 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.15.1 (2020-05-22)
+------------------------
+
+Bugfixes
+~~~~~~~~
+
+- Fix documentation build. (This must be a new release tag to get readthedocs
+  "stable" to include the changes from 0.15.0.)
+
+- Added a helpful error message if an async function is passed to `trio.from_thread.run_sync` or a sync function to `trio.from_thread.run`. (`#1244 <https://github.com/python-trio/trio/issues/1244>`__)
+
+
+Trio 0.15.0 (2020-05-19)
+------------------------
+
+Features
+~~~~~~~~
+
+- Previously, when `trio.run_process` was cancelled, it always killed
+  the subprocess immediately. Now, on Unix, it first gives the process a
+  chance to clean up by sending ``SIGTERM``, and only escalates to
+  ``SIGKILL`` if the process is still running after 5 seconds. But if
+  you prefer the old behavior, or want to adjust the timeout, then don't
+  worry: you can now pass a custom ``deliver_cancel=`` argument to
+  define your own process killing policy. (`#1104 <https://github.com/python-trio/trio/issues/1104>`__)
+- It turns out that creating a subprocess can block the parent process
+  for a surprisingly long time. So `trio.open_process` now uses a worker
+  thread to avoid blocking the event loop. (`#1109 <https://github.com/python-trio/trio/issues/1109>`__)
+- We've added FreeBSD to the list of platforms we support and test on. (`#1118 <https://github.com/python-trio/trio/issues/1118>`__)
+- On Linux kernels v5.3 or newer, `trio.Process.wait` now uses `the
+  pidfd API <https://lwn.net/Articles/794707/>`__ to track child
+  processes. This shouldn't have any user-visible change, but it makes
+  working with subprocesses faster and use less memory. (`#1241 <https://github.com/python-trio/trio/issues/1241>`__)
+- The `trio.Process.returncode` attribute is now automatically updated
+  as needed, instead of only when you call `~trio.Process.poll` or
+  `~trio.Process.wait`. Also, ``repr(process_object)`` now always
+  contains up-to-date information about the process status. (`#1315 <https://github.com/python-trio/trio/issues/1315>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- On Ubuntu systems, the system Python includes a custom
+  unhandled-exception hook to perform `crash reporting
+  <https://wiki.ubuntu.com/Apport>`__. Unfortunately, Trio wants to use
+  the same hook to print nice `MultiError` tracebacks, causing a
+  conflict. Previously, Trio would detect the conflict, print a warning,
+  and you just wouldn't get nice `MultiError` tracebacks. Now, Trio has
+  gotten clever enough to integrate its hook with Ubuntu's, so the two
+  systems should Just Work together. (`#1065 <https://github.com/python-trio/trio/issues/1065>`__)
+- Fixed an over-strict test that caused failures on Alpine Linux.
+  Started testing against Alpine in CI. (`#1499 <https://github.com/python-trio/trio/issues/1499>`__)
+- Calling `open_signal_receiver` with no arguments used to succeed without listening for any signals. This was confusing, so now it raises TypeError instead. (`#1526 <https://github.com/python-trio/trio/issues/1526>`__)
+
+
+Deprecations and Removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Remove support for Python 3.5. (`#75 <https://github.com/python-trio/trio/issues/75>`__)
+- It turns out that everyone got confused by the name ``trio.hazmat``.
+  So that name has been deprecated, and the new name is
+  :mod:`trio.lowlevel`. (`#476 <https://github.com/python-trio/trio/issues/476>`__)
+- Most of the public classes that Trio exports – like `trio.Lock`,
+  `trio.SocketStream`, and so on – weren't designed with subclassing in
+  mind. And we've noticed that some users were trying to subclass them
+  anyway, and ending up with fragile code that we're likely to
+  accidentally break in the future, or else be stuck unable to make
+  changes for fear of breaking subclasses.
+
+  There are also some classes that were explicitly designed to be
+  subclassed, like the ones in ``trio.abc``. Subclassing these is still
+  supported. However, for all other classes, attempts to subclass will
+  now raise a deprecation warning, and in the future will raise an
+  error.
+
+  If this causes problems for you, feel free to drop by our `chat room
+  <https://gitter.im/python-trio/general>`__ or file a bug, to discuss
+  alternatives or make a case for why some particular class should be
+  designed to support subclassing. (`#1044 <https://github.com/python-trio/trio/issues/1044>`__)
+- If you want to create a `trio.Process` object, you now have to call
+  `trio.open_process`; calling ``trio.Process()`` directly was
+  deprecated in v0.12.0 and has now been removed. (`#1109 <https://github.com/python-trio/trio/issues/1109>`__)
+- Remove ``clear`` method on `trio.Event`: it was deprecated in 0.12.0. (`#1498 <https://github.com/python-trio/trio/issues/1498>`__)
+
+
 Trio 0.14.0 (2020-04-27)
 ------------------------
 

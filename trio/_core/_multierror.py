@@ -5,8 +5,6 @@ import warnings
 
 import attr
 
-__all__ = ["MultiError"]
-
 # python traceback.TracebackException < 3.6.4 does not support unhashable exceptions
 # see https://github.com/python/cpython/pull/4014 for details
 if sys.version_info < (3, 6, 4):
@@ -175,6 +173,7 @@ class MultiError(BaseException):
           :exc:`BaseException`.
 
     """
+
     def __init__(self, exceptions):
         # Avoid recursion when exceptions[0] returned by __new__() happens
         # to be a MultiError and subsequently __init__() is called.
@@ -188,9 +187,7 @@ class MultiError(BaseException):
         exceptions = list(exceptions)
         for exc in exceptions:
             if not isinstance(exc, BaseException):
-                raise TypeError(
-                    "Expected an exception object, not {!r}".format(exc)
-                )
+                raise TypeError("Expected an exception object, not {!r}".format(exc))
         if len(exceptions) == 1:
             # If this lone object happens to itself be a MultiError, then
             # Python will implicitly call our __init__ on it again.  See
@@ -282,16 +279,20 @@ if have_tproxy:
             # no missing test we could add, and no value in coverage nagging
             # us about adding one.
             if operation.opname in [
-                "__getattribute__", "__getattr__"
+                "__getattribute__",
+                "__getattr__",
             ]:  # pragma: no cover
                 if operation.args[0] == "tb_next":
                     return tb_next
             return operation.delegate()
 
         return tputil.make_proxy(controller, type(base_tb), base_tb)
+
+
 else:
     # ctypes it is
     import ctypes
+
     # How to handle refcounting? I don't want to use ctypes.py_object because
     # I don't understand or trust it, and I don't want to use
     # ctypes.pythonapi.Py_{Inc,Dec}Ref because we might clash with user code
@@ -376,7 +377,7 @@ def traceback_exception_init(
     limit=None,
     lookup_lines=True,
     capture_locals=False,
-    _seen=None
+    _seen=None,
 ):
     if _seen is None:
         _seen = set()
@@ -390,7 +391,7 @@ def traceback_exception_init(
         limit=limit,
         lookup_lines=lookup_lines,
         capture_locals=capture_locals,
-        _seen=_seen
+        _seen=_seen,
     )
 
     # Capture each of the exceptions in the MultiError along with each of their causes and contexts
@@ -406,7 +407,7 @@ def traceback_exception_init(
                         capture_locals=capture_locals,
                         # copy the set of _seen exceptions so that duplicates
                         # shared between sub-exceptions are not omitted
-                        _seen=set(_seen)
+                        _seen=set(_seen),
                     )
                 )
         self.embedded = embedded
@@ -423,9 +424,7 @@ def traceback_exception_format(self, *, chain=True):
 
     for i, exc in enumerate(self.embedded):
         yield "\nDetails of embedded exception {}:\n\n".format(i + 1)
-        yield from (
-            textwrap.indent(line, " " * 2) for line in exc.format(chain=chain)
-        )
+        yield from (textwrap.indent(line, " " * 2) for line in exc.format(chain=chain))
 
 
 traceback.TracebackException.format = traceback_exception_format
@@ -436,10 +435,11 @@ def trio_excepthook(etype, value, tb):
         sys.stderr.write(chunk)
 
 
-IPython_handler_installed = False
-warning_given = False
+monkeypatched_or_warned = False
+
 if "IPython" in sys.modules:
     import IPython
+
     ip = IPython.get_ipython()
     if ip is not None:
         if ip.custom_exceptions != ():
@@ -448,9 +448,9 @@ if "IPython" in sys.modules:
                 "handler installed. I'll skip installing Trio's custom "
                 "handler, but this means MultiErrors will not show full "
                 "tracebacks.",
-                category=RuntimeWarning
+                category=RuntimeWarning,
             )
-            warning_given = True
+            monkeypatched_or_warned = True
         else:
 
             def trio_show_traceback(self, etype, value, tb, tb_offset=None):
@@ -459,15 +459,45 @@ if "IPython" in sys.modules:
                 trio_excepthook(etype, value, tb)
 
             ip.set_custom_exc((MultiError,), trio_show_traceback)
-            IPython_handler_installed = True
+            monkeypatched_or_warned = True
 
 if sys.excepthook is sys.__excepthook__:
     sys.excepthook = trio_excepthook
-else:
-    if not IPython_handler_installed and not warning_given:
-        warnings.warn(
-            "You seem to already have a custom sys.excepthook handler "
-            "installed. I'll skip installing Trio's custom handler, but this "
-            "means MultiErrors will not show full tracebacks.",
-            category=RuntimeWarning
-        )
+    monkeypatched_or_warned = True
+
+# Ubuntu's system Python has a sitecustomize.py file that import
+# apport_python_hook and replaces sys.excepthook.
+#
+# The custom hook captures the error for crash reporting, and then calls
+# sys.__excepthook__ to actually print the error.
+#
+# We don't mind it capturing the error for crash reporting, but we want to
+# take over printing the error. So we monkeypatch the apport_python_hook
+# module so that instead of calling sys.__excepthook__, it calls our custom
+# hook.
+#
+# More details: https://github.com/python-trio/trio/issues/1065
+if sys.excepthook.__name__ == "apport_excepthook":
+    import apport_python_hook
+
+    assert sys.excepthook is apport_python_hook.apport_excepthook
+
+    # Give it a descriptive name as a hint for anyone who's stuck trying to
+    # debug this mess later.
+    class TrioFakeSysModuleForApport:
+        pass
+
+    fake_sys = TrioFakeSysModuleForApport()
+    fake_sys.__dict__.update(sys.__dict__)
+    fake_sys.__excepthook__ = trio_excepthook
+    apport_python_hook.sys = fake_sys
+
+    monkeypatched_or_warned = True
+
+if not monkeypatched_or_warned:
+    warnings.warn(
+        "You seem to already have a custom sys.excepthook handler "
+        "installed. I'll skip installing Trio's custom handler, but this "
+        "means MultiErrors will not show full tracebacks.",
+        category=RuntimeWarning,
+    )

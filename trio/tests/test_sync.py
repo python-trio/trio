@@ -40,16 +40,6 @@ async def test_Event():
         assert record == ["sleeping", "sleeping", "woken", "woken"]
 
 
-# When we remove clear() then this test can be removed too
-def test_Event_clear(recwarn):
-    e = Event()
-    assert not e.is_set()
-    e.set()
-    assert e.is_set()
-    e.clear()
-    assert not e.is_set()
-
-
 async def test_CapacityLimiter():
     with pytest.raises(TypeError):
         CapacityLimiter(1.0)
@@ -121,6 +111,7 @@ async def test_CapacityLimiter():
 
 async def test_CapacityLimiter_inf():
     from math import inf
+
     c = CapacityLimiter(inf)
     repr(c)  # smoke test
     assert c.total_tokens == inf
@@ -250,9 +241,7 @@ async def test_Semaphore_bounded():
     assert bs.value == 1
 
 
-@pytest.mark.parametrize(
-    "lockcls", [Lock, StrictFIFOLock], ids=lambda fn: fn.__name__
-)
+@pytest.mark.parametrize("lockcls", [Lock, StrictFIFOLock], ids=lambda fn: fn.__name__)
 async def test_Lock_and_StrictFIFOLock(lockcls):
     l = lockcls()  # noqa
     assert not l.locked()
@@ -558,7 +547,7 @@ async def test_generic_lock_fifo_fairness(lock_factory):
     # The first three could be in any order due to scheduling randomness,
     # but after that they should repeat in the same order
     for i in range(LOOPS):
-        assert record[3 * i:3 * (i + 1)] == initial_order
+        assert record[3 * i : 3 * (i + 1)] == initial_order
 
 
 @generic_lock_test

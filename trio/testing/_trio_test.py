@@ -3,8 +3,6 @@ from functools import wraps, partial
 from .. import _core
 from ..abc import Clock, Instrument
 
-__all__ = ["trio_test"]
-
 
 # Use:
 #
@@ -26,8 +24,6 @@ def trio_test(fn):
         else:
             raise ValueError("too many clocks spoil the broth!")
         instruments = [i for i in kwargs.values() if isinstance(i, Instrument)]
-        return _core.run(
-            partial(fn, **kwargs), clock=clock, instruments=instruments
-        )
+        return _core.run(partial(fn, **kwargs), clock=clock, instruments=instruments)
 
     return wrapper

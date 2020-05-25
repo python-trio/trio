@@ -2,7 +2,7 @@ import os
 import errno
 
 from ._abc import Stream
-from ._util import ConflictDetector
+from ._util import ConflictDetector, SubclassingDeprecatedIn_v0_15_0
 
 import trio
 
@@ -74,7 +74,7 @@ class _FdHolder:
         await trio.lowlevel.checkpoint()
 
 
-class FdStream(Stream):
+class FdStream(Stream, metaclass=SubclassingDeprecatedIn_v0_15_0):
     """
     Represents a stream given the file descriptor to a pipe, TTY, etc.
 
@@ -105,6 +105,7 @@ class FdStream(Stream):
     Returns:
       A new `FdStream` object.
     """
+
     def __init__(self, fd: int):
         self._fd_holder = _FdHolder(fd)
         self._send_conflict_detector = ConflictDetector(
@@ -130,9 +131,7 @@ class FdStream(Stream):
                         try:
                             sent += os.write(self._fd_holder.fd, remaining)
                         except BlockingIOError:
-                            await trio.lowlevel.wait_writable(
-                                self._fd_holder.fd
-                            )
+                            await trio.lowlevel.wait_writable(self._fd_holder.fd)
                         except OSError as e:
                             if e.errno == errno.EBADF:
                                 raise trio.ClosedResourceError(

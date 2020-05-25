@@ -1,7 +1,7 @@
 # Runvar implementations
 from . import _run
 
-__all__ = ["RunVar"]
+from .._util import SubclassingDeprecatedIn_v0_15_0
 
 
 class _RunVarToken:
@@ -19,7 +19,7 @@ class _RunVarToken:
         self.redeemed = False
 
 
-class RunVar:
+class RunVar(metaclass=SubclassingDeprecatedIn_v0_15_0):
     """The run-local variant of a context variable.
 
     :class:`RunVar` objects are similar to context variable objects,
@@ -40,8 +40,7 @@ class RunVar:
         try:
             return _run.GLOBAL_RUN_CONTEXT.runner._locals[self]
         except AttributeError:
-            raise RuntimeError("Cannot be used outside of a run context") \
-                from None
+            raise RuntimeError("Cannot be used outside of a run context") from None
         except KeyError:
             # contextvars consistency
             if default is not self._NO_DEFAULT:
@@ -95,4 +94,4 @@ class RunVar:
         token.redeemed = True
 
     def __repr__(self):
-        return ("<RunVar name={!r}>".format(self._name))
+        return "<RunVar name={!r}>".format(self._name)

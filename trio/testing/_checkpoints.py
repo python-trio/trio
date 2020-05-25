@@ -2,8 +2,6 @@ from contextlib import contextmanager
 
 from .. import _core
 
-__all__ = ["assert_checkpoints", "assert_no_checkpoints"]
-
 
 @contextmanager
 def _assert_yields_or_not(expected):
@@ -13,19 +11,13 @@ def _assert_yields_or_not(expected):
     orig_schedule = task._schedule_points
     try:
         yield
-        if (
-            expected and (
-                task._cancel_points == orig_cancel
-                or task._schedule_points == orig_schedule
-            )
+        if expected and (
+            task._cancel_points == orig_cancel or task._schedule_points == orig_schedule
         ):
             raise AssertionError("assert_checkpoints block did not yield!")
     finally:
-        if (
-            not expected and (
-                task._cancel_points != orig_cancel
-                or task._schedule_points != orig_schedule
-            )
+        if not expected and (
+            task._cancel_points != orig_cancel or task._schedule_points != orig_schedule
         ):
             raise AssertionError("assert_no_checkpoints block yielded!")
 

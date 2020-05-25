@@ -24,6 +24,18 @@ sys.path.insert(0, os.path.abspath('.'))
 # For trio itself
 sys.path.insert(0, os.path.abspath('../..'))
 
+# https://docs.readthedocs.io/en/stable/builds.html#build-environment
+if "READTHEDOCS" in os.environ:
+    import glob
+    if glob.glob("../../newsfragments/*.*.rst"):
+        print("-- Found newsfragments; running towncrier --", flush=True)
+        import subprocess
+        subprocess.run(
+            ["towncrier", "--yes", "--date", "not released yet"],
+            cwd="../..",
+            check=True,
+        )
+
 # Warn about all references to unknown targets
 nitpicky = True
 # Except for these ones, which we expect to point to unknown targets:
@@ -37,6 +49,7 @@ nitpick_ignore = [
     ("py:mod", "trio.abc"),
     ("py:class", "math.inf"),
     ("py:exc", "Anything else"),
+    ("py:class", "async function"),
     # https://github.com/sphinx-doc/sphinx/issues/7722
     ("py:class", "SendType"),
     ("py:class", "ReceiveType"),
@@ -134,6 +147,10 @@ highlight_language = 'python3'
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
+
+# This avoids a warning by the epub builder that it can't figure out
+# the MIME type for our favicon.
+suppress_warnings = ["epub.unknown_project_files"]
 
 
 # -- Options for HTML output ----------------------------------------------

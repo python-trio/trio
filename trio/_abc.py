@@ -9,6 +9,7 @@ class Clock(metaclass=ABCMeta):
     """The interface for custom run loop clocks.
 
     """
+
     __slots__ = ()
 
     @abstractmethod
@@ -63,6 +64,7 @@ class Instrument(metaclass=ABCMeta):
     of these methods are optional. This class serves mostly as documentation.
 
     """
+
     __slots__ = ()
 
     def before_run(self):
@@ -144,12 +146,11 @@ class HostnameResolver(metaclass=ABCMeta):
     See :func:`trio.socket.set_custom_hostname_resolver`.
 
     """
+
     __slots__ = ()
 
     @abstractmethod
-    async def getaddrinfo(
-        self, host, port, family=0, type=0, proto=0, flags=0
-    ):
+    async def getaddrinfo(self, host, port, family=0, type=0, proto=0, flags=0):
         """A custom implementation of :func:`~trio.socket.getaddrinfo`.
 
         Called by :func:`trio.socket.getaddrinfo`.
@@ -181,6 +182,7 @@ class SocketFactory(metaclass=ABCMeta):
     See :func:`trio.socket.set_custom_socket_factory`.
 
     """
+
     @abstractmethod
     def socket(self, family=None, type=None, proto=None):
         """Create and return a socket object.
@@ -224,6 +226,7 @@ class AsyncResource(metaclass=ABCMeta):
     ``__aenter__`` and ``__aexit__`` should be adequate for all subclasses.
 
     """
+
     __slots__ = ()
 
     @abstractmethod
@@ -277,6 +280,7 @@ class SendStream(AsyncResource):
     :class:`SendChannel`.
 
     """
+
     __slots__ = ()
 
     @abstractmethod
@@ -382,6 +386,7 @@ class ReceiveStream(AsyncResource):
     byte, and the loop automatically exits when reaching end-of-file.
 
     """
+
     __slots__ = ()
 
     @abstractmethod
@@ -433,6 +438,7 @@ class Stream(SendStream, ReceiveStream):
     step further and implement :class:`HalfCloseableStream`.
 
     """
+
     __slots__ = ()
 
 
@@ -441,6 +447,7 @@ class HalfCloseableStream(Stream):
     part of the stream without closing the receive part.
 
     """
+
     __slots__ = ()
 
     @abstractmethod
@@ -519,6 +526,7 @@ class Listener(AsyncResource, Generic[T_resource]):
     or using an ``async with`` block.
 
     """
+
     __slots__ = ()
 
     @abstractmethod
@@ -560,6 +568,7 @@ class SendChannel(AsyncResource, Generic[SendType]):
     `SendStream`.
 
     """
+
     __slots__ = ()
 
     @abstractmethod
@@ -604,6 +613,7 @@ class ReceiveChannel(AsyncResource, Generic[ReceiveType]):
     `ReceiveStream`.
 
     """
+
     __slots__ = ()
 
     @abstractmethod

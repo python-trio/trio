@@ -5,8 +5,6 @@ from math import inf
 import trio
 from . import socket as tsocket
 
-__all__ = ["open_tcp_listeners", "serve_tcp"]
-
 
 # Default backlog size:
 #
@@ -41,7 +39,7 @@ def _compute_backlog(backlog):
     # Many systems (Linux, BSDs, ...) store the backlog in a uint16 and are
     # missing overflow protection, so we apply our own overflow protection.
     # https://github.com/golang/go/issues/5030
-    return min(backlog, 0xffff)
+    return min(backlog, 0xFFFF)
 
 
 async def open_tcp_listeners(port, *, host=None, backlog=None):
@@ -94,10 +92,7 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
     backlog = _compute_backlog(backlog)
 
     addresses = await tsocket.getaddrinfo(
-        host,
-        port,
-        type=tsocket.SOCK_STREAM,
-        flags=tsocket.AI_PASSIVE,
+        host, port, type=tsocket.SOCK_STREAM, flags=tsocket.AI_PASSIVE,
     )
 
     listeners = []
@@ -121,14 +116,10 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
             try:
                 # See https://github.com/python-trio/trio/issues/39
                 if sys.platform != "win32":
-                    sock.setsockopt(
-                        tsocket.SOL_SOCKET, tsocket.SO_REUSEADDR, 1
-                    )
+                    sock.setsockopt(tsocket.SOL_SOCKET, tsocket.SO_REUSEADDR, 1)
 
                 if family == tsocket.AF_INET6:
-                    sock.setsockopt(
-                        tsocket.IPPROTO_IPV6, tsocket.IPV6_V6ONLY, 1
-                    )
+                    sock.setsockopt(tsocket.IPPROTO_IPV6, tsocket.IPV6_V6ONLY, 1)
 
                 await sock.bind(sockaddr)
                 sock.listen(backlog)
@@ -146,7 +137,7 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
         raise OSError(
             errno.EAFNOSUPPORT,
             "This system doesn't support any of the kinds of "
-            "socket that that address could use"
+            "socket that that address could use",
         ) from trio.MultiError(unsupported_address_families)
 
     return listeners
@@ -159,7 +150,7 @@ async def serve_tcp(
     host=None,
     backlog=None,
     handler_nursery=None,
-    task_status=trio.TASK_STATUS_IGNORED
+    task_status=trio.TASK_STATUS_IGNORED,
 ):
     """Listen for incoming TCP connections, and for each one start a task
     running ``handler(stream)``.
@@ -226,8 +217,5 @@ async def serve_tcp(
     """
     listeners = await trio.open_tcp_listeners(port, host=host, backlog=backlog)
     await trio.serve_listeners(
-        handler,
-        listeners,
-        handler_nursery=handler_nursery,
-        task_status=task_status
+        handler, listeners, handler_nursery=handler_nursery, task_status=task_status,
     )

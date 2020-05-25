@@ -41,6 +41,12 @@ async def test_open_signal_receiver_restore_handler_after_one_bad_signal():
     assert signal.getsignal(signal.SIGILL) is orig
 
 
+async def test_open_signal_receiver_empty_fail():
+    with pytest.raises(TypeError, match="No signals were provided"):
+        with open_signal_receiver():
+            pass
+
+
 async def test_open_signal_receiver_restore_handler_after_duplicate_signal():
     orig = signal.getsignal(signal.SIGILL)
     with open_signal_receiver(signal.SIGILL, signal.SIGILL):
@@ -102,6 +108,7 @@ async def test_open_signal_receiver_no_starvation():
             # open_signal_receiver block might cause the signal to be
             # redelivered and give us a core dump instead of a traceback...
             import traceback
+
             traceback.print_exc()
 
 
@@ -158,9 +165,7 @@ async def test_catch_signals_race_condition_on_exit():
 
     with _signal_handler({signal.SIGILL, signal.SIGFPE}, raise_handler):
         with pytest.raises(RuntimeError) as excinfo:
-            with open_signal_receiver(
-                signal.SIGILL, signal.SIGFPE
-            ) as receiver:
+            with open_signal_receiver(signal.SIGILL, signal.SIGFPE) as receiver:
                 signal_raise(signal.SIGILL)
                 signal_raise(signal.SIGFPE)
                 await wait_run_sync_soon_idempotent_queue_barrier()

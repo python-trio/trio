@@ -13,14 +13,34 @@ import sys
 
 # Generally available symbols
 from ._core import (
-    cancel_shielded_checkpoint, Abort, wait_task_rescheduled,
-    enable_ki_protection, disable_ki_protection, currently_ki_protected, Task,
-    checkpoint, current_task, ParkingLot, UnboundedQueue, RunVar, TrioToken,
-    current_trio_token, temporarily_detach_coroutine_object,
-    permanently_detach_coroutine_object, reattach_detached_coroutine_object,
-    current_statistics, reschedule, remove_instrument, add_instrument,
-    current_clock, current_root_task, checkpoint_if_cancelled,
-    spawn_system_task, wait_readable, wait_writable, notify_closing
+    cancel_shielded_checkpoint,
+    Abort,
+    wait_task_rescheduled,
+    enable_ki_protection,
+    disable_ki_protection,
+    currently_ki_protected,
+    Task,
+    checkpoint,
+    current_task,
+    ParkingLot,
+    UnboundedQueue,
+    RunVar,
+    TrioToken,
+    current_trio_token,
+    temporarily_detach_coroutine_object,
+    permanently_detach_coroutine_object,
+    reattach_detached_coroutine_object,
+    current_statistics,
+    reschedule,
+    remove_instrument,
+    add_instrument,
+    current_clock,
+    current_root_task,
+    checkpoint_if_cancelled,
+    spawn_system_task,
+    wait_readable,
+    wait_writable,
+    notify_closing,
 )
 
 # Unix-specific symbols

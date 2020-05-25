@@ -2,17 +2,6 @@ from contextlib import contextmanager
 
 import trio
 
-__all__ = [
-    "move_on_at",
-    "move_on_after",
-    "sleep_forever",
-    "sleep_until",
-    "sleep",
-    "fail_at",
-    "fail_after",
-    "TooSlowError",
-]
-
 
 def move_on_at(deadline):
     """Use as a context manager to create a cancel scope with the given
@@ -48,9 +37,7 @@ async def sleep_forever():
     Equivalent to calling ``await sleep(math.inf)``.
 
     """
-    await trio.lowlevel.wait_task_rescheduled(
-        lambda _: trio.lowlevel.Abort.SUCCEEDED
-    )
+    await trio.lowlevel.wait_task_rescheduled(lambda _: trio.lowlevel.Abort.SUCCEEDED)
 
 
 async def sleep_until(deadline):

@@ -1,30 +1,43 @@
 os: linux
 language: python
-dist: bionic
+dist: focal
 
 jobs:
   include:
     # The pypy tests are slow, so we list them first
     - python: pypy3.6-7.2.0
+      dist: bionic
     - language: generic
       env: PYPY_NIGHTLY_BRANCH=py3.6
     # Qemu tests are also slow
+    # FreeBSD:
+    - language: generic
+      env:
+        - "JOB_NAME='FreeBSD 12.1-RELEASE, full VM'"
+        - "FREEBSD_INSTALLER_ISO_XZ=https://download.freebsd.org/ftp/releases/amd64/amd64/ISO-IMAGES/12.1/FreeBSD-12.1-RELEASE-amd64-disc1.iso.xz"
+        # Increment this each time you change the image build code in
+        # ci.sh and want to intentionally bust the cache.
+        - "CACHE_GEN=2"
+      cache:
+        directories:
+          - travis-cache
+    # More recent Ubuntu:
     # The unique thing this provides is testing on the given distro's
     # kernel, which is important when we use new kernel features. This
     # is also good for testing the latest openssl etc., and getting
     # early warning of any issues that might happen in the next Ubuntu
     # LTS.
     - language: generic
-      # We use bionic for the host, b/c rumor says that Travis's
-      # 'bionic' systems have nested KVM enabled.
-      dist: bionic
       env:
-        - "JOB_NAME='Ubuntu 19.10, full VM'"
-        - "VM_IMAGE=https://cloud-images.ubuntu.com/eoan/current/eoan-server-cloudimg-amd64.img"
+        - "JOB_NAME='Fedora 32, full VM'"
+        - "LINUX_VM_IMAGE=https://download.fedoraproject.org/pub/fedora/linux/releases/32/Cloud/x86_64/images/Fedora-Cloud-Base-32-1.6.x86_64.qcow2"
+
     - python: 3.6.1  # earliest 3.6 version available on Travis
+      dist: bionic
     - python: 3.6-dev
     - python: 3.7-dev
     - python: 3.8-dev
+    - python: 3.9-dev
     - python: nightly
 
 script:

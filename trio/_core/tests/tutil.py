@@ -1,21 +1,20 @@
 # Utilities for testing
 import socket as stdlib_socket
+import os
 
 import pytest
+import warnings
+from contextlib import contextmanager
 
 import gc
 
 # See trio/tests/conftest.py for the other half of this
 from trio.tests.conftest import RUN_SLOW
-slow = pytest.mark.skipif(
-    not RUN_SLOW,
-    reason="use --run-slow to run slow tests",
-)
+
+slow = pytest.mark.skipif(not RUN_SLOW, reason="use --run-slow to run slow tests",)
 
 try:
-    s = stdlib_socket.socket(
-        stdlib_socket.AF_INET6, stdlib_socket.SOCK_STREAM, 0
-    )
+    s = stdlib_socket.socket(stdlib_socket.AF_INET6, stdlib_socket.SOCK_STREAM, 0)
 except OSError:  # pragma: no cover
     # Some systems don't even support creating an IPv6 socket, let alone
     # binding it. (ex: Linux with 'ipv6.disable=1' in the kernel command line)
@@ -27,7 +26,7 @@ else:
     can_create_ipv6 = True
     with s:
         try:
-            s.bind(('::1', 0))
+            s.bind(("::1", 0))
         except OSError:
             can_bind_ipv6 = False
         else:
@@ -51,6 +50,22 @@ def gc_collect_harder():
         gc.collect()
 
 
+# Some of our tests need to leak coroutines, and thus trigger the
+# "RuntimeWarning: coroutine '...' was never awaited" message. This context
+# manager should be used anywhere this happens to hide those messages, because
+# when expected they're clutter.
+@contextmanager
+def ignore_coroutine_never_awaited_warnings():
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="coroutine '.*' was never awaited")
+        try:
+            yield
+        finally:
+            # Make sure to trigger any coroutine __del__ methods now, before
+            # we leave the context manager.
+            gc_collect_harder()
+
+
 # template is like:
 #   [1, {2.1, 2.2}, 3] -> matches [1, 2.1, 2.2, 3] or [1, 2.2, 2.1, 3]
 def check_sequence_matches(seq, template):
@@ -58,6 +73,15 @@ def check_sequence_matches(seq, template):
     for pattern in template:
         if not isinstance(pattern, set):
             pattern = {pattern}
-        got = set(seq[i:i + len(pattern)])
+        got = set(seq[i : i + len(pattern)])
         assert got == pattern
         i += len(got)
+
+
+# https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=246350
+skip_if_fbsd_pipes_broken = pytest.mark.skipif(
+    hasattr(os, "uname")
+    and os.uname().sysname == "FreeBSD"
+    and os.uname().release[:4] < "12.2",
+    reason="hangs on FreeBSD 12.1 and earlier, due to FreeBSD bug #246350",
+)

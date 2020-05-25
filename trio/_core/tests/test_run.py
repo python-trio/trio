@@ -15,7 +15,13 @@ import outcome
 import sniffio
 import pytest
 
-from .tutil import slow, check_sequence_matches, gc_collect_harder
+from .tutil import (
+    slow,
+    check_sequence_matches,
+    gc_collect_harder,
+    ignore_coroutine_never_awaited_warnings,
+)
+
 from ... import _core
 from ..._threads import to_thread_run_sync
 from ..._timeouts import sleep, fail_after
@@ -31,24 +37,6 @@ from ...testing import (
 # rescheduling...
 async def sleep_forever():
     return await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
-
-
-# Some of our tests need to leak coroutines, and thus trigger the
-# "RuntimeWarning: coroutine '...' was never awaited" message. This context
-# manager should be used anywhere this happens to hide those messages, because
-# when expected they're clutter.
-@contextmanager
-def ignore_coroutine_never_awaited_warnings():
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "ignore", message="coroutine '.*' was never awaited"
-        )
-        try:
-            yield
-        finally:
-            # Make sure to trigger any coroutine __del__ methods now, before
-            # we leave the context manager.
-            gc_collect_harder()
 
 
 def test_basic():
@@ -142,8 +130,7 @@ async def test_basic_interleave():
         nursery.start_soon(looper, "b", record)
 
     check_sequence_matches(
-        record,
-        [{("a", 0), ("b", 0)}, {("a", 1), ("b", 1)}, {("a", 2), ("b", 2)}]
+        record, [{("a", 0), ("b", 0)}, {("a", 1), ("b", 1)}, {("a", 2), ("b", 2)}],
     )
 
 
@@ -187,8 +174,10 @@ def test_main_and_task_both_crash():
     with pytest.raises(_core.MultiError) as excinfo:
         _core.run(main)
     print(excinfo.value)
-    assert {type(exc)
-            for exc in excinfo.value.exceptions} == {ValueError, KeyError}
+    assert {type(exc) for exc in excinfo.value.exceptions} == {
+        ValueError,
+        KeyError,
+    }
 
 
 def test_two_child_crashes():
@@ -202,8 +191,10 @@ def test_two_child_crashes():
 
     with pytest.raises(_core.MultiError) as excinfo:
         _core.run(main)
-    assert {type(exc)
-            for exc in excinfo.value.exceptions} == {ValueError, KeyError}
+    assert {type(exc) for exc in excinfo.value.exceptions} == {
+        ValueError,
+        KeyError,
+    }
 
 
 async def test_child_crash_wakes_parent():
@@ -408,9 +399,9 @@ def test_instruments(recwarn):
     # reschedules the task immediately upon yielding, before the
     # after_task_step event fires.
     expected = (
-        [("before_run",), ("schedule", task)] +
-        [("before", task), ("schedule", task), ("after", task)] * 5 +
-        [("before", task), ("after", task), ("after_run",)]
+        [("before_run",), ("schedule", task)]
+        + [("before", task), ("schedule", task), ("after", task)] * 5
+        + [("before", task), ("after", task), ("after_run",)]
     )
     assert len(r1.record) > len(r2.record) > len(r3.record)
     assert r1.record == r2.record + r3.record
@@ -446,16 +437,16 @@ def test_instruments_interleave():
             ("after", tasks["t1"]),
             ("before", tasks["t2"]),
             ("schedule", tasks["t2"]),
-            ("after", tasks["t2"])
+            ("after", tasks["t2"]),
         },
         {
             ("before", tasks["t1"]),
             ("after", tasks["t1"]),
             ("before", tasks["t2"]),
-            ("after", tasks["t2"])
+            ("after", tasks["t2"]),
         },
         ("after_run",),
-    ]  # yapf: disable
+    ]
     print(list(r.filter_tasks(tasks.values())))
     check_sequence_matches(list(r.filter_tasks(tasks.values())), expected)
 
@@ -976,9 +967,7 @@ async def test_cancel_scope_misnesting():
         for exc in exc_info.value.__context__.exceptions:
             assert isinstance(exc, RuntimeError)
             assert "closed before the task exited" in str(exc)
-            cancelled_in_context |= isinstance(
-                exc.__context__, _core.Cancelled
-            )
+            cancelled_in_context |= isinstance(exc.__context__, _core.Cancelled)
         assert cancelled_in_context  # for the sleep_forever
 
     # Trying to exit a cancel scope from an unrelated task raises an error
@@ -1244,9 +1233,14 @@ async def test_exc_info():
         nursery.start_soon(child2)
 
     assert record == [
-        "child1 raise", "child1 sleep", "child2 wake", "child2 sleep again",
-        "child1 re-raise", "child1 success", "child2 re-raise",
-        "child2 success"
+        "child1 raise",
+        "child1 sleep",
+        "child2 wake",
+        "child2 sleep again",
+        "child1 re-raise",
+        "child1 success",
+        "child2 re-raise",
+        "child2 success",
     ]
 
 
@@ -1696,8 +1690,6 @@ async def test_current_effective_deadline(mock_clock):
     assert _core.current_effective_deadline() == inf
 
 
-# @coroutine is deprecated since python 3.8, which is fine with us.
-@pytest.mark.filterwarnings("ignore:.*@coroutine.*:DeprecationWarning")
 def test_nice_error_on_bad_calls_to_run_or_spawn():
     def bad_call_run(*args):
         _core.run(*args)
@@ -1709,64 +1701,27 @@ def test_nice_error_on_bad_calls_to_run_or_spawn():
 
         _core.run(main)
 
-    class Deferred:
-        "Just kidding"
+    for bad_call in bad_call_run, bad_call_spawn:
 
-    with ignore_coroutine_never_awaited_warnings():
-        for bad_call in bad_call_run, bad_call_spawn:
+        async def f():  # pragma: no cover
+            pass
 
-            async def f():  # pragma: no cover
-                pass
+        with pytest.raises(TypeError, match="expecting an async function"):
+            bad_call(f())
 
-            with pytest.raises(TypeError) as excinfo:
-                bad_call(f())
-            assert "expecting an async function" in str(excinfo.value)
+        async def async_gen(arg):  # pragma: no cover
+            yield arg
 
-            import asyncio
-
-            @asyncio.coroutine
-            def generator_based_coro():  # pragma: no cover
-                yield from asyncio.sleep(1)
-
-            with pytest.raises(TypeError) as excinfo:
-                bad_call(generator_based_coro())
-            assert "asyncio" in str(excinfo.value)
-
-            with pytest.raises(TypeError) as excinfo:
-                bad_call(asyncio.Future())
-            assert "asyncio" in str(excinfo.value)
-
-            with pytest.raises(TypeError) as excinfo:
-                bad_call(lambda: asyncio.Future())
-            assert "asyncio" in str(excinfo.value)
-
-            with pytest.raises(TypeError) as excinfo:
-                bad_call(Deferred())
-            assert "twisted" in str(excinfo.value)
-
-            with pytest.raises(TypeError) as excinfo:
-                bad_call(lambda: Deferred())
-            assert "twisted" in str(excinfo.value)
-
-            with pytest.raises(TypeError) as excinfo:
-                bad_call(len, [1, 2, 3])
-            assert "appears to be synchronous" in str(excinfo.value)
-
-            async def async_gen(arg):  # pragma: no cover
-                yield
-
-            with pytest.raises(TypeError) as excinfo:
-                bad_call(async_gen, 0)
-            msg = "expected an async function but got an async generator"
-            assert msg in str(excinfo.value)
-
-            # Make sure no references are kept around to keep anything alive
-            del excinfo
+        with pytest.raises(
+            TypeError, match="expected an async function but got an async generator",
+        ):
+            bad_call(async_gen, 0)
 
 
 def test_calling_asyncio_function_gives_nice_error():
     async def child_xyzzy():
         import asyncio
+
         await asyncio.Future()
 
     async def misguided():
@@ -1787,6 +1742,7 @@ async def test_asyncio_function_inside_nursery_does_not_explode():
     with pytest.raises(TypeError) as excinfo:
         async with _core.open_nursery() as nursery:
             import asyncio
+
             nursery.start_soon(sleep_forever)
             await asyncio.Future()
     assert "asyncio" in str(excinfo.value)
@@ -1810,10 +1766,10 @@ async def test_trivial_yields():
             async with _core.open_nursery():
                 raise KeyError
         assert len(excinfo.value.exceptions) == 2
-        assert {type(e)
-                for e in excinfo.value.exceptions} == {
-                    KeyError, _core.Cancelled
-                }
+        assert {type(e) for e in excinfo.value.exceptions} == {
+            KeyError,
+            _core.Cancelled,
+        }
 
 
 async def test_nursery_start(autojump_clock):
@@ -1825,9 +1781,7 @@ async def test_nursery_start(autojump_clock):
         with pytest.raises(TypeError):
             await nursery.start(no_args)
 
-    async def sleep_then_start(
-        seconds, *, task_status=_core.TASK_STATUS_IGNORED
-    ):
+    async def sleep_then_start(seconds, *, task_status=_core.TASK_STATUS_IGNORED):
         repr(task_status)  # smoke test
         await sleep(seconds)
         task_status.started(seconds)
@@ -1891,9 +1845,7 @@ async def test_nursery_start(autojump_clock):
 
     # and if after the no-op started(), the child crashes, the error comes out
     # of start()
-    async def raise_keyerror_after_started(
-        task_status=_core.TASK_STATUS_IGNORED
-    ):
+    async def raise_keyerror_after_started(task_status=_core.TASK_STATUS_IGNORED,):
         task_status.started()
         raise KeyError("whoopsiedaisy")
 
@@ -1902,8 +1854,10 @@ async def test_nursery_start(autojump_clock):
             cs.cancel()
             with pytest.raises(_core.MultiError) as excinfo:
                 await nursery.start(raise_keyerror_after_started)
-    assert {type(e)
-            for e in excinfo.value.exceptions} == {_core.Cancelled, KeyError}
+    assert {type(e) for e in excinfo.value.exceptions} == {
+        _core.Cancelled,
+        KeyError,
+    }
 
     # trying to start in a closed nursery raises an error immediately
     async with _core.open_nursery() as closed_nursery:
@@ -2043,9 +1997,7 @@ async def test_nursery_stop_async_iteration():
 
         async def __anext__(self):
             nexts = self.nexts
-            items = [
-                None,
-            ] * len(nexts)
+            items = [None,] * len(nexts)
             got_stop = False
 
             def handle(exc):
@@ -2135,7 +2087,7 @@ async def test_contextvar_multitask():
 
 
 def test_system_task_contexts():
-    cvar = contextvars.ContextVar('qwilfish')
+    cvar = contextvars.ContextVar("qwilfish")
     cvar.set("water")
 
     async def system_task():
@@ -2155,11 +2107,7 @@ def test_system_task_contexts():
 
 
 def test_Nursery_init():
-    check_Nursery_error = pytest.raises(
-        TypeError, match='no public constructor available'
-    )
-
-    with check_Nursery_error:
+    with pytest.raises(TypeError):
         _core._run.Nursery(None, None)
 
 
@@ -2170,23 +2118,17 @@ async def test_Nursery_private_init():
 
 
 def test_Nursery_subclass():
-    with pytest.raises(
-        TypeError, match='`Nursery` does not support subclassing'
-    ):
+    with pytest.raises(TypeError):
 
         class Subclass(_core._run.Nursery):
             pass
 
 
 def test_Cancelled_init():
-    check_Cancelled_error = pytest.raises(
-        TypeError, match='no public constructor available'
-    )
-
-    with check_Cancelled_error:
+    with pytest.raises(TypeError):
         raise _core.Cancelled
 
-    with check_Cancelled_error:
+    with pytest.raises(TypeError):
         _core.Cancelled()
 
     # private constructor should not raise
@@ -2195,22 +2137,18 @@ def test_Cancelled_init():
 
 def test_Cancelled_str():
     cancelled = _core.Cancelled._create()
-    assert str(cancelled) == 'Cancelled'
+    assert str(cancelled) == "Cancelled"
 
 
 def test_Cancelled_subclass():
-    with pytest.raises(
-        TypeError, match='`Cancelled` does not support subclassing'
-    ):
+    with pytest.raises(TypeError):
 
         class Subclass(_core.Cancelled):
             pass
 
 
 def test_CancelScope_subclass():
-    with pytest.raises(
-        TypeError, match='`CancelScope` does not support subclassing'
-    ):
+    with pytest.raises(TypeError):
 
         class Subclass(_core.CancelScope):
             pass
@@ -2257,9 +2195,7 @@ async def test_permanently_detach_coroutine_object():
         await async_yield(yield_value)
 
     async with _core.open_nursery() as nursery:
-        nursery.start_soon(
-            detachable_coroutine, outcome.Value(None), "I'm free!"
-        )
+        nursery.start_soon(detachable_coroutine, outcome.Value(None), "I'm free!")
 
     # If we get here then Trio thinks the task has exited... but the coroutine
     # is still iterable
@@ -2274,9 +2210,7 @@ async def test_permanently_detach_coroutine_object():
     pdco_outcome = None
     with pytest.raises(KeyError):
         async with _core.open_nursery() as nursery:
-            nursery.start_soon(
-                detachable_coroutine, outcome.Error(KeyError()), "uh oh"
-            )
+            nursery.start_soon(detachable_coroutine, outcome.Error(KeyError()), "uh oh")
     throw_in = ValueError()
     assert task.coro.throw(throw_in) == "uh oh"
     assert pdco_outcome == outcome.Error(throw_in)
@@ -2286,9 +2220,7 @@ async def test_permanently_detach_coroutine_object():
     async def bad_detach():
         async with _core.open_nursery():
             with pytest.raises(RuntimeError) as excinfo:
-                await _core.permanently_detach_coroutine_object(
-                    outcome.Value(None)
-                )
+                await _core.permanently_detach_coroutine_object(outcome.Value(None))
             assert "open nurser" in str(excinfo.value)
 
     async with _core.open_nursery() as nursery:
@@ -2319,9 +2251,7 @@ async def test_detach_and_reattach_coroutine_object():
         await async_yield(2)
 
         with pytest.raises(RuntimeError) as excinfo:
-            await _core.reattach_detached_coroutine_object(
-                unrelated_task, None
-            )
+            await _core.reattach_detached_coroutine_object(unrelated_task, None)
         assert "does not match" in str(excinfo.value)
 
         await _core.reattach_detached_coroutine_object(task, "byebye")

@@ -1,4 +1,0 @@
-On Linux kernels v5.3 or newer, `trio.Process.wait` now uses `the
-pidfd API <https://lwn.net/Articles/794707/>`__ to track child
-processes. This shouldn't have any user-visible change, but it makes
-working with subprocesses faster and use less memory.

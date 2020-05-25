@@ -46,7 +46,11 @@ def test_close_all():
 def test_reorder_for_rfc_6555_section_5_4():
     def fake4(i):
         return (
-            AF_INET, SOCK_STREAM, IPPROTO_TCP, "", ("10.0.0.{}".format(i), 80)
+            AF_INET,
+            SOCK_STREAM,
+            IPPROTO_TCP,
+            "",
+            ("10.0.0.{}".format(i), 80),
         )
 
     def fake6(i):
@@ -225,7 +229,7 @@ async def run_scenario(
     # If this is True, we require there to be an exception, and return
     #   (exception, scenario object)
     expect_error=(),
-    **kwargs
+    **kwargs,
 ):
     supported_families = set()
     if ipv4_supported:
@@ -278,8 +282,7 @@ async def test_one_host_slow_fail(autojump_clock):
 
 async def test_one_host_failed_after_connect(autojump_clock):
     exc, scenario = await run_scenario(
-        83, [("1.2.3.4", 1, "postconnect_fail")],
-        expect_error=KeyboardInterrupt
+        83, [("1.2.3.4", 1, "postconnect_fail")], expect_error=KeyboardInterrupt
     )
     assert isinstance(exc, KeyboardInterrupt)
 

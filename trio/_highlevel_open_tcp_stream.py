@@ -3,8 +3,6 @@ from contextlib import contextmanager
 import trio
 from trio.socket import getaddrinfo, SOCK_STREAM, socket
 
-__all__ = ["open_tcp_stream"]
-
 # Implementation of RFC 6555 "Happy eyeballs"
 # https://tools.ietf.org/html/rfc6555
 #
@@ -171,7 +169,7 @@ async def open_tcp_stream(
     port,
     *,
     # No trailing comma b/c bpo-9232 (fixed in py36)
-    happy_eyeballs_delay=DEFAULT_DELAY
+    happy_eyeballs_delay=DEFAULT_DELAY,
 ):
     """Connect to the given host and port over TCP.
 

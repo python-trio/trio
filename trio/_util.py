@@ -8,12 +8,11 @@ import pathlib
 from functools import wraps, update_wrapper
 import typing as t
 import threading
+import collections
 
-# There's a dependency loop here... _core is allowed to use this file (in fact
-# it's the *only* file in the main trio/ package it's allowed to use), but
-# ConflictDetector needs checkpoint so it also has to import
-# _core. Possibly we should split this file into two: one for true generic
-# low-level utility code, and one for higher level helpers?
+from async_generator import isasyncgen
+
+from ._deprecate import warn_deprecated
 
 import trio
 
@@ -83,6 +82,91 @@ def is_main_thread():
         return False
 
 
+######
+# Call the function and get the coroutine object, while giving helpful
+# errors for common mistakes. Returns coroutine object.
+######
+def coroutine_or_error(async_fn, *args):
+    def _return_value_looks_like_wrong_library(value):
+        # Returned by legacy @asyncio.coroutine functions, which includes
+        # a surprising proportion of asyncio builtins.
+        if isinstance(value, collections.abc.Generator):
+            return True
+        # The protocol for detecting an asyncio Future-like object
+        if getattr(value, "_asyncio_future_blocking", None) is not None:
+            return True
+        # This janky check catches tornado Futures and twisted Deferreds.
+        # By the time we're calling this function, we already know
+        # something has gone wrong, so a heuristic is pretty safe.
+        if value.__class__.__name__ in ("Future", "Deferred"):
+            return True
+        return False
+
+    try:
+        coro = async_fn(*args)
+
+    except TypeError:
+        # Give good error for: nursery.start_soon(trio.sleep(1))
+        if isinstance(async_fn, collections.abc.Coroutine):
+            # explicitly close coroutine to avoid RuntimeWarning
+            async_fn.close()
+
+            raise TypeError(
+                "Trio was expecting an async function, but instead it got "
+                "a coroutine object {async_fn!r}\n"
+                "\n"
+                "Probably you did something like:\n"
+                "\n"
+                "  trio.run({async_fn.__name__}(...))            # incorrect!\n"
+                "  nursery.start_soon({async_fn.__name__}(...))  # incorrect!\n"
+                "\n"
+                "Instead, you want (notice the parentheses!):\n"
+                "\n"
+                "  trio.run({async_fn.__name__}, ...)            # correct!\n"
+                "  nursery.start_soon({async_fn.__name__}, ...)  # correct!".format(
+                    async_fn=async_fn
+                )
+            ) from None
+
+        # Give good error for: nursery.start_soon(future)
+        if _return_value_looks_like_wrong_library(async_fn):
+            raise TypeError(
+                "Trio was expecting an async function, but instead it got "
+                "{!r} – are you trying to use a library written for "
+                "asyncio/twisted/tornado or similar? That won't work "
+                "without some sort of compatibility shim.".format(async_fn)
+            ) from None
+
+        raise
+
+    # We can't check iscoroutinefunction(async_fn), because that will fail
+    # for things like functools.partial objects wrapping an async
+    # function. So we have to just call it and then check whether the
+    # return value is a coroutine object.
+    if not isinstance(coro, collections.abc.Coroutine):
+        # Give good error for: nursery.start_soon(func_returning_future)
+        if _return_value_looks_like_wrong_library(coro):
+            raise TypeError(
+                "Trio got unexpected {!r} – are you trying to use a "
+                "library written for asyncio/twisted/tornado or similar? "
+                "That won't work without some sort of compatibility shim.".format(coro)
+            )
+
+        if isasyncgen(coro):
+            raise TypeError(
+                "start_soon expected an async function but got an async "
+                "generator {!r}".format(coro)
+            )
+
+        # Give good error for: nursery.start_soon(some_sync_fn)
+        raise TypeError(
+            "Trio expected an async function, but {!r} appears to be "
+            "synchronous".format(getattr(async_fn, "__qualname__", async_fn))
+        )
+
+    return coro
+
+
 class ConflictDetector:
     """Detect when two tasks are about to perform operations that would
     conflict.
@@ -96,6 +180,7 @@ class ConflictDetector:
     tasks don't call sendall simultaneously on the same stream.
 
     """
+
     def __init__(self, msg):
         self._msg = msg
         self._held = False
@@ -114,9 +199,10 @@ def async_wraps(cls, wrapped_cls, attr_name):
     """Similar to wraps, but for async wrappers of non-async functions.
 
     """
+
     def decorator(func):
         func.__name__ = attr_name
-        func.__qualname__ = '.'.join((cls.__qualname__, attr_name))
+        func.__qualname__ = ".".join((cls.__qualname__, attr_name))
 
         func.__doc__ = """Like :meth:`~{}.{}.{}`, but async.
 
@@ -173,6 +259,7 @@ class generic_function:
     and currently won't type-check without a mypy plugin or clever stubs,
     but at least it becomes possible to write those.
     """
+
     def __init__(self, fn):
         update_wrapper(self, fn)
         self._fn = fn
@@ -212,12 +299,27 @@ class Final(BaseMeta):
     ------
     - TypeError if a sub class is created
     """
+
     def __new__(cls, name, bases, cls_namespace):
         for base in bases:
             if isinstance(base, Final):
                 raise TypeError(
-                    "`%s` does not support subclassing" % base.__name__
+                    f"{base.__module__}.{base.__qualname__} does not support subclassing"
                 )
+        return super().__new__(cls, name, bases, cls_namespace)
+
+
+class SubclassingDeprecatedIn_v0_15_0(BaseMeta):
+    def __new__(cls, name, bases, cls_namespace):
+        for base in bases:
+            if isinstance(base, SubclassingDeprecatedIn_v0_15_0):
+                warn_deprecated(
+                    f"subclassing {base.__module__}.{base.__qualname__}",
+                    "0.15.0",
+                    issue=1044,
+                    instead="composition or delegation",
+                )
+                break
         return super().__new__(cls, name, bases, cls_namespace)
 
 
@@ -239,8 +341,11 @@ class NoPublicConstructor(Final):
     ------
     - TypeError if a sub class or an instance is created.
     """
+
     def __call__(self, *args, **kwargs):
-        raise TypeError("no public constructor available")
+        raise TypeError(
+            f"{self.__module__}.{self.__qualname__} has no public constructor"
+        )
 
     def _create(self, *args, **kwargs):
         return super().__call__(*args, **kwargs)

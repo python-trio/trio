@@ -75,8 +75,7 @@ import attr
 from collections import OrderedDict
 
 from .. import _core
-
-__all__ = ["ParkingLot"]
+from .._util import SubclassingDeprecatedIn_v0_15_0
 
 _counter = count()
 
@@ -87,7 +86,7 @@ class _ParkingLotStatistics:
 
 
 @attr.s(eq=False, hash=False)
-class ParkingLot:
+class ParkingLot(metaclass=SubclassingDeprecatedIn_v0_15_0):
     """A fair wait queue with cancellation and requeueing.
 
     This class encapsulates the tricky parts of implementing a wait

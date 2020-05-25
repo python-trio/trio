@@ -6,11 +6,10 @@ from trio.socket import socket, SOCK_STREAM
 
 try:
     from trio.socket import AF_UNIX
+
     has_unix = True
 except ImportError:
     has_unix = False
-
-__all__ = ["open_unix_socket"]
 
 
 @contextmanager

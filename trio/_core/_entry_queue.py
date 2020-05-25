@@ -4,9 +4,8 @@ import threading
 import attr
 
 from .. import _core
+from .._util import NoPublicConstructor
 from ._wakeup_socketpair import WakeupSocketpair
-
-__all__ = ["TrioToken"]
 
 
 @attr.s(slots=True)
@@ -123,7 +122,7 @@ class EntryQueue:
             self.wakeup.wakeup_thread_and_signal_safe()
 
 
-class TrioToken:
+class TrioToken(metaclass=NoPublicConstructor):
     """An opaque object representing a single call to :func:`trio.run`.
 
     It has no public constructor; instead, see :func:`current_trio_token`.
@@ -142,7 +141,7 @@ class TrioToken:
 
     """
 
-    __slots__ = ('_reentry_queue',)
+    __slots__ = ("_reentry_queue",)
 
     def __init__(self, reentry_queue):
         self._reentry_queue = reentry_queue
@@ -191,6 +190,4 @@ class TrioToken:
               exits.)
 
         """
-        self._reentry_queue.run_sync_soon(
-            sync_fn, *args, idempotent=idempotent
-        )
+        self._reentry_queue.run_sync_soon(sync_fn, *args, idempotent=idempotent)

@@ -10,13 +10,8 @@ from .._util import is_main_thread
 
 if False:
     from typing import Any, TypeVar, Callable
-    F = TypeVar('F', bound=Callable[..., Any])
 
-__all__ = [
-    "enable_ki_protection",
-    "disable_ki_protection",
-    "currently_ki_protected",
-]
+    F = TypeVar("F", bound=Callable[..., Any])
 
 # In ordinary single-threaded Python code, when you hit control-C, it raises
 # an exception and automatically does all the regular unwinding stuff.
@@ -83,7 +78,7 @@ __all__ = [
 # We use this special string as a unique key into the frame locals dictionary.
 # The @ ensures it is not a valid identifier and can't clash with any possible
 # real local name. See: https://github.com/python-trio/trio/issues/469
-LOCALS_KEY_KI_PROTECTION_ENABLED = '@TRIO_KI_PROTECTION_ENABLED'
+LOCALS_KEY_KI_PROTECTION_ENABLED = "@TRIO_KI_PROTECTION_ENABLED"
 
 
 # NB: according to the signal.signal docs, 'frame' can be None on entry to
@@ -125,8 +120,7 @@ def _ki_protection_decorator(enabled):
             def wrapper(*args, **kwargs):
                 # See the comment for regular generators below
                 coro = fn(*args, **kwargs)
-                coro.cr_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED
-                                       ] = enabled
+                coro.cr_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
                 return coro
 
             return wrapper
@@ -143,8 +137,7 @@ def _ki_protection_decorator(enabled):
                 # thrown into! See:
                 #     https://bugs.python.org/issue29590
                 gen = fn(*args, **kwargs)
-                gen.gi_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED
-                                      ] = enabled
+                gen.gi_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
                 return gen
 
             return wrapper
@@ -154,8 +147,7 @@ def _ki_protection_decorator(enabled):
             def wrapper(*args, **kwargs):
                 # See the comment for regular generators above
                 agen = fn(*args, **kwargs)
-                agen.ag_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED
-                                       ] = enabled
+                agen.ag_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
                 return agen
 
             return wrapper
@@ -174,9 +166,7 @@ def _ki_protection_decorator(enabled):
 enable_ki_protection = _ki_protection_decorator(True)  # type: Callable[[F], F]
 enable_ki_protection.__name__ = "enable_ki_protection"
 
-disable_ki_protection = _ki_protection_decorator(
-    False
-)  # type: Callable[[F], F]
+disable_ki_protection = _ki_protection_decorator(False)  # type: Callable[[F], F]
 disable_ki_protection.__name__ = "disable_ki_protection"
 
 
