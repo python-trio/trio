@@ -1,6 +1,9 @@
+# coding: utf-8
+
 import attr
 
 from trio._util import NoPublicConstructor
+from trio import _deprecate
 
 
 class TrioInternalError(Exception):
@@ -65,6 +68,19 @@ class Cancelled(BaseException, metaclass=NoPublicConstructor):
 
     def __str__(self):
         return "Cancelled"
+
+    def __call__(self):
+        # If a Cancelled exception is passed to an old abort_fn that
+        # expects a raise_cancel callback, someone will eventually try
+        # to call the exception instead of raising it. Provide a
+        # deprecation warning and raise it instead.
+        _deprecate.warn_deprecated(
+            "wait_task_rescheduled's abort_fn taking a callback argument",
+            "0.16.0",
+            issue=1537,
+            instead="an exception argument",
+        )
+        raise self
 
 
 class BusyResourceError(Exception):

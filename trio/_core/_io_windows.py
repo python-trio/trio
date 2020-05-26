@@ -605,11 +605,11 @@ class WindowsIOManager:
             )
         task = _core.current_task()
         self._overlapped_waiters[lpOverlapped] = task
-        raise_cancel = None
+        cancel_exc = None
 
-        def abort(raise_cancel_):
-            nonlocal raise_cancel
-            raise_cancel = raise_cancel_
+        def abort(cancel_exc_):
+            nonlocal cancel_exc
+            cancel_exc = cancel_exc_
             try:
                 _check(kernel32.CancelIoEx(handle, lpOverlapped))
             except OSError as exc:
@@ -649,8 +649,8 @@ class WindowsIOManager:
             # it will produce the right sorts of exceptions
             code = ntdll.RtlNtStatusToDosError(lpOverlapped.Internal)
             if code == ErrorCodes.ERROR_OPERATION_ABORTED:
-                if raise_cancel is not None:
-                    raise_cancel()
+                if cancel_exc is not None:
+                    raise cancel_exc
                 else:
                     # We didn't request this cancellation, so assume
                     # it happened due to the underlying handle being

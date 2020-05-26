@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import functools
 import itertools
 import logging
@@ -828,8 +830,8 @@ class Nursery(metaclass=NoPublicConstructor):
             # If we get cancelled (or have an exception injected, like
             # KeyboardInterrupt), then save that, but still wait until our
             # children finish.
-            def aborted(raise_cancel):
-                self._add_exc(capture(raise_cancel).error)
+            def aborted(exc):
+                self._add_exc(exc)
                 return Abort.FAILED
 
             self._parent_waiting_in_aexit = True
@@ -1039,41 +1041,26 @@ class Task(metaclass=NoPublicConstructor):
             if self._cancel_status.effectively_cancelled:
                 self._attempt_delivery_of_any_pending_cancel()
 
-    def _attempt_abort(self, raise_cancel):
+    def _attempt_abort(self, exc):
         # Either the abort succeeds, in which case we will reschedule the
         # task, or else it fails, in which case it will worry about
-        # rescheduling itself (hopefully eventually calling reraise to raise
+        # rescheduling itself (hopefully eventually raising
         # the given exception, but not necessarily).
-        success = self._abort_func(raise_cancel)
+        success = self._abort_func(exc)
         if type(success) is not Abort:
             raise TrioInternalError("abort function must return Abort enum")
         # We only attempt to abort once per blocking call, regardless of
         # whether we succeeded or failed.
         self._abort_func = None
         if success is Abort.SUCCEEDED:
-            self._runner.reschedule(self, capture(raise_cancel))
+            self._runner.reschedule(self, Error(exc))
 
     def _attempt_delivery_of_any_pending_cancel(self):
         if self._abort_func is None:
             return
         if not self._cancel_status.effectively_cancelled:
             return
-
-        def raise_cancel():
-            raise Cancelled._create()
-
-        self._attempt_abort(raise_cancel)
-
-    def _attempt_delivery_of_pending_ki(self):
-        assert self._runner.ki_pending
-        if self._abort_func is None:
-            return
-
-        def raise_cancel():
-            self._runner.ki_pending = False
-            raise KeyboardInterrupt
-
-        self._attempt_abort(raise_cancel)
+        self._attempt_abort(Cancelled._create())
 
 
 ################################################################
@@ -1411,32 +1398,15 @@ class Runner:
 
     ki_pending = attr.ib(default=False)
 
-    # deliver_ki is broke. Maybe move all the actual logic and state into
-    # RunToken, and we'll only have one instance per runner? But then we can't
-    # have a public constructor. Eh, but current_run_token() returning a
-    # unique object per run feels pretty nice. Maybe let's just go for it. And
-    # keep the class public so people can isinstance() it if they want.
-
     # This gets called from signal context
     def deliver_ki(self):
         self.ki_pending = True
         try:
-            self.entry_queue.run_sync_soon(self._deliver_ki_cb)
+            self.entry_queue.run_sync_soon(
+                self.system_nursery.cancel_scope.cancel
+            )
         except RunFinishedError:
             pass
-
-    def _deliver_ki_cb(self):
-        if not self.ki_pending:
-            return
-        # Can't happen because main_task and run_sync_soon_task are created at
-        # the same time -- so even if KI arrives before main_task is created,
-        # we won't get here until afterwards.
-        assert self.main_task is not None
-        if self.main_task_outcome is not None:
-            # We're already in the process of exiting -- leave ki_pending set
-            # and we'll check it again on our way out of run().
-            return
-        self.main_task._attempt_delivery_of_pending_ki()
 
     ################
     # Quiescing
@@ -1845,10 +1815,6 @@ def run_impl(runner, async_fn, args):
                 elif type(msg) is WaitTaskRescheduled:
                     task._cancel_points += 1
                     task._abort_func = msg.abort_func
-                    # KI is "outside" all cancel scopes, so check for it
-                    # before checking for regular cancellation:
-                    if runner.ki_pending and task is runner.main_task:
-                        task._attempt_delivery_of_pending_ki()
                     task._attempt_delivery_of_any_pending_cancel()
                 elif type(msg) is PermanentlyDetachCoroutineObject:
                     # Pretend the task just exited with the given outcome
@@ -1963,9 +1929,7 @@ async def checkpoint_if_cancelled():
 
     """
     task = current_task()
-    if task._cancel_status.effectively_cancelled or (
-        task is task._runner.main_task and task._runner.ki_pending
-    ):
+    if task._cancel_status.effectively_cancelled:
         await _core.checkpoint()
         assert False  # pragma: no cover
     task._cancel_points += 1

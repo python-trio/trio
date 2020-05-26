@@ -226,11 +226,11 @@ Windows-specific API
 
 .. function:: WaitForSingleObject(handle)
     :async:
-    
+
     Async and cancellable variant of `WaitForSingleObject
     <https://msdn.microsoft.com/en-us/library/windows/desktop/ms687032(v=vs.85).aspx>`__.
     Windows only.
-    
+
     :arg handle:
         A Win32 object handle, as a Python integer.
     :raises OSError:
@@ -270,6 +270,8 @@ Trio tokens
 .. autofunction:: current_trio_token
 
 
+.. _ki-handling:
+
 Safer KeyboardInterrupt handling
 ================================
 
@@ -281,10 +283,21 @@ correctness invariants. On the other, if the user accidentally writes
 an infinite loop, we do want to be able to break out of that. Our
 solution is to install a default signal handler which checks whether
 it's safe to raise :exc:`KeyboardInterrupt` at the place where the
-signal is received. If so, then we do; otherwise, we schedule a
-:exc:`KeyboardInterrupt` to be delivered to the main task at the next
-available opportunity (similar to how :exc:`~trio.Cancelled` is
-delivered).
+signal is received. If so, then we do. Otherwise, we cancel all tasks
+and raise `KeyboardInterrupt` directly as the result of :func:`trio.run`.
+
+.. note:: This behavior means it's not a good idea to try to catch
+   `KeyboardInterrupt` within a Trio task. Most Trio
+   programs are I/O-bound, so most interrupts will be received while
+   no task is running (because Trio is waiting for I/O). There's no
+   task that should obviously receive the interrupt in such cases, so
+   Trio doesn't raise it within a task at all: every task gets cancelled,
+   then `KeyboardInterrupt` is raised once that's complete.
+
+   If you want to handle Ctrl+C by doing something other than "cancel
+   all tasks", then you should use :func:`~trio.open_signal_receiver` to
+   install a handler for ``SIGINT``. If you do that, then Ctrl+C will
+   go to your handler, and it can do whatever it wants.
 
 So that's great, but – how do we know whether we're in one of the
 sensitive parts of the program or not?

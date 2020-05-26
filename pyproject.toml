@@ -19,6 +19,11 @@ issue_format = "`#{issue} <https://github.com/python-trio/trio/issues/{issue}>`_
 # tool.towncrier.type.misc.showcontent
 
 [[tool.towncrier.type]]
+directory = "breaking"
+name = "Breaking Changes"
+showcontent = true
+
+[[tool.towncrier.type]]
 directory = "feature"
 name = "Features"
 showcontent = true
