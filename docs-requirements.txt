@@ -29,7 +29,7 @@ sniffio==1.1.0            # via -r docs-requirements.in
 snowballstemmer==2.0.0    # via sphinx
 sortedcontainers==2.1.0   # via -r docs-requirements.in
 sphinx-rtd-theme==0.4.3   # via -r docs-requirements.in
-sphinx==2.4.4             # via -r docs-requirements.in, sphinx-rtd-theme, sphinxcontrib-trio
+sphinx==3.0.3             # via -r docs-requirements.in, sphinx-rtd-theme, sphinxcontrib-trio
 sphinxcontrib-applehelp==1.0.2  # via sphinx
 sphinxcontrib-devhelp==1.0.2  # via sphinx
 sphinxcontrib-htmlhelp==1.0.3  # via sphinx
