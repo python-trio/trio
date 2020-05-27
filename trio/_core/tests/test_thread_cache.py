@@ -17,7 +17,7 @@ def test_thread_cache_basics():
     def deliver(outcome):
         q.put(outcome)
 
-    start_thread_soon(deliver, fn)
+    start_thread_soon(fn, deliver)
 
     outcome = q.get()
     with pytest.raises(RuntimeError, match="hi"):
@@ -37,7 +37,7 @@ def test_spawning_new_thread_from_deliver_reuses_starting_thread():
     q = Queue()
     COUNT = 5
     for _ in range(COUNT):
-        start_thread_soon(lambda result: q.put(result), lambda: time.sleep(1))
+        start_thread_soon(lambda: time.sleep(1), lambda result: q.put(result))
     for _ in range(COUNT):
         q.get().unwrap()
 
@@ -50,9 +50,9 @@ def test_spawning_new_thread_from_deliver_reuses_starting_thread():
         if n == 0:
             done.set()
         else:
-            start_thread_soon(lambda _: deliver(n - 1, _), lambda: None)
+            start_thread_soon(lambda: None, lambda _: deliver(n - 1, _))
 
-    start_thread_soon(lambda _: deliver(5, _), lambda: None)
+    start_thread_soon(lambda: None, lambda _: deliver(5, _))
 
     done.wait()
 
@@ -67,7 +67,7 @@ def test_idle_threads_exit(monkeypatch):
     monkeypatch.setattr(_thread_cache, "IDLE_TIMEOUT", 0.0001)
 
     q = Queue()
-    start_thread_soon(lambda _: q.put(threading.current_thread()), lambda: None)
+    start_thread_soon(lambda: None, lambda _: q.put(threading.current_thread()))
     seen_thread = q.get()
     # Since the idle timeout is 0, after sleeping for 1 second, the thread
     # should have exited
@@ -116,5 +116,5 @@ def test_race_between_idle_exit_and_job_assignment(monkeypatch):
 
     tc = ThreadCache()
     done = threading.Event()
-    tc.start_thread_soon(lambda _: done.set(), lambda: None)
+    tc.start_thread_soon(lambda: None, lambda _: done.set())
     done.wait()

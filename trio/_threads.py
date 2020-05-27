@@ -187,13 +187,14 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
         try:
             current_trio_token.run_sync_soon(report_back_in_trio_thread_fn, result)
         except trio.RunFinishedError:
-            # The entire run finished, so our particular task is certainly
-            # long gone -- it must have been cancelled and abandoned us.
+            # The entire run finished, so the task we're trying to contact is
+            # certainly long gone -- it must have been cancelled and abandoned
+            # us.
             pass
 
     await limiter.acquire_on_behalf_of(placeholder)
     try:
-        start_thread_soon(deliver_worker_fn_result, worker_fn)
+        start_thread_soon(worker_fn, deliver_worker_fn_result)
     except:
         limiter.release_on_behalf_of(placeholder)
         raise

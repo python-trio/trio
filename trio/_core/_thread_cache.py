@@ -93,7 +93,7 @@ class ThreadCache:
         self._idle_workers = {}
         self._cache_lock = Lock()
 
-    def start_thread_soon(self, deliver, fn):
+    def start_thread_soon(self, fn, deliver):
         try:
             worker, _ = self._idle_workers.popitem()
         except KeyError:
@@ -105,7 +105,7 @@ class ThreadCache:
 THREAD_CACHE = ThreadCache()
 
 
-def start_thread_soon(deliver, fn):
+def start_thread_soon(fn, deliver):
     """Runs ``deliver(outcome.capture(fn))`` in a worker thread.
 
     Generally ``fn`` does some blocking work, and ``deliver`` delivers the
@@ -126,10 +126,10 @@ def start_thread_soon(deliver, fn):
 
     Args:
 
+        fn (sync function): Performs arbitrary blocking work.
+
         deliver (sync function): Takes the `outcome.Outcome` of ``fn``, and
           delivers it. *Must not block.*
-
-        fn (sync function): Performs arbitrary blocking work.
 
     Because worker threads are cached and reused for multiple calls, neither
     function should mutate thread-level state, like `threading.local` objects
@@ -165,4 +165,4 @@ def start_thread_soon(deliver, fn):
         limit how many threads they're using then it's polite to respect that.
 
     """
-    THREAD_CACHE.start_thread_soon(deliver, fn)
+    THREAD_CACHE.start_thread_soon(fn, deliver)
