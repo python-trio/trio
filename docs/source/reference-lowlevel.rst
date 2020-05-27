@@ -270,6 +270,12 @@ Trio tokens
 .. autofunction:: current_trio_token
 
 
+Spawning threads
+================
+
+.. autofunction:: start_thread_soon
+
+
 Safer KeyboardInterrupt handling
 ================================
 
