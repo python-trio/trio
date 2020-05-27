@@ -35,6 +35,7 @@ from ._traps import (
     PermanentlyDetachCoroutineObject,
     WaitTaskRescheduled,
 )
+from ._thread_cache import start_thread_soon
 from .. import _core
 from .._deprecate import deprecated
 from .._util import Final, NoPublicConstructor, coroutine_or_error
@@ -1173,12 +1174,7 @@ class Runner:
 
                 self.run_sync_soon_threadsafe(in_main_thread)
 
-            # XX temporary placeholder until #1545 is merged
-            def start_thread_soon(d, fn):
-                t = threading.Thread(daemon=True, target=lambda: deliver(capture(fn)))
-                t.start()
-
-            start_thread_soon(deliver, get_events)
+            start_thread_soon(get_events, deliver)
 
     def force_guest_tick_asap(self):
         if self.guest_tick_scheduled:
