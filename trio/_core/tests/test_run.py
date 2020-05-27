@@ -1631,6 +1631,11 @@ async def test_task_tree_introspection():
         assert me.eventual_parent_nursery is nurseries["parent"]
         task_status.started()
         assert me.parent_nursery is me.eventual_parent_nursery is nurseries["parent"]
+
+        # Wait for the start() call to return and close its internal nursery, to
+        # ensure consistent results in child2:
+        await _core.wait_all_tasks_blocked()
+
         async with _core.open_nursery() as nursery:
             nurseries["child1"] = nursery
             nursery.start_soon(child2)

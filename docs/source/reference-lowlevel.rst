@@ -226,11 +226,11 @@ Windows-specific API
 
 .. function:: WaitForSingleObject(handle)
     :async:
-    
+
     Async and cancellable variant of `WaitForSingleObject
     <https://msdn.microsoft.com/en-us/library/windows/desktop/ms687032(v=vs.85).aspx>`__.
     Windows only.
-    
+
     :arg handle:
         A Win32 object handle, as a Python integer.
     :raises OSError:
@@ -516,6 +516,8 @@ Task API
       This task's :class:`contextvars.Context` object.
 
    .. autoattribute:: parent_nursery
+
+   .. autoattribute:: eventual_parent_nursery
 
    .. autoattribute:: child_nurseries
 
