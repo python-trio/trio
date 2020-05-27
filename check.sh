@@ -13,8 +13,10 @@ python ./trio/_tools/gen_exports.py --test \
 # see https://forum.bors.tech/t/pre-test-and-pre-merge-hooks/322)
 # autoflake --recursive --in-place .
 # pyupgrade --py3-plus $(find . -name "*.py")
-black --diff setup.py trio \
-    || EXIT_STATUS=$?
+if ! black --check setup.py trio; then
+    EXIT_STATUS=1
+    black --diff setup.py trio
+fi
 
 # Run flake8 without pycodestyle and import-related errors
 flake8 trio/ \
