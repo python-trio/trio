@@ -1,5 +1,6 @@
 import os
 import subprocess
+import logging
 import sys
 from typing import Optional
 from functools import partial
@@ -381,28 +382,20 @@ async def open_process(
 
 
 async def _windows_deliver_cancel(p):
-    try:
-        p.terminate()
-    except OSError as exc:
-        warnings.warn(RuntimeWarning(f"TerminateProcess on {p!r} failed with: {exc!r}"))
+    p.terminate()
 
 
 async def _posix_deliver_cancel(p):
-    try:
-        p.terminate()
-        await trio.sleep(5)
-        warnings.warn(
-            RuntimeWarning(
-                f"process {p!r} ignored SIGTERM for 5 seconds. "
-                f"(Maybe you should pass a custom deliver_cancel?) "
-                f"Trying SIGKILL."
-            )
+    p.terminate()
+    await trio.sleep(5)
+    warnings.warn(
+        RuntimeWarning(
+            f"process {p!r} ignored SIGTERM for 5 seconds. "
+            f"(Maybe you should pass a custom deliver_cancel?) "
+            f"Trying SIGKILL."
         )
-        p.kill()
-    except OSError as exc:
-        warnings.warn(
-            RuntimeWarning(f"tried to kill process {p!r}, but failed with: {exc!r}")
-        )
+    )
+    p.kill()
 
 
 async def run_process(
@@ -621,7 +614,14 @@ async def run_process(
 
                     async def killer():
                         with killer_cscope:
-                            await deliver_cancel(proc)
+                            try:
+                                await deliver_cancel(proc)
+                            except BaseException as exc:
+                                LOGGER = logging.getLogger("trio.run_process")
+                                LOGGER.exception(
+                                    f"tried to kill process {proc!r}, but failed with: {exc!r}"
+                                    )
+                                raise
 
                     nursery.start_soon(killer)
                     await proc.wait()

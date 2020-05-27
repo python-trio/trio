@@ -464,7 +464,7 @@ async def test_warn_on_failed_cancel_terminate(monkeypatch):
 
     monkeypatch.setattr(Process, "terminate", broken_terminate)
 
-    with pytest.warns(RuntimeWarning, match=".*whoops.*"):
+    with pytest.raises(OSError, match=".*whoops.*"):
         async with _core.open_nursery() as nursery:
             nursery.start_soon(run_process, SLEEP(9999))
             await wait_all_tasks_blocked()
