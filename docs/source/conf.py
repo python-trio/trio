@@ -51,6 +51,9 @@ nitpick_ignore = [
     ("py:exc", "Anything else"),
     ("py:class", "async function"),
     ("py:class", "sync function"),
+    # https://github.com/sphinx-doc/sphinx/issues/7722
+    ("py:class", "SendType"),
+    ("py:class", "ReceiveType"),
 ]
 autodoc_inherit_docstrings = False
 default_role = "obj"
@@ -61,7 +64,7 @@ default_role = "obj"
 # ...note that this has since grown to contain a bunch of other CSS hacks too
 # though.
 def setup(app):
-    app.add_stylesheet("hackrtd.css")
+    app.add_css_file("hackrtd.css")
 
 # -- General configuration ------------------------------------------------
 
