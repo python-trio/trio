@@ -91,7 +91,6 @@ class WorkerThread:
 class ThreadCache:
     def __init__(self):
         self._idle_workers = {}
-        self._cache_lock = Lock()
 
     def start_thread_soon(self, fn, deliver):
         try:
