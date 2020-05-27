@@ -1858,7 +1858,27 @@ def unrolled_run(runner, async_fn, args):
             else:
                 break
 
-        if not runner.runq and not events and idle_primed:
+        # idle_primed=True means: if the IO wait hit the timeout, and still
+        # nothing is happening, then we should start waking up
+        # wait_all_tasks_blocked tasks. But there are some subtleties in
+        # defining "nothing is happening".
+        #
+        # 'not runner.runq' means that no tasks are currently runnable. 'not
+        # events' means that the last IO wait call hit its full timeout. These
+        # are very similar, and if idle_primed=True and we're running in
+        # regular mode then they always go together. But, in *guest* mode,
+        # they can happen independently, even when idle_primed=True:
+        #
+        # - runner.runq=empty and events=True: the host loop adjusted a
+        #   deadline and that forced an IO wakeup before the timeout expired,
+        #   even though no actual tasks were scheduled.
+        #
+        # - runner.runq=nonempty and events=False: the IO wait hit its
+        #   timeout, but then some code in the host thread rescheduled a task
+        #   before we got here.
+        #
+        # So we need to check both.
+        if idle_primed and not runner.runq and not events:
             while runner.waiting_for_idle:
                 key, task = runner.waiting_for_idle.peekitem(0)
                 if key[:2] == (cushion, tiebreaker):
