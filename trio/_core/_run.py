@@ -1150,6 +1150,7 @@ class Runner:
             return
         except TrioInternalError as exc:
             self.done_callback(Error(exc))
+            return
 
         # Optimization: try to skip going into the thread if we can avoid it
         events_outcome = capture(self.io_manager.get_events, 0)
