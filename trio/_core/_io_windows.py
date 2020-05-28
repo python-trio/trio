@@ -391,7 +391,9 @@ class WindowsIOManager:
 
     def force_wakeup(self):
         _check(
-            kernel32.PostQueuedCompletionStatus(self._iocp, 0, CKeys.FORCE_WAKEUP, 0)
+            kernel32.PostQueuedCompletionStatus(
+                self._iocp, 0, CKeys.FORCE_WAKEUP, ffi.NULL
+            )
         )
 
     def get_events(self, timeout):
