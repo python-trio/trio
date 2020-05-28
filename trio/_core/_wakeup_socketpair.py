@@ -2,6 +2,7 @@ import socket
 import sys
 from contextlib import contextmanager
 import signal
+import warnings
 
 from .. import _core
 from .._util import is_main_thread
