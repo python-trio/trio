@@ -1,5 +1,6 @@
 import pytest
 import asyncio
+import traceback
 
 import trio
 
@@ -45,10 +46,16 @@ def test_guest_mode_basic():
     async def aio_pingpong(from_trio, to_trio):
         print("aio_pingpong!")
 
-        while True:
-            n = await from_trio.get()
-            print(f"aio got: {n}")
-            to_trio.send_nowait(n + 1)
+        try:
+            while True:
+                n = await from_trio.get()
+                print(f"aio got: {n}")
+                to_trio.send_nowait(n + 1)
+        except asyncio.CancelledError:
+            raise
+        except:
+            traceback.print_exc()
+            raise
 
     assert loop.run_until_complete(aio_main()) == "trio-main-done"
     loop.close()
