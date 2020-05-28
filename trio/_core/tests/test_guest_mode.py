@@ -5,9 +5,9 @@ import trio
 
 
 def test_guest_mode_basic():
-    async def aio_main():
-        loop = asyncio.get_running_loop()
+    loop = asyncio.new_event_loop()
 
+    async def aio_main():
         trio_done_fut = asyncio.Future()
 
         def trio_done_callback(main_outcome):
@@ -47,6 +47,5 @@ def test_guest_mode_basic():
             print(f"aio got: {n}")
             to_trio.send_nowait(n + 1)
 
-    loop = asyncio.new_event_loop()
     assert loop.run_until_complete(aio_main()) == "trio-main-done"
     loop.close()
