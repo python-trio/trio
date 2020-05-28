@@ -43,6 +43,9 @@ class KqueueIOManager:
     def close(self):
         self._kqueue.close()
 
+    def force_wakeup(self):
+        self._force_wakeup.wakeup_thread_and_signal_safe()
+
     def get_events(self, timeout):
         # max_events must be > 0 or kqueue gets cranky
         # and we generally want this to be strictly larger than the actual
