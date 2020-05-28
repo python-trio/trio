@@ -57,9 +57,9 @@ class WakeupSocketpair:
         except BlockingIOError:
             pass
 
-    def wakeup_on_signals(self, trust_host_loop_to_wake_on_signals=False):
+    def wakeup_on_signals(self):
         assert self.old_wakeup_fd is None
-        if not is_main_thread() or trust_host_loop_to_wake_on_signals:
+        if not is_main_thread():
             return
         fd = self.write_sock.fileno()
         if HAVE_WARN_ON_FULL_BUFFER:
