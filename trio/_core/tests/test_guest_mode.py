@@ -28,7 +28,7 @@ def test_guest_mode_basic():
         to_trio, from_aio = trio.open_memory_channel(float("inf"))
         from_trio = asyncio.Queue()
 
-        aio_task = asyncio.create_task(aio_pingpong(from_trio, to_trio))
+        aio_task = asyncio.ensure_future(aio_pingpong(from_trio, to_trio))
 
         from_trio.put_nowait(0)
 
