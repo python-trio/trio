@@ -38,6 +38,7 @@ class WakeupSocketpair:
             self.write_sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         except OSError:
             pass
+        self.old_wakeup_fd = None
 
     def wakeup_thread_and_signal_safe(self):
         try:
@@ -56,21 +57,29 @@ class WakeupSocketpair:
         except BlockingIOError:
             pass
 
-    @contextmanager
-    def wakeup_on_signals(self):
-        if not is_main_thread():
-            yield
+    def wakeup_on_signals(self, trust_host_loop_to_wake_on_signals=False):
+        assert self.old_wakeup_fd is None
+        if not is_main_thread() or trust_host_loop_to_wake_on_signals:
             return
         fd = self.write_sock.fileno()
         if HAVE_WARN_ON_FULL_BUFFER:
-            old_wakeup_fd = signal.set_wakeup_fd(fd, warn_on_full_buffer=False)
+            self.old_wakeup_fd = signal.set_wakeup_fd(fd, warn_on_full_buffer=False)
         else:
-            old_wakeup_fd = signal.set_wakeup_fd(fd)
-        try:
-            yield
-        finally:
-            signal.set_wakeup_fd(old_wakeup_fd)
+            self.old_wakeup_fd = signal.set_wakeup_fd(fd)
+        if self.old_wakeup_fd != -1:
+            warnings.warn(
+                RuntimeWarning(
+                    "It looks like Trio's signal handling code might have "
+                    "collided with another library you're using. If you're "
+                    "running Trio in guest mode, then this might mean you "
+                    "should set trust_host_loop_to_wake_on_signals=True. "
+                    "Otherwise, file a bug on Trio and we'll help you figure "
+                    "out what's going on."
+                )
+            )
 
     def close(self):
         self.wakeup_sock.close()
         self.write_sock.close()
+        if self.old_wakeup_fd is not None:
+            signal.set_wakeup_fd(self.old_wakeup_fd)

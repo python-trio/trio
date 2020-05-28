@@ -1755,16 +1755,15 @@ def run(
     try:
         with ki_manager(runner.deliver_ki, restrict_keyboard_interrupt_to_checkpoints):
             try:
-                with closing(runner):
-                    with runner.entry_queue.wakeup.wakeup_on_signals():
-                        gen = unrolled_run(runner, async_fn, args)
-                        next_send = None
-                        while True:
-                            try:
-                                timeout = gen.send(next_send)
-                            except StopIteration:
-                                break
-                            next_send = runner.io_manager.get_events(timeout)
+                runner.entry_queue.wakeup.wakeup_on_signals()
+                gen = unrolled_run(runner, async_fn, args)
+                next_send = None
+                while True:
+                    try:
+                        timeout = gen.send(next_send)
+                    except StopIteration:
+                        break
+                    next_send = runner.io_manager.get_events(timeout)
             except TrioInternalError:
                 raise
             except BaseException as exc:
@@ -1773,6 +1772,7 @@ def run(
                 ) from exc
             finally:
                 GLOBAL_RUN_CONTEXT.__dict__.clear()
+                runner.close()
             # Inlined copy of runner.main_task_outcome.unwrap() to avoid
             # cluttering every single Trio traceback with an extra frame.
             if type(runner.main_task_outcome) is Value:
