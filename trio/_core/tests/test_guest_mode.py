@@ -18,6 +18,9 @@ def test_guest_mode_basic():
             trio_main,
             run_sync_soon_threadsafe=loop.call_soon_threadsafe,
             done_callback=trio_done_callback,
+            # Not all versions of asyncio we test on can actually be trusted,
+            # but this test doesn't care about signal handling.
+            trust_host_loop_to_wake_on_signals=True,
         )
 
         return (await trio_done_fut).unwrap()
