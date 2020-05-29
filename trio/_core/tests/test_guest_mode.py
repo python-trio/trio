@@ -106,6 +106,9 @@ def test_host_altering_deadlines_wakes_trio_up():
         assert cscope.cancelled_caught
 
         with trio.CancelScope() as cscope:
+            # also do a change that doesn't affect the next deadline, just to
+            # exercise that path
+            in_host(lambda: set_deadline(cscope, inf))
             in_host(lambda: set_deadline(cscope, -inf))
             await trio.sleep(999)
         assert cscope.cancelled_caught
@@ -229,13 +232,13 @@ def test_host_wakeup_doesnt_trigger_wait_all_tasks_blocked():
 
                     def before_io_wait(self, timeout):
                         print(f"before_io_wait({timeout})")
-                        if timeout == 9999:
+                        if timeout == 9999:  # pragma: no branch
                             assert not self.primed
                             in_host(lambda: set_deadline(cscope, 1e9))
                             self.primed = True
 
                     def after_io_wait(self, timeout):
-                        if self.primed:
+                        if self.primed:  # pragma: no branch
                             print("instrument triggered")
                             in_host(lambda: cscope.cancel())
                             trio.lowlevel.remove_instrument(self)

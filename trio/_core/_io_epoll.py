@@ -186,9 +186,11 @@ class EpollIOManager:
     # {fd: EpollWaiters}
     _registered = attr.ib(factory=lambda: defaultdict(EpollWaiters))
     _force_wakeup = attr.ib(factory=WakeupSocketpair)
+    _force_wakeup_fd = attr.ib(default=None)
 
     def __attrs_post_init__(self):
         self._epoll.register(self._force_wakeup.wakeup_sock, select.EPOLLIN)
+        self._force_wakeup_fd = self._force_wakeup.wakeup_sock.fileno()
 
     def statistics(self):
         tasks_waiting_read = 0
@@ -222,14 +224,10 @@ class EpollIOManager:
 
     def process_events(self, events):
         for fd, flags in events:
-            try:
-                waiters = self._registered[fd]
-            except KeyError:
-                if fd == self._force_wakeup.wakeup_sock.fileno():
-                    self._force_wakeup.drain()
-                    continue
-                else:  # pragma: no cover
-                    raise
+            if fd == self._force_wakeup_fd:
+                self._force_wakeup.drain()
+                continue
+            waiters = self._registered[fd]
             # EPOLLONESHOT always clears the flags when an event is delivered
             waiters.current_flags = 0
             # Clever hack stolen from selectors.EpollSelector: an event
