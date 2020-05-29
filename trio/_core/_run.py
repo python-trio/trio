@@ -510,19 +510,13 @@ class CancelScope(metaclass=Final):
                 self._registered_deadline = new
                 runner = GLOBAL_RUN_CONTEXT.runner
                 if runner.is_guest:
-                    try:
-                        (old_next_deadline, _), _ = runner.deadlines.peekitem(0)
-                    except IndexError:
-                        old_next_deadline = None
+                    old_next_deadline = runner.next_deadline()
                 if old != inf:
                     del runner.deadlines[old, id(self)]
                 if new != inf:
                     runner.deadlines[new, id(self)] = self
                 if runner.is_guest:
-                    try:
-                        (new_next_deadline, _), _ = runner.deadlines.peekitem(0)
-                    except IndexError:
-                        new_next_deadline = None
+                    new_next_deadline = runner.next_deadline()
                     if old_next_deadline != new_next_deadline:
                         runner.force_guest_tick_asap()
 
@@ -1106,7 +1100,71 @@ class _RunStatistics:
     run_sync_soon_queue_size = attr.ib()
 
 
-@attr.s(eq=False, hash=False)
+# This holds all the state that gets trampolined back and forth between
+# callbacks when we're running in guest mode.
+#
+# It has to be a separate object from Runner, and Runner *cannot* have hold
+# references to it (directly or indirectly)!
+#
+# The idea is that we want a chance to detect if our host loop quits and stops
+# driving us forward. We detect that by unrolled_run_gen being garbage
+# collected, and hitting its 'except GeneratorExit:' block. So this only
+# happens if unrolled_run_gen is GCed.
+#
+# The Runner state is referenced from the global GLOBAL_RUN_CONTEXT. The only
+# way it gets *un*referenced is by unrolled_run_gen completing, e.g. by being
+# GCed. But if Runner has a direct or indirect reference to it, and the host
+# loop has abandoned it, then this will never happen!
+#
+# So this object can reference Runner, but Runner can't reference it. The only
+# references to it are the "in flight" callback chain on the host loop /
+# worker thread.
+@attr.s(eq=False, hash=False, slots=True)
+class GuestState:
+    runner = attr.ib()
+    run_sync_soon_threadsafe = attr.ib()
+    done_callback = attr.ib()
+    unrolled_run_gen = attr.ib()
+    unrolled_run_next_send = attr.ib(factory=lambda: Value(None))
+
+    def guest_tick(self):
+        locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+        try:
+            timeout = self.unrolled_run_next_send.send(self.unrolled_run_gen)
+        except StopIteration:
+            # XX if we had KI support, we'd have to do something with it here
+            self.done_callback(self.runner.main_task_outcome)
+            return
+        except TrioInternalError as exc:
+            self.done_callback(Error(exc))
+            return
+
+        # Optimization: try to skip going into the thread if we can avoid it
+        events_outcome = capture(self.runner.io_manager.get_events, 0)
+        if timeout <= 0 or type(events_outcome) is Error or events_outcome.value:
+            # No need to go into the thread
+            self.unrolled_run_next_send = events_outcome
+            self.runner.guest_tick_scheduled = True
+            self.run_sync_soon_threadsafe(self.guest_tick)
+        else:
+            # Need to go into the thread and call get_events() there
+            self.runner.guest_tick_scheduled = False
+
+            def get_events():
+                return self.runner.io_manager.get_events(timeout)
+
+            def deliver(events_outcome):
+                def in_main_thread():
+                    self.unrolled_run_next_send = events_outcome
+                    self.runner.guest_tick_scheduled = True
+                    self.guest_tick()
+
+                self.run_sync_soon_threadsafe(in_main_thread)
+
+            start_thread_soon(get_events, deliver)
+
+
+@attr.s(eq=False, hash=False, slots=True)
 class Runner:
     clock = attr.ib()
     instruments = attr.ib()
@@ -1134,48 +1192,7 @@ class Runner:
 
     # Guest mode stuff
     is_guest = attr.ib(default=False)
-    run_sync_soon_threadsafe = attr.ib(default=None)
-    done_callback = attr.ib(default=None)
-    unrolled_run_gen = attr.ib(default=None)
-    unrolled_run_next_send = attr.ib(factory=lambda: Value(None))
     guest_tick_scheduled = attr.ib(default=False)
-
-    def guest_tick(self):
-        locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
-        assert self.is_guest
-        try:
-            timeout = self.unrolled_run_next_send.send(self.unrolled_run_gen)
-        except StopIteration:
-            # XX if we had KI support, we'd have to do something with it here
-            self.done_callback(self.main_task_outcome)
-            return
-        except TrioInternalError as exc:
-            self.done_callback(Error(exc))
-            return
-
-        # Optimization: try to skip going into the thread if we can avoid it
-        events_outcome = capture(self.io_manager.get_events, 0)
-        if timeout <= 0 or type(events_outcome) is Error or events_outcome.value:
-            # No need to go into the thread
-            self.unrolled_run_next_send = events_outcome
-            self.guest_tick_scheduled = True
-            self.run_sync_soon_threadsafe(self.guest_tick)
-        else:
-            # Need to go into the thread and call get_events() there
-            self.guest_tick_scheduled = False
-
-            def get_events():
-                return self.io_manager.get_events(timeout)
-
-            def deliver(events_outcome):
-                def in_main_thread():
-                    self.unrolled_run_next_send = events_outcome
-                    self.guest_tick_scheduled = True
-                    self.guest_tick()
-
-                self.run_sync_soon_threadsafe(in_main_thread)
-
-            start_thread_soon(get_events, deliver)
 
     def force_guest_tick_asap(self):
         if self.guest_tick_scheduled:
@@ -1188,6 +1205,14 @@ class Runner:
         self.entry_queue.close()
         if self.instruments:
             self.instrument("after_run")
+
+    def next_deadline(self):
+        try:
+            (next_deadline, _), _ = self.deadlines.peekitem(0)
+        except IndexError:
+            return inf
+        else:
+            return next_deadline
 
     @_public
     def current_statistics(self):
@@ -1213,11 +1238,7 @@ class Runner:
           other attributes vary between backends.
 
         """
-        if self.deadlines:
-            next_deadline, _ = self.deadlines.keys()[0]
-            seconds_to_next_deadline = next_deadline - self.current_time()
-        else:
-            seconds_to_next_deadline = float("inf")
+        seconds_to_next_deadline = self.next_deadline() - self.current_time()
         return _RunStatistics(
             tasks_living=len(self.tasks),
             tasks_runnable=len(self.runq),
@@ -1788,16 +1809,20 @@ def start_guest_run(
 ):
     runner = setup_runner(clock, instruments)
     runner.is_guest = True
-    runner.run_sync_soon_threadsafe = run_sync_soon_threadsafe
-    runner.done_callback = done_callback
-    runner.unrolled_run_gen = unrolled_run(
-        runner,
-        async_fn,
-        args,
-        trust_host_loop_to_wake_on_signals=trust_host_loop_to_wake_on_signals,
-    )
     runner.guest_tick_scheduled = True
-    run_sync_soon_threadsafe(runner.guest_tick)
+
+    guest_state = GuestState(
+        runner,
+        run_sync_soon_threadsafe,
+        done_callback,
+        unrolled_run(
+            runner,
+            async_fn,
+            args,
+            trust_host_loop_to_wake_on_signals=trust_host_loop_to_wake_on_signals,
+        ),
+    )
+    run_sync_soon_threadsafe(guest_state.guest_tick)
 
 
 # 24 hours is arbitrary, but it avoids issues like people setting timeouts of
