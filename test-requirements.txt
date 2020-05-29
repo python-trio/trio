@@ -43,7 +43,7 @@ pygments==2.6.1           # via ipython
 pylint==2.5.2             # via -r test-requirements.in
 pyopenssl==19.1.0         # via -r test-requirements.in
 pyparsing==2.4.7          # via packaging
-pytest-cov==2.8.1         # via -r test-requirements.in
+pytest-cov==2.9.0         # via -r test-requirements.in
 pytest==5.4.2             # via -r test-requirements.in, pytest-cov
 regex==2020.5.14          # via black
 six==1.15.0               # via astroid, cryptography, packaging, pyopenssl, traitlets
@@ -52,6 +52,6 @@ sortedcontainers==2.1.0   # via -r test-requirements.in
 toml==0.10.1              # via black, pylint
 traitlets==4.3.3          # via ipython
 trustme==0.6.0            # via -r test-requirements.in
-typed_ast==1.4.1 ; implementation_name == "cpython"  # via black
+typed-ast==1.4.1 ; implementation_name == "cpython"  # via -r test-requirements.in, black
 wcwidth==0.1.9            # via prompt-toolkit, pytest
 wrapt==1.12.1             # via astroid
