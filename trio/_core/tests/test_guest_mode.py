@@ -102,12 +102,12 @@ def test_host_altering_deadlines_wakes_trio_up():
         with trio.CancelScope() as cscope:
             in_host(lambda: set_deadline(cscope, -inf))
             await trio.sleep_forever()
-            assert cscope.cancelled_caught
+        assert cscope.cancelled_caught
 
         with trio.CancelScope() as cscope:
             in_host(lambda: set_deadline(cscope, -inf))
             await trio.sleep(999)
-            assert cscope.cancelled_caught
+        assert cscope.cancelled_caught
 
         return "ok"
 
