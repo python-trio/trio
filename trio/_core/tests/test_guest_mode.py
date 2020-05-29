@@ -6,6 +6,7 @@ from functools import partial
 from math import inf
 import signal
 import socket
+import threading
 
 import trio
 import trio.testing
@@ -363,3 +364,44 @@ def test_guest_mode_on_asyncio():
         )
         == "trio-main-done"
     )
+
+
+def test_guest_mode_internal_errors(monkeypatch, recwarn):
+    with monkeypatch.context() as m:
+
+        async def crash_in_run_loop(in_host):
+            m.setattr("trio._core._run.GLOBAL_RUN_CONTEXT.runner.runq", "HI")
+            await trio.sleep(1)
+
+        with pytest.raises(trio.TrioInternalError):
+            trivial_guest_run(crash_in_run_loop)
+
+    with monkeypatch.context() as m:
+
+        async def crash_in_io(in_host):
+            m.setattr("trio._core._run.TheIOManager.get_events", None)
+            await trio.sleep(0)
+
+        with pytest.raises(trio.TrioInternalError):
+            trivial_guest_run(crash_in_io)
+
+    with monkeypatch.context() as m:
+
+        async def crash_in_worker_thread_io(in_host):
+            t = threading.current_thread()
+            old_get_events = trio._core._run.TheIOManager.get_events
+
+            def bad_get_events(*args):
+                if threading.current_thread() is not t:
+                    raise ValueError("oh no!")
+                else:
+                    return old_get_events(*args)
+
+            m.setattr("trio._core._run.TheIOManager.get_events", bad_get_events)
+
+            await trio.sleep(1)
+
+        with pytest.raises(trio.TrioInternalError):
+            trivial_guest_run(crash_in_worker_thread_io)
+
+    gc_collect_harder()
