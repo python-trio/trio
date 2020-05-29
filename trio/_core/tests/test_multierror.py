@@ -600,7 +600,7 @@ def run_script(name, use_ipython=False):
     print("subprocess PYTHONPATH:", env.get("PYTHONPATH"))
 
     if use_ipython:
-        lines = [script_path.open().read(), "exit()"]
+        lines = [script_path.read_text(), "exit()"]
 
         cmd = [
             sys.executable,

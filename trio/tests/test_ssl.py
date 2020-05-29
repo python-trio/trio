@@ -89,24 +89,25 @@ def ssl_echo_serve_sync(sock, *, expect_fail=False):
         wrapped = SERVER_CTX.wrap_socket(
             sock, server_side=True, suppress_ragged_eofs=False
         )
-        wrapped.do_handshake()
-        while True:
-            data = wrapped.recv(4096)
-            if not data:
-                # other side has initiated a graceful shutdown; we try to
-                # respond in kind but it's legal for them to have already gone
-                # away.
-                exceptions = (BrokenPipeError, ssl.SSLZeroReturnError)
-                # Under unclear conditions, CPython sometimes raises
-                # SSLWantWriteError here. This is a bug (bpo-32219), but it's
-                # not our bug, so ignore it.
-                exceptions += (ssl.SSLWantWriteError,)
-                try:
-                    wrapped.unwrap()
-                except exceptions:
-                    pass
-                return
-            wrapped.sendall(data)
+        with wrapped:
+            wrapped.do_handshake()
+            while True:
+                data = wrapped.recv(4096)
+                if not data:
+                    # other side has initiated a graceful shutdown; we try to
+                    # respond in kind but it's legal for them to have already
+                    # gone away.
+                    exceptions = (BrokenPipeError, ssl.SSLZeroReturnError)
+                    # Under unclear conditions, CPython sometimes raises
+                    # SSLWantWriteError here. This is a bug (bpo-32219), but
+                    # it's not our bug, so ignore it.
+                    exceptions += (ssl.SSLWantWriteError,)
+                    try:
+                        wrapped.unwrap()
+                    except exceptions:
+                        pass
+                    return
+                wrapped.sendall(data)
     # This is an obscure workaround for an openssl bug. In server mode, in
     # some versions, openssl sends some extra data at the end of do_handshake
     # that it shouldn't send. Normally this is harmless, but, if the other
@@ -132,6 +133,8 @@ def ssl_echo_serve_sync(sock, *, expect_fail=False):
     else:
         if expect_fail:  # pragma: no cover
             raise RuntimeError("failed to fail?")
+    finally:
+        sock.close()
 
 
 # Fixture that gives a raw socket connected to a trio-test-1 echo server
@@ -428,13 +431,13 @@ async def test_ssl_server_basics(client_ctx):
         assert server_transport.server_side
 
         def client():
-            client_sock = client_ctx.wrap_socket(
+            with client_ctx.wrap_socket(
                 a, server_hostname="trio-test-1.example.org"
-            )
-            client_sock.sendall(b"x")
-            assert client_sock.recv(1) == b"y"
-            client_sock.sendall(b"z")
-            client_sock.unwrap()
+            ) as client_sock:
+                client_sock.sendall(b"x")
+                assert client_sock.recv(1) == b"y"
+                client_sock.sendall(b"z")
+                client_sock.unwrap()
 
         t = threading.Thread(target=client)
         t.start()

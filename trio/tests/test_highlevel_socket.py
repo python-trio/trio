@@ -259,8 +259,9 @@ async def test_SocketListener_accept_errors():
 
 async def test_socket_stream_works_when_peer_has_already_closed():
     sock_a, sock_b = tsocket.socketpair()
-    await sock_b.send(b"x")
-    sock_b.close()
-    stream = SocketStream(sock_a)
-    assert await stream.receive_some(1) == b"x"
-    assert await stream.receive_some(1) == b""
+    with sock_a, sock_b:
+        await sock_b.send(b"x")
+        sock_b.close()
+        stream = SocketStream(sock_a)
+        assert await stream.receive_some(1) == b"x"
+        assert await stream.receive_some(1) == b""
