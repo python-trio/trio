@@ -108,7 +108,7 @@ def test_host_altering_deadlines_wakes_trio_up():
         with trio.CancelScope() as cscope:
             # also do a change that doesn't affect the next deadline, just to
             # exercise that path
-            in_host(lambda: set_deadline(cscope, inf))
+            in_host(lambda: set_deadline(cscope, 1e6))
             in_host(lambda: set_deadline(cscope, -inf))
             await trio.sleep(999)
         assert cscope.cancelled_caught
