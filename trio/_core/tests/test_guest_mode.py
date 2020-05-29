@@ -53,7 +53,7 @@ def test_guest_mode_basic():
                 to_trio.send_nowait(n + 1)
         except asyncio.CancelledError:
             raise
-        except:
+        except:  # pragma: no cover
             traceback.print_exc()
             raise
 

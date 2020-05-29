@@ -72,7 +72,7 @@ class KqueueIOManager:
                 if event.ident == self._force_wakeup.wakeup_sock.fileno():
                     self._force_wakeup.drain()
                     continue
-                else:
+                else:  # pragma: no cover
                     raise
             if event.flags & select.KQ_EV_ONESHOT:
                 del self._registered[key]

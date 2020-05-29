@@ -228,7 +228,7 @@ class EpollIOManager:
                 if fd == self._force_wakeup.wakeup_sock.fileno():
                     self._force_wakeup.drain()
                     continue
-                else:
+                else:  # pragma: no cover
                     raise
             # EPOLLONESHOT always clears the flags when an event is delivered
             waiters.current_flags = 0
