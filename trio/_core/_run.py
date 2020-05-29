@@ -661,6 +661,7 @@ class _TaskStatus:
         self._old_nursery._children = set()
         for task in tasks:
             task._parent_nursery = self._new_nursery
+            task._eventual_parent_nursery = None
             self._new_nursery._children.add(task)
 
         # Move all children of the old nursery's cancel status object
@@ -997,9 +998,7 @@ class Task(metaclass=NoPublicConstructor):
 
     # For introspection and nursery.start()
     _child_nurseries = attr.ib(factory=list)
-    _eventual_parent_nursery = attr.ib(
-        default=attr.Factory(lambda self: self._parent_nursery, takes_self=True),
-    )
+    _eventual_parent_nursery = attr.ib(default=None)
 
     # these are counts of how many cancel/schedule points this task has
     # executed, for assert{_no,}_checkpoints
@@ -1028,7 +1027,7 @@ class Task(metaclass=NoPublicConstructor):
 
         If this task has already called ``started()``, or if it was not
         spawned using `nursery.start() <trio.Nursery.start>`, then
-        `eventual_parent_nursery` is the same as `parent_nursery`.
+        its `eventual_parent_nursery` is ``None``.
 
         """
         return self._eventual_parent_nursery

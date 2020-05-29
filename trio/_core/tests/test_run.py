@@ -1630,7 +1630,8 @@ async def test_task_tree_introspection():
         assert me.parent_nursery is not nurseries["parent"]
         assert me.eventual_parent_nursery is nurseries["parent"]
         task_status.started()
-        assert me.parent_nursery is me.eventual_parent_nursery is nurseries["parent"]
+        assert me.parent_nursery is nurseries["parent"]
+        assert me.eventual_parent_nursery is None
 
         # Wait for the start() call to return and close its internal nursery, to
         # ensure consistent results in child2:
@@ -1642,6 +1643,11 @@ async def test_task_tree_introspection():
 
     async with _core.open_nursery() as nursery:
         nursery.start_soon(parent)
+
+    # There are no pending starts, so no one should have a non-None
+    # eventual_parent_nursery
+    for task in tasks.values():
+        assert task.eventual_parent_nursery is None
 
 
 async def test_nursery_closure():

@@ -8,4 +8,4 @@ initializing yet. To support this, we added a new attribute
 For a task spawned with :meth:`~trio.Nursery.start` that hasn't yet called
 ``started()``, this is the nursery that the task was nominally started in,
 where it will be running once it finishes starting up. In all other cases,
-it hsa the same value as `~trio.lowlevel.Task.parent_nursery`.
+it is ``None``.
