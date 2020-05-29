@@ -821,7 +821,7 @@ class Nursery(metaclass=NoPublicConstructor):
 
     def _child_finished(self, task, outcome):
         self._children.remove(task)
-        if type(outcome) is Error:
+        if isinstance(outcome, Error):
             self._add_exc(outcome.error)
         self._check_nursery_closed()
 
@@ -1141,7 +1141,7 @@ class GuestState:
 
         # Optimization: try to skip going into the thread if we can avoid it
         events_outcome = capture(self.runner.io_manager.get_events, 0)
-        if timeout <= 0 or type(events_outcome) is Error or events_outcome.value:
+        if timeout <= 0 or isinstance(events_outcome, Error) or events_outcome.value:
             # No need to go into the thread
             self.unrolled_run_next_send = events_outcome
             self.runner.guest_tick_scheduled = True
@@ -1786,7 +1786,7 @@ def run(
                 next_send = runner.io_manager.get_events(timeout)
             # Inlined copy of runner.main_task_outcome.unwrap() to avoid
             # cluttering every single Trio traceback with an extra frame.
-            if type(runner.main_task_outcome) is Value:
+            if isinstance(runner.main_task_outcome, Value):
                 return runner.main_task_outcome.value
             else:
                 raise runner.main_task_outcome.error
