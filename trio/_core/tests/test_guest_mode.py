@@ -147,14 +147,17 @@ def test_warn_set_wakeup_fd_overwrite():
         # Don't warn if there isn't already a wakeup fd
         with pytest.warns(None) as record:
             assert trivial_guest_run(trio_main) == "ok"
-        assert len(record) == 0
+        # Apparently this is how you assert 'there were no RuntimeWarnings'
+        with pytest.raises(AssertionError):
+            record.pop(RuntimeWarning)
 
         with pytest.warns(None) as record:
             assert (
                 trivial_guest_run(trio_main, trust_host_loop_to_wake_on_signals=True)
                 == "ok"
             )
-        assert len(record) == 0
+        with pytest.raises(AssertionError):
+            record.pop(RuntimeWarning)
 
         # If there's already a wakeup fd, but we've been told to trust it,
         # then it's left alone and there's no warning
@@ -175,7 +178,8 @@ def test_warn_set_wakeup_fd_overwrite():
                     )
                     == "ok"
                 )
-            assert len(record) == 0
+            with pytest.raises(AssertionError):
+                record.pop(RuntimeWarning)
         finally:
             assert signal.set_wakeup_fd(-1) == a.fileno()
 
