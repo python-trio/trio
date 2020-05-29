@@ -9,6 +9,7 @@ import threading
 from collections import deque
 import collections.abc
 from contextlib import contextmanager, closing
+import warnings
 
 from contextvars import copy_context
 from math import inf
