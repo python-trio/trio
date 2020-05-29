@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import functools
 import itertools
 import logging
@@ -659,6 +661,7 @@ class _TaskStatus:
         self._old_nursery._children = set()
         for task in tasks:
             task._parent_nursery = self._new_nursery
+            task._eventual_parent_nursery = None
             self._new_nursery._children.add(task)
 
         # Move all children of the old nursery's cancel status object
@@ -862,7 +865,7 @@ class Nursery(metaclass=NoPublicConstructor):
         If you want to run a function and immediately wait for its result,
         then you don't need a nursery; just use ``await async_fn(*args)``.
         If you want to wait for the task to initialize itself before
-        continuing, see :meth:`start()`.
+        continuing, see :meth:`start`.
 
         It's possible to pass a nursery object into another task, which
         allows that task to start new child tasks in the first task's
@@ -942,7 +945,10 @@ class Nursery(metaclass=NoPublicConstructor):
             async with open_nursery() as old_nursery:
                 task_status = _TaskStatus(old_nursery, self)
                 thunk = functools.partial(async_fn, task_status=task_status)
-                old_nursery.start_soon(thunk, *args, name=name)
+                task = GLOBAL_RUN_CONTEXT.runner.spawn_impl(
+                    thunk, args, old_nursery, name
+                )
+                task._eventual_parent_nursery = self
                 # Wait for either _TaskStatus.started or an exception to
                 # cancel this nursery:
             # If we get here, then the child either got reparented or exited
@@ -992,6 +998,7 @@ class Task(metaclass=NoPublicConstructor):
 
     # For introspection and nursery.start()
     _child_nurseries = attr.ib(factory=list)
+    _eventual_parent_nursery = attr.ib(default=None)
 
     # these are counts of how many cancel/schedule points this task has
     # executed, for assert{_no,}_checkpoints
@@ -1012,6 +1019,18 @@ class Task(metaclass=NoPublicConstructor):
 
         """
         return self._parent_nursery
+
+    @property
+    def eventual_parent_nursery(self):
+        """The nursery this task will be inside after it calls
+        ``task_status.started()``.
+
+        If this task has already called ``started()``, or if it was not
+        spawned using `nursery.start() <trio.Nursery.start>`, then
+        its `eventual_parent_nursery` is ``None``.
+
+        """
+        return self._eventual_parent_nursery
 
     @property
     def child_nurseries(self):
