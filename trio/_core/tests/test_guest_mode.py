@@ -21,7 +21,22 @@ from .tutil import gc_collect_harder
 def trivial_guest_run(trio_fn, **start_guest_run_kwargs):
     todo = queue.Queue()
 
+    host_thread = threading.current_thread()
+
     def run_sync_soon_threadsafe(fn):
+        if host_thread is threading.current_thread():  # pragma: no cover
+            crash = partial(
+                pytest.fail, "run_sync_soon_threadsafe called from host thread"
+            )
+            todo.put(("run", crash))
+        todo.put(("run", fn))
+
+    def run_sync_soon_not_threadsafe(fn):
+        if host_thread is not threading.current_thread():  # pragma: no cover
+            crash = partial(
+                pytest.fail, "run_sync_soon_not_threadsafe called from worker thread"
+            )
+            todo.put(("run", crash))
         todo.put(("run", fn))
 
     def done_callback(outcome):
@@ -29,8 +44,9 @@ def trivial_guest_run(trio_fn, **start_guest_run_kwargs):
 
     trio.lowlevel.start_guest_run(
         trio_fn,
-        run_sync_soon_threadsafe,
+        run_sync_soon_not_threadsafe,
         run_sync_soon_threadsafe=run_sync_soon_threadsafe,
+        run_sync_soon_not_threadsafe=run_sync_soon_not_threadsafe,
         done_callback=done_callback,
         **start_guest_run_kwargs,
     )
@@ -300,7 +316,7 @@ def test_guest_warns_if_abandoned():
             trio.current_time()
 
 
-def aiotrio_run(trio_fn, **start_guest_run_kwargs):
+def aiotrio_run(trio_fn, *, pass_not_threadsafe=True, **start_guest_run_kwargs):
     loop = asyncio.new_event_loop()
 
     async def aio_main():
@@ -309,6 +325,9 @@ def aiotrio_run(trio_fn, **start_guest_run_kwargs):
         def trio_done_callback(main_outcome):
             print(f"trio_fn finished: {main_outcome!r}")
             trio_done_fut.set_result(main_outcome)
+
+        if pass_not_threadsafe:
+            start_guest_run_kwargs["run_sync_soon_not_threadsafe"] = loop.call_soon
 
         trio.lowlevel.start_guest_run(
             trio_fn,
@@ -333,6 +352,10 @@ def test_guest_mode_on_asyncio():
         from_trio = asyncio.Queue()
 
         aio_task = asyncio.ensure_future(aio_pingpong(from_trio, to_trio))
+
+        # Make sure we have at least one tick where we don't need to go into
+        # the thread
+        await trio.sleep(0)
 
         from_trio.put_nowait(0)
 
@@ -363,6 +386,17 @@ def test_guest_mode_on_asyncio():
             # Not all versions of asyncio we test on can actually be trusted,
             # but this test doesn't care about signal handling, and it's
             # easier to just avoid the warnings.
+            trust_host_loop_to_wake_on_signals=True,
+        )
+        == "trio-main-done"
+    )
+
+    assert (
+        aiotrio_run(
+            trio_main,
+            # Also check that passing only call_soon_threadsafe works, via the
+            # fallback path where we use it for everything.
+            pass_not_threadsafe=False,
             trust_host_loop_to_wake_on_signals=True,
         )
         == "trio-main-done"

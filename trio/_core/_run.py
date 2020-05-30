@@ -1123,6 +1123,7 @@ class _RunStatistics:
 class GuestState:
     runner = attr.ib()
     run_sync_soon_threadsafe = attr.ib()
+    run_sync_soon_not_threadsafe = attr.ib()
     done_callback = attr.ib()
     unrolled_run_gen = attr.ib()
     unrolled_run_next_send = attr.ib(factory=lambda: Value(None))
@@ -1145,7 +1146,7 @@ class GuestState:
             # No need to go into the thread
             self.unrolled_run_next_send = events_outcome
             self.runner.guest_tick_scheduled = True
-            self.run_sync_soon_threadsafe(self.guest_tick)
+            self.run_sync_soon_not_threadsafe(self.guest_tick)
         else:
             # Need to go into the thread and call get_events() there
             self.runner.guest_tick_scheduled = False
@@ -1803,6 +1804,7 @@ def start_guest_run(
     *args,
     run_sync_soon_threadsafe,
     done_callback,
+    run_sync_soon_not_threadsafe=None,
     trust_host_loop_to_wake_on_signals=False,
     clock=None,
     instruments=(),
@@ -1811,18 +1813,22 @@ def start_guest_run(
     runner.is_guest = True
     runner.guest_tick_scheduled = True
 
+    if run_sync_soon_not_threadsafe is None:
+        run_sync_soon_not_threadsafe = run_sync_soon_threadsafe
+
     guest_state = GuestState(
-        runner,
-        run_sync_soon_threadsafe,
-        done_callback,
-        unrolled_run(
+        runner=runner,
+        run_sync_soon_threadsafe=run_sync_soon_threadsafe,
+        run_sync_soon_not_threadsafe=run_sync_soon_not_threadsafe,
+        done_callback=done_callback,
+        unrolled_run_gen=unrolled_run(
             runner,
             async_fn,
             args,
             trust_host_loop_to_wake_on_signals=trust_host_loop_to_wake_on_signals,
         ),
     )
-    run_sync_soon_threadsafe(guest_state.guest_tick)
+    run_sync_soon_not_threadsafe(guest_state.guest_tick)
 
 
 # 24 hours is arbitrary, but it avoids issues like people setting timeouts of
