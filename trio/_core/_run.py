@@ -1696,8 +1696,8 @@ class Runner:
 # :
 #
 #
-# In guest mode using trio.start_guest_run, the scheduler runs on the main
-# thread as a host loop callback, but blocking for IO gets pushed into a
+# In guest mode using trio.lowlevel.start_guest_run, the scheduler runs on the
+# main thread as a host loop callback, but blocking for IO gets pushed into a
 # worker thread:
 #
 # Main thread executing host loop:           Trio I/O thread:
