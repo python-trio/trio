@@ -102,41 +102,30 @@ class RunVar(metaclass=SubclassingDeprecatedIn_v0_15_0):
         return "<RunVar name={!r}>".format(self._name)
 
 
-class ScopeVar(metaclass=Final):
-    """A "scope variable": like a context variable except that its value
-    is inherited by new tasks in a different way.
+class TreeVar(metaclass=Final):
+    """A "tree variable": like a context variable except that its value
+    in a new task is inherited from the new task's parent nursery rather
+    than from the new task's spawner.
 
-    In simple terms, `ScopeVar` lets you define your own custom state
-    that's inherited in the same way that :ref:`cancel scopes are
-    <child-tasks-and-cancellation>`. Ordinary context variables are
-    inherited by new tasks based on the environment surrounding the
-    :meth:`~trio.Nursery.start_soon` call that created the task.  By
-    contrast, scope variables are inherited based on the environment
-    surrounding the nursery into which the new task was spawned. This
-    difference makes scope variables a better fit than context
-    variables for state that naturally propagates down the task tree.
+    `TreeVar` objects support all the same methods and attributes as
+    `~contextvars.ContextVar` objects
+    (:meth:`~contextvars.ContextVar.get`,
+    :meth:`~contextvars.ContextVar.set`,
+    :meth:`~contextvars.ContextVar.reset`, and
+    `~contextvars.ContextVar.name`), and they are constructed the same
+    way. They also provide the additional methods :meth:`being` and
+    :meth:`get_in`, documented below.
 
-    Some example uses of a `ScopeVar`:
+    Accessing or changing the value of a `TreeVar` outside of a Trio
+    task will raise `RuntimeError`. (Exception: :meth:`get_in` still
+    works outside of a task, as long as you have a reference to the
+    task or nursery of interest.)
 
-    * Provide access to a resource that is only usable in a certain
-      scope.  This might be a nursery, network connection, or anything
-      else whose lifetime is bound to a context manager. Tasks that
-      run entirely within the resource's lifetime can use it; tasks
-      that might keep running past the resource being destroyed won't see
-      it at all.
-
-    * Constrain a function's caller-visible behavior, such as what exceptions
-      it might throw. The `ScopeVar`\\'s value will be inherited by every
-      task whose exceptions might propagate to the point where the value was
-      set.
-
-    `ScopeVar` objects support all the same methods as `~contextvars.ContextVar`
-    objects, plus the additional methods :meth:`being` and :meth:`get_in`.
-
-    .. note:: `ScopeVar` values are not directly stored in the
+    .. note:: `TreeVar` values are not directly stored in the
        `contextvars.Context`, so you can't use `Context.get()
-       <contextvars.Context.get>` to access them; use :meth:`get_in`
-       instead, if you need the value in a context other than your own.
+       <contextvars.Context.get>` to access them. If you need the value
+       in a context other than your own, use :meth:`get_in`.
+
     """
 
     __slots__ = ("_cvar",)
@@ -150,19 +139,19 @@ class ScopeVar(metaclass=Final):
         return self._cvar.name
 
     def get(self, default=_NO_DEFAULT):
-        """Gets the value of this `ScopeVar` for the current task.
+        """Gets the value of this `TreeVar` for the current task.
 
-        If this `ScopeVar` has no value in the current task, then
+        If this `TreeVar` has no value in the current task, then
         :meth:`get` returns the *default* specified as argument to
         :meth:`get`, or else the *default* specified when constructing
-        the `ScopeVar`, or else raises `LookupError`. See the
+        the `TreeVar`, or else raises `LookupError`. See the
         documentation of :meth:`contextvars.ContextVar.get` for more
         details.
         """
         # This is effectively an inlining for efficiency of:
-        # return _run.current_task()._scope_context.run(self._cvar.get, default)
+        # return _run.current_task()._tree_context.run(self._cvar.get, default)
         try:
-            return _run.GLOBAL_RUN_CONTEXT.task._scope_context[self._cvar]
+            return _run.GLOBAL_RUN_CONTEXT.task._tree_context[self._cvar]
         except AttributeError:
             raise RuntimeError("must be called from async context") from None
         except KeyError:
@@ -175,7 +164,7 @@ class ScopeVar(metaclass=Final):
             return self._cvar.get(default)
 
     def set(self, value):
-        """Sets the value of this `ScopeVar` for the current task.  The new
+        """Sets the value of this `TreeVar` for the current task.  The new
         value will be inherited by nurseries that are later opened in
         this task, so that new tasks can inherit whatever value was
         set when their parent nursery was created.
@@ -183,22 +172,22 @@ class ScopeVar(metaclass=Final):
         Returns a token which may be passed to :meth:`reset` to restore
         the previous value.
         """
-        return _run.current_task()._scope_context.run(self._cvar.set, value)
+        return _run.current_task()._tree_context.run(self._cvar.set, value)
 
     def reset(self, token):
-        """Resets the value of this `ScopeVar` to the value it had
+        """Resets the value of this `TreeVar` to the value it had
         before the call to :meth:`set` that returned the given *token*.
 
         The *token* must have been obtained from a call to :meth:`set` on
-        this same `ScopeVar` and in the same task that is now calling
+        this same `TreeVar` and in the same task that is now calling
         :meth:`reset`. Also, each *token* may only be used in one call to
         :meth:`reset`. Violating these conditions will raise `ValueError`.
         """
-        _run.current_task()._scope_context.run(self._cvar.reset, token)
+        _run.current_task()._tree_context.run(self._cvar.reset, token)
 
     @contextmanager
     def being(self, value):
-        """Returns a context manager which sets the value of this `ScopeVar` to
+        """Returns a context manager which sets the value of this `TreeVar` to
         *value* upon entry and restores its previous value upon exit.
         """
         token = self.set(value)
@@ -208,17 +197,21 @@ class ScopeVar(metaclass=Final):
             self.reset(token)
 
     def get_in(self, task_or_nursery, default=_NO_DEFAULT):
-        """Gets the value of this :class:`ScopeVar` for the given task or nursery.
+        """Gets the value of this `TreeVar` in the given
+        `~trio.lowlevel.Task` or `~trio.Nursery`.
 
-        The value in a task is the value that would be returned by a call to
-        :meth:`get` in that task. The value in a nursery is the value that would
-        be returned by :meth:`get` at the beginning of a new child task started
-        in that nursery. The *default* argument has the same semantics as it does
-        for :meth:`get`.
+        The value in a task is the value that would be returned by a
+        call to :meth:`~contextvars.ContextVar.get` in that task. The
+        value in a nursery is the value that would be returned by
+        :meth:`~contextvars.ContextVar.get` at the beginning of a new
+        child task started in that nursery. The *default* argument has
+        the same semantics as it does for :meth:`~contextvars.ContextVar.get`.
         """
-
+        # copy() so this works from a different thread too. It's a
+        # cheap and thread-safe operation (just copying one reference)
+        # since the underlying context data is immutable.
         defarg = () if default is _NO_DEFAULT else (default,)
-        return task_or_nursery._scope_context.run(self._cvar.get, *defarg)
+        return task_or_nursery._tree_context.copy().run(self._cvar.get, *defarg)
 
     def __repr__(self):
-        return f"<ScopeVar name={self.name!r}>"
+        return f"<TreeVar name={self.name!r}>"

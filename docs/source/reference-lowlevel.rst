@@ -265,20 +265,6 @@ Global state: system tasks and run-local variables
 .. autofunction:: spawn_system_task
 
 
-Scope variables
-===============
-
-.. autoclass:: ScopeVar(name, [*, default])
-
-   .. autoattribute:: name
-   .. automethod:: get([default])
-   .. automethod:: set
-   .. automethod:: reset
-   .. automethod:: being
-      :with:
-   .. automethod:: get_in(task_or_nursery, [default])
-
-
 Trio tokens
 ===========
 

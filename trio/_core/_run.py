@@ -774,7 +774,7 @@ class Nursery(metaclass=NoPublicConstructor):
 
     def __init__(self, parent_task, cancel_scope):
         self._parent_task = parent_task
-        self._scope_context = parent_task._scope_context.copy()
+        self._tree_context = parent_task._tree_context.copy()
         parent_task._child_nurseries.append(self)
         # the cancel status that children inherit - we take a snapshot, so it
         # won't be affected by any changes in the parent.
@@ -946,10 +946,9 @@ class Nursery(metaclass=NoPublicConstructor):
             async with open_nursery() as old_nursery:
                 task_status = _TaskStatus(old_nursery, self)
                 thunk = functools.partial(async_fn, task_status=task_status)
-                task = GLOBAL_RUN_CONTEXT.runner.spawn_impl(
-                    thunk, args, old_nursery, name
+                GLOBAL_RUN_CONTEXT.runner.spawn_impl(
+                    thunk, args, old_nursery, name, eventual_nursery=self,
                 )
-                task._eventual_parent_nursery = self
                 # Wait for either _TaskStatus.started or an exception to
                 # cancel this nursery:
             # If we get here, then the child either got reparented or exited
@@ -982,7 +981,7 @@ class Task(metaclass=NoPublicConstructor):
     _counter = attr.ib(init=False, factory=itertools.count().__next__)
 
     # Contextvars context that contains ScopeVar values
-    _scope_context = attr.ib(init=False)
+    _tree_context = attr.ib(init=False)
 
     # Invariant:
     # - for unscheduled tasks, _next_send_fn and _next_send are both None
@@ -1012,9 +1011,10 @@ class Task(metaclass=NoPublicConstructor):
 
     def __attrs_post_init__(self):
         if self._parent_nursery is None:
-            self._scope_context = Context()
+            self._tree_context = Context()
         else:
-            self._scope_context = self._parent_nursery._scope_context.copy()
+            parent = self._eventual_parent_nursery or self._parent_nursery
+            self._tree_context = parent._tree_context.copy()
 
     def __repr__(self):
         return "<Task {!r} at {:#x}>".format(self.name, id(self))
@@ -1255,8 +1255,9 @@ class Runner:
         if self.instruments:
             self.instrument("task_scheduled", task)
 
-    def spawn_impl(self, async_fn, args, nursery, name, *, system_task=False):
-
+    def spawn_impl(
+        self, async_fn, args, nursery, name, *, eventual_nursery=None, system_task=False
+    ):
         ######
         # Make sure the nursery is in working order
         ######
@@ -1302,7 +1303,12 @@ class Runner:
         # Set up the Task object
         ######
         task = Task._create(
-            coro=coro, parent_nursery=nursery, runner=self, name=name, context=context,
+            coro=coro,
+            parent_nursery=nursery,
+            runner=self,
+            name=name,
+            context=context,
+            eventual_parent_nursery=eventual_nursery,
         )
 
         self.tasks.add(task)
