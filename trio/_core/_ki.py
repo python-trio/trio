@@ -90,7 +90,7 @@ def ki_protection_enabled(frame):
         if frame.f_code.co_name == "__del__":
             return True
         frame = frame.f_back
-    return False
+    return True
 
 
 def currently_ki_protected():

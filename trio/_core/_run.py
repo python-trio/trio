@@ -1697,7 +1697,6 @@ def run(
         system_context=system_context,
     )
     GLOBAL_RUN_CONTEXT.runner = runner
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
 
     # KI handling goes outside the core try/except/finally to avoid a window
     # where KeyboardInterrupt would be allowed and converted into an

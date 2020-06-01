@@ -295,11 +295,15 @@ delivered).
 So that's great, but – how do we know whether we're in one of the
 sensitive parts of the program or not?
 
-This is determined on a function-by-function basis. By default, a
-function is protected if its caller is, and not if its caller isn't;
-this is helpful because it means you only need to override the
-defaults at places where you transition from protected code to
-unprotected code or vice-versa.
+This is determined on a function-by-function basis. By default:
+
+- The top-level function in regular user tasks is unprotected.
+- The top-level function in system tasks is protected.
+- If a function doesn't specify otherwise, then it inherits the
+  protection state of its caller.
+
+This means you only need to override the defaults at places where you
+transition from protected code to unprotected code or vice-versa.
 
 These transitions are accomplished using two function decorators:
 
