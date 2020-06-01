@@ -582,16 +582,20 @@ like Qt. Its advantages are:
   so it has low latency and doesn't waste electricity.
 
 - No need to think about threads: your Trio code runs in the same
-  thread as the host event loop, so you can freely call Trio APIs from
-  the host, and call host APIs from Trio. For example, if you're
-  making a GUI app with Qt as the host loop, then making a `cancel
-  button <https://doc.qt.io/qt-5/qpushbutton.html>`__ and connecting
-  it to a `trio.CancelScope` is as easy as writing::
+  thread as the host event loop, so you can freely call sync Trio APIs
+  from the host, and call sync host APIs from Trio. For example, if
+  you're making a GUI app with Qt as the host loop, then making a
+  `cancel button <https://doc.qt.io/qt-5/qpushbutton.html>`__ and
+  connecting it to a `trio.CancelScope` is as easy as writing::
 
       # Trio code can create Qt objects without any special ceremony...
       my_cancel_button = QPushButton("Cancel")
       # ...and Qt can call back to Trio just as easily
       my_cancel_button.clicked.connect(my_cancel_scope.cancel)
+
+  (For async APIs, it's not that simple, but you can build on this
+  make explicit bridges between the two worlds, e.g. by passing async
+  functions through queues.)
 
 - Consistent behavior: guest mode uses the same code as regular Trio:
   the same scheduler, same IO code, same everything. So you get the
