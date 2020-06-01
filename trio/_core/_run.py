@@ -1666,7 +1666,68 @@ class Runner:
 ################################################################
 # run
 ################################################################
-
+#
+# Trio's core task scheduler and coroutine runner is in 'unrolled_run'. It's
+# called that because it has an unusual feature: it's actually a generator.
+# Whenever it needs to fetch IO events from the OS, it yields, and waits for
+# its caller to send the IO events back in. So the loop is "unrolled" into a
+# sequence of generator send() calls.
+#
+# The reason for this unusual design is to support two different modes of
+# operation, where the IO is handled differently.
+#
+# In normal mode using trio.run, the scheduler and IO run in the same thread:
+#
+# Main thread:
+#
+# +---------------------------+
+# | Run tasks                 |
+# | (unrolled_run)            |
+# +---------------------------+
+# | Block waiting for I/O     |
+# | (io_manager.get_events)   |
+# +---------------------------+
+# | Run tasks                 |
+# | (unrolled_run)            |
+# +---------------------------+
+# | Block waiting for I/O     |
+# | (io_manager.get_events)   |
+# +---------------------------+
+# :
+#
+#
+# In guest mode using trio.start_guest_run, the scheduler runs on the main
+# thread as a host loop callback, but blocking for IO gets pushed into a
+# worker thread:
+#
+# Main thread executing host loop:           Trio I/O thread:
+#
+# +---------------------------+
+# | Run Trio tasks            |
+# | (unrolled_run)            |
+# +---------------------------+ --------------+
+#                                             v
+# +---------------------------+              +----------------------------+
+# | Host loop does whatever   |              | Block waiting for Trio I/O |
+# | it wants                  |              | (io_manager.get_events)    |
+# +---------------------------+              +----------------------------+
+#                                             |
+# +---------------------------+ <-------------+
+# | Run Trio tasks            |
+# | (unrolled_run)            |
+# +---------------------------+ --------------+
+#                                             v
+# +---------------------------+              +----------------------------+
+# | Host loop does whatever   |              | Block waiting for Trio I/O |
+# | it wants                  |              | (io_manager.get_events)    |
+# +---------------------------+              +----------------------------+
+# :                                            :
+#
+# Most of Trio's internals don't need to care about this difference. The main
+# complication it creates is that in guest mode, we might need to wake up not
+# just due to OS-reported IO events, but also because of code running on the
+# host loop calling reschedule() or changing task deadlines. Search for
+# 'is_guest' to see the special cases we need to handle this.
 
 def setup_runner(clock, instruments):
     """Create a Runner object and install it as the GLOBAL_RUN_CONTEXT."""
@@ -1818,9 +1879,9 @@ def start_guest_run(
     state. You might be able to get away with it if you immediately exit the
     program, but it's safest not to go there in the first place.
 
-    So generally, the best way to do this is wrap this in a function that
-    starts the host loop and then immediately starts the guest run, and then
-    shuts down the host when the guest run completes.
+    Generally, the best way to do this is wrap this in a function that starts
+    the host loop and then immediately starts the guest run, and then shuts
+    down the host when the guest run completes.
 
     Args:
 
@@ -1828,16 +1889,16 @@ def start_guest_run(
          function as its sole argument::
 
             def my_run_sync_soon_threadsafe(fn):
-                hi()
+                ...
 
-         This callable should schedule ``fn`` to be run by the host on its
+         This callable should schedule ``fn()`` to be run by the host on its
          next pass through its loop. **Must support being called from
          arbitrary threads.**
 
       done_callback: An arbitrary callable::
 
             def my_done_callback(run_outcome):
-                hi()
+                ...
 
          When the Trio run has finished, Trio will invoke this callback to let
          you know. The argument is an `outcome.Outcome`, reporting what would
@@ -1845,9 +1906,11 @@ def start_guest_run(
          anything you want, but commonly you'll want it to shut down the
          host loop, unwrap the outcome, etc.
 
-      run_sync_soon_not_threadsafe: Optional. Like
-         ``run_sync_soon_threadsafe``, but will only be called from inside the
-         host loop's main thread.
+      run_sync_soon_not_threadsafe: Like ``run_sync_soon_threadsafe``, but
+         will only be called from inside the host loop's main thread.
+         Optional, but if your host loop allows you to implement this more
+         efficiently than ``run_sync_soon_threadsafe`` then passing it will
+         make things a bit faster.
 
       host_uses_signal_set_wakeup_fd (bool): Pass `True` if your host loop
          uses `signal.set_wakeup_fd`, and `False` otherwise. For more details,

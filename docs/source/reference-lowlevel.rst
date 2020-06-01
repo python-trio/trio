@@ -587,9 +587,9 @@ like Qt. Its advantages are:
       # ...and Qt can call back to Trio just as easily
       my_cancel_button.clicked.connect(my_cancel_scope.cancel)
 
-- Consistent behavior: guest mode uses the code as regular Trio: the
-  same scheduler, same IO code, same everything. So you get the same
-  features and robustness that you're used to.
+- Consistent behavior: guest mode uses the same code as regular Trio:
+  the same scheduler, same IO code, same everything. So you get the
+  full feature set and everything acts the way you expect.
 
 - Simple integration and broad compatibility: pretty much every event
   loop offers some threadsafe "schedule a callback" operation, and
@@ -810,12 +810,14 @@ important limitations you have to respect:
   runs to completion, so ``finally`` blocks run, resources are cleaned
   up, etc. If you stop your host loop early, before the
   ``done_callback`` is invoked, then that cuts off the Trio run in the
-  middle without a chance to clean up, and can leave both your program
-  and Trio itself in an inconsistent state. (For example,
+  middle without a chance to clean up. This can leave your code in an
+  inconsistent state, and will definitely leave Trio's internals in an
+  inconsistent state, which will cause errors if you try to use Trio
+  again in that thread.
 
   Some programs need to be able to quit at any time, for example in
   response to a GUI window being closed or a user selecting a "Quit"
-  from a menu. To handle these cases, we recommend wrapping your whole
+  from a menu. In these cases, we recommend wrapping your whole
   program in a `trio.CancelScope`, and cancelling it when you want to
   quit.
 
@@ -889,6 +891,9 @@ If your loop doesn't have a split like this, then don't worry about
 it; ``run_sync_soon_not_threadsafe=`` is optional. (If it's not
 passed, then Trio will just use your threadsafe version in all cases.)
 
+**That's it!** If you've followed all these steps, you should now have
+a cleanly-integrated hybrid event loop. Go make some cool
+GUIs/games/whatever!
 
 
 Limitations
