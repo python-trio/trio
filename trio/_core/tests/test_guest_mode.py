@@ -157,7 +157,7 @@ def test_warn_set_wakeup_fd_overwrite():
             with pytest.warns(RuntimeWarning, match="signal handling code.*collided"):
                 assert (
                     trivial_guest_run(
-                        trio_main, trust_host_loop_to_wake_on_signals=False
+                        trio_main, host_uses_signal_set_wakeup_fd=False
                     )
                     == "ok"
                 )
@@ -173,7 +173,7 @@ def test_warn_set_wakeup_fd_overwrite():
 
         with pytest.warns(None) as record:
             assert (
-                trivial_guest_run(trio_main, trust_host_loop_to_wake_on_signals=True)
+                trivial_guest_run(trio_main, host_uses_signal_set_wakeup_fd=True)
                 == "ok"
             )
         with pytest.raises(AssertionError):
@@ -194,7 +194,7 @@ def test_warn_set_wakeup_fd_overwrite():
                 assert (
                     trivial_guest_run(
                         trio_check_wakeup_fd_unaltered,
-                        trust_host_loop_to_wake_on_signals=True,
+                        host_uses_signal_set_wakeup_fd=True,
                     )
                     == "ok"
                 )
@@ -386,7 +386,7 @@ def test_guest_mode_on_asyncio():
             # Not all versions of asyncio we test on can actually be trusted,
             # but this test doesn't care about signal handling, and it's
             # easier to just avoid the warnings.
-            trust_host_loop_to_wake_on_signals=True,
+            host_uses_signal_set_wakeup_fd=True,
         )
         == "trio-main-done"
     )
@@ -397,7 +397,7 @@ def test_guest_mode_on_asyncio():
             # Also check that passing only call_soon_threadsafe works, via the
             # fallback path where we use it for everything.
             pass_not_threadsafe=False,
-            trust_host_loop_to_wake_on_signals=True,
+            host_uses_signal_set_wakeup_fd=True,
         )
         == "trio-main-done"
     )

@@ -73,7 +73,7 @@ class WakeupSocketpair:
                     "It looks like Trio's signal handling code might have "
                     "collided with another library you're using. If you're "
                     "running Trio in guest mode, then this might mean you "
-                    "should set trust_host_loop_to_wake_on_signals=True. "
+                    "should set host_uses_signal_set_wakeup_fd=True. "
                     "Otherwise, file a bug on Trio and we'll help you figure "
                     "out what's going on."
                 )

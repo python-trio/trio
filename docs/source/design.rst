@@ -539,6 +539,9 @@ supported systems.
 Guest mode
 ----------
 
+One of Trio's more unusual features is that it supports being run in
+"guest mode" on top of some other event loop (the "host").
+
 XX TODO: document this properly
 
 the basic idea of pushing ``get_events`` into a thread

@@ -1103,7 +1103,7 @@ class _RunStatistics:
 # This holds all the state that gets trampolined back and forth between
 # callbacks when we're running in guest mode.
 #
-# It has to be a separate object from Runner, and Runner *cannot* have hold
+# It has to be a separate object from Runner, and Runner *cannot* hold
 # references to it (directly or indirectly)!
 #
 # The idea is that we want a chance to detect if our host loop quits and stops
@@ -1805,10 +1805,57 @@ def start_guest_run(
     run_sync_soon_threadsafe,
     done_callback,
     run_sync_soon_not_threadsafe=None,
-    trust_host_loop_to_wake_on_signals=False,
+    host_uses_signal_set_wakeup_fd=False,
     clock=None,
     instruments=(),
 ):
+    """Start a "guest" run of Trio on top of some other "host" event loop.
+
+    Each host loop can only have one guest run at a time.
+
+    You should always let the Trio run finish before stopping the host loop;
+    if not, it may leave Trio's internal data structures in an inconsistent
+    state. You might be able to get away with it if you immediately exit the
+    program, but it's safest not to go there in the first place.
+
+    So generally, the best way to do this is wrap this in a function that
+    starts the host loop and then immediately starts the guest run, and then
+    shuts down the host when the guest run completes.
+
+    Args:
+
+      run_sync_soon_threadsafe: An arbitrary callable, which will be passed a
+         function as its sole argument::
+
+            def my_run_sync_soon_threadsafe(fn):
+                hi()
+
+         This callable should schedule ``fn`` to be run by the host on its
+         next pass through its loop. **Must support being called from
+         arbitrary threads.**
+
+      done_callback: An arbitrary callable::
+
+            def my_done_callback(run_outcome):
+                hi()
+
+         When the Trio run has finished, Trio will invoke this callback to let
+         you know. The argument is an `outcome.Outcome`, reporting what would
+         have been returned or raised by `trio.run`. This function can do
+         anything you want, but commonly you'll want it to shut down the
+         host loop, unwrap the outcome, etc.
+
+      run_sync_soon_not_threadsafe: Optional. Like
+         ``run_sync_soon_threadsafe``, but will only be called from inside the
+         host loop's main thread.
+
+      host_uses_signal_set_wakeup_fd (bool): Pass `True` if your host loop
+         uses `signal.set_wakeup_fd`, and `False` otherwise. For more details,
+         see :ref:`guest-run-implementation`.
+
+    For the meaning of other arguments, see `trio.run`.
+
+    """
     runner = setup_runner(clock, instruments)
     runner.is_guest = True
     runner.guest_tick_scheduled = True
@@ -1825,7 +1872,7 @@ def start_guest_run(
             runner,
             async_fn,
             args,
-            trust_host_loop_to_wake_on_signals=trust_host_loop_to_wake_on_signals,
+            host_uses_signal_set_wakeup_fd=host_uses_signal_set_wakeup_fd,
         ),
     )
     run_sync_soon_not_threadsafe(guest_state.guest_tick)
@@ -1840,12 +1887,12 @@ _MAX_TIMEOUT = 24 * 60 * 60
 # mode", where our core event loop gets unrolled into a series of callbacks on
 # the host loop. If you're doing a regular trio.run then this gets run
 # straight through.
-def unrolled_run(runner, async_fn, args, trust_host_loop_to_wake_on_signals=False):
+def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     __tracebackhide__ = True
 
     try:
-        if not trust_host_loop_to_wake_on_signals:
+        if not host_uses_signal_set_wakeup_fd:
             runner.entry_queue.wakeup.wakeup_on_signals()
 
         if runner.instruments:
