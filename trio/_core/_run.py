@@ -1729,6 +1729,7 @@ class Runner:
 # host loop calling reschedule() or changing task deadlines. Search for
 # 'is_guest' to see the special cases we need to handle this.
 
+
 def setup_runner(clock, instruments):
     """Create a Runner object and install it as the GLOBAL_RUN_CONTEXT."""
     # It wouldn't be *hard* to support nested calls to run(), but I can't

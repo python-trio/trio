@@ -899,9 +899,17 @@ GUIs/games/whatever!
 Limitations
 -----------
 
-only one run
+In general, almost all Trio features should work in guest mode. The
+exception is features which rely on Trio having a complete picture of
+everything that your program is doing, since obviously, it can't
+control the host loop or see what it's doing.
 
-clock, autojump clock, deadlock detection, ...
+Custom clocks can be used in guest mode, but they only affect Trio
+timeouts, not host loop timeouts. And the :ref:`autojump clock
+<testing-time>` and related `trio.testing.wait_all_tasks_blocked` can
+technically be used in guest mode, but they'll only take Trio tasks
+into account when decided whether to jump the clock or whether all
+tasks are blocked.
 
 
 Reference
