@@ -224,9 +224,9 @@ async def test_from_stdlib_socket():
     class MySocket(stdlib_socket.socket):
         pass
 
-    mysock = MySocket()
-    with pytest.raises(TypeError):
-        tsocket.from_stdlib_socket(mysock)
+    with MySocket() as mysock:
+        with pytest.raises(TypeError):
+            tsocket.from_stdlib_socket(mysock)
 
 
 async def test_from_fd():
@@ -292,12 +292,15 @@ async def test_sniff_sockopts():
         # check family / type for correctness:
         assert tsocket_socket.family == socket.family
         assert tsocket_socket.type == socket.type
+        tsocket_socket.detach()
 
         # fromfd constructor
         tsocket_from_fd = tsocket.fromfd(socket.fileno(), AF_INET, SOCK_STREAM)
         # check family / type for correctness:
         assert tsocket_from_fd.family == socket.family
         assert tsocket_from_fd.type == socket.type
+        tsocket_from_fd.close()
+
         socket.close()
 
 
@@ -482,73 +485,78 @@ class Addresses:
 async def test_SocketType_resolve(socket_type, addrs):
     v6 = socket_type == tsocket.AF_INET6
 
-    # For some reason the stdlib special-cases "" to pass NULL to getaddrinfo
-    # They also error out on None, but whatever, None is much more consistent,
-    # so we accept it too.
-    for null in [None, ""]:
-        sock = tsocket.socket(family=socket_type)
-        got = await sock._resolve_local_address((null, 80))
-        assert got == (addrs.bind_all, 80, *addrs.extra)
-        got = await sock._resolve_remote_address((null, 80))
-        assert got == (addrs.localhost, 80, *addrs.extra)
+    with tsocket.socket(family=socket_type) as sock:
+        # For some reason the stdlib special-cases "" to pass NULL to
+        # getaddrinfo They also error out on None, but whatever, None is much
+        # more consistent, so we accept it too.
+        for null in [None, ""]:
+            got = await sock._resolve_local_address((null, 80))
+            assert got == (addrs.bind_all, 80, *addrs.extra)
+            got = await sock._resolve_remote_address((null, 80))
+            assert got == (addrs.localhost, 80, *addrs.extra)
 
-    # AI_PASSIVE only affects the wildcard address, so for everything else
-    # _resolve_local_address and _resolve_remote_address should work the same:
-    for resolver in ["_resolve_local_address", "_resolve_remote_address"]:
+        # AI_PASSIVE only affects the wildcard address, so for everything else
+        # _resolve_local_address and _resolve_remote_address should work the same:
+        for resolver in ["_resolve_local_address", "_resolve_remote_address"]:
 
-        async def res(*args):
-            return await getattr(sock, resolver)(*args)
+            async def res(*args):
+                return await getattr(sock, resolver)(*args)
 
-        assert await res((addrs.arbitrary, "http")) == (
-            addrs.arbitrary,
-            80,
-            *addrs.extra,
-        )
-        if v6:
-            assert await res(("1::2", 80, 1)) == ("1::2", 80, 1, 0)
-            assert await res(("1::2", 80, 1, 2)) == ("1::2", 80, 1, 2)
-
-            # V4 mapped addresses resolved if V6ONLY is False
-            sock.setsockopt(tsocket.IPPROTO_IPV6, tsocket.IPV6_V6ONLY, False)
-            assert await res(("1.2.3.4", "http")) == ("::ffff:1.2.3.4", 80, 0, 0,)
-
-        # Check the <broadcast> special case, because why not
-        assert await res(("<broadcast>", 123)) == (addrs.broadcast, 123, *addrs.extra,)
-
-        # But not if it's true (at least on systems where getaddrinfo works
-        # correctly)
-        if v6 and not gai_without_v4mapped_is_buggy():
-            sock.setsockopt(tsocket.IPPROTO_IPV6, tsocket.IPV6_V6ONLY, True)
-            with pytest.raises(tsocket.gaierror) as excinfo:
-                await res(("1.2.3.4", 80))
-            # Windows, macOS
-            expected_errnos = {tsocket.EAI_NONAME}
-            # Linux
-            if hasattr(tsocket, "EAI_ADDRFAMILY"):
-                expected_errnos.add(tsocket.EAI_ADDRFAMILY)
-            assert excinfo.value.errno in expected_errnos
-
-        # A family where we know nothing about the addresses, so should just
-        # pass them through. This should work on Linux, which is enough to
-        # smoke test the basic functionality...
-        try:
-            netlink_sock = tsocket.socket(
-                family=tsocket.AF_NETLINK, type=tsocket.SOCK_DGRAM
+            assert await res((addrs.arbitrary, "http")) == (
+                addrs.arbitrary,
+                80,
+                *addrs.extra,
             )
-        except (AttributeError, OSError):
-            pass
-        else:
-            assert await getattr(netlink_sock, resolver)("asdf") == "asdf"
-
-        with pytest.raises(ValueError):
-            await res("1.2.3.4")
-        with pytest.raises(ValueError):
-            await res(("1.2.3.4",))
-        with pytest.raises(ValueError):
             if v6:
-                await res(("1.2.3.4", 80, 0, 0, 0))
+                assert await res(("1::2", 80, 1)) == ("1::2", 80, 1, 0)
+                assert await res(("1::2", 80, 1, 2)) == ("1::2", 80, 1, 2)
+
+                # V4 mapped addresses resolved if V6ONLY is False
+                sock.setsockopt(tsocket.IPPROTO_IPV6, tsocket.IPV6_V6ONLY, False)
+                assert await res(("1.2.3.4", "http")) == ("::ffff:1.2.3.4", 80, 0, 0,)
+
+            # Check the <broadcast> special case, because why not
+            assert await res(("<broadcast>", 123)) == (
+                addrs.broadcast,
+                123,
+                *addrs.extra,
+            )
+
+            # But not if it's true (at least on systems where getaddrinfo works
+            # correctly)
+            if v6 and not gai_without_v4mapped_is_buggy():
+                sock.setsockopt(tsocket.IPPROTO_IPV6, tsocket.IPV6_V6ONLY, True)
+                with pytest.raises(tsocket.gaierror) as excinfo:
+                    await res(("1.2.3.4", 80))
+                # Windows, macOS
+                expected_errnos = {tsocket.EAI_NONAME}
+                # Linux
+                if hasattr(tsocket, "EAI_ADDRFAMILY"):
+                    expected_errnos.add(tsocket.EAI_ADDRFAMILY)
+                assert excinfo.value.errno in expected_errnos
+
+            # A family where we know nothing about the addresses, so should just
+            # pass them through. This should work on Linux, which is enough to
+            # smoke test the basic functionality...
+            try:
+                netlink_sock = tsocket.socket(
+                    family=tsocket.AF_NETLINK, type=tsocket.SOCK_DGRAM
+                )
+            except (AttributeError, OSError):
+                pass
             else:
-                await res(("1.2.3.4", 80, 0, 0))
+                assert await getattr(netlink_sock, resolver)("asdf") == "asdf"
+                netlink_sock.close()
+
+            with pytest.raises(ValueError):
+                await res("1.2.3.4")
+            with pytest.raises(ValueError):
+                await res(("1.2.3.4",))
+            with pytest.raises(ValueError):
+                if v6:
+                    await res(("1.2.3.4", 80, 0, 0, 0))
+                else:
+                    await res(("1.2.3.4", 80, 0, 0))
 
 
 async def test_SocketType_unresolved_names():
@@ -923,8 +931,9 @@ async def test_unix_domain_socket():
             with tsocket.socket(family=tsocket.AF_UNIX) as csock:
                 await csock.connect(path)
                 ssock, _ = await lsock.accept()
-                await csock.send(b"x")
-                assert await ssock.recv(1) == b"x"
+                with ssock:
+                    await csock.send(b"x")
+                    assert await ssock.recv(1) == b"x"
 
     # Can't use tmpdir fixture, because we can exceed the maximum AF_UNIX path
     # length on macOS.

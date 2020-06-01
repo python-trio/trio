@@ -1,0 +1,11 @@
+Tasks spawned with `nursery.start() <trio.Nursery.start>` aren't treated as
+direct children of their nursery until they call ``task_status.started()``.
+This is visible through the task tree introspection attributes such as
+`Task.parent_nursery <trio.lowlevel.Task.parent_nursery>`. Sometimes, though,
+you want to know where the task is going to wind up, even if it hasn't finished
+initializing yet. To support this, we added a new attribute
+`Task.eventual_parent_nursery <trio.lowlevel.Task.eventual_parent_nursery>`.
+For a task spawned with :meth:`~trio.Nursery.start` that hasn't yet called
+``started()``, this is the nursery that the task was nominally started in,
+where it will be running once it finishes starting up. In all other cases,
+it is ``None``.
