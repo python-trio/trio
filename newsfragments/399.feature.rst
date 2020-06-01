@@ -1,0 +1,3 @@
+If you want to use Trio, but are stuck with some other event loop like
+Qt or PyGame, then good news: now you can have both. For details, see:
+:ref:`guest-mode`.
