@@ -11,6 +11,7 @@ import threading
 import trio
 import trio.testing
 from .tutil import gc_collect_harder
+from ..._util import signal_raise
 
 # The simplest possible "host" loop.
 # Nice features:
@@ -440,3 +441,35 @@ def test_guest_mode_internal_errors(monkeypatch, recwarn):
             trivial_guest_run(crash_in_worker_thread_io)
 
     gc_collect_harder()
+
+
+def test_guest_mode_ki():
+    assert signal.getsignal(signal.SIGINT) is signal.default_int_handler
+
+    # Check SIGINT in Trio func and in host func
+    async def trio_main(in_host):
+        with pytest.raises(KeyboardInterrupt):
+            signal_raise(signal.SIGINT)
+
+        # Host SIGINT should get injected into Trio
+        in_host(partial(signal_raise, signal.SIGINT))
+        await trio.sleep(10)
+
+    with pytest.raises(KeyboardInterrupt) as excinfo:
+        trivial_guest_run(trio_main)
+    assert excinfo.value.__context__ is None
+    # Signal handler should be restored properly on exit
+    assert signal.getsignal(signal.SIGINT) is signal.default_int_handler
+
+    # Also check chaining in the case where KI is injected after main exits
+    final_exc = KeyError("whoa")
+
+    async def trio_main_raising(in_host):
+        in_host(partial(signal_raise, signal.SIGINT))
+        raise final_exc
+
+    with pytest.raises(KeyboardInterrupt) as excinfo:
+        trivial_guest_run(trio_main_raising)
+    assert excinfo.value.__context__ is final_exc
+
+    assert signal.getsignal(signal.SIGINT) is signal.default_int_handler

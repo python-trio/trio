@@ -27,7 +27,7 @@ from ._entry_queue import EntryQueue, TrioToken
 from ._exceptions import TrioInternalError, RunFinishedError, Cancelled
 from ._ki import (
     LOCALS_KEY_KI_PROTECTION_ENABLED,
-    ki_manager,
+    KIManager,
     enable_ki_protection,
 )
 from ._multierror import MultiError
@@ -1148,11 +1148,9 @@ class GuestState:
     unrolled_run_next_send = attr.ib(factory=lambda: Value(None))
 
     def guest_tick(self):
-        locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
         try:
             timeout = self.unrolled_run_next_send.send(self.unrolled_run_gen)
         except StopIteration:
-            # XX if we had KI support, we'd have to do something with it here
             self.done_callback(self.runner.main_task_outcome)
             return
         except TrioInternalError as exc:
@@ -1189,6 +1187,7 @@ class Runner:
     clock = attr.ib()
     instruments = attr.ib()
     io_manager = attr.ib()
+    ki_manager = attr.ib()
 
     # Run-local values, see _local.py
     _locals = attr.ib(factory=dict)
@@ -1225,6 +1224,8 @@ class Runner:
         self.entry_queue.close()
         if self.instruments:
             self.instrument("after_run")
+        # This is where KI protection gets disabled, so we do it last
+        self.ki_manager.close()
 
     def next_deadline(self):
         try:
@@ -1749,7 +1750,7 @@ class Runner:
 # 'is_guest' to see the special cases we need to handle this.
 
 
-def setup_runner(clock, instruments):
+def setup_runner(clock, instruments, restrict_keyboard_interrupt_to_checkpoints):
     """Create a Runner object and install it as the GLOBAL_RUN_CONTEXT."""
     # It wouldn't be *hard* to support nested calls to run(), but I can't
     # think of a single good reason for it, so let's be conservative for
@@ -1763,12 +1764,20 @@ def setup_runner(clock, instruments):
     io_manager = TheIOManager()
     system_context = copy_context()
     system_context.run(current_async_library_cvar.set, "trio")
+    ki_manager = KIManager()
+
     runner = Runner(
         clock=clock,
         instruments=instruments,
         io_manager=io_manager,
         system_context=system_context,
+        ki_manager=ki_manager,
     )
+
+    # This is where KI protection gets enabled, so we want to do it early - in
+    # particular before we start modifying global state like GLOBAL_RUN_CONTEXT
+    ki_manager.install(runner.deliver_ki, restrict_keyboard_interrupt_to_checkpoints)
+
     GLOBAL_RUN_CONTEXT.runner = runner
     return runner
 
@@ -1850,33 +1859,24 @@ def run(
 
     __tracebackhide__ = True
 
-    runner = setup_runner(clock, instruments)
+    runner = setup_runner(
+        clock, instruments, restrict_keyboard_interrupt_to_checkpoints
+    )
 
-    # KI handling goes outside unrolled_run to avoid an interval where
-    # KeyboardInterrupt would be allowed and converted into an
-    # TrioInternalError:
-    try:
-        with ki_manager(runner.deliver_ki, restrict_keyboard_interrupt_to_checkpoints):
-            gen = unrolled_run(runner, async_fn, args)
-            next_send = None
-            while True:
-                try:
-                    timeout = gen.send(next_send)
-                except StopIteration:
-                    break
-                next_send = runner.io_manager.get_events(timeout)
-            # Inlined copy of runner.main_task_outcome.unwrap() to avoid
-            # cluttering every single Trio traceback with an extra frame.
-            if isinstance(runner.main_task_outcome, Value):
-                return runner.main_task_outcome.value
-            else:
-                raise runner.main_task_outcome.error
-    finally:
-        # To guarantee that we never swallow a KeyboardInterrupt, we have to
-        # check for pending ones once more after leaving the context manager:
-        if runner.ki_pending:
-            # Implicitly chains with any exception from outcome.unwrap():
-            raise KeyboardInterrupt
+    gen = unrolled_run(runner, async_fn, args)
+    next_send = None
+    while True:
+        try:
+            timeout = gen.send(next_send)
+        except StopIteration:
+            break
+        next_send = runner.io_manager.get_events(timeout)
+    # Inlined copy of runner.main_task_outcome.unwrap() to avoid
+    # cluttering every single Trio traceback with an extra frame.
+    if isinstance(runner.main_task_outcome, Value):
+        return runner.main_task_outcome.value
+    else:
+        raise runner.main_task_outcome.error
 
 
 def start_guest_run(
@@ -1888,6 +1888,7 @@ def start_guest_run(
     host_uses_signal_set_wakeup_fd=False,
     clock=None,
     instruments=(),
+    restrict_keyboard_interrupt_to_checkpoints=False,
 ):
     """Start a "guest" run of Trio on top of some other "host" event loop.
 
@@ -1938,7 +1939,9 @@ def start_guest_run(
     For the meaning of other arguments, see `trio.run`.
 
     """
-    runner = setup_runner(clock, instruments)
+    runner = setup_runner(
+        clock, instruments, restrict_keyboard_interrupt_to_checkpoints
+    )
     runner.is_guest = True
     runner.guest_tick_scheduled = True
 
@@ -2154,6 +2157,7 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                 del GLOBAL_RUN_CONTEXT.task
 
     except GeneratorExit:
+        # The run-loop generator has been garbage collected without finishing
         warnings.warn(
             RuntimeWarning(
                 "Trio guest run got abandoned without properly finishing... "
@@ -2167,6 +2171,14 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
     finally:
         GLOBAL_RUN_CONTEXT.__dict__.clear()
         runner.close()
+        # Have to do this after runner.close() has disabled KI protection,
+        # because otherwise there's a race where ki_pending could get set
+        # after we check it.
+        if runner.ki_pending:
+            ki = KeyboardInterrupt()
+            if isinstance(runner.main_task_outcome, Error):
+                ki.__context__ = runner.main_task_outcome.error
+            runner.main_task_outcome = Error(ki)
 
 
 ################################################################
