@@ -833,6 +833,15 @@ important limitations you have to respect:
   Trio run, open a nursery, and then start your functions as child
   tasks in that nursery.
 
+- Unless you or your host loop register a handler for `signal.SIGINT`
+  before starting Trio (this is not common), then Trio will take over
+  delivery of `KeyboardInterrupt`\s. And since Trio can't tell which
+  host code is safe to interrupt, it will only deliver
+  `KeyboardInterrupt` into the Trio part of your code. This is fine if
+  your program is set up to exit when the Trio part exits, because the
+  `KeyboardInterrupt` will propagate out of Trio and then trigger the
+  shutdown of your host loop, which is just what you want.
+
 Given these constraints, we think the simplest approach is to always
 start and stop the two loops together.
 
