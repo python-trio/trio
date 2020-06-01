@@ -115,10 +115,11 @@ async def test_open_tcp_listeners_backlog():
 async def test_open_tcp_listeners_ipv6_v6only():
     # Check IPV6_V6ONLY is working properly
     (ipv6_listener,) = await open_tcp_listeners(0, host="::1")
-    _, port, *_ = ipv6_listener.socket.getsockname()
+    async with ipv6_listener:
+        _, port, *_ = ipv6_listener.socket.getsockname()
 
-    with pytest.raises(OSError):
-        await open_tcp_stream("127.0.0.1", port)
+        with pytest.raises(OSError):
+            await open_tcp_stream("127.0.0.1", port)
 
 
 async def test_open_tcp_listeners_rebind():
@@ -127,10 +128,10 @@ async def test_open_tcp_listeners_rebind():
 
     # Plain old rebinding while it's still there should fail, even if we have
     # SO_REUSEADDR set
-    probe = stdlib_socket.socket()
-    probe.setsockopt(stdlib_socket.SOL_SOCKET, stdlib_socket.SO_REUSEADDR, 1)
-    with pytest.raises(OSError):
-        probe.bind(sockaddr1)
+    with stdlib_socket.socket() as probe:
+        probe.setsockopt(stdlib_socket.SOL_SOCKET, stdlib_socket.SO_REUSEADDR, 1)
+        with pytest.raises(OSError):
+            probe.bind(sockaddr1)
 
     # Now use the first listener to set up some connections in various states,
     # and make sure that they don't create any obstacle to rebinding a second

@@ -1,0 +1,6 @@
+To speed up `trio.to_thread.run_sync`, Trio now caches and re-uses
+worker threads.
+
+And in case you have some exotic use case where you need to spawn
+threads manually, but want to take advantage of Trio's cache, you can
+do that using the new `trio.lowlevel.start_thread_soon`.

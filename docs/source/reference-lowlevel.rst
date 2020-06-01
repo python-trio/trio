@@ -288,6 +288,12 @@ Trio tokens
 .. autofunction:: current_trio_token
 
 
+Spawning threads
+================
+
+.. autofunction:: start_thread_soon
+
+
 Safer KeyboardInterrupt handling
 ================================
 
@@ -528,6 +534,8 @@ Task API
       This task's :class:`contextvars.Context` object.
 
    .. autoattribute:: parent_nursery
+
+   .. autoattribute:: eventual_parent_nursery
 
    .. autoattribute:: child_nurseries
 

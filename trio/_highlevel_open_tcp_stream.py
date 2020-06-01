@@ -222,6 +222,7 @@ async def open_tcp_stream(
       open_ssl_over_tcp_stream
 
     """
+
     # To keep our public API surface smaller, rule out some cases that
     # getaddrinfo will accept in some circumstances, but that act weird or
     # have non-portable behavior or are just plain not useful.
