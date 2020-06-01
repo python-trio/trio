@@ -167,6 +167,9 @@ async def test_treevar():
 async def test_treevar_follows_eventual_parent():
     tv1 = _core.TreeVar("tv1")
 
+    def trivial_abort(_):
+        return _core.Abort.SUCCEEDED  # pragma: no cover
+
     async def manage_target(task_status):
         assert tv1.get() == "source nursery"
         with tv1.being("target nursery"):
@@ -175,7 +178,7 @@ async def test_treevar_follows_eventual_parent():
                 with tv1.being("target nested child"):
                     assert tv1.get() == "target nested child"
                     task_status.started(target_nursery)
-                    await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
+                    await _core.wait_task_rescheduled(trivial_abort)
                     assert tv1.get() == "target nested child"
                 assert tv1.get() == "target nursery"
             assert tv1.get() == "target nursery"
