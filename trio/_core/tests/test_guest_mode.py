@@ -156,9 +156,7 @@ def test_warn_set_wakeup_fd_overwrite():
         try:
             with pytest.warns(RuntimeWarning, match="signal handling code.*collided"):
                 assert (
-                    trivial_guest_run(
-                        trio_main, host_uses_signal_set_wakeup_fd=False
-                    )
+                    trivial_guest_run(trio_main, host_uses_signal_set_wakeup_fd=False)
                     == "ok"
                 )
         finally:
