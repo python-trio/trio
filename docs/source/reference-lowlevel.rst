@@ -593,9 +593,9 @@ like Qt. Its advantages are:
       # ...and Qt can call back to Trio just as easily
       my_cancel_button.clicked.connect(my_cancel_scope.cancel)
 
-  (For async APIs, it's not that simple, but you can build on this
-  make explicit bridges between the two worlds, e.g. by passing async
-  functions through queues.)
+  (For async APIs, it's not that simple, but you can use sync APIs to
+  build explicit bridges between the two worlds, e.g. by passing async
+  functions and their results back and forth through queues.)
 
 - Consistent behavior: guest mode uses the same code as regular Trio:
   the same scheduler, same IO code, same everything. So you get the
