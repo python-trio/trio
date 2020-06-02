@@ -424,6 +424,7 @@ async def run_process(
     capture_stderr=False,
     check=True,
     deliver_cancel=None,
+    task_status=trio.TASK_STATUS_IGNORED,
     **options,
 ):
     """Run ``command`` in a subprocess, wait for it to complete, and
@@ -568,7 +569,7 @@ async def run_process(
 
     if isinstance(stdin, str):
         raise UnicodeError("process stdin must be bytes, not str")
-    if stdin == subprocess.PIPE:
+    if stdin == subprocess.PIPE and task_status is trio.TASK_STATUS_IGNORED:
         raise ValueError(
             "stdin=subprocess.PIPE doesn't make sense since the pipe "
             "is internal to run_process(); pass the actual data you "
@@ -603,44 +604,49 @@ async def run_process(
     stdout_chunks = []
     stderr_chunks = []
 
-    async with await open_process(command, **options) as proc:
-
-        async def feed_input():
-            async with proc.stdin:
-                try:
-                    await proc.stdin.send_all(input)
-                except trio.BrokenResourceError:
-                    pass
-
-        async def read_output(stream, chunks):
-            async with stream:
-                async for chunk in stream:
-                    chunks.append(chunk)
-
-        async with trio.open_nursery() as nursery:
-            if proc.stdin is not None:
-                nursery.start_soon(feed_input)
-            if proc.stdout is not None:
-                nursery.start_soon(read_output, proc.stdout, stdout_chunks)
-            if proc.stderr is not None:
-                nursery.start_soon(read_output, proc.stderr, stderr_chunks)
+    async def feed_input(stream):
+        async with stream:
             try:
+                await stream.send_all(input)
+            except trio.BrokenResourceError:
+                pass
+
+    async def read_output(stream, chunks):
+        async with stream:
+            async for chunk in stream:
+                chunks.append(chunk)
+
+    async with trio.open_nursery() as nursery:
+        proc = await open_process(command, **options)
+        try:
+            if input is not None:
+                nursery.start_soon(feed_input, proc.stdin)
+                proc.stdin = None
+                proc.stdio = None
+            if capture_stdout:
+                nursery.start_soon(read_output, proc.stdout, stdout_chunks)
+                proc.stdout = None
+                proc.stdio = None
+            if capture_stderr:
+                nursery.start_soon(read_output, proc.stderr, stderr_chunks)
+                proc.stderr = None
+            task_status.started(proc)
+            await proc.wait()
+        except BaseException:
+            with trio.CancelScope(shield=True):
+                killer_cscope = trio.CancelScope(shield=True)
+
+                async def killer():
+                    with killer_cscope:
+                        await deliver_cancel(proc)
+
+                nursery.start_soon(killer)
                 await proc.wait()
-            except trio.Cancelled:
-                with trio.CancelScope(shield=True):
-                    killer_cscope = trio.CancelScope(shield=True)
+                killer_cscope.cancel()
+                raise
 
-                    async def killer():
-                        with killer_cscope:
-                            await deliver_cancel(proc)
-
-                    nursery.start_soon(killer)
-                    await proc.wait()
-                    killer_cscope.cancel()
-                    raise
-
-    stdout = b"".join(stdout_chunks) if proc.stdout is not None else None
-    stderr = b"".join(stderr_chunks) if proc.stderr is not None else None
+    stdout = b"".join(stdout_chunks) if capture_stdout else None
+    stderr = b"".join(stderr_chunks) if capture_stderr else None
 
     if proc.returncode and check:
         raise subprocess.CalledProcessError(
