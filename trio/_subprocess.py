@@ -16,6 +16,7 @@ from ._subprocess_platform import (
     create_pipe_to_child_stdin,
     create_pipe_from_child_output,
 )
+from ._deprecate import deprecated
 from ._util import NoPublicConstructor
 import trio
 
@@ -66,22 +67,19 @@ else:
 class Process(AsyncResource, metaclass=NoPublicConstructor):
     r"""A child process. Like :class:`subprocess.Popen`, but async.
 
-    This class has no public constructor. To create a child process, use
-    `open_process`::
+    This class has no public constructor. The most common way to create a
+    `Process` is to combine `Nursery.start` with `run_process`::
+
+       process = await nursery.start(run_process, ...)
+
+    This way, `run_process` supervises the process, and makes sure that it is
+    cleaned up, while optionally checking the output, feeding it input, and so
+    on.
+
+    If you need more control – for example, because you want to spawn a child
+    process that outlives your program – then you can use `open_process`::
 
        process = await trio.open_process(...)
-
-    `Process` implements the `~trio.abc.AsyncResource` interface. In order to
-    make sure your process doesn't end up getting abandoned by mistake or
-    after an exception, you can use ``async with``::
-
-       async with await trio.open_process(...) as process:
-           ...
-
-    "Closing" a :class:`Process` will close any pipes to the child and wait
-    for it to exit; if cancelled, the child will be forcibly killed and we
-    will ensure it has finished exiting before allowing the cancellation to
-    propagate.
 
     Attributes:
       args (str or list): The ``command`` passed at construction time,
@@ -180,6 +178,18 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
             self._close_pidfd()
         return result
 
+    @deprecated(
+        "0.16.0",
+        thing="using trio.Process as an async context manager",
+        issue=1104,
+        instead="run_process or nursery.start(run_process, ...)",
+    )
+    async def __aenter__(self):
+        return self
+
+    @deprecated(
+        "0.16.0", issue=1104, instead="run_process or nursery.start(run_process, ...)"
+    )
     async def aclose(self):
         """Close any pipes we have to the process (both input and output)
         and wait for it to exit.

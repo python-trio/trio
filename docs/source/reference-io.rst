@@ -735,8 +735,6 @@ with it using the `Process` interface.
 
    .. autoattribute:: returncode
 
-   .. automethod:: aclose
-
    .. automethod:: wait
 
    .. automethod:: poll
