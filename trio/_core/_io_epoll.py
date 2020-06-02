@@ -5,6 +5,7 @@ from collections import defaultdict
 from .. import _core
 from ._run import _public
 from ._io_common import wake_all
+from ._wakeup_socketpair import WakeupSocketpair
 
 
 @attr.s(slots=True, eq=False, frozen=True)
@@ -184,6 +185,12 @@ class EpollIOManager:
     _epoll = attr.ib(factory=select.epoll)
     # {fd: EpollWaiters}
     _registered = attr.ib(factory=lambda: defaultdict(EpollWaiters))
+    _force_wakeup = attr.ib(factory=WakeupSocketpair)
+    _force_wakeup_fd = attr.ib(default=None)
+
+    def __attrs_post_init__(self):
+        self._epoll.register(self._force_wakeup.wakeup_sock, select.EPOLLIN)
+        self._force_wakeup_fd = self._force_wakeup.wakeup_sock.fileno()
 
     def statistics(self):
         tasks_waiting_read = 0
@@ -200,13 +207,26 @@ class EpollIOManager:
 
     def close(self):
         self._epoll.close()
+        self._force_wakeup.close()
 
-    # Called internally by the task runner:
-    def handle_io(self, timeout):
+    def force_wakeup(self):
+        self._force_wakeup.wakeup_thread_and_signal_safe()
+
+    # Return value must be False-y IFF the timeout expired, NOT if any I/O
+    # happened or force_wakeup was called. Otherwise it can be anything; gets
+    # passed straight through to process_events.
+    def get_events(self, timeout):
         # max_events must be > 0 or epoll gets cranky
+        # accessing self._registered from a thread looks dangerous, but it's
+        # OK because it doesn't matter if our value is a little bit off.
         max_events = max(1, len(self._registered))
-        events = self._epoll.poll(timeout, max_events)
+        return self._epoll.poll(timeout, max_events)
+
+    def process_events(self, events):
         for fd, flags in events:
+            if fd == self._force_wakeup_fd:
+                self._force_wakeup.drain()
+                continue
             waiters = self._registered[fd]
             # EPOLLONESHOT always clears the flags when an event is delivered
             waiters.current_flags = 0
