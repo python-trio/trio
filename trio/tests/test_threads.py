@@ -270,7 +270,8 @@ def test_run_in_worker_thread_abandoned(capfd, monkeypatch):
 
     # Make sure we don't have a "Exception in thread ..." dump to the console:
     out, err = capfd.readouterr()
-    assert not out and not err
+    assert "Exception in thread" not in out
+    assert "Exception in thread" not in err
 
 
 @pytest.mark.parametrize("MAX", [3, 5, 10])
