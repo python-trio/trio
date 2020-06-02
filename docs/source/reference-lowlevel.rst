@@ -892,9 +892,6 @@ loop's source. For example, asyncio may or may not use
 system.
 
 
-**Control-C handling** XX FIXME
-
-
 **A small optimization:** Finally, consider a small optimization. Some
 event loops offer two versions of their "call this function soon" API:
 one that can be used from any thread, and one that can only be used
