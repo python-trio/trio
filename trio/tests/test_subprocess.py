@@ -111,7 +111,7 @@ async def test_async_with_basics_deprecated(recwarn):
         CAT, stdin=subprocess.PIPE, stdout=subprocess.PIPE
     ) as proc:
         pass
-    assert proc.returncode == 0
+    assert proc.returncode is not None
     with pytest.raises(ClosedResourceError):
         await proc.stdin.send_all(b"x")
     with pytest.raises(ClosedResourceError):
@@ -238,6 +238,7 @@ async def test_interactive():
             await proc.stdin.aclose()
             assert await proc.stdout.receive_some(1) == b""
             assert await proc.stderr.receive_some(1) == b""
+            await proc.wait()
     assert proc.returncode == 0
 
 
