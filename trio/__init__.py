@@ -54,8 +54,6 @@ from ._sync import (
     Condition,
 )
 
-from ._threads import BlockingTrioPortal as _BlockingTrioPortal
-
 from ._highlevel_generic import aclose_forcefully, StapledStream
 
 from ._channel import (
@@ -133,9 +131,6 @@ __deprecated_attributes__ = {
     ),
     "current_default_worker_thread_limiter": _deprecate.DeprecatedAttribute(
         to_thread.current_default_thread_limiter, "0.12.0", issue=810,
-    ),
-    "BlockingTrioPortal": _deprecate.DeprecatedAttribute(
-        _BlockingTrioPortal, "0.12.0", issue=810, instead=from_thread,
     ),
     # NOTE: when you remove this, you should also remove the file
     # trio/hazmat.py. For details on why we have both, see:
