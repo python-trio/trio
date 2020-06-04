@@ -1,0 +1,1 @@
+Added a helpful error message if an async function is passed to `trio.to_thread_run_sync`.

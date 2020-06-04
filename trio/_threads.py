@@ -179,7 +179,17 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
     def worker_fn():
         TOKEN_LOCAL.token = current_trio_token
         try:
-            return sync_fn(*args)
+            ret = sync_fn(*args)
+
+            if inspect.iscoroutine(ret):
+                # Manually close coroutine to avoid RuntimeWarnings
+                ret.close()
+                raise TypeError(
+                    "Trio expected a sync function, but {!r} appears to be "
+                    "asynchronous".format(getattr(sync_fn, "__qualname__", sync_fn))
+                )
+
+            return ret
         finally:
             del TOKEN_LOCAL.token
 

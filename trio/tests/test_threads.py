@@ -457,6 +457,15 @@ async def test_trio_to_thread_run_sync_token():
     assert callee_token == caller_token
 
 
+async def test_trio_to_thread_run_sync():
+    # Test correct error when passed async function
+    async def async_fn():  # pragma: no cover
+        pass
+
+    with pytest.raises(TypeError, match="expected a sync function"):
+        await to_thread_run_sync(async_fn)
+
+
 async def test_trio_from_thread_run_sync():
     # Test that to_thread_run_sync correctly "hands off" the trio token to
     # trio.from_thread.run_sync()
