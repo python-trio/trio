@@ -3,6 +3,7 @@ import signal
 import sys
 from contextlib import contextmanager
 from functools import wraps
+import attr
 
 import async_generator
 
@@ -90,7 +91,7 @@ def ki_protection_enabled(frame):
         if frame.f_code.co_name == "__del__":
             return True
         frame = frame.f_back
-    return False
+    return True
 
 
 def currently_ki_protected():
@@ -170,26 +171,31 @@ disable_ki_protection = _ki_protection_decorator(False)  # type: Callable[[F], F
 disable_ki_protection.__name__ = "disable_ki_protection"
 
 
-@contextmanager
-def ki_manager(deliver_cb, restrict_keyboard_interrupt_to_checkpoints):
-    if (
-        not is_main_thread()
-        or signal.getsignal(signal.SIGINT) != signal.default_int_handler
-    ):
-        yield
-        return
+@attr.s
+class KIManager:
+    handler = attr.ib(default=None)
 
-    def handler(signum, frame):
-        assert signum == signal.SIGINT
-        protection_enabled = ki_protection_enabled(frame)
-        if protection_enabled or restrict_keyboard_interrupt_to_checkpoints:
-            deliver_cb()
-        else:
-            raise KeyboardInterrupt
+    def install(self, deliver_cb, restrict_keyboard_interrupt_to_checkpoints):
+        assert self.handler is None
+        if (
+            not is_main_thread()
+            or signal.getsignal(signal.SIGINT) != signal.default_int_handler
+        ):
+            return
 
-    signal.signal(signal.SIGINT, handler)
-    try:
-        yield
-    finally:
-        if signal.getsignal(signal.SIGINT) is handler:
-            signal.signal(signal.SIGINT, signal.default_int_handler)
+        def handler(signum, frame):
+            assert signum == signal.SIGINT
+            protection_enabled = ki_protection_enabled(frame)
+            if protection_enabled or restrict_keyboard_interrupt_to_checkpoints:
+                deliver_cb()
+            else:
+                raise KeyboardInterrupt
+
+        self.handler = handler
+        signal.signal(signal.SIGINT, handler)
+
+    def close(self):
+        if self.handler is not None:
+            if signal.getsignal(signal.SIGINT) is self.handler:
+                signal.signal(signal.SIGINT, signal.default_int_handler)
+            self.handler = None

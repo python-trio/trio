@@ -48,6 +48,7 @@ from ._run import (
     wait_writable,
     notify_closing,
     Nursery,
+    start_guest_run,
 )
 
 # Has to come after _run to resolve a circular import
@@ -67,6 +68,8 @@ from ._parking_lot import ParkingLot
 from ._unbounded_queue import UnboundedQueue
 
 from ._local import RunVar
+
+from ._thread_cache import start_thread_soon
 
 # Kqueue imports
 try:

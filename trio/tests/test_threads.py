@@ -239,7 +239,9 @@ async def test_run_in_worker_thread_cancellation():
 # Make sure that if trio.run exits, and then the thread finishes, then that's
 # handled gracefully. (Requires that the thread result machinery be prepared
 # for call_soon to raise RunFinishedError.)
-def test_run_in_worker_thread_abandoned(capfd):
+def test_run_in_worker_thread_abandoned(capfd, monkeypatch):
+    monkeypatch.setattr(_core._thread_cache, "IDLE_TIMEOUT", 0.01)
+
     q1 = stdlib_queue.Queue()
     q2 = stdlib_queue.Queue()
 
@@ -268,7 +270,8 @@ def test_run_in_worker_thread_abandoned(capfd):
 
     # Make sure we don't have a "Exception in thread ..." dump to the console:
     out, err = capfd.readouterr()
-    assert not out and not err
+    assert "Exception in thread" not in out
+    assert "Exception in thread" not in err
 
 
 @pytest.mark.parametrize("MAX", [3, 5, 10])
@@ -426,10 +429,10 @@ async def test_run_in_worker_thread_limiter_error():
 
 async def test_run_in_worker_thread_fail_to_spawn(monkeypatch):
     # Test the unlikely but possible case where trying to spawn a thread fails
-    def bad_start(self):
+    def bad_start(self, *args):
         raise RuntimeError("the engines canna take it captain")
 
-    monkeypatch.setattr(threading.Thread, "start", bad_start)
+    monkeypatch.setattr(_core._thread_cache.ThreadCache, "start_thread_soon", bad_start)
 
     limiter = current_default_thread_limiter()
     assert limiter.borrowed_tokens == 0

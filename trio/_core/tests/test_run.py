@@ -272,7 +272,7 @@ async def test_current_task():
 
 async def test_root_task():
     root = _core.current_root_task()
-    assert root.parent_nursery is None
+    assert root.parent_nursery is root.eventual_parent_nursery is None
 
 
 def test_out_of_context():
@@ -1588,7 +1588,7 @@ async def test_task_tree_introspection():
     tasks = {}
     nurseries = {}
 
-    async def parent():
+    async def parent(task_status=_core.TASK_STATUS_IGNORED):
         tasks["parent"] = _core.current_task()
 
         assert tasks["parent"].child_nurseries == []
@@ -1601,7 +1601,7 @@ async def test_task_tree_introspection():
 
         async with _core.open_nursery() as nursery:
             nurseries["parent"] = nursery
-            nursery.start_soon(child1)
+            await nursery.start(child1)
 
         # Upward links survive after tasks/nurseries exit
         assert nurseries["parent"].parent_task is tasks["parent"]
@@ -1624,14 +1624,30 @@ async def test_task_tree_introspection():
         assert nurseries["child1"].child_tasks == frozenset({tasks["child2"]})
         assert tasks["child2"].child_nurseries == []
 
-    async def child1():
-        tasks["child1"] = _core.current_task()
+    async def child1(task_status=_core.TASK_STATUS_IGNORED):
+        me = tasks["child1"] = _core.current_task()
+        assert me.parent_nursery.parent_task is tasks["parent"]
+        assert me.parent_nursery is not nurseries["parent"]
+        assert me.eventual_parent_nursery is nurseries["parent"]
+        task_status.started()
+        assert me.parent_nursery is nurseries["parent"]
+        assert me.eventual_parent_nursery is None
+
+        # Wait for the start() call to return and close its internal nursery, to
+        # ensure consistent results in child2:
+        await _core.wait_all_tasks_blocked()
+
         async with _core.open_nursery() as nursery:
             nurseries["child1"] = nursery
             nursery.start_soon(child2)
 
     async with _core.open_nursery() as nursery:
         nursery.start_soon(parent)
+
+    # There are no pending starts, so no one should have a non-None
+    # eventual_parent_nursery
+    for task in tasks.values():
+        assert task.eventual_parent_nursery is None
 
 
 async def test_nursery_closure():

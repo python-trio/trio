@@ -222,8 +222,8 @@ async def test_agen_protection():
 
 
 # Test the case where there's no magic local anywhere in the call stack
-def test_ki_enabled_out_of_context():
-    assert not _core.currently_ki_protected()
+def test_ki_disabled_out_of_context():
+    assert _core.currently_ki_protected()
 
 
 def test_ki_disabled_in_del():
@@ -234,8 +234,15 @@ def test_ki_disabled_in_del():
         assert _core.currently_ki_protected()
         assert nestedfunction()
 
+    @_core.disable_ki_protection
+    def outerfunction():
+        assert not _core.currently_ki_protected()
+        assert not nestedfunction()
+        __del__()
+
     __del__()
-    assert not nestedfunction()
+    outerfunction()
+    assert nestedfunction()
 
 
 def test_ki_protection_works():
