@@ -585,48 +585,48 @@ async def run_process(
     stdout_chunks = []
     stderr_chunks = []
 
-    async with await open_process(command, **options) as proc:
+    proc = await open_process(command, **options)
 
-        async def feed_input():
-            async with proc.stdin:
-                try:
-                    await proc.stdin.send_all(input)
-                except trio.BrokenResourceError:
-                    pass
-
-        async def read_output(stream, chunks):
-            async with stream:
-                async for chunk in stream:
-                    chunks.append(chunk)
-
-        async with trio.open_nursery() as nursery:
-            if proc.stdin is not None:
-                nursery.start_soon(feed_input)
-            if proc.stdout is not None:
-                nursery.start_soon(read_output, proc.stdout, stdout_chunks)
-            if proc.stderr is not None:
-                nursery.start_soon(read_output, proc.stderr, stderr_chunks)
+    async def feed_input():
+        async with proc.stdin:
             try:
+                await proc.stdin.send_all(input)
+            except trio.BrokenResourceError:
+                pass
+
+    async def read_output(stream, chunks):
+        async with stream:
+            async for chunk in stream:
+                chunks.append(chunk)
+
+    async with trio.open_nursery() as nursery:
+        if proc.stdin is not None:
+            nursery.start_soon(feed_input)
+        if proc.stdout is not None:
+            nursery.start_soon(read_output, proc.stdout, stdout_chunks)
+        if proc.stderr is not None:
+            nursery.start_soon(read_output, proc.stderr, stderr_chunks)
+        try:
+            await proc.wait()
+        except trio.Cancelled:
+            with trio.CancelScope(shield=True):
+                killer_cscope = trio.CancelScope(shield=True)
+
+                async def killer():
+                    with killer_cscope:
+                        try:
+                            await deliver_cancel(proc)
+                        except BaseException as exc:
+                            LOGGER = logging.getLogger("trio.run_process")
+                            LOGGER.exception(
+                                f"tried to kill process {proc!r}, but failed with: {exc!r}"
+                            )
+                            raise
+
+                nursery.start_soon(killer)
                 await proc.wait()
-            except trio.Cancelled:
-                with trio.CancelScope(shield=True):
-                    killer_cscope = trio.CancelScope(shield=True)
-
-                    async def killer():
-                        with killer_cscope:
-                            try:
-                                await deliver_cancel(proc)
-                            except BaseException as exc:
-                                LOGGER = logging.getLogger("trio.run_process")
-                                LOGGER.exception(
-                                    f"tried to kill process {proc!r}, but failed with: {exc!r}"
-                                    )
-                                raise
-
-                    nursery.start_soon(killer)
-                    await proc.wait()
-                    killer_cscope.cancel()
-                    raise
+                killer_cscope.cancel()
+                raise
 
     stdout = b"".join(stdout_chunks) if proc.stdout is not None else None
     stderr = b"".join(stderr_chunks) if proc.stderr is not None else None

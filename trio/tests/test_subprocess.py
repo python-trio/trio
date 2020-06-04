@@ -455,7 +455,7 @@ async def test_custom_deliver_cancel():
     assert custom_deliver_cancel_called
 
 
-async def test_warn_on_failed_cancel_terminate(monkeypatch):
+async def test_log_on_failed_cancel_terminate(monkeypatch):
     original_terminate = Process.terminate
 
     def broken_terminate(self):
