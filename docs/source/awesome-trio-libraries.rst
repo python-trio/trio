@@ -42,6 +42,7 @@ Database
 * `trio-mysql <https://github.com/python-trio/trio-mysql>`__ - Pure Python MySQL Client.
 * `sqlalchemy_aio <https://github.com/RazerM/sqlalchemy_aio>`__ - Add asyncio and Trio support to SQLAlchemy core, derived from alchimia.
 * `redio <https://github.com/Tronic/redio>`__ - Redis client, pure Python and Trio.
+* `trio_redis <https://github.com/omnidots/trio_redis>`__ - A Redis client for Trio. Depends on hiredis-py.
 
 
 IOT
