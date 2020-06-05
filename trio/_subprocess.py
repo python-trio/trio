@@ -67,19 +67,20 @@ else:
 class Process(AsyncResource, metaclass=NoPublicConstructor):
     r"""A child process. Like :class:`subprocess.Popen`, but async.
 
-    This class has no public constructor. The most common way to create a
-    `Process` is to combine `Nursery.start` with `run_process`::
+    This class has no public constructor. The most common way to get a
+    `Process` object is to combine `Nursery.start` with `run_process`::
 
-       process = await nursery.start(run_process, ...)
+       process_object = await nursery.start(run_process, ...)
 
-    This way, `run_process` supervises the process, and makes sure that it is
-    cleaned up, while optionally checking the output, feeding it input, and so
-    on.
+    This way, `run_process` supervises the process and makes sure that it is
+    cleaned up properly, while optionally checking the return value, feeding
+    it input, and so on.
 
     If you need more control – for example, because you want to spawn a child
-    process that outlives your program – then you can use `open_process`::
+    process that outlives your program – then another option is to use
+    `open_process`::
 
-       process = await trio.open_process(...)
+       process_object = await trio.open_process(...)
 
     Attributes:
       args (str or list): The ``command`` passed at construction time,
@@ -437,21 +438,39 @@ async def run_process(
     task_status=trio.TASK_STATUS_IGNORED,
     **options,
 ):
-    """Run ``command`` in a subprocess, wait for it to complete, and
-    return a :class:`subprocess.CompletedProcess` instance describing
-    the results.
+    """Run ``command`` in a subprocess and wait for it to complete.
 
-    If cancelled, :func:`run_process` terminates the subprocess and
-    waits for it to exit before propagating the cancellation, like
-    :meth:`Process.aclose`.
+    This function can be called in two different ways.
 
-    **Input:** The subprocess's standard input stream is set up to
-    receive the bytes provided as ``stdin``.  Once the given input has
-    been fully delivered, or if none is provided, the subprocess will
-    receive end-of-file when reading from its standard input.
-    Alternatively, if you want the subprocess to read its
-    standard input from the same place as the parent Trio process, you
-    can pass ``stdin=None``.
+    One option is a direct call, like::
+
+        completed_process_info = await trio.run_process(...)
+
+    In this case, it returns a :class:`subprocess.CompletedProcess` instance
+    describing the results. Use this if you want to treat a process like a
+    function call.
+
+    The other option is to run it as a task using `Nursery.start` – the enhanced version
+    of `~Nursery.start_soon` that lets a task pass back a value during startup::
+
+        process = await nursery.start(trio.run_process, ...)
+
+    In this case, `~Nursery.start` returns a `Process` object that you can use
+    to interact with the process while it's running. Use this if you want to
+    treat a process like a background task.
+
+    Either way, `run_process` makes sure that the process has exited before
+    returning, handles cancellation, optionally checks for errors, and
+    provides some convenient shorthands for dealing with the child's
+    input/output.
+
+    **Input:** `run_process` supports all the same ``stdin=`` arguments as
+    `subprocess.Popen`. In addition, if you simply want to pass in some fixed
+    data, you can pass a plain `bytes` object, and `run_process` will take
+    care of setting up a pipe, feeding in the data you gave, and then sending
+    end-of-file. The default is ``b""``, which means that the child will receive
+    an empty stdin. If you want the child to instead read from the parent's
+    stdin, use ``stdin=None``.
 
     **Output:** By default, any output produced by the subprocess is
     passed through to the standard output and error streams of the
@@ -481,8 +500,28 @@ async def run_process(
     the :attr:`~subprocess.CalledProcessError.stdout` and
     :attr:`~subprocess.CalledProcessError.stderr` attributes of that
     exception.  To disable this behavior, so that :func:`run_process`
-    returns normally even if the subprocess exits abnormally, pass
-    ``check=False``.
+    returns normally even if the subprocess exits abnormally, pass ``check=False``.
+
+    Note that this can make the ``capture_stdout`` and ``capture_stderr``
+    arguments useful even when starting `run_process` as a task: if you only
+    care about the output if the process fails, then you can enable capturing
+    and then read the output off of the `~subprocess.CalledProcessError`.
+
+    **Cancellation:** If cancelled, `run_process` sends a termination
+    request to the subprocess, then waits for it to fully exit. The
+    ``deliver_cancel`` argument lets you control how the process is terminated.
+
+    .. note:: `run_process` is intentionally similar to the standard library
+       `subprocess.run`, but some of the defaults are different. Specifically, we
+       default to:
+
+       - ``check=True``, because `"errors should never pass silently / unless
+         explicitly silenced <https://www.python.org/dev/peps/pep-0020/>"`__.
+
+       - ``stdin=b""``, because it produces less-confusing results if a subprocess
+         unexpectedly tries to read from stdin.
+
+       To get the `subprocess.run` semantics, use ``check=False, stdin=None``.
 
     Args:
       command (list or str): The command to run. Typically this is a
@@ -493,24 +532,26 @@ async def run_process(
           be a string, which will be parsed following platform-dependent
           :ref:`quoting rules <subprocess-quoting>`.
 
-      stdin (:obj:`bytes`, file descriptor, or None): The bytes to provide to
-          the subprocess on its standard input stream, or ``None`` if the
-          subprocess's standard input should come from the same place as
-          the parent Trio process's standard input. As is the case with
-          the :mod:`subprocess` module, you can also pass a
-          file descriptor or an object with a ``fileno()`` method,
-          in which case the subprocess's standard input will come from
-          that file.
+      stdin (:obj:`bytes`, subprocess.PIPE, file descriptor, or None): The
+          bytes to provide to the subprocess on its standard input stream, or
+          ``None`` if the subprocess's standard input should come from the
+          same place as the parent Trio process's standard input. As is the
+          case with the :mod:`subprocess` module, you can also pass a file
+          descriptor or an object with a ``fileno()`` method, in which case
+          the subprocess's standard input will come from that file. And when
+          starting `run_process` as a background task, you can use
+          ``stdin=subprocess.PIPE``, in which case `Process.stdin` will be a
+          `~trio.abc.SendStream` that you can use to send data to the child.
 
       capture_stdout (bool): If true, capture the bytes that the subprocess
           writes to its standard output stream and return them in the
-          :attr:`~subprocess.CompletedProcess.stdout` attribute
-          of the returned :class:`~subprocess.CompletedProcess` object.
+          `~subprocess.CompletedProcess.stdout` attribute of the returned
+          `subprocess.CompletedProcess` or `subprocess.CalledProcessError`.
 
       capture_stderr (bool): If true, capture the bytes that the subprocess
           writes to its standard error stream and return them in the
-          :attr:`~subprocess.CompletedProcess.stderr` attribute
-          of the returned :class:`~subprocess.CompletedProcess` object.
+          `~subprocess.CompletedProcess.stderr` attribute of the returned
+          `~subprocess.CompletedProcess` or `subprocess.CalledProcessError`.
 
       check (bool): If false, don't validate that the subprocess exits
           successfully. You should be sure to check the
@@ -555,8 +596,11 @@ async def run_process(
           ``stdout=subprocess.DEVNULL``, or file descriptors.
 
     Returns:
-      A :class:`subprocess.CompletedProcess` instance describing the
-      return code and outputs.
+
+      When called normally – a `subprocess.CompletedProcess` instance
+      describing the return code and outputs.
+
+      When called via `Nursery.start` – a `trio.Process` instance.
 
     Raises:
       UnicodeError: if ``stdin`` is specified as a Unicode string, rather
@@ -579,12 +623,23 @@ async def run_process(
 
     if isinstance(stdin, str):
         raise UnicodeError("process stdin must be bytes, not str")
-    if stdin == subprocess.PIPE and task_status is trio.TASK_STATUS_IGNORED:
-        raise ValueError(
-            "stdin=subprocess.PIPE doesn't make sense since the pipe "
-            "is internal to run_process(); pass the actual data you "
-            "want to send over that pipe instead"
-        )
+    if task_status is trio.TASK_STATUS_IGNORED:
+        if stdin is subprocess.PIPE:
+            raise ValueError(
+                "stdin=subprocess.PIPE doesn't make sense without "
+                "nursery.start, since there's no way to access the "
+                "pipe; pass the data you want to send or use nursery.start"
+            )
+        if options.get("stdout") is subprocess.PIPE:
+            raise ValueError(
+                "stdout=subprocess.PIPE doesn't make sense without "
+                "nursery.start, since there's no way to access the pipe"
+            )
+        if options.get("stderr") is subprocess.PIPE:
+            raise ValueError(
+                "stderr=subprocess.PIPE doesn't make sense without "
+                "nursery.start, since there's no way to access the pipe"
+            )
     if isinstance(stdin, (bytes, bytearray, memoryview)):
         input = stdin
         options["stdin"] = subprocess.PIPE
