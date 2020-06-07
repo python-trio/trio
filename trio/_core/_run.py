@@ -753,6 +753,7 @@ class NurseryExiter:
     It is used only for the system nursery, which gets entered outside
     of async context.
     """
+
     _manager = attr.ib()
 
     async def __aenter__(self):
@@ -1512,7 +1513,9 @@ class Runner:
         # needs to be done in this function.
         async with NurseryExiter(system_nursery_manager):
             try:
-                self.main_task = self.spawn_impl(async_fn, args, self.system_nursery, None)
+                self.main_task = self.spawn_impl(
+                    async_fn, args, self.system_nursery, None
+                )
             except BaseException as exc:
                 self.main_task_outcome = Error(exc)
                 self.system_nursery.cancel_scope.cancel()
@@ -2007,7 +2010,11 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
         # This works because __aenter__ is secretly synchronous (doesn't await).
         system_nursery_manager = open_nursery()
         runner.init_task = runner.spawn_impl(
-            runner.init, (system_nursery_manager, async_fn, args), None, "<init>", system_task=True,
+            runner.init,
+            (system_nursery_manager, async_fn, args),
+            None,
+            "<init>",
+            system_task=True,
         )
         GLOBAL_RUN_CONTEXT.task = runner.init_task
         try:
