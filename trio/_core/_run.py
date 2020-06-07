@@ -2021,10 +2021,10 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
             system_nursery_manager.__aenter__().send(None)
         except StopIteration as exc:
             runner.system_nursery = exc.value
-        else:
+        else:  # pragma: no cover
             raise TrioInternalError("NurseryManager.__aenter__() yielded")
         finally:
-            del GLOBAL_RUN_CONTEXT.task
+            del GLOBAL_RUN_CONTEXT.task  # pragma: no branch
 
         runner.clock.start_clock()
 
