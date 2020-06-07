@@ -747,6 +747,22 @@ class NurseryManager:
         assert False, """Never called, but should be defined"""
 
 
+@attr.s(eq=False, repr=False)
+class NurseryExiter:
+    """This runs only the __aexit__ of the NurseryManager that it wraps.
+    It is used only for the system nursery, which gets entered outside
+    of async context.
+    """
+    _manager = attr.ib()
+
+    async def __aenter__(self):
+        pass
+
+    # async/await are stripped to remove a traceback frame
+    def __aexit__(self, *exc):
+        return self._manager.__aexit__(*exc)
+
+
 def open_nursery():
     """Returns an async context manager which must be used to create a
     new `Nursery`.
@@ -1490,14 +1506,16 @@ class Runner:
             async_fn, args, self.system_nursery, name, system_task=True
         )
 
-    async def init(self, async_fn, args):
-        async with open_nursery() as system_nursery:
-            self.system_nursery = system_nursery
+    async def init(self, system_nursery_manager, async_fn, args):
+        # We did the __aenter__ part of 'async with open_nursery() as
+        # self.system_nursery:' in unrolled_run(), so only the __aexit__ part
+        # needs to be done in this function.
+        async with NurseryExiter(system_nursery_manager):
             try:
-                self.main_task = self.spawn_impl(async_fn, args, system_nursery, None)
+                self.main_task = self.spawn_impl(async_fn, args, self.system_nursery, None)
             except BaseException as exc:
                 self.main_task_outcome = Error(exc)
-                system_nursery.cancel_scope.cancel()
+                self.system_nursery.cancel_scope.cancel()
             self.entry_queue.spawn()
 
     ################
@@ -1982,10 +2000,26 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
 
         if runner.instruments:
             runner.instrument("before_run")
-        runner.clock.start_clock()
+
+        # This strange construct allows start_clock() to spawn system tasks
+        # before the first step of init(). Basically we're doing the __aenter__
+        # of open_nursery() here, leaving only the __aexit__ for init() to do.
+        # This works because __aenter__ is secretly synchronous (doesn't await).
+        system_nursery_manager = open_nursery()
         runner.init_task = runner.spawn_impl(
-            runner.init, (async_fn, args), None, "<init>", system_task=True,
+            runner.init, (system_nursery_manager, async_fn, args), None, "<init>", system_task=True,
         )
+        GLOBAL_RUN_CONTEXT.task = runner.init_task
+        try:
+            system_nursery_manager.__aenter__().send(None)
+        except StopIteration as exc:
+            runner.system_nursery = exc.value
+        else:
+            raise TrioInternalError("NurseryManager.__aenter__() yielded")
+        finally:
+            del GLOBAL_RUN_CONTEXT.task
+
+        runner.clock.start_clock()
 
         # You know how people talk about "event loops"? This 'while' loop right
         # here is our event loop:

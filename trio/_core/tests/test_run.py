@@ -295,8 +295,8 @@ async def test_current_statistics(mock_clock):
 
     stats = _core.current_statistics()
     print(stats)
-    # 2 system tasks + us
-    assert stats.tasks_living == 3
+    # init + autojumper + run_sync_soon task + us
+    assert stats.tasks_living == 4
     assert stats.run_sync_soon_queue_size == 0
 
     async with _core.open_nursery() as nursery:
@@ -307,8 +307,8 @@ async def test_current_statistics(mock_clock):
         token.run_sync_soon(lambda: None, idempotent=True)
         stats = _core.current_statistics()
         print(stats)
-        # 2 system tasks + us + child
-        assert stats.tasks_living == 4
+        # as above + child
+        assert stats.tasks_living == 5
         # the exact value here might shift if we change how we do accounting
         # (currently it only counts tasks that we already know will be
         # runnable on the next pass), but still useful to at least test the

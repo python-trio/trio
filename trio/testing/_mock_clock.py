@@ -88,8 +88,11 @@ class MockClock(Clock, metaclass=SubclassingDeprecatedIn_v0_15_0):
         self._virtual_base = 0.0
         self._rate = 0.0
         self._autojump_threshold = 0.0
-        self._autojump_task = None
-        self._autojump_cancel_scope = None
+
+        # Whenever autojump_threshold changes, this must be cancelled
+        # in order to wake up the autojump task.
+        self._autojump_cancel_scope = _core.CancelScope()
+
         # kept as an attribute so that our tests can monkeypatch it
         self._real_clock = time.perf_counter
 
@@ -124,47 +127,37 @@ class MockClock(Clock, metaclass=SubclassingDeprecatedIn_v0_15_0):
     @autojump_threshold.setter
     def autojump_threshold(self, new_autojump_threshold):
         self._autojump_threshold = float(new_autojump_threshold)
-        self._maybe_spawn_autojump_task()
-        if self._autojump_cancel_scope is not None:
-            # Task is running and currently blocked on the old setting, wake
-            # it up so it picks up the new setting
-            self._autojump_cancel_scope.cancel()
+        self._autojump_cancel_scope.cancel()
 
     async def _autojumper(self):
         while True:
-            with _core.CancelScope() as cancel_scope:
-                self._autojump_cancel_scope = cancel_scope
-                try:
-                    # If the autojump_threshold changes, then the setter does
-                    # cancel_scope.cancel(), which causes the next line here
-                    # to raise Cancelled, which is absorbed by the cancel
-                    # scope above, and effectively just causes us to skip back
-                    # to the start the loop, like a 'continue'.
-                    await _core.wait_all_tasks_blocked(self._autojump_threshold, inf)
-                    statistics = _core.current_statistics()
-                    jump = statistics.seconds_to_next_deadline
-                    if 0 < jump < inf:
-                        self.jump(jump)
-                    else:
-                        # There are no deadlines, nothing is going to happen
-                        # until some actual I/O arrives (or maybe another
-                        # wait_all_tasks_blocked task wakes up). That's fine,
-                        # but if our threshold is zero then this will become a
-                        # busy-wait -- so insert a small-but-non-zero _sleep to
-                        # avoid that.
-                        if self._autojump_threshold == 0:
-                            await _core.wait_all_tasks_blocked(0.01)
-                finally:
-                    self._autojump_cancel_scope = None
+            # If the autojump_threshold changes, then the setter does
+            # self._autojump_cancel_scope.cancel(), which causes the
+            # wait_task_rescheduled or wait_all_tasks_blocked to raise
+            # Cancelled, which is absorbed by the cancel scope above,
+            # and effectively just causes us to skip back to the start
+            # the loop, like a 'continue'.
+            with _core.CancelScope() as self._autojump_cancel_scope:
+                if self._autojump_threshold == inf:
+                    # Autojump is disabled; just sleep until it's enabled
+                    await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
+                    assert False  # pragma: no cover
 
-    def _maybe_spawn_autojump_task(self):
-        if self._autojump_threshold < inf and self._autojump_task is None:
-            try:
-                clock = _core.current_clock()
-            except RuntimeError:
-                return
-            if clock is self:
-                self._autojump_task = _core.spawn_system_task(self._autojumper)
+                # Otherwise autojump is enabled
+                await _core.wait_all_tasks_blocked(self._autojump_threshold, inf)
+                statistics = _core.current_statistics()
+                jump = statistics.seconds_to_next_deadline
+                if 0 < jump < inf:
+                    self.jump(jump)
+                else:
+                    # There are no deadlines, nothing is going to happen
+                    # until some actual I/O arrives (or maybe another
+                    # wait_all_tasks_blocked task wakes up). That's fine,
+                    # but if our threshold is zero then this will become a
+                    # busy-wait -- so insert a small-but-non-zero _sleep to
+                    # avoid that.
+                    if self._autojump_threshold == 0:
+                        await _core.wait_all_tasks_blocked(0.01)
 
     def _real_to_virtual(self, real):
         real_offset = real - self._real_base
@@ -172,8 +165,7 @@ class MockClock(Clock, metaclass=SubclassingDeprecatedIn_v0_15_0):
         return self._virtual_base + virtual_offset
 
     def start_clock(self):
-        token = _core.current_trio_token()
-        token.run_sync_soon(self._maybe_spawn_autojump_task)
+        _core.spawn_system_task(self._autojumper)
 
     def current_time(self):
         return self._real_to_virtual(self._real_clock())
