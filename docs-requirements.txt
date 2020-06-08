@@ -27,7 +27,7 @@ requests==2.23.0          # via sphinx
 six==1.15.0               # via packaging
 sniffio==1.1.0            # via -r docs-requirements.in
 snowballstemmer==2.0.0    # via sphinx
-sortedcontainers==2.1.0   # via -r docs-requirements.in
+sortedcontainers==2.2.2   # via -r docs-requirements.in
 sphinx-rtd-theme==0.4.3   # via -r docs-requirements.in
 sphinx==3.0.4             # via -r docs-requirements.in, sphinx-rtd-theme, sphinxcontrib-trio
 sphinxcontrib-applehelp==1.0.2  # via sphinx
