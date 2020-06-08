@@ -2084,7 +2084,10 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                 # seeded for tests.
                 batch.sort(key=lambda t: t._counter)
             runner.runq.clear()
-            _r.shuffle(batch)
+            # 50% chance of reversing the batch, this way each task
+            # can appear before/after any other task.
+            if _r.random() < 0.5:
+                batch = batch[::-1]
             while batch:
                 task = batch.pop()
                 GLOBAL_RUN_CONTEXT.task = task
