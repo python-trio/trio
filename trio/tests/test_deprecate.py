@@ -16,6 +16,9 @@ from . import module_with_deprecations
 @pytest.fixture
 def recwarn_always(recwarn):
     warnings.simplefilter("always")
+    # ResourceWarnings about unclosed sockets can occur nondeterministically
+    # (during GC) which throws off the tests in this file
+    warnings.simplefilter("ignore", ResourceWarning)
     return recwarn
 
 
