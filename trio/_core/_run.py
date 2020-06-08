@@ -2076,6 +2076,7 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
             # tie-breaker and the non-deterministic ordering of
             # task._notify_queues.)
             batch = list(runner.runq)
+            runner.runq.clear()
             if _ALLOW_DETERMINISTIC_SCHEDULING:
                 # We're running under Hypothesis, and pytest-trio has patched
                 # this in to make the scheduler deterministic and avoid flaky
@@ -2083,8 +2084,12 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                 # operation, since we'll shuffle the list and _r is only
                 # seeded for tests.
                 batch.sort(key=lambda t: t._counter)
-            runner.runq.clear()
-            _r.shuffle(batch)
+                _r.shuffle(batch)
+            else:
+                # 50% chance of reversing the batch, this way each task
+                # can appear before/after any other task.
+                if _r.random() < 0.5:
+                    batch.reverse()
             while batch:
                 task = batch.pop()
                 GLOBAL_RUN_CONTEXT.task = task

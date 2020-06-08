@@ -6,7 +6,7 @@ async def scheduler_trace():
     trace = []
 
     async def tracer(name):
-        for i in range(10):
+        for i in range(50):
             trace.append((name, i))
             await trio.sleep(0)
 
