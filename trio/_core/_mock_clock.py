@@ -52,32 +52,13 @@ class MockClock(Clock, metaclass=SubclassingDeprecatedIn_v0_15_0):
        above) then just set it to zero, and the clock will jump whenever all
        tasks are blocked.
 
-       .. warning::
-
-          If you're using :func:`wait_all_tasks_blocked` and
-          :attr:`autojump_threshold` together, then you have to be
-          careful. Setting :attr:`autojump_threshold` acts like a background
-          task calling::
-
-             while True:
-                 await wait_all_tasks_blocked(
-                   cushion=clock.autojump_threshold, tiebreaker=float("inf"))
-
-          This means that if you call :func:`wait_all_tasks_blocked` with a
-          cushion *larger* than your autojump threshold, then your call to
-          :func:`wait_all_tasks_blocked` will never return, because the
-          autojump task will keep waking up before your task does, and each
-          time it does it'll reset your task's timer. However, if your cushion
-          and the autojump threshold are the *same*, then the autojump's
-          tiebreaker will prevent them from interfering (unless you also set
-          your tiebreaker to infinity for some reason. Don't do that). As an
-          important special case: this means that if you set an autojump
-          threshold of zero and use :func:`wait_all_tasks_blocked` with the
-          default zero cushion, then everything will work fine.
-
-          **Summary**: you should set :attr:`autojump_threshold` to be at
-          least as large as the largest cushion you plan to pass to
-          :func:`wait_all_tasks_blocked`.
+       .. note:: If you use ``autojump_threshold`` and
+          `wait_all_tasks_blocked` at the same time, then you might wonder how
+          they interact, since they both cause things to happen after the run
+          loop goes idle for some time. The answer is:
+          `wait_all_tasks_blocked` takes priority. If there's a task blocked
+          in `wait_all_tasks_blocked`, then the autojump feature treats that
+          as active task and does *not* jump the clock.
 
     """
 
