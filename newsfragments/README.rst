@@ -8,13 +8,19 @@ relevant to people working on the code itself.)
 Each file should be named like ``<ISSUE>.<TYPE>.rst``, where
 ``<ISSUE>`` is an issue numbers, and ``<TYPE>`` is one of:
 
-* ``feature``
+* ``headline``: a major new feature we want to highlight for users
+* ``breaking``: any breaking changes that happen without a proper
+  deprecation period (note: deprecations, and removal of previously
+  deprecated features after an appropriate time, go in the
+  ``deprecated`` category instead)
+* ``feature``: any new feature that doesn't qualify for ``headline``
 * ``bugfix``
 * ``doc``
-* ``removal``
+* ``deprecated``
 * ``misc``
 
-So for example: ``123.feature.rst``, ``456.bugfix.rst``
+So for example: ``123.headline.rst``, ``456.bugfix.rst``,
+``789.deprecated.rst``
 
 If your PR fixes an issue, use that number here. If there is no issue,
 then after you submit the PR and get the PR number you can add a
