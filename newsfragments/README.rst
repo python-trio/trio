@@ -26,8 +26,10 @@ If your PR fixes an issue, use that number here. If there is no issue,
 then after you submit the PR and get the PR number you can add a
 newsfragment using that instead.
 
-Note that the ``towncrier`` tool will automatically
-reflow your text, so don't try to do any fancy formatting. You can
-install ``towncrier`` and then run ``towncrier --draft`` if you want
-to get a preview of how your change will look in the final release
-notes.
+Your text can use all the same markup that we use in our Sphinx docs.
+For example, you can use double-backticks to mark code snippets, or
+single-backticks to link to a function/class/module.
+
+To check how your formatting looks, the easiest way is to make the PR,
+and then after the CI checks run, click on the "Read the Docs build"
+details link, and navigate to the release history page.
