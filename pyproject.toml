@@ -21,7 +21,7 @@ name = "Headline features"
 showcontent = true
 
 [[tool.towncrier.type]]
-directory = "breakin"
+directory = "breaking"
 name = "Breaking changes"
 showcontent = true
 
