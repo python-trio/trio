@@ -7,6 +7,7 @@ from trio import sleep
 from ... import _core
 from .. import wait_all_tasks_blocked
 from .._mock_clock import MockClock
+from .tutil import slow
 
 
 def test_mock_clock():
@@ -129,7 +130,7 @@ def test_mock_clock_autojump_preset():
     assert time.perf_counter() - real_start < 1
 
 
-async def test_mock_clock_autojump_0_and_wait_all_tasks_blocked(mock_clock):
+async def test_mock_clock_autojump_0_and_wait_all_tasks_blocked_0(mock_clock):
     # Checks that autojump_threshold=0 doesn't interfere with
     # calling wait_all_tasks_blocked with the default cushion=0 and arbitrary
     # tiebreakers.
@@ -154,3 +155,27 @@ async def test_mock_clock_autojump_0_and_wait_all_tasks_blocked(mock_clock):
         nursery.start_soon(waiter)
 
     assert record == list(range(10)) + ["yawn", "waiter done"]
+
+
+@slow
+async def test_mock_clock_autojump_0_and_wait_all_tasks_blocked_nonzero(mock_clock):
+    # Checks that autojump_threshold=0 doesn't interfere with
+    # calling wait_all_tasks_blocked with a non-zero cushion.
+
+    mock_clock.autojump_threshold = 0
+
+    record = []
+
+    async def sleeper():
+        await sleep(100)
+        record.append("yawn")
+
+    async def waiter():
+        await wait_all_tasks_blocked(1)
+        record.append("waiter done")
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(sleeper)
+        nursery.start_soon(waiter)
+
+    assert record == ["waiter done", "yawn"]
