@@ -37,12 +37,12 @@ showcontent = true
 
 [[tool.towncrier.type]]
 directory = "doc"
-name = "Improved Documentation"
+name = "Improved documentation"
 showcontent = true
 
 [[tool.towncrier.type]]
 directory = "deprecated"
-name = "Deprecations and Removals"
+name = "Deprecations and removals"
 showcontent = true
 
 [[tool.towncrier.type]]
