@@ -117,6 +117,8 @@ class MockClock(Clock, metaclass=SubclassingDeprecatedIn_v0_15_0):
     def _try_resync_autojump_threshold(self):
         try:
             runner = GLOBAL_RUN_CONTEXT.runner
+            if runner.is_guest:
+                runner.force_guest_tick_asap()
         except AttributeError:
             pass
         else:
