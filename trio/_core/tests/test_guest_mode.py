@@ -483,7 +483,7 @@ def test_guest_mode_autojump_clock_threshold_changing():
 
     clock = trio.testing.MockClock()
 
-    DURATION = 9999999
+    DURATION = 120
 
     async def trio_main(in_host):
         assert trio.current_time() == 0
@@ -494,4 +494,6 @@ def test_guest_mode_autojump_clock_threshold_changing():
     start = time.monotonic()
     trivial_guest_run(trio_main, clock=clock)
     end = time.monotonic()
-    assert end - start < DURATION / 10
+    # Should be basically instantaneous, but we'll leave a generous buffer to
+    # account for any CI weirdness
+    assert end - start < DURATION / 2
