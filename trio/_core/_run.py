@@ -12,6 +12,7 @@ from collections import deque
 import collections.abc
 from contextlib import contextmanager, closing
 import warnings
+import enum
 
 from contextvars import copy_context
 from math import inf
@@ -110,6 +111,11 @@ class SystemClock:
 
     def deadline_to_sleep_time(self, deadline):
         return deadline - self.current_time()
+
+
+class IdlePrimedTypes(enum.Enum):
+    WAITING_FOR_IDLE = 1
+    AUTOJUMP_CLOCK = 2
 
 
 ################################################################
@@ -1209,6 +1215,9 @@ class Runner:
     entry_queue = attr.ib(factory=EntryQueue)
     trio_token = attr.ib(default=None)
 
+    # If everything goes idle for this long, we call clock._autojump()
+    clock_autojump_threshold = attr.ib(default=inf)
+
     # Guest mode stuff
     is_guest = attr.ib(default=False)
     guest_tick_scheduled = attr.ib(default=False)
@@ -2005,6 +2014,14 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                 if cushion < timeout:
                     timeout = cushion
                     idle_primed = True
+                    idle_prime_type = IdlePrimedTypes.WAITING_FOR_IDLE
+            # We use 'elif' here because if there are tasks in
+            # wait_all_tasks_blocked, then those tasks will wake up without
+            # jumping the clock, so we don't need to autojump.
+            elif runner.clock_autojump_threshold < timeout:
+                timeout = runner.clock_autojump_threshold
+                idle_primed = True
+                idle_prime_type = IdlePrimedTypes.AUTOJUMP_CLOCK
 
             if runner.instruments:
                 runner.instrument("before_io_wait", timeout)
@@ -2030,8 +2047,8 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
 
             # idle_primed=True means: if the IO wait hit the timeout, and still
             # nothing is happening, then we should start waking up
-            # wait_all_tasks_blocked tasks. But there are some subtleties in
-            # defining "nothing is happening".
+            # wait_all_tasks_blocked tasks or autojump the clock. But there
+            # are some subtleties in defining "nothing is happening".
             #
             # 'not runner.runq' means that no tasks are currently runnable.
             # 'not events' means that the last IO wait call hit its full
@@ -2050,13 +2067,17 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
             #
             # So we need to check both.
             if idle_primed and not runner.runq and not events:
-                while runner.waiting_for_idle:
-                    key, task = runner.waiting_for_idle.peekitem(0)
-                    if key[:2] == (cushion, tiebreaker):
-                        del runner.waiting_for_idle[key]
-                        runner.reschedule(task)
-                    else:
-                        break
+                if idle_prime_type is IdlePrimedTypes.WAITING_FOR_IDLE:
+                    while runner.waiting_for_idle:
+                        key, task = runner.waiting_for_idle.peekitem(0)
+                        if key[:2] == (cushion, tiebreaker):
+                            del runner.waiting_for_idle[key]
+                            runner.reschedule(task)
+                        else:
+                            break
+                else:
+                    assert idle_prime_type is IdlePrimedTypes.AUTOJUMP_CLOCK
+                    runner.clock._autojump()
 
             # Process all runnable tasks, but only the ones that are already
             # runnable now. Anything that becomes runnable during this cycle

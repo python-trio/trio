@@ -8,6 +8,7 @@ from ... import _core
 from .. import wait_all_tasks_blocked
 from .._mock_clock import MockClock
 
+
 def test_mock_clock():
     REAL_NOW = 123.0
     c = MockClock()
