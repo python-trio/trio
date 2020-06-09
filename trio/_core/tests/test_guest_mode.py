@@ -7,6 +7,7 @@ from math import inf
 import signal
 import socket
 import threading
+import time
 
 import trio
 import trio.testing
@@ -473,3 +474,26 @@ def test_guest_mode_ki():
     assert excinfo.value.__context__ is final_exc
 
     assert signal.getsignal(signal.SIGINT) is signal.default_int_handler
+
+
+def test_guest_mode_autojump_clock_threshold_changing():
+    # This is super obscure and probably no-one will ever notice, but
+    # technically mutating the MockClock.autojump_threshold from the host
+    # should wake up the guest, so let's test it.
+
+    clock = trio.testing.MockClock()
+
+    DURATION = 120
+
+    async def trio_main(in_host):
+        assert trio.current_time() == 0
+        in_host(lambda: setattr(clock, "autojump_threshold", 0))
+        await trio.sleep(DURATION)
+        assert trio.current_time() == DURATION
+
+    start = time.monotonic()
+    trivial_guest_run(trio_main, clock=clock)
+    end = time.monotonic()
+    # Should be basically instantaneous, but we'll leave a generous buffer to
+    # account for any CI weirdness
+    assert end - start < DURATION / 2

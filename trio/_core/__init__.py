@@ -71,6 +71,8 @@ from ._local import RunVar
 
 from ._thread_cache import start_thread_soon
 
+from ._mock_clock import MockClock
+
 # Kqueue imports
 try:
     from ._run import current_kqueue, monitor_kevent, wait_kevent
