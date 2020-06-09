@@ -70,8 +70,6 @@ class MockClock(Clock, metaclass=SubclassingDeprecatedIn_v0_15_0):
         self._virtual_base = 0.0
         self._rate = 0.0
         self._autojump_threshold = 0.0
-        self._autojump_task = None
-        self._autojump_cancel_scope = None
         # kept as an attribute so that our tests can monkeypatch it
         self._real_clock = time.perf_counter
 
