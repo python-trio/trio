@@ -457,7 +457,7 @@ async def test_trio_to_thread_run_sync_token():
     assert callee_token == caller_token
 
 
-async def test_trio_to_thread_run_sync():
+async def test_trio_to_thread_run_sync_expected_error():
     # Test correct error when passed async function
     async def async_fn():  # pragma: no cover
         pass
