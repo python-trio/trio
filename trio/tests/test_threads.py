@@ -539,6 +539,9 @@ def test_run_fn_as_system_task_catched_badly_typed_token():
 
 
 async def test_from_thread_inside_trio_thread():
+    def not_called():  # pragma: no cover
+        assert False
+
     trio_token = _core.current_trio_token()
     with pytest.raises(RuntimeError):
-        from_thread_run_sync(fn=None, trio_token=trio_token)
+        from_thread_run_sync(not_called, trio_token=trio_token)
