@@ -2,6 +2,7 @@ import pytest
 import threading
 from queue import Queue
 import time
+import sys
 
 from .tutil import slow
 from .. import _thread_cache
@@ -118,3 +119,9 @@ def test_race_between_idle_exit_and_job_assignment(monkeypatch):
     done = threading.Event()
     tc.start_thread_soon(lambda: None, lambda _: done.set())
     done.wait()
+    # Let's kill the thread we started, so it doesn't hang around until the
+    # test suite finishes. Doesn't really do any harm, but it can be confusing
+    # to see it in debug output. This is hacky, and leaves our ThreadCache
+    # object in an inconsistent state... but it doesn't matter, because we're
+    # not going to use it again anyway.
+    tc.start_thread_soon(lambda: None, lambda _: sys.exit())
