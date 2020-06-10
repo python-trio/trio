@@ -103,7 +103,8 @@ async def test_wait_all_tasks_blocked_with_cushion():
     ]
 
 
-async def test_wait_all_tasks_blocked_with_tiebreaker():
+# This test can be deleted after tiebreaker= is removed
+async def test_wait_all_tasks_blocked_with_tiebreaker(recwarn):
     record = []
 
     async def do_wait(cushion, tiebreaker):

@@ -1,0 +1,4 @@
+The ``tiebreaker`` argument to `trio.testing.wait_all_tasks_blocked`
+has been deprecated. This is a highly obscure feature that was
+probably never used by anyone except `trio.testing.MockClock`, and
+`~trio.testing.MockClock` doesn't need it anymore.

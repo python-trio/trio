@@ -41,7 +41,7 @@ from ._traps import (
 )
 from ._thread_cache import start_thread_soon
 from .. import _core
-from .._deprecate import deprecated
+from .._deprecate import deprecated, warn_deprecated
 from .._util import Final, NoPublicConstructor, coroutine_or_error
 
 _NO_SEND = object()
@@ -1563,7 +1563,7 @@ class Runner:
     waiting_for_idle = attr.ib(factory=SortedDict)
 
     @_public
-    async def wait_all_tasks_blocked(self, cushion=0.0, tiebreaker=0):
+    async def wait_all_tasks_blocked(self, cushion=0.0, tiebreaker="deprecated"):
         """Block until there are no runnable tasks.
 
         This is useful in testing code when you want to give other tasks a
@@ -1581,9 +1581,7 @@ class Runner:
         then the one with the shortest ``cushion`` is the one woken (and
         this task becoming unblocked resets the timers for the remaining
         tasks). If there are multiple tasks that have exactly the same
-        ``cushion``, then the one with the lowest ``tiebreaker`` value is
-        woken first. And if there are multiple tasks with the same ``cushion``
-        and the same ``tiebreaker``, then all are woken.
+        ``cushion``, then all are woken.
 
         You should also consider :class:`trio.testing.Sequencer`, which
         provides a more explicit way to control execution ordering within a
@@ -1623,6 +1621,16 @@ class Runner:
                          print("FAIL")
 
         """
+        if tiebreaker == "deprecated":
+            tiebreaker = 0
+        else:
+            warn_deprecated(
+                "the 'tiebreaker' argument to wait_all_tasks_blocked",
+                "v0.16.0",
+                issue=1558,
+                instead=None,
+            )
+
         task = current_task()
         key = (cushion, tiebreaker, id(task))
         self.waiting_for_idle[key] = task
