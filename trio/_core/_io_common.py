@@ -4,7 +4,7 @@ from .. import _core
 
 
 # Utility function shared between _io_epoll and _io_windows
-def wake_all(waiters, exc):
+def wake_all(runner, waiters, exc):
     try:
         current_task = _core.current_task()
     except RuntimeError:
@@ -16,7 +16,7 @@ def wake_all(waiters, exc):
             if task is current_task:
                 raise_at_end = True
             else:
-                _core.reschedule(task, outcome.Error(copy.copy(exc)))
+                runner.reschedule(task, outcome.Error(copy.copy(exc)))
             setattr(waiters, attr_name, None)
     if raise_at_end:
         raise exc

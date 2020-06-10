@@ -182,6 +182,7 @@ class EpollWaiters:
 
 @attr.s(slots=True, eq=False, hash=False)
 class EpollIOManager:
+    _runner = attr.ib()
     _epoll = attr.ib(factory=select.epoll)
     # {fd: EpollWaiters}
     _registered = attr.ib(factory=lambda: defaultdict(EpollWaiters))
@@ -234,10 +235,10 @@ class EpollIOManager:
             # with EPOLLHUP or EPOLLERR flags wakes both readers and
             # writers.
             if flags & ~select.EPOLLIN and waiters.write_task is not None:
-                _core.reschedule(waiters.write_task)
+                self._runner.reschedule(waiters.write_task)
                 waiters.write_task = None
             if flags & ~select.EPOLLOUT and waiters.read_task is not None:
-                _core.reschedule(waiters.read_task)
+                self._runner.reschedule(waiters.read_task)
                 waiters.read_task = None
             self._update_registrations(fd)
 
@@ -265,7 +266,7 @@ class EpollIOManager:
                 del self._registered[fd]
                 # This could raise (in case we're calling this inside one of
                 # the to-be-woken tasks), so we have to do it last.
-                wake_all(waiters, exc)
+                wake_all(self._runner, waiters, exc)
                 return
         if not wanted_flags:
             del self._registered[fd]
@@ -301,6 +302,7 @@ class EpollIOManager:
         if not isinstance(fd, int):
             fd = fd.fileno()
         wake_all(
+            self._runner,
             self._registered[fd],
             _core.ClosedResourceError("another task closed this fd"),
         )

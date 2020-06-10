@@ -1222,6 +1222,9 @@ class Runner:
     is_guest = attr.ib(default=False)
     guest_tick_scheduled = attr.ib(default=False)
 
+    def __attrs_post_init__(self):
+        self.io_manager = self.io_manager(self)
+
     def force_guest_tick_asap(self):
         if self.guest_tick_scheduled:
             return
@@ -1778,7 +1781,6 @@ def setup_runner(clock, instruments, restrict_keyboard_interrupt_to_checkpoints)
     if clock is None:
         clock = SystemClock()
     instruments = list(instruments)
-    io_manager = TheIOManager()
     system_context = copy_context()
     system_context.run(current_async_library_cvar.set, "trio")
     ki_manager = KIManager()
@@ -1786,7 +1788,7 @@ def setup_runner(clock, instruments, restrict_keyboard_interrupt_to_checkpoints)
     runner = Runner(
         clock=clock,
         instruments=instruments,
-        io_manager=io_manager,
+        io_manager=TheIOManager,
         system_context=system_context,
         ki_manager=ki_manager,
     )

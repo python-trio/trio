@@ -19,6 +19,7 @@ class _KqueueStatistics:
 
 @attr.s(slots=True, eq=False)
 class KqueueIOManager:
+    _runner = attr.ib()
     _kqueue = attr.ib(factory=select.kqueue)
     # {(ident, filter): Task or UnboundedQueue}
     _registered = attr.ib(factory=dict)
@@ -75,7 +76,7 @@ class KqueueIOManager:
             if event.flags & select.KQ_EV_ONESHOT:
                 del self._registered[key]
             if type(receiver) is _core.Task:
-                _core.reschedule(receiver, outcome.Value(event))
+                self._runner.reschedule(receiver, outcome.Value(event))
             else:
                 receiver.put_nowait(event)
 
@@ -181,7 +182,7 @@ class KqueueIOManager:
                 event = select.kevent(fd, filter, select.KQ_EV_DELETE)
                 self._kqueue.control([event], 0)
                 exc = _core.ClosedResourceError("another task closed this fd")
-                _core.reschedule(receiver, outcome.Error(exc))
+                self._runner.reschedule(receiver, outcome.Error(exc))
                 del self._registered[key]
             else:
                 # XX this is an interesting example of a case where being able

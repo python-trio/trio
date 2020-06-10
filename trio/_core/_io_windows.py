@@ -317,7 +317,8 @@ class CompletionKeyEventInfo:
 
 
 class WindowsIOManager:
-    def __init__(self):
+    def __init__(self, runner):
+        self._runner = runner
         # If this method raises an exception, then __del__ could run on a
         # half-initialized object. So we initialize everything that __del__
         # touches to safe values up front, before we do anything that can
@@ -432,16 +433,16 @@ class WindowsIOManager:
                         raise_winerror(code)
                     flags = op.poll_info.Handles[0].Events
                     if waiters.read_task and flags & READABLE_FLAGS:
-                        _core.reschedule(waiters.read_task)
+                        self._runner.reschedule(waiters.read_task)
                         waiters.read_task = None
                     if waiters.write_task and flags & WRITABLE_FLAGS:
-                        _core.reschedule(waiters.write_task)
+                        self._runner.reschedule(waiters.write_task)
                         waiters.write_task = None
                     self._refresh_afd(op.poll_info.Handles[0].Handle)
             elif entry.lpCompletionKey == CKeys.WAIT_OVERLAPPED:
                 # Regular I/O event, dispatch on lpOverlapped
                 waiter = self._overlapped_waiters.pop(entry.lpOverlapped)
-                _core.reschedule(waiter)
+                self._runner.reschedule(waiter)
             elif entry.lpCompletionKey == CKeys.LATE_CANCEL:
                 # Post made by a regular I/O event's abort_fn
                 # after it failed to cancel the I/O. If we still
@@ -474,7 +475,7 @@ class WindowsIOManager:
                     # task traceback. If you're debugging this
                     # error and can't tell where it's coming from,
                     # try changing this line to
-                    # _core.reschedule(waiter, outcome.Error(exc))
+                    # self._runner.reschedule(waiter, outcome.Error(exc))
                     raise exc
             elif entry.lpCompletionKey == CKeys.FORCE_WAKEUP:
                 pass
@@ -557,7 +558,7 @@ class WindowsIOManager:
                     # pending calls.
                     del self._afd_waiters[base_handle]
                     # Do this last, because it could raise.
-                    wake_all(waiters, exc)
+                    wake_all(self._runner, waiters, exc)
                     return
             op = AFDPollOp(lpOverlapped, poll_info, waiters)
             waiters.current_op = op
@@ -596,7 +597,7 @@ class WindowsIOManager:
         handle = _get_base_socket(handle)
         waiters = self._afd_waiters.get(handle)
         if waiters is not None:
-            wake_all(waiters, _core.ClosedResourceError())
+            wake_all(self._runner, waiters, _core.ClosedResourceError())
             self._refresh_afd(handle)
 
     ################################################################
