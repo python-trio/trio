@@ -1,5 +1,4 @@
 from threading import Thread, Lock
-import sys
 import outcome
 from itertools import count
 
