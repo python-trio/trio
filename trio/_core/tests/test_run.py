@@ -23,6 +23,7 @@ from .tutil import (
 )
 
 from ... import _core
+from ..._deprecate import TrioDeprecationWarning
 from ..._threads import to_thread_run_sync
 from ..._timeouts import sleep, fail_after
 from ...testing import (
@@ -1882,6 +1883,16 @@ async def test_nursery_start(autojump_clock):
     with pytest.raises(RuntimeError):
         await closed_nursery.start(sleep_then_start, 7)
     assert _core.current_time() == t0
+
+    # started() raises a deprecation warning if there's more than one
+    # task in the old_nursery
+    async def starts_another_task_in_old_nursery(task_status):
+        _core.current_task().parent_nursery.start_soon(_core.checkpoint)
+        task_status.started()
+
+    async with _core.open_nursery() as nursery:
+        with pytest.warns(TrioDeprecationWarning, match="private old_nursery"):
+            await nursery.start(starts_another_task_in_old_nursery)
 
 
 async def test_task_nursery_stack():
