@@ -61,9 +61,7 @@ class EntryQueue:
                 except RuntimeError:
                     # We're quite late in the shutdown process and
                     # the system nursery is already closed.
-                    _core.current_task().parent_nursery.start_soon(
-                        kill_everything, exc
-                    )
+                    _core.current_task().parent_nursery.start_soon(kill_everything, exc)
 
             return True
 

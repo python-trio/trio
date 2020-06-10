@@ -1532,7 +1532,9 @@ class Runner:
                     for agen in batch:
                         name = name_asyncgen(agen)
                         kill_them_all.start_soon(
-                            partial(self.finalize_asyncgen, agen, name, check_running=True),
+                            partial(
+                                self.finalize_asyncgen, agen, name, check_running=True
+                            ),
                             name="close asyncgen {} (outlived run)".format(name),
                         )
 
@@ -1543,7 +1545,9 @@ class Runner:
                         finalize_in_parallel = False
             else:
                 for agen in batch:
-                    await self.finalize_asyncgen(agen, name_asyncgen(agen), check_running=False)
+                    await self.finalize_asyncgen(
+                        agen, name_asyncgen(agen), check_running=False
+                    )
 
     def setup_asyncgen_hooks(self):
         def firstiter(agen):
@@ -1561,7 +1565,9 @@ class Runner:
             self.entry_queue.run_sync_soon(
                 partial(
                     self.spawn_system_task,
-                    partial(self.finalize_asyncgen, agen, agen_name, check_running=False),
+                    partial(
+                        self.finalize_asyncgen, agen, agen_name, check_running=False
+                    ),
                     name=f"close asyncgen {agen_name} (abandoned)",
                 ),
             )
