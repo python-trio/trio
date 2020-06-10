@@ -161,7 +161,7 @@ def current_trio_token():
         raise RuntimeError("must be called from async context")
 
 
-async def wait_all_tasks_blocked(cushion=0.0, tiebreaker=0):
+async def wait_all_tasks_blocked(cushion=0.0, tiebreaker='deprecated'):
     """Block until there are no runnable tasks.
 
         This is useful in testing code when you want to give other tasks a
@@ -179,9 +179,7 @@ async def wait_all_tasks_blocked(cushion=0.0, tiebreaker=0):
         then the one with the shortest ``cushion`` is the one woken (and
         this task becoming unblocked resets the timers for the remaining
         tasks). If there are multiple tasks that have exactly the same
-        ``cushion``, then the one with the lowest ``tiebreaker`` value is
-        woken first. And if there are multiple tasks with the same ``cushion``
-        and the same ``tiebreaker``, then all are woken.
+        ``cushion``, then all are woken.
 
         You should also consider :class:`trio.testing.Sequencer`, which
         provides a more explicit way to control execution ordering within a
