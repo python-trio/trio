@@ -1,0 +1,19 @@
+In the current implementation of `nursery.start()
+<trio.Nursery.start>`, the new task starts running in a private
+nursery created inside :meth:`trio.Nursery.start`, and only moves to
+its "real" nursery once it calls ``task_status.started()``. Since Trio
+doesn't hand out any references to that private temporary nursery, we
+would like to be able to assume it only contains the single task being
+started. However, the nursery object is still accessible using
+debugging APIs such as
+``trio.lowlevel.current_task().parent_nursery``, and it's possible
+that some users have been using those APIs to start tasks in it. (If
+it wasn't clear, we strongly recommend against this sort of thing,
+because it makes private implementation details affect the behavior of
+your code.)
+
+Until now, these sorts of shenanigans unintentionally *worked*: the
+new tasks would move alongside the task being ``start()``\ed, and one
+might not even realize they weren't getting the ``parent_nursery``
+they were expecting. Supporting this unintentional feature is becoming
+burdensome, though, so we're deprecating it with no replacement.

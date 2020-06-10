@@ -656,6 +656,20 @@ class _TaskStatus:
     def started(self, value=None):
         if self._called_started:
             raise RuntimeError("called 'started' twice on the same task status")
+        if len(self._old_nursery._children) > 1:
+            # This can only happen if someone finds the old_nursery through
+            # debugging APIs and spawns more tasks into it. We don't think
+            # that's a reasonable thing to do, and supporting it makes other
+            # extensions to the nursery semantics much harder to implement.
+            # But it unintentionally worked in the past, so it gets a
+            # deprecation period.
+            warn_deprecated(
+                "starting additional tasks in the private old_nursery created "
+                "by Nursery.start()",
+                version="0.16.0",
+                issue=1599,
+                instead="a nursery that you created",
+            )
         self._called_started = True
         self._value = value
 
