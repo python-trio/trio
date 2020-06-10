@@ -5,6 +5,68 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.16.0 (2020-06-10)
+------------------------
+
+Headline features
+~~~~~~~~~~~~~~~~~
+
+- If you want to use Trio, but are stuck with some other event loop like
+  Qt or PyGame, then good news: now you can have both. For details, see:
+  :ref:`guest-mode`. (`#399 <https://github.com/python-trio/trio/issues/399>`__)
+
+
+Features
+~~~~~~~~
+
+- To speed up `trio.to_thread.run_sync`, Trio now caches and re-uses
+  worker threads.
+
+  And in case you have some exotic use case where you need to spawn
+  threads manually, but want to take advantage of Trio's cache, you can
+  do that using the new `trio.lowlevel.start_thread_soon`. (`#6 <https://github.com/python-trio/trio/issues/6>`__)
+- Tasks spawned with `nursery.start() <trio.Nursery.start>` aren't treated as
+  direct children of their nursery until they call ``task_status.started()``.
+  This is visible through the task tree introspection attributes such as
+  `Task.parent_nursery <trio.lowlevel.Task.parent_nursery>`. Sometimes, though,
+  you want to know where the task is going to wind up, even if it hasn't finished
+  initializing yet. To support this, we added a new attribute
+  `Task.eventual_parent_nursery <trio.lowlevel.Task.eventual_parent_nursery>`.
+  For a task spawned with :meth:`~trio.Nursery.start` that hasn't yet called
+  ``started()``, this is the nursery that the task was nominally started in,
+  where it will be running once it finishes starting up. In all other cases,
+  it is ``None``. (`#1558 <https://github.com/python-trio/trio/issues/1558>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Added a helpful error message if an async function is passed to `trio.to_thread.run_sync`. (`#1573 <https://github.com/python-trio/trio/issues/1573>`__)
+
+
+Deprecations and removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Remove ``BlockingTrioPortal``: it was deprecated in 0.12.0. (`#1574 <https://github.com/python-trio/trio/issues/1574>`__)
+- The ``tiebreaker`` argument to `trio.testing.wait_all_tasks_blocked`
+  has been deprecated. This is a highly obscure feature that was
+  probably never used by anyone except `trio.testing.MockClock`, and
+  `~trio.testing.MockClock` doesn't need it anymore. (`#1587 <https://github.com/python-trio/trio/issues/1587>`__)
+- Remove the deprecated ``trio.ssl`` and ``trio.subprocess`` modules. (`#1594 <https://github.com/python-trio/trio/issues/1594>`__)
+
+
+Miscellaneous internal changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- We refactored `trio.testing.MockClock` so that it no longer needs to
+  run an internal task to manage autojumping. This should be mostly
+  invisible to users, but there is one semantic change: the interaction
+  between `trio.testing.wait_all_tasks_blocked` and the autojump clock
+  was fixed. Now, the autojump will always wait until after all
+  `~trio.testing.wait_all_tasks_blocked` calls have finished before
+  firing, instead of it depending on which threshold values you passed. (`#1587 <https://github.com/python-trio/trio/issues/1587>`__)
+
+
 Trio 0.15.1 (2020-05-22)
 ------------------------
 

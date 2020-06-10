@@ -1,7 +1,0 @@
-We refactored `trio.testing.MockClock` so that it no longer needs to
-run an internal task to manage autojumping. This should be mostly
-invisible to users, but there is one semantic change: the interaction
-between `trio.testing.wait_all_tasks_blocked` and the autojump clock
-was fixed. Now, the autojump will always wait until after all
-`~trio.testing.wait_all_tasks_blocked` calls have finished before
-firing, instead of it depending on which threshold values you passed.
