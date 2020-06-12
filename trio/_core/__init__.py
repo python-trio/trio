@@ -77,11 +77,7 @@ from ._thread_cache import start_thread_soon
 from ._mock_clock import MockClock
 
 # Kqueue imports
-if (
-    sys.platform.startswith("freebsd")
-    or sys.platform.startswith("darwin")
-    or not _t.TYPE_CHECKING
-):
+if not _t.TYPE_CHECKING:  # pragma: no branch
     try:
         from ._run import current_kqueue, monitor_kevent, wait_kevent
     except ImportError:
