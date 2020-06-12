@@ -9,12 +9,14 @@ jedi           # for jedi code completion tests
 
 # Tools
 black; implementation_name == "cpython"
+mypy; implementation_name == "cpython"
 flake8
 astor          # code generation
-mypy
 
 # https://github.com/python-trio/trio/pull/654#issuecomment-420518745
 typed_ast; implementation_name == "cpython"
+mypy-extensions; implementation_name == "cpython"
+typing-extensions; implementation_name == "cpython"
 
 # Trio's own dependencies
 cffi; os_name == "nt"
