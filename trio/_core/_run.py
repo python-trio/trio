@@ -9,8 +9,7 @@ import select
 import sys
 import threading
 from collections import deque
-import collections.abc
-from contextlib import contextmanager, closing
+from contextlib import contextmanager
 import warnings
 import enum
 
@@ -41,7 +40,7 @@ from ._traps import (
 )
 from ._thread_cache import start_thread_soon
 from .. import _core
-from .._deprecate import deprecated, warn_deprecated
+from .._deprecate import warn_deprecated
 from .._util import Final, NoPublicConstructor, coroutine_or_error
 
 _NO_SEND = object()
