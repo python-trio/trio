@@ -23,6 +23,12 @@ flake8 trio/ \
     --ignore=D,E,W,F401,F403,F405,F821,F822\
     || EXIT_STATUS=$?
 
+# Run mypy
+# We specify Linux so that we get the same results on all platforms. Without
+# that, mypy would complain on macOS that epoll does not exist, and we can't
+# ignore it as it would cause a mypy error on Linux
+mypy -p trio._core --platform linux || EXIT_STATUS=$?
+
 # Finally, leave a really clear warning of any issues and exit
 if [ $EXIT_STATUS -ne 0 ]; then
     cat <<EOF

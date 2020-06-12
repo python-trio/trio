@@ -26,6 +26,8 @@ jedi==0.17.0              # via -r test-requirements.in, ipython
 lazy-object-proxy==1.4.3  # via astroid
 mccabe==0.6.1             # via flake8, pylint
 more-itertools==8.3.0     # via pytest
+mypy-extensions==0.4.3    # via mypy
+mypy==0.780               # via -r test-requirements.in
 outcome==1.0.1            # via -r test-requirements.in
 packaging==20.4           # via pytest
 parso==0.7.0              # via jedi
@@ -53,5 +55,6 @@ toml==0.10.1              # via black, pylint
 traitlets==4.3.3          # via ipython
 trustme==0.6.0            # via -r test-requirements.in
 typed-ast==1.4.1 ; implementation_name == "cpython"  # via -r test-requirements.in, black
+typing-extensions==3.7.4.2  # via mypy
 wcwidth==0.2.4            # via prompt-toolkit, pytest
 wrapt==1.12.1             # via astroid

@@ -1,6 +1,7 @@
 import select
 import attr
 from collections import defaultdict
+from typing import DefaultDict
 
 from .. import _core
 from ._run import _public
@@ -184,8 +185,10 @@ class EpollWaiters:
 class EpollIOManager:
     _epoll = attr.ib(factory=select.epoll)
     # {fd: EpollWaiters}
-    _registered = attr.ib(factory=lambda: defaultdict(EpollWaiters))
-    _force_wakeup = attr.ib(factory=WakeupSocketpair)
+    _registered = attr.ib(
+        factory=lambda: defaultdict(EpollWaiters), type=DefaultDict[int, EpollWaiters]
+    )
+    _force_wakeup = attr.ib(factory=WakeupSocketpair, type=WakeupSocketpair)
     _force_wakeup_fd = attr.ib(default=None)
 
     def __attrs_post_init__(self):

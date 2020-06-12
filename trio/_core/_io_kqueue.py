@@ -19,7 +19,7 @@ class _KqueueStatistics:
 
 @attr.s(slots=True, eq=False)
 class KqueueIOManager:
-    _kqueue = attr.ib(factory=select.kqueue)
+    _kqueue = attr.ib(factory=select.kqueue)  # type: ignore
     # {(ident, filter): Task or UnboundedQueue}
     _registered = attr.ib(factory=dict)
     _force_wakeup = attr.ib(factory=WakeupSocketpair)
