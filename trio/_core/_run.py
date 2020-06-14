@@ -35,6 +35,7 @@ from ._multierror import MultiError
 from ._traps import (
     Abort,
     wait_task_rescheduled,
+    cancel_shielded_checkpoint,
     CancelShieldedCheckpoint,
     PermanentlyDetachCoroutineObject,
     WaitTaskRescheduled,
@@ -2284,8 +2285,17 @@ async def checkpoint():
     :func:`checkpoint`.)
 
     """
-    with CancelScope(deadline=-inf):
-        await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
+    # The scheduler is what checks timeouts and converts them into
+    # cancellations. So by doing the schedule point first, we ensure that the
+    # cancel point has the most up-to-date info.
+    await cancel_shielded_checkpoint()
+    task = current_task()
+    task._cancel_points += 1
+    if task._cancel_status.effectively_cancelled or (
+        task is task._runner.main_task and task._runner.ki_pending
+    ):
+        with CancelScope(deadline=-inf):
+            await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
 
 
 async def checkpoint_if_cancelled():
