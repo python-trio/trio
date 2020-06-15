@@ -452,7 +452,6 @@ class Addresses:
     localhost = attr.ib()
     arbitrary = attr.ib()
     broadcast = attr.ib()
-    extra = attr.ib()
 
 
 # Direct thorough tests of the implicit resolver helpers
@@ -466,7 +465,6 @@ class Addresses:
                 localhost="127.0.0.1",
                 arbitrary="1.2.3.4",
                 broadcast="255.255.255.255",
-                extra=(),
             ),
         ),
         pytest.param(
@@ -476,7 +474,6 @@ class Addresses:
                 localhost="::1",
                 arbitrary="1::2",
                 broadcast="::ffff:255.255.255.255",
-                extra=(0, 0),
             ),
             marks=creates_ipv6,
         ),
@@ -485,42 +482,58 @@ class Addresses:
 async def test_SocketType_resolve(socket_type, addrs):
     v6 = socket_type == tsocket.AF_INET6
 
+    def pad(addr):
+        if v6:
+            while len(addr) < 4:
+                addr += (0,)
+        return addr
+
+    def assert_eq(actual, expected):
+        assert pad(expected) == pad(actual)
+
     with tsocket.socket(family=socket_type) as sock:
         # For some reason the stdlib special-cases "" to pass NULL to
         # getaddrinfo They also error out on None, but whatever, None is much
         # more consistent, so we accept it too.
         for null in [None, ""]:
-            got = await sock._resolve_local_address((null, 80))
-            assert got == (addrs.bind_all, 80, *addrs.extra)
-            got = await sock._resolve_remote_address((null, 80))
-            assert got == (addrs.localhost, 80, *addrs.extra)
+            got = await sock._resolve_local_address_nocp((null, 80))
+            assert_eq(got, (addrs.bind_all, 80))
+            got = await sock._resolve_remote_address_nocp((null, 80))
+            assert_eq(got, (addrs.localhost, 80))
 
         # AI_PASSIVE only affects the wildcard address, so for everything else
-        # _resolve_local_address and _resolve_remote_address should work the same:
-        for resolver in ["_resolve_local_address", "_resolve_remote_address"]:
+        # _resolve_local_address_nocp and _resolve_remote_address_nocp should
+        # work the same:
+        for resolver in ["_resolve_local_address_nocp", "_resolve_remote_address_nocp"]:
 
             async def res(*args):
                 return await getattr(sock, resolver)(*args)
 
-            assert await res((addrs.arbitrary, "http")) == (
-                addrs.arbitrary,
-                80,
-                *addrs.extra,
-            )
+            assert_eq(await res((addrs.arbitrary, "http")), (addrs.arbitrary, 80,))
             if v6:
-                assert await res(("1::2", 80, 1)) == ("1::2", 80, 1, 0)
-                assert await res(("1::2", 80, 1, 2)) == ("1::2", 80, 1, 2)
+                # Check handling of different length ipv6 address tuples
+                assert_eq(await res(("1::2", 80)), ("1::2", 80, 0, 0))
+                assert_eq(await res(("1::2", 80, 0)), ("1::2", 80, 0, 0))
+                assert_eq(await res(("1::2", 80, 0, 0)), ("1::2", 80, 0, 0))
+                # Non-zero flowinfo/scopeid get passed through
+                assert_eq(await res(("1::2", 80, 1)), ("1::2", 80, 1, 0))
+                assert_eq(await res(("1::2", 80, 1, 2)), ("1::2", 80, 1, 2))
+
+                # And again with a string port, as a trick to avoid the
+                # already-resolved address fastpath and make sure we call
+                # getaddrinfo
+                assert_eq(await res(("1::2", "80")), ("1::2", 80, 0, 0))
+                assert_eq(await res(("1::2", "80", 0)), ("1::2", 80, 0, 0))
+                assert_eq(await res(("1::2", "80", 0, 0)), ("1::2", 80, 0, 0))
+                assert_eq(await res(("1::2", "80", 1)), ("1::2", 80, 1, 0))
+                assert_eq(await res(("1::2", "80", 1, 2)), ("1::2", 80, 1, 2))
 
                 # V4 mapped addresses resolved if V6ONLY is False
                 sock.setsockopt(tsocket.IPPROTO_IPV6, tsocket.IPV6_V6ONLY, False)
-                assert await res(("1.2.3.4", "http")) == ("::ffff:1.2.3.4", 80, 0, 0,)
+                assert_eq(await res(("1.2.3.4", "http")), ("::ffff:1.2.3.4", 80))
 
             # Check the <broadcast> special case, because why not
-            assert await res(("<broadcast>", 123)) == (
-                addrs.broadcast,
-                123,
-                *addrs.extra,
-            )
+            assert_eq(await res(("<broadcast>", 123)), (addrs.broadcast, 123,))
 
             # But not if it's true (at least on systems where getaddrinfo works
             # correctly)
@@ -711,11 +724,11 @@ async def test_resolve_remote_address_exception_closes_socket():
     with _core.CancelScope() as cancel_scope:
         with tsocket.socket() as sock:
 
-            async def _resolve_remote_address(self, *args, **kwargs):
+            async def _resolve_remote_address_nocp(self, *args, **kwargs):
                 cancel_scope.cancel()
                 await _core.checkpoint()
 
-            sock._resolve_remote_address = _resolve_remote_address
+            sock._resolve_remote_address_nocp = _resolve_remote_address_nocp
             with assert_checkpoints():
                 with pytest.raises(_core.Cancelled):
                     await sock.connect("")

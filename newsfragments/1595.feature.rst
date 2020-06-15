@@ -1,0 +1,3 @@
+If you pass a raw IP address into ``sendto``, it no longer spends any
+time trying to resolve the hostname. If you're using UDP, this should
+substantially reduce your per-packet overhead.
