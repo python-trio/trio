@@ -447,7 +447,7 @@ class _SocketType(SocketType):
             self._sock.close()
 
     async def bind(self, address):
-        address = await self._resolve_local_address(address)
+        address = await self._resolve_local_address_nocp(address)
         if (
             hasattr(_stdlib_socket, "AF_UNIX")
             and self.family == _stdlib_socket.AF_UNIX
@@ -461,6 +461,7 @@ class _SocketType(SocketType):
             # complete asynchronously, like connect. But in practice AFAICT
             # there aren't yet any real systems that do this, so we'll worry
             # about it when it happens.
+            await trio.lowlevel.checkpoint()
             return self._sock.bind(address)
 
     def shutdown(self, flag):
@@ -489,7 +490,9 @@ class _SocketType(SocketType):
     # Take an address in Python's representation, and returns a new address in
     # the same representation, but with names resolved to numbers,
     # etc.
-    async def _resolve_address(self, address, flags):
+    #
+    # NOTE: this function does not always checkpoint
+    async def _resolve_address_nocp(self, address, flags):
         # Do some pre-checking (or exit early for non-IP sockets)
         if self._sock.family == _stdlib_socket.AF_INET:
             if not isinstance(address, tuple) or not len(address) == 2:
@@ -500,14 +503,23 @@ class _SocketType(SocketType):
                     "address should be a (host, port, [flowinfo, [scopeid]]) tuple"
                 )
         elif self._sock.family == _stdlib_socket.AF_UNIX:
-            await trio.lowlevel.checkpoint()
             # unwrap path-likes
             return _os.fspath(address)
-
         else:
-            await trio.lowlevel.checkpoint()
             return address
+
+        # -- From here on we know we have IPv4 or IPV6 --
         host, port, *_ = address
+        # Fast path for the simple case: already-resolved IP address,
+        # already-resolved port. This is particularly important for UDP, since
+        # every sendto call goes through here.
+        if isinstance(port, int):
+            try:
+                _stdlib_socket.inet_pton(self._sock.family, address[0])
+            except (OSError, TypeError):
+                pass
+            else:
+                return address
         # Special cases to match the stdlib, see gh-277
         if host == "":
             host = None
@@ -544,12 +556,16 @@ class _SocketType(SocketType):
         return normed
 
     # Returns something appropriate to pass to bind()
-    async def _resolve_local_address(self, address):
-        return await self._resolve_address(address, _stdlib_socket.AI_PASSIVE)
+    #
+    # NOTE: this function does not always checkpoint
+    async def _resolve_local_address_nocp(self, address):
+        return await self._resolve_address_nocp(address, _stdlib_socket.AI_PASSIVE)
 
     # Returns something appropriate to pass to connect()/sendto()/sendmsg()
-    async def _resolve_remote_address(self, address):
-        return await self._resolve_address(address, 0)
+    #
+    # NOTE: this function does not always checkpoint
+    async def _resolve_remote_address_nocp(self, address):
+        return await self._resolve_address_nocp(address, 0)
 
     async def _nonblocking_helper(self, fn, args, kwargs, wait_fn):
         # We have to reconcile two conflicting goals:
@@ -606,7 +622,7 @@ class _SocketType(SocketType):
         # notification. This means it isn't really cancellable... we close the
         # socket if cancelled, to avoid confusion.
         try:
-            address = await self._resolve_remote_address(address)
+            address = await self._resolve_remote_address_nocp(address)
             async with _try_sync():
                 # An interesting puzzle: can a non-blocking connect() return EINTR
                 # (= raise InterruptedError)? PEP 475 specifically left this as
@@ -732,7 +748,7 @@ class _SocketType(SocketType):
         # args is: data[, flags], address)
         # and kwargs are not accepted
         args = list(args)
-        args[-1] = await self._resolve_remote_address(args[-1])
+        args[-1] = await self._resolve_remote_address_nocp(args[-1])
         return await self._nonblocking_helper(
             _stdlib_socket.socket.sendto, args, {}, _core.wait_writable
         )
@@ -755,7 +771,7 @@ class _SocketType(SocketType):
             # and kwargs are not accepted
             if len(args) == 4 and args[-1] is not None:
                 args = list(args)
-                args[-1] = await self._resolve_remote_address(args[-1])
+                args[-1] = await self._resolve_remote_address_nocp(args[-1])
             return await self._nonblocking_helper(
                 _stdlib_socket.socket.sendmsg, args, {}, _core.wait_writable
             )
