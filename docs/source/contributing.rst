@@ -5,7 +5,7 @@ Contributing to Trio and related projects
 
 So you're interested in contributing to Trio or `one of our associated
 projects <https://github.com/python-trio>`__? That's awesome! Trio is
-is an open-source project maintained by an informal group of
+an open-source project maintained by an informal group of
 volunteers. Our goal is to make async I/O in Python more fun, easy,
 and reliable, and we can't do it without help from people like you. We
 welcome contributions from anyone willing to work in good faith with
