@@ -363,7 +363,7 @@ Documentation is hosted at `Read the Docs
 rebuilding it after every commit.
 
 For docstrings, we use `the Google docstring format
-<http://www.sphinx-doc.org/en/stable/ext/example_google.html#example-google>`__.
+<https://www.sphinx-doc.org/en/3.x/usage/extensions/example_google.html#example-google-style-python-docstrings>`__.
 If you add a new function or class, there's no mechanism for
 automatically adding that to the docs: you'll have to at least add a
 line like ``.. autofunction:: <your function>`` in the appropriate
