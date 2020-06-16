@@ -44,6 +44,7 @@ class KqueueIOManager:
 
     def close(self):
         self._kqueue.close()
+        self._force_wakeup.close()
 
     def force_wakeup(self):
         self._force_wakeup.wakeup_thread_and_signal_safe()
