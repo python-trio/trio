@@ -104,12 +104,6 @@ if False:
 
 _deprecate.enable_attribute_deprecations(__name__)
 __deprecated_attributes__ = {
-    "run_sync_in_worker_thread": _deprecate.DeprecatedAttribute(
-        to_thread.run_sync, "0.12.0", issue=810,
-    ),
-    "current_default_worker_thread_limiter": _deprecate.DeprecatedAttribute(
-        to_thread.current_default_thread_limiter, "0.12.0", issue=810,
-    ),
     # NOTE: when you remove this, you should also remove the file
     # trio/hazmat.py. For details on why we have both, see:
     #
@@ -119,21 +113,6 @@ __deprecated_attributes__ = {
     ),
 }
 
-_deprecate.enable_attribute_deprecations(lowlevel.__name__)
-lowlevel.__deprecated_attributes__ = {
-    "wait_socket_readable": _deprecate.DeprecatedAttribute(
-        lowlevel.wait_readable, "0.12.0", issue=878,
-    ),
-    "wait_socket_writable": _deprecate.DeprecatedAttribute(
-        lowlevel.wait_writable, "0.12.0", issue=878,
-    ),
-    "notify_socket_close": _deprecate.DeprecatedAttribute(
-        lowlevel.notify_closing, "0.12.0", issue=878,
-    ),
-    "notify_fd_close": _deprecate.DeprecatedAttribute(
-        lowlevel.notify_closing, "0.12.0", issue=878,
-    ),
-}
 
 # Having the public path in .__module__ attributes is important for:
 # - exception names in printed tracebacks
