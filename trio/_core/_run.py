@@ -45,6 +45,8 @@ from .. import _core
 from .._deprecate import warn_deprecated
 from .._util import Final, NoPublicConstructor, coroutine_or_error
 
+DEADLINE_HEAP_MIN_PRUNE_THRESHOLD = 1000
+
 _NO_SEND = object()
 
 
@@ -155,6 +157,27 @@ class Deadlines:
                 heappop(self._heap)
         return inf
 
+    def _prune(self):
+        # In principle, it's possible for a cancel scope to toggle back and
+        # forth repeatedly between the same two deadlines, and end up with
+        # lots of stale entries that *look* like they're still active, because
+        # their deadline is correct, but in fact are redundant. So when
+        # pruning we have to eliminate entries with the wrong deadline, *and*
+        # eliminate duplicates.
+        seen = set()
+        pruned_heap = []
+        for deadline, tiebreaker, cancel_scope in self._heap:
+            if deadline == cancel_scope._registered_deadline:
+                if cancel_scope in seen:
+                    continue
+                seen.add(cancel_scope)
+                pruned_heap.append((deadline, tiebreaker, cancel_scope))
+        # See test_cancel_scope_deadline_duplicates for a test that exercises
+        # this assert:
+        assert len(pruned_heap) == self._active
+        heapify(pruned_heap)
+        self._heap = pruned_heap
+
     def expire(self, now):
         did_something = False
         while self._heap and self._heap[0][0] <= now:
@@ -167,9 +190,8 @@ class Deadlines:
         # If we've accumulated too many stale entries, then prune the heap to
         # keep it under control. (We only do this occasionally in a batch, to
         # keep the amortized cost down)
-        if len(self._heap) > self._active * 2 + 1000:
-            self._heap = [t for t in self._heap if t[0] == t[2]._registered_deadline]
-            heapify(self._heap)
+        if len(self._heap) > self._active * 2 + DEADLINE_HEAP_MIN_PRUNE_THRESHOLD:
+            self._prune()
         return did_something
 
 
