@@ -23,7 +23,7 @@ from sniffio import current_async_library_cvar
 import attr
 from heapq import heapify, heappop, heappush
 from sortedcontainers import SortedDict
-from outcome import Error, Value, capture
+from outcome import Error, Outcome, Value, capture
 
 from ._entry_queue import EntryQueue, TrioToken
 from ._exceptions import TrioInternalError, RunFinishedError, Cancelled
@@ -1225,7 +1225,7 @@ class GuestState:
     done_callback = attr.ib()
     unrolled_run_gen = attr.ib()
     _value_factory: Callable[[], Value] = lambda: Value(None)
-    unrolled_run_next_send = attr.ib(factory=_value_factory, type=Value)
+    unrolled_run_next_send = attr.ib(factory=_value_factory, type=Outcome)
 
     def guest_tick(self):
         try:
