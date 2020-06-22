@@ -1,0 +1,2 @@
+We switched to a new, lower-overhead data structure to track upcoming
+timeouts, which should make your programs faster.

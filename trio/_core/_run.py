@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any, Callable
 from sniffio import current_async_library_cvar
 
 import attr
+from heapq import heapify, heappop, heappush
 from sortedcontainers import SortedDict
 from outcome import Error, Value, capture
 
@@ -35,6 +36,7 @@ from ._multierror import MultiError
 from ._traps import (
     Abort,
     wait_task_rescheduled,
+    cancel_shielded_checkpoint,
     CancelShieldedCheckpoint,
     PermanentlyDetachCoroutineObject,
     WaitTaskRescheduled,
@@ -43,6 +45,8 @@ from ._thread_cache import start_thread_soon
 from .. import _core
 from .._deprecate import warn_deprecated
 from .._util import Final, NoPublicConstructor, coroutine_or_error
+
+DEADLINE_HEAP_MIN_PRUNE_THRESHOLD = 1000
 
 _NO_SEND = object()
 
@@ -121,6 +125,75 @@ class IdlePrimedTypes(enum.Enum):
 ################################################################
 # CancelScope and friends
 ################################################################
+
+
+@attr.s(eq=False, slots=True)
+class Deadlines:
+    """A container of deadlined cancel scopes.
+
+    Only contains scopes with non-infinite deadlines that are currently
+    attached to at least one task.
+
+    """
+
+    # Heap of (deadline, id(CancelScope), CancelScope)
+    _heap = attr.ib(factory=list)
+    # Count of active deadlines (those that haven't been changed)
+    _active = attr.ib(default=0)
+
+    def add(self, deadline, cancel_scope):
+        heappush(self._heap, (deadline, id(cancel_scope), cancel_scope))
+        self._active += 1
+
+    def remove(self, deadline, cancel_scope):
+        self._active -= 1
+
+    def next_deadline(self):
+        while self._heap:
+            deadline, _, cancel_scope = self._heap[0]
+            if deadline == cancel_scope._registered_deadline:
+                return deadline
+            else:
+                # This entry is stale; discard it and try again
+                heappop(self._heap)
+        return inf
+
+    def _prune(self):
+        # In principle, it's possible for a cancel scope to toggle back and
+        # forth repeatedly between the same two deadlines, and end up with
+        # lots of stale entries that *look* like they're still active, because
+        # their deadline is correct, but in fact are redundant. So when
+        # pruning we have to eliminate entries with the wrong deadline, *and*
+        # eliminate duplicates.
+        seen = set()
+        pruned_heap = []
+        for deadline, tiebreaker, cancel_scope in self._heap:
+            if deadline == cancel_scope._registered_deadline:
+                if cancel_scope in seen:
+                    continue
+                seen.add(cancel_scope)
+                pruned_heap.append((deadline, tiebreaker, cancel_scope))
+        # See test_cancel_scope_deadline_duplicates for a test that exercises
+        # this assert:
+        assert len(pruned_heap) == self._active
+        heapify(pruned_heap)
+        self._heap = pruned_heap
+
+    def expire(self, now):
+        did_something = False
+        while self._heap and self._heap[0][0] <= now:
+            deadline, _, cancel_scope = heappop(self._heap)
+            if deadline == cancel_scope._registered_deadline:
+                did_something = True
+                # This implicitly calls self.remove(), so we don't need to
+                # decrement _active here
+                cancel_scope.cancel()
+        # If we've accumulated too many stale entries, then prune the heap to
+        # keep it under control. (We only do this occasionally in a batch, to
+        # keep the amortized cost down)
+        if len(self._heap) > self._active * 2 + DEADLINE_HEAP_MIN_PRUNE_THRESHOLD:
+            self._prune()
+        return did_something
 
 
 @attr.s(eq=False, slots=True)
@@ -518,13 +591,13 @@ class CancelScope(metaclass=Final):
                 self._registered_deadline = new
                 runner = GLOBAL_RUN_CONTEXT.runner
                 if runner.is_guest:
-                    old_next_deadline = runner.next_deadline()
+                    old_next_deadline = runner.deadlines.next_deadline()
                 if old != inf:
-                    del runner.deadlines[old, id(self)]
+                    runner.deadlines.remove(old, self)
                 if new != inf:
-                    runner.deadlines[new, id(self)] = self
+                    runner.deadlines.add(new, self)
                 if runner.is_guest:
-                    new_next_deadline = runner.next_deadline()
+                    new_next_deadline = runner.deadlines.next_deadline()
                     if old_next_deadline != new_next_deadline:
                         runner.force_guest_tick_asap()
 
@@ -1202,10 +1275,7 @@ class Runner:
     runq = attr.ib(factory=deque)
     tasks = attr.ib(factory=set)
 
-    # {(deadline, id(CancelScope)): CancelScope}
-    # only contains scopes with non-infinite deadlines that are currently
-    # attached to at least one task
-    deadlines = attr.ib(factory=SortedDict)
+    deadlines = attr.ib(factory=Deadlines)
 
     init_task = attr.ib(default=None)
     system_nursery = attr.ib(default=None)
@@ -1237,14 +1307,6 @@ class Runner:
         # This is where KI protection gets disabled, so we do it last
         self.ki_manager.close()
 
-    def next_deadline(self):
-        try:
-            (next_deadline, _), _ = self.deadlines.peekitem(0)
-        except IndexError:
-            return inf
-        else:
-            return next_deadline
-
     @_public
     def current_statistics(self):
         """Returns an object containing run-loop-level debugging information.
@@ -1269,7 +1331,7 @@ class Runner:
           other attributes vary between backends.
 
         """
-        seconds_to_next_deadline = self.next_deadline() - self.current_time()
+        seconds_to_next_deadline = self.deadlines.next_deadline() - self.current_time()
         return _RunStatistics(
             tasks_living=len(self.tasks),
             tasks_runnable=len(self.runq),
@@ -2010,11 +2072,9 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
         while runner.tasks:
             if runner.runq:
                 timeout = 0
-            elif runner.deadlines:
-                deadline, _ = runner.deadlines.keys()[0]
-                timeout = runner.clock.deadline_to_sleep_time(deadline)
             else:
-                timeout = _MAX_TIMEOUT
+                deadline = runner.deadlines.next_deadline()
+                timeout = runner.clock.deadline_to_sleep_time(deadline)
             timeout = min(max(0, timeout), _MAX_TIMEOUT)
 
             idle_primed = None
@@ -2043,14 +2103,8 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
 
             # Process cancellations due to deadline expiry
             now = runner.clock.current_time()
-            while runner.deadlines:
-                (deadline, _), cancel_scope = runner.deadlines.peekitem(0)
-                if deadline <= now:
-                    # This removes the given scope from runner.deadlines:
-                    cancel_scope.cancel()
-                    idle_primed = None
-                else:
-                    break
+            if runner.deadlines.expire(now):
+                idle_primed = None
 
             # idle_primed != None means: if the IO wait hit the timeout, and
             # still nothing is happening, then we should start waking up
@@ -2285,8 +2339,17 @@ async def checkpoint():
     :func:`checkpoint`.)
 
     """
-    with CancelScope(deadline=-inf):
-        await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
+    # The scheduler is what checks timeouts and converts them into
+    # cancellations. So by doing the schedule point first, we ensure that the
+    # cancel point has the most up-to-date info.
+    await cancel_shielded_checkpoint()
+    task = current_task()
+    task._cancel_points += 1
+    if task._cancel_status.effectively_cancelled or (
+        task is task._runner.main_task and task._runner.ki_pending
+    ):
+        with CancelScope(deadline=-inf):
+            await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
 
 
 async def checkpoint_if_cancelled():
