@@ -2385,7 +2385,7 @@ elif sys.platform == "linux" or (not TYPE_CHECKING and hasattr(select, "epoll"))
 elif (
     sys.platform == "darwin"
     or sys.platform.startswith("freebsd")
-    or (not TYPE_CHECKING and hasattr(select, "epoll"))
+    or (not TYPE_CHECKING and hasattr(select, "kqueue"))
 ):
     from ._io_kqueue import KqueueIOManager as TheIOManager
     from ._generated_io_kqueue import *
