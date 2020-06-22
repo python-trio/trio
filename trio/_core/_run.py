@@ -16,7 +16,7 @@ import enum
 from contextvars import copy_context
 from math import inf
 from time import perf_counter
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 from sniffio import current_async_library_cvar
 
@@ -1151,7 +1151,8 @@ class GuestState:
     run_sync_soon_not_threadsafe = attr.ib()
     done_callback = attr.ib()
     unrolled_run_gen = attr.ib()
-    unrolled_run_next_send = attr.ib(factory=lambda: Value(None), type=object)
+    _value_factory: Callable[[], Value] = lambda: Value(None)
+    unrolled_run_next_send = attr.ib(factory=_value_factory, type=Value)
 
     def guest_tick(self):
         try:
