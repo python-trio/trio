@@ -39,8 +39,7 @@ Trio – a friendly Python library for async concurrency and I/O
    :width: 200px
    :align: right
 
-The Trio project's goal is to produce a production-quality,
-`permissively licensed
+Trio is a production-quality, `permissively licensed
 <https://github.com/python-trio/trio/blob/master/LICENSE>`__,
 async/await-native I/O library for Python. Like all async libraries,
 its main purpose is to help you write programs that do **multiple
@@ -49,9 +48,9 @@ wants to fetch lots of pages in parallel, a web server that needs to
 juggle lots of downloads and websocket connections at the same time, a
 process supervisor monitoring multiple subprocesses... that sort of
 thing. Compared to other libraries, Trio attempts to distinguish
-itself with an obsessive focus on **usability** and
-**correctness**. Concurrency is complicated; we try to make it *easy*
-to get things *right*.
+itself with an obsessive focus on **usability** and **correctness**.
+Concurrency is complicated; we try to make it *easy* to get things
+*right*.
 
 Trio was built from the ground up to take advantage of the `latest
 Python features <https://www.python.org/dev/peps/pep-0492/>`__, and
@@ -65,14 +64,6 @@ the Python I/O library I always wanted; I find it makes building
 I/O-oriented programs easier, less error-prone, and just plain more
 fun. `Perhaps you'll find the same
 <https://github.com/python-trio/trio/wiki/Testimonials>`__.
-
-This project is young and still somewhat experimental: the overall
-design is solid and the existing features are fully tested and
-documented, but you may encounter missing functionality or rough
-edges. We *do* encourage you to use it, but you should `read and
-subscribe to issue #1
-<https://github.com/python-trio/trio/issues/1>`__ to get warning and a
-chance to give feedback about any compatibility-breaking changes.
 
 
 Where to next?
