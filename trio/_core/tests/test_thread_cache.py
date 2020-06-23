@@ -4,7 +4,7 @@ from queue import Queue
 import time
 import sys
 
-from .tutil import slow
+from .tutil import slow, gc_collect_harder
 from .. import _thread_cache
 from .._thread_cache import start_thread_soon, ThreadCache
 
@@ -23,6 +23,29 @@ def test_thread_cache_basics():
     outcome = q.get()
     with pytest.raises(RuntimeError, match="hi"):
         outcome.unwrap()
+
+
+def test_thread_cache_deref():
+    res = [False]
+
+    class del_me:
+        def __call__(self):
+            return 42
+
+        def __del__(self):
+            res[0] = True
+
+    q = Queue()
+
+    def deliver(outcome):
+        q.put(outcome)
+
+    start_thread_soon(del_me(), deliver)
+    outcome = q.get()
+    assert outcome.unwrap() == 42
+
+    gc_collect_harder()
+    assert res[0]
 
 
 @slow
