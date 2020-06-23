@@ -4,7 +4,6 @@ and deal with private internal data structures. Things in this namespace
 are publicly available in either trio, trio.lowlevel, or trio.testing.
 """
 
-import typing as _t
 import sys
 
 from ._exceptions import (
@@ -76,13 +75,6 @@ from ._thread_cache import start_thread_soon
 
 from ._mock_clock import MockClock
 
-# Kqueue imports
-if not _t.TYPE_CHECKING:  # pragma: no branch
-    try:
-        from ._run import current_kqueue, monitor_kevent, wait_kevent
-    except ImportError:
-        pass
-
 # Windows imports
 if sys.platform == "win32":
     from ._run import (
@@ -93,3 +85,6 @@ if sys.platform == "win32":
         write_overlapped,
         readinto_overlapped,
     )
+# Kqueue imports
+elif sys.platform != "linux" and sys.platform != "win32":
+    from ._run import current_kqueue, monitor_kevent, wait_kevent
