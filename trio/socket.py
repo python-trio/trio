@@ -194,3 +194,9 @@ except NameError:
         TCP_NOTSENT_LOWAT = 0x201
     elif _sys.platform == "linux":
         TCP_NOTSENT_LOWAT = 25
+
+try:
+    IP_BIND_ADDRESS_NO_PORT
+except NameError:
+    if _sys.platform == "linux":
+        IP_BIND_ADDRESS_NO_PORT = 24
