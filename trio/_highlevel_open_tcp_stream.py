@@ -319,7 +319,7 @@ async def open_tcp_stream(
                     sock.setsockopt(
                         trio.socket.IPPROTO_IP, trio.socket.IP_BIND_ADDRESS_NO_PORT, 1
                     )
-                except (OSError, NameError):
+                except (OSError, AttributeError):
                     pass
                 try:
                     await sock.bind((local_address, 0))

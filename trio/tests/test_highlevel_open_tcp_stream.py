@@ -146,6 +146,11 @@ async def test_local_address_real():
             *listener.getsockname(), local_address=local_address
         ) as client_stream:
             assert client_stream.socket.getsockname()[0] == local_address
+            if hasattr(trio.socket, "IP_BIND_ADDRESS_NO_PORT"):
+                assert client_stream.socket.getsockopt(
+                    trio.socket.IPPROTO_IP, trio.socket.IP_BIND_ADDRESS_NO_PORT
+                )
+
             server_sock, remote_addr = await listener.accept()
             await client_stream.aclose()
             server_sock.close()
