@@ -1,4 +1,5 @@
 import select
+import sys
 import attr
 from collections import defaultdict
 from typing import Dict
@@ -7,6 +8,8 @@ from .. import _core
 from ._run import _public
 from ._io_common import wake_all
 from ._wakeup_socketpair import WakeupSocketpair
+
+assert sys.platform == "linux"
 
 
 @attr.s(slots=True, eq=False, frozen=True)
