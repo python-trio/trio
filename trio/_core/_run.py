@@ -1448,7 +1448,7 @@ class Runner:
 
         if name is None:
             name = async_fn
-        if isinstance(name, partial):
+        if isinstance(name, functools.partial):
             name = name.func
         if not isinstance(name, str):
             try:
