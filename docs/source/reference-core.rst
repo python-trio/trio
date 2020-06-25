@@ -1460,6 +1460,180 @@ don't have any special access to Trio's internals.)
    :members:
 
 
+.. _async-generators:
+
+Notes on async generators
+-------------------------
+
+Python 3.6 added support for *async generators*, which can use
+``await``, ``async for``, and ``async with`` in between their ``yield``
+statements. As you might expect, you use ``async for`` to iterate
+over them. :pep:`525` has many more details if you want them.
+
+For example, the following is a roundabout way to print
+the numbers 0 through 9 with a 1-second delay before each one::
+
+    async def range_slowly(*args):
+        """Like range(), but adds a 1-second sleep before each value."""
+        for value in range(*args):
+            await trio.sleep(1)
+            yield value
+
+    async def use_it():
+        async for value in range_slowly(10):
+            print(value)
+
+    trio.run(use_it)
+
+Trio supports async generators, with some caveats described in this section.
+
+Finalization
+~~~~~~~~~~~~
+
+If you iterate over an async generator in its entirety, like the
+example above does, then the execution of the async generator will
+occur completely in the context of the code that's iterating over it,
+and there aren't too many surprises.
+
+If you abandon a partially-completed async generator, though, such as
+by ``break``\ing out of the iteration, things aren't so simple.  The
+async generator iterator object is still alive, waiting for you to
+resume iterating it so it can produce more values. At some point,
+Python will realize that you've dropped all references to the
+iterator, and will call on Trio to help with executing any remaining
+cleanup code inside the generator: ``finally`` blocks, ``__aexit__``
+handlers, and so on.
+
+So far, so good. Unfortunately, Python provides no guarantees about
+*when* this happens. It could be as soon as you break out of the
+``async for`` loop, or an arbitrary amount of time later. It could
+even be after the entire Trio run has finished! Just about the only
+guarantee is that it *won't* happen in the task that was using the
+generator. That task will continue on with whatever else it's doing,
+and the async generator cleanup will happen "sometime later,
+somewhere else".
+
+If you don't like that ambiguity, and you want to ensure that a
+generator's ``finally`` blocks and ``__aexit__`` handlers execute as
+soon as you're done using it, then you'll need to wrap your use of the
+generator in something like `async_generator.aclosing()
+<https://async-generator.readthedocs.io/en/latest/reference.html#context-managers>`__::
+
+    # Instead of this:
+    async for value in my_generator():
+        if value == 42:
+            break
+
+    # Do this:
+    async with aclosing(my_generator()) as aiter:
+        async for value in aiter:
+            if value == 42:
+                break
+
+This is cumbersome, but Python unfortunately doesn't provide any other
+reliable options. If you use ``aclosing()``, then
+your generator's cleanup code executes in the same context as the
+rest of its iterations, so timeouts, exceptions, and context
+variables work like you'd expect.
+
+If you don't use ``aclosing()``, then Trio will do
+its best anyway, but you'll have to contend with the following semantics:
+
+* The cleanup of the generator occurs in a cancelled context, i.e.,
+  all blocking calls executed during cleanup will raise `Cancelled`.
+  This is to compensate for the fact that any timeouts surrounding
+  the original use of the generator have been long since forgotten.
+
+* The cleanup runs without access to any :ref:`context variables
+  <task-local-storage>` that may have been present when the generator
+  was originally being used.
+
+* If the generator raises an exception during cleanup, then it's
+  printed to the ``trio.async_generator_errors`` logger and otherwise
+  ignored.
+
+* If an async generator is still alive at the end of the whole
+  call to :func:`trio.run`, then it will be cleaned up after all
+  tasks have exited and before :func:`trio.run` returns.
+  Since the "system nursery" has already been closed at this point,
+  Trio isn't able to support any new calls to
+  :func:`trio.lowlevel.spawn_system_task`.
+
+If you plan to run your code on PyPy to take advantage of its better
+performance, you should be aware that PyPy is *far more likely* than
+CPython to perform async generator cleanup at a time well after the
+last use of the generator. (This is a consequence of the fact that
+PyPy does not use reference counting to manage memory.)  To help catch
+issues like this, Trio will issue a `ResourceWarning` (ignored by
+default, but enabled when running under ``python -X dev`` for example)
+for each async generator that needs to be handled through the fallback
+finalization path.
+
+Cancel scopes and nurseries
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**You may not write a ``yield`` statement that suspends an async generator
+inside a `CancelScope` or `Nursery` that was entered within the generator.**
+
+That is, this is OK::
+
+    async def some_agen():
+        with trio.move_on_after(1):
+            await long_operation()
+        yield "first"
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(task1)
+            nursery.start_soon(task2)
+        yield "second"
+        ...
+
+But this is not::
+
+    async def some_agen():
+        with trio.move_on_after(1):
+            yield "first"
+        async with trio.open_nursery() as nursery:
+            yield "second"
+        ...
+
+Async generators decorated with ``@asynccontextmanager`` to serve as
+the template for an async context manager are *not* subject to this
+constraint, because ``@asynccontextmanager`` uses them in a limited
+way that doesn't create problems.
+
+Violating the rule described in this section will sometimes get you a
+useful error message, but Trio is not able to detect all such cases,
+so sometimes you'll get an unhelpful `TrioInternalError`. (And
+sometimes it will seem to work, which is probably the worst outcome of
+all, since then you might not notice the issue until you perform some
+minor refactoring of the generator or the code that's iterating it, or
+just get unlucky. There is a `proposed Python enhancement
+<https://discuss.python.org/t/preventing-yield-inside-certain-context-managers/1091>`__
+that would at least make it fail consistently.)
+
+The reason for the restriction on cancel scopes has to do with the
+difficulty of noticing when a generator gets suspended and
+resumed. The cancel scopes inside the generator shouldn't affect code
+running outside the generator, but Trio isn't involved in the process
+of exiting and reentering the generator, so it would be hard pressed
+to keep its cancellation plumbing in the correct state. Nurseries
+use a cancel scope internally, so they have all the problems of cancel
+scopes plus a number of problems of their own: for example, when
+the generator is suspended, what should the background tasks do?
+There's no good way to suspend them, but if they keep running and throw
+an exception, where can that exception be reraised?
+
+If you have an async generator that wants to ``yield`` from within a nursery
+or cancel scope, your best bet is to refactor it to be a separate task
+that communicates over memory channels.
+
+For more discussion and some experimental partial workarounds, see
+Trio issues `264 <https://github.com/python-trio/trio/issues/264>`__
+(especially `this comment
+<https://github.com/python-trio/trio/issues/264#issuecomment-418989328>`__)
+and `638 <https://github.com/python-trio/trio/issues/638>`__.
+
+
 .. _threads:
 
 Threads (if you must)
