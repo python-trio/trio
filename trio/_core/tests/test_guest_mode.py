@@ -13,7 +13,7 @@ import time
 
 import trio
 import trio.testing
-from .tutil import gc_collect_harder
+from .tutil import gc_collect_harder, buggy_pypy_asyncgens
 from ..._util import signal_raise
 
 # The simplest possible "host" loop.
@@ -501,12 +501,9 @@ def test_guest_mode_autojump_clock_threshold_changing():
     assert end - start < DURATION / 2
 
 
-@pytest.mark.skipif(
-    sys.implementation.name == "pypy" and sys.pypy_version_info < (7, 3),
-    reason="PyPy 7.2 has a buggy implementation of async generator hooks",
-)
+@pytest.mark.skipif(buggy_pypy_asyncgens, reason="PyPy 7.2 is buggy")
 def test_guest_mode_asyncgens():
-    import sniffio, sys
+    import sniffio
 
     record = set()
 
@@ -525,8 +522,7 @@ def test_guest_mode_asyncgens():
     async def iterate_in_aio():
         # "trio" gets inherited from our Trio caller if we don't set this
         sniffio.current_async_library_cvar.set("asyncio")
-        async for _ in agen("asyncio"):
-            break
+        await agen("asyncio").asend(None)
 
     async def trio_main():
         task = asyncio.ensure_future(iterate_in_aio())
@@ -535,8 +531,7 @@ def test_guest_mode_asyncgens():
         with trio.fail_after(1):
             await done_evt.wait()
 
-        async for _ in agen("trio"):
-            break
+        await agen("trio").asend(None)
 
         gc_collect_harder()
 

@@ -5,15 +5,7 @@ from math import inf
 from functools import partial
 from async_generator import aclosing
 from ... import _core
-from .tutil import gc_collect_harder
-
-
-# PyPy 7.2 was released with a bug that just never called firstiter at
-# all.  This impacts tests of end-of-run finalization (nothing gets
-# added to runner.asyncgens) and tests of "foreign" async generator
-# behavior (since the firstiter hook is what marks the asyncgen as
-# foreign), but most tests of GC-mediated finalization still work.
-bad_pypy = sys.implementation.name == "pypy" and sys.pypy_version_info < (7, 3)
+from .tutil import gc_collect_harder, buggy_pypy_asyncgens
 
 
 def test_asyncgen_basics():
@@ -48,18 +40,14 @@ def test_asyncgen_basics():
         with pytest.warns(
             ResourceWarning, match="Async generator.*collected before.*exhausted",
         ):
-            async for val in example("abandoned"):
-                assert val == 42
-                break
+            assert 42 == await example("abandoned").asend(None)
             gc_collect_harder()
         await _core.wait_all_tasks_blocked()
         assert collected.pop() == "abandoned"
 
         # aclosing() ensures it's cleaned up at point of use
         async with aclosing(example("exhausted 1")) as aiter:
-            async for val in aiter:
-                assert val == 42
-                break
+            assert 42 == await aiter.asend(None)
         assert collected.pop() == "exhausted 1"
 
         # Also fine if you exhaust it at point of use
@@ -72,9 +60,7 @@ def test_asyncgen_basics():
         # No problems saving the geniter when using either of these patterns
         async with aclosing(example("exhausted 3")) as aiter:
             saved.append(aiter)
-            async for val in aiter:
-                assert val == 42
-                break
+            assert 42 == await aiter.asend(None)
         assert collected.pop() == "exhausted 3"
 
         # Also fine if you exhaust it at point of use
@@ -84,13 +70,11 @@ def test_asyncgen_basics():
         assert collected.pop() == "exhausted 4"
 
         # Leave one referenced-but-unexhausted and make sure it gets cleaned up
-        if bad_pypy:
+        if buggy_pypy_asyncgens:
             collected.append("outlived run")
         else:
             saved.append(example("outlived run"))
-            async for val in saved[-1]:
-                assert val == 42
-                break
+            assert 42 == await saved[-1].asend(None)
             assert collected == []
 
     _core.run(async_main)
@@ -99,7 +83,28 @@ def test_asyncgen_basics():
         assert agen.ag_frame is None  # all should now be exhausted
 
 
-@pytest.mark.skipif(bad_pypy, reason="pypy 7.2.0 is buggy")
+async def test_asyncgen_throws_during_finalization(caplog):
+    record = []
+
+    async def agen():
+        try:
+            yield 1
+        finally:
+            await _core.cancel_shielded_checkpoint()
+            record.append("crashing")
+            raise ValueError("oops")
+
+    await agen().asend(None)
+    gc_collect_harder()
+    await _core.wait_all_tasks_blocked()
+    assert record == ["crashing"]
+    exc_type, exc_value, exc_traceback = caplog.records[0].exc_info
+    assert exc_type is ValueError
+    assert str(exc_value) == "oops"
+    assert "during finalization of async generator" in caplog.records[0].message
+
+
+@pytest.mark.skipif(buggy_pypy_asyncgens, reason="pypy 7.2.0 is buggy")
 def test_firstiter_after_closing():
     saved = []
     record = []
@@ -114,8 +119,7 @@ def test_firstiter_after_closing():
             yield 2
         finally:
             record.append("cleanup 2")
-            async for _ in funky_agen():
-                break
+            await funky_agen().asend(None)
 
     async def async_main():
         aiter = funky_agen()
@@ -127,7 +131,7 @@ def test_firstiter_after_closing():
     assert record == ["cleanup 2", "cleanup 1"]
 
 
-@pytest.mark.skipif(bad_pypy, reason="pypy 7.2.0 is buggy")
+@pytest.mark.skipif(buggy_pypy_asyncgens, reason="pypy 7.2.0 is buggy")
 def test_interdependent_asyncgen_cleanup_order():
     saved = []
     record = []
@@ -159,9 +163,7 @@ def test_interdependent_asyncgen_cleanup_order():
         for idx in range(100):
             ag_chain = agen(idx, ag_chain)
         saved.append(ag_chain)
-        async for val in ag_chain:
-            assert val == 1
-            break
+        assert 1 == await ag_chain.asend(None)
         assert record == []
 
     _core.run(async_main)
@@ -191,7 +193,7 @@ def test_last_minute_gc_edge_case():
         else:
             try:
                 token.run_sync_soon(collect_at_opportune_moment, token)
-            except _core.RunFinishedError:
+            except _core.RunFinishedError:  # pragma: no cover
                 nonlocal needs_retry
                 needs_retry = True
 
@@ -199,8 +201,7 @@ def test_last_minute_gc_edge_case():
         token = _core.current_trio_token()
         token.run_sync_soon(collect_at_opportune_moment, token)
         saved.append(agen())
-        async for _ in saved[-1]:
-            break
+        await saved[-1].asend(None)
 
     # Actually running into the edge case requires that the run_sync_soon task
     # execute in between the system nursery's closure and the strong-ification
@@ -213,13 +214,13 @@ def test_last_minute_gc_edge_case():
         del record[:]
         del saved[:]
         _core.run(async_main)
-        if needs_retry:
-            if not bad_pypy:
+        if needs_retry:  # pragma: no cover
+            if not buggy_pypy_asyncgens:
                 assert record == ["cleaned up"]
         else:
             assert record == ["final collection", "done", "cleaned up"]
             break
-    else:
+    else:  # pragma: no cover
         pytest.fail(
             f"Didn't manage to hit the trailing_finalizer_asyncgens case "
             f"despite trying {attempt} times"
@@ -251,7 +252,7 @@ async def step_outside_async_context(aiter):
         nursery.cancel_scope.deadline = _core.current_time()
 
 
-@pytest.mark.skipif(bad_pypy, reason="pypy 7.2.0 is buggy")
+@pytest.mark.skipif(buggy_pypy_asyncgens, reason="pypy 7.2.0 is buggy")
 async def test_fallback_when_no_hook_claims_it(capsys):
     async def well_behaved():
         yield 42
@@ -279,7 +280,7 @@ async def test_fallback_when_no_hook_claims_it(capsys):
     assert "awaited during finalization" in capsys.readouterr().err
 
 
-@pytest.mark.skipif(bad_pypy, reason="pypy 7.2.0 is buggy")
+@pytest.mark.skipif(buggy_pypy_asyncgens, reason="pypy 7.2.0 is buggy")
 def test_delegation_to_existing_hooks():
     record = []
 

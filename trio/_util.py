@@ -357,7 +357,7 @@ def name_asyncgen(agen):
     """Return the fully-qualified name of the async generator function
     that produced the async generator iterator *agen*.
     """
-    if not hasattr(agen, "ag_code"):
+    if not hasattr(agen, "ag_code"):  # pragma: no cover
         return repr(agen)
     try:
         module = agen.ag_frame.f_globals["__name__"]

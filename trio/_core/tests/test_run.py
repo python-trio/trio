@@ -20,6 +20,7 @@ from .tutil import (
     check_sequence_matches,
     gc_collect_harder,
     ignore_coroutine_never_awaited_warnings,
+    buggy_pypy_asyncgens,
 )
 
 from ... import _core
@@ -528,7 +529,6 @@ def test_instruments_crash(caplog):
     assert exc_type is ValueError
     assert str(exc_value) == "oops"
     assert "Instrument has been disabled" in caplog.records[0].message
-
 
 async def test_cancel_scope_repr(mock_clock):
     scope = _core.CancelScope()
@@ -1524,6 +1524,33 @@ async def test_TrioToken_run_sync_soon_massive_queue():
         token.run_sync_soon(cb, i)
     await wait_all_tasks_blocked()
     assert counter[0] == COUNT
+
+
+@pytest.mark.skipif(buggy_pypy_asyncgens, reason="PyPy 7.2 is buggy")
+def test_TrioToken_run_sync_soon_late_crash():
+    # Crash after system nursery is closed -- easiest way to do that is
+    # from an async generator finalizer.
+    record = []
+    saved = []
+
+    async def agen():
+        token = _core.current_trio_token()
+        try:
+            yield 1
+        finally:
+            token.run_sync_soon(lambda: {}["nope"])
+            token.run_sync_soon(lambda: record.append("2nd ran"))
+
+    async def main():
+        saved.append(agen())
+        await saved[-1].asend(None)
+        record.append("main exiting")
+
+    with pytest.raises(_core.TrioInternalError) as excinfo:
+        _core.run(main)
+
+    assert type(excinfo.value.__cause__) is KeyError
+    assert record == ["main exiting", "2nd ran"]
 
 
 async def test_slow_abort_basic():

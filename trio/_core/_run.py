@@ -1308,7 +1308,10 @@ class Runner:
     # init task starting end-of-run asyncgen finalization.
     trailing_finalizer_asyncgens = attr.ib(factory=set)
 
-    prev_asyncgen_hooks = attr.ib(default=None)
+    prev_asyncgen_hooks = attr.ib(init=False)
+
+    def __attrs_post_init__(self):
+        self.setup_asyncgen_hooks()
 
     def force_guest_tick_asap(self):
         if self.guest_tick_scheduled:
@@ -1319,8 +1322,7 @@ class Runner:
     def close(self):
         self.io_manager.close()
         self.entry_queue.close()
-        if self.prev_asyncgen_hooks is not None:
-            sys.set_asyncgen_hooks(*self.prev_asyncgen_hooks)
+        sys.set_asyncgen_hooks(*self.prev_asyncgen_hooks)
         if self.instruments:
             self.instrument("after_run")
         # This is where KI protection gets disabled, so we do it last
@@ -1628,7 +1630,7 @@ class Runner:
             agen_name = name_asyncgen(agen)
             try:
                 is_ours = not agen.ag_frame.f_locals.get("@trio_foreign_asyncgen")
-            except AttributeError:
+            except AttributeError:  # pragma: no cover
                 is_ours = True
 
             if is_ours:
@@ -1760,7 +1762,7 @@ class Runner:
             # Process all pending run_sync_soon callbacks, in case one of
             # them was an asyncgen finalizer that snuck in under the wire.
             self.entry_queue.run_sync_soon(self.reschedule, self.init_task)
-            await wait_task_rescheduled(lambda _: Abort.FAILED)
+            await wait_task_rescheduled(lambda _: Abort.FAILED)  # pragma: no cover
             self.asyncgens.update(self.trailing_finalizer_asyncgens)
             self.trailing_finalizer_asyncgens.clear()
 
@@ -2058,8 +2060,6 @@ def setup_runner(clock, instruments, restrict_keyboard_interrupt_to_checkpoints)
     # This is where KI protection gets enabled, so we want to do it early - in
     # particular before we start modifying global state like GLOBAL_RUN_CONTEXT
     ki_manager.install(runner.deliver_ki, restrict_keyboard_interrupt_to_checkpoints)
-
-    runner.setup_asyncgen_hooks()
 
     GLOBAL_RUN_CONTEXT.runner = runner
     return runner
