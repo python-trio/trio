@@ -530,6 +530,7 @@ def test_instruments_crash(caplog):
     assert str(exc_value) == "oops"
     assert "Instrument has been disabled" in caplog.records[0].message
 
+
 async def test_cancel_scope_repr(mock_clock):
     scope = _core.CancelScope()
     assert "unbound" in repr(scope)

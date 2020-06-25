@@ -20,8 +20,9 @@ slow = pytest.mark.skipif(not RUN_SLOW, reason="use --run-slow to run slow tests
 # "foreign" async generator behavior (since the firstiter hook is what
 # marks the asyncgen as foreign), but most tests of GC-mediated
 # finalization still work.
-buggy_pypy_asyncgens = (
-    sys.implementation.name == "pypy" and sys.pypy_version_info < (7, 3)
+buggy_pypy_asyncgens = sys.implementation.name == "pypy" and sys.pypy_version_info < (
+    7,
+    3,
 )
 
 try:
