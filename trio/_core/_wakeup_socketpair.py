@@ -1,6 +1,5 @@
 import socket
 import sys
-from contextlib import contextmanager
 import signal
 import warnings
 

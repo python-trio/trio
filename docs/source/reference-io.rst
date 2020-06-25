@@ -472,8 +472,7 @@ people switch to async I/O, and then they're surprised and confused
 when they find it doesn't speed up their program. The next section
 explains the theory behind async file I/O, to help you better
 understand your code's behavior. Or, if you just want to get started,
-you can `jump down to the API overview
-<ref:async-file-io-overview>`__.
+you can :ref:`jump down to the API overview <async-file-io-overview>`.
 
 
 Background: Why is async file I/O useful? The answer may surprise you

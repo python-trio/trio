@@ -1,7 +1,6 @@
 import inspect
 import signal
 import sys
-from contextlib import contextmanager
 from functools import wraps
 import attr
 

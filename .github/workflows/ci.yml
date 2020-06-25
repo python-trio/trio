@@ -2,8 +2,8 @@ name: CI
 
 on:
   push:
-    branches:
-      - master
+    branches-ignore:
+      - "dependabot/*" 
   pull_request:
 
 jobs:
@@ -51,13 +51,9 @@ jobs:
       fail-fast: false
       matrix:
         python: ['3.6', '3.7', '3.8']
-        check_docs: ['0']
         check_formatting: ['0']
         extra_name: ['']
         include:
-          - python: '3.8'
-            check_docs: '1'
-            extra_name: ', check docs'
           - python: '3.8'
             check_formatting: '1'
             extra_name: ', check formatting'
@@ -71,7 +67,6 @@ jobs:
       - name: Run tests
         run: ./ci.sh
         env:
-          CHECK_DOCS: '${{ matrix.check_docs }}'
           CHECK_FORMATTING: '${{ matrix.check_formatting }}'
           # Should match 'name:' up above
           JOB_NAME: 'Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})'

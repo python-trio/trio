@@ -393,14 +393,7 @@ python -m pip --version
 python setup.py sdist --formats=zip
 python -m pip install dist/*.zip
 
-if [ "$CHECK_DOCS" = "1" ]; then
-    python -m pip install -r docs-requirements.txt
-    towncrier --yes  # catch errors in newsfragments
-    cd docs
-    # -n (nit-picky): warn on missing references
-    # -W: turn warnings into errors
-    sphinx-build -nW  -b html source build
-elif [ "$CHECK_FORMATTING" = "1" ]; then
+if [ "$CHECK_FORMATTING" = "1" ]; then
     python -m pip install -r test-requirements.txt
     source check.sh
 else
