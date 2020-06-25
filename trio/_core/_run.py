@@ -16,7 +16,7 @@ import enum
 from contextvars import copy_context
 from math import inf
 from time import perf_counter
-from typing import Callable
+from typing import Callable, TYPE_CHECKING
 
 from sniffio import current_async_library_cvar
 
@@ -2379,10 +2379,10 @@ async def checkpoint_if_cancelled():
 if sys.platform == "win32":
     from ._io_windows import WindowsIOManager as TheIOManager
     from ._generated_io_windows import *
-elif sys.platform == "linux" or hasattr(select, "epoll"):
+elif sys.platform == "linux" or (not TYPE_CHECKING and hasattr(select, "epoll")):
     from ._io_epoll import EpollIOManager as TheIOManager
     from ._generated_io_epoll import *
-elif hasattr(select, "kqueue"):
+elif TYPE_CHECKING or hasattr(select, "kqueue"):
     from ._io_kqueue import KqueueIOManager as TheIOManager
     from ._generated_io_kqueue import *
 else:  # pragma: no cover
