@@ -88,3 +88,5 @@ if sys.platform == "win32":
 # Kqueue imports
 elif sys.platform != "linux" and sys.platform != "win32":
     from ._run import current_kqueue, monitor_kevent, wait_kevent
+
+del sys   # It would be better to import sys as _sys, but mypy does not understand it
