@@ -210,3 +210,90 @@ def test_last_minute_gc_edge_case():
             f"Didn't manage to hit the trailing_finalizer_asyncgens case "
             f"despite trying {attempt} times"
         )
+
+
+async def step_outside_async_context(aiter):
+    # abort_fns run outside of task context, at least if they're
+    # triggered by a deadline expiry rather than a direct
+    # cancellation.  Thus, an asyncgen first iterated inside one
+    # will appear non-Trio, and since no other hooks were installed,
+    # will use the last-ditch fallback handling (that tries to mimic
+    # CPython's behavior with no hooks).
+    #
+    # NB: the strangeness with aiter being an attribute of abort_fn is
+    # to make it as easy as possible to ensure we don't hang onto a
+    # reference to aiter inside the guts of the run loop.
+    def abort_fn(_):
+        with pytest.raises(StopIteration, match="42"):
+            abort_fn.aiter.asend(None).send(None)
+        del abort_fn.aiter
+        return _core.Abort.SUCCEEDED
+
+    abort_fn.aiter = aiter
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(_core.wait_task_rescheduled, abort_fn)
+        await _core.wait_all_tasks_blocked()
+        nursery.cancel_scope.deadline = _core.current_time()
+
+
+async def test_fallback_when_no_hook_claims_it(capsys):
+    async def well_behaved():
+        yield 42
+
+    async def yields_after_yield():
+        with pytest.raises(GeneratorExit):
+            yield 42
+        yield 100
+
+    async def awaits_after_yield():
+        with pytest.raises(GeneratorExit):
+            yield 42
+        await _core.cancel_shielded_checkpoint()
+
+    await step_outside_async_context(well_behaved())
+    gc_collect_harder()
+    assert capsys.readouterr().err == ""
+
+    await step_outside_async_context(yields_after_yield())
+    gc_collect_harder()
+    assert "ignored GeneratorExit" in capsys.readouterr().err
+
+    await step_outside_async_context(awaits_after_yield())
+    gc_collect_harder()
+    assert "awaited during finalization" in capsys.readouterr().err
+
+
+def test_delegation_to_existing_hooks():
+    record = []
+
+    def my_firstiter(agen):
+        record.append("firstiter " + agen.ag_frame.f_locals["arg"])
+
+    def my_finalizer(agen):
+        record.append("finalizer " + agen.ag_frame.f_locals["arg"])
+
+    async def example(arg):
+        try:
+            yield 42
+        finally:
+            with pytest.raises(_core.Cancelled):
+                await _core.checkpoint()
+            record.append("trio collected " + arg)
+
+    async def async_main():
+        await step_outside_async_context(example("theirs"))
+        assert 42 == await example("ours").asend(None)
+        gc_collect_harder()
+        assert record == ["firstiter theirs", "finalizer theirs"]
+        record[:] = []
+        await _core.wait_all_tasks_blocked()
+        assert record == ["trio collected ours"]
+
+    old_hooks = sys.get_asyncgen_hooks()
+    sys.set_asyncgen_hooks(my_firstiter, my_finalizer)
+    try:
+        _core.run(async_main)
+    finally:
+        assert sys.get_asyncgen_hooks() == (my_firstiter, my_finalizer)
+        sys.set_asyncgen_hooks(*old_hooks)

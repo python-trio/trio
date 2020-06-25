@@ -1596,7 +1596,18 @@ class Runner:
 
     def setup_asyncgen_hooks(self):
         def firstiter(agen):
-            self.asyncgens.add(agen)
+            if hasattr(GLOBAL_RUN_CONTEXT, "task"):
+                self.asyncgens.add(agen)
+            else:
+                # An async generator first iterated outside of a Trio
+                # task doesn't belong to Trio. Probably we're in guest
+                # mode and the async generator belongs to our host.
+                # The locals dictionary is the only good place to
+                # remember this fact, at least until
+                # https://bugs.python.org/issue40916 is implemented.
+                agen.ag_frame.f_locals["@trio_foreign_asyncgen"] = True
+                if self.prev_asyncgen_hooks.firstiter is not None:
+                    self.prev_asyncgen_hooks.firstiter(agen)
 
         def finalize_in_trio_context(agen, agen_name):
             try:
@@ -1615,19 +1626,53 @@ class Runner:
 
         def finalizer(agen):
             agen_name = name_asyncgen(agen)
-            self.entry_queue.run_sync_soon(finalize_in_trio_context, agen, agen_name)
+            try:
+                is_ours = not agen.ag_frame.f_locals.get("@trio_foreign_asyncgen")
+            except AttributeError:
+                is_ours = True
 
-            # Do this last, because it might raise an exception depending on the
-            # user's warnings filter. (That exception will be printed to the
-            # terminal and ignored, since we're running in GC context.)
-            warnings.warn(
-                f"Async generator {agen_name!r} was garbage collected before it had "
-                f"been exhausted. Surround its use in 'async with aclosing(...):' "
-                f"to ensure that it gets cleaned up as soon as you're done using it.",
-                ResourceWarning,
-                stacklevel=2,
-                source=agen,
-            )
+            if is_ours:
+                self.entry_queue.run_sync_soon(
+                    finalize_in_trio_context, agen, agen_name
+                )
+
+                # Do this last, because it might raise an exception
+                # depending on the user's warnings filter. (That
+                # exception will be printed to the terminal and
+                # ignored, since we're running in GC context.)
+                warnings.warn(
+                    f"Async generator {agen_name!r} was garbage collected before it "
+                    f"had been exhausted. Surround its use in 'async with "
+                    f"aclosing(...):' to ensure that it gets cleaned up as soon as "
+                    f"you're done using it.",
+                    ResourceWarning,
+                    stacklevel=2,
+                    source=agen,
+                )
+            else:
+                # Not ours -> forward to the host loop's async generator finalizer
+                if self.prev_asyncgen_hooks.finalizer is not None:
+                    self.prev_asyncgen_hooks.finalizer(agen)
+                else:
+                    # Host has no finalizer.  Reimplement the default
+                    # Python behavior with no hooks installed: throw in
+                    # GeneratorExit, step once, raise RuntimeError if
+                    # it doesn't exit.
+                    closer = agen.aclose()
+                    try:
+                        # If the next thing is a yield, this will raise RuntimeError
+                        # which we allow to propagate
+                        closer.send(None)
+                    except StopIteration:
+                        pass
+                    else:
+                        # If the next thing is an await, we get here. Give a nicer
+                        # error than the default "async generator ignored GeneratorExit"
+                        raise RuntimeError(
+                            f"async generator {agen_name!r} awaited during "
+                            f"finalization; install a finalization hook to support "
+                            f"this, or wrap it in 'async with aclosing(...):'"
+                        )
 
         self.prev_asyncgen_hooks = sys.get_asyncgen_hooks()
         sys.set_asyncgen_hooks(firstiter=firstiter, finalizer=finalizer)
