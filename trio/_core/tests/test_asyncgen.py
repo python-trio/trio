@@ -1,4 +1,5 @@
 import sys
+import weakref
 import pytest
 from math import inf
 from functools import partial
@@ -18,7 +19,6 @@ def test_asyncgen_basics():
                 pass
             await _core.checkpoint()
         except _core.Cancelled:
-            assert "example" in _core.current_task().name
             assert "exhausted" not in cause
             task_name = _core.current_task().name
             assert cause in task_name or task_name == "<init>"
@@ -113,3 +113,98 @@ def test_firstiter_after_closing():
 
     _core.run(async_main)
     assert record == ["cleanup 2", "cleanup 1"]
+
+
+def test_interdependent_asyncgen_cleanup_order():
+    saved = []
+    record = []
+
+    async def innermost():
+        try:
+            yield 1
+        finally:
+            await _core.cancel_shielded_checkpoint()
+            record.append("innermost")
+
+    async def agen(label, inner):
+        try:
+            yield await inner.asend(None)
+        finally:
+            # Either `inner` has already been cleaned up, or
+            # we're about to exhaust it. Either way, we wind
+            # up with `record` containing the labels in
+            # innermost-to-outermost order.
+            with pytest.raises(StopAsyncIteration):
+                await inner.asend(None)
+            record.append(label)
+
+    async def async_main():
+        # This makes a chain of 101 interdependent asyncgens:
+        # agen(99)'s cleanup will iterate agen(98)'s will iterate
+        # ... agen(0)'s will iterate innermost()'s
+        ag_chain = innermost()
+        for idx in range(100):
+            ag_chain = agen(idx, ag_chain)
+        saved.append(ag_chain)
+        async for val in ag_chain:
+            assert val == 1
+            break
+        assert record == []
+
+    _core.run(async_main)
+    assert record == ["innermost"] + list(range(100))
+
+
+def test_last_minute_gc_edge_case():
+    saved = []
+    record = []
+    needs_retry = True
+
+    async def agen():
+        try:
+            yield 1
+        finally:
+            record.append("cleaned up")
+
+    def collect_at_opportune_moment(token):
+        runner = _core._run.GLOBAL_RUN_CONTEXT.runner
+        if runner.system_nursery._closed and isinstance(runner.asyncgens, weakref.WeakSet):
+            saved.clear()
+            record.append("final collection")
+            gc_collect_harder()
+            record.append("done")
+        else:
+            try:
+                token.run_sync_soon(collect_at_opportune_moment, token)
+            except _core.RunFinishedError:
+                nonlocal needs_retry
+                needs_retry = True
+
+    async def async_main():
+        token = _core.current_trio_token()
+        token.run_sync_soon(collect_at_opportune_moment, token)
+        saved.append(agen())
+        async for _ in saved[-1]:
+            break
+
+    # Actually running into the edge case requires that the run_sync_soon task
+    # execute in between the system nursery's closure and the strong-ification
+    # of runner.asyncgens. There's about a 25% chance that it doesn't
+    # (if the run_sync_soon task runs before init on one tick and after init
+    # on the next tick); if we try enough times, we can make the chance of
+    # failure as small as we want.
+    for attempt in range(50):
+        needs_retry = False
+        del record[:]
+        del saved[:]
+        _core.run(async_main)
+        if needs_retry:
+            assert record == ["cleaned up"]
+        else:
+            assert record == ["final collection", "done", "cleaned up"]
+            break
+    else:
+        pytest.fail(
+            f"Didn't manage to hit the trailing_finalizer_asyncgens case "
+            f"despite trying {attempt} times"
+        )

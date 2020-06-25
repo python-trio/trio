@@ -59,8 +59,10 @@ class EntryQueue:
                 try:
                     _core.spawn_system_task(kill_everything, exc)
                 except RuntimeError:
-                    # We're quite late in the shutdown process and
-                    # the system nursery is already closed.
+                    # We're quite late in the shutdown process and the
+                    # system nursery is already closed.
+                    # TODO(2020-06): this is a gross hack and should
+                    # be fixed soon when we address #1607.
                     _core.current_task().parent_nursery.start_soon(kill_everything, exc)
 
             return True

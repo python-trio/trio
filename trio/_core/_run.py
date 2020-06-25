@@ -1227,10 +1227,18 @@ class Runner:
 
     # Async generators are added to this set when first iterated. Any
     # left after the main task exits will be closed before trio.run()
-    # returns.  During the execution of the main task, this is a
-    # WeakSet so GC works.  During shutdown, it's a regular set so we
-    # don't have to deal with GC firing at unexpected times.
+    # returns.  During most of the run, this is a WeakSet so GC works.
+    # During shutdown, when we're finalizign all the remaining
+    # asyncgens after the system nursery has been closed, it's a
+    # regular set so we don't have to deal with GC firing at
+    # unexpected times.
     asyncgens = attr.ib(factory=weakref.WeakSet)
+
+    # This collects async generators that get garbage collected during
+    # the one-tick window between the system nursery closing and the
+    # init task starting end-of-run asyncgen finalization.
+    trailing_finalizer_asyncgens = attr.ib(factory=set)
+
     prev_asyncgen_hooks = attr.ib(default=None)
 
     def force_guest_tick_asap(self):
@@ -1467,21 +1475,7 @@ class Runner:
     # Async generator finalization support
     ################
 
-    async def finalize_asyncgen(self, agen, name, *, check_running):
-        if check_running and agen.ag_running:
-            # Another async generator is iterating this one, which is
-            # suspended at an event loop trap. Add it back to the
-            # asyncgens set and we'll get it on the next round.  Note
-            # that this is only possible during end-of-run
-            # finalization; in GC-directed finalization, no one has a
-            # reference to agen anymore, so no one can be iterating it.
-            #
-            # This field is only reliable on 3.8+ due to
-            # ttps://bugs.python.org/issue32526. Pythons below
-            # 3.8 use a workaround in finalize_remaining_asyncgens.
-            self.asyncgens.add(agen)
-            return
-
+    async def finalize_asyncgen(self, agen, name):
         try:
             # This shield ensures that finalize_asyncgen never exits
             # with an exception, not even a Cancelled. The inside
@@ -1503,17 +1497,32 @@ class Runner:
         # shut down the system nursery, so no more can appear.)
         # Neither one uses async generators, so every async generator
         # must be suspended at a yield point -- there's no one to be
-        # doing the iteration. However, once we start aclose() of one
-        # async generator, it might start fetching the next value from
-        # another, thus preventing us from closing that other.
+        # doing the iteration. That's good, because aclose() only
+        # works on an asyncgen that's suspended at a yield point.
+        # (If it's suspended at an event loop trap, because someone
+        # is in the middle of iterating it, then you get a RuntimeError
+        # on 3.8+, and a nasty surprise on earlier versions due to
+        # https://bugs.python.org/issue32526.)
         #
-        # On 3.8+, we can detect this condition by looking at
-        # ag_running.  On earlier versions, ag_running doesn't provide
-        # useful information.  We could look at ag_await, but that
-        # would fail in case of shenanigans like
-        # https://github.com/python-trio/async_generator/pull/16.
-        # It's easier to just not parallelize the shutdowns.
-        finalize_in_parallel = sys.version_info >= (3, 8)
+        # However, once we start aclose() of one async generator, it
+        # might start fetching the next value from another, thus
+        # preventing us from closing that other (at least until
+        # aclose() of the first one is complete).  This constraint
+        # effectively requires us to finalize the remaining asyncgens
+        # in arbitrary order, rather than doing all of them at the
+        # same time. On 3.8+ we could defer any generator with
+        # ag_running=True to a later batch, but that only catches
+        # the case where our aclose() starts after the user's
+        # asend()/etc. If our aclose() starts first, then the
+        # user's asend()/etc will raise RuntimeError, since they're
+        # probably not checking ag_running.
+        #
+        # It might be possible to allow some parallelized cleanup if
+        # we can determine that a certain set of asyncgens have no
+        # interdependencies, using gc.get_referents() and such.
+        # But just doing one at a time will typically work well enough
+        # (since each aclose() executes in a cancelled scope) and
+        # is much easier to reason about.
 
         # It's possible that that cleanup code will itself create
         # more async generators, so we iterate repeatedly until
@@ -1521,37 +1530,25 @@ class Runner:
         while self.asyncgens:
             batch = self.asyncgens
             self.asyncgens = set()
-
-            if finalize_in_parallel:
-                async with open_nursery() as kill_them_all:
-                    # This shield is needed to avoid the checkpoint
-                    # in Nursery.__aexit__ raising Cancelled if we're
-                    # in a cancelled scope. (Which can happen if
-                    # a run_sync_soon callback raises an exception.)
-                    kill_them_all.cancel_scope.shield = True
-                    for agen in batch:
-                        name = name_asyncgen(agen)
-                        kill_them_all.start_soon(
-                            partial(
-                                self.finalize_asyncgen, agen, name, check_running=True
-                            ),
-                            name="close asyncgen {} (outlived run)".format(name),
-                        )
-
-                    if self.asyncgens == batch:  # pragma: no cover
-                        # Something about the running-detection seems
-                        # to have failed; fall back to one-at-a-time mode
-                        # instead of looping forever
-                        finalize_in_parallel = False
-            else:
-                for agen in batch:
-                    await self.finalize_asyncgen(
-                        agen, name_asyncgen(agen), check_running=False
-                    )
+            for agen in batch:
+                await self.finalize_asyncgen(agen, name_asyncgen(agen))
 
     def setup_asyncgen_hooks(self):
         def firstiter(agen):
             self.asyncgens.add(agen)
+
+        def finalize_in_trio_context(agen, agen_name):
+            try:
+                self.spawn_system_task(
+                    self.finalize_asyncgen, agen, agen_name,
+                    name=f"close asyncgen {agen_name} (abandoned)",
+                )
+            except RuntimeError:
+                # There is a one-tick window where the system nursery
+                # is closed but the init task hasn't yet made
+                # self.asyncgens a strong set to disable GC. We seem to
+                # have hit it.
+                self.trailing_finalizer_asyncgens.add(agen)
 
         def finalizer(agen):
             agen_name = name_asyncgen(agen)
@@ -1561,16 +1558,9 @@ class Runner:
                 f"to ensure that it gets cleaned up as soon as you're done using it.",
                 ResourceWarning,
                 stacklevel=2,
+                source=agen,
             )
-            self.entry_queue.run_sync_soon(
-                partial(
-                    self.spawn_system_task,
-                    partial(
-                        self.finalize_asyncgen, agen, agen_name, check_running=False
-                    ),
-                    name=f"close asyncgen {agen_name} (abandoned)",
-                ),
-            )
+            self.entry_queue.run_sync_soon(finalize_in_trio_context, agen, agen_name)
 
         self.prev_asyncgen_hooks = sys.get_asyncgen_hooks()
         sys.set_asyncgen_hooks(firstiter=firstiter, finalizer=finalizer)
@@ -1645,22 +1635,23 @@ class Runner:
                         system_task=True,
                     )
 
-                # Main task is done. We should be exiting soon, so
-                # we're going to shut down GC-mediated async generator
-                # finalization by turning the asyncgens WeakSet into a
-                # regular set. We must do that before closing the system
-                # nursery, since finalization spawns a new system tasks.
-                self.asyncgens = set(self.asyncgens)
-
-                # Process all pending run_sync_soon callbacks, in case one of
-                # them was an asyncgen finalizer.
-                self.entry_queue.run_sync_soon(self.reschedule, self.init_task)
-                await wait_task_rescheduled(lambda _: Abort.FAILED)
-
-                # Now it's safe to proceed with shutting down system tasks
+                # Main task is done; start shutting down system tasks
                 self.system_nursery.cancel_scope.cancel()
 
-            # System tasks are gone and no more will be appearing.
+            # The only tasks running at this point are init (this one)
+            # and the run_sync_soon task. We still need to finalize
+            # remaining async generators. To make that easier to reason
+            # about, we'll shut down their garbage collection by turning
+            # the asyncgens WeakSet into a regular set.
+            self.asyncgens = set(self.asyncgens)
+
+            # Process all pending run_sync_soon callbacks, in case one of
+            # them was an asyncgen finalizer that snuck in under the wire.
+            self.entry_queue.run_sync_soon(self.reschedule, self.init_task)
+            await wait_task_rescheduled(lambda _: Abort.FAILED)
+            self.asyncgens.update(self.trailing_finalizer_asyncgens)
+            self.trailing_finalizer_asyncgens.clear()
+
             # The only async-colored user code left to run is the
             # finalizers for the async generators that remain alive.
             await self.finalize_remaining_asyncgens()
@@ -1948,6 +1939,8 @@ def setup_runner(clock, instruments, restrict_keyboard_interrupt_to_checkpoints)
     # particular before we start modifying global state like GLOBAL_RUN_CONTEXT
     ki_manager.install(runner.deliver_ki, restrict_keyboard_interrupt_to_checkpoints)
 
+    runner.setup_asyncgen_hooks()
+
     GLOBAL_RUN_CONTEXT.runner = runner
     return runner
 
@@ -2149,10 +2142,6 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
     try:
         if not host_uses_signal_set_wakeup_fd:
             runner.entry_queue.wakeup.wakeup_on_signals()
-
-        # Do this before before_run in case before_run wants to override
-        # our hooks
-        runner.setup_asyncgen_hooks()
 
         if runner.instruments:
             runner.instrument("before_run")
