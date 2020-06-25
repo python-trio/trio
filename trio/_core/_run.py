@@ -16,13 +16,14 @@ import enum
 from contextvars import copy_context
 from math import inf
 from time import perf_counter
+from typing import Callable, TYPE_CHECKING
 
 from sniffio import current_async_library_cvar
 
 import attr
 from heapq import heapify, heappop, heappush
 from sortedcontainers import SortedDict
-from outcome import Error, Value, capture
+from outcome import Error, Outcome, Value, capture
 
 from ._entry_queue import EntryQueue, TrioToken
 from ._exceptions import TrioInternalError, RunFinishedError, Cancelled
@@ -655,7 +656,7 @@ class CancelScope(metaclass=Final):
         """
         return self._shield
 
-    @shield.setter
+    @shield.setter  # type: ignore  # "decorated property not supported"
     @enable_ki_protection
     def shield(self, new_value):
         if not isinstance(new_value, bool):
@@ -1223,7 +1224,8 @@ class GuestState:
     run_sync_soon_not_threadsafe = attr.ib()
     done_callback = attr.ib()
     unrolled_run_gen = attr.ib()
-    unrolled_run_next_send = attr.ib(factory=lambda: Value(None))
+    _value_factory: Callable[[], Value] = lambda: Value(None)
+    unrolled_run_next_send = attr.ib(factory=_value_factory, type=Outcome)
 
     def guest_tick(self):
         try:
@@ -2374,13 +2376,13 @@ async def checkpoint_if_cancelled():
     task._cancel_points += 1
 
 
-if os.name == "nt":
+if sys.platform == "win32":
     from ._io_windows import WindowsIOManager as TheIOManager
     from ._generated_io_windows import *
-elif hasattr(select, "epoll"):
+elif sys.platform == "linux" or (not TYPE_CHECKING and hasattr(select, "epoll")):
     from ._io_epoll import EpollIOManager as TheIOManager
     from ._generated_io_epoll import *
-elif hasattr(select, "kqueue"):
+elif TYPE_CHECKING or hasattr(select, "kqueue"):
     from ._io_kqueue import KqueueIOManager as TheIOManager
     from ._generated_io_kqueue import *
 else:  # pragma: no cover
