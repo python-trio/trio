@@ -1544,7 +1544,7 @@ class Runner:
             with CancelScope(shield=True) as cancel_scope:
                 cancel_scope.cancel()
                 await agen.aclose()
-        except BaseException as exc:
+        except BaseException:
             ASYNCGEN_LOGGER.exception(
                 "Exception ignored during finalization of async generator %r -- "
                 "surround your use of the generator in 'async with aclosing(...):' "
