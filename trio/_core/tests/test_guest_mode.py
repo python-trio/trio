@@ -1,5 +1,6 @@
 import pytest
 import asyncio
+import contextvars
 import traceback
 import queue
 from functools import partial
@@ -534,5 +535,9 @@ def test_guest_mode_asyncgens():
 
         gc_collect_harder()
 
-    aiotrio_run(trio_main, host_uses_signal_set_wakeup_fd=True)
+    # Ensure we don't pollute the thread-level context if run under
+    # an asyncio without contextvars support (3.6)
+    context = contextvars.copy_context()
+    context.run(aiotrio_run, trio_main, host_uses_signal_set_wakeup_fd=True)
+
     assert record == {("asyncio", "asyncio"), ("trio", "trio")}
