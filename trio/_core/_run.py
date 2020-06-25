@@ -1540,7 +1540,9 @@ class Runner:
         def finalize_in_trio_context(agen, agen_name):
             try:
                 self.spawn_system_task(
-                    self.finalize_asyncgen, agen, agen_name,
+                    self.finalize_asyncgen,
+                    agen,
+                    agen_name,
                     name=f"close asyncgen {agen_name} (abandoned)",
                 )
             except RuntimeError:

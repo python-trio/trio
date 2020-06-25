@@ -168,7 +168,9 @@ def test_last_minute_gc_edge_case():
 
     def collect_at_opportune_moment(token):
         runner = _core._run.GLOBAL_RUN_CONTEXT.runner
-        if runner.system_nursery._closed and isinstance(runner.asyncgens, weakref.WeakSet):
+        if runner.system_nursery._closed and isinstance(
+            runner.asyncgens, weakref.WeakSet
+        ):
             saved.clear()
             record.append("final collection")
             gc_collect_harder()
