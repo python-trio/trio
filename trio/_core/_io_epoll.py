@@ -188,7 +188,7 @@ class EpollIOManager:
     _registered = attr.ib(
         factory=lambda: defaultdict(EpollWaiters), type=Dict[int, EpollWaiters]
     )
-    _force_wakeup = attr.ib(factory=WakeupSocketpair, type=WakeupSocketpair)
+    _force_wakeup = attr.ib(factory=WakeupSocketpair)
     _force_wakeup_fd = attr.ib(default=None)
 
     def __attrs_post_init__(self):
