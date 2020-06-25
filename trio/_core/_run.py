@@ -1615,6 +1615,11 @@ class Runner:
 
         def finalizer(agen):
             agen_name = name_asyncgen(agen)
+            self.entry_queue.run_sync_soon(finalize_in_trio_context, agen, agen_name)
+
+            # Do this last, because it might raise an exception depending on the
+            # user's warnings filter. (That exception will be printed to the
+            # terminal and ignored, since we're running in GC context.)
             warnings.warn(
                 f"Async generator {agen_name!r} was garbage collected before it had "
                 f"been exhausted. Surround its use in 'async with aclosing(...):' "
@@ -1623,7 +1628,6 @@ class Runner:
                 stacklevel=2,
                 source=agen,
             )
-            self.entry_queue.run_sync_soon(finalize_in_trio_context, agen, agen_name)
 
         self.prev_asyncgen_hooks = sys.get_asyncgen_hooks()
         sys.set_asyncgen_hooks(firstiter=firstiter, finalizer=finalizer)
