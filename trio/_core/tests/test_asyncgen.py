@@ -8,6 +8,14 @@ from ... import _core
 from .tutil import gc_collect_harder
 
 
+# PyPy 7.2 was released with a bug that just never called firstiter at
+# all.  This impacts tests of end-of-run finalization (nothing gets
+# added to runner.asyncgens) and tests of "foreign" async generator
+# behavior (since the firstiter hook is what marks the asyncgen as
+# foreign), but most tests of GC-mediated finalization still work.
+bad_pypy = sys.implementation.name == "pypy" and sys.pypy_version_info < (7, 3)
+
+
 def test_asyncgen_basics():
     collected = []
 
@@ -76,11 +84,14 @@ def test_asyncgen_basics():
         assert collected.pop() == "exhausted 4"
 
         # Leave one referenced-but-unexhausted and make sure it gets cleaned up
-        saved.append(example("outlived run"))
-        async for val in saved[-1]:
-            assert val == 42
-            break
-        assert collected == []
+        if bad_pypy:
+            collected.append("outlived run")
+        else:
+            saved.append(example("outlived run"))
+            async for val in saved[-1]:
+                assert val == 42
+                break
+            assert collected == []
 
     _core.run(async_main)
     assert collected.pop() == "outlived run"
@@ -88,6 +99,7 @@ def test_asyncgen_basics():
         assert agen.ag_frame is None  # all should now be exhausted
 
 
+@pytest.mark.skipif(bad_pypy, reason="pypy 7.2.0 is buggy")
 def test_firstiter_after_closing():
     saved = []
     record = []
@@ -115,6 +127,7 @@ def test_firstiter_after_closing():
     assert record == ["cleanup 2", "cleanup 1"]
 
 
+@pytest.mark.skipif(bad_pypy, reason="pypy 7.2.0 is buggy")
 def test_interdependent_asyncgen_cleanup_order():
     saved = []
     record = []
@@ -201,7 +214,8 @@ def test_last_minute_gc_edge_case():
         del saved[:]
         _core.run(async_main)
         if needs_retry:
-            assert record == ["cleaned up"]
+            if not bad_pypy:
+                assert record == ["cleaned up"]
         else:
             assert record == ["final collection", "done", "cleaned up"]
             break
@@ -237,6 +251,7 @@ async def step_outside_async_context(aiter):
         nursery.cancel_scope.deadline = _core.current_time()
 
 
+@pytest.mark.skipif(bad_pypy, reason="pypy 7.2.0 is buggy")
 async def test_fallback_when_no_hook_claims_it(capsys):
     async def well_behaved():
         yield 42
@@ -264,6 +279,7 @@ async def test_fallback_when_no_hook_claims_it(capsys):
     assert "awaited during finalization" in capsys.readouterr().err
 
 
+@pytest.mark.skipif(bad_pypy, reason="pypy 7.2.0 is buggy")
 def test_delegation_to_existing_hooks():
     record = []
 

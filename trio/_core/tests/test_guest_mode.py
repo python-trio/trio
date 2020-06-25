@@ -1,6 +1,7 @@
 import pytest
 import asyncio
 import contextvars
+import sys
 import traceback
 import queue
 from functools import partial
@@ -500,6 +501,10 @@ def test_guest_mode_autojump_clock_threshold_changing():
     assert end - start < DURATION / 2
 
 
+@pytest.mark.skipif(
+    sys.implementation.name == "pypy" and sys.pypy_version_info < (7, 3),
+    reason="PyPy 7.2 has a buggy implementation of async generator hooks",
+)
 def test_guest_mode_asyncgens():
     import sniffio, sys
 
