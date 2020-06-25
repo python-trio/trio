@@ -1572,8 +1572,8 @@ finalization path.
 Cancel scopes and nurseries
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**You may not write a ``yield`` statement that suspends an async generator
-inside a `CancelScope` or `Nursery` that was entered within the generator.**
+.. warning:: You may not write a ``yield`` statement that suspends an async generator
+   inside a `CancelScope` or `Nursery` that was entered within the generator.
 
 That is, this is OK::
 
