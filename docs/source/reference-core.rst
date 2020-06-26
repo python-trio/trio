@@ -670,13 +670,16 @@ expires::
 
 Note that what matters here is the scopes that were active when
 :func:`open_nursery` was called, *not* the scopes active when
-``start_soon`` is called. So for example, the timeout block below does
-nothing at all::
+``start_soon`` is called. The reason for this is that the ``start_soon`` call immediately exits and the scheduled task is awaited by the nursery. So for example, the timeout block below does
+nothing at all because the ``with move_on_after(TIMEOUT):`` block is immediately exited when ``start_soon`` returns and ``child`` is awaited by the nursery::
 
    async with trio.open_nursery() as nursery:
        with move_on_after(TIMEOUT):  # don't do this!
            nursery.start_soon(child)
 
+
+This behaviour is also discussed here: `issue 1640
+<https://github.com/python-trio/trio/issues/1640>`_.
 
 Errors in multiple child tasks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
