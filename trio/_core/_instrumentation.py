@@ -1,7 +1,6 @@
 import logging
 import types
 import attr
-import copy
 from typing import Any, Callable, Dict, List, Sequence, Iterator, TypeVar
 
 from .._abc import Instrument
@@ -71,8 +70,8 @@ class Hook(Dict[Instrument, HookImpl]):
             # We're in the middle of a call on this hook, so
             # we must replace it with a copy in order to avoid
             # a "dict changed size during iteration" error.
-            replacement = copy.copy(self)
-            replacement._in_call = 0
+            replacement = Hook(self._name, self._parent)
+            replacement.update(self)
             setattr(self._parent, self._name, replacement)
             return replacement
         return self
