@@ -3,6 +3,7 @@
 # *************************************************************
 from ._run import GLOBAL_RUN_CONTEXT, _NO_SEND
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
+from ._instrumentation import Instrument
 
 # fmt: off
 
