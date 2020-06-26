@@ -72,19 +72,13 @@ class Hook(Dict[Instrument, HookImpl]):
             # we must replace it with a copy in order to avoid
             # a "dict changed size during iteration" error.
             replacement = copy.copy(self)
-            replacement.in_call = 0
+            replacement._in_call = 0
             setattr(self._parent, self._name, replacement)
             return replacement
         return self
 
 
-class AnnotatedFieldsAreSlots(type):
-    def __new__(mcls, clsname, bases, dct):
-        dct["__slots__"] = tuple(dct["__annotations__"].keys())
-        return super().__new__(mcls, clsname, bases, dct)
-
-
-class Instruments(metaclass=AnnotatedFieldsAreSlots):
+class Instruments(Instrument):
     """A collection of `trio.abc.Instrument` with some optimizations.
 
     Instrumentation calls are rather expensive, and we don't want a
@@ -92,24 +86,23 @@ class Instruments(metaclass=AnnotatedFieldsAreSlots):
     operations (like before_task_step()). Thus, we cache the set of
     handlers to be called for each hook, and skip the instrumentation
     call if there's nothing currently installed for that hook.
+
+    This inherits from `trio.abc.Instrument` for the benefit of
+    static type checking (to make sure you pass the right arguments
+    when calling an instrument). All of the class-level function
+    definitions are shadowed by instance-level Hooks.
     """
 
-    before_run: Hook
-    after_run: Hook
-    task_spawned: Hook
-    task_scheduled: Hook
-    before_task_step: Hook
-    after_task_step: Hook
-    task_exited: Hook
-    before_io_wait: Hook
-    after_io_wait: Hook
+    # One Hook per instrument, with its same name
+    __slots__ = [name for name in Instrument.__dict__ if not name.startswith("_")]
 
     # Maps each installed instrument to the list of hook names that it implements.
     _instruments: Dict[Instrument, List[str]]
+    __slots__.append("_instruments")
 
     def __init__(self, incoming: Sequence[Instrument]):
         self._instruments = {}
-        for name in Instruments.__slots__:  # filled in by the metaclass
+        for name in Instruments.__slots__:
             if not hasattr(self, name):
                 setattr(self, name, Hook(name, self))
         for instrument in incoming:
