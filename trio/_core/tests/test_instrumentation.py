@@ -235,32 +235,20 @@ def test_instruments_monkeypatch():
 
 def test_instrument_that_raises_on_getattr():
     class EvilInstrument:
+        def task_exited(self, task):
+            assert False  # pragma: no cover
+
         @property
         def after_run(self):
             raise ValueError("oops")
-
-        def task_exited(self, task):
-            assert False  # pragma: no cover
 
     async def main():
         with pytest.raises(ValueError):
             _core.add_instrument(EvilInstrument())
 
-        # Make sure the instrument is fully removed from the counts and list
+        # Make sure the instrument is fully removed from the per-method lists
         runner = _core.current_task()._runner
         assert not runner.instruments.after_run
         assert not runner.instruments.task_exited
-        assert not runner.instruments
-        assert list(runner.instruments) == []
 
     _core.run(main)
-
-
-def test_instrumentation_hooks_match():
-    slot_names = {
-        name
-        for name in _core._instrumentation.Instruments.__slots__
-        if not name.startswith("_")
-    }
-    hook_names = {name for name in _abc.Instrument.__dict__ if not name.startswith("_")}
-    assert slot_names == hook_names

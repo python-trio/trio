@@ -30,51 +30,25 @@ class Hook(Dict[Instrument, HookImpl]):
 
     """
 
-    __slots__ = ("_name", "_parent", "_in_call")
+    __slots__ = ("_name", "_parent")
 
     def __init__(self, name: str, parent: "Instruments"):
         self._name = name  # "before_run" or similar
         self._parent = parent
-        self._in_call = 0
 
     def __call__(self, *args: Any):
         """Invoke the instrumentation hook with the given arguments."""
-        self._in_call += 1
-        try:
-            for instrument, method in self.items():
-                try:
-                    method(*args)
-                except:
-                    self._parent.remove_instrument(instrument)
-                    INSTRUMENT_LOGGER.exception(
-                        "Exception raised when calling %r on instrument %r. "
-                        "Instrument has been disabled.",
-                        self._name,
-                        instrument,
-                    )
-        finally:
-            self._in_call -= 1
-
-    def as_mutable(self) -> "Hook":
-        """Return a Hook object to which any desired modifications should be made.
-
-        If this Hook is not in the middle of a call, it can be safely
-        mutated, and as_mutable() just returns self. If this Hook is
-        in the middle of a call, though, any mutation will cause the
-        call to raise a concurrent modification error. To handle the
-        latter case, we replace this Hook with a copy in our parent
-        Instruments collection, and return that copy.
-        """
-
-        if self._in_call:
-            # We're in the middle of a call on this hook, so
-            # we must replace it with a copy in order to avoid
-            # a "dict changed size during iteration" error.
-            replacement = Hook(self._name, self._parent)
-            replacement.update(self)
-            setattr(self._parent, self._name, replacement)
-            return replacement
-        return self
+        for instrument, method in list(self.items()):
+            try:
+                method(*args)
+            except:
+                self._parent.remove_instrument(instrument)
+                INSTRUMENT_LOGGER.exception(
+                    "Exception raised when calling %r on instrument %r. "
+                    "Instrument has been disabled.",
+                    self._name,
+                    instrument,
+                )
 
 
 class Instruments(Instrument):
@@ -107,12 +81,6 @@ class Instruments(Instrument):
         for instrument in incoming:
             self.add_instrument(instrument)
 
-    def __bool__(self) -> bool:
-        return bool(self._instruments)
-
-    def __iter__(self) -> Iterator[Instrument]:
-        return iter(self._instruments)
-
     @_public
     def add_instrument(self, instrument: Instrument) -> None:
         """Start instrumenting the current run loop with the given instrument.
@@ -138,7 +106,7 @@ class Instruments(Instrument):
                 if isinstance(impl, types.MethodType) and impl.__func__ is prototype:
                     # Inherited unchanged from _abc.Instrument
                     continue
-                hook: Hook = getattr(self, name).as_mutable()
+                hook: Hook = getattr(self, name)
                 hook[instrument] = impl
                 hooknames.append(name)
         except:
@@ -162,5 +130,5 @@ class Instruments(Instrument):
         # If instrument isn't present, the KeyError propagates out
         hooknames = self._instruments.pop(instrument)
         for name in hooknames:
-            hook: Hook = getattr(self, name).as_mutable()
+            hook: Hook = getattr(self, name)
             del hook[instrument]
