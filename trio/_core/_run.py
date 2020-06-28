@@ -1232,7 +1232,7 @@ class GuestState:
 
     # Invariant: unrolled_run_next_send is non-None iff there is a pending
     # call to guest_tick scheduled.
-    unrolled_run_next_send: Any = attr.ib(factory=lambda: Value(None))
+    unrolled_run_next_send: Any = attr.ib(factory=lambda: Value(None))  # type: ignore
 
     def guest_tick(self):
         next_send = self.unrolled_run_next_send
