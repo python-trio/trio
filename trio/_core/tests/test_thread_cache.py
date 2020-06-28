@@ -6,7 +6,7 @@ import sys
 
 from .tutil import slow, gc_collect_harder
 from .. import _thread_cache
-from .._thread_cache import start_thread_soon, ThreadCache
+from .._thread_cache import start_thread_soon, ThreadCache, kill_this_thread
 
 
 def test_thread_cache_basics():
@@ -147,4 +147,4 @@ def test_race_between_idle_exit_and_job_assignment(monkeypatch):
     # to see it in debug output. This is hacky, and leaves our ThreadCache
     # object in an inconsistent state... but it doesn't matter, because we're
     # not going to use it again anyway.
-    tc.start_thread_soon(lambda: None, lambda _: sys.exit())
+    tc.start_thread_soon(lambda: None, lambda _: kill_this_thread())

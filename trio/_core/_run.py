@@ -16,7 +16,7 @@ import enum
 from contextvars import copy_context
 from math import inf
 from time import perf_counter
-from typing import Callable, TYPE_CHECKING
+from typing import Any, Callable, TYPE_CHECKING
 
 from sniffio import current_async_library_cvar
 
@@ -40,6 +40,7 @@ from ._traps import (
     CancelShieldedCheckpoint,
     PermanentlyDetachCoroutineObject,
     WaitTaskRescheduled,
+    BecomeGuest,
 )
 from ._thread_cache import start_thread_soon
 from .. import _core
@@ -1217,6 +1218,10 @@ class _RunStatistics:
 # So this object can reference Runner, but Runner can't reference it. The only
 # references to it are the "in flight" callback chain on the host loop /
 # worker thread.
+#
+# Having this be a separate object is also helpful for become_guest_for():
+# each become_guest_for() call gets a separate GuestState, but they all use
+# the same Runner.
 @attr.s(eq=False, hash=False, slots=True)
 class GuestState:
     runner = attr.ib()
@@ -1224,12 +1229,22 @@ class GuestState:
     run_sync_soon_not_threadsafe = attr.ib()
     done_callback = attr.ib()
     unrolled_run_gen = attr.ib()
-    _value_factory: Callable[[], Value] = lambda: Value(None)
-    unrolled_run_next_send = attr.ib(factory=_value_factory, type=Outcome)
+
+    # Invariant: unrolled_run_next_send is non-None iff there is a pending
+    # call to guest_tick scheduled.
+    unrolled_run_next_send: Any = attr.ib(factory=lambda: Value(None))
 
     def guest_tick(self):
+        next_send = self.unrolled_run_next_send
+        self.unrolled_run_next_send = None
+        if next_send is None:
+            # This can happen if the same child host loop is reused for multiple
+            # become_guest_for() calls, if the guest_tick enqueued during a
+            # previous call gets run when the loop starts up again.
+            return
+
         try:
-            timeout = self.unrolled_run_next_send.send(self.unrolled_run_gen)
+            timeout = next_send.send(self.unrolled_run_gen)
         except StopIteration:
             self.done_callback(self.runner.main_task_outcome)
             return
@@ -1252,12 +1267,19 @@ class GuestState:
                 return self.runner.io_manager.get_events(timeout)
 
             def deliver(events_outcome):
-                def in_main_thread():
-                    self.unrolled_run_next_send = events_outcome
-                    self.runner.guest_tick_scheduled = True
-                    self.guest_tick()
+                # It's safe to mutate these values from the thread because:
+                # - unrolled_run_next_send is only modified from guest_tick,
+                #   and we take care only to run guest_tick when there's no
+                #   get_events() call scheduled
+                # - guest_tick_scheduled is only set to False in guest_tick;
+                #   it can be set to True in Runner.force_guest_tick_asap,
+                #   but the ordering of that against our own assignment of
+                #   True doesn't matter (at worst we get a spurious wakeup
+                #   the next time we wait for I/O)
+                self.unrolled_run_next_send = events_outcome
+                self.runner.guest_tick_scheduled = True
 
-                self.run_sync_soon_threadsafe(in_main_thread)
+                self.run_sync_soon_threadsafe(self.guest_tick)
 
             start_thread_soon(get_events, deliver)
 
@@ -1944,13 +1966,28 @@ def run(
     )
 
     gen = unrolled_run(runner, async_fn, args)
-    next_send = None
+    next_send = Value(None)
     while True:
+        # In most cases, the entire run will occur within the first
+        # call to send(). Only uses of trio.lowlevel.become_guest_for()
+        # will cause anything to be yielded out of the unrolled_run generator.
         try:
-            timeout = gen.send(next_send)
+            msg = next_send.send(gen)
         except StopIteration:
             break
-        next_send = runner.io_manager.get_events(timeout)
+        if isinstance(msg, BecomeGuest):
+            try:
+                next_send = do_become_guest(msg, runner, gen)
+            except BaseException as exc:
+                # Throw the error back into unrolled_run_gen(), wrapped in
+                # a TrioInternalError that tears down everything
+                next_send = Error(TrioInternalError("do_become_guest() failed"))
+                next_send.error.__cause__ = exc
+        else:  # pragma: no cover
+            next_send = Error(
+                TrioInternalError(f"Unexpected internal yield message: {msg!r}")
+            )
+
     # Inlined copy of runner.main_task_outcome.unwrap() to avoid
     # cluttering every single Trio traceback with an extra frame.
     if isinstance(runner.main_task_outcome, Value):
@@ -2043,6 +2080,125 @@ def start_guest_run(
     run_sync_soon_not_threadsafe(guest_state.guest_tick)
 
 
+def do_become_guest(msg, runner, unrolled_run_gen):
+    # We're being asked to convert this normal run into a guest run,
+    # in order to run some blocking function (the "child host") that
+    # has its own internal event loop. Once that function completes,
+    # we go back to being a normal run, returning the next thing for
+    # run() to send into unrolled_run_gen.
+
+    run_outcome = None
+
+    def done_callback(incoming_run_outcome):
+        nonlocal run_outcome
+        run_outcome = incoming_run_outcome
+
+        # It should be impossible for the whole Trio run to complete
+        # while we're in guest mode, because there's a task blocked
+        # waiting on the result of the child host call. If it does, we'll
+        # raise an error once the child host call completes, and log
+        # in the meantime in case the bug is something that would cause
+        # the child host call to never complete.
+        if isinstance(run_outcome, Error):
+            err = run_outcome.error
+            exc_info_kw = {"exc_info": (type(err), err, err.__traceback__)}
+        else:  # pragma: no cover
+            exc_info_kw = {}
+        logging.getLogger("trio.lowlevel.become_guest_for").error(
+            "Internal error: Trio run returned %r before child host returned",
+            run_outcome,
+            **exc_info_kw,
+        )
+
+    def run_sync_soon_stub(fn):  # pragma: no cover
+        raise TrioInternalError("run_sync_soon_threadsafe was called too early")
+
+    guest_state = GuestState(
+        runner=runner,
+        run_sync_soon_threadsafe=run_sync_soon_stub,
+        run_sync_soon_not_threadsafe=run_sync_soon_stub,
+        done_callback=done_callback,
+        unrolled_run_gen=unrolled_run_gen,
+    )
+
+    # Make sure we don't invoke guest_tick until the child host calls
+    # our resume_trio callback, even if they mess with a cancel scope
+    # deadline or similar, because run_sync_soon_* might not work
+    # until then
+    runner.guest_tick_scheduled = True
+    runner.is_guest = True
+
+    # run_child_host will call this once the child host is able to enqueue
+    # our guest_tick callbacks
+    def resume_trio_as_guest(
+        *, run_sync_soon_threadsafe, run_sync_soon_not_threadsafe=None,
+    ):
+        if run_sync_soon_not_threadsafe is None:
+            run_sync_soon_not_threadsafe = run_sync_soon_threadsafe
+
+        guest_state.run_sync_soon_threadsafe = run_sync_soon_threadsafe
+        guest_state.run_sync_soon_not_threadsafe = run_sync_soon_not_threadsafe
+        run_sync_soon_not_threadsafe(guest_state.guest_tick)
+
+    # INCEPTION
+    child_host_outcome = capture(msg.run_child_host, resume_trio_as_guest)
+
+    # Clean up to return to non-guest mode
+    try:
+        if guest_state.run_sync_soon_threadsafe is run_sync_soon_stub:
+            # The child host exited without ever calling resume_trio(), so
+            # we didn't do any more Trio stuff. The unrolled_run_gen is
+            # still suspended at 'yield msg', so there's nothing to do besides
+            # arrange to send in None to continue.
+            return Value(None)
+
+        if run_outcome is not None:
+            # Something went wrong and there's no run anymore.
+            exc = TrioInternalError(
+                f"Trio run returned {run_outcome!r} before child host returned"
+            )
+            if isinstance(run_outcome, Error):
+                if isinstance(run_outcome.error, TrioInternalError):
+                    # This is the only of these cases that should be possible:
+                    # it can happen for the usual TrioInternalError reasons,
+                    # such as an abort_fn raising.
+                    return run_outcome
+                else:
+                    exc.__cause__ = run_outcome.error
+            return Error(exc)
+
+        # Otherwise we have to get into a state where there's no
+        # io_manager.get_events() running in a background thread.
+
+        def wake_me_up(fn):
+            wakeup_event.set()
+            assert fn == guest_state.guest_tick
+
+        wakeup_event = threading.Event()
+        guest_state.run_sync_soon_threadsafe = wake_me_up
+
+        if guest_state.unrolled_run_next_send is None:
+            # We still have io_manager.get_events() running in a thread.
+            # We already modified run_sync_soon_threadsafe so that when it
+            # finishes it will set the wakeup_event. Cause it to finish as
+            # soon as possible, and wait for it to do so.
+            runner.force_guest_tick_asap()
+            wakeup_event.wait()
+            assert guest_state.unrolled_run_next_send is not None
+
+        return guest_state.unrolled_run_next_send
+
+    finally:
+        # Setting unrolled_run_next_send to None ensures that if the
+        # enqueued guest_tick ever actually gets called, it won't do
+        # anything. (This might happen if the same child host loop
+        # is reused for multiple become_guest_for() calls.)
+        guest_state.unrolled_run_next_send = None
+        runner.is_guest = False
+        runner.guest_tick_scheduled = False
+        runner.reschedule(msg.parent_task, child_host_outcome)
+
+
 # 24 hours is arbitrary, but it avoids issues like people setting timeouts of
 # 10**20 and then getting integer overflows in the underlying system calls.
 _MAX_TIMEOUT = 24 * 60 * 60
@@ -2093,9 +2249,12 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
             if runner.instruments:
                 runner.instrument("before_io_wait", timeout)
 
-            # Driver will call io_manager.get_events(timeout) and pass it back
-            # in throuh the yield
-            events = yield timeout
+            if runner.is_guest:
+                # Driver will call io_manager.get_events(timeout) and pass it back
+                # in throuh the yield
+                events = yield timeout
+            else:
+                events = runner.io_manager.get_events(timeout)
             runner.io_manager.process_events(events)
 
             if runner.instruments:
@@ -2214,7 +2373,7 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                     task._schedule_points += 1
                     if msg is CancelShieldedCheckpoint:
                         runner.reschedule(task)
-                    elif type(msg) is WaitTaskRescheduled:
+                    elif isinstance(msg, WaitTaskRescheduled):
                         task._cancel_points += 1
                         task._abort_func = msg.abort_func
                         # KI is "outside" all cancel scopes, so check for it
@@ -2222,7 +2381,13 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                         if runner.ki_pending and task is runner.main_task:
                             task._attempt_delivery_of_pending_ki()
                         task._attempt_delivery_of_any_pending_cancel()
-                    elif type(msg) is PermanentlyDetachCoroutineObject:
+                        if isinstance(msg, BecomeGuest):
+                            if runner.is_guest:
+                                err = RuntimeError("This Trio run is already a guest")
+                                runner.reschedule(task, Error(err))
+                            else:
+                                yield msg
+                    elif isinstance(msg, PermanentlyDetachCoroutineObject):
                         # Pretend the task just exited with the given outcome
                         runner.task_exited(task, msg.final_outcome)
                     else:

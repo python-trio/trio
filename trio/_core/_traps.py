@@ -1,3 +1,5 @@
+# coding: utf-8
+
 # These are the only functions that ever yield back to the task runner.
 
 import types
@@ -268,3 +270,97 @@ async def reattach_detached_coroutine_object(task, yield_value):
     _run.reschedule(task, outcome.Value("reattaching"))
     value = await _async_yield(yield_value)
     assert value == outcome.Value("reattaching")
+
+
+# Not exported in the trio._core namespace, but imported directly by _run.
+@attr.s(frozen=True)
+class BecomeGuest(WaitTaskRescheduled):
+    run_child_host = attr.ib()
+    parent_task = attr.ib()
+
+
+async def become_guest_for(run_child_host, deliver_cancel):
+    """Run a foreign event loop with this Trio run as its guest.
+
+    This is like :func:`start_guest_run`, except that the order of
+    startup and shutdown of the two event loops is reversed:
+
+    * When using :func:`start_guest_run`, you start the Trio run from within
+      an already-running host loop, and must arrange that the Trio run
+      finishes before the host loop stops.
+
+    * By contrast, when using :func:`become_guest_for`, you run the
+      host loop from within a Trio task that's running within an
+      ordinary call to :func:`trio.run`. That task blocks until the
+      host loop completes, but other tasks are able to run.
+
+    Effectively, the Trio run transitions from running normally to running
+    as a guest of the other event loop; when the other event loop is done,
+    the Trio run goes back to running normally. The other event loop is
+    referred to as the "child host", because it is logically as a child of
+    :func:`become_guest_for`.
+
+    Having both of these mechanisms available increases flexibility
+    when trying to integrate Trio with an existing event-loop-based
+    system. In general, you should use :func:`start_guest_run` if you
+    can, and :func:`become_guest_for` if you must.
+
+    Each Trio run can only be the guest of one host loop at a time.
+    That means a run started with :func:`start_guest_run` can't use
+    :func:`become_guest_for`, and a run started with :func:`trio.run`
+    can only have one :func:`become_guest_for` call active at a time.
+    You'll get a `RuntimeError` if you violate this rule.
+
+    Args:
+
+      run_child_host: An arbitrary callable, which will be passed a
+         function as its sole argument::
+
+            def run_my_child_host(resume_trio_as_guest):
+                ...
+
+         This callable should run the entire child host event loop,
+         and not return until the child host is done.
+         Once the child host event loop is running enough to accept
+         callbacks, you must arrange to call the given *resume_trio_as_guest*
+         function, passing keyword arguments *run_sync_soon_threadsafe*
+         (required) and *run_sync_soon_not_threadsafe* (optional) with the
+         same semantics documented in :func:`start_guest_run`. **Other Trio
+         tasks won't be able to run until you do this.**
+
+      deliver_cancel: An arbitrary callable::
+
+            def deliver_cancel(raise_cancel):
+                ...
+
+         If the call to :func:`become_guest_for` becomes cancelled,
+         then Trio will call *deliver_cancel* to try to propagate that
+         cancellation into the child host loop. If this results in the
+         child host loop terminating sooner than it otherwise would
+         have, then you should call *raise_cancel* to raise an
+         appropriate `~trio.Cancelled` exception and allow it to propagate
+         out of *run_child_host*. (The semantics are similar to those
+         of the *abort_func* passed to :func:`wait_task_rescheduled`,
+         except that the return value is ignored -- the abort is always
+         considered to have "failed".)
+
+    Returns or raises whatever *run_child_host* returns or raises.
+    Can also raise `RuntimeError` without calling *run_child_host*,
+    if the current Trio run is already a guest of some other event loop.
+
+    """
+
+    await _run.checkpoint_if_cancelled()
+
+    def abort_fn(raise_cancel):
+        deliver_cancel(raise_cancel)
+        return Abort.FAILED
+
+    child_host_outcome = await _async_yield(
+        BecomeGuest(
+            abort_func=abort_fn,
+            run_child_host=run_child_host,
+            parent_task=_run.current_task(),
+        )
+    )
+    return child_host_outcome.unwrap()

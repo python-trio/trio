@@ -43,6 +43,7 @@ from ._core import (
     notify_closing,
     start_thread_soon,
     start_guest_run,
+    become_guest_for,
 )
 
 # Unix-specific symbols

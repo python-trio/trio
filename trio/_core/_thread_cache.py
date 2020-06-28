@@ -1,4 +1,7 @@
+# coding: utf-8
+
 from threading import Thread, Lock
+import logging
 import outcome
 from itertools import count
 
@@ -40,6 +43,15 @@ IDLE_TIMEOUT = 10  # seconds
 name_counter = count()
 
 
+# Used in test suite only
+class KillThisThread(BaseException):
+    pass
+
+
+def kill_this_thread():
+    raise KillThisThread
+
+
 class WorkerThread:
     def __init__(self, thread_cache):
         self._job = None
@@ -68,7 +80,18 @@ class WorkerThread:
                 # 'deliver' triggers a new job, it can be assigned to us
                 # instead of spawning a new thread.
                 self._thread_cache._idle_workers[self] = None
-                deliver(result)
+                try:
+                    deliver(result)
+                except KillThisThread:
+                    return
+                except BaseException:
+                    # There's nothing else useful to do with it, and
+                    # if we let it escape from _work, there will be a
+                    # thread in _idle_workers that's not running but
+                    # can still have jobs assigned --> deadlock.
+                    logging.getLogger("trio.lowlevel.start_thread_soon").exception(
+                        f"Error delivering result {result!r} of work {fn!r}"
+                    )
                 del fn
                 del deliver
             else:

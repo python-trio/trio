@@ -6,9 +6,11 @@ from functools import partial
 from math import inf
 import signal
 import socket
+import sys
 import threading
 import time
 
+from outcome import capture, Value, Error
 import trio
 import trio.testing
 from .tutil import gc_collect_harder
@@ -20,53 +22,82 @@ from ..._util import signal_raise
 #   our main
 # - final result is returned
 # - any unhandled exceptions cause an immediate crash
-def trivial_guest_run(trio_fn, **start_guest_run_kwargs):
-    todo = queue.Queue()
 
-    host_thread = threading.current_thread()
 
-    def run_sync_soon_threadsafe(fn):
-        if host_thread is threading.current_thread():  # pragma: no cover
+class TrivialHostLoop:
+    def __init__(self):
+        self.todo = queue.Queue()
+        self.host_thread = threading.current_thread()
+
+    def call_soon_threadsafe(self, fn):
+        if self.host_thread is threading.current_thread():  # pragma: no cover
             crash = partial(
                 pytest.fail, "run_sync_soon_threadsafe called from host thread"
             )
-            todo.put(("run", crash))
-        todo.put(("run", fn))
+            self.todo.put(("run", crash))
+        self.todo.put(("run", fn))
 
-    def run_sync_soon_not_threadsafe(fn):
-        if host_thread is not threading.current_thread():  # pragma: no cover
+    def call_soon_not_threadsafe(self, fn):
+        if self.host_thread is not threading.current_thread():  # pragma: no cover
             crash = partial(
                 pytest.fail, "run_sync_soon_not_threadsafe called from worker thread"
             )
-            todo.put(("run", crash))
-        todo.put(("run", fn))
+            self.todo.put(("run", crash))
+        self.todo.put(("run", fn))
 
-    def done_callback(outcome):
-        todo.put(("unwrap", outcome))
+    def stop(self, outcome):
+        self.todo.put(("unwrap", outcome))
 
-    trio.lowlevel.start_guest_run(
-        trio_fn,
-        run_sync_soon_not_threadsafe,
-        run_sync_soon_threadsafe=run_sync_soon_threadsafe,
-        run_sync_soon_not_threadsafe=run_sync_soon_not_threadsafe,
-        done_callback=done_callback,
-        **start_guest_run_kwargs,
-    )
-
-    try:
+    def run(self):
         while True:
-            op, obj = todo.get()
+            op, obj = self.todo.get()
             if op == "run":
                 obj()
             elif op == "unwrap":
+                # Avoid keeping self.todo alive, since it might contain
+                # a reference to GuestState.guest_tick
+                del self
                 return obj.unwrap()
             else:  # pragma: no cover
                 assert False
+
+    async def host_this_run(self, *, with_buggy_deliver_cancel=False):
+        def run_as_child_host(resume_trio_as_guest):
+            resume_trio_as_guest(
+                run_sync_soon_threadsafe=self.call_soon_threadsafe,
+                run_sync_soon_not_threadsafe=self.call_soon_not_threadsafe,
+            )
+            return self.run()
+
+        def deliver_cancel(raise_cancel):
+            self.stop(capture(raise_cancel))
+            if with_buggy_deliver_cancel:
+                raise ValueError("whoops")
+
+        return await trio.lowlevel.become_guest_for(run_as_child_host, deliver_cancel)
+
+
+def trivial_guest_run(trio_fn, **start_guest_run_kwargs):
+    loop = TrivialHostLoop()
+
+    def call_soon(fn):
+        loop.call_soon_not_threadsafe(fn)
+
+    trio.lowlevel.start_guest_run(
+        trio_fn,
+        call_soon,
+        run_sync_soon_threadsafe=loop.call_soon_threadsafe,
+        run_sync_soon_not_threadsafe=loop.call_soon_not_threadsafe,
+        done_callback=loop.stop,
+        **start_guest_run_kwargs,
+    )
+    try:
+        return loop.run()
     finally:
         # Make sure that exceptions raised here don't capture these, so that
         # if an exception does cause us to abandon a run then the Trio state
         # has a chance to be GC'ed and warn about it.
-        del todo, run_sync_soon_threadsafe, done_callback
+        del loop
 
 
 def test_guest_trivial():
@@ -497,3 +528,170 @@ def test_guest_mode_autojump_clock_threshold_changing():
     # Should be basically instantaneous, but we'll leave a generous buffer to
     # account for any CI weirdness
     assert end - start < DURATION / 2
+
+
+async def test_become_guest_basics():
+    def run_noop_child_host(resume_trio_guest):
+        return 42
+
+    def ignore_cxl(_):
+        pass  # pragma: no cover
+
+    assert 42 == await trio.lowlevel.become_guest_for(run_noop_child_host, ignore_cxl)
+
+    loop = TrivialHostLoop()
+    loop.stop(Value(5))
+    assert 5 == await loop.host_this_run()
+
+    async with trio.open_nursery() as nursery:
+
+        @nursery.start_soon
+        async def stop_soon():
+            await trio.testing.wait_all_tasks_blocked()
+            loop.stop(Value(10))
+
+        assert 10 == await loop.host_this_run()
+
+    loop.stop(Error(KeyError("hi")))
+    with pytest.raises(KeyError, match="hi"):
+        await loop.host_this_run()
+
+
+async def test_become_guest_cancel(autojump_clock):
+    loop = TrivialHostLoop()
+    with trio.move_on_after(1) as cancel_scope:
+        await loop.host_this_run()
+    assert cancel_scope.cancelled_caught
+
+
+async def test_cant_become_guest_twice():
+    loop = TrivialHostLoop()
+    async with trio.open_nursery() as nursery:
+        nursery.start_soon(loop.host_this_run)
+        await trio.testing.wait_all_tasks_blocked()
+
+        with pytest.raises(RuntimeError, match="is already a guest"):
+            await loop.host_this_run()
+
+        nursery.cancel_scope.cancel()
+
+
+async def test_become_asyncio_guest():
+    loop = asyncio.get_event_loop()
+    to_trio, from_aio = trio.open_memory_channel(float("inf"))
+    from_trio = asyncio.Queue()
+
+    async def aio_pingpong(from_trio, to_trio):
+        print("aio_pingpong!")
+
+        try:
+            while True:
+                n = await from_trio.get()
+                print(f"aio got: {n}")
+                to_trio.send_nowait(n + 1)
+        except asyncio.CancelledError:
+            return "aio-done"
+        except:  # pragma: no cover
+            traceback.print_exc()
+            raise
+
+    aio_task = asyncio.ensure_future(aio_pingpong(from_trio, to_trio))
+
+    def run_aio_child_host(resume_trio_as_guest):
+        # Test without a _not_threadsafe callback in order to exercise that path
+        resume_trio_as_guest(run_sync_soon_threadsafe=loop.call_soon_threadsafe,)
+        return loop.run_until_complete(aio_task)
+
+    def deliver_cancel(_):
+        loop.stop()  # pragma: no cover
+
+    async with trio.open_nursery() as nursery:
+
+        @nursery.start_soon
+        async def become_guest_and_check_result():
+            assert "aio-done" == await trio.lowlevel.become_guest_for(
+                run_aio_child_host, deliver_cancel
+            )
+
+        # Make sure we have at least one tick where we don't need to go into
+        # the thread
+        await trio.sleep(0)
+
+        from_trio.put_nowait(0)
+
+        async for n in from_aio:
+            print(f"trio got: {n}")
+            from_trio.put_nowait(n + 1)
+            if n >= 10:
+                aio_task.cancel()
+                return "trio-main-done"
+
+
+def test_become_guest_propagates_TrioInternalError(recwarn):
+    async def main():
+        with trio.move_on_after(1):
+            loop = TrivialHostLoop()
+            await loop.host_this_run(with_buggy_deliver_cancel=True)
+
+    with pytest.raises(trio.TrioInternalError) as info:
+        trio.run(main, clock=trio.testing.MockClock(autojump_threshold=0))
+
+    assert isinstance(info.value.__cause__, ValueError)
+    assert str(info.value.__cause__) == "whoops"
+
+    del info
+    gc_collect_harder()
+
+
+def test_become_guest_raises_TrioInternalError_if_run_completes(recwarn):
+    for outcome in (Value(42), Error(ValueError("lol"))):
+
+        async def main():
+            async with trio.open_nursery() as nursery:
+                loop = TrivialHostLoop()
+                nursery.start_soon(loop.host_this_run)
+                await trio.testing.wait_all_tasks_blocked()
+
+                runner = trio._core._run.GLOBAL_RUN_CONTEXT.runner
+                runner.tasks.clear()
+                runner.main_task_outcome = outcome
+
+                # That will make the runner exit as soon as we yield,
+                # but the host loop won't notice unless we poke it.
+                loop.stop(None)
+
+        with pytest.raises(trio.TrioInternalError, match="before child host") as info:
+            trio.run(main)
+        assert repr(outcome) in str(info.value)
+        if isinstance(outcome, Error):
+            assert info.value.__cause__ is outcome.error
+
+    del info
+    gc_collect_harder()
+
+
+def test_become_guest_failure(recwarn):
+    async def main():
+        def break_parent(resume_trio_as_guest):
+            class TrappingGuestState(trio._core._run.GuestState):
+                __slots__ = ()
+
+                @property
+                def run_sync_soon_threadsafe(self):
+                    raise ValueError("gotcha")
+
+            sys._getframe(2).f_locals["guest_state"].__class__ = TrappingGuestState
+
+        def ignore_cancel(_):
+            pass  # pragma: no cover
+
+        await trio.lowlevel.become_guest_for(break_parent, ignore_cancel)
+
+    with pytest.raises(trio.TrioInternalError, match="do_become_guest.*failed") as info:
+        trio.run(main)
+
+    assert isinstance(info.value.__cause__, ValueError)
+    assert str(info.value.__cause__) == "gotcha"
+
+    del info
+    gc_collect_harder()
