@@ -1,5 +1,6 @@
 import select
 import sys
+from typing import TYPE_CHECKING
 
 import outcome
 from contextlib import contextmanager
@@ -10,7 +11,7 @@ from .. import _core
 from ._run import _public
 from ._wakeup_socketpair import WakeupSocketpair
 
-assert sys.platform != "linux" and sys.platform != "win32"
+assert not TYPE_CHECKING or (sys.platform != "linux" and sys.platform != "win32")
 
 
 @attr.s(slots=True, eq=False, frozen=True)

@@ -3,6 +3,7 @@ from contextlib import contextmanager
 import enum
 import socket
 import sys
+from typing import TYPE_CHECKING
 
 import attr
 
@@ -26,7 +27,7 @@ from ._windows_cffi import (
     IoControlCodes,
 )
 
-assert sys.platform == "win32"
+assert not TYPE_CHECKING or sys.platform == "win32"
 
 # There's a lot to be said about the overall design of a Windows event
 # loop. See
