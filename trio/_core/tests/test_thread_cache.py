@@ -148,3 +148,21 @@ def test_race_between_idle_exit_and_job_assignment(monkeypatch):
     # object in an inconsistent state... but it doesn't matter, because we're
     # not going to use it again anyway.
     tc.start_thread_soon(lambda: None, lambda _: kill_this_thread())
+
+
+def test_logging_on_deliver_failure(caplog):
+    done = threading.Event()
+
+    def deliver(_):
+        try:
+            1/0
+        finally:
+            done.set()
+
+    start_thread_soon(lambda: 42, deliver)
+    done.wait()
+
+    assert len(caplog.records) == 1
+    exc_type, exc_value, exc_traceback = caplog.records[0].exc_info
+    assert exc_type is ZeroDivisionError
+    assert "Error delivering result Value(42) " in caplog.records[0].message
