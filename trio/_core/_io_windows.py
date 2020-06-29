@@ -2,6 +2,7 @@ import itertools
 from contextlib import contextmanager
 import enum
 import socket
+import sys
 
 import attr
 
@@ -24,6 +25,8 @@ from ._windows_cffi import (
     CompletionModes,
     IoControlCodes,
 )
+
+assert sys.platform == "win32"
 
 # There's a lot to be said about the overall design of a Windows event
 # loop. See
