@@ -155,7 +155,7 @@ def test_logging_on_deliver_failure(caplog):
 
     def deliver(_):
         try:
-            1/0
+            1 / 0
         finally:
             done.set()
 
