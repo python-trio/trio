@@ -7,7 +7,8 @@
 # We still have some underscore names though but only a few.
 
 from . import _socket
-import sys as _sys
+import sys
+import typing as _t
 
 # The socket module exports a bunch of platform-specific constants. We want to
 # re-export them. Since the exact set of constants varies depending on Python
@@ -21,7 +22,7 @@ import sys as _sys
 # kept up to date.
 try:
     # fmt: off
-    from socket import (
+    from socket import (  # type: ignore
         CMSG_LEN, CMSG_SPACE, CAPI, AF_UNSPEC, AF_INET, AF_UNIX, AF_IPX,
         AF_APPLETALK, AF_INET6, AF_ROUTE, AF_LINK, AF_SNA, PF_SYSTEM,
         AF_SYSTEM, SOCK_STREAM, SOCK_DGRAM, SOCK_RAW, SOCK_SEQPACKET, SOCK_RDM,
@@ -126,8 +127,8 @@ except ImportError:
 # have:
 import socket as _stdlib_socket
 
-_bad_symbols = set()
-if _sys.platform == "win32":
+_bad_symbols: _t.Set[str] = set()
+if sys.platform == "win32":
     # See https://github.com/python-trio/trio/issues/39
     # Do not import for windows platform
     # (you can still get it from stdlib socket, of course, if you want it)
@@ -136,7 +137,7 @@ if _sys.platform == "win32":
 globals().update(
     {
         _name: getattr(_stdlib_socket, _name)
-        for _name in _stdlib_socket.__all__
+        for _name in _stdlib_socket.__all__  # type: ignore
         if _name.isupper() and _name not in _bad_symbols
     }
 )
@@ -156,10 +157,11 @@ from ._socket import (
 )
 
 # not always available so expose only if
-try:
-    from ._socket import fromshare
-except ImportError:
-    pass
+if sys.platform == "win32" or not _t.TYPE_CHECKING:
+    try:
+        from ._socket import fromshare
+    except ImportError:
+        pass
 
 # expose these functions to trio.socket
 from socket import (
@@ -176,27 +178,34 @@ from socket import (
 )
 
 # not always available so expose only if
-try:
-    from socket import sethostname, if_nameindex, if_nametoindex, if_indextoname
-except ImportError:
-    pass
+if sys.platform != "win32" or not _t.TYPE_CHECKING:
+    try:
+        from socket import sethostname, if_nameindex, if_nametoindex, if_indextoname
+    except ImportError:
+        pass
 
 # get names used by Trio that we define on our own
 from ._socket import IPPROTO_IPV6
 
 # Not defined in all python versions and platforms but sometimes needed
-try:
-    TCP_NOTSENT_LOWAT
-except NameError:
-    # Hopefully will show up in 3.7:
-    #   https://github.com/python/cpython/pull/477
-    if _sys.platform == "darwin":
-        TCP_NOTSENT_LOWAT = 0x201
-    elif _sys.platform == "linux":
-        TCP_NOTSENT_LOWAT = 25
+if not _t.TYPE_CHECKING:
+    try:
+        TCP_NOTSENT_LOWAT
+    except NameError:
+        # Hopefully will show up in 3.7:
+        #   https://github.com/python/cpython/pull/477
+        if sys.platform == "darwin":
+            TCP_NOTSENT_LOWAT = 0x201
+        elif sys.platform == "linux":
+            TCP_NOTSENT_LOWAT = 25
 
-try:
-    IP_BIND_ADDRESS_NO_PORT
-except NameError:
-    if _sys.platform == "linux":
-        IP_BIND_ADDRESS_NO_PORT = 24
+if _t.TYPE_CHECKING:
+    IP_BIND_ADDRESS_NO_PORT: int
+else:
+    try:
+        IP_BIND_ADDRESS_NO_PORT
+    except NameError:
+        if sys.platform == "linux":
+            IP_BIND_ADDRESS_NO_PORT = 24
+
+del sys
