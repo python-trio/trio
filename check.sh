@@ -25,8 +25,8 @@ flake8 trio/ \
 
 # Run mypy on all supported platforms
 mypy -p trio._core --platform linux || EXIT_STATUS=$?
-mypy -p trio._core --platform macos || EXIT_STATUS=$?  # tests FreeBSD too
-mypy -p trio._core --platform windows || EXIT_STATUS=$?
+mypy -p trio._core --platform darwin || EXIT_STATUS=$?  # tests FreeBSD too
+mypy -p trio._core --platform win32 || EXIT_STATUS=$?
 
 # Finally, leave a really clear warning of any issues and exit
 if [ $EXIT_STATUS -ne 0 ]; then
