@@ -1,10 +1,15 @@
 # Platform-specific subprocess bits'n'pieces.
 
 import os
-from typing import Tuple
+import sys
+from typing import Optional, Tuple, TYPE_CHECKING
 
 from .. import _core, _subprocess
 from .._abc import SendStream, ReceiveStream
+
+
+_wait_child_exiting_error: Optional[ImportError] = None
+_create_child_pipe_error: Optional[ImportError] = None
 
 
 # Fallback versions of the functions provided -- implementations
@@ -21,7 +26,7 @@ async def wait_child_exiting(process: "_subprocess.Process") -> None:
     consumed by this call, since :class:`~subprocess.Popen` wants
     to be able to do that itself.
     """
-    raise NotImplementedError from wait_child_exiting._error  # pragma: no cover
+    raise NotImplementedError from _wait_child_exiting_error  # pragma: no cover
 
 
 def create_pipe_to_child_stdin() -> Tuple[SendStream, int]:
@@ -34,9 +39,7 @@ def create_pipe_to_child_stdin() -> Tuple[SendStream, int]:
       something suitable for passing as the ``stdin`` argument of
       :class:`subprocess.Popen`.
     """
-    raise NotImplementedError from (  # pragma: no cover
-        create_pipe_to_child_stdin._error
-    )
+    raise NotImplementedError from _create_child_pipe_error  # pragma: no cover
 
 
 def create_pipe_from_child_output() -> Tuple[ReceiveStream, int]:
@@ -50,23 +53,25 @@ def create_pipe_from_child_output() -> Tuple[ReceiveStream, int]:
       something suitable for passing as the ``stdin`` argument of
       :class:`subprocess.Popen`.
     """
-    raise NotImplementedError from (  # pragma: no cover
-        create_pipe_to_child_stdin._error
-    )
+    raise NotImplementedError from _create_child_pipe_error  # pragma: no cover
 
 
 try:
-    if os.name == "nt":
+    if sys.platform == "win32":
         from .windows import wait_child_exiting  # noqa: F811
-    elif hasattr(_core, "wait_kevent"):
+    elif sys.platform != "linux" and (TYPE_CHECKING or hasattr(_core, "wait_kevent")):
         from .kqueue import wait_child_exiting  # noqa: F811
     else:
         from .waitid import wait_child_exiting  # noqa: F811
 except ImportError as ex:  # pragma: no cover
-    wait_child_exiting._error = ex
+    _wait_child_exiting_error = ex
 
 try:
-    if os.name == "posix":
+    if TYPE_CHECKING:
+        # Not worth type checking these definitions
+        pass
+
+    elif os.name == "posix":
         from ..lowlevel import FdStream
 
         def create_pipe_to_child_stdin():  # noqa: F811
@@ -103,5 +108,4 @@ try:
         raise ImportError("pipes not implemented on this platform")
 
 except ImportError as ex:  # pragma: no cover
-    create_pipe_to_child_stdin._error = ex
-    create_pipe_from_child_output._error = ex
+    _create_child_pipe_error = ex
