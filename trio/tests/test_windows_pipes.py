@@ -2,6 +2,7 @@ import errno
 import select
 
 import os
+import sys
 import pytest
 
 from .._core.tests.tutil import gc_collect_harder

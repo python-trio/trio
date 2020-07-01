@@ -347,17 +347,10 @@ class NoPublicConstructor(Final):
     - TypeError if a sub class or an instance is created.
     """
 
-    if t.TYPE_CHECKING:
-
-        def __call__(cls, *, _no_public_constructor: None):  # type: ignore
-            ...
-
-    else:
-
-        def __call__(cls, *args, **kwargs):
-            raise TypeError(
-                f"{self.__module__}.{self.__qualname__} has no public constructor"
-            )
+    def __call__(cls, *args, **kwargs):
+        raise TypeError(
+            f"{cls.__module__}.{cls.__qualname__} has no public constructor"
+        )
 
     def _create(cls: t.Type[T], *args: t.Any, **kwargs: t.Any) -> T:
         return super().__call__(*args, **kwargs)  # type: ignore
