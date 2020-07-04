@@ -211,6 +211,7 @@ def test_lsp_that_completely_hides_base_socket_gives_good_error(monkeypatch):
 
     monkeypatch.setattr(_io_windows, "_get_underlying_socket", patched_get_underlying)
     with pytest.raises(
-        RuntimeError, match="SIO_BASE_HANDLE failed SIO_BSP_HANDLE_POLL didn't return"
+        RuntimeError,
+        match="SIO_BASE_HANDLE failed and SIO_BSP_HANDLE_POLL didn't return a diff",
     ):
         _core.run(sleep, 0)
