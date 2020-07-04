@@ -1,0 +1,2 @@
+Successfully import when ``sys.excepthook`` is a ``functools.partial`` such as when in a
+``pytest-qt`` test function.
