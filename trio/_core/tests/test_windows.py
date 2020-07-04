@@ -178,7 +178,7 @@ def test_lsp_that_hooks_select_gives_good_error(monkeypatch):
     from .. import _io_windows
 
     def patched_get_underlying(sock, *, which=WSAIoctls.SIO_BASE_HANDLE):
-        if hasattr(sock, "fileno"):
+        if hasattr(sock, "fileno"):  # pragma: no branch
             sock = sock.fileno()
         if which == WSAIoctls.SIO_BSP_HANDLE_SELECT:
             return _handle(sock + 1)
@@ -227,8 +227,7 @@ def test_komodia_behavior(monkeypatch):
             return orig_get_underlying(sock, which=which)
 
         if which == WSAIoctls.SIO_BASE_HANDLE:
-            if sock & 3:
-                raise OSError("nope")
+            raise OSError("nope")
         if which == WSAIoctls.SIO_BSP_HANDLE_POLL:
             if sock & 3 == 3:
                 return _handle(sock - 1)
@@ -243,7 +242,7 @@ def test_komodia_behavior(monkeypatch):
     delta: int
 
     def patched_fileno(sock):
-        if orig_fileno(sock) == -1:
+        if orig_fileno(sock) == -1:  # pragma: no cover
             return -1
         return orig_fileno(sock) + delta
 
