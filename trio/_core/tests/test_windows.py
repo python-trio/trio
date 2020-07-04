@@ -192,84 +192,25 @@ def test_lsp_that_hooks_select_gives_good_error(monkeypatch):
         _core.run(sleep, 0)
 
 
-def test_komodia_behavior(monkeypatch):
-    # We can't install an actual Komodia LSP (they're all commercial
-    # products) but we can at least monkeypatch _get_underlying_socket
-    # to behave like it's been observed to do with a Komodia LSP
-    # installed, and make sure _get_base_socket DTRT in response.
-    from .._windows_cffi import WSAIoctls, ffi, _handle
-    from .. import _io_windows
-    import socket as stdlib_socket
-    from ... import socket as trio_socket
-    import signal
+def test_lsp_that_completely_hides_base_socket_gives_good_error(monkeypatch):
+    # This tests behavior with an LSP that fails SIO_BASE_HANDLE and returns
+    # self for SIO_BSP_HANDLE_SELECT (like Komodia), but also returns
+    # self for SIO_BSP_HANDLE_POLL. No known LSP does this, but we want to
+    # make sure we get an error rather than an infinite loop.
 
-    orig_get_underlying = _io_windows._get_underlying_socket
+    from .._windows_cffi import WSAIoctls, _handle
+    from .. import _io_windows
 
     def patched_get_underlying(sock, *, which=WSAIoctls.SIO_BASE_HANDLE):
-        if hasattr(sock, "fileno"):
+        if hasattr(sock, "fileno"):  # pragma: no branch
             sock = sock.fileno()
-        sock = int(ffi.cast("int", sock))
-
-        # Provide fake behavior based on the low 2 bits of the handle.
-        # Note that all real socket handles are word-aligned so the low 2 bits
-        # will be zero (low 3 bits zere on 64-bit systems).
-        #
-        # Low bits 00: treat as base socket: always return self
-        # Low bits 01: BASE_HANDLE fails but HANDLE_POLL returns self --> error
-        # Low bits 10: treat as layered socket: BASE_HANDLE fails,
-        #   BSP_HANDLE_SELECT returns self, BSP_HANDLE_POLL returns ...00
-        # Low bits 11: treat as doubly layered socket: same as ...10
-        #   except that BSP_HANDLE_POLL returns ...10
-
-        if sock & 3 == 0:
-            # This call is needed to make the tests pass if they're run on
-            # a system with an actual Komodia LSP
-            return orig_get_underlying(sock, which=which)
-
         if which == WSAIoctls.SIO_BASE_HANDLE:
             raise OSError("nope")
-        if which == WSAIoctls.SIO_BSP_HANDLE_POLL:
-            if sock & 3 == 3:
-                return _handle(sock - 1)
-            if sock & 3 == 2:
-                return _handle(sock - 2)
-        return _handle(sock)
-
-    # We exercise the patched _get_underlying_socket by changing socket.fileno()
-    # to return a value adjusted upwards by 1, 2, or 3, depending on which
-    # path we want to exercise (error, single-layered, or double-layered).
-    orig_fileno = stdlib_socket.socket.fileno
-    delta: int
-
-    def patched_fileno(sock):
-        if orig_fileno(sock) == -1:  # pragma: no cover
-            return -1
-        return orig_fileno(sock) + delta
-
-    # Finally, we need to make signal.set_wakeup_fd() undo the fileno
-    # munging -- it's the one other place in Trio where we explicitly
-    # call fileno() on Windows.
-    orig_set_wakeup_fd = signal.set_wakeup_fd
-
-    def patched_set_wakeup_fd(fd, **kw):
-        if fd != -1:
-            fd = fd & ~3
-        return orig_set_wakeup_fd(fd, **kw)
+        else:
+            return _handle(sock)
 
     monkeypatch.setattr(_io_windows, "_get_underlying_socket", patched_get_underlying)
-    monkeypatch.setattr(stdlib_socket.socket, "fileno", patched_fileno)
-    monkeypatch.setattr(signal, "set_wakeup_fd", patched_set_wakeup_fd)
-
-    async def main():
-        s1, s2 = trio_socket.socketpair()
-        await s1.send(b"hi")
-        await _core.wait_readable(s2)
-        await _core.wait_readable(s2.fileno())
-
-    for delta in (0, 2, 3):
-        _core.run(main)
     with pytest.raises(
-        RuntimeError, match="SIO_BASE_HANDLE failed and SIO_BSP_HANDLE_POLL didn't"
+        RuntimeError, match="SIO_BASE_HANDLE failed SIO_BSP_HANDLE_POLL didn't return"
     ):
-        delta = 1
-        _core.run(main)
+        _core.run(sleep, 0)
