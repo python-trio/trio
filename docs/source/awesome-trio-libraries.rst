@@ -85,6 +85,7 @@ Tools and Utilities
 * `trio-util <https://github.com/groove-x/trio-util>`__ - An assortment of utilities for the Trio async/await framework.
 * `tricycle <https://github.com/oremanj/tricycle>`__ - This is a library of interesting-but-maybe-not-yet-fully-proven extensions to Trio.
 * `tenacity <https://github.com/jd/tenacity>`__ - Retrying library for Python with async/await support.
+* `perf-timer <https://github.com/belm0/perf-timer>`__ - A code timer with Trio async support (see `TrioPerfTimer`).  Collects execution time of a block of code excluding time when the coroutine isn't scheduled, such as during blocking I/O and sleep.  Also offers `trio_perf_counter()` for low-level timing.
 
 
 Trio/Asyncio Interoperability
