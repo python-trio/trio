@@ -8,6 +8,6 @@ import _common
 
 sys.excepthook = functools.partial(sys.excepthook)
 
-assert not hasattr(sys.excepthook, '__name__')
+assert not hasattr(sys.excepthook, "__name__")
 
 import trio
