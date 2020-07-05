@@ -1,0 +1,2 @@
+Trio can now be imported when `sys.excepthook` is a `functools.partial` instance, which might occur in a
+``pytest-qt`` test function.

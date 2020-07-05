@@ -695,6 +695,15 @@ def test_ipython_imported_but_unused():
 
 
 @slow
+def test_partial_imported_but_unused():
+    # Check that a functools.partial as sys.excepthook doesn't cause an exception when
+    # importing trio.  This was a problem due to the lack of a .__name__ attribute and
+    # happens when inside a pytest-qt test case for example.
+    completed = run_script("simple_excepthook_partial.py")
+    completed.check_returncode()
+
+
+@slow
 @need_ipython
 def test_ipython_custom_exc_handler():
     # Check we get a nice warning (but only one!) if the user is using IPython

@@ -477,7 +477,7 @@ if sys.excepthook is sys.__excepthook__:
 # hook.
 #
 # More details: https://github.com/python-trio/trio/issues/1065
-if sys.excepthook.__name__ == "apport_excepthook":
+if getattr(sys.excepthook, "__name__", None) == "apport_excepthook":
     import apport_python_hook
 
     assert sys.excepthook is apport_python_hook.apport_excepthook
