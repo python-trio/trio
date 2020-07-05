@@ -171,3 +171,47 @@ async def test_too_late_to_cancel():
         # fallback completion that was posted when CancelIoEx failed.
         assert await _core.readinto_overlapped(read_handle, target) == 6
         assert target[:6] == b"test2\n"
+
+
+def test_lsp_that_hooks_select_gives_good_error(monkeypatch):
+    from .._windows_cffi import WSAIoctls, _handle
+    from .. import _io_windows
+
+    def patched_get_underlying(sock, *, which=WSAIoctls.SIO_BASE_HANDLE):
+        if hasattr(sock, "fileno"):  # pragma: no branch
+            sock = sock.fileno()
+        if which == WSAIoctls.SIO_BSP_HANDLE_SELECT:
+            return _handle(sock + 1)
+        else:
+            return _handle(sock)
+
+    monkeypatch.setattr(_io_windows, "_get_underlying_socket", patched_get_underlying)
+    with pytest.raises(
+        RuntimeError, match="SIO_BASE_HANDLE and SIO_BSP_HANDLE_SELECT differ"
+    ):
+        _core.run(sleep, 0)
+
+
+def test_lsp_that_completely_hides_base_socket_gives_good_error(monkeypatch):
+    # This tests behavior with an LSP that fails SIO_BASE_HANDLE and returns
+    # self for SIO_BSP_HANDLE_SELECT (like Komodia), but also returns
+    # self for SIO_BSP_HANDLE_POLL. No known LSP does this, but we want to
+    # make sure we get an error rather than an infinite loop.
+
+    from .._windows_cffi import WSAIoctls, _handle
+    from .. import _io_windows
+
+    def patched_get_underlying(sock, *, which=WSAIoctls.SIO_BASE_HANDLE):
+        if hasattr(sock, "fileno"):  # pragma: no branch
+            sock = sock.fileno()
+        if which == WSAIoctls.SIO_BASE_HANDLE:
+            raise OSError("nope")
+        else:
+            return _handle(sock)
+
+    monkeypatch.setattr(_io_windows, "_get_underlying_socket", patched_get_underlying)
+    with pytest.raises(
+        RuntimeError,
+        match="SIO_BASE_HANDLE failed and SIO_BSP_HANDLE_POLL didn't return a diff",
+    ):
+        _core.run(sleep, 0)
