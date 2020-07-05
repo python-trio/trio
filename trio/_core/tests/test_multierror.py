@@ -695,7 +695,6 @@ def test_ipython_imported_but_unused():
 
 
 @slow
-@need_ipython
 def test_partial_imported_but_unused():
     # Check that a functools.partial as sys.excepthook doesn't cause an exception when
     # importing trio.  This was a problem due to the lack of a .__name__ attribute and
