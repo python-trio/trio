@@ -248,7 +248,7 @@ def test_instrument_that_raises_on_getattr():
 
         # Make sure the instrument is fully removed from the per-method lists
         runner = _core.current_task()._runner
-        assert not runner.instruments.after_run
-        assert not runner.instruments.task_exited
+        assert "after_run" not in runner.instruments
+        assert "task_exited" not in runner.instruments
 
     _core.run(main)

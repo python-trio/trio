@@ -17,67 +17,20 @@ def _public(fn: F) -> F:
     return fn
 
 
-HookImpl = Callable[..., Any]
-
-
-class Hook(Dict[Instrument, HookImpl]):
-    """Manages installed instruments for a single hook such as before_run().
-
-    The base dictionary maps each instrument to the method of that
-    instrument that will be called when the hook is invoked. We use
-    inheritance so that 'if hook:' is fast (no Python-level function
-    calls needed).
-
-    """
-
-    __slots__ = ("_name", "_parent")
-
-    def __init__(self, name: str, parent: "Instruments"):
-        self._name = name  # "before_run" or similar
-        self._parent = parent
-
-    def __call__(self, *args: Any):
-        """Invoke the instrumentation hook with the given arguments."""
-        for instrument, method in list(self.items()):
-            try:
-                method(*args)
-            except:
-                self._parent.remove_instrument(instrument)
-                INSTRUMENT_LOGGER.exception(
-                    "Exception raised when calling %r on instrument %r. "
-                    "Instrument has been disabled.",
-                    self._name,
-                    instrument,
-                )
-
-
-class Instruments(Instrument):
-    """A collection of `trio.abc.Instrument` with some optimizations.
+class Instruments(Dict[str, Dict[Instrument, None]]):
+    """A collection of `trio.abc.Instrument` organized by hook.
 
     Instrumentation calls are rather expensive, and we don't want a
     rarely-used instrument (like before_run()) to slow down hot
     operations (like before_task_step()). Thus, we cache the set of
-    handlers to be called for each hook, and skip the instrumentation
+    instruments to be called for each hook, and skip the instrumentation
     call if there's nothing currently installed for that hook.
-
-    This inherits from `trio.abc.Instrument` for the benefit of
-    static type checking (to make sure you pass the right arguments
-    when calling an instrument). All of the class-level function
-    definitions are shadowed by instance-level Hooks.
     """
 
-    # One Hook per instrument, with its same name
-    __slots__ = [name for name in Instrument.__dict__ if not name.startswith("_")]
-
-    # Maps each installed instrument to the list of hook names that it implements.
-    _instruments: Dict[Instrument, List[str]]
-    __slots__.append("_instruments")
+    __slots__ = ()
 
     def __init__(self, incoming: Sequence[Instrument]):
-        self._instruments = {}
-        for name in Instruments.__slots__:
-            if not hasattr(self, name):
-                setattr(self, name, Hook(name, self))
+        self["_all"] = {}
         for instrument in incoming:
             self.add_instrument(instrument)
 
@@ -91,9 +44,9 @@ class Instruments(Instrument):
         If ``instrument`` is already active, does nothing.
 
         """
-        if instrument in self._instruments:
+        if instrument in self["_all"]:
             return
-        hooknames = self._instruments[instrument] = []
+        self["_all"][instrument] = None
         try:
             for name in dir(instrument):
                 if name.startswith("_"):
@@ -102,13 +55,11 @@ class Instruments(Instrument):
                     prototype = getattr(Instrument, name)
                 except AttributeError:
                     continue
-                impl: HookImpl = getattr(instrument, name)
+                impl = getattr(instrument, name)
                 if isinstance(impl, types.MethodType) and impl.__func__ is prototype:
                     # Inherited unchanged from _abc.Instrument
                     continue
-                hook: Hook = getattr(self, name)
-                hook[instrument] = impl
-                hooknames.append(name)
+                self.setdefault(name, {})[instrument] = None
         except:
             self.remove_instrument(instrument)
             raise
@@ -128,7 +79,30 @@ class Instruments(Instrument):
 
         """
         # If instrument isn't present, the KeyError propagates out
-        hooknames = self._instruments.pop(instrument)
-        for name in hooknames:
-            hook: Hook = getattr(self, name)
-            del hook[instrument]
+        self["_all"].pop(instrument)
+        for hookname, instruments in list(self.items()):
+            if instrument in instruments:
+                del instruments[instrument]
+                if not instruments:
+                    del self[hookname]
+
+    def call(self, hookname: str, *args: Any) -> None:
+        """Call hookname(*args) on each applicable instrument.
+
+        You must first check whether there are any instruments installed for
+        that hook, e.g.::
+
+            if "before_task_step" in instruments:
+                instruments.call("before_task_step", task)
+        """
+        for instrument in list(self[hookname]):
+            try:
+                getattr(instrument, hookname)(*args)
+            except:
+                self.remove_instrument(instrument)
+                INSTRUMENT_LOGGER.exception(
+                    "Exception raised when calling %r on instrument %r. "
+                    "Instrument has been disabled.",
+                    hookname,
+                    instrument,
+                )

@@ -1306,7 +1306,8 @@ class Runner:
     def close(self):
         self.io_manager.close()
         self.entry_queue.close()
-        self.instruments.after_run()
+        if "after_run" in self.instruments:
+            self.instruments.call("after_run")
         # This is where KI protection gets disabled, so we do it last
         self.ki_manager.close()
 
@@ -1407,8 +1408,8 @@ class Runner:
         if not self.runq and self.is_guest:
             self.force_guest_tick_asap()
         self.runq.append(task)
-        if self.instruments.task_scheduled:
-            self.instruments.task_scheduled(task)
+        if "task_scheduled" in self.instruments:
+            self.instruments.call("task_scheduled", task)
 
     def spawn_impl(self, async_fn, args, nursery, name, *, system_task=False):
 
@@ -1465,8 +1466,8 @@ class Runner:
             nursery._children.add(task)
             task._activate_cancel_status(nursery._cancel_status)
 
-        if self.instruments.task_spawned:
-            self.instruments.task_spawned(task)
+        if "task_spawned" in self.instruments:
+            self.instruments.call("task_spawned", task)
         # Special case: normally next_send should be an Outcome, but for the
         # very first send we have to send a literal unboxed None.
         self.reschedule(task, None)
@@ -1514,8 +1515,8 @@ class Runner:
         else:
             task._parent_nursery._child_finished(task, outcome)
 
-        if self.instruments.task_exited:
-            self.instruments.task_exited(task)
+        if "task_exited" in self.instruments:
+            self.instruments.call("task_exited", task)
 
     ################
     # System tasks and init
@@ -2005,7 +2006,8 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
         if not host_uses_signal_set_wakeup_fd:
             runner.entry_queue.wakeup.wakeup_on_signals()
 
-        runner.instruments.before_run()
+        if "before_run" in runner.instruments:
+            runner.instruments.call("before_run")
         runner.clock.start_clock()
         runner.init_task = runner.spawn_impl(
             runner.init, (async_fn, args), None, "<init>", system_task=True,
@@ -2034,16 +2036,16 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                 timeout = runner.clock_autojump_threshold
                 idle_primed = IdlePrimedTypes.AUTOJUMP_CLOCK
 
-            if runner.instruments.before_io_wait:
-                runner.instruments.before_io_wait(timeout)
+            if "before_io_wait" in runner.instruments:
+                runner.instruments.call("before_io_wait", timeout)
 
             # Driver will call io_manager.get_events(timeout) and pass it back
             # in throuh the yield
             events = yield timeout
             runner.io_manager.process_events(events)
 
-            if runner.instruments.after_io_wait:
-                runner.instruments.after_io_wait(timeout)
+            if "after_io_wait" in runner.instruments:
+                runner.instruments.call("after_io_wait", timeout)
 
             # Process cancellations due to deadline expiry
             now = runner.clock.current_time()
@@ -2120,8 +2122,8 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                 task = batch.pop()
                 GLOBAL_RUN_CONTEXT.task = task
 
-                if runner.instruments.before_task_step:
-                    runner.instruments.before_task_step(task)
+                if "before_task_step" in runner.instruments:
+                    runner.instruments.call("before_task_step", task)
 
                 next_send_fn = task._next_send_fn
                 next_send = task._next_send
@@ -2183,8 +2185,8 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                         runner.reschedule(task, exc)
                         task._next_send_fn = task.coro.throw
 
-                if runner.instruments.after_task_step:
-                    runner.instruments.after_task_step(task)
+                if "after_task_step" in runner.instruments:
+                    runner.instruments.call("after_task_step", task)
                 del GLOBAL_RUN_CONTEXT.task
 
     except GeneratorExit:
