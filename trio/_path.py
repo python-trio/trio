@@ -1,3 +1,5 @@
+# type: ignore
+
 from functools import wraps, partial
 import os
 import types

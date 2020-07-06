@@ -2,6 +2,8 @@ import itertools
 from contextlib import contextmanager
 import enum
 import socket
+import sys
+from typing import TYPE_CHECKING
 
 import attr
 
@@ -24,6 +26,8 @@ from ._windows_cffi import (
     CompletionModes,
     IoControlCodes,
 )
+
+assert not TYPE_CHECKING or sys.platform == "win32"
 
 # There's a lot to be said about the overall design of a Windows event
 # loop. See
@@ -181,7 +185,7 @@ def _check(success):
     return success
 
 
-def _get_base_socket(sock, *, which=WSAIoctls.SIO_BASE_HANDLE):
+def _get_underlying_socket(sock, *, which=WSAIoctls.SIO_BASE_HANDLE):
     if hasattr(sock, "fileno"):
         sock = sock.fileno()
     base_ptr = ffi.new("HANDLE *")
@@ -201,6 +205,53 @@ def _get_base_socket(sock, *, which=WSAIoctls.SIO_BASE_HANDLE):
         code = ws2_32.WSAGetLastError()
         raise_winerror(code)
     return base_ptr[0]
+
+
+def _get_base_socket(sock):
+    # There is a development kit for LSPs called Komodia Redirector.
+    # It does some unusual (some might say evil) things like intercepting
+    # SIO_BASE_HANDLE (fails) and SIO_BSP_HANDLE_SELECT (returns the same
+    # socket) in a misguided attempt to prevent bypassing it. It's been used
+    # in malware including the infamous Lenovo Superfish incident from 2015,
+    # but unfortunately is also used in some legitimate products such as
+    # parental control tools and Astrill VPN. Komodia happens to not
+    # block SIO_BSP_HANDLE_POLL, so we'll try SIO_BASE_HANDLE and fall back
+    # to SIO_BSP_HANDLE_POLL if it doesn't work.
+    # References:
+    # - https://github.com/piscisaureus/wepoll/blob/0598a791bf9cbbf480793d778930fc635b044980/wepoll.c#L2223
+    # - https://github.com/tokio-rs/mio/issues/1314
+
+    while True:
+        try:
+            # If this is not a Komodia-intercepted socket, we can just use
+            # SIO_BASE_HANDLE.
+            return _get_underlying_socket(sock)
+        except OSError as ex:
+            if ex.winerror == ErrorCodes.ERROR_NOT_SOCKET:
+                # SIO_BASE_HANDLE might fail even without LSP intervention,
+                # if we get something that's not a socket.
+                raise
+            if hasattr(sock, "fileno"):
+                sock = sock.fileno()
+            sock = _handle(sock)
+            next_sock = _get_underlying_socket(
+                sock, which=WSAIoctls.SIO_BSP_HANDLE_POLL
+            )
+            if next_sock == sock:
+                # If BSP_HANDLE_POLL returns the same socket we already had,
+                # then there's no layering going on and we need to fail
+                # to prevent an infinite loop.
+                raise RuntimeError(
+                    "Unexpected network configuration detected: "
+                    "SIO_BASE_HANDLE failed and SIO_BSP_HANDLE_POLL didn't "
+                    "return a different socket. Please file a bug at "
+                    "https://github.com/python-trio/trio/issues/new, "
+                    "and include the output of running: "
+                    "netsh winsock show catalog"
+                )
+            # Otherwise we've gotten at least one layer deeper, so
+            # loop back around to keep digging.
+            sock = next_sock
 
 
 def _afd_helper_handle():
@@ -345,19 +396,41 @@ class WindowsIOManager:
         self._completion_key_counter = itertools.count(CKeys.USER_DEFINED)
 
         with socket.socket() as s:
-            # LSPs can't override this.
-            base_handle = _get_base_socket(s, which=WSAIoctls.SIO_BASE_HANDLE)
+            # We assume we're not working with any LSP that changes
+            # how select() is supposed to work. Validate this by
+            # ensuring that the result of SIO_BSP_HANDLE_SELECT (the
+            # LSP-hookable mechanism for "what should I use for
+            # select()?") matches that of SIO_BASE_HANDLE ("what is
+            # the real non-hooked underlying socket here?").
+            #
+            # This doesn't work for Komodia-based LSPs; see the comments
+            # in _get_base_socket() for details. But we have special
+            # logic for those, so we just skip this check if
+            # SIO_BASE_HANDLE fails.
+
             # LSPs can in theory override this, but we believe that it never
-            # actually happens in the wild.
-            select_handle = _get_base_socket(s, which=WSAIoctls.SIO_BSP_HANDLE_SELECT)
-            if base_handle != select_handle:  # pragma: no cover
-                raise RuntimeError(
-                    "Unexpected network configuration detected. "
-                    "Please file a bug at "
-                    "https://github.com/python-trio/trio/issues/new, "
-                    "and include the output of running: "
-                    "netsh winsock show catalog"
-                )
+            # actually happens in the wild (except Komodia)
+            select_handle = _get_underlying_socket(
+                s, which=WSAIoctls.SIO_BSP_HANDLE_SELECT
+            )
+            try:
+                # LSPs shouldn't override this...
+                base_handle = _get_underlying_socket(s, which=WSAIoctls.SIO_BASE_HANDLE)
+            except OSError:
+                # But Komodia-based LSPs do anyway, in a way that causes
+                # a failure with WSAEFAULT. We have special handling for
+                # them in _get_base_socket(). Make sure it works.
+                _get_base_socket(s)
+            else:
+                if base_handle != select_handle:
+                    raise RuntimeError(
+                        "Unexpected network configuration detected: "
+                        "SIO_BASE_HANDLE and SIO_BSP_HANDLE_SELECT differ. "
+                        "Please file a bug at "
+                        "https://github.com/python-trio/trio/issues/new, "
+                        "and include the output of running: "
+                        "netsh winsock show catalog"
+                    )
 
     def close(self):
         try:

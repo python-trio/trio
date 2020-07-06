@@ -1,8 +1,9 @@
-import os as _os
-import sys as _sys
+import os
+import sys
 import select
 import socket as _stdlib_socket
 from functools import wraps as _wraps
+from typing import TYPE_CHECKING
 
 import idna as _idna
 
@@ -51,7 +52,7 @@ try:
 except ImportError:
     # As of at least 3.6, python on Windows is missing IPPROTO_IPV6
     # https://bugs.python.org/issue29515
-    if _sys.platform == "win32":
+    if sys.platform == "win32":  # pragma: no branch
         IPPROTO_IPV6 = 41
 
 ################################################################
@@ -246,7 +247,9 @@ def fromfd(fd, family, type, proto=0):
     return from_stdlib_socket(_stdlib_socket.fromfd(fd, family, type, proto))
 
 
-if hasattr(_stdlib_socket, "fromshare"):
+if sys.platform == "win32" or (
+    not TYPE_CHECKING and hasattr(_stdlib_socket, "fromshare")
+):
 
     @_wraps(_stdlib_socket.fromshare, assigned=(), updated=())
     def fromshare(*args, **kwargs):
@@ -293,7 +296,7 @@ def _sniff_sockopts_for_fileno(family, type, proto, fileno):
     # Wrap the raw fileno into a Python socket object
     # This object might have the wrong metadata, but it lets us easily call getsockopt
     # and then we'll throw it away and construct a new one with the correct metadata.
-    if not _sys.platform == "linux":
+    if sys.platform != "linux":
         return family, type, proto
     from socket import SO_DOMAIN, SO_PROTOCOL, SOL_SOCKET, SO_TYPE
 
@@ -473,7 +476,7 @@ class _SocketType(SocketType):
 
     def is_readable(self):
         # use select.select on Windows, and select.poll everywhere else
-        if _sys.platform == "win32":
+        if sys.platform == "win32":
             rready, _, _ = select.select([self._sock], [], [], 0)
             return bool(rready)
         p = select.poll()
@@ -504,7 +507,7 @@ class _SocketType(SocketType):
                 )
         elif self._sock.family == _stdlib_socket.AF_UNIX:
             # unwrap path-likes
-            return _os.fspath(address)
+            return os.fspath(address)
         else:
             return address
 
@@ -684,7 +687,7 @@ class _SocketType(SocketType):
         # Okay, the connect finished, but it might have failed:
         err = self._sock.getsockopt(_stdlib_socket.SOL_SOCKET, _stdlib_socket.SO_ERROR)
         if err != 0:
-            raise OSError(err, "Error in connect: " + _os.strerror(err))
+            raise OSError(err, "Error in connect: " + os.strerror(err))
 
     ################################################################
     # recv
@@ -757,7 +760,9 @@ class _SocketType(SocketType):
     # sendmsg
     ################################################################
 
-    if hasattr(_stdlib_socket.socket, "sendmsg"):
+    if sys.platform != "win32" or (
+        not TYPE_CHECKING and hasattr(_stdlib_socket.socket, "sendmsg")
+    ):
 
         @_wraps(_stdlib_socket.socket.sendmsg, assigned=(), updated=())
         async def sendmsg(self, *args):
