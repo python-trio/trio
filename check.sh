@@ -23,13 +23,10 @@ flake8 trio/ \
     --ignore=D,E,W,F401,F403,F405,F821,F822\
     || EXIT_STATUS=$?
 
-# Run mypy
-# We specify Linux so that we get the same results on all platforms. Without
-# that, mypy would complain on macOS that epoll does not exist, and we can't
-# ignore it as it would cause a mypy error on Linux
-# In the future, we will run mypy on all platforms and use platform assert
-# guards to avoid typechecking the wrong IOManagers
-mypy -p trio._core --platform linux || EXIT_STATUS=$?
+# Run mypy on all supported platforms
+mypy -m trio -m trio.testing --platform linux || EXIT_STATUS=$?
+mypy -m trio -m trio.testing --platform darwin || EXIT_STATUS=$?  # tests FreeBSD too
+mypy -m trio -m trio.testing --platform win32 || EXIT_STATUS=$?
 
 # Finally, leave a really clear warning of any issues and exit
 if [ $EXIT_STATUS -ne 0 ]; then

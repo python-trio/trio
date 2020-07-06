@@ -1,4 +1,6 @@
 import select
+import sys
+from typing import TYPE_CHECKING
 
 import outcome
 from contextlib import contextmanager
@@ -8,6 +10,8 @@ import errno
 from .. import _core
 from ._run import _public
 from ._wakeup_socketpair import WakeupSocketpair
+
+assert not TYPE_CHECKING or (sys.platform != "linux" and sys.platform != "win32")
 
 
 @attr.s(slots=True, eq=False, frozen=True)
@@ -19,7 +23,7 @@ class _KqueueStatistics:
 
 @attr.s(slots=True, eq=False)
 class KqueueIOManager:
-    _kqueue = attr.ib(factory=select.kqueue)  # type: ignore
+    _kqueue = attr.ib(factory=select.kqueue)
     # {(ident, filter): Task or UnboundedQueue}
     _registered = attr.ib(factory=dict)
     _force_wakeup = attr.ib(factory=WakeupSocketpair)

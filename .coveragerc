@@ -17,3 +17,12 @@ precision = 1
 exclude_lines =
   pragma: no cover
   abc.abstractmethod
+  if TYPE_CHECKING:
+  if _t.TYPE_CHECKING:
+
+partial_branches =
+  pragma: no branch
+  if not TYPE_CHECKING:
+  if not _t.TYPE_CHECKING:
+  if .* or not TYPE_CHECKING:
+  if .* or not _t.TYPE_CHECKING:
