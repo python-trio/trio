@@ -33,12 +33,11 @@ def test_core_is_properly_reexported():
 def public_modules(module):
     yield module
     for name, class_ in module.__dict__.items():
-        # Deprecated classes are exported with a leading underscore
-        if name.startswith("_"):  # pragma: nocover
+        if name.startswith("_"):  # pragma: no cover
             continue
         if not isinstance(class_, types.ModuleType):
             continue
-        if not class_.__name__.startswith(module.__name__):
+        if not class_.__name__.startswith(module.__name__):  # pragma: no cover
             continue
         if class_ is module:
             continue
@@ -120,7 +119,7 @@ def test_classes_are_final():
             if not isinstance(class_, type):
                 continue
             # Deprecated classes are exported with a leading underscore
-            if name.startswith("_"):  # pragma: nocover
+            if name.startswith("_"):  # pragma: no cover
                 continue
 
             # Abstract classes can be subclassed, because that's the whole

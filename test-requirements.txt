@@ -17,17 +17,17 @@ coverage==5.1             # via pytest-cov
 cryptography==2.9.2       # via pyopenssl, trustme
 decorator==4.4.2          # via ipython, traitlets
 flake8==3.8.3             # via -r test-requirements.in
-idna==2.9                 # via -r test-requirements.in, trustme
+idna==2.10                # via -r test-requirements.in, trustme
 immutables==0.14          # via -r test-requirements.in
 ipython-genutils==0.2.0   # via traitlets
-ipython==7.15.0           # via -r test-requirements.in
+ipython==7.16.1           # via -r test-requirements.in
 isort==4.3.21             # via pylint
 jedi==0.17.1              # via -r test-requirements.in, ipython
 lazy-object-proxy==1.4.3  # via astroid
 mccabe==0.6.1             # via flake8, pylint
 more-itertools==8.4.0     # via pytest
-mypy-extensions==0.4.3 ; implementation_name == "cpython"  # via mypy
-mypy==0.780 ; implementation_name == "cpython"  # via -r test-requirements.in
+mypy-extensions==0.4.3 ; implementation_name == "cpython"  # via -r test-requirements.in, mypy
+mypy==0.782 ; implementation_name == "cpython"  # via -r test-requirements.in
 outcome==1.0.1            # via -r test-requirements.in
 packaging==20.4           # via pytest
 parso==0.7.0              # via jedi
@@ -37,7 +37,7 @@ pickleshare==0.7.5        # via ipython
 pluggy==0.13.1            # via pytest
 prompt-toolkit==3.0.5     # via ipython
 ptyprocess==0.6.0         # via pexpect
-py==1.8.2                 # via pytest
+py==1.9.0                 # via pytest
 pycodestyle==2.6.0        # via flake8
 pycparser==2.20           # via cffi
 pyflakes==2.2.0           # via flake8
@@ -54,7 +54,7 @@ sortedcontainers==2.2.2   # via -r test-requirements.in
 toml==0.10.1              # via black, pylint
 traitlets==4.3.3          # via ipython
 trustme==0.6.0            # via -r test-requirements.in
-typed-ast==1.4.1 ; implementation_name == "cpython"  # via -r test-requirements.in, black
-typing-extensions==3.7.4.2; implementation_name == "cpython"  # via mypy
+typed-ast==1.4.1 ; implementation_name == "cpython"  # via -r test-requirements.in, black, mypy
+typing-extensions==3.7.4.2 ; implementation_name == "cpython"  # via -r test-requirements.in, mypy
 wcwidth==0.2.5            # via prompt-toolkit, pytest
 wrapt==1.12.1             # via astroid

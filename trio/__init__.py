@@ -102,6 +102,8 @@ from . import to_thread
 if False:
     from . import testing
 
+from . import _deprecate
+
 _deprecate.enable_attribute_deprecations(__name__)
 __deprecated_attributes__ = {
     # NOTE: when you remove this, you should also remove the file

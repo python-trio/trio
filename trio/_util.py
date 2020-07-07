@@ -281,7 +281,7 @@ class generic_function:
 # inherit from these metaclasses. Fortunately, GenericMeta inherits from
 # ABCMeta, so inheriting from GenericMeta alone is sufficient (when it
 # exists at all).
-if hasattr(t, "GenericMeta"):
+if not t.TYPE_CHECKING and hasattr(t, "GenericMeta"):
     BaseMeta = t.GenericMeta
 else:
     BaseMeta = ABCMeta
@@ -325,6 +325,9 @@ class SubclassingDeprecatedIn_v0_15_0(BaseMeta):
         return super().__new__(cls, name, bases, cls_namespace)
 
 
+T = t.TypeVar("T")
+
+
 class NoPublicConstructor(Final):
     """Metaclass that enforces a class to be final (i.e., subclass not allowed)
     and ensures a private constructor.
@@ -344,13 +347,13 @@ class NoPublicConstructor(Final):
     - TypeError if a sub class or an instance is created.
     """
 
-    def __call__(self, *args, **kwargs):
+    def __call__(cls, *args, **kwargs):
         raise TypeError(
-            f"{self.__module__}.{self.__qualname__} has no public constructor"
+            f"{cls.__module__}.{cls.__qualname__} has no public constructor"
         )
 
-    def _create(self, *args, **kwargs):
-        return super().__call__(*args, **kwargs)
+    def _create(cls: t.Type[T], *args: t.Any, **kwargs: t.Any) -> T:
+        return super().__call__(*args, **kwargs)  # type: ignore
 
 
 def name_asyncgen(agen):

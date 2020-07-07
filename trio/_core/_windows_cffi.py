@@ -244,6 +244,7 @@ class ErrorCodes(enum.IntEnum):
     ERROR_INVALID_HANDLE = 6
     ERROR_INVALID_PARMETER = 87
     ERROR_NOT_FOUND = 1168
+    ERROR_NOT_SOCKET = 10038
 
 
 class FileFlags(enum.IntEnum):
@@ -283,6 +284,7 @@ class AFDPollFlags(enum.IntFlag):
 class WSAIoctls(enum.IntEnum):
     SIO_BASE_HANDLE = 0x48000022
     SIO_BSP_HANDLE_SELECT = 0x4800001C
+    SIO_BSP_HANDLE_POLL = 0x4800001D
 
 
 class CompletionModes(enum.IntFlag):
