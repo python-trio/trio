@@ -9,7 +9,6 @@ import warnings
 from contextlib import contextmanager
 
 import gc
-import sys
 
 # See trio/tests/conftest.py for the other half of this
 from trio.tests.conftest import RUN_SLOW
