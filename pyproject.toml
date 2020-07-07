@@ -15,8 +15,15 @@ directory = "newsfragments"
 underlines = ["-", "~", "^"]
 issue_format = "`#{issue} <https://github.com/python-trio/trio/issues/{issue}>`__"
 
-# Unfortunately there's no way to simply override
-# tool.towncrier.type.misc.showcontent
+[[tool.towncrier.type]]
+directory = "headline"
+name = "Headline features"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "breaking"
+name = "Breaking changes"
+showcontent = true
 
 [[tool.towncrier.type]]
 directory = "feature"
@@ -30,12 +37,12 @@ showcontent = true
 
 [[tool.towncrier.type]]
 directory = "doc"
-name = "Improved Documentation"
+name = "Improved documentation"
 showcontent = true
 
 [[tool.towncrier.type]]
-directory = "removal"
-name = "Deprecations and Removals"
+directory = "deprecated"
+name = "Deprecations and removals"
 showcontent = true
 
 [[tool.towncrier.type]]

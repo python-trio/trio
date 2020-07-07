@@ -33,6 +33,7 @@ Web and HTML
 * `hypercorn <https://gitlab.com/pgjones/hypercorn>`__ - An HTTP server for hosting your ASGI apps. Supports HTTP/1.1, HTTP/2, HTTP/3, and Websockets. Can be run as a standalone server, or embedded in a larger Trio app. Use it with ``quart-trio``, or any other Trio-compatible ASGI framework.
 * `httpx <https://www.python-httpx.org/>`__ - HTTPX is a fully featured HTTP client for Python 3, which provides sync and async APIs, and support for both HTTP/1.1 and HTTP/2.
 * `DeFramed <https://github.com/smurfix/deframed>`__ - DeFramed is a Web non-framework that supports a 99%-server-centric approach to Web coding, including support for the `Remi <https://github.com/dddomodossola/remi>`__ GUI library.
+* `pura <https://github.com/groove-x/pura>`__ - A simple web framework for embedding realtime graphical visualization into Trio apps, enabling inspection and manipulation of program state during development.
 
 
 Database
@@ -42,6 +43,7 @@ Database
 * `trio-mysql <https://github.com/python-trio/trio-mysql>`__ - Pure Python MySQL Client.
 * `sqlalchemy_aio <https://github.com/RazerM/sqlalchemy_aio>`__ - Add asyncio and Trio support to SQLAlchemy core, derived from alchimia.
 * `redio <https://github.com/Tronic/redio>`__ - Redis client, pure Python and Trio.
+* `trio_redis <https://github.com/omnidots/trio_redis>`__ - A Redis client for Trio. Depends on hiredis-py.
 
 
 IOT
@@ -60,8 +62,14 @@ Building Command Line Apps
 
 Multi-Core/Multiprocessing
 --------------------------
-* `tractor <https://github.com/goodboy/tractor>`__ - tractor is an attempt to bring trionic structured concurrency to distributed multi-core Python.
+* `tractor <https://github.com/goodboy/tractor>`__ - An experimental, trionic (aka structured concurrent) "actor model" for distributed multi-core Python.
 * `Trio run_in_process <https://github.com/ethereum/trio-run-in-process>`__ - Trio based API for running code in a separate process.
+
+
+RPC
+---
+* `purepc <https://github.com/standy66/purerpc>`__ - Asynchronous pure Python gRPC client and server implementation using anyio.
+* `trio-jsonrpc <https://github.com/HyperionGray/trio-jsonrpc>`__ - JSON-RPC v2.0 for Trio.
 
 
 Testing
@@ -77,6 +85,7 @@ Tools and Utilities
 * `trio-util <https://github.com/groove-x/trio-util>`__ - An assortment of utilities for the Trio async/await framework.
 * `tricycle <https://github.com/oremanj/tricycle>`__ - This is a library of interesting-but-maybe-not-yet-fully-proven extensions to Trio.
 * `tenacity <https://github.com/jd/tenacity>`__ - Retrying library for Python with async/await support.
+* `perf-timer <https://github.com/belm0/perf-timer>`__ - A code timer with Trio async support (see ``TrioPerfTimer``).  Collects execution time of a block of code excluding time when the coroutine isn't scheduled, such as during blocking I/O and sleep.  Also offers ``trio_perf_counter()`` for low-level timing.
 
 
 Trio/Asyncio Interoperability

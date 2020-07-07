@@ -2,6 +2,7 @@ import time
 from math import inf
 
 from .. import _core
+from ._run import GLOBAL_RUN_CONTEXT
 from .._abc import Clock
 from .._util import SubclassingDeprecatedIn_v0_15_0
 
@@ -51,32 +52,13 @@ class MockClock(Clock, metaclass=SubclassingDeprecatedIn_v0_15_0):
        above) then just set it to zero, and the clock will jump whenever all
        tasks are blocked.
 
-       .. warning::
-
-          If you're using :func:`wait_all_tasks_blocked` and
-          :attr:`autojump_threshold` together, then you have to be
-          careful. Setting :attr:`autojump_threshold` acts like a background
-          task calling::
-
-             while True:
-                 await wait_all_tasks_blocked(
-                   cushion=clock.autojump_threshold, tiebreaker=float("inf"))
-
-          This means that if you call :func:`wait_all_tasks_blocked` with a
-          cushion *larger* than your autojump threshold, then your call to
-          :func:`wait_all_tasks_blocked` will never return, because the
-          autojump task will keep waking up before your task does, and each
-          time it does it'll reset your task's timer. However, if your cushion
-          and the autojump threshold are the *same*, then the autojump's
-          tiebreaker will prevent them from interfering (unless you also set
-          your tiebreaker to infinity for some reason. Don't do that). As an
-          important special case: this means that if you set an autojump
-          threshold of zero and use :func:`wait_all_tasks_blocked` with the
-          default zero cushion, then everything will work fine.
-
-          **Summary**: you should set :attr:`autojump_threshold` to be at
-          least as large as the largest cushion you plan to pass to
-          :func:`wait_all_tasks_blocked`.
+       .. note:: If you use ``autojump_threshold`` and
+          `wait_all_tasks_blocked` at the same time, then you might wonder how
+          they interact, since they both cause things to happen after the run
+          loop goes idle for some time. The answer is:
+          `wait_all_tasks_blocked` takes priority. If there's a task blocked
+          in `wait_all_tasks_blocked`, then the autojump feature treats that
+          as active task and does *not* jump the clock.
 
     """
 
@@ -88,8 +70,6 @@ class MockClock(Clock, metaclass=SubclassingDeprecatedIn_v0_15_0):
         self._virtual_base = 0.0
         self._rate = 0.0
         self._autojump_threshold = 0.0
-        self._autojump_task = None
-        self._autojump_cancel_scope = None
         # kept as an attribute so that our tests can monkeypatch it
         self._real_clock = time.perf_counter
 
@@ -124,47 +104,31 @@ class MockClock(Clock, metaclass=SubclassingDeprecatedIn_v0_15_0):
     @autojump_threshold.setter
     def autojump_threshold(self, new_autojump_threshold):
         self._autojump_threshold = float(new_autojump_threshold)
-        self._maybe_spawn_autojump_task()
-        if self._autojump_cancel_scope is not None:
-            # Task is running and currently blocked on the old setting, wake
-            # it up so it picks up the new setting
-            self._autojump_cancel_scope.cancel()
+        self._try_resync_autojump_threshold()
 
-    async def _autojumper(self):
-        while True:
-            with _core.CancelScope() as cancel_scope:
-                self._autojump_cancel_scope = cancel_scope
-                try:
-                    # If the autojump_threshold changes, then the setter does
-                    # cancel_scope.cancel(), which causes the next line here
-                    # to raise Cancelled, which is absorbed by the cancel
-                    # scope above, and effectively just causes us to skip back
-                    # to the start the loop, like a 'continue'.
-                    await _core.wait_all_tasks_blocked(self._autojump_threshold, inf)
-                    statistics = _core.current_statistics()
-                    jump = statistics.seconds_to_next_deadline
-                    if 0 < jump < inf:
-                        self.jump(jump)
-                    else:
-                        # There are no deadlines, nothing is going to happen
-                        # until some actual I/O arrives (or maybe another
-                        # wait_all_tasks_blocked task wakes up). That's fine,
-                        # but if our threshold is zero then this will become a
-                        # busy-wait -- so insert a small-but-non-zero _sleep to
-                        # avoid that.
-                        if self._autojump_threshold == 0:
-                            await _core.wait_all_tasks_blocked(0.01)
-                finally:
-                    self._autojump_cancel_scope = None
+    # runner.clock_autojump_threshold is an internal API that isn't easily
+    # usable by custom third-party Clock objects. If you need access to this
+    # functionality, let us know, and we'll figure out how to make a public
+    # API. Discussion:
+    #
+    #     https://github.com/python-trio/trio/issues/1587
+    def _try_resync_autojump_threshold(self):
+        try:
+            runner = GLOBAL_RUN_CONTEXT.runner
+            if runner.is_guest:
+                runner.force_guest_tick_asap()
+        except AttributeError:
+            pass
+        else:
+            runner.clock_autojump_threshold = self._autojump_threshold
 
-    def _maybe_spawn_autojump_task(self):
-        if self._autojump_threshold < inf and self._autojump_task is None:
-            try:
-                clock = _core.current_clock()
-            except RuntimeError:
-                return
-            if clock is self:
-                self._autojump_task = _core.spawn_system_task(self._autojumper)
+    # Invoked by the run loop when runner.clock_autojump_threshold is
+    # exceeded.
+    def _autojump(self):
+        statistics = _core.current_statistics()
+        jump = statistics.seconds_to_next_deadline
+        if 0 < jump < inf:
+            self.jump(jump)
 
     def _real_to_virtual(self, real):
         real_offset = real - self._real_base
@@ -172,8 +136,7 @@ class MockClock(Clock, metaclass=SubclassingDeprecatedIn_v0_15_0):
         return self._virtual_base + virtual_offset
 
     def start_clock(self):
-        token = _core.current_trio_token()
-        token.run_sync_soon(self._maybe_spawn_autojump_task)
+        self._try_resync_autojump_threshold()
 
     def current_time(self):
         return self._real_to_virtual(self._real_clock())

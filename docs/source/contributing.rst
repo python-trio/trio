@@ -5,7 +5,7 @@ Contributing to Trio and related projects
 
 So you're interested in contributing to Trio or `one of our associated
 projects <https://github.com/python-trio>`__? That's awesome! Trio is
-is an open-source project maintained by an informal group of
+an open-source project maintained by an informal group of
 volunteers. Our goal is to make async I/O in Python more fun, easy,
 and reliable, and we can't do it without help from people like you. We
 welcome contributions from anyone willing to work in good faith with
@@ -363,7 +363,7 @@ Documentation is hosted at `Read the Docs
 rebuilding it after every commit.
 
 For docstrings, we use `the Google docstring format
-<http://www.sphinx-doc.org/en/stable/ext/example_google.html#example-google>`__.
+<https://www.sphinx-doc.org/en/3.x/usage/extensions/example_google.html#example-google-style-python-docstrings>`__.
 If you add a new function or class, there's no mechanism for
 automatically adding that to the docs: you'll have to at least add a
 line like ``.. autofunction:: <your function>`` in the appropriate

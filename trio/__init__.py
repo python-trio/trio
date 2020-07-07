@@ -55,8 +55,6 @@ from ._sync import (
     Condition,
 )
 
-from ._threads import BlockingTrioPortal as _BlockingTrioPortal
-
 from ._highlevel_generic import aclose_forcefully, StapledStream
 
 from ._channel import (
@@ -105,39 +103,10 @@ from . import to_thread
 if False:
     from . import testing
 
-from . import _deprecated_ssl_reexports
-from . import _deprecated_subprocess_reexports
+from . import _deprecate
 
 _deprecate.enable_attribute_deprecations(__name__)
 __deprecated_attributes__ = {
-    "ssl": _deprecate.DeprecatedAttribute(
-        _deprecated_ssl_reexports,
-        "0.11.0",
-        issue=852,
-        instead=(
-            "trio.SSLStream, trio.SSLListener, trio.NeedHandshakeError, "
-            "and the standard library 'ssl' module (minus SSLSocket and "
-            "wrap_socket())"
-        ),
-    ),
-    "subprocess": _deprecate.DeprecatedAttribute(
-        _deprecated_subprocess_reexports,
-        "0.11.0",
-        issue=852,
-        instead=(
-            "trio.Process and the constants in the standard "
-            "library 'subprocess' module"
-        ),
-    ),
-    "run_sync_in_worker_thread": _deprecate.DeprecatedAttribute(
-        to_thread.run_sync, "0.12.0", issue=810,
-    ),
-    "current_default_worker_thread_limiter": _deprecate.DeprecatedAttribute(
-        to_thread.current_default_thread_limiter, "0.12.0", issue=810,
-    ),
-    "BlockingTrioPortal": _deprecate.DeprecatedAttribute(
-        _BlockingTrioPortal, "0.12.0", issue=810, instead=from_thread,
-    ),
     # NOTE: when you remove this, you should also remove the file
     # trio/hazmat.py. For details on why we have both, see:
     #
@@ -147,21 +116,6 @@ __deprecated_attributes__ = {
     ),
 }
 
-_deprecate.enable_attribute_deprecations(lowlevel.__name__)
-lowlevel.__deprecated_attributes__ = {
-    "wait_socket_readable": _deprecate.DeprecatedAttribute(
-        lowlevel.wait_readable, "0.12.0", issue=878,
-    ),
-    "wait_socket_writable": _deprecate.DeprecatedAttribute(
-        lowlevel.wait_writable, "0.12.0", issue=878,
-    ),
-    "notify_socket_close": _deprecate.DeprecatedAttribute(
-        lowlevel.notify_closing, "0.12.0", issue=878,
-    ),
-    "notify_fd_close": _deprecate.DeprecatedAttribute(
-        lowlevel.notify_closing, "0.12.0", issue=878,
-    ),
-}
 
 # Having the public path in .__module__ attributes is important for:
 # - exception names in printed tracebacks
@@ -177,8 +131,4 @@ fixup_module_metadata(socket.__name__, socket.__dict__)
 fixup_module_metadata(abc.__name__, abc.__dict__)
 fixup_module_metadata(from_thread.__name__, from_thread.__dict__)
 fixup_module_metadata(to_thread.__name__, to_thread.__dict__)
-fixup_module_metadata(__name__ + ".ssl", _deprecated_ssl_reexports.__dict__)
-fixup_module_metadata(
-    __name__ + ".subprocess", _deprecated_subprocess_reexports.__dict__
-)
 del fixup_module_metadata

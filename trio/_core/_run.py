@@ -9,19 +9,21 @@ import select
 import sys
 import threading
 from collections import deque
-import collections.abc
-from contextlib import contextmanager, closing
+from contextlib import contextmanager
 import warnings
+import enum
 
 from contextvars import copy_context, Context
 from math import inf
 from time import perf_counter
+from typing import Callable, TYPE_CHECKING
 
 from sniffio import current_async_library_cvar
 
 import attr
+from heapq import heapify, heappop, heappush
 from sortedcontainers import SortedDict
-from outcome import Error, Value, capture
+from outcome import Error, Outcome, Value, capture
 
 from ._entry_queue import EntryQueue, TrioToken
 from ._exceptions import TrioInternalError, RunFinishedError, Cancelled
@@ -34,14 +36,17 @@ from ._multierror import MultiError
 from ._traps import (
     Abort,
     wait_task_rescheduled,
+    cancel_shielded_checkpoint,
     CancelShieldedCheckpoint,
     PermanentlyDetachCoroutineObject,
     WaitTaskRescheduled,
 )
 from ._thread_cache import start_thread_soon
 from .. import _core
-from .._deprecate import deprecated
+from .._deprecate import warn_deprecated
 from .._util import Final, NoPublicConstructor, coroutine_or_error
+
+DEADLINE_HEAP_MIN_PRUNE_THRESHOLD = 1000
 
 _NO_SEND = object()
 
@@ -112,9 +117,83 @@ class SystemClock:
         return deadline - self.current_time()
 
 
+class IdlePrimedTypes(enum.Enum):
+    WAITING_FOR_IDLE = 1
+    AUTOJUMP_CLOCK = 2
+
+
 ################################################################
 # CancelScope and friends
 ################################################################
+
+
+@attr.s(eq=False, slots=True)
+class Deadlines:
+    """A container of deadlined cancel scopes.
+
+    Only contains scopes with non-infinite deadlines that are currently
+    attached to at least one task.
+
+    """
+
+    # Heap of (deadline, id(CancelScope), CancelScope)
+    _heap = attr.ib(factory=list)
+    # Count of active deadlines (those that haven't been changed)
+    _active = attr.ib(default=0)
+
+    def add(self, deadline, cancel_scope):
+        heappush(self._heap, (deadline, id(cancel_scope), cancel_scope))
+        self._active += 1
+
+    def remove(self, deadline, cancel_scope):
+        self._active -= 1
+
+    def next_deadline(self):
+        while self._heap:
+            deadline, _, cancel_scope = self._heap[0]
+            if deadline == cancel_scope._registered_deadline:
+                return deadline
+            else:
+                # This entry is stale; discard it and try again
+                heappop(self._heap)
+        return inf
+
+    def _prune(self):
+        # In principle, it's possible for a cancel scope to toggle back and
+        # forth repeatedly between the same two deadlines, and end up with
+        # lots of stale entries that *look* like they're still active, because
+        # their deadline is correct, but in fact are redundant. So when
+        # pruning we have to eliminate entries with the wrong deadline, *and*
+        # eliminate duplicates.
+        seen = set()
+        pruned_heap = []
+        for deadline, tiebreaker, cancel_scope in self._heap:
+            if deadline == cancel_scope._registered_deadline:
+                if cancel_scope in seen:
+                    continue
+                seen.add(cancel_scope)
+                pruned_heap.append((deadline, tiebreaker, cancel_scope))
+        # See test_cancel_scope_deadline_duplicates for a test that exercises
+        # this assert:
+        assert len(pruned_heap) == self._active
+        heapify(pruned_heap)
+        self._heap = pruned_heap
+
+    def expire(self, now):
+        did_something = False
+        while self._heap and self._heap[0][0] <= now:
+            deadline, _, cancel_scope = heappop(self._heap)
+            if deadline == cancel_scope._registered_deadline:
+                did_something = True
+                # This implicitly calls self.remove(), so we don't need to
+                # decrement _active here
+                cancel_scope.cancel()
+        # If we've accumulated too many stale entries, then prune the heap to
+        # keep it under control. (We only do this occasionally in a batch, to
+        # keep the amortized cost down)
+        if len(self._heap) > self._active * 2 + DEADLINE_HEAP_MIN_PRUNE_THRESHOLD:
+            self._prune()
+        return did_something
 
 
 @attr.s(eq=False, slots=True)
@@ -512,13 +591,13 @@ class CancelScope(metaclass=Final):
                 self._registered_deadline = new
                 runner = GLOBAL_RUN_CONTEXT.runner
                 if runner.is_guest:
-                    old_next_deadline = runner.next_deadline()
+                    old_next_deadline = runner.deadlines.next_deadline()
                 if old != inf:
-                    del runner.deadlines[old, id(self)]
+                    runner.deadlines.remove(old, self)
                 if new != inf:
-                    runner.deadlines[new, id(self)] = self
+                    runner.deadlines.add(new, self)
                 if runner.is_guest:
-                    new_next_deadline = runner.next_deadline()
+                    new_next_deadline = runner.deadlines.next_deadline()
                     if old_next_deadline != new_next_deadline:
                         runner.force_guest_tick_asap()
 
@@ -577,7 +656,7 @@ class CancelScope(metaclass=Final):
         """
         return self._shield
 
-    @shield.setter
+    @shield.setter  # type: ignore  # "decorated property not supported"
     @enable_ki_protection
     def shield(self, new_value):
         if not isinstance(new_value, bool):
@@ -1155,7 +1234,8 @@ class GuestState:
     run_sync_soon_not_threadsafe = attr.ib()
     done_callback = attr.ib()
     unrolled_run_gen = attr.ib()
-    unrolled_run_next_send = attr.ib(factory=lambda: Value(None))
+    _value_factory: Callable[[], Value] = lambda: Value(None)
+    unrolled_run_next_send = attr.ib(factory=_value_factory, type=Outcome)
 
     def guest_tick(self):
         try:
@@ -1205,10 +1285,7 @@ class Runner:
     runq = attr.ib(factory=deque)
     tasks = attr.ib(factory=set)
 
-    # {(deadline, id(CancelScope)): CancelScope}
-    # only contains scopes with non-infinite deadlines that are currently
-    # attached to at least one task
-    deadlines = attr.ib(factory=SortedDict)
+    deadlines = attr.ib(factory=Deadlines)
 
     init_task = attr.ib(default=None)
     system_nursery = attr.ib(default=None)
@@ -1218,6 +1295,9 @@ class Runner:
 
     entry_queue = attr.ib(factory=EntryQueue)
     trio_token = attr.ib(default=None)
+
+    # If everything goes idle for this long, we call clock._autojump()
+    clock_autojump_threshold = attr.ib(default=inf)
 
     # Guest mode stuff
     is_guest = attr.ib(default=False)
@@ -1236,14 +1316,6 @@ class Runner:
             self.instrument("after_run")
         # This is where KI protection gets disabled, so we do it last
         self.ki_manager.close()
-
-    def next_deadline(self):
-        try:
-            (next_deadline, _), _ = self.deadlines.peekitem(0)
-        except IndexError:
-            return inf
-        else:
-            return next_deadline
 
     @_public
     def current_statistics(self):
@@ -1269,7 +1341,7 @@ class Runner:
           other attributes vary between backends.
 
         """
-        seconds_to_next_deadline = self.next_deadline() - self.current_time()
+        seconds_to_next_deadline = self.deadlines.next_deadline() - self.current_time()
         return _RunStatistics(
             tasks_living=len(self.tasks),
             tasks_runnable=len(self.runq),
@@ -1570,7 +1642,7 @@ class Runner:
     waiting_for_idle = attr.ib(factory=SortedDict)
 
     @_public
-    async def wait_all_tasks_blocked(self, cushion=0.0, tiebreaker=0):
+    async def wait_all_tasks_blocked(self, cushion=0.0, tiebreaker="deprecated"):
         """Block until there are no runnable tasks.
 
         This is useful in testing code when you want to give other tasks a
@@ -1588,9 +1660,7 @@ class Runner:
         then the one with the shortest ``cushion`` is the one woken (and
         this task becoming unblocked resets the timers for the remaining
         tasks). If there are multiple tasks that have exactly the same
-        ``cushion``, then the one with the lowest ``tiebreaker`` value is
-        woken first. And if there are multiple tasks with the same ``cushion``
-        and the same ``tiebreaker``, then all are woken.
+        ``cushion``, then all are woken.
 
         You should also consider :class:`trio.testing.Sequencer`, which
         provides a more explicit way to control execution ordering within a
@@ -1630,6 +1700,16 @@ class Runner:
                          print("FAIL")
 
         """
+        if tiebreaker == "deprecated":
+            tiebreaker = 0
+        else:
+            warn_deprecated(
+                "the 'tiebreaker' argument to wait_all_tasks_blocked",
+                "v0.16.0",
+                issue=1558,
+                instead=None,
+            )
+
         task = current_task()
         key = (cushion, tiebreaker, id(task))
         self.waiting_for_idle[key] = task
@@ -2008,19 +2088,23 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
         while runner.tasks:
             if runner.runq:
                 timeout = 0
-            elif runner.deadlines:
-                deadline, _ = runner.deadlines.keys()[0]
-                timeout = runner.clock.deadline_to_sleep_time(deadline)
             else:
-                timeout = _MAX_TIMEOUT
+                deadline = runner.deadlines.next_deadline()
+                timeout = runner.clock.deadline_to_sleep_time(deadline)
             timeout = min(max(0, timeout), _MAX_TIMEOUT)
 
-            idle_primed = False
+            idle_primed = None
             if runner.waiting_for_idle:
                 cushion, tiebreaker, _ = runner.waiting_for_idle.keys()[0]
                 if cushion < timeout:
                     timeout = cushion
-                    idle_primed = True
+                    idle_primed = IdlePrimedTypes.WAITING_FOR_IDLE
+            # We use 'elif' here because if there are tasks in
+            # wait_all_tasks_blocked, then those tasks will wake up without
+            # jumping the clock, so we don't need to autojump.
+            elif runner.clock_autojump_threshold < timeout:
+                timeout = runner.clock_autojump_threshold
+                idle_primed = IdlePrimedTypes.AUTOJUMP_CLOCK
 
             if runner.instruments:
                 runner.instrument("before_io_wait", timeout)
@@ -2035,23 +2119,17 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
 
             # Process cancellations due to deadline expiry
             now = runner.clock.current_time()
-            while runner.deadlines:
-                (deadline, _), cancel_scope = runner.deadlines.peekitem(0)
-                if deadline <= now:
-                    # This removes the given scope from runner.deadlines:
-                    cancel_scope.cancel()
-                    idle_primed = False
-                else:
-                    break
+            if runner.deadlines.expire(now):
+                idle_primed = None
 
-            # idle_primed=True means: if the IO wait hit the timeout, and still
-            # nothing is happening, then we should start waking up
-            # wait_all_tasks_blocked tasks. But there are some subtleties in
-            # defining "nothing is happening".
+            # idle_primed != None means: if the IO wait hit the timeout, and
+            # still nothing is happening, then we should start waking up
+            # wait_all_tasks_blocked tasks or autojump the clock. But there
+            # are some subtleties in defining "nothing is happening".
             #
             # 'not runner.runq' means that no tasks are currently runnable.
             # 'not events' means that the last IO wait call hit its full
-            # timeout. These are very similar, and if idle_primed=True and
+            # timeout. These are very similar, and if idle_primed != None and
             # we're running in regular mode then they always go together. But,
             # in *guest* mode, they can happen independently, even when
             # idle_primed=True:
@@ -2065,14 +2143,18 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
             #   before we got here.
             #
             # So we need to check both.
-            if idle_primed and not runner.runq and not events:
-                while runner.waiting_for_idle:
-                    key, task = runner.waiting_for_idle.peekitem(0)
-                    if key[:2] == (cushion, tiebreaker):
-                        del runner.waiting_for_idle[key]
-                        runner.reschedule(task)
-                    else:
-                        break
+            if idle_primed is not None and not runner.runq and not events:
+                if idle_primed is IdlePrimedTypes.WAITING_FOR_IDLE:
+                    while runner.waiting_for_idle:
+                        key, task = runner.waiting_for_idle.peekitem(0)
+                        if key[:2] == (cushion, tiebreaker):
+                            del runner.waiting_for_idle[key]
+                            runner.reschedule(task)
+                        else:
+                            break
+                else:
+                    assert idle_primed is IdlePrimedTypes.AUTOJUMP_CLOCK
+                    runner.clock._autojump()
 
             # Process all runnable tasks, but only the ones that are already
             # runnable now. Anything that becomes runnable during this cycle
@@ -2092,6 +2174,7 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
             # tie-breaker and the non-deterministic ordering of
             # task._notify_queues.)
             batch = list(runner.runq)
+            runner.runq.clear()
             if _ALLOW_DETERMINISTIC_SCHEDULING:
                 # We're running under Hypothesis, and pytest-trio has patched
                 # this in to make the scheduler deterministic and avoid flaky
@@ -2099,8 +2182,12 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                 # operation, since we'll shuffle the list and _r is only
                 # seeded for tests.
                 batch.sort(key=lambda t: t._counter)
-            runner.runq.clear()
-            _r.shuffle(batch)
+                _r.shuffle(batch)
+            else:
+                # 50% chance of reversing the batch, this way each task
+                # can appear before/after any other task.
+                if _r.random() < 0.5:
+                    batch.reverse()
             while batch:
                 task = batch.pop()
                 GLOBAL_RUN_CONTEXT.task = task
@@ -2268,8 +2355,17 @@ async def checkpoint():
     :func:`checkpoint`.)
 
     """
-    with CancelScope(deadline=-inf):
-        await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
+    # The scheduler is what checks timeouts and converts them into
+    # cancellations. So by doing the schedule point first, we ensure that the
+    # cancel point has the most up-to-date info.
+    await cancel_shielded_checkpoint()
+    task = current_task()
+    task._cancel_points += 1
+    if task._cancel_status.effectively_cancelled or (
+        task is task._runner.main_task and task._runner.ki_pending
+    ):
+        with CancelScope(deadline=-inf):
+            await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
 
 
 async def checkpoint_if_cancelled():
@@ -2296,13 +2392,13 @@ async def checkpoint_if_cancelled():
     task._cancel_points += 1
 
 
-if os.name == "nt":
+if sys.platform == "win32":
     from ._io_windows import WindowsIOManager as TheIOManager
     from ._generated_io_windows import *
-elif hasattr(select, "epoll"):
+elif sys.platform == "linux" or (not TYPE_CHECKING and hasattr(select, "epoll")):
     from ._io_epoll import EpollIOManager as TheIOManager
     from ._generated_io_epoll import *
-elif hasattr(select, "kqueue"):
+elif TYPE_CHECKING or hasattr(select, "kqueue"):
     from ._io_kqueue import KqueueIOManager as TheIOManager
     from ._generated_io_kqueue import *
 else:  # pragma: no cover

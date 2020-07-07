@@ -1,4 +1,6 @@
 import select
+import sys
+from typing import TYPE_CHECKING
 
 import outcome
 from contextlib import contextmanager
@@ -8,6 +10,8 @@ import errno
 from .. import _core
 from ._run import _public
 from ._wakeup_socketpair import WakeupSocketpair
+
+assert not TYPE_CHECKING or (sys.platform != "linux" and sys.platform != "win32")
 
 
 @attr.s(slots=True, eq=False, frozen=True)
@@ -44,6 +48,7 @@ class KqueueIOManager:
 
     def close(self):
         self._kqueue.close()
+        self._force_wakeup.close()
 
     def force_wakeup(self):
         self._force_wakeup.wakeup_thread_and_signal_safe()

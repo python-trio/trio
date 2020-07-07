@@ -23,6 +23,11 @@ flake8 trio/ \
     --ignore=D,E,W,F401,F403,F405,F821,F822\
     || EXIT_STATUS=$?
 
+# Run mypy on all supported platforms
+mypy -m trio -m trio.testing --platform linux || EXIT_STATUS=$?
+mypy -m trio -m trio.testing --platform darwin || EXIT_STATUS=$?  # tests FreeBSD too
+mypy -m trio -m trio.testing --platform win32 || EXIT_STATUS=$?
+
 # Finally, leave a really clear warning of any issues and exit
 if [ $EXIT_STATUS -ne 0 ]; then
     cat <<EOF

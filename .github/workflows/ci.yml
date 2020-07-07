@@ -2,8 +2,8 @@ name: CI
 
 on:
   push:
-    branches:
-      - master
+    branches-ignore:
+      - "dependabot/*" 
   pull_request:
 
 jobs:
@@ -19,6 +19,14 @@ jobs:
         lsp: ['']
         extra_name: ['']
         include:
+          - python: '3.8'
+            arch: 'x64'
+            # This is a SUPER sketchy source for this -- I assume it
+            # has some kind of embedded malware -- but the real
+            # download site has the downloads locked behind a
+            # registration wall.
+            lsp: 'http://fs3.softfamous.com/downloads/tname-110575cb0f191/software/astrill-setup-win.exe'
+            extra_name: ', with Komodia LSP'
           - python: '3.8'
             arch: 'x64'
             lsp: 'http://www.proxifier.com/download/ProxifierSetup.exe'
@@ -51,13 +59,9 @@ jobs:
       fail-fast: false
       matrix:
         python: ['3.6', '3.7', '3.8']
-        check_docs: ['0']
         check_formatting: ['0']
         extra_name: ['']
         include:
-          - python: '3.8'
-            check_docs: '1'
-            extra_name: ', check docs'
           - python: '3.8'
             check_formatting: '1'
             extra_name: ', check formatting'
@@ -71,7 +75,6 @@ jobs:
       - name: Run tests
         run: ./ci.sh
         env:
-          CHECK_DOCS: '${{ matrix.check_docs }}'
           CHECK_FORMATTING: '${{ matrix.check_formatting }}'
           # Should match 'name:' up above
           JOB_NAME: 'Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})'

@@ -1,0 +1,1 @@
+Remove ``wait_socket_*``, ``notify_socket_closing``, ``notify_fd_closing``, ``run_sync_in_worker_thread`` and ``current_default_worker_thread_limiter``. They were deprecated in 0.12.0.

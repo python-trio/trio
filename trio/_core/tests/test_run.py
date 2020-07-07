@@ -23,6 +23,7 @@ from .tutil import (
 )
 
 from ... import _core
+from .._run import DEADLINE_HEAP_MIN_PRUNE_THRESHOLD
 from ..._threads import to_thread_run_sync
 from ..._timeouts import sleep, fail_after
 from ...testing import (
@@ -2351,3 +2352,14 @@ async def test_very_deep_cancel_scope_nesting():
         for _ in range(5000):
             exit_stack.enter_context(_core.CancelScope())
         outermost_scope.cancel()
+
+
+async def test_cancel_scope_deadline_duplicates():
+    # This exercises an assert in Deadlines._prune, by intentionally creating
+    # duplicate entries in the deadline heap.
+    now = _core.current_time()
+    with _core.CancelScope() as cscope:
+        for _ in range(DEADLINE_HEAP_MIN_PRUNE_THRESHOLD * 2):
+            cscope.deadline = now + 9998
+            cscope.deadline = now + 9999
+        await sleep(0.01)

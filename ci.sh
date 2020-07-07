@@ -393,14 +393,7 @@ python -m pip --version
 python setup.py sdist --formats=zip
 python -m pip install dist/*.zip
 
-if [ "$CHECK_DOCS" = "1" ]; then
-    python -m pip install -r docs-requirements.txt
-    towncrier --yes  # catch errors in newsfragments
-    cd docs
-    # -n (nit-picky): warn on missing references
-    # -W: turn warnings into errors
-    sphinx-build -nW  -b html source build
-elif [ "$CHECK_FORMATTING" = "1" ]; then
+if [ "$CHECK_FORMATTING" = "1" ]; then
     python -m pip install -r test-requirements.txt
     source check.sh
 else
@@ -428,6 +421,13 @@ else
         # machine for testing. So MITM attacks are really the least of our
         # worries.
         curl-harder --insecure -o lsp-installer.exe "$LSP"
+        # This is only needed for the Astrill LSP, but there's no harm in
+        # doing it all the time. The cert was manually extracted by installing
+        # the package in a VPN, clicking "Always trust from this publisher"
+        # when installing, and then running 'certmgr.msc' and exporting the
+        # certificate. See:
+        #    http://www.migee.com/2010/09/24/solution-for-unattendedsilent-installs-and-would-you-like-to-install-this-device-software/
+        certutil -addstore "TrustedPublisher" .github/workflows/astrill-codesigning-cert.cer
         # Double-slashes are how you tell windows-bash that you want a single
         # slash, and don't treat this as a unix-style filename that needs to
         # be replaced by a windows-style filename.
@@ -448,7 +448,12 @@ else
 
     INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
     cp ../setup.cfg $INSTALLDIR
-    if pytest -W error -r a --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --cov="$INSTALLDIR" --cov-config=../.coveragerc --verbose; then
+    # We have to copy .coveragerc into this directory, rather than passing
+    # --cov-config=../.coveragerc to pytest, because codecov.sh will run
+    # 'coverage xml' to generate the report that it uses, and that will only
+    # apply the ignore patterns in the current directory's .coveragerc.
+    cp ../.coveragerc .
+    if pytest -W error -r a --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --cov="$INSTALLDIR" --verbose; then
         PASSED=true
     else
         PASSED=false

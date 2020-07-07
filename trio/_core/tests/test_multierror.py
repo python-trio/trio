@@ -5,8 +5,8 @@ from traceback import (
     extract_tb,
     print_exception,
     format_exception,
-    _cause_message,
 )
+from traceback import _cause_message  # type: ignore
 import sys
 import os
 import re
@@ -692,6 +692,15 @@ def test_ipython_exc_handler():
 def test_ipython_imported_but_unused():
     completed = run_script("simple_excepthook_IPython.py")
     check_simple_excepthook(completed)
+
+
+@slow
+def test_partial_imported_but_unused():
+    # Check that a functools.partial as sys.excepthook doesn't cause an exception when
+    # importing trio.  This was a problem due to the lack of a .__name__ attribute and
+    # happens when inside a pytest-qt test case for example.
+    completed = run_script("simple_excepthook_partial.py")
+    completed.check_returncode()
 
 
 @slow

@@ -21,20 +21,6 @@ from ._util import coroutine_or_error
 # Global due to Threading API, thread local storage for trio token
 TOKEN_LOCAL = threading.local()
 
-
-class BlockingTrioPortal:
-    def __init__(self, trio_token=None):
-        if trio_token is None:
-            trio_token = trio.lowlevel.current_trio_token()
-        self._trio_token = trio_token
-
-    def run(self, afn, *args):
-        return from_thread_run(afn, *args, trio_token=self._trio_token)
-
-    def run_sync(self, fn, *args):
-        return from_thread_run_sync(fn, *args, trio_token=self._trio_token)
-
-
 _limiter_local = RunVar("limiter")
 # I pulled this number out of the air; it isn't based on anything. Probably we
 # should make some kind of measurements to pick a good value.
@@ -179,7 +165,17 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
     def worker_fn():
         TOKEN_LOCAL.token = current_trio_token
         try:
-            return sync_fn(*args)
+            ret = sync_fn(*args)
+
+            if inspect.iscoroutine(ret):
+                # Manually close coroutine to avoid RuntimeWarnings
+                ret.close()
+                raise TypeError(
+                    "Trio expected a sync function, but {!r} appears to be "
+                    "asynchronous".format(getattr(sync_fn, "__qualname__", sync_fn))
+                )
+
+            return ret
         finally:
             del TOKEN_LOCAL.token
 
@@ -227,10 +223,7 @@ def _run_fn_as_system_task(cb, fn, *args, trio_token=None):
                 "this thread wasn't created by Trio, pass kwarg trio_token=..."
             )
 
-    # TODO: This is only necessary for compatibility with BlockingTrioPortal.
-    # once that is deprecated, this check should no longer be necessary because
-    # thread local storage (or the absence of) is sufficient to check if trio
-    # is running in a thread or not.
+    # Avoid deadlock by making sure we're not called from Trio thread
     try:
         trio.lowlevel.current_task()
     except RuntimeError:

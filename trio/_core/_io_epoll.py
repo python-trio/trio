@@ -1,11 +1,15 @@
 import select
+import sys
 import attr
 from collections import defaultdict
+from typing import Dict, TYPE_CHECKING
 
 from .. import _core
 from ._run import _public
 from ._io_common import wake_all
 from ._wakeup_socketpair import WakeupSocketpair
+
+assert not TYPE_CHECKING or sys.platform == "linux"
 
 
 @attr.s(slots=True, eq=False, frozen=True)
@@ -184,7 +188,9 @@ class EpollWaiters:
 class EpollIOManager:
     _epoll = attr.ib(factory=select.epoll)
     # {fd: EpollWaiters}
-    _registered = attr.ib(factory=lambda: defaultdict(EpollWaiters))
+    _registered = attr.ib(
+        factory=lambda: defaultdict(EpollWaiters), type=Dict[int, EpollWaiters]
+    )
     _force_wakeup = attr.ib(factory=WakeupSocketpair)
     _force_wakeup_fd = attr.ib(default=None)
 

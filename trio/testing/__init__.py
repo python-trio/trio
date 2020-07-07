@@ -1,8 +1,6 @@
-from .._core import wait_all_tasks_blocked
+from .._core import wait_all_tasks_blocked, MockClock
 
 from ._trio_test import trio_test
-
-from ._mock_clock import MockClock
 
 from ._checkpoints import assert_checkpoints, assert_no_checkpoints
 

@@ -1,5 +1,4 @@
 from threading import Thread, Lock
-import sys
 import outcome
 from itertools import count
 
@@ -70,6 +69,8 @@ class WorkerThread:
                 # instead of spawning a new thread.
                 self._thread_cache._idle_workers[self] = None
                 deliver(result)
+                del fn
+                del deliver
             else:
                 # Timeout acquiring lock, so we can probably exit. But,
                 # there's a race condition: we might be assigned a job *just*

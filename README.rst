@@ -25,17 +25,7 @@
 Trio – a friendly Python library for async concurrency and I/O
 ==============================================================
 
-.. Github carefully breaks rendering of SVG directly out of the repo,
-   so we have to redirect through cdn.rawgit.com
-   See:
-     https://github.com/isaacs/github/issues/316
-     https://github.com/github/markup/issues/556#issuecomment-288581799
-   I also tried rendering to PNG and linking to that locally, which
-   "works" in that it displays the image, but for some reason it
-   ignores the width and align directives, so it's actually pretty
-   useless...
-
-.. image:: https://cdn.rawgit.com/python-trio/trio/9b0bec646a31e0d0f67b8b6ecc6939726faf3e17/logo/logo-with-background.svg
+.. image:: https://raw.githubusercontent.com/python-trio/trio/9b0bec646a31e0d0f67b8b6ecc6939726faf3e17/logo/logo-with-background.svg
    :width: 200px
    :align: right
 
