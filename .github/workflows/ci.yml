@@ -17,6 +17,7 @@ jobs:
         python: ['3.6', '3.7', '3.8']
         arch: ['x86', 'x64']
         lsp: ['']
+        lsp_extract_file: ['']
         extra_name: ['']
         include:
           - python: '3.8'
@@ -27,10 +28,12 @@ jobs:
           - python: '3.8'
             arch: 'x64'
             lsp: 'http://www.proxifier.com/download/ProxifierSetup.exe'
+            lsp_extract_file: ''
             extra_name: ', with IFS LSP'
           - python: '3.8'
             arch: 'x64'
             lsp: 'http://download.pctools.com/mirror/updates/9.0.0.2308-SDavfree-lite_en.exe'
+            lsp_extract_file: ''
             extra_name: ', with non-IFS LSP'
     steps:
       - name: Checkout
