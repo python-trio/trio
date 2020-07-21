@@ -45,6 +45,7 @@ jobs:
         shell: bash
         env:
           LSP: '${{ matrix.lsp }}'
+          LSP_EXTRACT_FILE: '${{ matrix.lsp_extract_file }}'
           # Should match 'name:' up above
           JOB_NAME: 'Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})'
 
