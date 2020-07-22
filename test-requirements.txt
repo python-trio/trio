@@ -47,7 +47,7 @@ pyopenssl==19.1.0         # via -r test-requirements.in
 pyparsing==2.4.7          # via packaging
 pytest-cov==2.10.0        # via -r test-requirements.in
 pytest==5.4.3             # via -r test-requirements.in, pytest-cov
-regex==2020.6.8           # via black
+regex==2020.7.14          # via black
 six==1.15.0               # via astroid, cryptography, packaging, pyopenssl, traitlets
 sniffio==1.1.0            # via -r test-requirements.in
 sortedcontainers==2.2.2   # via -r test-requirements.in
