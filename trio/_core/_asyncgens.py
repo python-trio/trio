@@ -129,7 +129,9 @@ class AsyncGenerators:
         # Process all pending run_sync_soon callbacks, in case one of
         # them was an asyncgen finalizer that snuck in under the wire.
         runner.entry_queue.run_sync_soon(runner.reschedule, runner.init_task)
-        await _core.wait_task_rescheduled(lambda _: Abort.FAILED)  # pragma: no cover
+        await _core.wait_task_rescheduled(
+            lambda _: _core.Abort.FAILED  # pragma: no cover
+        )
         self.alive.update(self.trailing_needs_finalize)
         self.trailing_needs_finalize.clear()
 
