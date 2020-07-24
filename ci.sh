@@ -420,10 +420,19 @@ else
         # installing some untrustworthy quasi-malware onto into a sandboxed
         # machine for testing. So MITM attacks are really the least of our
         # worries.
-        curl-harder --insecure -o lsp-installer.exe "$LSP"
+        if [ "$LSP_EXTRACT_FILE" != "" ]; then
+            # We host the Astrill VPN installer ourselves, and encrypt it
+            # so as to decrease the chances of becoming an inadvertent
+            # public redistributor.
+            curl-harder -o lsp-installer.zip "$LSP"
+            unzip -P "not very secret trio ci key" lsp-installer.zip "$LSP_EXTRACT_FILE"
+            mv "$LSP_EXTRACT_FILE" lsp-installer.exe
+        else
+            curl-harder --insecure -o lsp-installer.exe "$LSP"
+        fi
         # This is only needed for the Astrill LSP, but there's no harm in
         # doing it all the time. The cert was manually extracted by installing
-        # the package in a VPN, clicking "Always trust from this publisher"
+        # the package in a VM, clicking "Always trust from this publisher"
         # when installing, and then running 'certmgr.msc' and exporting the
         # certificate. See:
         #    http://www.migee.com/2010/09/24/solution-for-unattendedsilent-installs-and-would-you-like-to-install-this-device-software/

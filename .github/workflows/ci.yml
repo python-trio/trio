@@ -3,7 +3,7 @@ name: CI
 on:
   push:
     branches-ignore:
-      - "dependabot/*" 
+      - "dependabot/*"
   pull_request:
 
 jobs:
@@ -17,23 +17,23 @@ jobs:
         python: ['3.6', '3.7', '3.8']
         arch: ['x86', 'x64']
         lsp: ['']
+        lsp_extract_file: ['']
         extra_name: ['']
         include:
           - python: '3.8'
             arch: 'x64'
-            # This is a SUPER sketchy source for this -- I assume it
-            # has some kind of embedded malware -- but the real
-            # download site has the downloads locked behind a
-            # registration wall.
-            lsp: 'http://fs3.softfamous.com/downloads/tname-110575cb0f191/software/astrill-setup-win.exe'
+            lsp: 'https://raw.githubusercontent.com/python-trio/trio-ci-assets/master/komodia-based-vpn-setup.zip'
+            lsp_extract_file: 'komodia-based-vpn-setup.exe'
             extra_name: ', with Komodia LSP'
           - python: '3.8'
             arch: 'x64'
             lsp: 'http://www.proxifier.com/download/ProxifierSetup.exe'
+            lsp_extract_file: ''
             extra_name: ', with IFS LSP'
           - python: '3.8'
             arch: 'x64'
             lsp: 'http://download.pctools.com/mirror/updates/9.0.0.2308-SDavfree-lite_en.exe'
+            lsp_extract_file: ''
             extra_name: ', with non-IFS LSP'
     steps:
       - name: Checkout
@@ -48,6 +48,7 @@ jobs:
         shell: bash
         env:
           LSP: '${{ matrix.lsp }}'
+          LSP_EXTRACT_FILE: '${{ matrix.lsp_extract_file }}'
           # Should match 'name:' up above
           JOB_NAME: 'Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})'
 
