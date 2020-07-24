@@ -30,7 +30,7 @@ mypy-extensions==0.4.3 ; implementation_name == "cpython"  # via -r test-require
 mypy==0.782 ; implementation_name == "cpython"  # via -r test-requirements.in
 outcome==1.0.1            # via -r test-requirements.in
 packaging==20.4           # via pytest
-parso==0.7.0              # via jedi
+parso==0.7.1              # via jedi
 pathspec==0.8.0           # via black
 pexpect==4.8.0            # via ipython
 pickleshare==0.7.5        # via ipython
