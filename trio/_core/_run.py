@@ -43,10 +43,11 @@ from ._traps import (
     PermanentlyDetachCoroutineObject,
     WaitTaskRescheduled,
 )
+from ._asyncgens import AsyncGenerators
 from ._thread_cache import start_thread_soon
 from .. import _core
 from .._deprecate import warn_deprecated
-from .._util import Final, NoPublicConstructor, coroutine_or_error, name_asyncgen
+from .._util import Final, NoPublicConstructor, coroutine_or_error
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD = 1000
 
@@ -67,9 +68,8 @@ def _public(fn):
 _ALLOW_DETERMINISTIC_SCHEDULING = False
 _r = random.Random()
 
-# Used to log exceptions in instruments and async generator finalizers
+# Used to log exceptions in instruments
 INSTRUMENT_LOGGER = logging.getLogger("trio.abc.Instrument")
-ASYNCGEN_LOGGER = logging.getLogger("trio.async_generator_errors")
 
 
 # On 3.7+, Context.run() is implemented in C and doesn't show up in
@@ -1288,6 +1288,7 @@ class Runner:
 
     entry_queue = attr.ib(factory=EntryQueue)
     trio_token = attr.ib(default=None)
+    asyncgens = attr.ib(factory=AsyncGenerators)
 
     # If everything goes idle for this long, we call clock._autojump()
     clock_autojump_threshold = attr.ib(default=inf)
@@ -1296,24 +1297,8 @@ class Runner:
     is_guest = attr.ib(default=False)
     guest_tick_scheduled = attr.ib(default=False)
 
-    # Async generators are added to this set when first iterated. Any
-    # left after the main task exits will be closed before trio.run()
-    # returns.  During most of the run, this is a WeakSet so GC works.
-    # During shutdown, when we're finalizign all the remaining
-    # asyncgens after the system nursery has been closed, it's a
-    # regular set so we don't have to deal with GC firing at
-    # unexpected times.
-    asyncgens = attr.ib(factory=weakref.WeakSet)
-
-    # This collects async generators that get garbage collected during
-    # the one-tick window between the system nursery closing and the
-    # init task starting end-of-run asyncgen finalization.
-    trailing_finalizer_asyncgens = attr.ib(factory=set)
-
-    prev_asyncgen_hooks = attr.ib(init=False)
-
     def __attrs_post_init__(self):
-        self.setup_asyncgen_hooks()
+        self.asyncgens.install_hooks(self)
 
     def force_guest_tick_asap(self):
         if self.guest_tick_scheduled:
@@ -1324,7 +1309,7 @@ class Runner:
     def close(self):
         self.io_manager.close()
         self.entry_queue.close()
-        sys.set_asyncgen_hooks(*self.prev_asyncgen_hooks)
+        self.asyncgens.close()
         if self.instruments:
             self.instrument("after_run")
         # This is where KI protection gets disabled, so we do it last
@@ -1540,147 +1525,6 @@ class Runner:
     # Async generator finalization support
     ################
 
-    async def finalize_asyncgen(self, agen, name):
-        try:
-            # This shield ensures that finalize_asyncgen never exits
-            # with an exception, not even a Cancelled. The inside
-            # is cancelled so there's no deadlock risk.
-            with CancelScope(shield=True) as cancel_scope:
-                cancel_scope.cancel()
-                await agen.aclose()
-        except BaseException:
-            ASYNCGEN_LOGGER.exception(
-                "Exception ignored during finalization of async generator %r -- "
-                "surround your use of the generator in 'async with aclosing(...):' "
-                "to raise exceptions like this in the context where they're generated",
-                name,
-            )
-
-    async def finalize_remaining_asyncgens(self):
-        # At the time this function is called, there are exactly two
-        # tasks running: init and the run_sync_soon task. (And we've
-        # shut down the system nursery, so no more can appear.)
-        # Neither one uses async generators, so every async generator
-        # must be suspended at a yield point -- there's no one to be
-        # doing the iteration. That's good, because aclose() only
-        # works on an asyncgen that's suspended at a yield point.
-        # (If it's suspended at an event loop trap, because someone
-        # is in the middle of iterating it, then you get a RuntimeError
-        # on 3.8+, and a nasty surprise on earlier versions due to
-        # https://bugs.python.org/issue32526.)
-        #
-        # However, once we start aclose() of one async generator, it
-        # might start fetching the next value from another, thus
-        # preventing us from closing that other (at least until
-        # aclose() of the first one is complete).  This constraint
-        # effectively requires us to finalize the remaining asyncgens
-        # in arbitrary order, rather than doing all of them at the
-        # same time. On 3.8+ we could defer any generator with
-        # ag_running=True to a later batch, but that only catches
-        # the case where our aclose() starts after the user's
-        # asend()/etc. If our aclose() starts first, then the
-        # user's asend()/etc will raise RuntimeError, since they're
-        # probably not checking ag_running.
-        #
-        # It might be possible to allow some parallelized cleanup if
-        # we can determine that a certain set of asyncgens have no
-        # interdependencies, using gc.get_referents() and such.
-        # But just doing one at a time will typically work well enough
-        # (since each aclose() executes in a cancelled scope) and
-        # is much easier to reason about.
-
-        # It's possible that that cleanup code will itself create
-        # more async generators, so we iterate repeatedly until
-        # all are gone.
-        while self.asyncgens:
-            batch = self.asyncgens
-            self.asyncgens = set()
-            for agen in batch:
-                await self.finalize_asyncgen(agen, name_asyncgen(agen))
-
-    def setup_asyncgen_hooks(self):
-        def firstiter(agen):
-            if hasattr(GLOBAL_RUN_CONTEXT, "task"):
-                self.asyncgens.add(agen)
-            else:
-                # An async generator first iterated outside of a Trio
-                # task doesn't belong to Trio. Probably we're in guest
-                # mode and the async generator belongs to our host.
-                # The locals dictionary is the only good place to
-                # remember this fact, at least until
-                # https://bugs.python.org/issue40916 is implemented.
-                agen.ag_frame.f_locals["@trio_foreign_asyncgen"] = True
-                if self.prev_asyncgen_hooks.firstiter is not None:
-                    self.prev_asyncgen_hooks.firstiter(agen)
-
-        def finalize_in_trio_context(agen, agen_name):
-            try:
-                self.spawn_system_task(
-                    self.finalize_asyncgen,
-                    agen,
-                    agen_name,
-                    name=f"close asyncgen {agen_name} (abandoned)",
-                )
-            except RuntimeError:
-                # There is a one-tick window where the system nursery
-                # is closed but the init task hasn't yet made
-                # self.asyncgens a strong set to disable GC. We seem to
-                # have hit it.
-                self.trailing_finalizer_asyncgens.add(agen)
-
-        def finalizer(agen):
-            agen_name = name_asyncgen(agen)
-            try:
-                is_ours = not agen.ag_frame.f_locals.get("@trio_foreign_asyncgen")
-            except AttributeError:  # pragma: no cover
-                is_ours = True
-
-            if is_ours:
-                self.entry_queue.run_sync_soon(
-                    finalize_in_trio_context, agen, agen_name
-                )
-
-                # Do this last, because it might raise an exception
-                # depending on the user's warnings filter. (That
-                # exception will be printed to the terminal and
-                # ignored, since we're running in GC context.)
-                warnings.warn(
-                    f"Async generator {agen_name!r} was garbage collected before it "
-                    f"had been exhausted. Surround its use in 'async with "
-                    f"aclosing(...):' to ensure that it gets cleaned up as soon as "
-                    f"you're done using it.",
-                    ResourceWarning,
-                    stacklevel=2,
-                    source=agen,
-                )
-            else:
-                # Not ours -> forward to the host loop's async generator finalizer
-                if self.prev_asyncgen_hooks.finalizer is not None:
-                    self.prev_asyncgen_hooks.finalizer(agen)
-                else:
-                    # Host has no finalizer.  Reimplement the default
-                    # Python behavior with no hooks installed: throw in
-                    # GeneratorExit, step once, raise RuntimeError if
-                    # it doesn't exit.
-                    closer = agen.aclose()
-                    try:
-                        # If the next thing is a yield, this will raise RuntimeError
-                        # which we allow to propagate
-                        closer.send(None)
-                    except StopIteration:
-                        pass
-                    else:
-                        # If the next thing is an await, we get here. Give a nicer
-                        # error than the default "async generator ignored GeneratorExit"
-                        raise RuntimeError(
-                            f"async generator {agen_name!r} awaited during "
-                            f"finalization; install a finalization hook to support "
-                            f"this, or wrap it in 'async with aclosing(...):'"
-                        )
-
-        self.prev_asyncgen_hooks = sys.get_asyncgen_hooks()
-        sys.set_asyncgen_hooks(firstiter=firstiter, finalizer=finalizer)
-
     ################
     # System tasks and init
     ################
@@ -1754,23 +1598,8 @@ class Runner:
                 # Main task is done; start shutting down system tasks
                 self.system_nursery.cancel_scope.cancel()
 
-            # The only tasks running at this point are init (this one)
-            # and the run_sync_soon task. We still need to finalize
-            # remaining async generators. To make that easier to reason
-            # about, we'll shut down their garbage collection by turning
-            # the asyncgens WeakSet into a regular set.
-            self.asyncgens = set(self.asyncgens)
-
-            # Process all pending run_sync_soon callbacks, in case one of
-            # them was an asyncgen finalizer that snuck in under the wire.
-            self.entry_queue.run_sync_soon(self.reschedule, self.init_task)
-            await wait_task_rescheduled(lambda _: Abort.FAILED)  # pragma: no cover
-            self.asyncgens.update(self.trailing_finalizer_asyncgens)
-            self.trailing_finalizer_asyncgens.clear()
-
-            # The only async-colored user code left to run is the
-            # finalizers for the async generators that remain alive.
-            await self.finalize_remaining_asyncgens()
+            # System nursery is closed; finalize remaining async generators
+            await self.asyncgens.finalize_remaining(self)
 
             # There are no more asyncgens, which means no more user-provided
             # code except possibly run_sync_soon callbacks. It's finally safe

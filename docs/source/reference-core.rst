@@ -1505,9 +1505,9 @@ by ``break``\ing out of the iteration, things aren't so simple.  The
 async generator iterator object is still alive, waiting for you to
 resume iterating it so it can produce more values. At some point,
 Python will realize that you've dropped all references to the
-iterator, and will call on Trio to help with executing any remaining
-cleanup code inside the generator: ``finally`` blocks, ``__aexit__``
-handlers, and so on.
+iterator, and will call on Trio to throw in a `GeneratorExit` exception
+so that any remaining cleanup code inside the generator has a chance
+to run: ``finally`` blocks, ``__aexit__`` handlers, and so on.
 
 So far, so good. Unfortunately, Python provides no guarantees about
 *when* this happens. It could be as soon as you break out of the
@@ -1516,7 +1516,9 @@ even be after the entire Trio run has finished! Just about the only
 guarantee is that it *won't* happen in the task that was using the
 generator. That task will continue on with whatever else it's doing,
 and the async generator cleanup will happen "sometime later,
-somewhere else".
+somewhere else": potentially with different context variables,
+not subject to timeouts, and/or after any nurseries you're using have
+been closed.
 
 If you don't like that ambiguity, and you want to ensure that a
 generator's ``finally`` blocks and ``__aexit__`` handlers execute as

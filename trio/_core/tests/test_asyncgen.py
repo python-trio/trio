@@ -184,7 +184,7 @@ def test_last_minute_gc_edge_case():
     def collect_at_opportune_moment(token):
         runner = _core._run.GLOBAL_RUN_CONTEXT.runner
         if runner.system_nursery._closed and isinstance(
-            runner.asyncgens, weakref.WeakSet
+            runner.asyncgens.alive, weakref.WeakSet
         ):
             saved.clear()
             record.append("final collection")
@@ -277,7 +277,7 @@ async def test_fallback_when_no_hook_claims_it(capsys):
 
     await step_outside_async_context(awaits_after_yield())
     gc_collect_harder()
-    assert "awaited during finalization" in capsys.readouterr().err
+    assert "awaited something during finalization" in capsys.readouterr().err
 
 
 @pytest.mark.skipif(buggy_pypy_asyncgens, reason="pypy 7.2.0 is buggy")
