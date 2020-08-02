@@ -42,6 +42,7 @@ from ._traps import (
     WaitTaskRescheduled,
 )
 from ._thread_cache import start_thread_soon
+from ._instrumentation import Instruments
 from .. import _core
 from .._deprecate import warn_deprecated
 from .._util import Final, NoPublicConstructor, coroutine_or_error
@@ -64,9 +65,6 @@ def _public(fn):
 # scheduling loop deterministic.  We have a test for that, of course.
 _ALLOW_DETERMINISTIC_SCHEDULING = False
 _r = random.Random()
-
-# Used to log exceptions in instruments
-INSTRUMENT_LOGGER = logging.getLogger("trio.abc.Instrument")
 
 
 # On 3.7+, Context.run() is implemented in C and doesn't show up in
@@ -1186,7 +1184,13 @@ class Task(metaclass=NoPublicConstructor):
 # The central Runner object
 ################################################################
 
-GLOBAL_RUN_CONTEXT = threading.local()
+
+class RunContext(threading.local):
+    runner: "Runner"
+    task: Task
+
+
+GLOBAL_RUN_CONTEXT = RunContext()
 
 
 @attr.s(frozen=True)
@@ -1265,7 +1269,7 @@ class GuestState:
 @attr.s(eq=False, hash=False, slots=True)
 class Runner:
     clock = attr.ib()
-    instruments = attr.ib()
+    instruments: Instruments = attr.ib()
     io_manager = attr.ib()
     ki_manager = attr.ib()
 
@@ -1302,8 +1306,8 @@ class Runner:
     def close(self):
         self.io_manager.close()
         self.entry_queue.close()
-        if self.instruments:
-            self.instrument("after_run")
+        if "after_run" in self.instruments:
+            self.instruments.call("after_run")
         # This is where KI protection gets disabled, so we do it last
         self.ki_manager.close()
 
@@ -1404,8 +1408,8 @@ class Runner:
         if not self.runq and self.is_guest:
             self.force_guest_tick_asap()
         self.runq.append(task)
-        if self.instruments:
-            self.instrument("task_scheduled", task)
+        if "task_scheduled" in self.instruments:
+            self.instruments.call("task_scheduled", task)
 
     def spawn_impl(self, async_fn, args, nursery, name, *, system_task=False):
 
@@ -1462,8 +1466,8 @@ class Runner:
             nursery._children.add(task)
             task._activate_cancel_status(nursery._cancel_status)
 
-        if self.instruments:
-            self.instrument("task_spawned", task)
+        if "task_spawned" in self.instruments:
+            self.instruments.call("task_spawned", task)
         # Special case: normally next_send should be an Outcome, but for the
         # very first send we have to send a literal unboxed None.
         self.reschedule(task, None)
@@ -1511,8 +1515,8 @@ class Runner:
         else:
             task._parent_nursery._child_finished(task, outcome)
 
-        if self.instruments:
-            self.instrument("task_exited", task)
+        if "task_exited" in self.instruments:
+            self.instruments.call("task_exited", task)
 
     ################
     # System tasks and init
@@ -1704,64 +1708,6 @@ class Runner:
 
         await wait_task_rescheduled(abort)
 
-    ################
-    # Instrumentation
-    ################
-
-    def instrument(self, method_name, *args):
-        if not self.instruments:
-            return
-
-        for instrument in list(self.instruments):
-            try:
-                method = getattr(instrument, method_name)
-            except AttributeError:
-                continue
-            try:
-                method(*args)
-            except:
-                self.instruments.remove(instrument)
-                INSTRUMENT_LOGGER.exception(
-                    "Exception raised when calling %r on instrument %r. "
-                    "Instrument has been disabled.",
-                    method_name,
-                    instrument,
-                )
-
-    @_public
-    def add_instrument(self, instrument):
-        """Start instrumenting the current run loop with the given instrument.
-
-        Args:
-          instrument (trio.abc.Instrument): The instrument to activate.
-
-        If ``instrument`` is already active, does nothing.
-
-        """
-        if instrument not in self.instruments:
-            self.instruments.append(instrument)
-
-    @_public
-    def remove_instrument(self, instrument):
-        """Stop instrumenting the current run loop with the given instrument.
-
-        Args:
-          instrument (trio.abc.Instrument): The instrument to de-activate.
-
-        Raises:
-          KeyError: if the instrument is not currently active. This could
-              occur either because you never added it, or because you added it
-              and then it raised an unhandled exception and was automatically
-              deactivated.
-
-        """
-        # We're moving 'instruments' to being a set, so raise KeyError like
-        # set.remove does.
-        try:
-            self.instruments.remove(instrument)
-        except ValueError as exc:
-            raise KeyError(*exc.args)
-
 
 ################################################################
 # run
@@ -1840,7 +1786,7 @@ def setup_runner(clock, instruments, restrict_keyboard_interrupt_to_checkpoints)
 
     if clock is None:
         clock = SystemClock()
-    instruments = list(instruments)
+    instruments = Instruments(instruments)
     io_manager = TheIOManager()
     system_context = copy_context()
     system_context.run(current_async_library_cvar.set, "trio")
@@ -2060,8 +2006,8 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
         if not host_uses_signal_set_wakeup_fd:
             runner.entry_queue.wakeup.wakeup_on_signals()
 
-        if runner.instruments:
-            runner.instrument("before_run")
+        if "before_run" in runner.instruments:
+            runner.instruments.call("before_run")
         runner.clock.start_clock()
         runner.init_task = runner.spawn_impl(
             runner.init, (async_fn, args), None, "<init>", system_task=True,
@@ -2090,16 +2036,16 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                 timeout = runner.clock_autojump_threshold
                 idle_primed = IdlePrimedTypes.AUTOJUMP_CLOCK
 
-            if runner.instruments:
-                runner.instrument("before_io_wait", timeout)
+            if "before_io_wait" in runner.instruments:
+                runner.instruments.call("before_io_wait", timeout)
 
             # Driver will call io_manager.get_events(timeout) and pass it back
             # in throuh the yield
             events = yield timeout
             runner.io_manager.process_events(events)
 
-            if runner.instruments:
-                runner.instrument("after_io_wait", timeout)
+            if "after_io_wait" in runner.instruments:
+                runner.instruments.call("after_io_wait", timeout)
 
             # Process cancellations due to deadline expiry
             now = runner.clock.current_time()
@@ -2176,8 +2122,8 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                 task = batch.pop()
                 GLOBAL_RUN_CONTEXT.task = task
 
-                if runner.instruments:
-                    runner.instrument("before_task_step", task)
+                if "before_task_step" in runner.instruments:
+                    runner.instruments.call("before_task_step", task)
 
                 next_send_fn = task._next_send_fn
                 next_send = task._next_send
@@ -2239,8 +2185,8 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                         runner.reschedule(task, exc)
                         task._next_send_fn = task.coro.throw
 
-                if runner.instruments:
-                    runner.instrument("after_task_step", task)
+                if "after_task_step" in runner.instruments:
+                    runner.instruments.call("after_task_step", task)
                 del GLOBAL_RUN_CONTEXT.task
 
     except GeneratorExit:
@@ -2389,3 +2335,4 @@ else:  # pragma: no cover
     raise NotImplementedError("unsupported platform")
 
 from ._generated_run import *
+from ._generated_instrumentation import *

@@ -20,6 +20,7 @@ HEADER = """# ***********************************************************
 # *************************************************************
 from ._run import GLOBAL_RUN_CONTEXT, _NO_SEND
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
+from ._instrumentation import Instrument
 
 # fmt: off
 """
@@ -179,6 +180,7 @@ def main():  # pragma: no cover
     core = source_root / "trio/_core"
     to_wrap = [
         (core / "_run.py", "runner"),
+        (core / "_instrumentation.py", "runner.instruments"),
         (core / "_io_windows.py", "runner.io_manager"),
         (core / "_io_epoll.py", "runner.io_manager"),
         (core / "_io_kqueue.py", "runner.io_manager"),
