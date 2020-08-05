@@ -1301,9 +1301,6 @@ class Runner:
     is_guest = attr.ib(default=False)
     guest_tick_scheduled = attr.ib(default=False)
 
-    def __attrs_post_init__(self):
-        self.asyncgens.install_hooks(self)
-
     def force_guest_tick_asap(self):
         if self.guest_tick_scheduled:
             return
@@ -1524,10 +1521,6 @@ class Runner:
 
         if "task_exited" in self.instruments:
             self.instruments.call("task_exited", task)
-
-    ################
-    # Async generator finalization support
-    ################
 
     ################
     # System tasks and init
@@ -1833,6 +1826,7 @@ def setup_runner(clock, instruments, restrict_keyboard_interrupt_to_checkpoints)
         system_context=system_context,
         ki_manager=ki_manager,
     )
+    runner.asyncgens.install_hooks(runner)
 
     # This is where KI protection gets enabled, so we want to do it early - in
     # particular before we start modifying global state like GLOBAL_RUN_CONTEXT
