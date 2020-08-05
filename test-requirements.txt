@@ -11,14 +11,15 @@ async-generator==1.10     # via -r test-requirements.in
 attrs==19.3.0             # via -r test-requirements.in, black, outcome, pytest
 backcall==0.2.0           # via ipython
 black==19.10b0 ; implementation_name == "cpython"  # via -r test-requirements.in
-cffi==1.14.0              # via cryptography
+cffi==1.14.1              # via cryptography
 click==7.1.2              # via black
-coverage==5.2             # via pytest-cov
-cryptography==2.9.2       # via pyopenssl, trustme
+coverage==5.2.1           # via pytest-cov
+cryptography==3.0         # via pyopenssl, trustme
 decorator==4.4.2          # via ipython, traitlets
 flake8==3.8.3             # via -r test-requirements.in
 idna==2.10                # via -r test-requirements.in, trustme
 immutables==0.14          # via -r test-requirements.in
+iniconfig==1.0.1          # via pytest
 ipython-genutils==0.2.0   # via traitlets
 ipython==7.16.1           # via -r test-requirements.in
 isort==4.3.21             # via pylint
@@ -30,7 +31,7 @@ mypy-extensions==0.4.3 ; implementation_name == "cpython"  # via -r test-require
 mypy==0.782 ; implementation_name == "cpython"  # via -r test-requirements.in
 outcome==1.0.1            # via -r test-requirements.in
 packaging==20.4           # via pytest
-parso==0.7.0              # via jedi
+parso==0.7.1              # via jedi
 pathspec==0.8.0           # via black
 pexpect==4.8.0            # via ipython
 pickleshare==0.7.5        # via ipython
@@ -46,15 +47,15 @@ pylint==2.5.3             # via -r test-requirements.in
 pyopenssl==19.1.0         # via -r test-requirements.in
 pyparsing==2.4.7          # via packaging
 pytest-cov==2.10.0        # via -r test-requirements.in
-pytest==5.4.3             # via -r test-requirements.in, pytest-cov
+pytest==6.0.1             # via -r test-requirements.in, pytest-cov
 regex==2020.7.14          # via black
 six==1.15.0               # via astroid, cryptography, packaging, pyopenssl, traitlets
 sniffio==1.1.0            # via -r test-requirements.in
 sortedcontainers==2.2.2   # via -r test-requirements.in
-toml==0.10.1              # via black, pylint
+toml==0.10.1              # via black, pylint, pytest
 traitlets==4.3.3          # via ipython
 trustme==0.6.0            # via -r test-requirements.in
 typed-ast==1.4.1 ; implementation_name == "cpython"  # via -r test-requirements.in, black, mypy
 typing-extensions==3.7.4.2 ; implementation_name == "cpython"  # via -r test-requirements.in, mypy
-wcwidth==0.2.5            # via prompt-toolkit, pytest
+wcwidth==0.2.5            # via prompt-toolkit
 wrapt==1.12.1             # via astroid

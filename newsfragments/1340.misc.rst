@@ -1,0 +1,6 @@
+When using :ref:`instruments <instrumentation>`, you now only "pay for what you use":
+if there are no instruments installed that override a particular hook such as
+:meth:`~trio.abc.Instrument.before_task_step`, then Trio doesn't waste any effort
+on checking its instruments when the event corresponding to that hook occurs.
+Previously, installing any instrument would incur all the instrumentation overhead,
+even for hooks no one was interested in.
