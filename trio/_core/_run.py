@@ -9,8 +9,10 @@ import select
 import sys
 import threading
 from collections import deque
+import collections.abc
 from contextlib import contextmanager
 import warnings
+import weakref
 import enum
 
 from contextvars import copy_context
@@ -41,6 +43,7 @@ from ._traps import (
     PermanentlyDetachCoroutineObject,
     WaitTaskRescheduled,
 )
+from ._asyncgens import AsyncGenerators
 from ._thread_cache import start_thread_soon
 from ._instrumentation import Instruments
 from .. import _core
@@ -1289,6 +1292,7 @@ class Runner:
 
     entry_queue = attr.ib(factory=EntryQueue)
     trio_token = attr.ib(default=None)
+    asyncgens = attr.ib(factory=AsyncGenerators)
 
     # If everything goes idle for this long, we call clock._autojump()
     clock_autojump_threshold = attr.ib(default=inf)
@@ -1306,6 +1310,7 @@ class Runner:
     def close(self):
         self.io_manager.close()
         self.entry_queue.close()
+        self.asyncgens.close()
         if "after_run" in self.instruments:
             self.instruments.call("after_run")
         # This is where KI protection gets disabled, so we do it last
@@ -1499,11 +1504,7 @@ class Runner:
 
         task._activate_cancel_status(None)
         self.tasks.remove(task)
-        if task is self.main_task:
-            self.main_task_outcome = outcome
-            self.system_nursery.cancel_scope.cancel()
-            self.system_nursery._child_finished(task, Value(None))
-        elif task is self.init_task:
+        if task is self.init_task:
             # If the init task crashed, then something is very wrong and we
             # let the error propagate. (It'll eventually be wrapped in a
             # TrioInternalError.)
@@ -1513,6 +1514,9 @@ class Runner:
             if self.tasks:  # pragma: no cover
                 raise TrioInternalError
         else:
+            if task is self.main_task:
+                self.main_task_outcome = outcome
+                outcome = Value(None)
             task._parent_nursery._child_finished(task, outcome)
 
         if "task_exited" in self.instruments:
@@ -1567,14 +1571,37 @@ class Runner:
         )
 
     async def init(self, async_fn, args):
-        async with open_nursery() as system_nursery:
-            self.system_nursery = system_nursery
-            try:
-                self.main_task = self.spawn_impl(async_fn, args, system_nursery, None)
-            except BaseException as exc:
-                self.main_task_outcome = Error(exc)
-                system_nursery.cancel_scope.cancel()
-            self.entry_queue.spawn()
+        # run_sync_soon task runs here:
+        async with open_nursery() as run_sync_soon_nursery:
+            # All other system tasks run here:
+            async with open_nursery() as self.system_nursery:
+                # Only the main task runs here:
+                async with open_nursery() as main_task_nursery:
+                    try:
+                        self.main_task = self.spawn_impl(
+                            async_fn, args, main_task_nursery, None
+                        )
+                    except BaseException as exc:
+                        self.main_task_outcome = Error(exc)
+                        return
+                    self.spawn_impl(
+                        self.entry_queue.task,
+                        (),
+                        run_sync_soon_nursery,
+                        "<TrioToken.run_sync_soon task>",
+                        system_task=True,
+                    )
+
+                # Main task is done; start shutting down system tasks
+                self.system_nursery.cancel_scope.cancel()
+
+            # System nursery is closed; finalize remaining async generators
+            await self.asyncgens.finalize_remaining(self)
+
+            # There are no more asyncgens, which means no more user-provided
+            # code except possibly run_sync_soon callbacks. It's finally safe
+            # to stop the run_sync_soon task and exit run().
+            run_sync_soon_nursery.cancel_scope.cancel()
 
     ################
     # Outside context problems
@@ -1799,6 +1826,7 @@ def setup_runner(clock, instruments, restrict_keyboard_interrupt_to_checkpoints)
         system_context=system_context,
         ki_manager=ki_manager,
     )
+    runner.asyncgens.install_hooks(runner)
 
     # This is where KI protection gets enabled, so we want to do it early - in
     # particular before we start modifying global state like GLOBAL_RUN_CONTEXT

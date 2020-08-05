@@ -354,3 +354,20 @@ class NoPublicConstructor(Final):
 
     def _create(cls: t.Type[T], *args: t.Any, **kwargs: t.Any) -> T:
         return super().__call__(*args, **kwargs)  # type: ignore
+
+
+def name_asyncgen(agen):
+    """Return the fully-qualified name of the async generator function
+    that produced the async generator iterator *agen*.
+    """
+    if not hasattr(agen, "ag_code"):  # pragma: no cover
+        return repr(agen)
+    try:
+        module = agen.ag_frame.f_globals["__name__"]
+    except (AttributeError, KeyError):
+        module = "<{}>".format(agen.ag_code.co_filename)
+    try:
+        qualname = agen.__qualname__
+    except AttributeError:
+        qualname = agen.ag_code.co_name
+    return f"{module}.{qualname}"

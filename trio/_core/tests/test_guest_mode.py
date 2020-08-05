@@ -1,5 +1,7 @@
 import pytest
 import asyncio
+import contextvars
+import sys
 import traceback
 import queue
 from functools import partial
@@ -11,7 +13,7 @@ import time
 
 import trio
 import trio.testing
-from .tutil import gc_collect_harder
+from .tutil import gc_collect_harder, buggy_pypy_asyncgens
 from ..._util import signal_raise
 
 # The simplest possible "host" loop.
@@ -497,3 +499,45 @@ def test_guest_mode_autojump_clock_threshold_changing():
     # Should be basically instantaneous, but we'll leave a generous buffer to
     # account for any CI weirdness
     assert end - start < DURATION / 2
+
+
+@pytest.mark.skipif(buggy_pypy_asyncgens, reason="PyPy 7.2 is buggy")
+def test_guest_mode_asyncgens():
+    import sniffio
+
+    record = set()
+
+    async def agen(label):
+        assert sniffio.current_async_library() == label
+        try:
+            yield 1
+        finally:
+            library = sniffio.current_async_library()
+            try:
+                await sys.modules[library].sleep(0)
+            except trio.Cancelled:
+                pass
+            record.add((label, library))
+
+    async def iterate_in_aio():
+        # "trio" gets inherited from our Trio caller if we don't set this
+        sniffio.current_async_library_cvar.set("asyncio")
+        await agen("asyncio").asend(None)
+
+    async def trio_main():
+        task = asyncio.ensure_future(iterate_in_aio())
+        done_evt = trio.Event()
+        task.add_done_callback(lambda _: done_evt.set())
+        with trio.fail_after(1):
+            await done_evt.wait()
+
+        await agen("trio").asend(None)
+
+        gc_collect_harder()
+
+    # Ensure we don't pollute the thread-level context if run under
+    # an asyncio without contextvars support (3.6)
+    context = contextvars.copy_context()
+    context.run(aiotrio_run, trio_main, host_uses_signal_set_wakeup_fd=True)
+
+    assert record == {("asyncio", "asyncio"), ("trio", "trio")}
