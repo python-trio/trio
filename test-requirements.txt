@@ -36,7 +36,7 @@ pathspec==0.8.0           # via black
 pexpect==4.8.0            # via ipython
 pickleshare==0.7.5        # via ipython
 pluggy==0.13.1            # via pytest
-prompt-toolkit==3.0.5     # via ipython
+prompt-toolkit==3.0.6     # via ipython
 ptyprocess==0.6.0         # via pexpect
 py==1.9.0                 # via pytest
 pycodestyle==2.6.0        # via flake8
