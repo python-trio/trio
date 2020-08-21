@@ -46,7 +46,7 @@ pygments==2.6.1           # via ipython
 pylint==2.5.3             # via -r test-requirements.in
 pyopenssl==19.1.0         # via -r test-requirements.in
 pyparsing==2.4.7          # via packaging
-pytest-cov==2.10.0        # via -r test-requirements.in
+pytest-cov==2.10.1        # via -r test-requirements.in
 pytest==6.0.1             # via -r test-requirements.in, pytest-cov
 regex==2020.7.14          # via black
 six==1.15.0               # via astroid, cryptography, packaging, pyopenssl, traitlets
