@@ -11,7 +11,7 @@ async-generator==1.10     # via -r test-requirements.in
 attrs==20.1.0             # via -r test-requirements.in, black, outcome, pytest
 backcall==0.2.0           # via ipython
 black==19.10b0 ; implementation_name == "cpython"  # via -r test-requirements.in
-cffi==1.14.1              # via cryptography
+cffi==1.14.2              # via cryptography
 click==7.1.2              # via black
 coverage==5.2.1           # via pytest-cov
 cryptography==3.0         # via pyopenssl, trustme
