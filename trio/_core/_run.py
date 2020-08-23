@@ -998,7 +998,7 @@ class Nursery(metaclass=NoPublicConstructor):
 
         The conventional way to define ``async_fn`` is like::
 
-            async def async_fn(arg1, arg2, \*, task_status=trio.TASK_STATUS_IGNORED):
+            async def async_fn(arg1, arg2, *, task_status=trio.TASK_STATUS_IGNORED):
                 ...
                 task_status.started()
                 ...
