@@ -975,9 +975,6 @@ class Nursery(metaclass=NoPublicConstructor):
                   original function as the ``name=`` to make
                   debugging easier.
 
-        Returns:
-            True if successful, False otherwise.
-
         Raises:
             RuntimeError: If this nursery is no longer open
                           (i.e. its ``async with`` block has
