@@ -21,7 +21,7 @@ idna==2.10                # via -r test-requirements.in, trustme
 immutables==0.14          # via -r test-requirements.in
 iniconfig==1.0.1          # via pytest
 ipython-genutils==0.2.0   # via traitlets
-ipython==7.16.1           # via -r test-requirements.in
+ipython==7.17.0           # via -r test-requirements.in
 isort==5.4.2              # via pylint
 jedi==0.17.2              # via -r test-requirements.in, ipython
 lazy-object-proxy==1.4.3  # via astroid
