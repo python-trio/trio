@@ -256,7 +256,11 @@ anything real. See `#26
 Global state: system tasks and run-local variables
 ==================================================
 
-.. autoclass:: RunVar
+.. autoclass:: RunVar(name, [default])
+
+   .. automethod:: get([default])
+   .. automethod:: set
+   .. automethod:: reset
 
 .. autofunction:: spawn_system_task
 

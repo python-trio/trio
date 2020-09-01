@@ -32,6 +32,7 @@ from ._core import (
     BrokenResourceError,
     EndOfChannel,
     Nursery,
+    TreeVar,
 )
 
 from ._timeouts import (

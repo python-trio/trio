@@ -656,6 +656,8 @@ finished.
 
    This code will wait 5 seconds (for the child task to finish), and then return.
 
+.. _child-tasks-and-cancellation:
+
 Child tasks and cancellation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -933,8 +935,8 @@ Will properly log the inner exceptions:
 
 .. _task-local-storage:
 
-Task-local storage
-------------------
+Context variables support task-local storage
+--------------------------------------------
 
 Suppose you're writing a server that responds to network requests, and
 you log some information about each request as you process it. If the
@@ -1018,6 +1020,94 @@ Example output (yours may differ slightly):
 
 For more information, read the
 `contextvar docs <https://docs.python.org/3.7/library/contextvars.html>`__.
+
+
+More on context variable inheritance
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+As you can see from the example above, a task's context variables are
+automatically inherited by any other tasks it starts. To be precise,
+each new task gets a *shallow copy* of the context in the task that
+spawned it. That means:
+
+* If the new task changes one of its context variables using `ContextVar.set()
+  <contextvars.ContextVar.set>`, then that change is not visible in the
+  task that started it. (This would hardly be "task-local" storage otherwise!)
+
+* But if the context variable referred to a mutable object (such as a
+  list or dictionary), and the new task makes a change to that object
+  (such as by calling ``some_contextvar.get().append(42)``), then that
+  change *is* visible in the task that started it, as well as in any other
+  tasks it started. Since that's rather confusing, it's often best to
+  limit yourself to immutable values (strings, integers, tuples, and so
+  on) when working with context variables.
+
+A new task's context is set up as a copy of the context that existed
+at the time of the call to :meth:`~Nursery.start_soon` or
+:meth:`~Nursery.start` that created it.  For example, this code:
+
+.. code-block:: python3
+
+   some_cvar = contextvars.ContextVar()
+
+   async def print_in_child(tag):
+       print("In child", tag, "some_cvar has value", some_cvar.get())
+
+   some_cvar.set(1)
+   async with trio.open_nursery() as nursery:
+       nursery.start_soon(print_in_child, 1)
+       some_cvar.set(2)
+       nursery.start_soon(print_in_child, 2)
+       some_cvar.set(3)
+       print("In parent some_cvar has value", some_cvar.get())
+
+will produce output like::
+
+    In parent some_cvar has value 3
+    In child 1 some_cvar has value 1
+    In child 2 some_cvar has value 2
+
+(If you run it yourself, you might find that the "child 2" line comes
+before "child 1", but it will still be the case that child 1 sees value 1
+while child 2 sees value 2.)
+
+You might wonder why this differs from the behavior of cancel scopes,
+which only apply to a new task if they surround the new task's entire
+nursery (as explained above in the section on
+:ref:`child-tasks-and-cancellation`). The difference is that a cancel
+scope has a limited lifetime (it can't cancel anything once you exit
+its ``with`` block), while a context variable's value is just a value
+(request #42 can keep being request #42 for as long as it likes,
+without any cooperation from the task that created it).
+
+In specialized cases, you might want to provide a task-local value
+that's inherited only from the parent nursery, like cancel scopes are.
+(For example, maybe you're trying to provide child tasks with access
+to a limited-lifetime resource such as a nursery or network
+connection, and you only want a task to be able to use the resource if
+it's going to remain available for the task's entire lifetime.)  Trio
+supports this using `TreeVar`, which is like `contextvars.ContextVar`
+except for the way that it's inherited by new tasks. (It's a "tree"
+variable because it's inherited along the parent-child links that
+form the Trio task tree.)
+
+If the above example used `TreeVar`, then its output would be:
+
+.. code-block:: none
+   :emphasize-lines: 3
+
+   In parent some_cvar has value 3
+   In child 1 some_cvar has value 1
+   In child 2 some_cvar has value 1
+
+because child 2 would inherit the value from its parent nursery, rather than
+from the environment of the ``start_soon()`` call that creates it.
+
+.. autoclass:: trio.TreeVar(name, [*, default])
+
+   .. automethod:: being
+      :with:
+   .. automethod:: get_in(task_or_nursery, [default])
 
 
 .. _synchronization:

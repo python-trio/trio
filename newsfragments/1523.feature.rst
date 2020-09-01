@@ -1,0 +1,8 @@
+Added the concept of a "tree variable" (`trio.TreeVar`), which is like
+a context variable except that its value in a new task is inherited
+from the new task's parent nursery rather than from the task that
+spawned it.  (The `~trio.TreeVar` behavior matches the existing
+:ref:`behavior of cancel scopes <child-tasks-and-cancellation>`.)
+This distinction makes tree variables useful for anything that's
+naturally inherited along parent/child task relationships, such as a
+reference to a resource that has a limited lifetime.
