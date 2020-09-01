@@ -157,7 +157,7 @@ async def open_file(
     """
     _file = wrap_file(
         await trio.to_thread.run_sync(
-            io.open, file, mode, buffering, encoding, errors, newline, closefd, opener,
+            io.open, file, mode, buffering, encoding, errors, newline, closefd, opener
         )
     )
     return _file

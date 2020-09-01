@@ -77,7 +77,7 @@ async def _waitid_system_task(pid: int, event: Event) -> None:
 
     try:
         await to_thread_run_sync(
-            sync_wait_reapable, pid, cancellable=True, limiter=waitid_limiter,
+            sync_wait_reapable, pid, cancellable=True, limiter=waitid_limiter
         )
     except OSError:
         # If waitid fails, waitpid will fail too, so it still makes

@@ -170,7 +170,7 @@ def main():  # pragma: no cover
         description="Generate python code for public api wrappers"
     )
     parser.add_argument(
-        "--test", "-t", action="store_true", help="test if code is still up to date",
+        "--test", "-t", action="store_true", help="test if code is still up to date"
     )
     parsed_args = parser.parse_args()
 

@@ -572,7 +572,7 @@ class _LockImpl:
 
         """
         return _LockStatistics(
-            locked=self.locked(), owner=self._owner, tasks_waiting=len(self._lot),
+            locked=self.locked(), owner=self._owner, tasks_waiting=len(self._lot)
         )
 
 
@@ -786,5 +786,5 @@ class Condition(metaclass=SubclassingDeprecatedIn_v0_15_0):
 
         """
         return _ConditionStatistics(
-            tasks_waiting=len(self._lot), lock_statistics=self._lock.statistics(),
+            tasks_waiting=len(self._lot), lock_statistics=self._lock.statistics()
         )

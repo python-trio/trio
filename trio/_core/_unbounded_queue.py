@@ -141,7 +141,7 @@ class UnboundedQueue(metaclass=SubclassingDeprecatedIn_v0_15_0):
 
         """
         return _UnboundedQueueStats(
-            qsize=len(self._data), tasks_waiting=self._lot.statistics().tasks_waiting,
+            qsize=len(self._data), tasks_waiting=self._lot.statistics().tasks_waiting
         )
 
     def __aiter__(self):

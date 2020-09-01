@@ -165,7 +165,7 @@ def format_host_port(host, port):
 #   AF_INET6: "..."}
 # this might be simpler after
 async def open_tcp_stream(
-    host, port, *, happy_eyeballs_delay=DEFAULT_DELAY, local_address=None,
+    host, port, *, happy_eyeballs_delay=DEFAULT_DELAY, local_address=None
 ):
     """Connect to the given host and port over TCP.
 
