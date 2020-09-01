@@ -983,7 +983,7 @@ class Nursery(metaclass=NoPublicConstructor):
         GLOBAL_RUN_CONTEXT.runner.spawn_impl(async_fn, args, self, name)
 
     async def start(self, async_fn, *args, name=None):
-        r""" Creates and initalizes a child task.
+        r"""Creates and initalizes a child task.
 
         Like :meth:`start_soon`, but blocks until the new task has
         finished initializing itself, and optionally returns some
@@ -1361,9 +1361,7 @@ class Runner:
 
     @_public
     def current_clock(self):
-        """Returns the current :class:`~trio.abc.Clock`.
-
-        """
+        """Returns the current :class:`~trio.abc.Clock`."""
         return self.clock
 
     @_public

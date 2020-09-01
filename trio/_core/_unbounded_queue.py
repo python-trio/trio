@@ -57,9 +57,7 @@ class UnboundedQueue(metaclass=SubclassingDeprecatedIn_v0_15_0):
         return "<UnboundedQueue holding {} items>".format(len(self._data))
 
     def qsize(self):
-        """Returns the number of items currently in the queue.
-
-        """
+        """Returns the number of items currently in the queue."""
         return len(self._data)
 
     def empty(self):

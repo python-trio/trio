@@ -46,8 +46,7 @@ def is_function(node):
 
 
 def is_public(node):
-    """Check if the AST node has a _public decorator
-    """
+    """Check if the AST node has a _public decorator"""
     if not is_function(node):
         return False
     for decorator in node.decorator_list:
@@ -57,7 +56,7 @@ def is_public(node):
 
 
 def get_public_methods(tree):
-    """ Return a list of methods marked as public.
+    """Return a list of methods marked as public.
     The function walks the given tree and extracts
     all objects that are functions which are marked
     public.

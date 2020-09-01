@@ -41,16 +41,12 @@ class Event(metaclass=SubclassingDeprecatedIn_v0_15_0):
     _flag = attr.ib(default=False, init=False)
 
     def is_set(self):
-        """Return the current value of the internal flag.
-
-        """
+        """Return the current value of the internal flag."""
         return self._flag
 
     @enable_ki_protection
     def set(self):
-        """Set the internal flag value to True, and wake any waiting tasks.
-
-        """
+        """Set the internal flag value to True, and wake any waiting tasks."""
         self._flag = True
         self._lot.unpark_all()
 
@@ -202,16 +198,12 @@ class CapacityLimiter(metaclass=SubclassingDeprecatedIn_v0_15_0):
 
     @property
     def borrowed_tokens(self):
-        """The amount of capacity that's currently in use.
-
-        """
+        """The amount of capacity that's currently in use."""
         return len(self._borrowers)
 
     @property
     def available_tokens(self):
-        """The amount of capacity that's available to use.
-
-        """
+        """The amount of capacity that's available to use."""
         return self.total_tokens - self.borrowed_tokens
 
     @enable_ki_protection
@@ -406,16 +398,12 @@ class Semaphore(metaclass=SubclassingDeprecatedIn_v0_15_0):
 
     @property
     def value(self):
-        """The current value of the semaphore.
-
-        """
+        """The current value of the semaphore."""
         return self._value
 
     @property
     def max_value(self):
-        """The maximum allowed value. May be None to indicate no limit.
-
-        """
+        """The maximum allowed value. May be None to indicate no limit."""
         return self._max_value
 
     @enable_ki_protection
@@ -529,9 +517,7 @@ class _LockImpl:
 
     @enable_ki_protection
     async def acquire(self):
-        """Acquire the lock, blocking if necessary.
-
-        """
+        """Acquire the lock, blocking if necessary."""
         await trio.lowlevel.checkpoint_if_cancelled()
         try:
             self.acquire_nowait()
@@ -702,15 +688,11 @@ class Condition(metaclass=SubclassingDeprecatedIn_v0_15_0):
         return self._lock.acquire_nowait()
 
     async def acquire(self):
-        """Acquire the underlying lock, blocking if necessary.
-
-        """
+        """Acquire the underlying lock, blocking if necessary."""
         await self._lock.acquire()
 
     def release(self):
-        """Release the underlying lock.
-
-        """
+        """Release the underlying lock."""
         self._lock.release()
 
     @enable_ki_protection
