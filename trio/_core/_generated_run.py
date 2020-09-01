@@ -56,9 +56,7 @@ def current_time():
 
 
 def current_clock():
-    """Returns the current :class:`~trio.abc.Clock`.
-
-        """
+    """Returns the current :class:`~trio.abc.Clock`."""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.current_clock()
