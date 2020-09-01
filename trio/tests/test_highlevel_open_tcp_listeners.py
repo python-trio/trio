@@ -215,17 +215,17 @@ async def test_serve_tcp():
 
 @pytest.mark.parametrize(
     "try_families",
-    [{tsocket.AF_INET}, {tsocket.AF_INET6}, {tsocket.AF_INET, tsocket.AF_INET6},],
+    [{tsocket.AF_INET}, {tsocket.AF_INET6}, {tsocket.AF_INET, tsocket.AF_INET6}],
 )
 @pytest.mark.parametrize(
     "fail_families",
-    [{tsocket.AF_INET}, {tsocket.AF_INET6}, {tsocket.AF_INET, tsocket.AF_INET6},],
+    [{tsocket.AF_INET}, {tsocket.AF_INET6}, {tsocket.AF_INET, tsocket.AF_INET6}],
 )
 async def test_open_tcp_listeners_some_address_families_unavailable(
     try_families, fail_families
 ):
     fsf = FakeSocketFactory(
-        10, raise_on_family={family: errno.EAFNOSUPPORT for family in fail_families},
+        10, raise_on_family={family: errno.EAFNOSUPPORT for family in fail_families}
     )
     tsocket.set_custom_socket_factory(fsf)
     tsocket.set_custom_hostname_resolver(

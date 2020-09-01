@@ -44,7 +44,7 @@ class KqueueIOManager:
                 tasks_waiting += 1
             else:
                 monitors += 1
-        return _KqueueStatistics(tasks_waiting=tasks_waiting, monitors=monitors,)
+        return _KqueueStatistics(tasks_waiting=tasks_waiting, monitors=monitors)
 
     def close(self):
         self._kqueue.close()
@@ -153,7 +153,7 @@ class KqueueIOManager:
                 # the fact... oh well, you can't have everything.)
                 #
                 # FreeBSD reports this using EBADF. macOS uses ENOENT.
-                if exc.errno in (errno.EBADF, errno.ENOENT,):  # pragma: no branch
+                if exc.errno in (errno.EBADF, errno.ENOENT):  # pragma: no branch
                     pass
                 else:  # pragma: no cover
                     # As far as we know, this branch can't happen.

@@ -830,9 +830,7 @@ class SSLStream(Stream, metaclass=SubclassingDeprecatedIn_v0_15_0):
             self._state = _State.CLOSED
 
     async def wait_send_all_might_not_block(self):
-        """See :meth:`trio.abc.SendStream.wait_send_all_might_not_block`.
-
-        """
+        """See :meth:`trio.abc.SendStream.wait_send_all_might_not_block`."""
         # This method's implementation is deceptively simple.
         #
         # First, we take the outer send lock, because of Trio's standard
@@ -923,7 +921,5 @@ class SSLListener(Listener[SSLStream], metaclass=SubclassingDeprecatedIn_v0_15_0
         )
 
     async def aclose(self):
-        """Close the transport listener.
-
-        """
+        """Close the transport listener."""
         await self.transport_listener.aclose()

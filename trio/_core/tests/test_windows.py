@@ -81,7 +81,7 @@ async def test_readinto_overlapped():
 
                 async def read_region(start, end):
                     await _core.readinto_overlapped(
-                        handle, buffer_view[start:end], start,
+                        handle, buffer_view[start:end], start
                     )
 
                 _core.register_with_iocp(handle)
@@ -123,7 +123,7 @@ def test_forgot_to_register_with_iocp():
             try:
                 async with _core.open_nursery() as nursery:
                     nursery.start_soon(
-                        _core.readinto_overlapped, read_handle, target, name="xyz",
+                        _core.readinto_overlapped, read_handle, target, name="xyz"
                     )
                     await wait_all_tasks_blocked()
                     nursery.cancel_scope.cancel()

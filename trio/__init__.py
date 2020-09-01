@@ -111,7 +111,7 @@ __deprecated_attributes__ = {
     #
     #    https://github.com/python-trio/trio/pull/1484#issuecomment-622574499
     "hazmat": _deprecate.DeprecatedAttribute(
-        lowlevel, "0.15.0", issue=476, instead="trio.lowlevel",
+        lowlevel, "0.15.0", issue=476, instead="trio.lowlevel"
     ),
 }
 

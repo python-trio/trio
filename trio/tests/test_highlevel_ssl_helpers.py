@@ -46,7 +46,7 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
 async def test_open_ssl_over_tcp_stream_and_everything_else(client_ctx):  # noqa: F811
     async with trio.open_nursery() as nursery:
         (listener,) = await nursery.start(
-            partial(serve_ssl_over_tcp, echo_handler, 0, SERVER_CTX, host="127.0.0.1",)
+            partial(serve_ssl_over_tcp, echo_handler, 0, SERVER_CTX, host="127.0.0.1")
         )
         async with listener:
             sockaddr = listener.transport_listener.socket.getsockname()
@@ -63,7 +63,7 @@ async def test_open_ssl_over_tcp_stream_and_everything_else(client_ctx):  # noqa
             # We have the trust but not the hostname
             # (checks custom ssl_context + hostname checking)
             stream = await open_ssl_over_tcp_stream(
-                "xyzzy.example.org", 80, ssl_context=client_ctx,
+                "xyzzy.example.org", 80, ssl_context=client_ctx
             )
             async with stream:
                 with pytest.raises(trio.BrokenResourceError):
@@ -71,7 +71,7 @@ async def test_open_ssl_over_tcp_stream_and_everything_else(client_ctx):  # noqa
 
             # This one should work!
             stream = await open_ssl_over_tcp_stream(
-                "trio-test-1.example.org", 80, ssl_context=client_ctx,
+                "trio-test-1.example.org", 80, ssl_context=client_ctx
             )
             async with stream:
                 assert isinstance(stream, trio.SSLStream)

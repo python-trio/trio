@@ -17,7 +17,7 @@ async def wait_child_exiting(process: "_subprocess.Process") -> None:
         KQ_NOTE_EXIT = 0x80000000
 
     make_event = lambda flags: select.kevent(
-        process.pid, filter=select.KQ_FILTER_PROC, flags=flags, fflags=KQ_NOTE_EXIT,
+        process.pid, filter=select.KQ_FILTER_PROC, flags=flags, fflags=KQ_NOTE_EXIT
     )
 
     try:

@@ -149,7 +149,7 @@ async def ssl_echo_server_raw(**kwargs):
         # nursery context manager to exit too.
         with a, b:
             nursery.start_soon(
-                trio.to_thread.run_sync, partial(ssl_echo_serve_sync, b, **kwargs),
+                trio.to_thread.run_sync, partial(ssl_echo_serve_sync, b, **kwargs)
             )
 
             yield SocketStream(tsocket.from_stdlib_socket(a))
@@ -1245,7 +1245,7 @@ async def test_SSLListener(client_ctx):
 
         transport_client = await open_tcp_stream(*listen_sock.getsockname())
         ssl_client = SSLStream(
-            transport_client, client_ctx, server_hostname="trio-test-1.example.org",
+            transport_client, client_ctx, server_hostname="trio-test-1.example.org"
         )
         return listen_sock, ssl_listener, ssl_client
 

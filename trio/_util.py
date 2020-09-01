@@ -198,9 +198,7 @@ class ConflictDetector:
 
 
 def async_wraps(cls, wrapped_cls, attr_name):
-    """Similar to wraps, but for async wrappers of non-async functions.
-
-    """
+    """Similar to wraps, but for async wrappers of non-async functions."""
 
     def decorator(func):
         func.__name__ = attr_name

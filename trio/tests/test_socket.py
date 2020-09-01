@@ -509,7 +509,7 @@ async def test_SocketType_resolve(socket_type, addrs):
             async def res(*args):
                 return await getattr(sock, resolver)(*args)
 
-            assert_eq(await res((addrs.arbitrary, "http")), (addrs.arbitrary, 80,))
+            assert_eq(await res((addrs.arbitrary, "http")), (addrs.arbitrary, 80))
             if v6:
                 # Check handling of different length ipv6 address tuples
                 assert_eq(await res(("1::2", 80)), ("1::2", 80, 0, 0))
@@ -533,7 +533,7 @@ async def test_SocketType_resolve(socket_type, addrs):
                 assert_eq(await res(("1.2.3.4", "http")), ("::ffff:1.2.3.4", 80))
 
             # Check the <broadcast> special case, because why not
-            assert_eq(await res(("<broadcast>", 123)), (addrs.broadcast, 123,))
+            assert_eq(await res(("<broadcast>", 123)), (addrs.broadcast, 123))
 
             # But not if it's true (at least on systems where getaddrinfo works
             # correctly)

@@ -76,15 +76,11 @@ class StapledStream(HalfCloseableStream, metaclass=SubclassingDeprecatedIn_v0_15
     receive_stream = attr.ib()
 
     async def send_all(self, data):
-        """Calls ``self.send_stream.send_all``.
-
-        """
+        """Calls ``self.send_stream.send_all``."""
         return await self.send_stream.send_all(data)
 
     async def wait_send_all_might_not_block(self):
-        """Calls ``self.send_stream.wait_send_all_might_not_block``.
-
-        """
+        """Calls ``self.send_stream.wait_send_all_might_not_block``."""
         return await self.send_stream.wait_send_all_might_not_block()
 
     async def send_eof(self):
@@ -100,15 +96,11 @@ class StapledStream(HalfCloseableStream, metaclass=SubclassingDeprecatedIn_v0_15
             return await self.send_stream.aclose()
 
     async def receive_some(self, max_bytes=None):
-        """Calls ``self.receive_stream.receive_some``.
-
-        """
+        """Calls ``self.receive_stream.receive_some``."""
         return await self.receive_stream.receive_some(max_bytes)
 
     async def aclose(self):
-        """Calls ``aclose`` on both underlying streams.
-
-        """
+        """Calls ``aclose`` on both underlying streams."""
         try:
             await self.send_stream.aclose()
         finally:

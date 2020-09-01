@@ -155,9 +155,7 @@ class MemorySendStream(SendStream, metaclass=_util.SubclassingDeprecatedIn_v0_15
             self.close_hook()
 
     async def aclose(self):
-        """Same as :meth:`close`, but async.
-
-        """
+        """Same as :meth:`close`, but async."""
         self.close()
         await _core.checkpoint()
 
@@ -251,22 +249,16 @@ class MemoryReceiveStream(
             self.close_hook()
 
     async def aclose(self):
-        """Same as :meth:`close`, but async.
-
-        """
+        """Same as :meth:`close`, but async."""
         self.close()
         await _core.checkpoint()
 
     def put_data(self, data):
-        """Appends the given data to the internal buffer.
-
-        """
+        """Appends the given data to the internal buffer."""
         self._incoming.put(data)
 
     def put_eof(self):
-        """Adds an end-of-file marker to the internal buffer.
-
-        """
+        """Adds an end-of-file marker to the internal buffer."""
         self._incoming.close()
 
 

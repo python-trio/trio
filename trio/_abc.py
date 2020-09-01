@@ -8,9 +8,7 @@ import trio
 # We use ABCMeta instead of ABC, plus set __slots__=(), so as not to force a
 # __dict__ onto subclasses.
 class Clock(metaclass=ABCMeta):
-    """The interface for custom run loop clocks.
-
-    """
+    """The interface for custom run loop clocks."""
 
     __slots__ = ()
 
@@ -70,14 +68,10 @@ class Instrument(metaclass=ABCMeta):
     __slots__ = ()
 
     def before_run(self):
-        """Called at the beginning of :func:`trio.run`.
-
-        """
+        """Called at the beginning of :func:`trio.run`."""
 
     def after_run(self):
-        """Called just before :func:`trio.run` returns.
-
-        """
+        """Called just before :func:`trio.run` returns."""
 
     def task_spawned(self, task):
         """Called when the given task is created.

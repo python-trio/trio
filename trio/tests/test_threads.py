@@ -334,7 +334,7 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
         async def run_thread(event):
             with _core.CancelScope() as cancel_scope:
                 await to_thread_run_sync(
-                    thread_fn, cancel_scope, limiter=limiter_arg, cancellable=cancel,
+                    thread_fn, cancel_scope, limiter=limiter_arg, cancellable=cancel
                 )
             print("run_thread finished, cancelled:", cancel_scope.cancelled_caught)
             event.set()

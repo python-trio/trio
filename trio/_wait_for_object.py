@@ -51,9 +51,7 @@ async def WaitForSingleObject(obj):
 
 
 def WaitForMultipleObjects_sync(*handles):
-    """Wait for any of the given Windows handles to be signaled.
-
-    """
+    """Wait for any of the given Windows handles to be signaled."""
     n = len(handles)
     handle_arr = ffi.new("HANDLE[{}]".format(n))
     for i in range(n):
