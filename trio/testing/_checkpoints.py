@@ -4,23 +4,22 @@ from .. import _core
 
 
 @contextmanager
-def _assert_yields_or_not(expected):
+def assert_yields_or_not(expect_cancel_point: bool, expect_schedule_point: bool, msg: str=None):
     __tracebackhide__ = True
     task = _core.current_task()
     orig_cancel = task._cancel_points
     orig_schedule = task._schedule_points
     try:
         yield
-        if expected and (
-            task._cancel_points == orig_cancel or task._schedule_points == orig_schedule
-        ):
-            raise AssertionError("assert_checkpoints block did not yield!")
+        if expect_cancel_point and task._cancel_points == orig_cancel:
+            raise AssertionError(msg or "block did not have a cancel point")
+        if expect_schedule_point and task._schedule_points == orig_schedule:
+            raise AssertionError(msg or "block did not have a schedule point")
     finally:
-        if not expected and (
-            task._cancel_points != orig_cancel or task._schedule_points != orig_schedule
-        ):
-            raise AssertionError("assert_no_checkpoints block yielded!")
-
+        if not expect_cancel_point and task._cancel_points != orig_cancel:
+            raise AssertionError(msg or "block had a cancel point")
+        if not expect_schedule_point and task._schedule_points != orig_schedule:
+            raise AssertionError(msg or "block had a schedule point")
 
 def assert_checkpoints():
     """Use as a context manager to check that the code inside the ``with``
@@ -39,7 +38,7 @@ def assert_checkpoints():
 
     """
     __tracebackhide__ = True
-    return _assert_yields_or_not(True)
+    return assert_yields_or_not(True, True, "assert_checkpoints block did not yield!")
 
 
 def assert_no_checkpoints():
@@ -59,4 +58,4 @@ def assert_no_checkpoints():
 
     """
     __tracebackhide__ = True
-    return _assert_yields_or_not(False)
+    return assert_yields_or_not(False, False, "assert_no_checkpoints block yielded!")
