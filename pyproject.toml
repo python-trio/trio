@@ -50,3 +50,9 @@ directory = "misc"
 name = "Miscellaneous internal changes"
 showcontent = true
 
+[build-system]
+requires = [
+    "setuptools >= 50.0.3",
+    "wheel >= 0.35.1",
+]
+build-backend = "setuptools.build_meta"

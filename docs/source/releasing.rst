@@ -44,7 +44,7 @@ Things to do for releasing:
 * push to PyPI::
 
     git clean -xdf   # maybe run 'git clean -xdn' first to see what it will delete
-    python3 setup.py sdist bdist_wheel
+    python3 -m pep517.build --source --binary --out-dir dist/ .
     twine upload dist/*
 
 * update version number in the same pull request
