@@ -394,6 +394,10 @@ python setup.py sdist --formats=zip
 python -m pip install dist/*.zip
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
+    if python -c 'import sys; sys.exit(sys.version_info >= (3, 7))'; then
+        # Python < 3.7, select last ipython with 3.6 support
+        sed -i 's/ipython==[^ ]+/ipython==7.16.1/'
+    fi
     python -m pip install -r test-requirements.txt
     source check.sh
 else
