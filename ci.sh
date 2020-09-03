@@ -395,8 +395,9 @@ python -m pip install dist/*.zip
 
 if python -c 'import sys; sys.exit(sys.version_info >= (3, 7))'; then
     # Python < 3.7, select last ipython with 3.6 support
-    sed -i 's/ipython==[^ ]*/ipython==7.16.1/' test-requirements.txt
-    sed -i 's/traitlets==[^ ]*/traitlets==4.3.3/' test-requirements.txt
+    # macOS requires the suffix for --in-place or you get an undefined label error
+    sed --in-place='.bak' 's/ipython==[^ ]*/ipython==7.16.1/' test-requirements.txt
+    sed --in-place='.bak' 's/traitlets==[^ ]*/traitlets==4.3.3/' test-requirements.txt
     git diff test-requirements.txt
 fi
 
