@@ -393,6 +393,14 @@ python -m pip --version
 python setup.py sdist --formats=zip
 python -m pip install dist/*.zip
 
+if python -c 'import sys; sys.exit(sys.version_info >= (3, 7))'; then
+    # Python < 3.7, select last ipython with 3.6 support
+    # macOS requires the suffix for --in-place or you get an undefined label error
+    sed -i'.bak' 's/ipython==[^ ]*/ipython==7.16.1/' test-requirements.txt
+    sed -i'.bak' 's/traitlets==[^ ]*/traitlets==4.3.3/' test-requirements.txt
+    git diff test-requirements.txt
+fi
+
 if [ "$CHECK_FORMATTING" = "1" ]; then
     python -m pip install -r test-requirements.txt
     source check.sh

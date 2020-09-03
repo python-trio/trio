@@ -15,13 +15,13 @@ cffi==1.14.2              # via cryptography
 click==7.1.2              # via black
 coverage==5.2.1           # via pytest-cov
 cryptography==3.1         # via pyopenssl, trustme
-decorator==4.4.2          # via ipython, traitlets
+decorator==4.4.2          # via ipython
 flake8==3.8.3             # via -r test-requirements.in
 idna==2.10                # via -r test-requirements.in, trustme
 immutables==0.14          # via -r test-requirements.in
 iniconfig==1.0.1          # via pytest
 ipython-genutils==0.2.0   # via traitlets
-ipython==7.16.1           # via -r test-requirements.in
+ipython==7.18.1           # via -r test-requirements.in
 isort==5.4.2              # via pylint
 jedi==0.17.2              # via -r test-requirements.in, ipython
 lazy-object-proxy==1.4.3  # via astroid
@@ -49,11 +49,11 @@ pyparsing==2.4.7          # via packaging
 pytest-cov==2.10.1        # via -r test-requirements.in
 pytest==6.0.1             # via -r test-requirements.in, pytest-cov
 regex==2020.7.14          # via black
-six==1.15.0               # via astroid, cryptography, packaging, pyopenssl, traitlets
+six==1.15.0               # via astroid, cryptography, packaging, pyopenssl
 sniffio==1.1.0            # via -r test-requirements.in
 sortedcontainers==2.2.2   # via -r test-requirements.in
 toml==0.10.1              # via black, pylint, pytest
-traitlets==4.3.3          # via ipython
+traitlets==5.0.0          # via ipython
 trustme==0.6.0            # via -r test-requirements.in
 typed-ast==1.4.1 ; implementation_name == "cpython"  # via -r test-requirements.in, black, mypy
 typing-extensions==3.7.4.3 ; implementation_name == "cpython"  # via -r test-requirements.in, black, mypy
