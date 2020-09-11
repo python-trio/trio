@@ -2133,7 +2133,9 @@ def do_become_guest(msg, runner, unrolled_run_gen):
     # run_child_host will call this once the child host is able to enqueue
     # our guest_tick callbacks
     def resume_trio_as_guest(
-        *, run_sync_soon_threadsafe, run_sync_soon_not_threadsafe=None,
+        *,
+        run_sync_soon_threadsafe,
+        run_sync_soon_not_threadsafe=None,
     ):
         if run_sync_soon_not_threadsafe is None:
             run_sync_soon_not_threadsafe = run_sync_soon_threadsafe
