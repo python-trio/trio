@@ -85,12 +85,10 @@ class TrivialHostLoop:
 
     async def host_this_run(self, *, with_buggy_deliver_cancel=False):
         def run_as_child_host(resume_trio_as_guest):
-            resume_trio = partial(
-                resume_trio_as_guest,
+            resume_trio_as_guest(
                 run_sync_soon_threadsafe=self.call_soon_threadsafe,
                 run_sync_soon_not_threadsafe=self.call_soon_not_threadsafe,
             )
-            self.todo.put(("run", resume_trio))
             return self.run()
 
         def deliver_cancel(raise_cancel):

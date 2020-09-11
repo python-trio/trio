@@ -2111,11 +2111,10 @@ def do_become_guest(msg, runner, unrolled_run_gen):
     if must_change_alive_asyncgens_back_to_weakset:
         runner.asyncgens.alive = set(runner.asyncgens.alive)
 
-    # run_child_host will call this once the child host is able to enqueue
-    # our guest_tick callbacks
-    def resume_trio_as_guest(
-        *, run_sync_soon_threadsafe, run_sync_soon_not_threadsafe=None,
-    ):
+    # This will be called once the guest loop is actually running.
+    # We assume that by then, the guest loop has installed any
+    # async generator hooks that it intends to install.
+    def restore_trio_asyncgen_hooks_and_do_first_guest_tick():
         # If the child host installed async generator hooks, make them
         # subsidiary to Trio's hooks
         child_host_asyncgen_hooks = sys.get_asyncgen_hooks()
@@ -2129,12 +2128,21 @@ def do_become_guest(msg, runner, unrolled_run_gen):
             runner.asyncgens.alive = weakref.WeakSet(runner.asyncgens.alive)
             must_change_alive_asyncgens_back_to_weakset = False
 
-        # Finish initializing guest state, and enqueue the first guest tick
+        guest_state.guest_tick()
+
+    # run_child_host will call this once the child host is able to enqueue
+    # our guest_tick callbacks
+    def resume_trio_as_guest(
+        *, run_sync_soon_threadsafe, run_sync_soon_not_threadsafe=None,
+    ):
         if run_sync_soon_not_threadsafe is None:
             run_sync_soon_not_threadsafe = run_sync_soon_threadsafe
+
         guest_state.run_sync_soon_threadsafe = run_sync_soon_threadsafe
         guest_state.run_sync_soon_not_threadsafe = run_sync_soon_not_threadsafe
-        run_sync_soon_not_threadsafe(guest_state.guest_tick)
+        run_sync_soon_not_threadsafe(
+            restore_trio_asyncgen_hooks_and_do_first_guest_tick
+        )
 
     # INCEPTION
     child_host_outcome = capture(msg.run_child_host, resume_trio_as_guest)
