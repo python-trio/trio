@@ -94,6 +94,7 @@ class WorkerThread:
                     )
                 del fn
                 del deliver
+                del result
             else:
                 # Timeout acquiring lock, so we can probably exit. But,
                 # there's a race condition: we might be assigned a job *just*

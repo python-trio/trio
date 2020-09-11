@@ -2071,7 +2071,7 @@ def do_become_guest(msg, runner, unrolled_run_gen):
         if isinstance(run_outcome, Error):
             err = run_outcome.error
             exc_info_kw = {"exc_info": (type(err), err, err.__traceback__)}
-        else:  # pragma: no cover
+        else:
             exc_info_kw = {}
         logging.getLogger("trio.lowlevel.become_guest_for").error(
             "Internal error: Trio run returned %r before child host returned",
@@ -2097,14 +2097,41 @@ def do_become_guest(msg, runner, unrolled_run_gen):
     runner.guest_tick_scheduled = True
     runner.is_guest = True
 
+    # If the child host changes the async generator hooks, we'll change them
+    # back, but remember theirs so we can forward non-Trio asyncgens to them.
+    trio_asyncgen_hooks = sys.get_asyncgen_hooks()
+    prev_asyncgen_hooks = runner.asyncgens.prev_hooks
+
+    # Protect against any Trio async generators getting finalized in
+    # the short interval where the async generator hooks have
+    # potentially been changed to the child host's hooks
+    must_change_alive_asyncgens_back_to_weakset = isinstance(
+        runner.asyncgens.alive, weakref.WeakSet
+    )
+    if must_change_alive_asyncgens_back_to_weakset:
+        runner.asyncgens.alive = set(runner.asyncgens.alive)
+
     # run_child_host will call this once the child host is able to enqueue
     # our guest_tick callbacks
     def resume_trio_as_guest(
         *, run_sync_soon_threadsafe, run_sync_soon_not_threadsafe=None,
     ):
+        # If the child host installed async generator hooks, make them
+        # subsidiary to Trio's hooks
+        child_host_asyncgen_hooks = sys.get_asyncgen_hooks()
+        if child_host_asyncgen_hooks != trio_asyncgen_hooks:
+            runner.asyncgens.prev_hooks = child_host_asyncgen_hooks
+            sys.set_asyncgen_hooks(*trio_asyncgen_hooks)
+
+        # Reenable finalization of Trio async generators
+        nonlocal must_change_alive_asyncgens_back_to_weakset
+        if must_change_alive_asyncgens_back_to_weakset:
+            runner.asyncgens.alive = weakref.WeakSet(runner.asyncgens.alive)
+            must_change_alive_asyncgens_back_to_weakset = False
+
+        # Finish initializing guest state, and enqueue the first guest tick
         if run_sync_soon_not_threadsafe is None:
             run_sync_soon_not_threadsafe = run_sync_soon_threadsafe
-
         guest_state.run_sync_soon_threadsafe = run_sync_soon_threadsafe
         guest_state.run_sync_soon_not_threadsafe = run_sync_soon_not_threadsafe
         run_sync_soon_not_threadsafe(guest_state.guest_tick)
@@ -2123,6 +2150,13 @@ def do_become_guest(msg, runner, unrolled_run_gen):
 
         if run_outcome is not None:
             # Something went wrong and there's no run anymore.
+
+            # Runner.close() restored the child host's async generator hooks,
+            # and then the child host probably restored Trio's as it exited.
+            # No one remembers the hooks that were installed before the
+            # Trio run started, except us, so restore them now.
+            sys.set_asyncgen_hooks(*prev_asyncgen_hooks)
+
             exc = TrioInternalError(
                 f"Trio run returned {run_outcome!r} before child host returned"
             )
@@ -2165,6 +2199,9 @@ def do_become_guest(msg, runner, unrolled_run_gen):
         guest_state.unrolled_run_next_send = None
         runner.is_guest = False
         runner.guest_tick_scheduled = False
+        runner.asyncgens.prev_hooks = prev_asyncgen_hooks
+        if must_change_alive_asyncgens_back_to_weakset:
+            runner.asyncgens.alive = weakref.WeakSet(runner.asyncgens.alive)
         runner.reschedule(msg.parent_task, child_host_outcome)
 
 
