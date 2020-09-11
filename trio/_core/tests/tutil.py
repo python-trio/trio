@@ -2,6 +2,7 @@
 import socket as stdlib_socket
 import os
 import sys
+from typing import TYPE_CHECKING
 
 import pytest
 import warnings
@@ -12,7 +13,19 @@ import gc
 # See trio/tests/conftest.py for the other half of this
 from trio.tests.conftest import RUN_SLOW
 
-slow = pytest.mark.skipif(not RUN_SLOW, reason="use --run-slow to run slow tests",)
+slow = pytest.mark.skipif(not RUN_SLOW, reason="use --run-slow to run slow tests")
+
+# PyPy 7.2 was released with a bug that just never called the async
+# generator 'firstiter' hook at all.  This impacts tests of end-of-run
+# finalization (nothing gets added to runner.asyncgens) and tests of
+# "foreign" async generator behavior (since the firstiter hook is what
+# marks the asyncgen as foreign), but most tests of GC-mediated
+# finalization still work.
+buggy_pypy_asyncgens = (
+    not TYPE_CHECKING
+    and sys.implementation.name == "pypy"
+    and sys.pypy_version_info < (7, 3)
+)
 
 try:
     s = stdlib_socket.socket(stdlib_socket.AF_INET6, stdlib_socket.SOCK_STREAM, 0)

@@ -477,7 +477,7 @@ class WindowsIOManager:
         try:
             _check(
                 kernel32.GetQueuedCompletionStatusEx(
-                    self._iocp, self._events, MAX_EVENTS, received, milliseconds, 0,
+                    self._iocp, self._events, MAX_EVENTS, received, milliseconds, 0
                 )
             )
         except OSError as exc:
@@ -557,7 +557,7 @@ class WindowsIOManager:
                 overlapped = int(ffi.cast("uintptr_t", entry.lpOverlapped))
                 transferred = entry.dwNumberOfBytesTransferred
                 info = CompletionKeyEventInfo(
-                    lpOverlapped=overlapped, dwNumberOfBytesTransferred=transferred,
+                    lpOverlapped=overlapped, dwNumberOfBytesTransferred=transferred
                 )
                 queue.put_nowait(info)
 

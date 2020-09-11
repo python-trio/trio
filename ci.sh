@@ -393,6 +393,14 @@ python -m pip --version
 python setup.py sdist --formats=zip
 python -m pip install dist/*.zip
 
+if python -c 'import sys; sys.exit(sys.version_info >= (3, 7))'; then
+    # Python < 3.7, select last ipython with 3.6 support
+    # macOS requires the suffix for --in-place or you get an undefined label error
+    sed -i'.bak' 's/ipython==[^ ]*/ipython==7.16.1/' test-requirements.txt
+    sed -i'.bak' 's/traitlets==[^ ]*/traitlets==4.3.3/' test-requirements.txt
+    git diff test-requirements.txt
+fi
+
 if [ "$CHECK_FORMATTING" = "1" ]; then
     python -m pip install -r test-requirements.txt
     source check.sh
@@ -420,10 +428,19 @@ else
         # installing some untrustworthy quasi-malware onto into a sandboxed
         # machine for testing. So MITM attacks are really the least of our
         # worries.
-        curl-harder --insecure -o lsp-installer.exe "$LSP"
+        if [ "$LSP_EXTRACT_FILE" != "" ]; then
+            # We host the Astrill VPN installer ourselves, and encrypt it
+            # so as to decrease the chances of becoming an inadvertent
+            # public redistributor.
+            curl-harder -o lsp-installer.zip "$LSP"
+            unzip -P "not very secret trio ci key" lsp-installer.zip "$LSP_EXTRACT_FILE"
+            mv "$LSP_EXTRACT_FILE" lsp-installer.exe
+        else
+            curl-harder --insecure -o lsp-installer.exe "$LSP"
+        fi
         # This is only needed for the Astrill LSP, but there's no harm in
         # doing it all the time. The cert was manually extracted by installing
-        # the package in a VPN, clicking "Always trust from this publisher"
+        # the package in a VM, clicking "Always trust from this publisher"
         # when installing, and then running 'certmgr.msc' and exporting the
         # certificate. See:
         #    http://www.migee.com/2010/09/24/solution-for-unattendedsilent-installs-and-would-you-like-to-install-this-device-software/

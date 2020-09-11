@@ -92,7 +92,7 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
     backlog = _compute_backlog(backlog)
 
     addresses = await tsocket.getaddrinfo(
-        host, port, type=tsocket.SOCK_STREAM, flags=tsocket.AI_PASSIVE,
+        host, port, type=tsocket.SOCK_STREAM, flags=tsocket.AI_PASSIVE
     )
 
     listeners = []
@@ -217,5 +217,5 @@ async def serve_tcp(
     """
     listeners = await trio.open_tcp_listeners(port, host=host, backlog=backlog)
     await trio.serve_listeners(
-        handler, listeners, handler_nursery=handler_nursery, task_status=task_status,
+        handler, listeners, handler_nursery=handler_nursery, task_status=task_status
     )

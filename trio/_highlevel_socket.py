@@ -377,8 +377,6 @@ class SocketListener(Listener[SocketStream], metaclass=SubclassingDeprecatedIn_v
                 return SocketStream(sock)
 
     async def aclose(self):
-        """Close this listener and its underlying socket.
-
-        """
+        """Close this listener and its underlying socket."""
         self.socket.close()
         await trio.lowlevel.checkpoint()

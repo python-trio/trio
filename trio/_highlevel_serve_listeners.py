@@ -49,7 +49,7 @@ async def _serve_one_listener(listener, handler_nursery, handler):
 
 
 async def serve_listeners(
-    handler, listeners, *, handler_nursery=None, task_status=trio.TASK_STATUS_IGNORED,
+    handler, listeners, *, handler_nursery=None, task_status=trio.TASK_STATUS_IGNORED
 ):
     r"""Listen for incoming connections on ``listeners``, and for each one
     start a task running ``handler(stream)``.

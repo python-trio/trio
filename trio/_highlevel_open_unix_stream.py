@@ -21,7 +21,7 @@ def close_on_error(obj):
         raise
 
 
-async def open_unix_socket(filename,):
+async def open_unix_socket(filename):
     """Opens a connection to the specified
     `Unix domain socket <https://en.wikipedia.org/wiki/Unix_domain_socket>`__.
 

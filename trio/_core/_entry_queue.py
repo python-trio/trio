@@ -56,7 +56,15 @@ class EntryQueue:
                 async def kill_everything(exc):
                     raise exc
 
-                _core.spawn_system_task(kill_everything, exc)
+                try:
+                    _core.spawn_system_task(kill_everything, exc)
+                except RuntimeError:
+                    # We're quite late in the shutdown process and the
+                    # system nursery is already closed.
+                    # TODO(2020-06): this is a gross hack and should
+                    # be fixed soon when we address #1607.
+                    _core.current_task().parent_nursery.start_soon(kill_everything, exc)
+
             return True
 
         # This has to be carefully written to be safe in the face of new items
@@ -101,10 +109,6 @@ class EntryQueue:
 
     def size(self):
         return len(self.queue) + len(self.idempotent_queue)
-
-    def spawn(self):
-        name = "<TrioToken.run_sync_soon task>"
-        _core.spawn_system_task(self.task, name=name)
 
     def run_sync_soon(self, sync_fn, *args, idempotent=False):
         with self.lock:
