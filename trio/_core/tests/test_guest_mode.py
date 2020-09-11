@@ -770,6 +770,7 @@ def test_become_guest_failure(recwarn):
     gc_collect_harder()
 
 
+@pytest.mark.skipif(buggy_pypy_asyncgens, reason="PyPy 7.2 is buggy")
 def test_become_guest_asyncgens():
     record = set()
 
@@ -837,6 +838,7 @@ def test_become_guest_asyncgens():
         sys.set_asyncgen_hooks(*prev_hooks)
 
 
+@pytest.mark.skipif(buggy_pypy_asyncgens, reason="PyPy 7.2 is buggy")
 def test_become_guest_during_asyncgen_finalization():
     saved = []
     record = []
