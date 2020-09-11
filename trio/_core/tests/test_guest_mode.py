@@ -8,7 +8,6 @@ from functools import partial
 from math import inf
 import signal
 import socket
-import sys
 import threading
 import time
 import weakref
@@ -61,6 +60,7 @@ class TrivialHostLoop:
             def finalize_it():
                 with pytest.raises(StopIteration):
                     agen.aclose().send(None)
+
             self.todo.put(("run", finalize_it))
 
         prev_hooks = sys.get_asyncgen_hooks()
