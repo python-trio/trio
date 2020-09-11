@@ -160,7 +160,12 @@ def test_logging_on_deliver_failure(caplog):
             done.set()
 
     start_thread_soon(lambda: 42, deliver)
+
+    # There's a race here: done.set() actually happens slightly before the
+    # log record gets created. Scheduling another piece of work will
+    # reuse the same thread, so is enough to defeat the race.
     done.wait()
+    start_thread_soon(lambda: None, lambda _: None)
 
     assert len(caplog.records) == 1
     exc_type, exc_value, exc_traceback = caplog.records[0].exc_info
