@@ -69,7 +69,7 @@
 # able to use this to figure out the key. Is this a real practical problem? I
 # have no idea, I'm not a cryptographer. In any case, some people worry that
 # it's a problem, so their TLS libraries are designed to automatically trigger
-# a renegotation every once in a while on some sort of timer.
+# a renegotiation every once in a while on some sort of timer.
 #
 # The end result is that you might be going along, minding your own business,
 # and then *bam*! a wild renegotiation appears! And you just have to cope.
@@ -542,7 +542,7 @@ class SSLStream(Stream, metaclass=SubclassingDeprecatedIn_v0_15_0):
             # We could do something tricky to keep track of whether a
             # receive_some happens while we're sending, but the case where
             # we have to do both is very unusual (only during a
-            # renegotation), so it's better to keep things simple. So we
+            # renegotiation), so it's better to keep things simple. So we
             # do just one potentially-blocking operation, then check again
             # for fresh information.
             #
