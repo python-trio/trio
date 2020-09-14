@@ -13,7 +13,7 @@ backcall==0.2.0           # via ipython
 black==20.8b1 ; implementation_name == "cpython"  # via -r test-requirements.in
 cffi==1.14.2              # via cryptography
 click==7.1.2              # via black
-coverage==5.2.1           # via pytest-cov
+coverage==5.3             # via pytest-cov
 cryptography==3.1         # via pyopenssl, trustme
 decorator==4.4.2          # via ipython
 flake8==3.8.3             # via -r test-requirements.in
