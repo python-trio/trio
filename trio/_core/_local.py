@@ -1,7 +1,7 @@
 # Runvar implementations
 from . import _run
 
-from .._util import SubclassingDeprecatedIn_v0_15_0
+from .._util import Final
 
 
 class _RunVarToken:
@@ -19,7 +19,7 @@ class _RunVarToken:
         self.redeemed = False
 
 
-class RunVar(metaclass=SubclassingDeprecatedIn_v0_15_0):
+class RunVar(metaclass=Final):
     """The run-local variant of a context variable.
 
     :class:`RunVar` objects are similar to context variable objects,

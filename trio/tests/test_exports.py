@@ -141,6 +141,4 @@ def test_classes_are_final():
                 continue
             # ... insert other special cases here ...
 
-            assert isinstance(
-                class_, (_util.Final, _util.SubclassingDeprecatedIn_v0_15_0)
-            )
+            assert isinstance(class_, (_util.Final, _util.Final))

@@ -7,11 +7,11 @@ import trio
 
 from ._core import enable_ki_protection, ParkingLot
 from ._deprecate import deprecated
-from ._util import SubclassingDeprecatedIn_v0_15_0
+from ._util import Final
 
 
 @attr.s(repr=False, eq=False, hash=False)
-class Event(metaclass=SubclassingDeprecatedIn_v0_15_0):
+class Event(metaclass=Final):
     """A waitable boolean value useful for inter-task synchronization,
     inspired by :class:`threading.Event`.
 
@@ -99,7 +99,7 @@ class _CapacityLimiterStatistics:
 
 
 @async_cm
-class CapacityLimiter(metaclass=SubclassingDeprecatedIn_v0_15_0):
+class CapacityLimiter(metaclass=Final):
     """An object for controlling access to a resource with limited capacity.
 
     Sometimes you need to put a limit on how many tasks can do something at
@@ -342,7 +342,7 @@ class CapacityLimiter(metaclass=SubclassingDeprecatedIn_v0_15_0):
 
 
 @async_cm
-class Semaphore(metaclass=SubclassingDeprecatedIn_v0_15_0):
+class Semaphore(metaclass=Final):
     """A `semaphore <https://en.wikipedia.org/wiki/Semaphore_(programming)>`__.
 
     A semaphore holds an integer value, which can be incremented by
@@ -562,7 +562,7 @@ class _LockImpl:
         )
 
 
-class Lock(_LockImpl, metaclass=SubclassingDeprecatedIn_v0_15_0):
+class Lock(_LockImpl, metaclass=Final):
     """A classic `mutex
     <https://en.wikipedia.org/wiki/Lock_(computer_science)>`__.
 
@@ -576,7 +576,7 @@ class Lock(_LockImpl, metaclass=SubclassingDeprecatedIn_v0_15_0):
     """
 
 
-class StrictFIFOLock(_LockImpl, metaclass=SubclassingDeprecatedIn_v0_15_0):
+class StrictFIFOLock(_LockImpl, metaclass=Final):
     r"""A variant of :class:`Lock` where tasks are guaranteed to acquire the
     lock in strict first-come-first-served order.
 
@@ -646,7 +646,7 @@ class _ConditionStatistics:
 
 
 @async_cm
-class Condition(metaclass=SubclassingDeprecatedIn_v0_15_0):
+class Condition(metaclass=Final):
     """A classic `condition variable
     <https://en.wikipedia.org/wiki/Monitor_(synchronization)>`__, similar to
     :class:`threading.Condition`.
