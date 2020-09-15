@@ -1,1 +1,0 @@
-The thread cache didn't release its reference to the previous job.

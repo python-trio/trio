@@ -1,2 +1,0 @@
-On macOS and BSDs, explicitly close our wakeup socketpair when we're
-done with it.
