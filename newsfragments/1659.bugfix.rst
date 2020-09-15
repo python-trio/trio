@@ -1,7 +1,0 @@
-On Windows, Trio now works around the buggy behavior of certain
-Layered Service Providers (system components that can intercept
-network activity) that are built on top of a commercially available
-library called Komodia Redirector. This benefits users of products
-such as Astrill VPN and Qustodio parental controls. Previously, Trio
-would crash on startup when run on a system where such a product was
-installed.

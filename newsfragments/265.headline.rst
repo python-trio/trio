@@ -1,6 +1,0 @@
-Trio now supports automatic :ref:`async generator finalization
-<async-generators>`, so more async generators will work even if you
-don't wrap them in ``async with async_generator.aclosing():``
-blocks. Please see the documentation for important caveats; in
-particular, yielding within a nursery or cancel scope remains
-unsupported.
