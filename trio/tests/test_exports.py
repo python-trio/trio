@@ -141,4 +141,4 @@ def test_classes_are_final():
                 continue
             # ... insert other special cases here ...
 
-            assert isinstance(class_, (_util.Final, _util.Final))
+            assert isinstance(class_, _util.Final)
