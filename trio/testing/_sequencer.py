@@ -12,7 +12,7 @@ if False:
 
 
 @attr.s(eq=False, hash=False)
-class Sequencer(metaclass=_util.SubclassingDeprecatedIn_v0_15_0):
+class Sequencer(metaclass=_util.Final):
     """A convenience class for forcing code in different tasks to run in an
     explicit linear order.
 

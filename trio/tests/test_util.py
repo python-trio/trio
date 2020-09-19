@@ -12,7 +12,6 @@ from .._util import (
     generic_function,
     Final,
     NoPublicConstructor,
-    SubclassingDeprecatedIn_v0_15_0,
 )
 from ..testing import wait_all_tasks_blocked
 
@@ -168,16 +167,6 @@ def test_final_metaclass():
     with pytest.raises(TypeError):
 
         class SubClass(FinalClass):
-            pass
-
-
-def test_subclassing_deprecated_metaclass():
-    class Blah(metaclass=SubclassingDeprecatedIn_v0_15_0):
-        pass
-
-    with pytest.warns(trio.TrioDeprecationWarning):
-
-        class Blah2(Blah):
             pass
 
 

@@ -309,20 +309,6 @@ class Final(BaseMeta):
         return super().__new__(cls, name, bases, cls_namespace)
 
 
-class SubclassingDeprecatedIn_v0_15_0(BaseMeta):
-    def __new__(cls, name, bases, cls_namespace):
-        for base in bases:
-            if isinstance(base, SubclassingDeprecatedIn_v0_15_0):
-                warn_deprecated(
-                    f"subclassing {base.__module__}.{base.__qualname__}",
-                    "0.15.0",
-                    issue=1044,
-                    instead="composition or delegation",
-                )
-                break
-        return super().__new__(cls, name, bases, cls_namespace)
-
-
 T = t.TypeVar("T")
 
 

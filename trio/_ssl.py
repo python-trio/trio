@@ -158,7 +158,7 @@ import trio
 from .abc import Stream, Listener
 from ._highlevel_generic import aclose_forcefully
 from . import _sync
-from ._util import ConflictDetector, SubclassingDeprecatedIn_v0_15_0
+from ._util import ConflictDetector, Final
 from ._deprecate import warn_deprecated
 
 ################################################################
@@ -224,7 +224,7 @@ class _Once:
 _State = _Enum("_State", ["OK", "BROKEN", "CLOSED"])
 
 
-class SSLStream(Stream, metaclass=SubclassingDeprecatedIn_v0_15_0):
+class SSLStream(Stream, metaclass=Final):
     r"""Encrypted communication using SSL/TLS.
 
     :class:`SSLStream` wraps an arbitrary :class:`~trio.abc.Stream`, and
@@ -870,7 +870,7 @@ class SSLStream(Stream, metaclass=SubclassingDeprecatedIn_v0_15_0):
                 await self.transport_stream.wait_send_all_might_not_block()
 
 
-class SSLListener(Listener[SSLStream], metaclass=SubclassingDeprecatedIn_v0_15_0):
+class SSLListener(Listener[SSLStream], metaclass=Final):
     """A :class:`~trio.abc.Listener` for SSL/TLS-encrypted servers.
 
     :class:`SSLListener` wraps around another Listener, and converts

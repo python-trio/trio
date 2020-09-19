@@ -73,7 +73,7 @@ class _UnboundedByteQueue:
             return self._get_impl(max_bytes)
 
 
-class MemorySendStream(SendStream, metaclass=_util.SubclassingDeprecatedIn_v0_15_0):
+class MemorySendStream(SendStream, metaclass=_util.Final):
     """An in-memory :class:`~trio.abc.SendStream`.
 
     Args:
@@ -187,9 +187,7 @@ class MemorySendStream(SendStream, metaclass=_util.SubclassingDeprecatedIn_v0_15
         return self._outgoing.get_nowait(max_bytes)
 
 
-class MemoryReceiveStream(
-    ReceiveStream, metaclass=_util.SubclassingDeprecatedIn_v0_15_0
-):
+class MemoryReceiveStream(ReceiveStream, metaclass=_util.Final):
     """An in-memory :class:`~trio.abc.ReceiveStream`.
 
     Args:
