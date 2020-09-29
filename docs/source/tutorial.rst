@@ -836,18 +836,24 @@ Networking with Trio
 Now let's take what we've learned and use it to do some I/O, which is
 where async/await really shines.
 
-
-An echo client
-~~~~~~~~~~~~~~
-
-The traditional application for demonstrating network APIs is an "echo
-server": a program that accepts arbitrary data from a client, and then
-sends that same data right back. (Probably a more relevant example
+The traditional toy application for demonstrating network APIs is an 
+"echo server": a program that awaits arbitrary data from  remote clients, 
+and then sends that same data right back. (Probably a more relevant example
 these days would be an application that does lots of concurrent HTTP
 requests, but for that `you need an HTTP library
 <https://github.com/python-trio/trio/issues/236#issuecomment-310784001>`__
 such as `asks <https://asks.readthedocs.io>`__, so we'll stick
 with the echo server tradition.)
+
+In this tutorial, we present both ends of the pipe: the client, and the 
+server. The client periodically sends data to the server, and displays its 
+answers. The server awaits connections; when a client connects, it recopies 
+the received data back on the pipe.
+
+
+An echo client
+~~~~~~~~~~~~~~
+
 
 To start with, here's an example echo *client*, i.e., the program that
 will send some data at our echo server and get responses back:
@@ -856,6 +862,9 @@ will send some data at our echo server and get responses back:
 
 .. literalinclude:: tutorial/echo-client.py
    :linenos:
+
+Note that this code will not work without a TCP server listening at 
+``127.0.0.1:12345``.
 
 The overall structure here should be familiar, because it's just like
 our :ref:`last example <tutorial-example-tasks-intro>`: we have a
