@@ -863,8 +863,8 @@ will send some data at our echo server and get responses back:
 .. literalinclude:: tutorial/echo-client.py
    :linenos:
 
-Note that this code will not work without a TCP server listening at 
-``127.0.0.1:12345``.
+Note that this code will not work without a TCP server such as the one
+we'll implement below.
 
 The overall structure here should be familiar, because it's just like
 our :ref:`last example <tutorial-example-tasks-intro>`: we have a
