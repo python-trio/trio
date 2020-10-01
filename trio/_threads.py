@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import threading
 import queue as stdlib_queue
 from itertools import count
@@ -248,7 +250,8 @@ def from_thread_run(afn, *args, trio_token=None):
 
     Raises:
         RunFinishedError: if the corresponding call to :func:`trio.run` has
-            already completed.
+            already completed, or if the run has started its final cleanup phase
+            and can no longer spawn new system tasks.
         Cancelled: if the corresponding call to :func:`trio.run` completes
             while ``afn(*args)`` is running, then ``afn`` is likely to raise
             :exc:`trio.Cancelled`, and this will propagate out into
@@ -279,7 +282,12 @@ def from_thread_run(afn, *args, trio_token=None):
         async def await_in_trio_thread_task():
             q.put_nowait(await outcome.acapture(unprotected_afn))
 
-        trio.lowlevel.spawn_system_task(await_in_trio_thread_task, name=afn)
+        try:
+            trio.lowlevel.spawn_system_task(await_in_trio_thread_task, name=afn)
+        except RuntimeError:  # system nursery is closed
+            q.put_nowait(
+                outcome.Error(trio.RunFinishedError("system nursery is closed"))
+            )
 
     return _run_fn_as_system_task(callback, afn, *args, trio_token=trio_token)
 
