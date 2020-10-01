@@ -130,10 +130,16 @@ class MemorySendChannel(SendChannel, metaclass=NoPublicConstructor):
         return self._state.statistics()
 
     @enable_ki_protection
-    def send_nowait(self, value):
+    def send_nowait(self, value, *, replace_on_overflow=False):
         """Like `~trio.abc.SendChannel.send`, but if the channel's buffer is
         full, raises `WouldBlock` instead of blocking.
 
+        Args:
+          replace_on_overflow (bool): If true, instead of raising `WouldBlock`
+            when the channel's buffer is full,  replace the most recently
+            buffered item with ``value``.  This is expected to be combined with
+            ``max_buffer_size`` > 0, since otherwise there can never be a buffered
+            item to replace.
         """
         if self._closed:
             raise trio.ClosedResourceError
@@ -146,6 +152,9 @@ class MemorySendChannel(SendChannel, metaclass=NoPublicConstructor):
             trio.lowlevel.reschedule(task, Value(value))
         elif len(self._state.data) < self._state.max_buffer_size:
             self._state.data.append(value)
+        elif replace_on_overflow:
+            if len(self._state.data):
+                self._state.data[-1] = value
         else:
             raise trio.WouldBlock
 

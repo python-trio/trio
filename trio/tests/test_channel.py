@@ -350,3 +350,22 @@ async def test_unbuffered():
             assert await r.receive() == 1
     with pytest.raises(trio.WouldBlock):
         r.receive_nowait()
+
+
+async def test_send_channel_replace_on_overflow():
+    s, r = open_memory_channel(2)
+    s.send_nowait(1, replace_on_overflow=True)
+    s.send_nowait(2, replace_on_overflow=True)
+    s.send_nowait(3, replace_on_overflow=True)
+    assert await r.receive() == 1
+    assert await r.receive() == 3
+    with pytest.raises(trio.WouldBlock):
+        r.receive_nowait()
+
+
+async def test_send_channel_replace_on_overflow_unbuffered():
+    s, r = open_memory_channel(0)
+    s.send_nowait(1, replace_on_overflow=True)
+    s.send_nowait(2, replace_on_overflow=True)
+    with pytest.raises(trio.WouldBlock):
+        r.receive_nowait()
