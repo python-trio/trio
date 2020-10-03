@@ -16,7 +16,7 @@ click==7.1.2              # via black
 coverage==5.3             # via pytest-cov
 cryptography==3.1.1       # via pyopenssl, trustme
 decorator==4.4.2          # via ipython
-flake8==3.8.3             # via -r test-requirements.in
+flake8==3.8.4             # via -r test-requirements.in
 idna==2.10                # via -r test-requirements.in, trustme
 immutables==0.14          # via -r test-requirements.in
 iniconfig==1.0.1          # via pytest
