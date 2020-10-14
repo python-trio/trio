@@ -25,7 +25,7 @@ pyparsing==2.4.7          # via packaging
 pytz==2020.1              # via babel
 requests==2.24.0          # via sphinx
 six==1.15.0               # via packaging
-sniffio==1.1.0            # via -r docs-requirements.in
+sniffio==1.2.0            # via -r docs-requirements.in
 snowballstemmer==2.0.0    # via sphinx
 sortedcontainers==2.2.2   # via -r docs-requirements.in
 sphinx-rtd-theme==0.5.0   # via -r docs-requirements.in

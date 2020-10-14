@@ -49,7 +49,7 @@ pytest-cov==2.10.1        # via -r test-requirements.in
 pytest==6.1.1             # via -r test-requirements.in, pytest-cov
 regex==2020.10.11         # via black
 six==1.15.0               # via astroid, cryptography, packaging, pyopenssl
-sniffio==1.1.0            # via -r test-requirements.in
+sniffio==1.2.0            # via -r test-requirements.in
 sortedcontainers==2.2.2   # via -r test-requirements.in
 toml==0.10.1              # via black, pylint, pytest
 traitlets==5.0.4          # via ipython
