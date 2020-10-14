@@ -1546,6 +1546,15 @@ class Runner:
 
         * System tasks do not inherit context variables from their creator.
 
+        Towards the end of a call to :meth:`trio.run`, after the main
+        task and all system tasks have exited, the system nursery
+        becomes closed. At this point, new calls to
+        :func:`spawn_system_task` will raise ``RuntimeError("Nursery
+        is closed to new arrivals")`` instead of creating a system
+        task. It's possible to encounter this state either in
+        a ``finally`` block in an async generator, or in a callback
+        passed to :meth:`TrioToken.run_sync_soon` at the right moment.
+
         Args:
           async_fn: An async callable.
           args: Positional arguments for ``async_fn``. If you want to pass

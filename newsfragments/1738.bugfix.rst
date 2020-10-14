@@ -1,0 +1,6 @@
+:func:`trio.from_thread.run` no longer crashes the Trio run if it is
+executed after the system nursery has been closed but before the run
+has finished. Calls made at this time will now raise
+`trio.RunFinishedError`.  This fixes a regression introduced in
+Trio 0.17.0.  The window in question is only one scheduler tick long in
+most cases, but may be longer if async generators need to be cleaned up.
