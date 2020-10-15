@@ -27,7 +27,7 @@ jedi==0.17.2              # via -r test-requirements.in, ipython
 lazy-object-proxy==1.4.3  # via astroid
 mccabe==0.6.1             # via flake8, pylint
 mypy-extensions==0.4.3 ; implementation_name == "cpython"  # via -r test-requirements.in, black, mypy
-mypy==0.782 ; implementation_name == "cpython"  # via -r test-requirements.in
+mypy==0.790 ; implementation_name == "cpython"  # via -r test-requirements.in
 outcome==1.0.1            # via -r test-requirements.in
 packaging==20.4           # via pytest
 parso==0.7.1              # via jedi
