@@ -18,7 +18,8 @@ def _has_warn_on_full_buffer():
 
     import inspect
 
-    return "warn_on_full_buffer" in inspect.getfullargspec(set_wakeup_fd).kwonlyargs
+    args_spec = inspect.getfullargspec(signal.set_wakeup_fd)
+    return "warn_on_full_buffer" in args_spec.kwonlyargs
 
 
 HAVE_WARN_ON_FULL_BUFFER = _has_warn_on_full_buffer()
