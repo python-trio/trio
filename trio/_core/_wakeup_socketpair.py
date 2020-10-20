@@ -6,10 +6,22 @@ import warnings
 from .. import _core
 from .._util import is_main_thread
 
-if sys.version_info >= (3, 7) and "__pypy__" not in sys.builtin_module_names:
-    HAVE_WARN_ON_FULL_BUFFER = True
-else:
-    HAVE_WARN_ON_FULL_BUFFER = False
+
+def _has_warn_on_full_buffer():
+    if sys.version_info < (3, 7): 
+        return False
+
+    if "__pypy__" not in sys.builtin_module_names:
+        # CPython has warn_on_full_buffer. Don't need to inspect.
+        # Also, CPython doesn't support inspecting built-in functions.
+        return True
+
+    import inspect
+
+    return "warn_on_full_buffer" in inspect.getfullargspec(set_wakeup_fd).kwonlyargs
+
+
+HAVE_WARN_ON_FULL_BUFFER = _has_warn_on_full_buffer()
 
 
 class WakeupSocketpair:
