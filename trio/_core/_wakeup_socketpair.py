@@ -6,7 +6,7 @@ import warnings
 from .. import _core
 from .._util import is_main_thread
 
-if sys.version_info >= (3, 7) and '__pypy__' not in sys.builtin_module_names:
+if sys.version_info >= (3, 7) and "__pypy__" not in sys.builtin_module_names:
     HAVE_WARN_ON_FULL_BUFFER = True
 else:
     HAVE_WARN_ON_FULL_BUFFER = False
