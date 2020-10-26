@@ -1124,6 +1124,12 @@ inside a single process, and for that you can use
 
 .. autofunction:: open_memory_channel(max_buffer_size)
 
+Assigning the send and receive channels to separate variables usually
+produces the most readable code.  However, in situations where the pair
+is preserved-- such as a collection of memory channels-- prefer named tuple
+access (``pair.send_channel``, ``pair.receive_channel``) over indexed access
+(``pair[0]``, ``pair[1]``).
+
 .. note:: If you've used the :mod:`threading` or :mod:`asyncio`
    modules, you may be familiar with :class:`queue.Queue` or
    :class:`asyncio.Queue`. In Trio, :func:`open_memory_channel` is

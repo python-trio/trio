@@ -19,7 +19,7 @@ class MemoryListener(trio.abc.Listener):
     async def connect(self):
         assert not self.closed
         client, server = memory_stream_pair()
-        await self.queued_streams[0].send(server)
+        await self.queued_streams.send_channel.send(server)
         return client
 
     async def accept(self):
@@ -27,7 +27,7 @@ class MemoryListener(trio.abc.Listener):
         assert not self.closed
         if self.accept_hook is not None:
             await self.accept_hook()
-        stream = await self.queued_streams[1].receive()
+        stream = await self.queued_streams.receive_channel.receive()
         self.accepted_streams.append(stream)
         return stream
 

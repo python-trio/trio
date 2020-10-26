@@ -1,14 +1,22 @@
 from collections import deque, OrderedDict
 from math import inf
+from typing import NamedTuple
 
 import attr
 from outcome import Error, Value
 
-from .abc import SendChannel, ReceiveChannel, Channel
+from .abc import SendChannel, ReceiveChannel
 from ._util import generic_function, NoPublicConstructor
 
 import trio
 from ._core import enable_ki_protection
+
+
+class MemoryChannelPair(NamedTuple):
+    """Named tuple of send/receive memory channels"""
+
+    send_channel: "MemorySendChannel"
+    receive_channel: "MemoryReceiveChannel"
 
 
 @generic_function
@@ -40,9 +48,8 @@ def open_memory_channel(max_buffer_size):
         see :ref:`channel-buffering` for more details. If in doubt, use 0.
 
     Returns:
-      A pair ``(send_channel, receive_channel)``. If you have
-      trouble remembering which order these go in, remember: data
-      flows from left → right.
+      A named tuple ``(send_channel, receive_channel)``.  The tuple ordering is
+      intended to match the image of data flowing from left → right.
 
     In addition to the standard channel methods, all memory channel objects
     provide a ``statistics()`` method, which returns an object with the
@@ -69,7 +76,7 @@ def open_memory_channel(max_buffer_size):
     if max_buffer_size < 0:
         raise ValueError("max_buffer_size must be >= 0")
     state = MemoryChannelState(max_buffer_size)
-    return (
+    return MemoryChannelPair(
         MemorySendChannel._create(state),
         MemoryReceiveChannel._create(state),
     )
