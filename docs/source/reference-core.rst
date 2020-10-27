@@ -1633,7 +1633,7 @@ an exception, where can that exception be reraised?
 If you have an async generator that wants to ``yield`` from within a nursery
 or cancel scope, your best bet is to refactor it to be a separate task
 that communicates over memory channels.  The ``trio_util`` package offers a
-`decorator that does this for you automatically
+`decorator that does this for you transparently
 <https://trio-util.readthedocs.io/en/latest/#trio_util.trio_async_generator>`__.
 
 For more discussion, see
