@@ -1,9 +1,15 @@
 import sys
 from typing import TYPE_CHECKING
 from . import _core
-from ._abc import SendStream, ReceiveStream
+from ._abc import SendStream, ReceiveStream, SendChannel, ReceiveChannel
 from ._util import ConflictDetector, Final
-from ._core._windows_cffi import _handle, raise_winerror, kernel32, ffi
+from ._core._windows_cffi import (
+    _handle,
+    raise_winerror,
+    kernel32,
+    ffi,
+    ErrorCodes,
+)
 
 assert sys.platform == "win32" or not TYPE_CHECKING
 
@@ -126,6 +132,84 @@ class PipeReceiveStream(ReceiveStream, metaclass=Final):
                 # checkpoint manually.
                 await _core.checkpoint()
                 return b""
+            else:
+                del buffer[size:]
+                return buffer
+
+    async def aclose(self):
+        await self._handle_holder.aclose()
+
+
+class PipeSendChannel(SendChannel[bytes]):
+    """Represents a message stream over a pipe object."""
+
+    def __init__(self, handle: int) -> None:
+        self._pss = PipeSendStream(handle)
+        # needed for "detach" via _handle_holder.handle = -1
+        self._handle_holder = self._pss._handle_holder
+
+    async def send(self, value: bytes):
+        # Works just fine if the pipe is message-oriented
+        await self._pss.send_all(value)
+
+    async def aclose(self):
+        await self._handle_holder.aclose()
+
+
+class PipeReceiveChannel(ReceiveChannel[bytes]):
+    """Represents a message stream over a pipe object."""
+
+    def __init__(self, handle: int) -> None:
+        self._handle_holder = _HandleHolder(handle)
+        self._conflict_detector = ConflictDetector(
+            "another task is currently using this pipe"
+        )
+
+    async def receive(self) -> bytes:
+        # Would a io.BytesIO make more sense?
+        buffer = bytearray(DEFAULT_RECEIVE_SIZE)
+        try:
+            return await self._receive_some_into(buffer)
+        except OSError as e:
+            if e.winerror != ErrorCodes.ERROR_MORE_DATA:
+                raise
+            left = ffi.new("LPDWORD")
+            if not kernel32.PeekNamedPipe(
+                _handle(self._handle_holder.handle),
+                ffi.NULL,
+                0,
+                ffi.NULL,
+                ffi.NULL,
+                left,
+            ):
+                raise_winerror()
+            buffer.extend(await self._receive_some_into(bytearray(left[0])))
+            return buffer
+
+    async def _receive_some_into(self, buffer) -> bytes:
+        with self._conflict_detector:
+            if self._handle_holder.closed:
+                raise _core.ClosedResourceError("this pipe is already closed")
+            try:
+                size = await _core.readinto_overlapped(
+                    self._handle_holder.handle, buffer
+                )
+            except BrokenPipeError:
+                if self._handle_holder.closed:
+                    raise _core.ClosedResourceError(
+                        "another task closed this pipe"
+                    ) from None
+
+                # Windows raises BrokenPipeError on one end of a pipe
+                # whenever the other end closes, regardless of direction.
+                # Convert this to EndOfChannel
+                #
+                # And since we're not raising an exception, we have to
+                # checkpoint. But readinto_overlapped did raise an exception,
+                # so it might not have checkpointed for us. So we have to
+                # checkpoint manually.
+                await _core.checkpoint()
+                raise _core.EndOfChannel
             else:
                 del buffer[size:]
                 return buffer

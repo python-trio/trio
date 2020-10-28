@@ -179,6 +179,25 @@ BOOL DeviceIoControl(
   LPOVERLAPPED lpOverlapped
 );
 
+BOOL PeekNamedPipe(
+  HANDLE  hNamedPipe,
+  LPVOID  lpBuffer,
+  DWORD   nBufferSize,
+  LPDWORD lpBytesRead,
+  LPDWORD lpTotalBytesAvail,
+  LPDWORD lpBytesLeftThisMessage
+);
+
+BOOL GetNamedPipeHandleStateA(
+  HANDLE  hNamedPipe,
+  LPDWORD lpState,
+  LPDWORD lpCurInstances,
+  LPDWORD lpMaxCollectionCount,
+  LPDWORD lpCollectDataTimeout,
+  LPSTR   lpUserName,
+  DWORD   nMaxUserNameSize
+);
+
 // From https://github.com/piscisaureus/wepoll/blob/master/src/afd.h
 typedef struct _AFD_POLL_HANDLE_INFO {
   HANDLE Handle;
@@ -245,6 +264,7 @@ class ErrorCodes(enum.IntEnum):
     ERROR_INVALID_PARMETER = 87
     ERROR_NOT_FOUND = 1168
     ERROR_NOT_SOCKET = 10038
+    ERROR_MORE_DATA = 234
 
 
 class FileFlags(enum.IntEnum):
@@ -296,6 +316,13 @@ class IoControlCodes(enum.IntEnum):
     IOCTL_AFD_POLL = 0x00012024
 
 
+class PipeModes(enum.IntFlag):
+    PIPE_WAIT = 0x00000000
+    PIPE_NOWAIT = 0x00000001
+    PIPE_READMODE_BYTE = 0x00000000
+    PIPE_READMODE_MESSAGE = 0x00000002
+
+
 ################################################################
 # Generic helpers
 ################################################################
@@ -321,3 +348,12 @@ def raise_winerror(winerror=None, *, filename=None, filename2=None):
         _, msg = ffi.getwinerror(winerror)
     # https://docs.python.org/3/library/exceptions.html#OSError
     raise OSError(0, msg, filename, winerror, filename2)
+
+
+def get_pipe_state(handle):
+    lpState = ffi.new("LPDWORD")
+    if not kernel32.GetNamedPipeHandleStateA(
+        _handle(handle), lpState, ffi.NULL, ffi.NULL, ffi.NULL, ffi.NULL, 0
+    ):
+        raise_winerror()
+    return lpState[0]
