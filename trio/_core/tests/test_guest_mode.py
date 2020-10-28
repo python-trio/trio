@@ -10,7 +10,9 @@ import signal
 import socket
 import threading
 import time
+import weakref
 
+from outcome import capture, Value, Error
 import trio
 import trio.testing
 from .tutil import gc_collect_harder, buggy_pypy_asyncgens
@@ -22,53 +24,102 @@ from ..._util import signal_raise
 #   our main
 # - final result is returned
 # - any unhandled exceptions cause an immediate crash
-def trivial_guest_run(trio_fn, **start_guest_run_kwargs):
-    todo = queue.Queue()
 
-    host_thread = threading.current_thread()
 
-    def run_sync_soon_threadsafe(fn):
-        if host_thread is threading.current_thread():  # pragma: no cover
+class TrivialHostLoop:
+    def __init__(self, install_asyncgen_hooks=False):
+        self.todo = queue.Queue()
+        self.host_thread = threading.current_thread()
+        self.asyncgens_alive = weakref.WeakSet()
+        self.install_asyncgen_hooks = install_asyncgen_hooks
+
+    def call_soon_threadsafe(self, fn):
+        if self.host_thread is threading.current_thread():  # pragma: no cover
             crash = partial(
                 pytest.fail, "run_sync_soon_threadsafe called from host thread"
             )
-            todo.put(("run", crash))
-        todo.put(("run", fn))
+            self.todo.put(("run", crash))
+        self.todo.put(("run", fn))
 
-    def run_sync_soon_not_threadsafe(fn):
-        if host_thread is not threading.current_thread():  # pragma: no cover
+    def call_soon_not_threadsafe(self, fn):
+        if self.host_thread is not threading.current_thread():  # pragma: no cover
             crash = partial(
                 pytest.fail, "run_sync_soon_not_threadsafe called from worker thread"
             )
-            todo.put(("run", crash))
-        todo.put(("run", fn))
+            self.todo.put(("run", crash))
+        self.todo.put(("run", fn))
 
-    def done_callback(outcome):
-        todo.put(("unwrap", outcome))
+    def stop(self, outcome):
+        self.todo.put(("unwrap", outcome))
+
+    def run(self):
+        def firstiter(agen):
+            self.asyncgens_alive.add(agen)
+
+        def finalizer(agen):
+            def finalize_it():
+                with pytest.raises(StopIteration):
+                    agen.aclose().send(None)
+
+            self.todo.put(("run", finalize_it))
+
+        prev_hooks = sys.get_asyncgen_hooks()
+        install_asyncgen_hooks = self.install_asyncgen_hooks
+        if install_asyncgen_hooks:
+            sys.set_asyncgen_hooks(firstiter=firstiter, finalizer=finalizer)
+        try:
+            while True:
+                op, obj = self.todo.get()
+                if op == "run":
+                    obj()
+                elif op == "unwrap":
+                    # Avoid keeping self.todo alive, since it might contain
+                    # a reference to GuestState.guest_tick
+                    del self
+                    return obj.unwrap()
+                else:  # pragma: no cover
+                    assert False
+        finally:
+            if install_asyncgen_hooks:
+                sys.set_asyncgen_hooks(*prev_hooks)
+
+    async def host_this_run(self, *, with_buggy_deliver_cancel=False):
+        def run_as_child_host(resume_trio_as_guest):
+            resume_trio_as_guest(
+                run_sync_soon_threadsafe=self.call_soon_threadsafe,
+                run_sync_soon_not_threadsafe=self.call_soon_not_threadsafe,
+            )
+            return self.run()
+
+        def deliver_cancel(raise_cancel):
+            self.stop(capture(raise_cancel))
+            if with_buggy_deliver_cancel:
+                raise ValueError("whoops")
+
+        return await trio.lowlevel.become_guest_for(run_as_child_host, deliver_cancel)
+
+
+def trivial_guest_run(trio_fn, **start_guest_run_kwargs):
+    loop = TrivialHostLoop()
+
+    def call_soon(fn):
+        loop.call_soon_not_threadsafe(fn)
 
     trio.lowlevel.start_guest_run(
         trio_fn,
-        run_sync_soon_not_threadsafe,
-        run_sync_soon_threadsafe=run_sync_soon_threadsafe,
-        run_sync_soon_not_threadsafe=run_sync_soon_not_threadsafe,
-        done_callback=done_callback,
+        call_soon,
+        run_sync_soon_threadsafe=loop.call_soon_threadsafe,
+        run_sync_soon_not_threadsafe=loop.call_soon_not_threadsafe,
+        done_callback=loop.stop,
         **start_guest_run_kwargs,
     )
-
     try:
-        while True:
-            op, obj = todo.get()
-            if op == "run":
-                obj()
-            elif op == "unwrap":
-                return obj.unwrap()
-            else:  # pragma: no cover
-                assert False
+        return loop.run()
     finally:
         # Make sure that exceptions raised here don't capture these, so that
         # if an exception does cause us to abandon a run then the Trio state
         # has a chance to be GC'ed and warn about it.
-        del todo, run_sync_soon_threadsafe, done_callback
+        del loop
 
 
 def test_guest_trivial():
@@ -502,7 +553,7 @@ def test_guest_mode_autojump_clock_threshold_changing():
 
 
 @pytest.mark.skipif(buggy_pypy_asyncgens, reason="PyPy 7.2 is buggy")
-def test_guest_mode_asyncgens():
+def test_guest_mode_aio_asyncgens():
     import sniffio
 
     record = set()
@@ -541,3 +592,271 @@ def test_guest_mode_asyncgens():
     context.run(aiotrio_run, trio_main, host_uses_signal_set_wakeup_fd=True)
 
     assert record == {("asyncio", "asyncio"), ("trio", "trio")}
+
+
+async def test_become_guest_basics():
+    def run_noop_child_host(resume_trio_guest):
+        return 42
+
+    def ignore_cxl(_):
+        pass  # pragma: no cover
+
+    assert 42 == await trio.lowlevel.become_guest_for(run_noop_child_host, ignore_cxl)
+    assert isinstance(
+        trio.lowlevel.current_task()._runner.asyncgens.alive, weakref.WeakSet
+    )
+
+    loop = TrivialHostLoop()
+    loop.stop(Value(5))
+    assert 5 == await loop.host_this_run()
+    assert isinstance(
+        trio.lowlevel.current_task()._runner.asyncgens.alive, weakref.WeakSet
+    )
+
+    async with trio.open_nursery() as nursery:
+
+        @nursery.start_soon
+        async def stop_soon():
+            await trio.testing.wait_all_tasks_blocked()
+            loop.stop(Value(10))
+
+        assert 10 == await loop.host_this_run()
+
+    loop.stop(Error(KeyError("hi")))
+    with pytest.raises(KeyError, match="hi"):
+        await loop.host_this_run()
+
+
+async def test_become_guest_cancel(autojump_clock):
+    loop = TrivialHostLoop()
+    with trio.move_on_after(1) as cancel_scope:
+        await loop.host_this_run()
+    assert cancel_scope.cancelled_caught
+
+
+async def test_cant_become_guest_twice():
+    loop = TrivialHostLoop()
+    async with trio.open_nursery() as nursery:
+        nursery.start_soon(loop.host_this_run)
+        await trio.testing.wait_all_tasks_blocked()
+
+        with pytest.raises(RuntimeError, match="is already a guest"):
+            await loop.host_this_run()
+
+        nursery.cancel_scope.cancel()
+
+
+async def test_become_asyncio_guest():
+    loop = asyncio.get_event_loop()
+    to_trio, from_aio = trio.open_memory_channel(float("inf"))
+    from_trio = asyncio.Queue()
+
+    async def aio_pingpong(from_trio, to_trio):
+        print("aio_pingpong!")
+
+        try:
+            while True:
+                n = await from_trio.get()
+                print(f"aio got: {n}")
+                to_trio.send_nowait(n + 1)
+        except asyncio.CancelledError:
+            return "aio-done"
+        except:  # pragma: no cover
+            traceback.print_exc()
+            raise
+
+    aio_task = asyncio.ensure_future(aio_pingpong(from_trio, to_trio))
+
+    def run_aio_child_host(resume_trio_as_guest):
+        # Test without a _not_threadsafe callback in order to exercise that path
+        resume_trio_as_guest(run_sync_soon_threadsafe=loop.call_soon_threadsafe)
+        return loop.run_until_complete(aio_task)
+
+    def deliver_cancel(_):
+        loop.stop()  # pragma: no cover
+
+    async with trio.open_nursery() as nursery:
+
+        @nursery.start_soon
+        async def become_guest_and_check_result():
+            assert "aio-done" == await trio.lowlevel.become_guest_for(
+                run_aio_child_host, deliver_cancel
+            )
+
+        # Make sure we have at least one tick where we don't need to go into
+        # the thread
+        await trio.sleep(0)
+
+        from_trio.put_nowait(0)
+
+        async for n in from_aio:
+            print(f"trio got: {n}")
+            from_trio.put_nowait(n + 1)
+            if n >= 10:
+                aio_task.cancel()
+                return "trio-main-done"
+
+
+def test_become_guest_propagates_TrioInternalError(recwarn):
+    async def main():
+        with trio.move_on_after(1):
+            loop = TrivialHostLoop()
+            await loop.host_this_run(with_buggy_deliver_cancel=True)
+
+    with pytest.raises(trio.TrioInternalError) as info:
+        trio.run(main, clock=trio.testing.MockClock(autojump_threshold=0))
+
+    assert isinstance(info.value.__cause__, ValueError)
+    assert str(info.value.__cause__) == "whoops"
+
+    del info
+    gc_collect_harder()
+
+
+def test_become_guest_raises_TrioInternalError_if_run_completes(recwarn):
+    for outcome in (Value(42), Error(ValueError("lol"))):
+
+        async def main():
+            async with trio.open_nursery() as nursery:
+                loop = TrivialHostLoop(install_asyncgen_hooks=True)
+                nursery.start_soon(loop.host_this_run)
+                await trio.testing.wait_all_tasks_blocked()
+
+                runner = trio._core._run.GLOBAL_RUN_CONTEXT.runner
+                runner.tasks.clear()
+                runner.main_task_outcome = outcome
+
+                # That will make the runner exit as soon as we yield,
+                # but the host loop won't notice unless we poke it.
+                loop.stop(None)
+
+        with pytest.raises(trio.TrioInternalError, match="before child host") as info:
+            trio.run(main)
+        assert repr(outcome) in str(info.value)
+        if isinstance(outcome, Error):
+            assert info.value.__cause__ is outcome.error
+        # Make sure we correctly restored the outermost asyncgen hooks
+        # (the ones that existed before trio.run() started)
+        assert sys.get_asyncgen_hooks() == (None, None)
+
+    del info
+    gc_collect_harder()
+
+
+def test_become_guest_failure(recwarn):
+    async def main():
+        def break_parent(resume_trio_as_guest):
+            class TrappingGuestState(trio._core._run.GuestState):
+                __slots__ = ()
+
+                @property
+                def run_sync_soon_threadsafe(self):
+                    raise ValueError("gotcha")
+
+            sys._getframe(2).f_locals["guest_state"].__class__ = TrappingGuestState
+
+        def ignore_cancel(_):
+            pass  # pragma: no cover
+
+        await trio.lowlevel.become_guest_for(break_parent, ignore_cancel)
+
+    with pytest.raises(trio.TrioInternalError, match="do_become_guest.*failed") as info:
+        trio.run(main)
+
+    assert isinstance(info.value.__cause__, ValueError)
+    assert str(info.value.__cause__) == "gotcha"
+
+    del info
+    gc_collect_harder()
+
+
+@pytest.mark.skipif(buggy_pypy_asyncgens, reason="PyPy 7.2 is buggy")
+def test_become_guest_asyncgens():
+    record = set()
+
+    def canary_firstiter(agen):  # pragma: no cover
+        record.add("canary_firstiter")
+        pytest.fail("outside-of-trio async generator hook was invoked")
+
+    async def trio_agen():
+        try:
+            yield 1
+        finally:
+            # Make sure Trio finalizer works
+            trio.lowlevel.current_task()
+            with pytest.raises(trio.Cancelled):
+                await trio.sleep(0)
+            record.add("trio_agen")
+
+    async def host_loop_agen(started_evt):
+        started_evt.set()
+        try:
+            yield 1
+        finally:
+            # Make sure foreign finalizer works
+            with pytest.raises(RuntimeError):
+                trio.lowlevel.current_task()
+            record.add("host_loop_agen")
+
+    def step(agen):
+        with pytest.raises(StopIteration):
+            agen.asend(None).send(None)
+
+    async def trio_main():
+        loop = TrivialHostLoop(install_asyncgen_hooks=True)
+        started_evt = trio.Event()
+        ag_host = host_loop_agen(started_evt)
+        ag_trio = trio_agen()
+
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(loop.host_this_run)
+            await trio.testing.wait_all_tasks_blocked()
+
+            assert ag_host not in loop.asyncgens_alive
+            loop.todo.put(("run", partial(step, ag_host)))
+            await started_evt.wait()
+            assert ag_host in loop.asyncgens_alive  # foreign firstiter works
+
+            trio_asyncgens_alive = trio.lowlevel.current_task()._runner.asyncgens.alive
+            assert ag_trio not in trio_asyncgens_alive
+            step(ag_trio)
+            assert ag_trio in trio_asyncgens_alive  # trio firstiter works
+
+            del ag_host
+            del ag_trio
+            gc_collect_harder()
+
+            nursery.cancel_scope.cancel()
+
+    prev_hooks = sys.get_asyncgen_hooks()
+    sys.set_asyncgen_hooks(firstiter=canary_firstiter, finalizer=None)
+    try:
+        trio.run(trio_main)
+        assert sys.get_asyncgen_hooks() == (canary_firstiter, None)
+        assert record == {"trio_agen", "host_loop_agen"}
+    finally:
+        sys.set_asyncgen_hooks(*prev_hooks)
+
+
+@pytest.mark.skipif(buggy_pypy_asyncgens, reason="PyPy 7.2 is buggy")
+def test_become_guest_during_asyncgen_finalization():
+    saved = []
+    record = []
+
+    async def agen():
+        try:
+            yield 1
+        finally:
+            with trio.CancelScope(shield=True) as scope, trio.fail_after(1):
+                loop = TrivialHostLoop(install_asyncgen_hooks=True)
+                loop.todo.put(("run", scope.cancel))
+                await loop.host_this_run()
+            assert isinstance(trio.lowlevel.current_task()._runner.asyncgens.alive, set)
+            record.append("ok")
+
+    async def main():
+        saved.append(agen())
+        await saved[-1].asend(None)
+
+    trio.run(main)
+    assert record == ["ok"]

@@ -61,6 +61,7 @@ from ._traps import (
     temporarily_detach_coroutine_object,
     permanently_detach_coroutine_object,
     reattach_detached_coroutine_object,
+    become_guest_for,
 )
 
 from ._entry_queue import TrioToken

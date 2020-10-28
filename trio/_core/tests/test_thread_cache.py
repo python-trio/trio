@@ -6,7 +6,7 @@ import sys
 
 from .tutil import slow, gc_collect_harder
 from .. import _thread_cache
-from .._thread_cache import start_thread_soon, ThreadCache
+from .._thread_cache import start_thread_soon, ThreadCache, kill_this_thread
 
 
 def test_thread_cache_basics():
@@ -147,4 +147,30 @@ def test_race_between_idle_exit_and_job_assignment(monkeypatch):
     # to see it in debug output. This is hacky, and leaves our ThreadCache
     # object in an inconsistent state... but it doesn't matter, because we're
     # not going to use it again anyway.
-    tc.start_thread_soon(lambda: None, lambda _: sys.exit())
+    tc.start_thread_soon(lambda: None, lambda _: kill_this_thread())
+
+
+def test_logging_on_deliver_failure(caplog):
+    done = threading.Event()
+
+    def deliver(_):
+        try:
+            1 / 0
+        finally:
+            done.set()
+
+    start_thread_soon(lambda: 42, deliver)
+
+    # There's a race here: done.set() actually happens slightly before
+    # the log record gets created. Scheduling another piece of work
+    # will reuse the same thread, so waiting on its completion is
+    # enough to defeat the race.
+    done.wait()
+    done = threading.Event()
+    start_thread_soon(lambda: None, lambda _: done.set())
+    done.wait()
+
+    assert len(caplog.records) == 1
+    exc_type, exc_value, exc_traceback = caplog.records[0].exc_info
+    assert exc_type is ZeroDivisionError
+    assert "Error delivering result Value(42) " in caplog.records[0].message

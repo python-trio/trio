@@ -847,7 +847,9 @@ important limitations you have to respect:
   shutdown of your host loop, which is just what you want.
 
 Given these constraints, we think the simplest approach is to always
-start and stop the two loops together.
+start and stop the two loops together. If that's not possible,
+you might want to :ref:`run the host loop from within Trio
+<inside-out-guest-mode>` instead.
 
 **Signal management:** `"Signals"
 <https://en.wikipedia.org/wiki/Signal_(IPC)>`__ are a low-level
@@ -928,10 +930,65 @@ into account when decided whether to jump the clock or whether all
 tasks are blocked.
 
 
+.. _inside-out-guest-mode:
+
+Inside-out guest mode: starting the host loop from within Trio
+--------------------------------------------------------------
+
+The discussion of guest mode up to this point describes how to run
+Trio inside an existing host loop. If you can make this work for your
+application, it's usually the approach that's easiest to reason
+about. If you can't, though, Trio also supports organizing things the
+other way around: running your host loop inside an existing Trio
+run, using :func:`trio.lowlevel.become_guest_for`.
+
+Any host loop will have some top-level synchronous function that you
+use to run it, and that doesn't return until the loop has stopped
+running.  For example, this is ``QApplication.exec_()`` when using Qt,
+or :func:`asyncio.run` when using asyncio (older Pythons use
+``loop.run_until_complete()`` and/or ``loop.run_forever()``). To use
+inside-out guest mode, you'll write a small wrapper around this
+top-level synchronous function, plus some cancellation glue, and pass
+both to a call to :func:`become_guest_for` that you make inside some
+Trio task.  That call will block for as long as the host loop is
+running, returning only when it completes. But, all your *other* tasks
+(besides the one that called :func:`become_guest_for`) will continue
+to run alongside the host loop.
+
+This is a little weird, so it bears repeating: even though Trio was
+running first, it will still act as the guest while the host loop is
+running, using the same machinery described above to offload its I/O
+waits into another thread.  When you call :func:`become_guest_for`,
+the existing Trio run with all your existing tasks moves to be
+implemented as a chain of callbacks on top of the host loop. When the
+host loop completes, the same Trio run moves back to running on its
+own. All of this should be completely transparent in normal operation,
+but it does mean you can't have two calls to :func:`become_guest_for`
+active at the same time in the same Trio program.
+
+Here's a detailed example of how to use :func:`become_guest_for` with asyncio:
+
+.. literalinclude:: reference-lowlevel/trio-becomes-asyncio-guest.py
+
+If you run this, you'll get the output (with a half-second delay between each line):
+
+.. code-block:: none
+
+   Hello from asyncio!
+   Trio is still running
+   Hello from asyncio!
+   Trio is still running
+   Hello from asyncio!
+   Trio is still running
+   asyncio program is done, with result: asyncio done!
+
+
 Reference
 ---------
 
 .. autofunction:: start_guest_run
+
+.. autofunction:: become_guest_for
 
 
 .. _live-coroutine-handoff:

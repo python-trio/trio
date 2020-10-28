@@ -1,0 +1,8 @@
+If you want to use :ref:`guest mode <guest-mode>`, but you can't
+easily arrange to start and finish your Trio run while the host loop
+is running, then you're in luck: the newly added :ref:`"inside-out
+guest mode" <inside-out-guest-mode>` allows you to run the host loop
+from within an existing Trio program instead, by calling
+:func:`trio.lowlevel.become_guest_for`.  This is implemented using the
+same machinery as the existing (right-side-in?)  guest mode, and
+unlocks additional ways for Trio to interoperate with other loops.
