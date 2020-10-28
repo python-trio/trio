@@ -10,20 +10,48 @@ from .. import _core, move_on_after
 from ..testing import wait_all_tasks_blocked, check_one_way_stream
 
 if sys.platform == "win32":
-    from .._windows_pipes import PipeSendStream, PipeReceiveStream
-    from .._core._windows_cffi import _handle, kernel32
+    from .._windows_pipes import (
+        PipeSendStream,
+        PipeReceiveStream,
+        PipeSendChannel,
+        PipeReceiveChannel,
+    )
+    from .._core._windows_cffi import (
+        _handle,
+        kernel32,
+        PipeModes,
+        get_pipe_state,
+    )
     from asyncio.windows_utils import pipe
+    from multiprocessing.connection import Pipe
 else:
     pytestmark = pytest.mark.skip(reason="windows only")
     pipe = None  # type: Any
     PipeSendStream = None  # type: Any
     PipeReceiveStream = None  # type: Any
+    PipeSendChannel = None  # type: Any
+    PipeReceiveChannel = None  # type: Any
 
 
-async def make_pipe() -> "Tuple[PipeSendStream, PipeReceiveStream]":
-    """Makes a new pair of pipes."""
+async def make_pipe_stream() -> "Tuple[PipeSendStream, PipeReceiveStream]":
+    """Makes a new pair of byte-oriented pipes."""
     (r, w) = pipe()
+    assert not (PipeModes.PIPE_READMODE_MESSAGE & get_pipe_state(r))
     return PipeSendStream(w), PipeReceiveStream(r)
+
+
+async def make_pipe_channel() -> "Tuple[PipeSendChannel, PipeReceiveChannel]":
+    """Makes a new pair of message-oriented pipes."""
+    (r_channel, w_channel) = Pipe(duplex=False)
+    (r, w) = r_channel.fileno(), w_channel.fileno()
+    # XXX: Check internal details haven't changed suddenly
+    assert (r_channel._handle, w_channel._handle) == (r, w)
+    # XXX: Sabotage _ConnectionBase __del__
+    (r_channel._handle, w_channel._handle) = (None, None)
+    # XXX: Check internal details haven't changed suddenly
+    assert r_channel.closed and w_channel.closed
+    assert PipeModes.PIPE_READMODE_MESSAGE & get_pipe_state(r)
+    return PipeSendChannel(w), PipeReceiveChannel(r)
 
 
 async def test_pipe_typecheck():
@@ -31,9 +59,13 @@ async def test_pipe_typecheck():
         PipeSendStream(1.0)
     with pytest.raises(TypeError):
         PipeReceiveStream(None)
+    with pytest.raises(TypeError):
+        PipeSendChannel(1.0)
+    with pytest.raises(TypeError):
+        PipeReceiveChannel(None)
 
 
-async def test_pipe_error_on_close():
+async def test_pipe_stream_error_on_close():
     # Make sure we correctly handle a failure from kernel32.CloseHandle
     r, w = pipe()
 
@@ -49,8 +81,21 @@ async def test_pipe_error_on_close():
         await receive_stream.aclose()
 
 
-async def test_pipes_combined():
-    write, read = await make_pipe()
+async def test_pipe_channel_error_on_close():
+    # Make sure we correctly handle a failure from kernel32.CloseHandle
+    receive_channel, send_channel = await make_pipe_channel()
+
+    assert kernel32.CloseHandle(_handle(receive_channel._handle_holder.handle))
+    assert kernel32.CloseHandle(_handle(send_channel._handle_holder.handle))
+
+    with pytest.raises(OSError):
+        await send_channel.aclose()
+    with pytest.raises(OSError):
+        await receive_channel.aclose()
+
+
+async def test_pipe_streams_combined():
+    write, read = await make_pipe_stream()
     count = 2 ** 20
     replicas = 3
 
@@ -78,8 +123,33 @@ async def test_pipes_combined():
         n.start_soon(reader)
 
 
-async def test_async_with():
-    w, r = await make_pipe()
+async def test_pipe_channels_combined():
+    write, read = await make_pipe_channel()
+    count = 2 ** 20
+    replicas = 3
+
+    async def sender():
+        async with write:
+            big = bytearray(count)
+            for _ in range(replicas):
+                await write.send(big)
+
+    async def reader():
+        async with read:
+            await wait_all_tasks_blocked()
+            total_received = 0
+            async for _ in read:
+                total_received += len(_)
+
+            assert total_received == count * replicas
+
+    async with _core.open_nursery() as n:
+        n.start_soon(sender)
+        n.start_soon(reader)
+
+
+async def test_async_with_stream():
+    w, r = await make_pipe_stream()
     async with w, r:
         pass
 
@@ -89,8 +159,19 @@ async def test_async_with():
         await r.receive_some(10)
 
 
-async def test_close_during_write():
-    w, r = await make_pipe()
+async def test_async_with_channel():
+    w, r = await make_pipe_channel()
+    async with w, r:
+        pass
+
+    with pytest.raises(_core.ClosedResourceError):
+        await w.send(None)
+    with pytest.raises(_core.ClosedResourceError):
+        await r.receive()
+
+
+async def test_close_stream_during_write():
+    w, r = await make_pipe_stream()
     async with _core.open_nursery() as nursery:
 
         async def write_forever():
@@ -104,7 +185,22 @@ async def test_close_during_write():
         await w.aclose()
 
 
+async def test_close_channel_during_write():
+    w, r = await make_pipe_channel()
+    async with _core.open_nursery() as nursery:
+
+        async def write_forever():
+            with pytest.raises(_core.ClosedResourceError) as excinfo:
+                while True:
+                    await w.send(b"x" * 4096)
+            assert "another task" in str(excinfo.value)
+
+        nursery.start_soon(write_forever)
+        await wait_all_tasks_blocked(0.1)
+        await w.aclose()
+
+
 async def test_pipe_fully():
     # passing make_clogged_pipe tests wait_send_all_might_not_block, and we
     # can't implement that on Windows
-    await check_one_way_stream(make_pipe, None)
+    await check_one_way_stream(make_pipe_stream, None)
