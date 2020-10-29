@@ -1,18 +1,22 @@
 import multiprocessing
 import os
-import time
+from queue import Empty
 
 import pytest
 
 from .. import _core
-from .. import Event, CapacityLimiter, sleep
+from .. import Event, CapacityLimiter, sleep, fail_after
 from .. import _worker_processes
-from .._worker_processes import (
-    to_process_run_sync,
-    current_default_process_limiter,
-)
+from .._worker_processes import to_process_run_sync, current_default_process_limiter
 from ..testing import wait_all_tasks_blocked
 from .._threads import to_thread_run_sync
+
+
+@pytest.fixture(autouse=True)
+def empty_proc_cache():
+    while _worker_processes.IDLE_PROC_CACHE:
+        proc, _ = _worker_processes.IDLE_PROC_CACHE.popitem()
+        proc.kill()
 
 
 def _echo_and_pid(x):
@@ -36,170 +40,69 @@ async def test_run_in_worker_process():
     assert excinfo.value.args[0] != trio_pid
 
 
-def _block_proc_on_queue(q, ev):
+def _block_proc_on_queue(q, ev, done_ev):
     # Make the thread block for a controlled amount of time
     ev.set()
     q.get()
+    done_ev.set()
 
 
 async def test_run_in_worker_process_cancellation(capfd):
-    async def child(q, ev, cancellable):
+    async def child(q, ev, done_ev, cancellable):
         print("start")
         try:
             return await to_process_run_sync(
-                _block_proc_on_queue, q, ev, cancellable=cancellable
+                _block_proc_on_queue, q, ev, done_ev, cancellable=cancellable
             )
         finally:
             print("exit")
+
     m = multiprocessing.Manager()
     q = m.Queue()
     ev = m.Event()
+    done_ev = m.Event()
 
     # This one can't be cancelled
     async with _core.open_nursery() as nursery:
-        nursery.start_soon(child, q, ev, False)
-        await to_thread_run_sync(ev.wait)
+        nursery.start_soon(child, q, ev, done_ev, False)
+        await to_thread_run_sync(ev.wait, cancellable=True)
         nursery.cancel_scope.cancel()
+        with _core.CancelScope(shield=True):
+            await wait_all_tasks_blocked(0.01)
         # It's still running
-        assert "finished" not in capfd.readouterr().out
+        assert not done_ev.is_set()
         q.put(None)
         # Now it exits
 
     ev = m.Event()
+    done_ev = m.Event()
     # But if we cancel *before* it enters, the entry is itself a cancellation
     # point
     with _core.CancelScope() as scope:
         scope.cancel()
-        await child(q, ev, False)
+        await child(q, ev, done_ev, False)
     assert scope.cancelled_caught
     capfd.readouterr()
 
     ev = m.Event()
+    done_ev = m.Event()
     # This is truly cancellable by killing the process
     async with _core.open_nursery() as nursery:
-        nursery.start_soon(child, q, ev, True)
+        nursery.start_soon(child, q, ev, done_ev, True)
         # Give it a chance to get started. (This is important because
         # to_thread_run_sync does a checkpoint_if_cancelled before
         # blocking on the thread, and we don't want to trigger this.)
         await wait_all_tasks_blocked()
         assert capfd.readouterr().out.rstrip() == "start"
-        await to_thread_run_sync(ev.wait)
+        await to_thread_run_sync(ev.wait, cancellable=True)
         # Then cancel it.
         nursery.cancel_scope.cancel()
     # The task exited, but the process died
-    # TODO: test death
+    assert not done_ev.is_set()
     assert capfd.readouterr().out.rstrip() == "exit"
 
 
-# TODO?
-# @pytest.mark.parametrize("MAX", [3, 5, 10])
-# @pytest.mark.parametrize("cancel", [False, True])
-# @pytest.mark.parametrize("use_default_limiter", [False, True])
-# async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
-#     # This test is a bit tricky. The goal is to make sure that if we set
-#     # limiter=CapacityLimiter(MAX), then in fact only MAX threads are ever
-#     # running at a time, even if there are more concurrent calls to
-#     # to_thread_run_sync, and even if some of those are cancelled. And
-#     # also to make sure that the default limiter actually limits.
-#     COUNT = 2 * MAX
-#     gate = threading.Event()
-#     lock = threading.Lock()
-#     if use_default_limiter:
-#         c = current_default_process_limiter()
-#         orig_total_tokens = c.total_tokens
-#         c.total_tokens = MAX
-#         limiter_arg = None
-#     else:
-#         c = CapacityLimiter(MAX)
-#         orig_total_tokens = MAX
-#         limiter_arg = c
-#     try:
-#         # We used to use regular variables and 'nonlocal' here, but it turns
-#         # out that it's not safe to assign to closed-over variables that are
-#         # visible in multiple threads, at least as of CPython 3.6 and PyPy
-#         # 5.8:
-#         #
-#         #   https://bugs.python.org/issue30744
-#         #   https://bitbucket.org/pypy/pypy/issues/2591/
-#         #
-#         # Mutating them in-place is OK though (as long as you use proper
-#         # locking etc.).
-#         class state:
-#             pass
-#
-#         state.ran = 0
-#         state.high_water = 0
-#         state.running = 0
-#         state.parked = 0
-#
-#         token = _core.current_trio_token()
-#
-#         def thread_fn(cancel_scope):
-#             print("thread_fn start")
-#             from_thread_run_sync(cancel_scope.cancel, trio_token=token)
-#             with lock:
-#                 state.ran += 1
-#                 state.running += 1
-#                 state.high_water = max(state.high_water, state.running)
-#                 # The Trio thread below watches this value and uses it as a
-#                 # signal that all the stats calculations have finished.
-#                 state.parked += 1
-#             gate.wait()
-#             with lock:
-#                 state.parked -= 1
-#                 state.running -= 1
-#             print("thread_fn exiting")
-#
-#         async def run_thread(event):
-#             with _core.CancelScope() as cancel_scope:
-#                 await to_thread_run_sync(
-#                     thread_fn, cancel_scope, limiter=limiter_arg, cancellable=cancel
-#                 )
-#             print("run_thread finished, cancelled:", cancel_scope.cancelled_caught)
-#             event.set()
-#
-#         async with _core.open_nursery() as nursery:
-#             print("spawning")
-#             events = []
-#             for i in range(COUNT):
-#                 events.append(Event())
-#                 nursery.start_soon(run_thread, events[-1])
-#                 await wait_all_tasks_blocked()
-#             # In the cancel case, we in particular want to make sure that the
-#             # cancelled tasks don't release the semaphore. So let's wait until
-#             # at least one of them has exited, and that everything has had a
-#             # chance to settle down from this, before we check that everyone
-#             # who's supposed to be waiting is waiting:
-#             if cancel:
-#                 print("waiting for first cancellation to clear")
-#                 await events[0].wait()
-#                 await wait_all_tasks_blocked()
-#             # Then wait until the first MAX threads are parked in gate.wait(),
-#             # and the next MAX threads are parked on the semaphore, to make
-#             # sure no-one is sneaking past, and to make sure the high_water
-#             # check below won't fail due to scheduling issues. (It could still
-#             # fail if too many threads are let through here.)
-#             while state.parked != MAX or c.statistics().tasks_waiting != MAX:
-#                 await sleep(0.01)  # pragma: no cover
-#             # Then release the threads
-#             gate.set()
-#
-#         assert state.high_water == MAX
-#
-#         if cancel:
-#             # Some threads might still be running; need to wait to them to
-#             # finish before checking that all threads ran. We can do this
-#             # using the CapacityLimiter.
-#             while c.borrowed_tokens > 0:
-#                 await sleep(0.01)  # pragma: no cover
-#
-#         assert state.ran == COUNT
-#         assert state.running == 0
-#     finally:
-#         c.total_tokens = orig_total_tokens
-
-
-def _null_func():
+def _null_func():  # pragma: no cover
     pass
 
 
@@ -226,10 +129,6 @@ async def _null_async_fn():  # pragma: no cover
 
 
 async def test_trio_to_process_run_sync_expected_error():
-    # Test correct error when passed async function
-    async def async_fn():  # pragma: no cover
-        pass
-
     with pytest.raises(TypeError, match="expected a sync function"):
         await to_process_run_sync(_null_async_fn)
 
@@ -247,19 +146,19 @@ def _segfault():
 
 
 async def test_to_process_run_sync_raises_on_segfault():
-    # TODO: what error do we want to see here?
-    with pytest.raises(EOFError):
+    with pytest.raises(_worker_processes.BrokenWorkerError):
         await to_process_run_sync(_segfault)
 
 
 def _never_halts(ev):
+    # important difference from blocking call is cpu usage
     ev.set()
     while True:
-        time.sleep(1)
+        pass
 
 
 async def test_to_process_run_sync_cancel_infinite_loop():
-    m=multiprocessing.Manager()
+    m = multiprocessing.Manager()
     ev = m.Event()
 
     async def child():
@@ -267,43 +166,44 @@ async def test_to_process_run_sync_cancel_infinite_loop():
 
     async with _core.open_nursery() as nursery:
         nursery.start_soon(child)
-        await to_thread_run_sync(ev.wait)
+        await to_thread_run_sync(ev.wait, cancellable=True)
         nursery.cancel_scope.cancel()
 
 
-def _proc_queue_pid_fn(ev, q1, q2):
+def _proc_queue_pid_fn(ev, q):
     ev.set()
-    q1.get()
-    q2.put(os.getpid())
+    q.put(None)
+    return os.getpid()
 
 
 async def test_to_process_run_sync_cancel_blocking_call():
     m = multiprocessing.Manager()
     ev = m.Event()
-    q1 = m.Queue()
-    q2 = m.Queue()
+    q = m.Queue()
+    pid = None
 
     async def child():
-        await to_process_run_sync(_proc_queue_pid_fn, ev, q1, q2, cancellable=True)
+        await to_thread_run_sync(ev.wait, cancellable=True)
+        nursery.cancel_scope.cancel()
 
     async with _core.open_nursery() as nursery:
         nursery.start_soon(child)
-        await to_thread_run_sync(ev.wait)
-        q1.put(None)
-        nursery.cancel_scope.cancel()
-
+        pid = await to_process_run_sync(_proc_queue_pid_fn, ev, q, cancellable=True)
     # This makes sure:
     # - the process actually ran
     # - that process has finished before we check for its output
 
-    # TODO: Shouldn't this fail?
-    pid = q2.get()
+    assert nursery.cancel_scope.cancelled_caught
+    assert pid is None
+
+    # TODO: Shouldn't this raise empty?
+    with pytest.raises(Empty):
+        q.get_nowait()
 
 
 async def test_spawn_worker_in_thread():
-    proc = await to_thread_run_sync(_worker_processes.WorkerProc)
-    proc._proc.kill()
-    proc._proc.join()
+    proc = await to_thread_run_sync(_worker_processes.WorkerProc, cancellable=True)
+    proc.kill()
 
 
 def _echo(x):
@@ -315,12 +215,16 @@ async def test_to_process_run_sync_large_job():
     x = await to_process_run_sync(_echo, bytearray(n))
     assert len(x) == n
 
-# TODO: Can't monkeypatch worker processes!
-# async def test_idle_proc_cache_prunes_dead_workers(monkeypatch):
-#     monkeypatch.setattr(_worker_processes, "IDLE_TIMEOUT", 0.01)
-#     async with _core.open_nursery() as nursery:
-#         for _ in range(4):
-#             nursery.start_soon(to_process_run_sync, int)
-#     time.sleep(.02)  # very sorry
-#     await to_process_run_sync(int)
-#     assert len(_worker_processes.IDLE_PROC_CACHE) == 1
+
+def _worker_monkeypatch():
+    _worker_processes.IDLE_TIMEOUT = 0.001
+
+
+async def test_idle_proc_cache_prunes_dead_workers():
+    async with _core.open_nursery() as nursery:
+        for _ in range(4):
+            nursery.start_soon(to_process_run_sync, _worker_monkeypatch)
+    with fail_after(1):
+        while len(_worker_processes.IDLE_PROC_CACHE):
+            _worker_processes._prune_expired_procs()
+            await _core.checkpoint()

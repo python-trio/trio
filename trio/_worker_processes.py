@@ -2,7 +2,6 @@ import os
 from itertools import count
 from multiprocessing import Pipe, Lock, Process
 
-
 import trio
 
 # How long a process will idle waiting for new work before gives up and exits.
@@ -86,6 +85,7 @@ class WorkerProc:
                 )
 
             return ret
+
         while lock.acquire(timeout=IDLE_TIMEOUT):
             # We got a job
             fn, args = recv_pipe.recv()
@@ -102,20 +102,29 @@ class WorkerProc:
         # Timeout acquiring lock, so we can probably exit.
         # Unlike thread cache, the race condition of someone trying to
         # assign a job as we quit must be checked by the assigning task.
+        # This lock can provide a signal that is available before the sentinel.
+        lock.release()
 
     async def run_sync(self, sync_fn, *args):
         async with trio.open_nursery() as nursery:
             await nursery.start(self._child_monitor)
             self._worker_lock.release()
             try:
-                await trio.to_thread.run_sync(self._send_pipe.send, (sync_fn, args), cancellable=True)
-                result = await trio.to_thread.run_sync(self._recv_pipe.recv, cancellable=True)
+                await trio.to_thread.run_sync(
+                    self._send_pipe.send, (sync_fn, args), cancellable=True
+                )
+                result = await trio.to_thread.run_sync(
+                    self._recv_pipe.recv, cancellable=True
+                )
             except trio.Cancelled:
                 # Cancellation leaves the process in an unknown state so
-                # there is no choice but to kill
-                self._proc.kill()
-                self._proc.join()
+                # there is no choice but to kill, anyway it frees the pipe threads
+                self.kill()
                 raise
+            except EOFError:
+                # Likely the worker died while we were waiting on a pipe
+                self.kill()
+                raise BrokenWorkerError
             # must cancel the child monitor task to exit nursery
             nursery.cancel_scope.cancel()
         return result.unwrap()
@@ -127,7 +136,13 @@ class WorkerProc:
         raise BrokenWorkerError(f"{self._proc} died unexpectedly")
 
     def is_alive(self):
-        return self._proc.is_alive()
+        # if the proc is alive, there is a race condition where it could be
+        # dying, but the lock should be released during most of this condition
+        return self._proc.is_alive() or not self._worker_lock.acquire(block=False)
+
+    def kill(self):
+        self._proc.kill()
+        self._proc.join()
 
 
 async def to_process_run_sync(sync_fn, *args, cancellable=False, limiter=None):
@@ -148,10 +163,11 @@ async def to_process_run_sync(sync_fn, *args, cancellable=False, limiter=None):
     async with limiter:
         _prune_expired_procs()
         try:
+            # Get the most-recently-idle worker process
+            # Race condition: worker process might have timed out between
+            # prune and pop so loop until we get a live one or KeyError
             while True:
                 proc, _ = IDLE_PROC_CACHE.popitem()
-                # Under normal circumstances workers are waiting on lock.acquire
-                # for a new job, but if they time out, they die immediately.
                 if proc.is_alive():
                     break
         except KeyError:
