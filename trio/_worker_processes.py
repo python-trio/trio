@@ -2,16 +2,36 @@ import os
 from itertools import count
 from multiprocessing import Pipe, Lock, Process
 
-import outcome
 
 import trio
 
 # How long a process will idle waiting for new work before gives up and exits.
 # This should be longer than a thread timeout proportionately to startup time.
+from trio._core import RunVar
+
 IDLE_TIMEOUT = 60 * 10
-PROC_COUNTER = count()
 IDLE_PROC_CACHE = {}
-DEFAULT_PROC_LIMITER = trio.CapacityLimiter(os.cpu_count())
+_limiter_local = RunVar("proc_limiter")
+# Sane default might be to expect cpu-bound work
+DEFAULT_LIMIT = os.cpu_count()
+_proc_counter = count()
+
+
+def current_default_process_limiter():
+    """Get the default `~trio.CapacityLimiter` used by
+    `trio.to_thread.run_sync`.
+
+    The most common reason to call this would be if you want to modify its
+    :attr:`~trio.CapacityLimiter.total_tokens` attribute.
+
+    """
+    try:
+        limiter = _limiter_local.get()
+    except LookupError:
+        limiter = trio.CapacityLimiter(DEFAULT_LIMIT)
+        _limiter_local.set(limiter)
+    return limiter
+
 
 if os.name == "nt":
     # TODO: This uses a thread per-process. Can we do better?
@@ -38,21 +58,38 @@ class WorkerProc:
         # worker process off it's idle countdown and onto the work pipe.
         self._worker_lock = Lock()
         self._worker_lock.acquire()
-        self._recv_pipe, self._send_pipe = Pipe()
+        # On NT, a single duplexed pipe raises a TrioInternalError: GH#1767
+        child_recv_pipe, self._send_pipe = Pipe(duplex=False)
+        self._recv_pipe, child_send_pipe = Pipe(duplex=False)
         self._proc = Process(
             target=self._work,
-            args=(self._worker_lock, self._recv_pipe, self._send_pipe),
-            name=f"WorkerProc-{next(PROC_COUNTER)}",
+            args=(self._worker_lock, child_recv_pipe, child_send_pipe),
+            name=f"WorkerProc-{next(_proc_counter)}",
             daemon=True,
         )
         self._proc.start()
 
     @staticmethod
     def _work(lock, recv_pipe, send_pipe):
+
+        import inspect
+        import outcome
+
+        def worker_fn():
+            ret = fn(*args)
+            if inspect.iscoroutine(ret):
+                # Manually close coroutine to avoid RuntimeWarnings
+                ret.close()
+                raise TypeError(
+                    "Trio expected a sync function, but {!r} appears to be "
+                    "asynchronous".format(getattr(fn, "__qualname__", fn))
+                )
+
+            return ret
         while lock.acquire(timeout=IDLE_TIMEOUT):
             # We got a job
             fn, args = recv_pipe.recv()
-            result = outcome.capture(fn, *args)
+            result = outcome.capture(worker_fn)
             # Tell the cache that we're done and available for a job
             # Unlike the thread cache, it's impossible to deliver the
             # result from the worker process. So shove it onto the queue
@@ -71,8 +108,8 @@ class WorkerProc:
             await nursery.start(self._child_monitor)
             self._worker_lock.release()
             try:
-                await trio.to_thread.run_sync(self._send_pipe.send, (sync_fn, args))
-                result = await trio.to_thread.run_sync(self._recv_pipe.recv)
+                await trio.to_thread.run_sync(self._send_pipe.send, (sync_fn, args), cancellable=True)
+                result = await trio.to_thread.run_sync(self._recv_pipe.recv, cancellable=True)
             except trio.Cancelled:
                 # Cancellation leaves the process in an unknown state so
                 # there is no choice but to kill
@@ -93,9 +130,7 @@ class WorkerProc:
         return self._proc.is_alive()
 
 
-async def to_process_run_sync(
-    sync_fn, *args, cancellable=False, limiter=DEFAULT_PROC_LIMITER
-):
+async def to_process_run_sync(sync_fn, *args, cancellable=False, limiter=None):
     """Run sync_fn in a separate process
 
     This is a wrapping of multiprocessing.Process that follows the API of
@@ -107,6 +142,8 @@ async def to_process_run_sync(
     - Protect main process from untrusted/crashy code without leaks
 
     Anything else that works is gravy, normal multiprocessing caveats apply."""
+    if limiter is None:
+        limiter = current_default_process_limiter()
 
     async with limiter:
         _prune_expired_procs()
@@ -117,7 +154,7 @@ async def to_process_run_sync(
                 # for a new job, but if they time out, they die immediately.
                 if proc.is_alive():
                     break
-        except IndexError:
+        except KeyError:
             proc = await trio.to_thread.run_sync(WorkerProc)
 
         try:
