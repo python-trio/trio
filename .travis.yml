@@ -9,6 +9,8 @@ jobs:
       dist: bionic
     - language: generic
       env: PYPY_NIGHTLY_BRANCH=py3.6
+    - language: generic
+      env: PYPY_NIGHTLY_BRANCH=py3.7
     # Qemu tests are also slow
     # FreeBSD:
     - language: generic
