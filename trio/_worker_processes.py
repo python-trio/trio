@@ -141,7 +141,10 @@ class WorkerProc:
         return self._proc.is_alive() or not self._worker_lock.acquire(block=False)
 
     def kill(self):
-        self._proc.kill()
+        try:
+            self._proc.kill()
+        except AttributeError:
+            self._proc.terminate()
         self._proc.join()
 
 
