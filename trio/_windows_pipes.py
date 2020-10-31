@@ -172,7 +172,7 @@ class PipeReceiveChannel(ReceiveChannel[bytes]):
             return await self._receive_some_into(buffer)
         except OSError as e:
             if e.winerror != ErrorCodes.ERROR_MORE_DATA:
-                raise
+                raise  # pragma: no cover
             left = ffi.new("LPDWORD")
             if not kernel32.PeekNamedPipe(
                 _handle(self._handle_holder.handle),
@@ -182,7 +182,7 @@ class PipeReceiveChannel(ReceiveChannel[bytes]):
                 ffi.NULL,
                 left,
             ):
-                raise_winerror()
+                raise_winerror()  # pragma: no cover
             buffer.extend(await self._receive_some_into(bytearray(left[0])))
             return buffer
 
