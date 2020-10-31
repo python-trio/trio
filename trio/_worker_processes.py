@@ -138,7 +138,15 @@ class WorkerProc:
     def is_alive(self):
         # if the proc is alive, there is a race condition where it could be
         # dying, but the lock should be released during most of this condition
-        return self._proc.is_alive() or not self._worker_lock.acquire(block=False)
+        if self._proc.is_alive():
+            if self._worker_lock.acquire(block=False):
+                # if we acquire, we should release it again ASAP in case
+                # someone else checks later
+                self._worker_lock.release()
+                return False
+            return True
+        else:
+            return False
 
     def kill(self):
         try:
