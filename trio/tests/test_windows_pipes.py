@@ -83,7 +83,7 @@ async def test_pipe_stream_error_on_close():
 
 async def test_pipe_channel_error_on_close():
     # Make sure we correctly handle a failure from kernel32.CloseHandle
-    receive_channel, send_channel = await make_pipe_channel()
+    send_channel, receive_channel = await make_pipe_channel()
 
     assert kernel32.CloseHandle(_handle(receive_channel._handle_holder.handle))
     assert kernel32.CloseHandle(_handle(send_channel._handle_holder.handle))
@@ -92,6 +92,20 @@ async def test_pipe_channel_error_on_close():
         await send_channel.aclose()
     with pytest.raises(OSError):
         await receive_channel.aclose()
+
+
+async def test_closed_resource_error():
+    send_stream, receive_stream = await make_pipe_stream()
+
+    await send_stream.aclose()
+    with pytest.raises(_core.ClosedResourceError):
+        await send_stream.send_all(b"Hello")
+
+    send_channel, receive_channel = await make_pipe_channel()
+
+    await send_channel.aclose()
+    with pytest.raises(_core.ClosedResourceError):
+        await send_channel.send(b"Hello")
 
 
 async def test_pipe_streams_combined():
