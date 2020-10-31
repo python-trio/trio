@@ -19,11 +19,11 @@ def empty_proc_cache():
         proc.kill()
 
 
-def _echo_and_pid(x):
+def _echo_and_pid(x):  # pragma: no cover
     return (x, os.getpid())
 
 
-def _raise_pid():
+def _raise_pid():  # pragma: no cover
     raise ValueError(os.getpid())
 
 
@@ -40,7 +40,7 @@ async def test_run_in_worker_process():
     assert excinfo.value.args[0] != trio_pid
 
 
-def _block_proc_on_queue(q, ev, done_ev):
+def _block_proc_on_queue(q, ev, done_ev):  # pragma: no cover
     # Make the thread block for a controlled amount of time
     ev.set()
     q.get()
@@ -133,7 +133,7 @@ async def test_trio_to_process_run_sync_expected_error():
         await to_process_run_sync(_null_async_fn)
 
 
-def _segfault():
+def _segfault():  # pragma: no cover
     # https://wiki.python.org/moin/CrashingPython you beautiful nerds
     import ctypes
 
@@ -150,7 +150,7 @@ async def test_to_process_run_sync_raises_on_segfault():
         await to_process_run_sync(_segfault)
 
 
-def _never_halts(ev):
+def _never_halts(ev):  # pragma: no cover
     # important difference from blocking call is cpu usage
     ev.set()
     while True:
@@ -170,7 +170,7 @@ async def test_to_process_run_sync_cancel_infinite_loop():
         nursery.cancel_scope.cancel()
 
 
-def _proc_queue_pid_fn(ev, q):
+def _proc_queue_pid_fn(ev, q):  # pragma: no cover
     ev.set()
     q.put(None)
     return os.getpid()
@@ -206,7 +206,7 @@ async def test_spawn_worker_in_thread():
     proc.kill()
 
 
-def _echo(x):
+def _echo(x):  # pragma: no cover
     return x
 
 
@@ -216,7 +216,7 @@ async def test_to_process_run_sync_large_job():
     assert len(x) == n
 
 
-def _worker_monkeypatch():
+def _worker_monkeypatch():  # pragma: no cover
     _worker_processes.IDLE_TIMEOUT = 0.001
 
 
