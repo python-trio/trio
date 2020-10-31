@@ -221,10 +221,11 @@ def _worker_monkeypatch():
 
 
 async def test_idle_proc_cache_prunes_dead_workers():
-    async with _core.open_nursery() as nursery:
-        for _ in range(4):
-            nursery.start_soon(to_process_run_sync, _worker_monkeypatch)
-    with fail_after(1):
-        while len(_worker_processes.IDLE_PROC_CACHE):
-            _worker_processes._prune_expired_procs()
-            await _core.checkpoint()
+    # spawn worker
+    await to_process_run_sync(int)
+    # make it die very quickly
+    await to_process_run_sync(_worker_monkeypatch)
+    await sleep(0.01)
+    # should spawn a new worker and remove the dead one
+    await to_process_run_sync(int)
+    assert len(_worker_processes.IDLE_PROC_CACHE) == 1
