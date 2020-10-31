@@ -103,6 +103,11 @@ async def test_closed_resource_error():
 
     send_channel, receive_channel = await make_pipe_channel()
 
+    with pytest.raises(_core.ClosedResourceError):
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(receive_channel.receive)
+            await wait_all_tasks_blocked(0.01)
+            await receive_channel.aclose()
     await send_channel.aclose()
     with pytest.raises(_core.ClosedResourceError):
         await send_channel.send(b"Hello")

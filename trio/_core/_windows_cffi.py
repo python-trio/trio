@@ -355,5 +355,5 @@ def get_pipe_state(handle):
     if not kernel32.GetNamedPipeHandleStateA(
         _handle(handle), lpState, ffi.NULL, ffi.NULL, ffi.NULL, ffi.NULL, 0
     ):
-        raise_winerror()
+        raise_winerror()  # pragma: no cover
     return lpState[0]
