@@ -146,8 +146,9 @@ def _segfault():  # pragma: no cover
 
 
 async def test_to_process_run_sync_raises_on_segfault():
-    with pytest.raises(_worker_processes.BrokenWorkerError):
-        await to_process_run_sync(_segfault)
+    with fail_after(1):
+        with pytest.raises(_worker_processes.BrokenWorkerError):
+            await to_process_run_sync(_segfault, cancellable=True)
 
 
 def _never_halts(ev):  # pragma: no cover
