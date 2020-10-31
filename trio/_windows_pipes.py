@@ -202,12 +202,9 @@ class PipeReceiveChannel(ReceiveChannel[bytes]):
 
                 # Windows raises BrokenPipeError on one end of a pipe
                 # whenever the other end closes, regardless of direction.
-                # Convert this to EndOfChannel
+                # Convert this to EndOfChannel.
                 #
-                # And since we're not raising an exception, we have to
-                # checkpoint. But readinto_overlapped did raise an exception,
-                # so it might not have checkpointed for us. So we have to
-                # checkpoint manually.
+                # Do we have to checkpoint manually? We are raising an exception.
                 await _core.checkpoint()
                 raise _core.EndOfChannel
             else:

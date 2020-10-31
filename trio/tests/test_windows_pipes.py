@@ -137,9 +137,9 @@ async def test_pipe_streams_combined():
 
             assert total_received == count * replicas
 
-    async with _core.open_nursery() as n:
-        n.start_soon(sender)
-        n.start_soon(reader)
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(sender)
+        nursery.start_soon(reader)
 
 
 async def test_pipe_channels_combined():
@@ -162,9 +162,9 @@ async def test_pipe_channels_combined():
 
             assert total_received == count * replicas
 
-    async with _core.open_nursery() as n:
-        n.start_soon(sender)
-        n.start_soon(reader)
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(sender)
+        nursery.start_soon(reader)
 
 
 async def test_async_with_stream():
