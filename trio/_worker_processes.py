@@ -130,6 +130,7 @@ class WorkerProc:
             except EOFError:
                 # Likely the worker died while we were waiting on a pipe
                 self.kill()
+                # sleep and let the monitor raise the appropriate error
                 await trio.sleep_forever()
             # must cancel the child monitor task to exit nursery
             nursery.cancel_scope.cancel()
