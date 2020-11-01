@@ -16,7 +16,7 @@ from .._threads import to_thread_run_sync
 @pytest.fixture(autouse=True)
 def empty_proc_cache():
     while _worker_processes.IDLE_PROC_CACHE:
-        proc, _ = _worker_processes.IDLE_PROC_CACHE.popitem()
+        proc = _worker_processes.IDLE_PROC_CACHE.pop()
         proc.kill()
 
 

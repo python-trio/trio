@@ -1,16 +1,20 @@
 import os
+from collections import deque
 from itertools import count
 from multiprocessing import Pipe, Lock, Process
 
 import trio
-
-# How long a process will idle waiting for new work before gives up and exits.
-# This should be longer than a thread timeout proportionately to startup time.
 from trio._core import RunVar
 
-IDLE_TIMEOUT = 60 * 10
-IDLE_PROC_CACHE = {}
 _limiter_local = RunVar("proc_limiter")
+
+# The cache is a deque rather than dict here since processes can't remove
+# themselves anyways, so we don't need O(1) lookups
+IDLE_PROC_CACHE = deque()
+# How long a process will idle waiting for new work before gives up and exits.
+# This should be longer than a thread timeout proportionately to startup time.
+IDLE_TIMEOUT = 60 * 10
+
 # Sane default might be to expect cpu-bound work
 DEFAULT_LIMIT = os.cpu_count()
 _proc_counter = count()
@@ -42,9 +46,13 @@ else:
 
 
 def _prune_expired_procs():
-    for proc in list(IDLE_PROC_CACHE):
-        if not proc.is_alive():
-            del IDLE_PROC_CACHE[proc]
+    # take advantage of the oldest proc being on the left to
+    # keep iteration O(dead)
+    while IDLE_PROC_CACHE:
+        proc = IDLE_PROC_CACHE.popleft()
+        if proc.is_alive():
+            IDLE_PROC_CACHE.appendleft(proc)
+            break
 
 
 class BrokenWorkerError(Exception):
@@ -176,12 +184,12 @@ async def to_process_run_sync(sync_fn, *args, cancellable=False, limiter=None):
         try:
             # Get the most-recently-idle worker process
             # Race condition: worker process might have timed out between
-            # prune and pop so loop until we get a live one or KeyError
+            # prune and pop so loop until we get a live one or IndexError
             while True:
-                proc, _ = IDLE_PROC_CACHE.popitem()
+                proc = IDLE_PROC_CACHE.pop()
                 if proc.is_alive():
                     break
-        except KeyError:
+        except IndexError:
             proc = await trio.to_thread.run_sync(WorkerProc)
 
         try:
@@ -189,4 +197,4 @@ async def to_process_run_sync(sync_fn, *args, cancellable=False, limiter=None):
                 return await proc.run_sync(sync_fn, *args)
         finally:
             if proc.is_alive():
-                IDLE_PROC_CACHE[proc] = None
+                IDLE_PROC_CACHE.append(proc)
