@@ -39,10 +39,8 @@ def current_default_process_limiter():
 if os.name == "nt":
     # TODO: This uses a thread per-process. Can we do better?
     wait_sentinel = trio.lowlevel.WaitForSingleObject
-elif os.name == "posix":
-    wait_sentinel = trio.lowlevel.wait_readable
 else:
-    raise RuntimeError(f"Unsupported OS: {os.name}")
+    wait_sentinel = trio.lowlevel.wait_readable
 
 
 def _prune_expired_procs():
