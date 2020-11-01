@@ -1,8 +1,9 @@
 import pytest
 
+from .._abc import Channel
 from ..testing import wait_all_tasks_blocked, assert_checkpoints
 import trio
-from trio import open_memory_channel, EndOfChannel
+from trio import open_memory_channel, EndOfChannel, StapledMemoryChannel
 
 
 async def test_channel():
@@ -350,3 +351,22 @@ async def test_unbuffered():
             assert await r.receive() == 1
     with pytest.raises(trio.WouldBlock):
         r.receive_nowait()
+
+
+async def test_stapled_memory_channel():
+    assert issubclass(StapledMemoryChannel, Channel)
+    stapled = StapledMemoryChannel(*open_memory_channel(0))
+
+    async with trio.open_nursery() as nursery:
+
+        @nursery.start_soon
+        async def _listener():
+            assert await stapled.receive() == 10
+
+        await wait_all_tasks_blocked()
+        await stapled.send(10)
+
+    with pytest.raises(trio.WouldBlock):
+        stapled.send_nowait(10)
+    with pytest.raises(trio.WouldBlock):
+        stapled.receive_nowait()

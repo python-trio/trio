@@ -5,7 +5,7 @@ import attr
 from outcome import Error, Value
 
 from .abc import SendChannel, ReceiveChannel, Channel
-from ._util import generic_function, NoPublicConstructor
+from ._util import generic_function, NoPublicConstructor, Final
 
 import trio
 from ._core import enable_ki_protection
@@ -344,3 +344,65 @@ class MemoryReceiveChannel(ReceiveChannel, metaclass=NoPublicConstructor):
             self._state.send_tasks.clear()
             self._state.data.clear()
         await trio.lowlevel.checkpoint()
+
+
+@attr.s(auto_attribs=True, eq=False, hash=False)
+class StapledMemoryChannel(Channel, metaclass=Final):
+    """This class `staples <https://en.wikipedia.org/wiki/Staple_(fastener)>`__
+    together two memory channel halves to make a bidirectional channel.
+
+    Args:
+      send_channel (~trio.MemorySendChannel): The channel to use for sending.
+      receive_channel (~trio.MemoryReceiveChannel): The channel to use for
+          receiving.
+
+    Example:
+
+       The channel halves from :function:~trio.open_memory_channel can
+       be bound together and accessed by a simple API::
+
+          channel = StapledMemoryChannel(*open_memory_channel(1))
+          await channel.send("x")
+          assert await channel.receive() == "x"
+
+    :class:`StapledMemoryChannel` objects implement the methods in the
+    :class:`~trio.abc.Channel` interface, as well as the "nowait" variants
+    of send and receive. They also have two additional public attributes:
+
+    .. attribute:: send_channel
+
+       The underlying :class:`~trio.MemorySendChannel`. :meth:`send` and
+       :meth:`send_nowait` are delegated to this object.
+
+    .. attribute:: receive_channel
+
+       The underlying :class:`~trio.MemoryReceiveChannel`. :meth:`receive()`
+       and :meth:`receive_nowait` are delegated to this object.
+
+    """
+
+    send_channel: MemorySendChannel
+    receive_channel: MemoryReceiveChannel
+
+    async def send(self, value):
+        """Calls ``self.send_channel.send``."""
+        await self.send_channel.send(value)
+
+    def send_nowait(self, value):
+        """Calls ``self.send_channel.send_nowait``."""
+        self.send_channel.send_nowait(value)
+
+    async def receive(self):
+        """Calls ``self.receive_channel.receive``."""
+        return await self.receive_channel.receive()
+
+    def receive_nowait(self):
+        """Calls ``self.receive_channel.receive_nowait``."""
+        return self.receive_channel.receive_nowait()
+
+    async def aclose(self):
+        """Calls ``aclose`` on both underlying channels."""
+        try:
+            await self.send_channel.aclose()
+        finally:
+            await self.receive_channel.aclose()

@@ -60,6 +60,7 @@ from ._channel import (
     open_memory_channel,
     MemorySendChannel,
     MemoryReceiveChannel,
+    StapledMemoryChannel,
 )
 
 from ._signals import open_signal_receiver
