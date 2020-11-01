@@ -7,6 +7,7 @@ import pytest
 from .. import _core
 from .. import Event, CapacityLimiter, sleep, fail_after
 from .. import _worker_processes
+from .._core.tests.tutil import slow
 from .._worker_processes import to_process_run_sync, current_default_process_limiter
 from ..testing import wait_all_tasks_blocked
 from .._threads import to_thread_run_sync
@@ -27,6 +28,7 @@ def _raise_pid():  # pragma: no cover
     raise ValueError(os.getpid())
 
 
+@slow
 async def test_run_in_worker_process():
     trio_pid = os.getpid()
 
@@ -47,6 +49,7 @@ def _block_proc_on_queue(q, ev, done_ev):  # pragma: no cover
     done_ev.set()
 
 
+@slow
 async def test_run_in_worker_process_cancellation(capfd):
     async def child(q, ev, done_ev, cancellable):
         print("start")
@@ -128,6 +131,7 @@ async def _null_async_fn():  # pragma: no cover
     pass
 
 
+@slow
 async def test_trio_to_process_run_sync_expected_error():
     with pytest.raises(TypeError, match="expected a sync function"):
         await to_process_run_sync(_null_async_fn)
@@ -145,6 +149,7 @@ def _segfault():  # pragma: no cover
         c += 1
 
 
+@slow
 async def test_to_process_run_sync_raises_on_segfault():
     with fail_after(10):
         with pytest.raises(_worker_processes.BrokenWorkerError):
@@ -158,6 +163,7 @@ def _never_halts(ev):  # pragma: no cover
         pass
 
 
+@slow
 async def test_to_process_run_sync_cancel_infinite_loop():
     m = multiprocessing.Manager()
     ev = m.Event()
@@ -177,6 +183,7 @@ def _proc_queue_pid_fn(ev, q):  # pragma: no cover
     return os.getpid()
 
 
+@slow
 async def test_to_process_run_sync_cancel_blocking_call():
     m = multiprocessing.Manager()
     ev = m.Event()
@@ -211,6 +218,7 @@ def _echo(x):  # pragma: no cover
     return x
 
 
+@slow
 async def test_to_process_run_sync_large_job():
     n = 2 ** 20
     x = await to_process_run_sync(_echo, bytearray(n))
@@ -221,6 +229,7 @@ def _worker_monkeypatch():  # pragma: no cover
     _worker_processes.IDLE_TIMEOUT = 0.001
 
 
+@slow
 async def test_idle_proc_cache_prunes_dead_workers():
     # spawn worker
     await to_process_run_sync(int)
