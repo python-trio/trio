@@ -69,7 +69,7 @@ class WorkerProc:
         self._proc = Process(
             target=self._work,
             args=(self._worker_lock, child_recv_pipe, child_send_pipe),
-            name=f"WorkerProc-{next(_proc_counter)}",
+            name=f"Trio worker process {next(_proc_counter)}",
             daemon=True,
         )
         self._proc.start()
