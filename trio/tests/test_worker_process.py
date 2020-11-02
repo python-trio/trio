@@ -232,10 +232,11 @@ def _worker_monkeypatch():  # pragma: no cover
 @slow
 async def test_idle_proc_cache_prunes_dead_workers():
     # spawn worker
-    await to_process_run_sync(int)
+    _, pid1 = await to_process_run_sync(_echo_and_pid, None)
     # make it die very quickly
     await to_process_run_sync(_worker_monkeypatch)
     await sleep(0.01)
     # should spawn a new worker and remove the dead one
-    await to_process_run_sync(int)
+    _, pid2 = await to_process_run_sync(_echo_and_pid, None)
     assert len(_worker_processes.IDLE_PROC_CACHE) == 1
+    assert pid1 != pid2
