@@ -1,11 +1,11 @@
 import multiprocessing
 import os
-from queue import Empty
+from functools import partial
 
 import pytest
 
 from .. import _core
-from .. import Event, CapacityLimiter, sleep, fail_after
+from .. import sleep, fail_after
 from .. import _worker_processes
 from .._core.tests.tutil import slow
 from .._worker_processes import to_process_run_sync, current_default_process_limiter
@@ -205,6 +205,7 @@ async def test_to_process_run_sync_cancel_blocking_call():
     assert pid is None
 
     # TODO: Shouldn't this raise empty?
+    # from queue import Empty
     # with pytest.raises(Empty):
     #     q.get_nowait()
 
