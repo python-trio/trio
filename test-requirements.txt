@@ -14,14 +14,14 @@ black==20.8b1 ; implementation_name == "cpython"  # via -r test-requirements.in
 cffi==1.14.3              # via cryptography
 click==7.1.2              # via black
 coverage==5.3             # via pytest-cov
-cryptography==3.1.1       # via pyopenssl, trustme
+cryptography==3.2.1       # via pyopenssl, trustme
 decorator==4.4.2          # via ipython
 flake8==3.8.4             # via -r test-requirements.in
 idna==2.10                # via -r test-requirements.in, trustme
 immutables==0.14          # via -r test-requirements.in
 iniconfig==1.1.1          # via pytest
 ipython-genutils==0.2.0   # via traitlets
-ipython==7.18.1           # via -r test-requirements.in
+ipython==7.19.0           # via -r test-requirements.in
 isort==5.6.4              # via pylint
 jedi==0.17.2              # via -r test-requirements.in, ipython
 lazy-object-proxy==1.4.3  # via astroid
@@ -41,17 +41,17 @@ py==1.9.0                 # via pytest
 pycodestyle==2.6.0        # via flake8
 pycparser==2.20           # via cffi
 pyflakes==2.2.0           # via flake8
-pygments==2.7.1           # via ipython
+pygments==2.7.2           # via ipython
 pylint==2.6.0             # via -r test-requirements.in
 pyopenssl==19.1.0         # via -r test-requirements.in
 pyparsing==2.4.7          # via packaging
 pytest-cov==2.10.1        # via -r test-requirements.in
-pytest==6.1.1             # via -r test-requirements.in, pytest-cov
-regex==2020.10.23         # via black
+pytest==6.1.2             # via -r test-requirements.in, pytest-cov
+regex==2020.10.28         # via black
 six==1.15.0               # via astroid, cryptography, packaging, pyopenssl
 sniffio==1.2.0            # via -r test-requirements.in
 sortedcontainers==2.2.2   # via -r test-requirements.in
-toml==0.10.1              # via black, pylint, pytest
+toml==0.10.2              # via black, pylint, pytest
 traitlets==5.0.5          # via ipython
 trustme==0.6.0            # via -r test-requirements.in
 typed-ast==1.4.1 ; implementation_name == "cpython"  # via -r test-requirements.in, black, mypy

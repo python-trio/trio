@@ -20,9 +20,9 @@ jinja2==2.11.2            # via sphinx, towncrier
 markupsafe==1.1.1         # via jinja2
 outcome==1.0.1            # via -r docs-requirements.in
 packaging==20.4           # via sphinx
-pygments==2.7.1           # via sphinx
+pygments==2.7.2           # via sphinx
 pyparsing==2.4.7          # via packaging
-pytz==2020.1              # via babel
+pytz==2020.4              # via babel
 requests==2.24.0          # via sphinx
 six==1.15.0               # via packaging
 sniffio==1.2.0            # via -r docs-requirements.in
@@ -37,6 +37,6 @@ sphinxcontrib-jsmath==1.0.1  # via sphinx
 sphinxcontrib-qthelp==1.0.3  # via sphinx
 sphinxcontrib-serializinghtml==1.1.4  # via sphinx
 sphinxcontrib-trio==1.1.2  # via -r docs-requirements.in
-toml==0.10.1              # via towncrier
+toml==0.10.2              # via towncrier
 towncrier==19.2.0         # via -r docs-requirements.in
-urllib3==1.25.10          # via requests
+urllib3==1.25.11          # via requests

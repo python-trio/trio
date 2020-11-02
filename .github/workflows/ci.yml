@@ -27,7 +27,7 @@ jobs:
             extra_name: ', with Komodia LSP'
           - python: '3.8'
             arch: 'x64'
-            lsp: 'http://www.proxifier.com/download/ProxifierSetup.exe'
+            lsp: 'https://www.proxifier.com/download/legacy/ProxifierSetup342.exe'
             lsp_extract_file: ''
             extra_name: ', with IFS LSP'
           - python: '3.8'

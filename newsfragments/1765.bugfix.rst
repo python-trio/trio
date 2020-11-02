@@ -1,0 +1,1 @@
+Fix a crash in pypy-3.7
