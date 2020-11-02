@@ -51,7 +51,7 @@ regex==2020.10.28         # via black
 six==1.15.0               # via astroid, cryptography, packaging, pyopenssl
 sniffio==1.2.0            # via -r test-requirements.in
 sortedcontainers==2.2.2   # via -r test-requirements.in
-toml==0.10.1              # via black, pylint, pytest
+toml==0.10.2              # via black, pylint, pytest
 traitlets==5.0.5          # via ipython
 trustme==0.6.0            # via -r test-requirements.in
 typed-ast==1.4.1 ; implementation_name == "cpython"  # via -r test-requirements.in, black, mypy
