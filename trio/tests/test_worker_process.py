@@ -1,11 +1,10 @@
 import multiprocessing
 import os
-from functools import partial
 
 import pytest
 
 from .. import _core
-from .. import sleep, fail_after
+from .. import sleep
 from .. import _worker_processes
 from .._core.tests.tutil import slow
 from .._worker_processes import to_process_run_sync, current_default_process_limiter
@@ -159,24 +158,12 @@ def _segfault_recursion_stack_overflow():  # pragma: no cover
 
 
 @slow
-async def test_to_process_run_sync_raises_on_segfault():
+@pytest.mark.parametrize(
+    "segfaulter", [_segfault_out_of_bounds_pointer, _segfault_recursion_stack_overflow]
+)
+async def test_to_process_run_sync_raises_on_segfault(segfaulter):
     with pytest.raises(_worker_processes.BrokenWorkerError):
-        # race two segfaults in case one is slow on a certain platform
-        async with _core.open_nursery() as nursery:
-            nursery.start_soon(
-                partial(
-                    to_process_run_sync,
-                    _segfault_out_of_bounds_pointer,
-                    cancellable=True,
-                )
-            )
-            nursery.start_soon(
-                partial(
-                    to_process_run_sync,
-                    _segfault_recursion_stack_overflow,
-                    cancellable=True,
-                )
-            )
+        await to_process_run_sync(segfaulter)
 
 
 def _never_halts(ev):  # pragma: no cover
