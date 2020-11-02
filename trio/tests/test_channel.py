@@ -370,3 +370,7 @@ async def test_stapled_memory_channel():
         stapled.send_nowait(10)
     with pytest.raises(trio.WouldBlock):
         stapled.receive_nowait()
+
+    assert not (stapled.send_channel._closed or stapled.receive_channel._closed)
+    await stapled.aclose()
+    assert stapled.send_channel._closed and stapled.receive_channel._closed
