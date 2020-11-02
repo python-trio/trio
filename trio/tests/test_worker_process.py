@@ -137,8 +137,8 @@ async def test_trio_to_process_run_sync_expected_error():
         await to_process_run_sync(_null_async_fn)
 
 
-def _segfault():  # pragma: no cover
-    # https://wiki.python.org/moin/CrashingPython you beautiful nerds
+def _segfault_out_of_bounds_pointer():  # pragma: no cover
+    # https://wiki.python.org/moin/CrashingPython
     import ctypes
 
     i = ctypes.c_char(b"a")
@@ -149,11 +149,23 @@ def _segfault():  # pragma: no cover
         c += 1
 
 
+def _segfault_stack_overflow():  # pragma: no cover
+    # https://wiki.python.org/moin/CrashingPython
+    import sys
+
+    sys.setrecursionlimit(1 << 30)
+    f = lambda f: f(f)
+    f(f)
+
+
 @slow
 async def test_to_process_run_sync_raises_on_segfault():
     with fail_after(10):
         with pytest.raises(_worker_processes.BrokenWorkerError):
-            await to_process_run_sync(_segfault, cancellable=True)
+            # race two segfaults in case one is slow on a certain platform
+            async with _core.open_nursery() as nursery:
+                nursery.start_soon(partial(to_process_run_sync, _segfault_out_of_bounds_pointer, cancellable=True))
+                nursery.start_soon(partial(to_process_run_sync, _segfault_stack_overflow, cancellable=True))
 
 
 def _never_halts(ev):  # pragma: no cover
