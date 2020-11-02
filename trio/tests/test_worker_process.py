@@ -149,7 +149,7 @@ def _segfault_out_of_bounds_pointer():  # pragma: no cover
         c += 1
 
 
-def _segfault_stack_overflow():  # pragma: no cover
+def _segfault_recursion_stack_overflow():  # pragma: no cover
     # https://wiki.python.org/moin/CrashingPython
     import sys
 
@@ -160,12 +160,23 @@ def _segfault_stack_overflow():  # pragma: no cover
 
 @slow
 async def test_to_process_run_sync_raises_on_segfault():
-    with fail_after(10):
-        with pytest.raises(_worker_processes.BrokenWorkerError):
-            # race two segfaults in case one is slow on a certain platform
-            async with _core.open_nursery() as nursery:
-                nursery.start_soon(partial(to_process_run_sync, _segfault_out_of_bounds_pointer, cancellable=True))
-                nursery.start_soon(partial(to_process_run_sync, _segfault_stack_overflow, cancellable=True))
+    with pytest.raises(_worker_processes.BrokenWorkerError):
+        # race two segfaults in case one is slow on a certain platform
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(
+                partial(
+                    to_process_run_sync,
+                    _segfault_out_of_bounds_pointer,
+                    cancellable=True,
+                )
+            )
+            nursery.start_soon(
+                partial(
+                    to_process_run_sync,
+                    _segfault_recursion_stack_overflow,
+                    cancellable=True,
+                )
+            )
 
 
 def _never_halts(ev):  # pragma: no cover
