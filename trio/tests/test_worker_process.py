@@ -148,22 +148,10 @@ def _segfault_out_of_bounds_pointer():  # pragma: no cover
         c += 1
 
 
-def _segfault_recursion_stack_overflow():  # pragma: no cover
-    # https://wiki.python.org/moin/CrashingPython
-    import sys
-
-    sys.setrecursionlimit(1 << 30)
-    f = lambda f: f(f)
-    f(f)
-
-
 @slow
-@pytest.mark.parametrize(
-    "segfaulter", [_segfault_out_of_bounds_pointer, _segfault_recursion_stack_overflow]
-)
-async def test_to_process_run_sync_raises_on_segfault(segfaulter):
+async def test_to_process_run_sync_raises_on_segfault():
     with pytest.raises(_worker_processes.BrokenWorkerError):
-        await to_process_run_sync(segfaulter)
+        await to_process_run_sync(_segfault_out_of_bounds_pointer)
 
 
 def _never_halts(ev):  # pragma: no cover
