@@ -159,7 +159,6 @@ class WorkerProc:
             self._proc.kill()
         except AttributeError:
             self._proc.terminate()
-        self._proc.join()
 
 
 async def to_process_run_sync(sync_fn, *args, cancellable=False, limiter=None):
