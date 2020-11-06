@@ -178,14 +178,9 @@ async def to_process_run_sync(sync_fn, *args, cancellable=False, limiter=None):
 
     async with limiter:
         _prune_expired_procs()
+
         try:
-            # Get the most-recently-idle worker process
-            # Race condition: worker process might have timed out between
-            # prune and pop so loop until we get a live one or IndexError
-            while True:
-                proc = IDLE_PROC_CACHE.pop()
-                if proc.is_alive():
-                    break
+            proc = IDLE_PROC_CACHE.pop()
         except IndexError:
             proc = await trio.to_thread.run_sync(WorkerProc)
 
