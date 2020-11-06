@@ -6,7 +6,7 @@
 #
 alabaster==0.7.12         # via sphinx
 async-generator==1.10     # via -r docs-requirements.in
-attrs==20.2.0             # via -r docs-requirements.in, outcome
+attrs==20.3.0             # via -r docs-requirements.in, outcome
 babel==2.8.0              # via sphinx
 certifi==2020.6.20        # via requests
 chardet==3.0.4            # via requests
