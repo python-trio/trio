@@ -109,7 +109,7 @@ def _null_func():  # pragma: no cover
 
 
 async def test_run_in_worker_process_fail_to_spawn(monkeypatch):
-    # Test the unlikely but possible case where trying to spawn a thread fails
+    # Test the unlikely but possible case where trying to spawn a worker fails
     def bad_start():
         raise RuntimeError("the engines canna take it captain")
 

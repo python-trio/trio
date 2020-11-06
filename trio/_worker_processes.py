@@ -22,7 +22,7 @@ _proc_counter = count()
 
 def current_default_process_limiter():
     """Get the default `~trio.CapacityLimiter` used by
-    `trio.to_thread.run_sync`.
+    `trio.to_process.run_sync`.
 
     The most common reason to call this would be if you want to modify its
     :attr:`~trio.CapacityLimiter.total_tokens` attribute.
@@ -152,8 +152,7 @@ class WorkerProc:
                 self._worker_lock.release()
                 return False
             return True
-        else:
-            return False
+        return False
 
     def kill(self):
         try:
