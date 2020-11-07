@@ -1,16 +1,14 @@
 import os
 from collections import deque
 from itertools import count
-from multiprocessing import Pipe, Lock, Process
+from multiprocessing import Pipe, Process, Barrier
+from threading import BrokenBarrierError
 
 import trio
 from trio._core import RunVar
 
 _limiter_local = RunVar("proc_limiter")
 
-# The cache is a deque rather than dict here since processes can't remove
-# themselves anyways, so we don't need O(1) lookups
-IDLE_PROC_CACHE = deque()
 # How long a process will idle waiting for new work before gives up and exits.
 # This should be longer than a thread timeout proportionately to startup time.
 IDLE_TIMEOUT = 60 * 10
@@ -43,39 +41,70 @@ else:
     wait_sentinel = trio.lowlevel.wait_readable
 
 
-def _prune_expired_procs():
-    # take advantage of the oldest proc being on the left to
-    # keep iteration O(dead)
-    while IDLE_PROC_CACHE:
-        proc = IDLE_PROC_CACHE.popleft()
-        if proc.is_alive():
-            IDLE_PROC_CACHE.appendleft(proc)
-            break
+class ProcCache:
+    def __init__(self):
+        # The cache is a deque rather than dict here since processes can't remove
+        # themselves anyways, so we don't need O(1) lookups
+        self._cache = deque()
+
+    def prune_expired_procs(self):
+        # take advantage of the oldest proc being on the left to
+        # keep iteration O(dead)
+        while self._cache:
+            proc = self._cache.popleft()
+            if proc.is_alive():
+                self._cache.appendleft(proc)
+                break
+
+    def push(self, proc):
+        self._cache.append(proc)
+
+    def pop(self):
+        """Get live, WOKEN worker process or raise IndexError"""
+        while True:
+            proc = self._cache.pop()
+            try:
+                proc.wake_up()
+            except BrokenWorkerError:
+                continue
+            else:
+                return proc
+
+    def __len__(self):
+        return len(self._cache)
 
 
-class BrokenWorkerError(Exception):
+IDLE_PROC_CACHE = ProcCache()
+
+
+class BrokenWorkerError(RuntimeError):
     pass
 
 
 class WorkerProc:
     def __init__(self):
-        # As with the thread cache, releasing this lock serves to kick a
-        # worker process off it's idle countdown and onto the work pipe.
-        self._worker_lock = Lock()
-        self._worker_lock.acquire()
+        # More heavyweight synchronization is required for processes vs threads
+        # because of the lack of shared state. Since only the parent and child
+        # processes will ever touch this, simply having them both wait together
+        # is enough sign of life to move things onto the pipe.
+        self._barrier = Barrier(2)
         # On NT, a single duplexed pipe raises a TrioInternalError: GH#1767
         child_recv_pipe, self._send_pipe = Pipe(duplex=False)
         self._recv_pipe, child_send_pipe = Pipe(duplex=False)
         self._proc = Process(
             target=self._work,
-            args=(self._worker_lock, child_recv_pipe, child_send_pipe),
+            args=(self._barrier, child_recv_pipe, child_send_pipe),
             name=f"Trio worker process {next(_proc_counter)}",
             daemon=True,
         )
+        # The following two initiation methods may take a long time, recommend
+        # using a thread to run this
         self._proc.start()
+        # proc may need a moment to wake up
+        self.wake_up(timeout=1)
 
     @staticmethod
-    def _work(lock, recv_pipe, send_pipe):
+    def _work(barrier, recv_pipe, send_pipe):
 
         import inspect
         import outcome
@@ -92,8 +121,14 @@ class WorkerProc:
 
             return ret
 
-        while lock.acquire(timeout=IDLE_TIMEOUT):
-            # We got a job
+        while True:
+            try:
+                # Return value is party #, not whether awoken within timeout
+                barrier.wait(timeout=IDLE_TIMEOUT)
+            except BrokenBarrierError:
+                # Timeout waiting for job, so we can exit.
+                break
+            # We got a job, and we are "woken"
             fn, args = recv_pipe.recv()
             result = outcome.capture(worker_fn)
             # Tell the cache that we're done and available for a job
@@ -105,17 +140,14 @@ class WorkerProc:
             del fn
             del args
             del result
-        # Timeout acquiring lock, so we can probably exit.
-        # Unlike thread cache, the race condition of someone trying to
-        # assign a job as we quit must be checked by the assigning task.
-        # This lock can provide a signal that is available before the sentinel.
-        lock.release()
+        # At this point the barrier is "broken" and can be used as a death sign.
 
     async def run_sync(self, sync_fn, *args):
+        # Neither this nor the child process should be waiting at this point
+        assert not self._barrier.n_waiting, "Must first wake_up() the WorkerProc"
         async with trio.open_nursery() as nursery:
-            await nursery.start(self._child_monitor)
-            self._worker_lock.release()
             try:
+                await nursery.start(self._child_monitor)
                 await trio.to_thread.run_sync(
                     self._send_pipe.send, (sync_fn, args), cancellable=True
                 )
@@ -144,15 +176,17 @@ class WorkerProc:
 
     def is_alive(self):
         # if the proc is alive, there is a race condition where it could be
-        # dying, but the lock should be released during most of this condition
-        if self._proc.is_alive():
-            if self._worker_lock.acquire(block=False):
-                # if we acquire, we should release it again ASAP in case
-                # someone else checks later
-                self._worker_lock.release()
-                return False
-            return True
-        return False
+        # dying, but the the barrier should be broken at that time
+        return self._proc.is_alive() and not self._barrier.broken
+
+    def wake_up(self, timeout=0):
+        # raise an exception if the barrier is broken or we must wait
+        try:
+            self._barrier.wait(timeout)
+        except BrokenBarrierError:
+            # raise our own flavor of exception and ensure death
+            self.kill()
+            raise BrokenWorkerError(f"{self._proc} died unexpectedly") from None
 
     def kill(self):
         try:
@@ -177,7 +211,7 @@ async def to_process_run_sync(sync_fn, *args, cancellable=False, limiter=None):
         limiter = current_default_process_limiter()
 
     async with limiter:
-        _prune_expired_procs()
+        IDLE_PROC_CACHE.prune_expired_procs()
 
         try:
             proc = IDLE_PROC_CACHE.pop()
@@ -189,4 +223,4 @@ async def to_process_run_sync(sync_fn, *args, cancellable=False, limiter=None):
                 return await proc.run_sync(sync_fn, *args)
         finally:
             if proc.is_alive():
-                IDLE_PROC_CACHE.append(proc)
+                IDLE_PROC_CACHE.push(proc)

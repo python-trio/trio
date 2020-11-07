@@ -14,9 +14,12 @@ from .._threads import to_thread_run_sync
 
 @pytest.fixture(autouse=True)
 def empty_proc_cache():
-    while _worker_processes.IDLE_PROC_CACHE:
-        proc = _worker_processes.IDLE_PROC_CACHE.pop()
-        proc.kill()
+    while True:
+        try:
+            proc = _worker_processes.IDLE_PROC_CACHE.pop()
+            proc.kill()
+        except IndexError:
+            return
 
 
 def _echo_and_pid(x):  # pragma: no cover
