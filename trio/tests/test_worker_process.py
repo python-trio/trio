@@ -3,8 +3,7 @@ import os
 
 import pytest
 
-from .. import _core
-from .. import sleep
+from .. import _core, fail_after
 from .. import _worker_processes
 from .._core.tests.tutil import slow
 from .._worker_processes import to_process_run_sync, current_default_process_limiter
@@ -228,16 +227,19 @@ async def test_to_process_run_sync_large_job():
 
 
 def _worker_monkeypatch():  # pragma: no cover
-    _worker_processes.IDLE_TIMEOUT = 0.001
+    _worker_processes.IDLE_TIMEOUT = 0.01
 
 
 @slow
 async def test_idle_proc_cache_prunes_dead_workers():
     # spawn worker
     _, pid1 = await to_process_run_sync(_echo_and_pid, None)
-    # make it die very quickly
+    # make it die very quickly, but not so quickly that it is not cached
     await to_process_run_sync(_worker_monkeypatch)
-    await sleep(0.01)
+    # reach deeply into the internals to wait on the underlying sentinel
+    await _worker_processes.wait_sentinel(
+        _worker_processes.IDLE_PROC_CACHE._cache[0]._proc.sentinel
+    )
     # should spawn a new worker and remove the dead one
     _, pid2 = await to_process_run_sync(_echo_and_pid, None)
     assert len(_worker_processes.IDLE_PROC_CACHE) == 1

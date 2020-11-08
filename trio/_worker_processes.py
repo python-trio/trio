@@ -64,8 +64,9 @@ class ProcCache:
         while True:
             proc = self._cache.pop()
             try:
-                proc.wake_up()
+                proc.wake_up(0)
             except BrokenWorkerError:
+                # proc must have died in the cache, just try again
                 continue
             else:
                 return proc
@@ -97,11 +98,9 @@ class WorkerProc:
             name=f"Trio worker process {next(_proc_counter)}",
             daemon=True,
         )
-        # The following two initiation methods may take a long time, recommend
-        # using a thread to run this
+        # The following initialization methods may take a long time
         self._proc.start()
-        # proc may need a moment to wake up
-        self.wake_up(timeout=1)
+        self.wake_up()
 
     @staticmethod
     def _work(barrier, recv_pipe, send_pipe):
@@ -179,7 +178,7 @@ class WorkerProc:
         # dying, but the the barrier should be broken at that time
         return self._proc.is_alive() and not self._barrier.broken
 
-    def wake_up(self, timeout=0):
+    def wake_up(self, timeout=None):
         # raise an exception if the barrier is broken or we must wait
         try:
             self._barrier.wait(timeout)
