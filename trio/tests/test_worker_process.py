@@ -210,37 +210,24 @@ async def test_to_process_run_sync_cancel_blocking_call():
     #     q.get_nowait()
 
 
-async def test_spawn_worker_in_thread():
-    proc = await to_thread_run_sync(_worker_processes.WorkerProc, cancellable=True)
+@slow
+async def test_spawn_worker_in_thread_and_prune_cache():
+    # make sure we can successfully put worker spawning in a trio thread
+    proc = await to_thread_run_sync(_worker_processes.WorkerProc)
+    # take it's number and kill it for the next test
+    pid1 = proc._proc.pid
     proc.kill()
-
-
-def _echo(x):  # pragma: no cover
-    return x
+    proc._proc.join()
+    # put dead proc into the cache (normal code never does this)
+    _worker_processes.IDLE_PROC_CACHE.push(proc)
+    # should spawn a new worker and remove the dead one
+    _, pid2 = await to_process_run_sync(_echo_and_pid, None)
+    assert len(_worker_processes.IDLE_PROC_CACHE) == 1
+    assert pid1 != pid2
 
 
 @slow
 async def test_to_process_run_sync_large_job():
     n = 2 ** 20
-    x = await to_process_run_sync(_echo, bytearray(n))
+    x, _ = await to_process_run_sync(_echo_and_pid, bytearray(n))
     assert len(x) == n
-
-
-def _worker_monkeypatch():  # pragma: no cover
-    _worker_processes.IDLE_TIMEOUT = 0.01
-
-
-@slow
-async def test_idle_proc_cache_prunes_dead_workers():
-    # spawn worker
-    _, pid1 = await to_process_run_sync(_echo_and_pid, None)
-    # make it die very quickly, but not so quickly that it is not cached
-    await to_process_run_sync(_worker_monkeypatch)
-    # reach deeply into the internals to wait on the underlying sentinel
-    await _worker_processes.wait_sentinel(
-        _worker_processes.IDLE_PROC_CACHE._cache[0]._proc.sentinel
-    )
-    # should spawn a new worker and remove the dead one
-    _, pid2 = await to_process_run_sync(_echo_and_pid, None)
-    assert len(_worker_processes.IDLE_PROC_CACHE) == 1
-    assert pid1 != pid2
