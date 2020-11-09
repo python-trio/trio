@@ -207,9 +207,16 @@ class MemorySendChannel(SendChannel, metaclass=NoPublicConstructor):
         return MemorySendChannel._create(self._state)
 
     @enable_ki_protection
-    async def aclose(self):
+    def close(self):
+        """Close this send channel object synchronously.
+
+        All channel objects have an asynchronous `~.AsyncResource.aclose` method.
+        Memory channels can also be closed synchronously. This has the same
+        effect on the channel and other tasks using it, but `close` is not a
+        trio checkpoint. This simplifies cleaning up in cancelled tasks.
+
+        """
         if self._closed:
-            await trio.lowlevel.checkpoint()
             return
         self._closed = True
         for task in self._tasks:
@@ -223,6 +230,10 @@ class MemorySendChannel(SendChannel, metaclass=NoPublicConstructor):
                 task.custom_sleep_data._tasks.remove(task)
                 trio.lowlevel.reschedule(task, Error(trio.EndOfChannel()))
             self._state.receive_tasks.clear()
+
+    @enable_ki_protection
+    async def aclose(self):
+        self.close()
         await trio.lowlevel.checkpoint()
 
 
@@ -326,9 +337,16 @@ class MemoryReceiveChannel(ReceiveChannel, metaclass=NoPublicConstructor):
         return MemoryReceiveChannel._create(self._state)
 
     @enable_ki_protection
-    async def aclose(self):
+    def close(self):
+        """Close this receive channel object synchronously.
+
+        All channel objects have an asynchronous `~.AsyncResource.aclose` method.
+        Memory channels can also be closed synchronously. This has the same
+        effect on the channel and other tasks using it, but `close` is not a
+        trio checkpoint. This simplifies cleaning up in cancelled tasks.
+
+        """
         if self._closed:
-            await trio.lowlevel.checkpoint()
             return
         self._closed = True
         for task in self._tasks:
@@ -343,4 +361,8 @@ class MemoryReceiveChannel(ReceiveChannel, metaclass=NoPublicConstructor):
                 trio.lowlevel.reschedule(task, Error(trio.BrokenResourceError()))
             self._state.send_tasks.clear()
             self._state.data.clear()
+
+    @enable_ki_protection
+    async def aclose(self):
+        self.close()
         await trio.lowlevel.checkpoint()

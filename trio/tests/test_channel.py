@@ -157,6 +157,61 @@ async def test_close_basics():
         await r.receive()
 
 
+async def test_close_sync():
+    async def send_block(s, expect):
+        with pytest.raises(expect):
+            await s.send(None)
+
+    # closing send -> other send gets ClosedResourceError
+    s, r = open_memory_channel(0)
+    async with trio.open_nursery() as nursery:
+        nursery.start_soon(send_block, s, trio.ClosedResourceError)
+        await wait_all_tasks_blocked()
+        s.close()
+
+    # and it's persistent
+    with pytest.raises(trio.ClosedResourceError):
+        s.send_nowait(None)
+    with pytest.raises(trio.ClosedResourceError):
+        await s.send(None)
+
+    # and receive gets EndOfChannel
+    with pytest.raises(EndOfChannel):
+        r.receive_nowait()
+    with pytest.raises(EndOfChannel):
+        await r.receive()
+
+    # closing receive -> send gets BrokenResourceError
+    s, r = open_memory_channel(0)
+    async with trio.open_nursery() as nursery:
+        nursery.start_soon(send_block, s, trio.BrokenResourceError)
+        await wait_all_tasks_blocked()
+        r.close()
+
+    # and it's persistent
+    with pytest.raises(trio.BrokenResourceError):
+        s.send_nowait(None)
+    with pytest.raises(trio.BrokenResourceError):
+        await s.send(None)
+
+    # closing receive -> other receive gets ClosedResourceError
+    async def receive_block(r):
+        with pytest.raises(trio.ClosedResourceError):
+            await r.receive()
+
+    s, r = open_memory_channel(0)
+    async with trio.open_nursery() as nursery:
+        nursery.start_soon(receive_block, r)
+        await wait_all_tasks_blocked()
+        r.close()
+
+    # and it's persistent
+    with pytest.raises(trio.ClosedResourceError):
+        r.receive_nowait()
+    with pytest.raises(trio.ClosedResourceError):
+        await r.receive()
+
+
 async def test_receive_channel_clone_and_close():
     s, r = open_memory_channel(10)
 
