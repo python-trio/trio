@@ -220,7 +220,7 @@ async def test_receive_channel_clone_and_close():
 
     s.send_nowait(None)
     await r.aclose()
-    async with r2:
+    with r2:
         pass
 
     with pytest.raises(trio.ClosedResourceError):
