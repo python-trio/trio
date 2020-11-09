@@ -285,7 +285,7 @@ async def test_inf_capacity():
     s, r = open_memory_channel(float("inf"))
 
     # It's accepted, and we can send all day without blocking
-    async with s:
+    with s:
         for i in range(10):
             s.send_nowait(i)
 

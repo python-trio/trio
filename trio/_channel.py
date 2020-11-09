@@ -206,6 +206,12 @@ class MemorySendChannel(SendChannel, metaclass=NoPublicConstructor):
             raise trio.ClosedResourceError
         return MemorySendChannel._create(self._state)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
     @enable_ki_protection
     def close(self):
         """Close this send channel object synchronously.
@@ -214,6 +220,9 @@ class MemorySendChannel(SendChannel, metaclass=NoPublicConstructor):
         Memory channels can also be closed synchronously. This has the same
         effect on the channel and other tasks using it, but `close` is not a
         trio checkpoint. This simplifies cleaning up in cancelled tasks.
+
+        Using ``with send_channel:`` will close the channel object on leaving
+        the with block.
 
         """
         if self._closed:
@@ -336,6 +345,12 @@ class MemoryReceiveChannel(ReceiveChannel, metaclass=NoPublicConstructor):
             raise trio.ClosedResourceError
         return MemoryReceiveChannel._create(self._state)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
     @enable_ki_protection
     def close(self):
         """Close this receive channel object synchronously.
@@ -344,6 +359,9 @@ class MemoryReceiveChannel(ReceiveChannel, metaclass=NoPublicConstructor):
         Memory channels can also be closed synchronously. This has the same
         effect on the channel and other tasks using it, but `close` is not a
         trio checkpoint. This simplifies cleaning up in cancelled tasks.
+
+        Using ``with receive_channel:`` will close the channel object on
+        leaving the with block.
 
         """
         if self._closed:
