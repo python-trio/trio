@@ -9,6 +9,7 @@ import warnings
 from contextlib import contextmanager, ExitStack
 from math import inf
 from textwrap import dedent
+import gc
 
 import attr
 import outcome
@@ -2195,3 +2196,33 @@ async def test_cancel_scope_deadline_duplicates():
             cscope.deadline = now + 9998
             cscope.deadline = now + 9999
         await sleep(0.01)
+
+
+@pytest.mark.skipif(
+    sys.implementation.name != "cpython", reason="Only makes sense with refcounting GC"
+)
+async def test_simple_cancel_scope_usage_doesnt_create_cyclic_garbage():
+    # https://github.com/python-trio/trio/issues/1770
+    gc.collect()
+
+    async def do_a_cancel():
+        with _core.CancelScope() as cscope:
+            cscope.cancel()
+            await sleep_forever()
+
+    old_flags = gc.get_debug()
+    try:
+        gc.collect()
+        gc.set_debug(gc.DEBUG_SAVEALL)
+
+        await do_a_cancel()
+        await do_a_cancel()
+
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(do_a_cancel)
+
+        gc.collect()
+        assert not gc.garbage
+    finally:
+        gc.set_debug(old_flags)
+        gc.garbage.clear()

@@ -114,6 +114,9 @@ def _filter_impl(handler, root_exc):
     preserved = set()
     new_root_exc = filter_tree(root_exc, preserved)
     push_tb_down(None, root_exc, preserved)
+    # Delete the local functions avoid a reference cycle (see
+    # test_simple_cancel_scope_usage_doesnt_create_cyclic_garbage)
+    del filter_tree, push_tb_down
     return new_root_exc
 
 
@@ -132,6 +135,7 @@ class MultiErrorCatcher:
     def __exit__(self, etype, exc, tb):
         if exc is not None:
             filtered_exc = MultiError.filter(self._handler, exc)
+
             if filtered_exc is exc:
                 # Let the interpreter re-raise it
                 return False
