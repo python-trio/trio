@@ -44,7 +44,7 @@ async def test_run_in_worker_process():
 
 
 def _block_proc_on_queue(q, ev, done_ev):  # pragma: no cover
-    # Make the thread block for a controlled amount of time
+    # Make the process block for a controlled amount of time
     ev.set()
     q.get()
     done_ev.set()
@@ -175,39 +175,6 @@ async def test_to_process_run_sync_cancel_infinite_loop():
         nursery.start_soon(child)
         await to_thread_run_sync(ev.wait, cancellable=True)
         nursery.cancel_scope.cancel()
-
-
-def _proc_queue_pid_fn(ev, q):  # pragma: no cover
-    ev.set()
-    q.put(None)
-    return os.getpid()
-
-
-@slow
-async def test_to_process_run_sync_cancel_blocking_call():
-    m = multiprocessing.Manager()
-    ev = m.Event()
-    q = m.Queue()
-    pid = None
-
-    async def child():
-        await to_thread_run_sync(ev.wait, cancellable=True)
-        nursery.cancel_scope.cancel()
-
-    async with _core.open_nursery() as nursery:
-        nursery.start_soon(child)
-        pid = await to_process_run_sync(_proc_queue_pid_fn, ev, q, cancellable=True)
-    # This makes sure:
-    # - the process actually ran
-    # - that process has finished before we check for its output
-
-    assert nursery.cancel_scope.cancelled_caught
-    assert pid is None
-
-    # TODO: Shouldn't this raise empty?
-    # from queue import Empty
-    # with pytest.raises(Empty):
-    #     q.get_nowait()
 
 
 @slow
