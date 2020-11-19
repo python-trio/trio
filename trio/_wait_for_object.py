@@ -2,6 +2,7 @@ from . import _core
 from ._core._windows_cffi import (
     ffi,
     kernel32,
+    ErrorCodes,
     WaitFlags,
     raise_winerror,
     _handle,
@@ -10,7 +11,7 @@ from ._core._windows_cffi import (
 
 
 @ffi.callback("WAITORTIMERCALLBACK")
-def wait_callback(context, timer_or_wait_fired):
+def _wait_callback(context, timer_or_wait_fired):
     ffi.from_handle(context)()
 
 
@@ -50,13 +51,13 @@ def RegisterWaitForSingleObject(handle, callback):
     if not kernel32.RegisterWaitForSingleObject(
         cancel_token,
         handle,
-        wait_callback,
+        _wait_callback,
         context_handle,
         timeout,
         WaitFlags.WT_EXECUTEINWAITTHREAD | WaitFlags.WT_EXECUTEONLYONCE,
     ):
         raise_winerror()
-    # keep context alive by passing it around with cancel_token
+    # keep context_handle alive by passing it around with cancel_token
     return cancel_token, context_handle
 
 
@@ -82,16 +83,31 @@ async def WaitForSingleObject(obj):
 
     task = _core.current_task()
     trio_token = _core.current_trio_token()
+    # This register transforms the _core.Abort.FAILED case from pulsed (on while
+    # the cffi callback is running) to level triggered
+    reschedule_in_flight = [False]
 
     def wakeup():
-        trio_token.run_sync_soon(_core.reschedule, task, idempotent=True)
+        reschedule_in_flight[0] = True
+        try:
+            trio_token.run_sync_soon(_core.reschedule, task, idempotent=True)
+        except _core.RunFinishedError:
+            # No need to throw a fit here, the task can't be rescheduled anyway
+            pass
 
     cancel_token = RegisterWaitForSingleObject(handle, wakeup)
 
     def abort(raise_cancel):
-        if UnregisterWait(cancel_token):
+        retcode = UnregisterWait(cancel_token)
+        if retcode == ErrorCodes.ERROR_IO_PENDING or reschedule_in_flight[0]:
+            # The callback is about to wake up our task
+            return _core.Abort.FAILED
+        elif retcode:
             return _core.Abort.SUCCEEDED
         else:
-            return _core.Abort.FAILED
+            raise_winerror()
 
     await _core.wait_task_rescheduled(abort)
+    # Unconditional unregister if not cancelled. Resource cleanup? MSDN says,
+    # "Even wait operations that use WT_EXECUTEONLYONCE must be canceled."
+    UnregisterWait(cancel_token)
