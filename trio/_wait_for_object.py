@@ -27,8 +27,8 @@ def WaitForMultipleObjects_sync(*handles):
     retcode = kernel32.WaitForMultipleObjects(n, handle_arr, False, timeout)  # blocking
     if retcode == ErrorCodes.WAIT_FAILED:
         raise_winerror()
-    elif retcode >= 0x80:  # We should never abandon handles but who knows
-        retcode -= 0x80
+    elif retcode >= ErrorCodes.WAIT_ABANDONED:  # We should never abandon handles but who knows
+        retcode -= ErrorCodes.WAIT_ABANDONED
         warnings.warn(RuntimeWarning("Abandoned Mutex: {}".format(handles[retcode])))
     return retcode
 
