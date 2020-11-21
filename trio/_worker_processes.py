@@ -7,6 +7,7 @@ from threading import BrokenBarrierError
 from ._core import open_nursery, RunVar, CancelScope, wait_readable
 from ._sync import CapacityLimiter
 from ._threads import to_thread_run_sync
+from ._timeouts import sleep_forever
 
 _limiter_local = RunVar("proc_limiter")
 
@@ -158,8 +159,9 @@ class WorkerProc:
             except EOFError:
                 # Likely the worker died while we were waiting on a pipe
                 self.kill()  # Just make sure
-                # then raise the appropriate error
-                raise BrokenWorkerError(f"{self._proc} died unexpectedly")
+                # sleep and let the monitor raise the appropriate error to avoid
+                # creating any MultiErrors in this codepath
+                await sleep_forever()
             except BaseException:
                 # Cancellation leaves the process in an unknown state, so
                 # there is no choice but to kill, anyway it frees the pipe threads.
@@ -170,6 +172,7 @@ class WorkerProc:
         return result.unwrap()
 
     async def _child_monitor(self, task_status):
+        """Needed for pypy and other platforms that don't promptly raise EOFError"""
         task_status.started()
         # If this handle becomes ready, raise a catchable error
         await wait_sentinel(self._proc.sentinel)
