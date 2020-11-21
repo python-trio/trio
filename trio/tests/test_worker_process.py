@@ -3,7 +3,7 @@ import os
 
 import pytest
 
-from .. import _core, fail_after
+from .. import _core, fail_after, move_on_after
 from .. import _worker_processes
 from .._core.tests.tutil import slow
 from .._worker_processes import to_process_run_sync, current_default_process_limiter
@@ -152,8 +152,16 @@ def _segfault_out_of_bounds_pointer():  # pragma: no cover
 
 @slow
 async def test_to_process_run_sync_raises_on_segfault():
+    attempts = 0
     with pytest.raises(_worker_processes.BrokenWorkerError):
-        await to_process_run_sync(_segfault_out_of_bounds_pointer)
+        with fail_after(45):
+            while True:
+                with move_on_after(2):
+                    attempts += 1
+                    await to_process_run_sync(
+                        _segfault_out_of_bounds_pointer, cancellable=True
+                    )
+    print("segfault attempts:", attempts)
 
 
 def _never_halts(ev):  # pragma: no cover
