@@ -4,8 +4,9 @@ from itertools import count
 from multiprocessing import Pipe, Process, Barrier
 from threading import BrokenBarrierError
 
-import trio
-from trio._core import RunVar
+from ._core import RunVar, CancelScope
+from ._sync import CapacityLimiter
+from ._threads import to_thread_run_sync
 
 _limiter_local = RunVar("proc_limiter")
 
@@ -16,6 +17,10 @@ IDLE_TIMEOUT = 60 * 10
 # Sane default might be to expect cpu-bound work
 DEFAULT_LIMIT = os.cpu_count()
 _proc_counter = count()
+
+
+class BrokenWorkerError(RuntimeError):
+    pass
 
 
 def current_default_process_limiter():
@@ -29,7 +34,7 @@ def current_default_process_limiter():
     try:
         limiter = _limiter_local.get()
     except LookupError:
-        limiter = trio.CapacityLimiter(DEFAULT_LIMIT)
+        limiter = CapacityLimiter(DEFAULT_LIMIT)
         _limiter_local.set(limiter)
     return limiter
 
@@ -211,10 +216,10 @@ async def to_process_run_sync(sync_fn, *args, cancellable=False, limiter=None):
         try:
             proc = PROC_CACHE.pop()
         except IndexError:
-            proc = await trio.to_thread.run_sync(WorkerProc)
+            proc = await to_thread_run_sync(WorkerProc)
 
         try:
-            with trio.CancelScope(shield=not cancellable):
+            with CancelScope(shield=not cancellable):
                 return await proc.run_sync(sync_fn, *args)
         finally:
             if proc.is_alive():
