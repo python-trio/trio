@@ -161,7 +161,6 @@ async def test_to_process_run_sync_raises_on_segfault():
                     await to_process_run_sync(
                         _segfault_out_of_bounds_pointer, cancellable=True
                     )
-    print("segfault attempts:", attempts)
 
 
 def _never_halts(ev):  # pragma: no cover

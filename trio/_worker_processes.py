@@ -4,7 +4,7 @@ from itertools import count
 from multiprocessing import Pipe, Process, Barrier
 from threading import BrokenBarrierError
 
-from ._core import RunVar, CancelScope
+from ._core import open_nursery, RunVar, CancelScope, wait_readable
 from ._sync import CapacityLimiter
 from ._threads import to_thread_run_sync
 
@@ -17,6 +17,14 @@ IDLE_TIMEOUT = 60 * 10
 # Sane default might be to expect cpu-bound work
 DEFAULT_LIMIT = os.cpu_count()
 _proc_counter = count()
+
+if os.name == "nt":
+    from ._wait_for_object import WaitForSingleObject
+
+    # TODO: This uses a thread per-process. Can we do better?
+    wait_sentinel = WaitForSingleObject
+else:
+    wait_sentinel = wait_readable
 
 
 class BrokenWorkerError(RuntimeError):
@@ -138,23 +146,34 @@ class WorkerProc:
     async def run_sync(self, sync_fn, *args):
         # Neither this nor the child process should be waiting at this point
         assert not self._barrier.n_waiting, "Must first wake_up() the WorkerProc"
-        try:
-            await to_thread_run_sync(
-                self._send_pipe.send, (sync_fn, args), cancellable=True
-            )
-            result = await to_thread_run_sync(self._recv_pipe.recv, cancellable=True)
-        except EOFError:
-            # Likely the worker died while we were waiting on a pipe
-            self.kill()  # Just make sure
-            # then raise the appropriate error
-            raise BrokenWorkerError(f"{self._proc} died unexpectedly")
-        except BaseException:
-            # Cancellation leaves the process in an unknown state, so
-            # there is no choice but to kill, anyway it frees the pipe threads.
-            # For other unknown errors, it's best to clean up similarly.
-            self.kill()
-            raise
+        async with open_nursery() as nursery:
+            await nursery.start(self._child_monitor)
+            try:
+                await to_thread_run_sync(
+                    self._send_pipe.send, (sync_fn, args), cancellable=True
+                )
+                result = await to_thread_run_sync(
+                    self._recv_pipe.recv, cancellable=True
+                )
+            except EOFError:
+                # Likely the worker died while we were waiting on a pipe
+                self.kill()  # Just make sure
+                # then raise the appropriate error
+                raise BrokenWorkerError(f"{self._proc} died unexpectedly")
+            except BaseException:
+                # Cancellation leaves the process in an unknown state, so
+                # there is no choice but to kill, anyway it frees the pipe threads.
+                # For other unknown errors, it's best to clean up similarly.
+                self.kill()
+                raise
+            nursery.cancel_scope.cancel()
         return result.unwrap()
+
+    async def _child_monitor(self, task_status):
+        task_status.started()
+        # If this handle becomes ready, raise a catchable error
+        await wait_sentinel(self._proc.sentinel)
+        raise BrokenWorkerError(f"{self._proc} died unexpectedly")
 
     def is_alive(self):
         # if the proc is alive, there is a race condition where it could be
