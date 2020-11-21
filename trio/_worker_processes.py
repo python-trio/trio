@@ -47,14 +47,14 @@ class ProcCache:
         # themselves anyways, so we don't need O(1) lookups
         self._cache = deque()
 
-    def prune_expired_procs(self):
+    def prune(self):
         # take advantage of the oldest proc being on the left to
         # keep iteration O(dead)
         while self._cache:
             proc = self._cache.popleft()
             if proc.is_alive():
                 self._cache.appendleft(proc)
-                break
+                return
 
     def push(self, proc):
         self._cache.append(proc)
@@ -75,11 +75,7 @@ class ProcCache:
         return len(self._cache)
 
 
-IDLE_PROC_CACHE = ProcCache()
-
-
-class BrokenWorkerError(RuntimeError):
-    pass
+PROC_CACHE = ProcCache()
 
 
 class WorkerProc:
@@ -210,10 +206,10 @@ async def to_process_run_sync(sync_fn, *args, cancellable=False, limiter=None):
         limiter = current_default_process_limiter()
 
     async with limiter:
-        IDLE_PROC_CACHE.prune_expired_procs()
+        PROC_CACHE.prune()
 
         try:
-            proc = IDLE_PROC_CACHE.pop()
+            proc = PROC_CACHE.pop()
         except IndexError:
             proc = await trio.to_thread.run_sync(WorkerProc)
 
@@ -222,4 +218,4 @@ async def to_process_run_sync(sync_fn, *args, cancellable=False, limiter=None):
                 return await proc.run_sync(sync_fn, *args)
         finally:
             if proc.is_alive():
-                IDLE_PROC_CACHE.push(proc)
+                PROC_CACHE.push(proc)

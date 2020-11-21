@@ -15,7 +15,7 @@ from .._threads import to_thread_run_sync
 def empty_proc_cache():
     while True:
         try:
-            proc = _worker_processes.IDLE_PROC_CACHE.pop()
+            proc = _worker_processes.PROC_CACHE.pop()
             proc.kill()
         except IndexError:
             return
@@ -186,10 +186,10 @@ async def test_spawn_worker_in_thread_and_prune_cache():
     proc.kill()
     proc._proc.join()
     # put dead proc into the cache (normal code never does this)
-    _worker_processes.IDLE_PROC_CACHE.push(proc)
+    _worker_processes.PROC_CACHE.push(proc)
     # should spawn a new worker and remove the dead one
     _, pid2 = await to_process_run_sync(_echo_and_pid, None)
-    assert len(_worker_processes.IDLE_PROC_CACHE) == 1
+    assert len(_worker_processes.PROC_CACHE) == 1
     assert pid1 != pid2
 
 
