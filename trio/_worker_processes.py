@@ -39,13 +39,6 @@ def current_default_process_limiter():
     return limiter
 
 
-if os.name == "nt":
-    # TODO: This uses a thread per-process. Can we do better?
-    wait_sentinel = trio.lowlevel.WaitForSingleObject
-else:
-    wait_sentinel = trio.lowlevel.wait_readable
-
-
 class ProcCache:
     def __init__(self):
         # The cache is a deque rather than dict here since processes can't remove
@@ -145,34 +138,23 @@ class WorkerProc:
     async def run_sync(self, sync_fn, *args):
         # Neither this nor the child process should be waiting at this point
         assert not self._barrier.n_waiting, "Must first wake_up() the WorkerProc"
-        async with trio.open_nursery() as nursery:
-            try:
-                await nursery.start(self._child_monitor)
-                await trio.to_thread.run_sync(
-                    self._send_pipe.send, (sync_fn, args), cancellable=True
-                )
-                result = await trio.to_thread.run_sync(
-                    self._recv_pipe.recv, cancellable=True
-                )
-            except trio.Cancelled:
-                # Cancellation leaves the process in an unknown state so
-                # there is no choice but to kill, anyway it frees the pipe threads
-                self.kill()
-                raise
-            except EOFError:
-                # Likely the worker died while we were waiting on a pipe
-                self.kill()
-                # sleep and let the monitor raise the appropriate error
-                await trio.sleep_forever()
-            # must cancel the child monitor task to exit nursery
-            nursery.cancel_scope.cancel()
+        try:
+            await to_thread_run_sync(
+                self._send_pipe.send, (sync_fn, args), cancellable=True
+            )
+            result = await to_thread_run_sync(self._recv_pipe.recv, cancellable=True)
+        except EOFError:
+            # Likely the worker died while we were waiting on a pipe
+            self.kill()  # Just make sure
+            # then raise the appropriate error
+            raise BrokenWorkerError(f"{self._proc} died unexpectedly")
+        except BaseException:
+            # Cancellation leaves the process in an unknown state, so
+            # there is no choice but to kill, anyway it frees the pipe threads.
+            # For other unknown errors, it's best to clean up similarly.
+            self.kill()
+            raise
         return result.unwrap()
-
-    async def _child_monitor(self, task_status):
-        task_status.started()
-        # If this handle becomes ready, raise a catchable error
-        await wait_sentinel(self._proc.sentinel)
-        raise BrokenWorkerError(f"{self._proc} died unexpectedly")
 
     def is_alive(self):
         # if the proc is alive, there is a race condition where it could be
