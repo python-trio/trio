@@ -158,8 +158,9 @@ class WorkerProc:
 
     def is_alive(self):
         # if the proc is alive, there is a race condition where it could be
-        # dying, but the the barrier should be broken at that time
-        return self._proc.is_alive() and not self._barrier.broken
+        # dying, but the the barrier should be broken at that time.
+        # Barrier state is a little quicker to check so do that first
+        return not self._barrier.broken and self._proc.is_alive()
 
     def wake_up(self, timeout=None):
         # raise an exception if the barrier is broken or we must wait
@@ -171,6 +172,7 @@ class WorkerProc:
             raise BrokenWorkerError(f"{self._proc} died unexpectedly") from None
 
     def kill(self):
+        self._barrier.abort()
         try:
             self._proc.kill()
         except AttributeError:
