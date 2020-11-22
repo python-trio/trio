@@ -1,0 +1,4 @@
+Trio now provides `multiprocessing` based worker processes for the delegation
+of cpu-bound work via :func:`trio.to_process.run_sync`. The API is comparable to
+:func:`trio.to_thread.run_sync` but true cancellation is achieved by killing the
+worker process.

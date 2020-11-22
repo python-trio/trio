@@ -29,6 +29,12 @@ else:
 
 
 class BrokenWorkerError(RuntimeError):
+    """Raised when a worker process fails or dies unexpectedly.
+
+    This error is not typically encountered in normal use, and indicates a severe
+    failure of either Trio or the code that was executing in the worker.
+    """
+
     pass
 
 
@@ -37,7 +43,8 @@ def current_default_process_limiter():
     `trio.to_process.run_sync`.
 
     The most common reason to call this would be if you want to modify its
-    :attr:`~trio.CapacityLimiter.total_tokens` attribute.
+    :attr:`~trio.CapacityLimiter.total_tokens` attribute. This attribute
+    is initialized to the number of CPUs reported by :func:`os.cpu_count`.
 
     """
     try:
@@ -205,15 +212,38 @@ class WorkerProc:
 async def to_process_run_sync(sync_fn, *args, cancellable=False, limiter=None):
     """Run sync_fn in a separate process
 
-    This is a wrapping of multiprocessing.Process that follows the API of
-    trio.to_thread.run_sync. The intended use of this function is limited:
+    This is a wrapping of :class:`multiprocessing.Process` that follows the API of
+    :func:`trio.to_thread.run_sync`. The intended use of this function is limited:
 
-    - Circumvent the GIL for CPU-bound functions
+    - Circumvent the GIL to run CPU-bound functions in parallel
     - Make blocking APIs or infinite loops truly cancellable through
       SIGKILL/TerminateProcess without leaking resources
-    - Protect main process from untrusted/crashy code without leaks
+    - Protect the main process from untrusted/unstable code without leaks
 
-    Anything else that works is gravy, normal multiprocessing caveats apply."""
+    Other :mod:`multiprocessing` features may work but are not officially
+    supported by Trio, and all the normal :mod:`multiprocessing` caveats apply.
+
+    Args:
+      sync_fn: An importable or pickleable synchronous callable. See the
+          :mod:`multiprocessing` documentation for detailed explanation of
+          limitations.
+      *args: Positional arguments to pass to sync_fn. If you need keyword
+          arguments, use :func:`functools.partial`.
+      cancellable (bool): Whether to allow cancellation of this operation.
+          Cancellation always involves abrupt termination of the worker process
+          with SIGKILL/TerminateProcess.
+      limiter (None, or async context manager):
+          An object used to limit the number of simultaneous processes. Most
+          commonly this will be a `~trio.CapacityLimiter`, but any async
+          context manager will succeed.
+
+    Returns:
+      Whatever ``sync_fn(*args)`` returns.
+
+    Raises:
+      Exception: Whatever ``sync_fn(*args)`` raises.
+
+    """
     if limiter is None:
         limiter = current_default_process_limiter()
 
