@@ -177,11 +177,11 @@ async def test_to_process_run_sync_raises_on_segfault():
                         _segfault_out_of_bounds_pointer, cancellable=True
                     )
     except BrokenWorkerError:
-        if attempts > 1:
+        if attempts > 1:  # pragma: no cover
             pytest.xfail(f"Too many attempts needed to segfault: {attempts}")
-    except TooSlowError:
+    except TooSlowError:  # pragma: no cover
         pytest.xfail(f"Unable to cause segfault after {attempts} attempts.")
-    else:
+    else:  # pragma: no cover
         pytest.fail("No error was raised on segfault.")
 
 
@@ -214,9 +214,14 @@ async def test_spawn_worker_in_thread_and_prune_cache():
     pid1 = proc._proc.pid
     proc.kill()
     proc._proc.join()
+    # dead procs shouldn't wake up
     with pytest.raises(BrokenWorkerError):
         proc.wake_up()
     # put dead proc into the cache (normal code never does this)
+    _worker_processes.PROC_CACHE.push(proc)
+    # dead procs shouldn't pop out
+    with pytest.raises(IndexError):
+        _worker_processes.PROC_CACHE.pop()
     _worker_processes.PROC_CACHE.push(proc)
     # should spawn a new worker and remove the dead one
     _, pid2 = await to_process_run_sync(_echo_and_pid, None)
