@@ -106,7 +106,7 @@ class WorkerProc:
         self.wake_up()
 
     @staticmethod
-    def _work(barrier, recv_pipe, send_pipe):
+    def _work(barrier, recv_pipe, send_pipe):  # pragma: no cover
 
         import inspect
         import outcome
