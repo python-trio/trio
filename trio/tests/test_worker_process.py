@@ -152,6 +152,14 @@ def _segfault_out_of_bounds_pointer():  # pragma: no cover
 
 @slow
 async def test_to_process_run_sync_raises_on_segfault():
+    # This test was flaky on CI across several platforms and implementations.
+    # I haven't been able to reproduce the problem locally at all.
+    # The usual symptom was for the segfault to occur, but the process
+    # to fail to raise the error for more than one minute, which would
+    # crash the test runner for 10 minutes.
+    # Here we raise our own failure error before the test runner timeout (45s)
+    # and repeatedly run the segfault test as much as possible but xfail
+    # if we actually have to repeat
     attempts = 0
     with pytest.raises(_worker_processes.BrokenWorkerError):
         with fail_after(45):
@@ -161,6 +169,8 @@ async def test_to_process_run_sync_raises_on_segfault():
                     await to_process_run_sync(
                         _segfault_out_of_bounds_pointer, cancellable=True
                     )
+    if attempts > 1:
+        pytest.xfail(f"Too many attempts needed to segfault: {attempts}")
 
 
 def _never_halts(ev):  # pragma: no cover
