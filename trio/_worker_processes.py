@@ -232,7 +232,7 @@ async def to_process_run_sync(sync_fn, *args, cancellable=False, limiter=None):
       cancellable (bool): Whether to allow cancellation of this operation.
           Cancellation always involves abrupt termination of the worker process
           with SIGKILL/TerminateProcess.
-      limiter (None, or async context manager):
+      limiter (None, or CapacityLimiter):
           An object used to limit the number of simultaneous processes. Most
           commonly this will be a `~trio.CapacityLimiter`, but any async
           context manager will succeed.
