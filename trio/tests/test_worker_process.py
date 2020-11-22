@@ -3,11 +3,16 @@ import os
 
 import pytest
 
-from .. import _core, fail_after, move_on_after
+from .. import _core
+from .._sync import CapacityLimiter
+from .._timeouts import fail_after, move_on_after, TooSlowError
 from .. import _worker_processes
 from .._core.tests.tutil import slow
-from .._worker_processes import to_process_run_sync, current_default_process_limiter, \
-    BrokenWorkerError
+from .._worker_processes import (
+    to_process_run_sync,
+    current_default_process_limiter,
+    BrokenWorkerError,
+)
 from ..testing import wait_all_tasks_blocked
 from .._threads import to_thread_run_sync
 
@@ -33,13 +38,14 @@ def _raise_pid():  # pragma: no cover
 @slow
 async def test_run_in_worker_process():
     trio_pid = os.getpid()
+    limiter = CapacityLimiter(1)
 
-    x, child_pid = await to_process_run_sync(_echo_and_pid, 1)
+    x, child_pid = await to_process_run_sync(_echo_and_pid, 1, limiter=limiter)
     assert x == 1
     assert child_pid != trio_pid
 
     with pytest.raises(ValueError) as excinfo:
-        await to_process_run_sync(_raise_pid)
+        await to_process_run_sync(_raise_pid, limiter=limiter)
     print(excinfo.value.args)
     assert excinfo.value.args[0] != trio_pid
 
@@ -157,12 +163,12 @@ async def test_to_process_run_sync_raises_on_segfault():
     # I haven't been able to reproduce the problem locally at all.
     # The usual symptom was for the segfault to occur, but the process
     # to fail to raise the error for more than one minute, which would
-    # crash the test runner for 10 minutes.
+    # stall the test runner for 10 minutes.
     # Here we raise our own failure error before the test runner timeout (45s)
     # and repeatedly run the segfault test as much as possible but xfail
-    # if we actually have to repeat
+    # if we actually have to repeat or timeout.
     attempts = 0
-    with pytest.raises(_worker_processes.BrokenWorkerError):
+    try:
         with fail_after(45):
             while True:
                 with move_on_after(2):
@@ -170,8 +176,13 @@ async def test_to_process_run_sync_raises_on_segfault():
                     await to_process_run_sync(
                         _segfault_out_of_bounds_pointer, cancellable=True
                     )
-    if attempts > 1:
-        pytest.xfail(f"Too many attempts needed to segfault: {attempts}")
+    except BrokenWorkerError:
+        if attempts > 1:
+            pytest.xfail(f"Too many attempts needed to segfault: {attempts}")
+    except TooSlowError:
+        pytest.xfail(f"Unable to cause segfault after {attempts} attempts.")
+    else:
+        pytest.fail("No error was raised on segfault.")
 
 
 def _never_halts(ev):  # pragma: no cover
