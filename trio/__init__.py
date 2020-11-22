@@ -90,6 +90,8 @@ from ._highlevel_ssl_helpers import (
 
 from ._deprecate import TrioDeprecationWarning
 
+from ._worker_processes import BrokenWorkerError
+
 # Submodules imported by default
 from . import lowlevel
 from . import socket
