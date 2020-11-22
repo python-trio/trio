@@ -6,7 +6,8 @@ import pytest
 from .. import _core, fail_after, move_on_after
 from .. import _worker_processes
 from .._core.tests.tutil import slow
-from .._worker_processes import to_process_run_sync, current_default_process_limiter
+from .._worker_processes import to_process_run_sync, current_default_process_limiter, \
+    BrokenWorkerError
 from ..testing import wait_all_tasks_blocked
 from .._threads import to_thread_run_sync
 
@@ -202,6 +203,8 @@ async def test_spawn_worker_in_thread_and_prune_cache():
     pid1 = proc._proc.pid
     proc.kill()
     proc._proc.join()
+    with pytest.raises(BrokenWorkerError):
+        proc.wake_up()
     # put dead proc into the cache (normal code never does this)
     _worker_processes.PROC_CACHE.push(proc)
     # should spawn a new worker and remove the dead one
