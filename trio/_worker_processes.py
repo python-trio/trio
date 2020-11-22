@@ -74,6 +74,7 @@ class ProcCache:
                 proc.wake_up(0)
             except BrokenWorkerError:
                 # proc must have died in the cache, just try again
+                proc.kill()
                 continue
             else:
                 return proc
