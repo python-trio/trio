@@ -3,7 +3,7 @@ import os
 
 import pytest
 
-from .. import _core
+from .. import _core, BrokenResourceError
 from .._sync import CapacityLimiter
 from .._timeouts import fail_after, TooSlowError
 from .. import _worker_processes
@@ -248,24 +248,17 @@ async def test_to_process_run_sync_large_job():
 async def test_exhaustively_cancel_run_sync():
     # to test that cancellation does not ever leave a living process behind
     # currently requires manually targeting all but last checkpoints
-
-    # rare cancel at nursery.start(self._child_monitor)
-    proc = _worker_processes.WorkerProc()
-
-    with _core.CancelScope() as c:
-        c.cancel()
-        await proc.run_sync(_null_func)
-    assert proc.join(1)
+    m = multiprocessing.Manager()
+    ev = m.Event()
 
     # cancel at job send
-    async def fake_monitor(task_status):
-        task_status.started()
+    async def fake_monitor():
         c.cancel()
 
     proc = _worker_processes.WorkerProc()
     proc._child_monitor = fake_monitor
     with _core.CancelScope() as c:
-        await proc.run_sync(_null_func)
+        await proc.run_sync(_never_halts, ev)
     assert proc.join(1)
 
     # cancel at result recv is tested elsewhere
@@ -279,6 +272,6 @@ def _shorten_timeout():  # pragma: no cover
 async def test_racing_timeout():
     proc = _worker_processes.WorkerProc()
     await proc.run_sync(_shorten_timeout)
-    proc.join()
-    with pytest.raises(BrokenPipeError):
+    assert proc.join(10)
+    with pytest.raises(BrokenResourceError):
         await proc.run_sync(_null_func)
