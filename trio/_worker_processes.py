@@ -156,8 +156,8 @@ class WorkerProc:
         # Neither this nor the child process should be waiting at this point
         assert not self._barrier.n_waiting, "Must first wake_up() the WorkerProc"
         async with open_nursery() as nursery:
-            await nursery.start(self._child_monitor)
             try:
+                await nursery.start(self._child_monitor)
                 await to_thread_run_sync(
                     self._send_pipe.send, (sync_fn, args), cancellable=True
                 )
@@ -176,6 +176,7 @@ class WorkerProc:
                 # For other unknown errors, it's best to clean up similarly.
                 self.kill()
                 raise
+            # Must cancel the _child_monitor task to escape the nursery
             nursery.cancel_scope.cancel()
         return result.unwrap()
 

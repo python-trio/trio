@@ -234,3 +234,30 @@ async def test_to_process_run_sync_large_job():
     n = 2 ** 20
     x, _ = await to_process_run_sync(_echo_and_pid, bytearray(n))
     assert len(x) == n
+
+
+@slow
+async def test_exhaustively_cancel_run_sync():
+    # to test that cancellation does not ever leave a living process behind
+    # currently requires manually targeting all but last checkpoints
+
+    # rare cancel at nursery.start(self._child_monitor)
+    proc = _worker_processes.WorkerProc()
+
+    with _core.CancelScope() as c:
+        c.cancel()
+        await proc.run_sync(_null_func)
+    assert not proc.is_alive()
+
+    # cancel at job send
+    async def fake_monitor(task_status):
+        task_status.started()
+        c.cancel()
+
+    proc = _worker_processes.WorkerProc()
+    proc._child_monitor = fake_monitor
+    with _core.CancelScope() as c:
+        await proc.run_sync(_null_func)
+    assert not proc.is_alive()
+
+    # cancel at result recv is tested elsewhere
