@@ -6,8 +6,8 @@ import outcome
 import attr
 from sortedcontainers import SortedKeyList
 
-import trio
-from ._core import RunVar
+from . import _core
+from ._sync import CapacityLimiter
 from ._core._windows_cffi import (
     ffi,
     kernel32,
@@ -15,6 +15,7 @@ from ._core._windows_cffi import (
     raise_winerror,
     _handle,
 )
+from ._threads import to_thread_run_sync
 
 
 def WaitForMultipleObjects_sync(*handles):
@@ -33,7 +34,7 @@ def WaitForMultipleObjects_sync(*handles):
     return retcode
 
 
-_wait_local = RunVar("waiters")
+_wait_local = _core.RunVar("waiters")
 
 
 @attr.s(slots=True)
@@ -90,13 +91,13 @@ async def _drain_as_completed(wait_group):
         # need a local name in case someone changes it while in thread
         cancel_handle = wait_group[0]
         try:
-            retcode = await trio.to_thread.run_sync(
+            retcode = await to_thread_run_sync(
                 WaitForMultipleObjects_sync,
                 *wait_group,
                 cancellable=True,  # should only happen on trio exit
-                limiter=trio.CapacityLimiter(math.inf),
+                limiter=CapacityLimiter(math.inf),
             )
-        except trio.Cancelled:
+        except _core.Cancelled:
             # free thread and our event for trio exit
             kernel32.SetEvent(cancel_handle)
             kernel32.CloseHandle(cancel_handle)
@@ -182,7 +183,7 @@ def UnregisterWait(cancel_token):
         for waiter in handle_waiter_map[handle]:
             waiter.cancel_handle = cancel_handle
 
-    trio.lowlevel.spawn_system_task(_drain_as_completed, wait_group)
+    _core.spawn_system_task(_drain_as_completed, wait_group)
     wait_groups.add(wait_group)
     return True
 
@@ -238,7 +239,7 @@ def RegisterWaitForSingleObject(handle, callback, context):
     token_handle_map[cancel_token] = handle
     wait_group.append(handle)
 
-    trio.lowlevel.spawn_system_task(_drain_as_completed, wait_group)
+    _core.spawn_system_task(_drain_as_completed, wait_group)
     wait_groups.add(wait_group)
 
     return cancel_token
@@ -262,15 +263,33 @@ async def WaitForSingleObject(obj):
     if _is_signaled(handle):
         return
 
-    cancel_token = RegisterWaitForSingleObject(
-        handle, trio.lowlevel.reschedule, trio.lowlevel.current_task()
-    )
+    task = _core.current_task()
+    trio_token = _core.current_trio_token()
+    # This register transforms the _core.Abort.FAILED case from pulsed (on while
+    # the cffi callback is running) to level triggered
+    reschedule_in_flight = [False]
+
+    def wakeup():
+        reschedule_in_flight[0] = True
+        try:
+            trio_token.run_sync_soon(_core.reschedule, task, idempotent=True)
+        except _core.RunFinishedError:
+            # No need to throw a fit here, the task can't be rescheduled anyway
+            pass
+
+    cancel_token = RegisterWaitForSingleObject(handle, wakeup)
 
     def abort(raise_cancel):
-        if UnregisterWait(cancel_token):
-            return trio.lowlevel.Abort.SUCCEEDED
+        retcode = UnregisterWait(cancel_token)
+        if retcode == ErrorCodes.ERROR_IO_PENDING or reschedule_in_flight[0]:
+            # The callback is about to wake up our task
+            return _core.Abort.FAILED
+        elif retcode:
+            return _core.Abort.SUCCEEDED
         else:
-            return trio.lowlevel.Abort.FAILED
+            raise_winerror()
 
-    await trio.lowlevel.wait_task_rescheduled(abort)
-    # TODO: handle failure of UnregisterWait
+    await _core.wait_task_rescheduled(abort)
+    # Unconditional unregister if not cancelled. Resource cleanup? MSDN says,
+    # "Even wait operations that use WT_EXECUTEONLYONCE must be canceled."
+    UnregisterWait(cancel_token)
