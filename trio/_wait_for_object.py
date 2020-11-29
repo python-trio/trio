@@ -1,9 +1,7 @@
-import math
 import threading
 import warnings
 from collections import defaultdict
 
-import outcome
 import attr
 from sortedcontainers import SortedKeyList
 
@@ -38,7 +36,6 @@ def WaitForMultipleObjects_sync(*handles):
 @attr.s(slots=True)
 class HandleWaiter:
     callback = attr.ib()
-    context = attr.ib()
     cancel_token = attr.ib()
     cancel_handle = attr.ib()
 
@@ -47,7 +44,6 @@ class HandleWaiter:
 class WaitJob:
     handle = attr.ib()
     callback = attr.ib()
-    context = attr.ib()
 
 
 def _make_cancel_token(job):
@@ -73,7 +69,7 @@ class WaitPool:
 
     def pop_by_cancel_handle(self, cancel_handle):
         for i, wait_group in enumerate(self.wait_groups):
-            if wait_group[0] == cancel_handle:
+            if wait_group.cancel_handle == cancel_handle:
                 del self.wait_groups[i]
                 return wait_group
 
@@ -82,14 +78,17 @@ WAIT_POOL = WaitPool()
 
 
 class WaitGroup:
-    def __init__(self):
+    def __init__(self, cancel_handle):
         self.waiters = []
-        self.cancel_handle = None
+        self.cancel_handle = cancel_handle
         self.lock = threading.Lock()
         self.lock.acquire()
 
+    def __len__(self):
+        return len(self.waiters) + 1  # include cancel_handle
+
     def drain_as_completed(self):
-        while len(self.waiters) > 1:
+        while self.waiters:
             # need a local name in case someone changes it while in thread
             cancel_handle = self.cancel_handle
             self.lock.release()
@@ -109,15 +108,16 @@ class WaitGroup:
 
             # a handle other than the cancel_handle fired
             WAIT_POOL.pop_by_cancel_handle(cancel_handle)
-            handle = self.waiters.pop(retcode)
-            WAIT_POOL.wait_groups.add(self.waiters)
+            handle = self.waiters.pop(retcode - 1)
+            WAIT_POOL.wait_groups.add(self)
             for waiter in WAIT_POOL.handle_waiter_map.pop(handle):
                 WAIT_POOL.token_handle_map.pop(waiter.cancel_token)
-                outcome.capture(waiter.callback, waiter.context)
+                waiter.callback()
             del waiter, handle
         # only the cancel handle remains, clean up and return
         WAIT_POOL.pop_by_cancel_handle(cancel_handle)
         kernel32.CloseHandle(cancel_handle)
+        self.lock.release()
 
 
 def UnregisterWait(cancel_token):
@@ -134,7 +134,7 @@ def UnregisterWait(cancel_token):
     handle = WAIT_POOL.token_handle_map.pop(cancel_token)
     # give up if handle been triggered
     if _is_signaled(handle):
-        return False
+        return ErrorCodes.ERROR_IO_PENDING
     waiters = WAIT_POOL.handle_waiter_map[handle]
 
     if len(waiters) > 1:
@@ -159,7 +159,7 @@ def UnregisterWait(cancel_token):
     # remove it from wait_groups as well as we will change its size
     wait_group = WAIT_POOL.pop_by_cancel_handle(cancel_handle)
     assert wait_group is not None
-    wait_group.remove(handle)
+    wait_group.waiters.remove(handle)
     del handle
 
     if len(wait_group) == 1:
@@ -174,12 +174,18 @@ def UnregisterWait(cancel_token):
         for waiter in WAIT_POOL.handle_waiter_map[handle]:
             waiter.cancel_handle = cancel_handle
 
-    _core.start_thread_soon(wait_group.drain_as_completed)
+    trio_token = _core.current_trio_token()
+
+    def deliver(outcome):
+        # blow up trio if the thread raises so we get a traceback
+        trio_token.run_sync_soon(outcome.unwrap)
+
+    _core.start_thread_soon(wait_group.drain_as_completed, deliver)
     WAIT_POOL.wait_groups.add(wait_group)
     return True
 
 
-def RegisterWaitForSingleObject(handle, callback, context):
+def RegisterWaitForSingleObject(handle, callback):
     """Trio thread cache variant of RegisterWaitForSingleObject.
 
     Args:
@@ -187,49 +193,54 @@ def RegisterWaitForSingleObject(handle, callback, context):
 
       callback: A Python function, called with context as an argument
 
-      context: A Python object, used as an argument to callback
-
     Returns:
       cancel_token: An opaque Python object that can be used with UnregisterWait
 
     Callbacks run with semantics equivalent to
     WT_EXECUTEINWAITTHREAD | WT_EXECUTEONLYONCE
 
-    Callbacks are run in a trio system task, so they must not raise errors
+    Callbacks are run in a trio system thread, so they must not raise errors
 
     """
-    job = WaitJob(handle, callback, context)
+    job = WaitJob(handle, callback)
     cancel_token = _make_cancel_token(job)
     # Shortcut if we are already waiting on this handle
     if handle in WAIT_POOL.handle_waiter_map:
         waiters = WAIT_POOL.handle_waiter_map[handle]
         # assumes no empty waiters lists in handle_waiter_map
         cancel_handle = waiters[0].cancel_handle
-        waiters.append(HandleWaiter(callback, context, cancel_token, cancel_handle,))
+        waiters.append(HandleWaiter(callback, cancel_token, cancel_handle,))
         return cancel_token
 
     cancel_handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     wait_group_index = WAIT_POOL.wait_groups.bisect_key_left(64) - 1
     if wait_group_index == -1:
         # wait_groups is empty or every group is full with 64
-        wait_group = [cancel_handle]
+        wait_group = WaitGroup(cancel_handle)
     else:
         wait_group = WAIT_POOL.wait_groups.pop(wait_group_index)
-        # wake this particular group
-        # cancel handle is on the left by construction
-        kernel32.SetEvent(wait_group[0])
-        # overwrite with fresh cancel_handle since PulseEvent/ResetEvent could be flaky
-        wait_group[0] = cancel_handle
-        # update each waiter with the new cancel_handle
-        for waiter in WAIT_POOL.handle_waiter_map[handle]:
-            waiter.cancel_handle = cancel_handle
+        with wait_group.lock:
+            # wake this particular group
+            # cancel handle is on the left by construction
+            kernel32.SetEvent(wait_group[0])
+            # overwrite with fresh cancel_handle since PulseEvent/ResetEvent could be flaky
+            wait_group.cancel_handle = cancel_handle
+            # update each waiter with the new cancel_handle
+            for waiter in WAIT_POOL.handle_waiter_map[handle]:
+                waiter.cancel_handle = cancel_handle
     WAIT_POOL.handle_waiter_map[handle].append(
-        HandleWaiter(callback, context, cancel_token, cancel_handle)
+        HandleWaiter(callback, cancel_token, cancel_handle)
     )
     WAIT_POOL.token_handle_map[cancel_token] = handle
-    wait_group.append(handle)
+    wait_group.waiters.append(handle)
 
-    _core.start_thread_soon(wait_group.drain_as_completed)
+    trio_token = _core.current_trio_token()
+
+    def deliver(outcome):
+        # blow up trio if the thread raises so we get a traceback
+        trio_token.run_sync_soon(outcome.unwrap)
+
+    _core.start_thread_soon(wait_group.drain_as_completed, deliver)
     WAIT_POOL.wait_groups.add(wait_group)
 
     return cancel_token
@@ -245,6 +256,7 @@ async def WaitForSingleObject(obj):
       OSError: If the handle is invalid, e.g. when it is already closed.
 
     """
+    await _core.checkpoint_if_cancelled()
     # Allow ints or whatever we can convert to a win handle
     handle = _handle(obj)
 
