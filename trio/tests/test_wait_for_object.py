@@ -218,3 +218,27 @@ async def test_WaitForSingleObject_slow():
     t1 = _core.current_time()
     assert TIMEOUT <= (t1 - t0) < 2.0 * TIMEOUT
     print("test_WaitForSingleObject_slow cancellation OK")
+
+
+async def test_multi_wait():
+    handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
+    handle2 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
+    try:
+        # Check that wait (including multi-wait) tolerates being cancelled
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(WaitForSingleObject, handle)
+            nursery.start_soon(WaitForSingleObject, handle)
+            nursery.start_soon(WaitForSingleObject, handle2)
+            await _core.wait_all_tasks_blocked()
+            nursery.cancel_scope.cancel()
+
+        # Now try waiting for real
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(WaitForSingleObject, handle)
+            nursery.start_soon(WaitForSingleObject, handle)
+            nursery.start_soon(WaitForSingleObject, handle2)
+            await _core.wait_all_tasks_blocked()
+            kernel32.SetEvent(handle)
+    finally:
+        kernel32.CloseHandle(handle)
+        kernel32.CloseHandle(handle2)
