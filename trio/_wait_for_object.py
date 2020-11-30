@@ -18,7 +18,7 @@ from ._core._windows_cffi import (
 def WaitForMultipleObjects_sync(*handles):
     """Wait for any of the given Windows handles to be signaled."""
     n = len(handles)
-    handle_arr = ffi.new("HANDLE[{}]".format(n))
+    handle_arr = ffi.new("HANDLE[]", n)
     for i in range(n):
         handle_arr[i] = handles[i]
     timeout = 0xFFFFFFFF  # INFINITE
@@ -30,17 +30,10 @@ def WaitForMultipleObjects_sync(*handles):
     ):  # We should never abandon handles but who knows
         retcode -= ErrorCodes.WAIT_ABANDONED
         warnings.warn(RuntimeWarning("Abandoned Mutex: {}".format(handles[retcode])))
-    return retcode
+    return handles[retcode]
 
 
-@attr.s(slots=True)
-class CallbackHolder:
-    callback = attr.ib()
-    cancel_token = attr.ib()
-    cancel_handle = attr.ib()
-
-
-@attr.s(slots=True, frozen=True)
+@attr.s(slots=True, frozen=True, eq=False)
 class WaitJob:
     handle = attr.ib()
     callback = attr.ib()
@@ -72,7 +65,7 @@ WAIT_POOL = WaitPool()
 
 class WaitGroup:
     def __init__(self, cancel_handle):
-        self.wait_handles = []
+        self.wait_handles = set()
         self.cancel_handle = cancel_handle
         self.lock = threading.Lock()
         self.lock.acquire()
@@ -85,7 +78,7 @@ class WaitGroup:
             # need a local name in case someone changes it while in thread
             cancel_handle = self.cancel_handle
             self.lock.release()
-            retcode = WaitForMultipleObjects_sync(cancel_handle, *self.wait_handles)
+            woken_handle = WaitForMultipleObjects_sync(cancel_handle, *self.wait_handles)
             self.lock.acquire()
 
             if retcode == 0:
@@ -101,7 +94,7 @@ class WaitGroup:
 
             # a handle other than the cancel_handle fired
             WAIT_POOL.pop_by_cancel_handle(cancel_handle)
-            handle = self.wait_handles.pop(retcode - 1)
+            handle = self.wait_handles.discard(woken_handle)
             WAIT_POOL.wait_groups.add(self)
             for waiter in WAIT_POOL.callbacks.pop(handle):
                 WAIT_POOL.submitted_handles.pop(waiter.cancel_token)
@@ -227,7 +220,7 @@ def RegisterWaitForSingleObject(handle, callback):
         CallbackHolder(callback, cancel_token, cancel_handle)
     )
     WAIT_POOL.submitted_handles[cancel_token] = handle
-    wait_group.wait_handles.append(handle)
+    wait_group.wait_handles.add(handle)
 
     trio_token = _core.current_trio_token()
 
