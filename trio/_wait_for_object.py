@@ -126,14 +126,9 @@ def UnregisterWait(cancel_token):
 
     if len(wait_jobs) > 1:
         # simply discard the data associated with this cancel_token
-        for i, waiter in enumerate(wait_jobs):
-            if cancel_token == waiter[2]:
-                del wait_jobs[i]
-                return True
-        else:
-            raise RuntimeError(
-                "Nothing found to cancel with cancel_token {}".format(cancel_token)
-            )
+        # This should never raise IndexError because of how we obtain wait_jobs
+        wait_jobs.remove(cancel_token)
+        return True
 
     assert wait_jobs
     # This cancel_token points to a handle that only has one waiter
