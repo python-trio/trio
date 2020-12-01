@@ -49,13 +49,18 @@ def _is_signaled(handle):
 
 class WaitPool:
     def __init__(self):
-        self.callbacks = defaultdict(list)
-        self.submitted_handles = {}
+        self.wait_jobs_by_handle = defaultdict(list)
         self.wait_groups = SortedKeyList(key=len)
 
     def pop_by_cancel_handle(self, cancel_handle):
         for i, wait_group in enumerate(self.wait_groups):
             if wait_group.cancel_handle == cancel_handle:
+                del self.wait_groups[i]
+                return wait_group
+
+    def pop_by_wait_handle(self, wait_handle):
+        for i, wait_group in enumerate(self.wait_groups):
+            if wait_handle in wait_group.wait_handles:
                 del self.wait_groups[i]
                 return wait_group
 
@@ -81,11 +86,6 @@ class WaitGroup:
             woken_handle = WaitForMultipleObjects_sync(cancel_handle, *self.wait_handles)
             assert self.lock.acquire(timeout=1)
 
-            if retcode == 0:
-                # cancel_handle activated by another task that will handle things
-                assert _is_signaled(cancel_handle)
-                kernel32.CloseHandle(cancel_handle)
-                return
             # Race condition: cancel_handle may have been signalled after a wakeup
             # on another handle. Treat it as a legitimate cancel.
             if _is_signaled(cancel_handle):
@@ -94,12 +94,11 @@ class WaitGroup:
 
             # a handle other than the cancel_handle fired
             WAIT_POOL.pop_by_cancel_handle(cancel_handle)
-            handle = self.wait_handles.discard(woken_handle)
+            self.wait_handles.discard(woken_handle)
             WAIT_POOL.wait_groups.add(self)
-            for waiter in WAIT_POOL.callbacks.pop(handle):
-                WAIT_POOL.submitted_handles.pop(waiter.cancel_token)
-                waiter.callback()
-            del waiter, handle
+            for wait_job in WAIT_POOL.wait_jobs_by_handle.pop(woken_handle):
+                wait_job.callback()
+            del wait_job, woken_handle
         # only the cancel handle remains, clean up and return
         WAIT_POOL.pop_by_cancel_handle(cancel_handle)
         kernel32.CloseHandle(cancel_handle)
@@ -114,51 +113,49 @@ def UnregisterWait(cancel_token):
 
     """
 
-    if cancel_token not in WAIT_POOL.submitted_handles:
-        return True
+    handle = cancel_token.handle
+    if handle not in WAIT_POOL.wait_jobs_by_handle:
+        # if all is well, this case should be handled by reschedule_in_flight
+        # so return False to cause a crash if that is not the case
+        return False
 
-    handle = WAIT_POOL.submitted_handles.pop(cancel_token)
     # give up if handle been triggered
     if _is_signaled(handle):
         return ErrorCodes.ERROR_IO_PENDING
-    callbacks = WAIT_POOL.callbacks[handle]
+    wait_jobs = WAIT_POOL.wait_jobs_by_handle[handle]
 
-    if len(callbacks) > 1:
+    if len(wait_jobs) > 1:
         # simply discard the data associated with this cancel_token
-        for i, waiter in enumerate(callbacks):
+        for i, waiter in enumerate(wait_jobs):
             if cancel_token == waiter[2]:
-                del callbacks[i]
+                del wait_jobs[i]
                 return True
         else:
             raise RuntimeError(
                 "Nothing found to cancel with cancel_token {}".format(cancel_token)
             )
 
-    assert callbacks
+    assert wait_jobs
     # This cancel_token points to a handle that only has one waiter
-    cancel_handle = callbacks[0].cancel_handle
-    # free any thread waiting on this group
-    kernel32.SetEvent(cancel_handle)
-    del WAIT_POOL.callbacks[handle]
+    del WAIT_POOL.wait_jobs_by_handle[handle]
 
     # extract it from its wait_group
-    # remove it from wait_groups as well as we will change its size
-    wait_group = WAIT_POOL.pop_by_cancel_handle(cancel_handle)
+    # remove it from WAIT_POOL as well as it will change size
+    wait_group = WAIT_POOL.pop_by_wait_handle(handle)
     assert wait_group is not None
+    # free any thread waiting on this group
+    kernel32.SetEvent(wait_group.cancel_handle)
     wait_group.wait_handles.remove(handle)
-    del handle
 
     if len(wait_group) == 1:
         # Just the cancel handle left, we're done
         return True
 
-    # make a new cancel_handle and assign it to all wait_handles of all other handles
-    cancel_handle = wait_group.cancel_handle = kernel32.CreateEventA(
+    # make a new cancel_handle
+    wait_group.cancel_handle = kernel32.CreateEventA(
         ffi.NULL, True, False, ffi.NULL
     )
-    for handle in wait_group.wait_handles:
-        for waiter in WAIT_POOL.callbacks[handle]:
-            waiter.cancel_handle = cancel_handle
+    WAIT_POOL.wait_groups.add(wait_group)
 
     trio_token = _core.current_trio_token()
 
@@ -167,7 +164,6 @@ def UnregisterWait(cancel_token):
         trio_token.run_sync_soon(outcome.unwrap)
 
     _core.start_thread_soon(wait_group.drain_as_completed, deliver)
-    WAIT_POOL.wait_groups.add(wait_group)
     return True
 
 
@@ -177,28 +173,22 @@ def RegisterWaitForSingleObject(handle, callback):
     Args:
       handle: A valid Win32 handle. This should be guaranteed by WaitForSingleObject.
 
-      callback: A Python function, called with context as an argument
+      callback: A Python function.
 
     Returns:
-      cancel_token: An opaque Python object that can be used with UnregisterWait
+      cancel_token: An opaque Python object that can be used with UnregisterWait.
 
     Callbacks run with semantics equivalent to
     WT_EXECUTEINWAITTHREAD | WT_EXECUTEONLYONCE
 
-    Callbacks are run in a trio system thread, so they must not raise errors
+    Callbacks are run in a trio system thread, so they must not raise errors.
 
     """
-    job = WaitJob(handle, callback)
-    # Use id to ensure uniqueness of the token, but uniqueness is only
-    # guaranteed as long as the job tuple lives, so pack it along too
-    cancel_token = id(job), job
+    cancel_token = WaitJob(handle, callback)
 
     # Shortcut if we are already waiting on this handle
-    if handle in WAIT_POOL.callbacks:
-        callbacks = WAIT_POOL.callbacks[handle]
-        # assumes no empty callbacks lists in callbacks dict
-        cancel_handle = callbacks[0].cancel_handle
-        callbacks.append(CallbackHolder(callback, cancel_token, cancel_handle, ))
+    if handle in WAIT_POOL.wait_jobs_by_handle:
+        WAIT_POOL.wait_jobs_by_handle[handle].append(cancel_token)
         return cancel_token
 
     cancel_handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
@@ -218,6 +208,7 @@ def RegisterWaitForSingleObject(handle, callback):
             waiter.cancel_handle = cancel_handle
     WAIT_POOL.wait_jobs_by_handle[handle].append(cancel_token)
     wait_group.wait_handles.add(handle)
+    WAIT_POOL.wait_groups.add(wait_group)
 
     trio_token = _core.current_trio_token()
 
@@ -226,7 +217,6 @@ def RegisterWaitForSingleObject(handle, callback):
         trio_token.run_sync_soon(outcome.unwrap)
 
     _core.start_thread_soon(wait_group.drain_as_completed, deliver)
-    WAIT_POOL.wait_groups.add(wait_group)
 
     return cancel_token
 
@@ -274,7 +264,7 @@ async def WaitForSingleObject(obj):
         elif retcode:
             return _core.Abort.SUCCEEDED
         else:
-            raise_winerror()
+            raise RuntimeError(f"Unexpected retcode: {retcode}")
 
     await _core.wait_task_rescheduled(abort)
     # Unconditional unregister if not cancelled. Resource cleanup? MSDN says,
