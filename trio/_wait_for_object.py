@@ -79,7 +79,7 @@ class WaitGroup:
             cancel_handle = self.cancel_handle
             self.lock.release()
             woken_handle = WaitForMultipleObjects_sync(cancel_handle, *self.wait_handles)
-            self.lock.acquire()
+            assert self.lock.acquire(timeout=1)
 
             if retcode == 0:
                 # cancel_handle activated by another task that will handle things
@@ -208,18 +208,15 @@ def RegisterWaitForSingleObject(handle, callback):
         wait_group = WaitGroup(cancel_handle)
     else:
         wait_group = WAIT_POOL.wait_groups.pop(wait_group_index)
-        with wait_group.lock:
-            # wake this particular group
-            kernel32.SetEvent(wait_group.cancel_handle)
-            # overwrite with fresh cancel_handle since PulseEvent/ResetEvent could be flaky
-            wait_group.cancel_handle = cancel_handle
-            # update each waiter with the new cancel_handle
-            for waiter in WAIT_POOL.callbacks[handle]:
-                waiter.cancel_handle = cancel_handle
-    WAIT_POOL.callbacks[handle].append(
-        CallbackHolder(callback, cancel_token, cancel_handle)
-    )
-    WAIT_POOL.submitted_handles[cancel_token] = handle
+        assert wait_group.lock.acquire(timeout=1)
+        # wake this particular group
+        kernel32.SetEvent(wait_group.cancel_handle)
+        # overwrite with fresh cancel_handle since PulseEvent/ResetEvent could be flaky
+        wait_group.cancel_handle = cancel_handle
+        # update each waiter with the new cancel_handle
+        for waiter in WAIT_POOL.wait_jobs_by_handle[handle]:
+            waiter.cancel_handle = cancel_handle
+    WAIT_POOL.wait_jobs_by_handle[handle].append(cancel_token)
     wait_group.wait_handles.add(handle)
 
     trio_token = _core.current_trio_token()
