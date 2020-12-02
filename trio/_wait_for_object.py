@@ -135,15 +135,12 @@ def UnregisterWait(cancel_token):
 
         wait_jobs = WAIT_POOL.wait_jobs_by_handle[handle]
 
-        if len(wait_jobs) > 1:
-            # simply discard the data associated with this cancel_token
-            # This should never raise IndexError because of how we obtain wait_jobs
-            wait_jobs.remove(cancel_token)
+        # discard the data associated with this cancel_token
+        # This should never raise IndexError because of how we obtain wait_jobs
+        wait_jobs.remove(cancel_token)
+        if wait_jobs:
+            # no cleanup or thread interaction needed
             return True
-
-        assert wait_jobs
-        # This cancel_token has a handle that only has one attached wait_job
-        WAIT_POOL.wait_jobs_by_handle[handle].clear()
 
         # extract it from its wait_group
         # remove it from WAIT_POOL as well as it will change size
