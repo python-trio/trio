@@ -225,21 +225,21 @@ async def test_multi_wait():
     handle2 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     try:
         # Check that wait (including multi-wait) tolerates being cancelled
-        # async with _core.open_nursery() as nursery:
-        #     nursery.start_soon(WaitForSingleObject, handle)
-        #     nursery.start_soon(WaitForSingleObject, handle)
-        #     nursery.start_soon(WaitForSingleObject, handle2)
-        #     await _core.wait_all_tasks_blocked()
-        #     nursery.cancel_scope.cancel()
-        # return
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(WaitForSingleObject, handle)
+            nursery.start_soon(WaitForSingleObject, handle)
+            nursery.start_soon(WaitForSingleObject, handle2)
+            await _core.wait_all_tasks_blocked()
+            nursery.cancel_scope.cancel()
+
         # Now try waiting for real
         async with _core.open_nursery() as nursery:
             nursery.start_soon(WaitForSingleObject, handle)
             nursery.start_soon(WaitForSingleObject, handle)
             nursery.start_soon(WaitForSingleObject, handle2)
-            await _core.wait_all_tasks_blocked(.01)
+            await _core.wait_all_tasks_blocked()
             kernel32.SetEvent(handle)
-            await _core.wait_all_tasks_blocked(.01)
+            await _core.wait_all_tasks_blocked(0.01)
             kernel32.SetEvent(handle2)
     finally:
         kernel32.SetEvent(handle)
