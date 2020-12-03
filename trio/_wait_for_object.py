@@ -89,7 +89,7 @@ class WaitGroup:
 
         _core.start_thread_soon(fn, deliver)
 
-    def wake_soon(self):
+    def cancel_soon(self):
         kernel32.SetEvent(self.cancel_handle)
 
     def drain_as_completed(self, cancel_handle):
@@ -150,7 +150,7 @@ def UnregisterWait(cancel_token):
         wait_group.wait_handles.remove(handle)
 
         # free any thread waiting on this group
-        wait_group.wake_soon()
+        wait_group.cancel_soon()
 
         if len(wait_group) > 1:
             # more waiting needed
@@ -196,7 +196,7 @@ def RegisterWaitForSingleObject(handle, callback):
             wait_group = WaitGroup()
         else:
             wait_group = WAIT_POOL.wait_groups.pop(wait_group_index)
-            wait_group.wake_soon()
+            wait_group.cancel_soon()
 
         WAIT_POOL.wait_jobs_by_handle[handle].append(callback)
         wait_group.wait_handles.append(handle)
