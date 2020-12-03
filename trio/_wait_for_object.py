@@ -74,7 +74,7 @@ class WaitPool:
             wait_group = self._size_sorted_wait_groups.pop(wait_group_index)
             wait_group.cancel_soon()
 
-        wait_group.wait_handles.append(handle)
+        wait_group.add(handle)
         self._callbacks_by_handle[handle].append(callback)
         self._wait_group_by_handle[handle] = wait_group
         self._size_sorted_wait_groups.add(wait_group)
@@ -97,7 +97,7 @@ class WaitPool:
         del self._callbacks_by_handle[handle]
         wait_group = self._wait_group_by_handle.pop(handle)
         self._size_sorted_wait_groups.remove(wait_group)
-        wait_group.wait_handles.remove(handle)
+        wait_group.remove(handle)
 
         # free any thread waiting on this group
         wait_group.cancel_soon()
@@ -114,8 +114,8 @@ class WaitPool:
 
     def execute_and_remove(self, wait_group, signaled_handle_index):
         self._size_sorted_wait_groups.remove(wait_group)
-        signaled_handle = wait_group.wait_handles.pop(signaled_handle_index)
-        if wait_group.wait_handles:
+        signaled_handle = wait_group.pop(signaled_handle_index)
+        if len(wait_group) > 1:
             self._size_sorted_wait_groups.add(wait_group)
         for callback in self._callbacks_by_handle[signaled_handle]:
             callback()
@@ -127,16 +127,24 @@ WAIT_POOL = WaitPool()
 
 class WaitGroup:
     def __init__(self):
-        self.wait_handles = []
+        self._wait_handles = []
+        self._cancel_handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
 
     def __len__(self):
-        return len(self.wait_handles) + 1  # include cancel_handle
+        return len(self._wait_handles) + 1  # include cancel_handle
+
+    def pop(self, index):
+        return self._wait_handles.pop(index)
+
+    def add(self, handle):
+        return self._wait_handles.append(handle)
+
+    def remove(self, handle):
+        return self._wait_handles.remove(handle)
 
     def wait_soon(self):
         trio_token = _core.current_trio_token()
-        cancel_handle = self.cancel_handle = kernel32.CreateEventA(
-            ffi.NULL, True, False, ffi.NULL
-        )
+        cancel_handle = self._cancel_handle
 
         def fn():
             try:
@@ -151,12 +159,13 @@ class WaitGroup:
         _core.start_thread_soon(fn, deliver)
 
     def cancel_soon(self):
-        kernel32.SetEvent(self.cancel_handle)
+        kernel32.SetEvent(self._cancel_handle)
+        self._cancel_handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
 
     def drain_as_completed(self, cancel_handle):
         while True:
             signaled_handle_index = (
-                WaitForMultipleObjects_sync(cancel_handle, *self.wait_handles) - 1
+                WaitForMultipleObjects_sync(cancel_handle, *self._wait_handles) - 1
             )
             with WAIT_POOL.lock:
                 # Race condition: cancel_handle may have been signalled after a
@@ -166,6 +175,8 @@ class WaitGroup:
 
                 # a handle other than the cancel_handle fired
                 WAIT_POOL.execute_and_remove(self, signaled_handle_index)
+                if not self._wait_handles:
+                    return
 
 
 def UnregisterWait(cancel_token):
