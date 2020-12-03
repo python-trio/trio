@@ -51,14 +51,9 @@ def _is_signaled(handle):
 class WaitPool:
     def __init__(self):
         self.wait_jobs_by_handle = defaultdict(list)
+        self.wait_group_by_handle = {}
         self.wait_groups = SortedKeyList(key=len)
         self.lock = threading.Lock()
-
-    def pop_by_wait_handle(self, wait_handle):
-        for i, wait_group in enumerate(self.wait_groups):
-            if wait_handle in wait_group.wait_handles:
-                del self.wait_groups[i]
-                return wait_group
 
 
 WAIT_POOL = WaitPool()
@@ -146,7 +141,8 @@ def UnregisterWait(cancel_token):
 
         # remove handle from WAIT_POOL
         del WAIT_POOL.wait_jobs_by_handle[handle]
-        wait_group = WAIT_POOL.pop_by_wait_handle(handle)
+        wait_group = WAIT_POOL.wait_group_by_handle.pop(handle)
+        WAIT_POOL.wait_groups.remove(wait_group)
         wait_group.wait_handles.remove(handle)
 
         # free any thread waiting on this group
@@ -198,8 +194,9 @@ def RegisterWaitForSingleObject(handle, callback):
             wait_group = WAIT_POOL.wait_groups.pop(wait_group_index)
             wait_group.cancel_soon()
 
-        WAIT_POOL.wait_jobs_by_handle[handle].append(callback)
         wait_group.wait_handles.append(handle)
+        WAIT_POOL.wait_jobs_by_handle[handle].append(callback)
+        WAIT_POOL.wait_group_by_handle[handle] = wait_group
         WAIT_POOL.wait_groups.add(wait_group)
         wait_group.wait_soon()
     finally:
