@@ -90,8 +90,7 @@ class WaitGroup:
     def drain_as_completed(self, cancel_handle):
         while True:
             i = WaitForMultipleObjects_sync(cancel_handle, *self.wait_handles) - 1
-            assert WAIT_POOL.lock.acquire(timeout=1)
-            try:
+            with WAIT_POOL.lock:
                 # Race condition: cancel_handle may have been signalled after a
                 # wakeup on another handle. Cancel takes priority.
                 if _is_signaled(cancel_handle):
@@ -108,8 +107,6 @@ class WaitGroup:
                     WAIT_POOL.wait_groups.add(self)
                 else:
                     return
-            finally:
-                WAIT_POOL.lock.release()
 
 
 def UnregisterWait(cancel_token):
@@ -121,8 +118,7 @@ def UnregisterWait(cancel_token):
     """
 
     handle = cancel_token.handle
-    assert WAIT_POOL.lock.acquire(timeout=1)
-    try:
+    with WAIT_POOL.lock:
         if handle not in WAIT_POOL.wait_jobs_by_handle:
             return True
 
@@ -155,8 +151,6 @@ def UnregisterWait(cancel_token):
         else:
             # Just the cancel handle left, thread will clean up
             pass
-    finally:
-        WAIT_POOL.lock.release()
 
     return True
 
@@ -179,8 +173,7 @@ def RegisterWaitForSingleObject(handle, callback):
 
     """
     cancel_token = WaitJob(handle, callback)
-    assert WAIT_POOL.lock.acquire(timeout=1)
-    try:
+    with WAIT_POOL.lock:
         # Shortcut if we are already waiting on this handle
         if handle in WAIT_POOL.wait_jobs_by_handle:
             WAIT_POOL.wait_jobs_by_handle[handle].append(callback)
@@ -199,8 +192,6 @@ def RegisterWaitForSingleObject(handle, callback):
         WAIT_POOL.wait_group_by_handle[handle] = wait_group
         WAIT_POOL.wait_groups.add(wait_group)
         wait_group.wait_soon()
-    finally:
-        WAIT_POOL.lock.release()
 
     return cancel_token
 
