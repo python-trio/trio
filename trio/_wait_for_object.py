@@ -147,6 +147,9 @@ def UnregisterWait(cancel_token):
         wait_group = WAIT_POOL.pop_by_wait_handle(handle)
         assert wait_group is not None
         # free any thread waiting on this group
+        # race condition: wait thread may not have obtained the GIL yet
+        while wait_group.cancel_handle is None:
+            time.sleep(0)
         kernel32.SetEvent(wait_group.cancel_handle)
         wait_group.wait_handles.remove(handle)
 
