@@ -15,10 +15,13 @@ from ._core._windows_cffi import (
     _handle,
 )
 
+MAXIMUM_WAIT_OBJECTS = 64
+
 
 def WaitForMultipleObjects_sync(*handles):
     """Wait for any of the given Windows handles to be signaled."""
     n = len(handles)
+    assert n <= MAXIMUM_WAIT_OBJECTS
     handle_arr = ffi.new("HANDLE[]", n)
     for i in range(n):
         handle_arr[i] = handles[i]
@@ -55,6 +58,66 @@ class WaitPool:
         self.wait_groups = SortedKeyList(key=len)
         self.lock = threading.Lock()
 
+    def add(self, handle, callback):
+        # Shortcut if we are already waiting on this handle
+        if handle in self.wait_jobs_by_handle:
+            self.wait_jobs_by_handle[handle].append(callback)
+            return
+        wait_group_index = self.wait_groups.bisect_key_left(MAXIMUM_WAIT_OBJECTS) - 1
+        if wait_group_index == -1:
+            # wait_groups is empty or every group is full
+            wait_group = WaitGroup()
+        else:
+            wait_group = self.wait_groups.pop(wait_group_index)
+            wait_group.cancel_soon()
+
+        wait_group.wait_handles.append(handle)
+        self.wait_jobs_by_handle[handle].append(callback)
+        self.wait_group_by_handle[handle] = wait_group
+        self.wait_groups.add(wait_group)
+        wait_group.wait_soon()
+
+    def remove(self, handle, callback):
+        if handle not in self.wait_jobs_by_handle:
+            return False
+
+        wait_jobs = self.wait_jobs_by_handle[handle]
+
+        # discard the data associated with this cancel_token
+        # This should never raise IndexError because of how we obtain wait_jobs
+        wait_jobs.remove(callback)
+        if wait_jobs:
+            # no cleanup or thread interaction needed
+            return True
+
+        # remove handle from WAIT_POOL
+        del self.wait_jobs_by_handle[handle]
+        wait_group = self.wait_group_by_handle.pop(handle)
+        self.wait_groups.remove(wait_group)
+        wait_group.wait_handles.remove(handle)
+
+        # free any thread waiting on this group
+        wait_group.cancel_soon()
+
+        if len(wait_group) > 1:
+            # more waiting needed
+            self.wait_groups.add(wait_group)
+            wait_group.wait_soon()
+        else:
+            # Just the cancel handle left, thread will clean up
+            pass
+
+        return True
+
+    def execute_and_remove(self, wait_group, signaled_handle_index):
+        self.wait_groups.remove(wait_group)
+        signaled_handle = wait_group.wait_handles.pop(signaled_handle_index)
+        if wait_group.wait_handles:
+            self.wait_groups.add(wait_group)
+        for callback in self.wait_jobs_by_handle[signaled_handle]:
+            callback()
+        del self.wait_jobs_by_handle[signaled_handle]
+
 
 WAIT_POOL = WaitPool()
 
@@ -89,7 +152,9 @@ class WaitGroup:
 
     def drain_as_completed(self, cancel_handle):
         while True:
-            i = WaitForMultipleObjects_sync(cancel_handle, *self.wait_handles) - 1
+            signaled_handle_index = (
+                WaitForMultipleObjects_sync(cancel_handle, *self.wait_handles) - 1
+            )
             with WAIT_POOL.lock:
                 # Race condition: cancel_handle may have been signalled after a
                 # wakeup on another handle. Cancel takes priority.
@@ -97,16 +162,7 @@ class WaitGroup:
                     return
 
                 # a handle other than the cancel_handle fired
-                WAIT_POOL.wait_groups.remove(self)
-                woken_handle = self.wait_handles.pop(i)
-                for callback in WAIT_POOL.wait_jobs_by_handle[woken_handle]:
-                    callback()
-                    del callback
-                del WAIT_POOL.wait_jobs_by_handle[woken_handle], woken_handle
-                if self.wait_handles:
-                    WAIT_POOL.wait_groups.add(self)
-                else:
-                    return
+                WAIT_POOL.execute_and_remove(self, signaled_handle_index)
 
 
 def UnregisterWait(cancel_token):
@@ -118,41 +174,13 @@ def UnregisterWait(cancel_token):
     """
 
     handle = cancel_token.handle
+
+    # give up if handle been triggered
+    if _is_signaled(handle):
+        return ErrorCodes.ERROR_IO_PENDING
     with WAIT_POOL.lock:
-        if handle not in WAIT_POOL.wait_jobs_by_handle:
-            return True
 
-        # give up if handle been triggered
-        if _is_signaled(handle):
-            return ErrorCodes.ERROR_IO_PENDING
-
-        wait_jobs = WAIT_POOL.wait_jobs_by_handle[handle]
-
-        # discard the data associated with this cancel_token
-        # This should never raise IndexError because of how we obtain wait_jobs
-        wait_jobs.remove(cancel_token.callback)
-        if wait_jobs:
-            # no cleanup or thread interaction needed
-            return True
-
-        # remove handle from WAIT_POOL
-        del WAIT_POOL.wait_jobs_by_handle[handle]
-        wait_group = WAIT_POOL.wait_group_by_handle.pop(handle)
-        WAIT_POOL.wait_groups.remove(wait_group)
-        wait_group.wait_handles.remove(handle)
-
-        # free any thread waiting on this group
-        wait_group.cancel_soon()
-
-        if len(wait_group) > 1:
-            # more waiting needed
-            WAIT_POOL.wait_groups.add(wait_group)
-            wait_group.wait_soon()
-        else:
-            # Just the cancel handle left, thread will clean up
-            pass
-
-    return True
+        return WAIT_POOL.remove(handle, cancel_token.callback)
 
 
 def RegisterWaitForSingleObject(handle, callback):
@@ -174,24 +202,7 @@ def RegisterWaitForSingleObject(handle, callback):
     """
     cancel_token = WaitJob(handle, callback)
     with WAIT_POOL.lock:
-        # Shortcut if we are already waiting on this handle
-        if handle in WAIT_POOL.wait_jobs_by_handle:
-            WAIT_POOL.wait_jobs_by_handle[handle].append(callback)
-            return cancel_token
-
-        wait_group_index = WAIT_POOL.wait_groups.bisect_key_left(64) - 1
-        if wait_group_index == -1:
-            # wait_groups is empty or every group is full with 64
-            wait_group = WaitGroup()
-        else:
-            wait_group = WAIT_POOL.wait_groups.pop(wait_group_index)
-            wait_group.cancel_soon()
-
-        wait_group.wait_handles.append(handle)
-        WAIT_POOL.wait_jobs_by_handle[handle].append(callback)
-        WAIT_POOL.wait_group_by_handle[handle] = wait_group
-        WAIT_POOL.wait_groups.add(wait_group)
-        wait_group.wait_soon()
+        WAIT_POOL.add(handle, callback)
 
     return cancel_token
 
