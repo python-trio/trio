@@ -31,7 +31,7 @@ def WaitForMultipleObjects_sync(*handles):
     ):  # We should never abandon handles but who knows
         retcode -= ErrorCodes.WAIT_ABANDONED
         warnings.warn(RuntimeWarning("Abandoned Mutex: {}".format(handles[retcode])))
-    return handles[retcode]
+    return retcode
 
 
 @attr.s(slots=True, frozen=True, eq=False)
@@ -54,12 +54,6 @@ class WaitPool:
         self.wait_groups = SortedKeyList(key=len)
         self.lock = threading.Lock()
 
-    def pop_by_cancel_handle(self, cancel_handle):
-        for i, wait_group in enumerate(self.wait_groups):
-            if wait_group.cancel_handle == cancel_handle:
-                del self.wait_groups[i]
-                return wait_group
-
     def pop_by_wait_handle(self, wait_handle):
         for i, wait_group in enumerate(self.wait_groups):
             if wait_handle in wait_group.wait_handles:
@@ -72,47 +66,55 @@ WAIT_POOL = WaitPool()
 
 class WaitGroup:
     def __init__(self):
-        self.wait_handles = set()
-        # this attribute tells other threads what handle
-        # to use for cancelling the group, and must be set
-        # IN THE ACTIVE WAIT THREAD
-        self.cancel_handle = None
+        self.wait_handles = []
 
     def __len__(self):
         return len(self.wait_handles) + 1  # include cancel_handle
 
+    def wait_soon(self):
+        trio_token = _core.current_trio_token()
+        cancel_handle = self.cancel_handle = kernel32.CreateEventA(
+            ffi.NULL, True, False, ffi.NULL
+        )
+
+        def fn():
+            try:
+                self.drain_as_completed(cancel_handle)
+            finally:
+                kernel32.CloseHandle(cancel_handle)
+
+        def deliver(outcome):
+            # blow up trio if the thread raises so we get a traceback
+            trio_token.run_sync_soon(outcome.unwrap)
+
+        _core.start_thread_soon(fn, deliver)
+
+    def wake_soon(self):
+        kernel32.SetEvent(self.cancel_handle)
+
     def drain_as_completed(self, cancel_handle):
-        woken_handle = None
-        self.cancel_handle = cancel_handle
         while True:
-            # need to lock and inspect wait pool state before waiting
-            # since time has passed since launching the thread
+            i = WaitForMultipleObjects_sync(cancel_handle, *self.wait_handles) - 1
             assert WAIT_POOL.lock.acquire(timeout=1)
             try:
-                # Race condition: cancel_handle may have been signalled after a wakeup
-                # on another handle. Treat it as a legitimate cancel.
+                # Race condition: cancel_handle may have been signalled after a
+                # wakeup on another handle. Cancel takes priority.
                 if _is_signaled(cancel_handle):
-                    kernel32.CloseHandle(cancel_handle)
                     return
 
-                if woken_handle is not None:
-                    # a handle other than the cancel_handle fired
-                    WAIT_POOL.pop_by_cancel_handle(cancel_handle)
-                    self.wait_handles.discard(woken_handle)
+                # a handle other than the cancel_handle fired
+                WAIT_POOL.wait_groups.remove(self)
+                woken_handle = self.wait_handles.pop(i)
+                for callback in WAIT_POOL.wait_jobs_by_handle[woken_handle]:
+                    callback()
+                    del callback
+                del WAIT_POOL.wait_jobs_by_handle[woken_handle], woken_handle
+                if self.wait_handles:
                     WAIT_POOL.wait_groups.add(self)
-                    for wait_job in WAIT_POOL.wait_jobs_by_handle[woken_handle]:
-                        wait_job.callback()
-                        del wait_job
-                    del WAIT_POOL.wait_jobs_by_handle[woken_handle], woken_handle
-                if not self.wait_handles:
-                    WAIT_POOL.pop_by_cancel_handle(cancel_handle)
-                    kernel32.CloseHandle(cancel_handle)
+                else:
                     return
             finally:
                 WAIT_POOL.lock.release()
-            woken_handle = WaitForMultipleObjects_sync(
-                cancel_handle, *self.wait_handles
-            )
 
 
 def UnregisterWait(cancel_token):
@@ -137,42 +139,29 @@ def UnregisterWait(cancel_token):
 
         # discard the data associated with this cancel_token
         # This should never raise IndexError because of how we obtain wait_jobs
-        wait_jobs.remove(cancel_token)
+        wait_jobs.remove(cancel_token.callback)
         if wait_jobs:
             # no cleanup or thread interaction needed
             return True
 
-        # extract it from its wait_group
-        # remove it from WAIT_POOL as well as it will change size
+        # remove handle from WAIT_POOL
+        del WAIT_POOL.wait_jobs_by_handle[handle]
         wait_group = WAIT_POOL.pop_by_wait_handle(handle)
-        assert wait_group is not None
-        # free any thread waiting on this group
-        # race condition: wait thread may not have obtained the GIL yet
-        while wait_group.cancel_handle is None:
-            time.sleep(0)
-        kernel32.SetEvent(wait_group.cancel_handle)
         wait_group.wait_handles.remove(handle)
 
-        if len(wait_group) == 1:
-            # Just the cancel handle left, we're done, thread will clean up
-            return True
+        # free any thread waiting on this group
+        wait_group.wake_soon()
 
-        # make a new cancel_handle
-        cancel_handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
-        WAIT_POOL.wait_groups.add(wait_group)
+        if len(wait_group) > 1:
+            # more waiting needed
+            WAIT_POOL.wait_groups.add(wait_group)
+            wait_group.wait_soon()
+        else:
+            # Just the cancel handle left, thread will clean up
+            pass
     finally:
         WAIT_POOL.lock.release()
 
-    trio_token = _core.current_trio_token()
-
-    def fn():
-        wait_group.drain_as_completed(cancel_handle)
-
-    def deliver(outcome):
-        # blow up trio if the thread raises so we get a traceback
-        trio_token.run_sync_soon(outcome.unwrap)
-
-    _core.start_thread_soon(fn, deliver)
     return True
 
 
@@ -198,36 +187,23 @@ def RegisterWaitForSingleObject(handle, callback):
     try:
         # Shortcut if we are already waiting on this handle
         if handle in WAIT_POOL.wait_jobs_by_handle:
-            WAIT_POOL.wait_jobs_by_handle[handle].append(cancel_token)
+            WAIT_POOL.wait_jobs_by_handle[handle].append(callback)
             return cancel_token
 
-        cancel_handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
         wait_group_index = WAIT_POOL.wait_groups.bisect_key_left(64) - 1
         if wait_group_index == -1:
             # wait_groups is empty or every group is full with 64
             wait_group = WaitGroup()
         else:
             wait_group = WAIT_POOL.wait_groups.pop(wait_group_index)
-            # wake this particular group
-            # race condition: wait thread may not have obtained the GIL yet
-            while wait_group.cancel_handle is None:
-                time.sleep(0)
-            kernel32.SetEvent(wait_group.cancel_handle)
-        WAIT_POOL.wait_jobs_by_handle[handle].append(cancel_token)
-        wait_group.wait_handles.add(handle)
+            wait_group.wake_soon()
+
+        WAIT_POOL.wait_jobs_by_handle[handle].append(callback)
+        wait_group.wait_handles.append(handle)
         WAIT_POOL.wait_groups.add(wait_group)
+        wait_group.wait_soon()
     finally:
         WAIT_POOL.lock.release()
-    trio_token = _core.current_trio_token()
-
-    def fn():
-        wait_group.drain_as_completed(cancel_handle)
-
-    def deliver(outcome):
-        # blow up trio if the thread raises so we get a traceback
-        trio_token.run_sync_soon(outcome.unwrap)
-
-    _core.start_thread_soon(fn, deliver)
 
     return cancel_token
 
