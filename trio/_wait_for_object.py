@@ -48,7 +48,6 @@ class WaitPool:
         self._wait_group_by_handle = {}
         self._size_sorted_wait_groups = SortedKeyList(key=len)
         self.lock = threading.Lock()
-        self.currently_executing = set()
 
     def add(self, handle, callback):
         # Shortcut if we are already waiting on this handle
@@ -78,11 +77,13 @@ class WaitPool:
 
         callbacks = self._callbacks_by_handle[handle]
 
-        if callback not in callbacks:
+        if callback not in callbacks:  # pragma: no cover
+            # does not happen in normal use with WaitForSingleObject
             return False
 
         # discard the data associated with this callback
-        if callbacks[callback] > 1:
+        if callbacks[callback] > 1:  # pragma: no cover
+            # does not happen in normal use with WaitForSingleObject
             callbacks[callback] -= 1
         else:
             # del rather than zero to make "in callbacks" and "if callbacks"
@@ -113,20 +114,12 @@ class WaitPool:
         return True
 
     def execute_and_remove(self, wait_group, signaled_handle_index):
-        def deliver():
-            ce = self.currently_executing
-            cb = callback
-            return lambda x: ce.remove(cb)
-
         self._size_sorted_wait_groups.remove(wait_group)
         signaled_handle = wait_group.pop(signaled_handle_index)
         if len(wait_group) > 1:
             self._size_sorted_wait_groups.add(wait_group)
         for callback in self._callbacks_by_handle[signaled_handle].elements():
-            self.currently_executing.add(callback)
-            # callback()
-            _core.start_thread_soon(callback, deliver())
-            # self.currently_executing.remove(callback)
+            callback()
         del self._callbacks_by_handle[signaled_handle]
 
 
@@ -198,8 +191,6 @@ def UnregisterWait(cancel_token):
     handle, callback = cancel_token
 
     with WAIT_POOL.lock:
-        if callback in WAIT_POOL.currently_executing:
-            return ErrorCodes.ERROR_IO_PENDING
         return WAIT_POOL.remove(handle, callback)
 
 
@@ -263,7 +254,9 @@ async def WaitForSingleObject(obj):
 
     def abort(raise_cancel):
         retcode = UnregisterWait(cancel_token)
-        if retcode == ErrorCodes.ERROR_IO_PENDING or reschedule_in_flight[0]:
+        if (
+            retcode == ErrorCodes.ERROR_IO_PENDING or reschedule_in_flight[0]
+        ):  # pragma: no cover
             # The callback is about to wake up our task
             return _core.Abort.FAILED
         elif retcode:
