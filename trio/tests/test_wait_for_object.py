@@ -7,9 +7,9 @@ on_windows = os.name == "nt"
 pytestmark = pytest.mark.skipif(not on_windows, reason="windows only")
 
 from .._core.tests.tutil import slow
-import trio
 from .. import _core
 from .. import _timeouts
+from .. import _threads
 
 if on_windows:
     from .._core._windows_cffi import ffi, kernel32
@@ -84,7 +84,7 @@ async def test_WaitForMultipleObjects_sync_slow():
     t0 = _core.current_time()
     async with _core.open_nursery() as nursery:
         nursery.start_soon(
-            trio.to_thread.run_sync, WaitForMultipleObjects_sync, handle1
+            _threads.to_thread_run_sync, WaitForMultipleObjects_sync, handle1
         )
         await _timeouts.sleep(TIMEOUT)
         # If we would comment the line below, the above thread will be stuck,
@@ -101,7 +101,7 @@ async def test_WaitForMultipleObjects_sync_slow():
     t0 = _core.current_time()
     async with _core.open_nursery() as nursery:
         nursery.start_soon(
-            trio.to_thread.run_sync, WaitForMultipleObjects_sync, handle1, handle2
+            _threads.to_thread_run_sync, WaitForMultipleObjects_sync, handle1, handle2
         )
         await _timeouts.sleep(TIMEOUT)
         kernel32.SetEvent(handle1)
@@ -117,7 +117,7 @@ async def test_WaitForMultipleObjects_sync_slow():
     t0 = _core.current_time()
     async with _core.open_nursery() as nursery:
         nursery.start_soon(
-            trio.to_thread.run_sync, WaitForMultipleObjects_sync, handle1, handle2
+            _threads.to_thread_run_sync, WaitForMultipleObjects_sync, handle1, handle2
         )
         await _timeouts.sleep(TIMEOUT)
         kernel32.SetEvent(handle2)

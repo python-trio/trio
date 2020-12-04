@@ -9,9 +9,63 @@ from ._core._windows_cffi import (
     ffi,
     kernel32,
     ErrorCodes,
+    WaitFlags,
     raise_winerror,
     _handle,
+    _is_signaled,
 )
+
+
+@ffi.callback("WAITORTIMERCALLBACK")
+def _wait_callback(context, timer_or_wait_fired):  # pragma: no cover
+    ffi.from_handle(context)()
+
+
+def UnregisterWait_native(cancel_token):
+    """Python wrapper for kernel32.UnregisterWait.
+
+    Args:
+      cancel_token: Whatever was returned by RegisterWaitForSingleObject.
+
+    """
+    cancel_token, context_handle = cancel_token
+    # have to dereference cancel token i.e. PHANDLE -> HANDLE
+    return kernel32.UnregisterWait(cancel_token[0])
+
+
+def RegisterWaitForSingleObject_native(handle, callback):
+    """Python wrapper for kernel32.RegisterWaitForSingleObject.
+
+    Args:
+      handle: A valid Win32 handle. This should be guaranteed by WaitForSingleObject.
+
+      callback: A Python function taking no arguments and definitely not raising
+        any errors.
+
+    Returns:
+      cancel_token: An opaque object that can be used with UnregisterWait.
+        This object must be kept alive until the callback is called or cancelled!
+
+    Callbacks are run with WT_EXECUTEINWAITTHREAD | WT_EXECUTEONLYONCE.
+
+    Callbacks are run in a windows system thread, so they must not raise errors.
+
+    """
+    cancel_token = ffi.new("PHANDLE")
+    context_handle = ffi.new_handle(callback)
+    timeout = 0xFFFFFFFF  # INFINITE
+    if not kernel32.RegisterWaitForSingleObject(
+        cancel_token,
+        handle,
+        _wait_callback,
+        context_handle,
+        timeout,
+        WaitFlags.WT_EXECUTEINWAITTHREAD | WaitFlags.WT_EXECUTEONLYONCE,
+    ):  # pragma: no cover
+        raise_winerror()
+    # keep context_handle alive by passing it around with cancel_token
+    return cancel_token, context_handle
+
 
 MAXIMUM_WAIT_OBJECTS = 64
 
@@ -32,14 +86,6 @@ def WaitForMultipleObjects_sync(*handles):
         retcode -= ErrorCodes.WAIT_ABANDONED
         warnings.warn(RuntimeWarning("Abandoned Mutex: {}".format(handles[retcode])))
     return retcode
-
-
-def _is_signaled(handle):
-    # The zero means a zero timeout; this call never blocks.
-    retcode = kernel32.WaitForSingleObject(handle, 0)
-    if retcode == ErrorCodes.WAIT_FAILED:
-        raise_winerror()
-    return retcode != ErrorCodes.WAIT_TIMEOUT
 
 
 class WaitPool:
@@ -174,7 +220,7 @@ class WaitGroup:
                     return
 
 
-def UnregisterWait(cancel_token):
+def UnregisterWait_trio(cancel_token):
     """Trio thread cache variant of UnregisterWait.
 
     Args:
@@ -188,7 +234,7 @@ def UnregisterWait(cancel_token):
         return WAIT_POOL.remove(handle, callback)
 
 
-def RegisterWaitForSingleObject(handle, callback):
+def RegisterWaitForSingleObject_trio(handle, callback):
     """Trio thread cache variant of RegisterWaitForSingleObject.
 
     Args:
@@ -211,6 +257,10 @@ def RegisterWaitForSingleObject(handle, callback):
     return handle, callback
 
 
+UnregisterWait = UnregisterWait_native
+RegisterWaitForSingleObject = RegisterWaitForSingleObject_native
+
+
 async def WaitForSingleObject(obj):
     """Async and cancellable variant of WaitForSingleObject. Windows only.
 
@@ -225,9 +275,10 @@ async def WaitForSingleObject(obj):
     # Allow ints or whatever we can convert to a win handle
     handle = _handle(obj)
 
-    # Quick check; we might not even need to spawn a thread.  We also exit here
+    # Quick check; we might not even need to register the handle.  We also exit here
     # if the handle is already closed for some reason.
     if _is_signaled(handle):
+        await _core.cancel_shielded_checkpoint()
         return
 
     task = _core.current_task()
@@ -236,7 +287,7 @@ async def WaitForSingleObject(obj):
     # the callback is running) to level triggered
     reschedule_in_flight = [False]
 
-    def wakeup():
+    def wakeup():  # pragma: no cover  # run in non-python thread
         reschedule_in_flight[0] = True
         try:
             trio_token.run_sync_soon(_core.reschedule, task, idempotent=True)

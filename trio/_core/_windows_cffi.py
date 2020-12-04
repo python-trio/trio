@@ -53,6 +53,9 @@ typedef struct _OVERLAPPED_ENTRY {
     DWORD dwNumberOfBytesTransferred;
 } OVERLAPPED_ENTRY, *LPOVERLAPPED_ENTRY;
 
+typedef VOID (__stdcall * WAITORTIMERCALLBACKFUNC) (PVOID, BOOLEAN );
+typedef WAITORTIMERCALLBACKFUNC WAITORTIMERCALLBACK;
+
 // kernel32.dll
 HANDLE WINAPI CreateIoCompletionPort(
   _In_     HANDLE    FileHandle,
@@ -133,8 +136,17 @@ BOOL SetEvent(
   HANDLE hEvent
 );
 
-BOOL ResetEvent(
-  HANDLE hEvent
+BOOL UnregisterWait(
+  HANDLE WaitHandle
+);
+
+BOOL RegisterWaitForSingleObject(
+  PHANDLE             phNewWaitObject,
+  HANDLE              hObject,
+  WAITORTIMERCALLBACK Callback,
+  PVOID               Context,
+  ULONG               dwMilliseconds,
+  ULONG               dwFlags
 );
 
 DWORD WaitForSingleObject(
@@ -296,6 +308,16 @@ class IoControlCodes(enum.IntEnum):
     IOCTL_AFD_POLL = 0x00012024
 
 
+class WaitFlags(enum.IntFlag):
+    WT_EXECUTEDEFAULT = 0x00000000
+    WT_EXECUTEINIOTHREAD = 0x00000001
+    WT_EXECUTEINPERSISTENTTHREAD = 0x00000080
+    WT_EXECUTEINWAITTHREAD = 0x00000004
+    WT_EXECUTELONGFUNCTION = 0x00000010
+    WT_EXECUTEONLYONCE = 0x00000008
+    WT_TRANSFER_IMPERSONATION = 0x00000100
+
+
 ################################################################
 # Generic helpers
 ################################################################
@@ -312,6 +334,14 @@ def _handle(obj):
         return ffi.cast("HANDLE", obj)
     else:
         return obj
+
+
+def _is_signaled(handle):
+    # The zero means a zero timeout; this call never blocks.
+    retcode = kernel32.WaitForSingleObject(handle, 0)
+    if retcode == ErrorCodes.WAIT_FAILED:
+        raise_winerror()
+    return retcode != ErrorCodes.WAIT_TIMEOUT
 
 
 def raise_winerror(winerror=None, *, filename=None, filename2=None):
