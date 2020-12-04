@@ -1,9 +1,7 @@
 import threading
-import time
 import warnings
-from collections import defaultdict
+from collections import defaultdict, Counter
 
-import attr
 from sortedcontainers import SortedKeyList
 
 from . import _core
@@ -46,7 +44,7 @@ def _is_signaled(handle):
 
 class WaitPool:
     def __init__(self):
-        self._callbacks_by_handle = defaultdict(list)
+        self._callbacks_by_handle = defaultdict(Counter)
         self._wait_group_by_handle = {}
         self._size_sorted_wait_groups = SortedKeyList(key=len)
         self.lock = threading.Lock()
@@ -54,7 +52,7 @@ class WaitPool:
     def add(self, handle, callback):
         # Shortcut if we are already waiting on this handle
         if handle in self._callbacks_by_handle:
-            self._callbacks_by_handle[handle].append(callback)
+            self._callbacks_by_handle[handle][callback] += 1
             return
 
         wait_group_index = (
@@ -68,7 +66,7 @@ class WaitPool:
             wait_group.cancel_soon()
 
         wait_group.add(handle)
-        self._callbacks_by_handle[handle].append(callback)
+        self._callbacks_by_handle[handle][callback] += 1
         self._wait_group_by_handle[handle] = wait_group
         self._size_sorted_wait_groups.add(wait_group)
         wait_group.wait_soon()
@@ -79,9 +77,17 @@ class WaitPool:
 
         callbacks = self._callbacks_by_handle[handle]
 
-        # discard the data associated with this callbacks
-        # This should never raise IndexError because of how we obtain callbacks
-        callbacks.remove(callback)
+        if callback not in callbacks:
+            return False
+
+        # discard the data associated with this callback
+        if callbacks[callback] > 1:
+            callbacks[callback] -= 1
+        else:
+            # del rather than zero to make "in callbacks" and "if callbacks"
+            # work right, and for efficiency of .elements()
+            del callbacks[callback]
+
         if callbacks:
             # no cleanup or thread interaction needed
             return True
@@ -110,7 +116,7 @@ class WaitPool:
         signaled_handle = wait_group.pop(signaled_handle_index)
         if len(wait_group) > 1:
             self._size_sorted_wait_groups.add(wait_group)
-        for callback in self._callbacks_by_handle[signaled_handle]:
+        for callback in self._callbacks_by_handle[signaled_handle].elements():
             callback()
         del self._callbacks_by_handle[signaled_handle]
 
