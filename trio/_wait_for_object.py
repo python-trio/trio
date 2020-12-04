@@ -29,9 +29,8 @@ def WaitForMultipleObjects_sync(*handles):
     retcode = kernel32.WaitForMultipleObjects(n, handle_arr, False, timeout)  # blocking
     if retcode == ErrorCodes.WAIT_FAILED:
         raise_winerror()
-    elif (
-        retcode >= ErrorCodes.WAIT_ABANDONED
-    ):  # We should never abandon handles but who knows
+    elif retcode >= ErrorCodes.WAIT_ABANDONED:  # pragma: no cover
+        # We should never abandon handles but who knows
         retcode -= ErrorCodes.WAIT_ABANDONED
         warnings.warn(RuntimeWarning("Abandoned Mutex: {}".format(handles[retcode])))
     return retcode
@@ -250,7 +249,7 @@ async def WaitForSingleObject(obj):
         reschedule_in_flight[0] = True
         try:
             trio_token.run_sync_soon(_core.reschedule, task, idempotent=True)
-        except _core.RunFinishedError:
+        except _core.RunFinishedError:  # pragma: no cover
             # No need to throw a fit here, the task can't be rescheduled anyway
             pass
 
@@ -263,7 +262,7 @@ async def WaitForSingleObject(obj):
             return _core.Abort.FAILED
         elif retcode:
             return _core.Abort.SUCCEEDED
-        else:
+        else:  # pragma: no cover
             raise RuntimeError(f"Unexpected retcode: {retcode}")
 
     await _core.wait_task_rescheduled(abort)
