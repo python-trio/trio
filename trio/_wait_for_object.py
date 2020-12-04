@@ -48,6 +48,7 @@ class WaitPool:
         self._wait_group_by_handle = {}
         self._size_sorted_wait_groups = SortedKeyList(key=len)
         self.lock = threading.Lock()
+        self.currently_executing = set()
 
     def add(self, handle, callback):
         # Shortcut if we are already waiting on this handle
@@ -112,12 +113,20 @@ class WaitPool:
         return True
 
     def execute_and_remove(self, wait_group, signaled_handle_index):
+        def deliver():
+            ce = self.currently_executing
+            cb = callback
+            return lambda x: ce.remove(cb)
+
         self._size_sorted_wait_groups.remove(wait_group)
         signaled_handle = wait_group.pop(signaled_handle_index)
         if len(wait_group) > 1:
             self._size_sorted_wait_groups.add(wait_group)
         for callback in self._callbacks_by_handle[signaled_handle].elements():
-            callback()
+            self.currently_executing.add(callback)
+            # callback()
+            _core.start_thread_soon(callback, deliver())
+            # self.currently_executing.remove(callback)
         del self._callbacks_by_handle[signaled_handle]
 
 
@@ -188,11 +197,9 @@ def UnregisterWait(cancel_token):
 
     handle, callback = cancel_token
 
-    # give up if handle been triggered
-    if _is_signaled(handle):
-        return ErrorCodes.ERROR_IO_PENDING
-
     with WAIT_POOL.lock:
+        if callback in WAIT_POOL.currently_executing:
+            return ErrorCodes.ERROR_IO_PENDING
         return WAIT_POOL.remove(handle, callback)
 
 
