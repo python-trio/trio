@@ -1,6 +1,6 @@
 import threading
 import warnings
-from collections import defaultdict, Counter
+from collections import defaultdict
 
 from sortedcontainers import SortedKeyList
 
@@ -44,7 +44,7 @@ def _is_signaled(handle):
 
 class WaitPool:
     def __init__(self):
-        self._callbacks_by_handle = defaultdict(Counter)
+        self._callbacks_by_handle = defaultdict(set)
         self._wait_group_by_handle = {}
         self._size_sorted_wait_groups = SortedKeyList(key=len)
         self.lock = threading.Lock()
@@ -52,7 +52,7 @@ class WaitPool:
     def add(self, handle, callback):
         # Shortcut if we are already waiting on this handle
         if handle in self._callbacks_by_handle:
-            self._callbacks_by_handle[handle][callback] += 1
+            self._callbacks_by_handle[handle].add(callback)
             return
 
         wait_group_index = (
@@ -66,7 +66,7 @@ class WaitPool:
             wait_group.cancel_soon()
 
         wait_group.add(handle)
-        self._callbacks_by_handle[handle][callback] += 1
+        self._callbacks_by_handle[handle].add(callback)
         self._wait_group_by_handle[handle] = wait_group
         self._size_sorted_wait_groups.add(wait_group)
         wait_group.wait_soon()
@@ -77,18 +77,8 @@ class WaitPool:
 
         callbacks = self._callbacks_by_handle[handle]
 
-        if callback not in callbacks:  # pragma: no cover
-            # does not happen in normal use with WaitForSingleObject
-            return False
-
         # discard the data associated with this callback
-        if callbacks[callback] > 1:  # pragma: no cover
-            # does not happen in normal use with WaitForSingleObject
-            callbacks[callback] -= 1
-        else:
-            # del rather than zero to make "in callbacks" and "if callbacks"
-            # work right, and for efficiency of .elements()
-            del callbacks[callback]
+        callbacks.remove(callback)
 
         if callbacks:
             # no cleanup or thread interaction needed
@@ -118,7 +108,7 @@ class WaitPool:
         signaled_handle = wait_group.pop(signaled_handle_index)
         if len(wait_group) > 1:
             self._size_sorted_wait_groups.add(wait_group)
-        for callback in self._callbacks_by_handle[signaled_handle].elements():
+        for callback in self._callbacks_by_handle[signaled_handle]:
             callback()
         del self._callbacks_by_handle[signaled_handle]
 
@@ -239,7 +229,7 @@ async def WaitForSingleObject(obj):
     task = _core.current_task()
     trio_token = _core.current_trio_token()
     # This register transforms the _core.Abort.FAILED case from pulsed (on while
-    # the cffi callback is running) to level triggered
+    # the callback is running) to level triggered
     reschedule_in_flight = [False]
 
     def wakeup():
