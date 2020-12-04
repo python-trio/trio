@@ -36,12 +36,6 @@ def WaitForMultipleObjects_sync(*handles):
     return retcode
 
 
-@attr.s(slots=True, frozen=True, eq=False)
-class WaitJob:
-    handle = attr.ib()
-    callback = attr.ib()
-
-
 def _is_signaled(handle):
     # The zero means a zero timeout; this call never blocks.
     retcode = kernel32.WaitForSingleObject(handle, 0)
@@ -83,12 +77,12 @@ class WaitPool:
         if handle not in self._callbacks_by_handle:
             return False
 
-        wait_jobs = self._callbacks_by_handle[handle]
+        callbacks = self._callbacks_by_handle[handle]
 
-        # discard the data associated with this cancel_token
-        # This should never raise IndexError because of how we obtain wait_jobs
-        wait_jobs.remove(callback)
-        if wait_jobs:
+        # discard the data associated with this callbacks
+        # This should never raise IndexError because of how we obtain callbacks
+        callbacks.remove(callback)
+        if callbacks:
             # no cleanup or thread interaction needed
             return True
 
@@ -186,14 +180,14 @@ def UnregisterWait(cancel_token):
 
     """
 
-    handle = cancel_token.handle
+    handle, callback = cancel_token
 
     # give up if handle been triggered
     if _is_signaled(handle):
         return ErrorCodes.ERROR_IO_PENDING
 
     with WAIT_POOL.lock:
-        return WAIT_POOL.remove(handle, cancel_token.callback)
+        return WAIT_POOL.remove(handle, callback)
 
 
 def RegisterWaitForSingleObject(handle, callback):
@@ -213,11 +207,10 @@ def RegisterWaitForSingleObject(handle, callback):
     Callbacks are run in a trio system thread, so they must not raise errors.
 
     """
-    cancel_token = WaitJob(handle, callback)
     with WAIT_POOL.lock:
         WAIT_POOL.add(handle, callback)
 
-    return cancel_token
+    return handle, callback
 
 
 async def WaitForSingleObject(obj):
