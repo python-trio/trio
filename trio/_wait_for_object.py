@@ -1,3 +1,4 @@
+import contextlib
 import threading
 import warnings
 from collections import defaultdict
@@ -67,7 +68,25 @@ def RegisterWaitForSingleObject_native(handle, callback):
     return cancel_token, context_handle
 
 
+_wait_local = _core.RunVar("_wait_local")
+WAIT_POOL = None
 MAXIMUM_WAIT_OBJECTS = 64
+
+
+def _get_wait_pool_local():
+    try:
+        wait_pool = _wait_local.get()
+    except LookupError:
+        wait_pool = WaitPool(contextlib.nullcontext())
+        _wait_local.set(wait_pool)
+    return wait_pool
+
+
+def _get_wait_pool_global():
+    global WAIT_POOL
+    if WAIT_POOL is None:
+        WAIT_POOL = WaitPool(threading.Lock())
+    return WAIT_POOL
 
 
 def WaitForMultipleObjects_sync(*handles):
@@ -89,11 +108,11 @@ def WaitForMultipleObjects_sync(*handles):
 
 
 class WaitPool:
-    def __init__(self):
+    def __init__(self, lock):
         self._callbacks_by_handle = defaultdict(set)
         self._wait_group_by_handle = {}
         self._size_sorted_wait_groups = SortedKeyList(key=len)
-        self.lock = threading.Lock()
+        self.lock = lock
 
     def add(self, handle, callback):
         # Shortcut if we are already waiting on this handle
@@ -159,9 +178,6 @@ class WaitPool:
         del self._callbacks_by_handle[signaled_handle]
 
 
-WAIT_POOL = WaitPool()
-
-
 class WaitGroup:
     def __init__(self):
         self._wait_handles = []
@@ -179,13 +195,13 @@ class WaitGroup:
     def remove(self, handle):
         return self._wait_handles.remove(handle)
 
-    def wait_soon(self):
+    def wait_soon_thread(self):
         trio_token = _core.current_trio_token()
         cancel_handle = self._cancel_handle
 
         def fn():
             try:
-                self.drain_as_completed(cancel_handle)
+                self.drain_as_completed_sync(cancel_handle)
             finally:
                 kernel32.CloseHandle(cancel_handle)
 
@@ -199,23 +215,47 @@ class WaitGroup:
 
         _core.start_thread_soon(fn, deliver)
 
+    def wait_soon_task(self):
+        _core.spawn_system_task(self.drain_as_completed, self._cancel_handle)
+
     def cancel_soon(self):
         kernel32.SetEvent(self._cancel_handle)
         self._cancel_handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
 
-    def drain_as_completed(self, cancel_handle):
+    def drain_as_completed_sync(self, cancel_handle):
+        wait_pool = _get_wait_pool()
         while True:
             signaled_handle_index = (
                 WaitForMultipleObjects_sync(cancel_handle, *self._wait_handles) - 1
             )
-            with WAIT_POOL.lock:
+            with wait_pool.lock:
                 # Race condition: cancel_handle may have been signalled after a
                 # wakeup on another handle. Cancel takes priority.
                 if _is_signaled(cancel_handle):
                     return
 
                 # a handle other than the cancel_handle fired
-                WAIT_POOL.execute_and_remove(self, signaled_handle_index)
+                wait_pool.execute_and_remove(self, signaled_handle_index)
+                if not self._wait_handles:
+                    return
+
+    async def drain_as_completed(self, cancel_handle):
+        wait_pool = _get_wait_pool()
+        while True:
+            signaled_handle_index = (
+                await _threads.to_thread_run_sync(
+                    WaitForMultipleObjects_sync, cancel_handle, *self._wait_handles
+                )
+            ) - 1
+
+            with wait_pool.lock:
+                # Race condition: cancel_handle may have been signalled after a
+                # wakeup on another handle. Cancel takes priority.
+                if _is_signaled(cancel_handle):
+                    return
+
+                # a handle other than the cancel_handle fired
+                wait_pool.execute_and_remove(self, signaled_handle_index)
                 if not self._wait_handles:
                     return
 
@@ -229,9 +269,10 @@ def UnregisterWait_trio(cancel_token):
     """
 
     handle, callback = cancel_token
+    wait_pool = _get_wait_pool()
 
-    with WAIT_POOL.lock:
-        return WAIT_POOL.remove(handle, callback)
+    with wait_pool.lock:
+        return wait_pool.remove(handle, callback)
 
 
 def RegisterWaitForSingleObject_trio(handle, callback):
@@ -251,14 +292,11 @@ def RegisterWaitForSingleObject_trio(handle, callback):
     Callbacks are run in a trio system thread, so they must not raise errors.
 
     """
-    with WAIT_POOL.lock:
-        WAIT_POOL.add(handle, callback)
+    wait_pool = _get_wait_pool()
+    with wait_pool.lock:
+        wait_pool.add(handle, callback)
 
     return handle, callback
-
-
-UnregisterWait = UnregisterWait_native
-RegisterWaitForSingleObject = RegisterWaitForSingleObject_native
 
 
 async def WaitForSingleObject_pool(obj):
@@ -319,22 +357,20 @@ async def WaitForSingleObject_pair(obj):
     """Async and cancellable variant of WaitForSingleObject. Windows only.
 
     Args:
-      handle: A Win32 handle, as a Python integer.
+      obj: A Win32 handle, as a Python integer.
 
     Raises:
       OSError: If the handle is invalid, e.g. when it is already closed.
 
     """
+    await _core.checkpoint_if_cancelled()
     # Allow ints or whatever we can convert to a win handle
     handle = _handle(obj)
 
-    # Quick check; we might not even need to spawn a thread. The zero
-    # means a zero timeout; this call never blocks. We also exit here
+    # Quick check; we might not even need to spawn a thread.  We also exit here
     # if the handle is already closed for some reason.
-    retcode = kernel32.WaitForSingleObject(handle, 0)
-    if retcode == ErrorCodes.WAIT_FAILED:
-        raise_winerror()
-    elif retcode != ErrorCodes.WAIT_TIMEOUT:
+    if _is_signaled(handle):
+        await _core.cancel_shielded_checkpoint()
         return
 
     # Wait for a thread that waits for two handles: the handle plus a handle
@@ -353,3 +389,36 @@ async def WaitForSingleObject_pair(obj):
         # cancelled, we also want to set the cancel_handle to stop the thread.
         kernel32.SetEvent(cancel_handle)
         kernel32.CloseHandle(cancel_handle)
+
+
+def _pool_per_run():
+    global WaitForSingleObject, UnregisterWait, RegisterWaitForSingleObject, _get_wait_pool
+    WaitForSingleObject = WaitForSingleObject_pool
+    UnregisterWait = UnregisterWait_trio
+    RegisterWaitForSingleObject = RegisterWaitForSingleObject_trio
+    WaitGroup.wait_soon = WaitGroup.wait_soon_task
+    _get_wait_pool = _get_wait_pool_local
+
+
+def _pool_per_process():
+    global WaitForSingleObject, UnregisterWait, RegisterWaitForSingleObject, _get_wait_pool
+    WaitForSingleObject = WaitForSingleObject_pool
+    UnregisterWait = UnregisterWait_trio
+    RegisterWaitForSingleObject = RegisterWaitForSingleObject_trio
+    WaitGroup.wait_soon = WaitGroup.wait_soon_thread
+    _get_wait_pool = _get_wait_pool_global
+
+
+def _win32_pool():
+    global WaitForSingleObject, UnregisterWait, RegisterWaitForSingleObject
+    WaitForSingleObject = WaitForSingleObject_pool
+    UnregisterWait = UnregisterWait_native
+    RegisterWaitForSingleObject = RegisterWaitForSingleObject_native
+
+
+def _no_pool():
+    global WaitForSingleObject
+    WaitForSingleObject = WaitForSingleObject_pair
+
+
+_no_pool()
