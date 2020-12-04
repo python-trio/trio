@@ -145,7 +145,11 @@ class WaitGroup:
 
         def deliver(outcome):
             # blow up trio if the thread raises so we get a traceback
-            trio_token.run_sync_soon(outcome.unwrap)
+            try:
+                trio_token.run_sync_soon(outcome.unwrap)
+            except _core.RunFinishedError:  # pragma: no cover
+                # if trio is already gone, here is better than nowhere
+                outcome.unwrap()
 
         _core.start_thread_soon(fn, deliver)
 
