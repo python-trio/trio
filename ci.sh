@@ -3,6 +3,7 @@
 set -ex -o pipefail
 
 # Log some general info about the environment
+uname -a
 env | sort
 
 if [ "$JOB_NAME" = "" ]; then
