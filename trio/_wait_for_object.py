@@ -261,7 +261,7 @@ class WaitGroup:
 
     async def drain_as_completed(self, cancel_handle):
         wait_pool = _get_wait_pool()
-        while True:
+        while self._wait_handles:
             signaled_handle_index = (
                 await _threads.to_thread_run_sync(
                     WaitForMultipleObjects_sync,
@@ -271,16 +271,13 @@ class WaitGroup:
                 )
             ) - 1
 
-            with wait_pool.lock:
-                # Race condition: cancel_handle may have been signalled after a
-                # wakeup on another handle. Cancel takes priority.
-                if _is_signaled(cancel_handle):
-                    return
+            # Race condition: cancel_handle may have been signalled after a
+            # wakeup on another handle. Cancel takes priority.
+            if _is_signaled(cancel_handle):
+                return
 
-                # a handle other than the cancel_handle fired
-                wait_pool.execute_and_remove(self, signaled_handle_index)
-                if not self._wait_handles:
-                    return
+            # a handle other than the cancel_handle fired
+            wait_pool.execute_and_remove(self, signaled_handle_index)
 
 
 def UnregisterWait_trio(cancel_token):
