@@ -130,7 +130,7 @@ class WaitPool:
             # pool is empty or every group is full
             wait_group = WaitGroup()
         else:
-            wait_group.cancel_soon()
+            wait_group.cancel_drain_thread()
 
         wait_group.add(handle)
         self._callbacks_by_handle[handle].add(callback)
@@ -151,17 +151,17 @@ class WaitPool:
             # no cleanup or thread interaction needed
             return True
 
-        # remove handle from the pool
+        # del to make "in self._callbacks_by_handle" work right
         del self._callbacks_by_handle[handle]
+
+        # remove handle from the pool and free any thread waiting on this group
         wait_group = self._wait_group_by_handle.pop(handle)
+        wait_group.cancel_drain_thread()
         if len(wait_group) == MAXIMUM_WAIT_OBJECTS:
             self._full_wait_groups.remove(wait_group)
         else:
             self._size_sorted_wait_groups.remove(wait_group)
         wait_group.remove(handle)
-
-        # free any thread waiting on this group
-        wait_group.cancel_soon()
 
         if len(wait_group) > 1:
             # more waiting needed on other handles, can't possibly be full
@@ -238,13 +238,13 @@ class WaitGroup:
 
         _core.spawn_system_task(async_fn)
 
-    def cancel_soon(self):
+    def cancel_drain_thread(self):
         kernel32.SetEvent(self._cancel_handle)
         self._cancel_handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
 
     def drain_as_completed_sync(self, cancel_handle):
         wait_pool = _get_wait_pool()
-        while True:
+        while self._wait_handles:  # lock-free check OK if cancel is before mutation
             signaled_handle_index = (
                 WaitForMultipleObjects_sync(cancel_handle, *self._wait_handles) - 1
             )
@@ -256,8 +256,6 @@ class WaitGroup:
 
                 # a handle other than the cancel_handle fired
                 wait_pool.execute_and_remove(self, signaled_handle_index)
-                if not self._wait_handles:
-                    return
 
     async def drain_as_completed(self, cancel_handle):
         wait_pool = _get_wait_pool()
@@ -313,6 +311,7 @@ def RegisterWaitForSingleObject_trio(handle, callback):
 
     """
     wait_pool = _get_wait_pool()
+
     with wait_pool.lock:
         wait_pool.add(handle, callback)
 
