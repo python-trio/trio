@@ -256,7 +256,10 @@ class WaitGroup:
         while True:
             signaled_handle_index = (
                 await _threads.to_thread_run_sync(
-                    WaitForMultipleObjects_sync, cancel_handle, *self._wait_handles
+                    WaitForMultipleObjects_sync,
+                    cancel_handle,
+                    *self._wait_handles,
+                    limiter=_sync.CapacityLimiter(1),
                 )
             ) - 1
 
