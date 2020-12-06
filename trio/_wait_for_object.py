@@ -135,7 +135,10 @@ class WaitPool:
         wait_group.add(handle)
         self._callbacks_by_handle[handle].add(callback)
         self._wait_group_by_handle[handle] = wait_group
-        self._size_sorted_wait_groups.add(wait_group)
+        if len(wait_group) == MAXIMUM_WAIT_OBJECTS:
+            self._full_wait_groups.add(wait_group)
+        else:
+            self._size_sorted_wait_groups.add(wait_group)
         wait_group.wait_soon()
 
     def remove(self, handle, callback):
@@ -184,9 +187,7 @@ class WaitPool:
             callback()
 
         # maybe more waiting needed on other handles
-        if len(wait_group) == MAXIMUM_WAIT_OBJECTS:
-            self._full_wait_groups.add(wait_group)
-        elif len(wait_group) > 1:
+        if len(wait_group) > 1:
             self._size_sorted_wait_groups.add(wait_group)
 
 

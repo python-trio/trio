@@ -220,29 +220,36 @@ async def test_WaitForSingleObject_slow():
     print("test_WaitForSingleObject_slow cancellation OK")
 
 
-async def test_multi_wait():
-    handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
-    handle2 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
+async def test_many_objects():
+    handles = [
+        kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL) for _ in range(64)
+    ]
     try:
         # Check that wait (including multi-wait) tolerates being cancelled
         async with _core.open_nursery() as nursery:
-            nursery.start_soon(WaitForSingleObject, handle)
-            nursery.start_soon(WaitForSingleObject, handle)
-            nursery.start_soon(WaitForSingleObject, handle2)
+            for handle in handles:
+                nursery.start_soon(WaitForSingleObject, handle)
+            nursery.start_soon(WaitForSingleObject, handles[0])
+            nursery.start_soon(WaitForSingleObject, handles[0])
+            nursery.start_soon(WaitForSingleObject, handles[-1])
             await _core.wait_all_tasks_blocked()
             nursery.cancel_scope.cancel()
 
         # Now try waiting for real
         async with _core.open_nursery() as nursery:
-            nursery.start_soon(WaitForSingleObject, handle)
-            nursery.start_soon(WaitForSingleObject, handle)
-            nursery.start_soon(WaitForSingleObject, handle2)
+            for handle in handles:
+                nursery.start_soon(WaitForSingleObject, handle)
+            nursery.start_soon(WaitForSingleObject, handles[0])
+            nursery.start_soon(WaitForSingleObject, handles[0])
+            nursery.start_soon(WaitForSingleObject, handles[-1])
             await _core.wait_all_tasks_blocked()
-            kernel32.SetEvent(handle)
+            kernel32.SetEvent(handles[0])
+            kernel32.SetEvent(handles[-1])
             await _core.wait_all_tasks_blocked(0.01)
-            kernel32.SetEvent(handle2)
+            for handle in handles:
+                kernel32.SetEvent(handle)
+
     finally:
-        kernel32.SetEvent(handle)
-        kernel32.SetEvent(handle2)
-        kernel32.CloseHandle(handle)
-        kernel32.CloseHandle(handle2)
+        for handle in handles:
+            kernel32.SetEvent(handle)
+            kernel32.CloseHandle(handle)
