@@ -228,7 +228,15 @@ class WaitGroup:
         _core.start_thread_soon(fn, deliver)
 
     def wait_soon_task(self):
-        _core.spawn_system_task(self.drain_as_completed, self._cancel_handle)
+        cancel_handle = self._cancel_handle
+
+        async def async_fn():
+            try:
+                await self.drain_as_completed(cancel_handle)
+            finally:
+                kernel32.CloseHandle(cancel_handle)
+
+        _core.spawn_system_task(async_fn)
 
     def cancel_soon(self):
         kernel32.SetEvent(self._cancel_handle)
