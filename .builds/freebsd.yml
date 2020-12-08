@@ -1,0 +1,17 @@
+image: freebsd/latest
+packages:
+  - curl
+  - python38
+  - py38-sqlite3
+sources:
+  - https://github.com/python-trio/trio
+tasks:
+  - setup: sudo ln -s /usr/local/bin/bash /bin/bash
+  - test: |
+      python3.8 -m venv venv
+      source venv/bin/activate
+      cd trio
+      CI_BUILD_ID=$JOB_ID CI_BUILD_URL=$JOB_URL ./ci.sh
+environment:
+  CODECOV_TOKEN: 87cefb17-c44b-4f2f-8b30-1fff5769ce46
+  JOB_NAME: FreeBSD

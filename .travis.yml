@@ -11,28 +11,6 @@ jobs:
       env: PYPY_NIGHTLY_BRANCH=py3.6
     - language: generic
       env: PYPY_NIGHTLY_BRANCH=py3.7
-    # Qemu tests are also slow
-    # FreeBSD:
-    - language: generic
-      env:
-        - "JOB_NAME='FreeBSD 12.1-RELEASE, full VM'"
-        - "FREEBSD_INSTALLER_ISO_XZ=https://download.freebsd.org/ftp/releases/amd64/amd64/ISO-IMAGES/12.1/FreeBSD-12.1-RELEASE-amd64-disc1.iso.xz"
-        # Increment this each time you change the image build code in
-        # ci.sh and want to intentionally bust the cache.
-        - "CACHE_GEN=3"
-      cache:
-        directories:
-          - travis-cache
-    # More recent Ubuntu:
-    # The unique thing this provides is testing on the given distro's
-    # kernel, which is important when we use new kernel features. This
-    # is also good for testing the latest openssl etc., and getting
-    # early warning of any issues that might happen in the next Ubuntu
-    # LTS.
-    - language: generic
-      env:
-        - "JOB_NAME='Fedora 32, full VM'"
-        - "LINUX_VM_IMAGE=https://download.fedoraproject.org/pub/fedora/linux/releases/32/Cloud/x86_64/images/Fedora-Cloud-Base-32-1.6.x86_64.qcow2"
 
     - python: 3.6.1  # earliest 3.6 version available on Travis
       # https://github.com/pypa/setuptools/issues/2350

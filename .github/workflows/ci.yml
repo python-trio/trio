@@ -100,21 +100,3 @@ jobs:
         env:
           # Should match 'name:' up above
           JOB_NAME: 'macOS (${{ matrix.python }})'
-
-  Alpine:
-    name: 'Alpine'
-    timeout-minutes: 10
-    runs-on: 'ubuntu-latest'
-    container: 'alpine'
-    strategy:
-      fail-fast: false
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Install bash
-        run: apk add --no-cache bash
-      - name: Run tests
-        run: ./ci.sh
-        env:
-          # Should match 'name:' up above
-          JOB_NAME: 'Alpine'
