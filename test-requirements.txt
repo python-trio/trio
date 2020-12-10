@@ -14,7 +14,7 @@ black==20.8b1 ; implementation_name == "cpython"  # via -r test-requirements.in
 cffi==1.14.4              # via cryptography
 click==7.1.2              # via black
 coverage==5.3             # via pytest-cov
-cryptography==3.3         # via pyopenssl, trustme
+cryptography==3.3.1       # via pyopenssl, trustme
 decorator==4.4.2          # via ipython
 flake8==3.8.4             # via -r test-requirements.in
 idna==2.10                # via -r test-requirements.in, trustme
