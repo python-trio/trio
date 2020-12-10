@@ -9,6 +9,7 @@ from ._core._windows_cffi import (
     kernel32,
     ffi,
     ErrorCodes,
+    peek_pipe_message_left,
 )
 
 assert sys.platform == "win32" or not TYPE_CHECKING
@@ -166,24 +167,21 @@ class PipeReceiveChannel(ReceiveChannel[bytes]):
         )
 
     async def receive(self) -> bytes:
-        # Would a io.BytesIO make more sense?
         buffer = bytearray(DEFAULT_RECEIVE_SIZE)
         try:
-            return await self._receive_some_into(buffer)
+            received = await self._receive_some_into(buffer)
         except OSError as e:
             if e.winerror != ErrorCodes.ERROR_MORE_DATA:
                 raise  # pragma: no cover
-            left = ffi.new("LPDWORD")
-            if not kernel32.PeekNamedPipe(
-                _handle(self._handle_holder.handle),
-                ffi.NULL,
-                0,
-                ffi.NULL,
-                ffi.NULL,
-                left,
-            ):
-                raise_winerror()  # pragma: no cover
-            buffer.extend(await self._receive_some_into(bytearray(left[0])))
+            left = peek_pipe_message_left(self._handle_holder.handle)
+            # preallocate memory to avoid an extra copy of very large messages
+            newbuffer = bytearray(DEFAULT_RECEIVE_SIZE + left)
+            with memoryview(newbuffer) as view:
+                view[:DEFAULT_RECEIVE_SIZE] = buffer
+                await self._receive_some_into(view[DEFAULT_RECEIVE_SIZE:])
+            return newbuffer
+        else:
+            del buffer[received:]
             return buffer
 
     async def _receive_some_into(self, buffer) -> bytes:
@@ -191,7 +189,7 @@ class PipeReceiveChannel(ReceiveChannel[bytes]):
             if self._handle_holder.closed:
                 raise _core.ClosedResourceError("this pipe is already closed")
             try:
-                size = await _core.readinto_overlapped(
+                return await _core.readinto_overlapped(
                     self._handle_holder.handle, buffer
                 )
             except BrokenPipeError:
@@ -207,9 +205,6 @@ class PipeReceiveChannel(ReceiveChannel[bytes]):
                 # Do we have to checkpoint manually? We are raising an exception.
                 await _core.checkpoint()
                 raise _core.EndOfChannel
-            else:
-                del buffer[size:]
-                return buffer
 
     async def aclose(self):
         await self._handle_holder.aclose()

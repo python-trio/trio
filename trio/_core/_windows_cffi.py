@@ -357,3 +357,12 @@ def get_pipe_state(handle):
     ):
         raise_winerror()  # pragma: no cover
     return lpState[0]
+
+
+def peek_pipe_message_left(handle):
+    left = ffi.new("LPDWORD")
+    if not kernel32.PeekNamedPipe(
+        _handle(handle), ffi.NULL, 0, ffi.NULL, ffi.NULL, left,
+    ):
+        raise_winerror()  # pragma: no cover
+    return left[0]
