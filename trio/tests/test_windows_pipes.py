@@ -15,6 +15,7 @@ if sys.platform == "win32":
         PipeReceiveStream,
         PipeSendChannel,
         PipeReceiveChannel,
+        DEFAULT_RECEIVE_SIZE,
     )
     from .._core._windows_cffi import (
         _handle,
@@ -143,28 +144,27 @@ async def test_pipe_streams_combined():
 
 
 async def test_pipe_channels_combined():
-    write, read = await make_pipe_channel()
-    count = 2 ** 20
-    replicas = 3
-
     async def sender():
         async with write:
-            big = bytearray(count)
+            b = bytearray(count)
             for _ in range(replicas):
-                await write.send(big)
+                await write.send(b)
 
     async def reader():
         async with read:
             await wait_all_tasks_blocked()
             total_received = 0
-            async for _ in read:
-                total_received += len(_)
+            async for b in read:
+                total_received += len(b)
 
             assert total_received == count * replicas
 
-    async with _core.open_nursery() as nursery:
-        nursery.start_soon(sender)
-        nursery.start_soon(reader)
+    for count in (8, DEFAULT_RECEIVE_SIZE, 2 ** 20):
+        for replicas in (1, 2, 3):
+            write, read = await make_pipe_channel()
+            async with _core.open_nursery() as nursery:
+                nursery.start_soon(sender)
+                nursery.start_soon(reader)
 
 
 async def test_async_with_stream():
