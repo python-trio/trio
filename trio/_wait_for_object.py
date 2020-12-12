@@ -109,19 +109,14 @@ def WaitForMultipleObjects_sync(*handles):
 
 class WaitPool:
     def __init__(self, lock):
-        self._callbacks_by_handle = defaultdict(set)
-        self._wait_group_by_handle = {}
+        self._handle_map = {}
         self._size_sorted_wait_groups = SortedKeyList(key=len)
-        # if SortedKeyList has many equal values, remove() performance degrades
-        # from O(log(n)) to O(n), so keep full groups in a separate set to prevent
-        # accidentally quadratic behavior under heavy load
-        self._full_wait_groups = set()
         self.lock = lock
 
     def add(self, handle, callback):
         # Shortcut if we are already waiting on this handle
-        if handle in self._callbacks_by_handle:
-            self._callbacks_by_handle[handle].add(callback)
+        if handle in self._handle_map:
+            self._handle_map[handle][0].add(callback)
             return
 
         try:
@@ -132,20 +127,17 @@ class WaitPool:
         else:
             wait_group.cancel_drain_thread()
 
-        wait_group.add(handle)
-        self._callbacks_by_handle[handle].add(callback)
-        self._wait_group_by_handle[handle] = wait_group
-        if len(wait_group) == MAXIMUM_WAIT_OBJECTS:
-            self._full_wait_groups.add(wait_group)
-        else:
-            self._size_sorted_wait_groups.add(wait_group)
+        self._handle_map[handle] = [{callback}, wait_group]
+        with self.mutating(wait_group):
+            wait_group.add(handle)
+
         wait_group.wait_soon()
 
     def remove(self, handle, callback):
-        if handle not in self._callbacks_by_handle:
+        if handle not in self._handle_map:
             return False
 
-        callbacks = self._callbacks_by_handle[handle]
+        callbacks, wait_group = self._handle_map[handle]
 
         # discard the data associated with this callback
         callbacks.remove(callback)
@@ -154,21 +146,17 @@ class WaitPool:
             # no cleanup or thread interaction needed
             return True
 
-        # del to make "in self._callbacks_by_handle" work right
-        del self._callbacks_by_handle[handle]
+        # del to make "in self._handle_map" work right
+        del self._handle_map[handle]
 
-        # remove handle from the pool and free any thread waiting on this group
-        wait_group = self._wait_group_by_handle.pop(handle)
+        # free any thread waiting on this group
         wait_group.cancel_drain_thread()
-        if len(wait_group) == MAXIMUM_WAIT_OBJECTS:
-            self._full_wait_groups.remove(wait_group)
-        else:
-            self._size_sorted_wait_groups.remove(wait_group)
-        wait_group.remove(handle)
+
+        with self.mutating(wait_group):
+            wait_group.remove(handle)
 
         if len(wait_group) > 1:
-            # more waiting needed on other handles, can't possibly be full
-            self._size_sorted_wait_groups.add(wait_group)
+            # more waiting needed on other handles
             wait_group.wait_soon()
         else:
             # Just the cancel handle left, thread will clean up
@@ -177,18 +165,22 @@ class WaitPool:
         return True
 
     def execute_and_remove(self, wait_group, signaled_handle_index):
-        if len(wait_group) == MAXIMUM_WAIT_OBJECTS:
-            self._full_wait_groups.remove(wait_group)
-        else:
-            self._size_sorted_wait_groups.remove(wait_group)
-
-        signaled_handle = wait_group.pop(signaled_handle_index)
-        for callback in self._callbacks_by_handle.pop(signaled_handle):
+        with self.mutating(wait_group):
+            signaled_handle = wait_group.pop(signaled_handle_index)
+        for callback in self._handle_map.pop(signaled_handle)[0]:
             callback()
 
-        # maybe more waiting needed on other handles
-        if len(wait_group) > 1:
-            self._size_sorted_wait_groups.add(wait_group)
+    @contextlib.contextmanager
+    def mutating(self, wait_group):
+        # if SortedKeyList has many equal values, remove() performance degrades
+        # from O(log(n)) to O(n), so we don't keep full groups inside
+        if len(wait_group) < MAXIMUM_WAIT_OBJECTS:
+            self._size_sorted_wait_groups.discard(wait_group)
+        try:
+            yield
+        finally:
+            if MAXIMUM_WAIT_OBJECTS > len(wait_group) > 1:
+                self._size_sorted_wait_groups.add(wait_group)
 
 
 class WaitGroup:
