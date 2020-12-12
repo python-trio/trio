@@ -1,7 +1,6 @@
 import contextlib
 import threading
 import warnings
-from collections import defaultdict
 
 from sortedcontainers import SortedKeyList
 
@@ -164,10 +163,8 @@ class WaitPool:
 
         return True
 
-    def execute_and_remove(self, wait_group, signaled_handle_index):
-        with self.mutating(wait_group):
-            signaled_handle = wait_group.pop(signaled_handle_index)
-        for callback in self._handle_map.pop(signaled_handle)[0]:
+    def execute_callbacks_and_remove(self, handle):
+        for callback in self._handle_map.pop(handle)[0]:
             callback()
 
     @contextlib.contextmanager
@@ -252,7 +249,9 @@ class WaitGroup:
                     return
 
                 # a handle other than the cancel_handle fired
-                wait_pool.execute_and_remove(self, signaled_handle_index)
+                with wait_pool.mutating(self):
+                    signaled_handle = self.pop(signaled_handle_index)
+                wait_pool.execute_callbacks_and_remove(signaled_handle)
 
     async def drain_as_completed(self, cancel_handle):
         wait_pool = _get_wait_pool()
@@ -272,7 +271,9 @@ class WaitGroup:
                 return
 
             # a handle other than the cancel_handle fired
-            wait_pool.execute_and_remove(self, signaled_handle_index)
+            with wait_pool.mutating(self):
+                signaled_handle = self.pop(signaled_handle_index)
+            wait_pool.execute_callbacks_and_remove(signaled_handle)
 
 
 def UnregisterWait_trio(cancel_token):
