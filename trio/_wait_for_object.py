@@ -126,7 +126,7 @@ class WaitPool:
         else:
             wait_group.cancel_drain_thread()
 
-        self._handle_map[handle] = [{callback}, wait_group]
+        self._handle_map[handle] = ({callback}, wait_group)
         with self.mutating(wait_group):
             wait_group.add(handle)
 
@@ -176,7 +176,7 @@ class WaitPool:
         try:
             yield
         finally:
-            if MAXIMUM_WAIT_OBJECTS > len(wait_group) > 1:
+            if 1 < len(wait_group) < MAXIMUM_WAIT_OBJECTS:
                 self._size_sorted_wait_groups.add(wait_group)
 
 
