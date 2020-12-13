@@ -188,9 +188,6 @@ class WaitGroup:
     def __len__(self):
         return len(self._wait_handles) + 1  # include cancel_handle
 
-    def pop(self, index):
-        return self._wait_handles.pop(index)
-
     def add(self, handle):
         return self._wait_handles.append(handle)
 
@@ -255,7 +252,7 @@ class WaitGroup:
 
                 # a handle other than the cancel_handle fired
                 with wait_pool.mutating(self):
-                    signaled_handle = self.pop(signaled_handle_index)
+                    signaled_handle = self._wait_handles.pop(signaled_handle_index)
                 wait_pool.execute_callbacks_and_remove(signaled_handle)
 
     async def drain_as_completed(self, cancel_handle):
@@ -277,7 +274,7 @@ class WaitGroup:
 
             # a handle other than the cancel_handle fired
             with wait_pool.mutating(self):
-                signaled_handle = self.pop(signaled_handle_index)
+                signaled_handle = self._wait_handles.pop(signaled_handle_index)
             wait_pool.execute_callbacks_and_remove(signaled_handle)
 
 
