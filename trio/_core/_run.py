@@ -916,13 +916,11 @@ class Nursery(metaclass=NoPublicConstructor):
         self._check_nursery_closed()
 
         if not self._closed:
-            # If we have an exception injected, like KeyboardInterrupt,
-            # then save that, but still wait until our children finish.
+            # If we have a KeyboardInterrupt injected, we want to save it in
+            # the nursery's final exceptions list. But if it's just a
+            # Cancelled, then we don't -- see gh-1457.
             def aborted(raise_cancel):
                 exn = capture(raise_cancel).error
-                # We ignore Cancelled, since we should get it again
-                # through our children, if they were actually cancelled
-                # rather than successfully completing.
                 if not isinstance(exn, Cancelled):
                     self._add_exc(exn)
                 return Abort.FAILED

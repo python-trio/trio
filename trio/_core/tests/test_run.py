@@ -32,7 +32,6 @@ from ...testing import (
     Sequencer,
     assert_checkpoints,
 )
-from ...testing._checkpoints import assert_yields_or_not
 
 
 # slightly different from _timeouts.sleep_forever because it returns the value
@@ -1606,9 +1605,29 @@ async def test_trivial_yields():
         await _core.checkpoint_if_cancelled()
         await _core.cancel_shielded_checkpoint()
 
-    with assert_yields_or_not(expect_cancel_point=False, expect_schedule_point=True):
+    # Weird case: opening and closing a nursery schedules, but doesn't check
+    # for cancellation (unless something inside the nursery does)
+    task = _core.current_task()
+    before_schedule_points = task._schedule_points
+    with _core.CancelScope() as cs:
+        cs.cancel()
         async with _core.open_nursery():
             pass
+    assert not cs.cancelled_caught
+    assert task._schedule_points > before_schedule_points
+
+    before_schedule_points = task._schedule_points
+
+    async def noop_with_no_checkpoint():
+        pass
+
+    with _core.CancelScope() as cs:
+        cs.cancel()
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(noop_with_no_checkpoint)
+    assert not cs.cancelled_caught
+
+    assert task._schedule_points > before_schedule_points
 
     with _core.CancelScope() as cancel_scope:
         cancel_scope.cancel()
@@ -1698,9 +1717,11 @@ async def test_nursery_start(autojump_clock):
         with _core.CancelScope() as cs:
             cs.cancel()
             await nursery.start(started_with_no_checkpoint)
+        assert not cs.cancelled_caught
 
-    # and if after the no-op started(), the child crashes, the error comes out
-    # of start()
+    # and since starting in a cancelled context makes started() a no-op, if
+    # the child crashes after calling started(), the error can *still* come
+    # out of start()
     async def raise_keyerror_after_started(task_status=_core.TASK_STATUS_IGNORED,):
         task_status.started()
         raise KeyError("whoopsiedaisy")
