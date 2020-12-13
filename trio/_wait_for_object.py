@@ -15,13 +15,15 @@ from ._core._windows_cffi import (
     _is_signaled,
 )
 
+_WAIT_FLAGS = WaitFlags.WT_EXECUTEINWAITTHREAD | WaitFlags.WT_EXECUTEONLYONCE
+
 
 @ffi.callback("WAITORTIMERCALLBACK")
 def _wait_callback(context, timer_or_wait_fired):  # pragma: no cover
     ffi.from_handle(context)()
 
 
-def UnregisterWait_native(cancel_token):
+def UnregisterWait_win32(cancel_token):
     """Python wrapper for kernel32.UnregisterWait.
 
     Args:
@@ -33,7 +35,7 @@ def UnregisterWait_native(cancel_token):
     return kernel32.UnregisterWait(cancel_token[0])
 
 
-def RegisterWaitForSingleObject_native(handle, callback):
+def RegisterWaitForSingleObject_win32(handle, callback):
     """Python wrapper for kernel32.RegisterWaitForSingleObject.
 
     Args:
@@ -60,7 +62,7 @@ def RegisterWaitForSingleObject_native(handle, callback):
         _wait_callback,
         context_handle,
         timeout,
-        WaitFlags.WT_EXECUTEINWAITTHREAD | WaitFlags.WT_EXECUTEONLYONCE,
+        _WAIT_FLAGS,
     ):  # pragma: no cover
         raise_winerror()
     # keep context_handle alive by passing it around with cancel_token
@@ -431,8 +433,8 @@ def _pool_per_process():
 def _win32_pool():
     global WaitForSingleObject, UnregisterWait, RegisterWaitForSingleObject
     WaitForSingleObject = WaitForSingleObject_pool
-    UnregisterWait = UnregisterWait_native
-    RegisterWaitForSingleObject = RegisterWaitForSingleObject_native
+    UnregisterWait = UnregisterWait_win32
+    RegisterWaitForSingleObject = RegisterWaitForSingleObject_win32
 
 
 def _no_pool():
