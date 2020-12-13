@@ -183,6 +183,7 @@ class WaitPool:
 class WaitGroup:
     def __init__(self):
         self._wait_handles = []
+        self._cancel_handle = None
 
     def __len__(self):
         return len(self._wait_handles) + 1  # include cancel_handle
@@ -197,6 +198,7 @@ class WaitGroup:
         return self._wait_handles.remove(handle)
 
     def wait_soon_thread(self):
+        assert self._cancel_handle is None
         trio_token = _core.current_trio_token()
         cancel_handle = self._cancel_handle = kernel32.CreateEventA(
             ffi.NULL, True, False, ffi.NULL
@@ -219,6 +221,7 @@ class WaitGroup:
         _core.start_thread_soon(fn, deliver)
 
     def wait_soon_task(self):
+        assert self._cancel_handle is None
         cancel_handle = self._cancel_handle = kernel32.CreateEventA(
             ffi.NULL, True, False, ffi.NULL
         )
@@ -234,7 +237,9 @@ class WaitGroup:
     def cancel_drain_thread(self):
         # NOTE: cancel_drain_thread() must occur atomically before each wait_soon()
         # or some WaitGroup instances may become uncancellable leading to multi-wakeups
+        # TODO: somehow assert this
         kernel32.SetEvent(self._cancel_handle)
+        self._cancel_handle = None
 
     def drain_as_completed_sync(self, cancel_handle):
         wait_pool = _get_wait_pool()
