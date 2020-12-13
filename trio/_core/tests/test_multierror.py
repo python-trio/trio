@@ -740,6 +740,6 @@ def test_apport_excepthook_monkeypatch_interaction():
 
     # Proper traceback
     assert_match_in_seq(
-        ["Details of embedded", "KeyError", "Details of embedded", "ValueError",],
+        ["Details of embedded", "KeyError", "Details of embedded", "ValueError"],
         stdout,
     )

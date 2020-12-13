@@ -3,7 +3,7 @@ name: CI
 on:
   push:
     branches-ignore:
-      - "dependabot/*"
+      - "dependabot/**"
   pull_request:
 
 jobs:
@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.6', '3.7', '3.8']
+        python: ['3.6', '3.7', '3.8', '3.9.0-rc.2']
         arch: ['x86', 'x64']
         lsp: ['']
         lsp_extract_file: ['']
@@ -27,7 +27,7 @@ jobs:
             extra_name: ', with Komodia LSP'
           - python: '3.8'
             arch: 'x64'
-            lsp: 'http://www.proxifier.com/download/ProxifierSetup.exe'
+            lsp: 'https://www.proxifier.com/download/legacy/ProxifierSetup342.exe'
             lsp_extract_file: ''
             extra_name: ', with IFS LSP'
           - python: '3.8'
@@ -39,7 +39,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Setup python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v2
         with:
           python-version: '${{ matrix.python }}'
           architecture: '${{ matrix.arch }}'
@@ -59,7 +59,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.6', '3.7', '3.8']
+        python: ['3.6', '3.7', '3.8', '3.9.0-rc.2']
         check_formatting: ['0']
         extra_name: ['']
         include:
@@ -70,7 +70,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Setup python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v2
         with:
           python-version: '${{ matrix.python }}'
       - name: Run tests
@@ -87,12 +87,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.6', '3.7', '3.8']
+        python: ['3.6', '3.7', '3.8', '3.9.0-rc.2']
     steps:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Setup python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v2
         with:
           python-version: '${{ matrix.python }}'
       - name: Run tests
@@ -100,21 +100,3 @@ jobs:
         env:
           # Should match 'name:' up above
           JOB_NAME: 'macOS (${{ matrix.python }})'
-
-  Alpine:
-    name: 'Alpine'
-    timeout-minutes: 10
-    runs-on: 'ubuntu-latest'
-    container: 'alpine'
-    strategy:
-      fail-fast: false
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Install bash
-        run: apk add --no-cache bash
-      - name: Run tests
-        run: ./ci.sh
-        env:
-          # Should match 'name:' up above
-          JOB_NAME: 'Alpine'

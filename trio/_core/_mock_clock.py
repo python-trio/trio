@@ -4,7 +4,7 @@ from math import inf
 from .. import _core
 from ._run import GLOBAL_RUN_CONTEXT
 from .._abc import Clock
-from .._util import SubclassingDeprecatedIn_v0_15_0
+from .._util import Final
 
 ################################################################
 # The glorious MockClock
@@ -14,7 +14,7 @@ from .._util import SubclassingDeprecatedIn_v0_15_0
 # Prior art:
 #   https://twistedmatrix.com/documents/current/api/twisted.internet.task.Clock.html
 #   https://github.com/ztellman/manifold/issues/57
-class MockClock(Clock, metaclass=SubclassingDeprecatedIn_v0_15_0):
+class MockClock(Clock, metaclass=Final):
     """A user-controllable clock suitable for writing tests.
 
     Args:

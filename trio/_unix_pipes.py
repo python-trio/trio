@@ -2,7 +2,7 @@ import os
 import errno
 
 from ._abc import Stream
-from ._util import ConflictDetector, SubclassingDeprecatedIn_v0_15_0
+from ._util import ConflictDetector, Final
 
 import trio
 
@@ -74,7 +74,7 @@ class _FdHolder:
         await trio.lowlevel.checkpoint()
 
 
-class FdStream(Stream, metaclass=SubclassingDeprecatedIn_v0_15_0):
+class FdStream(Stream, metaclass=Final):
     """
     Represents a stream given the file descriptor to a pipe, TTY, etc.
 

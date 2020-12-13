@@ -38,7 +38,7 @@ def test_asyncgen_basics():
     async def async_main():
         # GC'ed before exhausted
         with pytest.warns(
-            ResourceWarning, match="Async generator.*collected before.*exhausted",
+            ResourceWarning, match="Async generator.*collected before.*exhausted"
         ):
             assert 42 == await example("abandoned").asend(None)
             gc_collect_harder()

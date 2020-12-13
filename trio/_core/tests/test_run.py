@@ -132,7 +132,7 @@ async def test_basic_interleave():
         nursery.start_soon(looper, "b", record)
 
     check_sequence_matches(
-        record, [{("a", 0), ("b", 0)}, {("a", 1), ("b", 1)}, {("a", 2), ("b", 2)}],
+        record, [{("a", 0), ("b", 0)}, {("a", 1), ("b", 1)}, {("a", 2), ("b", 2)}]
     )
 
 
@@ -1562,7 +1562,7 @@ def test_nice_error_on_bad_calls_to_run_or_spawn():
             yield arg
 
         with pytest.raises(
-            TypeError, match="expected an async function but got an async generator",
+            TypeError, match="expected an async function but got an async generator"
         ):
             bad_call(async_gen, 0)
 
@@ -1722,7 +1722,7 @@ async def test_nursery_start(autojump_clock):
     # and since starting in a cancelled context makes started() a no-op, if
     # the child crashes after calling started(), the error can *still* come
     # out of start()
-    async def raise_keyerror_after_started(task_status=_core.TASK_STATUS_IGNORED,):
+    async def raise_keyerror_after_started(task_status=_core.TASK_STATUS_IGNORED):
         task_status.started()
         raise KeyError("whoopsiedaisy")
 
@@ -1870,7 +1870,7 @@ async def test_nursery_stop_async_iteration():
 
         async def __anext__(self):
             nexts = self.nexts
-            items = [None,] * len(nexts)
+            items = [None] * len(nexts)
             got_stop = False
 
             def handle(exc):

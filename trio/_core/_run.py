@@ -985,7 +985,7 @@ class Nursery(metaclass=NoPublicConstructor):
         GLOBAL_RUN_CONTEXT.runner.spawn_impl(async_fn, args, self, name)
 
     async def start(self, async_fn, *args, name=None):
-        r""" Creates and initalizes a child task.
+        r"""Creates and initalizes a child task.
 
         Like :meth:`start_soon`, but blocks until the new task has
         finished initializing itself, and optionally returns some
@@ -1363,9 +1363,7 @@ class Runner:
 
     @_public
     def current_clock(self):
-        """Returns the current :class:`~trio.abc.Clock`.
-
-        """
+        """Returns the current :class:`~trio.abc.Clock`."""
         return self.clock
 
     @_public
@@ -1462,7 +1460,7 @@ class Runner:
         # Set up the Task object
         ######
         task = Task._create(
-            coro=coro, parent_nursery=nursery, runner=self, name=name, context=context,
+            coro=coro, parent_nursery=nursery, runner=self, name=name, context=context
         )
 
         self.tasks.add(task)
@@ -1549,6 +1547,15 @@ class Runner:
           raise exceptions).
 
         * System tasks do not inherit context variables from their creator.
+
+        Towards the end of a call to :meth:`trio.run`, after the main
+        task and all system tasks have exited, the system nursery
+        becomes closed. At this point, new calls to
+        :func:`spawn_system_task` will raise ``RuntimeError("Nursery
+        is closed to new arrivals")`` instead of creating a system
+        task. It's possible to encounter this state either in
+        a ``finally`` block in an async generator, or in a callback
+        passed to :meth:`TrioToken.run_sync_soon` at the right moment.
 
         Args:
           async_fn: An async callable.
@@ -2037,7 +2044,7 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
             runner.instruments.call("before_run")
         runner.clock.start_clock()
         runner.init_task = runner.spawn_impl(
-            runner.init, (async_fn, args), None, "<init>", system_task=True,
+            runner.init, (async_fn, args), None, "<init>", system_task=True
         )
 
         # You know how people talk about "event loops"? This 'while' loop right

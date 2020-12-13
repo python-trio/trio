@@ -416,7 +416,7 @@ async def test_MemorySendStream():
         record.append("close_hook")
 
     mss2 = MemorySendStream(
-        send_all_hook, wait_send_all_might_not_block_hook, close_hook,
+        send_all_hook, wait_send_all_might_not_block_hook, close_hook
     )
 
     assert mss2.send_all_hook is send_all_hook

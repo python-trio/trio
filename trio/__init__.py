@@ -105,16 +105,6 @@ if False:
 from . import _deprecate
 
 _deprecate.enable_attribute_deprecations(__name__)
-__deprecated_attributes__ = {
-    # NOTE: when you remove this, you should also remove the file
-    # trio/hazmat.py. For details on why we have both, see:
-    #
-    #    https://github.com/python-trio/trio/pull/1484#issuecomment-622574499
-    "hazmat": _deprecate.DeprecatedAttribute(
-        lowlevel, "0.15.0", issue=476, instead="trio.lowlevel",
-    ),
-}
-
 
 # Having the public path in .__module__ attributes is important for:
 # - exception names in printed tracebacks

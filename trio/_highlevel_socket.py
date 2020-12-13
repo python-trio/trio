@@ -5,7 +5,7 @@ from contextlib import contextmanager
 
 import trio
 from . import socket as tsocket
-from ._util import ConflictDetector, SubclassingDeprecatedIn_v0_15_0
+from ._util import ConflictDetector, Final
 from .abc import HalfCloseableStream, Listener
 
 # XX TODO: this number was picked arbitrarily. We should do experiments to
@@ -35,7 +35,7 @@ def _translate_socket_errors_to_stream_errors():
             ) from exc
 
 
-class SocketStream(HalfCloseableStream, metaclass=SubclassingDeprecatedIn_v0_15_0):
+class SocketStream(HalfCloseableStream, metaclass=Final):
     """An implementation of the :class:`trio.abc.HalfCloseableStream`
     interface based on a raw network socket.
 
@@ -315,7 +315,7 @@ for name in _ignorable_accept_errno_names:
         pass
 
 
-class SocketListener(Listener[SocketStream], metaclass=SubclassingDeprecatedIn_v0_15_0):
+class SocketListener(Listener[SocketStream], metaclass=Final):
     """A :class:`~trio.abc.Listener` that uses a listening socket to accept
     incoming connections as :class:`SocketStream` objects.
 
@@ -377,8 +377,6 @@ class SocketListener(Listener[SocketStream], metaclass=SubclassingDeprecatedIn_v
                 return SocketStream(sock)
 
     async def aclose(self):
-        """Close this listener and its underlying socket.
-
-        """
+        """Close this listener and its underlying socket."""
         self.socket.close()
         await trio.lowlevel.checkpoint()

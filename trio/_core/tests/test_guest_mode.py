@@ -502,6 +502,10 @@ def test_guest_mode_autojump_clock_threshold_changing():
 
 
 @pytest.mark.skipif(buggy_pypy_asyncgens, reason="PyPy 7.2 is buggy")
+@pytest.mark.xfail(
+    sys.implementation.name == "pypy" and sys.version_info >= (3, 7),
+    reason="async generator issue under investigation",
+)
 def test_guest_mode_asyncgens():
     import sniffio
 

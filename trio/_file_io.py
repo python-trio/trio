@@ -63,9 +63,7 @@ class AsyncIOWrapper(AsyncResource):
 
     @property
     def wrapped(self):
-        """object: A reference to the wrapped file object
-
-        """
+        """object: A reference to the wrapped file object"""
 
         return self._wrapped
 
@@ -157,7 +155,7 @@ async def open_file(
     """
     _file = wrap_file(
         await trio.to_thread.run_sync(
-            io.open, file, mode, buffering, encoding, errors, newline, closefd, opener,
+            io.open, file, mode, buffering, encoding, errors, newline, closefd, opener
         )
     )
     return _file

@@ -134,8 +134,8 @@ async def test_pipes():
             assert seen == expected
 
         async with _core.open_nursery() as nursery:
-            # fail quickly if something is broken
-            nursery.cancel_scope.deadline = _core.current_time() + 3.0
+            # fail eventually if something is broken
+            nursery.cancel_scope.deadline = _core.current_time() + 30.0
             nursery.start_soon(feed_input)
             nursery.start_soon(check_output, proc.stdout, msg)
             nursery.start_soon(check_output, proc.stderr, msg[::-1])
@@ -272,7 +272,7 @@ async def test_run_check():
 @skip_if_fbsd_pipes_broken
 async def test_run_with_broken_pipe():
     result = await run_process(
-        [sys.executable, "-c", "import sys; sys.stdin.close()"], stdin=b"x" * 131072,
+        [sys.executable, "-c", "import sys; sys.stdin.close()"], stdin=b"x" * 131072
     )
     assert result.returncode == 0
     assert result.stdout is result.stderr is None

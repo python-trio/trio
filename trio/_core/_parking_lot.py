@@ -75,7 +75,7 @@ import attr
 from collections import OrderedDict
 
 from .. import _core
-from .._util import SubclassingDeprecatedIn_v0_15_0
+from .._util import Final
 
 _counter = count()
 
@@ -86,7 +86,7 @@ class _ParkingLotStatistics:
 
 
 @attr.s(eq=False, hash=False)
-class ParkingLot(metaclass=SubclassingDeprecatedIn_v0_15_0):
+class ParkingLot(metaclass=Final):
     """A fair wait queue with cancellation and requeueing.
 
     This class encapsulates the tricky parts of implementing a wait
@@ -104,15 +104,11 @@ class ParkingLot(metaclass=SubclassingDeprecatedIn_v0_15_0):
     _parked = attr.ib(factory=OrderedDict, init=False)
 
     def __len__(self):
-        """Returns the number of parked tasks.
-
-        """
+        """Returns the number of parked tasks."""
         return len(self._parked)
 
     def __bool__(self):
-        """True if there are parked tasks, False otherwise.
-
-        """
+        """True if there are parked tasks, False otherwise."""
         return bool(self._parked)
 
     # XX this currently returns None
@@ -158,9 +154,7 @@ class ParkingLot(metaclass=SubclassingDeprecatedIn_v0_15_0):
         return tasks
 
     def unpark_all(self):
-        """Unpark all parked tasks.
-
-        """
+        """Unpark all parked tasks."""
         return self.unpark(count=len(self))
 
     @_core.enable_ki_protection

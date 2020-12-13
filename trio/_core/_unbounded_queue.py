@@ -2,7 +2,7 @@ import attr
 
 from .. import _core
 from .._deprecate import deprecated
-from .._util import SubclassingDeprecatedIn_v0_15_0
+from .._util import Final
 
 
 @attr.s(frozen=True)
@@ -11,7 +11,7 @@ class _UnboundedQueueStats:
     tasks_waiting = attr.ib()
 
 
-class UnboundedQueue(metaclass=SubclassingDeprecatedIn_v0_15_0):
+class UnboundedQueue(metaclass=Final):
     """An unbounded queue suitable for certain unusual forms of inter-task
     communication.
 
@@ -57,9 +57,7 @@ class UnboundedQueue(metaclass=SubclassingDeprecatedIn_v0_15_0):
         return "<UnboundedQueue holding {} items>".format(len(self._data))
 
     def qsize(self):
-        """Returns the number of items currently in the queue.
-
-        """
+        """Returns the number of items currently in the queue."""
         return len(self._data)
 
     def empty(self):
@@ -141,7 +139,7 @@ class UnboundedQueue(metaclass=SubclassingDeprecatedIn_v0_15_0):
 
         """
         return _UnboundedQueueStats(
-            qsize=len(self._data), tasks_waiting=self._lot.statistics().tasks_waiting,
+            qsize=len(self._data), tasks_waiting=self._lot.statistics().tasks_waiting
         )
 
     def __aiter__(self):

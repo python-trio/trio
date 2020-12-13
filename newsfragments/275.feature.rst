@@ -1,3 +1,0 @@
-`trio.open_tcp_stream` has a new ``local_address=`` keyword argument
-that can be used on machines with multiple IP addresses to control
-which IP is used for the outgoing connection.

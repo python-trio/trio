@@ -455,7 +455,7 @@ this does serve to illustrate the basic structure of the
 
        async def acquire(self):
            while self._held:
-               task = trio.current_task()
+               task = trio.lowlevel.current_task()
                self._blocked_tasks.append(task)
                def abort_fn(_):
                    self._blocked_tasks.remove(task)

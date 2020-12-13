@@ -69,7 +69,7 @@
 # able to use this to figure out the key. Is this a real practical problem? I
 # have no idea, I'm not a cryptographer. In any case, some people worry that
 # it's a problem, so their TLS libraries are designed to automatically trigger
-# a renegotation every once in a while on some sort of timer.
+# a renegotiation every once in a while on some sort of timer.
 #
 # The end result is that you might be going along, minding your own business,
 # and then *bam*! a wild renegotiation appears! And you just have to cope.
@@ -158,7 +158,7 @@ import trio
 from .abc import Stream, Listener
 from ._highlevel_generic import aclose_forcefully
 from . import _sync
-from ._util import ConflictDetector, SubclassingDeprecatedIn_v0_15_0
+from ._util import ConflictDetector, Final
 from ._deprecate import warn_deprecated
 
 ################################################################
@@ -224,7 +224,7 @@ class _Once:
 _State = _Enum("_State", ["OK", "BROKEN", "CLOSED"])
 
 
-class SSLStream(Stream, metaclass=SubclassingDeprecatedIn_v0_15_0):
+class SSLStream(Stream, metaclass=Final):
     r"""Encrypted communication using SSL/TLS.
 
     :class:`SSLStream` wraps an arbitrary :class:`~trio.abc.Stream`, and
@@ -542,7 +542,7 @@ class SSLStream(Stream, metaclass=SubclassingDeprecatedIn_v0_15_0):
             # We could do something tricky to keep track of whether a
             # receive_some happens while we're sending, but the case where
             # we have to do both is very unusual (only during a
-            # renegotation), so it's better to keep things simple. So we
+            # renegotiation), so it's better to keep things simple. So we
             # do just one potentially-blocking operation, then check again
             # for fresh information.
             #
@@ -830,9 +830,7 @@ class SSLStream(Stream, metaclass=SubclassingDeprecatedIn_v0_15_0):
             self._state = _State.CLOSED
 
     async def wait_send_all_might_not_block(self):
-        """See :meth:`trio.abc.SendStream.wait_send_all_might_not_block`.
-
-        """
+        """See :meth:`trio.abc.SendStream.wait_send_all_might_not_block`."""
         # This method's implementation is deceptively simple.
         #
         # First, we take the outer send lock, because of Trio's standard
@@ -872,7 +870,7 @@ class SSLStream(Stream, metaclass=SubclassingDeprecatedIn_v0_15_0):
                 await self.transport_stream.wait_send_all_might_not_block()
 
 
-class SSLListener(Listener[SSLStream], metaclass=SubclassingDeprecatedIn_v0_15_0):
+class SSLListener(Listener[SSLStream], metaclass=Final):
     """A :class:`~trio.abc.Listener` for SSL/TLS-encrypted servers.
 
     :class:`SSLListener` wraps around another Listener, and converts
@@ -923,7 +921,5 @@ class SSLListener(Listener[SSLStream], metaclass=SubclassingDeprecatedIn_v0_15_0
         )
 
     async def aclose(self):
-        """Close the transport listener.
-
-        """
+        """Close the transport listener."""
         await self.transport_listener.aclose()

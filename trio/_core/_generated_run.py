@@ -56,9 +56,7 @@ def current_time():
 
 
 def current_clock():
-    """Returns the current :class:`~trio.abc.Clock`.
-
-        """
+    """Returns the current :class:`~trio.abc.Clock`."""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.current_clock()
@@ -127,6 +125,15 @@ def spawn_system_task(async_fn, *args, name=None):
           raise exceptions).
 
         * System tasks do not inherit context variables from their creator.
+
+        Towards the end of a call to :meth:`trio.run`, after the main
+        task and all system tasks have exited, the system nursery
+        becomes closed. At this point, new calls to
+        :func:`spawn_system_task` will raise ``RuntimeError("Nursery
+        is closed to new arrivals")`` instead of creating a system
+        task. It's possible to encounter this state either in
+        a ``finally`` block in an async generator, or in a callback
+        passed to :meth:`TrioToken.run_sync_soon` at the right moment.
 
         Args:
           async_fn: An async callable.

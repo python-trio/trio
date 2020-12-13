@@ -7,11 +7,11 @@ import trio
 
 from ._core import enable_ki_protection, ParkingLot
 from ._deprecate import deprecated
-from ._util import SubclassingDeprecatedIn_v0_15_0
+from ._util import Final
 
 
 @attr.s(repr=False, eq=False, hash=False)
-class Event(metaclass=SubclassingDeprecatedIn_v0_15_0):
+class Event(metaclass=Final):
     """A waitable boolean value useful for inter-task synchronization,
     inspired by :class:`threading.Event`.
 
@@ -41,16 +41,12 @@ class Event(metaclass=SubclassingDeprecatedIn_v0_15_0):
     _flag = attr.ib(default=False, init=False)
 
     def is_set(self):
-        """Return the current value of the internal flag.
-
-        """
+        """Return the current value of the internal flag."""
         return self._flag
 
     @enable_ki_protection
     def set(self):
-        """Set the internal flag value to True, and wake any waiting tasks.
-
-        """
+        """Set the internal flag value to True, and wake any waiting tasks."""
         self._flag = True
         self._lot.unpark_all()
 
@@ -103,7 +99,7 @@ class _CapacityLimiterStatistics:
 
 
 @async_cm
-class CapacityLimiter(metaclass=SubclassingDeprecatedIn_v0_15_0):
+class CapacityLimiter(metaclass=Final):
     """An object for controlling access to a resource with limited capacity.
 
     Sometimes you need to put a limit on how many tasks can do something at
@@ -202,16 +198,12 @@ class CapacityLimiter(metaclass=SubclassingDeprecatedIn_v0_15_0):
 
     @property
     def borrowed_tokens(self):
-        """The amount of capacity that's currently in use.
-
-        """
+        """The amount of capacity that's currently in use."""
         return len(self._borrowers)
 
     @property
     def available_tokens(self):
-        """The amount of capacity that's available to use.
-
-        """
+        """The amount of capacity that's available to use."""
         return self.total_tokens - self.borrowed_tokens
 
     @enable_ki_protection
@@ -350,7 +342,7 @@ class CapacityLimiter(metaclass=SubclassingDeprecatedIn_v0_15_0):
 
 
 @async_cm
-class Semaphore(metaclass=SubclassingDeprecatedIn_v0_15_0):
+class Semaphore(metaclass=Final):
     """A `semaphore <https://en.wikipedia.org/wiki/Semaphore_(programming)>`__.
 
     A semaphore holds an integer value, which can be incremented by
@@ -406,16 +398,12 @@ class Semaphore(metaclass=SubclassingDeprecatedIn_v0_15_0):
 
     @property
     def value(self):
-        """The current value of the semaphore.
-
-        """
+        """The current value of the semaphore."""
         return self._value
 
     @property
     def max_value(self):
-        """The maximum allowed value. May be None to indicate no limit.
-
-        """
+        """The maximum allowed value. May be None to indicate no limit."""
         return self._max_value
 
     @enable_ki_protection
@@ -529,9 +517,7 @@ class _LockImpl:
 
     @enable_ki_protection
     async def acquire(self):
-        """Acquire the lock, blocking if necessary.
-
-        """
+        """Acquire the lock, blocking if necessary."""
         await trio.lowlevel.checkpoint_if_cancelled()
         try:
             self.acquire_nowait()
@@ -572,11 +558,11 @@ class _LockImpl:
 
         """
         return _LockStatistics(
-            locked=self.locked(), owner=self._owner, tasks_waiting=len(self._lot),
+            locked=self.locked(), owner=self._owner, tasks_waiting=len(self._lot)
         )
 
 
-class Lock(_LockImpl, metaclass=SubclassingDeprecatedIn_v0_15_0):
+class Lock(_LockImpl, metaclass=Final):
     """A classic `mutex
     <https://en.wikipedia.org/wiki/Lock_(computer_science)>`__.
 
@@ -590,7 +576,7 @@ class Lock(_LockImpl, metaclass=SubclassingDeprecatedIn_v0_15_0):
     """
 
 
-class StrictFIFOLock(_LockImpl, metaclass=SubclassingDeprecatedIn_v0_15_0):
+class StrictFIFOLock(_LockImpl, metaclass=Final):
     r"""A variant of :class:`Lock` where tasks are guaranteed to acquire the
     lock in strict first-come-first-served order.
 
@@ -660,7 +646,7 @@ class _ConditionStatistics:
 
 
 @async_cm
-class Condition(metaclass=SubclassingDeprecatedIn_v0_15_0):
+class Condition(metaclass=Final):
     """A classic `condition variable
     <https://en.wikipedia.org/wiki/Monitor_(synchronization)>`__, similar to
     :class:`threading.Condition`.
@@ -702,15 +688,11 @@ class Condition(metaclass=SubclassingDeprecatedIn_v0_15_0):
         return self._lock.acquire_nowait()
 
     async def acquire(self):
-        """Acquire the underlying lock, blocking if necessary.
-
-        """
+        """Acquire the underlying lock, blocking if necessary."""
         await self._lock.acquire()
 
     def release(self):
-        """Release the underlying lock.
-
-        """
+        """Release the underlying lock."""
         self._lock.release()
 
     @enable_ki_protection
@@ -786,5 +768,5 @@ class Condition(metaclass=SubclassingDeprecatedIn_v0_15_0):
 
         """
         return _ConditionStatistics(
-            tasks_waiting=len(self._lot), lock_statistics=self._lock.statistics(),
+            tasks_waiting=len(self._lot), lock_statistics=self._lock.statistics()
         )

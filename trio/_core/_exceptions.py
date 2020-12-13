@@ -25,9 +25,7 @@ class RunFinishedError(RuntimeError):
 
 
 class WouldBlock(Exception):
-    """Raised by ``X_nowait`` functions if ``X`` would block.
-
-    """
+    """Raised by ``X_nowait`` functions if ``X`` would block."""
 
 
 class Cancelled(BaseException, metaclass=NoPublicConstructor):

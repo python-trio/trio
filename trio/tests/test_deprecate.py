@@ -160,30 +160,22 @@ def test_deprecated_alias_method(recwarn_always):
 
 @deprecated("2.1", issue=1, instead="hi")
 def docstring_test1():  # pragma: no cover
-    """Hello!
-
-    """
+    """Hello!"""
 
 
 @deprecated("2.1", issue=None, instead="hi")
 def docstring_test2():  # pragma: no cover
-    """Hello!
-
-    """
+    """Hello!"""
 
 
 @deprecated("2.1", issue=1, instead=None)
 def docstring_test3():  # pragma: no cover
-    """Hello!
-
-    """
+    """Hello!"""
 
 
 @deprecated("2.1", issue=None, instead=None)
 def docstring_test4():  # pragma: no cover
-    """Hello!
-
-    """
+    """Hello!"""
 
 
 def test_deprecated_docstring_munging():

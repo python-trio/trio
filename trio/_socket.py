@@ -240,9 +240,7 @@ def from_stdlib_socket(sock):
 
 @_wraps(_stdlib_socket.fromfd, assigned=(), updated=())
 def fromfd(fd, family, type, proto=0):
-    """Like :func:`socket.fromfd`, but returns a Trio socket object.
-
-    """
+    """Like :func:`socket.fromfd`, but returns a Trio socket object."""
     family, type, proto = _sniff_sockopts_for_fileno(family, type, proto, fd)
     return from_stdlib_socket(_stdlib_socket.fromfd(fd, family, type, proto))
 
@@ -290,9 +288,7 @@ def socket(
 
 
 def _sniff_sockopts_for_fileno(family, type, proto, fileno):
-    """Correct SOCKOPTS for given fileno, falling back to provided values.
-
-    """
+    """Correct SOCKOPTS for given fileno, falling back to provided values."""
     # Wrap the raw fileno into a Python socket object
     # This object might have the wrong metadata, but it lets us easily call getsockopt
     # and then we'll throw it away and construct a new one with the correct metadata.
@@ -439,9 +435,7 @@ class _SocketType(SocketType):
         return repr(self._sock).replace("socket.socket", "trio.socket.socket")
 
     def dup(self):
-        """Same as :meth:`socket.socket.dup`.
-
-        """
+        """Same as :meth:`socket.socket.dup`."""
         return _SocketType(self._sock.dup())
 
     def close(self):
@@ -609,9 +603,7 @@ class _SocketType(SocketType):
     _accept = _make_simple_sock_method_wrapper("accept", _core.wait_readable)
 
     async def accept(self):
-        """Like :meth:`socket.socket.accept`, but async.
-
-        """
+        """Like :meth:`socket.socket.accept`, but async."""
         sock, addr = await self._accept()
         return from_stdlib_socket(sock), addr
 
@@ -745,9 +737,7 @@ class _SocketType(SocketType):
 
     @_wraps(_stdlib_socket.socket.sendto, assigned=(), updated=())
     async def sendto(self, *args):
-        """Similar to :meth:`socket.socket.sendto`, but async.
-
-        """
+        """Similar to :meth:`socket.socket.sendto`, but async."""
         # args is: data[, flags], address)
         # and kwargs are not accepted
         args = list(args)

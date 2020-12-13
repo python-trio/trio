@@ -7,6 +7,7 @@ import pytest
 from .. import _core
 from .. import Event, CapacityLimiter, sleep
 from ..testing import wait_all_tasks_blocked
+from .._core.tests.tutil import buggy_pypy_asyncgens
 from .._threads import (
     to_thread_run_sync,
     current_default_thread_limiter,
@@ -334,7 +335,7 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
         async def run_thread(event):
             with _core.CancelScope() as cancel_scope:
                 await to_thread_run_sync(
-                    thread_fn, cancel_scope, limiter=limiter_arg, cancellable=cancel,
+                    thread_fn, cancel_scope, limiter=limiter_arg, cancellable=cancel
                 )
             print("run_thread finished, cancelled:", cancel_scope.cancelled_caught)
             event.set()
@@ -554,3 +555,24 @@ async def test_from_thread_inside_trio_thread():
     trio_token = _core.current_trio_token()
     with pytest.raises(RuntimeError):
         from_thread_run_sync(not_called, trio_token=trio_token)
+
+
+@pytest.mark.skipif(buggy_pypy_asyncgens, reason="pypy 7.2.0 is buggy")
+def test_from_thread_run_during_shutdown():
+    save = []
+    record = []
+
+    async def agen():
+        try:
+            yield
+        finally:
+            with pytest.raises(_core.RunFinishedError), _core.CancelScope(shield=True):
+                await to_thread_run_sync(from_thread_run, sleep, 0)
+            record.append("ok")
+
+    async def main():
+        save.append(agen())
+        await save[-1].asend(None)
+
+    _core.run(main)
+    assert record == ["ok"]

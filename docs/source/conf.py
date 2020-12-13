@@ -118,14 +118,7 @@ version = trio.__version__
 # The full version, including alpha/beta/rc tags.
 release = version
 
-# It would be nicer to make this a .png; literally every browser that
-# supports favicons at all now supports png:
-#     https://caniuse.com/#feat=link-icon-png
-# But sphinx won't let me:
-#     https://github.com/sphinx-doc/sphinx/pull/3715
-# Oh well. 'convert favicon-32.png favicon-32.ico' it is. And it's only 2x
-# bigger...
-html_favicon = "_static/favicon-32.ico"
+html_favicon = "_static/favicon-32.png"
 html_logo = "../../logo/wordmark-transparent.svg"
 # & down below in html_theme_options we set logo_only=True
 
