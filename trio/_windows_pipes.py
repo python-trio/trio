@@ -167,44 +167,42 @@ class PipeReceiveChannel(ReceiveChannel[bytes]):
         )
 
     async def receive(self) -> bytes:
-        buffer = bytearray(DEFAULT_RECEIVE_SIZE)
-        try:
-            received = await self._receive_some_into(buffer)
-        except OSError as e:
-            if e.winerror != ErrorCodes.ERROR_MORE_DATA:
-                raise  # pragma: no cover
-            left = peek_pipe_message_left(self._handle_holder.handle)
-            # preallocate memory to avoid an extra copy of very large messages
-            newbuffer = bytearray(DEFAULT_RECEIVE_SIZE + left)
-            with memoryview(newbuffer) as view:
-                view[:DEFAULT_RECEIVE_SIZE] = buffer
-                await self._receive_some_into(view[DEFAULT_RECEIVE_SIZE:])
-            return newbuffer
-        else:
-            del buffer[received:]
-            return buffer
+        with self._conflict_detector:
+            buffer = bytearray(DEFAULT_RECEIVE_SIZE)
+            try:
+                received = await self._receive_some_into(buffer)
+            except OSError as e:
+                if e.winerror != ErrorCodes.ERROR_MORE_DATA:
+                    raise  # pragma: no cover
+                left = peek_pipe_message_left(self._handle_holder.handle)
+                # preallocate memory to avoid an extra copy of very large messages
+                newbuffer = bytearray(DEFAULT_RECEIVE_SIZE + left)
+                with memoryview(newbuffer) as view:
+                    view[:DEFAULT_RECEIVE_SIZE] = buffer
+                    await self._receive_some_into(view[DEFAULT_RECEIVE_SIZE:])
+                return newbuffer
+            else:
+                del buffer[received:]
+                return buffer
 
     async def _receive_some_into(self, buffer) -> bytes:
-        with self._conflict_detector:
+        if self._handle_holder.closed:
+            raise _core.ClosedResourceError("this pipe is already closed")
+        try:
+            return await _core.readinto_overlapped(self._handle_holder.handle, buffer)
+        except BrokenPipeError:
             if self._handle_holder.closed:
-                raise _core.ClosedResourceError("this pipe is already closed")
-            try:
-                return await _core.readinto_overlapped(
-                    self._handle_holder.handle, buffer
-                )
-            except BrokenPipeError:
-                if self._handle_holder.closed:
-                    raise _core.ClosedResourceError(
-                        "another task closed this pipe"
-                    ) from None
+                raise _core.ClosedResourceError(
+                    "another task closed this pipe"
+                ) from None
 
-                # Windows raises BrokenPipeError on one end of a pipe
-                # whenever the other end closes, regardless of direction.
-                # Convert this to EndOfChannel.
-                #
-                # Do we have to checkpoint manually? We are raising an exception.
-                await _core.checkpoint()
-                raise _core.EndOfChannel
+            # Windows raises BrokenPipeError on one end of a pipe
+            # whenever the other end closes, regardless of direction.
+            # Convert this to EndOfChannel.
+            #
+            # Do we have to checkpoint manually? We are raising an exception.
+            await _core.checkpoint()
+            raise _core.EndOfChannel
 
     async def aclose(self):
         await self._handle_holder.aclose()
