@@ -5,7 +5,7 @@ import pytest
 
 from .. import _core
 from .._sync import CapacityLimiter
-from .._timeouts import fail_after, move_on_after, TooSlowError
+from .._timeouts import fail_after, TooSlowError
 from .. import _worker_processes
 from .._core.tests.tutil import slow
 from .._worker_processes import (
@@ -160,27 +160,22 @@ def _segfault_out_of_bounds_pointer():  # pragma: no cover
 @slow
 async def test_to_process_run_sync_raises_on_segfault():
     # This test was flaky on CI across several platforms and implementations.
-    # I haven't been able to reproduce the problem locally at all.
+    # I can reproduce it locally if there is some other process using the rest
+    # of the CPU (F@H in this case) although I cannot explain why running this
+    # on a busy machine would change the number of iterations (40-50k) needed
+    # for the OS to notice there is something funny going on with memory access.
     # The usual symptom was for the segfault to occur, but the process
     # to fail to raise the error for more than one minute, which would
     # stall the test runner for 10 minutes.
-    # Here we raise our own failure error before the test runner timeout (45s)
-    # and repeatedly run the segfault test as much as possible but xfail
-    # if we actually have to repeat or timeout.
-    attempts = 0
+    # Here we raise our own failure error before the test runner timeout (55s)
+    # but xfail if we actually have to timeout.
     try:
-        with fail_after(45):
-            while True:
-                with move_on_after(2):
-                    attempts += 1
-                    await to_process_run_sync(
-                        _segfault_out_of_bounds_pointer, cancellable=True
-                    )
+        with fail_after(55):
+            await to_process_run_sync(_segfault_out_of_bounds_pointer, cancellable=True)
     except BrokenWorkerError:
-        if attempts > 1:  # pragma: no cover
-            pytest.xfail(f"Too many attempts needed to segfault: {attempts}")
+        pass
     except TooSlowError:  # pragma: no cover
-        pytest.xfail(f"Unable to cause segfault after {attempts} attempts.")
+        pytest.xfail("Unable to cause segfault after 55 seconds.")
     else:  # pragma: no cover
         pytest.fail("No error was raised on segfault.")
 
