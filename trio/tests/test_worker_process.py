@@ -207,6 +207,23 @@ async def test_to_process_run_sync_cancel_infinite_loop():
 
 
 @slow
+async def test_to_process_run_sync_raises_on_kill():
+    m = multiprocessing.Manager()
+    ev = m.Event()
+
+    async def child():
+        await to_process_run_sync(_never_halts, ev)
+
+    await to_process_run_sync(_null_func)
+    proc = _worker_processes.PROC_CACHE._cache[0]
+    with pytest.raises(BrokenWorkerError):
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(child)
+            await to_thread_run_sync(ev.wait)
+            proc.kill()
+
+
+@slow
 async def test_spawn_worker_in_thread_and_prune_cache():
     # make sure we can successfully put worker spawning in a trio thread
     proc = await to_thread_run_sync(_worker_processes.WorkerProc)
