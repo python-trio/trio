@@ -172,6 +172,8 @@ class WorkerProc:
 
     async def _child_monitor(self, task_status):
         task_status.started()
+        # quickly raise if the pipes have been closed
+        self._recv_pipe.poll(timeout=0)
         # If this handle becomes ready, raise a catchable error
         await wait_sentinel(self._proc.sentinel)
         raise BrokenWorkerError(f"{self._proc} died unexpectedly")
