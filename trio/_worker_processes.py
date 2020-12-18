@@ -60,15 +60,22 @@ class ProcCache:
         # The cache is a deque rather than dict here since processes can't remove
         # themselves anyways, so we don't need O(1) lookups
         self._cache = deque()
+        # NOTE: avoid thread races between Trio runs by only interacting with
+        # self._cache via thread-atomic actions like append, pop, del
 
     def prune(self):
         # take advantage of the oldest proc being on the left to
-        # keep iteration O(dead)
-        while self._cache:
-            proc = self._cache.popleft()
-            if proc.is_alive():
-                self._cache.appendleft(proc)
-                return
+        # keep iteration O(dead workers)
+        try:
+            while True:
+                proc = self._cache.popleft()
+                if proc.is_alive():
+                    self._cache.appendleft(proc)
+                    return
+        except IndexError:
+            # Thread safety: it's necessary to end the iteration using this error
+            # when the cache is empty, as opposed to `while self._cache`.
+            pass
 
     def push(self, proc):
         self._cache.append(proc)
