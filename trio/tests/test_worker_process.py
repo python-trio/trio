@@ -270,3 +270,41 @@ async def test_exhaustively_cancel_run_sync():
     assert not proc.is_alive()
 
     # cancel at result recv is tested elsewhere
+
+
+class RacingWorkerProc(_worker_processes.WorkerProc):
+    def __init__(self):
+        # event to force a worker to tell us when the race should start
+        self.ev = multiprocessing.Event()
+        child_recv_pipe, self._send_pipe = multiprocessing.Pipe(duplex=False)
+        self._recv_pipe, child_send_pipe = multiprocessing.Pipe(duplex=False)
+        self._proc = multiprocessing.Process(
+            target=self._work,
+            args=(self.ev, child_recv_pipe, child_send_pipe),
+            # name=f"Trio worker process {next(_proc_counter)}",
+            daemon=True,
+        )
+        # The following initialization methods may take a long time
+        self._proc.start()
+
+    @staticmethod
+    def _work(ev, recv_pipe, send_pipe):  # pragma: no cover
+        # Need to keep this in sync with WorkerProc._work!!!
+        try:
+            while recv_pipe.poll(timeout=0):
+                assert False
+        finally:
+            ev.set()
+            recv_pipe.close()
+            send_pipe.close()
+
+
+@slow
+async def test_racing_timeout():
+    proc = RacingWorkerProc()
+    _worker_processes.PROC_CACHE.push(proc)
+    proc.ev.wait()
+    assert proc.is_alive()
+    _, pid = await to_process_run_sync(_echo_and_pid, None)
+    assert not proc.is_alive()
+    assert pid != proc._proc.pid

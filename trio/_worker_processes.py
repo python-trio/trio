@@ -80,7 +80,7 @@ class ProcCache:
         self._cache.append(proc)
 
     def pop(self):
-        """Get live, WOKEN worker process or raise IndexError"""
+        """Get live worker process or raise IndexError"""
         while True:
             proc = self._cache.pop()
             if proc.is_alive():
@@ -124,22 +124,21 @@ class WorkerProc:
 
             return ret
 
-        while True:
-            try:
-                recv_pipe.poll(timeout=IDLE_TIMEOUT)
-            except TimeoutError:
-                # Timeout waiting for job, so we can exit.
-                return
-            fn, args = recv_pipe.recv()
-            result = outcome.capture(worker_fn)
-            # Unlike the thread cache, it's impossible to deliver the
-            # result from the worker process. So shove it onto the queue
-            # and hope the receiver delivers the result and marks us idle
-            send_pipe.send(result)
+        try:
+            while recv_pipe.poll(timeout=IDLE_TIMEOUT):
+                fn, args = recv_pipe.recv()
+                result = outcome.capture(worker_fn)
+                # Unlike the thread cache, it's impossible to deliver the
+                # result from the worker process. So shove it onto the queue
+                # and hope the receiver delivers the result and marks us idle
+                send_pipe.send(result)
 
-            del fn
-            del args
-            del result
+                del fn
+                del args
+                del result
+        finally:
+            recv_pipe.close()
+            send_pipe.close()
 
     async def run_sync(self, sync_fn, *args):
         # Neither this nor the child process should be waiting at this point
@@ -232,14 +231,19 @@ async def to_process_run_sync(sync_fn, *args, cancellable=False, limiter=None):
     async with limiter:
         PROC_CACHE.prune()
 
-        try:
-            proc = PROC_CACHE.pop()
-        except IndexError:
-            proc = await to_thread_run_sync(WorkerProc)
+        while True:
+            try:
+                proc = PROC_CACHE.pop()
+            except IndexError:
+                proc = await to_thread_run_sync(WorkerProc)
 
-        try:
-            with CancelScope(shield=not cancellable):
-                return await proc.run_sync(sync_fn, *args)
-        finally:
-            if proc.is_alive():
-                PROC_CACHE.push(proc)
+            try:
+                with CancelScope(shield=not cancellable):
+                    return await proc.run_sync(sync_fn, *args)
+            except BrokenPipeError:
+                # Rare case where proc timed out even though it was still alive
+                # as we popped it. Just retry.
+                pass
+            finally:
+                if proc.is_alive():
+                    PROC_CACHE.push(proc)
