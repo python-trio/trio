@@ -226,9 +226,6 @@ async def test_spawn_worker_in_thread_and_prune_cache():
     pid1 = proc._proc.pid
     proc.kill()
     proc._proc.join()
-    # dead procs shouldn't wake up
-    with pytest.raises(BrokenWorkerError):
-        proc.wake_up()
     # put dead proc into the cache (normal code never does this)
     _worker_processes.PROC_CACHE.push(proc)
     # dead procs shouldn't pop out
@@ -248,7 +245,7 @@ async def test_to_process_run_sync_large_job():
     assert len(x) == n
 
 
-@slow
+# @slow
 async def test_exhaustively_cancel_run_sync():
     # to test that cancellation does not ever leave a living process behind
     # currently requires manually targeting all but last checkpoints

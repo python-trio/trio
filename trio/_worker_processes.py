@@ -1,8 +1,7 @@
 import os
 from collections import deque
 from itertools import count
-from multiprocessing import Pipe, Process, Barrier
-from threading import BrokenBarrierError
+from multiprocessing import Pipe, Process
 
 from ._core import open_nursery, RunVar, CancelScope, wait_readable
 from ._sync import CapacityLimiter
@@ -84,13 +83,7 @@ class ProcCache:
         """Get live, WOKEN worker process or raise IndexError"""
         while True:
             proc = self._cache.pop()
-            try:
-                proc.wake_up(0)
-            except BrokenWorkerError:
-                # proc must have died in the cache, just try again
-                proc.kill()
-                continue
-            else:
+            if proc.is_alive():
                 return proc
 
     def __len__(self):
@@ -102,25 +95,19 @@ PROC_CACHE = ProcCache()
 
 class WorkerProc:
     def __init__(self):
-        # More heavyweight synchronization is required for processes vs threads
-        # because of the lack of shared state. Since only the parent and child
-        # processes will ever touch this, simply having them both wait together
-        # is enough sign of life to move things onto the pipe.
-        self._barrier = Barrier(2)
         child_recv_pipe, self._send_pipe = Pipe(duplex=False)
         self._recv_pipe, child_send_pipe = Pipe(duplex=False)
         self._proc = Process(
             target=self._work,
-            args=(self._barrier, child_recv_pipe, child_send_pipe),
+            args=(child_recv_pipe, child_send_pipe),
             name=f"Trio worker process {next(_proc_counter)}",
             daemon=True,
         )
         # The following initialization methods may take a long time
         self._proc.start()
-        self.wake_up()
 
     @staticmethod
-    def _work(barrier, recv_pipe, send_pipe):  # pragma: no cover
+    def _work(recv_pipe, send_pipe):  # pragma: no cover
 
         import inspect
         import outcome
@@ -139,15 +126,12 @@ class WorkerProc:
 
         while True:
             try:
-                # Return value is party #, not whether awoken within timeout
-                barrier.wait(timeout=IDLE_TIMEOUT)
-            except BrokenBarrierError:
+                recv_pipe.poll(timeout=IDLE_TIMEOUT)
+            except TimeoutError:
                 # Timeout waiting for job, so we can exit.
-                break
-            # We got a job, and we are "woken"
+                return
             fn, args = recv_pipe.recv()
             result = outcome.capture(worker_fn)
-            # Tell the cache that we're done and available for a job
             # Unlike the thread cache, it's impossible to deliver the
             # result from the worker process. So shove it onto the queue
             # and hope the receiver delivers the result and marks us idle
@@ -156,11 +140,9 @@ class WorkerProc:
             del fn
             del args
             del result
-        # At this point the barrier is "broken" and can be used as a death sign.
 
     async def run_sync(self, sync_fn, *args):
         # Neither this nor the child process should be waiting at this point
-        assert not self._barrier.n_waiting, "Must first wake_up() the WorkerProc"
         async with open_nursery() as nursery:
             try:
                 # Monitor needed for pypy and other platforms that don't
@@ -197,25 +179,16 @@ class WorkerProc:
 
     def is_alive(self):
         # if the proc is alive, there is a race condition where it could be
-        # dying, but the the barrier should be broken at that time.
-        # Barrier state is a little quicker to check so do that first
-        return not self._barrier.broken and self._proc.is_alive()
-
-    def wake_up(self, timeout=None):
-        # raise an exception if the barrier is broken or we must wait
-        try:
-            self._barrier.wait(timeout)
-        except BrokenBarrierError:
-            # raise our own flavor of exception and ensure death
-            self.kill()
-            raise BrokenWorkerError(f"{self._proc} died unexpectedly") from None
+        # dying, unless killed synchronously
+        return self._proc.is_alive()
 
     def kill(self):
-        self._barrier.abort()
         try:
             self._proc.kill()
         except AttributeError:
             self._proc.terminate()
+        # kill synchronously
+        self._proc.join(1)
 
 
 async def to_process_run_sync(sync_fn, *args, cancellable=False, limiter=None):
