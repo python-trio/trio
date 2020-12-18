@@ -107,7 +107,6 @@ class WorkerProc:
         # processes will ever touch this, simply having them both wait together
         # is enough sign of life to move things onto the pipe.
         self._barrier = Barrier(2)
-        # On NT, a single duplexed pipe raises a TrioInternalError: GH#1767
         child_recv_pipe, self._send_pipe = Pipe(duplex=False)
         self._recv_pipe, child_send_pipe = Pipe(duplex=False)
         self._proc = Process(
@@ -164,7 +163,10 @@ class WorkerProc:
         assert not self._barrier.n_waiting, "Must first wake_up() the WorkerProc"
         async with open_nursery() as nursery:
             try:
+                # Monitor needed for pypy and other platforms that don't
+                # promptly raise EOFError
                 await nursery.start(self._child_monitor)
+
                 await to_thread_run_sync(
                     self._send_pipe.send, (sync_fn, args), cancellable=True
                 )
@@ -188,7 +190,6 @@ class WorkerProc:
         return result.unwrap()
 
     async def _child_monitor(self, task_status):
-        """Needed for pypy and other platforms that don't promptly raise EOFError"""
         task_status.started()
         # If this handle becomes ready, raise a catchable error
         await wait_sentinel(self._proc.sentinel)
