@@ -16,13 +16,6 @@ jobs:
       # https://github.com/pypa/setuptools/issues/2350
       env: SETUPTOOLS_USE_DISTUTILS=stdlib
       dist: bionic
-    - python: 3.6-dev
-    - python: 3.7-dev
-    - python: 3.8-dev
-    - python: 3.9-dev
-    # Temporarily disabled during the high-churn period of 3.10
-    # E.g.: https://github.com/MagicStack/immutables/issues/46
-    #- python: nightly
 
 script:
   - ./ci.sh
