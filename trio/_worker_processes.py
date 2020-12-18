@@ -177,8 +177,8 @@ class WorkerProc:
         raise BrokenWorkerError(f"{self._proc} died unexpectedly")
 
     def is_alive(self):
-        # if the proc is alive, there is a race condition where it could be
-        # dying, unless killed synchronously
+        # Even if the proc is alive, there is a race condition where it could
+        # be dying, use join to make sure if necessary.
         return self._proc.is_alive()
 
     def kill(self):
@@ -186,8 +186,11 @@ class WorkerProc:
             self._proc.kill()
         except AttributeError:
             self._proc.terminate()
-        # kill synchronously
-        self._proc.join(1)
+
+    def join(self, timeout=None):
+        # Needed for some tests. We have to reach in deeply because
+        # _proc.join() doesn't report whether the join was successful
+        return self._proc._popen.wait(timeout) is not None
 
 
 async def to_process_run_sync(sync_fn, *args, cancellable=False, limiter=None):

@@ -225,7 +225,7 @@ async def test_spawn_worker_in_thread_and_prune_cache():
     # take it's number and kill it for the next test
     pid1 = proc._proc.pid
     proc.kill()
-    proc._proc.join()
+    assert proc.join(1)
     # put dead proc into the cache (normal code never does this)
     _worker_processes.PROC_CACHE.push(proc)
     # dead procs shouldn't pop out
@@ -245,7 +245,6 @@ async def test_to_process_run_sync_large_job():
     assert len(x) == n
 
 
-# @slow
 async def test_exhaustively_cancel_run_sync():
     # to test that cancellation does not ever leave a living process behind
     # currently requires manually targeting all but last checkpoints
@@ -256,7 +255,7 @@ async def test_exhaustively_cancel_run_sync():
     with _core.CancelScope() as c:
         c.cancel()
         await proc.run_sync(_null_func)
-    assert not proc.is_alive()
+    assert proc.join(1)
 
     # cancel at job send
     async def fake_monitor(task_status):
@@ -267,7 +266,7 @@ async def test_exhaustively_cancel_run_sync():
     proc._child_monitor = fake_monitor
     with _core.CancelScope() as c:
         await proc.run_sync(_null_func)
-    assert not proc.is_alive()
+    assert proc.join(1)
 
     # cancel at result recv is tested elsewhere
 
