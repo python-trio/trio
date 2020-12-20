@@ -105,7 +105,7 @@ def WaitForMultipleObjects_sync(*handles):
         # We should never abandon handles but who knows
         retcode -= ErrorCodes.WAIT_ABANDONED
         warnings.warn(RuntimeWarning("Abandoned Mutex: {}".format(handles[retcode])))
-    return retcode
+    return handles[retcode]
 
 
 class WaitPool:
@@ -113,6 +113,9 @@ class WaitPool:
         self._handle_map = {}
         self._size_sorted_wait_groups = SortedKeyList(key=len)
         self.lock = lock
+
+    def __contains__(self, handle):
+        return handle in self._handle_map
 
     def add(self, handle, callback):
         # Shortcut if we are already waiting on this handle
@@ -126,13 +129,11 @@ class WaitPool:
             # pool is empty or every group is full
             wait_group = WaitGroup()
         else:
-            wait_group.cancel_drain_thread()
+            wait_group.wake()
 
         self._handle_map[handle] = ({callback}, wait_group)
         with self.mutating(wait_group):
             wait_group.add(handle)
-
-        wait_group.wait_soon()
 
     def remove(self, handle, callback):
         if handle not in self._handle_map:
@@ -150,22 +151,15 @@ class WaitPool:
         # del to make "in self._handle_map" work right
         del self._handle_map[handle]
 
-        # free any thread waiting on this group
-        wait_group.cancel_drain_thread()
+        # wake any thread waiting on this group
+        wait_group.wake()
 
         with self.mutating(wait_group):
             wait_group.remove(handle)
 
-        if len(wait_group) > 1:
-            # more waiting needed on other handles
-            wait_group.wait_soon()
-        else:
-            # Just the cancel handle left, thread will clean up
-            pass
-
         return True
 
-    def execute_callbacks_and_remove(self, handle):
+    def remove_and_execute_callbacks(self, handle):
         for callback in self._handle_map.pop(handle)[0]:
             callback()
 
@@ -184,11 +178,11 @@ class WaitPool:
 
 class WaitGroup:
     def __init__(self):
-        self._wait_handles = []
-        self._cancel_handle = None
+        self._wait_handles = [kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)]
+        self.wait_soon()
 
     def __len__(self):
-        return len(self._wait_handles) + 1  # include cancel_handle
+        return len(self._wait_handles)
 
     def add(self, handle):
         return self._wait_handles.append(handle)
@@ -197,17 +191,13 @@ class WaitGroup:
         return self._wait_handles.remove(handle)
 
     def wait_soon_thread(self):
-        assert self._cancel_handle is None
         trio_token = _core.current_trio_token()
-        cancel_handle = self._cancel_handle = kernel32.CreateEventA(
-            ffi.NULL, True, False, ffi.NULL
-        )
 
         def fn():
             try:
-                self.drain_as_completed_sync(cancel_handle)
+                self.drain_as_completed_sync()
             finally:
-                kernel32.CloseHandle(cancel_handle)
+                kernel32.CloseHandle(self._wait_handles[0])
 
         def deliver(outcome):
             # blow up trio if the thread raises so we get a traceback
@@ -220,64 +210,50 @@ class WaitGroup:
         _core.start_thread_soon(fn, deliver)
 
     def wait_soon_task(self):
-        assert self._cancel_handle is None
-        cancel_handle = self._cancel_handle = kernel32.CreateEventA(
-            ffi.NULL, True, False, ffi.NULL
-        )
-
         async def async_fn():
             try:
-                await self.drain_as_completed(cancel_handle)
+                await self.drain_as_completed()
             finally:
-                kernel32.CloseHandle(cancel_handle)
+                kernel32.CloseHandle(self._wait_handles[0])
 
         _core.spawn_system_task(async_fn)
 
-    def cancel_drain_thread(self):
-        # NOTE: cancel_drain_thread() must occur atomically before each wait_soon()
-        # or some WaitGroup instances may become uncancellable leading to multi-wakeups
-        # TODO: somehow assert this
-        kernel32.SetEvent(self._cancel_handle)
-        self._cancel_handle = None
+    def wake(self):
+        kernel32.SetEvent(self._wait_handles[0])
 
-    def drain_as_completed_sync(self, cancel_handle):
+    def drain_as_completed_sync(self):
         wait_pool = _get_wait_pool()
-        while self._wait_handles:  # lock-free check OK if cancel is before mutation
-            signaled_handle_index = (
-                WaitForMultipleObjects_sync(cancel_handle, *self._wait_handles) - 1
-            )
+        # This lock prevents the thread from racing the main thread
+        with wait_pool.lock:
+            handles_left = len(self._wait_handles) - 1
+        while handles_left:
+            signaled_handle = WaitForMultipleObjects_sync(*self._wait_handles)
             with wait_pool.lock:
-                # Race condition: cancel_handle may have been signalled after a
-                # wakeup on another handle. Cancel takes priority.
-                if _is_signaled(cancel_handle):
-                    return
+                handles_left = self.drain_one(wait_pool, signaled_handle)
 
-                # a handle other than the cancel_handle fired
-                with wait_pool.mutating(self):
-                    signaled_handle = self._wait_handles.pop(signaled_handle_index)
-                wait_pool.execute_callbacks_and_remove(signaled_handle)
-
-    async def drain_as_completed(self, cancel_handle):
+    async def drain_as_completed(self):
         wait_pool = _get_wait_pool()
-        while self._wait_handles:
-            signaled_handle_index = (
-                await _threads.to_thread_run_sync(
-                    WaitForMultipleObjects_sync,
-                    cancel_handle,
-                    *self._wait_handles,
-                    limiter=_sync.CapacityLimiter(1),
-                )
-            ) - 1
+        handles_left = len(self._wait_handles) - 1
+        while handles_left:
+            signaled_handle = await _threads.to_thread_run_sync(
+                WaitForMultipleObjects_sync,
+                *self._wait_handles,
+                limiter=_sync.CapacityLimiter(1),
+            )
+            handles_left = self.drain_one(wait_pool, signaled_handle)
 
-            # Race condition: cancel_handle may have been signalled after a
-            # wakeup on another handle. Cancel takes priority.
-            if _is_signaled(cancel_handle):
-                return
-
-            # a handle other than the cancel_handle fired
+    def drain_one(self, wait_pool, signaled_handle):
+        if signaled_handle is self._wait_handles[0]:
+            kernel32.CloseHandle(self._wait_handles[0])
+            self._wait_handles[0] = kernel32.CreateEventA(
+                ffi.NULL, True, False, ffi.NULL
+            )
+        elif signaled_handle in wait_pool:
             with wait_pool.mutating(self):
-                signaled_handle = self._wait_handles.pop(signaled_handle_index)
-            wait_pool.execute_callbacks_and_remove(signaled_handle)
+                self._wait_handles.remove(signaled_handle)
+            wait_pool.remove_and_execute_callbacks(signaled_handle)
+
+        return len(self._wait_handles) - 1
 
 
 def UnregisterWait_trio(cancel_token):
@@ -442,4 +418,4 @@ def _no_pool():
     WaitForSingleObject = WaitForSingleObject_pair
 
 
-_no_pool()
+_pool_per_process()
