@@ -92,6 +92,7 @@ def _get_wait_pool_global():
 
 def WaitForMultipleObjects_sync(*handles):
     """Wait for any of the given Windows handles to be signaled."""
+    # Very important that `handles` length not change, so splat op is mandatory
     n = len(handles)
     assert n <= MAXIMUM_WAIT_OBJECTS
     handle_arr = ffi.new("HANDLE[]", n)
@@ -132,6 +133,7 @@ class WaitPool:
             wait_group.wake()
 
         self._handle_map[handle] = ({callback}, wait_group)
+
         with self.mutating(wait_group):
             wait_group.add(handle)
 
@@ -141,17 +143,14 @@ class WaitPool:
 
         callbacks, wait_group = self._handle_map[handle]
 
-        # discard the data associated with this callback
         callbacks.remove(callback)
 
         if callbacks:
             # no cleanup or thread interaction needed
             return True
 
-        # del to make "in self._handle_map" work right
         del self._handle_map[handle]
 
-        # wake any thread waiting on this group
         wait_group.wake()
 
         with self.mutating(wait_group):
@@ -179,6 +178,7 @@ class WaitPool:
 class WaitGroup:
     def __init__(self):
         self._wait_handles = [kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)]
+        # TODO: inline this method
         self.wait_soon()
 
     def __len__(self):
@@ -223,12 +223,13 @@ class WaitGroup:
 
     def drain_as_completed_sync(self):
         wait_pool = _get_wait_pool()
-        # This lock prevents the thread from racing the main thread
+        # This with block prevents a race with the spawning thread on init
         with wait_pool.lock:
             handles_left = len(self._wait_handles) - 1
         while handles_left:
             signaled_handle = WaitForMultipleObjects_sync(*self._wait_handles)
             with wait_pool.lock:
+                # This assignment must be locked, not just the method call
                 handles_left = self.drain_one(wait_pool, signaled_handle)
 
     async def drain_as_completed(self):
@@ -277,7 +278,7 @@ def RegisterWaitForSingleObject_trio(handle, callback):
     Args:
       handle: A valid Win32 handle. This should be guaranteed by WaitForSingleObject.
 
-      callback: A Python function.
+      callback: A Python callable, to be called with no arguments.
 
     Returns:
       cancel_token: An opaque Python object that can be used with UnregisterWait.
@@ -322,7 +323,7 @@ async def WaitForSingleObject_pool(obj):
     # the callback is running) to level triggered
     reschedule_in_flight = [False]
 
-    def wakeup():  # pragma: no cover  # run in non-python thread
+    def wakeup():  # pragma: no cover  # sometimes run in non-python thread
         reschedule_in_flight[0] = True
         try:
             trio_token.run_sync_soon(_core.reschedule, task, idempotent=True)
