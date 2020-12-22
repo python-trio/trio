@@ -138,16 +138,13 @@ class WaitPool:
             wait_group.add(handle)
 
     def remove(self, handle, callback):
-        if handle not in self._handle_map:
-            return False
-
         callbacks, wait_group = self._handle_map[handle]
 
         callbacks.remove(callback)
 
         if callbacks:
             # no cleanup or thread interaction needed
-            return True
+            return
 
         del self._handle_map[handle]
 
@@ -155,8 +152,6 @@ class WaitPool:
 
         with self.mutating(wait_group):
             wait_group.remove(handle)
-
-        return True
 
     def remove_and_execute_callbacks(self, handle):
         for callback in self._handle_map.pop(handle)[0]:
@@ -269,7 +264,12 @@ def UnregisterWait_trio(cancel_token):
     wait_pool = _get_wait_pool()
 
     with wait_pool.lock:
-        return wait_pool.remove(handle, callback)
+        try:
+            wait_pool.remove(handle, callback)
+        except KeyError:
+            return False
+        else:
+            return True
 
 
 def RegisterWaitForSingleObject_trio(handle, callback):
