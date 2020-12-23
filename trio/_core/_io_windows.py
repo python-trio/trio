@@ -6,6 +6,7 @@ import sys
 from typing import TYPE_CHECKING
 
 import attr
+from sortedcontainers import SortedList
 
 from .. import _core
 from ._run import _public
@@ -343,6 +344,24 @@ class AFDPollOp:
     lpOverlapped = attr.ib()
     poll_info = attr.ib()
     waiters = attr.ib()
+    afd_group = attr.ib()
+
+
+# With the new IOCP-based loop, the cost of scheduling is constant, which is
+# good. But, we find that the cost of cancelling a single wait_readable
+# appears to grow like O(n**2) or so in the number of outstanding
+# wait_readables. This is bad -- it means that cancelling all of the
+# outstanding operations here is something like O(n**3)! To avoid this, we
+# multiple AFD helper handles for each set of MAX_AFD_GROUP_SIZE and distribute
+# AFD_POLL operations across them.
+MAX_AFD_GROUP_SIZE = 500  # at 1000, the cubic scaling is just starting to bite
+
+
+@attr.s(slots=True)
+class AFDGroup:
+    size = attr.ib()
+    afd_id = attr.ib()
+    afd_handle = attr.ib()
 
 
 @attr.s(slots=True, eq=False, frozen=True)
@@ -374,15 +393,14 @@ class WindowsIOManager:
         # touches to safe values up front, before we do anything that can
         # fail.
         self._iocp = None
-        self._afd = None
+        self._sorted_afd_groups = None
 
         self._iocp = _check(
             kernel32.CreateIoCompletionPort(INVALID_HANDLE_VALUE, ffi.NULL, 0, 0)
         )
         self._events = ffi.new("OVERLAPPED_ENTRY[]", MAX_EVENTS)
 
-        self._afd = _afd_helper_handle()
-        self._register_with_iocp(self._afd, CKeys.AFD_POLL)
+        self._sorted_afd_groups = SortedList()
         # {lpOverlapped: AFDPollOp}
         self._afd_ops = {}
         # {socket handle: AFDWaiters}
@@ -439,10 +457,11 @@ class WindowsIOManager:
                 self._iocp = None
                 _check(kernel32.CloseHandle(iocp))
         finally:
-            if self._afd is not None:
-                afd = self._afd
-                self._afd = None
-                _check(kernel32.CloseHandle(afd))
+            if self._sorted_afd_groups is not None:
+                afd_groups = self._sorted_afd_groups
+                self._sorted_afd_groups = None
+                for afd_group in afd_groups:
+                    _check(kernel32.CloseHandle(afd_group.afd_handle))
 
     def __del__(self):
         self.close()
@@ -581,14 +600,25 @@ class WindowsIOManager:
     def _refresh_afd(self, base_handle):
         waiters = self._afd_waiters[base_handle]
         if waiters.current_op is not None:
+            afd_group = waiters.current_op.afd_group
             try:
-                _check(kernel32.CancelIoEx(self._afd, waiters.current_op.lpOverlapped))
+                _check(
+                    kernel32.CancelIoEx(
+                        afd_group.afd_handle, waiters.current_op.lpOverlapped
+                    )
+                )
             except OSError as exc:
                 if exc.winerror != ErrorCodes.ERROR_NOT_FOUND:
                     # I don't think this is possible, so if it happens let's
                     # crash noisily.
                     raise  # pragma: no cover
             waiters.current_op = None
+            self._sorted_afd_groups.discard(afd_group)
+            afd_group.size -= 1
+            if MAX_AFD_GROUP_SIZE > afd_group.size > 0:
+                self._sorted_afd_groups.add(afd_group)
+            else:
+                _check(kernel32.CloseHandle(afd_group.afd_handle))
 
         flags = 0
         if waiters.read_task is not None:
@@ -599,6 +629,17 @@ class WindowsIOManager:
         if not flags:
             del self._afd_waiters[base_handle]
         else:
+
+            # get largest afd_group less than MAX_AFD_GROUP_SIZE
+            try:
+                afd_group = self._sorted_afd_groups.pop()
+            except IndexError:
+                afd = _afd_helper_handle()
+                self._register_with_iocp(afd, CKeys.AFD_POLL)
+                afd_group = AFDGroup(0, id(afd), afd)
+            else:
+                afd = afd_group.afd_handle
+
             lpOverlapped = ffi.new("LPOVERLAPPED")
 
             poll_info = ffi.new("AFD_POLL_INFO *")
@@ -612,7 +653,7 @@ class WindowsIOManager:
             try:
                 _check(
                     kernel32.DeviceIoControl(
-                        self._afd,
+                        afd,
                         IoControlCodes.IOCTL_AFD_POLL,
                         poll_info,
                         ffi.sizeof("AFD_POLL_INFO"),
@@ -629,12 +670,17 @@ class WindowsIOManager:
                     # to re-issue the call. Clear our state and wake up any
                     # pending calls.
                     del self._afd_waiters[base_handle]
+                    if afd_group.size == 0:
+                        _check(kernel32.CloseHandle(afd))
                     # Do this last, because it could raise.
                     wake_all(waiters, exc)
                     return
-            op = AFDPollOp(lpOverlapped, poll_info, waiters)
+            op = AFDPollOp(lpOverlapped, poll_info, waiters, afd_group)
             waiters.current_op = op
             self._afd_ops[lpOverlapped] = op
+            afd_group.size += 1
+            if MAX_AFD_GROUP_SIZE > afd_group.size:
+                self._sorted_afd_groups.add(afd_group)
 
     async def _afd_poll(self, sock, mode):
         base_handle = _get_base_socket(sock)
