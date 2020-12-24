@@ -990,3 +990,20 @@ async def test_interrupted_by_close():
             nursery.start_soon(receiver)
             await wait_all_tasks_blocked()
             a.close()
+
+
+async def test_many_sockets():
+    total = 5000  # Must be more than MAX_AFD_GROUP_SIZE
+    sockets = []
+    for _ in range(total // 2):
+        a, b = stdlib_socket.socketpair()
+        sockets += [a, b]
+    async with _core.open_nursery() as nursery:
+        for s in sockets:
+            nursery.start_soon(_core.wait_readable, s)
+        await _core.wait_all_tasks_blocked()
+        for _ in range(1000):
+            await _core.cancel_shielded_checkpoint()
+        nursery.cancel_scope.cancel()
+    for sock in sockets:
+        sock.close()
