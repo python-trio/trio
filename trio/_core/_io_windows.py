@@ -615,7 +615,7 @@ class WindowsIOManager:
             waiters.current_op = None
             self._sorted_afd_groups.discard(afd_group)
             afd_group.size -= 1
-            if MAX_AFD_GROUP_SIZE > afd_group.size > 0:
+            if afd_group.size > 0:
                 self._sorted_afd_groups.add(afd_group)
             else:
                 _check(kernel32.CloseHandle(afd_group.afd_handle))
@@ -679,7 +679,7 @@ class WindowsIOManager:
             waiters.current_op = op
             self._afd_ops[lpOverlapped] = op
             afd_group.size += 1
-            if MAX_AFD_GROUP_SIZE > afd_group.size:
+            if afd_group.size < MAX_AFD_GROUP_SIZE:
                 self._sorted_afd_groups.add(afd_group)
 
     async def _afd_poll(self, sock, mode):
