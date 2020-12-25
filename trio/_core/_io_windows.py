@@ -356,7 +356,7 @@ class AFDPollOp:
 MAX_AFD_GROUP_SIZE = 500  # at 1000, the cubic scaling is just starting to bite
 
 
-@attr.s(slots=True, hash=True)
+@attr.s(slots=True, eq=False)
 class AFDGroup:
     size = attr.ib()
     afd_handle = attr.ib()
@@ -624,8 +624,6 @@ class WindowsIOManager:
         if not flags:
             del self._afd_waiters[base_handle]
         else:
-
-            # get largest afd_group less than MAX_AFD_GROUP_SIZE
             try:
                 afd_group = self._vacant_afd_groups.pop()
             except KeyError:
