@@ -1002,8 +1002,6 @@ async def test_many_sockets():
         for s in sockets:
             nursery.start_soon(_core.wait_readable, s)
         await _core.wait_all_tasks_blocked()
-        for _ in range(1000):
-            await _core.cancel_shielded_checkpoint()
         nursery.cancel_scope.cancel()
     for sock in sockets:
         sock.close()
