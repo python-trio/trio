@@ -628,6 +628,7 @@ class WindowsIOManager:
                 afd_group = AFDGroup(0, _afd_helper_handle())
                 self._register_with_iocp(afd_group.handle, CKeys.AFD_POLL)
                 self._all_afd_handles.append(afd_group.handle)
+            self._vacant_afd_groups.add(afd_group)
 
             lpOverlapped = ffi.new("LPOVERLAPPED")
 
@@ -666,8 +667,8 @@ class WindowsIOManager:
             waiters.current_op = op
             self._afd_ops[lpOverlapped] = op
             afd_group.size += 1
-            if afd_group.size < MAX_AFD_GROUP_SIZE:
-                self._vacant_afd_groups.add(afd_group)
+            if afd_group.size >= MAX_AFD_GROUP_SIZE:
+                self._vacant_afd_groups.remove(afd_group)
 
     async def _afd_poll(self, sock, mode):
         base_handle = _get_base_socket(sock)
