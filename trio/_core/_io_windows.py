@@ -346,13 +346,14 @@ class AFDPollOp:
     afd_group = attr.ib()
 
 
-# With the new IOCP-based loop, the cost of scheduling is constant, which is
-# good. But, we find that the cost of cancelling a single wait_readable
-# appears to grow like O(n**2) or so in the number of outstanding
-# wait_readables. This is bad -- it means that cancelling all of the
-# outstanding operations here is something like O(n**3)! To avoid this, we
-# multiple AFD helper handles for each set of MAX_AFD_GROUP_SIZE and distribute
-# AFD_POLL operations across them.
+# The Windows kernel has a weird issue when using AFD handles. If you have N
+# instances of wait_readable/wait_writable registered with a single AFD handle,
+# then cancelling any one of them takes something like O(N**2) time. So if we
+# used just a single AFD handle, then cancellation would quickly become very
+# expensive, e.g. a program with N active sockets would take something like
+# O(N**3) time to unwind after control-C. The solution is to spread our sockets
+# out over multiple AFD handles, so that N doesn't grow too large for any
+# individual handle.
 MAX_AFD_GROUP_SIZE = 500  # at 1000, the cubic scaling is just starting to bite
 
 
