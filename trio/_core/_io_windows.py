@@ -359,7 +359,7 @@ MAX_AFD_GROUP_SIZE = 500  # at 1000, the cubic scaling is just starting to bite
 @attr.s(slots=True, eq=False)
 class AFDGroup:
     size = attr.ib()
-    afd_handle = attr.ib()
+    handle = attr.ib()
 
 
 @attr.s(slots=True, eq=False, frozen=True)
@@ -603,7 +603,7 @@ class WindowsIOManager:
             try:
                 _check(
                     kernel32.CancelIoEx(
-                        afd_group.afd_handle, waiters.current_op.lpOverlapped
+                        afd_group.handle, waiters.current_op.lpOverlapped
                     )
                 )
             except OSError as exc:
@@ -627,12 +627,9 @@ class WindowsIOManager:
             try:
                 afd_group = self._vacant_afd_groups.pop()
             except KeyError:
-                afd = _afd_helper_handle()
-                self._register_with_iocp(afd, CKeys.AFD_POLL)
-                afd_group = AFDGroup(0, afd)
-                self._all_afd_handles.append(afd)
-            else:
-                afd = afd_group.afd_handle
+                afd_group = AFDGroup(0, _afd_helper_handle())
+                self._register_with_iocp(afd_group.handle, CKeys.AFD_POLL)
+                self._all_afd_handles.append(afd_group.handle)
 
             lpOverlapped = ffi.new("LPOVERLAPPED")
 
@@ -647,7 +644,7 @@ class WindowsIOManager:
             try:
                 _check(
                     kernel32.DeviceIoControl(
-                        afd,
+                        afd_group.handle,
                         IoControlCodes.IOCTL_AFD_POLL,
                         poll_info,
                         ffi.sizeof("AFD_POLL_INFO"),
