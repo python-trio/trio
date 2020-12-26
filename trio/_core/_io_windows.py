@@ -392,14 +392,13 @@ class WindowsIOManager:
         # touches to safe values up front, before we do anything that can
         # fail.
         self._iocp = None
-        self._all_afd_handles = None
+        self._all_afd_handles = []
 
         self._iocp = _check(
             kernel32.CreateIoCompletionPort(INVALID_HANDLE_VALUE, ffi.NULL, 0, 0)
         )
         self._events = ffi.new("OVERLAPPED_ENTRY[]", MAX_EVENTS)
 
-        self._all_afd_handles = []
         self._vacant_afd_groups = set()
         # {lpOverlapped: AFDPollOp}
         self._afd_ops = {}
@@ -457,11 +456,9 @@ class WindowsIOManager:
                 self._iocp = None
                 _check(kernel32.CloseHandle(iocp))
         finally:
-            if self._all_afd_handles is not None:
-                afd_handles = self._all_afd_handles
-                self._all_afd_handles = None
-                for afd_handle in afd_handles:
-                    _check(kernel32.CloseHandle(afd_handle))
+            while self._all_afd_handles:
+                afd_handle = self._all_afd_handles.pop()
+                _check(kernel32.CloseHandle(afd_handle))
 
     def __del__(self):
         self.close()
