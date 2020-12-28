@@ -1,1 +1,0 @@
-Avoid O(n**3) scaling of windows socket cancellation
