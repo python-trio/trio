@@ -1,14 +1,14 @@
 image: freebsd/latest
 packages:
   - curl
-  - python38
-  - py38-sqlite3
+  - python39
+  - py39-sqlite3
 sources:
   - https://github.com/python-trio/trio
 tasks:
   - setup: sudo ln -s /usr/local/bin/bash /bin/bash
   - test: |
-      python3.8 -m venv venv
+      python3.9 -m venv venv
       source venv/bin/activate
       cd trio
       CI_BUILD_ID=$JOB_ID CI_BUILD_URL=$JOB_URL ./ci.sh
