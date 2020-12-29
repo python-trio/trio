@@ -273,7 +273,7 @@ this, that tries to call an async function but leaves out the
        trio.sleep(2 * x)
 
        sleep_time = time.perf_counter() - start_time
-       print("Woke up after {:.2f} seconds, feeling well rested!".format(sleep_time))
+       print(f"Woke up after {sleep_time:.2f} seconds, feeling well rested!")
 
    trio.run(broken_double_sleep, 3)
 
@@ -774,7 +774,7 @@ above, it's baked into Trio's design that when it has multiple tasks,
 they take turns, so at each moment only one of them is actively running.
 We're not so much overcoming the GIL as embracing it. But if you're
 willing to accept that, plus a bit of extra work to put these new
-``async`` and ``await`` keywords in the right places, then in exchange 
+``async`` and ``await`` keywords in the right places, then in exchange
 you get:
 
 * Excellent scalability: Trio can run 10,000+ tasks simultaneously
@@ -836,8 +836,8 @@ Networking with Trio
 Now let's take what we've learned and use it to do some I/O, which is
 where async/await really shines.
 
-The traditional toy application for demonstrating network APIs is an 
-"echo server": a program that awaits arbitrary data from  remote clients, 
+The traditional toy application for demonstrating network APIs is an
+"echo server": a program that awaits arbitrary data from  remote clients,
 and then sends that same data right back. (Probably a more relevant example
 these days would be an application that does lots of concurrent HTTP
 requests, but for that `you need an HTTP library
@@ -845,9 +845,9 @@ requests, but for that `you need an HTTP library
 such as `asks <https://asks.readthedocs.io>`__, so we'll stick
 with the echo server tradition.)
 
-In this tutorial, we present both ends of the pipe: the client, and the 
-server. The client periodically sends data to the server, and displays its 
-answers. The server awaits connections; when a client connects, it recopies 
+In this tutorial, we present both ends of the pipe: the client, and the
+server. The client periodically sends data to the server, and displays its
+answers. The server awaits connections; when a client connects, it recopies
 the received data back on the pipe.
 
 
