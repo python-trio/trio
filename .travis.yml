@@ -5,8 +5,6 @@ dist: focal
 jobs:
   include:
     # The pypy tests are slow, so we list them first
-    - python: pypy3.6-7.2.0
-      dist: bionic
     - language: generic
       env: PYPY_NIGHTLY_BRANCH=py3.6
     - language: generic
