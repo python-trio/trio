@@ -1,3 +1,5 @@
+import errno
+
 import pytest
 import attr
 
@@ -990,3 +992,24 @@ async def test_interrupted_by_close():
             nursery.start_soon(receiver)
             await wait_all_tasks_blocked()
             a.close()
+
+
+async def test_many_sockets():
+    total = 5000  # Must be more than MAX_AFD_GROUP_SIZE
+    sockets = []
+    for x in range(total // 2):
+        try:
+            a, b = stdlib_socket.socketpair()
+        except OSError as e:
+            assert e.errno in (errno.EMFILE, errno.ENFILE)
+            break
+        sockets += [a, b]
+    async with _core.open_nursery() as nursery:
+        for s in sockets:
+            nursery.start_soon(_core.wait_readable, s)
+        await _core.wait_all_tasks_blocked()
+        nursery.cancel_scope.cancel()
+    for sock in sockets:
+        sock.close()
+    if x != total // 2 - 1:
+        print(f"Unable to open more than {(x-1)*2} sockets.")

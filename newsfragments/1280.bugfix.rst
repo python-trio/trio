@@ -1,0 +1,1 @@
+Previously, on Windows, Trio programs using thousands of sockets at the same time could trigger extreme slowdowns in the Windows kernel. Now, Trio works around this issue, so you should be able to use as many sockets as you want.
