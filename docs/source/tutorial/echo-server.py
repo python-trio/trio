@@ -15,12 +15,12 @@ async def echo_server(server_stream):
     # Assign each connection a unique number to make our debug prints easier
     # to understand when there are multiple simultaneous connections.
     ident = next(CONNECTION_COUNTER)
-    print("echo_server {}: started".format(ident))
+    print(f"echo_server {ident}: started")
     try:
         async for data in server_stream:
-            print("echo_server {}: received data {!r}".format(ident, data))
+            print(f"echo_server {ident}: received data {data!r}")
             await server_stream.send_all(data)
-        print("echo_server {}: connection closed".format(ident))
+        print(f"echo_server {ident}: connection closed")
     # FIXME: add discussion of MultiErrors to the tutorial, and use
     # MultiError.catch here. (Not important in this case, but important if the
     # server code uses nurseries internally.)
@@ -28,7 +28,7 @@ async def echo_server(server_stream):
         # Unhandled exceptions will propagate into our parent and take
         # down the whole program. If the exception is KeyboardInterrupt,
         # that's what we want, but otherwise maybe not...
-        print("echo_server {}: crashed: {!r}".format(ident, exc))
+        print(f"echo_server {ident}: crashed: {exc!r}")
 
 async def main():
     await trio.serve_tcp(echo_server, PORT)
@@ -38,4 +38,3 @@ async def main():
 # back and factor it out into a separate function anyway. So it's simplest to
 # just make it a standalone function from the beginning.
 trio.run(main)
-
