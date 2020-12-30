@@ -4,12 +4,6 @@ dist: focal
 
 jobs:
   include:
-    # The pypy tests are slow, so we list them first
-    - language: generic
-      env: PYPY_NIGHTLY_BRANCH=py3.6
-    - language: generic
-      env: PYPY_NIGHTLY_BRANCH=py3.7
-
     - python: 3.6.1  # earliest 3.6 version available on Travis
       # https://github.com/pypa/setuptools/issues/2350
       env: SETUPTOOLS_USE_DISTUTILS=stdlib
