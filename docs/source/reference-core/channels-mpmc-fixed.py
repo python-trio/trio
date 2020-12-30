@@ -15,14 +15,14 @@ async def main():
 async def producer(name, send_channel):
     async with send_channel:
         for i in range(3):
-            await send_channel.send("{} from producer {}".format(i, name))
+            await send_channel.send(f"{i} from producer {name}")
             # Random sleeps help trigger the problem more reliably
             await trio.sleep(random.random())
 
 async def consumer(name, receive_channel):
     async with receive_channel:
         async for value in receive_channel:
-            print("consumer {} got value {!r}".format(name, value))
+            print(f"consumer {name} got value {value!r}")
             # Random sleeps help trigger the problem more reliably
             await trio.sleep(random.random())
 
