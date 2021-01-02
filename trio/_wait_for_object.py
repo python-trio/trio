@@ -158,8 +158,7 @@ class WaitPool:
     def mutating(self, wait_group):
         # if SortedKeyList has many equal values, remove() performance degrades
         # from O(log(n)) to O(n), so we don't keep full groups inside
-        if len(wait_group) < MAXIMUM_WAIT_OBJECTS:
-            self._size_sorted_wait_groups.discard(wait_group)
+        self._size_sorted_wait_groups.discard(wait_group)
         try:
             yield
         finally:
