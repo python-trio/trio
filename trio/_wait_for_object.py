@@ -216,23 +216,25 @@ class WaitGroup:
         wait_pool = _get_wait_pool()
         # This with block prevents a race with the spawning thread on init
         with wait_pool.lock:
-            handles_left = len(self._wait_handles) - 1
-        while handles_left:
-            signaled_handle = WaitForMultipleObjects_sync(*self._wait_handles)
+            handles = self._wait_handles.copy()
+        while len(handles) - 1:
+            signaled_handle = WaitForMultipleObjects_sync(*handles)
             with wait_pool.lock:
                 # This assignment must be locked, not just the method call
-                handles_left = self.drain_one(wait_pool, signaled_handle)
+                self.drain_one(wait_pool, signaled_handle)
+                handles = self._wait_handles.copy()
 
     async def drain_as_completed(self):
         wait_pool = _get_wait_pool()
-        handles_left = len(self._wait_handles) - 1
-        while handles_left:
+        handles = self._wait_handles.copy()
+        while len(handles) - 1:
             signaled_handle = await _threads.to_thread_run_sync(
                 WaitForMultipleObjects_sync,
-                *self._wait_handles,
+                *handles,
                 limiter=_sync.CapacityLimiter(1),
             )
-            handles_left = self.drain_one(wait_pool, signaled_handle)
+            self.drain_one(wait_pool, signaled_handle)
+            handles = self._wait_handles.copy()
 
     def drain_one(self, wait_pool, signaled_handle):
         if signaled_handle is self._wait_handles[0]:
