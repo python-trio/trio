@@ -136,6 +136,10 @@ BOOL SetEvent(
   HANDLE hEvent
 );
 
+BOOL ResetEvent(
+  HANDLE hEvent
+);
+
 BOOL UnregisterWait(
   HANDLE WaitHandle
 );

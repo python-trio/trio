@@ -180,6 +180,11 @@ class WaitGroup:
     def __len__(self):
         return len(self._wait_handles)
 
+    def __del__(self):
+        # if the process exits before this groups daemon thread, this won't be
+        # called, but in that case the OS will clean up our handle for us
+        kernel32.CloseHandle(self._wait_handles[0])
+
     def add(self, handle):
         return self._wait_handles.append(handle)
 
@@ -189,12 +194,6 @@ class WaitGroup:
     def wait_soon_thread(self):
         trio_token = _core.current_trio_token()
 
-        def fn():
-            try:
-                self.drain_as_completed_sync()
-            finally:
-                kernel32.CloseHandle(self._wait_handles[0])
-
         def deliver(outcome):
             # blow up trio if the thread raises so we get a traceback
             try:
@@ -203,16 +202,10 @@ class WaitGroup:
                 # if trio is already gone, here is better than nowhere
                 outcome.unwrap()
 
-        _core.start_thread_soon(fn, deliver)
+        _core.start_thread_soon(self.drain_as_completed_sync, deliver)
 
     def wait_soon_task(self):
-        async def async_fn():
-            try:
-                await self.drain_as_completed()
-            finally:
-                kernel32.CloseHandle(self._wait_handles[0])
-
-        _core.spawn_system_task(async_fn)
+        _core.spawn_system_task(self.drain_as_completed)
 
     def wake(self):
         kernel32.SetEvent(self._wait_handles[0])
@@ -243,10 +236,8 @@ class WaitGroup:
 
     def drain_one(self, wait_pool, signaled_handle):
         if signaled_handle is self._wait_handles[0]:
-            kernel32.CloseHandle(self._wait_handles[0])
-            self._wait_handles[0] = kernel32.CreateEventA(
-                ffi.NULL, True, False, ffi.NULL
-            )
+            # Reset is OK here because this is the only group waiting on the handle
+            kernel32.ResetEvent(self._wait_handles[0])
         elif signaled_handle in wait_pool:
             with wait_pool.mutating(self):
                 self._wait_handles.remove(signaled_handle)
