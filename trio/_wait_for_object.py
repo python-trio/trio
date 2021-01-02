@@ -415,4 +415,9 @@ def _no_pool():
     WaitForSingleObject = WaitForSingleObject_pair
 
 
-_pool_per_process()
+# effectively _pool_per_process but make mypy happy
+WaitForSingleObject = WaitForSingleObject_pool
+UnregisterWait = UnregisterWait_trio
+RegisterWaitForSingleObject = RegisterWaitForSingleObject_trio
+WaitGroup.wait_soon = WaitGroup.wait_soon_thread
+_get_wait_pool = _get_wait_pool_global
