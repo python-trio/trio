@@ -115,6 +115,9 @@ class WaitPool:
         self._size_sorted_wait_groups = SortedKeyList(key=len)
         self.lock = lock
 
+    def __contains__(self, item):
+        return item in self._handle_map
+
     def add(self, handle, callback):
         # Shortcut if we are already waiting on this handle
         if handle in self._handle_map:
@@ -244,12 +247,14 @@ class WaitGroup:
             self._wait_handles[0] = kernel32.CreateEventA(
                 ffi.NULL, True, False, ffi.NULL
             )
-        else:
+        elif signaled_handle in wait_pool:
             with wait_pool.mutating(self):
                 self._wait_handles.remove(signaled_handle)
             wait_pool.remove_and_execute_callbacks(signaled_handle)
-
-        return len(self._wait_handles) - 1
+        else:  # pragma: no cover
+            # Extremely rare race condition where a handle is signaled just
+            # before it is removed from the pool
+            pass
 
 
 def UnregisterWait_trio(cancel_token):
