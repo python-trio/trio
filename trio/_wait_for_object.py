@@ -145,10 +145,12 @@ class WaitPool:
 
         del self._handle_map[handle]
 
-        wait_group.wake()
-
         with self.mutating(wait_group):
             wait_group.remove(handle)
+
+        if len(wait_group) == 1:
+            # only need a wake to make sure this thread exits promptly
+            wait_group.wake()
 
     def remove_and_execute_callbacks(self, handle):
         for callback in self._handle_map.pop(handle)[0]:
