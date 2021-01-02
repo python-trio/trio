@@ -7,15 +7,11 @@
 # waiting on process handles especially Process. So that is absolutely an
 # important case to optimize for, using one or up to a few dozen at a time.
 #
-# Another use case which could potentially use this is watching for filesystem
-# changes with Find{First|Next}ChangeNotification and reacting to that. This
-# could have any number of required handles depending on the filter setup.
-#
 # The original simple implementation uses to_thread.run_sync and
 # WaitForMultipleObjects to wait on the object and an extra Trio-owned Event
 # object used purely for cancel. This has the benefit of being low maintenance
 # and constructed of high-level APIs, but it also spawns a thread per handle, so
-# the change notification application could quickly create many, many threads.
+# an application waiting on many handles could quickly create many threads.
 #
 # WaitForMultipleObjects can wait for up to MAXIMUM_WAIT_OBJECTS = 64 objects.
 # This means Windows imposes O(n) thread/memory scaling on object waits, but at
