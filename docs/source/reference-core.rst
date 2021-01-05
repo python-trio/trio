@@ -524,6 +524,10 @@ objects.
 
    .. autoattribute:: cancel_called
 
+Often there is no need to create :class:`CancelScope` object. Trio
+already includes :attr:`~trio.Nursery.cancel_scope` attribute in a
+task-related :class:`Nursery` object. We will cover nurseries later in
+the manual.
 
 Trio also provides several convenience functions for the common
 situation of just wanting to impose a timeout on some code:
