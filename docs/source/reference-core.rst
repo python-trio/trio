@@ -1090,7 +1090,7 @@ you'll see that the two tasks politely take turns::
    async def loopy_child(number, lock):
        while True:
            async with lock:
-               print("Child {} has the lock!".format(number))
+               print(f"Child {number} has the lock!")
                await trio.sleep(0.5)
 
    async def main():
