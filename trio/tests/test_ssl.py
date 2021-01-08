@@ -1278,15 +1278,3 @@ async def test_SSLListener(client_ctx):
     await aclose_forcefully(ssl_listener)
     await aclose_forcefully(ssl_client)
     await aclose_forcefully(ssl_server)
-
-
-async def test_deprecated_max_refill_bytes(client_ctx):
-    stream1, stream2 = memory_stream_pair()
-    with pytest.warns(trio.TrioDeprecationWarning):
-        SSLStream(stream1, client_ctx, max_refill_bytes=100)
-    with pytest.warns(trio.TrioDeprecationWarning):
-        # passing None is wrong here, but I'm too lazy to make a fake Listener
-        # and we get away with it for now. And this test will be deleted in a
-        # release or two anyway, so hopefully we'll keep getting away with it
-        # for long enough.
-        SSLListener(None, client_ctx, max_refill_bytes=100)
