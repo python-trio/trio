@@ -1661,7 +1661,7 @@ class Runner:
     waiting_for_idle = attr.ib(factory=SortedDict)
 
     @_public
-    async def wait_all_tasks_blocked(self, cushion=0.0, tiebreaker="deprecated"):
+    async def wait_all_tasks_blocked(self, cushion=0.0):
         """Block until there are no runnable tasks.
 
         This is useful in testing code when you want to give other tasks a
@@ -1719,18 +1719,8 @@ class Runner:
                          print("FAIL")
 
         """
-        if tiebreaker == "deprecated":
-            tiebreaker = 0
-        else:
-            warn_deprecated(
-                "the 'tiebreaker' argument to wait_all_tasks_blocked",
-                "v0.16.0",
-                issue=1558,
-                instead=None,
-            )
-
         task = current_task()
-        key = (cushion, tiebreaker, id(task))
+        key = (cushion, id(task))
         self.waiting_for_idle[key] = task
 
         def abort(_):
@@ -2057,7 +2047,7 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
 
             idle_primed = None
             if runner.waiting_for_idle:
-                cushion, tiebreaker, _ = runner.waiting_for_idle.keys()[0]
+                cushion, _ = runner.waiting_for_idle.keys()[0]
                 if cushion < timeout:
                     timeout = cushion
                     idle_primed = IdlePrimedTypes.WAITING_FOR_IDLE
@@ -2109,7 +2099,7 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                 if idle_primed is IdlePrimedTypes.WAITING_FOR_IDLE:
                     while runner.waiting_for_idle:
                         key, task = runner.waiting_for_idle.peekitem(0)
-                        if key[:2] == (cushion, tiebreaker):
+                        if key[0] == cushion:
                             del runner.waiting_for_idle[key]
                             runner.reschedule(task)
                         else:

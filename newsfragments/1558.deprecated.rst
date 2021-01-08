@@ -1,0 +1,1 @@
+Remove the deprecated ``tiebreaker`` argument to `trio.testing.wait_all_tasks_blocked`.
