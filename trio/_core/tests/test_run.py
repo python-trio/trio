@@ -2226,3 +2226,26 @@ async def test_simple_cancel_scope_usage_doesnt_create_cyclic_garbage():
     finally:
         gc.set_debug(old_flags)
         gc.garbage.clear()
+
+
+@pytest.mark.skipif(
+    sys.implementation.name != "cpython", reason="Only makes sense with refcounting GC"
+)
+async def test_nursery_cancel_doesnt_create_cyclic_garbage():
+    # https://github.com/python-trio/trio/issues/1770#issuecomment-730229423
+    gc.collect()
+
+    old_flags = gc.get_debug()
+    try:
+        for i in range(3):
+            async with _core.open_nursery() as nursery:
+                gc.collect()
+                gc.set_debug(gc.DEBUG_LEAK)
+                nursery.cancel_scope.cancel()
+
+            gc.collect()
+            gc.set_debug(0)
+            assert not gc.garbage
+    finally:
+        gc.set_debug(old_flags)
+        gc.garbage.clear()
