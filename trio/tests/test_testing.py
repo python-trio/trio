@@ -103,33 +103,6 @@ async def test_wait_all_tasks_blocked_with_cushion():
     ]
 
 
-# This test can be deleted after tiebreaker= is removed
-async def test_wait_all_tasks_blocked_with_tiebreaker(recwarn):
-    record = []
-
-    async def do_wait(cushion, tiebreaker):
-        await wait_all_tasks_blocked(cushion=cushion, tiebreaker=tiebreaker)
-        record.append((cushion, tiebreaker))
-
-    async with _core.open_nursery() as nursery:
-        nursery.start_soon(do_wait, 0, 0)
-        nursery.start_soon(do_wait, 0, -1)
-        nursery.start_soon(do_wait, 0, 1)
-        nursery.start_soon(do_wait, 0, -1)
-        nursery.start_soon(do_wait, 0.0001, 10)
-        nursery.start_soon(do_wait, 0.0001, -10)
-
-    assert record == sorted(record)
-    assert record == [
-        (0, -1),
-        (0, -1),
-        (0, 0),
-        (0, 1),
-        (0.0001, -10),
-        (0.0001, 10),
-    ]
-
-
 ################################################################
 
 
