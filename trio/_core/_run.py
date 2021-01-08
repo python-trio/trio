@@ -937,7 +937,12 @@ class Nursery(metaclass=NoPublicConstructor):
         popped = self._parent_task._child_nurseries.pop()
         assert popped is self
         if self._pending_excs:
-            return MultiError(self._pending_excs)
+            try:
+                return MultiError(self._pending_excs)
+            finally:
+                # avoid a garbage cycle
+                # (see test_nursery_cancel_doesnt_create_cyclic_garbage)
+                del self._pending_excs
 
     def start_soon(self, async_fn, *args, name=None):
         """Creates a child task, scheduling ``await async_fn(*args)``.
