@@ -1,3 +1,0 @@
-Trio now avoids creating cyclic garbage as often. This should have a
-minimal impact on most programs, but can slightly reduce how often the
-cycle collector GC runs on CPython, which can reduce latency spikes.

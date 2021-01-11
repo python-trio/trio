@@ -5,6 +5,41 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.18.0 (2021-01-11)
+------------------------
+
+Features
+~~~~~~~~
+
+- Add synchronous ``.close()`` methods and context manager (``with x``) support
+  for `.MemorySendChannel` and `.MemoryReceiveChannel`. (`#1797 <https://github.com/python-trio/trio/issues/1797>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Previously, on Windows, Trio programs using thousands of sockets at the same time could trigger extreme slowdowns in the Windows kernel. Now, Trio works around this issue, so you should be able to use as many sockets as you want. (`#1280 <https://github.com/python-trio/trio/issues/1280>`__)
+- :func:`trio.from_thread.run` no longer crashes the Trio run if it is
+  executed after the system nursery has been closed but before the run
+  has finished. Calls made at this time will now raise
+  `trio.RunFinishedError`.  This fixes a regression introduced in
+  Trio 0.17.0.  The window in question is only one scheduler tick long in
+  most cases, but may be longer if async generators need to be cleaned up. (`#1738 <https://github.com/python-trio/trio/issues/1738>`__)
+- Fix a crash in pypy-3.7 (`#1765 <https://github.com/python-trio/trio/issues/1765>`__)
+- Trio now avoids creating cyclic garbage as often. This should have a
+  minimal impact on most programs, but can slightly reduce how often the
+  cycle collector GC runs on CPython, which can reduce latency spikes. (`#1770 <https://github.com/python-trio/trio/issues/1770>`__)
+
+
+Deprecations and removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Remove deprecated ``max_refill_bytes`` from :class:`SSLStream`. (`#959 <https://github.com/python-trio/trio/issues/959>`__)
+- Remove the deprecated ``tiebreaker`` argument to `trio.testing.wait_all_tasks_blocked`. (`#1558 <https://github.com/python-trio/trio/issues/1558>`__)
+- Remove the deprecated ``trio.hazmat`` module. (`#1722 <https://github.com/python-trio/trio/issues/1722>`__)
+- Stop allowing subclassing public classes. This behavior was deprecated in 0.15.0. (`#1726 <https://github.com/python-trio/trio/issues/1726>`__)
+
+
 Trio 0.17.0 (2020-09-15)
 ------------------------
 
