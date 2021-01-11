@@ -1,1 +1,0 @@
-Remove deprecated ``max_refill_bytes`` from :class:`SSLStream`.
