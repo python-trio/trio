@@ -2179,7 +2179,7 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                     # Remove local refs so that e.g. cancelled coroutine locals
                     # are not kept alive by this frame until another exception
                     # comes along.
-                    # del tb, task_exc
+                    del tb, task_exc
 
                 if final_outcome is not None:
                     # We can't call this directly inside the except: blocks
