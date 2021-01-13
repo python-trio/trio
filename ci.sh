@@ -30,7 +30,7 @@ function curl-harder() {
 # Bootstrap python environment, if necessary
 ################################################################
 
-### PyPy nightly (currently on Travis) ###
+### PyPy nightly ###
 
 if [ "$PYPY_NIGHTLY_BRANCH" != "" ]; then
     JOB_NAME="pypy_nightly_${PYPY_NIGHTLY_BRANCH}"
