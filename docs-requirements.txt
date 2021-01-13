@@ -20,15 +20,15 @@ jinja2==2.11.2            # via sphinx, towncrier
 markupsafe==1.1.1         # via jinja2
 outcome==1.1.0            # via -r docs-requirements.in
 packaging==20.8           # via sphinx
-pygments==2.7.3           # via sphinx
+pygments==2.7.4           # via sphinx
 pyparsing==2.4.7          # via packaging
 pytz==2020.5              # via babel
 requests==2.25.1          # via sphinx
 sniffio==1.2.0            # via -r docs-requirements.in
 snowballstemmer==2.0.0    # via sphinx
 sortedcontainers==2.3.0   # via -r docs-requirements.in
+sphinx-rtd-theme==0.5.1   # via -r docs-requirements.in
 sphinx==3.3.1             # via -r docs-requirements.in, sphinx-rtd-theme, sphinxcontrib-trio
-sphinx_rtd_theme==0.5.1   # via -r docs-requirements.in
 sphinxcontrib-applehelp==1.0.2  # via sphinx
 sphinxcontrib-devhelp==1.0.2  # via sphinx
 sphinxcontrib-htmlhelp==1.0.3  # via sphinx
