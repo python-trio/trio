@@ -2167,6 +2167,8 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                     msg = task.context.run(next_send_fn, next_send)
                 except StopIteration as stop_iteration:
                     final_outcome = Value(stop_iteration.value)
+                    # prevent long-lived traceback reference
+                    del stop_iteration
                 except BaseException as task_exc:
                     # Store for later, removing uninteresting top frames: 1
                     # frame we always remove, because it's this function
@@ -2188,8 +2190,8 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                     # unwanted ways.
                     runner.task_exited(task, final_outcome)
                     # final_outcome may contain a traceback ref. It's not as
-                    # crucial compared to the above, but will still allow more
-                    # prompt release of resources.
+                    # crucial compared to the above, but this will allow more
+                    # prompt release of resources in coroutine locals.
                     final_outcome = None
                 else:
                     task._schedule_points += 1
@@ -2219,10 +2221,13 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                         # which works for at least asyncio and curio.
                         runner.reschedule(task, exc)
                         task._next_send_fn = task.coro.throw
+                    del msg
 
                 if "after_task_step" in runner.instruments:
                     runner.instruments.call("after_task_step", task)
                 del GLOBAL_RUN_CONTEXT.task
+                # prevent long-lived task reference
+                del task, next_send, next_send_fn
 
     except GeneratorExit:
         # The run-loop generator has been garbage collected without finishing
