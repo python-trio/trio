@@ -1,5 +1,6 @@
 image: fedora/rawhide
 packages:
+  - python3-devel
   - python3-pip
 sources:
   - https://github.com/python-trio/trio
