@@ -4,38 +4,82 @@
 #
 #    pip-compile --output-file docs-requirements.txt docs-requirements.in
 #
-alabaster==0.7.12         # via sphinx
-async-generator==1.10     # via -r docs-requirements.in
-attrs==20.3.0             # via -r docs-requirements.in, outcome
-babel==2.9.0              # via sphinx
-certifi==2020.12.5        # via requests
-chardet==4.0.0            # via requests
-click==7.1.2              # via towncrier
-docutils==0.16            # via sphinx
-idna==2.10                # via -r docs-requirements.in, requests
-imagesize==1.2.0          # via sphinx
-immutables==0.14          # via -r docs-requirements.in
-incremental==17.5.0       # via towncrier
-jinja2==2.11.2            # via sphinx, towncrier
-markupsafe==1.1.1         # via jinja2
-outcome==1.1.0            # via -r docs-requirements.in
-packaging==20.8           # via sphinx
-pygments==2.7.4           # via sphinx
-pyparsing==2.4.7          # via packaging
-pytz==2020.5              # via babel
-requests==2.25.1          # via sphinx
-sniffio==1.2.0            # via -r docs-requirements.in
-snowballstemmer==2.0.0    # via sphinx
-sortedcontainers==2.3.0   # via -r docs-requirements.in
-sphinx-rtd-theme==0.5.1   # via -r docs-requirements.in
-sphinx==3.3.1             # via -r docs-requirements.in, sphinx-rtd-theme, sphinxcontrib-trio
-sphinxcontrib-applehelp==1.0.2  # via sphinx
-sphinxcontrib-devhelp==1.0.2  # via sphinx
-sphinxcontrib-htmlhelp==1.0.3  # via sphinx
-sphinxcontrib-jsmath==1.0.1  # via sphinx
-sphinxcontrib-qthelp==1.0.3  # via sphinx
-sphinxcontrib-serializinghtml==1.1.4  # via sphinx
-sphinxcontrib-trio==1.1.2  # via -r docs-requirements.in
-toml==0.10.2              # via towncrier
-towncrier==19.2.0         # via -r docs-requirements.in
-urllib3==1.26.2           # via requests
+alabaster==0.7.12
+    # via sphinx
+async-generator==1.10
+    # via -r docs-requirements.in
+attrs==20.3.0
+    # via
+    #   -r docs-requirements.in
+    #   outcome
+babel==2.9.0
+    # via sphinx
+certifi==2020.12.5
+    # via requests
+chardet==4.0.0
+    # via requests
+click==7.1.2
+    # via towncrier
+docutils==0.16
+    # via sphinx
+idna==2.10
+    # via
+    #   -r docs-requirements.in
+    #   requests
+imagesize==1.2.0
+    # via sphinx
+immutables==0.14
+    # via -r docs-requirements.in
+incremental==17.5.0
+    # via towncrier
+jinja2==2.11.2
+    # via
+    #   sphinx
+    #   towncrier
+markupsafe==1.1.1
+    # via jinja2
+outcome==1.1.0
+    # via -r docs-requirements.in
+packaging==20.8
+    # via sphinx
+pygments==2.7.4
+    # via sphinx
+pyparsing==2.4.7
+    # via packaging
+pytz==2020.5
+    # via babel
+requests==2.25.1
+    # via sphinx
+sniffio==1.2.0
+    # via -r docs-requirements.in
+snowballstemmer==2.1.0
+    # via sphinx
+sortedcontainers==2.3.0
+    # via -r docs-requirements.in
+sphinx-rtd-theme==0.5.1
+    # via -r docs-requirements.in
+sphinx==3.3.1
+    # via
+    #   -r docs-requirements.in
+    #   sphinx-rtd-theme
+    #   sphinxcontrib-trio
+sphinxcontrib-applehelp==1.0.2
+    # via sphinx
+sphinxcontrib-devhelp==1.0.2
+    # via sphinx
+sphinxcontrib-htmlhelp==1.0.3
+    # via sphinx
+sphinxcontrib-jsmath==1.0.1
+    # via sphinx
+sphinxcontrib-qthelp==1.0.3
+    # via sphinx
+sphinxcontrib-serializinghtml==1.1.4
+    # via sphinx
+sphinxcontrib-trio==1.1.2
+    # via -r docs-requirements.in
+toml==0.10.2
+    # via towncrier
+towncrier==19.2.0
+    # via -r docs-requirements.in
+urllib3==1.26.2
+    # via requests
