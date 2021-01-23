@@ -4,7 +4,6 @@ import subprocess
 import sys
 import pytest
 import random
-import signal
 from typing import Optional
 from functools import partial
 

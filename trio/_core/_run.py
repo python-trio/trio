@@ -56,7 +56,6 @@ from ._traps import (
     WaitTaskRescheduled,
 )
 from ._asyncgens import AsyncGenerators
-from ._entry_queue import TrioToken
 from ._thread_cache import start_thread_soon
 from ._instrumentation import Instruments
 from ._local import RunVar
