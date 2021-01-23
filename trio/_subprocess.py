@@ -3,7 +3,6 @@
 import os
 import subprocess
 import sys
-from typing import Optional
 from functools import partial
 import warnings
 from typing import (
