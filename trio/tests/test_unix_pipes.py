@@ -11,13 +11,12 @@ from .._core.tests.tutil import gc_collect_harder, skip_if_fbsd_pipes_broken
 from .. import _core, move_on_after
 from ..testing import wait_all_tasks_blocked, check_one_way_stream
 
-posix = os.name == "posix"
-pytestmark = pytest.mark.skipif(not posix, reason="posix only")
-if posix:
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="posix only")
+if sys.platform != "win32":
     from .._unix_pipes import FdStream
 else:
     with pytest.raises(ImportError):
-        from .._unix_pipes import FdStream
+        from .._unix_pipes import FdStream  # type: ignore[attr-defined]
 
 
 # Have to use quoted types so import doesn't crash on windows
