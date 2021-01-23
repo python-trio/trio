@@ -85,6 +85,7 @@ setup(
         "idna",
         "outcome",
         "sniffio",
+        "typing-extensions",
         # cffi 1.12 adds from_buffer(require_writable=True) and ffi.release()
         # cffi 1.14 fixes memory leak inside ffi.getwinerror()
         # cffi is required on Windows, except on PyPy where it is built-in

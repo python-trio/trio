@@ -13,6 +13,7 @@ async_generator >= 1.9
 idna
 outcome
 sniffio
+typing-extensions
 
 # See note in test-requirements.in
 immutables >= 0.6
