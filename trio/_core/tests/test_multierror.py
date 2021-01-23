@@ -6,7 +6,7 @@ from traceback import (
     print_exception,
     format_exception,
 )
-from traceback import _cause_message  # type: ignore
+from traceback import _cause_message  # type: ignore[attr-defined]
 import sys
 import os
 import re

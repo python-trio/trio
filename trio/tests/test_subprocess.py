@@ -4,6 +4,8 @@ import subprocess
 import sys
 import pytest
 import random
+import signal
+from typing import Optional
 from functools import partial
 
 from .. import (
@@ -19,6 +21,10 @@ from .. import (
 )
 from .._core.tests.tutil import slow, skip_if_fbsd_pipes_broken
 from ..testing import wait_all_tasks_blocked
+
+SIGKILL: Optional[signal.Signals]
+SIGTERM: Optional[signal.Signals]
+SIGUSR1: Optional[signal.Signals]
 
 posix = os.name == "posix"
 if posix:

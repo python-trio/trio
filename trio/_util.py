@@ -65,6 +65,9 @@ else:
         signal.pthread_kill(threading.get_ident(), signum)
 
 
+_T = t.TypeVar("_T")
+
+
 # See: #461 as to why this is needed.
 # The gist is that threading.main_thread() has the capability to lie to us
 # if somebody else edits the threading ident cache to replace the main
@@ -241,7 +244,13 @@ def fixup_module_metadata(module_name, namespace):
             fix_one(objname, objname, obj)
 
 
-class generic_function:
+# TODO: This does not account for the generic parametrization via __getitem__.
+#       Presumably this will not work out in the long run even though it helped
+#       with trio._channel.open_memory_channel right now.
+generic_function: t.Callable[[_T], _T]
+
+
+class generic_function:  # type: ignore[no-redef]
     """Decorator that makes a function indexable, to communicate
     non-inferrable generic type parameters to a static type checker.
 
@@ -307,9 +316,6 @@ class Final(BaseMeta):
         return super().__new__(cls, name, bases, cls_namespace)
 
 
-T = t.TypeVar("T")
-
-
 class NoPublicConstructor(Final):
     """Metaclass that enforces a class to be final (i.e., subclass not allowed)
     and ensures a private constructor.
@@ -334,8 +340,8 @@ class NoPublicConstructor(Final):
             f"{cls.__module__}.{cls.__qualname__} has no public constructor"
         )
 
-    def _create(cls: t.Type[T], *args: t.Any, **kwargs: t.Any) -> T:
-        return super().__call__(*args, **kwargs)  # type: ignore
+    def _create(cls: t.Type[_T], *args: t.Any, **kwargs: t.Any) -> _T:
+        return super().__call__(*args, **kwargs)  # type: ignore[no-any-return,misc]
 
 
 def name_asyncgen(agen):

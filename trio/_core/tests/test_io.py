@@ -5,6 +5,7 @@ import select
 import random
 import errno
 from contextlib import suppress
+from typing import Callable
 
 from ... import _core
 from ...testing import wait_all_tasks_blocked, Sequencer, assert_checkpoints
@@ -59,18 +60,23 @@ for options_list in [
 ]:
     options_list += [using_fileno(f) for f in options_list]
 
+
+def get__name__(fn: Callable) -> str:
+    return fn.__name__
+
+
 # Decorators that feed in different settings for wait_readable / wait_writable
 # / notify_closing.
 # Note that if you use all three decorators on the same test, it will run all
 # N**3 *combinations*
 read_socket_test = pytest.mark.parametrize(
-    "wait_readable", wait_readable_options, ids=lambda fn: fn.__name__
+    "wait_readable", wait_readable_options, ids=get__name__
 )
 write_socket_test = pytest.mark.parametrize(
-    "wait_writable", wait_writable_options, ids=lambda fn: fn.__name__
+    "wait_writable", wait_writable_options, ids=get__name__
 )
 notify_closing_test = pytest.mark.parametrize(
-    "notify_closing", notify_closing_options, ids=lambda fn: fn.__name__
+    "notify_closing", notify_closing_options, ids=get__name__
 )
 
 

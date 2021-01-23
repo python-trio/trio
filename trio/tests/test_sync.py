@@ -1,3 +1,5 @@
+from typing import cast, Callable
+
 import pytest
 
 import weakref
@@ -241,7 +243,11 @@ async def test_Semaphore_bounded():
     assert bs.value == 1
 
 
-@pytest.mark.parametrize("lockcls", [Lock, StrictFIFOLock], ids=lambda fn: fn.__name__)
+def get__name__(fn: Callable) -> str:
+    return fn.__name__
+
+
+@pytest.mark.parametrize("lockcls", [Lock, StrictFIFOLock], ids=get__name__)
 async def test_Lock_and_StrictFIFOLock(lockcls):
     l = lockcls()  # noqa
     assert not l.locked()

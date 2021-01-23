@@ -1,5 +1,6 @@
 from collections import deque, OrderedDict
 from math import inf
+from typing import cast, Callable, Tuple, TypeVar
 
 import attr
 from outcome import Error, Value
@@ -12,7 +13,9 @@ from ._core import enable_ki_protection
 
 
 @generic_function
-def open_memory_channel(max_buffer_size):
+def open_memory_channel(
+    max_buffer_size,
+) -> Tuple["MemorySendChannel", "MemoryReceiveChannel"]:
     """Open a channel for passing objects between tasks within a process.
 
     Memory channels are lightweight, cheap to allocate, and entirely

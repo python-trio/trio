@@ -102,7 +102,8 @@ async def wait_child_exiting(process: "_subprocess.Process") -> None:
     #   process.
 
     if process._wait_for_exit_data is None:
-        process._wait_for_exit_data = event = Event()  # type: ignore
+        event = Event()
+        process._wait_for_exit_data = event  # type: ignore[assignment]
         _core.spawn_system_task(_waitid_system_task, process.pid, event)
     assert isinstance(process._wait_for_exit_data, Event)
     await process._wait_for_exit_data.wait()

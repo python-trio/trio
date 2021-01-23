@@ -419,7 +419,7 @@ def traceback_exception_init(
         self.embedded = []
 
 
-traceback.TracebackException.__init__ = traceback_exception_init  # type: ignore
+traceback.TracebackException.__init__ = traceback_exception_init  # type: ignore[assignment]
 traceback_exception_original_format = traceback.TracebackException.format
 
 
@@ -431,7 +431,7 @@ def traceback_exception_format(self, *, chain=True):
         yield from (textwrap.indent(line, " " * 2) for line in exc.format(chain=chain))
 
 
-traceback.TracebackException.format = traceback_exception_format  # type: ignore
+traceback.TracebackException.format = traceback_exception_format  # type: ignore[assignment]
 
 
 def trio_excepthook(etype, value, tb):
@@ -493,7 +493,7 @@ if getattr(sys.excepthook, "__name__", None) == "apport_excepthook":
 
     fake_sys = TrioFakeSysModuleForApport()
     fake_sys.__dict__.update(sys.__dict__)
-    fake_sys.__excepthook__ = trio_excepthook  # type: ignore
+    fake_sys.__excepthook__ = trio_excepthook  # type: ignore[attr-defined]
     apport_python_hook.sys = fake_sys
 
     monkeypatched_or_warned = True

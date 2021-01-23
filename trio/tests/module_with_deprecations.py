@@ -10,7 +10,7 @@ _deprecate.enable_attribute_deprecations(__name__)
 import sys
 
 this_mod = sys.modules[__name__]
-assert this_mod.regular == "hi"
+assert this_mod.regular == "hi"  # type: ignore[attr-defined]
 assert not hasattr(this_mod, "dep1")
 
 __deprecated_attributes__ = {

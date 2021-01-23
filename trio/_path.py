@@ -1,12 +1,14 @@
-# type: ignore
-
 from functools import wraps, partial
 import os
 import types
 import pathlib
+from typing import Iterator, TypeVar, Union
 
 import trio
 from trio._util import async_wraps, Final
+
+
+_P = TypeVar("_P", bound="Path")
 
 
 # re-wrap return value from methods that return new instances of pathlib.Path
@@ -153,6 +155,20 @@ class Path(metaclass=AsyncAutoWrapperType):
     ]
     _wrap_iter = ["glob", "rglob", "iterdir"]
 
+    # TODO: fill out the rest.  Just copy from typeshed?  Maybe this design won't pan
+    #       out cleaner than a stub .pyi in the long run.
+    #       https://github.com/python/typeshed/blob/58032a701811093d7bd24f9f75ad5e5de07e7723/stdlib/3/pathlib.pyi#L17-L53
+
+    # NOTE: These are effectively type hints compensating for Mypy not being able to
+    #       see through AsyncAutoWrapperType.  They are inline here such that the rest
+    #       of the file can be hinted regularly rather than in a separate stub .pyi.
+
+    def joinpath(self: _P, *other: Union[str, os.PathLike[str]]) -> _P:
+        ...
+
+    def iterdir(self: _P) -> Iterator[_P]:
+        ...
+
     def __init__(self, *args):
         self._wrapped = pathlib.Path(*args)
 
@@ -201,6 +217,6 @@ Path.iterdir.__doc__ = """
 # The value of Path.absolute.__doc__ makes a reference to
 # :meth:~pathlib.Path.absolute, which does not exist. Removing this makes more
 # sense than inventing our own special docstring for this.
-del Path.absolute.__doc__
+del Path.absolute.__doc__  # type: ignore[attr-defined]
 
 os.PathLike.register(Path)

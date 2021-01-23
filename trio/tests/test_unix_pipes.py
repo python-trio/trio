@@ -3,6 +3,7 @@ import select
 import os
 import tempfile
 import sys
+from typing import Tuple
 
 import pytest
 
@@ -20,7 +21,7 @@ else:
 
 
 # Have to use quoted types so import doesn't crash on windows
-async def make_pipe() -> "Tuple[FdStream, FdStream]":
+async def make_pipe() -> Tuple["FdStream", "FdStream"]:
     """Makes a new pair of pipes."""
     (r, w) = os.pipe()
     return FdStream(w), FdStream(r)

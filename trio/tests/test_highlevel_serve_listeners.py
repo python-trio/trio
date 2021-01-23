@@ -2,18 +2,24 @@ import pytest
 
 from functools import partial
 import errno
+from typing import Tuple
 
 import attr
 
 import trio
 from trio.testing import memory_stream_pair, wait_all_tasks_blocked
+from trio._channel import MemorySendChannel, MemoryReceiveChannel
+
+
+def _open_memory_channel_1() -> Tuple[MemorySendChannel, MemoryReceiveChannel]:
+    return trio.open_memory_channel(1)
 
 
 @attr.s(hash=False, eq=False)
 class MemoryListener(trio.abc.Listener):
     closed = attr.ib(default=False)
     accepted_streams = attr.ib(factory=list)
-    queued_streams = attr.ib(factory=(lambda: trio.open_memory_channel(1)))
+    queued_streams = attr.ib(factory=_open_memory_channel_1)
     accept_hook = attr.ib(default=None)
 
     async def connect(self):
