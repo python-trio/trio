@@ -14,7 +14,7 @@ from ..testing import wait_all_tasks_blocked, check_one_way_stream
 pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="posix only")
 
 if sys.platform == "win32":
-    with pytest.raises(ImportError):
+    with pytest.raises(AssertionError):
         # Using sys instead of FdStream since sys is created before the assertion that
         # terminates the import of _unix_pipes and this makes Mypy happier.  The type
         # warning can't be ignored since it is not present on all platforms and thus
