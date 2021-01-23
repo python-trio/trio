@@ -1,5 +1,5 @@
 import sys
-from typing import TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 from . import _core
 from ._abc import SendStream, ReceiveStream
 from ._util import ConflictDetector, Final
@@ -52,7 +52,7 @@ class PipeSendStream(SendStream, metaclass=Final):
             "another task is currently using this pipe"
         )
 
-    async def send_all(self, data: bytes):
+    async def send_all(self, data: bytes) -> None:
         with self._conflict_detector:
             if self._handle_holder.closed:
                 raise _core.ClosedResourceError("this pipe is already closed")
@@ -91,7 +91,7 @@ class PipeReceiveStream(ReceiveStream, metaclass=Final):
             "another task is currently using this pipe"
         )
 
-    async def receive_some(self, max_bytes=None) -> bytes:
+    async def receive_some(self, max_bytes: Optional[int] = None) -> bytes:
         with self._conflict_detector:
             if self._handle_holder.closed:
                 raise _core.ClosedResourceError("this pipe is already closed")

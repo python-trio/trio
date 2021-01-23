@@ -26,9 +26,14 @@ SIGKILL: Optional[signal.Signals]
 SIGTERM: Optional[signal.Signals]
 SIGUSR1: Optional[signal.Signals]
 
-posix = os.name == "posix"
-if posix:
-    from signal import SIGKILL, SIGTERM, SIGUSR1
+# TODO: is this the proper translation from os.name to sys.platform?
+# Mypy understands sys.platform but not os.name
+posix = sys.platform != "win32"
+
+if sys.platform != "win32":
+    import signal
+
+    SIGKILL, SIGTERM, SIGUSR1 = signal.SIGKILL, signal.SIGTERM, signal.SIGUSR1
 else:
     SIGKILL, SIGTERM, SIGUSR1 = None, None, None
 

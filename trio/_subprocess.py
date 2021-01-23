@@ -380,20 +380,20 @@ if TYPE_CHECKING:
         ) -> Process:
             ...
 
-        async def open_process(  # type: ignore[no-untyped-def]
-            command,
+        async def open_process(
+            command: Union[str, Sequence[str]],
             *,
-            stdin=...,
-            stdout=...,
-            stderr=...,
-            close_fds=...,
-            shell=...,
-            cwd=...,
-            env=...,
-            preexec_fn=...,
-            restore_signals=...,
-            start_new_session=...,
-            pass_fds=...,
+            stdin: _Redirect = ...,
+            stdout: _Redirect = ...,
+            stderr: _Redirect = ...,
+            close_fds: bool = ...,
+            shell: Union[Literal[True], bool] = ...,
+            cwd: str = ...,
+            env: Mapping[str, str] = ...,
+            preexec_fn: Optional[Callable[[], Any]] = ...,
+            restore_signals: bool = ...,
+            start_new_session: bool = ...,
+            pass_fds: Sequence[int] = ...,
         ) -> Process:
             ...
 
@@ -441,24 +441,24 @@ if TYPE_CHECKING:
         ) -> subprocess.CompletedProcess[bytes]:
             ...
 
-        async def run_process(  # type: ignore[no-untyped-def]
-            command,
+        async def run_process(
+            command: Union[str, Sequence[str]],
             *,
-            stdin=...,
-            capture_stdout=...,
-            capture_stderr=...,
-            check=...,
-            deliver_cancel=...,
-            stdout=...,
-            stderr=...,
-            close_fds=...,
-            shell=...,
-            cwd=...,
-            env=...,
-            preexec_fn=...,
-            restore_signals=...,
-            start_new_session=...,
-            pass_fds=...,
+            stdin: Union[bytes, _Redirect] = ...,
+            capture_stdout: bool = ...,
+            capture_stderr: bool = ...,
+            check: bool = ...,
+            deliver_cancel: Callable[[Process], Awaitable[None]] = ...,
+            stdout: _Redirect = ...,
+            stderr: _Redirect = ...,
+            close_fds: bool = ...,
+            shell: Union[Literal[True], bool] = ...,
+            cwd: str = ...,
+            env: Mapping[str, str] = ...,
+            preexec_fn: Optional[Callable[[], Any]] = ...,
+            restore_signals: bool = ...,
+            start_new_session: bool = ...,
+            pass_fds: Sequence[int] = ...,
         ) -> subprocess.CompletedProcess[bytes]:
             ...
 

@@ -7,14 +7,17 @@ from .. import _core, _subprocess
 from .._sync import CapacityLimiter, Event
 from .._threads import to_thread_run_sync
 
-try:
-    from os import waitid
+
+waitid = getattr(os, "waitid", None)
+
+
+if waitid is not None:
 
     def sync_wait_reapable(pid):
         waitid(os.P_PID, pid, os.WEXITED | os.WNOWAIT)
 
 
-except ImportError:
+else:
     # pypy doesn't define os.waitid so we need to pull it out ourselves
     # using cffi: https://bitbucket.org/pypy/pypy/issues/2922/
     import cffi
