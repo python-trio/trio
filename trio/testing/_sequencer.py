@@ -1,4 +1,5 @@
 from collections import defaultdict
+from typing import AsyncIterator, DefaultDict, Set
 
 import attr
 from async_generator import asynccontextmanager
@@ -6,9 +7,6 @@ from async_generator import asynccontextmanager
 from .. import _core
 from .. import _util
 from .. import Event
-
-if False:
-    from typing import DefaultDict, Set
 
 
 @attr.s(eq=False, hash=False)
@@ -59,7 +57,7 @@ class Sequencer(metaclass=_util.Final):
     _broken = attr.ib(default=False, init=False)
 
     @asynccontextmanager
-    async def __call__(self, position: int):
+    async def __call__(self, position: int) -> AsyncIterator[None]:
         if position in self._claimed:
             raise RuntimeError("Attempted to re-use sequence point {}".format(position))
         if self._broken:

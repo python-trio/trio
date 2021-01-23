@@ -1,6 +1,6 @@
 from collections import deque, OrderedDict
 from math import inf
-from typing import cast, Callable, Tuple, TypeVar
+from typing import cast, Callable, Tuple, TypeVar, Union
 
 import attr
 from outcome import Error, Value
@@ -14,7 +14,8 @@ from ._core import enable_ki_protection
 
 @generic_function
 def open_memory_channel(
-    max_buffer_size,
+    # TODO: should restrict the float bit to just the inf value
+    max_buffer_size: Union[int, float],
 ) -> Tuple["MemorySendChannel", "MemoryReceiveChannel"]:
     """Open a channel for passing objects between tasks within a process.
 

@@ -1,5 +1,6 @@
 import os
 import errno
+from typing import Optional
 
 from ._abc import Stream
 from ._util import ConflictDetector, Final
@@ -116,7 +117,7 @@ class FdStream(Stream, metaclass=Final):
             "another task is using this stream for receive"
         )
 
-    async def send_all(self, data: bytes):
+    async def send_all(self, data: bytes) -> None:
         with self._send_conflict_detector:
             # have to check up front, because send_all(b"") on a closed pipe
             # should raise
@@ -152,7 +153,7 @@ class FdStream(Stream, metaclass=Final):
                 # of sending, which is annoying
                 raise trio.BrokenResourceError from e
 
-    async def receive_some(self, max_bytes=None) -> bytes:
+    async def receive_some(self, max_bytes: Optional[int] = None) -> bytes:
         with self._receive_conflict_detector:
             if max_bytes is None:
                 max_bytes = DEFAULT_RECEIVE_SIZE

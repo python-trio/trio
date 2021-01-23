@@ -2,7 +2,7 @@ import select
 import sys
 import attr
 from collections import defaultdict
-from typing import Dict, TYPE_CHECKING
+from typing import DefaultDict, Dict, TYPE_CHECKING
 
 from .. import _core
 from ._run import _public
@@ -186,13 +186,13 @@ class EpollWaiters:
 
 @attr.s(slots=True, eq=False, hash=False)
 class EpollIOManager:
-    _epoll = attr.ib(factory=select.epoll)
+    _epoll: select.epoll = attr.ib(factory=select.epoll)
     # {fd: EpollWaiters}
-    _registered = attr.ib(
-        factory=lambda: defaultdict(EpollWaiters), type=Dict[int, EpollWaiters]
+    _registered: DefaultDict[int, EpollWaiters] = attr.ib(
+        factory=lambda: defaultdict(EpollWaiters)
     )
-    _force_wakeup = attr.ib(factory=WakeupSocketpair)
-    _force_wakeup_fd = attr.ib(default=None)
+    _force_wakeup: WakeupSocketpair = attr.ib(factory=WakeupSocketpair)
+    _force_wakeup_fd: int = attr.ib(default=None)
 
     def __attrs_post_init__(self):
         self._epoll.register(self._force_wakeup.wakeup_sock, select.EPOLLIN)

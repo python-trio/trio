@@ -1,5 +1,6 @@
 # coding: utf-8
 
+from contextvars import Context
 import functools
 import itertools
 import logging
@@ -18,7 +19,18 @@ import enum
 from contextvars import copy_context
 from math import inf
 from time import perf_counter
-from typing import Callable, TYPE_CHECKING
+from typing import (
+    Callable,
+    Deque,
+    Dict,
+    Generator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    TYPE_CHECKING,
+    Union,
+)
 
 from sniffio import current_async_library_cvar
 
@@ -44,9 +56,12 @@ from ._traps import (
     WaitTaskRescheduled,
 )
 from ._asyncgens import AsyncGenerators
+from ._entry_queue import TrioToken
 from ._thread_cache import start_thread_soon
 from ._instrumentation import Instruments
+from ._local import RunVar
 from .. import _core
+from ..abc import Clock
 from .._deprecate import warn_deprecated
 from .._util import Final, NoPublicConstructor, coroutine_or_error
 
@@ -1229,13 +1244,15 @@ class _RunStatistics:
 # worker thread.
 @attr.s(eq=False, hash=False, slots=True)
 class GuestState:
-    runner = attr.ib()
-    run_sync_soon_threadsafe = attr.ib()
-    run_sync_soon_not_threadsafe = attr.ib()
-    done_callback = attr.ib()
-    unrolled_run_gen = attr.ib()
+    runner: "Runner" = attr.ib()
+    run_sync_soon_threadsafe: Callable[[Callable[[], object]], object] = attr.ib()
+    run_sync_soon_not_threadsafe: Optional[
+        Callable[[Callable[[], object]], object]
+    ] = attr.ib()
+    done_callback: Callable[[Outcome], object] = attr.ib()
+    unrolled_run_gen: Generator[int, List[Tuple[int, int]], None] = attr.ib()
     _value_factory: Callable[[], Value] = lambda: Value(None)
-    unrolled_run_next_send = attr.ib(factory=_value_factory, type=Outcome)
+    unrolled_run_next_send: Outcome = attr.ib(factory=_value_factory)
 
     def guest_tick(self):
         try:
@@ -1274,35 +1291,38 @@ class GuestState:
 
 @attr.s(eq=False, hash=False, slots=True)
 class Runner:
-    clock = attr.ib()
+    clock: Clock = attr.ib()
     instruments: Instruments = attr.ib()
-    io_manager = attr.ib()
-    ki_manager = attr.ib()
+    # TODO: It seems that down at the bottom kqueue is the IO manager chosen for for
+    #       type checking.  Seems like there ought to be a protocol or union here.
+    # io_manager: Union["KqueueIOManager", "EpollIOManager", "WindowsIOManager"] = attr.ib()
+    io_manager: "TheIOManager" = attr.ib()
+    ki_manager: KIManager = attr.ib()
 
     # Run-local values, see _local.py
-    _locals = attr.ib(factory=dict)
+    _locals: Dict[RunVar, object] = attr.ib(factory=dict)
 
-    runq = attr.ib(factory=deque)
-    tasks = attr.ib(factory=set)
+    runq: Deque[Task] = attr.ib(factory=deque)
+    tasks: Set[Task] = attr.ib(factory=set)
 
-    deadlines = attr.ib(factory=Deadlines)
+    deadlines: Deadlines = attr.ib(factory=Deadlines)
 
-    init_task = attr.ib(default=None)
-    system_nursery = attr.ib(default=None)
-    system_context = attr.ib(default=None)
-    main_task = attr.ib(default=None)
-    main_task_outcome = attr.ib(default=None)
+    init_task: Optional[Task] = attr.ib(default=None)
+    system_nursery: Optional[Nursery] = attr.ib(default=None)
+    system_context: Optional[Context] = attr.ib(default=None)
+    main_task: Optional[Task] = attr.ib(default=None)
+    main_task_outcome: Optional[Outcome] = attr.ib(default=None)
 
-    entry_queue = attr.ib(factory=EntryQueue)
-    trio_token = attr.ib(default=None)
-    asyncgens = attr.ib(factory=AsyncGenerators)
+    entry_queue: EntryQueue = attr.ib(factory=EntryQueue)
+    trio_token: TrioToken = attr.ib(default=None)
+    asyncgens: AsyncGenerators = attr.ib(factory=AsyncGenerators)
 
     # If everything goes idle for this long, we call clock._autojump()
-    clock_autojump_threshold = attr.ib(default=inf)
+    clock_autojump_threshold: float = attr.ib(default=inf)
 
     # Guest mode stuff
-    is_guest = attr.ib(default=False)
-    guest_tick_scheduled = attr.ib(default=False)
+    is_guest: bool = attr.ib(default=False)
+    guest_tick_scheduled: bool = attr.ib(default=False)
 
     def force_guest_tick_asap(self):
         if self.guest_tick_scheduled:
@@ -1631,7 +1651,7 @@ class Runner:
     # KI handling
     ################
 
-    ki_pending = attr.ib(default=False)
+    ki_pending: bool = attr.ib(default=False)
 
     # deliver_ki is broke. Maybe move all the actual logic and state into
     # RunToken, and we'll only have one instance per runner? But then we can't
@@ -1664,7 +1684,8 @@ class Runner:
     # Quiescing
     ################
 
-    waiting_for_idle = attr.ib(factory=SortedDict)
+    # TODO: how to hint a SortedDict with it's content type as well?
+    waiting_for_idle: SortedDict = attr.ib(factory=SortedDict)
 
     @_public
     async def wait_all_tasks_blocked(self, cushion=0.0):
