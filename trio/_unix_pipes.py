@@ -13,7 +13,6 @@ if sys.platform != "win32":
     # pipe capacity though.
     DEFAULT_RECEIVE_SIZE = 65536
 
-
     class _FdHolder:
         # This class holds onto a raw file descriptor, in non-blocking mode, and
         # is responsible for managing its lifecycle. In particular, it's
@@ -70,7 +69,6 @@ if sys.platform != "win32":
                 trio.lowlevel.notify_closing(self.fd)
                 self._raw_close()
             await trio.lowlevel.checkpoint()
-
 
     class FdStream(Stream, metaclass=Final):
         """
