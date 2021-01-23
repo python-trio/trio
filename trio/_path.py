@@ -2,7 +2,7 @@ from functools import wraps, partial
 import os
 import types
 import pathlib
-from typing import Iterator, TypeVar, Union
+from typing import Iterator, TYPE_CHECKING, TypeVar, Union
 
 import trio
 from trio._util import async_wraps, Final
@@ -155,19 +155,21 @@ class Path(metaclass=AsyncAutoWrapperType):
     ]
     _wrap_iter = ["glob", "rglob", "iterdir"]
 
-    # TODO: fill out the rest.  Just copy from typeshed?  Maybe this design won't pan
-    #       out cleaner than a stub .pyi in the long run.
-    #       https://github.com/python/typeshed/blob/58032a701811093d7bd24f9f75ad5e5de07e7723/stdlib/3/pathlib.pyi#L17-L53
+    if TYPE_CHECKING:
+        # TODO: fill out the rest.  Just copy from typeshed?  Maybe this design won't pan
+        #       out cleaner than a stub .pyi in the long run.
+        #       https://github.com/python/typeshed/blob/58032a701811093d7bd24f9f75ad5e5de07e7723/stdlib/3/pathlib.pyi#L17-L53
 
-    # NOTE: These are effectively type hints compensating for Mypy not being able to
-    #       see through AsyncAutoWrapperType.  They are inline here such that the rest
-    #       of the file can be hinted regularly rather than in a separate stub .pyi.
+        # NOTE: These are effectively type hints compensating for Mypy not being able to
+        #       see through AsyncAutoWrapperType.  They are inline here such that the rest
+        #       of the file can be hinted regularly rather than in a separate stub .pyi.
 
-    def joinpath(self: _P, *other: Union[str, os.PathLike[str]]) -> _P:
-        ...
+        # TODO: Can we handle os.PathLike[str] at least for 3.9+?
+        def joinpath(self: _P, *other: Union[str, os.PathLike]) -> _P:
+            ...
 
-    def iterdir(self: _P) -> Iterator[_P]:
-        ...
+        def iterdir(self: _P) -> Iterator[_P]:
+            ...
 
     def __init__(self, *args):
         self._wrapped = pathlib.Path(*args)
