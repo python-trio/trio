@@ -10,7 +10,6 @@ from typing import (
     Any,
     Awaitable,
     Callable,
-    Literal,
     Mapping,
     Optional,
     overload,
@@ -19,7 +18,7 @@ from typing import (
     TYPE_CHECKING,
 )
 
-from typing_extensions import Protocol
+from typing_extensions import Literal, Protocol
 
 from ._abc import AsyncResource, SendStream, ReceiveStream
 from ._highlevel_generic import StapledStream
