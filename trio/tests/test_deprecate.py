@@ -251,7 +251,7 @@ def test_module_with_deprecations(
     assert len(recwarn_always) == 0
 
     filename, lineno = _here()
-    assert module_with_deprecations.dep1 == "value1"
+    assert module_with_deprecations.dep1 == "value1"  # type: ignore[attr-defined]
     got = recwarn_always.pop(TrioDeprecationWarning)
     assert got.filename == filename
     assert got.lineno == lineno + 1
@@ -262,7 +262,7 @@ def test_module_with_deprecations(
     assert "/issues/1" in got.message.args[0]
     assert "value1 instead" in got.message.args[0]
 
-    assert module_with_deprecations.dep2 == "value2"
+    assert module_with_deprecations.dep2 == "value2"  # type: ignore[attr-defined]
     got = recwarn_always.pop(TrioDeprecationWarning)
     assert isinstance(got.message, Warning)
     assert "instead-string instead" in got.message.args[0]

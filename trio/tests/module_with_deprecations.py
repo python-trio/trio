@@ -19,6 +19,3 @@ __deprecated_attributes__ = {
         "value2", "1.2", issue=1, instead="instead-string"
     ),
 }
-
-dep1 = None
-dep2 = None

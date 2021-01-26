@@ -974,10 +974,9 @@ class _SocketType(SocketType):
             # args is: buffers[, ancdata[, flags[, address]]]
             # and kwargs are not accepted
             if len(args) == 4 and args[-1] is not None:
-                list_args = list(args)
-                list_args[-1] = await self._resolve_remote_address_nocp(list_args[-1])
+                args = (*args[:-1], await self._resolve_remote_address_nocp(args[-1]))
             return await self._nonblocking_helper(
-                _stdlib_socket.socket.sendmsg, list_args, {}, _core.wait_writable
+                _stdlib_socket.socket.sendmsg, args, {}, _core.wait_writable
             )
 
     ################################################################

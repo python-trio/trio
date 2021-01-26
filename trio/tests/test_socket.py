@@ -1,7 +1,7 @@
 import errno
 
 import pytest
-import _pytest.monkepatch
+import _pytest.monkeypatch
 import attr
 
 import os
@@ -51,7 +51,7 @@ class MonkeypatchedGAI:
 
 
 @pytest.fixture
-def monkeygai(monkeypatch: _pytest.monkepatch.MonkeyPatch) -> MonkeypatchedGAI:  # type: ignore[misc]
+def monkeygai(monkeypatch: _pytest.monkeypatch.MonkeyPatch) -> MonkeypatchedGAI:
     controller = MonkeypatchedGAI(stdlib_socket.getaddrinfo)
     monkeypatch.setattr(stdlib_socket, "getaddrinfo", controller.getaddrinfo)
     return controller
