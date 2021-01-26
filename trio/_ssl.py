@@ -202,8 +202,8 @@ class _Once:
     def __init__(self, afn, *args):
         self._afn = afn
         self._args = args
-        self.started = False
-        self._done = _sync.Event()
+        self.started: bool = False
+        self._done: _sync.Event = _sync.Event()
 
     async def ensure(self, *, checkpoint):
         if not self.started:
@@ -216,7 +216,7 @@ class _Once:
             await self._done.wait()
 
     @property
-    def done(self):
+    def done(self) -> bool:
         return self._done.is_set()
 
 

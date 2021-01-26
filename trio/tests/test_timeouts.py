@@ -42,8 +42,8 @@ TARGET = 1.0
 
 
 @slow
-async def test_sleep():
-    async def sleep_1():
+async def test_sleep() -> None:
+    async def sleep_1() -> None:
         await sleep_until(_core.current_time() + TARGET)
 
     await check_takes_about(sleep_1, TARGET)
@@ -65,7 +65,7 @@ async def test_sleep():
 
 
 @slow
-async def test_move_on_after():
+async def test_move_on_after() -> None:
     with pytest.raises(ValueError):
         with move_on_after(-1):
             pass  # pragma: no cover
@@ -78,7 +78,7 @@ async def test_move_on_after():
 
 
 @slow
-async def test_fail():
+async def test_fail() -> None:
     async def sleep_4():
         with fail_at(_core.current_time() + TARGET):
             await sleep(100)

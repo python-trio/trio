@@ -69,7 +69,7 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
 )
 @pytest.mark.parametrize("modname", PUBLIC_MODULE_NAMES)
 @pytest.mark.parametrize("tool", ["pylint", "jedi"])
-def test_static_tool_sees_all_symbols(tool, modname):
+def test_static_tool_sees_all_symbols(tool: str, modname: str) -> None:
     module = importlib.import_module(modname)
 
     def no_underscores(symbols):

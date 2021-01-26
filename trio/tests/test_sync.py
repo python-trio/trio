@@ -248,7 +248,9 @@ def get__name__(fn: Callable) -> str:
 
 
 @pytest.mark.parametrize("lockcls", [Lock, StrictFIFOLock], ids=get__name__)
-async def test_Lock_and_StrictFIFOLock(lockcls):
+async def test_Lock_and_StrictFIFOLock(
+    lockcls: Union[Type[Lock], Type[StrictFIFOLock]]
+) -> None:
     l = lockcls()  # noqa
     assert not l.locked()
 
@@ -260,7 +262,8 @@ async def test_Lock_and_StrictFIFOLock(lockcls):
     # make sure repr uses the right name for subclasses
     assert lockcls.__name__ in repr(l)
     with assert_checkpoints():
-        async with l:
+        # TODO: hint async_cm
+        async with l:  # type: ignore[union-attr]
             assert l.locked()
             repr(l)  # smoke test (repr branches on locked/unlocked)
     assert not l.locked()
@@ -500,11 +503,23 @@ generic_lock_test = pytest.mark.parametrize(
     "lock_factory", lock_factories, ids=lock_factory_names
 )
 
+_LockFactory = Callable[
+    [],
+    Union[
+        CapacityLimiter,
+        Semaphore,
+        Lock,
+        StrictFIFOLock,
+        ChannelLock1,
+        ChannelLock2,
+        ChannelLock3,
+    ],
+]
 
 # Spawn a bunch of workers that take a lock and then yield; make sure that
 # only one worker is ever in the critical section at a time.
 @generic_lock_test
-async def test_generic_lock_exclusion(lock_factory):
+async def test_generic_lock_exclusion(lock_factory: _LockFactory) -> None:
     LOOPS = 10
     WORKERS = 5
     in_critical_section = False
@@ -533,7 +548,7 @@ async def test_generic_lock_exclusion(lock_factory):
 # Several workers queue on the same lock; make sure they each get it, in
 # order.
 @generic_lock_test
-async def test_generic_lock_fifo_fairness(lock_factory):
+async def test_generic_lock_fifo_fairness(lock_factory: _LockFactory) -> None:
     initial_order = []
     record = []
     LOOPS = 5
@@ -557,7 +572,9 @@ async def test_generic_lock_fifo_fairness(lock_factory):
 
 
 @generic_lock_test
-async def test_generic_lock_acquire_nowait_blocks_acquire(lock_factory):
+async def test_generic_lock_acquire_nowait_blocks_acquire(
+    lock_factory: _LockFactory,
+) -> None:
     lock_like = lock_factory()
 
     record = []

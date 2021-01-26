@@ -1,6 +1,7 @@
 import errno
 
 import pytest
+import _pytest.monkepatch
 import attr
 
 import os
@@ -50,7 +51,7 @@ class MonkeypatchedGAI:
 
 
 @pytest.fixture
-def monkeygai(monkeypatch):
+def monkeygai(monkeypatch: _pytest.monkepatch.MonkeyPatch) -> MonkeypatchedGAI:  # type: ignore[misc]
     controller = MonkeypatchedGAI(stdlib_socket.getaddrinfo)
     monkeypatch.setattr(stdlib_socket, "getaddrinfo", controller.getaddrinfo)
     return controller
@@ -254,12 +255,12 @@ async def test_socketpair_simple():
 
 
 @pytest.mark.skipif(not hasattr(tsocket, "fromshare"), reason="windows only")
-async def test_fromshare():
+async def test_fromshare() -> None:
     a, b = tsocket.socketpair()
     with a, b:
         # share with ourselves
         shared = a.share(os.getpid())
-        a2 = tsocket.fromshare(shared)
+        a2 = tsocket.fromshare(shared)  # type: ignore[attr-defined]
         with a2:
             assert a.fileno() != a2.fileno()
             await a2.send(b"x")
@@ -273,14 +274,14 @@ async def test_socket():
 
 
 @creates_ipv6
-async def test_socket_v6():
+async def test_socket_v6() -> None:
     with tsocket.socket(tsocket.AF_INET6, tsocket.SOCK_DGRAM) as s:
         assert isinstance(s, tsocket.SocketType)
         assert s.family == tsocket.AF_INET6
 
 
 @pytest.mark.skipif(not _sys.platform == "linux", reason="linux only")
-async def test_sniff_sockopts():
+async def test_sniff_sockopts() -> None:
     from socket import AF_INET, AF_INET6, SOCK_DGRAM, SOCK_STREAM
 
     # generate the combinations of families/types we're testing:
@@ -408,7 +409,9 @@ async def test_SocketType_shutdown():
         pytest.param("::1", tsocket.AF_INET6, marks=binds_ipv6),
     ],
 )
-async def test_SocketType_simple_server(address, socket_type):
+async def test_SocketType_simple_server(
+    address: str, socket_type: stdlib_socket.AddressFamily
+) -> None:
     # listen, bind, accept, connect, getpeername, getsockname
     listener = tsocket.socket(socket_type)
     client = tsocket.socket(socket_type)
@@ -481,7 +484,9 @@ class Addresses:
         ),
     ],
 )
-async def test_SocketType_resolve(socket_type, addrs):
+async def test_SocketType_resolve(
+    socket_type: stdlib_socket.AddressFamily, addrs: Addresses
+) -> None:
     v6 = socket_type == tsocket.AF_INET6
 
     def pad(addr):
@@ -498,9 +503,9 @@ async def test_SocketType_resolve(socket_type, addrs):
         # getaddrinfo They also error out on None, but whatever, None is much
         # more consistent, so we accept it too.
         for null in [None, ""]:
-            got = await sock._resolve_local_address_nocp((null, 80))
+            got = await sock._resolve_local_address_nocp((null, 80))  # type: ignore[attr-defined]
             assert_eq(got, (addrs.bind_all, 80))
-            got = await sock._resolve_remote_address_nocp((null, 80))
+            got = await sock._resolve_remote_address_nocp((null, 80))  # type: ignore[attr-defined]
             assert_eq(got, (addrs.localhost, 80))
 
         # AI_PASSIVE only affects the wildcard address, so for everything else
@@ -935,7 +940,7 @@ async def test_SocketType_is_abstract():
 
 
 @pytest.mark.skipif(not hasattr(tsocket, "AF_UNIX"), reason="no unix domain sockets")
-async def test_unix_domain_socket():
+async def test_unix_domain_socket() -> None:
     # Bind has a special branch to use a thread, since it has to do filesystem
     # traversal. Maybe connect should too? Not sure.
 

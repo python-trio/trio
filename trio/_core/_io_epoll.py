@@ -2,7 +2,9 @@ import select
 import sys
 import attr
 from collections import defaultdict
-from typing import DefaultDict, Dict, TYPE_CHECKING
+from typing import DefaultDict, Dict, TYPE_CHECKING, Union
+
+from typing_extensions import Protocol
 
 from .. import _core
 from ._run import _public
@@ -10,6 +12,11 @@ from ._io_common import wake_all
 from ._wakeup_socketpair import WakeupSocketpair
 
 assert not TYPE_CHECKING or sys.platform == "linux"
+
+
+class _HasFileno(Protocol):
+    def fileno(self) -> int:
+        ...
 
 
 @attr.s(slots=True, eq=False, frozen=True)
@@ -295,15 +302,18 @@ class EpollIOManager:
         await _core.wait_task_rescheduled(abort)
 
     @_public
-    async def wait_readable(self, fd):
+    async def wait_readable(
+        self,
+        fd: Union[int, _HasFileno],
+    ) -> None:
         await self._epoll_wait(fd, "read_task")
 
     @_public
-    async def wait_writable(self, fd):
+    async def wait_writable(self, fd: Union[int, _HasFileno]) -> None:
         await self._epoll_wait(fd, "write_task")
 
     @_public
-    def notify_closing(self, fd):
+    def notify_closing(self, fd: Union[int, _HasFileno]) -> None:
         if not isinstance(fd, int):
             fd = fd.fileno()
         wake_all(

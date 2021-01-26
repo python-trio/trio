@@ -3,6 +3,7 @@ import signal
 import subprocess
 import sys
 import pytest
+import _pytest.monkeypatch
 import random
 from typing import Optional
 from functools import partial
@@ -19,7 +20,7 @@ from .. import (
     TrioDeprecationWarning,
 )
 from .._core.tests.tutil import slow, skip_if_fbsd_pipes_broken
-from ..testing import wait_all_tasks_blocked
+from ..testing import MockClock, wait_all_tasks_blocked
 
 SIGKILL: Optional[signal.Signals]
 SIGTERM: Optional[signal.Signals]
@@ -280,7 +281,7 @@ async def test_run_check():
 
 
 @skip_if_fbsd_pipes_broken
-async def test_run_with_broken_pipe():
+async def test_run_with_broken_pipe() -> None:
     result = await run_process(
         [sys.executable, "-c", "import sys; sys.stdin.close()"], stdin=b"x" * 131072
     )
@@ -391,7 +392,7 @@ async def test_signals():
 
 
 @pytest.mark.skipif(not posix, reason="POSIX specific")
-async def test_wait_reapable_fails():
+async def test_wait_reapable_fails() -> None:
     old_sigchld = signal.signal(signal.SIGCHLD, signal.SIG_IGN)
     try:
         # With SIGCHLD disabled, the wait() syscall will wait for the
@@ -410,7 +411,7 @@ async def test_wait_reapable_fails():
 
 
 @slow
-def test_waitid_eintr():
+def test_waitid_eintr() -> None:
     # This only matters on PyPy (where we're coding EINTR handling
     # ourselves) but the test works on all waitid platforms.
     from .._subprocess_platform import wait_child_exiting
@@ -482,7 +483,9 @@ async def test_warn_on_failed_cancel_terminate(monkeypatch):
 
 
 @pytest.mark.skipif(os.name != "posix", reason="posix only")
-async def test_warn_on_cancel_SIGKILL_escalation(autojump_clock, monkeypatch):
+async def test_warn_on_cancel_SIGKILL_escalation(
+    autojump_clock: MockClock, monkeypatch: _pytest.monkeypatch.MonkeyPatch
+) -> None:
     monkeypatch.setattr(Process, "terminate", lambda *args: None)
 
     with pytest.warns(RuntimeWarning, match=".*ignored SIGTERM.*"):

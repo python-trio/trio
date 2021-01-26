@@ -45,7 +45,7 @@ class _FdHolder:
         os.set_blocking(fd, False)
 
     @property
-    def closed(self):
+    def closed(self) -> bool:
         return self.fd == -1
 
     def _raw_close(self):

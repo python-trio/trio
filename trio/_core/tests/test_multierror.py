@@ -682,20 +682,20 @@ need_ipython = pytest.mark.skipif(not have_ipython, reason="need IPython")
 
 @slow
 @need_ipython
-def test_ipython_exc_handler():
+def test_ipython_exc_handler() -> None:
     completed = run_script("simple_excepthook.py", use_ipython=True)
     check_simple_excepthook(completed)
 
 
 @slow
 @need_ipython
-def test_ipython_imported_but_unused():
+def test_ipython_imported_but_unused() -> None:
     completed = run_script("simple_excepthook_IPython.py")
     check_simple_excepthook(completed)
 
 
 @slow
-def test_partial_imported_but_unused():
+def test_partial_imported_but_unused() -> None:
     # Check that a functools.partial as sys.excepthook doesn't cause an exception when
     # importing trio.  This was a problem due to the lack of a .__name__ attribute and
     # happens when inside a pytest-qt test case for example.
@@ -705,7 +705,7 @@ def test_partial_imported_but_unused():
 
 @slow
 @need_ipython
-def test_ipython_custom_exc_handler():
+def test_ipython_custom_exc_handler() -> None:
     # Check we get a nice warning (but only one!) if the user is using IPython
     # and already has some other set_custom_exc handler installed.
     completed = run_script("ipython_custom_exc.py", use_ipython=True)
@@ -731,7 +731,7 @@ def test_ipython_custom_exc_handler():
     not Path("/usr/lib/python3/dist-packages/apport_python_hook.py").exists(),
     reason="need Ubuntu with python3-apport installed",
 )
-def test_apport_excepthook_monkeypatch_interaction():
+def test_apport_excepthook_monkeypatch_interaction() -> None:
     completed = run_script("apport_excepthook.py")
     stdout = completed.stdout.decode("utf-8")
 

@@ -2,6 +2,7 @@
 
 import types
 import enum
+from typing import Callable
 
 import attr
 import outcome
@@ -17,7 +18,7 @@ from . import _run
 # tracking machinery. Since our traps are public APIs, we make them real async
 # functions, and then this helper takes care of the actual yield:
 @types.coroutine
-def _async_yield(obj):
+def _async_yield(obj: object) -> object:
     return (yield obj)
 
 
@@ -64,7 +65,9 @@ class WaitTaskRescheduled:
     abort_func = attr.ib()
 
 
-async def wait_task_rescheduled(abort_func):
+async def wait_task_rescheduled(
+    abort_func: Callable[[Callable[[], None]], Abort]
+) -> object:
     """Put the current task to sleep, with cancellation support.
 
     This is the lowest-level API for blocking in Trio. Every time a

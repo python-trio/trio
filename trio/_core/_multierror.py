@@ -1,6 +1,7 @@
 import sys
 import traceback
 import textwrap
+from typing import Callable, Optional, overload, Set, Union
 import warnings
 
 import attr
@@ -17,7 +18,24 @@ else:
 ################################################################
 
 
-def _filter_impl(handler, root_exc):
+@overload
+def _filter_impl(
+    handler: Callable[[Exception], Optional[Exception]], root_exc: Exception
+) -> Optional[Exception]:
+    ...
+
+
+@overload
+def _filter_impl(
+    handler: Callable[[Exception], Optional[Exception]], root_exc: "MultiError"
+) -> Optional[Union[Exception, "MultiError"]]:
+    ...
+
+
+def _filter_impl(
+    handler: Callable[[Exception], Optional[Exception]],
+    root_exc: Union[Exception, "MultiError"],
+) -> Optional[Union[Exception, "MultiError"]]:
     # We have a tree of MultiError's, like:
     #
     #  MultiError([
@@ -76,7 +94,9 @@ def _filter_impl(handler, root_exc):
 
     # Filters a subtree, ignoring tracebacks, while keeping a record of
     # which MultiErrors were preserved unchanged
-    def filter_tree(exc, preserved):
+    def filter_tree(
+        exc: Union[Exception, "MultiError"], preserved: Set[int]
+    ) -> Optional[Union[Exception, "MultiError"]]:
         if isinstance(exc, MultiError):
             new_exceptions = []
             changed = False
@@ -111,7 +131,7 @@ def _filter_impl(handler, root_exc):
         else:
             exc.__traceback__ = new_tb
 
-    preserved = set()
+    preserved: Set[int] = set()
     new_root_exc = filter_tree(root_exc, preserved)
     push_tb_down(None, root_exc, preserved)
     # Delete the local functions to avoid a reference cycle (see
@@ -213,7 +233,11 @@ class MultiError(BaseException):
         return "<MultiError: {}>".format(self)
 
     @classmethod
-    def filter(cls, handler, root_exc):
+    def filter(
+        cls,
+        handler: Callable[[Exception], Optional[Exception]],
+        root_exc: Union[Exception, "MultiError"],
+    ) -> Optional[Union[Exception, "MultiError"]]:
         """Apply the given ``handler`` to all the exceptions in ``root_exc``.
 
         Args:
@@ -232,7 +256,9 @@ class MultiError(BaseException):
         return _filter_impl(handler, root_exc)
 
     @classmethod
-    def catch(cls, handler):
+    def catch(
+        cls, handler: Callable[[Exception], Optional[Exception]]
+    ) -> MultiErrorCatcher:
         """Return a context manager that catches and re-throws exceptions
         after running :meth:`filter` on them.
 

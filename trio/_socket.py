@@ -3,12 +3,33 @@ import sys
 import select
 import socket as _stdlib_socket
 from functools import wraps as _wraps
-from typing import TYPE_CHECKING
+from typing import (
+    Awaitable,
+    Callable,
+    Mapping,
+    Union,
+    Optional,
+    Iterable,
+    Sequence,
+    Tuple,
+    TYPE_CHECKING,
+    TypeVar,
+    List,
+    Any,
+    overload,
+)
 
 import idna as _idna
 
 import trio
 from . import _core
+from ._abc import HostnameResolver, SocketFactory
+
+
+_T = TypeVar("_T")
+
+
+_Address = Union[tuple, str]
 
 
 # Usage:
@@ -59,8 +80,8 @@ except ImportError:
 # Overrides
 ################################################################
 
-_resolver = _core.RunVar("hostname_resolver")
-_socket_factory = _core.RunVar("socket_factory")
+_resolver = _core.RunVar[Optional[HostnameResolver]]("hostname_resolver")
+_socket_factory = _core.RunVar[Optional[SocketFactory]]("socket_factory")
 
 
 def set_custom_hostname_resolver(hostname_resolver):
@@ -95,7 +116,9 @@ def set_custom_hostname_resolver(hostname_resolver):
     return old
 
 
-def set_custom_socket_factory(socket_factory):
+def set_custom_socket_factory(
+    socket_factory: Optional[SocketFactory],
+) -> Optional[SocketFactory]:
     """Set a custom socket object factory.
 
     This function allows you to replace Trio's normal socket class with a
@@ -230,7 +253,7 @@ async def getprotobyname(name):
 ################################################################
 
 
-def from_stdlib_socket(sock):
+def from_stdlib_socket(sock: _stdlib_socket.socket) -> "_SocketType":
     """Convert a standard library :func:`socket.socket` object into a Trio
     socket object.
 
@@ -239,7 +262,7 @@ def from_stdlib_socket(sock):
 
 
 @_wraps(_stdlib_socket.fromfd, assigned=(), updated=())
-def fromfd(fd, family, type, proto=0):
+def fromfd(fd: int, family: int, type: int, proto: int = 0) -> "SocketType":
     """Like :func:`socket.fromfd`, but returns a Trio socket object."""
     family, type, proto = _sniff_sockopts_for_fileno(family, type, proto, fd)
     return from_stdlib_socket(_stdlib_socket.fromfd(fd, family, type, proto))
@@ -250,27 +273,55 @@ if sys.platform == "win32" or (
 ):
 
     @_wraps(_stdlib_socket.fromshare, assigned=(), updated=())
-    def fromshare(*args, **kwargs):
+    def fromshare(*args: object, **kwargs: object) -> "SocketType":
         return from_stdlib_socket(_stdlib_socket.fromshare(*args, **kwargs))
 
 
+# @overload
+# def socketpair() -> Tuple["SocketType", "SocketType"]:
+#     ...
+#
+#
+# @overload
+# def socketpair(family: int = ...) -> Tuple["SocketType", "SocketType"]:
+#     ...
+#
+#
+# @overload
+# def socketpair(family: int = ..., type: int = ...) -> Tuple["SocketType", "SocketType"]:
+#     ...
+
+
+# @overload  # type: ignore[misc]
+# def socketpair(
+#     family: int = ..., type: int = ..., proto: int = ...
+# ) -> Tuple["SocketType", "SocketType"]:
+#     ...
+
+# TODO: uh...  stuff...  comments...
 @_wraps(_stdlib_socket.socketpair, assigned=(), updated=())
-def socketpair(*args, **kwargs):
+# def socketpair(
+#     family: int = _stdlib_socket.AF_INET,
+##     type: int = _stdlib_socket.SOCK_STREAM,
+#     proto: int = 0,
+# ) -> Tuple["SocketType", "SocketType"]:
+def socketpair(*args: object, **kwargs: object) -> Tuple["SocketType", "SocketType"]:
     """Like :func:`socket.socketpair`, but returns a pair of Trio socket
     objects.
 
     """
-    left, right = _stdlib_socket.socketpair(*args, **kwargs)
+    # left, right = _stdlib_socket.socketpair(family=family, type=type, proto=proto)
+    left, right = _stdlib_socket.socketpair(*args, **kwargs)  # type: ignore[arg-type]
     return (from_stdlib_socket(left), from_stdlib_socket(right))
 
 
 @_wraps(_stdlib_socket.socket, assigned=(), updated=())
 def socket(
-    family=_stdlib_socket.AF_INET,
-    type=_stdlib_socket.SOCK_STREAM,
-    proto=0,
-    fileno=None,
-):
+    family: int = _stdlib_socket.AF_INET,
+    type: int = _stdlib_socket.SOCK_STREAM,
+    proto: int = 0,
+    fileno: Optional[int] = None,
+) -> "SocketType":
     """Create a new Trio socket, like :func:`socket.socket`.
 
     This function's behavior can be customized using
@@ -318,7 +369,7 @@ def _sniff_sockopts_for_fileno(family, type, proto, fileno):
 # But on other platforms (e.g. Windows) SOCK_NONBLOCK and SOCK_CLOEXEC aren't
 # even defined. To recover the actual socket type (e.g. SOCK_STREAM) from a
 # socket.type attribute, mask with this:
-_SOCK_TYPE_MASK = ~(
+_SOCK_TYPE_MASK: int = ~(
     getattr(_stdlib_socket, "SOCK_NONBLOCK", 0)
     | getattr(_stdlib_socket, "SOCK_CLOEXEC", 0)
 )
@@ -327,7 +378,7 @@ _SOCK_TYPE_MASK = ~(
 # This function will modify the given socket to match the behavior in python
 # 3.7. This will become unecessary and can be removed when support for versions
 # older than 3.7 is dropped.
-def real_socket_type(type_num):
+def real_socket_type(type_num: int) -> int:
     return type_num & _SOCK_TYPE_MASK
 
 
@@ -335,7 +386,7 @@ def _make_simple_sock_method_wrapper(methname, wait_fn, maybe_avail=False):
     fn = getattr(_stdlib_socket.socket, methname)
 
     @_wraps(fn, assigned=("__name__",), updated=())
-    async def wrapper(self, *args, **kwargs):
+    async def wrapper(self, *args, **kwargs):  # type: ignore[misc]
         return await self._nonblocking_helper(fn, args, kwargs, wait_fn)
 
     wrapper.__doc__ = f"""Like :meth:`socket.socket.{methname}`, but async.
@@ -356,9 +407,153 @@ class SocketType:
             "want to construct a socket object"
         )
 
+    if TYPE_CHECKING:
+
+        @property
+        def family(self) -> int:
+            ...
+
+        @property
+        def type(self) -> int:
+            ...
+
+        @property
+        def proto(self) -> int:
+            ...
+
+        @property
+        def did_shutdown_SHUT_WR(self) -> bool:
+            ...
+
+        def __enter__(self: _T) -> _T:
+            ...
+
+        def __exit__(self, *args: Any) -> None:
+            ...
+
+        def dup(self) -> "SocketType":
+            ...
+
+        def close(self) -> None:
+            ...
+
+        async def bind(self, address: Union[Tuple[Any, ...], str, bytes]) -> None:
+            ...
+
+        def shutdown(self, flag: int) -> None:
+            ...
+
+        def is_readable(self) -> bool:
+            ...
+
+        async def wait_writable(self) -> None:
+            ...
+
+        async def accept(self) -> Tuple[SocketType, Any]:
+            ...
+
+        async def connect(self, address: Union[Tuple[Any, ...], str, bytes]) -> None:
+            ...
+
+        async def recv(self, bufsize: int, flags: int = ...) -> bytes:
+            ...
+
+        async def recv_into(
+            self, buffer: Union[bytearray, memoryview], nbytes: int, flags: int = ...
+        ) -> int:
+            ...
+
+        async def recvfrom(self, bufsize: int, flags: int = ...) -> Tuple[bytes, Any]:
+            ...
+
+        async def recvfrom_into(
+            self, buffer: Union[bytearray, memoryview], nbytes: int, flags: int = ...
+        ) -> Tuple[int, Any]:
+            ...
+
+        async def recvmsg(
+            self, bufsize: int, ancbufsize: int = ..., flags: int = ...
+        ) -> Tuple[bytes, List[Tuple[int, int, bytes]], int, Any]:
+            ...
+
+        async def recvmsg_into(
+            self,
+            buffers: Iterable[Union[bytearray, memoryview]],
+            ancbufsize: int = ...,
+            flags: int = ...,
+        ) -> Tuple[int, List[Tuple[int, int, bytes]], int, Any]:
+            ...
+
+        async def send(self, data: bytes, flags: int = ...) -> int:
+            ...
+
+        async def sendmsg(
+            self,
+            buffers: Iterable[Union[bytes, memoryview]],
+            ancdata: Iterable[Tuple[int, int, Union[bytes, memoryview]]] = ...,
+            flags: int = ...,
+            address: Union[Tuple[Any, ...], str] = ...,
+        ) -> int:
+            ...
+
+        @overload
+        async def sendto(
+            self, data: bytes, address: Union[Tuple[Any, ...], str]
+        ) -> int:
+            ...
+
+        @overload
+        async def sendto(
+            self, data: bytes, flags: int, address: Union[Tuple[Any, ...], str]
+        ) -> int:
+            ...
+
+        async def sendto(self, *args: object, **kwargs: object) -> int:
+            ...
+
+        def detach(self) -> int:
+            ...
+
+        def get_inheritable(self) -> bool:
+            ...
+
+        def set_inheritable(self, inheritable: bool) -> None:
+            ...
+
+        def fileno(self) -> int:
+            ...
+
+        def getpeername(self) -> Any:
+            ...
+
+        def getsockname(self) -> Any:
+            ...
+
+        @overload
+        def getsockopt(self, level: int, optname: int) -> int:
+            ...
+
+        @overload
+        def getsockopt(self, level: int, optname: int, buflen: int) -> bytes:
+            ...
+
+        def getsockopt(self, *args: object, **kwargs: object) -> object:
+            ...
+
+        def setsockopt(
+            self, level: int, optname: int, value: Union[int, bytes]
+        ) -> None:
+            ...
+
+        def listen(self, backlog: int) -> None:
+            ...
+
+        def share(self, process_id: int) -> bytes:
+            ...
+
 
 class _SocketType(SocketType):
-    def __init__(self, sock):
+    def __init__(self, sock: _stdlib_socket.socket):
         if type(sock) is not _stdlib_socket.socket:
             # For example, ssl.SSLSocket subclasses socket.socket, but we
             # certainly don't want to blindly wrap one of those.
@@ -413,22 +608,22 @@ class _SocketType(SocketType):
         return self._sock.__exit__(*exc_info)
 
     @property
-    def family(self):
+    def family(self) -> int:
         return self._sock.family
 
     @property
-    def type(self):
+    def type(self) -> int:
         # Modify the socket type do match what is done on python 3.7. When
         # support for versions older than 3.7 is dropped, this can be updated
         # to just return self._sock.type
         return real_socket_type(self._sock.type)
 
     @property
-    def proto(self):
+    def proto(self) -> int:
         return self._sock.proto
 
     @property
-    def did_shutdown_SHUT_WR(self):
+    def did_shutdown_SHUT_WR(self) -> bool:
         return self._did_shutdown_SHUT_WR
 
     def __repr__(self):
@@ -564,7 +759,13 @@ class _SocketType(SocketType):
     async def _resolve_remote_address_nocp(self, address):
         return await self._resolve_address_nocp(address, 0)
 
-    async def _nonblocking_helper(self, fn, args, kwargs, wait_fn):
+    async def _nonblocking_helper(
+        self,
+        fn: Callable[..., _T],
+        args: Sequence[object],
+        kwargs: Mapping[str, object],
+        wait_fn: Callable[..., Awaitable[object]],
+    ) -> _T:
         # We have to reconcile two conflicting goals:
         # - We want to make it look like we always blocked in doing these
         #   operations. The obvious way is to always do an IO wait before
@@ -735,15 +936,23 @@ class _SocketType(SocketType):
     # sendto
     ################################################################
 
-    @_wraps(_stdlib_socket.socket.sendto, assigned=(), updated=())
-    async def sendto(self, *args):
+    @overload
+    async def sendto(self, data: bytes, address: _Address) -> int:
+        ...
+
+    @overload
+    async def sendto(self, data: bytes, flags: int, address: _Address) -> int:
+        ...
+
+    @_wraps(_stdlib_socket.socket.sendto, assigned=(), updated=())  # type: ignore[misc]
+    async def sendto(self, *args: object) -> int:
         """Similar to :meth:`socket.socket.sendto`, but async."""
         # args is: data[, flags], address)
         # and kwargs are not accepted
-        args = list(args)
-        args[-1] = await self._resolve_remote_address_nocp(args[-1])
+        list_args = list(args)
+        list_args[-1] = await self._resolve_remote_address_nocp(list_args[-1])
         return await self._nonblocking_helper(
-            _stdlib_socket.socket.sendto, args, {}, _core.wait_writable
+            _stdlib_socket.socket.sendto, list_args, {}, _core.wait_writable
         )
 
     ################################################################
@@ -755,7 +964,7 @@ class _SocketType(SocketType):
     ):
 
         @_wraps(_stdlib_socket.socket.sendmsg, assigned=(), updated=())
-        async def sendmsg(self, *args):
+        async def sendmsg(self, *args: object) -> int:
             """Similar to :meth:`socket.socket.sendmsg`, but async.
 
             Only available on platforms where :meth:`socket.socket.sendmsg` is
@@ -765,10 +974,10 @@ class _SocketType(SocketType):
             # args is: buffers[, ancdata[, flags[, address]]]
             # and kwargs are not accepted
             if len(args) == 4 and args[-1] is not None:
-                args = list(args)
-                args[-1] = await self._resolve_remote_address_nocp(args[-1])
+                list_args = list(args)
+                list_args[-1] = await self._resolve_remote_address_nocp(list_args[-1])
             return await self._nonblocking_helper(
-                _stdlib_socket.socket.sendmsg, args, {}, _core.wait_writable
+                _stdlib_socket.socket.sendmsg, list_args, {}, _core.wait_writable
             )
 
     ################################################################

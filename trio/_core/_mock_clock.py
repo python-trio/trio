@@ -62,7 +62,7 @@ class MockClock(Clock, metaclass=Final):
 
     """
 
-    def __init__(self, rate=0.0, autojump_threshold=inf):
+    def __init__(self, rate: float = 0.0, autojump_threshold: float = inf):
         # when the real clock said 'real_base', the virtual time was
         # 'virtual_base', and since then it's advanced at 'rate' virtual
         # seconds per real second.
@@ -83,7 +83,7 @@ class MockClock(Clock, metaclass=Final):
         )
 
     @property
-    def rate(self):
+    def rate(self) -> float:
         return self._rate
 
     @rate.setter
@@ -98,7 +98,7 @@ class MockClock(Clock, metaclass=Final):
             self._rate = float(new_rate)
 
     @property
-    def autojump_threshold(self):
+    def autojump_threshold(self) -> float:
         return self._autojump_threshold
 
     @autojump_threshold.setter

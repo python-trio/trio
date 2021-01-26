@@ -13,6 +13,7 @@ from ..testing import wait_all_tasks_blocked, check_one_way_stream
 
 pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="posix only")
 
+# mypy recognizes this.  an assert would break the pytest skipif
 if sys.platform == "win32":
     with pytest.raises(AssertionError):
         # Using sys instead of FdStream since sys is created before the assertion that
@@ -238,7 +239,7 @@ else:
         sys.platform.startswith("freebsd"),
         reason="no way to make read() return a bizarro error on FreeBSD",
     )
-    async def test_bizarro_OSError_from_receive():
+    async def test_bizarro_OSError_from_receive() -> None:
         # Make sure that if the read syscall returns some bizarro error, then we
         # get a BrokenResourceError. This is incredibly unlikely; there's almost
         # no way to trigger a failure here intentionally (except for EBADF, but we
@@ -257,5 +258,5 @@ else:
                 os.close(dir_fd)
 
     @skip_if_fbsd_pipes_broken
-    async def test_pipe_fully():
+    async def test_pipe_fully() -> None:
         await check_one_way_stream(make_pipe, make_clogged_pipe)

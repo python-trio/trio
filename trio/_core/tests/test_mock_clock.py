@@ -147,7 +147,9 @@ async def test_mock_clock_autojump_0_and_wait_all_tasks_blocked_0(mock_clock):
 
 
 @slow
-async def test_mock_clock_autojump_0_and_wait_all_tasks_blocked_nonzero(mock_clock):
+async def test_mock_clock_autojump_0_and_wait_all_tasks_blocked_nonzero(
+    mock_clock: MockClock,
+) -> None:
     # Checks that autojump_threshold=0 doesn't interfere with
     # calling wait_all_tasks_blocked with a non-zero cushion.
 

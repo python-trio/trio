@@ -1,5 +1,30 @@
 from functools import partial
 import io
+from typing import (
+    Any,
+    # AnyStr,
+    # AsyncContextManager,
+    AsyncIterator,
+    # Awaitable,
+    # Callable,
+    # ContextManager,
+    # FrozenSet,
+    # Iterator,
+    # Mapping,
+    # NoReturn,
+    Optional,
+    # Sequence,
+    Union,
+    # Sequence,
+    # TypeVar,
+    Tuple,
+    List,
+    Iterable,
+    TextIO,
+    BinaryIO,
+    IO,
+    overload,
+)
 
 from .abc import AsyncResource
 from ._util import async_wraps
@@ -58,11 +83,11 @@ class AsyncIOWrapper(AsyncResource):
 
     """
 
-    def __init__(self, file):
+    def __init__(self, file: io.IOBase):
         self._wrapped = file
 
     @property
-    def wrapped(self):
+    def wrapped(self) -> io.IOBase:
         """object: A reference to the wrapped file object"""
 
         return self._wrapped
@@ -74,7 +99,7 @@ class AsyncIOWrapper(AsyncResource):
             meth = getattr(self._wrapped, name)
 
             @async_wraps(self.__class__, self._wrapped.__class__, name)
-            async def wrapper(*args, **kwargs):
+            async def wrapper(*args, **kwargs):  # type: ignore[misc]
                 func = partial(meth, *args, **kwargs)
                 return await trio.to_thread.run_sync(func)
 
@@ -126,6 +151,120 @@ class AsyncIOWrapper(AsyncResource):
         await trio.lowlevel.checkpoint_if_cancelled()
 
 
+# _file_io
+class _AsyncIOBase(trio.abc.AsyncResource):
+    closed: bool
+
+    def __aiter__(self) -> AsyncIterator[bytes]:
+        ...
+
+    async def __anext__(self) -> bytes:
+        ...
+
+    async def aclose(self) -> None:
+        ...
+
+    def fileno(self) -> int:
+        ...
+
+    async def flush(self) -> None:
+        ...
+
+    def isatty(self) -> bool:
+        ...
+
+    def readable(self) -> bool:
+        ...
+
+    async def readlines(self, hint: int = ...) -> List[bytes]:
+        ...
+
+    async def seek(self, offset: int, whence: int = ...) -> int:
+        ...
+
+    def seekable(self) -> bool:
+        ...
+
+    async def tell(self) -> int:
+        ...
+
+    async def truncate(self, size: Optional[int] = ...) -> int:
+        ...
+
+    def writable(self) -> bool:
+        ...
+
+    async def writelines(self, lines: Iterable[bytes]) -> None:
+        ...
+
+    async def readline(self, size: int = ...) -> bytes:
+        ...
+
+
+class _AsyncRawIOBase(_AsyncIOBase):
+    async def readall(self) -> bytes:
+        ...
+
+    async def readinto(self, b: bytearray) -> Optional[int]:
+        ...
+
+    async def write(self, b: bytes) -> Optional[int]:
+        ...
+
+    async def read(self, size: int = ...) -> Optional[bytes]:
+        ...
+
+
+class _AsyncBufferedIOBase(_AsyncIOBase):
+    async def detach(self) -> _AsyncRawIOBase:
+        ...
+
+    async def readinto(self, b: bytearray) -> int:
+        ...
+
+    async def write(self, b: bytes) -> int:
+        ...
+
+    async def readinto1(self, b: bytearray) -> int:
+        ...
+
+    async def read(self, size: Optional[int] = ...) -> bytes:
+        ...
+
+    async def read1(self, size: int = ...) -> bytes:
+        ...
+
+
+class _AsyncTextIOBase(_AsyncIOBase):
+    encoding: str
+    errors: Optional[str]
+    newlines: Union[str, Tuple[str, ...], None]
+
+    def __aiter__(self) -> AsyncIterator[str]:  # type: ignore
+        ...
+
+    async def __anext__(self) -> str:  # type: ignore
+        ...
+
+    async def detach(self) -> _AsyncRawIOBase:
+        ...
+
+    async def write(self, s: str) -> int:
+        ...
+
+    async def readline(self, size: int = ...) -> str:  # type: ignore
+        ...
+
+    async def read(self, size: Optional[int] = ...) -> str:
+        ...
+
+    async def seek(self, offset: int, whence: int = ...) -> int:
+        ...
+
+    async def tell(self) -> int:
+        ...
+
+
 async def open_file(
     file,
     mode="r",
@@ -159,6 +298,26 @@ async def open_file(
         )
     )
     return _file
+
+
+@overload
+def wrap_file(obj: Union[TextIO, io.TextIOBase]) -> _AsyncTextIOBase:
+    ...
+
+
+@overload
+def wrap_file(obj: Union[BinaryIO, io.BufferedIOBase]) -> _AsyncBufferedIOBase:
+    ...
+
+
+@overload
+def wrap_file(obj: io.RawIOBase) -> _AsyncRawIOBase:
+    ...
+
+
+@overload
+def wrap_file(obj: Union[IO[Any], io.IOBase]) -> _AsyncIOBase:
+    ...
 
 
 def wrap_file(file):

@@ -1,9 +1,10 @@
 from contextlib import contextmanager
+from typing import Iterator
 
 import trio
 
 
-def move_on_at(deadline):
+def move_on_at(deadline: float) -> trio.CancelScope:
     """Use as a context manager to create a cancel scope with the given
     absolute deadline.
 
@@ -84,7 +85,7 @@ class TooSlowError(Exception):
 
 
 @contextmanager
-def fail_at(deadline):
+def fail_at(deadline: float) -> Iterator[trio.CancelScope]:
     """Creates a cancel scope with the given deadline, and raises an error if it
     is actually cancelled.
 

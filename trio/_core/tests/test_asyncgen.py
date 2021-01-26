@@ -7,6 +7,8 @@ from async_generator import aclosing
 from ... import _core
 from .tutil import gc_collect_harder, buggy_pypy_asyncgens
 
+import _pytest.capture
+
 
 def test_asyncgen_basics():
     collected = []
@@ -105,7 +107,7 @@ async def test_asyncgen_throws_during_finalization(caplog):
 
 
 @pytest.mark.skipif(buggy_pypy_asyncgens, reason="pypy 7.2.0 is buggy")
-def test_firstiter_after_closing():
+def test_firstiter_after_closing() -> None:
     saved = []
     record = []
 
@@ -132,7 +134,7 @@ def test_firstiter_after_closing():
 
 
 @pytest.mark.skipif(buggy_pypy_asyncgens, reason="pypy 7.2.0 is buggy")
-def test_interdependent_asyncgen_cleanup_order():
+def test_interdependent_asyncgen_cleanup_order() -> None:
     saved = []
     record = []
 
@@ -167,7 +169,7 @@ def test_interdependent_asyncgen_cleanup_order():
         assert record == []
 
     _core.run(async_main)
-    assert record == ["innermost"] + list(range(100))
+    assert record == ["innermost", *range(100)]
 
 
 def test_last_minute_gc_edge_case():
@@ -252,8 +254,11 @@ async def step_outside_async_context(aiter):
         nursery.cancel_scope.deadline = _core.current_time()
 
 
+# can switch to annotating from pytest directly as of 6.2.0
 @pytest.mark.skipif(buggy_pypy_asyncgens, reason="pypy 7.2.0 is buggy")
-async def test_fallback_when_no_hook_claims_it(capsys):
+async def test_fallback_when_no_hook_claims_it(
+    capsys: _pytest.capture.CaptureFixture[str],
+) -> None:
     async def well_behaved():
         yield 42
 
@@ -281,7 +286,7 @@ async def test_fallback_when_no_hook_claims_it(capsys):
 
 
 @pytest.mark.skipif(buggy_pypy_asyncgens, reason="pypy 7.2.0 is buggy")
-def test_delegation_to_existing_hooks():
+def test_delegation_to_existing_hooks() -> None:
     record = []
 
     def my_firstiter(agen):

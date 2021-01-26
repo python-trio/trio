@@ -2,6 +2,7 @@
 
 import errno
 from contextlib import contextmanager
+from typing import Iterator
 
 import trio
 from . import socket as tsocket
@@ -23,7 +24,7 @@ _closed_stream_errnos = {
 
 
 @contextmanager
-def _translate_socket_errors_to_stream_errors():
+def _translate_socket_errors_to_stream_errors() -> Iterator[None]:
     try:
         yield
     except OSError as exc:

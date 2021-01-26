@@ -1,8 +1,11 @@
 import pytest
+import _pytest.monkeypatch
 import threading
 from queue import Queue
 import time
 import sys
+
+from outcome import Outcome
 
 from .tutil import slow, gc_collect_harder
 from .. import _thread_cache
@@ -49,7 +52,7 @@ def test_thread_cache_deref():
 
 
 @slow
-def test_spawning_new_thread_from_deliver_reuses_starting_thread():
+def test_spawning_new_thread_from_deliver_reuses_starting_thread() -> None:
     # We know that no-one else is using the thread cache, so if we keep
     # submitting new jobs the instant the previous one is finished, we should
     # keep getting the same thread over and over. This tests both that the
@@ -58,7 +61,7 @@ def test_spawning_new_thread_from_deliver_reuses_starting_thread():
 
     # Make sure there are a few threads running, so if we weren't LIFO then we
     # could grab the wrong one.
-    q = Queue()
+    q = Queue[Outcome]()
     COUNT = 5
     for _ in range(COUNT):
         start_thread_soon(lambda: time.sleep(1), lambda result: q.put(result))
@@ -83,14 +86,15 @@ def test_spawning_new_thread_from_deliver_reuses_starting_thread():
     assert len(seen_threads) == 1
 
 
+# can switch to annotating from pytest directly as of 6.2.0
 @slow
-def test_idle_threads_exit(monkeypatch):
+def test_idle_threads_exit(monkeypatch: _pytest.monkeypatch.MonkeyPatch) -> None:
     # Temporarily set the idle timeout to something tiny, to speed up the
     # test. (But non-zero, so that the worker loop will at least yield the
     # CPU.)
     monkeypatch.setattr(_thread_cache, "IDLE_TIMEOUT", 0.0001)
 
-    q = Queue()
+    q = Queue[threading.Thread]()
     start_thread_soon(lambda: None, lambda _: q.put(threading.current_thread()))
     seen_thread = q.get()
     # Since the idle timeout is 0, after sleeping for 1 second, the thread

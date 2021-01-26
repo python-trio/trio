@@ -73,7 +73,7 @@ async def test_WaitForMultipleObjects_sync():
 
 
 @slow
-async def test_WaitForMultipleObjects_sync_slow():
+async def test_WaitForMultipleObjects_sync_slow() -> None:
     # This does a series of test in which the main thread sync-waits for
     # handles, while we spawn a thread to set the handles after a short while.
 
@@ -163,7 +163,7 @@ async def test_WaitForSingleObject():
 
 
 @slow
-async def test_WaitForSingleObject_slow():
+async def test_WaitForSingleObject_slow() -> None:
     # This does a series of test for setting the handle in another task,
     # and cancelling the wait task.
 

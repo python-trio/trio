@@ -2,12 +2,26 @@ from functools import wraps, partial
 import os
 import types
 import pathlib
-from typing import Iterator, TYPE_CHECKING, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    Iterator,
+    Optional,
+    overload,
+    Type,
+    TYPE_CHECKING,
+    TypeVar,
+    Union,
+)
+
+from typing_extensions import Protocol
 
 import trio
 from trio._util import async_wraps, Final
+from ._file_io import _AsyncIOBase
 
 
+_Fn = TypeVar("_Fn", bound=Callable[..., Any])
 _P = TypeVar("_P", bound="Path")
 
 
@@ -18,9 +32,15 @@ def rewrap_path(value):
     return value
 
 
-def _forward_factory(cls, attr_name, attr):
-    @wraps(attr)
-    def wrapper(self, *args, **kwargs):
+class _Wrapper(Protocol):
+    _wrapped: object
+
+
+def _forward_factory(cls: object, attr_name: str, attr: _Fn) -> _Fn:
+    wrapper: _Fn
+
+    @wraps(attr)  # type: ignore[no-redef]
+    def wrapper(self: _Wrapper, *args: object, **kwargs: object) -> object:
         attr = getattr(self._wrapped, attr_name)
         value = attr(*args, **kwargs)
         return rewrap_path(value)
@@ -28,11 +48,13 @@ def _forward_factory(cls, attr_name, attr):
     return wrapper
 
 
-def _forward_magic(cls, attr):
+def _forward_magic(cls: Type, attr: _Fn) -> _Fn:
     sentinel = object()
 
-    @wraps(attr)
-    def wrapper(self, other=sentinel):
+    wrapper: _Fn
+
+    @wraps(attr)  # type: ignore[no-redef]
+    def wrapper(self: _Wrapper, other: object = sentinel) -> object:
         if other is sentinel:
             return attr(self._wrapped)
         if isinstance(other, cls):
@@ -43,9 +65,9 @@ def _forward_magic(cls, attr):
     return wrapper
 
 
-def iter_wrapper_factory(cls, meth_name):
+def iter_wrapper_factory(cls: Type, meth_name: str):  # type: ignore[no-untyped-def]
     @async_wraps(cls, cls._wraps, meth_name)
-    async def wrapper(self, *args, **kwargs):
+    async def wrapper(self, *args, **kwargs):  # type: ignore[misc]
         meth = getattr(self._wrapped, meth_name)
         func = partial(meth, *args, **kwargs)
         # Make sure that the full iteration is performed in the thread
@@ -56,9 +78,9 @@ def iter_wrapper_factory(cls, meth_name):
     return wrapper
 
 
-def thread_wrapper_factory(cls, meth_name):
+def thread_wrapper_factory(cls: Type, meth_name: str):  # type: ignore[no-untyped-def]
     @async_wraps(cls, cls._wraps, meth_name)
-    async def wrapper(self, *args, **kwargs):
+    async def wrapper(self, *args, **kwargs):  # type: ignore[misc]
         meth = getattr(self._wrapped, meth_name)
         func = partial(meth, *args, **kwargs)
         value = await trio.to_thread.run_sync(func)
@@ -67,10 +89,10 @@ def thread_wrapper_factory(cls, meth_name):
     return wrapper
 
 
-def classmethod_wrapper_factory(cls, meth_name):
-    @classmethod
+def classmethod_wrapper_factory(cls: Type, meth_name: str):  # type: ignore[no-untyped-def]
+    @classmethod  # type: ignore[misc]
     @async_wraps(cls, cls._wraps, meth_name)
-    async def wrapper(cls, *args, **kwargs):
+    async def wrapper(cls, *args, **kwargs):  # type: ignore[misc]
         meth = getattr(cls._wraps, meth_name)
         func = partial(meth, *args, **kwargs)
         value = await trio.to_thread.run_sync(func)
@@ -165,10 +187,19 @@ class Path(metaclass=AsyncAutoWrapperType):
         #       of the file can be hinted regularly rather than in a separate stub .pyi.
 
         # TODO: Can we handle os.PathLike[str] at least for 3.9+?
-        def joinpath(self: _P, *other: Union[str, os.PathLike]) -> _P:
+        def joinpath(self: _P, *other: Union[os.PathLike, str]) -> _P:
             ...
 
         def iterdir(self: _P) -> Iterator[_P]:
+            ...
+
+        def __gt__(self, other: os.PathLike) -> bool:
+            ...
+
+        def __lt__(self, other: os.PathLike) -> bool:
+            ...
+
+        def __truediv__(self: _P, *args: Union[os.PathLike, str]) -> _P:
             ...
 
     def __init__(self, *args):
@@ -189,8 +220,19 @@ class Path(metaclass=AsyncAutoWrapperType):
     def __fspath__(self):
         return os.fspath(self._wrapped)
 
+    @overload  # type: ignore[misc]
+    async def open(
+        self,
+        mode: str = ...,
+        buffering: int = ...,
+        encoding: Optional[str] = ...,
+        errors: Optional[str] = ...,
+        newline: Optional[str] = ...,
+    ) -> _AsyncIOBase:
+        ...
+
     @wraps(pathlib.Path.open)
-    async def open(self, *args, **kwargs):
+    async def open(self, *args: object, **kwargs: object) -> object:
         """Open the file pointed to by the path, like the :func:`trio.open_file`
         function does.
 

@@ -1,8 +1,13 @@
+from typing import Generic, List, TypeVar
+
 import attr
 
 from .. import _core
 from .._deprecate import deprecated
 from .._util import Final
+
+
+_T = TypeVar("_T")
 
 
 @attr.s(frozen=True)
@@ -11,7 +16,7 @@ class _UnboundedQueueStats:
     tasks_waiting = attr.ib()
 
 
-class UnboundedQueue(metaclass=Final):
+class UnboundedQueue(Generic[_T], metaclass=Final):
     """An unbounded queue suitable for certain unusual forms of inter-task
     communication.
 
@@ -47,9 +52,9 @@ class UnboundedQueue(metaclass=Final):
         thing="trio.lowlevel.UnboundedQueue",
         instead="trio.open_memory_channel(math.inf)",
     )
-    def __init__(self):
+    def __init__(self) -> None:
         self._lot = _core.ParkingLot()
-        self._data = []
+        self._data: List[_T] = []
         # used to allow handoff from put to the first task in the lot
         self._can_get = False
 
@@ -70,7 +75,7 @@ class UnboundedQueue(metaclass=Final):
         return not self._data
 
     @_core.enable_ki_protection
-    def put_nowait(self, obj):
+    def put_nowait(self, obj: _T) -> None:
         """Put an object into the queue, without blocking.
 
         This always succeeds, because the queue is unbounded. We don't provide

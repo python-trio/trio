@@ -22,7 +22,7 @@ class _HandleHolder:
         _core.register_with_iocp(self.handle)
 
     @property
-    def closed(self):
+    def closed(self) -> bool:
         return self.handle == -1
 
     def _close(self):

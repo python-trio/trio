@@ -1,10 +1,12 @@
 import pytest
+import _pytest.fixtures
 
 import threading
 import socket as stdlib_socket
 import ssl
 from contextlib import contextmanager
 from functools import partial
+from typing import AsyncIterator, Iterator
 
 from OpenSSL import SSL
 import trustme
@@ -26,6 +28,7 @@ from ..testing import (
     assert_checkpoints,
     Sequencer,
     memory_stream_pair,
+    MockClock,
     lockstep_stream_pair,
     check_two_way_stream,
 )
@@ -71,7 +74,7 @@ else:
 
 
 @pytest.fixture(scope="module", params=client_ctx_params)
-def client_ctx(request):
+def client_ctx(request: _pytest.fixtures.SubRequest) -> ssl.SSLContext:
     ctx = ssl.create_default_context()
     TRIO_TEST_CA.configure_trust(ctx)
     if request.param in ["default", "tls13"]:
@@ -141,7 +144,7 @@ def ssl_echo_serve_sync(sock, *, expect_fail=False):
 # (running in a thread). Useful for testing making connections with different
 # SSLContexts.
 @asynccontextmanager
-async def ssl_echo_server_raw(**kwargs):
+async def ssl_echo_server_raw(**kwargs: object) -> AsyncIterator[SocketStream]:  # type: ignore[misc]
     a, b = stdlib_socket.socketpair()
     async with trio.open_nursery() as nursery:
         # Exiting the 'with a, b' context manager closes the sockets, which
@@ -158,7 +161,9 @@ async def ssl_echo_server_raw(**kwargs):
 # Fixture that gives a properly set up SSLStream connected to a trio-test-1
 # echo server (running in a thread)
 @asynccontextmanager
-async def ssl_echo_server(client_ctx, **kwargs):
+async def ssl_echo_server(  # type: ignore[misc]
+    client_ctx: ssl.SSLContext, **kwargs: object
+) -> AsyncIterator[SSLStream]:
     async with ssl_echo_server_raw(**kwargs) as sock:
         yield SSLStream(sock, client_ctx, server_hostname="trio-test-1.example.org")
 
@@ -357,7 +362,9 @@ async def test_PyOpenSSLEchoStream_gives_resource_busy_errors():
 
 
 @contextmanager
-def virtual_ssl_echo_server(client_ctx, **kwargs):
+def virtual_ssl_echo_server(
+    client_ctx: ssl.SSLContext, **kwargs: object
+) -> Iterator[SSLStream]:
     fakesock = PyOpenSSLEchoStream(**kwargs)
     yield SSLStream(fakesock, client_ctx, server_hostname="trio-test-1.example.org")
 
@@ -576,7 +583,9 @@ async def test_renegotiation_simple(client_ctx):
 
 
 @slow
-async def test_renegotiation_randomized(mock_clock, client_ctx):
+async def test_renegotiation_randomized(
+    mock_clock: MockClock, client_ctx: ssl.SSLContext
+) -> None:
     # The only blocking things in this function are our random sleeps, so 0 is
     # a good threshold.
     mock_clock.autojump_threshold = 0
@@ -793,7 +802,9 @@ async def test_send_all_empty_string(client_ctx):
 
 
 @pytest.mark.parametrize("https_compatible", [False, True])
-async def test_SSLStream_generic(client_ctx, https_compatible):
+async def test_SSLStream_generic(
+    client_ctx: ssl.SSLContext, https_compatible: bool
+) -> None:
     async def stream_maker():
         return ssl_memory_stream_pair(
             client_ctx,

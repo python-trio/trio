@@ -57,7 +57,7 @@ class Sequencer(metaclass=_util.Final):
     _broken = attr.ib(default=False, init=False)
 
     @asynccontextmanager
-    async def __call__(self, position: int) -> AsyncIterator[None]:
+    async def __call__(self, position: int) -> AsyncIterator[None]:  # type: ignore[misc]
         if position in self._claimed:
             raise RuntimeError("Attempted to re-use sequence point {}".format(position))
         if self._broken:

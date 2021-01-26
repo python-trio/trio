@@ -2,6 +2,7 @@
 
 from contextlib import contextmanager
 import random
+from typing import Iterator, Type
 
 from .. import _core
 from .._highlevel_generic import aclose_forcefully
@@ -24,7 +25,7 @@ class _ForceCloseBoth:
 
 
 @contextmanager
-def _assert_raises(exc):
+def _assert_raises(exc: Type[Exception]) -> Iterator[None]:
     __tracebackhide__ = True
     try:
         yield

@@ -2,6 +2,7 @@ import threading
 import queue as stdlib_queue
 import time
 
+import attr
 import pytest
 
 from .. import _core
@@ -277,7 +278,9 @@ def test_run_in_worker_thread_abandoned(capfd, monkeypatch):
 @pytest.mark.parametrize("MAX", [3, 5, 10])
 @pytest.mark.parametrize("cancel", [False, True])
 @pytest.mark.parametrize("use_default_limiter", [False, True])
-async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
+async def test_run_in_worker_thread_limiter(
+    MAX: int, cancel: bool, use_default_limiter: bool
+) -> None:
     # This test is a bit tricky. The goal is to make sure that if we set
     # limiter=CapacityLimiter(MAX), then in fact only MAX threads are ever
     # running at a time, even if there are more concurrent calls to
@@ -306,13 +309,16 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
         #
         # Mutating them in-place is OK though (as long as you use proper
         # locking etc.).
-        class state:
-            pass
 
-        state.ran = 0
-        state.high_water = 0
-        state.running = 0
-        state.parked = 0
+        # TODO: does this break the concerns explained above...?
+        @attr.s()
+        class State:
+            ran: int = attr.ib(default=0)
+            high_water: int = attr.ib(default=0)
+            running: int = attr.ib(default=0)
+            parked: int = attr.ib(default=0)
+
+        state = State()
 
         token = _core.current_trio_token()
 
@@ -558,7 +564,7 @@ async def test_from_thread_inside_trio_thread():
 
 
 @pytest.mark.skipif(buggy_pypy_asyncgens, reason="pypy 7.2.0 is buggy")
-def test_from_thread_run_during_shutdown():
+def test_from_thread_run_during_shutdown() -> None:
     save = []
     record = []
 

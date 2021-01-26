@@ -1,27 +1,39 @@
 import io
 import os
+from typing import Union
 
+import py.path
 import pytest
 from unittest import mock
 from unittest.mock import sentinel
 
 import trio
 from trio import _core
-from trio._file_io import AsyncIOWrapper, _FILE_SYNC_ATTRS, _FILE_ASYNC_METHODS
+from trio._file_io import (
+    _AsyncTextIOBase,
+    _AsyncBufferedIOBase,
+    _AsyncRawIOBase,
+    _AsyncIOBase,
+    AsyncIOWrapper,
+    _FILE_SYNC_ATTRS,
+    _FILE_ASYNC_METHODS,
+)
 
 
 @pytest.fixture
-def path(tmpdir):
+def path(tmpdir: py.path.local) -> str:
     return os.fspath(tmpdir.join("test"))
 
 
 @pytest.fixture
-def wrapped():
+def wrapped() -> mock.Mock:
     return mock.Mock(spec_set=io.StringIO)
 
 
 @pytest.fixture
-def async_file(wrapped):
+def async_file(
+    wrapped: mock.Mock,
+) -> Union[_AsyncTextIOBase, _AsyncBufferedIOBase, _AsyncRawIOBase, _AsyncIOBase]:
     return trio.wrap_file(wrapped)
 
 

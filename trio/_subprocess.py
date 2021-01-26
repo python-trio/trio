@@ -128,11 +128,17 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
     # arbitrarily many threads if wait() keeps getting cancelled.
     _wait_for_exit_data = None
 
-    def __init__(self, popen, stdin, stdout, stderr):
+    def __init__(
+        self,
+        popen: subprocess.Popen,
+        stdin: Optional[SendStream],
+        stdout: Optional[ReceiveStream],
+        stderr: Optional[ReceiveStream],
+    ):
         self._proc = popen
-        self.stdin = stdin  # type: Optional[SendStream]
-        self.stdout = stdout  # type: Optional[ReceiveStream]
-        self.stderr = stderr  # type: Optional[ReceiveStream]
+        self.stdin = stdin
+        self.stdout = stdout
+        self.stderr = stderr
 
         self.stdio = None  # type: Optional[StapledStream]
         if self.stdin is not None and self.stdout is not None:
@@ -170,7 +176,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         return "<trio.Process {!r}: {}>".format(self.args, status)
 
     @property
-    def returncode(self):
+    def returncode(self) -> Optional[int]:
         """The exit status of the process (an integer), or ``None`` if it's
         still running.
 

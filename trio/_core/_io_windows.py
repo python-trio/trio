@@ -3,7 +3,7 @@ from contextlib import contextmanager
 import enum
 import socket
 import sys
-from typing import TYPE_CHECKING
+from typing import Iterator, Tuple, TYPE_CHECKING, Union
 
 import attr
 
@@ -27,7 +27,7 @@ from ._windows_cffi import (
     IoControlCodes,
 )
 
-assert not TYPE_CHECKING or sys.platform == "win32"
+# assert not TYPE_CHECKING or sys.platform == "win32"
 
 # There's a lot to be said about the overall design of a Windows event
 # loop. See
@@ -691,15 +691,15 @@ class WindowsIOManager:
         await _core.wait_task_rescheduled(abort_fn)
 
     @_public
-    async def wait_readable(self, sock):
+    async def wait_readable(self, sock: socket.socket) -> None:
         await self._afd_poll(sock, "read_task")
 
     @_public
-    async def wait_writable(self, sock):
+    async def wait_writable(self, sock: socket.socket) -> None:
         await self._afd_poll(sock, "write_task")
 
     @_public
-    def notify_closing(self, handle):
+    def notify_closing(self, handle: socket.socket) -> None:
         handle = _get_base_socket(handle)
         waiters = self._afd_waiters.get(handle)
         if waiters is not None:
@@ -711,11 +711,14 @@ class WindowsIOManager:
     ################################################################
 
     @_public
-    def register_with_iocp(self, handle):
+    def register_with_iocp(self, handle: socket.socket) -> None:
         self._register_with_iocp(handle, CKeys.WAIT_OVERLAPPED)
 
+    # TODO: what else can lpOverlapped be?
     @_public
-    async def wait_overlapped(self, handle, lpOverlapped):
+    async def wait_overlapped(
+        self, handle: socket.socket, lpOverlapped: Union[int, object]
+    ) -> None:
         handle = _handle(handle)
         if isinstance(lpOverlapped, int):
             lpOverlapped = ffi.cast("LPOVERLAPPED", lpOverlapped)
@@ -798,7 +801,9 @@ class WindowsIOManager:
         return lpOverlapped
 
     @_public
-    async def write_overlapped(self, handle, data, file_offset=0):
+    async def write_overlapped(
+        self, handle: int, data: bytes, file_offset: int = 0
+    ) -> int:
         with ffi.from_buffer(data) as cbuf:
 
             def submit_write(lpOverlapped):
@@ -821,7 +826,9 @@ class WindowsIOManager:
             return lpOverlapped.InternalHigh
 
     @_public
-    async def readinto_overlapped(self, handle, buffer, file_offset=0):
+    async def readinto_overlapped(
+        self, handle: int, buffer: memoryview, file_offset: int = 0
+    ) -> int:
         with ffi.from_buffer(buffer, require_writable=True) as cbuf:
 
             def submit_read(lpOverlapped):
@@ -846,14 +853,16 @@ class WindowsIOManager:
     ################################################################
 
     @_public
-    def current_iocp(self):
+    def current_iocp(self) -> int:
         return int(ffi.cast("uintptr_t", self._iocp))
 
     @contextmanager
     @_public
-    def monitor_completion_key(self):
+    def monitor_completion_key(
+        self,
+    ) -> Iterator[Tuple[int, _core.UnboundedQueue[CompletionKeyEventInfo]]]:
         key = next(self._completion_key_counter)
-        queue = _core.UnboundedQueue()
+        queue = _core.UnboundedQueue[CompletionKeyEventInfo]()
         self._completion_key_queues[key] = queue
         try:
             yield (key, queue)

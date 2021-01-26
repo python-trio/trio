@@ -5,7 +5,7 @@ import select
 import random
 import errno
 from contextlib import suppress
-from typing import Callable
+from typing import Awaitable, Callable, Iterator, Tuple
 
 from ... import _core
 from ...testing import wait_all_tasks_blocked, Sequencer, assert_checkpoints
@@ -30,8 +30,11 @@ def drain_socket(sock):
         pass
 
 
+_SocketPair = Tuple[stdlib_socket.socket, stdlib_socket.socket]
+
+
 @pytest.fixture
-def socketpair():
+def socketpair() -> Iterator[_SocketPair]:
     pair = stdlib_socket.socketpair()
     for sock in pair:
         sock.setblocking(False)
@@ -49,9 +52,14 @@ def using_fileno(fn):
     return fileno_wrapper
 
 
+_WaitReadable = Callable[[stdlib_socket.socket], Awaitable[None]]
+_WaitWritable = Callable[[stdlib_socket.socket], Awaitable[None]]
+_NotifyClosing = Callable[[stdlib_socket.socket], None]
+
 wait_readable_options = [trio.lowlevel.wait_readable]
 wait_writable_options = [trio.lowlevel.wait_writable]
 notify_closing_options = [trio.lowlevel.notify_closing]
+
 
 for options_list in [
     wait_readable_options,
@@ -85,7 +93,9 @@ notify_closing_test = pytest.mark.parametrize(
 # momentarily and then immediately resuming.
 @read_socket_test
 @write_socket_test
-async def test_wait_basic(socketpair, wait_readable, wait_writable):
+async def test_wait_basic(
+    socketpair: _SocketPair, wait_readable: _WaitReadable, wait_writable: _WaitWritable
+) -> None:
     a, b = socketpair
 
     # They start out writable()
@@ -151,7 +161,9 @@ async def test_wait_basic(socketpair, wait_readable, wait_writable):
 
 
 @read_socket_test
-async def test_double_read(socketpair, wait_readable):
+async def test_double_read(
+    socketpair: _SocketPair, wait_readable: _WaitWritable
+) -> None:
     a, b = socketpair
 
     # You can't have two tasks trying to read from a socket at the same time
@@ -164,7 +176,9 @@ async def test_double_read(socketpair, wait_readable):
 
 
 @write_socket_test
-async def test_double_write(socketpair, wait_writable):
+async def test_double_write(
+    socketpair: _SocketPair, wait_writable: _WaitWritable
+) -> None:
     a, b = socketpair
 
     # You can't have two tasks trying to write to a socket at the same time
@@ -181,8 +195,11 @@ async def test_double_write(socketpair, wait_writable):
 @write_socket_test
 @notify_closing_test
 async def test_interrupted_by_close(
-    socketpair, wait_readable, wait_writable, notify_closing
-):
+    socketpair: _SocketPair,
+    wait_readable: _WaitReadable,
+    wait_writable: _WaitWritable,
+    notify_closing: _NotifyClosing,
+) -> None:
     a, b = socketpair
 
     async def reader():
@@ -204,7 +221,9 @@ async def test_interrupted_by_close(
 
 @read_socket_test
 @write_socket_test
-async def test_socket_simultaneous_read_write(socketpair, wait_readable, wait_writable):
+async def test_socket_simultaneous_read_write(
+    socketpair: _SocketPair, wait_readable: _WaitReadable, wait_writable: _WaitWritable
+) -> None:
     record = []
 
     async def r_task(sock):
@@ -232,7 +251,9 @@ async def test_socket_simultaneous_read_write(socketpair, wait_readable, wait_wr
 
 @read_socket_test
 @write_socket_test
-async def test_socket_actual_streaming(socketpair, wait_readable, wait_writable):
+async def test_socket_actual_streaming(
+    socketpair: _SocketPair, wait_readable: _WaitReadable, wait_writable: _WaitWritable
+) -> None:
     a, b = socketpair
 
     # Use a small send buffer on one of the sockets to increase the chance of
@@ -281,7 +302,7 @@ async def test_socket_actual_streaming(socketpair, wait_readable, wait_writable)
     assert results["send_b"] == results["recv_a"]
 
 
-async def test_notify_closing_on_invalid_object():
+async def test_notify_closing_on_invalid_object() -> None:
     # It should either be a no-op (generally on Unix, where we don't know
     # which fds are valid), or an OSError (on Windows, where we currently only
     # support sockets, so we have to do some validation to figure out whether
@@ -297,7 +318,7 @@ async def test_notify_closing_on_invalid_object():
     assert got_oserror or got_no_error
 
 
-async def test_wait_on_invalid_object():
+async def test_wait_on_invalid_object() -> None:
     # We definitely want to raise an error everywhere if you pass in an
     # invalid fd to wait_*
     for wait in [trio.lowlevel.wait_readable, trio.lowlevel.wait_writable]:
@@ -309,7 +330,7 @@ async def test_wait_on_invalid_object():
             await wait(fileno)
 
 
-async def test_io_manager_statistics():
+async def test_io_manager_statistics() -> None:
     def check(*, expected_readers, expected_writers):
         statistics = _core.current_statistics()
         print(statistics)
@@ -357,7 +378,7 @@ async def test_io_manager_statistics():
         check(expected_readers=1, expected_writers=0)
 
 
-async def test_can_survive_unnotified_close():
+async def test_can_survive_unnotified_close() -> None:
     # An "unnotified" close is when the user closes an fd/socket/handle
     # directly, without calling notify_closing first. This should never happen
     # -- users should call notify_closing before closing things. But, just in

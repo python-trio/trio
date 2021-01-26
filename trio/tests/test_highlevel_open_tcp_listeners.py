@@ -2,6 +2,7 @@ import pytest
 
 import socket as stdlib_socket
 import errno
+from typing import Set
 
 import attr
 
@@ -9,6 +10,7 @@ import trio
 from trio import open_tcp_listeners, serve_tcp, SocketListener, open_tcp_stream
 from trio.testing import open_stream_to_socket_listener
 from .. import socket as tsocket
+from .._abc import SocketFactory
 from .._core.tests.tutil import slow, creates_ipv6, binds_ipv6
 
 
@@ -53,7 +55,7 @@ async def test_open_tcp_listeners_specific_port_specific_host():
 
 
 @binds_ipv6
-async def test_open_tcp_listeners_ipv6_v6only():
+async def test_open_tcp_listeners_ipv6_v6only() -> None:
     # Check IPV6_V6ONLY is working properly
     (ipv6_listener,) = await open_tcp_listeners(0, host="::1")
     async with ipv6_listener:
@@ -141,7 +143,7 @@ class FakeSocket(tsocket.SocketType):
 
 
 @attr.s
-class FakeSocketFactory:
+class FakeSocketFactory(SocketFactory):
     poison_after = attr.ib()
     sockets = attr.ib(factory=list)
     raise_on_family = attr.ib(factory=dict)  # family => errno
@@ -222,8 +224,9 @@ async def test_serve_tcp():
     [{tsocket.AF_INET}, {tsocket.AF_INET6}, {tsocket.AF_INET, tsocket.AF_INET6}],
 )
 async def test_open_tcp_listeners_some_address_families_unavailable(
-    try_families, fail_families
-):
+    try_families: Set[stdlib_socket.AddressFamily],
+    fail_families: Set[stdlib_socket.AddressFamily],
+) -> None:
     fsf = FakeSocketFactory(
         10, raise_on_family={family: errno.EAFNOSUPPORT for family in fail_families}
     )

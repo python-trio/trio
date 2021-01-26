@@ -3,6 +3,7 @@
 import threading
 import queue as stdlib_queue
 from itertools import count
+from typing import Awaitable, Callable, Optional, Sequence, TypeVar
 
 import attr
 import inspect
@@ -23,11 +24,14 @@ from ._util import coroutine_or_error
 # Global due to Threading API, thread local storage for trio token
 TOKEN_LOCAL = threading.local()
 
-_limiter_local = RunVar("limiter")
+_limiter_local = RunVar[CapacityLimiter]("limiter")
 # I pulled this number out of the air; it isn't based on anything. Probably we
 # should make some kind of measurements to pick a good value.
 DEFAULT_LIMIT = 40
 _thread_counter = count()
+
+
+_T = TypeVar("_T")
 
 
 def current_default_thread_limiter():
@@ -55,8 +59,16 @@ class ThreadPlaceholder:
     name = attr.ib()
 
 
+# TODO: maybe we don't want to ban Any in decorated functions?  just any? maybe
+#       then we would just ignore the line with the Any?  (it is the callable's
+#       unspecified parameter list)
 @enable_ki_protection
-async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
+async def to_thread_run_sync(  # type: ignore[misc]
+    sync_fn: Callable[..., _T],
+    *args: object,
+    cancellable: bool = False,
+    limiter: Optional[CapacityLimiter] = None,
+) -> _T:
     """Convert a blocking operation into an async operation using a thread.
 
     These two lines are equivalent::
@@ -204,7 +216,7 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
         else:
             return trio.lowlevel.Abort.FAILED
 
-    return await trio.lowlevel.wait_task_rescheduled(abort)
+    return await trio.lowlevel.wait_task_rescheduled(abort)  # type: ignore[return-value]
 
 
 def _run_fn_as_system_task(cb, fn, *args, trio_token=None):
@@ -238,7 +250,11 @@ def _run_fn_as_system_task(cb, fn, *args, trio_token=None):
     return q.get().unwrap()
 
 
-def from_thread_run(afn, *args, trio_token=None):
+def from_thread_run(
+    afn: Callable[..., Awaitable[_T]],
+    *args: object,
+    trio_token: Optional[TrioToken] = None,
+) -> _T:
     """Run the given async function in the parent Trio thread, blocking until it
     is complete.
 
@@ -273,11 +289,13 @@ def from_thread_run(afn, *args, trio_token=None):
           to enter Trio.
     """
 
-    def callback(q, afn, args):
+    def callback(
+        q: stdlib_queue.Queue, afn: Callable[..., Awaitable[_T]], args: Sequence[object]
+    ) -> None:
         @disable_ki_protection
-        async def unprotected_afn():
+        async def unprotected_afn() -> _T:
             coro = coroutine_or_error(afn, *args)
-            return await coro
+            return await coro  # type: ignore[no-any-return]
 
         async def await_in_trio_thread_task():
             q.put_nowait(await outcome.acapture(unprotected_afn))
@@ -289,10 +307,12 @@ def from_thread_run(afn, *args, trio_token=None):
                 outcome.Error(trio.RunFinishedError("system nursery is closed"))
             )
 
-    return _run_fn_as_system_task(callback, afn, *args, trio_token=trio_token)
+    return _run_fn_as_system_task(callback, afn, *args, trio_token=trio_token)  # type: ignore[no-any-return]
 
 
-def from_thread_run_sync(fn, *args, trio_token=None):
+def from_thread_run_sync(
+    fn: Callable[..., _T], *args: object, trio_token: Optional[TrioToken] = None
+) -> _T:
     """Run the given sync function in the parent Trio thread, blocking until it
     is complete.
 
@@ -323,14 +343,16 @@ def from_thread_run_sync(fn, *args, trio_token=None):
           to enter Trio.
     """
 
-    def callback(q, fn, args):
+    def callback(
+        q: stdlib_queue.Queue, fn: Callable[..., _T], args: Sequence[object]
+    ) -> None:
         @disable_ki_protection
-        def unprotected_fn():
+        def unprotected_fn() -> _T:
             ret = fn(*args)
 
             if inspect.iscoroutine(ret):
                 # Manually close coroutine to avoid RuntimeWarnings
-                ret.close()
+                ret.close()  # type: ignore[attr-defined]
                 raise TypeError(
                     "Trio expected a sync function, but {!r} appears to be "
                     "asynchronous".format(getattr(fn, "__qualname__", fn))
@@ -341,4 +363,4 @@ def from_thread_run_sync(fn, *args, trio_token=None):
         res = outcome.capture(unprotected_fn)
         q.put_nowait(res)
 
-    return _run_fn_as_system_task(callback, fn, *args, trio_token=trio_token)
+    return _run_fn_as_system_task(callback, fn, *args, trio_token=trio_token)  # type: ignore[no-any-return]

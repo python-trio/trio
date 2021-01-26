@@ -2,7 +2,7 @@
 import socket as stdlib_socket
 import os
 import sys
-from typing import TYPE_CHECKING
+from typing import Iterator, TYPE_CHECKING
 
 import pytest
 import warnings
@@ -69,7 +69,7 @@ def gc_collect_harder():
 # manager should be used anywhere this happens to hide those messages, because
 # when expected they're clutter.
 @contextmanager
-def ignore_coroutine_never_awaited_warnings():
+def ignore_coroutine_never_awaited_warnings() -> Iterator[None]:
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", message="coroutine '.*' was never awaited")
         try:

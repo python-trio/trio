@@ -1,9 +1,13 @@
 import sys
 from functools import wraps
 from types import ModuleType
+from typing import Any, Callable, Optional, TypeVar, Union
 import warnings
 
 import attr
+
+
+_T = TypeVar("_T", bound=Callable[..., Any])
 
 
 # We want our warnings to be visible by default (at least for now), but we
@@ -39,7 +43,14 @@ def _stringify(thing):
     return str(thing)
 
 
-def warn_deprecated(thing, version, *, issue, instead, stacklevel=2):
+def warn_deprecated(
+    thing: object,
+    version: str,
+    *,
+    issue: Optional[int],
+    instead: Optional[object],
+    stacklevel: int = 2,
+) -> None:
     stacklevel += 1
     msg = "{} is deprecated since Trio {}".format(_stringify(thing), version)
     if instead is None:
@@ -53,20 +64,29 @@ def warn_deprecated(thing, version, *, issue, instead, stacklevel=2):
 
 # @deprecated("0.2.0", issue=..., instead=...)
 # def ...
-def deprecated(version, *, thing=None, issue, instead):
-    def do_wrap(fn):
-        nonlocal thing
+def deprecated(
+    version: str,
+    *,
+    thing: Optional[str] = None,
+    issue: Optional[int],
+    instead: object,
+) -> Callable[[_T], _T]:
+    def do_wrap(fn: _T) -> _T:
+        wrapper: _T
 
-        @wraps(fn)
-        def wrapper(*args, **kwargs):
-            warn_deprecated(thing, version, instead=instead, issue=issue)
+        @wraps(fn)  # type: ignore[no-redef]
+        def wrapper(*args: object, **kwargs: object) -> object:
+            warn_deprecated(final_thing, version, instead=instead, issue=issue)
             return fn(*args, **kwargs)
 
         # If our __module__ or __qualname__ get modified, we want to pick up
         # on that, so we read them off the wrapper object instead of the (now
         # hidden) fn object
+        final_thing: Union[str, _T]
         if thing is None:
-            thing = wrapper
+            final_thing = wrapper
+        else:
+            final_thing = thing
 
         if wrapper.__doc__ is not None:
             doc = wrapper.__doc__
@@ -87,10 +107,12 @@ def deprecated(version, *, thing=None, issue, instead):
     return do_wrap
 
 
-def deprecated_alias(old_qualname, new_fn, version, *, issue):
-    @deprecated(version, issue=issue, instead=new_fn)
+def deprecated_alias(old_qualname: str, new_fn: _T, version: str, *, issue: int) -> _T:
+    wrapper: _T
+
+    @deprecated(version, issue=issue, instead=new_fn)  # type: ignore[no-redef]
     @wraps(new_fn, assigned=("__module__", "__annotations__"))
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: object, **kwargs: object) -> object:
         "Deprecated alias."
         return new_fn(*args, **kwargs)
 

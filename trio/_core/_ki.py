@@ -2,16 +2,16 @@ import inspect
 import signal
 import sys
 from functools import wraps
+from typing import Any, TypeVar, Callable
 import attr
 
 import async_generator
 
 from .._util import is_main_thread
 
-if False:
-    from typing import Any, TypeVar, Callable
 
-    F = TypeVar("F", bound=Callable[..., Any])
+_Fn = TypeVar("_Fn", bound=Callable[..., Any])
+
 
 # In ordinary single-threaded Python code, when you hit control-C, it raises
 # an exception and automatically does all the regular unwinding stuff.
@@ -109,15 +109,17 @@ def currently_ki_protected():
     return ki_protection_enabled(sys._getframe())
 
 
-def _ki_protection_decorator(enabled):
-    def decorator(fn):
+def _ki_protection_decorator(enabled: bool) -> Callable[[_Fn], _Fn]:
+    def decorator(fn: _Fn) -> _Fn:
         # In some version of Python, isgeneratorfunction returns true for
         # coroutine functions, so we have to check for coroutine functions
         # first.
+        wrapper: _Fn
+
         if inspect.iscoroutinefunction(fn):
 
             @wraps(fn)
-            def wrapper(*args, **kwargs):
+            def wrapper(*args: object, **kwargs: object) -> object:
                 # See the comment for regular generators below
                 coro = fn(*args, **kwargs)
                 coro.cr_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
@@ -127,7 +129,7 @@ def _ki_protection_decorator(enabled):
         elif inspect.isgeneratorfunction(fn):
 
             @wraps(fn)
-            def wrapper(*args, **kwargs):
+            def wrapper(*args: object, **kwargs: object) -> object:
                 # It's important that we inject this directly into the
                 # generator's locals, as opposed to setting it here and then
                 # doing 'yield from'. The reason is, if a generator is
@@ -144,7 +146,7 @@ def _ki_protection_decorator(enabled):
         elif async_generator.isasyncgenfunction(fn):
 
             @wraps(fn)
-            def wrapper(*args, **kwargs):
+            def wrapper(*args: object, **kwargs: object) -> object:
                 # See the comment for regular generators above
                 agen = fn(*args, **kwargs)
                 agen.ag_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
@@ -154,7 +156,7 @@ def _ki_protection_decorator(enabled):
         else:
 
             @wraps(fn)
-            def wrapper(*args, **kwargs):
+            def wrapper(*args: object, **kwargs: object) -> object:
                 locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
                 return fn(*args, **kwargs)
 
@@ -163,10 +165,10 @@ def _ki_protection_decorator(enabled):
     return decorator
 
 
-enable_ki_protection = _ki_protection_decorator(True)  # type: Callable[[F], F]
+enable_ki_protection: Callable[[_Fn], _Fn] = _ki_protection_decorator(True)
 enable_ki_protection.__name__ = "enable_ki_protection"
 
-disable_ki_protection = _ki_protection_decorator(False)  # type: Callable[[F], F]
+disable_ki_protection: Callable[[_Fn], _Fn] = _ki_protection_decorator(False)
 disable_ki_protection.__name__ = "disable_ki_protection"
 
 

@@ -29,7 +29,7 @@ def test_close_on_error():
 
 
 @pytest.mark.parametrize("filename", [4, 4.5])
-async def test_open_with_bad_filename_type(filename):
+async def test_open_with_bad_filename_type(filename: float) -> None:
     with pytest.raises(TypeError):
         await open_unix_socket(filename)
 

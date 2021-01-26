@@ -1,7 +1,8 @@
 from contextlib import contextmanager
+from typing import Iterator, Set
 
 import trio
-from trio.socket import getaddrinfo, SOCK_STREAM, socket
+from trio.socket import getaddrinfo, SOCK_STREAM, socket, SocketType
 
 # Implementation of RFC 6555 "Happy eyeballs"
 # https://tools.ietf.org/html/rfc6555
@@ -103,8 +104,8 @@ DEFAULT_DELAY = 0.250
 
 
 @contextmanager
-def close_all():
-    sockets_to_close = set()
+def close_all() -> Iterator[Set[SocketType]]:
+    sockets_to_close: Set[SocketType] = set()
     try:
         yield sockets_to_close
     finally:

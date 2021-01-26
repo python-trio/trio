@@ -10,6 +10,7 @@ from contextlib import contextmanager, ExitStack
 from math import inf
 from textwrap import dedent
 import gc
+from typing import Iterator, TypeVar
 
 import attr
 import outcome
@@ -33,6 +34,9 @@ from ...testing import (
     Sequencer,
     assert_checkpoints,
 )
+
+
+_T = TypeVar("_T")
 
 
 # slightly different from _timeouts.sleep_forever because it returns the value
@@ -792,7 +796,7 @@ async def test_cancel_scope_misnesting():
 
 
 @slow
-async def test_timekeeping():
+async def test_timekeeping() -> None:
     # probably a good idea to use a real clock for *one* test anyway...
     TARGET = 1.0
     # give it a few tries in case of random CI server flakiness
@@ -1334,7 +1338,7 @@ async def test_TrioToken_run_sync_soon_massive_queue():
 
 
 @pytest.mark.skipif(buggy_pypy_asyncgens, reason="PyPy 7.2 is buggy")
-def test_TrioToken_run_sync_soon_late_crash():
+def test_TrioToken_run_sync_soon_late_crash() -> None:
     # Crash after system nursery is closed -- easiest way to do that is
     # from an async generator finalizer.
     record = []
@@ -2027,7 +2031,7 @@ async def test_Task_custom_sleep_data():
 
 
 @types.coroutine
-def async_yield(value):
+def async_yield(value: _T) -> Iterator[_T]:
     yield value
 
 
@@ -2201,7 +2205,7 @@ async def test_cancel_scope_deadline_duplicates():
 @pytest.mark.skipif(
     sys.implementation.name != "cpython", reason="Only makes sense with refcounting GC"
 )
-async def test_simple_cancel_scope_usage_doesnt_create_cyclic_garbage():
+async def test_simple_cancel_scope_usage_doesnt_create_cyclic_garbage() -> None:
     # https://github.com/python-trio/trio/issues/1770
     gc.collect()
 
@@ -2231,7 +2235,7 @@ async def test_simple_cancel_scope_usage_doesnt_create_cyclic_garbage():
 @pytest.mark.skipif(
     sys.implementation.name != "cpython", reason="Only makes sense with refcounting GC"
 )
-async def test_nursery_cancel_doesnt_create_cyclic_garbage():
+async def test_nursery_cancel_doesnt_create_cyclic_garbage() -> None:
     # https://github.com/python-trio/trio/issues/1770#issuecomment-730229423
     gc.collect()
 

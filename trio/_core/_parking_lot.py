@@ -73,7 +73,9 @@
 from itertools import count
 import attr
 from collections import OrderedDict
+import typing
 
+from ._run import Task
 from .. import _core
 from .._util import Final
 
@@ -101,7 +103,7 @@ class ParkingLot(metaclass=Final):
 
     # {task: None}, we just want a deque where we can quickly delete random
     # items
-    _parked = attr.ib(factory=OrderedDict, init=False)
+    _parked: typing.OrderedDict[Task, None] = attr.ib(factory=OrderedDict, init=False)
 
     def __len__(self):
         """Returns the number of parked tasks."""
@@ -116,7 +118,7 @@ class ParkingLot(metaclass=Final):
     # line (for false wakeups), then we could have it return a ticket that
     # abstracts the "place in line" concept.
     @_core.enable_ki_protection
-    async def park(self):
+    async def park(self) -> None:
         """Park the current task until woken by a call to :meth:`unpark` or
         :meth:`unpark_all`.
 
@@ -137,7 +139,7 @@ class ParkingLot(metaclass=Final):
             yield task
 
     @_core.enable_ki_protection
-    def unpark(self, *, count=1):
+    def unpark(self, *, count: int = 1) -> typing.List[Task]:
         """Unpark one or more tasks.
 
         This wakes up ``count`` tasks that are blocked in :meth:`park`. If
@@ -158,7 +160,7 @@ class ParkingLot(metaclass=Final):
         return self.unpark(count=len(self))
 
     @_core.enable_ki_protection
-    def repark(self, new_lot, *, count=1):
+    def repark(self, new_lot: "ParkingLot", *, count: int = 1) -> None:
         """Move parked tasks from one :class:`ParkingLot` object to another.
 
         This dequeues ``count`` tasks from one lot, and requeues them on

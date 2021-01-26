@@ -1,4 +1,5 @@
 import signal
+from typing import Iterator, TypeVar
 import pytest
 
 import trio
@@ -14,6 +15,9 @@ from .._util import (
     NoPublicConstructor,
 )
 from ..testing import wait_all_tasks_blocked
+
+
+_T = TypeVar("_T")
 
 
 def test_signal_raise():
@@ -90,7 +94,7 @@ async def test_is_main_thread():
 
 # @coroutine is deprecated since python 3.8, which is fine with us.
 @pytest.mark.filterwarnings("ignore:.*@coroutine.*:DeprecationWarning")
-def test_coroutine_or_error():
+def test_coroutine_or_error() -> None:
     class Deferred:
         "Just kidding"
 
@@ -106,7 +110,7 @@ def test_coroutine_or_error():
         import asyncio
 
         @asyncio.coroutine
-        def generator_based_coro():  # pragma: no cover
+        def generator_based_coro() -> Iterator[None]:  # pragma: no cover
             yield from asyncio.sleep(1)
 
         with pytest.raises(TypeError) as excinfo:
@@ -146,14 +150,14 @@ def test_coroutine_or_error():
         del excinfo
 
 
-def test_generic_function():
+def test_generic_function() -> None:
     @generic_function
-    def test_func(arg):
+    def test_func(arg: _T) -> _T:
         """Look, a docstring!"""
         return arg
 
-    assert test_func is test_func[int] is test_func[int, str]
-    assert test_func(42) == test_func[int](42) == 42
+    assert test_func is test_func[int] is test_func[int, str]  # type: ignore[index]
+    assert test_func(42) == test_func[int](42) == 42  # type: ignore[index]
     assert test_func.__doc__ == "Look, a docstring!"
     assert test_func.__qualname__ == "test_generic_function.<locals>.test_func"
     assert test_func.__name__ == "test_func"

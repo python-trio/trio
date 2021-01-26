@@ -1,19 +1,25 @@
 from collections import deque, OrderedDict
 from math import inf
-from typing import cast, Callable, Tuple, TypeVar, Union
+import typing
+from typing import cast, Callable, Deque, Generic, Set, Tuple, TypeVar, Union
 
 import attr
 from outcome import Error, Value
 
 from .abc import SendChannel, ReceiveChannel, Channel
 from ._util import generic_function, NoPublicConstructor
+from ._core._run import Task
 
 import trio
 from ._core import enable_ki_protection
 
 
+_T_contra = TypeVar("_T_contra", contravariant=True)
+_T_co = TypeVar("_T_co", covariant=True)
+
+
 @generic_function
-def open_memory_channel(
+def open_memory_channel(  # type: ignore[misc]
     # TODO: should restrict the float bit to just the inf value
     max_buffer_size: Union[int, float],
 ) -> Tuple["MemorySendChannel", "MemoryReceiveChannel"]:
@@ -72,7 +78,7 @@ def open_memory_channel(
         raise TypeError("max_buffer_size must be an integer or math.inf")
     if max_buffer_size < 0:
         raise ValueError("max_buffer_size must be >= 0")
-    state = MemoryChannelState(max_buffer_size)
+    state = MemoryChannelState(max_buffer_size)  # type: ignore[var-annotated]
     return (
         MemorySendChannel._create(state),
         MemoryReceiveChannel._create(state),
@@ -90,16 +96,16 @@ class MemoryChannelStats:
 
 
 @attr.s(slots=True)
-class MemoryChannelState:
-    max_buffer_size = attr.ib()
-    data = attr.ib(factory=deque)
+class MemoryChannelState(Generic[_T_contra]):
+    max_buffer_size: float = attr.ib()
+    data: Deque[_T_contra] = attr.ib(factory=deque)
     # Counts of open endpoints using this state
-    open_send_channels = attr.ib(default=0)
-    open_receive_channels = attr.ib(default=0)
+    open_send_channels: int = attr.ib(default=0)
+    open_receive_channels: int = attr.ib(default=0)
     # {task: value}
-    send_tasks = attr.ib(factory=OrderedDict)
+    send_tasks: typing.OrderedDict[Task, _T_contra] = attr.ib(factory=OrderedDict)
     # {task: None}
-    receive_tasks = attr.ib(factory=OrderedDict)
+    receive_tasks: typing.OrderedDict[Task, None] = attr.ib(factory=OrderedDict)
 
     def statistics(self):
         return MemoryChannelStats(
@@ -113,13 +119,13 @@ class MemoryChannelState:
 
 
 @attr.s(eq=False, repr=False)
-class MemorySendChannel(SendChannel, metaclass=NoPublicConstructor):
-    _state = attr.ib()
-    _closed = attr.ib(default=False)
+class MemorySendChannel(SendChannel[_T_contra], metaclass=NoPublicConstructor):
+    _state: MemoryChannelState[_T_contra] = attr.ib()
+    _closed: bool = attr.ib(default=False)
     # This is just the tasks waiting on *this* object. As compared to
     # self._state.send_tasks, which includes tasks from this object and
     # all clones.
-    _tasks = attr.ib(factory=set)
+    _tasks: Set[Task] = attr.ib(factory=set)
 
     def __attrs_post_init__(self):
         self._state.open_send_channels += 1
@@ -134,7 +140,7 @@ class MemorySendChannel(SendChannel, metaclass=NoPublicConstructor):
         return self._state.statistics()
 
     @enable_ki_protection
-    def send_nowait(self, value):
+    def send_nowait(self, value: _T_contra) -> None:
         """Like `~trio.abc.SendChannel.send`, but if the channel's buffer is
         full, raises `WouldBlock` instead of blocking.
 
@@ -154,7 +160,7 @@ class MemorySendChannel(SendChannel, metaclass=NoPublicConstructor):
             raise trio.WouldBlock
 
     @enable_ki_protection
-    async def send(self, value):
+    async def send(self, value: _T_contra) -> None:
         """See `SendChannel.send <trio.abc.SendChannel.send>`.
 
         Memory channels allow multiple tasks to call `send` at the same time.
@@ -182,7 +188,7 @@ class MemorySendChannel(SendChannel, metaclass=NoPublicConstructor):
         await trio.lowlevel.wait_task_rescheduled(abort_fn)
 
     @enable_ki_protection
-    def clone(self):
+    def clone(self) -> "MemorySendChannel[_T_contra]":
         """Clone this send channel object.
 
         This returns a new `MemorySendChannel` object, which acts as a
@@ -217,7 +223,7 @@ class MemorySendChannel(SendChannel, metaclass=NoPublicConstructor):
         self.close()
 
     @enable_ki_protection
-    def close(self):
+    def close(self) -> None:
         """Close this send channel object synchronously.
 
         All channel objects have an asynchronous `~.AsyncResource.aclose` method.
@@ -245,16 +251,16 @@ class MemorySendChannel(SendChannel, metaclass=NoPublicConstructor):
             self._state.receive_tasks.clear()
 
     @enable_ki_protection
-    async def aclose(self):
+    async def aclose(self) -> None:
         self.close()
         await trio.lowlevel.checkpoint()
 
 
 @attr.s(eq=False, repr=False)
-class MemoryReceiveChannel(ReceiveChannel, metaclass=NoPublicConstructor):
-    _state = attr.ib()
-    _closed = attr.ib(default=False)
-    _tasks = attr.ib(factory=set)
+class MemoryReceiveChannel(ReceiveChannel[_T_co], metaclass=NoPublicConstructor):
+    _state: MemoryChannelState[_T_co] = attr.ib()
+    _closed: bool = attr.ib(default=False)
+    _tasks: Set[Task] = attr.ib(factory=set)
 
     def __attrs_post_init__(self):
         self._state.open_receive_channels += 1
@@ -268,7 +274,7 @@ class MemoryReceiveChannel(ReceiveChannel, metaclass=NoPublicConstructor):
         )
 
     @enable_ki_protection
-    def receive_nowait(self):
+    def receive_nowait(self) -> _T_co:
         """Like `~trio.abc.ReceiveChannel.receive`, but if there's nothing
         ready to receive, raises `WouldBlock` instead of blocking.
 
@@ -288,7 +294,7 @@ class MemoryReceiveChannel(ReceiveChannel, metaclass=NoPublicConstructor):
         raise trio.WouldBlock
 
     @enable_ki_protection
-    async def receive(self):
+    async def receive(self) -> _T_co:
         """See `ReceiveChannel.receive <trio.abc.ReceiveChannel.receive>`.
 
         Memory channels allow multiple tasks to call `receive` at the same
@@ -315,10 +321,10 @@ class MemoryReceiveChannel(ReceiveChannel, metaclass=NoPublicConstructor):
             del self._state.receive_tasks[task]
             return trio.lowlevel.Abort.SUCCEEDED
 
-        return await trio.lowlevel.wait_task_rescheduled(abort_fn)
+        return await trio.lowlevel.wait_task_rescheduled(abort_fn)  # type: ignore[return-value]
 
     @enable_ki_protection
-    def clone(self):
+    def clone(self) -> "MemoryReceiveChannel[_T_co]":
         """Clone this receive channel object.
 
         This returns a new `MemoryReceiveChannel` object, which acts as a
@@ -356,7 +362,7 @@ class MemoryReceiveChannel(ReceiveChannel, metaclass=NoPublicConstructor):
         self.close()
 
     @enable_ki_protection
-    def close(self):
+    def close(self) -> None:
         """Close this receive channel object synchronously.
 
         All channel objects have an asynchronous `~.AsyncResource.aclose` method.
@@ -385,6 +391,6 @@ class MemoryReceiveChannel(ReceiveChannel, metaclass=NoPublicConstructor):
             self._state.data.clear()
 
     @enable_ki_protection
-    async def aclose(self):
+    async def aclose(self) -> None:
         self.close()
         await trio.lowlevel.checkpoint()

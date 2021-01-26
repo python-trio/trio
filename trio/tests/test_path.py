@@ -1,15 +1,17 @@
 import os
 import pathlib
+from typing import Callable, Type, Union
 
+import py.path
 import pytest
 
 import trio
-from trio._path import AsyncAutoWrapperType as Type
+from trio._path import AsyncAutoWrapperType as WrapperType
 from trio._file_io import AsyncIOWrapper
 
 
 @pytest.fixture
-def path(tmpdir):
+def path(tmpdir: py.path.local) -> trio.Path:
     p = str(tmpdir.join("test"))
     return trio.Path(p)
 
@@ -42,7 +44,10 @@ cls_pairs = [
 
 
 @pytest.mark.parametrize("cls_a,cls_b", cls_pairs)
-async def test_cmp_magic(cls_a, cls_b):
+async def test_cmp_magic(
+    cls_a: Union[Type[pathlib.Path], Type[trio.Path]],
+    cls_b: Union[Type[pathlib.Path], Type[trio.Path]],
+) -> None:
     a, b = cls_a(""), cls_b("")
     assert a == b
     assert not a != b
@@ -69,7 +74,10 @@ cls_pairs = [
 
 
 @pytest.mark.parametrize("cls_a,cls_b", cls_pairs)
-async def test_div_magic(cls_a, cls_b):
+async def test_div_magic(
+    cls_a: Union[Type[pathlib.Path], Type[trio.Path]],
+    cls_b: Union[Type[pathlib.Path], Type[trio.Path]],
+) -> None:
     a, b = cls_a("a"), cls_b("b")
 
     result = a / b
@@ -81,7 +89,11 @@ async def test_div_magic(cls_a, cls_b):
     "cls_a,cls_b", [(trio.Path, pathlib.Path), (trio.Path, trio.Path)]
 )
 @pytest.mark.parametrize("path", ["foo", "foo/bar/baz", "./foo"])
-async def test_hash_magic(cls_a, cls_b, path):
+async def test_hash_magic(
+    cls_a: Union[Type[pathlib.Path], Type[trio.Path]],
+    cls_b: Union[Type[pathlib.Path], Type[trio.Path]],
+    path: str,
+) -> None:
     a, b = cls_a(path), cls_b(path)
     assert hash(a) == hash(b)
 
@@ -103,7 +115,7 @@ async def test_async_method_signature(path):
 
 
 @pytest.mark.parametrize("method_name", ["is_dir", "is_file"])
-async def test_compare_async_stat_methods(method_name):
+async def test_compare_async_stat_methods(method_name: str) -> None:
 
     method, async_method = method_pair(".", method_name)
 
@@ -119,7 +131,7 @@ async def test_invalid_name_not_wrapped(path):
 
 
 @pytest.mark.parametrize("method_name", ["absolute", "resolve"])
-async def test_async_methods_rewrap(method_name):
+async def test_async_methods_rewrap(method_name: str) -> None:
 
     method, async_method = method_pair(".", method_name)
 
@@ -168,28 +180,28 @@ class MockWrapper:
 
 async def test_type_forwards_unsupported():
     with pytest.raises(TypeError):
-        Type.generate_forwards(MockWrapper, {})
+        WrapperType.generate_forwards(MockWrapper, {})
 
 
 async def test_type_wraps_unsupported():
     with pytest.raises(TypeError):
-        Type.generate_wraps(MockWrapper, {})
+        WrapperType.generate_wraps(MockWrapper, {})
 
 
 async def test_type_forwards_private():
-    Type.generate_forwards(MockWrapper, {"unsupported": None})
+    WrapperType.generate_forwards(MockWrapper, {"unsupported": None})
 
     assert not hasattr(MockWrapper, "_private")
 
 
 async def test_type_wraps_private():
-    Type.generate_wraps(MockWrapper, {"unsupported": None})
+    WrapperType.generate_wraps(MockWrapper, {"unsupported": None})
 
     assert not hasattr(MockWrapper, "_private")
 
 
 @pytest.mark.parametrize("meth", [trio.Path.__init__, trio.Path.joinpath])
-async def test_path_wraps_path(path, meth):
+async def test_path_wraps_path(path: trio.Path, meth: Callable[..., trio.Path]) -> None:  # type: ignore[misc]
     wrapped = await path.absolute()
     result = meth(path, wrapped)
     if result is None:

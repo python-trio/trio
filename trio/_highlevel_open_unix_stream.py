@@ -1,5 +1,6 @@
 import os
 from contextlib import contextmanager
+from typing import Iterator, Protocol, TypeVar
 
 import trio
 from trio.socket import socket, SOCK_STREAM
@@ -12,8 +13,16 @@ except ImportError:
     has_unix = False
 
 
+class Closable(Protocol):
+    def close(self):
+        ...
+
+
+_CL = TypeVar("_CL", bound=Closable)
+
+
 @contextmanager
-def close_on_error(obj):
+def close_on_error(obj: _CL) -> Iterator[_CL]:
     try:
         yield obj
     except:

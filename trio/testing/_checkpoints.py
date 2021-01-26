@@ -1,10 +1,11 @@
 from contextlib import contextmanager
+from typing import Iterator
 
 from .. import _core
 
 
 @contextmanager
-def _assert_yields_or_not(expected):
+def _assert_yields_or_not(expected: bool) -> Iterator[None]:
     __tracebackhide__ = True
     task = _core.current_task()
     orig_cancel = task._cancel_points

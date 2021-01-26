@@ -1,9 +1,16 @@
 import signal
 from contextlib import contextmanager
 from collections import OrderedDict
+from types import FrameType
+from typing import Any, Callable, Iterable, Iterator, Optional, Set, Tuple, Union
 
 import trio
 from ._util import signal_raise, is_main_thread, ConflictDetector
+
+# https://github.com/python/typeshed/blob/master/stdlib/3/signal.pyi#L82-L83
+_SignalNumber = Union[int, signal.Signals]
+_Handler = Union[Callable[[signal.Signals, FrameType], Any], int, signal.Handlers, None]
+
 
 # Discussion of signal handling strategies:
 #
@@ -42,7 +49,9 @@ from ._util import signal_raise, is_main_thread, ConflictDetector
 
 
 @contextmanager
-def _signal_handler(signals, handler):
+def _signal_handler(
+    signals: Iterable[_SignalNumber], handler: _Handler
+) -> Iterator[None]:
     original_handlers = {}
     try:
         for signum in set(signals):
@@ -111,7 +120,7 @@ class SignalReceiver:
 
 
 @contextmanager
-def open_signal_receiver(*signals):
+def open_signal_receiver(*signals: _SignalNumber) -> Iterator[SignalReceiver]:
     """A context manager for catching signals.
 
     Entering this context manager starts listening for the given signals and

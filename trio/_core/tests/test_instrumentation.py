@@ -238,7 +238,7 @@ def test_instrument_that_raises_on_getattr():
             assert False  # pragma: no cover
 
         @property
-        def after_run(self):
+        def after_run(self) -> None:
             raise ValueError("oops")
 
     async def main():

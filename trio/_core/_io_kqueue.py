@@ -1,6 +1,8 @@
 import select
 import sys
-from typing import TYPE_CHECKING
+from typing import Callable, Dict, Iterator, Optional, Tuple, TYPE_CHECKING, Union
+
+from typing_extensions import Protocol
 
 import outcome
 from contextlib import contextmanager
@@ -8,10 +10,16 @@ import attr
 import errno
 
 from .. import _core
-from ._run import _public
+from ._run import _public, Task
+from ._unbounded_queue import UnboundedQueue
 from ._wakeup_socketpair import WakeupSocketpair
 
 assert not TYPE_CHECKING or (sys.platform != "linux" and sys.platform != "win32")
+
+
+class _HasFileno(Protocol):
+    def fileno(self) -> int:
+        ...
 
 
 @attr.s(slots=True, eq=False, frozen=True)
@@ -23,11 +31,13 @@ class _KqueueStatistics:
 
 @attr.s(slots=True, eq=False)
 class KqueueIOManager:
-    _kqueue = attr.ib(factory=select.kqueue)
+    _kqueue: select.kqueue = attr.ib(factory=select.kqueue)
     # {(ident, filter): Task or UnboundedQueue}
-    _registered = attr.ib(factory=dict)
-    _force_wakeup = attr.ib(factory=WakeupSocketpair)
-    _force_wakeup_fd = attr.ib(default=None)
+    _registered: Dict[Tuple[int, int], Union[Task, UnboundedQueue[Task]]] = attr.ib(
+        factory=dict
+    )
+    _force_wakeup: WakeupSocketpair = attr.ib(factory=WakeupSocketpair)
+    _force_wakeup_fd: Optional[int] = attr.ib(default=None)
 
     def __attrs_post_init__(self):
         force_wakeup_event = select.kevent(
@@ -96,18 +106,20 @@ class KqueueIOManager:
     # be more ergonomic...
 
     @_public
-    def current_kqueue(self):
+    def current_kqueue(self) -> select.kqueue:
         return self._kqueue
 
     @contextmanager
     @_public
-    def monitor_kevent(self, ident, filter):
+    def monitor_kevent(
+        self, ident: int, filter: int
+    ) -> Iterator[_core.UnboundedQueue[Task]]:
         key = (ident, filter)
         if key in self._registered:
             raise _core.BusyResourceError(
                 "attempt to register multiple listeners for same ident/filter pair"
             )
-        q = _core.UnboundedQueue()
+        q = _core.UnboundedQueue[Task]()
         self._registered[key] = q
         try:
             yield q
@@ -115,7 +127,12 @@ class KqueueIOManager:
             del self._registered[key]
 
     @_public
-    async def wait_kevent(self, ident, filter, abort_func):
+    async def wait_kevent(
+        self,
+        ident: int,
+        filter: int,
+        abort_func: Callable[[Callable[[], None]], _core.Abort],
+    ) -> object:
         key = (ident, filter)
         if key in self._registered:
             raise _core.BusyResourceError(
@@ -131,7 +148,7 @@ class KqueueIOManager:
 
         return await _core.wait_task_rescheduled(abort)
 
-    async def _wait_common(self, fd, filter):
+    async def _wait_common(self, fd: Union[int, _HasFileno], filter: int) -> None:
         if not isinstance(fd, int):
             fd = fd.fileno()
         flags = select.KQ_EV_ADD | select.KQ_EV_ONESHOT
@@ -163,15 +180,15 @@ class KqueueIOManager:
         await self.wait_kevent(fd, filter, abort)
 
     @_public
-    async def wait_readable(self, fd):
+    async def wait_readable(self, fd: Union[int, _HasFileno]) -> None:
         await self._wait_common(fd, select.KQ_FILTER_READ)
 
     @_public
-    async def wait_writable(self, fd):
+    async def wait_writable(self, fd: Union[int, _HasFileno]) -> None:
         await self._wait_common(fd, select.KQ_FILTER_WRITE)
 
     @_public
-    def notify_closing(self, fd):
+    def notify_closing(self, fd: Union[int, _HasFileno]) -> None:
         if not isinstance(fd, int):
             fd = fd.fileno()
 

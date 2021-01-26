@@ -1,4 +1,6 @@
 import pytest
+import _pytest.python
+
 import inspect
 
 # XX this should move into a global something
@@ -6,12 +8,12 @@ from ...testing import MockClock, trio_test
 
 
 @pytest.fixture
-def mock_clock():
+def mock_clock() -> MockClock:
     return MockClock()
 
 
 @pytest.fixture
-def autojump_clock():
+def autojump_clock() -> MockClock:
     return MockClock(autojump_threshold=0)
 
 
@@ -20,6 +22,6 @@ def autojump_clock():
 # guess it's useful with the class- and file-level marking machinery (where
 # the raw @trio_test decorator isn't enough).
 @pytest.hookimpl(tryfirst=True)
-def pytest_pyfunc_call(pyfuncitem):
+def pytest_pyfunc_call(pyfuncitem: _pytest.python.Function) -> None:  # type: ignore[misc]
     if inspect.iscoroutinefunction(pyfuncitem.obj):
         pyfuncitem.obj = trio_test(pyfuncitem.obj)

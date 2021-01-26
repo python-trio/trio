@@ -1,4 +1,7 @@
 import math
+from typing import Optional, Type, TypeVar, Union
+
+from typing_extensions import Protocol
 
 import attr
 import outcome
@@ -6,6 +9,7 @@ import outcome
 import trio
 
 from ._core import enable_ki_protection, ParkingLot
+from ._core._run import Task
 from ._deprecate import deprecated
 from ._util import Final
 
@@ -40,12 +44,12 @@ class Event(metaclass=Final):
     _lot = attr.ib(factory=ParkingLot, init=False)
     _flag = attr.ib(default=False, init=False)
 
-    def is_set(self):
+    def is_set(self) -> bool:
         """Return the current value of the internal flag."""
         return self._flag
 
     @enable_ki_protection
-    def set(self):
+    def set(self) -> None:
         """Set the internal flag value to True, and wake any waiting tasks."""
         self._flag = True
         self._lot.unpark_all()
@@ -73,20 +77,31 @@ class Event(metaclass=Final):
         return self._lot.statistics()
 
 
-def async_cm(cls):
+class _HasAcquire(Protocol):
+    async def acquire(self) -> object:
+        ...
+
+    def release(self) -> object:
+        ...
+
+
+_TA = TypeVar("_TA", bound=_HasAcquire)
+
+
+def async_cm(cls: Type[_TA]) -> Type[_TA]:
     @enable_ki_protection
-    async def __aenter__(self):
+    async def __aenter__(self: _TA) -> None:
         await self.acquire()
 
     __aenter__.__qualname__ = cls.__qualname__ + ".__aenter__"
-    cls.__aenter__ = __aenter__
+    cls.__aenter__ = __aenter__  # type: ignore[attr-defined]
 
     @enable_ki_protection
-    async def __aexit__(self, *args):
+    async def __aexit__(self: _TA, *args: object) -> None:
         self.release()
 
     __aexit__.__qualname__ = cls.__qualname__ + ".__aexit__"
-    cls.__aexit__ = __aexit__
+    cls.__aexit__ = __aexit__  # type: ignore[attr-defined]
     return cls
 
 
@@ -153,6 +168,8 @@ class CapacityLimiter(metaclass=Final):
 
     """
 
+    _total_tokens: int
+
     def __init__(self, total_tokens):
         self._lot = ParkingLot()
         self._borrowers = set()
@@ -168,7 +185,7 @@ class CapacityLimiter(metaclass=Final):
         )
 
     @property
-    def total_tokens(self):
+    def total_tokens(self) -> int:
         """The total capacity available.
 
         You can change :attr:`total_tokens` by assigning to this attribute. If
@@ -197,17 +214,17 @@ class CapacityLimiter(metaclass=Final):
             self._borrowers.add(self._pending_borrowers.pop(woken))
 
     @property
-    def borrowed_tokens(self):
+    def borrowed_tokens(self) -> int:
         """The amount of capacity that's currently in use."""
         return len(self._borrowers)
 
     @property
-    def available_tokens(self):
+    def available_tokens(self) -> int:
         """The amount of capacity that's available to use."""
         return self.total_tokens - self.borrowed_tokens
 
     @enable_ki_protection
-    def acquire_nowait(self):
+    def acquire_nowait(self) -> None:
         """Borrow a token from the sack, without blocking.
 
         Raises:
@@ -219,7 +236,7 @@ class CapacityLimiter(metaclass=Final):
         self.acquire_on_behalf_of_nowait(trio.lowlevel.current_task())
 
     @enable_ki_protection
-    def acquire_on_behalf_of_nowait(self, borrower):
+    def acquire_on_behalf_of_nowait(self, borrower: Union[object, Task]) -> None:
         """Borrow a token from the sack on behalf of ``borrower``, without
         blocking.
 
@@ -248,7 +265,7 @@ class CapacityLimiter(metaclass=Final):
             raise trio.WouldBlock
 
     @enable_ki_protection
-    async def acquire(self):
+    async def acquire(self) -> None:
         """Borrow a token from the sack, blocking if necessary.
 
         Raises:
@@ -259,7 +276,7 @@ class CapacityLimiter(metaclass=Final):
         await self.acquire_on_behalf_of(trio.lowlevel.current_task())
 
     @enable_ki_protection
-    async def acquire_on_behalf_of(self, borrower):
+    async def acquire_on_behalf_of(self, borrower: Union[object, Task]) -> None:
         """Borrow a token from the sack on behalf of ``borrower``, blocking if
         necessary.
 
@@ -288,7 +305,7 @@ class CapacityLimiter(metaclass=Final):
             await trio.lowlevel.cancel_shielded_checkpoint()
 
     @enable_ki_protection
-    def release(self):
+    def release(self) -> None:
         """Put a token back into the sack.
 
         Raises:
@@ -299,7 +316,7 @@ class CapacityLimiter(metaclass=Final):
         self.release_on_behalf_of(trio.lowlevel.current_task())
 
     @enable_ki_protection
-    def release_on_behalf_of(self, borrower):
+    def release_on_behalf_of(self, borrower: Union[object, Task]) -> None:
         """Put a token back into the sack on behalf of ``borrower``.
 
         Raises:
@@ -369,7 +386,7 @@ class Semaphore(metaclass=Final):
 
     """
 
-    def __init__(self, initial_value, *, max_value=None):
+    def __init__(self, initial_value: int, *, max_value: Optional[int] = None):
         if not isinstance(initial_value, int):
             raise TypeError("initial_value must be an int")
         if initial_value < 0:
@@ -397,17 +414,17 @@ class Semaphore(metaclass=Final):
         )
 
     @property
-    def value(self):
+    def value(self) -> int:
         """The current value of the semaphore."""
         return self._value
 
     @property
-    def max_value(self):
+    def max_value(self) -> Optional[int]:
         """The maximum allowed value. May be None to indicate no limit."""
         return self._max_value
 
     @enable_ki_protection
-    def acquire_nowait(self):
+    def acquire_nowait(self) -> None:
         """Attempt to decrement the semaphore value, without blocking.
 
         Raises:
@@ -421,7 +438,7 @@ class Semaphore(metaclass=Final):
             raise trio.WouldBlock
 
     @enable_ki_protection
-    async def acquire(self):
+    async def acquire(self) -> None:
         """Decrement the semaphore value, blocking if necessary to avoid
         letting it drop below zero.
 
@@ -435,7 +452,7 @@ class Semaphore(metaclass=Final):
             await trio.lowlevel.cancel_shielded_checkpoint()
 
     @enable_ki_protection
-    def release(self):
+    def release(self) -> None:
         """Increment the semaphore value, possibly waking a task blocked in
         :meth:`acquire`.
 
@@ -498,7 +515,7 @@ class _LockImpl:
         return self._owner is not None
 
     @enable_ki_protection
-    def acquire_nowait(self):
+    def acquire_nowait(self) -> None:
         """Attempt to acquire the lock, without blocking.
 
         Raises:
@@ -516,7 +533,7 @@ class _LockImpl:
             raise trio.WouldBlock
 
     @enable_ki_protection
-    async def acquire(self):
+    async def acquire(self) -> None:
         """Acquire the lock, blocking if necessary."""
         await trio.lowlevel.checkpoint_if_cancelled()
         try:
@@ -530,7 +547,7 @@ class _LockImpl:
             await trio.lowlevel.cancel_shielded_checkpoint()
 
     @enable_ki_protection
-    def release(self):
+    def release(self) -> None:
         """Release the lock.
 
         Raises:
@@ -696,7 +713,7 @@ class Condition(metaclass=Final):
         self._lock.release()
 
     @enable_ki_protection
-    async def wait(self):
+    async def wait(self) -> None:
         """Wait for another task to call :meth:`notify` or
         :meth:`notify_all`.
 
