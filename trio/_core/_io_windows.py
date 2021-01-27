@@ -860,7 +860,7 @@ class WindowsIOManager:
     @_public
     def monitor_completion_key(
         self,
-    ) -> Iterator[Tuple[int, _core.UnboundedQueue[CompletionKeyEventInfo]]]:
+    ) -> Iterator[Tuple[int, "_core.UnboundedQueue[CompletionKeyEventInfo]"]]:
         key = next(self._completion_key_counter)
         queue = _core.UnboundedQueue[CompletionKeyEventInfo]()
         self._completion_key_queues[key] = queue
