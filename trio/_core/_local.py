@@ -32,7 +32,26 @@ class _NoDefault:
     pass
 
 
-class RunVar(Generic[_T], metaclass=Final):
+# TODO: ack! this is...  not pleasant.  But otherwise we hit the exception below when
+#       testing in 3.6.  Part of cleaning this up is undoing the skip in
+#       test_classes_are_final().
+# ImportError while loading conftest '/home/altendky/repos/trio/trio/tests/conftest.py'.
+# trio/__init__.py:67: in <module>
+#     from ._highlevel_socket import SocketStream, SocketListener
+# trio/_highlevel_socket.py:8: in <module>
+#     from . import socket as tsocket
+# trio/socket.py:9: in <module>
+#     from . import _socket
+# trio/_socket.py:83: in <module>
+#     _resolver = _core.RunVar[Optional[HostnameResolver]]("hostname_resolver")
+# ../../.pyenv/versions/3.6.12/lib/python3.6/typing.py:682: in inner
+#     return func(*args, **kwds)
+# ../../.pyenv/versions/3.6.12/lib/python3.6/typing.py:1143: in __getitem__
+#     orig_bases=self.__orig_bases__)
+# E   TypeError: __new__() got an unexpected keyword argument 'tvars'
+import sys
+from .._util import BaseMeta
+class RunVar(Generic[_T], metaclass=Final if sys.version_info >= (3, 7) else BaseMeta):
     """The run-local variant of a context variable.
 
     :class:`RunVar` objects are similar to context variable objects,

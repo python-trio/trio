@@ -1,6 +1,6 @@
 from collections import deque, OrderedDict
 from math import inf
-import typing
+import sys
 from typing import cast, Callable, Deque, Generic, Set, Tuple, TypeVar, Union
 
 import attr
@@ -95,7 +95,9 @@ class MemoryChannelStats:
     tasks_waiting_receive = attr.ib()
 
 
-@attr.s(slots=True)
+# TODO: ick...  how to handle 3.6?
+#       https://github.com/python-attrs/attrs/issues/313
+@attr.s(slots=sys.version_info >= (3, 7))
 class MemoryChannelState(Generic[_T_contra]):
     max_buffer_size: float = attr.ib()
     data: Deque[_T_contra] = attr.ib(factory=deque)
