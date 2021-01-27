@@ -131,7 +131,7 @@ class KqueueIOManager:
         self,
         ident: int,
         filter: int,
-        abort_func: Callable[[Callable[[], None]], _core.Abort],
+        abort_func: Callable[[Callable[[], None]], "_core.Abort"],
     ) -> object:
         key = (ident, filter)
         if key in self._registered:
