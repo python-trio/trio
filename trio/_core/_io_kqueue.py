@@ -33,7 +33,7 @@ class _KqueueStatistics:
 class KqueueIOManager:
     _kqueue: select.kqueue = attr.ib(factory=select.kqueue)
     # {(ident, filter): Task or UnboundedQueue}
-    _registered: Dict[Tuple[int, int], Union[Task, UnboundedQueue[Task]]] = attr.ib(
+    _registered: Dict[Tuple[int, int], Union[Task, "UnboundedQueue[Task]"]] = attr.ib(
         factory=dict
     )
     _force_wakeup: WakeupSocketpair = attr.ib(factory=WakeupSocketpair)
@@ -113,7 +113,7 @@ class KqueueIOManager:
     @_public
     def monitor_kevent(
         self, ident: int, filter: int
-    ) -> Iterator[_core.UnboundedQueue[Task]]:
+    ) -> Iterator["_core.UnboundedQueue[Task]"]:
         key = (ident, filter)
         if key in self._registered:
             raise _core.BusyResourceError(
