@@ -4,6 +4,7 @@ import threading
 from queue import Queue
 import time
 import sys
+import typing
 
 from outcome import Outcome
 
@@ -61,7 +62,7 @@ def test_spawning_new_thread_from_deliver_reuses_starting_thread() -> None:
 
     # Make sure there are a few threads running, so if we weren't LIFO then we
     # could grab the wrong one.
-    q = Queue[Outcome]()
+    q: typing.Queue[Outcome] = Queue()
     COUNT = 5
     for _ in range(COUNT):
         start_thread_soon(lambda: time.sleep(1), lambda result: q.put(result))
