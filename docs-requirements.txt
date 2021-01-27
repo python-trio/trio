@@ -81,5 +81,5 @@ toml==0.10.2
     # via towncrier
 towncrier==19.2.0
     # via -r docs-requirements.in
-urllib3==1.26.2
+urllib3==1.26.3
     # via requests
