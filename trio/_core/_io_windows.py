@@ -862,7 +862,7 @@ class WindowsIOManager:
         self,
     ) -> Iterator[Tuple[int, "_core.UnboundedQueue[CompletionKeyEventInfo]"]]:
         key = next(self._completion_key_counter)
-        queue = _core.UnboundedQueue[CompletionKeyEventInfo]()
+        queue: "_core.UnboundedQueue[CompletionKeyEventInfo]" = _core.UnboundedQueue()
         self._completion_key_queues[key] = queue
         try:
             yield (key, queue)
