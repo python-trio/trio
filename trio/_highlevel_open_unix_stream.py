@@ -1,6 +1,7 @@
 import os
 from contextlib import contextmanager
-from typing import Iterator, Protocol, TypeVar
+from typing import Iterator, TypeVar
+from typing_extensions import Protocol
 
 import trio
 from trio.socket import socket, SOCK_STREAM
