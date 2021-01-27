@@ -103,7 +103,7 @@ class ParkingLot(metaclass=Final):
 
     # {task: None}, we just want a deque where we can quickly delete random
     # items
-    _parked: typing.OrderedDict[Task, None] = attr.ib(factory=OrderedDict, init=False)
+    _parked: "OrderedDict[Task, None]" = attr.ib(factory=OrderedDict, init=False)
 
     def __len__(self):
         """Returns the number of parked tasks."""

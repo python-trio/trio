@@ -4,7 +4,6 @@ import threading
 from queue import Queue
 import time
 import sys
-import typing
 
 from outcome import Outcome
 
@@ -62,7 +61,7 @@ def test_spawning_new_thread_from_deliver_reuses_starting_thread() -> None:
 
     # Make sure there are a few threads running, so if we weren't LIFO then we
     # could grab the wrong one.
-    q: typing.Queue[Outcome] = Queue()
+    q: "Queue[Outcome]" = Queue()
     COUNT = 5
     for _ in range(COUNT):
         start_thread_soon(lambda: time.sleep(1), lambda result: q.put(result))
@@ -95,7 +94,7 @@ def test_idle_threads_exit(monkeypatch: _pytest.monkeypatch.MonkeyPatch) -> None
     # CPU.)
     monkeypatch.setattr(_thread_cache, "IDLE_TIMEOUT", 0.0001)
 
-    q: typing.Queue[threading.Thread] = Queue()
+    q: "Queue[threading.Thread]" = Queue()
     start_thread_soon(lambda: None, lambda _: q.put(threading.current_thread()))
     seen_thread = q.get()
     # Since the idle timeout is 0, after sleeping for 1 second, the thread

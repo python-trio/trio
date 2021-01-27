@@ -103,9 +103,9 @@ class MemoryChannelState(Generic[_T_contra]):
     open_send_channels: int = attr.ib(default=0)
     open_receive_channels: int = attr.ib(default=0)
     # {task: value}
-    send_tasks: typing.OrderedDict[Task, _T_contra] = attr.ib(factory=OrderedDict)
+    send_tasks: "OrderedDict[Task, _T_contra]" = attr.ib(factory=OrderedDict)
     # {task: None}
-    receive_tasks: typing.OrderedDict[Task, None] = attr.ib(factory=OrderedDict)
+    receive_tasks: "OrderedDict[Task, None]" = attr.ib(factory=OrderedDict)
 
     def statistics(self):
         return MemoryChannelStats(
