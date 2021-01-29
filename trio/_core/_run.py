@@ -2167,8 +2167,6 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                     msg = task.context.run(next_send_fn, next_send)
                 except StopIteration as stop_iteration:
                     final_outcome = Value(stop_iteration.value)
-                    # prevent long-lived traceback reference
-                    del stop_iteration
                 except BaseException as task_exc:
                     # Store for later, removing uninteresting top frames: 1
                     # frame we always remove, because it's this function
@@ -2181,7 +2179,7 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                     # Remove local refs so that e.g. cancelled coroutine locals
                     # are not kept alive by this frame until another exception
                     # comes along.
-                    del tb, task_exc
+                    del tb
 
                 if final_outcome is not None:
                     # We can't call this directly inside the except: blocks
