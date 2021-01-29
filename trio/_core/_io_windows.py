@@ -407,6 +407,7 @@ class WindowsIOManager:
 
         # {lpOverlapped: task}
         self._overlapped_waiters = {}
+        self._overlapped_entries = {}
         self._posted_too_late_to_cancel = set()
 
         self._completion_key_queues = {}
@@ -530,6 +531,12 @@ class WindowsIOManager:
             elif entry.lpCompletionKey == CKeys.WAIT_OVERLAPPED:
                 # Regular I/O event, dispatch on lpOverlapped
                 waiter = self._overlapped_waiters.pop(entry.lpOverlapped)
+                overlapped = entry.lpOverlapped
+                transferred = entry.dwNumberOfBytesTransferred
+                info = CompletionKeyEventInfo(
+                    lpOverlapped=overlapped, dwNumberOfBytesTransferred=transferred
+                )
+                self._overlapped_entries[overlapped] = info
                 _core.reschedule(waiter)
             elif entry.lpCompletionKey == CKeys.LATE_CANCEL:
                 # Post made by a regular I/O event's abort_fn
@@ -763,6 +770,7 @@ class WindowsIOManager:
             return _core.Abort.FAILED
 
         await _core.wait_task_rescheduled(abort)
+        info = self._overlapped_entries.pop(lpOverlapped)
         if lpOverlapped.Internal != 0:
             # the lpOverlapped reports the error as an NT status code,
             # which we must convert back to a Win32 error code before
@@ -778,6 +786,7 @@ class WindowsIOManager:
                     raise _core.ClosedResourceError("another task closed this resource")
             else:
                 raise_winerror(code)
+        return info
 
     async def _perform_overlapped(self, handle, submit_fn):
         # submit_fn(lpOverlapped) submits some I/O
