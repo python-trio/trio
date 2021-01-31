@@ -2176,6 +2176,10 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                     for _ in range(CONTEXT_RUN_TB_FRAMES):
                         tb = tb.tb_next
                     final_outcome = Error(task_exc.with_traceback(tb))
+                    # Remove local refs so that e.g. cancelled coroutine locals
+                    # are not kept alive by this frame until another exception
+                    # comes along.
+                    del tb
 
                 if final_outcome is not None:
                     # We can't call this directly inside the except: blocks
@@ -2183,6 +2187,10 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                     # themselves to other exceptions as __context__ in
                     # unwanted ways.
                     runner.task_exited(task, final_outcome)
+                    # final_outcome may contain a traceback ref. It's not as
+                    # crucial compared to the above, but this will allow more
+                    # prompt release of resources in coroutine locals.
+                    final_outcome = None
                 else:
                     task._schedule_points += 1
                     if msg is CancelShieldedCheckpoint:
@@ -2211,10 +2219,16 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                         # which works for at least asyncio and curio.
                         runner.reschedule(task, exc)
                         task._next_send_fn = task.coro.throw
+                    # prevent long-lived reference
+                    # TODO: develop test for this deletion
+                    del msg
 
                 if "after_task_step" in runner.instruments:
                     runner.instruments.call("after_task_step", task)
                 del GLOBAL_RUN_CONTEXT.task
+                # prevent long-lived references
+                # TODO: develop test for these deletions
+                del task, next_send, next_send_fn
 
     except GeneratorExit:
         # The run-loop generator has been garbage collected without finishing
