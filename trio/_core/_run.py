@@ -2219,12 +2219,15 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                         # which works for at least asyncio and curio.
                         runner.reschedule(task, exc)
                         task._next_send_fn = task.coro.throw
+                    # prevent long-lived reference
+                    # TODO: develop test for this deletion
                     del msg
 
                 if "after_task_step" in runner.instruments:
                     runner.instruments.call("after_task_step", task)
                 del GLOBAL_RUN_CONTEXT.task
-                # prevent long-lived task reference
+                # prevent long-lived references
+                # TODO: develop test for these deletions
                 del task, next_send, next_send_fn
 
     except GeneratorExit:
