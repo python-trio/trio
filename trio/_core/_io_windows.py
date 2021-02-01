@@ -6,6 +6,7 @@ import sys
 from typing import TYPE_CHECKING
 
 import attr
+from outcome import Value
 
 from .. import _core
 from ._run import _public
@@ -407,7 +408,6 @@ class WindowsIOManager:
 
         # {lpOverlapped: task}
         self._overlapped_waiters = {}
-        self._overlapped_entries = {}
         self._posted_too_late_to_cancel = set()
 
         self._completion_key_queues = {}
@@ -536,8 +536,7 @@ class WindowsIOManager:
                 info = CompletionKeyEventInfo(
                     lpOverlapped=overlapped, dwNumberOfBytesTransferred=transferred
                 )
-                self._overlapped_entries[overlapped] = info
-                _core.reschedule(waiter)
+                _core.reschedule(waiter, Value(info))
             elif entry.lpCompletionKey == CKeys.LATE_CANCEL:
                 # Post made by a regular I/O event's abort_fn
                 # after it failed to cancel the I/O. If we still
@@ -769,8 +768,7 @@ class WindowsIOManager:
                     ) from exc
             return _core.Abort.FAILED
 
-        await _core.wait_task_rescheduled(abort)
-        info = self._overlapped_entries.pop(lpOverlapped)
+        info = await _core.wait_task_rescheduled(abort)
         if lpOverlapped.Internal != 0:
             # the lpOverlapped reports the error as an NT status code,
             # which we must convert back to a Win32 error code before
