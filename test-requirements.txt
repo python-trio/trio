@@ -68,7 +68,7 @@ mypy==0.800 ; implementation_name == "cpython"
     # via -r test-requirements.in
 outcome==1.1.0
     # via -r test-requirements.in
-packaging==20.8
+packaging==20.9
     # via pytest
 parso==0.8.1
     # via jedi
