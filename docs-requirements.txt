@@ -46,7 +46,7 @@ pygments==2.7.4
     # via sphinx
 pyparsing==2.4.7
     # via packaging
-pytz==2020.5
+pytz==2021.1
     # via babel
 requests==2.25.1
     # via sphinx
