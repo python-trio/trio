@@ -63,7 +63,7 @@ Building Command Line Apps
 
 Building GUI Apps
 -----------------
-* `QTrio <https://github.com/altendky/qtrio>`__ - Integration between Trio and either the PyQt or PySide Qt wrapper libraries.  Uses Trio's :ref:`guest mode <guest-mode>`.
+* `QTrio <https://qtrio.readthedocs.io/en/stable/>`__ - Integration between Trio and either the PyQt or PySide Qt wrapper libraries.  Uses Trio's :ref:`guest mode <guest-mode>`.
 
 
 Multi-Core/Multiprocessing
