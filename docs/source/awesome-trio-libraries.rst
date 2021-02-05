@@ -61,6 +61,11 @@ Building Command Line Apps
 * `urwid <https://github.com/urwid/urwid>`__ - Urwid is a console user interface library for Python.
 
 
+Building GUI Apps
+-----------------
+* `QTrio <https://qtrio.readthedocs.io/en/stable/>`__ - Integration between Trio and either the PyQt or PySide Qt wrapper libraries.  Uses Trio's :ref:`guest mode <guest-mode>`.
+
+
 Multi-Core/Multiprocessing
 --------------------------
 * `tractor <https://github.com/goodboy/tractor>`__ - An experimental, trionic (aka structured concurrent) "actor model" for distributed multi-core Python.
