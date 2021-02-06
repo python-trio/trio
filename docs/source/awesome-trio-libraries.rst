@@ -70,6 +70,7 @@ Multi-Core/Multiprocessing
 --------------------------
 * `tractor <https://github.com/goodboy/tractor>`__ - An experimental, trionic (aka structured concurrent) "actor model" for distributed multi-core Python.
 * `Trio run_in_process <https://github.com/ethereum/trio-run-in-process>`__ - Trio based API for running code in a separate process.
+* `trio-parallel <https://trio-parallel.readthedocs.io/>`__ - CPU parallelism for Trio
 
 
 RPC
