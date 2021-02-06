@@ -43,6 +43,13 @@ jobs:
         with:
           python-version: '${{ matrix.python }}'
           architecture: '${{ matrix.arch }}'
+      - name: Pip cache
+        uses: actions/cache@v2
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/test-requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
       - name: Run tests
         run: ./ci.sh
         shell: bash
@@ -59,7 +66,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.6', 'pypy-3.7', '3.6', '3.7', '3.8', '3.9', '3.6-dev', '3.7-dev', '3.8-dev', '3.9-dev']
+        python:
+          - '3.6'
+          - '3.7'
+          - '3.8'
+          - '3.9'
+          - '3.6-dev'
+          - '3.7-dev'
+          - '3.8-dev'
+          - '3.9-dev'
+          - 'pypy-3.6'
+          - 'pypy-3.7'
+          - 'pypy-3.7-nightly'
         check_formatting: ['0']
         pypy_nightly_branch: ['']
         extra_name: ['']
@@ -67,9 +85,6 @@ jobs:
           - python: '3.8'
             check_formatting: '1'
             extra_name: ', check formatting'
-          - python: '3.7'  # <- not actually used
-            pypy_nightly_branch: 'py3.7'
-            extra_name: ', pypy 3.7 nightly'
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -83,6 +98,13 @@ jobs:
         if: endsWith(matrix.python, '-dev')
         with:
           python-version: '${{ matrix.python }}'
+      - name: Pip cache
+        uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/test-requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
       - name: Run tests
         run: ./ci.sh
         env:
@@ -106,6 +128,13 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: '${{ matrix.python }}'
+      - name: Pip cache
+        uses: actions/cache@v2
+        with:
+          path: ~/Library/Caches/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/test-requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
       - name: Run tests
         run: ./ci.sh
         env:
