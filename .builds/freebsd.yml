@@ -3,6 +3,7 @@ packages:
   - curl
   - python39
   - py39-sqlite3
+  - rust  # required to build cryptography
 sources:
   - https://github.com/python-trio/trio
 tasks:
