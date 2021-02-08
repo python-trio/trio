@@ -6,6 +6,7 @@ import threading
 import time
 import types
 import warnings
+import weakref
 from contextlib import contextmanager, ExitStack
 from math import inf
 from textwrap import dedent
@@ -2253,3 +2254,27 @@ async def test_nursery_cancel_doesnt_create_cyclic_garbage() -> None:
     finally:
         gc.set_debug(old_flags)
         gc.garbage.clear()
+
+
+@pytest.mark.skipif(
+    sys.implementation.name != "cpython", reason="Only makes sense with refcounting GC"
+)
+async def test_locals_destroyed_promptly_on_cancel():
+    destroyed = False
+
+    def finalizer():
+        nonlocal destroyed
+        destroyed = True
+
+    class A:
+        pass
+
+    async def task():
+        a = A()
+        weakref.finalize(a, finalizer)
+        await _core.checkpoint()
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(task)
+        nursery.cancel_scope.cancel()
+    assert destroyed
