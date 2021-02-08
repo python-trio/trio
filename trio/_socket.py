@@ -273,8 +273,14 @@ if sys.platform == "win32" or (
 ):
 
     @_wraps(_stdlib_socket.fromshare, assigned=(), updated=())
-    def fromshare(*args: object, **kwargs: object) -> "SocketType":
-        return from_stdlib_socket(_stdlib_socket.fromshare(*args, **kwargs))
+    def fromshare(data: bytes) -> "SocketType":
+        # Not using *args, **kwargs to make mypy happy.
+        # trio/_socket.py:277: error: Argument 1 to "fromshare" has incompatible type "*Tuple[object, ...]"; expected "bytes"  [arg-type]
+        # trio/_socket.py:277: error: Argument 2 to "fromshare" has incompatible type "**Dict[str, object]"; expected "bytes"  [arg-type]
+        # So, we will just have to keep this in sync with the stdlib function in such
+        # case as it ever changes in the future.
+        # https://docs.python.org/3.9/library/socket.html#socket.fromshare
+        return from_stdlib_socket(_stdlib_socket.fromshare(data))
 
 
 # @overload

@@ -721,6 +721,7 @@ class WindowsIOManager:
     ) -> None:
         handle = _handle(handle)
         if isinstance(lpOverlapped, int):
+            # TODO: figure out how to hint this?
             lpOverlapped = ffi.cast("LPOVERLAPPED", lpOverlapped)
         if lpOverlapped in self._overlapped_waiters:
             raise _core.BusyResourceError(
@@ -766,11 +767,11 @@ class WindowsIOManager:
             return _core.Abort.FAILED
 
         await _core.wait_task_rescheduled(abort)
-        if lpOverlapped.Internal != 0:
+        if lpOverlapped.Internal != 0:  # type: ignore[attr-defined]
             # the lpOverlapped reports the error as an NT status code,
             # which we must convert back to a Win32 error code before
             # it will produce the right sorts of exceptions
-            code = ntdll.RtlNtStatusToDosError(lpOverlapped.Internal)
+            code = ntdll.RtlNtStatusToDosError(lpOverlapped.Internal)  # type: ignore[attr-defined]
             if code == ErrorCodes.ERROR_OPERATION_ABORTED:
                 if raise_cancel is not None:
                     raise_cancel()
@@ -823,7 +824,7 @@ class WindowsIOManager:
 
             lpOverlapped = await self._perform_overlapped(handle, submit_write)
             # this is "number of bytes transferred"
-            return lpOverlapped.InternalHigh
+            return lpOverlapped.InternalHigh  # type: ignore[no-any-return]
 
     @_public
     async def readinto_overlapped(
@@ -846,7 +847,7 @@ class WindowsIOManager:
                 )
 
             lpOverlapped = await self._perform_overlapped(handle, submit_read)
-            return lpOverlapped.InternalHigh
+            return lpOverlapped.InternalHigh  # type: ignore[no-any-return]
 
     ################################################################
     # Raw IOCP operations

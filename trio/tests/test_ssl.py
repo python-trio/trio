@@ -80,7 +80,10 @@ def client_ctx(request: _pytest.fixtures.SubRequest) -> ssl.SSLContext:
     if request.param in ["default", "tls13"]:
         return ctx
     elif request.param == "tls12":
-        ctx.options |= ssl.OP_NO_TLSv1_3
+        # https://github.com/python/typeshed/blob/a3f5541830205400cdf3aac04625e8a09f86cace/stdlib/ssl.pyi#L146-L148
+        # but it is there in ~=3.6.3 as well...
+        # https://docs.python.org/3.9/library/ssl.html#ssl.OP_NO_TLSv1_3
+        ctx.options |= ssl.OP_NO_TLSv1_3  # type: ignore[attr-defined]
         return ctx
     else:  # pragma: no cover
         assert False
