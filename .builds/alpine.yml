@@ -6,7 +6,9 @@ packages:
   - musl-dev
   - openssl-dev
   - python3-dev
-  - rust  # required to build cryptography
+  # required to build cryptography
+  - rust
+  - cargo
 sources:
   - https://github.com/python-trio/trio
 tasks:
