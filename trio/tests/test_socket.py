@@ -6,6 +6,7 @@ import attr
 
 import os
 import socket as stdlib_socket
+import sys
 import inspect
 import tempfile
 import sys as _sys
@@ -256,15 +257,21 @@ async def test_socketpair_simple():
 
 @pytest.mark.skipif(not hasattr(tsocket, "fromshare"), reason="windows only")
 async def test_fromshare() -> None:
-    a, b = tsocket.socketpair()
-    with a, b:
-        # share with ourselves
-        shared = a.share(os.getpid())
-        a2 = tsocket.fromshare(shared)  # type: ignore[attr-defined]
-        with a2:
-            assert a.fileno() != a2.fileno()
-            await a2.send(b"x")
-            assert await b.recv(1) == b"x"
+    if sys.platform != "win32":
+        # mypy doesn't recognize the pytest.mark.skipif and ignores an assert inside
+        # this function.
+        # https://github.com/python/mypy/issues/9025
+        assert False  # we should have been skipped, if not then fail
+    else:
+        a, b = tsocket.socketpair()
+        with a, b:
+            # share with ourselves
+            shared = a.share(os.getpid())
+            a2 = tsocket.fromshare(shared)
+            with a2:
+                assert a.fileno() != a2.fileno()
+                await a2.send(b"x")
+                assert await b.recv(1) == b"x"
 
 
 async def test_socket():

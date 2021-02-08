@@ -25,6 +25,7 @@ from ..testing import MockClock, wait_all_tasks_blocked
 SIGKILL: Optional[signal.Signals]
 SIGTERM: Optional[signal.Signals]
 SIGUSR1: Optional[signal.Signals]
+SIGCHLD: Optional[signal.Signals]
 
 # TODO: is this the proper translation from os.name to sys.platform?
 # Mypy understands sys.platform but not os.name
@@ -33,9 +34,12 @@ posix = sys.platform != "win32"
 if sys.platform != "win32":
     import signal
 
-    SIGKILL, SIGTERM, SIGUSR1 = signal.SIGKILL, signal.SIGTERM, signal.SIGUSR1
+    SIGKILL = signal.SIGKILL
+    SIGTERM = signal.SIGTERM
+    SIGUSR1 = signal.SIGUSR1
+    SIGCHLD = signal.SIGCHLD
 else:
-    SIGKILL, SIGTERM, SIGUSR1 = None, None, None
+    SIGKILL, SIGTERM, SIGUSR1, SIGCHLD = None, None, None, None
 
 
 # Since Windows has very few command-line utilities generally available,
@@ -393,21 +397,28 @@ async def test_signals():
 
 @pytest.mark.skipif(not posix, reason="POSIX specific")
 async def test_wait_reapable_fails() -> None:
-    old_sigchld = signal.signal(signal.SIGCHLD, signal.SIG_IGN)
-    try:
-        # With SIGCHLD disabled, the wait() syscall will wait for the
-        # process to exit but then fail with ECHILD. Make sure we
-        # support this case as the stdlib subprocess module does.
-        async with await open_process(SLEEP(3600)) as proc:
-            async with _core.open_nursery() as nursery:
-                nursery.start_soon(proc.wait)
-                await wait_all_tasks_blocked()
-                proc.kill()
-                nursery.cancel_scope.deadline = _core.current_time() + 1.0
-            assert not nursery.cancel_scope.cancelled_caught
-            assert proc.returncode == 0  # exit status unknowable, so...
-    finally:
-        signal.signal(signal.SIGCHLD, old_sigchld)
+    if sys.platform == "win32":
+        # mypy doesn't recognize the pytest.mark.skipif and ignores an assert inside
+        # this function.
+        # https://github.com/python/mypy/issues/9025
+        assert False  # we should have been skipped, if not then fail
+    else:
+        assert SIGCHLD is not None  # for mypy
+        old_sigchld = signal.signal(SIGCHLD, signal.SIG_IGN)
+        try:
+            # With SIGCHLD disabled, the wait() syscall will wait for the
+            # process to exit but then fail with ECHILD. Make sure we
+            # support this case as the stdlib subprocess module does.
+            async with await open_process(SLEEP(3600)) as proc:
+                async with _core.open_nursery() as nursery:
+                    nursery.start_soon(proc.wait)
+                    await wait_all_tasks_blocked()
+                    proc.kill()
+                    nursery.cancel_scope.deadline = _core.current_time() + 1.0
+                assert not nursery.cancel_scope.cancelled_caught
+                assert proc.returncode == 0  # exit status unknowable, so...
+        finally:
+            signal.signal(SIGCHLD, old_sigchld)
 
 
 @slow
@@ -420,26 +431,32 @@ def test_waitid_eintr() -> None:
         pytest.skip("waitid only")
     from .._subprocess_platform.waitid import sync_wait_reapable
 
-    got_alarm = False
-    sleeper = subprocess.Popen(["sleep", "3600"])
+    if sys.platform == "win32":
+        # mypy doesn't recognize the waitid checks above as representing not-Windows
+        # and ignores an assert inside this function.
+        # https://github.com/python/mypy/issues/9025
+        assert False  # we should have been skipped, if not then fail
+    else:
+        got_alarm = False
+        sleeper = subprocess.Popen(["sleep", "3600"])
 
-    def on_alarm(sig, frame):
-        nonlocal got_alarm
-        got_alarm = True
-        sleeper.kill()
-
-    old_sigalrm = signal.signal(signal.SIGALRM, on_alarm)
-    try:
-        signal.alarm(1)
-        sync_wait_reapable(sleeper.pid)
-        assert sleeper.wait(timeout=1) == -9
-    finally:
-        if sleeper.returncode is None:  # pragma: no cover
-            # We only get here if something fails in the above;
-            # if the test passes, wait() will reap the process
+        def on_alarm(sig, frame):
+            nonlocal got_alarm
+            got_alarm = True
             sleeper.kill()
-            sleeper.wait()
-        signal.signal(signal.SIGALRM, old_sigalrm)
+
+        old_sigalrm = signal.signal(signal.SIGALRM, on_alarm)
+        try:
+            signal.alarm(1)
+            sync_wait_reapable(sleeper.pid)
+            assert sleeper.wait(timeout=1) == -9
+        finally:
+            if sleeper.returncode is None:  # pragma: no cover
+                # We only get here if something fails in the above;
+                # if the test passes, wait() will reap the process
+                sleeper.kill()
+                sleeper.wait()
+            signal.signal(signal.SIGALRM, old_sigalrm)
 
 
 async def test_custom_deliver_cancel():
