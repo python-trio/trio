@@ -2259,7 +2259,7 @@ async def test_nursery_cancel_doesnt_create_cyclic_garbage() -> None:
 @pytest.mark.skipif(
     sys.implementation.name != "cpython", reason="Only makes sense with refcounting GC"
 )
-async def test_locals_destroyed_promptly_on_cancel():
+async def test_locals_destroyed_promptly_on_cancel() -> None:
     destroyed = False
 
     def finalizer():

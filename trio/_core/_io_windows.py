@@ -724,7 +724,7 @@ class WindowsIOManager:
     @_public
     async def wait_overlapped(
         self, handle: socket.socket, lpOverlapped: Union[int, object]
-    ) -> None:
+    ) -> object:
         handle = _handle(handle)
         if isinstance(lpOverlapped, int):
             # TODO: figure out how to hint this?
@@ -788,7 +788,7 @@ class WindowsIOManager:
                     raise _core.ClosedResourceError("another task closed this resource")
             else:
                 raise_winerror(code)
-        return info
+        return object
 
     async def _perform_overlapped(self, handle, submit_fn):
         # submit_fn(lpOverlapped) submits some I/O
