@@ -61,12 +61,16 @@ jobs:
       matrix:
         python: ['pypy-3.6', 'pypy-3.7', '3.6', '3.7', '3.8', '3.9', '3.6-dev', '3.7-dev', '3.8-dev', '3.9-dev']
         check_formatting: ['0']
+        check_typing: ['0']
         pypy_nightly_branch: ['']
         extra_name: ['']
         include:
           - python: '3.8'
             check_formatting: '1'
             extra_name: ', check formatting'
+          - python: '3.8'
+            check_typing: '1'
+            extra_name: ', check typing'
           - python: '3.7'  # <- not actually used
             pypy_nightly_branch: 'py3.7'
             extra_name: ', pypy 3.7 nightly'
@@ -88,6 +92,7 @@ jobs:
         env:
           PYPY_NIGHTLY_BRANCH: '${{ matrix.pypy_nightly_branch }}'
           CHECK_FORMATTING: '${{ matrix.check_formatting }}'
+          CHECK_TYPING: '${{ matrix.check_typing }}'
           # Should match 'name:' up above
           JOB_NAME: 'Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})'
 
