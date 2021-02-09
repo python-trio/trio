@@ -9,9 +9,11 @@ python ./trio/_tools/gen_exports.py --test \
     || EXIT_STATUS=$?
 
 # Run mypy on all supported platforms
-mypy -p trio --platform linux || EXIT_STATUS=$?
-mypy -p trio --platform darwin || EXIT_STATUS=$?  # tests FreeBSD too
-mypy -p trio --platform win32 || EXIT_STATUS=$?
+for PLATFORM in linux darwin win32; do
+  for VERSION in 3.6 3.7 3.8 3.9; do
+    mypy -p trio --platform $PLATFORM --python-version $VERSION || EXIT_STATUS=$?
+  done
+done
 
 # Finally, leave a really clear warning of any issues and exit
 if [ $EXIT_STATUS -ne 0 ]; then
