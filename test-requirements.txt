@@ -27,7 +27,7 @@ click==7.1.2
     # via black
 coverage==5.4
     # via pytest-cov
-cryptography==3.4.1
+cryptography==3.4.3
     # via
     #   pyopenssl
     #   trustme
@@ -108,10 +108,6 @@ pytest==6.1.2
     #   pytest-cov
 regex==2020.11.13
     # via black
-semantic-version==2.8.5
-    # via setuptools-rust
-setuptools-rust==0.11.6
-    # via cryptography
 six==1.15.0
     # via
     #   astroid
@@ -125,7 +121,6 @@ toml==0.10.2
     #   black
     #   pylint
     #   pytest
-    #   setuptools-rust
 traitlets==5.0.5
     # via ipython
 trustme==0.6.0
