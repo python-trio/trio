@@ -84,7 +84,7 @@ if [ "$CHECK_FORMATTING" = "1" ]; then
     python -m pip install -r test-requirements.txt
     source check.sh
 else
-    # Actual tests
+    # Actual tests.
     time python -m pip install -r test-requirements.txt
 
     # So we can run the test for our apport/excepthook interaction working
