@@ -1,12 +1,8 @@
-import errno
-import select
-
-import os
+import random
 import sys
 import pytest
 
-from .._core.tests.tutil import gc_collect_harder
-from .. import _core, move_on_after
+from .. import _core, Event, move_on_after, Lock
 from ..testing import wait_all_tasks_blocked, check_one_way_stream
 
 if sys.platform == "win32":
@@ -223,3 +219,54 @@ async def test_pipe_fully():
     # passing make_clogged_pipe tests wait_send_all_might_not_block, and we
     # can't implement that on Windows
     await check_one_way_stream(make_pipe_stream, None)
+
+
+async def test_channel_message_never_splits():
+    w, r = await make_pipe_channel()
+    big_bytes = bytearray(DEFAULT_RECEIVE_SIZE * 2)
+    read_lock = Lock()
+
+    async def write_big():
+        write_ev.set()
+        await w.send(big_bytes)
+
+    async def read_big():
+      async with read_lock:
+        read_ev.set()
+        nonlocal result
+        with read_cs:
+            result = await r.receive()
+
+    # bug was usually triggered within 5 tries
+    for i in range(10):
+        result = None
+        write_ev = Event()
+        read_ev = Event()
+        read_cs = _core.CancelScope()
+        if random.getrandbits(1):
+            # cancel a read on a blocked write
+            async with _core.open_nursery() as nursery:
+                nursery.start_soon(write_big)
+                await write_ev.wait()
+                nursery.start_soon(read_big)
+                await read_ev.wait()
+                read_cs.cancel()
+                with move_on_after(0.001):
+                    async with read_lock:
+                        result = await r.receive()
+                nursery.cancel_scope.cancel()
+        else:
+            # Cancel a read on a non-blocked write
+            async with _core.open_nursery() as nursery:
+                nursery.start_soon(read_big)
+                await read_ev.wait()
+                nursery.start_soon(write_big)
+                await write_ev.wait()
+                read_cs.cancel()
+                with move_on_after(0.01):
+                    async with read_lock:
+                        result = await r.receive()
+                nursery.cancel_scope.cancel()
+
+        assert result is None or len(result) == len(big_bytes)
+

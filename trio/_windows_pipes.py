@@ -174,6 +174,9 @@ class PipeReceiveChannel(ReceiveChannel[bytes]):
             except OSError as e:
                 if e.winerror != ErrorCodes.ERROR_MORE_DATA:
                     raise  # pragma: no cover
+                # If we get this far, windows has filled our buffer but there
+                # is more to receive. We have survived a checkpoint_if_cancelled,
+                # done a Windows system call, but not a Trio checkpoint.
                 left = peek_pipe_message_left(self._handle_holder.handle)
                 # preallocate memory to avoid an extra copy of very large messages
                 newbuffer = bytearray(DEFAULT_RECEIVE_SIZE + left)
@@ -200,8 +203,8 @@ class PipeReceiveChannel(ReceiveChannel[bytes]):
             # whenever the other end closes, regardless of direction.
             # Convert this to EndOfChannel.
             #
-            # Do we have to checkpoint manually? We are raising an exception.
-            await _core.checkpoint()
+            # We are raising an exception so we don't need to checkpoint,
+            # in contrast to PipeSendStream.
             raise _core.EndOfChannel
 
     async def aclose(self):
