@@ -47,9 +47,9 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ~\AppData\Local\pip\Cache
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/test-requirements.txt') }}
+          key: ${{ runner.os }}-${{ matrix.arch }}-pip-${{ hashFiles('**/test-requirements.txt') }}
           restore-keys: |
-            ${{ runner.os }}-pip-
+            ${{ runner.os }}-${{ matrix.arch }}-pip-
       - name: Run tests
         run: ./ci.sh
         shell: bash
