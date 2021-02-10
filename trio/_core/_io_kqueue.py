@@ -2,24 +2,18 @@ import select
 import sys
 from typing import Callable, Dict, Iterator, Optional, Tuple, TYPE_CHECKING, Union
 
-from typing_extensions import Protocol
-
 import outcome
 from contextlib import contextmanager
 import attr
 import errno
 
 from .. import _core
+from .._typing import _HasFileno
 from ._run import _public, Task
 from ._unbounded_queue import UnboundedQueue
 from ._wakeup_socketpair import WakeupSocketpair
 
 assert not TYPE_CHECKING or (sys.platform != "linux" and sys.platform != "win32")
-
-
-class _HasFileno(Protocol):
-    def fileno(self) -> int:
-        ...
 
 
 @attr.s(slots=True, eq=False, frozen=True)

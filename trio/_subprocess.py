@@ -27,6 +27,7 @@ from ._subprocess_platform import (
     create_pipe_to_child_stdin,
     create_pipe_from_child_output,
 )
+from ._typing import _HasFileno
 from ._util import NoPublicConstructor
 import trio
 
@@ -291,11 +292,6 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         ensure the process is actually dead before proceeding.
         """
         self._proc.kill()
-
-
-class _HasFileno(Protocol):
-    def fileno(self) -> int:
-        ...
 
 
 _Redirect = Union[int, _HasFileno, None]

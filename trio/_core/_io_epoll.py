@@ -7,16 +7,12 @@ from typing import DefaultDict, Dict, TYPE_CHECKING, Union
 from typing_extensions import Protocol
 
 from .. import _core
+from .._typing import _HasFileno
 from ._run import _public
 from ._io_common import wake_all
 from ._wakeup_socketpair import WakeupSocketpair
 
 assert not TYPE_CHECKING or sys.platform == "linux"
-
-
-class _HasFileno(Protocol):
-    def fileno(self) -> int:
-        ...
 
 
 @attr.s(slots=True, eq=False, frozen=True)
