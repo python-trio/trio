@@ -8,7 +8,7 @@ from ._instrumentation import Instrument
 # fmt: off
 
 
-async def wait_readable(sock):
+async def wait_readable(sock: socket.socket) ->None:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_readable(sock)
@@ -16,7 +16,7 @@ async def wait_readable(sock):
         raise RuntimeError("must be called from async context")
 
 
-async def wait_writable(sock):
+async def wait_writable(sock: socket.socket) ->None:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_writable(sock)
@@ -24,7 +24,7 @@ async def wait_writable(sock):
         raise RuntimeError("must be called from async context")
 
 
-def notify_closing(handle):
+def notify_closing(handle: socket.socket) ->None:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.notify_closing(handle)
@@ -32,7 +32,7 @@ def notify_closing(handle):
         raise RuntimeError("must be called from async context")
 
 
-def register_with_iocp(handle):
+def register_with_iocp(handle: socket.socket) ->None:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.register_with_iocp(handle)
@@ -40,7 +40,8 @@ def register_with_iocp(handle):
         raise RuntimeError("must be called from async context")
 
 
-async def wait_overlapped(handle, lpOverlapped):
+async def wait_overlapped(handle: socket.socket, lpOverlapped: Union[int,
+    object]) ->object:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_overlapped(handle, lpOverlapped)
@@ -48,7 +49,7 @@ async def wait_overlapped(handle, lpOverlapped):
         raise RuntimeError("must be called from async context")
 
 
-async def write_overlapped(handle, data, file_offset=0):
+async def write_overlapped(handle: int, data: bytes, file_offset: int=0) ->int:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.write_overlapped(handle, data, file_offset)
@@ -56,7 +57,8 @@ async def write_overlapped(handle, data, file_offset=0):
         raise RuntimeError("must be called from async context")
 
 
-async def readinto_overlapped(handle, buffer, file_offset=0):
+async def readinto_overlapped(handle: int, buffer: memoryview, file_offset:
+    int=0) ->int:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.readinto_overlapped(handle, buffer, file_offset)
@@ -64,7 +66,7 @@ async def readinto_overlapped(handle, buffer, file_offset=0):
         raise RuntimeError("must be called from async context")
 
 
-def current_iocp():
+def current_iocp() ->int:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.current_iocp()
@@ -72,7 +74,8 @@ def current_iocp():
         raise RuntimeError("must be called from async context")
 
 
-def monitor_completion_key():
+def monitor_completion_key() ->Iterator[Tuple[int,
+    '_core.UnboundedQueue[CompletionKeyEventInfo]']]:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.monitor_completion_key()

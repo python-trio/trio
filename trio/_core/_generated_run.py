@@ -8,7 +8,7 @@ from ._instrumentation import Instrument
 # fmt: off
 
 
-def current_statistics():
+def current_statistics() ->_RunStatistics:
     """Returns an object containing run-loop-level debugging information.
 
         Currently the following fields are defined:
@@ -38,7 +38,7 @@ def current_statistics():
         raise RuntimeError("must be called from async context")
 
 
-def current_time():
+def current_time() ->float:
     """Returns the current time according to Trio's internal clock.
 
         Returns:
@@ -55,7 +55,7 @@ def current_time():
         raise RuntimeError("must be called from async context")
 
 
-def current_clock():
+def current_clock() ->Clock:
     """Returns the current :class:`~trio.abc.Clock`."""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
@@ -64,7 +64,7 @@ def current_clock():
         raise RuntimeError("must be called from async context")
 
 
-def current_root_task():
+def current_root_task() ->Optional[Task]:
     """Returns the current root :class:`Task`.
 
         This is the task that is the ultimate parent of all other tasks.
@@ -77,7 +77,7 @@ def current_root_task():
         raise RuntimeError("must be called from async context")
 
 
-def reschedule(task, next_send=_NO_SEND):
+def reschedule(task: Task, next_send: object=_NO_SEND) ->None:
     """Reschedule the given task with the given
         :class:`outcome.Outcome`.
 
@@ -102,7 +102,8 @@ def reschedule(task, next_send=_NO_SEND):
         raise RuntimeError("must be called from async context")
 
 
-def spawn_system_task(async_fn, *args, name=None):
+def spawn_system_task(async_fn: Callable[..., Awaitable[object]], *args:
+    object, name: Optional[str]=None) ->Task:
     """Spawn a "system" task.
 
         System tasks have a few differences from regular tasks:
@@ -157,7 +158,7 @@ def spawn_system_task(async_fn, *args, name=None):
         raise RuntimeError("must be called from async context")
 
 
-def current_trio_token():
+def current_trio_token() ->TrioToken:
     """Retrieve the :class:`TrioToken` for the current call to
         :func:`trio.run`.
 
@@ -169,7 +170,7 @@ def current_trio_token():
         raise RuntimeError("must be called from async context")
 
 
-async def wait_all_tasks_blocked(cushion=0.0):
+async def wait_all_tasks_blocked(cushion: float=0.0) ->None:
     """Block until there are no runnable tasks.
 
         This is useful in testing code when you want to give other tasks a
