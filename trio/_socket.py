@@ -455,7 +455,7 @@ class SocketType:
         async def wait_writable(self) -> None:
             ...
 
-        async def accept(self) -> Tuple[SocketType, Any]:
+        async def accept(self) -> Tuple["SocketType", Any]:
             ...
 
         async def connect(self, address: Union[Tuple[Any, ...], str, bytes]) -> None:

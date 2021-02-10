@@ -1,7 +1,7 @@
 import sys
 import traceback
 import textwrap
-from typing import Callable, Optional, overload, Set, Union
+from typing import Callable, ContextManager, Optional, overload, Set, Union
 import warnings
 
 import attr
@@ -258,7 +258,7 @@ class MultiError(BaseException):
     @classmethod
     def catch(
         cls, handler: Callable[[Exception], Optional[Exception]]
-    ) -> MultiErrorCatcher:
+    ) -> ContextManager[None]:
         """Return a context manager that catches and re-throws exceptions
         after running :meth:`filter` on them.
 
