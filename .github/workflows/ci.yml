@@ -43,13 +43,13 @@ jobs:
         with:
           python-version: '${{ matrix.python }}'
           architecture: '${{ matrix.arch }}'
-#      - name: Pip cache
-#        uses: actions/cache@v2
-#        with:
-#          path: ~\AppData\Local\pip\Cache
-#          key: ${{ runner.os }}-pip-${{ hashFiles('**/test-requirements.txt') }}
-#          restore-keys: |
-#            ${{ runner.os }}-pip-
+      - name: Pip cache
+        uses: actions/cache@v2
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/test-requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
       - name: Run tests
         run: ./ci.sh
         shell: bash
@@ -98,13 +98,13 @@ jobs:
         if: endsWith(matrix.python, '-dev')
         with:
           python-version: '${{ matrix.python }}'
-#      - name: Pip cache
-#        uses: actions/cache@v2
-#        with:
-#          path: ~/.cache/pip
-#          key: ${{ runner.os }}-pip-${{ hashFiles('**/test-requirements.txt') }}
-#          restore-keys: |
-#            ${{ runner.os }}-pip-
+      - name: Pip cache
+        uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/test-requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
       - name: Run tests
         run: ./ci.sh
         env:
@@ -128,13 +128,13 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: '${{ matrix.python }}'
-#      - name: Pip cache
-#        uses: actions/cache@v2
-#        with:
-#          path: ~/Library/Caches/pip
-#          key: ${{ runner.os }}-pip-${{ hashFiles('**/test-requirements.txt') }}
-#          restore-keys: |
-#            ${{ runner.os }}-pip-
+      - name: Pip cache
+        uses: actions/cache@v2
+        with:
+          path: ~/Library/Caches/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/test-requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
       - name: Run tests
         run: ./ci.sh
         env:
