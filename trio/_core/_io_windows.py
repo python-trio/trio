@@ -788,7 +788,7 @@ class WindowsIOManager:
                     raise _core.ClosedResourceError("another task closed this resource")
             else:
                 raise_winerror(code)
-        return object
+        return info
 
     async def _perform_overlapped(self, handle, submit_fn):
         # submit_fn(lpOverlapped) submits some I/O
