@@ -182,7 +182,11 @@ class PipeReceiveChannel(ReceiveChannel[bytes]):
                 newbuffer = bytearray(DEFAULT_RECEIVE_SIZE + left)
                 with memoryview(newbuffer) as view:
                     view[:DEFAULT_RECEIVE_SIZE] = buffer
-                    await self._receive_some_into(view[DEFAULT_RECEIVE_SIZE:])
+                    # If we make it this far the pipe will not block, but also
+                    # we MUST NOT cancel at checkpoint_if_cancelled, otherwise
+                    # the message may be split to the next call to receive()
+                    with _core.CancelScope(shield=True):
+                        await self._receive_some_into(view[DEFAULT_RECEIVE_SIZE:])
                 return newbuffer
             else:
                 del buffer[received:]

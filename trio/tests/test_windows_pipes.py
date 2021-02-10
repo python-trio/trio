@@ -231,11 +231,11 @@ async def test_channel_message_never_splits():
         await w.send(big_bytes)
 
     async def read_big():
-      async with read_lock:
-        read_ev.set()
-        nonlocal result
-        with read_cs:
-            result = await r.receive()
+        async with read_lock:
+            read_ev.set()
+            nonlocal result
+            with read_cs:
+                result = await r.receive()
 
     # bug was usually triggered within 5 tries
     for i in range(10):
@@ -269,4 +269,3 @@ async def test_channel_message_never_splits():
                 nursery.cancel_scope.cancel()
 
         assert result is None or len(result) == len(big_bytes)
-
