@@ -47,9 +47,10 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ~\AppData\Local\pip\Cache
-          key: ${{ runner.os }}-${{ matrix.arch }}-pip-${{ hashFiles('**/test-requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ matrix.arch }}-${{ matrix.python }}-${{ hashFiles('**/test-requirements.txt') }}
           restore-keys: |
-            ${{ runner.os }}-${{ matrix.arch }}-pip-
+            ${{ runner.os }}-pip-${{ matrix.arch }}-${{ matrix.python }}-
+            ${{ runner.os }}-pip-
       - name: Run tests
         run: ./ci.sh
         shell: bash
@@ -102,8 +103,9 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/test-requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ matrix.python }}-${{ hashFiles('**/test-requirements.txt') }}
           restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.python }}-
             ${{ runner.os }}-pip-
       - name: Run tests
         run: ./ci.sh
@@ -132,8 +134,9 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ~/Library/Caches/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/test-requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ matrix.python }}-${{ hashFiles('**/test-requirements.txt') }}
           restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.python }}-
             ${{ runner.os }}-pip-
       - name: Run tests
         run: ./ci.sh
