@@ -8,7 +8,7 @@ on_windows = os.name == "nt"
 # Mark all the tests in this file as being windows-only
 pytestmark = pytest.mark.skipif(not on_windows, reason="windows only")
 
-from .tutil import slow, gc_collect_harder
+from .tutil import slow, gc_collect_harder, restore_unraisablehook
 from ... import _core, sleep, move_on_after
 from ...testing import wait_all_tasks_blocked
 
@@ -111,6 +111,7 @@ def pipe_with_overlapped_read():
         kernel32.CloseHandle(ffi.cast("HANDLE", write_handle))
 
 
+@restore_unraisablehook()
 def test_forgot_to_register_with_iocp():
     with pipe_with_overlapped_read() as (write_fp, read_handle):
         with write_fp:
