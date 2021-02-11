@@ -5,9 +5,6 @@ from typing import Generic, List, Optional, Text, Tuple, TYPE_CHECKING, TypeVar,
 import socket
 import trio
 
-if TYPE_CHECKING:
-    from ._socket import SocketType
-
 
 _T = TypeVar("_T")
 
@@ -210,7 +207,7 @@ class SocketFactory(metaclass=ABCMeta):
         family: Optional[int] = None,
         type: Optional[int] = None,
         proto: Optional[int] = None,
-    ) -> "SocketType":
+    ) -> "trio.socket.SocketType":
         """Create and return a socket object.
 
         Your socket object must inherit from :class:`trio.socket.SocketType`,

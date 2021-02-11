@@ -1,3 +1,4 @@
+from abc import ABCMeta
 import os
 import sys
 import select
@@ -23,7 +24,6 @@ import idna as _idna
 
 import trio
 from . import _core
-from ._abc import HostnameResolver, SocketFactory
 
 
 _T = TypeVar("_T")
@@ -80,8 +80,8 @@ except ImportError:
 # Overrides
 ################################################################
 
-_resolver = _core.RunVar[Optional[HostnameResolver]]("hostname_resolver")
-_socket_factory = _core.RunVar[Optional[SocketFactory]]("socket_factory")
+_resolver = _core.RunVar[Optional["trio._abc.HostnameResolver"]]("hostname_resolver")
+_socket_factory = _core.RunVar[Optional["trio._abc.SocketFactory"]]("socket_factory")
 
 
 def set_custom_hostname_resolver(hostname_resolver):
@@ -117,8 +117,8 @@ def set_custom_hostname_resolver(hostname_resolver):
 
 
 def set_custom_socket_factory(
-    socket_factory: Optional[SocketFactory],
-) -> Optional[SocketFactory]:
+    socket_factory: Optional["trio.abc.SocketFactory"],
+) -> Optional["trio.abc.SocketFactory"]:
     """Set a custom socket object factory.
 
     This function allows you to replace Trio's normal socket class with a
@@ -253,7 +253,7 @@ async def getprotobyname(name):
 ################################################################
 
 
-def from_stdlib_socket(sock: _stdlib_socket.socket) -> "_SocketType":
+def from_stdlib_socket(sock: _stdlib_socket.socket) -> "SocketType":
     """Convert a standard library :func:`socket.socket` object into a Trio
     socket object.
 
@@ -406,156 +406,151 @@ def _make_simple_sock_method_wrapper(methname, wait_fn, maybe_avail=False):
     return wrapper
 
 
-class SocketType:
-    def __init__(self):
+class SocketType(metaclass=ABCMeta):
+    @property
+    def family(self) -> int:
         raise TypeError(
             "SocketType is an abstract class; use trio.socket.socket if you "
             "want to construct a socket object"
         )
 
-    if TYPE_CHECKING:
+    @property
+    def type(self) -> int:
+        ...
 
-        @property
-        def family(self) -> int:
-            ...
+    @property
+    def proto(self) -> int:
+        ...
 
-        @property
-        def type(self) -> int:
-            ...
+    @property
+    def did_shutdown_SHUT_WR(self) -> bool:
+        ...
 
-        @property
-        def proto(self) -> int:
-            ...
+    def __enter__(self: _T) -> _T:
+        ...
 
-        @property
-        def did_shutdown_SHUT_WR(self) -> bool:
-            ...
+    def __exit__(self, *args: Any) -> None:
+        ...
 
-        def __enter__(self: _T) -> _T:
-            ...
+    def dup(self) -> "SocketType":
+        ...
 
-        def __exit__(self, *args: Any) -> None:
-            ...
+    def close(self) -> None:
+        ...
 
-        def dup(self) -> "SocketType":
-            ...
+    async def bind(self, address: Union[Tuple[Any, ...], str, bytes]) -> None:
+        ...
 
-        def close(self) -> None:
-            ...
+    def shutdown(self, flag: int) -> None:
+        ...
 
-        async def bind(self, address: Union[Tuple[Any, ...], str, bytes]) -> None:
-            ...
+    def is_readable(self) -> bool:
+        ...
 
-        def shutdown(self, flag: int) -> None:
-            ...
+    async def wait_writable(self) -> None:
+        ...
 
-        def is_readable(self) -> bool:
-            ...
+    async def accept(self) -> Tuple["SocketType", Any]:
+        ...
 
-        async def wait_writable(self) -> None:
-            ...
+    async def connect(self, address: Union[Tuple[Any, ...], str, bytes]) -> None:
+        ...
 
-        async def accept(self) -> Tuple["SocketType", Any]:
-            ...
+    async def recv(self, bufsize: int, flags: int = ...) -> bytes:
+        ...
 
-        async def connect(self, address: Union[Tuple[Any, ...], str, bytes]) -> None:
-            ...
+    async def recv_into(
+        self, buffer: Union[bytearray, memoryview], nbytes: int, flags: int = ...
+    ) -> int:
+        ...
 
-        async def recv(self, bufsize: int, flags: int = ...) -> bytes:
-            ...
+    async def recvfrom(self, bufsize: int, flags: int = ...) -> Tuple[bytes, Any]:
+        ...
 
-        async def recv_into(
-            self, buffer: Union[bytearray, memoryview], nbytes: int, flags: int = ...
-        ) -> int:
-            ...
+    async def recvfrom_into(
+        self, buffer: Union[bytearray, memoryview], nbytes: int, flags: int = ...
+    ) -> Tuple[int, Any]:
+        ...
 
-        async def recvfrom(self, bufsize: int, flags: int = ...) -> Tuple[bytes, Any]:
-            ...
+    async def recvmsg(
+        self, bufsize: int, ancbufsize: int = ..., flags: int = ...
+    ) -> Tuple[bytes, List[Tuple[int, int, bytes]], int, Any]:
+        ...
 
-        async def recvfrom_into(
-            self, buffer: Union[bytearray, memoryview], nbytes: int, flags: int = ...
-        ) -> Tuple[int, Any]:
-            ...
+    async def recvmsg_into(
+        self,
+        buffers: Iterable[Union[bytearray, memoryview]],
+        ancbufsize: int = ...,
+        flags: int = ...,
+    ) -> Tuple[int, List[Tuple[int, int, bytes]], int, Any]:
+        ...
 
-        async def recvmsg(
-            self, bufsize: int, ancbufsize: int = ..., flags: int = ...
-        ) -> Tuple[bytes, List[Tuple[int, int, bytes]], int, Any]:
-            ...
+    async def send(self, data: bytes, flags: int = ...) -> int:
+        ...
 
-        async def recvmsg_into(
-            self,
-            buffers: Iterable[Union[bytearray, memoryview]],
-            ancbufsize: int = ...,
-            flags: int = ...,
-        ) -> Tuple[int, List[Tuple[int, int, bytes]], int, Any]:
-            ...
+    async def sendmsg(
+        self,
+        buffers: Iterable[Union[bytes, memoryview]],
+        ancdata: Iterable[Tuple[int, int, Union[bytes, memoryview]]] = ...,
+        flags: int = ...,
+        address: Union[Tuple[Any, ...], str] = ...,
+    ) -> int:
+        ...
 
-        async def send(self, data: bytes, flags: int = ...) -> int:
-            ...
+    @overload
+    async def sendto(
+        self, data: bytes, address: Union[Tuple[Any, ...], str]
+    ) -> int:
+        ...
 
-        async def sendmsg(
-            self,
-            buffers: Iterable[Union[bytes, memoryview]],
-            ancdata: Iterable[Tuple[int, int, Union[bytes, memoryview]]] = ...,
-            flags: int = ...,
-            address: Union[Tuple[Any, ...], str] = ...,
-        ) -> int:
-            ...
+    @overload
+    async def sendto(
+        self, data: bytes, flags: int, address: Union[Tuple[Any, ...], str]
+    ) -> int:
+        ...
 
-        @overload
-        async def sendto(
-            self, data: bytes, address: Union[Tuple[Any, ...], str]
-        ) -> int:
-            ...
+    async def sendto(self, *args: object, **kwargs: object) -> int:
+        ...
 
-        @overload
-        async def sendto(
-            self, data: bytes, flags: int, address: Union[Tuple[Any, ...], str]
-        ) -> int:
-            ...
+    def detach(self) -> int:
+        ...
 
-        async def sendto(self, *args: object, **kwargs: object) -> int:
-            ...
+    def get_inheritable(self) -> bool:
+        ...
 
-        def detach(self) -> int:
-            ...
+    def set_inheritable(self, inheritable: bool) -> None:
+        ...
 
-        def get_inheritable(self) -> bool:
-            ...
+    def fileno(self) -> int:
+        ...
 
-        def set_inheritable(self, inheritable: bool) -> None:
-            ...
+    def getpeername(self) -> Any:
+        ...
 
-        def fileno(self) -> int:
-            ...
+    def getsockname(self) -> Any:
+        ...
 
-        def getpeername(self) -> Any:
-            ...
+    @overload
+    def getsockopt(self, level: int, optname: int) -> int:
+        ...
 
-        def getsockname(self) -> Any:
-            ...
+    @overload
+    def getsockopt(self, level: int, optname: int, buflen: int) -> bytes:
+        ...
 
-        @overload
-        def getsockopt(self, level: int, optname: int) -> int:
-            ...
+    def getsockopt(self, *args: object, **kwargs: object) -> object:
+        ...
 
-        @overload
-        def getsockopt(self, level: int, optname: int, buflen: int) -> bytes:
-            ...
+    def setsockopt(
+        self, level: int, optname: int, value: Union[int, bytes]
+    ) -> None:
+        ...
 
-        def getsockopt(self, *args: object, **kwargs: object) -> object:
-            ...
+    def listen(self, backlog: int) -> None:
+        ...
 
-        def setsockopt(
-            self, level: int, optname: int, value: Union[int, bytes]
-        ) -> None:
-            ...
-
-        def listen(self, backlog: int) -> None:
-            ...
-
-        def share(self, process_id: int) -> bytes:
-            ...
+    def share(self, process_id: int) -> bytes:
+        ...
 
 
 class _SocketType(SocketType):
