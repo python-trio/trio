@@ -21,7 +21,16 @@ HEADER = """# ***********************************************************
 import select
 import socket
 import sys
-from typing import Awaitable, Callable, ContextManager, Iterator, Optional, Tuple, TYPE_CHECKING, Union
+from typing import (
+    Awaitable,
+    Callable,
+    ContextManager,
+    Iterator,
+    Optional,
+    Tuple,
+    TYPE_CHECKING,
+    Union,
+)
 
 from .._abc import Clock
 from .._typing import _HasFileno
@@ -108,7 +117,9 @@ def gen_public_wrappers_source(source_path: Path, lookup_path: str) -> str:
     # source = astor.code_to_ast.parse_string(source_string)
     source = astor.code_to_ast.parse_file(source_path)
 
-    asserts = [node for node in ast.iter_child_nodes(source) if isinstance(node, ast.Assert)]
+    asserts = [
+        node for node in ast.iter_child_nodes(source) if isinstance(node, ast.Assert)
+    ]
     if len(asserts) > 0:
         the_assert = asserts[0]
         generated.append(astor.to_source(the_assert))
@@ -119,7 +130,7 @@ def gen_public_wrappers_source(source_path: Path, lookup_path: str) -> str:
         del method.args.args[0]
 
         contextmanager_decorated = any(
-            decorator.id in {'contextmanager', 'contextlib.contextmanager'}
+            decorator.id in {"contextmanager", "contextlib.contextmanager"}
             for decorator in method.decorator_list
         )
         # Remove decorators

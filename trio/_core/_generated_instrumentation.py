@@ -4,7 +4,16 @@
 import select
 import socket
 import sys
-from typing import Awaitable, Callable, ContextManager, Iterator, Optional, Tuple, TYPE_CHECKING, Union
+from typing import (
+    Awaitable,
+    Callable,
+    ContextManager,
+    Iterator,
+    Optional,
+    Tuple,
+    TYPE_CHECKING,
+    Union,
+)
 
 from .._abc import Clock
 from .._typing import _HasFileno
