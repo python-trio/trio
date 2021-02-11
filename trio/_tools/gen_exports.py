@@ -20,14 +20,19 @@ HEADER = """# ***********************************************************
 # *************************************************************
 import select
 import socket
-from typing import Awaitable, Callable, Iterator, Optional, Tuple, Union
+import sys
+from typing import Awaitable, Callable, ContextManager, Iterator, Optional, Tuple, TYPE_CHECKING, Union
 
 from .._abc import Clock
 from .._typing import _HasFileno
 from .._core._entry_queue import TrioToken
+from .. import _core
 from ._run import GLOBAL_RUN_CONTEXT, _NO_SEND, _RunStatistics, Task
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 from ._instrumentation import Instrument
+
+if TYPE_CHECKING and sys.platform == "win32":
+    from ._io_windows import CompletionKeyEventInfo
 
 # fmt: off
 """
@@ -99,12 +104,24 @@ def gen_public_wrappers_source(source_path: Path, lookup_path: str) -> str:
 
     """
     generated = [HEADER]
+    # source_string = source_path.read_text("utf-8")
+    # source = astor.code_to_ast.parse_string(source_string)
     source = astor.code_to_ast.parse_file(source_path)
+
+    asserts = [node for node in ast.iter_child_nodes(source) if isinstance(node, ast.Assert)]
+    if len(asserts) > 0:
+        the_assert = asserts[0]
+        generated.append(astor.to_source(the_assert))
+
     for method in get_public_methods(source):
         # Remove self from arguments
         assert method.args.args[0].arg == "self"
         del method.args.args[0]
 
+        contextmanager_decorated = any(
+            decorator.id in {'contextmanager', 'contextlib.contextmanager'}
+            for decorator in method.decorator_list
+        )
         # Remove decorators
         method.decorator_list = []
 
@@ -120,6 +137,8 @@ def gen_public_wrappers_source(source_path: Path, lookup_path: str) -> str:
 
         # Create the function definition including the body
         func = astor.to_source(method, indent_with=" " * 4)
+        if contextmanager_decorated:
+            func = func.replace("->Iterator[", "->ContextManager[")
 
         # Create export function body
         template = TEMPLATE.format(

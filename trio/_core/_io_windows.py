@@ -28,7 +28,7 @@ from ._windows_cffi import (
     IoControlCodes,
 )
 
-# assert not TYPE_CHECKING or sys.platform == "win32"
+assert not TYPE_CHECKING or sys.platform == "win32"
 
 # There's a lot to be said about the overall design of a Windows event
 # loop. See
@@ -697,15 +697,15 @@ class WindowsIOManager:
         await _core.wait_task_rescheduled(abort_fn)
 
     @_public
-    async def wait_readable(self, sock: socket.socket) -> None:
+    async def wait_readable(self, sock: int) -> None:
         await self._afd_poll(sock, "read_task")
 
     @_public
-    async def wait_writable(self, sock: socket.socket) -> None:
+    async def wait_writable(self, sock: int) -> None:
         await self._afd_poll(sock, "write_task")
 
     @_public
-    def notify_closing(self, handle: socket.socket) -> None:
+    def notify_closing(self, handle: int) -> None:
         handle = _get_base_socket(handle)
         waiters = self._afd_waiters.get(handle)
         if waiters is not None:
@@ -717,7 +717,7 @@ class WindowsIOManager:
     ################################################################
 
     @_public
-    def register_with_iocp(self, handle: socket.socket) -> None:
+    def register_with_iocp(self, handle: int) -> None:
         self._register_with_iocp(handle, CKeys.WAIT_OVERLAPPED)
 
     # TODO: what else can lpOverlapped be?
@@ -835,7 +835,7 @@ class WindowsIOManager:
 
     @_public
     async def readinto_overlapped(
-        self, handle: int, buffer: memoryview, file_offset: int = 0
+        self, handle: int, buffer: bytearray, file_offset: int = 0
     ) -> int:
         with ffi.from_buffer(buffer, require_writable=True) as cbuf:
 

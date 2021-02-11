@@ -3,16 +3,24 @@
 # *************************************************************
 import select
 import socket
-from typing import Awaitable, Callable, Iterator, Optional, Tuple, Union
+import sys
+from typing import Awaitable, Callable, ContextManager, Iterator, Optional, Tuple, TYPE_CHECKING, Union
 
 from .._abc import Clock
 from .._typing import _HasFileno
 from .._core._entry_queue import TrioToken
+from .. import _core
 from ._run import GLOBAL_RUN_CONTEXT, _NO_SEND, _RunStatistics, Task
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 from ._instrumentation import Instrument
 
+if TYPE_CHECKING and sys.platform == "win32":
+    from ._io_windows import CompletionKeyEventInfo
+
 # fmt: off
+
+
+assert not TYPE_CHECKING or sys.platform != 'linux' and sys.platform != 'win32'
 
 
 def current_kqueue() ->select.kqueue:
@@ -23,7 +31,7 @@ def current_kqueue() ->select.kqueue:
         raise RuntimeError("must be called from async context")
 
 
-def monitor_kevent(ident: int, filter: int) ->Iterator[
+def monitor_kevent(ident: int, filter: int) ->ContextManager[
     '_core.UnboundedQueue[Task]']:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:

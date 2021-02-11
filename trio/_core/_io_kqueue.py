@@ -193,7 +193,9 @@ class KqueueIOManager:
             if receiver is None:
                 continue
 
-            if type(receiver) is _core.Task:
+            # if type(receiver) is _core.Task:
+            # TODO: is this unacceptably less specific?
+            if isinstance(receiver, _core.Task):
                 event = select.kevent(fd, filter, select.KQ_EV_DELETE)
                 self._kqueue.control([event], 0)
                 exc = _core.ClosedResourceError("another task closed this fd")

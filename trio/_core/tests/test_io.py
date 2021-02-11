@@ -5,9 +5,10 @@ import select
 import random
 import errno
 from contextlib import suppress
-from typing import Awaitable, Callable, Iterator, Tuple
+from typing import Awaitable, Callable, Iterator, List, Tuple, Union
 
 from ... import _core
+from ..._typing import _HasFileno
 from ...testing import wait_all_tasks_blocked, Sequencer, assert_checkpoints
 import trio
 
@@ -56,9 +57,11 @@ _WaitReadable = Callable[[stdlib_socket.socket], Awaitable[None]]
 _WaitWritable = Callable[[stdlib_socket.socket], Awaitable[None]]
 _NotifyClosing = Callable[[stdlib_socket.socket], None]
 
-wait_readable_options = [trio.lowlevel.wait_readable]
-wait_writable_options = [trio.lowlevel.wait_writable]
-notify_closing_options = [trio.lowlevel.notify_closing]
+# OptionsList = List[Callable[[Union[int, _HasFileno]], Union[Awaitable[None], None]]]
+
+wait_readable_options: List = [trio.lowlevel.wait_readable]
+wait_writable_options: List = [trio.lowlevel.wait_writable]
+notify_closing_options: List = [trio.lowlevel.notify_closing]
 
 
 for options_list in [

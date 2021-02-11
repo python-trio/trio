@@ -1600,7 +1600,7 @@ class Runner:
         self,
         async_fn: Callable[..., Awaitable[object]],
         *args: object,
-        name: Optional[str] = None,
+        name: Optional[Union[str, Callable]] = None,
     ) -> Task:
         """Spawn a "system" task.
 

@@ -3,19 +3,27 @@
 # *************************************************************
 import select
 import socket
-from typing import Awaitable, Callable, Iterator, Optional, Tuple, Union
+import sys
+from typing import Awaitable, Callable, ContextManager, Iterator, Optional, Tuple, TYPE_CHECKING, Union
 
 from .._abc import Clock
 from .._typing import _HasFileno
 from .._core._entry_queue import TrioToken
+from .. import _core
 from ._run import GLOBAL_RUN_CONTEXT, _NO_SEND, _RunStatistics, Task
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 from ._instrumentation import Instrument
 
+if TYPE_CHECKING and sys.platform == "win32":
+    from ._io_windows import CompletionKeyEventInfo
+
 # fmt: off
 
 
-async def wait_readable(sock: socket.socket) ->None:
+assert not TYPE_CHECKING or sys.platform == 'win32'
+
+
+async def wait_readable(sock: int) ->None:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_readable(sock)
@@ -23,7 +31,7 @@ async def wait_readable(sock: socket.socket) ->None:
         raise RuntimeError("must be called from async context")
 
 
-async def wait_writable(sock: socket.socket) ->None:
+async def wait_writable(sock: int) ->None:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_writable(sock)
@@ -31,7 +39,7 @@ async def wait_writable(sock: socket.socket) ->None:
         raise RuntimeError("must be called from async context")
 
 
-def notify_closing(handle: socket.socket) ->None:
+def notify_closing(handle: int) ->None:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.notify_closing(handle)
@@ -39,7 +47,7 @@ def notify_closing(handle: socket.socket) ->None:
         raise RuntimeError("must be called from async context")
 
 
-def register_with_iocp(handle: socket.socket) ->None:
+def register_with_iocp(handle: int) ->None:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.register_with_iocp(handle)
@@ -64,7 +72,7 @@ async def write_overlapped(handle: int, data: bytes, file_offset: int=0) ->int:
         raise RuntimeError("must be called from async context")
 
 
-async def readinto_overlapped(handle: int, buffer: memoryview, file_offset:
+async def readinto_overlapped(handle: int, buffer: bytearray, file_offset:
     int=0) ->int:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
@@ -81,7 +89,7 @@ def current_iocp() ->int:
         raise RuntimeError("must be called from async context")
 
 
-def monitor_completion_key() ->Iterator[Tuple[int,
+def monitor_completion_key() ->ContextManager[Tuple[int,
     '_core.UnboundedQueue[CompletionKeyEventInfo]']]:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:

@@ -3,14 +3,19 @@
 # *************************************************************
 import select
 import socket
-from typing import Awaitable, Callable, Iterator, Optional, Tuple, Union
+import sys
+from typing import Awaitable, Callable, ContextManager, Iterator, Optional, Tuple, TYPE_CHECKING, Union
 
 from .._abc import Clock
 from .._typing import _HasFileno
 from .._core._entry_queue import TrioToken
+from .. import _core
 from ._run import GLOBAL_RUN_CONTEXT, _NO_SEND, _RunStatistics, Task
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 from ._instrumentation import Instrument
+
+if TYPE_CHECKING and sys.platform == "win32":
+    from ._io_windows import CompletionKeyEventInfo
 
 # fmt: off
 
@@ -110,7 +115,7 @@ def reschedule(task: Task, next_send: object=_NO_SEND) ->None:
 
 
 def spawn_system_task(async_fn: Callable[..., Awaitable[object]], *args:
-    object, name: Optional[str]=None) ->Task:
+    object, name: Optional[Union[str, Callable]]=None) ->Task:
     """Spawn a "system" task.
 
         System tasks have a few differences from regular tasks:
