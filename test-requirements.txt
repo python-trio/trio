@@ -123,7 +123,7 @@ toml==0.10.2
     #   pytest
 traitlets==5.0.5
     # via ipython
-trustme==0.6.0
+trustme==0.7.0
     # via -r test-requirements.in
 typed-ast==1.4.2 ; implementation_name == "cpython"
     # via
