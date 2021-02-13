@@ -58,6 +58,14 @@ nitpick_ignore = [
     ("py:class", "_T_co"),
     ("py:class", "_T"),
     ("py:class", "T_resource"),
+    ("py:class", "AbstractContextManager"),
+    ("py:class", "_socket.socket"),
+    ("py:class", "signal.Signals"),
+    ("py:class", "trio._signals.SignalReceiver"),
+    ("py:class", "socket.socket"),
+    ("py:class", "trio._core._run._RunStatistics"),
+    ("py:class", "socket.AddressFamily"),
+    ("py:class", "socket.SocketKind"),
 ]
 autodoc_inherit_docstrings = False
 default_role = "obj"
