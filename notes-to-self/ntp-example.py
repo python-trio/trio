@@ -40,7 +40,7 @@ def extract_transmit_timestamp(ntp_packet):
     # byte count of whole seconds, followed by a 32 byte count of fractions of
     # a second. See:
     #   https://tools.ietf.org/html/rfc5905#page-13
-    seconds, fraction = struct.unpack("!II", encoded_transmit_timestamp)
+    seconds, fraction = struct.unpack("!Ii", encoded_transmit_timestamp)
 
     # The timestamp is the number of seconds since January 1, 1900 (ignoring
     # leap seconds). To convert it to a datetime object, we do some simple
