@@ -12,7 +12,7 @@ from .._timeouts import sleep_forever, move_on_after
 from .._sync import *
 
 
-async def test_Event():
+async def test_Event() -> None:
     e = Event()
     assert not e.is_set()
     assert e.statistics().tasks_waiting == 0
@@ -42,7 +42,7 @@ async def test_Event():
         assert record == ["sleeping", "sleeping", "woken", "woken"]
 
 
-async def test_CapacityLimiter():
+async def test_CapacityLimiter() -> None:
     with pytest.raises(TypeError):
         CapacityLimiter(1.0)
     with pytest.raises(ValueError):
@@ -111,7 +111,7 @@ async def test_CapacityLimiter():
     c.release_on_behalf_of("value 1")
 
 
-async def test_CapacityLimiter_inf():
+async def test_CapacityLimiter_inf() -> None:
     from math import inf
 
     c = CapacityLimiter(inf)
@@ -127,7 +127,7 @@ async def test_CapacityLimiter_inf():
     assert c.available_tokens == inf
 
 
-async def test_CapacityLimiter_change_total_tokens():
+async def test_CapacityLimiter_change_total_tokens() -> None:
     c = CapacityLimiter(2)
 
     with pytest.raises(TypeError):
@@ -164,7 +164,7 @@ async def test_CapacityLimiter_change_total_tokens():
 
 
 # regression test for issue #548
-async def test_CapacityLimiter_memleak_548():
+async def test_CapacityLimiter_memleak_548() -> None:
     limiter = CapacityLimiter(total_tokens=1)
     await limiter.acquire()
 
@@ -178,7 +178,7 @@ async def test_CapacityLimiter_memleak_548():
     assert len(limiter._pending_borrowers) == 0
 
 
-async def test_Semaphore():
+async def test_Semaphore() -> None:
     with pytest.raises(TypeError):
         Semaphore(1.0)
     with pytest.raises(ValueError):
@@ -226,7 +226,7 @@ async def test_Semaphore():
     assert record == ["started", "finished"]
 
 
-async def test_Semaphore_bounded():
+async def test_Semaphore_bounded() -> None:
     with pytest.raises(TypeError):
         Semaphore(1, max_value=1.0)
     with pytest.raises(ValueError):
@@ -326,7 +326,7 @@ async def test_Lock_and_StrictFIFOLock(
     assert statistics.tasks_waiting == 0
 
 
-async def test_Condition():
+async def test_Condition() -> None:
     with pytest.raises(TypeError):
         Condition(Semaphore(1))
     with pytest.raises(TypeError):
@@ -419,7 +419,7 @@ from .._channel import open_memory_channel
 
 @async_cm
 class ChannelLock1:
-    def __init__(self, capacity):
+    def __init__(self, capacity) -> None:
         self.s, self.r = open_memory_channel(capacity)
         for _ in range(capacity - 1):
             self.s.send_nowait(None)
@@ -436,7 +436,7 @@ class ChannelLock1:
 
 @async_cm
 class ChannelLock2:
-    def __init__(self):
+    def __init__(self) -> None:
         self.s, self.r = open_memory_channel(10)
         self.s.send_nowait(None)
 
@@ -452,7 +452,7 @@ class ChannelLock2:
 
 @async_cm
 class ChannelLock3:
-    def __init__(self):
+    def __init__(self) -> None:
         self.s, self.r = open_memory_channel(0)
         # self.acquired is true when one task acquires the lock and
         # only becomes false when it's released and no tasks are

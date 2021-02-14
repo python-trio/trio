@@ -10,7 +10,7 @@ pytestmark = pytest.mark.filterwarnings(
 )
 
 
-async def test_UnboundedQueue_basic():
+async def test_UnboundedQueue_basic() -> None:
     q = _core.UnboundedQueue()
     q.put_nowait("hi")
     assert await q.get_batch() == ["hi"]
@@ -35,7 +35,7 @@ async def test_UnboundedQueue_basic():
     repr(q)
 
 
-async def test_UnboundedQueue_blocking():
+async def test_UnboundedQueue_blocking() -> None:
     record = []
     q = _core.UnboundedQueue()
 
@@ -67,7 +67,7 @@ async def test_UnboundedQueue_blocking():
             nursery.cancel_scope.cancel()
 
 
-async def test_UnboundedQueue_fairness():
+async def test_UnboundedQueue_fairness() -> None:
     q = _core.UnboundedQueue()
 
     # If there's no-one else around, we can put stuff in and take it out
@@ -114,7 +114,7 @@ async def test_UnboundedQueue_fairness():
     assert record == list(zip(itertools.cycle("ab"), [[i] for i in range(20)]))
 
 
-async def test_UnboundedQueue_trivial_yields():
+async def test_UnboundedQueue_trivial_yields() -> None:
     q = _core.UnboundedQueue()
 
     q.put_nowait(None)
@@ -127,7 +127,7 @@ async def test_UnboundedQueue_trivial_yields():
             break
 
 
-async def test_UnboundedQueue_no_spurious_wakeups():
+async def test_UnboundedQueue_no_spurious_wakeups() -> None:
     # If we have two tasks waiting, and put two items into the queue... then
     # only one task wakes up
     record = []

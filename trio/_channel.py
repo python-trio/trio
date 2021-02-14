@@ -132,7 +132,7 @@ class MemorySendChannel(SendChannel[_T_contra], metaclass=NoPublicConstructor):
     def __attrs_post_init__(self):
         self._state.open_send_channels += 1
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<send channel at {:#x}, using buffer at {:#x}>".format(
             id(self), id(self._state)
         )
@@ -270,7 +270,7 @@ class MemoryReceiveChannel(ReceiveChannel[_T_co], metaclass=NoPublicConstructor)
     def statistics(self):
         return self._state.statistics()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<receive channel at {:#x}, using buffer at {:#x}>".format(
             id(self), id(self._state)
         )

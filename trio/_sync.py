@@ -170,7 +170,7 @@ class CapacityLimiter(metaclass=Final):
 
     _total_tokens: int
 
-    def __init__(self, total_tokens):
+    def __init__(self, total_tokens) -> None:
         self._lot = ParkingLot()
         self._borrowers = set()
         # Maps tasks attempting to acquire -> borrower, to handle on-behalf-of
@@ -179,7 +179,7 @@ class CapacityLimiter(metaclass=Final):
         self.total_tokens = total_tokens
         assert self._total_tokens == total_tokens
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<trio.CapacityLimiter at {:#x}, {}/{} with {} waiting>".format(
             id(self), len(self._borrowers), self._total_tokens, len(self._lot)
         )
@@ -386,7 +386,7 @@ class Semaphore(metaclass=Final):
 
     """
 
-    def __init__(self, initial_value: int, *, max_value: Optional[int] = None):
+    def __init__(self, initial_value: int, *, max_value: Optional[int] = None) -> None:
         if not isinstance(initial_value, int):
             raise TypeError("initial_value must be an int")
         if initial_value < 0:
@@ -404,7 +404,7 @@ class Semaphore(metaclass=Final):
         self._value = initial_value
         self._max_value = max_value
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self._max_value is None:
             max_value_str = ""
         else:
@@ -494,7 +494,7 @@ class _LockImpl:
     _lot = attr.ib(factory=ParkingLot, init=False)
     _owner = attr.ib(default=None, init=False)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self.locked():
             s1 = "locked"
             s2 = " with {} waiters".format(len(self._lot))
@@ -678,7 +678,7 @@ class Condition(metaclass=Final):
 
     """
 
-    def __init__(self, lock=None):
+    def __init__(self, lock=None) -> None:
         if lock is None:
             lock = Lock()
         if not type(lock) is Lock:

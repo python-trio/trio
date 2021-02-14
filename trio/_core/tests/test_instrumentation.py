@@ -33,7 +33,7 @@ class TaskRecorder:
                 yield item
 
 
-def test_instruments(recwarn):
+def test_instruments(recwarn) -> None:
     r1 = TaskRecorder()
     r2 = TaskRecorder()
     r3 = TaskRecorder()
@@ -77,7 +77,7 @@ def test_instruments(recwarn):
     assert list(r1.filter_tasks([task])) == expected
 
 
-def test_instruments_interleave():
+def test_instruments_interleave() -> None:
     tasks = {}
 
     async def two_step1():
@@ -120,7 +120,7 @@ def test_instruments_interleave():
     check_sequence_matches(list(r.filter_tasks(tasks.values())), expected)
 
 
-def test_null_instrument():
+def test_null_instrument() -> None:
     # undefined instrument methods are skipped
     class NullInstrument:
         def something_unrelated(self):
@@ -132,7 +132,7 @@ def test_null_instrument():
     _core.run(main, instruments=[NullInstrument()])
 
 
-def test_instrument_before_after_run():
+def test_instrument_before_after_run() -> None:
     record = []
 
     class BeforeAfterRun:
@@ -149,7 +149,7 @@ def test_instrument_before_after_run():
     assert record == ["before_run", "after_run"]
 
 
-def test_instrument_task_spawn_exit():
+def test_instrument_task_spawn_exit() -> None:
     record = []
 
     class SpawnExitRecorder:
@@ -169,7 +169,7 @@ def test_instrument_task_spawn_exit():
 
 # This test also tests having a crash before the initial task is even spawned,
 # which is very difficult to handle.
-def test_instruments_crash(caplog):
+def test_instruments_crash(caplog) -> None:
     record = []
 
     class BrokenInstrument:
@@ -200,7 +200,7 @@ def test_instruments_crash(caplog):
     assert "Instrument has been disabled" in caplog.records[0].message
 
 
-def test_instruments_monkeypatch():
+def test_instruments_monkeypatch() -> None:
     class NullInstrument(_abc.Instrument):
         pass
 
@@ -232,7 +232,7 @@ def test_instruments_monkeypatch():
     _core.run(main, instruments=[instrument])
 
 
-def test_instrument_that_raises_on_getattr():
+def test_instrument_that_raises_on_getattr() -> None:
     class EvilInstrument:
         def task_exited(self, task):
             assert False  # pragma: no cover

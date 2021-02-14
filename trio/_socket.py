@@ -41,7 +41,7 @@ _Address = Union[tuple, str]
 #   return await do_it_properly_with_a_check_point()
 #
 class _try_sync:
-    def __init__(self, blocking_exc_override=None):
+    def __init__(self, blocking_exc_override=None) -> None:
         self._blocking_exc_override = blocking_exc_override
 
     def _is_blocking_io_error(self, exc):
@@ -407,7 +407,7 @@ def _make_simple_sock_method_wrapper(methname, wait_fn, maybe_avail=False):
 
 
 class SocketType:
-    def __init__(self):
+    def __init__(self) -> None:
         raise TypeError(
             "SocketType is an abstract class; use trio.socket.socket if you "
             "want to construct a socket object"
@@ -559,7 +559,7 @@ class SocketType:
 
 
 class _SocketType(SocketType):
-    def __init__(self, sock: _stdlib_socket.socket):
+    def __init__(self, sock: _stdlib_socket.socket) -> None:
         if type(sock) is not _stdlib_socket.socket:
             # For example, ssl.SSLSocket subclasses socket.socket, but we
             # certainly don't want to blindly wrap one of those.
@@ -632,7 +632,7 @@ class _SocketType(SocketType):
     def did_shutdown_SHUT_WR(self) -> bool:
         return self._did_shutdown_SHUT_WR
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return repr(self._sock).replace("socket.socket", "trio.socket.socket")
 
     def dup(self):

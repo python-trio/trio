@@ -199,7 +199,7 @@ class NeedHandshakeError(Exception):
 
 
 class _Once:
-    def __init__(self, afn, *args):
+    def __init__(self, afn, *args) -> None:
         self._afn = afn
         self._args = args
         self.started: bool = False

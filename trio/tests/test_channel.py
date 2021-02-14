@@ -5,7 +5,7 @@ import trio
 from trio import open_memory_channel, EndOfChannel
 
 
-async def test_channel():
+async def test_channel() -> None:
     with pytest.raises(TypeError):
         open_memory_channel(1.0)
     with pytest.raises(ValueError):
@@ -48,7 +48,7 @@ async def test_channel():
     await r.aclose()
 
 
-async def test_553(autojump_clock):
+async def test_553(autojump_clock) -> None:
     s, r = open_memory_channel(1)
     with trio.move_on_after(10) as timeout_scope:
         await r.receive()
@@ -56,7 +56,7 @@ async def test_553(autojump_clock):
     await s.send("Test for PR #553")
 
 
-async def test_channel_multiple_producers():
+async def test_channel_multiple_producers() -> None:
     async def producer(send_channel, i):
         # We close our handle when we're done with it
         async with send_channel:
@@ -79,7 +79,7 @@ async def test_channel_multiple_producers():
         assert got == list(range(30))
 
 
-async def test_channel_multiple_consumers():
+async def test_channel_multiple_consumers() -> None:
     successful_receivers = set()
     received = []
 
@@ -102,7 +102,7 @@ async def test_channel_multiple_consumers():
     assert set(received) == set(range(10))
 
 
-async def test_close_basics():
+async def test_close_basics() -> None:
     async def send_block(s, expect):
         with pytest.raises(expect):
             await s.send(None)
@@ -157,7 +157,7 @@ async def test_close_basics():
         await r.receive()
 
 
-async def test_close_sync():
+async def test_close_sync() -> None:
     async def send_block(s, expect):
         with pytest.raises(expect):
             await s.send(None)
@@ -212,7 +212,7 @@ async def test_close_sync():
         await r.receive()
 
 
-async def test_receive_channel_clone_and_close():
+async def test_receive_channel_clone_and_close() -> None:
     s, r = open_memory_channel(10)
 
     r2 = r.clone()
@@ -239,7 +239,7 @@ async def test_receive_channel_clone_and_close():
         s.send_nowait(None)
 
 
-async def test_close_multiple_send_handles():
+async def test_close_multiple_send_handles() -> None:
     # With multiple send handles, closing one handle only wakes senders on
     # that handle, but others can continue just fine
     s1, r = open_memory_channel(0)
@@ -260,7 +260,7 @@ async def test_close_multiple_send_handles():
         assert await r.receive() == "ok"
 
 
-async def test_close_multiple_receive_handles():
+async def test_close_multiple_receive_handles() -> None:
     # With multiple receive handles, closing one handle only wakes receivers on
     # that handle, but others can continue just fine
     s, r1 = open_memory_channel(0)
@@ -281,7 +281,7 @@ async def test_close_multiple_receive_handles():
         await s.send("ok")
 
 
-async def test_inf_capacity():
+async def test_inf_capacity() -> None:
     s, r = open_memory_channel(float("inf"))
 
     # It's accepted, and we can send all day without blocking
@@ -295,7 +295,7 @@ async def test_inf_capacity():
     assert got == list(range(10))
 
 
-async def test_statistics():
+async def test_statistics() -> None:
     s, r = open_memory_channel(2)
 
     assert s.statistics() == r.statistics()
@@ -345,7 +345,7 @@ async def test_statistics():
     assert s.statistics().tasks_waiting_receive == 0
 
 
-async def test_channel_fairness():
+async def test_channel_fairness() -> None:
 
     # We can remove an item we just sent, and send an item back in after, if
     # no-one else is waiting.
@@ -388,7 +388,7 @@ async def test_channel_fairness():
         assert (await r.receive()) == 2
 
 
-async def test_unbuffered():
+async def test_unbuffered() -> None:
     s, r = open_memory_channel(0)
     with pytest.raises(trio.WouldBlock):
         r.receive_nowait()

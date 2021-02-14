@@ -22,14 +22,14 @@ def method_pair(path, method_name):
     return getattr(path, method_name), getattr(async_path, method_name)
 
 
-async def test_open_is_async_context_manager(path):
+async def test_open_is_async_context_manager(path) -> None:
     async with await path.open("w") as f:
         assert isinstance(f, AsyncIOWrapper)
 
     assert f.closed
 
 
-async def test_magic():
+async def test_magic() -> None:
     path = trio.Path("test")
 
     assert str(path) == "test"
@@ -98,14 +98,14 @@ async def test_hash_magic(
     assert hash(a) == hash(b)
 
 
-async def test_forwarded_properties(path):
+async def test_forwarded_properties(path) -> None:
     # use `name` as a representative of forwarded properties
 
     assert "name" in dir(path)
     assert path.name == "test"
 
 
-async def test_async_method_signature(path):
+async def test_async_method_signature(path) -> None:
     # use `resolve` as a representative of wrapped methods
 
     assert path.resolve.__name__ == "resolve"
@@ -125,7 +125,7 @@ async def test_compare_async_stat_methods(method_name: str) -> None:
     assert result == async_result
 
 
-async def test_invalid_name_not_wrapped(path):
+async def test_invalid_name_not_wrapped(path) -> None:
     with pytest.raises(AttributeError):
         getattr(path, "invalid_fake_attr")
 
@@ -142,7 +142,7 @@ async def test_async_methods_rewrap(method_name: str) -> None:
     assert str(result) == str(async_result)
 
 
-async def test_forward_methods_rewrap(path, tmpdir):
+async def test_forward_methods_rewrap(path, tmpdir) -> None:
     with_name = path.with_name("foo")
     with_suffix = path.with_suffix(".py")
 
@@ -152,17 +152,17 @@ async def test_forward_methods_rewrap(path, tmpdir):
     assert with_suffix == tmpdir.join("test.py")
 
 
-async def test_forward_properties_rewrap(path):
+async def test_forward_properties_rewrap(path) -> None:
     assert isinstance(path.parent, trio.Path)
 
 
-async def test_forward_methods_without_rewrap(path, tmpdir):
+async def test_forward_methods_without_rewrap(path, tmpdir) -> None:
     path = await path.parent.resolve()
 
     assert path.as_uri().startswith("file:///")
 
 
-async def test_repr():
+async def test_repr() -> None:
     path = trio.Path(".")
 
     assert repr(path) == "trio.Path('.')"
@@ -178,23 +178,23 @@ class MockWrapper:
     _wraps = MockWrapped
 
 
-async def test_type_forwards_unsupported():
+async def test_type_forwards_unsupported() -> None:
     with pytest.raises(TypeError):
         WrapperType.generate_forwards(MockWrapper, {})
 
 
-async def test_type_wraps_unsupported():
+async def test_type_wraps_unsupported() -> None:
     with pytest.raises(TypeError):
         WrapperType.generate_wraps(MockWrapper, {})
 
 
-async def test_type_forwards_private():
+async def test_type_forwards_private() -> None:
     WrapperType.generate_forwards(MockWrapper, {"unsupported": None})
 
     assert not hasattr(MockWrapper, "_private")
 
 
-async def test_type_wraps_private():
+async def test_type_wraps_private() -> None:
     WrapperType.generate_wraps(MockWrapper, {"unsupported": None})
 
     assert not hasattr(MockWrapper, "_private")
@@ -210,17 +210,17 @@ async def test_path_wraps_path(path: trio.Path, meth: Callable[..., trio.Path]) 
     assert wrapped == result
 
 
-async def test_path_nonpath():
+async def test_path_nonpath() -> None:
     with pytest.raises(TypeError):
         trio.Path(1)
 
 
-async def test_open_file_can_open_path(path):
+async def test_open_file_can_open_path(path) -> None:
     async with await trio.open_file(path, "w") as f:
         assert f.name == os.fspath(path)
 
 
-async def test_globmethods(path):
+async def test_globmethods(path) -> None:
     # Populate a directory tree
     await path.mkdir()
     await (path / "foo").mkdir()
@@ -249,7 +249,7 @@ async def test_globmethods(path):
     assert entries == {"_bar.txt", "bar.txt"}
 
 
-async def test_iterdir(path):
+async def test_iterdir(path) -> None:
     # Populate a directory
     await path.mkdir()
     await (path / "foo").mkdir()
@@ -263,7 +263,7 @@ async def test_iterdir(path):
     assert entries == {"bar.txt", "foo"}
 
 
-async def test_classmethods():
+async def test_classmethods() -> None:
     assert isinstance(await trio.Path.home(), trio.Path)
 
     # pathlib.Path has only two classmethods

@@ -202,7 +202,7 @@ class Path(metaclass=AsyncAutoWrapperType):
         def __truediv__(self: _P, *args: Union[os.PathLike, str]) -> _P:
             ...
 
-    def __init__(self, *args):
+    def __init__(self, *args) -> None:
         self._wrapped = pathlib.Path(*args)
 
     def __getattr__(self, name):
@@ -214,7 +214,7 @@ class Path(metaclass=AsyncAutoWrapperType):
     def __dir__(self):
         return super().__dir__() + self._forward
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "trio.Path({})".format(repr(str(self)))
 
     def __fspath__(self):

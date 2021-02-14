@@ -1,5 +1,6 @@
 import ast
 import astor
+from pathlib import Path
 import pytest
 import os
 import sys
@@ -32,12 +33,12 @@ class Test:
 '''
 
 
-def test_get_public_methods():
+def test_get_public_methods() -> None:
     methods = list(get_public_methods(ast.parse(SOURCE)))
     assert {m.name for m in methods} == {"public_func", "public_async_func"}
 
 
-def test_create_pass_through_args():
+def test_create_pass_through_args() -> None:
     testcases = [
         ("def f()", "()"),
         ("def f(one)", "(one)"),
@@ -55,7 +56,7 @@ def test_create_pass_through_args():
         assert create_passthrough_args(func_node) == expected
 
 
-def test_process(tmp_path):
+def test_process(tmp_path: Path) -> None:
     modpath = tmp_path / "_module.py"
     genpath = tmp_path / "_generated_module.py"
     modpath.write_text(SOURCE, encoding="utf-8")

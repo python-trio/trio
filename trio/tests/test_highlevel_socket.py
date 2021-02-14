@@ -14,7 +14,7 @@ from .._highlevel_socket import *
 from .. import socket as tsocket
 
 
-async def test_SocketStream_basics():
+async def test_SocketStream_basics() -> None:
     # stdlib socket bad (even if connected)
     a, b = stdlib_socket.socketpair()
     with a, b:
@@ -52,7 +52,7 @@ async def test_SocketStream_basics():
             assert isinstance(b, bytes)
 
 
-async def test_SocketStream_send_all():
+async def test_SocketStream_send_all() -> None:
     BIG = 10000000
 
     a_sock, b_sock = tsocket.socketpair()
@@ -121,7 +121,7 @@ async def fill_stream(s):
         nursery.start_soon(waiter, nursery)
 
 
-async def test_SocketStream_generic():
+async def test_SocketStream_generic() -> None:
     async def stream_maker():
         left, right = tsocket.socketpair()
         return SocketStream(left), SocketStream(right)
@@ -135,7 +135,7 @@ async def test_SocketStream_generic():
     await check_half_closeable_stream(stream_maker, clogged_stream_maker)
 
 
-async def test_SocketListener():
+async def test_SocketListener() -> None:
     # Not a Trio socket
     with stdlib_socket.socket() as s:
         s.bind(("127.0.0.1", 0))
@@ -188,7 +188,7 @@ async def test_SocketListener():
     await server_stream.aclose()
 
 
-async def test_SocketListener_socket_closed_underfoot():
+async def test_SocketListener_socket_closed_underfoot() -> None:
     listen_sock = tsocket.socket()
     await listen_sock.bind(("127.0.0.1", 0))
     listen_sock.listen(10)
@@ -203,9 +203,9 @@ async def test_SocketListener_socket_closed_underfoot():
             await listener.accept()
 
 
-async def test_SocketListener_accept_errors():
+async def test_SocketListener_accept_errors() -> None:
     class FakeSocket(tsocket.SocketType):
-        def __init__(self, events):
+        def __init__(self, events) -> None:
             self._events = iter(events)
 
         type = tsocket.SOCK_STREAM
@@ -257,7 +257,7 @@ async def test_SocketListener_accept_errors():
         assert s.socket is fake_server_sock
 
 
-async def test_socket_stream_works_when_peer_has_already_closed():
+async def test_socket_stream_works_when_peer_has_already_closed() -> None:
     sock_a, sock_b = tsocket.socketpair()
     with sock_a, sock_b:
         await sock_b.send(b"x")

@@ -225,7 +225,7 @@ async def wait_all_tasks_blocked(cushion: float=0.0) ->None:
                  await lock.acquire()
                  lock.release()
 
-             async def test_lock_fairness():
+             async def test_lock_fairness() -> None:
                  lock = trio.Lock()
                  await lock.acquire()
                  async with trio.open_nursery() as nursery:

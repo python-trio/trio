@@ -26,7 +26,7 @@ def ki_self():
     signal_raise(signal.SIGINT)
 
 
-def test_ki_self():
+def test_ki_self() -> None:
     with pytest.raises(KeyboardInterrupt):
         ki_self()
 
@@ -223,7 +223,7 @@ async def test_agen_protection() -> None:
 
 
 # Test the case where there's no magic local anywhere in the call stack
-def test_ki_disabled_out_of_context():
+def test_ki_disabled_out_of_context() -> None:
     assert _core.currently_ki_protected()
 
 
@@ -462,7 +462,7 @@ def test_ki_protection_works() -> None:
     _core.run(main_g)
 
 
-def test_ki_is_good_neighbor():
+def test_ki_is_good_neighbor() -> None:
     # in the unlikely event someone overwrites our signal handler, we leave
     # the overwritten one be
     try:

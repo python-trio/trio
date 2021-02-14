@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from typing import Iterator
+from typing import ContextManager, Iterator
 
 from .. import _core
 
@@ -23,7 +23,7 @@ def _assert_yields_or_not(expected: bool) -> Iterator[None]:
             raise AssertionError("assert_no_checkpoints block yielded!")
 
 
-def assert_checkpoints():
+def assert_checkpoints() -> ContextManager[None]:
     """Use as a context manager to check that the code inside the ``with``
     block either exits with an exception or executes at least one
     :ref:`checkpoint <checkpoints>`.
@@ -43,7 +43,7 @@ def assert_checkpoints():
     return _assert_yields_or_not(True)
 
 
-def assert_no_checkpoints():
+def assert_no_checkpoints() -> ContextManager[None]:
     """Use as a context manager to check that the code inside the ``with``
     block does not execute any :ref:`checkpoints <checkpoints>`.
 

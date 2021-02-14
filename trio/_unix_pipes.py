@@ -33,7 +33,7 @@ class _FdHolder:
     # impossible to make this mistake – we'll just get an EBADF.
     #
     # (This trick was copied from the stdlib socket module.)
-    def __init__(self, fd: int):
+    def __init__(self, fd: int) -> None:
         # make sure self.fd is always initialized to *something*, because even
         # if we error out here then __del__ will run and access it.
         self.fd = -1
@@ -106,7 +106,7 @@ class FdStream(Stream, metaclass=Final):
       A new `FdStream` object.
     """
 
-    def __init__(self, fd: int):
+    def __init__(self, fd: int) -> None:
         self._fd_holder = _FdHolder(fd)
         self._send_conflict_detector = ConflictDetector(
             "another task is using this stream for send"

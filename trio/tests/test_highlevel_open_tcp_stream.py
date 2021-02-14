@@ -14,7 +14,7 @@ from trio._highlevel_open_tcp_stream import (
 )
 
 
-def test_close_all():
+def test_close_all() -> None:
     class CloseMe:
         closed = False
 
@@ -45,7 +45,7 @@ def test_close_all():
     assert c.closed
 
 
-def test_reorder_for_rfc_6555_section_5_4():
+def test_reorder_for_rfc_6555_section_5_4() -> None:
     def fake4(i):
         return (
             AF_INET,
@@ -82,7 +82,7 @@ def test_reorder_for_rfc_6555_section_5_4():
     assert targets == [fake4(0), fake6(0), fake4(1), fake4(2), fake6(1)]
 
 
-def test_format_host_port():
+def test_format_host_port() -> None:
     assert format_host_port("127.0.0.1", 80) == "127.0.0.1:80"
     assert format_host_port(b"127.0.0.1", 80) == "127.0.0.1:80"
     assert format_host_port("example.com", 443) == "example.com:443"
@@ -92,7 +92,7 @@ def test_format_host_port():
 
 
 # Make sure we can connect to localhost using real kernel sockets
-async def test_open_tcp_stream_real_socket_smoketest():
+async def test_open_tcp_stream_real_socket_smoketest() -> None:
     listen_sock = trio.socket.socket()
     await listen_sock.bind(("127.0.0.1", 0))
     _, listen_port = listen_sock.getsockname()
@@ -107,7 +107,7 @@ async def test_open_tcp_stream_real_socket_smoketest():
     listen_sock.close()
 
 
-async def test_open_tcp_stream_input_validation():
+async def test_open_tcp_stream_input_validation() -> None:
     with pytest.raises(ValueError):
         await open_tcp_stream(None, 80)
     with pytest.raises(TypeError):
@@ -123,7 +123,7 @@ def can_bind_127_0_0_2():
         return s.getsockname()[0] == "127.0.0.2"
 
 
-async def test_local_address_real():
+async def test_local_address_real() -> None:
     with trio.socket.socket() as listener:
         await listener.bind(("127.0.0.1", 0))
         listener.listen()
@@ -212,7 +212,7 @@ class FakeSocket(trio.socket.SocketType):
 
 
 class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
-    def __init__(self, port, ip_list, supported_families):
+    def __init__(self, port, ip_list, supported_families) -> None:
         # ip_list have to be unique
         ip_order = [ip for (ip, _, _) in ip_list]
         assert len(set(ip_order)) == len(ip_list)
@@ -310,19 +310,19 @@ async def run_scenario(
         return (exc, scenario)
 
 
-async def test_one_host_quick_success(autojump_clock):
+async def test_one_host_quick_success(autojump_clock) -> None:
     sock, scenario = await run_scenario(80, [("1.2.3.4", 0.123, "success")])
     assert sock.ip == "1.2.3.4"
     assert trio.current_time() == 0.123
 
 
-async def test_one_host_slow_success(autojump_clock):
+async def test_one_host_slow_success(autojump_clock) -> None:
     sock, scenario = await run_scenario(81, [("1.2.3.4", 100, "success")])
     assert sock.ip == "1.2.3.4"
     assert trio.current_time() == 100
 
 
-async def test_one_host_quick_fail(autojump_clock):
+async def test_one_host_quick_fail(autojump_clock) -> None:
     exc, scenario = await run_scenario(
         82, [("1.2.3.4", 0.123, "error")], expect_error=OSError
     )
@@ -330,7 +330,7 @@ async def test_one_host_quick_fail(autojump_clock):
     assert trio.current_time() == 0.123
 
 
-async def test_one_host_slow_fail(autojump_clock):
+async def test_one_host_slow_fail(autojump_clock) -> None:
     exc, scenario = await run_scenario(
         83, [("1.2.3.4", 100, "error")], expect_error=OSError
     )
@@ -338,7 +338,7 @@ async def test_one_host_slow_fail(autojump_clock):
     assert trio.current_time() == 100
 
 
-async def test_one_host_failed_after_connect(autojump_clock):
+async def test_one_host_failed_after_connect(autojump_clock) -> None:
     exc, scenario = await run_scenario(
         83, [("1.2.3.4", 1, "postconnect_fail")], expect_error=KeyboardInterrupt
     )
@@ -346,7 +346,7 @@ async def test_one_host_failed_after_connect(autojump_clock):
 
 
 # With the default 0.250 second delay, the third attempt will win
-async def test_basic_fallthrough(autojump_clock):
+async def test_basic_fallthrough(autojump_clock) -> None:
     sock, scenario = await run_scenario(
         80,
         [
@@ -365,7 +365,7 @@ async def test_basic_fallthrough(autojump_clock):
     }
 
 
-async def test_early_success(autojump_clock):
+async def test_early_success(autojump_clock) -> None:
     sock, scenario = await run_scenario(
         80,
         [
@@ -384,7 +384,7 @@ async def test_early_success(autojump_clock):
 
 
 # With a 0.450 second delay, the first attempt will win
-async def test_custom_delay(autojump_clock):
+async def test_custom_delay(autojump_clock) -> None:
     sock, scenario = await run_scenario(
         80,
         [
@@ -403,7 +403,7 @@ async def test_custom_delay(autojump_clock):
     }
 
 
-async def test_custom_errors_expedite(autojump_clock):
+async def test_custom_errors_expedite(autojump_clock) -> None:
     sock, scenario = await run_scenario(
         80,
         [
@@ -424,7 +424,7 @@ async def test_custom_errors_expedite(autojump_clock):
     }
 
 
-async def test_all_fail(autojump_clock):
+async def test_all_fail(autojump_clock) -> None:
     exc, scenario = await run_scenario(
         80,
         [
@@ -447,7 +447,7 @@ async def test_all_fail(autojump_clock):
     }
 
 
-async def test_multi_success(autojump_clock):
+async def test_multi_success(autojump_clock) -> None:
     sock, scenario = await run_scenario(
         80,
         [
@@ -477,7 +477,7 @@ async def test_multi_success(autojump_clock):
     }
 
 
-async def test_does_reorder(autojump_clock):
+async def test_does_reorder(autojump_clock) -> None:
     sock, scenario = await run_scenario(
         80,
         [
@@ -497,7 +497,7 @@ async def test_does_reorder(autojump_clock):
     }
 
 
-async def test_handles_no_ipv4(autojump_clock):
+async def test_handles_no_ipv4(autojump_clock) -> None:
     sock, scenario = await run_scenario(
         80,
         # Here the ipv6 addresses fail at socket creation time, so the connect
@@ -519,7 +519,7 @@ async def test_handles_no_ipv4(autojump_clock):
     }
 
 
-async def test_handles_no_ipv6(autojump_clock):
+async def test_handles_no_ipv6(autojump_clock) -> None:
     sock, scenario = await run_scenario(
         80,
         # Here the ipv6 addresses fail at socket creation time, so the connect
@@ -541,12 +541,12 @@ async def test_handles_no_ipv6(autojump_clock):
     }
 
 
-async def test_no_hosts(autojump_clock):
+async def test_no_hosts(autojump_clock) -> None:
     exc, scenario = await run_scenario(80, [], expect_error=OSError)
     assert "no results found" in str(exc)
 
 
-async def test_cancel(autojump_clock):
+async def test_cancel(autojump_clock) -> None:
     with trio.move_on_after(5) as cancel_scope:
         exc, scenario = await run_scenario(
             80,

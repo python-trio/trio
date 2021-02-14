@@ -165,7 +165,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         self.args = self._proc.args
         self.pid = self._proc.pid
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         returncode = self.returncode
         if returncode is None:
             status = "running with PID {}".format(self.pid)

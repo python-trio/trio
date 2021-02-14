@@ -55,7 +55,7 @@ else:
             pass
         return s, r
 
-    async def test_send_pipe():
+    async def test_send_pipe() -> None:
         r, w = os.pipe()
         async with FdStream(w) as send:
             assert send.fileno() == w
@@ -64,7 +64,7 @@ else:
 
             os.close(r)
 
-    async def test_receive_pipe():
+    async def test_receive_pipe() -> None:
         r, w = os.pipe()
         async with FdStream(r) as recv:
             assert (recv.fileno()) == r
@@ -73,7 +73,7 @@ else:
 
             os.close(w)
 
-    async def test_pipes_combined():
+    async def test_pipes_combined() -> None:
         write, read = await make_pipe()
         count = 2 ** 20
 
@@ -96,7 +96,7 @@ else:
         await read.aclose()
         await write.aclose()
 
-    async def test_pipe_errors():
+    async def test_pipe_errors() -> None:
         with pytest.raises(TypeError):
             FdStream(None)
 
@@ -106,7 +106,7 @@ else:
             with pytest.raises(ValueError):
                 await s.receive_some(0)
 
-    async def test_del():
+    async def test_del() -> None:
         w, r = await make_pipe()
         f1, f2 = w.fileno(), r.fileno()
         del w, r
@@ -120,7 +120,7 @@ else:
             os.close(f2)
         assert excinfo.value.errno == errno.EBADF
 
-    async def test_async_with():
+    async def test_async_with() -> None:
         w, r = await make_pipe()
         async with w, r:
             pass
@@ -136,7 +136,7 @@ else:
             os.close(r.fileno())
         assert excinfo.value.errno == errno.EBADF
 
-    async def test_misdirected_aclose_regression():
+    async def test_misdirected_aclose_regression() -> None:
         # https://github.com/python-trio/trio/issues/661#issuecomment-456582356
         w, r = await make_pipe()
         old_r_fd = r.fileno()
@@ -173,7 +173,7 @@ else:
                 # gets an EOF and can exit cleanly.
                 os.close(w2_fd)
 
-    async def test_close_at_bad_time_for_receive_some(monkeypatch):
+    async def test_close_at_bad_time_for_receive_some(monkeypatch) -> None:
         # We used to have race conditions where if one task was using the pipe,
         # and another closed it at *just* the wrong moment, it would give an
         # unexpected error instead of ClosedResourceError:
@@ -202,7 +202,7 @@ else:
                 # Trigger everything by waking up the receiver
                 await s.send_all(b"x")
 
-    async def test_close_at_bad_time_for_send_all(monkeypatch):
+    async def test_close_at_bad_time_for_send_all(monkeypatch) -> None:
         # We used to have race conditions where if one task was using the pipe,
         # and another closed it at *just* the wrong moment, it would give an
         # unexpected error instead of ClosedResourceError:

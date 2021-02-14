@@ -60,7 +60,7 @@ class SocketStream(HalfCloseableStream, metaclass=Final):
 
     """
 
-    def __init__(self, socket):
+    def __init__(self, socket) -> None:
         if not isinstance(socket, tsocket.SocketType):
             raise TypeError("SocketStream requires a Trio socket object")
         if socket.type != tsocket.SOCK_STREAM:
@@ -333,7 +333,7 @@ class SocketListener(Listener[SocketStream], metaclass=Final):
 
     """
 
-    def __init__(self, socket):
+    def __init__(self, socket) -> None:
         if not isinstance(socket, tsocket.SocketType):
             raise TypeError("SocketListener requires a Trio socket object")
         if socket.type != tsocket.SOCK_STREAM:

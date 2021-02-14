@@ -10,7 +10,7 @@ from .._mock_clock import MockClock
 from .tutil import slow
 
 
-def test_mock_clock():
+def test_mock_clock() -> None:
     REAL_NOW = 123.0
     c = MockClock()
     c._real_clock = lambda: REAL_NOW
@@ -54,7 +54,7 @@ def test_mock_clock():
     assert c2.current_time() < 10
 
 
-async def test_mock_clock_autojump(mock_clock):
+async def test_mock_clock_autojump(mock_clock) -> None:
     assert mock_clock.autojump_threshold == inf
 
     mock_clock.autojump_threshold = 0
@@ -94,7 +94,7 @@ async def test_mock_clock_autojump(mock_clock):
     await sleep(100000)
 
 
-async def test_mock_clock_autojump_interference(mock_clock):
+async def test_mock_clock_autojump_interference(mock_clock) -> None:
     mock_clock.autojump_threshold = 0.02
 
     mock_clock2 = MockClock()
@@ -111,7 +111,7 @@ async def test_mock_clock_autojump_interference(mock_clock):
     await sleep(100000)
 
 
-def test_mock_clock_autojump_preset():
+def test_mock_clock_autojump_preset() -> None:
     # Check that we can set the autojump_threshold before the clock is
     # actually in use, and it gets picked up
     mock_clock = MockClock(autojump_threshold=0.1)
@@ -121,7 +121,7 @@ def test_mock_clock_autojump_preset():
     assert time.perf_counter() - real_start < 1
 
 
-async def test_mock_clock_autojump_0_and_wait_all_tasks_blocked_0(mock_clock):
+async def test_mock_clock_autojump_0_and_wait_all_tasks_blocked_0(mock_clock) -> None:
     # Checks that autojump_threshold=0 doesn't interfere with
     # calling wait_all_tasks_blocked with the default cushion=0.
 

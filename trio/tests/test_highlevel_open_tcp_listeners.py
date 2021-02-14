@@ -14,7 +14,7 @@ from .._abc import SocketFactory
 from .._core.tests.tutil import slow, creates_ipv6, binds_ipv6
 
 
-async def test_open_tcp_listeners_basic():
+async def test_open_tcp_listeners_basic() -> None:
     listeners = await open_tcp_listeners(0)
     assert isinstance(listeners, list)
     for obj in listeners:
@@ -42,7 +42,7 @@ async def test_open_tcp_listeners_basic():
         await resource.aclose()
 
 
-async def test_open_tcp_listeners_specific_port_specific_host():
+async def test_open_tcp_listeners_specific_port_specific_host() -> None:
     # Pick a port
     sock = tsocket.socket()
     await sock.bind(("127.0.0.1", 0))
@@ -65,7 +65,7 @@ async def test_open_tcp_listeners_ipv6_v6only() -> None:
             await open_tcp_stream("127.0.0.1", port)
 
 
-async def test_open_tcp_listeners_rebind():
+async def test_open_tcp_listeners_rebind() -> None:
     (l1,) = await open_tcp_listeners(0, host="127.0.0.1")
     sockaddr1 = l1.socket.getsockname()
 
@@ -170,7 +170,7 @@ class FakeHostnameResolver:
         ]
 
 
-async def test_open_tcp_listeners_multiple_host_cleanup_on_error():
+async def test_open_tcp_listeners_multiple_host_cleanup_on_error() -> None:
     # If we were trying to bind to multiple hosts and one of them failed, they
     # call get cleaned up before returning
     fsf = FakeSocketFactory(3)
@@ -193,7 +193,7 @@ async def test_open_tcp_listeners_multiple_host_cleanup_on_error():
         assert sock.closed
 
 
-async def test_open_tcp_listeners_port_checking():
+async def test_open_tcp_listeners_port_checking() -> None:
     for host in ["127.0.0.1", None]:
         with pytest.raises(TypeError):
             await open_tcp_listeners(None, host=host)
@@ -203,7 +203,7 @@ async def test_open_tcp_listeners_port_checking():
             await open_tcp_listeners("http", host=host)
 
 
-async def test_serve_tcp():
+async def test_serve_tcp() -> None:
     async def handler(stream):
         await stream.send_all(b"x")
 
@@ -255,7 +255,7 @@ async def test_open_tcp_listeners_some_address_families_unavailable(
         assert not should_succeed
 
 
-async def test_open_tcp_listeners_socket_fails_not_afnosupport():
+async def test_open_tcp_listeners_socket_fails_not_afnosupport() -> None:
     fsf = FakeSocketFactory(
         10,
         raise_on_family={
@@ -283,7 +283,7 @@ async def test_open_tcp_listeners_socket_fails_not_afnosupport():
 # effectively is no backlog), sometimes the host might not be enough resources
 # to give us the full requested backlog... it was a mess. So now we just check
 # that the backlog argument is passed through correctly.
-async def test_open_tcp_listeners_backlog():
+async def test_open_tcp_listeners_backlog() -> None:
     fsf = FakeSocketFactory(99)
     tsocket.set_custom_socket_factory(fsf)
     for (given, expected) in [

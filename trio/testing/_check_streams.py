@@ -11,7 +11,7 @@ from ._checkpoints import assert_checkpoints
 
 
 class _ForceCloseBoth:
-    def __init__(self, both):
+    def __init__(self, both) -> None:
         self._both = list(both)
 
     async def __aenter__(self):

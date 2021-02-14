@@ -83,7 +83,7 @@ class AsyncIOWrapper(AsyncResource):
 
     """
 
-    def __init__(self, file: io.IOBase):
+    def __init__(self, file: io.IOBase) -> None:
         self._wrapped = file
 
     @property

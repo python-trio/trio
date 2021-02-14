@@ -58,7 +58,7 @@ class UnboundedQueue(Generic[_T], metaclass=Final):
         # used to allow handoff from put to the first task in the lot
         self._can_get = False
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<UnboundedQueue holding {} items>".format(len(self._data))
 
     def qsize(self):

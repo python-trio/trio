@@ -63,7 +63,7 @@ def _signal_handler(
 
 
 class SignalReceiver:
-    def __init__(self):
+    def __init__(self) -> None:
         # {signal num: None}
         self._pending = OrderedDict()
         self._lot = trio.lowlevel.ParkingLot()

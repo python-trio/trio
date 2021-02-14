@@ -3,7 +3,6 @@
 # Little utilities we use internally
 
 from abc import ABCMeta
-import os
 import signal
 import sys
 import pathlib
@@ -17,7 +16,7 @@ from async_generator import isasyncgen
 import trio
 
 # Equivalent to the C function raise(), which Python doesn't wrap
-if os.name == "nt":
+if sys.platform == "win32":
     # On windows, os.kill exists but is really weird.
     #
     # If you give it CTRL_C_EVENT or CTRL_BREAK_EVENT, it tries to deliver
@@ -61,7 +60,7 @@ if os.name == "nt":
     signal_raise = getattr(_lib, "raise")
 else:
 
-    def signal_raise(signum):
+    def signal_raise(signum: int) -> None:
         signal.pthread_kill(threading.get_ident(), signum)
 
 
@@ -76,7 +75,7 @@ _T = t.TypeVar("_T")
 # Trying to use signal out of the main thread will fail, so we can then
 # reliably check if this is the main thread without relying on a
 # potentially modified threading.
-def is_main_thread():
+def is_main_thread() -> bool:
     """Attempt to reliably check if we are in the main thread."""
     try:
         signal.signal(signal.SIGINT, signal.getsignal(signal.SIGINT))
@@ -89,8 +88,10 @@ def is_main_thread():
 # Call the function and get the coroutine object, while giving helpful
 # errors for common mistakes. Returns coroutine object.
 ######
-def coroutine_or_error(async_fn, *args):
-    def _return_value_looks_like_wrong_library(value):
+def coroutine_or_error(
+    async_fn: t.Callable[..., t.Awaitable[object]], *args: object
+) -> t.Awaitable[object]:
+    def _return_value_looks_like_wrong_library(value: object) -> bool:
         # Returned by legacy @asyncio.coroutine functions, which includes
         # a surprising proportion of asyncio builtins.
         if isinstance(value, collections.abc.Generator):
@@ -184,24 +185,29 @@ class ConflictDetector:
 
     """
 
-    def __init__(self, msg):
+    def __init__(self, msg: str) -> None:
         self._msg = msg
         self._held = False
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         if self._held:
             raise trio.BusyResourceError(self._msg)
         else:
             self._held = True
 
-    def __exit__(self, *args):
+    def __exit__(self, *args: object) -> None:
         self._held = False
 
 
-def async_wraps(cls, wrapped_cls, attr_name):
+_Fn = t.TypeVar("_Fn", bound=t.Callable)
+
+
+def async_wraps(
+    cls: t.Type[object], wrapped_cls: t.Type[object], attr_name: str
+) -> t.Callable[[_Fn], _Fn]:
     """Similar to wraps, but for async wrappers of non-async functions."""
 
-    def decorator(func):
+    def decorator(func: _Fn) -> _Fn:
         func.__name__ = attr_name
         func.__qualname__ = ".".join((cls.__qualname__, attr_name))
 
@@ -216,10 +222,10 @@ def async_wraps(cls, wrapped_cls, attr_name):
     return decorator
 
 
-def fixup_module_metadata(module_name, namespace):
+def fixup_module_metadata(module_name: str, namespace: t.Dict[str, object]) -> None:
     seen_ids = set()
 
-    def fix_one(qualname, name, obj):
+    def fix_one(qualname: str, name: str, obj: object) -> None:
         # avoid infinite recursion (relevant when using
         # typing.Generic, for example)
         if id(obj) in seen_ids:
@@ -232,9 +238,9 @@ def fixup_module_metadata(module_name, namespace):
             # Modules, unlike everything else in Python, put fully-qualitied
             # names into their __name__ attribute. We check for "." to avoid
             # rewriting these.
-            if hasattr(obj, "__name__") and "." not in obj.__name__:
-                obj.__name__ = name
-                obj.__qualname__ = qualname
+            if hasattr(obj, "__name__") and "." not in obj.__name__:  # type: ignore[attr-defined]
+                obj.__name__ = name  # type: ignore[attr-defined]
+                obj.__qualname__ = qualname  # type: ignore[attr-defined]
             if isinstance(obj, type):
                 for attr_name, attr_value in obj.__dict__.items():
                     fix_one(objname + "." + attr_name, attr_name, attr_value)
@@ -267,14 +273,14 @@ class generic_function:  # type: ignore[no-redef]
     but at least it becomes possible to write those.
     """
 
-    def __init__(self, fn):
+    def __init__(self, fn: t.Callable[..., object]) -> None:
         update_wrapper(self, fn)
         self._fn = fn
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args: object, **kwargs: object) -> object:
         return self._fn(*args, **kwargs)
 
-    def __getitem__(self, _):
+    def __getitem__(self: _T, _: object) -> _T:
         return self
 
 
@@ -307,13 +313,15 @@ class Final(BaseMeta):
     - TypeError if a sub class is created
     """
 
-    def __new__(cls, name, bases, cls_namespace):
+    def __new__(cls: t.Type[_T], name: str, bases: t.Tuple[type], cls_namespace: t.Dict[str, object]) -> _T:
         for base in bases:
             if isinstance(base, Final):
                 raise TypeError(
                     f"{base.__module__}.{base.__qualname__} does not support subclassing"
                 )
-        return super().__new__(cls, name, bases, cls_namespace)
+
+        # https://github.com/python/mypy/issues/9282
+        return super().__new__(cls, name, bases, cls_namespace)  # type: ignore[no-any-return,misc]
 
 
 class NoPublicConstructor(Final):
@@ -335,7 +343,7 @@ class NoPublicConstructor(Final):
     - TypeError if a sub class or an instance is created.
     """
 
-    def __call__(cls, *args, **kwargs):
+    def __call__(cls, *args: object, **kwargs: object) -> None:
         raise TypeError(
             f"{cls.__module__}.{cls.__qualname__} has no public constructor"
         )
@@ -344,7 +352,7 @@ class NoPublicConstructor(Final):
         return super().__call__(*args, **kwargs)  # type: ignore[no-any-return,misc]
 
 
-def name_asyncgen(agen):
+def name_asyncgen(agen: t.AsyncGenerator) -> str:
     """Return the fully-qualified name of the async generator function
     that produced the async generator iterator *agen*.
     """
@@ -355,7 +363,7 @@ def name_asyncgen(agen):
     except (AttributeError, KeyError):
         module = "<{}>".format(agen.ag_code.co_filename)
     try:
-        qualname = agen.__qualname__
+        qualname = agen.__qualname__  # type: ignore[attr-defined]
     except AttributeError:
         qualname = agen.ag_code.co_name
     return f"{module}.{qualname}"

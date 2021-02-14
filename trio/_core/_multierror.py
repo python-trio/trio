@@ -1,7 +1,18 @@
 import sys
 import traceback
 import textwrap
-from typing import Callable, ContextManager, Optional, overload, Set, Union
+from types import TracebackType
+from typing import (
+    Callable,
+    ContextManager,
+    Iterator,
+    List,
+    Optional,
+    overload,
+    Set,
+    Type,
+    Union,
+)
 import warnings
 
 import attr
@@ -17,25 +28,23 @@ else:
 # MultiError
 ################################################################
 
+_Handler = Callable[[BaseException], Optional[BaseException]]
+
 
 @overload
-def _filter_impl(
-    handler: Callable[[Exception], Optional[Exception]], root_exc: Exception
-) -> Optional[Exception]:
+def _filter_impl(handler: _Handler, root_exc: "MultiError") -> Optional[BaseException]:
     ...
 
 
 @overload
-def _filter_impl(
-    handler: Callable[[Exception], Optional[Exception]], root_exc: "MultiError"
-) -> Optional[Union[Exception, "MultiError"]]:
+def _filter_impl(handler: _Handler, root_exc: BaseException) -> Optional[BaseException]:
     ...
 
 
 def _filter_impl(
-    handler: Callable[[Exception], Optional[Exception]],
-    root_exc: Union[Exception, "MultiError"],
-) -> Optional[Union[Exception, "MultiError"]]:
+    handler: _Handler,
+    root_exc: BaseException,
+) -> Optional[BaseException]:
     # We have a tree of MultiError's, like:
     #
     #  MultiError([
@@ -94,9 +103,7 @@ def _filter_impl(
 
     # Filters a subtree, ignoring tracebacks, while keeping a record of
     # which MultiErrors were preserved unchanged
-    def filter_tree(
-        exc: Union[Exception, "MultiError"], preserved: Set[int]
-    ) -> Optional[Union[Exception, "MultiError"]]:
+    def filter_tree(exc: BaseException, preserved: Set[int]) -> Optional[BaseException]:
         if isinstance(exc, MultiError):
             new_exceptions = []
             changed = False
@@ -120,7 +127,11 @@ def _filter_impl(
                 new_exc.__context__ = exc
             return new_exc
 
-    def push_tb_down(tb, exc, preserved):
+    def push_tb_down(
+        tb: Optional[TracebackType],
+        exc: BaseException,
+        preserved: Set[int],
+    ) -> None:
         if id(exc) in preserved:
             return
         new_tb = concat_tb(tb, exc.__traceback__)
@@ -146,13 +157,18 @@ def _filter_impl(
 # result: if the exception gets modified, then the 'raise' here makes this
 # frame show up in the traceback; otherwise, we leave no trace.)
 @attr.s(frozen=True)
-class MultiErrorCatcher:
-    _handler = attr.ib()
+class MultiErrorCatcher(ContextManager[None]):
+    _handler: _Handler = attr.ib()
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         pass
 
-    def __exit__(self, etype, exc, tb):
+    def __exit__(
+        self,
+        etype: Optional[Type[BaseException]],
+        exc: Optional[BaseException],
+        tb: Optional[TracebackType],
+    ) -> Optional[bool]:
         if exc is not None:
             filtered_exc = MultiError.filter(self._handler, exc)
 
@@ -173,6 +189,7 @@ class MultiErrorCatcher:
                 _, value, _ = sys.exc_info()
                 assert value is filtered_exc
                 value.__context__ = old_context
+        return None
 
 
 class MultiError(BaseException):
@@ -198,7 +215,7 @@ class MultiError(BaseException):
 
     """
 
-    def __init__(self, exceptions):
+    def __init__(self, exceptions: List[BaseException]) -> None:
         # Avoid recursion when exceptions[0] returned by __new__() happens
         # to be a MultiError and subsequently __init__() is called.
         if hasattr(self, "exceptions"):
@@ -207,7 +224,9 @@ class MultiError(BaseException):
             return
         self.exceptions = exceptions
 
-    def __new__(cls, exceptions):
+    def __new__(  # type: ignore[misc]
+        cls, exceptions: List[Union[Exception, "MultiError"]]
+    ) -> Union[Exception, "MultiError"]:
         exceptions = list(exceptions)
         for exc in exceptions:
             if not isinstance(exc, BaseException):
@@ -224,20 +243,20 @@ class MultiError(BaseException):
             # In an earlier version of the code, we didn't define __init__ and
             # simply set the `exceptions` attribute directly on the new object.
             # However, linters expect attributes to be initialized in __init__.
-            return BaseException.__new__(cls, exceptions)
+            return BaseException.__new__(cls, exceptions)  # type: ignore[no-any-return, call-arg]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return ", ".join(repr(exc) for exc in self.exceptions)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<MultiError: {}>".format(self)
 
     @classmethod
     def filter(
         cls,
-        handler: Callable[[Exception], Optional[Exception]],
-        root_exc: Union[Exception, "MultiError"],
-    ) -> Optional[Union[Exception, "MultiError"]]:
+        handler: _Handler,
+        root_exc: BaseException,
+    ) -> Optional[BaseException]:
         """Apply the given ``handler`` to all the exceptions in ``root_exc``.
 
         Args:
@@ -256,9 +275,7 @@ class MultiError(BaseException):
         return _filter_impl(handler, root_exc)
 
     @classmethod
-    def catch(
-        cls, handler: Callable[[Exception], Optional[Exception]]
-    ) -> ContextManager[None]:
+    def catch(cls, handler: _Handler) -> ContextManager[None]:
         """Return a context manager that catches and re-throws exceptions
         after running :meth:`filter` on them.
 
@@ -399,21 +416,21 @@ traceback_exception_original_init = traceback.TracebackException.__init__
 
 
 def traceback_exception_init(
-    self,
-    exc_type,
-    exc_value,
-    exc_traceback,
+    self: traceback.TracebackException,
+    exc_type: Type[BaseException],
+    exc_value: BaseException,
+    exc_traceback: TracebackType,
     *,
-    limit=None,
-    lookup_lines=True,
-    capture_locals=False,
-    _seen=None,
-):
+    limit: Optional[int] = None,
+    lookup_lines: bool = True,
+    capture_locals: bool = False,
+    _seen: Optional[set] = None,
+) -> None:
     if _seen is None:
         _seen = set()
 
     # Capture the original exception and its cause and context as TracebackExceptions
-    traceback_exception_original_init(
+    traceback_exception_original_init(  # type: ignore[call-arg]
         self,
         exc_type,
         exc_value,
@@ -430,7 +447,7 @@ def traceback_exception_init(
         for exc in exc_value.exceptions:
             if exc_key(exc) not in _seen:
                 embedded.append(
-                    traceback.TracebackException.from_exception(
+                    traceback.TracebackException.from_exception(  # type: ignore[call-arg]
                         exc,
                         limit=limit,
                         lookup_lines=lookup_lines,
@@ -440,19 +457,19 @@ def traceback_exception_init(
                         _seen=set(_seen),
                     )
                 )
-        self.embedded = embedded
+        self.embedded = embedded  # type: ignore[attr-defined]
     else:
-        self.embedded = []
+        self.embedded = []  # type: ignore[attr-defined]
 
 
 traceback.TracebackException.__init__ = traceback_exception_init  # type: ignore[assignment]
 traceback_exception_original_format = traceback.TracebackException.format
 
 
-def traceback_exception_format(self, *, chain=True):
+def traceback_exception_format(self: traceback.TracebackException, *, chain: bool = True) -> Iterator[str]:
     yield from traceback_exception_original_format(self, chain=chain)
 
-    for i, exc in enumerate(self.embedded):
+    for i, exc in enumerate(self.embedded):  # type: ignore[attr-defined]
         yield "\nDetails of embedded exception {}:\n\n".format(i + 1)
         yield from (textwrap.indent(line, " " * 2) for line in exc.format(chain=chain))
 
@@ -460,7 +477,7 @@ def traceback_exception_format(self, *, chain=True):
 traceback.TracebackException.format = traceback_exception_format  # type: ignore[assignment]
 
 
-def trio_excepthook(etype, value, tb):
+def trio_excepthook(etype: Type[BaseException], value: BaseException, tb: TracebackType) -> None:
     for chunk in traceback.format_exception(etype, value, tb):
         sys.stderr.write(chunk)
 
@@ -483,7 +500,7 @@ if "IPython" in sys.modules:
             monkeypatched_or_warned = True
         else:
 
-            def trio_show_traceback(self, etype, value, tb, tb_offset=None):
+            def trio_show_traceback(self: object, etype: Type[BaseException], value: BaseException, tb: TracebackType, tb_offset: Optional[int] = None) -> None:
                 # XX it would be better to integrate with IPython's fancy
                 # exception formatting stuff (and not ignore tb_offset)
                 trio_excepthook(etype, value, tb)

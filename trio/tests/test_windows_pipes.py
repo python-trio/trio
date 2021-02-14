@@ -27,14 +27,14 @@ async def make_pipe() -> Tuple[PipeSendStream, PipeReceiveStream]:
     return PipeSendStream(w), PipeReceiveStream(r)
 
 
-async def test_pipe_typecheck():
+async def test_pipe_typecheck() -> None:
     with pytest.raises(TypeError):
         PipeSendStream(1.0)
     with pytest.raises(TypeError):
         PipeReceiveStream(None)
 
 
-async def test_pipe_error_on_close():
+async def test_pipe_error_on_close() -> None:
     # Make sure we correctly handle a failure from kernel32.CloseHandle
     r, w = pipe()
 
@@ -50,7 +50,7 @@ async def test_pipe_error_on_close():
         await receive_stream.aclose()
 
 
-async def test_pipes_combined():
+async def test_pipes_combined() -> None:
     write, read = await make_pipe()
     count = 2 ** 20
     replicas = 3
@@ -79,7 +79,7 @@ async def test_pipes_combined():
         n.start_soon(reader)
 
 
-async def test_async_with():
+async def test_async_with() -> None:
     w, r = await make_pipe()
     async with w, r:
         pass
@@ -90,7 +90,7 @@ async def test_async_with():
         await r.receive_some(10)
 
 
-async def test_close_during_write():
+async def test_close_during_write() -> None:
     w, r = await make_pipe()
     async with _core.open_nursery() as nursery:
 
@@ -105,7 +105,7 @@ async def test_close_during_write():
         await w.aclose()
 
 
-async def test_pipe_fully():
+async def test_pipe_fully() -> None:
     # passing make_clogged_pipe tests wait_send_all_might_not_block, and we
     # can't implement that on Windows
     await check_one_way_stream(make_pipe, None)

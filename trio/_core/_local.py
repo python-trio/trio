@@ -22,7 +22,7 @@ class _RunVarToken(Generic[_T]):
     def empty(cls, var: "RunVar[_T]") -> "_RunVarToken[_T]":
         return cls(var, value=cls._no_value)
 
-    def __init__(self, var: "RunVar", value: Union[_NoValue, _T]):
+    def __init__(self, var: "RunVar", value: Union[_NoValue, _T]) -> None:
         self._var = var
         self.previous_value = value
         self.redeemed = False
@@ -70,7 +70,7 @@ class RunVar(Generic[_T], metaclass=Final if sys.version_info >= (3, 7) else Bas
         ...
 
     @overload
-    def __init__(self, name: str, default: _T):
+    def __init__(self, name: str, default: _T) -> None:
         ...
 
     def __init__(self, name: str, default: object = _NO_DEFAULT) -> None:
@@ -140,5 +140,5 @@ class RunVar(Generic[_T], metaclass=Final if sys.version_info >= (3, 7) else Bas
 
         token.redeemed = True
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<RunVar name={!r}>".format(self._name)

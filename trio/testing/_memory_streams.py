@@ -11,7 +11,7 @@ from ..abc import SendStream, ReceiveStream
 
 
 class _UnboundedByteQueue:
-    def __init__(self):
+    def __init__(self) -> None:
         self._data = bytearray()
         self._closed = False
         self._lot = _core.ParkingLot()
@@ -204,7 +204,7 @@ class MemoryReceiveStream(ReceiveStream, metaclass=_util.Final):
 
     """
 
-    def __init__(self, receive_some_hook=None, close_hook=None):
+    def __init__(self, receive_some_hook=None, close_hook=None) -> None:
         self._conflict_detector = _util.ConflictDetector(
             "another task is using this stream"
         )
@@ -422,7 +422,7 @@ def memory_stream_pair():
 
 
 class _LockstepByteQueue:
-    def __init__(self):
+    def __init__(self) -> None:
         self._data = bytearray()
         self._sender_closed = False
         self._receiver_closed = False
@@ -516,7 +516,7 @@ class _LockstepByteQueue:
 
 
 class _LockstepSendStream(SendStream):
-    def __init__(self, lbq):
+    def __init__(self, lbq) -> None:
         self._lbq = lbq
 
     def close(self):
@@ -534,7 +534,7 @@ class _LockstepSendStream(SendStream):
 
 
 class _LockstepReceiveStream(ReceiveStream):
-    def __init__(self, lbq):
+    def __init__(self, lbq) -> None:
         self._lbq = lbq
 
     def close(self):

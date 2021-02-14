@@ -1,6 +1,7 @@
 from threading import Thread, Lock
 import outcome
 from itertools import count
+from typing import Callable, Dict, Optional, Tuple
 
 # The "thread cache" is a simple unbounded thread pool, i.e., it automatically
 # spawns as many threads as needed to handle all the requests its given. Its
@@ -39,10 +40,14 @@ IDLE_TIMEOUT = 10  # seconds
 
 name_counter = count()
 
+_Fn = Callable[..., object]
+_Deliver = Callable[[outcome.Outcome], object]
+_Job = Tuple[_Fn, _Deliver]
+
 
 class WorkerThread:
-    def __init__(self, thread_cache):
-        self._job = None
+    def __init__(self, thread_cache: "ThreadCache") -> None:
+        self._job: Optional[_Job] = None
         self._thread_cache = thread_cache
         # This Lock is used in an unconventional way.
         #
@@ -56,11 +61,14 @@ class WorkerThread:
         thread.name = f"Trio worker thread {next(name_counter)}"
         thread.start()
 
-    def _work(self):
+    def _work(self) -> None:
         while True:
             if self._worker_lock.acquire(timeout=IDLE_TIMEOUT):
                 # We got a job
-                fn, deliver = self._job
+                fn: _Fn
+                deliver: _Deliver
+                # type ignoring to avoid any runtime cost of casting etc
+                fn, deliver = self._job  # type: ignore[misc]
                 self._job = None
                 result = outcome.capture(fn)
                 # Tell the cache that we're available to be assigned a new
@@ -90,10 +98,10 @@ class WorkerThread:
 
 
 class ThreadCache:
-    def __init__(self):
-        self._idle_workers = {}
+    def __init__(self) -> None:
+        self._idle_workers: Dict[WorkerThread, None] = {}
 
-    def start_thread_soon(self, fn, deliver):
+    def start_thread_soon(self, fn: _Fn, deliver: _Deliver) -> None:
         try:
             worker, _ = self._idle_workers.popitem()
         except KeyError:
@@ -105,7 +113,7 @@ class ThreadCache:
 THREAD_CACHE = ThreadCache()
 
 
-def start_thread_soon(fn, deliver):
+def start_thread_soon(fn: _Fn, deliver: _Deliver) -> None:
     """Runs ``deliver(outcome.capture(fn))`` in a worker thread.
 
     Generally ``fn`` does some blocking work, and ``deliver`` delivers the

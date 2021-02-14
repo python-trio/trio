@@ -10,7 +10,7 @@ _Fn = TypeVar("_Fn", bound=Callable[..., Any])
 # Use:
 #
 #    @trio_test
-#    async def test_whatever():
+#    async def test_whatever() -> None:
 #        await ...
 #
 # Also: if a pytest fixture is passed in that subclasses the Clock abc, then

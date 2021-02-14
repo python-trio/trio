@@ -12,7 +12,7 @@ from .. import _thread_cache
 from .._thread_cache import start_thread_soon, ThreadCache
 
 
-def test_thread_cache_basics():
+def test_thread_cache_basics() -> None:
     q = Queue()
 
     def fn():
@@ -28,7 +28,7 @@ def test_thread_cache_basics():
         outcome.unwrap()
 
 
-def test_thread_cache_deref():
+def test_thread_cache_deref() -> None:
     res = [False]
 
     class del_me:
@@ -103,7 +103,7 @@ def test_idle_threads_exit(monkeypatch: _pytest.monkeypatch.MonkeyPatch) -> None
     assert not seen_thread.is_alive()
 
 
-def test_race_between_idle_exit_and_job_assignment(monkeypatch):
+def test_race_between_idle_exit_and_job_assignment(monkeypatch) -> None:
     # This is a lock where the first few times you try to acquire it with a
     # timeout, it waits until the lock is available and then pretends to time
     # out. Using this in our thread cache implementation causes the following
@@ -122,7 +122,7 @@ def test_race_between_idle_exit_and_job_assignment(monkeypatch):
     #    everything proceeds as normal.
 
     class JankyLock:
-        def __init__(self):
+        def __init__(self) -> None:
             self._lock = threading.Lock()
             self._counter = 3
 

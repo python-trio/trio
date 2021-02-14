@@ -71,7 +71,7 @@ def trivial_guest_run(trio_fn, **start_guest_run_kwargs):
         del todo, run_sync_soon_threadsafe, done_callback
 
 
-def test_guest_trivial():
+def test_guest_trivial() -> None:
     async def trio_return(in_host):
         await trio.sleep(0)
         return "ok"
@@ -85,7 +85,7 @@ def test_guest_trivial():
         trivial_guest_run(trio_fail)
 
 
-def test_guest_can_do_io():
+def test_guest_can_do_io() -> None:
     async def trio_main(in_host):
         record = []
         a, b = trio.socket.socketpair()
@@ -105,7 +105,7 @@ def test_guest_can_do_io():
     trivial_guest_run(trio_main)
 
 
-def test_host_can_directly_wake_trio_task():
+def test_host_can_directly_wake_trio_task() -> None:
     async def trio_main(in_host):
         ev = trio.Event()
         in_host(ev.set)
@@ -115,7 +115,7 @@ def test_host_can_directly_wake_trio_task():
     assert trivial_guest_run(trio_main) == "ok"
 
 
-def test_host_altering_deadlines_wakes_trio_up():
+def test_host_altering_deadlines_wakes_trio_up() -> None:
     def set_deadline(cscope, new_deadline):
         cscope.deadline = new_deadline
 
@@ -138,7 +138,7 @@ def test_host_altering_deadlines_wakes_trio_up():
     assert trivial_guest_run(trio_main) == "ok"
 
 
-def test_warn_set_wakeup_fd_overwrite():
+def test_warn_set_wakeup_fd_overwrite() -> None:
     assert signal.set_wakeup_fd(-1) == -1
 
     async def trio_main(in_host):
@@ -206,7 +206,7 @@ def test_warn_set_wakeup_fd_overwrite():
             assert signal.set_wakeup_fd(-1) == a.fileno()
 
 
-def test_host_wakeup_doesnt_trigger_wait_all_tasks_blocked():
+def test_host_wakeup_doesnt_trigger_wait_all_tasks_blocked() -> None:
     # This is designed to hit the branch in unrolled_run where:
     #   idle_primed=True
     #   runner.runq is empty
@@ -245,7 +245,7 @@ def test_host_wakeup_doesnt_trigger_wait_all_tasks_blocked():
                 # actually end. So in after_io_wait we schedule a second host
                 # call to tear things down.
                 class InstrumentHelper:
-                    def __init__(self):
+                    def __init__(self) -> None:
                         self.primed = False
 
                     def before_io_wait(self, timeout):
@@ -277,7 +277,7 @@ def test_host_wakeup_doesnt_trigger_wait_all_tasks_blocked():
     assert trivial_guest_run(trio_main) == "ok"
 
 
-def test_guest_warns_if_abandoned():
+def test_guest_warns_if_abandoned() -> None:
     # This warning is emitted from the garbage collector. So we have to make
     # sure that our abandoned run is garbage. The easiest way to do this is to
     # put it into a function, so that we're sure all the local state,
@@ -346,7 +346,7 @@ def aiotrio_run(trio_fn, *, pass_not_threadsafe=True, **start_guest_run_kwargs):
         loop.close()
 
 
-def test_guest_mode_on_asyncio():
+def test_guest_mode_on_asyncio() -> None:
     async def trio_main():
         print("trio_main!")
 
@@ -405,7 +405,7 @@ def test_guest_mode_on_asyncio():
     )
 
 
-def test_guest_mode_internal_errors(monkeypatch, recwarn):
+def test_guest_mode_internal_errors(monkeypatch, recwarn) -> None:
     with monkeypatch.context() as m:
 
         async def crash_in_run_loop(in_host):
@@ -446,7 +446,7 @@ def test_guest_mode_internal_errors(monkeypatch, recwarn):
     gc_collect_harder()
 
 
-def test_guest_mode_ki():
+def test_guest_mode_ki() -> None:
     assert signal.getsignal(signal.SIGINT) is signal.default_int_handler
 
     # Check SIGINT in Trio func and in host func
@@ -478,7 +478,7 @@ def test_guest_mode_ki():
     assert signal.getsignal(signal.SIGINT) is signal.default_int_handler
 
 
-def test_guest_mode_autojump_clock_threshold_changing():
+def test_guest_mode_autojump_clock_threshold_changing() -> None:
     # This is super obscure and probably no-one will ever notice, but
     # technically mutating the MockClock.autojump_threshold from the host
     # should wake up the guest, so let's test it.

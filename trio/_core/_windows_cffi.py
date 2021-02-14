@@ -1,6 +1,7 @@
 import cffi
 import re
 import enum
+from typing import Optional, Union
 
 ################################################################
 # Functions and types
@@ -301,7 +302,7 @@ class IoControlCodes(enum.IntEnum):
 ################################################################
 
 
-def _handle(obj):
+def _handle(obj: Union[int, object]) -> object:
     # For now, represent handles as either cffi HANDLEs or as ints.  If you
     # try to pass in a file descriptor instead, it's not going to work
     # out. (For that msvcrt.get_osfhandle does the trick, but I don't know if
@@ -314,7 +315,12 @@ def _handle(obj):
         return obj
 
 
-def raise_winerror(winerror=None, *, filename=None, filename2=None):
+def raise_winerror(
+    winerror: Optional[object] = None,
+    *,
+    filename: Optional[str] = None,
+    filename2: Optional[str] = None,
+) -> None:
     if winerror is None:
         winerror, msg = ffi.getwinerror()
     else:

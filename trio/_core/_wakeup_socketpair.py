@@ -26,7 +26,7 @@ HAVE_WARN_ON_FULL_BUFFER = _has_warn_on_full_buffer()
 
 
 class WakeupSocketpair:
-    def __init__(self):
+    def __init__(self) -> None:
         self.wakeup_sock, self.write_sock = socket.socketpair()
         self.wakeup_sock.setblocking(False)
         self.write_sock.setblocking(False)

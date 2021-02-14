@@ -1,4 +1,6 @@
 import math
+from typing import Union
+
 from . import _timeouts
 import trio
 from ._core._windows_cffi import (
@@ -10,7 +12,7 @@ from ._core._windows_cffi import (
 )
 
 
-async def WaitForSingleObject(obj):
+async def WaitForSingleObject(obj: Union[int, object]) -> None:
     """Async and cancellable variant of WaitForSingleObject. Windows only.
 
     Args:
@@ -50,7 +52,7 @@ async def WaitForSingleObject(obj):
         kernel32.CloseHandle(cancel_handle)
 
 
-def WaitForMultipleObjects_sync(*handles):
+def WaitForMultipleObjects_sync(*handles: object) -> None:
     """Wait for any of the given Windows handles to be signaled."""
     n = len(handles)
     handle_arr = ffi.new("HANDLE[{}]".format(n))

@@ -19,7 +19,7 @@ if on_windows:
     )
 
 
-async def test_WaitForMultipleObjects_sync():
+async def test_WaitForMultipleObjects_sync() -> None:
     # This does a series of tests where we set/close the handle before
     # initiating the waiting for it.
     #
@@ -128,7 +128,7 @@ async def test_WaitForMultipleObjects_sync_slow() -> None:
     print("test_WaitForMultipleObjects_sync_slow thread-set second OK")
 
 
-async def test_WaitForSingleObject():
+async def test_WaitForSingleObject() -> None:
     # This does a series of test for setting/closing the handle before
     # initiating the wait.
 

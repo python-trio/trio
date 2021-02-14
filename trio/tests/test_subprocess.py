@@ -62,7 +62,7 @@ def got_signal(proc, sig):
         return proc.returncode != 0
 
 
-async def test_basic():
+async def test_basic() -> None:
     async with await open_process(EXIT_TRUE) as proc:
         pass
     assert isinstance(proc, Process)
@@ -78,7 +78,7 @@ async def test_basic():
     )
 
 
-async def test_auto_update_returncode():
+async def test_auto_update_returncode() -> None:
     p = await open_process(SLEEP(9999))
     assert p.returncode is None
     assert "running" in repr(p)
@@ -90,7 +90,7 @@ async def test_auto_update_returncode():
     assert p.returncode is not None
 
 
-async def test_multi_wait():
+async def test_multi_wait() -> None:
     async with await open_process(SLEEP(10)) as proc:
         # Check that wait (including multi-wait) tolerates being cancelled
         async with _core.open_nursery() as nursery:
@@ -109,7 +109,7 @@ async def test_multi_wait():
             proc.kill()
 
 
-async def test_kill_when_context_cancelled():
+async def test_kill_when_context_cancelled() -> None:
     with move_on_after(100) as scope:
         async with await open_process(SLEEP(10)) as proc:
             assert proc.poll() is None
@@ -129,7 +129,7 @@ COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR = python(
 )
 
 
-async def test_pipes():
+async def test_pipes() -> None:
     async with await open_process(
         COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR,
         stdin=subprocess.PIPE,
@@ -159,7 +159,7 @@ async def test_pipes():
         assert 0 == await proc.wait()
 
 
-async def test_interactive():
+async def test_interactive() -> None:
     # Test some back-and-forth with a subprocess. This one works like so:
     # in: 32\n
     # out: 0000...0000\n (32 zeroes)
@@ -227,7 +227,7 @@ async def test_interactive():
     assert proc.returncode == 0
 
 
-async def test_run():
+async def test_run() -> None:
     data = bytes(random.randint(0, 255) for _ in range(2 ** 18))
 
     result = await run_process(
@@ -266,7 +266,7 @@ async def test_run():
         await run_process(CAT, capture_stderr=True, stderr=None)
 
 
-async def test_run_check():
+async def test_run_check() -> None:
     cmd = python("sys.stderr.buffer.write(b'test\\n'); sys.exit(1)")
     with pytest.raises(subprocess.CalledProcessError) as excinfo:
         await run_process(cmd, stdin=subprocess.DEVNULL, capture_stderr=True)
@@ -293,7 +293,7 @@ async def test_run_with_broken_pipe() -> None:
     assert result.stdout is result.stderr is None
 
 
-async def test_stderr_stdout():
+async def test_stderr_stdout() -> None:
     async with await open_process(
         COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR,
         stdin=subprocess.PIPE,
@@ -358,7 +358,7 @@ async def test_stderr_stdout():
             os.close(r)
 
 
-async def test_errors():
+async def test_errors() -> None:
     with pytest.raises(TypeError) as excinfo:
         await open_process(["ls"], encoding="utf-8")
     assert "unbuffered byte streams" in str(excinfo.value)
@@ -371,8 +371,8 @@ async def test_errors():
             await open_process("ls", shell=False)
 
 
-async def test_signals():
-    async def test_one_signal(send_it, signum):
+async def test_signals() -> None:
+    async def test_one_signal(send_it, signum) -> None:
         with move_on_after(1.0) as scope:
             async with await open_process(SLEEP(3600)) as proc:
                 send_it(proc)
@@ -459,7 +459,7 @@ def test_waitid_eintr() -> None:
             signal.signal(signal.SIGALRM, old_sigalrm)
 
 
-async def test_custom_deliver_cancel():
+async def test_custom_deliver_cancel() -> None:
     custom_deliver_cancel_called = False
 
     async def custom_deliver_cancel(proc):
@@ -483,7 +483,7 @@ async def test_custom_deliver_cancel():
     assert custom_deliver_cancel_called
 
 
-async def test_warn_on_failed_cancel_terminate(monkeypatch):
+async def test_warn_on_failed_cancel_terminate(monkeypatch) -> None:
     original_terminate = Process.terminate
 
     def broken_terminate(self):

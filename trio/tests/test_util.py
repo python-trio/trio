@@ -20,7 +20,7 @@ from ..testing import wait_all_tasks_blocked
 _T = TypeVar("_T")
 
 
-def test_signal_raise():
+def test_signal_raise() -> None:
     record = []
 
     def handler(signum, _):
@@ -34,7 +34,7 @@ def test_signal_raise():
     assert record == [signal.SIGFPE]
 
 
-async def test_ConflictDetector():
+async def test_ConflictDetector() -> None:
     ul1 = ConflictDetector("ul1")
     ul2 = ConflictDetector("ul2")
 
@@ -59,7 +59,7 @@ async def test_ConflictDetector():
     assert "ul1" in str(excinfo.value)
 
 
-def test_module_metadata_is_fixed_up():
+def test_module_metadata_is_fixed_up() -> None:
     import trio
     import trio.testing
 
@@ -83,7 +83,7 @@ def test_module_metadata_is_fixed_up():
     assert trio.to_thread.run_sync.__qualname__ == "run_sync"
 
 
-async def test_is_main_thread():
+async def test_is_main_thread() -> None:
     assert is_main_thread()
 
     def not_main_thread():
@@ -164,7 +164,7 @@ def test_generic_function() -> None:
     assert test_func.__module__ == __name__
 
 
-def test_final_metaclass():
+def test_final_metaclass() -> None:
     class FinalClass(metaclass=Final):
         pass
 
@@ -174,7 +174,7 @@ def test_final_metaclass():
             pass
 
 
-def test_no_public_constructor_metaclass():
+def test_no_public_constructor_metaclass() -> None:
     class SpecialClass(metaclass=NoPublicConstructor):
         pass
 

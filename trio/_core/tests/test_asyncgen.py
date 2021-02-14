@@ -10,7 +10,7 @@ from .tutil import gc_collect_harder, buggy_pypy_asyncgens
 import _pytest.capture
 
 
-def test_asyncgen_basics():
+def test_asyncgen_basics() -> None:
     collected = []
 
     async def example(cause):
@@ -85,7 +85,7 @@ def test_asyncgen_basics():
         assert agen.ag_frame is None  # all should now be exhausted
 
 
-async def test_asyncgen_throws_during_finalization(caplog):
+async def test_asyncgen_throws_during_finalization(caplog) -> None:
     record = []
 
     async def agen():
@@ -172,7 +172,7 @@ def test_interdependent_asyncgen_cleanup_order() -> None:
     assert record == ["innermost", *range(100)]
 
 
-def test_last_minute_gc_edge_case():
+def test_last_minute_gc_edge_case() -> None:
     saved = []
     record = []
     needs_retry = True

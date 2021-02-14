@@ -594,7 +594,7 @@ class CancelScope(metaclass=Final):
                 assert value is remaining_error_after_cancel_scope
                 value.__context__ = old_context
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self._cancel_status is not None:
             binding = "active"
         elif self._has_been_entered:
@@ -767,7 +767,7 @@ class _TaskStatus:
     _called_started = attr.ib(default=False)
     _value = attr.ib(default=None)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<Task status object at {:#x}>".format(id(self))
 
     def started(self, value=None):
@@ -908,7 +908,7 @@ class Nursery(metaclass=NoPublicConstructor):
             in response to some external event.
     """
 
-    def __init__(self, parent_task: "Task", cancel_scope: CancelScope):
+    def __init__(self, parent_task: "Task", cancel_scope: CancelScope) -> None:
         self._parent_task = parent_task
         parent_task._child_nurseries.append(self)
         # the cancel status that children inherit - we take a snapshot, so it
@@ -1144,7 +1144,7 @@ class Task(metaclass=NoPublicConstructor):
     _cancel_points: int = attr.ib(default=0)
     _schedule_points: int = attr.ib(default=0)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<Task {!r} at {:#x}>".format(self.name, id(self))
 
     @property
@@ -1775,7 +1775,7 @@ class Runner:
                  await lock.acquire()
                  lock.release()
 
-             async def test_lock_fairness():
+             async def test_lock_fairness() -> None:
                  lock = trio.Lock()
                  await lock.acquire()
                  async with trio.open_nursery() as nursery:
@@ -2336,7 +2336,7 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
 
 
 class _TaskStatusIgnored:
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "TASK_STATUS_IGNORED"
 
     def started(self, value=None):

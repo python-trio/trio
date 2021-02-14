@@ -1,7 +1,7 @@
 import sys
 from functools import wraps
 from types import ModuleType
-from typing import Any, Callable, Optional, TypeVar, Union
+from typing import Any, Callable, Dict, Optional, TypeVar, Union
 import warnings
 
 import attr
@@ -33,13 +33,13 @@ class TrioDeprecationWarning(FutureWarning):
     """
 
 
-def _url_for_issue(issue):
+def _url_for_issue(issue: int) -> str:
     return "https://github.com/python-trio/trio/issues/{}".format(issue)
 
 
-def _stringify(thing):
+def _stringify(thing: object) -> str:
     if hasattr(thing, "__module__") and hasattr(thing, "__qualname__"):
-        return "{}.{}".format(thing.__module__, thing.__qualname__)
+        return "{}.{}".format(thing.__module__, thing.__qualname__)  # type: ignore[attr-defined]
     return str(thing)
 
 
@@ -125,14 +125,16 @@ def deprecated_alias(old_qualname: str, new_fn: _T, version: str, *, issue: int)
 class DeprecatedAttribute:
     _not_set = object()
 
-    value = attr.ib()
-    version = attr.ib()
-    issue = attr.ib()
-    instead = attr.ib(default=_not_set)
+    value: str = attr.ib()
+    version: str = attr.ib()
+    issue: int = attr.ib()
+    instead: Union[object, str] = attr.ib(default=_not_set)
 
 
 class _ModuleWithDeprecations(ModuleType):
-    def __getattr__(self, name):
+    __deprecated_attributes__: Dict[str, DeprecatedAttribute]
+
+    def __getattr__(self, name: str) -> object:
         if name in self.__deprecated_attributes__:
             info = self.__deprecated_attributes__[name]
             instead = info.instead
@@ -146,10 +148,10 @@ class _ModuleWithDeprecations(ModuleType):
         raise AttributeError(msg.format(self.__name__, name))
 
 
-def enable_attribute_deprecations(module_name):
+def enable_attribute_deprecations(module_name: str) -> None:
     module = sys.modules[module_name]
     module.__class__ = _ModuleWithDeprecations
     # Make sure that this is always defined so that
     # _ModuleWithDeprecations.__getattr__ can access it without jumping
     # through hoops or risking infinite recursion.
-    module.__deprecated_attributes__ = {}
+    module.__deprecated_attributes__ = {}  # type: ignore[attr-defined]

@@ -6,7 +6,7 @@ from .._parking_lot import ParkingLot
 from .tutil import check_sequence_matches
 
 
-async def test_parking_lot_basic():
+async def test_parking_lot_basic() -> None:
     record = []
 
     async def waiter(i, lot):
@@ -85,7 +85,7 @@ async def cancellable_waiter(name, lot, scopes, record):
             record.append("wake {}".format(name))
 
 
-async def test_parking_lot_cancel():
+async def test_parking_lot_cancel() -> None:
     record = []
     scopes = {}
 
@@ -111,7 +111,7 @@ async def test_parking_lot_cancel():
     )
 
 
-async def test_parking_lot_repark():
+async def test_parking_lot_repark() -> None:
     record = []
     scopes = {}
     lot1 = ParkingLot()
@@ -165,7 +165,7 @@ async def test_parking_lot_repark():
         ]
 
 
-async def test_parking_lot_repark_with_count():
+async def test_parking_lot_repark_with_count() -> None:
     record = []
     scopes = {}
     lot1 = ParkingLot()

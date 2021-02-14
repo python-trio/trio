@@ -42,7 +42,7 @@ class MemoryListener(trio.abc.Listener):
         await trio.lowlevel.checkpoint()
 
 
-async def test_serve_listeners_basic():
+async def test_serve_listeners_basic() -> None:
     listeners = [MemoryListener(), MemoryListener()]
 
     record = []
@@ -87,7 +87,7 @@ async def test_serve_listeners_basic():
         assert listener.closed
 
 
-async def test_serve_listeners_accept_unrecognized_error():
+async def test_serve_listeners_accept_unrecognized_error() -> None:
     for error in [KeyError(), OSError(errno.ECONNABORTED, "ECONNABORTED")]:
         listener = MemoryListener()
 
@@ -101,7 +101,7 @@ async def test_serve_listeners_accept_unrecognized_error():
         assert excinfo.value is error
 
 
-async def test_serve_listeners_accept_capacity_error(autojump_clock, caplog):
+async def test_serve_listeners_accept_capacity_error(autojump_clock, caplog) -> None:
     listener = MemoryListener()
 
     async def raise_EMFILE():
@@ -120,7 +120,7 @@ async def test_serve_listeners_accept_capacity_error(autojump_clock, caplog):
         assert record.exc_info[1].errno == errno.EMFILE
 
 
-async def test_serve_listeners_connection_nursery(autojump_clock):
+async def test_serve_listeners_connection_nursery(autojump_clock) -> None:
     listener = MemoryListener()
 
     async def handler(stream):

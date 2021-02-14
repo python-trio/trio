@@ -172,7 +172,7 @@ async def ssl_echo_server(  # type: ignore[misc]
 # Doesn't inherit from Stream because I left out the methods that we don't
 # actually need.
 class PyOpenSSLEchoStream:
-    def __init__(self, sleeper=None):
+    def __init__(self, sleeper=None) -> None:
         ctx = SSL.Context(SSL.SSLv23_METHOD)
         # TLS 1.3 removes renegotiation support. Which is great for them, but
         # we still have to support versions before that, and that means we
@@ -325,7 +325,7 @@ class PyOpenSSLEchoStream:
                 print("  <-- transport_stream.receive_some finished")
 
 
-async def test_PyOpenSSLEchoStream_gives_resource_busy_errors():
+async def test_PyOpenSSLEchoStream_gives_resource_busy_errors() -> None:
     # Make sure that PyOpenSSLEchoStream complains if two tasks call send_all
     # at the same time, or ditto for receive_some. The tricky cases where SSLStream
     # might accidentally do this are during renegotiation, which we test using
@@ -402,7 +402,7 @@ def ssl_lockstep_stream_pair(client_ctx, **kwargs):
 # Simple smoke test for handshake/send/receive/shutdown talking to a
 # synchronous server, plus make sure that we do the bare minimum of
 # certificate checking (even though this is really Python's responsibility)
-async def test_ssl_client_basics(client_ctx):
+async def test_ssl_client_basics(client_ctx) -> None:
     # Everything OK
     async with ssl_echo_server(client_ctx) as s:
         assert not s.server_side
@@ -428,7 +428,7 @@ async def test_ssl_client_basics(client_ctx):
         assert isinstance(excinfo.value.__cause__, ssl.CertificateError)
 
 
-async def test_ssl_server_basics(client_ctx):
+async def test_ssl_server_basics(client_ctx) -> None:
     a, b = stdlib_socket.socketpair()
     with a, b:
         server_sock = tsocket.from_stdlib_socket(b)
@@ -458,7 +458,7 @@ async def test_ssl_server_basics(client_ctx):
         t.join()
 
 
-async def test_attributes(client_ctx):
+async def test_attributes(client_ctx) -> None:
     async with ssl_echo_server_raw(expect_fail=True) as sock:
         good_ctx = client_ctx
         bad_ctx = ssl.create_default_context()
@@ -527,7 +527,7 @@ async def test_attributes(client_ctx):
 # I begin to see why HTTP/2 forbids renegotiation and TLS 1.3 removes it...
 
 
-async def test_full_duplex_basics(client_ctx):
+async def test_full_duplex_basics(client_ctx) -> None:
     CHUNKS = 30
     CHUNK_SIZE = 32768
     EXPECTED = CHUNKS * CHUNK_SIZE
@@ -564,7 +564,7 @@ async def test_full_duplex_basics(client_ctx):
     assert sent == received
 
 
-async def test_renegotiation_simple(client_ctx):
+async def test_renegotiation_simple(client_ctx) -> None:
     with virtual_ssl_echo_server(client_ctx) as s:
         await s.do_handshake()
 
@@ -701,7 +701,7 @@ async def test_renegotiation_randomized(
         await s.aclose()
 
 
-async def test_resource_busy_errors(client_ctx):
+async def test_resource_busy_errors(client_ctx) -> None:
     async def do_send_all():
         with assert_checkpoints():
             await s.send_all(b"x")
@@ -743,7 +743,7 @@ async def test_resource_busy_errors(client_ctx):
     assert "another task" in str(excinfo.value)
 
 
-async def test_wait_writable_calls_underlying_wait_writable():
+async def test_wait_writable_calls_underlying_wait_writable() -> None:
     record = []
 
     class NotAStream:
@@ -756,7 +756,7 @@ async def test_wait_writable_calls_underlying_wait_writable():
     assert record == ["ok"]
 
 
-async def test_checkpoints(client_ctx):
+async def test_checkpoints(client_ctx) -> None:
     async with ssl_echo_server(client_ctx) as s:
         with assert_checkpoints():
             await s.do_handshake()
@@ -785,7 +785,7 @@ async def test_checkpoints(client_ctx):
             await s.aclose()
 
 
-async def test_send_all_empty_string(client_ctx):
+async def test_send_all_empty_string(client_ctx) -> None:
     async with ssl_echo_server(client_ctx) as s:
         await s.do_handshake()
 
@@ -828,7 +828,7 @@ async def test_SSLStream_generic(
     await check_two_way_stream(stream_maker, clogged_stream_maker)
 
 
-async def test_unwrap(client_ctx):
+async def test_unwrap(client_ctx) -> None:
     client_ssl, server_ssl = ssl_memory_stream_pair(client_ctx)
     client_transport = client_ssl.transport_stream
     server_transport = server_ssl.transport_stream
@@ -882,7 +882,7 @@ async def test_unwrap(client_ctx):
         nursery.start_soon(server)
 
 
-async def test_closing_nice_case(client_ctx):
+async def test_closing_nice_case(client_ctx) -> None:
     # the nice case: graceful closes all around
 
     client_ssl, server_ssl = ssl_memory_stream_pair(client_ctx)
@@ -944,7 +944,7 @@ async def test_closing_nice_case(client_ctx):
         nursery.start_soon(expect_eof_server)
 
 
-async def test_send_all_fails_in_the_middle(client_ctx):
+async def test_send_all_fails_in_the_middle(client_ctx) -> None:
     client, server = ssl_memory_stream_pair(client_ctx)
 
     async with _core.open_nursery() as nursery:
@@ -975,7 +975,7 @@ async def test_send_all_fails_in_the_middle(client_ctx):
     assert closed == 2
 
 
-async def test_ssl_over_ssl(client_ctx):
+async def test_ssl_over_ssl(client_ctx) -> None:
     client_0, server_0 = memory_stream_pair()
 
     client_1 = SSLStream(
@@ -1001,7 +1001,7 @@ async def test_ssl_over_ssl(client_ctx):
         nursery.start_soon(server)
 
 
-async def test_ssl_bad_shutdown(client_ctx):
+async def test_ssl_bad_shutdown(client_ctx) -> None:
     client, server = ssl_memory_stream_pair(client_ctx)
 
     async with _core.open_nursery() as nursery:
@@ -1018,7 +1018,7 @@ async def test_ssl_bad_shutdown(client_ctx):
     await server.aclose()
 
 
-async def test_ssl_bad_shutdown_but_its_ok(client_ctx):
+async def test_ssl_bad_shutdown_but_its_ok(client_ctx) -> None:
     client, server = ssl_memory_stream_pair(
         client_ctx,
         server_kwargs={"https_compatible": True},
@@ -1038,7 +1038,7 @@ async def test_ssl_bad_shutdown_but_its_ok(client_ctx):
     await server.aclose()
 
 
-async def test_ssl_handshake_failure_during_aclose():
+async def test_ssl_handshake_failure_during_aclose() -> None:
     # Weird scenario: aclose() triggers an automatic handshake, and this
     # fails. This also exercises a bit of code in aclose() that was otherwise
     # uncovered, for re-raising exceptions after calling aclose_forcefully on
@@ -1057,7 +1057,7 @@ async def test_ssl_handshake_failure_during_aclose():
             await s.aclose()
 
 
-async def test_ssl_only_closes_stream_once(client_ctx):
+async def test_ssl_only_closes_stream_once(client_ctx) -> None:
     # We used to have a bug where if transport_stream.aclose() raised an
     # error, we would call it again. This checks that that's fixed.
     client, server = ssl_memory_stream_pair(client_ctx)
@@ -1082,7 +1082,7 @@ async def test_ssl_only_closes_stream_once(client_ctx):
     assert transport_close_count == 1
 
 
-async def test_ssl_https_compatibility_disagreement(client_ctx):
+async def test_ssl_https_compatibility_disagreement(client_ctx) -> None:
     client, server = ssl_memory_stream_pair(
         client_ctx,
         server_kwargs={"https_compatible": False},
@@ -1105,7 +1105,7 @@ async def test_ssl_https_compatibility_disagreement(client_ctx):
         nursery.start_soon(receive_and_expect_error)
 
 
-async def test_https_mode_eof_before_handshake(client_ctx):
+async def test_https_mode_eof_before_handshake(client_ctx) -> None:
     client, server = ssl_memory_stream_pair(
         client_ctx,
         server_kwargs={"https_compatible": True},
@@ -1120,7 +1120,7 @@ async def test_https_mode_eof_before_handshake(client_ctx):
         nursery.start_soon(server_expect_clean_eof)
 
 
-async def test_send_error_during_handshake(client_ctx):
+async def test_send_error_during_handshake(client_ctx) -> None:
     client, server = ssl_memory_stream_pair(client_ctx)
 
     async def bad_hook():
@@ -1137,7 +1137,7 @@ async def test_send_error_during_handshake(client_ctx):
             await client.do_handshake()
 
 
-async def test_receive_error_during_handshake(client_ctx):
+async def test_receive_error_during_handshake(client_ctx) -> None:
     client, server = ssl_memory_stream_pair(client_ctx)
 
     async def bad_hook():
@@ -1160,7 +1160,7 @@ async def test_receive_error_during_handshake(client_ctx):
             await client.do_handshake()
 
 
-async def test_selected_alpn_protocol_before_handshake(client_ctx):
+async def test_selected_alpn_protocol_before_handshake(client_ctx) -> None:
     client, server = ssl_memory_stream_pair(client_ctx)
 
     with pytest.raises(NeedHandshakeError):
@@ -1170,7 +1170,7 @@ async def test_selected_alpn_protocol_before_handshake(client_ctx):
         server.selected_alpn_protocol()
 
 
-async def test_selected_alpn_protocol_when_not_set(client_ctx):
+async def test_selected_alpn_protocol_when_not_set(client_ctx) -> None:
     # ALPN protocol still returns None when it's not ser,
     # instead of raising an exception
     client, server = ssl_memory_stream_pair(client_ctx)
@@ -1185,7 +1185,7 @@ async def test_selected_alpn_protocol_when_not_set(client_ctx):
     assert client.selected_alpn_protocol() == server.selected_alpn_protocol()
 
 
-async def test_selected_npn_protocol_before_handshake(client_ctx):
+async def test_selected_npn_protocol_before_handshake(client_ctx) -> None:
     client, server = ssl_memory_stream_pair(client_ctx)
 
     with pytest.raises(NeedHandshakeError):
@@ -1195,7 +1195,7 @@ async def test_selected_npn_protocol_before_handshake(client_ctx):
         server.selected_npn_protocol()
 
 
-async def test_selected_npn_protocol_when_not_set(client_ctx):
+async def test_selected_npn_protocol_when_not_set(client_ctx) -> None:
     # NPN protocol still returns None when it's not ser,
     # instead of raising an exception
     client, server = ssl_memory_stream_pair(client_ctx)
@@ -1210,7 +1210,7 @@ async def test_selected_npn_protocol_when_not_set(client_ctx):
     assert client.selected_npn_protocol() == server.selected_npn_protocol()
 
 
-async def test_get_channel_binding_before_handshake(client_ctx):
+async def test_get_channel_binding_before_handshake(client_ctx) -> None:
     client, server = ssl_memory_stream_pair(client_ctx)
 
     with pytest.raises(NeedHandshakeError):
@@ -1220,7 +1220,7 @@ async def test_get_channel_binding_before_handshake(client_ctx):
         server.get_channel_binding()
 
 
-async def test_get_channel_binding_after_handshake(client_ctx):
+async def test_get_channel_binding_after_handshake(client_ctx) -> None:
     client, server = ssl_memory_stream_pair(client_ctx)
 
     async with _core.open_nursery() as nursery:
@@ -1233,7 +1233,7 @@ async def test_get_channel_binding_after_handshake(client_ctx):
     assert client.get_channel_binding() == server.get_channel_binding()
 
 
-async def test_getpeercert(client_ctx):
+async def test_getpeercert(client_ctx) -> None:
     # Make sure we're not affected by https://bugs.python.org/issue29334
     client, server = ssl_memory_stream_pair(client_ctx)
 
@@ -1246,7 +1246,7 @@ async def test_getpeercert(client_ctx):
     assert ("DNS", "trio-test-1.example.org") in client.getpeercert()["subjectAltName"]
 
 
-async def test_SSLListener(client_ctx):
+async def test_SSLListener(client_ctx) -> None:
     async def setup(**kwargs):
         listen_sock = tsocket.socket()
         await listen_sock.bind(("127.0.0.1", 0))

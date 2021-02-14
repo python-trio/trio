@@ -56,7 +56,7 @@ if sys.platform == "win32":
                         break
                 print("end loop")
 
-    async def test_readinto_overlapped():
+    async def test_readinto_overlapped() -> None:
         data = b"1" * 1024 + b"2" * 1024 + b"3" * 1024 + b"4" * 1024
         buffer = bytearray(len(data))
 
@@ -113,7 +113,7 @@ if sys.platform == "win32":
             kernel32.CloseHandle(ffi.cast("HANDLE", read_handle))
             kernel32.CloseHandle(ffi.cast("HANDLE", write_handle))
 
-    def test_forgot_to_register_with_iocp():
+    def test_forgot_to_register_with_iocp() -> None:
         with pipe_with_overlapped_read() as (write_fp, read_handle):
             with write_fp:
                 write_fp.write(b"test\n")
@@ -173,7 +173,7 @@ if sys.platform == "win32":
             assert await _core.readinto_overlapped(read_handle, target) == 6
             assert target[:6] == b"test2\n"
 
-    def test_lsp_that_hooks_select_gives_good_error(monkeypatch):
+    def test_lsp_that_hooks_select_gives_good_error(monkeypatch) -> None:
         from .._windows_cffi import WSAIoctls, _handle
         from .. import _io_windows
 
@@ -193,7 +193,7 @@ if sys.platform == "win32":
         ):
             _core.run(sleep, 0)
 
-    def test_lsp_that_completely_hides_base_socket_gives_good_error(monkeypatch):
+    def test_lsp_that_completely_hides_base_socket_gives_good_error(monkeypatch) -> None:
         # This tests behavior with an LSP that fails SIO_BASE_HANDLE and returns
         # self for SIO_BSP_HANDLE_SELECT (like Komodia), but also returns
         # self for SIO_BSP_HANDLE_POLL. No known LSP does this, but we want to

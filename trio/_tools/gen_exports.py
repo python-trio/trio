@@ -10,6 +10,7 @@ import astor
 import os
 from pathlib import Path
 import sys
+from typing import Dict, Iterator, List, Tuple, Union
 
 from textwrap import indent
 
@@ -57,7 +58,7 @@ except AttributeError:
 """
 
 
-def is_function(node):
+def is_function(node: ast.AST) -> bool:
     """Check if the AST node is either a function
     or an async function
     """
@@ -66,17 +67,21 @@ def is_function(node):
     return False
 
 
-def is_public(node):
+def is_public(node: ast.AST) -> bool:
     """Check if the AST node has a _public decorator"""
     if not is_function(node):
         return False
+
+    # the `if` above does this but we have to help out Mypy
+    assert isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+
     for decorator in node.decorator_list:
         if isinstance(decorator, ast.Name) and decorator.id == "_public":
             return True
     return False
 
 
-def get_public_methods(tree):
+def get_public_methods(tree: ast.AST) -> Iterator[Union[ast.FunctionDef, ast.AsyncFunctionDef]]:
     """Return a list of methods marked as public.
     The function walks the given tree and extracts
     all objects that are functions which are marked
@@ -84,10 +89,13 @@ def get_public_methods(tree):
     """
     for node in ast.walk(tree):
         if is_public(node):
+            # the `if` above does this but we have to help out Mypy
+            assert isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+
             yield node
 
 
-def create_passthrough_args(funcdef):
+def create_passthrough_args(funcdef: Union[ast.FunctionDef, ast.AsyncFunctionDef]) -> str:
     """Given a function definition, create a string that represents taking all
     the arguments from the function, and passing them through to another
     invocation of the same function.
@@ -107,7 +115,7 @@ def create_passthrough_args(funcdef):
     return "({})".format(", ".join(call_args))
 
 
-def gen_public_wrappers_source(source_path: Path, lookup_path: str) -> str:
+def gen_public_wrappers_source(source_path: Union[Path, str], lookup_path: str) -> str:
     """Scan the given .py file for @_public decorators, and generate wrapper
     functions.
 
@@ -132,6 +140,7 @@ def gen_public_wrappers_source(source_path: Path, lookup_path: str) -> str:
         contextmanager_decorated = any(
             decorator.id in {"contextmanager", "contextlib.contextmanager"}
             for decorator in method.decorator_list
+            if isinstance(decorator, ast.Name)
         )
         # Remove decorators
         method.decorator_list = []
@@ -167,7 +176,7 @@ def gen_public_wrappers_source(source_path: Path, lookup_path: str) -> str:
     return "\n\n".join(generated)
 
 
-def matches_disk_files(new_files):
+def matches_disk_files(new_files: Dict[str, str]) -> bool:
     for new_path, new_source in new_files.items():
         if not os.path.exists(new_path):
             return False
@@ -178,7 +187,7 @@ def matches_disk_files(new_files):
     return True
 
 
-def process(sources_and_lookups, *, do_test):
+def process(sources_and_lookups: List[Tuple[Union[Path, str], str]], *, do_test: bool) -> None:
     new_files = {}
     for source_path, lookup_path in sources_and_lookups:
         print("Scanning:", source_path)
@@ -201,7 +210,7 @@ def process(sources_and_lookups, *, do_test):
 
 # This is in fact run in CI, but only in the formatting check job, which
 # doesn't collect coverage.
-def main():  # pragma: no cover
+def main() -> None:  # pragma: no cover
     parser = argparse.ArgumentParser(
         description="Generate python code for public api wrappers"
     )
@@ -214,7 +223,7 @@ def main():  # pragma: no cover
     # Double-check we found the right directory
     assert (source_root / "LICENSE").exists()
     core = source_root / "trio/_core"
-    to_wrap = [
+    to_wrap: List[Tuple[Union[Path, str], str]] = [
         (core / "_run.py", "runner"),
         (core / "_instrumentation.py", "runner.instruments"),
         (core / "_io_windows.py", "runner.io_manager"),

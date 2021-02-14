@@ -13,7 +13,7 @@ from .. import _core
 from .. import _util
 
 
-def test_core_is_properly_reexported():
+def test_core_is_properly_reexported() -> None:
     # Each export from _core should be re-exported by exactly one of these
     # three modules:
     sources = [trio, trio.lowlevel, trio.testing]
@@ -113,7 +113,7 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str) -> None:
         assert False
 
 
-def test_classes_are_final():
+def test_classes_are_final() -> None:
     for module in PUBLIC_MODULES:
         for name, class_ in module.__dict__.items():
             if not isinstance(class_, type):

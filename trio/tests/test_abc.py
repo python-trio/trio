@@ -6,7 +6,7 @@ from ..testing import assert_checkpoints
 from .. import abc as tabc
 
 
-async def test_AsyncResource_defaults():
+async def test_AsyncResource_defaults() -> None:
     @attr.s
     class MyAR(tabc.AsyncResource):
         record = attr.ib(factory=list)
@@ -21,7 +21,7 @@ async def test_AsyncResource_defaults():
     assert myar.record == ["ac"]
 
 
-def test_abc_generics():
+def test_abc_generics() -> None:
     # Pythons below 3.5.2 had a typing.Generic that would throw
     # errors when instantiating or subclassing a parameterized
     # version of a class with any __slots__. This is why RunVar

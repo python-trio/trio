@@ -22,7 +22,7 @@ from ..._core import open_nursery
 class NotHashableException(Exception):
     code = None
 
-    def __init__(self, code):
+    def __init__(self, code) -> None:
         super().__init__()
         self.code = code
 
@@ -75,7 +75,7 @@ def einfo(exc):
     return (type(exc), exc, exc.__traceback__)
 
 
-def test_concat_tb():
+def test_concat_tb() -> None:
 
     tb1 = get_tb(raiser1)
     tb2 = get_tb(raiser2)
@@ -101,7 +101,7 @@ def test_concat_tb():
     assert extract_tb(get_tb(raiser2)) == entries2
 
 
-def test_MultiError():
+def test_MultiError() -> None:
     exc1 = get_exc(raiser1)
     exc2 = get_exc(raiser2)
 
@@ -117,7 +117,7 @@ def test_MultiError():
         MultiError([KeyError(), ValueError])
 
 
-def test_MultiErrorOfSingleMultiError():
+def test_MultiErrorOfSingleMultiError() -> None:
     # For MultiError([MultiError]), ensure there is no bad recursion by the
     # constructor where __init__ is called if __new__ returns a bare MultiError.
     exceptions = [KeyError(), ValueError()]
@@ -127,7 +127,7 @@ def test_MultiErrorOfSingleMultiError():
     assert b.exceptions == exceptions
 
 
-async def test_MultiErrorNotHashable():
+async def test_MultiErrorNotHashable() -> None:
     exc1 = NotHashableException(42)
     exc2 = NotHashableException(4242)
     exc3 = ValueError()
@@ -140,7 +140,7 @@ async def test_MultiErrorNotHashable():
             nursery.start_soon(raise_nothashable, 4242)
 
 
-def test_MultiError_filter_NotHashable():
+def test_MultiError_filter_NotHashable() -> None:
     excs = MultiError([NotHashableException(42), ValueError()])
 
     def handle_ValueError(exc):
@@ -153,7 +153,7 @@ def test_MultiError_filter_NotHashable():
     assert isinstance(filtered_excs, NotHashableException)
 
 
-def test_traceback_recursion():
+def test_traceback_recursion() -> None:
     exc1 = RuntimeError()
     exc2 = KeyError()
     exc3 = NotHashableException(42)
@@ -205,7 +205,7 @@ def assert_tree_eq(m1, m2):
             assert_tree_eq(e1, e2)
 
 
-def test_MultiError_filter():
+def test_MultiError_filter() -> None:
     def null_handler(exc):
         return exc
 
@@ -283,7 +283,7 @@ def test_MultiError_filter():
     assert MultiError.filter(filter_all, make_tree()) is None
 
 
-def test_MultiError_catch():
+def test_MultiError_catch() -> None:
     # No exception to catch
 
     def noop(_):
@@ -380,14 +380,14 @@ def assert_match_in_seq(pattern_list, string):
         offset = match.end()
 
 
-def test_assert_match_in_seq():
+def test_assert_match_in_seq() -> None:
     assert_match_in_seq(["a", "b"], "xx a xx b xx")
     assert_match_in_seq(["b", "a"], "xx b xx a xx")
     with pytest.raises(AssertionError):
         assert_match_in_seq(["a", "b"], "xx b xx a xx")
 
 
-def test_format_exception():
+def test_format_exception() -> None:
     exc = get_exc(raiser1)
     formatted = "".join(format_exception(*einfo(exc)))
     assert "raiser1_string" in formatted
@@ -565,7 +565,7 @@ def test_format_exception():
     )
 
 
-def test_logging(caplog):
+def test_logging(caplog) -> None:
     exc1 = get_exc(raiser1)
     exc2 = get_exc(raiser2)
 
@@ -638,12 +638,12 @@ def check_simple_excepthook(completed):
     )
 
 
-def test_simple_excepthook():
+def test_simple_excepthook() -> None:
     completed = run_script("simple_excepthook.py")
     check_simple_excepthook(completed)
 
 
-def test_custom_excepthook():
+def test_custom_excepthook() -> None:
     # Check that user-defined excepthooks aren't overridden
     completed = run_script("custom_excepthook.py")
     assert_match_in_seq(

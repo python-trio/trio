@@ -387,7 +387,7 @@ class CompletionKeyEventInfo:
 
 
 class WindowsIOManager:
-    def __init__(self):
+    def __init__(self) -> None:
         # If this method raises an exception, then __del__ could run on a
         # half-initialized object. So we initialize everything that __del__
         # touches to safe values up front, before we do anything that can

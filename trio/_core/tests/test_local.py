@@ -4,7 +4,7 @@ from ... import _core
 
 
 # scary runvar tests
-def test_runvar_smoketest():
+def test_runvar_smoketest() -> None:
     t1 = _core.RunVar("test1")
     t2 = _core.RunVar("test2", default="catfish")
 
@@ -33,7 +33,7 @@ def test_runvar_smoketest():
     _core.run(second_check)
 
 
-def test_runvar_resetting():
+def test_runvar_resetting() -> None:
     t1 = _core.RunVar("test1")
     t2 = _core.RunVar("test2", default="dogfish")
     t3 = _core.RunVar("test3")
@@ -66,7 +66,7 @@ def test_runvar_resetting():
     _core.run(reset_check)
 
 
-def test_runvar_sync():
+def test_runvar_sync() -> None:
     t1 = _core.RunVar("test1")
 
     async def sync_check():
@@ -97,7 +97,7 @@ def test_runvar_sync():
     _core.run(sync_check)
 
 
-def test_accessing_runvar_outside_run_call_fails():
+def test_accessing_runvar_outside_run_call_fails() -> None:
     t1 = _core.RunVar("test1")
 
     with pytest.raises(RuntimeError):

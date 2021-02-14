@@ -23,7 +23,7 @@ from ..testing import assert_checkpoints, wait_all_tasks_blocked
 
 
 class MonkeypatchedGAI:
-    def __init__(self, orig_getaddrinfo):
+    def __init__(self, orig_getaddrinfo) -> None:
         self._orig_getaddrinfo = orig_getaddrinfo
         self._responses = {}
         self.record = []
@@ -58,7 +58,7 @@ def monkeygai(monkeypatch: _pytest.monkeypatch.MonkeyPatch) -> MonkeypatchedGAI:
     return controller
 
 
-async def test__try_sync():
+async def test__try_sync() -> None:
     with assert_checkpoints():
         async with _try_sync():
             pass
@@ -88,7 +88,7 @@ async def test__try_sync():
 ################################################################
 
 
-def test_socket_has_some_reexports():
+def test_socket_has_some_reexports() -> None:
     assert tsocket.SOL_SOCKET == stdlib_socket.SOL_SOCKET
     assert tsocket.TCP_NODELAY == stdlib_socket.TCP_NODELAY
     assert tsocket.gaierror == stdlib_socket.gaierror
@@ -100,7 +100,7 @@ def test_socket_has_some_reexports():
 ################################################################
 
 
-async def test_getaddrinfo(monkeygai):
+async def test_getaddrinfo(monkeygai) -> None:
     def check(got, expected):
         # win32 returns 0 for the proto field
         # musl and glibc have inconsistent handling of the canonical name
@@ -176,7 +176,7 @@ async def test_getaddrinfo(monkeygai):
             await tsocket.getaddrinfo("asdf", "12345")
 
 
-async def test_getnameinfo():
+async def test_getnameinfo() -> None:
     # Trivial test:
     ni_numeric = stdlib_socket.NI_NUMERICHOST | stdlib_socket.NI_NUMERICSERV
     with assert_checkpoints():
@@ -211,7 +211,7 @@ async def test_getnameinfo():
 ################################################################
 
 
-async def test_from_stdlib_socket():
+async def test_from_stdlib_socket() -> None:
     sa, sb = stdlib_socket.socketpair()
     assert not isinstance(sa, tsocket.SocketType)
     with sa, sb:
@@ -233,7 +233,7 @@ async def test_from_stdlib_socket():
             tsocket.from_stdlib_socket(mysock)
 
 
-async def test_from_fd():
+async def test_from_fd() -> None:
     sa, sb = stdlib_socket.socketpair()
     ta = tsocket.fromfd(sa.fileno(), sa.family, sa.type, sa.proto)
     with sa, sb, ta:
@@ -242,7 +242,7 @@ async def test_from_fd():
         assert sb.recv(3) == b"x"
 
 
-async def test_socketpair_simple():
+async def test_socketpair_simple() -> None:
     async def child(sock):
         print("sending hello")
         await sock.send(b"h")
@@ -274,7 +274,7 @@ async def test_fromshare() -> None:
                 assert await b.recv(1) == b"x"
 
 
-async def test_socket():
+async def test_socket() -> None:
     with tsocket.socket() as s:
         assert isinstance(s, tsocket.SocketType)
         assert s.family == tsocket.AF_INET
@@ -319,7 +319,7 @@ async def test_sniff_sockopts() -> None:
 ################################################################
 
 
-async def test_SocketType_basics():
+async def test_SocketType_basics() -> None:
     sock = tsocket.socket()
     with sock as cm_enter_value:
         assert cm_enter_value is sock
@@ -370,7 +370,7 @@ async def test_SocketType_basics():
     sock.close()
 
 
-async def test_SocketType_dup():
+async def test_SocketType_dup() -> None:
     a, b = tsocket.socketpair()
     with a, b:
         a2 = a.dup()
@@ -382,7 +382,7 @@ async def test_SocketType_dup():
             assert await b.recv(1) == b"x"
 
 
-async def test_SocketType_shutdown():
+async def test_SocketType_shutdown() -> None:
     a, b = tsocket.socketpair()
     with a, b:
         await a.send(b"x")
@@ -435,7 +435,7 @@ async def test_SocketType_simple_server(
             assert await client.recv(1) == b"x"
 
 
-async def test_SocketType_is_readable():
+async def test_SocketType_is_readable() -> None:
     a, b = tsocket.socketpair()
     with a, b:
         assert not a.is_readable()
@@ -586,7 +586,7 @@ async def test_SocketType_resolve(
                     await res(("1.2.3.4", 80, 0, 0))
 
 
-async def test_SocketType_unresolved_names():
+async def test_SocketType_unresolved_names() -> None:
     with tsocket.socket() as sock:
         await sock.bind(("localhost", 0))
         assert sock.getsockname()[0] == "127.0.0.1"
@@ -605,7 +605,7 @@ async def test_SocketType_unresolved_names():
 
 # This tests all the complicated paths through _nonblocking_helper, using recv
 # as a stand-in for all the methods that use _nonblocking_helper.
-async def test_SocketType_non_blocking_paths():
+async def test_SocketType_non_blocking_paths() -> None:
     a, b = stdlib_socket.socketpair()
     with a, b:
         ta = tsocket.from_stdlib_socket(a)
@@ -680,7 +680,7 @@ async def test_SocketType_non_blocking_paths():
 
 
 # This tests the complicated paths through connect
-async def test_SocketType_connect_paths():
+async def test_SocketType_connect_paths() -> None:
     with tsocket.socket() as sock:
         with pytest.raises(ValueError):
             # Should be a tuple
@@ -733,7 +733,7 @@ async def test_SocketType_connect_paths():
             await sock.connect(("127.0.0.1", 2))
 
 
-async def test_resolve_remote_address_exception_closes_socket():
+async def test_resolve_remote_address_exception_closes_socket() -> None:
     # Here we are testing issue 247, any cancellation will leave the socket closed
     with _core.CancelScope() as cancel_scope:
         with tsocket.socket() as sock:
@@ -749,7 +749,7 @@ async def test_resolve_remote_address_exception_closes_socket():
             assert sock.fileno() == -1
 
 
-async def test_send_recv_variants():
+async def test_send_recv_variants() -> None:
     a, b = tsocket.socketpair()
     with a, b:
         # recv, including with flags
@@ -845,7 +845,7 @@ async def test_send_recv_variants():
         assert await b.recv(10) == b"yyy"
 
 
-async def test_idna(monkeygai):
+async def test_idna(monkeygai) -> None:
     # This is the encoding for "faß.de", which uses one of the characters that
     # IDNA 2003 handles incorrectly:
     monkeygai.set("ok faß.de", b"xn--fa-hia.de", 80)
@@ -863,14 +863,14 @@ async def test_idna(monkeygai):
     assert "ok faß.de" == await tsocket.getaddrinfo(b"xn--fa-hia.de", 80)
 
 
-async def test_getprotobyname():
+async def test_getprotobyname() -> None:
     # These are the constants used in IP header fields, so the numeric values
     # had *better* be stable across systems...
     assert await tsocket.getprotobyname("udp") == 17
     assert await tsocket.getprotobyname("tcp") == 6
 
 
-async def test_custom_hostname_resolver(monkeygai):
+async def test_custom_hostname_resolver(monkeygai) -> None:
     class CustomResolver:
         async def getaddrinfo(self, host, port, family, type, proto, flags):
             return ("custom_gai", host, port, family, type, proto, flags)
@@ -914,7 +914,7 @@ async def test_custom_hostname_resolver(monkeygai):
     assert await tsocket.getaddrinfo("host", "port") == "x"
 
 
-async def test_custom_socket_factory():
+async def test_custom_socket_factory() -> None:
     class CustomSocketFactory:
         def socket(self, family, type, proto):
             return ("hi", family, type, proto)
@@ -941,7 +941,7 @@ async def test_custom_socket_factory():
     assert tsocket.set_custom_socket_factory(None) is csf
 
 
-async def test_SocketType_is_abstract():
+async def test_SocketType_is_abstract() -> None:
     with pytest.raises(TypeError):
         tsocket.SocketType()
 
@@ -976,7 +976,7 @@ async def test_unix_domain_socket() -> None:
         pass
 
 
-async def test_interrupted_by_close():
+async def test_interrupted_by_close() -> None:
     a_stdlib, b_stdlib = stdlib_socket.socketpair()
     with a_stdlib, b_stdlib:
         a_stdlib.setblocking(False)
@@ -1006,7 +1006,7 @@ async def test_interrupted_by_close():
             a.close()
 
 
-async def test_many_sockets():
+async def test_many_sockets() -> None:
     total = 5000  # Must be more than MAX_AFD_GROUP_SIZE
     sockets = []
     for x in range(total // 2):

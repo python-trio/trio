@@ -31,7 +31,7 @@ class RecordReceiveStream(ReceiveStream):
         self.record.append("aclose")
 
 
-async def test_StapledStream():
+async def test_StapledStream() -> None:
     send_stream = RecordSendStream()
     receive_stream = RecordReceiveStream()
     stapled = StapledStream(send_stream, receive_stream)
@@ -71,7 +71,7 @@ async def test_StapledStream():
     assert send_stream.record == ["aclose"]
 
 
-async def test_StapledStream_with_erroring_close():
+async def test_StapledStream_with_erroring_close() -> None:
     # Make sure that if one of the aclose methods errors out, then the other
     # one still gets called.
     class BrokenSendStream(RecordSendStream):

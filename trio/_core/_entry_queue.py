@@ -147,7 +147,7 @@ class TrioToken(metaclass=NoPublicConstructor):
 
     __slots__ = ("_reentry_queue",)
 
-    def __init__(self, reentry_queue):
+    def __init__(self, reentry_queue) -> None:
         self._reentry_queue = reentry_queue
 
     def run_sync_soon(self, sync_fn, *args, idempotent=False):

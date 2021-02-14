@@ -15,7 +15,7 @@ from .. import socket as tsocket
 from .._highlevel_socket import SocketListener
 
 
-async def test_wait_all_tasks_blocked():
+async def test_wait_all_tasks_blocked() -> None:
     record = []
 
     async def busy_bee():
@@ -47,7 +47,7 @@ async def test_wait_all_tasks_blocked():
     assert record == ["ok"]
 
 
-async def test_wait_all_tasks_blocked_with_timeouts(mock_clock):
+async def test_wait_all_tasks_blocked_with_timeouts(mock_clock) -> None:
     record = []
 
     async def timeout_task():
@@ -64,7 +64,7 @@ async def test_wait_all_tasks_blocked_with_timeouts(mock_clock):
         assert record == ["tt start", "tt finished"]
 
 
-async def test_wait_all_tasks_blocked_with_cushion():
+async def test_wait_all_tasks_blocked_with_cushion() -> None:
     record = []
 
     async def blink():
@@ -106,7 +106,7 @@ async def test_wait_all_tasks_blocked_with_cushion():
 ################################################################
 
 
-async def test_assert_checkpoints(recwarn):
+async def test_assert_checkpoints(recwarn) -> None:
     with assert_checkpoints():
         await _core.checkpoint()
 
@@ -132,7 +132,7 @@ async def test_assert_checkpoints(recwarn):
         await _core.cancel_shielded_checkpoint()
 
 
-async def test_assert_no_checkpoints(recwarn):
+async def test_assert_no_checkpoints(recwarn) -> None:
     with assert_no_checkpoints():
         1 + 1
 
@@ -162,7 +162,7 @@ async def test_assert_no_checkpoints(recwarn):
 ################################################################
 
 
-async def test_Sequencer():
+async def test_Sequencer() -> None:
     record = []
 
     def t(val):
@@ -200,7 +200,7 @@ async def test_Sequencer():
             pass  # pragma: no cover
 
 
-async def test_Sequencer_cancel():
+async def test_Sequencer_cancel() -> None:
     # Killing a blocked task makes everything blow up
     record = []
     seq = Sequencer()
@@ -232,7 +232,7 @@ async def test_Sequencer_cancel():
 ################################################################
 
 
-async def test__assert_raises():
+async def test__assert_raises() -> None:
     with pytest.raises(AssertionError):
         with _assert_raises(RuntimeError):
             1 + 1
@@ -247,7 +247,7 @@ async def test__assert_raises():
 
 # This is a private implementation detail, but it's complex enough to be worth
 # testing directly
-async def test__UnboundeByteQueue():
+async def test__UnboundeByteQueue() -> None:
     ubq = _UnboundedByteQueue()
 
     ubq.put(b"123")
@@ -319,7 +319,7 @@ async def test__UnboundeByteQueue():
         nursery.start_soon(closer)
 
 
-async def test_MemorySendStream():
+async def test_MemorySendStream() -> None:
     mss = MemorySendStream()
 
     async def do_send_all(data):
@@ -409,7 +409,7 @@ async def test_MemorySendStream():
     ]
 
 
-async def test_MemoryReceiveStream():
+async def test_MemoryReceiveStream() -> None:
     mrs = MemoryReceiveStream()
 
     async def do_receive_some(max_bytes):
@@ -470,7 +470,7 @@ async def test_MemoryReceiveStream():
         await mrs2.receive_some(10)
 
 
-async def test_MemoryRecvStream_closing():
+async def test_MemoryRecvStream_closing() -> None:
     mrs = MemoryReceiveStream()
     # close with no pending data
     mrs.close()
@@ -490,7 +490,7 @@ async def test_MemoryRecvStream_closing():
         await mrs2.receive_some(10)
 
 
-async def test_memory_stream_pump():
+async def test_memory_stream_pump() -> None:
     mss = MemorySendStream()
     mrs = MemoryReceiveStream()
 
@@ -514,7 +514,7 @@ async def test_memory_stream_pump():
     assert await mrs.receive_some(10) == b""
 
 
-async def test_memory_stream_one_way_pair():
+async def test_memory_stream_one_way_pair() -> None:
     s, r = memory_stream_one_way_pair()
     assert s.send_all_hook is not None
     assert s.wait_send_all_might_not_block_hook is None
@@ -570,7 +570,7 @@ async def test_memory_stream_one_way_pair():
     assert await r.receive_some(10) == b"456789"
 
 
-async def test_memory_stream_pair():
+async def test_memory_stream_pair() -> None:
     a, b = memory_stream_pair()
     await a.send_all(b"123")
     await b.send_all(b"abc")
@@ -592,7 +592,7 @@ async def test_memory_stream_pair():
         nursery.start_soon(sender)
 
 
-async def test_memory_streams_with_generic_tests():
+async def test_memory_streams_with_generic_tests() -> None:
     async def one_way_stream_maker():
         return memory_stream_one_way_pair()
 
@@ -604,7 +604,7 @@ async def test_memory_streams_with_generic_tests():
     await check_half_closeable_stream(half_closeable_stream_maker, None)
 
 
-async def test_lockstep_streams_with_generic_tests():
+async def test_lockstep_streams_with_generic_tests() -> None:
     async def one_way_stream_maker():
         return lockstep_stream_one_way_pair()
 
@@ -616,7 +616,7 @@ async def test_lockstep_streams_with_generic_tests():
     await check_two_way_stream(two_way_stream_maker, two_way_stream_maker)
 
 
-async def test_open_stream_to_socket_listener():
+async def test_open_stream_to_socket_listener() -> None:
     async def check(listener):
         async with listener:
             client_stream = await open_stream_to_socket_listener(listener)
