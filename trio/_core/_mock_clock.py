@@ -112,7 +112,7 @@ class MockClock(Clock, metaclass=Final):
     # API. Discussion:
     #
     #     https://github.com/python-trio/trio/issues/1587
-    def _try_resync_autojump_threshold(self):
+    def _try_resync_autojump_threshold(self) -> None:
         try:
             runner = GLOBAL_RUN_CONTEXT.runner
             if runner.is_guest:
@@ -124,7 +124,7 @@ class MockClock(Clock, metaclass=Final):
 
     # Invoked by the run loop when runner.clock_autojump_threshold is
     # exceeded.
-    def _autojump(self):
+    def _autojump(self) -> None:
         statistics = _core.current_statistics()
         jump = statistics.seconds_to_next_deadline
         if 0 < jump < inf:
@@ -135,7 +135,7 @@ class MockClock(Clock, metaclass=Final):
         virtual_offset = self._rate * real_offset
         return self._virtual_base + virtual_offset
 
-    def start_clock(self):
+    def start_clock(self) -> None:
         self._try_resync_autojump_threshold()
 
     def current_time(self):

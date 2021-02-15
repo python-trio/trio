@@ -99,7 +99,7 @@ class StapledStream(HalfCloseableStream, metaclass=Final):
         """Calls ``self.receive_stream.receive_some``."""
         return await self.receive_stream.receive_some(max_bytes)
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         """Calls ``aclose`` on both underlying streams."""
         try:
             await self.send_stream.aclose()

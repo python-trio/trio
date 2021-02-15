@@ -56,7 +56,7 @@ async def test_open_signal_receiver_restore_handler_after_duplicate_signal() -> 
 
 
 async def test_catch_signals_wrong_thread() -> None:
-    async def naughty():
+    async def naughty() -> None:
         with open_signal_receiver(signal.SIGINT):
             pass  # pragma: no cover
 
@@ -74,7 +74,7 @@ async def test_open_signal_receiver_conflict() -> None:
 
 # Blocks until all previous calls to run_sync_soon(idempotent=True) have been
 # processed.
-async def wait_run_sync_soon_idempotent_queue_barrier():
+async def wait_run_sync_soon_idempotent_queue_barrier() -> None:
     ev = trio.Event()
     token = _core.current_trio_token()
     token.run_sync_soon(ev.set, idempotent=True)

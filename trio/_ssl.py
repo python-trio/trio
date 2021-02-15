@@ -409,7 +409,7 @@ class SSLStream(Stream, metaclass=Final):
     def __dir__(self):
         return super().__dir__() + list(self._forwarded)
 
-    def _check_status(self):
+    def _check_status(self) -> None:
         if self._state is _State.OK:
             return
         elif self._state is _State.BROKEN:
@@ -595,14 +595,14 @@ class SSLStream(Stream, metaclass=Final):
             await trio.lowlevel.cancel_shielded_checkpoint()
         return ret
 
-    async def _do_handshake(self):
+    async def _do_handshake(self) -> None:
         try:
             await self._retry(self._ssl_object.do_handshake, is_handshake=True)
         except:
             self._state = _State.BROKEN
             raise
 
-    async def do_handshake(self):
+    async def do_handshake(self) -> None:
         """Ensure that the initial handshake has completed.
 
         The SSL protocol requires an initial handshake to exchange
@@ -691,7 +691,7 @@ class SSLStream(Stream, metaclass=Final):
                 else:
                     raise
 
-    async def send_all(self, data):
+    async def send_all(self, data) -> None:
         """Encrypt some data and then send it on the underlying transport.
 
         See :meth:`trio.abc.SendStream.send_all` for details.
@@ -738,7 +738,7 @@ class SSLStream(Stream, metaclass=Final):
             self._state = _State.CLOSED
             return (transport_stream, self._incoming.read())
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         """Gracefully shut down this connection, and close the underlying
         transport.
 
@@ -825,7 +825,7 @@ class SSLStream(Stream, metaclass=Final):
         finally:
             self._state = _State.CLOSED
 
-    async def wait_send_all_might_not_block(self):
+    async def wait_send_all_might_not_block(self) -> None:
         """See :meth:`trio.abc.SendStream.wait_send_all_might_not_block`."""
         # This method's implementation is deceptively simple.
         #
@@ -913,6 +913,6 @@ class SSLListener(Listener[SSLStream], metaclass=Final):
             https_compatible=self._https_compatible,
         )
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         """Close the transport listener."""
         await self.transport_listener.aclose()

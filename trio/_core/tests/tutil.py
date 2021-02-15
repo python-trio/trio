@@ -50,7 +50,7 @@ creates_ipv6 = pytest.mark.skipif(not can_create_ipv6, reason="need IPv6")
 binds_ipv6 = pytest.mark.skipif(not can_bind_ipv6, reason="need IPv6")
 
 
-def gc_collect_harder():
+def gc_collect_harder() -> None:
     # In the test suite we sometimes want to call gc.collect() to make sure
     # that any objects with noisy __del__ methods (e.g. unawaited coroutines)
     # get collected before we continue, so their noise doesn't leak into

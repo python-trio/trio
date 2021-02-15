@@ -245,11 +245,11 @@ async def test_close_multiple_send_handles() -> None:
     s1, r = open_memory_channel(0)
     s2 = s1.clone()
 
-    async def send_will_close():
+    async def send_will_close() -> None:
         with pytest.raises(trio.ClosedResourceError):
             await s1.send("nope")
 
-    async def send_will_succeed():
+    async def send_will_succeed() -> None:
         await s2.send("ok")
 
     async with trio.open_nursery() as nursery:
@@ -266,11 +266,11 @@ async def test_close_multiple_receive_handles() -> None:
     s, r1 = open_memory_channel(0)
     r2 = r1.clone()
 
-    async def receive_will_close():
+    async def receive_will_close() -> None:
         with pytest.raises(trio.ClosedResourceError):
             await r1.receive()
 
-    async def receive_will_succeed():
+    async def receive_will_succeed() -> None:
         assert await r2.receive() == "ok"
 
     async with trio.open_nursery() as nursery:

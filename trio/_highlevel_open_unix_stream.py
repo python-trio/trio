@@ -15,7 +15,7 @@ except ImportError:
 
 
 class Closable(Protocol):
-    def close(self):
+    def close(self) -> None:
         ...
 
 

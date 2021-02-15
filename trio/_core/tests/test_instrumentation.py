@@ -8,7 +8,7 @@ from .tutil import check_sequence_matches
 class TaskRecorder:
     record = attr.ib(factory=list)
 
-    def before_run(self):
+    def before_run(self) -> None:
         self.record.append(("before_run",))
 
     def task_scheduled(self, task):
@@ -22,7 +22,7 @@ class TaskRecorder:
         assert task is _core.current_task()
         self.record.append(("after", task))
 
-    def after_run(self):
+    def after_run(self) -> None:
         self.record.append(("after_run",))
 
     def filter_tasks(self, tasks):
@@ -43,7 +43,7 @@ def test_instruments(recwarn) -> None:
     # We use a child task for this, because the main task does some extra
     # bookkeeping stuff that can leak into the instrument results, and we
     # don't want to deal with it.
-    async def task_fn():
+    async def task_fn() -> None:
         nonlocal task
         task = _core.current_task()
 
@@ -59,7 +59,7 @@ def test_instruments(recwarn) -> None:
         for _ in range(1):
             await _core.checkpoint()
 
-    async def main():
+    async def main() -> None:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(task_fn)
 
@@ -80,15 +80,15 @@ def test_instruments(recwarn) -> None:
 def test_instruments_interleave() -> None:
     tasks = {}
 
-    async def two_step1():
+    async def two_step1() -> None:
         tasks["t1"] = _core.current_task()
         await _core.checkpoint()
 
-    async def two_step2():
+    async def two_step2() -> None:
         tasks["t2"] = _core.current_task()
         await _core.checkpoint()
 
-    async def main():
+    async def main() -> None:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(two_step1)
             nursery.start_soon(two_step2)
@@ -123,10 +123,10 @@ def test_instruments_interleave() -> None:
 def test_null_instrument() -> None:
     # undefined instrument methods are skipped
     class NullInstrument:
-        def something_unrelated(self):
+        def something_unrelated(self) -> None:
             pass  # pragma: no cover
 
-    async def main():
+    async def main() -> None:
         await _core.checkpoint()
 
     _core.run(main, instruments=[NullInstrument()])
@@ -136,13 +136,13 @@ def test_instrument_before_after_run() -> None:
     record = []
 
     class BeforeAfterRun:
-        def before_run(self):
+        def before_run(self) -> None:
             record.append("before_run")
 
-        def after_run(self):
+        def after_run(self) -> None:
             record.append("after_run")
 
-    async def main():
+    async def main() -> None:
         pass
 
     _core.run(main, instruments=[BeforeAfterRun()])
@@ -177,7 +177,7 @@ def test_instruments_crash(caplog) -> None:
             record.append("scheduled")
             raise ValueError("oops")
 
-        def close(self):
+        def close(self) -> None:
             # Shouldn't be called -- tests that the instrument disabling logic
             # works right.
             record.append("closed")  # pragma: no cover
@@ -206,7 +206,7 @@ def test_instruments_monkeypatch() -> None:
 
     instrument = NullInstrument()
 
-    async def main():
+    async def main() -> None:
         record = []
 
         # Changing the set of hooks implemented by an instrument after
@@ -241,7 +241,7 @@ def test_instrument_that_raises_on_getattr() -> None:
         def after_run(self) -> None:
             raise ValueError("oops")
 
-    async def main():
+    async def main() -> None:
         with pytest.raises(ValueError):
             _core.add_instrument(EvilInstrument())
 

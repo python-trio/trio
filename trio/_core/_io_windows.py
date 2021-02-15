@@ -450,7 +450,7 @@ class WindowsIOManager:
                         "netsh winsock show catalog"
                     )
 
-    def close(self):
+    def close(self) -> None:
         try:
             if self._iocp is not None:
                 iocp = self._iocp
@@ -461,7 +461,7 @@ class WindowsIOManager:
                 afd_handle = self._all_afd_handles.pop()
                 _check(kernel32.CloseHandle(afd_handle))
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.close()
 
     def statistics(self):
@@ -479,7 +479,7 @@ class WindowsIOManager:
             completion_key_monitors=len(self._completion_key_queues),
         )
 
-    def force_wakeup(self):
+    def force_wakeup(self) -> None:
         _check(
             kernel32.PostQueuedCompletionStatus(
                 self._iocp, 0, CKeys.FORCE_WAKEUP, ffi.NULL

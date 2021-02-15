@@ -92,7 +92,7 @@ def test_guest_can_do_io() -> None:
         with a, b:
             async with trio.open_nursery() as nursery:
 
-                async def do_receive():
+                async def do_receive() -> None:
                     record.append(await a.recv(1))
 
                 nursery.start_soon(do_receive)
@@ -523,7 +523,7 @@ def test_guest_mode_asyncgens() -> None:
                 pass
             record.add((label, library))
 
-    async def iterate_in_aio():
+    async def iterate_in_aio() -> None:
         # "trio" gets inherited from our Trio caller if we don't set this
         sniffio.current_async_library_cvar.set("asyncio")
         await agen("asyncio").asend(None)

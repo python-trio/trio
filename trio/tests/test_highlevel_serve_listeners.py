@@ -37,7 +37,7 @@ class MemoryListener(trio.abc.Listener):
         self.accepted_streams.append(stream)
         return stream
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         self.closed = True
         await trio.lowlevel.checkpoint()
 
@@ -47,7 +47,7 @@ async def test_serve_listeners_basic() -> None:
 
     record = []
 
-    def close_hook():
+    def close_hook() -> None:
         # Make sure this is a forceful close
         assert trio.current_effective_deadline() == float("-inf")
         record.append("closed")
@@ -91,7 +91,7 @@ async def test_serve_listeners_accept_unrecognized_error() -> None:
     for error in [KeyError(), OSError(errno.ECONNABORTED, "ECONNABORTED")]:
         listener = MemoryListener()
 
-        async def raise_error():
+        async def raise_error() -> None:
             raise error
 
         listener.accept_hook = raise_error
@@ -104,7 +104,7 @@ async def test_serve_listeners_accept_unrecognized_error() -> None:
 async def test_serve_listeners_accept_capacity_error(autojump_clock, caplog) -> None:
     listener = MemoryListener()
 
-    async def raise_EMFILE():
+    async def raise_EMFILE() -> None:
         raise OSError(errno.EMFILE, "out of file descriptors")
 
     listener.accept_hook = raise_EMFILE

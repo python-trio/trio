@@ -628,7 +628,7 @@ async def test_SocketType_non_blocking_paths() -> None:
                 await ta.recv("haha")
         # block then succeed
 
-        async def do_successful_blocking_recv():
+        async def do_successful_blocking_recv() -> None:
             with assert_checkpoints():
                 assert await ta.recv(10) == b"2"
 
@@ -638,7 +638,7 @@ async def test_SocketType_non_blocking_paths() -> None:
             b.send(b"2")
         # block then cancelled
 
-        async def do_cancelled_blocking_recv():
+        async def do_cancelled_blocking_recv() -> None:
             with assert_checkpoints():
                 with pytest.raises(_core.Cancelled):
                     await ta.recv(10)
@@ -656,13 +656,13 @@ async def test_SocketType_non_blocking_paths() -> None:
         # other:
         tb = tsocket.from_stdlib_socket(b)
 
-        async def t1():
+        async def t1() -> None:
             with assert_checkpoints():
                 assert await ta.recv(1) == b"a"
             with assert_checkpoints():
                 assert await tb.recv(1) == b"b"
 
-        async def t2():
+        async def t2() -> None:
             with assert_checkpoints():
                 assert await tb.recv(1) == b"b"
             with assert_checkpoints():
@@ -991,11 +991,11 @@ async def test_interrupted_by_close() -> None:
 
         a = tsocket.from_stdlib_socket(a_stdlib)
 
-        async def sender():
+        async def sender() -> None:
             with pytest.raises(_core.ClosedResourceError):
                 await a.send(data)
 
-        async def receiver():
+        async def receiver() -> None:
             with pytest.raises(_core.ClosedResourceError):
                 await a.recv(1)
 

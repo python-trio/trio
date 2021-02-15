@@ -39,13 +39,13 @@ async def test_UnboundedQueue_blocking() -> None:
     record = []
     q = _core.UnboundedQueue()
 
-    async def get_batch_consumer():
+    async def get_batch_consumer() -> None:
         while True:
             batch = await q.get_batch()
             assert batch
             record.append(batch)
 
-    async def aiter_consumer():
+    async def aiter_consumer() -> None:
         async for batch in q:
             assert batch
             record.append(batch)

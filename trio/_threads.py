@@ -297,7 +297,7 @@ def from_thread_run(
             coro = coroutine_or_error(afn, *args)
             return await coro  # type: ignore[no-any-return]
 
-        async def await_in_trio_thread_task():
+        async def await_in_trio_thread_task() -> None:
             q.put_nowait(await outcome.acapture(unprotected_afn))
 
         try:

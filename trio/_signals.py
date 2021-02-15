@@ -79,7 +79,7 @@ class SignalReceiver:
             self._pending[signum] = None
             self._lot.unpark()
 
-    def _redeliver_remaining(self):
+    def _redeliver_remaining(self) -> None:
         # First make sure that any signals still in the delivery pipeline will
         # get redelivered
         self._closed = True
@@ -87,7 +87,7 @@ class SignalReceiver:
         # And then redeliver any that are sitting in pending. This is done
         # using a weird recursive construct to make sure we process everything
         # even if some of the handlers raise exceptions.
-        def deliver_next():
+        def deliver_next() -> None:
             if self._pending:
                 signum, _ = self._pending.popitem(last=False)
                 try:

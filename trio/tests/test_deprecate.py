@@ -31,7 +31,7 @@ def _here():
 
 
 def test_warn_deprecated(recwarn_always: _pytest.recwarn.WarningsRecorder) -> None:
-    def deprecated_thing():
+    def deprecated_thing() -> None:
         warn_deprecated("ice", "1.2", issue=1, instead="water")
 
     deprecated_thing()
@@ -63,10 +63,10 @@ def test_warn_deprecated_no_instead_or_issue(
 def test_warn_deprecated_stacklevel(
     recwarn_always: _pytest.recwarn.WarningsRecorder,
 ) -> None:
-    def nested1():
+    def nested1() -> None:
         nested2()
 
-    def nested2():
+    def nested2() -> None:
         warn_deprecated("x", "1.3", issue=7, instead="y", stacklevel=3)
 
     filename, lineno = _here()
@@ -76,11 +76,11 @@ def test_warn_deprecated_stacklevel(
     assert got.lineno == lineno + 1
 
 
-def old():  # pragma: no cover
+def old() -> None:  # pragma: no cover
     pass
 
 
-def new():  # pragma: no cover
+def new() -> None:  # pragma: no cover
     pass
 
 

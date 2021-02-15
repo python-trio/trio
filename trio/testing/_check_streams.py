@@ -78,7 +78,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             nursery.start_soon(do_send_all, b"x")
             nursery.start_soon(checked_receive_1, b"x")
 
-        async def send_empty_then_y():
+        async def send_empty_then_y() -> None:
             # Streams should tolerate sending b"" without giving it any
             # special meaning.
             await do_send_all(b"")
@@ -137,7 +137,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
 
         # closing the r side leads to BrokenResourceError on the s side
         # (eventually)
-        async def expect_broken_stream_on_send():
+        async def expect_broken_stream_on_send() -> None:
             with _assert_raises(_core.BrokenResourceError):
                 while True:
                     await do_send_all(b"x" * 100)
@@ -180,11 +180,11 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
 
     async with _ForceCloseBoth(await stream_maker()) as (s, r):
         # if send-then-graceful-close, receiver gets data then b""
-        async def send_then_close():
+        async def send_then_close() -> None:
             await do_send_all(b"y")
             await do_aclose(s)
 
-        async def receive_send_then_close():
+        async def receive_send_then_close() -> None:
             # We want to make sure that if the sender closes the stream before
             # we read anything, then we still get all the data. But some
             # streams might block on the do_send_all call. So we let the
@@ -438,7 +438,7 @@ async def check_two_way_stream(stream_maker, clogged_stream_maker):
             nursery.start_soon(receiver, s1, test_data[::-1], 2)
             nursery.start_soon(receiver, s2, test_data, 3)
 
-        async def expect_receive_some_empty():
+        async def expect_receive_some_empty() -> None:
             assert await s2.receive_some(10) == b""
             await s2.aclose()
 

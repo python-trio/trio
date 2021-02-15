@@ -54,7 +54,7 @@ class Event(metaclass=Final):
         self._flag = True
         self._lot.unpark_all()
 
-    async def wait(self):
+    async def wait(self) -> None:
         """Block until the internal flag value becomes True.
 
         If it's already True, then this method returns immediately.
@@ -208,7 +208,7 @@ class CapacityLimiter(metaclass=Final):
         self._total_tokens = new_total_tokens
         self._wake_waiters()
 
-    def _wake_waiters(self):
+    def _wake_waiters(self) -> None:
         available = self._total_tokens - len(self._borrowers)
         for woken in self._lot.unpark(count=available):
             self._borrowers.add(self._pending_borrowers.pop(woken))
@@ -704,11 +704,11 @@ class Condition(metaclass=Final):
         """
         return self._lock.acquire_nowait()
 
-    async def acquire(self):
+    async def acquire(self) -> None:
         """Acquire the underlying lock, blocking if necessary."""
         await self._lock.acquire()
 
-    def release(self):
+    def release(self) -> None:
         """Release the underlying lock."""
         self._lock.release()
 
@@ -762,7 +762,7 @@ class Condition(metaclass=Final):
             raise RuntimeError("must hold the lock to notify")
         self._lot.repark(self._lock._lot, count=n)
 
-    def notify_all(self):
+    def notify_all(self) -> None:
         """Wake all tasks that are currently blocked in :meth:`wait`.
 
         Raises:

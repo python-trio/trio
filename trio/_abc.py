@@ -4,9 +4,10 @@ from abc import ABCMeta, abstractmethod
 from typing import Generic, List, Optional, Text, Tuple, TYPE_CHECKING, TypeVar, Union
 import socket
 import trio
-
+from  ._core import _run
 
 _T = TypeVar("_T")
+_TSelf = TypeVar("_TSelf")
 
 
 # We use ABCMeta instead of ABC, plus set __slots__=(), so as not to force a
@@ -71,13 +72,13 @@ class Instrument(metaclass=ABCMeta):
 
     __slots__ = ()
 
-    def before_run(self):
+    def before_run(self) -> None:
         """Called at the beginning of :func:`trio.run`."""
 
-    def after_run(self):
+    def after_run(self) -> None:
         """Called just before :func:`trio.run` returns."""
 
-    def task_spawned(self, task):
+    def task_spawned(self, task: "_run.Task") -> None:
         """Called when the given task is created.
 
         Args:
@@ -85,7 +86,7 @@ class Instrument(metaclass=ABCMeta):
 
         """
 
-    def task_scheduled(self, task):
+    def task_scheduled(self, task: "_run.Task") -> None:
         """Called when the given task becomes runnable.
 
         It may still be some time before it actually runs, if there are other
@@ -96,7 +97,7 @@ class Instrument(metaclass=ABCMeta):
 
         """
 
-    def before_task_step(self, task):
+    def before_task_step(self, task: "Task") -> None:
         """Called immediately before we resume running the given task.
 
         Args:
@@ -104,7 +105,7 @@ class Instrument(metaclass=ABCMeta):
 
         """
 
-    def after_task_step(self, task):
+    def after_task_step(self, task: "Task") -> None:
         """Called when we return to the main run loop after a task has yielded.
 
         Args:
@@ -112,7 +113,7 @@ class Instrument(metaclass=ABCMeta):
 
         """
 
-    def task_exited(self, task):
+    def task_exited(self, task: "Task") -> None:
         """Called when the given task exits.
 
         Args:
@@ -120,7 +121,7 @@ class Instrument(metaclass=ABCMeta):
 
         """
 
-    def before_io_wait(self, timeout):
+    def before_io_wait(self, timeout: float) -> None:
         """Called before blocking to wait for I/O readiness.
 
         Args:
@@ -128,7 +129,7 @@ class Instrument(metaclass=ABCMeta):
 
         """
 
-    def after_io_wait(self, timeout):
+    def after_io_wait(self, timeout: float) -> None:
         """Called after handling pending I/O.
 
         Args:
@@ -443,10 +444,10 @@ class ReceiveStream(AsyncResource):
 
         """
 
-    def __aiter__(self):
+    def __aiter__(self: _TSelf) -> _TSelf:
         return self
 
-    async def __anext__(self):
+    async def __anext__(self) -> bytes:
         data = await self.receive_some()
         if not data:
             raise StopAsyncIteration
@@ -662,7 +663,7 @@ class ReceiveChannel(AsyncResource, Generic[ReceiveType]):
 
         """
 
-    def __aiter__(self):
+    def __aiter__(self: _TSelf) -> _TSelf:
         return self
 
     async def __anext__(self) -> ReceiveType:

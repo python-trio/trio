@@ -13,10 +13,10 @@ class RecordSendStream(SendStream):
     async def send_all(self, data):
         self.record.append(("send_all", data))
 
-    async def wait_send_all_might_not_block(self):
+    async def wait_send_all_might_not_block(self) -> None:
         self.record.append("wait_send_all_might_not_block")
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         self.record.append("aclose")
 
 
@@ -27,7 +27,7 @@ class RecordReceiveStream(ReceiveStream):
     async def receive_some(self, max_bytes=None):
         self.record.append(("receive_some", max_bytes))
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         self.record.append("aclose")
 
 
@@ -51,7 +51,7 @@ async def test_StapledStream() -> None:
     assert send_stream.record == ["aclose"]
     send_stream.record.clear()
 
-    async def fake_send_eof():
+    async def fake_send_eof() -> None:
         send_stream.record.append("send_eof")
 
     send_stream.send_eof = fake_send_eof
@@ -75,12 +75,12 @@ async def test_StapledStream_with_erroring_close() -> None:
     # Make sure that if one of the aclose methods errors out, then the other
     # one still gets called.
     class BrokenSendStream(RecordSendStream):
-        async def aclose(self):
+        async def aclose(self) -> None:
             await super().aclose()
             raise ValueError
 
     class BrokenReceiveStream(RecordReceiveStream):
-        async def aclose(self):
+        async def aclose(self) -> None:
             await super().aclose()
             raise ValueError
 

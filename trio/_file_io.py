@@ -136,7 +136,7 @@ class AsyncIOWrapper(AsyncResource):
         raw = await trio.to_thread.run_sync(self._wrapped.detach)
         return wrap_file(raw)
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         """Like :meth:`io.IOBase.close`, but async.
 
         This is also shielded from cancellation; if a cancellation scope is

@@ -173,7 +173,7 @@ class AsyncGenerators:
             for agen in batch:
                 await self._finalize_one(agen, name_asyncgen(agen))
 
-    def close(self):
+    def close(self) -> None:
         sys.set_asyncgen_hooks(*self.prev_hooks)
 
     async def _finalize_one(self, agen, name):

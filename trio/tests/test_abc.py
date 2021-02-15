@@ -11,7 +11,7 @@ async def test_AsyncResource_defaults() -> None:
     class MyAR(tabc.AsyncResource):
         record = attr.ib(factory=list)
 
-        async def aclose(self):
+        async def aclose(self) -> None:
             self.record.append("ac")
 
     async with MyAR() as myar:
@@ -38,10 +38,10 @@ def test_abc_generics() -> None:
         async def send(self, value):
             raise RuntimeError  # pragma: no cover
 
-        def clone(self):
+        def clone(self) -> None:
             raise RuntimeError  # pragma: no cover
 
-        async def aclose(self):
+        async def aclose(self) -> None:
             pass  # pragma: no cover
 
     channel = SlottedChannel()

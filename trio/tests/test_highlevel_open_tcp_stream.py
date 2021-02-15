@@ -18,11 +18,11 @@ def test_close_all() -> None:
     class CloseMe:
         closed = False
 
-        def close(self):
+        def close(self) -> None:
             self.closed = True
 
     class CloseKiller:
-        def close(self):
+        def close(self) -> None:
             raise OSError
 
     c = CloseMe()
@@ -200,7 +200,7 @@ class FakeSocket(trio.socket.SocketType):
             self.failing = True
         self.succeeded = True
 
-    def close(self):
+    def close(self) -> None:
         self.closed = True
 
     # called when SocketStream is constructed

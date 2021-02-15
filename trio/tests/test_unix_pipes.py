@@ -77,11 +77,11 @@ else:
         write, read = await make_pipe()
         count = 2 ** 20
 
-        async def sender():
+        async def sender() -> None:
             big = bytearray(count)
             await write.send_all(big)
 
-        async def reader():
+        async def reader() -> None:
             await wait_all_tasks_blocked()
             received = 0
             while received < count:
@@ -156,7 +156,7 @@ else:
 
             # And now set up a background task that's working on the new receive
             # handle
-            async def expect_eof():
+            async def expect_eof() -> None:
                 assert await r2.receive_some(10) == b""
 
             async with _core.open_nursery() as nursery:
@@ -181,7 +181,7 @@ else:
         #
         # This tests what happens if the pipe gets closed in the moment *between*
         # when receive_some wakes up, and when it tries to call os.read
-        async def expect_closedresourceerror():
+        async def expect_closedresourceerror() -> None:
             with pytest.raises(_core.ClosedResourceError):
                 await r.receive_some(10)
 
@@ -210,7 +210,7 @@ else:
         #
         # This tests what happens if the pipe gets closed in the moment *between*
         # when send_all wakes up, and when it tries to call os.write
-        async def expect_closedresourceerror():
+        async def expect_closedresourceerror() -> None:
             with pytest.raises(_core.ClosedResourceError):
                 await s.send_all(b"x" * 100)
 

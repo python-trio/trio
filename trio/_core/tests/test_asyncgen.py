@@ -37,7 +37,7 @@ def test_asyncgen_basics() -> None:
 
     saved = []
 
-    async def async_main():
+    async def async_main() -> None:
         # GC'ed before exhausted
         with pytest.warns(
             ResourceWarning, match="Async generator.*collected before.*exhausted"
@@ -123,7 +123,7 @@ def test_firstiter_after_closing() -> None:
             record.append("cleanup 2")
             await funky_agen().asend(None)
 
-    async def async_main():
+    async def async_main() -> None:
         aiter = funky_agen()
         saved.append(aiter)
         assert 1 == await aiter.asend(None)
@@ -157,7 +157,7 @@ def test_interdependent_asyncgen_cleanup_order() -> None:
                 await inner.asend(None)
             record.append(label)
 
-    async def async_main():
+    async def async_main() -> None:
         # This makes a chain of 101 interdependent asyncgens:
         # agen(99)'s cleanup will iterate agen(98)'s will iterate
         # ... agen(0)'s will iterate innermost()'s
@@ -199,7 +199,7 @@ def test_last_minute_gc_edge_case() -> None:
                 nonlocal needs_retry
                 needs_retry = True
 
-    async def async_main():
+    async def async_main() -> None:
         token = _core.current_trio_token()
         token.run_sync_soon(collect_at_opportune_moment, token)
         saved.append(agen())
@@ -303,7 +303,7 @@ def test_delegation_to_existing_hooks() -> None:
                 await _core.checkpoint()
             record.append("trio collected " + arg)
 
-    async def async_main():
+    async def async_main() -> None:
         await step_outside_async_context(example("theirs"))
         assert 42 == await example("ours").asend(None)
         gc_collect_harder()

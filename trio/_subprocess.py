@@ -198,7 +198,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
             self._close_pidfd()
         return result
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         """Close any pipes we have to the process (both input and output)
         and wait for it to exit.
 
@@ -220,7 +220,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
                 with trio.CancelScope(shield=True):
                     await self.wait()
 
-    def _close_pidfd(self):
+    def _close_pidfd(self) -> None:
         if self._pidfd is not None:
             self._pidfd.close()
             self._pidfd = None
@@ -270,7 +270,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         """
         self._proc.send_signal(sig)
 
-    def terminate(self):
+    def terminate(self) -> None:
         """Terminate the process, politely if possible.
 
         On UNIX, this is equivalent to
@@ -281,7 +281,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         """
         self._proc.terminate()
 
-    def kill(self):
+    def kill(self) -> None:
         """Immediately terminate the process.
 
         On UNIX, this is equivalent to

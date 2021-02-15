@@ -48,7 +48,7 @@ async def test_sleep() -> None:
 
     await check_takes_about(sleep_1, TARGET)
 
-    async def sleep_2():
+    async def sleep_2() -> None:
         await sleep(TARGET)
 
     await check_takes_about(sleep_2, TARGET)
@@ -70,7 +70,7 @@ async def test_move_on_after() -> None:
         with move_on_after(-1):
             pass  # pragma: no cover
 
-    async def sleep_3():
+    async def sleep_3() -> None:
         with move_on_after(TARGET):
             await sleep(100)
 
@@ -79,7 +79,7 @@ async def test_move_on_after() -> None:
 
 @slow
 async def test_fail() -> None:
-    async def sleep_4():
+    async def sleep_4() -> None:
         with fail_at(_core.current_time() + TARGET):
             await sleep(100)
 
@@ -89,7 +89,7 @@ async def test_fail() -> None:
     with fail_at(_core.current_time() + 100):
         await sleep(0)
 
-    async def sleep_5():
+    async def sleep_5() -> None:
         with fail_after(TARGET):
             await sleep(100)
 

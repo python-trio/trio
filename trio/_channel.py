@@ -129,7 +129,7 @@ class MemorySendChannel(SendChannel[_T_contra], metaclass=NoPublicConstructor):
     # all clones.
     _tasks: Set[Task] = attr.ib(factory=set)
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         self._state.open_send_channels += 1
 
     def __repr__(self) -> str:
@@ -264,7 +264,7 @@ class MemoryReceiveChannel(ReceiveChannel[_T_co], metaclass=NoPublicConstructor)
     _closed: bool = attr.ib(default=False)
     _tasks: Set[Task] = attr.ib(factory=set)
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         self._state.open_receive_channels += 1
 
     def statistics(self):

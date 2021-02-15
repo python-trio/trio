@@ -63,7 +63,7 @@ async def test_SocketStream_send_all() -> None:
         # Check a send_all that has to be split into multiple parts (on most
         # platforms... on Windows every send() either succeeds or fails as a
         # whole)
-        async def sender():
+        async def sender() -> None:
             data = bytearray(BIG)
             await a.send_all(data)
             # send_all uses memoryviews internally, which temporarily "lock"
@@ -87,7 +87,7 @@ async def test_SocketStream_send_all() -> None:
             # and we break our implementation of send_all, then we'll get some
             # early warning...)
 
-        async def receiver():
+        async def receiver() -> None:
             # Make sure the sender fills up the kernel buffers and blocks
             await wait_all_tasks_blocked()
             nbytes = 0
@@ -108,7 +108,7 @@ async def test_SocketStream_send_all() -> None:
 
 
 async def fill_stream(s):
-    async def sender():
+    async def sender() -> None:
         while True:
             await s.send_all(b"x" * 10000)
 

@@ -120,7 +120,7 @@ if sys.platform == "win32":
 
             left_run_yet = False
 
-            async def main():
+            async def main() -> None:
                 target = bytearray(1)
                 try:
                     async with _core.open_nursery() as nursery:

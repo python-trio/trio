@@ -44,10 +44,10 @@ def test_wrap_invalid() -> None:
 
 def test_wrap_non_iobase() -> None:
     class FakeFile:
-        def close(self):  # pragma: no cover
+        def close(self) -> None:  # pragma: no cover
             pass
 
-        def write(self):  # pragma: no cover
+        def write(self) -> None:  # pragma: no cover
             pass
 
     wrapped = FakeFile()
@@ -79,7 +79,7 @@ def test_dir_matches_wrapped(async_file, wrapped) -> None:
 
 def test_unsupported_not_forwarded() -> None:
     class FakeFile(io.RawIOBase):
-        def unsupported_attr(self):  # pragma: no cover
+        def unsupported_attr(self) -> None:  # pragma: no cover
             pass
 
     async_file = trio.wrap_file(FakeFile())

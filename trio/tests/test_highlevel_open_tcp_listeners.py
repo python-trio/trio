@@ -138,7 +138,7 @@ class FakeSocket(tsocket.SocketType):
         if self.poison_listen:
             raise FakeOSError("whoops")
 
-    def close(self):
+    def close(self) -> None:
         self.closed = True
 
 

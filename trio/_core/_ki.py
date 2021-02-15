@@ -195,7 +195,7 @@ class KIManager:
         self.handler = handler
         signal.signal(signal.SIGINT, handler)
 
-    def close(self):
+    def close(self) -> None:
         if self.handler is not None:
             if signal.getsignal(signal.SIGINT) is self.handler:
                 signal.signal(signal.SIGINT, signal.default_int_handler)

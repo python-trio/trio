@@ -15,7 +15,7 @@ def test_close_on_error() -> None:
     class CloseMe:
         closed = False
 
-        def close(self):
+        def close(self) -> None:
             self.closed = True
 
     with close_on_error(CloseMe()) as c:

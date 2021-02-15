@@ -18,12 +18,12 @@ from .._highlevel_socket import SocketListener
 async def test_wait_all_tasks_blocked() -> None:
     record = []
 
-    async def busy_bee():
+    async def busy_bee() -> None:
         for _ in range(10):
             await _core.checkpoint()
         record.append("busy bee exhausted")
 
-    async def waiting_for_bee_to_leave():
+    async def waiting_for_bee_to_leave() -> None:
         await wait_all_tasks_blocked()
         record.append("quiet at last!")
 
@@ -35,7 +35,7 @@ async def test_wait_all_tasks_blocked() -> None:
     # check cancellation
     record = []
 
-    async def cancelled_while_waiting():
+    async def cancelled_while_waiting() -> None:
         try:
             await wait_all_tasks_blocked()
         except _core.Cancelled:
@@ -50,7 +50,7 @@ async def test_wait_all_tasks_blocked() -> None:
 async def test_wait_all_tasks_blocked_with_timeouts(mock_clock) -> None:
     record = []
 
-    async def timeout_task():
+    async def timeout_task() -> None:
         record.append("tt start")
         await sleep(5)
         record.append("tt finished")
@@ -67,22 +67,22 @@ async def test_wait_all_tasks_blocked_with_timeouts(mock_clock) -> None:
 async def test_wait_all_tasks_blocked_with_cushion() -> None:
     record = []
 
-    async def blink():
+    async def blink() -> None:
         record.append("blink start")
         await sleep(0.01)
         await sleep(0.01)
         await sleep(0.01)
         record.append("blink end")
 
-    async def wait_no_cushion():
+    async def wait_no_cushion() -> None:
         await wait_all_tasks_blocked()
         record.append("wait_no_cushion end")
 
-    async def wait_small_cushion():
+    async def wait_small_cushion() -> None:
         await wait_all_tasks_blocked(0.02)
         record.append("wait_small_cushion end")
 
-    async def wait_big_cushion():
+    async def wait_big_cushion() -> None:
         await wait_all_tasks_blocked(0.03)
         record.append("wait_big_cushion end")
 
@@ -310,7 +310,7 @@ async def test__UnboundeByteQueue() -> None:
     # close wakes up blocked getters
     ubq2 = _UnboundedByteQueue()
 
-    async def closer():
+    async def closer() -> None:
         await wait_all_tasks_blocked()
         ubq2.close()
 
@@ -348,7 +348,7 @@ async def test_MemorySendStream() -> None:
     # and we don't know which one will get the error.
     resource_busy_count = 0
 
-    async def do_send_all_count_resourcebusy():
+    async def do_send_all_count_resourcebusy() -> None:
         nonlocal resource_busy_count
         try:
             await do_send_all(b"xxx")
@@ -377,15 +377,15 @@ async def test_MemorySendStream() -> None:
 
     record = []
 
-    async def send_all_hook():
+    async def send_all_hook() -> None:
         # hook runs after send_all does its work (can pull data out)
         assert mss2.get_data_nowait() == b"abc"
         record.append("send_all_hook")
 
-    async def wait_send_all_might_not_block_hook():
+    async def wait_send_all_might_not_block_hook() -> None:
         record.append("wait_send_all_might_not_block_hook")
 
-    def close_hook():
+    def close_hook() -> None:
         record.append("close_hook")
 
     mss2 = MemorySendStream(
@@ -440,12 +440,12 @@ async def test_MemoryReceiveStream() -> None:
     with pytest.raises(_core.ClosedResourceError):
         mrs.put_data(b"---")
 
-    async def receive_some_hook():
+    async def receive_some_hook() -> None:
         mrs2.put_data(b"xxx")
 
     record = []
 
-    def close_hook():
+    def close_hook() -> None:
         record.append("closed")
 
     mrs2 = MemoryReceiveStream(receive_some_hook, close_hook)
@@ -555,7 +555,7 @@ async def test_memory_stream_one_way_pair() -> None:
         await wait_all_tasks_blocked()
         nursery.cancel_scope.cancel()
 
-    async def check_for_cancel():
+    async def check_for_cancel() -> None:
         with pytest.raises(_core.Cancelled):
             # This should block forever... or until cancelled. Even though we
             # sent some data on the send stream.
@@ -580,11 +580,11 @@ async def test_memory_stream_pair() -> None:
     await a.send_eof()
     assert await b.receive_some(10) == b""
 
-    async def sender():
+    async def sender() -> None:
         await wait_all_tasks_blocked()
         await b.send_all(b"xyz")
 
-    async def receiver():
+    async def receiver() -> None:
         assert await a.receive_some(10) == b"xyz"
 
     async with _core.open_nursery() as nursery:

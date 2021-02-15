@@ -25,7 +25,7 @@ class _HandleHolder:
     def closed(self) -> bool:
         return self.handle == -1
 
-    def _close(self):
+    def _close(self) -> None:
         if self.closed:
             return
         handle = self.handle
@@ -33,11 +33,11 @@ class _HandleHolder:
         if not kernel32.CloseHandle(_handle(handle)):
             raise_winerror()
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         self._close()
         await _core.checkpoint()
 
-    def __del__(self):
+    def __del__(self) -> None:
         self._close()
 
 
@@ -78,7 +78,7 @@ class PipeSendStream(SendStream, metaclass=Final):
             # not implemented yet, and probably not needed
             await _core.checkpoint()
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         await self._handle_holder.aclose()
 
 
@@ -130,5 +130,5 @@ class PipeReceiveStream(ReceiveStream, metaclass=Final):
                 del buffer[size:]
                 return buffer
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         await self._handle_holder.aclose()

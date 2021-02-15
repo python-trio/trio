@@ -55,13 +55,13 @@ async def test_pipes_combined() -> None:
     count = 2 ** 20
     replicas = 3
 
-    async def sender():
+    async def sender() -> None:
         async with write:
             big = bytearray(count)
             for _ in range(replicas):
                 await write.send_all(big)
 
-    async def reader():
+    async def reader() -> None:
         async with read:
             await wait_all_tasks_blocked()
             total_received = 0
@@ -94,7 +94,7 @@ async def test_close_during_write() -> None:
     w, r = await make_pipe()
     async with _core.open_nursery() as nursery:
 
-        async def write_forever():
+        async def write_forever() -> None:
             with pytest.raises(_core.ClosedResourceError) as excinfo:
                 while True:
                     await w.send_all(b"x" * 4096)

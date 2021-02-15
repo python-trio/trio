@@ -70,7 +70,7 @@ class EntryQueue:
         # This has to be carefully written to be safe in the face of new items
         # being queued while we iterate, and to do a bounded amount of work on
         # each pass:
-        def run_all_bounded():
+        def run_all_bounded() -> None:
             for _ in range(len(self.queue)):
                 run_cb(self.queue.popleft())
             for job in list(self.idempotent_queue):
@@ -104,7 +104,7 @@ class EntryQueue:
             assert not self.queue
             assert not self.idempotent_queue
 
-    def close(self):
+    def close(self) -> None:
         self.wakeup.close()
 
     def size(self):

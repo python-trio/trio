@@ -239,7 +239,7 @@ async def temporarily_detach_coroutine_object(abort_func: AbortFunc) -> None:
     uses to resume the coroutine.
 
     """
-    return await _async_yield(WaitTaskRescheduled(abort_func))
+    return await _async_yield(WaitTaskRescheduled(abort_func))  # type: ignore[no-any-return]
 
 
 async def reattach_detached_coroutine_object(

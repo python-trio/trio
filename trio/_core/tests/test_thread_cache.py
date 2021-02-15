@@ -15,7 +15,7 @@ from .._thread_cache import start_thread_soon, ThreadCache
 def test_thread_cache_basics() -> None:
     q = Queue()
 
-    def fn():
+    def fn() -> None:
         raise RuntimeError("hi")
 
     def deliver(outcome):
@@ -35,7 +35,7 @@ def test_thread_cache_deref() -> None:
         def __call__(self):
             return 42
 
-        def __del__(self):
+        def __del__(self) -> None:
             res[0] = True
 
     q = Queue()
@@ -137,7 +137,7 @@ def test_race_between_idle_exit_and_job_assignment(monkeypatch) -> None:
                     return False
                 return True
 
-        def release(self):
+        def release(self) -> None:
             self._lock.release()
 
     monkeypatch.setattr(_thread_cache, "Lock", JankyLock)

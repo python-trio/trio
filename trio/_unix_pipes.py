@@ -48,7 +48,7 @@ class _FdHolder:
     def closed(self) -> bool:
         return self.fd == -1
 
-    def _raw_close(self):
+    def _raw_close(self) -> None:
         # This doesn't assume it's in a Trio context, so it can be called from
         # __del__. You should never call it from Trio context, because it
         # skips calling notify_fd_close. But from __del__, skipping that is
@@ -63,10 +63,10 @@ class _FdHolder:
         os.set_blocking(fd, self._original_is_blocking)
         os.close(fd)
 
-    def __del__(self):
+    def __del__(self) -> None:
         self._raw_close()
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         if not self.closed:
             trio.lowlevel.notify_closing(self.fd)
             self._raw_close()
@@ -179,7 +179,7 @@ class FdStream(Stream, metaclass=Final):
 
             return data
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         await self._fd_holder.aclose()
 
     def fileno(self):

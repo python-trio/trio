@@ -22,7 +22,7 @@ from ..._timeouts import sleep
 from .tutil import slow
 
 
-def ki_self():
+def ki_self() -> None:
     signal_raise(signal.SIGINT)
 
 
@@ -39,7 +39,7 @@ async def test_ki_enabled() -> None:
     token = _core.current_trio_token()
     record: Any = []
 
-    def check():
+    def check() -> None:
         record.append(_core.currently_ki_protected())
 
     token.run_sync_soon(check)
@@ -146,7 +146,7 @@ async def test_generator_based_context_manager_throw() -> None:
 async def test_agen_protection() -> None:
     @_core.enable_ki_protection
     @async_generator
-    async def agen_protected1():  # type: ignore[misc]
+    async def agen_protected1() -> None:  # type: ignore[misc]
         assert _core.currently_ki_protected()
         try:
             await yield_()
@@ -155,7 +155,7 @@ async def test_agen_protection() -> None:
 
     @_core.disable_ki_protection
     @async_generator
-    async def agen_unprotected1():  # type: ignore[misc]
+    async def agen_unprotected1() -> None:  # type: ignore[misc]
         assert not _core.currently_ki_protected()
         try:
             await yield_()
@@ -165,7 +165,7 @@ async def test_agen_protection() -> None:
     # Swap the order of the decorators:
     @async_generator
     @_core.enable_ki_protection
-    async def agen_protected2():  # type: ignore[misc]
+    async def agen_protected2() -> None:  # type: ignore[misc]
         assert _core.currently_ki_protected()
         try:
             await yield_()
@@ -174,7 +174,7 @@ async def test_agen_protection() -> None:
 
     @async_generator
     @_core.disable_ki_protection
-    async def agen_unprotected2():  # type: ignore[misc]
+    async def agen_unprotected2() -> None:  # type: ignore[misc]
         assert not _core.currently_ki_protected()
         try:
             await yield_()
@@ -231,7 +231,7 @@ def test_ki_disabled_in_del() -> None:
     def nestedfunction():
         return _core.currently_ki_protected()
 
-    def __del__():
+    def __del__() -> None:
         assert _core.currently_ki_protected()
         assert nestedfunction()
 
@@ -279,7 +279,7 @@ def test_ki_protection_works() -> None:
     print("check 1")
     record: Any = set()
 
-    async def check_unprotected_kill():
+    async def check_unprotected_kill() -> None:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(sleeper, "s1", record)
             nursery.start_soon(sleeper, "s2", record)
@@ -294,7 +294,7 @@ def test_ki_protection_works() -> None:
     print("check 2")
     record = set()
 
-    async def check_protected_kill():
+    async def check_protected_kill() -> None:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(sleeper, "s1", record)
             nursery.start_soon(sleeper, "s2", record)
@@ -309,10 +309,10 @@ def test_ki_protection_works() -> None:
     # error, then kill)
     print("check 3")
 
-    async def check_kill_during_shutdown():
+    async def check_kill_during_shutdown() -> None:
         token = _core.current_trio_token()
 
-        def kill_during_shutdown():
+        def kill_during_shutdown() -> None:
             assert _core.currently_ki_protected()
             try:
                 token.run_sync_soon(kill_during_shutdown)
@@ -330,10 +330,10 @@ def test_ki_protection_works() -> None:
     print("check 4")
 
     class InstrumentOfDeath:
-        def before_run(self):
+        def before_run(self) -> None:
             ki_self()
 
-    async def main():
+    async def main() -> None:
         await _core.checkpoint()
 
     with pytest.raises(KeyboardInterrupt):
@@ -423,7 +423,7 @@ def test_ki_protection_works() -> None:
     # restrict_keyboard_interrupt_to_checkpoints=True
     record = []
 
-    async def main_f():
+    async def main_f() -> None:
         # We're not KI protected...
         assert not _core.currently_ki_protected()
         ki_self()
@@ -471,7 +471,7 @@ def test_ki_is_good_neighbor() -> None:
         def my_handler(signum, frame):  # pragma: no cover
             pass
 
-        async def main():
+        async def main() -> None:
             signal.signal(signal.SIGINT, my_handler)
 
         _core.run(main)
@@ -563,7 +563,7 @@ def test_ki_wakes_us_up() -> None:
     # It will be very nice when the buggy_wakeup_fd bug is fixed.
     lock = threading.Lock()
 
-    def kill_soon():
+    def kill_soon() -> None:
         # We want the signal to be raised after the main thread has entered
         # the IO manager blocking primitive. There really is no way to
         # deterministically interlock with that, so we have to use sleep and
@@ -576,7 +576,7 @@ def test_ki_wakes_us_up() -> None:
                 print("buggy_wakeup_fd =", buggy_wakeup_fd)
                 ki_self()
 
-    async def main():
+    async def main() -> None:
         thread = threading.Thread(target=kill_soon)
         print("Starting thread")
         thread.start()

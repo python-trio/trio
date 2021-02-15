@@ -198,7 +198,7 @@ class EpollIOManager:
     _force_wakeup: WakeupSocketpair = attr.ib(factory=WakeupSocketpair)
     _force_wakeup_fd: int = attr.ib(default=None)
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         self._epoll.register(self._force_wakeup.wakeup_sock, select.EPOLLIN)
         self._force_wakeup_fd = self._force_wakeup.wakeup_sock.fileno()
 
@@ -215,11 +215,11 @@ class EpollIOManager:
             tasks_waiting_write=tasks_waiting_write,
         )
 
-    def close(self):
+    def close(self) -> None:
         self._epoll.close()
         self._force_wakeup.close()
 
-    def force_wakeup(self):
+    def force_wakeup(self) -> None:
         self._force_wakeup.wakeup_thread_and_signal_safe()
 
     # Return value must be False-y IFF the timeout expired, NOT if any I/O

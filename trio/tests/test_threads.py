@@ -25,7 +25,7 @@ async def test_do_in_trio_thread() -> None:
     async def check_case(do_in_trio_thread, fn, expected, trio_token=None):
         record = []
 
-        def threadfn():
+        def threadfn() -> None:
             try:
                 record.append(("start", threading.current_thread()))
                 x = do_in_trio_thread(fn, record, trio_token=trio_token)
@@ -78,7 +78,7 @@ async def test_do_in_trio_thread_from_trio_thread() -> None:
     with pytest.raises(RuntimeError):
         from_thread_run_sync(lambda: None)  # pragma: no branch
 
-    async def foo():  # pragma: no cover
+    async def foo() -> None:  # pragma: no cover
         pass
 
     with pytest.raises(RuntimeError):
@@ -90,10 +90,10 @@ def test_run_in_trio_thread_ki() -> None:
     # back to the caller (slick!)
     record = set()
 
-    async def check_run_in_trio_thread():
+    async def check_run_in_trio_thread() -> None:
         token = _core.current_trio_token()
 
-        def trio_thread_fn():
+        def trio_thread_fn() -> None:
             print("in Trio thread")
             assert not _core.currently_ki_protected()
             print("ki_self")
@@ -104,10 +104,10 @@ def test_run_in_trio_thread_ki() -> None:
 
                 print("finally", sys.exc_info())
 
-        async def trio_thread_afn():
+        async def trio_thread_afn() -> None:
             trio_thread_fn()
 
-        def external_thread_fn():
+        def external_thread_fn() -> None:
             try:
                 print("running")
                 from_thread_run_sync(trio_thread_fn, trio_token=token)
@@ -171,7 +171,7 @@ async def test_run_in_worker_thread() -> None:
     assert x == 1
     assert child_thread != trio_thread
 
-    def g():
+    def g() -> None:
         raise ValueError(threading.current_thread())
 
     with pytest.raises(ValueError) as excinfo:
@@ -246,12 +246,12 @@ def test_run_in_worker_thread_abandoned(capfd, monkeypatch) -> None:
     q1 = stdlib_queue.Queue()
     q2 = stdlib_queue.Queue()
 
-    def thread_fn():
+    def thread_fn() -> None:
         q1.get()
         q2.put(threading.current_thread())
 
-    async def main():
-        async def child():
+    async def main() -> None:
+        async def child() -> None:
             await to_thread_run_sync(thread_fn, cancellable=True)
 
         async with _core.open_nursery() as nursery:
@@ -465,7 +465,7 @@ async def test_trio_to_thread_run_sync_token() -> None:
 
 async def test_trio_to_thread_run_sync_expected_error() -> None:
     # Test correct error when passed async function
-    async def async_fn():  # pragma: no cover
+    async def async_fn() -> None:  # pragma: no cover
         pass
 
     with pytest.raises(TypeError, match="expected a sync function"):
@@ -483,10 +483,10 @@ async def test_trio_from_thread_run_sync() -> None:
     assert isinstance(trio_time, float)
 
     # Test correct error when passed async function
-    async def async_fn():  # pragma: no cover
+    async def async_fn() -> None:  # pragma: no cover
         pass
 
-    def thread_fn():
+    def thread_fn() -> None:
         from_thread_run_sync(async_fn)
 
     with pytest.raises(TypeError, match="expected a sync function"):
@@ -498,11 +498,11 @@ async def test_trio_from_thread_run() -> None:
     # trio.from_thread.run()
     record = []
 
-    async def back_in_trio_fn():
+    async def back_in_trio_fn() -> None:
         _core.current_time()  # implicitly checks that we're in trio
         record.append("back in trio")
 
-    def thread_fn():
+    def thread_fn() -> None:
         record.append("in thread")
         from_thread_run(back_in_trio_fn)
 
@@ -510,7 +510,7 @@ async def test_trio_from_thread_run() -> None:
     assert record == ["in thread", "back in trio"]
 
     # Test correct error when passed sync function
-    def sync_fn():  # pragma: no cover
+    def sync_fn() -> None:  # pragma: no cover
         pass
 
     with pytest.raises(TypeError, match="appears to be synchronous"):
@@ -555,7 +555,7 @@ def test_run_fn_as_system_task_catched_badly_typed_token() -> None:
 
 
 async def test_from_thread_inside_trio_thread() -> None:
-    def not_called():  # pragma: no cover
+    def not_called() -> None:  # pragma: no cover
         assert False
 
     trio_token = _core.current_trio_token()
@@ -576,7 +576,7 @@ def test_from_thread_run_during_shutdown() -> None:
                 await to_thread_run_sync(from_thread_run, sleep, 0)
             record.append("ok")
 
-    async def main():
+    async def main() -> None:
         save.append(agen())
         await save[-1].asend(None)
 

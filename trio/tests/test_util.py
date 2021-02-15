@@ -48,7 +48,7 @@ async def test_ConflictDetector() -> None:
                 pass  # pragma: no cover
     assert "ul1" in str(excinfo.value)
 
-    async def wait_with_ul1():
+    async def wait_with_ul1() -> None:
         with ul1:
             await wait_all_tasks_blocked()
 
@@ -86,7 +86,7 @@ def test_module_metadata_is_fixed_up() -> None:
 async def test_is_main_thread() -> None:
     assert is_main_thread()
 
-    def not_main_thread():
+    def not_main_thread() -> None:
         assert not is_main_thread()
 
     await trio.to_thread.run_sync(not_main_thread)
@@ -100,7 +100,7 @@ def test_coroutine_or_error() -> None:
 
     with ignore_coroutine_never_awaited_warnings():
 
-        async def f():  # pragma: no cover
+        async def f() -> None:  # pragma: no cover
             pass
 
         with pytest.raises(TypeError) as excinfo:

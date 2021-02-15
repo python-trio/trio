@@ -10,7 +10,7 @@ def test_runvar_smoketest() -> None:
 
     assert "RunVar" in repr(t1)
 
-    async def first_check():
+    async def first_check() -> None:
         with pytest.raises(LookupError):
             t1.get()
 
@@ -23,7 +23,7 @@ def test_runvar_smoketest() -> None:
         assert t2.get() == "goldfish"
         assert t2.get(default="tuna") == "goldfish"
 
-    async def second_check():
+    async def second_check() -> None:
         with pytest.raises(LookupError):
             t1.get()
 
@@ -38,7 +38,7 @@ def test_runvar_resetting() -> None:
     t2 = _core.RunVar("test2", default="dogfish")
     t3 = _core.RunVar("test3")
 
-    async def reset_check():
+    async def reset_check() -> None:
         token = t1.set("moonfish")
         assert t1.get() == "moonfish"
         t1.reset(token)
@@ -69,8 +69,8 @@ def test_runvar_resetting() -> None:
 def test_runvar_sync() -> None:
     t1 = _core.RunVar("test1")
 
-    async def sync_check():
-        async def task1():
+    async def sync_check() -> None:
+        async def task1() -> None:
             t1.set("plaice")
             assert t1.get() == "plaice"
 

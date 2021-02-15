@@ -34,7 +34,7 @@ class KqueueIOManager:
     _force_wakeup: WakeupSocketpair = attr.ib(factory=WakeupSocketpair)
     _force_wakeup_fd: Optional[int] = attr.ib(default=None)
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         force_wakeup_event = select.kevent(
             self._force_wakeup.wakeup_sock, select.KQ_FILTER_READ, select.KQ_EV_ADD
         )
@@ -51,11 +51,11 @@ class KqueueIOManager:
                 monitors += 1
         return _KqueueStatistics(tasks_waiting=tasks_waiting, monitors=monitors)
 
-    def close(self):
+    def close(self) -> None:
         self._kqueue.close()
         self._force_wakeup.close()
 
-    def force_wakeup(self):
+    def force_wakeup(self) -> None:
         self._force_wakeup.wakeup_thread_and_signal_safe()
 
     def get_events(self, timeout):

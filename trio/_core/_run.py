@@ -106,7 +106,7 @@ _r = random.Random()
 #
 # This can all be removed once we drop support for 3.6.
 def _count_context_run_tb_frames():
-    def function_with_unique_name_xyzzy():
+    def function_with_unique_name_xyzzy() -> None:
         1 / 0
 
     ctx = copy_context()
@@ -133,7 +133,7 @@ class SystemClock:
     # between different runs, then they'll notice the bug quickly:
     offset = attr.ib(factory=lambda: _r.uniform(10000, 200000))
 
-    def start_clock(self):
+    def start_clock(self) -> None:
         pass
 
     # In cPython 3, on every platform except Windows, perf_counter is
@@ -187,7 +187,7 @@ class Deadlines:
                 heappop(self._heap)
         return inf
 
-    def _prune(self):
+    def _prune(self) -> None:
         # In principle, it's possible for a cancel scope to toggle back and
         # forth repeatedly between the same two deadlines, and end up with
         # lots of stale entries that *look* like they're still active, because
@@ -301,7 +301,7 @@ class CancelStatus:
     # recovery to show a useful traceback).
     abandoned_by_misnesting: bool = attr.ib(default=False, init=False, repr=False)
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         if self._parent is not None:
             self._parent._children.add(self)
             self.recalculate()
@@ -339,7 +339,7 @@ class CancelStatus:
             other = other.parent
         return False
 
-    def close(self):
+    def close(self) -> None:
         self.parent = None  # now we're not a child of self.parent anymore
         if self._tasks or self._children:
             # Cancel scopes weren't exited in opposite order of being
@@ -375,7 +375,7 @@ class CancelStatus:
             and self._parent.effectively_cancelled
         )
 
-    def recalculate(self):
+    def recalculate(self) -> None:
         # This does a depth-first traversal over this and descendent cancel
         # statuses, to ensure their state is up-to-date. It's basically a
         # recursive algorithm, but we use an explicit stack to avoid any
@@ -394,7 +394,7 @@ class CancelStatus:
                         task._attempt_delivery_of_any_pending_cancel()
                 todo.extend(current._children)
 
-    def _mark_abandoned(self):
+    def _mark_abandoned(self) -> None:
         self.abandoned_by_misnesting = True
         for child in self._children:
             child._mark_abandoned()
@@ -866,12 +866,12 @@ class NurseryManager:
                 assert value is combined_error_from_nursery
                 value.__context__ = old_context
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         raise RuntimeError(
             "use 'async with open_nursery(...)', not 'with open_nursery(...)'"
         )
 
-    def __exit__(self):  # pragma: no cover
+    def __exit__(self) -> None:  # pragma: no cover
         assert False, """Never called, but should be defined"""
 
 
@@ -943,7 +943,7 @@ class Nursery(metaclass=NoPublicConstructor):
         self._pending_excs.append(exc)
         self.cancel_scope.cancel()
 
-    def _check_nursery_closed(self):
+    def _check_nursery_closed(self) -> None:
         if not any([self._nested_child_running, self._children, self._pending_starts]):
             self._closed = True
             if self._parent_waiting_in_aexit:
@@ -1099,7 +1099,7 @@ class Nursery(metaclass=NoPublicConstructor):
             self._pending_starts -= 1
             self._check_nursery_closed()
 
-    def __del__(self):
+    def __del__(self) -> None:
         assert not self._children
 
 
@@ -1210,23 +1210,23 @@ class Task(metaclass=NoPublicConstructor):
         if success is Abort.SUCCEEDED:
             self._runner.reschedule(self, capture(raise_cancel))
 
-    def _attempt_delivery_of_any_pending_cancel(self):
+    def _attempt_delivery_of_any_pending_cancel(self) -> None:
         if self._abort_func is None:
             return
         if not self._cancel_status.effectively_cancelled:
             return
 
-        def raise_cancel():
+        def raise_cancel() -> None:
             raise Cancelled._create()
 
         self._attempt_abort(raise_cancel)
 
-    def _attempt_delivery_of_pending_ki(self):
+    def _attempt_delivery_of_pending_ki(self) -> None:
         assert self._runner.ki_pending
         if self._abort_func is None:
             return
 
-        def raise_cancel():
+        def raise_cancel() -> None:
             self._runner.ki_pending = False
             raise KeyboardInterrupt
 
@@ -1311,7 +1311,7 @@ class GuestState:
                 return self.runner.io_manager.get_events(timeout)
 
             def deliver(events_outcome):
-                def in_main_thread():
+                def in_main_thread() -> None:
                     self.unrolled_run_next_send = events_outcome
                     self.runner.guest_tick_scheduled = True
                     self.guest_tick()
@@ -1356,13 +1356,13 @@ class Runner:
     is_guest: bool = attr.ib(default=False)
     guest_tick_scheduled: bool = attr.ib(default=False)
 
-    def force_guest_tick_asap(self):
+    def force_guest_tick_asap(self) -> None:
         if self.guest_tick_scheduled:
             return
         self.guest_tick_scheduled = True
         self.io_manager.force_wakeup()
 
-    def close(self):
+    def close(self) -> None:
         self.io_manager.close()
         self.entry_queue.close()
         self.asyncgens.close()
@@ -1713,14 +1713,14 @@ class Runner:
     # keep the class public so people can isinstance() it if they want.
 
     # This gets called from signal context
-    def deliver_ki(self):
+    def deliver_ki(self) -> None:
         self.ki_pending = True
         try:
             self.entry_queue.run_sync_soon(self._deliver_ki_cb)
         except RunFinishedError:
             pass
 
-    def _deliver_ki_cb(self):
+    def _deliver_ki_cb(self) -> None:
         if not self.ki_pending:
             return
         # Can't happen because main_task and run_sync_soon_task are created at
@@ -2414,7 +2414,7 @@ async def checkpoint():
             await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
 
 
-async def checkpoint_if_cancelled():
+async def checkpoint_if_cancelled() -> None:
     """Issue a :ref:`checkpoint <checkpoints>` if the calling context has been
     cancelled.
 

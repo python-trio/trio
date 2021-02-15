@@ -23,11 +23,11 @@ class _UnboundedByteQueue:
     # channel: so after close(), calling put() raises ClosedResourceError, and
     # calling the get() variants drains the buffer and then returns an empty
     # bytearray.
-    def close(self):
+    def close(self) -> None:
         self._closed = True
         self._lot.unpark_all()
 
-    def close_and_wipe(self):
+    def close_and_wipe(self) -> None:
         self._data = bytearray()
         self.close()
 
@@ -122,7 +122,7 @@ class MemorySendStream(SendStream, metaclass=_util.Final):
             if self.send_all_hook is not None:
                 await self.send_all_hook()
 
-    async def wait_send_all_might_not_block(self):
+    async def wait_send_all_might_not_block(self) -> None:
         """Calls the :attr:`wait_send_all_might_not_block_hook` (if any), and
         then returns immediately.
 
@@ -137,7 +137,7 @@ class MemorySendStream(SendStream, metaclass=_util.Final):
             if self.wait_send_all_might_not_block_hook is not None:
                 await self.wait_send_all_might_not_block_hook()
 
-    def close(self):
+    def close(self) -> None:
         """Marks this stream as closed, and then calls the :attr:`close_hook`
         (if any).
 
@@ -154,7 +154,7 @@ class MemorySendStream(SendStream, metaclass=_util.Final):
         if self.close_hook is not None:
             self.close_hook()
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         """Same as :meth:`close`, but async."""
         self.close()
         await _core.checkpoint()
@@ -236,7 +236,7 @@ class MemoryReceiveStream(ReceiveStream, metaclass=_util.Final):
                 raise _core.ClosedResourceError
             return data
 
-    def close(self):
+    def close(self) -> None:
         """Discards any pending data from the internal buffer, and marks this
         stream as closed.
 
@@ -246,7 +246,7 @@ class MemoryReceiveStream(ReceiveStream, metaclass=_util.Final):
         if self.close_hook is not None:
             self.close_hook()
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         """Same as :meth:`close`, but async."""
         self.close()
         await _core.checkpoint()
@@ -255,7 +255,7 @@ class MemoryReceiveStream(ReceiveStream, metaclass=_util.Final):
         """Appends the given data to the internal buffer."""
         self._incoming.put(data)
 
-    def put_eof(self):
+    def put_eof(self) -> None:
         """Adds an end-of-file marker to the internal buffer."""
         self._incoming.close()
 
@@ -320,10 +320,10 @@ def memory_stream_one_way_pair():
     send_stream = MemorySendStream()
     recv_stream = MemoryReceiveStream()
 
-    def pump_from_send_stream_to_recv_stream():
+    def pump_from_send_stream_to_recv_stream() -> None:
         memory_stream_pump(send_stream, recv_stream)
 
-    async def async_pump_from_send_stream_to_recv_stream():
+    async def async_pump_from_send_stream_to_recv_stream() -> None:
         pump_from_send_stream_to_recv_stream()
 
     send_stream.send_all_hook = async_pump_from_send_stream_to_recv_stream
@@ -435,7 +435,7 @@ class _LockstepByteQueue:
             "another task is already receiving"
         )
 
-    def _something_happened(self):
+    def _something_happened(self) -> None:
         self._waiters.unpark_all()
 
     # Always wakes up when one side is closed, because everyone always reacts
@@ -449,11 +449,11 @@ class _LockstepByteQueue:
             await self._waiters.park()
         await _core.checkpoint()
 
-    def close_sender(self):
+    def close_sender(self) -> None:
         self._sender_closed = True
         self._something_happened()
 
-    def close_receiver(self):
+    def close_receiver(self) -> None:
         self._receiver_closed = True
         self._something_happened()
 
@@ -519,17 +519,17 @@ class _LockstepSendStream(SendStream):
     def __init__(self, lbq) -> None:
         self._lbq = lbq
 
-    def close(self):
+    def close(self) -> None:
         self._lbq.close_sender()
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         self.close()
         await _core.checkpoint()
 
     async def send_all(self, data):
         await self._lbq.send_all(data)
 
-    async def wait_send_all_might_not_block(self):
+    async def wait_send_all_might_not_block(self) -> None:
         await self._lbq.wait_send_all_might_not_block()
 
 
@@ -537,10 +537,10 @@ class _LockstepReceiveStream(ReceiveStream):
     def __init__(self, lbq) -> None:
         self._lbq = lbq
 
-    def close(self):
+    def close(self) -> None:
         self._lbq.close_receiver()
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         self.close()
         await _core.checkpoint()
 

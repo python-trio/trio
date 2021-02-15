@@ -36,27 +36,27 @@ async def raise_nothashable(code):
     raise NotHashableException(code)
 
 
-def raiser1():
+def raiser1() -> None:
     raiser1_2()
 
 
-def raiser1_2():
+def raiser1_2() -> None:
     raiser1_3()
 
 
-def raiser1_3():
+def raiser1_3() -> None:
     raise ValueError("raiser1_string")
 
 
-def raiser2():
+def raiser2() -> None:
     raiser2_2()
 
 
-def raiser2_2():
+def raiser2_2() -> None:
     raise KeyError("raiser2_string")
 
 
-def raiser3():
+def raiser3() -> None:
     raise NameError
 
 
@@ -506,13 +506,13 @@ def test_format_exception() -> None:
     # Prints duplicate exceptions in sub-exceptions
     exc1 = get_exc(raiser1)
 
-    def raise1_raiser1():
+    def raise1_raiser1() -> None:
         try:
             raise exc1
         except:
             raise ValueError("foo")
 
-    def raise2_raiser1():
+    def raise2_raiser1() -> None:
         try:
             raise exc1
         except:

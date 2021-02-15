@@ -129,11 +129,11 @@ async def test_mock_clock_autojump_0_and_wait_all_tasks_blocked_0(mock_clock) ->
 
     record = []
 
-    async def sleeper():
+    async def sleeper() -> None:
         await sleep(100)
         record.append("yawn")
 
-    async def waiter():
+    async def waiter() -> None:
         await wait_all_tasks_blocked()
         record.append("waiter woke")
         await sleep(1000)
@@ -157,11 +157,11 @@ async def test_mock_clock_autojump_0_and_wait_all_tasks_blocked_nonzero(
 
     record = []
 
-    async def sleeper():
+    async def sleeper() -> None:
         await sleep(100)
         record.append("yawn")
 
-    async def waiter():
+    async def waiter() -> None:
         await wait_all_tasks_blocked(1)
         record.append("waiter done")
 

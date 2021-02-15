@@ -108,7 +108,7 @@ async def test_wait_basic(
     # But readable() blocks until data arrives
     record = []
 
-    async def block_on_read():
+    async def block_on_read() -> None:
         try:
             with assert_checkpoints():
                 await wait_readable(a)
@@ -131,7 +131,7 @@ async def test_wait_basic(
         await wait_readable(b)
     record = []
 
-    async def block_on_write():
+    async def block_on_write() -> None:
         try:
             with assert_checkpoints():
                 await wait_writable(a)
@@ -205,11 +205,11 @@ async def test_interrupted_by_close(
 ) -> None:
     a, b = socketpair
 
-    async def reader():
+    async def reader() -> None:
         with pytest.raises(_core.ClosedResourceError):
             await wait_readable(a)
 
-    async def writer():
+    async def writer() -> None:
         with pytest.raises(_core.ClosedResourceError):
             await wait_writable(a)
 
@@ -459,7 +459,7 @@ async def test_can_survive_unnotified_close() -> None:
         # sleep waiting on 'a2', with the idea that the 'a2' notification will
         # definitely arrive, and when it does then we can assume that whatever
         # notification was going to arrive for 'a' has also arrived.
-        async def wait_readable_a2_then_set():
+        async def wait_readable_a2_then_set() -> None:
             await trio.lowlevel.wait_readable(a2)
             e.set()
 

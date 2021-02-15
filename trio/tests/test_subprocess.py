@@ -138,7 +138,7 @@ async def test_pipes() -> None:
     ) as proc:
         msg = b"the quick brown fox jumps over the lazy dog"
 
-        async def feed_input():
+        async def feed_input() -> None:
             await proc.stdin.send_all(msg)
             await proc.stdin.aclose()
 
@@ -486,7 +486,7 @@ async def test_custom_deliver_cancel() -> None:
 async def test_warn_on_failed_cancel_terminate(monkeypatch) -> None:
     original_terminate = Process.terminate
 
-    def broken_terminate(self):
+    def broken_terminate(self) -> None:
         original_terminate(self)
         raise OSError("whoops")
 

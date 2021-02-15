@@ -26,7 +26,7 @@ async def test_Event() -> None:
 
     record = []
 
-    async def child():
+    async def child() -> None:
         record.append("sleeping")
         await e.wait()
         record.append("woken")
@@ -288,7 +288,7 @@ async def test_Lock_and_StrictFIFOLock(
 
     holder_task = None
 
-    async def holder():
+    async def holder() -> None:
         nonlocal holder_task
         holder_task = _core.current_task()
         async with l:
@@ -424,13 +424,13 @@ class ChannelLock1:
         for _ in range(capacity - 1):
             self.s.send_nowait(None)
 
-    def acquire_nowait(self):
+    def acquire_nowait(self) -> None:
         self.s.send_nowait(None)
 
-    async def acquire(self):
+    async def acquire(self) -> None:
         await self.s.send(None)
 
-    def release(self):
+    def release(self) -> None:
         self.r.receive_nowait()
 
 
@@ -440,13 +440,13 @@ class ChannelLock2:
         self.s, self.r = open_memory_channel(10)
         self.s.send_nowait(None)
 
-    def acquire_nowait(self):
+    def acquire_nowait(self) -> None:
         self.r.receive_nowait()
 
-    async def acquire(self):
+    async def acquire(self) -> None:
         await self.r.receive()
 
-    def release(self):
+    def release(self) -> None:
         self.s.send_nowait(None)
 
 
@@ -459,18 +459,18 @@ class ChannelLock3:
         # waiting to acquire.
         self.acquired = False
 
-    def acquire_nowait(self):
+    def acquire_nowait(self) -> None:
         assert not self.acquired
         self.acquired = True
 
-    async def acquire(self):
+    async def acquire(self) -> None:
         if self.acquired:
             await self.s.send(None)
         else:
             self.acquired = True
             await _core.checkpoint()
 
-    def release(self):
+    def release(self) -> None:
         try:
             self.r.receive_nowait()
         except _core.WouldBlock:
@@ -579,7 +579,7 @@ async def test_generic_lock_acquire_nowait_blocks_acquire(
 
     record = []
 
-    async def lock_taker():
+    async def lock_taker() -> None:
         record.append("started")
         async with lock_like:
             pass
