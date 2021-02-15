@@ -1,4 +1,5 @@
 import select
+import socket
 import sys
 import attr
 from collections import defaultdict
@@ -305,11 +306,11 @@ class EpollIOManager:
         await self._epoll_wait(fd, "read_task")
 
     @_public
-    async def wait_writable(self, fd: Union[int, _HasFileno]) -> None:
+    async def wait_writable(self, fd: Union[int, _HasFileno, socket.socket]) -> None:
         await self._epoll_wait(fd, "write_task")
 
     @_public
-    def notify_closing(self, fd: Union[int, _HasFileno]) -> None:
+    def notify_closing(self, fd: Union[int, _HasFileno, socket.socket]) -> None:
         if not isinstance(fd, int):
             fd = fd.fileno()
         wake_all(

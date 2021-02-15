@@ -466,7 +466,9 @@ traceback.TracebackException.__init__ = traceback_exception_init  # type: ignore
 traceback_exception_original_format = traceback.TracebackException.format
 
 
-def traceback_exception_format(self: traceback.TracebackException, *, chain: bool = True) -> Iterator[str]:
+def traceback_exception_format(
+    self: traceback.TracebackException, *, chain: bool = True
+) -> Iterator[str]:
     yield from traceback_exception_original_format(self, chain=chain)
 
     for i, exc in enumerate(self.embedded):  # type: ignore[attr-defined]
@@ -477,7 +479,9 @@ def traceback_exception_format(self: traceback.TracebackException, *, chain: boo
 traceback.TracebackException.format = traceback_exception_format  # type: ignore[assignment]
 
 
-def trio_excepthook(etype: Type[BaseException], value: BaseException, tb: TracebackType) -> None:
+def trio_excepthook(
+    etype: Type[BaseException], value: BaseException, tb: TracebackType
+) -> None:
     for chunk in traceback.format_exception(etype, value, tb):
         sys.stderr.write(chunk)
 
@@ -500,7 +504,13 @@ if "IPython" in sys.modules:
             monkeypatched_or_warned = True
         else:
 
-            def trio_show_traceback(self: object, etype: Type[BaseException], value: BaseException, tb: TracebackType, tb_offset: Optional[int] = None) -> None:
+            def trio_show_traceback(
+                self: object,
+                etype: Type[BaseException],
+                value: BaseException,
+                tb: TracebackType,
+                tb_offset: Optional[int] = None,
+            ) -> None:
                 # XX it would be better to integrate with IPython's fancy
                 # exception formatting stuff (and not ignore tb_offset)
                 trio_excepthook(etype, value, tb)

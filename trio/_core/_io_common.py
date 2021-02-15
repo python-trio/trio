@@ -1,10 +1,20 @@
 import copy
+from typing import Optional
+
 import outcome
 from .. import _core
+from . import _run
+
+from typing_extensions import Protocol
+
+
+class Waiter(Protocol):
+    read_task: Optional[_run.Task]
+    write_task: Optional[_run.Task]
 
 
 # Utility function shared between _io_epoll and _io_windows
-def wake_all(waiters, exc):
+def wake_all(waiters: Waiter, exc: Exception) -> None:
     try:
         current_task = _core.current_task()
     except RuntimeError:

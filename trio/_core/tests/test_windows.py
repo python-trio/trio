@@ -193,7 +193,9 @@ if sys.platform == "win32":
         ):
             _core.run(sleep, 0)
 
-    def test_lsp_that_completely_hides_base_socket_gives_good_error(monkeypatch) -> None:
+    def test_lsp_that_completely_hides_base_socket_gives_good_error(
+        monkeypatch,
+    ) -> None:
         # This tests behavior with an LSP that fails SIO_BASE_HANDLE and returns
         # self for SIO_BSP_HANDLE_SELECT (like Komodia), but also returns
         # self for SIO_BSP_HANDLE_POLL. No known LSP does this, but we want to

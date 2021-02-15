@@ -313,7 +313,12 @@ class Final(BaseMeta):
     - TypeError if a sub class is created
     """
 
-    def __new__(cls: t.Type[_T], name: str, bases: t.Tuple[type], cls_namespace: t.Dict[str, object]) -> _T:
+    def __new__(
+        cls: t.Type[_T],
+        name: str,
+        bases: t.Tuple[type],
+        cls_namespace: t.Dict[str, object],
+    ) -> _T:
         for base in bases:
             if isinstance(base, Final):
                 raise TypeError(

@@ -701,11 +701,11 @@ class WindowsIOManager:
         await self._afd_poll(sock, "read_task")
 
     @_public
-    async def wait_writable(self, sock: int) -> None:
+    async def wait_writable(self, sock: Union[int, socket.socket]) -> None:
         await self._afd_poll(sock, "write_task")
 
     @_public
-    def notify_closing(self, handle: int) -> None:
+    def notify_closing(self, handle: Union[int, socket.socket]) -> None:
         handle = _get_base_socket(handle)
         waiters = self._afd_waiters.get(handle)
         if waiters is not None:

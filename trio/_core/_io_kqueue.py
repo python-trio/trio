@@ -1,4 +1,5 @@
 import select
+import socket
 import sys
 from typing import Callable, Dict, Iterator, Optional, Tuple, TYPE_CHECKING, Union
 
@@ -178,11 +179,11 @@ class KqueueIOManager:
         await self._wait_common(fd, select.KQ_FILTER_READ)
 
     @_public
-    async def wait_writable(self, fd: Union[int, _HasFileno]) -> None:
+    async def wait_writable(self, fd: Union[int, _HasFileno, socket.socket]) -> None:
         await self._wait_common(fd, select.KQ_FILTER_WRITE)
 
     @_public
-    def notify_closing(self, fd: Union[int, _HasFileno]) -> None:
+    def notify_closing(self, fd: Union[int, _HasFileno, socket.socket]) -> None:
         if not isinstance(fd, int):
             fd = fd.fileno()
 

@@ -81,7 +81,9 @@ def is_public(node: ast.AST) -> bool:
     return False
 
 
-def get_public_methods(tree: ast.AST) -> Iterator[Union[ast.FunctionDef, ast.AsyncFunctionDef]]:
+def get_public_methods(
+    tree: ast.AST,
+) -> Iterator[Union[ast.FunctionDef, ast.AsyncFunctionDef]]:
     """Return a list of methods marked as public.
     The function walks the given tree and extracts
     all objects that are functions which are marked
@@ -95,7 +97,9 @@ def get_public_methods(tree: ast.AST) -> Iterator[Union[ast.FunctionDef, ast.Asy
             yield node
 
 
-def create_passthrough_args(funcdef: Union[ast.FunctionDef, ast.AsyncFunctionDef]) -> str:
+def create_passthrough_args(
+    funcdef: Union[ast.FunctionDef, ast.AsyncFunctionDef]
+) -> str:
     """Given a function definition, create a string that represents taking all
     the arguments from the function, and passing them through to another
     invocation of the same function.
@@ -187,7 +191,9 @@ def matches_disk_files(new_files: Dict[str, str]) -> bool:
     return True
 
 
-def process(sources_and_lookups: List[Tuple[Union[Path, str], str]], *, do_test: bool) -> None:
+def process(
+    sources_and_lookups: List[Tuple[Union[Path, str], str]], *, do_test: bool
+) -> None:
     new_files = {}
     for source_path, lookup_path in sources_and_lookups:
         print("Scanning:", source_path)

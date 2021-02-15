@@ -40,7 +40,7 @@ async def wait_readable(sock: int) ->None:
         raise RuntimeError("must be called from async context")
 
 
-async def wait_writable(sock: int) ->None:
+async def wait_writable(sock: Union[int, socket.socket]) ->None:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_writable(sock)
@@ -48,7 +48,7 @@ async def wait_writable(sock: int) ->None:
         raise RuntimeError("must be called from async context")
 
 
-def notify_closing(handle: int) ->None:
+def notify_closing(handle: Union[int, socket.socket]) ->None:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.notify_closing(handle)

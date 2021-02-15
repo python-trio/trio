@@ -1,8 +1,12 @@
 import errno
 import sys
 from math import inf
+from typing import Awaitable, Callable, Optional, Union
 
 import trio
+from . import Nursery
+from .abc import Stream
+from ._typing import TaskStatus
 from . import socket as tsocket
 
 
@@ -144,13 +148,13 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
 
 
 async def serve_tcp(
-    handler,
-    port,
+    handler: Callable[[Stream], Awaitable[object]],
+    port: int,
     *,
-    host=None,
-    backlog=None,
-    handler_nursery=None,
-    task_status=trio.TASK_STATUS_IGNORED,
+    host: Optional[Union[str, bytes]] = None,
+    backlog: Optional[int] = None,
+    handler_nursery: Optional[Nursery] = None,
+    task_status: TaskStatus = trio.TASK_STATUS_IGNORED,
 ):
     """Listen for incoming TCP connections, and for each one start a task
     running ``handler(stream)``.

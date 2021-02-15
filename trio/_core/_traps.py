@@ -9,6 +9,8 @@ import outcome
 
 from . import _run
 
+AbortFunc = Callable[[Callable[[], None]], "Abort"]
+
 
 # Helper for the bottommost 'yield'. You can't use 'yield' inside an async
 # function, but you can inside a generator, and if you decorate your generator
@@ -28,7 +30,7 @@ class CancelShieldedCheckpoint:
     pass
 
 
-async def cancel_shielded_checkpoint():
+async def cancel_shielded_checkpoint() -> None:
     """Introduce a schedule point, but not a cancel point.
 
     This is *not* a :ref:`checkpoint <checkpoints>`, but it is half of a
@@ -41,7 +43,7 @@ async def cancel_shielded_checkpoint():
             await trio.lowlevel.checkpoint()
 
     """
-    return (await _async_yield(CancelShieldedCheckpoint)).unwrap()
+    return (await _async_yield(CancelShieldedCheckpoint)).unwrap()  # type: ignore[no-any-return]
 
 
 # Return values for abort functions
@@ -62,12 +64,10 @@ class Abort(enum.Enum):
 # Not exported in the trio._core namespace, but imported directly by _run.
 @attr.s(frozen=True)
 class WaitTaskRescheduled:
-    abort_func = attr.ib()
+    abort_func: AbortFunc = attr.ib()
 
 
-async def wait_task_rescheduled(
-    abort_func: Callable[[Callable[[], None]], Abort]
-) -> object:
+async def wait_task_rescheduled(abort_func: AbortFunc) -> object:
     """Put the current task to sleep, with cancellation support.
 
     This is the lowest-level API for blocking in Trio. Every time a
@@ -172,10 +172,10 @@ async def wait_task_rescheduled(
 # Not exported in the trio._core namespace, but imported directly by _run.
 @attr.s(frozen=True)
 class PermanentlyDetachCoroutineObject:
-    final_outcome = attr.ib()
+    final_outcome: outcome.Outcome = attr.ib()
 
 
-async def permanently_detach_coroutine_object(final_outcome):
+async def permanently_detach_coroutine_object(final_outcome: outcome.Outcome) -> None:
     """Permanently detach the current task from the Trio scheduler.
 
     Normally, a Trio task doesn't exit until its coroutine object exits. When
@@ -203,10 +203,10 @@ async def permanently_detach_coroutine_object(final_outcome):
         raise RuntimeError(
             "can't permanently detach a coroutine object with open nurseries"
         )
-    return await _async_yield(PermanentlyDetachCoroutineObject(final_outcome))
+    return await _async_yield(PermanentlyDetachCoroutineObject(final_outcome))  # type: ignore[no-any-return]
 
 
-async def temporarily_detach_coroutine_object(abort_func):
+async def temporarily_detach_coroutine_object(abort_func: AbortFunc) -> None:
     """Temporarily detach the current coroutine object from the Trio
     scheduler.
 
@@ -242,7 +242,9 @@ async def temporarily_detach_coroutine_object(abort_func):
     return await _async_yield(WaitTaskRescheduled(abort_func))
 
 
-async def reattach_detached_coroutine_object(task, yield_value):
+async def reattach_detached_coroutine_object(
+    task: "_run.Task", yield_value: object
+) -> None:
     """Reattach a coroutine object that was detached using
     :func:`temporarily_detach_coroutine_object`.
 

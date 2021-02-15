@@ -1,8 +1,11 @@
 import errno
 import logging
 import os
+from typing import Awaitable, Callable, List, Optional
 
 import trio
+import trio.abc
+from ._typing import TaskStatus
 
 # Errors that accept(2) can return, and which indicate that the system is
 # overloaded
@@ -49,7 +52,11 @@ async def _serve_one_listener(listener, handler_nursery, handler):
 
 
 async def serve_listeners(
-    handler, listeners, *, handler_nursery=None, task_status=trio.TASK_STATUS_IGNORED
+    handler: Callable[[trio.abc.Stream], Awaitable[object]],
+    listeners: List[trio.abc.Listener],
+    *,
+    handler_nursery: Optional[trio.Nursery] = None,
+    task_status: TaskStatus = trio.TASK_STATUS_IGNORED,
 ):
     r"""Listen for incoming connections on ``listeners``, and for each one
     start a task running ``handler(stream)``.
