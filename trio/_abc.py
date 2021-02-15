@@ -4,7 +4,7 @@ from abc import ABCMeta, abstractmethod
 from typing import Generic, List, Optional, Text, Tuple, TYPE_CHECKING, TypeVar, Union
 import socket
 import trio
-from  ._core import _run
+from ._core import _run
 
 _T = TypeVar("_T")
 _TSelf = TypeVar("_TSelf")
