@@ -27,7 +27,7 @@ click==7.1.2
     # via black
 coverage==5.4
     # via pytest-cov
-cryptography==3.4.4
+cryptography==3.4.5
     # via
     #   pyopenssl
     #   trustme
