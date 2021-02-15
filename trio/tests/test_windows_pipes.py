@@ -196,7 +196,7 @@ async def test_close_stream_during_write():
             assert "another task" in str(excinfo.value)
 
         nursery.start_soon(write_forever)
-        await wait_all_tasks_blocked(0.1)
+        await wait_all_tasks_blocked(0.01)
         await w.aclose()
 
 
@@ -251,7 +251,7 @@ async def test_channel_message_never_splits():
                 nursery.start_soon(read_big)
                 await read_ev.wait()
                 read_cs.cancel()
-                with move_on_after(0.001):
+                with move_on_after(0.01):
                     async with read_lock:
                         result = await r.receive()
                 nursery.cancel_scope.cancel()
