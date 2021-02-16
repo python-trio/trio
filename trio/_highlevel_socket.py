@@ -128,7 +128,7 @@ class SocketStream(HalfCloseableStream, metaclass=Final):
             with _translate_socket_errors_to_stream_errors():
                 self.socket.shutdown(tsocket.SHUT_WR)
 
-    async def receive_some(self, max_bytes: Optional[int] =None) -> bytes:
+    async def receive_some(self, max_bytes: Optional[int] = None) -> bytes:
         if max_bytes is None:
             max_bytes = DEFAULT_RECEIVE_SIZE
         if max_bytes < 1:
@@ -158,7 +158,9 @@ class SocketStream(HalfCloseableStream, metaclass=Final):
     def getsockopt(self, level: int, option: int, buffersize: int) -> bytes:
         ...
 
-    def getsockopt(self, level: int , option: int, buffersize: int = 0) -> Union[int, bytes]:
+    def getsockopt(
+        self, level: int, option: int, buffersize: int = 0
+    ) -> Union[int, bytes]:
         """Check the current value of an option on the underlying socket.
 
         See :meth:`socket.socket.getsockopt` for details.
