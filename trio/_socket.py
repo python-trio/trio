@@ -33,7 +33,15 @@ _T = TypeVar("_T")
 
 
 _Address = Union[tuple, str]
-
+_AddressInfo = List[
+    Tuple[
+        _stdlib_socket.AddressFamily,
+        _stdlib_socket.SocketKind,
+        int,
+        str,
+        Union[Tuple[str, int], Tuple[str, int, int, int]],
+    ]
+]
 
 # Usage:
 #
@@ -168,15 +176,7 @@ async def getaddrinfo(
     type: int = 0,
     proto: int = 0,
     flags: int = 0,
-) -> List[
-    Tuple[
-        _stdlib_socket.AddressFamily,
-        _stdlib_socket.SocketKind,
-        int,
-        str,
-        Union[Tuple[str, int], Tuple[str, int, int, int]],
-    ]
-]:
+) -> _AddressInfo:
     """Look up a numeric address given a name.
 
     Arguments and return values are identical to :func:`socket.getaddrinfo`,
@@ -637,7 +637,7 @@ class _SocketType(SocketType):
             return getattr(self._sock, name)
         raise AttributeError(name)
 
-    def __dir__(self) -> List[str]:
+    def __dir__(self) -> Sequence[str]:
         return [*super().__dir__(), *self._forward]
 
     def __enter__(self: _T) -> _T:

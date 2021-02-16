@@ -1,13 +1,14 @@
 import socket
 import sys
 import signal
+from typing import Optional
 import warnings
 
 from .. import _core
 from .._util import is_main_thread
 
 
-def _has_warn_on_full_buffer():
+def _has_warn_on_full_buffer() -> bool:
     if sys.version_info < (3, 7):
         return False
 
@@ -51,7 +52,7 @@ class WakeupSocketpair:
             self.write_sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         except OSError:
             pass
-        self.old_wakeup_fd = None
+        self.old_wakeup_fd: Optional[int] = None
 
     def wakeup_thread_and_signal_safe(self) -> None:
         try:

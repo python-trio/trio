@@ -2,7 +2,17 @@ import signal
 from contextlib import contextmanager
 from collections import OrderedDict
 from types import FrameType
-from typing import Any, Callable, Iterable, Iterator, Optional, Set, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Iterable,
+    Iterator,
+    Optional,
+    Set,
+    Tuple,
+    TypeVar,
+    Union,
+)
 
 import trio
 from ._util import signal_raise, is_main_thread, ConflictDetector
@@ -10,6 +20,7 @@ from ._util import signal_raise, is_main_thread, ConflictDetector
 # https://github.com/python/typeshed/blob/master/stdlib/3/signal.pyi#L82-L83
 _SignalNumber = Union[int, signal.Signals]
 _Handler = Union[Callable[[signal.Signals, FrameType], Any], int, signal.Handlers, None]
+_TSelf = TypeVar("_TSelf")
 
 
 # Discussion of signal handling strategies:
@@ -65,14 +76,14 @@ def _signal_handler(
 class SignalReceiver:
     def __init__(self) -> None:
         # {signal num: None}
-        self._pending = OrderedDict()
+        self._pending: "OrderedDict[_SignalNumber, None]" = OrderedDict()
         self._lot = trio.lowlevel.ParkingLot()
         self._conflict_detector = ConflictDetector(
             "only one task can iterate on a signal receiver at a time"
         )
         self._closed = False
 
-    def _add(self, signum):
+    def _add(self, signum: _SignalNumber) -> None:
         if self._closed:
             signal_raise(signum)
         else:
@@ -98,13 +109,13 @@ class SignalReceiver:
         deliver_next()
 
     # Helper for tests, not public or otherwise used
-    def _pending_signal_count(self):
+    def _pending_signal_count(self) -> int:
         return len(self._pending)
 
-    def __aiter__(self):
+    def __aiter__(self: _TSelf) -> _TSelf:
         return self
 
-    async def __anext__(self):
+    async def __anext__(self) -> _SignalNumber:
         if self._closed:
             raise RuntimeError("open_signal_receiver block already exited")
         # In principle it would be possible to support multiple concurrent
@@ -166,7 +177,7 @@ def open_signal_receiver(*signals: _SignalNumber) -> Iterator[SignalReceiver]:
     token = trio.lowlevel.current_trio_token()
     queue = SignalReceiver()
 
-    def handler(signum, _):
+    def handler(signum: _SignalNumber, _: object) -> None:
         token.run_sync_soon(queue._add, signum, idempotent=True)
 
     try:

@@ -152,6 +152,7 @@
 import operator as _operator
 import ssl as _stdlib_ssl
 from enum import Enum as _Enum
+from typing import Sequence
 
 import trio
 
@@ -406,7 +407,7 @@ class SSLStream(Stream, metaclass=Final):
         else:
             super().__setattr__(name, value)
 
-    def __dir__(self):
+    def __dir__(self) -> Sequence[str]:
         return super().__dir__() + list(self._forwarded)
 
     def _check_status(self) -> None:

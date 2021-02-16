@@ -175,7 +175,7 @@ class KqueueIOManager:
         await self.wait_kevent(fd, filter, abort)
 
     @_public
-    async def wait_readable(self, fd: Union[int, _HasFileno]) -> None:
+    async def wait_readable(self, fd: Union[int, _HasFileno, socket.socket]) -> None:
         await self._wait_common(fd, select.KQ_FILTER_READ)
 
     @_public

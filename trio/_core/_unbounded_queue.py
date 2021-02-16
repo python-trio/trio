@@ -8,12 +8,13 @@ from .._util import Final
 
 
 _T = TypeVar("_T")
+_TSelf = TypeVar("_TSelf")
 
 
 @attr.s(frozen=True)
 class _UnboundedQueueStats:
-    qsize = attr.ib()
-    tasks_waiting = attr.ib()
+    qsize: int = attr.ib()
+    tasks_waiting: int = attr.ib()
 
 
 class UnboundedQueue(Generic[_T], metaclass=Final):
@@ -61,11 +62,11 @@ class UnboundedQueue(Generic[_T], metaclass=Final):
     def __repr__(self) -> str:
         return "<UnboundedQueue holding {} items>".format(len(self._data))
 
-    def qsize(self):
+    def qsize(self) -> int:
         """Returns the number of items currently in the queue."""
         return len(self._data)
 
-    def empty(self):
+    def empty(self) -> bool:
         """Returns True if the queue is empty, False otherwise.
 
         There is some subtlety to interpreting this method's return value: see
@@ -93,13 +94,13 @@ class UnboundedQueue(Generic[_T], metaclass=Final):
                 self._can_get = True
         self._data.append(obj)
 
-    def _get_batch_protected(self):
+    def _get_batch_protected(self) -> List[_T]:
         data = self._data.copy()
         self._data.clear()
         self._can_get = False
         return data
 
-    def get_batch_nowait(self):
+    def get_batch_nowait(self) -> List[_T]:
         """Attempt to get the next batch from the queue, without blocking.
 
         Returns:
@@ -115,7 +116,7 @@ class UnboundedQueue(Generic[_T], metaclass=Final):
             raise _core.WouldBlock
         return self._get_batch_protected()
 
-    async def get_batch(self):
+    async def get_batch(self) -> List[_T]:
         """Get the next batch from the queue, blocking as necessary.
 
         Returns:
@@ -133,7 +134,7 @@ class UnboundedQueue(Generic[_T], metaclass=Final):
             finally:
                 await _core.cancel_shielded_checkpoint()
 
-    def statistics(self):
+    def statistics(self) -> _UnboundedQueueStats:
         """Return an object containing debugging information.
 
         Currently the following fields are defined:
@@ -147,8 +148,8 @@ class UnboundedQueue(Generic[_T], metaclass=Final):
             qsize=len(self._data), tasks_waiting=self._lot.statistics().tasks_waiting
         )
 
-    def __aiter__(self):
+    def __aiter__(self: _TSelf) -> _TSelf:
         return self
 
-    async def __anext__(self):
+    async def __anext__(self) -> List[_T]:
         return await self.get_batch()

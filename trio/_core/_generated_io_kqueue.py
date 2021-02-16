@@ -58,7 +58,7 @@ async def wait_kevent(ident: int, filter: int, abort_func: Callable[[
         raise RuntimeError("must be called from async context")
 
 
-async def wait_readable(fd: Union[int, _HasFileno]) ->None:
+async def wait_readable(fd: Union[int, _HasFileno, socket.socket]) ->None:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_readable(fd)

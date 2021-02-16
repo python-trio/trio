@@ -8,6 +8,7 @@ from typing import (
     Iterator,
     Optional,
     overload,
+    Sequence,
     Type,
     TYPE_CHECKING,
     TypeVar,
@@ -211,7 +212,7 @@ class Path(metaclass=AsyncAutoWrapperType):
             return rewrap_path(value)
         raise AttributeError(name)
 
-    def __dir__(self):
+    def __dir__(self) -> Sequence[str]:
         return super().__dir__() + self._forward
 
     def __repr__(self) -> str:

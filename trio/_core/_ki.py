@@ -2,7 +2,8 @@ import inspect
 import signal
 import sys
 from functools import wraps
-from typing import Any, TypeVar, Callable
+from types import FrameType
+from typing import Any, TypeVar, Callable, Optional, Union
 import attr
 
 import async_generator
@@ -83,17 +84,18 @@ LOCALS_KEY_KI_PROTECTION_ENABLED = "@TRIO_KI_PROTECTION_ENABLED"
 
 # NB: according to the signal.signal docs, 'frame' can be None on entry to
 # this function:
-def ki_protection_enabled(frame):
-    while frame is not None:
-        if LOCALS_KEY_KI_PROTECTION_ENABLED in frame.f_locals:
-            return frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED]
-        if frame.f_code.co_name == "__del__":
+def ki_protection_enabled(frame: FrameType) -> bool:
+    traversed_frame: Optional[FrameType] = frame
+    while traversed_frame is not None:
+        if LOCALS_KEY_KI_PROTECTION_ENABLED in traversed_frame.f_locals:
+            return traversed_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED]  # type: ignore[no-any-return]
+        if traversed_frame.f_code.co_name == "__del__":
             return True
-        frame = frame.f_back
+        traversed_frame = traversed_frame.f_back
     return True
 
 
-def currently_ki_protected():
+def currently_ki_protected() -> bool:
     r"""Check whether the calling code has :exc:`KeyboardInterrupt` protection
     enabled.
 
@@ -174,9 +176,15 @@ disable_ki_protection.__name__ = "disable_ki_protection"
 
 @attr.s
 class KIManager:
-    handler = attr.ib(default=None)
+    handler: Optional[
+        Callable[[Union[int, signal.Signals], FrameType], object]
+    ] = attr.ib(default=None)
 
-    def install(self, deliver_cb, restrict_keyboard_interrupt_to_checkpoints):
+    def install(
+        self,
+        deliver_cb: Callable[[], object],
+        restrict_keyboard_interrupt_to_checkpoints: bool,
+    ) -> None:
         assert self.handler is None
         if (
             not is_main_thread()
@@ -184,7 +192,7 @@ class KIManager:
         ):
             return
 
-        def handler(signum, frame):
+        def handler(signum: Union[int, signal.Signals], frame: FrameType) -> None:
             assert signum == signal.SIGINT
             protection_enabled = ki_protection_enabled(frame)
             if protection_enabled or restrict_keyboard_interrupt_to_checkpoints:

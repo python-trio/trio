@@ -1,22 +1,23 @@
 from functools import partial
 import io
+import os
 from typing import (
     Any,
     # AnyStr,
     # AsyncContextManager,
     AsyncIterator,
     # Awaitable,
-    # Callable,
+    Callable,
     # ContextManager,
     # FrozenSet,
     # Iterator,
     # Mapping,
     # NoReturn,
     Optional,
-    # Sequence,
+    Sequence,
     Union,
     # Sequence,
-    # TypeVar,
+    TypeVar,
     Tuple,
     List,
     Iterable,
@@ -30,6 +31,8 @@ from .abc import AsyncResource
 from ._util import async_wraps
 
 import trio
+
+_TSelf = TypeVar("_TSelf")
 
 # This list is also in the docs, make sure to keep them in sync
 _FILE_SYNC_ATTRS = {
@@ -92,14 +95,14 @@ class AsyncIOWrapper(AsyncResource):
 
         return self._wrapped
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> object:
         if name in _FILE_SYNC_ATTRS:
             return getattr(self._wrapped, name)
         if name in _FILE_ASYNC_METHODS:
             meth = getattr(self._wrapped, name)
 
             @async_wraps(self.__class__, self._wrapped.__class__, name)
-            async def wrapper(*args, **kwargs):  # type: ignore[misc]
+            async def wrapper(*args, **kwargs):  # type: ignore[misc, no-untyped-def]
                 func = partial(meth, *args, **kwargs)
                 return await trio.to_thread.run_sync(func)
 
@@ -109,23 +112,23 @@ class AsyncIOWrapper(AsyncResource):
 
         raise AttributeError(name)
 
-    def __dir__(self):
+    def __dir__(self) -> Sequence[str]:
         attrs = set(super().__dir__())
         attrs.update(a for a in _FILE_SYNC_ATTRS if hasattr(self.wrapped, a))
         attrs.update(a for a in _FILE_ASYNC_METHODS if hasattr(self.wrapped, a))
-        return attrs
+        return attrs  # type: ignore[return-value]
 
-    def __aiter__(self):
+    def __aiter__(self: _TSelf) -> _TSelf:
         return self
 
-    async def __anext__(self):
-        line = await self.readline()
+    async def __anext__(self) -> str:
+        line: str = await self.readline()  # type: ignore[operator]
         if line:
             return line
         else:
             raise StopAsyncIteration
 
-    async def detach(self):
+    async def detach(self) -> "_AsyncIOBase":
         """Like :meth:`io.BufferedIOBase.detach`, but async.
 
         This also re-wraps the result in a new :term:`asynchronous file object`
@@ -133,7 +136,7 @@ class AsyncIOWrapper(AsyncResource):
 
         """
 
-        raw = await trio.to_thread.run_sync(self._wrapped.detach)
+        raw: Union[io.RawIOBase, BinaryIO] = await trio.to_thread.run_sync(self._wrapped.detach)  # type: ignore[attr-defined]
         return wrap_file(raw)
 
     async def aclose(self) -> None:
@@ -266,14 +269,14 @@ class _AsyncTextIOBase(_AsyncIOBase):
 
 
 async def open_file(
-    file,
-    mode="r",
-    buffering=-1,
-    encoding=None,
-    errors=None,
-    newline=None,
-    closefd=True,
-    opener=None,
+    file: Union[os.PathLike, int],
+    mode: str = "r",
+    buffering: int = -1,
+    encoding: Optional[str] = None,
+    errors: Optional[str] = None,
+    newline: Optional[str] = None,
+    closefd: bool = True,
+    opener: Optional[Callable[[str, int], int]] = None,
 ):
     """Asynchronous version of :func:`io.open`.
 
@@ -320,6 +323,7 @@ def wrap_file(obj: Union[IO[Any], io.IOBase]) -> _AsyncIOBase:
     ...
 
 
+# def wrap_file(obj: Union[IO[Any], io.IOBase, io.RawIOBase, BinaryIO, io.BufferedIOBase, TextIO, io.TextIOBase]) -> _AsyncIOBase:
 def wrap_file(file):
     """This wraps any file object in a wrapper that provides an asynchronous
     file object interface.
@@ -338,7 +342,7 @@ def wrap_file(file):
 
     """
 
-    def has(attr):
+    def has(attr: str) -> bool:
         return hasattr(file, attr) and callable(getattr(file, attr))
 
     if not (has("close") and (has("read") or has("write"))):

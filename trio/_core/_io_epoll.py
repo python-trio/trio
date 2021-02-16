@@ -301,7 +301,7 @@ class EpollIOManager:
     @_public
     async def wait_readable(
         self,
-        fd: Union[int, _HasFileno],
+        fd: Union[int, _HasFileno, socket.socket],
     ) -> None:
         await self._epoll_wait(fd, "read_task")
 

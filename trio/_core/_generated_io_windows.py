@@ -32,7 +32,7 @@ if TYPE_CHECKING and sys.platform == "win32":
 assert not TYPE_CHECKING or sys.platform == 'win32'
 
 
-async def wait_readable(sock: int) ->None:
+async def wait_readable(sock: Union[int, socket.socket]) ->None:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_readable(sock)

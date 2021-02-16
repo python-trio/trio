@@ -10,6 +10,7 @@ from typing import (
     Optional,
     overload,
     Set,
+    Sequence,
     Type,
     Union,
 )
@@ -215,7 +216,7 @@ class MultiError(BaseException):
 
     """
 
-    def __init__(self, exceptions: List[BaseException]) -> None:
+    def __init__(self, exceptions: Sequence[BaseException]) -> None:
         # Avoid recursion when exceptions[0] returned by __new__() happens
         # to be a MultiError and subsequently __init__() is called.
         if hasattr(self, "exceptions"):

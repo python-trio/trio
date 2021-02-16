@@ -1,12 +1,14 @@
+from typing import Optional, Union
+
 import attr
 
 import trio
-from .abc import HalfCloseableStream
+from .abc import AsyncResource, HalfCloseableStream, ReceiveStream, SendStream
 
 from trio._util import Final
 
 
-async def aclose_forcefully(resource):
+async def aclose_forcefully(resource: AsyncResource) -> None:
     """Close an async resource or async generator immediately, without
     blocking to do any graceful cleanup.
 
@@ -72,18 +74,18 @@ class StapledStream(HalfCloseableStream, metaclass=Final):
 
     """
 
-    send_stream = attr.ib()
-    receive_stream = attr.ib()
+    send_stream: SendStream = attr.ib()
+    receive_stream: ReceiveStream = attr.ib()
 
-    async def send_all(self, data):
+    async def send_all(self, data: Union[bytes, bytearray, memoryview]) -> None:
         """Calls ``self.send_stream.send_all``."""
         return await self.send_stream.send_all(data)
 
-    async def wait_send_all_might_not_block(self):
+    async def wait_send_all_might_not_block(self) -> None:
         """Calls ``self.send_stream.wait_send_all_might_not_block``."""
         return await self.send_stream.wait_send_all_might_not_block()
 
-    async def send_eof(self):
+    async def send_eof(self) -> None:
         """Shuts down the send side of the stream.
 
         If ``self.send_stream.send_eof`` exists, then calls it. Otherwise,
@@ -91,11 +93,11 @@ class StapledStream(HalfCloseableStream, metaclass=Final):
 
         """
         if hasattr(self.send_stream, "send_eof"):
-            return await self.send_stream.send_eof()
+            return await self.send_stream.send_eof()  # type: ignore[no-any-return, attr-defined]
         else:
             return await self.send_stream.aclose()
 
-    async def receive_some(self, max_bytes=None):
+    async def receive_some(self, max_bytes: Optional[int] = None) -> bytes:
         """Calls ``self.receive_stream.receive_some``."""
         return await self.receive_stream.receive_some(max_bytes)
 

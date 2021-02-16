@@ -97,7 +97,7 @@ class Instrument(metaclass=ABCMeta):
 
         """
 
-    def before_task_step(self, task: "Task") -> None:
+    def before_task_step(self, task: "_run.Task") -> None:
         """Called immediately before we resume running the given task.
 
         Args:
@@ -105,7 +105,7 @@ class Instrument(metaclass=ABCMeta):
 
         """
 
-    def after_task_step(self, task: "Task") -> None:
+    def after_task_step(self, task: "_run.Task") -> None:
         """Called when we return to the main run loop after a task has yielded.
 
         Args:
@@ -113,7 +113,7 @@ class Instrument(metaclass=ABCMeta):
 
         """
 
-    def task_exited(self, task: "Task") -> None:
+    def task_exited(self, task: "_run.Task") -> None:
         """Called when the given task exits.
 
         Args:
@@ -310,7 +310,7 @@ class SendStream(AsyncResource):
     __slots__ = ()
 
     @abstractmethod
-    async def send_all(self, data: Union[bytes, memoryview]) -> None:
+    async def send_all(self, data: Union[bytes, bytearray, memoryview]) -> None:
         """Sends the given data through the stream, blocking if necessary.
 
         Args:

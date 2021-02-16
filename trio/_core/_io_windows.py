@@ -697,7 +697,7 @@ class WindowsIOManager:
         await _core.wait_task_rescheduled(abort_fn)
 
     @_public
-    async def wait_readable(self, sock: int) -> None:
+    async def wait_readable(self, sock: Union[int, socket.socket]) -> None:
         await self._afd_poll(sock, "read_task")
 
     @_public

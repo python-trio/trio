@@ -2,7 +2,7 @@
 
 import errno
 from contextlib import contextmanager
-from typing import Iterator
+from typing import Iterator, Optional, overload, Union
 
 import trio
 from . import socket as tsocket
@@ -60,7 +60,7 @@ class SocketStream(HalfCloseableStream, metaclass=Final):
 
     """
 
-    def __init__(self, socket) -> None:
+    def __init__(self, socket: tsocket.SocketType) -> None:
         if not isinstance(socket, tsocket.SocketType):
             raise TypeError("SocketStream requires a Trio socket object")
         if socket.type != tsocket.SOCK_STREAM:
@@ -94,7 +94,7 @@ class SocketStream(HalfCloseableStream, metaclass=Final):
             except OSError:
                 pass
 
-    async def send_all(self, data):
+    async def send_all(self, data: bytes) -> None:
         if self.socket.did_shutdown_SHUT_WR:
             raise trio.ClosedResourceError("can't send data after sending EOF")
         with self._send_conflict_detector:
@@ -128,7 +128,7 @@ class SocketStream(HalfCloseableStream, metaclass=Final):
             with _translate_socket_errors_to_stream_errors():
                 self.socket.shutdown(tsocket.SHUT_WR)
 
-    async def receive_some(self, max_bytes=None):
+    async def receive_some(self, max_bytes: Optional[int] =None) -> bytes:
         if max_bytes is None:
             max_bytes = DEFAULT_RECEIVE_SIZE
         if max_bytes < 1:
@@ -142,7 +142,7 @@ class SocketStream(HalfCloseableStream, metaclass=Final):
 
     # __aenter__, __aexit__ inherited from HalfCloseableStream are OK
 
-    def setsockopt(self, level, option, value):
+    def setsockopt(self, level: int, option: int, value: Union[bytes, int]) -> None:
         """Set an option on the underlying socket.
 
         See :meth:`socket.socket.setsockopt` for details.
@@ -150,7 +150,15 @@ class SocketStream(HalfCloseableStream, metaclass=Final):
         """
         return self.socket.setsockopt(level, option, value)
 
-    def getsockopt(self, level, option, buffersize=0):
+    @overload
+    def getsockopt(self, level: int, option: int) -> int:
+        ...
+
+    @overload
+    def getsockopt(self, level: int, option: int, buffersize: int) -> bytes:
+        ...
+
+    def getsockopt(self, level: int , option: int, buffersize: int = 0) -> Union[int, bytes]:
         """Check the current value of an option on the underlying socket.
 
         See :meth:`socket.socket.getsockopt` for details.
@@ -333,7 +341,7 @@ class SocketListener(Listener[SocketStream], metaclass=Final):
 
     """
 
-    def __init__(self, socket) -> None:
+    def __init__(self, socket: tsocket.SocketType) -> None:
         if not isinstance(socket, tsocket.SocketType):
             raise TypeError("SocketListener requires a Trio socket object")
         if socket.type != tsocket.SOCK_STREAM:
@@ -349,7 +357,7 @@ class SocketListener(Listener[SocketStream], metaclass=Final):
 
         self.socket = socket
 
-    async def accept(self):
+    async def accept(self) -> SocketStream:
         """Accept an incoming connection.
 
         Returns:

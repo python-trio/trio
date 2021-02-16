@@ -1,8 +1,10 @@
 from contextlib import contextmanager
-from typing import Iterator, Set
+from typing import Iterator, Optional, Sequence, Set, Union
 
 import trio
 from trio.socket import getaddrinfo, SOCK_STREAM, socket, SocketType
+from trio._socket import _Address, _AddressInfo
+
 
 # Implementation of RFC 6555 "Happy eyeballs"
 # https://tools.ietf.org/html/rfc6555
@@ -119,7 +121,7 @@ def close_all() -> Iterator[Set[SocketType]]:
             raise trio.MultiError(errs)
 
 
-def reorder_for_rfc_6555_section_5_4(targets):
+def reorder_for_rfc_6555_section_5_4(targets: _AddressInfo) -> None:
     # RFC 6555 section 5.4 says that if getaddrinfo returns multiple address
     # families (e.g. IPv4 and IPv6), then you should make sure that your first
     # and second attempts use different families:
@@ -137,7 +139,7 @@ def reorder_for_rfc_6555_section_5_4(targets):
             break
 
 
-def format_host_port(host, port):
+def format_host_port(host: Union[bytes, str], port: int) -> str:
     host = host.decode("ascii") if isinstance(host, bytes) else host
     if ":" in host:
         return "[{}]:{}".format(host, port)
@@ -166,8 +168,12 @@ def format_host_port(host, port):
 #   AF_INET6: "..."}
 # this might be simpler after
 async def open_tcp_stream(
-    host, port, *, happy_eyeballs_delay=DEFAULT_DELAY, local_address=None
-):
+    host: Union[bytes, str],
+    port: int,
+    *,
+    happy_eyeballs_delay: float = DEFAULT_DELAY,
+    local_address: Optional[str] = None,
+) -> trio.SocketStream:
     """Connect to the given host and port over TCP.
 
     If the given ``host`` has multiple IP addresses associated with it, then
@@ -276,7 +282,9 @@ async def open_tcp_stream(
     #   the next connection attempt to start early
     # code needs to ensure sockets can be closed appropriately in the
     # face of crash or cancellation
-    async def attempt_connect(socket_args, sockaddr, attempt_failed):
+    async def attempt_connect(
+        socket_args: Sequence, sockaddr: _Address, attempt_failed: trio.Event
+    ) -> None:
         nonlocal winning_socket
 
         try:

@@ -84,7 +84,7 @@ _counter = count()
 
 @attr.s(frozen=True)
 class _ParkingLotStatistics:
-    tasks_waiting = attr.ib()
+    tasks_waiting: int = attr.ib()
 
 
 @attr.s(eq=False, hash=False)

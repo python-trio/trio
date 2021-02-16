@@ -1,6 +1,6 @@
 import os
 from contextlib import contextmanager
-from typing import Iterator, TypeVar
+from typing import Iterator, TypeVar, Union
 from typing_extensions import Protocol
 
 import trio
@@ -31,7 +31,7 @@ def close_on_error(obj: _CL) -> Iterator[_CL]:
         raise
 
 
-async def open_unix_socket(filename):
+async def open_unix_socket(filename: Union[bytes, str]) -> trio.SocketStream:
     """Opens a connection to the specified
     `Unix domain socket <https://en.wikipedia.org/wiki/Unix_domain_socket>`__.
 
