@@ -107,11 +107,11 @@ if sys.version_info >= (3, 8):
 else:
 
     @contextmanager
-    def restore_unraisablehook():
+    def restore_unraisablehook():  # pragma: no cover
         yield
 
     @contextmanager
-    def disable_threading_excepthook():
+    def disable_threading_excepthook():  # pragma: no cover
         yield
 
 
