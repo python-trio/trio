@@ -8,7 +8,7 @@ appdirs==1.4.4
     # via black
 astor==0.8.1
     # via -r test-requirements.in
-astroid==2.4.2
+astroid==2.5
     # via pylint
 async-generator==1.10
     # via -r test-requirements.in
@@ -109,9 +109,7 @@ pytest==6.2.2
 regex==2020.11.13
     # via black
 six==1.15.0
-    # via
-    #   astroid
-    #   pyopenssl
+    # via pyopenssl
 sniffio==1.2.0
     # via -r test-requirements.in
 sortedcontainers==2.3.0
