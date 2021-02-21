@@ -101,7 +101,7 @@ if sys.version_info >= (3, 8):
         try:
             yield
         finally:
-            threading.excephtook = prev
+            threading.excepthook = prev
 
 
 else:
