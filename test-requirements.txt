@@ -8,7 +8,7 @@ appdirs==1.4.4
     # via black
 astor==0.8.1
     # via -r test-requirements.in
-astroid==2.5
+astroid==2.5.0
     # via pylint
 async-generator==1.10
     # via -r test-requirements.in
@@ -94,7 +94,7 @@ pyflakes==2.2.0
     # via flake8
 pygments==2.7.4
     # via ipython
-pylint==2.6.2
+pylint==2.7.0
     # via -r test-requirements.in
 pyopenssl==20.0.1
     # via -r test-requirements.in
