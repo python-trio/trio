@@ -53,7 +53,7 @@ jedi==0.18.0
     # via
     #   -r test-requirements.in
     #   ipython
-lazy-object-proxy==1.4.3
+lazy-object-proxy==1.5.2
     # via astroid
 mccabe==0.6.1
     # via
