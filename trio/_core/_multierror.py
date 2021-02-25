@@ -381,10 +381,16 @@ def traceback_exception_init(
     limit=None,
     lookup_lines=True,
     capture_locals=False,
+    compact=False,
     _seen=None,
 ):
     if _seen is None:
         _seen = set()
+
+    if sys.version_info >= (3, 10):
+        kwargs = {"compact": compact}
+    else:
+        kwargs = {}
 
     # Capture the original exception and its cause and context as TracebackExceptions
     traceback_exception_original_init(
@@ -396,6 +402,7 @@ def traceback_exception_init(
         lookup_lines=lookup_lines,
         capture_locals=capture_locals,
         _seen=_seen,
+        **kwargs,
     )
 
     # Capture each of the exceptions in the MultiError along with each of their causes and contexts
