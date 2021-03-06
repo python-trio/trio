@@ -25,7 +25,7 @@ cffi==1.14.5
     # via cryptography
 click==7.1.2
     # via black
-coverage==5.4
+coverage==5.5
     # via pytest-cov
 cryptography==3.4.6
     # via
