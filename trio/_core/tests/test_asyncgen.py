@@ -5,7 +5,7 @@ from math import inf
 from functools import partial
 from async_generator import aclosing
 from ... import _core
-from .tutil import gc_collect_harder, buggy_pypy_asyncgens
+from .tutil import gc_collect_harder, buggy_pypy_asyncgens, restore_unraisablehook
 
 
 def test_asyncgen_basics():
@@ -94,8 +94,9 @@ async def test_asyncgen_throws_during_finalization(caplog):
             record.append("crashing")
             raise ValueError("oops")
 
-    await agen().asend(None)
-    gc_collect_harder()
+    with restore_unraisablehook():
+        await agen().asend(None)
+        gc_collect_harder()
     await _core.wait_all_tasks_blocked()
     assert record == ["crashing"]
     exc_type, exc_value, exc_traceback = caplog.records[0].exc_info
@@ -170,6 +171,7 @@ def test_interdependent_asyncgen_cleanup_order():
     assert record == ["innermost"] + list(range(100))
 
 
+@restore_unraisablehook()
 def test_last_minute_gc_edge_case():
     saved = []
     record = []
@@ -267,17 +269,18 @@ async def test_fallback_when_no_hook_claims_it(capsys):
             yield 42
         await _core.cancel_shielded_checkpoint()
 
-    await step_outside_async_context(well_behaved())
-    gc_collect_harder()
-    assert capsys.readouterr().err == ""
+    with restore_unraisablehook():
+        await step_outside_async_context(well_behaved())
+        gc_collect_harder()
+        assert capsys.readouterr().err == ""
 
-    await step_outside_async_context(yields_after_yield())
-    gc_collect_harder()
-    assert "ignored GeneratorExit" in capsys.readouterr().err
+        await step_outside_async_context(yields_after_yield())
+        gc_collect_harder()
+        assert "ignored GeneratorExit" in capsys.readouterr().err
 
-    await step_outside_async_context(awaits_after_yield())
-    gc_collect_harder()
-    assert "awaited something during finalization" in capsys.readouterr().err
+        await step_outside_async_context(awaits_after_yield())
+        gc_collect_harder()
+        assert "awaited something during finalization" in capsys.readouterr().err
 
 
 @pytest.mark.skipif(buggy_pypy_asyncgens, reason="pypy 7.2.0 is buggy")
@@ -307,10 +310,11 @@ def test_delegation_to_existing_hooks():
         await _core.wait_all_tasks_blocked()
         assert record == ["trio collected ours"]
 
-    old_hooks = sys.get_asyncgen_hooks()
-    sys.set_asyncgen_hooks(my_firstiter, my_finalizer)
-    try:
-        _core.run(async_main)
-    finally:
-        assert sys.get_asyncgen_hooks() == (my_firstiter, my_finalizer)
-        sys.set_asyncgen_hooks(*old_hooks)
+    with restore_unraisablehook():
+        old_hooks = sys.get_asyncgen_hooks()
+        sys.set_asyncgen_hooks(my_firstiter, my_finalizer)
+        try:
+            _core.run(async_main)
+        finally:
+            assert sys.get_asyncgen_hooks() == (my_firstiter, my_finalizer)
+            sys.set_asyncgen_hooks(*old_hooks)
