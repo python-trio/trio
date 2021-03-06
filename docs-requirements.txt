@@ -42,7 +42,7 @@ outcome==1.1.0
     # via -r docs-requirements.in
 packaging==20.9
     # via sphinx
-pygments==2.7.4
+pygments==2.8.0
     # via sphinx
 pyparsing==2.4.7
     # via packaging
