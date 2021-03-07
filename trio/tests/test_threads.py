@@ -576,3 +576,10 @@ def test_from_thread_run_during_shutdown():
 
     _core.run(main)
     assert record == ["ok"]
+
+
+async def test_trio_token_weak_referenceable():
+    token = current_trio_token()
+    assert isinstance(token, TrioToken)
+    weak_reference = weakref.ref(token)
+    assert token is weak_reference()
