@@ -145,7 +145,7 @@ class TrioToken(metaclass=NoPublicConstructor):
 
     """
 
-    __slots__ = ("_reentry_queue",)
+    __slots__ = ("_reentry_queue", "__weakref__")
 
     def __init__(self, reentry_queue):
         self._reentry_queue = reentry_queue
