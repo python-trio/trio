@@ -1,8 +1,10 @@
 import threading
 import queue as stdlib_queue
 import time
+import weakref
 
 import pytest
+from trio._core import TrioToken, current_trio_token
 
 from .. import _core
 from .. import Event, CapacityLimiter, sleep
