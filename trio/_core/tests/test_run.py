@@ -23,6 +23,7 @@ from .tutil import (
     gc_collect_harder,
     ignore_coroutine_never_awaited_warnings,
     buggy_pypy_asyncgens,
+    restore_unraisablehook,
 )
 
 from ... import _core
@@ -844,6 +845,7 @@ async def test_failed_abort():
     assert record == ["sleep", "woke", "cancelled"]
 
 
+@restore_unraisablehook()
 def test_broken_abort():
     async def main():
         # These yields are here to work around an annoying warning -- we're
@@ -870,6 +872,7 @@ def test_broken_abort():
     gc_collect_harder()
 
 
+@restore_unraisablehook()
 def test_error_in_run_loop():
     # Blow stuff up real good to check we at least get a TrioInternalError
     async def main():
@@ -2154,6 +2157,7 @@ async def test_detached_coroutine_cancellation():
     assert abort_fn_called
 
 
+@restore_unraisablehook()
 def test_async_function_implemented_in_C():
     # These used to crash because we'd try to mutate the coroutine object's
     # cr_frame, but C functions don't have Python frames.

@@ -3,8 +3,9 @@ import threading
 from queue import Queue
 import time
 import sys
+from contextlib import contextmanager
 
-from .tutil import slow, gc_collect_harder
+from .tutil import slow, gc_collect_harder, disable_threading_excepthook
 from .. import _thread_cache
 from .._thread_cache import start_thread_soon, ThreadCache
 
@@ -99,6 +100,17 @@ def test_idle_threads_exit(monkeypatch):
     assert not seen_thread.is_alive()
 
 
+@contextmanager
+def _join_started_threads():
+    before = frozenset(threading.enumerate())
+    try:
+        yield
+    finally:
+        for thread in threading.enumerate():
+            if thread not in before:
+                thread.join()
+
+
 def test_race_between_idle_exit_and_job_assignment(monkeypatch):
     # This is a lock where the first few times you try to acquire it with a
     # timeout, it waits until the lock is available and then pretends to time
@@ -138,13 +150,15 @@ def test_race_between_idle_exit_and_job_assignment(monkeypatch):
 
     monkeypatch.setattr(_thread_cache, "Lock", JankyLock)
 
-    tc = ThreadCache()
-    done = threading.Event()
-    tc.start_thread_soon(lambda: None, lambda _: done.set())
-    done.wait()
-    # Let's kill the thread we started, so it doesn't hang around until the
-    # test suite finishes. Doesn't really do any harm, but it can be confusing
-    # to see it in debug output. This is hacky, and leaves our ThreadCache
-    # object in an inconsistent state... but it doesn't matter, because we're
-    # not going to use it again anyway.
-    tc.start_thread_soon(lambda: None, lambda _: sys.exit())
+    with disable_threading_excepthook(), _join_started_threads():
+        tc = ThreadCache()
+        done = threading.Event()
+        tc.start_thread_soon(lambda: None, lambda _: done.set())
+        done.wait()
+        # Let's kill the thread we started, so it doesn't hang around until the
+        # test suite finishes. Doesn't really do any harm, but it can be confusing
+        # to see it in debug output. This is hacky, and leaves our ThreadCache
+        # object in an inconsistent state... but it doesn't matter, because we're
+        # not going to use it again anyway.
+
+        tc.start_thread_soon(lambda: None, lambda _: sys.exit())

@@ -13,7 +13,7 @@ import time
 
 import trio
 import trio.testing
-from .tutil import gc_collect_harder, buggy_pypy_asyncgens
+from .tutil import gc_collect_harder, buggy_pypy_asyncgens, restore_unraisablehook
 from ..._util import signal_raise
 
 # The simplest possible "host" loop.
@@ -277,6 +277,7 @@ def test_host_wakeup_doesnt_trigger_wait_all_tasks_blocked():
     assert trivial_guest_run(trio_main) == "ok"
 
 
+@restore_unraisablehook()
 def test_guest_warns_if_abandoned():
     # This warning is emitted from the garbage collector. So we have to make
     # sure that our abandoned run is garbage. The easiest way to do this is to
@@ -506,6 +507,7 @@ def test_guest_mode_autojump_clock_threshold_changing():
     sys.implementation.name == "pypy" and sys.version_info >= (3, 7),
     reason="async generator issue under investigation",
 )
+@restore_unraisablehook()
 def test_guest_mode_asyncgens():
     import sniffio
 
