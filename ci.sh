@@ -69,6 +69,8 @@ python -c "import sys, struct, ssl; print('#' * 70); print('python:', sys.versio
 python -m pip install -U pip setuptools wheel
 python -m pip --version
 
+python -m pip install 'typed-ast @ git+https://github.com/python/typed_ast; python_version >= "3.10"'
+
 python setup.py sdist --formats=zip
 python -m pip install dist/*.zip
 
