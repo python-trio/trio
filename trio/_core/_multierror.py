@@ -384,9 +384,6 @@ def traceback_exception_init(
     compact=False,
     _seen=None,
 ):
-    if _seen is None:
-        _seen = set()
-
     if sys.version_info >= (3, 10):
         kwargs = {"compact": compact}
     else:
@@ -404,6 +401,9 @@ def traceback_exception_init(
         _seen=_seen,
         **kwargs,
     )
+
+    if _seen is None:
+        _seen = set()
 
     # Capture each of the exceptions in the MultiError along with each of their causes and contexts
     if isinstance(exc_value, MultiError):
