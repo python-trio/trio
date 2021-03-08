@@ -97,7 +97,11 @@ if sys.version_info >= (3, 8):
 
     @contextmanager
     def disable_threading_excepthook():
-        threading.excepthook, prev = _noop, threading.excepthook
+        if sys.version_info >= (3, 10):
+            threading.excepthook, prev = threading.__excepthook__, threading.excepthook
+        else:
+            threading.excepthook, prev = _noop, threading.excepthook
+
         try:
             yield
         finally:
