@@ -402,6 +402,8 @@ def traceback_exception_init(
         **kwargs,
     )
 
+    seen_was_none = _seen is None
+
     if _seen is None:
         _seen = set()
 
@@ -418,7 +420,7 @@ def traceback_exception_init(
                         capture_locals=capture_locals,
                         # copy the set of _seen exceptions so that duplicates
                         # shared between sub-exceptions are not omitted
-                        _seen=set(_seen),
+                        _seen=None if seen_was_none else set(_seen),
                     )
                 )
         self.embedded = embedded
