@@ -41,7 +41,7 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@v2
         with:
-          python-version: ${{ fromJSON('["${{ matrix.python }}.0-alpha - ${{ matrix.python }}.X", "${{ matrix.python }}"]')[startsWith(matrix.python, 'pypy')] }}
+          python-version: ${{ fromJSON(format('["{0}", "{1}"]', '${{ matrix.python }}.0-alpha - ${{ matrix.python }}.X', '${{ matrix.python }}'))[startsWith(matrix.python, 'pypy')] }}
           architecture: '${{ matrix.arch }}'
       - name: Run tests
         run: ./ci.sh
@@ -77,7 +77,7 @@ jobs:
         uses: actions/setup-python@v2
         if: "!endsWith(matrix.python, '-dev')"
         with:
-          python-version: ${{ fromJSON('["${{ matrix.python }}.0-alpha - ${{ matrix.python }}.X", "${{ matrix.python }}"]')[startsWith(matrix.python, 'pypy')] }}
+          python-version: ${{ fromJSON(format('["{0}", "{1}"]', '${{ matrix.python }}.0-alpha - ${{ matrix.python }}.X', '${{ matrix.python }}'))[startsWith(matrix.python, 'pypy')] }}
       - name: Setup python (dev)
         uses: deadsnakes/action@v2.0.2
         if: endsWith(matrix.python, '-dev')
@@ -105,7 +105,7 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@v2
         with:
-          python-version: ${{ fromJSON('["${{ matrix.python }}.0-alpha - ${{ matrix.python }}.X", "${{ matrix.python }}"]')[startsWith(matrix.python, 'pypy')] }}
+          python-version: ${{ fromJSON(format('["{0}", "{1}"]', '${{ matrix.python }}.0-alpha - ${{ matrix.python }}.X', '${{ matrix.python }}'))[startsWith(matrix.python, 'pypy')] }}
       - name: Run tests
         run: ./ci.sh
         env:
