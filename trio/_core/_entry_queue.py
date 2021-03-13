@@ -126,6 +126,7 @@ class EntryQueue:
             self.wakeup.wakeup_thread_and_signal_safe()
 
 
+@attr.s(eq=False, hash=False, slots=True)
 class TrioToken(metaclass=NoPublicConstructor):
     """An opaque object representing a single call to :func:`trio.run`.
 
@@ -145,10 +146,7 @@ class TrioToken(metaclass=NoPublicConstructor):
 
     """
 
-    __slots__ = ("_reentry_queue", "__weakref__")
-
-    def __init__(self, reentry_queue):
-        self._reentry_queue = reentry_queue
+    _reentry_queue = attr.ib()
 
     def run_sync_soon(self, sync_fn, *args, idempotent=False):
         """Schedule a call to ``sync_fn(*args)`` to occur in the context of a

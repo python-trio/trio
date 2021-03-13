@@ -1060,7 +1060,7 @@ class Nursery(metaclass=NoPublicConstructor):
 ################################################################
 
 
-@attr.s(eq=False, hash=False, repr=False)
+@attr.s(eq=False, hash=False, repr=False, slots=True)
 class Task(metaclass=NoPublicConstructor):
     _parent_nursery = attr.ib()
     coro = attr.ib()
