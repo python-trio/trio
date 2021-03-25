@@ -143,13 +143,13 @@ else
     cd empty
 
     INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
-    cp ../setup.cfg $INSTALLDIR
+    cp ../pyproject.toml $INSTALLDIR
     # We have to copy .coveragerc into this directory, rather than passing
     # --cov-config=../.coveragerc to pytest, because codecov.sh will run
     # 'coverage xml' to generate the report that it uses, and that will only
     # apply the ignore patterns in the current directory's .coveragerc.
     cp ../.coveragerc .
-    if pytest -W error -r a --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --cov="$INSTALLDIR" --verbose; then
+    if pytest -r a --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --cov="$INSTALLDIR" --verbose; then
         PASSED=true
     else
         PASSED=false

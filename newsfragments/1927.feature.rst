@@ -1,0 +1,1 @@
+Use slots for :class:`~.lowlevel.Task` which should make them slightly smaller and faster.

@@ -45,14 +45,15 @@ Database
 * `sqlalchemy_aio <https://github.com/RazerM/sqlalchemy_aio>`__ - Add asyncio and Trio support to SQLAlchemy core, derived from alchimia.
 * `redio <https://github.com/Tronic/redio>`__ - Redis client, pure Python and Trio.
 * `trio_redis <https://github.com/omnidots/trio_redis>`__ - A Redis client for Trio. Depends on hiredis-py.
+* `asyncakumuli <https://github.com/M-o-a-T/asyncakumuli>`__ - Client for the `Akumuli <https://akumuli.org/>`__ time series database.
 
 
 IOT
 ---
-* `DistMQTT <https://github.com/smurfix/distmqtt>`__ - DistMQTT is an open source MQTT client and broker implementation. It is a fork of hbmqtt with support for anyio and DistKV.
+* `DistMQTT <https://github.com/M-o-a-T/distmqtt>`__ - DistMQTT is an open source MQTT client and broker implementation. It is a fork of hbmqtt with support for anyio and DistKV.
 * `asyncgpio <https://github.com/python-trio/trio-gpio>`__ - Allows easy access to the GPIO pins on your Raspberry Pi or similar embedded computer.
-
-
+* `asyncowfs <https://github.com/M-o-a-T/asyncowfs>`__ - High-level, object-oriented access to 1wire sensors and actors.
+* `DistKV <https://github.com/M-o-a-T/distkv>`__ - a persistent, distributed, master-less key/value storage with async notification and some IoT-related plug-ins.
 
 
 Building Command Line Apps
@@ -70,6 +71,7 @@ Multi-Core/Multiprocessing
 --------------------------
 * `tractor <https://github.com/goodboy/tractor>`__ - An experimental, trionic (aka structured concurrent) "actor model" for distributed multi-core Python.
 * `Trio run_in_process <https://github.com/ethereum/trio-run-in-process>`__ - Trio based API for running code in a separate process.
+* `trio-parallel <https://trio-parallel.readthedocs.io/>`__ - CPU parallelism for Trio
 
 
 RPC

@@ -1,5 +1,6 @@
 # Utilities for testing
 import socket as stdlib_socket
+import threading
 import os
 import sys
 from typing import TYPE_CHECKING
@@ -78,6 +79,40 @@ def ignore_coroutine_never_awaited_warnings():
             # Make sure to trigger any coroutine __del__ methods now, before
             # we leave the context manager.
             gc_collect_harder()
+
+
+def _noop(*args, **kwargs):
+    pass
+
+
+if sys.version_info >= (3, 8):
+
+    @contextmanager
+    def restore_unraisablehook():
+        sys.unraisablehook, prev = sys.__unraisablehook__, sys.unraisablehook
+        try:
+            yield
+        finally:
+            sys.unraisablehook = prev
+
+    @contextmanager
+    def disable_threading_excepthook():
+        threading.excepthook, prev = _noop, threading.excepthook
+        try:
+            yield
+        finally:
+            threading.excepthook = prev
+
+
+else:
+
+    @contextmanager
+    def restore_unraisablehook():  # pragma: no cover
+        yield
+
+    @contextmanager
+    def disable_threading_excepthook():  # pragma: no cover
+        yield
 
 
 # template is like:

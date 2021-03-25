@@ -28,9 +28,9 @@ idna==2.10
     #   requests
 imagesize==1.2.0
     # via sphinx
-immutables==0.14
+immutables==0.15
     # via -r docs-requirements.in
-incremental==17.5.0
+incremental==21.3.0
     # via towncrier
 jinja2==2.11.3
     # via
@@ -81,5 +81,5 @@ toml==0.10.2
     # via towncrier
 towncrier==19.2.0
     # via -r docs-requirements.in
-urllib3==1.26.3
+urllib3==1.26.4
     # via requests
