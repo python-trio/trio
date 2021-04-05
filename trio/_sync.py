@@ -68,10 +68,9 @@ class Event(metaclass=Final):
         else:
             task = _core.current_task()
             self._tasks.add(task)
-            task.custom_sleep_data = self
 
             def abort_fn(_):
-                task.custom_sleep_data._tasks.remove(task)
+                self._tasks.remove(task)
                 return _core.Abort.SUCCEEDED
 
             await _core.wait_task_rescheduled(abort_fn)
