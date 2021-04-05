@@ -10,7 +10,7 @@ from ._deprecate import deprecated
 from ._util import Final
 
 
-@attr.s(repr=False, eq=False, hash=False)
+@attr.s(repr=False, eq=False, hash=False, slots=True)
 class Event(metaclass=Final):
     """A waitable boolean value useful for inter-task synchronization,
     inspired by :class:`threading.Event`.

@@ -85,7 +85,7 @@ class _ParkingLotStatistics:
     tasks_waiting = attr.ib()
 
 
-@attr.s(eq=False, hash=False)
+@attr.s(eq=False, hash=False, slots=True)
 class ParkingLot(metaclass=Final):
     """A fair wait queue with cancellation and requeueing.
 
