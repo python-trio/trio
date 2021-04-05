@@ -1,16 +1,20 @@
 import math
 
 import attr
-import outcome
 
 import trio
 
+from . import _core
 from ._core import enable_ki_protection, ParkingLot
-from ._deprecate import deprecated
 from ._util import Final
 
 
-@attr.s(repr=False, eq=False, hash=False)
+@attr.s(frozen=True)
+class _EventStatistics:
+    tasks_waiting = attr.ib()
+
+
+@attr.s(repr=False, eq=False, hash=False, slots=True)
 class Event(metaclass=Final):
     """A waitable boolean value useful for inter-task synchronization,
     inspired by :class:`threading.Event`.
@@ -37,7 +41,7 @@ class Event(metaclass=Final):
 
     """
 
-    _lot = attr.ib(factory=ParkingLot, init=False)
+    _tasks = attr.ib(factory=set, init=False)
     _flag = attr.ib(default=False, init=False)
 
     def is_set(self):
@@ -47,8 +51,10 @@ class Event(metaclass=Final):
     @enable_ki_protection
     def set(self):
         """Set the internal flag value to True, and wake any waiting tasks."""
-        self._flag = True
-        self._lot.unpark_all()
+        if not self._flag:
+            self._flag = True
+            for task in self._tasks:
+                _core.reschedule(task)
 
     async def wait(self):
         """Block until the internal flag value becomes True.
@@ -59,7 +65,15 @@ class Event(metaclass=Final):
         if self._flag:
             await trio.lowlevel.checkpoint()
         else:
-            await self._lot.park()
+            task = _core.current_task()
+            self._tasks.add(task)
+            task.custom_sleep_data = self
+
+            def abort_fn(_):
+                task.custom_sleep_data._tasks.remove(task)
+                return _core.Abort.SUCCEEDED
+
+            await _core.wait_task_rescheduled(abort_fn)
 
     def statistics(self):
         """Return an object containing debugging information.
@@ -70,7 +84,7 @@ class Event(metaclass=Final):
           :meth:`wait` method.
 
         """
-        return self._lot.statistics()
+        return _EventStatistics(tasks_waiting=len(self._tasks))
 
 
 def async_cm(cls):
