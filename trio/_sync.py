@@ -55,6 +55,7 @@ class Event(metaclass=Final):
             self._flag = True
             for task in self._tasks:
                 _core.reschedule(task)
+            self._tasks.clear()
 
     async def wait(self):
         """Block until the internal flag value becomes True.
