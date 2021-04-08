@@ -34,6 +34,8 @@ Web and HTML
 * `DeFramed <https://github.com/smurfix/deframed>`__ - DeFramed is a Web non-framework that supports a 99%-server-centric approach to Web coding, including support for the `Remi <https://github.com/dddomodossola/remi>`__ GUI library.
 * `pura <https://github.com/groove-x/pura>`__ - A simple web framework for embedding realtime graphical visualization into Trio apps, enabling inspection and manipulation of program state during development.
 * `pyscalpel <https://scalpel.readthedocs.io/en/latest/>`__ - A fast and powerful webscraping library.
+* `muffin <https://github.com/klen/muffin>`_ - Muffin is a fast, simple ASGI web-framework
+* `asgi-tools <https://github.com/klen/asgi-tools>`_ - Tools to quickly build lightest ASGI apps (also contains a test client with lifespan, websocket support)
 
 
 Database
@@ -84,6 +86,7 @@ Testing
 * `pytest-trio <https://github.com/python-trio/pytest-trio>`__ - Pytest plugin for trio.
 * `hypothesis-trio <https://github.com/python-trio/hypothesis-trio>`__ - Hypothesis plugin for trio.
 * `trustme <https://github.com/python-trio/trustme>`__ - #1 quality TLS certs while you wait, for the discerning tester.
+* `pytest-aio <https://github.com/klen/pytest-aio>`_ - Pytest plugin with support for trio, curio, asyncio
 
 
 Tools and Utilities
