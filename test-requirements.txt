@@ -123,7 +123,7 @@ traitlets==5.0.5
     # via ipython
 trustme==0.7.0
     # via -r test-requirements.in
-typed-ast==1.4.2 ; implementation_name == "cpython"
+typed-ast==1.4.3 ; implementation_name == "cpython"
     # via
     #   -r test-requirements.in
     #   black
