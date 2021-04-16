@@ -667,7 +667,7 @@ In Trio, child tasks inherit the parent nursery's cancel scopes. So in
 this example, both the child tasks will be cancelled when the timeout
 expires::
 
-   with move_on_after(TIMEOUT):
+   with trio.move_on_after(TIMEOUT):
        async with trio.open_nursery() as nursery:
            nursery.start_soon(child1)
            nursery.start_soon(child2)
@@ -678,12 +678,12 @@ Note that what matters here is the scopes that were active when
 nothing at all::
 
    async with trio.open_nursery() as nursery:
-       with move_on_after(TIMEOUT):  # don't do this!
+       with trio.move_on_after(TIMEOUT):  # don't do this!
            nursery.start_soon(child)
 
-Why is this so? Well, ``start_soon()`` returns as soon as it has scheduled the new task to start running. The flow of execution in the parent then continues on to exit the ``with move_on_after(TIMEOUT):`` block, at which point Trio forgets about the timeout entirely. In order for the timeout to apply to the child task, Trio must be able to tell that its associated cancel scope will stay open for at least as long as the child task is executing. And Trio can only know that for sure if the cancel scope block is outside the nursery block.
+Why is this so? Well, ``start_soon()`` returns as soon as it has scheduled the new task to start running. The flow of execution in the parent then continues on to exit the ``with trio.move_on_after(TIMEOUT):`` block, at which point Trio forgets about the timeout entirely. In order for the timeout to apply to the child task, Trio must be able to tell that its associated cancel scope will stay open for at least as long as the child task is executing. And Trio can only know that for sure if the cancel scope block is outside the nursery block.
 
-You might wonder why Trio can't just remember "this task should be cancelled in ``TIMEOUT`` seconds", even after the ``with move_on_after(TIMEOUT):`` block is gone. The reason has to do with :ref:`how cancellation is implemented <cancellation>`. Recall that cancellation is represented by a `Cancelled` exception, which eventually needs to be caught by the cancel scope that caused it. (Otherwise, the exception would take down your whole program!) In order to be able to cancel the child tasks, the cancel scope has to be able to "see" the `Cancelled` exceptions that they raise -- and those exceptions come out of the ``async with open_nursery()`` block, not out of the call to ``start_soon()``.
+You might wonder why Trio can't just remember "this task should be cancelled in ``TIMEOUT`` seconds", even after the ``with trio.move_on_after(TIMEOUT):`` block is gone. The reason has to do with :ref:`how cancellation is implemented <cancellation>`. Recall that cancellation is represented by a `Cancelled` exception, which eventually needs to be caught by the cancel scope that caused it. (Otherwise, the exception would take down your whole program!) In order to be able to cancel the child tasks, the cancel scope has to be able to "see" the `Cancelled` exceptions that they raise -- and those exceptions come out of the ``async with open_nursery()`` block, not out of the call to ``start_soon()``.
 
 If you want a timeout to apply to one task but not another, then you need to put the cancel scope in that individual task's function -- ``child()``, in this example.
 
@@ -763,7 +763,7 @@ example, the timeout does *not* apply to ``child`` (or to anything
 else)::
 
    async def do_spawn(nursery):
-       with move_on_after(TIMEOUT):  # don't do this, it has no effect
+       with trio.move_on_after(TIMEOUT):  # don't do this, it has no effect
            nursery.start_soon(child)
 
    async with trio.open_nursery() as nursery:
