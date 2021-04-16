@@ -56,21 +56,22 @@ class WorkerThread:
         thread.name = f"Trio worker thread {next(name_counter)}"
         thread.start()
 
+    def _handle_job(self):
+        fn, deliver = self._job
+        self._job = None
+        result = outcome.capture(fn)
+        # Tell the cache that we're available to be assigned a new
+        # job. We do this *before* calling 'deliver', so that if
+        # 'deliver' triggers a new job, it can be assigned to us
+        # instead of spawning a new thread.
+        self._thread_cache._idle_workers[self] = None
+        deliver(result)
+
     def _work(self):
         while True:
             if self._worker_lock.acquire(timeout=IDLE_TIMEOUT):
                 # We got a job
-                fn, deliver = self._job
-                self._job = None
-                result = outcome.capture(fn)
-                # Tell the cache that we're available to be assigned a new
-                # job. We do this *before* calling 'deliver', so that if
-                # 'deliver' triggers a new job, it can be assigned to us
-                # instead of spawning a new thread.
-                self._thread_cache._idle_workers[self] = None
-                deliver(result)
-                del fn
-                del deliver
+                self._handle_job()
             else:
                 # Timeout acquiring lock, so we can probably exit. But,
                 # there's a race condition: we might be assigned a job *just*
