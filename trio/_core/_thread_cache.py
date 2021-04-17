@@ -58,7 +58,7 @@ class WorkerThread:
 
     def _handle_job(self):
         # Handle job in a separate method to ensure user-created
-        # objects are cleaned up in a consistent manner. 
+        # objects are cleaned up in a consistent manner.
         fn, deliver = self._job
         self._job = None
         result = outcome.capture(fn)
