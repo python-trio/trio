@@ -45,7 +45,7 @@ iniconfig==1.1.1
     # via pytest
 ipython-genutils==0.2.0
     # via traitlets
-ipython==7.21.0
+ipython==7.22.0
     # via -r test-requirements.in
 isort==5.7.0
     # via pylint
