@@ -24,8 +24,10 @@ click==7.1.2
     # via
     #   click-default-group
     #   towncrier
-docutils==0.17
-    # via sphinx
+docutils==0.16
+    # via
+    #   sphinx
+    #   sphinx-rtd-theme
 idna==2.10
     # via
     #   -r docs-requirements.in
@@ -60,13 +62,13 @@ snowballstemmer==2.1.0
     # via sphinx
 sortedcontainers==2.3.0
     # via -r docs-requirements.in
-sphinx-rtd-theme==0.5.1
-    # via -r docs-requirements.in
 sphinx==3.3.1
     # via
     #   -r docs-requirements.in
     #   sphinx-rtd-theme
     #   sphinxcontrib-trio
+sphinx_rtd_theme==0.5.2
+    # via -r docs-requirements.in
 sphinxcontrib-applehelp==1.0.2
     # via sphinx
 sphinxcontrib-devhelp==1.0.2
