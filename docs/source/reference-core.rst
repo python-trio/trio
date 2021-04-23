@@ -794,23 +794,23 @@ finishes first::
        if not async_fns:
            raise ValueError("must pass at least one argument")
 
-       send_channel, receive_channel = trio.open_memory_channel(0)
+       winner = None
 
-       async def jockey(async_fn):
-           await send_channel.send(await async_fn())
+       async def jockey(async_fn, cancel_scope):
+           nonlocal winner
+           await winner = async_fn()
+           cancel_scope.cancel()
 
        async with trio.open_nursery() as nursery:
            for async_fn in async_fns:
-               nursery.start_soon(jockey, async_fn)
-           winner = await receive_channel.receive()
-           nursery.cancel_scope.cancel()
-           return winner
+               nursery.start_soon(jockey, async_fn, nursery.cancel_scope)
+
+       return winner
 
 This works by starting a set of tasks which each try to run their
-function, and then report back the value it returns. The main task
-uses ``receive_channel.receive`` to wait for one to finish; as soon as
-the first task crosses the finish line, it cancels the rest, and then
-returns the winning value.
+function. As soon as the first function completes its execution, the task will set the nonlocal variable ``winner``
+from the outer scope to the result of the function, and cancel the other tasks using the passed in cancel scope. Once all tasks
+have been cancelled (which exits the nursery block), the variable ``winner`` will be returned.
 
 Here if one or more of the racing functions raises an unhandled
 exception then Trio's normal handling kicks in: it cancels the others
