@@ -81,7 +81,7 @@ Examples of unacceptable behavior by participants include:
 -  Publishing private screenshots or quotes of interactions in the
    context of this project without all quoted users' *explicit* consent.
 -  Publishing of private communication that doesn't have to do with
-   reporting harrassment.
+   reporting harassment.
 -  Any of the above even when `presented as "ironic" or
    "joking" <https://en.wikipedia.org/wiki/Hipster_racism>`__.
 -  Any attempt to present "reverse-ism" versions of the above as

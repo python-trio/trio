@@ -1160,7 +1160,7 @@ async def test_selected_alpn_protocol_before_handshake(client_ctx):
 
 
 async def test_selected_alpn_protocol_when_not_set(client_ctx):
-    # ALPN protocol still returns None when it's not ser,
+    # ALPN protocol still returns None when it's not set,
     # instead of raising an exception
     client, server = ssl_memory_stream_pair(client_ctx)
 
@@ -1185,7 +1185,7 @@ async def test_selected_npn_protocol_before_handshake(client_ctx):
 
 
 async def test_selected_npn_protocol_when_not_set(client_ctx):
-    # NPN protocol still returns None when it's not ser,
+    # NPN protocol still returns None when it's not set,
     # instead of raising an exception
     client, server = ssl_memory_stream_pair(client_ctx)
 

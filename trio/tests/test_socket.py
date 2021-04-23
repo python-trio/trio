@@ -606,7 +606,7 @@ async def test_SocketType_non_blocking_paths():
             with assert_checkpoints():
                 with pytest.raises(_core.Cancelled):
                     await ta.recv(10)
-        # immedate success (also checks that the previous attempt didn't
+        # immediate success (also checks that the previous attempt didn't
         # actually read anything)
         with assert_checkpoints():
             await ta.recv(10) == b"1"

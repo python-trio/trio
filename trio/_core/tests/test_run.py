@@ -446,7 +446,7 @@ async def test_cancel_scope_multierror_filtering():
     except AssertionError:  # pragma: no cover
         raise
     except BaseException as exc:
-        # This is ouside the outer scope, so all the Cancelled
+        # This is outside the outer scope, so all the Cancelled
         # exceptions should have been absorbed, leaving just a regular
         # KeyError from crasher()
         assert type(exc) is KeyError
