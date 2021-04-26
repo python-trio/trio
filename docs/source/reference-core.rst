@@ -798,7 +798,7 @@ finishes first::
 
        async def jockey(async_fn, cancel_scope):
            nonlocal winner
-           await winner = async_fn()
+           winner = await async_fn()
            cancel_scope.cancel()
 
        async with trio.open_nursery() as nursery:
