@@ -609,7 +609,7 @@ class SSLStream(Stream, metaclass=Final):
         certificates, select cryptographic keys, and so forth, before any
         actual data can be sent or received. You don't have to call this
         method; if you don't, then :class:`SSLStream` will automatically
-        peform the handshake as needed, the first time you try to send or
+        perform the handshake as needed, the first time you try to send or
         receive data. But if you want to trigger it manually – for example,
         because you want to look at the peer's certificate before you start
         talking to them – then you can call this method.
