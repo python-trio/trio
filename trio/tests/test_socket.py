@@ -1000,7 +1000,7 @@ async def test_many_sockets():
     for x in range(total // 2):
         try:
             a, b = stdlib_socket.socketpair()
-        except OSError as e:
+        except OSError as e:  # pragma: no cover
             assert e.errno in (errno.EMFILE, errno.ENFILE)
             break
         sockets += [a, b]
@@ -1011,5 +1011,5 @@ async def test_many_sockets():
         nursery.cancel_scope.cancel()
     for sock in sockets:
         sock.close()
-    if x != total // 2 - 1:
+    if x != total // 2 - 1:  # pragma: no cover
         print(f"Unable to open more than {(x-1)*2} sockets.")
