@@ -48,7 +48,7 @@ outcome==1.1.0
     # via -r docs-requirements.in
 packaging==20.9
     # via sphinx
-pygments==2.7.4
+pygments==2.8.1
     # via sphinx
 pyparsing==2.4.7
     # via packaging
@@ -62,13 +62,13 @@ snowballstemmer==2.1.0
     # via sphinx
 sortedcontainers==2.3.0
     # via -r docs-requirements.in
+sphinx-rtd-theme==0.5.2
+    # via -r docs-requirements.in
 sphinx==3.3.1
     # via
     #   -r docs-requirements.in
     #   sphinx-rtd-theme
     #   sphinxcontrib-trio
-sphinx_rtd_theme==0.5.2
-    # via -r docs-requirements.in
 sphinxcontrib-applehelp==1.0.2
     # via sphinx
 sphinxcontrib-devhelp==1.0.2
