@@ -19,7 +19,7 @@ attrs==20.3.0
     #   pytest
 backcall==0.2.0
     # via ipython
-black==21.4b1 ; implementation_name == "cpython"
+black==21.4b2 ; implementation_name == "cpython"
     # via -r test-requirements.in
 cffi==1.14.5
     # via cryptography
