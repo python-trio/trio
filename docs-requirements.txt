@@ -12,7 +12,7 @@ attrs==20.3.0
     # via
     #   -r docs-requirements.in
     #   outcome
-babel==2.9.0
+babel==2.9.1
     # via sphinx
 certifi==2020.12.5
     # via requests
@@ -62,13 +62,13 @@ snowballstemmer==2.1.0
     # via sphinx
 sortedcontainers==2.3.0
     # via -r docs-requirements.in
+sphinx-rtd-theme==0.5.2
+    # via -r docs-requirements.in
 sphinx==3.3.1
     # via
     #   -r docs-requirements.in
     #   sphinx-rtd-theme
     #   sphinxcontrib-trio
-sphinx_rtd_theme==0.5.2
-    # via -r docs-requirements.in
 sphinxcontrib-applehelp==1.0.2
     # via sphinx
 sphinxcontrib-devhelp==1.0.2
