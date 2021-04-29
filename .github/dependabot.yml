@@ -1,0 +1,36 @@
+version: 2
+updates:
+- package-ecosystem: pip
+  directory: "/"
+  schedule:
+    interval: daily
+  open-pull-requests-limit: 10
+  allow:
+  - dependency-type: direct
+  - dependency-type: indirect
+  ignore:
+  - dependency-name: pytest
+    versions:
+    - ">= 4.6.1.a, < 4.6.2"
+  - dependency-name: astroid
+    versions:
+    - 2.5.2
+  - dependency-name: sphinx
+    versions:
+    - 3.4.3
+    - 3.5.0
+    - 3.5.1
+    - 3.5.2
+    - 3.5.3
+  - dependency-name: regex
+    versions:
+    - 2021.3.17
+  - dependency-name: pygments
+    versions:
+    - 2.8.0
+  - dependency-name: cryptography
+    versions:
+    - 3.4.5
+  - dependency-name: pytest
+    versions:
+    - 6.2.2
