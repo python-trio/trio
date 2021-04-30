@@ -6,7 +6,7 @@ from ..testing import wait_all_tasks_blocked, assert_checkpoints
 
 from .. import _core
 from .. import _timeouts
-from .._timeouts import sleep_forever, move_on_after
+from .._timeouts import sleep_forever, move_on_after, sleep
 from .._sync import *
 
 
@@ -568,3 +568,126 @@ async def test_generic_lock_acquire_nowait_blocks_acquire(lock_factory):
         await wait_all_tasks_blocked()
         assert record == ["started"]
         lock_like.release()
+
+
+async def test_EventStream_basics():
+    p = EventStream()
+
+    wakeups = 0
+
+    async def background():
+        nonlocal wakeups
+        async for i in p.subscribe():
+            wakeups += 1
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(background)
+
+        # The event stream starts in a blocked state (no event fired)
+        await wait_all_tasks_blocked()
+        assert wakeups == 0
+
+        # Calling fire() lets it run:
+        p.fire()
+        await wait_all_tasks_blocked()
+        assert wakeups == 1
+
+        # Multiple events are coalesced into one:
+        p.fire()
+        p.fire()
+        p.fire()
+        await wait_all_tasks_blocked()
+        assert wakeups == 2
+
+        p.close()
+
+
+async def test_EventStream_while_task_is_elsewhere(autojump_clock):
+    p = EventStream()
+
+    wakeups = 0
+
+    async def background():
+        nonlocal wakeups
+        async for _ in p.subscribe():
+            wakeups += 1
+            await sleep(10)
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(background)
+
+        # Double-check that it's all idle and settled waiting for a event
+        await sleep(5)
+        assert wakeups == 0
+        await sleep(10)
+        assert wakeups == 0
+
+        # Wake it up
+        p.fire()
+
+        # Now it's sitting in sleep()...
+        await sleep(5)
+        assert wakeups == 1
+
+        # ...when another event arrives.
+        p.fire()
+
+        # It still wakes up though
+        await sleep(10)
+        assert wakeups == 2
+
+        p.close()
+
+
+async def test_EventStream_subscribe_independence(autojump_clock):
+    p = EventStream()
+
+    wakeups = [0, 0]
+
+    async def background(i, sleep_time):
+        nonlocal wakeups
+        async for _ in p.subscribe():
+            wakeups[i] += 1
+            await sleep(sleep_time)
+
+    try:
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(background, 0, 10)
+            nursery.start_soon(background, 1, 100)
+
+            # Initially blocked, no event fired
+            await sleep(200)
+            assert wakeups == [0, 0]
+
+            # Firing an event wakes both tasks
+            p.fire()
+            await sleep(5)
+            assert wakeups == [1, 1]
+
+            # Now
+            # task 0 is sleeping for 5 more seconds
+            # task 1 is sleeping for 95 more seconds
+
+            # Fire events at a 10s interval; task 0 will wake up for each
+            # task 1 will only wake up after its sleep
+            p.fire()
+            await sleep(10)
+            p.fire()
+            assert wakeups == [2, 1]
+            await sleep(100)
+            assert wakeups == [3, 2]
+
+            # Now task 0 is blocked on the next event
+            # Task 1 is sleeping for 100s
+
+            p.fire()
+            await sleep(1)
+            assert wakeups == [4, 2]
+            await sleep(100)
+            assert wakeups == [4, 3]
+
+            p.close()
+    except:
+        import traceback
+        traceback.print_exc()
+        raise

@@ -52,6 +52,7 @@ from ._sync import (
     Lock,
     StrictFIFOLock,
     Condition,
+    EventStream,
 )
 
 from ._highlevel_generic import aclose_forcefully, StapledStream

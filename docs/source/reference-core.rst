@@ -1433,6 +1433,17 @@ deadlock. Using an unbounded channel avoids this, because it means
 that :meth:`~trio.abc.SendChannel.send` never blocks.
 
 
+Higher-level synchronization primitives
+---------------------------------------
+
+While events and channels are useful in a very wide range of
+applications, some less common problems are best tackled with some
+higher-level concurrency primitives that focus on a specific problem.
+
+.. autoclass:: EventStream
+   :members:
+
+
 Lower-level synchronization primitives
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

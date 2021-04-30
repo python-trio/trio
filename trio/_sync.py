@@ -784,3 +784,97 @@ class Condition(metaclass=Final):
         return _ConditionStatistics(
             tasks_waiting=len(self._lot), lock_statistics=self._lock.statistics()
         )
+
+
+@attr.s
+class EventStream:
+    """A concurrency primitive for a sequence of events.
+
+    Multiple tasks can subscribe for events on the stream using an ``async
+    for`` loop::
+
+        events = EventStream()
+
+        ...
+
+        async for _ in events.subscribe():
+            ...
+
+    On each loop iteration, a subcriber will be blocked if there are no new
+    events on the stream. An event can be "fired" on a stream, which causes
+    subscribers to awake::
+
+        events.fire()
+
+    By default, events are coalesced, but will never be lost. That is, if any
+    events are fired while a subscriber is processing its last wakeup, that
+    subscriber will not block on the next loop iteration.
+
+    Note that EventStream does not hold any data items associated with events.
+    However subscribe() does yield integer indices that indicate a position
+    in the event stream, which could be used. fire() returns the index of the
+    event added to the stream.
+
+    """
+    _write_cursor = attr.ib(default=-1)
+    _wakeup = attr.ib(default=None)
+    _closed = attr.ib(default=False)
+
+    def close(self):
+        """Close the stream.
+
+        This causes all subscribers to terminate once they have consumed
+        all events.
+        """
+        self._closed = True
+        self._wake()
+
+    def _wake(self):
+        """Wake blocked tasks."""
+        if self._wakeup is not None:
+            self._wakeup.set()
+            self._wakeup = None
+
+    def fire(self):
+        """Fire an event on the stream."""
+        if self._closed:
+            raise RuntimeError(
+                "Cannot fire an event on a closed event stream."
+            )
+        self._write_cursor += 1
+        self._wake()
+        return self._write_cursor
+
+    async def _wait(self):
+        """Wait for the next wakeup.
+
+        We lazily create the Event object to block on if one does not yet
+        exist; this avoids creating event objects that are never awaited.
+
+        """
+        if self._wakeup is None:
+            self._wakeup = trio.Event()
+        await self._wakeup.wait()
+
+    async def subscribe(self, from_start=False, coalesce=True):
+        """Subscribe for events on the stream.
+
+        If from_start is True, then subscribe for events from the start of
+        the stream.
+
+        If coalesce is True, then each iteration 'consumes' all previous
+        events; otherwise, each iteration consumes just one event.
+        """
+        read_cursor = -1 if from_start else self._write_cursor
+        while True:
+            if self._write_cursor > read_cursor:
+                if coalesce:
+                    read_cursor = self._write_cursor
+                else:
+                    read_cursor += 1
+                yield read_cursor
+            else:
+                if self._closed:
+                    return
+                else:
+                    await self._wait()
