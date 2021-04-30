@@ -787,7 +787,7 @@ class Condition(metaclass=Final):
 
 
 @attr.s
-class EventStream:
+class EventStream(metaclass=Final):
     """A concurrency primitive for a sequence of events.
 
     Multiple tasks can subscribe for events on the stream using an ``async
