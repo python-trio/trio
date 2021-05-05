@@ -45,7 +45,7 @@ iniconfig==1.1.1
     # via pytest
 ipython-genutils==0.2.0
     # via traitlets
-ipython==7.22.0
+ipython==7.23.0
     # via -r test-requirements.in
 isort==5.8.0
     # via pylint
@@ -55,6 +55,8 @@ jedi==0.18.0
     #   ipython
 lazy-object-proxy==1.6.0
     # via astroid
+matplotlib-inline==0.1.2
+    # via ipython
 mccabe==0.6.1
     # via
     #   flake8
@@ -120,7 +122,9 @@ toml==0.10.2
     #   pylint
     #   pytest
 traitlets==5.0.5
-    # via ipython
+    # via
+    #   ipython
+    #   matplotlib-inline
 trustme==0.7.0
     # via -r test-requirements.in
 typed-ast==1.4.3 ; implementation_name == "cpython"
