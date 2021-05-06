@@ -110,7 +110,7 @@ pytest==6.2.4
     #   pytest-cov
 regex==2021.4.4
     # via black
-six==1.15.0
+six==1.16.0
     # via pyopenssl
 sniffio==1.2.0
     # via -r test-requirements.in
