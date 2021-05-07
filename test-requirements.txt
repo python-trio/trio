@@ -12,7 +12,7 @@ astroid==2.5.6
     # via pylint
 async-generator==1.10
     # via -r test-requirements.in
-attrs==20.3.0
+attrs==21.1.0
     # via
     #   -r test-requirements.in
     #   outcome

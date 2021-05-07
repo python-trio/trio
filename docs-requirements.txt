@@ -8,7 +8,7 @@ alabaster==0.7.12
     # via sphinx
 async-generator==1.10
     # via -r docs-requirements.in
-attrs==20.3.0
+attrs==21.1.0
     # via
     #   -r docs-requirements.in
     #   outcome
