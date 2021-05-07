@@ -333,7 +333,7 @@ class SendStream(AsyncResource):
 
           This method is intended to aid in implementing protocols that want
           to delay choosing which data to send until the last moment. E.g.,
-          suppose you're working on an implemention of a remote display server
+          suppose you're working on an implementation of a remote display server
           like `VNC
           <https://en.wikipedia.org/wiki/Virtual_Network_Computing>`__, and
           the network connection is currently backed up so that if you call

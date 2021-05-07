@@ -130,7 +130,7 @@ def now_as_filetime():
 #
 #   https://docs.microsoft.com/en-us/windows/win32/sysinfo/file-times
 #
-# This page has FILETIME convertors and can be useful for debugging:
+# This page has FILETIME converters and can be useful for debugging:
 #
 #   https://www.epochconverter.com/ldap
 #

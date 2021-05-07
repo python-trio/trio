@@ -59,7 +59,7 @@ def test_reorder_for_rfc_6555_section_5_4():
         return (AF_INET6, SOCK_STREAM, IPPROTO_TCP, "", ("::{}".format(i), 80))
 
     for fake in fake4, fake6:
-        # No effect on homogenous lists
+        # No effect on homogeneous lists
         targets = [fake(0), fake(1), fake(2)]
         reorder_for_rfc_6555_section_5_4(targets)
         assert targets == [fake(0), fake(1), fake(2)]

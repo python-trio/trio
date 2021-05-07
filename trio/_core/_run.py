@@ -988,7 +988,7 @@ class Nursery(metaclass=NoPublicConstructor):
         GLOBAL_RUN_CONTEXT.runner.spawn_impl(async_fn, args, self, name)
 
     async def start(self, async_fn, *args, name=None):
-        r"""Creates and initalizes a child task.
+        r"""Creates and initializes a child task.
 
         Like :meth:`start_soon`, but blocks until the new task has
         finished initializing itself, and optionally returns some
@@ -2067,7 +2067,7 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                 runner.instruments.call("before_io_wait", timeout)
 
             # Driver will call io_manager.get_events(timeout) and pass it back
-            # in throuh the yield
+            # in through the yield
             events = yield timeout
             runner.io_manager.process_events(events)
 

@@ -774,7 +774,7 @@ Bugfixes
 
 - Make trio.socket._SocketType.connect *always* close the socket on
   cancellation (`#247 <https://github.com/python-trio/trio/issues/247>`__)
-- Fix a memory leak in :class:`trio.CapacityLimiter`, that could occurr when
+- Fix a memory leak in :class:`trio.CapacityLimiter`, that could occur when
   ``acquire`` or ``acquire_on_behalf_of`` was cancelled. (`#548
   <https://github.com/python-trio/trio/issues/548>`__)
 - Some version of macOS have a buggy ``getaddrinfo`` that was causing spurious

@@ -267,7 +267,7 @@ def from_thread_run(afn, *args, trio_token=None):
         - Spawn this thread from `trio.to_thread.run_sync`. Trio will
           automatically capture the relevant Trio token and use it when you
           want to re-enter Trio.
-        - Pass a keyword argument, ``trio_token`` specifiying a specific
+        - Pass a keyword argument, ``trio_token`` specifying a specific
           `trio.run` loop to re-enter. This is useful in case you have a
           "foreign" thread, spawned using some other framework, and still want
           to enter Trio.
@@ -317,7 +317,7 @@ def from_thread_run_sync(fn, *args, trio_token=None):
         - Spawn this thread from `trio.to_thread.run_sync`. Trio will
           automatically capture the relevant Trio token and use it when you
           want to re-enter Trio.
-        - Pass a keyword argument, ``trio_token`` specifiying a specific
+        - Pass a keyword argument, ``trio_token`` specifying a specific
           `trio.run` loop to re-enter. This is useful in case you have a
           "foreign" thread, spawned using some other framework, and still want
           to enter Trio.
