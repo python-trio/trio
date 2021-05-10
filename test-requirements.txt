@@ -33,7 +33,7 @@ cryptography==3.4.7
     #   trustme
 decorator==5.0.7
     # via ipython
-flake8==3.9.1
+flake8==3.9.2
     # via -r test-requirements.in
 idna==2.10
     # via
