@@ -43,7 +43,9 @@ jinja2==2.11.3
     #   sphinx
     #   towncrier
 markupsafe==1.1.1
-    # via jinja2
+    # via
+    #   jinja2
+    #   sphinx
 outcome==1.1.0
     # via -r docs-requirements.in
 packaging==20.9
@@ -64,7 +66,7 @@ sortedcontainers==2.3.0
     # via -r docs-requirements.in
 sphinx-rtd-theme==0.5.2
     # via -r docs-requirements.in
-sphinx==3.3.1
+sphinx==4.0.0
     # via
     #   -r docs-requirements.in
     #   sphinx-rtd-theme
