@@ -38,11 +38,11 @@ immutables==0.15
     # via -r docs-requirements.in
 incremental==21.3.0
     # via towncrier
-jinja2==2.11.3
+jinja2==3.0.0
     # via
     #   sphinx
     #   towncrier
-markupsafe==1.1.1
+markupsafe==2.0.0
     # via jinja2
 outcome==1.1.0
     # via -r docs-requirements.in
