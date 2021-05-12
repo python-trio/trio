@@ -23,7 +23,7 @@ black==21.5b1 ; implementation_name == "cpython"
     # via -r test-requirements.in
 cffi==1.14.5
     # via cryptography
-click==7.1.2
+click==8.0.0
     # via black
 coverage==5.5
     # via pytest-cov
