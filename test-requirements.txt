@@ -19,7 +19,7 @@ attrs==20.3.0
     #   pytest
 backcall==0.2.0
     # via ipython
-black==21.5b0 ; implementation_name == "cpython"
+black==21.5b1 ; implementation_name == "cpython"
     # via -r test-requirements.in
 cffi==1.14.5
     # via cryptography
@@ -31,9 +31,9 @@ cryptography==3.4.7
     # via
     #   pyopenssl
     #   trustme
-decorator==5.0.7
+decorator==5.0.9
     # via ipython
-flake8==3.9.1
+flake8==3.9.2
     # via -r test-requirements.in
 idna==2.10
     # via
