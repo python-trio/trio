@@ -38,12 +38,14 @@ immutables==0.15
     # via -r docs-requirements.in
 incremental==21.3.0
     # via towncrier
-jinja2==3.0.1
+jinja2==2.11.3
     # via
     #   sphinx
     #   towncrier
-markupsafe==2.0.1
-    # via jinja2
+markupsafe==1.1.1
+    # via
+    #   jinja2
+    #   sphinx
 outcome==1.1.0
     # via -r docs-requirements.in
 packaging==20.9
@@ -64,7 +66,7 @@ sortedcontainers==2.4.0
     # via -r docs-requirements.in
 sphinx-rtd-theme==0.5.2
     # via -r docs-requirements.in
-sphinx==3.3.1
+sphinx==4.0.1
     # via
     #   -r docs-requirements.in
     #   sphinx-rtd-theme
