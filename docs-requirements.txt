@@ -60,7 +60,7 @@ sniffio==1.2.0
     # via -r docs-requirements.in
 snowballstemmer==2.1.0
     # via sphinx
-sortedcontainers==2.3.0
+sortedcontainers==2.4.0
     # via -r docs-requirements.in
 sphinx-rtd-theme==0.5.2
     # via -r docs-requirements.in

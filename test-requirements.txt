@@ -114,7 +114,7 @@ six==1.16.0
     # via pyopenssl
 sniffio==1.2.0
     # via -r test-requirements.in
-sortedcontainers==2.3.0
+sortedcontainers==2.4.0
     # via -r test-requirements.in
 toml==0.10.2
     # via
