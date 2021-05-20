@@ -20,7 +20,7 @@ chardet==4.0.0
     # via requests
 click-default-group==1.2.2
     # via towncrier
-click==7.1.2
+click==8.0.1
     # via
     #   click-default-group
     #   towncrier
