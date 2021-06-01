@@ -381,10 +381,9 @@ def traceback_exception_init(
     limit=None,
     lookup_lines=True,
     capture_locals=False,
+    compact=False,
     _seen=None,
 ):
-    if _seen is None:
-        _seen = set()
 
     # Capture the original exception and its cause and context as TracebackExceptions
     traceback_exception_original_init(
@@ -398,20 +397,26 @@ def traceback_exception_init(
         _seen=_seen,
     )
 
+    if sys.version_info >= (3, 10):
+        kwargs = {"compact": compact}
+    else:
+        kwargs = {}
+
     # Capture each of the exceptions in the MultiError along with each of their causes and contexts
     if isinstance(exc_value, MultiError):
         embedded = []
         for exc in exc_value.exceptions:
-            if exc_key(exc) not in _seen:
+            if _seen is None or exc_key(exc) not in _seen:
+                # copy the set of _seen exceptions so that duplicates shared
+                # between sub-exceptions are not omitted
+                seen_copy = None if _seen is None else set(_seen)
                 embedded.append(
                     traceback.TracebackException.from_exception(
                         exc,
                         limit=limit,
                         lookup_lines=lookup_lines,
                         capture_locals=capture_locals,
-                        # copy the set of _seen exceptions so that duplicates
-                        # shared between sub-exceptions are not omitted
-                        _seen=set(_seen),
+                        _seen=seen_copy,
                     )
                 )
         self.embedded = embedded
