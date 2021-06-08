@@ -1,4 +1,5 @@
 # Utilities for testing
+import asyncio
 import socket as stdlib_socket
 import threading
 import os
@@ -7,7 +8,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 import warnings
-from contextlib import contextmanager
+from contextlib import contextmanager, closing
 
 import gc
 
@@ -139,3 +140,8 @@ skip_if_fbsd_pipes_broken = pytest.mark.skipif(
     and os.uname().release[:4] < "12.2",
     reason="hangs on FreeBSD 12.1 and earlier, due to FreeBSD bug #246350",
 )
+
+
+def create_asyncio_future_in_new_loop():
+    with closing(asyncio.new_event_loop()) as loop:
+        return loop.create_future()
