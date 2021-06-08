@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 import threading
@@ -1184,6 +1186,9 @@ async def test_selected_npn_protocol_before_handshake(client_ctx):
         server.selected_npn_protocol()
 
 
+@pytest.mark.filterwarnings(
+    r"ignore: ssl module. NPN is deprecated, use ALPN instead:UserWarning"
+)
 async def test_selected_npn_protocol_when_not_set(client_ctx):
     # NPN protocol still returns None when it's not set,
     # instead of raising an exception
