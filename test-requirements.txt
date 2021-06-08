@@ -19,11 +19,11 @@ attrs==20.3.0
     #   pytest
 backcall==0.2.0
     # via ipython
-black==21.5b1 ; implementation_name == "cpython"
+black==21.5b2 ; implementation_name == "cpython"
     # via -r test-requirements.in
 cffi==1.14.5
     # via cryptography
-click==7.1.2
+click==8.0.1
     # via black
 coverage==5.5
     # via pytest-cov
@@ -45,7 +45,7 @@ iniconfig==1.1.1
     # via pytest
 ipython-genutils==0.2.0
     # via traitlets
-ipython==7.23.1
+ipython==7.24.1
     # via -r test-requirements.in
 isort==5.8.0
     # via pylint
@@ -96,13 +96,13 @@ pyflakes==2.3.1
     # via flake8
 pygments==2.7.4
     # via ipython
-pylint==2.8.2
+pylint==2.8.3
     # via -r test-requirements.in
 pyopenssl==20.0.1
     # via -r test-requirements.in
 pyparsing==2.4.7
     # via packaging
-pytest-cov==2.11.1
+pytest-cov==2.12.1
     # via -r test-requirements.in
 pytest==6.2.4
     # via
@@ -114,13 +114,14 @@ six==1.16.0
     # via pyopenssl
 sniffio==1.2.0
     # via -r test-requirements.in
-sortedcontainers==2.3.0
+sortedcontainers==2.4.0
     # via -r test-requirements.in
 toml==0.10.2
     # via
     #   black
     #   pylint
     #   pytest
+    #   pytest-cov
 traitlets==5.0.5
     # via
     #   ipython

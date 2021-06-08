@@ -14,13 +14,13 @@ attrs==20.3.0
     #   outcome
 babel==2.9.1
     # via sphinx
-certifi==2020.12.5
+certifi==2021.5.30
     # via requests
 chardet==4.0.0
     # via requests
 click-default-group==1.2.2
     # via towncrier
-click==7.1.2
+click==8.0.1
     # via
     #   click-default-group
     #   towncrier
@@ -38,11 +38,11 @@ immutables==0.15
     # via -r docs-requirements.in
 incremental==21.3.0
     # via towncrier
-jinja2==2.11.3
+jinja2==3.0.1
     # via
     #   sphinx
     #   towncrier
-markupsafe==1.1.1
+markupsafe==2.0.1
     # via jinja2
 outcome==1.1.0
     # via -r docs-requirements.in
@@ -60,7 +60,7 @@ sniffio==1.2.0
     # via -r docs-requirements.in
 snowballstemmer==2.1.0
     # via sphinx
-sortedcontainers==2.3.0
+sortedcontainers==2.4.0
     # via -r docs-requirements.in
 sphinx-rtd-theme==0.5.2
     # via -r docs-requirements.in
@@ -73,13 +73,13 @@ sphinxcontrib-applehelp==1.0.2
     # via sphinx
 sphinxcontrib-devhelp==1.0.2
     # via sphinx
-sphinxcontrib-htmlhelp==1.0.3
+sphinxcontrib-htmlhelp==2.0.0
     # via sphinx
 sphinxcontrib-jsmath==1.0.1
     # via sphinx
 sphinxcontrib-qthelp==1.0.3
     # via sphinx
-sphinxcontrib-serializinghtml==1.1.4
+sphinxcontrib-serializinghtml==1.1.5
     # via sphinx
 sphinxcontrib-trio==1.1.2
     # via -r docs-requirements.in
@@ -87,5 +87,5 @@ toml==0.10.2
     # via towncrier
 towncrier==21.3.0
     # via -r docs-requirements.in
-urllib3==1.26.4
+urllib3==1.26.5
     # via requests
