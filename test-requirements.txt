@@ -131,7 +131,7 @@ trustme==0.7.0
     # via -r test-requirements.in
 typed-ast==1.4.3 ; implementation_name == "cpython"
     # via -r test-requirements.in
-typing-extensions==3.7.4.3 ; implementation_name == "cpython"
+typing-extensions==3.10.0.0 ; implementation_name == "cpython"
     # via
     #   -r test-requirements.in
     #   mypy
