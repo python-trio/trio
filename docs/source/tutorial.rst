@@ -599,8 +599,8 @@ Each task runs until it hits the call to :func:`trio.sleep`, and then
 suddenly we're back in :func:`trio.run` deciding what to run next. How
 does this happen? The secret is that :func:`trio.run` and
 :func:`trio.sleep` work together to make it happen: :func:`trio.sleep`
-has access to some special magic that lets it pause its entire
-call stack, so it sends a note to :func:`trio.run` requesting to be
+has access to some special magic that lets it pause itself,
+so it sends a note to :func:`trio.run` requesting to be
 woken again after 1 second, and then suspends the task. And once the
 task is suspended, Python gives control back to :func:`trio.run`,
 which decides what to do next. (If this sounds similar to the way that
