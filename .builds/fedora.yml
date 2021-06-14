@@ -1,12 +1,14 @@
 image: fedora/rawhide
 packages:
-  - python3-devel
+  # Comment out to avoid Python 3.10 until cffi has built wheels for Python 3.10
+  # - python3-devel
+  - python3.9
   - python3-pip
 sources:
   - https://github.com/python-trio/trio
 tasks:
   - test: |
-      python3 -m venv venv
+      python3.9 -m venv venv
       source venv/bin/activate
       cd trio
       CI_BUILD_ID=$JOB_ID CI_BUILD_URL=$JOB_URL ./ci.sh
