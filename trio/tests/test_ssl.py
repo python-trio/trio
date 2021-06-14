@@ -112,7 +112,10 @@ def ssl_echo_serve_sync(sock, *, expect_fail=False):
                         # it's fixed in 'recent' CPython versions so we fail
                         # the test for those and ignore it for earlier
                         # versions.
-                        if sys.platform != "cpython" or sys.version_info >= (3, 8):
+                        if (
+                            sys.implementation.name != "cpython"
+                            or sys.version_info >= (3, 8)
+                        ):
                             pytest.fail(
                                 "still an issue on recent python versions "
                                 "add a comment to "
