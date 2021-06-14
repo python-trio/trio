@@ -622,7 +622,7 @@ between the implementation of generators and async functions.)
 
 Only async functions have access to the special magic for suspending a
 task, so only async functions can cause the program to switch to a
-different task. What this means if a call *doesn't* have an ``await``
+different task. What this means is that if a call *doesn't* have an ``await``
 on it, then you know that it *can't* be a place where your task will
 be suspended. This makes tasks much `easier to reason about
 <https://glyph.twistedmatrix.com/2014/02/unyielding.html>`__ than
@@ -639,7 +639,7 @@ wouldn't have been able to pause at the end and wait for the children
 to finish; we need our cleanup function to be async, which is exactly
 what ``async with`` gives us.
 
-Now, back to our execution trace. To recap: at this point ``parent``
+Now, back to our execution point. To recap: at this point ``parent``
 is waiting on ``child1`` and ``child2``, and both children are
 sleeping. So :func:`trio.run` checks its notes, and sees that there's
 nothing to be done until those sleeps finish – unless possibly some
@@ -1092,7 +1092,7 @@ up, and ``send_all`` will block until the remote side calls
 
 Now let's think about this from the server's point of view. Each time
 it calls ``receive_some``, it gets some data that it needs to send
-back. And until it sends it back, the data is sitting around takes up
+back. And until it sends it back, the data that is sitting around takes up
 memory. Computers have finite amounts of RAM, so if our server is well
 behaved then at some point it needs to stop calling ``receive_some``
 until it gets rid of some of the old data by doing its own call to
