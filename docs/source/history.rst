@@ -5,6 +5,29 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.19.0 (2021-06-15)
+------------------------
+
+Features
+~~~~~~~~
+
+- Trio now supports Python 3.10. (`#1921 <https://github.com/python-trio/trio/issues/1921>`__)
+- Use slots for :class:`~.lowlevel.Task` which should make them slightly smaller and faster. (`#1927 <https://github.com/python-trio/trio/issues/1927>`__)
+- Make :class:`~.Event` more lightweight by using less objects (about 2 rather
+  than 5, including a nested ParkingLot and attribute dicts) and simpler
+  structures (set rather than OrderedDict).  This may benefit applications that
+  create a large number of event instances, such as with the "replace event
+  object on every set()" idiom. (`#1948 <https://github.com/python-trio/trio/issues/1948>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- The event loop now holds on to references of coroutine frames for only
+  the minimum necessary period of time. (`#1864 <https://github.com/python-trio/trio/issues/1864>`__)
+- The :class:`~.lowlevel.TrioToken` class can now be used as a target of a weak reference. (`#1924 <https://github.com/python-trio/trio/issues/1924>`__)
+
+
 Trio 0.18.0 (2021-01-11)
 ------------------------
 

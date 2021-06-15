@@ -1,1 +1,0 @@
-The :class:`~.lowlevel.TrioToken` class can now be used as a target of a weak reference.
