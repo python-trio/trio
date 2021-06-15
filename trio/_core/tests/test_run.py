@@ -24,6 +24,7 @@ from .tutil import (
     ignore_coroutine_never_awaited_warnings,
     buggy_pypy_asyncgens,
     restore_unraisablehook,
+    create_asyncio_future_in_new_loop,
 )
 
 from ... import _core
@@ -1574,9 +1575,7 @@ def test_nice_error_on_bad_calls_to_run_or_spawn():
 
 def test_calling_asyncio_function_gives_nice_error():
     async def child_xyzzy():
-        import asyncio
-
-        await asyncio.Future()
+        await create_asyncio_future_in_new_loop()
 
     async def misguided():
         await child_xyzzy()
@@ -1598,7 +1597,7 @@ async def test_asyncio_function_inside_nursery_does_not_explode():
             import asyncio
 
             nursery.start_soon(sleep_forever)
-            await asyncio.Future()
+            await create_asyncio_future_in_new_loop()
     assert "asyncio" in str(excinfo.value)
 
 

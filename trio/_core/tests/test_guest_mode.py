@@ -323,7 +323,7 @@ def aiotrio_run(trio_fn, *, pass_not_threadsafe=True, **start_guest_run_kwargs):
     loop = asyncio.new_event_loop()
 
     async def aio_main():
-        trio_done_fut = asyncio.Future()
+        trio_done_fut = loop.create_future()
 
         def trio_done_callback(main_outcome):
             print(f"trio_fn finished: {main_outcome!r}")

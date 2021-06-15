@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.6', '3.7', '3.8', '3.9']
+        python: ['3.6', '3.7', '3.8', '3.9', '3.10']
         arch: ['x86', 'x64']
         lsp: ['']
         lsp_extract_file: ['']
@@ -41,7 +41,15 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@v2
         with:
-          python-version: '${{ matrix.python }}'
+          # This allows the matrix to specify just the major.minor version while still
+          # expanding it to get the latest patch version including alpha releases.
+          # This avoids the need to update for each new alpha, beta, release candidate,
+          # and then finally an actual release version.  actions/setup-python doesn't
+          # support this for PyPy presently so we get no help there.
+          # 
+          # CPython -> 3.9.0-alpha - 3.9.X
+          # PyPy    -> pypy-3.7
+          python-version: ${{ fromJSON(format('["{0}", "{1}"]', format('{0}.0-alpha - {0}.X', matrix.python), matrix.python))[startsWith(matrix.python, 'pypy')] }}
           architecture: '${{ matrix.arch }}'
       - name: Run tests
         run: ./ci.sh
@@ -59,7 +67,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.6', 'pypy-3.7', '3.6', '3.7', '3.8', '3.9', '3.8-dev', '3.9-dev']
+        python: ['pypy-3.6', 'pypy-3.7', '3.6', '3.7', '3.8', '3.9', '3.10', '3.8-dev', '3.9-dev', '3.10-dev']
         check_formatting: ['0']
         pypy_nightly_branch: ['']
         extra_name: ['']
@@ -77,7 +85,7 @@ jobs:
         uses: actions/setup-python@v2
         if: "!endsWith(matrix.python, '-dev')"
         with:
-          python-version: '${{ matrix.python }}'
+          python-version: ${{ fromJSON(format('["{0}", "{1}"]', format('{0}.0-alpha - {0}.X', matrix.python), matrix.python))[startsWith(matrix.python, 'pypy')] }}
       - name: Setup python (dev)
         uses: deadsnakes/action@v2.0.2
         if: endsWith(matrix.python, '-dev')
@@ -98,14 +106,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.6', '3.7', '3.8', '3.9']
+        python: ['3.6', '3.7', '3.8', '3.9', '3.10']
     steps:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Setup python
         uses: actions/setup-python@v2
         with:
-          python-version: '${{ matrix.python }}'
+          python-version: ${{ fromJSON(format('["{0}", "{1}"]', format('{0}.0-alpha - {0}.X', matrix.python), matrix.python))[startsWith(matrix.python, 'pypy')] }}
       - name: Run tests
         run: ./ci.sh
         env:

@@ -1,3 +1,4 @@
+import re
 import sys
 import importlib
 import types
@@ -69,6 +70,17 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
 )
 @pytest.mark.parametrize("modname", PUBLIC_MODULE_NAMES)
 @pytest.mark.parametrize("tool", ["pylint", "jedi"])
+@pytest.mark.filterwarnings(
+    "ignore:"
+    + re.escape(
+        "The distutils package is deprecated and slated for removal in Python 3.12. "
+        "Use setuptools or check PEP 632 for potential alternatives"
+    )
+    + ":DeprecationWarning",
+    "ignore:"
+    + re.escape("The distutils.sysconfig module is deprecated, use sysconfig instead")
+    + ":DeprecationWarning",
+)
 def test_static_tool_sees_all_symbols(tool, modname):
     module = importlib.import_module(modname)
 

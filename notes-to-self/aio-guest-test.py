@@ -4,7 +4,7 @@ import trio
 async def aio_main():
     loop = asyncio.get_running_loop()
 
-    trio_done_fut = asyncio.Future()
+    trio_done_fut = loop.create_future()
     def trio_done_callback(main_outcome):
         print(f"trio_main finished: {main_outcome!r}")
         trio_done_fut.set_result(main_outcome)
