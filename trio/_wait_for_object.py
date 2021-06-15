@@ -122,14 +122,13 @@ def spawn_wait_group():
                 if signaled_handle is wait_group[0]:
                     # Reset is OK here because only this thread waits on the event
                     kernel32.ResetEvent(wait_group[0])
-                elif signaled_handle in WAIT_POOL:
+                elif signaled_handle in WAIT_POOL:  # pragma: no branch
+                    # This check is almost always true, but guards against an
+                    # Extremely rare race condition where a handle is signaled
+                    # just before it is removed from the pool
                     with WAIT_POOL.mutating(wait_group):
                         wait_group.remove(signaled_handle)
                     WAIT_POOL.execute_callbacks(signaled_handle)
-                else:  # pragma: no cover
-                    # Extremely rare race condition where a handle is signaled just
-                    # before it is removed from the pool
-                    pass
                 # calculate this while holding the lock
                 n_handles = len(wait_group) - 1
 
