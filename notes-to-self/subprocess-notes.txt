@@ -4,7 +4,7 @@
 # tenable. We're better off trying os.waitpid(..., os.WNOHANG), and if that
 # says the process is still going then spawn a thread to sit in waitpid.
 # ......though that waitpid is non-cancellable so ugh. this is a problem,
-# becaues it's also mutating -- you only get to waitpid() once, and you have
+# because it's also mutating -- you only get to waitpid() once, and you have
 # to do it, because zombies. I guess we could make sure the waitpid thread is
 # daemonic and either it gets back to us eventually (even if our first call to
 # 'await wait()' is cancelled, maybe another one won't be), or else we go away

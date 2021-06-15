@@ -6,9 +6,11 @@ import threading
 import time
 import types
 import warnings
+import weakref
 from contextlib import contextmanager, ExitStack
 from math import inf
 from textwrap import dedent
+import gc
 
 import attr
 import outcome
@@ -21,6 +23,7 @@ from .tutil import (
     gc_collect_harder,
     ignore_coroutine_never_awaited_warnings,
     buggy_pypy_asyncgens,
+    restore_unraisablehook,
 )
 
 from ... import _core
@@ -443,7 +446,7 @@ async def test_cancel_scope_multierror_filtering():
     except AssertionError:  # pragma: no cover
         raise
     except BaseException as exc:
-        # This is ouside the outer scope, so all the Cancelled
+        # This is outside the outer scope, so all the Cancelled
         # exceptions should have been absorbed, leaving just a regular
         # KeyError from crasher()
         assert type(exc) is KeyError
@@ -842,6 +845,7 @@ async def test_failed_abort():
     assert record == ["sleep", "woke", "cancelled"]
 
 
+@restore_unraisablehook()
 def test_broken_abort():
     async def main():
         # These yields are here to work around an annoying warning -- we're
@@ -868,6 +872,7 @@ def test_broken_abort():
     gc_collect_harder()
 
 
+@restore_unraisablehook()
 def test_error_in_run_loop():
     # Blow stuff up real good to check we at least get a TrioInternalError
     async def main():
@@ -2152,6 +2157,7 @@ async def test_detached_coroutine_cancellation():
     assert abort_fn_called
 
 
+@restore_unraisablehook()
 def test_async_function_implemented_in_C():
     # These used to crash because we'd try to mutate the coroutine object's
     # cr_frame, but C functions don't have Python frames.
@@ -2195,3 +2201,80 @@ async def test_cancel_scope_deadline_duplicates():
             cscope.deadline = now + 9998
             cscope.deadline = now + 9999
         await sleep(0.01)
+
+
+@pytest.mark.skipif(
+    sys.implementation.name != "cpython", reason="Only makes sense with refcounting GC"
+)
+async def test_simple_cancel_scope_usage_doesnt_create_cyclic_garbage():
+    # https://github.com/python-trio/trio/issues/1770
+    gc.collect()
+
+    async def do_a_cancel():
+        with _core.CancelScope() as cscope:
+            cscope.cancel()
+            await sleep_forever()
+
+    old_flags = gc.get_debug()
+    try:
+        gc.collect()
+        gc.set_debug(gc.DEBUG_SAVEALL)
+
+        await do_a_cancel()
+        await do_a_cancel()
+
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(do_a_cancel)
+
+        gc.collect()
+        assert not gc.garbage
+    finally:
+        gc.set_debug(old_flags)
+        gc.garbage.clear()
+
+
+@pytest.mark.skipif(
+    sys.implementation.name != "cpython", reason="Only makes sense with refcounting GC"
+)
+async def test_nursery_cancel_doesnt_create_cyclic_garbage():
+    # https://github.com/python-trio/trio/issues/1770#issuecomment-730229423
+    gc.collect()
+
+    old_flags = gc.get_debug()
+    try:
+        for i in range(3):
+            async with _core.open_nursery() as nursery:
+                gc.collect()
+                gc.set_debug(gc.DEBUG_LEAK)
+                nursery.cancel_scope.cancel()
+
+            gc.collect()
+            gc.set_debug(0)
+            assert not gc.garbage
+    finally:
+        gc.set_debug(old_flags)
+        gc.garbage.clear()
+
+
+@pytest.mark.skipif(
+    sys.implementation.name != "cpython", reason="Only makes sense with refcounting GC"
+)
+async def test_locals_destroyed_promptly_on_cancel():
+    destroyed = False
+
+    def finalizer():
+        nonlocal destroyed
+        destroyed = True
+
+    class A:
+        pass
+
+    async def task():
+        a = A()
+        weakref.finalize(a, finalizer)
+        await _core.checkpoint()
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(task)
+        nursery.cancel_scope.cancel()
+    assert destroyed

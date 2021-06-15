@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.6', '3.7', '3.8', '3.9.0-rc.2']
+        python: ['3.6', '3.7', '3.8', '3.9']
         arch: ['x86', 'x64']
         lsp: ['']
         lsp_extract_file: ['']
@@ -30,11 +30,11 @@ jobs:
             lsp: 'https://www.proxifier.com/download/legacy/ProxifierSetup342.exe'
             lsp_extract_file: ''
             extra_name: ', with IFS LSP'
-          - python: '3.8'
-            arch: 'x64'
-            lsp: 'http://download.pctools.com/mirror/updates/9.0.0.2308-SDavfree-lite_en.exe'
-            lsp_extract_file: ''
-            extra_name: ', with non-IFS LSP'
+          #- python: '3.8'
+          #  arch: 'x64'
+          #  lsp: 'http://download.pctools.com/mirror/updates/9.0.0.2308-SDavfree-lite_en.exe'
+          #  lsp_extract_file: ''
+          #  extra_name: ', with non-IFS LSP'
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -59,23 +59,34 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.6', '3.7', '3.8', '3.9.0-rc.2']
+        python: ['pypy-3.6', 'pypy-3.7', '3.6', '3.7', '3.8', '3.9', '3.8-dev', '3.9-dev']
         check_formatting: ['0']
+        pypy_nightly_branch: ['']
         extra_name: ['']
         include:
           - python: '3.8'
             check_formatting: '1'
             extra_name: ', check formatting'
+          - python: '3.7'  # <- not actually used
+            pypy_nightly_branch: 'py3.7'
+            extra_name: ', pypy 3.7 nightly'
     steps:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Setup python
         uses: actions/setup-python@v2
+        if: "!endsWith(matrix.python, '-dev')"
+        with:
+          python-version: '${{ matrix.python }}'
+      - name: Setup python (dev)
+        uses: deadsnakes/action@v2.0.2
+        if: endsWith(matrix.python, '-dev')
         with:
           python-version: '${{ matrix.python }}'
       - name: Run tests
         run: ./ci.sh
         env:
+          PYPY_NIGHTLY_BRANCH: '${{ matrix.pypy_nightly_branch }}'
           CHECK_FORMATTING: '${{ matrix.check_formatting }}'
           # Should match 'name:' up above
           JOB_NAME: 'Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})'
@@ -87,7 +98,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.6', '3.7', '3.8', '3.9.0-rc.2']
+        python: ['3.6', '3.7', '3.8', '3.9']
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -100,21 +111,3 @@ jobs:
         env:
           # Should match 'name:' up above
           JOB_NAME: 'macOS (${{ matrix.python }})'
-
-  Alpine:
-    name: 'Alpine'
-    timeout-minutes: 10
-    runs-on: 'ubuntu-latest'
-    container: 'alpine'
-    strategy:
-      fail-fast: false
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Install bash
-        run: apk add --no-cache bash
-      - name: Run tests
-        run: ./ci.sh
-        env:
-          # Should match 'name:' up above
-          JOB_NAME: 'Alpine'

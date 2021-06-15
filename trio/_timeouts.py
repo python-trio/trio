@@ -44,7 +44,8 @@ async def sleep_until(deadline):
     """Pause execution of the current task until the given time.
 
     The difference between :func:`sleep` and :func:`sleep_until` is that the
-    former takes a relative time and the latter takes an absolute time.
+    former takes a relative time and the latter takes an absolute time
+    according to Trio's internal clock (as returned by :func:`current_time`).
 
     Args:
         deadline (float): The time at which we should wake up again. May be in

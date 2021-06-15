@@ -80,12 +80,12 @@ from .._util import Final
 _counter = count()
 
 
-@attr.s(frozen=True)
+@attr.s(frozen=True, slots=True)
 class _ParkingLotStatistics:
     tasks_waiting = attr.ib()
 
 
-@attr.s(eq=False, hash=False)
+@attr.s(eq=False, hash=False, slots=True)
 class ParkingLot(metaclass=Final):
     """A fair wait queue with cancellation and requeueing.
 

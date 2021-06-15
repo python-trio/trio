@@ -1,0 +1,2 @@
+The event loop now holds on to references of coroutine frames for only
+the minimum necessary period of time.

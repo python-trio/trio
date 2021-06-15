@@ -937,7 +937,12 @@ class Nursery(metaclass=NoPublicConstructor):
         popped = self._parent_task._child_nurseries.pop()
         assert popped is self
         if self._pending_excs:
-            return MultiError(self._pending_excs)
+            try:
+                return MultiError(self._pending_excs)
+            finally:
+                # avoid a garbage cycle
+                # (see test_nursery_cancel_doesnt_create_cyclic_garbage)
+                del self._pending_excs
 
     def start_soon(self, async_fn, *args, name=None):
         """Creates a child task, scheduling ``await async_fn(*args)``.
@@ -983,7 +988,7 @@ class Nursery(metaclass=NoPublicConstructor):
         GLOBAL_RUN_CONTEXT.runner.spawn_impl(async_fn, args, self, name)
 
     async def start(self, async_fn, *args, name=None):
-        r"""Creates and initalizes a child task.
+        r"""Creates and initializes a child task.
 
         Like :meth:`start_soon`, but blocks until the new task has
         finished initializing itself, and optionally returns some
@@ -1055,7 +1060,7 @@ class Nursery(metaclass=NoPublicConstructor):
 ################################################################
 
 
-@attr.s(eq=False, hash=False, repr=False)
+@attr.s(eq=False, hash=False, repr=False, slots=True)
 class Task(metaclass=NoPublicConstructor):
     _parent_nursery = attr.ib()
     coro = attr.ib()
@@ -1661,7 +1666,7 @@ class Runner:
     waiting_for_idle = attr.ib(factory=SortedDict)
 
     @_public
-    async def wait_all_tasks_blocked(self, cushion=0.0, tiebreaker="deprecated"):
+    async def wait_all_tasks_blocked(self, cushion=0.0):
         """Block until there are no runnable tasks.
 
         This is useful in testing code when you want to give other tasks a
@@ -1719,18 +1724,8 @@ class Runner:
                          print("FAIL")
 
         """
-        if tiebreaker == "deprecated":
-            tiebreaker = 0
-        else:
-            warn_deprecated(
-                "the 'tiebreaker' argument to wait_all_tasks_blocked",
-                "v0.16.0",
-                issue=1558,
-                instead=None,
-            )
-
         task = current_task()
-        key = (cushion, tiebreaker, id(task))
+        key = (cushion, id(task))
         self.waiting_for_idle[key] = task
 
         def abort(_):
@@ -2057,7 +2052,7 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
 
             idle_primed = None
             if runner.waiting_for_idle:
-                cushion, tiebreaker, _ = runner.waiting_for_idle.keys()[0]
+                cushion, _ = runner.waiting_for_idle.keys()[0]
                 if cushion < timeout:
                     timeout = cushion
                     idle_primed = IdlePrimedTypes.WAITING_FOR_IDLE
@@ -2072,7 +2067,7 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                 runner.instruments.call("before_io_wait", timeout)
 
             # Driver will call io_manager.get_events(timeout) and pass it back
-            # in throuh the yield
+            # in through the yield
             events = yield timeout
             runner.io_manager.process_events(events)
 
@@ -2109,7 +2104,7 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                 if idle_primed is IdlePrimedTypes.WAITING_FOR_IDLE:
                     while runner.waiting_for_idle:
                         key, task = runner.waiting_for_idle.peekitem(0)
-                        if key[:2] == (cushion, tiebreaker):
+                        if key[0] == cushion:
                             del runner.waiting_for_idle[key]
                             runner.reschedule(task)
                         else:
@@ -2181,6 +2176,10 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                     for _ in range(CONTEXT_RUN_TB_FRAMES):
                         tb = tb.tb_next
                     final_outcome = Error(task_exc.with_traceback(tb))
+                    # Remove local refs so that e.g. cancelled coroutine locals
+                    # are not kept alive by this frame until another exception
+                    # comes along.
+                    del tb
 
                 if final_outcome is not None:
                     # We can't call this directly inside the except: blocks
@@ -2188,6 +2187,10 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                     # themselves to other exceptions as __context__ in
                     # unwanted ways.
                     runner.task_exited(task, final_outcome)
+                    # final_outcome may contain a traceback ref. It's not as
+                    # crucial compared to the above, but this will allow more
+                    # prompt release of resources in coroutine locals.
+                    final_outcome = None
                 else:
                     task._schedule_points += 1
                     if msg is CancelShieldedCheckpoint:
@@ -2216,10 +2219,16 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                         # which works for at least asyncio and curio.
                         runner.reschedule(task, exc)
                         task._next_send_fn = task.coro.throw
+                    # prevent long-lived reference
+                    # TODO: develop test for this deletion
+                    del msg
 
                 if "after_task_step" in runner.instruments:
                     runner.instruments.call("after_task_step", task)
                 del GLOBAL_RUN_CONTEXT.task
+                # prevent long-lived references
+                # TODO: develop test for these deletions
+                del task, next_send, next_send_fn
 
     except GeneratorExit:
         # The run-loop generator has been garbage collected without finishing

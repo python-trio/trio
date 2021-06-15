@@ -50,3 +50,10 @@ directory = "misc"
 name = "Miscellaneous internal changes"
 showcontent = true
 
+[tool.pytest.ini_options]
+addopts = ["--strict-markers", "--strict-config"]
+xfail_strict = true
+faulthandler_timeout = 60
+markers = ["redistributors_should_skip: tests that should be skipped by downstream redistributors"]
+junit_family = "xunit2"
+filterwarnings = ["error"]

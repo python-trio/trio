@@ -325,7 +325,7 @@ _SOCK_TYPE_MASK = ~(
 
 
 # This function will modify the given socket to match the behavior in python
-# 3.7. This will become unecessary and can be removed when support for versions
+# 3.7. This will become unnecessary and can be removed when support for versions
 # older than 3.7 is dropped.
 def real_socket_type(type_num):
     return type_num & _SOCK_TYPE_MASK

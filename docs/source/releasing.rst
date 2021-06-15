@@ -39,7 +39,7 @@ Things to do for releasing:
 
 * verify that all checks succeeded
 
-* tag with vVERSION, push tag
+* tag with vVERSION, push tag on ``python-trio/trio`` (not on your personal repository)
 
 * push to PyPI::
 

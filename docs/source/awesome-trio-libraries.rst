@@ -27,13 +27,15 @@ Getting Started
 
 Web and HTML
 ------------
-* `asks <https://github.com/theelous3/asks>`__ - asks is an async requests-like http library.
-* `trio-websocket <https://github.com/HyperionGray/trio-websocket>`__ - This library implements the WebSocket protocol, striving for safety, correctness, and ergonomics.
+* `httpx <https://www.python-httpx.org/>`__ - HTTPX is a fully featured HTTP client for Python 3, which provides sync and async APIs, and support for both HTTP/1.1 and HTTP/2.
+* `trio-websocket <https://github.com/HyperionGray/trio-websocket>`__ - A WebSocket client and server implementation striving for safety, correctness, and ergonomics.
 * `quart-trio <https://gitlab.com/pgjones/quart-trio/>`__ - Like Flask, but for Trio. A simple and powerful framework for building async web applications and REST APIs. Tip: this is an ASGI-based framework, so you'll also need an HTTP server with ASGI support.
 * `hypercorn <https://gitlab.com/pgjones/hypercorn>`__ - An HTTP server for hosting your ASGI apps. Supports HTTP/1.1, HTTP/2, HTTP/3, and Websockets. Can be run as a standalone server, or embedded in a larger Trio app. Use it with ``quart-trio``, or any other Trio-compatible ASGI framework.
-* `httpx <https://www.python-httpx.org/>`__ - HTTPX is a fully featured HTTP client for Python 3, which provides sync and async APIs, and support for both HTTP/1.1 and HTTP/2.
 * `DeFramed <https://github.com/smurfix/deframed>`__ - DeFramed is a Web non-framework that supports a 99%-server-centric approach to Web coding, including support for the `Remi <https://github.com/dddomodossola/remi>`__ GUI library.
 * `pura <https://github.com/groove-x/pura>`__ - A simple web framework for embedding realtime graphical visualization into Trio apps, enabling inspection and manipulation of program state during development.
+* `pyscalpel <https://scalpel.readthedocs.io/en/latest/>`__ - A fast and powerful webscraping library.
+* `muffin <https://github.com/klen/muffin>`_ - Muffin is a fast, simple ASGI web-framework
+* `asgi-tools <https://github.com/klen/asgi-tools>`_ - Tools to quickly build lightest ASGI apps (also contains a test client with lifespan, websocket support)
 
 
 Database
@@ -44,14 +46,15 @@ Database
 * `sqlalchemy_aio <https://github.com/RazerM/sqlalchemy_aio>`__ - Add asyncio and Trio support to SQLAlchemy core, derived from alchimia.
 * `redio <https://github.com/Tronic/redio>`__ - Redis client, pure Python and Trio.
 * `trio_redis <https://github.com/omnidots/trio_redis>`__ - A Redis client for Trio. Depends on hiredis-py.
+* `asyncakumuli <https://github.com/M-o-a-T/asyncakumuli>`__ - Client for the `Akumuli <https://akumuli.org/>`__ time series database.
 
 
 IOT
 ---
-* `DistMQTT <https://github.com/smurfix/distmqtt>`__ - DistMQTT is an open source MQTT client and broker implementation. It is a fork of hbmqtt with support for anyio and DistKV.
+* `DistMQTT <https://github.com/M-o-a-T/distmqtt>`__ - DistMQTT is an open source MQTT client and broker implementation. It is a fork of hbmqtt with support for anyio and DistKV.
 * `asyncgpio <https://github.com/python-trio/trio-gpio>`__ - Allows easy access to the GPIO pins on your Raspberry Pi or similar embedded computer.
-
-
+* `asyncowfs <https://github.com/M-o-a-T/asyncowfs>`__ - High-level, object-oriented access to 1wire sensors and actors.
+* `DistKV <https://github.com/M-o-a-T/distkv>`__ - a persistent, distributed, master-less key/value storage with async notification and some IoT-related plug-ins.
 
 
 Building Command Line Apps
@@ -60,10 +63,16 @@ Building Command Line Apps
 * `urwid <https://github.com/urwid/urwid>`__ - Urwid is a console user interface library for Python.
 
 
+Building GUI Apps
+-----------------
+* `QTrio <https://qtrio.readthedocs.io/en/stable/>`__ - Integration between Trio and either the PyQt or PySide Qt wrapper libraries.  Uses Trio's :ref:`guest mode <guest-mode>`.
+
+
 Multi-Core/Multiprocessing
 --------------------------
 * `tractor <https://github.com/goodboy/tractor>`__ - An experimental, trionic (aka structured concurrent) "actor model" for distributed multi-core Python.
 * `Trio run_in_process <https://github.com/ethereum/trio-run-in-process>`__ - Trio based API for running code in a separate process.
+* `trio-parallel <https://trio-parallel.readthedocs.io/>`__ - CPU parallelism for Trio
 
 
 RPC
@@ -77,6 +86,7 @@ Testing
 * `pytest-trio <https://github.com/python-trio/pytest-trio>`__ - Pytest plugin for trio.
 * `hypothesis-trio <https://github.com/python-trio/hypothesis-trio>`__ - Hypothesis plugin for trio.
 * `trustme <https://github.com/python-trio/trustme>`__ - #1 quality TLS certs while you wait, for the discerning tester.
+* `pytest-aio <https://github.com/klen/pytest-aio>`_ - Pytest plugin with support for trio, curio, asyncio
 
 
 Tools and Utilities

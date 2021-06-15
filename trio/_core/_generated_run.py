@@ -169,7 +169,7 @@ def current_trio_token():
         raise RuntimeError("must be called from async context")
 
 
-async def wait_all_tasks_blocked(cushion=0.0, tiebreaker='deprecated'):
+async def wait_all_tasks_blocked(cushion=0.0):
     """Block until there are no runnable tasks.
 
         This is useful in testing code when you want to give other tasks a
@@ -229,7 +229,7 @@ async def wait_all_tasks_blocked(cushion=0.0, tiebreaker='deprecated'):
         """
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        return await GLOBAL_RUN_CONTEXT.runner.wait_all_tasks_blocked(cushion, tiebreaker)
+        return await GLOBAL_RUN_CONTEXT.runner.wait_all_tasks_blocked(cushion)
     except AttributeError:
         raise RuntimeError("must be called from async context")
 

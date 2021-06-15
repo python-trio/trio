@@ -11,14 +11,6 @@
 # On Windows: with the old 'select'-based loop, the cost of scheduling grew
 # with the number of outstanding sockets, which was bad.
 #
-# With the new IOCP-based loop, the cost of scheduling is constant, which is
-# good. But, we find that the cost of cancelling a single wait_readable
-# appears to grow like O(n**2) or so in the number of outstanding
-# wait_readables. This is bad -- it means that cancelling all of the
-# outstanding operations here is something like O(n**3)! To avoid this, we
-# should consider creating multiple AFD helper handles and distributing the
-# AFD_POLL operations across them.
-#
 # To run this on Unix systems, you'll probably first have to run:
 #
 #   ulimit -n 31000

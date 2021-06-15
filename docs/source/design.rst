@@ -505,7 +505,7 @@ several reasons:
   with whatever we get. We want more control over our users'
   experience than that.
 
-* Impedence mismatch: the :mod:`selectors` API isn't particularly
+* Impedance mismatch: the :mod:`selectors` API isn't particularly
   well-fitted to how we want to use it. For example, kqueue natively
   treats an interest in readability of some fd as a separate thing
   from an interest in that same fd's writability, which neatly matches

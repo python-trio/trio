@@ -13,11 +13,11 @@ async def producer(send_channel):
     # Producer sends 3 messages
     for i in range(3):
         # The producer sends using 'await send_channel.send(...)'
-        await send_channel.send("message {}".format(i))
+        await send_channel.send(f"message {i}")
 
 async def consumer(receive_channel):
     # The consumer uses an 'async for' loop to receive the values:
     async for value in receive_channel:
-        print("got value {!r}".format(value))
+        print(f"got value {value!r}")
 
 trio.run(main)

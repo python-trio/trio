@@ -1,0 +1,5 @@
+Make :class:`~.Event` more lightweight by using less objects (about 2 rather
+than 5, including a nested ParkingLot and attribute dicts) and simpler
+structures (set rather than OrderedDict).  This may benefit applications that
+create a large number of event instances, such as with the "replace event
+object on every set()" idiom.

@@ -43,10 +43,17 @@ def table_entry(mode1, bind_type1, mode2, bind_type2):
 
 print("""
                                                        second bind
-                               | default           | SO_REUSEADDR      | SO_EXCLUSIVEADDRUSE
-                               | specific| wildcard| specific| wildcard| specific| wildcard
-first bind                     ------------------------------------------------------------"""
-#           default | wildcard |   INUSE | Success |  ACCESS | Success |   INUSE | Success
+                               | """
++ " | ".join(["%-19s" % mode for mode in modes])
+)
+
+print("""                              """, end='')
+for mode in modes:
+    print(" | " + " | ".join(["%8s" % bind_type for bind_type in bind_types]), end='')
+
+print("""
+first bind                     -----------------------------------------------------------------"""
+#            default | wildcard |    INUSE |  Success |   ACCESS |  Success |    INUSE |  Success
 )
 
 for i, mode1 in enumerate(modes):
@@ -58,4 +65,4 @@ for i, mode1 in enumerate(modes):
                 row.append(entry)
                 #print(mode1, bind_type1, mode2, bind_type2, entry)
         print("{:>19} | {:>8} | ".format(mode1, bind_type1)
-              + " | ".join(["%7s" % entry for entry in row]))
+              + " | ".join(["%8s" % entry for entry in row]))

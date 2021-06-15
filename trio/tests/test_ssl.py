@@ -1,3 +1,5 @@
+import sys
+
 import pytest
 
 import threading
@@ -98,14 +100,26 @@ def ssl_echo_serve_sync(sock, *, expect_fail=False):
                     # respond in kind but it's legal for them to have already
                     # gone away.
                     exceptions = (BrokenPipeError, ssl.SSLZeroReturnError)
-                    # Under unclear conditions, CPython sometimes raises
-                    # SSLWantWriteError here. This is a bug (bpo-32219), but
-                    # it's not our bug, so ignore it.
-                    exceptions += (ssl.SSLWantWriteError,)
                     try:
                         wrapped.unwrap()
                     except exceptions:
                         pass
+                    except ssl.SSLWantWriteError:  # pragma: no cover
+                        # Under unclear conditions, CPython sometimes raises
+                        # SSLWantWriteError here. This is a bug (bpo-32219),
+                        # but it's not our bug.  Christian Heimes thinks
+                        # it's fixed in 'recent' CPython versions so we fail
+                        # the test for those and ignore it for earlier
+                        # versions.
+                        if (
+                            sys.implementation.name != "cpython"
+                            or sys.version_info >= (3, 8)
+                        ):
+                            pytest.fail(
+                                "still an issue on recent python versions "
+                                "add a comment to "
+                                "https://bugs.python.org/issue32219"
+                            )
                     return
                 wrapped.sendall(data)
     # This is an obscure workaround for an openssl bug. In server mode, in
@@ -1160,7 +1174,7 @@ async def test_selected_alpn_protocol_before_handshake(client_ctx):
 
 
 async def test_selected_alpn_protocol_when_not_set(client_ctx):
-    # ALPN protocol still returns None when it's not ser,
+    # ALPN protocol still returns None when it's not set,
     # instead of raising an exception
     client, server = ssl_memory_stream_pair(client_ctx)
 
@@ -1185,7 +1199,7 @@ async def test_selected_npn_protocol_before_handshake(client_ctx):
 
 
 async def test_selected_npn_protocol_when_not_set(client_ctx):
-    # NPN protocol still returns None when it's not ser,
+    # NPN protocol still returns None when it's not set,
     # instead of raising an exception
     client, server = ssl_memory_stream_pair(client_ctx)
 
@@ -1278,15 +1292,3 @@ async def test_SSLListener(client_ctx):
     await aclose_forcefully(ssl_listener)
     await aclose_forcefully(ssl_client)
     await aclose_forcefully(ssl_server)
-
-
-async def test_deprecated_max_refill_bytes(client_ctx):
-    stream1, stream2 = memory_stream_pair()
-    with pytest.warns(trio.TrioDeprecationWarning):
-        SSLStream(stream1, client_ctx, max_refill_bytes=100)
-    with pytest.warns(trio.TrioDeprecationWarning):
-        # passing None is wrong here, but I'm too lazy to make a fake Listener
-        # and we get away with it for now. And this test will be deleted in a
-        # release or two anyway, so hopefully we'll keep getting away with it
-        # for long enough.
-        SSLListener(None, client_ctx, max_refill_bytes=100)

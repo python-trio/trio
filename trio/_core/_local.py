@@ -1,24 +1,25 @@
 # Runvar implementations
+import attr
+
 from . import _run
 
 from .._util import Final
 
 
+@attr.s(eq=False, hash=False, slots=True)
 class _RunVarToken:
     _no_value = object()
 
-    __slots__ = ("_var", "previous_value", "redeemed")
+    _var = attr.ib()
+    previous_value = attr.ib(default=_no_value)
+    redeemed = attr.ib(default=False, init=False)
 
     @classmethod
     def empty(cls, var):
-        return cls(var, value=cls._no_value)
-
-    def __init__(self, var, value):
-        self._var = var
-        self.previous_value = value
-        self.redeemed = False
+        return cls(var)
 
 
+@attr.s(eq=False, hash=False, slots=True)
 class RunVar(metaclass=Final):
     """The run-local variant of a context variable.
 
@@ -29,11 +30,8 @@ class RunVar(metaclass=Final):
     """
 
     _NO_DEFAULT = object()
-    __slots__ = ("_name", "_default")
-
-    def __init__(self, name, default=_NO_DEFAULT):
-        self._name = name
-        self._default = default
+    _name = attr.ib()
+    _default = attr.ib(default=_NO_DEFAULT)
 
     def get(self, default=_NO_DEFAULT):
         """Gets the value of this :class:`RunVar` for the current run call."""

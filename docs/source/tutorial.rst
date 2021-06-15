@@ -273,7 +273,7 @@ this, that tries to call an async function but leaves out the
        trio.sleep(2 * x)
 
        sleep_time = time.perf_counter() - start_time
-       print("Woke up after {:.2f} seconds, feeling well rested!".format(sleep_time))
+       print(f"Woke up after {sleep_time:.2f} seconds, feeling well rested!")
 
    trio.run(broken_double_sleep, 3)
 
@@ -599,8 +599,8 @@ Each task runs until it hits the call to :func:`trio.sleep`, and then
 suddenly we're back in :func:`trio.run` deciding what to run next. How
 does this happen? The secret is that :func:`trio.run` and
 :func:`trio.sleep` work together to make it happen: :func:`trio.sleep`
-has access to some special magic that lets it pause its entire
-call stack, so it sends a note to :func:`trio.run` requesting to be
+has access to some special magic that lets it pause itself,
+so it sends a note to :func:`trio.run` requesting to be
 woken again after 1 second, and then suspends the task. And once the
 task is suspended, Python gives control back to :func:`trio.run`,
 which decides what to do next. (If this sounds similar to the way that
@@ -622,7 +622,7 @@ between the implementation of generators and async functions.)
 
 Only async functions have access to the special magic for suspending a
 task, so only async functions can cause the program to switch to a
-different task. What this means if a call *doesn't* have an ``await``
+different task. What this means is that if a call *doesn't* have an ``await``
 on it, then you know that it *can't* be a place where your task will
 be suspended. This makes tasks much `easier to reason about
 <https://glyph.twistedmatrix.com/2014/02/unyielding.html>`__ than
@@ -639,7 +639,7 @@ wouldn't have been able to pause at the end and wait for the children
 to finish; we need our cleanup function to be async, which is exactly
 what ``async with`` gives us.
 
-Now, back to our execution trace. To recap: at this point ``parent``
+Now, back to our execution point. To recap: at this point ``parent``
 is waiting on ``child1`` and ``child2``, and both children are
 sleeping. So :func:`trio.run` checks its notes, and sees that there's
 nothing to be done until those sleeps finish – unless possibly some
@@ -774,7 +774,7 @@ above, it's baked into Trio's design that when it has multiple tasks,
 they take turns, so at each moment only one of them is actively running.
 We're not so much overcoming the GIL as embracing it. But if you're
 willing to accept that, plus a bit of extra work to put these new
-``async`` and ``await`` keywords in the right places, then in exchange 
+``async`` and ``await`` keywords in the right places, then in exchange
 you get:
 
 * Excellent scalability: Trio can run 10,000+ tasks simultaneously
@@ -836,8 +836,8 @@ Networking with Trio
 Now let's take what we've learned and use it to do some I/O, which is
 where async/await really shines.
 
-The traditional toy application for demonstrating network APIs is an 
-"echo server": a program that awaits arbitrary data from  remote clients, 
+The traditional toy application for demonstrating network APIs is an
+"echo server": a program that awaits arbitrary data from  remote clients,
 and then sends that same data right back. (Probably a more relevant example
 these days would be an application that does lots of concurrent HTTP
 requests, but for that `you need an HTTP library
@@ -845,9 +845,9 @@ requests, but for that `you need an HTTP library
 such as `asks <https://asks.readthedocs.io>`__, so we'll stick
 with the echo server tradition.)
 
-In this tutorial, we present both ends of the pipe: the client, and the 
-server. The client periodically sends data to the server, and displays its 
-answers. The server awaits connections; when a client connects, it recopies 
+In this tutorial, we present both ends of the pipe: the client, and the
+server. The client periodically sends data to the server, and displays its
+answers. The server awaits connections; when a client connects, it recopies
 the received data back on the pipe.
 
 
@@ -1092,7 +1092,7 @@ up, and ``send_all`` will block until the remote side calls
 
 Now let's think about this from the server's point of view. Each time
 it calls ``receive_some``, it gets some data that it needs to send
-back. And until it sends it back, the data is sitting around takes up
+back. And until it sends it back, the data that is sitting around takes up
 memory. Computers have finite amounts of RAM, so if our server is well
 behaved then at some point it needs to stop calling ``receive_some``
 until it gets rid of some of the old data by doing its own call to

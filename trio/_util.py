@@ -14,8 +14,6 @@ import collections
 
 from async_generator import isasyncgen
 
-from ._deprecate import warn_deprecated
-
 import trio
 
 # Equivalent to the C function raise(), which Python doesn't wrap

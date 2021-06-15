@@ -6,6 +6,7 @@ import sys
 from typing import TYPE_CHECKING
 
 import attr
+from outcome import Value
 
 from .. import _core
 from ._run import _public
@@ -343,6 +344,24 @@ class AFDPollOp:
     lpOverlapped = attr.ib()
     poll_info = attr.ib()
     waiters = attr.ib()
+    afd_group = attr.ib()
+
+
+# The Windows kernel has a weird issue when using AFD handles. If you have N
+# instances of wait_readable/wait_writable registered with a single AFD handle,
+# then cancelling any one of them takes something like O(N**2) time. So if we
+# used just a single AFD handle, then cancellation would quickly become very
+# expensive, e.g. a program with N active sockets would take something like
+# O(N**3) time to unwind after control-C. The solution is to spread our sockets
+# out over multiple AFD handles, so that N doesn't grow too large for any
+# individual handle.
+MAX_AFD_GROUP_SIZE = 500  # at 1000, the cubic scaling is just starting to bite
+
+
+@attr.s(slots=True, eq=False)
+class AFDGroup:
+    size = attr.ib()
+    handle = attr.ib()
 
 
 @attr.s(slots=True, eq=False, frozen=True)
@@ -374,15 +393,14 @@ class WindowsIOManager:
         # touches to safe values up front, before we do anything that can
         # fail.
         self._iocp = None
-        self._afd = None
+        self._all_afd_handles = []
 
         self._iocp = _check(
             kernel32.CreateIoCompletionPort(INVALID_HANDLE_VALUE, ffi.NULL, 0, 0)
         )
         self._events = ffi.new("OVERLAPPED_ENTRY[]", MAX_EVENTS)
 
-        self._afd = _afd_helper_handle()
-        self._register_with_iocp(self._afd, CKeys.AFD_POLL)
+        self._vacant_afd_groups = set()
         # {lpOverlapped: AFDPollOp}
         self._afd_ops = {}
         # {socket handle: AFDWaiters}
@@ -439,10 +457,9 @@ class WindowsIOManager:
                 self._iocp = None
                 _check(kernel32.CloseHandle(iocp))
         finally:
-            if self._afd is not None:
-                afd = self._afd
-                self._afd = None
-                _check(kernel32.CloseHandle(afd))
+            while self._all_afd_handles:
+                afd_handle = self._all_afd_handles.pop()
+                _check(kernel32.CloseHandle(afd_handle))
 
     def __del__(self):
         self.close()
@@ -514,7 +531,12 @@ class WindowsIOManager:
             elif entry.lpCompletionKey == CKeys.WAIT_OVERLAPPED:
                 # Regular I/O event, dispatch on lpOverlapped
                 waiter = self._overlapped_waiters.pop(entry.lpOverlapped)
-                _core.reschedule(waiter)
+                overlapped = entry.lpOverlapped
+                transferred = entry.dwNumberOfBytesTransferred
+                info = CompletionKeyEventInfo(
+                    lpOverlapped=overlapped, dwNumberOfBytesTransferred=transferred
+                )
+                _core.reschedule(waiter, Value(info))
             elif entry.lpCompletionKey == CKeys.LATE_CANCEL:
                 # Post made by a regular I/O event's abort_fn
                 # after it failed to cancel the I/O. If we still
@@ -581,14 +603,21 @@ class WindowsIOManager:
     def _refresh_afd(self, base_handle):
         waiters = self._afd_waiters[base_handle]
         if waiters.current_op is not None:
+            afd_group = waiters.current_op.afd_group
             try:
-                _check(kernel32.CancelIoEx(self._afd, waiters.current_op.lpOverlapped))
+                _check(
+                    kernel32.CancelIoEx(
+                        afd_group.handle, waiters.current_op.lpOverlapped
+                    )
+                )
             except OSError as exc:
                 if exc.winerror != ErrorCodes.ERROR_NOT_FOUND:
                     # I don't think this is possible, so if it happens let's
                     # crash noisily.
                     raise  # pragma: no cover
             waiters.current_op = None
+            afd_group.size -= 1
+            self._vacant_afd_groups.add(afd_group)
 
         flags = 0
         if waiters.read_task is not None:
@@ -599,6 +628,14 @@ class WindowsIOManager:
         if not flags:
             del self._afd_waiters[base_handle]
         else:
+            try:
+                afd_group = self._vacant_afd_groups.pop()
+            except KeyError:
+                afd_group = AFDGroup(0, _afd_helper_handle())
+                self._register_with_iocp(afd_group.handle, CKeys.AFD_POLL)
+                self._all_afd_handles.append(afd_group.handle)
+            self._vacant_afd_groups.add(afd_group)
+
             lpOverlapped = ffi.new("LPOVERLAPPED")
 
             poll_info = ffi.new("AFD_POLL_INFO *")
@@ -612,7 +649,7 @@ class WindowsIOManager:
             try:
                 _check(
                     kernel32.DeviceIoControl(
-                        self._afd,
+                        afd_group.handle,
                         IoControlCodes.IOCTL_AFD_POLL,
                         poll_info,
                         ffi.sizeof("AFD_POLL_INFO"),
@@ -632,9 +669,12 @@ class WindowsIOManager:
                     # Do this last, because it could raise.
                     wake_all(waiters, exc)
                     return
-            op = AFDPollOp(lpOverlapped, poll_info, waiters)
+            op = AFDPollOp(lpOverlapped, poll_info, waiters, afd_group)
             waiters.current_op = op
             self._afd_ops[lpOverlapped] = op
+            afd_group.size += 1
+            if afd_group.size >= MAX_AFD_GROUP_SIZE:
+                self._vacant_afd_groups.remove(afd_group)
 
     async def _afd_poll(self, sock, mode):
         base_handle = _get_base_socket(sock)
@@ -728,7 +768,7 @@ class WindowsIOManager:
                     ) from exc
             return _core.Abort.FAILED
 
-        await _core.wait_task_rescheduled(abort)
+        info = await _core.wait_task_rescheduled(abort)
         if lpOverlapped.Internal != 0:
             # the lpOverlapped reports the error as an NT status code,
             # which we must convert back to a Win32 error code before
@@ -744,6 +784,7 @@ class WindowsIOManager:
                     raise _core.ClosedResourceError("another task closed this resource")
             else:
                 raise_winerror(code)
+        return info
 
     async def _perform_overlapped(self, handle, submit_fn):
         # submit_fn(lpOverlapped) submits some I/O

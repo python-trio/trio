@@ -159,7 +159,6 @@ from .abc import Stream, Listener
 from ._highlevel_generic import aclose_forcefully
 from . import _sync
 from ._util import ConflictDetector, Final
-from ._deprecate import warn_deprecated
 
 ################################################################
 # SSLStream
@@ -328,12 +327,9 @@ class SSLStream(Stream, metaclass=Final):
         server_hostname=None,
         server_side=False,
         https_compatible=False,
-        max_refill_bytes="unused and deprecated",
     ):
         self.transport_stream = transport_stream
         self._state = _State.OK
-        if max_refill_bytes != "unused and deprecated":
-            warn_deprecated("max_refill_bytes=...", "0.12.0", issue=959, instead=None)
         self._https_compatible = https_compatible
         self._outgoing = _stdlib_ssl.MemoryBIO()
         self._delayed_outgoing = None
@@ -613,7 +609,7 @@ class SSLStream(Stream, metaclass=Final):
         certificates, select cryptographic keys, and so forth, before any
         actual data can be sent or received. You don't have to call this
         method; if you don't, then :class:`SSLStream` will automatically
-        peform the handshake as needed, the first time you try to send or
+        perform the handshake as needed, the first time you try to send or
         receive data. But if you want to trigger it manually – for example,
         because you want to look at the peer's certificate before you start
         talking to them – then you can call this method.
@@ -898,10 +894,7 @@ class SSLListener(Listener[SSLStream], metaclass=Final):
         ssl_context,
         *,
         https_compatible=False,
-        max_refill_bytes="unused and deprecated",
     ):
-        if max_refill_bytes != "unused and deprecated":
-            warn_deprecated("max_refill_bytes=...", "0.12.0", issue=959, instead=None)
         self.transport_listener = transport_listener
         self._ssl_context = ssl_context
         self._https_compatible = https_compatible
