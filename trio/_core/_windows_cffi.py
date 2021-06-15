@@ -53,9 +53,6 @@ typedef struct _OVERLAPPED_ENTRY {
     DWORD dwNumberOfBytesTransferred;
 } OVERLAPPED_ENTRY, *LPOVERLAPPED_ENTRY;
 
-typedef VOID (__stdcall * WAITORTIMERCALLBACKFUNC) (PVOID, BOOLEAN );
-typedef WAITORTIMERCALLBACKFUNC WAITORTIMERCALLBACK;
-
 // kernel32.dll
 HANDLE WINAPI CreateIoCompletionPort(
   _In_     HANDLE    FileHandle,
@@ -138,19 +135,6 @@ BOOL SetEvent(
 
 BOOL ResetEvent(
   HANDLE hEvent
-);
-
-BOOL UnregisterWait(
-  HANDLE WaitHandle
-);
-
-BOOL RegisterWaitForSingleObject(
-  PHANDLE             phNewWaitObject,
-  HANDLE              hObject,
-  WAITORTIMERCALLBACK Callback,
-  PVOID               Context,
-  ULONG               dwMilliseconds,
-  ULONG               dwFlags
 );
 
 DWORD WaitForSingleObject(
@@ -310,13 +294,6 @@ class CompletionModes(enum.IntFlag):
 
 class IoControlCodes(enum.IntEnum):
     IOCTL_AFD_POLL = 0x00012024
-
-
-class WaitFlags(enum.IntFlag):
-    WT_EXECUTEDEFAULT = 0x00000000
-    WT_EXECUTEINWAITTHREAD = 0x00000004
-    WT_EXECUTELONGFUNCTION = 0x00000010
-    WT_EXECUTEONLYONCE = 0x00000008
 
 
 ################################################################
