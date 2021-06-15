@@ -39,6 +39,7 @@ def WaitForMultipleObjects_sync(*handles):
 
 class WaitPool:
     def __init__(self, lock):
+        """Only call methods after acquiring the lock"""
         self._handle_map = {}
         self._size_sorted_wait_groups = SortedKeyList(key=len)
         self.lock = lock
@@ -83,18 +84,21 @@ class WaitPool:
             # need a wake to make sure this thread exits promptly
             wait_group.wake()
 
-    def remove_and_execute_callbacks(self, handle):
+    def execute_callbacks(self, handle):
+        # also discards our internal reference to the handle
         for callback in self._handle_map.pop(handle)[0]:
             callback()
 
     @contextlib.contextmanager
     def mutating(self, wait_group):
-        # if SortedKeyList has many equal values, remove() performance degrades
-        # from O(log(n)) to O(n), so we don't keep full groups inside
+        # SortedKeyList can't cope with mutating keys, so
+        # remove and re-add to maintain sort order
         self._size_sorted_wait_groups.discard(wait_group)
         try:
             yield
         finally:
+            # if SortedKeyList has many equal values, remove() performance degrades
+            # from O(log(n)) to O(n), so we don't keep full or empty groups inside
             if 1 < len(wait_group) < MAXIMUM_WAIT_OBJECTS:
                 self._size_sorted_wait_groups.add(wait_group)
 
@@ -104,6 +108,8 @@ WAIT_POOL = WaitPool(threading.Lock())
 
 class WaitGroup:
     def __init__(self):
+        """Only to be used from within WaitPool"""
+        # maintain a wake handle at index 0
         self._wait_handles = [kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)]
         trio_token = _core.current_trio_token()
 
@@ -138,7 +144,7 @@ class WaitGroup:
         # This with block prevents a race with the spawning thread on init
         with WAIT_POOL.lock:
             handles = self._wait_handles.copy()
-        while len(handles) - 1:
+        while len(handles) - 1:  # quit thread when only wake handle remains
             signaled_handle = WaitForMultipleObjects_sync(*handles)
             with WAIT_POOL.lock:
                 if signaled_handle is self._wait_handles[0]:
@@ -147,7 +153,7 @@ class WaitGroup:
                 elif signaled_handle in WAIT_POOL:
                     with WAIT_POOL.mutating(self):
                         self._wait_handles.remove(signaled_handle)
-                    WAIT_POOL.remove_and_execute_callbacks(signaled_handle)
+                    WAIT_POOL.execute_callbacks(signaled_handle)
                 else:  # pragma: no cover
                     # Extremely rare race condition where a handle is signaled just
                     # before it is removed from the pool
