@@ -173,7 +173,7 @@ async def WaitForSingleObject(obj):
     reschedule_in_flight = [False]
 
     def wakeup():
-        if reschedule_in_flight[0]:
+        if reschedule_in_flight[0]:  # pragma: no cover
             raise RuntimeError("Extra wakeup occurred on this task")
         reschedule_in_flight[0] = True
         try:
@@ -193,7 +193,7 @@ async def WaitForSingleObject(obj):
             try:
                 WAIT_POOL.remove(handle, wakeup)
             except KeyError:  # pragma: no cover
-                raise RuntimeError(f"Extra cancel occurred on this task or handle")
+                raise RuntimeError("Extra cancel occurred on this task or handle")
             else:
                 return _core.Abort.SUCCEEDED
 
