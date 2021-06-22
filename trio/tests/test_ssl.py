@@ -80,7 +80,10 @@ def client_ctx(request):
     if request.param in ["default", "tls13"]:
         return ctx
     elif request.param == "tls12":
-        ctx.options |= ssl.OP_NO_TLSv1_3
+        if sys.version_info >= (3, 7):
+            ctx.maximum_version = ssl.TLSVersion.TLSv1_2
+        else:
+            ctx.options |= ssl.OP_NO_TLSv1_3
         return ctx
     else:  # pragma: no cover
         assert False
@@ -1200,7 +1203,8 @@ async def test_selected_npn_protocol_before_handshake(client_ctx):
 
 
 @pytest.mark.filterwarnings(
-    r"ignore: ssl module. NPN is deprecated, use ALPN instead:UserWarning"
+    r"ignore: ssl module. NPN is deprecated, use ALPN instead:UserWarning",
+    r"ignore:ssl NPN is deprecated, use ALPN instead:DeprecationWarning",
 )
 async def test_selected_npn_protocol_when_not_set(client_ctx):
     # NPN protocol still returns None when it's not set,
