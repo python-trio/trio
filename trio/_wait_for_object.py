@@ -38,11 +38,14 @@ def WaitForMultipleObjects_sync(*handles):
 
 
 class WaitPool:
-    def __init__(self, lock):
-        """Only call methods after acquiring the lock"""
+    """A pool of threads and handles that need waiting.
+
+    Only call methods after acquiring the lock!
+    """
+    def __init__(self):
         self._handle_map = {}
         self._size_sorted_wait_groups = SortedKeyList(key=len)
-        self.lock = lock
+        self.lock = threading.Lock()
 
     def __contains__(self, item):
         return item in self._handle_map
@@ -59,24 +62,21 @@ class WaitPool:
             # pool is empty or every group is full
             wait_group = spawn_wait_group()
         else:
+            # need a wake to make sure the group waits on the handle ASAP
             kernel32.SetEvent(wait_group[0])
 
         self._handle_map[handle] = ({callback}, wait_group)
-
         with self.mutating(wait_group):
             wait_group.append(handle)
 
     def remove(self, handle, callback):
         callbacks, wait_group = self._handle_map[handle]
-
         callbacks.remove(callback)
-
         if callbacks:
             # no cleanup or thread interaction needed
             return
 
         del self._handle_map[handle]
-
         with self.mutating(wait_group):
             wait_group.remove(handle)
 
@@ -103,23 +103,22 @@ class WaitPool:
                 self._size_sorted_wait_groups.add(wait_group)
 
 
-WAIT_POOL = WaitPool(threading.Lock())
+WAIT_POOL = WaitPool()
 
 
 def spawn_wait_group():
     """Only to be used within WaitPool"""
-    # maintain a wake handle at index 0
-    wait_group = [kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)]
     trio_token = _core.current_trio_token()
+    # maintain a wake handle at index 0, initially the event is SET
+    wait_group = [kernel32.CreateEventA(ffi.NULL, True, True, ffi.NULL)]
 
-    def drain_as_completed():
-        # This with block prevents a race with the spawning thread on init
-        with WAIT_POOL.lock:
-            n_handles = len(wait_group) - 1
-        while n_handles:  # quit thread when only wake handle remains
+    def remove_as_signaled():
+        n_handles = 2
+        while n_handles > 1:  # quit thread when only wake handle remains
             signaled_handle = WaitForMultipleObjects_sync(*wait_group)
             with WAIT_POOL.lock:
                 if signaled_handle is wait_group[0]:
+                    # A handle has been added or removed from this group
                     # Reset is OK here because only this thread waits on the event
                     kernel32.ResetEvent(wait_group[0])
                 elif signaled_handle in WAIT_POOL:  # pragma: no branch
@@ -130,20 +129,20 @@ def spawn_wait_group():
                         wait_group.remove(signaled_handle)
                     WAIT_POOL.execute_callbacks(signaled_handle)
                 # calculate this while holding the lock
-                n_handles = len(wait_group) - 1
+                n_handles = len(wait_group)
 
     def deliver(outcome):
         # if the process exits before this group's daemon thread, this won't be
         # called, but in that case the OS will clean up our handle for us
         kernel32.CloseHandle(wait_group[0])
-        # blow up trio if the thread raises so we get a traceback
+        # blow up trio if the thread raises so that we get a traceback
         try:
             trio_token.run_sync_soon(outcome.unwrap)
         except _core.RunFinishedError:  # pragma: no cover
             # if trio is already gone, here is better than nowhere
             outcome.unwrap()
 
-    _core.start_thread_soon(drain_as_completed, deliver)
+    _core.start_thread_soon(remove_as_signaled, deliver)
     return wait_group
 
 
