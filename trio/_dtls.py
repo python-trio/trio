@@ -667,6 +667,12 @@ class DTLSStream(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         self._mtu = 1472  # XX
         self._client_hello = None
         self._did_handshake = False
+        # These are mandatory for all DTLS connections. OP_NO_QUERY_MTU is required to
+        # stop openssl from trying to query the memory BIO's MTU and then breaking, and
+        # OP_NO_RENEGOTIATION disables renegotiation, which is too complex for us to
+        # support and isn't useful anyway -- especially for DTLS where it's equivalent
+        # to just performing a new handshake.
+        ctx.set_options(SSL.OP_NO_QUERY_MTU | SSL.OP_NO_RENEGOTIATION)
         self._ssl = SSL.Connection(ctx)
         # Arbitrary b/c we repack messages anyway, but has to be set
         self._ssl.set_ciphertext_mtu(1500)

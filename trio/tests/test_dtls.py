@@ -13,10 +13,6 @@ server_cert.configure_cert(server_ctx)
 client_ctx = SSL.Context(SSL.DTLS_METHOD)
 ca.configure_trust(client_ctx)
 
-# XX this should be handled in the real code
-server_ctx.set_options(SSL.OP_NO_QUERY_MTU | SSL.OP_NO_RENEGOTIATION)
-client_ctx.set_options(SSL.OP_NO_QUERY_MTU | SSL.OP_NO_RENEGOTIATION)
-
 async def test_smoke():
     server_sock = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
     with server_sock:
