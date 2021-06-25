@@ -20,6 +20,24 @@ from trio._util import NoPublicConstructor
 
 MAX_UDP_PACKET_SIZE = 65527
 
+def packet_header_overhead(sock):
+    if sock.family == trio.socket.AF_INET:
+        return 28
+    else:
+        return 48
+
+
+def worst_case_mtu(sock):
+    if sock.family == trio.socket.AF_INET:
+        return 576 - packet_header_overhead(sock)
+    else:
+        return 1280 - packet_header_overhead(sock)
+
+
+def best_guess_mtu(sock):
+    return 1500 - packet_header_overhead(sock)
+
+
 # There are a bunch of different RFCs that define these codes, so for a
 # comprehensive collection look here:
 # https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml
@@ -620,13 +638,16 @@ async def dtls_receive_loop(dtls):
         except trio.ClosedResourceError:
             return
         except OSError as exc:
-            # XX need to handle this better
-            # https://bobobobo.wordpress.com/2009/05/17/udp-an-existing-connection-was-forcibly-closed-by-the-remote-host/
-            dtls = dtls_ref()
-            if dtls is None:
+            if exc.errno in (errno.EBADF, errno.ENOTSOCK):
+                # Socket was closed
                 return
-            dtls._break(exc)
-            return
+            else:
+                # Some weird error, e.g. apparently some versions of Windows can do
+                # ECONNRESET here to report that some previous UDP packet got an ICMP
+                # Port Unreachable:
+                #   https://bobobobo.wordpress.com/2009/05/17/udp-an-existing-connection-was-forcibly-closed-by-the-remote-host/
+                # We'll assume that whatever it is, it's a transient problem.
+                continue
         dtls = dtls_ref()
         try:
             if dtls is None:
@@ -664,7 +685,6 @@ class DTLSStream(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         self.dtls = dtls
         self.peer_address = peer_address
         self.packets_dropped_in_trio = 0
-        self._mtu = 1472  # XX
         self._client_hello = None
         self._did_handshake = False
         # These are mandatory for all DTLS connections. OP_NO_QUERY_MTU is required to
@@ -674,8 +694,10 @@ class DTLSStream(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         # to just performing a new handshake.
         ctx.set_options(SSL.OP_NO_QUERY_MTU | SSL.OP_NO_RENEGOTIATION)
         self._ssl = SSL.Connection(ctx)
-        # Arbitrary b/c we repack messages anyway, but has to be set
-        self._ssl.set_ciphertext_mtu(1500)
+        self._mtu = None
+        # This calls self._ssl.set_ciphertext_mtu, which is important, because if you
+        # don't call it then openssl doesn't work.
+        self.set_ciphertext_mtu(best_guess_mtu(self.dtls.socket))
         self._replaced = False
         self._closed = False
         self._q = _Queue(dtls.incoming_packets_buffer)
@@ -692,9 +714,19 @@ class DTLSStream(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         if self._replaced:
             raise BrokenResourceError("peer tore down this connection to start a new one")
 
-    # XX expose knobs and queries for MTU information
+    def set_ciphertext_mtu(self, new_mtu):
+        self._mtu = new_mtu
+        self._ssl.set_ciphertext_mtu(new_mtu)
+
+    def get_cleartext_mtu(self):
+        return self._ssl.get_cleartext_mtu()
+
     # XX on systems where we can (maybe just Linux?) take advantage of the kernel's PMTU
     # estimate
+
+    # XX should we send close-notify when closing? It seems particularly pointless for
+    # DTLS where packets are all independent and can be lost anyway. We do at least need
+    # to handle receiving it properly though, which might be easier if we send it...
 
     def close(self):
         if self._closed:
@@ -729,9 +761,6 @@ class DTLSStream(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
 
     async def _send_volley(self, volley_messages):
         packets = self._record_encoder.encode_volley(volley_messages, self._mtu)
-        # XX debug
-        # decoded = decode_volley_trusted(b"".join(packets))
-        # assert decoded == volley_messages
         for packet in packets:
             async with self.dtls._send_lock:
                 await self.dtls.socket.sendto(packet, self.peer_address)
@@ -739,19 +768,15 @@ class DTLSStream(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
     async def _resend_final_volley(self):
         await self._send_volley(self._final_volley)
 
-    async def do_handshake(self):
+    async def do_handshake(self, *, initial_retransmit_timeout=1.0):
         async with self._handshake_lock:
             if self._did_handshake:
                 return
-            # If we're a client, we send the initial volley. If we're a server, then
-            # the initial ClientHello has already been inserted into self._ssl's
-            # read BIO. So either way, we start by generating a new volley.
-            try:
-                self._ssl.do_handshake()
-            except SSL.WantReadError:
-                pass
 
+            timeout = initial_retransmit_timeout
             volley_messages = []
+            volley_failed_sends = 0
+
             def read_volley():
                 volley_bytes = _read_loop(self._ssl.bio_read)
                 new_volley_messages = decode_volley_trusted(volley_bytes)
@@ -759,22 +784,31 @@ class DTLSStream(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                     new_volley_messages and volley_messages and
                     new_volley_messages[0].msg_seq == volley_messages[0].msg_seq
                 ):
-                    # openssl decided to retransmit; discard because we'll handle this
-                    # ourselves
+                    # openssl decided to retransmit; discard because we handle
+                    # retransmits ourselves
                     return []
                 else:
                     return new_volley_messages
 
+            # If we're a client, we send the initial volley. If we're a server, then
+            # the initial ClientHello has already been inserted into self._ssl's
+            # read BIO. So either way, we start by generating a new volley.
+            try:
+                self._ssl.do_handshake()
+            except SSL.WantReadError:
+                pass
             volley_messages = read_volley()
             # If we don't have messages to send in our initial volley, then something
             # has gone very wrong. (I'm not sure this can actually happen without an
-            # error from OpenSSL, but let's cover our bases.)
+            # error from OpenSSL, but we check just in case.)
             if not volley_messages:
                 raise SSL.Error("something wrong with peer's ClientHello")
 
             while True:
+                # -- at this point, we need to either send or re-send a volley --
                 assert volley_messages
                 await self._send_volley(volley_messages)
+                # -- then this is where we wait for a reply --
                 with trio.move_on_after(10) as cscope:
                     async for packet in self._q.r:
                         self._ssl.bio_write(packet)
@@ -786,7 +820,8 @@ class DTLSStream(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                             # No exception -> the handshake is done, and we can
                             # switch into data transfer mode.
                             self._did_handshake = True
-                            # Might be empty, but that's ok
+                            # Might be empty, but that's ok -- we'll just send no
+                            # packets.
                             self._final_volley = read_volley()
                             await self._send_volley(self._final_volley)
                             return
@@ -796,14 +831,27 @@ class DTLSStream(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                             # new one ourselves! break out of the 'for' loop and restart
                             # the timer.
                             volley_messages = maybe_volley
+                            # "Implementations SHOULD retain the current timer value
+                            # until a transmission without loss occurs, at which time
+                            # the value may be reset to the initial value."
+                            if volley_failed_sends == 0:
+                                timeout = initial_retransmit_timeout
+                            volley_failed_sends = 0
                             break
                     else:
                         assert self._replaced
                         self._check_replaced()
                 if cscope.cancelled_caught:
-                    # timeout expired, adjust timeout/mtu
-                    # Good guidance here: https://tlswg.org/dtls13-spec/draft-ietf-tls-dtls13.html#name-timer-values
-                    XX
+                    # Timeout expired. Double timeout for backoff, with a limit of 60
+                    # seconds (this matches what openssl does, and also the
+                    # recommendation in draft-ietf-tls-dtls13).
+                    timeout = min(2 * timeout, 60.0)
+                    volley_failed_sends += 1
+                    if volley_failed_sends == 2:
+                        # We tried sending this twice and they both failed. Maybe our
+                        # PMTU estimate is wrong? Let's try dropping it to the minimum
+                        # and hope that helps.
+                        self.set_ciphertext_mtu(min(self._mtu, worst_case_mtu(self.dtls.socket)))
 
     async def send(self, data):
         if self._closed:
