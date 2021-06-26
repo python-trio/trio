@@ -20,6 +20,7 @@ from trio._util import NoPublicConstructor
 
 MAX_UDP_PACKET_SIZE = 65527
 
+
 def packet_header_overhead(sock):
     if sock.family == trio.socket.AF_INET:
         return 28
@@ -78,7 +79,7 @@ class ProtocolVersion:
     DTLS12 = bytes([254, 253])
 
 
-EPOCH_MASK = 0xffff << (6 * 8)
+EPOCH_MASK = 0xFFFF << (6 * 8)
 
 
 # Conventions:
@@ -151,10 +152,7 @@ def records_untrusted(packet):
 
 def encode_record(record):
     header = RECORD_HEADER.pack(
-        record.content_type,
-        record.version,
-        record.epoch_seqno,
-        len(record.payload),
+        record.content_type, record.version, record.epoch_seqno, len(record.payload),
     )
     return header + record.payload
 
@@ -195,17 +193,10 @@ def decode_handshake_fragment_untrusted(payload):
     msg_len = int.from_bytes(msg_len_bytes, "big")
     frag_offset = int.from_bytes(frag_offset_bytes, "big")
     frag_len = int.from_bytes(frag_len_bytes, "big")
-    frag = payload[HANDSHAKE_MESSAGE_HEADER.size:]
+    frag = payload[HANDSHAKE_MESSAGE_HEADER.size :]
     if len(frag) != frag_len:
         raise BadPacket("handshake fragment length doesn't match record length")
-    return HandshakeFragment(
-        msg_type,
-        msg_len,
-        msg_seq,
-        frag_offset,
-        frag_len,
-        frag,
-    )
+    return HandshakeFragment(msg_type, msg_len, msg_seq, frag_offset, frag_len, frag,)
 
 
 def encode_handshake_fragment(hsf):
@@ -330,7 +321,9 @@ def decode_volley_trusted(volley):
             messages.append(OpaqueHandshakeMessage(record))
         elif record.content_type == ContentType.change_cipher_spec:
             messages.append(
-                PseudoHandshakeMessage(record.version, record.content_type, record.payload)
+                PseudoHandshakeMessage(
+                    record.version, record.content_type, record.payload
+                )
             )
         else:
             assert record.content_type == ContentType.handshake
@@ -338,7 +331,10 @@ def decode_volley_trusted(volley):
             msg_type = HandshakeType(fragment.msg_type)
             if fragment.msg_seq not in messages_by_seq:
                 msg = HandshakeMessage(
-                    record.version, msg_type, fragment.msg_seq, bytearray(fragment.msg_len)
+                    record.version,
+                    msg_type,
+                    fragment.msg_seq,
+                    bytearray(fragment.msg_len),
                 )
                 messages.append(msg)
                 messages_by_seq[fragment.msg_seq] = msg
@@ -348,7 +344,9 @@ def decode_volley_trusted(volley):
             assert msg.msg_seq == fragment.msg_seq
             assert len(msg.body) == fragment.msg_len
 
-            msg.body[fragment.frag_offset : fragment.frag_offset + fragment.frag_len] = fragment.frag
+            msg.body[
+                fragment.frag_offset : fragment.frag_offset + fragment.frag_len
+            ] = fragment.frag
 
     return messages
 
@@ -391,12 +389,17 @@ class RecordEncoder:
                 # If message.body is empty, then we still want to encode it in one
                 # fragment, not zero.
                 while frag_offset < len(message.body) or not frags_encoded:
-                    space = mtu - len(packet) - RECORD_HEADER.size - HANDSHAKE_MESSAGE_HEADER.size
+                    space = (
+                        mtu
+                        - len(packet)
+                        - RECORD_HEADER.size
+                        - HANDSHAKE_MESSAGE_HEADER.size
+                    )
                     if space <= 0:
                         packets.append(packet)
                         packet = bytearray()
                         continue
-                    frag = message.body[frag_offset:frag_offset + space]
+                    frag = message.body[frag_offset : frag_offset + space]
                     frag_offset_bytes = frag_offset.to_bytes(3, "big")
                     frag_len_bytes = len(frag).to_bytes(3, "big")
                     frag_offset += len(frag)
@@ -527,9 +530,8 @@ def valid_cookie(cookie, address, client_hello_bits):
 
         # I doubt using a short-circuiting 'or' here would leak any meaningful
         # information, but why risk it when '|' is just as easy.
-        return (
-            hmac.compare_digest(cookie, cur_cookie)
-            | hmac.compare_digest(cookie, old_cookie)
+        return hmac.compare_digest(cookie, cur_cookie) | hmac.compare_digest(
+            cookie, old_cookie
         )
     else:
         return False
@@ -569,8 +571,9 @@ def challenge_for(address, epoch_seqno, client_hello_bits):
     )
     payload = encode_handshake_fragment(hs)
 
-    packet = encode_record(Record(ContentType.handshake,
-                                  ProtocolVersion.DTLS10, epoch_seqno, payload))
+    packet = encode_record(
+        Record(ContentType.handshake, ProtocolVersion.DTLS10, epoch_seqno, payload)
+    )
     return packet
 
 
@@ -712,7 +715,9 @@ class DTLSStream(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
 
     def _check_replaced(self):
         if self._replaced:
-            raise BrokenResourceError("peer tore down this connection to start a new one")
+            raise BrokenResourceError(
+                "peer tore down this connection to start a new one"
+            )
 
     def set_ciphertext_mtu(self, new_mtu):
         self._mtu = new_mtu
@@ -781,8 +786,9 @@ class DTLSStream(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                 volley_bytes = _read_loop(self._ssl.bio_read)
                 new_volley_messages = decode_volley_trusted(volley_bytes)
                 if (
-                    new_volley_messages and volley_messages and
-                    new_volley_messages[0].msg_seq == volley_messages[0].msg_seq
+                    new_volley_messages
+                    and volley_messages
+                    and new_volley_messages[0].msg_seq == volley_messages[0].msg_seq
                 ):
                     # openssl decided to retransmit; discard because we handle
                     # retransmits ourselves
@@ -851,7 +857,9 @@ class DTLSStream(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                         # We tried sending this twice and they both failed. Maybe our
                         # PMTU estimate is wrong? Let's try dropping it to the minimum
                         # and hope that helps.
-                        self.set_ciphertext_mtu(min(self._mtu, worst_case_mtu(self.dtls.socket)))
+                        self.set_ciphertext_mtu(
+                            min(self._mtu, worst_case_mtu(self.dtls.socket))
+                        )
 
     async def send(self, data):
         if self._closed:
@@ -861,7 +869,9 @@ class DTLSStream(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         self._check_replaced()
         self._ssl.write(data)
         async with self.dtls._send_lock:
-            await self.dtls.socket.sendto(_read_loop(self._ssl.bio_read), self.peer_address)
+            await self.dtls.socket.sendto(
+                _read_loop(self._ssl.bio_read), self.peer_address
+            )
 
     async def receive(self):
         if not self._did_handshake:
@@ -914,7 +924,9 @@ class DTLS:
     def __exit__(self, *args):
         self.close()
 
-    async def serve(self, ssl_context, async_fn, *args, task_status=trio.TASK_STATUS_IGNORED):
+    async def serve(
+        self, ssl_context, async_fn, *args, task_status=trio.TASK_STATUS_IGNORED
+    ):
         if self._listening_context is not None:
             raise trio.BusyResourceError("another task is already listening")
         # We do cookie verification ourselves, so tell OpenSSL not to worry about it.

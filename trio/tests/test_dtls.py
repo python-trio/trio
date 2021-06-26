@@ -13,6 +13,7 @@ server_cert.configure_cert(server_ctx)
 client_ctx = SSL.Context(SSL.DTLS_METHOD)
 ca.configure_trust(client_ctx)
 
+
 async def test_smoke():
     server_sock = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
     with server_sock:
