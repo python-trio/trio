@@ -13,7 +13,6 @@ from itertools import count
 import weakref
 
 import attr
-from OpenSSL import SSL
 
 import trio
 from trio._util import NoPublicConstructor
@@ -887,6 +886,11 @@ class DTLSStream(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
 
 class DTLS:
     def __init__(self, socket, *, incoming_packets_buffer=10):
+        # We do this lazily on first construction, so only people who actually use DTLS
+        # have to install PyOpenSSL.
+        global SSL
+        from OpenSSL import SSL
+
         if socket.type != trio.socket.SOCK_DGRAM:
             raise BadPacket("DTLS requires a SOCK_DGRAM socket")
         self.socket = socket
