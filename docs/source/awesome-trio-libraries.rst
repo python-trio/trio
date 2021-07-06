@@ -36,6 +36,7 @@ Web and HTML
 * `pyscalpel <https://scalpel.readthedocs.io/en/latest/>`__ - A fast and powerful webscraping library.
 * `muffin <https://github.com/klen/muffin>`_ - Muffin is a fast, simple ASGI web-framework
 * `asgi-tools <https://github.com/klen/asgi-tools>`_ - Tools to quickly build lightest ASGI apps (also contains a test client with lifespan, websocket support)
+* `starlette <https://github.com/encode/starlette>`_ - The little ASGI framework that shines.
 
 
 Database
@@ -96,6 +97,7 @@ Tools and Utilities
 * `tricycle <https://github.com/oremanj/tricycle>`__ - This is a library of interesting-but-maybe-not-yet-fully-proven extensions to Trio.
 * `tenacity <https://github.com/jd/tenacity>`__ - Retrying library for Python with async/await support.
 * `perf-timer <https://github.com/belm0/perf-timer>`__ - A code timer with Trio async support (see ``TrioPerfTimer``).  Collects execution time of a block of code excluding time when the coroutine isn't scheduled, such as during blocking I/O and sleep.  Also offers ``trio_perf_counter()`` for low-level timing.
+* `aiometer <https://github.com/florimondmanca/aiometer>`__ - Execute lots of tasks concurrently while controlling concurrency limits
 
 
 Trio/Asyncio Interoperability
