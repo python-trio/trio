@@ -516,7 +516,7 @@ async def run_process(
        default to:
 
        - ``check=True``, because `"errors should never pass silently / unless
-         explicitly silenced <https://www.python.org/dev/peps/pep-0020/>"`__.
+         explicitly silenced" <https://www.python.org/dev/peps/pep-0020/>`__.
 
        - ``stdin=b""``, because it produces less-confusing results if a subprocess
          unexpectedly tries to read from stdin.
