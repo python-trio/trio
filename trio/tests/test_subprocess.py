@@ -71,7 +71,7 @@ async def run_process_in_nursery(*args, **kwargs):
 background_process_param = pytest.mark.parametrize(
     "background_process",
     [open_process_then_kill, run_process_in_nursery],
-    ids=["open_process", "run_process in nursery"]
+    ids=["open_process", "run_process in nursery"],
 )
 
 
@@ -204,19 +204,19 @@ async def test_interactive(background_process):
     # err: EOF
 
     async with background_process(
-            python(
-                "idx = 0\n"
-                "while True:\n"
-                "    line = sys.stdin.readline()\n"
-                "    if line == '': break\n"
-                "    request = int(line.strip())\n"
-                "    print(str(idx * 2) * request)\n"
-                "    print(str(idx * 2 + 1) * request * 2, file=sys.stderr)\n"
-                "    idx += 1\n"
-            ),
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+        python(
+            "idx = 0\n"
+            "while True:\n"
+            "    line = sys.stdin.readline()\n"
+            "    if line == '': break\n"
+            "    request = int(line.strip())\n"
+            "    print(str(idx * 2) * request)\n"
+            "    print(str(idx * 2 + 1) * request * 2, file=sys.stderr)\n"
+            "    idx += 1\n"
+        ),
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
     ) as proc:
 
         newline = b"\n" if posix else b"\r\n"
