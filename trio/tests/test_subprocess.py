@@ -55,6 +55,7 @@ async def killing(proc):
         yield proc
     finally:
         proc.kill()
+        await proc.wait()
 
 
 async def test_basic():
@@ -67,7 +68,6 @@ async def test_basic():
 
     async with killing(await open_process(EXIT_FALSE)) as proc:
         await proc.wait()
-    await proc.wait()
     assert proc.returncode == 1
     assert repr(proc) == "<trio.Process {!r}: {}>".format(
         EXIT_FALSE, "exited with status 1"
