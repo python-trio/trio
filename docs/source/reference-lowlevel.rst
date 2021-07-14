@@ -106,6 +106,12 @@ The tutorial has a :ref:`fully-worked example
 Trio's internal scheduling decisions.
 
 
+Low-level process spawning
+==========================
+
+.. autofunction:: trio.lowlevel.open_process
+
+
 Low-level I/O primitives
 ========================
 

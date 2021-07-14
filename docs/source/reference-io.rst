@@ -697,10 +697,9 @@ task and interact with it while it's running:
       and we wanted to provide an interface with fewer surprises.
 
 If `trio.run_process` is too limiting, we also offer a low-level API,
-`trio.open_process`. For example, use `open_process` if you want to
-spawn a child process that outlives the parent process:
-
-.. autofunction:: trio.open_process
+`trio.lowlevel.open_process`. For example, use
+`~trio.lowlevel.open_process` if you want to spawn a child process
+that outlives the parent process:
 
 
 .. _subprocess-options:

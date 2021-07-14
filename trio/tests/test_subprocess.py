@@ -14,11 +14,11 @@ from .. import (
     sleep,
     sleep_forever,
     Process,
-    open_process,
     run_process,
     TrioDeprecationWarning,
     ClosedResourceError,
 )
+from ..lowlevel import open_process
 from .._core.tests.tutil import slow, skip_if_fbsd_pipes_broken
 from ..testing import wait_all_tasks_blocked
 

@@ -1,4 +1,5 @@
-The ``aclose`` method on `Process` has been deprecated, and ``async
-with process_obj`` has also been deprecated. We recommend switching to
-the new ``nursery.start(trio.run_process, ...)`` API instead, which is
-more powerful and predictable.
+``trio.open_process`` has been renamed to
+`trio.lowlevel.open_process`, and the ``aclose`` method on `Process`
+has been deprecated, along with ``async with process_obj``. We
+recommend most users switch to the new
+``nursery.start(trio.run_process, ...)`` API instead.

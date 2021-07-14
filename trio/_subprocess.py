@@ -78,9 +78,9 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
 
     If you need more control – for example, because you want to spawn a child
     process that outlives your program – then another option is to use
-    `open_process`::
+    `trio.lowlevel.open_process`::
 
-       process_object = await trio.open_process(...)
+       process_object = await trio.lowlevel.open_process(...)
 
     Attributes:
       args (str or list): The ``command`` passed at construction time,
@@ -303,6 +303,10 @@ async def open_process(
     be created for it. For example, if you pass ``stdin=subprocess.PIPE``, you
     can write to the `~Process.stdin` stream, else `~Process.stdin` will be
     ``None``.
+
+    Unlike `trio.run_process`, this function doesn't do any kind of automatic
+    management of the child process. It's up to you to implement whatever semantics you
+    want.
 
     Args:
       command (list or str): The command to run. Typically this is a
