@@ -108,7 +108,7 @@ _deprecate.enable_attribute_deprecations(__name__)
 
 __deprecated_attributes__ = {
     "open_process": _deprecate.DeprecatedAttribute(
-        value=_subprocess.open_process,
+        value=lowlevel.open_process,
         version="0.20.0",
         issue=1104,
         instead="trio.lowlevel.open_process",
