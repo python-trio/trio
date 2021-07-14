@@ -73,6 +73,7 @@ try:
         pass
 
     elif os.name == "posix":
+
         def create_pipe_to_child_stdin():  # noqa: F811
             rfd, wfd = os.pipe()
             return trio.lowlevel.FdStream(wfd), rfd
