@@ -292,17 +292,16 @@ async def open_process(
 ) -> Process:
     r"""Execute a child program in a new process.
 
-    After construction, you can interact with the child process by writing
-    data to its `~Process.stdin` stream (a `~trio.abc.SendStream`), reading
-    data from its `~Process.stdout` and/or `~Process.stderr` streams (both
-    `~trio.abc.ReceiveStream`\s), sending it signals using
-    `~Process.terminate`, `~Process.kill`, or `~Process.send_signal`, and
-    waiting for it to exit using `~Process.wait`. See `Process` for details.
+    After construction, you can interact with the child process by writing data to its
+    `~trio.Process.stdin` stream (a `~trio.abc.SendStream`), reading data from its
+    `~trio.Process.stdout` and/or `~trio.Process.stderr` streams (both
+    `~trio.abc.ReceiveStream`\s), sending it signals using `~trio.Process.terminate`,
+    `~trio.Process.kill`, or `~trio.Process.send_signal`, and waiting for it to exit
+    using `~trio.Process.wait`. See `trio.Process` for details.
 
-    Each standard stream is only available if you specify that a pipe should
-    be created for it. For example, if you pass ``stdin=subprocess.PIPE``, you
-    can write to the `~Process.stdin` stream, else `~Process.stdin` will be
-    ``None``.
+    Each standard stream is only available if you specify that a pipe should be created
+    for it. For example, if you pass ``stdin=subprocess.PIPE``, you can write to the
+    `~trio.Process.stdin` stream, else `~trio.Process.stdin` will be ``None``.
 
     Unlike `trio.run_process`, this function doesn't do any kind of automatic
     management of the child process. It's up to you to implement whatever semantics you
@@ -334,7 +333,7 @@ async def open_process(
           are also accepted.
 
     Returns:
-      A new `Process` object.
+      A new `trio.Process` object.
 
     Raises:
       OSError: if the process spawning fails, for example because the
