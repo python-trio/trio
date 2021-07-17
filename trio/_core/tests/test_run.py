@@ -2279,22 +2279,29 @@ async def test_cancel_scope_exit_doesnt_create_cyclic_garbage():
 )
 async def test_nursery_cancel_doesnt_create_cyclic_garbage():
     # https://github.com/python-trio/trio/issues/1770#issuecomment-730229423
-    gc.collect()
+    def toggle_collected():
+        nonlocal collected
+        collected = True
 
+    collected = False
+    gc.collect()
     old_flags = gc.get_debug()
     try:
         gc.set_debug(0)
         gc.collect()
         gc.set_debug(gc.DEBUG_SAVEALL)
 
+        # cover Nursery._nested_child_finished
         async with _core.open_nursery() as nursery:
             nursery.cancel_scope.cancel()
 
+        weakref.finalize(nursery, toggle_collected)
         del nursery
         # a checkpoint clears the nursery from the internals, apparently
         # TODO: stop event loop from hanging on to the nursery at this point
         await _core.checkpoint()
 
+        assert collected
         gc.collect()
         assert not gc.garbage
     finally:

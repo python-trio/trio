@@ -387,7 +387,7 @@ def test_MultiError_catch_doesnt_create_cyclic_garbage():
             return Exception()
         if isinstance(exc, KeyError):
             return RuntimeError()
-        assert False, "only ValueError and KeyError should exist"
+        assert False, "only ValueError and KeyError should exist"  # pragma: no cover
 
     try:
         gc.set_debug(gc.DEBUG_SAVEALL)
