@@ -153,6 +153,9 @@ class MultiErrorCatcher:
                 _, value, _ = sys.exc_info()
                 assert value is filtered_exc
                 value.__context__ = old_context
+                # delete references from locals to avoid creating cycles
+                # see test_MultiError_catch_doesnt_create_cyclic_garbage
+                del _, filtered_exc, value
 
 
 class MultiError(BaseException):
@@ -343,7 +346,12 @@ else:
         c_new_tb.tb_lasti = base_tb.tb_lasti
         c_new_tb.tb_lineno = base_tb.tb_lineno
 
-        return new_tb
+        try:
+            return new_tb
+        finally:
+            # delete references from locals to avoid creating cycles
+            # see test_MultiError_catch_doesnt_create_cyclic_garbage
+            del new_tb, old_tb_frame
 
 
 def concat_tb(head, tail):

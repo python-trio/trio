@@ -1,3 +1,4 @@
+import gc
 import logging
 import pytest
 
@@ -367,6 +368,38 @@ def test_MultiError_catch():
                 raise MultiError([v, distractor])
         assert excinfo.value.__context__ is context
         assert excinfo.value.__suppress_context__ == suppress_context
+
+
+@pytest.mark.skipif(
+    sys.implementation.name != "cpython", reason="Only makes sense with refcounting GC"
+)
+def test_MultiError_catch_doesnt_create_cyclic_garbage():
+    # https://github.com/python-trio/trio/pull/2063
+    gc.collect()
+    old_flags = gc.get_debug()
+
+    def make_multi():
+        # make_tree creates cycles itself, so a simple
+        raise MultiError([get_exc(raiser1), get_exc(raiser2)])
+
+    def simple_filter(exc):
+        if isinstance(exc, ValueError):
+            return Exception()
+        if isinstance(exc, KeyError):
+            return RuntimeError()
+        assert False, "only ValueError and KeyError should exist"  # pragma: no cover
+
+    try:
+        gc.set_debug(gc.DEBUG_SAVEALL)
+        with pytest.raises(MultiError):
+            # covers MultiErrorCatcher.__exit__ and _multierror.copy_tb
+            with MultiError.catch(simple_filter):
+                raise make_multi()
+        gc.collect()
+        assert not gc.garbage
+    finally:
+        gc.set_debug(old_flags)
+        gc.garbage.clear()
 
 
 def assert_match_in_seq(pattern_list, string):

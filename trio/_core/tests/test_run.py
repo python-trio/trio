@@ -2214,16 +2214,58 @@ async def test_simple_cancel_scope_usage_doesnt_create_cyclic_garbage():
             cscope.cancel()
             await sleep_forever()
 
+    async def crasher():
+        raise ValueError
+
     old_flags = gc.get_debug()
     try:
         gc.collect()
         gc.set_debug(gc.DEBUG_SAVEALL)
 
+        # cover outcome.Error.unwrap
+        # (See https://github.com/python-trio/outcome/pull/29)
         await do_a_cancel()
+        # cover outcome.Error.unwrap if unrolled_run hangs on to exception refs
+        # (See https://github.com/python-trio/trio/pull/1864)
         await do_a_cancel()
 
-        async with _core.open_nursery() as nursery:
-            nursery.start_soon(do_a_cancel)
+        with pytest.raises(ValueError):
+            async with _core.open_nursery() as nursery:
+                # cover MultiError.filter and NurseryManager.__aexit__
+                nursery.start_soon(crasher)
+
+        gc.collect()
+        assert not gc.garbage
+    finally:
+        gc.set_debug(old_flags)
+        gc.garbage.clear()
+
+
+@pytest.mark.skipif(
+    sys.implementation.name != "cpython", reason="Only makes sense with refcounting GC"
+)
+async def test_cancel_scope_exit_doesnt_create_cyclic_garbage():
+    # https://github.com/python-trio/trio/pull/2063
+    gc.collect()
+
+    async def crasher():
+        raise ValueError
+
+    old_flags = gc.get_debug()
+    try:
+
+        with pytest.raises(ValueError), _core.CancelScope() as outer:
+            async with _core.open_nursery() as nursery:
+                gc.collect()
+                gc.set_debug(gc.DEBUG_SAVEALL)
+                # One child that gets cancelled by the outer scope
+                nursery.start_soon(sleep_forever)
+                outer.cancel()
+                # And one that raises a different error
+                nursery.start_soon(crasher)
+                # so that outer filters a Cancelled from the MultiError and
+                # covers CancelScope.__exit__ (and NurseryManager.__aexit__)
+                # (See https://github.com/python-trio/trio/pull/2063)
 
         gc.collect()
         assert not gc.garbage
@@ -2237,19 +2279,31 @@ async def test_simple_cancel_scope_usage_doesnt_create_cyclic_garbage():
 )
 async def test_nursery_cancel_doesnt_create_cyclic_garbage():
     # https://github.com/python-trio/trio/issues/1770#issuecomment-730229423
-    gc.collect()
+    def toggle_collected():
+        nonlocal collected
+        collected = True
 
+    collected = False
+    gc.collect()
     old_flags = gc.get_debug()
     try:
-        for i in range(3):
-            async with _core.open_nursery() as nursery:
-                gc.collect()
-                gc.set_debug(gc.DEBUG_LEAK)
-                nursery.cancel_scope.cancel()
+        gc.set_debug(0)
+        gc.collect()
+        gc.set_debug(gc.DEBUG_SAVEALL)
 
-            gc.collect()
-            gc.set_debug(0)
-            assert not gc.garbage
+        # cover Nursery._nested_child_finished
+        async with _core.open_nursery() as nursery:
+            nursery.cancel_scope.cancel()
+
+        weakref.finalize(nursery, toggle_collected)
+        del nursery
+        # a checkpoint clears the nursery from the internals, apparently
+        # TODO: stop event loop from hanging on to the nursery at this point
+        await _core.checkpoint()
+
+        assert collected
+        gc.collect()
+        assert not gc.garbage
     finally:
         gc.set_debug(old_flags)
         gc.garbage.clear()
