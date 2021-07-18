@@ -156,16 +156,7 @@ def _ki_protection_decorator(enabled):
             @wraps(fn)
             def wrapper(*args, **kwargs):
                 locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
-                try:
-                    return fn(*args, **kwargs)
-                finally:
-                    # don't create a refcycle if an exception is passed through and
-                    # re-raised, see test_cancel_scope_exit_doesnt_create_cyclic_garbage
-                    del args, kwargs
-                    # deep magic to remove refs via f_locals
-                    locals()
-                    # TODO: check if PEP558 changes the need for this call
-                    # https://github.com/python/cpython/pull/3640
+                return fn(*args, **kwargs)
 
             return wrapper
 

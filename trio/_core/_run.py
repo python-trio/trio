@@ -528,12 +528,14 @@ class CancelScope(metaclass=Final):
             self._cancel_status = None
         return exc
 
-    @enable_ki_protection
     def __exit__(self, etype, exc, tb):
-        # locals()["@TRIO_KI_PROTECTION_ENABLED"]=True
         # NB: NurseryManager calls _close() directly rather than __exit__(),
         # so __exit__() must be just _close() plus this logic for adapting
         # the exception-filtering result to the context manager API.
+
+        # This inlines the enable_ki_protection decorator so we can fix
+        # f_locals *locally* below to avoid reference cycles
+        locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
 
         # Tracebacks show the 'raise' line below out of context, so let's give
         # this variable a name that makes sense out of context.
@@ -555,6 +557,10 @@ class CancelScope(metaclass=Final):
                 # delete references from locals to avoid creating cycles
                 # see test_cancel_scope_exit_doesnt_create_cyclic_garbage
                 del remaining_error_after_cancel_scope, value, _, exc
+                # deep magic to remove refs via f_locals
+                locals()
+                # TODO: check if PEP558 changes the need for this call
+                # https://github.com/python/cpython/pull/3640
 
     def __repr__(self):
         if self._cancel_status is not None:
