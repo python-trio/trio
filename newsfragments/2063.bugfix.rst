@@ -1,0 +1,3 @@
+Trio now avoids creating cyclic garbage when a `MultiError` is generated and filtered,
+including invisibly within the cancellation system.  This means errors raised
+through nurseries and cancel scopes should result in less GC latency.
