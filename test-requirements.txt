@@ -74,7 +74,7 @@ packaging==21.0
     # via pytest
 parso==0.8.2
     # via jedi
-pathspec==0.8.1
+pathspec==0.9.0
     # via black
 pexpect==4.8.0
     # via ipython
