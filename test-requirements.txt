@@ -21,7 +21,7 @@ backcall==0.2.0
     # via ipython
 black==21.7b0 ; implementation_name == "cpython"
     # via -r test-requirements.in
-cffi==1.14.5
+cffi==1.14.6
     # via cryptography
 click==8.0.1
     # via black
