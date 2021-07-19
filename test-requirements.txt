@@ -19,7 +19,7 @@ attrs==20.3.0
     #   pytest
 backcall==0.2.0
     # via ipython
-black==21.6b0 ; implementation_name == "cpython"
+black==21.7b0 ; implementation_name == "cpython"
     # via -r test-requirements.in
 cffi==1.14.5
     # via cryptography
@@ -118,11 +118,12 @@ sortedcontainers==2.4.0
     # via -r test-requirements.in
 toml==0.10.2
     # via
-    #   black
     #   mypy
     #   pylint
     #   pytest
     #   pytest-cov
+tomli==1.0.4
+    # via black
 traitlets==5.0.5
     # via
     #   ipython
