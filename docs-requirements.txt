@@ -8,7 +8,7 @@ alabaster==0.7.12
     # via sphinx
 async-generator==1.10
     # via -r docs-requirements.in
-attrs==20.3.0
+attrs==21.2.0
     # via
     #   -r docs-requirements.in
     #   outcome
@@ -18,12 +18,12 @@ certifi==2021.5.30
     # via requests
 charset-normalizer==2.0.3
     # via requests
-click-default-group==1.2.2
-    # via towncrier
 click==8.0.1
     # via
     #   click-default-group
     #   towncrier
+click-default-group==1.2.2
+    # via towncrier
 docutils==0.16
     # via
     #   sphinx
@@ -62,13 +62,13 @@ snowballstemmer==2.1.0
     # via sphinx
 sortedcontainers==2.4.0
     # via -r docs-requirements.in
-sphinx-rtd-theme==0.5.2
-    # via -r docs-requirements.in
 sphinx==3.3.1
     # via
     #   -r docs-requirements.in
     #   sphinx-rtd-theme
     #   sphinxcontrib-trio
+sphinx-rtd-theme==0.5.2
+    # via -r docs-requirements.in
 sphinxcontrib-applehelp==1.0.2
     # via sphinx
 sphinxcontrib-devhelp==1.0.2

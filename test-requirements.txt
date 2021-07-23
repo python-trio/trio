@@ -12,7 +12,7 @@ astroid==2.6.5
     # via pylint
 async-generator==1.10
     # via -r test-requirements.in
-attrs==20.3.0
+attrs==21.2.0
     # via
     #   -r test-requirements.in
     #   outcome
@@ -43,10 +43,10 @@ immutables==0.15
     # via -r test-requirements.in
 iniconfig==1.1.1
     # via pytest
-ipython-genutils==0.2.0
-    # via traitlets
 ipython==7.25.0
     # via -r test-requirements.in
+ipython-genutils==0.2.0
+    # via traitlets
 isort==5.9.2
     # via pylint
 jedi==0.18.0
@@ -61,13 +61,13 @@ mccabe==0.6.1
     # via
     #   flake8
     #   pylint
+mypy==0.910 ; implementation_name == "cpython"
+    # via -r test-requirements.in
 mypy-extensions==0.4.3 ; implementation_name == "cpython"
     # via
     #   -r test-requirements.in
     #   black
     #   mypy
-mypy==0.910 ; implementation_name == "cpython"
-    # via -r test-requirements.in
 outcome==1.1.0
     # via -r test-requirements.in
 packaging==21.0
@@ -102,12 +102,12 @@ pyopenssl==20.0.1
     # via -r test-requirements.in
 pyparsing==2.4.7
     # via packaging
-pytest-cov==2.12.1
-    # via -r test-requirements.in
 pytest==6.2.4
     # via
     #   -r test-requirements.in
     #   pytest-cov
+pytest-cov==2.12.1
+    # via -r test-requirements.in
 regex==2021.7.6
     # via black
 six==1.16.0
