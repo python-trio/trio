@@ -47,7 +47,7 @@ ipython==7.25.0
     # via -r test-requirements.in
 ipython-genutils==0.2.0
     # via traitlets
-isort==5.9.2
+isort==5.9.3
     # via pylint
 jedi==0.18.0
     # via
