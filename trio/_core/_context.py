@@ -22,4 +22,3 @@ async def change_context(context):
         task.context = saved_context
         # I assume this is right?
         await _run.cancel_shielded_checkpoint()
-
