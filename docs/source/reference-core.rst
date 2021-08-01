@@ -1020,6 +1020,12 @@ Example output (yours may differ slightly):
    request 0: Helper task b finished
    request 0: Request received finished
 
+You can change the current :class:`contextvars.Context` a task is running
+in with a helper context manager.
+
+.. autofunction:: change_context
+    :async-with:
+
 For more information, read the
 `contextvar docs <https://docs.python.org/3.7/library/contextvars.html>`__.
 

@@ -6,7 +6,7 @@ from . import _run
 
 
 @asynccontextmanager
-async def change_context(context: Context):
+async def change_context(context):
     """Asynchronous context manager to change the :class:`contextvars.Context`
     for the current task.
 
