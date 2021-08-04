@@ -90,6 +90,11 @@ Testing
 * `pytest-aio <https://github.com/klen/pytest-aio>`_ - Pytest plugin with support for trio, curio, asyncio
 
 
+Libraries and Frameworks
+------------------------
+* `Slurry <https://github.com/andersea/slurry>`__ - Slurry is a microframework for building reactive, data processing applications with Trio.
+
+
 Tools and Utilities
 -------------------
 * `trio-typing <https://github.com/python-trio/trio-typing>`__ - Type hints for Trio and related projects.
