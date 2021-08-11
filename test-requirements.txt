@@ -39,7 +39,7 @@ idna==3.2
     # via
     #   -r test-requirements.in
     #   trustme
-immutables==0.15
+immutables==0.16
     # via -r test-requirements.in
 iniconfig==1.1.1
     # via pytest
