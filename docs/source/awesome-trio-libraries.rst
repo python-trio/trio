@@ -76,6 +76,11 @@ Multi-Core/Multiprocessing
 * `trio-parallel <https://trio-parallel.readthedocs.io/>`__ - CPU parallelism for Trio
 
 
+Stream Processing
+-----------------
+* `Slurry <https://github.com/andersea/slurry>`__ - Slurry is a microframework for building reactive, data processing applications with Trio.
+
+
 RPC
 ---
 * `purepc <https://github.com/standy66/purerpc>`__ - Asynchronous pure Python gRPC client and server implementation using anyio.
