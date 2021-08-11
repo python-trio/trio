@@ -43,7 +43,7 @@ immutables==0.15
     # via -r test-requirements.in
 iniconfig==1.1.1
     # via pytest
-ipython==7.25.0
+ipython==7.26.0
     # via -r test-requirements.in
 ipython-genutils==0.2.0
     # via traitlets
