@@ -94,7 +94,7 @@ pycparser==2.20
     # via cffi
 pyflakes==2.3.1
     # via flake8
-pygments==2.7.4
+pygments==2.9.0
     # via ipython
 pylint==2.9.6
     # via -r test-requirements.in
