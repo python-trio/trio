@@ -128,7 +128,7 @@ traitlets==5.0.5
     # via
     #   ipython
     #   matplotlib-inline
-trustme==0.8.0
+trustme==0.9.0
     # via -r test-requirements.in
 typed-ast==1.4.3 ; implementation_name == "cpython"
     # via -r test-requirements.in
