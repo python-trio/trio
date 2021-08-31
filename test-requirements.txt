@@ -43,8 +43,6 @@ iniconfig==1.1.1
     # via pytest
 ipython==7.27.0
     # via -r test-requirements.in
-ipython-genutils==0.2.0
-    # via traitlets
 isort==5.9.3
     # via pylint
 jedi==0.18.0
@@ -124,7 +122,7 @@ toml==0.10.2
     #   pytest-cov
 tomli==1.2.1
     # via black
-traitlets==5.0.5
+traitlets==5.1.0
     # via
     #   ipython
     #   matplotlib-inline
