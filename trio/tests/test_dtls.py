@@ -29,9 +29,9 @@ async def test_smoke():
 
             await nursery.start(server_dtls.serve, server_ctx, handle_client)
 
-            client_sock = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
-            client_dtls = DTLS(client_sock)
-            client = await client_dtls.connect(server_sock.getsockname(), client_ctx)
-            await client.send(b"hello")
-            assert await client.receive() == b"goodbye"
-            nursery.cancel_scope.cancel()
+            with trio.socket.socket(type=trio.socket.SOCK_DGRAM) as client_sock:
+                client_dtls = DTLS(client_sock)
+                client = await client_dtls.connect(server_sock.getsockname(), client_ctx)
+                await client.send(b"hello")
+                assert await client.receive() == b"goodbye"
+                nursery.cancel_scope.cancel()
