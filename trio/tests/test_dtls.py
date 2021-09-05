@@ -139,3 +139,24 @@ async def test_handshake_over_terrible_network(autojump_clock):
                     next_client_msg_recvd = trio.Event()
 
             nursery.cancel_scope.cancel()
+
+
+# send all kinds of garbage at a server socket
+# send hello at a client-only socket
+# socket closed at terrible times
+# cancelling and restarting a client handshake
+# garbage collecting DTLS object without closing it
+# incoming packets buffer overflow
+# set/get mtu
+# closing a DTLSStream
+# two simultaneous calls to .do_handshake()
+# openssl retransmit
+# receive a piece of garbage from the correct source during a handshake (corrupted
+#   packet, someone being a jerk) -- though can't necessarily tolerate someone sending a
+#   fake HelloRetryRequest
+# implicit handshake on send/receive
+# send/receive after closing
+# DTLS close
+# DTLS on SOCK_STREAM socket
+# calling serve twice
+# connect() that replaces an existing association (currently totally broken!)
