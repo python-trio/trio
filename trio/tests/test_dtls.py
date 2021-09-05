@@ -8,7 +8,7 @@ import trustme
 from OpenSSL import SSL
 
 from trio.testing._fake_net import FakeNet
-from .._core.tests.tutil import slow
+from .._core.tests.tutil import slow, can_bind_ipv6
 
 ca = trustme.CA()
 server_cert = ca.issue_cert("example.com")
@@ -20,10 +20,19 @@ client_ctx = SSL.Context(SSL.DTLS_METHOD)
 ca.configure_trust(client_ctx)
 
 
-async def test_smoke():
-    server_sock = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
+families = [trio.socket.AF_INET]
+if can_bind_ipv6:
+    families.append(trio.socket.AF_INET6)
+
+@pytest.mark.parametrize("family", families)
+async def test_smoke(family):
+    if family == trio.socket.AF_INET:
+        localhost = "127.0.0.1"
+    else:
+        localhost = "::1"
+    server_sock = trio.socket.socket(type=trio.socket.SOCK_DGRAM, family=family)
     with server_sock:
-        await server_sock.bind(("127.0.0.1", 0))
+        await server_sock.bind((localhost, 0))
         server_dtls = DTLS(server_sock)
 
         async with trio.open_nursery() as nursery:
@@ -35,13 +44,21 @@ async def test_smoke():
 
             await nursery.start(server_dtls.serve, server_ctx, handle_client)
 
-            with trio.socket.socket(type=trio.socket.SOCK_DGRAM) as client_sock:
+            with trio.socket.socket(type=trio.socket.SOCK_DGRAM, family=family) as client_sock:
                 client_dtls = DTLS(client_sock)
                 client = await client_dtls.connect(
                     server_sock.getsockname(), client_ctx
                 )
                 await client.send(b"hello")
                 assert await client.receive() == b"goodbye"
+
+                client.set_ciphertext_mtu(1234)
+                cleartext_mtu_1234 = client.get_cleartext_mtu()
+                client.set_ciphertext_mtu(4321)
+                assert client.get_cleartext_mtu() > cleartext_mtu_1234
+                client.set_ciphertext_mtu(1234)
+                assert client.get_cleartext_mtu() == cleartext_mtu_1234
+
                 nursery.cancel_scope.cancel()
 
 
@@ -141,22 +158,22 @@ async def test_handshake_over_terrible_network(autojump_clock):
             nursery.cancel_scope.cancel()
 
 
+# implicit handshake on send/receive
+# send/receive after closing
+# DTLS close
+# DTLS on SOCK_STREAM socket
+# incoming packets buffer overflow
+
 # send all kinds of garbage at a server socket
 # send hello at a client-only socket
 # socket closed at terrible times
-# cancelling and restarting a client handshake
+# cancelling a client handshake and then starting a new one
 # garbage collecting DTLS object without closing it
-# incoming packets buffer overflow
-# set/get mtu
 # closing a DTLSChannel
 # two simultaneous calls to .do_handshake()
 # openssl retransmit
 # receive a piece of garbage from the correct source during a handshake (corrupted
 #   packet, someone being a jerk) -- though can't necessarily tolerate someone sending a
 #   fake HelloRetryRequest
-# implicit handshake on send/receive
-# send/receive after closing
-# DTLS close
-# DTLS on SOCK_STREAM socket
 # calling serve twice
 # connect() that replaces an existing association (currently totally broken!)
