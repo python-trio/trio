@@ -1,6 +1,6 @@
 import pytest
 import trio
-from trio._dtls import DTLS
+from trio import DTLSEndpoint
 import random
 import attr
 from contextlib import asynccontextmanager
@@ -34,7 +34,7 @@ async def test_smoke(family):
     server_sock = trio.socket.socket(type=trio.socket.SOCK_DGRAM, family=family)
     with server_sock:
         await server_sock.bind((localhost, 0))
-        server_dtls = DTLS(server_sock)
+        server_dtls = DTLSEndpoint(server_sock)
 
         async with trio.open_nursery() as nursery:
 
@@ -46,7 +46,7 @@ async def test_smoke(family):
             await nursery.start(server_dtls.serve, server_ctx, handle_client)
 
             with trio.socket.socket(type=trio.socket.SOCK_DGRAM, family=family) as client_sock:
-                client_dtls = DTLS(client_sock)
+                client_dtls = DTLSEndpoint(client_sock)
                 client = await client_dtls.connect(
                     server_sock.getsockname(), client_ctx
                 )
@@ -104,7 +104,7 @@ async def test_handshake_over_terrible_network(autojump_clock):
             fn.route_packet = route_packet_wrapper
 
             await server_sock.bind(("1.1.1.1", 54321))
-            server_dtls = DTLS(server_sock)
+            server_dtls = DTLSEndpoint(server_sock)
 
             next_client_idx = 0
             next_client_msg_recvd = trio.Event()
@@ -140,7 +140,7 @@ async def test_handshake_over_terrible_network(autojump_clock):
                 print("#" * 80)
                 print("#" * 80)
                 with trio.socket.socket(type=trio.socket.SOCK_DGRAM) as client_sock:
-                    client_dtls = DTLS(client_sock)
+                    client_dtls = DTLSEndpoint(client_sock)
                     client = await client_dtls.connect(
                         server_sock.getsockname(), client_ctx
                     )
@@ -162,12 +162,12 @@ async def test_handshake_over_terrible_network(autojump_clock):
 async def test_implicit_handshake():
     with trio.socket.socket(type=trio.socket.SOCK_DGRAM) as server_sock:
         await server_sock.bind(("127.0.0.1", 0))
-        server_dtls = DTLS(server_sock)
+        server_dtls = DTLSEndpoint(server_sock)
 
 
 def dtls():
     sock = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
-    return DTLS(sock)
+    return DTLSEndpoint(sock)
 
 
 @asynccontextmanager
@@ -245,7 +245,7 @@ async def test_client_multiplex():
 async def test_dtls_over_dgram_only():
     with trio.socket.socket() as s:
         with pytest.raises(ValueError):
-            DTLS(s)
+            DTLSEndpoint(s)
 
 
 # incoming packets buffer overflow

@@ -913,7 +913,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
             return _read_loop(self._ssl.read)
 
 
-class DTLS(metaclass=Final):
+class DTLSEndpoint(metaclass=Final):
     def __init__(self, socket, *, incoming_packets_buffer=10):
         # We do this lazily on first construction, so only people who actually use DTLS
         # have to install PyOpenSSL.
