@@ -686,7 +686,7 @@ async def dtls_receive_loop(dtls):
                     try:
                         stream._q.s.send_nowait(packet)
                     except trio.WouldBlock:
-                        stream.packets_dropped_in_trio += 1
+                        stream._packets_dropped_in_trio += 1
             else:
                 # Drop packet
                 pass
@@ -694,11 +694,16 @@ async def dtls_receive_loop(dtls):
             del dtls
 
 
+@attr.frozen
+class DTLSChannelStatistics:
+    incoming_packets_dropped_in_trio: int
+
+
 class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
     def __init__(self, endpoint, peer_address, ctx):
         self.endpoint = endpoint
         self.peer_address = peer_address
-        self.packets_dropped_in_trio = 0
+        self._packets_dropped_in_trio = 0
         self._client_hello = None
         self._did_handshake = False
         # These are mandatory for all DTLS connections. OP_NO_QUERY_MTU is required to
@@ -717,6 +722,9 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         self._q = _Queue(endpoint.incoming_packets_buffer)
         self._handshake_lock = trio.Lock()
         self._record_encoder = RecordEncoder()
+
+    def statistics(self) -> DTLSChannelStatistics:
+        return DTLSChannelStatistics(self._packets_dropped_in_trio)
 
     def _set_replaced(self):
         self._replaced = True
