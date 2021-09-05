@@ -920,8 +920,10 @@ class DTLS(metaclass=Final):
         global SSL
         from OpenSSL import SSL
 
+        self.socket = None  # for __del__
         if socket.type != trio.socket.SOCK_DGRAM:
-            raise BadPacket("DTLS requires a SOCK_DGRAM socket")
+            raise ValueError("DTLS requires a SOCK_DGRAM socket")
+
         self.socket = socket
         self.incoming_packets_buffer = incoming_packets_buffer
         self._token = trio.lowlevel.current_trio_token()
@@ -934,20 +936,24 @@ class DTLS(metaclass=Final):
         self._listening_context = None
         self._incoming_connections_q = _Queue(float("inf"))
         self._send_lock = trio.Lock()
+        self._closed = False
 
         trio.lowlevel.spawn_system_task(dtls_receive_loop, self)
 
     def __del__(self):
         # Close the socket in Trio context (if our Trio context still exists), so that
         # the background task gets notified about the closure and can exit.
+        if self.socket is None:
+            return
         try:
             self._token.run_sync_soon(self.socket.close)
         except RuntimeError:
             pass
 
     def close(self):
+        self._closed = True
         self.socket.close()
-        for stream in self._streams.values():
+        for stream in list(self._streams.values()):
             stream.close()
         self._incoming_connections_q.s.close()
 
@@ -957,9 +963,14 @@ class DTLS(metaclass=Final):
     def __exit__(self, *args):
         self.close()
 
+    def _check_closed(self):
+        if self._closed:
+            raise trio.ClosedResourceError
+
     async def serve(
         self, ssl_context, async_fn, *args, task_status=trio.TASK_STATUS_IGNORED
     ):
+        self._check_closed()
         if self._listening_context is not None:
             raise trio.BusyResourceError("another task is already listening")
         # We do cookie verification ourselves, so tell OpenSSL not to worry about it.
@@ -981,6 +992,7 @@ class DTLS(metaclass=Final):
         self._streams[address] = stream
 
     async def connect(self, address, ssl_context):
+        self._check_closed()
         stream = DTLSChannel._create(self, address, ssl_context)
         stream._ssl.set_connect_state()
         self._set_stream_for(address, stream)

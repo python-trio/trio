@@ -3,6 +3,7 @@ import trio
 from trio._dtls import DTLS
 import random
 import attr
+from contextlib import asynccontextmanager
 
 import trustme
 from OpenSSL import SSL
@@ -37,10 +38,10 @@ async def test_smoke(family):
 
         async with trio.open_nursery() as nursery:
 
-            async def handle_client(dtls_stream):
-                await dtls_stream.do_handshake()
-                assert await dtls_stream.receive() == b"hello"
-                await dtls_stream.send(b"goodbye")
+            async def handle_client(dtls_channel):
+                await dtls_channel.do_handshake()
+                assert await dtls_channel.receive() == b"hello"
+                await dtls_channel.send(b"goodbye")
 
             await nursery.start(server_dtls.serve, server_ctx, handle_client)
 
@@ -108,12 +109,12 @@ async def test_handshake_over_terrible_network(autojump_clock):
             next_client_idx = 0
             next_client_msg_recvd = trio.Event()
 
-            async def handle_client(dtls_stream):
+            async def handle_client(dtls_channel):
                 print("handling new client")
                 try:
-                    await dtls_stream.do_handshake()
+                    await dtls_channel.do_handshake()
                     while True:
-                        data = await dtls_stream.receive()
+                        data = await dtls_channel.receive()
                         print(f"server received plaintext: {data}")
                         if not data:
                             continue
@@ -158,10 +159,95 @@ async def test_handshake_over_terrible_network(autojump_clock):
             nursery.cancel_scope.cancel()
 
 
-# implicit handshake on send/receive
-# send/receive after closing
-# DTLS close
-# DTLS on SOCK_STREAM socket
+async def test_implicit_handshake():
+    with trio.socket.socket(type=trio.socket.SOCK_DGRAM) as server_sock:
+        await server_sock.bind(("127.0.0.1", 0))
+        server_dtls = DTLS(server_sock)
+
+
+def dtls():
+    sock = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
+    return DTLS(sock)
+
+
+@asynccontextmanager
+async def dtls_echo_server(*, autocancel=True):
+    with dtls() as server:
+        await server.socket.bind(("127.0.0.1", 0))
+        async with trio.open_nursery() as nursery:
+            async def echo_handler(dtls_channel):
+                async for packet in dtls_channel:
+                    await dtls_channel.send(packet)
+
+            await nursery.start(server.serve, server_ctx, echo_handler)
+
+            yield server, server.socket.getsockname()
+
+            if autocancel:
+                nursery.cancel_scope.cancel()
+
+
+async def test_implicit_handshake():
+    async with dtls_echo_server() as (_, address):
+        with dtls() as client_endpoint:
+            client = await client_endpoint.connect(address, client_ctx)
+
+            # Implicit handshake
+            await client.send(b"xyz")
+            assert await client.receive() == b"xyz"
+
+
+async def test_channel_closing():
+    async with dtls_echo_server() as (_, address):
+        with dtls() as client_endpoint:
+            client = await client_endpoint.connect(address, client_ctx)
+            client.close()
+
+            with pytest.raises(trio.ClosedResourceError):
+                await client.send(b"abc")
+            with pytest.raises(trio.ClosedResourceError):
+                await client.receive()
+
+
+async def test_serve_exits_cleanly_on_close():
+    async with dtls_echo_server(autocancel=False) as (server_endpoint, address):
+        server_endpoint.close()
+        # Testing that the nursery exits even without being cancelled
+
+
+async def test_client_multiplex():
+    async with dtls_echo_server() as (_, address1), dtls_echo_server() as (_, address2):
+        with dtls() as client_endpoint:
+            client1 = await client_endpoint.connect(address1, client_ctx)
+            client2 = await client_endpoint.connect(address2, client_ctx)
+
+            await client1.send(b"abc")
+            await client2.send(b"xyz")
+            assert await client2.receive() == b"xyz"
+            assert await client1.receive() == b"abc"
+
+            client_endpoint.close()
+
+            with pytest.raises(trio.ClosedResourceError):
+                await client1.send("xxx")
+            with pytest.raises(trio.ClosedResourceError):
+                await client2.receive()
+            with pytest.raises(trio.ClosedResourceError):
+                await client_endpoint.connect(address1, client_ctx)
+
+            async with trio.open_nursery() as nursery:
+                with pytest.raises(trio.ClosedResourceError):
+                    async def null_handler(_):  # pragma: no cover
+                        pass
+                    await nursery.start(client_endpoint.serve, server_ctx, null_handler)
+
+
+async def test_dtls_over_dgram_only():
+    with trio.socket.socket() as s:
+        with pytest.raises(ValueError):
+            DTLS(s)
+
+
 # incoming packets buffer overflow
 
 # send all kinds of garbage at a server socket
