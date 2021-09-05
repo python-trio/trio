@@ -3,10 +3,12 @@ import pytest
 import trio
 from trio.testing import FakeNet
 
+
 def fn():
     fn = FakeNet()
     fn.enable()
     return fn
+
 
 async def test_basic_udp():
     fn()

@@ -559,7 +559,10 @@ async def test_SocketType_resolve(socket_type, addrs):
             except (AttributeError, OSError):
                 pass
             else:
-                assert await netlink_sock._resolve_address_nocp("asdf", local=local) == "asdf"
+                assert (
+                    await netlink_sock._resolve_address_nocp("asdf", local=local)
+                    == "asdf"
+                )
                 netlink_sock.close()
 
             with pytest.raises(ValueError):

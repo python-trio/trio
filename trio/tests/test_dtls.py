@@ -33,7 +33,9 @@ async def test_smoke():
 
             with trio.socket.socket(type=trio.socket.SOCK_DGRAM) as client_sock:
                 client_dtls = DTLS(client_sock)
-                client = await client_dtls.connect(server_sock.getsockname(), client_ctx)
+                client = await client_dtls.connect(
+                    server_sock.getsockname(), client_ctx
+                )
                 await client.send(b"hello")
                 assert await client.receive() == b"goodbye"
                 nursery.cancel_scope.cancel()
@@ -46,10 +48,13 @@ async def test_handshake_over_terrible_network(autojump_clock):
     fn.enable()
     with trio.socket.socket(type=trio.socket.SOCK_DGRAM) as server_sock:
         async with trio.open_nursery() as nursery:
+
             async def route_packet(packet):
                 while True:
-                    op = r.choices(["deliver", "drop", "dupe", "delay"],
-                                  weights=[0.7, 0.1, 0.1, 0.1])[0]
+                    op = r.choices(
+                        ["deliver", "drop", "dupe", "delay"],
+                        weights=[0.7, 0.1, 0.1, 0.1],
+                    )[0]
                     print(f"{packet.source} -> {packet.destination}: {op}")
                     if op == "drop":
                         return
@@ -59,7 +64,9 @@ async def test_handshake_over_terrible_network(autojump_clock):
                         await trio.sleep(r.random() * 3)
                     else:
                         assert op == "deliver"
-                        print(f"{packet.source} -> {packet.destination}: delivered {packet.payload.hex()}")
+                        print(
+                            f"{packet.source} -> {packet.destination}: delivered {packet.payload.hex()}"
+                        )
                         fn.deliver_packet(packet)
                         break
 
@@ -99,6 +106,7 @@ async def test_handshake_over_terrible_network(autojump_clock):
                 except:
                     print("server handler saw")
                     import traceback
+
                     traceback.print_exc()
                     raise
 
@@ -110,7 +118,9 @@ async def test_handshake_over_terrible_network(autojump_clock):
                 print("#" * 80)
                 with trio.socket.socket(type=trio.socket.SOCK_DGRAM) as client_sock:
                     client_dtls = DTLS(client_sock)
-                    client = await client_dtls.connect(server_sock.getsockname(), client_ctx)
+                    client = await client_dtls.connect(
+                        server_sock.getsockname(), client_ctx
+                    )
                     while True:
                         data = str(next_client_idx).encode()
                         print(f"client sending plaintext: {data}")

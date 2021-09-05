@@ -425,6 +425,7 @@ async def _resolve_address_nocp(type, family, proto, *, ipv6_v6only, address, lo
         normed = tuple(normed)
     return normed
 
+
 class SocketType:
     def __init__(self):
         raise TypeError(
@@ -558,13 +559,19 @@ class _SocketType(SocketType):
 
     async def _resolve_address_nocp(self, address, *, local):
         if self.family == _stdlib_socket.AF_INET6:
-            ipv6_v6only = self._sock.getsockopt(IPPROTO_IPV6, _stdlib_socket.IPV6_V6ONLY)
+            ipv6_v6only = self._sock.getsockopt(
+                IPPROTO_IPV6, _stdlib_socket.IPV6_V6ONLY
+            )
         else:
             ipv6_v6only = False
         return await _resolve_address_nocp(
-            self.type, self.family, self.proto,
+            self.type,
+            self.family,
+            self.proto,
             ipv6_v6only=ipv6_v6only,
-            address=address, local=local)
+            address=address,
+            local=local,
+        )
 
     async def _nonblocking_helper(self, fn, args, kwargs, wait_fn):
         # We have to reconcile two conflicting goals:

@@ -152,7 +152,10 @@ def records_untrusted(packet):
 
 def encode_record(record):
     header = RECORD_HEADER.pack(
-        record.content_type, record.version, record.epoch_seqno, len(record.payload),
+        record.content_type,
+        record.version,
+        record.epoch_seqno,
+        len(record.payload),
     )
     return header + record.payload
 
@@ -196,7 +199,14 @@ def decode_handshake_fragment_untrusted(payload):
     frag = payload[HANDSHAKE_MESSAGE_HEADER.size :]
     if len(frag) != frag_len:
         raise BadPacket("handshake fragment length doesn't match record length")
-    return HandshakeFragment(msg_type, msg_len, msg_seq, frag_offset, frag_len, frag,)
+    return HandshakeFragment(
+        msg_type,
+        msg_len,
+        msg_seq,
+        frag_offset,
+        frag_len,
+        frag,
+    )
 
 
 def encode_handshake_fragment(hsf):
@@ -836,8 +846,10 @@ class DTLSStream(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                             return
                         maybe_volley = read_volley()
                         if maybe_volley:
-                            if (isinstance(maybe_volley[0], PseudoHandshakeMessage)
-                                and maybe_volley[0].content_type == ContentType.alert):
+                            if (
+                                isinstance(maybe_volley[0], PseudoHandshakeMessage)
+                                and maybe_volley[0].content_type == ContentType.alert
+                            ):
                                 # we're sending an alert (e.g. due to a corrupted
                                 # packet). We want to send it once, but don't save it to
                                 # retransmit -- keep the last volley as the current

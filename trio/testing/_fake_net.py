@@ -20,6 +20,7 @@ from trio._util import Final, NoPublicConstructor
 
 IPAddress = Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
 
+
 def _family_for(ip: IPAddress) -> int:
     if isinstance(ip, ipaddress.IPv4Address):
         return trio.socket.AF_INET
@@ -53,9 +54,9 @@ def _fake_err(code):
 def _scatter(data, buffers):
     written = 0
     for buf in buffers:
-        next_piece = data[written:written + len(buf)]
+        next_piece = data[written : written + len(buf)]
         with memoryview(buf) as mbuf:
-            mbuf[:len(next_piece)] = next_piece
+            mbuf[: len(next_piece)] = next_piece
         written += len(next_piece)
         if written == len(data):
             break
@@ -109,7 +110,7 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
     fake_net: "FakeNet"
 
     async def getaddrinfo(
-            self, host: str, port: Union[int, str], family=0, type=0, proto=0, flags=0
+        self, host: str, port: Union[int, str], family=0, type=0, proto=0, flags=0
     ):
         raise NotImplementedError("FakeNet doesn't do fake DNS yet")
 
@@ -172,7 +173,9 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
 
         self._closed = False
 
-        self._packet_sender, self._packet_receiver = trio.open_memory_channel(float("inf"))
+        self._packet_sender, self._packet_receiver = trio.open_memory_channel(
+            float("inf")
+        )
 
         # This is the source-of-truth for what port etc. this socket is bound to
         self._binding: Optional[UDPBinding] = None
@@ -182,7 +185,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
             _fake_err(errno.EBADF)
 
     def close(self):
-        #breakpoint()
+        # breakpoint()
         if self._closed:
             return
         self._closed = True
@@ -191,9 +194,14 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         self._packet_receiver.close()
 
     async def _resolve_address_nocp(self, address, *, local):
-        return await trio._socket._resolve_address_nocp(self.type, self.family,
-                                                        self.proto, address=address,
-                                                        ipv6_v6only=False, local=local)
+        return await trio._socket._resolve_address_nocp(
+            self.type,
+            self.family,
+            self.proto,
+            address=address,
+            ipv6_v6only=False,
+            local=local,
+        )
 
     def _deliver_packet(self, packet: UDPPacket):
         try:
@@ -363,12 +371,16 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
     async def recvfrom_into(self, buf, nbytes=0, flags=0):
         if nbytes != 0 and nbytes != len(buf):
             raise NotImplementedError("partial recvfrom_into")
-        got_nbytes, ancdata, msg_flags, address = await self.recvmsg_into([buf], 0, flags)
+        got_nbytes, ancdata, msg_flags, address = await self.recvmsg_into(
+            [buf], 0, flags
+        )
         return got_nbytes, address
 
     async def recvmsg(self, bufsize, ancbufsize=0, flags=0):
         buf = bytearray(bufsize)
-        got_nbytes, ancdata, msg_flags, address = await self.recvmsg_into([buf], ancbufsize, flags)
+        got_nbytes, ancdata, msg_flags, address = await self.recvmsg_into(
+            [buf], ancbufsize, flags
+        )
         return (bytes(buf[:got_nbytes]), ancdata, msg_flags, address)
 
     def fileno(self):
