@@ -1,3 +1,4 @@
+import pytest
 import trio
 from trio._dtls import DTLS
 import random
@@ -5,6 +6,8 @@ import attr
 
 import trustme
 from OpenSSL import SSL
+
+from .._core.tests.tutil import slow
 
 ca = trustme.CA()
 server_cert = ca.issue_cert("example.com")
@@ -41,6 +44,7 @@ async def test_smoke():
                 nursery.cancel_scope.cancel()
 
 
+@slow
 async def test_handshake_over_terrible_network(autojump_clock):
     HANDSHAKES = 1000
     r = random.Random(0)
