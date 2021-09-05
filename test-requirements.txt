@@ -80,7 +80,7 @@ platformdirs==2.3.0
     # via black
 pluggy==1.0.0
     # via pytest
-prompt-toolkit==3.0.19
+prompt-toolkit==3.0.20
     # via ipython
 ptyprocess==0.7.0
     # via pexpect
