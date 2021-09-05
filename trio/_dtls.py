@@ -695,8 +695,8 @@ async def dtls_receive_loop(dtls):
 
 
 class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
-    def __init__(self, dtls, peer_address, ctx):
-        self.dtls = dtls
+    def __init__(self, endpoint, peer_address, ctx):
+        self.endpoint = endpoint
         self.peer_address = peer_address
         self.packets_dropped_in_trio = 0
         self._client_hello = None
@@ -711,10 +711,10 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         self._mtu = None
         # This calls self._ssl.set_ciphertext_mtu, which is important, because if you
         # don't call it then openssl doesn't work.
-        self.set_ciphertext_mtu(best_guess_mtu(self.dtls.socket))
+        self.set_ciphertext_mtu(best_guess_mtu(self.endpoint.socket))
         self._replaced = False
         self._closed = False
-        self._q = _Queue(dtls.incoming_packets_buffer)
+        self._q = _Queue(endpoint.incoming_packets_buffer)
         self._handshake_lock = trio.Lock()
         self._record_encoder = RecordEncoder()
 
@@ -748,8 +748,8 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         if self._closed:
             return
         self._closed = True
-        if self.dtls._streams.get(self.peer_address) is self:
-            del self.dtls._streams[self.peer_address]
+        if self.endpoint._streams.get(self.peer_address) is self:
+            del self.endpoint._streams[self.peer_address]
         # Will wake any tasks waiting on self._q.get with a
         # ClosedResourceError
         self._q.r.close()
@@ -777,8 +777,8 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
     async def _send_volley(self, volley_messages):
         packets = self._record_encoder.encode_volley(volley_messages, self._mtu)
         for packet in packets:
-            async with self.dtls._send_lock:
-                await self.dtls.socket.sendto(packet, self.peer_address)
+            async with self.endpoint._send_lock:
+                await self.endpoint.socket.sendto(packet, self.peer_address)
 
     async def _resend_final_volley(self):
         await self._send_volley(self._final_volley)
@@ -881,7 +881,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                         # PMTU estimate is wrong? Let's try dropping it to the minimum
                         # and hope that helps.
                         self.set_ciphertext_mtu(
-                            min(self._mtu, worst_case_mtu(self.dtls.socket))
+                            min(self._mtu, worst_case_mtu(self.endpoint.socket))
                         )
 
     async def send(self, data):
@@ -891,8 +891,8 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
             await self.do_handshake()
         self._check_replaced()
         self._ssl.write(data)
-        async with self.dtls._send_lock:
-            await self.dtls.socket.sendto(
+        async with self.endpoint._send_lock:
+            await self.endpoint.socket.sendto(
                 _read_loop(self._ssl.bio_read), self.peer_address
             )
 
@@ -992,6 +992,9 @@ class DTLSEndpoint(metaclass=Final):
         self._streams[address] = stream
 
     async def connect(self, address, ssl_context):
+        # it would be nice if we could detect when 'address' is our own endpoint (a
+        # loopback connection), because that can't work
+        # but I don't see how to do it reliably
         self._check_closed()
         stream = DTLSChannel._create(self, address, ssl_context)
         stream._ssl.set_connect_state()

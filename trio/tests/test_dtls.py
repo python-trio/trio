@@ -176,6 +176,9 @@ async def dtls_echo_server(*, autocancel=True):
         await server.socket.bind(("127.0.0.1", 0))
         async with trio.open_nursery() as nursery:
             async def echo_handler(dtls_channel):
+                print(f"echo handler started: "
+                      f"server {dtls_channel.endpoint.socket.getsockname()} "
+                      f"client {dtls_channel.peer_address}")
                 async for packet in dtls_channel:
                     await dtls_channel.send(packet)
 
@@ -266,6 +269,23 @@ async def test_dtls_over_dgram_only():
             DTLSEndpoint(s)
 
 
+async def test_double_serve():
+    async def null_handler(_):  # pragma: no cover
+        pass
+
+    with dtls() as endpoint:
+        async with trio.open_nursery() as nursery:
+            await nursery.start(endpoint.serve, server_ctx, null_handler)
+            with pytest.raises(trio.BusyResourceError):
+                await nursery.start(endpoint.serve, server_ctx, null_handler)
+
+            nursery.cancel_scope.cancel()
+
+        async with trio.open_nursery() as nursery:
+            await nursery.start(endpoint.serve, server_ctx, null_handler)
+            nursery.cancel_scope.cancel()
+
+
 # incoming packets buffer overflow
 
 # send all kinds of garbage at a server socket
@@ -277,5 +297,4 @@ async def test_dtls_over_dgram_only():
 # receive a piece of garbage from the correct source during a handshake (corrupted
 #   packet, someone being a jerk) -- though can't necessarily tolerate someone sending a
 #   fake HelloRetryRequest
-# calling serve twice
 # connect() that replaces an existing association (currently totally broken!)
