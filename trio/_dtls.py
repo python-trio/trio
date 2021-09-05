@@ -623,7 +623,7 @@ async def handle_client_hello_untrusted(dtls, address, packet):
             pass
     else:
         # We got a real, valid ClientHello!
-        stream = DTLSStream._create(dtls, address, dtls._listening_context)
+        stream = DTLSChannel._create(dtls, address, dtls._listening_context)
         try:
             stream._inject_client_hello_untrusted(packet)
         except BadPacket:
@@ -694,7 +694,7 @@ async def dtls_receive_loop(dtls):
             del dtls
 
 
-class DTLSStream(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
+class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
     def __init__(self, dtls, peer_address, ctx):
         self.dtls = dtls
         self.peer_address = peer_address
@@ -929,7 +929,7 @@ class DTLS(metaclass=Final):
         # separately. We only keep one connection per remote address; as soon
         # as a peer provides a valid cookie, we can immediately tear down the
         # old connection.
-        # {remote address: DTLSStream}
+        # {remote address: DTLSChannel}
         self._streams = weakref.WeakValueDictionary()
         self._listening_context = None
         self._incoming_connections_q = _Queue(float("inf"))
@@ -981,7 +981,7 @@ class DTLS(metaclass=Final):
         self._streams[address] = stream
 
     async def connect(self, address, ssl_context):
-        stream = DTLSStream._create(self, address, ssl_context)
+        stream = DTLSChannel._create(self, address, ssl_context)
         stream._ssl.set_connect_state()
         self._set_stream_for(address, stream)
         await stream.do_handshake()

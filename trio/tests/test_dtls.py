@@ -148,7 +148,7 @@ async def test_handshake_over_terrible_network(autojump_clock):
 # garbage collecting DTLS object without closing it
 # incoming packets buffer overflow
 # set/get mtu
-# closing a DTLSStream
+# closing a DTLSChannel
 # two simultaneous calls to .do_handshake()
 # openssl retransmit
 # receive a piece of garbage from the correct source during a handshake (corrupted
