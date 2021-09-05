@@ -1,7 +1,7 @@
 import pytest
 
 import trio
-from trio.testing import FakeNet
+from trio.testing._fake_net import FakeNet
 
 
 def fn():

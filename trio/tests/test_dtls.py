@@ -7,6 +7,7 @@ import attr
 import trustme
 from OpenSSL import SSL
 
+from trio.testing._fake_net import FakeNet
 from .._core.tests.tutil import slow
 
 ca = trustme.CA()
@@ -48,7 +49,7 @@ async def test_smoke():
 async def test_handshake_over_terrible_network(autojump_clock):
     HANDSHAKES = 1000
     r = random.Random(0)
-    fn = trio.testing.FakeNet()
+    fn = FakeNet()
     fn.enable()
     with trio.socket.socket(type=trio.socket.SOCK_DGRAM) as server_sock:
         async with trio.open_nursery() as nursery:
