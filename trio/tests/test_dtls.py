@@ -4,6 +4,7 @@ from trio import DTLSEndpoint
 import random
 import attr
 from contextlib import asynccontextmanager
+from itertools import count
 
 import trustme
 from OpenSSL import SSL
@@ -165,9 +166,9 @@ async def test_implicit_handshake():
         server_dtls = DTLSEndpoint(server_sock)
 
 
-def dtls():
+def dtls(**kwargs):
     sock = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
-    return DTLSEndpoint(sock)
+    return DTLSEndpoint(sock, **kwargs)
 
 
 @asynccontextmanager
@@ -180,6 +181,7 @@ async def dtls_echo_server(*, autocancel=True):
                       f"server {dtls_channel.endpoint.socket.getsockname()} "
                       f"client {dtls_channel.peer_address}")
                 async for packet in dtls_channel:
+                    print(f"echoing {packet} -> {dtls_channel.peer_address}")
                     await dtls_channel.send(packet)
 
             await nursery.start(server.serve, server_ctx, echo_handler)
@@ -286,13 +288,164 @@ async def test_double_serve():
             nursery.cancel_scope.cancel()
 
 
-# incoming packets buffer overflow
+async def test_connect_to_non_server(autojump_clock):
+    fn = FakeNet()
+    fn.enable()
+    with dtls() as client1, dtls() as client2:
+        await client1.socket.bind(("127.0.0.1", 0))
+        # This should just time out
+        with trio.move_on_after(100) as cscope:
+            await client2.connect(client1.socket.getsockname(), client_ctx)
+        assert cscope.cancelled_caught
 
-# send all kinds of garbage at a server socket
-# send hello at a client-only socket
+
+async def test_incoming_buffer_overflow(autojump_clock):
+    fn = FakeNet()
+    fn.enable()
+    for buffer_size in [10, 20]:
+        async with dtls_echo_server() as (_, address):
+            with dtls(incoming_packets_buffer=buffer_size) as client_endpoint:
+                assert client_endpoint.incoming_packets_buffer == buffer_size
+                client = await client_endpoint.connect(address, client_ctx)
+                for i in range(buffer_size + 15):
+                    await client.send(str(i).encode())
+                    await trio.sleep(1)
+                stats = client.statistics()
+                assert stats.incoming_packets_dropped_in_trio == 15
+                for i in range(buffer_size):
+                    assert await client.receive() == str(i).encode()
+                await client.send(b"buffer clear now")
+                assert await client.receive() == b"buffer clear now"
+
+
+async def test_server_socket_doesnt_crash_on_garbage(autojump_clock):
+    fn = FakeNet()
+    fn.enable()
+
+    from trio._dtls import (
+        Record, encode_record, HandshakeFragment, encode_handshake_fragment,
+        ContentType, HandshakeType, ProtocolVersion,
+    )
+
+    client_hello = encode_record(
+        Record(
+            content_type=ContentType.handshake,
+            version=ProtocolVersion.DTLS10,
+            epoch_seqno=0,
+            payload=encode_handshake_fragment(
+                HandshakeFragment(
+                    msg_type=HandshakeType.client_hello,
+                    msg_len=10,
+                    msg_seq=0,
+                    frag_offset=0,
+                    frag_len=10,
+                    frag=bytes(10),
+                )
+            ),
+        )
+    )
+
+    client_hello_extended = client_hello + b"\x00"
+    client_hello_short = client_hello[:-1]
+    # cuts off in middle of handshake message header
+    client_hello_really_short = client_hello[:14]
+    client_hello_corrupt_record_len = bytearray(client_hello)
+    client_hello_corrupt_record_len[11] = 0xff
+
+    client_hello_fragmented = encode_record(
+        Record(
+            content_type=ContentType.handshake,
+            version=ProtocolVersion.DTLS10,
+            epoch_seqno=0,
+            payload=encode_handshake_fragment(
+                HandshakeFragment(
+                    msg_type=HandshakeType.client_hello,
+                    msg_len=20,
+                    msg_seq=0,
+                    frag_offset=0,
+                    frag_len=10,
+                    frag=bytes(10),
+                )
+            ),
+        )
+    )
+
+    client_hello_trailing_data_in_record = encode_record(
+        Record(
+            content_type=ContentType.handshake,
+            version=ProtocolVersion.DTLS10,
+            epoch_seqno=0,
+            payload=encode_handshake_fragment(
+                HandshakeFragment(
+                    msg_type=HandshakeType.client_hello,
+                    msg_len=20,
+                    msg_seq=0,
+                    frag_offset=0,
+                    frag_len=10,
+                    frag=bytes(10),
+                )
+            ) + b"\x00",
+        )
+    )
+    async with dtls_echo_server() as (_, address):
+        with trio.socket.socket(type=trio.socket.SOCK_DGRAM) as sock:
+            for bad_packet in [
+                    b"",
+                    b"xyz",
+                    client_hello_extended,
+                    client_hello_short,
+                    client_hello_really_short,
+                    client_hello_corrupt_record_len,
+                    client_hello_fragmented,
+                    client_hello_trailing_data_in_record,
+            ]:
+                await sock.sendto(bad_packet, address)
+                await trio.sleep(1)
+
+
+async def test_invalid_cookie_rejected(autojump_clock):
+    fn = FakeNet()
+    fn.enable()
+
+    from trio._dtls import decode_client_hello_untrusted, BadPacket
+
+    offset_to_corrupt = count()
+    def route_packet(packet):
+        try:
+            _, cookie, _ = decode_client_hello_untrusted(packet.payload)
+        except BadPacket:
+            pass
+        else:
+            if len(cookie) != 0:
+                # this is a challenge response packet
+                # let's corrupt the next offset so the handshake should fail
+                payload = bytearray(packet.payload)
+                offset = next(offset_to_corrupt)
+                if offset >= len(payload):
+                    # We've tried all offsets
+                    # clamp offset to the end of the payload, and tell the client to stop
+                    # trying to connect
+                    offset = len(payload) - 1
+                    cscope.cancel()
+                payload[offset] ^= 0x01
+                packet = attr.evolve(packet, payload=payload)
+
+        fn.deliver_packet(packet)
+
+    fn.route_packet = route_packet
+
+    async with dtls_echo_server() as (_, address):
+        with trio.CancelScope() as cscope:
+            while True:
+                with dtls() as client:
+                    await client.connect(address, client_ctx)
+        assert cscope.cancelled_caught
+
 # socket closed at terrible times
 # cancelling a client handshake and then starting a new one
 # garbage collecting DTLS object without closing it
+  # use fakenet, send a packet to the server, then immediately drop the dtls object and
+  # run gc before `sock.recvfrom()` can return
 # openssl retransmit
 # receive a piece of garbage from the correct source during a handshake (corrupted
 #   packet, someone being a jerk) -- though can't necessarily tolerate someone sending a
