@@ -6,7 +6,7 @@
 #
 astor==0.8.1
     # via -r test-requirements.in
-astroid==2.6.6
+astroid==2.7.3
     # via pylint
 async-generator==1.10
     # via -r test-requirements.in
@@ -77,7 +77,9 @@ pexpect==4.8.0
 pickleshare==0.7.5
     # via ipython
 platformdirs==2.3.0
-    # via black
+    # via
+    #   black
+    #   pylint
 pluggy==1.0.0
     # via pytest
 prompt-toolkit==3.0.20
@@ -94,7 +96,7 @@ pyflakes==2.3.1
     # via flake8
 pygments==2.9.0
     # via ipython
-pylint==2.9.6
+pylint==2.10.2
     # via -r test-requirements.in
 pyopenssl==20.0.1
     # via -r test-requirements.in
