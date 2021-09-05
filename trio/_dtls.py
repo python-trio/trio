@@ -11,6 +11,7 @@ import io
 import enum
 from itertools import count
 import weakref
+import errno
 
 import attr
 
@@ -318,7 +319,7 @@ def decode_volley_trusted(volley):
         # large that it has to be fragmented to fit into a single packet.
         if record.epoch_seqno & EPOCH_MASK:
             messages.append(OpaqueHandshakeMessage(record))
-        elif record.content_type == ContentType.change_cipher_spec:
+        elif record.content_type in (ContentType.change_cipher_spec, ContentType.alert):
             messages.append(
                 PseudoHandshakeMessage(
                     record.version, record.content_type, record.payload
@@ -460,7 +461,7 @@ class RecordEncoder:
 # - The current time (using Trio's clock), rounded to the nearest 30 seconds
 # - A random salt
 #
-# Then the cookie the salt + the HMAC digest.
+# Then the cookie is the salt and the HMAC digest concatenated together.
 #
 # When verifying a cookie, we use the salt + new ip/port/ClientHello data to recompute
 # the HMAC digest, for both the current time and the current time minus 30 seconds, and
@@ -525,7 +526,7 @@ def valid_cookie(cookie, address, client_hello_bits):
         tick = _current_cookie_tick()
 
         cur_cookie = _make_cookie(salt, tick, address, client_hello_bits)
-        old_cookie = _make_cookie(salt, tick - 1, address, client_hello_bits)
+        old_cookie = _make_cookie(salt, max(tick - 1, 0), address, client_hello_bits)
 
         # I doubt using a short-circuiting 'or' here would leak any meaningful
         # information, but why risk it when '|' is just as easy.
@@ -620,12 +621,13 @@ async def handle_client_hello_untrusted(dtls, address, packet):
             return
         old_stream = dtls._streams.get(address)
         if old_stream is not None:
-            if old_stream._client_hello == packet:
+            if old_stream._client_hello == (cookie, bits):
                 # ...but it's just a duplicate of a packet we got before, so never mind.
                 return
             else:
                 # Ok, this *really is* a new handshake; the old stream should go away.
-                old_stream._replaced()
+                old_stream._set_replaced()
+        stream._client_hello = (cookie, bits)
         dtls._streams[address] = stream
         dtls._incoming_connections_q.s.send_nowait(stream)
 
@@ -706,7 +708,7 @@ class DTLSStream(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         self._handshake_lock = trio.Lock()
         self._record_encoder = RecordEncoder()
 
-    def _replaced(self):
+    def _set_replaced(self):
         self._replaced = True
         # Any packets we already received could maybe possibly still be processed, but
         # there are no more coming. So we close this on the sender side.
@@ -714,7 +716,7 @@ class DTLSStream(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
 
     def _check_replaced(self):
         if self._replaced:
-            raise BrokenResourceError(
+            raise trio.BrokenResourceError(
                 "peer tore down this connection to start a new one"
             )
 
@@ -747,7 +749,6 @@ class DTLSStream(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         await trio.lowlevel.checkpoint()
 
     def _inject_client_hello_untrusted(self, packet):
-        self._client_hello = packet
         self._ssl.bio_write(packet)
         # If we're on the server side, then we already sent record 0 as our cookie
         # challenge. So we want to start the handshake proper with record 1.
@@ -787,6 +788,7 @@ class DTLSStream(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                 if (
                     new_volley_messages
                     and volley_messages
+                    and isinstance(new_volley_messages[0], HandshakeMessage)
                     and new_volley_messages[0].msg_seq == volley_messages[0].msg_seq
                 ):
                     # openssl decided to retransmit; discard because we handle
@@ -819,7 +821,9 @@ class DTLSStream(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                         self._ssl.bio_write(packet)
                         try:
                             self._ssl.do_handshake()
-                        except SSL.WantReadError:
+                        # We ignore generic SSL.Error here, because you can get those
+                        # from random invalid packets
+                        except (SSL.WantReadError, SSL.Error):
                             pass
                         else:
                             # No exception -> the handshake is done, and we can
@@ -832,17 +836,25 @@ class DTLSStream(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                             return
                         maybe_volley = read_volley()
                         if maybe_volley:
-                            # We managed to get all of the peer's volley and generate a
-                            # new one ourselves! break out of the 'for' loop and restart
-                            # the timer.
-                            volley_messages = maybe_volley
-                            # "Implementations SHOULD retain the current timer value
-                            # until a transmission without loss occurs, at which time
-                            # the value may be reset to the initial value."
-                            if volley_failed_sends == 0:
-                                timeout = initial_retransmit_timeout
-                            volley_failed_sends = 0
-                            break
+                            if (isinstance(maybe_volley[0], PseudoHandshakeMessage)
+                                and maybe_volley[0].content_type == ContentType.alert):
+                                # we're sending an alert (e.g. due to a corrupted
+                                # packet). We want to send it once, but don't save it to
+                                # retransmit -- keep the last volley as the current
+                                # volley.
+                                await self._send_volley(maybe_volley)
+                            else:
+                                # We managed to get all of the peer's volley and
+                                # generate a new one ourselves! break out of the 'for'
+                                # loop and restart the timer.
+                                volley_messages = maybe_volley
+                                # "Implementations SHOULD retain the current timer value
+                                # until a transmission without loss occurs, at which
+                                # time the value may be reset to the initial value."
+                                if volley_failed_sends == 0:
+                                    timeout = initial_retransmit_timeout
+                                volley_failed_sends = 0
+                                break
                     else:
                         assert self._replaced
                         self._check_replaced()
@@ -875,13 +887,18 @@ class DTLSStream(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
     async def receive(self):
         if not self._did_handshake:
             await self.do_handshake()
-        try:
-            packet = await self._q.r.receive()
-        except trio.EndOfChannel:
-            assert self._replaced
-            self._check_replaced()
-        self._ssl.bio_write(packet)
-        return _read_loop(self._ssl.read)
+        while True:
+            try:
+                packet = await self._q.r.receive()
+            except trio.EndOfChannel:
+                assert self._replaced
+                self._check_replaced()
+            # Don't return spurious empty packets because of stray handshake packets
+            # coming in late
+            if part_of_handshake_untrusted(packet):
+                continue
+            self._ssl.bio_write(packet)
+            return _read_loop(self._ssl.read)
 
 
 class DTLS(metaclass=Final):

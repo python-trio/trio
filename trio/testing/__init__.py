@@ -24,6 +24,8 @@ from ._memory_streams import (
 
 from ._network import open_stream_to_socket_listener
 
+from ._fake_net import FakeNet
+
 ################################################################
 
 from .._util import fixup_module_metadata
