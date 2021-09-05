@@ -197,6 +197,24 @@ async def test_implicit_handshake():
             assert await client.receive() == b"xyz"
 
 
+async def test_full_duplex():
+    with dtls() as server_endpoint, dtls() as client_endpoint:
+        await server_endpoint.socket.bind(("127.0.0.1", 0))
+        async with trio.open_nursery() as server_nursery:
+            async def handler(channel):
+                async with trio.open_nursery() as nursery:
+                    nursery.start_soon(channel.send, b"from server")
+                    nursery.start_soon(channel.receive)
+
+            await server_nursery.start(server_endpoint.serve, server_ctx, handler)
+
+            client = await client_endpoint.connect(server_endpoint.socket.getsockname(), client_ctx)
+            async with trio.open_nursery() as nursery:
+                nursery.start_soon(client.send, b"from client")
+                nursery.start_soon(client.receive)
+
+            server_nursery.cancel_scope.cancel()
+
 async def test_channel_closing():
     async with dtls_echo_server() as (_, address):
         with dtls() as client_endpoint:
@@ -255,8 +273,6 @@ async def test_dtls_over_dgram_only():
 # socket closed at terrible times
 # cancelling a client handshake and then starting a new one
 # garbage collecting DTLS object without closing it
-# closing a DTLSChannel
-# two simultaneous calls to .do_handshake()
 # openssl retransmit
 # receive a piece of garbage from the correct source during a handshake (corrupted
 #   packet, someone being a jerk) -- though can't necessarily tolerate someone sending a
