@@ -488,15 +488,19 @@ class RecordEncoder:
 # probably pretty harmless? But it's easier to add the salt than to convince myself that
 # it's *completely* harmless, so, salt it is.
 
-# XX maybe the cookie should also sign the *local* address, so you can't take a cookie
-# from one socket and use it on another socket on the same trio? or just generate the
-# key in each call to 'serve'.
-
 COOKIE_REFRESH_INTERVAL = 30  # seconds
-KEY = None
-KEY_BYTES = 8
+KEY_BYTES = 32
 COOKIE_HASH = "sha256"
 SALT_BYTES = 8
+# 32 bytes was the maximum cookie length in DTLS 1.0. DTLS 1.2 raised it to 255. I doubt
+# there are any DTLS 1.0 implementations still in the wild, but really 32 bytes is
+# plenty, and it also gets rid of a confusing warning in Wireshark output.
+#
+# We truncate the cookie to 32 bytes, of which 8 bytes is salt, so that leaves 24 bytes
+# of truncated HMAC = 192 bit security, which is still massive overkill. (TCP uses 32
+# *bits* for this.) HMAC truncation is explicitly noted as safe in RFC 2104:
+#   https://datatracker.ietf.org/doc/html/rfc2104#section-5
+COOKIE_LENGTH = 32
 
 
 def _current_cookie_tick():
@@ -513,12 +517,9 @@ def _signable(*fields):
     return b"".join(out)
 
 
-def _make_cookie(salt, tick, address, client_hello_bits):
+def _make_cookie(key, salt, tick, address, client_hello_bits):
     assert len(salt) == SALT_BYTES
-
-    global KEY
-    if KEY is None:
-        KEY = os.urandom(KEY_BYTES)
+    assert len(key) == KEY_BYTES
 
     signable_data = _signable(
         salt,
@@ -529,17 +530,17 @@ def _make_cookie(salt, tick, address, client_hello_bits):
         client_hello_bits,
     )
 
-    return salt + hmac.digest(KEY, signable_data, COOKIE_HASH)
+    return (salt + hmac.digest(key, signable_data, COOKIE_HASH))[:COOKIE_LENGTH]
 
 
-def valid_cookie(cookie, address, client_hello_bits):
+def valid_cookie(key, cookie, address, client_hello_bits):
     if len(cookie) > SALT_BYTES:
         salt = cookie[:SALT_BYTES]
 
         tick = _current_cookie_tick()
 
-        cur_cookie = _make_cookie(salt, tick, address, client_hello_bits)
-        old_cookie = _make_cookie(salt, max(tick - 1, 0), address, client_hello_bits)
+        cur_cookie = _make_cookie(key, salt, tick, address, client_hello_bits)
+        old_cookie = _make_cookie(key, salt, max(tick - 1, 0), address, client_hello_bits)
 
         # I doubt using a short-circuiting 'or' here would leak any meaningful
         # information, but why risk it when '|' is just as easy.
@@ -550,10 +551,10 @@ def valid_cookie(cookie, address, client_hello_bits):
         return False
 
 
-def challenge_for(address, epoch_seqno, client_hello_bits):
+def challenge_for(key, address, epoch_seqno, client_hello_bits):
     salt = os.urandom(SALT_BYTES)
     tick = _current_cookie_tick()
-    cookie = _make_cookie(salt, tick, address, client_hello_bits)
+    cookie = _make_cookie(key, salt, tick, address, client_hello_bits)
 
     # HelloVerifyRequest body is:
     # - 2 bytes version
@@ -608,8 +609,8 @@ def _read_loop(read_fn):
     return b"".join(chunks)
 
 
-async def handle_client_hello_untrusted(dtls, address, packet):
-    if dtls._listening_context is None:
+async def handle_client_hello_untrusted(endpoint, address, packet):
+    if endpoint._listening_context is None:
         return
 
     try:
@@ -617,16 +618,19 @@ async def handle_client_hello_untrusted(dtls, address, packet):
     except BadPacket:
         return
 
-    if not valid_cookie(cookie, address, bits):
-        challenge_packet = challenge_for(address, epoch_seqno, bits)
+    if endpoint._listening_key is None:
+        endpoint._listening_key = os.urandom(KEY_BYTES)
+
+    if not valid_cookie(endpoint._listening_key, cookie, address, bits):
+        challenge_packet = challenge_for(endpoint._listening_key, address, epoch_seqno, bits)
         try:
-            async with dtls._send_lock:
-                await dtls.socket.sendto(challenge_packet, address)
+            async with endpoint._send_lock:
+                await endpoint.socket.sendto(challenge_packet, address)
         except (OSError, trio.ClosedResourceError):
             pass
     else:
         # We got a real, valid ClientHello!
-        stream = DTLSChannel._create(dtls, address, dtls._listening_context)
+        stream = DTLSChannel._create(endpoint, address, endpoint._listening_context)
         # Our HelloRetryRequest had some sequence number. We need our future sequence
         # numbers to be larger than it, so our peer knows that our future records aren't
         # stale/duplicates. But, we don't know what this sequence number was. What we do
@@ -645,7 +649,7 @@ async def handle_client_hello_untrusted(dtls, address, packet):
             # after all.
             return
         # Check if we have an existing association
-        old_stream = dtls._streams.get(address)
+        old_stream = endpoint._streams.get(address)
         if old_stream is not None:
             if old_stream._client_hello == (cookie, bits):
                 # ...This was just a duplicate of the last ClientHello, so never mind.
@@ -654,14 +658,14 @@ async def handle_client_hello_untrusted(dtls, address, packet):
                 # Ok, this *really is* a new handshake; the old stream should go away.
                 old_stream._set_replaced()
         stream._client_hello = (cookie, bits)
-        dtls._streams[address] = stream
-        dtls._incoming_connections_q.s.send_nowait(stream)
+        endpoint._streams[address] = stream
+        endpoint._incoming_connections_q.s.send_nowait(stream)
 
 
-async def dtls_receive_loop(dtls):
-    sock = dtls.socket
-    dtls_ref = weakref.ref(dtls)
-    del dtls
+async def dtls_receive_loop(endpoint):
+    sock = endpoint.socket
+    endpoint_ref = weakref.ref(endpoint)
+    del endpoint
     while True:
         try:
             packet, address = await sock.recvfrom(MAX_UDP_PACKET_SIZE)
@@ -678,14 +682,14 @@ async def dtls_receive_loop(dtls):
                 #   https://bobobobo.wordpress.com/2009/05/17/udp-an-existing-connection-was-forcibly-closed-by-the-remote-host/
                 # We'll assume that whatever it is, it's a transient problem.
                 continue
-        dtls = dtls_ref()
+        endpoint = endpoint_ref()
         try:
-            if dtls is None:
+            if endpoint is None:
                 return
             if is_client_hello_untrusted(packet):
-                await handle_client_hello_untrusted(dtls, address, packet)
-            elif address in dtls._streams:
-                stream = dtls._streams[address]
+                await handle_client_hello_untrusted(endpoint, address, packet)
+            elif address in endpoint._streams:
+                stream = endpoint._streams[address]
                 if stream._did_handshake and part_of_handshake_untrusted(packet):
                     # The peer just sent us more handshake messages, that aren't a
                     # ClientHello, and we thought the handshake was done. Some of the
@@ -707,7 +711,7 @@ async def dtls_receive_loop(dtls):
                 # Drop packet
                 pass
         finally:
-            del dtls
+            del endpoint
 
 
 @attr.frozen
@@ -934,7 +938,7 @@ class DTLSEndpoint(metaclass=Final):
         global SSL
         from OpenSSL import SSL
 
-        self.socket = None  # for __del__
+        self.socket = None  # for __del__, in case the next line raises
         if socket.type != trio.socket.SOCK_DGRAM:
             raise ValueError("DTLS requires a SOCK_DGRAM socket")
 
@@ -948,6 +952,7 @@ class DTLSEndpoint(metaclass=Final):
         # {remote address: DTLSChannel}
         self._streams = weakref.WeakValueDictionary()
         self._listening_context = None
+        self._listening_key = None
         self._incoming_connections_q = _Queue(float("inf"))
         self._send_lock = trio.Lock()
         self._closed = False
@@ -955,10 +960,11 @@ class DTLSEndpoint(metaclass=Final):
         trio.lowlevel.spawn_system_task(dtls_receive_loop, self)
 
     def __del__(self):
-        # Close the socket in Trio context (if our Trio context still exists), so that
-        # the background task gets notified about the closure and can exit.
+        # Do nothing if this object was never fully constructed
         if self.socket is None:
             return
+        # Close the socket in Trio context (if our Trio context still exists), so that
+        # the background task gets notified about the closure and can exit.
         try:
             self._token.run_sync_soon(self.socket.close)
         except RuntimeError:
