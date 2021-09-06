@@ -26,6 +26,7 @@ families = [trio.socket.AF_INET]
 if can_bind_ipv6:
     families.append(trio.socket.AF_INET6)
 
+
 @pytest.mark.parametrize("family", families)
 async def test_smoke(family):
     if family == trio.socket.AF_INET:
@@ -46,7 +47,9 @@ async def test_smoke(family):
 
             await nursery.start(server_dtls.serve, server_ctx, handle_client)
 
-            with trio.socket.socket(type=trio.socket.SOCK_DGRAM, family=family) as client_sock:
+            with trio.socket.socket(
+                type=trio.socket.SOCK_DGRAM, family=family
+            ) as client_sock:
                 client_dtls = DTLSEndpoint(client_sock)
                 client = await client_dtls.connect(
                     server_sock.getsockname(), client_ctx
@@ -176,10 +179,13 @@ async def dtls_echo_server(*, autocancel=True):
     with dtls() as server:
         await server.socket.bind(("127.0.0.1", 0))
         async with trio.open_nursery() as nursery:
+
             async def echo_handler(dtls_channel):
-                print(f"echo handler started: "
-                      f"server {dtls_channel.endpoint.socket.getsockname()} "
-                      f"client {dtls_channel.peer_address}")
+                print(
+                    f"echo handler started: "
+                    f"server {dtls_channel.endpoint.socket.getsockname()} "
+                    f"client {dtls_channel.peer_address}"
+                )
                 async for packet in dtls_channel:
                     print(f"echoing {packet} -> {dtls_channel.peer_address}")
                     await dtls_channel.send(packet)
@@ -206,6 +212,7 @@ async def test_full_duplex():
     with dtls() as server_endpoint, dtls() as client_endpoint:
         await server_endpoint.socket.bind(("127.0.0.1", 0))
         async with trio.open_nursery() as server_nursery:
+
             async def handler(channel):
                 async with trio.open_nursery() as nursery:
                     nursery.start_soon(channel.send, b"from server")
@@ -213,12 +220,15 @@ async def test_full_duplex():
 
             await server_nursery.start(server_endpoint.serve, server_ctx, handler)
 
-            client = await client_endpoint.connect(server_endpoint.socket.getsockname(), client_ctx)
+            client = await client_endpoint.connect(
+                server_endpoint.socket.getsockname(), client_ctx
+            )
             async with trio.open_nursery() as nursery:
                 nursery.start_soon(client.send, b"from client")
                 nursery.start_soon(client.receive)
 
             server_nursery.cancel_scope.cancel()
+
 
 async def test_channel_closing():
     async with dtls_echo_server() as (_, address):
@@ -231,11 +241,18 @@ async def test_channel_closing():
             with pytest.raises(trio.ClosedResourceError):
                 await client.receive()
 
+            # close is idempotent
+            client.close()
+            # can also aclose
+            await client.aclose()
+
 
 async def test_serve_exits_cleanly_on_close():
     async with dtls_echo_server(autocancel=False) as (server_endpoint, address):
         server_endpoint.close()
         # Testing that the nursery exits even without being cancelled
+    # close is idempotent
+    server_endpoint.close()
 
 
 async def test_client_multiplex():
@@ -260,8 +277,10 @@ async def test_client_multiplex():
 
             async with trio.open_nursery() as nursery:
                 with pytest.raises(trio.ClosedResourceError):
+
                     async def null_handler(_):  # pragma: no cover
                         pass
+
                     await nursery.start(client_endpoint.serve, server_ctx, null_handler)
 
 
@@ -323,8 +342,13 @@ async def test_server_socket_doesnt_crash_on_garbage(autojump_clock):
     fn.enable()
 
     from trio._dtls import (
-        Record, encode_record, HandshakeFragment, encode_handshake_fragment,
-        ContentType, HandshakeType, ProtocolVersion,
+        Record,
+        encode_record,
+        HandshakeFragment,
+        encode_handshake_fragment,
+        ContentType,
+        HandshakeType,
+        ProtocolVersion,
     )
 
     client_hello = encode_record(
@@ -350,7 +374,7 @@ async def test_server_socket_doesnt_crash_on_garbage(autojump_clock):
     # cuts off in middle of handshake message header
     client_hello_really_short = client_hello[:14]
     client_hello_corrupt_record_len = bytearray(client_hello)
-    client_hello_corrupt_record_len[11] = 0xff
+    client_hello_corrupt_record_len[11] = 0xFF
 
     client_hello_fragmented = encode_record(
         Record(
@@ -384,20 +408,21 @@ async def test_server_socket_doesnt_crash_on_garbage(autojump_clock):
                     frag_len=10,
                     frag=bytes(10),
                 )
-            ) + b"\x00",
+            )
+            + b"\x00",
         )
     )
     async with dtls_echo_server() as (_, address):
         with trio.socket.socket(type=trio.socket.SOCK_DGRAM) as sock:
             for bad_packet in [
-                    b"",
-                    b"xyz",
-                    client_hello_extended,
-                    client_hello_short,
-                    client_hello_really_short,
-                    client_hello_corrupt_record_len,
-                    client_hello_fragmented,
-                    client_hello_trailing_data_in_record,
+                b"",
+                b"xyz",
+                client_hello_extended,
+                client_hello_short,
+                client_hello_really_short,
+                client_hello_corrupt_record_len,
+                client_hello_fragmented,
+                client_hello_trailing_data_in_record,
             ]:
                 await sock.sendto(bad_packet, address)
                 await trio.sleep(1)
@@ -409,45 +434,197 @@ async def test_invalid_cookie_rejected(autojump_clock):
 
     from trio._dtls import decode_client_hello_untrusted, BadPacket
 
-    offset_to_corrupt = count()
-    def route_packet(packet):
-        try:
-            _, cookie, _ = decode_client_hello_untrusted(packet.payload)
-        except BadPacket:
-            pass
-        else:
-            if len(cookie) != 0:
-                # this is a challenge response packet
-                # let's corrupt the next offset so the handshake should fail
-                payload = bytearray(packet.payload)
-                offset = next(offset_to_corrupt)
-                if offset >= len(payload):
-                    # We've tried all offsets
-                    # clamp offset to the end of the payload, and tell the client to stop
-                    # trying to connect
-                    offset = len(payload) - 1
-                    cscope.cancel()
-                payload[offset] ^= 0x01
-                packet = attr.evolve(packet, payload=payload)
+    with trio.CancelScope() as cscope:
 
+        offset_to_corrupt = count()
+
+        def route_packet(packet):
+            try:
+                _, cookie, _ = decode_client_hello_untrusted(packet.payload)
+            except BadPacket:
+                pass
+            else:
+                if len(cookie) != 0:
+                    # this is a challenge response packet
+                    # let's corrupt the next offset so the handshake should fail
+                    payload = bytearray(packet.payload)
+                    offset = next(offset_to_corrupt)
+                    if offset >= len(payload):
+                        # We've tried all offsets. Clamp offset to the end of the
+                        # payload, and terminate the test.
+                        offset = len(payload) - 1
+                        cscope.cancel()
+                    payload[offset] ^= 0x01
+                    packet = attr.evolve(packet, payload=payload)
+
+            fn.deliver_packet(packet)
+
+        fn.route_packet = route_packet
+
+        async with dtls_echo_server() as (_, address):
+            while True:
+                with dtls() as client:
+                    await client.connect(address, client_ctx)
+            assert cscope.cancelled_caught
+
+
+async def test_client_cancels_handshake_and_starts_new_one(autojump_clock):
+    # if a client disappears during the handshake, and then starts a new handshake from
+    # scratch, then the first handler's channel should fail, and a new handler get
+    # started
+    fn = FakeNet()
+    fn.enable()
+
+    with dtls() as server, dtls() as client:
+        await server.socket.bind(("127.0.0.1", 0))
+        async with trio.open_nursery() as nursery:
+            first_time = True
+
+            async def handler(channel):
+                nonlocal first_time
+                if first_time:
+                    first_time = False
+                    print("handler: first time, cancelling connect")
+                    connect_cscope.cancel()
+                    await trio.sleep(0.5)
+                    print("handler: handshake should fail now")
+                    with pytest.raises(trio.BrokenResourceError):
+                        await channel.do_handshake()
+                else:
+                    print("handler: not first time, sending hello")
+                    await channel.send(b"hello")
+
+            await nursery.start(server.serve, server_ctx, handler)
+
+            print("client: starting first connect")
+            with trio.CancelScope() as connect_cscope:
+                await client.connect(server.socket.getsockname(), client_ctx)
+            assert connect_cscope.cancelled_caught
+
+            print("client: starting second connect")
+            channel = await client.connect(server.socket.getsockname(), client_ctx)
+            assert await channel.receive() == b"hello"
+
+            nursery.cancel_scope.cancel()
+
+
+async def test_swap_client_server():
+    with dtls() as a, dtls() as b:
+        await a.socket.bind(("127.0.0.1", 0))
+        await b.socket.bind(("127.0.0.1", 0))
+
+        async def echo_handler(channel):
+            async for packet in channel:
+                await channel.send(packet)
+
+        async def crashing_echo_handler(channel):
+            with pytest.raises(trio.BrokenResourceError):
+                await echo_handler(channel)
+
+        async with trio.open_nursery() as nursery:
+            await nursery.start(a.serve, server_ctx, crashing_echo_handler)
+            await nursery.start(b.serve, server_ctx, echo_handler)
+
+            b_to_a = await b.connect(a.socket.getsockname(), client_ctx)
+            await b_to_a.send(b"b as client")
+            assert await b_to_a.receive() == b"b as client"
+
+            a_to_b = await a.connect(b.socket.getsockname(), client_ctx)
+            with pytest.raises(trio.BrokenResourceError):
+                await b_to_a.send(b"association broken")
+            await a_to_b.send(b"a as client")
+            assert await a_to_b.receive() == b"a as client"
+
+            nursery.cancel_scope.cancel()
+
+
+@slow
+async def test_openssl_retransmit_doesnt_break_stuff():
+    # can't use autojump_clock here, because the point of the test is to wait for
+    # openssl's built-in retransmit timer to expire, which is hard-coded to use
+    # wall-clock time.
+    fn = FakeNet()
+    fn.enable()
+
+    blackholed = True
+
+    def route_packet(packet):
+        if blackholed:
+            print("dropped packet", packet)
+            return
+        print("delivered packet", packet)
+        # packets.append(
+        #     scapy.all.IP(
+        #         src=packet.source.ip.compressed, dst=packet.destination.ip.compressed
+        #     )
+        #     / scapy.all.UDP(sport=packet.source.port, dport=packet.destination.port)
+        #     / packet.payload
+        # )
         fn.deliver_packet(packet)
 
     fn.route_packet = route_packet
 
+    async with dtls_echo_server() as (server_endpoint, address):
+        with dtls() as client_endpoint:
+            async with trio.open_nursery() as nursery:
+
+                async def connecter():
+                    client = await client_endpoint.connect(
+                        address, client_ctx, initial_retransmit_timeout=1.5
+                    )
+                    await client.send(b"hi")
+                    assert await client.receive() == b"hi"
+
+                nursery.start_soon(connecter)
+
+                # openssl's default timeout is 1 second, so this ensures that it thinks
+                # the timeout has expired
+                await trio.sleep(1.1)
+                # disable blackholing and send a garbage packet to wake up openssl so it
+                # notices the timeout has expired
+                blackholed = False
+                await server_endpoint.socket.sendto(
+                    b"xxx", client_endpoint.socket.getsockname()
+                )
+                # now the client task should finish connecting and exit cleanly
+
+    # scapy.all.wrpcap("/tmp/trace.pcap", packets)
+
+
+async def test_initial_retransmit_timeout(autojump_clock):
+    fn = FakeNet()
+    fn.enable()
+
+    blackholed = True
+
+    def route_packet(packet):
+        nonlocal blackholed
+        if blackholed:
+            blackholed = False
+        else:
+            fn.deliver_packet(packet)
+
+    fn.route_packet = route_packet
+
     async with dtls_echo_server() as (_, address):
-        with trio.CancelScope() as cscope:
-            while True:
-                with dtls() as client:
-                    await client.connect(address, client_ctx)
-        assert cscope.cancelled_caught
+        for t in [1, 2, 4]:
+            with dtls() as client:
+                before = trio.current_time()
+                blackholed = True
+                await client.connect(address, client_ctx, initial_retransmit_timeout=t)
+                after = trio.current_time()
+                assert after - before == t
+
+
+async def test_tiny_mtu():
+    async with dtls_echo_server() as (server, address):
+        with dtls() as client:
+            pass
+
 
 # socket closed at terrible times
-# cancelling a client handshake and then starting a new one
 # garbage collecting DTLS object without closing it
-  # use fakenet, send a packet to the server, then immediately drop the dtls object and
-  # run gc before `sock.recvfrom()` can return
-# openssl retransmit
-# receive a piece of garbage from the correct source during a handshake (corrupted
-#   packet, someone being a jerk) -- though can't necessarily tolerate someone sending a
-#   fake HelloRetryRequest
-# connect() that replaces an existing association (currently totally broken!)
+# use fakenet, send a packet to the server, then immediately drop the dtls object and
+# run gc before `sock.recvfrom()` can return
+
+# ...connect() probably shouldn't do the handshake. makes it impossible to set MTU!

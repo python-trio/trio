@@ -127,12 +127,15 @@ def is_client_hello_untrusted(packet):
 RECORD_HEADER = struct.Struct("!B2sQH")
 
 
+hex_repr = attr.ib(repr=lambda data: data.hex())
+
+
 @attr.frozen
 class Record:
     content_type: int
-    version: bytes
+    version: bytes = hex_repr
     epoch_seqno: int
-    payload: bytes
+    payload: bytes = hex_repr
 
 
 def records_untrusted(packet):
@@ -176,7 +179,7 @@ class HandshakeFragment:
     msg_seq: int
     frag_offset: int
     frag_len: int
-    frag: bytes
+    frag: bytes = attr.ib(repr=lambda f: f.hex())
 
 
 def decode_handshake_fragment_untrusted(payload):
@@ -288,19 +291,19 @@ def decode_client_hello_untrusted(packet):
 
 @attr.frozen
 class HandshakeMessage:
-    record_version: bytes
+    record_version: bytes = hex_repr
     msg_type: HandshakeType
     msg_seq: int
-    body: bytearray
+    body: bytearray = hex_repr
 
 
 # ChangeCipherSpec is part of the handshake, but it's not a "handshake
 # message" and can't be fragmented the same way. Sigh.
 @attr.frozen
 class PseudoHandshakeMessage:
-    record_version: bytes
+    record_version: bytes = hex_repr
     content_type: int
-    payload: bytes
+    payload: bytes = hex_repr
 
 
 # The final record in a handshake is Finished, which is encrypted, can't be fragmented
@@ -365,8 +368,8 @@ class RecordEncoder:
     def __init__(self):
         self._record_seq = count()
 
-    def skip_first_record_number(self):
-        assert next(self._record_seq) == 0
+    def set_first_record_number(self, n):
+        self._record_seq = count(n)
 
     def encode_volley(self, messages, mtu):
         packets = []
@@ -624,15 +627,28 @@ async def handle_client_hello_untrusted(dtls, address, packet):
     else:
         # We got a real, valid ClientHello!
         stream = DTLSChannel._create(dtls, address, dtls._listening_context)
+        # Our HelloRetryRequest had some sequence number. We need our future sequence
+        # numbers to be larger than it, so our peer knows that our future records aren't
+        # stale/duplicates. But, we don't know what this sequence number was. What we do
+        # know is:
+        # - the HelloRetryRequest seqno was copied it from the initial ClientHello
+        # - the new ClientHello has a higher seqno than the initial ClientHello
+        # So, if we copy the new ClientHello's seqno into our first real handshake
+        # record and increment from there, that should work.
+        stream._record_encoder.set_first_record_number(epoch_seqno)
+        # Process the ClientHello
         try:
-            stream._inject_client_hello_untrusted(packet)
-        except BadPacket:
-            # ...or, well, OpenSSL didn't like it, so I guess we didn't.
+            stream._ssl.bio_write(packet)
+            stream._ssl.DTLSv1_listen()
+        except SSL.Error:
+            # ...OpenSSL didn't like it, so I guess we didn't have a valid ClientHello
+            # after all.
             return
+        # Check if we have an existing association
         old_stream = dtls._streams.get(address)
         if old_stream is not None:
             if old_stream._client_hello == (cookie, bits):
-                # ...but it's just a duplicate of a packet we got before, so never mind.
+                # ...This was just a duplicate of the last ClientHello, so never mind.
                 return
             else:
                 # Ok, this *really is* a new handshake; the old stream should go away.
@@ -762,25 +778,15 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         # ClosedResourceError
         self._q.r.close()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
     async def aclose(self):
         self.close()
         await trio.lowlevel.checkpoint()
-
-    def _inject_client_hello_untrusted(self, packet):
-        self._ssl.bio_write(packet)
-        # If we're on the server side, then we already sent record 0 as our cookie
-        # challenge. So we want to start the handshake proper with record 1.
-        self._record_encoder.skip_first_record_number()
-        # We've already validated this cookie. But, we still have to call DTLSv1_listen
-        # so OpenSSL thinks that it's verified the cookie. The problem is that
-        # if you're doing cookie challenges, then the actual ClientHello has msg_seq=1
-        # instead of msg_seq=0, and OpenSSL will refuse to process a ClientHello with
-        # msg_seq=1 unless you've called DTLSv1_listen. It also gets OpenSSL to bump the
-        # outgoing ServerHello's msg_seq to 1.
-        try:
-            self._ssl.DTLSv1_listen()
-        except SSL.Error:
-            raise BadPacket
 
     async def _send_volley(self, volley_messages):
         packets = self._record_encoder.encode_volley(volley_messages, self._mtu)
@@ -826,7 +832,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
             # If we don't have messages to send in our initial volley, then something
             # has gone very wrong. (I'm not sure this can actually happen without an
             # error from OpenSSL, but we check just in case.)
-            if not volley_messages:
+            if not volley_messages:  # pragma: no cover
                 raise SSL.Error("something wrong with peer's ClientHello")
 
             while True:
@@ -834,14 +840,14 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                 assert volley_messages
                 await self._send_volley(volley_messages)
                 # -- then this is where we wait for a reply --
-                with trio.move_on_after(10) as cscope:
+                with trio.move_on_after(timeout) as cscope:
                     async for packet in self._q.r:
                         self._ssl.bio_write(packet)
                         try:
                             self._ssl.do_handshake()
                         # We ignore generic SSL.Error here, because you can get those
                         # from random invalid packets
-                        except (SSL.WantReadError, SSL.Error):
+                        except (SSL.WantReadError, SSL.Error) as exc:
                             pass
                         else:
                             # No exception -> the handshake is done, and we can
@@ -987,25 +993,33 @@ class DTLSEndpoint(metaclass=Final):
         try:
             self._listening_context = ssl_context
             task_status.started()
+
+            async def handler_wrapper(stream):
+                with stream:
+                    await async_fn(stream, *args)
+
             async with trio.open_nursery() as nursery:
-                async for stream in self._incoming_connections_q.r:
-                    nursery.start_soon(async_fn, stream, *args)
+                async for stream in self._incoming_connections_q.r:  # pragma: no branch
+                    nursery.start_soon(handler_wrapper, stream)
         finally:
             self._listening_context = None
 
-    def _set_stream_for(self, address, stream):
-        old_stream = self._streams.get(address)
-        if old_stream is not None:
-            old_stream._break(RuntimeError("replaced by a new DTLS association"))
-        self._streams[address] = stream
-
-    async def connect(self, address, ssl_context):
+    async def connect(self, address, ssl_context, *, initial_retransmit_timeout=1.0):
         # it would be nice if we could detect when 'address' is our own endpoint (a
         # loopback connection), because that can't work
         # but I don't see how to do it reliably
         self._check_closed()
-        stream = DTLSChannel._create(self, address, ssl_context)
-        stream._ssl.set_connect_state()
-        self._set_stream_for(address, stream)
-        await stream.do_handshake()
-        return stream
+        channel = DTLSChannel._create(self, address, ssl_context)
+        channel._ssl.set_connect_state()
+        old_channel = self._streams.get(address)
+        if old_channel is not None:
+            old_channel._set_replaced()
+        self._streams[address] = channel
+        try:
+            await channel.do_handshake(
+                initial_retransmit_timeout=initial_retransmit_timeout
+            )
+        except:
+            channel.close()
+            raise
+        return channel

@@ -89,7 +89,7 @@ class UDPBinding:
 class UDPPacket:
     source: UDPEndpoint
     destination: UDPEndpoint
-    payload: bytes
+    payload: bytes = attr.ib(repr=lambda p: p.hex())
 
     def reply(self, payload):
         return UDPPacket(
