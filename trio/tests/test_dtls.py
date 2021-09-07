@@ -6,12 +6,13 @@ import attr
 from contextlib import asynccontextmanager
 from itertools import count
 import ipaddress
+import warnings
 
 import trustme
 from OpenSSL import SSL
 
 from trio.testing._fake_net import FakeNet
-from .._core.tests.tutil import slow, binds_ipv6
+from .._core.tests.tutil import slow, binds_ipv6, gc_collect_harder
 
 ca = trustme.CA()
 server_cert = ca.issue_cert("example.com")
@@ -56,9 +57,15 @@ async def dtls_echo_server(*, autocancel=True, mtu=None, ipv6=False):
                 )
                 if mtu is not None:
                     dtls_channel.set_ciphertext_mtu(mtu)
-                async for packet in dtls_channel:
-                    print(f"echoing {packet} -> {dtls_channel.peer_address}")
-                    await dtls_channel.send(packet)
+                print("server starting do_handshake")
+                await dtls_channel.do_handshake()
+                print("server finished do_handshake")
+                try:
+                    async for packet in dtls_channel:
+                        print(f"echoing {packet} -> {dtls_channel.peer_address}")
+                        await dtls_channel.send(packet)
+                except trio.BrokenResourceError:
+                    pass
 
             await nursery.start(server.serve, server_ctx, echo_handler)
 
@@ -79,6 +86,9 @@ async def test_smoke(ipv6):
             await client_channel.send(b"goodbye")
             assert await client_channel.receive() == b"goodbye"
 
+            with pytest.raises(ValueError):
+                await client_channel.send(b"")
+
             client_channel.set_ciphertext_mtu(1234)
             cleartext_mtu_1234 = client_channel.get_cleartext_mtu()
             client_channel.set_ciphertext_mtu(4321)
@@ -93,7 +103,8 @@ async def test_handshake_over_terrible_network(autojump_clock):
     r = random.Random(0)
     fn = FakeNet()
     fn.enable()
-    with trio.socket.socket(type=trio.socket.SOCK_DGRAM) as server_sock:
+
+    async with dtls_echo_server() as (_, address):
         async with trio.open_nursery() as nursery:
 
             async def route_packet(packet):
@@ -127,59 +138,24 @@ async def test_handshake_over_terrible_network(autojump_clock):
 
             fn.route_packet = route_packet_wrapper
 
-            await server_sock.bind(("1.1.1.1", 54321))
-            server_dtls = DTLSEndpoint(server_sock)
-
-            next_client_idx = 0
-            next_client_msg_recvd = trio.Event()
-
-            async def handle_client(dtls_channel):
-                print("handling new client")
-                try:
-                    await dtls_channel.do_handshake()
-                    while True:
-                        data = await dtls_channel.receive()
-                        print(f"server received plaintext: {data}")
-                        if not data:
-                            continue
-                        assert int(data.decode()) == next_client_idx
-                        next_client_msg_recvd.set()
-                        break
-                except trio.BrokenResourceError:
-                    # client might have timed out on handshake and started a new one
-                    # so we'll let this task die and let the new task do the check
-                    print("new handshake restarting")
-                    pass
-                except:
-                    print("server handler saw")
-                    import traceback
-
-                    traceback.print_exc()
-                    raise
-
-            await nursery.start(server_dtls.serve, server_ctx, handle_client)
-
-            for _ in range(HANDSHAKES):
+            for i in range(HANDSHAKES):
                 print("#" * 80)
                 print("#" * 80)
                 print("#" * 80)
-                with trio.socket.socket(type=trio.socket.SOCK_DGRAM) as client_sock:
-                    client_dtls = DTLSEndpoint(client_sock)
-                    client = client_dtls.connect(server_sock.getsockname(), client_ctx)
+                with endpoint() as client_endpoint:
+                    client = client_endpoint.connect(address, client_ctx)
+                    print("client starting do_handshake")
                     await client.do_handshake()
+                    print("client finished do_handshake")
+                    msg = str(i).encode()
+                    # Make multiple attempts to send data, because the network might
+                    # drop it
                     while True:
-                        data = str(next_client_idx).encode()
-                        print(f"client sending plaintext: {data}")
-                        await client.send(data)
                         with trio.move_on_after(10) as cscope:
-                            await next_client_msg_recvd.wait()
+                            await client.send(msg)
+                            assert await client.receive() == msg
                         if not cscope.cancelled_caught:
                             break
-
-                    next_client_idx += 1
-                    next_client_msg_recvd = trio.Event()
-
-            nursery.cancel_scope.cancel()
 
 
 async def test_implicit_handshake():
@@ -662,11 +638,66 @@ async def test_tiny_network_mtu(ipv6, autojump_clock):
             assert await client.receive() == b"xyz"
 
 
-# socket closed at terrible times
+@pytest.mark.filterwarnings("always:unclosed DTLS:ResourceWarning")
+async def test_system_task_cleaned_up_on_gc():
+    before_tasks = trio.lowlevel.current_statistics().tasks_living
 
-# garbage collecting DTLS object without closing it
-# (use fakenet, send a packet to the server, then immediately drop the dtls object and
-# run gc before `sock.recvfrom()` can return)
+    e = endpoint()
+    # Give system task a chance to start up
+    await trio.testing.wait_all_tasks_blocked()
+
+    during_tasks = trio.lowlevel.current_statistics().tasks_living
+
+    with pytest.warns(ResourceWarning):
+        del e
+        gc_collect_harder()
+
+    await trio.testing.wait_all_tasks_blocked()
+
+    after_tasks = trio.lowlevel.current_statistics().tasks_living
+    assert before_tasks < during_tasks
+    assert before_tasks == after_tasks
+
+
+@pytest.mark.filterwarnings("always:unclosed DTLS:ResourceWarning")
+async def test_gc_before_system_task_starts():
+    e = endpoint()
+
+    with pytest.warns(ResourceWarning):
+        del e
+        gc_collect_harder()
+
+    await trio.testing.wait_all_tasks_blocked()
+
+
+async def test_already_closed_socket_doesnt_crash():
+    with endpoint() as e:
+        # We close the socket before checkpointing, so the socket will already be closed
+        # when the system task starts up
+        e.socket.close()
+        # Now give it a chance to start up, and hopefully not crash
+        await trio.testing.wait_all_tasks_blocked()
+
+
+async def test_socket_closed_while_processing_clienthello(autojump_clock):
+    fn = FakeNet()
+    fn.enable()
+
+    # Check what happens if the socket is discovered to be closed when sending a
+    # HelloVerifyRequest, since that has its own sending logic
+    async with dtls_echo_server() as (server, address):
+        def route_packet(packet):
+            fn.deliver_packet(packet)
+            server.socket.close()
+
+        fn.route_packet = route_packet
+
+        with endpoint() as client_endpoint:
+            with trio.move_on_after(10):
+                client = client_endpoint.connect(address, client_ctx)
+                await client.do_handshake()
+
+# socket closed at terrible times
 
 # maybe handshake failure should only set _mtu, not the openssl-level mtu?
 # (and rename _mtu to "_effective_handshake_mtu" or something to be clear about its

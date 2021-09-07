@@ -1,9 +1,5 @@
 # https://datatracker.ietf.org/doc/html/rfc6347
 
-# XX: figure out what to do about the pyopenssl dependency
-# Maybe the toplevel __init__.py should use __getattr__ trickery to load all
-# the DTLS code lazily?
-
 import struct
 import hmac
 import os
@@ -12,6 +8,7 @@ import enum
 from itertools import count
 import weakref
 import errno
+import warnings
 
 import attr
 
@@ -127,7 +124,7 @@ def is_client_hello_untrusted(packet):
 RECORD_HEADER = struct.Struct("!B2sQH")
 
 
-hex_repr = attr.ib(repr=lambda data: data.hex())
+hex_repr = attr.ib(repr=lambda data: data.hex())  # pragma: no cover
 
 
 @attr.frozen
@@ -143,7 +140,10 @@ def records_untrusted(packet):
     while i < len(packet):
         try:
             ct, version, epoch_seqno, payload_len = RECORD_HEADER.unpack_from(packet, i)
-        except struct.error as exc:
+        # Marked as no-cover because at time of writing, this code is unreachable
+        # (records_untrusted only gets called on packets that are either trusted or that
+        # have passed is_client_hello_untrusted, which filters out short packets)
+        except struct.error as exc:  # pragma: no cover
             raise BadPacket("invalid record header") from exc
         i += RECORD_HEADER.size
         payload = packet[i : i + payload_len]
@@ -179,7 +179,7 @@ class HandshakeFragment:
     msg_seq: int
     frag_offset: int
     frag_len: int
-    frag: bytes = attr.ib(repr=lambda f: f.hex())
+    frag: bytes = hex_repr
 
 
 def decode_handshake_fragment_untrusted(payload):
@@ -605,8 +605,6 @@ def _read_loop(read_fn):
             chunk = read_fn(2 ** 14)  # max TLS record size
         except SSL.WantReadError:
             break
-        if not chunk:
-            break
         chunks.append(chunk)
     return b"".join(chunks)
 
@@ -666,10 +664,11 @@ async def handle_client_hello_untrusted(endpoint, address, packet):
         endpoint._incoming_connections_q.s.send_nowait(stream)
 
 
-async def dtls_receive_loop(endpoint):
-    sock = endpoint.socket
-    endpoint_ref = weakref.ref(endpoint)
-    del endpoint
+async def dtls_receive_loop(endpoint_ref):
+    try:
+        sock = endpoint_ref().socket
+    except AttributeError:
+        return
     while True:
         try:
             packet, address = await sock.recvfrom(MAX_UDP_PACKET_SIZE)
@@ -909,6 +908,8 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
     async def send(self, data):
         if self._closed:
             raise trio.ClosedResourceError
+        if not data:
+            raise ValueError("openssl doesn't support sending empty DTLS packets")
         if not self._did_handshake:
             await self.do_handshake()
         self._check_replaced()
@@ -921,18 +922,19 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
     async def receive(self):
         if not self._did_handshake:
             await self.do_handshake()
+        # If the packet isn't really valid, then openssl can decode it to the empty
+        # string (e.g. b/c it's a late-arriving handshake packet, or a duplicate copy of
+        # a data packet). Skip over these instead of returning them.
         while True:
             try:
                 packet = await self._q.r.receive()
             except trio.EndOfChannel:
                 assert self._replaced
                 self._check_replaced()
-            # Don't return spurious empty packets because of stray handshake packets
-            # coming in late
-            if part_of_handshake_untrusted(packet):
-                continue
             self._ssl.bio_write(packet)
-            return _read_loop(self._ssl.read)
+            cleartext = _read_loop(self._ssl.read)
+            if cleartext:
+                return cleartext
 
 
 class DTLSEndpoint(metaclass=Final):
@@ -961,7 +963,7 @@ class DTLSEndpoint(metaclass=Final):
         self._send_lock = trio.Lock()
         self._closed = False
 
-        trio.lowlevel.spawn_system_task(dtls_receive_loop, self)
+        trio.lowlevel.spawn_system_task(dtls_receive_loop, weakref.ref(self))
 
     def __del__(self):
         # Do nothing if this object was never fully constructed
@@ -969,10 +971,15 @@ class DTLSEndpoint(metaclass=Final):
             return
         # Close the socket in Trio context (if our Trio context still exists), so that
         # the background task gets notified about the closure and can exit.
-        try:
-            self._token.run_sync_soon(self.socket.close)
-        except RuntimeError:
-            pass
+        if not self._closed:
+            try:
+                self._token.run_sync_soon(self.close)
+            except RuntimeError:
+                pass
+            # Do this last, because it might raise an exception
+            warnings.warn(
+                f"unclosed DTLS endpoint {self!r}", ResourceWarning, source=self
+            )
 
     def close(self):
         self._closed = True
@@ -1025,11 +1032,4 @@ class DTLSEndpoint(metaclass=Final):
         if old_channel is not None:
             old_channel._set_replaced()
         self._streams[address] = channel
-        # try:
-        #     await channel.do_handshake(
-        #         initial_retransmit_timeout=initial_retransmit_timeout
-        #     )
-        # except:
-        #     channel.close()
-        #     raise
         return channel
