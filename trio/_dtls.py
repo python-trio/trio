@@ -540,7 +540,9 @@ def valid_cookie(key, cookie, address, client_hello_bits):
         tick = _current_cookie_tick()
 
         cur_cookie = _make_cookie(key, salt, tick, address, client_hello_bits)
-        old_cookie = _make_cookie(key, salt, max(tick - 1, 0), address, client_hello_bits)
+        old_cookie = _make_cookie(
+            key, salt, max(tick - 1, 0), address, client_hello_bits
+        )
 
         # I doubt using a short-circuiting 'or' here would leak any meaningful
         # information, but why risk it when '|' is just as easy.
@@ -622,7 +624,9 @@ async def handle_client_hello_untrusted(endpoint, address, packet):
         endpoint._listening_key = os.urandom(KEY_BYTES)
 
     if not valid_cookie(endpoint._listening_key, cookie, address, bits):
-        challenge_packet = challenge_for(endpoint._listening_key, address, epoch_seqno, bits)
+        challenge_packet = challenge_for(
+            endpoint._listening_key, address, epoch_seqno, bits
+        )
         try:
             async with endpoint._send_lock:
                 await endpoint.socket.sendto(challenge_packet, address)
@@ -1010,7 +1014,7 @@ class DTLSEndpoint(metaclass=Final):
         finally:
             self._listening_context = None
 
-    async def connect(self, address, ssl_context, *, initial_retransmit_timeout=1.0):
+    def connect(self, address, ssl_context):
         # it would be nice if we could detect when 'address' is our own endpoint (a
         # loopback connection), because that can't work
         # but I don't see how to do it reliably
@@ -1021,11 +1025,11 @@ class DTLSEndpoint(metaclass=Final):
         if old_channel is not None:
             old_channel._set_replaced()
         self._streams[address] = channel
-        try:
-            await channel.do_handshake(
-                initial_retransmit_timeout=initial_retransmit_timeout
-            )
-        except:
-            channel.close()
-            raise
+        # try:
+        #     await channel.do_handshake(
+        #         initial_retransmit_timeout=initial_retransmit_timeout
+        #     )
+        # except:
+        #     channel.close()
+        #     raise
         return channel
