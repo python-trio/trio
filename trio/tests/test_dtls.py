@@ -583,7 +583,7 @@ async def test_initial_retransmit_timeout_configuration(autojump_clock):
                 assert after - before == t
 
 
-async def test_setting_tiny_mtu():
+async def test_explicit_tiny_mtu_is_respected():
     # ClientHello is ~240 bytes, and it can't be fragmented, so our mtu has to
     # be larger than that. (300 is still smaller than any real network though.)
     MTU = 300
@@ -609,7 +609,7 @@ async def test_setting_tiny_mtu():
 
 
 @parametrize_ipv6
-async def test_tiny_network_mtu(ipv6, autojump_clock):
+async def test_handshake_handles_minimum_network_mtu(ipv6, autojump_clock):
     # Fake network that has the minimum allowable MTU for whatever protocol we're using.
     fn = FakeNet()
     fn.enable()
@@ -634,8 +634,13 @@ async def test_tiny_network_mtu(ipv6, autojump_clock):
     async with dtls_echo_server(ipv6=ipv6) as (_, address):
         with endpoint(ipv6=ipv6) as client_endpoint:
             client = client_endpoint.connect(address, client_ctx)
+            # the handshake mtu backoff shouldn't affect the return value from
+            # get_cleartext_mtu, b/c that's under the user's control via
+            # set_ciphertext_mtu
+            client.set_ciphertext_mtu(9999)
             await client.send(b"xyz")
             assert await client.receive() == b"xyz"
+            assert client.get_cleartext_mtu() > 9000  # as vegeta said
 
 
 @pytest.mark.filterwarnings("always:unclosed DTLS:ResourceWarning")
@@ -686,6 +691,7 @@ async def test_socket_closed_while_processing_clienthello(autojump_clock):
     # Check what happens if the socket is discovered to be closed when sending a
     # HelloVerifyRequest, since that has its own sending logic
     async with dtls_echo_server() as (server, address):
+
         def route_packet(packet):
             fn.deliver_packet(packet)
             server.socket.close()
@@ -696,9 +702,3 @@ async def test_socket_closed_while_processing_clienthello(autojump_clock):
             with trio.move_on_after(10):
                 client = client_endpoint.connect(address, client_ctx)
                 await client.do_handshake()
-
-# socket closed at terrible times
-
-# maybe handshake failure should only set _mtu, not the openssl-level mtu?
-# (and rename _mtu to "_effective_handshake_mtu" or something to be clear about its
-# purpose)

@@ -736,7 +736,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         # to just performing a new handshake.
         ctx.set_options(SSL.OP_NO_QUERY_MTU | SSL.OP_NO_RENEGOTIATION)
         self._ssl = SSL.Connection(ctx)
-        self._mtu = None
+        self._handshake_mtu = None
         # This calls self._ssl.set_ciphertext_mtu, which is important, because if you
         # don't call it then openssl doesn't work.
         self.set_ciphertext_mtu(best_guess_mtu(self.endpoint.socket))
@@ -762,7 +762,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
             )
 
     def set_ciphertext_mtu(self, new_mtu):
-        self._mtu = new_mtu
+        self._handshake_mtu = new_mtu
         self._ssl.set_ciphertext_mtu(new_mtu)
 
     def get_cleartext_mtu(self):
@@ -796,7 +796,9 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         await trio.lowlevel.checkpoint()
 
     async def _send_volley(self, volley_messages):
-        packets = self._record_encoder.encode_volley(volley_messages, self._mtu)
+        packets = self._record_encoder.encode_volley(
+            volley_messages, self._handshake_mtu
+        )
         for packet in packets:
             async with self.endpoint._send_lock:
                 await self.endpoint.socket.sendto(packet, self.peer_address)
@@ -901,8 +903,8 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                         # We tried sending this twice and they both failed. Maybe our
                         # PMTU estimate is wrong? Let's try dropping it to the minimum
                         # and hope that helps.
-                        self.set_ciphertext_mtu(
-                            min(self._mtu, worst_case_mtu(self.endpoint.socket))
+                        self._handshake_mtu = min(
+                            self._handshake_mtu, worst_case_mtu(self.endpoint.socket)
                         )
 
     async def send(self, data):
@@ -947,8 +949,8 @@ class DTLSEndpoint(metaclass=Final):
         self.socket = None  # for __del__, in case the next line raises
         if socket.type != trio.socket.SOCK_DGRAM:
             raise ValueError("DTLS requires a SOCK_DGRAM socket")
-
         self.socket = socket
+
         self.incoming_packets_buffer = incoming_packets_buffer
         self._token = trio.lowlevel.current_trio_token()
         # We don't need to track handshaking vs non-handshake connections
