@@ -230,7 +230,10 @@ def decode_client_hello_untrusted(packet):
     try:
         # ClientHello has to be the first record in the packet
         record = next(records_untrusted(packet))
-        if record.content_type != ContentType.handshake:
+        # no-cover because at time of writing, this is unreachable:
+        # decode_client_hello_untrusted is only called on packets that have passed
+        # is_client_hello_untrusted, which confirms the content type.
+        if record.content_type != ContentType.handshake:  # pragma: no cover
             raise BadPacket("not a handshake record")
         fragment = decode_handshake_fragment_untrusted(record.payload)
         if fragment.msg_type != HandshakeType.client_hello:
@@ -669,52 +672,58 @@ async def dtls_receive_loop(endpoint_ref):
         sock = endpoint_ref().socket
     except AttributeError:
         return
-    while True:
-        try:
-            packet, address = await sock.recvfrom(MAX_UDP_PACKET_SIZE)
-        except trio.ClosedResourceError:
-            return
-        except OSError as exc:
-            if exc.errno in (errno.EBADF, errno.ENOTSOCK):
-                # Socket was closed
-                return
-            else:
-                # Some weird error, e.g. apparently some versions of Windows can do
-                # ECONNRESET here to report that some previous UDP packet got an ICMP
-                # Port Unreachable:
-                #   https://bobobobo.wordpress.com/2009/05/17/udp-an-existing-connection-was-forcibly-closed-by-the-remote-host/
-                # We'll assume that whatever it is, it's a transient problem.
-                continue
-        endpoint = endpoint_ref()
-        try:
-            if endpoint is None:
-                return
-            if is_client_hello_untrusted(packet):
-                await handle_client_hello_untrusted(endpoint, address, packet)
-            elif address in endpoint._streams:
-                stream = endpoint._streams[address]
-                if stream._did_handshake and part_of_handshake_untrusted(packet):
-                    # The peer just sent us more handshake messages, that aren't a
-                    # ClientHello, and we thought the handshake was done. Some of the
-                    # packets that we sent to finish the handshake must have gotten
-                    # lost. So re-send them. We do this directly here instead of just
-                    # putting it into the queue and letting the receiver do it, because
-                    # there's no guarantee that anyone is reading from the queue,
-                    # because we think the handshake is done!
-                    try:
-                        await stream._resend_final_volley()
-                    except trio.ClosedResourceError:
-                        return
+    try:
+        while True:
+            try:
+                packet, address = await sock.recvfrom(MAX_UDP_PACKET_SIZE)
+            except OSError as exc:
+                if exc.errno == errno.ECONNRESET:
+                    # Windows only: "On a UDP-datagram socket [ECONNRESET]
+                    # indicates a previous send operation resulted in an ICMP Port
+                    # Unreachable message" -- https://docs.microsoft.com/en-us/windows/win32/api/winsock/nf-winsock-recvfrom
+                    #
+                    # This is totally useless -- there's nothing we can do with this
+                    # information. So we just ignore it and retry the recv.
+                    continue
                 else:
-                    try:
-                        stream._q.s.send_nowait(packet)
-                    except trio.WouldBlock:
-                        stream._packets_dropped_in_trio += 1
-            else:
-                # Drop packet
-                pass
-        finally:
-            del endpoint
+                    raise
+            endpoint = endpoint_ref()
+            try:
+                if endpoint is None:
+                    return
+                if is_client_hello_untrusted(packet):
+                    await handle_client_hello_untrusted(endpoint, address, packet)
+                elif address in endpoint._streams:
+                    stream = endpoint._streams[address]
+                    if stream._did_handshake and part_of_handshake_untrusted(packet):
+                        # The peer just sent us more handshake messages, that aren't a
+                        # ClientHello, and we thought the handshake was done. Some of
+                        # the packets that we sent to finish the handshake must have
+                        # gotten lost. So re-send them. We do this directly here instead
+                        # of just putting it into the queue and letting the receiver do
+                        # it, because there's no guarantee that anyone is reading from
+                        # the queue, because we think the handshake is done!
+                        await stream._resend_final_volley()
+                    else:
+                        try:
+                            stream._q.s.send_nowait(packet)
+                        except trio.WouldBlock:
+                            stream._packets_dropped_in_trio += 1
+                else:
+                    # Drop packet
+                    pass
+            finally:
+                del endpoint
+    except trio.ClosedResourceError:
+        # socket was closed
+        return
+    except OSError as exc:
+        if exc.errno in (errno.EBADF, errno.ENOTSOCK):
+            # socket was closed
+            return
+        else:  # pragma: no cover
+            # ??? shouldn't happen
+            raise
 
 
 @attr.frozen
@@ -847,6 +856,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
             while True:
                 # -- at this point, we need to either send or re-send a volley --
                 assert volley_messages
+                self._check_replaced()
                 await self._send_volley(volley_messages)
                 # -- then this is where we wait for a reply --
                 with trio.move_on_after(timeout) as cscope:

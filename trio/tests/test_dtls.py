@@ -64,8 +64,8 @@ async def dtls_echo_server(*, autocancel=True, mtu=None, ipv6=False):
                     async for packet in dtls_channel:
                         print(f"echoing {packet} -> {dtls_channel.peer_address}")
                         await dtls_channel.send(packet)
-                except trio.BrokenResourceError:
-                    pass
+                except trio.BrokenResourceError:  # pragma: no cover
+                    print("echo handler channel broken")
 
             await nursery.start(server.serve, server_ctx, echo_handler)
 
@@ -111,7 +111,7 @@ async def test_handshake_over_terrible_network(autojump_clock):
                 while True:
                     op = r.choices(
                         ["deliver", "drop", "dupe", "delay"],
-                        weights=[0.7, 0.1, 0.1, 0.1],
+                        weights=[0.6, 0.1, 0.1, 0.1],
                     )[0]
                     print(f"{packet.source} -> {packet.destination}: {op}")
                     if op == "drop":
@@ -120,6 +120,23 @@ async def test_handshake_over_terrible_network(autojump_clock):
                         fn.send_packet(packet)
                     elif op == "delay":
                         await trio.sleep(r.random() * 3)
+                    # I wanted to test random packet corruption too, but it turns out
+                    # openssl has a bug in the following scenario:
+                    # - client sends ClientHello
+                    # - server sends HelloVerifyRequest with cookie -- but cookie is
+                    #   invalid b/c either the ClientHello or HelloVerifyRequest was
+                    #   corrupted
+                    # - client re-sends ClientHello with invalid cookie
+                    # - server replies with new HelloVerifyRequest and correct cookie
+                    #
+                    # At this point, the client *should* switch to the new, valid
+                    # cookie. But OpenSSL doesn't; it stubbornly insists on re-sending
+                    # the original, invalid cookie over and over.
+                    #
+                    # elif op == "distort":
+                    #     payload = bytearray(packet.payload)
+                    #     payload[r.randrange(len(payload))] ^= 1 << r.randrange(8)
+                    #     packet = attr.evolve(packet, payload=payload)
                     else:
                         assert op == "deliver"
                         print(
@@ -131,7 +148,7 @@ async def test_handshake_over_terrible_network(autojump_clock):
             def route_packet_wrapper(packet):
                 try:
                     nursery.start_soon(route_packet, packet)
-                except RuntimeError:
+                except RuntimeError:  # pragma: no cover
                     # We're exiting the nursery, so any remaining packets can just get
                     # dropped
                     pass
@@ -376,6 +393,25 @@ async def test_server_socket_doesnt_crash_on_garbage(autojump_clock):
             + b"\x00",
         )
     )
+
+    handshake_empty = encode_record(
+        Record(
+            content_type=ContentType.handshake,
+            version=ProtocolVersion.DTLS10,
+            epoch_seqno=0,
+            payload=b"",
+        )
+    )
+
+    client_hello_truncated_in_cookie = encode_record(
+        Record(
+            content_type=ContentType.handshake,
+            version=ProtocolVersion.DTLS10,
+            epoch_seqno=0,
+            payload=bytes(2 + 32 + 1) + b"\xff",
+        )
+    )
+
     async with dtls_echo_server() as (_, address):
         with trio.socket.socket(type=trio.socket.SOCK_DGRAM) as sock:
             for bad_packet in [
@@ -387,6 +423,8 @@ async def test_server_socket_doesnt_crash_on_garbage(autojump_clock):
                 client_hello_corrupt_record_len,
                 client_hello_fragmented,
                 client_hello_trailing_data_in_record,
+                handshake_empty,
+                client_hello_truncated_in_cookie,
             ]:
                 await sock.sendto(bad_packet, address)
                 await trio.sleep(1)
@@ -471,6 +509,8 @@ async def test_client_cancels_handshake_and_starts_new_one(autojump_clock):
             channel = client.connect(server.socket.getsockname(), client_ctx)
             assert await channel.receive() == b"hello"
 
+            # Give handlers a chance to finish
+            await trio.sleep(10)
             nursery.cancel_scope.cancel()
 
 
@@ -675,6 +715,17 @@ async def test_gc_before_system_task_starts():
     await trio.testing.wait_all_tasks_blocked()
 
 
+@pytest.mark.filterwarnings("always:unclosed DTLS:ResourceWarning")
+def test_gc_after_trio_exits():
+    async def main():
+        return endpoint()
+
+    e = trio.run(main)
+    with pytest.warns(ResourceWarning):
+        del e
+        gc_collect_harder()
+
+
 async def test_already_closed_socket_doesnt_crash():
     with endpoint() as e:
         # We close the socket before checkpointing, so the socket will already be closed
@@ -702,3 +753,69 @@ async def test_socket_closed_while_processing_clienthello(autojump_clock):
             with trio.move_on_after(10):
                 client = client_endpoint.connect(address, client_ctx)
                 await client.do_handshake()
+
+
+async def test_association_replaced_while_handshake_running(autojump_clock):
+    fn = FakeNet()
+    fn.enable()
+
+    blackholed = True
+
+    def route_packet(packet):
+        if blackholed:
+            return
+        fn.deliver_packet(packet)
+
+    fn.route_packet = route_packet
+
+    async with dtls_echo_server() as (_, address):
+        with endpoint() as client_endpoint:
+            c1 = client_endpoint.connect(address, client_ctx)
+            async with trio.open_nursery() as nursery:
+                async def doomed_handshake():
+                    with pytest.raises(trio.BrokenResourceError):
+                        await c1.do_handshake()
+
+                nursery.start_soon(doomed_handshake)
+
+                await trio.sleep(10)
+
+                c2 = client_endpoint.connect(address, client_ctx)
+
+
+async def test_association_replaced_before_handshake_starts():
+    fn = FakeNet()
+    fn.enable()
+
+    # This test shouldn't send any packets
+    def route_packet(packet):  # pragma: no cover
+        assert False
+
+    fn.route_packet = route_packet
+
+    async with dtls_echo_server() as (_, address):
+        with endpoint() as client_endpoint:
+            c1 = client_endpoint.connect(address, client_ctx)
+            c2 = client_endpoint.connect(address, client_ctx)
+            with pytest.raises(trio.BrokenResourceError):
+                await c1.do_handshake()
+
+
+async def test_send_to_closed_local_port():
+    # On Windows, sending a UDP packet to a closed local port can cause a weird
+    # ECONNRESET error later, inside the receive task. Make sure we're handling it
+    # properly.
+    async with dtls_echo_server() as (_, address):
+        with endpoint() as client_endpoint:
+            async with trio.open_nursery() as nursery:
+                for i in range(1, 10):
+                    channel = client_endpoint.connect(("127.0.0.1", i), client_ctx)
+                    nursery.start_soon(channel.do_handshake)
+                channel = client_endpoint.connect(address, client_ctx)
+                await channel.send(b"xxx")
+                assert await channel.receive() == b"xxx"
+                nursery.cancel_scope.cancel()
+
+# can we work around the openssl bug with invalid cookies by rebooting the connection
+# when we see a second HelloVerifyRequest? (and then enable packet corruption in the
+# torture test?)
