@@ -57,10 +57,10 @@ async def dtls_echo_server(*, autocancel=True, mtu=None, ipv6=False):
                 )
                 if mtu is not None:
                     dtls_channel.set_ciphertext_mtu(mtu)
-                print("server starting do_handshake")
-                await dtls_channel.do_handshake()
-                print("server finished do_handshake")
                 try:
+                    print("server starting do_handshake")
+                    await dtls_channel.do_handshake()
+                    print("server finished do_handshake")
                     async for packet in dtls_channel:
                         print(f"echoing {packet} -> {dtls_channel.peer_address}")
                         await dtls_channel.send(packet)
@@ -80,6 +80,9 @@ async def test_smoke(ipv6):
     async with dtls_echo_server(ipv6=ipv6) as (server_endpoint, address):
         with endpoint(ipv6=ipv6) as client_endpoint:
             client_channel = client_endpoint.connect(address, client_ctx)
+            with pytest.raises(trio.NeedHandshakeError):
+                client_channel.get_cleartext_mtu()
+
             await client_channel.do_handshake()
             await client_channel.send(b"hello")
             assert await client_channel.receive() == b"hello"
@@ -111,7 +114,7 @@ async def test_handshake_over_terrible_network(autojump_clock):
                 while True:
                     op = r.choices(
                         ["deliver", "drop", "dupe", "delay"],
-                        weights=[0.6, 0.1, 0.1, 0.1],
+                        weights=[0.7, 0.1, 0.1, 0.1],
                     )[0]
                     print(f"{packet.source} -> {packet.destination}: {op}")
                     if op == "drop":
@@ -122,6 +125,7 @@ async def test_handshake_over_terrible_network(autojump_clock):
                         await trio.sleep(r.random() * 3)
                     # I wanted to test random packet corruption too, but it turns out
                     # openssl has a bug in the following scenario:
+                    #
                     # - client sends ClientHello
                     # - server sends HelloVerifyRequest with cookie -- but cookie is
                     #   invalid b/c either the ClientHello or HelloVerifyRequest was
@@ -131,7 +135,12 @@ async def test_handshake_over_terrible_network(autojump_clock):
                     #
                     # At this point, the client *should* switch to the new, valid
                     # cookie. But OpenSSL doesn't; it stubbornly insists on re-sending
-                    # the original, invalid cookie over and over.
+                    # the original, invalid cookie over and over. In theory we could
+                    # work around this by detecting cookie changes and starting over
+                    # with a whole new SSL object, but (a) it doesn't seem worth it, (b)
+                    # when I tried then I ran into another issue where OpenSSL got stuck
+                    # in an infinite loop sending alerts over and over, which I didn't
+                    # dig into because see (a).
                     #
                     # elif op == "distort":
                     #     payload = bytearray(packet.payload)
@@ -716,6 +725,26 @@ async def test_gc_before_system_task_starts():
 
 
 @pytest.mark.filterwarnings("always:unclosed DTLS:ResourceWarning")
+async def test_gc_as_packet_received():
+    fn = FakeNet()
+    fn.enable()
+
+    e = endpoint()
+    await e.socket.bind(("127.0.0.1", 0))
+
+    await trio.testing.wait_all_tasks_blocked()
+
+    with trio.socket.socket(type=trio.socket.SOCK_DGRAM) as s:
+        await s.sendto(b"xxx", e.socket.getsockname())
+    # At this point, the endpoint's receive loop has been marked runnable because it
+    # just received a packet; closing the endpoint socket won't interrupt that. But by
+    # the time it wakes up to process the packet, the endpoint will be gone.
+    with pytest.warns(ResourceWarning):
+        del e
+        gc_collect_harder()
+
+
+@pytest.mark.filterwarnings("always:unclosed DTLS:ResourceWarning")
 def test_gc_after_trio_exits():
     async def main():
         return endpoint()
@@ -759,12 +788,8 @@ async def test_association_replaced_while_handshake_running(autojump_clock):
     fn = FakeNet()
     fn.enable()
 
-    blackholed = True
-
     def route_packet(packet):
-        if blackholed:
-            return
-        fn.deliver_packet(packet)
+        pass
 
     fn.route_packet = route_packet
 
@@ -815,7 +840,3 @@ async def test_send_to_closed_local_port():
                 await channel.send(b"xxx")
                 assert await channel.receive() == b"xxx"
                 nursery.cancel_scope.cancel()
-
-# can we work around the openssl bug with invalid cookies by rebooting the connection
-# when we see a second HelloVerifyRequest? (and then enable packet corruption in the
-# torture test?)

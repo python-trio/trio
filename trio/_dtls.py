@@ -673,11 +673,7 @@ async def handle_client_hello_untrusted(endpoint, address, packet):
         endpoint._incoming_connections_q.s.send_nowait(stream)
 
 
-async def dtls_receive_loop(endpoint_ref):
-    try:
-        sock = endpoint_ref().socket
-    except AttributeError:
-        return
+async def dtls_receive_loop(endpoint_ref, sock):
     try:
         while True:
             try:
@@ -738,6 +734,20 @@ class DTLSChannelStatistics:
 
 
 class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
+    """A DTLS connection.
+
+    This class has no public constructor – you get instances by calling
+    `DTLSEndpoint.serve` or `~DTLSEndpoint.connect`.
+
+    .. attribute:: endpoint
+
+       The `DTLSEndpoint` that this connection is using.
+
+    .. attribute:: peer_address
+
+       The IP/port of the remote peer that this connection is associated with.
+
+    """
     def __init__(self, endpoint, peer_address, ctx):
         self.endpoint = endpoint
         self.peer_address = peer_address
@@ -761,9 +771,6 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         self._handshake_lock = trio.Lock()
         self._record_encoder = RecordEncoder()
 
-    def statistics(self) -> DTLSChannelStatistics:
-        return DTLSChannelStatistics(self._packets_dropped_in_trio)
-
     def _set_replaced(self):
         self._replaced = True
         # Any packets we already received could maybe possibly still be processed, but
@@ -776,13 +783,6 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                 "peer tore down this connection to start a new one"
             )
 
-    def set_ciphertext_mtu(self, new_mtu):
-        self._handshake_mtu = new_mtu
-        self._ssl.set_ciphertext_mtu(new_mtu)
-
-    def get_cleartext_mtu(self):
-        return self._ssl.get_cleartext_mtu()
-
     # XX on systems where we can (maybe just Linux?) take advantage of the kernel's PMTU
     # estimate
 
@@ -791,6 +791,17 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
     # to handle receiving it properly though, which might be easier if we send it...
 
     def close(self):
+        """Close this connection.
+
+        `DTLSChannel`\s don't actually own any OS-level resources – the
+        socket is owned by the `DTLSEndpoint`, not the individual connections. So
+        you don't really *have* to call this. But it will interrupt any other tasks
+        calling `receive` with a `ClosedResourceError`, and cause future attempts to use
+        this connection to fail.
+
+        You can also use this object as a synchronous or asynchronous context manager.
+
+        """
         if self._closed:
             return
         self._closed = True
@@ -807,6 +818,12 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         self.close()
 
     async def aclose(self):
+        """Close this connection, but asynchronously.
+
+        This is included to satisfy the `trio.abc.Channel` contract. It's
+        identical to `close`, but async.
+
+        """
         self.close()
         await trio.lowlevel.checkpoint()
 
@@ -822,6 +839,33 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         await self._send_volley(self._final_volley)
 
     async def do_handshake(self, *, initial_retransmit_timeout=1.0):
+        """Perform the handshake.
+
+        Calling this is optional – if you don't, then it will be automatically called
+        the first time you call `send` or `receive`. But calling it explicitly can be
+        useful in case you want to control the retransmit timeout, use a cancel scope to
+        place an overall timeout on the handshake, or catch errors from the handshake
+        specifically.
+
+        It's safe to call this multiple times, or call it simultaneously from multiple
+        tasks – the first call will perform the handshake, and the rest will be no-ops.
+
+        Args:
+
+          initial_retransmit_timeout (float): Since UDP is an unreliable protocol, it's
+            possible that some of the packets we send during the handshake will get
+            lost. To handle this, DTLS uses a timer to automatically retransmit
+            handshake packets that don't receive a response. This lets you set the
+            timeout we use to detect packet loss. Ideally, it should be set to ~1.5
+            times the round-trip time to your peer, but 1 second is a reasonable
+            default. There's `some useful guidance here
+            <https://tlswg.org/dtls13-spec/draft-ietf-tls-dtls13.html#name-timer-values>`__.
+
+            This is the *initial* timeout, because if packets keep being lost then Trio
+            will automatically back off to longer values, to avoid overloading the
+            network.
+
+        """
         async with self._handshake_lock:
             if self._did_handshake:
                 return
@@ -924,6 +968,10 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                         )
 
     async def send(self, data):
+        """Send a packet of data, securely.
+
+        """
+
         if self._closed:
             raise trio.ClosedResourceError
         if not data:
@@ -938,6 +986,15 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
             )
 
     async def receive(self):
+        """Fetch the next packet of data from this connection's peer, waiting if
+        necessary.
+
+        This is safe to call from multiple tasks simultaneously, in case you have some
+        reason to do that. And more importantly, it's cancellation-safe, meaning that
+        cancelling a call to `receive` will never cause a packet to be lost or corrupt
+        the underlying connection.
+
+        """
         if not self._did_handshake:
             await self.do_handshake()
         # If the packet isn't really valid, then openssl can decode it to the empty
@@ -954,8 +1011,92 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
             if cleartext:
                 return cleartext
 
+    def set_ciphertext_mtu(self, new_mtu):
+        """Tells Trio the `largest amount of data that can be sent in a single packet to
+        this peer <https://en.wikipedia.org/wiki/Maximum_transmission_unit>`__.
+
+        Trio doesn't actually enforce this limit – if you pass a huge packet to `send`,
+        then we'll dutifully encrypt it and attempt to send it. But calling this method
+        does have two useful effects:
+
+        - If called before the handshake is performed, then Trio will automatically
+          fragment handshake messages to fit within the given MTU. It also might
+          fragment them even smaller, if it detects signs of packet loss, so setting
+          this should never be necessary to make a successful connection. But, the
+          packet loss detection only happens after multiple timeouts have expired, so if
+          you have reason to believe that a smaller MTU is required, then you can set
+          this to skip those timeouts and establish the connection more quickly.
+
+        - It changes the value returned from `get_cleartext_mtu`. So if you have some
+          kind of estimate of the network-level MTU, then you can use this to figure out
+          how much overhead DTLS will need for hashes/padding/etc., and how much space
+          you have left for your application data.
+
+        The MTU here is measuring the largest UDP *payload* you think can be sent, the
+        amount of encrypted data that can be handed to the operating system in a single
+        call to `send`. It should *not* include IP/UDP headers. Note that OS estimates
+        of the MTU often are link-layer MTUs, so you have to subtract off 28 bytes on
+        IPv4 and 48 bytes on IPv6 to get the ciphertext MTU.
+
+        By default, Trio assumes an MTU of 1472 bytes on IPv4, and 1452 bytes on IPv6,
+        which correspond to the common Ethernet MTU of 1500 bytes after accounting for
+        IP/UDP overhead.
+
+        """
+        self._handshake_mtu = new_mtu
+        self._ssl.set_ciphertext_mtu(new_mtu)
+
+    def get_cleartext_mtu(self):
+        """Returns the largest number of bytes that you can pass in a single call to
+        `send` while still fitting within the network-level MTU.
+
+        See `set_ciphertext_mtu` for more details.
+
+        """
+        if not self._did_handshake:
+            raise trio.NeedHandshakeError
+        return self._ssl.get_cleartext_mtu()
+
+    def statistics(self):
+        """Returns an object with statistics about this connection.
+
+        Currently this has only one attribute:
+
+        - ``incoming_packets_dropped_in_trio`` (``int``): Gives a count of the number of
+          incoming packets from this peer that Trio successfully received from the
+          network, but then got dropped because the internal channel buffer was full. If
+          this is non-zero, then you might want to call ``receive`` more often, or use a
+          larger ``incoming_packets_buffer``, or just not worry about it because your
+          UDP-based protocol should be able to handle the occasional lost packet, right?
+
+        """
+        return DTLSChannelStatistics(self._packets_dropped_in_trio)
+
 
 class DTLSEndpoint(metaclass=Final):
+    """A DTLS endpoint.
+
+    A single UDP socket can handle arbitrarily many DTLS connections simultaneously,
+    acting as a client or server as needed. A `DTLSEndpoint` object holds a UDP socket
+    and manages these connections, which are represented as `DTLSChannel` objects.
+
+    Args:
+      socket: (trio.socket.SocketType): A ``SOCK_DGRAM`` socket. If you want to accept
+        incoming connections in server mode, then you should probably bind the socket to
+        some known port.
+      incoming_packets_buffer (int): Each `DTLSChannel` using this socket has its own
+        buffer that holds incoming packets until you call `~DTLSChannel.receive` to read
+        them. This lets you adjust the size of this buffer. `~DTLSChannel.statistics`
+        lets you check if the buffer has overflowed.
+
+    .. attribute:: socket
+                   incoming_packets_buffer
+
+       Both constructor arguments are also exposed as attributes, in case you need to
+       access them later.
+
+    """
+
     def __init__(self, socket, *, incoming_packets_buffer=10):
         # We do this lazily on first construction, so only people who actually use DTLS
         # have to install PyOpenSSL.
@@ -981,7 +1122,7 @@ class DTLSEndpoint(metaclass=Final):
         self._send_lock = trio.Lock()
         self._closed = False
 
-        trio.lowlevel.spawn_system_task(dtls_receive_loop, weakref.ref(self))
+        trio.lowlevel.spawn_system_task(dtls_receive_loop, weakref.ref(self), self.socket)
 
     def __del__(self):
         # Do nothing if this object was never fully constructed
@@ -1000,6 +1141,11 @@ class DTLSEndpoint(metaclass=Final):
             )
 
     def close(self):
+        """Close this socket, and all associated DTLS connections.
+
+        This object can also be used as a context manager.
+
+        """
         self._closed = True
         self.socket.close()
         for stream in list(self._streams.values()):
@@ -1019,6 +1165,34 @@ class DTLSEndpoint(metaclass=Final):
     async def serve(
         self, ssl_context, async_fn, *args, task_status=trio.TASK_STATUS_IGNORED
     ):
+        """Listen for incoming connections, and spawn a handler for each using an
+        internal nursery.
+
+        Similar to `~trio.serve_tcp`, this function never returns until cancelled, or
+        the `DTLSEndpoint` is closed and all handlers have exited.
+
+        Usage commonly looks like::
+
+            async def handler(dtls_channel):
+                ...
+
+            async with trio.open_nursery() as nursery:
+                await nursery.start(dtls_endpoint.serve, ssl_context, handler)
+                # ... do other things here ...
+
+        The ``dtls_channel`` passed into the handler function has already performed the
+        "cookie exchange" part of the DTLS handshake, so the peer address is
+        trustworthy. But the actual cryptographic handshake doesn't happen until you
+        start using it, giving you a chance for any last minute configuration, and the
+        option to catch and handle handshake errors.
+
+        Args:
+          ssl_context (OpenSSL.SSL.Context): The PyOpenSSL context object to use for
+            incoming connections.
+          async_fn: The handler function that will be invoked for each incoming
+            connection.
+
+        """
         self._check_closed()
         if self._listening_context is not None:
             raise trio.BusyResourceError("another task is already listening")
@@ -1040,6 +1214,23 @@ class DTLSEndpoint(metaclass=Final):
             self._listening_context = None
 
     def connect(self, address, ssl_context):
+        """Initiate an outgoing DTLS connection.
+
+        Notice that this is a synchronous method. That's because it doesn't actually
+        initiate any I/O – it just sets up a `DTLSChannel` object. The actual handshake
+        doesn't occur until you start using the `DTLSChannel`. This gives you a chance
+        to do further configuration first, like setting MTU etc.
+
+        Args:
+          address: The address to connect to. Usually a (host, port) tuple, like
+            ``("127.0.0.1", 12345)``.
+          ssl_context (OpenSSL.SSL.Context): The PyOpenSSL context object to use for
+            this connection.
+
+        Returns:
+          DTLSChannel
+
+        """
         # it would be nice if we could detect when 'address' is our own endpoint (a
         # loopback connection), because that can't work
         # but I don't see how to do it reliably
