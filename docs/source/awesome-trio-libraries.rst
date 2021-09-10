@@ -48,6 +48,8 @@ Database
 * `redio <https://github.com/Tronic/redio>`__ - Redis client, pure Python and Trio.
 * `trio_redis <https://github.com/omnidots/trio_redis>`__ - A Redis client for Trio. Depends on hiredis-py.
 * `asyncakumuli <https://github.com/M-o-a-T/asyncakumuli>`__ - Client for the `Akumuli <https://akumuli.org/>`__ time series database.
+* `aio-databases <https://github.com/klen/aio-databases`_ - Async Support for various databases (triopg, trio-mysql)
+* `peewee-aio <https://github.com/klen/peewee-aio`_ - Peewee Async ORM with trio support (triopg, trio-mysql).
 
 
 IOT
