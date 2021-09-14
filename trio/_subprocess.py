@@ -180,7 +180,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         return result
 
     @deprecated(
-        "0.16.0",
+        "0.20.0",
         thing="using trio.Process as an async context manager",
         issue=1104,
         instead="run_process or nursery.start(run_process, ...)",
@@ -189,7 +189,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         return self
 
     @deprecated(
-        "0.16.0", issue=1104, instead="run_process or nursery.start(run_process, ...)"
+        "0.20.0", issue=1104, instead="run_process or nursery.start(run_process, ...)"
     )
     async def aclose(self):
         """Close any pipes we have to the process (both input and output)
@@ -477,15 +477,16 @@ async def run_process(
 
     **Output:** By default, any output produced by the subprocess is
     passed through to the standard output and error streams of the
-    parent Trio process. If you would like to capture this output and
-    do something with it, you can pass ``capture_stdout=True`` to
-    capture the subprocess's standard output, and/or
-    ``capture_stderr=True`` to capture its standard error.  Captured
-    data is provided as the
+    parent Trio process.
+
+    When calling `run_process` directly, you can capture the subprocess's output by
+    passing ``capture_stdout=True`` to capture the subprocess's standard output, and/or
+    ``capture_stderr=True`` to capture its standard error. Captured data is collected up
+    by Trio into an in-memory buffer, and then provided as the
     :attr:`~subprocess.CompletedProcess.stdout` and/or
-    :attr:`~subprocess.CompletedProcess.stderr` attributes of the
-    returned :class:`~subprocess.CompletedProcess` object.  The value
-    for any stream that was not captured will be ``None``.
+    :attr:`~subprocess.CompletedProcess.stderr` attributes of the returned
+    :class:`~subprocess.CompletedProcess` object. The value for any stream that was not
+    captured will be ``None``.
 
     If you want to capture both stdout and stderr while keeping them
     separate, pass ``capture_stdout=True, capture_stderr=True``.
@@ -495,6 +496,13 @@ async def run_process(
     This directs the child's stderr into its stdout, so the combined
     output will be available in the `~subprocess.CompletedProcess.stdout`
     attribute.
+
+    If you're using ``await nursery.start(trio.run_process, ...)`` and want to capture
+    the subprocess's output for further processing, then use ``stdout=subprocess.PIPE``
+    and then make sure to read the data out of the `Process.stdout` stream. If you want
+    to capture stderr separately, use ``stderr=subprocess.PIPE``. If you want to capture
+    both, but mixed together in the correct order, use ``stdout=subproces.PIPE,
+    stderr=subprocess.STDOUT``.
 
     **Error checking:** If the subprocess exits with a nonzero status
     code, indicating failure, :func:`run_process` raises a
@@ -541,8 +549,9 @@ async def run_process(
           same place as the parent Trio process's standard input. As is the
           case with the :mod:`subprocess` module, you can also pass a file
           descriptor or an object with a ``fileno()`` method, in which case
-          the subprocess's standard input will come from that file. And when
-          starting `run_process` as a background task, you can use
+          the subprocess's standard input will come from that file.
+
+          When starting `run_process` as a background task, you can also use
           ``stdin=subprocess.PIPE``, in which case `Process.stdin` will be a
           `~trio.abc.SendStream` that you can use to send data to the child.
 
@@ -629,19 +638,19 @@ async def run_process(
     if task_status is trio.TASK_STATUS_IGNORED:
         if stdin is subprocess.PIPE:
             raise ValueError(
-                "stdin=subprocess.PIPE doesn't make sense without "
-                "nursery.start, since there's no way to access the "
-                "pipe; pass the data you want to send or use nursery.start"
+                "stdout=subprocess.PIPE is only valid with nursery.start, "
+                "since that's the only way to access the pipe; use nursery.start "
+                "or pass the data you want to write directly"
             )
         if options.get("stdout") is subprocess.PIPE:
             raise ValueError(
-                "stdout=subprocess.PIPE doesn't make sense without "
-                "nursery.start, since there's no way to access the pipe"
+                "stdout=subprocess.PIPE is only valid with nursery.start, "
+                "since that's the only way to access the pipe"
             )
         if options.get("stderr") is subprocess.PIPE:
             raise ValueError(
-                "stderr=subprocess.PIPE doesn't make sense without "
-                "nursery.start, since there's no way to access the pipe"
+                "stderr=subprocess.PIPE is only valid with nursery.start, "
+                "since that's the only way to access the pipe"
             )
     if isinstance(stdin, (bytes, bytearray, memoryview)):
         input = stdin
