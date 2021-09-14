@@ -29,7 +29,7 @@ cryptography==3.4.8
     # via
     #   pyopenssl
     #   trustme
-decorator==5.0.9
+decorator==5.1.0
     # via ipython
 flake8==3.9.2
     # via -r test-requirements.in
