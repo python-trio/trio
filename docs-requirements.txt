@@ -24,7 +24,7 @@ click==8.0.1
     #   towncrier
 click-default-group==1.2.2
     # via towncrier
-docutils==0.16
+docutils==0.17.1
     # via
     #   sphinx
     #   sphinx-rtd-theme
