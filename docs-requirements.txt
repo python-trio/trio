@@ -24,7 +24,7 @@ click==8.0.1
     #   towncrier
 click-default-group==1.2.2
     # via towncrier
-docutils==0.16
+docutils==0.17.1
     # via
     #   sphinx
     #   sphinx-rtd-theme
@@ -67,7 +67,7 @@ sphinx==3.3.1
     #   -r docs-requirements.in
     #   sphinx-rtd-theme
     #   sphinxcontrib-trio
-sphinx_rtd_theme==1.0.0
+sphinx-rtd-theme==1.0.0
     # via -r docs-requirements.in
 sphinxcontrib-applehelp==1.0.2
     # via sphinx
