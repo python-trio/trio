@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+import logging
 import sys
 from typing import Optional
 from functools import partial
@@ -392,28 +393,20 @@ async def open_process(
 
 
 async def _windows_deliver_cancel(p):
-    try:
-        p.terminate()
-    except OSError as exc:
-        warnings.warn(RuntimeWarning(f"TerminateProcess on {p!r} failed with: {exc!r}"))
+    p.terminate()
 
 
 async def _posix_deliver_cancel(p):
-    try:
-        p.terminate()
-        await trio.sleep(5)
-        warnings.warn(
-            RuntimeWarning(
-                f"process {p!r} ignored SIGTERM for 5 seconds. "
-                f"(Maybe you should pass a custom deliver_cancel?) "
-                f"Trying SIGKILL."
-            )
+    p.terminate()
+    await trio.sleep(5)
+    warnings.warn(
+        RuntimeWarning(
+            f"process {p!r} ignored SIGTERM for 5 seconds. "
+            f"(Maybe you should pass a custom deliver_cancel?) "
+            f"Trying SIGKILL."
         )
-        p.kill()
-    except OSError as exc:
-        warnings.warn(
-            RuntimeWarning(f"tried to kill process {p!r}, but failed with: {exc!r}")
-        )
+    )
+    p.kill()
 
 
 async def run_process(
@@ -603,41 +596,48 @@ async def run_process(
     stdout_chunks = []
     stderr_chunks = []
 
-    async with await open_process(command, **options) as proc:
+    proc = await open_process(command, **options)
 
-        async def feed_input():
-            async with proc.stdin:
-                try:
-                    await proc.stdin.send_all(input)
-                except trio.BrokenResourceError:
-                    pass
-
-        async def read_output(stream, chunks):
-            async with stream:
-                async for chunk in stream:
-                    chunks.append(chunk)
-
-        async with trio.open_nursery() as nursery:
-            if proc.stdin is not None:
-                nursery.start_soon(feed_input)
-            if proc.stdout is not None:
-                nursery.start_soon(read_output, proc.stdout, stdout_chunks)
-            if proc.stderr is not None:
-                nursery.start_soon(read_output, proc.stderr, stderr_chunks)
+    async def feed_input():
+        async with proc.stdin:
             try:
-                await proc.wait()
-            except trio.Cancelled:
-                with trio.CancelScope(shield=True):
-                    killer_cscope = trio.CancelScope(shield=True)
+                await proc.stdin.send_all(input)
+            except trio.BrokenResourceError:
+                pass
 
-                    async def killer():
-                        with killer_cscope:
+    async def read_output(stream, chunks):
+        async with stream:
+            async for chunk in stream:
+                chunks.append(chunk)
+
+    async with trio.open_nursery() as nursery:
+        if proc.stdin is not None:
+            nursery.start_soon(feed_input)
+        if proc.stdout is not None:
+            nursery.start_soon(read_output, proc.stdout, stdout_chunks)
+        if proc.stderr is not None:
+            nursery.start_soon(read_output, proc.stderr, stderr_chunks)
+        try:
+            await proc.wait()
+        except trio.Cancelled:
+            with trio.CancelScope(shield=True):
+                killer_cscope = trio.CancelScope(shield=True)
+
+                async def killer():
+                    with killer_cscope:
+                        try:
                             await deliver_cancel(proc)
+                        except BaseException as exc:
+                            LOGGER = logging.getLogger("trio.run_process")
+                            LOGGER.exception(
+                                f"tried to kill process {proc!r}, but failed with: {exc!r}"
+                            )
+                            raise
 
-                    nursery.start_soon(killer)
-                    await proc.wait()
-                    killer_cscope.cancel()
-                    raise
+                nursery.start_soon(killer)
+                await proc.wait()
+                killer_cscope.cancel()
+                raise
 
     stdout = b"".join(stdout_chunks) if proc.stdout is not None else None
     stderr = b"".join(stderr_chunks) if proc.stderr is not None else None

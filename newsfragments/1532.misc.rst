@@ -1,0 +1,1 @@
+In `run_process` moved `deliver_cancel` exception handling to the caller code.
