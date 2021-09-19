@@ -698,7 +698,7 @@ task and interact with it while it's running:
 
 If `trio.run_process` is too limiting, we also offer a low-level API,
 `trio.lowlevel.open_process`. For example, if you want to spawn a
-child process that will and outlive the parent process and be
+child process that will outlive the parent process and be
 orphaned, then `~trio.run_process` can't do that, but
 `~trio.lowlevel.open_process` can.
 
