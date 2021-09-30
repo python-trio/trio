@@ -909,6 +909,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                 self._check_replaced()
                 await self._send_volley(volley_messages)
                 # -- then this is where we wait for a reply --
+                self.endpoint._ensure_receive_loop()
                 with trio.move_on_after(timeout) as cscope:
                     async for packet in self._q.r:
                         self._ssl.bio_write(packet)
@@ -1121,8 +1122,15 @@ class DTLSEndpoint(metaclass=Final):
         self._incoming_connections_q = _Queue(float("inf"))
         self._send_lock = trio.Lock()
         self._closed = False
+        self._receive_loop_spawned = False
 
-        trio.lowlevel.spawn_system_task(dtls_receive_loop, weakref.ref(self), self.socket)
+    def _ensure_receive_loop(self):
+        # We have to spawn this lazily, because on Windows it will immediately error out
+        # if the socket isn't already bound -- which for clients might not happen until
+        # after we send our first packet.
+        if not self._receive_loop_spawned:
+            trio.lowlevel.spawn_system_task(dtls_receive_loop, weakref.ref(self), self.socket)
+            self._receive_loop_spawned = True
 
     def __del__(self):
         # Do nothing if this object was never fully constructed
@@ -1196,6 +1204,11 @@ class DTLSEndpoint(metaclass=Final):
         self._check_closed()
         if self._listening_context is not None:
             raise trio.BusyResourceError("another task is already listening")
+        try:
+            self.socket.getsockname()
+        except OSError:
+            raise RuntimeError("DTLS socket must be bound before it can serve")
+        self._ensure_receive_loop()
         # We do cookie verification ourselves, so tell OpenSSL not to worry about it.
         # (See also _inject_client_hello_untrusted.)
         ssl_context.set_cookie_verify_callback(lambda *_: True)
