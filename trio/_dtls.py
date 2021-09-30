@@ -793,7 +793,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
     def close(self):
         """Close this connection.
 
-        `DTLSChannel`\s don't actually own any OS-level resources – the
+        `DTLSChannel`\\s don't actually own any OS-level resources – the
         socket is owned by the `DTLSEndpoint`, not the individual connections. So
         you don't really *have* to call this. But it will interrupt any other tasks
         calling `receive` with a `ClosedResourceError`, and cause future attempts to use
