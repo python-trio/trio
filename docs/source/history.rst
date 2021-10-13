@@ -213,7 +213,7 @@ Features
   worry: you can now pass a custom ``deliver_cancel=`` argument to
   define your own process killing policy. (`#1104 <https://github.com/python-trio/trio/issues/1104>`__)
 - It turns out that creating a subprocess can block the parent process
-  for a surprisingly long time. So `trio.open_process` now uses a worker
+  for a surprisingly long time. So ``trio.open_process`` now uses a worker
   thread to avoid blocking the event loop. (`#1109 <https://github.com/python-trio/trio/issues/1109>`__)
 - We've added FreeBSD to the list of platforms we support and test on. (`#1118 <https://github.com/python-trio/trio/issues/1118>`__)
 - On Linux kernels v5.3 or newer, `trio.Process.wait` now uses `the
@@ -267,7 +267,7 @@ Deprecations and Removals
   alternatives or make a case for why some particular class should be
   designed to support subclassing. (`#1044 <https://github.com/python-trio/trio/issues/1044>`__)
 - If you want to create a `trio.Process` object, you now have to call
-  `trio.open_process`; calling ``trio.Process()`` directly was
+  ``trio.open_process``; calling ``trio.Process()`` directly was
   deprecated in v0.12.0 and has now been removed. (`#1109 <https://github.com/python-trio/trio/issues/1109>`__)
 - Remove ``clear`` method on `trio.Event`: it was deprecated in 0.12.0. (`#1498 <https://github.com/python-trio/trio/issues/1498>`__)
 
@@ -495,7 +495,7 @@ Deprecations and Removals
   deprecated. (`#878 <https://github.com/python-trio/trio/issues/878>`__)
 - It turns out that it's better to treat subprocess spawning as an async
   operation. Therefore, direct construction of `Process` objects has
-  been deprecated. Use `trio.open_process` instead. (`#1109 <https://github.com/python-trio/trio/issues/1109>`__)
+  been deprecated. Use ``trio.open_process`` instead. (`#1109 <https://github.com/python-trio/trio/issues/1109>`__)
 
 
 Miscellaneous internal changes
