@@ -388,8 +388,8 @@ docs directory. The whole process might look something like this::
     make html
 
 You can then browse the docs using Python's builtin http server:
-Windows - `python -m http.server 8000 --bind 127.0.0.1 --directory build/html`
-Mac/Linux - `python3 -m http.server 8000 --bind 127.0.0.1 --directory build/html`
+  - Windows - ``python -m http.server 8000 --bind 127.0.0.1 --directory build/html``
+  - Mac/Linux - ``python3 -m http.server 8000 --bind 127.0.0.1 --directory build/html``
 
 and then opening ``http://127.0.0.1:8000/`` in your web browser.
 
