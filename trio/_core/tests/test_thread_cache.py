@@ -136,14 +136,11 @@ def test_race_between_idle_exit_and_job_assignment(monkeypatch):
 
         def acquire(self, timeout=None):
             self._lock.acquire()
-            if timeout is None:
-                return True
-            else:
-                if self._counter > 0:
-                    self._counter -= 1
-                    self._lock.release()
-                    return False
-                return True
+            if timeout is not None and self._counter > 0:
+                self._counter -= 1
+                self._lock.release()
+                return False
+            return True
 
         def release(self):
             self._lock.release()

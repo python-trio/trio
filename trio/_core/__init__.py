@@ -4,6 +4,7 @@ and deal with private internal data structures. Things in this namespace
 are publicly available in either trio, trio.lowlevel, or trio.testing.
 """
 
+
 import sys
 
 from ._exceptions import (
@@ -86,7 +87,7 @@ if sys.platform == "win32":
         readinto_overlapped,
     )
 # Kqueue imports
-elif sys.platform != "linux" and sys.platform != "win32":
+elif sys.platform != "linux":
     from ._run import current_kqueue, monitor_kevent, wait_kevent
 
 del sys  # It would be better to import sys as _sys, but mypy does not understand it
