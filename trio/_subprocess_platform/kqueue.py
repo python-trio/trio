@@ -3,7 +3,7 @@ import select
 from typing import TYPE_CHECKING
 from .. import _core, _subprocess
 
-assert (sys.platform != "win32" and sys.platform != "linux") or not TYPE_CHECKING
+assert sys.platform not in ["win32", "linux"] or not TYPE_CHECKING
 
 
 async def wait_child_exiting(process: "_subprocess.Process") -> None:
