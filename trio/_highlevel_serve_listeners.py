@@ -33,17 +33,16 @@ async def _serve_one_listener(listener, handler_nursery, handler):
             try:
                 stream = await listener.accept()
             except OSError as exc:
-                if exc.errno in ACCEPT_CAPACITY_ERRNOS:
-                    LOGGER.error(
-                        "accept returned %s (%s); retrying in %s seconds",
-                        errno.errorcode[exc.errno],
-                        os.strerror(exc.errno),
-                        SLEEP_TIME,
-                        exc_info=True,
-                    )
-                    await trio.sleep(SLEEP_TIME)
-                else:
+                if exc.errno not in ACCEPT_CAPACITY_ERRNOS:
                     raise
+                LOGGER.error(
+                    "accept returned %s (%s); retrying in %s seconds",
+                    errno.errorcode[exc.errno],
+                    os.strerror(exc.errno),
+                    SLEEP_TIME,
+                    exc_info=True,
+                )
+                await trio.sleep(SLEEP_TIME)
             else:
                 handler_nursery.start_soon(_run_handler, stream, handler)
 

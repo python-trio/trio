@@ -150,11 +150,10 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         returncode = self.returncode
         if returncode is None:
             status = "running with PID {}".format(self.pid)
+        elif returncode < 0:
+            status = "exited with signal {}".format(-returncode)
         else:
-            if returncode < 0:
-                status = "exited with signal {}".format(-returncode)
-            else:
-                status = "exited with status {}".format(returncode)
+            status = "exited with status {}".format(returncode)
         return "<trio.Process {!r}: {}>".format(self.args, status)
 
     @property
