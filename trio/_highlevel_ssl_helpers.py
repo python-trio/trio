@@ -75,9 +75,7 @@ async def open_ssl_over_tcp_listeners(
     """
     tcp_listeners = await trio.open_tcp_listeners(port, host=host, backlog=backlog)
     return [
-        trio.SSLListener(
-            tcp_listener, ssl_context, https_compatible=https_compatible
-        )
+        trio.SSLListener(tcp_listener, ssl_context, https_compatible=https_compatible)
         for tcp_listener in tcp_listeners
     ]
 
