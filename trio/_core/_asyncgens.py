@@ -85,30 +85,29 @@ class AsyncGenerators:
                     stacklevel=2,
                     source=agen,
                 )
-            else:
                 # Not ours -> forward to the host loop's async generator finalizer
-                if self.prev_hooks.finalizer is not None:
-                    self.prev_hooks.finalizer(agen)
+            elif self.prev_hooks.finalizer is not None:
+                self.prev_hooks.finalizer(agen)
+            else:
+                # Host has no finalizer.  Reimplement the default
+                # Python behavior with no hooks installed: throw in
+                # GeneratorExit, step once, raise RuntimeError if
+                # it doesn't exit.
+                closer = agen.aclose()
+                try:
+                    # If the next thing is a yield, this will raise RuntimeError
+                    # which we allow to propagate
+                    closer.send(None)
+                except StopIteration:
+                    pass
                 else:
-                    # Host has no finalizer.  Reimplement the default
-                    # Python behavior with no hooks installed: throw in
-                    # GeneratorExit, step once, raise RuntimeError if
-                    # it doesn't exit.
-                    closer = agen.aclose()
-                    try:
-                        # If the next thing is a yield, this will raise RuntimeError
-                        # which we allow to propagate
-                        closer.send(None)
-                    except StopIteration:
-                        pass
-                    else:
-                        # If the next thing is an await, we get here. Give a nicer
-                        # error than the default "async generator ignored GeneratorExit"
-                        raise RuntimeError(
-                            f"Non-Trio async generator {agen_name!r} awaited something "
-                            f"during finalization; install a finalization hook to "
-                            f"support this, or wrap it in 'async with aclosing(...):'"
-                        )
+                    # If the next thing is an await, we get here. Give a nicer
+                    # error than the default "async generator ignored GeneratorExit"
+                    raise RuntimeError(
+                        f"Non-Trio async generator {agen_name!r} awaited something "
+                        f"during finalization; install a finalization hook to "
+                        f"support this, or wrap it in 'async with aclosing(...):'"
+                    )
 
         self.prev_hooks = sys.get_asyncgen_hooks()
         sys.set_asyncgen_hooks(firstiter=firstiter, finalizer=finalizer)

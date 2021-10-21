@@ -17,8 +17,8 @@ async def reschedule_loop(depth):
 async def report_loop():
     global RUNNING
     try:
+        start_count = LOOPS
         while True:
-            start_count = LOOPS
             start_time = time.perf_counter()
             await trio.sleep(1)
             end_time = time.perf_counter()

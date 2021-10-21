@@ -198,11 +198,11 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
         raise
 
     def abort(_):
-        if cancellable:
-            task_register[0] = None
-            return trio.lowlevel.Abort.SUCCEEDED
-        else:
+        if not cancellable:
             return trio.lowlevel.Abort.FAILED
+
+        task_register[0] = None
+        return trio.lowlevel.Abort.SUCCEEDED
 
     return await trio.lowlevel.wait_task_rescheduled(abort)
 

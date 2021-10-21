@@ -102,17 +102,16 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
             try:
                 sock = tsocket.socket(family, type, proto)
             except OSError as ex:
-                if ex.errno == errno.EAFNOSUPPORT:
-                    # If a system only supports IPv4, or only IPv6, it
-                    # is still likely that getaddrinfo will return
-                    # both an IPv4 and an IPv6 address. As long as at
-                    # least one of the returned addresses can be
-                    # turned into a socket, we won't complain about a
-                    # failure to create the other.
-                    unsupported_address_families.append(ex)
-                    continue
-                else:
+                if ex.errno != errno.EAFNOSUPPORT:
                     raise
+                # If a system only supports IPv4, or only IPv6, it
+                # is still likely that getaddrinfo will return
+                # both an IPv4 and an IPv6 address. As long as at
+                # least one of the returned addresses can be
+                # turned into a socket, we won't complain about a
+                # failure to create the other.
+                unsupported_address_families.append(ex)
+                continue
             try:
                 # See https://github.com/python-trio/trio/issues/39
                 if sys.platform != "win32":

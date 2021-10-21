@@ -40,19 +40,17 @@ def is_function(node):
     """Check if the AST node is either a function
     or an async function
     """
-    if isinstance(node, ast.FunctionDef) or isinstance(node, ast.AsyncFunctionDef):
-        return True
-    return False
+    return isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
 
 
 def is_public(node):
     """Check if the AST node has a _public decorator"""
     if not is_function(node):
         return False
-    for decorator in node.decorator_list:
-        if isinstance(decorator, ast.Name) and decorator.id == "_public":
-            return True
-    return False
+    return any(
+        isinstance(decorator, ast.Name) and decorator.id == "_public"
+        for decorator in node.decorator_list
+    )
 
 
 def get_public_methods(tree):
@@ -74,9 +72,7 @@ def create_passthrough_args(funcdef):
     Example input: ast.parse("def f(a, *, b): ...")
     Example output: "(a, b=b)"
     """
-    call_args = []
-    for arg in funcdef.args.args:
-        call_args.append(arg.arg)
+    call_args = [arg.arg for arg in funcdef.args.args]
     if funcdef.args.vararg:
         call_args.append("*" + funcdef.args.vararg.arg)
     for arg in funcdef.args.kwonlyargs:

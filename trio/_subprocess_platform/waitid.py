@@ -45,13 +45,9 @@ int waitid(int idtype, int id, siginfo_t* result, int options);
     def sync_wait_reapable(pid):
         P_PID = 1
         WEXITED = 0x00000004
-        if sys.platform == "darwin":  # pragma: no cover
-            # waitid() is not exposed on Python on Darwin but does
-            # work through CFFI; note that we typically won't get
-            # here since Darwin also defines kqueue
-            WNOWAIT = 0x00000020
-        else:
-            WNOWAIT = 0x01000000
+        WNOWAIT = (
+            0x00000020 if sys.platform == "darwin" else 0x01000000
+        )  # pragma: no cover
         result = waitid_ffi.new("siginfo_t *")
         while waitid(P_PID, pid, result, WEXITED | WNOWAIT) < 0:
             got_errno = waitid_ffi.errno

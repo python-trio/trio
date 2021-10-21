@@ -19,9 +19,7 @@ async def scheduler_trace():
 
 def test_the_trio_scheduler_is_not_deterministic():
     # At least, not yet.  See https://github.com/python-trio/trio/issues/32
-    traces = []
-    for _ in range(10):
-        traces.append(trio.run(scheduler_trace))
+    traces = [trio.run(scheduler_trace) for _ in range(10)]
     assert len(set(traces)) == len(traces)
 
 

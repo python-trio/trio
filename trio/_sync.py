@@ -428,11 +428,11 @@ class Semaphore(metaclass=Final):
           WouldBlock: if the value is zero.
 
         """
-        if self._value > 0:
-            assert not self._lot
-            self._value -= 1
-        else:
+        if self._value <= 0:
             raise trio.WouldBlock
+
+        assert not self._lot
+        self._value -= 1
 
     @enable_ki_protection
     async def acquire(self):
@@ -461,9 +461,9 @@ class Semaphore(metaclass=Final):
         if self._lot:
             assert self._value == 0
             self._lot.unpark(count=1)
+        elif self._max_value is not None and self._value == self._max_value:
+            raise ValueError("semaphore released too many times")
         else:
-            if self._max_value is not None and self._value == self._max_value:
-                raise ValueError("semaphore released too many times")
             self._value += 1
 
     def statistics(self):
@@ -678,7 +678,7 @@ class Condition(metaclass=Final):
     def __init__(self, lock=None):
         if lock is None:
             lock = Lock()
-        if not type(lock) is Lock:
+        if type(lock) is not Lock:
             raise TypeError("lock must be a trio.Lock")
         self._lock = lock
         self._lot = trio.lowlevel.ParkingLot()
