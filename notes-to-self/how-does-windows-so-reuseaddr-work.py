@@ -41,15 +41,23 @@ def table_entry(mode1, bind_type1, mode2, bind_type2):
         else:
             return "Success"
 
-print("""
+print(
+    (
+        """
                                                        second bind
                                | """
-+ " | ".join(["%-19s" % mode for mode in modes])
+        + " | ".join("%-19s" % mode for mode in modes)
+    )
 )
 
+
 print("""                              """, end='')
-for mode in modes:
-    print(" | " + " | ".join(["%8s" % bind_type for bind_type in bind_types]), end='')
+for _ in modes:
+    print(
+        " | " + " | ".join("%8s" % bind_type for bind_type in bind_types),
+        end='',
+    )
+
 
 print("""
 first bind                     -----------------------------------------------------------------"""
@@ -64,5 +72,9 @@ for i, mode1 in enumerate(modes):
                 entry = table_entry(mode1, bind_type1, mode2, bind_type2)
                 row.append(entry)
                 #print(mode1, bind_type1, mode2, bind_type2, entry)
-        print("{:>19} | {:>8} | ".format(mode1, bind_type1)
-              + " | ".join(["%8s" % entry for entry in row]))
+        print(
+            (
+                "{:>19} | {:>8} | ".format(mode1, bind_type1)
+                + " | ".join("%8s" % entry for entry in row)
+            )
+        )
