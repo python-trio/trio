@@ -21,10 +21,12 @@ def test_core_is_properly_reexported():
     for symbol in dir(_core):
         if symbol.startswith("_") or symbol == "tests":
             continue
-        found = sum(
-            symbol in dir(source) and getattr(source, symbol) is getattr(_core, symbol)
-            for source in sources
-        )
+        found = 0
+        for source in sources:
+            if symbol in dir(source) and getattr(source, symbol) is getattr(
+                _core, symbol
+            ):
+                found += 1
         print(symbol, found)
         assert found == 1
 
