@@ -717,7 +717,7 @@ need_ipython = pytest.mark.skipif(not have_ipython, reason="need IPython")
 @need_ipython
 @pytest.mark.skipif(
     sys.version_info >= (3, 9),
-    reason="ipython --quick currently breaks on latest dev python"
+    reason="ipython --quick currently breaks on latest dev python",
 )
 def test_ipython_exc_handler():
     completed = run_script("simple_excepthook.py", use_ipython=True)
@@ -744,7 +744,7 @@ def test_partial_imported_but_unused():
 @need_ipython
 @pytest.mark.skipif(
     sys.version_info >= (3, 9),
-    reason="ipython --quick currently breaks on latest dev python"
+    reason="ipython --quick currently breaks on latest dev python",
 )
 def test_ipython_custom_exc_handler():
     # Check we get a nice warning (but only one!) if the user is using IPython
