@@ -28,7 +28,7 @@ docutils==0.17.1
     # via
     #   sphinx
     #   sphinx-rtd-theme
-idna==3.2
+idna==3.3
     # via
     #   -r docs-requirements.in
     #   requests
@@ -87,5 +87,5 @@ toml==0.10.2
     # via towncrier
 towncrier==21.3.0
     # via -r docs-requirements.in
-urllib3==1.26.6
+urllib3==1.26.7
     # via requests
