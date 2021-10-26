@@ -41,7 +41,7 @@ immutables==0.16
     # via -r test-requirements.in
 iniconfig==1.1.1
     # via pytest
-ipython==7.27.0
+ipython==7.28.0
     # via -r test-requirements.in
 isort==5.9.3
     # via pylint
