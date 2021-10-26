@@ -19,7 +19,7 @@ backcall==0.2.0
     # via ipython
 black==21.9b0 ; implementation_name == "cpython"
     # via -r test-requirements.in
-cffi==1.14.6
+cffi==1.15.0
     # via cryptography
 click==8.0.1
     # via black
@@ -122,7 +122,7 @@ toml==0.10.2
     #   pytest-cov
 tomli==1.2.1
     # via black
-traitlets==5.1.0
+traitlets==5.1.1
     # via
     #   ipython
     #   matplotlib-inline
