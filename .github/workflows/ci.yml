@@ -35,9 +35,6 @@ jobs:
           #  lsp: 'http://download.pctools.com/mirror/updates/9.0.0.2308-SDavfree-lite_en.exe'
           #  lsp_extract_file: ''
           #  extra_name: ', with non-IFS LSP'
-
-          # trio on pypy on windows has failed before:
-          #   https://github.com/python-trio/trio/issues/1361 
           - python: '3.8'
             arch: 'x64'
             pypy_nightly_branch: 'py3.8'
@@ -83,7 +80,10 @@ jobs:
           - python: '3.8'
             check_formatting: '1'
             extra_name: ', check formatting'
-          - python: '3.8'  # <- not actually used
+          - python: '3.7'  # <- not actually used
+            pypy_nightly_branch: 'py3.7'
+            extra_name: ', pypy 3.7 nightly'
+          - python: '3.8'
             pypy_nightly_branch: 'py3.8'
             extra_name: ', pypy 3.8 nightly'
     steps:
@@ -115,6 +115,11 @@ jobs:
       fail-fast: false
       matrix:
         python: ['3.6', '3.7', '3.8', '3.9', '3.10']
+      include:
+          - python: '3.8'
+            arch: 'x64'
+            pypy_nightly_branch: 'py3.8'
+            extra_name: ', pypy 3.8 nightly'
     steps:
       - name: Checkout
         uses: actions/checkout@v2
