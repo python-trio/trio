@@ -115,7 +115,7 @@ jobs:
       fail-fast: false
       matrix:
         python: ['3.6', '3.7', '3.8', '3.9', '3.10']
-      include:
+        include:
           - python: '3.8'
             arch: 'x64'
             pypy_nightly_branch: 'py3.8'
