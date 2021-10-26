@@ -33,7 +33,7 @@ decorator==5.1.0
     # via ipython
 flake8==3.9.2
     # via -r test-requirements.in
-idna==3.2
+idna==3.3
     # via
     #   -r test-requirements.in
     #   trustme
