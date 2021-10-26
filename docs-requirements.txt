@@ -48,11 +48,11 @@ outcome==1.1.0
     # via -r docs-requirements.in
 packaging==21.0
     # via sphinx
-pygments==2.9.0
+pygments==2.10.0
     # via sphinx
 pyparsing==2.4.7
     # via packaging
-pytz==2021.1
+pytz==2021.3
     # via babel
 requests==2.26.0
     # via sphinx
