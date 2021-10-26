@@ -19,7 +19,7 @@ backcall==0.2.0
     # via ipython
 black==21.9b0 ; implementation_name == "cpython"
     # via -r test-requirements.in
-cffi==1.14.6
+cffi==1.15.0
     # via cryptography
 click==8.0.1
     # via black
@@ -80,7 +80,7 @@ platformdirs==2.3.0
     # via black
 pluggy==1.0.0
     # via pytest
-prompt-toolkit==3.0.20
+prompt-toolkit==3.0.21
     # via ipython
 ptyprocess==0.7.0
     # via pexpect
