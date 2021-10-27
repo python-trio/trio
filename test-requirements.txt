@@ -142,5 +142,5 @@ typing-extensions==3.10.0.2 ; implementation_name == "cpython"
     #   pylint
 wcwidth==0.2.5
     # via prompt-toolkit
-wrapt==1.12.1
+wrapt==1.13.2
     # via astroid
