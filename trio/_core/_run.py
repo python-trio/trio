@@ -1589,13 +1589,9 @@ class Runner:
           Task: the newly spawned task
 
         """
-
-        async def async_fn_wrapper():
-            current_async_library_cvar.set("trio")
-            return await async_fn()
-
+        current_async_library_cvar.set("trio")
         return self.spawn_impl(
-            async_fn_wrapper,
+            async_fn,
             args,
             self.system_nursery,
             name,
