@@ -6,7 +6,7 @@
 #
 astor==0.8.1
     # via -r test-requirements.in
-astroid==2.6.6
+astroid==2.8.4
     # via pylint
 async-generator==1.10
     # via -r test-requirements.in
@@ -19,21 +19,21 @@ backcall==0.2.0
     # via ipython
 black==21.9b0 ; implementation_name == "cpython"
     # via -r test-requirements.in
-cffi==1.14.6
+cffi==1.15.0
     # via cryptography
-click==8.0.1
+click==8.0.3
     # via black
-coverage==5.5
+coverage[toml]==6.0.2
     # via pytest-cov
-cryptography==3.4.8
+cryptography==35.0.0
     # via
     #   pyopenssl
     #   trustme
 decorator==5.1.0
     # via ipython
-flake8==3.9.2
+flake8==4.0.1
     # via -r test-requirements.in
-idna==3.2
+idna==3.3
     # via
     #   -r test-requirements.in
     #   trustme
@@ -41,7 +41,7 @@ immutables==0.16
     # via -r test-requirements.in
 iniconfig==1.1.1
     # via pytest
-ipython==7.27.0
+ipython==7.28.0
     # via -r test-requirements.in
 isort==5.9.3
     # via pylint
@@ -76,37 +76,39 @@ pexpect==4.8.0
     # via ipython
 pickleshare==0.7.5
     # via ipython
-platformdirs==2.3.0
-    # via black
+platformdirs==2.4.0
+    # via
+    #   black
+    #   pylint
 pluggy==1.0.0
     # via pytest
-prompt-toolkit==3.0.20
+prompt-toolkit==3.0.21
     # via ipython
 ptyprocess==0.7.0
     # via pexpect
 py==1.10.0
     # via pytest
-pycodestyle==2.7.0
+pycodestyle==2.8.0
     # via flake8
 pycparser==2.20
     # via cffi
-pyflakes==2.3.1
+pyflakes==2.4.0
     # via flake8
-pygments==2.9.0
+pygments==2.10.0
     # via ipython
-pylint==2.9.6
+pylint==2.11.1
     # via -r test-requirements.in
-pyopenssl==20.0.1
+pyopenssl==21.0.0
     # via -r test-requirements.in
-pyparsing==2.4.7
+pyparsing==3.0.1
     # via packaging
 pytest==6.2.5
     # via
     #   -r test-requirements.in
     #   pytest-cov
-pytest-cov==2.12.1
+pytest-cov==3.0.0
     # via -r test-requirements.in
-regex==2021.8.28
+regex==2021.10.23
     # via black
 six==1.16.0
     # via pyopenssl
@@ -119,10 +121,11 @@ toml==0.10.2
     #   mypy
     #   pylint
     #   pytest
-    #   pytest-cov
-tomli==1.2.1
-    # via black
-traitlets==5.1.0
+tomli==1.2.2
+    # via
+    #   black
+    #   coverage
+traitlets==5.1.1
     # via
     #   ipython
     #   matplotlib-inline
@@ -133,8 +136,10 @@ typed-ast==1.4.3 ; implementation_name == "cpython"
 typing-extensions==3.10.0.2 ; implementation_name == "cpython"
     # via
     #   -r test-requirements.in
+    #   astroid
     #   black
     #   mypy
+    #   pylint
 wcwidth==0.2.5
     # via prompt-toolkit
 wrapt==1.12.1

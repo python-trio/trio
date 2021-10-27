@@ -46,6 +46,8 @@ from ._core import (
     start_guest_run,
 )
 
+from ._subprocess import open_process
+
 if sys.platform == "win32":
     # Windows symbols
     from ._core import (

@@ -4,6 +4,7 @@ import os
 import sys
 from typing import Optional, Tuple, TYPE_CHECKING
 
+import trio
 from .. import _core, _subprocess
 from .._abc import SendStream, ReceiveStream
 
@@ -72,15 +73,14 @@ try:
         pass
 
     elif os.name == "posix":
-        from ..lowlevel import FdStream
 
         def create_pipe_to_child_stdin():  # noqa: F811
             rfd, wfd = os.pipe()
-            return FdStream(wfd), rfd
+            return trio.lowlevel.FdStream(wfd), rfd
 
         def create_pipe_from_child_output():  # noqa: F811
             rfd, wfd = os.pipe()
-            return FdStream(rfd), wfd
+            return trio.lowlevel.FdStream(rfd), wfd
 
     elif os.name == "nt":
         from .._windows_pipes import PipeSendStream, PipeReceiveStream
