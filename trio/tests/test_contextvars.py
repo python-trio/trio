@@ -48,5 +48,5 @@ async def test_contextvars_copy():
         nursery.start_soon(child, context=context)
         nursery.start_soon(child)
     value = trio_testing_contextvar.get()
-    assert record == ["main", "second_main"]
+    assert set(record) == {"main", "second_main"}
     assert value == "second_main"
