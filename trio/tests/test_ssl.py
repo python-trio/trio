@@ -1,3 +1,6 @@
+import re
+import sys
+
 import pytest
 
 import threading
@@ -77,7 +80,10 @@ def client_ctx(request):
     if request.param in ["default", "tls13"]:
         return ctx
     elif request.param == "tls12":
-        ctx.options |= ssl.OP_NO_TLSv1_3
+        if sys.version_info >= (3, 7):
+            ctx.maximum_version = ssl.TLSVersion.TLSv1_2
+        else:
+            ctx.options |= ssl.OP_NO_TLSv1_3
         return ctx
     else:  # pragma: no cover
         assert False
@@ -98,14 +104,26 @@ def ssl_echo_serve_sync(sock, *, expect_fail=False):
                     # respond in kind but it's legal for them to have already
                     # gone away.
                     exceptions = (BrokenPipeError, ssl.SSLZeroReturnError)
-                    # Under unclear conditions, CPython sometimes raises
-                    # SSLWantWriteError here. This is a bug (bpo-32219), but
-                    # it's not our bug, so ignore it.
-                    exceptions += (ssl.SSLWantWriteError,)
                     try:
                         wrapped.unwrap()
                     except exceptions:
                         pass
+                    except ssl.SSLWantWriteError:  # pragma: no cover
+                        # Under unclear conditions, CPython sometimes raises
+                        # SSLWantWriteError here. This is a bug (bpo-32219),
+                        # but it's not our bug.  Christian Heimes thinks
+                        # it's fixed in 'recent' CPython versions so we fail
+                        # the test for those and ignore it for earlier
+                        # versions.
+                        if (
+                            sys.implementation.name != "cpython"
+                            or sys.version_info >= (3, 8)
+                        ):
+                            pytest.fail(
+                                "still an issue on recent python versions "
+                                "add a comment to "
+                                "https://bugs.python.org/issue32219"
+                            )
                     return
                 wrapped.sendall(data)
     # This is an obscure workaround for an openssl bug. In server mode, in
@@ -1184,6 +1202,10 @@ async def test_selected_npn_protocol_before_handshake(client_ctx):
         server.selected_npn_protocol()
 
 
+@pytest.mark.filterwarnings(
+    r"ignore: ssl module. NPN is deprecated, use ALPN instead:UserWarning",
+    r"ignore:ssl NPN is deprecated, use ALPN instead:DeprecationWarning",
+)
 async def test_selected_npn_protocol_when_not_set(client_ctx):
     # NPN protocol still returns None when it's not set,
     # instead of raising an exception

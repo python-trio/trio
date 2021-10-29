@@ -8,37 +8,37 @@ alabaster==0.7.12
     # via sphinx
 async-generator==1.10
     # via -r docs-requirements.in
-attrs==20.3.0
+attrs==21.2.0
     # via
     #   -r docs-requirements.in
     #   outcome
 babel==2.9.1
     # via sphinx
-certifi==2021.5.30
+certifi==2021.10.8
     # via requests
-chardet==4.0.0
+charset-normalizer==2.0.7
     # via requests
-click-default-group==1.2.2
-    # via towncrier
-click==8.0.1
+click==8.0.3
     # via
     #   click-default-group
     #   towncrier
-docutils==0.16
+click-default-group==1.2.2
+    # via towncrier
+docutils==0.17.1
     # via
     #   sphinx
     #   sphinx-rtd-theme
-idna==2.10
+idna==3.3
     # via
     #   -r docs-requirements.in
     #   requests
 imagesize==1.2.0
     # via sphinx
-immutables==0.15
+immutables==0.16
     # via -r docs-requirements.in
 incremental==21.3.0
     # via towncrier
-jinja2==3.0.1
+jinja2==3.0.2
     # via
     #   sphinx
     #   towncrier
@@ -46,15 +46,15 @@ markupsafe==2.0.1
     # via jinja2
 outcome==1.1.0
     # via -r docs-requirements.in
-packaging==20.9
+packaging==21.0
     # via sphinx
-pygments==2.7.4
+pygments==2.10.0
     # via sphinx
-pyparsing==2.4.7
+pyparsing==3.0.3
     # via packaging
-pytz==2021.1
+pytz==2021.3
     # via babel
-requests==2.25.1
+requests==2.26.0
     # via sphinx
 sniffio==1.2.0
     # via -r docs-requirements.in
@@ -62,13 +62,13 @@ snowballstemmer==2.1.0
     # via sphinx
 sortedcontainers==2.4.0
     # via -r docs-requirements.in
-sphinx-rtd-theme==0.5.2
-    # via -r docs-requirements.in
 sphinx==3.3.1
     # via
     #   -r docs-requirements.in
     #   sphinx-rtd-theme
     #   sphinxcontrib-trio
+sphinx-rtd-theme==1.0.0
+    # via -r docs-requirements.in
 sphinxcontrib-applehelp==1.0.2
     # via sphinx
 sphinxcontrib-devhelp==1.0.2
@@ -87,5 +87,5 @@ toml==0.10.2
     # via towncrier
 towncrier==21.3.0
     # via -r docs-requirements.in
-urllib3==1.26.5
+urllib3==1.26.7
     # via requests

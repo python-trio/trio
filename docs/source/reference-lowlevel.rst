@@ -106,6 +106,12 @@ The tutorial has a :ref:`fully-worked example
 Trio's internal scheduling decisions.
 
 
+Low-level process spawning
+==========================
+
+.. autofunction:: trio.lowlevel.open_process
+
+
 Low-level I/O primitives
 ========================
 
@@ -785,7 +791,7 @@ Here's how we'd extend our asyncio example to implement this pattern:
            asyncio_loop.call_soon_threadsafe(fn)
 
        # Revised 'done' callback: set a Future
-       done_fut = asyncio.Future()
+       done_fut = asyncio_loop.create_future()
        def done_callback(trio_main_outcome):
            done_fut.set_result(trio_main_outcome)
 

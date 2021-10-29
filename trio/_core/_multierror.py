@@ -153,6 +153,9 @@ class MultiErrorCatcher:
                 _, value, _ = sys.exc_info()
                 assert value is filtered_exc
                 value.__context__ = old_context
+                # delete references from locals to avoid creating cycles
+                # see test_MultiError_catch_doesnt_create_cyclic_garbage
+                del _, filtered_exc, value
 
 
 class MultiError(BaseException):
@@ -343,7 +346,12 @@ else:
         c_new_tb.tb_lasti = base_tb.tb_lasti
         c_new_tb.tb_lineno = base_tb.tb_lineno
 
-        return new_tb
+        try:
+            return new_tb
+        finally:
+            # delete references from locals to avoid creating cycles
+            # see test_MultiError_catch_doesnt_create_cyclic_garbage
+            del new_tb, old_tb_frame
 
 
 def concat_tb(head, tail):
@@ -381,10 +389,13 @@ def traceback_exception_init(
     limit=None,
     lookup_lines=True,
     capture_locals=False,
+    compact=False,
     _seen=None,
 ):
-    if _seen is None:
-        _seen = set()
+    if sys.version_info >= (3, 10):
+        kwargs = {"compact": compact}
+    else:
+        kwargs = {}
 
     # Capture the original exception and its cause and context as TracebackExceptions
     traceback_exception_original_init(
@@ -396,7 +407,13 @@ def traceback_exception_init(
         lookup_lines=lookup_lines,
         capture_locals=capture_locals,
         _seen=_seen,
+        **kwargs,
     )
+
+    seen_was_none = _seen is None
+
+    if _seen is None:
+        _seen = set()
 
     # Capture each of the exceptions in the MultiError along with each of their causes and contexts
     if isinstance(exc_value, MultiError):
@@ -411,7 +428,7 @@ def traceback_exception_init(
                         capture_locals=capture_locals,
                         # copy the set of _seen exceptions so that duplicates
                         # shared between sub-exceptions are not omitted
-                        _seen=set(_seen),
+                        _seen=None if seen_was_none else set(_seen),
                     )
                 )
         self.embedded = embedded
