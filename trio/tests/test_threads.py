@@ -5,6 +5,7 @@ import time
 import weakref
 
 import pytest
+from sniffio import current_async_library_cvar
 from trio._core import TrioToken, current_trio_token
 
 from .. import _core
@@ -478,25 +479,32 @@ async def test_trio_to_thread_run_sync_contextvars():
 
     def f():
         value = trio_test_contextvar.get()
-        return (value, threading.current_thread())
+        sniffio_cvar_value = current_async_library_cvar.get()
+        return (value, sniffio_cvar_value, threading.current_thread())
 
-    value, child_thread = await to_thread_run_sync(f)
+    value, sniffio_cvar_value, child_thread = await to_thread_run_sync(f)
     assert value == "main"
+    assert sniffio_cvar_value == None
     assert child_thread != trio_thread
 
     def g():
         parent_value = trio_test_contextvar.get()
         trio_test_contextvar.set("worker")
         inner_value = trio_test_contextvar.get()
-        return (parent_value, inner_value, threading.current_thread())
+        sniffio_cvar_value = current_async_library_cvar.get()
+        return (parent_value, inner_value, sniffio_cvar_value, threading.current_thread())
 
-    parent_value, inner_value, child_thread = await to_thread_run_sync(g)
+    parent_value, inner_value, sniffio_cvar_value, child_thread = await to_thread_run_sync(g)
     current_value = trio_test_contextvar.get()
+    sniffio_outer_value = current_async_library_cvar.get()
     assert parent_value == "main"
     assert inner_value == "worker"
     assert (
         current_value == "main"
     ), "The contextvar value set on the worker would not propagate back to the main thread"
+    assert sniffio_cvar_value is None
+    assert sniffio_outer_value == "trio"
+
 
 
 async def test_trio_from_thread_run_sync():
