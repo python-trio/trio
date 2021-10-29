@@ -3,7 +3,6 @@
 import contextvars
 import threading
 import queue as stdlib_queue
-import functools
 from itertools import count
 
 import attr
