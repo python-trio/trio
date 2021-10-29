@@ -1838,13 +1838,13 @@ because their values are preserved.
 
 This is done by automatically copying the `contextvars` context when you use any of:
 
-* ``trio.to_thread.run_sync(sync_fn, ...)``
-* ``trio.from_thread.run(async_fn, ...)``
-* ``trio.from_thread.run_sync(sync_fn, ...)``
+* `trio.to_thread.run_sync`
+* `trio.from_thread.run`
+* `trio.from_thread.run_sync`
 
 That means that the values of the context variables are accessible even in worker
 threads, or when sending a function to be run in the main/parent Trio thread using
-``trio.from_thread.run(async_fn, ...)`` *from* one of these worker threads.
+`trio.from_thread.run` *from* one of these worker threads.
 
 But it also means that as the context is not the same but a copy, if you `set` the
 context variable value *inside* one of these functions that work in threads, the
