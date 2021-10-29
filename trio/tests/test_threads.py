@@ -492,9 +492,19 @@ async def test_trio_to_thread_run_sync_contextvars():
         trio_test_contextvar.set("worker")
         inner_value = trio_test_contextvar.get()
         sniffio_cvar_value = current_async_library_cvar.get()
-        return (parent_value, inner_value, sniffio_cvar_value, threading.current_thread())
+        return (
+            parent_value,
+            inner_value,
+            sniffio_cvar_value,
+            threading.current_thread(),
+        )
 
-    parent_value, inner_value, sniffio_cvar_value, child_thread = await to_thread_run_sync(g)
+    (
+        parent_value,
+        inner_value,
+        sniffio_cvar_value,
+        child_thread,
+    ) = await to_thread_run_sync(g)
     current_value = trio_test_contextvar.get()
     sniffio_outer_value = current_async_library_cvar.get()
     assert parent_value == "main"
@@ -504,7 +514,6 @@ async def test_trio_to_thread_run_sync_contextvars():
     ), "The contextvar value set on the worker would not propagate back to the main thread"
     assert sniffio_cvar_value is None
     assert sniffio_outer_value == "trio"
-
 
 
 async def test_trio_from_thread_run_sync():
@@ -591,34 +600,47 @@ async def test_trio_from_thread_run_sync_contextvars():
         thread_parent_value = trio_test_contextvar.get()
         trio_test_contextvar.set("worker")
         thread_current_value = trio_test_contextvar.get()
+        sniffio_cvar_thread_pre_value = current_async_library_cvar.get()
 
         def back_in_main():
             back_parent_value = trio_test_contextvar.get()
             trio_test_contextvar.set("back_in_main")
             back_current_value = trio_test_contextvar.get()
-            return back_parent_value, back_current_value
+            sniffio_cvar_back_value = current_async_library_cvar.get()
+            return back_parent_value, back_current_value, sniffio_cvar_back_value
 
-        back_parent_value, back_current_value = from_thread_run_sync(back_in_main)
+        back_parent_value, back_current_value, sniffio_cvar_back_value = from_thread_run_sync(back_in_main)
         thread_after_value = trio_test_contextvar.get()
+        sniffio_cvar_thread_after_value = current_async_library_cvar.get()
         return (
             thread_parent_value,
             thread_current_value,
             thread_after_value,
+            sniffio_cvar_thread_pre_value,
+            sniffio_cvar_thread_after_value,
             back_parent_value,
             back_current_value,
+            sniffio_cvar_back_value
         )
 
     (
         thread_parent_value,
         thread_current_value,
         thread_after_value,
+        sniffio_cvar_thread_pre_value,
+        sniffio_cvar_thread_after_value,
         back_parent_value,
         back_current_value,
+        sniffio_cvar_back_value,
     ) = await to_thread_run_sync(thread_fn)
     current_value = trio_test_contextvar.get()
+    sniffio_cvar_out_value = current_async_library_cvar.get()
     assert current_value == thread_parent_value == "main"
     assert thread_current_value == back_parent_value == thread_after_value == "worker"
     assert back_current_value == "back_in_main"
+    assert sniffio_cvar_out_value == sniffio_cvar_back_value == "trio"
+    assert sniffio_cvar_thread_pre_value == sniffio_cvar_thread_after_value == None
+
 
 
 async def test_trio_from_thread_run_contextvars():
@@ -628,34 +650,45 @@ async def test_trio_from_thread_run_contextvars():
         thread_parent_value = trio_test_contextvar.get()
         trio_test_contextvar.set("worker")
         thread_current_value = trio_test_contextvar.get()
+        sniffio_cvar_thread_pre_value = current_async_library_cvar.get()
 
         async def async_back_in_main():
             back_parent_value = trio_test_contextvar.get()
             trio_test_contextvar.set("back_in_main")
             back_current_value = trio_test_contextvar.get()
-            return back_parent_value, back_current_value
+            sniffio_cvar_back_value = current_async_library_cvar.get()
+            return back_parent_value, back_current_value, sniffio_cvar_back_value
 
-        back_parent_value, back_current_value = from_thread_run(async_back_in_main)
+        back_parent_value, back_current_value, sniffio_cvar_back_value = from_thread_run(async_back_in_main)
         thread_after_value = trio_test_contextvar.get()
+        sniffio_cvar_thread_after_value = current_async_library_cvar.get()
         return (
             thread_parent_value,
             thread_current_value,
             thread_after_value,
+            sniffio_cvar_thread_pre_value,
+            sniffio_cvar_thread_after_value,
             back_parent_value,
             back_current_value,
+            sniffio_cvar_back_value,
         )
 
     (
         thread_parent_value,
         thread_current_value,
         thread_after_value,
+        sniffio_cvar_thread_pre_value,
+        sniffio_cvar_thread_after_value,
         back_parent_value,
         back_current_value,
+        sniffio_cvar_back_value,
     ) = await to_thread_run_sync(thread_fn)
     current_value = trio_test_contextvar.get()
     assert current_value == thread_parent_value == "main"
     assert thread_current_value == back_parent_value == thread_after_value == "worker"
     assert back_current_value == "back_in_main"
+    assert sniffio_cvar_thread_pre_value == sniffio_cvar_thread_after_value == None
+    assert sniffio_cvar_back_value == "trio"
 
 
 def test_run_fn_as_system_task_catched_badly_typed_token():
