@@ -214,7 +214,7 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
     return await trio.lowlevel.wait_task_rescheduled(abort)
 
 
-def _run_fn_as_system_task(cb, fn, *args, trio_token=None, context=None):
+def _run_fn_as_system_task(cb, fn, *args, context, trio_token=None):
     """Helper function for from_thread.run and from_thread.run_sync.
 
     Since this internally uses TrioToken.run_sync_soon, all warnings about
@@ -241,13 +241,7 @@ def _run_fn_as_system_task(cb, fn, *args, trio_token=None, context=None):
         raise RuntimeError("this is a blocking function; call it from a thread")
 
     q = stdlib_queue.Queue()
-    if context is not None:
-        func = context.run
-        func_args = (cb, q, fn, args)
-    else:
-        func = cb
-        func_args = (q, fn, args)
-    trio_token.run_sync_soon(func, *func_args)
+    trio_token.run_sync_soon(context.run, cb, q, fn, args)
     return q.get().unwrap()
 
 
@@ -308,7 +302,11 @@ def from_thread_run(afn, *args, trio_token=None):
     context = contextvars.copy_context()
     context.run(current_async_library_cvar.set, "trio")
     return _run_fn_as_system_task(
-        callback, afn, *args, trio_token=trio_token, context=context
+        callback,
+        afn,
+        *args,
+        context=context,
+        trio_token=trio_token,
     )
 
 
@@ -366,5 +364,9 @@ def from_thread_run_sync(fn, *args, trio_token=None):
     context = contextvars.copy_context()
 
     return _run_fn_as_system_task(
-        callback, fn, *args, trio_token=trio_token, context=context
+        callback,
+        fn,
+        *args,
+        context=context,
+        trio_token=trio_token,
     )
