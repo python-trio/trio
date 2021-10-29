@@ -3,6 +3,7 @@
 import contextvars
 import threading
 import queue as stdlib_queue
+import functools
 from itertools import count
 
 import attr
@@ -166,13 +167,11 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
 
     current_trio_token = trio.lowlevel.current_trio_token()
 
-    outer_context = contextvars.copy_context()
-
     def worker_fn():
         current_async_library_cvar.set(None)
         TOKEN_LOCAL.token = current_trio_token
         try:
-            ret = outer_context.run(sync_fn, *args)
+            ret = sync_fn(*args)
 
             if inspect.iscoroutine(ret):
                 # Manually close coroutine to avoid RuntimeWarnings
@@ -186,6 +185,9 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
         finally:
             del TOKEN_LOCAL.token
 
+    context = contextvars.copy_context()
+    contextvars_aware_worker_fn = functools.partial(context.run, worker_fn)
+
     def deliver_worker_fn_result(result):
         try:
             current_trio_token.run_sync_soon(report_back_in_trio_thread_fn, result)
@@ -197,7 +199,7 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
 
     await limiter.acquire_on_behalf_of(placeholder)
     try:
-        start_thread_soon(worker_fn, deliver_worker_fn_result)
+        start_thread_soon(contextvars_aware_worker_fn, deliver_worker_fn_result)
     except:
         limiter.release_on_behalf_of(placeholder)
         raise
