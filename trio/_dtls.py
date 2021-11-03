@@ -766,6 +766,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
        The IP/port of the remote peer that this connection is associated with.
 
     """
+
     def __init__(self, endpoint, peer_address, ctx):
         self.endpoint = endpoint
         self.peer_address = peer_address
@@ -987,9 +988,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                         )
 
     async def send(self, data):
-        """Send a packet of data, securely.
-
-        """
+        """Send a packet of data, securely."""
 
         if self._closed:
             raise trio.ClosedResourceError
@@ -1147,7 +1146,9 @@ class DTLSEndpoint(metaclass=Final):
         # if the socket isn't already bound -- which for clients might not happen until
         # after we send our first packet.
         if not self._receive_loop_spawned:
-            trio.lowlevel.spawn_system_task(dtls_receive_loop, weakref.ref(self), self.socket)
+            trio.lowlevel.spawn_system_task(
+                dtls_receive_loop, weakref.ref(self), self.socket
+            )
             self._receive_loop_spawned = True
 
     def __del__(self):

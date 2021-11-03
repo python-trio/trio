@@ -699,7 +699,6 @@ async def test_handshake_handles_minimum_network_mtu(ipv6, autojump_clock):
 async def test_system_task_cleaned_up_on_gc():
     before_tasks = trio.lowlevel.current_statistics().tasks_living
 
-
     e = endpoint()
 
     async def force_receive_loop_to_start():
@@ -812,6 +811,7 @@ async def test_association_replaced_while_handshake_running(autojump_clock):
         with endpoint() as client_endpoint:
             c1 = client_endpoint.connect(address, client_ctx)
             async with trio.open_nursery() as nursery:
+
                 async def doomed_handshake():
                     with pytest.raises(trio.BrokenResourceError):
                         await c1.do_handshake()
