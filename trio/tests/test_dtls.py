@@ -448,7 +448,9 @@ async def test_invalid_cookie_rejected(autojump_clock):
 
     with trio.CancelScope() as cscope:
 
-        offset_to_corrupt = count()
+        # the first 11 bytes of ClientHello aren't protected by the cookie, so only test
+        # corrupting bytes after that.
+        offset_to_corrupt = count(11)
 
         def route_packet(packet):
             try:
