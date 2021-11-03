@@ -108,7 +108,7 @@ pytest==6.2.5
     #   pytest-cov
 pytest-cov==3.0.0
     # via -r test-requirements.in
-regex==2021.11.1
+regex==2021.11.2
     # via black
 six==1.16.0
     # via pyopenssl
