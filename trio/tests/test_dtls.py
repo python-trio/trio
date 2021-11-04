@@ -820,7 +820,7 @@ async def test_association_replaced_while_handshake_running(autojump_clock):
 
                 await trio.sleep(10)
 
-                c2 = client_endpoint.connect(address, client_ctx)
+                client_endpoint.connect(address, client_ctx)
 
 
 async def test_association_replaced_before_handshake_starts():
@@ -836,7 +836,7 @@ async def test_association_replaced_before_handshake_starts():
     async with dtls_echo_server() as (_, address):
         with endpoint() as client_endpoint:
             c1 = client_endpoint.connect(address, client_ctx)
-            c2 = client_endpoint.connect(address, client_ctx)
+            client_endpoint.connect(address, client_ctx)
             with pytest.raises(trio.BrokenResourceError):
                 await c1.do_handshake()
 

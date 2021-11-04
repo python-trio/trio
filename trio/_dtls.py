@@ -936,7 +936,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                             self._ssl.do_handshake()
                         # We ignore generic SSL.Error here, because you can get those
                         # from random invalid packets
-                        except (SSL.WantReadError, SSL.Error) as exc:
+                        except (SSL.WantReadError, SSL.Error):
                             pass
                         else:
                             # No exception -> the handshake is done, and we can
