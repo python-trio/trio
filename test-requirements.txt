@@ -97,7 +97,7 @@ pygments==2.10.0
     # via ipython
 pylint==2.12.2
     # via -r test-requirements.in
-pyopenssl @ git+https://github.com/pyca/pyopenssl
+pyopenssl @ https://github.com/pyca/pyopenssl/archive/refs/heads/main.zip
     # via -r test-requirements.in
 pyparsing==3.0.7
     # via packaging
