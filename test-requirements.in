@@ -12,6 +12,7 @@ cryptography>=36.0.0  # 35.0.0 is transitive but fails
 # Tools
 black; implementation_name == "cpython"
 mypy; implementation_name == "cpython"
+types-pyOpenSSL; implementation_name == "cpython"
 flake8
 astor          # code generation
 
