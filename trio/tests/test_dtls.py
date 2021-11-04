@@ -3,7 +3,7 @@ import trio
 from trio import DTLSEndpoint
 import random
 import attr
-from contextlib import asynccontextmanager
+from async_generator import asynccontextmanager
 from itertools import count
 import ipaddress
 import warnings
