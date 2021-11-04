@@ -46,7 +46,7 @@ try:
     from hmac import digest
 except ImportError:
     # python 3.6
-    def digest(key, msg, algorithm):
+    def digest(key, msg, algorithm):  # type: ignore
         return hmac.new(key, msg, algorithm).digest()
 
 
