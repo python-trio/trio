@@ -42,6 +42,14 @@ def best_guess_mtu(sock):
     return 1500 - packet_header_overhead(sock)
 
 
+try:
+    from hmac import digest
+except ImportError:
+    # python 3.6
+    def digest(key, msg, algorithm):
+        return hmac.new(key, msg, algorithm).digest()
+
+
 # There are a bunch of different RFCs that define these codes, so for a
 # comprehensive collection look here:
 # https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml
@@ -540,7 +548,7 @@ def _make_cookie(key, salt, tick, address, client_hello_bits):
         client_hello_bits,
     )
 
-    return (salt + hmac.digest(key, signable_data, COOKIE_HASH))[:COOKIE_LENGTH]
+    return (salt + digest(key, signable_data, COOKIE_HASH))[:COOKIE_LENGTH]
 
 
 def valid_cookie(key, cookie, address, client_hello_bits):
