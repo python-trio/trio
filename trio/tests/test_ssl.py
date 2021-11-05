@@ -76,6 +76,8 @@ else:
 @pytest.fixture(scope="module", params=client_ctx_params)
 def client_ctx(request):
     ctx = ssl.create_default_context()
+    if hasattr(ssl, "OP_IGNORE_UNEXPECTED_EOF"):
+        ctx.options &= ~ssl.OP_IGNORE_UNEXPECTED_EOF
     TRIO_TEST_CA.configure_trust(ctx)
     if request.param in ["default", "tls13"]:
         return ctx
