@@ -62,7 +62,7 @@ snowballstemmer==2.1.0
     # via sphinx
 sortedcontainers==2.4.0
     # via -r docs-requirements.in
-sphinx==3.3.1
+sphinx==4.3.0
     # via
     #   -r docs-requirements.in
     #   sphinx-rtd-theme
