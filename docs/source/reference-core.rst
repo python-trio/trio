@@ -1853,13 +1853,13 @@ will be available for that function and other internal/children tasks, but the v
 won't be available in the parent thread.
 
 If you need to modify values that would live in the context variables and you need to
-make those modifications from the children threads, you can instead set an object
-(e.g. a dictionary) in the context variable, in the top level/parent Trio thread. And
-then in the children, instead of setting the context variable, you can ``get`` the same
+make those modifications from the child threads, you can instead set a mutable object
+(e.g. a dictionary) in the context variable of the top level/parent Trio thread.
+Then in the children, instead of setting the context variable, you can ``get`` the same
 object, and modify its values. That way you keep the same object in the context
-variable and only mutate it in children threads.
+variable and only mutate it in child threads.
 
-This way, you can modify the object content in children threads and still access the
+This way, you can modify the object content in child threads and still access the
 new content in the parent thread.
 
 Here's an example:
