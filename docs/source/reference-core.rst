@@ -1028,8 +1028,8 @@ For more information, read the
     In advanced use cases you can also pass a custom `contextvars` context to
     ``nursery.start_soon(child, context=context)``.
 
-    That's an advanced use case, and you probably won't need that easily, but now you
-    know in case you need that in the future.
+    That's an advanced use case that you probably won't need, but now you
+    know why that keyword argument exists!
 
     You will also learn about how to use these `contextvars` with threads later here
     in the docs.
