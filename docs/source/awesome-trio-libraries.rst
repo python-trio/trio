@@ -105,7 +105,7 @@ Tools and Utilities
 * `tenacity <https://github.com/jd/tenacity>`__ - Retrying library for Python with async/await support.
 * `perf-timer <https://github.com/belm0/perf-timer>`__ - A code timer with Trio async support (see ``TrioPerfTimer``).  Collects execution time of a block of code excluding time when the coroutine isn't scheduled, such as during blocking I/O and sleep.  Also offers ``trio_perf_counter()`` for low-level timing.
 * `aiometer <https://github.com/florimondmanca/aiometer>`__ - Execute lots of tasks concurrently while controlling concurrency limits
-* `triotp <https://linkdd.github.io/triotp>`__ - The OTP framework for Python Trio
+* `triotp <https://linkdd.github.io/triotp>`__ - OTP framework for Python Trio
 
 Trio/Asyncio Interoperability
 -----------------------------
