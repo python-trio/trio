@@ -15,7 +15,6 @@ from .. import (
     sleep_forever,
     Process,
     run_process,
-    TrioDeprecationWarning,
     ClosedResourceError,
 )
 from ..lowlevel import open_process
@@ -39,7 +38,11 @@ def python(code):
 EXIT_TRUE = python("sys.exit(0)")
 EXIT_FALSE = python("sys.exit(1)")
 CAT = python("sys.stdout.buffer.write(sys.stdin.buffer.read())")
-SLEEP = lambda seconds: python("import time; time.sleep({})".format(seconds))
+
+if posix:
+    SLEEP = lambda seconds: ["/bin/sleep", str(seconds)]
+else:
+    SLEEP = lambda seconds: python("import time; time.sleep({})".format(seconds))
 
 
 def got_signal(proc, sig):
