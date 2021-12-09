@@ -19,10 +19,10 @@ if TYPE_CHECKING:
         def close(self) -> None:
             ...
 
-
     class ClosableReceiveStream(ReceiveStream):
         def close(self) -> None:
             ...
+
 
 # Fallback versions of the functions provided -- implementations
 # per OS are imported atop these at the bottom of the module.

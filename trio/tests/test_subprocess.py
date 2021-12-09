@@ -550,8 +550,11 @@ async def test_run_process_background_fail():
             proc = await nursery.start(run_process, EXIT_FALSE)
     assert proc.returncode == 1
 
-@pytest.mark.skipif(not SyncPath("/dev/fd").exists(),
-                    reason="requires a way to iterate through open files")
+
+@pytest.mark.skipif(
+    not SyncPath("/dev/fd").exists(),
+    reason="requires a way to iterate through open files",
+)
 async def test_for_leaking_fds():
     starting_fds = set(SyncPath("/dev/fd").iterdir())
     await run_process(EXIT_TRUE)
