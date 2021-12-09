@@ -13,6 +13,17 @@ _wait_child_exiting_error: Optional[ImportError] = None
 _create_child_pipe_error: Optional[ImportError] = None
 
 
+if TYPE_CHECKING:
+    # internal types for the pipe representations used in type checking only
+    class ClosableSendStream(SendStream):
+        def close(self) -> None:
+            ...
+
+
+    class ClosableReceiveStream(ReceiveStream):
+        def close(self) -> None:
+            ...
+
 # Fallback versions of the functions provided -- implementations
 # per OS are imported atop these at the bottom of the module.
 async def wait_child_exiting(process: "_subprocess.Process") -> None:
@@ -30,7 +41,7 @@ async def wait_child_exiting(process: "_subprocess.Process") -> None:
     raise NotImplementedError from _wait_child_exiting_error  # pragma: no cover
 
 
-def create_pipe_to_child_stdin() -> Tuple[SendStream, int]:
+def create_pipe_to_child_stdin() -> Tuple["ClosableSendStream", int]:
     """Create a new pipe suitable for sending data from this
     process to the standard input of a child we're about to spawn.
 
@@ -43,7 +54,7 @@ def create_pipe_to_child_stdin() -> Tuple[SendStream, int]:
     raise NotImplementedError from _create_child_pipe_error  # pragma: no cover
 
 
-def create_pipe_from_child_output() -> Tuple[ReceiveStream, int]:
+def create_pipe_from_child_output() -> Tuple["ClosableReceiveStream", int]:
     """Create a new pipe suitable for receiving data into this
     process from the standard output or error stream of a child
     we're about to spawn.

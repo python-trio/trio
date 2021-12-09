@@ -67,11 +67,10 @@ class _FdHolder:
     def __del__(self):
         self._raw_close()
 
-    async def aclose(self):
+    def close(self):
         if not self.closed:
             trio.lowlevel.notify_closing(self.fd)
             self._raw_close()
-        await trio.lowlevel.checkpoint()
 
 
 class FdStream(Stream, metaclass=Final):
@@ -180,8 +179,12 @@ class FdStream(Stream, metaclass=Final):
 
             return data
 
+    def close(self):
+        self._fd_holder.close()
+
     async def aclose(self):
-        await self._fd_holder.aclose()
+        self.close()
+        await trio.lowlevel.checkpoint()
 
     def fileno(self):
         return self._fd_holder.fd

@@ -2,6 +2,8 @@ import os
 import signal
 import subprocess
 import sys
+from pathlib import Path as SyncPath
+
 import pytest
 import random
 from functools import partial
@@ -529,7 +531,7 @@ async def test_warn_on_failed_cancel_terminate(monkeypatch):
             nursery.cancel_scope.cancel()
 
 
-@pytest.mark.skipif(os.name != "posix", reason="posix only")
+@pytest.mark.skipif(not posix, reason="posix only")
 async def test_warn_on_cancel_SIGKILL_escalation(autojump_clock, monkeypatch):
     monkeypatch.setattr(Process, "terminate", lambda *args: None)
 
@@ -547,3 +549,18 @@ async def test_run_process_background_fail():
         async with _core.open_nursery() as nursery:
             proc = await nursery.start(run_process, EXIT_FALSE)
     assert proc.returncode == 1
+
+@pytest.mark.skipif(not SyncPath("/dev/fd").exists(),
+                    reason="requires a way to iterate through open files")
+async def test_for_leaking_fds():
+    starting_fds = set(SyncPath("/dev/fd").iterdir())
+    await run_process(EXIT_TRUE)
+    assert set(SyncPath("/dev/fd").iterdir()) == starting_fds
+
+    with pytest.raises(subprocess.CalledProcessError):
+        await run_process(EXIT_FALSE)
+    assert set(SyncPath("/dev/fd").iterdir()) == starting_fds
+
+    with pytest.raises(PermissionError):
+        await run_process(["/dev/fd/0"])
+    assert set(SyncPath("/dev/fd").iterdir()) == starting_fds
