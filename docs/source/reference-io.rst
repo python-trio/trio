@@ -301,7 +301,7 @@ library socket into a Trio socket:
 
 .. autofunction:: from_stdlib_socket
 
-Unlike :func:`socket.socket`, :func:`trio.socket.socket` is a
+Unlike :class:`socket.socket`, :func:`trio.socket.socket` is a
 function, not a class; if you want to check whether an object is a
 Trio socket, use ``isinstance(obj, trio.socket.SocketType)``.
 
@@ -380,7 +380,7 @@ Socket objects
      additional error checking.
 
    In addition, the following methods are similar to the equivalents
-   in :func:`socket.socket`, but have some Trio-specific quirks:
+   in :class:`socket.socket`, but have some Trio-specific quirks:
 
    .. method:: connect
       :async:
@@ -421,7 +421,7 @@ Socket objects
       False otherwise.
 
    The following methods are identical to their equivalents in
-   :func:`socket.socket`, except async, and the ones that take address
+   :class:`socket.socket`, except async, and the ones that take address
    arguments require pre-resolved addresses:
 
    * :meth:`~socket.socket.accept`
@@ -437,7 +437,7 @@ Socket objects
    * :meth:`~socket.socket.sendmsg` (if available)
 
    All methods and attributes *not* mentioned above are identical to
-   their equivalents in :func:`socket.socket`:
+   their equivalents in :class:`socket.socket`:
 
    * :attr:`~socket.socket.family`
    * :attr:`~socket.socket.type`
