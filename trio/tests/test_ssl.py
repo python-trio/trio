@@ -1,4 +1,3 @@
-import re
 import sys
 
 import pytest
@@ -32,6 +31,8 @@ from ..testing import (
     lockstep_stream_pair,
     check_two_way_stream,
 )
+
+OPENSSL_V3 = ssl.OPENSSL_VERSION_NUMBER >= 0x30000000
 
 # We have two different kinds of echo server fixtures we use for testing. The
 # first is a real server written using the stdlib ssl module and blocking
@@ -1008,6 +1009,7 @@ async def test_ssl_over_ssl(client_ctx):
         nursery.start_soon(server)
 
 
+@pytest.mark.xfail(OPENSSL_V3, reason="https://github.com/python-trio/trio/issues/2197")
 async def test_ssl_bad_shutdown(client_ctx):
     client, server = ssl_memory_stream_pair(client_ctx)
 
@@ -1089,6 +1091,7 @@ async def test_ssl_only_closes_stream_once(client_ctx):
     assert transport_close_count == 1
 
 
+@pytest.mark.xfail(OPENSSL_V3, reason="https://github.com/python-trio/trio/issues/2197")
 async def test_ssl_https_compatibility_disagreement(client_ctx):
     client, server = ssl_memory_stream_pair(
         client_ctx,
@@ -1112,6 +1115,7 @@ async def test_ssl_https_compatibility_disagreement(client_ctx):
         nursery.start_soon(receive_and_expect_error)
 
 
+@pytest.mark.xfail(OPENSSL_V3, reason="https://github.com/python-trio/trio/issues/2197")
 async def test_https_mode_eof_before_handshake(client_ctx):
     client, server = ssl_memory_stream_pair(
         client_ctx,
