@@ -32,7 +32,7 @@ from ..testing import (
     check_two_way_stream,
 )
 
-OPENSSL_V3 = ssl.OPENSSL_VERSION_NUMBER >= 0x30000000
+OPENSSL_V3 = ssl.OPENSSL_VERSION_INFO >= (3,)
 
 # We have two different kinds of echo server fixtures we use for testing. The
 # first is a real server written using the stdlib ssl module and blocking
