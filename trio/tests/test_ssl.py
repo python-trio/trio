@@ -1011,6 +1011,8 @@ async def test_ssl_over_ssl(client_ctx):
 
 @pytest.mark.xfail(OPENSSL_V3, reason="https://github.com/python-trio/trio/issues/2197")
 async def test_ssl_bad_shutdown(client_ctx):
+    print(ssl.OPENSSL_VERSION_INFO)
+    print(OPENSSL_V3)
     client, server = ssl_memory_stream_pair(client_ctx)
 
     async with _core.open_nursery() as nursery:
