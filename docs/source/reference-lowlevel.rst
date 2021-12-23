@@ -540,6 +540,20 @@ Task API
       :func:`wait_task_rescheduled` for details.)
 
 
+Low-level context tools
+=======================
+
+You can change the current :class:`contextvars.Context` a task is running
+in with a helper context manager.
+
+.. autofunction:: set_current_context
+    :async-with:
+
+.. note::
+
+    This context manager introduces a scheduling point but not a cancellation
+    point.
+
 .. _guest-mode:
 
 Using "guest mode" to run Trio on top of other event loops

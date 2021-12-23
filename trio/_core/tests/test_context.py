@@ -1,7 +1,7 @@
 from contextvars import ContextVar, copy_context
 
 from .._run import CancelScope
-from .._context import change_context
+from .._context import set_current_context
 
 var = ContextVar("var")
 
@@ -10,7 +10,7 @@ async def test_context_change():
     var.set("abc")
 
     new_context = copy_context()
-    async with change_context(new_context):
+    async with set_current_context(new_context):
         assert var.get() == "abc"
         var.set("def")
         assert var.get() == "def"
@@ -23,7 +23,7 @@ async def test_context_change_with_cancellation():
 
     new_context = copy_context()
     with CancelScope() as scope:
-        async with change_context(new_context):
+        async with set_current_context(new_context):
             var.set("ghj")
             assert var.get() == "ghj"
             scope.cancel()

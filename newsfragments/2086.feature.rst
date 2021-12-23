@@ -1,2 +1,2 @@
-Add an API to allow changing the current Context a task is running
-in.
+Add the :func:`trio.lowlevel.set_current_context` API to allow changing the
+current :class:`contextvars.Context` a task is running in.

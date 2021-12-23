@@ -32,7 +32,6 @@ from ._core import (
     BrokenResourceError,
     EndOfChannel,
     Nursery,
-    change_context,
 )
 
 from ._timeouts import (
