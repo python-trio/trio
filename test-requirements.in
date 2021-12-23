@@ -14,7 +14,8 @@ flake8
 astor          # code generation
 
 # https://github.com/python-trio/trio/pull/654#issuecomment-420518745
-typed_ast; implementation_name == "cpython"
+# typed_ast is deprecatedd as of 3.8, and straight up doesn't compile on 3.10-dev as of 2021-12-13
+typed_ast; implementation_name == "cpython" and python_version < "3.8"
 mypy-extensions; implementation_name == "cpython"
 typing-extensions; implementation_name == "cpython"
 
