@@ -20,7 +20,7 @@ from .._highlevel_generic import aclose_forcefully
 from .._core import ClosedResourceError, BrokenResourceError
 from .._highlevel_open_tcp_stream import open_tcp_stream
 from .. import socket as tsocket
-from .._ssl import SSLStream, SSLListener, NeedHandshakeError
+from .._ssl import SSLStream, SSLListener, NeedHandshakeError, _is_eof
 from .._util import ConflictDetector
 
 from .._core.tests.tutil import slow
@@ -55,6 +55,9 @@ TRIO_TEST_CA = trustme.CA()
 TRIO_TEST_1_CERT = TRIO_TEST_CA.issue_server_cert("trio-test-1.example.org")
 
 SERVER_CTX = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+if hasattr(ssl, "OP_IGNORE_UNEXPECTED_EOF"):
+    SERVER_CTX.options &= ~ssl.OP_IGNORE_UNEXPECTED_EOF
+
 TRIO_TEST_1_CERT.configure_cert(SERVER_CTX)
 
 # TLS 1.3 has a lot of changes from previous versions. So we want to run tests
@@ -76,6 +79,10 @@ else:
 @pytest.fixture(scope="module", params=client_ctx_params)
 def client_ctx(request):
     ctx = ssl.create_default_context()
+
+    if hasattr(ssl, "OP_IGNORE_UNEXPECTED_EOF"):
+        ctx.options &= ~ssl.OP_IGNORE_UNEXPECTED_EOF
+
     TRIO_TEST_CA.configure_trust(ctx)
     if request.param in ["default", "tls13"]:
         return ctx
@@ -1105,7 +1112,8 @@ async def test_ssl_https_compatibility_disagreement(client_ctx):
     async def receive_and_expect_error():
         with pytest.raises(BrokenResourceError) as excinfo:
             await server.receive_some(10)
-        assert isinstance(excinfo.value.__cause__, ssl.SSLEOFError)
+
+        assert _is_eof(excinfo.value.__cause__)
 
     async with _core.open_nursery() as nursery:
         nursery.start_soon(client.aclose)

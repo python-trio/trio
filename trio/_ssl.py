@@ -190,6 +190,16 @@ from ._util import ConflictDetector, Final
 STARTING_RECEIVE_SIZE = 16384
 
 
+def _is_eof(exc):
+    # There appears to be a bug on Python 3.10, where SSLErrors
+    # aren't properly translated into SSLEOFErrors.
+    # This stringly-typed error check is borrowed from the AnyIO
+    # project.
+    return isinstance(exc, _stdlib_ssl.SSLEOFError) or (
+        hasattr(exc, "strerror") and "UNEXPECTED_EOF_WHILE_READING" in exc.strerror
+    )
+
+
 class NeedHandshakeError(Exception):
     """Some :class:`SSLStream` methods can't return any meaningful data until
     after the handshake. If you call them before the handshake, they raise
@@ -658,9 +668,9 @@ class SSLStream(Stream, metaclass=Final):
                 # For some reason, EOF before handshake sometimes raises
                 # SSLSyscallError instead of SSLEOFError (e.g. on my linux
                 # laptop, but not on appveyor). Thanks openssl.
-                if self._https_compatible and isinstance(
-                    exc.__cause__,
-                    (_stdlib_ssl.SSLEOFError, _stdlib_ssl.SSLSyscallError),
+                if self._https_compatible and (
+                    isinstance(exc.__cause__, _stdlib_ssl.SSLSyscallError)
+                    or _is_eof(exc.__cause__)
                 ):
                     await trio.lowlevel.checkpoint()
                     return b""
@@ -683,9 +693,8 @@ class SSLStream(Stream, metaclass=Final):
                 # BROKEN. But that's actually fine, because after getting an
                 # EOF on TLS then the only thing you can do is close the
                 # stream, and closing doesn't care about the state.
-                if self._https_compatible and isinstance(
-                    exc.__cause__, _stdlib_ssl.SSLEOFError
-                ):
+
+                if self._https_compatible and _is_eof(exc.__cause__):
                     await trio.lowlevel.checkpoint()
                     return b""
                 else:

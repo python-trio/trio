@@ -53,6 +53,10 @@ async def open_ssl_over_tcp_stream(
     )
     if ssl_context is None:
         ssl_context = ssl.create_default_context()
+
+        if hasattr(ssl, "OP_IGNORE_UNEXPECTED_EOF"):
+            ssl_context.options &= ~ssl.OP_IGNORE_UNEXPECTED_EOF
+
     return trio.SSLStream(
         tcp_stream, ssl_context, server_hostname=host, https_compatible=https_compatible
     )
