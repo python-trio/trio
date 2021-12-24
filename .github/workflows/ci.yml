@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.6', '3.7', '3.8', '3.9', '3.10']
+        python: ['3.7', '3.8', '3.9', '3.10']
         arch: ['x86', 'x64']
         lsp: ['']
         lsp_extract_file: ['']
@@ -72,17 +72,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.6', 'pypy-3.7', 'pypy-3.8', '3.6', '3.7', '3.8', '3.9', '3.10', '3.8-dev', '3.9-dev', '3.10-dev']
+        python: ['pypy-3.7', 'pypy-3.8', '3.7', '3.8', '3.9', '3.10', '3.10-dev']
         check_formatting: ['0']
         pypy_nightly_branch: ['']
         extra_name: ['']
         include:
-          - python: '3.8'
+          - python: '3.10'
             check_formatting: '1'
             extra_name: ', check formatting'
-          - python: '3.7'  # <- not actually used
-            pypy_nightly_branch: 'py3.7'
-            extra_name: ', pypy 3.7 nightly'
           - python: '3.8'  # <- not actually used
             pypy_nightly_branch: 'py3.8'
             extra_name: ', pypy 3.8 nightly'
@@ -114,7 +111,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.6', '3.7', '3.8', '3.9', '3.10']
+        python: ['3.7', '3.8', '3.9', '3.10']
         include:
           - python: '3.8'  # <- not actually used
             arch: 'x64'
