@@ -973,7 +973,7 @@ class Nursery(metaclass=NoPublicConstructor):
     ) -> Callable[T_ParamSpec, None]:
         def wrapper(*args: T_ParamSpec.args, **kwargs: T_ParamSpec.kwargs) -> None:
             partial_f = functools.partial(async_fn, *args, **kwargs)
-            return self.start_soon(partial_f, name=name)
+            self.start_soon(partial_f, name=name)
 
         return wrapper
 
