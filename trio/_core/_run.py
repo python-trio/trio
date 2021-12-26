@@ -806,7 +806,7 @@ class NurseryManager:
     """
 
     @enable_ki_protection
-    async def __aenter__(self):
+    async def __aenter__(self) -> "Nursery":
         self._scope = CancelScope()
         self._scope.__enter__()
         self._nursery = Nursery._create(current_task(), self._scope)
@@ -845,7 +845,7 @@ class NurseryManager:
         assert False, """Never called, but should be defined"""
 
 
-def open_nursery():
+def open_nursery() -> NurseryManager:
     """Returns an async context manager which must be used to create a
     new `Nursery`.
 
