@@ -1,14 +1,22 @@
 # coding: utf-8
 
+import functools
 import threading
 import queue as stdlib_queue
 from itertools import count
+from typing import Awaitable, TypeVar, Callable, Optional
+import sys
 
 import attr
 import inspect
 import outcome
 
 import trio
+
+if sys.version_info >= (3, 10):
+    from typing import ParamSpec
+else:
+    from typing_extensions import ParamSpec
 
 from ._sync import CapacityLimiter
 from ._core import (
@@ -53,6 +61,27 @@ def current_default_thread_limiter():
 @attr.s(frozen=True, eq=False, hash=False)
 class ThreadPlaceholder:
     name = attr.ib()
+
+
+T_Retval = TypeVar("T_Retval")
+T_ParamSpec = ParamSpec("T_ParamSpec")
+
+
+def to_thread_asyncify(
+    sync_fn: Callable[T_ParamSpec, T_Retval],
+    *,
+    cancellable: bool = False,
+    limiter: Optional[CapacityLimiter] = None,
+) -> Callable[T_ParamSpec, Awaitable[T_Retval]]:
+    async def wrapper(
+        *args: T_ParamSpec.args, **kwargs: T_ParamSpec.kwargs
+    ) -> T_Retval:
+        partial_f = functools.partial(sync_fn, *args, **kwargs)
+        return await to_thread_run_sync(
+            partial_f, cancellable=cancellable, limiter=limiter
+        )
+
+    return wrapper
 
 
 @enable_ki_protection
@@ -236,6 +265,16 @@ def _run_fn_as_system_task(cb, fn, *args, trio_token=None):
     q = stdlib_queue.Queue()
     trio_token.run_sync_soon(cb, q, fn, args)
     return q.get().unwrap()
+
+
+def from_thread_syncify(
+    afn: Callable[T_ParamSpec, Awaitable[T_Retval]],
+) -> Callable[T_ParamSpec, T_Retval]:
+    def wrapper(*args: T_ParamSpec.args, **kwargs: T_ParamSpec.kwargs) -> T_Retval:
+        partial_f = functools.partial(afn, *args, **kwargs)
+        return from_thread_run(partial_f)
+
+    return wrapper
 
 
 def from_thread_run(afn, *args, trio_token=None):

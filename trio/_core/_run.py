@@ -18,7 +18,12 @@ import enum
 from contextvars import copy_context
 from math import inf
 from time import perf_counter
-from typing import Callable, TYPE_CHECKING
+from typing import Any, Awaitable, Callable, TYPE_CHECKING, TypeVar
+
+if sys.version_info >= (3, 10):
+    from typing import ParamSpec
+else:
+    from typing_extensions import ParamSpec
 
 from sniffio import current_async_library_cvar
 
@@ -851,6 +856,10 @@ def open_nursery():
     return NurseryManager()
 
 
+T_Retval = TypeVar("T_Retval")
+T_ParamSpec = ParamSpec("T_ParamSpec")
+
+
 class Nursery(metaclass=NoPublicConstructor):
     """A context which may be used to spawn (or cancel) child tasks.
 
@@ -956,6 +965,17 @@ class Nursery(metaclass=NoPublicConstructor):
                 # avoid a garbage cycle
                 # (see test_nursery_cancel_doesnt_create_cyclic_garbage)
                 del self._pending_excs
+
+    def soonify(
+        self,
+        async_fn: Callable[T_ParamSpec, Awaitable[Any]],
+        name: str = None,
+    ) -> Callable[T_ParamSpec, None]:
+        def wrapper(*args: T_ParamSpec.args, **kwargs: T_ParamSpec.kwargs) -> None:
+            partial_f = functools.partial(async_fn, *args, **kwargs)
+            return self.start_soon(partial_f, name=name)
+
+        return wrapper
 
     def start_soon(self, async_fn, *args, name=None):
         """Creates a child task, scheduling ``await async_fn(*args)``.
