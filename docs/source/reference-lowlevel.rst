@@ -701,8 +701,8 @@ can use as a model::
 
     # A tiny Trio program
     async def trio_main():
-        for i in range(5):
-            print(f"Hello from Trio!")
+        for _ in range(5):
+            print("Hello from Trio!")
             # This is inside Trio, so we have to use Trio APIs
             await trio.sleep(1)
         return "trio done!"
