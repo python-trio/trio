@@ -3,6 +3,7 @@
 import os
 import subprocess
 import sys
+from contextlib import ExitStack
 from typing import Optional
 from functools import partial
 import warnings
@@ -28,6 +29,7 @@ if TYPE_CHECKING:
     def pidfd_open(fd: int, flags: int) -> int:
         ...
 
+    from ._subprocess_platform import ClosableReceiveStream, ClosableSendStream
 
 else:
     can_try_pidfd_open = True
@@ -359,28 +361,38 @@ async def open_process(
                 "on UNIX systems"
             )
 
-    trio_stdin = None  # type: Optional[SendStream]
-    trio_stdout = None  # type: Optional[ReceiveStream]
-    trio_stderr = None  # type: Optional[ReceiveStream]
+    trio_stdin = None  # type: Optional[ClosableSendStream]
+    trio_stdout = None  # type: Optional[ClosableReceiveStream]
+    trio_stderr = None  # type: Optional[ClosableReceiveStream]
+    # Close the parent's handle for each child side of a pipe; we want the child to
+    # have the only copy, so that when it exits we can read EOF on our side. The
+    # trio ends of pipes will be transferred to the Process object, which will be
+    # responsible for their lifetime. If process spawning fails, though, we still
+    # want to close them before letting the failure bubble out
+    with ExitStack() as always_cleanup, ExitStack() as cleanup_on_fail:
+        if stdin == subprocess.PIPE:
+            trio_stdin, stdin = create_pipe_to_child_stdin()
+            always_cleanup.callback(os.close, stdin)
+            cleanup_on_fail.callback(trio_stdin.close)
+        if stdout == subprocess.PIPE:
+            trio_stdout, stdout = create_pipe_from_child_output()
+            always_cleanup.callback(os.close, stdout)
+            cleanup_on_fail.callback(trio_stdout.close)
+        if stderr == subprocess.STDOUT:
+            # If we created a pipe for stdout, pass the same pipe for
+            # stderr.  If stdout was some non-pipe thing (DEVNULL or a
+            # given FD), pass the same thing. If stdout was passed as
+            # None, keep stderr as STDOUT to allow subprocess to dup
+            # our stdout. Regardless of which of these is applicable,
+            # don't create a new Trio stream for stderr -- if stdout
+            # is piped, stderr will be intermixed on the stdout stream.
+            if stdout is not None:
+                stderr = stdout
+        elif stderr == subprocess.PIPE:
+            trio_stderr, stderr = create_pipe_from_child_output()
+            always_cleanup.callback(os.close, stderr)
+            cleanup_on_fail.callback(trio_stderr.close)
 
-    if stdin == subprocess.PIPE:
-        trio_stdin, stdin = create_pipe_to_child_stdin()
-    if stdout == subprocess.PIPE:
-        trio_stdout, stdout = create_pipe_from_child_output()
-    if stderr == subprocess.STDOUT:
-        # If we created a pipe for stdout, pass the same pipe for
-        # stderr.  If stdout was some non-pipe thing (DEVNULL or a
-        # given FD), pass the same thing. If stdout was passed as
-        # None, keep stderr as STDOUT to allow subprocess to dup
-        # our stdout. Regardless of which of these is applicable,
-        # don't create a new Trio stream for stderr -- if stdout
-        # is piped, stderr will be intermixed on the stdout stream.
-        if stdout is not None:
-            stderr = stdout
-    elif stderr == subprocess.PIPE:
-        trio_stderr, stderr = create_pipe_from_child_output()
-
-    try:
         popen = await trio.to_thread.run_sync(
             partial(
                 subprocess.Popen,
@@ -391,16 +403,8 @@ async def open_process(
                 **options,
             )
         )
-    finally:
-        # Close the parent's handle for each child side of a pipe;
-        # we want the child to have the only copy, so that when
-        # it exits we can read EOF on our side.
-        if trio_stdin is not None:
-            os.close(stdin)
-        if trio_stdout is not None:
-            os.close(stdout)
-        if trio_stderr is not None:
-            os.close(stderr)
+        # We did not fail, so dismiss the stack for the trio ends
+        cleanup_on_fail.pop_all()
 
     return Process._create(popen, trio_stdin, trio_stdout, trio_stderr)
 
