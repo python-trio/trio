@@ -11,6 +11,7 @@ from async_generator import asynccontextmanager
 
 from .. import (
     ClosedResourceError,
+    Event,
     Process,
     _core,
     fail_after,
@@ -573,21 +574,20 @@ async def test_for_leaking_fds():
 
 
 # regression test for #2209
-@pytest.mark.skipif(not posix, reason="Regression test for Linux-only bug")
 async def test_subprocess_pidfd_unnotified():
     noticed_exit = None
 
     async def wait_and_tell(proc) -> None:
         nonlocal noticed_exit
-        noticed_exit = False
+        noticed_exit = Event()
         await proc.wait()
-        noticed_exit = True
+        noticed_exit.set()
 
     proc = await open_process(SLEEP(9999))
     async with _core.open_nursery() as nursery:
         nursery.start_soon(wait_and_tell, proc)
         await wait_all_tasks_blocked()
-        assert noticed_exit is False
+        assert isinstance(noticed_exit, Event)
         proc.terminate()
         # without giving trio a chance to do so,
         with assert_no_checkpoints():
@@ -595,5 +595,8 @@ async def test_subprocess_pidfd_unnotified():
             proc._proc.wait()
             # force a call to poll (that closes the pidfd on linux)
             proc.poll()
-        await wait_all_tasks_blocked()
-        assert noticed_exit, "child task wasn't woken after poll, DEADLOCK"
+        with move_on_after(5):
+            # Some platforms use threads to wait for exit, so it might take a bit
+            # for everything to notice
+            await noticed_exit.wait()
+        assert noticed_exit.is_set(), "child task wasn't woken after poll, DEADLOCK"
