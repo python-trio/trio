@@ -10,6 +10,7 @@ import warnings
 from typing import TYPE_CHECKING
 
 from ._abc import AsyncResource, SendStream, ReceiveStream
+from ._core import ClosedResourceError
 from ._highlevel_generic import StapledStream
 from ._sync import Lock
 from ._subprocess_platform import (
@@ -217,6 +218,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
 
     def _close_pidfd(self):
         if self._pidfd is not None:
+            trio.lowlevel.notify_closing(self._pidfd.fileno())
             self._pidfd.close()
             self._pidfd = None
 
@@ -229,7 +231,12 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         async with self._wait_lock:
             if self.poll() is None:
                 if self._pidfd is not None:
-                    await trio.lowlevel.wait_readable(self._pidfd)
+                    try:
+                        await trio.lowlevel.wait_readable(self._pidfd)
+                    except ClosedResourceError:
+                        # something else (probably a call to poll) already closed the
+                        # pidfd
+                        pass
                 else:
                     await wait_child_exiting(self)
                 # We have to use .wait() here, not .poll(), because on macOS
