@@ -572,6 +572,8 @@ async def test_for_leaking_fds():
     assert set(SyncPath("/dev/fd").iterdir()) == starting_fds
 
 
+# regression test for #2209
+@pytest.mark.skipif(not posix, reason="Regression test for Linux-only bug")
 async def test_subprocess_pidfd_unnotified():
     noticed_exit = None
 
