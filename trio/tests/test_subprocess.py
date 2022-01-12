@@ -1,27 +1,28 @@
 import os
+import random
 import signal
 import subprocess
 import sys
+from functools import partial
 from pathlib import Path as SyncPath
 
 import pytest
-import random
-from functools import partial
 from async_generator import asynccontextmanager
 
 from .. import (
+    ClosedResourceError,
+    Event,
+    Process,
     _core,
-    move_on_after,
     fail_after,
+    move_on_after,
+    run_process,
     sleep,
     sleep_forever,
-    Process,
-    run_process,
-    ClosedResourceError,
 )
+from .._core.tests.tutil import skip_if_fbsd_pipes_broken, slow
 from ..lowlevel import open_process
-from .._core.tests.tutil import slow, skip_if_fbsd_pipes_broken
-from ..testing import wait_all_tasks_blocked
+from ..testing import assert_no_checkpoints, wait_all_tasks_blocked
 
 posix = os.name == "posix"
 if posix:
@@ -570,3 +571,32 @@ async def test_for_leaking_fds():
     with pytest.raises(PermissionError):
         await run_process(["/dev/fd/0"])
     assert set(SyncPath("/dev/fd").iterdir()) == starting_fds
+
+
+# regression test for #2209
+async def test_subprocess_pidfd_unnotified():
+    noticed_exit = None
+
+    async def wait_and_tell(proc) -> None:
+        nonlocal noticed_exit
+        noticed_exit = Event()
+        await proc.wait()
+        noticed_exit.set()
+
+    proc = await open_process(SLEEP(9999))
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(wait_and_tell, proc)
+        await wait_all_tasks_blocked()
+        assert isinstance(noticed_exit, Event)
+        proc.terminate()
+        # without giving trio a chance to do so,
+        with assert_no_checkpoints():
+            # wait until the process has actually exited;
+            proc._proc.wait()
+            # force a call to poll (that closes the pidfd on linux)
+            proc.poll()
+        with move_on_after(5):
+            # Some platforms use threads to wait for exit, so it might take a bit
+            # for everything to notice
+            await noticed_exit.wait()
+        assert noticed_exit.is_set(), "child task wasn't woken after poll, DEADLOCK"
