@@ -5,6 +5,9 @@ from math import inf
 import trio
 from . import socket as tsocket
 
+if sys.version_info < (3, 11):
+    from exceptiongroup import ExceptionGroup
+
 
 # Default backlog size:
 #
@@ -138,7 +141,9 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
             errno.EAFNOSUPPORT,
             "This system doesn't support any of the kinds of "
             "socket that that address could use",
-        ) from trio.MultiError(unsupported_address_families)
+        ) from ExceptionGroup(
+            "All socket creation attempts failed", unsupported_address_families
+        )
 
     return listeners
 

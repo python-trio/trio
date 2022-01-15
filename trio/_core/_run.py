@@ -28,7 +28,6 @@ from ._ki import (
     KIManager,
     enable_ki_protection,
 )
-from ._multierror import MultiError
 from ._traps import (
     Abort,
     wait_task_rescheduled,
@@ -42,6 +41,9 @@ from ._thread_cache import start_thread_soon
 from ._instrumentation import Instruments
 from .. import _core
 from .._util import Final, NoPublicConstructor, coroutine_or_error
+
+if sys.version_info < (3, 11):
+    from exceptiongroup import BaseExceptionGroup
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD = 1000
 
@@ -447,12 +449,6 @@ class CancelScope(metaclass=Final):
             task._activate_cancel_status(self._cancel_status)
         return self
 
-    def _exc_filter(self, exc):
-        if isinstance(exc, Cancelled):
-            self.cancelled_caught = True
-            return None
-        return exc
-
     def _close(self, exc):
         if self._cancel_status is None:
             new_exc = RuntimeError(
@@ -510,7 +506,16 @@ class CancelScope(metaclass=Final):
             and self._cancel_status.effectively_cancelled
             and not self._cancel_status.parent_cancellation_is_visible_to_us
         ):
-            exc = MultiError.filter(self._exc_filter, exc)
+            if isinstance(exc, Cancelled):
+                self.cancelled_caught = True
+                exc = None
+            elif isinstance(exc, BaseExceptionGroup):
+                matched, exc = exc.split(Cancelled)
+                if matched:
+                    self.cancelled_caught = True
+
+                while isinstance(exc, BaseExceptionGroup) and len(exc.exceptions) == 1:
+                    exc = exc.exceptions[0]
         self._cancel_status.close()
         with self._might_change_registered_deadline():
             self._cancel_status = None
@@ -910,7 +915,9 @@ class Nursery(metaclass=NoPublicConstructor):
         self._check_nursery_closed()
 
     async def _nested_child_finished(self, nested_child_exc):
-        """Returns MultiError instance if there are pending exceptions."""
+        """
+        Returns BaseExceptionGroup instance if there are pending exceptions.
+        """
         if nested_child_exc is not None:
             self._add_exc(nested_child_exc)
         self._nested_child_running = False
@@ -939,7 +946,7 @@ class Nursery(metaclass=NoPublicConstructor):
         assert popped is self
         if self._pending_excs:
             try:
-                return MultiError(self._pending_excs)
+                return BaseExceptionGroup("multiple tasks failed", self._pending_excs)
             finally:
                 # avoid a garbage cycle
                 # (see test_nursery_cancel_doesnt_create_cyclic_garbage)

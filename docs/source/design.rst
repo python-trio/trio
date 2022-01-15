@@ -465,9 +465,6 @@ There are two notable sub-modules that are largely independent of
 the rest of Trio, and could (possibly should?) be extracted into their
 own independent packages:
 
-* ``_multierror.py``: Implements :class:`MultiError` and associated
-  infrastructure.
-
 * ``_ki.py``: Implements the core infrastructure for safe handling of
   :class:`KeyboardInterrupt`.
 

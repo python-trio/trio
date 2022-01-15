@@ -641,7 +641,7 @@ crucial things to keep in mind:
 
   * Any unhandled exceptions are re-raised inside the parent task. If
     there are multiple exceptions, then they're collected up into a
-    single :exc:`MultiError` exception.
+    single :exc:`BaseExceptionGroup` or :exc:`ExceptionGroup` exception.
 
 Since all tasks are descendents of the initial task, one consequence
 of this is that :func:`run` can't finish until all tasks have
@@ -712,14 +712,9 @@ limitation. Consider code like::
 what? In some sense, the answer should be "both of these at once", but
 in Python there can only be one exception at a time.
 
-Trio's answer is that it raises a :exc:`MultiError` object. This is a
+Trio's answer is that it raises a :exc:`BaseExceptionGroup` object. This is a
 special exception which encapsulates multiple exception objects –
-either regular exceptions or nested :exc:`MultiError`\s. To make these
-easier to work with, Trio installs a custom `sys.excepthook` that
-knows how to print nice tracebacks for unhandled :exc:`MultiError`\s,
-and it also provides some helpful utilities like
-:meth:`MultiError.catch`, which allows you to catch "part of" a
-:exc:`MultiError`.
+either regular exceptions or nested :exc:`BaseExceptionGroup`\s.
 
 
 Spawning tasks without becoming a parent
@@ -835,104 +830,6 @@ The nursery API
 .. attribute:: TASK_STATUS_IGNORED
 
    See :meth:`~Nursery.start`.
-
-
-Working with :exc:`MultiError`\s
-++++++++++++++++++++++++++++++++
-
-.. autoexception:: MultiError
-
-   .. attribute:: exceptions
-
-      The list of exception objects that this :exc:`MultiError`
-      represents.
-
-   .. automethod:: filter
-
-   .. automethod:: catch
-      :with:
-
-Examples:
-
-Suppose we have a handler function that discards :exc:`ValueError`\s::
-
-    def handle_ValueError(exc):
-        if isinstance(exc, ValueError):
-            return None
-        else:
-            return exc
-
-Then these both raise :exc:`KeyError`::
-
-    with MultiError.catch(handle_ValueError):
-         raise MultiError([KeyError(), ValueError()])
-
-    with MultiError.catch(handle_ValueError):
-         raise MultiError([
-             ValueError(),
-             MultiError([KeyError(), ValueError()]),
-         ])
-
-And both of these raise nothing at all::
-
-    with MultiError.catch(handle_ValueError):
-         raise MultiError([ValueError(), ValueError()])
-
-    with MultiError.catch(handle_ValueError):
-         raise MultiError([
-             MultiError([ValueError(), ValueError()]),
-             ValueError(),
-         ])
-
-You can also return a new or modified exception, for example::
-
-    def convert_ValueError_to_MyCustomError(exc):
-        if isinstance(exc, ValueError):
-            # Similar to 'raise MyCustomError from exc'
-            new_exc = MyCustomError(...)
-            new_exc.__cause__ = exc
-            return new_exc
-        else:
-            return exc
-
-In the example above, we set ``__cause__`` as a form of explicit
-context chaining. :meth:`MultiError.filter` and
-:meth:`MultiError.catch` also perform implicit exception chaining – if
-you return a new exception object, then the new object's
-``__context__`` attribute will automatically be set to the original
-exception.
-
-We also monkey patch :class:`traceback.TracebackException` to be able
-to handle formatting :exc:`MultiError`\s. This means that anything that
-formats exception messages like :mod:`logging` will work out of the
-box::
-
-    import logging
-
-    logging.basicConfig()
-
-    try:
-        raise MultiError([ValueError("foo"), KeyError("bar")])
-    except:
-        logging.exception("Oh no!")
-        raise
-
-Will properly log the inner exceptions:
-
-.. code-block:: none
-
-    ERROR:root:Oh no!
-    Traceback (most recent call last):
-      File "<stdin>", line 2, in <module>
-    trio.MultiError: ValueError('foo',), KeyError('bar',)
-
-    Details of embedded exception 1:
-
-      ValueError: foo
-
-    Details of embedded exception 2:
-
-      KeyError: 'bar'
 
 
 .. _task-local-storage:

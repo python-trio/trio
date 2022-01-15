@@ -22,7 +22,6 @@ from ._core import (
     Cancelled,
     BusyResourceError,
     ClosedResourceError,
-    MultiError,
     run,
     open_nursery,
     CancelScope,
