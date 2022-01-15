@@ -8,9 +8,6 @@ from .._util import is_main_thread
 
 
 def _has_warn_on_full_buffer():
-    if sys.version_info < (3, 7):
-        return False
-
     if "__pypy__" not in sys.builtin_module_names:
         # CPython has warn_on_full_buffer. Don't need to inspect.
         # Also, CPython doesn't support inspecting built-in functions.

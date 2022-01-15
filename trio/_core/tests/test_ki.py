@@ -543,10 +543,6 @@ def test_ki_wakes_us_up():
     #   https://bitbucket.org/pypy/pypy/issues/2623
     import platform
 
-    buggy_wakeup_fd = (
-        sys.version_info < (3, 6, 2) and platform.python_implementation() == "CPython"
-    )
-
     # lock is only needed to avoid an annoying race condition where the
     # *second* ki_self() call arrives *after* the first one woke us up and its
     # KeyboardInterrupt was caught, and then generates a second
@@ -571,9 +567,6 @@ def test_ki_wakes_us_up():
         with lock:
             print("thread doing ki_self()")
             ki_self()
-            if buggy_wakeup_fd:
-                print("buggy_wakeup_fd =", buggy_wakeup_fd)
-                ki_self()
 
     async def main():
         thread = threading.Thread(target=kill_soon)

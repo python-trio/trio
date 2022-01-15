@@ -87,10 +87,7 @@ def client_ctx(request):
     if request.param in ["default", "tls13"]:
         return ctx
     elif request.param == "tls12":
-        if sys.version_info >= (3, 7):
-            ctx.maximum_version = ssl.TLSVersion.TLSv1_2
-        else:
-            ctx.options |= ssl.OP_NO_TLSv1_3
+        ctx.maximum_version = ssl.TLSVersion.TLSv1_2
         return ctx
     else:  # pragma: no cover
         assert False
