@@ -2,10 +2,13 @@ import sys
 import weakref
 import pytest
 from math import inf
-from functools import partial
-from async_generator import aclosing
 from ... import _core
 from .tutil import gc_collect_harder, buggy_pypy_asyncgens, restore_unraisablehook
+
+if sys.version_info >= (3, 10):
+    from contextlib import aclosing
+else:
+    from contextlib2 import aclosing
 
 
 def test_asyncgen_basics():

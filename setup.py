@@ -81,7 +81,7 @@ setup(
     install_requires=[
         "attrs >= 19.2.0",  # for eq
         "sortedcontainers",
-        "async_generator >= 1.9",
+        "contextlib2; python_version < '3.10'",
         "idna",
         "outcome",
         "sniffio",

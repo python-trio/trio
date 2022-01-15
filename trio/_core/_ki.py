@@ -4,8 +4,6 @@ import sys
 from functools import wraps
 import attr
 
-import async_generator
-
 from .._util import is_main_thread
 
 if False:
@@ -141,7 +139,7 @@ def _ki_protection_decorator(enabled):
                 return gen
 
             return wrapper
-        elif async_generator.isasyncgenfunction(fn):
+        elif inspect.isasyncgenfunction(fn):
 
             @wraps(fn)
             def wrapper(*args, **kwargs):

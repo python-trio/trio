@@ -5,14 +5,11 @@
 from abc import ABCMeta
 import os
 import signal
-import sys
-import pathlib
-from functools import wraps, update_wrapper
+from functools import update_wrapper
 import typing as t
 import threading
 import collections
-
-from async_generator import isasyncgen
+from inspect import isasyncgen
 
 import trio
 
