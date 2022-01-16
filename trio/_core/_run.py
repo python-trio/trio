@@ -118,6 +118,28 @@ class IdlePrimedTypes(enum.Enum):
 ################################################################
 
 
+def collapse_exception_group(excgroup):
+    """Recursively collapse any single-exception groups into that single contained
+    exception.
+
+    """
+    exceptions = list(excgroup.exceptions)
+    modified = False
+    for i, exc in enumerate(exceptions):
+        if isinstance(exc, BaseExceptionGroup):
+            new_exc = collapse_exception_group(exc)
+            if new_exc is not exc:
+                modified = True
+                exceptions[i] = new_exc
+
+    if len(exceptions) == 1:
+        return exceptions[0]
+    elif modified:
+        return excgroup.derive(exceptions)
+    else:
+        return excgroup
+
+
 @attr.s(eq=False, slots=True)
 class Deadlines:
     """A container of deadlined cancel scopes.
@@ -514,8 +536,9 @@ class CancelScope(metaclass=Final):
                 if matched:
                     self.cancelled_caught = True
 
-                while isinstance(exc, BaseExceptionGroup) and len(exc.exceptions) == 1:
-                    exc = exc.exceptions[0]
+        if isinstance(exc, BaseExceptionGroup):
+            exc = collapse_exception_group(exc)
+
         self._cancel_status.close()
         with self._might_change_registered_deadline():
             self._cancel_status = None
