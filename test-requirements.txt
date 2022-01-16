@@ -32,6 +32,8 @@ cryptography==36.0.1
     #   trustme
 decorator==5.1.0
     # via ipython
+exceptiongroup==1.0.0rc1
+    # via -r test-requirements.in
 flake8==4.0.1
     # via -r test-requirements.in
 idna==3.3

@@ -16,6 +16,7 @@ import attr
 import outcome
 import sniffio
 import pytest
+from exceptiongroup import catch
 
 from .tutil import (
     slow,
@@ -38,7 +39,7 @@ from ...testing import (
 )
 
 if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup, ExceptionGroup, catch
+    from exceptiongroup import BaseExceptionGroup, ExceptionGroup
 
 
 # slightly different from _timeouts.sleep_forever because it returns the value
