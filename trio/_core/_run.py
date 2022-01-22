@@ -63,6 +63,29 @@ _ALLOW_DETERMINISTIC_SCHEDULING = False
 _r = random.Random()
 
 
+# On CPython, Context.run() is implemented in C and doesn't show up in
+# tracebacks. On PyPy, it is implemented in Python and adds 1 frame to tracebacks.
+def _count_context_run_tb_frames():
+    def function_with_unique_name_xyzzy():
+        1 / 0
+
+    ctx = copy_context()
+    try:
+        ctx.run(function_with_unique_name_xyzzy)
+    except ZeroDivisionError as exc:
+        tb = exc.__traceback__
+        # Skip the frame where we caught it
+        tb = tb.tb_next
+        count = 0
+        while tb.tb_frame.f_code.co_name != "function_with_unique_name_xyzzy":
+            tb = tb.tb_next
+            count += 1
+        return count
+
+
+CONTEXT_RUN_TB_FRAMES = _count_context_run_tb_frames()
+
+
 @attr.s(frozen=True, slots=True)
 class SystemClock:
     # Add a large random offset to our clock to ensure that if people
@@ -2151,6 +2174,8 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                     # catching it, and then in addition we remove however many
                     # more Context.run adds.
                     tb = task_exc.__traceback__.tb_next
+                    for _ in range(CONTEXT_RUN_TB_FRAMES):
+                        tb = tb.tb_next
                     final_outcome = Error(task_exc.with_traceback(tb))
                     # Remove local refs so that e.g. cancelled coroutine locals
                     # are not kept alive by this frame until another exception
