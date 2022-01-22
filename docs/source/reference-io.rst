@@ -237,8 +237,7 @@ other constants and functions in the :mod:`ssl` module.
 
 .. warning:: Avoid instantiating :class:`ssl.SSLContext` directly.
    A newly constructed :class:`~ssl.SSLContext` has less secure
-   defaults than one returned by :func:`ssl.create_default_context`,
-   dramatically so before Python 3.6.
+   defaults than one returned by :func:`ssl.create_default_context`.
 
 Instead of using :meth:`ssl.SSLContext.wrap_socket`, you
 create a :class:`SSLStream`:
@@ -722,7 +721,7 @@ subprocess`` in order to access constants such as ``PIPE`` or
 
 Currently, Trio always uses unbuffered byte streams for communicating
 with a process, so it does not support the ``encoding``, ``errors``,
-``universal_newlines`` (alias ``text`` in 3.7+), and ``bufsize``
+``universal_newlines`` (alias ``text``), and ``bufsize``
 options.
 
 

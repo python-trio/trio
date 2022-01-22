@@ -50,7 +50,7 @@ class _try_sync:
 try:
     from socket import IPPROTO_IPV6
 except ImportError:
-    # As of at least 3.6, python on Windows is missing IPPROTO_IPV6
+    # Before Python 3.8, Windows is missing IPPROTO_IPV6
     # https://bugs.python.org/issue29515
     if sys.platform == "win32":  # pragma: no branch
         IPPROTO_IPV6 = 41

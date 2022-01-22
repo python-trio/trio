@@ -270,13 +270,12 @@ class generic_function:
 
 
 # If a new class inherits from any ABC, then the new class's metaclass has to
-# inherit from ABCMeta. If a new class inherits from typing.Generic, and
-# you're using Python 3.6, then the new class's metaclass has to
-# inherit from typing.GenericMeta. Some of the classes that want to use Final
-# or NoPublicConstructor inherit from ABCs and generics, so Final has to
-# inherit from these metaclasses. Fortunately, GenericMeta inherits from
-# ABCMeta, so inheriting from GenericMeta alone is sufficient (when it
-# exists at all).
+# inherit from ABCMeta. If a new class inherits from typing.Generic, then the
+# new class's metaclass has to inherit from typing.GenericMeta. Some of the
+# classes that want to use Final or NoPublicConstructor inherit from ABCs and
+# generics, so Final has to inherit from these metaclasses. Fortunately,
+# GenericMeta inherits from ABCMeta, so inheriting from GenericMeta alone is
+# sufficient (when it exists at all).
 if not t.TYPE_CHECKING and hasattr(t, "GenericMeta"):
     BaseMeta = t.GenericMeta
 else:

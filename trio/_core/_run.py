@@ -2137,7 +2137,7 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                 try:
                     # We used to unwrap the Outcome object here and send/throw
                     # its contents in directly, but it turns out that .throw()
-                    # is buggy, at least on CPython 3.6:
+                    # is buggy, at least before CPython 3.9:
                     #   https://bugs.python.org/issue29587
                     #   https://bugs.python.org/issue29590
                     # So now we send in the Outcome object and unwrap it on the
