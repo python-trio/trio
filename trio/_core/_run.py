@@ -1,18 +1,12 @@
-# coding: utf-8
-
 import functools
 import itertools
-import logging
-import os
 import random
 import select
 import sys
 import threading
 from collections import deque
-import collections.abc
 from contextlib import contextmanager
 import warnings
-import weakref
 import enum
 
 from contextvars import copy_context
@@ -47,7 +41,6 @@ from ._asyncgens import AsyncGenerators
 from ._thread_cache import start_thread_soon
 from ._instrumentation import Instruments
 from .. import _core
-from .._deprecate import warn_deprecated
 from .._util import Final, NoPublicConstructor, coroutine_or_error
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD = 1000
@@ -68,34 +61,6 @@ def _public(fn):
 # scheduling loop deterministic.  We have a test for that, of course.
 _ALLOW_DETERMINISTIC_SCHEDULING = False
 _r = random.Random()
-
-
-# On 3.7+, Context.run() is implemented in C and doesn't show up in
-# tracebacks. On 3.6, we use the contextvars backport, which is
-# currently implemented in Python and adds 1 frame to tracebacks. So this
-# function is a super-overkill version of "0 if sys.version_info >= (3, 7)
-# else 1". But if Context.run ever changes, we'll be ready!
-#
-# This can all be removed once we drop support for 3.6.
-def _count_context_run_tb_frames():
-    def function_with_unique_name_xyzzy():
-        1 / 0
-
-    ctx = copy_context()
-    try:
-        ctx.run(function_with_unique_name_xyzzy)
-    except ZeroDivisionError as exc:
-        tb = exc.__traceback__
-        # Skip the frame where we caught it
-        tb = tb.tb_next
-        count = 0
-        while tb.tb_frame.f_code.co_name != "function_with_unique_name_xyzzy":
-            tb = tb.tb_next
-            count += 1
-        return count
-
-
-CONTEXT_RUN_TB_FRAMES = _count_context_run_tb_frames()
 
 
 @attr.s(frozen=True, slots=True)
@@ -2186,8 +2151,6 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                     # catching it, and then in addition we remove however many
                     # more Context.run adds.
                     tb = task_exc.__traceback__.tb_next
-                    for _ in range(CONTEXT_RUN_TB_FRAMES):
-                        tb = tb.tb_next
                     final_outcome = Error(task_exc.with_traceback(tb))
                     # Remove local refs so that e.g. cancelled coroutine locals
                     # are not kept alive by this frame until another exception
