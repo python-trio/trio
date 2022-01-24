@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.6', '3.7', '3.8', '3.9', '3.10']
+        python: ['3.7', '3.8', '3.9', '3.10']
         arch: ['x86', 'x64']
         lsp: ['']
         lsp_extract_file: ['']
@@ -51,7 +51,7 @@ jobs:
           # This avoids the need to update for each new alpha, beta, release candidate,
           # and then finally an actual release version.  actions/setup-python doesn't
           # support this for PyPy presently so we get no help there.
-          # 
+          #
           # CPython -> 3.9.0-alpha - 3.9.X
           # PyPy    -> pypy-3.7
           python-version: ${{ fromJSON(format('["{0}", "{1}"]', format('{0}.0-alpha - {0}.X', matrix.python), matrix.python))[startsWith(matrix.python, 'pypy')] }}
@@ -72,7 +72,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.6', 'pypy-3.7', 'pypy-3.8', '3.6', '3.7', '3.8', '3.9', '3.10', '3.8-dev', '3.9-dev', '3.10-dev']
+        python: ['pypy-3.7', 'pypy-3.8', '3.7', '3.8', '3.9', '3.10', '3.8-dev', '3.9-dev', '3.10-dev']
         check_formatting: ['0']
         pypy_nightly_branch: ['']
         extra_name: ['']
@@ -114,7 +114,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.6', '3.7', '3.8', '3.9', '3.10']
+        python: ['3.7', '3.8', '3.9', '3.10']
         include:
           - python: '3.8'  # <- not actually used
             arch: 'x64'
