@@ -59,23 +59,14 @@ if hasattr(ssl, "OP_IGNORE_UNEXPECTED_EOF"):
 
 TRIO_TEST_1_CERT.configure_cert(SERVER_CTX)
 
+
 # TLS 1.3 has a lot of changes from previous versions. So we want to run tests
 # with both TLS 1.3, and TLS 1.2.
-if hasattr(ssl, "OP_NO_TLSv1_3"):
-    # "tls13" means that we're willing to negotiate TLS 1.3. Usually that's
-    # what will happen, but the renegotiation tests explicitly force a
-    # downgrade on the server side. "tls12" means we refuse to negotiate TLS
-    # 1.3, so we'll almost certainly use TLS 1.2.
-    client_ctx_params = ["tls13", "tls12"]
-else:
-    # We can't control whether we use TLS 1.3, so we just have to accept
-    # whatever openssl wants to use. This might be TLS 1.2 (if openssl is
-    # old), or it might be TLS 1.3 (if openssl is new, but our python version
-    # is too old to expose the configuration knobs).
-    client_ctx_params = ["default"]
-
-
-@pytest.fixture(scope="module", params=client_ctx_params)
+# "tls13" means that we're willing to negotiate TLS 1.3. Usually that's
+# what will happen, but the renegotiation tests explicitly force a
+# downgrade on the server side. "tls12" means we refuse to negotiate TLS
+# 1.3, so we'll almost certainly use TLS 1.2.
+@pytest.fixture(scope="module", params=["tls13", "tls12"])
 def client_ctx(request):
     ctx = ssl.create_default_context()
 
