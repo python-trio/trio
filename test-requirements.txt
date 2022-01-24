@@ -8,8 +8,6 @@ astor==0.8.1
     # via -r test-requirements.in
 astroid==2.8.4
     # via pylint
-async-generator==1.10
-    # via -r test-requirements.in
 attrs==21.2.0
     # via
     #   -r test-requirements.in
@@ -23,6 +21,8 @@ cffi==1.15.0
     # via cryptography
 click==8.0.3
     # via black
+contextlib2==21.6.0 ; python_version < "3.10"
+    # via -r test-requirements.in
 coverage[toml]==6.0.2
     # via pytest-cov
 cryptography==36.0.1
@@ -38,8 +38,6 @@ idna==3.3
     # via
     #   -r test-requirements.in
     #   trustme
-immutables==0.16
-    # via -r test-requirements.in
 importlib-metadata==4.2.0
     # via
     #   click
@@ -149,7 +147,6 @@ typing-extensions==3.10.0.2 ; implementation_name == "cpython"
     #   -r test-requirements.in
     #   astroid
     #   black
-    #   immutables
     #   importlib-metadata
     #   mypy
     #   pylint
