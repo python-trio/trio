@@ -331,8 +331,4 @@ def name_asyncgen(agen):
         module = agen.ag_frame.f_globals["__name__"]
     except (AttributeError, KeyError):
         module = "<{}>".format(agen.ag_code.co_filename)
-    try:
-        qualname = agen.__qualname__
-    except AttributeError:
-        qualname = agen.ag_code.co_name
-    return f"{module}.{qualname}"
+    return f"{module}.{agen.__qualname__}"
