@@ -24,7 +24,7 @@ typing-extensions; implementation_name == "cpython"
 cffi; os_name == "nt"
 attrs >= 19.2.0
 sortedcontainers
-contextlib2; python_version < '3.10'
+async_generator >= 1.9
 idna
 outcome
 sniffio
