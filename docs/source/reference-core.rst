@@ -641,7 +641,7 @@ crucial things to keep in mind:
 
   * Any unhandled exceptions are re-raised inside the parent task. If
     there are multiple exceptions, then they're collected up into a
-    single :exc:`BaseExceptionGroup` or :exc:`ExceptionGroup` exception.
+    single ``BaseExceptionGroup`` or ``ExceptionGroup`` exception.
 
 Since all tasks are descendents of the initial task, one consequence
 of this is that :func:`run` can't finish until all tasks have
@@ -712,9 +712,9 @@ limitation. Consider code like::
 what? In some sense, the answer should be "both of these at once", but
 in Python there can only be one exception at a time.
 
-Trio's answer is that it raises a :exc:`BaseExceptionGroup` object. This is a
+Trio's answer is that it raises a ``BaseExceptionGroup`` object. This is a
 special exception which encapsulates multiple exception objects –
-either regular exceptions or nested :exc:`BaseExceptionGroup`\s.
+either regular exceptions or nested ``BaseExceptionGroup``\s.
 
 
 Spawning tasks without becoming a parent
