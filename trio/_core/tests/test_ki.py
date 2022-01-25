@@ -1,5 +1,3 @@
-from inspect import isasyncgenfunction
-
 import outcome
 import pytest
 import sys
@@ -8,6 +6,13 @@ import signal
 import threading
 import contextlib
 import time
+
+from async_generator import (
+    async_generator,
+    yield_,
+    isasyncgenfunction,
+    asynccontextmanager,
+)
 
 from ... import _core
 from ...testing import wait_all_tasks_blocked
@@ -139,35 +144,39 @@ async def test_generator_based_context_manager_throw():
 
 async def test_agen_protection():
     @_core.enable_ki_protection
+    @async_generator
     async def agen_protected1():
         assert _core.currently_ki_protected()
         try:
-            yield
+            await yield_()
         finally:
             assert _core.currently_ki_protected()
 
     @_core.disable_ki_protection
+    @async_generator
     async def agen_unprotected1():
         assert not _core.currently_ki_protected()
         try:
-            yield
+            await yield_()
         finally:
             assert not _core.currently_ki_protected()
 
     # Swap the order of the decorators:
+    @async_generator
     @_core.enable_ki_protection
     async def agen_protected2():
         assert _core.currently_ki_protected()
         try:
-            yield
+            await yield_()
         finally:
             assert _core.currently_ki_protected()
 
+    @async_generator
     @_core.disable_ki_protection
     async def agen_unprotected2():
         assert not _core.currently_ki_protected()
         try:
-            yield
+            await yield_()
         finally:
             assert not _core.currently_ki_protected()
 
@@ -202,13 +211,13 @@ async def test_agen_protection():
         # asynccontextmanager insists that the function passed must itself be an
         # async gen function, not a wrapper around one
         if isasyncgenfunction(agen_fn):
-            async with contextlib.asynccontextmanager(agen_fn)():
+            async with asynccontextmanager(agen_fn)():
                 assert not _core.currently_ki_protected()
 
             # Another case that's tricky due to:
             #   https://bugs.python.org/issue29590
             with pytest.raises(KeyError):
-                async with contextlib.asynccontextmanager(agen_fn)():
+                async with asynccontextmanager(agen_fn)():
                     raise KeyError
 
 
