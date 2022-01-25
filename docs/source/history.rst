@@ -457,7 +457,7 @@ Bugfixes
   :meth:`~trio.Path.cwd`, are now async functions.  Previously, a bug
   in the forwarding logic meant :meth:`~trio.Path.cwd` was synchronous
   and :meth:`~trio.Path.home` didn't work at all. (`#960 <https://github.com/python-trio/trio/issues/960>`__)
-- An exception encapsulated within a `MultiError` doesn't need to be
+- An exception encapsulated within a ``MultiError`` doesn't need to be
   hashable anymore.
 
   .. note::
