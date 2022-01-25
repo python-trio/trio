@@ -244,12 +244,9 @@ async def test_open_tcp_listeners_some_address_families_unavailable(
             await open_tcp_listeners(80, host="example.org")
 
         assert "This system doesn't support" in str(exc_info.value)
-        if isinstance(exc_info.value.__cause__, ExceptionGroup):
-            for subexc in exc_info.value.__cause__.exceptions:
-                assert "nope" in str(subexc)
-        else:
-            assert isinstance(exc_info.value.__cause__, OSError)
-            assert "nope" in str(exc_info.value.__cause__)
+        assert isinstance(exc_info.value.__cause__, ExceptionGroup)
+        for subexc in exc_info.value.__cause__.exceptions:
+            assert "nope" in str(subexc)
     else:
         listeners = await open_tcp_listeners(80)
         for listener in listeners:
