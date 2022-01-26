@@ -95,7 +95,7 @@ py==1.11.0
     # via pytest
 pycodestyle==2.8.0
     # via flake8
-pycparser==2.20
+pycparser==2.21
     # via cffi
 pyflakes==2.4.0
     # via flake8
