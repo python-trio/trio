@@ -50,7 +50,7 @@ ipython==7.31.1
     # via -r test-requirements.in
 isort==5.9.3
     # via pylint
-jedi==0.18.0
+jedi==0.18.1
     # via
     #   -r test-requirements.in
     #   ipython
