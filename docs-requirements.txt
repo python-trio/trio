@@ -38,7 +38,7 @@ immutables==0.16
     # via -r docs-requirements.in
 incremental==21.3.0
     # via towncrier
-jinja2==3.0.2
+jinja2==3.0.3
     # via
     #   sphinx
     #   towncrier
