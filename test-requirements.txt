@@ -120,7 +120,7 @@ toml==0.10.2
     #   mypy
     #   pylint
     #   pytest
-tomli==1.2.2
+tomli==1.2.3
     # via
     #   black
     #   coverage
