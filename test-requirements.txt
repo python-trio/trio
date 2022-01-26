@@ -40,7 +40,7 @@ idna==3.3
     #   trustme
 iniconfig==1.1.1
     # via pytest
-ipython==7.29.0
+ipython==7.31.1
     # via -r test-requirements.in
 isort==5.9.3
     # via pylint
