@@ -237,8 +237,7 @@ other constants and functions in the :mod:`ssl` module.
 
 .. warning:: Avoid instantiating :class:`ssl.SSLContext` directly.
    A newly constructed :class:`~ssl.SSLContext` has less secure
-   defaults than one returned by :func:`ssl.create_default_context`,
-   dramatically so before Python 3.6.
+   defaults than one returned by :func:`ssl.create_default_context`.
 
 Instead of using :meth:`ssl.SSLContext.wrap_socket`, you
 create a :class:`SSLStream`:
@@ -301,7 +300,7 @@ library socket into a Trio socket:
 
 .. autofunction:: from_stdlib_socket
 
-Unlike :func:`socket.socket`, :func:`trio.socket.socket` is a
+Unlike :class:`socket.socket`, :func:`trio.socket.socket` is a
 function, not a class; if you want to check whether an object is a
 Trio socket, use ``isinstance(obj, trio.socket.SocketType)``.
 
@@ -380,7 +379,7 @@ Socket objects
      additional error checking.
 
    In addition, the following methods are similar to the equivalents
-   in :func:`socket.socket`, but have some Trio-specific quirks:
+   in :class:`socket.socket`, but have some Trio-specific quirks:
 
    .. method:: connect
       :async:
@@ -421,7 +420,7 @@ Socket objects
       False otherwise.
 
    The following methods are identical to their equivalents in
-   :func:`socket.socket`, except async, and the ones that take address
+   :class:`socket.socket`, except async, and the ones that take address
    arguments require pre-resolved addresses:
 
    * :meth:`~socket.socket.accept`
@@ -437,7 +436,7 @@ Socket objects
    * :meth:`~socket.socket.sendmsg` (if available)
 
    All methods and attributes *not* mentioned above are identical to
-   their equivalents in :func:`socket.socket`:
+   their equivalents in :class:`socket.socket`:
 
    * :attr:`~socket.socket.family`
    * :attr:`~socket.socket.type`
@@ -722,7 +721,7 @@ subprocess`` in order to access constants such as ``PIPE`` or
 
 Currently, Trio always uses unbuffered byte streams for communicating
 with a process, so it does not support the ``encoding``, ``errors``,
-``universal_newlines`` (alias ``text`` in 3.7+), and ``bufsize``
+``universal_newlines`` (alias ``text``), and ``bufsize``
 options.
 
 

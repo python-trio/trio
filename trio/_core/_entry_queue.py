@@ -15,8 +15,8 @@ class EntryQueue:
     # not signal-safe. deque is implemented in C, so each operation is atomic
     # WRT threads (and this is guaranteed in the docs), AND each operation is
     # atomic WRT signal delivery (signal handlers can run on either side, but
-    # not *during* a deque operation). dict makes similar guarantees - and on
-    # CPython 3.6 and PyPy, it's even ordered!
+    # not *during* a deque operation). dict makes similar guarantees - and
+    # it's even ordered!
     queue = attr.ib(factory=deque)
     idempotent_queue = attr.ib(factory=dict)
 

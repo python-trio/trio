@@ -1,26 +1,28 @@
 import os
+import random
 import signal
 import subprocess
 import sys
-import pytest
-import random
 from functools import partial
+from pathlib import Path as SyncPath
+
+import pytest
 from async_generator import asynccontextmanager
 
 from .. import (
+    ClosedResourceError,
+    Event,
+    Process,
     _core,
-    move_on_after,
     fail_after,
+    move_on_after,
+    run_process,
     sleep,
     sleep_forever,
-    Process,
-    run_process,
-    TrioDeprecationWarning,
-    ClosedResourceError,
 )
+from .._core.tests.tutil import skip_if_fbsd_pipes_broken, slow
 from ..lowlevel import open_process
-from .._core.tests.tutil import slow, skip_if_fbsd_pipes_broken
-from ..testing import wait_all_tasks_blocked
+from ..testing import assert_no_checkpoints, wait_all_tasks_blocked
 
 posix = os.name == "posix"
 if posix:
@@ -39,7 +41,11 @@ def python(code):
 EXIT_TRUE = python("sys.exit(0)")
 EXIT_FALSE = python("sys.exit(1)")
 CAT = python("sys.stdout.buffer.write(sys.stdin.buffer.read())")
-SLEEP = lambda seconds: python("import time; time.sleep({})".format(seconds))
+
+if posix:
+    SLEEP = lambda seconds: ["/bin/sleep", str(seconds)]
+else:
+    SLEEP = lambda seconds: python("import time; time.sleep({})".format(seconds))
 
 
 def got_signal(proc, sig):
@@ -529,7 +535,7 @@ async def test_warn_on_failed_cancel_terminate(monkeypatch):
             nursery.cancel_scope.cancel()
 
 
-@pytest.mark.skipif(os.name != "posix", reason="posix only")
+@pytest.mark.skipif(not posix, reason="posix only")
 async def test_warn_on_cancel_SIGKILL_escalation(autojump_clock, monkeypatch):
     monkeypatch.setattr(Process, "terminate", lambda *args: None)
 
@@ -547,3 +553,50 @@ async def test_run_process_background_fail():
         async with _core.open_nursery() as nursery:
             proc = await nursery.start(run_process, EXIT_FALSE)
     assert proc.returncode == 1
+
+
+@pytest.mark.skipif(
+    not SyncPath("/dev/fd").exists(),
+    reason="requires a way to iterate through open files",
+)
+async def test_for_leaking_fds():
+    starting_fds = set(SyncPath("/dev/fd").iterdir())
+    await run_process(EXIT_TRUE)
+    assert set(SyncPath("/dev/fd").iterdir()) == starting_fds
+
+    with pytest.raises(subprocess.CalledProcessError):
+        await run_process(EXIT_FALSE)
+    assert set(SyncPath("/dev/fd").iterdir()) == starting_fds
+
+    with pytest.raises(PermissionError):
+        await run_process(["/dev/fd/0"])
+    assert set(SyncPath("/dev/fd").iterdir()) == starting_fds
+
+
+# regression test for #2209
+async def test_subprocess_pidfd_unnotified():
+    noticed_exit = None
+
+    async def wait_and_tell(proc) -> None:
+        nonlocal noticed_exit
+        noticed_exit = Event()
+        await proc.wait()
+        noticed_exit.set()
+
+    proc = await open_process(SLEEP(9999))
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(wait_and_tell, proc)
+        await wait_all_tasks_blocked()
+        assert isinstance(noticed_exit, Event)
+        proc.terminate()
+        # without giving trio a chance to do so,
+        with assert_no_checkpoints():
+            # wait until the process has actually exited;
+            proc._proc.wait()
+            # force a call to poll (that closes the pidfd on linux)
+            proc.poll()
+        with move_on_after(5):
+            # Some platforms use threads to wait for exit, so it might take a bit
+            # for everything to notice
+            await noticed_exit.wait()
+        assert noticed_exit.is_set(), "child task wasn't woken after poll, DEADLOCK"

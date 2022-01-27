@@ -19,7 +19,6 @@ async def open_ssl_over_tcp_stream(
     *,
     https_compatible=False,
     ssl_context=None,
-    # No trailing comma b/c bpo-9232 (fixed in py36)
     happy_eyeballs_delay=DEFAULT_DELAY,
 ):
     """Make a TLS-encrypted Connection to the given host and port over TCP.
@@ -53,6 +52,10 @@ async def open_ssl_over_tcp_stream(
     )
     if ssl_context is None:
         ssl_context = ssl.create_default_context()
+
+        if hasattr(ssl, "OP_IGNORE_UNEXPECTED_EOF"):
+            ssl_context.options &= ~ssl.OP_IGNORE_UNEXPECTED_EOF
+
     return trio.SSLStream(
         tcp_stream, ssl_context, server_hostname=host, https_compatible=https_compatible
     )
