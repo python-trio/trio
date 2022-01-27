@@ -1,4 +1,4 @@
-Now context variables set with `contextvars` are preserved when runing functions
+Now context variables set with `contextvars` are preserved when running functions
 in a worker thread with `trio.to_thread.run_sync`, or when running
 functions from the worker thread in the parent Trio thread with
 `trio.from_thread.run`, and `trio.from_thread.run_sync`.
