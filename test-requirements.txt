@@ -38,12 +38,6 @@ idna==3.3
     # via
     #   -r test-requirements.in
     #   trustme
-importlib-metadata==4.2.0
-    # via
-    #   click
-    #   flake8
-    #   pluggy
-    #   pytest
 iniconfig==1.1.1
     # via pytest
 ipython==7.31.1
@@ -81,7 +75,7 @@ pexpect==4.8.0
     # via ipython
 pickleshare==0.7.5
     # via ipython
-platformdirs==2.4.0
+platformdirs==2.4.1
     # via
     #   black
     #   pylint
@@ -136,26 +130,15 @@ traitlets==5.1.1
     #   matplotlib-inline
 trustme==0.9.0
     # via -r test-requirements.in
-typed-ast==1.4.3 ; implementation_name == "cpython" and python_version < "3.8"
-    # via
-    #   -r test-requirements.in
-    #   astroid
-    #   black
-    #   mypy
 typing-extensions==4.0.1 ; implementation_name == "cpython"
     # via
     #   -r test-requirements.in
-    #   astroid
     #   black
-    #   importlib-metadata
     #   mypy
-    #   pylint
 wcwidth==0.2.5
     # via prompt-toolkit
 wrapt==1.13.3
     # via astroid
-zipp==3.7.0
-    # via importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools
