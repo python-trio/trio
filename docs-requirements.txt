@@ -58,7 +58,7 @@ requests==2.26.0
     # via sphinx
 sniffio==1.2.0
     # via -r docs-requirements.in
-snowballstemmer==2.1.0
+snowballstemmer==2.2.0
     # via sphinx
 sortedcontainers==2.4.0
     # via -r docs-requirements.in
