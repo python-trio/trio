@@ -288,7 +288,6 @@ if have_tproxy:
 
         return tputil.make_proxy(controller, type(base_tb), base_tb)
 
-
 else:
     # ctypes it is
     import ctypes

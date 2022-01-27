@@ -17,7 +17,7 @@ attrs==21.4.0
     #   pytest
 backcall==0.2.0
     # via ipython
-black==21.10b0 ; implementation_name == "cpython"
+black==21.12b0 ; implementation_name == "cpython"
     # via -r test-requirements.in
 cffi==1.15.0
     # via cryptography
@@ -107,8 +107,6 @@ pytest==6.2.5
     #   pytest-cov
 pytest-cov==3.0.0
     # via -r test-requirements.in
-regex==2022.1.18
-    # via black
 six==1.16.0
     # via pyopenssl
 sniffio==1.2.0
