@@ -9,7 +9,6 @@
 import struct
 import hmac
 import os
-import io
 import enum
 from itertools import count
 import weakref
