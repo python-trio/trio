@@ -1,12 +1,11 @@
 import pytest
 import trio
+import trio.testing
 from trio import DTLSEndpoint
 import random
 import attr
 from async_generator import asynccontextmanager
 from itertools import count
-import ipaddress
-import warnings
 
 import trustme
 from OpenSSL import SSL
@@ -699,9 +698,13 @@ async def test_handshake_handles_minimum_network_mtu(ipv6, autojump_clock):
 async def test_system_task_cleaned_up_on_gc():
     before_tasks = trio.lowlevel.current_statistics().tasks_living
 
-    e = endpoint()
+    # We put this into a sub-function so that everything automatically becomes garbage
+    # when the frame exits. For some reason just doing 'del e' wasn't enough on pypy
+    # with coverage enabled -- I think we were hitting this bug:
+    #     https://foss.heptapod.net/pypy/pypy/-/issues/3656
+    async def start_and_forget_endpoint():
+        e = endpoint()
 
-    async def force_receive_loop_to_start():
         # This connection/handshake attempt can't succeed. The only purpose is to force
         # the endpoint to set up a receive loop.
         with trio.socket.socket(type=trio.socket.SOCK_DGRAM) as s:
@@ -712,12 +715,12 @@ async def test_system_task_cleaned_up_on_gc():
                 await trio.testing.wait_all_tasks_blocked()
                 nursery.cancel_scope.cancel()
 
-    await force_receive_loop_to_start()
-
-    during_tasks = trio.lowlevel.current_statistics().tasks_living
+        during_tasks = trio.lowlevel.current_statistics().tasks_living
+        return during_tasks
 
     with pytest.warns(ResourceWarning):
-        del e
+        during_tasks = await start_and_forget_endpoint()
+        await trio.testing.wait_all_tasks_blocked()
         gc_collect_harder()
 
     await trio.testing.wait_all_tasks_blocked()
@@ -745,6 +748,7 @@ async def test_gc_as_packet_received():
 
     e = endpoint()
     await e.socket.bind(("127.0.0.1", 0))
+    e._ensure_receive_loop()
 
     await trio.testing.wait_all_tasks_blocked()
 
@@ -761,6 +765,12 @@ async def test_gc_as_packet_received():
 @pytest.mark.filterwarnings("always:unclosed DTLS:ResourceWarning")
 def test_gc_after_trio_exits():
     async def main():
+        # We use fakenet just to make sure no real sockets can leak out of the test
+        # case - on pypy somehow the socket was outliving the gc_collect_harder call
+        # below. Since the test is just making sure DTLSEndpoint.__del__ doesn't explode
+        # when called after trio exits, it doesn't need a real socket.
+        fn = FakeNet()
+        fn.enable()
         return endpoint()
 
     e = trio.run(main)
