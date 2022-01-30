@@ -687,6 +687,8 @@ You might wonder why Trio can't just remember "this task should be cancelled in 
 
 If you want a timeout to apply to one task but not another, then you need to put the cancel scope in that individual task's function -- ``child()``, in this example.
 
+.. _exceptiongroups:
+
 Errors in multiple child tasks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -709,13 +711,46 @@ limitation. Consider code like::
 
 ``broken1`` raises ``KeyError``. ``broken2`` raises
 ``IndexError``. Obviously ``parent`` should raise some error, but
-what? In some sense, the answer should be "both of these at once", but
-in Python there can only be one exception at a time.
+what? The answer is that both exceptions are grouped in an `ExceptionGroup`.
+The `ExceptionGroup` and its parent class `BaseExceptionGroup` are used to encapsulate
+multiple exceptions being raised at once.
 
-Trio's answer is that it raises a ``BaseExceptionGroup`` object. This is a
-special exception which encapsulates multiple exception objects –
-either regular exceptions or nested ``BaseExceptionGroup``\s.
+To catch individual exceptions encapsulated in an exception group, the ``except*``
+clause was introduced in Python 3.11 (:pep:`654`). Here's how it works::
 
+    try:
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(broken1)
+            nursery.start_soon(broken2)
+    except* KeyError:
+        ...  # handle each KeyError
+    except* IndexError:
+        ...  # handle each IndexError
+
+But what if you can't use ``except*`` just yet? Well, for that there is the handy
+exceptiongroup_ library which lets you approximate this behavior with exception handler
+callbacks::
+
+    from exceptiongroup import catch
+
+    def handle_keyerror(exc):
+        ...  # handle each KeyError
+
+    def handle_indexerror(exc):
+        ...  # handle each IndexError
+
+    with catch({
+        KeyError: handle_keyerror,
+        IndexError: handle_indexerror
+    }):
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(broken1)
+            nursery.start_soon(broken2)
+
+.. hint:: If your code, written using ``except*``, would set local variables, you can do
+    the same with handler callbacks as long as you declare those variables ``nonlocal``.
+
+.. _exceptiongroup: https://pypi.org/project/exceptiongroup/
 
 Spawning tasks without becoming a parent
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -1,4 +1,0 @@
-``trio.MultiError`` has been removed in favor of the built-in ``BaseExceptionGroup``
-(and its derivative ``ExceptionGroup``), falling back to the backport_ on Python < 3.11.
-
-.. _backport: https://pypi.org/project/exceptiongroup/
