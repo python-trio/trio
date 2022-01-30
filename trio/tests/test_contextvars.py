@@ -45,7 +45,7 @@ async def test_contextvars_copy():
         record.append(value)
 
     async with _core.open_nursery() as nursery:
-        nursery.start_soon(child, context=context)
+        context.run(nursery.start_soon, child)
         nursery.start_soon(child)
     value = trio_testing_contextvar.get()
     assert set(record) == {"main", "second_main"}

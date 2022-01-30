@@ -957,7 +957,7 @@ class Nursery(metaclass=NoPublicConstructor):
                 # (see test_nursery_cancel_doesnt_create_cyclic_garbage)
                 del self._pending_excs
 
-    def start_soon(self, async_fn, *args, name=None, context=None):
+    def start_soon(self, async_fn, *args, name=None):
         """Creates a child task, scheduling ``await async_fn(*args)``.
 
         This and :meth:`start` are the two fundamental methods for
@@ -992,20 +992,13 @@ class Nursery(metaclass=NoPublicConstructor):
                   before spawning a new task, you might pass the
                   original function as the ``name=`` to make
                   debugging easier.
-            context: An optional ``contextvars.Context`` object with context
-                  variables to use for this task. You would normally get a copy
-                  of the current context with
-                  ``context = contextvars.copy_context()`` and then you would
-                  pass that ``context`` object here.
 
         Raises:
             RuntimeError: If this nursery is no longer open
                           (i.e. its ``async with`` block has
                           exited).
         """
-        GLOBAL_RUN_CONTEXT.runner.spawn_impl(
-            async_fn, args, self, name, context=context
-        )
+        GLOBAL_RUN_CONTEXT.runner.spawn_impl(async_fn, args, self, name)
 
     async def start(self, async_fn, *args, name=None):
         r"""Creates and initializes a child task.
