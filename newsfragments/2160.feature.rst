@@ -2,5 +2,4 @@ Now context variables set with `contextvars` are preserved when running function
 in a worker thread with `trio.to_thread.run_sync`, or when running
 functions from the worker thread in the parent Trio thread with
 `trio.from_thread.run`, and `trio.from_thread.run_sync`.
-This is done by automatically copying the `contextvars` context. You can also pass a
-custom `contextvars` context to ``nursery.start_soon(child, context=context)``.
+This is done by automatically copying the `contextvars` context.
