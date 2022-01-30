@@ -17,7 +17,7 @@ attrs==21.4.0
     #   pytest
 backcall==0.2.0
     # via ipython
-black==21.10b0 ; implementation_name == "cpython"
+black==21.12b0 ; implementation_name == "cpython"
     # via -r test-requirements.in
 cffi==1.15.0
     # via cryptography
@@ -50,7 +50,7 @@ jedi==0.18.1
     # via
     #   -r test-requirements.in
     #   ipython
-lazy-object-proxy==1.6.0
+lazy-object-proxy==1.7.1
     # via astroid
 matplotlib-inline==0.1.3
     # via ipython
@@ -83,7 +83,7 @@ platformdirs==2.4.1
     #   pylint
 pluggy==1.0.0
     # via pytest
-prompt-toolkit==3.0.24
+prompt-toolkit==3.0.26
     # via ipython
 ptyprocess==0.7.0
     # via pexpect
@@ -109,8 +109,6 @@ pytest==6.2.5
     #   pytest-cov
 pytest-cov==3.0.0
     # via -r test-requirements.in
-regex==2022.1.18
-    # via black
 six==1.16.0
     # via pyopenssl
 sniffio==1.2.0
