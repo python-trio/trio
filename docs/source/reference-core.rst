@@ -1023,16 +1023,6 @@ Example output (yours may differ slightly):
 For more information, read the
 `contextvars docs <https://docs.python.org/3.7/library/contextvars.html>`__.
 
-.. note::
-
-    In advanced use cases you can also pass a custom `contextvars` context to
-    ``nursery.start_soon(child, context=context)``.
-
-    That's an advanced use case that you probably won't need, but now you
-    know why that keyword argument exists!
-
-    You will also learn about how to use these `contextvars` with threads later here
-    in the docs.
 
 .. _synchronization:
 
