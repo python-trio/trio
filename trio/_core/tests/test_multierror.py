@@ -162,13 +162,7 @@ def test_traceback_recursion():
     # This could trigger an infinite recursion; the 'seen' set is supposed to prevent
     # this.
     exc1.__cause__ = MultiError([exc1, exc2, exc3])
-    # python traceback.TracebackException < 3.6.4 does not support unhashable exceptions
-    # and raises a TypeError exception
-    if sys.version_info < (3, 6, 4):
-        with pytest.raises(TypeError):
-            format_exception(*einfo(exc1))
-    else:
-        format_exception(*einfo(exc1))
+    format_exception(*einfo(exc1))
 
 
 def make_tree():

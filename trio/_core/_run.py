@@ -1,18 +1,12 @@
-# coding: utf-8
-
 import functools
 import itertools
-import logging
-import os
 import random
 import select
 import sys
 import threading
 from collections import deque
-import collections.abc
 from contextlib import contextmanager
 import warnings
-import weakref
 import enum
 
 from contextvars import copy_context
@@ -47,7 +41,6 @@ from ._asyncgens import AsyncGenerators
 from ._thread_cache import start_thread_soon
 from ._instrumentation import Instruments
 from .. import _core
-from .._deprecate import warn_deprecated
 from .._util import Final, NoPublicConstructor, coroutine_or_error
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD = 1000
@@ -70,13 +63,8 @@ _ALLOW_DETERMINISTIC_SCHEDULING = False
 _r = random.Random()
 
 
-# On 3.7+, Context.run() is implemented in C and doesn't show up in
-# tracebacks. On 3.6, we use the contextvars backport, which is
-# currently implemented in Python and adds 1 frame to tracebacks. So this
-# function is a super-overkill version of "0 if sys.version_info >= (3, 7)
-# else 1". But if Context.run ever changes, we'll be ready!
-#
-# This can all be removed once we drop support for 3.6.
+# On CPython, Context.run() is implemented in C and doesn't show up in
+# tracebacks. On PyPy, it is implemented in Python and adds 1 frame to tracebacks.
 def _count_context_run_tb_frames():
     def function_with_unique_name_xyzzy():
         1 / 0
@@ -2185,7 +2173,7 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                 try:
                     # We used to unwrap the Outcome object here and send/throw
                     # its contents in directly, but it turns out that .throw()
-                    # is buggy, at least on CPython 3.6:
+                    # is buggy, at least before CPython 3.9:
                     #   https://bugs.python.org/issue29587
                     #   https://bugs.python.org/issue29590
                     # So now we send in the Outcome object and unwrap it on the

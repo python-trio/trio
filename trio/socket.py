@@ -188,18 +188,6 @@ if sys.platform != "win32" or not _t.TYPE_CHECKING:
 # get names used by Trio that we define on our own
 from ._socket import IPPROTO_IPV6
 
-# Not defined in all python versions and platforms but sometimes needed
-if not _t.TYPE_CHECKING:
-    try:
-        TCP_NOTSENT_LOWAT
-    except NameError:
-        # Hopefully will show up in 3.7:
-        #   https://github.com/python/cpython/pull/477
-        if sys.platform == "darwin":
-            TCP_NOTSENT_LOWAT = 0x201
-        elif sys.platform == "linux":
-            TCP_NOTSENT_LOWAT = 25
-
 if _t.TYPE_CHECKING:
     IP_BIND_ADDRESS_NO_PORT: int
 else:

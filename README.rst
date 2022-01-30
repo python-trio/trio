@@ -9,14 +9,14 @@
 .. image:: https://img.shields.io/badge/docs-read%20now-blue.svg
    :target: https://trio.readthedocs.io
    :alt: Documentation
-   
+
 .. image:: https://img.shields.io/pypi/v/trio.svg
    :target: https://pypi.org/project/trio
    :alt: Latest PyPi version
 
 .. image:: https://img.shields.io/conda/vn/conda-forge/trio.svg
    :target: https://anaconda.org/conda-forge/trio
-   :alt: Latest conda-forge version   
+   :alt: Latest conda-forge version
 
 .. image:: https://codecov.io/gh/python-trio/trio/branch/master/graph/badge.svg
    :target: https://codecov.io/gh/python-trio/trio
@@ -92,7 +92,7 @@ demonstration of implementing the "Happy Eyeballs" algorithm in an
 older library versus Trio.
 
 **Cool, but will it work on my system?** Probably! As long as you have
-some kind of Python 3.6-or-better (CPython or the latest PyPy3 are
+some kind of Python 3.7-or-better (CPython or the latest PyPy3 are
 both fine), and are using Linux, macOS, Windows, or FreeBSD, then Trio
 will work. Other environments might work too, but those
 are the ones we test on. And all of our dependencies are pure Python,

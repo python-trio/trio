@@ -302,8 +302,8 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
     try:
         # We used to use regular variables and 'nonlocal' here, but it turns
         # out that it's not safe to assign to closed-over variables that are
-        # visible in multiple threads, at least as of CPython 3.6 and PyPy
-        # 5.8:
+        # visible in multiple threads, at least as of CPython 3.10 and PyPy
+        # 7.3:
         #
         #   https://bugs.python.org/issue30744
         #   https://bitbucket.org/pypy/pypy/issues/2591/

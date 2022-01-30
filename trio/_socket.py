@@ -50,7 +50,7 @@ class _try_sync:
 try:
     from socket import IPPROTO_IPV6
 except ImportError:
-    # As of at least 3.6, python on Windows is missing IPPROTO_IPV6
+    # Before Python 3.8, Windows is missing IPPROTO_IPV6
     # https://bugs.python.org/issue29515
     if sys.platform == "win32":  # pragma: no branch
         IPPROTO_IPV6 = 41
@@ -231,7 +231,7 @@ async def getprotobyname(name):
 
 
 def from_stdlib_socket(sock):
-    """Convert a standard library :func:`socket.socket` object into a Trio
+    """Convert a standard library :class:`socket.socket` object into a Trio
     socket object.
 
     """
@@ -271,7 +271,7 @@ def socket(
     proto=0,
     fileno=None,
 ):
-    """Create a new Trio socket, like :func:`socket.socket`.
+    """Create a new Trio socket, like :class:`socket.socket`.
 
     This function's behavior can be customized using
     :func:`set_custom_socket_factory`.

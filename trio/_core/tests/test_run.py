@@ -1056,7 +1056,7 @@ async def test_exc_info():
     ]
 
 
-# At least as of CPython 3.6, using .throw() to raise an exception inside a
+# Before CPython 3.9, using .throw() to raise an exception inside a
 # coroutine/generator causes the original exc_info state to be lost, so things
 # like re-raising and exception chaining are broken.
 #

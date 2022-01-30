@@ -34,9 +34,6 @@ Tutorial
          print(response)
    and then again with /delay/10
 
-   (note that asks needs cpython 3.6 though. maybe just for one async
-   generator?)
-
    value of async/await: show you where the cancellation exceptions
    can happen -- see pillar re: explicit cancel points
 
@@ -94,7 +91,7 @@ Okay, ready? Let's get started.
 Before you begin
 ----------------
 
-1. Make sure you're using Python 3.6 or newer.
+1. Make sure you're using Python 3.7 or newer.
 
 2. ``python3 -m pip install --upgrade trio`` (or on Windows, maybe
    ``py -3 -m pip install --upgrade trio`` – `details
