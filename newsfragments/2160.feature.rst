@@ -1,0 +1,6 @@
+Now context variables set with `contextvars` are preserved when running functions
+in a worker thread with `trio.to_thread.run_sync`, or when running
+functions from the worker thread in the parent Trio thread with
+`trio.from_thread.run`, and `trio.from_thread.run_sync`.
+This is done by automatically copying the `contextvars` context.
+`trio.lowlevel.spawn_system_task` now also receives an optional ``context`` argument.
