@@ -268,7 +268,7 @@ async def test_interactive(background_process):
 
 
 async def test_run():
-    data = bytes(random.randint(0, 255) for _ in range(2 ** 18))
+    data = bytes(random.randint(0, 255) for _ in range(2**18))
 
     result = await run_process(
         CAT, stdin=data, capture_stdout=True, capture_stderr=True
