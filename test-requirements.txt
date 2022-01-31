@@ -97,7 +97,7 @@ pygments==2.10.0
     # via ipython
 pylint==2.12.2
     # via -r test-requirements.in
-pyopenssl==21.0.0
+pyopenssl==22.0.0
     # via -r test-requirements.in
 pyparsing==3.0.7
     # via packaging
@@ -107,8 +107,6 @@ pytest==6.2.5
     #   pytest-cov
 pytest-cov==3.0.0
     # via -r test-requirements.in
-six==1.16.0
-    # via pyopenssl
 sniffio==1.2.0
     # via -r test-requirements.in
 sortedcontainers==2.4.0
