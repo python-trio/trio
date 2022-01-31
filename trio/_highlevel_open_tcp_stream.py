@@ -121,7 +121,7 @@ def close_all():
         if len(errs) == 1:
             raise errs[0]
         elif errs:
-            raise BaseExceptionGroup("Multiple close operations failed", errs)
+            raise BaseExceptionGroup("multiple close operations failed", errs)
 
 
 def reorder_for_rfc_6555_section_5_4(targets):
