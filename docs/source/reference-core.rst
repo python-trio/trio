@@ -1021,7 +1021,7 @@ Example output (yours may differ slightly):
    request 0: Request received finished
 
 For more information, read the
-`contextvar docs <https://docs.python.org/3.7/library/contextvars.html>`__.
+`contextvars docs <https://docs.python.org/3.7/library/contextvars.html>`__.
 
 
 .. _synchronization:
@@ -1819,6 +1819,66 @@ to spawn a child thread, and then use a :ref:`memory channel
 <channels>` to send messages between the thread and a Trio task:
 
 .. literalinclude:: reference-core/from-thread-example.py
+
+Threads and task-local storage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When working with threads, you can use the same `contextvars` we discussed above,
+because their values are preserved.
+
+This is done by automatically copying the `contextvars` context when you use any of:
+
+* `trio.to_thread.run_sync`
+* `trio.from_thread.run`
+* `trio.from_thread.run_sync`
+
+That means that the values of the context variables are accessible even in worker
+threads, or when sending a function to be run in the main/parent Trio thread using
+`trio.from_thread.run` *from* one of these worker threads.
+
+But it also means that as the context is not the same but a copy, if you `set` the
+context variable value *inside* one of these functions that work in threads, the
+new value will only be available in that context (that was copied). So, the new value
+will be available for that function and other internal/children tasks, but the value
+won't be available in the parent thread.
+
+If you need to modify values that would live in the context variables and you need to
+make those modifications from the child threads, you can instead set a mutable object
+(e.g. a dictionary) in the context variable of the top level/parent Trio thread.
+Then in the children, instead of setting the context variable, you can ``get`` the same
+object, and modify its values. That way you keep the same object in the context
+variable and only mutate it in child threads.
+
+This way, you can modify the object content in child threads and still access the
+new content in the parent thread.
+
+Here's an example:
+
+.. literalinclude:: reference-core/thread-contextvars-example.py
+
+Running that script will result in the output:
+
+.. code-block:: none
+
+    Processed user 2 with message Hello 2 in a thread worker
+    Processed user 0 with message Hello 0 in a thread worker
+    Processed user 1 with message Hello 1 in a thread worker
+    New contextvar value from worker thread for user 2: Hello 2
+    New contextvar value from worker thread for user 1: Hello 1
+    New contextvar value from worker thread for user 0: Hello 0
+
+If you are using ``contextvars`` or you are using a library that uses them, now you
+know how they interact when working with threads in Trio.
+
+But have in mind that in many cases it might be a lot simpler to *not* use context
+variables in your own code and instead pass values in arguments, as it might be more
+explicit and might be easier to reason about.
+
+.. note::
+
+   The context is automatically copied instead of using the same parent context because
+   a single context can't be used in more than one thread, it's not supported by
+   ``contextvars``.
 
 
 Exceptions and warnings

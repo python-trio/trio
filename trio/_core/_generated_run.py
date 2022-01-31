@@ -102,7 +102,7 @@ def reschedule(task, next_send=_NO_SEND):
         raise RuntimeError("must be called from async context")
 
 
-def spawn_system_task(async_fn, *args, name=None):
+def spawn_system_task(async_fn, *args, name=None, context=None):
     """Spawn a "system" task.
 
         System tasks have a few differences from regular tasks:
@@ -145,6 +145,10 @@ def spawn_system_task(async_fn, *args, name=None):
               case is if you're wrapping a function before spawning a new
               task, you might pass the original function as the ``name=`` to
               make debugging easier.
+          context: An optional ``contextvars.Context`` object with context variables
+              to use for this task. You would normally get a copy of the current
+              context with ``context = contextvars.copy_context()`` and then you would
+              pass that ``context`` object here.
 
         Returns:
           Task: the newly spawned task
@@ -152,7 +156,7 @@ def spawn_system_task(async_fn, *args, name=None):
         """
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
-        return GLOBAL_RUN_CONTEXT.runner.spawn_system_task(async_fn, *args, name=name)
+        return GLOBAL_RUN_CONTEXT.runner.spawn_system_task(async_fn, *args, name=name, context=context)
     except AttributeError:
         raise RuntimeError("must be called from async context")
 
