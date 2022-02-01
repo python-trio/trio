@@ -115,7 +115,7 @@ toml==0.10.2
     # via
     #   pylint
     #   pytest
-tomli==1.2.3
+tomli==2.0.0
     # via
     #   black
     #   coverage
