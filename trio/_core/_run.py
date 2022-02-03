@@ -28,6 +28,7 @@ from ._ki import (
     KIManager,
     enable_ki_protection,
 )
+from ._multierror import MultiError
 from ._traps import (
     Abort,
     wait_task_rescheduled,
@@ -939,7 +940,7 @@ class Nursery(metaclass=NoPublicConstructor):
 
     async def _nested_child_finished(self, nested_child_exc):
         """
-        Returns BaseExceptionGroup instance if there are pending exceptions.
+        Returns MultiError instance if there are pending exceptions.
         """
         if nested_child_exc is not None:
             self._add_exc(nested_child_exc)
@@ -969,7 +970,7 @@ class Nursery(metaclass=NoPublicConstructor):
         assert popped is self
         if self._pending_excs:
             try:
-                return BaseExceptionGroup("multiple tasks failed", self._pending_excs)
+                return MultiError(self._pending_excs)
             finally:
                 # avoid a garbage cycle
                 # (see test_nursery_cancel_doesnt_create_cyclic_garbage)

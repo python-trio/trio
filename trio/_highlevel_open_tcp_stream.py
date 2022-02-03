@@ -1,11 +1,9 @@
-import sys
+import warnings
 from contextlib import contextmanager
 
 import trio
+from trio._core._multierror import MultiError
 from trio.socket import getaddrinfo, SOCK_STREAM, socket
-
-if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup
 
 # Implementation of RFC 6555 "Happy eyeballs"
 # https://tools.ietf.org/html/rfc6555
@@ -121,7 +119,9 @@ def close_all():
         if len(errs) == 1:
             raise errs[0]
         elif errs:
-            raise BaseExceptionGroup("multiple close operations failed", errs)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", DeprecationWarning)
+                raise MultiError(errs)
 
 
 def reorder_for_rfc_6555_section_5_4(targets):
@@ -370,9 +370,7 @@ async def open_tcp_stream(
             msg = "all attempts to connect to {} failed".format(
                 format_host_port(host, port)
             )
-            raise OSError(msg) from BaseExceptionGroup(
-                "multiple connection attempts failed", oserrors
-            )
+            raise OSError(msg) from MultiError(oserrors)
         else:
             stream = trio.SocketStream(winning_socket)
             open_sockets.remove(winning_socket)

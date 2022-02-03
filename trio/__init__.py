@@ -87,6 +87,8 @@ from ._highlevel_ssl_helpers import (
     serve_ssl_over_tcp,
 )
 
+from ._core._multierror import MultiError as _MultiError
+
 from ._deprecate import TrioDeprecationWarning
 
 # Submodules imported by default
@@ -111,6 +113,12 @@ __deprecated_attributes__ = {
         version="0.20.0",
         issue=1104,
         instead="trio.lowlevel.open_process",
+    ),
+    "MultiError": _deprecate.DeprecatedAttribute(
+        value=_MultiError,
+        version="0.20.0",
+        issue=2211,
+        instead="BaseExceptionGroup (py3.11+) or exceptiongroup.BaseExceptionGroup",
     ),
 }
 

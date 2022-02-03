@@ -14,7 +14,7 @@ from .. import socket as tsocket
 from .._core.tests.tutil import slow, creates_ipv6, binds_ipv6
 
 if sys.version_info < (3, 11):
-    from exceptiongroup import ExceptionGroup
+    from exceptiongroup import BaseExceptionGroup
 
 
 async def test_open_tcp_listeners_basic():
@@ -244,9 +244,12 @@ async def test_open_tcp_listeners_some_address_families_unavailable(
             await open_tcp_listeners(80, host="example.org")
 
         assert "This system doesn't support" in str(exc_info.value)
-        assert isinstance(exc_info.value.__cause__, ExceptionGroup)
-        for subexc in exc_info.value.__cause__.exceptions:
-            assert "nope" in str(subexc)
+        if isinstance(exc_info.value.__cause__, BaseExceptionGroup):
+            for subexc in exc_info.value.__cause__.exceptions:
+                assert "nope" in str(subexc)
+        else:
+            assert isinstance(exc_info.value.__cause__, OSError)
+            assert "nope" in str(exc_info.value.__cause__)
     else:
         listeners = await open_tcp_listeners(80)
         for listener in listeners:
