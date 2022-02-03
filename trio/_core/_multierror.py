@@ -3,7 +3,6 @@ import warnings
 from typing import Sequence
 
 import attr
-from exceptiongroup._exceptions import EBase, T
 
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
@@ -212,7 +211,7 @@ class MultiError(BaseExceptionGroup):
     def __repr__(self):
         return "<MultiError: {}>".format(self)
 
-    def derive(self: T, __excs: Sequence[EBase]) -> T:
+    def derive(self, __excs):
         return MultiError(__excs, _collapse=False)
 
     @classmethod
