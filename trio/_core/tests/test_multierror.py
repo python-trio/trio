@@ -149,17 +149,6 @@ def test_MultiError_filter_NotHashable():
     assert isinstance(filtered_excs, NotHashableException)
 
 
-def test_traceback_recursion():
-    exc1 = RuntimeError()
-    exc2 = KeyError()
-    exc3 = NotHashableException(42)
-    # Note how this creates a loop, where exc1 refers to exc1
-    # This could trigger an infinite recursion; the 'seen' set is supposed to prevent
-    # this.
-    exc1.__cause__ = MultiError([exc1, exc2, exc3])
-    format_exception(*einfo(exc1))
-
-
 def make_tree():
     # Returns an object like:
     #   MultiError([
