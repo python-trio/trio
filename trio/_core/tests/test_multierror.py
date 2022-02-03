@@ -67,10 +67,6 @@ def get_tb(raiser):
     return get_exc(raiser).__traceback__
 
 
-def einfo(exc):
-    return (type(exc), exc, exc.__traceback__)
-
-
 def test_concat_tb():
 
     tb1 = get_tb(raiser1)
