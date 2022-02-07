@@ -10,6 +10,7 @@ import signal
 import socket
 import threading
 import time
+import warnings
 
 import trio
 import trio.testing
@@ -167,19 +168,16 @@ def test_warn_set_wakeup_fd_overwrite():
             assert signal.set_wakeup_fd(-1) == a.fileno()
 
         # Don't warn if there isn't already a wakeup fd
-        with pytest.warns(None) as record:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
             assert trivial_guest_run(trio_main) == "ok"
-        # Apparently this is how you assert 'there were no RuntimeWarnings'
-        with pytest.raises(AssertionError):
-            record.pop(RuntimeWarning)
 
-        with pytest.warns(None) as record:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
             assert (
                 trivial_guest_run(trio_main, host_uses_signal_set_wakeup_fd=True)
                 == "ok"
             )
-        with pytest.raises(AssertionError):
-            record.pop(RuntimeWarning)
 
         # If there's already a wakeup fd, but we've been told to trust it,
         # then it's left alone and there's no warning
@@ -192,7 +190,8 @@ def test_warn_set_wakeup_fd_overwrite():
                 signal.set_wakeup_fd(fd)
                 return "ok"
 
-            with pytest.warns(None) as record:
+            with warnings.catch_warnings():
+                warnings.simplefilter("error")
                 assert (
                     trivial_guest_run(
                         trio_check_wakeup_fd_unaltered,
@@ -200,8 +199,6 @@ def test_warn_set_wakeup_fd_overwrite():
                     )
                     == "ok"
                 )
-            with pytest.raises(AssertionError):
-                record.pop(RuntimeWarning)
         finally:
             assert signal.set_wakeup_fd(-1) == a.fileno()
 

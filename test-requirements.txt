@@ -101,7 +101,7 @@ pyopenssl==22.0.0
     # via -r test-requirements.in
 pyparsing==3.0.7
     # via packaging
-pytest==6.2.5
+pytest==7.0.0
     # via
     #   -r test-requirements.in
     #   pytest-cov
@@ -112,14 +112,13 @@ sniffio==1.2.0
 sortedcontainers==2.4.0
     # via -r test-requirements.in
 toml==0.10.2
-    # via
-    #   pylint
-    #   pytest
+    # via pylint
 tomli==2.0.0
     # via
     #   black
     #   coverage
     #   mypy
+    #   pytest
 traitlets==5.1.1
     # via
     #   ipython
