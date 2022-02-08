@@ -119,9 +119,7 @@ def close_all():
         if len(errs) == 1:
             raise errs[0]
         elif errs:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", DeprecationWarning)
-                raise MultiError(errs)
+            raise MultiError(errs)
 
 
 def reorder_for_rfc_6555_section_5_4(targets):
