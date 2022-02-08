@@ -4,8 +4,8 @@
 but it has been refactored into a subclass of :exc:`BaseExceptionGroup` which users
 should catch instead of ``MultiError``. Uses of the ``filter()`` class method should be
 replaced with :meth:`BaseExceptionGroup.split`. Uses of the ``catch()`` class method
-should be replaced with either ``except*`` clauses (on Python 3.11+) or the ``catch()``
-context manager provided by the backport_.
+should be replaced with either ``except*`` clauses (on Python 3.11+) or the
+``exceptiongroup.catch()`` context manager provided by the backport_.
 
 See the :ref:`updated documentation <exceptiongroups>` for details.
 
