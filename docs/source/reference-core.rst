@@ -641,7 +641,7 @@ crucial things to keep in mind:
 
   * Any unhandled exceptions are re-raised inside the parent task. If
     there are multiple exceptions, then they're collected up into a
-    single ``BaseExceptionGroup`` or ``ExceptionGroup`` exception.
+    single :exc:`BaseExceptionGroup` or :exc:`ExceptionGroup` exception.
 
 Since all tasks are descendents of the initial task, one consequence
 of this is that :func:`run` can't finish until all tasks have
