@@ -1860,11 +1860,7 @@ async def test_nursery_stop_async_iteration():
 
             def handle(exc):
                 nonlocal got_stop
-                if isinstance(exc, StopAsyncIteration):
-                    got_stop = True
-                    return None
-                else:  # pragma: no cover
-                    return exc
+                got_stop = True
 
             with catch({StopAsyncIteration: handle}):
                 async with _core.open_nursery() as nursery:
