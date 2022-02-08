@@ -81,7 +81,7 @@ platformdirs==2.4.1
     #   pylint
 pluggy==1.0.0
     # via pytest
-prompt-toolkit==3.0.26
+prompt-toolkit==3.0.27
     # via ipython
 ptyprocess==0.7.0
     # via pexpect
