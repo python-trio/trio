@@ -95,9 +95,6 @@ async def test_is_main_thread():
 
 # @coroutine is deprecated since python 3.8, which is fine with us.
 @pytest.mark.filterwarnings("ignore:.*@coroutine.*:DeprecationWarning")
-@pytest.mark.skipif(
-    sys.version_info >= (3, 11), reason="asyncio.coroutine was removed in Python 3.11"
-)
 def test_coroutine_or_error():
     class Deferred:
         "Just kidding"
@@ -113,9 +110,11 @@ def test_coroutine_or_error():
 
         import asyncio
 
-        @asyncio.coroutine
-        def generator_based_coro():  # pragma: no cover
-            yield from asyncio.sleep(1)
+        if sys.version_info < (3, 11):
+
+            @asyncio.coroutine
+            def generator_based_coro():  # pragma: no cover
+                yield from asyncio.sleep(1)
 
         with pytest.raises(TypeError) as excinfo:
             coroutine_or_error(generator_based_coro())
