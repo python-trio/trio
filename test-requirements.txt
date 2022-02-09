@@ -113,7 +113,7 @@ sortedcontainers==2.4.0
     # via -r test-requirements.in
 toml==0.10.2
     # via pylint
-tomli==2.0.0
+tomli==2.0.1
     # via
     #   black
     #   coverage
