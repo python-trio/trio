@@ -1,3 +1,0 @@
-Fix a bug that could cause `Process.wait` to hang on Linux systems using pidfds, if
-another task were to access `Process.returncode` after the process exited but before
-``wait`` woke up
