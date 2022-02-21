@@ -5,6 +5,45 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.20.0 (2022-02-21)
+------------------------
+
+Features
+~~~~~~~~
+
+- You can now conveniently spawn a child process in a background task
+  and interact it with on the fly using ``process = await
+  nursery.start(run_process, ...)``. See `run_process` for more details.
+  We recommend most users switch to this new API. Also note that:
+
+  - ``trio.open_process`` has been deprecated in favor of
+    `trio.lowlevel.open_process`,
+  - The ``aclose`` method on `Process` has been deprecated along with
+    ``async with process_obj``. (`#1104 <https://github.com/python-trio/trio/issues/1104>`__)
+- Now context variables set with `contextvars` are preserved when running functions
+  in a worker thread with `trio.to_thread.run_sync`, or when running
+  functions from the worker thread in the parent Trio thread with
+  `trio.from_thread.run`, and `trio.from_thread.run_sync`.
+  This is done by automatically copying the `contextvars` context.
+  `trio.lowlevel.spawn_system_task` now also receives an optional ``context`` argument. (`#2160 <https://github.com/python-trio/trio/issues/2160>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Trio now avoids creating cyclic garbage when a `MultiError` is generated and filtered,
+  including invisibly within the cancellation system.  This means errors raised
+  through nurseries and cancel scopes should result in less GC latency. (`#2063 <https://github.com/python-trio/trio/issues/2063>`__)
+- Trio now deterministically cleans up file descriptors that were opened before
+  subprocess creation fails. Previously, they would remain open until the next run of
+  the garbage collector. (`#2193 <https://github.com/python-trio/trio/issues/2193>`__)
+- Add compatibility with OpenSSL 3.0 on newer Python and PyPy versions by working
+  around ``SSLEOFError`` not being raised properly. (`#2203 <https://github.com/python-trio/trio/issues/2203>`__)
+- Fix a bug that could cause `Process.wait` to hang on Linux systems using pidfds, if
+  another task were to access `Process.returncode` after the process exited but before
+  ``wait`` woke up (`#2209 <https://github.com/python-trio/trio/issues/2209>`__)
+
+
 Trio 0.19.0 (2021-06-15)
 ------------------------
 

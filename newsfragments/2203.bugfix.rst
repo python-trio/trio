@@ -1,2 +1,0 @@
-Add compatibility with OpenSSL 3.0 on newer Python and PyPy versions by working
-around ``SSLEOFError`` not being raised properly.
