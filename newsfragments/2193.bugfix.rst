@@ -1,3 +1,0 @@
-Trio now deterministically cleans up file descriptors that were opened before
-subprocess creation fails. Previously, they would remain open until the next run of
-the garbage collector.

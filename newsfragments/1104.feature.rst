@@ -1,9 +1,0 @@
-You can now conveniently spawn a child process in a background task
-and interact it with on the fly using ``process = await
-nursery.start(run_process, ...)``. See `run_process` for more details.
-We recommend most users switch to this new API. Also note that:
-
-- ``trio.open_process`` has been deprecated in favor of
-  `trio.lowlevel.open_process`,
-- The ``aclose`` method on `Process` has been deprecated along with
-  ``async with process_obj``.
