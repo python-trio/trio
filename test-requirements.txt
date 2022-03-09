@@ -139,7 +139,7 @@ typed-ast==1.5.2 ; implementation_name == "cpython" and python_version < "3.8"
     #   astroid
     #   black
     #   mypy
-typing-extensions==4.0.1 ; implementation_name == "cpython"
+typing-extensions==4.1.1 ; implementation_name == "cpython"
     # via
     #   -r test-requirements.in
     #   astroid
