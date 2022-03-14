@@ -101,7 +101,7 @@ pyopenssl==22.0.0
     # via -r test-requirements.in
 pyparsing==3.0.7
     # via packaging
-pytest==7.0.1
+pytest==7.1.0
     # via
     #   -r test-requirements.in
     #   pytest-cov
