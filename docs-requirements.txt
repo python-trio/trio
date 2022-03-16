@@ -42,7 +42,7 @@ jinja2==3.0.3
     # via
     #   sphinx
     #   towncrier
-markupsafe==2.1.0
+markupsafe==2.1.1
     # via jinja2
 outcome==1.1.0
     # via -r docs-requirements.in
