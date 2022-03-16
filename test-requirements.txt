@@ -25,7 +25,7 @@ click==8.0.4
     # via black
 coverage[toml]==6.0.2
     # via pytest-cov
-cryptography==36.0.1
+cryptography==36.0.2
     # via
     #   -r test-requirements.in
     #   pyopenssl
