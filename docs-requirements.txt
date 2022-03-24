@@ -87,5 +87,5 @@ tomli==2.0.1
     # via towncrier
 towncrier==21.9.0
     # via -r docs-requirements.in
-urllib3==1.26.8
+urllib3==1.26.9
     # via requests
