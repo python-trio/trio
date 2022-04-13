@@ -83,12 +83,6 @@ Stream Processing
 * `Slurry <https://github.com/andersea/slurry>`__ - Slurry is a microframework for building reactive, data processing applications with Trio.
 
 
-RPC
----
-* `purepc <https://github.com/standy66/purerpc>`__ - Asynchronous pure Python gRPC client and server implementation using anyio.
-* `trio-jsonrpc <https://github.com/HyperionGray/trio-jsonrpc>`__ - JSON-RPC v2.0 for Trio.
-
-
 Testing
 -------
 * `pytest-trio <https://github.com/python-trio/pytest-trio>`__ - Pytest plugin for trio.
