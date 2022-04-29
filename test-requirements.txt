@@ -58,7 +58,7 @@ mccabe==0.6.1
     # via
     #   flake8
     #   pylint
-mypy==0.942 ; implementation_name == "cpython"
+mypy==0.950 ; implementation_name == "cpython"
     # via -r test-requirements.in
 mypy-extensions==0.4.3 ; implementation_name == "cpython"
     # via
