@@ -120,7 +120,7 @@ tomli==2.0.1
     #   mypy
     #   pylint
     #   pytest
-traitlets==5.1.1
+traitlets==5.2.0
     # via
     #   ipython
     #   matplotlib-inline
