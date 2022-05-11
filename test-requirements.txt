@@ -101,7 +101,7 @@ pylint==2.13.8
     # via -r test-requirements.in
 pyopenssl==22.0.0
     # via -r test-requirements.in
-pyparsing==3.0.8
+pyparsing==3.0.9
     # via packaging
 pytest==7.1.2
     # via
