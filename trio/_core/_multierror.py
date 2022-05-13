@@ -420,7 +420,7 @@ def traceback_exception_init(
                         # copy the set of _seen exceptions so that duplicates
                         # shared between sub-exceptions are not omitted
                         _seen=None if seen_was_none else set(_seen),
-                        **kwargs
+                        **kwargs,
                     )
                 )
         self.embedded = embedded
