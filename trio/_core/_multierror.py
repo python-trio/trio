@@ -383,7 +383,7 @@ def traceback_exception_init(
     capture_locals=False,
     compact=False,
     _seen=None,
-    **kwargs
+    **kwargs,
 ):
     if sys.version_info >= (3, 10):
         kwargs["compact"] = compact
