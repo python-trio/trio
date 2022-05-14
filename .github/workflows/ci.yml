@@ -111,25 +111,6 @@ jobs:
           # Should match 'name:' up above
           JOB_NAME: 'Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})'
 
-  # Requires a separate job to avoid using coverage which is currently broken on 3.11
-  Python311:
-    name: 'Ubuntu (3.11-dev)'
-    timeout-minutes: 10
-    runs-on: 'ubuntu-latest'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Setup python
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.11-dev
-          cache: pip
-          cache-dependency-path: test-requirements.txt
-      - name: Install dependencies
-        run: pip install -r test-requirements.txt
-      - name: Run tests
-        run: pytest -ra --verbose
-
   macOS:
     name: 'macOS (${{ matrix.python }})'
     timeout-minutes: 10
