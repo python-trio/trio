@@ -85,8 +85,7 @@ Stream Processing
 
 RPC
 ---
-* `purepc <https://github.com/standy66/purerpc>`__ - Asynchronous pure Python gRPC client and server implementation using anyio.
-* `trio-jsonrpc <https://github.com/HyperionGray/trio-jsonrpc>`__ - JSON-RPC v2.0 for Trio.
+* `purepc <https://github.com/python-trio/purerpc>`__ - Native, async Python gRPC client and server implementation using anyio.
 
 
 Testing
