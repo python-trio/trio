@@ -750,6 +750,20 @@ callbacks::
 .. hint:: If your code, written using ``except*``, would set local variables, you can do
     the same with handler callbacks as long as you declare those variables ``nonlocal``.
 
+For reasons of backwards compatibility, nurseries raise ``MultiError`` and
+``NonBaseMultiError`` which inherit from `BaseExceptionGroup` and `ExceptionGroup`,
+respectively. Users should refrain from attempting to raise or catch the trio specific
+exceptions themselves, and treat them as if they were standard `BaseExceptionGroup` or
+`ExceptionGroup` instances instead.
+
+The compatibility exception classes have one additional quirk: when only a single
+exception is passed to them, they will spit out that single exception from the
+constructor instead of the appropriate ``MultiError`` instance. This means that a
+nursery can pass through any arbitrary exception raised by either a spawned task or the
+host task. This behavior can be controlled by the ``strict_exception_groups=True``
+argument passed to either :func:`open_nursery` or :func:`run`. If enabled, a nursery
+will always wrap even single exception raised in it in an exception group.
+
 .. _exceptiongroup: https://pypi.org/project/exceptiongroup/
 
 Spawning tasks without becoming a parent
