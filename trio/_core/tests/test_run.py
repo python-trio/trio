@@ -29,7 +29,7 @@ from .tutil import (
 )
 
 from ... import _core
-from ..._core._multierror import MultiError
+from ..._core._multierror import MultiError, NonBaseMultiError
 from .._run import DEADLINE_HEAP_MIN_PRUNE_THRESHOLD
 from ..._threads import to_thread_run_sync
 from ..._timeouts import sleep, fail_after
@@ -776,7 +776,7 @@ async def test_cancel_scope_misnesting():
         with pytest.raises(RuntimeError) as exc_info:
             await nursery_mgr.__aexit__(*sys.exc_info())
         assert "which had already been exited" in str(exc_info.value)
-        assert type(exc_info.value.__context__) is MultiError
+        assert type(exc_info.value.__context__) is NonBaseMultiError
         assert len(exc_info.value.__context__.exceptions) == 3
         cancelled_in_context = False
         for exc in exc_info.value.__context__.exceptions:

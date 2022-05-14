@@ -5,7 +5,7 @@ from typing import Sequence
 import attr
 
 if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup
+    from exceptiongroup import BaseExceptionGroup, ExceptionGroup
 
 ################################################################
 # MultiError
@@ -203,6 +203,9 @@ class MultiError(BaseExceptionGroup):
             # In an earlier version of the code, we didn't define __init__ and
             # simply set the `exceptions` attribute directly on the new object.
             # However, linters expect attributes to be initialized in __init__.
+            if all(isinstance(exc, Exception) for exc in exceptions):
+                cls = NonBaseMultiError
+
             return super().__new__(cls, "multiple tasks failed", exceptions)
 
     def __str__(self):
@@ -256,8 +259,13 @@ class MultiError(BaseExceptionGroup):
         return MultiErrorCatcher(handler)
 
 
+class NonBaseMultiError(MultiError, ExceptionGroup):
+    pass
+
+
 # Clean up exception printing:
 MultiError.__module__ = "trio"
+NonBaseMultiError.__module__ = "trio"
 
 ################################################################
 # concat_tb

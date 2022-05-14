@@ -11,8 +11,11 @@ from traceback import _cause_message  # type: ignore
 import sys
 import re
 
-from .._multierror import MultiError, concat_tb
+from .._multierror import MultiError, concat_tb, NonBaseMultiError
 from ..._core import open_nursery
+
+if sys.version_info < (3, 11):
+    from exceptiongroup import ExceptionGroup
 
 
 class NotHashableException(Exception):
@@ -392,3 +395,24 @@ def test_assert_match_in_seq():
     assert_match_in_seq(["b", "a"], "xx b xx a xx")
     with pytest.raises(AssertionError):
         assert_match_in_seq(["a", "b"], "xx b xx a xx")
+
+
+def test_base_multierror():
+    """
+    Test that MultiError() witho at least one base exception will return a MultiError
+    object.
+    """
+
+    exc = MultiError([ZeroDivisionError(), KeyboardInterrupt()])
+    assert type(exc) is MultiError
+
+
+def test_non_base_multierror():
+    """
+    Test that MultiError() without base exceptions will return a NonBaseMultiError
+    object.
+    """
+
+    exc = MultiError([ZeroDivisionError(), ValueError()])
+    assert type(exc) is NonBaseMultiError
+    assert isinstance(exc, ExceptionGroup)
