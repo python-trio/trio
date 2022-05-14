@@ -472,7 +472,7 @@ class CancelScope(metaclass=Final):
             task._activate_cancel_status(self._cancel_status)
         return self
 
-    def _close(self, exc):
+    def _close(self, exc, collapse=True):
         if self._cancel_status is None:
             new_exc = RuntimeError(
                 "Cancel scope stack corrupted: attempted to exit {!r} "
@@ -537,7 +537,7 @@ class CancelScope(metaclass=Final):
                 if matched:
                     self.cancelled_caught = True
 
-        if isinstance(exc, BaseExceptionGroup):
+        if collapse and isinstance(exc, BaseExceptionGroup):
             exc = collapse_exception_group(exc)
 
         self._cancel_status.close()
@@ -807,6 +807,7 @@ class _TaskStatus:
         self._old_nursery._check_nursery_closed()
 
 
+@attr.s
 class NurseryManager:
     """Nursery context manager.
 
@@ -817,11 +818,15 @@ class NurseryManager:
 
     """
 
+    strict_exception_groups = attr.ib(default=False)
+
     @enable_ki_protection
     async def __aenter__(self):
         self._scope = CancelScope()
         self._scope.__enter__()
-        self._nursery = Nursery._create(current_task(), self._scope)
+        self._nursery = Nursery._create(
+            current_task(), self._scope, self.strict_exception_groups
+        )
         return self._nursery
 
     @enable_ki_protection
@@ -829,7 +834,9 @@ class NurseryManager:
         new_exc = await self._nursery._nested_child_finished(exc)
         # Tracebacks show the 'raise' line below out of context, so let's give
         # this variable a name that makes sense out of context.
-        combined_error_from_nursery = self._scope._close(new_exc)
+        combined_error_from_nursery = self._scope._close(
+            new_exc, collapse=not self.strict_exception_groups
+        )
         if combined_error_from_nursery is None:
             return True
         elif combined_error_from_nursery is exc:
@@ -857,15 +864,23 @@ class NurseryManager:
         assert False, """Never called, but should be defined"""
 
 
-def open_nursery():
+def open_nursery(strict_exception_groups=None):
     """Returns an async context manager which must be used to create a
     new `Nursery`.
 
     It does not block on entry; on exit it blocks until all child tasks
     have exited.
 
+    Args:
+      strict_exception_groups (bool): If true, even a single raised exception will be
+          wrapped in an exception group. This will eventually become the default
+          behavior. If not specified, uses the value passed to :func:`run`.
+
     """
-    return NurseryManager()
+    if strict_exception_groups is None:
+        strict_exception_groups = GLOBAL_RUN_CONTEXT.runner.strict_exception_groups
+
+    return NurseryManager(strict_exception_groups=strict_exception_groups)
 
 
 class Nursery(metaclass=NoPublicConstructor):
@@ -890,8 +905,9 @@ class Nursery(metaclass=NoPublicConstructor):
             in response to some external event.
     """
 
-    def __init__(self, parent_task, cancel_scope):
+    def __init__(self, parent_task, cancel_scope, strict_exception_groups):
         self._parent_task = parent_task
+        self._strict_exception_groups = strict_exception_groups
         parent_task._child_nurseries.append(self)
         # the cancel status that children inherit - we take a snapshot, so it
         # won't be affected by any changes in the parent.
@@ -970,7 +986,9 @@ class Nursery(metaclass=NoPublicConstructor):
         assert popped is self
         if self._pending_excs:
             try:
-                return MultiError(self._pending_excs)
+                return MultiError(
+                    self._pending_excs, _collapse=not self._strict_exception_groups
+                )
             finally:
                 # avoid a garbage cycle
                 # (see test_nursery_cancel_doesnt_create_cyclic_garbage)
@@ -1309,6 +1327,7 @@ class Runner:
     instruments: Instruments = attr.ib()
     io_manager = attr.ib()
     ki_manager = attr.ib()
+    strict_exception_groups = attr.ib()
 
     # Run-local values, see _local.py
     _locals = attr.ib(factory=dict)
@@ -1847,7 +1866,12 @@ class Runner:
 # 'is_guest' to see the special cases we need to handle this.
 
 
-def setup_runner(clock, instruments, restrict_keyboard_interrupt_to_checkpoints):
+def setup_runner(
+    clock,
+    instruments,
+    restrict_keyboard_interrupt_to_checkpoints,
+    strict_exception_groups,
+):
     """Create a Runner object and install it as the GLOBAL_RUN_CONTEXT."""
     # It wouldn't be *hard* to support nested calls to run(), but I can't
     # think of a single good reason for it, so let's be conservative for
@@ -1869,6 +1893,7 @@ def setup_runner(clock, instruments, restrict_keyboard_interrupt_to_checkpoints)
         io_manager=io_manager,
         system_context=system_context,
         ki_manager=ki_manager,
+        strict_exception_groups=strict_exception_groups,
     )
     runner.asyncgens.install_hooks(runner)
 
@@ -1886,6 +1911,7 @@ def run(
     clock=None,
     instruments=(),
     restrict_keyboard_interrupt_to_checkpoints=False,
+    strict_exception_groups=False,
 ):
     """Run a Trio-flavored async function, and return the result.
 
@@ -1942,6 +1968,10 @@ def run(
           main thread (this is a Python limitation), or if you use
           :func:`open_signal_receiver` to catch SIGINT.
 
+      strict_exception_groups (bool): If true, nurseries will always wrap even a single
+          raised exception in an exception group. This can be overridden on the level of
+          individual nurseries. This will eventually become the default behavior.
+
     Returns:
       Whatever ``async_fn`` returns.
 
@@ -1958,7 +1988,10 @@ def run(
     __tracebackhide__ = True
 
     runner = setup_runner(
-        clock, instruments, restrict_keyboard_interrupt_to_checkpoints
+        clock,
+        instruments,
+        restrict_keyboard_interrupt_to_checkpoints,
+        strict_exception_groups,
     )
 
     gen = unrolled_run(runner, async_fn, args)
@@ -1987,6 +2020,7 @@ def start_guest_run(
     clock=None,
     instruments=(),
     restrict_keyboard_interrupt_to_checkpoints=False,
+    strict_exception_groups=False,
 ):
     """Start a "guest" run of Trio on top of some other "host" event loop.
 
@@ -2038,7 +2072,10 @@ def start_guest_run(
 
     """
     runner = setup_runner(
-        clock, instruments, restrict_keyboard_interrupt_to_checkpoints
+        clock,
+        instruments,
+        restrict_keyboard_interrupt_to_checkpoints,
+        strict_exception_groups,
     )
     runner.is_guest = True
     runner.guest_tick_scheduled = True

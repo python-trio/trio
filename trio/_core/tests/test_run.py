@@ -2346,3 +2346,45 @@ async def test_locals_destroyed_promptly_on_cancel():
         nursery.start_soon(task)
         nursery.cancel_scope.cancel()
     assert destroyed
+
+
+def test_run_strict_exception_groups():
+    """
+    Test that nurseries respect the global context setting of strict_exception_groups.
+    """
+
+    async def main():
+        async with _core.open_nursery():
+            raise Exception("foo")
+
+    with pytest.raises(MultiError) as exc:
+        _core.run(main, strict_exception_groups=True)
+
+    assert len(exc.value.exceptions) == 1
+    assert type(exc.value.exceptions[0]) is Exception
+    assert exc.value.exceptions[0].args == ("foo",)
+
+
+def test_run_strict_exception_groups_nursery_override():
+    """
+    Test that a nursery can override the global context setting of
+    strict_exception_groups.
+    """
+
+    async def main():
+        async with _core.open_nursery(strict_exception_groups=False):
+            raise Exception("foo")
+
+    with pytest.raises(Exception, match="foo"):
+        _core.run(main, strict_exception_groups=True)
+
+
+async def test_nursery_strict_exception_groups():
+    """Test that strict exception groups can be enabled on a per-nursery basis."""
+    with pytest.raises(MultiError) as exc:
+        async with _core.open_nursery(strict_exception_groups=True):
+            raise Exception("foo")
+
+    assert len(exc.value.exceptions) == 1
+    assert type(exc.value.exceptions[0]) is Exception
+    assert exc.value.exceptions[0].args == ("foo",)
