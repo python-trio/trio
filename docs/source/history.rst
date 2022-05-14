@@ -31,8 +31,8 @@ Features
 Bugfixes
 ~~~~~~~~
 
-- Trio now avoids creating cyclic garbage when a `MultiError` is generated and filtered,
-  including invisibly within the cancellation system.  This means errors raised
+- Trio now avoids creating cyclic garbage when a ``MultiError`` is generated and
+  filtered, including invisibly within the cancellation system. This means errors raised
   through nurseries and cancel scopes should result in less GC latency. (`#2063 <https://github.com/python-trio/trio/issues/2063>`__)
 - Trio now deterministically cleans up file descriptors that were opened before
   subprocess creation fails. Previously, they would remain open until the next run of
