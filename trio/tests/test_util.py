@@ -1,4 +1,6 @@
 import signal
+import sys
+
 import pytest
 
 import trio
@@ -108,13 +110,15 @@ def test_coroutine_or_error():
 
         import asyncio
 
-        @asyncio.coroutine
-        def generator_based_coro():  # pragma: no cover
-            yield from asyncio.sleep(1)
+        if sys.version_info < (3, 11):
 
-        with pytest.raises(TypeError) as excinfo:
-            coroutine_or_error(generator_based_coro())
-        assert "asyncio" in str(excinfo.value)
+            @asyncio.coroutine
+            def generator_based_coro():  # pragma: no cover
+                yield from asyncio.sleep(1)
+
+            with pytest.raises(TypeError) as excinfo:
+                coroutine_or_error(generator_based_coro())
+            assert "asyncio" in str(excinfo.value)
 
         with pytest.raises(TypeError) as excinfo:
             coroutine_or_error(create_asyncio_future_in_new_loop())
