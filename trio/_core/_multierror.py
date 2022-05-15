@@ -383,11 +383,10 @@ def traceback_exception_init(
     capture_locals=False,
     compact=False,
     _seen=None,
+    **kwargs,
 ):
     if sys.version_info >= (3, 10):
-        kwargs = {"compact": compact}
-    else:
-        kwargs = {}
+        kwargs["compact"] = compact
 
     # Capture the original exception and its cause and context as TracebackExceptions
     traceback_exception_original_init(
@@ -421,6 +420,7 @@ def traceback_exception_init(
                         # copy the set of _seen exceptions so that duplicates
                         # shared between sub-exceptions are not omitted
                         _seen=None if seen_was_none else set(_seen),
+                        **kwargs,
                     )
                 )
         self.embedded = embedded
