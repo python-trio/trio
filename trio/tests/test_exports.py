@@ -81,6 +81,9 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
     + re.escape("The distutils.sysconfig module is deprecated, use sysconfig instead")
     + ":DeprecationWarning",
 )
+@pytest.mark.filterwarnings(
+    "ignore:module 'sre_constants' is deprecated:DeprecationWarning",
+)
 def test_static_tool_sees_all_symbols(tool, modname):
     module = importlib.import_module(modname)
 
