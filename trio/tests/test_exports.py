@@ -64,10 +64,6 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
     sys.version_info.releaselevel == "alpha",
     reason="skip static introspection tools on Python dev/alpha releases",
 )
-@pytest.mark.filterwarnings(
-    # https://github.com/PyCQA/astroid/issues/681
-    "ignore:the imp module is deprecated.*:DeprecationWarning"
-)
 @pytest.mark.parametrize("modname", PUBLIC_MODULE_NAMES)
 @pytest.mark.parametrize("tool", ["pylint", "jedi"])
 @pytest.mark.filterwarnings(
