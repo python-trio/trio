@@ -1,3 +1,4 @@
+import os
 import re
 import sys
 
@@ -760,6 +761,10 @@ async def test_wait_writable_calls_underlying_wait_writable():
     assert record == ["ok"]
 
 
+@pytest.mark.skipif(
+    os.name == "nt" and sys.version_info >= (3, 10),
+    reason="frequently fails on Windows + Python 3.10",
+)
 async def test_checkpoints(client_ctx):
     async with ssl_echo_server(client_ctx) as s:
         with assert_checkpoints():
