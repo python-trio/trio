@@ -88,6 +88,7 @@ from ._highlevel_ssl_helpers import (
 )
 
 from ._core._multierror import MultiError as _MultiError
+from ._core._multierror import NonBaseMultiError as _NonBaseMultiError
 
 from ._deprecate import TrioDeprecationWarning
 
@@ -116,9 +117,15 @@ __deprecated_attributes__ = {
     ),
     "MultiError": _deprecate.DeprecatedAttribute(
         value=_MultiError,
-        version="0.20.0",
+        version="0.21.0",
         issue=2211,
         instead="BaseExceptionGroup (py3.11+) or exceptiongroup.BaseExceptionGroup",
+    ),
+    "NonBaseMultiError": _deprecate.DeprecatedAttribute(
+        value=_NonBaseMultiError,
+        version="0.21.0",
+        issue=2211,
+        instead="ExceptionGroup (py3.11+) or exceptiongroup.ExceptionGroup",
     ),
 }
 
