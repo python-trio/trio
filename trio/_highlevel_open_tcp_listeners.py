@@ -4,7 +4,9 @@ from math import inf
 
 import trio
 from . import socket as tsocket
-from ._core._multierror import MultiError
+
+if sys.version_info < (3, 11):
+    from exceptiongroup import ExceptionGroup
 
 
 # Default backlog size:
@@ -135,11 +137,13 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
         raise
 
     if unsupported_address_families and not listeners:
-        raise OSError(
-            errno.EAFNOSUPPORT,
+        msg = (
             "This system doesn't support any of the kinds of "
-            "socket that that address could use",
-        ) from MultiError(unsupported_address_families)
+            "socket that that address could use"
+        )
+        raise OSError(errno.EAFNOSUPPORT, msg) from ExceptionGroup(
+            msg, unsupported_address_families
+        )
 
     return listeners
 
