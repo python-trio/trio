@@ -750,19 +750,43 @@ callbacks::
 .. hint:: If your code, written using ``except*``, would set local variables, you can do
     the same with handler callbacks as long as you declare those variables ``nonlocal``.
 
-For reasons of backwards compatibility, nurseries raise ``MultiError`` and
-``NonBaseMultiError`` which inherit from `BaseExceptionGroup` and `ExceptionGroup`,
-respectively. Users should refrain from attempting to raise or catch the trio specific
+For reasons of backwards compatibility, nurseries raise ``trio.MultiError`` and
+``trio.NonBaseMultiError`` which inherit from `BaseExceptionGroup` and `ExceptionGroup`,
+respectively. Users should refrain from attempting to raise or catch the Trio specific
 exceptions themselves, and treat them as if they were standard `BaseExceptionGroup` or
 `ExceptionGroup` instances instead.
 
-The compatibility exception classes have one additional quirk: when only a single
-exception is passed to them, they will spit out that single exception from the
-constructor instead of the appropriate ``MultiError`` instance. This means that a
-nursery can pass through any arbitrary exception raised by either a spawned task or the
-host task. This behavior can be controlled by the ``strict_exception_groups=True``
-argument passed to either :func:`open_nursery` or :func:`run`. If enabled, a nursery
-will always wrap even single exception raised in it in an exception group.
+"Strict" versus "loose" ExceptionGroup semantics
+++++++++++++++++++++++++++++++++++++++++++++++++
+
+Ideally, in some abstract sense we'd want everything that *can* raise an
+`ExceptionGroup` to *always* raise an `ExceptionGroup` (rather than, say, a single
+`ValueError`). Otherwise, it would be easy to accidentally write something like ``except
+ValueError:`` (not ``except*``), which works if a single exception is raised but fails to
+catch _anything_ in the case of multiple simultaneous exceptions (even if one of them is
+a ValueError). However, this is not how Trio worked in the past: as a concession to
+practicality when the ``except*`` syntax hadn't been dreamed up yet, the old
+``trio.MultiError`` was raised only when at least two exceptions occurred
+simultaneously. Adding a layer of `ExceptionGroup` around every nursery, while
+theoretically appealing, would probably break a lot of existing code in practice.
+
+Therefore, we've chosen to gate the newer, "stricter" behavior behind a parameter
+called ``strict_exception_groups``. This is accepted as a parameter to
+:func:`open_nursery`, to set the behavior for that nursery, and to :func:`trio.run`,
+to set the default behavior for any nursery in your program that doesn't override it.
+
+* With ``strict_exception_groups=True``, the exception(s) coming out of a nursery will
+  always be wrapped in an `ExceptionGroup`, so you'll know that if you're handling
+  single errors correctly, multiple simultaneous errors will work as well.
+
+* With ``strict_exception_groups=False``, a nursery in which only one task has failed
+  will raise that task's exception without an additional layer of `ExceptionGroup`
+  wrapping, so you'll get maximum compatibility with code that was written to
+  support older versions of Trio.
+
+To maintain backwards compatibility, the default is ``strict_exception_groups=False``.
+The default will eventually change to ``True`` in a future version of Trio, once
+Python 3.11 and later versions are in wide use.
 
 .. _exceptiongroup: https://pypi.org/project/exceptiongroup/
 

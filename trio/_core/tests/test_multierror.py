@@ -399,7 +399,7 @@ def test_assert_match_in_seq():
 
 def test_base_multierror():
     """
-    Test that MultiError() witho at least one base exception will return a MultiError
+    Test that MultiError() with at least one base exception will return a MultiError
     object.
     """
 
