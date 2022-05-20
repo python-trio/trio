@@ -14,7 +14,7 @@ attrs==21.4.0
     #   outcome
 babel==2.9.1
     # via sphinx
-certifi==2021.10.8
+certifi==2022.5.18
     # via requests
 charset-normalizer==2.0.12
     # via requests
