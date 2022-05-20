@@ -34,7 +34,7 @@ decorator==5.1.1
     # via ipython
 dill==0.3.4
     # via pylint
-exceptiongroup==1.0.0rc5
+exceptiongroup==1.0.0rc7
     # via -r test-requirements.in
 flake8==4.0.1
     # via -r test-requirements.in
