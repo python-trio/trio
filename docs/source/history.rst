@@ -5,7 +5,7 @@ Release history
 
 .. towncrier release notes start
 
-Trio 0.19.0+dev (2022-06-01)
+Trio 0.21.0 (2022-06-01)
 ----------------------------
 
 - Trio now supports Python 3.11. (`#2270
