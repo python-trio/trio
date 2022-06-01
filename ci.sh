@@ -143,7 +143,7 @@ else
     cp ../.coveragerc .
     # --assert=plain disables pytest assertion rewrites so that we can test 3.11.0b2
     # https://github.com/pytest-dev/pytest/issues/10008
-    if pytest -r a --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --cov="$INSTALLDIR" --verbose --assert-plain; then
+    if pytest -r a --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --cov="$INSTALLDIR" --verbose --assert=plain; then
         PASSED=true
     else
         PASSED=false
