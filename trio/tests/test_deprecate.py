@@ -1,7 +1,6 @@
 import pytest
 
 import inspect
-import sys
 import warnings
 
 from .._deprecate import (
@@ -221,10 +220,6 @@ def test_deprecated_docstring_munging():
     )
 
 
-@pytest.mark.xfail(
-    sys.implementation.name == "pypy" and sys.version_info >= (3, 9),
-    reason="https://foss.heptapod.net/pypy/pypy/-/issues/3758",
-)
 def test_module_with_deprecations(recwarn_always):
     assert module_with_deprecations.regular == "hi"
     assert len(recwarn_always) == 0
