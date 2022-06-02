@@ -222,7 +222,7 @@ def test_deprecated_docstring_munging():
 
 
 @pytest.mark.xfail(
-    sys.implementation.name == "pypy" and sys.version_info >= (3, 8),
+    sys.implementation.name == "pypy" and sys.version_info >= (3, 9),
     reason="https://foss.heptapod.net/pypy/pypy/-/issues/3758",
 )
 def test_module_with_deprecations(recwarn_always):
