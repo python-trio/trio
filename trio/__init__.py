@@ -117,7 +117,7 @@ __deprecated_attributes__ = {
     ),
     "MultiError": _deprecate.DeprecatedAttribute(
         value=_MultiError,
-        version="0.21.0",
+        version="0.22.0",
         issue=2211,
         instead=(
             "BaseExceptionGroup (on Python 3.11 and later) or "
@@ -126,7 +126,7 @@ __deprecated_attributes__ = {
     ),
     "NonBaseMultiError": _deprecate.DeprecatedAttribute(
         value=_NonBaseMultiError,
-        version="0.21.0",
+        version="0.22.0",
         issue=2211,
         instead=(
             "ExceptionGroup (on Python 3.11 and later) or "
