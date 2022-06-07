@@ -32,7 +32,7 @@ cryptography==37.0.2
     #   trustme
 decorator==5.1.1
     # via ipython
-dill==0.3.4
+dill==0.3.5.1
     # via pylint
 exceptiongroup==1.0.0rc7
     # via -r test-requirements.in
@@ -66,7 +66,7 @@ mccabe==0.6.1
     # via
     #   flake8
     #   pylint
-mypy==0.950 ; implementation_name == "cpython"
+mypy==0.961 ; implementation_name == "cpython"
     # via -r test-requirements.in
 mypy-extensions==0.4.3 ; implementation_name == "cpython"
     # via
@@ -105,7 +105,7 @@ pyflakes==2.4.0
     # via flake8
 pygments==2.10.0
     # via ipython
-pylint==2.13.9
+pylint==2.14.1
     # via -r test-requirements.in
 pyopenssl==22.0.0
     # via -r test-requirements.in
@@ -128,7 +128,9 @@ tomli==2.0.1
     #   mypy
     #   pylint
     #   pytest
-traitlets==5.2.0
+tomlkit==0.11.0
+    # via pylint
+traitlets==5.2.1.post0
     # via
     #   ipython
     #   matplotlib-inline

@@ -76,7 +76,7 @@ setup(
     author="Nathaniel J. Smith",
     author_email="njs@pobox.com",
     url="https://github.com/python-trio/trio",
-    license="MIT -or- Apache License 2.0",
+    license="MIT OR Apache-2.0",
     packages=find_packages(),
     install_requires=[
         "attrs >= 19.2.0",  # for eq
