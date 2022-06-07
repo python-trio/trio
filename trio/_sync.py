@@ -87,21 +87,14 @@ class Event(metaclass=Final):
         return _EventStatistics(tasks_waiting=len(self._tasks))
 
 
-def async_cm(cls):
+class AsyncContextManagerMixin:
     @enable_ki_protection
     async def __aenter__(self):
         await self.acquire()
 
-    __aenter__.__qualname__ = cls.__qualname__ + ".__aenter__"
-    cls.__aenter__ = __aenter__
-
     @enable_ki_protection
     async def __aexit__(self, *args):
         self.release()
-
-    __aexit__.__qualname__ = cls.__qualname__ + ".__aexit__"
-    cls.__aexit__ = __aexit__
-    return cls
 
 
 @attr.s(frozen=True)
@@ -112,8 +105,7 @@ class _CapacityLimiterStatistics:
     tasks_waiting = attr.ib()
 
 
-@async_cm
-class CapacityLimiter(metaclass=Final):
+class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
     """An object for controlling access to a resource with limited capacity.
 
     Sometimes you need to put a limit on how many tasks can do something at
@@ -355,8 +347,7 @@ class CapacityLimiter(metaclass=Final):
         )
 
 
-@async_cm
-class Semaphore(metaclass=Final):
+class Semaphore(AsyncContextManagerMixin, metaclass=Final):
     """A `semaphore <https://en.wikipedia.org/wiki/Semaphore_(programming)>`__.
 
     A semaphore holds an integer value, which can be incremented by
@@ -485,9 +476,8 @@ class _LockStatistics:
     tasks_waiting = attr.ib()
 
 
-@async_cm
 @attr.s(eq=False, hash=False, repr=False)
-class _LockImpl:
+class _LockImpl(AsyncContextManagerMixin):
     _lot = attr.ib(factory=ParkingLot, init=False)
     _owner = attr.ib(default=None, init=False)
 
@@ -659,8 +649,7 @@ class _ConditionStatistics:
     lock_statistics = attr.ib()
 
 
-@async_cm
-class Condition(metaclass=Final):
+class Condition(AsyncContextManagerMixin, metaclass=Final):
     """A classic `condition variable
     <https://en.wikipedia.org/wiki/Monitor_(synchronization)>`__, similar to
     :class:`threading.Condition`.
