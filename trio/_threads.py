@@ -138,6 +138,7 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
 
     """
     await trio.lowlevel.checkpoint_if_cancelled()
+    cancellable = bool(cancellable)  # raise early if cancellable.__bool__ raises
     if limiter is None:
         limiter = current_default_thread_limiter()
 
