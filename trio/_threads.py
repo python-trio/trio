@@ -240,7 +240,7 @@ def _run_fn_as_system_task(cb, fn, *args, context, trio_token=None):
     else:
         raise RuntimeError("this is a blocking function; call it from a thread")
 
-    q = stdlib_queue.Queue()
+    q = stdlib_queue.SimpleQueue()
     trio_token.run_sync_soon(context.run, cb, q, fn, args)
     return q.get().unwrap()
 
