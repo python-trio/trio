@@ -1417,7 +1417,9 @@ class Runner:
         if "task_scheduled" in self.instruments:
             self.instruments.call("task_scheduled", task)
 
-    def spawn_impl(self, async_fn, args, nursery, name, *, system_task=False):
+    def spawn_impl(
+        self, async_fn, args, nursery, name, *, system_task=False, context=None
+    ):
 
         ######
         # Make sure the nursery is in working order
@@ -1447,10 +1449,11 @@ class Runner:
             except AttributeError:
                 name = repr(name)
 
-        if system_task:
-            context = self.system_context.copy()
-        else:
-            context = copy_context()
+        if context is None:
+            if system_task:
+                context = self.system_context.copy()
+            else:
+                context = copy_context()
 
         if not hasattr(coro, "cr_frame"):
             # This async function is implemented in C or Cython
@@ -1528,7 +1531,7 @@ class Runner:
     ################
 
     @_public
-    def spawn_system_task(self, async_fn, *args, name=None):
+    def spawn_system_task(self, async_fn, *args, name=None, context=None):
         """Spawn a "system" task.
 
         System tasks have a few differences from regular tasks:
@@ -1571,13 +1574,23 @@ class Runner:
               case is if you're wrapping a function before spawning a new
               task, you might pass the original function as the ``name=`` to
               make debugging easier.
+          context: An optional ``contextvars.Context`` object with context variables
+              to use for this task. You would normally get a copy of the current
+              context with ``context = contextvars.copy_context()`` and then you would
+              pass that ``context`` object here.
 
         Returns:
           Task: the newly spawned task
 
         """
+        current_async_library_cvar.set("trio")
         return self.spawn_impl(
-            async_fn, args, self.system_nursery, name, system_task=True
+            async_fn,
+            args,
+            self.system_nursery,
+            name,
+            system_task=True,
+            context=context,
         )
 
     async def init(self, async_fn, args):

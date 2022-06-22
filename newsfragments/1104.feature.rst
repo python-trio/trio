@@ -1,3 +1,0 @@
-You can now conveniently spawn a child process in a background task
-and interact it with on the fly using ``process = await
-nursery.start(run_process, ...)``. See `run_process` for more details.
