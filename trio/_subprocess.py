@@ -512,7 +512,7 @@ async def run_process(
     the subprocess's output for further processing, then use ``stdout=subprocess.PIPE``
     and then make sure to read the data out of the `Process.stdout` stream. If you want
     to capture stderr separately, use ``stderr=subprocess.PIPE``. If you want to capture
-    both, but mixed together in the correct order, use ``stdout=subproces.PIPE,
+    both, but mixed together in the correct order, use ``stdout=subprocess.PIPE,
     stderr=subprocess.STDOUT``.
 
     **Error checking:** If the subprocess exits with a nonzero status
