@@ -127,7 +127,7 @@ def collapse_exception_group(excgroup):
     exceptions = list(excgroup.exceptions)
     modified = False
     for i, exc in enumerate(exceptions):
-        if isinstance(exc, BaseExceptionGroup):
+        if isinstance(exc, MultiError):
             new_exc = collapse_exception_group(exc)
             if new_exc is not exc:
                 modified = True
@@ -537,7 +537,7 @@ class CancelScope(metaclass=Final):
                 if matched:
                     self.cancelled_caught = True
 
-        if collapse and isinstance(exc, BaseExceptionGroup):
+        if collapse and isinstance(exc, MultiError):
             exc = collapse_exception_group(exc)
 
         self._cancel_status.close()

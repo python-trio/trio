@@ -1877,20 +1877,6 @@ async def test_nursery_stop_async_iteration():
     assert result == [[0, 0], [1, 1]]
 
 
-async def test_nursery_collapse_exceptions():
-    # Test that exception groups containing only a single exception are
-    # recursively collapsed
-    async def fail():
-        raise ExceptionGroup("fail", [ValueError()])
-
-    try:
-        async with _core.open_nursery() as nursery:
-            nursery.start_soon(fail)
-            raise StopIteration
-    except MultiError as e:
-        assert tuple(map(type, e.exceptions)) == (StopIteration, ValueError)
-
-
 async def test_traceback_frame_removal():
     async def my_child_task():
         raise KeyError()
