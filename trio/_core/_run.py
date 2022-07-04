@@ -28,7 +28,7 @@ from ._ki import (
     KIManager,
     enable_ki_protection,
 )
-from ._multierror import MultiError
+from ._multierror import MultiError, concat_tb
 from ._traps import (
     Abort,
     wait_task_rescheduled,
@@ -134,6 +134,9 @@ def collapse_exception_group(excgroup):
                 exceptions[i] = new_exc
 
     if len(exceptions) == 1:
+        exceptions[0].__traceback__ = concat_tb(
+            exceptions[0].__traceback__, excgroup.__traceback__
+        )
         return exceptions[0]
     elif modified:
         return excgroup.derive(exceptions)
