@@ -54,7 +54,7 @@ pyparsing==3.0.9
     # via packaging
 pytz==2022.1
     # via babel
-requests==2.28.0
+requests==2.28.1
     # via sphinx
 sniffio==1.2.0
     # via -r docs-requirements.in
