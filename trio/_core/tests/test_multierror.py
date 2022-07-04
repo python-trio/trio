@@ -12,6 +12,7 @@ import sys
 import re
 
 from .._multierror import MultiError, concat_tb, NonBaseMultiError
+from ... import TrioDeprecationWarning
 from ..._core import open_nursery
 
 if sys.version_info < (3, 11):
@@ -144,7 +145,9 @@ def test_MultiError_filter_NotHashable():
         else:
             return exc
 
-    filtered_excs = pytest.deprecated_call(MultiError.filter, handle_ValueError, excs)
+    with pytest.warns(TrioDeprecationWarning):
+        filtered_excs = MultiError.filter(handle_ValueError, excs)
+
     assert isinstance(filtered_excs, NotHashableException)
 
 
@@ -189,7 +192,9 @@ def test_MultiError_filter():
 
     m = make_tree()
     assert_tree_eq(m, m)
-    assert pytest.deprecated_call(MultiError.filter, null_handler, m) is m
+    with pytest.warns(TrioDeprecationWarning):
+        assert MultiError.filter(null_handler, m) is m
+
     assert_tree_eq(m, make_tree())
 
     # Make sure we don't pick up any detritus if run in a context where
@@ -198,7 +203,8 @@ def test_MultiError_filter():
     try:
         raise ValueError
     except ValueError:
-        assert pytest.deprecated_call(MultiError.filter, null_handler, m) is m
+        with pytest.warns(TrioDeprecationWarning):
+            assert MultiError.filter(null_handler, m) is m
     assert_tree_eq(m, make_tree())
 
     def simple_filter(exc):
@@ -208,7 +214,9 @@ def test_MultiError_filter():
             return RuntimeError()
         return exc
 
-    new_m = pytest.deprecated_call(MultiError.filter, simple_filter, make_tree())
+    with pytest.warns(TrioDeprecationWarning):
+        new_m = MultiError.filter(simple_filter, make_tree())
+
     assert isinstance(new_m, MultiError)
     assert len(new_m.exceptions) == 2
     # was: [[ValueError, KeyError], NameError]
@@ -250,7 +258,8 @@ def test_MultiError_filter():
         return exc
 
     m = make_tree()
-    new_m = pytest.deprecated_call(MultiError.filter, filter_NameError, m)
+    with pytest.warns(TrioDeprecationWarning):
+        new_m = MultiError.filter(filter_NameError, m)
     # with the NameError gone, the other branch gets promoted
     assert new_m is m.exceptions[0]
 
@@ -258,7 +267,8 @@ def test_MultiError_filter():
     def filter_all(exc):
         return None
 
-    assert pytest.deprecated_call(MultiError.filter, filter_all, make_tree()) is None
+    with pytest.warns(TrioDeprecationWarning):
+        assert MultiError.filter(filter_all, make_tree()) is None
 
 
 def test_MultiError_catch():

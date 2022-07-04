@@ -4,6 +4,8 @@ from typing import Sequence
 
 import attr
 
+from trio._deprecate import warn_deprecated
+
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup, ExceptionGroup
 
@@ -233,12 +235,9 @@ class MultiError(BaseExceptionGroup):
           ``handler`` returned None for all the inputs, returns None.
 
         """
-        warnings.warn(
-            "MultiError.filter() has been deprecated. "
-            "Use the .split() method instead.",
-            DeprecationWarning,
+        warn_deprecated(
+            "MultiError.filter()", "0.22.0", instead="MultiError.split()", issue=2211
         )
-
         return _filter_impl(handler, root_exc)
 
     @classmethod
