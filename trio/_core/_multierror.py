@@ -217,6 +217,8 @@ class MultiError(BaseExceptionGroup):
         return "<MultiError: {}>".format(self)
 
     def derive(self, __excs):
+        # We use _collapse=False here to get ExceptionGroup semantics, since derive()
+        # is part of the PEP 654 API
         return MultiError(__excs, _collapse=False)
 
     @classmethod
