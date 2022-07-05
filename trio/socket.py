@@ -38,7 +38,7 @@ try:
         IPPROTO_ND, IPPROTO_TP, IPPROTO_ROUTING, IPPROTO_FRAGMENT,
         IPPROTO_RSVP, IPPROTO_GRE, IPPROTO_ESP, IPPROTO_AH, IPPROTO_ICMPV6,
         IPPROTO_NONE, IPPROTO_DSTOPTS, IPPROTO_XTP, IPPROTO_EON, IPPROTO_PIM,
-        IPPROTO_IPCOMP, IPPROTO_SCTP, IPPROTO_RAW, IPPROTO_MAX,
+        IPPROTO_IPCOMP, IPPROTO_SCTP, IPPROTO_RAW, IPPROTO_MAX, IPPROTO_MPTCP,
         SYSPROTO_CONTROL, IPPORT_RESERVED, IPPORT_USERRESERVED, INADDR_ANY,
         INADDR_BROADCAST, INADDR_LOOPBACK, INADDR_UNSPEC_GROUP,
         INADDR_ALLHOSTS_GROUP, INADDR_MAX_LOCAL_GROUP, INADDR_NONE, IP_OPTIONS,
@@ -117,7 +117,8 @@ try:
         J1939_PGN_MAX, J1939_PGN_PDU1_MAX, J1939_PGN_REQUEST,
         SCM_J1939_DEST_ADDR, SCM_J1939_DEST_NAME, SCM_J1939_ERRQUEUE,
         SCM_J1939_PRIO, SO_J1939_ERRQUEUE, SO_J1939_FILTER, SO_J1939_PROMISC,
-        SO_J1939_SEND_PRIO, UDPLITE_RECV_CSCOV, UDPLITE_SEND_CSCOV
+        SO_J1939_SEND_PRIO, UDPLITE_RECV_CSCOV, UDPLITE_SEND_CSCOV, IP_RECVTOS,
+        TCP_KEEPALIVE, SO_INCOMING_CPU
     )
     # fmt: on
 except ImportError:
@@ -186,18 +187,6 @@ if sys.platform != "win32" or not _t.TYPE_CHECKING:
 
 # get names used by Trio that we define on our own
 from ._socket import IPPROTO_IPV6
-
-# Not defined in all python versions and platforms but sometimes needed
-if not _t.TYPE_CHECKING:
-    try:
-        TCP_NOTSENT_LOWAT
-    except NameError:
-        # Hopefully will show up in 3.7:
-        #   https://github.com/python/cpython/pull/477
-        if sys.platform == "darwin":
-            TCP_NOTSENT_LOWAT = 0x201
-        elif sys.platform == "linux":
-            TCP_NOTSENT_LOWAT = 25
 
 if _t.TYPE_CHECKING:
     IP_BIND_ADDRESS_NO_PORT: int

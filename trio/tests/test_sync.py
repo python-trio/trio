@@ -401,15 +401,14 @@ async def test_Condition():
                 assert c.locked()
 
 
-from .._sync import async_cm
+from .._sync import AsyncContextManagerMixin
 from .._channel import open_memory_channel
 
 # Three ways of implementing a Lock in terms of a channel. Used to let us put
 # the channel through the generic lock tests.
 
 
-@async_cm
-class ChannelLock1:
+class ChannelLock1(AsyncContextManagerMixin):
     def __init__(self, capacity):
         self.s, self.r = open_memory_channel(capacity)
         for _ in range(capacity - 1):
@@ -425,8 +424,7 @@ class ChannelLock1:
         self.r.receive_nowait()
 
 
-@async_cm
-class ChannelLock2:
+class ChannelLock2(AsyncContextManagerMixin):
     def __init__(self):
         self.s, self.r = open_memory_channel(10)
         self.s.send_nowait(None)
@@ -441,8 +439,7 @@ class ChannelLock2:
         self.s.send_nowait(None)
 
 
-@async_cm
-class ChannelLock3:
+class ChannelLock3(AsyncContextManagerMixin):
     def __init__(self):
         self.s, self.r = open_memory_channel(0)
         # self.acquired is true when one task acquires the lock and

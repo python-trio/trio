@@ -5,6 +5,85 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.21.0 (2022-06-07)
+----------------------------
+
+Features
+~~~~~~~~
+
+- Trio now supports Python 3.11. (`#2270
+  <https://github.com/python-trio/trio/issues/2270>`__, `#2318
+  <https://github.com/python-trio/trio/issues/2318>`__, `#2319
+  <https://github.com/python-trio/trio/issues/2319>`__)
+
+Deprecations and Removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Remove support for Python 3.6. (`#2210 <https://github.com/python-trio/trio/issues/2210>`__)
+
+
+Trio 0.20.0 (2022-02-21)
+------------------------
+
+Features
+~~~~~~~~
+
+- You can now conveniently spawn a child process in a background task
+  and interact it with on the fly using ``process = await
+  nursery.start(run_process, ...)``. See `run_process` for more details.
+  We recommend most users switch to this new API. Also note that:
+
+  - ``trio.open_process`` has been deprecated in favor of
+    `trio.lowlevel.open_process`,
+  - The ``aclose`` method on `Process` has been deprecated along with
+    ``async with process_obj``. (`#1104 <https://github.com/python-trio/trio/issues/1104>`__)
+- Now context variables set with `contextvars` are preserved when running functions
+  in a worker thread with `trio.to_thread.run_sync`, or when running
+  functions from the worker thread in the parent Trio thread with
+  `trio.from_thread.run`, and `trio.from_thread.run_sync`.
+  This is done by automatically copying the `contextvars` context.
+  `trio.lowlevel.spawn_system_task` now also receives an optional ``context`` argument. (`#2160 <https://github.com/python-trio/trio/issues/2160>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Trio now avoids creating cyclic garbage when a `MultiError` is generated and filtered,
+  including invisibly within the cancellation system.  This means errors raised
+  through nurseries and cancel scopes should result in less GC latency. (`#2063 <https://github.com/python-trio/trio/issues/2063>`__)
+- Trio now deterministically cleans up file descriptors that were opened before
+  subprocess creation fails. Previously, they would remain open until the next run of
+  the garbage collector. (`#2193 <https://github.com/python-trio/trio/issues/2193>`__)
+- Add compatibility with OpenSSL 3.0 on newer Python and PyPy versions by working
+  around ``SSLEOFError`` not being raised properly. (`#2203 <https://github.com/python-trio/trio/issues/2203>`__)
+- Fix a bug that could cause `Process.wait` to hang on Linux systems using pidfds, if
+  another task were to access `Process.returncode` after the process exited but before
+  ``wait`` woke up (`#2209 <https://github.com/python-trio/trio/issues/2209>`__)
+
+
+Trio 0.19.0 (2021-06-15)
+------------------------
+
+Features
+~~~~~~~~
+
+- Trio now supports Python 3.10. (`#1921 <https://github.com/python-trio/trio/issues/1921>`__)
+- Use slots for :class:`~.lowlevel.Task` which should make them slightly smaller and faster. (`#1927 <https://github.com/python-trio/trio/issues/1927>`__)
+- Make :class:`~.Event` more lightweight by using less objects (about 2 rather
+  than 5, including a nested ParkingLot and attribute dicts) and simpler
+  structures (set rather than OrderedDict).  This may benefit applications that
+  create a large number of event instances, such as with the "replace event
+  object on every set()" idiom. (`#1948 <https://github.com/python-trio/trio/issues/1948>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- The event loop now holds on to references of coroutine frames for only
+  the minimum necessary period of time. (`#1864 <https://github.com/python-trio/trio/issues/1864>`__)
+- The :class:`~.lowlevel.TrioToken` class can now be used as a target of a weak reference. (`#1924 <https://github.com/python-trio/trio/issues/1924>`__)
+
+
 Trio 0.18.0 (2021-01-11)
 ------------------------
 
@@ -190,7 +269,7 @@ Features
   worry: you can now pass a custom ``deliver_cancel=`` argument to
   define your own process killing policy. (`#1104 <https://github.com/python-trio/trio/issues/1104>`__)
 - It turns out that creating a subprocess can block the parent process
-  for a surprisingly long time. So `trio.open_process` now uses a worker
+  for a surprisingly long time. So ``trio.open_process`` now uses a worker
   thread to avoid blocking the event loop. (`#1109 <https://github.com/python-trio/trio/issues/1109>`__)
 - We've added FreeBSD to the list of platforms we support and test on. (`#1118 <https://github.com/python-trio/trio/issues/1118>`__)
 - On Linux kernels v5.3 or newer, `trio.Process.wait` now uses `the
@@ -244,7 +323,7 @@ Deprecations and Removals
   alternatives or make a case for why some particular class should be
   designed to support subclassing. (`#1044 <https://github.com/python-trio/trio/issues/1044>`__)
 - If you want to create a `trio.Process` object, you now have to call
-  `trio.open_process`; calling ``trio.Process()`` directly was
+  ``trio.open_process``; calling ``trio.Process()`` directly was
   deprecated in v0.12.0 and has now been removed. (`#1109 <https://github.com/python-trio/trio/issues/1109>`__)
 - Remove ``clear`` method on `trio.Event`: it was deprecated in 0.12.0. (`#1498 <https://github.com/python-trio/trio/issues/1498>`__)
 
@@ -472,7 +551,7 @@ Deprecations and Removals
   deprecated. (`#878 <https://github.com/python-trio/trio/issues/878>`__)
 - It turns out that it's better to treat subprocess spawning as an async
   operation. Therefore, direct construction of `Process` objects has
-  been deprecated. Use `trio.open_process` instead. (`#1109 <https://github.com/python-trio/trio/issues/1109>`__)
+  been deprecated. Use ``trio.open_process`` instead. (`#1109 <https://github.com/python-trio/trio/issues/1109>`__)
 
 
 Miscellaneous internal changes

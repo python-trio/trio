@@ -5,13 +5,6 @@ import warnings
 
 import attr
 
-# python traceback.TracebackException < 3.6.4 does not support unhashable exceptions
-# see https://github.com/python/cpython/pull/4014 for details
-if sys.version_info < (3, 6, 4):
-    exc_key = lambda exc: exc
-else:
-    exc_key = id
-
 ################################################################
 # MultiError
 ################################################################
@@ -153,6 +146,9 @@ class MultiErrorCatcher:
                 _, value, _ = sys.exc_info()
                 assert value is filtered_exc
                 value.__context__ = old_context
+                # delete references from locals to avoid creating cycles
+                # see test_MultiError_catch_doesnt_create_cyclic_garbage
+                del _, filtered_exc, value
 
 
 class MultiError(BaseException):
@@ -292,7 +288,6 @@ if have_tproxy:
 
         return tputil.make_proxy(controller, type(base_tb), base_tb)
 
-
 else:
     # ctypes it is
     import ctypes
@@ -343,7 +338,12 @@ else:
         c_new_tb.tb_lasti = base_tb.tb_lasti
         c_new_tb.tb_lineno = base_tb.tb_lineno
 
-        return new_tb
+        try:
+            return new_tb
+        finally:
+            # delete references from locals to avoid creating cycles
+            # see test_MultiError_catch_doesnt_create_cyclic_garbage
+            del new_tb, old_tb_frame
 
 
 def concat_tb(head, tail):
@@ -381,10 +381,12 @@ def traceback_exception_init(
     limit=None,
     lookup_lines=True,
     capture_locals=False,
+    compact=False,
     _seen=None,
+    **kwargs,
 ):
-    if _seen is None:
-        _seen = set()
+    if sys.version_info >= (3, 10):
+        kwargs["compact"] = compact
 
     # Capture the original exception and its cause and context as TracebackExceptions
     traceback_exception_original_init(
@@ -396,13 +398,19 @@ def traceback_exception_init(
         lookup_lines=lookup_lines,
         capture_locals=capture_locals,
         _seen=_seen,
+        **kwargs,
     )
+
+    seen_was_none = _seen is None
+
+    if _seen is None:
+        _seen = set()
 
     # Capture each of the exceptions in the MultiError along with each of their causes and contexts
     if isinstance(exc_value, MultiError):
         embedded = []
         for exc in exc_value.exceptions:
-            if exc_key(exc) not in _seen:
+            if id(exc) not in _seen:
                 embedded.append(
                     traceback.TracebackException.from_exception(
                         exc,
@@ -411,7 +419,8 @@ def traceback_exception_init(
                         capture_locals=capture_locals,
                         # copy the set of _seen exceptions so that duplicates
                         # shared between sub-exceptions are not omitted
-                        _seen=set(_seen),
+                        _seen=None if seen_was_none else set(_seen),
+                        **kwargs,
                     )
                 )
         self.embedded = embedded

@@ -70,7 +70,7 @@ from ._file_io import open_file, wrap_file
 
 from ._path import Path
 
-from ._subprocess import Process, open_process, run_process
+from ._subprocess import Process, run_process
 
 from ._ssl import SSLStream, SSLListener, NeedHandshakeError
 
@@ -105,6 +105,15 @@ if False:
 from . import _deprecate
 
 _deprecate.enable_attribute_deprecations(__name__)
+
+__deprecated_attributes__ = {
+    "open_process": _deprecate.DeprecatedAttribute(
+        value=lowlevel.open_process,
+        version="0.20.0",
+        issue=1104,
+        instead="trio.lowlevel.open_process",
+    ),
+}
 
 # Having the public path in .__module__ attributes is important for:
 # - exception names in printed tracebacks

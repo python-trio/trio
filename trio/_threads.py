@@ -1,12 +1,15 @@
 # coding: utf-8
 
+import contextvars
 import threading
 import queue as stdlib_queue
+import functools
 from itertools import count
 
 import attr
 import inspect
 import outcome
+from sniffio import current_async_library_cvar
 
 import trio
 
@@ -135,6 +138,7 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
 
     """
     await trio.lowlevel.checkpoint_if_cancelled()
+    cancellable = bool(cancellable)  # raise early if cancellable.__bool__ raises
     if limiter is None:
         limiter = current_default_thread_limiter()
 
@@ -165,6 +169,7 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
     current_trio_token = trio.lowlevel.current_trio_token()
 
     def worker_fn():
+        current_async_library_cvar.set(None)
         TOKEN_LOCAL.token = current_trio_token
         try:
             ret = sync_fn(*args)
@@ -181,6 +186,9 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
         finally:
             del TOKEN_LOCAL.token
 
+    context = contextvars.copy_context()
+    contextvars_aware_worker_fn = functools.partial(context.run, worker_fn)
+
     def deliver_worker_fn_result(result):
         try:
             current_trio_token.run_sync_soon(report_back_in_trio_thread_fn, result)
@@ -192,7 +200,7 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
 
     await limiter.acquire_on_behalf_of(placeholder)
     try:
-        start_thread_soon(worker_fn, deliver_worker_fn_result)
+        start_thread_soon(contextvars_aware_worker_fn, deliver_worker_fn_result)
     except:
         limiter.release_on_behalf_of(placeholder)
         raise
@@ -207,7 +215,7 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
     return await trio.lowlevel.wait_task_rescheduled(abort)
 
 
-def _run_fn_as_system_task(cb, fn, *args, trio_token=None):
+def _run_fn_as_system_task(cb, fn, *args, context, trio_token=None):
     """Helper function for from_thread.run and from_thread.run_sync.
 
     Since this internally uses TrioToken.run_sync_soon, all warnings about
@@ -233,8 +241,8 @@ def _run_fn_as_system_task(cb, fn, *args, trio_token=None):
     else:
         raise RuntimeError("this is a blocking function; call it from a thread")
 
-    q = stdlib_queue.Queue()
-    trio_token.run_sync_soon(cb, q, fn, args)
+    q = stdlib_queue.SimpleQueue()
+    trio_token.run_sync_soon(context.run, cb, q, fn, args)
     return q.get().unwrap()
 
 
@@ -282,14 +290,25 @@ def from_thread_run(afn, *args, trio_token=None):
         async def await_in_trio_thread_task():
             q.put_nowait(await outcome.acapture(unprotected_afn))
 
+        context = contextvars.copy_context()
         try:
-            trio.lowlevel.spawn_system_task(await_in_trio_thread_task, name=afn)
+            trio.lowlevel.spawn_system_task(
+                await_in_trio_thread_task, name=afn, context=context
+            )
         except RuntimeError:  # system nursery is closed
             q.put_nowait(
                 outcome.Error(trio.RunFinishedError("system nursery is closed"))
             )
 
-    return _run_fn_as_system_task(callback, afn, *args, trio_token=trio_token)
+    context = contextvars.copy_context()
+    context.run(current_async_library_cvar.set, "trio")
+    return _run_fn_as_system_task(
+        callback,
+        afn,
+        *args,
+        context=context,
+        trio_token=trio_token,
+    )
 
 
 def from_thread_run_sync(fn, *args, trio_token=None):
@@ -324,6 +343,8 @@ def from_thread_run_sync(fn, *args, trio_token=None):
     """
 
     def callback(q, fn, args):
+        current_async_library_cvar.set("trio")
+
         @disable_ki_protection
         def unprotected_fn():
             ret = fn(*args)
@@ -341,4 +362,12 @@ def from_thread_run_sync(fn, *args, trio_token=None):
         res = outcome.capture(unprotected_fn)
         q.put_nowait(res)
 
-    return _run_fn_as_system_task(callback, fn, *args, trio_token=trio_token)
+    context = contextvars.copy_context()
+
+    return _run_fn_as_system_task(
+        callback,
+        fn,
+        *args,
+        context=context,
+        trio_token=trio_token,
+    )

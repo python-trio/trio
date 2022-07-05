@@ -70,14 +70,11 @@
 #
 # See: https://github.com/python-trio/trio/issues/53
 
-from itertools import count
 import attr
 from collections import OrderedDict
 
 from .. import _core
 from .._util import Final
-
-_counter = count()
 
 
 @attr.s(frozen=True, slots=True)

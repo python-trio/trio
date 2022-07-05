@@ -3,12 +3,14 @@
 import os
 import subprocess
 import sys
+from contextlib import ExitStack
 from typing import Optional
 from functools import partial
 import warnings
 from typing import TYPE_CHECKING
 
 from ._abc import AsyncResource, SendStream, ReceiveStream
+from ._core import ClosedResourceError
 from ._highlevel_generic import StapledStream
 from ._sync import Lock
 from ._subprocess_platform import (
@@ -16,6 +18,7 @@ from ._subprocess_platform import (
     create_pipe_to_child_stdin,
     create_pipe_from_child_output,
 )
+from ._deprecate import deprecated
 from ._util import NoPublicConstructor
 import trio
 
@@ -27,6 +30,7 @@ if TYPE_CHECKING:
     def pidfd_open(fd: int, flags: int) -> int:
         ...
 
+    from ._subprocess_platform import ClosableReceiveStream, ClosableSendStream
 
 else:
     can_try_pidfd_open = True
@@ -66,22 +70,20 @@ else:
 class Process(AsyncResource, metaclass=NoPublicConstructor):
     r"""A child process. Like :class:`subprocess.Popen`, but async.
 
-    This class has no public constructor. To create a child process, use
-    `open_process`::
+    This class has no public constructor. The most common way to get a
+    `Process` object is to combine `Nursery.start` with `run_process`::
 
-       process = await trio.open_process(...)
+       process_object = await nursery.start(run_process, ...)
 
-    `Process` implements the `~trio.abc.AsyncResource` interface. In order to
-    make sure your process doesn't end up getting abandoned by mistake or
-    after an exception, you can use ``async with``::
+    This way, `run_process` supervises the process and makes sure that it is
+    cleaned up properly, while optionally checking the return value, feeding
+    it input, and so on.
 
-       async with await trio.open_process(...) as process:
-           ...
+    If you need more control – for example, because you want to spawn a child
+    process that outlives your program – then another option is to use
+    `trio.lowlevel.open_process`::
 
-    "Closing" a :class:`Process` will close any pipes to the child and wait
-    for it to exit; if cancelled, the child will be forcibly killed and we
-    will ensure it has finished exiting before allowing the cancellation to
-    propagate.
+       process_object = await trio.lowlevel.open_process(...)
 
     Attributes:
       args (str or list): The ``command`` passed at construction time,
@@ -180,6 +182,18 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
             self._close_pidfd()
         return result
 
+    @deprecated(
+        "0.20.0",
+        thing="using trio.Process as an async context manager",
+        issue=1104,
+        instead="run_process or nursery.start(run_process, ...)",
+    )
+    async def __aenter__(self):
+        return self
+
+    @deprecated(
+        "0.20.0", issue=1104, instead="run_process or nursery.start(run_process, ...)"
+    )
     async def aclose(self):
         """Close any pipes we have to the process (both input and output)
         and wait for it to exit.
@@ -204,6 +218,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
 
     def _close_pidfd(self):
         if self._pidfd is not None:
+            trio.lowlevel.notify_closing(self._pidfd.fileno())
             self._pidfd.close()
             self._pidfd = None
 
@@ -216,7 +231,12 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         async with self._wait_lock:
             if self.poll() is None:
                 if self._pidfd is not None:
-                    await trio.lowlevel.wait_readable(self._pidfd)
+                    try:
+                        await trio.lowlevel.wait_readable(self._pidfd)
+                    except ClosedResourceError:
+                        # something else (probably a call to poll) already closed the
+                        # pidfd
+                        pass
                 else:
                     await wait_child_exiting(self)
                 # We have to use .wait() here, not .poll(), because on macOS
@@ -281,17 +301,20 @@ async def open_process(
 ) -> Process:
     r"""Execute a child program in a new process.
 
-    After construction, you can interact with the child process by writing
-    data to its `~Process.stdin` stream (a `~trio.abc.SendStream`), reading
-    data from its `~Process.stdout` and/or `~Process.stderr` streams (both
-    `~trio.abc.ReceiveStream`\s), sending it signals using
-    `~Process.terminate`, `~Process.kill`, or `~Process.send_signal`, and
-    waiting for it to exit using `~Process.wait`. See `Process` for details.
+    After construction, you can interact with the child process by writing data to its
+    `~trio.Process.stdin` stream (a `~trio.abc.SendStream`), reading data from its
+    `~trio.Process.stdout` and/or `~trio.Process.stderr` streams (both
+    `~trio.abc.ReceiveStream`\s), sending it signals using `~trio.Process.terminate`,
+    `~trio.Process.kill`, or `~trio.Process.send_signal`, and waiting for it to exit
+    using `~trio.Process.wait`. See `trio.Process` for details.
 
-    Each standard stream is only available if you specify that a pipe should
-    be created for it. For example, if you pass ``stdin=subprocess.PIPE``, you
-    can write to the `~Process.stdin` stream, else `~Process.stdin` will be
-    ``None``.
+    Each standard stream is only available if you specify that a pipe should be created
+    for it. For example, if you pass ``stdin=subprocess.PIPE``, you can write to the
+    `~trio.Process.stdin` stream, else `~trio.Process.stdin` will be ``None``.
+
+    Unlike `trio.run_process`, this function doesn't do any kind of automatic
+    management of the child process. It's up to you to implement whatever semantics you
+    want.
 
     Args:
       command (list or str): The command to run. Typically this is a
@@ -319,7 +342,7 @@ async def open_process(
           are also accepted.
 
     Returns:
-      A new `Process` object.
+      A new `trio.Process` object.
 
     Raises:
       OSError: if the process spawning fails, for example because the
@@ -345,28 +368,38 @@ async def open_process(
                 "on UNIX systems"
             )
 
-    trio_stdin = None  # type: Optional[SendStream]
-    trio_stdout = None  # type: Optional[ReceiveStream]
-    trio_stderr = None  # type: Optional[ReceiveStream]
+    trio_stdin = None  # type: Optional[ClosableSendStream]
+    trio_stdout = None  # type: Optional[ClosableReceiveStream]
+    trio_stderr = None  # type: Optional[ClosableReceiveStream]
+    # Close the parent's handle for each child side of a pipe; we want the child to
+    # have the only copy, so that when it exits we can read EOF on our side. The
+    # trio ends of pipes will be transferred to the Process object, which will be
+    # responsible for their lifetime. If process spawning fails, though, we still
+    # want to close them before letting the failure bubble out
+    with ExitStack() as always_cleanup, ExitStack() as cleanup_on_fail:
+        if stdin == subprocess.PIPE:
+            trio_stdin, stdin = create_pipe_to_child_stdin()
+            always_cleanup.callback(os.close, stdin)
+            cleanup_on_fail.callback(trio_stdin.close)
+        if stdout == subprocess.PIPE:
+            trio_stdout, stdout = create_pipe_from_child_output()
+            always_cleanup.callback(os.close, stdout)
+            cleanup_on_fail.callback(trio_stdout.close)
+        if stderr == subprocess.STDOUT:
+            # If we created a pipe for stdout, pass the same pipe for
+            # stderr.  If stdout was some non-pipe thing (DEVNULL or a
+            # given FD), pass the same thing. If stdout was passed as
+            # None, keep stderr as STDOUT to allow subprocess to dup
+            # our stdout. Regardless of which of these is applicable,
+            # don't create a new Trio stream for stderr -- if stdout
+            # is piped, stderr will be intermixed on the stdout stream.
+            if stdout is not None:
+                stderr = stdout
+        elif stderr == subprocess.PIPE:
+            trio_stderr, stderr = create_pipe_from_child_output()
+            always_cleanup.callback(os.close, stderr)
+            cleanup_on_fail.callback(trio_stderr.close)
 
-    if stdin == subprocess.PIPE:
-        trio_stdin, stdin = create_pipe_to_child_stdin()
-    if stdout == subprocess.PIPE:
-        trio_stdout, stdout = create_pipe_from_child_output()
-    if stderr == subprocess.STDOUT:
-        # If we created a pipe for stdout, pass the same pipe for
-        # stderr.  If stdout was some non-pipe thing (DEVNULL or a
-        # given FD), pass the same thing. If stdout was passed as
-        # None, keep stderr as STDOUT to allow subprocess to dup
-        # our stdout. Regardless of which of these is applicable,
-        # don't create a new Trio stream for stderr -- if stdout
-        # is piped, stderr will be intermixed on the stdout stream.
-        if stdout is not None:
-            stderr = stdout
-    elif stderr == subprocess.PIPE:
-        trio_stderr, stderr = create_pipe_from_child_output()
-
-    try:
         popen = await trio.to_thread.run_sync(
             partial(
                 subprocess.Popen,
@@ -377,16 +410,8 @@ async def open_process(
                 **options,
             )
         )
-    finally:
-        # Close the parent's handle for each child side of a pipe;
-        # we want the child to have the only copy, so that when
-        # it exits we can read EOF on our side.
-        if trio_stdin is not None:
-            os.close(stdin)
-        if trio_stdout is not None:
-            os.close(stdout)
-        if trio_stderr is not None:
-            os.close(stderr)
+        # We did not fail, so dismiss the stack for the trio ends
+        cleanup_on_fail.pop_all()
 
     return Process._create(popen, trio_stdin, trio_stdout, trio_stderr)
 
@@ -424,35 +449,55 @@ async def run_process(
     capture_stderr=False,
     check=True,
     deliver_cancel=None,
+    task_status=trio.TASK_STATUS_IGNORED,
     **options,
 ):
-    """Run ``command`` in a subprocess, wait for it to complete, and
-    return a :class:`subprocess.CompletedProcess` instance describing
-    the results.
+    """Run ``command`` in a subprocess and wait for it to complete.
 
-    If cancelled, :func:`run_process` terminates the subprocess and
-    waits for it to exit before propagating the cancellation, like
-    :meth:`Process.aclose`.
+    This function can be called in two different ways.
 
-    **Input:** The subprocess's standard input stream is set up to
-    receive the bytes provided as ``stdin``.  Once the given input has
-    been fully delivered, or if none is provided, the subprocess will
-    receive end-of-file when reading from its standard input.
-    Alternatively, if you want the subprocess to read its
-    standard input from the same place as the parent Trio process, you
-    can pass ``stdin=None``.
+    One option is a direct call, like::
+
+        completed_process_info = await trio.run_process(...)
+
+    In this case, it returns a :class:`subprocess.CompletedProcess` instance
+    describing the results. Use this if you want to treat a process like a
+    function call.
+
+    The other option is to run it as a task using `Nursery.start` – the enhanced version
+    of `~Nursery.start_soon` that lets a task pass back a value during startup::
+
+        process = await nursery.start(trio.run_process, ...)
+
+    In this case, `~Nursery.start` returns a `Process` object that you can use
+    to interact with the process while it's running. Use this if you want to
+    treat a process like a background task.
+
+    Either way, `run_process` makes sure that the process has exited before
+    returning, handles cancellation, optionally checks for errors, and
+    provides some convenient shorthands for dealing with the child's
+    input/output.
+
+    **Input:** `run_process` supports all the same ``stdin=`` arguments as
+    `subprocess.Popen`. In addition, if you simply want to pass in some fixed
+    data, you can pass a plain `bytes` object, and `run_process` will take
+    care of setting up a pipe, feeding in the data you gave, and then sending
+    end-of-file. The default is ``b""``, which means that the child will receive
+    an empty stdin. If you want the child to instead read from the parent's
+    stdin, use ``stdin=None``.
 
     **Output:** By default, any output produced by the subprocess is
     passed through to the standard output and error streams of the
-    parent Trio process. If you would like to capture this output and
-    do something with it, you can pass ``capture_stdout=True`` to
-    capture the subprocess's standard output, and/or
-    ``capture_stderr=True`` to capture its standard error.  Captured
-    data is provided as the
+    parent Trio process.
+
+    When calling `run_process` directly, you can capture the subprocess's output by
+    passing ``capture_stdout=True`` to capture the subprocess's standard output, and/or
+    ``capture_stderr=True`` to capture its standard error. Captured data is collected up
+    by Trio into an in-memory buffer, and then provided as the
     :attr:`~subprocess.CompletedProcess.stdout` and/or
-    :attr:`~subprocess.CompletedProcess.stderr` attributes of the
-    returned :class:`~subprocess.CompletedProcess` object.  The value
-    for any stream that was not captured will be ``None``.
+    :attr:`~subprocess.CompletedProcess.stderr` attributes of the returned
+    :class:`~subprocess.CompletedProcess` object. The value for any stream that was not
+    captured will be ``None``.
 
     If you want to capture both stdout and stderr while keeping them
     separate, pass ``capture_stdout=True, capture_stderr=True``.
@@ -463,6 +508,13 @@ async def run_process(
     output will be available in the `~subprocess.CompletedProcess.stdout`
     attribute.
 
+    If you're using ``await nursery.start(trio.run_process, ...)`` and want to capture
+    the subprocess's output for further processing, then use ``stdout=subprocess.PIPE``
+    and then make sure to read the data out of the `Process.stdout` stream. If you want
+    to capture stderr separately, use ``stderr=subprocess.PIPE``. If you want to capture
+    both, but mixed together in the correct order, use ``stdout=subprocess.PIPE,
+    stderr=subprocess.STDOUT``.
+
     **Error checking:** If the subprocess exits with a nonzero status
     code, indicating failure, :func:`run_process` raises a
     :exc:`subprocess.CalledProcessError` exception rather than
@@ -470,8 +522,28 @@ async def run_process(
     the :attr:`~subprocess.CalledProcessError.stdout` and
     :attr:`~subprocess.CalledProcessError.stderr` attributes of that
     exception.  To disable this behavior, so that :func:`run_process`
-    returns normally even if the subprocess exits abnormally, pass
-    ``check=False``.
+    returns normally even if the subprocess exits abnormally, pass ``check=False``.
+
+    Note that this can make the ``capture_stdout`` and ``capture_stderr``
+    arguments useful even when starting `run_process` as a task: if you only
+    care about the output if the process fails, then you can enable capturing
+    and then read the output off of the `~subprocess.CalledProcessError`.
+
+    **Cancellation:** If cancelled, `run_process` sends a termination
+    request to the subprocess, then waits for it to fully exit. The
+    ``deliver_cancel`` argument lets you control how the process is terminated.
+
+    .. note:: `run_process` is intentionally similar to the standard library
+       `subprocess.run`, but some of the defaults are different. Specifically, we
+       default to:
+
+       - ``check=True``, because `"errors should never pass silently / unless
+         explicitly silenced" <https://www.python.org/dev/peps/pep-0020/>`__.
+
+       - ``stdin=b""``, because it produces less-confusing results if a subprocess
+         unexpectedly tries to read from stdin.
+
+       To get the `subprocess.run` semantics, use ``check=False, stdin=None``.
 
     Args:
       command (list or str): The command to run. Typically this is a
@@ -482,24 +554,27 @@ async def run_process(
           be a string, which will be parsed following platform-dependent
           :ref:`quoting rules <subprocess-quoting>`.
 
-      stdin (:obj:`bytes`, file descriptor, or None): The bytes to provide to
-          the subprocess on its standard input stream, or ``None`` if the
-          subprocess's standard input should come from the same place as
-          the parent Trio process's standard input. As is the case with
-          the :mod:`subprocess` module, you can also pass a
-          file descriptor or an object with a ``fileno()`` method,
-          in which case the subprocess's standard input will come from
-          that file.
+      stdin (:obj:`bytes`, subprocess.PIPE, file descriptor, or None): The
+          bytes to provide to the subprocess on its standard input stream, or
+          ``None`` if the subprocess's standard input should come from the
+          same place as the parent Trio process's standard input. As is the
+          case with the :mod:`subprocess` module, you can also pass a file
+          descriptor or an object with a ``fileno()`` method, in which case
+          the subprocess's standard input will come from that file.
+
+          When starting `run_process` as a background task, you can also use
+          ``stdin=subprocess.PIPE``, in which case `Process.stdin` will be a
+          `~trio.abc.SendStream` that you can use to send data to the child.
 
       capture_stdout (bool): If true, capture the bytes that the subprocess
           writes to its standard output stream and return them in the
-          :attr:`~subprocess.CompletedProcess.stdout` attribute
-          of the returned :class:`~subprocess.CompletedProcess` object.
+          `~subprocess.CompletedProcess.stdout` attribute of the returned
+          `subprocess.CompletedProcess` or `subprocess.CalledProcessError`.
 
       capture_stderr (bool): If true, capture the bytes that the subprocess
           writes to its standard error stream and return them in the
-          :attr:`~subprocess.CompletedProcess.stderr` attribute
-          of the returned :class:`~subprocess.CompletedProcess` object.
+          `~subprocess.CompletedProcess.stderr` attribute of the returned
+          `~subprocess.CompletedProcess` or `subprocess.CalledProcessError`.
 
       check (bool): If false, don't validate that the subprocess exits
           successfully. You should be sure to check the
@@ -544,8 +619,11 @@ async def run_process(
           ``stdout=subprocess.DEVNULL``, or file descriptors.
 
     Returns:
-      A :class:`subprocess.CompletedProcess` instance describing the
-      return code and outputs.
+
+      When called normally – a `subprocess.CompletedProcess` instance
+      describing the return code and outputs.
+
+      When called via `Nursery.start` – a `trio.Process` instance.
 
     Raises:
       UnicodeError: if ``stdin`` is specified as a Unicode string, rather
@@ -568,12 +646,23 @@ async def run_process(
 
     if isinstance(stdin, str):
         raise UnicodeError("process stdin must be bytes, not str")
-    if stdin == subprocess.PIPE:
-        raise ValueError(
-            "stdin=subprocess.PIPE doesn't make sense since the pipe "
-            "is internal to run_process(); pass the actual data you "
-            "want to send over that pipe instead"
-        )
+    if task_status is trio.TASK_STATUS_IGNORED:
+        if stdin is subprocess.PIPE:
+            raise ValueError(
+                "stdout=subprocess.PIPE is only valid with nursery.start, "
+                "since that's the only way to access the pipe; use nursery.start "
+                "or pass the data you want to write directly"
+            )
+        if options.get("stdout") is subprocess.PIPE:
+            raise ValueError(
+                "stdout=subprocess.PIPE is only valid with nursery.start, "
+                "since that's the only way to access the pipe"
+            )
+        if options.get("stderr") is subprocess.PIPE:
+            raise ValueError(
+                "stderr=subprocess.PIPE is only valid with nursery.start, "
+                "since that's the only way to access the pipe"
+            )
     if isinstance(stdin, (bytes, bytearray, memoryview)):
         input = stdin
         options["stdin"] = subprocess.PIPE
@@ -603,44 +692,49 @@ async def run_process(
     stdout_chunks = []
     stderr_chunks = []
 
-    async with await open_process(command, **options) as proc:
-
-        async def feed_input():
-            async with proc.stdin:
-                try:
-                    await proc.stdin.send_all(input)
-                except trio.BrokenResourceError:
-                    pass
-
-        async def read_output(stream, chunks):
-            async with stream:
-                async for chunk in stream:
-                    chunks.append(chunk)
-
-        async with trio.open_nursery() as nursery:
-            if proc.stdin is not None:
-                nursery.start_soon(feed_input)
-            if proc.stdout is not None:
-                nursery.start_soon(read_output, proc.stdout, stdout_chunks)
-            if proc.stderr is not None:
-                nursery.start_soon(read_output, proc.stderr, stderr_chunks)
+    async def feed_input(stream):
+        async with stream:
             try:
+                await stream.send_all(input)
+            except trio.BrokenResourceError:
+                pass
+
+    async def read_output(stream, chunks):
+        async with stream:
+            async for chunk in stream:
+                chunks.append(chunk)
+
+    async with trio.open_nursery() as nursery:
+        proc = await open_process(command, **options)
+        try:
+            if input is not None:
+                nursery.start_soon(feed_input, proc.stdin)
+                proc.stdin = None
+                proc.stdio = None
+            if capture_stdout:
+                nursery.start_soon(read_output, proc.stdout, stdout_chunks)
+                proc.stdout = None
+                proc.stdio = None
+            if capture_stderr:
+                nursery.start_soon(read_output, proc.stderr, stderr_chunks)
+                proc.stderr = None
+            task_status.started(proc)
+            await proc.wait()
+        except BaseException:
+            with trio.CancelScope(shield=True):
+                killer_cscope = trio.CancelScope(shield=True)
+
+                async def killer():
+                    with killer_cscope:
+                        await deliver_cancel(proc)
+
+                nursery.start_soon(killer)
                 await proc.wait()
-            except trio.Cancelled:
-                with trio.CancelScope(shield=True):
-                    killer_cscope = trio.CancelScope(shield=True)
+                killer_cscope.cancel()
+                raise
 
-                    async def killer():
-                        with killer_cscope:
-                            await deliver_cancel(proc)
-
-                    nursery.start_soon(killer)
-                    await proc.wait()
-                    killer_cscope.cancel()
-                    raise
-
-    stdout = b"".join(stdout_chunks) if proc.stdout is not None else None
-    stderr = b"".join(stderr_chunks) if proc.stderr is not None else None
+    stdout = b"".join(stdout_chunks) if capture_stdout else None
+    stderr = b"".join(stderr_chunks) if capture_stderr else None
 
     if proc.returncode and check:
         raise subprocess.CalledProcessError(

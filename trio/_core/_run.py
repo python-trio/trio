@@ -1,18 +1,12 @@
-# coding: utf-8
-
 import functools
 import itertools
-import logging
-import os
 import random
 import select
 import sys
 import threading
 from collections import deque
-import collections.abc
 from contextlib import contextmanager
 import warnings
-import weakref
 import enum
 
 from contextvars import copy_context
@@ -47,7 +41,6 @@ from ._asyncgens import AsyncGenerators
 from ._thread_cache import start_thread_soon
 from ._instrumentation import Instruments
 from .. import _core
-from .._deprecate import warn_deprecated
 from .._util import Final, NoPublicConstructor, coroutine_or_error
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD = 1000
@@ -70,13 +63,8 @@ _ALLOW_DETERMINISTIC_SCHEDULING = False
 _r = random.Random()
 
 
-# On 3.7+, Context.run() is implemented in C and doesn't show up in
-# tracebacks. On 3.6, we use the contextvars backport, which is
-# currently implemented in Python and adds 1 frame to tracebacks. So this
-# function is a super-overkill version of "0 if sys.version_info >= (3, 7)
-# else 1". But if Context.run ever changes, we'll be ready!
-#
-# This can all be removed once we drop support for 3.6.
+# On CPython, Context.run() is implemented in C and doesn't show up in
+# tracebacks. On PyPy, it is implemented in Python and adds 1 frame to tracebacks.
 def _count_context_run_tb_frames():
     def function_with_unique_name_xyzzy():
         1 / 0
@@ -528,11 +516,14 @@ class CancelScope(metaclass=Final):
             self._cancel_status = None
         return exc
 
-    @enable_ki_protection
     def __exit__(self, etype, exc, tb):
         # NB: NurseryManager calls _close() directly rather than __exit__(),
         # so __exit__() must be just _close() plus this logic for adapting
         # the exception-filtering result to the context manager API.
+
+        # This inlines the enable_ki_protection decorator so we can fix
+        # f_locals *locally* below to avoid reference cycles
+        locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
 
         # Tracebacks show the 'raise' line below out of context, so let's give
         # this variable a name that makes sense out of context.
@@ -551,6 +542,13 @@ class CancelScope(metaclass=Final):
                 _, value, _ = sys.exc_info()
                 assert value is remaining_error_after_cancel_scope
                 value.__context__ = old_context
+                # delete references from locals to avoid creating cycles
+                # see test_cancel_scope_exit_doesnt_create_cyclic_garbage
+                del remaining_error_after_cancel_scope, value, _, exc
+                # deep magic to remove refs via f_locals
+                locals()
+                # TODO: check if PEP558 changes the need for this call
+                # https://github.com/python/cpython/pull/3640
 
     def __repr__(self):
         if self._cancel_status is not None:
@@ -817,6 +815,9 @@ class NurseryManager:
                 _, value, _ = sys.exc_info()
                 assert value is combined_error_from_nursery
                 value.__context__ = old_context
+                # delete references from locals to avoid creating cycles
+                # see test_simple_cancel_scope_usage_doesnt_create_cyclic_garbage
+                del _, combined_error_from_nursery, value, new_exc
 
     def __enter__(self):
         raise RuntimeError(
@@ -1416,7 +1417,9 @@ class Runner:
         if "task_scheduled" in self.instruments:
             self.instruments.call("task_scheduled", task)
 
-    def spawn_impl(self, async_fn, args, nursery, name, *, system_task=False):
+    def spawn_impl(
+        self, async_fn, args, nursery, name, *, system_task=False, context=None
+    ):
 
         ######
         # Make sure the nursery is in working order
@@ -1446,10 +1449,11 @@ class Runner:
             except AttributeError:
                 name = repr(name)
 
-        if system_task:
-            context = self.system_context.copy()
-        else:
-            context = copy_context()
+        if context is None:
+            if system_task:
+                context = self.system_context.copy()
+            else:
+                context = copy_context()
 
         if not hasattr(coro, "cr_frame"):
             # This async function is implemented in C or Cython
@@ -1527,7 +1531,7 @@ class Runner:
     ################
 
     @_public
-    def spawn_system_task(self, async_fn, *args, name=None):
+    def spawn_system_task(self, async_fn, *args, name=None, context=None):
         """Spawn a "system" task.
 
         System tasks have a few differences from regular tasks:
@@ -1570,13 +1574,23 @@ class Runner:
               case is if you're wrapping a function before spawning a new
               task, you might pass the original function as the ``name=`` to
               make debugging easier.
+          context: An optional ``contextvars.Context`` object with context variables
+              to use for this task. You would normally get a copy of the current
+              context with ``context = contextvars.copy_context()`` and then you would
+              pass that ``context`` object here.
 
         Returns:
           Task: the newly spawned task
 
         """
+        current_async_library_cvar.set("trio")
         return self.spawn_impl(
-            async_fn, args, self.system_nursery, name, system_task=True
+            async_fn,
+            args,
+            self.system_nursery,
+            name,
+            system_task=True,
+            context=context,
         )
 
     async def init(self, async_fn, args):
@@ -2159,7 +2173,7 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
                 try:
                     # We used to unwrap the Outcome object here and send/throw
                     # its contents in directly, but it turns out that .throw()
-                    # is buggy, at least on CPython 3.6:
+                    # is buggy, at least before CPython 3.9:
                     #   https://bugs.python.org/issue29587
                     #   https://bugs.python.org/issue29590
                     # So now we send in the Outcome object and unwrap it on the
@@ -2345,7 +2359,7 @@ async def checkpoint_if_cancelled():
 
     Equivalent to (but potentially more efficient than)::
 
-        if trio.current_deadline() == -inf:
+        if trio.current_effective_deadline() == -inf:
             await trio.lowlevel.checkpoint()
 
     This is either a no-op, or else it allow other tasks to be scheduled and

@@ -36,6 +36,7 @@ Web and HTML
 * `pyscalpel <https://scalpel.readthedocs.io/en/latest/>`__ - A fast and powerful webscraping library.
 * `muffin <https://github.com/klen/muffin>`_ - Muffin is a fast, simple ASGI web-framework
 * `asgi-tools <https://github.com/klen/asgi-tools>`_ - Tools to quickly build lightest ASGI apps (also contains a test client with lifespan, websocket support)
+* `starlette <https://github.com/encode/starlette>`_ - The little ASGI framework that shines.
 
 
 Database
@@ -47,6 +48,8 @@ Database
 * `redio <https://github.com/Tronic/redio>`__ - Redis client, pure Python and Trio.
 * `trio_redis <https://github.com/omnidots/trio_redis>`__ - A Redis client for Trio. Depends on hiredis-py.
 * `asyncakumuli <https://github.com/M-o-a-T/asyncakumuli>`__ - Client for the `Akumuli <https://akumuli.org/>`__ time series database.
+* `aio-databases <https://github.com/klen/aio-databases>`_ - Async Support for various databases (triopg, trio-mysql)
+* `peewee-aio <https://github.com/klen/peewee-aio>`_ - Peewee Async ORM with trio support (triopg, trio-mysql).
 
 
 IOT
@@ -75,10 +78,14 @@ Multi-Core/Multiprocessing
 * `trio-parallel <https://trio-parallel.readthedocs.io/>`__ - CPU parallelism for Trio
 
 
+Stream Processing
+-----------------
+* `Slurry <https://github.com/andersea/slurry>`__ - Slurry is a microframework for building reactive, data processing applications with Trio.
+
+
 RPC
 ---
-* `purepc <https://github.com/standy66/purerpc>`__ - Asynchronous pure Python gRPC client and server implementation using anyio.
-* `trio-jsonrpc <https://github.com/HyperionGray/trio-jsonrpc>`__ - JSON-RPC v2.0 for Trio.
+* `purepc <https://github.com/python-trio/purerpc>`__ - Native, async Python gRPC client and server implementation using anyio.
 
 
 Testing
@@ -96,7 +103,8 @@ Tools and Utilities
 * `tricycle <https://github.com/oremanj/tricycle>`__ - This is a library of interesting-but-maybe-not-yet-fully-proven extensions to Trio.
 * `tenacity <https://github.com/jd/tenacity>`__ - Retrying library for Python with async/await support.
 * `perf-timer <https://github.com/belm0/perf-timer>`__ - A code timer with Trio async support (see ``TrioPerfTimer``).  Collects execution time of a block of code excluding time when the coroutine isn't scheduled, such as during blocking I/O and sleep.  Also offers ``trio_perf_counter()`` for low-level timing.
-
+* `aiometer <https://github.com/florimondmanca/aiometer>`__ - Execute lots of tasks concurrently while controlling concurrency limits
+* `triotp <https://linkdd.github.io/triotp>`__ - OTP framework for Python Trio
 
 Trio/Asyncio Interoperability
 -----------------------------

@@ -408,8 +408,8 @@ async def check_two_way_stream(stream_maker, clogged_stream_maker):
         assert isinstance(s2, Stream)
 
         # Duplex can be a bit tricky, might as well check it as well
-        DUPLEX_TEST_SIZE = 2 ** 20
-        CHUNK_SIZE_MAX = 2 ** 14
+        DUPLEX_TEST_SIZE = 2**20
+        CHUNK_SIZE_MAX = 2**14
 
         r = random.Random(0)
         i = r.getrandbits(8 * DUPLEX_TEST_SIZE)

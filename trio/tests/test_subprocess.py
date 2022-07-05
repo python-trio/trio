@@ -1,24 +1,28 @@
 import os
+import random
 import signal
 import subprocess
 import sys
-import pytest
-import random
 from functools import partial
+from pathlib import Path as SyncPath
+
+import pytest
+from async_generator import asynccontextmanager
 
 from .. import (
+    ClosedResourceError,
+    Event,
+    Process,
     _core,
-    move_on_after,
     fail_after,
+    move_on_after,
+    run_process,
     sleep,
     sleep_forever,
-    Process,
-    open_process,
-    run_process,
-    TrioDeprecationWarning,
 )
-from .._core.tests.tutil import slow, skip_if_fbsd_pipes_broken
-from ..testing import wait_all_tasks_blocked
+from .._core.tests.tutil import skip_if_fbsd_pipes_broken, slow
+from ..lowlevel import open_process
+from ..testing import assert_no_checkpoints, wait_all_tasks_blocked
 
 posix = os.name == "posix"
 if posix:
@@ -37,7 +41,11 @@ def python(code):
 EXIT_TRUE = python("sys.exit(0)")
 EXIT_FALSE = python("sys.exit(1)")
 CAT = python("sys.stdout.buffer.write(sys.stdin.buffer.read())")
-SLEEP = lambda seconds: python("import time; time.sleep({})".format(seconds))
+
+if posix:
+    SLEEP = lambda seconds: ["/bin/sleep", str(seconds)]
+else:
+    SLEEP = lambda seconds: python("import time; time.sleep({})".format(seconds))
 
 
 def got_signal(proc, sig):
@@ -47,36 +55,65 @@ def got_signal(proc, sig):
         return proc.returncode != 0
 
 
-async def test_basic():
-    async with await open_process(EXIT_TRUE) as proc:
-        pass
+@asynccontextmanager
+async def open_process_then_kill(*args, **kwargs):
+    proc = await open_process(*args, **kwargs)
+    try:
+        yield proc
+    finally:
+        proc.kill()
+        await proc.wait()
+
+
+@asynccontextmanager
+async def run_process_in_nursery(*args, **kwargs):
+    async with _core.open_nursery() as nursery:
+        kwargs.setdefault("check", False)
+        proc = await nursery.start(partial(run_process, *args, **kwargs))
+        yield proc
+        nursery.cancel_scope.cancel()
+
+
+background_process_param = pytest.mark.parametrize(
+    "background_process",
+    [open_process_then_kill, run_process_in_nursery],
+    ids=["open_process", "run_process in nursery"],
+)
+
+
+@background_process_param
+async def test_basic(background_process):
+    async with background_process(EXIT_TRUE) as proc:
+        await proc.wait()
     assert isinstance(proc, Process)
     assert proc._pidfd is None
     assert proc.returncode == 0
     assert repr(proc) == f"<trio.Process {EXIT_TRUE}: exited with status 0>"
 
-    async with await open_process(EXIT_FALSE) as proc:
-        pass
+    async with background_process(EXIT_FALSE) as proc:
+        await proc.wait()
     assert proc.returncode == 1
     assert repr(proc) == "<trio.Process {!r}: {}>".format(
         EXIT_FALSE, "exited with status 1"
     )
 
 
-async def test_auto_update_returncode():
-    p = await open_process(SLEEP(9999))
-    assert p.returncode is None
-    assert "running" in repr(p)
-    p.kill()
-    p._proc.wait()
-    assert p.returncode is not None
-    assert "exited" in repr(p)
-    assert p._pidfd is None
-    assert p.returncode is not None
+@background_process_param
+async def test_auto_update_returncode(background_process):
+    async with background_process(SLEEP(9999)) as p:
+        assert p.returncode is None
+        assert "running" in repr(p)
+        p.kill()
+        p._proc.wait()
+        assert p.returncode is not None
+        assert "exited" in repr(p)
+        assert p._pidfd is None
+        assert p.returncode is not None
 
 
-async def test_multi_wait():
-    async with await open_process(SLEEP(10)) as proc:
+@background_process_param
+async def test_multi_wait(background_process):
+    async with background_process(SLEEP(10)) as proc:
         # Check that wait (including multi-wait) tolerates being cancelled
         async with _core.open_nursery() as nursery:
             nursery.start_soon(proc.wait)
@@ -94,7 +131,21 @@ async def test_multi_wait():
             proc.kill()
 
 
-async def test_kill_when_context_cancelled():
+# Test for deprecated 'async with process:' semantics
+async def test_async_with_basics_deprecated(recwarn):
+    async with await open_process(
+        CAT, stdin=subprocess.PIPE, stdout=subprocess.PIPE
+    ) as proc:
+        pass
+    assert proc.returncode is not None
+    with pytest.raises(ClosedResourceError):
+        await proc.stdin.send_all(b"x")
+    with pytest.raises(ClosedResourceError):
+        await proc.stdout.receive_some()
+
+
+# Test for deprecated 'async with process:' semantics
+async def test_kill_when_context_cancelled(recwarn):
     with move_on_after(100) as scope:
         async with await open_process(SLEEP(10)) as proc:
             assert proc.poll() is None
@@ -114,8 +165,9 @@ COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR = python(
 )
 
 
-async def test_pipes():
-    async with await open_process(
+@background_process_param
+async def test_pipes(background_process):
+    async with background_process(
         COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
@@ -144,7 +196,8 @@ async def test_pipes():
         assert 0 == await proc.wait()
 
 
-async def test_interactive():
+@background_process_param
+async def test_interactive(background_process):
     # Test some back-and-forth with a subprocess. This one works like so:
     # in: 32\n
     # out: 0000...0000\n (32 zeroes)
@@ -156,7 +209,7 @@ async def test_interactive():
     # out: EOF
     # err: EOF
 
-    async with await open_process(
+    async with background_process(
         python(
             "idx = 0\n"
             "while True:\n"
@@ -209,11 +262,13 @@ async def test_interactive():
             await proc.stdin.aclose()
             assert await proc.stdout.receive_some(1) == b""
             assert await proc.stderr.receive_some(1) == b""
+            await proc.wait()
+
     assert proc.returncode == 0
 
 
 async def test_run():
-    data = bytes(random.randint(0, 255) for _ in range(2 ** 18))
+    data = bytes(random.randint(0, 255) for _ in range(2**18))
 
     result = await run_process(
         CAT, stdin=data, capture_stdout=True, capture_stderr=True
@@ -245,6 +300,10 @@ async def test_run():
         await run_process(CAT, stdin="oh no, it's text")
     with pytest.raises(ValueError):
         await run_process(CAT, stdin=subprocess.PIPE)
+    with pytest.raises(ValueError):
+        await run_process(CAT, stdout=subprocess.PIPE)
+    with pytest.raises(ValueError):
+        await run_process(CAT, stderr=subprocess.PIPE)
     with pytest.raises(ValueError):
         await run_process(CAT, capture_stdout=True, stdout=subprocess.DEVNULL)
     with pytest.raises(ValueError):
@@ -278,8 +337,9 @@ async def test_run_with_broken_pipe():
     assert result.stdout is result.stderr is None
 
 
-async def test_stderr_stdout():
-    async with await open_process(
+@background_process_param
+async def test_stderr_stdout(background_process):
+    async with background_process(
         COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
@@ -312,19 +372,20 @@ async def test_stderr_stdout():
 
     # this one hits the branch where stderr=STDOUT but stdout
     # is not redirected
-    async with await open_process(
+    async with background_process(
         CAT, stdin=subprocess.PIPE, stderr=subprocess.STDOUT
     ) as proc:
         assert proc.stdout is None
         assert proc.stderr is None
         await proc.stdin.aclose()
+        await proc.wait()
     assert proc.returncode == 0
 
     if posix:
         try:
             r, w = os.pipe()
 
-            async with await open_process(
+            async with background_process(
                 COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR,
                 stdin=subprocess.PIPE,
                 stdout=w,
@@ -356,11 +417,13 @@ async def test_errors():
             await open_process("ls", shell=False)
 
 
-async def test_signals():
+@background_process_param
+async def test_signals(background_process):
     async def test_one_signal(send_it, signum):
         with move_on_after(1.0) as scope:
-            async with await open_process(SLEEP(3600)) as proc:
+            async with background_process(SLEEP(3600)) as proc:
                 send_it(proc)
+                await proc.wait()
         assert not scope.cancelled_caught
         if posix:
             assert proc.returncode == -signum
@@ -381,13 +444,14 @@ async def test_signals():
 
 
 @pytest.mark.skipif(not posix, reason="POSIX specific")
-async def test_wait_reapable_fails():
+@background_process_param
+async def test_wait_reapable_fails(background_process):
     old_sigchld = signal.signal(signal.SIGCHLD, signal.SIG_IGN)
     try:
         # With SIGCHLD disabled, the wait() syscall will wait for the
         # process to exit but then fail with ECHILD. Make sure we
         # support this case as the stdlib subprocess module does.
-        async with await open_process(SLEEP(3600)) as proc:
+        async with background_process(SLEEP(3600)) as proc:
             async with _core.open_nursery() as nursery:
                 nursery.start_soon(proc.wait)
                 await wait_all_tasks_blocked()
@@ -471,7 +535,7 @@ async def test_warn_on_failed_cancel_terminate(monkeypatch):
             nursery.cancel_scope.cancel()
 
 
-@pytest.mark.skipif(os.name != "posix", reason="posix only")
+@pytest.mark.skipif(not posix, reason="posix only")
 async def test_warn_on_cancel_SIGKILL_escalation(autojump_clock, monkeypatch):
     monkeypatch.setattr(Process, "terminate", lambda *args: None)
 
@@ -480,3 +544,59 @@ async def test_warn_on_cancel_SIGKILL_escalation(autojump_clock, monkeypatch):
             nursery.start_soon(run_process, SLEEP(9999))
             await wait_all_tasks_blocked()
             nursery.cancel_scope.cancel()
+
+
+# the background_process_param exercises a lot of run_process cases, but it uses
+# check=False, so lets have a test that uses check=True as well
+async def test_run_process_background_fail():
+    with pytest.raises(subprocess.CalledProcessError):
+        async with _core.open_nursery() as nursery:
+            proc = await nursery.start(run_process, EXIT_FALSE)
+    assert proc.returncode == 1
+
+
+@pytest.mark.skipif(
+    not SyncPath("/dev/fd").exists(),
+    reason="requires a way to iterate through open files",
+)
+async def test_for_leaking_fds():
+    starting_fds = set(SyncPath("/dev/fd").iterdir())
+    await run_process(EXIT_TRUE)
+    assert set(SyncPath("/dev/fd").iterdir()) == starting_fds
+
+    with pytest.raises(subprocess.CalledProcessError):
+        await run_process(EXIT_FALSE)
+    assert set(SyncPath("/dev/fd").iterdir()) == starting_fds
+
+    with pytest.raises(PermissionError):
+        await run_process(["/dev/fd/0"])
+    assert set(SyncPath("/dev/fd").iterdir()) == starting_fds
+
+
+# regression test for #2209
+async def test_subprocess_pidfd_unnotified():
+    noticed_exit = None
+
+    async def wait_and_tell(proc) -> None:
+        nonlocal noticed_exit
+        noticed_exit = Event()
+        await proc.wait()
+        noticed_exit.set()
+
+    proc = await open_process(SLEEP(9999))
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(wait_and_tell, proc)
+        await wait_all_tasks_blocked()
+        assert isinstance(noticed_exit, Event)
+        proc.terminate()
+        # without giving trio a chance to do so,
+        with assert_no_checkpoints():
+            # wait until the process has actually exited;
+            proc._proc.wait()
+            # force a call to poll (that closes the pidfd on linux)
+            proc.poll()
+        with move_on_after(5):
+            # Some platforms use threads to wait for exit, so it might take a bit
+            # for everything to notice
+            await noticed_exit.wait()
+        assert noticed_exit.is_set(), "child task wasn't woken after poll, DEADLOCK"

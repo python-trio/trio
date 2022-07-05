@@ -1,9 +1,14 @@
 import signal
+import sys
+
 import pytest
 
 import trio
 from .. import _core
-from .._core.tests.tutil import ignore_coroutine_never_awaited_warnings
+from .._core.tests.tutil import (
+    ignore_coroutine_never_awaited_warnings,
+    create_asyncio_future_in_new_loop,
+)
 from .._util import (
     signal_raise,
     ConflictDetector,
@@ -105,20 +110,22 @@ def test_coroutine_or_error():
 
         import asyncio
 
-        @asyncio.coroutine
-        def generator_based_coro():  # pragma: no cover
-            yield from asyncio.sleep(1)
+        if sys.version_info < (3, 11):
+
+            @asyncio.coroutine
+            def generator_based_coro():  # pragma: no cover
+                yield from asyncio.sleep(1)
+
+            with pytest.raises(TypeError) as excinfo:
+                coroutine_or_error(generator_based_coro())
+            assert "asyncio" in str(excinfo.value)
 
         with pytest.raises(TypeError) as excinfo:
-            coroutine_or_error(generator_based_coro())
+            coroutine_or_error(create_asyncio_future_in_new_loop())
         assert "asyncio" in str(excinfo.value)
 
         with pytest.raises(TypeError) as excinfo:
-            coroutine_or_error(asyncio.Future())
-        assert "asyncio" in str(excinfo.value)
-
-        with pytest.raises(TypeError) as excinfo:
-            coroutine_or_error(lambda: asyncio.Future())
+            coroutine_or_error(create_asyncio_future_in_new_loop)
         assert "asyncio" in str(excinfo.value)
 
         with pytest.raises(TypeError) as excinfo:

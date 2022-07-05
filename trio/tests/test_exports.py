@@ -1,3 +1,4 @@
+import re
 import sys
 import importlib
 import types
@@ -63,12 +64,12 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
     sys.version_info.releaselevel == "alpha",
     reason="skip static introspection tools on Python dev/alpha releases",
 )
-@pytest.mark.filterwarnings(
-    # https://github.com/PyCQA/astroid/issues/681
-    "ignore:the imp module is deprecated.*:DeprecationWarning"
-)
 @pytest.mark.parametrize("modname", PUBLIC_MODULE_NAMES)
 @pytest.mark.parametrize("tool", ["pylint", "jedi"])
+@pytest.mark.filterwarnings(
+    # https://github.com/pypa/setuptools/issues/3274
+    "ignore:module 'sre_constants' is deprecated:DeprecationWarning",
+)
 def test_static_tool_sees_all_symbols(tool, modname):
     module = importlib.import_module(modname)
 
