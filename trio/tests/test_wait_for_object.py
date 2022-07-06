@@ -31,7 +31,7 @@ async def test_WaitForMultipleObjects_sync():
     # One handle
     handle1 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     kernel32.SetEvent(handle1)
-    WaitForMultipleObjects_sync(handle1)
+    WaitForMultipleObjects_sync((handle1,))
     kernel32.CloseHandle(handle1)
     print("test_WaitForMultipleObjects_sync one OK")
 
@@ -39,7 +39,7 @@ async def test_WaitForMultipleObjects_sync():
     handle1 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     handle2 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     kernel32.SetEvent(handle1)
-    WaitForMultipleObjects_sync(handle1, handle2)
+    WaitForMultipleObjects_sync((handle1, handle2))
     kernel32.CloseHandle(handle1)
     kernel32.CloseHandle(handle2)
     print("test_WaitForMultipleObjects_sync set first OK")
@@ -48,7 +48,7 @@ async def test_WaitForMultipleObjects_sync():
     handle1 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     handle2 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     kernel32.SetEvent(handle2)
-    WaitForMultipleObjects_sync(handle1, handle2)
+    WaitForMultipleObjects_sync((handle1, handle2))
     kernel32.CloseHandle(handle1)
     kernel32.CloseHandle(handle2)
     print("test_WaitForMultipleObjects_sync set second OK")
@@ -58,7 +58,7 @@ async def test_WaitForMultipleObjects_sync():
     handle2 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     kernel32.CloseHandle(handle1)
     with pytest.raises(OSError):
-        WaitForMultipleObjects_sync(handle1, handle2)
+        WaitForMultipleObjects_sync((handle1, handle2))
     kernel32.CloseHandle(handle2)
     print("test_WaitForMultipleObjects_sync close first OK")
 
@@ -67,7 +67,7 @@ async def test_WaitForMultipleObjects_sync():
     handle2 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     kernel32.CloseHandle(handle2)
     with pytest.raises(OSError):
-        WaitForMultipleObjects_sync(handle1, handle2)
+        WaitForMultipleObjects_sync((handle1, handle2))
     kernel32.CloseHandle(handle1)
     print("test_WaitForMultipleObjects_sync close second OK")
 
@@ -84,7 +84,7 @@ async def test_WaitForMultipleObjects_sync_slow():
     t0 = _core.current_time()
     async with _core.open_nursery() as nursery:
         nursery.start_soon(
-            _threads.to_thread_run_sync, WaitForMultipleObjects_sync, handle1
+            _threads.to_thread_run_sync, WaitForMultipleObjects_sync, (handle1,)
         )
         await _timeouts.sleep(TIMEOUT)
         # If we would comment the line below, the above thread will be stuck,
@@ -101,7 +101,7 @@ async def test_WaitForMultipleObjects_sync_slow():
     t0 = _core.current_time()
     async with _core.open_nursery() as nursery:
         nursery.start_soon(
-            _threads.to_thread_run_sync, WaitForMultipleObjects_sync, handle1, handle2
+            _threads.to_thread_run_sync, WaitForMultipleObjects_sync, (handle1, handle2)
         )
         await _timeouts.sleep(TIMEOUT)
         kernel32.SetEvent(handle1)
@@ -117,7 +117,7 @@ async def test_WaitForMultipleObjects_sync_slow():
     t0 = _core.current_time()
     async with _core.open_nursery() as nursery:
         nursery.start_soon(
-            _threads.to_thread_run_sync, WaitForMultipleObjects_sync, handle1, handle2
+            _threads.to_thread_run_sync, WaitForMultipleObjects_sync, (handle1, handle2)
         )
         await _timeouts.sleep(TIMEOUT)
         kernel32.SetEvent(handle2)

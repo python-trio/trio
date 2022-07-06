@@ -18,9 +18,10 @@ from ._core._windows_cffi import (
 MAXIMUM_WAIT_OBJECTS = 64
 
 
-def WaitForMultipleObjects_sync(*handles):
-    """Wait for any of the given Windows handles to be signaled."""
-    # Very important that `handles` length not change, so splat op is mandatory
+def WaitForMultipleObjects_sync(handles):
+    """Wait for any of the given Windows handles to be signaled.
+
+    It's very important that `handles` length not change, so prefer using a tuple"""
     n = len(handles)
     assert n <= MAXIMUM_WAIT_OBJECTS
     handle_arr = ffi.new("HANDLE[]", n)
@@ -42,6 +43,7 @@ class WaitPool:
 
     Only call methods after acquiring the lock!
     """
+
     def __init__(self):
         self._handle_map = {}
         self._size_sorted_wait_groups = SortedKeyList(key=len)
@@ -114,8 +116,9 @@ def spawn_wait_group():
 
     def remove_as_signaled():
         n_handles = 2
+        wait_group_tuple = tuple(wait_group)
         while n_handles > 1:  # quit thread when only wake handle remains
-            signaled_handle = WaitForMultipleObjects_sync(*wait_group)
+            signaled_handle = WaitForMultipleObjects_sync(wait_group_tuple)
             with WAIT_POOL.lock:
                 if signaled_handle is wait_group[0]:
                     # A handle has been added or removed from this group
@@ -128,8 +131,9 @@ def spawn_wait_group():
                     with WAIT_POOL.mutating(wait_group):
                         wait_group.remove(signaled_handle)
                     WAIT_POOL.execute_callbacks(signaled_handle)
-                # calculate this while holding the lock
+                # calculate these while holding the lock
                 n_handles = len(wait_group)
+                wait_group_tuple = tuple(wait_group)
 
     def deliver(outcome):
         # if the process exits before this group's daemon thread, this won't be
