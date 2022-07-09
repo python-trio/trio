@@ -723,9 +723,9 @@ clause was introduced in Python 3.11 (:pep:`654`). Here's how it works::
             nursery.start_soon(broken1)
             nursery.start_soon(broken2)
     except* KeyError:
-        ...  # handle each KeyError
+        ...  # handle the KeyErrors
     except* IndexError:
-        ...  # handle each IndexError
+        ...  # handle the IndexErrors
 
 But what if you can't use ``except*`` just yet? Well, for that there is the handy
 exceptiongroup_ library which lets you approximate this behavior with exception handler
@@ -733,11 +733,11 @@ callbacks::
 
     from exceptiongroup import catch
 
-    def handle_keyerror(exc):
-        ...  # handle each KeyError
+    def handle_keyerrors(excgroup):
+        ...  # handle the KeyErrors
 
-    def handle_indexerror(exc):
-        ...  # handle each IndexError
+    def handle_indexerrors(excgroup):
+        ...  # handle the IndexErrors
 
     with catch({
         KeyError: handle_keyerror,
