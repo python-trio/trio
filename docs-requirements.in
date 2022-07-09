@@ -1,5 +1,8 @@
 # RTD is currently installing 1.5.3, which has a bug in :lineno-match:
-sphinx >= 1.7.0
+# sphinx-3.4 causes warnings about some trio._abc classes: GH#2338
+sphinx >= 1.7.0, < 3.4
+# jinja2-3.1 causes importerror with sphinx<4.0
+jinja2 < 3.1
 sphinx_rtd_theme
 sphinxcontrib-trio
 towncrier
