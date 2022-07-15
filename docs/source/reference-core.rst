@@ -711,9 +711,9 @@ limitation. Consider code like::
 
 ``broken1`` raises ``KeyError``. ``broken2`` raises
 ``IndexError``. Obviously ``parent`` should raise some error, but
-what? The answer is that both exceptions are grouped in an `ExceptionGroup`.
-The `ExceptionGroup` and its parent class `BaseExceptionGroup` are used to encapsulate
-multiple exceptions being raised at once.
+what? The answer is that both exceptions are grouped in an :exc:`ExceptionGroup`.
+:exc:`ExceptionGroup` and its parent class :exc:`BaseExceptionGroup` are used to
+encapsulate multiple exceptions being raised at once.
 
 To catch individual exceptions encapsulated in an exception group, the ``except*``
 clause was introduced in Python 3.11 (:pep:`654`). Here's how it works::
@@ -751,10 +751,10 @@ callbacks::
     the same with handler callbacks as long as you declare those variables ``nonlocal``.
 
 For reasons of backwards compatibility, nurseries raise ``trio.MultiError`` and
-``trio.NonBaseMultiError`` which inherit from `BaseExceptionGroup` and `ExceptionGroup`,
-respectively. Users should refrain from attempting to raise or catch the Trio specific
-exceptions themselves, and treat them as if they were standard `BaseExceptionGroup` or
-`ExceptionGroup` instances instead.
+``trio.NonBaseMultiError`` which inherit from :exc:`BaseExceptionGroup` and
+:exc:`ExceptionGroup`, respectively. Users should refrain from attempting to raise or
+catch the Trio specific exceptions themselves, and treat them as if they were standard
+:exc:`BaseExceptionGroup` or :exc:`ExceptionGroup` instances instead.
 
 "Strict" versus "loose" ExceptionGroup semantics
 ++++++++++++++++++++++++++++++++++++++++++++++++
