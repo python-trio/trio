@@ -687,8 +687,6 @@ You might wonder why Trio can't just remember "this task should be cancelled in 
 
 If you want a timeout to apply to one task but not another, then you need to put the cancel scope in that individual task's function -- ``child()``, in this example.
 
-.. _exceptiongroups:
-
 Errors in multiple child tasks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -722,10 +720,16 @@ clause was introduced in Python 3.11 (:pep:`654`). Here's how it works::
         async with trio.open_nursery() as nursery:
             nursery.start_soon(broken1)
             nursery.start_soon(broken2)
-    except* KeyError:
-        ...  # handle the KeyErrors
-    except* IndexError:
-        ...  # handle the IndexErrors
+    except* KeyError as excgroup:
+        for exc in excgroup.exceptions:
+            ...  # handle each KeyError
+    except* IndexError as excgroup:
+        for exc in excgroup.exceptions:
+            ...  # handle each IndexError
+
+If you want to reraise exceptions, or raise new ones, you can do so, but be aware that
+exceptions raised in ``except*`` sections will be raised together in a new exception
+group.
 
 But what if you can't use ``except*`` just yet? Well, for that there is the handy
 exceptiongroup_ library which lets you approximate this behavior with exception handler
@@ -734,10 +738,12 @@ callbacks::
     from exceptiongroup import catch
 
     def handle_keyerrors(excgroup):
-        ...  # handle the KeyErrors
+        for exc in excgroup.exceptions:
+            ...  # handle each KeyError
 
     def handle_indexerrors(excgroup):
-        ...  # handle the IndexErrors
+        for exc in excgroup.exceptions:
+            ...  # handle each IndexError
 
     with catch({
         KeyError: handle_keyerror,
@@ -747,8 +753,18 @@ callbacks::
             nursery.start_soon(broken1)
             nursery.start_soon(broken2)
 
-.. hint:: If your code, written using ``except*``, would set local variables, you can do
-    the same with handler callbacks as long as you declare those variables ``nonlocal``.
+The semantics for the handler functions are equal to ``except*`` blocks, except for
+setting local variables. If you need to set local variables, you need to declare them
+inside the handler function(s) with the ``nonlocal`` keyword::
+
+    def handle_keyerrors(excgroup):
+        nonlocal myflag
+        myflag = True
+
+    myflag = False
+    with catch({KeyError: handle_keyerror}):
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(broken1)
 
 For reasons of backwards compatibility, nurseries raise ``trio.MultiError`` and
 ``trio.NonBaseMultiError`` which inherit from :exc:`BaseExceptionGroup` and
