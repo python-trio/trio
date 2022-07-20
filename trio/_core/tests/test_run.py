@@ -16,7 +16,6 @@ import attr
 import outcome
 import sniffio
 import pytest
-from exceptiongroup import catch
 
 from .tutil import (
     slow,
@@ -40,7 +39,7 @@ from ...testing import (
 )
 
 if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup, ExceptionGroup
+    from exceptiongroup import ExceptionGroup
 
 
 # slightly different from _timeouts.sleep_forever because it returns the value
@@ -1858,14 +1857,12 @@ async def test_nursery_stop_async_iteration():
             items = [None] * len(nexts)
             got_stop = False
 
-            def handle(exc):
-                nonlocal got_stop
-                got_stop = True
-
-            with catch({StopAsyncIteration: handle}):
+            try:
                 async with _core.open_nursery() as nursery:
                     for i, f in enumerate(nexts):
                         nursery.start_soon(self._accumulate, f, items, i)
+            except ExceptionGroup as excgroup:
+                got_stop = bool(excgroup.split(StopAsyncIteration))
 
             if got_stop:
                 raise StopAsyncIteration
