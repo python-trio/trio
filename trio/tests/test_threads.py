@@ -749,5 +749,4 @@ async def test_unsafe_cancellable_kwarg():
             raise NotImplementedError
 
     with pytest.raises(NotImplementedError):
-        with _core.CancelScope(deadline=_core.current_time() + 0.01):
-            await to_thread_run_sync(time.sleep(1), cancellable=BadBool())
+        await to_thread_run_sync(int, cancellable=BadBool())
