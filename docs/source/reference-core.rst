@@ -687,6 +687,8 @@ You might wonder why Trio can't just remember "this task should be cancelled in 
 
 If you want a timeout to apply to one task but not another, then you need to put the cancel scope in that individual task's function -- ``child()``, in this example.
 
+.. _exceptiongroups:
+
 Errors in multiple child tasks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
