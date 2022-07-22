@@ -57,6 +57,24 @@ class ThreadPlaceholder:
     name = attr.ib()
 
 
+# Types for the to_thread_run_sync message loop
+@attr.s(frozen=True, eq=False)
+class ThreadDone:
+    result = attr.ib()
+
+
+@attr.s(frozen=True, eq=False)
+class Run:
+    async_fn = attr.ib()
+    queue = attr.ib(init=False, factory=stdlib_queue.SimpleQueue)
+
+
+@attr.s(frozen=True, eq=False)
+class RunSync:
+    sync_fn = attr.ib()
+    queue = attr.ib(init=False, factory=stdlib_queue.SimpleQueue)
+
+
 @enable_ki_protection
 async def to_thread_run_sync(
     sync_fn, *args, thread_name: Optional[str] = None, cancellable=False, limiter=None
@@ -171,7 +189,9 @@ async def to_thread_run_sync(
 
         result = outcome.capture(do_release_then_return_result)
         if task_register[0] is not None:
-            trio.lowlevel.reschedule(task_register[0], result)
+            trio.lowlevel.reschedule(
+                task_register[0], outcome.Value(ThreadDone(result))
+            )
 
     current_trio_token = trio.lowlevel.current_trio_token()
 
@@ -224,7 +244,21 @@ async def to_thread_run_sync(
         else:
             return trio.lowlevel.Abort.FAILED
 
-    return await trio.lowlevel.wait_task_rescheduled(abort)
+    while True:
+        msg_from_thread = await trio.lowlevel.wait_task_rescheduled(abort)
+        if type(msg_from_thread) is ThreadDone:
+            return msg_from_thread.result.unwrap()
+        elif type(msg_from_thread) is Run:
+            result = await outcome.acapture(msg_from_thread.async_fn)
+            msg_from_thread.queue.put(result)
+        elif type(msg_from_thread) is RunSync:
+            result = outcome.capture(msg_from_thread.sync_fn)
+            msg_from_thread.queue.put(result)
+        else:
+            raise TypeError(
+                "trio.to_thread.run_sync received unrecognized thread message {!r}."
+                "".format(msg_from_thread)
+            )
 
 
 def _run_fn_as_system_task(cb, fn, *args, context, trio_token=None):
@@ -382,3 +416,20 @@ def from_thread_run_sync(fn, *args, trio_token=None):
         context=context,
         trio_token=trio_token,
     )
+
+
+def from_thread_check_cancelled():
+    """Check if the Trio task that controls this thread has been cancelled.
+
+    This check only works if the thread was spawned by `trio.to_thread.run_sync`.
+
+        Returns:
+            bool: True if `Cancelled` has been raised from the corresponding call
+                to `trio.to_thread.run_sync`, False otherwise.
+
+        Raises:
+             AttributeError: if this thread was not created with
+                 `trio.to_thread.run_sync`.
+    """
+
+    return False
