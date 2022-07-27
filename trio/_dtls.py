@@ -611,7 +611,7 @@ def _read_loop(read_fn):
     chunks = []
     while True:
         try:
-            chunk = read_fn(2 ** 14)  # max TLS record size
+            chunk = read_fn(2**14)  # max TLS record size
         except SSL.WantReadError:
             break
         chunks.append(chunk)
