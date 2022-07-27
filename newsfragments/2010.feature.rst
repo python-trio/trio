@@ -1,0 +1,4 @@
+Added support for `Datagram TLS
+<https://en.wikipedia.org/wiki/Datagram_Transport_Layer_Security>`__,
+for secure communication over UDP. Currently requires `PyOpenSSL
+<https://pypi.org/p/pyopenssl>`__.

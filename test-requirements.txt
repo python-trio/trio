@@ -134,10 +134,21 @@ traitlets==5.3.0
     #   matplotlib-inline
 trustme==0.9.0
     # via -r test-requirements.in
+types-cryptography==3.3.14
+    # via types-pyopenssl
+types-enum34==1.1.8
+    # via types-cryptography
+types-ipaddress==1.0.7
+    # via types-cryptography
+types-pyopenssl==21.0.3 ; implementation_name == "cpython"
+    # via -r test-requirements.in
 typing-extensions==4.3.0 ; implementation_name == "cpython"
     # via
     #   -r test-requirements.in
+    #   astroid
+    #   black
     #   mypy
+    #   pylint
 wcwidth==0.2.5
     # via prompt-toolkit
 wrapt==1.14.1
