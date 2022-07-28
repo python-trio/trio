@@ -132,7 +132,7 @@ types-cryptography==3.3.14
     # via types-pyopenssl
 types-enum34==1.1.8
     # via types-cryptography
-types-ipaddress==1.0.7
+types-ipaddress==1.0.8
     # via types-cryptography
 types-pyopenssl==21.0.3 ; implementation_name == "cpython"
     # via -r test-requirements.in
