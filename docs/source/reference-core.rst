@@ -90,9 +90,9 @@ them. Here are the rules:
   exception, it might act as a checkpoint or might not.)
 
   * This includes async iterators: If you write ``async for ... in <a
-    trio object>``, then there will be at least one checkpoint before
-    each iteration of the loop and one checkpoint after the last
-    iteration.
+    trio object>``, then there will be at least one checkpoint in
+    each iteration of the loop, and it will still checkpoint if the
+    iterable is empty.
 
   * Partial exception for async context managers:
     Both the entry and exit of an ``async with`` block are
