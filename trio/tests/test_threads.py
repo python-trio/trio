@@ -940,7 +940,7 @@ async def test_from_thread_check_cancelled():
 
     # cancellable=True case: slightly different thread behavior needed
     # check thread is cancelled "soon" after abandonment
-    def f():
+    def f():  # noqa: F811
         ev.wait()
         try:
             from_thread_check_cancelled()

@@ -325,8 +325,8 @@ def from_thread_check_cancelled():
 
     Raises:
         Cancelled: If the corresponding call to `trio.to_thread.run_sync` has had a
-        delivery of cancellation attempted against it, regardless of the value of
-        ``cancellable`` supplied as an argument to it.
+            delivery of cancellation attempted against it, regardless of the value of
+            ``cancellable`` supplied as an argument to it.
         AttributeError: If this thread is not spawned from `trio.to_thread.run_sync`.
     """
     raise_cancel = THREAD_LOCAL.cancel_register[0]
