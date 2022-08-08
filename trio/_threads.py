@@ -22,8 +22,8 @@ from ._core import (
 from ._sync import CapacityLimiter
 from ._util import coroutine_or_error
 
-# Global due to Threading API, thread local storage for trio token
-TOKEN_LOCAL = threading.local()
+# Global due to Threading API, thread local storage for trio token and raise_cancel
+THREAD_LOCAL = threading.local()
 
 _limiter_local = RunVar("limiter")
 # I pulled this number out of the air; it isn't based on anything. Probably we
@@ -217,6 +217,9 @@ async def to_thread_run_sync(
     # for the result – or None if this function was cancelled and we should
     # discard the result.
     task_register = [trio.lowlevel.current_task()]
+    # Holds a reference to the raise_cancel function provided if a cancellation
+    # is attempted against this task - or None if no such delivery has happened.
+    cancel_register = [None]
     name = f"trio.to_thread.run_sync-{next(_thread_counter)}"
     placeholder = ThreadPlaceholder(name)
 
@@ -246,8 +249,9 @@ async def to_thread_run_sync(
 
     def worker_fn():
         current_async_library_cvar.set(None)
-        TOKEN_LOCAL.token = current_trio_token
-        TOKEN_LOCAL.task_register = task_register
+        THREAD_LOCAL.token = current_trio_token
+        THREAD_LOCAL.cancel_register = cancel_register
+        THREAD_LOCAL.task_register = task_register
         try:
             ret = sync_fn(*args)
 
@@ -261,8 +265,9 @@ async def to_thread_run_sync(
 
             return ret
         finally:
-            del TOKEN_LOCAL.token
-            del TOKEN_LOCAL.task_register
+            del THREAD_LOCAL.token
+            del THREAD_LOCAL.cancel_register
+            del THREAD_LOCAL.task_register
 
     context = contextvars.copy_context()
     contextvars_aware_worker_fn = functools.partial(context.run, worker_fn)
@@ -285,8 +290,11 @@ async def to_thread_run_sync(
         limiter.release_on_behalf_of(placeholder)
         raise
 
-    def abort(_):
+    def abort(raise_cancel):
+        # fill so from_thread_check_cancelled can raise
+        cancel_register[0] = raise_cancel
         if cancellable:
+            # empty so report_back_in_trio_thread_fn cannot reschedule
             task_register[0] = None
             return trio.lowlevel.Abort.SUCCEEDED
         else:
@@ -308,6 +316,24 @@ async def to_thread_run_sync(
         del msg_from_thread
 
 
+def from_thread_check_cancelled():
+    """Raise trio.Cancelled if the associated Trio task entered a cancelled status.
+
+     Only applicable to threads spawned by `trio.to_thread.run_sync`. Poll to allow
+     ``cancellable=False`` threads to raise :exc:`trio.Cancelled` at a suitable
+     place, or to end abandoned ``cancellable=True`` sooner than they may otherwise.
+
+    Raises:
+        Cancelled: If the corresponding call to `trio.to_thread.run_sync` has had a
+        delivery of cancellation attempted against it, regardless of the value of
+        ``cancellable`` supplied as an argument to it.
+        AttributeError: If this thread is not spawned from `trio.to_thread.run_sync`.
+    """
+    raise_cancel = THREAD_LOCAL.cancel_register[0]
+    if raise_cancel is not None:
+        raise_cancel()
+
+
 def _check_token(trio_token):
     """Raise a RuntimeError if this function is called within a trio run.
 
@@ -320,7 +346,7 @@ def _check_token(trio_token):
 
     if not trio_token:
         try:
-            trio_token = TOKEN_LOCAL.token
+            trio_token = THREAD_LOCAL.token
         except AttributeError:
             raise RuntimeError(
                 "this thread wasn't created by Trio, pass kwarg trio_token=..."
@@ -338,7 +364,7 @@ def _check_token(trio_token):
 
 
 def _send_message_to_host_task(message, trio_token):
-    task_register = TOKEN_LOCAL.task_register
+    task_register = THREAD_LOCAL.task_register
 
     def in_trio_thread():
         task = task_register[0]

@@ -18,6 +18,7 @@ from .._threads import (
     current_default_thread_limiter,
     from_thread_run,
     from_thread_run_sync,
+    from_thread_check_cancelled,
     to_thread_run_sync,
 )
 from ..testing import wait_all_tasks_blocked
@@ -886,3 +887,86 @@ async def test_recursive_to_thread():
         return from_thread_run(to_thread_run_sync, threading.get_ident)
 
     assert tid != await to_thread_run_sync(get_tid_then_reenter)
+
+
+async def test_from_thread_check_cancelled():
+    q = stdlib_queue.Queue()
+
+    async def child(cancellable):
+        record.append("start")
+        try:
+            return await to_thread_run_sync(f, cancellable=cancellable)
+        except _core.Cancelled:
+            record.append("cancel")
+        finally:
+            record.append("exit")
+
+    def f():
+        try:
+            from_thread_check_cancelled()
+        except _core.Cancelled:  # pragma: no cover, test failure path
+            q.put("Cancelled")
+        else:
+            q.put("Not Cancelled")
+        ev.wait()
+        return from_thread_check_cancelled()
+
+    # Base case: nothing cancelled so we shouldn't see cancels anywhere
+    record = []
+    ev = threading.Event()
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(child, False)
+        await wait_all_tasks_blocked()
+        assert record[0] == "start"
+        assert q.get(timeout=1) == "Not Cancelled"
+        ev.set()
+    # implicit assertion, Cancelled not raised via nursery
+    assert record[1] == "exit"
+
+    # cancellable=False case: a cancel will pop out but be handled by
+    # the appropriate cancel scope
+    record = []
+    ev = threading.Event()
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(child, False)
+        await wait_all_tasks_blocked()
+        assert record[0] == "start"
+        assert q.get(timeout=1) == "Not Cancelled"
+        nursery.cancel_scope.cancel()
+        ev.set()
+    assert nursery.cancel_scope.cancelled_caught
+    assert "cancel" in record
+    assert record[-1] == "exit"
+
+    # cancellable=True case: slightly different thread behavior needed
+    # check thread is cancelled "soon" after abandonment
+    def f():
+        ev.wait()
+        try:
+            from_thread_check_cancelled()
+        except _core.Cancelled:
+            q.put("Cancelled")
+        else:  # pragma: no cover, test failure path
+            q.put("Not Cancelled")
+
+    record = []
+    ev = threading.Event()
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(child, True)
+        await wait_all_tasks_blocked()
+        assert record[0] == "start"
+        nursery.cancel_scope.cancel()
+        ev.set()
+    assert nursery.cancel_scope.cancelled_caught
+    assert "cancel" in record
+    assert record[-1] == "exit"
+    assert q.get(timeout=1) == "Cancelled"
+
+
+async def test_from_thread_check_cancelled_raises_in_foreign_threads():
+    with pytest.raises(AttributeError):
+        from_thread_check_cancelled()
+    q = stdlib_queue.Queue()
+    _core.start_thread_soon(from_thread_check_cancelled, lambda _: q.put(_))
+    with pytest.raises(AttributeError):
+        q.get(timeout=1).unwrap()
