@@ -1,0 +1,1 @@
+If called from a thread spawned by `trio.to_thread.run_sync`, `trio.from_thread.run` and `trio.from_thread.run_sync` now reuse the task and cancellation status of the host task and have `trio.from_thread.check_cancelled` to efficiently poll for cancellation.
