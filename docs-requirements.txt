@@ -16,7 +16,7 @@ babel==2.10.3
     # via sphinx
 certifi==2022.6.15
     # via requests
-charset-normalizer==2.1.0
+charset-normalizer==2.1.1
     # via requests
 click==8.1.3
     # via
