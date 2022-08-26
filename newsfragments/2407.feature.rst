@@ -1,0 +1,13 @@
+Added the :mod:`trio.__main__` module. This module runs a modifed Python REPL
+that supports directly awaiting Trio-based awaitables. It can be invoked by
+running ``python -m trio`` at the command line.
+
+.. code-block:: console
+
+   $ python -m trio
+   Trio 0.21.0+dev, Python 3.10.6 [...] on darwin
+   Use "await" directly instead of "trio.run()".
+   Type "help", "copyright", "credits" or "license" for more information.
+   >>> import trio
+   >>> await trio.sleep(1); print("hi")  # prints after one second
+   hi
