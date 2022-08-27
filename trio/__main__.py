@@ -1,6 +1,12 @@
 """Starts an interactive interpreter session that supports top-level
 `await`-ing.
 
+To start a new session, run the command:
+
+.. code-block:: shell
+
+   python -m trio
+
 Modeled after the standard library's `asyncio.__main__`. See:
 
     https://github.com/python/cpython/blob/master/Lib/asyncio/__main__.py

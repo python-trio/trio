@@ -1,6 +1,6 @@
-Added the :mod:`trio.__main__` module. This module runs a modifed Python REPL
-that supports directly awaiting Trio-based awaitables. It can be invoked by
-running ``python -m trio`` at the command line.
+Added the ``trio.__main__`` module. This module runs a modifed Python REPL that
+supports directly awaiting Trio-based awaitables. It can be invoked by running
+``python -m trio`` at the command line.
 
 .. code-block:: console
 
@@ -11,3 +11,5 @@ running ``python -m trio`` at the command line.
    >>> import trio
    >>> await trio.sleep(1); print("hi")  # prints after one second
    hi
+
+See :ref:`interactive debugging` for further detail.
