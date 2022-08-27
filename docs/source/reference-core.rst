@@ -1936,7 +1936,7 @@ expression needs to be inside an async function:
 This can make it difficult to iterate quickly since you have to redefine the
 whole function body whenever you make a tweak.
 
-Trio provides a modified interactive console that lets you `await` at the top
+Trio provides a modified interactive console that lets you ``await`` at the top
 level. You can access this console by running ``python -m trio``:
 
 .. code-block:: console
