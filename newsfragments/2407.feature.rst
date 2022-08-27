@@ -5,7 +5,7 @@ supports directly awaiting Trio-based awaitables. It can be invoked by running
 .. code-block:: console
 
    $ python -m trio
-   Trio 0.21.0+dev, Python 3.10.6 [...] on darwin
+   Trio 0.21.0+dev, Python 3.10.6
    Use "await" directly instead of "trio.run()".
    Type "help", "copyright", "credits" or "license" for more information.
    >>> import trio
