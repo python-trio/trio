@@ -88,7 +88,7 @@ tomli==2.0.1
     # via towncrier
 towncrier==22.8.0
     # via -r docs-requirements.in
-urllib3==1.26.11
+urllib3==1.26.12
     # via requests
 
 # The following packages are considered to be unsafe in a requirements file:
