@@ -109,7 +109,7 @@ pytest==7.1.2
     #   pytest-cov
 pytest-cov==3.0.0
     # via -r test-requirements.in
-sniffio==1.2.0
+sniffio==1.3.0
     # via -r test-requirements.in
 sortedcontainers==2.4.0
     # via -r test-requirements.in
