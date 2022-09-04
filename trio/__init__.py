@@ -73,6 +73,8 @@ from ._subprocess import Process, run_process
 
 from ._ssl import SSLStream, SSLListener, NeedHandshakeError
 
+from ._dtls import DTLSEndpoint, DTLSChannel
+
 from ._highlevel_serve_listeners import serve_listeners
 
 from ._highlevel_open_tcp_stream import open_tcp_stream

@@ -349,6 +349,83 @@ def _make_simple_sock_method_wrapper(methname, wait_fn, maybe_avail=False):
     return wrapper
 
 
+# Helpers to work with the (hostname, port) language that Python uses for socket
+# addresses everywhere. Split out into a standalone function so it can be reused by
+# FakeNet.
+
+# Take an address in Python's representation, and returns a new address in
+# the same representation, but with names resolved to numbers,
+# etc.
+#
+# local=True means that the address is being used with bind() or similar
+# local=False means that the address is being used with connect() or sendto() or
+# similar.
+#
+# NOTE: this function does not always checkpoint
+async def _resolve_address_nocp(type, family, proto, *, ipv6_v6only, address, local):
+    # Do some pre-checking (or exit early for non-IP sockets)
+    if family == _stdlib_socket.AF_INET:
+        if not isinstance(address, tuple) or not len(address) == 2:
+            raise ValueError("address should be a (host, port) tuple")
+    elif family == _stdlib_socket.AF_INET6:
+        if not isinstance(address, tuple) or not 2 <= len(address) <= 4:
+            raise ValueError(
+                "address should be a (host, port, [flowinfo, [scopeid]]) tuple"
+            )
+    elif family == _stdlib_socket.AF_UNIX:
+        # unwrap path-likes
+        return os.fspath(address)
+    else:
+        return address
+
+    # -- From here on we know we have IPv4 or IPV6 --
+    host, port, *_ = address
+    # Fast path for the simple case: already-resolved IP address,
+    # already-resolved port. This is particularly important for UDP, since
+    # every sendto call goes through here.
+    if isinstance(port, int):
+        try:
+            _stdlib_socket.inet_pton(family, address[0])
+        except (OSError, TypeError):
+            pass
+        else:
+            return address
+    # Special cases to match the stdlib, see gh-277
+    if host == "":
+        host = None
+    if host == "<broadcast>":
+        host = "255.255.255.255"
+    flags = 0
+    if local:
+        flags |= _stdlib_socket.AI_PASSIVE
+    # Since we always pass in an explicit family here, AI_ADDRCONFIG
+    # doesn't add any value -- if we have no ipv6 connectivity and are
+    # working with an ipv6 socket, then things will break soon enough! And
+    # if we do enable it, then it makes it impossible to even run tests
+    # for ipv6 address resolution on travis-ci, which as of 2017-03-07 has
+    # no ipv6.
+    # flags |= AI_ADDRCONFIG
+    if family == _stdlib_socket.AF_INET6 and not ipv6_v6only:
+        flags |= _stdlib_socket.AI_V4MAPPED
+    gai_res = await getaddrinfo(host, port, family, type, proto, flags)
+    # AFAICT from the spec it's not possible for getaddrinfo to return an
+    # empty list.
+    assert len(gai_res) >= 1
+    # Address is the last item in the first entry
+    (*_, normed), *_ = gai_res
+    # The above ignored any flowid and scopeid in the passed-in address,
+    # so restore them if present:
+    if family == _stdlib_socket.AF_INET6:
+        normed = list(normed)
+        assert len(normed) == 4
+        if len(address) >= 3:
+            normed[2] = address[2]
+        if len(address) >= 4:
+            normed[3] = address[3]
+        normed = tuple(normed)
+    return normed
+
+
 class SocketType:
     def __init__(self):
         raise TypeError(
@@ -444,7 +521,7 @@ class _SocketType(SocketType):
             self._sock.close()
 
     async def bind(self, address):
-        address = await self._resolve_local_address_nocp(address)
+        address = await self._resolve_address_nocp(address, local=True)
         if (
             hasattr(_stdlib_socket, "AF_UNIX")
             and self.family == _stdlib_socket.AF_UNIX
@@ -480,89 +557,21 @@ class _SocketType(SocketType):
     async def wait_writable(self):
         await _core.wait_writable(self._sock)
 
-    ################################################################
-    # Address handling
-    ################################################################
-
-    # Take an address in Python's representation, and returns a new address in
-    # the same representation, but with names resolved to numbers,
-    # etc.
-    #
-    # NOTE: this function does not always checkpoint
-    async def _resolve_address_nocp(self, address, flags):
-        # Do some pre-checking (or exit early for non-IP sockets)
-        if self._sock.family == _stdlib_socket.AF_INET:
-            if not isinstance(address, tuple) or not len(address) == 2:
-                raise ValueError("address should be a (host, port) tuple")
-        elif self._sock.family == _stdlib_socket.AF_INET6:
-            if not isinstance(address, tuple) or not 2 <= len(address) <= 4:
-                raise ValueError(
-                    "address should be a (host, port, [flowinfo, [scopeid]]) tuple"
-                )
-        elif self._sock.family == _stdlib_socket.AF_UNIX:
-            # unwrap path-likes
-            return os.fspath(address)
+    async def _resolve_address_nocp(self, address, *, local):
+        if self.family == _stdlib_socket.AF_INET6:
+            ipv6_v6only = self._sock.getsockopt(
+                IPPROTO_IPV6, _stdlib_socket.IPV6_V6ONLY
+            )
         else:
-            return address
-
-        # -- From here on we know we have IPv4 or IPV6 --
-        host, port, *_ = address
-        # Fast path for the simple case: already-resolved IP address,
-        # already-resolved port. This is particularly important for UDP, since
-        # every sendto call goes through here.
-        if isinstance(port, int):
-            try:
-                _stdlib_socket.inet_pton(self._sock.family, address[0])
-            except (OSError, TypeError):
-                pass
-            else:
-                return address
-        # Special cases to match the stdlib, see gh-277
-        if host == "":
-            host = None
-        if host == "<broadcast>":
-            host = "255.255.255.255"
-        # Since we always pass in an explicit family here, AI_ADDRCONFIG
-        # doesn't add any value -- if we have no ipv6 connectivity and are
-        # working with an ipv6 socket, then things will break soon enough! And
-        # if we do enable it, then it makes it impossible to even run tests
-        # for ipv6 address resolution on travis-ci, which as of 2017-03-07 has
-        # no ipv6.
-        # flags |= AI_ADDRCONFIG
-        if self._sock.family == _stdlib_socket.AF_INET6:
-            if not self._sock.getsockopt(IPPROTO_IPV6, _stdlib_socket.IPV6_V6ONLY):
-                flags |= _stdlib_socket.AI_V4MAPPED
-        gai_res = await getaddrinfo(
-            host, port, self._sock.family, self.type, self._sock.proto, flags
+            ipv6_v6only = False
+        return await _resolve_address_nocp(
+            self.type,
+            self.family,
+            self.proto,
+            ipv6_v6only=ipv6_v6only,
+            address=address,
+            local=local,
         )
-        # AFAICT from the spec it's not possible for getaddrinfo to return an
-        # empty list.
-        assert len(gai_res) >= 1
-        # Address is the last item in the first entry
-        (*_, normed), *_ = gai_res
-        # The above ignored any flowid and scopeid in the passed-in address,
-        # so restore them if present:
-        if self._sock.family == _stdlib_socket.AF_INET6:
-            normed = list(normed)
-            assert len(normed) == 4
-            if len(address) >= 3:
-                normed[2] = address[2]
-            if len(address) >= 4:
-                normed[3] = address[3]
-            normed = tuple(normed)
-        return normed
-
-    # Returns something appropriate to pass to bind()
-    #
-    # NOTE: this function does not always checkpoint
-    async def _resolve_local_address_nocp(self, address):
-        return await self._resolve_address_nocp(address, _stdlib_socket.AI_PASSIVE)
-
-    # Returns something appropriate to pass to connect()/sendto()/sendmsg()
-    #
-    # NOTE: this function does not always checkpoint
-    async def _resolve_remote_address_nocp(self, address):
-        return await self._resolve_address_nocp(address, 0)
 
     async def _nonblocking_helper(self, fn, args, kwargs, wait_fn):
         # We have to reconcile two conflicting goals:
@@ -617,7 +626,7 @@ class _SocketType(SocketType):
         # notification. This means it isn't really cancellable... we close the
         # socket if cancelled, to avoid confusion.
         try:
-            address = await self._resolve_remote_address_nocp(address)
+            address = await self._resolve_address_nocp(address, local=False)
             async with _try_sync():
                 # An interesting puzzle: can a non-blocking connect() return EINTR
                 # (= raise InterruptedError)? PEP 475 specifically left this as
@@ -741,7 +750,7 @@ class _SocketType(SocketType):
         # args is: data[, flags], address)
         # and kwargs are not accepted
         args = list(args)
-        args[-1] = await self._resolve_remote_address_nocp(args[-1])
+        args[-1] = await self._resolve_address_nocp(args[-1], local=False)
         return await self._nonblocking_helper(
             _stdlib_socket.socket.sendto, args, {}, _core.wait_writable
         )
@@ -766,7 +775,7 @@ class _SocketType(SocketType):
             # and kwargs are not accepted
             if len(args) == 4 and args[-1] is not None:
                 args = list(args)
-                args[-1] = await self._resolve_remote_address_nocp(args[-1])
+                args[-1] = await self._resolve_address_nocp(args[-1], local=False)
             return await self._nonblocking_helper(
                 _stdlib_socket.socket.sendmsg, args, {}, _core.wait_writable
             )

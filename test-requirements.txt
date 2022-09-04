@@ -6,11 +6,11 @@
 #
 astor==0.8.1
     # via -r test-requirements.in
-astroid==2.11.6
+astroid==2.11.7
     # via pylint
 async-generator==1.10
     # via -r test-requirements.in
-attrs==21.4.0
+attrs==22.1.0
     # via
     #   -r test-requirements.in
     #   outcome
@@ -54,13 +54,13 @@ jedi==0.18.1
     #   ipython
 lazy-object-proxy==1.7.1
     # via astroid
-matplotlib-inline==0.1.3
+matplotlib-inline==0.1.6
     # via ipython
 mccabe==0.6.1
     # via
     #   flake8
     #   pylint
-mypy==0.961 ; implementation_name == "cpython"
+mypy==0.971 ; implementation_name == "cpython"
     # via -r test-requirements.in
 mypy-extensions==0.4.3 ; implementation_name == "cpython"
     # via
@@ -99,7 +99,7 @@ pyflakes==2.4.0
     # via flake8
 pygments==2.12.0
     # via ipython
-pylint==2.14.4
+pylint==2.14.5
     # via -r test-requirements.in
 pyopenssl==22.0.0
     # via -r test-requirements.in
@@ -111,7 +111,7 @@ pytest==7.1.2
     #   pytest-cov
 pytest-cov==3.0.0
     # via -r test-requirements.in
-sniffio==1.2.0
+sniffio==1.3.0
     # via -r test-requirements.in
 sortedcontainers==2.4.0
     # via -r test-requirements.in
@@ -122,13 +122,17 @@ tomli==2.0.1
     #   mypy
     #   pylint
     #   pytest
-tomlkit==0.11.1
+tomlkit==0.11.4
     # via pylint
 traitlets==5.3.0
     # via
     #   ipython
     #   matplotlib-inline
 trustme==0.9.0
+    # via -r test-requirements.in
+types-cryptography==3.3.22
+    # via types-pyopenssl
+types-pyopenssl==22.0.9 ; implementation_name == "cpython"
     # via -r test-requirements.in
 typing-extensions==4.3.0 ; implementation_name == "cpython"
     # via

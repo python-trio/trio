@@ -88,6 +88,7 @@ extensions = [
 intersphinx_mapping = {
     "python": ('https://docs.python.org/3.11', None),
     "outcome": ('https://outcome.readthedocs.io/en/latest/', None),
+    "pyopenssl": ('https://www.pyopenssl.org/en/stable/', None),
 }
 
 autodoc_member_order = "bysource"
