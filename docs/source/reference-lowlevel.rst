@@ -460,7 +460,7 @@ this does serve to illustrate the basic structure of the
            self._held = False
 
        async def acquire(self):
-           if self._held:
+           while self._held:
                task = trio.lowlevel.current_task()
                self._blocked_tasks.append(task)
                def abort_fn(_):
