@@ -460,13 +460,15 @@ this does serve to illustrate the basic structure of the
            self._held = False
 
        async def acquire(self):
-           while self._held:
+           if self._held:
                task = trio.lowlevel.current_task()
-               self._blocked_tasks.append(task)
                def abort_fn(_):
                    self._blocked_tasks.remove(task)
                    return trio.lowlevel.Abort.SUCCEEDED
-               await trio.lowlevel.wait_task_rescheduled(abort_fn)
+               # may need multiple attempts since reschedule() is not instant
+               while self._held:
+                   self._blocked_tasks.append(task)
+                   await trio.lowlevel.wait_task_rescheduled(abort_fn)
            self._held = True
 
        def release(self):
