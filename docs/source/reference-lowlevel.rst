@@ -460,15 +460,22 @@ this does serve to illustrate the basic structure of the
            self._held = False
 
        async def acquire(self):
-           if self._held:
+           # We might have to try several times to acquire the lock.
+           while self._held:
+               # Someone else has the lock, so we have to wait.
                task = trio.lowlevel.current_task()
                def abort_fn(_):
                    self._blocked_tasks.remove(task)
                    return trio.lowlevel.Abort.SUCCEEDED
-               # may need multiple attempts since reschedule() is not instant
-               while self._held:
-                   self._blocked_tasks.append(task)
-                   await trio.lowlevel.wait_task_rescheduled(abort_fn)
+               self._blocked_tasks.append(task)
+               await trio.lowlevel.wait_task_rescheduled(abort_fn)
+               # At this point the lock was released -- but someone else
+               # might have swooped in and taken it again before we
+               # woke up. So we loop around to check the 'while' condition
+               # again.
+           # if we reach this point, it means that the 'while' condition
+           # has just failed, so we know no-one is holding the lock, and
+           # we can take it.
            self._held = True
 
        def release(self):
