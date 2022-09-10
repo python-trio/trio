@@ -464,10 +464,10 @@ this does serve to illustrate the basic structure of the
            while self._held:
                # Someone else has the lock, so we have to wait.
                task = trio.lowlevel.current_task()
+               self._blocked_tasks.append(task)
                def abort_fn(_):
                    self._blocked_tasks.remove(task)
                    return trio.lowlevel.Abort.SUCCEEDED
-               self._blocked_tasks.append(task)
                await trio.lowlevel.wait_task_rescheduled(abort_fn)
                # At this point the lock was released -- but someone else
                # might have swooped in and taken it again before we
