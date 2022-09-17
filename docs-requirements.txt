@@ -28,7 +28,7 @@ docutils==0.17.1
     # via
     #   sphinx
     #   sphinx-rtd-theme
-idna==3.3
+idna==3.4
     # via
     #   -r docs-requirements.in
     #   requests
