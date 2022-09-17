@@ -17,7 +17,7 @@ attrs==22.1.0
     #   pytest
 backcall==0.2.0
     # via ipython
-black==22.6.0 ; implementation_name == "cpython"
+black==22.8.0 ; implementation_name == "cpython"
     # via -r test-requirements.in
 cffi==1.15.1
     # via cryptography
