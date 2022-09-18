@@ -1862,7 +1862,7 @@ async def test_nursery_stop_async_iteration():
                     for i, f in enumerate(nexts):
                         nursery.start_soon(self._accumulate, f, items, i)
             except ExceptionGroup as excgroup:
-                got_stop = bool(excgroup.split(StopAsyncIteration))
+                got_stop = bool(excgroup.split(StopAsyncIteration)[0])
 
             if got_stop:
                 raise StopAsyncIteration
