@@ -135,7 +135,7 @@ def collapse_exception_group(excgroup):
 
     if len(exceptions) == 1:
         exceptions[0].__traceback__ = concat_tb(
-            exceptions[0].__traceback__, excgroup.__traceback__
+            excgroup.__traceback__, exceptions[0].__traceback__
         )
         return exceptions[0]
     elif modified:
