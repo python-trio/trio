@@ -958,9 +958,8 @@ class Nursery(metaclass=NoPublicConstructor):
         self._check_nursery_closed()
 
     async def _nested_child_finished(self, nested_child_exc):
-        """
-        Returns MultiError instance if there are pending exceptions.
-        """
+        # Returns MultiError instance (or any exception if the nursery is in loose mode
+        # and there is just one contained exception) if there are pending exceptions
         if nested_child_exc is not None:
             self._add_exc(nested_child_exc)
         self._nested_child_running = False
