@@ -253,10 +253,11 @@ class MultiError(BaseExceptionGroup):
           handler: as for :meth:`filter`
 
         """
-        warnings.warn(
-            "MultiError.catch() has been deprecated. "
-            "Use except* or exceptiongroup.catch() instead.",
-            DeprecationWarning,
+        warn_deprecated(
+            "MultiError.catch",
+            "0.22.0",
+            instead="except* or exceptiongroup.catch()",
+            issue=2211,
         )
 
         return MultiErrorCatcher(handler)
