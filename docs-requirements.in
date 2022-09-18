@@ -16,7 +16,7 @@ async_generator >= 1.9
 idna
 outcome
 sniffio
-exceptiongroup
+exceptiongroup >= 1.0.0rc9
 
 # See note in test-requirements.in
 immutables >= 0.6

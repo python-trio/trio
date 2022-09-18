@@ -1,5 +1,9 @@
 import gc
 import logging
+import os
+import subprocess
+from pathlib import Path
+
 import pytest
 
 from traceback import (
@@ -11,6 +15,7 @@ from traceback import _cause_message  # type: ignore
 import sys
 import re
 
+from .tutil import slow
 from .._multierror import MultiError, concat_tb, NonBaseMultiError
 from ... import TrioDeprecationWarning
 from ..._core import open_nursery
@@ -427,3 +432,106 @@ def test_non_base_multierror():
     exc = MultiError([ZeroDivisionError(), ValueError()])
     assert type(exc) is NonBaseMultiError
     assert isinstance(exc, ExceptionGroup)
+
+
+def run_script(name, use_ipython=False):
+    import trio
+
+    trio_path = Path(trio.__file__).parent.parent
+    script_path = Path(__file__).parent / "test_multierror_scripts" / name
+
+    env = dict(os.environ)
+    print("parent PYTHONPATH:", env.get("PYTHONPATH"))
+    if "PYTHONPATH" in env:  # pragma: no cover
+        pp = env["PYTHONPATH"].split(os.pathsep)
+    else:
+        pp = []
+    pp.insert(0, str(trio_path))
+    pp.insert(0, str(script_path.parent))
+    env["PYTHONPATH"] = os.pathsep.join(pp)
+    print("subprocess PYTHONPATH:", env.get("PYTHONPATH"))
+
+    if use_ipython:
+        lines = [script_path.read_text(), "exit()"]
+
+        cmd = [
+            sys.executable,
+            "-u",
+            "-m",
+            "IPython",
+            # no startup files
+            "--quick",
+            "--TerminalIPythonApp.code_to_run=" + "\n".join(lines),
+        ]
+    else:
+        cmd = [sys.executable, "-u", str(script_path)]
+    print("running:", cmd)
+    completed = subprocess.run(
+        cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+    )
+    print("process output:")
+    print(completed.stdout.decode("utf-8"))
+    return completed
+
+
+def check_simple_excepthook(completed):
+    assert_match_in_seq(
+        [
+            "in <module>",
+            "MultiError",
+            "--- 1 ---",
+            "in exc1_fn",
+            "ValueError",
+            "--- 2 ---",
+            "in exc2_fn",
+            "KeyError",
+        ],
+        completed.stdout.decode("utf-8"),
+    )
+
+
+try:
+    import IPython
+except ImportError:  # pragma: no cover
+    have_ipython = False
+else:
+    have_ipython = True
+
+need_ipython = pytest.mark.skipif(not have_ipython, reason="need IPython")
+
+
+@slow
+@need_ipython
+def test_ipython_exc_handler():
+    completed = run_script("simple_excepthook.py", use_ipython=True)
+    check_simple_excepthook(completed)
+
+
+@slow
+@need_ipython
+def test_ipython_imported_but_unused():
+    completed = run_script("simple_excepthook_IPython.py")
+    check_simple_excepthook(completed)
+
+
+@slow
+@need_ipython
+def test_ipython_custom_exc_handler():
+    # Check we get a nice warning (but only one!) if the user is using IPython
+    # and already has some other set_custom_exc handler installed.
+    completed = run_script("ipython_custom_exc.py", use_ipython=True)
+    assert_match_in_seq(
+        [
+            # The warning
+            "RuntimeWarning",
+            "IPython detected",
+            "skip installing Trio",
+            # The MultiError
+            "MultiError",
+            "ValueError",
+            "KeyError",
+        ],
+        completed.stdout.decode("utf-8"),
+    )
+    # Make sure our other warning doesn't show up
+    assert "custom sys.excepthook" not in completed.stdout.decode("utf-8")
