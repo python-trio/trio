@@ -277,13 +277,13 @@ def test_MultiError_catch():
     def noop(_):
         pass  # pragma: no cover
 
-    with pytest.deprecated_call(MultiError.catch, noop):
+    with pytest.warns(TrioDeprecationWarning), MultiError.catch(noop):
         pass
 
     # Simple pass-through of all exceptions
     m = make_tree()
     with pytest.raises(MultiError) as excinfo:
-        with pytest.deprecated_call(MultiError.catch, lambda exc: exc):
+        with pytest.warns(TrioDeprecationWarning), MultiError.catch(lambda exc: exc):
             raise m
     assert excinfo.value is m
     # Should be unchanged, except that we added a traceback frame by raising
@@ -295,7 +295,7 @@ def test_MultiError_catch():
     assert_tree_eq(m, make_tree())
 
     # Swallows everything
-    with pytest.deprecated_call(MultiError.catch, lambda _: None):
+    with pytest.warns(TrioDeprecationWarning), MultiError.catch(lambda _: None):
         raise make_tree()
 
     def simple_filter(exc):
@@ -306,7 +306,7 @@ def test_MultiError_catch():
         return exc
 
     with pytest.raises(MultiError) as excinfo:
-        with pytest.deprecated_call(MultiError.catch, simple_filter):
+        with pytest.warns(TrioDeprecationWarning), MultiError.catch(simple_filter):
             raise make_tree()
     new_m = excinfo.value
     assert isinstance(new_m, MultiError)
@@ -324,7 +324,7 @@ def test_MultiError_catch():
     v = ValueError()
     v.__cause__ = KeyError()
     with pytest.raises(ValueError) as excinfo:
-        with pytest.deprecated_call(MultiError.catch, lambda exc: exc):
+        with pytest.warns(TrioDeprecationWarning), MultiError.catch(lambda exc: exc):
             raise v
     assert isinstance(excinfo.value.__cause__, KeyError)
 
@@ -332,7 +332,7 @@ def test_MultiError_catch():
     context = KeyError()
     v.__context__ = context
     with pytest.raises(ValueError) as excinfo:
-        with pytest.deprecated_call(MultiError.catch, lambda exc: exc):
+        with pytest.warns(TrioDeprecationWarning), MultiError.catch(lambda exc: exc):
             raise v
     assert excinfo.value.__context__ is context
     assert not excinfo.value.__suppress_context__
@@ -351,8 +351,9 @@ def test_MultiError_catch():
                 else:
                     return exc
 
-            with pytest.deprecated_call(MultiError.catch, catch_RuntimeError):
-                raise MultiError([v, distractor])
+            with pytest.warns(TrioDeprecationWarning):
+                with MultiError.catch(catch_RuntimeError):
+                    raise MultiError([v, distractor])
         assert excinfo.value.__context__ is context
         assert excinfo.value.__suppress_context__ == suppress_context
 
@@ -380,7 +381,7 @@ def test_MultiError_catch_doesnt_create_cyclic_garbage():
         gc.set_debug(gc.DEBUG_SAVEALL)
         with pytest.raises(MultiError):
             # covers MultiErrorCatcher.__exit__ and _multierror.copy_tb
-            with pytest.deprecated_call(MultiError.catch, simple_filter):
+            with pytest.warns(TrioDeprecationWarning), MultiError.catch(simple_filter):
                 raise make_multi()
         gc.collect()
         assert not gc.garbage
