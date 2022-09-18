@@ -237,7 +237,10 @@ class MultiError(BaseExceptionGroup):
 
         """
         warn_deprecated(
-            "MultiError.filter()", "0.22.0", instead="MultiError.split()", issue=2211
+            "MultiError.filter()",
+            "0.22.0",
+            instead="BaseExceptionGroup.split()",
+            issue=2211,
         )
         return _filter_impl(handler, root_exc)
 
