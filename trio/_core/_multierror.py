@@ -392,6 +392,7 @@ def concat_tb(head, tail):
 
 
 # Remove when IPython gains support for exception groups
+# (https://github.com/ipython/ipython/issues/13753)
 if "IPython" in sys.modules:
     import IPython
 
