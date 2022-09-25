@@ -127,13 +127,13 @@ def collapse_exception_group(excgroup):
     exceptions = list(excgroup.exceptions)
     modified = False
     for i, exc in enumerate(exceptions):
-        if isinstance(exc, MultiError):
+        if isinstance(exc, BaseExceptionGroup):
             new_exc = collapse_exception_group(exc)
             if new_exc is not exc:
                 modified = True
                 exceptions[i] = new_exc
 
-    if len(exceptions) == 1:
+    if len(exceptions) == 1 and isinstance(excgroup, MultiError) and excgroup.collapse:
         exceptions[0].__traceback__ = concat_tb(
             excgroup.__traceback__, exceptions[0].__traceback__
         )
@@ -475,7 +475,7 @@ class CancelScope(metaclass=Final):
             task._activate_cancel_status(self._cancel_status)
         return self
 
-    def _close(self, exc, collapse=True):
+    def _close(self, exc, collapse=False):
         if self._cancel_status is None:
             new_exc = RuntimeError(
                 "Cancel scope stack corrupted: attempted to exit {!r} "
@@ -540,8 +540,8 @@ class CancelScope(metaclass=Final):
                 if matched:
                     self.cancelled_caught = True
 
-        if collapse and isinstance(exc, MultiError):
-            exc = collapse_exception_group(exc)
+                if exc:
+                    exc = collapse_exception_group(exc)
 
         self._cancel_status.close()
         with self._might_change_registered_deadline():

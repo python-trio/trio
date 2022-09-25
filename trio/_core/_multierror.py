@@ -187,6 +187,7 @@ class MultiError(BaseExceptionGroup):
             # This exception was already initialized.
             return
 
+        self.collapse = _collapse
         super().__init__("multiple tasks failed", exceptions)
 
     def __new__(cls, exceptions, *, _collapse=True):
@@ -220,7 +221,9 @@ class MultiError(BaseExceptionGroup):
     def derive(self, __excs):
         # We use _collapse=False here to get ExceptionGroup semantics, since derive()
         # is part of the PEP 654 API
-        return MultiError(__excs, _collapse=False)
+        exc = MultiError(__excs, _collapse=False)
+        exc.collapse = self.collapse
+        return exc
 
     @classmethod
     def filter(cls, handler, root_exc):
