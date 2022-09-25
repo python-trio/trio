@@ -414,3 +414,35 @@ if "IPython" in sys.modules:
                 print_exception(value)
 
             ip.set_custom_exc((BaseExceptionGroup,), trio_show_traceback)
+
+
+# Ubuntu's system Python has a sitecustomize.py file that import
+# apport_python_hook and replaces sys.excepthook.
+#
+# The custom hook captures the error for crash reporting, and then calls
+# sys.__excepthook__ to actually print the error.
+#
+# We don't mind it capturing the error for crash reporting, but we want to
+# take over printing the error. So we monkeypatch the apport_python_hook
+# module so that instead of calling sys.__excepthook__, it calls our custom
+# hook.
+#
+# More details: https://github.com/python-trio/trio/issues/1065
+if (
+    sys.version_info < (3, 11)
+    and getattr(sys.excepthook, "__name__", None) == "apport_excepthook"
+):
+    from types import ModuleType
+
+    import apport_python_hook
+    from exceptiongroup import format_exception
+
+    assert sys.excepthook is apport_python_hook.apport_excepthook
+
+    def replacement_webhook(etype, value, tb):
+        sys.stderr.write("".join(format_exception(etype, value, tb)))
+
+    fake_sys = ModuleType("trio_fake_sys")
+    fake_sys.__dict__.update(sys.__dict__)
+    fake_sys.__excepthook__ = replacement_webhook  # type: ignore
+    apport_python_hook.sys = fake_sys
