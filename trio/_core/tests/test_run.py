@@ -2371,3 +2371,17 @@ async def test_nursery_strict_exception_groups():
     assert len(exc.value.exceptions) == 1
     assert type(exc.value.exceptions[0]) is Exception
     assert exc.value.exceptions[0].args == ("foo",)
+
+
+async def test_nursery_collapse():
+    async def raise_error():
+        raise RuntimeError("test error")
+
+    with pytest.raises(MultiError) as exc:
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(raise_error)
+            async with _core.open_nursery(strict_exception_groups=True) as nursery2:
+                nursery2.start_soon(raise_error)
+
+    assert len(exc.value.exceptions) == 2
+    assert all(isinstance(e, RuntimeError) for e in exc.value.exceptions)
