@@ -1855,17 +1855,11 @@ async def test_nursery_stop_async_iteration():
         async def __anext__(self):
             nexts = self.nexts
             items = [None] * len(nexts)
-            got_stop = False
 
-            try:
-                async with _core.open_nursery() as nursery:
-                    for i, f in enumerate(nexts):
-                        nursery.start_soon(self._accumulate, f, items, i)
-            except ExceptionGroup as excgroup:
-                got_stop = bool(excgroup.split(StopAsyncIteration)[0])
+            async with _core.open_nursery() as nursery:
+                for i, f in enumerate(nexts):
+                    nursery.start_soon(self._accumulate, f, items, i)
 
-            if got_stop:
-                raise StopAsyncIteration
             return items
 
     result = []
