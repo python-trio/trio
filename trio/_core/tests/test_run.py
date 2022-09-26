@@ -2421,3 +2421,17 @@ async def test_nursery_collapse_loose():
     assert len(exceptions) == 2
     assert isinstance(exceptions[0], RuntimeError)
     assert isinstance(exceptions[1], RuntimeError)
+
+
+async def test_cancel_scope_no_cancellederror():
+    """
+    Test that when a cancel scope encounters an exception group that does NOT contain
+    a Cancelled exception, it will NOT set the ``cancelled_caught`` flag.
+    """
+
+    with pytest.raises(ExceptionGroup):
+        with _core.CancelScope() as scope:
+            scope.cancel()
+            raise ExceptionGroup("test", [RuntimeError(), RuntimeError()])
+
+    assert not scope.cancelled_caught
