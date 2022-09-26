@@ -99,7 +99,7 @@ pygments==2.12.0
     # via ipython
 pylint==2.14.5
     # via -r test-requirements.in
-pyopenssl==22.0.0
+pyopenssl==22.1.0
     # via -r test-requirements.in
 pyparsing==3.0.9
     # via packaging
