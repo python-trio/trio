@@ -2373,10 +2373,10 @@ async def test_nursery_strict_exception_groups():
     assert exc.value.exceptions[0].args == ("foo",)
 
 
-async def test_nursery_collapse():
+async def test_nursery_collapse_strict():
     """
     Test that a single exception from a nested nursery with strict semantics doesn't get
-    collapsed.
+    collapsed when CancelledErrors are stripped from it.
     """
 
     async def raise_error():
@@ -2397,3 +2397,27 @@ async def test_nursery_collapse():
     assert isinstance(exceptions[1], MultiError)
     assert len(exceptions[1].exceptions) == 1
     assert isinstance(exceptions[1].exceptions[0], RuntimeError)
+
+
+async def test_nursery_collapse_loose():
+    """
+    Test that a single exception from a nested nursery with loose semantics gets
+    collapsed when CancelledErrors are stripped from it.
+    """
+
+    async def raise_error():
+        raise RuntimeError("test error")
+
+    with pytest.raises(MultiError) as exc:
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(sleep_forever)
+            nursery.start_soon(raise_error)
+            async with _core.open_nursery() as nursery2:
+                nursery2.start_soon(sleep_forever)
+                nursery2.start_soon(raise_error)
+                nursery.cancel_scope.cancel()
+
+    exceptions = exc.value.exceptions
+    assert len(exceptions) == 2
+    assert isinstance(exceptions[0], RuntimeError)
+    assert isinstance(exceptions[1], RuntimeError)
