@@ -181,13 +181,14 @@ class MultiError(BaseExceptionGroup):
     """
 
     def __init__(self, exceptions, *, _collapse=True):
+        self.collapse = _collapse
+
         # Avoid double initialization when _collapse is True and exceptions[0] returned
         # by __new__() happens to be a MultiError and subsequently __init__() is called.
         if _collapse and getattr(self, "exceptions", None) is not None:
             # This exception was already initialized.
             return
 
-        self.collapse = _collapse
         super().__init__("multiple tasks failed", exceptions)
 
     def __new__(cls, exceptions, *, _collapse=True):
