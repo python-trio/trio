@@ -36,10 +36,8 @@ idna==3.4
     #   requests
 imagesize==1.4.1
     # via sphinx
-immutables==0.18
+immutables==0.19
     # via -r docs-requirements.in
-importlib-metadata==4.12.0
-    # via click
 incremental==21.3.0
     # via towncrier
 jinja2==3.0.3
@@ -92,14 +90,8 @@ tomli==2.0.1
     # via towncrier
 towncrier==22.8.0
     # via -r docs-requirements.in
-typing-extensions==4.3.0
-    # via
-    #   immutables
-    #   importlib-metadata
 urllib3==1.26.12
     # via requests
-zipp==3.8.1
-    # via importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools
