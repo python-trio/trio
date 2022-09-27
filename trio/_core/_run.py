@@ -475,7 +475,7 @@ class CancelScope(metaclass=Final):
             task._activate_cancel_status(self._cancel_status)
         return self
 
-    def _close(self, exc, collapse=False):
+    def _close(self, exc):
         if self._cancel_status is None:
             new_exc = RuntimeError(
                 "Cancel scope stack corrupted: attempted to exit {!r} "
@@ -837,9 +837,7 @@ class NurseryManager:
         new_exc = await self._nursery._nested_child_finished(exc)
         # Tracebacks show the 'raise' line below out of context, so let's give
         # this variable a name that makes sense out of context.
-        combined_error_from_nursery = self._scope._close(
-            new_exc, collapse=not self.strict_exception_groups
-        )
+        combined_error_from_nursery = self._scope._close(new_exc)
         if combined_error_from_nursery is None:
             return True
         elif combined_error_from_nursery is exc:
