@@ -443,10 +443,10 @@ if (
 
     assert sys.excepthook is apport_python_hook.apport_excepthook
 
-    def replacement_webhook(etype, value, tb):
+    def replacement_excepthook(etype, value, tb):
         sys.stderr.write("".join(format_exception(etype, value, tb)))
 
     fake_sys = ModuleType("trio_fake_sys")
     fake_sys.__dict__.update(sys.__dict__)
-    fake_sys.__excepthook__ = replacement_webhook  # type: ignore
+    fake_sys.__excepthook__ = replacement_excepthook  # type: ignore
     apport_python_hook.sys = fake_sys
