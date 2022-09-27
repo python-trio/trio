@@ -48,8 +48,8 @@ Features
 Bugfixes
 ~~~~~~~~
 
-- Trio now avoids creating cyclic garbage when a `MultiError` is generated and filtered,
-  including invisibly within the cancellation system.  This means errors raised
+- Trio now avoids creating cyclic garbage when a ``MultiError`` is generated and
+  filtered, including invisibly within the cancellation system. This means errors raised
   through nurseries and cancel scopes should result in less GC latency. (`#2063 <https://github.com/python-trio/trio/issues/2063>`__)
 - Trio now deterministically cleans up file descriptors that were opened before
   subprocess creation fails. Previously, they would remain open until the next run of
@@ -288,9 +288,9 @@ Bugfixes
 - On Ubuntu systems, the system Python includes a custom
   unhandled-exception hook to perform `crash reporting
   <https://wiki.ubuntu.com/Apport>`__. Unfortunately, Trio wants to use
-  the same hook to print nice `MultiError` tracebacks, causing a
+  the same hook to print nice ``MultiError`` tracebacks, causing a
   conflict. Previously, Trio would detect the conflict, print a warning,
-  and you just wouldn't get nice `MultiError` tracebacks. Now, Trio has
+  and you just wouldn't get nice ``MultiError`` tracebacks. Now, Trio has
   gotten clever enough to integrate its hook with Ubuntu's, so the two
   systems should Just Work together. (`#1065 <https://github.com/python-trio/trio/issues/1065>`__)
 - Fixed an over-strict test that caused failures on Alpine Linux.
@@ -492,7 +492,7 @@ Features
   violated. (One common source of such violations is an async generator
   that yields within a cancel scope.) The previous behavior was an
   inscrutable chain of TrioInternalErrors. (`#882 <https://github.com/python-trio/trio/issues/882>`__)
-- MultiError now defines its ``exceptions`` attribute in ``__init__()``
+- ``MultiError`` now defines its ``exceptions`` attribute in ``__init__()``
   to better support linters and code autocompletion. (`#1066 <https://github.com/python-trio/trio/issues/1066>`__)
 - Use ``__slots__`` in more places internally, which should make Trio slightly faster. (`#984 <https://github.com/python-trio/trio/issues/984>`__)
 
@@ -513,7 +513,7 @@ Bugfixes
   :meth:`~trio.Path.cwd`, are now async functions.  Previously, a bug
   in the forwarding logic meant :meth:`~trio.Path.cwd` was synchronous
   and :meth:`~trio.Path.home` didn't work at all. (`#960 <https://github.com/python-trio/trio/issues/960>`__)
-- An exception encapsulated within a :class:`MultiError` doesn't need to be
+- An exception encapsulated within a ``MultiError`` doesn't need to be
   hashable anymore.
 
   .. note::
@@ -1304,7 +1304,7 @@ Other changes
   interfering with direct use of
   :func:`~trio.testing.wait_all_tasks_blocked` in the same test.
 
-* :meth:`MultiError.catch` now correctly preserves ``__context__``,
+* ``MultiError.catch()`` now correctly preserves ``__context__``,
   despite Python's best attempts to stop us (`#165
   <https://github.com/python-trio/trio/issues/165>`__)
 

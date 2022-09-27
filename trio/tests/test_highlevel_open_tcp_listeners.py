@@ -1,3 +1,5 @@
+import sys
+
 import pytest
 
 import socket as stdlib_socket
@@ -10,6 +12,9 @@ from trio import open_tcp_listeners, serve_tcp, SocketListener, open_tcp_stream
 from trio.testing import open_stream_to_socket_listener
 from .. import socket as tsocket
 from .._core.tests.tutil import slow, creates_ipv6, binds_ipv6
+
+if sys.version_info < (3, 11):
+    from exceptiongroup import BaseExceptionGroup
 
 
 async def test_open_tcp_listeners_basic():
@@ -239,7 +244,7 @@ async def test_open_tcp_listeners_some_address_families_unavailable(
             await open_tcp_listeners(80, host="example.org")
 
         assert "This system doesn't support" in str(exc_info.value)
-        if isinstance(exc_info.value.__cause__, trio.MultiError):
+        if isinstance(exc_info.value.__cause__, BaseExceptionGroup):
             for subexc in exc_info.value.__cause__.exceptions:
                 assert "nope" in str(subexc)
         else:

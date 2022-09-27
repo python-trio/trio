@@ -22,7 +22,6 @@ from ._core import (
     Cancelled,
     BusyResourceError,
     ClosedResourceError,
-    MultiError,
     run,
     open_nursery,
     CancelScope,
@@ -90,6 +89,9 @@ from ._highlevel_ssl_helpers import (
     serve_ssl_over_tcp,
 )
 
+from ._core._multierror import MultiError as _MultiError
+from ._core._multierror import NonBaseMultiError as _NonBaseMultiError
+
 from ._deprecate import TrioDeprecationWarning
 
 # Submodules imported by default
@@ -114,6 +116,24 @@ __deprecated_attributes__ = {
         version="0.20.0",
         issue=1104,
         instead="trio.lowlevel.open_process",
+    ),
+    "MultiError": _deprecate.DeprecatedAttribute(
+        value=_MultiError,
+        version="0.22.0",
+        issue=2211,
+        instead=(
+            "BaseExceptionGroup (on Python 3.11 and later) or "
+            "exceptiongroup.BaseExceptionGroup (earlier versions)"
+        ),
+    ),
+    "NonBaseMultiError": _deprecate.DeprecatedAttribute(
+        value=_NonBaseMultiError,
+        version="0.22.0",
+        issue=2211,
+        instead=(
+            "ExceptionGroup (on Python 3.11 and later) or "
+            "exceptiongroup.ExceptionGroup (earlier versions)"
+        ),
     ),
 }
 
