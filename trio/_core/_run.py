@@ -655,7 +655,7 @@ class CancelScope(metaclass=Final):
         """
         return self._shield
 
-    @shield.setter  # type: ignore  # "decorated property not supported"
+    @shield.setter
     @enable_ki_protection
     def shield(self, new_value):
         if not isinstance(new_value, bool):
