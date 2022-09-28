@@ -22,8 +22,9 @@ Headline features
   backport_.
 
   See the :ref:`updated documentation <exceptiongroups>` for details.
+  (`#2211 <https://github.com/python-trio/trio/issues/2211>`__)
 
-  .. _backport: https://pypi.org/project/exceptiongroup/ (`#2211 <https://github.com/python-trio/trio/issues/2211>`__)
+  .. _backport: https://pypi.org/project/exceptiongroup/
 
 
 Features
