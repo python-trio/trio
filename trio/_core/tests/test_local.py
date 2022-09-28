@@ -80,7 +80,7 @@ def test_runvar_sync():
             with pytest.raises(LookupError):
                 t1.get()
 
-            t1.set("cod")
+            t1.set("swordfish")
 
         async with _core.open_nursery() as n:
             token = t1.set("cod")
@@ -92,7 +92,7 @@ def test_runvar_sync():
 
             n.start_soon(task2, token)
             await _core.wait_all_tasks_blocked()
-            assert t1.get() == "cod"
+            assert t1.get() == "swordfish"
 
     _core.run(sync_check)
 
