@@ -5,6 +5,36 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.22.0 (2022-09-28)
+------------------------
+
+Headline features
+~~~~~~~~~~~~~~~~~
+
+- ``MultiError`` has been deprecated in favor of the standard :exc:`BaseExceptionGroup`
+  (introduced in :pep:`654`). On Python versions below 3.11, this exception and its
+  derivative :exc:`ExceptionGroup` are provided by the backport_. Trio still raises
+  ``MultiError``, but it has been refactored into a subclass of :exc:`BaseExceptionGroup`
+  which users should catch instead of ``MultiError``. Uses of the ``MultiError.filter()``
+  class method should be replaced with :meth:`BaseExceptionGroup.split`. Uses of the
+  ``MultiError.catch()`` class method should be replaced with either ``except*`` clauses
+  (on Python 3.11+) or the ``exceptiongroup.catch()`` context manager provided by the
+  backport_.
+
+  See the :ref:`updated documentation <exceptiongroups>` for details.
+
+  .. _backport: https://pypi.org/project/exceptiongroup/ (`#2211 <https://github.com/python-trio/trio/issues/2211>`__)
+
+
+Features
+~~~~~~~~
+
+- Added support for `Datagram TLS
+  <https://en.wikipedia.org/wiki/Datagram_Transport_Layer_Security>`__,
+  for secure communication over UDP. Currently requires `PyOpenSSL
+  <https://pypi.org/p/pyopenssl>`__. (`#2010 <https://github.com/python-trio/trio/issues/2010>`__)
+
+
 Trio 0.21.0 (2022-06-07)
 ----------------------------
 
