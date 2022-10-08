@@ -134,7 +134,7 @@ types-cryptography==3.3.22
     # via types-pyopenssl
 types-pyopenssl==22.0.9 ; implementation_name == "cpython"
     # via -r test-requirements.in
-typing-extensions==4.3.0 ; implementation_name == "cpython"
+typing-extensions==4.4.0 ; implementation_name == "cpython"
     # via
     #   -r test-requirements.in
     #   mypy
