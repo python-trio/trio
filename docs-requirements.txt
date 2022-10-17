@@ -38,7 +38,7 @@ imagesize==1.4.1
     # via sphinx
 immutables==0.19
     # via -r docs-requirements.in
-incremental==21.3.0
+incremental==22.10.0
     # via towncrier
 jinja2==3.0.3
     # via
