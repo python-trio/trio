@@ -1,0 +1,1 @@
+Moved the metadata into ``PEP 621``-compliant ``pyproject.toml``.
