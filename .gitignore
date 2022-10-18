@@ -1,3 +1,5 @@
+trio/_version.py
+
 # Project-specific generated files
 docs/build/
 

@@ -1,3 +1,11 @@
+[build-system]
+requires = ["setuptools>=42.2", "setuptools_scm[toml]>=3.4.3"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+write_to = "trio/_version.py"
+write_to_template = "__version__ = \"{version}\"\n"
+
 [tool.black]
 target-version = ['py37']
 
