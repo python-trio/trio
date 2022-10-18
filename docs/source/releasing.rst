@@ -21,7 +21,11 @@ Things to do for releasing:
 
    + bump version number
 
-      - increment as per Semantic Versioning rules
+      - increment as per Semantic Versioning rules in
+
+        - in the metadata file (``setup.cfg``)
+
+        - in ``trio/_version.py``
 
       - remove ``+dev`` tag from version number
 
@@ -44,7 +48,7 @@ Things to do for releasing:
 * push to PyPI::
 
     git clean -xdf   # maybe run 'git clean -xdn' first to see what it will delete
-    python3 setup.py sdist bdist_wheel
+    python3 -m build -ws
     twine upload dist/*
 
 * update version number in the same pull request

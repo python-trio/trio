@@ -6,6 +6,7 @@ jinja2 < 3.1
 sphinx_rtd_theme
 sphinxcontrib-trio
 towncrier
+setuptools-scm
 
 # Trio's own dependencies
 cffi; os_name == "nt"

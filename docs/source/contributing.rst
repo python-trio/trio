@@ -133,7 +133,7 @@ in separate sections below:
   adding a test to make sure it stays fixed.
 
 * :ref:`pull-request-formatting`: If you changed Python code, then did
-  you run ``black setup.py trio``? (Or for other packages, replace
+  you run ``black trio``? (Or for other packages, replace
   ``trio`` with the package name.)
 
 * :ref:`pull-request-release-notes`: If your change affects
@@ -292,7 +292,7 @@ sloppy as you like about whitespace; and then before you commit, just
 run::
 
     pip install -U black
-    black setup.py trio
+    black trio
 
 to fix it up. (And don't worry if you forget – when you submit a pull
 request then we'll automatically check and remind you.) Hopefully this
@@ -305,7 +305,7 @@ you can can add ``# fmt: off`` and ``# fmt: on`` comments.
 
 If you want to see what changes black will make, you can use::
 
-    black --diff setup.py trio
+    black --diff trio
 
 (``--diff`` displays a diff, versus the default mode which fixes files
 in-place.)
