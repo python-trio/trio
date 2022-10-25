@@ -1,10 +1,11 @@
 [build-system]
-requires = ["setuptools>=61.2"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling>=1.8.0"]
+build-backend = "hatchling.build"
+#requires = ["setuptools>=61.2", "setuptools_scm[toml]>=3.4.3"]
+#build-backend = "setuptools.build_meta"
 
 [project]
 name = "trio"
-version = "0.22.0"
 authors = [{name = "Nathaniel J. Smith", email = "njs@pobox.com"}]
 license = {text = "MIT OR Apache-2.0"}
 description = "A friendly Python library for async concurrency and I/O"
@@ -45,12 +46,20 @@ dependencies = [
     "cffi>=1.14; os_name == 'nt' and implementation_name != 'pypy'",
     "exceptiongroup >= 1.0.0rc9; python_version < '3.11'",
 ]
+dynamic = ["version"]
+
+[tool.hatch.version]
+path = "trio/_version.py"
 
 [tool.setuptools]
 include-package-data = true
 
 [tool.setuptools.packages]
 find = {namespaces = false}
+
+[tool.setuptools_scm]
+write_to = "trio/_version.py"
+write_to_template = "__version__ = \"{version}\"\n"
 
 [tool.black]
 target-version = ['py37']
