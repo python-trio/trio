@@ -34,7 +34,7 @@ decorator==5.1.1
     # via ipython
 dill==0.3.5.1
     # via pylint
-exceptiongroup==1.0.0rc9 ; python_version < "3.11"
+exceptiongroup==1.0.0 ; python_version < "3.11"
     # via -r test-requirements.in
 flake8==4.0.1
     # via -r test-requirements.in
