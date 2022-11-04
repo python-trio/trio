@@ -115,7 +115,7 @@ sortedcontainers==2.4.0
     # via -r test-requirements.in
 tomli==2.0.1
     # via pytest
-tomlkit==0.11.5
+tomlkit==0.11.6
     # via pylint
 traitlets==5.5.0
     # via
