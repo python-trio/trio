@@ -34,8 +34,7 @@ decorator==5.1.1
     # via ipython
 dill==0.3.5.1
     # via pylint
-exceptiongroup==1.0.0rc9 ; python_version < "3.11"
-    # via -r test-requirements.in
+exceptiongroup==1.0.1
 flake8==4.0.1
     # via -r test-requirements.in
 idna==3.4
@@ -116,12 +115,7 @@ sniffio==1.3.0
 sortedcontainers==2.4.0
     # via -r test-requirements.in
 tomli==2.0.1
-    # via
-    #   black
-    #   coverage
-    #   mypy
-    #   pylint
-    #   pytest
+    # via pytest
 tomlkit==0.11.5
     # via pylint
 traitlets==5.4.0
