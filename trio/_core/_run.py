@@ -1531,10 +1531,20 @@ class Runner:
             assert self.init_task is None
 
         ######
+        # Propagate contextvars, and make sure that async_fn can use sniffio.
+        ######
+        if context is None:
+            if system_task:
+                context = self.system_context.copy()
+            else:
+                context = copy_context()
+        context.run(current_async_library_cvar.set, "trio")
+
+        ######
         # Call the function and get the coroutine object, while giving helpful
         # errors for common mistakes.
         ######
-        coro = coroutine_or_error(async_fn, *args)
+        coro = context.run(coroutine_or_error, async_fn, *args)
 
         if name is None:
             name = async_fn
@@ -1545,12 +1555,6 @@ class Runner:
                 name = f"{name.__module__}.{name.__qualname__}"
             except AttributeError:
                 name = repr(name)
-
-        if context is None:
-            if system_task:
-                context = self.system_context.copy()
-            else:
-                context = copy_context()
 
         if not hasattr(coro, "cr_frame"):
             # This async function is implemented in C or Cython
@@ -1680,7 +1684,6 @@ class Runner:
           Task: the newly spawned task
 
         """
-        current_async_library_cvar.set("trio")
         return self.spawn_impl(
             async_fn,
             args,
@@ -1931,7 +1934,6 @@ def setup_runner(
     instruments = Instruments(instruments)
     io_manager = TheIOManager()
     system_context = copy_context()
-    system_context.run(current_async_library_cvar.set, "trio")
     ki_manager = KIManager()
 
     runner = Runner(

@@ -1,0 +1,1 @@
+Fixed nurseries crashing during a guest run when the host loop calls ``nursery.start_soon`` on a function that needs `sniffio <https://github.com/python-trio/sniffio>`__.
