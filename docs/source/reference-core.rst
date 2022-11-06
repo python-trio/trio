@@ -748,8 +748,8 @@ callbacks::
             ...  # handle each IndexError
 
     with catch({
-        KeyError: handle_keyerror,
-        IndexError: handle_indexerror
+        KeyError: handle_keyerrors,
+        IndexError: handle_indexerrors
     }):
         async with trio.open_nursery() as nursery:
             nursery.start_soon(broken1)
@@ -764,7 +764,7 @@ inside the handler function(s) with the ``nonlocal`` keyword::
         myflag = True
 
     myflag = False
-    with catch({KeyError: handle_keyerror}):
+    with catch({KeyError: handle_keyerrors}):
         async with trio.open_nursery() as nursery:
             nursery.start_soon(broken1)
 
