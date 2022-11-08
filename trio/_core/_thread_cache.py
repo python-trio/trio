@@ -2,7 +2,46 @@ import sys
 import traceback
 from threading import Thread, Lock
 import outcome
+import sys
+import ctypes
+import ctypes.util
 from itertools import count
+
+from typing import Callable, Optional, Tuple
+from functools import partial
+
+
+def get_os_thread_name_func() -> Optional[Callable[[Optional[int], str], None]]:
+    def namefunc(setname: Callable[[int, bytes], int], ident: Optional[int], name: str):
+        if ident is not None:
+            setname(ident, bytes(name[:15], "ascii", "replace"))
+
+    libpthread_path = ctypes.util.find_library("pthread")
+    if not libpthread_path:
+        return None
+    libpthread = ctypes.CDLL(libpthread_path)
+
+    pthread_setname_np = getattr(libpthread, "pthread_setname_np", None)
+    if pthread_setname_np is None:
+        return None
+
+    # specify function prototype
+    pthread_setname_np.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+    pthread_setname_np.restype = ctypes.c_int
+
+    return partial(namefunc, pthread_setname_np)
+    ## set the name
+    # try:
+    #    bname = name.encode("ascii", "replace")
+    #    thread = threading.current_thread()
+    #    # if thread is not None:
+    #    thread.name = name
+    #    pthread_setname_np(thread.ident, bname[:15])
+    # except Exception:
+    #    return nofunc
+
+
+set_os_thread_name = get_os_thread_name_func()
 
 # The "thread cache" is a simple unbounded thread pool, i.e., it automatically
 # spawns as many threads as needed to handle all the requests its given. Its
@@ -44,7 +83,7 @@ name_counter = count()
 
 class WorkerThread:
     def __init__(self, thread_cache):
-        self._job = None
+        self._job: Optional[Tuple[Callable, Callable, str]] = None
         self._thread_cache = thread_cache
         # This Lock is used in an unconventional way.
         #
@@ -54,16 +93,35 @@ class WorkerThread:
         # Initially we have no job, so it starts out in locked state.
         self._worker_lock = Lock()
         self._worker_lock.acquire()
-        thread = Thread(target=self._work, daemon=True)
-        thread.name = f"Trio worker thread {next(name_counter)}"
-        thread.start()
+        self._default_name = f"Trio thread {next(name_counter)}"
+
+        self._thread = Thread(target=self._work, daemon=True)
+        self._thread.name = self._default_name
+
+        if set_os_thread_name:
+            set_os_thread_name(self._thread.ident, self._default_name)
+        self._thread.start()
 
     def _handle_job(self):
         # Handle job in a separate method to ensure user-created
         # objects are cleaned up in a consistent manner.
-        fn, deliver = self._job
+        assert self._job is not None
+        fn, deliver, name = self._job
         self._job = None
+
+        # set name
+        if name is not None:
+            self._thread.name = name
+            if set_os_thread_name:
+                set_os_thread_name(self._thread.ident, name)
         result = outcome.capture(fn)
+
+        # reset name if it was changed
+        if name is not None:
+            self._thread.name = self._default_name
+            if set_os_thread_name:
+                set_os_thread_name(self._thread.ident, self._default_name)
+
         # Tell the cache that we're available to be assigned a new
         # job. We do this *before* calling 'deliver', so that if
         # 'deliver' triggers a new job, it can be assigned to us
@@ -102,19 +160,19 @@ class ThreadCache:
     def __init__(self):
         self._idle_workers = {}
 
-    def start_thread_soon(self, fn, deliver):
+    def start_thread_soon(self, fn, deliver, name: Optional[str] = None):
         try:
             worker, _ = self._idle_workers.popitem()
         except KeyError:
             worker = WorkerThread(self)
-        worker._job = (fn, deliver)
+        worker._job = (fn, deliver, name)
         worker._worker_lock.release()
 
 
 THREAD_CACHE = ThreadCache()
 
 
-def start_thread_soon(fn, deliver):
+def start_thread_soon(fn, deliver, name: Optional[str] = None):
     """Runs ``deliver(outcome.capture(fn))`` in a worker thread.
 
     Generally ``fn`` does some blocking work, and ``deliver`` delivers the
@@ -174,4 +232,4 @@ def start_thread_soon(fn, deliver):
         limit how many threads they're using then it's polite to respect that.
 
     """
-    THREAD_CACHE.start_thread_soon(fn, deliver)
+    THREAD_CACHE.start_thread_soon(fn, deliver, name)
