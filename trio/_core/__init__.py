@@ -73,6 +73,8 @@ from ._thread_cache import start_thread_soon
 
 from ._mock_clock import MockClock
 
+from ._context import set_current_context
+
 # Windows imports
 if sys.platform == "win32":
     from ._run import (

@@ -44,6 +44,7 @@ from ._core import (
     notify_closing,
     start_thread_soon,
     start_guest_run,
+    set_current_context,
 )
 
 from ._subprocess import open_process
