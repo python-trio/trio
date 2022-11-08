@@ -76,7 +76,7 @@ setup(
     author="Nathaniel J. Smith",
     author_email="njs@pobox.com",
     url="https://github.com/python-trio/trio",
-    license="MIT -or- Apache License 2.0",
+    license="MIT OR Apache-2.0",
     packages=find_packages(),
     install_requires=[
         "attrs >= 19.2.0",  # for eq
@@ -89,6 +89,7 @@ setup(
         # cffi 1.14 fixes memory leak inside ffi.getwinerror()
         # cffi is required on Windows, except on PyPy where it is built-in
         "cffi>=1.14; os_name == 'nt' and implementation_name != 'pypy'",
+        "exceptiongroup >= 1.0.0rc9; python_version < '3.11'",
     ],
     # This means, just install *everything* you see under trio/, even if it
     # doesn't look like a source file, so long as it appears in MANIFEST.in:

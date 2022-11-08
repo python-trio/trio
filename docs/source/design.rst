@@ -461,15 +461,9 @@ of our public APIs without having to modify Trio internals.
 Inside ``trio._core``
 ~~~~~~~~~~~~~~~~~~~~~
 
-There are two notable sub-modules that are largely independent of
-the rest of Trio, and could (possibly should?) be extracted into their
-own independent packages:
-
-* ``_multierror.py``: Implements :class:`MultiError` and associated
-  infrastructure.
-
-* ``_ki.py``: Implements the core infrastructure for safe handling of
-  :class:`KeyboardInterrupt`.
+The ``_ki.py`` module implements the core infrastructure for safe handling
+of :class:`KeyboardInterrupt`.  It's largely independent of the rest of Trio,
+and could (possibly should?) be extracted into its own independent package.
 
 The most important submodule, where everything is integrated, is
 ``_run.py``. (This is also by far the largest submodule; it'd be nice

@@ -738,3 +738,15 @@ async def test_trio_token_weak_referenceable():
     assert isinstance(token, TrioToken)
     weak_reference = weakref.ref(token)
     assert token is weak_reference()
+
+
+async def test_unsafe_cancellable_kwarg():
+
+    # This is a stand in for a numpy ndarray or other objects
+    # that (maybe surprisingly) lack a notion of truthiness
+    class BadBool:
+        def __bool__(self):
+            raise NotImplementedError
+
+    with pytest.raises(NotImplementedError):
+        await to_thread_run_sync(int, cancellable=BadBool())

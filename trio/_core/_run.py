@@ -28,7 +28,7 @@ from ._ki import (
     KIManager,
     enable_ki_protection,
 )
-from ._multierror import MultiError
+from ._multierror import MultiError, concat_tb
 from ._traps import (
     Abort,
     wait_task_rescheduled,
@@ -42,6 +42,9 @@ from ._thread_cache import start_thread_soon
 from ._instrumentation import Instruments
 from .. import _core
 from .._util import Final, NoPublicConstructor, coroutine_or_error
+
+if sys.version_info < (3, 11):
+    from exceptiongroup import BaseExceptionGroup
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD = 1000
 
@@ -114,6 +117,31 @@ class IdlePrimedTypes(enum.Enum):
 ################################################################
 # CancelScope and friends
 ################################################################
+
+
+def collapse_exception_group(excgroup):
+    """Recursively collapse any single-exception groups into that single contained
+    exception.
+
+    """
+    exceptions = list(excgroup.exceptions)
+    modified = False
+    for i, exc in enumerate(exceptions):
+        if isinstance(exc, BaseExceptionGroup):
+            new_exc = collapse_exception_group(exc)
+            if new_exc is not exc:
+                modified = True
+                exceptions[i] = new_exc
+
+    if len(exceptions) == 1 and isinstance(excgroup, MultiError) and excgroup.collapse:
+        exceptions[0].__traceback__ = concat_tb(
+            excgroup.__traceback__, exceptions[0].__traceback__
+        )
+        return exceptions[0]
+    elif modified:
+        return excgroup.derive(exceptions)
+    else:
+        return excgroup
 
 
 @attr.s(eq=False, slots=True)
@@ -447,12 +475,6 @@ class CancelScope(metaclass=Final):
             task._activate_cancel_status(self._cancel_status)
         return self
 
-    def _exc_filter(self, exc):
-        if isinstance(exc, Cancelled):
-            self.cancelled_caught = True
-            return None
-        return exc
-
     def _close(self, exc):
         if self._cancel_status is None:
             new_exc = RuntimeError(
@@ -510,7 +532,17 @@ class CancelScope(metaclass=Final):
             and self._cancel_status.effectively_cancelled
             and not self._cancel_status.parent_cancellation_is_visible_to_us
         ):
-            exc = MultiError.filter(self._exc_filter, exc)
+            if isinstance(exc, Cancelled):
+                self.cancelled_caught = True
+                exc = None
+            elif isinstance(exc, BaseExceptionGroup):
+                matched, exc = exc.split(Cancelled)
+                if matched:
+                    self.cancelled_caught = True
+
+                if exc:
+                    exc = collapse_exception_group(exc)
+
         self._cancel_status.close()
         with self._might_change_registered_deadline():
             self._cancel_status = None
@@ -655,7 +687,7 @@ class CancelScope(metaclass=Final):
         """
         return self._shield
 
-    @shield.setter  # type: ignore  # "decorated property not supported"
+    @shield.setter
     @enable_ki_protection
     def shield(self, new_value):
         if not isinstance(new_value, bool):
@@ -778,6 +810,7 @@ class _TaskStatus:
         self._old_nursery._check_nursery_closed()
 
 
+@attr.s
 class NurseryManager:
     """Nursery context manager.
 
@@ -788,11 +821,15 @@ class NurseryManager:
 
     """
 
+    strict_exception_groups = attr.ib(default=False)
+
     @enable_ki_protection
     async def __aenter__(self):
         self._scope = CancelScope()
         self._scope.__enter__()
-        self._nursery = Nursery._create(current_task(), self._scope)
+        self._nursery = Nursery._create(
+            current_task(), self._scope, self.strict_exception_groups
+        )
         return self._nursery
 
     @enable_ki_protection
@@ -828,15 +865,23 @@ class NurseryManager:
         assert False, """Never called, but should be defined"""
 
 
-def open_nursery():
+def open_nursery(strict_exception_groups=None):
     """Returns an async context manager which must be used to create a
     new `Nursery`.
 
     It does not block on entry; on exit it blocks until all child tasks
     have exited.
 
+    Args:
+      strict_exception_groups (bool): If true, even a single raised exception will be
+          wrapped in an exception group. This will eventually become the default
+          behavior. If not specified, uses the value passed to :func:`run`.
+
     """
-    return NurseryManager()
+    if strict_exception_groups is None:
+        strict_exception_groups = GLOBAL_RUN_CONTEXT.runner.strict_exception_groups
+
+    return NurseryManager(strict_exception_groups=strict_exception_groups)
 
 
 class Nursery(metaclass=NoPublicConstructor):
@@ -861,8 +906,9 @@ class Nursery(metaclass=NoPublicConstructor):
             in response to some external event.
     """
 
-    def __init__(self, parent_task, cancel_scope):
+    def __init__(self, parent_task, cancel_scope, strict_exception_groups):
         self._parent_task = parent_task
+        self._strict_exception_groups = strict_exception_groups
         parent_task._child_nurseries.append(self)
         # the cancel status that children inherit - we take a snapshot, so it
         # won't be affected by any changes in the parent.
@@ -910,7 +956,8 @@ class Nursery(metaclass=NoPublicConstructor):
         self._check_nursery_closed()
 
     async def _nested_child_finished(self, nested_child_exc):
-        """Returns MultiError instance if there are pending exceptions."""
+        # Returns MultiError instance (or any exception if the nursery is in loose mode
+        # and there is just one contained exception) if there are pending exceptions
         if nested_child_exc is not None:
             self._add_exc(nested_child_exc)
         self._nested_child_running = False
@@ -939,7 +986,9 @@ class Nursery(metaclass=NoPublicConstructor):
         assert popped is self
         if self._pending_excs:
             try:
-                return MultiError(self._pending_excs)
+                return MultiError(
+                    self._pending_excs, _collapse=not self._strict_exception_groups
+                )
             finally:
                 # avoid a garbage cycle
                 # (see test_nursery_cancel_doesnt_create_cyclic_garbage)
@@ -1278,6 +1327,7 @@ class Runner:
     instruments: Instruments = attr.ib()
     io_manager = attr.ib()
     ki_manager = attr.ib()
+    strict_exception_groups = attr.ib()
 
     # Run-local values, see _local.py
     _locals = attr.ib(factory=dict)
@@ -1816,7 +1866,12 @@ class Runner:
 # 'is_guest' to see the special cases we need to handle this.
 
 
-def setup_runner(clock, instruments, restrict_keyboard_interrupt_to_checkpoints):
+def setup_runner(
+    clock,
+    instruments,
+    restrict_keyboard_interrupt_to_checkpoints,
+    strict_exception_groups,
+):
     """Create a Runner object and install it as the GLOBAL_RUN_CONTEXT."""
     # It wouldn't be *hard* to support nested calls to run(), but I can't
     # think of a single good reason for it, so let's be conservative for
@@ -1838,6 +1893,7 @@ def setup_runner(clock, instruments, restrict_keyboard_interrupt_to_checkpoints)
         io_manager=io_manager,
         system_context=system_context,
         ki_manager=ki_manager,
+        strict_exception_groups=strict_exception_groups,
     )
     runner.asyncgens.install_hooks(runner)
 
@@ -1855,6 +1911,7 @@ def run(
     clock=None,
     instruments=(),
     restrict_keyboard_interrupt_to_checkpoints=False,
+    strict_exception_groups=False,
 ):
     """Run a Trio-flavored async function, and return the result.
 
@@ -1911,6 +1968,10 @@ def run(
           main thread (this is a Python limitation), or if you use
           :func:`open_signal_receiver` to catch SIGINT.
 
+      strict_exception_groups (bool): If true, nurseries will always wrap even a single
+          raised exception in an exception group. This can be overridden on the level of
+          individual nurseries. This will eventually become the default behavior.
+
     Returns:
       Whatever ``async_fn`` returns.
 
@@ -1927,7 +1988,10 @@ def run(
     __tracebackhide__ = True
 
     runner = setup_runner(
-        clock, instruments, restrict_keyboard_interrupt_to_checkpoints
+        clock,
+        instruments,
+        restrict_keyboard_interrupt_to_checkpoints,
+        strict_exception_groups,
     )
 
     gen = unrolled_run(runner, async_fn, args)
@@ -1956,6 +2020,7 @@ def start_guest_run(
     clock=None,
     instruments=(),
     restrict_keyboard_interrupt_to_checkpoints=False,
+    strict_exception_groups=False,
 ):
     """Start a "guest" run of Trio on top of some other "host" event loop.
 
@@ -2007,7 +2072,10 @@ def start_guest_run(
 
     """
     runner = setup_runner(
-        clock, instruments, restrict_keyboard_interrupt_to_checkpoints
+        clock,
+        instruments,
+        restrict_keyboard_interrupt_to_checkpoints,
+        strict_exception_groups,
     )
     runner.is_guest = True
     runner.guest_tick_scheduled = True

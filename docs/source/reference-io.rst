@@ -258,6 +258,52 @@ you call them before the handshake completes:
 .. autoexception:: NeedHandshakeError
 
 
+Datagram TLS support
+~~~~~~~~~~~~~~~~~~~~
+
+Trio also has support for Datagram TLS (DTLS), which is like TLS but
+for unreliable UDP connections. This can be useful for applications
+where TCP's reliable in-order delivery is problematic, like
+teleconferencing, latency-sensitive games, and VPNs.
+
+Currently, using DTLS with Trio requires PyOpenSSL. We hope to
+eventually allow the use of the stdlib `ssl` module as well, but
+unfortunately that's not yet possible.
+
+.. warning:: Note that PyOpenSSL is in many ways lower-level than the
+   `ssl` module – in particular, it currently **HAS NO BUILT-IN
+   MECHANISM TO VALIDATE CERTIFICATES**. We *strongly* recommend that
+   you use the `service-identity
+   <https://pypi.org/project/service-identity/>`__ library to validate
+   hostnames and certificates.
+
+.. autoclass:: DTLSEndpoint
+
+   .. automethod:: connect
+
+   .. automethod:: serve
+
+   .. automethod:: close
+
+.. autoclass:: DTLSChannel
+   :show-inheritance:
+
+   .. automethod:: do_handshake
+
+   .. automethod:: send
+
+   .. automethod:: receive
+
+   .. automethod:: close
+
+   .. automethod:: aclose
+
+   .. automethod:: set_ciphertext_mtu
+
+   .. automethod:: get_cleartext_mtu
+
+   .. automethod:: statistics
+
 .. module:: trio.socket
 
 Low-level networking with :mod:`trio.socket`

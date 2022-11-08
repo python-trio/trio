@@ -1,5 +1,9 @@
 import gc
 import logging
+import os
+import subprocess
+from pathlib import Path
+
 import pytest
 
 from traceback import (
@@ -9,15 +13,15 @@ from traceback import (
 )
 from traceback import _cause_message  # type: ignore
 import sys
-import os
 import re
-from pathlib import Path
-import subprocess
 
 from .tutil import slow
-
-from .._multierror import MultiError, concat_tb
+from .._multierror import MultiError, concat_tb, NonBaseMultiError
+from ... import TrioDeprecationWarning
 from ..._core import open_nursery
+
+if sys.version_info < (3, 11):
+    from exceptiongroup import ExceptionGroup
 
 
 class NotHashableException(Exception):
@@ -72,10 +76,6 @@ def get_tb(raiser):
     return get_exc(raiser).__traceback__
 
 
-def einfo(exc):
-    return (type(exc), exc, exc.__traceback__)
-
-
 def test_concat_tb():
 
     tb1 = get_tb(raiser1)
@@ -108,7 +108,7 @@ def test_MultiError():
 
     assert MultiError([exc1]) is exc1
     m = MultiError([exc1, exc2])
-    assert m.exceptions == [exc1, exc2]
+    assert m.exceptions == (exc1, exc2)
     assert "ValueError" in str(m)
     assert "ValueError" in repr(m)
 
@@ -121,7 +121,7 @@ def test_MultiError():
 def test_MultiErrorOfSingleMultiError():
     # For MultiError([MultiError]), ensure there is no bad recursion by the
     # constructor where __init__ is called if __new__ returns a bare MultiError.
-    exceptions = [KeyError(), ValueError()]
+    exceptions = (KeyError(), ValueError())
     a = MultiError(exceptions)
     b = MultiError([a])
     assert b == a
@@ -150,19 +150,10 @@ def test_MultiError_filter_NotHashable():
         else:
             return exc
 
-    filtered_excs = MultiError.filter(handle_ValueError, excs)
+    with pytest.warns(TrioDeprecationWarning):
+        filtered_excs = MultiError.filter(handle_ValueError, excs)
+
     assert isinstance(filtered_excs, NotHashableException)
-
-
-def test_traceback_recursion():
-    exc1 = RuntimeError()
-    exc2 = KeyError()
-    exc3 = NotHashableException(42)
-    # Note how this creates a loop, where exc1 refers to exc1
-    # This could trigger an infinite recursion; the 'seen' set is supposed to prevent
-    # this.
-    exc1.__cause__ = MultiError([exc1, exc2, exc3])
-    format_exception(*einfo(exc1))
 
 
 def make_tree():
@@ -206,7 +197,9 @@ def test_MultiError_filter():
 
     m = make_tree()
     assert_tree_eq(m, m)
-    assert MultiError.filter(null_handler, m) is m
+    with pytest.warns(TrioDeprecationWarning):
+        assert MultiError.filter(null_handler, m) is m
+
     assert_tree_eq(m, make_tree())
 
     # Make sure we don't pick up any detritus if run in a context where
@@ -215,7 +208,8 @@ def test_MultiError_filter():
     try:
         raise ValueError
     except ValueError:
-        assert MultiError.filter(null_handler, m) is m
+        with pytest.warns(TrioDeprecationWarning):
+            assert MultiError.filter(null_handler, m) is m
     assert_tree_eq(m, make_tree())
 
     def simple_filter(exc):
@@ -225,7 +219,9 @@ def test_MultiError_filter():
             return RuntimeError()
         return exc
 
-    new_m = MultiError.filter(simple_filter, make_tree())
+    with pytest.warns(TrioDeprecationWarning):
+        new_m = MultiError.filter(simple_filter, make_tree())
+
     assert isinstance(new_m, MultiError)
     assert len(new_m.exceptions) == 2
     # was: [[ValueError, KeyError], NameError]
@@ -267,7 +263,8 @@ def test_MultiError_filter():
         return exc
 
     m = make_tree()
-    new_m = MultiError.filter(filter_NameError, m)
+    with pytest.warns(TrioDeprecationWarning):
+        new_m = MultiError.filter(filter_NameError, m)
     # with the NameError gone, the other branch gets promoted
     assert new_m is m.exceptions[0]
 
@@ -275,7 +272,8 @@ def test_MultiError_filter():
     def filter_all(exc):
         return None
 
-    assert MultiError.filter(filter_all, make_tree()) is None
+    with pytest.warns(TrioDeprecationWarning):
+        assert MultiError.filter(filter_all, make_tree()) is None
 
 
 def test_MultiError_catch():
@@ -284,13 +282,13 @@ def test_MultiError_catch():
     def noop(_):
         pass  # pragma: no cover
 
-    with MultiError.catch(noop):
+    with pytest.warns(TrioDeprecationWarning), MultiError.catch(noop):
         pass
 
     # Simple pass-through of all exceptions
     m = make_tree()
     with pytest.raises(MultiError) as excinfo:
-        with MultiError.catch(lambda exc: exc):
+        with pytest.warns(TrioDeprecationWarning), MultiError.catch(lambda exc: exc):
             raise m
     assert excinfo.value is m
     # Should be unchanged, except that we added a traceback frame by raising
@@ -302,7 +300,7 @@ def test_MultiError_catch():
     assert_tree_eq(m, make_tree())
 
     # Swallows everything
-    with MultiError.catch(lambda _: None):
+    with pytest.warns(TrioDeprecationWarning), MultiError.catch(lambda _: None):
         raise make_tree()
 
     def simple_filter(exc):
@@ -313,7 +311,7 @@ def test_MultiError_catch():
         return exc
 
     with pytest.raises(MultiError) as excinfo:
-        with MultiError.catch(simple_filter):
+        with pytest.warns(TrioDeprecationWarning), MultiError.catch(simple_filter):
             raise make_tree()
     new_m = excinfo.value
     assert isinstance(new_m, MultiError)
@@ -331,7 +329,7 @@ def test_MultiError_catch():
     v = ValueError()
     v.__cause__ = KeyError()
     with pytest.raises(ValueError) as excinfo:
-        with MultiError.catch(lambda exc: exc):
+        with pytest.warns(TrioDeprecationWarning), MultiError.catch(lambda exc: exc):
             raise v
     assert isinstance(excinfo.value.__cause__, KeyError)
 
@@ -339,7 +337,7 @@ def test_MultiError_catch():
     context = KeyError()
     v.__context__ = context
     with pytest.raises(ValueError) as excinfo:
-        with MultiError.catch(lambda exc: exc):
+        with pytest.warns(TrioDeprecationWarning), MultiError.catch(lambda exc: exc):
             raise v
     assert excinfo.value.__context__ is context
     assert not excinfo.value.__suppress_context__
@@ -358,8 +356,9 @@ def test_MultiError_catch():
                 else:
                     return exc
 
-            with MultiError.catch(catch_RuntimeError):
-                raise MultiError([v, distractor])
+            with pytest.warns(TrioDeprecationWarning):
+                with MultiError.catch(catch_RuntimeError):
+                    raise MultiError([v, distractor])
         assert excinfo.value.__context__ is context
         assert excinfo.value.__suppress_context__ == suppress_context
 
@@ -387,7 +386,7 @@ def test_MultiError_catch_doesnt_create_cyclic_garbage():
         gc.set_debug(gc.DEBUG_SAVEALL)
         with pytest.raises(MultiError):
             # covers MultiErrorCatcher.__exit__ and _multierror.copy_tb
-            with MultiError.catch(simple_filter):
+            with pytest.warns(TrioDeprecationWarning), MultiError.catch(simple_filter):
                 raise make_multi()
         gc.collect()
         assert not gc.garbage
@@ -414,199 +413,25 @@ def test_assert_match_in_seq():
         assert_match_in_seq(["a", "b"], "xx b xx a xx")
 
 
-def test_format_exception():
-    exc = get_exc(raiser1)
-    formatted = "".join(format_exception(*einfo(exc)))
-    assert "raiser1_string" in formatted
-    assert "in raiser1_3" in formatted
-    assert "raiser2_string" not in formatted
-    assert "in raiser2_2" not in formatted
-    assert "direct cause" not in formatted
-    assert "During handling" not in formatted
+def test_base_multierror():
+    """
+    Test that MultiError() with at least one base exception will return a MultiError
+    object.
+    """
 
-    exc = get_exc(raiser1)
-    exc.__cause__ = get_exc(raiser2)
-    formatted = "".join(format_exception(*einfo(exc)))
-    assert "raiser1_string" in formatted
-    assert "in raiser1_3" in formatted
-    assert "raiser2_string" in formatted
-    assert "in raiser2_2" in formatted
-    assert "direct cause" in formatted
-    assert "During handling" not in formatted
-    # ensure cause included
-    assert _cause_message in formatted
-
-    exc = get_exc(raiser1)
-    exc.__context__ = get_exc(raiser2)
-    formatted = "".join(format_exception(*einfo(exc)))
-    assert "raiser1_string" in formatted
-    assert "in raiser1_3" in formatted
-    assert "raiser2_string" in formatted
-    assert "in raiser2_2" in formatted
-    assert "direct cause" not in formatted
-    assert "During handling" in formatted
-
-    exc.__suppress_context__ = True
-    formatted = "".join(format_exception(*einfo(exc)))
-    assert "raiser1_string" in formatted
-    assert "in raiser1_3" in formatted
-    assert "raiser2_string" not in formatted
-    assert "in raiser2_2" not in formatted
-    assert "direct cause" not in formatted
-    assert "During handling" not in formatted
-
-    # chain=False
-    exc = get_exc(raiser1)
-    exc.__context__ = get_exc(raiser2)
-    formatted = "".join(format_exception(*einfo(exc), chain=False))
-    assert "raiser1_string" in formatted
-    assert "in raiser1_3" in formatted
-    assert "raiser2_string" not in formatted
-    assert "in raiser2_2" not in formatted
-    assert "direct cause" not in formatted
-    assert "During handling" not in formatted
-
-    # limit
-    exc = get_exc(raiser1)
-    exc.__context__ = get_exc(raiser2)
-    # get_exc adds a frame that counts against the limit, so limit=2 means we
-    # get 1 deep into the raiser stack
-    formatted = "".join(format_exception(*einfo(exc), limit=2))
-    print(formatted)
-    assert "raiser1_string" in formatted
-    assert "in raiser1" in formatted
-    assert "in raiser1_2" not in formatted
-    assert "raiser2_string" in formatted
-    assert "in raiser2" in formatted
-    assert "in raiser2_2" not in formatted
-
-    exc = get_exc(raiser1)
-    exc.__context__ = get_exc(raiser2)
-    formatted = "".join(format_exception(*einfo(exc), limit=1))
-    print(formatted)
-    assert "raiser1_string" in formatted
-    assert "in raiser1" not in formatted
-    assert "raiser2_string" in formatted
-    assert "in raiser2" not in formatted
-
-    # handles loops
-    exc = get_exc(raiser1)
-    exc.__cause__ = exc
-    formatted = "".join(format_exception(*einfo(exc)))
-    assert "raiser1_string" in formatted
-    assert "in raiser1_3" in formatted
-    assert "raiser2_string" not in formatted
-    assert "in raiser2_2" not in formatted
-    # ensure duplicate exception is not included as cause
-    assert _cause_message not in formatted
-
-    # MultiError
-    formatted = "".join(format_exception(*einfo(make_tree())))
-    print(formatted)
-
-    assert_match_in_seq(
-        [
-            # Outer exception is MultiError
-            r"MultiError:",
-            # First embedded exception is the embedded MultiError
-            r"\nDetails of embedded exception 1",
-            # Which has a single stack frame from make_tree raising it
-            r"in make_tree",
-            # Then it has two embedded exceptions
-            r"  Details of embedded exception 1",
-            r"in raiser1_2",
-            # for some reason ValueError has no quotes
-            r"ValueError: raiser1_string",
-            r"  Details of embedded exception 2",
-            r"in raiser2_2",
-            # But KeyError does have quotes
-            r"KeyError: 'raiser2_string'",
-            # And finally the NameError, which is a sibling of the embedded
-            # MultiError
-            r"\nDetails of embedded exception 2:",
-            r"in raiser3",
-            r"NameError",
-        ],
-        formatted,
-    )
-
-    # Prints duplicate exceptions in sub-exceptions
-    exc1 = get_exc(raiser1)
-
-    def raise1_raiser1():
-        try:
-            raise exc1
-        except:
-            raise ValueError("foo")
-
-    def raise2_raiser1():
-        try:
-            raise exc1
-        except:
-            raise KeyError("bar")
-
-    exc2 = get_exc(raise1_raiser1)
-    exc3 = get_exc(raise2_raiser1)
-
-    try:
-        raise MultiError([exc2, exc3])
-    except MultiError as e:
-        exc = e
-
-    formatted = "".join(format_exception(*einfo(exc)))
-    print(formatted)
-
-    assert_match_in_seq(
-        [
-            r"Traceback",
-            # Outer exception is MultiError
-            r"MultiError:",
-            # First embedded exception is the embedded ValueError with cause of raiser1
-            r"\nDetails of embedded exception 1",
-            # Print details of exc1
-            r"  Traceback",
-            r"in get_exc",
-            r"in raiser1",
-            r"ValueError: raiser1_string",
-            # Print details of exc2
-            r"\n  During handling of the above exception, another exception occurred:",
-            r"  Traceback",
-            r"in get_exc",
-            r"in raise1_raiser1",
-            r"  ValueError: foo",
-            # Second embedded exception is the embedded KeyError with cause of raiser1
-            r"\nDetails of embedded exception 2",
-            # Print details of exc1 again
-            r"  Traceback",
-            r"in get_exc",
-            r"in raiser1",
-            r"ValueError: raiser1_string",
-            # Print details of exc3
-            r"\n  During handling of the above exception, another exception occurred:",
-            r"  Traceback",
-            r"in get_exc",
-            r"in raise2_raiser1",
-            r"  KeyError: 'bar'",
-        ],
-        formatted,
-    )
+    exc = MultiError([ZeroDivisionError(), KeyboardInterrupt()])
+    assert type(exc) is MultiError
 
 
-def test_logging(caplog):
-    exc1 = get_exc(raiser1)
-    exc2 = get_exc(raiser2)
+def test_non_base_multierror():
+    """
+    Test that MultiError() without base exceptions will return a NonBaseMultiError
+    object.
+    """
 
-    m = MultiError([exc1, exc2])
-
-    message = "test test test"
-    try:
-        raise m
-    except MultiError as exc:
-        logging.getLogger().exception(message)
-        # Join lines together
-        formatted = "".join(format_exception(type(exc), exc, exc.__traceback__))
-        assert message in caplog.text
-        assert formatted in caplog.text
+    exc = MultiError([ZeroDivisionError(), ValueError()])
+    assert type(exc) is NonBaseMultiError
+    assert isinstance(exc, ExceptionGroup)
 
 
 def run_script(name, use_ipython=False):
@@ -654,10 +479,10 @@ def check_simple_excepthook(completed):
         [
             "in <module>",
             "MultiError",
-            "Details of embedded exception 1",
+            "--- 1 ---",
             "in exc1_fn",
             "ValueError",
-            "Details of embedded exception 2",
+            "--- 2 ---",
             "in exc2_fn",
             "KeyError",
         ],
@@ -665,38 +490,6 @@ def check_simple_excepthook(completed):
     )
 
 
-def test_simple_excepthook():
-    completed = run_script("simple_excepthook.py")
-    check_simple_excepthook(completed)
-
-
-def test_custom_excepthook():
-    # Check that user-defined excepthooks aren't overridden
-    completed = run_script("custom_excepthook.py")
-    assert_match_in_seq(
-        [
-            # The warning
-            "RuntimeWarning",
-            "already have a custom",
-            # The message printed by the custom hook, proving we didn't
-            # override it
-            "custom running!",
-            # The MultiError
-            "MultiError:",
-        ],
-        completed.stdout.decode("utf-8"),
-    )
-
-
-# This warning is triggered by ipython 7.5.0 on python 3.8
-import warnings
-
-warnings.filterwarnings(
-    "ignore",
-    message='.*"@coroutine" decorator is deprecated',
-    category=DeprecationWarning,
-    module="IPython.*",
-)
 try:
     import IPython
 except ImportError:  # pragma: no cover
@@ -719,15 +512,6 @@ def test_ipython_exc_handler():
 def test_ipython_imported_but_unused():
     completed = run_script("simple_excepthook_IPython.py")
     check_simple_excepthook(completed)
-
-
-@slow
-def test_partial_imported_but_unused():
-    # Check that a functools.partial as sys.excepthook doesn't cause an exception when
-    # importing trio.  This was a problem due to the lack of a .__name__ attribute and
-    # happens when inside a pytest-qt test case for example.
-    completed = run_script("simple_excepthook_partial.py")
-    completed.check_returncode()
 
 
 @slow
@@ -767,6 +551,6 @@ def test_apport_excepthook_monkeypatch_interaction():
 
     # Proper traceback
     assert_match_in_seq(
-        ["Details of embedded", "KeyError", "Details of embedded", "ValueError"],
+        ["--- 1 ---", "KeyError", "--- 2 ---", "ValueError"],
         stdout,
     )
