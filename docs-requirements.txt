@@ -12,7 +12,7 @@ attrs==22.1.0
     # via
     #   -r docs-requirements.in
     #   outcome
-babel==2.10.3
+babel==2.11.0
     # via sphinx
 certifi==2022.9.24
     # via requests
@@ -28,7 +28,7 @@ docutils==0.17.1
     # via
     #   sphinx
     #   sphinx-rtd-theme
-exceptiongroup==1.0.0rc9
+exceptiongroup==1.0.1
     # via -r docs-requirements.in
 idna==3.4
     # via
@@ -38,7 +38,7 @@ imagesize==1.4.1
     # via sphinx
 immutables==0.19
     # via -r docs-requirements.in
-incremental==21.3.0
+incremental==22.10.0
     # via towncrier
 jinja2==3.0.3
     # via
@@ -70,7 +70,7 @@ sphinx==3.3.1
     #   -r docs-requirements.in
     #   sphinx-rtd-theme
     #   sphinxcontrib-trio
-sphinx-rtd-theme==1.0.0
+sphinx-rtd-theme==1.1.1
     # via -r docs-requirements.in
 sphinxcontrib-applehelp==1.0.2
     # via sphinx

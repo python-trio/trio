@@ -25,17 +25,15 @@ click==8.1.3
     # via black
 coverage[toml]==6.4.1
     # via pytest-cov
-cryptography==38.0.1
+cryptography==38.0.2
     # via
     #   -r test-requirements.in
     #   pyopenssl
     #   trustme
 decorator==5.1.1
     # via ipython
-dill==0.3.5.1
+dill==0.3.6
     # via pylint
-exceptiongroup==1.0.0rc9 ; python_version < "3.11"
-    # via -r test-requirements.in
 flake8==4.0.1
     # via -r test-requirements.in
 idna==3.4
@@ -89,8 +87,6 @@ prompt-toolkit==3.0.31
     # via ipython
 ptyprocess==0.7.0
     # via pexpect
-py==1.11.0
-    # via pytest
 pycodestyle==2.8.0
     # via flake8
 pycparser==2.21
@@ -105,7 +101,7 @@ pyopenssl==22.1.0
     # via -r test-requirements.in
 pyparsing==3.0.9
     # via packaging
-pytest==7.1.2
+pytest==7.2.0
     # via
     #   -r test-requirements.in
     #   pytest-cov
@@ -115,24 +111,17 @@ sniffio==1.3.0
     # via -r test-requirements.in
 sortedcontainers==2.4.0
     # via -r test-requirements.in
-tomli==2.0.1
-    # via
-    #   black
-    #   coverage
-    #   mypy
-    #   pylint
-    #   pytest
-tomlkit==0.11.5
+tomlkit==0.11.6
     # via pylint
-traitlets==5.4.0
+traitlets==5.5.0
     # via
     #   ipython
     #   matplotlib-inline
 trustme==0.9.0
     # via -r test-requirements.in
-types-cryptography==3.3.22
+types-cryptography==3.3.23.1
     # via types-pyopenssl
-types-pyopenssl==22.0.9 ; implementation_name == "cpython"
+types-pyopenssl==22.1.0.1 ; implementation_name == "cpython"
     # via -r test-requirements.in
 typing-extensions==4.4.0 ; implementation_name == "cpython"
     # via
