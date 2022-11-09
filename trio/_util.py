@@ -78,7 +78,7 @@ def is_main_thread():
     try:
         signal.signal(signal.SIGINT, signal.getsignal(signal.SIGINT))
         return True
-    except ValueError:
+    except (TypeError, ValueError):
         return False
 
 
