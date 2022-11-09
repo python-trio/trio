@@ -495,21 +495,20 @@ async def test_SocketType_resolve(socket_type, addrs):
 
     with tsocket.socket(family=socket_type) as sock:
         # For some reason the stdlib special-cases "" to pass NULL to
-        # getaddrinfo They also error out on None, but whatever, None is much
+        # getaddrinfo. They also error out on None, but whatever, None is much
         # more consistent, so we accept it too.
         for null in [None, ""]:
-            got = await sock._resolve_local_address_nocp((null, 80))
+            got = await sock._resolve_address_nocp((null, 80), local=True)
             assert_eq(got, (addrs.bind_all, 80))
-            got = await sock._resolve_remote_address_nocp((null, 80))
+            got = await sock._resolve_address_nocp((null, 80), local=False)
             assert_eq(got, (addrs.localhost, 80))
 
         # AI_PASSIVE only affects the wildcard address, so for everything else
-        # _resolve_local_address_nocp and _resolve_remote_address_nocp should
-        # work the same:
-        for resolver in ["_resolve_local_address_nocp", "_resolve_remote_address_nocp"]:
+        # local=True/local=False should work the same:
+        for local in [False, True]:
 
             async def res(*args):
-                return await getattr(sock, resolver)(*args)
+                return await sock._resolve_address_nocp(*args, local=local)
 
             assert_eq(await res((addrs.arbitrary, "http")), (addrs.arbitrary, 80))
             if v6:
@@ -560,7 +559,10 @@ async def test_SocketType_resolve(socket_type, addrs):
             except (AttributeError, OSError):
                 pass
             else:
-                assert await getattr(netlink_sock, resolver)("asdf") == "asdf"
+                assert (
+                    await netlink_sock._resolve_address_nocp("asdf", local=local)
+                    == "asdf"
+                )
                 netlink_sock.close()
 
             with pytest.raises(ValueError):
@@ -721,16 +723,16 @@ async def test_SocketType_connect_paths():
             await sock.connect(("127.0.0.1", 2))
 
 
-async def test_resolve_remote_address_exception_closes_socket():
+async def test_resolve_address_exception_in_connect_closes_socket():
     # Here we are testing issue 247, any cancellation will leave the socket closed
     with _core.CancelScope() as cancel_scope:
         with tsocket.socket() as sock:
 
-            async def _resolve_remote_address_nocp(self, *args, **kwargs):
+            async def _resolve_address_nocp(self, *args, **kwargs):
                 cancel_scope.cancel()
                 await _core.checkpoint()
 
-            sock._resolve_remote_address_nocp = _resolve_remote_address_nocp
+            sock._resolve_address_nocp = _resolve_address_nocp
             with assert_checkpoints():
                 with pytest.raises(_core.Cancelled):
                     await sock.connect("")

@@ -88,6 +88,16 @@ jobs:
           - python: '3.8'  # <- not actually used
             pypy_nightly_branch: 'py3.8'
             extra_name: ', pypy 3.8 nightly'
+    continue-on-error: >-
+      ${{
+        (
+          matrix.check_formatting == '1'
+          || matrix.pypy_nightly_branch == 'py3.7'
+          || endsWith(matrix.python, '-dev')
+        )
+        && true
+        || false
+      }}
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -138,3 +148,21 @@ jobs:
         env:
           # Should match 'name:' up above
           JOB_NAME: 'macOS (${{ matrix.python }})'
+
+  # https://github.com/marketplace/actions/alls-green#why
+  check:  # This job does nothing and is only used for the branch protection
+
+    if: always()
+
+    needs:
+      - Windows
+      - Ubuntu
+      - macOS
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Decide whether the needed jobs succeeded or failed
+        uses: re-actors/alls-green@release/v1
+        with:
+          jobs: ${{ toJSON(needs) }}
