@@ -641,7 +641,7 @@ crucial things to keep in mind:
 
   * Any unhandled exceptions are re-raised inside the parent task. If
     there are multiple exceptions, then they're collected up into a
-    single :exc:`MultiError` exception.
+    single :exc:`BaseExceptionGroup` or :exc:`ExceptionGroup` exception.
 
 Since all tasks are descendents of the initial task, one consequence
 of this is that :func:`run` can't finish until all tasks have
@@ -687,6 +687,8 @@ You might wonder why Trio can't just remember "this task should be cancelled in 
 
 If you want a timeout to apply to one task but not another, then you need to put the cancel scope in that individual task's function -- ``child()``, in this example.
 
+.. _exceptiongroups:
+
 Errors in multiple child tasks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -709,18 +711,102 @@ limitation. Consider code like::
 
 ``broken1`` raises ``KeyError``. ``broken2`` raises
 ``IndexError``. Obviously ``parent`` should raise some error, but
-what? In some sense, the answer should be "both of these at once", but
-in Python there can only be one exception at a time.
+what? The answer is that both exceptions are grouped in an :exc:`ExceptionGroup`.
+:exc:`ExceptionGroup` and its parent class :exc:`BaseExceptionGroup` are used to
+encapsulate multiple exceptions being raised at once.
 
-Trio's answer is that it raises a :exc:`MultiError` object. This is a
-special exception which encapsulates multiple exception objects –
-either regular exceptions or nested :exc:`MultiError`\s. To make these
-easier to work with, Trio installs a custom `sys.excepthook` that
-knows how to print nice tracebacks for unhandled :exc:`MultiError`\s,
-and it also provides some helpful utilities like
-:meth:`MultiError.catch`, which allows you to catch "part of" a
-:exc:`MultiError`.
+To catch individual exceptions encapsulated in an exception group, the ``except*``
+clause was introduced in Python 3.11 (:pep:`654`). Here's how it works::
 
+    try:
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(broken1)
+            nursery.start_soon(broken2)
+    except* KeyError as excgroup:
+        for exc in excgroup.exceptions:
+            ...  # handle each KeyError
+    except* IndexError as excgroup:
+        for exc in excgroup.exceptions:
+            ...  # handle each IndexError
+
+If you want to reraise exceptions, or raise new ones, you can do so, but be aware that
+exceptions raised in ``except*`` sections will be raised together in a new exception
+group.
+
+But what if you can't use ``except*`` just yet? Well, for that there is the handy
+exceptiongroup_ library which lets you approximate this behavior with exception handler
+callbacks::
+
+    from exceptiongroup import catch
+
+    def handle_keyerrors(excgroup):
+        for exc in excgroup.exceptions:
+            ...  # handle each KeyError
+
+    def handle_indexerrors(excgroup):
+        for exc in excgroup.exceptions:
+            ...  # handle each IndexError
+
+    with catch({
+        KeyError: handle_keyerrors,
+        IndexError: handle_indexerrors
+    }):
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(broken1)
+            nursery.start_soon(broken2)
+
+The semantics for the handler functions are equal to ``except*`` blocks, except for
+setting local variables. If you need to set local variables, you need to declare them
+inside the handler function(s) with the ``nonlocal`` keyword::
+
+    def handle_keyerrors(excgroup):
+        nonlocal myflag
+        myflag = True
+
+    myflag = False
+    with catch({KeyError: handle_keyerrors}):
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(broken1)
+
+For reasons of backwards compatibility, nurseries raise ``trio.MultiError`` and
+``trio.NonBaseMultiError`` which inherit from :exc:`BaseExceptionGroup` and
+:exc:`ExceptionGroup`, respectively. Users should refrain from attempting to raise or
+catch the Trio specific exceptions themselves, and treat them as if they were standard
+:exc:`BaseExceptionGroup` or :exc:`ExceptionGroup` instances instead.
+
+"Strict" versus "loose" ExceptionGroup semantics
+++++++++++++++++++++++++++++++++++++++++++++++++
+
+Ideally, in some abstract sense we'd want everything that *can* raise an
+`ExceptionGroup` to *always* raise an `ExceptionGroup` (rather than, say, a single
+`ValueError`). Otherwise, it would be easy to accidentally write something like ``except
+ValueError:`` (not ``except*``), which works if a single exception is raised but fails to
+catch _anything_ in the case of multiple simultaneous exceptions (even if one of them is
+a ValueError). However, this is not how Trio worked in the past: as a concession to
+practicality when the ``except*`` syntax hadn't been dreamed up yet, the old
+``trio.MultiError`` was raised only when at least two exceptions occurred
+simultaneously. Adding a layer of `ExceptionGroup` around every nursery, while
+theoretically appealing, would probably break a lot of existing code in practice.
+
+Therefore, we've chosen to gate the newer, "stricter" behavior behind a parameter
+called ``strict_exception_groups``. This is accepted as a parameter to
+:func:`open_nursery`, to set the behavior for that nursery, and to :func:`trio.run`,
+to set the default behavior for any nursery in your program that doesn't override it.
+
+* With ``strict_exception_groups=True``, the exception(s) coming out of a nursery will
+  always be wrapped in an `ExceptionGroup`, so you'll know that if you're handling
+  single errors correctly, multiple simultaneous errors will work as well.
+
+* With ``strict_exception_groups=False``, a nursery in which only one task has failed
+  will raise that task's exception without an additional layer of `ExceptionGroup`
+  wrapping, so you'll get maximum compatibility with code that was written to
+  support older versions of Trio.
+
+To maintain backwards compatibility, the default is ``strict_exception_groups=False``.
+The default will eventually change to ``True`` in a future version of Trio, once
+Python 3.11 and later versions are in wide use.
+
+.. _exceptiongroup: https://pypi.org/project/exceptiongroup/
 
 Spawning tasks without becoming a parent
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -835,104 +921,6 @@ The nursery API
 .. attribute:: TASK_STATUS_IGNORED
 
    See :meth:`~Nursery.start`.
-
-
-Working with :exc:`MultiError`\s
-++++++++++++++++++++++++++++++++
-
-.. autoexception:: MultiError
-
-   .. attribute:: exceptions
-
-      The list of exception objects that this :exc:`MultiError`
-      represents.
-
-   .. automethod:: filter
-
-   .. automethod:: catch
-      :with:
-
-Examples:
-
-Suppose we have a handler function that discards :exc:`ValueError`\s::
-
-    def handle_ValueError(exc):
-        if isinstance(exc, ValueError):
-            return None
-        else:
-            return exc
-
-Then these both raise :exc:`KeyError`::
-
-    with MultiError.catch(handle_ValueError):
-         raise MultiError([KeyError(), ValueError()])
-
-    with MultiError.catch(handle_ValueError):
-         raise MultiError([
-             ValueError(),
-             MultiError([KeyError(), ValueError()]),
-         ])
-
-And both of these raise nothing at all::
-
-    with MultiError.catch(handle_ValueError):
-         raise MultiError([ValueError(), ValueError()])
-
-    with MultiError.catch(handle_ValueError):
-         raise MultiError([
-             MultiError([ValueError(), ValueError()]),
-             ValueError(),
-         ])
-
-You can also return a new or modified exception, for example::
-
-    def convert_ValueError_to_MyCustomError(exc):
-        if isinstance(exc, ValueError):
-            # Similar to 'raise MyCustomError from exc'
-            new_exc = MyCustomError(...)
-            new_exc.__cause__ = exc
-            return new_exc
-        else:
-            return exc
-
-In the example above, we set ``__cause__`` as a form of explicit
-context chaining. :meth:`MultiError.filter` and
-:meth:`MultiError.catch` also perform implicit exception chaining – if
-you return a new exception object, then the new object's
-``__context__`` attribute will automatically be set to the original
-exception.
-
-We also monkey patch :class:`traceback.TracebackException` to be able
-to handle formatting :exc:`MultiError`\s. This means that anything that
-formats exception messages like :mod:`logging` will work out of the
-box::
-
-    import logging
-
-    logging.basicConfig()
-
-    try:
-        raise MultiError([ValueError("foo"), KeyError("bar")])
-    except:
-        logging.exception("Oh no!")
-        raise
-
-Will properly log the inner exceptions:
-
-.. code-block:: none
-
-    ERROR:root:Oh no!
-    Traceback (most recent call last):
-      File "<stdin>", line 2, in <module>
-    trio.MultiError: ValueError('foo',), KeyError('bar',)
-
-    Details of embedded exception 1:
-
-      ValueError: foo
-
-    Details of embedded exception 2:
-
-      KeyError: 'bar'
 
 
 .. _task-local-storage:

@@ -13,14 +13,13 @@ Tutorial
    still probably read this, because Trio is different.)
 
    Trio turns Python into a concurrent language. It takes the core
-   async/await syntax introduced in 3.5, and uses it to add three
+   async/await syntax introduced in 3.5, and uses it to add two
    new pieces of semantics:
 
    - cancel scopes: a generic system for managing timeouts and
      cancellation
    - nurseries: which let your program do multiple things at the same
      time
-   - MultiErrors: for when multiple things go wrong at once
 
    Of course it also provides a complete suite of APIs for doing
    networking, file I/O, using worker threads,
@@ -56,8 +55,6 @@ Tutorial
    API, and show how to do explicit concurrency
    and demonstrate start()
    then point out that you can just use serve_tcp()
-
-   exceptions and MultiError
 
    example: catch-all logging in our echo server
 
@@ -1148,9 +1145,6 @@ TODO: explain :exc:`Cancelled`
 
 TODO: explain how cancellation is also used when one child raises an
 exception
-
-TODO: show an example :exc:`MultiError` traceback and walk through its
-structure
 
 TODO: maybe a brief discussion of :exc:`KeyboardInterrupt` handling?
 

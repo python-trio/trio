@@ -17,8 +17,6 @@ from ._exceptions import (
     EndOfChannel,
 )
 
-from ._multierror import MultiError
-
 from ._ki import (
     enable_ki_protection,
     disable_ki_protection,
