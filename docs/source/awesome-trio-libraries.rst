@@ -27,14 +27,16 @@ Getting Started
 
 Web and HTML
 ------------
-* `asks <https://github.com/theelous3/asks>`__ - asks is an async requests-like http library.
-* `trio-websocket <https://github.com/HyperionGray/trio-websocket>`__ - This library implements the WebSocket protocol, striving for safety, correctness, and ergonomics.
+* `httpx <https://www.python-httpx.org/>`__ - HTTPX is a fully featured HTTP client for Python 3, which provides sync and async APIs, and support for both HTTP/1.1 and HTTP/2.
+* `trio-websocket <https://github.com/HyperionGray/trio-websocket>`__ - A WebSocket client and server implementation striving for safety, correctness, and ergonomics.
 * `quart-trio <https://gitlab.com/pgjones/quart-trio/>`__ - Like Flask, but for Trio. A simple and powerful framework for building async web applications and REST APIs. Tip: this is an ASGI-based framework, so you'll also need an HTTP server with ASGI support.
 * `hypercorn <https://gitlab.com/pgjones/hypercorn>`__ - An HTTP server for hosting your ASGI apps. Supports HTTP/1.1, HTTP/2, HTTP/3, and Websockets. Can be run as a standalone server, or embedded in a larger Trio app. Use it with ``quart-trio``, or any other Trio-compatible ASGI framework.
-* `httpx <https://www.python-httpx.org/>`__ - HTTPX is a fully featured HTTP client for Python 3, which provides sync and async APIs, and support for both HTTP/1.1 and HTTP/2.
 * `DeFramed <https://github.com/smurfix/deframed>`__ - DeFramed is a Web non-framework that supports a 99%-server-centric approach to Web coding, including support for the `Remi <https://github.com/dddomodossola/remi>`__ GUI library.
 * `pura <https://github.com/groove-x/pura>`__ - A simple web framework for embedding realtime graphical visualization into Trio apps, enabling inspection and manipulation of program state during development.
 * `pyscalpel <https://scalpel.readthedocs.io/en/latest/>`__ - A fast and powerful webscraping library.
+* `muffin <https://github.com/klen/muffin>`_ - Muffin is a fast, simple ASGI web-framework
+* `asgi-tools <https://github.com/klen/asgi-tools>`_ - Tools to quickly build lightest ASGI apps (also contains a test client with lifespan, websocket support)
+* `starlette <https://github.com/encode/starlette>`_ - The little ASGI framework that shines.
 
 
 Database
@@ -46,6 +48,8 @@ Database
 * `redio <https://github.com/Tronic/redio>`__ - Redis client, pure Python and Trio.
 * `trio_redis <https://github.com/omnidots/trio_redis>`__ - A Redis client for Trio. Depends on hiredis-py.
 * `asyncakumuli <https://github.com/M-o-a-T/asyncakumuli>`__ - Client for the `Akumuli <https://akumuli.org/>`__ time series database.
+* `aio-databases <https://github.com/klen/aio-databases>`_ - Async Support for various databases (triopg, trio-mysql)
+* `peewee-aio <https://github.com/klen/peewee-aio>`_ - Peewee Async ORM with trio support (triopg, trio-mysql).
 
 
 IOT
@@ -74,10 +78,14 @@ Multi-Core/Multiprocessing
 * `trio-parallel <https://trio-parallel.readthedocs.io/>`__ - CPU parallelism for Trio
 
 
+Stream Processing
+-----------------
+* `Slurry <https://github.com/andersea/slurry>`__ - Slurry is a microframework for building reactive, data processing applications with Trio.
+
+
 RPC
 ---
-* `purepc <https://github.com/standy66/purerpc>`__ - Asynchronous pure Python gRPC client and server implementation using anyio.
-* `trio-jsonrpc <https://github.com/HyperionGray/trio-jsonrpc>`__ - JSON-RPC v2.0 for Trio.
+* `purepc <https://github.com/python-trio/purerpc>`__ - Native, async Python gRPC client and server implementation using anyio.
 
 
 Testing
@@ -85,6 +93,7 @@ Testing
 * `pytest-trio <https://github.com/python-trio/pytest-trio>`__ - Pytest plugin for trio.
 * `hypothesis-trio <https://github.com/python-trio/hypothesis-trio>`__ - Hypothesis plugin for trio.
 * `trustme <https://github.com/python-trio/trustme>`__ - #1 quality TLS certs while you wait, for the discerning tester.
+* `pytest-aio <https://github.com/klen/pytest-aio>`_ - Pytest plugin with support for trio, curio, asyncio
 
 
 Tools and Utilities
@@ -94,7 +103,8 @@ Tools and Utilities
 * `tricycle <https://github.com/oremanj/tricycle>`__ - This is a library of interesting-but-maybe-not-yet-fully-proven extensions to Trio.
 * `tenacity <https://github.com/jd/tenacity>`__ - Retrying library for Python with async/await support.
 * `perf-timer <https://github.com/belm0/perf-timer>`__ - A code timer with Trio async support (see ``TrioPerfTimer``).  Collects execution time of a block of code excluding time when the coroutine isn't scheduled, such as during blocking I/O and sleep.  Also offers ``trio_perf_counter()`` for low-level timing.
-
+* `aiometer <https://github.com/florimondmanca/aiometer>`__ - Execute lots of tasks concurrently while controlling concurrency limits
+* `triotp <https://linkdd.github.io/triotp>`__ - OTP framework for Python Trio
 
 Trio/Asyncio Interoperability
 -----------------------------

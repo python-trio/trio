@@ -639,7 +639,7 @@ class WindowsIOManager:
             lpOverlapped = ffi.new("LPOVERLAPPED")
 
             poll_info = ffi.new("AFD_POLL_INFO *")
-            poll_info.Timeout = 2 ** 63 - 1  # INT64_MAX
+            poll_info.Timeout = 2**63 - 1  # INT64_MAX
             poll_info.NumberOfHandles = 1
             poll_info.Exclusive = 0
             poll_info.Handles[0].Handle = base_handle

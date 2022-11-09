@@ -1,16 +1,20 @@
 import math
 
 import attr
-import outcome
 
 import trio
 
+from . import _core
 from ._core import enable_ki_protection, ParkingLot
-from ._deprecate import deprecated
 from ._util import Final
 
 
-@attr.s(repr=False, eq=False, hash=False)
+@attr.s(frozen=True)
+class _EventStatistics:
+    tasks_waiting = attr.ib()
+
+
+@attr.s(repr=False, eq=False, hash=False, slots=True)
 class Event(metaclass=Final):
     """A waitable boolean value useful for inter-task synchronization,
     inspired by :class:`threading.Event`.
@@ -37,7 +41,7 @@ class Event(metaclass=Final):
 
     """
 
-    _lot = attr.ib(factory=ParkingLot, init=False)
+    _tasks = attr.ib(factory=set, init=False)
     _flag = attr.ib(default=False, init=False)
 
     def is_set(self):
@@ -47,8 +51,11 @@ class Event(metaclass=Final):
     @enable_ki_protection
     def set(self):
         """Set the internal flag value to True, and wake any waiting tasks."""
-        self._flag = True
-        self._lot.unpark_all()
+        if not self._flag:
+            self._flag = True
+            for task in self._tasks:
+                _core.reschedule(task)
+            self._tasks.clear()
 
     async def wait(self):
         """Block until the internal flag value becomes True.
@@ -59,7 +66,14 @@ class Event(metaclass=Final):
         if self._flag:
             await trio.lowlevel.checkpoint()
         else:
-            await self._lot.park()
+            task = _core.current_task()
+            self._tasks.add(task)
+
+            def abort_fn(_):
+                self._tasks.remove(task)
+                return _core.Abort.SUCCEEDED
+
+            await _core.wait_task_rescheduled(abort_fn)
 
     def statistics(self):
         """Return an object containing debugging information.
@@ -70,24 +84,17 @@ class Event(metaclass=Final):
           :meth:`wait` method.
 
         """
-        return self._lot.statistics()
+        return _EventStatistics(tasks_waiting=len(self._tasks))
 
 
-def async_cm(cls):
+class AsyncContextManagerMixin:
     @enable_ki_protection
     async def __aenter__(self):
         await self.acquire()
 
-    __aenter__.__qualname__ = cls.__qualname__ + ".__aenter__"
-    cls.__aenter__ = __aenter__
-
     @enable_ki_protection
     async def __aexit__(self, *args):
         self.release()
-
-    __aexit__.__qualname__ = cls.__qualname__ + ".__aexit__"
-    cls.__aexit__ = __aexit__
-    return cls
 
 
 @attr.s(frozen=True)
@@ -98,8 +105,7 @@ class _CapacityLimiterStatistics:
     tasks_waiting = attr.ib()
 
 
-@async_cm
-class CapacityLimiter(metaclass=Final):
+class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
     """An object for controlling access to a resource with limited capacity.
 
     Sometimes you need to put a limit on how many tasks can do something at
@@ -341,8 +347,7 @@ class CapacityLimiter(metaclass=Final):
         )
 
 
-@async_cm
-class Semaphore(metaclass=Final):
+class Semaphore(AsyncContextManagerMixin, metaclass=Final):
     """A `semaphore <https://en.wikipedia.org/wiki/Semaphore_(programming)>`__.
 
     A semaphore holds an integer value, which can be incremented by
@@ -471,9 +476,8 @@ class _LockStatistics:
     tasks_waiting = attr.ib()
 
 
-@async_cm
 @attr.s(eq=False, hash=False, repr=False)
-class _LockImpl:
+class _LockImpl(AsyncContextManagerMixin):
     _lot = attr.ib(factory=ParkingLot, init=False)
     _owner = attr.ib(default=None, init=False)
 
@@ -645,8 +649,7 @@ class _ConditionStatistics:
     lock_statistics = attr.ib()
 
 
-@async_cm
-class Condition(metaclass=Final):
+class Condition(AsyncContextManagerMixin, metaclass=Final):
     """A classic `condition variable
     <https://en.wikipedia.org/wiki/Monitor_(synchronization)>`__, similar to
     :class:`threading.Condition`.

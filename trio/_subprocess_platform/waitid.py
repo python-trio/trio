@@ -13,7 +13,6 @@ try:
     def sync_wait_reapable(pid):
         waitid(os.P_PID, pid, os.WEXITED | os.WNOWAIT)
 
-
 except ImportError:
     # pypy doesn't define os.waitid so we need to pull it out ourselves
     # using cffi: https://bitbucket.org/pypy/pypy/issues/2922/

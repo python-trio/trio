@@ -10,6 +10,7 @@ import signal
 import socket
 import threading
 import time
+import warnings
 
 import trio
 import trio.testing
@@ -167,19 +168,16 @@ def test_warn_set_wakeup_fd_overwrite():
             assert signal.set_wakeup_fd(-1) == a.fileno()
 
         # Don't warn if there isn't already a wakeup fd
-        with pytest.warns(None) as record:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
             assert trivial_guest_run(trio_main) == "ok"
-        # Apparently this is how you assert 'there were no RuntimeWarnings'
-        with pytest.raises(AssertionError):
-            record.pop(RuntimeWarning)
 
-        with pytest.warns(None) as record:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
             assert (
                 trivial_guest_run(trio_main, host_uses_signal_set_wakeup_fd=True)
                 == "ok"
             )
-        with pytest.raises(AssertionError):
-            record.pop(RuntimeWarning)
 
         # If there's already a wakeup fd, but we've been told to trust it,
         # then it's left alone and there's no warning
@@ -192,7 +190,8 @@ def test_warn_set_wakeup_fd_overwrite():
                 signal.set_wakeup_fd(fd)
                 return "ok"
 
-            with pytest.warns(None) as record:
+            with warnings.catch_warnings():
+                warnings.simplefilter("error")
                 assert (
                     trivial_guest_run(
                         trio_check_wakeup_fd_unaltered,
@@ -200,8 +199,6 @@ def test_warn_set_wakeup_fd_overwrite():
                     )
                     == "ok"
                 )
-            with pytest.raises(AssertionError):
-                record.pop(RuntimeWarning)
         finally:
             assert signal.set_wakeup_fd(-1) == a.fileno()
 
@@ -323,7 +320,7 @@ def aiotrio_run(trio_fn, *, pass_not_threadsafe=True, **start_guest_run_kwargs):
     loop = asyncio.new_event_loop()
 
     async def aio_main():
-        trio_done_fut = asyncio.Future()
+        trio_done_fut = loop.create_future()
 
         def trio_done_callback(main_outcome):
             print(f"trio_fn finished: {main_outcome!r}")
@@ -504,7 +501,7 @@ def test_guest_mode_autojump_clock_threshold_changing():
 
 @pytest.mark.skipif(buggy_pypy_asyncgens, reason="PyPy 7.2 is buggy")
 @pytest.mark.xfail(
-    sys.implementation.name == "pypy" and sys.version_info >= (3, 7),
+    sys.implementation.name == "pypy",
     reason="async generator issue under investigation",
 )
 @restore_unraisablehook()

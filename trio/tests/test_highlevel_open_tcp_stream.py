@@ -13,6 +13,9 @@ from trio._highlevel_open_tcp_stream import (
     format_host_port,
 )
 
+if sys.version_info < (3, 11):
+    from exceptiongroup import BaseExceptionGroup
+
 
 def test_close_all():
     class CloseMe:
@@ -59,7 +62,7 @@ def test_reorder_for_rfc_6555_section_5_4():
         return (AF_INET6, SOCK_STREAM, IPPROTO_TCP, "", ("::{}".format(i), 80))
 
     for fake in fake4, fake6:
-        # No effect on homogenous lists
+        # No effect on homogeneous lists
         targets = [fake(0), fake(1), fake(2)]
         reorder_for_rfc_6555_section_5_4(targets)
         assert targets == [fake(0), fake(1), fake(2)]
@@ -436,7 +439,7 @@ async def test_all_fail(autojump_clock):
         expect_error=OSError,
     )
     assert isinstance(exc, OSError)
-    assert isinstance(exc.__cause__, trio.MultiError)
+    assert isinstance(exc.__cause__, BaseExceptionGroup)
     assert len(exc.__cause__.exceptions) == 4
     assert trio.current_time() == (0.1 + 0.2 + 10)
     assert scenario.connect_times == {
@@ -556,7 +559,7 @@ async def test_cancel(autojump_clock):
                 ("3.3.3.3", 10, "success"),
                 ("4.4.4.4", 10, "success"),
             ],
-            expect_error=trio.MultiError,
+            expect_error=BaseExceptionGroup,
         )
         # What comes out should be 1 or more Cancelled errors that all belong
         # to this cancel_scope; this is the easiest way to check that

@@ -74,7 +74,7 @@ async def test_receive_pipe():
 
 async def test_pipes_combined():
     write, read = await make_pipe()
-    count = 2 ** 20
+    count = 2**20
 
     async def sender():
         big = bytearray(count)
@@ -229,8 +229,19 @@ async def test_close_at_bad_time_for_send_all(monkeypatch):
         async with _core.open_nursery() as nursery:
             nursery.start_soon(expect_closedresourceerror)
             await wait_all_tasks_blocked()
-            # Trigger everything by waking up the sender
-            await r.receive_some(10000)
+            # Trigger everything by waking up the sender. On ppc64el, PIPE_BUF
+            # is 8192 but make_clogged_pipe() ends up writing a total of
+            # 1048576 bytes before the pipe is full, and then a subsequent
+            # receive_some(10000) isn't sufficient for orig_wait_writable() to
+            # return for our subsequent aclose() call. It's necessary to empty
+            # the pipe further before this happens. So we loop here until the
+            # pipe is empty to make sure that the sender wakes up even in this
+            # case. Otherwise patched_wait_writable() never gets to the
+            # aclose(), so expect_closedresourceerror() never returns, the
+            # nursery never finishes all tasks and this test hangs.
+            received_data = await r.receive_some(10000)
+            while received_data:
+                received_data = await r.receive_some(10000)
 
 
 # On FreeBSD, directories are readable, and we haven't found any other trick

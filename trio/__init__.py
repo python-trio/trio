@@ -22,7 +22,6 @@ from ._core import (
     Cancelled,
     BusyResourceError,
     ClosedResourceError,
-    MultiError,
     run,
     open_nursery,
     CancelScope,
@@ -70,9 +69,11 @@ from ._file_io import open_file, wrap_file
 
 from ._path import Path
 
-from ._subprocess import Process, open_process, run_process
+from ._subprocess import Process, run_process
 
 from ._ssl import SSLStream, SSLListener, NeedHandshakeError
+
+from ._dtls import DTLSEndpoint, DTLSChannel
 
 from ._highlevel_serve_listeners import serve_listeners
 
@@ -87,6 +88,9 @@ from ._highlevel_ssl_helpers import (
     open_ssl_over_tcp_listeners,
     serve_ssl_over_tcp,
 )
+
+from ._core._multierror import MultiError as _MultiError
+from ._core._multierror import NonBaseMultiError as _NonBaseMultiError
 
 from ._deprecate import TrioDeprecationWarning
 
@@ -105,6 +109,33 @@ if False:
 from . import _deprecate
 
 _deprecate.enable_attribute_deprecations(__name__)
+
+__deprecated_attributes__ = {
+    "open_process": _deprecate.DeprecatedAttribute(
+        value=lowlevel.open_process,
+        version="0.20.0",
+        issue=1104,
+        instead="trio.lowlevel.open_process",
+    ),
+    "MultiError": _deprecate.DeprecatedAttribute(
+        value=_MultiError,
+        version="0.22.0",
+        issue=2211,
+        instead=(
+            "BaseExceptionGroup (on Python 3.11 and later) or "
+            "exceptiongroup.BaseExceptionGroup (earlier versions)"
+        ),
+    ),
+    "NonBaseMultiError": _deprecate.DeprecatedAttribute(
+        value=_NonBaseMultiError,
+        version="0.22.0",
+        issue=2211,
+        instead=(
+            "ExceptionGroup (on Python 3.11 and later) or "
+            "exceptiongroup.ExceptionGroup (earlier versions)"
+        ),
+    ),
+}
 
 # Having the public path in .__module__ attributes is important for:
 # - exception names in printed tracebacks

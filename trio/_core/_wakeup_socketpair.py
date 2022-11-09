@@ -1,28 +1,9 @@
 import socket
-import sys
 import signal
 import warnings
 
 from .. import _core
 from .._util import is_main_thread
-
-
-def _has_warn_on_full_buffer():
-    if sys.version_info < (3, 7):
-        return False
-
-    if "__pypy__" not in sys.builtin_module_names:
-        # CPython has warn_on_full_buffer. Don't need to inspect.
-        # Also, CPython doesn't support inspecting built-in functions.
-        return True
-
-    import inspect
-
-    args_spec = inspect.getfullargspec(signal.set_wakeup_fd)
-    return "warn_on_full_buffer" in args_spec.kwonlyargs
-
-
-HAVE_WARN_ON_FULL_BUFFER = _has_warn_on_full_buffer()
 
 
 class WakeupSocketpair:
@@ -38,13 +19,8 @@ class WakeupSocketpair:
         #   Windows 10: 525347
         # Windows you're weird. (And on Windows setting SNDBUF to 0 makes send
         # blocking, even on non-blocking sockets, so don't do that.)
-        #
-        # But, if we're on an old Python and can't control the signal module's
-        # warn-on-full-buffer behavior, then we need to leave things alone, so
-        # the signal module won't spam the console with spurious warnings.
-        if HAVE_WARN_ON_FULL_BUFFER:
-            self.wakeup_sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1)
-            self.write_sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1)
+        self.wakeup_sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1)
+        self.write_sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1)
         # On Windows this is a TCP socket so this might matter. On other
         # platforms this fails b/c AF_UNIX sockets aren't actually TCP.
         try:
@@ -66,7 +42,7 @@ class WakeupSocketpair:
     def drain(self):
         try:
             while True:
-                self.wakeup_sock.recv(2 ** 16)
+                self.wakeup_sock.recv(2**16)
         except BlockingIOError:
             pass
 
@@ -75,10 +51,7 @@ class WakeupSocketpair:
         if not is_main_thread():
             return
         fd = self.write_sock.fileno()
-        if HAVE_WARN_ON_FULL_BUFFER:
-            self.old_wakeup_fd = signal.set_wakeup_fd(fd, warn_on_full_buffer=False)
-        else:
-            self.old_wakeup_fd = signal.set_wakeup_fd(fd)
+        self.old_wakeup_fd = signal.set_wakeup_fd(fd, warn_on_full_buffer=False)
         if self.old_wakeup_fd != -1:
             warnings.warn(
                 RuntimeWarning(

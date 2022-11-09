@@ -458,7 +458,7 @@ each PR leads to better quality.
 Beyond that, it all comes down to what you feel up to. If you don't
 feel like you know enough to review a complex code change, then you
 don't have to – you can just look it over and make some comments, even
-if you don't feel up to making the final merge/no-merge decison. Or
+if you don't feel up to making the final merge/no-merge decision. Or
 you can just stick to merging trivial doc fixes and adding tags to
 issues, that's helpful too. If after hanging around for a while you
 start to feel like you have better handle on how things work and want

@@ -1,3 +1,7 @@
+import os
+import re
+import sys
+
 import pytest
 
 import threading
@@ -17,7 +21,7 @@ from .._highlevel_generic import aclose_forcefully
 from .._core import ClosedResourceError, BrokenResourceError
 from .._highlevel_open_tcp_stream import open_tcp_stream
 from .. import socket as tsocket
-from .._ssl import SSLStream, SSLListener, NeedHandshakeError
+from .._ssl import SSLStream, SSLListener, NeedHandshakeError, _is_eof
 from .._util import ConflictDetector
 
 from .._core.tests.tutil import slow
@@ -52,32 +56,30 @@ TRIO_TEST_CA = trustme.CA()
 TRIO_TEST_1_CERT = TRIO_TEST_CA.issue_server_cert("trio-test-1.example.org")
 
 SERVER_CTX = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+if hasattr(ssl, "OP_IGNORE_UNEXPECTED_EOF"):
+    SERVER_CTX.options &= ~ssl.OP_IGNORE_UNEXPECTED_EOF
+
 TRIO_TEST_1_CERT.configure_cert(SERVER_CTX)
+
 
 # TLS 1.3 has a lot of changes from previous versions. So we want to run tests
 # with both TLS 1.3, and TLS 1.2.
-if hasattr(ssl, "OP_NO_TLSv1_3"):
-    # "tls13" means that we're willing to negotiate TLS 1.3. Usually that's
-    # what will happen, but the renegotiation tests explicitly force a
-    # downgrade on the server side. "tls12" means we refuse to negotiate TLS
-    # 1.3, so we'll almost certainly use TLS 1.2.
-    client_ctx_params = ["tls13", "tls12"]
-else:
-    # We can't control whether we use TLS 1.3, so we just have to accept
-    # whatever openssl wants to use. This might be TLS 1.2 (if openssl is
-    # old), or it might be TLS 1.3 (if openssl is new, but our python version
-    # is too old to expose the configuration knobs).
-    client_ctx_params = ["default"]
-
-
-@pytest.fixture(scope="module", params=client_ctx_params)
+# "tls13" means that we're willing to negotiate TLS 1.3. Usually that's
+# what will happen, but the renegotiation tests explicitly force a
+# downgrade on the server side. "tls12" means we refuse to negotiate TLS
+# 1.3, so we'll almost certainly use TLS 1.2.
+@pytest.fixture(scope="module", params=["tls13", "tls12"])
 def client_ctx(request):
     ctx = ssl.create_default_context()
+
+    if hasattr(ssl, "OP_IGNORE_UNEXPECTED_EOF"):
+        ctx.options &= ~ssl.OP_IGNORE_UNEXPECTED_EOF
+
     TRIO_TEST_CA.configure_trust(ctx)
     if request.param in ["default", "tls13"]:
         return ctx
     elif request.param == "tls12":
-        ctx.options |= ssl.OP_NO_TLSv1_3
+        ctx.maximum_version = ssl.TLSVersion.TLSv1_2
         return ctx
     else:  # pragma: no cover
         assert False
@@ -98,14 +100,26 @@ def ssl_echo_serve_sync(sock, *, expect_fail=False):
                     # respond in kind but it's legal for them to have already
                     # gone away.
                     exceptions = (BrokenPipeError, ssl.SSLZeroReturnError)
-                    # Under unclear conditions, CPython sometimes raises
-                    # SSLWantWriteError here. This is a bug (bpo-32219), but
-                    # it's not our bug, so ignore it.
-                    exceptions += (ssl.SSLWantWriteError,)
                     try:
                         wrapped.unwrap()
                     except exceptions:
                         pass
+                    except ssl.SSLWantWriteError:  # pragma: no cover
+                        # Under unclear conditions, CPython sometimes raises
+                        # SSLWantWriteError here. This is a bug (bpo-32219),
+                        # but it's not our bug.  Christian Heimes thinks
+                        # it's fixed in 'recent' CPython versions so we fail
+                        # the test for those and ignore it for earlier
+                        # versions.
+                        if (
+                            sys.implementation.name != "cpython"
+                            or sys.version_info >= (3, 8)
+                        ):
+                            pytest.fail(
+                                "still an issue on recent python versions "
+                                "add a comment to "
+                                "https://bugs.python.org/issue32219"
+                            )
                     return
                 wrapped.sendall(data)
     # This is an obscure workaround for an openssl bug. In server mode, in
@@ -747,6 +761,10 @@ async def test_wait_writable_calls_underlying_wait_writable():
     assert record == ["ok"]
 
 
+@pytest.mark.skipif(
+    os.name == "nt" and sys.version_info >= (3, 10),
+    reason="frequently fails on Windows + Python 3.10",
+)
 async def test_checkpoints(client_ctx):
     async with ssl_echo_server(client_ctx) as s:
         with assert_checkpoints():
@@ -1087,7 +1105,8 @@ async def test_ssl_https_compatibility_disagreement(client_ctx):
     async def receive_and_expect_error():
         with pytest.raises(BrokenResourceError) as excinfo:
             await server.receive_some(10)
-        assert isinstance(excinfo.value.__cause__, ssl.SSLEOFError)
+
+        assert _is_eof(excinfo.value.__cause__)
 
     async with _core.open_nursery() as nursery:
         nursery.start_soon(client.aclose)
@@ -1160,7 +1179,7 @@ async def test_selected_alpn_protocol_before_handshake(client_ctx):
 
 
 async def test_selected_alpn_protocol_when_not_set(client_ctx):
-    # ALPN protocol still returns None when it's not ser,
+    # ALPN protocol still returns None when it's not set,
     # instead of raising an exception
     client, server = ssl_memory_stream_pair(client_ctx)
 
@@ -1184,8 +1203,12 @@ async def test_selected_npn_protocol_before_handshake(client_ctx):
         server.selected_npn_protocol()
 
 
+@pytest.mark.filterwarnings(
+    r"ignore: ssl module. NPN is deprecated, use ALPN instead:UserWarning",
+    r"ignore:ssl NPN is deprecated, use ALPN instead:DeprecationWarning",
+)
 async def test_selected_npn_protocol_when_not_set(client_ctx):
-    # NPN protocol still returns None when it's not ser,
+    # NPN protocol still returns None when it's not set,
     # instead of raising an exception
     client, server = ssl_memory_stream_pair(client_ctx)
 

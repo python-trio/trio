@@ -13,14 +13,13 @@ Tutorial
    still probably read this, because Trio is different.)
 
    Trio turns Python into a concurrent language. It takes the core
-   async/await syntax introduced in 3.5, and uses it to add three
+   async/await syntax introduced in 3.5, and uses it to add two
    new pieces of semantics:
 
    - cancel scopes: a generic system for managing timeouts and
      cancellation
    - nurseries: which let your program do multiple things at the same
      time
-   - MultiErrors: for when multiple things go wrong at once
 
    Of course it also provides a complete suite of APIs for doing
    networking, file I/O, using worker threads,
@@ -33,9 +32,6 @@ Tutorial
          response = await asks.get("https://httpbin.org/delay/1")
          print(response)
    and then again with /delay/10
-
-   (note that asks needs cpython 3.6 though. maybe just for one async
-   generator?)
 
    value of async/await: show you where the cancellation exceptions
    can happen -- see pillar re: explicit cancel points
@@ -59,8 +55,6 @@ Tutorial
    API, and show how to do explicit concurrency
    and demonstrate start()
    then point out that you can just use serve_tcp()
-
-   exceptions and MultiError
 
    example: catch-all logging in our echo server
 
@@ -94,7 +88,7 @@ Okay, ready? Let's get started.
 Before you begin
 ----------------
 
-1. Make sure you're using Python 3.6 or newer.
+1. Make sure you're using Python 3.7 or newer.
 
 2. ``python3 -m pip install --upgrade trio`` (or on Windows, maybe
    ``py -3 -m pip install --upgrade trio`` – `details
@@ -599,8 +593,8 @@ Each task runs until it hits the call to :func:`trio.sleep`, and then
 suddenly we're back in :func:`trio.run` deciding what to run next. How
 does this happen? The secret is that :func:`trio.run` and
 :func:`trio.sleep` work together to make it happen: :func:`trio.sleep`
-has access to some special magic that lets it pause its entire
-call stack, so it sends a note to :func:`trio.run` requesting to be
+has access to some special magic that lets it pause itself,
+so it sends a note to :func:`trio.run` requesting to be
 woken again after 1 second, and then suspends the task. And once the
 task is suspended, Python gives control back to :func:`trio.run`,
 which decides what to do next. (If this sounds similar to the way that
@@ -622,7 +616,7 @@ between the implementation of generators and async functions.)
 
 Only async functions have access to the special magic for suspending a
 task, so only async functions can cause the program to switch to a
-different task. What this means if a call *doesn't* have an ``await``
+different task. What this means is that if a call *doesn't* have an ``await``
 on it, then you know that it *can't* be a place where your task will
 be suspended. This makes tasks much `easier to reason about
 <https://glyph.twistedmatrix.com/2014/02/unyielding.html>`__ than
@@ -639,7 +633,7 @@ wouldn't have been able to pause at the end and wait for the children
 to finish; we need our cleanup function to be async, which is exactly
 what ``async with`` gives us.
 
-Now, back to our execution trace. To recap: at this point ``parent``
+Now, back to our execution point. To recap: at this point ``parent``
 is waiting on ``child1`` and ``child2``, and both children are
 sleeping. So :func:`trio.run` checks its notes, and sees that there's
 nothing to be done until those sleeps finish – unless possibly some
@@ -1092,7 +1086,7 @@ up, and ``send_all`` will block until the remote side calls
 
 Now let's think about this from the server's point of view. Each time
 it calls ``receive_some``, it gets some data that it needs to send
-back. And until it sends it back, the data is sitting around takes up
+back. And until it sends it back, the data that is sitting around takes up
 memory. Computers have finite amounts of RAM, so if our server is well
 behaved then at some point it needs to stop calling ``receive_some``
 until it gets rid of some of the old data by doing its own call to
@@ -1151,9 +1145,6 @@ TODO: explain :exc:`Cancelled`
 
 TODO: explain how cancellation is also used when one child raises an
 exception
-
-TODO: show an example :exc:`MultiError` traceback and walk through its
-structure
 
 TODO: maybe a brief discussion of :exc:`KeyboardInterrupt` handling?
 

@@ -329,14 +329,15 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
                     nursery.start_soon(s.send_all, b"123")
                     nursery.start_soon(s.send_all, b"123")
 
-        # closing the receiver causes wait_send_all_might_not_block to return
+        # closing the receiver causes wait_send_all_might_not_block to return,
+        # with or without an exception
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
 
             async def sender():
                 try:
                     with assert_checkpoints():
                         await s.wait_send_all_might_not_block()
-                except _core.BrokenResourceError:
+                except _core.BrokenResourceError:  # pragma: no cover
                     pass
 
             async def receiver():
@@ -353,7 +354,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             try:
                 with assert_checkpoints():
                     await s.wait_send_all_might_not_block()
-            except _core.BrokenResourceError:
+            except _core.BrokenResourceError:  # pragma: no cover
                 pass
 
         # Check that if a task is blocked in a send-side method, then closing
@@ -407,8 +408,8 @@ async def check_two_way_stream(stream_maker, clogged_stream_maker):
         assert isinstance(s2, Stream)
 
         # Duplex can be a bit tricky, might as well check it as well
-        DUPLEX_TEST_SIZE = 2 ** 20
-        CHUNK_SIZE_MAX = 2 ** 14
+        DUPLEX_TEST_SIZE = 2**20
+        CHUNK_SIZE_MAX = 2**14
 
         r = random.Random(0)
         i = r.getrandbits(8 * DUPLEX_TEST_SIZE)
