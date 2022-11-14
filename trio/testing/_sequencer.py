@@ -1,7 +1,7 @@
 from collections import defaultdict
+from contextlib import asynccontextmanager
 
 import attr
-from async_generator import asynccontextmanager
 
 from .. import _core
 from .. import _util
