@@ -1,26 +1,22 @@
 # coding: utf-8
 
 import contextvars
-import threading
-import queue as stdlib_queue
 import functools
+import inspect
+import queue as stdlib_queue
+import threading
 from itertools import count
+from typing import Optional
 
 import attr
-import inspect
 import outcome
 from sniffio import current_async_library_cvar
 
 import trio
 
+from ._core import (RunVar, TrioToken, disable_ki_protection,
+                    enable_ki_protection, start_thread_soon)
 from ._sync import CapacityLimiter
-from ._core import (
-    enable_ki_protection,
-    disable_ki_protection,
-    RunVar,
-    TrioToken,
-    start_thread_soon,
-)
 from ._util import coroutine_or_error
 
 # Global due to Threading API, thread local storage for trio token
@@ -56,9 +52,6 @@ def current_default_thread_limiter():
 @attr.s(frozen=True, eq=False, hash=False)
 class ThreadPlaceholder:
     name = attr.ib()
-
-
-from typing import Optional
 
 
 @enable_ki_protection
