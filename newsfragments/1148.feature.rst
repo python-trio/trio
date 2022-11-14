@@ -1,1 +1,1 @@
-Added support for naming threads created with `to_thread_run_sync`, requires pthreads so is only available on POSIX platforms with glibc installed.
+Added support for naming threads created with `trio.to_thread_run_sync`, requires pthreads so is only available on POSIX platforms with glibc installed.

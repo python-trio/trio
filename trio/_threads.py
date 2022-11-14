@@ -86,7 +86,7 @@ async def to_thread_run_sync(
           arguments, use :func:`functools.partial`.
       cancellable (bool): Whether to allow cancellation of this operation. See
           discussion below.
-      name (str): Optional string to set the name of the thread.
+      thread_name (str): Optional string to set the name of the thread.
           Will always set `threading.Thread.name`, but only set the os name
           if pthread.h is available (i.e. most POSIX installations).
           pthread names are limited to 15 characters, and can be read from

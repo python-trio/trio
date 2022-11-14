@@ -30,15 +30,6 @@ def get_os_thread_name_func() -> Optional[Callable[[Optional[int], str], None]]:
     pthread_setname_np.restype = ctypes.c_int
 
     return partial(namefunc, pthread_setname_np)
-    ## set the name
-    # try:
-    #    bname = name.encode("ascii", "replace")
-    #    thread = threading.current_thread()
-    #    # if thread is not None:
-    #    thread.name = name
-    #    pthread_setname_np(thread.ident, bname[:15])
-    # except Exception:
-    #    return nofunc
 
 
 set_os_thread_name = get_os_thread_name_func()
@@ -95,8 +86,7 @@ class WorkerThread:
         self._worker_lock.acquire()
         self._default_name = f"Trio thread {next(name_counter)}"
 
-        self._thread = Thread(target=self._work, daemon=True)
-        self._thread.name = self._default_name
+        self._thread = Thread(target=self._work, name=self._default_name, daemon=True)
 
         if set_os_thread_name:
             set_os_thread_name(self._thread.ident, self._default_name)
