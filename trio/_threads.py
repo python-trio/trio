@@ -14,8 +14,13 @@ from sniffio import current_async_library_cvar
 
 import trio
 
-from ._core import (RunVar, TrioToken, disable_ki_protection,
-                    enable_ki_protection, start_thread_soon)
+from ._core import (
+    RunVar,
+    TrioToken,
+    disable_ki_protection,
+    enable_ki_protection,
+    start_thread_soon,
+)
 from ._sync import CapacityLimiter
 from ._util import coroutine_or_error
 
