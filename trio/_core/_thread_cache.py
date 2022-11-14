@@ -16,6 +16,12 @@ def get_os_thread_name_func() -> Optional[Callable[[Optional[int], str], None]]:
         if ident is not None:
             setname(ident, bytes(name[:15], "ascii", "replace"))
 
+    def darwin_namefunc(
+        setname: Callable[[bytes], int], ident: Optional[int], name: str
+    ):
+        if ident is not None:
+            setname(bytes(name[:15], "ascii", "replace"))
+
     libpthread_path = ctypes.util.find_library("pthread")
     if not libpthread_path:
         return None
@@ -26,9 +32,14 @@ def get_os_thread_name_func() -> Optional[Callable[[Optional[int], str], None]]:
         return None
 
     # specify function prototype
-    pthread_setname_np.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
     pthread_setname_np.restype = ctypes.c_int
 
+    # on mac OSX pthread_setname_np does not take a thread id
+    if sys.platform == "darwin":
+        pthread_setname_np.argtypes = [ctypes.c_char_p]
+        return partial(darwin_namefunc, pthread_setname_np)
+
+    pthread_setname_np.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
     return partial(namefunc, pthread_setname_np)
 
 
