@@ -167,18 +167,45 @@ def test_await_in_trio_thread_while_main_exits():
     assert record == ["sleeping", "cancelled"]
 
 
+async def test_named_thread():
+    def inner(name) -> threading.Thread:
+        assert threading.current_thread().name == name
+        return threading.current_thread()
+
+    def f(name: str) -> Callable[[None], threading.Thread]:
+        return partial(inner, name)
+
+    # test defaults
+    default = "Thread for trio.tests.test_threads.test_named_thread"
+    await to_thread_run_sync(f(default))
+    await to_thread_run_sync(f(default), thread_name=None)
+
+    # test that you can set a custom name, and that it's reset afterwards
+    async def test_thread_name(name: str):
+        thread = await to_thread_run_sync(f(name), thread_name=name)
+        assert re.match("Trio thread [0-9]*", thread.name)
+
+    await test_thread_name("")
+    await test_thread_name("fobiedoo")
+    await test_thread_name("name_longer_than_15_characters")
+
+    await test_thread_name("💙")
+
+
 def _get_thread_name(ident: Optional[int] = None) -> Optional[str]:
     import ctypes
     import ctypes.util
 
-    # afaik pthread should be available on MacOS as well, but it's apparently
-    # not on the CI machines.
     libpthread_path = ctypes.util.find_library("pthread")
-    assert libpthread_path, sys.platform
+    if not libpthread_path:
+        print(f"no pthread on {sys.platform})")
+        return None
     libpthread = ctypes.CDLL(libpthread_path)
 
     pthread_getname_np = getattr(libpthread, "pthread_getname_np", None)
-    assert pthread_getname_np is not None
+    if not pthread_getname_np:
+        print(f"no pthread_getname_np on {sys.platform})")
+        return None
 
     pthread_getname_np.argtypes = [
         ctypes.c_void_p,
@@ -194,15 +221,19 @@ def _get_thread_name(ident: Optional[int] = None) -> Optional[str]:
     return name_buffer.value.decode()
 
 
-async def test_named_thread():
-    def inner(name, os_name) -> threading.Thread:
-        assert threading.current_thread().name == name
-        if sys.platform == "linux":
-            assert _get_thread_name() == os_name[:15]
+# test os thread naming
+# afaik pthread should be available on MacOS as well, but it's apparently
+# not on the CI machines.
+async def test_named_thread_os():
+    def inner(name) -> threading.Thread:
+        if not _get_thread_name() == name[:15]:
+            assert sys.platform != "linux", "os threads should work on linux"
+            pytest.skip(f"no pthread OS support in {sys.platform}")
+
         return threading.current_thread()
 
-    def f(name: str, os_name: str) -> Callable[[None], threading.Thread]:
-        return partial(inner, name, os_name)
+    def f(name: str, expected: str) -> Callable[[None], threading.Thread]:
+        return partial(inner, name)
 
     # test defaults
     default = "Thread for trio.tests.test_threads.test_named_thread"
@@ -210,23 +241,22 @@ async def test_named_thread():
     await to_thread_run_sync(f(default, default), thread_name=None)
 
     # test that you can set a custom name, and that it's reset afterwards
-    async def test_thread_name(name: str, os_name: Optional[str] = None):
-        if os_name is None:
-            os_name = name
-        thread = await to_thread_run_sync(f(name, os_name), thread_name=name)
-        assert re.match("Trio thread [0-9]*", thread.name)
+    async def test_thread_name(name: str, expected: Optional[str] = None):
+        if expected is None:
+            expected = name
+        thread = await to_thread_run_sync(f(name, expected), thread_name=name)
 
-        if sys.platform == "linux":
-            os_thread_name = _get_thread_name(thread.ident)
-            assert os_thread_name is not None and re.match(
-                "Trio thread [0-9]*", os_thread_name
-            )
+        os_thread_name = _get_thread_name(thread.ident)
+        if os_thread_name is None:
+            assert sys.platform == "linux", "os threads should work on linux"
+            pytest.skip(f"no pthread OS support in {sys.platform}")
+        assert re.match("Trio thread [0-9]*", os_thread_name)
 
     await test_thread_name("")
     await test_thread_name("fobiedoo")
     await test_thread_name("name_longer_than_15_characters")
 
-    await test_thread_name("💙", os_name="?")
+    await test_thread_name("💙", expected="?")
 
 
 async def test_run_in_worker_thread():
