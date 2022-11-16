@@ -12,7 +12,7 @@ import enum
 from contextvars import copy_context
 from math import inf
 from time import perf_counter
-from typing import Callable, TYPE_CHECKING
+from typing import Callable, Final, NoReturn, TYPE_CHECKING
 
 from sniffio import current_async_library_cvar
 
@@ -46,9 +46,9 @@ from .._util import Final, NoPublicConstructor, coroutine_or_error
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
 
-DEADLINE_HEAP_MIN_PRUNE_THRESHOLD = 1000
+DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: Final = 1000
 
-_NO_SEND = object()
+_NO_SEND: Final = object()
 
 
 # Decorator to mark methods public. This does nothing by itself, but
@@ -62,21 +62,21 @@ def _public(fn):
 # variable to True, and registers the Random instance _r for Hypothesis
 # to manage for each test case, which together should make Trio's task
 # scheduling loop deterministic.  We have a test for that, of course.
-_ALLOW_DETERMINISTIC_SCHEDULING = False
+_ALLOW_DETERMINISTIC_SCHEDULING: Final = False
 _r = random.Random()
 
 
 # On CPython, Context.run() is implemented in C and doesn't show up in
 # tracebacks. On PyPy, it is implemented in Python and adds 1 frame to tracebacks.
-def _count_context_run_tb_frames():
-    def function_with_unique_name_xyzzy():
+def _count_context_run_tb_frames() -> int:
+    def function_with_unique_name_xyzzy() -> NoReturn:  # type: ignore[misc]
         1 / 0
 
     ctx = copy_context()
     try:
         ctx.run(function_with_unique_name_xyzzy)
     except ZeroDivisionError as exc:
-        tb = exc.__traceback__
+        tb = cast(TracebackType, exc.__traceback__)
         # Skip the frame where we caught it
         tb = tb.tb_next
         count = 0
@@ -84,9 +84,14 @@ def _count_context_run_tb_frames():
             tb = tb.tb_next
             count += 1
         return count
+    else:
+        raise TrioInternalError(
+            f"The purpose of {function_with_unique_name_xyzzy.__name__} is "
+            "to raise a ZeroDivisionError, but it didn't."
+        )
 
 
-CONTEXT_RUN_TB_FRAMES = _count_context_run_tb_frames()
+CONTEXT_RUN_TB_FRAMES: Final = _count_context_run_tb_frames()
 
 
 @attr.s(frozen=True, slots=True)
@@ -1118,7 +1123,7 @@ class Task(metaclass=NoPublicConstructor):
     name = attr.ib()
     # PEP 567 contextvars context
     context = attr.ib()
-    _counter = attr.ib(init=False, factory=itertools.count().__next__)
+    _counter: int = attr.ib(init=False, factory=itertools.count().__next__)
 
     # Invariant:
     # - for unscheduled tasks, _next_send_fn and _next_send are both None
@@ -1245,7 +1250,7 @@ class RunContext(threading.local):
     task: Task
 
 
-GLOBAL_RUN_CONTEXT = RunContext()
+GLOBAL_RUN_CONTEXT: Final = RunContext()
 
 
 @attr.s(frozen=True)
@@ -2100,14 +2105,19 @@ def start_guest_run(
 
 # 24 hours is arbitrary, but it avoids issues like people setting timeouts of
 # 10**20 and then getting integer overflows in the underlying system calls.
-_MAX_TIMEOUT = 24 * 60 * 60
+_MAX_TIMEOUT: Final = 24 * 60 * 60
 
 
 # Weird quirk: this is written as a generator in order to support "guest
 # mode", where our core event loop gets unrolled into a series of callbacks on
 # the host loop. If you're doing a regular trio.run then this gets run
 # straight through.
-def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd: bool = False):
+def unrolled_run(
+    runner: Runner,
+    async_fn,
+    args,
+    host_uses_signal_set_wakeup_fd: bool = False,
+):
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     __tracebackhide__ = True
 
@@ -2254,8 +2264,10 @@ def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd: bool = 
                     # frame we always remove, because it's this function
                     # catching it, and then in addition we remove however many
                     # more Context.run adds.
-                    tb = task_exc.__traceback__.tb_next
-                    for _ in range(CONTEXT_RUN_TB_FRAMES):
+                    tb = task_exc.__traceback__
+                    for _ in range(1 + CONTEXT_RUN_TB_FRAMES):
+                        if tb is None:
+                            break
                         tb = tb.tb_next
                     final_outcome = Error(task_exc.with_traceback(tb))
                     # Remove local refs so that e.g. cancelled coroutine locals
@@ -2350,7 +2362,7 @@ class _TaskStatusIgnored:
         pass
 
 
-TASK_STATUS_IGNORED = _TaskStatusIgnored()
+TASK_STATUS_IGNORED: Final = _TaskStatusIgnored()
 
 
 def current_task():
