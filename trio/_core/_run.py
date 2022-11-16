@@ -1910,8 +1910,8 @@ def run(
     *args,
     clock=None,
     instruments=(),
-    restrict_keyboard_interrupt_to_checkpoints=False,
-    strict_exception_groups=False,
+    restrict_keyboard_interrupt_to_checkpoints: bool = False,
+    strict_exception_groups: bool = False,
 ):
     """Run a Trio-flavored async function, and return the result.
 
@@ -2016,11 +2016,11 @@ def start_guest_run(
     run_sync_soon_threadsafe,
     done_callback,
     run_sync_soon_not_threadsafe=None,
-    host_uses_signal_set_wakeup_fd=False,
+    host_uses_signal_set_wakeup_fd: bool = False,
     clock=None,
     instruments=(),
-    restrict_keyboard_interrupt_to_checkpoints=False,
-    strict_exception_groups=False,
+    restrict_keyboard_interrupt_to_checkpoints: bool = False,
+    strict_exception_groups: bool = False,
 ):
     """Start a "guest" run of Trio on top of some other "host" event loop.
 
@@ -2107,7 +2107,7 @@ _MAX_TIMEOUT = 24 * 60 * 60
 # mode", where our core event loop gets unrolled into a series of callbacks on
 # the host loop. If you're doing a regular trio.run then this gets run
 # straight through.
-def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd=False):
+def unrolled_run(runner, async_fn, args, host_uses_signal_set_wakeup_fd: bool = False):
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     __tracebackhide__ = True
 
