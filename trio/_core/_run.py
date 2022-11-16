@@ -12,9 +12,10 @@ import enum
 from contextvars import copy_context
 from math import inf
 from time import perf_counter
-from typing import Callable, NoReturn, TYPE_CHECKING
+from typing import Callable, NoReturn, TypeVar, TYPE_CHECKING
 from typing import Deque
 
+# An unfortunate name collision here with trio._util.Final
 from typing_extensions import Final as FinalT
 
 from sniffio import current_async_library_cvar
@@ -49,6 +50,8 @@ from .._util import Final, NoPublicConstructor, coroutine_or_error
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
 
+T = TypeVar("T")
+
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: FinalT = 1000
 
 _NO_SEND: FinalT = object()
@@ -56,7 +59,7 @@ _NO_SEND: FinalT = object()
 
 # Decorator to mark methods public. This does nothing by itself, but
 # trio/_tools/gen_exports.py looks for it.
-def _public(fn):
+def _public(fn: T) -> T:
     return fn
 
 
@@ -86,7 +89,7 @@ def _count_context_run_tb_frames() -> int:
             1 / 0
         except ZeroDivisionError:
             raise
-        else:
+        else:  # pragma: no cover
             raise TrioInternalError(
                 "A ZeroDivisionError should have been raised, but it wasn't."
             )
@@ -103,7 +106,7 @@ def _count_context_run_tb_frames() -> int:
             tb = tb.tb_next  # type: ignore[union-attr]
             count += 1
         return count
-    else:
+    else:  # pragma: no cover
         raise TrioInternalError(
             f"The purpose of {function_with_unique_name_xyzzy.__name__} is "
             "to raise a ZeroDivisionError, but it didn't."
