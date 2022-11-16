@@ -12,7 +12,8 @@ import enum
 from contextvars import copy_context
 from math import inf
 from time import perf_counter
-from typing import Callable, Final, NoReturn, TYPE_CHECKING
+from typing import Callable, NoReturn, TYPE_CHECKING
+from typing_extensions import Final
 
 from sniffio import current_async_library_cvar
 
