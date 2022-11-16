@@ -76,7 +76,7 @@ def _count_context_run_tb_frames() -> int:
     try:
         ctx.run(function_with_unique_name_xyzzy)
     except ZeroDivisionError as exc:
-        tb = cast(TracebackType, exc.__traceback__)
+        tb = exc.__traceback__
         # Skip the frame where we caught it
         tb = tb.tb_next
         count = 0
