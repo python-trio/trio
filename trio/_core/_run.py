@@ -13,7 +13,9 @@ from contextvars import copy_context
 from math import inf
 from time import perf_counter
 from typing import Callable, NoReturn, TYPE_CHECKING
-from typing_extensions import Final
+from typing import Deque
+
+from typing_extensions import Final as FinalT
 
 from sniffio import current_async_library_cvar
 
@@ -47,9 +49,9 @@ from .._util import Final, NoPublicConstructor, coroutine_or_error
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
 
-DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: Final = 1000
+DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: FinalT = 1000
 
-_NO_SEND: Final = object()
+_NO_SEND: FinalT = object()
 
 
 # Decorator to mark methods public. This does nothing by itself, but
@@ -63,15 +65,31 @@ def _public(fn):
 # variable to True, and registers the Random instance _r for Hypothesis
 # to manage for each test case, which together should make Trio's task
 # scheduling loop deterministic.  We have a test for that, of course.
-_ALLOW_DETERMINISTIC_SCHEDULING: Final = False
+_ALLOW_DETERMINISTIC_SCHEDULING: FinalT = False
 _r = random.Random()
 
 
-# On CPython, Context.run() is implemented in C and doesn't show up in
-# tracebacks. On PyPy, it is implemented in Python and adds 1 frame to tracebacks.
 def _count_context_run_tb_frames() -> int:
-    def function_with_unique_name_xyzzy() -> NoReturn:  # type: ignore[misc]
-        1 / 0
+    """Count implementation dependent traceback frames from Context.run()
+
+    On CPython, Context.run() is implemented in C and doesn't show up in
+    tracebacks. On PyPy, it is implemented in Python and adds 1 frame to
+    tracebacks.
+
+    Returns:
+        int: Traceback frame count
+
+    """
+
+    def function_with_unique_name_xyzzy() -> NoReturn:
+        try:
+            1 / 0
+        except ZeroDivisionError:
+            raise
+        else:
+            raise TrioInternalError(
+                "A ZeroDivisionError should have been raised, but it wasn't."
+            )
 
     ctx = copy_context()
     try:
@@ -79,10 +97,10 @@ def _count_context_run_tb_frames() -> int:
     except ZeroDivisionError as exc:
         tb = exc.__traceback__
         # Skip the frame where we caught it
-        tb = tb.tb_next
+        tb = tb.tb_next  # type: ignore[union-attr]
         count = 0
-        while tb.tb_frame.f_code.co_name != "function_with_unique_name_xyzzy":
-            tb = tb.tb_next
+        while tb.tb_frame.f_code.co_name != "function_with_unique_name_xyzzy":  # type: ignore[union-attr]
+            tb = tb.tb_next  # type: ignore[union-attr]
             count += 1
         return count
     else:
@@ -92,7 +110,7 @@ def _count_context_run_tb_frames() -> int:
         )
 
 
-CONTEXT_RUN_TB_FRAMES: Final = _count_context_run_tb_frames()
+CONTEXT_RUN_TB_FRAMES: FinalT = _count_context_run_tb_frames()
 
 
 @attr.s(frozen=True, slots=True)
@@ -1251,7 +1269,7 @@ class RunContext(threading.local):
     task: Task
 
 
-GLOBAL_RUN_CONTEXT: Final = RunContext()
+GLOBAL_RUN_CONTEXT: FinalT = RunContext()
 
 
 @attr.s(frozen=True)
@@ -1338,7 +1356,7 @@ class Runner:
     # Run-local values, see _local.py
     _locals = attr.ib(factory=dict)
 
-    runq = attr.ib(factory=deque)
+    runq: Deque[Task] = attr.ib(factory=deque)
     tasks = attr.ib(factory=set)
 
     deadlines = attr.ib(factory=Deadlines)
@@ -2106,7 +2124,7 @@ def start_guest_run(
 
 # 24 hours is arbitrary, but it avoids issues like people setting timeouts of
 # 10**20 and then getting integer overflows in the underlying system calls.
-_MAX_TIMEOUT: Final = 24 * 60 * 60
+_MAX_TIMEOUT: FinalT = 24 * 60 * 60
 
 
 # Weird quirk: this is written as a generator in order to support "guest
@@ -2137,7 +2155,7 @@ def unrolled_run(
         # here is our event loop:
         while runner.tasks:
             if runner.runq:
-                timeout = 0
+                timeout: float = 0
             else:
                 deadline = runner.deadlines.next_deadline()
                 timeout = runner.clock.deadline_to_sleep_time(deadline)
@@ -2363,7 +2381,7 @@ class _TaskStatusIgnored:
         pass
 
 
-TASK_STATUS_IGNORED: Final = _TaskStatusIgnored()
+TASK_STATUS_IGNORED: FinalT = _TaskStatusIgnored()
 
 
 def current_task():
