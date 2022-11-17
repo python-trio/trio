@@ -81,7 +81,6 @@ setup(
     install_requires=[
         "attrs >= 19.2.0",  # for eq
         "sortedcontainers",
-        "async_generator >= 1.9",
         "idna",
         "outcome",
         "sniffio",
