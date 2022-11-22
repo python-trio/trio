@@ -1,3 +1,5 @@
+import sys
+import traceback
 from threading import Thread, Lock
 import outcome
 from itertools import count
@@ -67,7 +69,11 @@ class WorkerThread:
         # 'deliver' triggers a new job, it can be assigned to us
         # instead of spawning a new thread.
         self._thread_cache._idle_workers[self] = None
-        deliver(result)
+        try:
+            deliver(result)
+        except BaseException as e:
+            print("Exception while delivering result of thread", file=sys.stderr)
+            traceback.print_exception(type(e), e, e.__traceback__)
 
     def _work(self):
         while True:

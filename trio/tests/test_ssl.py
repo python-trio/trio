@@ -7,12 +7,11 @@ import pytest
 import threading
 import socket as stdlib_socket
 import ssl
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 from functools import partial
 
 from OpenSSL import SSL
 import trustme
-from async_generator import asynccontextmanager
 
 import trio
 from .. import _core
