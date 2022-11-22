@@ -4,7 +4,7 @@ import trio.testing
 from trio import DTLSEndpoint
 import random
 import attr
-from async_generator import asynccontextmanager
+from contextlib import asynccontextmanager
 from itertools import count
 
 import trustme

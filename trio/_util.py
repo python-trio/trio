@@ -9,8 +9,7 @@ from functools import update_wrapper
 import typing as t
 import threading
 import collections
-
-from async_generator import isasyncgen
+import inspect
 
 import trio
 
@@ -141,6 +140,7 @@ def coroutine_or_error(async_fn, *args):
     # for things like functools.partial objects wrapping an async
     # function. So we have to just call it and then check whether the
     # return value is a coroutine object.
+    # Note: will not be necessary on python>=3.8, see https://bugs.python.org/issue34890
     if not isinstance(coro, collections.abc.Coroutine):
         # Give good error for: nursery.start_soon(func_returning_future)
         if _return_value_looks_like_wrong_library(coro):
@@ -150,7 +150,7 @@ def coroutine_or_error(async_fn, *args):
                 "That won't work without some sort of compatibility shim.".format(coro)
             )
 
-        if isasyncgen(coro):
+        if inspect.isasyncgen(coro):
             raise TypeError(
                 "start_soon expected an async function but got an async "
                 "generator {!r}".format(coro)

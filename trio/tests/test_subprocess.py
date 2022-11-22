@@ -3,11 +3,11 @@ import random
 import signal
 import subprocess
 import sys
+from contextlib import asynccontextmanager
 from functools import partial
 from pathlib import Path as SyncPath
 
 import pytest
-from async_generator import asynccontextmanager
 
 from .. import (
     ClosedResourceError,

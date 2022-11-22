@@ -4,6 +4,7 @@ import random
 import select
 import sys
 import threading
+import gc
 from collections import deque
 from contextlib import contextmanager
 import warnings
@@ -1180,6 +1181,53 @@ class Task(metaclass=NoPublicConstructor):
 
         """
         return list(self._child_nurseries)
+
+    def iter_await_frames(self):
+        """Iterates recursively over the coroutine-like objects this
+        task is waiting on, yielding the frame and line number at each
+        frame.
+
+        This is similar to `traceback.walk_stack` in a synchronous
+        context. Note that `traceback.walk_stack` returns frames from
+        the bottom of the call stack to the top, while this function
+        starts from `Task.coro <trio.lowlevel.Task.coro>` and works it
+        way down.
+
+        Example usage: extracting a stack trace::
+
+            import traceback
+
+            def print_stack_for_task(task):
+                ss = traceback.StackSummary.extract(task.iter_await_frames())
+                print("".join(ss.format()))
+
+        """
+        coro = self.coro
+        while coro is not None:
+            if hasattr(coro, "cr_frame"):
+                # A real coroutine
+                yield coro.cr_frame, coro.cr_frame.f_lineno
+                coro = coro.cr_await
+            elif hasattr(coro, "gi_frame"):
+                # A generator decorated with @types.coroutine
+                yield coro.gi_frame, coro.gi_frame.f_lineno
+                coro = coro.gi_yieldfrom
+            elif coro.__class__.__name__ in [
+                "async_generator_athrow",
+                "async_generator_asend",
+            ]:
+                # cannot extract the generator directly, see https://github.com/python/cpython/issues/76991
+                # we can however use the gc to look through the object
+                for referent in gc.get_referents(coro):
+                    if hasattr(referent, "ag_frame"):
+                        yield referent.ag_frame, referent.ag_frame.f_lineno
+                        coro = referent.ag_await
+                        break
+                else:
+                    # either cpython changed or we are running on an alternative python implementation
+                    return
+            else:
+                return
 
     ################
     # Cancellation
