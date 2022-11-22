@@ -1,13 +1,16 @@
+from __future__ import annotations
+
 import inspect
 import signal
 import sys
 from functools import wraps
+from typing import TYPE_CHECKING
 
 import attr
 
 from .._util import is_main_thread
 
-if False:
+if TYPE_CHECKING:
     from typing import Any, TypeVar, Callable
 
     F = TypeVar("F", bound=Callable[..., Any])
@@ -54,7 +57,7 @@ if False:
 #
 #   If this raises a KeyboardInterrupt, it might be because the coroutine got
 #   interrupted and has unwound... or it might be the KeyboardInterrupt
-#   arrived just *after* 'send' returned, so the coroutine is still running
+#   arrived just *after* 'send' returned, so the coroutine is still running,
 #   but we just lost the message it sent. (And worse, in our actual task
 #   runner, the send is hidden inside a utility function etc.)
 #
