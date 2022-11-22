@@ -170,10 +170,10 @@ def _ki_protection_decorator(enabled):
     return decorator
 
 
-enable_ki_protection = _ki_protection_decorator(True)  # type: Callable[[F], F]
+enable_ki_protection: Callable[[F], F] = _ki_protection_decorator(True)
 enable_ki_protection.__name__ = "enable_ki_protection"
 
-disable_ki_protection = _ki_protection_decorator(False)  # type: Callable[[F], F]
+disable_ki_protection: Callable[[F], F] = _ki_protection_decorator(False)
 disable_ki_protection.__name__ = "disable_ki_protection"
 
 
