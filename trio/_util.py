@@ -1,5 +1,3 @@
-# coding: utf-8
-
 # Little utilities we use internally
 
 from abc import ABCMeta
@@ -331,7 +329,7 @@ def name_asyncgen(agen):
     try:
         module = agen.ag_frame.f_globals["__name__"]
     except (AttributeError, KeyError):
-        module = "<{}>".format(agen.ag_code.co_filename)
+        module = f"<{agen.ag_code.co_filename}>"
     try:
         qualname = agen.__qualname__
     except AttributeError:
