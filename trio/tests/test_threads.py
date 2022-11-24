@@ -168,7 +168,9 @@ def test_await_in_trio_thread_while_main_exits():
 
 
 async def test_named_thread():
-    def inner(name) -> threading.Thread:
+    ending = " from trio.tests.test_threads.test_named_thread"
+
+    def inner(name="inner" + ending) -> threading.Thread:
         assert threading.current_thread().name == name
         return threading.current_thread()
 
@@ -176,9 +178,11 @@ async def test_named_thread():
         return partial(inner, name)
 
     # test defaults
-    default = "Thread for trio.tests.test_threads.test_named_thread"
-    await to_thread_run_sync(f(default))
-    await to_thread_run_sync(f(default), thread_name=None)
+    await to_thread_run_sync(inner)
+    await to_thread_run_sync(inner, thread_name=None)
+
+    # functools.partial doesn't have __name__, so defaults to None
+    await to_thread_run_sync(f("None" + ending))
 
     # test that you can set a custom name, and that it's reset afterwards
     async def test_thread_name(name: str):
@@ -203,10 +207,13 @@ def _get_thread_name(ident: Optional[int] = None) -> Optional[str]:
     libpthread = ctypes.CDLL(libpthread_path)
 
     pthread_getname_np = getattr(libpthread, "pthread_getname_np", None)
-    if not pthread_getname_np:
-        print(f"no pthread_getname_np on {sys.platform})")
-        return None
+    # this should never fail afaik, but if so just switch the below lines
+    assert pthread_getname_np
+    # if not pthread_getname_np: # pragma: no cover
+    #    print(f"no pthread_getname_np on {sys.platform})")
+    #    return None
 
+    # thankfully getname signature doesn't differ between platforms
     pthread_getname_np.argtypes = [
         ctypes.c_void_p,
         ctypes.c_char_p,
@@ -220,18 +227,22 @@ def _get_thread_name(ident: Optional[int] = None) -> Optional[str]:
     assert pthread_getname_np(ident, name_buffer, 16) == 0
     try:
         return name_buffer.value.decode()
-    except UnicodeDecodeError as e:
+    except UnicodeDecodeError as e:  # pragma: no cover
+        # used for debugging when testing via CI
         pytest.fail(f"value: {name_buffer.value!r}, exception: {e}")
 
 
 # test os thread naming
-# afaik pthread should be available on MacOS as well, but it's apparently
-# not on the CI machines.
+# this depends on pthread being available, which is the case on 99.9% of linux machines
+# and most mac machines. So unless the platform is linux it will just skip
+# in case it fails to fetch the os thread name.
 async def test_named_thread_os():
     def inner(name) -> threading.Thread:
-        if not _get_thread_name() == name[:15]:
-            assert sys.platform != "linux", "os threads should work on linux"
-            pytest.skip(f"no pthread OS support in {sys.platform}")
+        os_thread_name = _get_thread_name()
+        if os_thread_name is None and sys.platform != "linux":
+            pytest.skip(f"no pthread OS support on {sys.platform}")
+        else:
+            assert os_thread_name == name[:15]
 
         return threading.current_thread()
 
@@ -239,7 +250,7 @@ async def test_named_thread_os():
         return partial(inner, name)
 
     # test defaults
-    default = "Thread for trio.tests.test_threads.test_named_thread"
+    default = "None from trio.tests.test_threads.test_named_thread"
     await to_thread_run_sync(f(default))
     await to_thread_run_sync(f(default), thread_name=None)
 
@@ -250,9 +261,7 @@ async def test_named_thread_os():
         thread = await to_thread_run_sync(f(expected), thread_name=name)
 
         os_thread_name = _get_thread_name(thread.ident)
-        if os_thread_name is None:
-            assert sys.platform == "linux", "os threads should work on linux"
-            pytest.skip(f"no pthread OS support in {sys.platform}")
+        assert os_thread_name is not None, "should skip earlier if this is the case"
         assert re.match("Trio thread [0-9]*", os_thread_name)
 
     await test_thread_name("")

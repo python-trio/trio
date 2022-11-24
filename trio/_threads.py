@@ -89,7 +89,7 @@ async def to_thread_run_sync(
           if pthread.h is available (i.e. most POSIX installations).
           pthread names are limited to 15 characters, and can be read from
           ``/proc/<PID>/task/<SPID>/comm`` or with ``ps -eT``, among others.
-          Defaults to ``Thread for {trio.lowlevel.current_task().name}``.
+          Defaults to ``{sync_fn.__name__|None} from {trio.lowlevel.current_task().name}``.
       limiter (None, or CapacityLimiter-like object):
           An object used to limit the number of simultaneous threads. Most
           commonly this will be a `~trio.CapacityLimiter`, but it could be
@@ -178,8 +178,7 @@ async def to_thread_run_sync(
     current_trio_token = trio.lowlevel.current_trio_token()
 
     if thread_name is None:
-        # TODO, better default since it caps at 15 chars
-        thread_name = f"Thread for {trio.lowlevel.current_task().name}"
+        thread_name = f"{getattr(sync_fn, '__name__', None)} from {trio.lowlevel.current_task().name}"
 
     def worker_fn():
         current_async_library_cvar.set(None)

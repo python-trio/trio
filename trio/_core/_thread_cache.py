@@ -2,7 +2,6 @@ import sys
 import traceback
 from threading import Thread, Lock
 import outcome
-import sys
 import ctypes
 import ctypes.util
 from itertools import count
@@ -11,38 +10,59 @@ from typing import Callable, Optional, Tuple
 from functools import partial
 
 
+def _to_os_thread_name(name: str) -> bytes:
+    # ctypes handles the trailing \00
+    return name.encode("ascii", errors="replace")[:15]
+
+
+# used to construct the method used to set os thread name, or None, depending on platform.
+# called once on import
 def get_os_thread_name_func() -> Optional[Callable[[Optional[int], str], None]]:
     def namefunc(setname: Callable[[int, bytes], int], ident: Optional[int], name: str):
-        if ident is not None:
-            setname(ident, bytes(name[:15], "ascii", "replace"))
+        # Thread.ident is None "if it has not been started". Unclear if that can happen
+        # with current usage.
+        if ident is not None:  # pragma: no cover
+            setname(ident, _to_os_thread_name(name))
 
+    # namefunc on mac also takes an ident, even if pthread_setname_np doesn't/can't use it
+    # so the caller don't need to care about platform.
     def darwin_namefunc(
         setname: Callable[[bytes], int], ident: Optional[int], name: str
     ):
-        if ident is not None:
-            setname(bytes(name[:15], "ascii", "replace"))
+        # I don't know if Mac can rename threads that hasn't been started, but default
+        # to no to be on the safe side.
+        if ident is not None:  # pragma: no cover
+            setname(_to_os_thread_name(name))
 
+    # find the pthread library
+    # this will fail on windows
     libpthread_path = ctypes.util.find_library("pthread")
     if not libpthread_path:
         return None
     libpthread = ctypes.CDLL(libpthread_path)
 
+    # get the setname method from it
+    # afaik this should never fail
     pthread_setname_np = getattr(libpthread, "pthread_setname_np", None)
-    if pthread_setname_np is None:
+    if pthread_setname_np is None:  # pragma: no cover
         return None
 
     # specify function prototype
     pthread_setname_np.restype = ctypes.c_int
 
-    # on mac OSX pthread_setname_np does not take a thread id
+    # on mac OSX pthread_setname_np does not take a thread id,
+    # it only lets threads name themselves, which is not a problem for us.
+    # Just need to make sure to call it correctly
     if sys.platform == "darwin":
         pthread_setname_np.argtypes = [ctypes.c_char_p]
         return partial(darwin_namefunc, pthread_setname_np)
 
+    # otherwise assume linux parameter conventions. Should also work on *BSD
     pthread_setname_np.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
     return partial(namefunc, pthread_setname_np)
 
 
+# construct os thread name method
 set_os_thread_name = get_os_thread_name_func()
 
 # The "thread cache" is a simple unbounded thread pool, i.e., it automatically
