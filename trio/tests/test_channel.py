@@ -346,7 +346,6 @@ async def test_statistics():
 
 
 async def test_channel_fairness():
-
     # We can remove an item we just sent, and send an item back in after, if
     # no-one else is waiting.
     s, r = open_memory_channel(1)

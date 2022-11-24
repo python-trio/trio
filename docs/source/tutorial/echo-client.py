@@ -9,6 +9,7 @@ import trio
 # - must match what we set in our echo server
 PORT = 12345
 
+
 async def sender(client_stream):
     print("sender: started!")
     while True:
@@ -17,12 +18,14 @@ async def sender(client_stream):
         await client_stream.send_all(data)
         await trio.sleep(1)
 
+
 async def receiver(client_stream):
     print("receiver: started!")
     async for data in client_stream:
         print(f"receiver: got data {data!r}")
     print("receiver: connection closed")
     sys.exit()
+
 
 async def parent():
     print(f"parent: connecting to 127.0.0.1:{PORT}")
@@ -34,5 +37,6 @@ async def parent():
 
             print("parent: spawning receiver...")
             nursery.start_soon(receiver, client_stream)
+
 
 trio.run(parent)

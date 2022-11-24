@@ -1,5 +1,3 @@
-# coding: utf-8
-
 import os
 import subprocess
 import sys
@@ -152,13 +150,13 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
     def __repr__(self):
         returncode = self.returncode
         if returncode is None:
-            status = "running with PID {}".format(self.pid)
+            status = f"running with PID {self.pid}"
         else:
             if returncode < 0:
-                status = "exited with signal {}".format(-returncode)
+                status = f"exited with signal {-returncode}"
             else:
-                status = "exited with status {}".format(returncode)
-        return "<trio.Process {!r}: {}>".format(self.args, status)
+                status = f"exited with status {returncode}"
+        return f"<trio.Process {self.args!r}: {status}>"
 
     @property
     def returncode(self):
@@ -430,8 +428,8 @@ async def _posix_deliver_cancel(p):
         warnings.warn(
             RuntimeWarning(
                 f"process {p!r} ignored SIGTERM for 5 seconds. "
-                f"(Maybe you should pass a custom deliver_cancel?) "
-                f"Trying SIGKILL."
+                "(Maybe you should pass a custom deliver_cancel?) "
+                "Trying SIGKILL."
             )
         )
         p.kill()

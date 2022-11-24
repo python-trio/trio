@@ -1,5 +1,3 @@
-# coding: utf-8
-
 # Little utilities we use internally
 
 from abc import ABCMeta
@@ -288,7 +286,8 @@ class Final(ABCMeta):
         for base in bases:
             if isinstance(base, Final):
                 raise TypeError(
-                    f"{base.__module__}.{base.__qualname__} does not support subclassing"
+                    f"{base.__module__}.{base.__qualname__} does not support"
+                    " subclassing"
                 )
         return super().__new__(cls, name, bases, cls_namespace)
 
@@ -333,7 +332,7 @@ def name_asyncgen(agen):
     try:
         module = agen.ag_frame.f_globals["__name__"]
     except (AttributeError, KeyError):
-        module = "<{}>".format(agen.ag_code.co_filename)
+        module = f"<{agen.ag_code.co_filename}>"
     try:
         qualname = agen.__qualname__
     except AttributeError:
