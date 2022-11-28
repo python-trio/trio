@@ -1,24 +1,19 @@
-# coding: utf-8
-
 # Little utilities we use internally
 
 from abc import ABCMeta
 import os
 import signal
-import sys
-import pathlib
-from functools import wraps, update_wrapper
+from functools import update_wrapper
 import typing as t
 import threading
 import collections
-
-from async_generator import isasyncgen
+import inspect
 
 import trio
 
 # Equivalent to the C function raise(), which Python doesn't wrap
 if os.name == "nt":
-    # On windows, os.kill exists but is really weird.
+    # On Windows, os.kill exists but is really weird.
     #
     # If you give it CTRL_C_EVENT or CTRL_BREAK_EVENT, it tries to deliver
     # those using GenerateConsoleCtrlEvent. But I found that when I tried
@@ -37,7 +32,7 @@ if os.name == "nt":
     # OTOH, if you pass os.kill any *other* signal number... then CPython
     # just calls TerminateProcess (wtf).
     #
-    # So, anyway, os.kill is not so useful for testing purposes. Instead
+    # So, anyway, os.kill is not so useful for testing purposes. Instead,
     # we use raise():
     #
     #   https://msdn.microsoft.com/en-us/library/dwwzkt4c.aspx
@@ -143,6 +138,7 @@ def coroutine_or_error(async_fn, *args):
     # for things like functools.partial objects wrapping an async
     # function. So we have to just call it and then check whether the
     # return value is a coroutine object.
+    # Note: will not be necessary on python>=3.8, see https://bugs.python.org/issue34890
     if not isinstance(coro, collections.abc.Coroutine):
         # Give good error for: nursery.start_soon(func_returning_future)
         if _return_value_looks_like_wrong_library(coro):
@@ -152,7 +148,7 @@ def coroutine_or_error(async_fn, *args):
                 "That won't work without some sort of compatibility shim.".format(coro)
             )
 
-        if isasyncgen(coro):
+        if inspect.isasyncgen(coro):
             raise TypeError(
                 "start_soon expected an async function but got an async "
                 "generator {!r}".format(coro)
@@ -226,7 +222,7 @@ def fixup_module_metadata(module_name, namespace):
         mod = getattr(obj, "__module__", None)
         if mod is not None and mod.startswith("trio."):
             obj.__module__ = module_name
-            # Modules, unlike everything else in Python, put fully-qualitied
+            # Modules, unlike everything else in Python, put fully-qualified
             # names into their __name__ attribute. We check for "." to avoid
             # rewriting these.
             if hasattr(obj, "__name__") and "." not in obj.__name__:
@@ -277,11 +273,11 @@ class Final(ABCMeta):
         class SomeClass(metaclass=Final):
             pass
 
-    The metaclass will ensure that no sub class can be created.
+    The metaclass will ensure that no subclass can be created.
 
     Raises
     ------
-    - TypeError if a sub class is created
+    - TypeError if a subclass is created
     """
 
     def __new__(cls, name, bases, cls_namespace):
@@ -305,14 +301,14 @@ class NoPublicConstructor(Final):
         class SomeClass(metaclass=NoPublicConstructor):
             pass
 
-    The metaclass will ensure that no sub class can be created, and that no instance
+    The metaclass will ensure that no subclass can be created, and that no instance
     can be initialized.
 
     If you try to instantiate your class (SomeClass()), a TypeError will be thrown.
 
     Raises
     ------
-    - TypeError if a sub class or an instance is created.
+    - TypeError if a subclass or an instance is created.
     """
 
     def __call__(cls, *args, **kwargs):
@@ -333,7 +329,7 @@ def name_asyncgen(agen):
     try:
         module = agen.ag_frame.f_globals["__name__"]
     except (AttributeError, KeyError):
-        module = "<{}>".format(agen.ag_code.co_filename)
+        module = f"<{agen.ag_code.co_filename}>"
     try:
         qualname = agen.__qualname__
     except AttributeError:

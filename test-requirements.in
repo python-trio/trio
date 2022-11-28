@@ -1,6 +1,7 @@
 # For tests
 pytest >= 5.0         # for faulthandler in core
 pytest-cov >= 2.6.0
+async_generator >= 1.9
 # ipython 7.x is the last major version supporting Python 3.7
 ipython < 7.32        # for the IPython traceback integration tests
 pyOpenSSL >= 22.0.0   # for the ssl + DTLS tests
@@ -26,9 +27,7 @@ typing-extensions; implementation_name == "cpython"
 cffi; os_name == "nt"
 attrs >= 19.2.0
 sortedcontainers
-async_generator >= 1.9
 idna
 outcome
 sniffio
 exceptiongroup >= 1.0.0rc9; python_version < "3.11"
-
