@@ -121,11 +121,11 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
 
     def __init__(self, popen, stdin, stdout, stderr):
         self._proc = popen
-        self.stdin = stdin  # type: Optional[SendStream]
-        self.stdout = stdout  # type: Optional[ReceiveStream]
-        self.stderr = stderr  # type: Optional[ReceiveStream]
+        self.stdin: Optional[SendStream] = stdin
+        self.stdout: Optional[ReceiveStream] = stdout
+        self.stderr: Optional[ReceiveStream] = stderr
 
-        self.stdio = None  # type: Optional[StapledStream]
+        self.stdio: Optional[StapledStream] = None
         if self.stdin is not None and self.stdout is not None:
             self.stdio = StapledStream(self.stdin, self.stdout)
 
@@ -368,9 +368,9 @@ async def open_process(
                 "on UNIX systems"
             )
 
-    trio_stdin = None  # type: Optional[ClosableSendStream]
-    trio_stdout = None  # type: Optional[ClosableReceiveStream]
-    trio_stderr = None  # type: Optional[ClosableReceiveStream]
+    trio_stdin: Optional[ClosableSendStream] = None
+    trio_stdout: Optional[ClosableReceiveStream] = None
+    trio_stderr: Optional[ClosableReceiveStream] = None
     # Close the parent's handle for each child side of a pipe; we want the child to
     # have the only copy, so that when it exits we can read EOF on our side. The
     # trio ends of pipes will be transferred to the Process object, which will be
