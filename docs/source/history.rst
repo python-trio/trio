@@ -5,6 +5,23 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.22.1 (2022-11-28)
+------------------------
+
+Features
+~~~~~~~~
+
+- `trio.socket.socket` now prints the address it tried to connect to upon failure. (`#1810 <https://github.com/python-trio/trio/issues/1810>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Python raises a `TypeError` if you try to (re-)install a C signal handler. (`#2333 <https://github.com/python-trio/trio/issues/2333>`__)
+- Issued a new release as in the git tag for 0.22.0, ``trio.__version__``
+  is incorrectly set to 0.21.0+dev. (`#2485 <https://github.com/python-trio/trio/issues/2485>`__)
+
+
 Trio 0.22.0 (2022-09-28)
 ------------------------
 
