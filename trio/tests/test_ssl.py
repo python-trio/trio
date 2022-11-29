@@ -67,6 +67,8 @@ if hasattr(ssl, "OP_IGNORE_UNEXPECTED_EOF"):
 
 TRIO_TEST_1_CERT.configure_cert(SERVER_CTX)
 
+
+# See: https://github.com/python-trio/trio/pull/2480#issuecomment-1330135171
 skip_on_python_37_linux: MarkDecorator = pytest.mark.skipif(
     sys.platform == "linux",
     sys.version_info < (3, 8),
