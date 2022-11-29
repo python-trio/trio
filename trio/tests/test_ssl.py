@@ -69,7 +69,7 @@ TRIO_TEST_1_CERT.configure_cert(SERVER_CTX)
 
 skip_on_python_37_linux: MarkDecorator = pytest.mark.skipif(
     sys.platform == "linux",
-    sys.version_info[0:2] == (3, 7),
+    sys.version_info < (3, 8),
     reason="Certain SSL Tests are not passing on Ubuntu while running Python 3.7",
 )
 
