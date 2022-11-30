@@ -207,11 +207,9 @@ def _get_thread_name(ident: Optional[int] = None) -> Optional[str]:
     libpthread = ctypes.CDLL(libpthread_path)
 
     pthread_getname_np = getattr(libpthread, "pthread_getname_np", None)
-    # this should never fail afaik, but if so just switch the below lines
+
+    # this should never fail on any platforms afaik
     assert pthread_getname_np
-    # if not pthread_getname_np: # pragma: no cover
-    #    print(f"no pthread_getname_np on {sys.platform})")
-    #    return None
 
     # thankfully getname signature doesn't differ between platforms
     pthread_getname_np.argtypes = [
