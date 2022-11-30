@@ -822,7 +822,7 @@ async def test_send_all_empty_string(client_ctx):
         await s.aclose()
 
 
-@skip_on_python_37_linux
+@skip_on_broken_openssl
 @pytest.mark.parametrize("https_compatible", [False, True])
 async def test_SSLStream_generic(client_ctx, https_compatible):
     async def stream_maker():
