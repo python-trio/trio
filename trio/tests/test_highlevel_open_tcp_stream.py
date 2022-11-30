@@ -55,11 +55,11 @@ def test_reorder_for_rfc_6555_section_5_4():
             SOCK_STREAM,
             IPPROTO_TCP,
             "",
-            ("10.0.0.{}".format(i), 80),
+            (f"10.0.0.{i}", 80),
         )
 
     def fake6(i):
-        return (AF_INET6, SOCK_STREAM, IPPROTO_TCP, "", ("::{}".format(i), 80))
+        return (AF_INET6, SOCK_STREAM, IPPROTO_TCP, "", (f"::{i}", 80))
 
     for fake in fake4, fake6:
         # No effect on homogeneous lists

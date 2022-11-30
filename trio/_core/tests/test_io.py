@@ -43,7 +43,7 @@ def using_fileno(fn):
     def fileno_wrapper(fileobj):
         return fn(fileobj.fileno())
 
-    name = "<{} on fileno>".format(fn.__name__)
+    name = f"<{fn.__name__} on fileno>"
     fileno_wrapper.__name__ = fileno_wrapper.__qualname__ = name
     return fileno_wrapper
 
@@ -417,7 +417,7 @@ async def test_can_survive_unnotified_close():
     # handle_io context rather than abort context.
     a, b = stdlib_socket.socketpair()
     with a, b, a.dup() as a2:  # noqa: F841
-        print("a={}, b={}, a2={}".format(a.fileno(), b.fileno(), a2.fileno()))
+        print(f"a={a.fileno()}, b={b.fileno()}, a2={a2.fileno()}")
         a.setblocking(False)
         b.setblocking(False)
         fill_socket(a)

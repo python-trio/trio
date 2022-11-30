@@ -284,7 +284,8 @@ class Final(ABCMeta):
         for base in bases:
             if isinstance(base, Final):
                 raise TypeError(
-                    f"{base.__module__}.{base.__qualname__} does not support subclassing"
+                    f"{base.__module__}.{base.__qualname__} does not support"
+                    " subclassing"
                 )
         return super().__new__(cls, name, bases, cls_namespace)
 
