@@ -509,9 +509,10 @@ async def test_trio_to_thread_run_sync_contextvars():
     sniffio_outer_value = current_async_library_cvar.get()
     assert parent_value == "main"
     assert inner_value == "worker"
-    assert (
-        current_value == "main"
-    ), "The contextvar value set on the worker would not propagate back to the main thread"
+    assert current_value == "main", (
+        "The contextvar value set on the worker would not propagate back to the main"
+        " thread"
+    )
     assert sniffio_cvar_value is None
     assert sniffio_outer_value == "trio"
 
@@ -741,7 +742,6 @@ async def test_trio_token_weak_referenceable():
 
 
 async def test_unsafe_cancellable_kwarg():
-
     # This is a stand in for a numpy ndarray or other objects
     # that (maybe surprisingly) lack a notion of truthiness
     class BadBool:

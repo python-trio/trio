@@ -245,8 +245,7 @@ class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
         """
         if borrower in self._borrowers:
             raise RuntimeError(
-                "this borrower is already holding one of this "
-                "CapacityLimiter's tokens"
+                "this borrower is already holding one of this CapacityLimiter's tokens"
             )
         if len(self._borrowers) < self._total_tokens and not self._lot:
             self._borrowers.add(borrower)
@@ -396,7 +395,7 @@ class Semaphore(AsyncContextManagerMixin, metaclass=Final):
         if self._max_value is None:
             max_value_str = ""
         else:
-            max_value_str = ", max_value={}".format(self._max_value)
+            max_value_str = f", max_value={self._max_value}"
         return "<trio.Semaphore({}{}) at {:#x}>".format(
             self._value, max_value_str, id(self)
         )
@@ -484,7 +483,7 @@ class _LockImpl(AsyncContextManagerMixin):
     def __repr__(self):
         if self.locked():
             s1 = "locked"
-            s2 = " with {} waiters".format(len(self._lot))
+            s2 = f" with {len(self._lot)} waiters"
         else:
             s1 = "unlocked"
             s2 = ""

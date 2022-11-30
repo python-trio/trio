@@ -606,7 +606,7 @@ class CancelScope(metaclass=Final):
                     "from now" if self._deadline >= now else "ago",
                 )
 
-        return "<trio.CancelScope at {:#x}, {}{}>".format(id(self), binding, state)
+        return f"<trio.CancelScope at {id(self):#x}, {binding}{state}>"
 
     @contextmanager
     @enable_ki_protection
@@ -756,7 +756,7 @@ class _TaskStatus:
     _value = attr.ib(default=None)
 
     def __repr__(self):
-        return "<Task status object at {:#x}>".format(id(self))
+        return f"<Task status object at {id(self):#x}>"
 
     def started(self, value=None):
         if self._called_started:
@@ -1148,7 +1148,7 @@ class Task(metaclass=NoPublicConstructor):
     _schedule_points = attr.ib(default=0)
 
     def __repr__(self):
-        return "<Task {!r} at {:#x}>".format(self.name, id(self))
+        return f"<Task {self.name!r} at {id(self):#x}>"
 
     @property
     def parent_nursery(self):
@@ -1518,7 +1518,6 @@ class Runner:
     def spawn_impl(
         self, async_fn, args, nursery, name, *, system_task=False, context=None
     ):
-
         ######
         # Make sure the nursery is in working order
         ######
@@ -1543,7 +1542,7 @@ class Runner:
             name = name.func
         if not isinstance(name, str):
             try:
-                name = "{}.{}".format(name.__module__, name.__qualname__)
+                name = f"{name.__module__}.{name.__qualname__}"
             except AttributeError:
                 name = repr(name)
 
