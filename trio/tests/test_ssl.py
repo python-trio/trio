@@ -1103,7 +1103,7 @@ async def test_ssl_only_closes_stream_once(client_ctx):
     assert transport_close_count == 1
 
 
-@skip_on_python_37_linux
+@skip_on_broken_openssl
 async def test_ssl_https_compatibility_disagreement(client_ctx):
     client, server = ssl_memory_stream_pair(
         client_ctx,
