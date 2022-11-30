@@ -1038,7 +1038,7 @@ async def test_ssl_bad_shutdown(client_ctx):
     await server.aclose()
 
 
-@skip_on_python_37_linux
+@skip_on_broken_openssl
 async def test_ssl_bad_shutdown_but_its_ok(client_ctx):
     client, server = ssl_memory_stream_pair(
         client_ctx,
