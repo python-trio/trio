@@ -1128,7 +1128,7 @@ async def test_ssl_https_compatibility_disagreement(client_ctx):
         nursery.start_soon(receive_and_expect_error)
 
 
-@skip_on_python_37_linux
+@skip_on_broken_openssl
 async def test_https_mode_eof_before_handshake(client_ctx):
     client, server = ssl_memory_stream_pair(
         client_ctx,
