@@ -68,11 +68,9 @@ if hasattr(ssl, "OP_IGNORE_UNEXPECTED_EOF"):
 TRIO_TEST_1_CERT.configure_cert(SERVER_CTX)
 
 
-# See: https://github.com/python-trio/trio/pull/2480#issuecomment-1330135171
-skip_on_python_37_linux: MarkDecorator = pytest.mark.skipif(
-    sys.platform == "linux",
-    sys.version_info < (3, 8),
-    reason="Certain SSL Tests are not passing on Ubuntu while running Python 3.7",
+skip_on_broken_openssl: MarkDecorator = pytest.mark.skipif(
+    sys.version_info < (3, 8) and ssl.OPENSSL_VERSION_INFO[0] > 1,
+    reason="Python 3.7 does not work with OpenSSL versions higher than 1.X",
 )
 
 
