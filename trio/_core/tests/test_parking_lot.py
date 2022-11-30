@@ -10,9 +10,9 @@ async def test_parking_lot_basic():
     record = []
 
     async def waiter(i, lot):
-        record.append("sleep {}".format(i))
+        record.append(f"sleep {i}")
         await lot.park()
-        record.append("wake {}".format(i))
+        record.append(f"wake {i}")
 
     async with _core.open_nursery() as nursery:
         lot = ParkingLot()
@@ -76,13 +76,13 @@ async def test_parking_lot_basic():
 async def cancellable_waiter(name, lot, scopes, record):
     with _core.CancelScope() as scope:
         scopes[name] = scope
-        record.append("sleep {}".format(name))
+        record.append(f"sleep {name}")
         try:
             await lot.park()
         except _core.Cancelled:
-            record.append("cancelled {}".format(name))
+            record.append(f"cancelled {name}")
         else:
-            record.append("wake {}".format(name))
+            record.append(f"wake {name}")
 
 
 async def test_parking_lot_cancel():

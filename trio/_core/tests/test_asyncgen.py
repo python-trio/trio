@@ -226,7 +226,7 @@ def test_last_minute_gc_edge_case():
             break
     else:  # pragma: no cover
         pytest.fail(
-            f"Didn't manage to hit the trailing_finalizer_asyncgens case "
+            "Didn't manage to hit the trailing_finalizer_asyncgens case "
             f"despite trying {attempt} times"
         )
 
