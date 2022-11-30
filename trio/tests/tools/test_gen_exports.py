@@ -49,7 +49,7 @@ def test_create_pass_through_args():
         ),
     ]
 
-    for (funcdef, expected) in testcases:
+    for funcdef, expected in testcases:
         func_node = ast.parse(funcdef + ":\n  pass").body[0]
         assert isinstance(func_node, ast.FunctionDef)
         assert create_passthrough_args(func_node) == expected

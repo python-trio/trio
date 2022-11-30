@@ -1,5 +1,3 @@
-# coding: utf-8
-
 import contextvars
 import threading
 import queue as stdlib_queue

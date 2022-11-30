@@ -30,9 +30,7 @@ def _translate_socket_errors_to_stream_errors():
         if exc.errno in _closed_stream_errnos:
             raise trio.ClosedResourceError("this socket was already closed") from None
         else:
-            raise trio.BrokenResourceError(
-                "socket connection broken: {}".format(exc)
-            ) from exc
+            raise trio.BrokenResourceError(f"socket connection broken: {exc}") from exc
 
 
 class SocketStream(HalfCloseableStream, metaclass=Final):
