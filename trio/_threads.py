@@ -1,24 +1,25 @@
 import contextvars
-import threading
-import queue as stdlib_queue
 import functools
+import inspect
+import queue as stdlib_queue
+import threading
 from itertools import count
+from typing import Optional
 
 import attr
-import inspect
 import outcome
 from sniffio import current_async_library_cvar
 
 import trio
 
-from ._sync import CapacityLimiter
 from ._core import (
-    enable_ki_protection,
-    disable_ki_protection,
     RunVar,
     TrioToken,
+    disable_ki_protection,
+    enable_ki_protection,
     start_thread_soon,
 )
+from ._sync import CapacityLimiter
 from ._util import coroutine_or_error
 
 # Global due to Threading API, thread local storage for trio token
@@ -57,7 +58,9 @@ class ThreadPlaceholder:
 
 
 @enable_ki_protection
-async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
+async def to_thread_run_sync(
+    sync_fn, *args, thread_name: Optional[str] = None, cancellable=False, limiter=None
+):
     """Convert a blocking operation into an async operation using a thread.
 
     These two lines are equivalent::
@@ -79,6 +82,12 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
           arguments, use :func:`functools.partial`.
       cancellable (bool): Whether to allow cancellation of this operation. See
           discussion below.
+      thread_name (str): Optional string to set the name of the thread.
+          Will always set `threading.Thread.name`, but only set the os name
+          if pthread.h is available (i.e. most POSIX installations).
+          pthread names are limited to 15 characters, and can be read from
+          ``/proc/<PID>/task/<SPID>/comm`` or with ``ps -eT``, among others.
+          Defaults to ``{sync_fn.__name__|None} from {trio.lowlevel.current_task().name}``.
       limiter (None, or CapacityLimiter-like object):
           An object used to limit the number of simultaneous threads. Most
           commonly this will be a `~trio.CapacityLimiter`, but it could be
@@ -166,6 +175,9 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
 
     current_trio_token = trio.lowlevel.current_trio_token()
 
+    if thread_name is None:
+        thread_name = f"{getattr(sync_fn, '__name__', None)} from {trio.lowlevel.current_task().name}"
+
     def worker_fn():
         current_async_library_cvar.set(None)
         TOKEN_LOCAL.token = current_trio_token
@@ -198,7 +210,9 @@ async def to_thread_run_sync(sync_fn, *args, cancellable=False, limiter=None):
 
     await limiter.acquire_on_behalf_of(placeholder)
     try:
-        start_thread_soon(contextvars_aware_worker_fn, deliver_worker_fn_result)
+        start_thread_soon(
+            contextvars_aware_worker_fn, deliver_worker_fn_result, thread_name
+        )
     except:
         limiter.release_on_behalf_of(placeholder)
         raise

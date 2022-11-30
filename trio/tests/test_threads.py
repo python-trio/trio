@@ -1,25 +1,28 @@
 import contextvars
-import threading
 import queue as stdlib_queue
+import re
+import sys
+import threading
 import time
 import weakref
+from functools import partial
+from typing import Callable, Optional
 
 import pytest
 from sniffio import current_async_library_cvar
+
 from trio._core import TrioToken, current_trio_token
 
-from .. import _core
-from .. import Event, CapacityLimiter, sleep
-from ..testing import wait_all_tasks_blocked
+from .. import CapacityLimiter, Event, _core, sleep
+from .._core.tests.test_ki import ki_self
 from .._core.tests.tutil import buggy_pypy_asyncgens
 from .._threads import (
-    to_thread_run_sync,
     current_default_thread_limiter,
     from_thread_run,
     from_thread_run_sync,
+    to_thread_run_sync,
 )
-
-from .._core.tests.test_ki import ki_self
+from ..testing import wait_all_tasks_blocked
 
 
 async def test_do_in_trio_thread():
@@ -162,6 +165,117 @@ def test_await_in_trio_thread_while_main_exits():
     thread = _core.run(main)
     thread.join()
     assert record == ["sleeping", "cancelled"]
+
+
+async def test_named_thread():
+    ending = " from trio.tests.test_threads.test_named_thread"
+
+    def inner(name="inner" + ending) -> threading.Thread:
+        assert threading.current_thread().name == name
+        return threading.current_thread()
+
+    def f(name: str) -> Callable[[None], threading.Thread]:
+        return partial(inner, name)
+
+    # test defaults
+    await to_thread_run_sync(inner)
+    await to_thread_run_sync(inner, thread_name=None)
+
+    # functools.partial doesn't have __name__, so defaults to None
+    await to_thread_run_sync(f("None" + ending))
+
+    # test that you can set a custom name, and that it's reset afterwards
+    async def test_thread_name(name: str):
+        thread = await to_thread_run_sync(f(name), thread_name=name)
+        assert re.match("Trio thread [0-9]*", thread.name)
+
+    await test_thread_name("")
+    await test_thread_name("fobiedoo")
+    await test_thread_name("name_longer_than_15_characters")
+
+    await test_thread_name("💙")
+
+
+def _get_thread_name(ident: Optional[int] = None) -> Optional[str]:
+    import ctypes
+    import ctypes.util
+
+    libpthread_path = ctypes.util.find_library("pthread")
+    if not libpthread_path:
+        print(f"no pthread on {sys.platform})")
+        return None
+    libpthread = ctypes.CDLL(libpthread_path)
+
+    pthread_getname_np = getattr(libpthread, "pthread_getname_np", None)
+
+    # this should never fail on any platforms afaik
+    assert pthread_getname_np
+
+    # thankfully getname signature doesn't differ between platforms
+    pthread_getname_np.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_char_p,
+        ctypes.c_size_t,
+    ]
+    pthread_getname_np.restype = ctypes.c_int
+
+    name_buffer = ctypes.create_string_buffer(b"", size=16)
+    if ident is None:
+        ident = threading.get_ident()
+    assert pthread_getname_np(ident, name_buffer, 16) == 0
+    try:
+        return name_buffer.value.decode()
+    except UnicodeDecodeError as e:  # pragma: no cover
+        # used for debugging when testing via CI
+        pytest.fail(f"value: {name_buffer.value!r}, exception: {e}")
+
+
+# test os thread naming
+# this depends on pthread being available, which is the case on 99.9% of linux machines
+# and most mac machines. So unless the platform is linux it will just skip
+# in case it fails to fetch the os thread name.
+async def test_named_thread_os():
+    def inner(name) -> threading.Thread:
+        os_thread_name = _get_thread_name()
+        if os_thread_name is None and sys.platform != "linux":
+            pytest.skip(f"no pthread OS support on {sys.platform}")
+        else:
+            assert os_thread_name == name[:15]
+
+        return threading.current_thread()
+
+    def f(name: str) -> Callable[[None], threading.Thread]:
+        return partial(inner, name)
+
+    # test defaults
+    default = "None from trio.tests.test_threads.test_named_thread"
+    await to_thread_run_sync(f(default))
+    await to_thread_run_sync(f(default), thread_name=None)
+
+    # test that you can set a custom name, and that it's reset afterwards
+    async def test_thread_name(name: str, expected: Optional[str] = None):
+        if expected is None:
+            expected = name
+        thread = await to_thread_run_sync(f(expected), thread_name=name)
+
+        os_thread_name = _get_thread_name(thread.ident)
+        assert os_thread_name is not None, "should skip earlier if this is the case"
+        assert re.match("Trio thread [0-9]*", os_thread_name)
+
+    await test_thread_name("")
+    await test_thread_name("fobiedoo")
+    await test_thread_name("name_longer_than_15_characters")
+
+    await test_thread_name("💙", expected="?")
+
+
+async def test_has_pthread_setname_np():
+    from trio._core._thread_cache import get_os_thread_name_func
+
+    k = get_os_thread_name_func()
+    if k is None:
+        assert sys.platform != "linux"
+        pytest.skip(f"no pthread_setname_np on {sys.platform}")
 
 
 async def test_run_in_worker_thread():
