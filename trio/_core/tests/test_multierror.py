@@ -77,7 +77,6 @@ def get_tb(raiser):
 
 
 def test_concat_tb():
-
     tb1 = get_tb(raiser1)
     tb2 = get_tb(raiser2)
 

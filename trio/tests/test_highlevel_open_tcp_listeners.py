@@ -288,7 +288,7 @@ async def test_open_tcp_listeners_socket_fails_not_afnosupport():
 async def test_open_tcp_listeners_backlog():
     fsf = FakeSocketFactory(99)
     tsocket.set_custom_socket_factory(fsf)
-    for (given, expected) in [
+    for given, expected in [
         (None, 0xFFFF),
         (99999999, 0xFFFF),
         (10, 10),
