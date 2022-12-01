@@ -1,5 +1,4 @@
 #! /usr/bin/env python3
-# -*- coding: utf-8 -`-
 """
 Code generation script for class methods
 to be exported as public API
@@ -134,7 +133,7 @@ def matches_disk_files(new_files):
     for new_path, new_source in new_files.items():
         if not os.path.exists(new_path):
             return False
-        with open(new_path, "r", encoding="utf-8") as old_file:
+        with open(new_path, encoding="utf-8") as old_file:
             old_source = old_file.read()
         if old_source != new_source:
             return False

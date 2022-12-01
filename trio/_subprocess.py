@@ -1,5 +1,3 @@
-# coding: utf-8
-
 import os
 import subprocess
 import sys
@@ -121,11 +119,11 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
 
     def __init__(self, popen, stdin, stdout, stderr):
         self._proc = popen
-        self.stdin = stdin  # type: Optional[SendStream]
-        self.stdout = stdout  # type: Optional[ReceiveStream]
-        self.stderr = stderr  # type: Optional[ReceiveStream]
+        self.stdin: Optional[SendStream] = stdin
+        self.stdout: Optional[ReceiveStream] = stdout
+        self.stderr: Optional[ReceiveStream] = stderr
 
-        self.stdio = None  # type: Optional[StapledStream]
+        self.stdio: Optional[StapledStream] = None
         if self.stdin is not None and self.stdout is not None:
             self.stdio = StapledStream(self.stdin, self.stdout)
 
@@ -152,13 +150,13 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
     def __repr__(self):
         returncode = self.returncode
         if returncode is None:
-            status = "running with PID {}".format(self.pid)
+            status = f"running with PID {self.pid}"
         else:
             if returncode < 0:
-                status = "exited with signal {}".format(-returncode)
+                status = f"exited with signal {-returncode}"
             else:
-                status = "exited with status {}".format(returncode)
-        return "<trio.Process {!r}: {}>".format(self.args, status)
+                status = f"exited with status {returncode}"
+        return f"<trio.Process {self.args!r}: {status}>"
 
     @property
     def returncode(self):
@@ -368,9 +366,9 @@ async def open_process(
                 "on UNIX systems"
             )
 
-    trio_stdin = None  # type: Optional[ClosableSendStream]
-    trio_stdout = None  # type: Optional[ClosableReceiveStream]
-    trio_stderr = None  # type: Optional[ClosableReceiveStream]
+    trio_stdin: Optional[ClosableSendStream] = None
+    trio_stdout: Optional[ClosableReceiveStream] = None
+    trio_stderr: Optional[ClosableReceiveStream] = None
     # Close the parent's handle for each child side of a pipe; we want the child to
     # have the only copy, so that when it exits we can read EOF on our side. The
     # trio ends of pipes will be transferred to the Process object, which will be
@@ -430,8 +428,8 @@ async def _posix_deliver_cancel(p):
         warnings.warn(
             RuntimeWarning(
                 f"process {p!r} ignored SIGTERM for 5 seconds. "
-                f"(Maybe you should pass a custom deliver_cancel?) "
-                f"Trying SIGKILL."
+                "(Maybe you should pass a custom deliver_cancel?) "
+                "Trying SIGKILL."
             )
         )
         p.kill()
