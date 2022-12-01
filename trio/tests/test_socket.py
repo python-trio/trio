@@ -46,7 +46,7 @@ class MonkeypatchedGAI:
         elif bound[-1] & stdlib_socket.AI_NUMERICHOST:
             return self._orig_getaddrinfo(*args, **kwargs)
         else:
-            raise RuntimeError("gai called with unexpected arguments {}".format(bound))
+            raise RuntimeError(f"gai called with unexpected arguments {bound}")
 
 
 @pytest.fixture
@@ -965,7 +965,7 @@ async def test_unix_domain_socket():
     # Can't use tmpdir fixture, because we can exceed the maximum AF_UNIX path
     # length on macOS.
     with tempfile.TemporaryDirectory() as tmpdir:
-        path = "{}/sock".format(tmpdir)
+        path = f"{tmpdir}/sock"
         await check_AF_UNIX(path)
 
     try:

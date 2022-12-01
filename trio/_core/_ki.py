@@ -1,13 +1,16 @@
+from __future__ import annotations
+
 import inspect
 import signal
 import sys
 from functools import wraps
+from typing import TYPE_CHECKING
 
 import attr
 
 from .._util import is_main_thread
 
-if False:
+if TYPE_CHECKING:
     from typing import Any, TypeVar, Callable
 
     F = TypeVar("F", bound=Callable[..., Any])
@@ -54,7 +57,7 @@ if False:
 #
 #   If this raises a KeyboardInterrupt, it might be because the coroutine got
 #   interrupted and has unwound... or it might be the KeyboardInterrupt
-#   arrived just *after* 'send' returned, so the coroutine is still running
+#   arrived just *after* 'send' returned, so the coroutine is still running,
 #   but we just lost the message it sent. (And worse, in our actual task
 #   runner, the send is hidden inside a utility function etc.)
 #
@@ -170,10 +173,10 @@ def _ki_protection_decorator(enabled):
     return decorator
 
 
-enable_ki_protection = _ki_protection_decorator(True)  # type: Callable[[F], F]
+enable_ki_protection: Callable[[F], F] = _ki_protection_decorator(True)
 enable_ki_protection.__name__ = "enable_ki_protection"
 
-disable_ki_protection = _ki_protection_decorator(False)  # type: Callable[[F], F]
+disable_ki_protection: Callable[[F], F] = _ki_protection_decorator(False)
 disable_ki_protection.__name__ = "disable_ki_protection"
 
 

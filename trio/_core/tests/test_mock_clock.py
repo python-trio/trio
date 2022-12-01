@@ -64,14 +64,14 @@ async def test_mock_clock_autojump(mock_clock):
 
     virtual_start = _core.current_time()
     for i in range(10):
-        print("sleeping {} seconds".format(10 * i))
+        print(f"sleeping {10 * i} seconds")
         await sleep(10 * i)
         print("woke up!")
         assert virtual_start + 10 * i == _core.current_time()
         virtual_start = _core.current_time()
 
     real_duration = time.perf_counter() - real_start
-    print("Slept {} seconds in {} seconds".format(10 * sum(range(10)), real_duration))
+    print(f"Slept {10 * sum(range(10))} seconds in {real_duration} seconds")
     assert real_duration < 1
 
     mock_clock.autojump_threshold = 0.02
