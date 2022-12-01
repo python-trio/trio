@@ -3,11 +3,11 @@ import random
 import signal
 import subprocess
 import sys
+from contextlib import asynccontextmanager
 from functools import partial
 from pathlib import Path as SyncPath
 
 import pytest
-from async_generator import asynccontextmanager
 
 from .. import (
     ClosedResourceError,
@@ -45,7 +45,7 @@ CAT = python("sys.stdout.buffer.write(sys.stdin.buffer.read())")
 if posix:
     SLEEP = lambda seconds: ["/bin/sleep", str(seconds)]
 else:
-    SLEEP = lambda seconds: python("import time; time.sleep({})".format(seconds))
+    SLEEP = lambda seconds: python(f"import time; time.sleep({seconds})")
 
 
 def got_signal(proc, sig):
@@ -224,7 +224,6 @@ async def test_interactive(background_process):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     ) as proc:
-
         newline = b"\n" if posix else b"\r\n"
 
         async def expect(idx, request):
@@ -233,9 +232,7 @@ async def test_interactive(background_process):
                 async def drain_one(stream, count, digit):
                     while count > 0:
                         result = await stream.receive_some(count)
-                        assert result == (
-                            "{}".format(digit).encode("utf-8") * len(result)
-                        )
+                        assert result == (f"{digit}".encode() * len(result))
                         count -= len(result)
                     assert count == 0
                     assert await stream.receive_some(len(newline)) == newline

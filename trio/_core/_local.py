@@ -92,4 +92,4 @@ class RunVar(metaclass=Final):
         token.redeemed = True
 
     def __repr__(self):
-        return "<RunVar name={!r}>".format(self._name)
+        return f"<RunVar name={self._name!r}>"

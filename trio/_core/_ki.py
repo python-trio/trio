@@ -1,14 +1,16 @@
+from __future__ import annotations
+
 import inspect
 import signal
 import sys
 from functools import wraps
-import attr
+from typing import TYPE_CHECKING
 
-import async_generator
+import attr
 
 from .._util import is_main_thread
 
-if False:
+if TYPE_CHECKING:
     from typing import Any, TypeVar, Callable
 
     F = TypeVar("F", bound=Callable[..., Any])
@@ -55,7 +57,7 @@ if False:
 #
 #   If this raises a KeyboardInterrupt, it might be because the coroutine got
 #   interrupted and has unwound... or it might be the KeyboardInterrupt
-#   arrived just *after* 'send' returned, so the coroutine is still running
+#   arrived just *after* 'send' returned, so the coroutine is still running,
 #   but we just lost the message it sent. (And worse, in our actual task
 #   runner, the send is hidden inside a utility function etc.)
 #
@@ -109,6 +111,14 @@ def currently_ki_protected():
     return ki_protection_enabled(sys._getframe())
 
 
+# This is to support the async_generator package necessary for aclosing on <3.10
+# functions decorated @async_generator are given this magic property that's a
+# reference to the object itself
+# see python-trio/async_generator/async_generator/_impl.py
+def legacy_isasyncgenfunction(obj):
+    return getattr(obj, "_async_gen_function", None) == id(obj)
+
+
 def _ki_protection_decorator(enabled):
     def decorator(fn):
         # In some version of Python, isgeneratorfunction returns true for
@@ -141,7 +151,7 @@ def _ki_protection_decorator(enabled):
                 return gen
 
             return wrapper
-        elif async_generator.isasyncgenfunction(fn):
+        elif inspect.isasyncgenfunction(fn) or legacy_isasyncgenfunction(fn):
 
             @wraps(fn)
             def wrapper(*args, **kwargs):
@@ -163,10 +173,10 @@ def _ki_protection_decorator(enabled):
     return decorator
 
 
-enable_ki_protection = _ki_protection_decorator(True)  # type: Callable[[F], F]
+enable_ki_protection: Callable[[F], F] = _ki_protection_decorator(True)
 enable_ki_protection.__name__ = "enable_ki_protection"
 
-disable_ki_protection = _ki_protection_decorator(False)  # type: Callable[[F], F]
+disable_ki_protection: Callable[[F], F] = _ki_protection_decorator(False)
 disable_ki_protection.__name__ = "disable_ki_protection"
 
 

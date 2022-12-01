@@ -93,7 +93,7 @@ def test_static_tool_sees_all_symbols(tool, modname):
         import jedi
 
         # Simulate typing "import trio; trio.<TAB>"
-        script = jedi.Script("import {}; {}.".format(modname, modname))
+        script = jedi.Script(f"import {modname}; {modname}.")
         completions = script.complete()
         static_names = no_underscores(c.name for c in completions)
     else:  # pragma: no cover
@@ -107,10 +107,10 @@ def test_static_tool_sees_all_symbols(tool, modname):
     # So we check that the runtime names are a subset of the static names.
     missing_names = runtime_names - static_names
     if missing_names:  # pragma: no cover
-        print("{} can't see the following names in {}:".format(tool, modname))
+        print(f"{tool} can't see the following names in {modname}:")
         print()
         for name in sorted(missing_names):
-            print("    {}".format(name))
+            print(f"    {name}")
         assert False
 
 

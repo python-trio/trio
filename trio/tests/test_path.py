@@ -104,7 +104,6 @@ async def test_async_method_signature(path):
 
 @pytest.mark.parametrize("method_name", ["is_dir", "is_file"])
 async def test_compare_async_stat_methods(method_name):
-
     method, async_method = method_pair(".", method_name)
 
     result = method()
@@ -120,7 +119,6 @@ async def test_invalid_name_not_wrapped(path):
 
 @pytest.mark.parametrize("method_name", ["absolute", "resolve"])
 async def test_async_methods_rewrap(method_name):
-
     method, async_method = method_pair(".", method_name)
 
     result = method()
