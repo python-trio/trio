@@ -213,7 +213,7 @@ async def test_Sequencer_cancel():
                 async with seq(i):
                     pass  # pragma: no cover
             except RuntimeError:
-                record.append("seq({}) RuntimeError".format(i))
+                record.append(f"seq({i}) RuntimeError")
 
     async with _core.open_nursery() as nursery:
         nursery.start_soon(child, 1)
@@ -651,7 +651,7 @@ async def test_open_stream_to_socket_listener():
         # can't use pytest's tmpdir; if we try then macOS says "OSError:
         # AF_UNIX path too long"
         with tempfile.TemporaryDirectory() as tmpdir:
-            path = "{}/sock".format(tmpdir)
+            path = f"{tmpdir}/sock"
             await sock.bind(path)
             sock.listen(10)
             await check(SocketListener(sock))

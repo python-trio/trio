@@ -4,7 +4,7 @@ import trio.testing
 from trio import DTLSEndpoint
 import random
 import attr
-from async_generator import asynccontextmanager
+from contextlib import asynccontextmanager
 from itertools import count
 
 import trustme
@@ -50,7 +50,7 @@ async def dtls_echo_server(*, autocancel=True, mtu=None, ipv6=False):
 
             async def echo_handler(dtls_channel):
                 print(
-                    f"echo handler started: "
+                    "echo handler started: "
                     f"server {dtls_channel.endpoint.socket.getsockname()} "
                     f"client {dtls_channel.peer_address}"
                 )
@@ -148,7 +148,8 @@ async def test_handshake_over_terrible_network(autojump_clock):
                     else:
                         assert op == "deliver"
                         print(
-                            f"{packet.source} -> {packet.destination}: delivered {packet.payload.hex()}"
+                            f"{packet.source} -> {packet.destination}: delivered"
+                            f" {packet.payload.hex()}"
                         )
                         fn.deliver_packet(packet)
                         break
@@ -446,7 +447,6 @@ async def test_invalid_cookie_rejected(autojump_clock):
     from trio._dtls import decode_client_hello_untrusted, BadPacket
 
     with trio.CancelScope() as cscope:
-
         # the first 11 bytes of ClientHello aren't protected by the cookie, so only test
         # corrupting bytes after that.
         offset_to_corrupt = count(11)

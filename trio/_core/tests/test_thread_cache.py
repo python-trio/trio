@@ -108,7 +108,8 @@ def _join_started_threads():
     finally:
         for thread in threading.enumerate():
             if thread not in before:
-                thread.join()
+                thread.join(timeout=1.0)
+                assert not thread.is_alive()
 
 
 def test_race_between_idle_exit_and_job_assignment(monkeypatch):
@@ -134,31 +135,53 @@ def test_race_between_idle_exit_and_job_assignment(monkeypatch):
             self._lock = threading.Lock()
             self._counter = 3
 
-        def acquire(self, timeout=None):
-            self._lock.acquire()
-            if timeout is None:
+        def acquire(self, timeout=-1):
+            got_it = self._lock.acquire(timeout=timeout)
+            if timeout == -1:
                 return True
-            else:
+            elif got_it:
                 if self._counter > 0:
                     self._counter -= 1
                     self._lock.release()
                     return False
                 return True
+            else:
+                return False
 
         def release(self):
             self._lock.release()
 
     monkeypatch.setattr(_thread_cache, "Lock", JankyLock)
 
-    with disable_threading_excepthook(), _join_started_threads():
+    with _join_started_threads():
         tc = ThreadCache()
         done = threading.Event()
         tc.start_thread_soon(lambda: None, lambda _: done.set())
         done.wait()
         # Let's kill the thread we started, so it doesn't hang around until the
         # test suite finishes. Doesn't really do any harm, but it can be confusing
-        # to see it in debug output. This is hacky, and leaves our ThreadCache
-        # object in an inconsistent state... but it doesn't matter, because we're
-        # not going to use it again anyway.
+        # to see it in debug output.
+        monkeypatch.setattr(_thread_cache, "IDLE_TIMEOUT", 0.0001)
+        tc.start_thread_soon(lambda: None, lambda _: None)
 
-        tc.start_thread_soon(lambda: None, lambda _: sys.exit())
+
+def test_raise_in_deliver(capfd):
+    seen_threads = set()
+
+    def track_threads():
+        seen_threads.add(threading.current_thread())
+
+    def deliver(_):
+        done.set()
+        raise RuntimeError("don't do this")
+
+    done = threading.Event()
+    start_thread_soon(track_threads, deliver)
+    done.wait()
+    done = threading.Event()
+    start_thread_soon(track_threads, lambda _: done.set())
+    done.wait()
+    assert len(seen_threads) == 1
+    err = capfd.readouterr().err
+    assert "don't do this" in err
+    assert "delivering result" in err

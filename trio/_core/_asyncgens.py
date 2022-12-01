@@ -78,9 +78,9 @@ class AsyncGenerators:
                 # ignored, since we're running in GC context.)
                 warnings.warn(
                     f"Async generator {agen_name!r} was garbage collected before it "
-                    f"had been exhausted. Surround its use in 'async with "
-                    f"aclosing(...):' to ensure that it gets cleaned up as soon as "
-                    f"you're done using it.",
+                    "had been exhausted. Surround its use in 'async with "
+                    "aclosing(...):' to ensure that it gets cleaned up as soon as "
+                    "you're done using it.",
                     ResourceWarning,
                     stacklevel=2,
                     source=agen,
@@ -106,8 +106,8 @@ class AsyncGenerators:
                         # error than the default "async generator ignored GeneratorExit"
                         raise RuntimeError(
                             f"Non-Trio async generator {agen_name!r} awaited something "
-                            f"during finalization; install a finalization hook to "
-                            f"support this, or wrap it in 'async with aclosing(...):'"
+                            "during finalization; install a finalization hook to "
+                            "support this, or wrap it in 'async with aclosing(...):'"
                         )
 
         self.prev_hooks = sys.get_asyncgen_hooks()

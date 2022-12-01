@@ -2245,7 +2245,6 @@ async def test_cancel_scope_exit_doesnt_create_cyclic_garbage():
 
     old_flags = gc.get_debug()
     try:
-
         with pytest.raises(ValueError), _core.CancelScope() as outer:
             async with _core.open_nursery() as nursery:
                 gc.collect()

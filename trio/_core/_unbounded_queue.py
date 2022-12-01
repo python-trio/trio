@@ -54,7 +54,7 @@ class UnboundedQueue(metaclass=Final):
         self._can_get = False
 
     def __repr__(self):
-        return "<UnboundedQueue holding {} items>".format(len(self._data))
+        return f"<UnboundedQueue holding {len(self._data)} items>"
 
     def qsize(self):
         """Returns the number of items currently in the queue."""

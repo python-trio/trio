@@ -402,9 +402,7 @@ class SSLStream(Stream, metaclass=Final):
     def __getattr__(self, name):
         if name in self._forwarded:
             if name in self._after_handshake and not self._handshook.done:
-                raise NeedHandshakeError(
-                    "call do_handshake() before calling {!r}".format(name)
-                )
+                raise NeedHandshakeError(f"call do_handshake() before calling {name!r}")
 
             return getattr(self._ssl_object, name)
         else:

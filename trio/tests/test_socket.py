@@ -46,7 +46,7 @@ class MonkeypatchedGAI:
         elif bound[-1] & stdlib_socket.AI_NUMERICHOST:
             return self._orig_getaddrinfo(*args, **kwargs)
         else:
-            raise RuntimeError("gai called with unexpected arguments {}".format(bound))
+            raise RuntimeError(f"gai called with unexpected arguments {bound}")
 
 
 @pytest.fixture
@@ -723,6 +723,16 @@ async def test_SocketType_connect_paths():
             await sock.connect(("127.0.0.1", 2))
 
 
+# Fix issue #1810
+async def test_address_in_socket_error():
+    address = "127.0.0.1"
+    with tsocket.socket() as sock:
+        try:
+            await sock.connect((address, 2))
+        except OSError as e:
+            assert any(address in str(arg) for arg in e.args)
+
+
 async def test_resolve_address_exception_in_connect_closes_socket():
     # Here we are testing issue 247, any cancellation will leave the socket closed
     with _core.CancelScope() as cancel_scope:
@@ -955,7 +965,7 @@ async def test_unix_domain_socket():
     # Can't use tmpdir fixture, because we can exceed the maximum AF_UNIX path
     # length on macOS.
     with tempfile.TemporaryDirectory() as tmpdir:
-        path = "{}/sock".format(tmpdir)
+        path = f"{tmpdir}/sock"
         await check_AF_UNIX(path)
 
     try:
