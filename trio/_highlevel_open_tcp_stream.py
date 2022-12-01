@@ -147,9 +147,9 @@ def reorder_for_rfc_6555_section_5_4(targets):
 def format_host_port(host, port):
     host = host.decode("ascii") if isinstance(host, bytes) else host
     if ":" in host:
-        return "[{}]:{}".format(host, port)
+        return f"[{host}]:{port}"
     else:
-        return "{}:{}".format(host, port)
+        return f"{host}:{port}"
 
 
 # Twisted's HostnameEndpoint has a good set of configurables:
@@ -251,7 +251,7 @@ async def open_tcp_stream(
     if host is None:
         raise ValueError("host cannot be None")
     if not isinstance(port, int):
-        raise TypeError("port must be int, not {!r}".format(port))
+        raise TypeError(f"port must be int, not {port!r}")
 
     if happy_eyeballs_delay is None:
         happy_eyeballs_delay = DEFAULT_DELAY

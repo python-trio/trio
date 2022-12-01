@@ -1,13 +1,15 @@
 import sys
 import weakref
 import pytest
+import contextlib
 from math import inf
 from functools import partial
-from async_generator import aclosing
+
 from ... import _core
 from .tutil import gc_collect_harder, buggy_pypy_asyncgens, restore_unraisablehook
 
 
+@pytest.mark.skipif(sys.version_info < (3, 10), reason="no aclosing() in stdlib<3.10")
 def test_asyncgen_basics():
     collected = []
 
@@ -46,7 +48,7 @@ def test_asyncgen_basics():
         assert collected.pop() == "abandoned"
 
         # aclosing() ensures it's cleaned up at point of use
-        async with aclosing(example("exhausted 1")) as aiter:
+        async with contextlib.aclosing(example("exhausted 1")) as aiter:
             assert 42 == await aiter.asend(None)
         assert collected.pop() == "exhausted 1"
 
@@ -58,7 +60,7 @@ def test_asyncgen_basics():
         gc_collect_harder()
 
         # No problems saving the geniter when using either of these patterns
-        async with aclosing(example("exhausted 3")) as aiter:
+        async with contextlib.aclosing(example("exhausted 3")) as aiter:
             saved.append(aiter)
             assert 42 == await aiter.asend(None)
         assert collected.pop() == "exhausted 3"
@@ -224,7 +226,7 @@ def test_last_minute_gc_edge_case():
             break
     else:  # pragma: no cover
         pytest.fail(
-            f"Didn't manage to hit the trailing_finalizer_asyncgens case "
+            "Didn't manage to hit the trailing_finalizer_asyncgens case "
             f"despite trying {attempt} times"
         )
 

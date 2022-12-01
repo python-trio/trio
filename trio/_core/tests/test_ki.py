@@ -6,13 +6,12 @@ import signal
 import threading
 import contextlib
 import time
+import inspect
 
-from async_generator import (
-    async_generator,
-    yield_,
-    isasyncgenfunction,
-    asynccontextmanager,
-)
+try:
+    from async_generator import yield_, async_generator
+except ImportError:  # pragma: no cover
+    async_generator = yield_ = None
 
 from ... import _core
 from ...testing import wait_all_tasks_blocked
@@ -142,7 +141,8 @@ async def test_generator_based_context_manager_throw():
             raise KeyError
 
 
-async def test_agen_protection():
+@pytest.mark.skipif(async_generator is None, reason="async_generator not installed")
+async def test_async_generator_agen_protection():
     @_core.enable_ki_protection
     @async_generator
     async def agen_protected1():
@@ -180,9 +180,16 @@ async def test_agen_protection():
         finally:
             assert not _core.currently_ki_protected()
 
+    await _check_agen(agen_protected1)
+    await _check_agen(agen_protected2)
+    await _check_agen(agen_unprotected1)
+    await _check_agen(agen_unprotected2)
+
+
+async def test_native_agen_protection():
     # Native async generators
     @_core.enable_ki_protection
-    async def agen_protected3():
+    async def agen_protected():
         assert _core.currently_ki_protected()
         try:
             yield
@@ -190,35 +197,32 @@ async def test_agen_protection():
             assert _core.currently_ki_protected()
 
     @_core.disable_ki_protection
-    async def agen_unprotected3():
+    async def agen_unprotected():
         assert not _core.currently_ki_protected()
         try:
             yield
         finally:
             assert not _core.currently_ki_protected()
 
-    for agen_fn in [
-        agen_protected1,
-        agen_protected2,
-        agen_protected3,
-        agen_unprotected1,
-        agen_unprotected2,
-        agen_unprotected3,
-    ]:
-        async for _ in agen_fn():  # noqa
+    await _check_agen(agen_protected)
+    await _check_agen(agen_unprotected)
+
+
+async def _check_agen(agen_fn):
+    async for _ in agen_fn():  # noqa
+        assert not _core.currently_ki_protected()
+
+    # asynccontextmanager insists that the function passed must itself be an
+    # async gen function, not a wrapper around one
+    if inspect.isasyncgenfunction(agen_fn):
+        async with contextlib.asynccontextmanager(agen_fn)():
             assert not _core.currently_ki_protected()
 
-        # asynccontextmanager insists that the function passed must itself be an
-        # async gen function, not a wrapper around one
-        if isasyncgenfunction(agen_fn):
-            async with asynccontextmanager(agen_fn)():
-                assert not _core.currently_ki_protected()
-
-            # Another case that's tricky due to:
-            #   https://bugs.python.org/issue29590
-            with pytest.raises(KeyError):
-                async with asynccontextmanager(agen_fn)():
-                    raise KeyError
+        # Another case that's tricky due to:
+        #   https://bugs.python.org/issue29590
+        with pytest.raises(KeyError):
+            async with contextlib.asynccontextmanager(agen_fn)():
+                raise KeyError
 
 
 # Test the case where there's no magic local anywhere in the call stack

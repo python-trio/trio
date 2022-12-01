@@ -3,6 +3,9 @@ import select
 
 import os
 import sys
+from typing import Any
+from typing import Tuple
+
 import pytest
 
 from .._core.tests.tutil import gc_collect_harder
@@ -15,12 +18,12 @@ if sys.platform == "win32":
     from asyncio.windows_utils import pipe
 else:
     pytestmark = pytest.mark.skip(reason="windows only")
-    pipe = None  # type: Any
-    PipeSendStream = None  # type: Any
-    PipeReceiveStream = None  # type: Any
+    pipe: Any = None
+    PipeSendStream: Any = None
+    PipeReceiveStream: Any = None
 
 
-async def make_pipe() -> "Tuple[PipeSendStream, PipeReceiveStream]":
+async def make_pipe() -> Tuple[PipeSendStream, PipeReceiveStream]:
     """Makes a new pair of pipes."""
     (r, w) = pipe()
     return PipeSendStream(w), PipeReceiveStream(r)
