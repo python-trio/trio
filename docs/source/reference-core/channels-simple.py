@@ -1,5 +1,6 @@
 import trio
 
+
 async def main():
     async with trio.open_nursery() as nursery:
         # Open a channel:
@@ -9,15 +10,18 @@ async def main():
         nursery.start_soon(producer, send_channel)
         nursery.start_soon(consumer, receive_channel)
 
+
 async def producer(send_channel):
     # Producer sends 3 messages
     for i in range(3):
         # The producer sends using 'await send_channel.send(...)'
         await send_channel.send(f"message {i}")
 
+
 async def consumer(receive_channel):
     # The consumer uses an 'async for' loop to receive the values:
     async for value in receive_channel:
         print(f"got value {value!r}")
+
 
 trio.run(main)

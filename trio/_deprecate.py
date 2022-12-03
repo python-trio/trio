@@ -30,24 +30,24 @@ class TrioDeprecationWarning(FutureWarning):
 
 
 def _url_for_issue(issue):
-    return "https://github.com/python-trio/trio/issues/{}".format(issue)
+    return f"https://github.com/python-trio/trio/issues/{issue}"
 
 
 def _stringify(thing):
     if hasattr(thing, "__module__") and hasattr(thing, "__qualname__"):
-        return "{}.{}".format(thing.__module__, thing.__qualname__)
+        return f"{thing.__module__}.{thing.__qualname__}"
     return str(thing)
 
 
 def warn_deprecated(thing, version, *, issue, instead, stacklevel=2):
     stacklevel += 1
-    msg = "{} is deprecated since Trio {}".format(_stringify(thing), version)
+    msg = f"{_stringify(thing)} is deprecated since Trio {version}"
     if instead is None:
         msg += " with no replacement"
     else:
-        msg += "; use {} instead".format(_stringify(instead))
+        msg += f"; use {_stringify(instead)} instead"
     if issue is not None:
-        msg += " ({})".format(_url_for_issue(issue))
+        msg += f" ({_url_for_issue(issue)})"
     warnings.warn(TrioDeprecationWarning(msg), stacklevel=stacklevel)
 
 
@@ -72,9 +72,9 @@ def deprecated(version, *, thing=None, issue, instead):
             doc = wrapper.__doc__
             doc = doc.rstrip()
             doc += "\n\n"
-            doc += ".. deprecated:: {}\n".format(version)
+            doc += f".. deprecated:: {version}\n"
             if instead is not None:
-                doc += "   Use {} instead.\n".format(_stringify(instead))
+                doc += f"   Use {_stringify(instead)} instead.\n"
             if issue is not None:
                 doc += "   For details, see `issue #{} <{}>`__.\n".format(
                     issue, _url_for_issue(issue)
@@ -116,7 +116,7 @@ class _ModuleWithDeprecations(ModuleType):
             instead = info.instead
             if instead is DeprecatedAttribute._not_set:
                 instead = info.value
-            thing = "{}.{}".format(self.__name__, name)
+            thing = f"{self.__name__}.{name}"
             warn_deprecated(thing, info.version, issue=info.issue, instead=instead)
             return info.value
 
