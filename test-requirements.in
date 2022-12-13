@@ -25,7 +25,7 @@ typing-extensions; implementation_name == "cpython"
 
 # Trio's own dependencies
 cffi; os_name == "nt"
-attrs >= 19.2.0
+attrs >= 20.1.0
 sortedcontainers
 idna
 outcome
