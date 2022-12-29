@@ -688,7 +688,7 @@ class _SocketType(SocketType):
         # Okay, the connect finished, but it might have failed:
         err = self._sock.getsockopt(_stdlib_socket.SOL_SOCKET, _stdlib_socket.SO_ERROR)
         if err != 0:
-            raise OSError(err, "Error in connect: " + os.strerror(err))
+            raise OSError(err, f"Error connecting to {address}: {os.strerror(err)}")
 
     ################################################################
     # recv

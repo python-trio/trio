@@ -31,7 +31,7 @@ def _assert_raises(exc):
     except exc:
         pass
     else:
-        raise AssertionError("expected exception: {}".format(exc))
+        raise AssertionError(f"expected exception: {exc}")
 
 
 async def check_one_way_stream(stream_maker, clogged_stream_maker):

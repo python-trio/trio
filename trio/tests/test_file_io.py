@@ -27,7 +27,7 @@ def async_file(wrapped):
 
 def test_wrap_invalid():
     with pytest.raises(TypeError):
-        trio.wrap_file(str())
+        trio.wrap_file("")
 
 
 def test_wrap_non_iobase():

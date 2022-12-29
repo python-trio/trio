@@ -217,7 +217,7 @@ class MultiError(BaseExceptionGroup):
         return ", ".join(repr(exc) for exc in self.exceptions)
 
     def __repr__(self):
-        return "<MultiError: {}>".format(self)
+        return f"<MultiError: {self}>"
 
     def derive(self, __excs):
         # We use _collapse=False here to get ExceptionGroup semantics, since derive()
