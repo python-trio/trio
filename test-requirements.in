@@ -3,7 +3,7 @@ pytest >= 5.0         # for faulthandler in core
 pytest-cov >= 2.6.0
 async_generator >= 1.9
 # ipython 7.x is the last major version supporting Python 3.7
-ipython < 7.32        # for the IPython traceback integration tests
+ipython < 7.35        # for the IPython traceback integration tests
 pyOpenSSL >= 22.0.0   # for the ssl + DTLS tests
 trustme               # for the ssl + DTLS tests
 pylint                # for pylint finding all symbols tests
