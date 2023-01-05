@@ -50,7 +50,7 @@ jedi==0.18.2
     # via
     #   -r test-requirements.in
     #   ipython
-lazy-object-proxy==1.8.0
+lazy-object-proxy==1.9.0
     # via astroid
 matplotlib-inline==0.1.6
     # via ipython
