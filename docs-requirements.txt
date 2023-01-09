@@ -49,7 +49,7 @@ markupsafe==2.1.1
     # via jinja2
 outcome==1.2.0
     # via -r docs-requirements.in
-packaging==22.0
+packaging==23.0
     # via sphinx
 pygments==2.14.0
     # via sphinx
