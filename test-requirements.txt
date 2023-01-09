@@ -119,7 +119,7 @@ trustme==0.9.0
     # via -r test-requirements.in
 types-cryptography==3.3.23.2
     # via types-pyopenssl
-types-pyopenssl==22.1.0.2 ; implementation_name == "cpython"
+types-pyopenssl==23.0.0.0 ; implementation_name == "cpython"
     # via -r test-requirements.in
 typing-extensions==4.4.0 ; implementation_name == "cpython"
     # via
