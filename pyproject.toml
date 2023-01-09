@@ -56,4 +56,8 @@ xfail_strict = true
 faulthandler_timeout = 60
 markers = ["redistributors_should_skip: tests that should be skipped by downstream redistributors"]
 junit_family = "xunit2"
-filterwarnings = ["error"]
+filterwarnings = [
+    "error",
+    # https://gitter.im/python-trio/general?at=63bb8d0740557a3d5c688d67
+    'ignore:You are using cryptography on a 32-bit Python on a 64-bit Windows Operating System. Cryptography will be significantly faster if you switch to using a 64-bit Python.:UserWarning',
+]
