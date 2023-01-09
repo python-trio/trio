@@ -70,7 +70,7 @@ sphinx==3.3.1
     #   sphinxcontrib-trio
 sphinx-rtd-theme==1.1.1
     # via -r docs-requirements.in
-sphinxcontrib-applehelp==1.0.2
+sphinxcontrib-applehelp==1.0.3
     # via sphinx
 sphinxcontrib-devhelp==1.0.2
     # via sphinx
