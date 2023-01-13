@@ -4,7 +4,7 @@
 #
 #    pip-compile docs-requirements.in
 #
-alabaster==0.7.12
+alabaster==0.7.13
     # via sphinx
 async-generator==1.10
     # via -r docs-requirements.in
