@@ -1,0 +1,1 @@
+`trio.from_thread.run` and `trio.from_thread.run_sync` no longer raise `RuntimeError` when used to enter a thread running Trio from a different thread running Trio.

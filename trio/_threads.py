@@ -245,13 +245,18 @@ def _run_fn_as_system_task(cb, fn, *args, context, trio_token=None):
                 "this thread wasn't created by Trio, pass kwarg trio_token=..."
             )
 
-    # Avoid deadlock by making sure we're not called from Trio thread
+    # Avoid deadlock by making sure we're not called from the same Trio thread we're
+    # trying to enter
     try:
-        trio.lowlevel.current_task()
+        current_trio_token = trio.lowlevel.current_trio_token()
     except RuntimeError:
         pass
     else:
-        raise RuntimeError("this is a blocking function; call it from a thread")
+        if trio_token == current_trio_token:
+            raise RuntimeError(
+                "this is a blocking function; using it to re-enter the current Trio "
+                "thread would cause a deadlock"
+            )
 
     q = stdlib_queue.SimpleQueue()
     trio_token.run_sync_soon(context.run, cb, q, fn, args)
