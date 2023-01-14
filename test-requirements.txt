@@ -112,7 +112,7 @@ sortedcontainers==2.4.0
     # via -r test-requirements.in
 tomlkit==0.11.6
     # via pylint
-traitlets==5.8.0
+traitlets==5.8.1
     # via
     #   ipython
     #   matplotlib-inline
