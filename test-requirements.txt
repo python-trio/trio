@@ -100,7 +100,7 @@ pylint==2.14.5
     # via -r test-requirements.in
 pyopenssl==23.0.0
     # via -r test-requirements.in
-pytest==7.2.0
+pytest==7.2.1
     # via
     #   -r test-requirements.in
     #   pytest-cov
