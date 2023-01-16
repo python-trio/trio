@@ -53,7 +53,7 @@ packaging==23.0
     # via sphinx
 pygments==2.14.0
     # via sphinx
-pytz==2022.7
+pytz==2022.7.1
     # via babel
 requests==2.28.2
     # via sphinx
