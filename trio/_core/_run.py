@@ -1,56 +1,48 @@
+from __future__ import annotations
+
+import enum
 import functools
+import gc
 import itertools
 import random
 import select
 import sys
 import threading
-import gc
-from collections import deque
-from contextlib import contextmanager
 import warnings
-import enum
-
+from collections import deque
+from collections.abc import Callable
+from contextlib import contextmanager
 from contextvars import copy_context
+from heapq import heapify, heappop, heappush
 from math import inf
 from time import perf_counter
-from typing import Any, Deque, NoReturn, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, NoReturn, TypeVar
+
+import attr
+from outcome import Error, Outcome, Value, capture
+from sniffio import current_async_library_cvar
+from sortedcontainers import SortedDict
 
 # An unfortunate name collision here with trio._util.Final
 from typing_extensions import Final as FinalT
 
-from sniffio import current_async_library_cvar
-
-import attr
-from heapq import heapify, heappop, heappush
-from sortedcontainers import SortedDict
-from outcome import Error, Outcome, Value, capture
-
+from .. import _core
+from .._util import Final, NoPublicConstructor, coroutine_or_error
+from ._asyncgens import AsyncGenerators
 from ._entry_queue import EntryQueue, TrioToken
-from ._exceptions import TrioInternalError, RunFinishedError, Cancelled
-from ._ki import (
-    LOCALS_KEY_KI_PROTECTION_ENABLED,
-    KIManager,
-    enable_ki_protection,
-)
+from ._exceptions import Cancelled, RunFinishedError, TrioInternalError
+from ._instrumentation import Instruments
+from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED, KIManager, enable_ki_protection
 from ._multierror import MultiError, concat_tb
+from ._thread_cache import start_thread_soon
 from ._traps import (
     Abort,
-    wait_task_rescheduled,
-    cancel_shielded_checkpoint,
     CancelShieldedCheckpoint,
     PermanentlyDetachCoroutineObject,
     WaitTaskRescheduled,
+    cancel_shielded_checkpoint,
+    wait_task_rescheduled,
 )
-from ._asyncgens import AsyncGenerators
-from ._thread_cache import start_thread_soon
-from ._instrumentation import Instruments
-from .. import _core
-from .._util import Final, NoPublicConstructor, coroutine_or_error
-
-if sys.version_info < (3, 9):
-    from typing import Callable
-else:
-    from collections.abc import Callable
 
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
@@ -1410,7 +1402,7 @@ class Runner:
     # Run-local values, see _local.py
     _locals = attr.ib(factory=dict)
 
-    runq: Deque[Task] = attr.ib(factory=deque)
+    runq: deque[Task] = attr.ib(factory=deque)
     tasks = attr.ib(factory=set)
 
     deadlines = attr.ib(factory=Deadlines)
@@ -2530,16 +2522,16 @@ async def checkpoint_if_cancelled():
 
 
 if sys.platform == "win32":
-    from ._io_windows import WindowsIOManager as TheIOManager
     from ._generated_io_windows import *
+    from ._io_windows import WindowsIOManager as TheIOManager
 elif sys.platform == "linux" or (not TYPE_CHECKING and hasattr(select, "epoll")):
-    from ._io_epoll import EpollIOManager as TheIOManager
     from ._generated_io_epoll import *
+    from ._io_epoll import EpollIOManager as TheIOManager
 elif TYPE_CHECKING or hasattr(select, "kqueue"):
-    from ._io_kqueue import KqueueIOManager as TheIOManager
     from ._generated_io_kqueue import *
+    from ._io_kqueue import KqueueIOManager as TheIOManager
 else:  # pragma: no cover
     raise NotImplementedError("unsupported platform")
 
-from ._generated_run import *
 from ._generated_instrumentation import *
+from ._generated_run import *
