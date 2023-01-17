@@ -79,7 +79,9 @@ setup(
     license="MIT OR Apache-2.0",
     packages=find_packages(),
     install_requires=[
-        "attrs >= 19.2.0",  # for eq
+        # attrs 19.2.0 adds `eq` option to decorators
+        # attrs 20.1.0 adds @frozen
+        "attrs >= 20.1.0",
         "sortedcontainers",
         "idna",
         "outcome",
