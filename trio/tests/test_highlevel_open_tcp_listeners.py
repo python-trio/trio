@@ -1,17 +1,16 @@
+import errno
+import socket as stdlib_socket
 import sys
 
+import attr
 import pytest
 
-import socket as stdlib_socket
-import errno
-
-import attr
-
 import trio
-from trio import open_tcp_listeners, serve_tcp, SocketListener, open_tcp_stream
+from trio import SocketListener, open_tcp_listeners, open_tcp_stream, serve_tcp
 from trio.testing import open_stream_to_socket_listener
+
 from .. import socket as tsocket
-from .._core.tests.tutil import slow, creates_ipv6, binds_ipv6
+from .._core.tests.tutil import binds_ipv6, creates_ipv6, slow
 
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup

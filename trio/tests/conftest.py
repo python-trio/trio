@@ -4,10 +4,11 @@
 #
 # this stuff should become a proper pytest plugin
 
-import pytest
 import inspect
 
-from ..testing import trio_test, MockClock
+import pytest
+
+from ..testing import MockClock, trio_test
 
 RUN_SLOW = True
 

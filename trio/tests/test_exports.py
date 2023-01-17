@@ -1,17 +1,16 @@
+import enum
+import importlib
+import inspect
 import re
 import sys
-import importlib
 import types
-import inspect
-import enum
 
 import pytest
 
 import trio
 import trio.testing
 
-from .. import _core
-from .. import _util
+from .. import _core, _util
 
 
 def test_core_is_properly_reexported():

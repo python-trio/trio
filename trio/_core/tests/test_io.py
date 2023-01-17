@@ -1,14 +1,15 @@
-import pytest
-
-import socket as stdlib_socket
-import select
-import random
 import errno
+import random
+import select
+import socket as stdlib_socket
 from contextlib import suppress
 
-from ... import _core
-from ...testing import wait_all_tasks_blocked, Sequencer, assert_checkpoints
+import pytest
+
 import trio
+
+from ... import _core
+from ...testing import Sequencer, assert_checkpoints, wait_all_tasks_blocked
 
 # Cross-platform tests for IO handling
 

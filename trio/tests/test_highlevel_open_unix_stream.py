@@ -4,7 +4,7 @@ import tempfile
 
 import pytest
 
-from trio import open_unix_socket, Path
+from trio import Path, open_unix_socket
 from trio._highlevel_open_unix_stream import close_on_error
 
 if not hasattr(socket, "AF_UNIX"):

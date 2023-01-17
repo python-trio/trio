@@ -1,9 +1,9 @@
 import attr
 
 import trio
-from .abc import HalfCloseableStream
-
 from trio._util import Final
+
+from .abc import HalfCloseableStream
 
 
 async def aclose_forcefully(resource):

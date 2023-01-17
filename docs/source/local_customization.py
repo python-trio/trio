@@ -2,9 +2,9 @@ from docutils.parsers.rst import directives
 from sphinx import addnodes
 from sphinx.domains.python import PyClasslike
 from sphinx.ext.autodoc import (
+    ClassLevelDocumenter,
     FunctionDocumenter,
     MethodDocumenter,
-    ClassLevelDocumenter,
     Options,
 )
 

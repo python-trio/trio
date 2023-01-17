@@ -1,12 +1,13 @@
+import contextlib
 import sys
 import weakref
-import pytest
-import contextlib
-from math import inf
 from functools import partial
+from math import inf
+
+import pytest
 
 from ... import _core
-from .tutil import gc_collect_harder, buggy_pypy_asyncgens, restore_unraisablehook
+from .tutil import buggy_pypy_asyncgens, gc_collect_harder, restore_unraisablehook
 
 
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="no aclosing() in stdlib<3.10")

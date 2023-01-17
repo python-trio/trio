@@ -5,12 +5,12 @@ to be exported as public API
 """
 import argparse
 import ast
-import astor
 import os
-from pathlib import Path
 import sys
-
+from pathlib import Path
 from textwrap import indent
+
+import astor
 
 PREFIX = "_generated"
 

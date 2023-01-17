@@ -6,16 +6,17 @@
 # - TCP
 # - UDP broadcast
 
-import trio
-import attr
-import ipaddress
-from collections import deque
-import errno
-import os
-from typing import Union, List, Optional
 import enum
+import errno
+import ipaddress
+import os
+from collections import deque
 from contextlib import contextmanager
+from typing import List, Optional, Union
 
+import attr
+
+import trio
 from trio._util import Final, NoPublicConstructor
 
 IPAddress = Union[ipaddress.IPv4Address, ipaddress.IPv6Address]

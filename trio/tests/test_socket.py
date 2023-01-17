@@ -1,17 +1,17 @@
 import errno
-
-import pytest
-import attr
-
+import inspect
 import os
 import socket as stdlib_socket
-import inspect
-import tempfile
 import sys as _sys
-from .._core.tests.tutil import creates_ipv6, binds_ipv6
+import tempfile
+
+import attr
+import pytest
+
 from .. import _core
 from .. import _socket as _tsocket
 from .. import socket as tsocket
+from .._core.tests.tutil import binds_ipv6, creates_ipv6
 from .._socket import _NUMERIC_ONLY, _try_sync
 from ..testing import assert_checkpoints, wait_all_tasks_blocked
 

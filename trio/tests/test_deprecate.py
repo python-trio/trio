@@ -1,15 +1,14 @@
-import pytest
-
 import inspect
 import warnings
 
+import pytest
+
 from .._deprecate import (
     TrioDeprecationWarning,
-    warn_deprecated,
     deprecated,
     deprecated_alias,
+    warn_deprecated,
 )
-
 from . import module_with_deprecations
 
 

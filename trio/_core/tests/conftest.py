@@ -1,5 +1,6 @@
-import pytest
 import inspect
+
+import pytest
 
 # XX this should move into a global something
 from ...testing import MockClock, trio_test

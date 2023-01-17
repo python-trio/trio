@@ -4,19 +4,20 @@ import sys
 import pytest
 
 import trio
+
 from .. import _core
 from .._core.tests.tutil import (
-    ignore_coroutine_never_awaited_warnings,
     create_asyncio_future_in_new_loop,
+    ignore_coroutine_never_awaited_warnings,
 )
 from .._util import (
-    signal_raise,
     ConflictDetector,
-    is_main_thread,
-    coroutine_or_error,
-    generic_function,
     Final,
     NoPublicConstructor,
+    coroutine_or_error,
+    generic_function,
+    is_main_thread,
+    signal_raise,
 )
 from ..testing import wait_all_tasks_blocked
 

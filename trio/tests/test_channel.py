@@ -1,8 +1,9 @@
 import pytest
 
-from ..testing import wait_all_tasks_blocked, assert_checkpoints
 import trio
-from trio import open_memory_channel, EndOfChannel
+from trio import EndOfChannel, open_memory_channel
+
+from ..testing import assert_checkpoints, wait_all_tasks_blocked
 
 
 async def test_channel():

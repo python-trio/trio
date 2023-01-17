@@ -8,17 +8,17 @@ on_windows = os.name == "nt"
 # Mark all the tests in this file as being windows-only
 pytestmark = pytest.mark.skipif(not on_windows, reason="windows only")
 
-from .tutil import slow, gc_collect_harder, restore_unraisablehook
-from ... import _core, sleep, move_on_after
+from ... import _core, move_on_after, sleep
 from ...testing import wait_all_tasks_blocked
+from .tutil import gc_collect_harder, restore_unraisablehook, slow
 
 if on_windows:
     from .._windows_cffi import (
+        INVALID_HANDLE_VALUE,
+        FileFlags,
         ffi,
         kernel32,
-        INVALID_HANDLE_VALUE,
         raise_winerror,
-        FileFlags,
     )
 
 
@@ -99,8 +99,8 @@ async def test_readinto_overlapped():
 
 @contextmanager
 def pipe_with_overlapped_read():
-    from asyncio.windows_utils import pipe
     import msvcrt
+    from asyncio.windows_utils import pipe
 
     read_handle, write_handle = pipe(overlapped=(True, False))
     try:
@@ -175,8 +175,8 @@ async def test_too_late_to_cancel():
 
 
 def test_lsp_that_hooks_select_gives_good_error(monkeypatch):
-    from .._windows_cffi import WSAIoctls, _handle
     from .. import _io_windows
+    from .._windows_cffi import WSAIoctls, _handle
 
     def patched_get_underlying(sock, *, which=WSAIoctls.SIO_BASE_HANDLE):
         if hasattr(sock, "fileno"):  # pragma: no branch
@@ -199,8 +199,8 @@ def test_lsp_that_completely_hides_base_socket_gives_good_error(monkeypatch):
     # self for SIO_BSP_HANDLE_POLL. No known LSP does this, but we want to
     # make sure we get an error rather than an infinite loop.
 
-    from .._windows_cffi import WSAIoctls, _handle
     from .. import _io_windows
+    from .._windows_cffi import WSAIoctls, _handle
 
     def patched_get_underlying(sock, *, which=WSAIoctls.SIO_BASE_HANDLE):
         if hasattr(sock, "fileno"):  # pragma: no branch

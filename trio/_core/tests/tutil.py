@@ -1,16 +1,15 @@
 # Utilities for testing
 import asyncio
-import socket as stdlib_socket
-import threading
+import gc
 import os
+import socket as stdlib_socket
 import sys
+import threading
+import warnings
+from contextlib import closing, contextmanager
 from typing import TYPE_CHECKING
 
 import pytest
-import warnings
-from contextlib import contextmanager, closing
-
-import gc
 
 # See trio/tests/conftest.py for the other half of this
 from trio.tests.conftest import RUN_SLOW

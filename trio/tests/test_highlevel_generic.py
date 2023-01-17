@@ -1,9 +1,8 @@
+import attr
 import pytest
 
-import attr
-
-from ..abc import SendStream, ReceiveStream
 from .._highlevel_generic import StapledStream
+from ..abc import ReceiveStream, SendStream
 
 
 @attr.s

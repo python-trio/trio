@@ -6,17 +6,14 @@ on_windows = os.name == "nt"
 # Mark all the tests in this file as being windows-only
 pytestmark = pytest.mark.skipif(not on_windows, reason="windows only")
 
-from .._core.tests.tutil import slow
 import trio
-from .. import _core
-from .. import _timeouts
+
+from .. import _core, _timeouts
+from .._core.tests.tutil import slow
 
 if on_windows:
     from .._core._windows_cffi import ffi, kernel32
-    from .._wait_for_object import (
-        WaitForSingleObject,
-        WaitForMultipleObjects_sync,
-    )
+    from .._wait_for_object import WaitForMultipleObjects_sync, WaitForSingleObject
 
 
 async def test_WaitForMultipleObjects_sync():

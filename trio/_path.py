@@ -1,12 +1,12 @@
 # type: ignore
 
-from functools import wraps, partial
 import os
-import types
 import pathlib
+import types
+from functools import partial, wraps
 
 import trio
-from trio._util import async_wraps, Final
+from trio._util import Final, async_wraps
 
 
 # re-wrap return value from methods that return new instances of pathlib.Path

@@ -1,9 +1,8 @@
+import attr
 import pytest
 
-import attr
-
-from ..testing import assert_checkpoints
 from .. import abc as tabc
+from ..testing import assert_checkpoints
 
 
 async def test_AsyncResource_defaults():

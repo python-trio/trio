@@ -1,19 +1,18 @@
-import pytest
-
 from functools import partial
 
 import attr
+import pytest
 
 import trio
-from trio.socket import AF_INET, SOCK_STREAM, IPPROTO_TCP
 import trio.testing
-from .test_ssl import client_ctx, SERVER_CTX
+from trio.socket import AF_INET, IPPROTO_TCP, SOCK_STREAM
 
 from .._highlevel_ssl_helpers import (
-    open_ssl_over_tcp_stream,
     open_ssl_over_tcp_listeners,
+    open_ssl_over_tcp_stream,
     serve_ssl_over_tcp,
 )
+from .test_ssl import SERVER_CTX, client_ctx
 
 
 async def echo_handler(stream):

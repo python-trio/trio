@@ -1,9 +1,8 @@
 import operator
 
-from .. import _core
+from .. import _core, _util
 from .._highlevel_generic import StapledStream
-from .. import _util
-from ..abc import SendStream, ReceiveStream
+from ..abc import ReceiveStream, SendStream
 
 ################################################################
 # In-memory streams - Unbounded buffer version

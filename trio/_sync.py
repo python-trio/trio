@@ -5,7 +5,7 @@ import attr
 import trio
 
 from . import _core
-from ._core import enable_ki_protection, ParkingLot
+from ._core import ParkingLot, enable_ki_protection
 from ._util import Final
 
 

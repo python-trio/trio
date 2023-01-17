@@ -1,9 +1,10 @@
-from math import inf
 import time
+from math import inf
 
 import pytest
 
 from trio import sleep
+
 from ... import _core
 from .. import wait_all_tasks_blocked
 from .._mock_clock import MockClock

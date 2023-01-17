@@ -1,7 +1,8 @@
 import logging
 import types
+from typing import Any, Callable, Dict, Iterator, List, Sequence, TypeVar
+
 import attr
-from typing import Any, Callable, Dict, List, Sequence, Iterator, TypeVar
 
 from .._abc import Instrument
 

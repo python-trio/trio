@@ -13,93 +13,58 @@
 # This file pulls together the friendly public API, by re-exporting the more
 # innocuous bits of the _core API + the higher-level tools from trio/*.py.
 
-from ._version import __version__
-
+# Submodules imported by default
+from . import abc, from_thread, lowlevel, socket, to_thread
+from ._channel import MemoryReceiveChannel, MemorySendChannel, open_memory_channel
 from ._core import (
-    TrioInternalError,
-    RunFinishedError,
-    WouldBlock,
-    Cancelled,
-    BusyResourceError,
-    ClosedResourceError,
-    run,
-    open_nursery,
-    CancelScope,
-    current_effective_deadline,
     TASK_STATUS_IGNORED,
-    current_time,
     BrokenResourceError,
+    BusyResourceError,
+    Cancelled,
+    CancelScope,
+    ClosedResourceError,
     EndOfChannel,
     Nursery,
+    RunFinishedError,
+    TrioInternalError,
+    WouldBlock,
+    current_effective_deadline,
+    current_time,
+    open_nursery,
+    run,
 )
-
-from ._timeouts import (
-    move_on_at,
-    move_on_after,
-    sleep_forever,
-    sleep_until,
-    sleep,
-    fail_at,
-    fail_after,
-    TooSlowError,
-)
-
-from ._sync import (
-    Event,
-    CapacityLimiter,
-    Semaphore,
-    Lock,
-    StrictFIFOLock,
-    Condition,
-)
-
-from ._highlevel_generic import aclose_forcefully, StapledStream
-
-from ._channel import (
-    open_memory_channel,
-    MemorySendChannel,
-    MemoryReceiveChannel,
-)
-
-from ._signals import open_signal_receiver
-
-from ._highlevel_socket import SocketStream, SocketListener
-
-from ._file_io import open_file, wrap_file
-
-from ._path import Path
-
-from ._subprocess import Process, run_process
-
-from ._ssl import SSLStream, SSLListener, NeedHandshakeError
-
-from ._dtls import DTLSEndpoint, DTLSChannel
-
-from ._highlevel_serve_listeners import serve_listeners
-
-from ._highlevel_open_tcp_stream import open_tcp_stream
-
-from ._highlevel_open_tcp_listeners import open_tcp_listeners, serve_tcp
-
-from ._highlevel_open_unix_stream import open_unix_socket
-
-from ._highlevel_ssl_helpers import (
-    open_ssl_over_tcp_stream,
-    open_ssl_over_tcp_listeners,
-    serve_ssl_over_tcp,
-)
-
 from ._core._multierror import MultiError as _MultiError
 from ._core._multierror import NonBaseMultiError as _NonBaseMultiError
-
 from ._deprecate import TrioDeprecationWarning
-
-# Submodules imported by default
-from . import lowlevel
-from . import socket
-from . import abc
-from . import from_thread
-from . import to_thread
+from ._dtls import DTLSChannel, DTLSEndpoint
+from ._file_io import open_file, wrap_file
+from ._highlevel_generic import StapledStream, aclose_forcefully
+from ._highlevel_open_tcp_listeners import open_tcp_listeners, serve_tcp
+from ._highlevel_open_tcp_stream import open_tcp_stream
+from ._highlevel_open_unix_stream import open_unix_socket
+from ._highlevel_serve_listeners import serve_listeners
+from ._highlevel_socket import SocketListener, SocketStream
+from ._highlevel_ssl_helpers import (
+    open_ssl_over_tcp_listeners,
+    open_ssl_over_tcp_stream,
+    serve_ssl_over_tcp,
+)
+from ._path import Path
+from ._signals import open_signal_receiver
+from ._ssl import NeedHandshakeError, SSLListener, SSLStream
+from ._subprocess import Process, run_process
+from ._sync import CapacityLimiter, Condition, Event, Lock, Semaphore, StrictFIFOLock
+from ._timeouts import (
+    TooSlowError,
+    fail_after,
+    fail_at,
+    move_on_after,
+    move_on_at,
+    sleep,
+    sleep_forever,
+    sleep_until,
+)
+from ._version import __version__
 
 # Not imported by default, but mentioned here so static analysis tools like
 # pylint will know that it exists.

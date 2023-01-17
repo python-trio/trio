@@ -1,14 +1,14 @@
 import errno
-import select
 import os
-import tempfile
+import select
 import sys
+import tempfile
 
 import pytest
 
-from .._core.tests.tutil import gc_collect_harder, skip_if_fbsd_pipes_broken
 from .. import _core, move_on_after
-from ..testing import wait_all_tasks_blocked, check_one_way_stream
+from .._core.tests.tutil import gc_collect_harder, skip_if_fbsd_pipes_broken
+from ..testing import check_one_way_stream, wait_all_tasks_blocked
 
 posix = os.name == "posix"
 pytestmark = pytest.mark.skipif(not posix, reason="posix only")

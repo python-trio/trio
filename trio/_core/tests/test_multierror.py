@@ -1,24 +1,19 @@
 import gc
 import logging
 import os
+import re
 import subprocess
+import sys
 from pathlib import Path
+from traceback import _cause_message  # type: ignore
+from traceback import extract_tb, format_exception, print_exception
 
 import pytest
 
-from traceback import (
-    extract_tb,
-    print_exception,
-    format_exception,
-)
-from traceback import _cause_message  # type: ignore
-import sys
-import re
-
-from .tutil import slow
-from .._multierror import MultiError, concat_tb, NonBaseMultiError
 from ... import TrioDeprecationWarning
 from ..._core import open_nursery
+from .._multierror import MultiError, NonBaseMultiError, concat_tb
+from .tutil import slow
 
 if sys.version_info < (3, 11):
     from exceptiongroup import ExceptionGroup

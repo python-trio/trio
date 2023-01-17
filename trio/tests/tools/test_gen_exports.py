@@ -1,15 +1,12 @@
 import ast
-import astor
-import pytest
 import os
 import sys
-
 from shutil import copyfile
-from trio._tools.gen_exports import (
-    get_public_methods,
-    create_passthrough_args,
-    process,
-)
+
+import astor
+import pytest
+
+from trio._tools.gen_exports import create_passthrough_args, get_public_methods, process
 
 SOURCE = '''from _run import _public
 

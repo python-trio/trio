@@ -11,7 +11,7 @@ import attr
 from .._util import is_main_thread
 
 if TYPE_CHECKING:
-    from typing import Any, TypeVar, Callable
+    from typing import Any, Callable, TypeVar
 
     F = TypeVar("F", bound=Callable[..., Any])
 

@@ -1,22 +1,23 @@
-import outcome
-import pytest
-import sys
+import contextlib
+import inspect
 import os
 import signal
+import sys
 import threading
-import contextlib
 import time
-import inspect
+
+import outcome
+import pytest
 
 try:
-    from async_generator import yield_, async_generator
+    from async_generator import async_generator, yield_
 except ImportError:  # pragma: no cover
     async_generator = yield_ = None
 
 from ... import _core
-from ...testing import wait_all_tasks_blocked
-from ..._util import signal_raise, is_main_thread
 from ..._timeouts import sleep
+from ..._util import is_main_thread, signal_raise
+from ...testing import wait_all_tasks_blocked
 from .tutil import slow
 
 

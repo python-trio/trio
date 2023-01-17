@@ -70,8 +70,9 @@
 #
 # See: https://github.com/python-trio/trio/issues/53
 
-import attr
 from collections import OrderedDict
+
+import attr
 
 from .. import _core
 from .._util import Final

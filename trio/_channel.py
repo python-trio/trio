@@ -1,14 +1,14 @@
-from collections import deque, OrderedDict
+from collections import OrderedDict, deque
 from math import inf
 
 import attr
 from outcome import Error, Value
 
-from .abc import SendChannel, ReceiveChannel, Channel
-from ._util import generic_function, NoPublicConstructor
-
 import trio
+
 from ._core import enable_ki_protection
+from ._util import NoPublicConstructor, generic_function
+from .abc import Channel, ReceiveChannel, SendChannel
 
 
 @generic_function
