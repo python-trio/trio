@@ -13,8 +13,7 @@ import enum
 from contextvars import copy_context
 from math import inf
 from time import perf_counter
-from typing import Callable, NoReturn, TypeVar, TYPE_CHECKING
-from typing import Deque
+from typing import Any, Deque, NoReturn, TypeVar, TYPE_CHECKING
 
 # An unfortunate name collision here with trio._util.Final
 from typing_extensions import Final as FinalT
@@ -48,19 +47,23 @@ from ._instrumentation import Instruments
 from .. import _core
 from .._util import Final, NoPublicConstructor, coroutine_or_error
 
+if sys.version_info < (3, 9):
+    from typing import Callable
+else:
+    from collections.abc import Callable
+
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
-
-T = TypeVar("T")
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: FinalT = 1000
 
 _NO_SEND: FinalT = object()
 
+FnT = TypeVar("FnT", bound=Callable[..., Any])
 
 # Decorator to mark methods public. This does nothing by itself, but
 # trio/_tools/gen_exports.py looks for it.
-def _public(fn: T) -> T:
+def _public(fn: FnT) -> FnT:
     return fn
 
 
@@ -122,18 +125,18 @@ class SystemClock:
     # Add a large random offset to our clock to ensure that if people
     # accidentally call time.perf_counter() directly or start comparing clocks
     # between different runs, then they'll notice the bug quickly:
-    offset = attr.ib(factory=lambda: _r.uniform(10000, 200000))
+    offset: float = attr.ib(factory=lambda: _r.uniform(10000, 200000))
 
-    def start_clock(self):
+    def start_clock(self) -> None:
         pass
 
     # In cPython 3, on every platform except Windows, perf_counter is
     # exactly the same as time.monotonic; and on Windows, it uses
     # QueryPerformanceCounter instead of GetTickCount64.
-    def current_time(self):
+    def current_time(self) -> float:
         return self.offset + perf_counter()
 
-    def deadline_to_sleep_time(self, deadline):
+    def deadline_to_sleep_time(self, deadline: float) -> float:
         return deadline - self.current_time()
 
 
