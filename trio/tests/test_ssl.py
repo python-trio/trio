@@ -354,28 +354,28 @@ async def test_PyOpenSSLEchoStream_gives_resource_busy_errors():
     # PyOpenSSLEchoStream will notice and complain.
 
     s = PyOpenSSLEchoStream()
-    with pytest.raises(_core.BusyResourceError) as excinfo:
+    with pytest.raises(_core._multierror.NonBaseMultiError) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(s.send_all, b"x")
             nursery.start_soon(s.send_all, b"x")
     assert "simultaneous" in str(excinfo.value)
 
     s = PyOpenSSLEchoStream()
-    with pytest.raises(_core.BusyResourceError) as excinfo:
+    with pytest.raises(_core._multierror.NonBaseMultiError) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(s.send_all, b"x")
             nursery.start_soon(s.wait_send_all_might_not_block)
     assert "simultaneous" in str(excinfo.value)
 
     s = PyOpenSSLEchoStream()
-    with pytest.raises(_core.BusyResourceError) as excinfo:
+    with pytest.raises(_core._multierror.NonBaseMultiError) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(s.wait_send_all_might_not_block)
             nursery.start_soon(s.wait_send_all_might_not_block)
     assert "simultaneous" in str(excinfo.value)
 
     s = PyOpenSSLEchoStream()
-    with pytest.raises(_core.BusyResourceError) as excinfo:
+    with pytest.raises(_core._multierror.NonBaseMultiError) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(s.receive_some, 1)
             nursery.start_soon(s.receive_some, 1)
@@ -732,28 +732,28 @@ async def test_resource_busy_errors(client_ctx):
             await s.wait_send_all_might_not_block()
 
     s, _ = ssl_lockstep_stream_pair(client_ctx)
-    with pytest.raises(_core.BusyResourceError) as excinfo:
+    with pytest.raises(_core._multierror.NonBaseMultiError) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(do_send_all)
             nursery.start_soon(do_send_all)
     assert "another task" in str(excinfo.value)
 
     s, _ = ssl_lockstep_stream_pair(client_ctx)
-    with pytest.raises(_core.BusyResourceError) as excinfo:
+    with pytest.raises(_core._multierror.NonBaseMultiError) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(do_receive_some)
             nursery.start_soon(do_receive_some)
     assert "another task" in str(excinfo.value)
 
     s, _ = ssl_lockstep_stream_pair(client_ctx)
-    with pytest.raises(_core.BusyResourceError) as excinfo:
+    with pytest.raises(_core._multierror.NonBaseMultiError) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(do_send_all)
             nursery.start_soon(do_wait_send_all_might_not_block)
     assert "another task" in str(excinfo.value)
 
     s, _ = ssl_lockstep_stream_pair(client_ctx)
-    with pytest.raises(_core.BusyResourceError) as excinfo:
+    with pytest.raises(_core._multierror.NonBaseMultiError) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(do_wait_send_all_might_not_block)
             nursery.start_soon(do_wait_send_all_might_not_block)

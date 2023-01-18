@@ -65,7 +65,7 @@ async def test_catch_signals_wrong_thread():
 
 
 async def test_open_signal_receiver_conflict():
-    with pytest.raises(trio.BusyResourceError):
+    with pytest.raises(_core._multierror.NonBaseMultiError):
         with open_signal_receiver(signal.SIGILL) as receiver:
             async with trio.open_nursery() as nursery:
                 nursery.start_soon(receiver.__anext__)
