@@ -19,6 +19,7 @@ jobs:
         lsp: ['']
         lsp_extract_file: ['']
         extra_name: ['']
+        pypy_nightly_branch: ['']
         include:
           - python: '3.8'
             arch: 'x64'
@@ -64,6 +65,7 @@ jobs:
         env:
           LSP: '${{ matrix.lsp }}'
           LSP_EXTRACT_FILE: '${{ matrix.lsp_extract_file }}'
+          PYPY_NIGHTLY_BRANCH: '${{ matrix.pypy_nightly_branch }}'
           # Should match 'name:' up above
           JOB_NAME: 'Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})'
 
@@ -122,16 +124,17 @@ jobs:
           JOB_NAME: 'Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})'
 
   macOS:
-    name: 'macOS (${{ matrix.python }})'
+    name: 'macOS (${{ matrix.python }}${{ matrix.extra_name }})'
     timeout-minutes: 10
     runs-on: 'macos-latest'
     strategy:
       fail-fast: false
       matrix:
         python: ['3.7', '3.8', '3.9', '3.10']
+        pypy_nightly_branch: ['']
+        extra_name: ['']
         include:
           - python: '3.8'  # <- not actually used
-            arch: 'x64'
             pypy_nightly_branch: 'py3.8'
             extra_name: ', pypy 3.8 nightly'
     steps:
@@ -146,8 +149,10 @@ jobs:
       - name: Run tests
         run: ./ci.sh
         env:
+          PYPY_NIGHTLY_BRANCH: '${{ matrix.pypy_nightly_branch }}'
+
           # Should match 'name:' up above
-          JOB_NAME: 'macOS (${{ matrix.python }})'
+          JOB_NAME: 'macOS (${{ matrix.python }}#{{ matrix.extra_name }})'
 
   # https://github.com/marketplace/actions/alls-green#why
   check:  # This job does nothing and is only used for the branch protection
