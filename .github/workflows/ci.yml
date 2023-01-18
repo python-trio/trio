@@ -152,7 +152,7 @@ jobs:
           PYPY_NIGHTLY_BRANCH: '${{ matrix.pypy_nightly_branch }}'
 
           # Should match 'name:' up above
-          JOB_NAME: 'macOS (${{ matrix.python }}#{{ matrix.extra_name }})'
+          JOB_NAME: 'macOS (${{ matrix.python }}${{ matrix.extra_name }})'
 
   # https://github.com/marketplace/actions/alls-green#why
   check:  # This job does nothing and is only used for the branch protection
