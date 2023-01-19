@@ -10,9 +10,78 @@ concurrency:
   group: ${{ github.ref }}-${{ github.workflow }}-${{ github.event_name }}${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && format('-{0}', github.sha) || '' }}
   cancel-in-progress: true
 
+env:
+  dists-artifact-name: python-package-distributions
+  dist-name: trio
+
 jobs:
+  build:
+    name: 👷 dists
+
+    runs-on: ubuntu-latest
+
+    outputs:
+      dist-version: ${{ steps.dist-version.outputs.version }}
+      sdist-artifact-name: ${{ steps.artifact-name.outputs.sdist }}
+      wheel-artifact-name: ${{ steps.artifact-name.outputs.wheel }}
+
+    steps:
+      - name: Switch to using Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+
+      - name: Grab the source from Git
+        uses: actions/checkout@v3
+
+      - name: Get the dist version
+        id: dist-version
+        run: >-
+          echo "version=$(
+          grep ^__version__ trio/_version.py
+          | sed 's/__version__ = "\([^"]\+\)"/\1/'
+          )"
+          >> "${GITHUB_OUTPUT}"
+
+      - name: Set the expected dist artifact names
+        id: artifact-name
+        run: |
+          echo 'sdist=${{ env.dist-name }}-*.tar.gz' >> "${GITHUB_OUTPUT}"
+          echo 'wheel=${{
+            env.dist-name
+          }}-*-py3-none-any.whl' >> "${GITHUB_OUTPUT}"
+
+      - name: Install build
+        run: >-
+          python -m
+          pip install
+          --user
+          'build ~= 0.10.0'
+
+      - name: Build dists
+        run: python -m build
+      - name: Verify that the artifacts with expected names got created
+        run: >-
+          ls -1
+          dist/${{ steps.artifact-name.outputs.sdist }}
+          dist/${{ steps.artifact-name.outputs.wheel }}
+      - name: Store the distribution packages
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.dists-artifact-name }}
+          # NOTE: Exact expected file names are specified here
+          # NOTE: as a safety measure — if anything weird ends
+          # NOTE: up being in this dir or not all dists will be
+          # NOTE: produced, this will fail the workflow.
+          path: |
+            dist/${{ steps.artifact-name.outputs.sdist }}
+            dist/${{ steps.artifact-name.outputs.wheel }}
+          retention-days: 5
   Windows:
     name: 'Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})'
+    needs:
+      - build
+
     timeout-minutes: 20
     runs-on: 'windows-latest'
     strategy:
@@ -54,8 +123,11 @@ jobs:
         || false
       }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - name: Retrieve the project source from an sdist inside the GHA artifact
+        uses: re-actors/checkout-python-sdist@release/v1
+        with:
+          source-tarball-name: ${{ needs.build.outputs.sdist-artifact-name }}
+          workflow-artifact-name: ${{ env.dists-artifact-name }}
       - name: Setup python
         uses: actions/setup-python@v4
         with:
@@ -86,6 +158,9 @@ jobs:
 
   Ubuntu:
     name: 'Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})'
+    needs:
+      - build
+
     timeout-minutes: 10
     runs-on: 'ubuntu-latest'
     strategy:
@@ -109,8 +184,11 @@ jobs:
         || false
       }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - name: Retrieve the project source from an sdist inside the GHA artifact
+        uses: re-actors/checkout-python-sdist@release/v1
+        with:
+          source-tarball-name: ${{ needs.build.outputs.sdist-artifact-name }}
+          workflow-artifact-name: ${{ env.dists-artifact-name }}
       - name: Setup python
         uses: actions/setup-python@v4
         if: "!endsWith(matrix.python, '-dev')"
@@ -136,6 +214,9 @@ jobs:
 
   macOS:
     name: 'macOS (${{ matrix.python }})'
+    needs:
+      - build
+
     timeout-minutes: 15
     runs-on: 'macos-latest'
     strategy:
@@ -152,8 +233,11 @@ jobs:
         || false
       }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - name: Retrieve the project source from an sdist inside the GHA artifact
+        uses: re-actors/checkout-python-sdist@release/v1
+        with:
+          source-tarball-name: ${{ needs.build.outputs.sdist-artifact-name }}
+          workflow-artifact-name: ${{ env.dists-artifact-name }}
       - name: Setup python
         uses: actions/setup-python@v4
         with:
