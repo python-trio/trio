@@ -818,13 +818,22 @@ def test_run_fn_as_system_task_catched_badly_typed_token():
         from_thread_run_sync(_core.current_time, trio_token="Not TrioTokentype")
 
 
-async def test_from_thread_inside_trio_thread():
+async def test_from_thread_inside_same_trio_thread():
     def not_called():  # pragma: no cover
         assert False
 
     trio_token = _core.current_trio_token()
     with pytest.raises(RuntimeError):
         from_thread_run_sync(not_called, trio_token=trio_token)
+
+
+async def test_from_thread_inside_different_trio_thread():
+    target_token = current_trio_token()
+
+    async def thread_fn():
+        return from_thread_run_sync(current_trio_token, trio_token=target_token)
+
+    assert target_token == await to_thread_run_sync(_core.run, thread_fn)
 
 
 @pytest.mark.skipif(buggy_pypy_asyncgens, reason="pypy 7.2.0 is buggy")
