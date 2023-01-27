@@ -6,7 +6,7 @@
 #
 astor==0.8.1
     # via -r test-requirements.in
-astroid==2.11.7
+astroid==2.13.3
     # via pylint
 async-generator==1.10
     # via -r test-requirements.in
@@ -96,7 +96,7 @@ pyflakes==2.4.0
     # via flake8
 pygments==2.14.0
     # via ipython
-pylint==2.14.5
+pylint==2.15.10
     # via -r test-requirements.in
 pyopenssl==23.0.0
     # via -r test-requirements.in
