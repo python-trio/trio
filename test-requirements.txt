@@ -35,7 +35,7 @@ decorator==5.1.1
     # via ipython
 dill==0.3.6
     # via pylint
-flake8==4.0.1
+flake8==6.0.0
     # via -r test-requirements.in
 idna==3.4
     # via
@@ -55,7 +55,7 @@ lazy-object-proxy==1.9.0
     # via astroid
 matplotlib-inline==0.1.6
     # via ipython
-mccabe==0.6.1
+mccabe==0.7.0
     # via
     #   flake8
     #   pylint
@@ -88,11 +88,11 @@ prompt-toolkit==3.0.33
     # via ipython
 ptyprocess==0.7.0
     # via pexpect
-pycodestyle==2.8.0
+pycodestyle==2.10.0
     # via flake8
 pycparser==2.21
     # via cffi
-pyflakes==2.4.0
+pyflakes==3.0.1
     # via flake8
 pygments==2.14.0
     # via ipython
