@@ -55,6 +55,7 @@ from ._run import (
 from ._traps import (
     cancel_shielded_checkpoint,
     Abort,
+    RaiseCancelT,
     wait_task_rescheduled,
     temporarily_detach_coroutine_object,
     permanently_detach_coroutine_object,
