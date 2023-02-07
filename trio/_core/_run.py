@@ -23,9 +23,6 @@ from outcome import Error, Outcome, Value, capture
 from sniffio import current_async_library_cvar
 from sortedcontainers import SortedDict
 
-# An unfortunate name collision here with trio._util.Final
-from typing_extensions import Final as FinalT
-
 from .. import _core
 from .._util import Final, NoPublicConstructor, coroutine_or_error
 from ._asyncgens import AsyncGenerators
@@ -46,6 +43,10 @@ from ._traps import (
 
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
+
+if TYPE_CHECKING:
+    # An unfortunate name collision here with trio._util.Final
+    from typing_extensions import Final as FinalT
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: FinalT = 1000
 

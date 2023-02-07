@@ -8,6 +8,7 @@ import outcome
 
 from . import _run
 
+from typing import Callable, NoReturn, Any
 
 # Helper for the bottommost 'yield'. You can't use 'yield' inside an async
 # function, but you can inside a generator, and if you decorate your generator
@@ -64,7 +65,11 @@ class WaitTaskRescheduled:
     abort_func = attr.ib()
 
 
-async def wait_task_rescheduled(abort_func):
+RaiseCancelT = Callable[[], NoReturn]  # TypeAlias
+
+# Should always return the type a Task "expects", unless you willfully reschedule it
+# with a bad value.
+async def wait_task_rescheduled(abort_func: Callable[[RaiseCancelT], Abort]) -> Any:
     """Put the current task to sleep, with cancellation support.
 
     This is the lowest-level API for blocking in Trio. Every time a
