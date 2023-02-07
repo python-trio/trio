@@ -27,51 +27,6 @@ function curl-harder() {
 }
 
 ################################################################
-# Bootstrap python environment, if necessary
-################################################################
-
-### PyPy nightly ###
-
-if [ "$PYPY_NIGHTLY_BRANCH" != "" ]; then
-    JOB_NAME="pypy_nightly_${PYPY_NIGHTLY_BRANCH}"
-    PYPY_PLATFORM="$(python -c "import sys; print({'linux': 'linux64', 'win32': 'win64', 'darwin': 'macos_x86_64'}[sys.platform])")"
-    PYPY_EXTENSION="$(python -c "import sys; print('.zip' if sys.platform == 'win32' else '.tar.bz2')")"
-    PYPY_BINARY="$(python -c "import sys; print('pypy3.exe' if sys.platform == 'win32' else 'bin/pypy3')")"
-    VENV_ACTIVATE="$(python -c "import sys; print('Scripts/activate' if sys.platform == 'win32' else 'bin/activate')")"
-
-    curl-harder -o pypy${PYPY_EXTENSION} "http://buildbot.pypy.org/nightly/${PYPY_NIGHTLY_BRANCH}/pypy-c-jit-latest-${PYPY_PLATFORM}${PYPY_EXTENSION}"
-    if [ ! -s pypy${PYPY_EXTENSION} ]; then
-        # We know:
-        # - curl succeeded (200 response code)
-        # - nonetheless, pypy.tar.bz2 does not exist, or contains no data
-        # This isn't going to work, and the failure is not informative of
-        # anything involving Trio.
-        ls -l
-        echo "PyPy3 nightly build failed to download – something is wrong on their end."
-        echo "Skipping testing against the nightly build for right now."
-        exit 0
-    fi
-
-    if [ $PYPY_EXTENSION = ".zip" ]; then
-        unzip pypy.zip
-    else
-        tar xf pypy.tar.bz2
-    fi
-
-    # something like "pypy-c-jit-89963-748aa3022295-linux64"
-    PYPY_DIR=$(echo pypy-c-jit-*)
-    PYTHON_EXE=$PYPY_DIR/$PYPY_BINARY
-
-    if ! ($PYTHON_EXE -m ensurepip \
-              && $PYTHON_EXE -m pip install virtualenv \
-              && $PYTHON_EXE -m virtualenv testenv); then
-        echo "pypy nightly is broken; skipping tests"
-        exit 0
-    fi
-    source testenv/$VENV_ACTIVATE
-fi
-
-################################################################
 # We have a Python environment!
 ################################################################
 

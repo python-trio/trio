@@ -72,7 +72,6 @@ jobs:
       matrix:
         python: ['pypy-3.7', 'pypy-3.8', '3.7', '3.8', '3.9', '3.10', '3.11-dev', 'pypy-3.8-nightly', 'pypy-3.9-nightly']
         check_formatting: ['0']
-        pypy_nightly_branch: ['']
         extra_name: ['']
         include:
           - python: '3.8'
@@ -117,7 +116,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.7', '3.8', '3.9', '3.10', '3.8-nightly']
+        python: ['3.7', '3.8', '3.9', '3.10', 'pypy-3.8-nightly']
         extra_name: ['']
     steps:
       - name: Checkout
