@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.7', '3.8', '3.9', '3.10', 'pypy-3.8-nightly']
+        python: ['3.7', '3.8', '3.9', '3.10', 'pypy-3.8-nightly', 'pypy-3.9-nightly']
         arch: ['x86', 'x64']
         lsp: ['']
         lsp_extract_file: ['']
@@ -35,7 +35,15 @@ jobs:
           #  lsp: 'http://download.pctools.com/mirror/updates/9.0.0.2308-SDavfree-lite_en.exe'
           #  lsp_extract_file: ''
           #  extra_name: ', with non-IFS LSP'
-
+    continue-on-error: >-
+      ${{
+        (
+          endsWith(matrix.python, '-dev')
+          || endsWith(matrix.python, '-nightly')
+        )
+        && true
+        || false
+      }}
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -116,8 +124,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.7', '3.8', '3.9', '3.10', 'pypy-3.8-nightly']
-        extra_name: ['']
+        python: ['3.7', '3.8', '3.9', '3.10', 'pypy-3.8-nightly', 'pypy-3.9-nightly']
+    continue-on-error: >-
+      ${{
+        (
+          endsWith(matrix.python, '-dev')
+          || endsWith(matrix.python, '-nightly')
+        )
+        && true
+        || false
+      }}
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -131,7 +147,7 @@ jobs:
         run: ./ci.sh
         env:
           # Should match 'name:' up above
-          JOB_NAME: 'macOS (${{ matrix.python }}${{ matrix.extra_name }})'
+          JOB_NAME: 'macOS (${{ matrix.python }})'
 
   # https://github.com/marketplace/actions/alls-green#why
   check:  # This job does nothing and is only used for the branch protection
