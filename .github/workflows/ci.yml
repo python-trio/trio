@@ -120,6 +120,14 @@ jobs:
           CHECK_FORMATTING: '${{ matrix.check_formatting }}'
           # Should match 'name:' up above
           JOB_NAME: 'Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})'
+      - name: Commit autoformatter changes
+        continue-on-error: true
+        if: failure() && matrix.check_formatting == '1' && github.actor == 'dependabot[bot]'
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git commit -am "Autoformatter changes"
+          git push
 
   macOS:
     name: 'macOS (${{ matrix.python }})'
