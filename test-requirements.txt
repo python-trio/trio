@@ -124,7 +124,7 @@ typing-extensions==4.4.0 ; implementation_name == "cpython"
     # via
     #   -r test-requirements.in
     #   mypy
-wcwidth==0.2.5
+wcwidth==0.2.6
     # via prompt-toolkit
 wrapt==1.14.1
     # via astroid
