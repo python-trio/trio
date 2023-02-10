@@ -28,6 +28,14 @@ mypy -m trio -m trio.testing --platform linux || EXIT_STATUS=$?
 mypy -m trio -m trio.testing --platform darwin || EXIT_STATUS=$?  # tests FreeBSD too
 mypy -m trio -m trio.testing --platform win32 || EXIT_STATUS=$?
 
+# Check pip compile is consistent
+pip-compile test-requirements.in
+pip-compile docs-requirements.in
+
+if git status --porcelain | grep -q "requirements.txt"; then
+    EXIT_STATUS=1
+fi
+
 # Finally, leave a really clear warning of any issues and exit
 if [ $EXIT_STATUS -ne 0 ]; then
     cat <<EOF
