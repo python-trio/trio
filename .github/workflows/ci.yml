@@ -124,8 +124,8 @@ jobs:
         continue-on-error: true
         if: failure() && matrix.check_formatting == '1' && github.actor == 'dependabot[bot]'
         run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -am "Autoformatter changes"
           git push
 
