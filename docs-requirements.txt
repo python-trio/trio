@@ -68,7 +68,7 @@ sphinx==3.3.1
     #   -r docs-requirements.in
     #   sphinx-rtd-theme
     #   sphinxcontrib-trio
-sphinx-rtd-theme==1.1.1
+sphinx-rtd-theme==1.2.0
     # via -r docs-requirements.in
 sphinxcontrib-applehelp==1.0.4
     # via sphinx
@@ -76,6 +76,8 @@ sphinxcontrib-devhelp==1.0.2
     # via sphinx
 sphinxcontrib-htmlhelp==2.0.1
     # via sphinx
+sphinxcontrib-jquery==2.0.0
+    # via sphinx-rtd-theme
 sphinxcontrib-jsmath==1.0.1
     # via sphinx
 sphinxcontrib-qthelp==1.0.3
@@ -84,8 +86,6 @@ sphinxcontrib-serializinghtml==1.1.5
     # via sphinx
 sphinxcontrib-trio==1.1.2
     # via -r docs-requirements.in
-tomli==2.0.1
-    # via towncrier
 towncrier==22.12.0
     # via -r docs-requirements.in
 urllib3==1.26.14

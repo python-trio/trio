@@ -33,6 +33,7 @@ pip-compile test-requirements.in
 pip-compile docs-requirements.in
 
 if git status --porcelain | grep -q "requirements.txt"; then
+    git status --porcelain
     EXIT_STATUS=1
 fi
 
