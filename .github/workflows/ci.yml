@@ -6,6 +6,12 @@ on:
       - "dependabot/**"
   pull_request:
 
+# https://docs.github.com/en/code-security/dependabot/working-with-dependabot/automating-dependabot-with-github-actions#changing-github_token-permissions
+permissions:
+  pull-requests: write
+  issues: write
+  repository-projects: write
+
 jobs:
   Windows:
     name: 'Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})'
