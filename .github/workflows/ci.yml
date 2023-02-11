@@ -101,6 +101,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.ref  }}
       - name: Setup python
         uses: actions/setup-python@v2
         if: "!endsWith(matrix.python, '-dev')"
@@ -124,10 +126,11 @@ jobs:
         continue-on-error: true
         if: failure() && matrix.check_formatting == '1' && github.actor == 'dependabot[bot]'
         run: |
+          black setup.py trio
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -am "Autoformatter changes"
-          git push origin "HEAD:${GITHUB_HEAD_REF}"
+          git push
 
   macOS:
     name: 'macOS (${{ matrix.python }})'
