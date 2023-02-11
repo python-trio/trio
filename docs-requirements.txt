@@ -86,6 +86,8 @@ sphinxcontrib-serializinghtml==1.1.5
     # via sphinx
 sphinxcontrib-trio==1.1.2
     # via -r docs-requirements.in
+tomli==2.0.1
+    # via towncrier
 towncrier==22.12.0
     # via -r docs-requirements.in
 urllib3==1.26.14
