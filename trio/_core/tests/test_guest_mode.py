@@ -17,6 +17,7 @@ import trio.testing
 from .tutil import gc_collect_harder, buggy_pypy_asyncgens, restore_unraisablehook
 from ..._util import signal_raise
 
+
 # The simplest possible "host" loop.
 # Nice features:
 # - we can run code "outside" of trio using the schedule function passed to
@@ -227,6 +228,7 @@ def test_host_wakeup_doesnt_trigger_wait_all_tasks_blocked():
         async def get_woken_by_host_deadline(watb_cscope):
             with trio.CancelScope() as cscope:
                 print("scheduling stuff to happen")
+
                 # Altering the deadline from the host, to something in the
                 # future, will cause the run loop to wake up, but then
                 # discover that there is nothing to do and go back to sleep.
