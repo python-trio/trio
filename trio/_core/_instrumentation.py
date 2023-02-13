@@ -11,6 +11,7 @@ INSTRUMENT_LOGGER = logging.getLogger("trio.abc.Instrument")
 
 F = TypeVar("F", bound=Callable[..., Any])
 
+
 # Decorator to mark methods public. This does nothing by itself, but
 # trio/_tools/gen_exports.py looks for it.
 def _public(fn: F) -> F:
