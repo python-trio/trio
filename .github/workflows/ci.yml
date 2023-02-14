@@ -19,6 +19,11 @@ jobs:
         lsp: ['']
         lsp_extract_file: ['']
         extra_name: ['']
+        exclude:
+          - python: 'pypy-3.8-nightly'
+            arch: 'x86'
+          - python: 'pypy-3.9-nightly'
+            arch: 'x86'
         include:
           - python: '3.8'
             arch: 'x64'
