@@ -24,7 +24,7 @@ click==8.1.3
     #   towncrier
 click-default-group==1.2.2
     # via towncrier
-docutils==0.17.1
+docutils==0.18.1
     # via
     #   sphinx
     #   sphinx-rtd-theme
@@ -63,7 +63,7 @@ snowballstemmer==2.2.0
     # via sphinx
 sortedcontainers==2.4.0
     # via -r docs-requirements.in
-sphinx==3.3.1
+sphinx==6.1.3
     # via
     #   -r docs-requirements.in
     #   sphinx-rtd-theme
@@ -86,8 +86,6 @@ sphinxcontrib-serializinghtml==1.1.5
     # via sphinx
 sphinxcontrib-trio==1.1.2
     # via -r docs-requirements.in
-tomli==2.0.1
-    # via towncrier
 towncrier==22.12.0
     # via -r docs-requirements.in
 urllib3==1.26.14
