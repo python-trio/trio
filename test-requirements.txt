@@ -109,7 +109,7 @@ pyflakes==2.4.0
     # via flake8
 pygments==2.14.0
     # via ipython
-pylint==2.16.1
+pylint==2.16.2
     # via -r test-requirements.in
 pyopenssl==23.0.0
     # via -r test-requirements.in
