@@ -38,6 +38,8 @@ imagesize==1.4.1
     # via sphinx
 immutables==0.19
     # via -r docs-requirements.in
+importlib-metadata==6.0.0
+    # via sphinx
 incremental==22.10.0
     # via towncrier
 jinja2==3.0.3
@@ -86,10 +88,14 @@ sphinxcontrib-serializinghtml==1.1.5
     # via sphinx
 sphinxcontrib-trio==1.1.2
     # via -r docs-requirements.in
+tomli==2.0.1
+    # via towncrier
 towncrier==22.12.0
     # via -r docs-requirements.in
 urllib3==1.26.14
     # via requests
+zipp==3.13.0
+    # via importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools
