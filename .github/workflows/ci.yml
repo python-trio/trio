@@ -124,7 +124,7 @@ jobs:
 
   macOS:
     name: 'macOS (${{ matrix.python }}${{ matrix.extra_name }})'
-    timeout-minutes: 10
+    timeout-minutes: 15
     runs-on: 'macos-latest'
     strategy:
       fail-fast: false
