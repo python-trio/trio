@@ -313,7 +313,6 @@ def from_thread_run(afn, *args, trio_token=None):
             )
 
     context = contextvars.copy_context()
-    context.run(current_async_library_cvar.set, "trio")
     return _run_fn_as_system_task(
         callback,
         afn,

@@ -1575,6 +1575,10 @@ class Runner:
                 context = self.system_context.copy()
             else:
                 context = copy_context()
+        # start_soon() or spawn_system_task() might have been invoked
+        # from a different async library; make sure the new task
+        # understands it's Trio-flavored.
+        context.run(current_async_library_cvar.set, "trio")
 
         if not hasattr(coro, "cr_frame"):
             # This async function is implemented in C or Cython
@@ -1704,7 +1708,6 @@ class Runner:
           Task: the newly spawned task
 
         """
-        current_async_library_cvar.set("trio")
         return self.spawn_impl(
             async_fn,
             args,
@@ -1955,7 +1958,6 @@ def setup_runner(
     instruments = Instruments(instruments)
     io_manager = TheIOManager()
     system_context = copy_context()
-    system_context.run(current_async_library_cvar.set, "trio")
     ki_manager = KIManager()
 
     runner = Runner(

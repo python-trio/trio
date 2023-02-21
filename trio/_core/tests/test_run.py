@@ -2011,6 +2011,15 @@ def test_sniffio_integration():
     with pytest.raises(sniffio.AsyncLibraryNotFoundError):
         sniffio.current_async_library()
 
+    async def check_new_task_resets_sniffio_library():
+        sniffio.current_async_library_cvar.set("nullio")
+        _core.spawn_system_task(check_inside_trio)
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(check_inside_trio)
+        assert sniffio.current_async_library() == "nullio"
+
+    _core.run(check_new_task_resets_sniffio_library)
+
 
 async def test_Task_custom_sleep_data():
     task = _core.current_task()
