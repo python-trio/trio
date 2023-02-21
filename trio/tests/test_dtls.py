@@ -3,6 +3,7 @@ import trio
 import trio.testing
 from trio import DTLSEndpoint
 import random
+import sys
 import attr
 from contextlib import asynccontextmanager
 from itertools import count
@@ -101,7 +102,8 @@ async def test_smoke(ipv6):
 
 @slow
 async def test_handshake_over_terrible_network(autojump_clock):
-    HANDSHAKES = 1000
+    # PyPy is not fast enough
+    HANDSHAKES = 500 if sys.implementation.name == 'pypy' else 1000
     r = random.Random(0)
     fn = FakeNet()
     fn.enable()
