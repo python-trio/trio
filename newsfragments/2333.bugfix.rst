@@ -1,1 +1,1 @@
-Python raises a `TypeError` if you try to (re-)install a C signal handler.
+Fixed a crash that can occur when running Trio within an embedded Python interpreter, by handling the `TypeError` that is raised when trying to (re-)install a C signal handler.
