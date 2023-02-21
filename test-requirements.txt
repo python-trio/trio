@@ -141,7 +141,7 @@ traitlets==5.9.0
     #   matplotlib-inline
 trustme==0.9.0
     # via -r test-requirements.in
-types-pyopenssl==23.0.0.3 ; implementation_name == "cpython"
+types-pyopenssl==23.0.0.4 ; implementation_name == "cpython"
     # via -r test-requirements.in
 typing-extensions==4.5.0 ; implementation_name == "cpython"
     # via
