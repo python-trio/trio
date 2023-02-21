@@ -103,7 +103,7 @@ async def test_smoke(ipv6):
 @slow
 async def test_handshake_over_terrible_network(autojump_clock):
     # PyPy is not fast enough
-    HANDSHAKES = 500 if sys.implementation.name == 'pypy' else 1000
+    HANDSHAKES = 500 if sys.implementation.name == "pypy" else 1000
     r = random.Random(0)
     fn = FakeNet()
     fn.enable()
