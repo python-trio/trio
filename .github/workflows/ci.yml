@@ -123,7 +123,7 @@ jobs:
           JOB_NAME: 'Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})'
 
   macOS:
-    name: 'macOS (${{ matrix.python }}${{ matrix.extra_name }})'
+    name: 'macOS (${{ matrix.python }})'
     timeout-minutes: 15
     runs-on: 'macos-latest'
     strategy:
