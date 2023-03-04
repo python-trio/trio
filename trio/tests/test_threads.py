@@ -11,8 +11,6 @@ from typing import Callable, Optional
 import pytest
 from sniffio import current_async_library_cvar
 
-from trio._core import TrioToken, current_trio_token
-
 from .. import CapacityLimiter, Event, _core, sleep
 from .._core.tests.test_ki import ki_self
 from .._core.tests.tutil import buggy_pypy_asyncgens
@@ -21,7 +19,6 @@ from .._threads import (
     from_thread_run,
     from_thread_run_sync,
     to_thread_run_sync,
-    from_thread_check_cancelled,
 )
 from ..testing import wait_all_tasks_blocked
 
@@ -880,84 +877,12 @@ async def test_from_thread_reuses_task():
     assert task is await to_thread_run_sync(from_thread_run, async_current_task)
 
 
-async def test_to_thread_reuses_thread():
+async def test_recursive_to_thread():
     tid = None
 
     def get_tid_then_reenter():
         nonlocal tid
-        tid = threading.current_thread()
-        return from_thread_run(to_thread_run_sync, threading.current_thread)
+        tid = threading.get_ident()
+        return from_thread_run(to_thread_run_sync, threading.get_ident)
 
-    assert tid == await to_thread_run_sync(from_thread_run, get_tid_then_reenter)
-
-
-@pytest.mark.parametrize("parties", [1, 2, 3])
-async def test_to_thread_reuses_thread_once_w_nursery(parties):
-    barrier = threading.Barrier(parties)
-    tids = []
-
-    def wait_then_get_tid():
-        barrier.wait(1.0)
-        tids.append(threading.current_thread())
-
-    async def re_reenter():
-        async with _core.open_nursery() as nursery:
-            for _ in range(barrier.parties):
-                nursery.start_soon(to_thread_run_sync, wait_then_get_tid)
-
-    def reenter_then_get_tid():
-        from_thread_run(re_reenter)
-        return threading.current_thread()
-
-    main_tid = await to_thread_run_sync(reenter_then_get_tid)
-    assert tids.count(main_tid) == 1
-
-
-async def test_from_thread_check_cancelled():
-    assert False is await to_thread_run_sync(from_thread_check_cancelled)
-
-
-async def test_cancel_uncancellable_then_check():
-    def in_thread():
-        from_thread_run_sync(cancel_scope.cancel)
-        return from_thread_check_cancelled()
-
-    with _core.CancelScope() as cancel_scope:
-        assert False is await to_thread_run_sync(in_thread)
-
-
-async def test_cancel_cancellable_then_wait_then_check():
-    q = stdlib_queue.SimpleQueue()
-    ev = threading.Event()
-
-    async def foo():
-        pass  # pragma: no cover
-
-    def in_thread():
-        from_thread_run_sync(cancel_scope.cancel)
-        ev.wait(timeout=1.0)
-        q.put(from_thread_check_cancelled())
-        try:
-            from_thread_run_sync(bool)
-        except _core.Cancelled:
-            q.put(True)
-        except BaseException as exc:  # pragma: no cover
-            q.put(exc)
-        else:
-            q.put(False)
-        try:
-            from_thread_run(foo)
-        except _core.Cancelled:
-            q.put(True)
-        except BaseException as exc:  # pragma: no cover
-            q.put(exc)
-        else:
-            q.put(False)
-
-    with _core.CancelScope() as cancel_scope:
-        await to_thread_run_sync(in_thread, cancellable=True)
-    assert cancel_scope.cancelled_caught
-    ev.set()
-    assert True is q.get()
-    assert True is q.get()
-    assert True is q.get()
+    assert tid != await to_thread_run_sync(get_tid_then_reenter)

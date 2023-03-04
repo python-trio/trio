@@ -118,6 +118,7 @@ def _unprotected_fn(fn, args):
 
     return ret
 
+
 @enable_ki_protection
 async def to_thread_run_sync(
     sync_fn, *args, thread_name: Optional[str] = None, cancellable=False, limiter=None
@@ -471,20 +472,3 @@ def from_thread_run_sync(fn, *args, trio_token=None):
         context=context,
         trio_token=trio_token,
     )
-
-
-def from_thread_check_cancelled():
-    """Check if the Trio task that controls this thread has been cancelled.
-
-    This check only works if the thread was spawned by `trio.to_thread.run_sync`.
-
-        Returns:
-            bool: True if `Cancelled` has been raised from the corresponding call
-                to `trio.to_thread.run_sync`, False otherwise.
-
-        Raises:
-             AttributeError: if this thread was not created with
-                 `trio.to_thread.run_sync`.
-    """
-
-    return False
