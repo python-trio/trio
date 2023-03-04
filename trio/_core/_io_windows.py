@@ -20,6 +20,7 @@ from ._windows_cffi import (
     INVALID_HANDLE_VALUE,
     raise_winerror,
     _handle,
+    _check,
     ErrorCodes,
     FileFlags,
     AFDPollFlags,
@@ -178,12 +179,6 @@ class CKeys(enum.IntEnum):
     LATE_CANCEL = 2
     FORCE_WAKEUP = 3
     USER_DEFINED = 4  # and above
-
-
-def _check(success):
-    if not success:
-        raise_winerror()
-    return success
 
 
 def _get_underlying_socket(sock, *, which=WSAIoctls.SIO_BASE_HANDLE):

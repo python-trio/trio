@@ -1,15 +1,18 @@
-import math
-from . import _timeouts
+import weakref
+
 import trio
+from ._core import enable_ki_protection
 from ._core._windows_cffi import (
     ffi,
     kernel32,
     ErrorCodes,
     raise_winerror,
     _handle,
+    _check,
 )
 
 
+@enable_ki_protection
 async def WaitForSingleObject(obj):
     """Async and cancellable variant of WaitForSingleObject. Windows only.
 
@@ -20,6 +23,7 @@ async def WaitForSingleObject(obj):
       OSError: If the handle is invalid, e.g. when it is already closed.
 
     """
+    await trio.lowlevel.checkpoint_if_cancelled()
     # Allow ints or whatever we can convert to a win handle
     handle = _handle(obj)
 
@@ -30,24 +34,36 @@ async def WaitForSingleObject(obj):
     if retcode == ErrorCodes.WAIT_FAILED:
         raise_winerror()
     elif retcode != ErrorCodes.WAIT_TIMEOUT:
+        await trio.lowlevel.cancel_shielded_checkpoint()
         return
 
     # Wait for a thread that waits for two handles: the handle plus a handle
     # that we can use to cancel the thread.
-    cancel_handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
+    cancel_handle = _check(kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL))
+
+    # Close the handle via weakref because (a) managing within Trio had a tricky
+    # race condition (GH-1271) and (b) we don't care precisely when it happens
+    cancel_handle_address = int(ffi.cast("intptr_t", cancel_handle))
+
+    def cleanup():
+        # regenerate the cancel_handle from an int, so we don't create
+        # a reference cycle that keeps cancel_handle alive
+        _check(kernel32.CloseHandle(_handle(cancel_handle_address)))
+
+    weakref.finalize(cancel_handle, cleanup)
+
     try:
         await trio.to_thread.run_sync(
             WaitForMultipleObjects_sync,
             handle,
             cancel_handle,
             cancellable=True,
-            limiter=trio.CapacityLimiter(math.inf),
+            limiter=trio.CapacityLimiter(1),
         )
-    finally:
-        # Clean up our cancel handle. In case we get here because this task was
-        # cancelled, we also want to set the cancel_handle to stop the thread.
-        kernel32.SetEvent(cancel_handle)
-        kernel32.CloseHandle(cancel_handle)
+    except trio.Cancelled:
+        # Clean up our thread. We get here because this task was cancelled,
+        # so we also want to set the cancel handle to stop the thread.
+        _check(kernel32.SetEvent(cancel_handle))
 
 
 def WaitForMultipleObjects_sync(*handles):

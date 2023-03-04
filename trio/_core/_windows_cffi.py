@@ -321,3 +321,9 @@ def raise_winerror(winerror=None, *, filename=None, filename2=None):
         _, msg = ffi.getwinerror(winerror)
     # https://docs.python.org/3/library/exceptions.html#OSError
     raise OSError(0, msg, filename, winerror, filename2)
+
+
+def _check(success):
+    if not success:
+        raise_winerror()
+    return success
