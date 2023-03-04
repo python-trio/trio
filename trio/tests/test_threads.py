@@ -701,7 +701,7 @@ async def test_trio_from_thread_token_kwarg():
     assert callee_token == caller_token
 
 
-async def test_from_thread_no_token():
+def test_from_thread_no_token():
     # Test that a "raw call" to trio.from_thread.run() fails because no token
     # has been provided
 
@@ -833,19 +833,22 @@ def test_from_thread_run_during_shutdown():
     save = []
     record = []
 
-    async def agen():
+    async def agen(token):
         try:
             yield
         finally:
             with pytest.raises(_core.RunFinishedError), _core.CancelScope(shield=True):
-                await to_thread_run_sync(from_thread_run, sleep, 0)
+                await to_thread_run_sync(
+                    partial(from_thread_run, sleep, 0, trio_token=token)
+                )
             record.append("ok")
 
-    async def main():
-        save.append(agen())
+    async def main(use_system_task):
+        save.append(agen(_core.current_trio_token() if use_system_task else None))
         await save[-1].asend(None)
 
-    _core.run(main)
+    _core.run(main, True)  # System nursery will be closed and raise RunFinishedError
+    _core.run(main, False)  # host task will not be rescheduled
     assert record == ["ok"]
 
 

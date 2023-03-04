@@ -65,15 +65,58 @@ class ThreadDone:
 
 @attr.s(frozen=True, eq=False)
 class Run:
-    async_fn = attr.ib()
+    afn = attr.ib()
+    args = attr.ib()
+    context = attr.ib()
     queue = attr.ib(init=False, factory=stdlib_queue.SimpleQueue)
+
+    async def run(self):
+        @disable_ki_protection
+        async def unprotected_afn():
+            coro = coroutine_or_error(self.afn, *self.args)
+            return await coro
+
+        task = trio.lowlevel.current_task()
+        old_context = task.context
+        task.context = self.context.copy()
+        task.context.run(current_async_library_cvar.set, "trio")
+        try:
+            await trio.lowlevel.cancel_shielded_checkpoint()
+            result = await outcome.acapture(unprotected_afn)
+            self.queue.put(result)
+        finally:
+            task.context = old_context
+            await trio.lowlevel.cancel_shielded_checkpoint()
 
 
 @attr.s(frozen=True, eq=False)
 class RunSync:
-    sync_fn = attr.ib()
+    fn = attr.ib()
+    args = attr.ib()
+    context = attr.ib()
     queue = attr.ib(init=False, factory=stdlib_queue.SimpleQueue)
 
+    def run_sync(self):
+        context = self.context.copy()
+        context.run(current_async_library_cvar.set, "trio")
+
+        result = outcome.capture(context.run, _unprotected_fn, self.fn, self.args)
+        self.queue.put(result)
+
+
+@disable_ki_protection
+def _unprotected_fn(fn, args):
+    ret = fn(*args)
+
+    if inspect.iscoroutine(ret):
+        # Manually close coroutine to avoid RuntimeWarnings
+        ret.close()
+        raise TypeError(
+            "Trio expected a sync function, but {!r} appears to be "
+            "asynchronous".format(getattr(fn, "__qualname__", fn))
+        )
+
+    return ret
 
 @enable_ki_protection
 async def to_thread_run_sync(
@@ -201,6 +244,7 @@ async def to_thread_run_sync(
     def worker_fn():
         current_async_library_cvar.set(None)
         TOKEN_LOCAL.token = current_trio_token
+        TOKEN_LOCAL.task_register = task_register
         try:
             ret = sync_fn(*args)
 
@@ -215,6 +259,7 @@ async def to_thread_run_sync(
             return ret
         finally:
             del TOKEN_LOCAL.token
+            del TOKEN_LOCAL.task_register
 
     context = contextvars.copy_context()
     contextvars_aware_worker_fn = functools.partial(context.run, worker_fn)
@@ -246,46 +291,60 @@ async def to_thread_run_sync(
 
     while True:
         msg_from_thread = await trio.lowlevel.wait_task_rescheduled(abort)
-        if type(msg_from_thread) is ThreadDone:
+        if isinstance(msg_from_thread, ThreadDone):
             return msg_from_thread.result.unwrap()
-        elif type(msg_from_thread) is Run:
-            result = await outcome.acapture(msg_from_thread.async_fn)
-            msg_from_thread.queue.put(result)
-        elif type(msg_from_thread) is RunSync:
-            result = outcome.capture(msg_from_thread.sync_fn)
-            msg_from_thread.queue.put(result)
-        else:
+        elif isinstance(msg_from_thread, Run):
+            await msg_from_thread.run()
+        elif isinstance(msg_from_thread, RunSync):
+            msg_from_thread.run_sync()
+        else:  # pragma: no cover, internal debugging guard
             raise TypeError(
                 "trio.to_thread.run_sync received unrecognized thread message {!r}."
                 "".format(msg_from_thread)
             )
+        del msg_from_thread
 
 
-def _run_fn_as_system_task(cb, fn, *args, context, trio_token=None):
-    """Helper function for from_thread.run and from_thread.run_sync.
+def _raise_if_trio_run():
+    """Raise a RuntimeError if this function is called within a trio run.
 
-    Since this internally uses TrioToken.run_sync_soon, all warnings about
-    raised exceptions canceling all tasks should be noted.
+    Avoids deadlock by making sure we're not called from inside a context
+    that we might be waiting for and blocking it.
     """
-
-    if trio_token and not isinstance(trio_token, TrioToken):
-        raise RuntimeError("Passed kwarg trio_token is not of type TrioToken")
-
-    if not trio_token:
-        try:
-            trio_token = TOKEN_LOCAL.token
-        except AttributeError:
-            raise RuntimeError(
-                "this thread wasn't created by Trio, pass kwarg trio_token=..."
-            )
-
-    # Avoid deadlock by making sure we're not called from Trio thread
     try:
         trio.lowlevel.current_task()
     except RuntimeError:
         pass
     else:
         raise RuntimeError("this is a blocking function; call it from a thread")
+
+
+def _send_message_to_host_task(message):
+    try:
+        token = TOKEN_LOCAL.token
+    except AttributeError:
+        raise RuntimeError(
+            "this thread wasn't created by Trio, pass kwarg trio_token=..."
+        )
+    task_register = TOKEN_LOCAL.task_register
+
+    def in_trio_thread():
+        task = task_register[0]
+        if task is None:
+            message.queue.put(outcome.Error(trio.Cancelled._create()))
+        trio.lowlevel.reschedule(task, outcome.Value(message))
+
+    token.run_sync_soon(in_trio_thread)
+
+
+def _run_fn_as_system_task(cb, fn, *args, context, trio_token):
+    """Helper function for from_thread.run and from_thread.run_sync.
+
+    Since this internally uses TrioToken.run_sync_soon, all warnings about
+    raised exceptions canceling all tasks should be noted.
+    """
+    if not isinstance(trio_token, TrioToken):
+        raise RuntimeError("Passed kwarg trio_token is not of type TrioToken")
 
     q = stdlib_queue.SimpleQueue()
     trio_token.run_sync_soon(context.run, cb, q, fn, args)
@@ -326,6 +385,13 @@ def from_thread_run(afn, *args, trio_token=None):
           "foreign" thread, spawned using some other framework, and still want
           to enter Trio.
     """
+    _raise_if_trio_run()
+    context = contextvars.copy_context()
+
+    if not trio_token:
+        message_to_trio = Run(afn, args, context)
+        _send_message_to_host_task(message_to_trio)
+        return message_to_trio.queue.get().unwrap()
 
     def callback(q, afn, args):
         @disable_ki_protection
@@ -346,7 +412,6 @@ def from_thread_run(afn, *args, trio_token=None):
                 outcome.Error(trio.RunFinishedError("system nursery is closed"))
             )
 
-    context = contextvars.copy_context()
     return _run_fn_as_system_task(
         callback,
         afn,
@@ -386,28 +451,18 @@ def from_thread_run_sync(fn, *args, trio_token=None):
           "foreign" thread, spawned using some other framework, and still want
           to enter Trio.
     """
+    _raise_if_trio_run()
+    context = contextvars.copy_context()
+
+    if not trio_token:
+        message_to_trio = RunSync(fn, args, context)
+        _send_message_to_host_task(message_to_trio)
+        return message_to_trio.queue.get().unwrap()
 
     def callback(q, fn, args):
         current_async_library_cvar.set("trio")
-
-        @disable_ki_protection
-        def unprotected_fn():
-            ret = fn(*args)
-
-            if inspect.iscoroutine(ret):
-                # Manually close coroutine to avoid RuntimeWarnings
-                ret.close()
-                raise TypeError(
-                    "Trio expected a sync function, but {!r} appears to be "
-                    "asynchronous".format(getattr(fn, "__qualname__", fn))
-                )
-
-            return ret
-
-        res = outcome.capture(unprotected_fn)
+        res = outcome.capture(_unprotected_fn, fn, args)
         q.put_nowait(res)
-
-    context = contextvars.copy_context()
 
     return _run_fn_as_system_task(
         callback,
