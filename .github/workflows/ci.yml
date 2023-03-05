@@ -42,7 +42,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Setup python
         uses: actions/setup-python@v2
         with:
@@ -100,7 +100,7 @@ jobs:
       }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Setup python
         uses: actions/setup-python@v2
         if: "!endsWith(matrix.python, '-dev')"
@@ -121,6 +121,39 @@ jobs:
           # Should match 'name:' up above
           JOB_NAME: 'Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})'
 
+  autofmt:
+    name: Autoformat dependabot PR
+    timeout-minutes: 10
+    if: github.actor == 'dependabot[bot]'
+    runs-on: 'ubuntu-latest'
+    # https://docs.github.com/en/code-security/dependabot/working-with-dependabot/automating-dependabot-with-github-actions#changing-github_token-permissions
+    permissions:
+      pull-requests: write
+      issues: write
+      repository-projects: write
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - name: Setup python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.8"
+      - name: Check formatting
+        run: |
+          python -m pip install -r test-requirements.txt
+          ./check.sh
+      - name: Commit autoformatter changes
+        if: failure()
+        run: |
+          black setup.py trio
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -am "Autoformatter changes"
+          git push
+
   macOS:
     name: 'macOS (${{ matrix.python }})'
     timeout-minutes: 10
@@ -136,7 +169,7 @@ jobs:
             extra_name: ', pypy 3.8 nightly'
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Setup python
         uses: actions/setup-python@v2
         with:

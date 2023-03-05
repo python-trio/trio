@@ -16,6 +16,7 @@ import typing as _t
 from ._core import (
     cancel_shielded_checkpoint,
     Abort,
+    RaiseCancelT,
     wait_task_rescheduled,
     enable_ki_protection,
     disable_ki_protection,

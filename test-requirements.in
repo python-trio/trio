@@ -3,7 +3,7 @@ pytest >= 5.0         # for faulthandler in core
 pytest-cov >= 2.6.0
 async_generator >= 1.9
 # ipython 7.x is the last major version supporting Python 3.7
-ipython < 7.32        # for the IPython traceback integration tests
+ipython < 7.35        # for the IPython traceback integration tests
 pyOpenSSL >= 22.0.0   # for the ssl + DTLS tests
 trustme               # for the ssl + DTLS tests
 pylint                # for pylint finding all symbols tests
@@ -16,6 +16,7 @@ mypy; implementation_name == "cpython"
 types-pyOpenSSL; implementation_name == "cpython"
 flake8
 astor          # code generation
+pip-tools
 
 # https://github.com/python-trio/trio/pull/654#issuecomment-420518745
 # typed_ast is deprecated as of 3.8, and straight up doesn't compile on 3.10-dev as of 2021-12-13

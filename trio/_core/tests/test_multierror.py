@@ -473,10 +473,12 @@ def run_script(name, use_ipython=False):
     return completed
 
 
-def check_simple_excepthook(completed):
+def check_simple_excepthook(completed, uses_ipython):
     assert_match_in_seq(
         [
-            "in <module>",
+            "in <cell line: "
+            if uses_ipython and sys.version_info >= (3, 8)
+            else "in <module>",
             "MultiError",
             "--- 1 ---",
             "in exc1_fn",
@@ -503,14 +505,14 @@ need_ipython = pytest.mark.skipif(not have_ipython, reason="need IPython")
 @need_ipython
 def test_ipython_exc_handler():
     completed = run_script("simple_excepthook.py", use_ipython=True)
-    check_simple_excepthook(completed)
+    check_simple_excepthook(completed, True)
 
 
 @slow
 @need_ipython
 def test_ipython_imported_but_unused():
     completed = run_script("simple_excepthook_IPython.py")
-    check_simple_excepthook(completed)
+    check_simple_excepthook(completed, False)
 
 
 @slow

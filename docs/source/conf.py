@@ -54,8 +54,14 @@ nitpick_ignore = [
     ("py:class", "async function"),
     ("py:class", "sync function"),
     # https://github.com/sphinx-doc/sphinx/issues/7722
-    ("py:class", "SendType"),
-    ("py:class", "ReceiveType"),
+    # TODO: why do these need to be spelled out?
+    ("py:class", "trio._abc.ReceiveType"),
+    ("py:class", "trio._abc.SendType"),
+    ("py:class", "trio._abc.T"),
+    ("py:obj", "trio._abc.ReceiveType"),
+    ("py:obj", "trio._abc.SendType"),
+    ("py:obj", "trio._abc.T"),
+    ("py:obj", "trio._abc.T_resource"),
 ]
 autodoc_inherit_docstrings = False
 default_role = "obj"
@@ -91,6 +97,7 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "outcome": ("https://outcome.readthedocs.io/en/latest/", None),
     "pyopenssl": ("https://www.pyopenssl.org/en/stable/", None),
+    "sniffio": ("https://sniffio.readthedocs.io/en/latest/", None),
 }
 
 autodoc_member_order = "bysource"
@@ -132,7 +139,7 @@ html_logo = "../../logo/wordmark-transparent.svg"
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "en"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.

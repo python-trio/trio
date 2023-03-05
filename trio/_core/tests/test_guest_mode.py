@@ -17,6 +17,7 @@ import trio.testing
 from .tutil import gc_collect_harder, buggy_pypy_asyncgens, restore_unraisablehook
 from ..._util import signal_raise
 
+
 # The simplest possible "host" loop.
 # Nice features:
 # - we can run code "outside" of trio using the schedule function passed to
@@ -227,6 +228,7 @@ def test_host_wakeup_doesnt_trigger_wait_all_tasks_blocked():
         async def get_woken_by_host_deadline(watb_cscope):
             with trio.CancelScope() as cscope:
                 print("scheduling stuff to happen")
+
                 # Altering the deadline from the host, to something in the
                 # future, will cause the run loop to wake up, but then
                 # discover that there is nothing to do and go back to sleep.
@@ -316,38 +318,26 @@ def test_guest_warns_if_abandoned():
             trio.current_time()
 
 
-async def start_guest_run_on_aio(
-    trio_fn, *, pass_not_threadsafe=True, **start_guest_run_kwargs
-):
-    # This is asynchronous because asyncio documents that get_running_loop()
-    # can't be used from a sync function.
-    loop = asyncio.get_running_loop()
-    trio_done_fut = loop.create_future()
-
-    def trio_done_callback(main_outcome):
-        print(f"trio_fn finished: {main_outcome!r}")
-        trio_done_fut.set_result(main_outcome)
-
-    if pass_not_threadsafe:
-        start_guest_run_kwargs["run_sync_soon_not_threadsafe"] = loop.call_soon
-
-    trio.lowlevel.start_guest_run(
-        trio_fn,
-        run_sync_soon_threadsafe=loop.call_soon_threadsafe,
-        done_callback=trio_done_callback,
-        **start_guest_run_kwargs,
-    )
-
-    return trio_done_fut
-
-
 def aiotrio_run(trio_fn, *, pass_not_threadsafe=True, **start_guest_run_kwargs):
     loop = asyncio.new_event_loop()
 
     async def aio_main():
-        trio_done_fut = await start_guest_run_on_aio(
-            trio_fn, pass_not_threadsafe=pass_not_threadsafe, **start_guest_run_kwargs
+        trio_done_fut = loop.create_future()
+
+        def trio_done_callback(main_outcome):
+            print(f"trio_fn finished: {main_outcome!r}")
+            trio_done_fut.set_result(main_outcome)
+
+        if pass_not_threadsafe:
+            start_guest_run_kwargs["run_sync_soon_not_threadsafe"] = loop.call_soon
+
+        trio.lowlevel.start_guest_run(
+            trio_fn,
+            run_sync_soon_threadsafe=loop.call_soon_threadsafe,
+            done_callback=trio_done_callback,
+            **start_guest_run_kwargs,
         )
+
         return (await trio_done_fut).unwrap()
 
     try:
@@ -556,41 +546,3 @@ def test_guest_mode_asyncgens():
     context.run(aiotrio_run, trio_main, host_uses_signal_set_wakeup_fd=True)
 
     assert record == {("asyncio", "asyncio"), ("trio", "trio")}
-
-
-def test_guest_mode_host_calls_start_soon_sniffio():
-    import sniffio
-
-    async def aio_main():
-        nursery = None
-        nursery_ready = asyncio.Event()
-        wait_in_nursery_done = asyncio.Event()
-
-        async def wait_in_nursery():
-            nonlocal nursery
-            try:
-                async with trio.open_nursery() as nursery:
-                    nursery_ready.set()
-                    await trio.sleep_forever()
-            finally:
-                wait_in_nursery_done.set()
-
-        async def needs_sniffio():
-            sniffio.current_async_library()
-            wait_in_nursery_done.set()
-
-        wait_in_nursery_outcome_fut = await start_guest_run_on_aio(
-            wait_in_nursery,
-            # Not all versions of asyncio we test on use signal.set_wakeup_fd,
-            # but this test doesn't care about signal handling, and without
-            # host_uses_signal_set_wakeup_fd=True it can hang forever on some
-            # asyncio versions.
-            host_uses_signal_set_wakeup_fd=True,
-        )
-        await nursery_ready.wait()
-        nursery.start_soon(needs_sniffio)
-        await wait_in_nursery_done.wait()
-        nursery.cancel_scope.cancel()
-        (await wait_in_nursery_outcome_fut).unwrap()
-
-    asyncio.run(aio_main())
