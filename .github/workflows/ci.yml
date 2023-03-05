@@ -129,8 +129,6 @@ jobs:
     # https://docs.github.com/en/code-security/dependabot/working-with-dependabot/automating-dependabot-with-github-actions#changing-github_token-permissions
     permissions:
       pull-requests: write
-      issues: write
-      repository-projects: write
       contents: write
     steps:
       - name: Checkout
@@ -144,7 +142,7 @@ jobs:
       - name: Check formatting
         run: |
           python -m pip install -r test-requirements.txt
-          ./check.sh
+          black --check setup.py trio
       - name: Commit autoformatter changes
         if: failure()
         run: |
@@ -199,3 +197,17 @@ jobs:
         uses: re-actors/alls-green@release/v1
         with:
           jobs: ${{ toJSON(needs) }}
+
+
+  merge-dependabot:
+    needs: check
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 1
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: write
+    steps:
+      - uses: fastify/github-action-merge-dependabot@v3
+        with:
+          merge-method: squash

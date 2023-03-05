@@ -3,7 +3,7 @@ updates:
 - package-ecosystem: pip
   directory: "/"
   schedule:
-    interval: daily
+    interval: "weekly"
   open-pull-requests-limit: 10
   allow:
   - dependency-type: direct
@@ -34,3 +34,7 @@ updates:
   - dependency-name: pytest
     versions:
     - 6.2.2
+- package-ecosystem: github-actions
+  directory: "/"
+  schedule:
+    interval: "weekly"
