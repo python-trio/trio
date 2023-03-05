@@ -54,9 +54,14 @@ nitpick_ignore = [
     ("py:class", "async function"),
     ("py:class", "sync function"),
     # https://github.com/sphinx-doc/sphinx/issues/7722
-    ("py:class", "ReceiveType"),
-    ("py:class", "SendType"),
-    ("py:class", "T"),
+    # TODO: why do these need to be spelled out?
+    ("py:class", "trio._abc.ReceiveType"),
+    ("py:class", "trio._abc.SendType"),
+    ("py:class", "trio._abc.T"),
+    ("py:obj", "trio._abc.ReceiveType"),
+    ("py:obj", "trio._abc.SendType"),
+    ("py:obj", "trio._abc.T"),
+    ("py:obj", "trio._abc.T_resource"),
 ]
 autodoc_inherit_docstrings = False
 default_role = "obj"
