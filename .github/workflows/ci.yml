@@ -144,7 +144,7 @@ jobs:
       - name: Check formatting
         run: |
           python -m pip install -r test-requirements.txt
-          source check.sh
+          ./check.sh
       - name: Commit autoformatter changes
         if: failure()
         run: |
