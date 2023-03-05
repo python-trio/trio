@@ -67,18 +67,14 @@ fi
 python -c "import sys, struct, ssl; print('#' * 70); print('python:', sys.version); print('version_info:', sys.version_info); print('bits:', struct.calcsize('P') * 8); print('openssl:', ssl.OPENSSL_VERSION, ssl.OPENSSL_VERSION_INFO); print('#' * 70)"
 
 python -m pip install -U pip setuptools wheel
-python -m pip --version
+curl-harder -sSL https://install.python-poetry.org | python3 -
 
-python setup.py sdist --formats=zip
-python -m pip install dist/*.zip
+export PATH="$PATH:$(realpath ~)/.local/bin"
+poetry install --with dev,tests
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
-    python -m pip install -r test-requirements.txt
     source check.sh
 else
-    # Actual tests
-    python -m pip install -r test-requirements.txt
-
     # So we can run the test for our apport/excepthook interaction working
     if [ -e /etc/lsb-release ] && grep -q Ubuntu /etc/lsb-release; then
         sudo apt install -q python3-apport
@@ -128,20 +124,7 @@ else
         netsh winsock show catalog
     fi
 
-    # We run the tests from inside an empty directory, to make sure Python
-    # doesn't pick up any .py files from our working dir. Might have been
-    # pre-created by some of the code above.
-    mkdir empty || true
-    cd empty
-
-    INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
-    cp ../pyproject.toml $INSTALLDIR
-    # We have to copy .coveragerc into this directory, rather than passing
-    # --cov-config=../.coveragerc to pytest, because codecov.sh will run
-    # 'coverage xml' to generate the report that it uses, and that will only
-    # apply the ignore patterns in the current directory's .coveragerc.
-    cp ../.coveragerc .
-    if pytest -r a --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --cov="$INSTALLDIR" --verbose; then
+    if poetry run pytest -r a --junitxml=../test-results.xml --run-slow --cov --verbose; then
         PASSED=true
     else
         PASSED=false
@@ -158,8 +141,8 @@ else
     # server is flaky, so we instead save to a temp file with retries, and
     # wait until we've successfully fetched the whole script before trying to
     # run it.
-    curl-harder -o codecov.sh https://codecov.io/bash
-    bash codecov.sh -n "${JOB_NAME}"
+    # curl-harder -o codecov.sh https://codecov.io/bash
+    # bash codecov.sh -n "${JOB_NAME}"
 
     $PASSED
 fi
