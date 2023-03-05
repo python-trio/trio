@@ -1,3 +1,67 @@
+[tool.poetry]
+name = "trio"
+version = "0.22.0"
+description = "A friendly Python library for async concurrency and I/O"
+readme = "README.rst"
+authors = ["Nathaniel J. Smith <njs@pobox.com>"]
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/python-trio/trio"
+documentation = "https://trio.readthedocs.io/"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: POSIX :: BSD",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: System :: Networking",
+    "Framework :: Trio",
+]
+keywords = ["async", "io", "networking", "trio"]
+
+
+[tool.poetry.dependencies]
+python = ">=3.7.2"
+attrs = ">= 20.1.0"
+sortedcontainers = "^2.4.0"
+idna = "^3.4"
+outcome = "^1.2.0"
+sniffio = "^1.3.0"
+cffi = { version = ">=1.14", markers = "os_name == 'nt' and implementation_name != 'pypy'" }
+exceptiongroup = { version = ">=1.0.0rc9", python = "<3.11" }
+
+[tool.poetry.group.dev.dependencies]
+black = { version = "^23.1.0", markers = "platform_python_implementation == 'CPython'" }
+mypy = { version = "*", markers = "platform_python_implementation == 'CPython'" }
+
+[tool.poetry.group.test.dependencies]
+pytest = ">= 5.0"
+pytest-cov = ">= 2.6.0"
+# TODO: vaporise
+async_generator = ">= 1.9"
+trustme = "^0.9.0"
+pyopenssl = "^23.0.0"
+astor = "^0.8.1"
+pylint = "^2.16.3"
+jedi = "^0.18.2"
+
+[tool.poetry.group.docs.dependencies]
+sphinx = "<5.0.0"
+jinja2 = "^3.1.2"
+sphinx-rtd-theme = "^1.2.0"
+sphinxcontrib-trio = "^1.1.2"
+towncrier = "^22.12.0"
+
 [tool.black]
 target-version = ['py37']
 
