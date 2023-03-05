@@ -12,7 +12,7 @@ attrs==22.2.0
     # via
     #   -r docs-requirements.in
     #   outcome
-babel==2.11.0
+babel==2.12.1
     # via sphinx
 certifi==2022.12.7
     # via requests
