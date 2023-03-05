@@ -19,7 +19,7 @@ If you see a Code of Conduct violation, follow these steps:
    them to stop and/or edit their message(s) or commits.
 2. That person should immediately stop the behavior and correct the
    issue.
-3. If this doesn’t happen, or if you're uncomfortable speaking up,
+3. If this doesn't happen, or if you're uncomfortable speaking up,
    :ref:`contact the maintainers <coc-contacting-maintainers>`.
 4. As soon as possible, a maintainer will look into the issue, and take
    :ref:`further action (see below) <coc-further-enforcement>`, starting with
