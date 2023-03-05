@@ -34,19 +34,32 @@ jobs:
           black setup.py trio
       - name: Commit changes
         run: |
-          git switch --force-create bump_from_${GITHUB_SHA:0:6}
+          git switch --force-create autodeps/bump_from_${GITHUB_SHA:0:6}
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -am "Dependency updates"
-          gh pr create --base master --label dependencies \
+          git push --force --set-upstream origin autodeps/bump_from_${GITHUB_SHA:0:6}
+      - name: Make automerge PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # git push returns before github is ready for a pr, we have to poll until success
+          for BACKOFF in 1 2 4 8 15 15 15 15 0; do
+            sleep $BACKOFF
+            if gh pr create \
+              --label dependencies --body "" \
               --title "Bump dependencies from commit ${GITHUB_SHA:0:6}" \
-              --body ""
-          # gh pr create returns before the pr is ready, we have to poll until success
-          # https://github.com/cli/cli/issues/2619#issuecomment-1240543096        
-          for BACKOFF in 1 2 4 8 15 15 15 15; do
-              sleep $BACKOFF
-              if gh pr merge --auto --squash; then
-                  break
-              fi
+              ; then
+              break
+            fi
           done
-          exit 1
+          (($BACKOFF)) || (echo "Could not create the PR" && false)
+          # gh pr create returns before the pr is ready, we have to poll until success
+          # https://github.com/cli/cli/issues/2619#issuecomment-1240543096
+          for BACKOFF in 1 2 4 8 15 15 15 15 0; do
+            sleep $BACKOFF
+            if gh pr merge --auto --squash; then
+              break
+            fi
+          done
+          (($BACKOFF)) || (echo "Could not set automerge" && false)
