@@ -115,7 +115,7 @@ pyopenssl==23.0.0
     # via -r test-requirements.in
 pyproject-hooks==1.0.0
     # via build
-pytest==7.2.1
+pytest==7.2.2
     # via
     #   -r test-requirements.in
     #   pytest-cov
