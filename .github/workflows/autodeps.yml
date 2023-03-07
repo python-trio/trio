@@ -25,12 +25,15 @@ jobs:
           python-version: "3.8"
       - name: Bump dependencies
         run: |
+          python -m pip install -U pip
           python -m pip install -r test-requirements.txt
           pip-compile test-requirements.in
           pip-compile docs-requirements.in
       - name: Black
         run: |
-          python -m pip install -r test-requirements.txt  # may contain new black ver
+          # The new dependencies may contain a new black version.
+          # Commit any changes immediately.
+          python -m pip install -r test-requirements.txt
           black setup.py trio
       - name: Commit changes and create automerge PR
         env:
@@ -49,8 +52,8 @@ jobs:
           git commit -am "Dependency updates"
           git push --force --set-upstream origin autodeps/bump_from_${GITHUB_SHA:0:6}
 
-          # git push returns before github is ready for a pr, we have to poll until success
-          for BACKOFF in 1 2 4 8 15 15 15 15 0; do
+          # git push returns before github is ready for a pr, so we poll until success
+          for BACKOFF in 1 2 4 8 0; do
             sleep $BACKOFF
             if gh pr create \
               --label dependencies --body "" \
@@ -59,13 +62,22 @@ jobs:
               break
             fi
           done
-          (($BACKOFF)) || (echo "Could not create the PR" && false)
-          # gh pr create returns before the pr is ready, we have to poll until success
+
+          if [ $BACKOFF -eq 0 ]; then
+            echo "Could not create the PR"
+            exit 1
+          fi
+
+          # gh pr create returns before the pr is ready, so we again poll until success
           # https://github.com/cli/cli/issues/2619#issuecomment-1240543096
-          for BACKOFF in 1 2 4 8 15 15 15 15 0; do
+          for BACKOFF in 1 2 4 8 0; do
             sleep $BACKOFF
             if gh pr merge --auto --squash; then
               break
             fi
           done
-          (($BACKOFF)) || (echo "Could not set automerge" && false)
+
+          if [ $BACKOFF -eq 0 ]; then
+            echo "Could not set automerge"
+            exit 1
+          fi
