@@ -1,4 +1,4 @@
-name: Bump dependencies
+name: Autodeps
 
 on:
   workflow_dispatch:
@@ -6,8 +6,8 @@ on:
     - cron:  '0 0 1 * *'
 
 jobs:
-  bump:
-    name: bump requirements
+  Autodeps:
+    name: Autodeps
     timeout-minutes: 10
     runs-on: 'ubuntu-latest'
     # https://docs.github.com/en/code-security/dependabot/working-with-dependabot/automating-dependabot-with-github-actions#changing-github_token-permissions
