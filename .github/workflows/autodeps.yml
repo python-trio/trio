@@ -32,17 +32,23 @@ jobs:
         run: |
           python -m pip install -r test-requirements.txt  # may contain new black ver
           black setup.py trio
-      - name: Commit changes
+      - name: Commit changes and create automerge PR
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
+          # https://stackoverflow.com/a/3879077/4504950
+          if ! git diff-index --quiet HEAD; then
+            echo "No changes to commit!"
+            exit 0
+          fi
+          
+          # setup git repo
           git switch --force-create autodeps/bump_from_${GITHUB_SHA:0:6}
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -am "Dependency updates"
           git push --force --set-upstream origin autodeps/bump_from_${GITHUB_SHA:0:6}
-      - name: Make automerge PR
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
+
           # git push returns before github is ready for a pr, we have to poll until success
           for BACKOFF in 1 2 4 8 15 15 15 15 0; do
             sleep $BACKOFF
