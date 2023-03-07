@@ -23,7 +23,6 @@ async def WaitForSingleObject(obj):
       OSError: If the handle is invalid, e.g. when it is already closed.
 
     """
-    await trio.lowlevel.checkpoint_if_cancelled()
     # Allow ints or whatever we can convert to a win handle
     handle = _handle(obj)
 
@@ -34,7 +33,7 @@ async def WaitForSingleObject(obj):
     if retcode == ErrorCodes.WAIT_FAILED:
         raise_winerror()
     elif retcode != ErrorCodes.WAIT_TIMEOUT:
-        await trio.lowlevel.cancel_shielded_checkpoint()
+        await trio.lowlevel.checkpoint()
         return
 
     # Wait for a thread that waits for two handles: the handle plus a handle
