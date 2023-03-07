@@ -211,8 +211,9 @@ async def test_WaitForSingleObject_slow():
     handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     t0 = _core.current_time()
 
-    with _timeouts.move_on_after(TIMEOUT):
+    with _timeouts.move_on_after(TIMEOUT) as cs:
         await WaitForSingleObject(handle)
+    assert cs.cancelled_caught
 
     kernel32.CloseHandle(handle)
     t1 = _core.current_time()

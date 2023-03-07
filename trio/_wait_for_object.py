@@ -60,9 +60,9 @@ async def WaitForSingleObject(obj):
             cancellable=True,
             limiter=trio.CapacityLimiter(1),
         )
-    except trio.Cancelled:
-        # Clean up our thread. We get here because this task was cancelled,
-        # so we also want to set the cancel handle to stop the thread.
+    finally:
+        # Clean up our thread. If we get here because this task was cancelled,
+        # we also want to set the cancel handle to stop the thread.
         _check(kernel32.SetEvent(cancel_handle))
 
 
