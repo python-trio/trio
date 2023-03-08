@@ -54,6 +54,7 @@ _NO_SEND: FinalT = object()
 
 FnT = TypeVar("FnT", bound="Callable[..., Any]")
 
+
 # Decorator to mark methods public. This does nothing by itself, but
 # trio/_tools/gen_exports.py looks for it.
 def _public(fn: FnT) -> FnT:
@@ -1021,18 +1022,17 @@ class Nursery(metaclass=NoPublicConstructor):
     def start_soon(self, async_fn, *args, name=None):
         """Creates a child task, scheduling ``await async_fn(*args)``.
 
-        This and :meth:`start` are the two fundamental methods for
+        If you want to run a function and immediately wait for its result,
+        then you don't need a nursery; just use ``await async_fn(*args)``.
+        If you want to wait for the task to initialize itself before
+        continuing, see :meth:`start`, the other fundamental method for
         creating concurrent tasks in Trio.
 
         Note that this is *not* an async function and you don't use await
         when calling it. It sets up the new task, but then returns
-        immediately, *before* it has a chance to run. The new task won’t
-        actually get a chance to do anything until some later point when
-        you execute a checkpoint and the scheduler decides to run it.
-        If you want to run a function and immediately wait for its result,
-        then you don't need a nursery; just use ``await async_fn(*args)``.
-        If you want to wait for the task to initialize itself before
-        continuing, see :meth:`start`.
+        immediately, *before* the new task has a chance to do anything.
+        New tasks may start running in any order, and at any checkpoint the
+        scheduler chooses - at latest when the nursery is waiting to exit.
 
         It's possible to pass a nursery object into another task, which
         allows that task to start new child tasks in the first task's
@@ -1075,9 +1075,9 @@ class Nursery(metaclass=NoPublicConstructor):
         The conventional way to define ``async_fn`` is like::
 
             async def async_fn(arg1, arg2, *, task_status=trio.TASK_STATUS_IGNORED):
-                ...
+                ...  # Caller is blocked waiting for this code to run
                 task_status.started()
-                ...
+                ...  # This async code can be interleaved with the caller
 
         :attr:`trio.TASK_STATUS_IGNORED` is a special global object with
         a do-nothing ``started`` method. This way your function supports

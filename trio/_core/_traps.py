@@ -10,6 +10,7 @@ from . import _run
 
 from typing import Callable, NoReturn, Any
 
+
 # Helper for the bottommost 'yield'. You can't use 'yield' inside an async
 # function, but you can inside a generator, and if you decorate your generator
 # with @types.coroutine, then it's even awaitable. However, it's still not a
@@ -66,6 +67,7 @@ class WaitTaskRescheduled:
 
 
 RaiseCancelT = Callable[[], NoReturn]  # TypeAlias
+
 
 # Should always return the type a Task "expects", unless you willfully reschedule it
 # with a bad value.

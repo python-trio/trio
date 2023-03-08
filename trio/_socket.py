@@ -353,6 +353,7 @@ def _make_simple_sock_method_wrapper(methname, wait_fn, maybe_avail=False):
 # addresses everywhere. Split out into a standalone function so it can be reused by
 # FakeNet.
 
+
 # Take an address in Python's representation, and returns a new address in
 # the same representation, but with names resolved to numbers,
 # etc.

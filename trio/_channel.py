@@ -17,24 +17,12 @@ from typing import (
 import attr
 from outcome import Error, Value
 
-from .abc import SendChannel, ReceiveChannel, Channel
+from ._abc import SendChannel, ReceiveChannel, Channel, ReceiveType, SendType, T
 from ._util import generic_function, NoPublicConstructor
 
 import trio
 from ._core import enable_ki_protection, Task, Abort, RaiseCancelT
 
-# A regular invariant generic type
-T = TypeVar("T")
-
-# The type of object produced by a ReceiveChannel (covariant because
-# ReceiveChannel[Derived] can be passed to someone expecting
-# ReceiveChannel[Base])
-ReceiveType = TypeVar("ReceiveType", covariant=True)
-
-# The type of object accepted by a SendChannel (contravariant because
-# SendChannel[Base] can be passed to someone expecting
-# SendChannel[Derived])
-SendType = TypeVar("SendType", contravariant=True)
 
 # Temporary TypeVar needed until mypy release supports Self as a type
 SelfT = TypeVar("SelfT")

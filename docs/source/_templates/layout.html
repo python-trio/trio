@@ -4,8 +4,13 @@ https://stackoverflow.com/questions/25243482/how-to-add-sphinx-generated-index-t
 {% extends "!layout.html" %}
 
 {% block sidebartitle %}
-<a class="logo" href="{{ pathto(master_doc) }}">
-  <img class="logo" src="{{ pathto('_static/' + logo, 1) }}" />
+
+{# the logo helper function was removed in Sphinx 6 and deprecated since Sphinx 4 #}
+{# the master_doc variable was renamed to root_doc in Sphinx 4 (master_doc still exists in later Sphinx versions) #}
+{# check sphinx_rtd_theme/layout.html:sidebartitle if this snippet has become outdated #}
+
+<a class="logo" href="{{ pathto(root_doc) }}">
+  <img class="logo" src="{{ logo_url }}" />
   {%- set nav_version = version %}
   {% if READTHEDOCS and current_version %}
     {%- set nav_version = current_version %}
