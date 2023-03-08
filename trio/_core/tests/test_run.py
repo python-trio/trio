@@ -2006,6 +2006,10 @@ def test_sniffio_integration():
     async def check_inside_trio():
         assert sniffio.current_async_library() == "trio"
 
+    def check_function_returning_coroutine():
+        assert sniffio.current_async_library() == "trio"
+        return check_inside_trio()
+
     _core.run(check_inside_trio)
 
     with pytest.raises(sniffio.AsyncLibraryNotFoundError):
@@ -2016,6 +2020,7 @@ def test_sniffio_integration():
         _core.spawn_system_task(check_inside_trio)
         async with _core.open_nursery() as nursery:
             nursery.start_soon(check_inside_trio)
+            nursery.start_soon(check_function_returning_coroutine)
         assert sniffio.current_async_library() == "nullio"
 
     _core.run(check_new_task_resets_sniffio_library)
