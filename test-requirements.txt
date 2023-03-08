@@ -6,7 +6,7 @@
 #
 astor==0.8.1
     # via -r test-requirements.in
-astroid==2.14.2
+astroid==2.15.0
     # via pylint
 async-generator==1.10
     # via -r test-requirements.in
@@ -67,7 +67,7 @@ mccabe==0.6.1
     # via
     #   flake8
     #   pylint
-mypy==1.0.1 ; implementation_name == "cpython"
+mypy==1.1.1 ; implementation_name == "cpython"
     # via -r test-requirements.in
 mypy-extensions==1.0.0 ; implementation_name == "cpython"
     # via
@@ -109,7 +109,7 @@ pyflakes==2.4.0
     # via flake8
 pygments==2.14.0
     # via ipython
-pylint==2.16.3
+pylint==2.16.4
     # via -r test-requirements.in
 pyopenssl==23.0.0
     # via -r test-requirements.in
