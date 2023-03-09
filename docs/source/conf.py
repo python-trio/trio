@@ -97,6 +97,7 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "outcome": ("https://outcome.readthedocs.io/en/latest/", None),
     "pyopenssl": ("https://www.pyopenssl.org/en/stable/", None),
+    "sniffio": ("https://sniffio.readthedocs.io/en/latest/", None),
 }
 
 autodoc_member_order = "bysource"
