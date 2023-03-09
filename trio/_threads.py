@@ -365,12 +365,15 @@ def _check_token(trio_token):
 
 def _send_message_to_host_task(message, trio_token):
     task_register = THREAD_LOCAL.task_register
+    cancel_register = THREAD_LOCAL.cancel_register
 
     def in_trio_thread():
-        task = task_register[0]
-        if task is None:
-            message.queue.put_nowait(outcome.Error(trio.Cancelled._create()))
-        trio.lowlevel.reschedule(task, outcome.Value(message))
+        raise_cancel = cancel_register[0]
+        if raise_cancel is None:
+            task = task_register[0]
+            trio.lowlevel.reschedule(task, outcome.Value(message))
+        else:
+            message.queue.put_nowait(outcome.capture(raise_cancel))
 
     trio_token.run_sync_soon(in_trio_thread)
     return message.queue.get().unwrap()
