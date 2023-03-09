@@ -93,6 +93,15 @@ def test_socket_has_some_reexports():
     assert tsocket.ntohs == stdlib_socket.ntohs
 
 
+def test_all_constants_reexported():
+    trio_tsocket_exports = set(dir(tsocket))
+
+    for name in dir(stdlib_socket):
+        if name.isupper() and name[0] != "_":
+            stdlib_constant = name
+            assert stdlib_constant in trio_tsocket_exports
+
+
 ################################################################
 # name resolution
 ################################################################
