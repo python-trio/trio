@@ -74,7 +74,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.7', 'pypy-3.8', '3.7', '3.8', '3.9', '3.10', '3.11-dev']
+        python: ['pypy-3.7', 'pypy-3.8', 'pypy-3.9', '3.7', '3.8', '3.9', '3.10', '3.11', '3.12-dev']
         check_formatting: ['0']
         pypy_nightly_branch: ['']
         extra_name: ['']
@@ -88,6 +88,9 @@ jobs:
           - python: '3.8'  # <- not actually used
             pypy_nightly_branch: 'py3.8'
             extra_name: ', pypy 3.8 nightly'
+          - python: '3.9'  # <- not actually used
+            pypy_nightly_branch: 'py3.9'
+            extra_name: ', pypy 3.9 nightly'
     continue-on-error: >-
       ${{
         (
