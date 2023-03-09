@@ -308,12 +308,25 @@ async def to_thread_run_sync(
         del msg_from_thread
 
 
-def _raise_if_trio_run():
+def _check_token(trio_token):
     """Raise a RuntimeError if this function is called within a trio run.
 
     Avoids deadlock by making sure we're not called from inside a context
     that we might be waiting for and blocking it.
     """
+
+    if trio_token and not isinstance(trio_token, TrioToken):
+        raise RuntimeError("Passed kwarg trio_token is not of type TrioToken")
+
+    if not trio_token:
+        try:
+            trio_token = TOKEN_LOCAL.token
+        except AttributeError:
+            raise RuntimeError(
+                "this thread wasn't created by Trio, pass kwarg trio_token=..."
+            )
+
+    # Avoid deadlock by making sure we're not called from Trio thread
     try:
         trio.lowlevel.current_task()
     except RuntimeError:
@@ -321,14 +334,10 @@ def _raise_if_trio_run():
     else:
         raise RuntimeError("this is a blocking function; call it from a thread")
 
+    return trio_token
 
-def _send_message_to_host_task(message):
-    try:
-        token = TOKEN_LOCAL.token
-    except AttributeError:
-        raise RuntimeError(
-            "this thread wasn't created by Trio, pass kwarg trio_token=..."
-        )
+
+def _send_message_to_host_task(message, trio_token):
     task_register = TOKEN_LOCAL.task_register
 
     def in_trio_thread():
@@ -337,13 +346,11 @@ def _send_message_to_host_task(message):
             message.queue.put_nowait(outcome.Error(trio.Cancelled._create()))
         trio.lowlevel.reschedule(task, outcome.Value(message))
 
-    token.run_sync_soon(in_trio_thread)
+    trio_token.run_sync_soon(in_trio_thread)
+    return message.queue.get().unwrap()
 
 
 def _send_message_to_system_task(message, trio_token):
-    if not isinstance(trio_token, TrioToken):
-        raise RuntimeError("Passed kwarg trio_token is not of type TrioToken")
-
     if isinstance(message, RunSync):
         run_sync = message.run_sync
     elif isinstance(message, Run):
@@ -402,14 +409,13 @@ def from_thread_run(afn, *args, trio_token=None):
           "foreign" thread, spawned using some other framework, and still want
           to enter Trio.
     """
-    _raise_if_trio_run()
+    checked_token = _check_token(trio_token)
     message_to_trio = Run(afn, args, contextvars.copy_context())
 
-    if not trio_token:
-        _send_message_to_host_task(message_to_trio)
-        return message_to_trio.queue.get().unwrap()
-
-    return _send_message_to_system_task(message_to_trio, trio_token)
+    if trio_token:
+        return _send_message_to_system_task(message_to_trio, checked_token)
+    else:
+        return _send_message_to_host_task(message_to_trio, checked_token)
 
 
 def from_thread_run_sync(fn, *args, trio_token=None):
@@ -442,11 +448,10 @@ def from_thread_run_sync(fn, *args, trio_token=None):
           "foreign" thread, spawned using some other framework, and still want
           to enter Trio.
     """
-    _raise_if_trio_run()
+    checked_token = _check_token(trio_token)
     message_to_trio = RunSync(fn, args, contextvars.copy_context())
 
-    if not trio_token:
-        _send_message_to_host_task(message_to_trio)
-        return message_to_trio.queue.get().unwrap()
-
-    return _send_message_to_system_task(message_to_trio, trio_token)
+    if trio_token:
+        return _send_message_to_system_task(message_to_trio, checked_token)
+    else:
+        return _send_message_to_host_task(message_to_trio, checked_token)
