@@ -418,25 +418,25 @@ def from_thread_run(afn, *args, trio_token=None):
         RunFinishedError: if the corresponding call to :func:`trio.run` has
             already completed, or if the run has started its final cleanup phase
             and can no longer spawn new system tasks.
-        Cancelled: if the corresponding call to :func:`trio.run` completes
+        Cancelled: if the corresponding task or call to :func:`trio.run` completes
             while ``afn(*args)`` is running, then ``afn`` is likely to raise
-            :exc:`trio.Cancelled`, and this will propagate out into
+            :exc:`trio.Cancelled`.
         RuntimeError: if you try calling this from inside the Trio thread,
-            which would otherwise cause a deadlock.
-        AttributeError: if no ``trio_token`` was provided, and we can't infer
-            one from context.
+            which would otherwise cause a deadlock, or if no ``trio_token`` was
+            provided, and we can't infer one from context.
         TypeError: if ``afn`` is not an asynchronous function.
 
     **Locating a Trio Token**: There are two ways to specify which
     `trio.run` loop to reenter:
 
         - Spawn this thread from `trio.to_thread.run_sync`. Trio will
-          automatically capture the relevant Trio token and use it when you
-          want to re-enter Trio.
+          automatically capture the relevant Trio token and use it
+          to re-enter the same Trio task.
         - Pass a keyword argument, ``trio_token`` specifying a specific
           `trio.run` loop to re-enter. This is useful in case you have a
           "foreign" thread, spawned using some other framework, and still want
-          to enter Trio.
+          to enter Trio, or if you want to avoid the cancellation context of
+          `trio.to_thread.run_sync`.
     """
     checked_token = _check_token(trio_token)
     message_to_trio = Run(afn, args, contextvars.copy_context())
@@ -460,10 +460,11 @@ def from_thread_run_sync(fn, *args, trio_token=None):
     Raises:
         RunFinishedError: if the corresponding call to `trio.run` has
             already completed.
+        Cancelled: if the corresponding `trio.to_thread.run_sync` task is
+            cancellable and exits before this function is called
         RuntimeError: if you try calling this from inside the Trio thread,
-            which would otherwise cause a deadlock.
-        AttributeError: if no ``trio_token`` was provided, and we can't infer
-            one from context.
+            which would otherwise cause a deadlock or if no ``trio_token`` was
+            provided, and we can't infer one from context.
         TypeError: if ``fn`` is an async function.
 
     **Locating a Trio Token**: There are two ways to specify which
@@ -475,7 +476,8 @@ def from_thread_run_sync(fn, *args, trio_token=None):
         - Pass a keyword argument, ``trio_token`` specifying a specific
           `trio.run` loop to re-enter. This is useful in case you have a
           "foreign" thread, spawned using some other framework, and still want
-          to enter Trio.
+          to enter Trio, or if you want to avoid the cancellation context of
+          `trio.to_thread.run_sync`.
     """
     checked_token = _check_token(trio_token)
     message_to_trio = RunSync(fn, args, contextvars.copy_context())
