@@ -367,12 +367,12 @@ def _send_message_to_host_task(message, trio_token):
     cancel_register = THREAD_LOCAL.cancel_register
 
     def in_trio_thread():
-        raise_cancel = cancel_register[0]
-        if raise_cancel is None:
-            task = task_register[0]
-            trio.lowlevel.reschedule(task, outcome.Value(message))
-        else:
+        task = task_register[0]
+        if task is None:
+            raise_cancel = cancel_register[0]
             message.queue.put_nowait(outcome.capture(raise_cancel))
+        else:
+            trio.lowlevel.reschedule(task, outcome.Value(message))
 
     trio_token.run_sync_soon(in_trio_thread)
     return message.queue.get().unwrap()
@@ -417,7 +417,9 @@ def from_thread_run(afn, *args, trio_token=None):
         RunFinishedError: if the corresponding call to :func:`trio.run` has
             already completed, or if the run has started its final cleanup phase
             and can no longer spawn new system tasks.
-        Cancelled: if the corresponding task or call to :func:`trio.run` completes
+        Cancelled: if the corresponding `trio.to_thread.run_sync` task is
+            cancellable and exits before this function is called, or
+            if the task enters cancelled status or call to :func:`trio.run` completes
             while ``afn(*args)`` is running, then ``afn`` is likely to raise
             :exc:`trio.Cancelled`.
         RuntimeError: if you try calling this from inside the Trio thread,
@@ -460,7 +462,7 @@ def from_thread_run_sync(fn, *args, trio_token=None):
         RunFinishedError: if the corresponding call to `trio.run` has
             already completed.
         Cancelled: if the corresponding `trio.to_thread.run_sync` task is
-            cancellable and exits before this function is called
+            cancellable and exits before this function is called.
         RuntimeError: if you try calling this from inside the Trio thread,
             which would otherwise cause a deadlock or if no ``trio_token`` was
             provided, and we can't infer one from context.

@@ -890,16 +890,52 @@ async def test_recursive_to_thread():
 
 
 async def test_from_thread_host_cancelled():
-    def sync_time_bomb():
-        deadline = time.perf_counter() + 10
-        while time.perf_counter() < deadline:
-            from_thread_run_sync(cancel_scope.cancel)
-        assert False  # pragma: no cover
+    queue = stdlib_queue.Queue()
+
+    def sync_check():
+        from_thread_run_sync(cancel_scope.cancel)
+        try:
+            from_thread_run_sync(bool)
+        except _core.Cancelled:
+            queue.put(True)
+        else:
+            queue.put(False)
 
     with _core.CancelScope() as cancel_scope:
-        await to_thread_run_sync(sync_time_bomb)
+        await to_thread_run_sync(sync_check)
+
+    assert not cancel_scope.cancelled_caught
+    assert not queue.get_nowait()
+
+    with _core.CancelScope() as cancel_scope:
+        await to_thread_run_sync(sync_check, cancellable=True)
 
     assert cancel_scope.cancelled_caught
+    assert await to_thread_run_sync(partial(queue.get, timeout=1))
+
+    async def no_checkpoint():
+        return True
+
+    def async_check():
+        from_thread_run_sync(cancel_scope.cancel)
+        try:
+            assert from_thread_run(no_checkpoint)
+        except _core.Cancelled:
+            queue.put(True)
+        else:
+            queue.put(False)
+
+    with _core.CancelScope() as cancel_scope:
+        await to_thread_run_sync(async_check)
+
+    assert not cancel_scope.cancelled_caught
+    assert not queue.get_nowait()
+
+    with _core.CancelScope() as cancel_scope:
+        await to_thread_run_sync(async_check, cancellable=True)
+
+    assert cancel_scope.cancelled_caught
+    assert await to_thread_run_sync(partial(queue.get, timeout=1))
 
     async def async_time_bomb():
         cancel_scope.cancel()
