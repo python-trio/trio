@@ -108,9 +108,8 @@ async def test_handshake_over_terrible_network(autojump_clock):
     fn = FakeNet()
     fn.enable()
 
-    async with dtls_echo_server() as (_, address):
-        async with trio.open_nursery() as nursery:
-
+    with trio.fail_after(10):
+        async with dtls_echo_server() as (_, address), trio.open_nursery() as nursery:
             async def route_packet(packet):
                 while True:
                     op = r.choices(
