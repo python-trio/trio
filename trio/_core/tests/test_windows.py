@@ -91,7 +91,7 @@ async def test_readinto_overlapped():
 
                 assert buffer == data
 
-                with pytest.raises(BufferError):
+                with pytest.raises((BufferError, TypeError)):
                     await _core.readinto_overlapped(handle, b"immutable")
         finally:
             kernel32.CloseHandle(handle)

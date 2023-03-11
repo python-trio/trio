@@ -62,7 +62,7 @@ def gc_collect_harder():
     # garbage collection, because executing their __del__ method to print the
     # warning can cause them to be resurrected. So we call collect a few times
     # to make sure.
-    for _ in range(4):
+    for _ in range(5):
         gc.collect()
 
 
