@@ -11,7 +11,7 @@ from typing import Callable, Optional
 import pytest
 from sniffio import current_async_library_cvar
 
-from .. import CapacityLimiter, Event, _core, sleep
+from .. import CapacityLimiter, Event, _core, sleep, sleep_forever, fail_after
 from .._core.tests.test_ki import ki_self
 from .._core.tests.tutil import buggy_pypy_asyncgens
 from .._threads import (
@@ -887,6 +887,29 @@ async def test_recursive_to_thread():
         return from_thread_run(to_thread_run_sync, threading.get_ident)
 
     assert tid != await to_thread_run_sync(get_tid_then_reenter)
+
+
+async def test_from_thread_host_cancelled():
+    def sync_time_bomb():
+        deadline = time.perf_counter() + 10
+        while time.perf_counter() < deadline:
+            from_thread_run_sync(cancel_scope.cancel)
+        assert False  # pragma: no cover
+
+    with _core.CancelScope() as cancel_scope:
+        await to_thread_run_sync(sync_time_bomb)
+
+    assert cancel_scope.cancelled_caught
+
+    async def async_time_bomb():
+        cancel_scope.cancel()
+        with fail_after(10):
+            await sleep_forever()
+
+    with _core.CancelScope() as cancel_scope:
+        await to_thread_run_sync(from_thread_run, async_time_bomb)
+
+    assert cancel_scope.cancelled_caught
 
 
 async def test_from_thread_check_cancelled():
