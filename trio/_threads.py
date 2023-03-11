@@ -100,24 +100,23 @@ class RunSync:
     context = attr.ib()
     queue = attr.ib(init=False, factory=stdlib_queue.SimpleQueue)
 
+    @disable_ki_protection
+    def unprotected_fn(self):
+        ret = self.fn(*self.args)
+
+        if inspect.iscoroutine(ret):
+            # Manually close coroutine to avoid RuntimeWarnings
+            ret.close()
+            raise TypeError(
+                "Trio expected a sync function, but {!r} appears to be "
+                "asynchronous".format(getattr(self.fn, "__qualname__", self.fn))
+            )
+
+        return ret
+
     def run_sync(self):
-        @disable_ki_protection
-        def unprotected_fn():
-            ret = self.fn(*self.args)
-
-            if inspect.iscoroutine(ret):
-                # Manually close coroutine to avoid RuntimeWarnings
-                ret.close()
-                raise TypeError(
-                    "Trio expected a sync function, but {!r} appears to be "
-                    "asynchronous".format(getattr(self.fn, "__qualname__", self.fn))
-                )
-
-            return ret
-
         self.context.run(current_async_library_cvar.set, "trio")
-
-        result = outcome.capture(self.context.run, unprotected_fn)
+        result = outcome.capture(self.context.run, self.unprotected_fn)
         self.queue.put_nowait(result)
 
 
