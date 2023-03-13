@@ -39,7 +39,7 @@ decorator==5.1.1
     # via ipython
 dill==0.3.6
     # via pylint
-exceptiongroup==1.1.0 ; python_version < "3.11"
+exceptiongroup==1.1.1 ; python_version < "3.11"
     # via
     #   -r test-requirements.in
     #   pytest
@@ -91,7 +91,7 @@ pickleshare==0.7.5
     # via ipython
 pip-tools==6.12.3
     # via -r test-requirements.in
-platformdirs==3.1.0
+platformdirs==3.1.1
     # via
     #   black
     #   pylint
