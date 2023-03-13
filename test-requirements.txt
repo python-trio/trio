@@ -39,10 +39,7 @@ decorator==5.1.1
     # via ipython
 dill==0.3.6
     # via pylint
-exceptiongroup==1.1.1 ; python_version < "3.11"
-    # via
-    #   -r test-requirements.in
-    #   pytest
+exceptiongroup==1.1.1
 flake8==4.0.1
     # via -r test-requirements.in
 idna==3.4
@@ -125,14 +122,6 @@ sniffio==1.3.0
     # via -r test-requirements.in
 sortedcontainers==2.4.0
     # via -r test-requirements.in
-tomli==2.0.1
-    # via
-    #   black
-    #   build
-    #   coverage
-    #   mypy
-    #   pylint
-    #   pytest
 tomlkit==0.11.6
     # via pylint
 traitlets==5.9.0
@@ -146,10 +135,7 @@ types-pyopenssl==23.0.0.4 ; implementation_name == "cpython"
 typing-extensions==4.5.0 ; implementation_name == "cpython"
     # via
     #   -r test-requirements.in
-    #   astroid
-    #   black
     #   mypy
-    #   pylint
 wcwidth==0.2.6
     # via prompt-toolkit
 wheel==0.38.4
