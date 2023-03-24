@@ -111,7 +111,7 @@ pygments==2.14.0
     # via ipython
 pylint==2.17.1
     # via -r test-requirements.in
-pyopenssl==23.0.0
+pyopenssl==23.1.0
     # via -r test-requirements.in
 pyproject-hooks==1.0.0
     # via build
