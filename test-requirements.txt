@@ -6,7 +6,7 @@
 #
 astor==0.8.1
     # via -r test-requirements.in
-astroid==2.15.0
+astroid==2.15.1
     # via pylint
 async-generator==1.10
     # via -r test-requirements.in
