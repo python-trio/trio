@@ -17,7 +17,7 @@ attrs==22.2.0
     #   pytest
 backcall==0.2.0
     # via ipython
-black==23.1.0 ; implementation_name == "cpython"
+black==23.3.0 ; implementation_name == "cpython"
     # via -r test-requirements.in
 build==0.10.0
     # via pip-tools
