@@ -51,7 +51,7 @@ name = "Miscellaneous internal changes"
 showcontent = true
 
 [tool.pytest.ini_options]
-addopts = ["--strict-markers", "--strict-config"]
+addopts = ["--strict-markers", "--mypy-same-process", "--mypy-only-local-stub"]
 xfail_strict = true
 faulthandler_timeout = 60
 markers = ["redistributors_should_skip: tests that should be skipped by downstream redistributors"]

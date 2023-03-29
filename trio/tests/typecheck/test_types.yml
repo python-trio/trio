@@ -1,0 +1,20 @@
+# test for https://github.com/python-trio/trio/pull/2549
+- case: test_memory_send_receive_channel
+  mypy_config: ignore_missing_imports = True
+  main: |
+    from trio import open_memory_channel, MemorySendChannel, MemoryReceiveChannel
+    from typing import cast, Tuple
+
+    OutboundBroadcastChannelPair = Tuple[
+        MemorySendChannel[int],
+        MemoryReceiveChannel[int],
+    ]
+
+    (outbound_send_channel, outbound_receive_channel) = cast(
+        OutboundBroadcastChannelPair, open_memory_channel(100)
+    )
+
+    outbound_send_channel.send_nowait(5)
+    outbound_send_channel.send_nowait(None) # E: Argument 1 to "send_nowait" of "MemorySendChannel" has incompatible type "None"; expected "int"  [arg-type]
+
+    reveal_type(outbound_receive_channel.receive_nowait()) # N: Revealed type is "builtins.int"

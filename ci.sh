@@ -107,6 +107,13 @@ else
     # 'coverage xml' to generate the report that it uses, and that will only
     # apply the ignore patterns in the current directory's .coveragerc.
     cp ../.coveragerc .
+
+    # Until this repository is officially marked with py.typed, we need to temporarily
+    # create the file so pytest-mypy-plugins will work
+    if [ ! -f "$INSTALLDIR/py.typed" ]; then
+        touch "$INSTALLDIR/py.typed"
+    fi
+
     if pytest -r a --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --cov="$INSTALLDIR" --verbose; then
         PASSED=true
     else

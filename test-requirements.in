@@ -1,6 +1,15 @@
 # For tests
 pytest >= 5.0         # for faulthandler in core
 pytest-cov >= 2.6.0
+
+# only used on 3.10+, but test-requirements.txt is generated with py3.8
+pytest-mypy-plugins ; python_version > "3.7"
+# version requirement on top-level package does not flow trough to it's dependencies
+# so we list all requirements from pytest-mypy-plugins here.
+chevron ; python_version > "3.7"
+pyyaml ; python_version > "3.7"
+regex ; python_version > "3.7"
+
 async_generator >= 1.9
 # ipython 7.x is the last major version supporting Python 3.7
 ipython < 7.35        # for the IPython traceback integration tests
