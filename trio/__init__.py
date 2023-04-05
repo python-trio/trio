@@ -13,86 +13,101 @@
 # This file pulls together the friendly public API, by re-exporting the more
 # innocuous bits of the _core API + the higher-level tools from trio/*.py.
 
+# Uses `from x import y as y` for compatibility with `pyright --verifytypes` (#2625)
+
 from ._version import __version__
 
 from ._core import (
-    TrioInternalError,
-    RunFinishedError,
-    WouldBlock,
-    Cancelled,
-    BusyResourceError,
-    ClosedResourceError,
-    run,
-    open_nursery,
-    CancelScope,
-    current_effective_deadline,
-    TASK_STATUS_IGNORED,
-    current_time,
-    BrokenResourceError,
-    EndOfChannel,
-    Nursery,
+    TrioInternalError as TrioInternalError,
+    RunFinishedError as RunFinishedError,
+    WouldBlock as WouldBlock,
+    Cancelled as Cancelled,
+    BusyResourceError as BusyResourceError,
+    ClosedResourceError as ClosedResourceError,
+    run as run,
+    open_nursery as open_nursery,
+    CancelScope as CancelScope,
+    current_effective_deadline as current_effective_deadline,
+    TASK_STATUS_IGNORED as TASK_STATUS_IGNORED,
+    current_time as current_time,
+    BrokenResourceError as BrokenResourceError,
+    EndOfChannel as EndOfChannel,
+    Nursery as Nursery,
 )
 
 from ._timeouts import (
-    move_on_at,
-    move_on_after,
-    sleep_forever,
-    sleep_until,
-    sleep,
-    fail_at,
-    fail_after,
-    TooSlowError,
+    move_on_at as move_on_at,
+    move_on_after as move_on_after,
+    sleep_forever as sleep_forever,
+    sleep_until as sleep_until,
+    sleep as sleep,
+    fail_at as fail_at,
+    fail_after as fail_after,
+    TooSlowError as TooSlowError,
 )
 
 from ._sync import (
-    Event,
-    CapacityLimiter,
-    Semaphore,
-    Lock,
-    StrictFIFOLock,
-    Condition,
+    Event as Event,
+    CapacityLimiter as CapacityLimiter,
+    Semaphore as Semaphore,
+    Lock as Lock,
+    StrictFIFOLock as StrictFIFOLock,
+    Condition as Condition,
 )
 
-from ._highlevel_generic import aclose_forcefully, StapledStream
+from ._highlevel_generic import (
+    aclose_forcefully as aclose_forcefully,
+    StapledStream as StapledStream,
+)
 
 from ._channel import (
-    open_memory_channel,
-    MemorySendChannel,
-    MemoryReceiveChannel,
+    open_memory_channel as open_memory_channel,
+    MemorySendChannel as MemorySendChannel,
+    MemoryReceiveChannel as MemoryReceiveChannel,
 )
 
-from ._signals import open_signal_receiver
+from ._signals import open_signal_receiver as open_signal_receiver
 
-from ._highlevel_socket import SocketStream, SocketListener
+from ._highlevel_socket import (
+    SocketStream as SocketStream,
+    SocketListener as SocketListener,
+)
 
-from ._file_io import open_file, wrap_file
+from ._file_io import open_file as open_file, wrap_file as wrap_file
 
-from ._path import Path
+from ._path import Path as Path
 
-from ._subprocess import Process, run_process
+from ._subprocess import Process as Process, run_process as run_process
 
-from ._ssl import SSLStream, SSLListener, NeedHandshakeError
+from ._ssl import (
+    SSLStream as SSLStream,
+    SSLListener as SSLListener,
+    NeedHandshakeError as NeedHandshakeError,
+)
 
-from ._dtls import DTLSEndpoint, DTLSChannel
+from ._dtls import DTLSEndpoint as DTLSEndpoint, DTLSChannel as DTLSChannel
 
-from ._highlevel_serve_listeners import serve_listeners
+from ._highlevel_serve_listeners import serve_listeners as serve_listeners
 
-from ._highlevel_open_tcp_stream import open_tcp_stream
+from ._highlevel_open_tcp_stream import open_tcp_stream as open_tcp_stream
 
-from ._highlevel_open_tcp_listeners import open_tcp_listeners, serve_tcp
+from ._highlevel_open_tcp_listeners import (
+    open_tcp_listeners as open_tcp_listeners,
+    serve_tcp as serve_tcp,
+)
 
-from ._highlevel_open_unix_stream import open_unix_socket
+from ._highlevel_open_unix_stream import open_unix_socket as open_unix_socket
 
 from ._highlevel_ssl_helpers import (
-    open_ssl_over_tcp_stream,
-    open_ssl_over_tcp_listeners,
-    serve_ssl_over_tcp,
+    open_ssl_over_tcp_stream as open_ssl_over_tcp_stream,
+    open_ssl_over_tcp_listeners as open_ssl_over_tcp_listeners,
+    serve_ssl_over_tcp as serve_ssl_over_tcp,
 )
 
 from ._core._multierror import MultiError as _MultiError
 from ._core._multierror import NonBaseMultiError as _NonBaseMultiError
 
-from ._deprecate import TrioDeprecationWarning
+from ._deprecate import TrioDeprecationWarning as TrioDeprecationWarning
 
 # Submodules imported by default
 from . import lowlevel
@@ -106,7 +121,7 @@ from . import to_thread
 if False:
     from . import testing
 
-from . import _deprecate
+from . import _deprecate as _deprecate
 
 _deprecate.enable_attribute_deprecations(__name__)
 

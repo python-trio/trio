@@ -6,6 +6,10 @@
 # here.
 # We still have some underscore names though but only a few.
 
+
+# Uses `from x import y as y` for compatibility with `pyright --verifytypes` (#2625)
+# except not in this file which doesn't actually export anything from an underscored file.
+
 from . import _socket
 import sys
 import typing as _t
