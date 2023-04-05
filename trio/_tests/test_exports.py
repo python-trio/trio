@@ -24,7 +24,7 @@ def test_core_is_properly_reexported():
     # three modules:
     sources = [trio, trio.lowlevel, trio.testing]
     for symbol in dir(_core):
-        if symbol.startswith("_") or symbol == "tests":
+        if symbol.startswith("_"):
             continue
         found = 0
         for source in sources:
@@ -46,10 +46,6 @@ def public_modules(module):
         if not class_.__name__.startswith(module.__name__):  # pragma: no cover
             continue
         if class_ is module:  # pragma: no cover
-            continue
-        # We should rename the trio.tests module (#274), but until then we use
-        # a special-case hack:
-        if class_.__name__ == "trio.tests":
             continue
         yield from public_modules(class_)
 
@@ -82,11 +78,6 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         return {symbol for symbol in symbols if not symbol.startswith("_")}
 
     runtime_names = no_underscores(dir(module))
-
-    # We should rename the trio.tests module (#274), but until then we use a
-    # special-case hack:
-    if modname == "trio":
-        runtime_names.remove("tests")
 
     if tool == "pylint":
         from pylint.lint import PyLinter

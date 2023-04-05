@@ -8,7 +8,7 @@ import socket as stdlib_socket
 import inspect
 import tempfile
 import sys as _sys
-from .._core.tests.tutil import creates_ipv6, binds_ipv6
+from .._core._tests.tutil import creates_ipv6, binds_ipv6
 from .. import _core
 from .. import _socket as _tsocket
 from .. import socket as tsocket

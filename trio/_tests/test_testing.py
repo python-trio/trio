@@ -4,7 +4,7 @@ import tempfile
 
 import pytest
 
-from .._core.tests.tutil import can_bind_ipv6
+from .._core._tests.tutil import can_bind_ipv6
 from .. import sleep
 from .. import _core
 from .._highlevel_generic import aclose_forcefully

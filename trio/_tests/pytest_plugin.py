@@ -1,5 +1,5 @@
 # XX this does not belong here -- b/c it's here, these things only apply to
-# the tests in trio/_core/tests, not in trio/tests. For now there's some
+# the tests in trio/_core/_tests, not in trio/_tests. For now there's some
 # copy-paste...
 #
 # this stuff should become a proper pytest plugin
