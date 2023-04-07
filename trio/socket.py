@@ -8,7 +8,7 @@
 
 
 # Uses `from x import y as y` for compatibility with `pyright --verifytypes` (#2625)
-# except not in this file which doesn't actually export anything from an underscored file.
+# It ignores CONSTANTS From socket though.
 
 from . import _socket
 import sys

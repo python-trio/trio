@@ -107,8 +107,8 @@ def test_static_tool_sees_all_symbols(tool, modname):
         )
         start_index = res.stdout.find(b"Public modules: ")
         end_index = res.stdout.find(b"Other referenced symbols: ", start_index)
-        assert start_index != -1
-        assert end_index != -1
+        assert start_index != -1, res.stdout
+        assert end_index != -1, res.stdout
         static_names = set(
             x.strip().decode()[len(modname) + 1 :]
             for x in res.stdout[start_index:end_index].split(b"\n")
