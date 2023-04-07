@@ -153,16 +153,16 @@ globals().update(
 
 # import the overwrites
 from ._socket import (
-    fromfd,
-    from_stdlib_socket,
-    getprotobyname,
-    socketpair,
-    getnameinfo,
-    socket,
-    getaddrinfo,
-    set_custom_hostname_resolver,
-    set_custom_socket_factory,
-    SocketType,
+    fromfd as fromfd,
+    from_stdlib_socket as from_stdlib_socket,
+    getprotobyname as getprotobyname,
+    socketpair as socketpair,
+    getnameinfo as getnameinfo,
+    socket as socket,
+    getaddrinfo as getaddrinfo,
+    set_custom_hostname_resolver as set_custom_hostname_resolver,
+    set_custom_socket_factory as set_custom_socket_factory,
+    SocketType as SocketType,
 )
 
 # not always available so expose only if
@@ -174,22 +174,27 @@ if sys.platform == "win32" or not _t.TYPE_CHECKING:
 
 # expose these functions to trio.socket
 from socket import (
-    gaierror,
-    herror,
-    gethostname,
-    ntohs,
-    htonl,
-    htons,
-    inet_aton,
-    inet_ntoa,
-    inet_pton,
-    inet_ntop,
+    gaierror as gaierror,
+    herror as herror,
+    gethostname as gethostname,
+    ntohs as ntohs,
+    htonl as htonl,
+    htons as htons,
+    inet_aton as inet_aton,
+    inet_ntoa as inet_ntoa,
+    inet_pton as inet_pton,
+    inet_ntop as inet_ntop,
 )
 
 # not always available so expose only if
 if sys.platform != "win32" or not _t.TYPE_CHECKING:
     try:
-        from socket import sethostname, if_nameindex, if_nametoindex, if_indextoname
+        from socket import (
+            sethostname as sethostname,
+            if_nameindex as if_nameindex,
+            if_nametoindex as if_nametoindex,
+            if_indextoname as if_indextoname,
+        )
     except ImportError:
         pass
 

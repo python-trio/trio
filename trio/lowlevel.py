@@ -47,7 +47,7 @@ from ._core import (
     start_guest_run as start_guest_run,
 )
 
-from ._subprocess import open_process
+from ._subprocess import open_process as open_process
 
 if sys.platform == "win32":
     # Windows symbols
@@ -62,7 +62,7 @@ if sys.platform == "win32":
     from ._wait_for_object import WaitForSingleObject
 else:
     # Unix symbols
-    from ._unix_pipes import FdStream
+    from ._unix_pipes import FdStream as FdStream
 
     # Kqueue-specific symbols
     if sys.platform != "linux" and (_t.TYPE_CHECKING or not hasattr(_select, "epoll")):

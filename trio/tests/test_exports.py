@@ -9,6 +9,7 @@ import pytest
 
 import trio
 import trio.testing
+from typing import Iterable
 
 from .. import _core
 from .. import _util
@@ -65,7 +66,7 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
     reason="skip static introspection tools on Python dev/alpha releases",
 )
 @pytest.mark.parametrize("modname", PUBLIC_MODULE_NAMES)
-@pytest.mark.parametrize("tool", ["pylint", "jedi"])
+@pytest.mark.parametrize("tool", ["pylint", "jedi", "pyright_verifytypes"])
 @pytest.mark.filterwarnings(
     # https://github.com/pypa/setuptools/issues/3274
     "ignore:module 'sre_constants' is deprecated:DeprecationWarning",
@@ -96,6 +97,29 @@ def test_static_tool_sees_all_symbols(tool, modname):
         script = jedi.Script(f"import {modname}; {modname}.")
         completions = script.complete()
         static_names = no_underscores(c.name for c in completions)
+
+    elif tool == "pyright_verifytypes":
+        import subprocess
+
+        res = subprocess.run(
+            ["pyright", f"--verifytypes={modname}", "--verbose"], capture_output=True
+        )
+        start_index = res.stdout.find(b"Public modules: ")
+        end_index = res.stdout.find(b"Other referenced symbols: ", start_index)
+        assert start_index != -1
+        assert end_index != -1
+        static_names = set(
+            x.strip().decode()[len(modname) + 1 :]
+            for x in res.stdout[start_index:end_index].split(b"\n")
+            if modname + "." in x.decode()
+        )
+
+        # don't require verifytypes to see reexported constants from socket
+        if modname == "trio.socket":
+            import socket
+
+            static_names |= set(filter(str.isupper, dir(socket))) & runtime_names
+
     else:  # pragma: no cover
         assert False
 

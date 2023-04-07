@@ -5,14 +5,14 @@ from .._core import (
     MockClock as MockClock,
 )
 
-from ._trio_test import trio_test
+from ._trio_test import trio_test as trio_test
 
 from ._checkpoints import (
     assert_checkpoints as assert_checkpoints,
     assert_no_checkpoints as assert_no_checkpoints,
 )
 
-from ._sequencer import Sequencer
+from ._sequencer import Sequencer as Sequencer
 
 from ._check_streams import (
     check_one_way_stream as check_one_way_stream,
