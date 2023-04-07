@@ -7,26 +7,26 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.1123882503192848,
+    "completenessScore": 0.1997703788748565,
     "exportedSymbolCounts": {
-      "withAmbiguousType": 45,
-      "withKnownType": 88,
-      "withUnknownType": 650
+      "withAmbiguousType": 46,
+      "withKnownType": 174,
+      "withUnknownType": 651
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 20,
     "missingDefaultParamCount": 0,
-    "missingFunctionDocStringCount": 435,
+    "missingFunctionDocStringCount": 436,
     "moduleName": "trio",
-    "moduleRootDirectory": "/home/h/Git/trio/.virtualenv/trio-lffx/lib/python3.10/site-packages/trio",
+    "moduleRootDirectory": "/home/h/Git/trio/.tox/py38-checksh/lib/python3.8/site-packages/trio",
     "otherSymbolCounts": {
       "withAmbiguousType": 13,
-      "withKnownType": 124,
+      "withKnownType": 222,
       "withUnknownType": 293
     },
     "packageName": "trio",
-    "packageRootDirectory": "/home/h/Git/trio/.virtualenv/trio-lffx/lib/python3.10/site-packages/trio",
-    "pyTypedPath": "/home/h/Git/trio/.virtualenv/trio-lffx/lib/python3.10/site-packages/trio/py.typed"
+    "packageRootDirectory": "/home/h/Git/trio/.tox/py38-checksh/lib/python3.8/site-packages/trio",
+    "pyTypedPath": "/home/h/Git/trio/.tox/py38-checksh/lib/python3.8/site-packages/trio/py.typed"
   },
   "version": "1.1.302"
 }

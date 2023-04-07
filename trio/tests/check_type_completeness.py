@@ -16,6 +16,7 @@ def run_pyright():
         capture_output=True,
     )
 
+
 def main(args: argparse.Namespace) -> int:
     print("*" * 20, "\nChecking type completeness hasn't gone down...")
     current_dict: dict[str, Any] = {}
@@ -44,7 +45,6 @@ def main(args: argparse.Namespace) -> int:
             global failed
             failed = True
             print(f"ERROR: {key} is {current_dict[key]}")
-
 
     res = run_pyright()
     current_result = json.loads(res.stdout)
@@ -99,14 +99,14 @@ def main(args: argparse.Namespace) -> int:
         print("Overwriting file")
 
         # don't care about differences in time taken
-        del current_result['time']
-        del current_result['summary']['timeInSec']
+        del current_result["time"]
+        del current_result["summary"]["timeInSec"]
 
         # don't save huge file for now
         del current_result["typeCompleteness"]["symbols"]
         del current_result["typeCompleteness"]["modules"]
 
-        with open(RES_FILE, 'w') as file:
+        with open(RES_FILE, "w") as file:
             json.dump(current_result, file, sort_keys=True, indent=2)
 
     print("*" * 20)
