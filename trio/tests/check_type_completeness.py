@@ -7,15 +7,22 @@ import sys
 import argparse
 
 RES_FILE = Path(__file__).parent / "verify_types.json"
+failed = False
 
+
+def run_pyright():
+    return subprocess.run(
+        ["pyright", "--verifytypes=trio", "--outputjson", "--ignoreexternal"],
+        capture_output=True,
+    )
 
 def main(args: argparse.Namespace) -> int:
     print("*" * 20, "\nChecking type completeness hasn't gone down...")
-    failed = False
     current_dict: dict[str, Any] = {}
     last_dict: dict[str, Any] = {}
 
     def check_less_than(key, /, invert=False):
+        global failed
         current = current_dict[key]
         last = last_dict[key]
         assert isinstance(current, (float, int))
@@ -26,7 +33,7 @@ def main(args: argparse.Namespace) -> int:
             failed = True
             print("ERROR: ", end="")
         if isinstance(current, float):
-            lhs = f"{current:.4}"
+            current = f"{current:.4}"
             last = f"{last:.4}"
         print(
             f"{key} has gone {'down' if current<last else 'up'} from {last} to {current}"
@@ -34,16 +41,33 @@ def main(args: argparse.Namespace) -> int:
 
     def check_zero(key):
         if current_dict[key] != 0:
+            global failed
             failed = True
-            print(f"error: {key} is {current_dict[key]})")
+            print(f"ERROR: {key} is {current_dict[key]}")
 
-    res = subprocess.run(
-        ["pyright", "--verifytypes=trio", "--outputjson"], capture_output=True
-    )
+
+    res = run_pyright()
+    current_result = json.loads(res.stdout)
+
+    # check if py.typed file was missing
+    if (
+        current_result["generalDiagnostics"]
+        and current_result["generalDiagnostics"][0]["message"]
+        == "No py.typed file found"
+    ):
+        print("creating py.typed")
+        py_typed_file = (
+            Path(current_result["typeCompleteness"]["packageRootDirectory"])
+            / "py.typed"
+        )
+        py_typed_file.write_text("")
+
+        res = run_pyright()
+        current_result = json.loads(res.stdout)
+
     if res.stderr:
         print(res.stderr)
 
-    current_result = json.loads(res.stdout)
     last_result = json.loads(RES_FILE.read_text())
     current_dict = current_result["summary"]
 
@@ -73,7 +97,17 @@ def main(args: argparse.Namespace) -> int:
 
     if args.overwrite_file:
         print("Overwriting file")
-        RES_FILE.write_bytes(res.stdout)
+
+        # don't care about differences in time taken
+        del current_result['time']
+        del current_result['summary']['timeInSec']
+
+        # don't save huge file for now
+        del current_result["typeCompleteness"]["symbols"]
+        del current_result["typeCompleteness"]["modules"]
+
+        with open(RES_FILE, 'w') as file:
+            json.dump(current_result, file, sort_keys=True, indent=2)
 
     print("*" * 20)
 

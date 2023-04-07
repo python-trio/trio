@@ -37,7 +37,7 @@ if git status --porcelain | grep -q "requirements.txt"; then
     EXIT_STATUS=1
 fi
 
-python trio/tests/check_type_completeness.py || EXIT_STATUS=$?
+python trio/tests/check_type_completeness.py --overwrite-file || EXIT_STATUS=$?
 
 # Finally, leave a really clear warning of any issues and exit
 if [ $EXIT_STATUS -ne 0 ]; then
