@@ -168,7 +168,7 @@ from ._socket import (
 # not always available so expose only if
 if sys.platform == "win32" or not _t.TYPE_CHECKING:
     try:
-        from ._socket import fromshare
+        from ._socket import fromshare as fromshare
     except ImportError:
         pass
 

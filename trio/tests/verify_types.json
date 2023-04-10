@@ -7,16 +7,16 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.2617680826636051,
+    "completenessScore": 0.1997703788748565,
     "exportedSymbolCounts": {
-      "withAmbiguousType": 59,
-      "withKnownType": 228,
-      "withUnknownType": 584
+      "withAmbiguousType": 46,
+      "withKnownType": 174,
+      "withUnknownType": 651
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 20,
     "missingDefaultParamCount": 0,
-    "missingFunctionDocStringCount": 369,
+    "missingFunctionDocStringCount": 436,
     "moduleName": "trio",
     "otherSymbolCounts": {
       "withAmbiguousType": 13,

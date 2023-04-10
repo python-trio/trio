@@ -102,7 +102,7 @@ def test_static_tool_sees_all_symbols(tool, modname):
     elif tool == "pyright_verifytypes":
         import subprocess
 
-        (Path(trio.__file__).parent / 'py.typed').write_text("")
+        (Path(trio.__file__).parent / "py.typed").write_text("")
 
         res = subprocess.run(
             ["pyright", f"--verifytypes={modname}", "--verbose"],

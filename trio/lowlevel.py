@@ -52,12 +52,12 @@ from ._subprocess import open_process as open_process
 if sys.platform == "win32":
     # Windows symbols
     from ._core import (
-        current_iocp,
-        register_with_iocp,
-        wait_overlapped,
-        monitor_completion_key,
-        readinto_overlapped,
-        write_overlapped,
+        current_iocp as current_iocp,
+        register_with_iocp as register_with_iocp,
+        wait_overlapped as wait_overlapped,
+        monitor_completion_key as monitor_completion_key,
+        readinto_overlapped as readinto_overlapped,
+        write_overlapped as write_overlapped,
     )
     from ._wait_for_object import WaitForSingleObject
 else:
@@ -67,9 +67,9 @@ else:
     # Kqueue-specific symbols
     if sys.platform != "linux" and (_t.TYPE_CHECKING or not hasattr(_select, "epoll")):
         from ._core import (
-            current_kqueue,
-            monitor_kevent,
-            wait_kevent,
+            current_kqueue as current_kqueue,
+            monitor_kevent as monitor_kevent,
+            wait_kevent as wait_kevent,
         )
 
 del sys
