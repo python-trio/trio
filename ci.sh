@@ -1,7 +1,7 @@
 #!/bin/bash
 
 set -ex -o pipefail
-export PYRIGHT_PYTHON_FORCE_VERSION=1
+export PYRIGHT_PYTHON_FORCE_VERSION=latest
 
 # Log some general info about the environment
 uname -a

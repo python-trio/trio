@@ -102,9 +102,16 @@ def main(args: argparse.Namespace) -> int:
         del current_result["time"]
         del current_result["summary"]["timeInSec"]
 
-        # don't save huge file for now
-        del current_result["typeCompleteness"]["symbols"]
-        del current_result["typeCompleteness"]["modules"]
+        for key in (
+            # don't save huge file for now
+            "symbols",
+            "modules",
+            # don't save path
+            "moduleRootDirectory",
+            "packageRootDirectory",
+            "pyTypedPath",
+        ):
+            del current_result["typeCompleteness"][key]
 
         with open(RES_FILE, "w") as file:
             json.dump(current_result, file, sort_keys=True, indent=2)

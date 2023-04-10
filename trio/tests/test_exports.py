@@ -4,6 +4,7 @@ import importlib
 import types
 import inspect
 import enum
+from pathlib import Path
 
 import pytest
 
@@ -100,14 +101,16 @@ def test_static_tool_sees_all_symbols(tool, modname):
 
     elif tool == "pyright_verifytypes":
         import subprocess
-        # TODO: create py.typed file
+
+        (Path(trio.__file__).parent / 'py.typed').write_text("")
 
         res = subprocess.run(
-            ["pyright", f"--verifytypes={modname}", "--verbose"], capture_output=True
+            ["pyright", f"--verifytypes={modname}", "--verbose"],
+            capture_output=True,
         )
         start_index = res.stdout.find(b"Public modules: ")
         end_index = res.stdout.find(b"Other referenced symbols: ", start_index)
-        assert start_index != -1, res.stdout
+        assert start_index != -1, (res.stdout, res.stderr)
         assert end_index != -1, res.stdout
         static_names = set(
             x.strip().decode()[len(modname) + 1 :]
