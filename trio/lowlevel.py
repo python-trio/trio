@@ -59,7 +59,7 @@ if sys.platform == "win32":
         readinto_overlapped as readinto_overlapped,
         write_overlapped as write_overlapped,
     )
-    from ._wait_for_object import WaitForSingleObject
+    from ._wait_for_object import WaitForSingleObject as WaitForSingleObject
 else:
     # Unix symbols
     from ._unix_pipes import FdStream as FdStream
