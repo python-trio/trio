@@ -1,12 +1,12 @@
-# type: ignore
-
-from functools import wraps, partial
 import os
-import types
 import pathlib
+import sys
+import types
+from functools import partial, wraps
+from typing import TYPE_CHECKING, Awaitable, Callable, TypeVar, Any
 
 import trio
-from trio._util import async_wraps, Final
+from trio._util import Final, async_wraps
 
 
 # re-wrap return value from methods that return new instances of pathlib.Path
@@ -181,6 +181,73 @@ class Path(metaclass=AsyncAutoWrapperType):
         func = partial(self._wrapped.open, *args, **kwargs)
         value = await trio.to_thread.run_sync(func)
         return trio.wrap_file(value)
+
+    if TYPE_CHECKING:
+        # the dunders listed in _forward_magic that aren't seen otherwise
+        __bytes__ = pathlib.Path.__bytes__
+        __truediv__ = pathlib.Path.__truediv__
+        __rtruediv__ = pathlib.Path.__rtruediv__
+
+        # Note: these are not parsed properly by jedi.
+        # It might be superior to just manually implement all the methods and get rid
+        # of all the magic wrapping stuff.
+
+        # wrapped methods handled by __getattr__
+        absolute: Any
+        as_posix: Any
+        as_uri: Any
+        chmod: Any
+        cwd: Any
+        exists: Any
+        expanduser: Any
+        glob: Any
+        home: Any
+        is_absolute: Any
+        is_block_device: Any
+        is_char_device: Any
+        is_dir: Any
+        is_fifo: Any
+        is_file: Any
+        is_reserved: Any
+        is_socket: Any
+        is_symlink: Any
+        iterdir: Any
+        joinpath: Any
+        lchmod: Any
+        lstat: Any
+        match: Any
+        mkdir: Any
+        read_bytes: Any
+        read_text: Any
+        relative_to: Any
+        rename: Any
+        replace: Any
+        resolve: Any
+        rglob: Any
+        rmdir: Any
+        samefile: Any
+        stat: Any
+        symlink_to: Any
+        touch: Any
+        unlink: Any
+        with_name: Any
+        with_suffix: Any
+        write_bytes: Any
+        write_text: Any
+
+        if sys.platform != "win32":
+            group: Any
+            is_mount: Any
+            owner: Any
+
+        if sys.version_info >= (3, 8):
+            link_to: Any
+        if sys.version_info >= (3, 9):
+            is_relative_to: Any
+            with_stem: Any
+            readlink: Any
+        if sys.version_info >= (3, 10):
+            hardlink_to: Any
 
 
 Path.iterdir.__doc__ = """
