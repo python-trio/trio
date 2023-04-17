@@ -13,10 +13,10 @@ import pytest
 
 import trio
 import trio.testing
-from trio.tests.conftest import RUN_SLOW
 
 from .. import _core, _util
-from .._core.tests.tutil import slow
+from .._core._tests.tutil import slow
+from .pytest_plugin import RUN_SLOW
 
 
 def test_core_is_properly_reexported():

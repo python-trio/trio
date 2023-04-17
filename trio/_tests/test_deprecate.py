@@ -241,3 +241,15 @@ def test_module_with_deprecations(recwarn_always):
 
     with pytest.raises(AttributeError):
         module_with_deprecations.asdf
+
+
+def test_tests_is_deprecated() -> None:
+    from trio import tests
+
+    with pytest.warns(TrioDeprecationWarning):
+        tests.test_abc  # type: ignore[attr-defined]
+
+    with pytest.warns(TrioDeprecationWarning):
+        import trio.tests
+
+        trio.tests.test_deprecate  # type: ignore[attr-defined]
