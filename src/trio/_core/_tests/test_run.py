@@ -40,6 +40,7 @@ if TYPE_CHECKING:
         Callable,
         Generator,
     )
+from exceptiongroup import catch
 
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup, ExceptionGroup
@@ -1845,7 +1846,59 @@ async def test_nursery_start(autojump_clock: _core.MockClock) -> None:
                     raise AssertionError() from exc  # pragma: no cover
             assert not cs.cancelled_caught
 
-    # trying to start in a closed nursery raises an error immediately
+    # calling started() while handling a Cancelled raises an error immediately.
+    async def started_while_handling_cancelled(
+        task_status: _core.TaskStatus[None] = _core.TASK_STATUS_IGNORED,
+    ) -> None:
+        try:
+            await _core.checkpoint()
+        except _core.Cancelled:
+            task_status.started()
+        raise AssertionError()  # pragma: no cover
+
+    async with _core.open_nursery() as nursery:
+        with _core.CancelScope() as cs:
+            cs.cancel()
+            with pytest.raises(RuntimeError):
+                await nursery.start(started_while_handling_cancelled)
+
+    # calling started() while handling multiple Cancelleds raises an error
+    # immediately.
+    async def started_while_handling_multiple_cancelled(
+        task_status: _core.TaskStatus[None] = _core.TASK_STATUS_IGNORED,
+    ) -> None:
+        with catch({_core.Cancelled: lambda _: task_status.started()}):
+            async with _core.open_nursery() as nursery:
+                nursery.start_soon(_core.checkpoint)
+                nursery.start_soon(_core.checkpoint)
+        raise AssertionError()  # pragma: no cover
+
+    async with _core.open_nursery() as nursery:
+        with _core.CancelScope() as cs:
+            cs.cancel()
+            with pytest.raises(RuntimeError):
+                await nursery.start(started_while_handling_multiple_cancelled)
+
+    # calling started() while handling an exception while handling Cancelled(s) raises an error immediately.
+    async def started_while_handling_exc_while_handling_cancelled(
+        task_status: _core.TaskStatus[None] = _core.TASK_STATUS_IGNORED,
+    ) -> None:
+        try:
+            await _core.checkpoint()
+        except _core.Cancelled:
+            try:
+                raise ValueError
+            except ValueError:
+                task_status.started()
+        raise AssertionError()  # pragma: no cover
+
+    async with _core.open_nursery() as nursery:
+        with _core.CancelScope() as cs:
+            cs.cancel()
+            with pytest.raises(RuntimeError):
+                await nursery.start(started_while_handling_exc_while_handling_cancelled)
+
+    # trying to start in a closed nursery raises an error immediately.
     async with _core.open_nursery() as closed_nursery:
         pass
     t0 = _core.current_time()
