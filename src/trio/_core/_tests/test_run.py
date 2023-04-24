@@ -1804,48 +1804,46 @@ async def test_nursery_start(autojump_clock: _core.MockClock) -> None:
             await nursery.start(nothing)
         assert "exited without calling" in str(excinfo1.value)
 
-    # if the call to start() is cancelled, then the call to started() does
-    # nothing -- the child keeps executing under start(). The value it passed
-    # is ignored; start() raises Cancelled.
-    async def just_started(
-        task_status: _core.TaskStatus[str] = _core.TASK_STATUS_IGNORED,
+    # if the call to start() is effectively cancelled when the child checkpoints
+    # (before calling started()), the child raises Cancelled up out of start().
+    async def checkpoint_before_started(
+        task_status: _core.TaskStatus[None] = _core.TASK_STATUS_IGNORED,
     ) -> None:
-        task_status.started("hi")
         await _core.checkpoint()
+        raise AssertionError()  # pragma: no cover
 
     async with _core.open_nursery() as nursery:
         with _core.CancelScope() as cs:
             cs.cancel()
             with pytest.raises(_core.Cancelled):
-                await nursery.start(just_started)
+                await nursery.start(checkpoint_before_started)
 
-    # but if the task does not execute any checkpoints, and exits, then start()
-    # doesn't raise Cancelled, since the task completed successfully.
-    async def started_with_no_checkpoint(
-        *, task_status: _core.TaskStatus[None] = _core.TASK_STATUS_IGNORED
+    # but if the call to start() is effectively cancelled when the child calls
+    # started(), it is too late to deliver the start() cancellation to the
+    # child, so the start() call returns and the child continues in the nursery.
+    async def no_checkpoint_before_started(
+        eventual_parent_nursery: _core.Nursery,
+        *,
+        task_status: _core.TaskStatus[None] = _core.TASK_STATUS_IGNORED,
     ) -> None:
-        task_status.started(None)
-
-    async with _core.open_nursery() as nursery:
-        with _core.CancelScope() as cs:
-            cs.cancel()
-            await nursery.start(started_with_no_checkpoint)
-        assert not cs.cancelled_caught
-
-    # and since starting in a cancelled context makes started() a no-op, if
-    # the child crashes after calling started(), the error can *still* come
-    # out of start()
-    async def raise_keyerror_after_started(
-        *, task_status: _core.TaskStatus[None] = _core.TASK_STATUS_IGNORED
-    ) -> None:
+        assert _core.current_task().eventual_parent_nursery is eventual_parent_nursery
         task_status.started()
-        raise KeyError("whoopsiedaisy")
+        assert _core.current_task().eventual_parent_nursery is None
+        assert _core.current_task().parent_nursery is eventual_parent_nursery
+        # This task is no longer in an effectively cancelled scope, so it should
+        # be able to pass through a checkpoint.
+        await _core.checkpoint()
+        raise KeyError(f"I should come out of {eventual_parent_nursery!r}")
 
-    async with _core.open_nursery() as nursery:
-        with _core.CancelScope() as cs:
-            cs.cancel()
-            with pytest.raises(KeyError):
-                await nursery.start(raise_keyerror_after_started)
+    with pytest.raises(KeyError):
+        async with _core.open_nursery() as nursery:
+            with _core.CancelScope() as cs:
+                cs.cancel()
+                try:
+                    await nursery.start(no_checkpoint_before_started, nursery)
+                except KeyError as exc:
+                    raise AssertionError() from exc  # pragma: no cover
+            assert not cs.cancelled_caught
 
     # trying to start in a closed nursery raises an error immediately
     async with _core.open_nursery() as closed_nursery:
