@@ -1,0 +1,13 @@
+When :func:`trio.TaskStatus.started` is called in a cancelled scope, it no
+longer returns (indicating that the task has been moved and is now running as a
+child of the nursery) without actually moving the task. Previously,
+:func:`trio.TaskStatus.started` would not move the task in this scenario,
+causing the call to :func:`trio.Nursery.start` to incorrectly wait until the
+started task finished, which caused deadlocks and other issues.
+
+:func:`trio.TaskStatus.started` is no longer allowed to be called by an
+exception handler that is handling one or more :exc:`Cancelled` exceptions;
+attempting to do so will now raise a :exc:`RuntimeError`. Note that any code
+that did this prior to this ban was already buggy, because it was attempting to
+teleport :exc:`Cancelled` exception(s) to a place in the task tree without the
+corresponding :class:`CancelScope`(s) to catch them.

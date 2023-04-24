@@ -856,19 +856,34 @@ class _TaskStatus(TaskStatus[StatusT]):
     def started(self, value: StatusT | None = None) -> None:
         if self._value is not _NoStatus:
             raise RuntimeError("called 'started' twice on the same task status")
-        self._value = cast(StatusT, value)  # If None, StatusT == None
 
-        # If the old nursery is cancelled, then quietly quit now; the child
-        # will eventually exit on its own, and we don't want to risk moving
-        # children that might have propagating Cancelled exceptions into
-        # a place with no cancelled cancel scopes to catch them.
-        assert self._old_nursery._cancel_status is not None
-        if self._old_nursery._cancel_status.effectively_cancelled:
-            return
+        # Make sure we don't move a task with propagating Cancelled exception(s)
+        # to a place in the tree without the corresponding cancel scope(s).
+        #
+        # N.B.: This check is limited to the task that calls started(). If the
+        # user uses lowlevel.current_task().parent_nursery to add other tasks to
+        # the private implementation-detail nursery of start(), this won't be
+        # able to check those tasks. See #1599.
+        _, exc, _ = sys.exc_info()
+        while exc is not None:
+            handling_cancelled = False
+            if isinstance(exc, Cancelled):
+                handling_cancelled = True
+            elif isinstance(exc, BaseExceptionGroup):
+                matched, _ = exc.split(Cancelled)
+                if matched:
+                    handling_cancelled = True
+            if handling_cancelled:
+                raise RuntimeError(
+                    "task_status.started() cannot be called while handling Cancelled(s)"
+                )
+            exc = exc.__context__
 
         # Can't be closed, b/c we checked in start() and then _pending_starts
         # should keep it open.
         assert not self._new_nursery._closed
+
+        self._value = cast(StatusT, value)  # If None, StatusT == None
 
         # Move tasks from the old nursery to the new
         tasks = self._old_nursery._children
@@ -1209,6 +1224,12 @@ class Nursery(metaclass=NoPublicConstructor):
 
         If the child task passes a value to :meth:`task_status.started(value) <TaskStatus.started>`,
         then :meth:`start` returns this value. Otherwise, it returns ``None``.
+
+        :meth:`task_status.started() <TaskStatus.started>` cannot be called by
+        an exception handler (or other cleanup code, like ``finally`` blocks,
+        ``__aexit__`` handlers, and so on) that is handling one or more
+        :exc:`Cancelled` exceptions. (It'll raise a :exc:`RuntimeError` if you
+        violate this rule.)
         """
         if self._closed:
             raise RuntimeError("Nursery is closed to new arrivals")
