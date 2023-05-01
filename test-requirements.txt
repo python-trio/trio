@@ -8,6 +8,8 @@ astor==0.8.1
     # via -r test-requirements.in
 astroid==2.15.2
     # via pylint
+asttokens==2.2.1
+    # via stack-data
 async-generator==1.10
     # via -r test-requirements.in
 attrs==22.2.0
@@ -39,10 +41,8 @@ decorator==5.1.1
     # via ipython
 dill==0.3.6
     # via pylint
-exceptiongroup==1.1.1 ; python_version < "3.11"
-    # via
-    #   -r test-requirements.in
-    #   pytest
+executing==1.2.0
+    # via stack-data
 flake8==4.0.1
     # via -r test-requirements.in
 idna==3.4
@@ -51,7 +51,7 @@ idna==3.4
     #   trustme
 iniconfig==2.0.0
     # via pytest
-ipython==7.34.0
+ipython==8.10.0
     # via -r test-requirements.in
 isort==5.10.1
     # via pylint
@@ -101,6 +101,8 @@ prompt-toolkit==3.0.38
     # via ipython
 ptyprocess==0.7.0
     # via pexpect
+pure-eval==0.2.2
+    # via stack-data
 pycodestyle==2.8.0
     # via flake8
 pycparser==2.21
@@ -121,18 +123,14 @@ pytest==7.2.2
     #   pytest-cov
 pytest-cov==4.0.0
     # via -r test-requirements.in
+six==1.16.0
+    # via asttokens
 sniffio==1.3.0
     # via -r test-requirements.in
 sortedcontainers==2.4.0
     # via -r test-requirements.in
-tomli==2.0.1
-    # via
-    #   black
-    #   build
-    #   coverage
-    #   mypy
-    #   pylint
-    #   pytest
+stack-data==0.6.2
+    # via ipython
 tomlkit==0.11.7
     # via pylint
 traitlets==5.9.0
@@ -146,10 +144,7 @@ types-pyopenssl==23.1.0.1 ; implementation_name == "cpython"
 typing-extensions==4.5.0 ; implementation_name == "cpython"
     # via
     #   -r test-requirements.in
-    #   astroid
-    #   black
     #   mypy
-    #   pylint
 wcwidth==0.2.6
     # via prompt-toolkit
 wheel==0.40.0
