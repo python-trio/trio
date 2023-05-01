@@ -16,7 +16,7 @@ mypy; implementation_name == "cpython"
 types-pyOpenSSL; implementation_name == "cpython"
 flake8
 astor          # code generation
-pip-tools
+pip-tools >= 6.13.0
 
 # https://github.com/python-trio/trio/pull/654#issuecomment-420518745
 # typed_ast is deprecated as of 3.8, and straight up doesn't compile on 3.10-dev as of 2021-12-13
