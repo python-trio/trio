@@ -40,7 +40,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           # https://stackoverflow.com/a/3879077/4504950
-          if ! git diff-index --quiet HEAD; then
+          if git diff-index --quiet HEAD; then
             echo "No changes to commit!"
             exit 0
           fi
