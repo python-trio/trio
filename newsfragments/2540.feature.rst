@@ -1,0 +1,1 @@
+ConflictDetector now kills all tasks involved in a conflict.

@@ -53,7 +53,7 @@ async def test_ConflictDetector():
         with ul1:
             await wait_all_tasks_blocked()
 
-    with pytest.raises(_core.BusyResourceError) as excinfo:
+    with pytest.raises(_core._multierror.NonBaseMultiError) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(wait_with_ul1)
             nursery.start_soon(wait_with_ul1)

@@ -113,7 +113,9 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             nursery.start_soon(do_send_all, b"x")
             assert await do_receive_some(None) == b"x"
 
-        with _assert_raises(_core.BusyResourceError):
+        with _assert_raises(
+            (_core.BusyResourceError, _core._multierror.NonBaseMultiError)
+        ):
             async with _core.open_nursery() as nursery:
                 nursery.start_soon(do_receive_some, 1)
                 nursery.start_soon(do_receive_some, 1)
@@ -307,7 +309,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
 
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
             # simultaneous wait_send_all_might_not_block fails
-            with _assert_raises(_core.BusyResourceError):
+            with _assert_raises(_core._multierror.NonBaseMultiError):
                 async with _core.open_nursery() as nursery:
                     nursery.start_soon(s.wait_send_all_might_not_block)
                     nursery.start_soon(s.wait_send_all_might_not_block)
@@ -316,7 +318,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             # this test might destroy the stream b/c we end up cancelling
             # send_all and e.g. SSLStream can't handle that, so we have to
             # recreate afterwards)
-            with _assert_raises(_core.BusyResourceError):
+            with _assert_raises(_core._multierror.NonBaseMultiError):
                 async with _core.open_nursery() as nursery:
                     nursery.start_soon(s.wait_send_all_might_not_block)
                     nursery.start_soon(s.send_all, b"123")
@@ -324,7 +326,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
             # send_all and send_all blocked simultaneously should also raise
             # (but again this might destroy the stream)
-            with _assert_raises(_core.BusyResourceError):
+            with _assert_raises(_core._multierror.NonBaseMultiError):
                 async with _core.open_nursery() as nursery:
                     nursery.start_soon(s.send_all, b"123")
                     nursery.start_soon(s.send_all, b"123")
@@ -496,7 +498,9 @@ async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
     if clogged_stream_maker is not None:
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s1, s2):
             # send_all and send_eof simultaneously is not ok
-            with _assert_raises(_core.BusyResourceError):
+            with _assert_raises(
+                (_core.BusyResourceError, _core._multierror.NonBaseMultiError)
+            ):
                 async with _core.open_nursery() as nursery:
                     nursery.start_soon(s1.send_all, b"x")
                     await _core.wait_all_tasks_blocked()
@@ -505,7 +509,9 @@ async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s1, s2):
             # wait_send_all_might_not_block and send_eof simultaneously is not
             # ok either
-            with _assert_raises(_core.BusyResourceError):
+            with _assert_raises(
+                (_core.BusyResourceError, _core._multierror.NonBaseMultiError)
+            ):
                 async with _core.open_nursery() as nursery:
                     nursery.start_soon(s1.wait_send_all_might_not_block)
                     await _core.wait_all_tasks_blocked()

@@ -288,7 +288,7 @@ async def test__UnboundeByteQueue():
         nursery.start_soon(putter, b"xyz")
 
     # Two gets at the same time -> BusyResourceError
-    with pytest.raises(_core.BusyResourceError):
+    with pytest.raises(_core._multierror.NonBaseMultiError):
         async with _core.open_nursery() as nursery:
             nursery.start_soon(getter, b"asdf")
             nursery.start_soon(getter, b"asdf")
@@ -359,7 +359,7 @@ async def test_MemorySendStream():
         nursery.start_soon(do_send_all_count_resourcebusy)
         nursery.start_soon(do_send_all_count_resourcebusy)
 
-    assert resource_busy_count == 1
+    assert resource_busy_count == 2
 
     with assert_checkpoints():
         await mss.aclose()
@@ -422,7 +422,7 @@ async def test_MemoryReceiveStream():
     mrs.put_data(b"abc")
     assert await do_receive_some(None) == b"abc"
 
-    with pytest.raises(_core.BusyResourceError):
+    with pytest.raises(_core._multierror.NonBaseMultiError):
         async with _core.open_nursery() as nursery:
             nursery.start_soon(do_receive_some, 10)
             nursery.start_soon(do_receive_some, 10)
