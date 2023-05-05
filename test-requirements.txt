@@ -52,7 +52,7 @@ iniconfig==2.0.0
     # via pytest
 ipython==7.34.0
     # via -r test-requirements.in
-isort==5.12.0
+isort==5.11.5
     # via pylint
 jedi==0.18.2
     # via
