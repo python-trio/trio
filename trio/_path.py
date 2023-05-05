@@ -156,11 +156,16 @@ class Path(metaclass=AsyncAutoWrapperType):
     def __init__(self, *args):
         self._wrapped = pathlib.Path(*args)
 
-    def __getattr__(self, name):
-        if name in self._forward:
-            value = getattr(self._wrapped, name)
-            return rewrap_path(value)
-        raise AttributeError(name)
+    # type checkers allow accessing any attributes on class instances with `__getattr__`
+    # so we hide it behind a type guard forcing it to rely on the hardcoded attribute
+    # list below.
+    if not TYPE_CHECKING:
+
+        def __getattr__(self, name):
+            if name in self._forward:
+                value = getattr(self._wrapped, name)
+                return rewrap_path(value)
+            raise AttributeError(name)
 
     def __dir__(self):
         return super().__dir__() + self._forward
@@ -188,7 +193,6 @@ class Path(metaclass=AsyncAutoWrapperType):
         __truediv__ = pathlib.Path.__truediv__
         __rtruediv__ = pathlib.Path.__rtruediv__
 
-        # Note: these are not parsed properly by jedi.
         # It might be superior to just manually implement all the methods and get rid
         # of all the magic wrapping stuff.
 
