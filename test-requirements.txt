@@ -42,7 +42,7 @@ exceptiongroup==1.1.1 ; python_version < "3.11"
     # via
     #   -r test-requirements.in
     #   pytest
-flake8==6.0.0
+flake8==5.0.4
     # via -r test-requirements.in
 idna==3.4
     # via
@@ -100,11 +100,11 @@ prompt-toolkit==3.0.38
     # via ipython
 ptyprocess==0.7.0
     # via pexpect
-pycodestyle==2.10.0
+pycodestyle==2.9.1
     # via flake8
 pycparser==2.21
     # via cffi
-pyflakes==3.0.1
+pyflakes==2.5.0
     # via flake8
 pygments==2.15.1
     # via ipython
