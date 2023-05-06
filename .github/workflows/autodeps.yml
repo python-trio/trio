@@ -39,6 +39,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # git diff-index needs a git update-index, which can be done more concisely with `git add`!
+          git add .
+
           # https://stackoverflow.com/a/3879077/4504950
           if git diff-index --exit-code HEAD; then
             echo "No changes to commit!"
