@@ -38,21 +38,17 @@ jobs:
       - name: Commit changes and create automerge PR
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          # git diff-index needs a git update-index, which can be done more concisely with `git add`!
-          git add .
-
-          # https://stackoverflow.com/a/3879077/4504950
-          if git diff-index --exit-code HEAD; then
-            echo "No changes to commit!"
-            exit 0
-          fi
-          
+        run: |         
           # setup git repo
           git switch --force-create autodeps/bump_from_${GITHUB_SHA:0:6}
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -am "Dependency updates"
+
+          if ! commit -am "Dependency updates"; then
+            echo "No changes to commit!"
+            exit 0
+          fi
+
           git push --force --set-upstream origin autodeps/bump_from_${GITHUB_SHA:0:6}
 
           # git push returns before github is ready for a pr, so we poll until success
