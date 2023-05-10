@@ -38,7 +38,7 @@ jobs:
       - name: Commit changes and create automerge PR
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |         
+        run: |
           # setup git repo
           git switch --force-create autodeps/bump_from_${GITHUB_SHA:0:6}
           git config user.name 'github-actions[bot]'
