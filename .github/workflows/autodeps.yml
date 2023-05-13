@@ -44,7 +44,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
 
-          if ! commit -am "Dependency updates"; then
+          if ! git commit -am "Dependency updates"; then
             echo "No changes to commit!"
             exit 0
           fi
