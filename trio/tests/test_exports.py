@@ -45,7 +45,7 @@ def public_modules(module):
             continue
         if not class_.__name__.startswith(module.__name__):  # pragma: no cover
             continue
-        if class_ is module:
+        if class_ is module:  # pragma: no cover
             continue
         # We should rename the trio.tests module (#274), but until then we use
         # a special-case hack:
@@ -102,7 +102,7 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         completions = script.complete()
         static_names = no_underscores(c.name for c in completions)
     elif tool == "mypy":
-        if not RUN_SLOW:
+        if not RUN_SLOW:  # pragma: no cover
             pytest.skip("use --run-slow to check against mypy")
         if sys.implementation.name != "cpython":
             pytest.skip("mypy not installed in tests on pypy")
@@ -110,7 +110,7 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         # create py.typed file
         py_typed_path = Path(trio.__file__).parent / "py.typed"
         py_typed_exists = py_typed_path.exists()
-        if not py_typed_exists:
+        if not py_typed_exists:  # pragma: no cover
             py_typed_path.write_text("")
 
         # mypy behaves strangely when passed a huge semicolon-separated line with `-c`
@@ -126,7 +126,7 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         res = run(["--config-file=", "--follow-imports=silent", str(tmpfile)])
 
         # clean up created py.typed file
-        if not py_typed_exists:
+        if not py_typed_exists:  # pragma: no cover
             py_typed_path.unlink()
 
         # check that there were no errors (exit code 0), otherwise print the errors
@@ -187,8 +187,6 @@ def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
             py_typed_path.write_text("")
 
     errors: dict[str, object] = {}
-    if module_name == "trio.tests":
-        return
     for class_name, class_ in module.__dict__.items():
         if not isinstance(class_, type):
             continue
@@ -249,6 +247,7 @@ def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
                 missing.remove("add_note")
 
             # TODO: why is this? Is it a problem?
+            # see https://github.com/python-trio/trio/pull/2631#discussion_r1185615916
             if class_ == trio.StapledStream:
                 extra.remove("receive_stream")
                 extra.remove("send_stream")
@@ -257,7 +256,7 @@ def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
             if class_ == trio.Path:
                 missing.remove("__getattr__")
 
-            if missing or extra:
+            if missing or extra:  # pragma: no cover
                 errors[f"{module_name}.{class_name}"] = {
                     "missing": missing,
                     "extra": extra,
@@ -322,7 +321,7 @@ def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
                 if "conflicts with class variable access" in message:
                     continue
 
-                errors[symbol] = error_type + ":" + message
+                errors[symbol] = error_type + ":" + message  # pragma: no cover
 
         else:  # pragma: no cover
             assert False, "unknown tool"

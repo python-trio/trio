@@ -193,8 +193,10 @@ class Path(metaclass=AsyncAutoWrapperType):
         __truediv__ = pathlib.Path.__truediv__
         __rtruediv__ = pathlib.Path.__rtruediv__
 
-        # It might be superior to just manually implement all the methods and get rid
-        # of all the magic wrapping stuff.
+        # These should be fully typed, either manually or with some magic wrapper
+        # function that copies the type of pathlib.Path except sticking an async in
+        # front of all of them. The latter is unfortunately not trivial, see attempts in
+        # https://github.com/python-trio/trio/issues/2630
 
         # wrapped methods handled by __getattr__
         absolute: Any
@@ -274,4 +276,6 @@ Path.iterdir.__doc__ = """
 # sense than inventing our own special docstring for this.
 del Path.absolute.__doc__
 
+# TODO: This is likely not supported by all the static tools out there, see discussion in
+# https://github.com/python-trio/trio/pull/2631#discussion_r1185612528
 os.PathLike.register(Path)
